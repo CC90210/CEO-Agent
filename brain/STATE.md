@@ -16,7 +16,7 @@
 
 1. **Revenue Gap**: Current ~$191 Net -> Target $1,000 Net. Need **+$809 Net**.
 2. **Strategy**: Follow up warm leads (Cedarwood, Vortex, Northwood). Scale outreach next week.
-3. **Pipeline**: 50+ leads researched across 5 Ontario cities. 20+ emails sent. 2 warm leads active.
+3. **Pipeline**: 50+ leads researched, 20+ emails sent. **3 warm leads active** (Northwood, Vortex, Painting Prospect). Discovery booked for Mar 10.
 
 ## Financial Snapshot (OASIS)
 

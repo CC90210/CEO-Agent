@@ -96,7 +96,7 @@ Business-Empire-Agent/
 │   ├── edit_content.py         ← Video pipeline (FFmpeg, Whisper, ElevenLabs)
 │   └── [other utilities]       ← Email, outreach, calendar scripts
 │
-├── skills/                     ← 41 skills library (READ-ONLY)
+├── skills/                     ← 49 skills library (READ-ONLY)
 │   ├── systematic-debugging/   ← 4-phase root cause debugging
 │   ├── self-healing/           ← Auto-recovery patterns
 │   ├── test-driven-development/← TDD workflow (RED → GREEN → REFACTOR)
@@ -171,7 +171,7 @@ All four agent environments (Antigravity, Claude Code, Gemini CLI, BlackBox) sha
 
 1. **Same brain** → `brain/SOUL.md`, `brain/STATE.md`, `brain/CAPABILITIES.md`, `brain/AGENTS.md`
 2. **Same memory** → `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md`, `memory/PATTERNS.md`
-3. **Same skills** → `skills/` directory (41 skills)
+3. **Same skills** → `skills/` directory (49 skills)
 4. **Same credentials** → `.env.agents` (never committed)
 5. **Same MCP servers** → n8n, Late, Playwright, Context7, Memory, Sequential Thinking
 

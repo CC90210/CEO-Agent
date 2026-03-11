@@ -28,6 +28,7 @@ When CC says "fix [app]", "update [app]", "build [feature] in [app]", "debug [ap
 | **PING App** | ping | `C:\Users\User\APPS\PING-APP` | CC90210/PING-APP | — | Next.js, Prisma, Anthropic SDK | Vercel |
 | **Echoes** | echoes | `C:\Users\User\APPS\Echoes_APP\ECHOES_APP` | CC90210/ECHOES_APP | — | Next.js, Prisma | Vercel |
 
+
 ## App Context Files
 
 Detailed business context for primary brands:

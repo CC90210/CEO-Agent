@@ -22,10 +22,16 @@ Usage (from any agent via terminal):
 """
 
 import argparse
+import datetime
 import json
 import sys
 from pathlib import Path
-import requests
+
+try:
+    import requests
+except ImportError:
+    print("ERROR: 'requests' package not installed. Run: pip install requests", file=sys.stderr)
+    sys.exit(1)
 
 
 STRIPE_API = "https://api.stripe.com/v1"
@@ -346,7 +352,6 @@ def cmd_events(client, args):
     data = client.get("events", params)
     
     print(f"Recent Events (showing up to {args.limit}):\n")
-    import datetime
     for e in data.get("data", []):
         ts = datetime.datetime.fromtimestamp(e.get("created", 0)).strftime("%Y-%m-%d %H:%M:%S")
         print(f"  [{e['id']}] {e.get('type', '?')} -- {ts}")
@@ -380,10 +385,12 @@ To add an account: STRIPE_PROPFLOW_ACCT_ID=acct_xxx in .env.agents
         """
     )
     
-    # Parent parser for shared --account flag
+    # Parent parser for shared --account and --json flags
     parent_parser = argparse.ArgumentParser(add_help=False)
     parent_parser.add_argument("--account", "-a", default="oasis", choices=list(ACCOUNTS.keys()),
                                help="Stripe account to use (default: oasis)")
+    parent_parser.add_argument("--json", dest="output_json", action="store_true",
+                               help="Output raw JSON for agent consumption")
     
     subparsers = parser.add_subparsers(dest="command", help="Command to execute")
     
@@ -467,10 +474,41 @@ To add an account: STRIPE_PROPFLOW_ACCT_ID=acct_xxx in .env.agents
     if args.command == "list-accounts":
         cmd_list_accounts(env_vars, args)
         return
-    
+
     # All other commands need an authenticated client
     client = get_client(env_vars, args.account)
-    
+
+    # JSON mode: call API and dump raw response
+    json_mode = getattr(args, "output_json", False)
+
+    # Map commands to (handler, API endpoint) for JSON passthrough
+    json_endpoints = {
+        "balance": "balance",
+        "customers": "customers",
+        "products": "products",
+        "prices": "prices",
+        "invoices": "invoices",
+        "subscriptions": "subscriptions",
+        "charges": "charges",
+        "payment-links": "payment_links",
+        "events": "events",
+    }
+
+    if json_mode and args.command in json_endpoints:
+        endpoint = json_endpoints[args.command]
+        params = {}
+        # Only add limit for list endpoints (not balance)
+        if args.command != "balance" and hasattr(args, "limit"):
+            params["limit"] = args.limit
+        # Add optional filters
+        for attr in ("customer", "email", "status", "product", "type"):
+            val = getattr(args, attr, None)
+            if val:
+                params[attr] = val
+        data = client.get(endpoint, params)
+        print(json.dumps(data, indent=2))
+        return
+
     commands = {
         "balance": cmd_balance,
         "customers": cmd_customers,
@@ -486,9 +524,13 @@ To add an account: STRIPE_PROPFLOW_ACCT_ID=acct_xxx in .env.agents
         "refund": cmd_refund,
         "events": cmd_events,
     }
-    
+
     cmd_func = commands.get(args.command)
     if cmd_func:
+        if json_mode:
+            # For write commands, execute and dump result
+            # (handled by individual cmd funcs for now)
+            pass
         cmd_func(client, args)
     else:
         parser.print_help()

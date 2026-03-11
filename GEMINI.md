@@ -40,9 +40,8 @@ Your ONLY job is to answer CC's question. Use MCP tools. 1-5 sentences max for s
 | Library docs | **Context7** | `resolve-library-id` → `query-docs` |
 | Knowledge/memory | **Memory** | `search_nodes`, `create_entities` |
 
-**OFFLINE (reconfigure later):**
-- **Supabase** — Removed from config. Will reconfigure with CC.
-- **Stripe** — Removed from config. Will reconfigure with CC.
+| Query database, tables, SQL | **Supabase** | `execute_sql`, `list_tables`, `apply_migration` |
+| Stripe payments, balance | **Stripe** | (via Stripe MCP tools) |
 
 If an MCP tool fails: "The [server] tool returned an error: [error]." — ONE sentence. No curl fallbacks. No workaround scripts. No audit reports.
 
@@ -95,11 +94,18 @@ Always update existing brain/memory files to maintain agent integrity after any 
 See `brain/AGENTS.md` for the complete subagent registry (14 agents with decision matrix, security protocol, self-improvement protocol).
 Delegation: Complex features → planner. Architecture → architect. Code review → reviewer. Bugs → debugger. Research → researcher.
 
-- **11 workflows** available in `.agents/workflows/`. Key commands: `/status`, `/health`, `/post`, `/commit`, `/sync`
-- **41 skills** in `skills/` directory. Each skill is stored in `skills/[skill-name]/SKILL.md` format (Claude Agent Skills 2.0 structure). Key: systematic-debugging, self-healing, test-driven-development
+- **12 workflows** available in `.agents/workflows/`. Key commands: `/status`, `/health`, `/post`, `/commit`, `/sync`, `/cli-anything <target>`
+- **50 skills** in `skills/` directory. Each skill is stored in `skills/[skill-name]/SKILL.md` format (Claude Agent Skills 2.0 structure). Key: systematic-debugging, self-healing, test-driven-development, **cli-anything** (generate CLI wrappers for any software/API — templates in `scripts/cli_templates/`)
 - **Video pipeline**: `scripts/edit_content.py` — FFmpeg 8.0.1, Whisper captions, ElevenLabs voiceover, Remotion animations
 - **Plans**: Implementation plans stored in `.agents/plans/`
 - **Media**: `media/raw/` (input), `media/exports/` (output), `media/assets/` (logos, branding)
+
+### RULE 4.5: Content & Outreach Strategy
+
+When CC asks about content creation, posting strategy, or cold outreach:
+- **Content Bible**: 3 daily pillars (Sobriety Log, Quote Drop, CEO Log), hook bank, pacing rules. See `memory/content-strategy.md` (in Claude Code auto-memory).
+- **Cold outreach**: Jeremy Miner NEPQ framework — pattern interrupts, never salesy, questions > pitching. Use "I'm not sure if..." framing. Lead with their problem, not our product.
+- **Platform limits**: X=280 | Threads=500 | IG=2200 | LinkedIn=3000 | TikTok=4000
 
 ### RULE 5: Session protocol
 
@@ -115,19 +121,17 @@ When CC mentions modifying code in any app (OASIS, PropFlow, Nostalgic, Grape Vi
 3. Commit/push from that repo. Log summary in memory/SESSION_LOG.md
 Never store app code in Business-Empire-Agent.
 
-## Your MCP Servers (6 active)
+## Your MCP Servers (8 active)
 
 | Server | Tools | Config |
 |--------|-------|--------|
-| **n8n-mcp** | search_workflows, execute_workflow, get_workflow_details | cmd wrapper (env vars baked in) |
-| **Late** | posts_create, posts_list, accounts_list, posts_cross_post | cmd wrapper (env vars baked in) |
+| **Supabase** | execute_sql, list_tables, apply_migration, get_project | npx direct (token in args) |
+| **Stripe** | Stripe API tools (balance, customers, invoices, etc.) | npx direct (key in args) |
+| **n8n-mcp** | search_workflows, execute_workflow, get_workflow_details | npx (env block) |
+| **Late** | posts_create, posts_list, accounts_list, posts_cross_post | bash -c (inline env var) |
 | **Playwright** | browser_navigate, browser_snapshot, browser_click | npx direct |
 | **Context7** | resolve-library-id, query-docs | npx direct |
 | **Memory** | search_nodes, create_entities, open_nodes | npx direct |
 | **Sequential Thinking** | sequentialthinking | npx direct |
-
-**SDK TOOLS (replaces broken MCPs — run via terminal):**
-| **Supabase** | Database CRUD, 3 projects | `python scripts/supabase_tool.py select <table> --limit 10` |
-| **Stripe** | Balance, customers, invoices, subscriptions | `python scripts/stripe_tool.py balance` |
 
 **First message: "Bravo online." — then answer the query.**

@@ -40,9 +40,8 @@ Your ONLY job is to answer CC's question. Use MCP tools. 1-5 sentences max for s
 | Library docs | **Context7** | `resolve-library-id` → `query-docs` |
 | Knowledge/memory | **Memory** | `search_nodes`, `create_entities`, `open_nodes` |
 
-**OFFLINE (reconfigure with CC later):**
-- **Supabase** — Removed. Will reconfigure manually.
-- **Stripe** — Removed. Will reconfigure manually.
+| Query database, tables, SQL | **Supabase** | `execute_sql`, `list_tables`, `apply_migration` |
+| Stripe payments, balance | **Stripe** | (via Stripe MCP tools) |
 
 If an MCP tool fails: "The [server] tool returned an error: [error]." — ONE sentence. No curl fallbacks. No workaround scripts. No audit reports.
 
@@ -87,12 +86,18 @@ When CC asks you to fix something, **fix it**. Do NOT create audit documents —
 See `brain/AGENTS.md` for the complete subagent registry (14 agents with decision matrix, security protocol, self-improvement protocol).
 Delegation: Complex features → planner. Architecture → architect. Code review → reviewer. Bugs → debugger. Research → researcher.
 
-- **21 commands** in `commands/` (Claude Code format). Key: `/plan-feature` → `/execute` → `/commit`
-- **Workflows** in `.agents/workflows/` (Antigravity format). Use `/workflow-name` to trigger.
-- **41 skills** in `skills/` directory. Each skill is stored in `skills/[skill-name]/SKILL.md` format (Claude Agent Skills 2.0 structure). Key: systematic-debugging, self-healing, test-driven-development
+- **12 workflows** in `.agents/workflows/` (Antigravity format). Key: `/plan-feature` → `/execute` → `/commit`, `/cli-anything <target>`
+- **50 skills** in `skills/` directory. Each skill is stored in `skills/[skill-name]/SKILL.md` format (Claude Agent Skills 2.0 structure). Key: systematic-debugging, self-healing, test-driven-development, **cli-anything** (generate CLI wrappers for any software/API — templates in `scripts/cli_templates/`)
 - **Video pipeline**: `scripts/edit_content.py` — FFmpeg 8.0.1, Whisper, ElevenLabs, Remotion
 - **Plans**: Implementation plans in `.agents/plans/`
 - **Media**: `media/raw/` (input), `media/exports/` (output), `media/assets/` (logos, branding)
+
+### RULE 5.5: Content & Outreach Strategy
+
+When CC asks about content creation, posting strategy, or cold outreach:
+- **Content Bible**: 3 daily pillars (Sobriety Log, Quote Drop, CEO Log), hook bank, pacing rules. Reference file: `memory/content-strategy.md` (in Business-Empire-Agent).
+- **Cold outreach**: Jeremy Miner NEPQ framework — pattern interrupts, never salesy, questions > pitching. Use "I'm not sure if..." framing. Lead with their problem, not our product.
+- **Platform limits**: X=280 | Threads=500 | IG=2200 | LinkedIn=3000 | TikTok=4000
 
 ### RULE 6: Session protocol
 
@@ -109,20 +114,18 @@ When CC mentions modifying code in any app (OASIS, PropFlow, Nostalgic, Grape Vi
 3. Commit/push from that repo. Log summary in memory/SESSION_LOG.md
 Never store app code in Business-Empire-Agent.
 
-## MCP Servers (6 active)
+## MCP Servers (8 active)
 
 | Server | Tools | Config |
 |--------|-------|--------|
+| **Supabase** | execute_sql, list_tables, apply_migration, get_project | `cmd /c scripts/supabase-mcp-wrapper.cmd` |
+| **Stripe** | Stripe API tools (balance, customers, invoices, etc.) | `cmd /c scripts/stripe-mcp-wrapper.cmd` |
 | **n8n-mcp** | search_workflows, execute_workflow, get_workflow_details | `cmd /c scripts/n8n-mcp-wrapper.cmd` |
 | **Late** | posts_create, posts_list, accounts_list, posts_cross_post | `cmd /c scripts/late-mcp-wrapper.cmd` |
 | **Playwright** | browser_navigate, browser_snapshot, browser_click | npx direct |
 | **Context7** | resolve-library-id, query-docs | npx direct |
 | **Memory** | search_nodes, create_entities, open_nodes | npx direct |
 | **Sequential Thinking** | sequentialthinking | npx direct |
-
-**SDK TOOLS (replaces broken MCPs — full capability via terminal):**
-| **Supabase** | Database CRUD, 3 projects | `python scripts/supabase_tool.py select <table> --limit 10` |
-| **Stripe** | Balance, customers, invoices, subscriptions | `python scripts/stripe_tool.py balance` |
 
 ## Config Locations (Keep in Sync)
 

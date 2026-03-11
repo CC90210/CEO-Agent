@@ -89,3 +89,7 @@
 - Security cleanup: deleted test_mcp.js (hardcoded token), redacted exposed tokens.
 - Weekly plan built (outreach blitz Tue/Thu, content Wed/Fri).
 **Stats:** 4 tables created, 3 functions deployed, 12+ files modified, 2 tokens redacted.
+### 2026-03-08 — PropFlow code change
+**Change:** Fixed workspace loading issue by implementing a robust self-healing flow for profiles missing company_id. Updated useAuth hook with real-time detection and created a new setup API route and page.
+**Files:** src/lib/hooks/useAuth.ts, src/app/setup-profile/page.tsx, src/app/api/user/setup-profile/route.ts, REPAIR_DATABASE.sql
+**Commit:** pushed to origin/main (e6e75a2)

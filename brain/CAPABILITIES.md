@@ -14,8 +14,8 @@
 | **Late** | Social media posting (8+ platforms) | posts_create, posts_list, accounts_list, posts_cross_post |
 | **Sequential Thinking** | Structured multi-step reasoning | sequentialthinking |
 
-**OFFLINE MCP (use SDK tools instead):**
-| **Supabase** | Database queries, migrations, schema | `python scripts/supabase_tool.py` — full CRUD |
+| **Supabase** | Database queries, migrations, schema management | execute_sql, list_tables, apply_migration |
+| **Stripe** | Payments, subscriptions, invoices | Stripe MCP tools |
 
 ### Anti-Gravity IDE (Native Local Agent — Multi-Model)
 
@@ -53,7 +53,7 @@ Workflows: `.agents/workflows/` (11 workflows: post, status, health, prime, cont
 - Interface: `gemini` command (global npm)
 - MCP Access (via `.gemini/settings.json`): n8n, Late, Playwright, Context7, Memory, Sequential Thinking (6 active servers)
 - SDK Tools: `python scripts/supabase_tool.py`, `python scripts/stripe_tool.py` (replaces broken MCP servers)
-- Note: Config synced with `.vscode/mcp.json`. n8n and Late use `cmd /c wrapper.cmd` pattern for env vars.
+- Note: Config synced with `.vscode/mcp.json`. n8n, Late, Supabase, and Stripe use `cmd /c wrapper.cmd` pattern for env vars.
 
 ## Supabase Projects
 
@@ -101,7 +101,17 @@ See `brain/AGENTS.md` for the complete registry with orchestration decision matr
 | chief-of-staff | Sonnet | Communication, mission control, outreach |
 | revenue-hunter | Sonnet | Sales strategy, lead nurturing |
 
-## Workflows (11 active — `.agents/workflows/`)
+## CLI-Anything (Universal CLI Generation)
+
+Generate agent-native CLI wrappers for any software, API, or service. When MCPs break, CLIs still work.
+
+- **Skill:** `skills/cli-anything/SKILL.md` — 7-phase pipeline (analyze → design → implement → test → package → integrate)
+- **Workflow:** `.agents/workflows/cli-anything.md` — `/cli-anything <target>` trigger
+- **Templates:** `scripts/cli_templates/` — reusable Python components (ReplSkin, Backend, setup.py)
+- **Existing CLIs:** `supabase_tool.py`, `stripe_tool.py`, `edit_content.py` (already follow this pattern)
+- **Based on:** [HKUDS/CLI-Anything](https://github.com/HKUDS/CLI-Anything) methodology
+
+## Workflows (12 active — `.agents/workflows/`)
 
 | Command | Purpose |
 |---------|---------|
@@ -116,8 +126,9 @@ See `brain/AGENTS.md` for the complete registry with orchestration decision matr
 | /research | Competitive intelligence |
 | /status | Project status report |
 | /sync | End-of-session sync |
+| /cli-anything | Generate CLI wrapper for any software/API/service |
 
-## Skills (41)
+## Skills (50)
 
 > **Note:** All skills use the Claude Agent Skills 2.0 structure. They are stored in `skills/[skill-name]/SKILL.md` format. The descriptions inside the frontmatter define their activation triggers.
 
@@ -132,6 +143,7 @@ See `brain/AGENTS.md` for the complete registry with orchestration decision matr
 | **Creative** | frontend-design, canvas-design, algorithmic-art, theme-factory, web-artifacts |
 | **Files** | pdf, docx, pptx, xlsx |
 | **Security** | security-protocol, using-superpowers |
+| **CLI & Integration** | **cli-anything** (universal CLI generation from any software/API) |
 | **Meta** | slack-gif-creator |
 
 ## External Services (No MCP)

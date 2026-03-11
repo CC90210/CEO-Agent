@@ -1,7 +1,9 @@
+import argparse
 import os
 import subprocess
 import json
 import re
+import sys
 
 # FFmpeg path (winget install location)
 FFMPEG_DIR = os.path.expandvars(r"%LOCALAPPDATA%\Microsoft\WinGet\Packages\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\ffmpeg-8.0.1-full_build\bin")
@@ -72,7 +74,17 @@ def generate_voiceover(text, output_path, voice="Adam"):
 
     api_key = os.environ.get("ELEVENLABS_API_KEY")
     if not api_key:
-        print("ELEVENLABS_API_KEY not set in .env.agents")
+        # Fall back to .env.agents
+        env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".env.agents")
+        if os.path.exists(env_path):
+            with open(env_path) as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith("ELEVENLABS_API_KEY="):
+                        api_key = line.split("=", 1)[1].strip()
+                        break
+    if not api_key:
+        print("ELEVENLABS_API_KEY not found in environment or .env.agents", file=sys.stderr)
         return None
 
     client = ElevenLabs(api_key=api_key)
@@ -211,7 +223,11 @@ def edit_video(input_path, output_path, overlays=None, captions_path=None,
     ])
 
     try:
-        subprocess.run(command, check=True)
+        result = subprocess.run(command, capture_output=True, text=True)
+        if result.returncode != 0:
+            print(f"ERROR: FFmpeg failed (exit {result.returncode}):", file=sys.stderr)
+            print(result.stderr[-500:] if result.stderr else "No error output", file=sys.stderr)
+            return
         print(f"SUCCESS: Elite export -> {output_path}")
 
         # Report specs
@@ -223,27 +239,73 @@ def edit_video(input_path, output_path, overlays=None, captions_path=None,
                     print(f"  Duration: {info['format'].get('duration', 'unknown')}s")
             size_mb = os.path.getsize(output_path) / (1024 * 1024)
             print(f"  File size: {size_mb:.1f} MB")
-    except subprocess.CalledProcessError as e:
-        print(f"ERROR: FFmpeg failed: {e}")
+    except Exception as e:
+        print(f"ERROR: FFmpeg failed: {e}", file=sys.stderr)
 
 
 if __name__ == "__main__":
-    # Usage examples:
-    #
-    # Basic portrait edit:
-    #   edit_video("media/raw/clip.mp4", "media/exports/clip_v1.mp4")
-    #
-    # With auto-captions:
-    #   edit_video("media/raw/clip.mp4", "media/exports/clip_v1.mp4", auto_caption=True)
-    #
-    # With overlays:
-    #   overlays = [{"path": "media/raw/screenshot.png", "x": 340, "y": 200, "start": 5.0, "end": 10.0}]
-    #   edit_video("media/raw/clip.mp4", "media/exports/clip_v1.mp4", overlays=overlays)
-    #
-    # Landscape for LinkedIn:
-    #   edit_video("media/raw/clip.mp4", "media/exports/clip_linkedin.mp4", orientation="landscape")
-    #
-    # With ElevenLabs voiceover:
-    #   generate_voiceover("Your script text here", "media/raw/voiceover.mp3")
-    #   edit_video("media/raw/clip.mp4", "media/exports/clip_v1.mp4", voiceover_path="media/raw/voiceover.mp3")
-    pass
+    parser = argparse.ArgumentParser(
+        description="Video pipeline — probe, transcribe, voiceover, edit",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  %(prog)s probe media/raw/clip.mp4
+  %(prog)s transcribe media/raw/clip.mp4
+  %(prog)s voiceover "Your script text" media/raw/voiceover.mp3
+  %(prog)s edit media/raw/clip.mp4 media/exports/out.mp4
+  %(prog)s edit media/raw/clip.mp4 media/exports/out.mp4 --auto-caption --landscape
+        """
+    )
+    sub = parser.add_subparsers(dest="command")
+
+    # probe
+    p_probe = sub.add_parser("probe", help="Get video metadata via ffprobe")
+    p_probe.add_argument("input", help="Input video file")
+
+    # transcribe
+    p_trans = sub.add_parser("transcribe", help="Auto-transcribe audio to SRT via Whisper")
+    p_trans.add_argument("input", help="Input video file")
+    p_trans.add_argument("--output", help="Output SRT path (default: same name as input)")
+
+    # voiceover
+    p_voice = sub.add_parser("voiceover", help="Generate voiceover via ElevenLabs")
+    p_voice.add_argument("text", help="Text to convert to speech")
+    p_voice.add_argument("output", help="Output audio file path")
+    p_voice.add_argument("--voice", default="Adam", help="ElevenLabs voice name")
+
+    # edit
+    p_edit = sub.add_parser("edit", help="Full video edit pipeline")
+    p_edit.add_argument("input", help="Input video file")
+    p_edit.add_argument("output", help="Output video file")
+    p_edit.add_argument("--auto-caption", action="store_true", help="Auto-transcribe and add captions")
+    p_edit.add_argument("--captions", help="Path to existing SRT file")
+    p_edit.add_argument("--voiceover", help="Path to voiceover audio file")
+    p_edit.add_argument("--landscape", action="store_true", help="Landscape (1920x1080) instead of portrait")
+
+    args = parser.parse_args()
+    if not args.command:
+        parser.print_help()
+        sys.exit(1)
+
+    if args.command == "probe":
+        info = probe_video(args.input)
+        if info:
+            print(json.dumps(info, indent=2))
+        else:
+            print("ERROR: Could not probe video", file=sys.stderr)
+            sys.exit(1)
+    elif args.command == "transcribe":
+        result = transcribe_audio(args.input, args.output)
+        if not result:
+            sys.exit(1)
+    elif args.command == "voiceover":
+        result = generate_voiceover(args.text, args.output, voice=args.voice)
+        if not result:
+            sys.exit(1)
+    elif args.command == "edit":
+        orientation = "landscape" if args.landscape else "portrait"
+        edit_video(args.input, args.output,
+                   captions_path=args.captions,
+                   auto_caption=args.auto_caption,
+                   voiceover_path=args.voiceover,
+                   orientation=orientation)

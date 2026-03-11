@@ -77,6 +77,7 @@ Business-Empire-Agent is ONLY for agent intelligence (brain/, memory/, skills/, 
 | `/prime` | Load full project context and health report |
 | `/commit` | Smart commit with conventional format (`bravo: type — desc`) |
 | `/create-prd` | Generate PRD for client projects |
+| `/cli-anything` | Generate CLI wrapper for any software/API/service |
 
 ## Sub-Agent Orchestration
 
@@ -116,5 +117,5 @@ If unsure whether session is ending, ask CC.
 
 - **GitHub MCP** — use `git` CLI locally, Playwright for github.com
 - **Supabase MCP** — use `python scripts/supabase_tool.py` (full CRUD, 3 projects)
-- **Stripe MCP** — use `python scripts/stripe_tool.py` (balance, customers, invoices, subscriptions, payment links)
+- **Stripe MCP** — BROKEN (v0.3.1 proxy mode). Use `python scripts/stripe_tool.py` instead (supports `--json` flag)
 - **Chrome** — use Playwright for all web research

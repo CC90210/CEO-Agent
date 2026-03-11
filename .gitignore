@@ -84,3 +84,8 @@ media/**/*.mp4
 media/**/*.mov
 media/**/*.wav
 media/**/*.mp3
+
+# =============================================
+# BROWSER PROFILES (Gemini LinkedIn automation)
+# =============================================
+scripts/linkedin_automation/chrome_profile/

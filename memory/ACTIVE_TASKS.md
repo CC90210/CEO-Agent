@@ -21,6 +21,7 @@ To reach this goal, we need **3 new clients** for OASIS (assuming ~$300-$500/mo 
 - [x] [P1] Push to GitHub — All changes committed and pushed.
 - [ ] [P0] **Follow up warm leads** — Cedarwood (Jessica), Vortex (Daniel), Northwood (Luke)
 - [ ] [P1] **Check email replies** — From 20+ outreach emails sent this week
+- [x] [P0] **Painting/Restoration Prospect** — Booked for discovery (Mar 10 @ 12 PM). Prep complete.
 
 ### Weekend (March 7-8) — Close & Prep
 - [ ] [P0] Follow up on ALL outstanding leads before Monday
@@ -30,7 +31,7 @@ To reach this goal, we need **3 new clients** for OASIS (assuming ~$300-$500/mo 
 
 ## Next Week (March 9+) — Scale
 
-- [ ] [P0] Onboard first new client of March
+- [ ] [P0] Onboard first new client of March (Target: Painting Prospect or Northwood)
 - [ ] [P0] Scale outreach to 15+ emails/day
 - [ ] [P1] Build automated "Touch 2" follow-up workflow in n8n
 - [ ] [P1] Build "High-Ticket Automation Template" for rapid delivery

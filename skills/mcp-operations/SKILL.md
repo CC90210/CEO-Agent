@@ -170,7 +170,9 @@ description: Comprehensive MCP operations guide — routing, tool usage, trouble
 | `~/.gemini/settings.json` | Gemini CLI | `mcpServers` |
 | `.env.agents` | Credentials only | `KEY=value` |
 
-**Env vars:** The `env` object in MCP configs does NOT work on Windows. For Late: use `bash -c` wrapper with inline env vars. For n8n: use `.env` file in project root (read by dotenv.config()). Keep `env` block as documentation but don't rely on it.
+**SECURITY (2026-03-11): ALL 3 configs now use `cmd /c scripts/*-wrapper.cmd` for credential-sensitive servers (Supabase, n8n, Stripe, Late). ZERO hardcoded credentials in any config file. Credentials live ONLY in `.env.agents` (gitignored).**
+
+**Wrapper pattern:** `cmd /c scripts/<server>-mcp-wrapper.cmd` — reads keys from `.env.agents` at runtime, sets env vars, then launches the MCP server. 4 wrappers: `supabase-mcp-wrapper.cmd`, `n8n-mcp-wrapper.cmd`, `stripe-mcp-wrapper.cmd`, `late-mcp-wrapper.cmd`. Non-credential servers (Playwright, Context7, Memory, Sequential Thinking) use direct `npx` — no wrapper needed.
 
 ## ANTI-PATTERNS (NEVER DO THESE)
 
@@ -184,8 +186,8 @@ description: Comprehensive MCP operations guide — routing, tool usage, trouble
 
 | Error | Cause | Fix |
 |-------|-------|-----|
-| "LATE_API_KEY required" | Env var not passing | Use `env` object in MCP config |
-| "Unauthorized" (Supabase) | Token expired | Regenerate at supabase.com, update 3 configs |
+| "LATE_API_KEY required" | Env var not passing | Check `.env.agents` has `LATE_API_KEY=...`, restart terminal |
+| "Unauthorized" (Supabase) | Token expired | Regenerate at supabase.com, update `SUPABASE_ACCESS_TOKEN` in `.env.agents` |
 | n8n returns 0 workflows | Using native endpoint | Switch to community `n8n-mcp` package (already done) |
 | MCP server hangs | Server crash during init | Fix the failing server, restart terminal |
 | "Not Acceptable" (n8n) | Missing Accept headers | Use community package (handled automatically) |
