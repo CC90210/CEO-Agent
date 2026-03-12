@@ -15,6 +15,9 @@
 | c5QBEQTNpbNU6UmB | Personal Booking Agent | Internal Operations | Webhook | Manages CC's appointments/bookings | Active | 2026-02-27 |
 | iRkiltEX9JMsg2BQ | Oasis Voice Agent | OASIS AI | Webhook | Twilio + ElevenLabs voice automation | Active | 2026-02-27 |
 | wfAZrrZ6j744QPcr-dGXk | GrapeVine Cottage Automations | Client Automation | Webhook | Automation for GrapeVine Cottage client | Active | 2026-02-27 |
+| PL0WJTkHMKdbZtPi | OASIS Lead Reactivation Engine | Lead System | Webhook/Manual | 3-touch AI email sequence for dead leads | Inactive | 2026-03-12 |
+| pmY40eokEN0mMqVZ | OASIS Speed-to-Lead Responder | Lead System | Webhook/Manual | < 60s AI response to new leads | Inactive | 2026-03-12 |
+| ITytnJNiEjLtl93h | OASIS Reputation & Referral Engine | Lead System | Webhook/Manual | Auto review requests + referral offers | Inactive | 2026-03-12 |
 
 
 ## Workflow Categories

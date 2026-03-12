@@ -32,10 +32,10 @@ To reach this goal, we need **3 new clients** for OASIS (assuming ~$300-$500/mo 
 ## Next Week (March 9+) — Scale
 
 - [ ] [P0] Onboard first new client of March (Target: Painting Prospect or Northwood)
-- [ ] [P0] Scale outreach to 15+ emails/day
+- [x] [P0] **Gym Outreach Blitz** — Sending 39 personalized emails with calendar invites. (In-Progress)
 - [ ] [P1] Build automated "Touch 2" follow-up workflow in n8n
 - [ ] [P1] Build "High-Ticket Automation Template" for rapid delivery
-- [ ] [P1] LinkedIn Sales Navigator — 20 connection requests + personalized value-notes
+- [x] [P1] **CLI-Anything LinkedIn** — Built Voyager API wrapper for reliable reach.
 - [ ] [P2] Build lead tracker in Supabase
 
 ## Infrastructure (Ongoing)

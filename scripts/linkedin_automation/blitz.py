@@ -31,16 +31,30 @@ TEMPLATES = {
 }
 
 async def send_message(page, lead):
-    """Navigates to a profile and sends a connection request with a personalized message."""
-    print(f"Processing lead: {lead['name']} ({lead['company']})")
-    await page.goto(lead['url'])
+    """Searches for a lead and sends a connection request with a personalized message."""
+    print(f"Searching for lead: {lead['name']} at {lead['company']}")
+    
+    # 1. Search for the person directly on LinkedIn
+    search_query = f"{lead['name']} {lead['company']}"
+    search_url = f"https://www.linkedin.com/search/results/people/?keywords={search_query.replace(' ', '%20')}&origin=GLOBAL_SEARCH_HEADER"
+    await page.goto(search_url)
     await asyncio.sleep(random.uniform(4, 6))
     
     try:
-        # 1. Try to find the Connect button directly
+        # 2. Click on the first result in the search list
+        first_result = page.locator('ul.reusable-search__entity-result-list li .app-aware-link').first
+        if await first_result.is_visible():
+            await first_result.click()
+            await asyncio.sleep(random.uniform(4, 6))
+            print(f"Successfully navigated to profile for {lead['name']}")
+        else:
+            print(f"No search results found for {lead['name']} at {lead['company']}")
+            return False
+
+        # 3. Try to find the Connect button directly
         connect_button = page.get_by_role("button", name="Connect").first
         
-        # 2. If not visible, look in the 'More' menu
+        # 4. If not visible, look in the 'More' menu
         if not await connect_button.is_visible():
             print(f"Connect button not immediate for {lead['name']}, checking 'More' menu...")
             more_button = page.get_by_role("button", name="More actions").first
@@ -54,14 +68,14 @@ async def send_message(page, lead):
             await connect_button.click()
             await asyncio.sleep(2)
             
-            # 3. Handle 'How do you know?' popup if it appears
+            # 5. Handle 'How do you know?' popup if it appears
             other_option = page.get_by_role("button", name="Other").first
             if await other_option.is_visible():
                 await other_option.click()
                 await page.get_by_role("button", name="Connect").click()
                 await asyncio.sleep(1)
 
-            # 4. Click 'Add a note'
+            # 6. Click 'Add a note'
             add_note_button = page.get_by_role("button", name="Add a note").first
             if await add_note_button.is_visible():
                 await add_note_button.click()
@@ -74,7 +88,7 @@ async def send_message(page, lead):
                 await page.fill('textarea[name="message"]', message)
                 await asyncio.sleep(1)
                 
-                # 5. Send!
+                # 7. Send!
                 send_button = page.get_by_role("button", name="Send").first
                 if await send_button.is_visible():
                     await send_button.click()
@@ -90,7 +104,7 @@ async def send_message(page, lead):
     return False
 
 async def main():
-    print("Initializing Deep-Outreach LinkedIn Blitz...")
+    print("Initializing Robust Search-First LinkedIn Blitz...")
     async with async_playwright() as p:
         context = await p.chromium.launch_persistent_context(
             user_data_dir=PROFILE_DIR,
@@ -109,15 +123,16 @@ async def main():
             print("Session expired or not found. Please log in again.")
             return
 
-        # Process leads 5-10
+        # Process all leads in the list
         success_count = 0
-        for lead in LEADS[5:]:
+        for lead in LEADS:
             if await send_message(page, lead):
                 success_count += 1
-            await asyncio.sleep(random.uniform(7, 12))
+            await asyncio.sleep(random.uniform(10, 20)) # High delay for safety
             
         print(f"Blitz complete. {success_count} connection requests sent.")
         await context.close()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
