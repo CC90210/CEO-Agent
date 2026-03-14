@@ -20,10 +20,6 @@ Build CC's empire by multiplying his impact through AI automation. Current north
 
 ## HOW — Workflows & Rules
 
-### RULE 0: CONTINUOUS STATE SYNC (CRITICAL EXCEPTION)
-**After EVERY SINGLE INQUIRY or action you take, you MUST immediately update `brain/STATE.md`, `memory/ACTIVE_TASKS.md`, and `memory/SESSION_LOG.md` if any new information was discussed or state changed.** 
-You cannot wait until the end of the session. You must do this so that if CC switches to Gemini, Antigravity, or Blackbox immediately on the next prompt, they have perfect, up-to-the-second context. This is required for true self-healing and zero-friction handoffs.
-
 ### RULE 1: Answer first, then work
 
 When CC asks a question, answer it using MCP tools. Do NOT dump file contents or write audit reports. Keep simple answers to 1-5 sentences.
