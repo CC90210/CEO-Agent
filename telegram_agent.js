@@ -60,12 +60,29 @@ const GEMINI_TIMEOUT = 300000; // 5 min — MCP tools need time to load
 const CLAUDE_TIMEOUT = 600000; // 10 min — Claude handles complex tasks
 
 // SECURITY: Only CC's Telegram user ID can interact with this bot.
-// Find your ID by messaging @userinfobot on Telegram.
-// Set TELEGRAM_ALLOWED_USERS in .env.agents as comma-separated IDs.
-const ALLOWED_USERS = (process.env.TELEGRAM_ALLOWED_USERS || '')
+// Auto-registers first user if TELEGRAM_ALLOWED_USERS is empty in .env.agents.
+// After first message, the ID is saved and all other users are blocked.
+const ENV_FILE = path.join(__dirname, '.env.agents');
+let ALLOWED_USERS = (process.env.TELEGRAM_ALLOWED_USERS || '')
     .split(',')
     .map(id => id.trim())
     .filter(Boolean);
+
+const autoRegisterUser = (userId) => {
+    try {
+        let envContent = fs.readFileSync(ENV_FILE, 'utf8');
+        if (envContent.includes('TELEGRAM_ALLOWED_USERS=')) {
+            envContent = envContent.replace(/TELEGRAM_ALLOWED_USERS=.*/, `TELEGRAM_ALLOWED_USERS=${userId}`);
+        } else {
+            envContent += `\nTELEGRAM_ALLOWED_USERS=${userId}\n`;
+        }
+        fs.writeFileSync(ENV_FILE, envContent);
+        ALLOWED_USERS = [String(userId)];
+        log(`[SECURITY] Auto-registered owner: ${userId}. All other users now blocked.`);
+    } catch (e) {
+        log(`[SECURITY] Failed to save user ID: ${e.message}`);
+    }
+};
 
 const SYSTEM_PROMPT = `You are BRAVO, CC's autonomous AI agent. Answer directly in 1-5 sentences. No preamble. Use MCP tools when needed. CC's question:`;
 
@@ -241,8 +258,11 @@ bot.on('message', async (msg) => {
     const userId = String(msg.from.id);
     const user = msg.from.username || msg.from.first_name || '?';
 
-    // SECURITY FIREWALL: Block unauthorized users
-    if (ALLOWED_USERS.length > 0 && !ALLOWED_USERS.includes(userId)) {
+    // SECURITY FIREWALL: Auto-register first user, block all others
+    if (ALLOWED_USERS.length === 0) {
+        autoRegisterUser(userId);
+        log(`[SECURITY] First user registered as owner: ${user} (${userId})`);
+    } else if (!ALLOWED_USERS.includes(userId)) {
         log(`[BLOCKED] Unauthorized user: ${user} (ID: ${userId})`);
         return bot.sendMessage(chatId, 'Unauthorized.').catch(() => {});
     }

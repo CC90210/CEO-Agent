@@ -17,8 +17,9 @@
 - **App Registry:** Updated 8 → 6 apps (removed Echoes, Ping entries).
 - **Deep Diagnostic:** Full audit of all 12 directories — 51 skills, 14 agents, 12 workflows, 6 apps confirmed.
 - **Telegram Bridge V8.0:** Fixed timeout issues (2min→5min Gemini, 10min Claude), added progress updates, crash recovery, polling error suppression.
-- **Security Hardening:** GitGuardian flagged leaked Telegram token in git history (commit fe9a91b). Added user ID firewall to bot. Token rotation required via @BotFather.
-**Stats:** 2 GitHub repos deleted, 2 Vercel projects deleted, 227MB media purged, 3 directories deleted, 10+ files removed. Telegram V7.2→V8.0. Security firewall added.
+- **Security Hardening:** GitGuardian flagged leaked Telegram token in git history (commit fe9a91b). Added user ID firewall to bot. CC decided token rotation unnecessary (low-access repo).
+- **Auto-Register Security:** Bot now auto-captures CC's user ID on first message and locks out all other users permanently. Zero manual setup needed.
+**Stats:** 2 GitHub repos deleted, 2 Vercel projects deleted, 227MB media purged, 3 directories deleted, 10+ files removed. Telegram V7.2→V8.0. Full security lockdown.
 
 ---
 
