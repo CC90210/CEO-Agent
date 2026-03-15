@@ -128,7 +128,7 @@ When CC asks about content creation, posting strategy, or cold outreach:
 
 ### RULE 6: App Registry Routing
 
-When CC mentions modifying code in any app (OASIS, PropFlow, Nostalgic, Grape Vine, Mindset, On The Hill, PING, Echoes):
+When CC mentions modifying code in any app (OASIS, PropFlow, Nostalgic, Grape Vine, Mindset, On The Hill):
 1. Load `brain/APP_REGISTRY.md` for the LOCAL PATH
 2. `cd` to that path — all code changes happen THERE
 3. Commit/push from that repo. Log summary in memory/SESSION_LOG.md

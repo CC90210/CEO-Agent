@@ -13,8 +13,6 @@ When CC mentions modifying code in any app, check `brain/APP_REGISTRY.md` for th
 | Grape Vine Cottage | `C:\Users\User\APPS\Grape-Vine-Cottage` |
 | Mindset Companion | `C:\Users\User\APPS\MINDSET COMPANION APP\cc-mindset` |
 | On The Hill | `C:\Users\User\APPS\ON-THE-HILL-WEBSITE` |
-| PING App | `C:\Users\User\APPS\PING-APP` |
-| Echoes | `C:\Users\User\APPS\Echoes_APP\ECHOES_APP` |
 
 **Rules:**
 1. `cd` to the app's local path — make ALL code changes THERE

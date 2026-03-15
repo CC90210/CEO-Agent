@@ -79,7 +79,7 @@ Always verify your work — run tests, check Supabase, use `git status`. If you 
 
 ### RULE 6: App Registry Routing
 
-When CC mentions modifying code in any app (OASIS, PropFlow, Nostalgic, Grape Vine, Mindset, On The Hill, PING, Echoes):
+When CC mentions modifying code in any app (OASIS, PropFlow, Nostalgic, Grape Vine, Mindset, On The Hill):
 1. Load @brain/APP_REGISTRY.md to get the LOCAL PATH
 2. `cd` to that path — make ALL code changes THERE
 3. Commit and push from that repo — NOT from Business-Empire-Agent

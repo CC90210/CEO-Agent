@@ -61,7 +61,7 @@ Workflows: `.agents/workflows/` (11 workflows: post, status, health, prime, cont
 
 **Organizations:** CC (oktipozhyojufxsytrse), oasis-ai-platform (sajanpiqysuwviucycjh)
 
-## App Registry (8 External Repos)
+## App Registry (6 External Repos)
 
 Full routing table with local paths, GitHub URLs, tech stacks: `brain/APP_REGISTRY.md`
 
@@ -73,8 +73,6 @@ Full routing table with local paths, GitHub URLs, tech stacks: `brain/APP_REGIST
 | Grape Vine Cottage | `APPS/Grape-Vine-Cottage` | Vite, React 18 |
 | Mindset Companion | `APPS/MINDSET COMPANION APP/cc-mindset` | Next.js 16 |
 | On The Hill | `APPS/ON-THE-HILL-WEBSITE` | Vite, React 19 |
-| PING App | `APPS/PING-APP` | Next.js, Prisma |
-| Echoes | `APPS/Echoes_APP/ECHOES_APP` | Next.js, Prisma |
 
 ## Sub-Agents (14)
 

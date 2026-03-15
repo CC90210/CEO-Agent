@@ -25,8 +25,6 @@ When CC says "fix [app]", "update [app]", "build [feature] in [app]", "debug [ap
 | **Grape Vine Cottage** | grape vine, grapevine, cottage | `C:\Users\User\APPS\Grape-Vine-Cottage` | CC90210/grapevinecottage | — | Vite, React 18, Shadcn/ui | Vercel |
 | **Mindset Companion** | mindset, lucid | `C:\Users\User\APPS\MINDSET COMPANION APP\cc-mindset` | CC90210/MINDSET-COMPANION-LUCID | — | Next.js 16, React 19 | Vercel |
 | **On The Hill** | on the hill, OTH | `C:\Users\User\APPS\ON-THE-HILL-WEBSITE` | CC90210/ON-THE-HILL | — | Vite, React 19 | — |
-| **PING App** | ping | `C:\Users\User\APPS\PING-APP` | CC90210/PING-APP | — | Next.js, Prisma, Anthropic SDK | Vercel |
-| **Echoes** | echoes | `C:\Users\User\APPS\Echoes_APP\ECHOES_APP` | CC90210/ECHOES_APP | — | Next.js, Prisma | Vercel |
 
 
 ## App Context Files
