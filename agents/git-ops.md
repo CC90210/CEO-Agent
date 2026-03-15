@@ -22,7 +22,7 @@ If running in Anti-Gravity IDE with GitHub MCP:
 4. Create a PR so Vercel spins up a live preview.
 5. Provide CC with the PR link and Vercel preview URL before merging.
 
-## Local Operations (Claude Code or Blackbox — no GitHub MCP)
+## Local Operations (Claude Code or Antigravity — no GitHub MCP)
 1. Use `git checkout -b feature/[name]` to create branch.
 2. Make changes, stage with `git add [files]`.
 3. Commit with descriptive message.

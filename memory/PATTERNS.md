@@ -12,8 +12,8 @@
 
 ### Multi-Agent Task Routing `[VALIDATED]`
 **Context:** Any task that comes into the workspace
-**Pattern:** Simple/isolated tasks → Blackbox or Gemini. Multi-file architecture → Claude Code. Research → Anti-Gravity (has Playwright). Content → Any (all read entry points + brain/)
-**Why it works:** Cost-efficient — Haiku/Gemini for grunt work, Opus for the heavy lifting
+**Pattern:** Simple/isolated tasks → Gemini. Multi-file architecture → Claude Code. Research → Anti-Gravity (has Playwright). Content → Any (all read entry points + brain/)
+**Why it works:** Cost-efficient — Gemini for grunt work, Opus for the heavy lifting
 **Sessions validated:** 4 | **Last used:** 2026-03-01
 
 ### Outreach Name Separation `[VALIDATED]`

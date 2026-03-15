@@ -4,7 +4,7 @@
 
 ## 1. PROTOCOL OVERVIEW
 
-This protocol governs **every interaction** across all agent interfaces (Claude Code, Anti-Gravity, Blackbox, Telegram). No action is taken without this protocol being honored.
+This protocol governs **every interaction** across all agent interfaces (Claude Code, Gemini CLI, Antigravity IDE). No action is taken without this protocol being honored.
 
 ### The Three Laws of Interaction
 1. **Every action is observable** — If it happened, there's a trace of it
@@ -37,7 +37,7 @@ Logged events:
   "span_id": "span-NNN",
   "parent_span_id": "span-NNN or null",
   "timestamp": "ISO 8601",
-  "agent_interface": "claude_code | anti_gravity | blackbox | telegram",
+  "agent_interface": "claude_code | gemini_cli | antigravity_ide",
   "event_type": "task_start | task_complete | task_fail | tool_call | decision | error | self_modify | memory_write | heartbeat",
   "event_name": "human-readable action name",
   "input_summary": "what went in (truncated, NO secrets)",
@@ -128,7 +128,7 @@ Before pushing to remote, verify:
 | Tier | Files | Who Can Modify | Governance |
 |------|-------|----------------|------------|
 | **IMMUTABLE** | `brain/SOUL.md` | CC only | Agent CANNOT modify. Period. Identity is sacred. |
-| **SEMI-MUTABLE** | Entry points (`CLAUDE.md`, `ANTIGRAVITY.md`, `GEMINI.md`, `BLACKBOX.md`), `brain/BRAIN_LOOP.md`, `brain/INTERACTION_PROTOCOL.md` | Agent proposes → CC approves | Agent writes proposal to `memory/PROPOSED_CHANGES.md`, CC reviews |
+| **SEMI-MUTABLE** | Entry points (`CLAUDE.md`, `ANTIGRAVITY.md`, `GEMINI.md`), `brain/BRAIN_LOOP.md`, `brain/INTERACTION_PROTOCOL.md` | Agent proposes → CC approves | Agent writes proposal to `memory/PROPOSED_CHANGES.md`, CC reviews |
 | **GOVERNED MUTABLE** | `brain/CAPABILITIES.md`, `brain/AGENTS.md`, `memory/SOP_LIBRARY.md` | Agent freely modifies | Subject to 3-session probationary period. Changes tagged `[PROBATIONARY]` |
 | **FREELY MUTABLE** | `memory/PATTERNS.md`, `memory/MISTAKES.md`, `memory/LONG_TERM.md`, `memory/SELF_REFLECTIONS.md` | Agent freely modifies | No restrictions. These are learning files. |
 | **EPHEMERAL** | `brain/STATE.md`, `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md` | Agent controls completely | Updated every session. No approval needed. |
@@ -216,7 +216,7 @@ On 2026-03-03, deleting 2 files without scanning created 15+ broken cross-refere
 ### What Stays Git-Only
 - `brain/SOUL.md` — Identity doesn't need DB indexing
 - `brain/BRAIN_LOOP.md` — Reasoning protocol is read sequentially
-- Entry points (`CLAUDE.md`, `ANTIGRAVITY.md`, `GEMINI.md`, `BLACKBOX.md`) — Per-agent boot instructions
+- Entry points (`CLAUDE.md`, `ANTIGRAVITY.md`, `GEMINI.md`) — Per-agent boot instructions
 - `APPS_CONTEXT/*.md` — Project-specific contexts
 - `skills/` — Skill definitions (SKILL.md files)
 

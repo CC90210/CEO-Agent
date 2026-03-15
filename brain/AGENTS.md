@@ -1,6 +1,6 @@
 # AGENTS — Subagent Registry & Orchestration Protocol
 
-> **PURPOSE:** Single source of truth for all specialized subagents. Every AI interface (Claude, Gemini, Antigravity, BlackBox) references this file to determine delegation strategy.
+> **PURPOSE:** Single source of truth for all specialized subagents. Every AI interface (Claude, Gemini, Antigravity) references this file to determine delegation strategy.
 > **RULE:** When a task matches a subagent's domain, adopt that subagent's mindset and principles. For Claude Code, delegate to the actual `agents/*.md` files.
 
 ## Orchestration Decision Matrix

@@ -13,7 +13,6 @@ Any AI agent landing in this repo should read **one** of these files first based
 | **Antigravity IDE** (VS Code) | `ANTIGRAVITY.md` | Primary IDE agent — broadest tool access |
 | **Claude Code CLI** | `CLAUDE.md` | Lead Architect — complex refactoring & debugging |
 | **Gemini CLI** | `GEMINI.md` | Speed layer — fast queries, diagnostics, content |
-| **BlackBox AI** | `BLACKBOX.md` | Rapid infantry — boilerplate, simple edits |
 
 All entry files reference the same shared brain (`brain/`) and memory (`memory/`) system.
 
@@ -27,7 +26,6 @@ Business-Empire-Agent/
 ├── ANTIGRAVITY.md              ← Antigravity IDE agent rules
 ├── CLAUDE.md                   ← Claude Code CLI rules
 ├── GEMINI.md                   ← Gemini CLI rules
-├── BLACKBOX.md                 ← BlackBox AI rules
 ├── README.md                   ← This file
 ├── .gitignore
 │
@@ -71,7 +69,6 @@ Business-Empire-Agent/
 │   │   └── sync.md             ← /sync — end-of-session sync
 │   └── plans/                  ← Implementation plans
 │
-├── commands/                   ← Claude Code slash commands (21 commands)
 │
 ├── agents/                     ← Sub-agent role definitions (14 agents)
 │   ├── architect.md            ← System design (Opus)
@@ -167,7 +164,7 @@ On Windows, MCP hosts don't always pass `env` block variables to subprocesses. T
 
 ## Cross-Agent Compatibility
 
-All four agent environments (Antigravity, Claude Code, Gemini CLI, BlackBox) share:
+All three agent environments (Antigravity, Claude Code, Gemini CLI) share:
 
 1. **Same brain** → `brain/SOUL.md`, `brain/STATE.md`, `brain/CAPABILITIES.md`, `brain/AGENTS.md`
 2. **Same memory** → `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md`, `memory/PATTERNS.md`
@@ -181,7 +178,7 @@ Each agent entry file contains the same rules tailored to that environment's cap
 
 ## Quick Start
 
-1. Agent reads its entry file (`ANTIGRAVITY.md` / `CLAUDE.md` / `GEMINI.md` / `BLACKBOX.md`)
+1. Agent reads its entry file (`ANTIGRAVITY.md` / `CLAUDE.md` / `GEMINI.md`)
 2. Silently loads `brain/SOUL.md` + `brain/STATE.md`
 3. CC gives a task → agent routes to MCP tools via entry point routing table
 4. Complex tasks → consults `brain/AGENTS.md` for subagent delegation

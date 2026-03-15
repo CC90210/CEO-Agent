@@ -42,10 +42,6 @@ Workflows: `.agents/workflows/` (11 workflows: post, status, health, prime, cont
 **Stripe tool commands:** `balance`, `customers`, `products`, `prices`, `invoices`, `subscriptions`, `charges`, `payment-links`, `create-payment-link`, `create-customer`, `create-invoice`, `refund`, `events`
 **Projects (Supabase):** `--project bravo` (default), `--project oasis`, `--project nostalgic`
 
-### Blackbox AI (Rapid Execution)
-- No MCPs — CLI + file access only
-- For: boilerplate, simple edits, isolated functions
-
 ### Gemini CLI (Diagnostic & Inference — 4th Tier)
 - Tool: `@google/gemini-cli`
 - Entry Point: `GEMINI.md`

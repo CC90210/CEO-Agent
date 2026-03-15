@@ -4,12 +4,12 @@
 ---
 
 ### 2026-02-27 — Multi-Agent Architecture (3-Tier)
-**Context:** CC uses multiple AI interfaces (Claude Code, Anti-Gravity/Gemini, Blackbox AI). Needed a unified system where all agents share the same brain.
+**Context:** CC uses multiple AI interfaces (Claude Code, Gemini CLI, Antigravity IDE). Needed a unified system where all agents share the same brain.
 **Options:**
 1. Separate instruction sets per agent — causes drift and inconsistency
-2. Single shared brain (AGENT_CORE_DIRECTIVES.md) with per-agent entry points — consistent, scalable
+2. Single shared brain with per-agent entry points — consistent, scalable
 3. Centralized API orchestrator — over-engineered for current needs
-**Decision:** Option 2. Three entry points (CLAUDE.md, ANTIGRAVITY.md, BLACKBOX.md) all pointing to AGENT_CORE_DIRECTIVES.md as the single source of truth.
+**Decision:** Option 2. Three entry points (CLAUDE.md, ANTIGRAVITY.md, GEMINI.md) all referencing shared brain/ and memory/ as the single source of truth.
 **Consequences:** All agents share memory, tasks, patterns. Any agent can pick up where another left off.
 
 ### 2026-02-27 — Playwright as Sole Web Research Tool

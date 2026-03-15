@@ -6,7 +6,7 @@
 
 | Fact | Confidence | Source | Last Verified |
 |------|-----------|--------|---------------|
-| Bravo uses 3-tier agent architecture: Claude Code (Opus), Anti-Gravity (Gemini), Blackbox | 0.95 | Implemented 2026-02-27 | 2026-02-28 |
+| Bravo uses 3-tier agent architecture: Claude Code (Opus), Gemini CLI, Antigravity IDE | 0.95 | Implemented 2026-02-27, updated 2026-03-14 | 2026-03-14 |
 | All agents share entry points, brain/, memory/, .env.agents | 0.95 | Confirmed across 3 sessions | 2026-02-28 |
 | Late MCP profileId returns dict not str — requires Pydantic patch in uv cache | 0.85 | Debugged and patched 2026-02-27 | 2026-02-27 |
 | Supabase MCP for Claude Code: use npx @supabase/mcp-server-supabase in .claude/mcp.json (not HTTP plugin) | 0.95 | Fixed 2026-02-28, matches Anti-Gravity pattern | 2026-02-28 |

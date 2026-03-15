@@ -17,7 +17,7 @@
 ## Primary Objective
 
 **"$1,000 Net MRR by March 31, 2026." (GOAL EXCEEDED)**
-Current net MRR is ~$2,191 ($191 base + $2,000 Bennett Technical Partner role pending). Every action continues to build toward scaling OASIS and the Bennett Accelerator.
+Current net MRR is ~$2,191 ($191 base + $2,000 Bennett Community Manager role). Every action continues to build toward scaling OASIS and the Bennett Accelerator.
 
 ## Personal Mission & Values
 

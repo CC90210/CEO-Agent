@@ -12,7 +12,9 @@
       "mcp__stripe__*",
       "WebFetch(domain:www.skool.com)",
       "WebFetch(domain:www.humanlayer.dev)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Read(//c/Users/User/AppData/Local/Programs/Antigravity/resources/app/extensions/antigravity/dist/**)",
+      "Read(//c/Users/User/AppData/Roaming/Antigravity/logs/20260314T220856/window1/exthost/google.antigravity/**)"
     ],
     "additionalDirectories": [
       "C:\\Users\\User\\.gemini"
