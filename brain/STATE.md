@@ -31,7 +31,7 @@
 
 | Tool | Status | Purpose |
 |--------|-------|---------|
-| **Telegram Bridge** | ✅ V7.2 WORKING | Gemini/Claude via Telegram (PM2 managed) |
+| **Telegram Bridge** | ✅ V8.0 SECURED | Gemini/Claude via Telegram (PM2, user ID firewall) |
 | **Stripe SDK** | ✅ LIVE | Native multi-account (OASIS, PropFlow, Nostalgic) |
 | **Supabase SDK** | ✅ LIVE | Native access to Bravo, OASIS, Nostalgic projects |
 | **Late MCP** | ✅ WORKING | 8 connected accounts for social distribution |

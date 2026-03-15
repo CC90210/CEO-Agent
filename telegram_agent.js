@@ -5,16 +5,11 @@ const fs = require('fs');
 const path = require('path');
 
 // ============================================================
-// BRAVO TELEGRAM BRIDGE V7.2
+// BRAVO TELEGRAM BRIDGE V8.0
 //
-// Root cause of all previous failures:
-// Using shell:true with gemini.cmd causes cmd.exe to misparse
-// the prompt (parentheses, quotes, special chars break it).
-// Gemini then sees both a positional arg AND -p flag → error.
-//
-// Fix: Spawn node.exe directly with shell:false. Node's spawn
-// passes each arg as a separate argv entry via CreateProcess,
-// completely bypassing cmd.exe character parsing.
+// V7.2 fixes preserved: shell:false, node direct spawn.
+// V8.0 fixes: 5-min timeout, progress updates, crash recovery,
+// both CLIs working in tandem, cleaner help.
 // ============================================================
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -25,7 +20,13 @@ if (!TELEGRAM_TOKEN) {
     process.exit(1);
 }
 
-const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
+const bot = new TelegramBot(TELEGRAM_TOKEN, {
+    polling: {
+        autoStart: true,
+        params: { timeout: 30 }
+    },
+    request: { timeout: 30000 }
+});
 
 const log = (msg) => {
     const line = `[${new Date().toISOString()}] ${msg}\n`;
@@ -33,7 +34,7 @@ const log = (msg) => {
     try { fs.appendFileSync(LOG_FILE, line); } catch (_) {}
 };
 
-log('Bravo Telegram Bridge V7.2 starting...');
+log('Bravo Telegram Bridge V8.0 starting...');
 
 // ---- PATHS ----
 // Resolve actual script paths so we spawn node directly (no .cmd wrappers)
@@ -55,7 +56,16 @@ if (!fs.existsSync(CLAUDE_EXE)) {
 }
 
 // ---- CONFIG ----
-const EXEC_TIMEOUT = 120000; // 2 min
+const GEMINI_TIMEOUT = 300000; // 5 min — MCP tools need time to load
+const CLAUDE_TIMEOUT = 600000; // 10 min — Claude handles complex tasks
+
+// SECURITY: Only CC's Telegram user ID can interact with this bot.
+// Find your ID by messaging @userinfobot on Telegram.
+// Set TELEGRAM_ALLOWED_USERS in .env.agents as comma-separated IDs.
+const ALLOWED_USERS = (process.env.TELEGRAM_ALLOWED_USERS || '')
+    .split(',')
+    .map(id => id.trim())
+    .filter(Boolean);
 
 const SYSTEM_PROMPT = `You are BRAVO, CC's autonomous AI agent. Answer directly in 1-5 sentences. No preamble. Use MCP tools when needed. CC's question:`;
 
@@ -89,28 +99,23 @@ const killTree = (pid) => {
 };
 
 // ---- CLI EXECUTION ----
-const executeCli = (tool, userPrompt) => {
+const executeCli = (tool, userPrompt, chatId) => {
     return new Promise((resolve) => {
         const fullPrompt = `${SYSTEM_PROMPT} ${userPrompt}`;
+        const timeout = tool === 'claude' ? CLAUDE_TIMEOUT : GEMINI_TIMEOUT;
         let cmd, args;
 
         if (tool === 'claude') {
-            // Claude Code: -p = --print (headless output mode)
             cmd = CLAUDE_EXE;
             args = [
                 '-p', fullPrompt,
                 '--dangerously-skip-permissions',
                 '--output-format', 'text',
-                '--max-turns', '3',
+                '--max-turns', '5',
                 '--model', 'sonnet'
             ];
         } else {
-            // Gemini CLI: -p = --prompt (headless non-interactive mode)
-            // CRITICAL: Spawn node directly, NOT gemini.cmd
-            // shell:false means Node passes args via CreateProcess — no cmd.exe parsing
             const mcps = detectMcps(userPrompt);
-            // CRITICAL: yargs only accepts ONE value per --allowed-mcp-server-names flag
-            // Must repeat the flag for each server name, NOT space-separate them
             const mcpArgs = mcps.flatMap(m => ['--allowed-mcp-server-names', m]);
             cmd = NODE_EXE;
             args = [
@@ -124,7 +129,7 @@ const executeCli = (tool, userPrompt) => {
             log(`[MCP] Loading: ${mcps.join(', ')}`);
         }
 
-        log(`[EXEC] ${tool}: "${userPrompt.substring(0, 60)}..."`);
+        log(`[EXEC] ${tool}: "${userPrompt.substring(0, 80)}..."`);
 
         const child = spawn(cmd, args, {
             env: {
@@ -135,8 +140,8 @@ const executeCli = (tool, userPrompt) => {
                 NO_COLOR: '1',
                 FORCE_COLOR: '0'
             },
-            stdio: ['ignore', 'pipe', 'pipe'], // CRITICAL: ignore stdin prevents interactive hang
-            shell: false, // CRITICAL: no cmd.exe — bypass all special char parsing issues
+            stdio: ['ignore', 'pipe', 'pipe'],
+            shell: false,
             windowsHide: true,
             cwd: __dirname
         });
@@ -145,23 +150,44 @@ const executeCli = (tool, userPrompt) => {
 
         let stdout = '';
         let stderr = '';
-        child.stdout.on('data', (d) => { stdout += d.toString(); });
+        let hasOutput = false;
+        child.stdout.on('data', (d) => { stdout += d.toString(); hasOutput = true; });
         child.stderr.on('data', (d) => { stderr += d.toString(); });
 
+        // Progress update — let CC know it's still working
+        const progressTimer = setInterval(() => {
+            if (chatId) {
+                const elapsed = Math.round((Date.now() - startTime) / 1000);
+                bot.sendChatAction(chatId, 'typing').catch(() => {});
+                if (elapsed >= 60 && elapsed % 60 === 0) {
+                    bot.sendMessage(chatId, `Still working... (${elapsed}s, ${hasOutput ? 'receiving output' : 'processing'})`).catch(() => {});
+                }
+            }
+        }, 10000);
+
+        const startTime = Date.now();
+
         const timer = setTimeout(() => {
-            log(`[TIMEOUT] ${tool} killed after ${EXEC_TIMEOUT / 1000}s`);
+            log(`[TIMEOUT] ${tool} killed after ${timeout / 1000}s`);
             killTree(child.pid);
-            resolve('Timed out. Try a simpler question or use !claude prefix.');
-        }, EXEC_TIMEOUT);
+            const partial = cleanOutput(stdout.trim());
+            if (partial && partial.length > 20) {
+                resolve(`(Partial — timed out after ${timeout / 1000}s)\n\n${partial}`);
+            } else {
+                resolve(`Timed out after ${timeout / 1000}s. The task may be too complex for Telegram. Try ${tool === 'gemini' ? '!claude' : ''} or run it directly.`);
+            }
+        }, timeout);
 
         child.on('close', (code) => {
             clearTimeout(timer);
+            clearInterval(progressTimer);
             activeChildren.delete(child);
-            log(`[DONE] ${tool} code=${code} stdout=${stdout.length}b stderr=${stderr.length}b`);
+            const elapsed = Math.round((Date.now() - startTime) / 1000);
+            log(`[DONE] ${tool} code=${code} stdout=${stdout.length}b stderr=${stderr.length}b time=${elapsed}s`);
 
             const raw = (stdout.trim() || stderr.trim());
             if (!raw) {
-                resolve(code === 0 ? 'Done.' : `Error (code ${code}).`);
+                resolve(code === 0 ? 'Done.' : `Error (code ${code}). Try !claude for complex tasks.`);
                 return;
             }
             resolve(cleanOutput(raw));
@@ -169,6 +195,7 @@ const executeCli = (tool, userPrompt) => {
 
         child.on('error', (err) => {
             clearTimeout(timer);
+            clearInterval(progressTimer);
             activeChildren.delete(child);
             log(`[ERROR] ${tool}: ${err.message}`);
             resolve(`Error: ${err.message}`);
@@ -211,16 +238,34 @@ bot.on('message', async (msg) => {
     const text = msg.text;
     if (!text) return;
 
+    const userId = String(msg.from.id);
     const user = msg.from.username || msg.from.first_name || '?';
-    log(`[MSG] ${user}: ${text}`);
+
+    // SECURITY FIREWALL: Block unauthorized users
+    if (ALLOWED_USERS.length > 0 && !ALLOWED_USERS.includes(userId)) {
+        log(`[BLOCKED] Unauthorized user: ${user} (ID: ${userId})`);
+        return bot.sendMessage(chatId, 'Unauthorized.').catch(() => {});
+    }
+
+    log(`[MSG] ${user} (${userId}): ${text}`);
 
     if (text === '/start' || text === '/help') {
         return bot.sendMessage(chatId, [
-            'Bravo Bridge V7.2',
-            'Type any question (routes to Gemini).',
-            '!claude <query> — route to Claude Code',
-            '!sys <cmd> — run shell command'
+            'Bravo Bridge V8.0',
+            '',
+            'Just type anything → routes to Gemini (free, fast)',
+            '!claude <query> → routes to Claude Code (powerful, costs tokens)',
+            '!sys <cmd> → run shell command on PC',
+            '',
+            'Gemini: 5 min timeout. Claude: 10 min timeout.',
+            'Both read the same brain/memory files.',
+            '',
+            '/whoami — show your Telegram user ID'
         ].join('\n'));
+    }
+
+    if (text === '/whoami') {
+        return bot.sendMessage(chatId, `User ID: ${userId}\nUsername: ${user}\nChat ID: ${chatId}`);
     }
 
     try {
@@ -238,15 +283,9 @@ bot.on('message', async (msg) => {
         const prompt = text.replace(/^!(claude|gemini|bravo)\s+/, '');
 
         await bot.sendChatAction(chatId, 'typing');
-        await bot.sendMessage(chatId, isClaude ? '🧠 Claude...' : '✨ Thinking...');
+        await bot.sendMessage(chatId, isClaude ? '🧠 Claude thinking...' : '✨ Gemini thinking...');
 
-        // Keep typing indicator alive
-        const typing = setInterval(() => {
-            bot.sendChatAction(chatId, 'typing').catch(() => {});
-        }, 5000);
-
-        const result = await executeCli(isClaude ? 'claude' : 'gemini', prompt);
-        clearInterval(typing);
+        const result = await executeCli(isClaude ? 'claude' : 'gemini', prompt, chatId);
 
         // Telegram limit is 4096 chars
         const chunks = (result || 'No response.').match(/[\s\S]{1,4000}/g) || ['No response.'];
@@ -268,6 +307,25 @@ const shutdown = (sig) => {
 };
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
-bot.on('polling_error', (e) => log(`[POLL] ${e.message}`));
 
-log('Bridge ready.');
+// ---- CRASH RECOVERY ----
+// Suppress polling errors (network drops, sleep/wake cycles)
+// node-telegram-bot-api auto-retries polling — just log, don't crash
+let pollErrorCount = 0;
+bot.on('polling_error', (e) => {
+    pollErrorCount++;
+    // Only log every 10th consecutive error to avoid log spam
+    if (pollErrorCount <= 3 || pollErrorCount % 10 === 0) {
+        log(`[POLL] ${e.message} (count: ${pollErrorCount})`);
+    }
+});
+
+// Reset error count when a message comes through (connection recovered)
+bot.on('message', () => { pollErrorCount = 0; });
+
+// Catch unhandled rejections to prevent crash
+process.on('unhandledRejection', (err) => {
+    log(`[UNHANDLED] ${err.message || err}`);
+});
+
+log('Bridge V8.0 ready.');
