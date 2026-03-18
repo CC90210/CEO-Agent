@@ -1,6 +1,9 @@
 ---
 name: subagent-driven-development
 description: Use when executing implementation plans with independent tasks in the current session
+triggers: [subagent, sub-agent, fresh subagent, task delegation, subagent execution]
+tier: standard
+dependencies: [executing-plans]
 ---
 
 # Subagent-Driven Development

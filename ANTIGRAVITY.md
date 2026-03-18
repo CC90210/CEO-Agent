@@ -104,7 +104,7 @@ When CC asks you to fix something, **fix it**. Do NOT create audit documents —
 
 ### RULE 5: CAPABILITIES & SUB-AGENT ORCHESTRATION
 
-See `brain/AGENTS.md` for the complete subagent registry (15 agents with decision matrix, security protocol, self-improvement protocol).
+See `brain/AGENTS.md` for the complete subagent registry (16 agents with decision matrix, security protocol, self-improvement protocol).
 Delegation: Complex features → planner. Architecture → architect. Code review → reviewer. Bugs → debugger. Research → researcher.
 
 - **15 workflows** in `.agents/workflows/` (Antigravity format). Key: `/plan-feature` → `/execute` → `/commit`, `/cli-anything <target>`, `/review`, `/ship`, `/retro`, `/skool-edit`, `/skool-push`, `/evolve`

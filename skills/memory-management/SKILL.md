@@ -1,6 +1,9 @@
 ---
 name: memory-management
 description: MemoryBox system for preventing bloat, scoring confidence, compressing archives, and maintaining memory hygiene. Ensures cross-session intelligence without context window overflow.
+triggers: [memory, bloat, archive, compress, session log, confidence, MemoryBox]
+tier: core
+dependencies: []
 ---
 
 # Memory Management (MemoryBox)

@@ -1,6 +1,9 @@
 ---
 name: n8n-patterns
 description: Use this skill whenever the user wants to build an N8N workflow, mentions n8n, automation, webhook intake, AI processing pipelines, or anything related to n8n node configurations. Essential for any n8n automation.
+triggers: [n8n, workflow, automation, trigger, node, webhook, n8n build]
+tier: standard
+dependencies: []
 ---
 
 # N8N Workflow Engineering — Skill Reference

@@ -1,6 +1,9 @@
 ---
 name: supabase-patterns
 description: Use this skill whenever the user asks about Supabase, database design, postgres, creating tables, writing SQL, RLS policies, performing database CRUD, or backend data patterns.
+triggers: [Supabase, SQL, migration, RLS, schema, database, postgres, CRUD]
+tier: standard
+dependencies: []
 ---
 
 # Supabase Patterns — Skill Reference

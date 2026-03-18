@@ -1,6 +1,9 @@
 ---
 name: writing-skills
 description: Use when creating new skills, editing existing skills, or verifying skills work before deployment
+triggers: [write skill, create skill, skill authoring, skill format]
+tier: specialized
+dependencies: []
 ---
 
 # Writing Skills

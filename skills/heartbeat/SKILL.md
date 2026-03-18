@@ -1,6 +1,9 @@
 ---
 name: heartbeat
 description: Proactive autonomous monitoring and session management. Runs at session start and end. Checks memory consistency, infrastructure health, pending tasks, and workspace cleanliness. Enables Bravo to act without prompting.
+triggers: [heartbeat, health check, session start, monitoring, proactive, autonomous]
+tier: core
+dependencies: [self-healing, memory-management]
 ---
 
 # Heartbeat Skill

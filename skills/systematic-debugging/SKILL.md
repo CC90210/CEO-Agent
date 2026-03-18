@@ -1,6 +1,9 @@
 ---
 name: systematic-debugging
 description: Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes
+triggers: [bug, error, failure, crash, broken, not working, debug, stack trace]
+tier: core
+dependencies: []
 ---
 
 # Systematic Debugging

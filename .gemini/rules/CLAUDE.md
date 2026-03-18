@@ -81,7 +81,7 @@ Business-Empire-Agent is ONLY for agent intelligence (brain/, memory/, skills/, 
 
 ## Sub-Agent Orchestration
 
-See @brain/AGENTS.md for the complete subagent registry (14 agents with decision matrix).
+See @brain/AGENTS.md for the complete subagent registry (16 agents with decision matrix).
 Delegation: Complex features → planner. Architecture → architect. Code review → reviewer. Bugs → debugger. Research → researcher.
 
 ## Skills (loaded on-demand)

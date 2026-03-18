@@ -1,6 +1,9 @@
 ---
 name: cli-anything
 description: Generate agent-native CLI wrappers for any software, API, or service. Use when MCP servers are unreliable or when a tool needs a CLI interface for agent automation.
+triggers: [CLI, wrapper, SDK, subprocess, CLI-anything, agent-native CLI]
+tier: specialized
+dependencies: [security-protocol]
 ---
 
 # CLI-Anything — Universal CLI Generation

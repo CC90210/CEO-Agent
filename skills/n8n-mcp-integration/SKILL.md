@@ -1,6 +1,9 @@
 ---
 name: n8n-mcp-integration
 description: Utilize the n8n-mcp community package (REST API) to list, search, execute, and manage n8n workflows.
+triggers: [n8n MCP, n8n API, workflow list, workflow execute, n8n REST]
+tier: specialized
+dependencies: [mcp-operations]
 ---
 
 # Instructions

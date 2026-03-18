@@ -112,7 +112,7 @@ Always update existing brain/memory files to maintain agent integrity after any 
 
 ### RULE 4: CAPABILITIES & SUB-AGENT ORCHESTRATION
 
-See `brain/AGENTS.md` for the complete subagent registry (15 agents with decision matrix, security protocol, self-improvement protocol).
+See `brain/AGENTS.md` for the complete subagent registry (16 agents with decision matrix, security protocol, self-improvement protocol).
 Delegation: Complex features → planner. Architecture → architect. Code review → reviewer. Bugs → debugger. Research → researcher.
 
 - **15 workflows** available in `.agents/workflows/`. Key commands: `/status`, `/health`, `/post`, `/commit`, `/sync`, `/cli-anything <target>`, `/review`, `/ship`, `/retro`, `/skool-edit`, `/skool-push`, `/evolve`

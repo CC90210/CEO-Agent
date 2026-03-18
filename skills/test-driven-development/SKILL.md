@@ -1,6 +1,9 @@
 ---
 name: test-driven-development
 description: Use when implementing any feature or bugfix, before writing implementation code
+triggers: [test, TDD, failing test, unit test, red green, test first]
+tier: standard
+dependencies: []
 ---
 
 # Test-Driven Development (TDD)

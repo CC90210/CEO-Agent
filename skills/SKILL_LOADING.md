@@ -2,7 +2,7 @@
 
 ## Overview
 
-Skills consume context window tokens. Loading all 53+ skills at session start would burn most of the context budget before work begins. Progressive loading ensures only relevant content is in context.
+Skills consume context window tokens. Loading all 55 skills at session start would burn most of the context budget before work begins. Progressive loading ensures only relevant content is in context.
 
 ## Three-Tier Loading
 
@@ -62,37 +62,27 @@ Tier classification:
 
 ## Trigger Keyword Reference
 
-| Skill | Key Triggers |
-|-------|-------------|
-| systematic-debugging | bug, error, failure, crash, broken, not working, debug |
-| memory-management | memory, bloat, archive, compress, session log, confidence |
-| self-healing | heal, broken config, drift, inconsistent, stale |
-| test-driven-development | test, TDD, failing test, unit test, red green |
-| browser-automation | playwright, browser, navigate, screenshot, click, snapshot |
-| e2e-testing | end-to-end, E2E, user journey, integration test |
-| code-review | review, PR, quality, security audit, checklist |
-| mcp-operations | MCP, tool routing, Late, n8n, Supabase MCP |
-| skool-automation | Skool, lesson, classroom, community, Tiptap |
-| writing-plans | plan, implementation plan, feature plan |
-| executing-plans | execute plan, run plan, implement plan |
-| security-protocol | secret, credential, API key, exposed, rotation |
-| n8n-patterns | n8n, workflow, automation, trigger, node |
-| supabase-patterns | Supabase, SQL, migration, RLS, schema |
-| sop-breakdown | SOP, standard operating procedure, process |
-| content-engine | content, post, copy, brand voice, pillar |
-| linkedin-outreach | LinkedIn, outreach, lead, prospect, DM |
-| growth-engine | MRR, revenue, growth, sales, pipeline |
-| frontend-design | UI, design, Tailwind, component, responsive |
-| cli-anything | CLI, wrapper, SDK, subprocess |
+All 55 skills now have `triggers:` in their YAML frontmatter. The frontmatter IS the authoritative trigger source -- no separate table needed.
+
+To scan triggers, read the frontmatter of each skill:
+```
+skills/[skill-name]/SKILL.md → triggers: [keyword1, keyword2, ...]
+```
+
+**Core skills (8)** — always pre-warmed: systematic-debugging, memory-management, self-healing, mcp-operations, security-protocol, using-superpowers, heartbeat, growth-engine
+
+**Standard skills (22)** — loaded on trigger match: browser-automation, code-review, content-engine, dispatching-parallel-agents, e2e-testing, executing-plans, finishing-a-development-branch, frontend-design, n8n-patterns, receiving-code-review, requesting-code-review, sequential-reasoning, ship, sop-breakdown, subagent-driven-development, supabase-patterns, test-driven-development, using-git-worktrees, verification-before-completion, webapp-testing, writing-plans, brainstorming
+
+**Specialized skills (25)** — loaded only on explicit trigger: ai-integration, algorithmic-art, brand-guidelines, canvas-design, cli-anything, doc-coauthoring, docx, internal-comms, investor-materials, linkedin-outreach, market-research, mcp-builder, n8n-mcp-integration, notebooklm, pdf, pptx, retro, skill-creator, skool-automation, slack-gif-creator, strategic-compact, theme-factory, web-artifacts-builder, writing-skills, xlsx
 
 ## Integration with Brain Loop Step 2 (RECALL)
 
 During RECALL, the agent should:
 
 1. Identify task type from CC's request (1-2 words: "bug fix", "new feature", "content post")
-2. Match task type against trigger keywords in this table
+2. Match task type against `triggers:` keywords in skill frontmatter
 3. Load matched skills' Tier 2 content (SKILL.md body)
 4. Load their declared dependencies if any
 5. Proceed with execution using loaded skills as methodology guides
 
-This replaces the previous pattern of loading all skills speculatively. The trigger table above covers ~90% of common task types with zero ambiguity.
+This replaces the previous pattern of loading all skills speculatively. The frontmatter triggers cover 100% of skills with zero ambiguity.

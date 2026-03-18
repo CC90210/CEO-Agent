@@ -1,6 +1,9 @@
 ---
 name: writing-plans
 description: Use when you have a spec or requirements for a multi-step task, before touching code
+triggers: [plan, implementation plan, feature plan, spec, requirements]
+tier: standard
+dependencies: [using-git-worktrees]
 ---
 
 # Writing Plans

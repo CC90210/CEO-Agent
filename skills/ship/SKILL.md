@@ -1,6 +1,9 @@
 ---
 name: ship
 description: Full deployment pipeline for any app in the registry. Use when CC says "ship it", "deploy", "push this live", or "/ship". Handles sync, tests, code review, changelog, PR, and post-ship verification in sequence.
+triggers: [ship, deploy, push live, release, go live, ship it]
+tier: standard
+dependencies: [verification-before-completion, code-review, finishing-a-development-branch]
 ---
 
 # Ship — Full Deployment Pipeline

@@ -1,6 +1,9 @@
 ---
 name: mcp-operations
 description: Comprehensive MCP operations guide — routing, tool usage, troubleshooting. Single source of truth for all agents.
+triggers: [MCP, tool routing, Late, n8n, Supabase MCP, tool failure, MCP config]
+tier: core
+dependencies: []
 ---
 
 # MCP Operations Guide

@@ -1,6 +1,9 @@
 ---
 name: content-engine
 description: Use this skill whenever the user asks about generating content, writing posts, creating marketing copy, running the content engine, or organizing content creation. Includes formats, tones, and strategies.
+triggers: [content, post, copy, brand voice, pillar, marketing, content engine]
+tier: standard
+dependencies: []
 ---
 
 # Content Engine Skill

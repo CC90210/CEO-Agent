@@ -1,6 +1,9 @@
 ---
 name: sop-breakdown
 description: Automatically creates, refines, and executes Standard Operating Procedures. Triggers when a process is repeated 3+ times or when CC requests an SOP. Extracts steps from observed behavior, tracks success rates, and evolves SOPs over time.
+triggers: [SOP, standard operating procedure, process, repeated task, workflow template]
+tier: standard
+dependencies: [memory-management]
 ---
 
 # SOP Breakdown Engine

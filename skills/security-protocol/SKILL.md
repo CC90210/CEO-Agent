@@ -1,6 +1,9 @@
 ---
 name: security-protocol
 description: Secrets and authentication management. Ensures API keys, tokens, and credentials are NEVER exposed in plain text. Use when handling any credential, API key, or sensitive configuration.
+triggers: [secret, credential, API key, exposed, rotation, security, token, password]
+tier: core
+dependencies: []
 ---
 
 # SECRETS AND AUTHENTICATION MANAGEMENT

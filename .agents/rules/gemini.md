@@ -109,11 +109,11 @@ Always update existing brain/memory files to maintain agent integrity after any 
 
 ### RULE 4: CAPABILITIES & SUB-AGENT ORCHESTRATION
 
-See `brain/AGENTS.md` for the complete subagent registry (14 agents with decision matrix, security protocol, self-improvement protocol).
+See `brain/AGENTS.md` for the complete subagent registry (16 agents with decision matrix, security protocol, self-improvement protocol).
 Delegation: Complex features → planner. Architecture → architect. Code review → reviewer. Bugs → debugger. Research → researcher.
 
-- **12 workflows** available in `.agents/workflows/`. Key commands: `/status`, `/health`, `/post`, `/commit`, `/sync`, `/cli-anything <target>`
-- **50 skills** in `skills/` directory. Each skill is stored in `skills/[skill-name]/SKILL.md` format (Claude Agent Skills 2.0 structure). Key: systematic-debugging, self-healing, test-driven-development, **cli-anything** (generate CLI wrappers for any software/API — templates in `scripts/cli_templates/`)
+- **15 workflows** available in `.agents/workflows/`. Key commands: `/status`, `/health`, `/post`, `/commit`, `/sync`, `/cli-anything <target>`, `/evolve`
+- **55 skills** in `skills/` directory. All have YAML frontmatter with triggers/tier/dependencies for progressive loading. Key: systematic-debugging, self-healing, test-driven-development, cli-anything, code-review, ship, retro, skool-automation
 - **Video pipeline**: `scripts/edit_content.py` — FFmpeg 8.0.1, Whisper captions, ElevenLabs voiceover, Remotion animations
 - **Plans**: Implementation plans stored in `.agents/plans/`
 - **Media**: `media/raw/` (input), `media/exports/` (output), `media/assets/` (logos, branding)

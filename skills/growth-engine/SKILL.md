@@ -1,6 +1,9 @@
 ---
 name: growth-engine
 description: Self-learning and evolution system. Tracks capability expansion, extracts patterns from experience, promotes patterns to SOPs, identifies skill gaps, and produces evolution reports. Triggers after complex tasks, failures, and monthly audits.
+triggers: [MRR, revenue, growth, evolution, capability, skill gap, pattern promotion]
+tier: core
+dependencies: [memory-management, sop-breakdown]
 ---
 
 # Growth Engine — Self-Learning System

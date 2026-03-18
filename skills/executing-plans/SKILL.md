@@ -1,6 +1,9 @@
 ---
 name: executing-plans
 description: Use when you have a written implementation plan to execute in a separate session with review checkpoints
+triggers: [execute plan, run plan, implement plan, batch execution]
+tier: standard
+dependencies: [writing-plans, using-git-worktrees]
 ---
 
 # Executing Plans

@@ -1,6 +1,9 @@
 ---
 name: self-healing
 description: Multi-dimensional autonomous recovery and health maintenance. Triggers on errors, session boundaries, and infrastructure issues. Covers memory healing, context healing, skill healing, infrastructure healing, and relationship healing.
+triggers: [heal, broken config, drift, inconsistent, stale, self-heal, recovery]
+tier: core
+dependencies: [memory-management]
 ---
 
 # Self-Healing System

@@ -4,209 +4,209 @@
 
 ---
 
-## Agent Entry Points
+## What This Is
 
-Any AI agent landing in this repo should read **one** of these files first based on its environment:
+A self-evolving AI agent system that runs across 3 interfaces (Claude Code, Gemini CLI, Antigravity IDE) with shared intelligence, 55 skills, 16 agents, 15 workflows, and 8 MCP servers. Every interface sees the same brain, memory, and capabilities.
 
-| Agent / Environment | Entry File | Purpose |
-|---|---|---|
-| **Antigravity IDE** (VS Code) | `ANTIGRAVITY.md` | Primary IDE agent — broadest tool access |
-| **Claude Code CLI** | `CLAUDE.md` | Lead Architect — complex refactoring & debugging |
-| **Gemini CLI** | `GEMINI.md` | Speed layer — fast queries, diagnostics, content |
-
-All entry files reference the same shared brain (`brain/`) and memory (`memory/`) system.
+**North Star:** $1,000 Net MRR by March 31, 2026 (Goal Exceeded — ~$2,691 MRR)
 
 ---
 
-## Directory Structure
+## Agent Entry Points
+
+| Agent / Environment | Entry File | Role |
+|---|---|---|
+| **Claude Code CLI** | `CLAUDE.md` | Lead Architect — complex refactoring, debugging, system evolution |
+| **Antigravity IDE** (VS Code) | `ANTIGRAVITY.md` | Infantry/Architect Hybrid — broadest MCP tool access |
+| **Gemini CLI** | `GEMINI.md` | Inference Engine — fast queries, diagnostics, content |
+
+All entry files share the same `brain/`, `memory/`, and `skills/` system.
+
+---
+
+## Architecture
 
 ```
 Business-Empire-Agent/
 │
-├── ANTIGRAVITY.md              ← Antigravity IDE agent rules
-├── CLAUDE.md                   ← Claude Code CLI rules
-├── GEMINI.md                   ← Gemini CLI rules
-├── README.md                   ← This file
-├── .gitignore
+├── CLAUDE.md / GEMINI.md / ANTIGRAVITY.md   ← Agent entry points (one per interface)
 │
-├── brain/                      ← Agent intelligence (shared across all agents)
-│   ├── SOUL.md                 ← Identity, values, philosophy (IMMUTABLE)
-│   ├── STATE.md                ← Current operational state (updated each session)
-│   ├── AGENTS.md               ← Subagent registry & orchestration (14 agents)
-│   ├── USER.md                 ← CC's profile and preferences
-│   ├── CAPABILITIES.md         ← Full tool & capability inventory
-│   ├── BRAIN_LOOP.md           ← Multi-hypothesis reasoning protocol
-│   ├── INTERACTION_PROTOCOL.md ← Tiered logging & session protocol
-│   ├── HEARTBEAT.md            ← Health check procedures
-│   ├── GROWTH.md               ← Growth strategy & milestones
-│   └── CHANGELOG.md            ← Version history
+├── brain/                      ← Agent intelligence (shared, always loaded)
+│   ├── SOUL.md                 ← Identity & values (IMMUTABLE)
+│   ├── STATE.md                ← Live operational state
+│   ├── AGENTS.md               ← 16 subagents + orchestration matrix
+│   ├── USER.md                 ← CC's profile & preferences
+│   ├── APP_REGISTRY.md         ← 8 external app repos with routing
+│   ├── CAPABILITIES.md         ← Full tool & integration inventory
+│   ├── BRAIN_LOOP.md           ← 10-step reasoning protocol (multi-hypothesis + Reflexion)
+│   ├── INTERACTION_PROTOCOL.md ← Logging tiers & session governance
+│   ├── HEARTBEAT.md            ← Proactive health monitoring
+│   ├── GROWTH.md               ← Voyager-style skill evolution
+│   └── CHANGELOG.md            ← Self-modification audit trail
 │
-├── memory/                     ← Persistent memory across sessions
+├── memory/                     ← Persistent memory across all sessions & agents
+│   ├── SESSION_LOG.md          ← What happened (all agents write here)
 │   ├── ACTIVE_TASKS.md         ← Current work in progress
-│   ├── SESSION_LOG.md          ← Session-end summaries
-│   ├── PATTERNS.md             ← Proven approaches & anti-patterns
-│   ├── MISTAKES.md             ← Bug root cause analysis
-│   ├── DECISIONS.md            ← Architectural decisions log
-│   ├── LONG_TERM.md            ← Verified long-term knowledge
-│   ├── SELF_REFLECTIONS.md     ← Reflexion framework learnings
-│   ├── PROPOSED_CHANGES.md     ← Pending changes for CC approval
+│   ├── PATTERNS.md             ← Proven approaches ([PROBATIONARY] → [VALIDATED])
+│   ├── MISTAKES.md             ← Root cause analysis & prevention
+│   ├── DECISIONS.md            ← Architectural decision log
+│   ├── LONG_TERM.md            ← Verified persistent knowledge
+│   ├── SELF_REFLECTIONS.md     ← Structured failure analysis (Reflexion framework)
 │   ├── SOP_LIBRARY.md          ← Standard Operating Procedures
-│   ├── PROMPT_LIBRARY.md       ← Reusable prompt templates
-│   └── LEAD_TRACKER.csv        ← Sales lead tracking
+│   └── content-strategy.md     ← Content Bible (3 daily pillars, hook bank)
+│
+├── agents/                     ← 16 subagent role definitions
+│   ├── architect.md            ← System design (Opus tier)
+│   ├── meta-agent.md           ← Generates new agents from descriptions [PROBATIONARY]
+│   ├── writer.md               ← Code implementation (TDD)
+│   ├── debugger.md             ← Root cause analysis
+│   ├── reviewer.md             ← Code quality & security audit
+│   ├── researcher.md           ← Market & documentation intel (Playwright)
+│   ├── content-creator.md      ← Brand voice & copywriting
+│   ├── chief-of-staff.md       ← Communication & mission control
+│   ├── revenue-hunter.md       ← Sales strategy & lead nurturing
+│   ├── workflow-builder.md     ← n8n automation creation
+│   ├── video-editor.md         ← FFmpeg + Whisper + ElevenLabs pipeline
+│   ├── social-publisher.md     ← Late API multi-platform posting
+│   ├── git-ops.md              ← Version control & PR management
+│   ├── documenter.md           ← Documentation maintenance
+│   └── explorer.md             ← Codebase navigation (read-only)
+│
+├── skills/                     ← 55 skills (progressive 3-tier loading)
+│   ├── SKILL_LOADING.md        ← Loading protocol (frontmatter → instructions → references)
+│   ├── systematic-debugging/   ← 4-phase root cause debugging
+│   ├── self-healing/           ← 5-dimension auto-recovery
+│   ├── test-driven-development/← RED → GREEN → REFACTOR
+│   ├── browser-automation/     ← Playwright MCP reference
+│   ├── e2e-testing/            ← Parallel 3-agent E2E with DB validation
+│   ├── code-review/            ← Quality & security audit
+│   ├── ship/                   ← Production deployment checklist
+│   ├── retro/                  ← Post-session retrospective + insights-to-rules pipeline
+│   ├── cli-anything/           ← Generate CLI wrappers for any software/API
+│   ├── skool-automation/       ← Skool course editing via Playwright
+│   ├── memory-management/      ← Five-Gate Knowledge Filter + confidence scoring
+│   ├── writing-plans/          ← Implementation plan generation
+│   ├── executing-plans/        ← Batch execution with review checkpoints
+│   └── [41 more skills]        ← See skills/ directory for full list
 │
 ├── .agents/                    ← Antigravity IDE workflows
-│   ├── workflows/              ← /command workflows (11 workflows)
-│   │   ├── client-onboard.md   ← /client-onboard — new client setup
-│   │   ├── commit.md           ← /commit — smart git commit
-│   │   ├── content.md          ← /content — brand content creation
-│   │   ├── debug.md            ← /debug — systematic debugging
-│   │   ├── health.md           ← /health — full system diagnostic
-│   │   ├── n8n.md              ← /n8n — workflow management
-│   │   ├── post.md             ← /post — social media posting
-│   │   ├── prime.md            ← /prime — load full context
-│   │   ├── research.md         ← /research — web research
-│   │   ├── status.md           ← /status — project status
-│   │   └── sync.md             ← /sync — end-of-session sync
+│   ├── workflows/              ← 15 slash commands (/commit, /post, /evolve, etc.)
 │   └── plans/                  ← Implementation plans
 │
+├── scripts/                    ← MCP wrappers & utilities
+│   ├── *-mcp-wrapper.cmd       ← 4 credential-injecting MCP launchers
+│   ├── supabase_tool.py        ← Supabase SDK CLI (full CRUD, 3 projects)
+│   ├── stripe_tool.py          ← Stripe SDK CLI (balance, customers, invoices)
+│   ├── edit_content.py         ← Video pipeline (FFmpeg 8.0.1, Whisper, ElevenLabs)
+│   └── cli_templates/          ← Reusable CLI-Anything templates
 │
-├── agents/                     ← Sub-agent role definitions (14 agents)
-│   ├── architect.md            ← System design (Opus)
-│   ├── chief-of-staff.md       ← Communication & mission control
-│   ├── content-creator.md      ← Content & copywriting
-│   ├── debugger.md             ← Bug investigation
-│   ├── documenter.md           ← Documentation maintenance
-│   ├── explorer.md             ← Codebase navigation
-│   ├── git-ops.md              ← Version control
-│   ├── researcher.md           ← Market & doc intel
-│   ├── revenue-hunter.md       ← Sales & growth strategy
-│   ├── reviewer.md             ← Code quality & security
-│   ├── social-publisher.md     ← Late API posting
-│   ├── video-editor.md         ← Media production pipeline
-│   ├── workflow-builder.md     ← n8n automation
-│   └── writer.md               ← Code implementation (TDD)
+├── courses/                    ← Skool course registry (16 courses, 62 lessons)
+│   └── SKOOL_REGISTRY.md       ← Full URL mapping for Skool automation
 │
-├── scripts/                    ← MCP wrapper scripts & utilities
-│   ├── n8n-mcp-wrapper.cmd     ← n8n MCP launcher (reads .env.agents)
-│   ├── late-mcp-wrapper.cmd    ← Late MCP launcher (reads .env.agents)
-│   ├── late_mcp_patched.py     ← Patched Late SDK server (fixes Pydantic bugs)
-│   ├── edit_content.py         ← Video pipeline (FFmpeg, Whisper, ElevenLabs)
-│   └── [other utilities]       ← Email, outreach, calendar scripts
+├── database/                   ← SQL schemas (14 tables across 3 Supabase projects)
+│   ├── 001_bravo_agent_schema.sql
+│   └── 002_interaction_traces_schema.sql
 │
-├── skills/                     ← 49 skills library (READ-ONLY)
-│   ├── systematic-debugging/   ← 4-phase root cause debugging
-│   ├── self-healing/           ← Auto-recovery patterns
-│   ├── test-driven-development/← TDD workflow (RED → GREEN → REFACTOR)
-│   ├── browser-automation/     ← Playwright web automation
-│   ├── e2e-testing/            ← End-to-end testing
-│   ├── writing-plans/          ← Implementation planning
-│   ├── executing-plans/        ← Batch execution with checkpoints
-│   ├── security-protocol/      ← Credential management rules
-│   ├── mcp-operations/         ← MCP server management
-│   ├── memory-management/      ← Knowledge graph operations
-│   └── [31 more]               ← See skills/ directory
+├── docs/                       ← Guides & documentation
+│   └── MOBILE_TERMINAL.md      ← Claude Code from phone (Tailscale + SSH)
 │
-├── APPS_CONTEXT/               ← Per-business context files
-│   ├── OASIS_AI_CLAUDE.md      ← OASIS AI Solutions
-│   ├── PROPFLOW_CLAUDE.md      ← PropFlow SaaS
-│   ├── NOSTALGIC_REQUESTS_CLAUDE.md ← Nostalgic Requests
-│   ├── CONTENT_BRAND_CLAUDE.md ← CC's personal brand
-│   ├── AI_TRAINING_CLAUDE.md   ← AI Training business
-│   └── OASIS_WORKFLOWS.md      ← OASIS n8n workflow docs
-│
-├── database/                   ← SQL schemas
-│   ├── 001_bravo_agent_schema.sql  ← Agent intelligence tables
-│   └── 002_interaction_traces_schema.sql ← Interaction logging
-│
-├── media/                      ← Media assets
-│   ├── assets/                 ← Logos, branding (tracked)
-│   ├── raw/                    ← Input media (gitignored)
-│   └── exports/                ← Output media (gitignored)
-│
-├── telegram_agent.js           ← Telegram bridge (V6.0) — routes to Gemini/Claude CLI
-├── .gemini/settings.json       ← Gemini CLI MCP config (uses wrappers)
-├── .claude/mcp.json            ← Claude Code MCP config (gitignored — has keys)
-├── .vscode/mcp.json            ← Antigravity IDE MCP config
+├── media/                      ← Media assets (raw/ and exports/ gitignored)
+├── telegram_agent.js           ← Telegram bridge (V8.0 — user ID firewall, PM2)
 ├── .env.agents                 ← All credentials (gitignored — NEVER commit)
-└── .env.agents.template        ← Template showing required env vars (safe to commit)
+└── .env.agents.template        ← Required env vars template
 ```
 
 ---
 
-## MCP Servers (6 Active)
+## MCP Servers (8 Active)
 
-| Server | Tools | Purpose | Status |
-|--------|-------|---------|--------|
-| **n8n-mcp** | 15+ | Workflow automation (44+ workflows) | ✅ Active |
-| **Late** | 19 | Social media posting (8 platforms) | ✅ Active |
-| **Playwright** | 22 | Browser automation, web research | ✅ Active |
-| **Context7** | 2 | Live library documentation | ✅ Active |
-| **Memory** | 8 | Knowledge graph persistence | ✅ Active |
-| **Sequential Thinking** | 1 | Structured reasoning | ✅ Active |
+| Server | Purpose | Status |
+|--------|---------|--------|
+| **Supabase** | Database queries, migrations, schema management (3 projects) | ✅ Active |
+| **Stripe** | Payments, subscriptions, invoices (SDK fallback for broken MCP) | ✅ Active |
+| **n8n-mcp** | Workflow automation (44+ workflows via REST API) | ✅ Active |
+| **Late** | Social media posting (8 connected accounts) | ✅ Active |
+| **Playwright** | Browser automation, web research, E2E testing | ✅ Active |
+| **Context7** | Live library documentation lookup | ✅ Active |
+| **Memory** | Persistent knowledge graph across sessions | ✅ Active |
+| **Sequential Thinking** | Structured multi-step reasoning | ✅ Active |
 
-**Offline (reconfigure later):** Supabase, Stripe
+**Security:** All credential-sensitive servers use `cmd /c scripts/*-mcp-wrapper.cmd` wrappers that read from `.env.agents` at runtime. Zero hardcoded keys in any config file.
 
 ### MCP Config Locations
 
-| File | Used By | Contains Keys? |
-|------|---------|----------------|
-| `.gemini/settings.json` | Gemini CLI | ❌ Uses wrapper scripts |
-| `.claude/mcp.json` | Claude Code | ⚠️ Yes — gitignored |
-| `.vscode/mcp.json` | Antigravity IDE | ⚠️ Yes — gitignored |
-| `scripts/n8n-mcp-wrapper.cmd` | Gemini CLI, Antigravity | ❌ Reads from .env.agents |
-| `scripts/late-mcp-wrapper.cmd` | Gemini CLI, Antigravity | ❌ Reads from .env.agents |
-
-### Windows MCP Note
-
-On Windows, MCP hosts don't always pass `env` block variables to subprocesses. The wrapper `.cmd` scripts fix this by reading `.env.agents` and setting vars before launching the MCP server.
+| File | Used By |
+|------|---------|
+| `.claude/mcp.json` | Claude Code CLI |
+| `.vscode/mcp.json` | Antigravity IDE |
+| `~/.gemini/settings.json` | Gemini CLI |
+| `.env.agents` | Credentials only (all wrappers read from here) |
 
 ---
 
-## Cross-Agent Compatibility
+## Key Features
 
-All three agent environments (Antigravity, Claude Code, Gemini CLI) share:
+### 10 Advanced Patterns
+1. **Five-Gate Knowledge Filter** — VALUE → ALIGNMENT → REDUNDANCY → FRESHNESS → PLACEMENT
+2. **Exponential Confidence Decay** — C(t) = C0 x e^(-lambda x t), category-specific rates
+3. **Meta-Agent** — Generates new subagent definitions from natural language
+4. **`/evolve` Command** — Extracts session patterns → promotes to skills/SOPs/rules
+5. **Progressive Skill Loading** — 3-tier: frontmatter (always) → instructions (activation) → references (on-demand)
+6. **Surgical Changes** — Every edit touches ONLY what was requested
+7. **Insights-to-Rules Pipeline** — Pattern extraction → rule drafting → hook consideration → integration
+8. **Boil the Lake** — Always recommend the COMPLETE implementation when AI makes cost near-zero
+9. **Fix-First** — Auto-fix mechanical issues, ASK for judgment calls
+10. **Dual Effort Estimation** — Show human-team time vs CC+Bravo time for every task
 
-1. **Same brain** → `brain/SOUL.md`, `brain/STATE.md`, `brain/CAPABILITIES.md`, `brain/AGENTS.md`
-2. **Same memory** → `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md`, `memory/PATTERNS.md`
-3. **Same skills** → `skills/` directory (49 skills)
-4. **Same credentials** → `.env.agents` (never committed)
-5. **Same MCP servers** → n8n, Late, Playwright, Context7, Memory, Sequential Thinking
+### Cross-AI Sync (Rule 0)
+All 3 agents write to the same `brain/STATE.md`, `memory/SESSION_LOG.md`, and `memory/ACTIVE_TASKS.md`. Switch between Claude, Gemini, or Antigravity mid-task with zero context loss.
 
-Each agent entry file contains the same rules tailored to that environment's capabilities.
+### Self-Improvement Loop
+```
+Every Session:
+  ├── Mistakes → memory/MISTAKES.md (root cause + prevention)
+  ├── Patterns → memory/PATTERNS.md ([PROBATIONARY] → [VALIDATED] after 3 sessions)
+  ├── Decisions → memory/DECISIONS.md (date + rationale)
+  └── Reflections → memory/SELF_REFLECTIONS.md (Reflexion framework)
+```
+
+### Mobile Access
+Claude Code from your phone via Tailscale + SSH. See `docs/MOBILE_TERMINAL.md`.
+
+---
+
+## App Registry (8 External Repos)
+
+Code for each app lives in its own repo. Business-Empire-Agent is ONLY for agent intelligence.
+
+| App | Stack | Status |
+|-----|-------|--------|
+| **TIKTIK** | Next.js 14, Supabase, face-api.js | ✅ Live (facial recognition + IP camera ready) |
+| **OASIS AI Platform** | React 18, Vite, Supabase | ✅ Active |
+| **PropFlow** | Next.js 14, Supabase, Stripe | ✅ Active |
+| **Nostalgic Requests** | Next.js, Supabase, Stripe Connect | ✅ Active |
+| **Grape Vine Cottage** | Vite, React 18 | ✅ Active |
+| **Mindset Companion** | Next.js 16, React 19 | ✅ Active |
+| **On The Hill** | Vite, React 19 | ✅ Active |
+| **Atlas Trading Agent** | Python 3.11+, CCXT, Claude API | ✅ Active |
+
+Full routing table with local paths: `brain/APP_REGISTRY.md`
 
 ---
 
 ## Quick Start
 
-1. Agent reads its entry file (`ANTIGRAVITY.md` / `CLAUDE.md` / `GEMINI.md`)
-2. Silently loads `brain/SOUL.md` + `brain/STATE.md`
-3. CC gives a task → agent routes to MCP tools via entry point routing table
-4. Complex tasks → consults `brain/AGENTS.md` for subagent delegation
-5. For business-specific context → reads `APPS_CONTEXT/` and `skills/`
-6. Session end → updates `brain/STATE.md`, `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md`
-
----
-
-## Self-Improvement Loop
-
-```
-Every Session:
-  ├── Mistakes → memory/MISTAKES.md (root cause + prevention)
-  ├── Patterns → memory/PATTERNS.md (tag [PROBATIONARY])
-  ├── Decisions → memory/DECISIONS.md (date + rationale)
-  └── Reflections → memory/SELF_REFLECTIONS.md (Reflexion framework)
-
-Every 3+ Sessions:
-  └── [PROBATIONARY] patterns promoted to [VERIFIED] if consistently useful
-```
+1. Copy `.env.agents.template` → `.env.agents` and fill in credentials
+2. Agent reads its entry file (`CLAUDE.md` / `GEMINI.md` / `ANTIGRAVITY.md`)
+3. Brain loads silently (`brain/SOUL.md` + `brain/STATE.md`)
+4. CC gives a task → agent routes to MCP tools or delegates to subagents
+5. Session end → state files updated, learnings captured, git committed
 
 ---
 
 ## Credentials
 
-All secrets live in `.env.agents` (gitignored). Copy `.env.agents.template` to get started.
-
-**NEVER hardcode API keys in scripts or config files that get committed.**
+All secrets live in `.env.agents` (gitignored). **NEVER hardcode API keys in scripts or config files.**
 
 ---
 

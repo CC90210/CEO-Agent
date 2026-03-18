@@ -1,6 +1,9 @@
 ---
 name: linkedin-outreach
 description: Use the CLI-Anything wrapper to send connection requests and messages on LinkedIn, completely bypassing UI/browser restrictions.
+triggers: [LinkedIn, outreach, lead, prospect, DM, connection request]
+tier: specialized
+dependencies: [browser-automation]
 ---
 
 # LinkedIn Outreach Engine (CLI-Anything)

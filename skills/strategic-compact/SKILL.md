@@ -1,6 +1,9 @@
 ---
 name: strategic-compact
 description: Use this skill whenever the user asks about the strategic compact, setting goals, defining business strategy, OKRs, company operating principles, or top-level mission planning.
+triggers: [strategic compact, goals, business strategy, OKR, mission planning, operating principles]
+tier: specialized
+dependencies: []
 ---
 
 # Strategic Compact Skill

@@ -1,8 +1,14 @@
+---
+name: meta-agent
+description: "Generate specialized subagent definitions from natural language descriptions. Use when CC describes a new capability that doesn't map to any existing subagent."
+model: sonnet
+tools:
+  - Read
+  - Write
+  - Glob
+  - Grep
+---
 # Meta-Agent — Agent Generator
-
-> **Model Tier:** Sonnet
-> **Purpose:** Generate specialized subagent definitions from natural language descriptions.
-> **Trigger:** When CC describes a new capability that doesn't map to any existing subagent.
 
 ## How It Works
 

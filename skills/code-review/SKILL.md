@@ -1,6 +1,9 @@
 ---
 name: code-review
 description: Pre-landing code review for TypeScript/Next.js/Supabase/Stripe/Vercel projects. Use before any merge to main. Auto-fixes mechanical issues; asks about judgment calls. Catches security holes, AI slop, and stack-specific gotchas.
+triggers: [review, PR, quality, security audit, checklist, pre-landing, code review]
+tier: standard
+dependencies: [systematic-debugging]
 ---
 
 # Code Review — Pre-Landing Quality Gate

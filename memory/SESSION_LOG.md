@@ -4,6 +4,16 @@
 
 ---
 
+### 2026-03-18 — Mobile Claude Code setup: Tailscale + SSH installed
+**Change:** Installed Tailscale (v1.94.2) and OpenSSH Server on CC's PC. Both services running. CC connected iPhone 14 to Tailscale mesh (ccpc: 100.126.120.46, iphone-14: 100.65.211.62). CC has Termius on iPhone. Ready for mobile Claude Code access via SSH.
+**Files:** docs/MOBILE_TERMINAL.md (reference)
+**Commit:** pending
+
+### 2026-03-18 — Full system audit: frontmatter upgrade for all 55 skills, stale reference fixes, count corrections
+**Change:** Added YAML frontmatter (triggers, tier, dependencies) to all 55 skills — 54 had incomplete frontmatter, 1 (skool-automation) had none. Fixed chief-of-staff.md (broken tab-separated format → proper YAML). Added meta-agent.md YAML frontmatter. Added Explorer agent (#15) to brain/AGENTS.md orchestration matrix. Updated CAPABILITIES.md: agent count 15→16, app count 6→8, skills category table now covers all 55 skills, removed stale /edit-video command reference. Fixed stale CC_PROFILE.md reference in PROMPT_LIBRARY.md. Updated SKILL_LOADING.md trigger reference to point to frontmatter as authoritative source (was only listing 20/55 skills).
+**Files:** All 55 skills/*/SKILL.md, brain/AGENTS.md, brain/CAPABILITIES.md, agents/chief-of-staff.md, agents/meta-agent.md, memory/PROMPT_LIBRARY.md, skills/SKILL_LOADING.md
+**Commit:** pending
+
 ### 2026-03-18 — Final sync: all 3 AI interfaces aligned, counts verified, state updated
 **Change:** Synced Surgical Changes principle, drive-by refactoring code slop, `/evolve` command, progressive skill loading reference, and meta-agent reference to GEMINI.md and ANTIGRAVITY.md. Updated all count references: 55 skills, 15 agents, 15 workflows across CLAUDE.md, GEMINI.md, ANTIGRAVITY.md, CAPABILITIES.md. Updated brain/STATE.md with 2026-03-18 session summary. Pushed to GitHub.
 **Files:** CLAUDE.md, GEMINI.md, ANTIGRAVITY.md, brain/CAPABILITIES.md, brain/STATE.md, memory/SESSION_LOG.md

@@ -1,6 +1,9 @@
 ---
 name: dispatching-parallel-agents
 description: Use when facing 2+ independent tasks that can be worked on without shared state or sequential dependencies
+triggers: [parallel, concurrent, independent tasks, multi-agent, batch, dispatch]
+tier: standard
+dependencies: []
 ---
 
 # Dispatching Parallel Agents

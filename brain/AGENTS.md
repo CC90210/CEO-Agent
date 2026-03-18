@@ -21,6 +21,7 @@
 | Revenue strategy, lead hunting | **Revenue Hunter** | Sales outreach, pricing strategy |
 | n8n automation creation | **Workflow Builder** | `/build-workflow`, automation tasks |
 | Documentation updates | **Documenter** | `/update-docs`, post-feature docs |
+| File search, codebase navigation, code analysis | **Explorer** | Search queries, "find X", "where is Y" |
 | Generate new subagent definitions | **Meta-Agent** | "I need an agent that...", new capability requests |
 
 ## Subagent Definitions
@@ -108,7 +109,13 @@
 - **Purpose:** Update documentation, codemaps, and brain files after feature completion.
 - **Principles:** Keep `brain/` files current. Update `CAPABILITIES.md` when tools change.
 
-### 15. Meta-Agent (Agent Generator) [PROBATIONARY]
+### 15. Explorer (Codebase Navigator)
+- **Model Tier:** Haiku
+- **File:** `agents/explorer.md`
+- **Purpose:** Read-only codebase search, file discovery, and code analysis. Never edits files.
+- **Principles:** Search before assuming. Use Glob/Grep/Read. Report findings concisely. Never write, edit, or delete.
+
+### 16. Meta-Agent (Agent Generator) [PROBATIONARY]
 - **Model Tier:** Sonnet
 - **File:** `agents/meta-agent.md`
 - **Purpose:** Generate complete subagent definition files from natural language descriptions. Checks for overlap with existing agents before creating a new one.

@@ -1,6 +1,9 @@
 ---
 name: e2e-testing
 description: Comprehensive end-to-end application testing using Playwright MCP. Launches parallel sub-agents to research the codebase, then systematically tests every user journey with screenshots, database validation, and bug hunting. Run after implementation to validate before commit.
+triggers: [end-to-end, E2E, user journey, integration test, full test, playwright test]
+tier: standard
+dependencies: [browser-automation, systematic-debugging]
 ---
 
 # End-to-End Application Testing

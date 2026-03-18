@@ -1,6 +1,9 @@
 ---
 name: market-research
 description: Use this skill whenever the user asks to conduct market research, competitor analysis, customer discovery, pricing analysis, or demographics research. Essential for any strategic planning or new product launch.
+triggers: [market research, competitor analysis, customer discovery, pricing analysis, demographics]
+tier: specialized
+dependencies: [browser-automation]
 ---
 
 # Market Research Skill

@@ -1,6 +1,9 @@
 ---
 name: requesting-code-review
 description: Use when completing tasks, implementing major features, or before merging to verify work meets requirements
+triggers: [request review, verify work, pre-merge check, self-review]
+tier: standard
+dependencies: [code-review, verification-before-completion]
 ---
 
 # Requesting Code Review

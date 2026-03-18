@@ -61,7 +61,7 @@ Workflows: `.agents/workflows/` (15 workflows: post, status, health, prime, cont
 
 **Organizations:** CC (oktipozhyojufxsytrse), oasis-ai-platform (sajanpiqysuwviucycjh)
 
-## App Registry (6 External Repos)
+## App Registry (8 External Repos)
 
 Full routing table with local paths, GitHub URLs, tech stacks: `brain/APP_REGISTRY.md`
 
@@ -73,8 +73,10 @@ Full routing table with local paths, GitHub URLs, tech stacks: `brain/APP_REGIST
 | Grape Vine Cottage | `APPS/Grape-Vine-Cottage` | Vite, React 18 |
 | Mindset Companion | `APPS/MINDSET COMPANION APP/cc-mindset` | Next.js 16 |
 | On The Hill | `APPS/ON-THE-HILL-WEBSITE` | Vite, React 19 |
+| Atlas Trading Agent | `APPS/trading-agent` | Python 3.11+, CCXT, Claude API |
+| TIKTIK | `APPS/tiktik` | Next.js 14, Supabase, Tailwind |
 
-## Sub-Agents (15)
+## Sub-Agents (16)
 
 See `brain/AGENTS.md` for the complete registry with orchestration decision matrix.
 
@@ -94,6 +96,7 @@ See `brain/AGENTS.md` for the complete registry with orchestration decision matr
 | writer | Sonnet | Code writing, feature implementation |
 | chief-of-staff | Sonnet | Communication, mission control, outreach |
 | revenue-hunter | Sonnet | Sales strategy, lead nurturing |
+| explorer | Haiku | Codebase navigation, file search (read-only) |
 | meta-agent | Sonnet | Generate new subagent definitions from descriptions [PROBATIONARY] |
 
 ## CLI-Anything (Universal CLI Generation)
@@ -132,17 +135,16 @@ Generate agent-native CLI wrappers for any software, API, or service. When MCPs 
 
 | Category | Skills |
 |----------|--------|
-| **Agent Intelligence** | heartbeat, self-healing, memory-management, growth-engine, sop-breakdown, sequential-reasoning |
-| **Development** | systematic-debugging, TDD, verification, executing-plans, writing-plans, finishing-branch, git-worktrees |
-| **Browser & Testing** | **browser-automation** (Playwright MCP reference), **e2e-testing** (parallel sub-agent E2E), webapp-testing |
-| **Content** | writing-skills, doc-coauthoring, internal-comms, brand-guidelines, brainstorming |
-| **Code** | mcp-builder, skill-creator, subagent-development, parallel-agents, code-review (2), **code-review** (pre-landing, Fix-First), **ship** (full deploy pipeline), **retro** (weekly retrospective) |
-| **Automation** | n8n-mcp-integration, n8n-patterns, supabase-patterns, ai-integration |
-| **Creative** | frontend-design, canvas-design, algorithmic-art, theme-factory, web-artifacts |
+| **Agent Intelligence** | heartbeat, self-healing, memory-management, growth-engine, sop-breakdown, sequential-reasoning, mcp-operations |
+| **Development** | systematic-debugging, test-driven-development, verification-before-completion, executing-plans, writing-plans, finishing-a-development-branch, using-git-worktrees, code-review, receiving-code-review, requesting-code-review, ship, subagent-driven-development, dispatching-parallel-agents |
+| **Browser & Testing** | browser-automation, e2e-testing, webapp-testing |
+| **Content & Outreach** | content-engine, writing-skills, doc-coauthoring, internal-comms, brand-guidelines, brainstorming, linkedin-outreach, market-research, investor-materials, strategic-compact, retro, notebooklm |
+| **Automation** | n8n-mcp-integration, n8n-patterns, supabase-patterns, ai-integration, skool-automation |
+| **Creative** | frontend-design, canvas-design, algorithmic-art, theme-factory, web-artifacts-builder, slack-gif-creator |
 | **Files** | pdf, docx, pptx, xlsx |
 | **Security** | security-protocol, using-superpowers |
-| **CLI & Integration** | **cli-anything** (universal CLI generation from any software/API) |
-| **Meta** | slack-gif-creator |
+| **CLI & Integration** | cli-anything |
+| **Meta** | skill-creator, mcp-builder, using-superpowers |
 
 ## External Services (No MCP)
 
@@ -169,7 +171,7 @@ Generate agent-native CLI wrappers for any software, API, or service. When MCPs 
 | Remotion | 4.0.431 | Programmatic video/animation generation |
 
 Pipeline script: `scripts/edit_content.py` — probe, transcribe, voiceover, edit
-Agent: `agents/video-editor.md` | Command: `/edit-video`
+Agent: `agents/video-editor.md` (no dedicated workflow — invoke via content pipeline)
 
 ## Tech Stack
 

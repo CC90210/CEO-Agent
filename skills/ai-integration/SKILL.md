@@ -1,6 +1,9 @@
 ---
 name: ai-integration
 description: Use this skill whenever the user mentions AI integration, LLM usage, prompting, adding AI to a workflow, or configuring AI models. This covers all patterns, best practices, and node configurations for AI.
+triggers: [AI integration, LLM, prompting, AI model, AI workflow, embedding, vector]
+tier: specialized
+dependencies: []
 ---
 
 # AI Integration Patterns — Skill Reference

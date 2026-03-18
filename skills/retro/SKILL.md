@@ -1,6 +1,9 @@
 ---
 name: retro
 description: Weekly retrospective analysis. Use when CC says "/retro", "weekly retro", "how did we do this week", or "what shipped this week". Analyzes all agent activity, rates 4 operational dimensions, and generates specific improvement actions.
+triggers: [retro, retrospective, weekly retro, what shipped, how did we do]
+tier: specialized
+dependencies: [memory-management]
 ---
 
 # Retro — Weekly Retrospective Engine

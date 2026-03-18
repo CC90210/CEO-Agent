@@ -1,6 +1,9 @@
 ---
 name: sequential-reasoning
 description: Enhanced multi-step reasoning protocol for complex problems. Combines Sequential Thinking MCP with structured analysis frameworks. Use for architecture decisions, root cause analysis, strategic planning, and multi-variable optimization.
+triggers: [complex reasoning, multi-step analysis, architecture decision, strategic planning]
+tier: standard
+dependencies: []
 ---
 
 # Sequential Reasoning Skill

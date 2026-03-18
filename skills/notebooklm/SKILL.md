@@ -1,6 +1,9 @@
 ---
 name: notebooklm
 description: Use this skill whenever the user mentions NotebookLM, Google Notebook LM, ingesting documents for study, generating audio podcasts from docs, or knowledge management via NotebookLM.
+triggers: [NotebookLM, Google Notebook, audio podcast, document study, knowledge management]
+tier: specialized
+dependencies: []
 ---
 
 # NotebookLM Skill

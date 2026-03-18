@@ -1,6 +1,9 @@
 ---
 name: browser-automation
 description: Comprehensive reference for browser automation using Playwright MCP. Use for web research, testing, scraping, form filling, screenshots, and any browser-based interaction. This is the primary browser tool for all Claude Code and Gemini CLI operations.
+triggers: [playwright, browser, navigate, screenshot, click, snapshot, web research, scrape]
+tier: standard
+dependencies: []
 ---
 
 # Browser Automation with Playwright MCP

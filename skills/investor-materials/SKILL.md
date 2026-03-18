@@ -1,6 +1,9 @@
 ---
 name: investor-materials
 description: Use this skill whenever the user mentions creating investor material, pitch decks, executive summaries, funding, or communicating with investors. Contains templates, structure, and tone.
+triggers: [investor, pitch deck, executive summary, funding, raise, investor materials]
+tier: specialized
+dependencies: []
 ---
 
 # Investor Materials Skill
