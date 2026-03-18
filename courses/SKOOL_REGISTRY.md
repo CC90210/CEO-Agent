@@ -86,16 +86,51 @@
 - **Slug:** `agent-command-centers`
 - **Local:** `courses/agency-accelerant-blueprint/agent-command-centers/`
 - **Lessons:** 4
+  - L1: lesson-01-architecture/LESSON.md — Command Center Architecture
+  - L2: lesson-02-multi-agent/LESSON.md — Multi-Agent Orchestration
+  - L3: lesson-03-monitoring/LESSON.md — Real-Time Monitoring & Dashboards
+  - L4: lesson-04-autonomous-pipelines/LESSON.md — Autonomous Decision Pipelines
 
 ### 15. Secure OpenClaw
 - **Slug:** `secure-openclaw`
 - **Local:** `courses/agency-accelerant-blueprint/secure-openclaw/`
 - **Lessons:** 4
+  - L1: lesson-01-security-architecture/LESSON.md — Security-First Agent Architecture
+  - L2: lesson-02-api-key-rotation/LESSON.md — API Key Rotation & Access Controls
+  - L3: lesson-03-production-hardening/LESSON.md — Production Hardening & Deployment Safety
+  - L4: lesson-04-scaling-secure-agents/LESSON.md — Scaling Secure Agents for Clients
 
 ### 16. Live Closes
 - **Slug:** `live-closes`
 - **Local:** `courses/agency-accelerant-blueprint/live-closes/`
 - **Lessons:** 5
+
+### 17. ManyChat Automation (NEW)
+- **Slug:** `manychat-automation`
+- **Local:** `courses/manychat-automation/`
+- **Lessons:** 4
+  - L1: lesson-01-fundamentals/LESSON.md — ManyChat Fundamentals
+  - L2: lesson-02-flow-builder/LESSON.md — Flow Builder Mastery
+  - L3: lesson-03-ai-advanced/LESSON.md — AI Integration & Lead Qualification
+  - L4: lesson-04-agency-deployment/LESSON.md — Agency Deployment & Integrations
+
+### 18. Lead Magnets (NEW)
+- **Slug:** `lead-magnets`
+- **Local:** `courses/lead-magnets/`
+- **Lessons:** 4
+  - L1: lesson-01-fundamentals/LESSON.md — Lead Magnet Fundamentals
+  - L2: lesson-02-creation/LESSON.md — Build Your Lead Magnet & Landing Page
+  - L3: lesson-03-distribution/LESSON.md — Distribution & Email Nurture Sequences
+  - L4: lesson-04-metrics-scaling/LESSON.md — Metrics, Optimization & AI Scaling
+
+### 19. Cron Jobs (NEW)
+- **Slug:** `cron-jobs`
+- **Local:** `courses/cron-jobs/`
+- **Lessons:** 4
+  - L1: lesson-01-fundamentals/LESSON.md — Cron Job Fundamentals
+  - L2: lesson-02-implementation/LESSON.md — Implementation Across Platforms
+  - L3: lesson-03-monitoring/LESSON.md — Monitoring & Reliability
+  - L4: lesson-04-production-patterns/LESSON.md — Production Patterns
 
 ## XP Totals
 
@@ -114,7 +149,10 @@
 | Capstone Project | 1,000 | 14,475 |
 | Agency Fundamentals | 1,400 | 15,875 |
 | Conversion & Fulfillment | 1,400 | 17,275 |
-| Agent Command Centers | 1,400 | 18,675 |
-| Secure OpenClaw | 1,600 | 20,275 |
-| Live Closes | 2,100 | 22,375 |
-| **TOTAL** | **22,375** | — |
+| Agent Command Centers | 1,500 | 18,775 |
+| Secure OpenClaw | 1,300 | 20,075 |
+| Live Closes | 2,100 | 22,175 |
+| ManyChat Automation | 1,100 | 23,275 |
+| Lead Magnets | 1,100 | 24,375 |
+| Cron Jobs | 1,100 | 25,475 |
+| **TOTAL** | **25,475** | — |
