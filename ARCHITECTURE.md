@@ -328,7 +328,7 @@ Three attempts is enough to try the primary and two alternatives. After that, th
 
 ### On-Demand Loading
 
-Skills are not loaded at session start. They are reference documents stored in `skills/[skill-name]/SKILL.md` and loaded only when their domain is relevant. This is critical for context management — loading all 50 skills at session start would consume most of the context budget before the task even begins.
+Skills are not loaded at session start. They are reference documents stored in `skills/[skill-name]/SKILL.md` and loaded only when their domain is relevant. This is critical for context management — loading all 55 skills at session start would consume most of the context budget before the task even begins. Each skill has YAML frontmatter (name, description, triggers, tier, dependencies) enabling progressive 3-tier loading per `skills/SKILL_LOADING.md`.
 
 Skills are activated by:
 - Explicit triggers (`/debug` command → loads `systematic-debugging/SKILL.md`)
