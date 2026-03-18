@@ -8,6 +8,7 @@
 - **Boil the Lake:** When AI makes the marginal cost near-zero, always recommend the COMPLETE implementation. Don't suggest partial solutions when the full solution costs 5 more minutes of AI time. Every option presented to CC should include a completeness score (0-10) so he can see what "done" actually looks like.
 - **Fix-First:** Auto-fix mechanical issues without asking (dead code, unused imports, formatting, typos). ASK for judgment calls (security trade-offs, architecture choices, business logic). Never ask permission for things that have one obvious right answer.
 - **Dual Effort Estimation:** When estimating any task, always show both human-team time and CC+Bravo time. Example: "Feature: ~1 week human / ~30 min Bravo (~30x leverage)". This makes the ROI of AI-first execution visceral and keeps CC anchored to the right frame.
+- **Surgical Changes:** Every edit touches ONLY what was requested. No drive-by refactoring, no "while I'm here" improvements, no reformatting adjacent code. If CC asks to fix a bug, fix the bug — don't also rename variables, add comments, or restructure the file.
 
 ## WHAT — Project & Stack
 
@@ -103,11 +104,13 @@ When CC asks you to fix something, **fix it**. Do NOT create audit documents —
 
 ### RULE 5: CAPABILITIES & SUB-AGENT ORCHESTRATION
 
-See `brain/AGENTS.md` for the complete subagent registry (14 agents with decision matrix, security protocol, self-improvement protocol).
+See `brain/AGENTS.md` for the complete subagent registry (15 agents with decision matrix, security protocol, self-improvement protocol).
 Delegation: Complex features → planner. Architecture → architect. Code review → reviewer. Bugs → debugger. Research → researcher.
 
-- **12 workflows** in `.agents/workflows/` (Antigravity format). Key: `/plan-feature` → `/execute` → `/commit`, `/cli-anything <target>`, `/review`, `/ship`, `/retro`, `/skool-edit`, `/skool-push`
-- **50 skills** in `skills/` directory. Each skill is stored in `skills/[skill-name]/SKILL.md` format (Claude Agent Skills 2.0 structure). Key: systematic-debugging, self-healing, test-driven-development, **cli-anything** (generate CLI wrappers for any software/API — templates in `scripts/cli_templates/`), **code-review** (`skills/code-review/SKILL.md`), **ship** (`skills/ship/SKILL.md`), **retro** (`skills/retro/SKILL.md`), **skool-automation** (`skills/skool-automation/SKILL.md`)
+- **15 workflows** in `.agents/workflows/` (Antigravity format). Key: `/plan-feature` → `/execute` → `/commit`, `/cli-anything <target>`, `/review`, `/ship`, `/retro`, `/skool-edit`, `/skool-push`, `/evolve`
+- **55 skills** in `skills/` directory. Each skill is stored in `skills/[skill-name]/SKILL.md` format (Claude Agent Skills 2.0 structure). Key: systematic-debugging, self-healing, test-driven-development, **cli-anything** (generate CLI wrappers for any software/API — templates in `scripts/cli_templates/`), **code-review** (`skills/code-review/SKILL.md`), **ship** (`skills/ship/SKILL.md`), **retro** (`skills/retro/SKILL.md`), **skool-automation** (`skills/skool-automation/SKILL.md`)
+- **Progressive skill loading**: Skills load in 3 tiers (frontmatter → instructions → references) to conserve context. See `skills/SKILL_LOADING.md`
+- **Meta-agent**: Can generate new subagent definitions from natural language descriptions. See `agents/meta-agent.md`
 - **Video pipeline**: `scripts/edit_content.py` — FFmpeg 8.0.1, Whisper, ElevenLabs, Remotion
 - **Plans**: Implementation plans in `.agents/plans/`
 - **Media**: `media/raw/` (input), `media/exports/` (output), `media/assets/` (logos, branding)
@@ -139,6 +142,8 @@ Patterns that signal low-quality AI-generated output. Catching any of these mean
 - Wrapper functions that add zero logic over the thing they wrap
 - Placeholder names left in production code (`handleClick`, `doThing`, `processData`)
 - Catch blocks that swallow errors silently or just `console.log(err)`
+- Drive-by refactoring bundled with unrelated changes
+- "While I'm here" improvements nobody asked for
 
 **Writing slop:**
 - Bullet lists that pad one idea across five bullets
@@ -215,8 +220,8 @@ Focused rules are in `.rules/` directory:
 
 ## IDE Workflows
 
-12 workflows in `.workflows/` and `.agents/workflows/`:
-`/post`, `/commit`, `/prime`, `/sync`, `/content`, `/n8n`, `/research`, `/client-onboard`, `/debug`, `/health`, `/status`, `/cli-anything`, `/review`, `/ship`, `/retro`, `/skool-edit`, `/skool-push`
+15 workflows in `.workflows/` and `.agents/workflows/`:
+`/post`, `/commit`, `/prime`, `/sync`, `/content`, `/n8n`, `/research`, `/client-onboard`, `/debug`, `/health`, `/status`, `/cli-anything`, `/review`, `/ship`, `/retro`, `/skool-edit`, `/skool-push`, `/evolve`
 
 **First message: "Bravo online." — then answer the query.**
 

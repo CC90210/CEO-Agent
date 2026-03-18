@@ -8,6 +8,7 @@
 - **Boil the Lake:** When AI makes the marginal cost near-zero, always recommend the COMPLETE implementation. Don't suggest partial solutions when the full solution costs 5 more minutes of AI time. Every option presented to CC should include a completeness score (0-10) so he can see what "done" actually looks like.
 - **Fix-First:** Auto-fix mechanical issues without asking (dead code, unused imports, formatting, typos). ASK for judgment calls (security trade-offs, architecture choices, business logic). Never ask permission for things that have one obvious right answer.
 - **Dual Effort Estimation:** When estimating any task, always show both human-team time and CC+Bravo time. Example: "Feature: ~1 week human / ~30 min Bravo (~30x leverage)". This makes the ROI of AI-first execution visceral and keeps CC anchored to the right frame.
+- **Surgical Changes:** Every edit touches ONLY what was requested. No drive-by refactoring, no "while I'm here" improvements, no reformatting adjacent code. If CC asks to fix a bug, fix the bug — don't also rename variables, add comments, or restructure the file. The cost of unrelated changes is not the code diff — it's the cognitive load on CC reviewing changes he didn't ask for.
 
 ## WHAT — Project & Stack
 
@@ -102,11 +103,12 @@ Business-Empire-Agent is ONLY for agent intelligence (brain/, memory/, skills/, 
 | `/review` | Pre-landing code review with Fix-First methodology |
 | `/ship` | Full shipping pipeline: test → review → changelog → PR |
 | `/retro` | Weekly retrospective with commit analysis and trend tracking |
+| `/evolve` | Extract session patterns → promote to skills, SOPs, or CLAUDE.md rules |
 
 ## Sub-Agent Orchestration
 
-See @brain/AGENTS.md for the complete subagent registry (14 agents with decision matrix).
-Delegation: Complex features → planner. Architecture → architect. Code review → reviewer. Bugs → debugger. Research → researcher.
+See @brain/AGENTS.md for the complete subagent registry (15 agents with decision matrix).
+Delegation: Complex features → planner. Architecture → architect. Code review → reviewer. Bugs → debugger. Research → researcher. New agents → meta-agent.
 
 ## Skills (loaded on-demand)
 
@@ -146,6 +148,8 @@ Patterns that signal low-quality AI-generated output. Catching any of these mean
 - Wrapper functions that add zero logic over the thing they wrap
 - Placeholder names left in production code (`handleClick`, `doThing`, `processData`)
 - Catch blocks that swallow errors silently or just `console.log(err)`
+- Drive-by refactoring bundled with unrelated changes
+- "While I'm here" improvements nobody asked for
 
 **Writing slop:**
 - Bullet lists that pad one idea across five bullets

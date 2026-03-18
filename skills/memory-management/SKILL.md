@@ -9,6 +9,21 @@ description: MemoryBox system for preventing bloat, scoring confidence, compress
 
 Memory is Bravo's most critical asset. Without active management, memory files grow until they bloat the context window, cause hallucinations, or crash sessions. MemoryBox prevents this.
 
+## Five-Gate Knowledge Filter
+
+Every memory write must pass through all five gates before being stored. Run these in order. Stop at the first gate that fails.
+
+**Gate 1: VALUE** — Does this information change how the agent acts? If not, discard.
+**Gate 2: ALIGNMENT** — Does this fit an existing memory category? If not, is it worth creating one?
+**Gate 3: REDUNDANCY** — Does a memory already capture this? If yes, update existing instead of creating new.
+**Gate 4: FRESHNESS** — Is this time-sensitive? If yes, set a decay trigger. If timeless, mark as stable.
+**Gate 5: PLACEMENT** — Which tier does this belong in? (Tier 1-5). Place it correctly.
+
+The most common outcome of running the Five Gates is: **DO NOTHING.**
+Most observations are not worth persisting. Only write when the information will change future behavior.
+
+---
+
 ## Memory Architecture
 
 ### Tier 1: Brain (Always Loaded)

@@ -21,6 +21,7 @@
 | Revenue strategy, lead hunting | **Revenue Hunter** | Sales outreach, pricing strategy |
 | n8n automation creation | **Workflow Builder** | `/build-workflow`, automation tasks |
 | Documentation updates | **Documenter** | `/update-docs`, post-feature docs |
+| Generate new subagent definitions | **Meta-Agent** | "I need an agent that...", new capability requests |
 
 ## Subagent Definitions
 
@@ -106,6 +107,12 @@
 - **File:** `agents/documenter.md`
 - **Purpose:** Update documentation, codemaps, and brain files after feature completion.
 - **Principles:** Keep `brain/` files current. Update `CAPABILITIES.md` when tools change.
+
+### 15. Meta-Agent (Agent Generator) [PROBATIONARY]
+- **Model Tier:** Sonnet
+- **File:** `agents/meta-agent.md`
+- **Purpose:** Generate complete subagent definition files from natural language descriptions. Checks for overlap with existing agents before creating a new one.
+- **Principles:** Check AGENTS.md first — don't create duplicates. Reject requests where >50% coverage already exists. Tag all generated agents `[PROBATIONARY]`. Always register in AGENTS.md and update CAPABILITIES.md count.
 
 ## Security Protocol (All Subagents)
 

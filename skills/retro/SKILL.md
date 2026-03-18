@@ -282,6 +282,41 @@ Actions: [N] improvement actions generated
 
 ---
 
+## Insights-to-Rules Pipeline
+
+After the retrospective analysis, run the insights extraction loop:
+
+### Step 1: Pattern Extraction
+For each repeated behavior (positive or negative) found in the retro:
+- If a positive pattern appeared 3+ times → candidate for CLAUDE.md rule
+- If a negative pattern appeared 2+ times → candidate for CLAUDE.md rule or hook
+
+### Step 2: Rule Drafting
+For each candidate, draft a concrete rule:
+- State the behavior to enforce or prevent
+- Include the "why" (what went wrong without this rule)
+- Keep to 1-2 sentences max
+
+### Step 3: Hook Consideration
+For critical rules (security, destructive operations):
+- Can this be enforced via a Claude Code hook instead of an instruction?
+- "An instruction can be forgotten. A hook fires every single time."
+- If yes, draft the hook config for `.claude/settings.local.json`
+
+### Step 4: Integration
+- Append new rules to CLAUDE.md (in the appropriate section)
+- Sync to GEMINI.md and ANTIGRAVITY.md
+- If hook created, add to settings
+- Log the insight and resulting rule in memory/PATTERNS.md
+
+### The Weekly /insights Loop
+Run `/retro` weekly. The insights pipeline runs automatically as part of it.
+Over time, the system's CLAUDE.md becomes a living document that grows
+smarter from every session — not through bloat, but through distilled rules
+that prevent repeated mistakes and encode proven patterns.
+
+---
+
 ## Scheduling Note
 
 Run `/retro` every Sunday or Monday morning before starting the week's first task. A retro that runs mid-week is better than no retro, but the Sunday/Monday rhythm creates the clearest before/after boundary.

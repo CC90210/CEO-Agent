@@ -21,7 +21,7 @@
 
 Models: Gemini 3.1 Pro High/Low, Gemini 3 Flash, Claude Sonnet/Opus 4.6, GPT-OSS 120B Medium
 Entry Point: `ANTIGRAVITY.md` | Config: `.vscode/mcp.json`
-Workflows: `.agents/workflows/` (11 workflows: post, status, health, prime, content, commit, n8n, sync, research, debug, client-onboard)
+Workflows: `.agents/workflows/` (15 workflows: post, status, health, prime, content, commit, n8n, sync, research, debug, client-onboard, cli-anything, skool-edit, skool-push, evolve)
 
 **IMPORTANT — Windows env var pattern:** n8n and Late use `cmd /c wrapper.cmd` scripts (in `scripts/`) that `set` env vars before launching. Direct `env` blocks in JSON configs do NOT work on Windows. See `scripts/n8n-mcp-wrapper.cmd` and `scripts/late-mcp-wrapper.cmd`.
 
@@ -74,7 +74,7 @@ Full routing table with local paths, GitHub URLs, tech stacks: `brain/APP_REGIST
 | Mindset Companion | `APPS/MINDSET COMPANION APP/cc-mindset` | Next.js 16 |
 | On The Hill | `APPS/ON-THE-HILL-WEBSITE` | Vite, React 19 |
 
-## Sub-Agents (14)
+## Sub-Agents (15)
 
 See `brain/AGENTS.md` for the complete registry with orchestration decision matrix.
 
@@ -94,6 +94,7 @@ See `brain/AGENTS.md` for the complete registry with orchestration decision matr
 | writer | Sonnet | Code writing, feature implementation |
 | chief-of-staff | Sonnet | Communication, mission control, outreach |
 | revenue-hunter | Sonnet | Sales strategy, lead nurturing |
+| meta-agent | Sonnet | Generate new subagent definitions from descriptions [PROBATIONARY] |
 
 ## CLI-Anything (Universal CLI Generation)
 
@@ -105,7 +106,7 @@ Generate agent-native CLI wrappers for any software, API, or service. When MCPs 
 - **Existing CLIs:** `supabase_tool.py`, `stripe_tool.py`, `edit_content.py` (already follow this pattern)
 - **Based on:** [HKUDS/CLI-Anything](https://github.com/HKUDS/CLI-Anything) methodology
 
-## Workflows (12 active — `.agents/workflows/`)
+## Workflows (15 active — `.agents/workflows/`)
 
 | Command | Purpose |
 |---------|---------|
@@ -121,8 +122,11 @@ Generate agent-native CLI wrappers for any software, API, or service. When MCPs 
 | /status | Project status report |
 | /sync | End-of-session sync |
 | /cli-anything | Generate CLI wrapper for any software/API/service |
+| /skool-edit | Edit Skool lessons or About page via Playwright |
+| /skool-push | Bulk-push course content to Skool |
+| /evolve | Extract session patterns → promote to skills, SOPs, or CLAUDE.md rules |
 
-## Skills (53)
+## Skills (55)
 
 > **Note:** All skills use the Claude Agent Skills 2.0 structure. They are stored in `skills/[skill-name]/SKILL.md` format. The descriptions inside the frontmatter define their activation triggers.
 

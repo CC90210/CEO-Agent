@@ -141,6 +141,27 @@ If any external tool/SDK/CLI misbehaved:
 
 ## Confidence Scoring Guide
 
+### Confidence Decay (Exponential Model)
+
+Formula: C(t) = C₀ × e^(-λ × t)
+
+Where:
+- C₀ = initial confidence score
+- λ = decay rate (default 0.01 per day)
+- t = days since last verification
+
+Decay rates by category:
+- Business facts (pricing, team, clients): λ = 0.02 (fast decay — business changes quickly)
+- Technical facts (APIs, configs, versions): λ = 0.015 (medium decay)
+- Architectural decisions: λ = 0.005 (slow decay — decisions are durable)
+- Identity/values: λ = 0 (no decay — immutable)
+
+Feedback adjustment: When a fact is re-verified, reset t=0 AND reduce λ by 10% (min 0.001).
+When a fact is contradicted, multiply λ by 2 (max 0.1) — it decays faster.
+
+Example: A client fact (C₀=0.9, λ=0.02) after 30 days:
+C(30) = 0.9 × e^(-0.02 × 30) = 0.9 × 0.549 = 0.494 → dropped to LOW confidence
+
 | Score | Meaning | Source Example | Autonomy Level |
 |-------|---------|----------------|----------------|
 | 0.95-1.0 | Verified fact | CC explicitly stated, confirmed by test | Full autonomy |
