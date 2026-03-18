@@ -4,6 +4,16 @@
 
 ---
 
+### 2026-03-18 — Three new skills created: code-review, ship, retro
+**Change:** Created three production-ready skills for CC's stack. `skills/code-review/SKILL.md`: pre-landing review with Gary Tan's Fix-First methodology, severity tiers (CRITICAL/HIGH/MEDIUM/LOW), full security checklist (secrets, SQLi, XSS, RLS, Stripe webhooks), stack-specific checks (Next.js App Router, Supabase, Stripe, Vercel), AI slop detection for both code and UI, and a structured report format with confidence score. `skills/ship/SKILL.md`: full 9-phase deployment pipeline (sync → build → tests → code review → changelog → version bump → commit → PR → post-ship verification) with AI Effort Compression table concept. `skills/retro/SKILL.md`: weekly retrospective with git log analysis across all 7 app repos, 4-dimension scoring (velocity/quality/memory/coordination), improvement action bank, trend tracking, and automatic PATTERNS.md/MISTAKES.md updates. Updated `brain/CAPABILITIES.md` skills count from 50 to 53.
+**Files:** skills/code-review/SKILL.md, skills/ship/SKILL.md, skills/retro/SKILL.md, brain/CAPABILITIES.md
+**Commit:** pending
+
+### 2026-03-18 — ARCHITECTURE.md created
+**Change:** Wrote comprehensive ARCHITECTURE.md at repo root covering all 12 sections: system overview, 3-interface model, brain mutability tiers, 5-tier memory architecture with confidence scoring and activation scoring, 14-subagent orchestration with model tier selection, 8 MCP servers and wrapper security pattern, Brain Loop 10-step protocol (LATS + Reflexion), skill lifecycle (PROBATIONARY → VALIDATED), security model, cross-AI synchronization via file-based state, 5-dimension self-healing system, and intentionally-not-included design decisions. Written as a deep engineering design document explaining the WHY behind every decision.
+**Files:** ARCHITECTURE.md (new)
+**Commit:** pending
+
 ### 2026-03-18 — Skool Automation System built
 **Change:** Built complete Skool community management system. Created skill (`skills/skool-automation/SKILL.md`) documenting the full Playwright-based lesson/about editing workflow. Created `/skool-edit` and `/skool-push` workflow commands for single and batch content deployment. Created `courses/SKOOL_REGISTRY.md` (master course/lesson map) and URL map collection. Updated About page with 3 testimonials (Marcus T., Sarah K., James R.). Created `courses/IMAGE_PLACEMENT_GUIDE.md` with image suggestions for all 16 courses. Registered new skill and commands in CLAUDE.md.
 **Files:** skills/skool-automation/SKILL.md, .agents/workflows/skool-edit.md, .agents/workflows/skool-push.md, courses/SKOOL_REGISTRY.md, courses/IMAGE_PLACEMENT_GUIDE.md, CLAUDE.md

@@ -122,7 +122,7 @@ Generate agent-native CLI wrappers for any software, API, or service. When MCPs 
 | /sync | End-of-session sync |
 | /cli-anything | Generate CLI wrapper for any software/API/service |
 
-## Skills (50)
+## Skills (53)
 
 > **Note:** All skills use the Claude Agent Skills 2.0 structure. They are stored in `skills/[skill-name]/SKILL.md` format. The descriptions inside the frontmatter define their activation triggers.
 
@@ -132,7 +132,7 @@ Generate agent-native CLI wrappers for any software, API, or service. When MCPs 
 | **Development** | systematic-debugging, TDD, verification, executing-plans, writing-plans, finishing-branch, git-worktrees |
 | **Browser & Testing** | **browser-automation** (Playwright MCP reference), **e2e-testing** (parallel sub-agent E2E), webapp-testing |
 | **Content** | writing-skills, doc-coauthoring, internal-comms, brand-guidelines, brainstorming |
-| **Code** | mcp-builder, skill-creator, subagent-development, parallel-agents, code-review (2) |
+| **Code** | mcp-builder, skill-creator, subagent-development, parallel-agents, code-review (2), **code-review** (pre-landing, Fix-First), **ship** (full deploy pipeline), **retro** (weekly retrospective) |
 | **Automation** | n8n-mcp-integration, n8n-patterns, supabase-patterns, ai-integration |
 | **Creative** | frontend-design, canvas-design, algorithmic-art, theme-factory, web-artifacts |
 | **Files** | pdf, docx, pptx, xlsx |
