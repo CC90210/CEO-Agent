@@ -89,3 +89,15 @@ media/**/*.mp3
 # BROWSER PROFILES (Gemini LinkedIn automation)
 # =============================================
 scripts/linkedin_automation/chrome_profile/
+
+# =============================================
+# SCREENSHOTS (Playwright captures, reference images)
+# =============================================
+tiktik-*.png
+skool-*.png
+e2e-screenshots/
+
+# =============================================
+# VIRTUAL ENVIRONMENTS
+# =============================================
+.venv/

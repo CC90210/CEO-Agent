@@ -1,6 +1,12 @@
 # MISTAKES LOG
 > Every mistake logged with root cause and prevention. Check this BEFORE repeating a task type.
 
+### 2026-03-16 — ta library ADXIndicator crashes on slices smaller than 2*period
+**What happened:** `RSIMeanReversionStrategy` (and any strategy using `adx()`) threw `IndexError: index 14 is out of bounds` during backtesting. The backtesting engine passes growing slices `df.iloc[:i+1]` to each strategy. When the slice had fewer than `2 * period` rows, `ta.trend.ADXIndicator.adx()` crashed with an index-out-of-bounds error inside the ta library itself.
+**Root cause:** The `ta` library's `ADXIndicator` requires at least `2 * window` rows to compute correctly (it needs one full `window` for True Range + another for smoothing). The strategy's `_min_bars` guard was set to `max(periods) + 5 = 25`, but `adx(period=14)` needs `28` rows minimum. The strategy guard fired too late.
+**Fix applied:** Added a `len(df) < 2 * period` guard at the top of `adx()` in `strategies/technical/indicators.py` that returns a NaN-filled DataFrame instead of calling ta. This is safe because all strategies check `.iloc[-1]` against NaN or use `_min_bars` guards that would have already returned `None`.
+**Prevention:** When wrapping `ta` indicators, test with small slices during development. For ADX specifically, always require `>= 2 * period` rows, not just `>= period`. Consider adding similar guards to other multi-pass indicators (ATR, Stochastic RSI) proactively.
+
 ### 2026-03-04 — CLI Newline Escaping & IMAP Sent Sync Failure
 **What happened:** Emails sent via `scripts/send_email.py` from the command line contained literal `\n` characters instead of line breaks, and were not visible in the Gmail "Sent" folder.
 **Root cause:** Shell arguments treat `\n` as a literal string. Additionally, SMTP-only sending does not trigger a sync to the IMAP 'Sent' folder in Gmail.

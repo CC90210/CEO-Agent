@@ -91,6 +91,8 @@ Business-Empire-Agent is ONLY for agent intelligence (brain/, memory/, skills/, 
 | `/commit` | Smart commit with conventional format (`bravo: type — desc`) |
 | `/create-prd` | Generate PRD for client projects |
 | `/cli-anything` | Generate CLI wrapper for any software/API/service |
+| `/skool-edit` | Edit a single Skool lesson or About page via Playwright |
+| `/skool-push` | Batch push content to multiple Skool lessons from local files |
 
 ## Sub-Agent Orchestration
 
@@ -110,6 +112,7 @@ Note: All skills are stored in the Agent Skills 2.0 structure format: `skills/[s
 - SOPs: @skills/sop-breakdown/SKILL.md
 - Memory management: @skills/memory-management/SKILL.md
 - MCP operations: @skills/mcp-operations/SKILL.md
+- Skool automation: @skills/skool-automation/SKILL.md
 
 ## Session Protocol
 

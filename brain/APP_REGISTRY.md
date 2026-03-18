@@ -25,6 +25,8 @@ When CC says "fix [app]", "update [app]", "build [feature] in [app]", "debug [ap
 | **Grape Vine Cottage** | grape vine, grapevine, cottage | `C:\Users\User\APPS\Grape-Vine-Cottage` | CC90210/grapevinecottage | — | Vite, React 18, Shadcn/ui | Vercel |
 | **Mindset Companion** | mindset, lucid | `C:\Users\User\APPS\MINDSET COMPANION APP\cc-mindset` | CC90210/MINDSET-COMPANION-LUCID | — | Next.js 16, React 19 | Vercel |
 | **On The Hill** | on the hill, OTH | `C:\Users\User\APPS\ON-THE-HILL-WEBSITE` | CC90210/ON-THE-HILL | — | Vite, React 19 | — |
+| **Atlas Trading Agent** | atlas, trading agent, trader | `C:\Users\User\APPS\trading-agent` | CC90210/atlas-trading-agent | — | Python 3.11+, CCXT, Claude API, SQLite | — |
+| **TIKTIK** | tiktik, daycare, attendance | `C:\Users\User\APPS\tiktik` | CC90210/tiktik | icgazynsnqyombvkocwb | Next.js 14, TypeScript, Supabase, Tailwind | Vercel (tiktik-psi.vercel.app) |
 
 
 ## App Context Files

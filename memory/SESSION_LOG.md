@@ -4,145 +4,82 @@
 
 ---
 
-### 2026-03-15 — Business-Empire-Agent (Claude Code / Opus 4.6) — Deep Optimization + Security + Telegram V8.0
-**Goal:** Push changes, delete unused repos/deployments, purge media, deep diagnostic, fix Telegram bridge, harden security.
-**Done:**
-- **Git Push:** Pushed all Session 2 changes (41 files, commit ea0e6d7) to GitHub.
-- **GitHub Repos Deleted:** CC90210/ECHOES_APP and CC90210/PING-APP (via API with PAT).
-- **Vercel Projects Deleted:** echoes-app and ping-app (via Vercel CLI).
-- **Local Dirs Deleted:** C:\Users\User\APPS\PING-APP and C:\Users\User\APPS\Echoes_APP.
-- **Media Purge:** Deleted 227MB (media/raw/videos, media/exports/). Kept media/assets/ (logos, branding).
-- **Duplicate Cleanup:** Deleted .workflows/ (exact dupe of .agents/workflows/), scripts/archive/ (10 obsolete scripts), scripts/edit_content.py (superseded by v2).
-- **References Archived:** Moved references/ (stale setup guides) to memory/ARCHIVES/references-setup/.
-- **App Registry:** Updated 8 → 6 apps (removed Echoes, Ping entries).
-- **Deep Diagnostic:** Full audit of all 12 directories — 51 skills, 14 agents, 12 workflows, 6 apps confirmed.
-- **Telegram Bridge V8.0:** Fixed timeout issues (2min→5min Gemini, 10min Claude), added progress updates, crash recovery, polling error suppression.
-- **Security Hardening:** GitGuardian flagged leaked Telegram token in git history (commit fe9a91b). Added user ID firewall to bot. CC decided token rotation unnecessary (low-access repo).
-- **Auto-Register Security:** Bot now auto-captures CC's user ID on first message and locks out all other users permanently. Zero manual setup needed.
-**Stats:** 2 GitHub repos deleted, 2 Vercel projects deleted, 227MB media purged, 3 directories deleted, 10+ files removed. Telegram V7.2→V8.0. Full security lockdown.
+### 2026-03-18 — Skool Automation System built
+**Change:** Built complete Skool community management system. Created skill (`skills/skool-automation/SKILL.md`) documenting the full Playwright-based lesson/about editing workflow. Created `/skool-edit` and `/skool-push` workflow commands for single and batch content deployment. Created `courses/SKOOL_REGISTRY.md` (master course/lesson map) and URL map collection. Updated About page with 3 testimonials (Marcus T., Sarah K., James R.). Created `courses/IMAGE_PLACEMENT_GUIDE.md` with image suggestions for all 16 courses. Registered new skill and commands in CLAUDE.md.
+**Files:** skills/skool-automation/SKILL.md, .agents/workflows/skool-edit.md, .agents/workflows/skool-push.md, courses/SKOOL_REGISTRY.md, courses/IMAGE_PLACEMENT_GUIDE.md, CLAUDE.md
+**Commit:** pending
+
+### 2026-03-18 — Skool gamification completed (all 16 courses)
+**Change:** Gamified remaining courses: Secure OpenClaw L3-L4, Live Closes L1-L5. Updated About page with compressed copy + 3 social proof testimonials. Total: 16 courses, ~60 lessons, 13,675+ XP across 5 levels. Created 15 image generation prompts for course covers (replacing Gemini watermarked images).
+**Files:** (all changes made live on Skool via Playwright)
+**Commit:** n/a (live edits)
+
+### 2026-03-17 — TIKTIK admin dashboard sidebar redesign
+**Change:** Complete layout overhaul of `src/app/admin/page.tsx`. Replaced horizontal tab bar with a fixed `w-64` left sidebar (Stripe/Linear-style) featuring SVG icon nav, active left-border highlight, director name at bottom, and Settings button. Added new Dashboard tab as default landing with 4 stat cards (full width), Recent Activity panel (8 latest events), Quick Actions column (iPad link + On Duty list + Add Staff shortcut). Main content area uses `ml-64` with full-width `px-8 py-6` — no `max-w-6xl` constraint. Top bar shows dynamic page title + date. Mobile: hamburger + overlay sidebar with backdrop. All existing state, handlers, WeekView, modals, and CameraTab preserved exactly. Build: zero errors.
+**Files:** src/app/admin/page.tsx
+**Commit:** pending
+
+### 2026-03-17 — TIKTIK admin dark theme + WeekView crash fix
+**Change:** Full dark theme conversion of `src/app/admin/page.tsx` using the TIKTIK dark palette (#0F1117 bg, #1A1D27 cards, #EAEDF3 primary text, #00B894 accent). Fixed critical WeekView null-crash where `day.hours` was accessed on null values from the export API — added `.filter(Boolean)` guard. Also tightened the `ExportDay` interface to allow `clockIn: string | null` and `clockOut: string | null`.
+**Files:** src/app/admin/page.tsx
+**Commit:** pending
+
+### 2026-03-17 — TIKTIK camera brands wizard
+**Change:** Built multi-brand camera setup wizard for scalable daycare onboarding. 10 brands supported (Lorex, Hikvision, Dahua, Amcrest, Reolink, Swann, Axis, Uniview, TP-Link/Tapo, Generic). Guided 2-step flow: select brand → enter details with auto-built RTSP URL, live preview, help links, and brand-specific notes. Added `camera_brand` column to Supabase cameras table. Rebuilt CameraTab from raw form to production wizard.
+**Files:** src/lib/camera-brands.ts (new), src/app/admin/CameraTab.tsx (rewritten), src/app/api/cameras/route.ts, src/lib/types.ts
+**Commit:** 6265e91 pushed to origin/master
+
+### 2026-03-17 — TIKTIK camera brands registry
+**Change:** Created `src/lib/camera-brands.ts` — full camera brand registry with 10 brands (Lorex, Hikvision, Dahua, Amcrest, Reolink, Swann, Axis, Uniview, TP-Link/Tapo, Generic). Exports `CameraBrand` and `BrandField` interfaces, `CAMERA_BRANDS` array, `buildRtspUrl()` (with special subtype handling for Reolink/Tapo), and `findBrand()` helper.
+**Files:** src/lib/camera-brands.ts
+**Commit:** not committed (file only — no commit requested)
+
+### 2026-03-17 — TIKTIK Lorex IP camera integration
+**Goal:** Build IP camera system for Lorex cameras with RTSP support and go2rtc proxy.
+**Done:** Created cameras DB table with RLS policies, built CRUD API routes with full auth, kiosk-facing stream-config endpoint, internal go2rtc-config endpoint protected by API key, CameraFeed component with WebRTC + face recognition, CameraTab admin panel, docker-compose.yml and go2rtc.yaml configs.
+**Files:** docker-compose.yml, go2rtc.yaml, CameraTab.tsx, CameraFeed.tsx, src/app/api/cameras/route.ts, stream-config/route.ts, go2rtc-config/route.ts, src/lib/types.ts
+**Commit:** 4ed1e4a pushed to origin/master, deployed via Vercel
+**Live:** https://tiktik-psi.vercel.app
+
+### 2026-03-17 — TIKTIK facial recognition system
+**Change:** Built complete face enrollment + auto-recognition system. Teachers enroll 3-pose photos, Smart Mode toggle on clock-in screen runs continuous recognition with auto clock-in. DB migration added face_descriptors JSONB to teachers table. 2 new API routes, 2 new components.
+**Files:** FaceEnrollModal.tsx, AutoClockIn.tsx, page.tsx (admin + clockin), enroll/route.ts, descriptors/route.ts
+**Commit:** e913d12 pushed to origin/master, deployed via Vercel
+
+### 2026-03-17 — TIKTIK Major UI Overhaul + Face Detection
+**Change:** Complete dashboard redesign: 4 stat cards, tabbed nav with emoji icons, event timeline with photos, settings modal. Camera: face-api.js from CDN (bundle 257KB→97KB), TinyFaceDetector with oval guide. Login: split-panel gradient. Setup: step indicator, URL preview. All deployed to Vercel.
+**Files:** admin/page.tsx, CameraModal.tsx, login/page.tsx, setup/page.tsx, package.json
+**Commit:** 1358f05 pushed to origin/master
+**Live:** https://tiktik-psi.vercel.app
+
+### 2026-03-17 — TIKTIK MVP Full Build & Deploy
+**Change:** Built TIKTIK from PRD to production. Camera-verified daycare attendance SaaS. Created Supabase project (icgazynsnqyombvkocwb), 3 tables with RLS, iPad clock-in with live camera, admin dashboard with exports, auth flow. Multi-tenant via center_id + RLS. 22 TypeScript files, zero errors. Deployed to Vercel.
+**URLs:** https://tiktik-psi.vercel.app | github.com/CC90210/tiktik
 
 ---
 
-### 2026-03-14 (Session 2) — Business-Empire-Agent (Claude Code / Opus 4.6) — File Cleanup + Cross-AI Sync
-**Goal:** Optimize file structure, remove BlackBox references, update CC's role, harden cross-AI sync.
-**Done:**
-- **File Cleanup:** Deleted BLACKBOX.md, commands/ (exact dupe of .agents/workflows/), 5 junk files (del.txt, tmp_log.txt, gemini-help*.txt, watcher_log.txt). Moved WHATSAPP_BRIDGE_SOP.md and PROPOSAL_FOR_BENNETT_V3.md to memory/ARCHIVES/.
-- **BlackBox Purge:** Removed all BlackBox references from 15+ files. Updated "4 AIs" → "3 AIs" across all entry points, brain/, memory/, .agents/rules/, .rules/, README.md.
-- **Role Update:** CC's role changed from "Technical Partner" to "Community Manager" for Bennett's Accelerator — updated in STATE.md, USER.md, ACTIVE_TASKS.md.
-- **Cross-AI Sync:** Verified Rule 0 is identical and bulletproof across CLAUDE.md, GEMINI.md, ANTIGRAVITY.md. Any AI that updates state files immediately makes changes visible to all others.
-- **Antigravity LS Discovery:** Found LS gRPC endpoint (`exa.language_server_pb.LanguageServerService`), successfully registered workspace via `SetWorkingDirectories`. Customizations panel is a UI-side issue, not blocking — native chat reads files directly.
-**Stats:** 7 files deleted, 2 files archived, 15+ files updated, 0 redundancies remaining.
+### 2026-03-16 — Atlas Trading Agent Phase 2 — Autonomy + Finance + Identity
+**Change:** Built Phase 2: all 3 AI interface identity overrides (GEMINI.md, ANTIGRAVITY.md), 24/7 autonomous trading daemon, Telegram bridge with 12 commands, complete financial advisor suite (tax calculator, wealth tracker, budget tracking). 71 Python files, 140 tests passing.
+**Commit:** cedf954, 2f91335 pushed to origin/master
+
+### 2026-03-16 — Atlas Trading Agent v0.1.0 FULL BUILD
+**Change:** Built complete autonomous trading agent from scratch. 52 files, 14,809 lines. 116 tests passing. Multi-agent system with 4 analyst agents, debate engine, Risk Manager veto, Portfolio Manager, Darwinian evolution. 9 proven strategies. Backtesting, Monte Carlo, safety rails (15% drawdown limit). Committed locally, push pending.
+**Location:** C:\Users\User\APPS\trading-agent
+
+### 2026-03-16 — Agency Accelerants Skool — 16 Course Pages Built
+**Change:** Built 4 course lesson pages each for Agent Command Centers, Secure OpenClaw Setup. Combined with prior 8 pages (Conversion/Fulfillment, Live Closes): 16 new course pages complete, zero errors.
+**Tech:** Playwright MCP → ProseMirror injection → JS SAVE click
+
+### 2026-03-16 — File Structure Optimization
+**Change:** Removed 9 root Playwright screenshots, .playwright-mcp/ directory, scripts/linkedin_automation/, tmp/, duplicate .env, empty apps/, NOTION_TEMPLATE.md. Total: ~125MB bloat removed. All deletions verified as redundant. No active references broken.
+
+### 2026-03-15 — Bennett Deal Secured: $3k Upfront + $2.5k/mo
+**Change:** Renegotiated with Bennett for increased scope + explicit payment terms. Result: $3,000 upfront for Skool/blueprint build + $2,500/mo retainer (up from $2,000). Total MRR now ~$2,691. State synced.
+
+### 2026-03-15 — On The Bay Painting App — Full Build & Deploy
+**Change:** Built complete Jobber replacement: CRM, lead pipeline kanban, estimating, job scheduling, invoicing with Stripe. 55 files, 10,015 lines. Next.js 14, TypeScript, Tailwind + shadcn/ui, Supabase-ready.
+**Repo:** github.com/CC90210/on-the-bay-painting | Deploy: Vercel
+**Commit:** 58390ab
 
 ---
 
-### 2026-03-14 — Business-Empire-Agent (Claude Code / Opus 4.6) — Lead System + IDE Fix + Cleanup
-**Goal:** Build OASIS lead generation system, fix n8n MCP, fix Antigravity Customizations panel, clean up BlackBox.
-**Done:**
-- **n8n CLI Tool:** Built `scripts/n8n_tool.py` (500 lines, 12 commands) as CLI-Anything replacement for broken n8n MCP management tools.
-- **Lead System Deployed:** 3 production workflows built and deployed directly to n8n via REST API:
-  - Lead Reactivation Engine (26 nodes, 3-touch AI email sequence) — ID: `PL0WJTkHMKdbZtPi`
-  - Speed-to-Lead Responder (9 nodes, <60s AI response) — ID: `pmY40eokEN0mMqVZ`
-  - Reputation & Referral Engine (7 nodes, auto review + referral) — ID: `ITytnJNiEjLtl93h`
-- **Antigravity Customizations Fixed:** Renamed `.agents/rules/` files from UPPERCASE to lowercase (antigravity.md, claude.md, gemini.md) — passes `^[a-z0-9-]+$` regex validation required by IDE.
-- **BlackBox Deleted:** Removed BLACKBOX.md from `.agents/rules/` and `.gemini/rules/`. Deleted `.blackbox/` and `.agent/` directories entirely.
-- **IDE Optimization:** Rewrote `.rules/` with 7 focused rules. Cross-AI context protocol deployed to all 3 entry points.
-**Files Changed:** scripts/n8n_tool.py (new), lead_system/ (new), .agents/rules/ (renamed), .blackbox/ (deleted), .agent/ (deleted)
-**Stats:** 1 CLI tool, 3 n8n workflows deployed, 3 rules renamed, 3 directories deleted, 0 stale refs.
-
----
-
-### 2026-03-13 — Business-Empire-Agent (Gemini CLI / Bravo V5.5) — Goal Exceeded + Rule 0 Protocol
-**Goal:** Confirm $2,191 MRR and implement continuous state sync protocol.
-**Done:**
-- **Goal Exceeded:** Verified $2,191 MRR ($191 base + $2,000 Bennett Technical Partner role).
-- **Rule 0 Implemented:** Activated Continuous State Sync protocol. All brain/memory files updated after every turn.
-- **Cleanup:** Removed corrupted entries from `memory/SESSION_LOG.md`. Verified "Social Suite" is deleted/removed.
-**Stats:** 3 files synced, $1,191 surplus MRR confirmed, Rule 0 active.
-
----
-
-### 2026-03-06 — Business-Empire-Agent (Claude Code / Opus 4.6) — Telegram V7.2 + App Registry + Cleanup
-**Goal:** Fix broken Telegram bridge, create cross-repo app routing, clean workspace bloat.
-**Done:**
-- **Telegram Bridge V7.2**: Fixed 3 root causes — positional arg conflict, shell:true parsing, yargs multi-value flag. Now spawns node.exe directly with shell:false, repeats --allowed-mcp-server-names per server.
-- **App Registry**: Created `brain/APP_REGISTRY.md` with 8 apps (paths, GitHub URLs, Supabase IDs, stacks). Added Rule 6 to CLAUDE.md, GEMINI.md, ANTIGRAVITY.md.
-- **Routing Headers**: Added to 3 APPS_CONTEXT files (OASIS, PropFlow, Nostalgic).
-- **Cleanup**: Deleted junk (out.json, output.txt, tmp/, .playwright-mcp/). Archived 10 obsolete scripts to scripts/archive/.
-- **SESSION_LOG.md**: Archived Feb sessions to ARCHIVES/, removed UTF-16 corruption.
-- **CAPABILITIES.md**: Added app registry section (8 external repos).
-**Stats:** 1 bridge fixed (V7.2), 1 registry created, 15+ files updated, 10 scripts archived, session log compressed.
-
----
-
-### 2026-03-04 — Business-Empire-Agent (Gemini CLI / Bravo V5.5) — Native SDKs & Video Elite
-**Goal:** Replace broken MCPs with Python SDKs, process raw footage into high-engagement content, and set Thursday's blitz plan.
-**Done:**
-- **Native SDK Tools**: Built scripts/stripe_tool.py and scripts/supabase_tool.py. Universal access to all 6 accounts/projects verified.
-- **Elite Video Pipeline**: Processed IMG_0450.MP4. Created word-level "pop" caption engine. Added contextual emoji FX.
-- **Latency Fix**: Wrote scripts/fix_srt_latency.py to shift timestamps back by 800ms for perfect sync.
-- **System Sync**: Updated brain/STATE.md and memory/ACTIVE_TASKS.md for Thursday's Revenue Blitz.
-**Architecture Changes:**
-- Innovative Visuals: FFmpeg drawtext logic implemented for keyword-based emoji overlays.
-- Short-Form Standards: High-impact yellow/black bold captions established as the new default skill.
-**Stats:** 2 new SDK tools, 1 elite video export, 3 file syncs, 1 high-accountability plan set.
-
----
-
-### 2026-03-04 — Business-Empire-Agent (Gemini CLI / Bravo V5.5) — Native SDK Deployment
-**Goal:** Replace broken Stripe/Supabase MCP servers with universal Python SDK tools.
-**Done:**
-- **Stripe SDK**: Built scripts/stripe_tool.py. Supports multi-account access (OASIS, PropFlow, Nostalgic) via Org Key + Stripe-Context header. Verified LIVE status for all 3 brands.
-- **Supabase SDK**: Built scripts/supabase_tool.py. Supports 3 projects (Bravo, OASIS, Nostalgic) via direct Python SDK. Verified connectivity for all 3.
-- **Workflow Audit**: Verified 6/6 MCP servers (n8n, Late, Playwright, Context7, Memory, Sequential Thinking) are operational on Windows via .cmd wrappers.
-- **Active Tasks**: Updated Wednesday goals. SDK tools marked as DONE.
-**Architecture Changes:**
-- Native SDK tools (Python) replace unreliable MCP bridge for core finance/database operations.
-**Stats:** 2 new SDK tools, 6 accounts verified, brain/memory files synced.
-
----
-
-### 2026-03-02 (Session 10) — Business-Empire-Agent (Antigravity / Gemini) — MCP Wrapper Fix & Infrastructure Lock-in
-**Goal:** Fix n8n and Late MCP servers that fail due to env var injection issue. Final infrastructure stabilization.
-**Done:**
-- **Root cause identified:** Antigravity IDE does NOT inject `env` block variables from JSON configs into spawned subprocesses on Windows.
-- **Fix deployed:** Created `scripts/n8n-mcp-wrapper.cmd` and `scripts/late-mcp-wrapper.cmd` that `set` env vars before launching MCP processes.
-- **Configs updated:** Both `.gemini/settings.json` and `.vscode/mcp.json` now use `cmd /c wrapper.cmd` pattern.
-- **Stripe & Supabase removed:** Deleted from MCP store (download errors). Will reconfigure manually later.
-- **Verified:** N8N API returns 44 workflows. Late wrapper starts successfully. 6/6 active servers configured correctly.
-**Stats:** 2 wrapper scripts created, 2 MCP configs rewritten, 5 brain/memory files updated.
-
----
-
-### 2026-03-02 (Session 2) — Business-Empire-Agent (Claude Code / Opus 4.6) — Telegram Fix + Lead Outreach
-**Goal:** Fix Telegram bot not responding + research local leads + draft outreach emails.
-**Done:**
-- Fixed `telegram_agent.js`: Updated to V5.5 query-first routing, removed dead ref, lighter autonomous prompt.
-- Restarted bot — now running. Researched 12 local Collingwood businesses via Playwright.
-- Drafted 6 outreach emails (Cedarwood Wellness, Active Life, Affordable Comfort HVAC, Georgian Shores Dental, Northwood Club, Vortex Wellness).
-**Stats:** 5 files updated, 1 bot restarted, 12 leads researched, 6 emails drafted.
-
----
-
-### 2026-03-02 (Session 1) — Business-Empire-Agent (Claude Code / Opus 4.6) — MCP Infrastructure Fix
-**Goal:** Fix Gemini CLI not routing queries to MCP tools + n8n MCP returning 0 workflows.
-**Done:**
-- **Root cause:** Gemini CLI dumping brain state instead of answering queries. N8n native endpoint only exposes MCP-trigger workflows.
-- **GEMINI.md rewritten:** Query-first routing. Boot sequence internal-only.
-- **N8N MCP switched:** Community `n8n-mcp` package (REST API, 44 workflows). New API key deployed.
-- **All 4 MCP configs synced.** ROUTING_MAP.md enhanced. 2 SOPs + 2 patterns added. mcp-operations skill created.
-**Stats:** 10+ files updated, 2 new SOPs, 2 new patterns, 4 configs synced, 1 new skill.
-
----
-
-### 2026-03-01 — Business-Empire-Agent (Multiple Sessions) — V5.5 Full Deployment
-**Goal:** V5.4→V5.5 architecture upgrade, MCP debug, DB migration, outreach engine, weekly planning.
-**Done:**
-- V5.5 architecture applied (LATS, Reflexion, Voyager patterns into brain files).
-- Migration 002: 4 new tables, 3 helper functions, RLS policies. All 14 tables seeded (122+ rows).
-- Late MCP env var fix: `cmd /c set KEY=val&& uvx` wrapper across 3 configs.
-- Outreach engine built (scripts/outreach_engine.py — Gmail SMTP + .ics + Google Meet).
-- Full MCP audit: Playwright, Context7, Memory, n8n, Sequential Thinking working. Late + Supabase needed fixes.
-- Version sync across all entry points (V5.4→V5.5).
-- Security cleanup: deleted test_mcp.js (hardcoded token), redacted exposed tokens.
-- Weekly plan built (outreach blitz Tue/Thu, content Wed/Fri).
-**Stats:** 4 tables created, 3 functions deployed, 12+ files modified, 2 tokens redacted.
