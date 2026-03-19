@@ -69,7 +69,7 @@ def get_supabase(env_vars):
 
 def get_smtp_credentials(env_vars):
     """Return (gmail_address, app_password) or print setup instructions and exit."""
-    address = env_vars.get("GMAIL_ADDRESS")
+    address = env_vars.get("GMAIL_ADDRESS") or env_vars.get("GMAIL_USER")
     password = env_vars.get("GMAIL_APP_PASSWORD")
 
     if not address or not password:

@@ -116,7 +116,7 @@
 | TIKTIK IP Camera Deployment | MEDIUM | Midas wants it. Need NVR IP address, credentials, camera channels before final setup. |
 | LinkedIn Auth | HIGH | Need local Chrome auth hookup (linkedin_automation scripts deleted — rebuild when ready) |
 | ElevenLabs Key | ✅ RESOLVED | Key in .env.agents (sk_ce86...bbae376632) |
-| Gmail App Password | MEDIUM | Needed in .env.agents (GMAIL_ADDRESS + GMAIL_APP_PASSWORD) for email_engine.py |
+| Gmail App Password | RESOLVED | GMAIL_USER + GMAIL_APP_PASSWORD already in .env.agents. email_engine.py patched. |
 | On the Bay Painting | LOW | Client on hold — interested but not ready to switch. Revisit in weeks/months. |
 
 ## Last Heartbeat

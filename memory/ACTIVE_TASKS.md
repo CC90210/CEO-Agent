@@ -30,7 +30,7 @@ To reach the new target, we need **~5-6 new OASIS clients** at $400-500 USD/mo r
 - [x] [P0] **MRR Goal Sync** — $5,000 USD Net MRR by May 15 updated across 15+ files
 
 ### Activation (Next Steps)
-- [ ] [P0] **Add Gmail App Password** — CC needs to add GMAIL_ADDRESS + GMAIL_APP_PASSWORD to .env.agents (for email_engine.py)
+- [x] [P0] **Gmail App Password** — Already in .env.agents as GMAIL_USER. email_engine.py patched to read both key names.
 - [x] [P0] **Generate first week's content** — 21 draft entries created for March 20-26 (quote_drop, ceo_log/educational, sobriety_log). Need body text.
 - [ ] [P0] **Fill content body text** — 21 drafts exist in content_calendar, each needs actual post copy. Use `content_engine.py edit <id> --body '...'`
 - [ ] [P0] **Import remaining leads to CRM** — 3 added (Bennett, Cedarwood, Vortex). 47+ more from research pipeline to import.
