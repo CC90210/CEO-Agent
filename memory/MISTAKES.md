@@ -1,6 +1,12 @@
 # MISTAKES LOG
 > Every mistake logged with root cause and prevention. Check this BEFORE repeating a task type.
 
+### 2026-03-19 — scheduler.py subprocess.run cp1252 UnicodeDecodeError on Windows
+**What happened:** `bravo-scheduler` (PM2) restarted 4 times. `Monthly Metrics Snapshot` cron job was logging `FAILED (exit 1): UnicodeEncodeError: 'charmap' codec can't encode character '\u2500'`. `scheduler.py`'s `run_script()` used `subprocess.run(..., text=True)` without specifying encoding. On Windows, `text=True` defaults to the system locale encoding (`cp1252`), which cannot represent Unicode box-drawing characters printed by `revenue_engine.py` and `stripe_tool.py`.
+**Root cause:** `subprocess.run(text=True)` on Windows uses `locale.getpreferredencoding()` = cp1252. Child scripts printing `\u2500` (─), `\u2014` (—), checkmarks (`\u2705`), etc. cause a decode failure in the parent process.
+**Fix applied:** Added `encoding="utf-8"` to the `subprocess.run()` call in `run_script()` (`scripts/scheduler.py` line 181).
+**Prevention:** Any `subprocess.run(text=True)` on Windows MUST include `encoding="utf-8"` explicitly. Apply this rule to all future subprocess wrappers in this project.
+
 ### 2026-03-16 — ta library ADXIndicator crashes on slices smaller than 2*period
 **What happened:** `RSIMeanReversionStrategy` (and any strategy using `adx()`) threw `IndexError: index 14 is out of bounds` during backtesting. The backtesting engine passes growing slices `df.iloc[:i+1]` to each strategy. When the slice had fewer than `2 * period` rows, `ta.trend.ADXIndicator.adx()` crashed with an index-out-of-bounds error inside the ta library itself.
 **Root cause:** The `ta` library's `ADXIndicator` requires at least `2 * window` rows to compute correctly (it needs one full `window` for True Range + another for smoothing). The strategy's `_min_bars` guard was set to `max(periods) + 5 = 25`, but `adx(period=14)` needs `28` rows minimum. The strategy guard fired too late.

@@ -178,6 +178,7 @@ def run_script(script_name: str, args: list[str], timeout: int = 120) -> str:
         cmd,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=timeout,
         cwd=str(PROJECT_ROOT),
     )

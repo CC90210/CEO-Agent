@@ -4,6 +4,11 @@
 
 ---
 
+### 2026-03-19 — Scripts Diagnostic + scheduler.py Unicode Fix (Claude Code, Sonnet 4.6)
+**Change:** Full diagnostic on all 13 .py scripts in scripts/. 12/13 compile OK (edit_content.py missing — expected, replaced by edit_content_v2.py). Fixed `UnicodeDecodeError` in `scheduler.py` `run_script()`: `subprocess.run` used `text=True` without `encoding="utf-8"`, causing cp1252 failures on Windows when child scripts printed Unicode chars (e.g., `\u2500` box-drawing in revenue_engine.py). Added `encoding="utf-8"` to the subprocess call. Two live cron job issues found: Monthly Metrics Snapshot was failing with this exact error; Stripe Revenue Sync had a 401 from a stale key (now resolved, key is current). All 9 main engines load and respond to --help correctly. bravo-scheduler (PM2 id=0) restarted 4 times — due to cron Unicode crashes before this fix.
+**Files:** scripts/scheduler.py (line 181 — encoding="utf-8" added)
+**Commit:** pending
+
 ### 2026-03-19 — Python Automation Engines: Skool Course Created (Claude Code, Sonnet 4.6)
 **Change:** Built 4 complete Skool lesson HTML files for the new "Python Automation Engines" course, replacing the old "ManyChat Automation" course. All files follow Tiptap-compatible HTML format (h2, h3, p, strong, em, code, hr, blockquote — no div/span/table/img). Full gamification with XP rewards (100/150/175/200 = 625 total), level progression L0→L3, and all 8 callout types.
 **Files:** courses/python-engines/lesson-01-engine-pattern.html, lesson-02-crm-lead-engine.html, lesson-03-email-booking-content.html, lesson-04-autonomous-stack.html
