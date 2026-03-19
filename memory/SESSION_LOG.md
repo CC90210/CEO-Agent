@@ -4,6 +4,11 @@
 
 ---
 
+### 2026-03-19 — Content Auto-Posting Pipeline (Session 2)
+**What:** Built autonomous content publishing bridge. Created `scripts/late_publisher.py` that reads due content from Supabase content_calendar and publishes directly via Late SDK (no MCP session needed). Updated `scheduler.py`'s `run_content_post()` to call it instead of the old stub that just reported what was due. Also committed the debugger's encoding="utf-8" fix for scheduler subprocess.
+**Result:** Full autonomous content pipeline now live: Sunday week-plan → 21 scheduled drafts → auto-publish when due → mark posted → Telegram notify. First posts go live March 20 at 9am ET.
+**Commits:** `4fa58b3` (encoding fix), `a233385` (auto-posting feature)
+
 ### 2026-03-19 — Scripts Diagnostic + scheduler.py Unicode Fix (Claude Code, Sonnet 4.6)
 **Change:** Full diagnostic on all 13 .py scripts in scripts/. 12/13 compile OK (edit_content.py missing — expected, replaced by edit_content_v2.py). Fixed `UnicodeDecodeError` in `scheduler.py` `run_script()`: `subprocess.run` used `text=True` without `encoding="utf-8"`, causing cp1252 failures on Windows when child scripts printed Unicode chars (e.g., `\u2500` box-drawing in revenue_engine.py). Added `encoding="utf-8"` to the subprocess call. Two live cron job issues found: Monthly Metrics Snapshot was failing with this exact error; Stripe Revenue Sync had a 401 from a stale key (now resolved, key is current). All 9 main engines load and respond to --help correctly. bravo-scheduler (PM2 id=0) restarted 4 times — due to cron Unicode crashes before this fix.
 **Files:** scripts/scheduler.py (line 181 — encoding="utf-8" added)
@@ -224,4 +229,3 @@
 **Commit:** 58390ab
 
 ---
-

@@ -1,6 +1,6 @@
 # STATE — Current Operational State
 
-> Updated 2026-03-19 | Instagram DM automation LIVE via Playwright engine. All 8 business engines operational (scheduler, email, lead, revenue, content, booking, outreach, instagram). ManyChat replacement complete.
+> Updated 2026-03-19 | Content auto-posting pipeline LIVE. All 8 business engines operational (scheduler, email, lead, revenue, content, booking, outreach, instagram). Full autonomous loop: week-plan → scheduled drafts → auto-publish.
 
 ## Operational Status
 
@@ -9,8 +9,8 @@
 | **Version** | V5.5 | Self-Evolving Super-Intelligence (Bravo) |
 | **Position**| ACTIVE | Community Manager for Bennett's Agency Accelerator |
 | **Confidence** | 0.98 | Goal exceeded. Rule 0 Protocol active. |
-| **Focus Area** | **INSTAGRAM AUTOMATION LIVE** | Playwright-based DM engine deployed. Check-dms identifies unread messages, sends auto-replies in CC's voice. All 8 business engines operational: scheduler, email, lead, revenue, content, booking, outreach, instagram. |
-| **Energy** | MAXIMUM | Instagram automation tested and verified live. Auto-reply sent to @jackgarbutt17 at 5:33 PM. PC sleep disabled. Auto-start on login configured. ManyChat replacement complete. |
+| **Focus Area** | **CONTENT AUTO-POSTING LIVE** | `late_publisher.py` reads Supabase content_calendar, publishes due posts via Late SDK. Full autonomous loop: Sunday week-plan → 21 scheduled drafts → auto-publish when due → mark posted → Telegram notify. First posts go live March 20 at 9am ET. |
+| **Energy** | MAXIMUM | Content auto-posting deployed and tested. All 8 business engines operational: scheduler, email, lead, revenue, content, booking, outreach, instagram. PC sleep disabled. Auto-start on login configured. |
 | **Memory Health** | EXCELLENT | Repo cleaned — 125MB bloat removed, zero redundancy. |
 
 ## North Star: $5,000 USD Net MRR by May 15, 2026
@@ -47,6 +47,7 @@
 | **Email Engine** | ✅ LIVE | `email_engine.py` — Gmail SMTP, templates, nurture sequences (needs GMAIL_APP_PASSWORD) |
 | **Booking System** | ✅ LIVE | `booking_engine.py` — slot management, self-hosted Cal.com replacement |
 | **Content Calendar** | ✅ LIVE | `content_engine.py` — multi-platform scheduling, templates, week planning |
+| **Content Auto-Posting** | ✅ LIVE | `late_publisher.py` — reads due content from Supabase, publishes via Late SDK, marks posted, notifies via Telegram |
 | **Revenue Dashboard** | ✅ LIVE | `revenue_engine.py` — Stripe sync, MRR tracking, forecasting |
 | **Cron Manager** | ✅ LIVE | `cron_engine.py` — 12 automated business workflows seeded |
 | **Remotion Studio** | ✅ LIVE | `content-studio/` — 4 branded video compositions + 37 Claude AI skills |
@@ -66,6 +67,13 @@
 | Mindset Companion | (staging) | ✅ ACTIVE | Next.js 16, React 19 |
 
 ## Recent Sessions (2026-03-19)
+
+### Content Auto-Posting Pipeline LIVE
+- **Pipeline:** `content_engine.py` (Sunday week-plan) → 21 scheduled drafts → `late_publisher.py` (checks due content every 60s) → Late SDK (publishes) → Supabase mark posted → Telegram notify
+- **Script:** `scripts/late_publisher.py` — reads `content_calendar` table, filters due entries, publishes via Late SDK, marks status=posted, logs results
+- **Integration:** `scheduler.py` `run_content_post()` now calls `late_publisher.py` instead of stub that just reported what was due
+- **First Posts:** Live March 20 at 9am ET (3 daily posts: quote_drop, ceo_log, sobriety_log)
+- **Commits:** `4fa58b3` (encoding fix), `a233385` (auto-posting feature)
 
 ### Instagram DM Automation (ManyChat Replacement) LIVE
 - **Engine:** `scripts/instagram_engine.py` — Production Playwright browser automation for Instagram DM management
@@ -131,6 +139,6 @@
 
 - **Date:** 2026-03-19 (Latest Session)
 - **Agent:** BRAVO via Claude Code (Opus 4.6)
-- **Result:** Instagram DM automation deployed via Playwright engine. All 8 business engines live (scheduler, email, lead, revenue, content, booking, outreach, instagram). ManyChat replacement complete.
+- **Result:** Content auto-posting pipeline deployed. All 8 business engines operational (scheduler, email, lead, revenue, content, booking, outreach, instagram). Full autonomous loop: week-plan → scheduled drafts → auto-publish when due → mark posted → notify.
 
 *Last updated: 2026-03-19*
