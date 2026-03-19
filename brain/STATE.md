@@ -1,6 +1,6 @@
 # STATE — Current Operational State
 
-> Updated 2026-03-19 | MAJOR: Business Operations Engine deployed — 14 new Supabase tables, 6 CLI engines, 5 new skills, 12 cron jobs, Remotion content studio. 60 skills total.
+> Updated 2026-03-19 | Instagram DM automation LIVE via Playwright engine. All 8 business engines operational (scheduler, email, lead, revenue, content, booking, outreach, instagram). ManyChat replacement complete.
 
 ## Operational Status
 
@@ -9,8 +9,8 @@
 | **Version** | V5.5 | Self-Evolving Super-Intelligence (Bravo) |
 | **Position**| ACTIVE | Community Manager for Bennett's Agency Accelerator |
 | **Confidence** | 0.98 | Goal exceeded. Rule 0 Protocol active. |
-| **Focus Area** | **SCHEDULER LIVE** | Autonomous scheduler daemon running via PM2. 12 cron jobs executing on schedule. 6 CLI engines, 14 DB tables, Remotion studio. 60 skills, 16 agents, 15 workflows. |
-| **Energy** | MAXIMUM | Scheduler deployed and running. PC sleep disabled. Auto-start on login configured. Next: rotate expired Stripe key, fill content body text, import remaining leads. |
+| **Focus Area** | **INSTAGRAM AUTOMATION LIVE** | Playwright-based DM engine deployed. Check-dms identifies unread messages, sends auto-replies in CC's voice. All 8 business engines operational: scheduler, email, lead, revenue, content, booking, outreach, instagram. |
+| **Energy** | MAXIMUM | Instagram automation tested and verified live. Auto-reply sent to @jackgarbutt17 at 5:33 PM. PC sleep disabled. Auto-start on login configured. ManyChat replacement complete. |
 | **Memory Health** | EXCELLENT | Repo cleaned — 125MB bloat removed, zero redundancy. |
 
 ## North Star: $5,000 USD Net MRR by May 15, 2026
@@ -50,6 +50,7 @@
 | **Revenue Dashboard** | ✅ LIVE | `revenue_engine.py` — Stripe sync, MRR tracking, forecasting |
 | **Cron Manager** | ✅ LIVE | `cron_engine.py` — 12 automated business workflows seeded |
 | **Remotion Studio** | ✅ LIVE | `content-studio/` — 4 branded video compositions + 37 Claude AI skills |
+| **Instagram Automation** | ✅ LIVE | `instagram_engine.py` — check-dms (identifies unread, notifies CC), send-dm, auto-reply in CC's voice |
 | **App Registry** | ✅ UPDATED | 8 external repos routed via brain/APP_REGISTRY.md |
 
 ## Active Deployments
@@ -65,6 +66,13 @@
 | Mindset Companion | (staging) | ✅ ACTIVE | Next.js 16, React 19 |
 
 ## Recent Sessions (2026-03-19)
+
+### Instagram DM Automation (ManyChat Replacement) LIVE
+- **Engine:** `scripts/instagram_engine.py` — Production Playwright browser automation for Instagram DM management
+- **Commands:** check-dms (reads inbox, identifies unread, notifies via Telegram), send-dm (sends to any user/thread), check-comments, log-dm (Supabase tracking)
+- **Live Test:** Successfully logged into @ccmckennaa, read inbox (8 conversations), identified unread from @jackgarbutt17, sent auto-reply in CC's voice at 5:33 PM
+- **Tech:** Persistent browser context at tmp/ig-browser/, domcontentloaded wait strategy (networkidle times out), JS-based element interaction (avoids stale refs)
+- **Notifications:** CC notified via Telegram for unread DM content + auto-reply confirmation
 
 ### Business Operations Engine (MASSIVE BUILD)
 - **14 new Supabase tables deployed**: leads, lead_interactions, funnels, funnel_entries, email_templates, nurture_sequences, email_log, booking_slots, bookings, revenue_events, monthly_metrics, content_calendar, content_templates, cron_jobs. All RLS enabled.
@@ -123,6 +131,6 @@
 
 - **Date:** 2026-03-19 (Latest Session)
 - **Agent:** BRAVO via Claude Code (Opus 4.6)
-- **Result:** Business Operations Engine — 14 DB tables, 6 engines, 5 skills, 12 cron jobs, Remotion studio. Agent transformed from developer-focused to full business operations platform.
+- **Result:** Instagram DM automation deployed via Playwright engine. All 8 business engines live (scheduler, email, lead, revenue, content, booking, outreach, instagram). ManyChat replacement complete.
 
 *Last updated: 2026-03-19*

@@ -78,6 +78,14 @@ def parse_cron_schedule(schedule: str) -> timedelta | None:
 
     minute, hour, dom, month, dow = parts
 
+    # Every N minutes: */N * * * *
+    if minute.startswith("*/") and hour == "*" and dom == "*" and month == "*" and dow == "*":
+        try:
+            interval_min = int(minute[2:])
+            return timedelta(minutes=interval_min)
+        except ValueError:
+            pass
+
     # Daily jobs: specific hour, * * *
     if dom == "*" and month == "*" and dow == "*":
         return timedelta(hours=24)
@@ -151,6 +159,10 @@ def execute_job(job: dict, env_vars: dict[str, str]) -> str:
             return run_content_planning(env_vars)
         elif action_type == "ig_research":
             return run_ig_research(env_vars)
+        elif action_type == "ig_dm_check":
+            return run_ig_dm_check(env_vars)
+        elif action_type == "email_inbox_check":
+            return run_email_inbox_check(env_vars)
         else:
             return f"unknown_action_type: {action_type}"
     except Exception as exc:
@@ -283,6 +295,16 @@ def run_ig_research(env_vars: dict) -> str:
     return f"DMs: {dm_result[:200]} | Comments: {comment_result[:200]}"
 
 
+def run_ig_dm_check(env_vars: dict) -> str:
+    """Check Instagram DMs every 5 minutes via Playwright browser automation."""
+    return run_script("instagram_engine.py", ["--json", "check-dms"], timeout=90)
+
+
+def run_email_inbox_check(env_vars: dict) -> str:
+    """Check Gmail inbox for unread emails, notify CC, mark as read."""
+    return run_script("email_engine.py", ["--json", "check-inbox"], timeout=60)
+
+
 # ── Main loop ─────────────────────────────────────────────────────────────────
 
 def log(msg: str):
@@ -345,12 +367,22 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
             "monthly_snapshot": "revenue",
             "content_planning": "content",
             "ig_research": "instagram",
+            "ig_dm_check": "instagram",
+            "email_inbox_check": "email",
         }
         cat = category_map.get(action_type, "system")
 
-        # Only notify on meaningful results (not "no content due", empty arrays, etc.)
-        skip_phrases = ["no content due", "[]", "no leads", "no active", "0 need nurture"]
-        is_routine = any(phrase in result_msg.lower() for phrase in skip_phrases)
+        # ONLY notify CC when something ACTIONABLE happened.
+        # Zero-result checks (no new DMs, no new emails, no content due) = silence.
+        # CC said: "I don't need Telegram messages every 5 minutes saying there was nothing."
+        skip_phrases = [
+            "no content due", "[]", "no leads", "no active", "0 need nurture",
+            "no unread", "unread_count\": 0", "unread_count\":0",
+            '"unread_count": 0', '"message": "no unread',
+            "0 unread", "no new", "ok", "checked",
+        ]
+        result_lower = result_msg.lower()
+        is_routine = any(phrase in result_lower for phrase in skip_phrases)
         is_error = "ERROR" in result_msg or "FAILED" in result_msg
 
         if is_error:

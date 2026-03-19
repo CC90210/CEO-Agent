@@ -18,6 +18,9 @@ Usage:
 """
 
 import argparse
+import email
+import email.header
+import imaplib
 import json
 import re
 import smtplib
@@ -26,6 +29,13 @@ from datetime import datetime, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+try:
+    from notify import notify
+except ImportError:
+    def notify(*a, **kw): return False
 
 
 # -- Credentials -------------------------------------------
@@ -681,6 +691,184 @@ def cmd_stats(env_vars, args, output_json=False):
     print(f"  Clicked:       {clicked}  ({click_rate:.1f}% click rate)")
 
 
+# -- IMAP inbox check --------------------------------------
+
+SKIP_SENDERS = ("noreply@", "no-reply@", "mailer-daemon@", "postmaster@")
+IMAP_MAX_EMAILS = 20
+
+
+def _decode_header_value(raw_value):
+    """Decode an email header value to a plain ASCII-safe string."""
+    if raw_value is None:
+        return ""
+    parts = email.header.decode_header(raw_value)
+    decoded = []
+    for part, charset in parts:
+        if isinstance(part, bytes):
+            try:
+                decoded.append(part.decode(charset or "utf-8", errors="replace"))
+            except (LookupError, UnicodeDecodeError):
+                decoded.append(part.decode("utf-8", errors="replace"))
+        else:
+            decoded.append(str(part))
+    result = "".join(decoded)
+    # Strip non-ASCII for Windows cp1252 safety
+    return result.encode("ascii", errors="replace").decode("ascii")
+
+
+def _extract_text_preview(msg, max_chars=200):
+    """Pull the first max_chars of plain-text body from an email.Message object."""
+    preview = ""
+    if msg.is_multipart():
+        for part in msg.walk():
+            if part.get_content_type() == "text/plain":
+                payload = part.get_payload(decode=True)
+                if payload:
+                    charset = part.get_content_charset() or "utf-8"
+                    try:
+                        preview = payload.decode(charset, errors="replace")
+                    except (LookupError, UnicodeDecodeError):
+                        preview = payload.decode("utf-8", errors="replace")
+                    break
+    else:
+        payload = msg.get_payload(decode=True)
+        if payload:
+            charset = msg.get_content_charset() or "utf-8"
+            try:
+                preview = payload.decode(charset, errors="replace")
+            except (LookupError, UnicodeDecodeError):
+                preview = payload.decode("utf-8", errors="replace")
+
+    # Collapse whitespace and trim
+    preview = " ".join(preview.split())
+    preview = preview.encode("ascii", errors="replace").decode("ascii")
+    return preview[:max_chars]
+
+
+def cmd_check_inbox(env_vars, args, output_json=False):
+    """
+    Connect to Gmail IMAP, fetch UNSEEN emails, log them to Supabase,
+    notify via Telegram, then mark them as SEEN.
+    """
+    address = env_vars.get("GMAIL_ADDRESS") or env_vars.get("GMAIL_USER")
+    password = env_vars.get("GMAIL_APP_PASSWORD")
+
+    if not address or not password:
+        msg = "ERROR: GMAIL_ADDRESS and GMAIL_APP_PASSWORD required in .env.agents"
+        if output_json:
+            print(json.dumps({"status": "error", "message": msg}))
+        else:
+            print(msg, file=sys.stderr)
+        sys.exit(1)
+
+    db = get_supabase(env_vars)
+    imap = None
+    found_emails = []
+
+    try:
+        imap = imaplib.IMAP4_SSL("imap.gmail.com", 993)
+        imap.socket().settimeout(30)
+        imap.login(address, password)
+        imap.select("INBOX")
+
+        status, data = imap.search(None, "UNSEEN")
+        if status != "OK":
+            raise RuntimeError(f"IMAP search failed: {status}")
+
+        message_ids = data[0].split() if data[0] else []
+        # Cap to avoid long runs
+        message_ids = message_ids[:IMAP_MAX_EMAILS]
+
+        for uid in message_ids:
+            fetch_status, fetch_data = imap.fetch(uid, "(RFC822)")
+            if fetch_status != "OK" or not fetch_data or fetch_data[0] is None:
+                continue
+
+            raw_bytes = fetch_data[0][1]
+            if not isinstance(raw_bytes, bytes):
+                continue
+
+            msg = email.message_from_bytes(raw_bytes)
+            from_addr = _decode_header_value(msg.get("From", ""))
+            subject = _decode_header_value(msg.get("Subject", "(no subject)"))
+            date_str = _decode_header_value(msg.get("Date", ""))
+            preview = _extract_text_preview(msg)
+
+            # Skip system/noreply senders
+            from_lower = from_addr.lower()
+            if any(skip in from_lower for skip in SKIP_SENDERS):
+                # Still mark as seen so it doesn't keep surfacing
+                imap.store(uid, "+FLAGS", "\\Seen")
+                continue
+
+            email_entry = {
+                "from": from_addr,
+                "subject": subject,
+                "date": date_str,
+                "preview": preview,
+            }
+            found_emails.append(email_entry)
+
+            # Log to Supabase email_log
+            try:
+                db.table("email_log").insert({
+                    "to_email": address,
+                    "subject": subject,
+                    "body_preview": preview,
+                    "status": "received",
+                    "sent_at": datetime.now(timezone.utc).isoformat(),
+                }).execute()
+            except Exception as db_err:
+                print(f"Warning: could not log inbound email to Supabase: {db_err}", file=sys.stderr)
+
+            # Telegram notification
+            notify_msg = (
+                f"[Email Inbox] New email from: {from_addr}\n"
+                f"Subject: {subject}\n"
+                f"Preview: {preview[:120]}"
+            )
+            notify(notify_msg)
+
+            # Mark as read
+            imap.store(uid, "+FLAGS", "\\Seen")
+
+    finally:
+        if imap:
+            try:
+                imap.close()
+                imap.logout()
+            except Exception:
+                pass
+
+    if not found_emails:
+        result = {"status": "checked", "unread_count": 0, "message": "No unread emails"}
+    else:
+        result = {
+            "status": "checked",
+            "unread_count": len(found_emails),
+            "emails": found_emails,
+        }
+
+    if output_json:
+        print(json.dumps(result, indent=2))
+        return
+
+    if not found_emails:
+        print("Inbox checked - no unread emails.")
+        return
+
+    print(f"Inbox checked - {len(found_emails)} unread email(s):\n")
+    for e in found_emails:
+        subject_display = e["subject"][:60]
+        from_display = e["from"][:60]
+        print(f"  From:    {from_display}")
+        print(f"  Subject: {subject_display}")
+        print(f"  Date:    {e['date']}")
+        if e["preview"]:
+            print(f"  Preview: {e['preview'][:100]}")
+        print()
+
+
 # -- Argument parsing ---------------------------------------
 
 
@@ -767,6 +955,9 @@ Examples:
     # stats
     subparsers.add_parser("stats", help="Show aggregate email statistics")
 
+    # check-inbox
+    subparsers.add_parser("check-inbox", help="Fetch unread Gmail messages via IMAP and mark them as read")
+
     args = parser.parse_args()
     output_json = args.output_json
 
@@ -814,6 +1005,9 @@ Examples:
 
     elif args.command == "stats":
         cmd_stats(env_vars, args, output_json)
+
+    elif args.command == "check-inbox":
+        cmd_check_inbox(env_vars, args, output_json)
 
     else:
         parser.print_help()

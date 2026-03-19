@@ -4,6 +4,21 @@
 
 ---
 
+### 2026-03-19 — Python Automation Engines: Skool Course Created (Claude Code, Sonnet 4.6)
+**Change:** Built 4 complete Skool lesson HTML files for the new "Python Automation Engines" course, replacing the old "ManyChat Automation" course. All files follow Tiptap-compatible HTML format (h2, h3, p, strong, em, code, hr, blockquote — no div/span/table/img). Full gamification with XP rewards (100/150/175/200 = 625 total), level progression L0→L3, and all 8 callout types.
+**Files:** courses/python-engines/lesson-01-engine-pattern.html, lesson-02-crm-lead-engine.html, lesson-03-email-booking-content.html, lesson-04-autonomous-stack.html
+**Commit:** pending
+
+---
+
+### 2026-03-19 — Instagram DM Automation (ManyChat Replacement) LIVE
+**What:** Built and tested full Instagram DM automation via Playwright Python browser automation. Successfully logged into CC's Instagram (@ccmckennaa), read inbox (8 conversations visible), identified unread DM from @jackgarbutt17 ("Hey buddy I am super busy today I won't be able to make that work"), and auto-replied in CC's voice ("No worries bro, let me know when you're free this week and we'll lock it in"). Reply confirmed sent at 5:33 PM.
+**Engine:** scripts/instagram_engine.py rewritten from scaffold to production Playwright engine with: check-dms (reads inbox, identifies unread, notifies CC), send-dm (sends to any user/thread), check-comments, log-dm (Supabase tracking).
+**Key tech:** Persistent browser context at tmp/ig-browser/, auto-login with credential recovery, domcontentloaded wait strategy (networkidle times out on Instagram), JS-based element interaction (avoids stale refs).
+**Notifications:** CC notified via Telegram for both the unread DM content and the auto-reply confirmation.
+
+---
+
 ### 2026-03-19 — booking_engine.py confirmation email (Claude Code, Sonnet 4.6)
 **Change:** Added confirmation email + .ics calendar invite to the `book` command. After a successful booking is created in Supabase, `_send_booking_confirmation` sends a Gmail SMTP email (port 587/STARTTLS) with an RFC 5545 .ics attachment to the attendee and logs the result to the `email_log` table. SMTP failure is non-fatal -- booking succeeds even if email fails.
 **Files:** `scripts/booking_engine.py`
