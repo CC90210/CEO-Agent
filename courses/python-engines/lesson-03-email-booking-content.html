@@ -1,0 +1,189 @@
+<h2>📧 Email, Booking & Content Engines — Three Tools, One Hour to Deploy</h2>
+<p></p>
+<p><strong>XP Reward: +175 XP</strong> | Running Total: 425 XP</p>
+<p><strong>Level: Integrator (L2)</strong> — Connecting the tools into a working system.</p>
+<p></p>
+<p>This lesson covers three engines that replaced Mailchimp, Calendly, and Buffer. Each one follows the same CLI Engine Pattern from Lesson 1. By the end you will have email sequences running, booking slots open, and a content calendar populated — all for $0/month in SaaS fees.</p>
+<p></p>
+<hr>
+<p></p>
+<h2>📧 Part 1: email_engine.py</h2>
+<p></p>
+<p>Gmail SMTP. No third-party ESP. No monthly fee. Your emails go out through your own Google account, which means your domain reputation is tied to your sending habits — which is exactly how it should be.</p>
+<p></p>
+<h3>Gmail App Password Setup</h3>
+<p></p>
+<p>You cannot use your regular Gmail password here. Google requires an App Password for programmatic access.</p>
+<p></p>
+<p>1. Go to myaccount.google.com</p>
+<p>2. Security → 2-Step Verification (must be enabled first)</p>
+<p>3. Security → App passwords → Select app: Mail → Select device: Other → name it "email_engine"</p>
+<p>4. Google gives you a 16-character password. Copy it immediately — it is shown once.</p>
+<p></p>
+<p>Add these to <code>.env.agents</code>:</p>
+<p><code>GMAIL_USER=your@gmail.com</code></p>
+<p><code>GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx</code></p>
+<p></p>
+<p>⚠️ <strong>WARNING:</strong> This is your real Gmail account. Sending spam or high-volume cold outreach through it will get the account flagged. Use this for nurture sequences to warm leads, client updates, and booking confirmations — not bulk cold outreach to scraped lists.</p>
+<p></p>
+<h3>Commands</h3>
+<p></p>
+<p><strong>send</strong> — Send a single email</p>
+<p><code>python scripts/email_engine.py send --to "client@example.com" --subject "Your onboarding pack" --body "Hi Sarah, ..."</code></p>
+<p></p>
+<p><strong>send-template</strong> — Send using a saved template</p>
+<p><code>python scripts/email_engine.py send-template --template oasis-welcome --to "client@example.com" --vars '{"name":"Sarah","company":"Acme"}'</code></p>
+<p></p>
+<p><strong>templates create</strong> — Save a new template</p>
+<p><code>python scripts/email_engine.py templates create --name oasis-welcome --subject "Welcome to OASIS" --file templates/oasis-welcome.txt</code></p>
+<p></p>
+<p><strong>templates list</strong> — List saved templates</p>
+<p><code>python scripts/email_engine.py templates list</code></p>
+<p></p>
+<p><strong>sequence create</strong> — Define a drip sequence</p>
+<p><code>python scripts/email_engine.py sequence create --name oasis-nurture --emails '[{"delay_days":0,"template":"oasis-day0"},{"delay_days":3,"template":"oasis-day3"},{"delay_days":7,"template":"oasis-day7"}]'</code></p>
+<p></p>
+<p><strong>sequence run</strong> — Enroll a contact in a sequence</p>
+<p><code>python scripts/email_engine.py sequence run --name oasis-nurture --to "lead@example.com"</code></p>
+<p></p>
+<p><strong>log</strong> — Show email send history for a contact</p>
+<p><code>python scripts/email_engine.py log --email "lead@example.com"</code></p>
+<p></p>
+<p><strong>stats</strong> — Open rates, click rates, sequence performance</p>
+<p><code>python scripts/email_engine.py stats</code></p>
+<p></p>
+<h3>The 3-Email OASIS Nurture Sequence</h3>
+<p></p>
+<p>This is the exact sequence we run for new OASIS leads. Adapt it for your business:</p>
+<p></p>
+<p><strong>Day 0 — The Value Drop</strong></p>
+<p>Subject: <code>What we built for [company] in 45 minutes</code></p>
+<p>Body: One specific result. No pitch. Just proof. Link to a case study or Loom walkthrough.</p>
+<p></p>
+<p><strong>Day 3 — The Education Email</strong></p>
+<p>Subject: <code>The $47K problem most [industry] businesses ignore</code></p>
+<p>Body: Explain the cost of their current manual process. Position AI automation as the obvious fix. Soft CTA: "Does this sound like your situation?"</p>
+<p></p>
+<p><strong>Day 7 — The Offer</strong></p>
+<p>Subject: <code>One thing I'd fix in your business this week</code></p>
+<p>Body: Specific offer. Clear ask. Book a 20-minute call. Direct link to your booking engine.</p>
+<p></p>
+<p>💡 <strong>PRO TIP:</strong> Templates use <code>{{variable}}</code> syntax for personalization. Always include at minimum <code>{{name}}</code> and <code>{{company}}</code>. Personalized subject lines consistently outperform generic ones. The <code>send-template</code> command handles variable substitution at send time.</p>
+<p></p>
+<hr>
+<p></p>
+<h2>📅 Part 2: booking_engine.py</h2>
+<p></p>
+<p>Self-hosted scheduling. No Calendly. No third-party calendar sync. You open slots, leads book them, confirmations go out automatically with a <code>.ics</code> calendar invite attached.</p>
+<p></p>
+<h3>Commands</h3>
+<p></p>
+<p><strong>slots open</strong> — Open a specific time slot for booking</p>
+<p><code>python scripts/booking_engine.py slots open --date "2026-03-25" --time "14:00" --duration 30 --type "discovery"</code></p>
+<p></p>
+<p><strong>slots open-week</strong> — Open a full week of slots at once</p>
+<p><code>python scripts/booking_engine.py slots open-week --start "2026-03-24" --days "Mon,Wed,Fri" --times "10:00,14:00,16:00" --duration 30</code></p>
+<p></p>
+<p><strong>slots list</strong> — Show all open slots</p>
+<p><code>python scripts/booking_engine.py slots list</code></p>
+<p></p>
+<p><strong>slots close</strong> — Remove an available slot</p>
+<p><code>python scripts/booking_engine.py slots close --id 15</code></p>
+<p></p>
+<p><strong>book</strong> — Book a slot for a contact (or they book via your booking page)</p>
+<p><code>python scripts/booking_engine.py book --slot-id 15 --name "Sarah Chen" --email "s@acme.com"</code></p>
+<p></p>
+<p><strong>cancel</strong> — Cancel a booking and reopen the slot</p>
+<p><code>python scripts/booking_engine.py cancel --booking-id 8 --reason "Lead rescheduled"</code></p>
+<p></p>
+<p><strong>remind</strong> — Send reminder emails for upcoming bookings</p>
+<p><code>python scripts/booking_engine.py remind --hours 24</code></p>
+<p></p>
+<p><strong>complete</strong> — Mark a booking as completed and trigger lead stage update</p>
+<p><code>python scripts/booking_engine.py complete --booking-id 8 --notes "Good call, sending proposal"</code></p>
+<p></p>
+<h3>How .ics Invites Work</h3>
+<p></p>
+<p>When a booking is confirmed, the engine generates a <code>.ics</code> calendar file on the fly and attaches it to the confirmation email. The invite includes:</p>
+<p></p>
+<p>• Meeting title and duration</p>
+<p>• A Google Meet link (generated via the Google Meet URL format)</p>
+<p>• Your contact details as the organiser</p>
+<p>• A reminder 15 minutes before</p>
+<p></p>
+<p>The lead clicks "Accept" in their email client and the meeting lands on their calendar. No integration, no OAuth, no API key. Just a text file formatted to the iCalendar spec.</p>
+<p></p>
+<p>💀 <strong>COMMON MISTAKE:</strong> Opening hundreds of slots at once. Start with 6–8 slots per week. Scarcity is real. When leads see only a few slots available, they book faster than when they see a fully open calendar.</p>
+<p></p>
+<hr>
+<p></p>
+<h2>📅 Part 3: content_engine.py</h2>
+<p></p>
+<p>Your content calendar. Plan posts, track status, enforce platform limits, push to Late MCP for multi-platform scheduling. Buffer charges $15–$99/month for this. You are doing it in one Python file.</p>
+<p></p>
+<h3>Commands</h3>
+<p></p>
+<p><strong>create</strong> — Add a content item to the calendar</p>
+<p><code>python scripts/content_engine.py create --platform instagram --type reel --title "3 signs your HVAC company needs AI" --due "2026-03-26 10:00" --status draft</code></p>
+<p></p>
+<p><strong>calendar</strong> — Show the full content calendar</p>
+<p><code>python scripts/content_engine.py calendar</code></p>
+<p><code>python scripts/content_engine.py calendar --week "2026-03-24"</code></p>
+<p></p>
+<p><strong>week-plan</strong> — Generate a suggested posting plan for the next 7 days</p>
+<p><code>python scripts/content_engine.py week-plan</code></p>
+<p></p>
+<p><strong>due</strong> — Show content due in the next N hours</p>
+<p><code>python scripts/content_engine.py due --hours 24</code></p>
+<p></p>
+<p><strong>templates</strong> — List saved content templates per platform</p>
+<p><code>python scripts/content_engine.py templates --platform instagram</code></p>
+<p></p>
+<p><strong>stats</strong> — Posting frequency and platform distribution</p>
+<p><code>python scripts/content_engine.py stats</code></p>
+<p></p>
+<h3>Platform Character Limits (Enforced at Create Time)</h3>
+<p></p>
+<p>The engine rejects content that exceeds platform limits before it hits the scheduler:</p>
+<p></p>
+<p>• X/Twitter: 280 characters</p>
+<p>• Threads: 500 characters</p>
+<p>• Instagram: 2,200 characters</p>
+<p>• LinkedIn: 3,000 characters</p>
+<p>• TikTok: 4,000 characters</p>
+<p></p>
+<p>⚡ <strong>QUICK WIN:</strong> The <code>create</code> command validates character count against the platform limit at creation time, not at post time. You get an error immediately instead of discovering the limit violation at midnight when the scheduler tries to fire. Build the validation into the tool, not into your memory.</p>
+<p></p>
+<h3>Late MCP Integration</h3>
+<p></p>
+<p>The content engine stores items in Supabase. The scheduler (Lesson 4) polls the calendar for due content and fires <code>posts_create</code> via the Late MCP to push it live.</p>
+<p></p>
+<p>The integration call from the scheduler looks like this:</p>
+<p><code>python scripts/content_engine.py due --hours 1 --json | python scripts/scheduler.py dispatch-content</code></p>
+<p></p>
+<p>This pipes due content into the scheduler's dispatch function, which calls Late MCP with the correct profile and character-validated body. The full pipeline is in Lesson 4.</p>
+<p></p>
+<p>🧠 <strong>KEY TAKEAWAY:</strong> Three engines, three replaced SaaS tools. But notice the pattern: each engine stores everything in Supabase, exports <code>--json</code>, and integrates with <code>notify.py</code> for real-time alerts. This is not three separate tools — it is three modules of one system. In Lesson 4, the scheduler becomes the conductor that wires them all together.</p>
+<p></p>
+<hr>
+<p></p>
+<h2>🔥 CHALLENGE: Deploy All Three Engines (+175 XP)</h2>
+<p></p>
+<p>1️⃣ <strong>Email engine:</strong> Set up your Gmail App Password and add the credentials to <code>.env.agents</code>. Create one email template using <code>templates create</code>. Send it to yourself with <code>send-template</code> and confirm it arrives.</p>
+<p></p>
+<p>2️⃣ <strong>Booking engine:</strong> Open booking slots for next week using <code>slots open-week</code>. Run <code>slots list</code> and confirm they appear. Book one of your own slots using <code>book</code> — you should receive a confirmation email with the <code>.ics</code> attachment in your inbox.</p>
+<p></p>
+<p>3️⃣ <strong>Content engine:</strong> Create 3 content calendar entries — one for Instagram, one for LinkedIn, one for X. Use <code>calendar</code> to verify they appear. Run <code>due --hours 168</code> (next 7 days) to see your week at a glance.</p>
+<p></p>
+<p>🏆 <strong>BOSS LEVEL:</strong> Write the 3-email OASIS nurture sequence using real copy for your business. Create all 3 templates. Enroll a test email address in the sequence using <code>sequence run</code>. Verify the Day 0 email arrives. Then check <code>log</code> to confirm the send was recorded. This is a working email automation system. (+100 bonus XP)</p>
+<p></p>
+<h3>✅ Checkpoint</h3>
+<p>Before moving to Lesson 4, confirm:</p>
+<p>☐ Gmail App Password configured and working</p>
+<p>☐ At least one email template created and sent</p>
+<p>☐ Booking slots open for next week</p>
+<p>☐ Booking confirmation email received with .ics attachment</p>
+<p>☐ 3 content calendar entries created</p>
+<p>☐ Character limit validation tested (try exceeding the limit on any platform)</p>
+<p></p>
+<p>Post your booking confirmation email screenshot in the community with <strong>#BookingEngine</strong> 📅</p>
