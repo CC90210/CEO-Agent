@@ -31,9 +31,10 @@ To reach the new target, we need **~5-6 new OASIS clients** at $400-500 USD/mo r
 
 ### Activation (Next Steps)
 - [ ] [P0] **Add Gmail App Password** — CC needs to add GMAIL_ADDRESS + GMAIL_APP_PASSWORD to .env.agents (for email_engine.py)
-- [ ] [P0] **Generate first week's content** — `python scripts/content_engine.py week-plan` → 21 draft posts
-- [ ] [P0] **Import existing leads to CRM** — Move 50+ researched leads into the leads table via lead_engine.py
-- [ ] [P0] **Create first nurture sequence** — Welcome → Value Add → CTA email templates + sequence
+- [x] [P0] **Generate first week's content** — 21 draft entries created for March 20-26 (quote_drop, ceo_log/educational, sobriety_log). Need body text.
+- [ ] [P0] **Fill content body text** — 21 drafts exist in content_calendar, each needs actual post copy. Use `content_engine.py edit <id> --body '...'`
+- [ ] [P0] **Import remaining leads to CRM** — 3 added (Bennett, Cedarwood, Vortex). 47+ more from research pipeline to import.
+- [x] [P0] **Create first nurture sequence** — OASIS New Lead Nurture: Welcome (0h) → Value Add (72h) → CTA (168h). 3 NEPQ-style templates created.
 - [ ] [P1] **Open booking slots** — `python scripts/booking_engine.py slots open-week` for next week
 - [ ] [P1] **Sync Stripe revenue history** — `python scripts/revenue_engine.py sync-stripe`
 - [ ] [P1] **Create Google Meet link** — Store in .env.agents for booking confirmations
