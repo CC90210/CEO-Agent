@@ -1,5 +1,5 @@
 """
-Email Engine — Free send and nurture sequence engine.
+Email Engine - Free send and nurture sequence engine.
 Zero paid services. Gmail SMTP (500/day free) + Supabase for tracking.
 All credentials loaded from .env.agents (never hardcoded).
 
@@ -162,7 +162,7 @@ def log_email(db, to_email, subject, body_preview, status, lead_id=None,
         if result.data:
             return result.data[0].get("id")
     except Exception as e:
-        # Log failure is non-fatal — print to stderr and continue
+        # Log failure is non-fatal - print to stderr and continue
         print(f"Warning: could not write to email_log: {e}", file=sys.stderr)
     return None
 
@@ -208,7 +208,7 @@ def cmd_send(env_vars, args, output_json=False):
         return
 
     if success:
-        print(f"Sent to {args.to} — subject: {args.subject}")
+        print(f"Sent to {args.to} - subject: {args.subject}")
         if log_id:
             print(f"  Logged (id: {log_id})")
     else:
@@ -460,12 +460,12 @@ def cmd_sequence_create(env_vars, args, output_json=False):
     print(f"  Trigger: {created.get('trigger_event', 'N/A')}")
     print(f"  Steps:   {len(steps)}")
     for i, step in enumerate(steps):
-        print(f"    [{i + 1}] delay: {step['delay_hours']}h — template: {step['template_name']}")
+        print(f"    [{i + 1}] delay: {step['delay_hours']}h - template: {step['template_name']}")
 
 
 def cmd_sequence_run(env_vars, args, output_json=False):
     """
-    Execute a sequence for a lead — sends all steps immediately.
+    Execute a sequence for a lead - sends all steps immediately.
 
     In production you would schedule delayed sends via a job queue (e.g., n8n,
     pg_cron, or a Lambda cron). This command executes each step NOW, which is
@@ -580,7 +580,7 @@ def cmd_sequence_run(env_vars, args, output_json=False):
     print(f"Sequence '{sequence['name']}' for lead {args.lead_id}:\n")
     for r in results:
         delay_label = f" (delay: {r['delay_hours']}h)" if r.get("delay_hours") else ""
-        print(f"  Step {r['step']}: {r['template']}{delay_label} — {r['status']}")
+        print(f"  Step {r['step']}: {r['template']}{delay_label} - {r['status']}")
         if r.get("error"):
             print(f"    Error: {r['error']}")
 
@@ -620,10 +620,10 @@ def cmd_log(env_vars, args, output_json=False):
         return
 
     label = f" (status={status_filter})" if status_filter else ""
-    print(f"Email Log{label} — {len(rows)} entries:\n")
+    print(f"Email Log{label} - {len(rows)} entries:\n")
     for row in rows:
-        sent_at = row.get("sent_at") or "—"
-        if sent_at and sent_at != "—":
+        sent_at = row.get("sent_at") or "-"
+        if sent_at and sent_at != "-":
             sent_at = sent_at[:19].replace("T", " ")
         status = row.get("status", "?").upper()
         subject = (row.get("subject") or "")[:50]
@@ -686,7 +686,7 @@ def cmd_stats(env_vars, args, output_json=False):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Email Engine — Free Gmail SMTP sending + Supabase tracking",
+        description="Email Engine - Free Gmail SMTP sending + Supabase tracking",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:

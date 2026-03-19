@@ -1,5 +1,5 @@
 """
-Booking Engine — Self-hosted scheduling system replacing Cal.com.
+Booking Engine - Self-hosted scheduling system replacing Cal.com.
 Zero paid services. Backed by Supabase (bravo project).
 All credentials loaded from .env.agents (never hardcoded).
 
@@ -114,7 +114,7 @@ def _generate_slot_times(start: str, end: str, interval_minutes: int) -> list[tu
     Return list of (start_time, end_time) string pairs for the given range.
     start/end are "HH:MM" strings. Slots run from start up to (not including) end.
 
-    Example: start=10:00, end=11:00, interval=30 → [(10:00, 10:30), (10:30, 11:00)]
+    Example: start=10:00, end=11:00, interval=30 -> [(10:00, 10:30), (10:30, 11:00)]
     """
     fmt = "%H:%M"
     cursor = datetime.strptime(start, fmt)
@@ -161,7 +161,7 @@ def cmd_slots_open(client, args, json_mode: bool) -> None:
     slot_times = _generate_slot_times(args.start, args.end, args.interval)
     if not slot_times:
         fail(
-            f"No slots generated — check that --end ({args.end}) is at least "
+            f"No slots generated - check that --end ({args.end}) is at least "
             f"{args.interval} minutes after --start ({args.start}).",
             json_mode,
         )
@@ -192,7 +192,7 @@ def cmd_slots_open_week(client, args, json_mode: bool) -> None:
     """Create time slots across multiple weekdays starting from a given date."""
     dates = _dates_for_week(args.start_date, args.days)
     if not dates:
-        fail("No matching dates found — check --days abbreviations (mon,tue,wed,thu,fri,sat,sun).", json_mode)
+        fail("No matching dates found - check --days abbreviations (mon,tue,wed,thu,fri,sat,sun).", json_mode)
 
     all_created: list[dict] = []
     for d in dates:
@@ -373,7 +373,7 @@ def cmd_list_bookings(client, args, json_mode: bool) -> None:
 
     if hasattr(args, "upcoming") and args.upcoming:
         today = date.today().isoformat()
-        # Filter via the related slot date — use a subquery approach via order + gte on joined data
+        # Filter via the related slot date - use a subquery approach via order + gte on joined data
         # PostgREST supports filtering on embedded tables with the dot notation
         query = query.gte("booking_slots.slot_date", today)
 
@@ -421,20 +421,20 @@ def cmd_view(client, args, json_mode: bool) -> None:
     print(f"Booking {booking['id']}:")
     print(f"  name:          {booking['name']}")
     print(f"  email:         {booking['email']}")
-    print(f"  phone:         {booking.get('phone') or '—'}")
+    print(f"  phone:         {booking.get('phone') or '-'}")
     print(f"  meeting_type:  {booking['meeting_type']}")
     print(f"  status:        {booking['status']}")
     print(f"  date:          {slot_info.get('slot_date', '?')} {slot_info.get('start_time', '?')}–{slot_info.get('end_time', '?')}")
-    print(f"  meeting_link:  {booking.get('meeting_link') or '—'}")
+    print(f"  meeting_link:  {booking.get('meeting_link') or '-'}")
     print(f"  reminder_sent: {booking['reminder_sent']}")
-    print(f"  notes:         {booking.get('notes') or '—'}")
+    print(f"  notes:         {booking.get('notes') or '-'}")
     print(f"  created_at:    {booking['created_at']}")
     if booking.get("lead_id"):
         print(f"  lead_id:       {booking['lead_id']}")
 
 
 def cmd_available(client, args, json_mode: bool) -> None:
-    """Show all available slots grouped by date — the public-facing view."""
+    """Show all available slots grouped by date - the public-facing view."""
     today = date.today()
     days_ahead = args.next if hasattr(args, "next") and args.next else 7
     cutoff = (today + timedelta(days=days_ahead)).isoformat()
@@ -479,11 +479,11 @@ def cmd_available(client, args, json_mode: bool) -> None:
 def cmd_remind(client, args, json_mode: bool) -> None:
     """
     Find confirmed bookings scheduled for tomorrow that have not had a reminder sent.
-    Prints them — the caller is responsible for sending the actual reminder.
+    Prints them - the caller is responsible for sending the actual reminder.
     """
     tomorrow = (date.today() + timedelta(days=1)).isoformat()
 
-    # Join bookings → booking_slots where slot_date = tomorrow
+    # Join bookings -> booking_slots where slot_date = tomorrow
     result = (
         client.table("bookings")
         .select("*, booking_slots(slot_date, start_time, end_time)")
@@ -560,7 +560,7 @@ def cmd_complete(client, args, json_mode: bool) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Booking Engine — self-hosted Cal.com replacement backed by Supabase",
+        description="Booking Engine - self-hosted Cal.com replacement backed by Supabase",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(

@@ -1,5 +1,5 @@
 """
-Lead Engine — OASIS AI CRM CLI
+Lead Engine - OASIS AI CRM CLI
 Zero-paid-service lead management backed by Supabase (project: bravo).
 Replaces ManyChat, HubSpot, and every other CRM CC doesn't need to pay for.
 
@@ -138,18 +138,18 @@ SOURCE_LABELS = {
 def fmt_date(iso_str: str) -> str:
     """Format an ISO timestamp to a readable short date."""
     if not iso_str:
-        return "—"
+        return "-"
     try:
         dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
         return dt.strftime("%Y-%m-%d")
     except (ValueError, TypeError):
-        return iso_str[:10] if iso_str else "—"
+        return iso_str[:10] if iso_str else "-"
 
 
 def fmt_score(score) -> str:
     """Format score with a basic heat indicator."""
     if score is None:
-        return "  —"
+        return "  -"
     s = int(score)
     if s >= 70:
         bar = "***"
@@ -212,9 +212,9 @@ def cmd_list(client, args, output_json: bool):
 
     for lead in leads:
         lead_id = str(lead.get("id", ""))[:col_id]
-        name = truncate(lead.get("name", "—"), col_name)
-        status = STATUS_LABELS.get(lead.get("status", ""), lead.get("status", "—"))[:col_status]
-        source = SOURCE_LABELS.get(lead.get("source", ""), lead.get("source", "—"))[:col_source]
+        name = truncate(lead.get("name", "-"), col_name)
+        status = STATUS_LABELS.get(lead.get("status", ""), lead.get("status", "-"))[:col_status]
+        source = SOURCE_LABELS.get(lead.get("source", ""), lead.get("source", "-"))[:col_source]
         score = fmt_score(lead.get("score"))
         created = fmt_date(lead.get("created_at"))
 
@@ -261,10 +261,10 @@ def cmd_add(client, args, output_json: bool):
     print(f"Lead created.")
     print(f"  ID:      {lead.get('id', '?')}")
     print(f"  Name:    {lead.get('name')}")
-    print(f"  Email:   {lead.get('email', '—')}")
-    print(f"  Phone:   {lead.get('phone', '—')}")
-    print(f"  Company: {lead.get('company', '—')}")
-    print(f"  Source:  {lead.get('source', '—')}")
+    print(f"  Email:   {lead.get('email', '-')}")
+    print(f"  Phone:   {lead.get('phone', '-')}")
+    print(f"  Company: {lead.get('company', '-')}")
+    print(f"  Source:  {lead.get('source', '-')}")
     print(f"  Status:  new")
 
 
@@ -291,18 +291,18 @@ def cmd_view(client, args, output_json: bool):
 
     sep = "=" * 60
     print(sep)
-    print(f"  {lead.get('name', '—')}")
+    print(f"  {lead.get('name', '-')}")
     print(sep)
     print(f"  ID:          {lead.get('id')}")
-    print(f"  Status:      {STATUS_LABELS.get(lead.get('status', ''), lead.get('status', '—'))}")
-    print(f"  Score:       {lead.get('score', '—')}")
-    print(f"  Email:       {lead.get('email', '—')}")
-    print(f"  Phone:       {lead.get('phone', '—')}")
-    print(f"  Company:     {lead.get('company', '—')}")
-    print(f"  Website:     {lead.get('website', '—')}")
-    print(f"  Source:      {SOURCE_LABELS.get(lead.get('source', ''), lead.get('source', '—'))}")
-    print(f"  Assigned to: {lead.get('assigned_to', '—')}")
-    print(f"  Tags:        {', '.join(lead.get('tags') or []) or '—'}")
+    print(f"  Status:      {STATUS_LABELS.get(lead.get('status', ''), lead.get('status', '-'))}")
+    print(f"  Score:       {lead.get('score', '-')}")
+    print(f"  Email:       {lead.get('email', '-')}")
+    print(f"  Phone:       {lead.get('phone', '-')}")
+    print(f"  Company:     {lead.get('company', '-')}")
+    print(f"  Website:     {lead.get('website', '-')}")
+    print(f"  Source:      {SOURCE_LABELS.get(lead.get('source', ''), lead.get('source', '-'))}")
+    print(f"  Assigned to: {lead.get('assigned_to', '-')}")
+    print(f"  Tags:        {', '.join(lead.get('tags') or []) or '-'}")
     print(f"  Last contact:{fmt_date(lead.get('last_contacted_at'))}")
     print(f"  Next follow: {fmt_date(lead.get('next_followup_at'))}")
     print(f"  Created:     {fmt_date(lead.get('created_at'))}")
@@ -452,7 +452,7 @@ def cmd_interact(client, args, output_json: bool):
     print(f"  ID:      {ix.get('id', '?')}")
     print(f"  Lead:    {args.lead_id}")
     print(f"  Type:    {args.type}")
-    print(f"  Channel: {args.channel or '—'}")
+    print(f"  Channel: {args.channel or '-'}")
     if args.subject:
         print(f"  Subject: {args.subject}")
 
@@ -481,7 +481,7 @@ def cmd_followups(client, args, output_json: bool):
     print(f"Follow-ups due (as of {today}):\n")
     for lead in leads:
         due = fmt_date(lead.get("next_followup_at"))
-        name = lead.get("name", "—")
+        name = lead.get("name", "-")
         status = STATUS_LABELS.get(lead.get("status", ""), "?")
         email = lead.get("email", "")
         overdue_marker = " [OVERDUE]" if due < today else ""
@@ -527,7 +527,7 @@ def cmd_pipeline(client, args, output_json: bool):
         d = summary.get(stage, {"count": 0, "scores": []})
         count = d["count"]
         scores = d["scores"]
-        avg = f"{sum(scores)/len(scores):.0f}" if scores else "—"
+        avg = f"{sum(scores)/len(scores):.0f}" if scores else "-"
         label = STATUS_LABELS.get(stage, stage.upper())
         print(f"  {label:<12}  {count:>6}  {avg:>10}")
         total += count
@@ -541,7 +541,7 @@ def cmd_search(client, args, output_json: bool):
     q = args.query.lower()
 
     # Supabase PostgREST ilike for substring matching
-    # We query each field and merge — using or_ filter with ilike
+    # We query each field and merge - using or_ filter with ilike
     result = (
         client.table("leads")
         .select("*")
@@ -562,7 +562,7 @@ def cmd_search(client, args, output_json: bool):
 
     print(f"Search results for '{args.query}':\n")
     for lead in leads:
-        name = lead.get("name", "—")
+        name = lead.get("name", "-")
         email = lead.get("email", "")
         company = lead.get("company", "")
         status = STATUS_LABELS.get(lead.get("status", ""), "?")
@@ -629,7 +629,7 @@ def cmd_funnel(client, args, output_json: bool):
     print(f"Lead {action} in funnel '{funnel.get('name', funnel['slug'])}'.")
     print(f"  Funnel ID:     {funnel['id']}")
     print(f"  Lead ID:       {args.lead_id}")
-    print(f"  Current stage: {entry.get('current_stage') or '—'}")
+    print(f"  Current stage: {entry.get('current_stage') or '-'}")
     print(f"  Entered:       {fmt_date(entry.get('entered_at'))}")
 
 
@@ -638,7 +638,7 @@ def cmd_funnel(client, args, output_json: bool):
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="lead_engine.py",
-        description="OASIS AI Lead Engine — CRM CLI backed by Supabase",
+        description="OASIS AI Lead Engine - CRM CLI backed by Supabase",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -657,7 +657,7 @@ Examples:
         """,
     )
 
-    # Global --json flag — must come before subcommand
+    # Global --json flag - must come before subcommand
     parser.add_argument(
         "--json",
         dest="output_json",

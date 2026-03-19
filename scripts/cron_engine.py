@@ -1,6 +1,6 @@
 """
-Cron Engine — Business Automation Job Manager
-Defines and tracks all automated business workflows. Not a cron runner itself —
+Cron Engine - Business Automation Job Manager
+Defines and tracks all automated business workflows. Not a cron runner itself -
 n8n handles scheduling. This is the source of truth for what should be automated,
 seeded into Supabase so n8n and agents share a single registry.
 
@@ -248,12 +248,12 @@ def _next_run_approx(schedule: str) -> str | None:
 def fmt_date(iso_str: str | None) -> str:
     """Format an ISO timestamp to a readable short datetime."""
     if not iso_str:
-        return "—"
+        return "-"
     try:
         dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
         return dt.strftime("%Y-%m-%d %H:%M")
     except (ValueError, TypeError):
-        return iso_str[:16] if iso_str else "—"
+        return iso_str[:16] if iso_str else "-"
 
 
 def truncate(text: str, max_len: int = 40) -> str:
@@ -307,9 +307,9 @@ def cmd_list(client, args, output_json: bool) -> None:
 
     for job in jobs:
         job_id   = str(job.get("id", ""))[:col_id]
-        name     = truncate(job.get("name", "—"), col_name)
-        schedule = truncate(job.get("schedule", "—"), col_sched)
-        jtype    = truncate(job.get("action_type", "—"), col_type)
+        name     = truncate(job.get("name", "-"), col_name)
+        schedule = truncate(job.get("schedule", "-"), col_sched)
+        jtype    = truncate(job.get("action_type", "-"), col_type)
         active   = "YES" if job.get("is_active") else "no"
         runs     = str(job.get("run_count") or 0)
         last_run = fmt_date(job.get("last_run_at"))
@@ -326,7 +326,7 @@ def cmd_list(client, args, output_json: bool) -> None:
 
     print(sep)
     active_count = sum(1 for j in jobs if j.get("is_active"))
-    print(f"  {len(jobs)} job(s) — {active_count} active")
+    print(f"  {len(jobs)} job(s) - {active_count} active")
 
 
 def cmd_add(client, args, output_json: bool) -> None:
@@ -461,7 +461,7 @@ def cmd_due(client, args, output_json: bool) -> None:
         next_run = fmt_date(job.get("next_run_at"))
         overdue = " [OVERDUE]" if (job.get("next_run_at") or "") < now_iso else ""
         print(f"  {next_run}{overdue}")
-        print(f"    [{str(job.get('id', ''))[:8]}] {job.get('name', '—')} — {job.get('action_type', '—')}")
+        print(f"    [{str(job.get('id', ''))[:8]}] {job.get('name', '-')} - {job.get('action_type', '-')}")
         if job.get("description"):
             print(f"    {job['description']}")
         print()
@@ -505,8 +505,8 @@ def cmd_seed(client, args, output_json: bool) -> None:
     if inserted:
         print(f"Seeded {len(inserted)} cron job(s):\n")
         for job in inserted:
-            print(f"  [{str(job.get('id', ''))[:8]}] {job.get('name', '—')}")
-            print(f"    Schedule: {job.get('schedule', '—')}  Type: {job.get('action_type', '—')}")
+            print(f"  [{str(job.get('id', ''))[:8]}] {job.get('name', '-')}")
+            print(f"    Schedule: {job.get('schedule', '-')}  Type: {job.get('action_type', '-')}")
             print(f"    Next run: {fmt_date(job.get('next_run_at'))}")
             print()
     else:
@@ -523,7 +523,7 @@ def cmd_seed(client, args, output_json: bool) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="cron_engine.py",
-        description="Cron Engine — Business Automation Job Manager (Supabase-backed)",
+        description="Cron Engine - Business Automation Job Manager (Supabase-backed)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:

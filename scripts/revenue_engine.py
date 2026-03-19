@@ -1,5 +1,5 @@
 """
-Revenue Engine — OASIS Business Operations CLI
+Revenue Engine - OASIS Business Operations CLI
 Combines Stripe subscription data with Supabase manual tracking.
 All credentials loaded from .env.agents (never hardcoded).
 
@@ -207,7 +207,7 @@ def _mrr_manual_from_supabase(db) -> float:
 def calculate_mrr(env_vars: dict[str, str], db) -> dict:
     """
     Returns a dict with stripe_mrr, manual_mrr, total_mrr, stripe_available, stripe_subs.
-    Stripe failure is non-fatal — falls back to Supabase-only data.
+    Stripe failure is non-fatal - falls back to Supabase-only data.
     """
     stripe_key = env_vars.get("STRIPE_SECRET_KEY")
     stripe_mrr = 0.0
@@ -283,7 +283,7 @@ def _last_payment(db) -> dict:
             }
     except Exception:
         pass
-    return {"amount": 0.0, "client": "—", "date": "—"}
+    return {"amount": 0.0, "client": "-", "date": "-"}
 
 
 # ── Command: mrr ──────────────────────────────────────────────────────────────
@@ -298,7 +298,7 @@ def cmd_mrr(env_vars: dict[str, str], db, args) -> dict:
     if mrr["stripe_available"]:
         print(f"  Stripe MRR:  ${mrr['stripe_mrr']:,.2f}  ({len(mrr['stripe_subs'])} active subscription(s))")
     else:
-        print(f"  Stripe MRR:  unavailable — {mrr['stripe_error']}")
+        print(f"  Stripe MRR:  unavailable - {mrr['stripe_error']}")
     print(f"  Manual MRR:  ${mrr['manual_mrr']:,.2f}  (Supabase tracked)")
     print(f"  ─────────────────────────────────────")
     print(f"  Total MRR:   ${mrr['total_mrr']:,.2f}")
@@ -308,7 +308,7 @@ def cmd_mrr(env_vars: dict[str, str], db, args) -> dict:
     if gap > 0:
         avg = mrr["total_mrr"] / max(len(mrr["stripe_subs"]), 1)
         clients_needed = int(gap / avg) + 1 if avg else "?"
-        print(f"  Gap:         ${gap:,.2f} — need ~{clients_needed} clients at ${avg:,.0f}/mo avg")
+        print(f"  Gap:         ${gap:,.2f} - need ~{clients_needed} clients at ${avg:,.0f}/mo avg")
     return mrr
 
 
@@ -342,10 +342,10 @@ def cmd_dashboard(env_vars: dict[str, str], db, args) -> dict:
         return data
 
     print("=== OASIS Revenue Dashboard ===\n")
-    stripe_note = "" if mrr["stripe_available"] else "  [Stripe unavailable — Supabase only]"
+    stripe_note = "" if mrr["stripe_available"] else "  [Stripe unavailable - Supabase only]"
     print(f"  MRR:         ${mrr['total_mrr']:,.2f} / ${MRR_GOAL_USD:,.0f}  ({pct:.1f}%){stripe_note}")
     if gap > 0:
-        print(f"  Gap:         ${gap:,.2f} — need ~{clients_needed} clients at ${avg_deal:,.0f}/mo avg")
+        print(f"  Gap:         ${gap:,.2f} - need ~{clients_needed} clients at ${avg_deal:,.0f}/mo avg")
     else:
         print(f"  Goal reached! ${mrr['total_mrr']:,.2f} MRR")
 
@@ -367,7 +367,7 @@ def cmd_dashboard(env_vars: dict[str, str], db, args) -> dict:
 def cmd_sync_stripe(env_vars: dict[str, str], db, args) -> dict:
     stripe_key = env_vars.get("STRIPE_SECRET_KEY")
     if not stripe_key:
-        msg = "STRIPE_SECRET_KEY not set in .env.agents — cannot sync"
+        msg = "STRIPE_SECRET_KEY not set in .env.agents - cannot sync"
         if getattr(args, "output_json", False):
             return {"error": msg, "inserted": 0}
         print(f"ERROR: {msg}", file=sys.stderr)
@@ -434,7 +434,7 @@ def cmd_sync_stripe(env_vars: dict[str, str], db, args) -> dict:
             inserted += 1
         except Exception as exc:
             err_str = str(exc)
-            # Duplicate stripe_event_id — UNIQUE constraint fires — safe to skip
+            # Duplicate stripe_event_id - UNIQUE constraint fires - safe to skip
             if "duplicate" in err_str.lower() or "unique" in err_str.lower():
                 skipped += 1
             else:
@@ -475,7 +475,7 @@ def cmd_log_revenue(env_vars: dict[str, str], db, args) -> dict:
     print(f"Revenue event logged.")
     print(f"  Type:   {args.type}")
     print(f"  Amount: ${float(args.amount):,.2f}")
-    print(f"  Client: {args.client or '—'}")
+    print(f"  Client: {args.client or '-'}")
     if args.notes:
         print(f"  Notes:  {args.notes}")
     return inserted
@@ -490,7 +490,7 @@ def cmd_log_month(env_vars: dict[str, str], db, args) -> dict:
     avg_deal = round(args.mrr / new_clients, 2) if new_clients > 0 else 0.0
 
     row = {
-        "month": args.month,
+        "month": args.month + "-01" if len(args.month) == 7 else args.month,
         "mrr": float(args.mrr),
         "new_clients": new_clients,
         "churned_clients": args.churned or 0,
@@ -626,7 +626,7 @@ def cmd_forecast(env_vars: dict[str, str], db, args) -> dict:
         target_date = datetime.date.today() + datetime.timedelta(days=30 * months_to_goal)
         print(f"  At this rate:         ~{months_to_goal} month(s) to goal  ({target_date.strftime('%B %Y')})")
     else:
-        print(f"  Growth rate unknown — log more monthly history to forecast timeline")
+        print(f"  Growth rate unknown - log more monthly history to forecast timeline")
 
     return result
 
@@ -709,7 +709,7 @@ def cmd_goal(env_vars: dict[str, str], db, args) -> dict:
 
     # Build progress bar (30 chars wide)
     filled = int(pct / 100 * 30)
-    bar = "█" * filled + "░" * (30 - filled)
+    bar = "#" * filled + "-" * (30 - filled)
 
     result = {
         "current_mrr": current,
@@ -722,7 +722,7 @@ def cmd_goal(env_vars: dict[str, str], db, args) -> dict:
     if getattr(args, "output_json", False):
         return result
 
-    print("=== $5,000 MRR Goal — OASIS AI Solutions ===\n")
+    print("=== $5,000 MRR Goal - OASIS AI Solutions ===\n")
     print(f"  Progress:  [{bar}]  {pct:.1f}%")
     print(f"  Current:   ${current:,.2f}")
     print(f"  Goal:      ${MRR_GOAL_USD:,.0f}")
@@ -737,7 +737,7 @@ def cmd_goal(env_vars: dict[str, str], db, args) -> dict:
         days_left = (deadline - datetime.date.today()).days
         if days_left > 0:
             daily_needed = gap / days_left
-            print(f"\n  {days_left} days remaining — need ${daily_needed:,.2f}/day in new MRR")
+            print(f"\n  {days_left} days remaining - need ${daily_needed:,.2f}/day in new MRR")
 
     return result
 
@@ -746,7 +746,7 @@ def cmd_goal(env_vars: dict[str, str], db, args) -> dict:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Revenue Engine — OASIS business operations CLI",
+        description="Revenue Engine - OASIS business operations CLI",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:

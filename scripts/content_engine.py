@@ -1,5 +1,5 @@
 """
-Content Calendar & Template Engine — CC's content operations hub.
+Content Calendar & Template Engine - CC's content operations hub.
 Supabase-backed. Designed to feed Late MCP for publishing.
 All credentials loaded from .env.agents (never hardcoded).
 
@@ -52,7 +52,7 @@ PILLARS = [
 
 WEEK_PLAN_SLOTS = [
     (9,  "quote_drop"),
-    (13, "ceo_log"),        # alternates with educational — handled in week_plan logic
+    (13, "ceo_log"),        # alternates with educational - handled in week_plan logic
     (19, "sobriety_log"),
 ]
 
@@ -269,7 +269,7 @@ def cmd_create_multi(client, args) -> None:
         body_len = len(r.get("body") or "")
         limit = PLATFORM_LIMITS.get(r.get("platform", ""), 9999)
         flag = " [TRUNCATED]" if body_len < len(original_body) else ""
-        print(f"  [{r['id']}] {r.get('platform', '?')} — {body_len}/{limit} chars{flag}")
+        print(f"  [{r['id']}] {r.get('platform', '?')} - {body_len}/{limit} chars{flag}")
 
 
 def cmd_edit(client, args) -> None:
@@ -324,7 +324,7 @@ def cmd_delete(client, args) -> None:
         print(json.dumps({"deleted": True, "id": content_id}, indent=2))
         return
 
-    print(f"Deleted [{content_id}] — {row.get('platform', '?')} / {row.get('pillar', '?')}")
+    print(f"Deleted [{content_id}] - {row.get('platform', '?')} / {row.get('pillar', '?')}")
     print(f"  Body: {(row.get('body') or '')[:60]}...")
 
 
@@ -376,11 +376,11 @@ def cmd_due(client, args) -> None:
         print("No content due today.")
         return
 
-    print(f"Due today ({now.strftime('%Y-%m-%d')}) — {len(rows)} post(s):\n")
+    print(f"Due today ({now.strftime('%Y-%m-%d')}) - {len(rows)} post(s):\n")
     for r in rows:
         scheduled = format_datetime(r.get("scheduled_for"))
         body_preview = (r.get("body") or "")[:70].replace("\n", " ")
-        print(f"  [{r['id']}] {scheduled} — [{r.get('platform', '?')}] [{r.get('pillar', '?')}]")
+        print(f"  [{r['id']}] {scheduled} - [{r.get('platform', '?')}] [{r.get('pillar', '?')}]")
         print(f"    {body_preview}...")
         print()
 
@@ -428,7 +428,7 @@ def cmd_templates_list(client, args) -> None:
     for r in rows:
         variables = r.get("variables") or []
         times_used = r.get("times_used") or 0
-        print(f"  [{r['id']}] {r.get('name', 'unnamed')} — [{r.get('platform', '?')}] [{r.get('pillar', '?')}]")
+        print(f"  [{r['id']}] {r.get('name', 'unnamed')} - [{r.get('platform', '?')}] [{r.get('pillar', '?')}]")
         print(f"    Variables: {variables}  Used: {times_used}x")
         print(f"    Template:  {(r.get('template_body') or '')[:80]}...")
         print()
@@ -486,7 +486,7 @@ def cmd_templates_render(client, args) -> None:
         return
 
     limit = PLATFORM_LIMITS.get(platform, 0)
-    print(f"Rendered template [{template_id}] — {len(rendered)}/{limit} chars:\n")
+    print(f"Rendered template [{template_id}] - {len(rendered)}/{limit} chars:\n")
     print(rendered)
 
 
@@ -534,7 +534,7 @@ def cmd_stats(client, args) -> None:
         print(json.dumps(stats, indent=2))
         return
 
-    print(f"Content Stats — Last {days} days ({len(rows)} total entries):\n")
+    print(f"Content Stats - Last {days} days ({len(rows)} total entries):\n")
     print("  By Platform:")
     for k, v in sorted(by_platform.items(), key=lambda x: -x[1]):
         print(f"    {k:15s}: {v}")
@@ -573,7 +573,7 @@ def cmd_week_plan(client, args) -> None:
             rows_to_insert.append({
                 "platform": WEEK_PLAN_PLATFORM,
                 "pillar": pillar,
-                "body": f"[DRAFT — {pillar.replace('_', ' ').title()} — {day.strftime('%a %b %d')}]",
+                "body": f"[DRAFT - {pillar.replace('_', ' ').title()} - {day.strftime('%a %b %d')}]",
                 "status": "draft",
                 "scheduled_for": scheduled_utc.isoformat(),
             })
@@ -585,7 +585,7 @@ def cmd_week_plan(client, args) -> None:
         print(json.dumps(created, indent=2, default=str))
         return
 
-    print(f"Week plan created — {len(created)} draft entries:\n")
+    print(f"Week plan created - {len(created)} draft entries:\n")
     # Group by day for display
     current_day = ""
     for r in created:
@@ -595,7 +595,7 @@ def cmd_week_plan(client, args) -> None:
             current_day = day_str
             print(f"  {day_str}")
         time_str = scheduled[11:16] if len(scheduled) >= 16 else "?"
-        print(f"    {time_str} UTC — [{r.get('pillar', '?')}] ID: {r.get('id', '?')}")
+        print(f"    {time_str} UTC - [{r.get('pillar', '?')}] ID: {r.get('id', '?')}")
     print(f"\nAll created as status=draft on platform={WEEK_PLAN_PLATFORM}.")
     print("Fill in body text for each entry with: content_engine.py edit <id> --body '...'")
 
@@ -604,7 +604,7 @@ def cmd_week_plan(client, args) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Content Calendar & Template Engine — Supabase-backed, Late MCP-ready",
+        description="Content Calendar & Template Engine - Supabase-backed, Late MCP-ready",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
