@@ -23,6 +23,13 @@ import traceback
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
+# Notification system
+try:
+    from notify import notify, notify_error
+except ImportError:
+    def notify(*a, **kw): return False
+    def notify_error(*a, **kw): return False
+
 # ── Config ────────────────────────────────────────────────────────────────────
 
 CHECK_INTERVAL_SECONDS = 60  # How often to check for due jobs
@@ -270,8 +277,10 @@ def run_content_planning(env_vars: dict) -> str:
 
 
 def run_ig_research(env_vars: dict) -> str:
-    """Instagram research placeholder - requires Playwright (agent session)."""
-    return "ig_research requires Playwright - flagged for next agent session"
+    """Check Instagram DMs and comments, notify CC of new interactions."""
+    dm_result = run_script("instagram_engine.py", ["--json", "check-dms"])
+    comment_result = run_script("instagram_engine.py", ["--json", "check-comments"])
+    return f"DMs: {dm_result[:200]} | Comments: {comment_result[:200]}"
 
 
 # ── Main loop ─────────────────────────────────────────────────────────────────
@@ -322,6 +331,32 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
         }).eq("id", job_id).execute()
 
         log(f"COMPLETED: {job_name} -> {result_msg[:200]}")
+
+        # Notify CC via Telegram (skip empty/routine results)
+        action_type = job.get("action_type", "")
+        category_map = {
+            "content_post": "content",
+            "lead_followup": "lead",
+            "booking_reminder": "booking",
+            "stripe_sync": "revenue",
+            "revenue_report": "revenue",
+            "pipeline_review": "lead",
+            "nurture_check": "email",
+            "monthly_snapshot": "revenue",
+            "content_planning": "content",
+            "ig_research": "instagram",
+        }
+        cat = category_map.get(action_type, "system")
+
+        # Only notify on meaningful results (not "no content due", empty arrays, etc.)
+        skip_phrases = ["no content due", "[]", "no leads", "no active", "0 need nurture"]
+        is_routine = any(phrase in result_msg.lower() for phrase in skip_phrases)
+        is_error = "ERROR" in result_msg or "FAILED" in result_msg
+
+        if is_error:
+            notify_error(job_name, result_msg[:200])
+        elif not is_routine:
+            notify(f"{job_name}: {result_msg[:200]}", category=cat, silent=True)
 
     return len(due_jobs)
 

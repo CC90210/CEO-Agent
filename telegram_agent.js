@@ -34,7 +34,7 @@ const log = (msg) => {
     try { fs.appendFileSync(LOG_FILE, line); } catch (_) {}
 };
 
-log('Bravo Telegram Bridge V8.0 starting...');
+log('Bravo Telegram Bridge V9.0 (Claude-First) starting...');
 
 // ---- PATHS ----
 // Resolve actual script paths so we spawn node directly (no .cmd wrappers)
@@ -271,13 +271,13 @@ bot.on('message', async (msg) => {
 
     if (text === '/start' || text === '/help') {
         return bot.sendMessage(chatId, [
-            'Bravo Bridge V8.0',
+            'Bravo Bridge V9.0 (Claude-First)',
             '',
-            'Just type anything → routes to Gemini (free, fast)',
-            '!claude <query> → routes to Claude Code (powerful, costs tokens)',
+            'Just type anything → routes to Claude Code (default)',
+            '!gemini <query> → routes to Gemini (fallback)',
             '!sys <cmd> → run shell command on PC',
             '',
-            'Gemini: 5 min timeout. Claude: 10 min timeout.',
+            'Claude: 10 min timeout. Gemini: 5 min timeout.',
             'Both read the same brain/memory files.',
             '',
             '/whoami — show your Telegram user ID'
@@ -299,13 +299,15 @@ bot.on('message', async (msg) => {
             return;
         }
 
-        const isClaude = text.startsWith('!claude ');
+        // V9.0: Default to Claude (CC has Max plan), !gemini for fallback
+        const isGemini = text.startsWith('!gemini ');
         const prompt = text.replace(/^!(claude|gemini|bravo)\s+/, '');
+        const tool = isGemini ? 'gemini' : 'claude';
 
         await bot.sendChatAction(chatId, 'typing');
-        await bot.sendMessage(chatId, isClaude ? '🧠 Claude thinking...' : '✨ Gemini thinking...');
+        await bot.sendMessage(chatId, isGemini ? 'Gemini thinking...' : 'Claude thinking...');
 
-        const result = await executeCli(isClaude ? 'claude' : 'gemini', prompt, chatId);
+        const result = await executeCli(tool, prompt, chatId);
 
         // Telegram limit is 4096 chars
         const chunks = (result || 'No response.').match(/[\s\S]{1,4000}/g) || ['No response.'];
