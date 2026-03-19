@@ -55,7 +55,7 @@ Workflows: `.agents/workflows/` (15 workflows: post, status, health, prime, cont
 
 | Project | Region | Purpose |
 |---------|--------|---------|
-| **Bravo** | us-west-2 | Agent intelligence database (10 tables) |
+| **Bravo** | us-west-2 | Agent intelligence (14 tables) + business ops (14 tables) = 28 tables |
 | **nostalgic-requests** | us-west-2 | Nostalgic Requests platform |
 | **oasis-ai-platform** | us-west-2 | OASIS AI platform |
 
@@ -109,6 +109,48 @@ Generate agent-native CLI wrappers for any software, API, or service. When MCPs 
 - **Existing CLIs:** `supabase_tool.py`, `stripe_tool.py`, `edit_content.py` (already follow this pattern)
 - **Based on:** [HKUDS/CLI-Anything](https://github.com/HKUDS/CLI-Anything) methodology
 
+## Business Operations Engines (6 CLI tools — zero paid services)
+
+| Engine | Script | Purpose | Key Commands |
+|--------|--------|---------|-------------|
+| **Lead CRM** | `scripts/lead_engine.py` | Full pipeline management, scoring, interactions | `list`, `add`, `view`, `update`, `score`, `interact`, `followups`, `pipeline`, `search`, `funnel` |
+| **Email** | `scripts/email_engine.py` | Free Gmail SMTP sending, templates, nurture sequences | `send`, `send-template`, `templates list/create`, `sequence list/create/run`, `log`, `stats` |
+| **Booking** | `scripts/booking_engine.py` | Self-hosted Cal.com replacement, slot management | `slots open/open-week/list/close`, `book`, `cancel`, `available`, `remind`, `complete` |
+| **Content** | `scripts/content_engine.py` | Content calendar, templates, multi-platform posting | `calendar`, `create`, `create-multi`, `templates list/create/render`, `due`, `week-plan`, `stats` |
+| **Revenue** | `scripts/revenue_engine.py` | MRR tracking, Stripe sync, forecasting | `mrr`, `dashboard`, `sync-stripe`, `log-revenue`, `history`, `forecast`, `clients`, `goal` |
+| **Cron** | `scripts/cron_engine.py` | Automated job scheduling, 12 seeded business workflows | `list`, `add`, `toggle`, `run`, `due`, `seed` |
+
+All engines: `--json` flag for agent consumption, credentials from `.env.agents`, Supabase backend.
+
+## Business Ops Database Schema (14 tables — Supabase Bravo)
+
+| Domain | Tables | Purpose |
+|--------|--------|---------|
+| **CRM** | `leads`, `lead_interactions` | Lead tracking, interaction history, scoring |
+| **Funnels** | `funnels`, `funnel_entries` | Conversion funnel tracking |
+| **Email** | `email_templates`, `nurture_sequences`, `email_log` | Email marketing, sequences, delivery tracking |
+| **Bookings** | `booking_slots`, `bookings` | Self-hosted scheduling system |
+| **Revenue** | `revenue_events`, `monthly_metrics` | Payment tracking, MRR history |
+| **Content** | `content_calendar`, `content_templates` | Content planning and scheduling |
+| **Automation** | `cron_jobs` | 12 automated business workflows |
+
+## Cron Jobs (12 automated workflows)
+
+| Job | Schedule | Type |
+|-----|----------|------|
+| Morning Content Post | Daily 9am | content_post |
+| Afternoon Content Post | Daily 1pm | content_post |
+| Evening Content Post | Daily 7pm | content_post |
+| Lead Follow-up Check | Weekdays 8am | lead_followup |
+| Booking Reminders | Daily 6pm | booking_reminder |
+| Stripe Revenue Sync | Daily 6am | stripe_sync |
+| Weekly MRR Report | Monday 9am | revenue_report |
+| Weekly Pipeline Review | Monday 10am | pipeline_review |
+| Nurture Sequence Check | Weekdays 10am | nurture_check |
+| Monthly Metrics Snapshot | 1st of month 9am | monthly_snapshot |
+| Content Week Plan | Sunday 8pm | content_planning |
+| Instagram Research | Mon/Wed/Fri 11am | ig_research |
+
 ## Workflows (15 active — `.agents/workflows/`)
 
 | Command | Purpose |
@@ -129,7 +171,7 @@ Generate agent-native CLI wrappers for any software, API, or service. When MCPs 
 | /skool-push | Bulk-push course content to Skool |
 | /evolve | Extract session patterns → promote to skills, SOPs, or CLAUDE.md rules |
 
-## Skills (55)
+## Skills (60)
 
 > **Note:** All skills use the Claude Agent Skills 2.0 structure. They are stored in `skills/[skill-name]/SKILL.md` format. The descriptions inside the frontmatter define their activation triggers.
 
@@ -145,6 +187,7 @@ Generate agent-native CLI wrappers for any software, API, or service. When MCPs 
 | **Security** | security-protocol, using-superpowers |
 | **CLI & Integration** | cli-anything |
 | **Meta** | skill-creator, mcp-builder, using-superpowers |
+| **Revenue & Sales** | lead-management, email-marketing, funnel-management, revenue-operations, booking-management |
 
 ## External Services (No MCP)
 
@@ -168,9 +211,11 @@ Generate agent-native CLI wrappers for any software, API, or service. When MCPs 
 | Python | 3.12.10 | Script runtime for edit_content.py |
 | Whisper | openai-whisper | Auto-transcription → SRT captions |
 | ElevenLabs | elevenlabs SDK | Text-to-speech voiceover generation |
-| Remotion | 4.0.431 | Programmatic video/animation generation |
+| Remotion | 4.0.436 | Programmatic video/animation generation (37 Claude skills) |
 
 Pipeline script: `scripts/edit_content.py` — probe, transcribe, voiceover, edit
+Remotion Studio: `content-studio/` — React-based video compositions (OasisPromo, QuoteDrop, CeoLog, SobrietyLog)
+Remotion Skills: `content-studio/.claude/rules/remotion/` — 37 rule files for AI-assisted video generation
 Agent: `agents/video-editor.md` (no dedicated workflow — invoke via content pipeline)
 
 ## Tech Stack
@@ -178,7 +223,7 @@ Agent: `agents/video-editor.md` (no dedicated workflow — invoke via content pi
 - **OS:** Windows 11 (Desktop), macOS (MacBook)
 - **Languages:** TypeScript (primary), Python (video pipeline, MCP servers)
 - **Frameworks:** Next.js 14 (App Router), Tailwind CSS
-- **Database:** Supabase (PostgreSQL) — 3 projects, 10-table agent schema
+- **Database:** Supabase (PostgreSQL) — 3 projects, 28-table schema (14 agent + 14 business ops)
 - **Hosting:** Vercel (auto-deploy from git)
 - **Payments:** Stripe (3 brand accounts)
 - **Automation:** n8n (Hostinger VPS: https://n8n.srv993801.hstgr.cloud)

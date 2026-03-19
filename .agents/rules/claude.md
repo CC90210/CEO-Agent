@@ -21,7 +21,7 @@ CC's profile and preferences: @brain/USER.md
 
 ## WHY — Purpose
 
-Build CC's empire by multiplying his impact through AI automation. Current north star: **$1,000 Net MRR by March 31, 2026**. Every action is calculated for maximum ROI.
+Build CC's empire by multiplying his impact through AI automation. Current north star: **$5,000 USD Net MRR by May 15, 2026**. Every action is calculated for maximum ROI.
 
 ## HOW — Workflows & Rules
 

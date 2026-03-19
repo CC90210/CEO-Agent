@@ -4,6 +4,75 @@
 
 ---
 
+### 2026-03-19 — BUSINESS OPERATIONS ENGINE (Claude Code, Opus 4.6)
+**Scope:** Full agent transformation from developer-focused to business operations platform. All 4 phases executed in single session.
+
+**Built:**
+- **14 Supabase tables** (Bravo project): leads, lead_interactions, funnels, funnel_entries, email_templates, nurture_sequences, email_log, booking_slots, bookings, revenue_events, monthly_metrics, content_calendar, content_templates, cron_jobs. All RLS enabled + update triggers.
+- **6 CLI engine scripts**: lead_engine.py (CRM + scoring + pipeline), email_engine.py (Gmail SMTP + templates + sequences), booking_engine.py (Cal.com replacement), content_engine.py (calendar + templates + week planning), revenue_engine.py (Stripe sync + MRR + forecasting), cron_engine.py (12 seeded business workflows)
+- **5 new skills**: lead-management, email-marketing, funnel-management, revenue-operations, booking-management
+- **Remotion 4.0.436 content studio**: content-studio/ with 4 branded video compositions (OasisPromo, QuoteDrop, CeoLog, SobrietyLog) + 37 Remotion Claude AI skills downloaded
+- **12 cron jobs seeded**: 3x daily content posts, lead follow-ups, booking reminders, Stripe sync, weekly MRR report, pipeline review, nurture checks, monthly snapshot, content week plan, Instagram research
+
+**Also completed:**
+- MRR goal synced to $5,000 USD Net MRR by May 15, 2026 across 15+ files
+- Skool Cron Jobs L3 + L4 emoji encoding fix
+- File cleanup: 96 tmp + 42 courses + 1 screenshot deleted
+- ElevenLabs API key confirmed in .env.agents
+
+**Counts:** 60 skills, 16 agents, 15 workflows, 28 Supabase tables (14 agent + 14 business ops), 8 MCP servers
+
+**Blockers:** Gmail App Password needed for email_engine.py (GMAIL_ADDRESS + GMAIL_APP_PASSWORD in .env.agents)
+
+### 2026-03-19 — 5 Revenue & Sales skills created
+**Change:** Created 5 new skills in the Claude Agent Skills 2.0 format covering the full OASIS AI revenue pipeline: lead-management (CRM operations via lead_engine.py, scoring, cadence), email-marketing (Gmail SMTP sequences via email_engine.py, CC's voice guidelines), funnel-management (stage tracking, conversion metrics, drop-off queries), revenue-operations (MRR tracking, Stripe sync, goal monitoring via revenue_engine.py), booking-management (self-hosted scheduling via booking_engine.py, reminder system, post-meeting workflow). All CLI commands verified against actual script source. CAPABILITIES.md skill count updated 55 → 60.
+**Files:** skills/lead-management/SKILL.md, skills/email-marketing/SKILL.md, skills/funnel-management/SKILL.md, skills/revenue-operations/SKILL.md, skills/booking-management/SKILL.md, brain/CAPABILITIES.md
+**Commit:** pending
+
+### 2026-03-19 — Content Engine CLI created
+**Change:** Built `scripts/content_engine.py` — Supabase-backed content calendar and template engine. Commands: calendar (filters by status/platform/next N days), create, create-multi (auto-truncates per platform), edit, delete, view, due, mark-posted, templates (list/create/render), stats, week-plan (21-post draft generator). Enforces platform char limits (x=280, threads=500, instagram=2200, linkedin=3000, tiktok=4000). Follows identical load_env/get_client/argparse/--json patterns as stripe_tool.py and supabase_tool.py.
+**Files:** scripts/content_engine.py
+**Commit:** pending
+
+### 2026-03-19 — Revenue Engine CLI created
+**Change:** Built `scripts/revenue_engine.py` — revenue operations CLI combining Stripe + Supabase. 9 commands: mrr (Stripe subscriptions + manual Supabase entries), dashboard, sync-stripe (pulls recent events into revenue_events with UNIQUE dedup), log-revenue, log-month, history, forecast, clients, goal. Stripe failure is non-fatal — falls back to Supabase-only data. Follows identical credential/structure patterns as supabase_tool.py and stripe_tool.py. All credentials from .env.agents (BRAVO_SUPABASE_URL, BRAVO_SUPABASE_SERVICE_ROLE_KEY, STRIPE_SECRET_KEY).
+**Files:** scripts/revenue_engine.py
+**Commit:** pending
+
+### 2026-03-19 — Email Engine CLI created
+**Change:** Built `scripts/email_engine.py` — free email sending and nurture sequence engine using Gmail SMTP (500/day) + Supabase for tracking. Commands: send, send-template, templates (list/create/view), sequence (list/create/run), log, stats. Template rendering with {{variable}} placeholders, STARTTLS SMTP, email_log tracking on every send. Follows identical credential/structure patterns as supabase_tool.py and stripe_tool.py.
+**Files:** scripts/email_engine.py
+**Commit:** pending
+
+### 2026-03-19 — Lead Engine CLI created
+**Change:** Built `scripts/lead_engine.py` — a full CRM CLI for OASIS AI lead management. 10 commands: list, add, view, update, score, interact, followups, pipeline, search, funnel. Backed by Supabase bravo project. Scoring algorithm based on data completeness + interaction history + recency. Replaces ManyChat/HubSpot with zero paid services. Follows identical credential and structure patterns as supabase_tool.py and stripe_tool.py.
+**Files:** scripts/lead_engine.py
+**Commit:** pending
+
+### 2026-03-18 — North Star Target Update: $5,000 USD Net MRR
+**Change:** Updated global goal across all agents. New target is $5,000 USD Net MRR by May 15, 2026. Explicitly tagged all financial metrics as USD to ensure cross-border clarity. Updated STATE.md, USER.md, and ACTIVE_TASKS.md with new gap analysis ($2,309 USD/mo needed, pace: ~1 new client/week for 6 weeks).
+**Files:** brain/STATE.md, brain/USER.md, memory/ACTIVE_TASKS.md
+**Commit:** pending
+
+### 2026-03-18 — Secure OpenClaw + Agent Command Centers: 8 lessons created
+**Change:** Created complete lesson content for two new courses in Bennett's AI Agency Accelerator. Secure OpenClaw (4 lessons, 1,300 XP): security architecture, API key rotation, production hardening, scaling for clients. Agent Command Centers (4 lessons, 1,500 XP): command center architecture, multi-agent orchestration, real-time monitoring, autonomous decision pipelines. Total: ~2,400 lines across 8 LESSON.md files.
+**Files:** courses/agency-accelerant-blueprint/secure-openclaw/lesson-01-04/LESSON.md, courses/agency-accelerant-blueprint/agent-command-centers/lesson-01-04/LESSON.md
+**Commit:** pending
+
+### 2026-03-18 — Lead Magnets course: 4 lessons created
+**Change:** Created a complete 4-lesson Lead Magnets course for Bennett's AI Agency Accelerator Skool classroom. Covers fundamentals + agency playbook (7 lead magnet types, niche rule, value proposition formula), build framework (Three-Agent AI Workflow, landing page anatomy, Canva/Gamma), distribution (organic social, ManyChat keyword triggers, 5-email nurture sequence), and metrics + AI scaling (full funnel benchmarks, optimization playbook, Two-Model System, niche variant strategy). Total: 1,308 lines across 4 LESSON.md files, 1,100 XP progression (L1 Builder).
+**Files:** courses/lead-magnets/lesson-01-fundamentals/LESSON.md, lesson-02-creation/LESSON.md, lesson-03-distribution/LESSON.md, lesson-04-metrics-scaling/LESSON.md
+**Commit:** pending
+
+### 2026-03-18 — ManyChat automation course: 4 lessons created
+**Change:** Created a complete 4-lesson ManyChat course for Bennett's AI Agency Accelerator Skool classroom. Covers fundamentals (channels, pricing, account setup), Flow Builder mastery (comment-to-DM build), AI integration + lead qualification funnels, and agency deployment (integrations, starter kit, compliance, pricing). Total: 1,583 lines across 4 LESSON.md files, 1,100 XP progression.
+**Files:** courses/manychat-automation/lesson-01-fundamentals/LESSON.md, lesson-02-flow-builder/LESSON.md, lesson-03-ai-advanced/LESSON.md, lesson-04-agency-deployment/LESSON.md
+**Commit:** pending
+
+### 2026-03-18 — Skool classroom inventory: Bennett's AI Accelerator
+**Change:** Browsed all 16 courses in Agency Accelerants Skool classroom via Playwright MCP. Documented every course name and every lesson title in order. Total: 16 courses, 63 lessons. Full inventory delivered to CC.
+**Files:** No files changed — browser reconnaissance only.
+
 ### 2026-03-18 — Mobile Claude Code setup: Tailscale + SSH installed
 **Change:** Installed Tailscale (v1.94.2) and OpenSSH Server on CC's PC. Both services running. CC connected iPhone 14 to Tailscale mesh (ccpc: 100.126.120.46, iphone-14: 100.65.211.62). CC has Termius on iPhone. Ready for mobile Claude Code access via SSH.
 **Files:** docs/MOBILE_TERMINAL.md (reference)

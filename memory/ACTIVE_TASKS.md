@@ -1,46 +1,49 @@
 # ACTIVE TASKS
 > Read this FIRST at the start of every session. Priority is marked with [P0] Critical, [P1] High, [P2] Medium.
 
-## Target: $1,000 Net MRR by March 31, 2026 (GOAL EXCEEDED)
+## Target: $5,000 USD Net MRR by May 15, 2026
 
-To reach this goal, we need **3 new clients** for OASIS (assuming ~$300-$500/mo retainer or high-ticket setup fee).
+> Previous goal ($1,000 USD Net MRR by March 31, 2026) — **ACHIEVED** at $2,691 USD (+169%).
+
+To reach the new target, we need **~5-6 new OASIS clients** at $400-500 USD/mo retainer.
 
 ### Current Progress
-- **Current Net:** ~$2,691 ($191 base + $2,500 Bennett Community Manager role) + $3,000 upfront cash collected.
-- **Gap to Goal:** $0 (+$1,691 surplus)
+- **Current Net:** ~$2,691 USD/mo ($191 base + $2,500 Bennett Community Manager) + $3,000 USD upfront cash collected.
+- **Gap to Goal:** $2,309 USD/mo
+- **Pace Required:** ~1 new client/week for 6 weeks
+- **Critical Risk:** 93% revenue concentration in Bennett — diversification is priority #1
 - **Pipeline:** 50+ leads researched, 20+ emails sent, 2 warm leads (Cedarwood, Vortex)
-- **Next Milestone:** Start building technical assets for Week 2 and 4 for Bennett's accelerator.
+- **Next Milestone:** Close first new OASIS retainer client + build Bennett Accelerator Week 2/4 assets.
 
-## This Week (March 17) — TIKTIK IP Camera Integration + Accelerator Delivery
+## This Week (March 19) — Business Operations Engine DEPLOYED + Activation
 
-### Monday (March 17) — TIKTIK IP Camera Integration COMPLETE
-- [x] [P0] **IP Camera Management System** — Built full database schema with cameras table + RLS policies. Multi-tenant support (cameras scoped to centers).
-- [x] [P0] **Camera CRUD API Routes** — `/api/cameras` endpoint with GET/POST/PUT/DELETE, full authentication, user's center scoping, secure credential handling.
-- [x] [P0] **Kiosk Stream Config Endpoint** — `/api/cameras/stream-config` service-role GET that returns only enabled camera stream names (no credentials exposed to frontend).
-- [x] [P0] **go2rtc Config Generator Endpoint** — `/api/cameras/go2rtc-config` service-role GET protected by GO2RTC_API_KEY that generates YAML config with full RTSP source URLs.
-- [x] [P0] **CameraFeed Component** — WebRTC connection to go2rtc proxy, canvas bounding boxes, face recognition overlay (integrates with Smart Mode face-api.js).
-- [x] [P0] **CameraTab in Admin Dashboard** — 5th admin tab for managing cameras. Configure RTSP URLs, location, stream quality.
-- [x] [P0] **Docker Infrastructure** — Created docker-compose.yml + go2rtc.yaml for RTSP→WebRTC proxy deployment.
-- [x] [P0] **Deploy to Vercel** — Pushed commit 4ed1e4a to origin/master. Live at https://tiktik-psi.vercel.app
-- [ ] [P1] **WAITING: Midas Network Spec** — Need (1) Lorex NVR IP address, (2) Admin credentials, (3) Camera channel numbers. Then deploy go2rtc on his network.
-- [ ] [P1] **Verify Camera Feed in Smart Mode** — Once go2rtc running, test camera stream in Auto Clock-In overlay. Confirm face recognition works with IP camera feed (not just browser webcam).
+### Wednesday (March 19) — Business Ops Engine BUILD COMPLETE
+- [x] [P0] **Supabase Schema** — 14 new business ops tables deployed (leads, funnels, email, bookings, revenue, content, cron). All RLS enabled.
+- [x] [P0] **Lead Engine** — `lead_engine.py` — full CRM: list, add, view, update, score, interact, followups, pipeline, search, funnel
+- [x] [P0] **Email Engine** — `email_engine.py` — Gmail SMTP sending, templates, nurture sequences
+- [x] [P0] **Booking Engine** — `booking_engine.py` — slot management, booking, reminders (Cal.com replacement)
+- [x] [P0] **Content Engine** — `content_engine.py` — calendar, templates, multi-platform, week planning
+- [x] [P0] **Revenue Engine** — `revenue_engine.py` — MRR tracking, Stripe sync, forecasting, goal tracking
+- [x] [P0] **Cron Engine** — `cron_engine.py` — 12 automated business workflows seeded
+- [x] [P0] **Remotion Studio** — `content-studio/` — 4 branded video compositions + 37 Claude AI skills installed
+- [x] [P0] **5 New Skills** — lead-management, email-marketing, funnel-management, revenue-operations, booking-management
+- [x] [P0] **MRR Goal Sync** — $5,000 USD Net MRR by May 15 updated across 15+ files
 
-## Next Week (March 17+) — Execution
+### Activation (Next Steps)
+- [ ] [P0] **Add Gmail App Password** — CC needs to add GMAIL_ADDRESS + GMAIL_APP_PASSWORD to .env.agents (for email_engine.py)
+- [ ] [P0] **Generate first week's content** — `python scripts/content_engine.py week-plan` → 21 draft posts
+- [ ] [P0] **Import existing leads to CRM** — Move 50+ researched leads into the leads table via lead_engine.py
+- [ ] [P0] **Create first nurture sequence** — Welcome → Value Add → CTA email templates + sequence
+- [ ] [P1] **Open booking slots** — `python scripts/booking_engine.py slots open-week` for next week
+- [ ] [P1] **Sync Stripe revenue history** — `python scripts/revenue_engine.py sync-stripe`
+- [ ] [P1] **Create Google Meet link** — Store in .env.agents for booking confirmations
+- [ ] [P1] **Wire n8n to cron_engine** — Connect n8n workflows to execute cron job actions
+- [ ] [P2] **Render first Remotion video** — Test OasisPromo composition end-to-end
+- [ ] [P2] **LinkedIn Chrome Auth** — Needed for automated outreach engine
 
-- [ ] [P0] **Confirm Camera System with Midas** — Call/message Midas to get exact Lorex NVR specs. Provide him docker setup instructions.
-- [ ] [P0] **Deploy go2rtc on Midas Network** — Once he provides IP/creds, run `docker-compose up` on his network. Test RTSP→WebRTC proxy.
-- [ ] [P0] **Test IP Camera in Smart Mode** — Verify camera feed displays in Clock-In screen, face recognition works with camera (not webcam).
-- [ ] [P0] **Build next technical asset for Bennett Accelerator** — Clarify which week 2/4 asset is needed.
-- [ ] [P1] **Build automated "Touch 2" follow-up workflow in n8n** — Follow-up sequence for warm leads.
-- [ ] [P1] **Build "High-Ticket Automation Template" for rapid delivery** — Template for future clients.
-
-## Infrastructure (Ongoing)
-
-- [ ] [P1] **Create reusable Google Meet link** — Store in .env.agents.
-- [ ] [P2] **Add ELEVENLABS_API_KEY to .env.agents** — CC to provide.
-- [ ] [P2] **Reconfigure Stripe MCP** — Use cmd wrapper.
-- [ ] [P2] **Reconfigure Supabase MCP** — Use npx with --access-token.
-- [ ] [P2] **LinkedIn Chrome Auth** — Needed for automated outreach engine.
+## TIKTIK (Ongoing)
+- [ ] [P1] **WAITING: Midas Network Spec** — Need NVR IP/credentials/channels for go2rtc deployment
+- [ ] [P1] **Verify Camera Feed in Smart Mode** — Once go2rtc running, test face recognition with IP camera
 
 ## Blocked / Waiting
 
@@ -52,4 +55,4 @@ To reach this goal, we need **3 new clients** for OASIS (assuming ~$300-$500/mo 
 | LinkedIn automation | Need local Chrome auth hookup | 2026-03-04 | — |
 | On The Bay Painting software | Client not ready to switch — revisit in weeks/months | 2026-03-16 | — |
 
-*Last updated: 2026-03-17*
+*Last updated: 2026-03-19*
