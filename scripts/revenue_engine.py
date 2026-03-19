@@ -61,17 +61,22 @@ class StripeUnavailable(Exception):
     """Raised when Stripe credentials are absent or requests fail."""
 
 
-def _stripe_get(secret_key: str, endpoint: str, params: dict | None = None) -> dict:
+def _stripe_get(secret_key: str, endpoint: str, params: dict | None = None, account_id: str | None = None) -> dict:
     """GET from Stripe REST API. Raises StripeUnavailable on any failure."""
     try:
         import requests
     except ImportError:
         raise StripeUnavailable("'requests' package not installed")
 
+    headers = {"Stripe-Version": "2025-01-27.acacia"}
+    if account_id:
+        headers["Stripe-Account"] = account_id
+
     try:
         resp = requests.get(
             f"{STRIPE_API}/{endpoint}",
             auth=(secret_key, ""),
+            headers=headers,
             params=params or {},
             timeout=15,
         )
@@ -85,14 +90,14 @@ def _stripe_get(secret_key: str, endpoint: str, params: dict | None = None) -> d
     return resp.json()
 
 
-def _stripe_get_all(secret_key: str, endpoint: str, params: dict | None = None) -> list[dict]:
+def _stripe_get_all(secret_key: str, endpoint: str, params: dict | None = None, account_id: str | None = None) -> list[dict]:
     """Auto-paginate a Stripe list endpoint, returning all items."""
     items: list[dict] = []
     p = dict(params or {})
     p.setdefault("limit", 100)
 
     while True:
-        page = _stripe_get(secret_key, endpoint, p)
+        page = _stripe_get(secret_key, endpoint, p, account_id=account_id)
         items.extend(page.get("data", []))
         if not page.get("has_more"):
             break
@@ -126,12 +131,12 @@ def get_supabase(env_vars: dict[str, str]):
 
 # -- MRR calculation ------------------------------------------------------------
 
-def _mrr_from_stripe(secret_key: str) -> tuple[float, list[dict]]:
+def _mrr_from_stripe(secret_key: str, account_id: str | None = None) -> tuple[float, list[dict]]:
     """
     Pull active Stripe subscriptions and return (total_mrr_usd, subscription_rows).
     Converts annual billing to a monthly equivalent.
     """
-    subs = _stripe_get_all(secret_key, "subscriptions", {"status": "active"})
+    subs = _stripe_get_all(secret_key, "subscriptions", {"status": "active"}, account_id=account_id)
     rows: list[dict] = []
     total = 0.0
 
@@ -209,20 +214,31 @@ def calculate_mrr(env_vars: dict[str, str], db) -> dict:
     Returns a dict with stripe_mrr, manual_mrr, total_mrr, stripe_available, stripe_subs.
     Stripe failure is non-fatal - falls back to Supabase-only data.
     """
-    stripe_key = env_vars.get("STRIPE_SECRET_KEY")
     stripe_mrr = 0.0
     stripe_subs: list[dict] = []
     stripe_available = False
     stripe_error = ""
 
-    if stripe_key:
+    # Try org key + OASIS account first (org keys don't expire like secret keys)
+    org_key = env_vars.get("STRIPE_ORG_KEY")
+    oasis_acct = env_vars.get("STRIPE_OASIS_ACCT_ID")
+    stripe_key = env_vars.get("STRIPE_SECRET_KEY")
+
+    if org_key and oasis_acct:
+        try:
+            stripe_mrr, stripe_subs = _mrr_from_stripe(org_key, account_id=oasis_acct)
+            stripe_available = True
+        except StripeUnavailable as exc:
+            stripe_error = f"Org key failed: {exc}"
+    if not stripe_available and stripe_key:
         try:
             stripe_mrr, stripe_subs = _mrr_from_stripe(stripe_key)
             stripe_available = True
+            stripe_error = ""
         except StripeUnavailable as exc:
             stripe_error = str(exc)
-    else:
-        stripe_error = "STRIPE_SECRET_KEY not set in .env.agents"
+    if not stripe_available and not stripe_error:
+        stripe_error = "No Stripe keys configured in .env.agents"
 
     manual_mrr = _mrr_manual_from_supabase(db)
     total_mrr = round(stripe_mrr + manual_mrr, 2)
@@ -365,16 +381,26 @@ def cmd_dashboard(env_vars: dict[str, str], db, args) -> dict:
 # -- Command: sync-stripe ------------------------------------------------------
 
 def cmd_sync_stripe(env_vars: dict[str, str], db, args) -> dict:
+    org_key = env_vars.get("STRIPE_ORG_KEY")
+    oasis_acct = env_vars.get("STRIPE_OASIS_ACCT_ID")
     stripe_key = env_vars.get("STRIPE_SECRET_KEY")
-    if not stripe_key:
-        msg = "STRIPE_SECRET_KEY not set in .env.agents - cannot sync"
+
+    # Prefer org key (doesn't expire)
+    if org_key and oasis_acct:
+        active_key = org_key
+        active_acct = oasis_acct
+    elif stripe_key:
+        active_key = stripe_key
+        active_acct = None
+    else:
+        msg = "No Stripe keys configured in .env.agents - cannot sync"
         if getattr(args, "output_json", False):
             return {"error": msg, "inserted": 0}
         print(f"ERROR: {msg}", file=sys.stderr)
         sys.exit(1)
 
     try:
-        events = _stripe_get_all(stripe_key, "events", {"limit": 100})
+        events = _stripe_get_all(active_key, "events", {"limit": 100}, account_id=active_acct)
     except StripeUnavailable as exc:
         msg = str(exc)
         if getattr(args, "output_json", False):
@@ -634,23 +660,34 @@ def cmd_forecast(env_vars: dict[str, str], db, args) -> dict:
 # -- Command: clients ----------------------------------------------------------
 
 def cmd_clients(env_vars: dict[str, str], db, args) -> list[dict]:
-    stripe_key = env_vars.get("STRIPE_SECRET_KEY")
+    org_key = env_vars.get("STRIPE_ORG_KEY")
+    oasis_acct = env_vars.get("STRIPE_OASIS_ACCT_ID")
     clients: list[dict] = []
+    stripe_subs_fetched = False
 
-    if stripe_key:
+    if org_key and oasis_acct:
+        try:
+            _, subs = _mrr_from_stripe(org_key, account_id=oasis_acct)
+            stripe_subs_fetched = True
+        except StripeUnavailable:
+            pass
+    if not stripe_subs_fetched and stripe_key:
         try:
             _, subs = _mrr_from_stripe(stripe_key)
-            for sub in subs:
-                clients.append({
-                    "source": "stripe",
-                    "client": sub["customer_email"] or sub["customer_id"],
-                    "monthly_usd": sub["monthly_usd"],
-                    "status": sub["status"],
-                    "subscription_id": sub["subscription_id"],
-                })
-        except StripeUnavailable as exc:
-            if not getattr(args, "output_json", False):
-                print(f"  [Stripe unavailable: {exc}]")
+            stripe_subs_fetched = True
+        except StripeUnavailable:
+            pass
+    if stripe_subs_fetched:
+        for sub in subs:
+            clients.append({
+                "source": "stripe",
+                "client": sub["customer_email"] or sub["customer_id"],
+                "monthly_usd": sub["monthly_usd"],
+                "status": sub["status"],
+                "subscription_id": sub["subscription_id"],
+            })
+    elif not getattr(args, "output_json", False):
+        print("  [Stripe unavailable]")
 
     # Also pull manual subscription_start from Supabase
     try:
