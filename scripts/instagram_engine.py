@@ -9,7 +9,9 @@ Usage:
   python scripts/instagram_engine.py check-dms --reply   # Check DMs and auto-reply
   python scripts/instagram_engine.py check-comments      # Check for new comments
   python scripts/instagram_engine.py send-dm --to USER --msg "text"  # Send a DM
-  python scripts/instagram_engine.py --json check-dms    # JSON output for scheduler
+  python scripts/instagram_engine.py log-dm --username USER --summary "text"
+  python scripts/instagram_engine.py auto-reply          # Detect intent + auto-reply
+  python scripts/instagram_engine.py --json auto-reply   # JSON output for scheduler
 
 Requires: playwright Python package (pip install playwright)
 Browser profile persists at tmp/ig-browser/ for session continuity.
@@ -27,6 +29,20 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 BROWSER_DIR = str(PROJECT_ROOT / "tmp" / "ig-browser")
 SCREENSHOT_DIR = str(PROJECT_ROOT / "tmp")
+DM_REPLIED_PATH = PROJECT_ROOT / "tmp" / "dm_replied.json"
+
+# Intent detection keyword sets
+_BOOKING_KEYWORDS = {
+    "book", "call", "meet", "schedule", "chat", "consultation",
+    "demo", "appointment", "available", "time",
+}
+_PRICING_KEYWORDS = {
+    "price", "cost", "how much", "rate", "pricing", "package", "afford",
+}
+_INFO_KEYWORDS = {
+    "what do you", "how does", "tell me about", "what is", "services", "offer",
+}
+_GREETING_KEYWORDS = {"hey", "hi", "hello", "sup", "yo"}
 
 sys.path.insert(0, str(SCRIPTS_DIR))
 
@@ -458,6 +474,354 @@ def cmd_log_dm(env_vars, args):
     return result
 
 
+# -- Auto-reply helpers -------------------------------------------------------
+
+def detect_intent(text: str) -> str:
+    """Classify message text into BOOKING / PRICING / INFO / GREETING / UNKNOWN.
+
+    Multi-word phrases are checked with substring matching so that phrases like
+    'how much' correctly score as PRICING even though they contain two words.
+    Single-word sets are checked with whole-word tokenisation to reduce false
+    positives (e.g. 'offer' inside 'buffer').
+    Returns the highest-priority match: BOOKING > PRICING > INFO > GREETING > UNKNOWN.
+    """
+    lowered = text.lower()
+
+    # Multi-word phrases first (substring check is correct here)
+    multi_word_pricing = {"how much"}
+    multi_word_info = {"what do you", "how does", "tell me about", "what is"}
+
+    for phrase in multi_word_pricing:
+        if phrase in lowered:
+            return "PRICING"
+    for phrase in multi_word_info:
+        if phrase in lowered:
+            return "INFO"
+
+    # Single-word sets — tokenise so 'offer' in 'buffer' does not match
+    import re
+    tokens = set(re.findall(r"[a-z]+", lowered))
+
+    single_booking = _BOOKING_KEYWORDS - {"how much"}
+    single_pricing = _PRICING_KEYWORDS - {"how much"}
+    single_info = _INFO_KEYWORDS - {"what do you", "how does", "tell me about", "what is"}
+
+    if tokens & single_booking:
+        return "BOOKING"
+    if tokens & single_pricing:
+        return "PRICING"
+    if tokens & single_info:
+        return "INFO"
+    if tokens & _GREETING_KEYWORDS:
+        return "GREETING"
+    return "UNKNOWN"
+
+
+def build_reply(intent: str, meet_link: str) -> str:
+    """Return the appropriate auto-reply template for the given intent."""
+    templates = {
+        "BOOKING": (
+            "Hey! I'd love to chat. Here's my calendar link -- grab a time that"
+            f" works: {meet_link}\n\nLooking forward to connecting!"
+        ),
+        "PRICING": (
+            "Great question! It really depends on what you need -- every business"
+            " is different. Let's hop on a quick 15-min call so I can understand"
+            f" your situation and give you an honest answer: {meet_link}"
+        ),
+        "INFO": (
+            "Thanks for reaching out! I run OASIS AI Solutions -- we build AI"
+            " automation systems for local businesses (think: auto-follow-ups,"
+            " booking systems, lead capture). Happy to walk you through"
+            f" it: {meet_link}"
+        ),
+        "GREETING": "Hey! Thanks for reaching out. What can I help you with?",
+    }
+    return templates.get(intent, "")
+
+
+def load_replied_log() -> dict:
+    """Load the dm_replied.json tracking file.  Returns {} if absent or corrupt."""
+    if not DM_REPLIED_PATH.exists():
+        return {}
+    try:
+        with open(DM_REPLIED_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def save_replied_log(log: dict) -> None:
+    """Persist the dm_replied.json tracking file."""
+    DM_REPLIED_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(DM_REPLIED_PATH, "w", encoding="utf-8") as f:
+        json.dump(log, f, indent=2)
+
+
+def already_replied_within_24h(log: dict, username: str) -> bool:
+    """Return True if we auto-replied to this username in the last 24 hours."""
+    entry = log.get(username)
+    if not entry:
+        return False
+    last_ts = datetime.fromisoformat(entry["replied_at"])
+    now = datetime.now(timezone.utc)
+    # Make last_ts timezone-aware if it came back naive (defensive)
+    if last_ts.tzinfo is None:
+        last_ts = last_ts.replace(tzinfo=timezone.utc)
+    return (now - last_ts).total_seconds() < 86400
+
+
+def read_conversation_text(page, username: str) -> str:
+    """Open a DM conversation by clicking the user in the inbox list and
+    return the visible message text (last ~3000 chars)."""
+    found = page.evaluate(f"""() => {{
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        while (walker.nextNode()) {{
+            if (walker.currentNode.textContent.trim() === '{username}') {{
+                let el = walker.currentNode.parentElement;
+                for (let i = 0; i < 12; i++) {{
+                    if (!el) break;
+                    if (el.tagName === 'A' || el.getAttribute('role') === 'link' ||
+                            el.getAttribute('role') === 'button') {{
+                        el.click();
+                        return true;
+                    }}
+                    el = el.parentElement;
+                }}
+                walker.currentNode.parentElement.click();
+                return true;
+            }}
+        }}
+        return false;
+    }}""")
+    if not found:
+        return ""
+    time.sleep(5)
+
+    raw = page.evaluate("""() => {
+        const main = document.querySelector('main') || document.body;
+        return main.innerText.slice(-3000);
+    }""")
+    return raw or ""
+
+
+def cc_has_replied(conversation_text: str) -> bool:
+    """Return True if the conversation contains a 'You:' or 'Sent' marker,
+    which indicates CC has already manually replied in this thread."""
+    lowered = conversation_text.lower()
+    return "you:" in lowered or "sent" in lowered
+
+
+def log_auto_reply_to_supabase(env_vars: dict, username: str, intent: str, reply: str) -> None:
+    """Write the auto-reply event to Supabase dm_interactions table.
+    Fails silently so it never blocks the send flow."""
+    try:
+        from supabase import create_client
+        url = env_vars.get("BRAVO_SUPABASE_URL")
+        key = env_vars.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
+        if not url or not key:
+            return
+        db = create_client(url, key)
+        db.table("dm_interactions").insert({
+            "channel": "instagram_dm",
+            "direction": "outbound",
+            "ig_username": username,
+            "intent": intent,
+            "reply_preview": reply[:200],
+            "auto_replied": True,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }).execute()
+    except Exception:
+        pass  # Supabase logging is best-effort; never crash the main flow
+
+
+def cmd_auto_reply(env_vars, args):
+    """Check unread DMs, detect intent, and send templated auto-replies.
+
+    Safety rules enforced here:
+    - Never reply to the same person more than once per 24 h (dm_replied.json).
+    - Never reply if CC has already manually replied in that thread.
+    - All auto-replies are logged to Supabase dm_interactions.
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        safe_print("ERROR: playwright not installed. Run: pip install playwright")
+        return {"status": "error", "message": "playwright not installed"}
+
+    meet_link = env_vars.get("GOOGLE_MEET_LINK", "")
+    if not meet_link:
+        safe_print("ERROR: GOOGLE_MEET_LINK not set in .env.agents")
+        return {"status": "error", "message": "GOOGLE_MEET_LINK missing"}
+
+    replied_log = load_replied_log()
+    actions_taken = []
+    skipped = []
+
+    with sync_playwright() as p:
+        context = get_browser_context(p)
+        page = context.pages[0] if context.pages else context.new_page()
+
+        try:
+            if not ensure_logged_in(page, env_vars):
+                result = {
+                    "action": "auto_reply",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "status": "login_failed",
+                    "message": "Could not log into Instagram. Check credentials.",
+                }
+                notify("Instagram login failed - auto-reply aborted", category="instagram")
+                if getattr(args, "output_json", False):
+                    print(json.dumps(result, indent=2))
+                else:
+                    safe_print(f"auto-reply: {result['message']}")
+                return result
+
+            # Step 1: Read the inbox list
+            inbox_text = read_dm_list(page)
+            convos = parse_conversations(inbox_text)
+            unread = [c for c in convos if c.get("unread")]
+
+            if not unread:
+                result = {
+                    "action": "auto_reply",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "status": "ok",
+                    "message": "No unread DMs",
+                    "replied": [],
+                    "skipped": [],
+                }
+                if getattr(args, "output_json", False):
+                    print(json.dumps(result, indent=2))
+                else:
+                    safe_print("auto-reply: No unread DMs to process")
+                return result
+
+            # Step 2: Process each unread conversation
+            for convo in unread:
+                username = convo.get("username", "").strip()
+                if not username:
+                    continue
+
+                # Safety check 1: already replied in last 24 h?
+                if already_replied_within_24h(replied_log, username):
+                    skipped.append({"username": username, "reason": "replied_within_24h"})
+                    continue
+
+                # Open conversation and read full thread text
+                convo_text = read_conversation_text(page, username)
+
+                # Safety check 2: CC has already manually replied?
+                if cc_has_replied(convo_text):
+                    skipped.append({"username": username, "reason": "cc_already_replied"})
+                    # Navigate back to inbox before next iteration
+                    page.goto(
+                        "https://www.instagram.com/direct/inbox/",
+                        wait_until="domcontentloaded",
+                        timeout=60000,
+                    )
+                    time.sleep(4)
+                    continue
+
+                # Detect intent from the last message in the thread
+                # Use the preview from the inbox list as the signal text; fall
+                # back to the tail of the full conversation if the preview is empty.
+                signal_text = convo.get("preview", "") or convo_text[-500:]
+                intent = detect_intent(signal_text)
+
+                if intent == "UNKNOWN":
+                    skipped.append({"username": username, "reason": "unknown_intent"})
+                    page.goto(
+                        "https://www.instagram.com/direct/inbox/",
+                        wait_until="domcontentloaded",
+                        timeout=60000,
+                    )
+                    time.sleep(4)
+                    continue
+
+                reply_text = build_reply(intent, meet_link)
+
+                # Send the reply using the existing message-input logic
+                msg_input = (
+                    page.query_selector('div[role="textbox"]')
+                    or page.query_selector('div[contenteditable="true"]')
+                )
+                if not msg_input:
+                    skipped.append({"username": username, "reason": "no_input_found"})
+                    page.goto(
+                        "https://www.instagram.com/direct/inbox/",
+                        wait_until="domcontentloaded",
+                        timeout=60000,
+                    )
+                    time.sleep(4)
+                    continue
+
+                msg_input.click()
+                time.sleep(0.3)
+                page.keyboard.type(reply_text, delay=15)
+                time.sleep(0.5)
+                page.keyboard.press("Enter")
+                time.sleep(3)
+
+                # Record the reply in the local tracking file
+                replied_log[username] = {
+                    "replied_at": datetime.now(timezone.utc).isoformat(),
+                    "intent": intent,
+                }
+                save_replied_log(replied_log)
+
+                # Log to Supabase (best-effort)
+                log_auto_reply_to_supabase(env_vars, username, intent, reply_text)
+
+                notify(
+                    f"Auto-replied to @{username} (intent: {intent}): {reply_text[:80]}",
+                    category="instagram",
+                )
+
+                actions_taken.append({
+                    "username": username,
+                    "intent": intent,
+                    "reply_preview": reply_text[:100],
+                })
+
+                # Navigate back to inbox for the next conversation
+                page.goto(
+                    "https://www.instagram.com/direct/inbox/",
+                    wait_until="domcontentloaded",
+                    timeout=60000,
+                )
+                time.sleep(4)
+                # Re-read the list so stale refs don't cause issues
+                inbox_text = read_dm_list(page)
+
+        finally:
+            context.close()
+
+    result = {
+        "action": "auto_reply",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "status": "ok",
+        "unread_processed": len(unread) if unread else 0,
+        "replied": actions_taken,
+        "skipped": skipped,
+        "message": (
+            f"Replied to {len(actions_taken)} conversation(s), "
+            f"skipped {len(skipped)}"
+        ),
+    }
+
+    if getattr(args, "output_json", False):
+        print(json.dumps(result, indent=2, default=str))
+    else:
+        safe_print(f"auto-reply: {result['message']}")
+        for a in actions_taken:
+            safe_print(f"  -> @{a['username']} [{a['intent']}]: {a['reply_preview']}")
+        for s in skipped:
+            safe_print(f"  -- skipped @{s['username']}: {s['reason']}")
+
+    return result
+
+
 # -- Main ---------------------------------------------------------------------
 
 def main():
@@ -489,6 +853,12 @@ def main():
     p_log.add_argument("--direction", choices=["inbound", "outbound"], default="inbound")
     p_log.add_argument("--lead-id", help="Associated lead UUID")
 
+    # auto-reply
+    subparsers.add_parser(
+        "auto-reply",
+        help="Detect intent in unread DMs and send templated auto-replies",
+    )
+
     args = parser.parse_args()
 
     if not args.command:
@@ -502,6 +872,7 @@ def main():
         "check-comments": cmd_check_comments,
         "send-dm": cmd_send_dm,
         "log-dm": cmd_log_dm,
+        "auto-reply": cmd_auto_reply,
     }
 
     handler = handlers.get(args.command)

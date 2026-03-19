@@ -15,12 +15,15 @@ Usage:
   python scripts/booking_engine.py slots close <slot_id>
 
   python scripts/booking_engine.py book <slot_id> --name "John Smith" --email "john@acme.com" [--phone "555-1234"] [--notes "..."] [--lead-id uuid]
+  python scripts/booking_engine.py auto-book --name "John Smith" --email "john@acme.com" --preferred-time "2026-03-25 10:00" [--type discovery] [--phone "555-1234"] [--notes "..."] [--lead-id uuid]
   python scripts/booking_engine.py cancel <booking_id> [--reason "Rescheduled"]
   python scripts/booking_engine.py list [--status confirmed|completed|cancelled] [--upcoming]
   python scripts/booking_engine.py view <booking_id>
 
   python scripts/booking_engine.py available [--type discovery] [--next 7]
+  python scripts/booking_engine.py generate-link [--type discovery] [--next 7]
   python scripts/booking_engine.py remind
+  python scripts/booking_engine.py send-reminders [--dry-run]
   python scripts/booking_engine.py complete <booking_id> [--notes "Good call"]
 
   Add --json to any command for machine-readable output.
@@ -37,6 +40,14 @@ from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
+
+# Optional Telegram notifications — non-fatal if notify.py is absent
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+try:
+    from notify import notify as _telegram_notify  # noqa: F401
+except ImportError:
+    def _telegram_notify(*_args: object, **_kwargs: object) -> bool:  # type: ignore[misc]
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -479,6 +490,7 @@ def cmd_book(client, args, json_mode: bool, env_vars: dict[str, str] | None = No
         fail(f"Slot {args.slot_id} is not available.", json_mode)
 
     # Create the booking
+    meet_link = (env_vars or {}).get("GOOGLE_MEET_LINK")
     booking_record: dict = {
         "slot_id": args.slot_id,
         "name": args.name,
@@ -487,6 +499,8 @@ def cmd_book(client, args, json_mode: bool, env_vars: dict[str, str] | None = No
         "status": "confirmed",
         "reminder_sent": False,
     }
+    if meet_link:
+        booking_record["meeting_link"] = meet_link
     if hasattr(args, "phone") and args.phone:
         booking_record["phone"] = args.phone
     if hasattr(args, "notes") and args.notes:
@@ -745,6 +759,401 @@ def cmd_complete(client, args, json_mode: bool) -> None:
 
 
 # ---------------------------------------------------------------------------
+# New commands: auto-book, generate-link, send-reminders
+# ---------------------------------------------------------------------------
+
+def _build_reminder_body(
+    attendee_name: str,
+    slot_date: str,
+    start_time: str,
+    end_time: str,
+    meeting_type: str,
+    meet_link: str | None,
+) -> str:
+    """Return the plain-text reminder email body. ASCII only."""
+    start_dt = datetime.fromisoformat(f"{slot_date}T{start_time}")
+    end_dt = datetime.fromisoformat(f"{slot_date}T{end_time}")
+    date_label = start_dt.strftime("%A, %B %d, %Y")
+    time_label = f"{start_dt.strftime('%I:%M %p')} - {end_dt.strftime('%I:%M %p')} EST"
+
+    lines = [
+        f"Hi {attendee_name},",
+        "",
+        "Just a quick reminder about your call tomorrow:",
+        "",
+        f"  Date:  {date_label}",
+        f"  Time:  {time_label}",
+        f"  Type:  {meeting_type}",
+    ]
+    if meet_link:
+        lines.append(f"  Link:  {meet_link}")
+    lines += [
+        "",
+        "Looking forward to it. Reply to this email if anything comes up.",
+        "",
+        "Conaugh McKenna",
+        "Founder, OASIS AI Solutions",
+        "oasisai.work",
+    ]
+    return "\n".join(lines)
+
+
+def _send_reminder_email(
+    env_vars: dict[str, str],
+    booking: dict,
+    slot: dict,
+    meet_link: str | None,
+) -> tuple[bool, str | None]:
+    """
+    Send a reminder email for a booking scheduled for tomorrow.
+    Returns (success, error_message).
+    """
+    gmail_address = env_vars.get("GMAIL_USER") or env_vars.get("GMAIL_ADDRESS")
+    app_password = env_vars.get("GMAIL_APP_PASSWORD")
+
+    if not gmail_address or not app_password:
+        return False, "GMAIL_USER/GMAIL_ADDRESS or GMAIL_APP_PASSWORD not set in .env.agents"
+
+    attendee_name = booking["name"]
+    attendee_email = booking["email"]
+    slot_date = slot["slot_date"]
+    start_time = slot["start_time"]
+    end_time = slot["end_time"]
+    meeting_type = booking["meeting_type"]
+
+    subject = "Reminder: Your Call Tomorrow with Conaugh McKenna"
+    body_text = _build_reminder_body(
+        attendee_name, slot_date, start_time, end_time, meeting_type, meet_link
+    )
+
+    from email.mime.text import MIMEText as _MIMEText
+    from email.mime.multipart import MIMEMultipart as _MIMEMultipart
+
+    msg = _MIMEMultipart("mixed")
+    msg["Subject"] = subject
+    msg["From"] = f"Conaugh McKenna <{gmail_address}>"
+    msg["To"] = attendee_email
+    msg.attach(_MIMEText(body_text, "plain"))
+
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
+            server.login(gmail_address, app_password)
+            server.sendmail(gmail_address, attendee_email, msg.as_string())
+        return True, None
+    except smtplib.SMTPAuthenticationError:
+        return False, "SMTP authentication failed. Check GMAIL_APP_PASSWORD in .env.agents."
+    except smtplib.SMTPRecipientsRefused:
+        return False, f"Recipient address refused: {attendee_email}"
+    except smtplib.SMTPException as exc:
+        return False, f"SMTP error: {exc}"
+    except Exception as exc:  # noqa: BLE001 — non-fatal, must not crash the reminder run
+        return False, f"Unexpected error: {exc}"
+
+
+def cmd_auto_book(client, args, json_mode: bool, env_vars: dict[str, str]) -> None:
+    """
+    Find the first available slot on or after --preferred-time, book it,
+    send a confirmation email, and notify CC via Telegram.
+
+    --preferred-time accepts "YYYY-MM-DD HH:MM" or "YYYY-MM-DD".
+    When only a date is given, the earliest slot on that date is used.
+    """
+    # Parse preferred time
+    preferred_str: str = args.preferred_time.strip()
+    preferred_date: str
+    preferred_start: str | None = None
+
+    if "T" in preferred_str or " " in preferred_str:
+        # "2026-03-25 10:00" or "2026-03-25T10:00"
+        sep = "T" if "T" in preferred_str else " "
+        parts = preferred_str.split(sep, 1)
+        preferred_date = parts[0]
+        preferred_start = parts[1][:5]  # HH:MM
+    else:
+        preferred_date = preferred_str
+
+    # Fetch available slots from the preferred date forward (next 30 days max)
+    cutoff = (date.fromisoformat(preferred_date) + timedelta(days=30)).isoformat()
+    query = (
+        client.table("booking_slots")
+        .select("*")
+        .eq("is_available", True)
+        .gte("slot_date", preferred_date)
+        .lte("slot_date", cutoff)
+        .order("slot_date")
+        .order("start_time")
+    )
+    meeting_type = getattr(args, "type", None) or "discovery"
+    query = query.eq("meeting_type", meeting_type)
+
+    result = query.execute()
+    slots = result.data
+
+    if not slots:
+        fail(
+            f"No available {meeting_type} slots found from {preferred_date} (checked 30 days ahead).",
+            json_mode,
+        )
+
+    # Pick the closest slot to the preferred time
+    chosen_slot: dict | None = None
+    if preferred_start:
+        # Prefer exact match on start_time on the preferred date; fall back to next nearest
+        for s in slots:
+            if s["slot_date"] == preferred_date and s["start_time"][:5] == preferred_start:
+                chosen_slot = s
+                break
+        if chosen_slot is None:
+            # Take the first slot on or after the preferred date
+            chosen_slot = slots[0]
+    else:
+        chosen_slot = slots[0]
+
+    assert chosen_slot is not None  # unreachable — slots is non-empty here
+
+    # Attach the Google Meet link
+    meet_link = env_vars.get("GOOGLE_MEET_LINK")
+
+    # Create the booking record
+    booking_record: dict = {
+        "slot_id": chosen_slot["id"],
+        "name": args.name,
+        "email": args.email,
+        "meeting_type": chosen_slot["meeting_type"],
+        "status": "confirmed",
+        "reminder_sent": False,
+    }
+    if meet_link:
+        booking_record["meeting_link"] = meet_link
+    if getattr(args, "phone", None):
+        booking_record["phone"] = args.phone
+    if getattr(args, "notes", None):
+        booking_record["notes"] = args.notes
+    if getattr(args, "lead_id", None):
+        booking_record["lead_id"] = args.lead_id
+
+    booking_result = client.table("bookings").insert(booking_record).execute()
+    booking = booking_result.data[0]
+
+    # Mark slot unavailable
+    client.table("booking_slots").update({"is_available": False}).eq("id", chosen_slot["id"]).execute()
+
+    # Send confirmation email (non-fatal)
+    _send_booking_confirmation(env_vars, client, booking, chosen_slot)
+
+    # Notify CC via Telegram (non-fatal)
+    slot_date = chosen_slot["slot_date"]
+    start_t = chosen_slot["start_time"]
+    end_t = chosen_slot["end_time"]
+    tg_message = (
+        f"New booking: {args.name} ({args.email})\n"
+        f"{slot_date} {start_t}-{end_t} [{chosen_slot['meeting_type']}]\n"
+        f"Booking ID: {booking['id']}"
+    )
+    if meet_link:
+        tg_message += f"\nMeet: {meet_link}"
+    _telegram_notify(tg_message, category="booking")
+
+    if json_mode:
+        output({"booking": booking, "slot": chosen_slot}, json_mode=True)
+    else:
+        print("Booking confirmed:")
+        print(f"  id:      {booking['id']}")
+        print(f"  name:    {booking['name']}")
+        print(f"  email:   {booking['email']}")
+        print(f"  date:    {slot_date} {start_t} - {end_t}")
+        print(f"  type:    {booking['meeting_type']}")
+        print(f"  status:  {booking['status']}")
+        if meet_link:
+            print(f"  link:    {meet_link}")
+
+
+def cmd_generate_link(client, args, json_mode: bool, env_vars: dict[str, str]) -> None:
+    """
+    Generate a shareable availability message with the Google Meet link.
+    Outputs formatted text that CC can paste directly into a DM or email.
+    """
+    meet_link = env_vars.get("GOOGLE_MEET_LINK")
+    today = date.today()
+    days_ahead: int = args.next if hasattr(args, "next") and args.next else 7
+    cutoff = (today + timedelta(days=days_ahead)).isoformat()
+
+    query = (
+        client.table("booking_slots")
+        .select("*")
+        .eq("is_available", True)
+        .gte("slot_date", today.isoformat())
+        .lte("slot_date", cutoff)
+        .order("slot_date")
+        .order("start_time")
+    )
+    if hasattr(args, "type") and args.type:
+        query = query.eq("meeting_type", args.type)
+
+    result = query.execute()
+    slots = result.data
+
+    if json_mode:
+        output(
+            {
+                "meet_link": meet_link,
+                "available_slots": slots,
+                "days_ahead": days_ahead,
+            },
+            json_mode=True,
+        )
+        return
+
+    if not slots:
+        print("No available slots found. Open some slots first:")
+        print("  python scripts/booking_engine.py slots open-week ...")
+        return
+
+    # Group by date
+    by_date: dict[str, list[dict]] = {}
+    for s in slots:
+        by_date.setdefault(s["slot_date"], []).append(s)
+
+    lines = [
+        "Hey! Here are my available times for a quick call:",
+        "",
+    ]
+    for d, day_slots in sorted(by_date.items()):
+        day_label = date.fromisoformat(d).strftime("%A, %B %-d")
+        slot_labels = [
+            f"{s['start_time'][:5]}-{s['end_time'][:5]} EST"
+            for s in day_slots
+        ]
+        lines.append(f"  {day_label}: {', '.join(slot_labels)}")
+
+    lines.append("")
+    if meet_link:
+        lines.append(f"All times are via Google Meet: {meet_link}")
+    else:
+        lines.append("(Google Meet link — set GOOGLE_MEET_LINK in .env.agents)")
+
+    lines += [
+        "",
+        "Just reply with what works and I'll confirm it.",
+        "",
+        "-- Conaugh",
+    ]
+
+    print("\n".join(lines))
+
+
+def cmd_send_reminders(client, args, json_mode: bool, env_vars: dict[str, str]) -> None:
+    """
+    Send reminder emails for all confirmed bookings scheduled for tomorrow
+    that have not yet had a reminder sent. Marks reminder_sent=true on success.
+
+    --dry-run prints what would be sent without touching Supabase or SMTP.
+    """
+    dry_run: bool = getattr(args, "dry_run", False)
+    meet_link = env_vars.get("GOOGLE_MEET_LINK")
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+
+    result = (
+        client.table("bookings")
+        .select("*, booking_slots(slot_date, start_time, end_time)")
+        .eq("status", "confirmed")
+        .eq("reminder_sent", False)
+        .execute()
+    )
+
+    pending = [
+        b for b in result.data
+        if (b.get("booking_slots") or {}).get("slot_date") == tomorrow
+    ]
+
+    if not pending:
+        msg = f"No reminders pending for tomorrow ({tomorrow})."
+        if json_mode:
+            output({"sent": 0, "failed": 0, "message": msg}, json_mode=True)
+        else:
+            print(msg)
+        return
+
+    results: list[dict] = []
+
+    for booking in pending:
+        slot_info = booking.get("booking_slots") or {}
+        name = booking["name"]
+        email_addr = booking["email"]
+        start_t = slot_info.get("start_time", "?")
+        end_t = slot_info.get("end_time", "?")
+
+        if dry_run:
+            results.append({
+                "booking_id": booking["id"],
+                "name": name,
+                "email": email_addr,
+                "time": f"{start_t}-{end_t}",
+                "status": "dry-run",
+            })
+            continue
+
+        # Construct a minimal slot dict for _send_reminder_email
+        slot_dict = {
+            "slot_date": tomorrow,
+            "start_time": start_t,
+            "end_time": end_t,
+        }
+
+        success, error = _send_reminder_email(env_vars, booking, slot_dict, meet_link)
+        status = "sent" if success else "failed"
+
+        if success:
+            # Mark reminder_sent so we don't double-send
+            try:
+                client.table("bookings").update({"reminder_sent": True}).eq("id", booking["id"]).execute()
+            except Exception as exc:  # noqa: BLE001 — non-fatal, booking record still exists
+                print(f"Warning: could not mark reminder_sent for {booking['id']}: {exc}", file=sys.stderr)
+
+            # Telegram alert to CC
+            _telegram_notify(
+                f"Reminder sent to {name} ({email_addr}) for tomorrow {start_t}-{end_t}",
+                category="booking",
+                silent=True,
+            )
+        else:
+            print(f"Warning: reminder not sent to {email_addr} — {error}", file=sys.stderr)
+
+        results.append({
+            "booking_id": booking["id"],
+            "name": name,
+            "email": email_addr,
+            "time": f"{start_t}-{end_t}",
+            "status": status,
+            "error": error,
+        })
+
+    sent = sum(1 for r in results if r["status"] == "sent")
+    failed = sum(1 for r in results if r["status"] == "failed")
+    dry = sum(1 for r in results if r["status"] == "dry-run")
+
+    if json_mode:
+        output(
+            {"sent": sent, "failed": failed, "dry_run": dry, "results": results},
+            json_mode=True,
+        )
+        return
+
+    label = "[DRY RUN] " if dry_run else ""
+    print(f"{label}Reminder run complete for {tomorrow}:")
+    for r in results:
+        status_label = r["status"].upper()
+        print(f"  [{status_label}] {r['name']} <{r['email']}> — {r['time']}")
+        if r.get("error"):
+            print(f"    Error: {r['error']}")
+    if not dry_run:
+        print(f"\n  {sent} sent, {failed} failed.")
+
+
+# ---------------------------------------------------------------------------
 # Argument parser
 # ---------------------------------------------------------------------------
 
@@ -829,6 +1238,47 @@ def build_parser() -> argparse.ArgumentParser:
     p_complete.add_argument("booking_id", help="Booking UUID")
     p_complete.add_argument("--notes", help="Post-call notes (optional)")
 
+    # ---- auto-book ----
+    p_auto = sub.add_parser(
+        "auto-book",
+        help="Find first available slot near a preferred time, book it, confirm by email, alert CC",
+    )
+    p_auto.add_argument("--name", required=True, help="Attendee full name")
+    p_auto.add_argument("--email", required=True, help="Attendee email address")
+    p_auto.add_argument(
+        "--preferred-time",
+        dest="preferred_time",
+        required=True,
+        help='Preferred date/time: "YYYY-MM-DD HH:MM" or "YYYY-MM-DD" for earliest on that day',
+    )
+    p_auto.add_argument("--type", dest="type", default="discovery", metavar="MEETING_TYPE",
+                        help="Meeting type (default: discovery)")
+    p_auto.add_argument("--phone", help="Attendee phone (optional)")
+    p_auto.add_argument("--notes", help="Notes (optional)")
+    p_auto.add_argument("--lead-id", dest="lead_id", help="Link to a lead UUID (optional)")
+
+    # ---- generate-link ----
+    p_link = sub.add_parser(
+        "generate-link",
+        help="Print a shareable availability message with the Google Meet link",
+    )
+    p_link.add_argument("--type", dest="type", metavar="MEETING_TYPE",
+                        help="Filter by meeting type (optional)")
+    p_link.add_argument("--next", type=int, default=7, metavar="DAYS",
+                        help="Days ahead to include (default: 7)")
+
+    # ---- send-reminders ----
+    p_reminders = sub.add_parser(
+        "send-reminders",
+        help="Send reminder emails for all confirmed bookings scheduled for tomorrow",
+    )
+    p_reminders.add_argument(
+        "--dry-run",
+        dest="dry_run",
+        action="store_true",
+        help="Print what would be sent without emailing or updating Supabase",
+    )
+
     return parser
 
 
@@ -884,6 +1334,12 @@ def main() -> None:
         cmd_remind(client, args, json_mode)
     elif args.command == "complete":
         cmd_complete(client, args, json_mode)
+    elif args.command == "auto-book":
+        cmd_auto_book(client, args, json_mode, env_vars)
+    elif args.command == "generate-link":
+        cmd_generate_link(client, args, json_mode, env_vars)
+    elif args.command == "send-reminders":
+        cmd_send_reminders(client, args, json_mode, env_vars)
     else:
         parser.print_help()
 

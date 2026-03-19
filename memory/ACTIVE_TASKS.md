@@ -39,7 +39,8 @@ To reach the new target, we need **~5-6 new OASIS clients** at $400-500 USD/mo r
 - [ ] [P1] **Sync Stripe revenue history** — `python scripts/revenue_engine.py sync-stripe`
 - [ ] [P1] **Create Google Meet link** — Store in .env.agents for booking confirmations
 - [ ] [P1] **Wire n8n to cron_engine** — Connect n8n workflows to execute cron job actions
-- [ ] [P2] **Render first Remotion video** — Test OasisPromo composition end-to-end
+- [x] [P2] **Remotion Quote Card Pipeline** — `remotion-content/` fully scaffolded. Run `cd remotion-content && npm install` then `python scripts/render_video.py quote --text "..." --author "Conaugh McKenna"` to render.
+- [ ] [P2] **Render first Remotion video** — Install deps (`npm install` in remotion-content/) and do first test render
 - [ ] [P2] **LinkedIn Chrome Auth** — Needed for automated outreach engine
 
 ## TIKTIK (Ongoing)

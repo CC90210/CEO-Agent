@@ -161,8 +161,14 @@ def execute_job(job: dict, env_vars: dict[str, str]) -> str:
             return run_ig_research(env_vars)
         elif action_type == "ig_dm_check":
             return run_ig_dm_check(env_vars)
+        elif action_type == "ig_auto_reply":
+            return run_ig_auto_reply(env_vars)
         elif action_type == "email_inbox_check":
             return run_email_inbox_check(env_vars)
+        elif action_type == "content_generate":
+            return run_content_generate(env_vars)
+        elif action_type == "content_repurpose":
+            return run_content_repurpose(env_vars)
         else:
             return f"unknown_action_type: {action_type}"
     except Exception as exc:
@@ -276,8 +282,29 @@ def run_monthly_snapshot(env_vars: dict) -> str:
 
 
 def run_content_planning(env_vars: dict) -> str:
-    """Generate next week's content plan."""
-    return run_script("content_engine.py", ["--json", "week-plan"])
+    """Generate next week's content plan, then auto-generate content and repurpose."""
+    # Step 1: Create 21 placeholder drafts
+    plan_result = run_script("content_engine.py", ["--json", "week-plan"])
+    # Step 2: Generate real content for all drafts via Claude API
+    gen_result = run_script("content_generator.py", ["--json", "generate-week"], timeout=300)
+    # Step 3: Repurpose X posts to all other platforms
+    rep_result = run_script("content_repurposer.py", ["--json", "repurpose-week", "--platforms", "linkedin,instagram,threads"], timeout=300)
+    return f"Plan: {plan_result[:150]} | Generate: {gen_result[:150]} | Repurpose: {rep_result[:150]}"
+
+
+def run_content_generate(env_vars: dict) -> str:
+    """Generate real content for draft placeholders via Claude API."""
+    return run_script("content_generator.py", ["--json", "generate-week"], timeout=300)
+
+
+def run_content_repurpose(env_vars: dict) -> str:
+    """Repurpose X posts to other platforms."""
+    return run_script("content_repurposer.py", ["--json", "repurpose-week", "--platforms", "linkedin,instagram,threads"], timeout=300)
+
+
+def run_ig_auto_reply(env_vars: dict) -> str:
+    """Auto-reply to Instagram DMs with intent-based responses."""
+    return run_script("instagram_engine.py", ["--json", "auto-reply"], timeout=120)
 
 
 def run_ig_research(env_vars: dict) -> str:
@@ -360,7 +387,10 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
             "content_planning": "content",
             "ig_research": "instagram",
             "ig_dm_check": "instagram",
+            "ig_auto_reply": "instagram",
             "email_inbox_check": "email",
+            "content_generate": "content",
+            "content_repurpose": "content",
         }
         cat = category_map.get(action_type, "system")
 
@@ -372,6 +402,8 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
             "no unread", "unread_count\": 0", "unread_count\":0",
             '"unread_count": 0', '"message": "no unread',
             "0 unread", "no new", "ok", "checked",
+            '"published": 0', "no replies sent", "0 auto-replies",
+            "no drafts found", "no posts to repurpose",
         ]
         result_lower = result_msg.lower()
         is_routine = any(phrase in result_lower for phrase in skip_phrases)
