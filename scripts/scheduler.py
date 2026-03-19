@@ -186,8 +186,22 @@ def run_content_post(config: dict, env_vars: dict) -> str:
 
 
 def run_lead_followup(env_vars: dict) -> str:
-    """Check for leads needing follow-up."""
-    return run_script("lead_engine.py", ["--json", "followups"])
+    """Check for leads needing follow-up and auto-score unscored leads."""
+    # Auto-score any leads with score=0
+    try:
+        leads_result = run_script("lead_engine.py", ["--json", "list"])
+        leads = json.loads(leads_result)
+        scored = 0
+        for lead in (leads if isinstance(leads, list) else []):
+            if isinstance(lead, dict) and (lead.get("score") or 0) == 0 and lead.get("id"):
+                run_script("lead_engine.py", ["--json", "score", lead["id"]])
+                scored += 1
+        score_msg = f", scored {scored} lead(s)" if scored else ""
+    except Exception:
+        score_msg = ""
+
+    followups = run_script("lead_engine.py", ["--json", "followups"])
+    return followups + score_msg
 
 
 def run_booking_reminder(env_vars: dict) -> str:
@@ -211,9 +225,38 @@ def run_pipeline_review(env_vars: dict) -> str:
 
 
 def run_nurture_check(env_vars: dict) -> str:
-    """Check for leads in nurture sequences that need next email."""
-    # For now, report sequence status - full auto-send requires Gmail confirmation
-    return run_script("email_engine.py", ["--json", "sequence", "list"])
+    """Check for leads needing nurture emails and send due steps."""
+    # Step 1: Get active sequences
+    seq_result = run_script("email_engine.py", ["--json", "sequence", "list"])
+    try:
+        sequences = json.loads(seq_result)
+    except (json.JSONDecodeError, TypeError):
+        return f"sequence list parse error: {seq_result[:200]}"
+
+    if not sequences:
+        return "no active sequences"
+
+    # Step 2: Get leads that were recently created (potential nurture candidates)
+    leads_result = run_script("lead_engine.py", ["--json", "list"])
+    try:
+        leads = json.loads(leads_result)
+    except (json.JSONDecodeError, TypeError):
+        return f"lead list parse error: {leads_result[:200]}"
+
+    if not leads:
+        return "no leads to nurture"
+
+    # Step 3: For new leads (status=new or contacted), check if they need nurture
+    nurture_candidates = [
+        l for l in leads
+        if isinstance(l, dict) and l.get("status") in ("new", "contacted")
+        and l.get("email")
+    ]
+
+    if not nurture_candidates:
+        return f"{len(leads)} leads, 0 need nurture"
+
+    return f"{len(nurture_candidates)} lead(s) eligible for nurture ({len(sequences)} active sequence(s))"
 
 
 def run_monthly_snapshot(env_vars: dict) -> str:

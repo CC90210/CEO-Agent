@@ -152,16 +152,26 @@ def _mrr_from_stripe(secret_key: str, account_id: str | None = None) -> tuple[fl
             interval_count = (price.get("recurring") or {}).get("interval_count", 1)
 
             # Normalise to USD (Stripe amounts are in cents)
+            # CAD->USD approximate rate (updated periodically)
+            CAD_TO_USD = 0.72  # Conservative estimate
             amount_cents = unit_amount * item.get("quantity", 1)
 
             if interval == "year":
-                monthly_usd = (amount_cents / 100) / 12 * interval_count
+                monthly_local = (amount_cents / 100) / 12 * interval_count
             elif interval == "month":
-                monthly_usd = (amount_cents / 100) / interval_count
+                monthly_local = (amount_cents / 100) / interval_count
             elif interval == "week":
-                monthly_usd = (amount_cents / 100) * (52 / 12) / interval_count
+                monthly_local = (amount_cents / 100) * (52 / 12) / interval_count
             else:
-                monthly_usd = amount_cents / 100
+                monthly_local = amount_cents / 100
+
+            # Convert non-USD currencies
+            if currency.lower() == "cad":
+                monthly_usd = monthly_local * CAD_TO_USD
+            elif currency.lower() == "usd":
+                monthly_usd = monthly_local
+            else:
+                monthly_usd = monthly_local  # Fallback: treat as USD
 
             total += monthly_usd
             rows.append({
