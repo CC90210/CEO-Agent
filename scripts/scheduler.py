@@ -192,17 +192,8 @@ def run_script(script_name: str, args: list[str], timeout: int = 120) -> str:
 # ── Job handlers ──────────────────────────────────────────────────────────────
 
 def run_content_post(config: dict, env_vars: dict) -> str:
-    """Check for due content, post via Late MCP if body text exists."""
-    result = run_script("content_engine.py", ["--json", "due"])
-    try:
-        due_items = json.loads(result)
-        if not due_items:
-            return "no content due"
-        # Report what's due - actual posting requires Late MCP (agent session)
-        count = len(due_items) if isinstance(due_items, list) else 0
-        return f"{count} content item(s) due for posting"
-    except json.JSONDecodeError:
-        return result
+    """Publish due content via Late SDK (autonomous — no MCP session needed)."""
+    return run_script("late_publisher.py", ["--json", "publish-due"], timeout=120)
 
 
 def run_lead_followup(env_vars: dict) -> str:
