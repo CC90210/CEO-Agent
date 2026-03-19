@@ -26,7 +26,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-# ── Credential loading (identical pattern to supabase_tool.py) ────────────────
+# -- Credential loading (identical pattern to supabase_tool.py) ----------------
 
 def load_env():
     """Load .env.agents from project root."""
@@ -59,7 +59,7 @@ def get_client(env_vars):
     return create_client(url, key)
 
 
-# ── Scoring ───────────────────────────────────────────────────────────────────
+# -- Scoring -------------------------------------------------------------------
 
 INTERACTION_SCORES = {
     "email_opened": 10,
@@ -112,7 +112,7 @@ def calculate_score(lead: dict, interactions: list) -> int:
     return min(score, 100)
 
 
-# ── Formatting helpers ────────────────────────────────────────────────────────
+# -- Formatting helpers --------------------------------------------------------
 
 STATUS_LABELS = {
     "new": "NEW",
@@ -163,10 +163,10 @@ def fmt_score(score) -> str:
 def truncate(text: str, max_len: int = 40) -> str:
     if not text:
         return ""
-    return text[:max_len - 1] + "…" if len(text) > max_len else text
+    return text[:max_len - 1] + "..." if len(text) > max_len else text
 
 
-# ── Command handlers ──────────────────────────────────────────────────────────
+# -- Command handlers ----------------------------------------------------------
 
 def cmd_list(client, args, output_json: bool):
     """List leads with optional filters."""
@@ -633,7 +633,7 @@ def cmd_funnel(client, args, output_json: bool):
     print(f"  Entered:       {fmt_date(entry.get('entered_at'))}")
 
 
-# ── Argument parser ───────────────────────────────────────────────────────────
+# -- Argument parser -----------------------------------------------------------
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -667,13 +667,13 @@ Examples:
 
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
-    # ── list ──────────────────────────────────────────────────────────────────
+    # -- list ------------------------------------------------------------------
     p_list = subparsers.add_parser("list", help="List leads with optional filters")
     p_list.add_argument("--status", choices=["new", "contacted", "qualified", "proposal", "won", "lost"])
     p_list.add_argument("--source", choices=["instagram", "website", "cold_outreach", "referral", "linkedin", "facebook", "event", "other"])
     p_list.add_argument("--limit", "-l", type=int, default=20)
 
-    # ── add ───────────────────────────────────────────────────────────────────
+    # -- add -------------------------------------------------------------------
     p_add = subparsers.add_parser("add", help="Add a new lead")
     p_add.add_argument("name", help="Lead's full name")
     p_add.add_argument("--email")
@@ -682,11 +682,11 @@ Examples:
     p_add.add_argument("--source", choices=["instagram", "website", "cold_outreach", "referral", "linkedin", "facebook", "event", "other"])
     p_add.add_argument("--notes")
 
-    # ── view ──────────────────────────────────────────────────────────────────
+    # -- view ------------------------------------------------------------------
     p_view = subparsers.add_parser("view", help="View a lead and all interactions")
     p_view.add_argument("lead_id", help="Lead UUID")
 
-    # ── update ────────────────────────────────────────────────────────────────
+    # -- update ----------------------------------------------------------------
     p_update = subparsers.add_parser("update", help="Update lead fields")
     p_update.add_argument("lead_id", help="Lead UUID")
     p_update.add_argument("--status", choices=["new", "contacted", "qualified", "proposal", "won", "lost"])
@@ -698,11 +698,11 @@ Examples:
     p_update.add_argument("--next-followup", dest="next_followup", metavar="YYYY-MM-DD")
     p_update.add_argument("--assigned-to", dest="assigned_to")
 
-    # ── score ─────────────────────────────────────────────────────────────────
+    # -- score -----------------------------------------------------------------
     p_score = subparsers.add_parser("score", help="Auto-calculate and save lead score")
     p_score.add_argument("lead_id", help="Lead UUID")
 
-    # ── interact ──────────────────────────────────────────────────────────────
+    # -- interact --------------------------------------------------------------
     p_interact = subparsers.add_parser("interact", help="Log an interaction against a lead")
     p_interact.add_argument("lead_id", help="Lead UUID")
     p_interact.add_argument(
@@ -722,17 +722,17 @@ Examples:
     p_interact.add_argument("--content")
     p_interact.add_argument("--metadata", help="JSON metadata (e.g. '{\"open_rate\": 0.5}')")
 
-    # ── followups ─────────────────────────────────────────────────────────────
+    # -- followups -------------------------------------------------------------
     subparsers.add_parser("followups", help="Show leads with next_followup_at <= today")
 
-    # ── pipeline ──────────────────────────────────────────────────────────────
+    # -- pipeline --------------------------------------------------------------
     subparsers.add_parser("pipeline", help="Pipeline summary by stage")
 
-    # ── search ────────────────────────────────────────────────────────────────
+    # -- search ----------------------------------------------------------------
     p_search = subparsers.add_parser("search", help="Search by name, email, or company")
     p_search.add_argument("query", help="Search string")
 
-    # ── funnel ────────────────────────────────────────────────────────────────
+    # -- funnel ----------------------------------------------------------------
     p_funnel = subparsers.add_parser("funnel", help="Enroll or update a lead in a funnel")
     p_funnel.add_argument("lead_id", help="Lead UUID")
     p_funnel.add_argument("funnel_slug", help="Funnel slug identifier")
@@ -741,7 +741,7 @@ Examples:
     return parser
 
 
-# ── Entry point ───────────────────────────────────────────────────────────────
+# -- Entry point ---------------------------------------------------------------
 
 def main():
     parser = build_parser()

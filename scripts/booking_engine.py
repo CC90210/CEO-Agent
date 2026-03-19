@@ -185,7 +185,7 @@ def cmd_slots_open(client, args, json_mode: bool) -> None:
     else:
         print(f"Opened {len(created)} slots on {args.date} ({args.type}):")
         for slot in created:
-            print(f"  {slot['start_time']} – {slot['end_time']}  id={slot['id']}")
+            print(f"  {slot['start_time']} - {slot['end_time']}  id={slot['id']}")
 
 
 def cmd_slots_open_week(client, args, json_mode: bool) -> None:
@@ -252,7 +252,7 @@ def cmd_slots_list(client, args, json_mode: bool) -> None:
         print(f"{day_label}:")
         for s in day_slots:
             available = "open  " if s["is_available"] else "booked"
-            print(f"  [{available}] {s['start_time']} – {s['end_time']}  {s['meeting_type']}  id={s['id']}")
+            print(f"  [{available}] {s['start_time']} - {s['end_time']}  {s['meeting_type']}  id={s['id']}")
         print()
 
 
@@ -272,7 +272,7 @@ def cmd_slots_close(client, args, json_mode: bool) -> None:
         output(updated[0], json_mode=True)
     else:
         s = updated[0]
-        print(f"Slot closed: {s['slot_date']} {s['start_time']} – {s['end_time']}  id={s['id']}")
+        print(f"Slot closed: {s['slot_date']} {s['start_time']} - {s['end_time']}  id={s['id']}")
 
 
 def cmd_book(client, args, json_mode: bool) -> None:
@@ -320,7 +320,7 @@ def cmd_book(client, args, json_mode: bool) -> None:
         print(f"  id:      {booking['id']}")
         print(f"  name:    {booking['name']}")
         print(f"  email:   {booking['email']}")
-        print(f"  date:    {slot['slot_date']} {slot['start_time']} – {slot['end_time']}")
+        print(f"  date:    {slot['slot_date']} {slot['start_time']} - {slot['end_time']}")
         print(f"  type:    {booking['meeting_type']}")
         print(f"  status:  {booking['status']}")
 
@@ -395,7 +395,7 @@ def cmd_list_bookings(client, args, json_mode: bool) -> None:
         slot_start = slot_info.get("start_time", "?")
         slot_end = slot_info.get("end_time", "?")
         print(
-            f"  [{b['status']:10}] {slot_date} {slot_start}–{slot_end}  "
+            f"  [{b['status']:10}] {slot_date} {slot_start}-{slot_end}  "
             f"{b['name']} <{b['email']}>  id={b['id']}"
         )
 
@@ -424,7 +424,7 @@ def cmd_view(client, args, json_mode: bool) -> None:
     print(f"  phone:         {booking.get('phone') or '-'}")
     print(f"  meeting_type:  {booking['meeting_type']}")
     print(f"  status:        {booking['status']}")
-    print(f"  date:          {slot_info.get('slot_date', '?')} {slot_info.get('start_time', '?')}–{slot_info.get('end_time', '?')}")
+    print(f"  date:          {slot_info.get('slot_date', '?')} {slot_info.get('start_time', '?')}-{slot_info.get('end_time', '?')}")
     print(f"  meeting_link:  {booking.get('meeting_link') or '-'}")
     print(f"  reminder_sent: {booking['reminder_sent']}")
     print(f"  notes:         {booking.get('notes') or '-'}")
@@ -472,7 +472,7 @@ def cmd_available(client, args, json_mode: bool) -> None:
         day_label = date.fromisoformat(d).strftime("%A, %B %-d")
         print(f"  {day_label}:")
         for s in day_slots:
-            print(f"    {s['start_time']} – {s['end_time']}  ({s['meeting_type']})  id={s['id']}")
+            print(f"    {s['start_time']} - {s['end_time']}  ({s['meeting_type']})  id={s['id']}")
         print()
 
 
@@ -510,7 +510,7 @@ def cmd_remind(client, args, json_mode: bool) -> None:
     for b in pending:
         slot_info = b.get("booking_slots") or {}
         print(f"  [{b['id']}] {b['name']} <{b['email']}>")
-        print(f"    {slot_info.get('start_time', '?')}–{slot_info.get('end_time', '?')}  {b['meeting_type']}")
+        print(f"    {slot_info.get('start_time', '?')}-{slot_info.get('end_time', '?')}  {b['meeting_type']}")
         if b.get("phone"):
             print(f"    phone: {b['phone']}")
         print()

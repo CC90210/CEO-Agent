@@ -28,7 +28,7 @@ from email.mime.text import MIMEText
 from pathlib import Path
 
 
-# ── Credentials ───────────────────────────────────────────
+# -- Credentials -------------------------------------------
 
 
 def load_env():
@@ -87,7 +87,7 @@ def get_smtp_credentials(env_vars):
     return address, password
 
 
-# ── SMTP ──────────────────────────────────────────────────
+# -- SMTP --------------------------------------------------
 
 
 def send_email_smtp(gmail_address, app_password, to_email, subject, body_text, body_html=None):
@@ -124,7 +124,7 @@ def send_email_smtp(gmail_address, app_password, to_email, subject, body_text, b
         return False, f"Unexpected error: {str(e)}"
 
 
-# ── Template rendering ─────────────────────────────────────
+# -- Template rendering -------------------------------------
 
 
 def render_template(template_str, variables):
@@ -136,7 +136,7 @@ def render_template(template_str, variables):
     return re.sub(r"\{\{([^}]+)\}\}", replacer, template_str)
 
 
-# ── Supabase logging ───────────────────────────────────────
+# -- Supabase logging ---------------------------------------
 
 
 def log_email(db, to_email, subject, body_preview, status, lead_id=None,
@@ -167,7 +167,7 @@ def log_email(db, to_email, subject, body_preview, status, lead_id=None,
     return None
 
 
-# ── Commands ──────────────────────────────────────────────
+# -- Commands ----------------------------------------------
 
 
 def cmd_send(env_vars, args, output_json=False):
@@ -681,7 +681,7 @@ def cmd_stats(env_vars, args, output_json=False):
     print(f"  Clicked:       {clicked}  ({click_rate:.1f}% click rate)")
 
 
-# ── Argument parsing ───────────────────────────────────────
+# -- Argument parsing ---------------------------------------
 
 
 def main():

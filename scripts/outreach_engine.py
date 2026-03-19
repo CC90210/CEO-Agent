@@ -1,5 +1,5 @@
 """
-Bravo Outreach Engine — Complete lead outreach pipeline.
+Bravo Outreach Engine - Complete lead outreach pipeline.
 Sends personalized email with Google Meet link + calendar invite (.ics).
 No n8n dependency. Uses Gmail SMTP directly.
 
@@ -73,7 +73,7 @@ DTEND:{end.strftime(fmt)}
 DTSTAMP:{now}
 ORGANIZER;CN=OASIS AI Solutions:mailto:{organizer_email}
 ATTENDEE;CN={lead_name};RSVP=TRUE:mailto:{lead_email}
-SUMMARY:OASIS AI Solutions — Discovery Call with {lead_name}
+SUMMARY:OASIS AI Solutions - Discovery Call with {lead_name}
 DESCRIPTION:Quick intro call to explore how AI automation can save your team 10+ hours/week.\\n\\nJoin via Google Meet: {meet_link}
 LOCATION:{meet_link}
 STATUS:CONFIRMED
@@ -90,7 +90,7 @@ def build_email_body(lead_name, business_name, business_type, meet_link, meeting
 
     body = f"""Hi {lead_name},
 
-I came across {business_name} and noticed a few areas where AI automation could make a real difference — specifically around scheduling, follow-ups, and client communication.
+I came across {business_name} and noticed a few areas where AI automation could make a real difference - specifically around scheduling, follow-ups, and client communication.
 
 At OASIS AI Solutions, we build custom automation systems for {business_type} businesses. Our clients typically save 10-15 hours per week on manual tasks and see faster response times that directly improve close rates.
 
@@ -148,7 +148,7 @@ def send_outreach(
         meet_link, gmail_user
     )
 
-    subject = custom_subject if custom_subject else f"{business_name} — Save 10+ Hours/Week with AI Automation"
+    subject = custom_subject if custom_subject else f"{business_name} - Save 10+ Hours/Week with AI Automation"
 
     msg = MIMEMultipart("mixed")
     msg["Subject"] = subject

@@ -22,7 +22,7 @@ import json
 import sys
 from pathlib import Path
 
-# ── Constants ─────────────────────────────────────────────────────────────────
+# -- Constants -----------------------------------------------------------------
 
 MRR_GOAL_USD = 5000.0
 STRIPE_API = "https://api.stripe.com/v1"
@@ -36,7 +36,7 @@ REVENUE_EVENT_TYPES = {
 }
 
 
-# ── Credential loading ─────────────────────────────────────────────────────────
+# -- Credential loading ---------------------------------------------------------
 
 def load_env() -> dict[str, str]:
     """Load .env.agents from project root. Exits on missing file."""
@@ -55,7 +55,7 @@ def load_env() -> dict[str, str]:
     return env_vars
 
 
-# ── Stripe client ──────────────────────────────────────────────────────────────
+# -- Stripe client --------------------------------------------------------------
 
 class StripeUnavailable(Exception):
     """Raised when Stripe credentials are absent or requests fail."""
@@ -101,7 +101,7 @@ def _stripe_get_all(secret_key: str, endpoint: str, params: dict | None = None) 
     return items
 
 
-# ── Supabase client ────────────────────────────────────────────────────────────
+# -- Supabase client ------------------------------------------------------------
 
 def get_supabase(env_vars: dict[str, str]):
     """Return a Supabase client for the bravo project. Exits on missing credentials."""
@@ -124,7 +124,7 @@ def get_supabase(env_vars: dict[str, str]):
     return create_client(url, key)
 
 
-# ── MRR calculation ────────────────────────────────────────────────────────────
+# -- MRR calculation ------------------------------------------------------------
 
 def _mrr_from_stripe(secret_key: str) -> tuple[float, list[dict]]:
     """
@@ -237,7 +237,7 @@ def calculate_mrr(env_vars: dict[str, str], db) -> dict:
     }
 
 
-# ── Pipeline + lead stats from Supabase ───────────────────────────────────────
+# -- Pipeline + lead stats from Supabase ---------------------------------------
 
 def _pipeline_stats(db) -> dict:
     """Read pipeline and lead summary from monthly_metrics (most recent month)."""
@@ -286,7 +286,7 @@ def _last_payment(db) -> dict:
     return {"amount": 0.0, "client": "-", "date": "-"}
 
 
-# ── Command: mrr ──────────────────────────────────────────────────────────────
+# -- Command: mrr --------------------------------------------------------------
 
 def cmd_mrr(env_vars: dict[str, str], db, args) -> dict:
     mrr = calculate_mrr(env_vars, db)
@@ -300,7 +300,7 @@ def cmd_mrr(env_vars: dict[str, str], db, args) -> dict:
     else:
         print(f"  Stripe MRR:  unavailable - {mrr['stripe_error']}")
     print(f"  Manual MRR:  ${mrr['manual_mrr']:,.2f}  (Supabase tracked)")
-    print(f"  ─────────────────────────────────────")
+    print(f"  -------------------------------------")
     print(f"  Total MRR:   ${mrr['total_mrr']:,.2f}")
     gap = max(0.0, MRR_GOAL_USD - mrr["total_mrr"])
     pct = (mrr["total_mrr"] / MRR_GOAL_USD * 100) if MRR_GOAL_USD else 0
@@ -312,7 +312,7 @@ def cmd_mrr(env_vars: dict[str, str], db, args) -> dict:
     return mrr
 
 
-# ── Command: dashboard ────────────────────────────────────────────────────────
+# -- Command: dashboard --------------------------------------------------------
 
 def cmd_dashboard(env_vars: dict[str, str], db, args) -> dict:
     mrr = calculate_mrr(env_vars, db)
@@ -362,7 +362,7 @@ def cmd_dashboard(env_vars: dict[str, str], db, args) -> dict:
     return data
 
 
-# ── Command: sync-stripe ──────────────────────────────────────────────────────
+# -- Command: sync-stripe ------------------------------------------------------
 
 def cmd_sync_stripe(env_vars: dict[str, str], db, args) -> dict:
     stripe_key = env_vars.get("STRIPE_SECRET_KEY")
@@ -453,7 +453,7 @@ def cmd_sync_stripe(env_vars: dict[str, str], db, args) -> dict:
     return result
 
 
-# ── Command: log-revenue ──────────────────────────────────────────────────────
+# -- Command: log-revenue ------------------------------------------------------
 
 def cmd_log_revenue(env_vars: dict[str, str], db, args) -> dict:
     row = {
@@ -481,7 +481,7 @@ def cmd_log_revenue(env_vars: dict[str, str], db, args) -> dict:
     return inserted
 
 
-# ── Command: log-month ────────────────────────────────────────────────────────
+# -- Command: log-month --------------------------------------------------------
 
 def cmd_log_month(env_vars: dict[str, str], db, args) -> dict:
     total_leads = args.leads or 0
@@ -520,7 +520,7 @@ def cmd_log_month(env_vars: dict[str, str], db, args) -> dict:
     return saved
 
 
-# ── Command: history ──────────────────────────────────────────────────────────
+# -- Command: history ----------------------------------------------------------
 
 def cmd_history(env_vars: dict[str, str], db, args) -> list[dict]:
     months = getattr(args, "months", 6)
@@ -550,7 +550,7 @@ def cmd_history(env_vars: dict[str, str], db, args) -> list[dict]:
 
     print(f"=== Monthly MRR History (last {months} months) ===\n")
     print(f"  {'Month':<10}  {'MRR':>9}  {'New':>4}  {'Churn':>5}  {'Pipeline':>10}  {'Leads':>5}  {'Conv%':>6}")
-    print(f"  {'─'*10}  {'─'*9}  {'─'*4}  {'─'*5}  {'─'*10}  {'─'*5}  {'─'*6}")
+    print(f"  {'-'*10}  {'-'*9}  {'-'*4}  {'-'*5}  {'-'*10}  {'-'*5}  {'-'*6}")
     for row in rows:
         print(
             f"  {row.get('month',''):<10}  "
@@ -564,7 +564,7 @@ def cmd_history(env_vars: dict[str, str], db, args) -> list[dict]:
     return rows
 
 
-# ── Command: forecast ─────────────────────────────────────────────────────────
+# -- Command: forecast ---------------------------------------------------------
 
 def cmd_forecast(env_vars: dict[str, str], db, args) -> dict:
     mrr_data = calculate_mrr(env_vars, db)
@@ -617,7 +617,7 @@ def cmd_forecast(env_vars: dict[str, str], db, args) -> dict:
 
     print("=== MRR Forecast ===\n")
     print(f"  Current MRR:          ${current_mrr:,.2f}")
-    print(f"  Pipeline contribution: ${pipeline_mrr:,.2f}  ({pipeline_val:,.0f} pipeline × {conversion*100:.0f}% conversion)")
+    print(f"  Pipeline contribution: ${pipeline_mrr:,.2f}  ({pipeline_val:,.0f} pipeline x {conversion*100:.0f}% conversion)")
     print(f"  Projected MRR:        ${projected_mrr:,.2f}")
     print(f"  Remaining gap:        ${gap:,.2f}")
     if avg_monthly_growth > 0:
@@ -631,7 +631,7 @@ def cmd_forecast(env_vars: dict[str, str], db, args) -> dict:
     return result
 
 
-# ── Command: clients ──────────────────────────────────────────────────────────
+# -- Command: clients ----------------------------------------------------------
 
 def cmd_clients(env_vars: dict[str, str], db, args) -> list[dict]:
     stripe_key = env_vars.get("STRIPE_SECRET_KEY")
@@ -699,7 +699,7 @@ def cmd_clients(env_vars: dict[str, str], db, args) -> list[dict]:
     return clients
 
 
-# ── Command: goal ─────────────────────────────────────────────────────────────
+# -- Command: goal -------------------------------------------------------------
 
 def cmd_goal(env_vars: dict[str, str], db, args) -> dict:
     mrr_data = calculate_mrr(env_vars, db)
@@ -742,7 +742,7 @@ def cmd_goal(env_vars: dict[str, str], db, args) -> dict:
     return result
 
 
-# ── argparse setup ─────────────────────────────────────────────────────────────
+# -- argparse setup -------------------------------------------------------------
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -804,7 +804,7 @@ Examples:
     return parser
 
 
-# ── Entry point ────────────────────────────────────────────────────────────────
+# -- Entry point ----------------------------------------------------------------
 
 def main():
     parser = build_parser()

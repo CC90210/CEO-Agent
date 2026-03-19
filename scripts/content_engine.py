@@ -28,7 +28,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-# ── Platform character limits ─────────────────────────────────────────────────
+# -- Platform character limits -------------------------------------------------
 
 PLATFORM_LIMITS: dict[str, int] = {
     "x": 280,
@@ -38,7 +38,7 @@ PLATFORM_LIMITS: dict[str, int] = {
     "tiktok": 4000,
 }
 
-# ── Content pillars ───────────────────────────────────────────────────────────
+# -- Content pillars -----------------------------------------------------------
 
 PILLARS = [
     "sobriety_log",
@@ -48,7 +48,7 @@ PILLARS = [
     "promotional",
 ]
 
-# ── Week-plan slot definitions (ET hour, pillar) ─────────────────────────────
+# -- Week-plan slot definitions (ET hour, pillar) -----------------------------
 
 WEEK_PLAN_SLOTS = [
     (9,  "quote_drop"),
@@ -59,7 +59,7 @@ WEEK_PLAN_SLOTS = [
 WEEK_PLAN_PLATFORM = "x"   # default platform for week-plan drafts
 
 
-# ── Env loading ───────────────────────────────────────────────────────────────
+# -- Env loading ---------------------------------------------------------------
 
 def load_env() -> dict[str, str]:
     """Load .env.agents from project root."""
@@ -96,7 +96,7 @@ def get_client(env_vars: dict[str, str]):
     return create_client(url, key)
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# -- Helpers -------------------------------------------------------------------
 
 def truncate_for_platform(body: str, platform: str) -> str:
     """Truncate body to fit within platform's character limit."""
@@ -146,7 +146,7 @@ def output(data: object, json_mode: bool) -> None:
         pass
 
 
-# ── Commands: content calendar ────────────────────────────────────────────────
+# -- Commands: content calendar ------------------------------------------------
 
 def cmd_calendar(client, args) -> None:
     query = client.table("content_calendar").select("*")
@@ -409,7 +409,7 @@ def cmd_mark_posted(client, args) -> None:
         print(f"  Late post ID: {args.late_post_id}")
 
 
-# ── Commands: templates ───────────────────────────────────────────────────────
+# -- Commands: templates -------------------------------------------------------
 
 def cmd_templates_list(client, args) -> None:
     query = client.table("content_templates").select("*").order("created_at", desc=True)
@@ -490,7 +490,7 @@ def cmd_templates_render(client, args) -> None:
     print(rendered)
 
 
-# ── Commands: stats ───────────────────────────────────────────────────────────
+# -- Commands: stats -----------------------------------------------------------
 
 def cmd_stats(client, args) -> None:
     days = args.days
@@ -547,7 +547,7 @@ def cmd_stats(client, args) -> None:
     print(f"\n  Total Engagement: {total_engagement}")
 
 
-# ── Commands: week-plan ───────────────────────────────────────────────────────
+# -- Commands: week-plan -------------------------------------------------------
 
 def cmd_week_plan(client, args) -> None:
     """Generate 21 draft content entries (3/day x 7 days)."""
@@ -600,7 +600,7 @@ def cmd_week_plan(client, args) -> None:
     print("Fill in body text for each entry with: content_engine.py edit <id> --body '...'")
 
 
-# ── Argument parser ───────────────────────────────────────────────────────────
+# -- Argument parser -----------------------------------------------------------
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -716,7 +716,7 @@ Platform limits: x=280 | threads=500 | instagram=2200 | linkedin=3000 | tiktok=4
     return parser
 
 
-# ── Entry point ───────────────────────────────────────────────────────────────
+# -- Entry point ---------------------------------------------------------------
 
 def main() -> None:
     parser = build_parser()

@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-# ── Credential loading ────────────────────────────────────────────────────────
+# -- Credential loading --------------------------------------------------------
 
 def load_env() -> dict[str, str]:
     """Load .env.agents from project root."""
@@ -63,7 +63,7 @@ def get_client(env_vars: dict[str, str]):
     return create_client(url, key)
 
 
-# ── Seed definitions ──────────────────────────────────────────────────────────
+# -- Seed definitions ----------------------------------------------------------
 
 SEED_JOBS: list[dict] = [
     {
@@ -165,7 +165,7 @@ SEED_JOBS: list[dict] = [
 ]
 
 
-# ── Cron schedule parsing (next-run approximation) ────────────────────────────
+# -- Cron schedule parsing (next-run approximation) ----------------------------
 
 def _next_run_approx(schedule: str) -> str | None:
     """
@@ -231,7 +231,7 @@ def _next_run_approx(schedule: str) -> str | None:
 
         if allowed_days:
             from datetime import timedelta
-            # Python: Monday=0 … Sunday=6; cron: Sunday=0 … Saturday=6
+            # Python: Monday=0 ... Sunday=6; cron: Sunday=0 ... Saturday=6
             for _ in range(8):
                 python_weekday = candidate.weekday()
                 # convert Python weekday to cron weekday (Sun=0)
@@ -243,7 +243,7 @@ def _next_run_approx(schedule: str) -> str | None:
     return candidate.isoformat()
 
 
-# ── Formatting helpers ────────────────────────────────────────────────────────
+# -- Formatting helpers --------------------------------------------------------
 
 def fmt_date(iso_str: str | None) -> str:
     """Format an ISO timestamp to a readable short datetime."""
@@ -259,10 +259,10 @@ def fmt_date(iso_str: str | None) -> str:
 def truncate(text: str, max_len: int = 40) -> str:
     if not text:
         return ""
-    return text[: max_len - 1] + "…" if len(text) > max_len else text
+    return text[: max_len - 1] + "..." if len(text) > max_len else text
 
 
-# ── Command handlers ──────────────────────────────────────────────────────────
+# -- Command handlers ----------------------------------------------------------
 
 def cmd_list(client, args, output_json: bool) -> None:
     """List cron jobs with optional active-only filter."""
@@ -518,7 +518,7 @@ def cmd_seed(client, args, output_json: bool) -> None:
             print(f"  - {name}")
 
 
-# ── Argument parser ───────────────────────────────────────────────────────────
+# -- Argument parser -----------------------------------------------------------
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -549,7 +549,7 @@ Examples:
 
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
-    # ── list ──────────────────────────────────────────────────────────────────
+    # -- list ------------------------------------------------------------------
     p_list = subparsers.add_parser("list", help="List all cron jobs")
     p_list.add_argument(
         "--active-only",
@@ -558,7 +558,7 @@ Examples:
         help="Only show active jobs",
     )
 
-    # ── add ───────────────────────────────────────────────────────────────────
+    # -- add -------------------------------------------------------------------
     p_add = subparsers.add_parser("add", help="Add a new cron job definition")
     p_add.add_argument("--name", required=True, help="Human-readable job name")
     p_add.add_argument("--schedule", required=True, help="5-field cron expression (e.g. '0 9 * * *')")
@@ -566,25 +566,25 @@ Examples:
     p_add.add_argument("--config", default="{}", help="JSON action_config object")
     p_add.add_argument("--description", help="Human-readable description of what this job does")
 
-    # ── toggle ────────────────────────────────────────────────────────────────
+    # -- toggle ----------------------------------------------------------------
     p_toggle = subparsers.add_parser("toggle", help="Enable or disable a cron job")
     p_toggle.add_argument("job_id", help="Cron job UUID")
 
-    # ── run ───────────────────────────────────────────────────────────────────
+    # -- run -------------------------------------------------------------------
     p_run = subparsers.add_parser("run", help="Mark a job as run (updates last_run_at and run_count)")
     p_run.add_argument("job_id", help="Cron job UUID")
     p_run.add_argument("--result", help="Result string to store in last_result (default: 'ok')")
 
-    # ── due ───────────────────────────────────────────────────────────────────
+    # -- due -------------------------------------------------------------------
     subparsers.add_parser("due", help="Show active jobs that are due or overdue right now")
 
-    # ── seed ──────────────────────────────────────────────────────────────────
+    # -- seed ------------------------------------------------------------------
     subparsers.add_parser("seed", help="Seed the initial 12 business automation cron jobs")
 
     return parser
 
 
-# ── Entry point ───────────────────────────────────────────────────────────────
+# -- Entry point ---------------------------------------------------------------
 
 def main() -> None:
     parser = build_parser()
