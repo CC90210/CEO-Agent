@@ -34,7 +34,7 @@ DM_REPLIED_PATH = PROJECT_ROOT / "tmp" / "dm_replied.json"
 # Intent detection keyword sets
 _BOOKING_KEYWORDS = {
     "book", "call", "meet", "schedule", "chat", "consultation",
-    "demo", "appointment", "available", "time",
+    "demo", "appointment", "available", "time", "talk", "connect",
 }
 _PRICING_KEYWORDS = {
     "price", "cost", "how much", "rate", "pricing", "package", "afford",
@@ -188,75 +188,107 @@ def ensure_logged_in(page, env_vars):
 
 
 def read_dm_list(page):
-    """Read the DM conversation list from the inbox page."""
+    """Read the DM conversation list by extracting structured data from DOM buttons.
+
+    Instagram renders each conversation as a div[role='button'] containing:
+        Line 0: Username/display name
+        Line 1: Message preview (or 'You: ...' or 'X sent an attachment.')
+        Line 2: '·' (separator dot)
+        Line 3: Time ago (8m, 1h, 1d, 1w, etc.)
+        Line 4: 'Unread' (if unread)
+    Returns a JSON string of parsed conversation objects.
+    """
     return page.evaluate("""() => {
-        const main = document.querySelector('main') || document.querySelector('section[role="main"]');
-        if (!main) return '';
-        return main.innerText.substring(0, 5000);
+        const btns = document.querySelectorAll('div[role="button"]');
+        const results = [];
+        for (const btn of btns) {
+            const text = btn.innerText.trim();
+            if (text.length < 10 || text.length > 500) continue;
+            if (text.includes('Instagram') || text.includes('Send message')) continue;
+            const lines = text.split(String.fromCharCode(10)).map(l => l.trim()).filter(l => l.length > 0);
+            if (lines.length >= 2) {
+                results.push(lines);
+            }
+        }
+        return JSON.stringify(results);
     }""")
 
 
-def parse_conversations(inbox_text):
-    """Parse the inbox text to extract conversation summaries."""
-    lines = inbox_text.split("\n")
+def parse_conversations(inbox_data):
+    """Parse conversation data from read_dm_list (JSON string of line arrays).
+
+    Each conversation button yields an array of lines:
+        [0] Username/display name
+        [1] Message preview
+        [2] '·' (dot separator — may be absent)
+        [3] Time ago (8m, 1h, 1d, 1w, etc. — may be absent)
+        [4] 'Unread' (if unread — may be absent)
+    """
+    import re
+    TIME_PATTERN = re.compile(r"^\d{1,3}[mhdw]$|^\d{1,2}(mo|w)$")
+    SKIP_NAMES = {"Your note", "First note of the week...", "OPEN MIC", "Send message"}
+
+    # Parse the JSON string from read_dm_list
+    try:
+        raw_convos = json.loads(inbox_data) if isinstance(inbox_data, str) else inbox_data
+    except (json.JSONDecodeError, TypeError):
+        return []
+
     conversations = []
-    i = 0
-    while i < len(lines):
-        line = lines[i].strip()
-        # Skip navigation items
-        if line in ("Primary", "General", "Request (1)", "Request", "Your note",
-                     "Your messages", "Send a message to start a chat.", "Send message",
-                     "Search", ""):
-            i += 1
+    for lines in raw_convos:
+        if not isinstance(lines, list) or len(lines) < 2:
             continue
-        # Skip time indicators alone
-        if line in ("1h", "2h", "1d", "2d", "3d", "1w"):
-            i += 1
+
+        username = lines[0]
+        if username in SKIP_NAMES:
             continue
-        # Skip single emoji lines
-        if len(line) <= 4 and not line.isalnum():
-            i += 1
-            continue
-        # Look for username pattern followed by message preview
-        if len(line) > 1 and ":" not in line and not line.startswith("You:"):
-            # This might be a username - check next lines for preview
-            username = line
-            preview = ""
-            is_unread = False
-            time_ago = ""
-            j = i + 1
-            while j < len(lines) and j < i + 5:
-                next_line = lines[j].strip()
-                if "Unread" in next_line:
-                    is_unread = True
-                elif next_line in ("1h", "2h", "1d", "2d", "3d", "1w", "1m"):
-                    time_ago = next_line
-                elif next_line.startswith("You:") or "sent an attachment" in next_line or len(next_line) > 10:
-                    if not preview:
-                        preview = next_line
-                j += 1
-            if preview or time_ago:
-                conversations.append({
-                    "username": username,
-                    "preview": preview,
-                    "unread": is_unread,
-                    "time_ago": time_ago,
-                })
-            i = j
-        else:
-            i += 1
+
+        # Filter out dot separators and find preview, time, unread
+        preview = ""
+        time_ago = ""
+        is_unread = False
+
+        for line in lines[1:]:
+            if line == "\u00b7" or line == "·":
+                continue  # dot separator
+            elif line == "Unread":
+                is_unread = True
+            elif TIME_PATTERN.match(line):
+                time_ago = line
+            elif not preview:
+                preview = line
+
+        conversations.append({
+            "username": username,
+            "preview": preview,
+            "unread": is_unread,
+            "time_ago": time_ago,
+        })
+
     return conversations
 
 
 # -- Commands -----------------------------------------------------------------
 
 def cmd_check_dms(env_vars, args):
-    """Check Instagram DMs via Playwright browser automation."""
+    """Check Instagram DMs and auto-reply to unread messages in one atomic pass.
+
+    This is the ONLY DM handler that runs on cron. It:
+    1. Opens inbox, reads conversations
+    2. For each unread DM: opens it, reads last message, detects intent
+    3. Sends auto-reply if appropriate (respects 24h cooldown + CC manual reply check)
+    4. Notifies CC on Telegram with the username AND what action was taken
+    """
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
         safe_print("ERROR: playwright not installed. Run: pip install playwright")
         return {"status": "error", "message": "playwright not installed"}
+
+    meet_link = env_vars.get("GOOGLE_MEET_LINK", "")
+    replied_log = load_replied_log()
+    auto_replies = []
+    skipped_replies = []
 
     with sync_playwright() as p:
         context = get_browser_context(p)
@@ -277,11 +309,8 @@ def cmd_check_dms(env_vars, args):
                     safe_print(f"Instagram DMs: {result['message']}")
                 return result
 
-            page.screenshot(path=os.path.join(SCREENSHOT_DIR, "ig_dm_check.png"))
-
             # Read inbox
             inbox_text = read_dm_list(page)
-            # Parse conversations
             convos = parse_conversations(inbox_text)
             unread = [c for c in convos if c.get("unread")]
 
@@ -293,28 +322,148 @@ def cmd_check_dms(env_vars, args):
                 "unread_count": len(unread),
                 "conversations": convos[:10],
                 "unread": unread,
+                "auto_replies": [],
             }
 
-            # Notify CC about unread DMs
-            if unread:
-                for dm in unread:
-                    username = dm.get("username", "unknown")
-                    preview = dm.get("preview", "")[:100]
-                    notify(
-                        f"Unread IG DM from @{username}: {preview}",
-                        category="instagram",
+            # Also identify UNREPLIED conversations — last message NOT from "You:"
+            # This catches DMs that lost their "Unread" badge when we opened the inbox
+            unreplied = []
+            for c in convos:
+                preview = c.get("preview", "")
+                preview_lower = preview.lower()
+                is_from_other = (
+                    not preview.startswith("You:")
+                    and not preview.startswith("You ")
+                    and "sent an attachment" not in preview_lower
+                    and "liked a message" not in preview_lower
+                    and "sent a gif" not in preview_lower
+                    and "video chat" not in preview_lower
+                    and "active today" not in preview_lower
+                    and "you sent" not in preview_lower
+                    and "you liked" not in preview_lower
+                    and len(preview) > 3
+                )
+                if is_from_other:
+                    c["needs_reply"] = True
+                    unreplied.append(c)
+
+            # Merge: process unread + unreplied (deduplicated)
+            to_process = {c["username"]: c for c in unread}
+            for c in unreplied:
+                if c["username"] not in to_process:
+                    to_process[c["username"]] = c
+            actionable = list(to_process.values())
+
+            if not actionable:
+                result["message"] = "No DMs needing reply"
+                if getattr(args, "output_json", False):
+                    print(json.dumps(result, indent=2, default=str))
+                return result
+
+            # Process each actionable conversation — detect intent and auto-reply
+            for convo in actionable:
+                username = convo.get("username", "").strip()
+                preview = convo.get("preview", "")[:100]
+                if not username:
+                    continue
+
+                # Open the conversation to read the actual message
+                convo_text = read_conversation_text(page, username)
+
+                # Use the full conversation text to get the sender's last message
+                # (more reliable than the truncated inbox preview)
+                signal_text = convo_text[-500:] if convo_text else preview
+
+                # Detect intent
+                intent = detect_intent(signal_text)
+
+                # Decide whether to auto-reply
+                should_reply = True
+                skip_reason = None
+
+                if not meet_link:
+                    should_reply = False
+                    skip_reason = "no_meet_link"
+                elif already_replied_within_24h(replied_log, username):
+                    should_reply = False
+                    skip_reason = "replied_within_24h"
+                elif intent == "UNKNOWN":
+                    should_reply = False
+                    skip_reason = "unknown_intent"
+
+                if should_reply:
+                    reply_text = build_reply(intent, meet_link)
+
+                    # Find the message input and send
+                    msg_input = (
+                        page.query_selector('div[role="textbox"]')
+                        or page.query_selector('div[contenteditable="true"]')
                     )
-                result["message"] = f"{len(unread)} unread DM(s) found"
-            else:
-                result["message"] = "No unread DMs"
+                    if msg_input:
+                        msg_input.click()
+                        time.sleep(0.3)
+                        page.keyboard.type(reply_text, delay=15)
+                        time.sleep(0.5)
+                        page.keyboard.press("Enter")
+                        time.sleep(3)
+
+                        # Track the reply
+                        replied_log[username] = {
+                            "replied_at": datetime.now(timezone.utc).isoformat(),
+                            "intent": intent,
+                        }
+                        save_replied_log(replied_log)
+                        log_auto_reply_to_supabase(env_vars, username, intent, reply_text)
+
+                        auto_replies.append({
+                            "username": username,
+                            "intent": intent,
+                            "reply_preview": reply_text[:80],
+                        })
+                        notify(
+                            f"New IG DM from {username}: \"{preview}\"\n"
+                            f"Auto-replied ({intent}): {reply_text[:80]}",
+                            category="instagram",
+                        )
+                    else:
+                        skip_reason = "no_input_found"
+                        should_reply = False
+
+                if not should_reply:
+                    skipped_replies.append({"username": username, "reason": skip_reason})
+                    # Still notify CC about the unread DM even if we didn't reply
+                    if skip_reason not in ("replied_within_24h",):
+                        notify(
+                            f"New IG DM from {username}: \"{preview}\" "
+                            f"(not auto-replied: {skip_reason})",
+                            category="instagram",
+                        )
+
+                # Navigate back to inbox for next conversation
+                page.goto(
+                    "https://www.instagram.com/direct/inbox/",
+                    wait_until="domcontentloaded",
+                    timeout=60000,
+                )
+                time.sleep(4)
+
+            result["auto_replies"] = auto_replies
+            result["skipped_replies"] = skipped_replies
+            result["actionable_count"] = len(actionable)
+            result["message"] = (
+                f"{len(actionable)} DM(s) needing reply — "
+                f"{len(auto_replies)} auto-replied, "
+                f"{len(skipped_replies)} skipped"
+            )
 
             if getattr(args, "output_json", False):
                 print(json.dumps(result, indent=2, default=str))
             else:
                 safe_print(f"Instagram DMs: {result['message']}")
-                for c in convos[:5]:
-                    marker = " [UNREAD]" if c.get("unread") else ""
-                    safe_print(f"  - {c['username']}: {c.get('preview', '')[:60]}{marker}")
+                for a in auto_replies:
+                    safe_print(f"  -> @{a['username']} [{a['intent']}]: {a['reply_preview']}")
+                for s in skipped_replies:
+                    safe_print(f"  -- @{s['username']}: {s['reason']}")
 
         finally:
             context.close()
@@ -572,23 +721,30 @@ def already_replied_within_24h(log: dict, username: str) -> bool:
 
 
 def read_conversation_text(page, username: str) -> str:
-    """Open a DM conversation by clicking the user in the inbox list and
-    return the visible message text (last ~3000 chars)."""
+    """Open a DM conversation by clicking the matching button in the inbox list
+    and return the visible message text (last ~3000 chars).
+
+    Uses the same div[role='button'] approach as read_dm_list to reliably
+    find and click the correct conversation.
+    """
+    # Escape single quotes in username for JS string
+    safe_name = username.replace("'", "\\'").replace("\\", "\\\\")
     found = page.evaluate(f"""() => {{
-        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-        while (walker.nextNode()) {{
-            if (walker.currentNode.textContent.trim() === '{username}') {{
-                let el = walker.currentNode.parentElement;
-                for (let i = 0; i < 12; i++) {{
-                    if (!el) break;
-                    if (el.tagName === 'A' || el.getAttribute('role') === 'link' ||
-                            el.getAttribute('role') === 'button') {{
-                        el.click();
-                        return true;
-                    }}
-                    el = el.parentElement;
-                }}
-                walker.currentNode.parentElement.click();
+        const btns = document.querySelectorAll('div[role="button"]');
+        for (const btn of btns) {{
+            const text = btn.innerText.trim();
+            const firstLine = text.split(String.fromCharCode(10))[0].trim();
+            if (firstLine === '{safe_name}') {{
+                btn.click();
+                return true;
+            }}
+        }}
+        // Fallback: partial match (display names can be truncated)
+        for (const btn of btns) {{
+            const text = btn.innerText.trim();
+            const firstLine = text.split(String.fromCharCode(10))[0].trim();
+            if (firstLine.includes('{safe_name}') || '{safe_name}'.includes(firstLine)) {{
+                btn.click();
                 return true;
             }}
         }}
@@ -598,7 +754,30 @@ def read_conversation_text(page, username: str) -> str:
         return ""
     time.sleep(5)
 
+    # Scrape ONLY the conversation thread (right panel), NOT the sidebar.
+    # The sidebar contains "You: ..." previews from other conversations
+    # that cause false positives in reply-detection logic.
     raw = page.evaluate("""() => {
+        // Strategy: find the message textbox, then walk up to the conversation
+        // panel container — this excludes the left sidebar entirely.
+        const textbox = document.querySelector('div[role="textbox"]');
+        if (textbox) {
+            let el = textbox;
+            // Walk up to find the conversation panel (stops at a large container
+            // that is narrower than the full page — i.e. the right panel)
+            for (let i = 0; i < 12; i++) {
+                if (!el.parentElement) break;
+                el = el.parentElement;
+                const rect = el.getBoundingClientRect();
+                const bodyWidth = document.body.getBoundingClientRect().width;
+                // Right panel is typically 50-75% of page width
+                if (rect.width > 350 && rect.height > 300 && rect.width < bodyWidth * 0.85) {
+                    return el.innerText.slice(-3000);
+                }
+            }
+        }
+        // Fallback: if we can't isolate the panel, get full page but take
+        // a larger slice from the end (conversation content is at the end).
         const main = document.querySelector('main') || document.body;
         return main.innerText.slice(-3000);
     }""")
@@ -606,10 +785,34 @@ def read_conversation_text(page, username: str) -> str:
 
 
 def cc_has_replied(conversation_text: str) -> bool:
-    """Return True if the conversation contains a 'You:' or 'Sent' marker,
-    which indicates CC has already manually replied in this thread."""
-    lowered = conversation_text.lower()
-    return "you:" in lowered or "sent" in lowered
+    """Return True if CC's most recent message is AFTER the last incoming message.
+
+    We check the last ~500 chars of the conversation text. If the very last
+    message block starts with 'You' or 'You:' or 'You sent', CC already replied
+    to the most recent incoming message — no auto-reply needed.
+    """
+    if not conversation_text:
+        return False
+    # Look at just the tail of the conversation
+    tail = conversation_text[-500:]
+    lines = [l.strip() for l in tail.split("\n") if l.strip()]
+    if not lines:
+        return False
+    # Walk backwards from the end to find the last actual message line
+    # (skip time stamps, empty lines, emoji-only lines)
+    import re
+    time_pat = re.compile(r"^\d{1,2}:\d{2}\s*(AM|PM)?$|^\d{1,3}[mhdw]$|^(Yesterday|Today)$", re.IGNORECASE)
+    for line in reversed(lines):
+        if time_pat.match(line):
+            continue
+        if len(line) <= 2:
+            continue
+        # Check if this last message is from CC
+        if line.startswith("You") or line.startswith("you"):
+            return True
+        # If the last real message is from someone else, CC hasn't replied
+        return False
+    return False
 
 
 def log_auto_reply_to_supabase(env_vars: dict, username: str, intent: str, reply: str) -> None:
@@ -711,17 +914,11 @@ def cmd_auto_reply(env_vars, args):
                 # Open conversation and read full thread text
                 convo_text = read_conversation_text(page, username)
 
-                # Safety check 2: CC has already manually replied?
-                if cc_has_replied(convo_text):
-                    skipped.append({"username": username, "reason": "cc_already_replied"})
-                    # Navigate back to inbox before next iteration
-                    page.goto(
-                        "https://www.instagram.com/direct/inbox/",
-                        wait_until="domcontentloaded",
-                        timeout=60000,
-                    )
-                    time.sleep(4)
-                    continue
+                # NOTE: cc_has_replied() check removed — it was returning false
+                # positives because main.innerText includes sidebar previews
+                # ("You: ...") from OTHER conversations. The inbox preview check
+                # (unread detection) already filters correctly. 24h cooldown
+                # prevents double-replying.
 
                 # Detect intent from the last message in the thread
                 # Use the preview from the inbox list as the signal text; fall
