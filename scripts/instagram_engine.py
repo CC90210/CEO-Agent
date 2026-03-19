@@ -22,7 +22,7 @@ import json
 import sys
 import os
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -30,6 +30,7 @@ SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 BROWSER_DIR = str(PROJECT_ROOT / "tmp" / "ig-browser")
 SCREENSHOT_DIR = str(PROJECT_ROOT / "tmp")
 DM_REPLIED_PATH = PROJECT_ROOT / "tmp" / "dm_replied.json"
+BOOKING_STATE_PATH = PROJECT_ROOT / "tmp" / "dm_booking_state.json"
 
 # Intent detection keyword sets
 _BOOKING_KEYWORDS = {
@@ -268,6 +269,95 @@ def parse_conversations(inbox_data):
     return conversations
 
 
+# -- DM Helpers ---------------------------------------------------------------
+
+def _send_dm_reply(page, reply_text: str) -> bool:
+    """Type and send a reply in the currently open DM conversation.
+
+    Returns True if the message was sent, False if the input wasn't found.
+    """
+    msg_input = (
+        page.query_selector('div[role="textbox"]')
+        or page.query_selector('div[contenteditable="true"]')
+    )
+    if not msg_input:
+        return False
+    msg_input.click()
+    time.sleep(0.3)
+    page.keyboard.type(reply_text, delay=15)
+    time.sleep(0.5)
+    page.keyboard.press("Enter")
+    time.sleep(3)
+    return True
+
+
+def _handle_booking_confirmation(
+    env_vars: dict,
+    page,
+    username: str,
+    parsed_time: dict,
+    booking_state: dict,
+) -> str | None:
+    """Create a Google Calendar event and send the Meet link as a DM reply.
+
+    Returns the reply text if successful, None on failure.
+    """
+    try:
+        from scripts.google_calendar import create_event
+    except ImportError:
+        try:
+            from google_calendar import create_event
+        except ImportError:
+            return None
+
+    from zoneinfo import ZoneInfo
+    et = ZoneInfo("America/Toronto")
+
+    start_dt = datetime.combine(
+        datetime.strptime(parsed_time["date"], "%Y-%m-%d").date(),
+        datetime.strptime(parsed_time["time"], "%H:%M").time(),
+        tzinfo=et,
+    )
+
+    result = create_event(
+        env_vars,
+        title=f"Call with {username}",
+        start_dt=start_dt,
+        duration_minutes=30,
+        description=f"Booked via Instagram DM auto-reply — @{username}",
+    )
+
+    if not result["success"]:
+        return None
+
+    meet_link = result["meet_link"]
+    display = parsed_time["display"]
+
+    reply_text = (
+        f"You're all set! I've booked us in for {display} (30 min).\n\n"
+        f"Here's the Google Meet link: {meet_link}\n\n"
+        f"Looking forward to chatting!"
+    )
+
+    sent = _send_dm_reply(page, reply_text)
+    if not sent:
+        return None
+
+    # Update booking state to confirmed
+    booking_state[username] = {
+        "stage": "confirmed",
+        "date": parsed_time["date"],
+        "time": parsed_time["time"],
+        "display": display,
+        "meet_link": meet_link,
+        "event_id": result["event_id"],
+        "confirmed_at": datetime.now(timezone.utc).isoformat(),
+    }
+    save_booking_state(booking_state)
+
+    return reply_text
+
+
 # -- Commands -----------------------------------------------------------------
 
 def cmd_check_dms(env_vars, args):
@@ -285,8 +375,8 @@ def cmd_check_dms(env_vars, args):
         safe_print("ERROR: playwright not installed. Run: pip install playwright")
         return {"status": "error", "message": "playwright not installed"}
 
-    meet_link = env_vars.get("GOOGLE_MEET_LINK", "")
     replied_log = load_replied_log()
+    booking_state = load_booking_state()
     auto_replies = []
     skipped_replies = []
 
@@ -361,6 +451,8 @@ def cmd_check_dms(env_vars, args):
                 return result
 
             # Process each actionable conversation — detect intent and auto-reply
+            # Supports multi-turn booking: if user is in "awaiting_time" state,
+            # parse their time, create a Google Calendar event, and send the Meet link.
             for convo in actionable:
                 username = convo.get("username", "").strip()
                 preview = convo.get("preview", "")[:100]
@@ -371,20 +463,74 @@ def cmd_check_dms(env_vars, args):
                 convo_text = read_conversation_text(page, username)
 
                 # Use the full conversation text to get the sender's last message
-                # (more reliable than the truncated inbox preview)
                 signal_text = convo_text[-500:] if convo_text else preview
 
-                # Detect intent
+                # Check if this user is in a booking flow (awaiting time confirmation)
+                user_booking = booking_state.get(username)
+                if user_booking and user_booking.get("stage") == "awaiting_time":
+                    # Try to parse a date/time from their response
+                    parsed = parse_datetime_from_text(signal_text)
+                    if parsed:
+                        # Create Google Calendar event with Meet link
+                        reply_text = _handle_booking_confirmation(
+                            env_vars, page, username, parsed, booking_state,
+                        )
+                        if reply_text:
+                            auto_replies.append({
+                                "username": username,
+                                "intent": "BOOKING_CONFIRMED",
+                                "reply_preview": reply_text[:80],
+                            })
+                            notify(
+                                f"Booking confirmed! {username} — {parsed['display']}\n"
+                                f"Sent Meet link via DM",
+                                category="instagram",
+                            )
+                        else:
+                            skipped_replies.append({
+                                "username": username,
+                                "reason": "calendar_event_failed",
+                            })
+                            notify(
+                                f"DM from {username}: tried to book {parsed['display']}"
+                                f" but calendar event creation failed",
+                                category="instagram",
+                            )
+                    else:
+                        # Couldn't parse a time — ask again
+                        reply_text = (
+                            "I want to make sure I get the right time -- could you"
+                            " send the day and time that works? For example:"
+                            " \"Thursday at 2pm\" or \"March 27 at 10am\""
+                        )
+                        _send_dm_reply(page, reply_text)
+                        auto_replies.append({
+                            "username": username,
+                            "intent": "BOOKING_REPROMPT",
+                            "reply_preview": reply_text[:80],
+                        })
+                        notify(
+                            f"DM from {username}: \"{preview}\" — couldn't parse"
+                            f" time, asked again",
+                            category="instagram",
+                        )
+
+                    # Navigate back to inbox
+                    page.goto(
+                        "https://www.instagram.com/direct/inbox/",
+                        wait_until="domcontentloaded",
+                        timeout=60000,
+                    )
+                    time.sleep(4)
+                    continue
+
+                # --- Normal flow: new conversation ---
                 intent = detect_intent(signal_text)
 
-                # Decide whether to auto-reply
                 should_reply = True
                 skip_reason = None
 
-                if not meet_link:
-                    should_reply = False
-                    skip_reason = "no_meet_link"
-                elif already_replied_within_24h(replied_log, username):
+                if already_replied_within_24h(replied_log, username):
                     should_reply = False
                     skip_reason = "replied_within_24h"
                 elif intent == "UNKNOWN":
@@ -392,21 +538,10 @@ def cmd_check_dms(env_vars, args):
                     skip_reason = "unknown_intent"
 
                 if should_reply:
-                    reply_text = build_reply(intent, meet_link)
+                    reply_text = build_reply(intent)
 
-                    # Find the message input and send
-                    msg_input = (
-                        page.query_selector('div[role="textbox"]')
-                        or page.query_selector('div[contenteditable="true"]')
-                    )
-                    if msg_input:
-                        msg_input.click()
-                        time.sleep(0.3)
-                        page.keyboard.type(reply_text, delay=15)
-                        time.sleep(0.5)
-                        page.keyboard.press("Enter")
-                        time.sleep(3)
-
+                    sent = _send_dm_reply(page, reply_text)
+                    if sent:
                         # Track the reply
                         replied_log[username] = {
                             "replied_at": datetime.now(timezone.utc).isoformat(),
@@ -414,6 +549,15 @@ def cmd_check_dms(env_vars, args):
                         }
                         save_replied_log(replied_log)
                         log_auto_reply_to_supabase(env_vars, username, intent, reply_text)
+
+                        # If booking/pricing/info intent, enter booking flow
+                        if intent in ("BOOKING", "PRICING", "INFO"):
+                            booking_state[username] = {
+                                "stage": "awaiting_time",
+                                "intent": intent,
+                                "started_at": datetime.now(timezone.utc).isoformat(),
+                            }
+                            save_booking_state(booking_state)
 
                         auto_replies.append({
                             "username": username,
@@ -431,7 +575,6 @@ def cmd_check_dms(env_vars, args):
 
                 if not should_reply:
                     skipped_replies.append({"username": username, "reason": skip_reason})
-                    # Still notify CC about the unread DM even if we didn't reply
                     if skip_reason not in ("replied_within_24h",):
                         notify(
                             f"New IG DM from {username}: \"{preview}\" "
@@ -666,23 +809,29 @@ def detect_intent(text: str) -> str:
     return "UNKNOWN"
 
 
-def build_reply(intent: str, meet_link: str) -> str:
-    """Return the appropriate auto-reply template for the given intent."""
+def build_reply(intent: str, meet_link: str = "") -> str:
+    """Return the appropriate auto-reply template for the given intent.
+
+    BOOKING/PRICING/INFO replies now ask for a preferred date/time instead of
+    sending a static Meet link. Once the person confirms a time, the follow-up
+    handler creates a Google Calendar event with a fresh Meet link.
+    """
     templates = {
         "BOOKING": (
-            "Hey! I'd love to chat. Here's my calendar link -- grab a time that"
-            f" works: {meet_link}\n\nLooking forward to connecting!"
+            "Hey! I'd love to chat. I'm generally free weekdays between"
+            " 9am-5pm ET -- what day and time works best for you?"
+            " I'll send over a Google Meet link once we lock in a time"
         ),
         "PRICING": (
-            "Great question! It really depends on what you need -- every business"
-            " is different. Let's hop on a quick 15-min call so I can understand"
-            f" your situation and give you an honest answer: {meet_link}"
+            "Great question! It really depends on what you need -- every"
+            " business is different. Let's hop on a quick call so I can"
+            " understand your situation. What day/time works for you?"
+            " (I'm free weekdays 9-5 ET)"
         ),
         "INFO": (
-            "Thanks for reaching out! I run OASIS AI Solutions -- we build AI"
-            " automation systems for local businesses (think: auto-follow-ups,"
-            " booking systems, lead capture). Happy to walk you through"
-            f" it: {meet_link}"
+            "Thanks for reaching out! I run OASIS AI Solutions -- we build"
+            " AI automation systems for local businesses. Happy to walk you"
+            " through it on a quick call. What day/time works best for you?"
         ),
         "GREETING": "Hey! Thanks for reaching out. What can I help you with?",
     }
@@ -705,6 +854,155 @@ def save_replied_log(log: dict) -> None:
     DM_REPLIED_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(DM_REPLIED_PATH, "w", encoding="utf-8") as f:
         json.dump(log, f, indent=2)
+
+
+def load_booking_state() -> dict:
+    """Load the multi-turn booking state tracker. Returns {} if absent."""
+    if not BOOKING_STATE_PATH.exists():
+        return {}
+    try:
+        with open(BOOKING_STATE_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def save_booking_state(state: dict) -> None:
+    """Persist the booking state tracker."""
+    BOOKING_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(BOOKING_STATE_PATH, "w", encoding="utf-8") as f:
+        json.dump(state, f, indent=2)
+
+
+def parse_datetime_from_text(text: str) -> dict | None:
+    """Extract a date and time from natural language text.
+
+    Handles patterns like:
+      - "tomorrow at 2pm", "Thursday 10am", "March 25 at 3:00"
+      - "next Monday at 11", "this Friday 2:30pm"
+      - "25th at 2pm", "the 26th at 10am"
+
+    Returns {date: "YYYY-MM-DD", time: "HH:MM", display: "Thursday March 25 at 2:00 PM"}
+    or None if no date/time found.
+    """
+    import re
+    from datetime import date as date_type
+
+    lowered = text.lower().strip()
+
+    # --- Extract time component ---
+    time_match = re.search(
+        r'(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m\.|p\.m\.)',
+        lowered,
+    )
+    hour, minute = None, 0
+    if time_match:
+        hour = int(time_match.group(1))
+        minute = int(time_match.group(2) or 0)
+        ampm = time_match.group(3).replace(".", "")
+        if ampm == "pm" and hour < 12:
+            hour += 12
+        elif ampm == "am" and hour == 12:
+            hour = 0
+    else:
+        # Try 24h format: "at 14:00" or "at 14"
+        time_24 = re.search(r'(?:at\s+)(\d{1,2})(?::(\d{2}))?(?!\s*(?:am|pm))', lowered)
+        if time_24:
+            hour = int(time_24.group(1))
+            minute = int(time_24.group(2) or 0)
+            if hour > 23:
+                hour = None
+
+    if hour is None:
+        return None  # Can't book without a time
+
+    # --- Extract date component ---
+    from zoneinfo import ZoneInfo
+    et = ZoneInfo("America/Toronto")
+    now = datetime.now(et)
+    today = now.date()
+    target_date = None
+
+    # "tomorrow"
+    if "tomorrow" in lowered:
+        target_date = today + timedelta(days=1)
+
+    # "today"
+    elif re.search(r'\btoday\b', lowered):
+        target_date = today
+
+    # Day of week: "monday", "this tuesday", "next wednesday"
+    day_names = {
+        "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
+        "friday": 4, "saturday": 5, "sunday": 6,
+        "mon": 0, "tue": 1, "tues": 1, "wed": 2, "thu": 3, "thur": 3,
+        "thurs": 3, "fri": 4, "sat": 5, "sun": 6,
+    }
+    if not target_date:
+        for name, dow in day_names.items():
+            if re.search(rf'\b{name}\b', lowered):
+                days_ahead = (dow - today.weekday()) % 7
+                if days_ahead == 0:
+                    days_ahead = 7  # Next week if same day
+                if "next" in lowered:
+                    days_ahead += 7 if days_ahead <= 7 else 0
+                target_date = today + timedelta(days=days_ahead)
+                break
+
+    # Month + day: "march 25", "mar 25th", "april 2"
+    if not target_date:
+        month_names = {
+            "jan": 1, "january": 1, "feb": 2, "february": 2,
+            "mar": 3, "march": 3, "apr": 4, "april": 4,
+            "may": 5, "jun": 6, "june": 6, "jul": 7, "july": 7,
+            "aug": 8, "august": 8, "sep": 9, "september": 9,
+            "oct": 10, "october": 10, "nov": 11, "november": 11,
+            "dec": 12, "december": 12,
+        }
+        for name, month_num in month_names.items():
+            m = re.search(rf'\b{name}\s+(\d{{1,2}})(?:st|nd|rd|th)?\b', lowered)
+            if m:
+                day = int(m.group(1))
+                year = today.year
+                candidate = date_type(year, month_num, min(day, 28))
+                if candidate < today:
+                    candidate = date_type(year + 1, month_num, min(day, 28))
+                target_date = candidate
+                break
+
+    # Ordinal day only: "the 25th", "on the 26th"
+    if not target_date:
+        ord_match = re.search(r'\b(?:the\s+)?(\d{1,2})(?:st|nd|rd|th)\b', lowered)
+        if ord_match:
+            day = int(ord_match.group(1))
+            if 1 <= day <= 31:
+                candidate = today.replace(day=min(day, 28))
+                if candidate <= today:
+                    # Next month
+                    if today.month == 12:
+                        candidate = date_type(today.year + 1, 1, min(day, 28))
+                    else:
+                        candidate = date_type(today.year, today.month + 1, min(day, 28))
+                target_date = candidate
+
+    # If still no date but we have a time, assume tomorrow if time has passed today
+    if not target_date:
+        if hour <= now.hour:
+            target_date = today + timedelta(days=1)
+        else:
+            target_date = today
+
+    # Build result
+    time_str = f"{hour:02d}:{minute:02d}"
+    display_dt = datetime.combine(target_date, datetime.strptime(time_str, "%H:%M").time())
+    # Windows uses %#d instead of %-d for no-zero-pad
+    display = display_dt.strftime("%A %B %#d at %#I:%M %p")
+
+    return {
+        "date": target_date.isoformat(),
+        "time": time_str,
+        "display": display,
+    }
 
 
 def already_replied_within_24h(log: dict, username: str) -> bool:
@@ -852,12 +1150,8 @@ def cmd_auto_reply(env_vars, args):
         safe_print("ERROR: playwright not installed. Run: pip install playwright")
         return {"status": "error", "message": "playwright not installed"}
 
-    meet_link = env_vars.get("GOOGLE_MEET_LINK", "")
-    if not meet_link:
-        safe_print("ERROR: GOOGLE_MEET_LINK not set in .env.agents")
-        return {"status": "error", "message": "GOOGLE_MEET_LINK missing"}
-
     replied_log = load_replied_log()
+    booking_state = load_booking_state()
     actions_taken = []
     skipped = []
 
@@ -936,14 +1230,10 @@ def cmd_auto_reply(env_vars, args):
                     time.sleep(4)
                     continue
 
-                reply_text = build_reply(intent, meet_link)
+                reply_text = build_reply(intent)
 
-                # Send the reply using the existing message-input logic
-                msg_input = (
-                    page.query_selector('div[role="textbox"]')
-                    or page.query_selector('div[contenteditable="true"]')
-                )
-                if not msg_input:
+                sent = _send_dm_reply(page, reply_text)
+                if not sent:
                     skipped.append({"username": username, "reason": "no_input_found"})
                     page.goto(
                         "https://www.instagram.com/direct/inbox/",
@@ -953,19 +1243,21 @@ def cmd_auto_reply(env_vars, args):
                     time.sleep(4)
                     continue
 
-                msg_input.click()
-                time.sleep(0.3)
-                page.keyboard.type(reply_text, delay=15)
-                time.sleep(0.5)
-                page.keyboard.press("Enter")
-                time.sleep(3)
-
                 # Record the reply in the local tracking file
                 replied_log[username] = {
                     "replied_at": datetime.now(timezone.utc).isoformat(),
                     "intent": intent,
                 }
                 save_replied_log(replied_log)
+
+                # Enter booking flow for booking/pricing/info intents
+                if intent in ("BOOKING", "PRICING", "INFO"):
+                    booking_state[username] = {
+                        "stage": "awaiting_time",
+                        "intent": intent,
+                        "started_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                    save_booking_state(booking_state)
 
                 # Log to Supabase (best-effort)
                 log_auto_reply_to_supabase(env_vars, username, intent, reply_text)
