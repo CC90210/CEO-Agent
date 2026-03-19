@@ -4,6 +4,13 @@
 
 ---
 
+### 2026-03-19 — booking_engine.py confirmation email (Claude Code, Sonnet 4.6)
+**Change:** Added confirmation email + .ics calendar invite to the `book` command. After a successful booking is created in Supabase, `_send_booking_confirmation` sends a Gmail SMTP email (port 587/STARTTLS) with an RFC 5545 .ics attachment to the attendee and logs the result to the `email_log` table. SMTP failure is non-fatal -- booking succeeds even if email fails.
+**Files:** `scripts/booking_engine.py`
+**Commit:** pending
+
+---
+
 ### 2026-03-19 — BUSINESS OPERATIONS ENGINE + ACTIVATION (Claude Code, Opus 4.6)
 **Scope:** Full agent transformation from developer-focused to business operations platform. All 4 phases executed + activation with real data.
 
@@ -31,7 +38,12 @@
 **Counts:** 60 skills, 16 agents, 15 workflows, 28 Supabase tables (14 agent + 14 business ops), 8 MCP servers
 **Commits:** `0848f6a` (infrastructure), `c7b3b21` (activation + fixes)
 
-**Blockers:** Gmail App Password needed for email_engine.py (GMAIL_ADDRESS + GMAIL_APP_PASSWORD in .env.agents)
+**Blockers:** ~~Gmail App Password~~ RESOLVED. Stripe API key expired (401) - CC needs to rotate at dashboard.stripe.com.
+
+### 2026-03-19 — Autonomous Scheduler Deployed (Claude Code, Opus 4.6)
+**Change:** Built and deployed PM2-managed scheduler daemon that checks Supabase every 60s for due cron jobs and executes them. Tested live - 8 jobs fired correctly (Stripe failed due to expired key, all others succeeded). Windows sleep/hibernate disabled. Auto-start script placed in Windows Startup folder. Fixed remaining Unicode cp1252 encoding crashes across all 7 engine scripts.
+**Files:** scripts/scheduler.py (new), scripts/start-bravo.cmd (new), 7 engine scripts (encoding fix)
+**Commit:** e73f599
 
 ### 2026-03-19 — 5 Revenue & Sales skills created
 **Change:** Created 5 new skills covering full OASIS AI revenue pipeline.

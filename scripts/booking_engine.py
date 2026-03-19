@@ -28,8 +28,14 @@ Usage:
 
 import argparse
 import json
+import smtplib
 import sys
-from datetime import date, datetime, time, timedelta
+import uuid
+from datetime import date, datetime, time, timedelta, timezone
+from email import encoders
+from email.mime.base import MIMEBase
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from pathlib import Path
 
 
@@ -150,6 +156,187 @@ def _dates_for_week(start_date_str: str, days_str: str) -> list[date]:
         if candidate.weekday() in target_days:
             result.append(candidate)
     return sorted(result)
+
+
+# ---------------------------------------------------------------------------
+# Confirmation email helpers
+# ---------------------------------------------------------------------------
+
+def _build_confirmation_ics(
+    attendee_name: str,
+    attendee_email: str,
+    slot_date: str,
+    start_time: str,
+    end_time: str,
+    organizer_email: str,
+    notes: str | None,
+) -> str:
+    """Return an iCalendar (RFC 5545) string for the booked discovery call."""
+    # Parse slot date + times into datetime objects
+    start_dt = datetime.fromisoformat(f"{slot_date}T{start_time}")
+    end_dt = datetime.fromisoformat(f"{slot_date}T{end_time}")
+    now_utc = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    fmt = "%Y%m%dT%H%M%S"
+    uid = str(uuid.uuid4())
+
+    description = "Discovery call with Conaugh McKenna, founder of OASIS AI Solutions."
+    if notes:
+        # Strip any non-ASCII chars to stay safe on cp1252 terminals
+        safe_notes = notes.encode("ascii", errors="replace").decode("ascii")
+        description += f"\\nNotes: {safe_notes}"
+
+    return (
+        "BEGIN:VCALENDAR\r\n"
+        "VERSION:2.0\r\n"
+        "PRODID:-//OASIS AI Solutions//Bravo Booking//EN\r\n"
+        "CALSCALE:GREGORIAN\r\n"
+        "METHOD:REQUEST\r\n"
+        "BEGIN:VEVENT\r\n"
+        f"UID:{uid}\r\n"
+        f"DTSTART:{start_dt.strftime(fmt)}\r\n"
+        f"DTEND:{end_dt.strftime(fmt)}\r\n"
+        f"DTSTAMP:{now_utc}\r\n"
+        f"ORGANIZER;CN=Conaugh McKenna:mailto:{organizer_email}\r\n"
+        f"ATTENDEE;CN={attendee_name};RSVP=TRUE:mailto:{attendee_email}\r\n"
+        "SUMMARY:Discovery Call with Conaugh McKenna\r\n"
+        f"DESCRIPTION:{description}\r\n"
+        "STATUS:CONFIRMED\r\n"
+        "SEQUENCE:0\r\n"
+        "END:VEVENT\r\n"
+        "END:VCALENDAR\r\n"
+    )
+
+
+def _build_confirmation_body(
+    attendee_name: str,
+    slot_date: str,
+    start_time: str,
+    end_time: str,
+    meeting_type: str,
+    notes: str | None,
+) -> str:
+    """Return the plain-text confirmation email body. ASCII only."""
+    start_dt = datetime.fromisoformat(f"{slot_date}T{start_time}")
+    end_dt = datetime.fromisoformat(f"{slot_date}T{end_time}")
+    date_label = start_dt.strftime("%A, %B %d, %Y")
+    time_label = f"{start_dt.strftime('%I:%M %p')} - {end_dt.strftime('%I:%M %p')} EST"
+
+    lines = [
+        f"Hi {attendee_name},",
+        "",
+        "Your discovery call is confirmed. Here are the details:",
+        "",
+        f"  Date:  {date_label}",
+        f"  Time:  {time_label}",
+        f"  Type:  {meeting_type}",
+    ]
+    if notes:
+        safe_notes = notes.encode("ascii", errors="replace").decode("ascii")
+        lines.append(f"  Notes: {safe_notes}")
+    lines += [
+        "",
+        "A calendar invite (.ics) is attached -- add it to your calendar with one click.",
+        "",
+        "If anything changes on your end, just reply to this email and we will sort it out.",
+        "",
+        "Looking forward to connecting.",
+        "",
+        "Conaugh McKenna",
+        "Founder, OASIS AI Solutions",
+        "oasisai.work",
+    ]
+    return "\n".join(lines)
+
+
+def _send_booking_confirmation(
+    env_vars: dict[str, str],
+    client,
+    booking: dict,
+    slot: dict,
+) -> None:
+    """
+    Send a confirmation email with an .ics attachment to the attendee.
+    Logs the result to the email_log Supabase table.
+    SMTP failure is non-fatal: a warning is printed and the booking stands.
+    """
+    gmail_address = env_vars.get("GMAIL_USER") or env_vars.get("GMAIL_ADDRESS")
+    app_password = env_vars.get("GMAIL_APP_PASSWORD")
+
+    if not gmail_address or not app_password:
+        print(
+            "Warning: GMAIL_USER/GMAIL_ADDRESS or GMAIL_APP_PASSWORD not set in .env.agents"
+            " -- confirmation email skipped.",
+            file=sys.stderr,
+        )
+        return
+
+    attendee_name = booking["name"]
+    attendee_email = booking["email"]
+    slot_date = slot["slot_date"]
+    start_time = slot["start_time"]
+    end_time = slot["end_time"]
+    meeting_type = booking["meeting_type"]
+    notes = booking.get("notes")
+
+    subject = "Your Discovery Call with Conaugh McKenna - Confirmed"
+    body_text = _build_confirmation_body(
+        attendee_name, slot_date, start_time, end_time, meeting_type, notes
+    )
+    ics_content = _build_confirmation_ics(
+        attendee_name, attendee_email, slot_date, start_time, end_time,
+        gmail_address, notes
+    )
+
+    msg = MIMEMultipart("mixed")
+    msg["Subject"] = subject
+    msg["From"] = f"Conaugh McKenna <{gmail_address}>"
+    msg["To"] = attendee_email
+    msg.attach(MIMEText(body_text, "plain"))
+
+    ics_part = MIMEBase("text", "calendar", method="REQUEST")
+    ics_part.set_payload(ics_content.encode("utf-8"))
+    encoders.encode_base64(ics_part)
+    ics_part.add_header("Content-Disposition", "attachment", filename="invite.ics")
+    msg.attach(ics_part)
+
+    error_message: str | None = None
+    status = "failed"
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
+            server.login(gmail_address, app_password)
+            server.sendmail(gmail_address, attendee_email, msg.as_string())
+        status = "sent"
+    except smtplib.SMTPAuthenticationError:
+        error_message = "SMTP authentication failed. Check GMAIL_APP_PASSWORD in .env.agents."
+    except smtplib.SMTPRecipientsRefused:
+        error_message = f"Recipient address refused: {attendee_email}"
+    except smtplib.SMTPException as exc:
+        error_message = f"SMTP error: {exc}"
+    except Exception as exc:  # noqa: BLE001 -- non-fatal, must not crash booking flow
+        error_message = f"Unexpected error sending confirmation: {exc}"
+
+    if error_message:
+        print(f"Warning: confirmation email not sent -- {error_message}", file=sys.stderr)
+
+    # Log to email_log regardless of outcome
+    log_row: dict = {
+        "to_email": attendee_email,
+        "subject": subject,
+        "body_preview": body_text[:200],
+        "status": status,
+        "sent_at": datetime.now(timezone.utc).isoformat() if status == "sent" else None,
+        "error_message": error_message,
+    }
+    if booking.get("lead_id"):
+        log_row["lead_id"] = booking["lead_id"]
+
+    try:
+        client.table("email_log").insert(log_row).execute()
+    except Exception as exc:  # noqa: BLE001 -- logging failure must not crash booking flow
+        print(f"Warning: could not write to email_log: {exc}", file=sys.stderr)
 
 
 # ---------------------------------------------------------------------------
@@ -275,7 +462,7 @@ def cmd_slots_close(client, args, json_mode: bool) -> None:
         print(f"Slot closed: {s['slot_date']} {s['start_time']} - {s['end_time']}  id={s['id']}")
 
 
-def cmd_book(client, args, json_mode: bool) -> None:
+def cmd_book(client, args, json_mode: bool, env_vars: dict[str, str] | None = None) -> None:
     """Book an available slot."""
     # Fetch the slot
     slot_result = (
@@ -312,6 +499,9 @@ def cmd_book(client, args, json_mode: bool) -> None:
 
     # Mark the slot as unavailable
     client.table("booking_slots").update({"is_available": False}).eq("id", args.slot_id).execute()
+
+    # Send confirmation email with .ics invite (non-fatal on failure)
+    _send_booking_confirmation(env_vars or {}, client, booking, slot)
 
     if json_mode:
         output({"booking": booking, "slot": slot}, json_mode=True)
@@ -681,7 +871,7 @@ def main() -> None:
             parser.print_help()
 
     elif args.command == "book":
-        cmd_book(client, args, json_mode)
+        cmd_book(client, args, json_mode, env_vars)
     elif args.command == "cancel":
         cmd_cancel(client, args, json_mode)
     elif args.command == "list":
