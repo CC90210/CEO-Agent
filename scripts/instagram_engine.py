@@ -564,11 +564,14 @@ def cmd_check_dms(env_vars, args):
                                 "intent": intent,
                                 "reply_preview": reply_text[:80],
                             })
-                            notify(
-                                f"IG DM from {username}: \"{last_msg[:60]}\"\n"
-                                f"Auto-replied ({intent}): {reply_text[:80]}",
-                                category="instagram",
-                            )
+                            # Only notify CC on Telegram for BOOKING intents
+                            # (not every routine auto-reply — that's spam)
+                            if intent == "BOOKING":
+                                notify(
+                                    f"IG DM from {username}: \"{last_msg[:60]}\"\n"
+                                    f"Auto-replied ({intent}): {reply_text[:80]}",
+                                    category="instagram",
+                                )
                             mark_notified(notified_log, username, preview)
                             save_notified_log(notified_log)
                         else:
@@ -1437,6 +1440,7 @@ def cmd_auto_reply(env_vars, args):
                 # Use the preview from the inbox list as the signal text; fall
                 # back to the tail of the full conversation if the preview is empty.
                 signal_text = convo.get("preview", "") or convo_text[-500:]
+                last_msg = extract_last_incoming_message(convo_text) or signal_text
                 intent = detect_intent(signal_text)
 
                 if intent == "UNKNOWN":
@@ -1449,7 +1453,7 @@ def cmd_auto_reply(env_vars, args):
                     time.sleep(4)
                     continue
 
-                reply_text = build_reply(intent)
+                reply_text = build_reply(intent, last_msg=last_msg)
 
                 sent = _send_dm_reply(page, reply_text)
                 if not sent:
@@ -1469,8 +1473,9 @@ def cmd_auto_reply(env_vars, args):
                 }
                 save_replied_log(replied_log)
 
-                # Enter booking flow for booking/pricing/info intents
-                if intent in ("BOOKING", "PRICING", "INFO"):
+                # Only enter booking flow on EXPLICIT booking intent
+                # (not PRICING or INFO — those are conversational, no CTA)
+                if intent == "BOOKING":
                     booking_state[username] = {
                         "stage": "awaiting_time",
                         "intent": intent,
@@ -1481,10 +1486,13 @@ def cmd_auto_reply(env_vars, args):
                 # Log to Supabase (best-effort)
                 log_auto_reply_to_supabase(env_vars, username, intent, reply_text)
 
-                notify(
-                    f"Auto-replied to @{username} (intent: {intent}): {reply_text[:80]}",
-                    category="instagram",
-                )
+                # Only notify CC on Telegram for booking intents — not every reply
+                if intent == "BOOKING":
+                    notify(
+                        f"IG DM from @{username}: \"{last_msg[:60]}\"\n"
+                        f"Auto-replied (BOOKING): {reply_text[:80]}",
+                        category="instagram",
+                    )
 
                 actions_taken.append({
                     "username": username,

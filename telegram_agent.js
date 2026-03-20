@@ -84,7 +84,7 @@ const autoRegisterUser = (userId) => {
     }
 };
 
-const SYSTEM_PROMPT = `You are BRAVO, CC's autonomous AI agent. Answer directly in 1-5 sentences. No preamble. Use MCP tools when needed. CC's question:`;
+const SYSTEM_PROMPT = `You are BRAVO, CC's AI assistant on Telegram. RULES: (1) Answer the question directly in 1-5 sentences. (2) Do NOT summarize recent work, session history, or system status unless explicitly asked. (3) Do NOT greet CC with a status update. (4) Do NOT say what you just fixed or built. (5) Just answer what was asked. CC's message:`;
 
 // Detect which MCP servers a query needs (keeps Gemini startup fast)
 const detectMcps = (text) => {
@@ -321,11 +321,20 @@ bot.on('message', async (msg) => {
 });
 
 // ---- SHUTDOWN ----
-const shutdown = (sig) => {
-    log(`[SHUTDOWN] ${sig}`);
+// Graceful shutdown: stop polling FIRST, wait for Telegram to release
+// the connection, THEN exit. This prevents 409 Conflict (duplicate
+// getUpdates) when PM2 restarts the bot.
+let shuttingDown = false;
+const shutdown = async (sig) => {
+    if (shuttingDown) return; // prevent double-shutdown
+    shuttingDown = true;
+    log(`[SHUTDOWN] ${sig} — stopping polling...`);
     for (const c of activeChildren) killTree(c.pid);
-    bot.stopPolling();
-    process.exit(0);
+    try {
+        await bot.stopPolling();
+    } catch (_) {}
+    // Give Telegram 2s to release the long-poll connection
+    setTimeout(() => process.exit(0), 2000);
 };
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
@@ -336,9 +345,9 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 let pollErrorCount = 0;
 bot.on('polling_error', (e) => {
     pollErrorCount++;
-    // Only log every 10th consecutive error to avoid log spam
-    if (pollErrorCount <= 3 || pollErrorCount % 10 === 0) {
-        log(`[POLL] ${e.message} (count: ${pollErrorCount})`);
+    // Log first error, then only every 50th to avoid filling logs
+    if (pollErrorCount === 1 || pollErrorCount % 50 === 0) {
+        log(`[POLL] EFATAL: ${e.message} (count: ${pollErrorCount})`);
     }
 });
 

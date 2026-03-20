@@ -157,12 +157,11 @@ def execute_job(job: dict, env_vars: dict[str, str]) -> str:
             return run_monthly_snapshot(env_vars)
         elif action_type == "content_planning":
             return run_content_planning(env_vars)
-        elif action_type == "ig_research":
-            return run_ig_research(env_vars)
-        elif action_type == "ig_dm_check":
+        elif action_type in ("ig_research", "ig_dm_check", "ig_auto_reply"):
+            # All Instagram jobs consolidated into one check-dms call.
+            # Running multiple Playwright sessions on the same browser context
+            # causes race conditions and double-replies.
             return run_ig_dm_check(env_vars)
-        elif action_type == "ig_auto_reply":
-            return run_ig_auto_reply(env_vars)
         elif action_type == "email_inbox_check":
             return run_email_inbox_check(env_vars)
         elif action_type == "content_generate":
