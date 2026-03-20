@@ -206,10 +206,14 @@ def list_events(env_vars: dict, date_str: str) -> list[dict]:
     service = get_service(env_vars)
     calendar_id = env_vars.get("GOOGLE_CALENDAR_ID", "primary")
 
-    from datetime import date as date_type
+    try:
+        from zoneinfo import ZoneInfo
+    except ImportError:
+        from backports.zoneinfo import ZoneInfo
+    et = ZoneInfo("America/Toronto")
     target = datetime.strptime(date_str, "%Y-%m-%d").date()
-    time_min = datetime.combine(target, datetime.min.time()).isoformat() + "-05:00"
-    time_max = datetime.combine(target, datetime.max.time()).isoformat() + "-05:00"
+    time_min = datetime.combine(target, datetime.min.time(), tzinfo=et).isoformat()
+    time_max = datetime.combine(target, datetime.max.time(), tzinfo=et).isoformat()
 
     events_result = service.events().list(
         calendarId=calendar_id,
@@ -258,7 +262,7 @@ def get_available_slots(env_vars: dict, date_str: str, duration: int = 30) -> li
             slots.append({
                 "start": current.isoformat(),
                 "end": slot_end.isoformat(),
-                "display": current.strftime("%-I:%M %p") if hasattr(current, 'strftime') else str(current),
+                "display": current.strftime("%I:%M %p").lstrip("0"),
             })
         current += timedelta(minutes=duration)
 

@@ -77,6 +77,8 @@ def notify(message: str, category: str = "system", silent: bool = False) -> bool
     prefix = CATEGORY_PREFIX.get(category, "[BRAVO]")
     timestamp = datetime.now().strftime("%H:%M")
     full_message = f"{prefix} {message}\n-- {timestamp}"
+    if len(full_message) > 4096:
+        full_message = full_message[:4093] + "..."
 
     try:
         url = f"https://api.telegram.org/bot{token}/sendMessage"

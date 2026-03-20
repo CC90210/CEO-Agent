@@ -191,7 +191,7 @@ const executeCli = (tool, userPrompt, chatId) => {
             if (partial && partial.length > 20) {
                 resolve(`(Partial — timed out after ${timeout / 1000}s)\n\n${partial}`);
             } else {
-                resolve(`Timed out after ${timeout / 1000}s. The task may be too complex for Telegram. Try ${tool === 'gemini' ? '!claude' : ''} or run it directly.`);
+                resolve(`Timed out after ${timeout / 1000}s. The task may be too complex for Telegram. Try ${tool === 'claude' ? '!gemini' : '!claude'} or run it directly.`);
             }
         }, timeout);
 
