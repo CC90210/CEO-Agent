@@ -61,13 +61,7 @@ def get_credentials(env_vars: dict):
     refresh_token = env_vars.get("GOOGLE_REFRESH_TOKEN", "")
 
     if not client_id or not client_secret:
-        print("ERROR: GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET required in .env.agents", file=sys.stderr)
-        print("\nTo set up Google Calendar API:", file=sys.stderr)
-        print("1. Go to https://console.cloud.google.com/apis/credentials", file=sys.stderr)
-        print("2. Create an OAuth 2.0 Client ID (Desktop app)", file=sys.stderr)
-        print("3. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env.agents", file=sys.stderr)
-        print("4. Run: python scripts/google_calendar.py auth", file=sys.stderr)
-        sys.exit(1)
+        raise RuntimeError("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET required in .env.agents")
 
     # Try cached token first
     creds = None
@@ -98,8 +92,7 @@ def get_credentials(env_vars: dict):
             creds = None
 
     if not creds or not creds.valid:
-        print("ERROR: No valid credentials. Run: python scripts/google_calendar.py auth", file=sys.stderr)
-        sys.exit(1)
+        raise RuntimeError("No valid Google credentials. Run: python scripts/google_calendar.py auth")
 
     return creds
 
@@ -130,7 +123,15 @@ def create_event(
 
     Returns: {success, event_id, meet_link, html_link, start, end, error}
     """
-    service = get_service(env_vars)
+    try:
+        service = get_service(env_vars)
+    except Exception as e:
+        return {
+            "success": False, "event_id": None, "meet_link": None,
+            "html_link": None, "start": None, "end": None,
+            "error": f"Google Calendar not configured: {e}",
+        }
+
     calendar_id = env_vars.get("GOOGLE_CALENDAR_ID", "primary")
 
     end_dt = start_dt + timedelta(minutes=duration_minutes)
@@ -289,7 +290,7 @@ def cmd_auth(env_vars: dict, args) -> None:
     }
 
     flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
-    creds = flow.run_local_server(port=8090, prompt="consent")
+    creds = flow.run_local_server(port=8091, prompt="consent")
     _save_token(creds)
 
     print("Authentication successful!")
