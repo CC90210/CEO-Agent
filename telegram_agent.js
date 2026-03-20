@@ -25,7 +25,7 @@ const bot = new TelegramBot(TELEGRAM_TOKEN, {
         autoStart: true,
         params: { timeout: 30 }
     },
-    request: { timeout: 30000 }
+    request: { timeout: 60000 }
 });
 
 const log = (msg) => {
