@@ -423,34 +423,11 @@ def cmd_check_dms(env_vars, args):
                 "auto_replies": [],
             }
 
-            # Also identify UNREPLIED conversations — last message NOT from "You:"
-            # This catches DMs that lost their "Unread" badge when we opened the inbox
-            unreplied = []
-            for c in convos:
-                preview = c.get("preview", "")
-                preview_lower = preview.lower()
-                is_from_other = (
-                    not preview.startswith("You:")
-                    and not preview.startswith("You ")
-                    and "sent an attachment" not in preview_lower
-                    and "liked a message" not in preview_lower
-                    and "sent a gif" not in preview_lower
-                    and "video chat" not in preview_lower
-                    and "active today" not in preview_lower
-                    and "you sent" not in preview_lower
-                    and "you liked" not in preview_lower
-                    and len(preview) > 3
-                )
-                if is_from_other:
-                    c["needs_reply"] = True
-                    unreplied.append(c)
-
-            # Merge: process unread + unreplied (deduplicated)
-            to_process = {c["username"]: c for c in unread}
-            for c in unreplied:
-                if c["username"] not in to_process:
-                    to_process[c["username"]] = c
-            actionable = list(to_process.values())
+            # ONLY process conversations Instagram marks as "Unread"
+            # Do NOT auto-reply to every unreplied conversation — CC handles
+            # personal conversations himself. The bot only responds to genuinely
+            # new, unread DMs that CC hasn't seen yet.
+            actionable = list(unread)
 
             if not actionable:
                 result["message"] = "No DMs needing reply"
@@ -902,31 +879,33 @@ def build_reply(intent: str, last_msg: str = "", convo_context: str = "") -> str
     if intent == "PRICING":
         return random.choice([
             "honestly it depends on what you need — every business is different. "
-            "easiest if we hop on a quick call and i can give you a real answer. when works?",
+            "what kind of stuff are you looking to set up?",
             "ya so pricing really depends on the scope. "
-            "happy to break it down on a call if you want, takes like 15 min",
-            "it varies a lot based on what you're looking for. "
-            "want to jump on a quick call? way easier than going back and forth in dms",
+            "some clients pay 400/mo, some pay more depending on what we build. "
+            "what's your situation?",
+            "it varies a lot — depends on what you need automated and how complex it is. "
+            "what are you working with right now?",
         ])
 
     if intent == "INFO":
         return random.choice([
             "ya so basically i build AI automation systems for local businesses — "
             "stuff like auto follow-ups, booking, lead capture, review management. "
-            "what kind of business are you running?",
-            "i run an AI automation company. we set up systems that handle "
+            "been doing it for a while now, it's pretty sick what you can automate these days",
+            "i run an AI automation company called OASIS. we set up systems that handle "
             "the repetitive stuff — follow-ups, scheduling, lead gen, all that. "
-            "what's your situation?",
+            "honestly it's been a wild ride building it",
             "short version — i help businesses automate their ops with AI. "
-            "most of my clients are local service businesses. what do you do?",
+            "most of my clients are local service businesses. pretty much anything "
+            "repetitive, we can build a system for it",
         ])
 
     if intent == "GREETING":
         return random.choice([
             "yo what's good",
             "hey what's up",
-            "yo whats good, what can i help with",
-            "hey! what's going on",
+            "yo whats good",
+            "hey! how's it going",
         ])
 
     if intent == "CONVO":
@@ -969,16 +948,16 @@ def _build_convo_reply(last_msg: str, convo_context: str) -> str:
         return random.choice([
             "that's dope, how long have you been doing that?",
             "nice, how's business going?",
-            "oh sick. what's your biggest bottleneck right now?",
-            "thats cool. what made you reach out?",
+            "oh sick. respect for running your own thing",
+            "thats cool. how'd you get into that?",
         ])
 
     # --- They express a problem/frustration ---
     if any(w in lower for w in ("struggling", "problem", "issue", "hard", "difficult", "frustrating", "waste time", "too much time", "overwhelmed")):
         return random.choice([
-            "ya i hear that a lot honestly. what specifically is eating up your time?",
-            "that's exactly the kind of thing we solve. what's the biggest pain point?",
-            "been there. what would make the biggest difference for you right now?",
+            "ya i feel that honestly. shit can be overwhelming sometimes",
+            "been there fr. it gets better though, you just gotta find what works",
+            "ya that's rough. what's been the hardest part?",
         ])
 
     # --- Thank you ---
@@ -1000,25 +979,26 @@ def _build_convo_reply(last_msg: str, convo_context: str) -> str:
     # --- They ask about AI/automation specifically ---
     if any(w in lower for w in ("ai", "automat", "chatbot", "bot", "system")):
         return random.choice([
-            "ya AI is kinda my whole thing. what are you looking to automate?",
-            "thats literally what i do all day lol. what's the use case?",
-            "for sure, what specifically are you trying to set up?",
+            "ya AI is kinda my whole thing lol. been deep in it for a while now",
+            "thats literally what i do all day. its actually insane what you can build now",
+            "for sure, i'm super into that space. what got you interested?",
         ])
 
     # --- They sent something with a question mark ---
     if "?" in last_msg:
         return random.choice([
-            "good question — let me think on that. what's the context?",
-            "ya honestly it depends. can you give me a bit more detail?",
-            "that's a solid question. what's your situation?",
+            "good question honestly. let me think on that",
+            "ya honestly it depends on the situation",
+            "that's a good one. short answer is it depends lol",
         ])
 
-    # --- Default: genuine engagement, don't force a sale ---
+    # --- Default: genuine engagement, no sales energy ---
     return random.choice([
-        "ya for sure, tell me more about that",
-        "interesting, what made you reach out?",
-        "oh word? tell me more",
-        "ya i feel that. what's going on?",
+        "ya for sure, i hear you on that",
+        "oh word? that's interesting",
+        "ya i feel that honestly",
+        "nice, that's what's up",
+        "respect. keep going with that",
     ])
 
 
