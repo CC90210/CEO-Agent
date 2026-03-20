@@ -499,7 +499,7 @@ def cmd_check_dms(env_vars, args):
                         # conversationally instead of robotically re-asking
                         intent = detect_intent(last_msg)
                         if intent == "CONVO":
-                            reply_text = build_reply("CONVO", last_msg=last_msg)
+                            reply_text = build_reply("CONVO", last_msg=last_msg, convo_context=convo_text)
                         else:
                             reply_text = (
                                 "just lmk a day and time that works, "
@@ -536,7 +536,7 @@ def cmd_check_dms(env_vars, args):
                     skip_reason = "unknown_intent"
 
                 if should_reply:
-                    reply_text = build_reply(intent, last_msg=last_msg)
+                    reply_text = build_reply(intent, last_msg=last_msg, convo_context=convo_text)
                     if not reply_text:
                         should_reply = False
                         skip_reason = "empty_reply"
@@ -939,98 +939,96 @@ def build_reply(intent: str, last_msg: str = "", convo_context: str = "") -> str
 
 
 def _build_convo_reply(last_msg: str, convo_context: str) -> str:
-    """Build a conversational reply based on what the other person actually said.
+    """Generate a contextual reply using Claude API.
 
-    This is the heart of making the bot feel human. Instead of keyword matching
-    to canned templates, we look at what they said and respond naturally.
+    Sends the person's message (and recent conversation context) to Claude
+    with CC's voice rules. Returns a genuine, conversational response that
+    actually addresses what they said — not canned keyword templates.
+
+    Falls back to simple templates only if the API call fails.
     """
     import random
+
+    # Try Claude API first — this is the real reply engine
+    reply = _generate_reply_via_claude(last_msg, convo_context)
+    if reply:
+        return reply
+
+    # Fallback: bare minimum templates if API is down
     lower = last_msg.lower().strip()
-
-    # --- Positive/agreement responses ---
-    if any(w in lower for w in ("sounds good", "perfect", "awesome", "great", "cool", "bet", "for sure", "lets do it", "let's do it", "yes", "yeah", "yep", "ya", "down")):
-        return random.choice([
-            "perfect, lets make it happen",
-            "bet. lmk if you need anything else",
-            "sounds good to me",
-            "dope. keep me posted",
-        ])
-
-    # --- Questions about CC specifically ---
-    if any(p in lower for p in ("who are you", "what do you do", "your company", "your business", "tell me about yourself")):
-        return random.choice([
-            "ya so i'm conaugh, i run an AI automation company called OASIS. "
-            "we build systems for local businesses — the boring repetitive stuff, automated. "
-            "what about you?",
-            "i'm conaugh — i run OASIS AI Solutions. we help businesses automate "
-            "their follow-ups, booking, lead capture, all that. what's your situation?",
-        ])
-
-    # --- They mention their business/industry ---
-    if any(w in lower for w in ("my business", "i run", "i own", "my company", "we do", "i'm in", "im in")):
-        return random.choice([
-            "that's dope, how long have you been doing that?",
-            "nice, how's business going?",
-            "oh sick. respect for running your own thing",
-            "thats cool. how'd you get into that?",
-        ])
-
-    # --- They express a problem/frustration ---
-    if any(w in lower for w in ("struggling", "problem", "issue", "hard", "difficult", "frustrating", "waste time", "too much time", "overwhelmed")):
-        return random.choice([
-            "ya i feel that honestly. shit can be overwhelming sometimes",
-            "been there fr. it gets better though, you just gotta find what works",
-            "ya that's rough. what's been the hardest part?",
-        ])
-
-    # --- Story replies / reactions ---
-    if any(w in lower for w in ("replied to your story", "reacted to your story", "your story")):
-        return random.choice([
-            "appreciate that fr",
-            "ayy thanks for watching",
-            "glad you liked it",
-        ])
-
-    # --- Thank you ---
     if any(w in lower for w in ("thank", "thanks", "appreciate", "thx")):
-        return random.choice([
-            "of course, anytime",
-            "ya no worries",
-            "all good, lmk if you need anything",
-        ])
-
-    # --- They say no/not interested ---
-    if any(p in lower for p in ("not interested", "no thanks", "nah", "not right now", "maybe later", "not for me")):
-        return random.choice([
-            "all good, no pressure. lmk if anything changes",
-            "no worries at all. doors always open",
-            "totally fair. hit me up whenever",
-        ])
-
-    # --- They ask about AI/automation specifically ---
-    if any(w in lower for w in ("ai", "automat", "chatbot", "bot", "system")):
-        return random.choice([
-            "ya AI is kinda my whole thing lol. been deep in it for a while now",
-            "thats literally what i do all day. its actually insane what you can build now",
-            "for sure, i'm super into that space. what got you interested?",
-        ])
-
-    # --- They sent something with a question mark ---
+        return "ya no worries"
+    if any(w in lower for w in ("replied to your story", "your story")):
+        return "appreciate that fr"
     if "?" in last_msg:
-        return random.choice([
-            "good question honestly. let me think on that",
-            "ya honestly it depends on the situation",
-            "that's a good one. short answer is it depends lol",
-        ])
+        return "good question, honestly it depends on the situation"
+    return "ya for sure"
 
-    # --- Default: genuine engagement, no sales energy ---
-    return random.choice([
-        "ya for sure, i hear you on that",
-        "oh word? that's interesting",
-        "ya i feel that honestly",
-        "nice, that's what's up",
-        "respect. keep going with that",
-    ])
+
+def _generate_reply_via_claude(last_msg: str, convo_context: str) -> str:
+    """Call Claude API to generate a contextual DM reply in CC's voice.
+
+    Returns the reply text, or empty string on failure.
+    """
+    try:
+        import anthropic
+    except ImportError:
+        return ""
+
+    env_vars = load_env()
+    api_key = env_vars.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        return ""
+
+    # Build the prompt with conversation context
+    context_block = ""
+    if convo_context:
+        context_block = f"\nRecent conversation:\n{convo_context[-1000:]}\n"
+
+    system_prompt = (
+        "You are ghostwriting an Instagram DM reply as Conaugh McKenna (CC), "
+        "a 22-year-old AI automation entrepreneur from Collingwood, Ontario. "
+        "CC runs OASIS AI Solutions — he builds AI systems for local businesses.\n\n"
+        "VOICE RULES (non-negotiable):\n"
+        "- Text like you're talking to a friend at 2am. Short sentences.\n"
+        "- Lowercase mostly. No 'I'd love to' or 'Thanks for reaching out.'\n"
+        "- No exclamation marks spam. No corporate pleasantries. No emojis.\n"
+        "- Can use: ya, nah, for sure, lowkey, honestly, bet, fr, lol\n"
+        "- Be genuine and real. Match their energy.\n"
+        "- NEVER pitch, sell, or push toward a call unless they ask.\n"
+        "- NEVER use hashtags or marketing language.\n"
+        "- If they said something about your story, acknowledge the story content.\n"
+        "- If they said thank you, just be chill about it.\n"
+        "- Keep it to 1-2 sentences max. DMs are short.\n"
+        "- Respond to WHAT THEY ACTUALLY SAID. Read their message carefully.\n\n"
+        "Reply with ONLY the message text. No quotes, no labels, nothing else."
+    )
+
+    user_msg = f"{context_block}Their message: \"{last_msg}\"\n\nYour reply:"
+
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=150,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_msg}],
+        )
+        reply = response.content[0].text.strip()
+
+        # Safety: strip any quotes the model might wrap the reply in
+        if reply.startswith('"') and reply.endswith('"'):
+            reply = reply[1:-1]
+        if reply.startswith("'") and reply.endswith("'"):
+            reply = reply[1:-1]
+
+        # Safety: reject if too long for a DM (something went wrong)
+        if len(reply) > 500:
+            return reply[:500]
+
+        return reply
+    except Exception:
+        return ""
 
 
 def load_replied_log() -> dict:
@@ -1481,7 +1479,7 @@ def cmd_auto_reply(env_vars, args):
                     time.sleep(4)
                     continue
 
-                reply_text = build_reply(intent, last_msg=last_msg)
+                reply_text = build_reply(intent, last_msg=last_msg, convo_context=convo_text)
 
                 sent = _send_dm_reply(page, reply_text)
                 if not sent:
