@@ -774,16 +774,24 @@ def extract_last_incoming_message(convo_text: str) -> str:
 
     The conversation text contains interleaved messages. We want the most recent
     message from the OTHER person to understand what they actually said.
+
+    For story replies, Instagram shows "Replied to your story" as metadata then
+    the actual reply text — we grab both and concatenate so context is preserved.
     """
     if not convo_text:
         return ""
     lines = [l.strip() for l in convo_text.split("\n") if l.strip()]
     # Walk backwards, skip timestamps/metadata, find last non-You message
-    skip_patterns = {"seen", "delivered", "active", "typing", "liked a message"}
+    skip_patterns = {"seen", "delivered", "active", "typing", "liked a message",
+                     "liked a photo", "sent an attachment"}
+    # Story-related metadata that should be INCLUDED as context (not skipped)
+    story_patterns = {"replied to your story", "reacted to your story",
+                      "mentioned you in their story"}
     import re
     time_pattern = re.compile(r"^\d{1,2}:\d{2}\s*(am|pm)?$|^\d{1,2}[mhdw]$|^just now$|^yesterday$", re.I)
 
-    last_incoming = ""
+    # Collect up to 3 recent incoming lines to get context (story reply + actual text)
+    incoming_lines = []
     for line in reversed(lines):
         lower = line.lower()
         # Skip metadata
@@ -791,13 +799,20 @@ def extract_last_incoming_message(convo_text: str) -> str:
             continue
         if len(line) < 2:
             continue
-        # Skip CC's own messages
+        # Skip CC's own messages — stop collecting (we've passed the boundary)
         if lower.startswith("you:") or lower.startswith("you ") or lower == "you":
+            break
+        incoming_lines.append(line)
+        # If this line is story metadata, keep going to grab the actual reply
+        if any(p in lower for p in story_patterns):
             continue
-        # This is the other person's message
-        last_incoming = line
-        break
-    return last_incoming
+        # Otherwise we have enough context
+        if len(incoming_lines) >= 2:
+            break
+
+    # Reverse to get chronological order and join
+    incoming_lines.reverse()
+    return " ".join(incoming_lines).strip()
 
 
 def detect_intent(text: str) -> str:
@@ -843,7 +858,12 @@ def detect_intent(text: str) -> str:
     if tokens & _PRICING_KEYWORDS:
         return "PRICING"
 
-    # Pure greetings (short messages that are just a hello)
+    # Short reactive messages (thank you, lol, haha, emoji-like) — treat as CONVO
+    # so _build_convo_reply can match "thank you" properly instead of greeting them
+    if any(w in lower for w in ("thank", "thanks", "appreciate", "thx", "lol", "haha", "lmao", "nice", "dope", "fire")):
+        return "CONVO"
+
+    # Pure greetings (short messages that are ONLY a hello — nothing else)
     if len(tokens) <= 4 and tokens & _GREETING_KEYWORDS:
         return "GREETING"
 
@@ -851,9 +871,9 @@ def detect_intent(text: str) -> str:
     if len(tokens) >= 3:
         return "CONVO"
 
-    # Very short but not a greeting
+    # Very short but not a greeting — still try to respond contextually
     if len(tokens) <= 2:
-        return "GREETING"
+        return "CONVO"
 
     return "CONVO"
 
@@ -961,6 +981,14 @@ def _build_convo_reply(last_msg: str, convo_context: str) -> str:
             "ya i feel that honestly. shit can be overwhelming sometimes",
             "been there fr. it gets better though, you just gotta find what works",
             "ya that's rough. what's been the hardest part?",
+        ])
+
+    # --- Story replies / reactions ---
+    if any(w in lower for w in ("replied to your story", "reacted to your story", "your story")):
+        return random.choice([
+            "appreciate that fr",
+            "ayy thanks for watching",
+            "glad you liked it",
         ])
 
     # --- Thank you ---
