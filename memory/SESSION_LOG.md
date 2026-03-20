@@ -4,6 +4,20 @@
 
 ---
 
+### 2026-03-20 — cc-funnel app (NEW)
+**Change:** Built complete multi-step lead capture funnel (Next.js 14, Tailwind, Supabase, Telegram). 3-step form: interest selection (AI/Music/Brand) → targeted questions → contact info. Stores in Supabase `funnel_leads` table, notifies CC via Telegram. GitHub: CC90210/cc-funnel. Pending: Vercel deployment (CC needs to import manually — MCP browser not logged in).
+**Files:** src/app/page.tsx, src/app/api/submit/route.ts, globals.css, layout.tsx, tailwind.config.ts
+**Commit:** 664ce9a on master
+
+### 2026-03-20 — Supabase funnel_leads table
+**Change:** Created `funnel_leads` table (15 columns) in Bravo Supabase project via Supabase CLI. RLS enabled with service_role policy. Verified with test submission (data stored + Telegram notification sent).
+
+### 2026-03-20 — Instagram bios drafted
+**Change:** 4 converting Instagram bios written for CC McKenna personal, CC Music 03, CC McKenna AI, OASIS AI Solutions. Each includes free offer CTA pointing to funnel URL. No locations disclosed.
+
+### 2026-03-20 — Bug audit completed (58/58 fixed)
+**Change:** Full system bug audit across 15 files. All 58 bugs fixed (CRITICAL: revenue_engine NameError, instagram_engine NameError; HIGH: booking_engine Windows strftime crash, PostgREST filter; MEDIUM: calendar DST, content engine dead code; LOW: 32 cosmetic/dead code issues). PM2 processes restarted with fixes. All Python/JS syntax checks pass.
+
 ### 2026-03-20 — Full Bug Audit: 58 Bugs Found, ALL 58 Fixed — Zero Bugs Remaining (Claude Code, Opus 4.6)
 **What:** CC requested comprehensive overnight bug audit. 4 parallel audit agents scanned all automation scripts, then 4 parallel fix agents resolved every issue. 58 total bugs across 15 files: 1 CRITICAL, 6 HIGH, 15 MEDIUM, 36 LOW. Every single one fixed. Key highlights: revenue_engine CRITICAL NameError, 2x Windows strftime crashes, JS injection in Instagram DMs, Claude model ID, MRR formula, ICS timezone, DST offset, platform char limit enforcement, dead code removal across 5 files, redundant imports cleaned, error handling hardened.
 **Files:** 15 files — instagram_engine, booking_engine, revenue_engine, email_engine, outreach_engine, scheduler, cron_engine, content_engine, content_generator, content_repurposer, google_calendar, telegram_agent, notify, lead_engine, late_publisher

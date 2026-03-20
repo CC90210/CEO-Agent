@@ -244,38 +244,30 @@ def run_pipeline_review(env_vars: dict) -> str:
 
 
 def run_nurture_check(env_vars: dict) -> str:
-    """Check for leads needing nurture emails and send due steps."""
-    # Step 1: Get active sequences
+    """Run funnel lead nurture sequence (Day 2 + Day 5 follow-ups)."""
+    # Run the funnel nurture engine
+    funnel_result = run_script("funnel_nurture.py", ["run"])
+
+    # Also check legacy email sequences
     seq_result = run_script("email_engine.py", ["--json", "sequence", "list"])
     try:
         sequences = json.loads(seq_result)
     except (json.JSONDecodeError, TypeError):
-        return f"sequence list parse error: {seq_result[:200]}"
+        sequences = []
 
-    if not sequences:
-        return "no active sequences"
-
-    # Step 2: Get leads that were recently created (potential nurture candidates)
     leads_result = run_script("lead_engine.py", ["--json", "list"])
     try:
         leads = json.loads(leads_result)
     except (json.JSONDecodeError, TypeError):
-        return f"lead list parse error: {leads_result[:200]}"
+        leads = []
 
-    if not leads:
-        return "no leads to nurture"
-
-    # Step 3: For new leads (status=new or contacted), check if they need nurture
     nurture_candidates = [
         l for l in leads
         if isinstance(l, dict) and l.get("status") in ("new", "contacted")
         and l.get("email")
     ]
 
-    if not nurture_candidates:
-        return f"{len(leads)} leads, 0 need nurture"
-
-    return f"{len(nurture_candidates)} lead(s) eligible for nurture ({len(sequences)} active sequence(s))"
+    return f"Funnel: {funnel_result.strip()} | Legacy: {len(nurture_candidates)} lead(s), {len(sequences)} sequence(s)"
 
 
 def run_monthly_snapshot(env_vars: dict) -> str:
