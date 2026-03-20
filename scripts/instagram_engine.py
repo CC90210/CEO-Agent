@@ -31,6 +31,7 @@ BROWSER_DIR = str(PROJECT_ROOT / "tmp" / "ig-browser")
 SCREENSHOT_DIR = str(PROJECT_ROOT / "tmp")
 DM_REPLIED_PATH = PROJECT_ROOT / "tmp" / "dm_replied.json"
 BOOKING_STATE_PATH = PROJECT_ROOT / "tmp" / "dm_booking_state.json"
+NOTIFIED_PATH = PROJECT_ROOT / "tmp" / "dm_notified.json"
 
 # Intent detection keyword sets
 _BOOKING_KEYWORDS = {
@@ -377,6 +378,7 @@ def cmd_check_dms(env_vars, args):
 
     replied_log = load_replied_log()
     booking_state = load_booking_state()
+    notified_log = load_notified_log()
     auto_replies = []
     skipped_replies = []
 
@@ -450,28 +452,40 @@ def cmd_check_dms(env_vars, args):
                     print(json.dumps(result, indent=2, default=str))
                 return result
 
-            # Process each actionable conversation — detect intent and auto-reply
-            # Supports multi-turn booking: if user is in "awaiting_time" state,
-            # parse their time, create a Google Calendar event, and send the Meet link.
+            # Process each actionable conversation — detect intent and auto-reply.
+            #
+            # NOTIFICATION RULES (non-negotiable):
+            #   - ONLY notify CC on Telegram when we SUCCESSFULLY auto-reply
+            #   - ONLY notify CC on Telegram when a booking is CONFIRMED
+            #   - NEVER notify about skips, errors, unknown intents, or failures
+            #   - NEVER re-notify about the same DM preview we already reported
+            #
             for convo in actionable:
                 username = convo.get("username", "").strip()
                 preview = convo.get("preview", "")[:100]
                 if not username:
                     continue
 
+                # Skip group chats — they contain "and" in the preview or
+                # have "Active" as username with multi-person previews
+                if " and " in preview and username == "Active":
+                    skipped_replies.append({"username": username, "reason": "group_chat"})
+                    continue
+
+                # Skip if we already notified about this exact DM preview
+                if already_notified(notified_log, username, preview):
+                    skipped_replies.append({"username": username, "reason": "already_notified"})
+                    continue
+
                 # Open the conversation to read the actual message
                 convo_text = read_conversation_text(page, username)
-
-                # Use the full conversation text to get the sender's last message
                 signal_text = convo_text[-500:] if convo_text else preview
 
-                # Check if this user is in a booking flow (awaiting time confirmation)
+                # --- Multi-turn booking flow ---
                 user_booking = booking_state.get(username)
                 if user_booking and user_booking.get("stage") == "awaiting_time":
-                    # Try to parse a date/time from their response
                     parsed = parse_datetime_from_text(signal_text)
                     if parsed:
-                        # Create Google Calendar event with Meet link
                         reply_text = _handle_booking_confirmation(
                             env_vars, page, username, parsed, booking_state,
                         )
@@ -481,21 +495,20 @@ def cmd_check_dms(env_vars, args):
                                 "intent": "BOOKING_CONFIRMED",
                                 "reply_preview": reply_text[:80],
                             })
+                            # This IS worth notifying — a real booking was made
                             notify(
                                 f"Booking confirmed! {username} — {parsed['display']}\n"
                                 f"Sent Meet link via DM",
                                 category="instagram",
                             )
+                            mark_notified(notified_log, username, preview)
+                            save_notified_log(notified_log)
                         else:
+                            # Calendar not configured — skip silently, do NOT notify
                             skipped_replies.append({
                                 "username": username,
-                                "reason": "calendar_event_failed",
+                                "reason": "calendar_not_configured",
                             })
-                            notify(
-                                f"DM from {username}: tried to book {parsed['display']}"
-                                f" but calendar event creation failed",
-                                category="instagram",
-                            )
                     else:
                         # Couldn't parse a time — ask again
                         reply_text = (
@@ -509,13 +522,9 @@ def cmd_check_dms(env_vars, args):
                             "intent": "BOOKING_REPROMPT",
                             "reply_preview": reply_text[:80],
                         })
-                        notify(
-                            f"DM from {username}: \"{preview}\" — couldn't parse"
-                            f" time, asked again",
-                            category="instagram",
-                        )
+                        mark_notified(notified_log, username, preview)
+                        save_notified_log(notified_log)
 
-                    # Navigate back to inbox
                     page.goto(
                         "https://www.instagram.com/direct/inbox/",
                         wait_until="domcontentloaded",
@@ -539,10 +548,8 @@ def cmd_check_dms(env_vars, args):
 
                 if should_reply:
                     reply_text = build_reply(intent)
-
                     sent = _send_dm_reply(page, reply_text)
                     if sent:
-                        # Track the reply
                         replied_log[username] = {
                             "replied_at": datetime.now(timezone.utc).isoformat(),
                             "intent": intent,
@@ -550,7 +557,6 @@ def cmd_check_dms(env_vars, args):
                         save_replied_log(replied_log)
                         log_auto_reply_to_supabase(env_vars, username, intent, reply_text)
 
-                        # If booking/pricing/info intent, enter booking flow
                         if intent in ("BOOKING", "PRICING", "INFO"):
                             booking_state[username] = {
                                 "stage": "awaiting_time",
@@ -564,23 +570,24 @@ def cmd_check_dms(env_vars, args):
                             "intent": intent,
                             "reply_preview": reply_text[:80],
                         })
+                        # Notify CC only about successful auto-replies
                         notify(
-                            f"New IG DM from {username}: \"{preview}\"\n"
+                            f"IG DM from {username}: \"{preview}\"\n"
                             f"Auto-replied ({intent}): {reply_text[:80]}",
                             category="instagram",
                         )
+                        mark_notified(notified_log, username, preview)
+                        save_notified_log(notified_log)
                     else:
                         skip_reason = "no_input_found"
                         should_reply = False
 
                 if not should_reply:
                     skipped_replies.append({"username": username, "reason": skip_reason})
-                    if skip_reason not in ("replied_within_24h",):
-                        notify(
-                            f"New IG DM from {username}: \"{preview}\" "
-                            f"(not auto-replied: {skip_reason})",
-                            category="instagram",
-                        )
+                    # Mark as notified so we don't re-process next cycle,
+                    # but do NOT send Telegram notification for skips/errors
+                    mark_notified(notified_log, username, preview)
+                    save_notified_log(notified_log)
 
                 # Navigate back to inbox for next conversation
                 page.goto(
@@ -854,6 +861,43 @@ def save_replied_log(log: dict) -> None:
     DM_REPLIED_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(DM_REPLIED_PATH, "w", encoding="utf-8") as f:
         json.dump(log, f, indent=2)
+
+
+def load_notified_log() -> dict:
+    """Load the dm_notified.json file — tracks which DM previews we already
+    sent a Telegram notification about so we never spam CC with the same
+    conversation on every cron cycle."""
+    if not NOTIFIED_PATH.exists():
+        return {}
+    try:
+        with open(NOTIFIED_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def save_notified_log(log: dict) -> None:
+    NOTIFIED_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(NOTIFIED_PATH, "w", encoding="utf-8") as f:
+        json.dump(log, f, indent=2)
+
+
+def already_notified(log: dict, username: str, preview: str) -> bool:
+    """Return True if we already sent CC a Telegram notification for this
+    exact username + preview combo. Prevents the same DM from generating
+    a notification on every 5-minute cron cycle."""
+    entry = log.get(username)
+    if not entry:
+        return False
+    return entry.get("preview", "") == preview
+
+
+def mark_notified(log: dict, username: str, preview: str) -> None:
+    """Record that we notified CC about this DM."""
+    log[username] = {
+        "preview": preview,
+        "notified_at": datetime.now(timezone.utc).isoformat(),
+    }
 
 
 def load_booking_state() -> dict:
