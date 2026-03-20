@@ -304,18 +304,6 @@ def run_content_repurpose(env_vars: dict) -> str:
     return run_script("content_repurposer.py", ["--json", "repurpose-week", "--platforms", "linkedin,instagram,threads"], timeout=300)
 
 
-def run_ig_auto_reply(env_vars: dict) -> str:
-    """Auto-reply to Instagram DMs with intent-based responses."""
-    return run_script("instagram_engine.py", ["--json", "auto-reply"], timeout=120)
-
-
-def run_ig_research(env_vars: dict) -> str:
-    """Check Instagram DMs and comments, notify CC of new interactions."""
-    dm_result = run_script("instagram_engine.py", ["--json", "check-dms"])
-    comment_result = run_script("instagram_engine.py", ["--json", "check-comments"])
-    return f"DMs: {dm_result[:200]} | Comments: {comment_result[:200]}"
-
-
 def run_ig_dm_check(env_vars: dict) -> str:
     """Check Instagram DMs every 5 minutes via Playwright browser automation."""
     return run_script("instagram_engine.py", ["--json", "check-dms"], timeout=90)
@@ -475,8 +463,7 @@ def main():
                 log("5 consecutive errors - sleeping 5 minutes before retry")
                 time.sleep(300)
                 consecutive_errors = 0
-
-        time.sleep(CHECK_INTERVAL_SECONDS)
+            time.sleep(CHECK_INTERVAL_SECONDS)
 
 
 if __name__ == "__main__":

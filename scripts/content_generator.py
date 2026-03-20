@@ -16,8 +16,13 @@ Usage:
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
+
+# -- Platform limits -----------------------------------------------------------
+
+CLAUDE_MODEL: str = os.environ.get("CLAUDE_MODEL", "claude-sonnet-4-20250514")
 
 # -- Platform limits -----------------------------------------------------------
 
@@ -210,7 +215,7 @@ def generate_content(anthropic_client, pillar: str, platform: str) -> str:
     prompt = build_prompt(pillar, platform)
 
     message = anthropic_client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model=CLAUDE_MODEL,
         max_tokens=1024,
         messages=[{"role": "user", "content": prompt}],
     )
@@ -260,7 +265,7 @@ def cmd_generate_week(supabase_client, anthropic_client, args) -> None:
         pillar = row.get("pillar", "ceo_log")
 
         if not args.output_json:
-            print(f"  Generating [{pillar}] for {platform} (ID: {content_id[:8]}...)  ", end="", flush=True)
+            print(f"  Generating [{pillar}] for {platform} (ID: {str(content_id)[:8]}...)  ", end="", flush=True)
 
         try:
             body = generate_content(anthropic_client, pillar, platform)
@@ -438,22 +443,25 @@ Pillars: sobriety_log | quote_drop | ceo_log | educational | promotional
 
     subparsers = parser.add_subparsers(dest="command", help="Command to execute")
 
-    subparsers.add_parser(
+    p_week = subparsers.add_parser(
         "generate-week",
         help="Generate content for all draft placeholders in content_calendar",
     )
+    p_week.add_argument("--json", dest="output_json", action="store_true", default=False)
 
     p_one = subparsers.add_parser(
         "generate-one",
         help="Generate content for a single draft entry by ID",
     )
     p_one.add_argument("content_id", help="UUID of the content_calendar row")
+    p_one.add_argument("--json", dest="output_json", action="store_true", default=False)
 
     p_regen = subparsers.add_parser(
         "regenerate",
         help="Regenerate content for an already-generated entry (keeps scheduled_for)",
     )
     p_regen.add_argument("content_id", help="UUID of the content_calendar row")
+    p_regen.add_argument("--json", dest="output_json", action="store_true", default=False)
 
     return parser
 
@@ -469,8 +477,7 @@ def main() -> None:
         sys.exit(1)
 
     # Propagate --json to subcommand namespace
-    if not hasattr(args, "output_json"):
-        args.output_json = False
+    args.output_json = getattr(args, "output_json", False)
 
     env_vars = load_env()
     supabase_client = get_supabase_client(env_vars)

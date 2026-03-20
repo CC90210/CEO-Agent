@@ -488,7 +488,7 @@ def cmd_followups(client, args, output_json: bool):
         name = lead.get("name", "-")
         status = STATUS_LABELS.get(lead.get("status", ""), "?")
         email = lead.get("email", "")
-        overdue_marker = " [OVERDUE]" if due < today else ""
+        overdue_marker = " [OVERDUE]" if due != "-" and due < today else ""
         print(f"  {due}{overdue_marker}  {name}  [{status}]")
         if email:
             print(f"           {email}")

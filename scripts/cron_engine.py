@@ -19,7 +19,7 @@ Usage:
 import argparse
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 
@@ -204,14 +204,10 @@ def _next_run_approx(schedule: str) -> str | None:
         return None
 
     now = datetime.now(timezone.utc)
-    candidate = now.replace(minute=minute, second=0, microsecond=0)
-
-    if hour != now.hour:
-        candidate = candidate.replace(hour=hour)
+    candidate = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
 
     # Advance forward if the candidate is already in the past
     if candidate <= now:
-        from datetime import timedelta
         candidate = candidate + timedelta(days=1)
 
     # If specific weekdays are requested, walk forward until one matches
@@ -230,7 +226,6 @@ def _next_run_approx(schedule: str) -> str | None:
                     allowed_days.add(d % 7)
 
         if allowed_days:
-            from datetime import timedelta
             # Python: Monday=0 ... Sunday=6; cron: Sunday=0 ... Saturday=6
             for _ in range(8):
                 python_weekday = candidate.weekday()
@@ -590,11 +585,11 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
+    output_json: bool = getattr(args, "output_json", False)
+
     if not args.command:
         parser.print_help()
         sys.exit(1)
-
-    output_json: bool = getattr(args, "output_json", False)
 
     env_vars = load_env()
     client = get_client(env_vars)

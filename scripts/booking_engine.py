@@ -831,14 +831,11 @@ def _send_reminder_email(
         attendee_name, slot_date, start_time, end_time, meeting_type, meet_link
     )
 
-    from email.mime.text import MIMEText as _MIMEText
-    from email.mime.multipart import MIMEMultipart as _MIMEMultipart
-
-    msg = _MIMEMultipart("mixed")
+    msg = MIMEMultipart("mixed")
     msg["Subject"] = subject
     msg["From"] = f"Conaugh McKenna <{gmail_address}>"
     msg["To"] = attendee_email
-    msg.attach(_MIMEText(body_text, "plain"))
+    msg.attach(MIMEText(body_text, "plain"))
 
     try:
         with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:

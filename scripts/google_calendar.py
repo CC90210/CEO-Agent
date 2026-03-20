@@ -88,8 +88,10 @@ def get_credentials(env_vars: dict):
             creds.refresh(Request())
             _save_token(creds)
         except Exception as e:
-            print(f"Token refresh failed: {e}", file=sys.stderr)
             creds = None
+            raise RuntimeError(
+                f"Token refresh failed: {e}. Run: python scripts/google_calendar.py auth"
+            ) from e
 
     if not creds or not creds.valid:
         raise RuntimeError("No valid Google credentials. Run: python scripts/google_calendar.py auth")
@@ -203,7 +205,11 @@ def create_event(
 
 def list_events(env_vars: dict, date_str: str) -> list[dict]:
     """List all events for a given date."""
-    service = get_service(env_vars)
+    try:
+        service = get_service(env_vars)
+    except RuntimeError as e:
+        print(f"WARNING: Google Calendar auth failed — {e}", file=sys.stderr)
+        return []
     calendar_id = env_vars.get("GOOGLE_CALENDAR_ID", "primary")
 
     try:

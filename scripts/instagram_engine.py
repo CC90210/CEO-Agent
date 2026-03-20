@@ -1206,7 +1206,7 @@ def parse_datetime_from_text(text: str) -> dict | None:
                 if days_ahead == 0:
                     days_ahead = 7
                 if "next" in lowered:
-                    days_ahead += 7 if days_ahead <= 7 else 0
+                    days_ahead += 7
                 target_date = today + timedelta(days=days_ahead)
                 break
 

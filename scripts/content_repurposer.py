@@ -16,6 +16,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    from backports.zoneinfo import ZoneInfo  # type: ignore[no-redef]
+
+try:
     import anthropic
 except ImportError:
     print("ERROR: 'anthropic' package not installed. Run: pip install anthropic", file=sys.stderr)
@@ -159,15 +164,21 @@ def fetch_post(db, content_id: str) -> dict:
 
 
 def fetch_posts_for_date(db, date_str: str) -> list[dict]:
-    """Fetch all posts scheduled on a given date (YYYY-MM-DD)."""
-    # Build a range covering the full day in UTC
-    day_start = f"{date_str}T00:00:00+00:00"
-    day_end = f"{date_str}T23:59:59+00:00"
+    """Fetch all posts scheduled on a given date (YYYY-MM-DD).
+
+    scheduled_for is stored as UTC in the DB. We interpret the requested date
+    in America/Toronto (ET) so that e.g. '2026-03-20' covers posts scheduled
+    between 04:00 UTC and 04:00 UTC the next day (during EDT, UTC-4).
+    """
+    et = ZoneInfo("America/Toronto")
+    year, month, day = (int(p) for p in date_str.split("-"))
+    day_start_et = datetime(year, month, day, 0, 0, 0, tzinfo=et)
+    day_end_et = day_start_et + timedelta(days=1)
     result = (
         db.table("content_calendar")
         .select("*")
-        .gte("scheduled_for", day_start)
-        .lte("scheduled_for", day_end)
+        .gte("scheduled_for", day_start_et.isoformat())
+        .lt("scheduled_for", day_end_et.isoformat())
         .execute()
     )
     return result.data or []
@@ -265,6 +276,10 @@ def repurpose_one(
             print(f"  Adapting for {platform}...")
         try:
             adapted = adapt_post(claude, source_body, platform)
+            # Enforce platform character limit before DB insert
+            limit = PLATFORM_RULES[platform]["max_chars"]
+            if len(adapted) > limit:
+                adapted = adapted[: limit - 3] + "..."
             created = create_repurposed_post(db, source, platform, adapted)
             results.append(
                 {
@@ -495,7 +510,12 @@ Valid platforms: x, threads, instagram, linkedin, tiktok
         "repurpose-day": cmd_repurpose_day,
         "repurpose-week": cmd_repurpose_week,
     }
-    dispatch[args.command](db, claude, args)
+    handler = dispatch.get(args.command)
+    if handler is None:
+        print(f"ERROR: Unknown command '{args.command}'. Valid commands: {list(dispatch.keys())}", file=sys.stderr)
+        parser.print_help()
+        sys.exit(1)
+    handler(db, claude, args)
 
 
 if __name__ == "__main__":

@@ -438,7 +438,7 @@ def cmd_sync_stripe(env_vars: dict[str, str], db, args) -> dict:
         obj = event.get("data", {}).get("object", {})
         stripe_event_id = event.get("id", "")
         created_ts = event.get("created", 0)
-        created_at = datetime.datetime.utcfromtimestamp(created_ts).isoformat() + "Z"
+        created_at = datetime.datetime.fromtimestamp(created_ts, tz=datetime.timezone.utc).isoformat()
 
         # Derive amount in USD
         amount_usd = 0.0

@@ -137,15 +137,6 @@ def format_datetime(value: str | None) -> str:
     return value[:16].replace("T", " ")
 
 
-def output(data: object, json_mode: bool) -> None:
-    """Print data as JSON or formatted text based on mode."""
-    if json_mode:
-        print(json.dumps(data, indent=2, default=str))
-    else:
-        # Caller is responsible for human-readable output when not in json mode
-        pass
-
-
 # -- Commands: content calendar ------------------------------------------------
 
 def cmd_calendar(client, args) -> None:
@@ -727,8 +718,7 @@ def main() -> None:
         sys.exit(1)
 
     # Propagate --json flag down into args namespace for sub-subcommand handlers
-    if not hasattr(args, "output_json"):
-        args.output_json = False
+    args.output_json = getattr(args, "output_json", False)
 
     env_vars = load_env()
     client = get_client(env_vars)
@@ -752,8 +742,8 @@ def main() -> None:
         cmd_mark_posted(client, args)
     elif args.command == "templates":
         if not hasattr(args, "templates_command") or not args.templates_command:
-            # Print templates help
-            parser.parse_args(["templates", "--help"])
+            print("Usage: content_engine.py templates [list|create|render]")
+            sys.exit(1)
         elif args.templates_command == "list":
             cmd_templates_list(client, args)
         elif args.templates_command == "create":

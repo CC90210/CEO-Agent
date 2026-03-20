@@ -89,6 +89,7 @@ def get_late_accounts(client) -> list[dict]:
         return data.get("accounts", [])
     except Exception:
         try:
+            # NOTE: _get is a private Late SDK method — pin to late-sdk version if this breaks
             raw = client._get("/v1/accounts")
             return raw.get("accounts", []) if isinstance(raw, dict) else []
         except Exception:

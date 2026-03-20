@@ -186,7 +186,7 @@ const executeCli = (tool, userPrompt, chatId) => {
 
         const timer = setTimeout(() => {
             log(`[TIMEOUT] ${tool} killed after ${timeout / 1000}s`);
-            killTree(child.pid);
+            if (child.pid) killTree(child.pid);
             const partial = cleanOutput(stdout.trim());
             if (partial && partial.length > 20) {
                 resolve(`(Partial — timed out after ${timeout / 1000}s)\n\n${partial}`);
@@ -251,6 +251,7 @@ const cleanOutput = (raw) => {
 
 // ---- TELEGRAM HANDLER ----
 bot.on('message', async (msg) => {
+    pollErrorCount = 0;
     const chatId = msg.chat.id;
     const text = msg.text;
     if (!text) return;
@@ -300,7 +301,7 @@ bot.on('message', async (msg) => {
         }
 
         // V9.0: Default to Claude (CC has Max plan), !gemini for fallback
-        const isGemini = text.startsWith('!gemini ');
+        const isGemini = text.startsWith('!gemini');
         const prompt = text.replace(/^!(claude|gemini|bravo)\s+/, '');
         const tool = isGemini ? 'gemini' : 'claude';
 
@@ -351,12 +352,9 @@ bot.on('polling_error', (e) => {
     }
 });
 
-// Reset error count when a message comes through (connection recovered)
-bot.on('message', () => { pollErrorCount = 0; });
-
 // Catch unhandled rejections to prevent crash
 process.on('unhandledRejection', (err) => {
     log(`[UNHANDLED] ${err.message || err}`);
 });
 
-log('Bridge V8.0 ready.');
+log('Bridge V9.0 ready.');

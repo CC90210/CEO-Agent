@@ -214,6 +214,8 @@ def send_outreach(
             "meet_link": meet_link,
             "meeting_time": meeting_datetime,
         }
+    except smtplib.SMTPAuthenticationError as e:
+        return {"status": "error", "error": f"SMTP authentication failed — check GMAIL_APP_PASSWORD in .env.agents: {e}"}
     except Exception as e:
         return {"status": "error", "error": str(e)}
 
@@ -261,7 +263,6 @@ def cmd_send(db, args, output_json):
     meeting_datetime = getattr(args, "meeting_datetime", None)
     if not meeting_datetime:
         # Default to next business day at 2pm
-        from datetime import timezone
         tomorrow = datetime.now(timezone.utc).replace(
             hour=14, minute=0, second=0, microsecond=0
         ) + timedelta(days=1)
