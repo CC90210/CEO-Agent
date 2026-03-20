@@ -4,6 +4,15 @@
 
 ---
 
+### 2026-03-20 — Full Bug Audit: 39 Bugs Found, 20 Fixed Across All Automations (Claude Code, Opus 4.6)
+**What:** CC requested comprehensive overnight bug audit before sleep. Launched 4 parallel audit agents scanning all automation scripts. Results: 39 total bugs (1 CRITICAL, 5 HIGH, 11 MEDIUM, 22 LOW). Fixed 20 — all crash-risk and functional bugs eliminated. Key fixes: (1) instagram_engine.py — 10 bugs fixed including detect_intent NameError, unbound result crashes, JS injection in send-dm, Claude model ID, date clamping to 28. (2) booking_engine.py — Windows strftime crash (`%-d`→portable), broken `--upcoming` filter. (3) revenue_engine.py — CRITICAL NameError in cmd_clients (stripe_key undefined), annual MRR formula wrong. (4) email_engine.py — query referenced missing columns, filter applied after limit. (5) outreach_engine.py — ICS naive datetime causing wrong timezone, missing body_preview in email_log. (6) scheduler.py — timestamp format mismatch with Supabase. All 20+ scripts pass py_compile. PM2 restarted with fixes.
+**Files:** instagram_engine.py, booking_engine.py, revenue_engine.py, email_engine.py, outreach_engine.py, lead_engine.py, scheduler.py
+**Commits:** pending
+
+### 2026-03-20 — Instagram DM: Claude API Integration + Context Bug Fix (Claude Code, Opus 4.6)
+**What:** CC reported Instagram agent responding with generic "yo what's good" to "thank you" messages. Root cause: keyword-matching templates with no real conversation awareness. Fix: (1) Replaced entire `_build_convo_reply` with Claude Sonnet API call that reads the full conversation thread and generates contextual replies in CC's voice. (2) Fixed critical bug where `convo_text` was never passed as `convo_context` to `build_reply()` — all 3 call sites now thread conversation context through to the API. (3) Graceful fallback to minimal templates if ANTHROPIC_API_KEY is missing. **Requires ANTHROPIC_API_KEY in .env.agents to activate AI replies.**
+**Commits:** `8763b15`
+
 ### 2026-03-20 — 5 Systemic Bugs Pre-Solved (Claude Code, Opus 4.6)
 **What:** CC requested proactive bug elimination. Fixed 5 systemic issues across 3 files:
 1. `telegram_agent.js` — Rewrote SYSTEM_PROMPT with 5 explicit rules to stop Claude from dumping session history as greeting

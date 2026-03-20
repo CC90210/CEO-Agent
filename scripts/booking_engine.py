@@ -62,7 +62,7 @@ def load_env() -> dict[str, str]:
         sys.exit(1)
 
     env_vars: dict[str, str] = {}
-    with open(env_path, "r") as f:
+    with open(env_path, "r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
@@ -575,15 +575,20 @@ def cmd_list_bookings(client, args, json_mode: bool) -> None:
     if hasattr(args, "status") and args.status:
         query = query.eq("status", args.status)
 
-    if hasattr(args, "upcoming") and args.upcoming:
-        today = date.today().isoformat()
-        # Filter via the related slot date - use a subquery approach via order + gte on joined data
-        # PostgREST supports filtering on embedded tables with the dot notation
-        query = query.gte("booking_slots.slot_date", today)
-
     query = query.order("created_at", desc=True)
     result = query.execute()
     bookings = result.data
+
+    # Client-side filter for --upcoming (PostgREST dot-notation on embedded resources is unreliable)
+    if hasattr(args, "upcoming") and args.upcoming:
+        today = date.today().isoformat()
+        bookings = [
+            b for b in bookings
+            if any(
+                slot.get("slot_date", "") >= today
+                for slot in (b.get("booking_slots") or [])
+            )
+        ]
 
     if json_mode:
         output(bookings, json_mode=True)
@@ -673,7 +678,7 @@ def cmd_available(client, args, json_mode: bool) -> None:
 
     print(f"Available slots (next {days_ahead} days):\n")
     for d, day_slots in sorted(by_date.items()):
-        day_label = date.fromisoformat(d).strftime("%A, %B %-d")
+        day_label = date.fromisoformat(d).strftime("%A, %B") + f" {date.fromisoformat(d).day}"
         print(f"  {day_label}:")
         for s in day_slots:
             print(f"    {s['start_time']} - {s['end_time']}  ({s['meeting_type']})  id={s['id']}")
@@ -1022,7 +1027,7 @@ def cmd_generate_link(client, args, json_mode: bool, env_vars: dict[str, str]) -
         "",
     ]
     for d, day_slots in sorted(by_date.items()):
-        day_label = date.fromisoformat(d).strftime("%A, %B %-d")
+        day_label = date.fromisoformat(d).strftime("%A, %B") + f" {date.fromisoformat(d).day}"
         slot_labels = [
             f"{s['start_time'][:5]}-{s['end_time'][:5]} EST"
             for s in day_slots

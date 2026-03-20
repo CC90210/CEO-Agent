@@ -157,7 +157,7 @@ def _mrr_from_stripe(secret_key: str, account_id: str | None = None) -> tuple[fl
             amount_cents = unit_amount * item.get("quantity", 1)
 
             if interval == "year":
-                monthly_local = (amount_cents / 100) / 12 * interval_count
+                monthly_local = (amount_cents / 100) / (12 * interval_count)
             elif interval == "month":
                 monthly_local = (amount_cents / 100) / interval_count
             elif interval == "week":
@@ -672,6 +672,7 @@ def cmd_forecast(env_vars: dict[str, str], db, args) -> dict:
 def cmd_clients(env_vars: dict[str, str], db, args) -> list[dict]:
     org_key = env_vars.get("STRIPE_ORG_KEY")
     oasis_acct = env_vars.get("STRIPE_OASIS_ACCT_ID")
+    stripe_key = env_vars.get("STRIPE_SECRET_KEY")
     clients: list[dict] = []
     stripe_subs_fetched = False
 

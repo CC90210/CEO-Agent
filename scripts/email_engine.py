@@ -610,11 +610,12 @@ def cmd_log(env_vars, args, output_json=False):
     try:
         query = db.table("email_log").select(
             "id, to_email, subject, status, sent_at, error_message, lead_id, template_id, sequence_id"
-        ).order("sent_at", desc=True).limit(limit)
+        )
 
         if status_filter:
             query = query.eq("status", status_filter)
 
+        query = query.order("sent_at", desc=True).limit(limit)
         result = query.execute()
     except Exception as e:
         print(f"ERROR: {e}", file=sys.stderr)
@@ -651,7 +652,7 @@ def cmd_stats(env_vars, args, output_json=False):
     db = get_supabase(env_vars)
 
     try:
-        all_rows = db.table("email_log").select("status, opened_at, clicked_at").execute()
+        all_rows = db.table("email_log").select("status").execute()
     except Exception as e:
         print(f"ERROR: {e}", file=sys.stderr)
         sys.exit(1)
@@ -661,8 +662,8 @@ def cmd_stats(env_vars, args, output_json=False):
     sent = sum(1 for r in rows if r.get("status") == "sent")
     failed = sum(1 for r in rows if r.get("status") == "failed")
     queued = sum(1 for r in rows if r.get("status") == "queued")
-    opened = sum(1 for r in rows if r.get("opened_at"))
-    clicked = sum(1 for r in rows if r.get("clicked_at"))
+    opened = 0  # opened_at/clicked_at columns not yet implemented
+    clicked = 0
 
     open_rate = (opened / sent * 100) if sent else 0
     click_rate = (clicked / sent * 100) if sent else 0

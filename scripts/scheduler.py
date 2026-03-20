@@ -336,7 +336,7 @@ def log(msg: str):
 
 def check_and_run_due_jobs(client, env_vars: dict[str, str]):
     """Core loop iteration: find due jobs and execute them."""
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
     # Get all active jobs that are due
     result = (

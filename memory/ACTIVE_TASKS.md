@@ -10,13 +10,11 @@
 
 ---
 
-## P0 — Revenue-Generating Work
+## P0 — Revenue-Generating Work (CC's Morning Priorities)
 
 - [ ] [P0] **Close first OASIS retainer client** — Cedarwood and Vortex are warm. Follow up, book calls, close.
 - [ ] [P0] **Import 47+ leads to CRM** — Only 3 in system (Bennett, Cedarwood, Vortex). Run bulk import from research pipeline.
-- [ ] [P0] **Bennett Week 2 deliverables** — Email sequence case study + lead qualification quiz still NOT STARTED. Skool content is DONE.
 - [ ] [P0] **Open booking slots** — `python scripts/booking_engine.py slots open-week`
-- [ ] [P0] **Sync Stripe revenue** — `python scripts/revenue_engine.py sync-stripe`
 
 ## P1 — Infrastructure (Stable)
 
@@ -34,11 +32,19 @@
 | PropFlow | Pivoted dev hours to OASIS | 2026-03-01 |
 
 ## Recently Completed (March 20)
-- [x] Skool classroom fully restructured (12 courses, all content live) — DONE, not revisiting
+- [x] **Full bug audit across all automations** — 39 bugs found across 4 audits, 20 critical/high/medium fixed
+- [x] Instagram engine: 10 bugs fixed (lower/lowered, unbound result x2, JS injection, Claude model ID, date clamping, error logging, calendar import)
+- [x] Booking engine: Windows strftime crash fixed (`%-d` → portable), `--upcoming` filter fixed
+- [x] Revenue engine: CRITICAL NameError in cmd_clients fixed, annual MRR formula corrected
+- [x] Email engine: stats query fixed (removed missing columns), filter order corrected
+- [x] Outreach engine: ICS timezone fixed, body_preview added to email_log, timezone import added
+- [x] Lead engine: ImportError guard added for supabase
+- [x] Scheduler: timestamp format normalized for Supabase Z-suffix matching
+- [x] Skool classroom fully restructured (12 courses, all content live)
 - [x] Telegram bot fixed (409 conflict, timeout, startTime TDZ bug, system prompt, graceful shutdown)
 - [x] DM bot rewritten (conversational voice, no CTAs, only notify on BOOKING)
-- [x] 5 systemic bugs pre-solved across Telegram/DM/scheduler
+- [x] Claude API integration for Instagram DM contextual replies
 - [x] Content auto-posting DISABLED (21 drafts set to "draft" status, scheduler no-op'd)
-- [x] All 8 business engines operational
+- [x] All 8 business engines operational and audited
 
 *Last updated: 2026-03-20*

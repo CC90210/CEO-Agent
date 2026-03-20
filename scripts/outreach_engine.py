@@ -16,7 +16,7 @@ import os
 import smtplib
 import sys
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
@@ -90,7 +90,10 @@ def generate_ics(
     uid = str(uuid.uuid4())
 
     fmt = "%Y%m%dT%H%M%S"
-    now = datetime.now(tz=__import__('datetime').timezone.utc).strftime(fmt) + "Z"
+    now = datetime.now(tz=timezone.utc).strftime(fmt) + "Z"
+    # Ensure start/end have Z suffix for UTC interpretation by calendar clients
+    start_str = start.strftime(fmt) + "Z"
+    end_str = end.strftime(fmt) + "Z"
 
     ics = f"""BEGIN:VCALENDAR
 VERSION:2.0
@@ -99,8 +102,8 @@ CALSCALE:GREGORIAN
 METHOD:REQUEST
 BEGIN:VEVENT
 UID:{uid}
-DTSTART:{start.strftime(fmt)}
-DTEND:{end.strftime(fmt)}
+DTSTART:{start_str}
+DTEND:{end_str}
 DTSTAMP:{now}
 ORGANIZER;CN=OASIS AI Solutions:mailto:{organizer_email}
 ATTENDEE;CN={lead_name};RSVP=TRUE:mailto:{lead_email}
@@ -278,14 +281,15 @@ def cmd_send(db, args, output_json):
 
     # Log to email_log table if the send was real (not a dry run)
     if result.get("status") == "sent":
-        from datetime import timezone
         try:
+            email_body = result.get("body", "")
             db.table("email_log").insert({
                 "to_email": lead_email,
                 "subject": f"{business_name} - Save 10+ Hours/Week with AI Automation",
                 "status": "sent",
                 "lead_id": args.lead_id,
                 "sent_at": datetime.now(timezone.utc).isoformat(),
+                "body_preview": email_body[:200] if email_body else "",
             }).execute()
         except Exception as e:
             print(f"Warning: could not write to email_log: {e}", file=sys.stderr)

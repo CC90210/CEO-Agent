@@ -18,6 +18,7 @@ Browser profile persists at tmp/ig-browser/ for session continuity.
 """
 
 import argparse
+import calendar
 import json
 import sys
 import os
@@ -387,6 +388,7 @@ def cmd_check_dms(env_vars, args):
     notified_log = load_notified_log()
     auto_replies = []
     skipped_replies = []
+    result = {"action": "check_dms", "status": "error", "message": "Unknown error"}
 
     with sync_playwright() as p:
         context = get_browser_context(p)
@@ -641,6 +643,7 @@ def cmd_send_dm(env_vars, args):
     target = args.to_user
     message = args.message
     thread_url = getattr(args, "thread", None)
+    result = {"status": "error", "to": target, "message": "Unknown error"}
 
     with sync_playwright() as p:
         context = get_browser_context(p)
@@ -659,10 +662,11 @@ def cmd_send_dm(env_vars, args):
                 # Search for user in DMs
                 safe_print(f"Looking for conversation with @{target}...")
                 # Click on the conversation from inbox
+                safe_target = target.replace("\\", "\\\\").replace("'", "\\'")
                 found = page.evaluate(f"""() => {{
                     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
                     while (walker.nextNode()) {{
-                        if (walker.currentNode.textContent.includes('{target}')) {{
+                        if (walker.currentNode.textContent.includes('{safe_target}')) {{
                             let el = walker.currentNode.parentElement;
                             for (let i = 0; i < 10; i++) {{
                                 if (!el) break;
@@ -860,7 +864,7 @@ def detect_intent(text: str) -> str:
 
     # Short reactive messages (thank you, lol, haha, emoji-like) — treat as CONVO
     # so _build_convo_reply can match "thank you" properly instead of greeting them
-    if any(w in lower for w in ("thank", "thanks", "appreciate", "thx", "lol", "haha", "lmao", "nice", "dope", "fire")):
+    if any(w in lowered for w in ("thank", "thanks", "appreciate", "thx", "lol", "haha", "lmao", "nice", "dope", "fire")):
         return "CONVO"
 
     # Pure greetings (short messages that are ONLY a hello — nothing else)
@@ -1009,7 +1013,7 @@ def _generate_reply_via_claude(last_msg: str, convo_context: str) -> str:
     try:
         client = anthropic.Anthropic(api_key=api_key)
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-6",
             max_tokens=150,
             system=system_prompt,
             messages=[{"role": "user", "content": user_msg}],
@@ -1027,7 +1031,8 @@ def _generate_reply_via_claude(last_msg: str, convo_context: str) -> str:
             return reply[:500]
 
         return reply
-    except Exception:
+    except Exception as e:
+        safe_print(f"[claude-api] Reply generation failed: {e}")
         return ""
 
 
@@ -1219,9 +1224,9 @@ def parse_datetime_from_text(text: str) -> dict | None:
             if m:
                 day = int(m.group(1))
                 year = today.year
-                candidate = date_type(year, month_num, min(day, 28))
+                candidate = date_type(year, month_num, min(day, calendar.monthrange(year, month_num)[1]))
                 if candidate < today:
-                    candidate = date_type(year + 1, month_num, min(day, 28))
+                    candidate = date_type(year + 1, month_num, min(day, calendar.monthrange(year + 1, month_num)[1]))
                 target_date = candidate
                 break
 
@@ -1230,12 +1235,12 @@ def parse_datetime_from_text(text: str) -> dict | None:
         if ord_match:
             day = int(ord_match.group(1))
             if 1 <= day <= 31:
-                candidate = today.replace(day=min(day, 28))
+                candidate = today.replace(day=min(day, calendar.monthrange(today.year, today.month)[1]))
                 if candidate <= today:
                     if today.month == 12:
-                        candidate = date_type(today.year + 1, 1, min(day, 28))
+                        candidate = date_type(today.year + 1, 1, min(day, calendar.monthrange(today.year + 1, 1)[1]))
                     else:
-                        candidate = date_type(today.year, today.month + 1, min(day, 28))
+                        candidate = date_type(today.year, today.month + 1, min(day, calendar.monthrange(today.year, today.month + 1)[1]))
                 target_date = candidate
 
     # If we have a time but no date, DON'T guess — ask them to clarify
@@ -1380,8 +1385,8 @@ def log_auto_reply_to_supabase(env_vars: dict, username: str, intent: str, reply
             "auto_replied": True,
             "created_at": datetime.now(timezone.utc).isoformat(),
         }).execute()
-    except Exception:
-        pass  # Supabase logging is best-effort; never crash the main flow
+    except Exception as e:
+        safe_print(f"[supabase] dm_interactions insert failed: {e}")
 
 
 def cmd_auto_reply(env_vars, args):

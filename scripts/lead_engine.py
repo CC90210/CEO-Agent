@@ -47,7 +47,11 @@ def load_env():
 
 def get_client(env_vars):
     """Create a Supabase client for the bravo project."""
-    from supabase import create_client
+    try:
+        from supabase import create_client
+    except ImportError:
+        print("ERROR: supabase not installed. Run: pip install supabase", file=sys.stderr)
+        sys.exit(1)
 
     url = env_vars.get("BRAVO_SUPABASE_URL")
     key = env_vars.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
