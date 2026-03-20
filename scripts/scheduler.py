@@ -197,8 +197,11 @@ def run_script(script_name: str, args: list[str], timeout: int = 120) -> str:
 # ── Job handlers ──────────────────────────────────────────────────────────────
 
 def run_content_post(config: dict, env_vars: dict) -> str:
-    """Publish due content via Late SDK (autonomous — no MCP session needed)."""
-    return run_script("late_publisher.py", ["--json", "publish-due"], timeout=120)
+    """Content auto-posting disabled — awaiting CC review of content structure."""
+    # TODO: Re-enable by restoring the line below once content strategy is approved by CC.
+    # return run_script("late_publisher.py", ["--json", "publish-due"], timeout=120)
+    log("Content auto-posting disabled — awaiting CC review")
+    return "Content auto-posting disabled — awaiting CC review"
 
 
 def run_lead_followup(env_vars: dict) -> str:

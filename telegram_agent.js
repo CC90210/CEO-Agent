@@ -171,6 +171,8 @@ const executeCli = (tool, userPrompt, chatId) => {
         child.stdout.on('data', (d) => { stdout += d.toString(); hasOutput = true; });
         child.stderr.on('data', (d) => { stderr += d.toString(); });
 
+        const startTime = Date.now();
+
         // Progress update — let CC know it's still working
         const progressTimer = setInterval(() => {
             if (chatId) {
@@ -181,8 +183,6 @@ const executeCli = (tool, userPrompt, chatId) => {
                 }
             }
         }, 10000);
-
-        const startTime = Date.now();
 
         const timer = setTimeout(() => {
             log(`[TIMEOUT] ${tool} killed after ${timeout / 1000}s`);

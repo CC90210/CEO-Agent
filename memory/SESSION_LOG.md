@@ -4,6 +4,30 @@
 
 ---
 
+### 2026-03-20 — 5 Systemic Bugs Pre-Solved (Claude Code, Opus 4.6)
+**What:** CC requested proactive bug elimination. Fixed 5 systemic issues across 3 files:
+1. `telegram_agent.js` — Rewrote SYSTEM_PROMPT with 5 explicit rules to stop Claude from dumping session history as greeting
+2. `telegram_agent.js` — Added graceful async shutdown (stopPolling + 2s drain) to prevent 409 Conflict on PM2 restart
+3. `telegram_agent.js` — Reduced poll error log spam (every 50th instead of every 10th)
+4. `scripts/instagram_engine.py` — Fixed `cmd_auto_reply` booking flow (only BOOKING intent enters booking state, not PRICING/INFO)
+5. `scripts/scheduler.py` — Consolidated 3 Instagram cron jobs into 1 to prevent Playwright race conditions on shared browser context
+**Commits:** `466defd`
+
+### 2026-03-20 — DM Bot Rewrite: Conversational Voice + No CTAs (Claude Code, Opus 4.6)
+**What:** CC reported DM bot responding to personal conversations and using generic CTA messages. Fixes: (1) Removed 25-line "unreplied" detection — bot now only processes Instagram-flagged Unread DMs. (2) Rewrote ALL reply templates to be purely conversational (no "when works?", no "want to jump on a call?"). (3) Only notify CC via Telegram for BOOKING intents (not every reply). (4) Fixed cmd_auto_reply to pass last_msg for contextual replies.
+**Commits:** `cf4d7b9`
+
+### 2026-03-20 — Full System Diagnostic + Telegram Fix (Claude Code, Opus 4.6)
+**What:** Deep system diagnostic. Found Telegram bot dead (720+ ESOCKETTIMEDOUT errors over 6+ hours). Root cause: duplicate polling instance (409 Conflict) + request timeout equal to polling timeout. Fixed: request timeout 30s→60s, killed conflict, restarted. All 8 business engines verified operational.
+**Commits:** `c902575`
+
+### 2026-03-20 — Skool Classroom: Course Merge + New Content Creation (Claude Code, Opus)
+**What:** Restructured Agency Accelerants Skool classroom. Merged Business Tools (4 pages) into Agency Fundamentals (now 12 pages). Deleted Business Tools course (13→12 courses). Reviewed Lead Magnets (4 pages finalized). Created CLI Wrapping lesson in Python Automation Engines (now 5 pages).
+**Method:** Playwright MCP browser automation.
+**Commits:** `4cee63d`
+
+---
+
 ### 2026-03-19 — Remotion Quote Card Pipeline (Claude Code, Sonnet 4.6)
 **Change:** Built Remotion video pipeline at `remotion-content/`. Files created: `package.json`, `tsconfig.json`, `src/index.ts`, `src/Root.tsx`, `src/compositions/QuoteCard.tsx`. QuoteCard is a 5s 1080x1920 portrait composition with spring-animated accent line, fade+rise quote text, delayed author reveal, and pillar tag watermark — all in CC's brand colors (#141413 bg, #faf9f5 text, #D4A574 accent). Also built `scripts/render_video.py` with two sub-commands: `quote` (inline text) and `from-calendar` (reads Supabase content_calendar row, writes video_path back). Python script verified: zero syntax errors, --help works.
 **Files:** remotion-content/package.json, remotion-content/tsconfig.json, remotion-content/src/index.ts, remotion-content/src/Root.tsx, remotion-content/src/compositions/QuoteCard.tsx, scripts/render_video.py (new)
