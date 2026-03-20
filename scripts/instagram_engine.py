@@ -33,10 +33,17 @@ DM_REPLIED_PATH = PROJECT_ROOT / "tmp" / "dm_replied.json"
 BOOKING_STATE_PATH = PROJECT_ROOT / "tmp" / "dm_booking_state.json"
 NOTIFIED_PATH = PROJECT_ROOT / "tmp" / "dm_notified.json"
 
-# Intent detection keyword sets
-_BOOKING_KEYWORDS = {
-    "book", "call", "meet", "schedule", "chat", "consultation",
-    "demo", "appointment", "available", "time", "talk", "connect",
+# Intent detection — only trigger booking when they EXPLICITLY ask for a call/meeting
+# Everything else gets a genuine conversational reply
+_EXPLICIT_BOOKING_PHRASES = {
+    "book a call", "schedule a call", "set up a call", "hop on a call",
+    "jump on a call", "get on a call", "book a meeting", "schedule a meeting",
+    "can we call", "can we meet", "let's call", "lets call", "want to call",
+    "when can we", "when are you free", "when works", "what time works",
+    "book a demo", "schedule a demo", "set up a meeting",
+}
+_BOOKING_SIGNAL_WORDS = {
+    "book", "schedule", "appointment", "consultation", "demo",
 }
 _PRICING_KEYWORDS = {
     "price", "cost", "how much", "rate", "pricing", "package", "afford",
@@ -44,7 +51,7 @@ _PRICING_KEYWORDS = {
 _INFO_KEYWORDS = {
     "what do you", "how does", "tell me about", "what is", "services", "offer",
 }
-_GREETING_KEYWORDS = {"hey", "hi", "hello", "sup", "yo"}
+_GREETING_KEYWORDS = {"hey", "hi", "hello", "sup", "yo", "what's good", "whats good"}
 
 sys.path.insert(0, str(SCRIPTS_DIR))
 
@@ -476,14 +483,18 @@ def cmd_check_dms(env_vars, args):
                     skipped_replies.append({"username": username, "reason": "already_notified"})
                     continue
 
-                # Open the conversation to read the actual message
+                # Open the conversation to read the actual messages
                 convo_text = read_conversation_text(page, username)
-                signal_text = convo_text[-500:] if convo_text else preview
+                # Extract just the LAST message from the other person
+                last_msg = extract_last_incoming_message(convo_text)
+                if not last_msg:
+                    last_msg = preview  # Fallback to inbox preview
 
                 # --- Multi-turn booking flow ---
                 user_booking = booking_state.get(username)
                 if user_booking and user_booking.get("stage") == "awaiting_time":
-                    parsed = parse_datetime_from_text(signal_text)
+                    # ONLY parse the last incoming message — NOT the whole convo
+                    parsed = parse_datetime_from_text(last_msg)
                     if parsed:
                         reply_text = _handle_booking_confirmation(
                             env_vars, page, username, parsed, booking_state,
@@ -494,7 +505,6 @@ def cmd_check_dms(env_vars, args):
                                 "intent": "BOOKING_CONFIRMED",
                                 "reply_preview": reply_text[:80],
                             })
-                            # This IS worth notifying — a real booking was made
                             notify(
                                 f"Booking confirmed! {username} — {parsed['display']}\n"
                                 f"Sent Meet link via DM",
@@ -503,21 +513,25 @@ def cmd_check_dms(env_vars, args):
                             mark_notified(notified_log, username, preview)
                             save_notified_log(notified_log)
                         else:
-                            # Calendar not configured — skip silently, do NOT notify
                             skipped_replies.append({
                                 "username": username,
-                                "reason": "calendar_not_configured",
+                                "reason": "calendar_error",
                             })
                     else:
-                        # Couldn't parse a time — ask again
-                        reply_text = (
-                            "just lmk a day and time that works, "
-                            "like \"thursday at 2pm\" or something"
-                        )
+                        # Their message doesn't contain a date/time — respond
+                        # conversationally instead of robotically re-asking
+                        intent = detect_intent(last_msg)
+                        if intent == "CONVO":
+                            reply_text = build_reply("CONVO", last_msg=last_msg)
+                        else:
+                            reply_text = (
+                                "just lmk a day and time that works, "
+                                "like \"thursday at 2pm\" or something"
+                            )
                         _send_dm_reply(page, reply_text)
                         auto_replies.append({
                             "username": username,
-                            "intent": "BOOKING_REPROMPT",
+                            "intent": "BOOKING_FOLLOWUP",
                             "reply_preview": reply_text[:80],
                         })
                         mark_notified(notified_log, username, preview)
@@ -531,8 +545,8 @@ def cmd_check_dms(env_vars, args):
                     time.sleep(4)
                     continue
 
-                # --- Normal flow: new conversation ---
-                intent = detect_intent(signal_text)
+                # --- Normal flow ---
+                intent = detect_intent(last_msg)
 
                 should_reply = True
                 skip_reason = None
@@ -545,45 +559,47 @@ def cmd_check_dms(env_vars, args):
                     skip_reason = "unknown_intent"
 
                 if should_reply:
-                    reply_text = build_reply(intent)
-                    sent = _send_dm_reply(page, reply_text)
-                    if sent:
-                        replied_log[username] = {
-                            "replied_at": datetime.now(timezone.utc).isoformat(),
-                            "intent": intent,
-                        }
-                        save_replied_log(replied_log)
-                        log_auto_reply_to_supabase(env_vars, username, intent, reply_text)
-
-                        if intent in ("BOOKING", "PRICING", "INFO"):
-                            booking_state[username] = {
-                                "stage": "awaiting_time",
-                                "intent": intent,
-                                "started_at": datetime.now(timezone.utc).isoformat(),
-                            }
-                            save_booking_state(booking_state)
-
-                        auto_replies.append({
-                            "username": username,
-                            "intent": intent,
-                            "reply_preview": reply_text[:80],
-                        })
-                        # Notify CC only about successful auto-replies
-                        notify(
-                            f"IG DM from {username}: \"{preview}\"\n"
-                            f"Auto-replied ({intent}): {reply_text[:80]}",
-                            category="instagram",
-                        )
-                        mark_notified(notified_log, username, preview)
-                        save_notified_log(notified_log)
-                    else:
-                        skip_reason = "no_input_found"
+                    reply_text = build_reply(intent, last_msg=last_msg)
+                    if not reply_text:
                         should_reply = False
+                        skip_reason = "empty_reply"
+                    else:
+                        sent = _send_dm_reply(page, reply_text)
+                        if sent:
+                            replied_log[username] = {
+                                "replied_at": datetime.now(timezone.utc).isoformat(),
+                                "intent": intent,
+                            }
+                            save_replied_log(replied_log)
+                            log_auto_reply_to_supabase(env_vars, username, intent, reply_text)
+
+                            # Only enter booking flow on EXPLICIT booking intent
+                            if intent == "BOOKING":
+                                booking_state[username] = {
+                                    "stage": "awaiting_time",
+                                    "intent": intent,
+                                    "started_at": datetime.now(timezone.utc).isoformat(),
+                                }
+                                save_booking_state(booking_state)
+
+                            auto_replies.append({
+                                "username": username,
+                                "intent": intent,
+                                "reply_preview": reply_text[:80],
+                            })
+                            notify(
+                                f"IG DM from {username}: \"{last_msg[:60]}\"\n"
+                                f"Auto-replied ({intent}): {reply_text[:80]}",
+                                category="instagram",
+                            )
+                            mark_notified(notified_log, username, preview)
+                            save_notified_log(notified_log)
+                        else:
+                            skip_reason = "no_input_found"
+                            should_reply = False
 
                 if not should_reply:
                     skipped_replies.append({"username": username, "reason": skip_reason})
-                    # Mark as notified so we don't re-process next cycle,
-                    # but do NOT send Telegram notification for skips/errors
                     mark_notified(notified_log, username, preview)
                     save_notified_log(notified_log)
 
@@ -773,72 +789,237 @@ def cmd_log_dm(env_vars, args):
 
 # -- Auto-reply helpers -------------------------------------------------------
 
-def detect_intent(text: str) -> str:
-    """Classify message text into BOOKING / PRICING / INFO / GREETING / UNKNOWN.
+def extract_last_incoming_message(convo_text: str) -> str:
+    """Pull out the last message that ISN'T from CC (i.e. not starting with 'You').
 
-    Multi-word phrases are checked with substring matching so that phrases like
-    'how much' correctly score as PRICING even though they contain two words.
-    Single-word sets are checked with whole-word tokenisation to reduce false
-    positives (e.g. 'offer' inside 'buffer').
-    Returns the highest-priority match: BOOKING > PRICING > INFO > GREETING > UNKNOWN.
+    The conversation text contains interleaved messages. We want the most recent
+    message from the OTHER person to understand what they actually said.
     """
-    lowered = text.lower()
+    if not convo_text:
+        return ""
+    lines = [l.strip() for l in convo_text.split("\n") if l.strip()]
+    # Walk backwards, skip timestamps/metadata, find last non-You message
+    skip_patterns = {"seen", "delivered", "active", "typing", "liked a message"}
+    import re
+    time_pattern = re.compile(r"^\d{1,2}:\d{2}\s*(am|pm)?$|^\d{1,2}[mhdw]$|^just now$|^yesterday$", re.I)
 
-    # Multi-word phrases first (substring check is correct here)
-    multi_word_pricing = {"how much"}
-    multi_word_info = {"what do you", "how does", "tell me about", "what is"}
+    last_incoming = ""
+    for line in reversed(lines):
+        lower = line.lower()
+        # Skip metadata
+        if lower in skip_patterns or time_pattern.match(lower):
+            continue
+        if len(line) < 2:
+            continue
+        # Skip CC's own messages
+        if lower.startswith("you:") or lower.startswith("you ") or lower == "you":
+            continue
+        # This is the other person's message
+        last_incoming = line
+        break
+    return last_incoming
 
-    for phrase in multi_word_pricing:
+
+def detect_intent(text: str) -> str:
+    """Classify the OTHER person's message into an intent.
+
+    BOOKING: Only when they EXPLICITLY ask for a call/meeting/demo.
+    PRICING: Asking about cost/pricing.
+    INFO: Asking what you do or how it works.
+    GREETING: Simple hello/hey/yo.
+    CONVO: General conversation that doesn't fit above — respond naturally.
+    UNKNOWN: Can't understand or too short to act on.
+
+    Key change from V1: "CONVO" is the new default instead of UNKNOWN.
+    Most messages deserve a genuine response, not silence.
+    """
+    lowered = text.lower().strip()
+
+    # Too short to do anything with
+    if len(lowered) < 2:
+        return "UNKNOWN"
+
+    # Check for explicit booking phrases first (high confidence)
+    for phrase in _EXPLICIT_BOOKING_PHRASES:
         if phrase in lowered:
-            return "PRICING"
-    for phrase in multi_word_info:
+            return "BOOKING"
+
+    # Multi-word checks
+    if "how much" in lowered or "what's the price" in lowered or "what do you charge" in lowered:
+        return "PRICING"
+    for phrase in ("what do you do", "how does", "tell me about", "what is your", "what services"):
         if phrase in lowered:
             return "INFO"
 
-    # Single-word sets — tokenise so 'offer' in 'buffer' does not match
+    # Single-word tokenization
     import re
-    tokens = set(re.findall(r"[a-z]+", lowered))
+    tokens = set(re.findall(r"[a-z']+", lowered))
 
-    single_booking = _BOOKING_KEYWORDS - {"how much"}
-    single_pricing = _PRICING_KEYWORDS - {"how much"}
-    single_info = _INFO_KEYWORDS - {"what do you", "how does", "tell me about", "what is"}
-
-    if tokens & single_booking:
+    # Only trigger BOOKING on very explicit signal words + context
+    booking_signals = tokens & _BOOKING_SIGNAL_WORDS
+    if booking_signals and any(w in lowered for w in ("call", "meeting", "demo", "appointment")):
         return "BOOKING"
-    if tokens & single_pricing:
+
+    if tokens & _PRICING_KEYWORDS:
         return "PRICING"
-    if tokens & single_info:
-        return "INFO"
-    if tokens & _GREETING_KEYWORDS:
+
+    # Pure greetings (short messages that are just a hello)
+    if len(tokens) <= 4 and tokens & _GREETING_KEYWORDS:
         return "GREETING"
-    return "UNKNOWN"
+
+    # If the message has substance (>3 words), it's a conversation — respond to it
+    if len(tokens) >= 3:
+        return "CONVO"
+
+    # Very short but not a greeting
+    if len(tokens) <= 2:
+        return "GREETING"
+
+    return "CONVO"
 
 
-def build_reply(intent: str, meet_link: str = "") -> str:
-    """Return the appropriate auto-reply template for the given intent.
+def build_reply(intent: str, last_msg: str = "", convo_context: str = "") -> str:
+    """Generate a reply that sounds like CC — short, casual, genuine.
 
-    Voice: CC texts short, casual, uses slang. NOT corporate. NOT AI-sounding.
-    Think: texting a friend at 2am. No exclamation marks on every sentence.
-    No "I'd love to" or "Thanks for reaching out" — that's AI slop.
+    Voice rules:
+    - Text like you're talking to a friend. Short sentences.
+    - Use lowercase mostly. No "I'd love to" or "Thanks for reaching out."
+    - No multiple exclamation marks. No corporate pleasantries.
+    - Can use slang: "ya", "nah", "for sure", "lowkey", "honestly", "bet"
+    - Be helpful and real, not salesy.
+    - DON'T force every conversation toward booking a call.
+    - Match the energy of what they said.
     """
-    templates = {
-        "BOOKING": (
-            "yo for sure, let's hop on a call. "
-            "when works for you this week? i'm free most days 9-5"
-        ),
-        "PRICING": (
-            "honestly it depends on what you need, every business is different. "
-            "lets jump on a quick call and i can give you a straight answer. "
-            "when are you free?"
-        ),
-        "INFO": (
-            "ya so i run an AI automation company, we build systems for "
-            "local businesses - auto follow-ups, booking, lead capture, all that. "
-            "happy to walk you through it, when are you free for a quick call?"
-        ),
-        "GREETING": "yo what's good, what can i help you with?",
-    }
-    return templates.get(intent, "")
+    import random
+
+    if intent == "BOOKING":
+        return random.choice([
+            "ya for sure lets do it. when works for you this week? i'm usually free 9-5",
+            "bet lets hop on a call. what day works best? im pretty open this week",
+            "down. when are you thinking? im free most days 9-5 eastern",
+        ])
+
+    if intent == "PRICING":
+        return random.choice([
+            "honestly it depends on what you need — every business is different. "
+            "easiest if we hop on a quick call and i can give you a real answer. when works?",
+            "ya so pricing really depends on the scope. "
+            "happy to break it down on a call if you want, takes like 15 min",
+            "it varies a lot based on what you're looking for. "
+            "want to jump on a quick call? way easier than going back and forth in dms",
+        ])
+
+    if intent == "INFO":
+        return random.choice([
+            "ya so basically i build AI automation systems for local businesses — "
+            "stuff like auto follow-ups, booking, lead capture, review management. "
+            "what kind of business are you running?",
+            "i run an AI automation company. we set up systems that handle "
+            "the repetitive stuff — follow-ups, scheduling, lead gen, all that. "
+            "what's your situation?",
+            "short version — i help businesses automate their ops with AI. "
+            "most of my clients are local service businesses. what do you do?",
+        ])
+
+    if intent == "GREETING":
+        return random.choice([
+            "yo what's good",
+            "hey what's up",
+            "yo whats good, what can i help with",
+            "hey! what's going on",
+        ])
+
+    if intent == "CONVO":
+        # For general conversation, build a contextual reply
+        return _build_convo_reply(last_msg, convo_context)
+
+    return ""
+
+
+def _build_convo_reply(last_msg: str, convo_context: str) -> str:
+    """Build a conversational reply based on what the other person actually said.
+
+    This is the heart of making the bot feel human. Instead of keyword matching
+    to canned templates, we look at what they said and respond naturally.
+    """
+    import random
+    lower = last_msg.lower().strip()
+
+    # --- Positive/agreement responses ---
+    if any(w in lower for w in ("sounds good", "perfect", "awesome", "great", "cool", "bet", "for sure", "lets do it", "let's do it", "yes", "yeah", "yep", "ya", "down")):
+        return random.choice([
+            "perfect, lets make it happen",
+            "bet. lmk if you need anything else",
+            "sounds good to me",
+            "dope. keep me posted",
+        ])
+
+    # --- Questions about CC specifically ---
+    if any(p in lower for p in ("who are you", "what do you do", "your company", "your business", "tell me about yourself")):
+        return random.choice([
+            "ya so i'm conaugh, i run an AI automation company called OASIS. "
+            "we build systems for local businesses — the boring repetitive stuff, automated. "
+            "what about you?",
+            "i'm conaugh — i run OASIS AI Solutions. we help businesses automate "
+            "their follow-ups, booking, lead capture, all that. what's your situation?",
+        ])
+
+    # --- They mention their business/industry ---
+    if any(w in lower for w in ("my business", "i run", "i own", "my company", "we do", "i'm in", "im in")):
+        return random.choice([
+            "that's dope, how long have you been doing that?",
+            "nice, how's business going?",
+            "oh sick. what's your biggest bottleneck right now?",
+            "thats cool. what made you reach out?",
+        ])
+
+    # --- They express a problem/frustration ---
+    if any(w in lower for w in ("struggling", "problem", "issue", "hard", "difficult", "frustrating", "waste time", "too much time", "overwhelmed")):
+        return random.choice([
+            "ya i hear that a lot honestly. what specifically is eating up your time?",
+            "that's exactly the kind of thing we solve. what's the biggest pain point?",
+            "been there. what would make the biggest difference for you right now?",
+        ])
+
+    # --- Thank you ---
+    if any(w in lower for w in ("thank", "thanks", "appreciate", "thx")):
+        return random.choice([
+            "of course, anytime",
+            "ya no worries",
+            "all good, lmk if you need anything",
+        ])
+
+    # --- They say no/not interested ---
+    if any(p in lower for p in ("not interested", "no thanks", "nah", "not right now", "maybe later", "not for me")):
+        return random.choice([
+            "all good, no pressure. lmk if anything changes",
+            "no worries at all. doors always open",
+            "totally fair. hit me up whenever",
+        ])
+
+    # --- They ask about AI/automation specifically ---
+    if any(w in lower for w in ("ai", "automat", "chatbot", "bot", "system")):
+        return random.choice([
+            "ya AI is kinda my whole thing. what are you looking to automate?",
+            "thats literally what i do all day lol. what's the use case?",
+            "for sure, what specifically are you trying to set up?",
+        ])
+
+    # --- They sent something with a question mark ---
+    if "?" in last_msg:
+        return random.choice([
+            "good question — let me think on that. what's the context?",
+            "ya honestly it depends. can you give me a bit more detail?",
+            "that's a solid question. what's your situation?",
+        ])
+
+    # --- Default: genuine engagement, don't force a sale ---
+    return random.choice([
+        "ya for sure, tell me more about that",
+        "interesting, what made you reach out?",
+        "oh word? tell me more",
+        "ya i feel that. what's going on?",
+    ])
 
 
 def load_replied_log() -> dict:
@@ -915,20 +1096,48 @@ def save_booking_state(state: dict) -> None:
 
 
 def parse_datetime_from_text(text: str) -> dict | None:
-    """Extract a date and time from natural language text.
+    """Extract a date and time from a SHORT, SPECIFIC scheduling message.
 
-    Handles patterns like:
-      - "tomorrow at 2pm", "Thursday 10am", "March 25 at 3:00"
-      - "next Monday at 11", "this Friday 2:30pm"
-      - "25th at 2pm", "the 26th at 10am"
+    STRICT RULES — only parse if the message is clearly a scheduling response:
+      - Must contain a recognizable time (2pm, 10:30am, at 14:00)
+      - Must contain a recognizable date signal (tomorrow, Thursday, March 25)
+      - Message should be SHORT (scheduling responses are typically <50 words)
+      - If the message is long/rambling, it's probably NOT a scheduling response
 
     Returns {date: "YYYY-MM-DD", time: "HH:MM", display: "Thursday March 25 at 2:00 PM"}
-    or None if no date/time found.
+    or None if this doesn't look like a scheduling message.
     """
     import re
     from datetime import date as date_type
 
+    # GUARD: Only parse SHORT messages that look like scheduling responses.
+    # "trapped is not the mic rib sea story Thursday" is NOT a scheduling msg.
+    # Real scheduling messages: "thursday at 2pm", "tomorrow 10am", "march 25 3pm"
     lowered = text.lower().strip()
+    words = lowered.split()
+    if len(words) > 30:
+        return None  # Too long to be a time/date response
+    if len(words) < 2:
+        return None  # Too short — just one word isn't a date
+
+    # GUARD: Must contain an explicit time marker (am/pm or "at X:XX")
+    has_time_marker = bool(re.search(r'\d{1,2}\s*(am|pm|a\.m\.|p\.m\.)', lowered))
+    has_at_time = bool(re.search(r'at\s+\d{1,2}', lowered))
+    if not has_time_marker and not has_at_time:
+        return None
+
+    # GUARD: Must contain a date signal
+    date_signals = (
+        "tomorrow", "today", "monday", "tuesday", "wednesday", "thursday",
+        "friday", "saturday", "sunday", "mon", "tue", "wed", "thu", "fri",
+        "sat", "sun", "next", "this", "jan", "feb", "mar", "apr", "may",
+        "jun", "jul", "aug", "sep", "oct", "nov", "dec",
+    )
+    has_date_signal = any(sig in lowered for sig in date_signals)
+    # Also check for ordinals: "the 25th"
+    has_ordinal = bool(re.search(r'\b\d{1,2}(?:st|nd|rd|th)\b', lowered))
+    if not has_date_signal and not has_ordinal:
+        return None
 
     # --- Extract time component ---
     time_match = re.search(
@@ -945,7 +1154,6 @@ def parse_datetime_from_text(text: str) -> dict | None:
         elif ampm == "am" and hour == 12:
             hour = 0
     else:
-        # Try 24h format: "at 14:00" or "at 14"
         time_24 = re.search(r'(?:at\s+)(\d{1,2})(?::(\d{2}))?(?!\s*(?:am|pm))', lowered)
         if time_24:
             hour = int(time_24.group(1))
@@ -954,7 +1162,10 @@ def parse_datetime_from_text(text: str) -> dict | None:
                 hour = None
 
     if hour is None:
-        return None  # Can't book without a time
+        return None
+    # Sanity check: business hours only (7am - 9pm)
+    if hour < 7 or hour > 21:
+        return None
 
     # --- Extract date component ---
     from zoneinfo import ZoneInfo
@@ -963,15 +1174,11 @@ def parse_datetime_from_text(text: str) -> dict | None:
     today = now.date()
     target_date = None
 
-    # "tomorrow"
     if "tomorrow" in lowered:
         target_date = today + timedelta(days=1)
-
-    # "today"
     elif re.search(r'\btoday\b', lowered):
         target_date = today
 
-    # Day of week: "monday", "this tuesday", "next wednesday"
     day_names = {
         "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
         "friday": 4, "saturday": 5, "sunday": 6,
@@ -983,22 +1190,21 @@ def parse_datetime_from_text(text: str) -> dict | None:
             if re.search(rf'\b{name}\b', lowered):
                 days_ahead = (dow - today.weekday()) % 7
                 if days_ahead == 0:
-                    days_ahead = 7  # Next week if same day
+                    days_ahead = 7
                 if "next" in lowered:
                     days_ahead += 7 if days_ahead <= 7 else 0
                 target_date = today + timedelta(days=days_ahead)
                 break
 
-    # Month + day: "march 25", "mar 25th", "april 2"
+    month_names = {
+        "jan": 1, "january": 1, "feb": 2, "february": 2,
+        "mar": 3, "march": 3, "apr": 4, "april": 4,
+        "may": 5, "jun": 6, "june": 6, "jul": 7, "july": 7,
+        "aug": 8, "august": 8, "sep": 9, "september": 9,
+        "oct": 10, "october": 10, "nov": 11, "november": 11,
+        "dec": 12, "december": 12,
+    }
     if not target_date:
-        month_names = {
-            "jan": 1, "january": 1, "feb": 2, "february": 2,
-            "mar": 3, "march": 3, "apr": 4, "april": 4,
-            "may": 5, "jun": 6, "june": 6, "jul": 7, "july": 7,
-            "aug": 8, "august": 8, "sep": 9, "september": 9,
-            "oct": 10, "october": 10, "nov": 11, "november": 11,
-            "dec": 12, "december": 12,
-        }
         for name, month_num in month_names.items():
             m = re.search(rf'\b{name}\s+(\d{{1,2}})(?:st|nd|rd|th)?\b', lowered)
             if m:
@@ -1010,32 +1216,25 @@ def parse_datetime_from_text(text: str) -> dict | None:
                 target_date = candidate
                 break
 
-    # Ordinal day only: "the 25th", "on the 26th"
-    if not target_date:
+    if not target_date and has_ordinal:
         ord_match = re.search(r'\b(?:the\s+)?(\d{1,2})(?:st|nd|rd|th)\b', lowered)
         if ord_match:
             day = int(ord_match.group(1))
             if 1 <= day <= 31:
                 candidate = today.replace(day=min(day, 28))
                 if candidate <= today:
-                    # Next month
                     if today.month == 12:
                         candidate = date_type(today.year + 1, 1, min(day, 28))
                     else:
                         candidate = date_type(today.year, today.month + 1, min(day, 28))
                 target_date = candidate
 
-    # If still no date but we have a time, assume tomorrow if time has passed today
+    # If we have a time but no date, DON'T guess — ask them to clarify
     if not target_date:
-        if hour <= now.hour:
-            target_date = today + timedelta(days=1)
-        else:
-            target_date = today
+        return None
 
-    # Build result
     time_str = f"{hour:02d}:{minute:02d}"
     display_dt = datetime.combine(target_date, datetime.strptime(time_str, "%H:%M").time())
-    # Windows uses %#d instead of %-d for no-zero-pad
     display = display_dt.strftime("%A %B %#d at %#I:%M %p")
 
     return {
