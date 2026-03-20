@@ -290,10 +290,26 @@ def cmd_auth(env_vars: dict, args) -> None:
     }
 
     flow = InstalledAppFlow.from_client_config(client_config, SCOPES)
-    creds = flow.run_local_server(port=8091, prompt="consent")
+
+    # Print the URL so CC can open it manually — auto-open doesn't work
+    # in all terminal contexts
+    print("\n=== GOOGLE CALENDAR AUTH ===")
+    print("Open this URL in your browser and sign in with oasisaisolutions@gmail.com:\n")
+
+    flow.redirect_uri = "http://localhost:8091/"
+    auth_url, _ = flow.authorization_url(prompt="consent")
+    print(auth_url)
+    print("\nAfter you click 'Allow', it will redirect to localhost.")
+    print("Waiting for authorization...\n")
+
+    creds = flow.run_local_server(
+        port=8091,
+        prompt="consent",
+        open_browser=False,  # Don't try to auto-open — CC opens manually
+    )
     _save_token(creds)
 
-    print("Authentication successful!")
+    print("\nAuthentication successful!")
     print(f"Token cached at: {TOKEN_PATH}")
     if creds.refresh_token:
         print(f"\nAdd this to .env.agents for persistent auth:")

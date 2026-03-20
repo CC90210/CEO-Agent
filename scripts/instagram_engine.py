@@ -335,9 +335,8 @@ def _handle_booking_confirmation(
     display = parsed_time["display"]
 
     reply_text = (
-        f"You're all set! I've booked us in for {display} (30 min).\n\n"
-        f"Here's the Google Meet link: {meet_link}\n\n"
-        f"Looking forward to chatting!"
+        f"locked in for {display}. "
+        f"here's the meet link: {meet_link}"
     )
 
     sent = _send_dm_reply(page, reply_text)
@@ -512,9 +511,8 @@ def cmd_check_dms(env_vars, args):
                     else:
                         # Couldn't parse a time — ask again
                         reply_text = (
-                            "I want to make sure I get the right time -- could you"
-                            " send the day and time that works? For example:"
-                            " \"Thursday at 2pm\" or \"March 27 at 10am\""
+                            "just lmk a day and time that works, "
+                            "like \"thursday at 2pm\" or something"
                         )
                         _send_dm_reply(page, reply_text)
                         auto_replies.append({
@@ -819,28 +817,26 @@ def detect_intent(text: str) -> str:
 def build_reply(intent: str, meet_link: str = "") -> str:
     """Return the appropriate auto-reply template for the given intent.
 
-    BOOKING/PRICING/INFO replies now ask for a preferred date/time instead of
-    sending a static Meet link. Once the person confirms a time, the follow-up
-    handler creates a Google Calendar event with a fresh Meet link.
+    Voice: CC texts short, casual, uses slang. NOT corporate. NOT AI-sounding.
+    Think: texting a friend at 2am. No exclamation marks on every sentence.
+    No "I'd love to" or "Thanks for reaching out" — that's AI slop.
     """
     templates = {
         "BOOKING": (
-            "Hey! I'd love to chat. I'm generally free weekdays between"
-            " 9am-5pm ET -- what day and time works best for you?"
-            " I'll send over a Google Meet link once we lock in a time"
+            "yo for sure, let's hop on a call. "
+            "when works for you this week? i'm free most days 9-5"
         ),
         "PRICING": (
-            "Great question! It really depends on what you need -- every"
-            " business is different. Let's hop on a quick call so I can"
-            " understand your situation. What day/time works for you?"
-            " (I'm free weekdays 9-5 ET)"
+            "honestly it depends on what you need, every business is different. "
+            "lets jump on a quick call and i can give you a straight answer. "
+            "when are you free?"
         ),
         "INFO": (
-            "Thanks for reaching out! I run OASIS AI Solutions -- we build"
-            " AI automation systems for local businesses. Happy to walk you"
-            " through it on a quick call. What day/time works best for you?"
+            "ya so i run an AI automation company, we build systems for "
+            "local businesses - auto follow-ups, booking, lead capture, all that. "
+            "happy to walk you through it, when are you free for a quick call?"
         ),
-        "GREETING": "Hey! Thanks for reaching out. What can I help you with?",
+        "GREETING": "yo what's good, what can i help you with?",
     }
     return templates.get(intent, "")
 
