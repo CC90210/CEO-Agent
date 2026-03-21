@@ -9,23 +9,38 @@
   "colorGroups": [
     {
       "query": "path:brain",
-      "color": { "a": 1, "rgb": 16729156 }
+      "color": {
+        "a": 1,
+        "rgb": 16729156
+      }
     },
     {
       "query": "path:memory",
-      "color": { "a": 1, "rgb": 4439167 }
+      "color": {
+        "a": 1,
+        "rgb": 4439167
+      }
     },
     {
       "query": "path:skills",
-      "color": { "a": 1, "rgb": 3394611 }
+      "color": {
+        "a": 1,
+        "rgb": 3394611
+      }
     },
     {
       "query": "path:agents",
-      "color": { "a": 1, "rgb": 16753920 }
+      "color": {
+        "a": 1,
+        "rgb": 16753920
+      }
     },
     {
       "query": "path:APPS_CONTEXT",
-      "color": { "a": 1, "rgb": 10494192 }
+      "color": {
+        "a": 1,
+        "rgb": 10494192
+      }
     }
   ],
   "collapse-display": false,
@@ -37,5 +52,7 @@
   "centerStrength": 0.5,
   "repelStrength": 10,
   "linkStrength": 1,
-  "linkDistance": 250
+  "linkDistance": 250,
+  "scale": 0.01734152991583246,
+  "close": false
 }

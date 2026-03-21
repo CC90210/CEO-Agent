@@ -2,6 +2,7 @@ import { Composition } from "remotion";
 import { OasisPromo } from "./compositions/OasisPromo";
 import { QuoteDrop } from "./compositions/QuoteDrop";
 import { CeoLog } from "./compositions/CeoLog";
+import { SkoolIntro } from "./compositions/SkoolIntro";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -44,6 +45,14 @@ export const RemotionRoot: React.FC = () => {
           body: "My AI agent now handles leads, email, bookings, revenue tracking, content scheduling — all zero new paid services.",
           metric: "$2,691 → $5,000 MRR",
         }}
+      />
+      <Composition
+        id="SkoolIntro"
+        component={SkoolIntro}
+        durationInFrames={450}
+        fps={30}
+        width={1080}
+        height={1920}
       />
     </>
   );

@@ -6,6 +6,14 @@
 
 ---
 
+### 2026-03-21 — SkoolIntro Remotion Composition
+**Agent:** Claude Code (Bravo V5.5)
+**Change:** Created `content-studio/src/compositions/SkoolIntro.tsx` — 450-frame (15s) god-tier Skool community intro video for Agency Accelerants. Registered in Root.tsx as `id="SkoolIntro"`. TypeScript: zero errors confirmed via `tsc --noEmit`.
+**Files:** `content-studio/src/compositions/SkoolIntro.tsx`, `content-studio/src/Root.tsx`
+**Commit:** pending
+
+---
+
 ### 2026-03-20 — CC Funnel E2E Test + Obsidian Vault Integration
 **Agent:** Claude Code (Bravo V5.5)
 **Focus:** Production E2E test of cc-funnel.vercel.app + Obsidian vault setup

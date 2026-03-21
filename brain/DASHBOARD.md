@@ -28,7 +28,7 @@ aliases:
 ### Active Work
 - [[memory/ACTIVE_TASKS]] — Current task board
 - [[memory/SESSION_LOG]] — All agent activity
-- [[memory/LEAD_TRACKER]] — Pipeline (CSV)
+- [[memory/LEAD_TRACKER.csv|LEAD_TRACKER]] — Pipeline (CSV)
 
 ### Knowledge Base
 - [[memory/PATTERNS]] — Validated patterns
