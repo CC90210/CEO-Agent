@@ -68,3 +68,31 @@ aliases:
 
 ## Skills (60 total)
 > Use Dataview query in reading mode to see full skill list with metadata
+
+---
+
+## Live Queries
+
+### Recently Modified Files
+```dataview
+TABLE file.mtime AS "Last Modified"
+FROM ""
+WHERE file.name != "DASHBOARD"
+SORT file.mtime DESC
+LIMIT 10
+```
+
+### All Skills
+```dataview
+TABLE tags AS "Tags", file.mtime AS "Updated"
+FROM "skills"
+WHERE file.name = "SKILL"
+SORT file.mtime DESC
+```
+
+### Active Memory Files
+```dataview
+TABLE file.size AS "Size", file.mtime AS "Updated"
+FROM "memory"
+SORT file.mtime DESC
+```

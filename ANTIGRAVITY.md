@@ -181,6 +181,8 @@ When CC mentions modifying code in any app (OASIS, PropFlow, Nostalgic, Grape Vi
 3. Commit/push from that repo. Log summary in memory/SESSION_LOG.md
 Never store app code in Business-Empire-Agent.
 
+**Obsidian Vault:** Business-Empire-Agent is an Obsidian vault. When creating new .md files, include YAML frontmatter with `tags:` and add `[[wiki-links]]` to related files. Preserve existing `[[wiki-links]]` when editing. Templates in `_templates/`.
+
 ## MCP Servers (8 active)
 
 | Server | Tools | Config |

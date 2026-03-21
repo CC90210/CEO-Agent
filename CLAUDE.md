@@ -79,7 +79,26 @@ IMPORTANT: When changing ANY config, entry point, or structure file — update A
 
 Always verify your work — run tests, check Supabase, use `git status`. If you can't verify it, don't ship it.
 
-### RULE 6: App Registry Routing
+### RULE 6: Obsidian Vault Sync
+
+The Business-Empire-Agent repo IS an Obsidian vault. All markdown files are notes in the vault.
+
+**When creating new markdown files:**
+- Add YAML frontmatter with `tags:` appropriate to the file's directory (e.g., `tags: [skill]` for skills/, `tags: [agent]` for agents/, `tags: [daily]` for memory/daily/)
+- Add `[[wiki-links]]` to related files (especially back to brain/DASHBOARD, brain/STATE, and the parent directory's index)
+- Use templates from `_templates/` when the file type matches (daily notes, skills, agents, mistakes, decisions)
+
+**When modifying brain/ or memory/ files:**
+- Preserve existing `[[wiki-links]]` — never remove them
+- If adding new cross-references, add both `@notation` (for agent file loading) AND `[[wiki-link]]` (for Obsidian graph)
+
+**Never modify:**
+- `.obsidian/` config files (Obsidian manages these)
+- `.obsidian/plugins/` (plugin code and settings)
+
+**Graph health:** The Obsidian graph view depends on [[wiki-links]]. Every new brain/ or memory/ file should link to at least 2 other files.
+
+### RULE 7: App Registry Routing
 
 When CC mentions modifying code in any app (OASIS, PropFlow, Nostalgic, Grape Vine, Mindset, On The Hill):
 1. Load @brain/APP_REGISTRY.md to get the LOCAL PATH
