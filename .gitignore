@@ -101,3 +101,11 @@ e2e-screenshots/
 # VIRTUAL ENVIRONMENTS
 # =============================================
 .venv/
+
+# =============================================
+# OBSIDIAN — device-specific workspace state
+# =============================================
+.obsidian/workspace.json
+.obsidian/workspaces.json
+.obsidian/workspace-mobile.json
+.obsidian/.obsidian-git-isomorphic-git

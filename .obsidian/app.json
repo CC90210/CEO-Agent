@@ -1,0 +1,13 @@
+{
+  "useMarkdownLinks": false,
+  "showUnsupportedFiles": true,
+  "newFileLocation": "folder",
+  "newFileFolderPath": "memory/daily",
+  "newLinkFormat": "shortest",
+  "attachmentFolderPath": "media",
+  "alwaysUpdateLinks": true,
+  "showFrontmatter": true,
+  "defaultViewMode": "source",
+  "livePreview": true,
+  "promptDelete": true
+}

@@ -4,6 +4,13 @@
 
 ---
 
+### 2026-03-20 — Obsidian vault setup
+**Change:** Configured Business-Empire-Agent repo as an Obsidian vault. Created .obsidian/ with 8 config files (app, appearance, core-plugins, community-plugins, daily-notes, graph, hotkeys), 6 templates in _templates/, brain/DASHBOARD.md as vault home page, memory/TASK_BOARD.md as Kanban board, and .gitignore updated to exclude device-specific workspace state files.
+**Files:** .obsidian/ (8 files), _templates/ (6 files), brain/DASHBOARD.md, memory/TASK_BOARD.md, .gitignore
+**Commit:** pending
+
+---
+
 ### 2026-03-20 — cc-funnel app (NEW)
 **Change:** Built complete multi-step lead capture funnel (Next.js 14, Tailwind, Supabase, Telegram). 3-step form: interest selection (AI/Music/Brand) → targeted questions → contact info. Stores in Supabase `funnel_leads` table, notifies CC via Telegram. GitHub: CC90210/cc-funnel. Pending: Vercel deployment (CC needs to import manually — MCP browser not logged in).
 **Files:** src/app/page.tsx, src/app/api/submit/route.ts, globals.css, layout.tsx, tailwind.config.ts
