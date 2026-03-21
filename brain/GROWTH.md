@@ -59,3 +59,7 @@ Track these across sessions to measure evolution velocity:
 - **Average confidence calibration:** [actual success rate vs. predicted confidence]
 
 *Updated: 2026-03-01*
+
+## Obsidian Links
+- [[brain/BRAIN_LOOP]] | [[brain/CAPABILITIES]] | [[memory/PATTERNS]]
+- [[skills/memory-management/SKILL]] | [[skills/self-healing/SKILL]]

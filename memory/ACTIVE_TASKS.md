@@ -1,6 +1,8 @@
 # ACTIVE TASKS
 > Read this FIRST at the start of every session. Priority: [P0] Critical, [P1] High, [P2] Medium.
 
+> [[brain/DASHBOARD]] | [[brain/STATE]] | [[memory/SESSION_LOG]]
+
 ## Target: $5,000 USD Net MRR by May 15, 2026
 
 - **Current Net:** ~$2,691 USD/mo ($191 base + $2,500 Bennett CM) + $3,000 USD upfront collected.

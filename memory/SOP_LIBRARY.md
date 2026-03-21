@@ -4,6 +4,8 @@
 > Each SOP has a success rate tracked over executions.
 > **V5.5:** Probationary validation system, activation scoring, prerequisite tracking, Supabase sync.
 
+> [[brain/BRAIN_LOOP]] | [[memory/PATTERNS]] | [[brain/DASHBOARD]]
+
 ## SOP Format
 
 ```

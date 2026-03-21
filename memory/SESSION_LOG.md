@@ -2,6 +2,36 @@
 > Agent appends after each working session. Use ISO 8601 dates.
 > **Archive:** Sessions older than 14 days → `memory/ARCHIVES/sessions-YYYY-MM.md`
 
+> [[brain/DASHBOARD]] | [[memory/ACTIVE_TASKS]] | [[brain/STATE]]
+
+---
+
+### 2026-03-20 — CC Funnel E2E Test + Obsidian Vault Integration
+**Agent:** Claude Code (Bravo V5.5)
+**Focus:** Production E2E test of cc-funnel.vercel.app + Obsidian vault setup
+
+**Funnel E2E Test:**
+- Submitted test lead (Mike Thompson, Maple Ridge Plumbing) on live production site
+- Verified Supabase storage: lead stored with all fields including phone number
+- Success screen confirmed (API returned ok:true, Promise.allSettled fired all 3 actions)
+- Cleaned up test data from Supabase after verification
+- Twilio SMS rejected — CC's "recovery key" is account recovery, not API credentials. Confirmed email-only is sufficient.
+
+**Obsidian Vault Integration:**
+- Created .obsidian/ config (8 files): app, appearance, core-plugins, community-plugins, daily-notes, graph, hotkeys
+- Graph view configured with color groups: brain=red, memory=blue, skills=green, agents=orange, APPS_CONTEXT=purple
+- Accent color matched to CC brand (#e8c547 gold)
+- Created _templates/ directory (6 templates): daily-note, skill, agent, session-log-entry, mistake-entry, decision-entry
+- Created brain/DASHBOARD.md — vault home page with full navigation to all 121+ files
+- Created memory/TASK_BOARD.md — Kanban board for active tasks
+- Added [[wiki-links]] to 15 files (7 brain/ + 8 memory/) — 56+ total links for graph view
+- All existing @references preserved for Claude/Gemini/Anti-Gravity compatibility
+- Updated .gitignore with Obsidian workspace exclusions
+- Community plugins configured: Dataview, Templater, obsidian-git, Calendar, Kanban, Homepage, Linter
+
+**Files Created:** 18 new files (.obsidian/*, _templates/*, brain/DASHBOARD.md, memory/TASK_BOARD.md)
+**Files Modified:** 16 files (15 brain/memory files + .gitignore)
+
 ---
 
 ### 2026-03-20 — Obsidian vault setup

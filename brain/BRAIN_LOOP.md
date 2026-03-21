@@ -178,3 +178,9 @@ When the primary approach fails:
 3. After 3 total attempts across all approaches → **STOP and report to CC**
 4. **Always generate a Reflexion entry** (Step 7) after any failure
 5. The Reflexion is stored and retrieved next time a similar task is attempted (Step 2)
+
+## Obsidian Links
+- [[brain/SOUL]] | [[brain/STATE]] | [[brain/AGENTS]]
+- [[memory/MISTAKES]] | [[memory/PATTERNS]] | [[memory/LONG_TERM]]
+- [[memory/SELF_REFLECTIONS]] | [[memory/SOP_LIBRARY]]
+- [[skills/systematic-debugging/SKILL]] | [[skills/memory-management/SKILL]]

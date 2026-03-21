@@ -2,6 +2,8 @@
 > What works, what doesn't. Check this BEFORE starting a task type you've done before.
 > **V5.5:** Patterns now have validation status. `[VALIDATED]` = proven across 3+ sessions. `[PROBATIONARY]` = promising but needs more evidence.
 
+> [[brain/BRAIN_LOOP]] | [[memory/MISTAKES]] | [[memory/SOP_LIBRARY]]
+
 ## Effective Patterns
 
 ### Late API Posting Workflow `[VALIDATED]`

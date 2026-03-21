@@ -28,7 +28,7 @@
 
 ### 1. Architect (Lead System Designer)
 - **Model Tier:** Opus (expensive — use sparingly)
-- **File:** `agents/architect.md`
+- **File:** [[agents/architect]]
 - **Purpose:** High-level decisions on tech stack, database schema, cross-service orchestration (n8n ↔ Supabase ↔ Vercel ↔ Stripe).
 - **Principles:** Present 2-3 options with pros/cons. Log decisions to `memory/DECISIONS.md`. Advisory only — never edits code directly.
 
@@ -39,85 +39,85 @@
 
 ### 3. Coder (Implementation Engine)
 - **Model Tier:** Sonnet
-- **File:** `agents/writer.md`
+- **File:** [[agents/writer]]
 - **Purpose:** High-speed TDD implementation of approved plans.
 - **Principles:** Write tests first (RED → GREEN → REFACTOR). Small focused functions (<50 lines). Immutability over mutation.
 
 ### 4. Reviewer (Quality & Security Guard)
 - **Model Tier:** Sonnet
-- **File:** `agents/reviewer.md`
+- **File:** [[agents/reviewer]]
 - **Purpose:** Pre-commit audit of all code changes.
 - **Principles:** Check for hardcoded secrets, validate error handling, verify TypeScript type safety. Output severity ratings (CRITICAL/HIGH/MEDIUM/LOW). Never edits — only reports.
 
 ### 5. Debugger (Root Cause Analyst)
 - **Model Tier:** Sonnet
-- **File:** `agents/debugger.md`
+- **File:** [[agents/debugger]]
 - **Purpose:** Systematic bug investigation and resolution.
 - **Principles:** Read actual error → search codebase → diagnose from code (never guess) → minimal fix → verify build → report in 2-3 sentences. Max 3 fix attempts before escalating to CC.
 
 ### 6. Researcher (Market & Documentation Intel)
 - **Model Tier:** Sonnet / Haiku
-- **File:** `agents/researcher.md`
+- **File:** [[agents/researcher]]
 - **Purpose:** Deep research via Playwright (web browsing) or Context7 (library docs).
 - **Principles:** Browse selectively. Distill findings into artifacts immediately. Never pollute the session with raw HTML.
 
 ### 7. Content Creator (Brand Voice Engine)
 - **Model Tier:** Sonnet
-- **File:** `agents/content-creator.md`
+- **File:** [[agents/content-creator]]
 - **Purpose:** Draft posts, scripts, marketing copy aligned with CC's 5 content pillars.
 - **Principles:** Authentic voice. No hustle-culture jargon. Platform-aware formatting.
 
 ### 8. Social Publisher (Distribution Layer)
 - **Model Tier:** Haiku
-- **File:** `agents/social-publisher.md`
+- **File:** [[agents/social-publisher]]
 - **Purpose:** Manage Late MCP for posting, scheduling, and cross-posting.
 - **Principles:** Validate character limits before posting (X=280, LinkedIn=3000, IG=2200, Threads=500, TikTok=4000).
 
 ### 9. Video Editor (Media Pipeline)
 - **Model Tier:** Sonnet
-- **File:** `agents/video-editor.md`
+- **File:** [[agents/video-editor]]
 - **Purpose:** Execute FFmpeg, Whisper, ElevenLabs, and Remotion pipelines.
 - **Principles:** Track background processes. Handle media files in `media/raw/` → `media/exports/`.
 
 ### 10. Chief of Staff (Communication & Mission Control)
 - **Model Tier:** Sonnet
-- **File:** `agents/chief-of-staff.md`
+- **File:** [[agents/chief-of-staff]]
 - **Purpose:** Triage incoming signals, draft professional communications, ensure follow-through.
 - **Principles:** Professional tone for B2B (use "Conaugh McKenna"). Casual tone for DJ/entertainment (use "CC").
 
 ### 11. Git Ops (Version Control)
 - **Model Tier:** Haiku
-- **File:** `agents/git-ops.md`
+- **File:** [[agents/git-ops]]
 - **Purpose:** Git operations, commit formatting, PR generation.
 - **Principles:** Conventional commits (`bravo: type — description`). Never push to main. Never stage `.env` files.
 
 ### 12. Revenue Hunter (Sales & Growth)
 - **Model Tier:** Sonnet
-- **File:** `agents/revenue-hunter.md`
+- **File:** [[agents/revenue-hunter]]
 - **Purpose:** Sales outreach strategy, pricing, lead nurturing.
 - **Principles:** Revenue-first mindset. Track leads in `memory/LEAD_TRACKER.csv`.
 
 ### 13. Workflow Builder (n8n Automation)
 - **Model Tier:** Sonnet
-- **File:** `agents/workflow-builder.md`
+- **File:** [[agents/workflow-builder]]
 - **Purpose:** Create and manage n8n workflows via MCP.
 - **Principles:** Workflow-first. Automate before manual. Event-driven (webhooks, not polling).
 
 ### 14. Documenter (Knowledge Maintenance)
 - **Model Tier:** Haiku
-- **File:** `agents/documenter.md`
+- **File:** [[agents/documenter]]
 - **Purpose:** Update documentation, codemaps, and brain files after feature completion.
 - **Principles:** Keep `brain/` files current. Update `CAPABILITIES.md` when tools change.
 
 ### 15. Explorer (Codebase Navigator)
 - **Model Tier:** Haiku
-- **File:** `agents/explorer.md`
+- **File:** [[agents/explorer]]
 - **Purpose:** Read-only codebase search, file discovery, and code analysis. Never edits files.
 - **Principles:** Search before assuming. Use Glob/Grep/Read. Report findings concisely. Never write, edit, or delete.
 
 ### 16. Meta-Agent (Agent Generator) [PROBATIONARY]
 - **Model Tier:** Sonnet
-- **File:** `agents/meta-agent.md`
+- **File:** [[agents/meta-agent]]
 - **Purpose:** Generate complete subagent definition files from natural language descriptions. Checks for overlap with existing agents before creating a new one.
 - **Principles:** Check AGENTS.md first — don't create duplicates. Reject requests where >50% coverage already exists. Tag all generated agents `[PROBATIONARY]`. Always register in AGENTS.md and update CAPABILITIES.md count.
 
@@ -135,3 +135,7 @@
 2. **Patterns** → Log to `memory/PATTERNS.md` (tag `[PROBATIONARY]` until verified across 3+ sessions).
 3. **Decisions** → Log to `memory/DECISIONS.md` with date, rationale, and alternatives considered.
 4. **Reflections** → Log failures to `memory/SELF_REFLECTIONS.md` using Reflexion framework.
+
+## Obsidian Links
+- [[brain/SOUL]] | [[brain/CAPABILITIES]] | [[brain/BRAIN_LOOP]]
+- [[memory/MISTAKES]] | [[memory/PATTERNS]] | [[memory/SELF_REFLECTIONS]]

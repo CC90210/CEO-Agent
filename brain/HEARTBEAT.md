@@ -117,3 +117,7 @@ When n8n webhook triggers are configured, heartbeat can run on a schedule:
 - This enables 24/7 autonomous monitoring without CC opening the IDE
 - See: telegram_agent.js for the existing Telegram → CLI bridge
 - Daemon heartbeat uses the same checks but with reduced verbosity (only report issues, not OKs)
+
+## Obsidian Links
+- [[brain/STATE]] | [[brain/CAPABILITIES]] | [[brain/AGENTS]]
+- [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]]

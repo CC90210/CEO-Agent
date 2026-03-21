@@ -3,6 +3,8 @@
 > Bravo reflects after complex tasks, failures, and milestones.
 > Quality gate: Only log reflections that are specific, evidence-based, novel, and useful.
 
+> [[brain/BRAIN_LOOP]] | [[memory/MISTAKES]] | [[memory/PATTERNS]]
+
 ## Reflection Format
 
 ```

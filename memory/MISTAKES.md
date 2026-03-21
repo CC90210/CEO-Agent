@@ -1,6 +1,8 @@
 # MISTAKES LOG
 > Every mistake logged with root cause and prevention. Check this BEFORE repeating a task type.
 
+> [[brain/BRAIN_LOOP]] | [[memory/PATTERNS]] | [[memory/SELF_REFLECTIONS]]
+
 ### 2026-03-19 — scheduler.py subprocess.run cp1252 UnicodeDecodeError on Windows
 **What happened:** `bravo-scheduler` (PM2) restarted 4 times. `Monthly Metrics Snapshot` cron job was logging `FAILED (exit 1): UnicodeEncodeError: 'charmap' codec can't encode character '\u2500'`. `scheduler.py`'s `run_script()` used `subprocess.run(..., text=True)` without specifying encoding. On Windows, `text=True` defaults to the system locale encoding (`cp1252`), which cannot represent Unicode box-drawing characters printed by `revenue_engine.py` and `stripe_tool.py`.
 **Root cause:** `subprocess.run(text=True)` on Windows uses `locale.getpreferredencoding()` = cp1252. Child scripts printing `\u2500` (─), `\u2014` (—), checkmarks (`\u2705`), etc. cause a decode failure in the parent process.

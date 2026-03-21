@@ -1,6 +1,8 @@
 # DECISIONS LOG
 > Architectural and technical decisions with rationale. Use ISO 8601 dates.
 
+> [[brain/BRAIN_LOOP]] | [[memory/PATTERNS]] | [[brain/DASHBOARD]]
+
 ---
 
 ### 2026-02-27 — Multi-Agent Architecture (3-Tier)

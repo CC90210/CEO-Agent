@@ -228,3 +228,7 @@ Agent: `agents/video-editor.md` (no dedicated workflow — invoke via content pi
 - **Payments:** Stripe (3 brand accounts)
 - **Automation:** n8n (Hostinger VPS: https://n8n.srv993801.hstgr.cloud)
 - **AI Models:** Claude Opus/Sonnet, Gemini 1.5 Pro/Flash, GPT-4o, Gemini CLI (v0.32.1)
+
+## Obsidian Links
+- [[brain/AGENTS]] | [[brain/STATE]] | [[brain/APP_REGISTRY]]
+- [[skills/mcp-operations/SKILL]] | [[skills/browser-automation/SKILL]]

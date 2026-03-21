@@ -2,6 +2,8 @@
 
 > Only facts with confidence >= 0.8 belong here. Reviewed quarterly. Decayed facts get demoted or removed.
 
+> [[brain/BRAIN_LOOP]] | [[memory/PATTERNS]] | [[brain/STATE]]
+
 ## Architecture Facts
 
 | Fact | Confidence | Source | Last Verified |

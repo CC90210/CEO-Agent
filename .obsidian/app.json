@@ -1,4 +1,5 @@
 {
+  "monoFontFamily": "JetBrains Mono, Fira Code, Consolas, monospace",
   "useMarkdownLinks": false,
   "showUnsupportedFiles": true,
   "newFileLocation": "folder",

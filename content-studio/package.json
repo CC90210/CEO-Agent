@@ -13,8 +13,12 @@
   "dependencies": {
     "@remotion/cli": "^4.0.436",
     "@remotion/core": "^1.0.0-y.46",
+    "@remotion/google-fonts": "^4.0.438",
     "@remotion/renderer": "^4.0.436",
     "@remotion/tailwind": "^4.0.436",
     "remotion": "^4.0.436"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
   }
 }

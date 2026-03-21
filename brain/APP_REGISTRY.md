@@ -46,3 +46,7 @@ After completing work in an app repo, append to memory/SESSION_LOG.md:
 **Files:** [key files changed, no code]
 **Commit:** [hash or "pushed to origin/main"]
 ```
+
+## Obsidian Links
+- [[APPS_CONTEXT/OASIS_AI_CLAUDE]] | [[APPS_CONTEXT/PROPFLOW_CLAUDE]] | [[APPS_CONTEXT/NOSTALGIC_REQUESTS_CLAUDE]]
+- [[memory/SESSION_LOG]] | [[brain/DASHBOARD]]
