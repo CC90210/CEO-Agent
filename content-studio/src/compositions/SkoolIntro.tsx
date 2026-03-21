@@ -32,7 +32,7 @@ const AnimatedBackground: React.FC = () => {
   const frame = useCurrentFrame();
 
   // Rotate gradient angle over full video duration
-  const angle = interpolate(frame, [0, 450], [135, 270], {
+  const angle = interpolate(frame, [0, 600], [135, 270], {
     extrapolateRight: "clamp",
   });
 
@@ -323,6 +323,200 @@ const HolographicHexagon: React.FC<{ startFrame: number; endFrame: number }> = (
 };
 
 // ---------------------------------------------------------------------------
+// DataStream — vertical columns of falling data characters (subtle Matrix-style)
+// ---------------------------------------------------------------------------
+const DataStream: React.FC = () => {
+  const frame = useCurrentFrame();
+
+  const columns = [
+    { x: 40, speed: 1.4, chars: 18, phaseOffset: 0 },
+    { x: 160, speed: 1.1, chars: 14, phaseOffset: 3.2 },
+    { x: 300, speed: 1.7, chars: 20, phaseOffset: 1.1 },
+    { x: 490, speed: 1.3, chars: 16, phaseOffset: 2.5 },
+    { x: 640, speed: 1.5, chars: 12, phaseOffset: 0.7 },
+    { x: 780, speed: 1.2, chars: 17, phaseOffset: 4.1 },
+    { x: 960, speed: 1.6, chars: 15, phaseOffset: 1.8 },
+    { x: 1040, speed: 1.0, chars: 13, phaseOffset: 3.8 },
+  ];
+
+  const CHARS = "01アイウエオABCDEF<>{}[]";
+  const globalOpacity = interpolate(frame, [0, 40], [0, 0.22], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none", opacity: globalOpacity }}>
+      {columns.map((col, ci) => {
+        return Array.from({ length: col.chars }, (_, ri) => {
+          const totalHeight = 1920 + col.chars * 36;
+          const yBase = ((frame * col.speed * 1.5 + ri * 36 + col.phaseOffset * 120) % totalHeight) - 60;
+          const charIndex = Math.floor((frame * 0.3 + ri * 7 + ci * 13) % CHARS.length);
+          const headOpacity = ri === 0 ? 1 : interpolate(ri, [0, col.chars], [0.9, 0.05]);
+          const color = ri === 0 ? C.white : ri < 3 ? C.cyan : C.electric;
+
+          return (
+            <div
+              key={`${ci}-${ri}`}
+              style={{
+                position: "absolute",
+                left: col.x,
+                top: yBase,
+                fontFamily: "monospace",
+                fontSize: 14,
+                color,
+                opacity: headOpacity,
+                lineHeight: 1,
+                textShadow: ri < 2 ? `0 0 8px ${C.cyan}` : "none",
+                userSelect: "none",
+              }}
+            >
+              {CHARS[charIndex]}
+            </div>
+          );
+        });
+      })}
+    </AbsoluteFill>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// EnergyWave — expanding concentric rings that pulse outward from center
+// ---------------------------------------------------------------------------
+const EnergyWave: React.FC<{ triggerFrame: number }> = ({ triggerFrame }) => {
+  const frame = useCurrentFrame();
+  const WAVE_INTERVAL = 60;
+  const NUM_WAVES = 4;
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: "50%",
+        left: "50%",
+        width: 0,
+        height: 0,
+        pointerEvents: "none",
+      }}
+    >
+      {Array.from({ length: NUM_WAVES }, (_, i) => {
+        const waveFrame = frame - triggerFrame - i * WAVE_INTERVAL;
+        if (waveFrame < 0) return null;
+
+        const radius = interpolate(waveFrame, [0, 120], [0, 900], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+        });
+        const waveOpacity = interpolate(waveFrame, [0, 20, 120], [0, 0.4, 0], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+        });
+        const color = i % 2 === 0 ? C.cyan : C.magenta;
+        const thickness = interpolate(waveFrame, [0, 120], [3, 0.5], {
+          extrapolateLeft: "clamp",
+          extrapolateRight: "clamp",
+        });
+
+        return (
+          <div
+            key={i}
+            style={{
+              position: "absolute",
+              top: -radius,
+              left: -radius,
+              width: radius * 2,
+              height: radius * 2,
+              borderRadius: "50%",
+              border: `${thickness}px solid ${color}`,
+              opacity: waveOpacity,
+              boxShadow: `0 0 16px ${color}44, inset 0 0 16px ${color}22`,
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// HolographicGrid — perspective grid floor with vanishing point
+// ---------------------------------------------------------------------------
+const HolographicGrid: React.FC<{ startFrame: number; endFrame: number }> = ({
+  startFrame,
+  endFrame,
+}) => {
+  const frame = useCurrentFrame();
+
+  const opacity = interpolate(
+    frame,
+    [startFrame, startFrame + 30, endFrame - 20, endFrame],
+    [0, 0.35, 0.35, 0],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+  );
+
+  // Scroll the grid lines to create movement illusion
+  const scroll = (frame * 2) % 100;
+
+  const HORIZON_Y = 700;
+  const VP_X = 540;
+  const GRID_COLOR = C.electric;
+  const NUM_V_LINES = 11;
+  const NUM_H_LINES = 8;
+
+  const vLines = Array.from({ length: NUM_V_LINES }, (_, i) => {
+    const t = i / (NUM_V_LINES - 1);
+    const bottomX = t * 1080;
+    return { x1: VP_X, y1: HORIZON_Y, x2: bottomX, y2: 1920 };
+  });
+
+  const hLines = Array.from({ length: NUM_H_LINES }, (_, i) => {
+    const t = ((i / NUM_H_LINES) + scroll / 100) % 1;
+    const perspT = Math.pow(t, 2);
+    const y = HORIZON_Y + perspT * (1920 - HORIZON_Y);
+    const spreadX = perspT * VP_X;
+    return { x1: VP_X - spreadX, y1: y, x2: VP_X + spreadX, y2: y, alpha: t };
+  });
+
+  return (
+    <div style={{ position: "absolute", inset: 0, opacity }}>
+      <svg width="1080" height="1920" viewBox="0 0 1080 1920" style={{ display: "block" }}>
+        <defs>
+          <linearGradient id="gridFade" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={GRID_COLOR} stopOpacity="0" />
+            <stop offset="60%" stopColor={GRID_COLOR} stopOpacity="0.5" />
+            <stop offset="100%" stopColor={GRID_COLOR} stopOpacity="0.8" />
+          </linearGradient>
+        </defs>
+        {vLines.map((l, i) => (
+          <line
+            key={`v${i}`}
+            x1={l.x1}
+            y1={l.y1}
+            x2={l.x2}
+            y2={l.y2}
+            stroke="url(#gridFade)"
+            strokeWidth="0.6"
+            strokeOpacity="0.6"
+          />
+        ))}
+        {hLines.map((l, i) => (
+          <line
+            key={`h${i}`}
+            x1={l.x1}
+            y1={l.y1}
+            x2={l.x2}
+            y2={l.y2}
+            stroke={GRID_COLOR}
+            strokeWidth="0.5"
+            strokeOpacity={l.alpha * 0.7}
+          />
+        ))}
+      </svg>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // Scene 1: Opening — Agency Accelerants hero text
 // ---------------------------------------------------------------------------
 const Scene1: React.FC = () => {
@@ -366,8 +560,8 @@ const Scene1: React.FC = () => {
     extrapolateRight: "clamp",
   });
 
-  // Scene 1 exit: fade out from frame 72
-  const sceneOpacity = interpolate(frame, [72, 90], [1, 0], {
+  // Scene 1 exit: fade out from frame 96
+  const sceneOpacity = interpolate(frame, [96, 120], [1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -457,7 +651,7 @@ const Scene1: React.FC = () => {
             textShadow: `0 0 14px ${C.cyan}99`,
           }}
         >
-          by OASIS AI Solutions
+          by Bennet Spooner
         </div>
       </div>
     </AbsoluteFill>
@@ -515,21 +709,21 @@ const Scene2: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // Scene 2 active: frames 90-165
-  const sceneIn = interpolate(frame, [90, 108], [0, 1], {
+  // Scene 2 active: frames 120-228
+  const sceneIn = interpolate(frame, [120, 144], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const sceneOut = interpolate(frame, [150, 168], [1, 0], {
+  const sceneOut = interpolate(frame, [204, 228], [1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
   const sceneOpacity = Math.min(sceneIn, sceneOut);
 
-  // Headline typewriter: frames 96-130
+  // Headline typewriter: frames 132-178
   const headline = "Still doing everything manually?";
   const charsShown = Math.floor(
-    interpolate(frame, [96, 134], [0, headline.length], {
+    interpolate(frame, [132, 178], [0, headline.length], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
     })
@@ -589,7 +783,7 @@ const Scene2: React.FC = () => {
         }}
       >
         {PROBLEM_BULLETS.map((bullet, i) => {
-          const bulletStart = 112 + i * 18;
+          const bulletStart = 152 + i * 24;
           const bulletProgress = spring({
             frame: frame - bulletStart,
             fps,
@@ -772,25 +966,25 @@ const Scene3: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // Scene 3: frames 168-270
-  const sceneIn = interpolate(frame, [168, 188], [0, 1], {
+  // Scene 3: frames 228-370
+  const sceneIn = interpolate(frame, [228, 254], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const sceneOut = interpolate(frame, [255, 272], [1, 0], {
+  const sceneOut = interpolate(frame, [348, 370], [1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
   const sceneOpacity = Math.min(sceneIn, sceneOut);
 
-  // "What if AI did 90% of it?" spring scale-in from frame 172
+  // "What if AI did 90% of it?" spring scale-in from frame 232
   const questionSpring = spring({
-    frame: frame - 172,
+    frame: frame - 232,
     fps,
     config: { damping: 14, stiffness: 100, mass: 0.9 },
   });
   const questionScale = interpolate(questionSpring, [0, 1], [0.7, 1]);
-  const questionOpacity = interpolate(frame, [172, 192], [0, 1], {
+  const questionOpacity = interpolate(frame, [232, 258], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -850,7 +1044,7 @@ const Scene3: React.FC = () => {
         }}
       >
         {FEATURE_CARDS.map((card, i) => {
-          const cardStart = 188 + i * 22;
+          const cardStart = 254 + i * 30;
           const cardSpring = spring({
             frame: frame - cardStart,
             fps,
@@ -980,20 +1174,20 @@ const Scene4: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // Scene 4: frames 272-360
-  const sceneIn = interpolate(frame, [272, 292], [0, 1], {
+  // Scene 4: frames 370-490
+  const sceneIn = interpolate(frame, [370, 396], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const sceneOut = interpolate(frame, [345, 362], [1, 0], {
+  const sceneOut = interpolate(frame, [468, 490], [1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
   const sceneOpacity = Math.min(sceneIn, sceneOut);
 
-  // Animated counter: $0 → $5,000 over frames 285-335
+  // Animated counter: $0 → $5,000 over frames 385-450
   const counterValue = Math.floor(
-    interpolate(frame, [285, 335], [0, 5000], {
+    interpolate(frame, [385, 450], [0, 5000], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
     })
@@ -1004,29 +1198,29 @@ const Scene4: React.FC = () => {
     [10, 28]
   );
 
-  // "Monthly Recurring Revenue Target" fades in from frame 295
-  const labelOpacity = interpolate(frame, [295, 312], [0, 1], {
+  // "Monthly Recurring Revenue Target" fades in from frame 400
+  const labelOpacity = interpolate(frame, [400, 422], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  // Tagline spring from frame 308
+  // Tagline spring from frame 420
   const taglineSpring = spring({
-    frame: frame - 308,
+    frame: frame - 420,
     fps,
     config: { damping: 20, stiffness: 80 },
   });
   const taglineY = interpolate(taglineSpring, [0, 1], [30, 0]);
-  const taglineOpacity = interpolate(frame, [308, 325], [0, 1], {
+  const taglineOpacity = interpolate(frame, [420, 440], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  // Badges spring in staggered from frame 318
+  // Badges spring in staggered from frame 440
   const BADGES = [
-    "14 DB Tables in One Night",
-    "Zero to MRR in 30 Days",
-    "100% AI-Powered Stack",
+    "Scale to 6 Figures with AI",
+    "Done-For-You Automations",
+    "Elite Community Access",
   ];
 
   return (
@@ -1041,7 +1235,7 @@ const Scene4: React.FC = () => {
       }}
     >
       {/* Pulsing rings centered on MRR number */}
-      <PulsingRings peakFrame={285} />
+      <PulsingRings peakFrame={385} />
 
       {/* Animated counter */}
       <div style={{ textAlign: "center" }}>
@@ -1117,7 +1311,7 @@ const Scene4: React.FC = () => {
         }}
       >
         {BADGES.map((badge, i) => {
-          const badgeStart = 320 + i * 14;
+          const badgeStart = 440 + i * 14;
           const badgeSpring = spring({
             frame: frame - badgeStart,
             fps,
@@ -1202,26 +1396,26 @@ const Scene5: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // Scene 5: frames 362-450
-  const sceneOpacity = interpolate(frame, [362, 382], [0, 1], {
+  // Scene 5: frames 490-600
+  const sceneOpacity = interpolate(frame, [490, 514], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  // "JOIN THE ACCELERANTS" bouncy spring from frame 370
+  // "JOIN THE ACCELERANTS" bouncy spring from frame 498
   const ctaSpring = spring({
-    frame: frame - 370,
+    frame: frame - 498,
     fps,
     config: { damping: 10, stiffness: 220, mass: 0.7 },
   });
   const ctaScale = interpolate(ctaSpring, [0, 1], [0, 1]);
-  const ctaOpacity = interpolate(frame, [370, 386], [0, 1], {
+  const ctaOpacity = interpolate(frame, [498, 518], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
   // Gradient border animation on CTA button
-  const borderAngle = interpolate(frame, [370, 450], [0, 360], {
+  const borderAngle = interpolate(frame, [498, 600], [0, 360], {
     extrapolateRight: "clamp",
   });
 
@@ -1232,25 +1426,25 @@ const Scene5: React.FC = () => {
     [12, 35]
   );
 
-  // "Your AI Empire Starts Here" typewriter from frame 388
+  // "Your AI Empire Starts Here" typewriter from frame 516
   const tagline = "Your AI Empire Starts Here";
   const taglineChars = Math.floor(
-    interpolate(frame, [390, 430], [0, tagline.length], {
+    interpolate(frame, [518, 560], [0, tagline.length], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
     })
   );
   const visibleTagline = tagline.slice(0, taglineChars);
 
-  // Brand watermark fades in from frame 405
-  const brandOpacity = interpolate(frame, [405, 425], [0, 1], {
+  // Brand watermark fades in from frame 540
+  const brandOpacity = interpolate(frame, [540, 562], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  // Final pulse: frames 420-450, scale 1→1.02→1
+  // Final pulse: frames 570-600, scale 1→1.02→1
   const finalPulse = interpolate(
-    Math.sin(interpolate(frame, [420, 450], [0, Math.PI], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })),
+    Math.sin(interpolate(frame, [570, 600], [0, Math.PI], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })),
     [0, 1],
     [1, 1.018]
   );
@@ -1398,7 +1592,7 @@ const Scene5: React.FC = () => {
             opacity: 0.9,
           }}
         >
-          OASIS AI SOLUTIONS
+          BENNET SPOONER
         </div>
       </div>
     </AbsoluteFill>
@@ -1420,37 +1614,48 @@ export const SkoolIntro: React.FC = () => {
       {/* ── Layer 2: Floating particles (entire video, upward drift) ── */}
       <FloatingParticles />
 
+      {/* ── Layer 2b: DataStream (subtle Matrix-style data rain, entire video) ── */}
+      <DataStream />
+
+      {/* ── Layer 2c: HolographicGrid (Scene 4+5, perspective grid floor) ── */}
+      <HolographicGrid startFrame={370} endFrame={600} />
+
+      {/* ── Layer 2d: EnergyWave pulses at scene transitions ── */}
+      <EnergyWave triggerFrame={120} />
+      <EnergyWave triggerFrame={370} />
+      <EnergyWave triggerFrame={490} />
+
       {/* ── Layer 3: Circuit pattern (Scene 3 fade-in) ── */}
-      <CircuitPattern fadeInStart={168} opacity={0.18} />
+      <CircuitPattern fadeInStart={228} opacity={0.18} />
 
-      {/* ── Layer 4: Holographic hexagon (Scene 1, frames 8-90) ── */}
-      <HolographicHexagon startFrame={8} endFrame={90} />
+      {/* ── Layer 4: Holographic hexagon (Scene 1, frames 8-120) ── */}
+      <HolographicHexagon startFrame={8} endFrame={120} />
 
-      {/* ── Layer 5: Scan line sweep (Scene 2, frames 90-165) ── */}
-      <ScanLine startFrame={90} endFrame={165} />
+      {/* ── Layer 5: Scan line sweep (Scene 2, frames 120-225) ── */}
+      <ScanLine startFrame={120} endFrame={225} />
 
       {/* ── Layer 6: Scene content ── */}
 
-      {/* Scene 1: Opening Hook — frames 0-90 */}
+      {/* Scene 1: Opening Hook — frames 0-120 */}
       <Scene1 />
 
-      {/* Scene 2: The Problem — frames 90-168 */}
+      {/* Scene 2: The Problem — frames 120-228 */}
       <Scene2 />
 
-      {/* Scene 3: Transformation — frames 168-272 */}
+      {/* Scene 3: Transformation — frames 228-370 */}
       <Scene3 />
 
-      {/* Scene 4: Social Proof — frames 272-362 */}
+      {/* Scene 4: Social Proof — frames 370-490 */}
       <Scene4 />
 
-      {/* Scene 5: CTA Close — frames 362-450 */}
+      {/* Scene 5: CTA Close — frames 490-600 */}
       <Scene5 />
 
       {/* ── Layer 7: Transition flashes ── */}
-      <TransitionFlash peakFrame={90} />
-      <TransitionFlash peakFrame={168} />
-      <TransitionFlash peakFrame={272} />
-      <TransitionFlash peakFrame={362} />
+      <TransitionFlash peakFrame={120} />
+      <TransitionFlash peakFrame={228} />
+      <TransitionFlash peakFrame={370} />
+      <TransitionFlash peakFrame={490} />
 
       {/* ── Layer 8: Vignette (cinematic edge darkening) ── */}
       <Vignette startFrame={0} />
