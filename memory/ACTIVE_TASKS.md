@@ -20,9 +20,11 @@
 
 ## P1 — Infrastructure (Stable)
 
+- [ ] [P1] **Skool community automation: manual login + dry-run test** — Built scripts/skool_engine.py. Needs one-time manual Skool login in tmp/skool-browser/, then `--dry-run` test to verify DM/comment functionality before autonomous operation (2026-03-21)
 - [ ] [P1] **Content pipeline: build real structure** — 21 draft posts exist in Supabase but auto-posting is DISABLED. Need CC to review content strategy before enabling. No posts will auto-publish.
 - [ ] [P1] **Create Google Meet link** — Store in .env.agents for booking confirmations
 - [ ] [P1] **Wire n8n to cron_engine** — Connect n8n workflows to execute cron job actions
+- [x] [P1] **Skool Lead Magnets: emoji fix** — Fixed UTF-8 mojibake across L1, L2, L3 (2026-03-21)
 
 ## P2 — Blocked / Waiting
 
@@ -32,6 +34,11 @@
 | LinkedIn automation | Need local Chrome auth hookup | 2026-03-04 |
 | On The Bay Painting | Client not ready — revisit in weeks/months | 2026-03-16 |
 | PropFlow | Pivoted dev hours to OASIS | 2026-03-01 |
+
+## Recently Completed (March 21)
+- [x] **Skool Lead Magnets emoji fix** — UTF-8 mojibake resolved (garbled 🧲, 🧠, 🛠️ → correct Unicode)
+- [x] **SkoolIntro Remotion composition** — 450-frame intro video (15s) created, registered in Root.tsx
+- [x] **Skool community automation engine** — Built scripts/skool_engine.py with feed scanner, DM responder, new member welcome, Telegram notifications. Ready for manual login + dry-run test.
 
 ## Recently Completed (March 20)
 - [x] **Full bug audit across all automations** — 39 bugs found across 4 audits, 20 critical/high/medium fixed
@@ -49,4 +56,4 @@
 - [x] Content auto-posting DISABLED (21 drafts set to "draft" status, scheduler no-op'd)
 - [x] All 8 business engines operational and audited
 
-*Last updated: 2026-03-20*
+*Last updated: 2026-03-21*

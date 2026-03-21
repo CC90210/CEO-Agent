@@ -54,6 +54,14 @@ _INFO_KEYWORDS = {
 }
 _GREETING_KEYWORDS = {"hey", "hi", "hello", "sup", "yo", "what's good", "whats good"}
 
+_PAYMENT_PHRASES = {
+    "how do i pay", "ready to pay", "where do i pay", "how to pay",
+    "send payment", "take my money", "sign me up", "payment link",
+    "e-transfer", "etransfer", "e transfer", "wire transfer", "interac",
+    "venmo", "zelle", "paypal", "can i pay", "want to pay",
+    "send you money", "send the money", "how do i send",
+}
+
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 try:
@@ -824,6 +832,7 @@ def detect_intent(text: str) -> str:
 
     BOOKING: Only when they EXPLICITLY ask for a call/meeting/demo.
     PRICING: Asking about cost/pricing.
+    PAYMENT: Ready to pay, asking how to pay, or mentioning non-Stripe payment methods.
     INFO: Asking what you do or how it works.
     GREETING: Simple hello/hey/yo.
     CONVO: General conversation that doesn't fit above — respond naturally.
@@ -842,6 +851,14 @@ def detect_intent(text: str) -> str:
     for phrase in _EXPLICIT_BOOKING_PHRASES:
         if phrase in lowered:
             return "BOOKING"
+
+    # Check for payment intent — someone ready to pay or mentioning non-Stripe methods
+    for phrase in _PAYMENT_PHRASES:
+        if phrase in lowered:
+            return "PAYMENT"
+    # Single-word payment signals with context
+    if any(w in lowered for w in ("invoice", "checkout")) and any(w in lowered for w in ("send", "ready", "want", "need", "can")):
+        return "PAYMENT"
 
     # Multi-word checks
     if "how much" in lowered or "what's the price" in lowered or "what do you charge" in lowered:
@@ -903,6 +920,9 @@ def build_reply(intent: str, last_msg: str = "", convo_context: str = "") -> str
             "down. when are you thinking? im free most days 9-5 eastern",
         ])
 
+    if intent == "PAYMENT":
+        return _build_payment_reply(last_msg, convo_context)
+
     if intent == "PRICING":
         return random.choice([
             "honestly it depends on what you need — every business is different. "
@@ -942,6 +962,43 @@ def build_reply(intent: str, last_msg: str = "", convo_context: str = "") -> str
     return ""
 
 
+def _resolve_payment_links(reply: str) -> str:
+    """Find [GENERATE_PAYMENT_LINK:amount:label] tokens and replace with real Stripe URLs."""
+    import re
+
+    pattern = r'\[GENERATE_PAYMENT_LINK:(\d+):([^\]]+)\]'
+
+    def _replace_link(match):
+        amount_cents = int(match.group(1))
+        label = match.group(2).strip()
+        try:
+            from stripe_tool import generate_payment_link
+            result = generate_payment_link(
+                amount_cents=amount_cents,
+                label=label,
+                currency="cad",
+            )
+            return result["url"]
+        except Exception as e:
+            safe_print(f"[stripe] Payment link generation failed: {e}")
+            return "(payment link coming — i'll send it in a sec)"
+
+    return re.sub(pattern, _replace_link, reply)
+
+
+def _build_payment_reply(last_msg: str, convo_context: str) -> str:
+    """Generate a payment-related reply using Claude, then resolve any payment link tokens."""
+    reply = _generate_reply_via_claude(last_msg, convo_context, payment_context=True)
+    if reply:
+        return _resolve_payment_links(reply)
+
+    # Fallback if Claude API is down
+    return (
+        "ya for sure — i'll send you a payment link right now. "
+        "all payments go through stripe so its secure and easy"
+    )
+
+
 def _build_convo_reply(last_msg: str, convo_context: str) -> str:
     """Generate a contextual reply using Claude API.
 
@@ -956,7 +1013,7 @@ def _build_convo_reply(last_msg: str, convo_context: str) -> str:
     # Try Claude API first — this is the real reply engine
     reply = _generate_reply_via_claude(last_msg, convo_context)
     if reply:
-        return reply
+        return _resolve_payment_links(reply)
 
     # Fallback: bare minimum templates if API is down
     lower = last_msg.lower().strip()
@@ -969,7 +1026,7 @@ def _build_convo_reply(last_msg: str, convo_context: str) -> str:
     return "ya for sure"
 
 
-def _generate_reply_via_claude(last_msg: str, convo_context: str) -> str:
+def _generate_reply_via_claude(last_msg: str, convo_context: str, payment_context: bool = False) -> str:
     """Call Claude API to generate a contextual DM reply in CC's voice.
 
     Returns the reply text, or empty string on failure.
@@ -989,6 +1046,15 @@ def _generate_reply_via_claude(last_msg: str, convo_context: str) -> str:
     if convo_context:
         context_block = f"\nRecent conversation:\n{convo_context[-1000:]}\n"
 
+    if payment_context:
+        context_block += (
+            "\nCONTEXT: This person is asking about payment or how to pay. "
+            "If a price was previously discussed or agreed in the conversation, "
+            "include a [GENERATE_PAYMENT_LINK:amount_cents:label] token in your reply "
+            "(e.g., [GENERATE_PAYMENT_LINK:25000:OASIS AI Monthly]). "
+            "If no price was agreed yet, ask what service they want first.\n"
+        )
+
     system_prompt = (
         "You are ghostwriting an Instagram DM reply as Conaugh McKenna (CC), "
         "a 22-year-old AI automation entrepreneur from Collingwood, Ontario. "
@@ -1003,8 +1069,19 @@ def _generate_reply_via_claude(last_msg: str, convo_context: str) -> str:
         "- NEVER use hashtags or marketing language.\n"
         "- If they said something about your story, acknowledge the story content.\n"
         "- If they said thank you, just be chill about it.\n"
-        "- Keep it to 1-2 sentences max. DMs are short.\n"
+        "- Keep it to 1-3 sentences max. DMs are short.\n"
         "- Respond to WHAT THEY ACTUALLY SAID. Read their message carefully.\n\n"
+        "PAYMENT RULES (non-negotiable):\n"
+        "- ALL payments go through Stripe. NEVER suggest e-transfer, wire transfer, "
+        "Interac, Venmo, Zelle, PayPal, cash, or any other payment method.\n"
+        "- If they ask how to pay or mention any non-Stripe method, say: "
+        "'all payments go through stripe — super easy and secure, i'll send you a link'\n"
+        "- If a specific dollar amount has been AGREED upon and they want to pay, "
+        "include this exact token in your reply (it will be replaced with a real link):\n"
+        "  [GENERATE_PAYMENT_LINK:<amount_in_cents_CAD>:<short description>]\n"
+        "  Example: 'here's your link [GENERATE_PAYMENT_LINK:50000:OASIS AI Retainer]'\n"
+        "- Only include the payment link token when a price is AGREED. Not for general pricing questions.\n"
+        "- Currency is always CAD.\n\n"
         "Reply with ONLY the message text. No quotes, no labels, nothing else."
     )
 
@@ -1517,11 +1594,17 @@ def cmd_auto_reply(env_vars, args):
                 # Log to Supabase (best-effort)
                 log_auto_reply_to_supabase(env_vars, username, intent, reply_text)
 
-                # Only notify CC on Telegram for booking intents — not every reply
+                # Notify CC on Telegram for booking and payment intents
                 if intent == "BOOKING":
                     notify(
                         f"IG DM from @{username}: \"{last_msg[:60]}\"\n"
                         f"Auto-replied (BOOKING): {reply_text[:80]}",
+                        category="instagram",
+                    )
+                elif intent == "PAYMENT":
+                    notify(
+                        f"IG DM from @{username}: \"{last_msg[:60]}\"\n"
+                        f"Auto-replied (PAYMENT): {reply_text[:80]}",
                         category="instagram",
                     )
 

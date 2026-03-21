@@ -136,6 +136,51 @@ def format_amount(amount, currency="usd"):
     return f"${amount / 100:.2f} {currency.upper()}"
 
 
+def generate_payment_link(
+    amount_cents: int,
+    label: str,
+    currency: str = "cad",
+    recurring: str = None,
+    account: str = "oasis",
+) -> dict:
+    """Create product + price + payment link in one shot. Importable by other scripts.
+
+    Args:
+        amount_cents: Price in cents (e.g., 25000 for $250.00)
+        label: Human-readable product name (e.g., "OASIS AI Monthly Retainer")
+        currency: ISO currency code (default: "cad")
+        recurring: "month" or "year" for subscriptions, None for one-time
+        account: Stripe account alias (default: "oasis")
+
+    Returns:
+        {"url": "https://buy.stripe.com/...", "price_id": "price_...", "product_id": "prod_..."}
+    """
+    env_vars = load_env()
+    client = get_client(env_vars, account)
+
+    prod = client.post("products", {"name": label})
+
+    params = {
+        "unit_amount": str(amount_cents),
+        "currency": currency,
+        "product": prod["id"],
+    }
+    if recurring:
+        params["recurring[interval]"] = recurring
+
+    price = client.post("prices", params)
+    link = client.post("payment_links", {
+        "line_items[0][price]": price["id"],
+        "line_items[0][quantity]": "1",
+    })
+
+    return {
+        "url": link.get("url", ""),
+        "price_id": price["id"],
+        "product_id": prod["id"],
+    }
+
+
 # ── Commands ──────────────────────────────────────────────
 
 def cmd_list_accounts(env_vars, args):
@@ -297,6 +342,66 @@ def cmd_create_payment_link(client, args):
     print(f"  URL: {result.get('url', 'N/A')}")
 
 
+def cmd_create_price(client, args):
+    """Create a price (and optionally a product) for custom payment links."""
+    # Create an ad-hoc product if none specified
+    product_id = args.product
+    if not product_id:
+        prod = client.post("products", {
+            "name": args.label or f"OASIS Custom - ${args.amount / 100:.0f}",
+        })
+        product_id = prod["id"]
+
+    params = {
+        "unit_amount": str(args.amount),
+        "currency": args.currency,
+        "product": product_id,
+    }
+    if args.recurring:
+        params["recurring[interval]"] = args.recurring  # "month" or "year"
+
+    result = client.post("prices", params)
+    price_id = result["id"]
+    kind = f"/ {args.recurring}" if args.recurring else "one-time"
+    print(f"Price created!")
+    print(f"  ID:       {price_id}")
+    print(f"  Amount:   {format_amount(args.amount, args.currency)} {kind}")
+    print(f"  Product:  {product_id}")
+
+    # Auto-create payment link if --link flag is set
+    if args.link:
+        link = client.post("payment_links", {
+            "line_items[0][price]": price_id,
+            "line_items[0][quantity]": "1",
+        })
+        print(f"  Pay Link: {link.get('url', 'N/A')}")
+
+
+def cmd_quick_link(client, args):
+    """One-shot: create product + price + payment link from just an amount and label."""
+    prod = client.post("products", {
+        "name": args.label,
+    })
+    params = {
+        "unit_amount": str(args.amount),
+        "currency": args.currency,
+        "product": prod["id"],
+    }
+    if args.recurring:
+        params["recurring[interval]"] = args.recurring
+
+    price = client.post("prices", params)
+    link = client.post("payment_links", {
+        "line_items[0][price]": price["id"],
+        "line_items[0][quantity]": "1",
+    })
+    kind = f"/{args.recurring}" if args.recurring else "one-time"
+    print(f"{link.get('url', 'ERROR')}")
+    if not getattr(args, "output_json", False):
+        amt = format_amount(args.amount, args.currency)
+        print(f"  ({amt} {kind} — {args.label})")
+
+
 def cmd_create_customer(client, args):
     """Create a new customer."""
     params = {}
@@ -375,6 +480,8 @@ Examples:
   %(prog)s charges --limit 5
   %(prog)s payment-links
   %(prog)s create-payment-link --price price_xxx
+  %(prog)s create-price --amount 25000 --label "OASIS Setup" --link
+  %(prog)s quick-link --amount 50000 --label "OASIS Retainer" --recurring month
   %(prog)s create-customer --email cc@oasis.ai --name "CC McKenna"
   %(prog)s create-invoice --customer cus_xxx
   %(prog)s refund ch_xxx --amount 500
@@ -438,7 +545,23 @@ To add an account: STRIPE_PROPFLOW_ACCT_ID=acct_xxx in .env.agents
     p_cpl = subparsers.add_parser("create-payment-link", parents=[parent_parser], help="Create a payment link")
     p_cpl.add_argument("--price", required=True, help="Price ID (price_xxx)")
     p_cpl.add_argument("--quantity", type=int, default=1)
-    
+
+    # create-price
+    p_cp = subparsers.add_parser("create-price", parents=[parent_parser], help="Create a price (and optionally a product)")
+    p_cp.add_argument("--amount", required=True, type=int, help="Amount in cents (e.g., 25000 for $250)")
+    p_cp.add_argument("--label", help="Product name (auto-generated if omitted)")
+    p_cp.add_argument("--currency", default="cad")
+    p_cp.add_argument("--recurring", choices=["month", "year"], help="Recurring interval")
+    p_cp.add_argument("--product", help="Existing product ID (creates new if omitted)")
+    p_cp.add_argument("--link", action="store_true", help="Also create a payment link")
+
+    # quick-link (one-shot: amount + label → payment link URL)
+    p_ql = subparsers.add_parser("quick-link", parents=[parent_parser], help="Create payment link from just an amount and label")
+    p_ql.add_argument("--amount", required=True, type=int, help="Amount in cents")
+    p_ql.add_argument("--label", required=True, help="Product name")
+    p_ql.add_argument("--currency", default="cad")
+    p_ql.add_argument("--recurring", choices=["month", "year"], help="Recurring interval")
+
     # create-customer
     p_cc = subparsers.add_parser("create-customer", parents=[parent_parser], help="Create a customer")
     p_cc.add_argument("--email", required=True)
@@ -519,6 +642,8 @@ To add an account: STRIPE_PROPFLOW_ACCT_ID=acct_xxx in .env.agents
         "charges": cmd_charges,
         "payment-links": cmd_payment_links,
         "create-payment-link": cmd_create_payment_link,
+        "create-price": cmd_create_price,
+        "quick-link": cmd_quick_link,
         "create-customer": cmd_create_customer,
         "create-invoice": cmd_create_invoice,
         "refund": cmd_refund,

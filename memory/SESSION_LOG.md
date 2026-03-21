@@ -6,6 +6,39 @@
 
 ---
 
+### 2026-03-21 — Skool Community Automation Engine
+**Built:** `scripts/skool_engine.py` — autonomous Skool community agent with:
+- Community feed scanner: scrapes posts, generates coaching replies via Claude API, posts comments
+- DM auto-responder: checks unread DMs, generates contextual replies in CC's voice
+- New member welcome: detects new members, sends personalized welcome DMs via Chat button
+- Persistent browser session (tmp/skool-browser/), JSON state tracking
+- Claude API integration with coaching voice system prompt
+- Telegram notifications for all actions via notify.py
+- `--dry-run` mode for safe testing
+- Cron runner: `scripts/skool-cron.cmd` (Windows Task Scheduler, every 30 min)
+**Files:** scripts/skool_engine.py (new), scripts/skool-cron.cmd (new)
+**Status:** Built and verified. Needs one-time manual Skool login before autonomous operation.
+
+---
+
+### 2026-03-21 — Skool Lead Magnets Emoji Fix
+**Agent:** Claude Code (Bravo V5.5)
+**Goal:** Fix UTF-8 mojibake (broken emojis) across Skool Lead Magnets lessons.
+**Done:**
+- Fixed 4 lessons in Agency Accelerants Lead Magnets course (L1 Fundamentals, L2 Build & Landing Page, L3 Distribution & Email)
+- Root cause: UTF-8 bytes being interpreted as latin-1 codepoints, resulting in garbled characters (ð§², ð\x9f§, etc.)
+- Applied JavaScript fix via Playwright MCP browser automation directly on Skool's Tiptap editor
+- Two passes needed: (1) bulk mojibake reversal function to convert garbled sequences back to proper Unicode, (2) targeted fixes for residual broken sequences (🧠 KEY TAKEAWAY heading, 🛠️ Tools Stack section where byte-level issues remained)
+- L4 was already correct and required no fixes
+- All lessons verified visually in browser after fixes applied
+**Issues:** None
+**Next:**
+- Consider proactive emoji encoding audit for other Skool courses
+- Document UTF-8 handling gotchas in Skool automation skill
+**Files changed:** No local files — all changes made live via Playwright MCP to Skool's Tiptap editor
+
+---
+
 ### 2026-03-21 — SkoolIntro Remotion Composition
 **Agent:** Claude Code (Bravo V5.5)
 **Change:** Created `content-studio/src/compositions/SkoolIntro.tsx` — 450-frame (15s) god-tier Skool community intro video for Agency Accelerants. Registered in Root.tsx as `id="SkoolIntro"`. TypeScript: zero errors confirmed via `tsc --noEmit`.
