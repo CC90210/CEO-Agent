@@ -51,6 +51,7 @@ When CC asks a question, answer it using MCP tools. Do NOT dump file contents or
 | n8n workflows, automations | n8n-mcp | `search_workflows`, `execute_workflow` |
 | Social posts, scheduling | Late | `posts_create`, `posts_list`, `posts_cross_post` |
 | Web browsing, screenshots | Playwright | `browser_navigate`, `browser_snapshot` |
+| Website-to-CLI, web scraping, API discovery | **OpenCLI** | `opencli explore <url>`, `opencli list`, `opencli <platform> <cmd>` |
 | Library documentation | Context7 | `resolve-library-id`, `query-docs` |
 | Knowledge graph | Memory | `search_nodes`, `create_entities` |
 | Structured reasoning | Sequential Thinking | `sequentialthinking` |
@@ -126,6 +127,7 @@ Business-Empire-Agent is ONLY for agent intelligence (brain/, memory/, skills/, 
 | `/commit` | Smart commit with conventional format (`bravo: type — desc`) |
 | `/create-prd` | Generate PRD for client projects |
 | `/cli-anything` | Generate CLI wrapper for any software/API/service |
+| `/opencli` | Explore websites, run prebuilt adapters, create website CLI adapters |
 | `/skool-edit` | Edit a single Skool lesson or About page via Playwright |
 | `/skool-push` | Batch push content to multiple Skool lessons from local files |
 | `/review` | Pre-landing code review with Fix-First methodology |

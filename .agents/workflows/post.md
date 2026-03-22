@@ -27,3 +27,6 @@ description: Publish a social media post to one or multiple platforms via Late A
    - Multiple platforms: `mcp_late_posts_cross_post` with comma-separated platforms.
 
 7. Confirm to CC: "Posted to [platforms]. Post ID: [id]."
+
+8. Optional: Verify post visibility via OpenCLI (for platforms with adapters):
+   - `opencli twitter profile @cc_handle --json` — confirm post appears in timeline

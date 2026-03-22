@@ -63,6 +63,7 @@ Your ONLY job is to answer CC's question. Use MCP tools. 1-5 sentences max for s
 
 | Query database, tables, SQL | **Supabase** | `execute_sql`, `list_tables`, `apply_migration` |
 | Stripe payments, balance | **Stripe** | (via Stripe MCP tools) |
+| Website-to-CLI, web scraping, API discovery | **OpenCLI** | `opencli explore <url>`, `opencli list`, `opencli <platform> <cmd>` |
 
 If an MCP tool fails: "The [server] tool returned an error: [error]." — ONE sentence. No curl fallbacks. No workaround scripts. No audit reports.
 
@@ -107,8 +108,8 @@ When CC asks you to fix something, **fix it**. Do NOT create audit documents —
 See `brain/AGENTS.md` for the complete subagent registry (16 agents with decision matrix, security protocol, self-improvement protocol).
 Delegation: Complex features → planner. Architecture → architect. Code review → reviewer. Bugs → debugger. Research → researcher.
 
-- **15 workflows** in `.agents/workflows/` (Antigravity format). Key: `/plan-feature` → `/execute` → `/commit`, `/cli-anything <target>`, `/review`, `/ship`, `/retro`, `/skool-edit`, `/skool-push`, `/evolve`
-- **55 skills** in `skills/` directory. Each skill is stored in `skills/[skill-name]/SKILL.md` format (Claude Agent Skills 2.0 structure). Key: systematic-debugging, self-healing, test-driven-development, **cli-anything** (generate CLI wrappers for any software/API — templates in `scripts/cli_templates/`), **code-review** (`skills/code-review/SKILL.md`), **ship** (`skills/ship/SKILL.md`), **retro** (`skills/retro/SKILL.md`), **skool-automation** (`skills/skool-automation/SKILL.md`)
+- **15 workflows** in `.agents/workflows/` (Antigravity format). Key: `/plan-feature` → `/execute` → `/commit`, `/cli-anything <target>`, `/opencli`, `/review`, `/ship`, `/retro`, `/skool-edit`, `/skool-push`, `/evolve`
+- **55 skills** in `skills/` directory. Each skill is stored in `skills/[skill-name]/SKILL.md` format (Claude Agent Skills 2.0 structure). Key: systematic-debugging, self-healing, test-driven-development, **cli-anything** (generate CLI wrappers for any software/API — templates in `scripts/cli_templates/`), **opencli** (explore websites, run prebuilt adapters, create website CLI adapters), **code-review** (`skills/code-review/SKILL.md`), **ship** (`skills/ship/SKILL.md`), **retro** (`skills/retro/SKILL.md`), **skool-automation** (`skills/skool-automation/SKILL.md`)
 - **Progressive skill loading**: Skills load in 3 tiers (frontmatter → instructions → references) to conserve context. See `skills/SKILL_LOADING.md`
 - **Meta-agent**: Can generate new subagent definitions from natural language descriptions. See `agents/meta-agent.md`
 - **Video pipeline**: `scripts/edit_content.py` — FFmpeg 8.0.1, Whisper, ElevenLabs, Remotion

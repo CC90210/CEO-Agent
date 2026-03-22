@@ -13,12 +13,14 @@ dependencies: []
 
 ## Quick Routing Table
 
-| User Intent | MCP Server | Tool | Example |
+| User Intent | MCP Server / Tool | Tool | Example |
 |---|---|---|---|
 | List/search/run n8n workflows | **n8n-mcp** | `search_workflows`, `execute_workflow` | "List my workflows" |
 | Post/schedule social media | **Late** | `posts_create`, `posts_cross_post` | "Post this to X" |
 | Query database / run SQL | **Supabase** | `execute_sql`, `list_tables` | "Show my tables" |
 | Browse web / take screenshot | **Playwright** | `browser_navigate`, `browser_snapshot` | "Go to this URL" |
+| Read from websites / trending / search platforms | **OpenCLI** | `opencli <platform> <cmd> --json` | "What's trending on Twitter?" |
+| Discover website APIs | **OpenCLI** | `opencli explore <url>` | "Find APIs on this site" |
 | Look up library docs | **Context7** | `resolve-library-id`, `query-docs` | "How does Next.js routing work?" |
 | Search/store knowledge | **Memory** | `search_nodes`, `create_entities` | "What do you know about X?" |
 | Complex reasoning | **Sequential Thinking** | `sequentialthinking` | Multi-step analysis |

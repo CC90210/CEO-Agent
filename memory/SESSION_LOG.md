@@ -6,6 +6,33 @@
 
 ---
 
+### 2026-03-21 — OpenCLI Integration + File Cleanup
+**Agent:** Claude Code (Bravo V5.5, Opus 4.6)
+**Goal:** Integrate OpenCLI (jackwener/opencli) into agent ecosystem and clean up unnecessary files.
+**Done:**
+- Researched OpenCLI GitHub repo — universal CLI framework that turns websites into terminal commands via browser automation
+- Installed OpenCLI globally: `npm install -g @jackwener/opencli` (v1.1.1)
+- Created `skills/opencli/SKILL.md` — full skill documentation with exploration workflow, adapter format, auth strategies, 50+ prebuilt adapters
+- Created `.agents/workflows/opencli.md` — `/opencli` workflow trigger
+- Updated `brain/CAPABILITIES.md` — added OpenCLI section, updated skill count (61), workflow count (16)
+- Updated `CLAUDE.md` — added OpenCLI to routing table and workflow commands
+- Updated `GEMINI.md` and `ANTIGRAVITY.md` — cross-synced OpenCLI references
+- Deleted 17 unnecessary PNG files: 6 cc-funnel screenshots from root, 11 Playwright test screenshots from tmp/
+- OpenCLI complements cli-anything: cli-anything wraps local software/APIs, OpenCLI wraps websites via browser sessions
+**Deep Integration (Phase 2):**
+- Full diagnostic of 13 web-facing Python scripts — identified instagram_engine.py and skool_engine.py as highest brittleness risk
+- Mapped 46 OpenCLI platforms to CC's business (Tier 1: Twitter, LinkedIn, Reddit, YouTube)
+- Created `brain/OPENCLI_STRATEGY.md` — 45-day deployment playbook with success metrics
+- Updated 4 agents: researcher, content-creator, revenue-hunter, social-publisher — all now OpenCLI-aware
+- Updated 3 workflows: research (OpenCLI-first), content (trending check), post (verification)
+- Updated `brain/AGENTS.md` orchestration matrix — routes `/opencli` to Researcher
+- Updated `skills/mcp-operations/SKILL.md` routing table with OpenCLI
+- Cleaned duplicate files: deleted `skills/opencli-integration/`, `memory/OPENCLI_QUICK_REFERENCE.txt`
+**Issues:** None
+**Next:** Test OpenCLI adapters live, consider wrapping instagram_engine + skool_engine brittle selectors
+
+---
+
 ### 2026-03-21 — Skool Engine Production Launch
 **Agent:** Claude Code (Bravo V5.5, Haiku 4.5)
 **Goal:** Skool community engine production-ready with autonomous operation, rate limiting, and crash recovery.

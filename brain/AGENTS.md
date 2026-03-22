@@ -12,6 +12,7 @@
 | Code implementation, bug fixes, TDD | **Coder** | `/execute`, approved plans |
 | Security audit, code quality | **Reviewer** | `/review`, `/commit` (pre-commit gate) |
 | Market research, documentation lookup | **Researcher** | `/research`, unknown APIs |
+| Website-to-CLI, platform data, API discovery | **Researcher** | `/opencli`, `opencli explore`, `opencli <platform>` |
 | Content creation, brand voice | **Content Creator** | `/content`, marketing tasks |
 | Social media publishing | **Social Publisher** | `/post`, cross-posting |
 | Video/audio production | **Video Editor** | `/content` (media pipeline) |
@@ -34,6 +35,7 @@
 
 ### 2. Planner (Task Breakdown Engine)
 - **Model Tier:** Sonnet
+- **File:** (virtual role — uses writing-plans skill, no dedicated agent file)
 - **Purpose:** Translates feature requests into phased implementation plans stored in `.agents/plans/`.
 - **Principles:** Restate requirements. Create numbered steps. Identify file dependencies. **WAIT for CC's confirmation before any code execution.**
 

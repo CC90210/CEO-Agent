@@ -106,8 +106,22 @@ Generate agent-native CLI wrappers for any software, API, or service. When MCPs 
 - **Skill:** `skills/cli-anything/SKILL.md` — 7-phase pipeline (analyze → design → implement → test → package → integrate)
 - **Workflow:** `.agents/workflows/cli-anything.md` — `/cli-anything <target>` trigger
 - **Templates:** `scripts/cli_templates/` — reusable Python components (ReplSkin, Backend, setup.py)
-- **Existing CLIs:** `supabase_tool.py`, `stripe_tool.py`, `edit_content.py` (already follow this pattern)
+- **Existing CLIs:** `supabase_tool.py`, `stripe_tool.py`, `edit_content_v2.py` (already follow this pattern)
 - **Based on:** [HKUDS/CLI-Anything](https://github.com/HKUDS/CLI-Anything) methodology
+
+## OpenCLI (Website-to-CLI Automation)
+
+Transform any website into structured CLI commands via browser automation. Complements cli-anything (local software) by wrapping **websites** using browser sessions.
+
+- **Install:** `npm install -g @jackwener/opencli` (v1.1.1 installed globally)
+- **Skill:** `skills/opencli/SKILL.md` — exploration, synthesis, adapter creation
+- **Workflow:** `.agents/workflows/opencli.md` — `/opencli <url-or-command>` trigger
+- **Based on:** [jackwener/opencli](https://github.com/jackwener/opencli)
+- **50+ prebuilt adapters:** Twitter, YouTube, Discord, LinkedIn, Reddit, HackerNews, Medium, GitHub, and more
+- **Key commands:** `opencli list` (discover), `opencli explore <url>` (API discovery), `opencli synthesize` (generate adapters)
+- **Auth:** Cookie-based (reuse browser login), header-based (tokens), public API
+- **Plugin system:** `opencli plugin install github:user/repo` — extend without code changes
+- **Relationship:** cli-anything wraps local software → OpenCLI wraps websites. Use Playwright MCP for one-off browsing, OpenCLI for repeatable web commands.
 
 ## Business Operations Engines (6 CLI tools — zero paid services)
 
@@ -121,6 +135,35 @@ Generate agent-native CLI wrappers for any software, API, or service. When MCPs 
 | **Cron** | `scripts/cron_engine.py` | Automated job scheduling, 12 seeded business workflows | `list`, `add`, `toggle`, `run`, `due`, `seed` |
 
 All engines: `--json` flag for agent consumption, credentials from `.env.agents`, Supabase backend.
+
+## Platform Automation Engines (Browser-Based)
+
+| Engine | Script | Purpose | Key Commands |
+|--------|--------|---------|-------------|
+| **Skool Community** | `scripts/skool_engine.py` | Autonomous Skool community manager — post replies, DM welcome, member engagement | `daemon`, `run-cycle`, `scan-posts`, `scan-dms`, `engage-members` |
+| **Instagram** | `scripts/instagram_engine.py` | Instagram DM auto-reply, content scheduling, engagement | `daemon`, `check-dms`, `auto-reply`, `post` |
+| **LinkedIn** | `scripts/linkedin_cli.py` | LinkedIn profile search, connection management, outreach | `search`, `connect`, `message`, `profile` |
+
+## Lead Generation & Outreach Scripts
+
+| Script | Purpose | Status |
+|--------|---------|--------|
+| `scripts/scrape_playwright.py` | Google search scraping via Playwright | Active |
+| `scripts/scrape_maps_emails.py` | Google Maps business data + email extraction | Active |
+| `scripts/scrape_leads_v3.py` | Multi-source lead scraping | Active |
+| `scripts/scrape_fast.py` | High-speed DuckDuckGo scraping | Active |
+| `scripts/execute_outreach_v6.py` | Email/SMS outreach sequencing | Active |
+| `scripts/content_repurposer.py` | Transform content across platforms via Claude API | Active |
+| `scripts/funnel_sync.py` | Sync funnels to GoHighLevel | Active |
+| `scripts/funnel_nurture.py` | Nurture sequence automation | Active |
+
+## Notification & Scheduling
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/notify.py` | Cross-platform notifications (Telegram) with category filtering |
+| `scripts/scheduler.py` | Task scheduling system |
+| `scripts/late_publisher.py` | Late API publishing wrapper |
 
 ## Business Ops Database Schema (14 tables — Supabase Bravo)
 
@@ -151,29 +194,36 @@ All engines: `--json` flag for agent consumption, credentials from `.env.agents`
 | Content Week Plan | Sunday 8pm | content_planning |
 | Instagram Research | Mon/Wed/Fri 11am | ig_research |
 
-## Workflows (15 active — `.agents/workflows/`)
+## Workflows (20 active — `.agents/workflows/`)
 
 | Command | Purpose |
 |---------|---------|
+| /cli-anything | Generate CLI wrapper for any software/API/service |
 | /client-onboard | New OASIS client setup |
 | /commit | Smart commit — conventional format, staged analysis |
-| /content | Create platform content |
+| /content | Create platform content (with OpenCLI trend check) |
+| /create-prd | Generate 15-section PRD for client projects |
 | /debug | Systematic bug fixing |
+| /evolve | Extract session patterns → promote to skills, SOPs, or CLAUDE.md rules |
 | /health | Full workspace diagnostic |
 | /n8n | Search, inspect, manage n8n workflows |
-| /post | Publish via Late API |
+| /opencli | Explore websites, run prebuilt adapters, create website CLI adapters |
+| /post | Publish via Late API (with OpenCLI verification) |
 | /prime | Load full project context |
-| /research | Competitive intelligence |
-| /status | Project status report |
-| /sync | End-of-session sync |
-| /cli-anything | Generate CLI wrapper for any software/API/service |
+| /research | Competitive intelligence (OpenCLI-first for platforms) |
+| /retro | Weekly retrospective — commits, scores, patterns, improvement actions |
+| /review | Pre-landing code review with Fix-First methodology |
+| /ship | Full shipping pipeline — test, review, changelog, PR, deploy |
 | /skool-edit | Edit Skool lessons or About page via Playwright |
 | /skool-push | Bulk-push course content to Skool |
-| /evolve | Extract session patterns → promote to skills, SOPs, or CLAUDE.md rules |
+| /status | Project status report |
+| /sync | End-of-session sync |
 
-## Skills (60)
+## Skills (154 total — 61 core + 42 GWS + 41 recipes + 10 personas)
 
 > **Note:** All skills use the Claude Agent Skills 2.0 structure. They are stored in `skills/[skill-name]/SKILL.md` format. The descriptions inside the frontmatter define their activation triggers.
+
+### Core Skills (61)
 
 | Category | Skills |
 |----------|--------|
@@ -185,9 +235,18 @@ All engines: `--json` flag for agent consumption, credentials from `.env.agents`
 | **Creative** | frontend-design, canvas-design, algorithmic-art, theme-factory, web-artifacts-builder, slack-gif-creator |
 | **Files** | pdf, docx, pptx, xlsx |
 | **Security** | security-protocol, using-superpowers |
-| **CLI & Integration** | cli-anything |
+| **CLI & Integration** | cli-anything, opencli |
 | **Meta** | skill-creator, mcp-builder, using-superpowers |
 | **Revenue & Sales** | lead-management, email-marketing, funnel-management, revenue-operations, booking-management |
+
+### Google Workspace Skills (42)
+`gws-*` — Gmail (8 variants), Calendar, Sheets, Drive, Docs, Chat, Events, Workflow (5 variants), Classroom, Forms, Tasks, Meet, Keep, People, Slides, ModelArmor. Activated by `gws` CLI commands.
+
+### Recipe Skills (41)
+`recipe-*` — Pre-built multi-step automations: create-event-from-sheet, send-team-announcement, label-and-archive-emails, schedule-meeting-followup, and 37 more cross-service workflows.
+
+### Persona Skills (10)
+`persona-*` — Specialized communication voices: sales-ops, event-coordinator, exec-assistant, and 7 more role-specific personas for contextual output.
 
 ## External Services (No MCP)
 
@@ -208,12 +267,12 @@ All engines: `--json` flag for agent consumption, credentials from `.env.agents`
 | Tool | Version | Purpose |
 |------|---------|---------|
 | FFmpeg | 8.0.1 (full build) | Video encoding, overlays, captions, audio normalization |
-| Python | 3.12.10 | Script runtime for edit_content.py |
+| Python | 3.12.10 | Script runtime for edit_content_v2.py |
 | Whisper | openai-whisper | Auto-transcription → SRT captions |
 | ElevenLabs | elevenlabs SDK | Text-to-speech voiceover generation |
 | Remotion | 4.0.436 | Programmatic video/animation generation (37 Claude skills) |
 
-Pipeline script: `scripts/edit_content.py` — probe, transcribe, voiceover, edit
+Pipeline script: `scripts/edit_content_v2.py` — probe, transcribe, voiceover, edit
 Remotion Studio: `content-studio/` — React-based video compositions (OasisPromo, QuoteDrop, CeoLog, SobrietyLog)
 Remotion Skills: `content-studio/.claude/rules/remotion/` — 37 rule files for AI-assisted video generation
 Agent: `agents/video-editor.md` (no dedicated workflow — invoke via content pipeline)
