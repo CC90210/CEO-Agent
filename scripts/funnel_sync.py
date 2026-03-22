@@ -1,0 +1,300 @@
+"""
+Funnel Lead Sync — CRM Bridge
+Reads funnel_leads created in the last 24 hours and syncs any that don't
+already exist in the leads table. Idempotent: keyed on email address.
+
+For each new lead:
+  1. Check if email already exists in leads table (skip if so)
+  2. Insert into leads with source="cc_funnel"
+  3. Send Welcome email template (graceful fallback if template missing)
+  4. Notify CC via Telegram
+
+Usage:
+    python scripts/funnel_sync.py run           # Sync leads from last 24h
+    python scripts/funnel_sync.py stats         # Show sync stats
+    python scripts/funnel_sync.py run --json    # JSON output for agents
+"""
+
+import argparse
+import json
+import subprocess
+import sys
+from datetime import datetime, timezone, timedelta
+from pathlib import Path
+
+
+# ── Credential loading ────────────────────────────────────────────────────────
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+SCRIPTS_DIR = PROJECT_ROOT / "scripts"
+PYTHON = sys.executable
+
+
+def load_env() -> dict[str, str]:
+    env_path = PROJECT_ROOT / ".env.agents"
+    if not env_path.exists():
+        print(f"ERROR: {env_path} not found", file=sys.stderr)
+        sys.exit(1)
+    env_vars: dict[str, str] = {}
+    with open(env_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, _, value = line.partition("=")
+                env_vars[key.strip()] = value.strip()
+    return env_vars
+
+
+def get_client(env_vars: dict[str, str]):
+    try:
+        from supabase import create_client
+    except ImportError:
+        print("ERROR: supabase package not installed. Run: pip install supabase", file=sys.stderr)
+        sys.exit(1)
+    url = env_vars.get("BRAVO_SUPABASE_URL")
+    key = env_vars.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
+    if not url or not key:
+        print("ERROR: Missing BRAVO_SUPABASE_URL or BRAVO_SUPABASE_SERVICE_ROLE_KEY", file=sys.stderr)
+        sys.exit(1)
+    return create_client(url, key)
+
+
+# ── Notification (graceful fallback) ─────────────────────────────────────────
+
+try:
+    from notify import notify
+except ImportError:
+    def notify(message: str, category: str = "system", **kwargs) -> bool:  # type: ignore[misc]
+        return False
+
+
+# ── Welcome email ─────────────────────────────────────────────────────────────
+
+def send_welcome_email(client, env_vars: dict[str, str], lead_email: str, lead_name: str) -> str:
+    """
+    Look up the Welcome template by name and dispatch via email_engine.py.
+    Returns a short status string.
+    """
+    # Look up template UUID by name
+    try:
+        result = client.table("email_templates").select("id, name").ilike("name", "Welcome").execute()
+        templates = result.data or []
+    except Exception as exc:
+        return f"template_lookup_failed: {exc}"
+
+    if not templates:
+        return "welcome_template_not_found"
+
+    template_id = templates[0]["id"]
+    first_name = lead_name.split()[0] if lead_name else lead_email
+
+    vars_json = json.dumps({"first_name": first_name, "name": lead_name, "email": lead_email})
+
+    cmd = [
+        PYTHON,
+        str(SCRIPTS_DIR / "email_engine.py"),
+        "--json",
+        "send-template",
+        "--template-id", template_id,
+        "--to", lead_email,
+        "--vars", vars_json,
+    ]
+    try:
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=30,
+            cwd=str(PROJECT_ROOT),
+        )
+        if proc.returncode != 0:
+            return f"email_failed: {proc.stderr.strip()[:200]}"
+        return "email_sent"
+    except subprocess.TimeoutExpired:
+        return "email_timeout"
+    except Exception as exc:
+        return f"email_error: {exc}"
+
+
+# ── Core sync logic ───────────────────────────────────────────────────────────
+
+def build_notes(lead: dict) -> str:
+    """Assemble a notes string from funnel_lead fields."""
+    parts: list[str] = []
+
+    interests = lead.get("interests") or []
+    if interests:
+        parts.append(f"Interests: {', '.join(interests)}")
+
+    if lead.get("event_type"):
+        parts.append(f"Event type: {lead['event_type']}")
+    if lead.get("event_date"):
+        parts.append(f"Event date: {lead['event_date']}")
+    if lead.get("music_vibe"):
+        parts.append(f"Music vibe: {lead['music_vibe']}")
+    if lead.get("brand_goal"):
+        parts.append(f"Brand goal: {lead['brand_goal']}")
+    if lead.get("audience"):
+        parts.append(f"Audience: {lead['audience']}")
+    if lead.get("instagram_handle"):
+        parts.append(f"Instagram: @{lead['instagram_handle']}")
+
+    return " | ".join(parts) if parts else ""
+
+
+def run_sync(env_vars: dict[str, str], as_json: bool = False) -> None:
+    client = get_client(env_vars)
+
+    since = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+
+    # Fetch funnel leads created in the last 24 hours
+    try:
+        result = (
+            client.table("funnel_leads")
+            .select("*")
+            .gte("created_at", since)
+            .order("created_at", desc=False)
+            .execute()
+        )
+        funnel_leads = result.data or []
+    except Exception as exc:
+        output = {"error": f"funnel_leads query failed: {exc}", "synced": [], "skipped": [], "errors": []}
+        print(json.dumps(output) if as_json else f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    synced: list[str] = []
+    skipped: list[str] = []
+    errors: list[str] = []
+
+    for lead in funnel_leads:
+        email = (lead.get("email") or "").strip().lower()
+        name = (lead.get("name") or "").strip()
+        lead_id_str = str(lead.get("id", ""))
+
+        if not email:
+            skipped.append(f"id={lead_id_str} (no email)")
+            continue
+
+        # Check if this email already exists in leads table
+        try:
+            existing = (
+                client.table("leads")
+                .select("id")
+                .ilike("email", email)
+                .limit(1)
+                .execute()
+            )
+            if existing.data:
+                skipped.append(f"{email} (already in CRM)")
+                continue
+        except Exception as exc:
+            errors.append(f"{email}: leads lookup failed — {exc}")
+            continue
+
+        # Build the CRM lead payload
+        notes = build_notes(lead)
+        payload: dict = {
+            "name": name,
+            "email": email,
+            "source": "cc_funnel",
+            "status": "new",
+        }
+        if lead.get("phone"):
+            payload["phone"] = lead["phone"]
+        if lead.get("business_name"):
+            payload["company"] = lead["business_name"]
+        if notes:
+            payload["notes"] = notes
+
+        # Insert into leads table
+        try:
+            client.table("leads").insert(payload).execute()
+        except Exception as exc:
+            errors.append(f"{email}: insert failed — {exc}")
+            continue
+
+        # Send welcome email — errors are non-fatal
+        email_status = send_welcome_email(client, env_vars, email, name)
+
+        # Notify CC
+        notify(
+            f"New funnel lead synced: {name} ({email}) | email={email_status}",
+            category="lead",
+        )
+
+        synced.append(f"{name} ({email})")
+
+    result_data = {
+        "synced": synced,
+        "skipped": skipped,
+        "errors": errors,
+        "total_checked": len(funnel_leads),
+    }
+
+    if as_json:
+        print(json.dumps(result_data, indent=2))
+    else:
+        print(
+            f"Funnel sync: {len(synced)} synced, "
+            f"{len(skipped)} skipped, "
+            f"{len(errors)} errors "
+            f"(checked {len(funnel_leads)} leads from last 24h)"
+        )
+        if errors:
+            for err in errors:
+                print(f"  ERROR: {err}")
+
+
+def run_stats(env_vars: dict[str, str], as_json: bool = False) -> None:
+    client = get_client(env_vars)
+
+    try:
+        funnel_result = client.table("funnel_leads").select("id, email, created_at").order("created_at", desc=True).execute()
+        funnel_leads = funnel_result.data or []
+
+        crm_result = client.table("leads").select("id, email, source").eq("source", "cc_funnel").execute()
+        crm_leads = crm_result.data or []
+    except Exception as exc:
+        output = {"error": str(exc)}
+        print(json.dumps(output) if as_json else f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    stats = {
+        "total_funnel_leads": len(funnel_leads),
+        "synced_to_crm": len(crm_leads),
+        "crm_emails": [r["email"] for r in crm_leads],
+    }
+
+    if as_json:
+        print(json.dumps(stats, indent=2))
+    else:
+        print(f"Funnel leads total:  {stats['total_funnel_leads']}")
+        print(f"Synced to CRM:       {stats['synced_to_crm']}")
+        if crm_leads:
+            print("CRM entries (cc_funnel source):")
+            for r in crm_leads:
+                print(f"  {r['email']}")
+
+
+# ── Entry point ───────────────────────────────────────────────────────────────
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        prog="funnel_sync.py",
+        description="Funnel Lead Sync — syncs recent cc-funnel leads into the CRM",
+    )
+    parser.add_argument("command", choices=["run", "stats"], help="Command to execute")
+    parser.add_argument("--json", dest="output_json", action="store_true", help="JSON output for agents")
+    args = parser.parse_args()
+
+    env_vars = load_env()
+
+    if args.command == "run":
+        run_sync(env_vars, as_json=args.output_json)
+    elif args.command == "stats":
+        run_stats(env_vars, as_json=args.output_json)
+
+
+if __name__ == "__main__":
+    main()

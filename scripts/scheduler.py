@@ -164,6 +164,8 @@ def execute_job(job: dict, env_vars: dict[str, str]) -> str:
             return run_ig_dm_check(env_vars)
         elif action_type == "email_inbox_check":
             return run_email_inbox_check(env_vars)
+        elif action_type == "funnel_sync":
+            return run_funnel_sync(env_vars)
         elif action_type == "content_generate":
             return run_content_generate(env_vars)
         elif action_type == "content_repurpose":
@@ -306,6 +308,11 @@ def run_email_inbox_check(env_vars: dict) -> str:
     return run_script("email_engine.py", ["--json", "check-inbox"], timeout=60)
 
 
+def run_funnel_sync(_env_vars: dict) -> str:
+    """Sync new funnel_leads from the last 24h into the CRM leads table."""
+    return run_script("funnel_sync.py", ["run", "--json"], timeout=60)
+
+
 # ── Main loop ─────────────────────────────────────────────────────────────────
 
 def log(msg: str):
@@ -371,6 +378,7 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
             "ig_dm_check": "instagram",
             "ig_auto_reply": "instagram",
             "email_inbox_check": "email",
+            "funnel_sync": "lead",
             "content_generate": "content",
             "content_repurpose": "content",
         }

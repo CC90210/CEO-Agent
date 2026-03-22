@@ -46,7 +46,7 @@ When CC asks a question, answer it using MCP tools. Do NOT dump file contents or
 
 ### RULE 2: MCP tool routing
 
-| CC Asks About | MCP Server | Tool |
+| CC Asks About | MCP Server / Tool | Command |
 |---|---|---|
 | n8n workflows, automations | n8n-mcp | `search_workflows`, `execute_workflow` |
 | Social posts, scheduling | Late | `posts_create`, `posts_list`, `posts_cross_post` |
@@ -54,10 +54,19 @@ When CC asks a question, answer it using MCP tools. Do NOT dump file contents or
 | Library documentation | Context7 | `resolve-library-id`, `query-docs` |
 | Knowledge graph | Memory | `search_nodes`, `create_entities` |
 | Structured reasoning | Sequential Thinking | `sequentialthinking` |
+| Email (send/read/triage) | **gws CLI** | `gws gmail +send`, `gws gmail +read`, `gws gmail +triage` |
+| Calendar (events/agenda) | **gws CLI** | `gws calendar +agenda`, `gws calendar +insert` |
+| Google Drive / Sheets / Docs | **gws CLI** | `gws drive files list`, `gws sheets +read`, `gws docs +write` |
 
 **SDK TOOLS (replaces broken MCPs — full capability via terminal):**
 - **Supabase** — `python scripts/supabase_tool.py select <table> --project bravo --limit 10`
 - **Stripe** — `python scripts/stripe_tool.py balance` | `customers` | `invoices` | `products` | `subscriptions`
+- **Google Workspace** — `gws` CLI (requires env vars: `GOOGLE_WORKSPACE_CLI_CLIENT_ID`, `GOOGLE_WORKSPACE_CLI_CLIENT_SECRET`)
+  - Gmail: `gws gmail +send --to X --subject Y --body Z` | `gws gmail +read` | `gws gmail +triage`
+  - Calendar: `gws calendar +agenda` | `gws calendar +insert --summary "Meeting" --start 2026-03-22T10:00:00`
+  - Drive: `gws drive files list` | `gws drive +upload --file path`
+  - Sheets: `gws sheets +read --spreadsheet-id ID` | `gws sheets +append`
+  - Docs: `gws docs +write` | Tasks: `gws tasks +list`
 
 If an MCP tool fails: report the error in one sentence. Do NOT fall back to curl or create workaround scripts.
 

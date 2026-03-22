@@ -7,10 +7,15 @@ Usage:
     notify("New lead booked a call for Tuesday 3pm")
     notify("Revenue update: $2,871 MRR", category="revenue")
 
-Categories: lead, email, booking, content, revenue, outreach, system
+Categories: lead, email, booking, content, revenue, outreach, instagram, system
+
+FILTERING: Only high-signal categories reach CC's Telegram.
+- ALWAYS SEND: lead, booking, revenue, error
+- SILENT (no sound): email, outreach
+- BLOCKED (never send): content, instagram, system
+Override via NOTIFY_BLOCKED_CATEGORIES in .env.agents (comma-separated).
 """
 
-import os
 import sys
 from pathlib import Path
 from datetime import datetime
@@ -20,6 +25,12 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ENV_PATH = PROJECT_ROOT / ".env.agents"
 
 _env_cache: dict[str, str] = {}
+
+# Categories that are blocked from Telegram by default.
+# CC only wants: new leads, DMs needing attention, booked meetings, errors.
+DEFAULT_BLOCKED = {"content", "instagram", "system"}
+# Categories that send silently (no notification sound)
+DEFAULT_SILENT = {"email", "outreach"}
 
 
 def _load_env() -> dict[str, str]:
@@ -36,7 +47,15 @@ def _load_env() -> dict[str, str]:
     return _env_cache
 
 
-# Category emoji map (using basic chars for Windows compatibility)
+def _get_blocked_categories() -> set[str]:
+    env = _load_env()
+    override = env.get("NOTIFY_BLOCKED_CATEGORIES", "")
+    if override:
+        return {c.strip().lower() for c in override.split(",") if c.strip()}
+    return DEFAULT_BLOCKED
+
+
+# Category prefix map (using basic chars for Windows compatibility)
 CATEGORY_PREFIX = {
     "lead": "[LEAD]",
     "email": "[EMAIL]",
@@ -49,7 +68,7 @@ CATEGORY_PREFIX = {
 }
 
 
-def notify(message: str, category: str = "system", silent: bool = False) -> bool:
+def notify(message: str, category: str = "system", silent: bool = False, force: bool = False) -> bool:
     """
     Send a Telegram notification to CC.
 
@@ -57,16 +76,24 @@ def notify(message: str, category: str = "system", silent: bool = False) -> bool
         message: The notification text
         category: One of lead/email/booking/content/revenue/outreach/instagram/system
         silent: If True, send without sound (disable_notification=True)
+        force: If True, bypass category filtering (for critical alerts)
 
     Returns:
         True if sent successfully, False otherwise
     """
+    # Block noisy categories unless forced
+    if not force and category in _get_blocked_categories():
+        return False
+
+    # Auto-silence low-priority categories
+    if category in DEFAULT_SILENT:
+        silent = True
+
     env = _load_env()
     token = env.get("TELEGRAM_BOT_TOKEN")
     chat_id = env.get("TELEGRAM_ALLOWED_USERS", "").split(",")[0].strip()
 
     if not token or not chat_id:
-        # Silently fail - don't crash engines if Telegram isn't configured
         return False
 
     try:

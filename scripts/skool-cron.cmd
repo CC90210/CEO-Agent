@@ -1,6 +1,6 @@
 @echo off
 REM Skool Community Engine - Daemon Launcher
-REM Starts the Skool engine in daemon mode (runs continuously every 20 minutes).
+REM Starts the Skool engine in daemon mode (runs continuously every 2 minutes).
 REM
 REM Auto-start on boot:
 REM   schtasks /create /tn "SkoolEngine" /tr "C:\Users\User\Business-Empire-Agent\scripts\skool-cron.cmd" /sc onlogon /rl highest /f
@@ -19,4 +19,4 @@ REM Check if daemon is already running
 )
 
 echo Starting Skool Community Engine daemon...
-.venv\Scripts\python.exe scripts\skool_engine.py daemon --interval 20
+.venv\Scripts\python.exe scripts\skool_engine.py daemon --interval 2

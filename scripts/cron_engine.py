@@ -162,6 +162,14 @@ SEED_JOBS: list[dict] = [
         "action_config": {"target_industries": ["hvac", "wellness", "real_estate"], "max_profiles": 10},
         "is_active": True,
     },
+    {
+        "name": "Funnel Lead Sync",
+        "description": "Sync new funnel_leads to CRM leads table + fire welcome email",
+        "schedule": "*/5 * * * *",
+        "action_type": "funnel_sync",
+        "action_config": {"auto_welcome_email": True},
+        "is_active": True,
+    },
 ]
 
 

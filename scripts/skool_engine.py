@@ -16,7 +16,7 @@ Usage:
   python scripts/skool_engine.py scan-dms           # Reply to incoming DMs
   python scripts/skool_engine.py engage-members     # DM members (welcome paid, nurture free)
   python scripts/skool_engine.py auto               # Run all scans once
-  python scripts/skool_engine.py daemon             # Run continuously (default: 20min interval)
+  python scripts/skool_engine.py daemon             # Run continuously (default: 2min interval)
   python scripts/skool_engine.py daemon --interval 15  # Custom interval in minutes
   python scripts/skool_engine.py --dry-run auto     # Preview without posting
   python scripts/skool_engine.py --json auto        # JSON output
@@ -55,7 +55,9 @@ MEMBERS_URL = f"{COMMUNITY_URL}/-/members"
 FREE_MEMBER_FOLLOWUP_HOURS = 48      # Nurture free members every 48h
 PAID_MEMBER_FOLLOWUP_HOURS = 168     # Check in with paid members weekly
 DM_REPLY_COOLDOWN_HOURS = 1          # Don't auto-reply to same person within 1h
-MAX_DMS_PER_CYCLE = 8                # Max DMs per scan cycle (avoid spam flags)
+MAX_DMS_PER_CYCLE = 3                # Max DMs per scan cycle (avoid spam flags)
+MAX_REPLIES_PER_CYCLE = 5            # Max post replies per scan cycle (avoid API overload)
+ENGAGEMENT_EVERY_N_CYCLES = 5        # Member engagement runs every Nth cycle (~10 min at 2-min interval)
 
 sys.path.insert(0, str(SCRIPTS_DIR))
 
@@ -72,12 +74,15 @@ except ImportError:
 def setup_logging():
     os.makedirs(LOG_DIR, exist_ok=True)
     log_file = LOG_DIR / f"skool_{datetime.now().strftime('%Y-%m-%d')}.log"
+    # Use UTF-8 for both file and stdout to handle emoji in Claude-generated messages
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setStream(open(sys.stdout.fileno(), mode='w', encoding='utf-8', closefd=False))
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
         handlers=[
             logging.FileHandler(log_file, encoding="utf-8"),
-            logging.StreamHandler(sys.stdout),
+            stdout_handler,
         ],
     )
     return logging.getLogger("skool")
@@ -151,35 +156,93 @@ def get_browser_context(playwright):
     )
 
 
+def _auto_login(page) -> bool:
+    """Attempt automatic Skool login using credentials from .env.agents."""
+    env = load_env()
+    email = env.get("SKOOL_EMAIL", "")
+    password = env.get("SKOOL_PASSWORD", "")
+    if not email or not password:
+        log.warning("No SKOOL_EMAIL/SKOOL_PASSWORD in .env.agents — cannot auto-login")
+        return False
+
+    log.info(f"Auto-login attempt as {email}...")
+    page.goto("https://www.skool.com/login", wait_until="networkidle", timeout=60000)
+    time.sleep(4)
+
+    try:
+        # Fill email — use #email ID selector (most reliable)
+        email_input = page.locator("#email")
+        email_input.click()
+        email_input.fill(email)
+        time.sleep(0.5)
+
+        # Fill password — use #password ID selector
+        pw_input = page.locator("#password")
+        pw_input.click()
+        pw_input.fill(password)
+        time.sleep(1)
+
+        # Click LOG IN submit button
+        login_btn = page.locator('button[type="submit"]')
+        login_btn.click()
+
+        # Wait for login form to disappear (SPA navigation — URL may lag)
+        for _ in range(15):
+            time.sleep(1)
+            still_has_form = page.locator("#email").count() > 0
+            if not still_has_form:
+                log.info("Auto-login successful")
+                return True
+
+        log.error("Auto-login failed — login form still present (check credentials)")
+        return False
+    except Exception as e:
+        log.error(f"Auto-login error: {e}")
+        return False
+
+
 def is_logged_in(page) -> bool:
-    """Check if we have an active Skool session."""
+    """Check if we have an active Skool session. Auto-logins if credentials available."""
     page.goto(COMMUNITY_FEED_URL, wait_until="domcontentloaded", timeout=60000)
     time.sleep(4)
+
     if "/login" in page.url or "/signup" in page.url:
-        return False
-    has_content = page.evaluate("""() => {
+        return _auto_login(page)
+
+    # Check for authenticated user indicator (profile button or similar)
+    is_authed = page.evaluate("""() => {
+        const bodyText = document.body.textContent;
+        // "Log In" button visible = not authenticated
+        const btns = [...document.querySelectorAll('button, a')];
+        for (const b of btns) {
+            const t = b.textContent.trim();
+            if (t === 'Log In' || t === 'Sign Up') return false;
+        }
+        // Check for authenticated indicators: user avatar, nav links, post elements
         return !!(document.querySelector('[class*="PostItem"]') ||
                   document.querySelector('[class*="PostList"]') ||
-                  document.querySelectorAll('a[href*="/@"]').length > 3);
+                  document.querySelectorAll('a[href*="/classroom"]').length > 0);
     }""")
-    return has_content
+
+    if not is_authed:
+        log.info("Session appears expired — attempting auto-login...")
+        return _auto_login(page)
+
+    return True
 
 
 # ---------------------------------------------------------------------------
 # Member extraction from Skool DOM
 # ---------------------------------------------------------------------------
 
-def extract_members(page) -> list[dict]:
-    """Extract all members from the members page with paid/free status."""
-    page.goto(MEMBERS_URL, wait_until="domcontentloaded", timeout=60000)
-    time.sleep(4)
+def _extract_members_from_page(page) -> list[dict]:
+    """Extract members from the currently loaded members page."""
+    # Scroll to ensure all members on this page are rendered
+    for _ in range(8):
+        page.evaluate("window.scrollBy(0, 800)")
+        time.sleep(0.6)
 
-    # Scroll to load all members
-    for _ in range(5):
-        page.evaluate("window.scrollBy(0, 600)")
-        time.sleep(1)
-
-    members = page.evaluate(r"""() => {
+    return page.evaluate(r"""() => {
         const wrappers = document.querySelectorAll('.styled__MemberItemWrapper-sc-qwyv4g-0');
         const members = [];
         for (const w of wrappers) {
@@ -189,9 +252,16 @@ def extract_members(page) -> list[dict]:
             const username = href.split('/@').pop()?.split('?')[0] || '';
             if (!username) continue;
 
-            const nameMatch = text.match(/\d+([\w\s\u00C0-\u024F]+?)@/);
-            const name = nameMatch ? nameMatch[1].trim() : '';
+            // Name: find the first /@-link whose text is longer than 2 chars (skips level number)
+            const allNameLinks = w.querySelectorAll('a[href*="/@"]');
+            let name = '';
+            for (const a of allNameLinks) {
+                const t = a.textContent.trim();
+                if (t.length > 2) { name = t; break; }
+            }
+
             const isPaid = text.includes('$97/month');
+            const isFree = text.includes('Free');
             const joinedMatch = text.match(/Joined ([\w\s,]+?\d{4})/);
             const joined = joinedMatch ? joinedMatch[1] : '';
             const activeMatch = text.match(/(Active \w+ ago)/);
@@ -201,12 +271,56 @@ def extract_members(page) -> list[dict]:
             const levelMatch = text.match(/^(\d+)/);
             const level = levelMatch ? parseInt(levelMatch[1]) : 0;
 
-            members.push({ username, name, isPaid, joined, active, source, level });
+            members.push({ username, name, isPaid, isFree, joined, active, source, level });
         }
         return members;
     }""")
 
-    return members
+
+def extract_members(page) -> list[dict]:
+    """Extract all members across all paginated pages with paid/free status."""
+    page.goto(MEMBERS_URL, wait_until="domcontentloaded", timeout=60000)
+    time.sleep(4)
+
+    all_members = []
+    seen_usernames = set()
+    max_pages = 10  # Safety limit
+
+    for page_num in range(1, max_pages + 1):
+        page_members = _extract_members_from_page(page)
+        new_count = 0
+        for m in page_members:
+            if m["username"] not in seen_usernames:
+                seen_usernames.add(m["username"])
+                all_members.append(m)
+                new_count += 1
+
+        log.info(f"Members page {page_num}: {new_count} new members ({len(all_members)} total)")
+
+        if new_count == 0:
+            break
+
+        # Click "Next" button to go to the next page
+        has_next = page.evaluate(r"""() => {
+            const btns = [...document.querySelectorAll('button')];
+            const nextBtn = btns.find(b => b.textContent.trim() === 'Next' && !b.disabled);
+            if (nextBtn) { nextBtn.click(); return true; }
+            return false;
+        }""")
+
+        if not has_next:
+            log.info("No more pages — all members extracted")
+            break
+
+        time.sleep(3)
+        # Scroll back to top for the new page
+        page.evaluate("window.scrollTo(0, 0)")
+        time.sleep(1)
+
+    log.info(f"Total members extracted: {len(all_members)} "
+             f"({sum(1 for m in all_members if m.get('isPaid'))} paid, "
+             f"{sum(1 for m in all_members if m.get('isFree'))} free)")
+    return all_members
 
 
 # ---------------------------------------------------------------------------
@@ -430,23 +544,36 @@ def cmd_scan_posts(args, page=None, ctx=None):
             time.sleep(1.5)
 
         posts = page.evaluate("""() => {
-            const cards = document.querySelectorAll('[class*="PostItemCard"], [class*="PostItem"]');
+            const wrappers = document.querySelectorAll('[class*="PostItemWrapper-sc-e4ns84"]');
             const results = [];
-            for (const card of cards) {
-                const linkEl = card.querySelector('a[href*="/agency-accelerants"]');
-                if (!linkEl) continue;
-                const href = linkEl.getAttribute('href');
-                if (!href || href === '/agency-accelerants-6209') continue;
+            const seen = new Set();
+            for (const w of wrappers) {
+                // Find post-specific link (has slug path, not ?c= category link)
+                const allLinks = w.querySelectorAll('a[href*="/agency-accelerants-6209/"]');
+                let postLink = null;
+                for (const a of allLinks) {
+                    const h = a.getAttribute('href');
+                    if (h && !h.includes('?c=') && h !== '/agency-accelerants-6209/' && h.split('/').length > 2) {
+                        postLink = a;
+                        break;
+                    }
+                }
+                if (!postLink) continue;
 
-                const authorEl = card.querySelector('a[href*="/@"]');
-                const author = authorEl ? authorEl.textContent.trim() : 'Unknown';
-                const titleEl = card.querySelector('h3, [class*="Title"], [class*="PostItemContent"] span');
-                const title = titleEl ? titleEl.textContent.trim() : '';
-                const contentEl = card.querySelector('[class*="PostItemContent"], [class*="ContentWrapper"]');
+                const href = postLink.getAttribute('href');
+                const slug = href.split('/').pop().split('?')[0] || href;
+                if (!slug || seen.has(slug)) continue;
+                seen.add(slug);
+
+                // Author: second a[href*="/@"] has the actual name (first has level number)
+                const authorLinks = w.querySelectorAll('a[href*="/@"]');
+                const author = authorLinks.length >= 2 ? authorLinks[1].textContent.trim() :
+                               (authorLinks[0] ? authorLinks[0].textContent.trim() : 'Unknown');
+
+                const contentEl = w.querySelector('[class*="PostItemContent"], [class*="ContentWrapper"]');
                 const content = contentEl ? contentEl.textContent.trim() : '';
-                const slug = href.split('/').pop() || href;
 
-                results.push({ slug, href, author, title, content: content.substring(0, 500) });
+                results.push({ slug, href, author, title: slug, content: content.substring(0, 500) });
             }
             return results;
         }""")
@@ -454,14 +581,20 @@ def cmd_scan_posts(args, page=None, ctx=None):
         log.info(f"Found {len(posts)} posts in feed")
         results["scanned"] = len(posts)
 
+        reply_count = 0
         for post in posts:
+            if reply_count >= MAX_REPLIES_PER_CYCLE:
+                log.info(f"Hit reply limit ({MAX_REPLIES_PER_CYCLE}), stopping for this cycle")
+                break
+
             slug = post.get("slug", "")
             if not slug or slug in replied:
                 results["skipped"] += 1
                 continue
 
             author = post.get("author", "")
-            if "conaugh" in author.lower() or author.lower().strip() == "cc":
+            author_lower = author.lower().strip()
+            if "conaugh" in author_lower or author_lower == "cc" or "bennett" in author_lower:
                 replied[slug] = {"author": author, "skipped": "own_post", "ts": _now()}
                 results["skipped"] += 1
                 continue
@@ -481,6 +614,7 @@ def cmd_scan_posts(args, page=None, ctx=None):
                 log.info("  [dry-run] Would post reply")
                 replied[slug] = {"author": author, "dry_run": True, "ts": _now()}
                 results["replied"] += 1
+                reply_count += 1
                 continue
 
             post_url = f"https://www.skool.com{post['href']}" if post["href"].startswith("/") else post["href"]
@@ -502,6 +636,7 @@ def cmd_scan_posts(args, page=None, ctx=None):
                 log.info("  Comment posted")
                 replied[slug] = {"author": author, "reply": reply_text, "ts": _now()}
                 results["replied"] += 1
+                reply_count += 1
                 notify(f"Skool reply to {author}: {reply_text[:80]}...", category="content")
             else:
                 results["errors"].append(f"Failed to comment on {slug}")
@@ -595,9 +730,21 @@ def cmd_engage_members(args, page=None, ctx=None):
 
     try:
         members = extract_members(page)
-        log.info(f"Found {len(members)} members ({sum(1 for m in members if m['isPaid'])} paid, "
-                 f"{sum(1 for m in members if not m['isPaid'])} free)")
+        free_count = sum(1 for m in members if m.get("isFree"))
+        paid_count = sum(1 for m in members if m.get("isPaid"))
+        log.info(f"Found {len(members)} members ({paid_count} paid, {free_count} free)")
         results["scanned"] = len(members)
+
+        # FREE members FIRST — they're the conversion targets
+        # Sort: free+never-contacted first, then free+contacted, then paid
+        def _engage_priority(m):
+            is_free = m.get("isFree", not m.get("isPaid", False))
+            username = m.get("username", "")
+            interaction_count = member_state.get(username, {}).get("interaction_count", 0)
+            # Lower = higher priority: (0=free, 1=paid), interaction_count
+            return (0 if is_free else 1, interaction_count)
+
+        members.sort(key=_engage_priority)
 
         for member in members:
             if dm_count >= MAX_DMS_PER_CYCLE:
@@ -606,13 +753,15 @@ def cmd_engage_members(args, page=None, ctx=None):
 
             username = member.get("username", "")
             name = member.get("name", "") or username
-            is_paid = member.get("isPaid", False)
+            is_free = member.get("isFree", not member.get("isPaid", False))
+            is_paid = not is_free
 
             if not username:
                 continue
 
-            # Skip self
-            if "conaugh" in username.lower() or "conaugh" in name.lower():
+            # Skip self and admins
+            skip_names = {"conaugh", "bennett", "eric-scott", "christian-mb"}
+            if any(s in username.lower() for s in skip_names):
                 results["skipped"] += 1
                 continue
 
@@ -724,16 +873,17 @@ def cmd_engage_members(args, page=None, ctx=None):
 def _send_dm_to_member(page, username: str, message: str) -> bool:
     """Navigate to member profile, click Chat, type and send a DM."""
     try:
-        profile_url = f"https://www.skool.com/@{username}"
+        # Must include ?g= group context for the Chat button to appear
+        profile_url = f"https://www.skool.com/@{username}?g=agency-accelerants-6209"
         page.goto(profile_url, wait_until="domcontentloaded", timeout=30000)
-        time.sleep(3)
+        time.sleep(4)
 
-        # Click the Chat button on their profile
+        # Click the Chat button on their profile sidebar
         chat_clicked = page.evaluate("""() => {
-            const btns = [...document.querySelectorAll('button, a')];
+            const btns = [...document.querySelectorAll('button')];
             for (const btn of btns) {
-                const txt = btn.textContent?.trim().toLowerCase();
-                if (txt === 'chat' || txt === 'message') {
+                const txt = btn.textContent?.trim();
+                if (txt === 'Chat' || txt === 'chat' || txt === 'Message') {
                     btn.click();
                     return true;
                 }
@@ -755,7 +905,7 @@ def _send_dm_to_member(page, username: str, message: str) -> bool:
 
 
 def _type_and_send_dm(page, text: str) -> bool:
-    """Type a DM into the chat input and send it."""
+    """Type a DM into the chat input and send it (profile Chat button flow)."""
     try:
         # Find and click chat input
         page.evaluate("""() => {
@@ -786,17 +936,220 @@ def _type_and_send_dm(page, text: str) -> bool:
         return False
 
 
+def _type_and_send_chat(page, member_name: str, text: str) -> bool:
+    """Type a reply into the Skool chat conversation textbox and send it.
+
+    The chat page has a textbox with aria-label "Message <Name>" at the bottom.
+    """
+    try:
+        # Try to find the textbox by aria-label first
+        textbox = page.get_by_role("textbox", name=f"Message {member_name}")
+        if textbox.count() == 0:
+            # Fallback: any textbox on the page
+            textbox = page.get_by_role("textbox")
+
+        textbox.first.click()
+        time.sleep(0.3)
+        textbox.first.fill("")  # Clear any existing text
+        page.keyboard.type(text, delay=12)
+        time.sleep(0.5)
+        page.keyboard.press("Enter")
+        time.sleep(2)
+        return True
+    except Exception as e:
+        log.error(f"Chat send to {member_name} failed: {e}")
+        # Fallback to the old method
+        return _type_and_send_dm(page, text)
+
+
+
 # ---------------------------------------------------------------------------
 # DM scanning (auto-reply to incoming)
 # ---------------------------------------------------------------------------
 
+def _open_chat_sidebar(page) -> bool:
+    """Click the chat icon button in the top nav bar to open the chat sidebar.
+
+    The chat button is an unnamed icon-only button in the top-right nav bar,
+    next to the notification bell and user avatar. It contains only an <img>.
+    After clicking, a sidebar panel appears with "Chats" header and conversation links.
+    """
+    pos = page.evaluate(r"""() => {
+        const allBtns = [...document.querySelectorAll('button')];
+        const navSvgBtns = allBtns.filter(b => {
+            const hasSvg = b.querySelector('svg') !== null;
+            const hasImg = b.querySelector('img') !== null;
+            const text = b.textContent.trim();
+            const rect = b.getBoundingClientRect();
+            return hasSvg && !hasImg && text.length === 0 &&
+                   rect.top >= 0 && rect.top < 60 && rect.left > 500;
+        });
+        navSvgBtns.sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
+        if (navSvgBtns.length > 0) {
+            const r = navSvgBtns[0].getBoundingClientRect();
+            return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+        }
+        return null;
+    }""")
+    if pos:
+        page.mouse.click(pos["x"], pos["y"])
+        time.sleep(3)
+    else:
+        log.error("Chat sidebar button not found in nav bar")
+        return False
+
+    # Verify sidebar opened by checking for "Chats" text
+    has_sidebar = page.evaluate(r"""() => {
+        return document.body.innerText.includes('Chats') &&
+               !!document.querySelector('a[href*="/chat?ch="]');
+    }""")
+    return has_sidebar
+
+
+def _get_chat_conversations(page) -> list[dict]:
+    """Extract conversation list from the open chat sidebar.
+
+    Returns list of {name, href, channelId, lastMessage, lastMessageTime}.
+    Filters to only Agency Accelerants community conversations.
+    """
+    return page.evaluate(r"""() => {
+        // Chat sidebar conversations are links with href pattern /chat?ch=<id>&clr=<id>
+        const links = document.querySelectorAll('a[href*="/chat?ch="]');
+        const convos = [];
+        const seen = new Set();
+        for (const link of links) {
+            const href = link.getAttribute('href') || '';
+            if (seen.has(href)) continue;
+            seen.add(href);
+
+            // Extract name from link text — skip timestamps and short text
+            const textNodes = link.querySelectorAll('*');
+            let name = '';
+            for (const el of textNodes) {
+                const t = el.textContent?.trim() || '';
+                // Name is usually the longest meaningful text that's not a timestamp
+                if (t.length > 2 && t.length < 50 && !t.match(/^\d+[smhd]$/) &&
+                    !t.match(/^\d{1,2}:\d{2}/) && !t.includes('ago') &&
+                    t !== 'All' && t !== 'Chats') {
+                    if (t.length > name.length) name = t;
+                }
+            }
+
+            // Get last message preview
+            const allText = link.textContent || '';
+            const lastMsg = allText.replace(name, '').trim().substring(0, 100);
+
+            // Check for unread indicator (bold text or badge)
+            const hasUnread = !!(link.querySelector('[class*="unread"], [class*="Unread"], [class*="badge"], [class*="Badge"]') ||
+                                 link.querySelector('strong, b'));
+
+            const chMatch = href.match(/ch=([^&]+)/);
+            const channelId = chMatch ? chMatch[1] : '';
+
+            if (name && channelId) {
+                convos.push({ name, href, channelId, lastMessage: lastMsg, hasUnread });
+            }
+        }
+        return convos;
+    }""")
+
+
+def _read_conversation_messages(page) -> dict | None:
+    """Read messages from the currently open chat conversation.
+
+    Detects incoming vs outgoing by checking profile links:
+    - Links containing /@conaugh-mckenna = outgoing (CC's messages)
+    - Any other profile link = incoming (their messages)
+
+    Returns {lastIncoming, needsReply, context} or None.
+    """
+    try:
+        # Wait for chat messages to load
+        page.wait_for_selector('a[href*="/@"]', timeout=8000)
+    except Exception:
+        return None
+
+    return page.evaluate(r"""() => {
+        // Find all profile links — each represents a message sender
+        const profileLinks = [...document.querySelectorAll('a[href*="/@"]')];
+        if (!profileLinks.length) return null;
+
+        // Each message block: profile link (sender) + surrounding text (message)
+        // Walk profile links and extract message data
+        const entries = [];
+        const processed = new Set();
+
+        for (const link of profileLinks) {
+            const href = link.getAttribute('href') || '';
+            if (!href.includes('/@')) continue;
+            const isMine = href.includes('/@conaugh-mckenna');
+
+            // Find the message container — walk up to find a meaningful parent
+            let container = link.parentElement;
+            // Walk up max 5 levels to find a container with substantial text
+            for (let i = 0; i < 5 && container; i++) {
+                const text = container.textContent || '';
+                if (text.length > 20 && !processed.has(container)) break;
+                container = container.parentElement;
+            }
+            if (!container || processed.has(container)) continue;
+            processed.add(container);
+
+            // Extract message text: full container text minus the sender name and timestamps
+            const fullText = container.textContent?.trim() || '';
+            const linkText = link.textContent?.trim() || '';
+            let msgText = fullText;
+            // Remove sender name
+            if (linkText) msgText = msgText.replace(linkText, '');
+            // Remove timestamps
+            msgText = msgText.replace(/\d{1,2}:\d{2}\s*(AM|PM)?/gi, '').trim();
+            msgText = msgText.replace(/\d+[smhd]\s+ago/gi, '').trim();
+            msgText = msgText.replace(/^[\s•·]+/, '').trim();
+
+            if (msgText.length > 1) {
+                entries.push({ isMine, text: msgText.substring(0, 300) });
+            }
+        }
+
+        if (!entries.length) return null;
+
+        const recent = entries.slice(-10);
+        const context = recent.map(e => (e.isMine ? 'CC: ' : 'Them: ') + e.text).join('\n');
+        const lastEntry = recent[recent.length - 1];
+
+        // Find the most recent incoming message
+        let lastIncoming = null;
+        for (let i = recent.length - 1; i >= 0; i--) {
+            if (!recent[i].isMine) { lastIncoming = recent[i].text; break; }
+        }
+
+        return {
+            lastIncoming,
+            needsReply: !lastEntry.isMine,
+            context
+        };
+    }""")
+
+
 def cmd_scan_dms(args, page=None, ctx=None):
-    """Check for incoming Skool DMs and auto-reply."""
+    """Check for incoming Skool DMs and auto-reply (closed-loop).
+
+    Flow:
+    1. Navigate to community feed
+    2. Open chat sidebar via chat icon button
+    3. Extract conversation list
+    4. For each conversation where the last message is from THEM (not CC):
+       a. Navigate to /chat?ch=<id>
+       b. Read message history, detect incoming vs outgoing via profile links
+       c. Generate reply via Claude API
+       d. Type into message textbox and send
+    5. Filter to Agency Accelerants members only (cross-ref member state)
+    """
     from playwright.sync_api import sync_playwright
 
     member_state = _load_json(MEMBER_STATE_PATH)
     convos = _load_json(DM_CONVERSATIONS_PATH)
-    results = {"checked": 0, "replied": 0, "errors": []}
+    results = {"checked": 0, "replied": 0, "skipped": 0, "errors": []}
     own_ctx = page is None
 
     pw_mgr = None
@@ -811,120 +1164,106 @@ def cmd_scan_dms(args, page=None, ctx=None):
             return results
 
     try:
-        # Navigate to the community DM area — Skool DMs are per-community
-        # Try clicking the chat icon from the community page
-        page.goto(COMMUNITY_FEED_URL, wait_until="domcontentloaded", timeout=60000)
-        time.sleep(3)
+        # Step 1: Ensure we're on the community feed page
+        current = page.url or ""
+        if "agency-accelerants" not in current:
+            page.goto(COMMUNITY_FEED_URL, wait_until="domcontentloaded", timeout=60000)
+            time.sleep(4)
+        else:
+            time.sleep(2)
 
-        # Click the chat/DM icon (envelope icon in the top bar)
-        page.evaluate("""() => {
-            const btns = document.querySelectorAll('button');
-            for (const btn of btns) {
-                // Look for the chat icon button (usually has an envelope/chat SVG)
-                const svg = btn.querySelector('svg');
-                const img = btn.querySelector('img');
-                const ariaLabel = btn.getAttribute('aria-label') || '';
-                if (ariaLabel.toLowerCase().includes('chat') || ariaLabel.toLowerCase().includes('message')) {
-                    btn.click();
-                    return true;
-                }
-            }
-            return false;
-        }""")
+        # Step 2: Open chat sidebar (retry up to 2 times)
+        sidebar_open = False
+        for attempt in range(2):
+            if _open_chat_sidebar(page):
+                sidebar_open = True
+                break
+            log.info(f"Chat sidebar attempt {attempt + 1} failed, retrying...")
+            time.sleep(2)
 
-        time.sleep(3)
+        if not sidebar_open:
+            log.warning("Could not open chat sidebar — trying direct /chat URL")
+            page.goto("https://www.skool.com/chat", wait_until="networkidle", timeout=30000)
+            time.sleep(4)
 
-        # Get conversations list
-        chat_items = page.evaluate("""() => {
-            // Look for conversation items in the chat panel
-            const items = document.querySelectorAll('[class*="Chat"] a, [class*="Dm"] a, [class*="Conversation"] a');
-            const results = [];
-            const seen = new Set();
-            for (const item of items) {
-                const href = item.getAttribute('href') || '';
-                if (seen.has(href) || !href) continue;
-                seen.add(href);
-                const nameEl = item.querySelector('[class*="Name"], span');
-                const name = nameEl ? nameEl.textContent.trim() : '';
-                if (!name || name.length < 2) continue;
-                // Check for unread indicator
-                const hasUnread = !!(item.querySelector('[class*="unread"], [class*="Unread"], [class*="badge"], [class*="Badge"]'));
-                results.push({ name, href, hasUnread });
-            }
-            return results;
-        }""")
-
-        log.info(f"Found {len(chat_items)} DM conversations")
+        # Step 3: Extract conversations
+        chat_items = _get_chat_conversations(page)
+        log.info(f"Found {len(chat_items)} DM conversations in sidebar")
         results["checked"] = len(chat_items)
 
+        # Build set of known community members for filtering
+        known_members = set(member_state.keys())
+
+        reply_count = 0
         for item in chat_items:
-            if not item.get("hasUnread"):
-                continue
+            if reply_count >= MAX_REPLIES_PER_CYCLE:
+                log.info(f"Hit DM reply limit ({MAX_REPLIES_PER_CYCLE}), stopping")
+                break
 
             name = item.get("name", "Unknown")
             href = item.get("href", "")
 
+            # Try to match conversation to a known community member
+            name_slug = name.lower().replace(" ", "-")
+            # Match against known member usernames (fuzzy — name slug may differ from username)
+            matched_username = None
+            for uname in known_members:
+                # Match if the name slug is a prefix of the username or vice versa
+                if name_slug in uname or uname.startswith(name_slug.split("-")[0]):
+                    matched_username = uname
+                    break
+
             # Check cooldown
-            username = name.lower().replace(" ", "-")
-            state = member_state.get(username, {})
+            state = member_state.get(matched_username or name_slug, {})
             last_ts = state.get("last_dm_ts", "")
             if last_ts:
                 try:
                     hours_ago = (datetime.now(timezone.utc) - datetime.fromisoformat(last_ts)).total_seconds() / 3600
                     if hours_ago < DM_REPLY_COOLDOWN_HOURS:
+                        results["skipped"] += 1
                         continue
                 except ValueError:
                     pass
 
-            log.info(f"Checking DM from {name}...")
-
-            # Open conversation
+            # Step 4: Open conversation to read messages
             chat_url = f"https://www.skool.com{href}" if href.startswith("/") else href
             page.goto(chat_url, wait_until="domcontentloaded", timeout=30000)
             time.sleep(3)
 
-            # Get conversation context
-            msg_data = page.evaluate("""() => {
-                const msgs = document.querySelectorAll('[class*="Message"], [class*="ChatMessage"]');
-                if (!msgs.length) return null;
-                const recent = Array.from(msgs).slice(-8);
-                const context = [];
-                let lastIncoming = null;
-                for (const msg of recent) {
-                    const text = msg.textContent?.trim() || '';
-                    if (!text) continue;
-                    const classes = msg.className || '';
-                    const isMine = classes.includes('outgoing') || classes.includes('sent') ||
-                                   classes.includes('right') || classes.includes('Right');
-                    if (!isMine && text) lastIncoming = text;
-                    context.push((isMine ? 'CC: ' : 'Them: ') + text.substring(0, 200));
-                }
-                return { lastIncoming, context: context.join('\\n') };
-            }""")
+            # Read message history and detect if reply is needed
+            msg_data = _read_conversation_messages(page)
 
-            if not msg_data or not msg_data.get("lastIncoming"):
+            if not msg_data or not msg_data.get("needsReply"):
+                results["skipped"] += 1
                 continue
 
-            their_msg = msg_data["lastIncoming"]
+            their_msg = msg_data.get("lastIncoming", "")
+            if not their_msg:
+                results["skipped"] += 1
+                continue
+
             context = msg_data.get("context", "")
             is_paid = state.get("is_paid", False)
+            username = matched_username or name_slug
 
-            log.info(f"  Their message: {their_msg[:80]}...")
+            log.info(f"  Unreplied DM from {name}: {their_msg[:80]}...")
 
             reply = generate_dm_reply(name, their_msg, context, is_paid)
             if not reply:
-                results["errors"].append(f"No reply for {name}")
+                results["errors"].append(f"No reply generated for {name}")
                 continue
 
             log.info(f"  Reply: {reply[:80]}...")
 
             if args.dry_run:
                 results["replied"] += 1
+                reply_count += 1
                 continue
 
-            sent = _type_and_send_dm(page, reply)
+            # Type reply into the message textbox
+            sent = _type_and_send_chat(page, name, reply)
             if sent:
-                log.info("  DM reply sent")
+                log.info(f"  DM reply sent to {name}")
                 now = _now()
 
                 # Update conversation tracking
@@ -934,15 +1273,22 @@ def cmd_scan_dms(args, page=None, ctx=None):
                 convos[username]["messages"].append({"from": "Them", "text": their_msg, "ts": now})
                 convos[username]["messages"].append({"from": "CC", "text": reply, "ts": now})
 
-                # Update state
+                # Update member state
                 if username in member_state:
                     member_state[username]["last_dm_ts"] = now
                     member_state[username]["interaction_count"] = state.get("interaction_count", 0) + 1
+                else:
+                    member_state[username] = {
+                        "name": name, "is_paid": is_paid,
+                        "interaction_count": 1, "last_dm_ts": now,
+                        "last_action": "dm_reply",
+                    }
 
                 results["replied"] += 1
+                reply_count += 1
                 notify(f"Skool DM reply to {name}: {reply[:60]}...", category="content")
             else:
-                results["errors"].append(f"Failed to reply to {name}")
+                results["errors"].append(f"Failed to send reply to {name}")
 
             time.sleep(2)
 
@@ -960,34 +1306,54 @@ def cmd_scan_dms(args, page=None, ctx=None):
 # Auto & Daemon modes
 # ---------------------------------------------------------------------------
 
-def cmd_auto(args):
-    """Run all scans in sequence with shared browser context."""
+def cmd_auto(args, page=None, ctx=None, cycle=0):
+    """Run all scans in sequence with shared browser context.
+
+    Args:
+        page/ctx: Optional pre-existing browser page/context (daemon mode reuses these).
+        cycle: Current daemon cycle number. Member engagement only runs every
+               ENGAGEMENT_EVERY_N_CYCLES cycles (0 = always run, for standalone use).
+    """
     from playwright.sync_api import sync_playwright
 
     log.info("=== Skool Engine: Auto Scan ===")
     log.info(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
 
     all_results = {}
+    own_ctx = page is None
 
-    with sync_playwright() as pw:
-        ctx = get_browser_context(pw)
+    if own_ctx:
+        pw_mgr = sync_playwright().start()
+        ctx = get_browser_context(pw_mgr)
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
 
+    try:
         if not is_logged_in(page):
             log.error("Not logged into Skool. Run: python scripts/skool_engine.py login")
-            ctx.close()
             return all_results
 
         log.info("\n--- Scanning community posts ---")
         all_results["posts"] = cmd_scan_posts(args, page=page, ctx=ctx)
 
-        log.info("\n--- Engaging members ---")
-        all_results["members"] = cmd_engage_members(args, page=page, ctx=ctx)
+        # Member engagement is heavier (DMs) — only run every Nth cycle
+        run_engagement = (cycle == 0) or (cycle % ENGAGEMENT_EVERY_N_CYCLES == 1)
+        if run_engagement:
+            log.info("\n--- Engaging members ---")
+            all_results["members"] = cmd_engage_members(args, page=page, ctx=ctx)
+        else:
+            log.info(f"\n--- Skipping member engagement (cycle {cycle}, next at cycle {cycle + (ENGAGEMENT_EVERY_N_CYCLES - (cycle - 1) % ENGAGEMENT_EVERY_N_CYCLES)}) ---")
+            all_results["members"] = {}
 
         log.info("\n--- Scanning DMs ---")
         all_results["dms"] = cmd_scan_dms(args, page=page, ctx=ctx)
 
-        ctx.close()
+    except Exception as e:
+        log.error(f"Auto scan error: {e}")
+        raise
+    finally:
+        if own_ctx:
+            ctx.close()
+            pw_mgr.stop()
 
     # Summary
     p = all_results.get("posts", {})
@@ -1013,9 +1379,12 @@ def cmd_auto(args):
 
 
 def cmd_daemon(args):
-    """Run continuously in daemon mode with configurable interval."""
-    interval = getattr(args, "interval", 20) or 20
+    """Run continuously in daemon mode with persistent browser and configurable interval."""
+    from playwright.sync_api import sync_playwright
+
+    interval = getattr(args, "interval", 2) or 2
     log.info(f"=== Skool Engine: Daemon Mode (every {interval} min) ===")
+    log.info(f"Member engagement every {ENGAGEMENT_EVERY_N_CYCLES} cycles (~{interval * ENGAGEMENT_EVERY_N_CYCLES} min)")
     log.info("Press Ctrl+C to stop")
 
     # Write PID file for tracking
@@ -1034,27 +1403,68 @@ def cmd_daemon(args):
     notify(f"Skool daemon started (every {interval} min)", category="system")
 
     cycle = 0
-    while running[0]:
-        cycle += 1
-        log.info(f"\n{'='*50}")
-        log.info(f"Cycle {cycle} starting at {datetime.now().strftime('%H:%M:%S')}")
-        log.info(f"{'='*50}")
+    consecutive_failures = 0
+    max_consecutive_failures = 5  # Restart browser after 5 consecutive failures
 
+    while running[0]:
         try:
-            cmd_auto(args)
+            # Persistent browser context — reuse across cycles
+            with sync_playwright() as pw:
+                ctx = get_browser_context(pw)
+                page = ctx.pages[0] if ctx.pages else ctx.new_page()
+
+                # Verify login before entering the loop
+                if not is_logged_in(page):
+                    log.error("Not logged into Skool. Run: python scripts/skool_engine.py login")
+                    ctx.close()
+                    notify("Skool daemon: NOT LOGGED IN — run login command", category="system")
+                    break
+
+                # Inner loop with persistent browser
+                while running[0]:
+                    log.info(f"\n{'='*50}")
+                    log.info(f"Cycle {cycle} at {datetime.now().strftime('%H:%M:%S')}")
+                    log.info(f"{'='*50}")
+
+                    try:
+                        cmd_auto(args, page=page, ctx=ctx, cycle=cycle)
+                        consecutive_failures = 0
+                    except Exception as e:
+                        consecutive_failures += 1
+                        log.error(f"Cycle {cycle} failed ({consecutive_failures}/{max_consecutive_failures}): {e}")
+                        notify(f"Skool daemon error (cycle {cycle}): {str(e)[:80]}", category="system")
+
+                        if consecutive_failures >= max_consecutive_failures:
+                            log.warning("Too many consecutive failures — restarting browser...")
+                            break  # Break inner loop to restart browser
+
+                    if not running[0]:
+                        break
+
+                    cycle += 1
+                    log.info(f"Next cycle in {interval} minutes...")
+                    for _ in range(interval * 6):  # 10-second increments
+                        if not running[0]:
+                            break
+                        time.sleep(10)
+
+                ctx.close()
+
         except Exception as e:
-            log.error(f"Cycle {cycle} failed: {e}")
-            notify(f"Skool daemon error (cycle {cycle}): {str(e)[:80]}", category="system")
+            log.error(f"Browser context crashed: {e}")
+            notify(f"Skool daemon browser crash: {str(e)[:80]}", category="system")
 
         if not running[0]:
             break
 
-        log.info(f"Next cycle in {interval} minutes...")
-        # Sleep in small increments so we can catch shutdown signals
-        for _ in range(interval * 6):  # 10-second increments
-            if not running[0]:
-                break
-            time.sleep(10)
+        # If we got here from consecutive failures, wait a bit then retry
+        if consecutive_failures >= max_consecutive_failures:
+            consecutive_failures = 0
+            log.info("Waiting 60s before restarting browser...")
+            for _ in range(6):
+                if not running[0]:
+                    break
+                time.sleep(10)
 
     # Cleanup PID file
     if DAEMON_PID_PATH.exists():
@@ -1123,9 +1533,13 @@ def cmd_status(args):
     daemon_running = False
     if daemon_info.get("pid"):
         try:
-            os.kill(daemon_info["pid"], 0)
-            daemon_running = True
-        except (OSError, ProcessLookupError):
+            import subprocess
+            result = subprocess.run(
+                ["tasklist", "/FI", f"PID eq {daemon_info['pid']}", "/NH"],
+                capture_output=True, text=True, timeout=5
+            )
+            daemon_running = str(daemon_info["pid"]) in result.stdout
+        except Exception:
             pass
 
     status = {
@@ -1180,7 +1594,7 @@ def main():
     sub.add_parser("status", help="Show engine status and stats")
 
     daemon_parser = sub.add_parser("daemon", help="Run continuously")
-    daemon_parser.add_argument("--interval", type=int, default=20, help="Minutes between cycles (default: 20)")
+    daemon_parser.add_argument("--interval", type=int, default=2, help="Minutes between cycles (default: 2)")
 
     args = parser.parse_args()
 

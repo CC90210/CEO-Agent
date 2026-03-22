@@ -36,7 +36,7 @@ You are the Chief of Staff for CC (Conaugh McKenna), managing the Business Empir
 ## The Workflow
 
 ### Step 1: Multi-Channel Fetch
-- Fetch unread emails via `scripts/search_emails.py`.
+- Fetch unread emails via `gws gmail users messages list --params '{"userId":"me","q":"is:unread"}'`.
 - Fetch social mentions/DMs via `Late:posts_list(status="published")` or specific n8n triggers.
 - Fetch Slack/Discord signals via `n8n-mcp:execute_workflow` (Triage Workflow).
 
@@ -50,7 +50,7 @@ You are the Chief of Staff for CC (Conaugh McKenna), managing the Business Empir
 
 ### Step 4: Mission Follow-Through (Enforced)
 - Every action must update the "Mission State":
-  - Calendar: Update `scripts/calendar_ops.py`.
+  - Calendar: Update via `gws calendar events list/insert/patch/delete`.
   - CRM: Update `memory/LEAD_TRACKER.csv`.
   - Tasks: Update `memory/ACTIVE_TASKS.md`.
   - Git: Commit any knowledge base updates.
@@ -65,5 +65,5 @@ You are the Chief of Staff for CC (Conaugh McKenna), managing the Business Empir
 ## Prerequisites
 - n8n Triage Workflow (ID: triage-hub)
 - Late API Key (in .env.agents)
-- scripts/send_email.py & scripts/search_emails.py
+- `gws` CLI (Gmail send/search, Calendar ops) — credentials via `scripts/gws-wrapper.cmd`
 - Access to memory/ directory

@@ -173,16 +173,16 @@ const executeCli = (tool, userPrompt, chatId) => {
 
         const startTime = Date.now();
 
-        // Progress update — let CC know it's still working
+        // Progress update — only after 2+ minutes, every 2 minutes (reduced noise)
         const progressTimer = setInterval(() => {
             if (chatId) {
                 const elapsed = Math.round((Date.now() - startTime) / 1000);
                 bot.sendChatAction(chatId, 'typing').catch(() => {});
-                if (elapsed >= 60 && elapsed % 60 === 0) {
-                    bot.sendMessage(chatId, `Still working... (${elapsed}s, ${hasOutput ? 'receiving output' : 'processing'})`).catch(() => {});
+                if (elapsed >= 120 && elapsed % 120 === 0) {
+                    bot.sendMessage(chatId, `Still working... (${elapsed}s)`).catch(() => {});
                 }
             }
-        }, 10000);
+        }, 15000);
 
         const timer = setTimeout(() => {
             log(`[TIMEOUT] ${tool} killed after ${timeout / 1000}s`);

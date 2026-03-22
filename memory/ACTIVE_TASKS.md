@@ -20,11 +20,12 @@
 
 ## P1 — Infrastructure (Stable)
 
-- [ ] [P1] **Skool community automation: manual login + dry-run test** — Built scripts/skool_engine.py. Needs one-time manual Skool login in tmp/skool-browser/, then `--dry-run` test to verify DM/comment functionality before autonomous operation (2026-03-21)
+- [ ] [P1] **Skool community automation: activate and monitor** — Built scripts/skool_engine.py. Daemon LIVE (2026-03-21). Register Windows Task Scheduler (requires admin elevation) for persistent operation. Monitor member engagement metrics over 1-week test period. Adjust rate limits if Claude API quota becomes constraint.
 - [ ] [P1] **Content pipeline: build real structure** — 21 draft posts exist in Supabase but auto-posting is DISABLED. Need CC to review content strategy before enabling. No posts will auto-publish.
 - [ ] [P1] **Create Google Meet link** — Store in .env.agents for booking confirmations
 - [ ] [P1] **Wire n8n to cron_engine** — Connect n8n workflows to execute cron job actions
 - [x] [P1] **Skool Lead Magnets: emoji fix** — Fixed UTF-8 mojibake across L1, L2, L3 (2026-03-21)
+- [x] [P1] **Skool community automation engine** — Built scripts/skool_engine.py with feed scanner, DM responder, new member welcome, Telegram notifications. Daemon operational (2026-03-21).
 
 ## P2 — Blocked / Waiting
 
@@ -36,9 +37,15 @@
 | PropFlow | Pivoted dev hours to OASIS | 2026-03-01 |
 
 ## Recently Completed (March 21)
-- [x] **Skool Lead Magnets emoji fix** — UTF-8 mojibake resolved (garbled 🧲, 🧠, 🛠️ → correct Unicode)
-- [x] **SkoolIntro Remotion composition** — 450-frame intro video (15s) created, registered in Root.tsx
-- [x] **Skool community automation engine** — Built scripts/skool_engine.py with feed scanner, DM responder, new member welcome, Telegram notifications. Ready for manual login + dry-run test.
+- [x] **Skool community automation engine** — Built scripts/skool_engine.py with feed scanner, DM responder, new member welcome, Telegram notifications. Daemon running LIVE with 5 post replies + 3 welcome DMs sent in first cycle.
+- [x] **Skool automation production launch** — Auto-login, rate limiting (MAX_REPLIES_PER_CYCLE=5, MAX_DMS_PER_CYCLE=3), browser crash recovery, 2-min daemon interval. Windows Task Scheduler ready (skool-cron.cmd).
+- [x] **Lead Magnets Lessons 5-6 published** — Notion (L5, +200 XP) and ManyChat (L6, +250 XP) published to Skool Classroom. Course now has 6 lessons.
+- [x] **GWS CLI integration** — Installed v0.18.1, authenticated as oasisaisolutions@gmail.com, 93 skills copied, wrapper script created. Email, Calendar, Drive, Sheets, Docs all live.
+- [x] **System cleanup: 13 dead scripts deleted** — search_emails.py, send_email.py, calendar_ops.py, google_calendar.py, deploy_lite_repo.py, linkedin_batch_send.py, notebooklm_tool.py, populate_notebooklm.py, post_authority.py, sanitize_repo.py, notion_sync.js, outreach/execute_campaign.js, outreach/sync_supabase_rest.js.
+- [x] **Telegram noise reduction** — Category filtering applied (content/instagram/system blocked). Progress updates 2-min cadence.
+- [x] **Lead-to-close pipeline designed** — 5 stages identified (Capture → Auto-Reply → Book → Follow-Up → Close). 2 gaps noted: funnel→CRM auto-sync, booking→calendar.
+- [x] **Skool emoji fix** — Fixed UTF-8 mojibake across Lead Magnets L1-L3 (garbled 🧲, 🧠, 🛠️ → correct Unicode).
+- [x] **SkoolIntro Remotion composition** — 450-frame (15s) intro video created, registered in Root.tsx. Zero TypeScript errors.
 
 ## Recently Completed (March 20)
 - [x] **Full bug audit across all automations** — 39 bugs found across 4 audits, 20 critical/high/medium fixed

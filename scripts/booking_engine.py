@@ -123,6 +123,77 @@ def fail(message: str, json_mode: bool) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Google Calendar helper
+# ---------------------------------------------------------------------------
+
+def _create_calendar_event(env_vars: dict[str, str], booking: dict, slot: dict) -> bool:  # noqa: ARG001
+    """Create a Google Calendar event for the booking using gws CLI. Non-fatal."""
+    try:
+        import subprocess as _sp
+
+        slot_date = slot.get("slot_date", "")
+        start_time = slot.get("start_time", "")[:5]  # HH:MM
+        end_time = slot.get("end_time", "")[:5]
+        name = booking.get("name", "Unknown")
+        email = booking.get("email", "")
+        meeting_type = booking.get("meeting_type", "discovery")
+        meet_link = booking.get("meeting_link", "")
+
+        # Build the title and description
+        title = f"{meeting_type.title()} Call — {name}"
+        description_parts = [
+            f"Booking with {name}",
+            f"Email: {email}",
+        ]
+        if booking.get("phone"):
+            description_parts.append(f"Phone: {booking['phone']}")
+        if booking.get("notes"):
+            description_parts.append(f"Notes: {booking['notes']}")
+        if meet_link:
+            description_parts.append(f"Meet: {meet_link}")
+        description = "\\n".join(description_parts)
+
+        # Use the gws-wrapper.cmd to call gws calendar +insert
+        wrapper = Path(__file__).resolve().parent / "gws-wrapper.cmd"
+        if not wrapper.exists():
+            return False
+
+        # gws calendar +insert expects: title, start datetime, end datetime
+        start_dt = f"{slot_date}T{start_time}:00"
+        end_dt = f"{slot_date}T{end_time}:00"
+
+        cmd = [
+            "cmd", "/c", str(wrapper),
+            "calendar", "+insert",
+            "--title", title,
+            "--start", start_dt,
+            "--end", end_dt,
+            "--description", description,
+        ]
+        if email:
+            cmd.extend(["--attendees", email])
+
+        result = _sp.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=30,
+            cwd=str(Path(__file__).resolve().parent.parent),
+        )
+
+        if result.returncode == 0:
+            return True
+        else:
+            # Log but don't crash
+            print(f"Calendar event creation failed: {result.stderr[:200]}", flush=True)
+            return False
+    except Exception as e:  # noqa: BLE001 — non-fatal, must not crash booking flow
+        print(f"Calendar event creation error: {e}", flush=True)
+        return False
+
+
+# ---------------------------------------------------------------------------
 # Slot generation helpers
 # ---------------------------------------------------------------------------
 
@@ -516,6 +587,9 @@ def cmd_book(client, args, json_mode: bool, env_vars: dict[str, str] | None = No
 
     # Send confirmation email with .ics invite (non-fatal on failure)
     _send_booking_confirmation(env_vars or {}, client, booking, slot)
+
+    # Create Google Calendar event (non-fatal)
+    _create_calendar_event(env_vars or {}, booking, slot)
 
     if json_mode:
         output({"booking": booking, "slot": slot}, json_mode=True)
@@ -945,6 +1019,9 @@ def cmd_auto_book(client, args, json_mode: bool, env_vars: dict[str, str]) -> No
 
     # Send confirmation email (non-fatal)
     _send_booking_confirmation(env_vars, client, booking, chosen_slot)
+
+    # Create Google Calendar event (non-fatal)
+    _create_calendar_event(env_vars, booking, chosen_slot)
 
     # Notify CC via Telegram (non-fatal)
     slot_date = chosen_slot["slot_date"]
