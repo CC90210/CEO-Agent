@@ -93,10 +93,11 @@ Business-Empire-Agent/
 │   ├── workflows/              ← 15 slash commands (/commit, /post, /evolve, etc.)
 │   └── plans/                  ← Implementation plans
 │
-├── scripts/                    ← MCP wrappers & utilities
-│   ├── *-mcp-wrapper.cmd       ← 4 credential-injecting MCP launchers
+├── scripts/                    ← CLI tools & utilities
 │   ├── supabase_tool.py        ← Supabase SDK CLI (full CRUD, 3 projects)
 │   ├── stripe_tool.py          ← Stripe SDK CLI (balance, customers, invoices)
+│   ├── n8n_tool.py             ← n8n REST API CLI (list, execute, manage workflows)
+│   ├── late_tool.py            ← Late social media CLI (create, cross-post, publish)
 │   ├── edit_content.py         ← Video pipeline (FFmpeg 8.0.1, Whisper, ElevenLabs)
 │   └── cli_templates/          ← Reusable CLI-Anything templates
 │
@@ -122,16 +123,12 @@ Business-Empire-Agent/
 
 | Server | Purpose | Status |
 |--------|---------|--------|
-| **Supabase** | Database queries, migrations, schema management (3 projects) | ✅ Active |
-| **Stripe** | Payments, subscriptions, invoices (SDK fallback for broken MCP) | ✅ Active |
-| **n8n-mcp** | Workflow automation (44+ workflows via REST API) | ✅ Active |
-| **Late** | Social media posting (8 connected accounts) | ✅ Active |
 | **Playwright** | Browser automation, web research, E2E testing | ✅ Active |
 | **Context7** | Live library documentation lookup | ✅ Active |
 | **Memory** | Persistent knowledge graph across sessions | ✅ Active |
 | **Sequential Thinking** | Structured multi-step reasoning | ✅ Active |
 
-**Security:** All credential-sensitive servers use `cmd /c scripts/*-mcp-wrapper.cmd` wrappers that read from `.env.agents` at runtime. Zero hardcoded keys in any config file.
+**CLI-first architecture:** Credential-dependent services (Supabase, Stripe, n8n, Late) use Python CLI tools (`scripts/*_tool.py`) that read from `.env.agents` at runtime. Zero hardcoded keys in any config file.
 
 ### MCP Config Locations
 

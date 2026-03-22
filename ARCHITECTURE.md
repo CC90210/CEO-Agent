@@ -231,11 +231,11 @@ The matrix prevents role confusion. Without it, every task would default to the 
 | Playwright | Browser automation, web research | `npx @playwright/mcp --headless` |
 | Context7 | Live library documentation | `npx @upstash/context7-mcp` |
 | Memory | Persistent knowledge graph | `npx @modelcontextprotocol/server-memory` |
-| n8n-mcp | Workflow automation management | `cmd /c scripts/n8n-mcp-wrapper.cmd` |
-| Late | Social media posting (8+ platforms) | `cmd /c scripts/late-mcp-wrapper.cmd` |
 | Sequential Thinking | Structured reasoning | `npx @modelcontextprotocol/server-sequential-thinking` |
-| Supabase | Database queries and migrations | `cmd /c scripts/supabase-mcp-wrapper.cmd` |
-| Stripe | Payment and subscription data | `cmd /c scripts/stripe-mcp-wrapper.cmd` |
+| n8n (CLI) | Workflow automation management | `python scripts/n8n_tool.py` |
+| Late (CLI) | Social media posting (8+ platforms) | `python scripts/late_tool.py` |
+| Supabase (CLI) | Database queries and migrations | `python scripts/supabase_tool.py` |
+| Stripe (CLI) | Payment and subscription data | `python scripts/stripe_tool.py` |
 
 ### Why MCP Over Raw API Calls?
 
@@ -243,16 +243,9 @@ MCP servers expose tool interfaces to the AI model natively. The model can call 
 
 The anti-pattern "if MCP fails, fall back to curl" is explicitly banned in CLAUDE.md. A fallback to curl means the system silently operates in a degraded mode without ever surfacing that the MCP is broken. Instead: if an MCP fails, report the error and stop. This forces the broken MCP to get fixed rather than papering over it.
 
-### Wrapper Scripts for Credential Security
+### CLI-First Architecture
 
-Four credential-sensitive MCPs (n8n, Late, Supabase, Stripe) use `cmd /c scripts/*-mcp-wrapper.cmd` instead of direct `npx` calls. These `.cmd` files:
-1. Read credentials from `.env.agents` at runtime
-2. Set them as environment variables via `set KEY=VALUE`
-3. Launch the MCP server with those env vars in scope
-
-**Why wrappers instead of the `env` block in MCP JSON configs?**
-
-On Windows, the `env` block in MCP JSON does not reliably inject environment variables. The wrapper `.cmd` approach works consistently across Windows terminals. This was discovered through actual debugging, documented in MISTAKES.md, and hardened into a pattern.
+Credential-dependent services (n8n, Late, Supabase, Stripe) use Python CLI tools instead of MCP servers. These tools read credentials from `.env.agents` at runtime, support a `--json` flag for structured output, and work identically across Claude, Gemini, and Antigravity. The 4 remaining MCPs (Playwright, Context7, Memory, Sequential Thinking) are all stateless — they require no credentials and run via direct `npx`.
 
 Zero credentials appear in any config file. The config files are safe to commit to git. `.env.agents` is gitignored and is the only place credentials ever live.
 
@@ -556,9 +549,10 @@ The Supabase `memories` table uses full-text search, not vector embeddings. Vect
 | `memory/LONG_TERM.md` | High-confidence persistent facts | Agent (FREELY MUTABLE) |
 | `memory/SOP_LIBRARY.md` | Standard operating procedures | Agent (GOVERNED) |
 | `.env.agents` | All credentials (gitignored) | CC only |
-| `scripts/*-mcp-wrapper.cmd` | Credential injection for MCPs | Agent/CC |
 | `scripts/supabase_tool.py` | Supabase SDK CLI | Agent/CC |
 | `scripts/stripe_tool.py` | Stripe SDK CLI | Agent/CC |
+| `scripts/n8n_tool.py` | n8n REST API CLI | Agent/CC |
+| `scripts/late_tool.py` | Late social media CLI | Agent/CC |
 
 ---
 

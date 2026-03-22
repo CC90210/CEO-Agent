@@ -2,22 +2,80 @@
   "permissions": {
     "allow": [
       "Bash(*)",
-      "mcp__supabase__*",
-      "mcp__n8n-mcp__*",
-      "mcp__late__*",
       "mcp__playwright__*",
       "mcp__sequential-thinking__*",
       "mcp__context7__*",
       "mcp__memory__*",
-      "mcp__stripe__*",
       "WebFetch(domain:www.skool.com)",
       "WebFetch(domain:www.humanlayer.dev)",
-      "WebFetch(domain:raw.githubusercontent.com)",
-      "Read(//c/Users/User/AppData/Local/Programs/Antigravity/resources/app/extensions/antigravity/dist/**)",
-      "Read(//c/Users/User/AppData/Roaming/Antigravity/logs/20260314T220856/window1/exthost/google.antigravity/**)"
+      "WebFetch(domain:raw.githubusercontent.com)"
+    ],
+    "deny": [
+      "Edit(.env)",
+      "Edit(.env.*)",
+      "Edit(.env.agents)",
+      "Write(.env)",
+      "Write(.env.*)",
+      "Write(.env.agents)",
+      "Edit(.obsidian/**)",
+      "Write(.obsidian/**)",
+      "Bash(rm -rf /)",
+      "Bash(rm -rf ~)",
+      "Bash(rm -rf /*)",
+      "Bash(rm -rf .git)",
+      "Bash(git push * --force main)",
+      "Bash(git push * --force master)",
+      "Bash(git push --force origin main)",
+      "Bash(git push --force origin master)",
+      "Bash(git reset --hard)",
+      "Bash(git clean -fd)"
     ],
     "additionalDirectories": [
       "C:\\Users\\User\\.gemini"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'FILE=$(echo $CLAUDE_TOOL_INPUT | python -c \"import sys,json; print(json.load(sys.stdin).get(\\\"file_path\\\",json.load(sys.stdin).get(\\\"filePath\\\",\\\"\\\"))\" 2>/dev/null); if echo \"$FILE\" | grep -qiE \"\\.(env|env\\..*)$\"; then echo \"{\\\"decision\\\":\\\"block\\\",\\\"reason\\\":\\\"BLOCKED: Cannot edit credential files. Update .env.agents manually.\\\"}\"; exit 0; fi; echo \"{\\\"decision\\\":\\\"allow\\\"}\"'"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'CMD=$(echo $CLAUDE_TOOL_INPUT | python -c \"import sys,json; print(json.load(sys.stdin).get(\\\"command\\\",\\\"\\\"))\" 2>/dev/null); if echo \"$CMD\" | grep -qiE \"(rm\\s+-rf\\s+(/|~|/\\*|\\.git)$|git\\s+push.*--force.*(main|master)|DROP\\s+TABLE|TRUNCATE\\s+TABLE)\"; then echo \"{\\\"decision\\\":\\\"block\\\",\\\"reason\\\":\\\"BLOCKED: Destructive operation detected. Ask CC for confirmation first.\\\"}\"; exit 0; fi; echo \"{\\\"decision\\\":\\\"allow\\\"}\"'"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'CMD=$(echo $CLAUDE_TOOL_INPUT | python -c \"import sys,json; print(json.load(sys.stdin).get(\\\"command\\\",\\\"\\\"))\" 2>/dev/null); if echo \"$CMD\" | grep -qiE \"^(git\\s+push|git\\s+commit|npm\\s+run\\s+build|vercel\\s+deploy)\"; then echo \"[HOOK] Logged: $CMD\" >> /c/Users/User/Business-Empire-Agent/tmp/hook_audit.log 2>/dev/null; fi'"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'powershell.exe -Command \"[System.Reflection.Assembly]::LoadWithPartialName(\\\"System.Windows.Forms\\\") | Out-Null; [System.Windows.Forms.MessageBox]::Show(\\\"Claude Code needs your input\\\", \\\"Bravo V5.5\\\", \\\"OK\\\", \\\"Information\\\")\" 2>/dev/null || true'"
+          }
+        ]
+      }
     ]
   }
 }

@@ -47,12 +47,13 @@
 **Why it works:** Prevents junk file creation and infinite retry loops that waste context
 **Sessions validated:** 5 | **Last used:** 2026-03-01
 
-### Windows MCP Env Variable Fix `[VALIDATED]`
+### Windows MCP Env Variable Fix `[DEPRECATED]`
 **Context:** MCP server needs an environment variable (e.g., LATE_API_KEY, N8N_API_URL) but the `env` field in JSON config doesn't pass through on Windows
 **Pattern:** Create a dedicated `.cmd` wrapper script in `scripts/` that `set`s all required env vars, then launches the MCP server. Point the JSON config to `"command": "cmd", "args": ["/c", "path/to/wrapper.cmd"]`. Example: `scripts/late-mcp-wrapper.cmd` sets `LATE_API_KEY` then runs `uvx --from "late-sdk[mcp]" late-mcp`.
 **Why it works:** Windows MCP hosts (Antigravity IDE, Gemini CLI) don't reliably forward `env` field to subprocesses. The wrapper script injects vars into the shell before the process starts.
 **Wrapper scripts:** `scripts/n8n-mcp-wrapper.cmd`, `scripts/late-mcp-wrapper.cmd`
 **Sessions validated:** 4 | **Last used:** 2026-03-02
+**DEPRECATED (2026-03-22):** Superseded by CLI-first architecture. Credential-dependent services (n8n, Late, Supabase, Stripe) now use Python CLI tools (`scripts/*_tool.py`) instead of MCP wrapper scripts. The 4 remaining MCPs are all stateless and require no wrappers.
 
 ### Multi-Hypothesis Approach `[PROBATIONARY]`
 **Context:** Any MODERATE+ complexity task

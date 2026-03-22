@@ -1,199 +1,189 @@
 ---
 name: mcp-operations
-description: Comprehensive MCP operations guide — routing, tool usage, troubleshooting. Single source of truth for all agents.
-triggers: [MCP, tool routing, Late, n8n, Supabase MCP, tool failure, MCP config]
+description: Tool routing guide — CLI-first for credential services, MCP for stateless tools. Single source of truth for all agents.
+triggers: [tool routing, Late, n8n, Supabase, Stripe, MCP, tool failure]
 tier: core
 dependencies: []
 ---
 
-# MCP Operations Guide
+# Tool Operations Guide (CLI-First Architecture)
 
 > **For:** All agents (Claude Code, Gemini CLI, Anti-Gravity, Telegram bridge)
-> **Rule:** When a user query matches an MCP tool, CALL THE TOOL FIRST. Never describe what you would do — do it.
+> **Rule:** When a user query matches a tool, USE IT. Never describe what you would do — do it.
+> **Architecture (2026-03-22):** Stateless MCPs work reliably. Credential-dependent MCPs break. Use CLI tools for anything requiring API keys.
 
 ## Quick Routing Table
 
-| User Intent | MCP Server / Tool | Tool | Example |
+### Working MCP Servers (stateless — use directly)
+
+| User Intent | MCP Server | Tool | Example |
 |---|---|---|---|
-| List/search/run n8n workflows | **n8n-mcp** | `search_workflows`, `execute_workflow` | "List my workflows" |
-| Post/schedule social media | **Late** | `posts_create`, `posts_cross_post` | "Post this to X" |
-| Query database / run SQL | **Supabase** | `execute_sql`, `list_tables` | "Show my tables" |
 | Browse web / take screenshot | **Playwright** | `browser_navigate`, `browser_snapshot` | "Go to this URL" |
-| Read from websites / trending / search platforms | **OpenCLI** | `opencli <platform> <cmd> --json` | "What's trending on Twitter?" |
-| Discover website APIs | **OpenCLI** | `opencli explore <url>` | "Find APIs on this site" |
 | Look up library docs | **Context7** | `resolve-library-id`, `query-docs` | "How does Next.js routing work?" |
 | Search/store knowledge | **Memory** | `search_nodes`, `create_entities` | "What do you know about X?" |
 | Complex reasoning | **Sequential Thinking** | `sequentialthinking` | Multi-step analysis |
-| Payment/subscription info | **Stripe** | (see Stripe tools) | "Show my Stripe balance" |
+
+### CLI Tools (credential-dependent — more reliable than MCPs)
+
+| User Intent | CLI Tool | Command | Example |
+|---|---|---|---|
+| n8n workflows | `python scripts/n8n_tool.py` | `list`, `get <id>`, `execute <id>`, `activate/deactivate <id>` | "List my workflows" |
+| Social media posts | `python scripts/late_tool.py` | `accounts`, `posts`, `create --text "..." --account <id>`, `cross-post` | "Post this to X" |
+| Database queries | `python scripts/supabase_tool.py` | `select <table>`, `insert`, `update`, `delete`, `sql "..."` | "Show my tables" |
+| Payments / billing | `python scripts/stripe_tool.py` | `balance`, `customers`, `invoices`, `products`, `subscriptions` | "Check my Stripe balance" |
+| Email / Calendar | `gws` CLI | `gmail +send`, `gmail +read`, `calendar +agenda` | "Check my email" |
+| Website-to-CLI | OpenCLI | `opencli explore <url>`, `opencli <platform> <cmd>` | "What's trending?" |
+
+**Why CLI-first:** MCP servers requiring credentials (Supabase, n8n, Stripe, Late) consistently fail due to env var passing issues on Windows, token expiry, and package auth changes. CLI tools read `.env.agents` directly — they never break.
 
 ---
 
-## Server Details
+## MCP Server Details
 
-### n8n-mcp (Workflow Automation)
-
-**Package:** `n8n-mcp` (community npm — uses REST API)
-**Config:** `cmd /c "set N8N_API_URL=https://n8n.srv993801.hstgr.cloud&& set N8N_API_KEY=<key>&& npx -y n8n-mcp"`
-**Instance:** https://n8n.srv993801.hstgr.cloud (Hostinger VPS)
-**Inventory:** 44 workflows, 11 active
-
-| Tool | Purpose | Key Params |
-|------|---------|------------|
-| `search_workflows` | List/search workflows | `query` (optional), `limit` (max 200) |
-| `get_workflow_details` | Full workflow config | `workflowId` (required) |
-| `execute_workflow` | Run a workflow | `workflowId`, `inputs` (chat/form/webhook) |
-
-**Pattern:** Always call `get_workflow_details` before `execute_workflow` to understand input schema.
-**Fallback:** `curl -H "X-N8N-API-KEY: $N8N_API_KEY" https://n8n.srv993801.hstgr.cloud/api/v1/workflows`
-
----
-
-### Late (Social Media)
-
-**Package:** `late-sdk[mcp]` (via uvx)
-**Config:** `bash -c "LATE_API_KEY=... uvx --from 'late-sdk[mcp]' late-mcp"` — inline env var with bash wrapper
-**IMPORTANT:** The `env` block in MCP configs does NOT work on Windows for injecting env vars. Use `bash -c` with inline env vars instead. Applied to all 3 config files (2026-03-03).
-
-| Tool | Purpose |
-|------|---------|
-| `posts_create` | Create/schedule a post |
-| `posts_cross_post` | Same content → multiple platforms |
-| `posts_list` | List posts (filter by status) |
-| `posts_update` | Edit draft/scheduled post |
-| `posts_delete` | Delete non-published post |
-| `accounts_list` | List connected accounts |
-| `profiles_list` | List profiles |
-| `media_generate_upload_link` | Get upload URL for images/video |
-| `media_check_upload_status` | Check upload completion |
-
-**Platform Limits:** X=280 | Threads=500 | IG=2200 | LinkedIn=3000 | TikTok=4000
-**Pattern:** Always validate character count per platform BEFORE posting. Use `posts_cross_post` for multi-platform.
-
----
-
-### Supabase (Database)
-
-**Package:** `@supabase/mcp-server-supabase@latest`
-**Config:** `npx -y @supabase/mcp-server-supabase@latest --access-token <token>`
-**Token:** Management API token (sbp_*), 30-day expiry
-
-| Tool | Purpose |
-|------|---------|
-| `execute_sql` | Run raw SQL (SELECT, INSERT, UPDATE) |
-| `list_tables` | List tables in schema(s) |
-| `apply_migration` | DDL operations (CREATE TABLE, ALTER, etc.) |
-| `list_projects` | List all projects |
-| `get_project` | Project details |
-| `list_migrations` | Migration history |
-| `get_logs` | Service logs (last 24h) |
-| `get_advisors` | Security/performance advisories |
-| `generate_typescript_types` | TypeScript type generation |
-
-**Projects:**
-- Bravo: `phctllmtsogkovoilwos` (agent intelligence)
-- nostalgic-requests: `jqybbrtzpvmefgzzdagz`
-- oasis-ai-platform: `sajanpiqysuwviucycjh`
-
-**Pattern:** Use `apply_migration` for DDL, `execute_sql` for DML. Always check `get_advisors(type="security")` after schema changes.
-
----
-
-### Playwright (Browser)
-
-**Package:** `@playwright/mcp@latest`
-**Config:** `cmd /c "npx -y @playwright/mcp@latest --headless"`
+### Playwright (Browser Automation)
+**Package:** `@playwright/mcp@latest` (headless)
+**Status:** WORKING
 
 | Tool | Purpose |
 |------|---------|
 | `browser_navigate` | Go to URL |
-| `browser_snapshot` | Accessibility snapshot (better than screenshot) |
-| `browser_take_screenshot` | Visual screenshot |
-| `browser_click` | Click element |
-| `browser_type` | Type text |
+| `browser_snapshot` | Accessibility tree (use for interactions) |
+| `browser_take_screenshot` | Visual capture (use for evidence) |
+| `browser_click` | Click element by ref |
+| `browser_type` | Type into field |
 | `browser_evaluate` | Run JavaScript |
 | `browser_fill_form` | Fill multiple fields |
 
-**Pattern:** Use `browser_snapshot` for reading page content, `browser_take_screenshot` for visual verification. Use for ALL web research — no Chrome extension available.
-
----
+**Pattern:** Always `browser_snapshot` before interacting. Re-snapshot after navigation/DOM changes.
 
 ### Context7 (Library Docs)
-
 **Package:** `@upstash/context7-mcp@latest`
+**Status:** WORKING
 
 | Tool | Purpose |
 |------|---------|
 | `resolve-library-id` | Find library ID (MUST call first) |
 | `query-docs` | Get docs/code examples |
 
-**Pattern:** Always resolve library ID before querying docs. Max 3 calls per question.
-
----
+**Pattern:** Always resolve library ID before querying. Max 3 calls per question.
 
 ### Memory (Knowledge Graph)
-
 **Package:** `@modelcontextprotocol/server-memory`
+**Status:** WORKING
 
 | Tool | Purpose |
 |------|---------|
-| `search_nodes` | Search entities by name/type/content |
-| `create_entities` | Add new entities |
+| `search_nodes` | Search entities |
+| `create_entities` | Add entities |
 | `create_relations` | Link entities |
-| `add_observations` | Add facts to entities |
-| `open_nodes` | Get specific entities by name |
-
-**Pattern:** Persistent across sessions. Use for cross-session context.
-
----
+| `add_observations` | Add facts |
+| `open_nodes` | Get specific entities |
 
 ### Sequential Thinking
-
 **Package:** `@modelcontextprotocol/server-sequential-thinking`
+**Status:** WORKING
 
 | Tool | Purpose |
 |------|---------|
 | `sequentialthinking` | Structured step-by-step reasoning |
 
-**Pattern:** Use for MODERATE+ complexity tasks. Supports branching, revision, and hypothesis verification.
-
 ---
+
+## CLI Tool Details
+
+### n8n (Workflow Automation)
+**Script:** `python scripts/n8n_tool.py`
+**Instance:** https://n8n.srv993801.hstgr.cloud (Hostinger VPS)
+**Inventory:** 47 workflows, 10 active
+**Credentials:** `N8N_API_URL` + `N8N_API_KEY` from `.env.agents`
+
+| Command | Purpose |
+|---------|---------|
+| `list [--active] [--limit N]` | List workflows |
+| `get <id>` | Full workflow details |
+| `execute <id> [--data '{}']` | Run a workflow |
+| `activate <id>` / `deactivate <id>` | Toggle workflow |
+| `executions [--workflow-id <id>]` | View execution history |
+| `export <id>` / `import <file>` | Backup/restore |
+
+All commands support `--json` flag for agent consumption.
+
+### Late (Social Media)
+**Script:** `python scripts/late_tool.py`
+**Credentials:** `LATE_API_KEY` from `.env.agents`
+**Connected:** 8 accounts (Facebook, Google Business, Instagram, LinkedIn, Threads, TikTok, Twitter, YouTube)
+
+| Command | Purpose |
+|---------|---------|
+| `accounts` | List connected accounts |
+| `profiles` | List profiles |
+| `posts [--status draft\|scheduled\|published\|failed]` | List posts |
+| `create --text "..." --account <id> [--schedule ISO8601]` | Create post |
+| `cross-post --text "..." --profile <id>` | Multi-platform post |
+| `delete <post_id>` | Delete post |
+| `publish <post_id>` | Publish now |
+| `failed` / `retry <id>` / `retry-all` | Failed post management |
+
+**Platform Limits:** X=280 | Threads=500 | IG=2200 | LinkedIn=3000 | TikTok=4000
+Always validate character count BEFORE posting.
+
+### Supabase (Database)
+**Script:** `python scripts/supabase_tool.py`
+**Credentials:** `SUPABASE_ACCESS_TOKEN`, project-specific URLs + keys from `.env.agents`
+
+| Command | Purpose |
+|---------|---------|
+| `select <table> [--project bravo] [--limit 10]` | Query rows |
+| `insert <table> --data '{}'` | Insert row |
+| `update <table> --match '{}' --data '{}'` | Update rows |
+| `delete <table> --match '{}'` | Delete rows |
+| `sql "SELECT ..."` | Raw SQL |
+| `tables` | List tables |
+
+**Projects:** bravo (`phctllmtsogkovoilwos`), nostalgic-requests (`jqybbrtzpvmefgzzdagz`), oasis-ai-platform (`sajanpiqysuwviucycjh`)
 
 ### Stripe (Payments)
+**Script:** `python scripts/stripe_tool.py`
+**Credentials:** Stripe API key from `.env.agents`
+**Note:** Stripe MCP (v0.3.1) switched to OAuth proxy mode — permanently broken. CLI tool is the only option.
 
-**Package:** `@stripe/mcp@latest`
-**Config:** `npx -y @stripe/mcp@latest --api-key=rk_live_*`
-**Auth:** Restricted API key (rk_live_*). NEVER use secret key (sk_live_*) — causes 401.
+| Command | Purpose |
+|---------|---------|
+| `balance` | Current balance |
+| `customers [--limit N]` | List customers |
+| `invoices [--limit N]` | List invoices |
+| `products` | List products |
+| `subscriptions [--status active]` | List subscriptions |
+
+All commands support `--json` flag.
 
 ---
 
-## Config Locations (MUST Stay In Sync)
+## Config Locations
 
-| File | Used By | Key Format |
-|------|---------|------------|
-| `.claude/mcp.json` | Claude Code CLI | `mcpServers` |
-| `.vscode/mcp.json` | Anti-Gravity IDE | `servers` |
-| `~/.gemini/settings.json` | Gemini CLI | `mcpServers` |
-| `.env.agents` | Credentials only | `KEY=value` |
+| File | Used By | Servers |
+|------|---------|---------|
+| `.claude/mcp.json` | Claude Code CLI | 4 stateless MCPs |
+| `.vscode/mcp.json` | Anti-Gravity IDE | 4 stateless MCPs |
+| `~/.gemini/settings.json` | Gemini CLI | 4 stateless MCPs |
+| `.env.agents` | CLI tools | All credentials |
 
-**SECURITY (2026-03-11): ALL 3 configs now use `cmd /c scripts/*-wrapper.cmd` for credential-sensitive servers (Supabase, n8n, Stripe, Late). ZERO hardcoded credentials in any config file. Credentials live ONLY in `.env.agents` (gitignored).**
-
-**Wrapper pattern:** `cmd /c scripts/<server>-mcp-wrapper.cmd` — reads keys from `.env.agents` at runtime, sets env vars, then launches the MCP server. 4 wrappers: `supabase-mcp-wrapper.cmd`, `n8n-mcp-wrapper.cmd`, `stripe-mcp-wrapper.cmd`, `late-mcp-wrapper.cmd`. Non-credential servers (Playwright, Context7, Memory, Sequential Thinking) use direct `npx` — no wrapper needed.
+All 3 MCP configs are identical (4 servers: Playwright, Context7, Memory, Sequential Thinking).
+Credential-dependent services use CLI tools that read `.env.agents` directly.
 
 ## ANTI-PATTERNS (NEVER DO THESE)
 
-1. **Never use curl/shell when an MCP tool exists.** If `search_workflows` is available, call it. Don't curl the API.
-2. **Never generate audit reports.** CC asks "how many workflows?" → answer is "44". Not a 500-word verification report.
-3. **Never create workaround scripts.** If MCP fails, report the error and stop. Don't write bypass code.
-4. **Never dump brain/state files as output.** Boot sequence is internal context, not user-facing output.
-5. **Never tell CC to restart unless they asked about infrastructure.** If tools work, answer the question.
+1. **Never try broken MCPs.** Supabase, n8n, Stripe, and Late MCPs are removed. Use CLI tools.
+2. **Never generate audit reports.** CC asks "how many workflows?" → answer is "47". One sentence.
+3. **Never dump brain/state files as output.** Boot sequence is internal context.
+4. **Never curl when a CLI tool exists.** CLI tools handle auth, error handling, and JSON output.
 
 ## Troubleshooting
 
 | Error | Cause | Fix |
 |-------|-------|-----|
-| "LATE_API_KEY required" | Env var not passing | Check `.env.agents` has `LATE_API_KEY=...`, restart terminal |
-| "Unauthorized" (Supabase) | Token expired | Regenerate at supabase.com, update `SUPABASE_ACCESS_TOKEN` in `.env.agents` |
-| n8n returns 0 workflows | Using native endpoint | Switch to community `n8n-mcp` package (already done) |
-| MCP server hangs | Server crash during init | Fix the failing server, restart terminal |
-| "Not Acceptable" (n8n) | Missing Accept headers | Use community package (handled automatically) |
-| Tool returns error | Various | Report error in 1 sentence. Do NOT fall back to curl. |
+| CLI tool "not found" | Wrong Python path | Use `python scripts/<tool>.py` from project root |
+| "API key not found" | Missing from .env.agents | Add the key to `.env.agents` |
+| Supabase "Unauthorized" | Token expired (30-day) | Regenerate at supabase.com, update `.env.agents` |
+| Playwright "browser in use" | Already open | Not an error — reuse existing session |
+| MCP server hangs | Server crash on init | Restart terminal |

@@ -44,32 +44,31 @@ You cannot wait until the end of the session. You must do this so that if CC swi
 
 When CC asks a question, answer it using MCP tools. Do NOT dump file contents or write audit reports. Keep simple answers to 1-5 sentences.
 
-### RULE 2: MCP tool routing
+### RULE 2: Tool routing (CLI-first, MCP as fallback)
 
-| CC Asks About | MCP Server / Tool | Command |
+**WORKING MCP Servers (use directly):**
+
+| CC Asks About | Tool | Command |
 |---|---|---|
-| n8n workflows, automations | n8n-mcp | `search_workflows`, `execute_workflow` |
-| Social posts, scheduling | Late | `posts_create`, `posts_list`, `posts_cross_post` |
-| Web browsing, screenshots | Playwright | `browser_navigate`, `browser_snapshot` |
-| Website-to-CLI, web scraping, API discovery | **OpenCLI** | `opencli explore <url>`, `opencli list`, `opencli <platform> <cmd>` |
-| Library documentation | Context7 | `resolve-library-id`, `query-docs` |
-| Knowledge graph | Memory | `search_nodes`, `create_entities` |
-| Structured reasoning | Sequential Thinking | `sequentialthinking` |
+| Web browsing, screenshots | Playwright MCP | `browser_navigate`, `browser_snapshot` |
+| Library documentation | Context7 MCP | `resolve-library-id`, `query-docs` |
+| Knowledge graph | Memory MCP | `search_nodes`, `create_entities` |
+| Structured reasoning | Sequential Thinking MCP | `sequentialthinking` |
+
+**CLI TOOLS (more reliable than MCPs — use these first):**
+
+| CC Asks About | CLI Tool | Command |
+|---|---|---|
+| n8n workflows, automations | **n8n_tool.py** | `python scripts/n8n_tool.py list`, `search <query>`, `execute <id>` |
+| Social posts, scheduling | **late_tool.py** | `python scripts/late_tool.py accounts`, `create --text "..." --account <id>` |
+| Database queries, tables | **supabase_tool.py** | `python scripts/supabase_tool.py select <table> --project bravo --limit 10` |
+| Payments, subscriptions | **stripe_tool.py** | `python scripts/stripe_tool.py balance`, `customers`, `invoices` |
+| Website-to-CLI, API discovery | **OpenCLI** | `opencli explore <url>`, `opencli list`, `opencli <platform> <cmd>` |
 | Email (send/read/triage) | **gws CLI** | `gws gmail +send`, `gws gmail +read`, `gws gmail +triage` |
 | Calendar (events/agenda) | **gws CLI** | `gws calendar +agenda`, `gws calendar +insert` |
 | Google Drive / Sheets / Docs | **gws CLI** | `gws drive files list`, `gws sheets +read`, `gws docs +write` |
 
-**SDK TOOLS (replaces broken MCPs — full capability via terminal):**
-- **Supabase** — `python scripts/supabase_tool.py select <table> --project bravo --limit 10`
-- **Stripe** — `python scripts/stripe_tool.py balance` | `customers` | `invoices` | `products` | `subscriptions`
-- **Google Workspace** — `gws` CLI (requires env vars: `GOOGLE_WORKSPACE_CLI_CLIENT_ID`, `GOOGLE_WORKSPACE_CLI_CLIENT_SECRET`)
-  - Gmail: `gws gmail +send --to X --subject Y --body Z` | `gws gmail +read` | `gws gmail +triage`
-  - Calendar: `gws calendar +agenda` | `gws calendar +insert --summary "Meeting" --start 2026-03-22T10:00:00`
-  - Drive: `gws drive files list` | `gws drive +upload --file path`
-  - Sheets: `gws sheets +read --spreadsheet-id ID` | `gws sheets +append`
-  - Docs: `gws docs +write` | Tasks: `gws tasks +list`
-
-If an MCP tool fails: report the error in one sentence. Do NOT fall back to curl or create workaround scripts.
+**Why CLI-first:** MCP servers with credentials (Late, n8n, Supabase, Stripe) break frequently — env var passing fails, tokens expire, packages change auth methods. CLI tools read `.env.agents` directly and never break.
 
 ### RULE 3: CREDENTIALS AND SECURITY PROTOCOL (CRITICAL)
 
@@ -117,7 +116,19 @@ When CC mentions modifying code in any app (OASIS, PropFlow, Nostalgic, Grape Vi
 4. Log a 1-2 sentence summary in memory/SESSION_LOG.md
 Business-Empire-Agent is ONLY for agent intelligence (brain/, memory/, skills/, scripts/).
 
+## Safety & Hooks
+
+**Active hooks** (`.claude/settings.local.json`):
+- **PreToolUse (Edit/Write):** Blocks any attempt to edit `.env`, `.env.*`, or `.env.agents` files. Credentials must be updated manually.
+- **PreToolUse (Bash):** Blocks destructive commands (`rm -rf /`, `git push --force main/master`, `DROP TABLE`, `TRUNCATE TABLE`).
+- **PostToolUse (Bash):** Audit-logs git push, git commit, npm build, and vercel deploy commands to `tmp/hook_audit.log`.
+- **Notification:** Windows desktop alert when Claude Code needs input (prevents idle sessions).
+
+**Permission deny rules:** `.env*` files, `.obsidian/**`, `rm -rf` root/home/git, force-push to main/master, `git reset --hard`, `git clean -fd`.
+
 ## Workflow Commands
+
+Commands registered as native Claude Code skills (`.claude/skills/`) AND as workflow files (`.agents/workflows/`):
 
 | Command | Purpose |
 |---------|---------|
@@ -126,6 +137,9 @@ Business-Empire-Agent is ONLY for agent intelligence (brain/, memory/, skills/, 
 | `/prime` | Load full project context and health report |
 | `/commit` | Smart commit with conventional format (`bravo: type — desc`) |
 | `/create-prd` | Generate PRD for client projects |
+| `/content` | Create platform-optimized content using CC's brand voice |
+| `/post` | Publish to social media via Late MCP |
+| `/research` | Multi-source research (OpenCLI + Playwright + Context7) |
 | `/cli-anything` | Generate CLI wrapper for any software/API/service |
 | `/opencli` | Explore websites, run prebuilt adapters, create website CLI adapters |
 | `/skool-edit` | Edit a single Skool lesson or About page via Playwright |
@@ -134,6 +148,9 @@ Business-Empire-Agent is ONLY for agent intelligence (brain/, memory/, skills/, 
 | `/ship` | Full shipping pipeline: test → review → changelog → PR |
 | `/retro` | Weekly retrospective with commit analysis and trend tracking |
 | `/evolve` | Extract session patterns → promote to skills, SOPs, or CLAUDE.md rules |
+| `/debug` | Systematic root-cause-first debugging |
+| `/health` | Full system health check (MCP, memory, sync, workspace) |
+| `/status` | Quick status report from memory files |
 
 ## Sub-Agent Orchestration
 
@@ -217,9 +234,13 @@ Never present more than 3 options. If there is one obvious right answer, just do
 
 If unsure whether session is ending, ask CC.
 
-## What You DON'T Have (as MCP — use SDK tools instead)
+## MCP vs CLI Status
 
-- **GitHub MCP** — use `git` CLI locally, Playwright for github.com
-- **Supabase MCP** — use `python scripts/supabase_tool.py` (full CRUD, 3 projects)
-- **Stripe MCP** — BROKEN (v0.3.1 proxy mode). Use `python scripts/stripe_tool.py` instead (supports `--json` flag)
-- **Chrome** — use Playwright for all web research
+**4 Working MCPs (stateless — keep):** Playwright, Context7, Memory, Sequential Thinking
+**4 Replaced by CLI (credential MCPs — broken):**
+- **n8n MCP** → `python scripts/n8n_tool.py` (47 workflows, full CRUD)
+- **Late MCP** → `python scripts/late_tool.py` (8 accounts, posting, cross-post)
+- **Supabase MCP** → `python scripts/supabase_tool.py` (3 projects, full CRUD)
+- **Stripe MCP** → `python scripts/stripe_tool.py` (multi-account, all ops)
+
+**No MCP exists:** GitHub (use `git` CLI), Chrome (use Playwright MCP)

@@ -48,55 +48,65 @@ Your ONLY job is to answer CC's question. Use MCP tools. 1-5 sentences max for s
 
 **DO NOT:** Dump boot sequences, brain state, audit reports, or verbose explanations. Do NOT use `curl` when an MCP tool exists. Do NOT describe what you WOULD do — DO it.
 
-### RULE 2: MCP TOOL ROUTING
+### RULE 2: TOOL ROUTING
+
+**MCP tools (4 active):**
 
 | CC Asks About | Server | Tool |
 |---|---|---|
-| n8n workflows, automations | **n8n-mcp** | `search_workflows(limit=200)` |
-| Workflow details | **n8n-mcp** | `get_workflow_details(workflowId=...)` |
-| Run a workflow | **n8n-mcp** | `execute_workflow(workflowId=..., inputs=...)` |
-| Social posts, scheduling | **Late** | `posts_list`, `posts_create`, `posts_cross_post` |
-| Connected social accounts | **Late** | `accounts_list` |
 | Browse a URL, screenshot | **Playwright** | `browser_navigate`, `browser_snapshot` |
 | Library docs | **Context7** | `resolve-library-id` → `query-docs` |
 | Knowledge/memory | **Memory** | `search_nodes`, `create_entities` |
+| Structured reasoning | **Sequential Thinking** | `sequentialthinking` |
 
-| Query database, tables, SQL | **Supabase** | `execute_sql`, `list_tables`, `apply_migration` |
-| Stripe payments, balance | **Stripe** | (via Stripe MCP tools) |
+**CLI tools (use these for everything else):**
+
+| CC Asks About | CLI Tool | Example |
+|---|---|---|
+| n8n workflows, automations | `python scripts/n8n_tool.py` | `list`, `get <id>`, `execute <id>`, `activate <id>`, `deactivate <id>` |
+| Social posts, scheduling | `python scripts/late_tool.py` | `accounts`, `posts`, `create`, `cross-post` |
+| Query database, tables, SQL | `python scripts/supabase_tool.py` | `select <table>`, `insert`, `update`, `delete`, `sql "<query>"` |
+| Stripe payments, balance | `python scripts/stripe_tool.py` | `balance`, `customers`, `invoices`, `products`, `subscriptions` |
 | Website-to-CLI, web scraping, API discovery | **OpenCLI** | `opencli explore <url>`, `opencli list`, `opencli <platform> <cmd>` |
+
+All CLI tools read credentials from `.env.agents` automatically. Pass `--json` for machine-readable output.
 
 If an MCP tool fails: "The [server] tool returned an error: [error]." — ONE sentence. No curl fallbacks. No workaround scripts. No audit reports.
 
 ### RULE 2.5: ANTI-LOOPING / ANTI-WORKAROUND (CRITICAL)
 
-**NEVER create Python/JS/shell scripts to replace MCP tools.** This includes:
-- `tmp_*.py` files that call the Late SDK directly
-- `curl` commands that hit APIs when MCP tools exist
-- Any file in `tmp/` or root that duplicates MCP functionality
+**NEVER create ad-hoc Python/JS/shell scripts in `tmp/` or root to hit APIs.** The CLI tools in `scripts/` are the correct path for n8n, Late, Supabase, and Stripe — not one-off workaround files.
 
-**If an MCP tool returns an error:**
+**If a CLI tool returns an error:**
 1. Report the error in one sentence
 2. **STOP.** Do not attempt a workaround.
-3. Tell CC: "The [tool] failed with: [error]. Check `.env.agents` or restart the terminal."
+3. Tell CC: "The [tool] failed with: [error]. Check `.env.agents`."
+
+**If a Playwright/Context7/Memory/Sequential Thinking MCP tool returns an error:**
+1. Report the error in one sentence
+2. **STOP.** Tell CC: "The [server] MCP failed with: [error]. Restart the terminal."
 
 **If you catch yourself editing the same file more than twice → STOP.** You are looping. Report what's failing and ask CC for help.
 
-**NEVER hardcode API keys in scripts.** All credentials come from `.env.agents` or MCP server `env` config. Hardcoding keys is a security violation.
+**NEVER hardcode API keys in scripts.** All credentials come from `.env.agents`. Hardcoding keys is a security violation.
 
 ### RULE 2.5.1: GLOBAL SECURITY GUIDELINES (CRITICAL)
 - **Secrets:** NEVER hardcode API keys or database passwords. If an exposed secret is detected, STOP and initiate rotation immediately.
 - **Validations:** Validate all inputs at system boundaries. 
 - **Authorizations:** Enforce proper access limits. Sandbox risky scripts in `tmp/`.
 
-### RULE 2.6: WINDOWS MCP ENV VAR PATTERN (CRITICAL)
+### RULE 2.6: CLI-FIRST ROUTING (CRITICAL)
 
-The Antigravity IDE (and some other MCP hosts) **do NOT inject `env` block variables** from JSON configs into spawned subprocesses on Windows. This was the root cause of n8n returning 0 workflows and Late failing with missing API key errors.
+n8n, Late, Supabase, and Stripe are **CLI tools**, not MCP servers. Use the Python scripts in `scripts/` directly via the terminal:
 
-**The fix:** Use `cmd /c wrapper.cmd` scripts that `set` env vars before launching the MCP server process. All wrapper scripts live in `scripts/`:
-- `scripts/n8n-mcp-wrapper.cmd` — sets N8N env vars, then runs `npx -y n8n-mcp`
-- `scripts/late-mcp-wrapper.cmd` — sets LATE_API_KEY, then runs `uvx --from "late-sdk[mcp]" late-mcp`
+```
+python scripts/n8n_tool.py list
+python scripts/late_tool.py posts
+python scripts/supabase_tool.py select users --project bravo --limit 10
+python scripts/stripe_tool.py balance
+```
 
-**If adding a new MCP server that needs env vars:** Create a wrapper .cmd script following the same pattern. Do NOT rely on the `env` JSON config block on Windows.
+All scripts load credentials from `.env.agents` at runtime — no MCP server config needed. This is more reliable than MCP on Windows because it does not depend on env var injection through JSON configs.
 
 ### RULE 3: NO AUDIT REPORTS
 
@@ -191,17 +201,24 @@ Never store app code in Business-Empire-Agent.
 
 **Obsidian Vault:** Business-Empire-Agent is an Obsidian vault. When creating new .md files, include YAML frontmatter with `tags:` and add `[[wiki-links]]` to related files. Preserve existing `[[wiki-links]]` when editing. Templates in `_templates/`.
 
-## Your MCP Servers (8 active)
+## Your MCP Servers (4 active) + CLI Tools (4)
+
+**MCP Servers:**
 
 | Server | Tools | Config |
 |--------|-------|--------|
-| **Supabase** | execute_sql, list_tables, apply_migration, get_project | npx direct (token in args) |
-| **Stripe** | Stripe API tools (balance, customers, invoices, etc.) | npx direct (key in args) |
-| **n8n-mcp** | search_workflows, execute_workflow, get_workflow_details | npx (env block) |
-| **Late** | posts_create, posts_list, accounts_list, posts_cross_post | bash -c (inline env var) |
 | **Playwright** | browser_navigate, browser_snapshot, browser_click | npx direct |
 | **Context7** | resolve-library-id, query-docs | npx direct |
 | **Memory** | search_nodes, create_entities, open_nodes | npx direct |
 | **Sequential Thinking** | sequentialthinking | npx direct |
+
+**CLI Tools (run via terminal — credentials from `.env.agents`):**
+
+| Tool | Script | Key Commands |
+|------|--------|-------------|
+| **n8n** | `scripts/n8n_tool.py` | `list`, `get <id>`, `execute <id>`, `activate <id>`, `deactivate <id>` |
+| **Late** | `scripts/late_tool.py` | `accounts`, `posts`, `create`, `cross-post` |
+| **Supabase** | `scripts/supabase_tool.py` | `select <table>`, `insert`, `update`, `delete`, `sql "<query>"` |
+| **Stripe** | `scripts/stripe_tool.py` | `balance`, `customers`, `invoices`, `products`, `subscriptions` |
 
 **First message: "Bravo online." — then answer the query.**

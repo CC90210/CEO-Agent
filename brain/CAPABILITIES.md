@@ -10,12 +10,7 @@
 | **Playwright** | Browser automation, ALL web research, scraping, testing | navigate, snapshot, click, type, evaluate |
 | **Context7** | Live library documentation lookup | resolve-library-id, query-docs |
 | **Memory** | Persistent knowledge graph across sessions | create_entities, search_nodes, open_nodes |
-| **n8n** | Workflow automation management (community n8n-mcp via REST API) | search_workflows, execute_workflow, get_workflow_details |
-| **Late** | Social media posting (8+ platforms) | posts_create, posts_list, accounts_list, posts_cross_post |
 | **Sequential Thinking** | Structured multi-step reasoning | sequentialthinking |
-
-| **Supabase** | Database queries, migrations, schema management | execute_sql, list_tables, apply_migration |
-| **Stripe** | Payments, subscriptions, invoices | Stripe MCP tools |
 
 ### Anti-Gravity IDE (Native Local Agent — Multi-Model)
 
@@ -23,12 +18,8 @@ Models: Gemini 3.1 Pro High/Low, Gemini 3 Flash, Claude Sonnet/Opus 4.6, GPT-OSS
 Entry Point: `ANTIGRAVITY.md` | Config: `.vscode/mcp.json`
 Workflows: `.agents/workflows/` (15 workflows: post, status, health, prime, content, commit, n8n, sync, research, debug, client-onboard, cli-anything, skool-edit, skool-push, evolve)
 
-**IMPORTANT — Windows env var pattern:** n8n and Late use `cmd /c wrapper.cmd` scripts (in `scripts/`) that `set` env vars before launching. Direct `env` blocks in JSON configs do NOT work on Windows. See `scripts/n8n-mcp-wrapper.cmd` and `scripts/late-mcp-wrapper.cmd`.
-
 | Server | Purpose | Config |
 |--------|---------|--------|
-| **n8n-mcp** | Workflow automation (44 workflows, REST API) | `cmd /c scripts/n8n-mcp-wrapper.cmd` |
-| **Late** | Social media posting (8+ platforms) | `cmd /c scripts/late-mcp-wrapper.cmd` |
 | **Playwright** | Browser automation, web research | npx @playwright/mcp --headless |
 | **Context7** | Live library documentation | npx @upstash/context7-mcp |
 | **Memory** | Persistent knowledge graph | npx @modelcontextprotocol/server-memory |
@@ -47,9 +38,9 @@ Workflows: `.agents/workflows/` (15 workflows: post, status, health, prime, cont
 - Entry Point: `GEMINI.md`
 - Purpose: Fast diagnostics, file system cleanup, automated audits, heartbeat monitoring, fallback execution
 - Interface: `gemini` command (global npm)
-- MCP Access (via `.gemini/settings.json`): n8n, Late, Playwright, Context7, Memory, Sequential Thinking (6 active servers)
-- SDK Tools: `python scripts/supabase_tool.py`, `python scripts/stripe_tool.py` (replaces broken MCP servers)
-- Note: Config synced with `.vscode/mcp.json`. n8n, Late, Supabase, and Stripe use `cmd /c wrapper.cmd` pattern for env vars.
+- MCP Access (via `.gemini/settings.json`): Playwright, Context7, Memory, Sequential Thinking (4 active servers)
+- CLI Tools: `python scripts/supabase_tool.py`, `python scripts/stripe_tool.py`, `python scripts/n8n_tool.py`, `python scripts/late_tool.py`
+- Note: Config synced with `.vscode/mcp.json`. Credential-dependent services use CLI tools — not MCP.
 
 ## Supabase Projects
 
@@ -122,6 +113,17 @@ Transform any website into structured CLI commands via browser automation. Compl
 - **Auth:** Cookie-based (reuse browser login), header-based (tokens), public API
 - **Plugin system:** `opencli plugin install github:user/repo` — extend without code changes
 - **Relationship:** cli-anything wraps local software → OpenCLI wraps websites. Use Playwright MCP for one-off browsing, OpenCLI for repeatable web commands.
+
+## MCP Replacement CLI Tools (4 — replaces broken credential MCPs)
+
+| Tool | Script | Replaces MCP | Key Commands |
+|------|--------|-------------|-------------|
+| **Late** | `scripts/late_tool.py` | Late MCP (env var broken) | `accounts`, `profiles`, `posts`, `create`, `cross-post`, `publish`, `failed` |
+| **n8n** | `scripts/n8n_tool.py` | n8n-mcp (returns 0 results) | `list`, `search`, `get`, `execute`, `activate`, `deactivate`, `executions`, `stats` |
+| **Supabase** | `scripts/supabase_tool.py` | Supabase MCP (token expired) | `list-projects`, `list-tables`, `select`, `insert`, `update`, `delete`, `query` |
+| **Stripe** | `scripts/stripe_tool.py` | Stripe MCP (v0.3.1 proxy mode) | `balance`, `customers`, `products`, `invoices`, `subscriptions`, `charges` |
+
+**Pattern:** Stateless MCPs (Playwright, Context7, Memory, Sequential Thinking) work fine. Credential MCPs break. CLI tools read `.env.agents` directly — never break.
 
 ## Business Operations Engines (6 CLI tools — zero paid services)
 
@@ -276,6 +278,40 @@ Pipeline script: `scripts/edit_content_v2.py` — probe, transcribe, voiceover, 
 Remotion Studio: `content-studio/` — React-based video compositions (OasisPromo, QuoteDrop, CeoLog, SobrietyLog)
 Remotion Skills: `content-studio/.claude/rules/remotion/` — 37 rule files for AI-assisted video generation
 Agent: `agents/video-editor.md` (no dedicated workflow — invoke via content pipeline)
+
+## Safety & Automation Hooks (`.claude/settings.local.json`)
+
+| Hook Event | Matcher | Action |
+|------------|---------|--------|
+| **PreToolUse** | Edit/Write | Blocks editing `.env`, `.env.*`, `.env.agents` — credentials must be updated manually |
+| **PreToolUse** | Bash | Blocks `rm -rf /~/.git`, `git push --force main/master`, `DROP TABLE`, `TRUNCATE TABLE` |
+| **PostToolUse** | Bash | Audit-logs git push, git commit, npm build, vercel deploy to `tmp/hook_audit.log` |
+| **Notification** | (all) | Windows desktop alert when Claude Code needs input |
+
+**Permission deny rules:** `.env*` files, `.obsidian/**`, destructive git ops, `rm -rf` on root/home/git.
+
+## Native Claude Code Skills (16 — `.claude/skills/`)
+
+These are registered in Claude Code's native skill system with proper frontmatter (model override, effort level, auto-discovery). They complement the 154 skills in `skills/` which use the Agent Skills 2.0 format.
+
+| Skill | Trigger | Purpose |
+|-------|---------|---------|
+| `/prime` | Session start, status check | Load context + health report |
+| `/commit` | After code changes | Smart conventional commit |
+| `/review` | Before shipping | Pre-landing code review |
+| `/ship` | Ready to deploy | Full 9-phase shipping pipeline |
+| `/retro` | Weekly (Sunday/Monday) | Retrospective with scores + actions |
+| `/content` | Content creation | Brand voice content with trend check |
+| `/post` | After content approval | Publish via Late MCP |
+| `/plan-feature` | New feature request | Deep analysis → implementation plan |
+| `/execute` | Plan approved | Step-by-step plan execution |
+| `/debug` | Bug encountered | Root-cause-first debugging |
+| `/opencli` | Web automation | Website-to-CLI commands |
+| `/create-prd` | Client project | 15-section PRD generation |
+| `/research` | Need information | Multi-source research |
+| `/evolve` | Pattern detected | Self-improvement pipeline |
+| `/health` | System check | Full diagnostic |
+| `/status` | Quick update | Status from memory files |
 
 ## Tech Stack
 

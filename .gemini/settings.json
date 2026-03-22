@@ -1,19 +1,5 @@
 {
   "mcpServers": {
-    "n8n-mcp": {
-      "command": "cmd",
-      "args": [
-        "/c",
-        "c:\\Users\\User\\Business-Empire-Agent\\scripts\\n8n-mcp-wrapper.cmd"
-      ]
-    },
-    "late": {
-      "command": "cmd",
-      "args": [
-        "/c",
-        "c:\\Users\\User\\Business-Empire-Agent\\scripts\\late-mcp-wrapper.cmd"
-      ]
-    },
     "playwright": {
       "command": "npx",
       "args": [

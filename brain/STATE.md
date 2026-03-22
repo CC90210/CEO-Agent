@@ -1,6 +1,6 @@
 # STATE — Current Operational State
 
-> Updated 2026-03-21 | Skool Engine production-ready and LIVE. Daemon operational. 5 post replies + 3 welcome DMs sent in first cycle.
+> Updated 2026-03-22 | Safety hooks deployed. 16 native skills registered. Permission hardening active. Agent configuration FINALIZED.
 
 ## Operational Status
 
@@ -48,14 +48,16 @@
 | **Skool Classroom** | ✅ OPERATIONAL | 12 courses, 60+ lessons. Lead Magnets emoji fixes deployed (2026-03-21). Lessons 5-6 published. |
 | **OpenCLI** | ✅ INSTALLED | v1.1.1 globally installed. 46 platforms, 345+ commands. Website-to-CLI via browser automation. `opencli list` to discover. |
 
-## Capability Counts (2026-03-21)
+## Capability Counts (2026-03-22)
 
-- **Skills:** 154 (61 core + 42 GWS + 41 recipes + 10 personas)
+- **Skills:** 154 (61 core + 42 GWS + 41 recipes + 10 personas) + 16 native Claude Code skills
 - **Agents:** 16 (core + meta-agent)
 - **Workflows:** 20 (.agents/workflows/)
 - **Supabase tables:** 28 (14 agent + 14 business ops)
-- **MCP servers:** 8 (Supabase, Stripe, n8n, Late, Playwright, Context7, Memory, Sequential Thinking)
-- **CLI engines:** 9 (lead, email, booking, content, revenue, cron, gws, skool_engine, opencli)
+- **MCP servers:** 4 working (Playwright, Context7, Memory, Sequential Thinking) + 4 replaced by CLI
+- **CLI engines:** 11 (lead, email, booking, content, revenue, cron, gws, skool_engine, opencli, late_tool, n8n_tool)
+- **Hooks:** 4 active (2 PreToolUse safety, 1 PostToolUse audit, 1 Notification alert)
+- **Permission deny rules:** 18 (credential protection, destructive ops, Obsidian config)
 
 ## Session 11: Skool Engine Production Launch (2026-03-21)
 

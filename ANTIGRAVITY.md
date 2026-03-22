@@ -86,15 +86,16 @@ If an MCP tool fails: "The [server] tool returned an error: [error]." — ONE se
 - **Authorizations:** Enforce RLS on Supabase. DO NOT leave tables public unless explicitly static data.
 - **Execution:** Sandbox risky scripts in `tmp/` or `.agents/tmp/`. Require user consent for destructive DB operations.
 
-### RULE 3.5: WINDOWS MCP ENV VAR PATTERN (CRITICAL)
+### RULE 3.5: CLI-FIRST TOOL ROUTING (CRITICAL)
 
-The Antigravity IDE does NOT pass `env` block variables from JSON configs to spawned subprocesses on Windows.
+For n8n, Late, Supabase, and Stripe — use the Python CLI tools in `scripts/`. These are more reliable than MCP servers on Windows and do not require wrapper scripts.
 
-**Solution:** Use `cmd /c scripts/xxx-wrapper.cmd` scripts that `set` env vars before launching the MCP server.
-- `scripts/n8n-mcp-wrapper.cmd` — sets N8N env vars, runs `npx -y n8n-mcp`
-- `scripts/late-mcp-wrapper.cmd` — sets LATE_API_KEY, runs `uvx --from "late-sdk[mcp]" late-mcp`
+- `scripts/n8n_tool.py` — n8n workflow management (list, get, execute, activate/deactivate)
+- `scripts/late_tool.py` — social media posting (accounts, posts, create, cross-post)
+- `scripts/supabase_tool.py` — database CRUD (select, insert, update, delete, sql)
+- `scripts/stripe_tool.py` — payments (balance, customers, invoices, products, subscriptions)
 
-**If adding a new MCP server with env vars:** Create a `.cmd` wrapper in `scripts/`, do NOT use the `env` JSON block.
+All CLI tools read credentials from `.env.agents` at runtime. Always use `--json` flag when output will be parsed by agent logic.
 
 ### RULE 4: ACT, DON'T ANALYZE
 
@@ -184,14 +185,21 @@ Never store app code in Business-Empire-Agent.
 
 **Obsidian Vault:** Business-Empire-Agent is an Obsidian vault. When creating new .md files, include YAML frontmatter with `tags:` and add `[[wiki-links]]` to related files. Preserve existing `[[wiki-links]]` when editing. Templates in `_templates/`.
 
-## MCP Servers (8 active)
+## Tools & MCP Servers
+
+### CLI Tools (use these for n8n, Late, Supabase, Stripe)
+
+| Tool | Capabilities | Command |
+|------|-------------|---------|
+| **n8n** | list, get, execute, activate/deactivate workflows | `python scripts/n8n_tool.py` |
+| **Late** | accounts, posts, create, cross-post, publish | `python scripts/late_tool.py` |
+| **Supabase** | select, insert, update, delete, sql, tables | `python scripts/supabase_tool.py` |
+| **Stripe** | balance, customers, invoices, products, subscriptions | `python scripts/stripe_tool.py` |
+
+### MCP Servers (4 active — browser, docs, memory, reasoning)
 
 | Server | Tools | Config |
 |--------|-------|--------|
-| **Supabase** | execute_sql, list_tables, apply_migration, get_project | `cmd /c scripts/supabase-mcp-wrapper.cmd` |
-| **Stripe** | Stripe API tools (balance, customers, invoices, etc.) | `cmd /c scripts/stripe-mcp-wrapper.cmd` |
-| **n8n-mcp** | search_workflows, execute_workflow, get_workflow_details | `cmd /c scripts/n8n-mcp-wrapper.cmd` |
-| **Late** | posts_create, posts_list, accounts_list, posts_cross_post | `cmd /c scripts/late-mcp-wrapper.cmd` |
 | **Playwright** | browser_navigate, browser_snapshot, browser_click | npx direct |
 | **Context7** | resolve-library-id, query-docs | npx direct |
 | **Memory** | search_nodes, create_entities, open_nodes | npx direct |
@@ -205,7 +213,7 @@ Never store app code in Business-Empire-Agent.
 | `.claude/mcp.json` | Claude Code CLI MCP servers |
 | `~/.gemini/settings.json` | Gemini CLI MCP servers |
 | `.env.agents` | Credentials ONLY (gitignored) |
-| `scripts/*-mcp-wrapper.cmd` | Runtime credential injection for Windows |
+| `scripts/*.py` | CLI tools for n8n, Late, Supabase, Stripe |
 | `ANTIGRAVITY.md` | **This file** — IDE agent rules |
 | `GEMINI.md` | Gemini CLI agent rules |
 | `CLAUDE.md` | Claude Code agent rules |
