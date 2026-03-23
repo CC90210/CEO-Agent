@@ -6,6 +6,23 @@
 
 ---
 
+### 2026-03-22 — Shopify Ad Engine v1.0 (NEW PROJECT)
+**Agent:** Claude Code (Bravo V5.5, Opus 4.6)
+**Goal:** Build complete AI-powered ad creation system for CC's friend Kalem (Shopify e-commerce).
+**Done:**
+- Created new project at `C:\Users\User\APPS\shopify-ad-engine`, pushed to GitHub CC90210/shopify-ad-engine
+- Built 5 Remotion compositions: ProductShowcase, UGCTestimonial, CountdownSale, ComparisonAd, CinematicReveal
+- Each composition: 4-scene structure with spring animations, particles, gradients — zero CSS animations
+- ProductShowcase has both vertical (1080x1920) and square (1080x1080) variants for Meta Feed
+- Scripts: shopify_sync.js (Storefront API GraphQL), render_batch.js (parallel rendering), meta_ads_engine.py (Meta Marketing API)
+- Fixed font weight issues across 5 files (Space Grotesk max 700, not 800/900)
+- Fixed paddingHorizontal → paddingLeft/paddingRight (React Native leak)
+- Remotion Studio confirmed running on port 3200, ProductShowcase verified rendering via Playwright screenshot
+- Also completed SkoolIntro landscape conversion (1920x1080) with 3 minor refinements
+**Files:** 12+ new files across src/, scripts/, public/
+**Commit:** pushed to origin/main (2 commits)
+**Next:** Demo for Kalem tonight. Enhance with actual product images, test all 5 templates, add ElevenLabs voiceover.
+
 ### 2026-03-22 — Safety Hardening + Native Skills + MCP-to-CLI Migration
 **Agent:** Claude Code (Bravo V5.5, Opus 4.6)
 **Goal:** Close remaining gaps in Claude Code config + audit and replace broken MCP servers with CLI tools.
