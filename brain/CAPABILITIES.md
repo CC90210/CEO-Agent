@@ -150,11 +150,7 @@ All engines: `--json` flag for agent consumption, credentials from `.env.agents`
 
 | Script | Purpose | Status |
 |--------|---------|--------|
-| `scripts/scrape_playwright.py` | Google search scraping via Playwright | Active |
 | `scripts/scrape_maps_emails.py` | Google Maps business data + email extraction | Active |
-| `scripts/scrape_leads_v3.py` | Multi-source lead scraping | Active |
-| `scripts/scrape_fast.py` | High-speed DuckDuckGo scraping | Active |
-| `scripts/execute_outreach_v6.py` | Email/SMS outreach sequencing | Active |
 | `scripts/content_repurposer.py` | Transform content across platforms via Claude API | Active |
 | `scripts/funnel_sync.py` | Sync funnels to GoHighLevel | Active |
 | `scripts/funnel_nurture.py` | Nurture sequence automation | Active |
