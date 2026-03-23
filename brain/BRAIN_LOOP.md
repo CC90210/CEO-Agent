@@ -1,3 +1,7 @@
+---
+tags: [reasoning, protocol]
+---
+
 # BRAIN LOOP — 10-Step Reasoning Protocol (V5.5 Enhanced)
 
 > Every significant task passes through this loop. For trivial tasks (single-file edits, quick lookups), steps 1-3 and 6 suffice.

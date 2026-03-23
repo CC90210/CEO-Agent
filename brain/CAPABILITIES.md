@@ -1,3 +1,7 @@
+---
+tags: [capabilities, tools]
+---
+
 # CAPABILITIES — Tool & Integration Registry
 
 > Complete inventory of what Bravo can do. Updated when new tools are added.

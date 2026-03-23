@@ -1,3 +1,6 @@
+---
+tags: [patterns, learning]
+---
 # LEARNED PATTERNS
 > What works, what doesn't. Check this BEFORE starting a task type you've done before.
 > **V5.5:** Patterns now have validation status. `[VALIDATED]` = proven across 3+ sessions. `[PROBATIONARY]` = promising but needs more evidence.
@@ -5,6 +8,11 @@
 > [[brain/BRAIN_LOOP]] | [[memory/MISTAKES]] | [[memory/SOP_LIBRARY]]
 
 ## Effective Patterns
+
+### [PROBATIONARY] 2026-03-23 — Vercel Node v24 shared module crash
+**Pattern:** On Vercel, importing ANY npm package (stripe, @supabase/supabase-js) from a shared `api/_lib/*.ts` module causes FUNCTION_INVOCATION_FAILED on Node v24, even with dynamic imports. Vercel's @vercel/nft bundler traces all imports (static AND dynamic) from shared files and pre-bundles them, causing the module to crash at cold-start evaluation.
+**Fix:** Each serverless function handler must import npm packages inline using `await import('package')` — never from shared _lib/ modules. Pure utility functions (no npm deps) can still be shared.
+**Verified:** test.ts (inline) works, test2.ts (_lib/ import) crashes, webhook.ts (self-contained) works, index.ts (inlined everything) works.
 
 ### Late API Posting Workflow `[VALIDATED]`
 **Context:** When CC says "post this" or "schedule this" to any social platform
@@ -26,7 +34,7 @@
 
 ### High-Converting Sales Outreach `[PROBATIONARY]`
 **Context:** Drafting outbound emails to new leads.
-**Pattern:** 
+**Pattern:**
 1) **Pattern Interrupt:** Hook them with an immediate observation about their business or an unconventional opening.
 2) **Sales Logic & Personable Tone:** Sound like a genuine person but back it up with hard ROI logic. Do not sound "salesy" or use hustle-culture buzzwords.
 3) **Immediate Value:** Prove you can solve a specific problem off the first rip.

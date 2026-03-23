@@ -1,3 +1,6 @@
+---
+tags: [sops, processes]
+---
 # SOP LIBRARY — Standard Operating Procedures (V5.5 Enhanced)
 
 > SOPs are born from repeated patterns. When Bravo does the same thing 3+ times, it becomes an SOP.

@@ -1,3 +1,7 @@
+---
+tags: [heartbeat, monitoring]
+---
+
 # HEARTBEAT — Proactive Autonomous Operations (V5.5 Enhanced)
 
 > Unlike a cron job that fires blindly, the heartbeat exercises judgment.

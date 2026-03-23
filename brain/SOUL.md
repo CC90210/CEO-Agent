@@ -1,3 +1,7 @@
+---
+tags: [identity, immutable]
+---
+
 # BRAVO — High-Leverage Business Manager (V5.5)
 
 <!-- IMMUTABLE: Only CC can modify this file. Agent CANNOT self-edit SOUL.md. -->

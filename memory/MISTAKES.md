@@ -1,7 +1,15 @@
+---
+tags: [mistakes, prevention]
+---
 # MISTAKES LOG
 > Every mistake logged with root cause and prevention. Check this BEFORE repeating a task type.
 
 > [[brain/BRAIN_LOOP]] | [[memory/PATTERNS]] | [[memory/SELF_REFLECTIONS]]
+
+### 2026-03-23 — Assumed shared _lib/ dynamic imports would bypass bundler
+**What happened:** Spent multiple iterations trying to make dynamic imports work from shared `api/_lib/stripe.ts` — variable tricks, webpackIgnore comments, etc. None worked because Vercel's @vercel/nft traces ALL dependency paths from imported files regardless of import style.
+**Root cause:** Didn't test the isolation hypothesis early enough. Should have created the test2 (via _lib) vs test (inline) comparison as the FIRST diagnostic step.
+**Prevention:** When debugging Vercel FUNCTION_INVOCATION_FAILED: immediately create two minimal test endpoints — one with the suspected import, one without — to confirm the exact crash source before attempting fixes.
 
 ### 2026-03-19 — scheduler.py subprocess.run cp1252 UnicodeDecodeError on Windows
 **What happened:** `bravo-scheduler` (PM2) restarted 4 times. `Monthly Metrics Snapshot` cron job was logging `FAILED (exit 1): UnicodeEncodeError: 'charmap' codec can't encode character '\u2500'`. `scheduler.py`'s `run_script()` used `subprocess.run(..., text=True)` without specifying encoding. On Windows, `text=True` defaults to the system locale encoding (`cp1252`), which cannot represent Unicode box-drawing characters printed by `revenue_engine.py` and `stripe_tool.py`.
@@ -18,7 +26,7 @@
 ### 2026-03-04 — CLI Newline Escaping & IMAP Sent Sync Failure
 **What happened:** Emails sent via `scripts/send_email.py` from the command line contained literal `\n` characters instead of line breaks, and were not visible in the Gmail "Sent" folder.
 **Root cause:** Shell arguments treat `\n` as a literal string. Additionally, SMTP-only sending does not trigger a sync to the IMAP 'Sent' folder in Gmail.
-**Prevention:** 
+**Prevention:**
 1. **Newline Fix:** In Python scripts, use `body.replace('\\n', '\n')` to decode escaped newlines passed from the CLI.
 2. **IMAP Sync:** Manually append sent messages to `"[Gmail]/Sent Mail"` via `imaplib` to ensure visibility.
 3. **URL Formatting:** Always prefix domain links with `https://` to ensure they are clickable in plain-text email clients.
@@ -37,7 +45,7 @@
 
 ### 2026-02-27 — Powershell Output Redirection Encoding (UTF-16LE)
 **What happened:** Reading a `>` redirected file output from PowerShell in Node.js failed because the `JSON.parse` could not interpret the string.
-**Root cause:** PowerShell's default output encoding for `>` redirection is `UTF-16LE`, whereas Node expects `UTF-8` or standard ASCII. 
+**Root cause:** PowerShell's default output encoding for `>` redirection is `UTF-16LE`, whereas Node expects `UTF-8` or standard ASCII.
 **Prevention:** Avoid `>` redirection in PowerShell when capturing command outputs for programmatic environments (like Node/Python). Use `Out-File -Encoding utf8` or, preferably, write the file explicitly within the tool script (e.g. `fs.writeFileSync`).
 
 ### 2026-02-27 — Inline JS String Escape Syntax Errors
@@ -88,7 +96,7 @@
 ### 2026-03-04 — CLI Newline Escaping & IMAP Sent Sync Failure
 **What happened:** Emails sent via `scripts/send_email.py` from the command line contained literal `\n` characters instead of line breaks, and were not visible in the Gmail "Sent" folder.
 **Root cause:** Shell arguments treat `\n` as a literal string. Additionally, SMTP-only sending does not trigger a sync to the IMAP 'Sent' folder in Gmail.
-**Prevention:** 
+**Prevention:**
 1. **Newline Fix:** In Python scripts, use `body.replace('\\n', '\n')` to decode escaped newlines passed from the CLI.
 2. **IMAP Sync:** Manually append sent messages to `"[Gmail]/Sent Mail"` via `imaplib` to ensure visibility.
 3. **URL Formatting:** Always prefix domain links with `https://` to ensure they are clickable in plain-text email clients.

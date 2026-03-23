@@ -1,3 +1,7 @@
+---
+tags: [user, profile]
+---
+
 # USER — Conaugh McKenna's Complete Profile
 
 > Bravo reads this to understand Conaugh McKenna's world. Update when CC shares new info.

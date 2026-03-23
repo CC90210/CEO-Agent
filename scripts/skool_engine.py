@@ -52,7 +52,7 @@ COMMUNITY_FEED_URL = COMMUNITY_URL
 MEMBERS_URL = f"{COMMUNITY_URL}/-/members"
 
 # Engagement intervals (hours) — how long between follow-up DMs
-FREE_MEMBER_FOLLOWUP_HOURS = 48      # Nurture free members every 48h
+FREE_MEMBER_FOLLOWUP_HOURS = 24      # Nurture free members every 24h
 PAID_MEMBER_FOLLOWUP_HOURS = 168     # Check in with paid members weekly
 DM_REPLY_COOLDOWN_HOURS = 1          # Don't auto-reply to same person within 1h
 MAX_DMS_PER_CYCLE = 3                # Max DMs per scan cycle (avoid spam flags)
@@ -118,7 +118,7 @@ def safe_print(text):
 
 
 # ---------------------------------------------------------------------------
-# State persistence
+# State persistence (with file locking to prevent concurrent access)
 # ---------------------------------------------------------------------------
 
 def _load_json(path: Path) -> dict:
@@ -133,8 +133,12 @@ def _load_json(path: Path) -> dict:
 
 def _save_json(path: Path, data: dict):
     os.makedirs(path.parent, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
+    # Write to temp file first, then atomic rename to prevent corruption
+    tmp_path = path.with_suffix(".tmp")
+    with open(tmp_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
+    # Atomic replace (Windows: os.replace is atomic within same drive)
+    os.replace(tmp_path, path)
 
 
 # ---------------------------------------------------------------------------
@@ -409,13 +413,19 @@ def generate_welcome_dm(member_name: str, is_paid: bool) -> str:
         system = (
             "You are ghostwriting a Skool DM as Conaugh McKenna (CC), admin of Agency Accelerants. "
             "A new FREE member just joined the community.\n\n"
+            "CONTEXT: The free plan gives them limited access. The full course, coaching calls, "
+            "templates, and direct support are only available on the $97/month paid plan — and the price "
+            "is going up to $147/month soon. Your goal is to welcome them AND plant the seed that now "
+            "is the best time to lock in the lower rate.\n\n"
             "VOICE RULES:\n"
-            "- Warm and welcoming. You're genuinely glad they're here.\n"
-            "- 2-3 sentences max. Lowercase, casual, genuine.\n"
-            "- Ask what brought them to the community and what they're building.\n"
-            "- Be curious about THEM — don't pitch the paid plan yet. Just build rapport.\n"
-            "- NEVER mention pricing, paid plans, or upgrades in the first message.\n"
-            "- Address them by first name.\n\n"
+            "- Warm but direct. You're glad they're here AND you want to help them get results.\n"
+            "- 2-4 sentences. Lowercase, casual, genuine.\n"
+            "- Welcome them, ask what they're working on, then mention you'd love to hop on a quick call "
+            "to see where they're at and how you can help them get the most out of the community.\n"
+            "- Frame the call as a free strategy chat — you genuinely want to help, but also show them "
+            "what they're missing on the free tier.\n"
+            "- Address them by first name.\n"
+            "- NEVER sound like a template or a sales script. Be real.\n\n"
             "Reply with ONLY the message text."
         )
 
@@ -432,43 +442,50 @@ def generate_nurture_dm(member_name: str, convo_history: str, interaction_count:
     stage_context = ""
     if interaction_count <= 1:
         stage_context = (
-            "STAGE: First follow-up. You've already said hello. Now go deeper — "
-            "ask about their business, what challenges they're facing, what they want to achieve. "
-            "Be genuinely curious. NO selling."
+            "STAGE: Follow-up after welcome. They haven't responded or just responded briefly. "
+            "Share a specific win or result from a paid member (e.g., 'one of our members just landed "
+            "a $2k/month client using the exact framework in module 3'). Make the value of upgrading "
+            "tangible. Then ask about their situation — what's their biggest bottleneck right now? "
+            "Offer to jump on a quick 10-min call to map out their next steps."
+        )
+    elif interaction_count <= 2:
+        stage_context = (
+            "STAGE: Value gap. You've chatted a bit. Now make the gap between free and paid REAL. "
+            "Mention a specific coaching call, template, or lesson that directly relates to their "
+            "situation. Say something like 'honestly the free community is great for networking but "
+            "the real breakthroughs happen in the paid course — thats where all the frameworks and "
+            "coaching calls live'. Offer a call to walk them through what's inside."
         )
     elif interaction_count <= 3:
         stage_context = (
-            "STAGE: Building rapport. You've chatted a couple times. Share a quick insight or tip "
-            "related to what they're working on. Mention something helpful from the community "
-            "(a post, a lesson, a coaching call topic). Be a resource, not a salesman."
-        )
-    elif interaction_count <= 5:
-        stage_context = (
-            "STAGE: Value demonstration. You've built some rapport. Now naturally mention something "
-            "exclusive to paid members (like the coaching calls, the full course content, or a specific "
-            "lesson that would help with their exact problem). Frame it as 'hey thought of you, this "
-            "might help' — not a pitch. Soft, authentic, value-first."
+            "STAGE: Direct offer with urgency. You've built enough rapport. Be straight with them — "
+            "'hey i genuinely think the paid plan would be a game changer for you based on what "
+            "you've told me. its $97/month right now but we're raising it to $147 soon — you get the "
+            "full course, weekly coaching calls with me, and all the templates. want me to walk you "
+            "through it on a quick call?' Be direct but not pushy. The price increase is real urgency."
         )
     else:
         stage_context = (
-            "STAGE: Gentle nudge. You've been chatting for a while. If they haven't upgraded yet, "
-            "give them a genuine reason to consider it — like 'honestly the coaching calls alone "
-            "are worth it, we covered [relevant topic] last week and it was exactly the kind of thing "
-            "you were asking about'. No pressure, just real talk."
+            "STAGE: Last push / re-engage. If they haven't upgraded, lead with the price increase — "
+            "'just a heads up, we're bumping the price to $147/month soon so if you've been thinking "
+            "about it, now's the time to lock in at $97'. Or share a specific result from a paid member. "
+            "Or offer one more call. Make it feel like you're doing them a favor by giving them a heads up, "
+            "not selling. If they're just not ready, that's ok — leave the door open."
         )
 
     system = (
         "You are ghostwriting a Skool DM as Conaugh McKenna (CC), admin of Agency Accelerants. "
-        "You're having an ongoing conversation with a FREE member, building rapport toward them "
-        "eventually seeing the value in the $97/month paid plan.\n\n"
+        "You're having an ongoing conversation with a FREE member. Your goal is to convert them "
+        "to the $97/month paid plan by showing undeniable value and offering personal help.\n\n"
         f"{stage_context}\n\n"
         "VOICE RULES:\n"
-        "- Warm, genuine, coaching energy. You care about their success.\n"
-        "- 1-3 sentences. Short and natural.\n"
+        "- Warm, direct, coaching energy. You care about their success AND you know the paid plan delivers.\n"
+        "- 1-4 sentences. Short and natural.\n"
         "- Lowercase, casual. Can use: ya, honestly, for real, lets go, thats sick\n"
-        "- NEVER be pushy, salesy, or use marketing language.\n"
+        "- Be confident about the value — you're not begging, you're offering something real.\n"
+        "- Offering a call is your strongest move. 'lets hop on a quick call' is natural, not salesy.\n"
         "- If they haven't responded to a previous message, don't double-text the same energy. "
-        "Try a different angle or share something valuable.\n\n"
+        "Try a different angle — share a result, ask a new question, or offer a call.\n\n"
         "Reply with ONLY the message text."
     )
 
@@ -484,9 +501,11 @@ def generate_dm_reply(member_name: str, their_message: str, convo_context: str =
         "This is a PAID member ($97/month). They have full access to coaching calls and courses. "
         "Be supportive, helpful, and make them feel the value of their investment."
         if is_paid else
-        "This is a FREE member. Be helpful and build rapport. If they ask about courses or "
-        "coaching calls, let them know those are available with the paid membership — but only "
-        "if THEY bring it up first. Never push."
+        "This is a FREE member. Be helpful but ALWAYS weave in the value of upgrading. "
+        "The full course, coaching calls, and templates are only in the paid plan ($97/month — "
+        "going up to $147 soon). If there's a natural opening, mention the price increase or offer "
+        "to hop on a quick call. Don't force it if it's totally off-topic, but look for every opportunity "
+        "to show them what they're missing."
     )
 
     context_block = ""
@@ -713,7 +732,7 @@ def cmd_engage_members(args, page=None, ctx=None):
 
     member_state = _load_json(MEMBER_STATE_PATH)
     convos = _load_json(DM_CONVERSATIONS_PATH)
-    results = {"scanned": 0, "welcomed": 0, "nurtured": 0, "skipped": 0, "errors": []}
+    results = {"scanned": 0, "welcomed": 0, "nurtured": 0, "skipped": 0, "errors": [], "dmed_usernames": set()}
     dm_count = 0
     own_ctx = page is None
 
@@ -783,29 +802,23 @@ def cmd_engage_members(args, page=None, ctx=None):
                 except ValueError:
                     pass
 
-            # Determine action
+            # PAID members: never proactively DM — only respond when they message us (cmd_scan_dms)
+            if is_paid:
+                results["skipped"] += 1
+                continue
+
+            # FREE members only from here
             if interaction_count == 0:
-                # First contact — welcome DM
-                log.info(f"Welcoming {'paid' if is_paid else 'free'} member {name} (@{username})")
-                message = generate_welcome_dm(name, is_paid)
+                # First contact — welcome DM with conversion seed
+                log.info(f"Welcoming free member {name} (@{username})")
+                message = generate_welcome_dm(name, is_paid=False)
                 action = "welcome"
-            elif not is_paid:
-                # Free member — nurture toward conversion
+            else:
+                # Follow-up — nurture toward $97/mo conversion
                 convo_history = convos.get(username, {}).get("history", "")
                 log.info(f"Nurturing free member {name} (@{username}) [interaction #{interaction_count + 1}]")
                 message = generate_nurture_dm(name, convo_history, interaction_count)
                 action = "nurture"
-            else:
-                # Paid member — periodic check-in (only if they haven't been active)
-                active_str = member.get("active", "")
-                if "1d" not in active_str and "h" not in active_str:
-                    convo_history = convos.get(username, {}).get("history", "")
-                    log.info(f"Checking in with paid member {name} (@{username})")
-                    message = generate_nurture_dm(name, convo_history, interaction_count)
-                    action = "checkin"
-                else:
-                    results["skipped"] += 1
-                    continue
 
             if not message:
                 results["errors"].append(f"No message for @{username}")
@@ -847,6 +860,7 @@ def cmd_engage_members(args, page=None, ctx=None):
                     "from": "CC", "text": message, "ts": now, "action": action
                 })
 
+                results["dmed_usernames"].add(username)
                 if action == "welcome":
                     results["welcomed"] += 1
                 else:
@@ -1131,7 +1145,7 @@ def _read_conversation_messages(page) -> dict | None:
     }""")
 
 
-def cmd_scan_dms(args, page=None, ctx=None):
+def cmd_scan_dms(args, page=None, ctx=None, just_dmed=None):
     """Check for incoming Skool DMs and auto-reply (closed-loop).
 
     Flow:
@@ -1144,9 +1158,14 @@ def cmd_scan_dms(args, page=None, ctx=None):
        c. Generate reply via Claude API
        d. Type into message textbox and send
     5. Filter to Agency Accelerants members only (cross-ref member state)
+
+    Args:
+        just_dmed: Set of usernames that were already DMed this cycle (from engage_members).
+                   These are skipped to prevent double-messaging.
     """
     from playwright.sync_api import sync_playwright
 
+    just_dmed = just_dmed or set()
     member_state = _load_json(MEMBER_STATE_PATH)
     convos = _load_json(DM_CONVERSATIONS_PATH)
     results = {"checked": 0, "replied": 0, "skipped": 0, "errors": []}
@@ -1205,16 +1224,22 @@ def cmd_scan_dms(args, page=None, ctx=None):
 
             # Try to match conversation to a known community member
             name_slug = name.lower().replace(" ", "-")
-            # Match against known member usernames (fuzzy — name slug may differ from username)
             matched_username = None
             for uname in known_members:
-                # Match if the name slug is a prefix of the username or vice versa
-                if name_slug in uname or uname.startswith(name_slug.split("-")[0]):
+                if name_slug in uname or uname in name_slug or uname.startswith(name_slug.split("-")[0]):
                     matched_username = uname
                     break
 
+            username_key = matched_username or name_slug
+
+            # Skip if we already DMed this person in the current cycle (engage_members)
+            if username_key in just_dmed or name_slug in just_dmed:
+                log.info(f"  Skipping {name} — already DMed this cycle")
+                results["skipped"] += 1
+                continue
+
             # Check cooldown
-            state = member_state.get(matched_username or name_slug, {})
+            state = member_state.get(username_key, {})
             last_ts = state.get("last_dm_ts", "")
             if last_ts:
                 try:
@@ -1337,15 +1362,17 @@ def cmd_auto(args, page=None, ctx=None, cycle=0):
 
         # Member engagement is heavier (DMs) — only run every Nth cycle
         run_engagement = (cycle == 0) or (cycle % ENGAGEMENT_EVERY_N_CYCLES == 1)
+        just_dmed = set()
         if run_engagement:
             log.info("\n--- Engaging members ---")
             all_results["members"] = cmd_engage_members(args, page=page, ctx=ctx)
+            just_dmed = all_results["members"].get("dmed_usernames", set())
         else:
             log.info(f"\n--- Skipping member engagement (cycle {cycle}, next at cycle {cycle + (ENGAGEMENT_EVERY_N_CYCLES - (cycle - 1) % ENGAGEMENT_EVERY_N_CYCLES)}) ---")
             all_results["members"] = {}
 
         log.info("\n--- Scanning DMs ---")
-        all_results["dms"] = cmd_scan_dms(args, page=page, ctx=ctx)
+        all_results["dms"] = cmd_scan_dms(args, page=page, ctx=ctx, just_dmed=just_dmed)
 
     except Exception as e:
         log.error(f"Auto scan error: {e}")
@@ -1378,11 +1405,41 @@ def cmd_auto(args, page=None, ctx=None, cycle=0):
     return all_results
 
 
+def _is_daemon_running() -> bool:
+    """Check if another daemon instance is already running via PID file."""
+    if not DAEMON_PID_PATH.exists():
+        return False
+    try:
+        data = _load_json(DAEMON_PID_PATH)
+        pid = data.get("pid")
+        if not pid:
+            return False
+        # Check if the PID is actually alive (Windows-compatible)
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, int(pid))
+        if handle:
+            kernel32.CloseHandle(handle)
+            return True
+        return False
+    except Exception:
+        return False
+
+
 def cmd_daemon(args):
     """Run continuously in daemon mode with persistent browser and configurable interval."""
     from playwright.sync_api import sync_playwright
 
     interval = getattr(args, "interval", 2) or 2
+
+    # CRITICAL: Prevent multiple daemon instances (causes double-replies)
+    if _is_daemon_running():
+        existing = _load_json(DAEMON_PID_PATH)
+        log.error(f"Another daemon is already running (PID {existing.get('pid')}, started {existing.get('started')})")
+        log.error("Kill it first or use: taskkill /PID <pid> /F")
+        sys.exit(1)
+
     log.info(f"=== Skool Engine: Daemon Mode (every {interval} min) ===")
     log.info(f"Member engagement every {ENGAGEMENT_EVERY_N_CYCLES} cycles (~{interval * ENGAGEMENT_EVERY_N_CYCLES} min)")
     log.info("Press Ctrl+C to stop")

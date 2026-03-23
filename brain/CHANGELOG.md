@@ -1,3 +1,7 @@
+---
+tags: [changelog, audit]
+---
+
 # BRAVO — Self-Modification Changelog
 
 > Every change the agent makes to its own files is recorded here.

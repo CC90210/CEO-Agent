@@ -1,3 +1,7 @@
+---
+tags: [growth, evolution]
+---
+
 # GROWTH — Learning & Capability Evolution (V5.5 Voyager-Enhanced)
 
 > Tracks the agent's journey from a script to a business empire.

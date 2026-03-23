@@ -1,3 +1,6 @@
+---
+tags: [tasks, active]
+---
 # ACTIVE TASKS
 > Read this FIRST at the start of every session. Priority: [P0] Critical, [P1] High, [P2] Medium.
 

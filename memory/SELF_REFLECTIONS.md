@@ -1,3 +1,6 @@
+---
+tags: [reflections, growth]
+---
 # SELF-REFLECTIONS — Agent Self-Assessment Log
 
 > Bravo reflects after complex tasks, failures, and milestones.

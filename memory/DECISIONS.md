@@ -1,3 +1,6 @@
+---
+tags: [decisions, architecture]
+---
 # DECISIONS LOG
 > Architectural and technical decisions with rationale. Use ISO 8601 dates.
 

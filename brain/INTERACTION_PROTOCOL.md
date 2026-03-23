@@ -1,3 +1,7 @@
+---
+tags: [protocol, governance]
+---
+
 # BRAVO — Interaction Protocol V1.0
 
 > Every interaction shapes the agent. Every action is logged. Every mistake becomes a lesson. Every session leaves the system smarter than before.

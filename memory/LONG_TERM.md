@@ -1,3 +1,6 @@
+---
+tags: [memory, persistent]
+---
 # LONG-TERM MEMORY — High-Confidence Persistent Facts
 
 > Only facts with confidence >= 0.8 belong here. Reviewed quarterly. Decayed facts get demoted or removed.
