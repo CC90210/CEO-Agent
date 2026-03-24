@@ -221,15 +221,16 @@ All engines: `--json` flag for agent consumption, credentials from `.env.agents`
 | /status | Project status report |
 | /sync | End-of-session sync |
 
-## Skills (154 total — 61 core + 42 GWS + 41 recipes + 10 personas)
+## Skills (160 total — 67 core + 42 GWS + 41 recipes + 10 personas)
 
 > **Note:** All skills use the Claude Agent Skills 2.0 structure. They are stored in `skills/[skill-name]/SKILL.md` format. The descriptions inside the frontmatter define their activation triggers.
 
-### Core Skills (61)
+### Core Skills (67)
 
 | Category | Skills |
 |----------|--------|
-| **Agent Intelligence** | heartbeat, self-healing, memory-management, growth-engine, sop-breakdown, sequential-reasoning, mcp-operations |
+| **Agent Intelligence** | heartbeat, self-healing, memory-management, growth-engine, sop-breakdown, sequential-reasoning, mcp-operations, task-routing, anti-drift, agent-permissions, hooks-automation, background-workers |
+| **Methodology** | sparc-methodology |
 | **Development** | systematic-debugging, test-driven-development, verification-before-completion, executing-plans, writing-plans, finishing-a-development-branch, using-git-worktrees, code-review, receiving-code-review, requesting-code-review, ship, subagent-driven-development, dispatching-parallel-agents |
 | **Browser & Testing** | browser-automation, e2e-testing, webapp-testing |
 | **Content & Outreach** | content-engine, writing-skills, doc-coauthoring, internal-comms, brand-guidelines, brainstorming, linkedin-outreach, market-research, investor-materials, strategic-compact, retro, notebooklm |
@@ -278,6 +279,22 @@ Pipeline script: `scripts/edit_content_v2.py` — probe, transcribe, voiceover, 
 Remotion Studio: `content-studio/` — React-based video compositions (OasisPromo, QuoteDrop, CeoLog, SobrietyLog)
 Remotion Skills: `content-studio/.claude/rules/remotion/` — 37 rule files for AI-assisted video generation
 Agent: `agents/video-editor.md` (no dedicated workflow — invoke via content pipeline)
+
+## Orchestration Config (`.agents/config.toml`)
+
+Centralized configuration for agent behavior, routing, security, and performance. All AI interfaces reference this file.
+
+| Section | Purpose |
+|---------|---------|
+| `[routing]` | Complexity-based task routing — thresholds, agent assignments, domain overrides |
+| `[anti_drift]` | Drift prevention — checkpoint intervals, scope creep limits, error cascade detection |
+| `[permissions]` | Claims-based agent access control — per-agent levels, file scope restrictions |
+| `[sparc]` | SPARC methodology phases — required outputs, approval gates |
+| `[performance]` | Resource limits — max agents, timeouts, memory budgets, caching |
+| `[workers]` | Background workers — audit, memory, sync, optimize (intervals + tasks) |
+| `[hooks]` | Enhanced hook lifecycle — pre/post operation automation + learning triggers |
+| `[security]` | Input validation, secret scanning, blocked patterns |
+| `[logging]` | 3-tier logging config (Supabase traces, session files, diagnostics) |
 
 ## Safety & Automation Hooks (`.claude/settings.local.json`)
 

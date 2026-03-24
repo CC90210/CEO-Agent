@@ -7,6 +7,21 @@ tags: [agents, orchestration]
 > **PURPOSE:** Single source of truth for all specialized subagents. Every AI interface (Claude, Gemini, Antigravity) references this file to determine delegation strategy.
 > **RULE:** When a task matches a subagent's domain, adopt that subagent's mindset and principles. For Claude Code, delegate to the actual `agents/*.md` files.
 
+## Task Routing (Auto-Assignment)
+
+**All non-trivial tasks are routed automatically** via the task routing skill (`skills/task-routing/SKILL.md`).
+Config: `.agents/config.toml` [routing] section. The router classifies complexity and assigns agents.
+
+| Complexity | Agent Assignment | Approval |
+|-----------|-----------------|----------|
+| **TRIVIAL** (1 file, 1-2 steps) | Inline — no delegation | None |
+| **SIMPLE** (1-2 files, 3-5 steps) | Single domain agent | None |
+| **MODERATE** (3-5 files, 5-15 steps) | Primary agent + reviewer gate | None |
+| **COMPLEX** (6-15 files, 15-30 steps) | Full team (architect → writer → reviewer → debugger) | CC approves plan |
+| **ARCHITECTURAL** (15+ files, 30+ steps) | Full team + documenter, SPARC methodology required | CC approves spec + arch |
+
+For COMPLEX+ tasks, use SPARC methodology (`skills/sparc-methodology/SKILL.md`).
+
 ## Orchestration Decision Matrix
 
 | Task Signal | Subagent | Trigger |
@@ -127,6 +142,28 @@ tags: [agents, orchestration]
 - **Purpose:** Generate complete subagent definition files from natural language descriptions. Checks for overlap with existing agents before creating a new one.
 - **Principles:** Check AGENTS.md first — don't create duplicates. Reject requests where >50% coverage already exists. Tag all generated agents `[PROBATIONARY]`. Always register in AGENTS.md and update CAPABILITIES.md count.
 
+## Agent Permissions (Claims-Based Access Control)
+
+Each agent operates under a permission level. See `skills/agent-permissions/SKILL.md` and `.agents/config.toml` [permissions].
+
+| Level | Claims | Agents |
+|-------|--------|--------|
+| **minimal** | read | explorer, researcher, social-publisher, revenue-hunter |
+| **standard** | read, write, execute | writer, reviewer, content-creator, chief-of-staff, video-editor, git-ops, documenter |
+| **elevated** | standard + spawn, memory | architect, debugger, workflow-builder, meta-agent |
+| **admin** | all | Bravo lead agent only |
+
+**Universal blocked:** `.env*`, `*.pem`, `*.key`, `credentials*.json`, `.obsidian/**`
+
+## Anti-Drift Protocol
+
+Multi-agent tasks use drift detection. See `skills/anti-drift/SKILL.md` and `.agents/config.toml` [anti_drift].
+
+- **Checkpoint** every 5 task steps — agent validates alignment with original intent
+- **Scope creep detector** — flags when >3 files touched beyond plan
+- **Error cascade detector** — stops after 2 consecutive failures, forces approach switch
+- **Max concurrent agents:** 4 (prevents coordination overhead)
+
 ## Security Protocol (All Subagents)
 
 1. **NEVER** hardcode API keys, tokens, or database passwords. All credentials in `.env.agents`.
@@ -145,3 +182,5 @@ tags: [agents, orchestration]
 ## Obsidian Links
 - [[brain/SOUL]] | [[brain/CAPABILITIES]] | [[brain/BRAIN_LOOP]]
 - [[memory/MISTAKES]] | [[memory/PATTERNS]] | [[memory/SELF_REFLECTIONS]]
+- [[skills/task-routing/SKILL]] | [[skills/anti-drift/SKILL]] | [[skills/agent-permissions/SKILL]]
+- [[skills/sparc-methodology/SKILL]] | [[skills/hooks-automation/SKILL]] | [[skills/background-workers/SKILL]]

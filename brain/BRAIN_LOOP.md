@@ -26,12 +26,13 @@ Search for relevant prior knowledge, prioritized by activation score (recency ×
 - Supabase `memories` table — Semantic search for related context
 - Supabase `skill_activation` — Which skills/patterns are most active for this domain?
 
-### Step 3: ASSESS
+### Step 3: ASSESS (+ Task Routing)
 Evaluate the situation:
 - What do I know with high confidence?
 - What am I uncertain about? (Flag unknowns explicitly)
 - What are the risks? (Destructive operations? Shared state? Irreversible?)
-- Is this within my capabilities, or should I route to a different agent?
+- **Run task routing** (`skills/task-routing/SKILL.md`): classify complexity (TRIVIAL → ARCHITECTURAL), detect domain, assign agent(s)
+- **Check agent permissions** (`skills/agent-permissions/SKILL.md`): verify assigned agents can access required files
 - Confidence level: HIGH (>0.8) / MEDIUM (0.5-0.8) / LOW (<0.5)
 
 ### Step 4: PLAN (Multi-Hypothesis — LATS-Inspired)
@@ -42,8 +43,10 @@ Design the approach using multi-hypothesis generation:
 - Select the best approach, but **track alternatives** for backtracking on failure
 - Identify which tools/MCPs/skills are needed
 - Estimate complexity: TRIVIAL / MODERATE / COMPLEX / ARCHITECTURAL
+- For COMPLEX+: use **SPARC methodology** (`skills/sparc-methodology/SKILL.md`) — Specification → Pseudocode → Architecture → Refinement → Completion
 - For COMPLEX+: present plan to CC for approval before executing
 - For LOW confidence (<0.5): present plan AND alternatives to CC
+- **Config reference:** `.agents/config.toml` [routing] and [sparc] sections define thresholds and requirements
 
 ### Step 5: VERIFY
 Cross-check the plan:
@@ -53,12 +56,15 @@ Cross-check the plan:
 - Have I used Context7 to verify any library APIs?
 - Have I read the files I'm about to modify?
 
-### Step 6: EXECUTE
+### Step 6: EXECUTE (+ Anti-Drift Monitoring)
 Carry out the plan:
 - One tool at a time. Verify each result before proceeding.
 - **Log each meaningful action** to Supabase `agent_traces` (Tier 1 logging)
+- **Anti-drift checkpoint** every 5 steps (`skills/anti-drift/SKILL.md`): validate alignment with original intent, check scope creep, monitor error cascades
 - If a step fails: **try alternative approach from Step 4** before retrying same approach
+- If 2 consecutive steps fail → **error cascade detected** → STOP, switch approach (don't retry same)
 - If all approaches fail after 3 total attempts → STOP, report findings to CC
+- If files touched exceed plan by >3 → **scope creep detected** → checkpoint with CC
 - Log progress for multi-step tasks
 - Protect secrets. Confirm before destructive operations.
 
@@ -188,3 +194,5 @@ When the primary approach fails:
 - [[memory/MISTAKES]] | [[memory/PATTERNS]] | [[memory/LONG_TERM]]
 - [[memory/SELF_REFLECTIONS]] | [[memory/SOP_LIBRARY]]
 - [[skills/systematic-debugging/SKILL]] | [[skills/memory-management/SKILL]]
+- [[skills/task-routing/SKILL]] | [[skills/anti-drift/SKILL]] | [[skills/sparc-methodology/SKILL]]
+- [[skills/agent-permissions/SKILL]] | [[skills/hooks-automation/SKILL]] | [[skills/background-workers/SKILL]]

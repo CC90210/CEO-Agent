@@ -155,7 +155,13 @@ Commands registered as native Claude Code skills (`.claude/skills/`) AND as work
 ## Sub-Agent Orchestration
 
 See @brain/AGENTS.md for the complete subagent registry (16 agents with decision matrix).
-Delegation: Complex features → planner. Architecture → architect. Code review → reviewer. Bugs → debugger. Research → researcher. New agents → meta-agent.
+**Orchestration config:** `.agents/config.toml` — centralized routing, permissions, anti-drift, workers, SPARC phases.
+
+**Task routing (automatic):** Every non-trivial task is classified by complexity (TRIVIAL → ARCHITECTURAL) and routed to the right agent(s). See @skills/task-routing/SKILL.md.
+**Anti-drift:** Checkpoint every 5 steps, scope creep detection (>3 files beyond plan), error cascade stop (2 consecutive failures). See @skills/anti-drift/SKILL.md.
+**SPARC methodology:** COMPLEX+ tasks use Specification → Pseudocode → Architecture → Refinement → Completion. See @skills/sparc-methodology/SKILL.md.
+**Agent permissions:** Claims-based access control (minimal/standard/elevated/admin). See @skills/agent-permissions/SKILL.md.
+**Background workers:** 4 automated workers (audit/memory/sync/optimize) run during sessions. See @skills/background-workers/SKILL.md.
 
 ## Skills (loaded on-demand)
 
@@ -174,6 +180,12 @@ Note: All skills are stored in the Agent Skills 2.0 structure format: `skills/[s
 - Code review: @skills/code-review/SKILL.md
 - Ship pipeline: @skills/ship/SKILL.md
 - Weekly retro: @skills/retro/SKILL.md
+- Task routing: @skills/task-routing/SKILL.md
+- Anti-drift: @skills/anti-drift/SKILL.md
+- SPARC methodology: @skills/sparc-methodology/SKILL.md
+- Agent permissions: @skills/agent-permissions/SKILL.md
+- Hooks automation: @skills/hooks-automation/SKILL.md
+- Background workers: @skills/background-workers/SKILL.md
 
 ## AI Slop Detection
 
