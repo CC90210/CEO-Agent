@@ -102,6 +102,7 @@ def day2_email(name: str, interests: list, data: dict) -> tuple[str, str]:
             <p style="color:#ccc;line-height:1.6">I just finished reviewing <strong>{data.get('business_name', 'your business')}</strong>.</p>
             <p style="color:#ccc;line-height:1.6">Here's what I found: there are <strong>at least 3 workflows</strong> you're doing manually right now that could be fully automated — saving you an estimated 10-15 hours per week.</p>
             <p style="color:#ccc;line-height:1.6">I put together a quick breakdown. Want me to send it over? Just reply to this email or DM me on Instagram{' @' + data.get('instagram_handle', '') if data.get('instagram_handle') else ''}.</p>
+            <p style="color:#ccc;line-height:1.6">Or if you're ready to talk, grab a free 15-min slot: <a href="{os.environ.get('BOOKING_MEET_LINK', 'https://cc-funnel.vercel.app')}" style="color:#e8c547">Book a call &rarr;</a></p>
             <p style="color:#ccc;line-height:1.6">No pressure, no pitch — just the analysis.</p>
             <div style="margin-top:32px;border-top:1px solid #2a2a2a;padding-top:16px">
               <p style="color:#888;font-size:14px;margin:0">— CC McKenna</p>
@@ -151,7 +152,10 @@ def day5_email(name: str, interests: list, data: dict) -> tuple[str, str]:
           <div style="max-width:520px;margin:0 auto">
             <h2 style="color:#faf9f5;margin:0 0 16px">{first},</h2>
             <p style="color:#ccc;line-height:1.6">Quick heads up — I did the full audit for <strong>{data.get('business_name', 'your business')}</strong> and it's sitting in my drafts waiting for you.</p>
-            <p style="color:#ccc;line-height:1.6">I can only keep these personalized for so long before I move on to the next batch, so if you want it, just reply "send it" and I'll fire it over.</p>
+            <p style="color:#ccc;line-height:1.6">I can only keep these personalized for so long before I move on to the next batch.</p>
+            <p style="color:#ccc;line-height:1.6;text-align:center;margin:24px 0">
+              <a href="{os.environ.get('BOOKING_MEET_LINK', 'https://cc-funnel.vercel.app')}" style="display:inline-block;background:#e8c547;color:#0a0a0a;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Book Your Free Audit Call &rarr;</a>
+            </p>
             <p style="color:#ccc;line-height:1.6">Either way, no hard feelings. Just didn't want you to miss something that could genuinely save you hours every week.</p>
             <div style="margin-top:32px;border-top:1px solid #2a2a2a;padding-top:16px">
               <p style="color:#888;font-size:14px;margin:0">— CC</p>
@@ -166,6 +170,7 @@ def day5_email(name: str, interests: list, data: dict) -> tuple[str, str]:
             <h2 style="color:#faf9f5;margin:0 0 16px">Hey {first},</h2>
             <p style="color:#ccc;line-height:1.6">Just checking in — my calendar is filling up and I want to make sure your event doesn't slip through the cracks.</p>
             <p style="color:#ccc;line-height:1.6">If you've already found someone, no worries at all. But if you're still looking, let me know and I'll lock your date in before it's gone.</p>
+            <p style="color:#ccc;line-height:1.6">Quickest way: <a href="{os.environ.get('BOOKING_MEET_LINK', 'https://cc-funnel.vercel.app')}" style="color:#e8c547">Book a quick call &rarr;</a></p>
             <div style="margin-top:32px;border-top:1px solid #2a2a2a;padding-top:16px">
               <p style="color:#888;font-size:14px;margin:0">— CC</p>
             </div>
@@ -179,7 +184,9 @@ def day5_email(name: str, interests: list, data: dict) -> tuple[str, str]:
             <h2 style="color:#faf9f5;margin:0 0 16px">{first},</h2>
             <p style="color:#ccc;line-height:1.6">Your free brand strategy session is still on the table. I only do a few of these a week, so I wanted to make sure you didn't forget.</p>
             <p style="color:#ccc;line-height:1.6">15 minutes, zero pitch, and you'll walk away with at least one thing you can implement immediately.</p>
-            <p style="color:#ccc;line-height:1.6">Reply with "I'm in" and I'll send a calendar link.</p>
+            <p style="color:#ccc;line-height:1.6;text-align:center;margin:24px 0">
+              <a href="{os.environ.get('BOOKING_MEET_LINK', 'https://cc-funnel.vercel.app')}" style="display:inline-block;background:#e8c547;color:#0a0a0a;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Book Your Free Session &rarr;</a>
+            </p>
             <div style="margin-top:32px;border-top:1px solid #2a2a2a;padding-top:16px">
               <p style="color:#888;font-size:14px;margin:0">— CC McKenna</p>
             </div>

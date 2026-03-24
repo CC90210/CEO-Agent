@@ -20,6 +20,7 @@ Browser profile persists at tmp/ig-browser/ for session continuity.
 import argparse
 import calendar
 import json
+import subprocess
 import sys
 import os
 import time
@@ -64,10 +65,45 @@ _PAYMENT_PHRASES = {
 
 sys.path.insert(0, str(SCRIPTS_DIR))
 
+# Intents that signal business interest — trigger CRM lead capture
+_CRM_INTEREST_INTENTS = {"BOOKING", "PRICING", "PAYMENT", "INFO"}
+
 try:
     from notify import notify
 except ImportError:
     def notify(*a, **kw): return False
+
+
+def capture_lead_to_crm(username: str, intent: str, message_text: str):
+    """Insert an Instagram DM lead into the CRM if not already there.
+
+    Runs lead_engine.py add as a subprocess — fire-and-forget, never blocks
+    the DM reply flow. Notifies CC via Telegram on successful capture.
+    """
+    try:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "lead_engine.py"),
+                "add",
+                "--name", f"@{username}",
+                "--source", "instagram_dm",
+                "--notes", f"Intent: {intent} | DM: {message_text[:200]}",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=str(PROJECT_ROOT),
+        )
+        if result.returncode == 0:
+            notify(
+                f"\U0001f3af IG lead captured: @{username} ({intent})",
+                category="lead",
+            )
+            return True
+    except Exception as exc:
+        safe_print(f"CRM capture failed for @{username}: {exc}")
+    return False
 
 
 def load_env() -> dict:
@@ -559,6 +595,10 @@ def cmd_check_dms(env_vars, args):
                             }
                             save_replied_log(replied_log)
                             log_auto_reply_to_supabase(env_vars, username, intent, reply_text)
+
+                            # Capture business-interest DMs as CRM leads
+                            if intent in _CRM_INTEREST_INTENTS:
+                                capture_lead_to_crm(username, intent, last_msg)
 
                             # Only enter booking flow on EXPLICIT booking intent
                             if intent == "BOOKING":

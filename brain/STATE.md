@@ -4,7 +4,7 @@ tags: [state, ephemeral]
 
 # STATE — Current Operational State
 
-> Updated 2026-03-23 | Skool daemon crash fixed (PID 59248). Watchdog script created. Atomic state writes + PID locking prevent duplicates. Cole Aarts DM handled transparently.
+> Updated 2026-03-24 | Inbound Lead Engine LIVE. 5 posts published to X/Twitter. Content auto-posting pipeline operational. cc-funnel booking CTA deployed.
 
 ## Operational Status
 
@@ -34,7 +34,7 @@ tags: [state, ephemeral]
 | **Google Workspace CLI** | ✅ LIVE | gws v0.18.1, oasisaisolutions@gmail.com authenticated. 93 skills available. Email, Calendar, Drive, Sheets, Docs commands. |
 | **Skool Community Engine** | ✅ LIVE (HARDENED) | `scripts/skool_engine.py` daemon running PID 59248. 2-min post/DM cycle, 10-min member engagement. 136 members tracked (123 free, 13 paid). DM strategy: conversion-focused (welcome mentions call + value gap, 4-stage nurture to direct offer $97/mo, urgency + personal story). Crash fix (2026-03-23): PID locking prevents duplicate instances, atomic state writes prevent corruption on crash. Watchdog script created (`scripts/skool-watchdog.cmd`) — checks if daemon alive every 5 min, restarts if dead. **Pending:** CC needs to register watchdog in Task Scheduler via elevated PowerShell. Rate limiting: MAX_REPLIES_PER_CYCLE=5, MAX_DMS_PER_CYCLE=3. Browser crash recovery active. Cole Aarts DM handled (transparently owned the AI, discussed fitness + AI interest). |
 | **Skool Watchdog** | ⏳ PENDING | `scripts/skool-watchdog.cmd` created. Checks daemon PID every 5 min, auto-restarts if dead. **Needs registration:** `schtasks /create /tn "SkoolWatchdog" /tr "..." /sc minute /mo 5 /rl highest /f` in elevated PowerShell. |
-| **cc-funnel** | ✅ LIVE | Lead capture form (AI/Music/Brand interests) → Supabase → Telegram notify |
+| **cc-funnel** | ✅ LIVE | Lead capture form → Supabase → Telegram notify → Booking CTA on success screen. Needs `NEXT_PUBLIC_BOOKING_LINK` env var. |
 | **Telegram Bridge** | ✅ STABLE | Claude/Gemini via Telegram (PM2) — noise filtering applied (2026-03-21) |
 | **Stripe SDK** | ✅ LIVE | Multi-account (OASIS, PropFlow, Nostalgic) |
 | **Supabase SDK** | ✅ LIVE | Bravo, OASIS, Nostalgic projects |
@@ -43,7 +43,7 @@ tags: [state, ephemeral]
 | **Lead CRM** | ✅ AUDITED | `lead_engine.py` — scoring, pipeline, funnel tracking |
 | **Email Engine** | ✅ AUDITED | `email_engine.py` — Gmail SMTP, templates, nurture sequences |
 | **Booking System** | ✅ AUDITED | `booking_engine.py` — slot management, Windows strftime fixed |
-| **Content Calendar** | ⏸️ DISABLED | `late_publisher.py` exists but auto-posting turned off. 21 drafts in Supabase. |
+| **Content Calendar** | ✅ LIVE | Auto-posting via `late_publisher.py`. 5 published, 16 scheduled, 21 drafts. Late API: `https://getlate.dev/api/v1/`. Raw HTTP (SDK Pydantic broken). |
 | **Revenue Dashboard** | ✅ AUDITED | `revenue_engine.py` — CRITICAL NameError fixed, MRR formula corrected |
 | **Instagram Automation** | ✅ AUDITED | `instagram_engine.py` — Claude API replies, 10 bugs fixed |
 | **Scheduler** | ✅ AUDITED | `scheduler.py` — timestamp format fixed, restarted with fixes |

@@ -20,11 +20,12 @@ tags: [tasks, active]
 - [ ] [P0] **Close first OASIS retainer client** — Cedarwood and Vortex are warm. Follow up, book calls, close.
 - [ ] [P0] **Import 47+ leads to CRM** — Only 3 in system (Bennett, Cedarwood, Vortex). Run bulk import from research pipeline.
 - [ ] [P0] **Open booking slots** — `python scripts/booking_engine.py slots open-week`
+- [x] [P0] **BUILD: Inbound Lead Engine (Option B)** — 6 phases COMPLETE. Content auto-posting LIVE (5 posts published to X). CTA rotation active. IG DM → CRM bridge wired. Nurture emails have booking links. cc-funnel has booking CTA on success screen. E2E verified 2026-03-24. **Remaining:** Set `NEXT_PUBLIC_BOOKING_LINK` and `BOOKING_MEET_LINK` env vars once CC creates Google Meet link.
 
 ## P1 — Infrastructure (Stable)
 
 - [x] [P1] **Skool daemon: watchdog fixed** — Was spawning 67+ zombie processes. New Python watchdog with tasklist detection + CREATE_NO_WINDOW. Single instance running headless (2026-03-23).
-- [ ] [P1] **Content pipeline: build real structure** — 21 draft posts exist in Supabase but auto-posting is DISABLED. Need CC to review content strategy before enabling.
+- [x] [P1] **Content pipeline: LIVE** — Auto-posting enabled via `late_publisher.py`. 5 posts published to X (2026-03-24). Scheduler calls `late_publisher.py publish-due` on cron. 16 scheduled + 21 drafts remaining in calendar.
 - [ ] [P1] **Create Google Meet link** — Store in .env.agents for booking confirmations
 - [ ] [P1] **Wire n8n to cron_engine** — Connect n8n workflows to execute cron job actions
 
@@ -44,4 +45,4 @@ tags: [tasks, active]
 - [x] **Skool DM strategy** — Conversion-focused prompts, paid member skip, double-message bug fixed
 - [x] **Payment links created** — 2 Stripe links ($300 + $200/mo each) for new clients
 
-*Last updated: 2026-03-23*
+*Last updated: 2026-03-24*

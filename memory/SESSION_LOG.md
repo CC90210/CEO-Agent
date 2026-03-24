@@ -10,6 +10,59 @@ tags: [daily]
 
 ---
 
+### 2026-03-24 — Inbound Lead Engine Build Plan (Option B)
+**Agent:** Antigravity IDE (Bravo)
+**Goal:** Design full inbound flywheel to replace cold outreach. CC wants leads coming TO him, not chasing them.
+**Done:**
+- Audited all existing infrastructure: 15 scripts built but mostly dormant (auto-posting disabled, cron jobs stubbed, funnel sync not on cron)
+- Inspected cc-funnel.vercel.app live via Playwright — documented UX gaps (checkbox friction, no social proof, no Skool CTA)
+- Created comprehensive 6-phase build plan at `.agents/plans/inbound-engine-build-plan.md`
+- Phases: (1) cc-funnel UX refinement, (2) content CTA system, (3) activate content pipeline + register new cron jobs, (4) Instagram DM → CRM bridge, (5) booking link integration, (6) E2E verification
+- Updated ACTIVE_TASKS.md with P0 build task
+**Key insight:** 90% of infrastructure was already built — the real issue was everything was turned off (auto-posting stubbed, funnel sync not on cron, nurture not on cron)
+**Files:** `.agents/plans/inbound-engine-build-plan.md` (new)
+**Status:** Plan ready for Claude Code execution tonight
+
+### 2026-03-24 — Inbound Lead Engine: Full Build Execution (Session 2)
+**Agent:** Claude Code (Bravo)
+**Goal:** Execute all 6 phases of the inbound-engine-build-plan. CC said "work for 2.5 hours."
+
+**Completed:**
+1. **Late API URL fix** — `late_tool.py` was using `https://api.late.ai` (non-existent domain). Real URL is `https://getlate.dev/api/v1/`. Fixed `cmd_create` to use correct base URL + `/v1/accounts` and `/v1/posts` endpoints.
+2. **5 content posts published to X/Twitter** — Reset 5 failed posts, all published successfully via raw HTTP (bypassing broken SDK Pydantic models). Confirmed live on Twitter.
+3. **late_publisher.py ID extraction fix** — Late API returns `{"post": {"_id": "..."}}` not flat `{"id": "..."}`. Fixed extraction to navigate nested response.
+4. **cc-funnel booking CTA** — Added prominent "Book your free AI audit call" / "Book your free strategy session" button on success screen, conditional on user's interest selection. Uses `NEXT_PUBLIC_BOOKING_LINK` env var. Build passes, pushed to Vercel.
+5. **E2E verification passed** — Content calendar (42 entries, 5 posted), 8 Late accounts connected, scheduler wired to `late_publisher.py`, CTA rotation in content_generator.py, Instagram CRM bridge active, nurture emails have 4 booking link references.
+
+**Key discovery:** Late SDK base URL is `https://getlate.dev/api` (not `api.late.ai`). SDK endpoints: `/v1/accounts`, `/v1/posts`. The SDK's Pydantic models are comprehensively broken (API returns expanded objects where strings expected) — raw HTTP is the only reliable path.
+
+**Files modified:** `scripts/late_tool.py`, `scripts/late_publisher.py`, `C:/Users/User/APPS/cc-funnel/src/app/page.tsx`
+**Commits:** cc-funnel 3996a7a pushed to origin/master
+
+### 2026-03-24 — late_publisher.py built (content calendar → Late publishing)
+**Agent:** Claude Code (Bravo)
+**Change:** Built `scripts/late_publisher.py` — the missing script that scheduler.py calls to auto-publish due content. Reads `content_calendar` rows where `status='scheduled'` and `scheduled_for <= now()`, resolves Late account IDs dynamically at runtime via `late_tool.py accounts`, validates character limits per platform, calls `late_tool.py create`, then updates rows to `status='posted'` or `status='failed'`. Supports `publish-due`, `publish-one <id>`, and `status` commands with `--json` flag on all.
+**Files:** `scripts/late_publisher.py` (new, 270 lines)
+
+### 2026-03-24 — PropFlow security audit + production hardening
+**Agent:** Claude Code (Bravo)
+**App:** PropFlow (realestate-App)
+**Security fixes (commit d557053):**
+1. Property detail page — added auth + company_id filter (was accessible by ID alone)
+2. useAuth hook — removed unsafe auto-resolution that grabbed first random company from DB
+3. checkPlanLimits — added company_id filter to property count query
+4. property-actions — added auth + company ownership verification before delete/update
+5. generate-document route — scoped property/application fetches to user's company
+6. pdf-generator — added company_id filter on invoice fetch and update queries
+**Production fixes (commit cb3cbcb):**
+- Auth checks on 3 unprotected API routes (hashtags, profiles batch, setup-profile)
+- User ID validation on setup-profile to prevent impersonation
+- Analytics: fixed column name (showing_date → scheduled_date), added error state UI
+- CSP: added transparenttextures.com
+- Removed duplicate deleteProperty.ts, cleaned console.logs
+- Added FK migration for landlord_properties + missing tables
+**Pushed:** Both commits to origin/main
+
 ### 2026-03-23 — Watchdog zombie fix + OASIS framework rebranding
 **Agent:** Claude Code (Bravo)
 **Issues fixed:**

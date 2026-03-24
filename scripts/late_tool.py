@@ -169,30 +169,76 @@ print(json.dumps(posts, indent=2, default=str))
 
 
 def cmd_create(args):
-    """Create a post."""
-    text_len = len(args.text)
-    text_escaped = args.text.replace("'", "\\'").replace('"', '\\"').replace('\n', '\\n')
-    schedule = f", scheduled_at='{args.schedule}'" if args.schedule else ""
+    """Create a post via Late API (raw HTTP, bypasses SDK Pydantic bugs)."""
+    import urllib.request
+    import urllib.error
 
-    code = SDK_PREAMBLE + f"""
-result = client.posts.create(text="{text_escaped}", account_id="{args.account}"{schedule})
-print(json.dumps(safe_dump(result), indent=2, default=str))
-"""
+    text = args.text
+    account_id = args.account
+    text_len = len(text)
     print(f"Post length: {text_len} chars")
-    output = run_late_sdk(code)
-    if args.json:
-        print(output)
+
+    env = load_env()
+    api_key = env.get("LATE_API_KEY")
+    if not api_key:
+        print("ERROR: LATE_API_KEY not found in .env.agents", file=sys.stderr)
+        sys.exit(1)
+
+    base = "https://getlate.dev/api"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    # Step 1: Resolve platform name from account ID
+    req = urllib.request.Request(f"{base}/v1/accounts", headers=headers)
+    resp_data = json.loads(urllib.request.urlopen(req, timeout=15).read())
+    accounts = resp_data.get("accounts", resp_data) if isinstance(resp_data, dict) else resp_data
+    acct_platform = "twitter"
+    for a in (accounts if isinstance(accounts, list) else []):
+        if a.get("_id") == account_id:
+            acct_platform = a.get("platform", "twitter")
+            break
+
+    # Step 2: Build payload
+    payload = {
+        "content": text,
+        "platforms": [{"platform": acct_platform, "accountId": account_id}],
+    }
+    if args.schedule:
+        payload["scheduledFor"] = args.schedule
     else:
-        print("Post Created:\n")
-        print(output)
+        payload["publishNow"] = True
+
+    data = json.dumps(payload).encode()
+    req = urllib.request.Request(f"{base}/v1/posts", data=data, headers=headers, method="POST")
+
+    try:
+        resp = urllib.request.urlopen(req, timeout=30)
+        result = json.loads(resp.read())
+        if args.json:
+            print(json.dumps(result, indent=2, default=str))
+        else:
+            print("Post Created:\n")
+            print(json.dumps(result, indent=2, default=str))
+    except urllib.error.HTTPError as e:
+        body = e.read().decode()
+        print(f"ERROR: [{e.code}] {body}", file=sys.stderr)
+        sys.exit(1)
 
 
 def cmd_cross_post(args):
-    """Cross-post to profile."""
-    text_escaped = args.text.replace("'", "\\'").replace('"', '\\"').replace('\n', '\\n')
+    """Cross-post to all accounts in a profile."""
+    text_escaped = args.text.replace("\\", "\\\\").replace("'", "\\'").replace('"', '\\"').replace('\n', '\\n')
 
     code = SDK_PREAMBLE + f"""
-result = client.posts.cross_post(text="{text_escaped}", profile_id="{args.profile}")
+result = client.posts.create(
+    content="{text_escaped}",
+    queued_from_profile="{args.profile}",
+    publish_now=True,
+    crossposting_enabled=True,
+    platforms=[],
+)
 print(json.dumps(safe_dump(result), indent=2, default=str))
 """
     output = run_late_sdk(code)

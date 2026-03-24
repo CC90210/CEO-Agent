@@ -207,6 +207,21 @@ VOICE RULES:
 EXAMPLE POSTS FOR THIS PILLAR (match this voice, do not copy):
 {examples_text}
 
+CTA RULE: End every post with a SOFT call-to-action. Rotate between these styles:
+- "Free AI audit → cc-funnel.vercel.app"
+- "DM me 'AUDIT' for a free business review"
+- "Link in bio for your free automation assessment"
+
+For LinkedIn/Instagram (longer platforms), you can expand the CTA to 2-3 sentences:
+"I'm offering free AI automation audits for business owners this month. If you're spending 10+ hours/week on tasks that could be automated, I'll personally review your workflow. → cc-funnel.vercel.app"
+
+Rules:
+- CTA must be the LAST line of the post
+- Never more than 1 CTA per post
+- Keep it conversational, not salesy
+- The CTA counts toward the character limit
+- For sobriety_log posts, use a softer CTA: just "→ cc-funnel.vercel.app" or skip the CTA entirely if it breaks the tone
+
 Write ONE post for {platform}. Output ONLY the post text. No labels, no explanation, no quotes around it."""
 
 
