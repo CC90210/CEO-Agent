@@ -208,7 +208,6 @@ CC requested two parallel streams of work:
 - Accent color matched CC brand (#e8c547 gold)
 - `_templates/` directory with 6 templates (daily-note, skill, agent, session-log-entry, mistake-entry, decision-entry)
 - `brain/DASHBOARD.md` created — vault home page with navigation to 121+ files
-- `memory/TASK_BOARD.md` created — Kanban board for task management
 - 15 files updated with [[wiki-links]] (7 brain/ + 8 memory/), 56+ total cross-links for graph view
 - All @references preserved for Claude/Gemini/Anti-Gravity tool routing
 - Community plugins configured: Dataview, Templater, obsidian-git, Calendar, Kanban, Homepage, Linter
@@ -244,7 +243,7 @@ CC requested comprehensive bug audit. 8 parallel agents (4 audit + 4 fix) scanne
 > CC can now open Business-Empire-Agent as an Obsidian vault for knowledge graph visualization
 
 - **Home:** brain/DASHBOARD.md
-- **Tasks:** memory/TASK_BOARD.md
+- **Tasks:** memory/ACTIVE_TASKS.md
 - **Graph view:** 56+ [[wiki-links]] across brain/ and memory/ files
 - **Community plugins:** 7 installed, 0 errors
 - **Next step:** `npm install` community plugins (Obsidian app will prompt)
