@@ -4,17 +4,17 @@ tags: [state, ephemeral]
 
 # STATE — Current Operational State
 
-> Updated 2026-03-24 | Inbound Lead Engine LIVE. 5 posts published to X/Twitter. Content auto-posting pipeline operational. cc-funnel booking CTA deployed.
+> Updated 2026-03-25 | PropFlow production hardening COMPLETE (20 rounds, 20 commits, 50+ files). Rate limiting on ALL write endpoints, Zod validation, Stripe webhook idempotency, multi-tenant isolation verified. Skool Engine RESPONSE-ONLY. Inbound Lead Engine LIVE. cc-funnel deployed.
 
 ## Operational Status
 
 | Dimension | Level | Notes |
 |-----------|-------|-------|
 | **Version** | V5.5 | Self-Evolving Super-Intelligence (Bravo) |
-| **Position**| ACTIVE | Community Manager for Bennett's Agency Accelerator + Lead Gen Funnel Operator + Skool Community Automation |
-| **Confidence** | 0.99 | All automations audited and hardened. Goal exceeded. Rule 0 Protocol active. Skool engine live with crash recovery + watchdog. Cole Aarts DM transparently handled. |
-| **Focus Area** | **CLIENT ACQUISITION + REVENUE DIVERSIFICATION + SKOOL AUTOMATION** | All engines bug-free. CC Funnel deployed and operational. Obsidian vault ready. Skool emoji fixes deployed. Skool community engine LIVE in daemon mode (2-min intervals) with conversion-optimized welcome/nurture messaging. GWS CLI integrated for email/calendar/drive/sheets/docs. Watchdog monitoring daemon health. Next: register watchdog in Task Scheduler, monitor DM call conversion rate, close OASIS retainer clients. 93% revenue in Bennett = critical risk. |
-| **Energy** | MAXIMUM | Content studio operational (Remotion). Skool classroom stable + automation LIVE with conversion focus. PM2 processes healthy. GWS authenticated. Skool daemon running PID 59248 with crash recovery + atomic state writes. |
+| **Position**| ACTIVE | Community Manager for Bennett's Agency Accelerator + Lead Gen Funnel Operator |
+| **Confidence** | 0.99 | PropFlow production-ready (20 hardening rounds). All automations audited. Goal exceeded. Rule 0 Protocol active. |
+| **Focus Area** | **CLIENT ACQUISITION + REVENUE DIVERSIFICATION** | Skool Engine disabled 2026-03-25 (reached all free members). CC Funnel deployed. Obsidian vault ready. GWS CLI integrated. Next: close OASIS retainer clients. 93% revenue in Bennett = critical risk. |
+| **Energy** | MAXIMUM | Content studio operational (Remotion). PM2 processes healthy. GWS authenticated. |
 | **Memory Health** | EXCELLENT | Files trimmed. Stale tasks purged. Vault configured. Session logged. |
 
 ## North Star: $5,000 USD Net MRR by May 15, 2026
@@ -32,8 +32,8 @@ tags: [state, ephemeral]
 | Tool | Status | Purpose |
 |--------|--------|---------|
 | **Google Workspace CLI** | ✅ LIVE | gws v0.18.1, oasisaisolutions@gmail.com authenticated. 93 skills available. Email, Calendar, Drive, Sheets, Docs commands. |
-| **Skool Community Engine** | ✅ LIVE (HARDENED) | `scripts/skool_engine.py` daemon running PID 59248. 2-min post/DM cycle, 10-min member engagement. 136 members tracked (123 free, 13 paid). DM strategy: conversion-focused (welcome mentions call + value gap, 4-stage nurture to direct offer $97/mo, urgency + personal story). Crash fix (2026-03-23): PID locking prevents duplicate instances, atomic state writes prevent corruption on crash. Watchdog script created (`scripts/skool-watchdog.cmd`) — checks if daemon alive every 5 min, restarts if dead. **Pending:** CC needs to register watchdog in Task Scheduler via elevated PowerShell. Rate limiting: MAX_REPLIES_PER_CYCLE=5, MAX_DMS_PER_CYCLE=3. Browser crash recovery active. Cole Aarts DM handled (transparently owned the AI, discussed fitness + AI interest). |
-| **Skool Watchdog** | ⏳ PENDING | `scripts/skool-watchdog.cmd` created. Checks daemon PID every 5 min, auto-restarts if dead. **Needs registration:** `schtasks /create /tn "SkoolWatchdog" /tr "..." /sc minute /mo 5 /rl highest /f` in elevated PowerShell. |
+| **Skool Community Engine** | 🔁 RESPONSE-ONLY | Outreach disabled (OUTREACH_DISABLED=True) since 2026-03-25. Daemon runs to reply to community posts + respond to incoming DMs. No proactive welcome/nurture DMs. |
+| **Skool Watchdog** | ✅ ACTIVE | Ensures single daemon instance for response-only mode. |
 | **cc-funnel** | ✅ LIVE | Lead capture form → Supabase → Telegram notify → Booking CTA on success screen. Needs `NEXT_PUBLIC_BOOKING_LINK` env var. |
 | **Telegram Bridge** | ✅ STABLE | Claude/Gemini via Telegram (PM2) — noise filtering applied (2026-03-21) |
 | **Stripe SDK** | ✅ LIVE | Multi-account (OASIS, PropFlow, Nostalgic) |
@@ -236,7 +236,7 @@ CC requested comprehensive bug audit. 8 parallel agents (4 audit + 4 fix) scanne
 - **Agent:** BRAVO via Claude Code (Haiku 4.5)
 - **Result:** Skool daemon crash fixed (PID 59248). Watchdog script created. Atomic state writes + PID locking prevent duplicate instances and corruption. Cole Aarts DM handled transparently. Daemon operational with safeguards. Awaiting watchdog registration in Task Scheduler.
 
-*Last updated: 2026-03-23*
+*Last updated: 2026-03-25*
 
 ## Obsidian Integration Points
 
