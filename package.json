@@ -29,6 +29,7 @@
     "dotenv": "^17.3.1",
     "node-telegram-bot-api": "^0.67.0",
     "nodemailer": "^8.0.1",
+    "playwright": "^1.58.2",
     "remotion": "^4.0.431"
   }
 }

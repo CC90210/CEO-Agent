@@ -50,7 +50,7 @@ When CC asks a question, answer it using MCP tools. Do NOT dump file contents or
 
 | CC Asks About | Tool | Command |
 |---|---|---|
-| Web browsing, screenshots | Playwright MCP | `browser_navigate`, `browser_snapshot` |
+| Web browsing, interactive sessions | Playwright MCP | `browser_navigate`, `browser_snapshot` |
 | Library documentation | Context7 MCP | `resolve-library-id`, `query-docs` |
 | Knowledge graph | Memory MCP | `search_nodes`, `create_entities` |
 | Structured reasoning | Sequential Thinking MCP | `sequentialthinking` |
@@ -67,6 +67,7 @@ When CC asks a question, answer it using MCP tools. Do NOT dump file contents or
 | Email (send/read/triage) | **gws CLI** | `gws gmail +send`, `gws gmail +read`, `gws gmail +triage` |
 | Calendar (events/agenda) | **gws CLI** | `gws calendar +agenda`, `gws calendar +insert` |
 | Google Drive / Sheets / Docs | **gws CLI** | `gws drive files list`, `gws sheets +read`, `gws docs +write` |
+| Scrape page data (text, links, tables) | **Playwright CLI** | `node .claude/skills/playwright/scripts/run.js <url> [--links] [--table css] [--selector css]` |
 
 **Why CLI-first:** MCP servers with credentials (Late, n8n, Supabase, Stripe) break frequently — env var passing fails, tokens expire, packages change auth methods. CLI tools read `.env.agents` directly and never break.
 

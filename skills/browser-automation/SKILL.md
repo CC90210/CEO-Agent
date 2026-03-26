@@ -139,16 +139,22 @@ browser_handle_dialog    accept=true promptText="input"  → Fill prompt dialog
 6. **Never hardcode selectors** — always discover via snapshot refs
 7. **For research:** Prefer Playwright over WebFetch for any page that requires JavaScript
 
-## Comparison: Playwright MCP vs agent-browser CLI
-| Feature | Playwright MCP (ours) | agent-browser CLI |
-|---------|----------------------|-------------------|
-| Platform | Windows, Mac, Linux | Linux/macOS/WSL only |
-| Integration | Native MCP tool calls | Shell commands |
-| Refs | `ref="refXXX"` from snapshot | `@e1, @e2` from snapshot |
-| Forms | `browser_fill_form` (batch) | `fill @e1 "text"` (one at a time) |
-| Sessions | Single session | `--session name` (parallel) |
-| State save | Not built-in | `state save/load` |
-| Recording | Not built-in | `record start/stop` |
-| Accessibility | `browser_snapshot` | `snapshot -i` |
+## Two Modes: MCP (Interactive) vs CLI (Data Extraction)
 
-**Our Playwright MCP covers all essential workflows.** agent-browser adds session persistence and recording but requires Linux/WSL.
+| Need | Use | How |
+|------|-----|-----|
+| **Data from a page** (text, links, tables) | **CLI script** | `node .claude/skills/playwright/scripts/run.js <url>` |
+| **Interactive session** (login, click flows, Skool editing) | **MCP tools** | `browser_navigate`, `browser_snapshot`, etc. |
+| **Batch scrape** (10+ pages) | **CLI script** | Loop over URLs, get JSON back |
+| **Visual verification** | **MCP screenshot** | `browser_take_screenshot` |
+
+### Token Cost Comparison
+
+| Approach | 10 pages scraped | Data format | Context cost |
+|----------|-----------------|-------------|-------------|
+| MCP screenshots | 20,000-30,000 tokens | Claude interprets image | Massive |
+| **CLI script** | **200-500 tokens** | **Clean JSON** | **Minimal** |
+
+**Rule:** Default to CLI for data extraction. Use MCP only for stateful interactive sessions.
+
+Full CLI reference: `.claude/skills/playwright/SKILL.md`

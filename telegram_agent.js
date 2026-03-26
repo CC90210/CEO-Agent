@@ -5,11 +5,14 @@ const fs = require('fs');
 const path = require('path');
 
 // ============================================================
-// BRAVO TELEGRAM BRIDGE V8.0
+// BRAVO TELEGRAM BRIDGE V11.0
 //
 // V7.2 fixes preserved: shell:false, node direct spawn.
 // V8.0 fixes: 5-min timeout, progress updates, crash recovery,
 // both CLIs working in tandem, cleaner help.
+// V10.0: Claude-First + Context-Aware (reads STATE/SESSION_LOG/ACTIVE_TASKS)
+// V11.0: Full-Context Parity — loads CLAUDE.md, brain files, skills refs.
+//         Removed --model sonnet (uses default). --max-turns 25.
 // ============================================================
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -34,7 +37,7 @@ const log = (msg) => {
     try { fs.appendFileSync(LOG_FILE, line); } catch (_) {}
 };
 
-log('Bravo Telegram Bridge V9.0 (Claude-First) starting...');
+log('Bravo Telegram Bridge V11.0 (Full-Context Parity) starting...');
 
 // ---- PATHS ----
 // Resolve actual script paths so we spawn node directly (no .cmd wrappers)
@@ -84,7 +87,90 @@ const autoRegisterUser = (userId) => {
     }
 };
 
-const SYSTEM_PROMPT = `You are BRAVO, CC's AI assistant on Telegram. RULES: (1) Answer the question directly in 1-5 sentences. (2) Do NOT summarize recent work, session history, or system status unless explicitly asked. (3) Do NOT greet CC with a status update. (4) Do NOT say what you just fixed or built. (5) Just answer what was asked. CC's message:`;
+// Static prompt for Gemini (Gemini reads brain files via MCP anyway)
+const SYSTEM_PROMPT_STATIC = `You are BRAVO, CC's AI assistant on Telegram. RULES: (1) Answer the question directly in 1-5 sentences. (2) Do NOT summarize recent work, session history, or system status unless explicitly asked. (3) Do NOT greet CC with a status update. (4) Do NOT say what you just fixed or built. (5) Just answer what was asked. CC's message:`;
+
+// Reads a file safely, returns content or empty string
+const readFileSafe = (relPath, maxLines = 0) => {
+    try {
+        const content = fs.readFileSync(path.join(__dirname, relPath), 'utf8');
+        if (maxLines > 0) {
+            return content.split('\n').slice(0, maxLines).join('\n').trim();
+        }
+        return content.trim();
+    } catch (_) { return ''; }
+};
+
+// Loads full project context for Claude — mirrors what direct Claude Code sees
+// Budget: ~8000 chars to stay within Claude's -p prompt limits
+const loadContext = () => {
+    const chunks = [];
+
+    // 1. CLAUDE.md — the master instruction file (first 120 lines covers all rules)
+    const claude_md = readFileSafe('CLAUDE.md', 120);
+    if (claude_md) chunks.push(`=== CLAUDE.md (project instructions) ===\n${claude_md}`);
+
+    // 2. SOUL.md — identity and values
+    const soul = readFileSafe('brain/SOUL.md', 40);
+    if (soul) chunks.push(`=== SOUL.md (identity) ===\n${soul}`);
+
+    // 3. USER.md — CC's profile (first 50 lines covers key info)
+    const user = readFileSafe('brain/USER.md', 50);
+    if (user) chunks.push(`=== USER.md (CC's profile) ===\n${user}`);
+
+    // 4. STATE.md — current operational state
+    const state = readFileSafe('brain/STATE.md');
+    if (state) chunks.push(`=== STATE.md (current state) ===\n${state}`);
+
+    // 5. ACTIVE_TASKS.md — current task list
+    const tasks = readFileSafe('memory/ACTIVE_TASKS.md', 50);
+    if (tasks) chunks.push(`=== ACTIVE_TASKS.md ===\n${tasks}`);
+
+    // 6. SESSION_LOG.md — last 30 lines (recent activity across all agents)
+    const sessionLog = readFileSafe('memory/SESSION_LOG.md');
+    if (sessionLog) {
+        const last30 = sessionLog.split('\n').slice(-30).join('\n').trim();
+        if (last30) chunks.push(`=== SESSION_LOG.md (recent) ===\n${last30}`);
+    }
+
+    // 7. APP_REGISTRY.md — so it knows about all apps and their paths
+    const appReg = readFileSafe('brain/APP_REGISTRY.md', 40);
+    if (appReg) chunks.push(`=== APP_REGISTRY.md ===\n${appReg}`);
+
+    // 8. Tool routing summary (CLI tools available)
+    chunks.push(`=== Available CLI Tools ===
+- n8n: python scripts/n8n_tool.py [list|get|execute|activate]
+- Late (social): python scripts/late_tool.py [accounts|posts|create]
+- Supabase: python scripts/supabase_tool.py [select|insert|sql]
+- Stripe: python scripts/stripe_tool.py [balance|customers|invoices]
+- Email/Calendar: gws gmail/calendar
+- MCP servers: Playwright, Context7, Memory, Sequential Thinking`);
+
+    const full = chunks.join('\n\n');
+    // Budget ~8000 chars for the context block
+    return full.length > 8000 ? full.substring(0, 8000) + '\n...(truncated)' : full;
+};
+
+// Dynamic prompt for Claude — injects full project context on every message
+const buildPrompt = () => {
+    const context = loadContext();
+    return `You are BRAVO V5.5, CC's Lead Architect and AI business manager, running via Telegram bridge.
+You have full access to the Business-Empire-Agent project at C:\\Users\\User\\Business-Empire-Agent.
+
+${context}
+
+TELEGRAM-SPECIFIC RULES:
+(1) Answer directly in 1-5 sentences unless the task requires more.
+(2) Do NOT dump file contents unless asked.
+(3) Use the CLI tools listed above for database, social media, Stripe, and n8n operations.
+(4) For code changes in apps, cd to the app's LOCAL PATH from APP_REGISTRY.md.
+(5) After any significant work, update memory/SESSION_LOG.md and memory/ACTIVE_TASKS.md.
+(6) Address the user as CC. Be direct, no filler. Use "Conaugh McKenna" for external/B2B comms.
+(7) You have up to 25 turns — use them for multi-step tasks. Don't rush.
+(8) All credentials are in .env.agents — NEVER hardcode secrets.
+
+CC's message:`;
+};
 
 // Detect which MCP servers a query needs (keeps Gemini startup fast)
 const detectMcps = (text) => {
@@ -118,7 +204,7 @@ const killTree = (pid) => {
 // ---- CLI EXECUTION ----
 const executeCli = (tool, userPrompt, chatId) => {
     return new Promise((resolve) => {
-        const fullPrompt = `${SYSTEM_PROMPT} ${userPrompt}`;
+        const fullPrompt = tool === 'claude' ? `${buildPrompt()} ${userPrompt}` : `${SYSTEM_PROMPT_STATIC} ${userPrompt}`;
         const timeout = tool === 'claude' ? CLAUDE_TIMEOUT : GEMINI_TIMEOUT;
         let cmd, args;
 
@@ -128,8 +214,7 @@ const executeCli = (tool, userPrompt, chatId) => {
                 '-p', fullPrompt,
                 '--dangerously-skip-permissions',
                 '--output-format', 'text',
-                '--max-turns', '5',
-                '--model', 'sonnet'
+                '--max-turns', '25'
             ];
         } else {
             const mcps = detectMcps(userPrompt);
@@ -272,14 +357,14 @@ bot.on('message', async (msg) => {
 
     if (text === '/start' || text === '/help') {
         return bot.sendMessage(chatId, [
-            'Bravo Bridge V9.0 (Claude-First)',
+            'Bravo Bridge V11.0 (Full-Context Parity)',
             '',
-            'Just type anything → routes to Claude Code (default)',
-            '!gemini <query> → routes to Gemini (fallback)',
-            '!sys <cmd> → run shell command on PC',
+            'Just type anything → Claude Code (default, 25 turns)',
+            '!gemini <query> → Gemini CLI (fallback)',
+            '!sys <cmd> → shell command on PC',
             '',
-            'Claude: 10 min timeout. Gemini: 5 min timeout.',
-            'Both read the same brain/memory files.',
+            'Claude: 10 min timeout, full CLAUDE.md + brain context.',
+            'Gemini: 5 min timeout, MCP-aware.',
             '',
             '/whoami — show your Telegram user ID'
         ].join('\n'));
@@ -357,4 +442,4 @@ process.on('unhandledRejection', (err) => {
     log(`[UNHANDLED] ${err.message || err}`);
 });
 
-log('Bridge V9.0 ready.');
+log('Bridge V11.0 ready.');

@@ -52,7 +52,7 @@ const AnimatedBackground: React.FC = () => {
   );
 };
 
-// Five orbs: cyan top-right, magenta bottom-left, electric center, cyan lower-right, magenta top-left
+// Five orbs repositioned for 1920x1080 landscape canvas
 const GlowOrbs: React.FC = () => {
   const frame = useCurrentFrame();
 
@@ -78,7 +78,7 @@ const GlowOrbs: React.FC = () => {
       <div
         style={{
           position: "absolute",
-          top: 100,
+          top: 60,
           right: -150,
           width: 500,
           height: 500,
@@ -92,10 +92,10 @@ const GlowOrbs: React.FC = () => {
       <div
         style={{
           position: "absolute",
-          bottom: 200,
+          bottom: 80,
           left: -160,
-          width: 520,
-          height: 520,
+          width: 480,
+          height: 480,
           borderRadius: "50%",
           background: `radial-gradient(circle, ${C.magenta}44 0%, transparent 70%)`,
           filter: "blur(80px)",
@@ -132,14 +132,14 @@ const GlowOrbs: React.FC = () => {
           transform: `scale(${scale4})`,
         }}
       />
-      {/* Top-left magenta accent */}
+      {/* Mid-left magenta accent — repositioned from portrait top:600 */}
       <div
         style={{
           position: "absolute",
-          top: 600,
+          top: 200,
           left: -80,
-          width: 360,
-          height: 360,
+          width: 340,
+          height: 340,
           borderRadius: "50%",
           background: `radial-gradient(circle, ${C.magenta}30 0%, transparent 70%)`,
           filter: "blur(55px)",
@@ -150,7 +150,7 @@ const GlowOrbs: React.FC = () => {
   );
 };
 
-// 10 geometric particles drifting upward with horizontal wobble
+// 10 geometric particles drifting upward — x positions spread across 1920px
 const FloatingParticles: React.FC = () => {
   const frame = useCurrentFrame();
 
@@ -165,22 +165,24 @@ const FloatingParticles: React.FC = () => {
     wobbleAmp: number;
     opacity: number;
   }[] = [
-    { x: 80, startY: 1900, size: 10, speed: 2.4, color: C.cyan, shape: "circle", phaseOffset: 0, wobbleAmp: 24, opacity: 0.5 },
-    { x: 200, startY: 1950, size: 14, speed: 1.8, color: C.magenta, shape: "diamond", phaseOffset: 1.2, wobbleAmp: 18, opacity: 0.45 },
-    { x: 370, startY: 2000, size: 8, speed: 2.1, color: C.electric, shape: "circle", phaseOffset: 2.4, wobbleAmp: 30, opacity: 0.5 },
-    { x: 520, startY: 1880, size: 12, speed: 1.6, color: C.cyan, shape: "hex", phaseOffset: 0.6, wobbleAmp: 16, opacity: 0.4 },
-    { x: 660, startY: 1970, size: 16, speed: 2.7, color: C.gold, shape: "diamond", phaseOffset: 3.0, wobbleAmp: 22, opacity: 0.38 },
-    { x: 780, startY: 1920, size: 9, speed: 1.9, color: C.magenta, shape: "circle", phaseOffset: 1.8, wobbleAmp: 28, opacity: 0.48 },
-    { x: 900, startY: 2020, size: 11, speed: 2.2, color: C.electric, shape: "hex", phaseOffset: 4.2, wobbleAmp: 20, opacity: 0.42 },
-    { x: 140, startY: 1860, size: 7, speed: 3.0, color: C.gold, shape: "circle", phaseOffset: 2.0, wobbleAmp: 14, opacity: 0.35 },
-    { x: 440, startY: 1990, size: 13, speed: 1.5, color: C.cyan, shape: "diamond", phaseOffset: 0.3, wobbleAmp: 26, opacity: 0.44 },
-    { x: 830, startY: 1840, size: 6, speed: 2.6, color: C.magenta, shape: "circle", phaseOffset: 3.7, wobbleAmp: 12, opacity: 0.4 },
+    { x: 120,  startY: 1060, size: 10, speed: 2.4, color: C.cyan,    shape: "circle",  phaseOffset: 0,   wobbleAmp: 24, opacity: 0.5 },
+    { x: 320,  startY: 1080, size: 14, speed: 1.8, color: C.magenta, shape: "diamond", phaseOffset: 1.2, wobbleAmp: 18, opacity: 0.45 },
+    { x: 560,  startY: 1100, size: 8,  speed: 2.1, color: C.electric,shape: "circle",  phaseOffset: 2.4, wobbleAmp: 30, opacity: 0.5 },
+    { x: 800,  startY: 1040, size: 12, speed: 1.6, color: C.cyan,    shape: "hex",     phaseOffset: 0.6, wobbleAmp: 16, opacity: 0.4 },
+    { x: 1040, startY: 1070, size: 16, speed: 2.7, color: C.gold,    shape: "diamond", phaseOffset: 3.0, wobbleAmp: 22, opacity: 0.38 },
+    { x: 1260, startY: 1020, size: 9,  speed: 1.9, color: C.magenta, shape: "circle",  phaseOffset: 1.8, wobbleAmp: 28, opacity: 0.48 },
+    { x: 1460, startY: 1090, size: 11, speed: 2.2, color: C.electric,shape: "hex",     phaseOffset: 4.2, wobbleAmp: 20, opacity: 0.42 },
+    { x: 220,  startY: 1000, size: 7,  speed: 3.0, color: C.gold,    shape: "circle",  phaseOffset: 2.0, wobbleAmp: 14, opacity: 0.35 },
+    { x: 680,  startY: 1050, size: 13, speed: 1.5, color: C.cyan,    shape: "diamond", phaseOffset: 0.3, wobbleAmp: 26, opacity: 0.44 },
+    { x: 1640, startY: 980,  size: 6,  speed: 2.6, color: C.magenta, shape: "circle",  phaseOffset: 3.7, wobbleAmp: 12, opacity: 0.4 },
+    { x: 1800, startY: 1060, size: 10, speed: 2.0, color: C.cyan,    shape: "hex",     phaseOffset: 1.5, wobbleAmp: 18, opacity: 0.38 },
   ];
 
   return (
     <AbsoluteFill style={{ pointerEvents: "none" }}>
       {particles.map((p, i) => {
-        const totalTravel = 1920 + 200;
+        // Travel distance covers 1080 height + 200 buffer
+        const totalTravel = 1080 + 200;
         const yOffset = ((frame * p.speed) % totalTravel);
         const xWobble = Math.sin(frame * 0.04 + p.phaseOffset) * p.wobbleAmp;
         const currentY = p.startY - yOffset;
@@ -212,7 +214,7 @@ const FloatingParticles: React.FC = () => {
   );
 };
 
-// Holographic hexagon wireframe with slow rotation and opacity pulse
+// Holographic hexagon — SVG recentered for 1920x1080
 const HolographicHexagon: React.FC<{ startFrame: number; endFrame: number }> = ({
   startFrame,
   endFrame,
@@ -242,9 +244,9 @@ const HolographicHexagon: React.FC<{ startFrame: number; endFrame: number }> = (
     [2, 5]
   );
 
-  // Hexagon points for a 200px radius hexagon
+  // Hexagon centered in 1920x1080 canvas
   const r = 200;
-  const cx = 540;
+  const cx = 960;
   const cy = 540;
   const points = Array.from({ length: 6 }, (_, i) => {
     const angle = (Math.PI / 3) * i - Math.PI / 2;
@@ -262,16 +264,18 @@ const HolographicHexagon: React.FC<{ startFrame: number; endFrame: number }> = (
     <div
       style={{
         position: "absolute",
-        top: 240,
+        top: 0,
         left: 0,
         right: 0,
+        bottom: 0,
         display: "flex",
         justifyContent: "center",
+        alignItems: "center",
         opacity,
         transform: `scale(${scale}) rotate(${rotation}deg)`,
       }}
     >
-      <svg width="1080" height="1080" viewBox="0 0 1080 1080">
+      <svg width="1920" height="1080" viewBox="0 0 1920 1080">
         <defs>
           <filter id="hexGlow">
             <feGaussianBlur stdDeviation={glowStrength} result="blur" />
@@ -323,20 +327,22 @@ const HolographicHexagon: React.FC<{ startFrame: number; endFrame: number }> = (
 };
 
 // ---------------------------------------------------------------------------
-// DataStream — vertical columns of falling data characters (subtle Matrix-style)
+// DataStream — columns spread across 1920px width
 // ---------------------------------------------------------------------------
 const DataStream: React.FC = () => {
   const frame = useCurrentFrame();
 
   const columns = [
-    { x: 40, speed: 1.4, chars: 18, phaseOffset: 0 },
-    { x: 160, speed: 1.1, chars: 14, phaseOffset: 3.2 },
-    { x: 300, speed: 1.7, chars: 20, phaseOffset: 1.1 },
-    { x: 490, speed: 1.3, chars: 16, phaseOffset: 2.5 },
-    { x: 640, speed: 1.5, chars: 12, phaseOffset: 0.7 },
-    { x: 780, speed: 1.2, chars: 17, phaseOffset: 4.1 },
-    { x: 960, speed: 1.6, chars: 15, phaseOffset: 1.8 },
-    { x: 1040, speed: 1.0, chars: 13, phaseOffset: 3.8 },
+    { x: 60,   speed: 1.4, chars: 14, phaseOffset: 0 },
+    { x: 240,  speed: 1.1, chars: 10, phaseOffset: 3.2 },
+    { x: 480,  speed: 1.7, chars: 16, phaseOffset: 1.1 },
+    { x: 720,  speed: 1.3, chars: 12, phaseOffset: 2.5 },
+    { x: 960,  speed: 1.5, chars: 10, phaseOffset: 0.7 },
+    { x: 1200, speed: 1.2, chars: 14, phaseOffset: 4.1 },
+    { x: 1440, speed: 1.6, chars: 12, phaseOffset: 1.8 },
+    { x: 1680, speed: 1.0, chars: 10, phaseOffset: 3.8 },
+    { x: 160,  speed: 1.8, chars: 11, phaseOffset: 2.1 },
+    { x: 840,  speed: 1.3, chars: 13, phaseOffset: 0.9 },
   ];
 
   const CHARS = "01アイウエオABCDEF<>{}[]";
@@ -349,7 +355,8 @@ const DataStream: React.FC = () => {
     <AbsoluteFill style={{ pointerEvents: "none", opacity: globalOpacity }}>
       {columns.map((col, ci) => {
         return Array.from({ length: col.chars }, (_, ri) => {
-          const totalHeight = 1920 + col.chars * 36;
+          // Travel height based on 1080 landscape height
+          const totalHeight = 1080 + col.chars * 36;
           const yBase = ((frame * col.speed * 1.5 + ri * 36 + col.phaseOffset * 120) % totalHeight) - 60;
           const charIndex = Math.floor((frame * 0.3 + ri * 7 + ci * 13) % CHARS.length);
           const headOpacity = ri === 0 ? 1 : interpolate(ri, [0, col.chars], [0.9, 0.05]);
@@ -381,7 +388,7 @@ const DataStream: React.FC = () => {
 };
 
 // ---------------------------------------------------------------------------
-// EnergyWave — expanding concentric rings that pulse outward from center
+// EnergyWave — expanding concentric rings from center
 // ---------------------------------------------------------------------------
 const EnergyWave: React.FC<{ triggerFrame: number }> = ({ triggerFrame }) => {
   const frame = useCurrentFrame();
@@ -403,7 +410,8 @@ const EnergyWave: React.FC<{ triggerFrame: number }> = ({ triggerFrame }) => {
         const waveFrame = frame - triggerFrame - i * WAVE_INTERVAL;
         if (waveFrame < 0) return null;
 
-        const radius = interpolate(waveFrame, [0, 120], [0, 900], {
+        // Max radius covers 1920x1080 diagonal
+        const radius = interpolate(waveFrame, [0, 120], [0, 1100], {
           extrapolateLeft: "clamp",
           extrapolateRight: "clamp",
         });
@@ -439,7 +447,7 @@ const EnergyWave: React.FC<{ triggerFrame: number }> = ({ triggerFrame }) => {
 };
 
 // ---------------------------------------------------------------------------
-// HolographicGrid — perspective grid floor with vanishing point
+// HolographicGrid — perspective grid adapted for 1920x1080
 // ---------------------------------------------------------------------------
 const HolographicGrid: React.FC<{ startFrame: number; endFrame: number }> = ({
   startFrame,
@@ -454,32 +462,32 @@ const HolographicGrid: React.FC<{ startFrame: number; endFrame: number }> = ({
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );
 
-  // Scroll the grid lines to create movement illusion
   const scroll = (frame * 2) % 100;
 
-  const HORIZON_Y = 700;
-  const VP_X = 540;
+  // Horizon at ~37% of 1080 height, vanishing point centered at 1920/2
+  const HORIZON_Y = 400;
+  const VP_X = 960;
   const GRID_COLOR = C.electric;
-  const NUM_V_LINES = 11;
+  const NUM_V_LINES = 13;
   const NUM_H_LINES = 8;
 
   const vLines = Array.from({ length: NUM_V_LINES }, (_, i) => {
     const t = i / (NUM_V_LINES - 1);
-    const bottomX = t * 1080;
-    return { x1: VP_X, y1: HORIZON_Y, x2: bottomX, y2: 1920 };
+    const bottomX = t * 1920;
+    return { x1: VP_X, y1: HORIZON_Y, x2: bottomX, y2: 1080 };
   });
 
   const hLines = Array.from({ length: NUM_H_LINES }, (_, i) => {
     const t = ((i / NUM_H_LINES) + scroll / 100) % 1;
     const perspT = Math.pow(t, 2);
-    const y = HORIZON_Y + perspT * (1920 - HORIZON_Y);
+    const y = HORIZON_Y + perspT * (1080 - HORIZON_Y);
     const spreadX = perspT * VP_X;
     return { x1: VP_X - spreadX, y1: y, x2: VP_X + spreadX, y2: y, alpha: t };
   });
 
   return (
     <div style={{ position: "absolute", inset: 0, opacity }}>
-      <svg width="1080" height="1920" viewBox="0 0 1080 1920" style={{ display: "block" }}>
+      <svg width="1920" height="1080" viewBox="0 0 1920 1080" style={{ display: "block" }}>
         <defs>
           <linearGradient id="gridFade" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={GRID_COLOR} stopOpacity="0" />
@@ -529,7 +537,7 @@ const Scene1: React.FC = () => {
     fps,
     config: { damping: 14, stiffness: 90, mass: 0.8 },
   });
-  const titleY = interpolate(titleSpring, [0, 1], [80, 0]);
+  const titleY = interpolate(titleSpring, [0, 1], [60, 0]);
   const titleOpacity = interpolate(frame, [20, 42], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
@@ -548,7 +556,7 @@ const Scene1: React.FC = () => {
     fps,
     config: { damping: 18, stiffness: 80 },
   });
-  const subtitleY = interpolate(subtitleSpring, [0, 1], [40, 0]);
+  const subtitleY = interpolate(subtitleSpring, [0, 1], [30, 0]);
   const subtitleOpacity = interpolate(frame, [48, 70], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
@@ -575,7 +583,7 @@ const Scene1: React.FC = () => {
         alignItems: "center",
         justifyContent: "center",
         gap: 0,
-        paddingBottom: 120,
+        paddingBottom: 60,
       }}
     >
       {/* "AGENCY ACCELERANTS" */}
@@ -584,18 +592,18 @@ const Scene1: React.FC = () => {
           opacity: titleOpacity,
           transform: `translateY(${titleY}px)`,
           textAlign: "center",
-          padding: "0 48px",
+          padding: "0 80px",
         }}
       >
         <div
           style={{
             fontFamily: FONT,
-            fontSize: 72,
+            fontSize: 88,
             fontWeight: 700,
-            letterSpacing: 6,
+            letterSpacing: 8,
             textTransform: "uppercase",
             color: C.white,
-            lineHeight: 1.1,
+            lineHeight: 1.05,
             textShadow: `0 0 ${titleGlow}px ${C.cyan}cc, 0 0 ${titleGlow * 2}px ${C.cyan}55, 0 4px 32px rgba(0,0,0,0.6)`,
           }}
         >
@@ -604,15 +612,15 @@ const Scene1: React.FC = () => {
         <div
           style={{
             fontFamily: FONT,
-            fontSize: 72,
+            fontSize: 88,
             fontWeight: 700,
-            letterSpacing: 6,
+            letterSpacing: 8,
             textTransform: "uppercase",
             background: `linear-gradient(90deg, ${C.cyan}, ${C.electric}, ${C.magenta})`,
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
             backgroundClip: "text",
-            lineHeight: 1.1,
+            lineHeight: 1.05,
             textShadow: "none",
           }}
         >
@@ -623,18 +631,18 @@ const Scene1: React.FC = () => {
       {/* Separator */}
       <div
         style={{
-          marginTop: 20,
-          width: `${lineScale * 560}px`,
+          marginTop: 16,
+          width: `${lineScale * 900}px`,
           height: 1,
           background: `linear-gradient(90deg, transparent, ${C.cyan}cc, ${C.electric}cc, transparent)`,
           boxShadow: `0 0 12px ${C.cyan}88`,
         }}
       />
 
-      {/* "by OASIS AI Solutions" */}
+      {/* "by Bennet Spooner" */}
       <div
         style={{
-          marginTop: 20,
+          marginTop: 16,
           opacity: subtitleOpacity,
           transform: `translateY(${subtitleY}px)`,
         }}
@@ -642,9 +650,9 @@ const Scene1: React.FC = () => {
         <div
           style={{
             fontFamily: FONT,
-            fontSize: 32,
+            fontSize: 28,
             fontWeight: 400,
-            letterSpacing: 4,
+            letterSpacing: 5,
             color: C.cyan,
             textTransform: "uppercase",
             textAlign: "center",
@@ -659,7 +667,7 @@ const Scene1: React.FC = () => {
 };
 
 // ---------------------------------------------------------------------------
-// Scan line sweeping down the screen
+// Scan line sweeping down the screen — travels 1080px height
 // ---------------------------------------------------------------------------
 const ScanLine: React.FC<{ startFrame: number; endFrame: number }> = ({
   startFrame,
@@ -677,7 +685,8 @@ const ScanLine: React.FC<{ startFrame: number; endFrame: number }> = ({
     extrapolateRight: "clamp",
   });
 
-  const top = progress * 1920;
+  // Travel across 1080px landscape height
+  const top = progress * 1080;
 
   return (
     <div
@@ -740,8 +749,8 @@ const Scene2: React.FC = () => {
         flexDirection: "column",
         alignItems: "flex-start",
         justifyContent: "center",
-        padding: "0 72px",
-        gap: 48,
+        padding: "0 140px",
+        gap: 40,
       }}
     >
       {/* Headline */}
@@ -749,10 +758,10 @@ const Scene2: React.FC = () => {
         <div
           style={{
             fontFamily: FONT,
-            fontSize: 58,
+            fontSize: 60,
             fontWeight: 700,
             color: C.white,
-            lineHeight: 1.2,
+            lineHeight: 1.15,
             textShadow: "0 4px 24px rgba(0,0,0,0.6)",
           }}
         >
@@ -773,12 +782,12 @@ const Scene2: React.FC = () => {
         </div>
       </div>
 
-      {/* Staggered bullets from left */}
+      {/* Staggered bullets — horizontal row for landscape */}
       <div
         style={{
           display: "flex",
-          flexDirection: "column",
-          gap: 32,
+          flexDirection: "row",
+          gap: 28,
           width: "100%",
         }}
       >
@@ -789,7 +798,7 @@ const Scene2: React.FC = () => {
             fps,
             config: { damping: 18, stiffness: 160, mass: 0.7 },
           });
-          const bulletX = interpolate(bulletProgress, [0, 1], [-120, 0]);
+          const bulletY = interpolate(bulletProgress, [0, 1], [60, 0]);
           const bulletOpacity = interpolate(
             frame,
             [bulletStart, bulletStart + 14],
@@ -802,49 +811,57 @@ const Scene2: React.FC = () => {
               key={i}
               style={{
                 opacity: bulletOpacity,
-                transform: `translateX(${bulletX}px)`,
+                transform: `translateY(${bulletY}px)`,
                 display: "flex",
-                alignItems: "center",
-                gap: 20,
+                flexDirection: "column",
+                gap: 10,
+                flex: 1,
                 position: "relative",
               }}
             >
-              {/* Red glow behind each bullet */}
+              {/* Red glow behind each bullet card */}
               <div
                 style={{
                   position: "absolute",
-                  left: -16,
-                  top: "50%",
-                  width: 500,
-                  height: 60,
-                  marginTop: -30,
-                  background: `linear-gradient(90deg, ${C.magenta}22, transparent)`,
-                  borderRadius: 8,
+                  inset: 0,
+                  background: `linear-gradient(135deg, ${C.magenta}18, transparent)`,
+                  borderRadius: 12,
                 }}
               />
               <div
                 style={{
-                  fontFamily: FONT,
-                  fontSize: 26,
-                  fontWeight: 400,
-                  color: C.magenta,
-                  flexShrink: 0,
+                  borderRadius: 12,
+                  border: `1px solid ${C.magenta}44`,
+                  padding: "20px 24px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  position: "relative",
                   zIndex: 1,
                 }}
               >
-                ✕
-              </div>
-              <div
-                style={{
-                  fontFamily: FONT,
-                  fontSize: 36,
-                  fontWeight: 500,
-                  color: C.white,
-                  zIndex: 1,
-                  lineHeight: 1.25,
-                }}
-              >
-                {bullet}
+                <div
+                  style={{
+                    fontFamily: FONT,
+                    fontSize: 22,
+                    fontWeight: 400,
+                    color: C.magenta,
+                    flexShrink: 0,
+                  }}
+                >
+                  ✕
+                </div>
+                <div
+                  style={{
+                    fontFamily: FONT,
+                    fontSize: 28,
+                    fontWeight: 500,
+                    color: C.white,
+                    lineHeight: 1.25,
+                  }}
+                >
+                  {bullet}
+                </div>
               </div>
             </div>
           );
@@ -881,7 +898,7 @@ const TransitionFlash: React.FC<{ peakFrame: number }> = ({ peakFrame }) => {
 };
 
 // ---------------------------------------------------------------------------
-// Circuit board SVG pattern fading in for Scene 3
+// Circuit board SVG pattern — adapted for 1920x1080
 // ---------------------------------------------------------------------------
 const CircuitPattern: React.FC<{ fadeInStart: number; opacity: number }> = ({
   fadeInStart,
@@ -894,38 +911,38 @@ const CircuitPattern: React.FC<{ fadeInStart: number; opacity: number }> = ({
     extrapolateRight: "clamp",
   });
 
-  // Build a circuit-board-style SVG with lines and nodes
+  // Circuit paths scaled for 1920x1080
   const lines = [
-    { x1: 0, y1: 300, x2: 200, y2: 300 },
-    { x1: 200, y1: 300, x2: 200, y2: 100 },
-    { x1: 200, y1: 100, x2: 500, y2: 100 },
-    { x1: 500, y1: 100, x2: 500, y2: 400 },
-    { x1: 500, y1: 400, x2: 900, y2: 400 },
-    { x1: 900, y1: 400, x2: 900, y2: 200 },
-    { x1: 900, y1: 200, x2: 1080, y2: 200 },
-    { x1: 0, y1: 600, x2: 350, y2: 600 },
-    { x1: 350, y1: 600, x2: 350, y2: 750 },
-    { x1: 350, y1: 750, x2: 700, y2: 750 },
-    { x1: 700, y1: 750, x2: 700, y2: 500 },
-    { x1: 700, y1: 500, x2: 1080, y2: 500 },
-    { x1: 100, y1: 0, x2: 100, y2: 200 },
-    { x1: 800, y1: 0, x2: 800, y2: 180 },
-    { x1: 800, y1: 180, x2: 1080, y2: 180 },
-    { x1: 0, y1: 900, x2: 450, y2: 900 },
-    { x1: 450, y1: 900, x2: 450, y2: 1080 },
-    { x1: 600, y1: 1080, x2: 600, y2: 850 },
-    { x1: 600, y1: 850, x2: 1080, y2: 850 },
+    { x1: 0,    y1: 200, x2: 300,  y2: 200 },
+    { x1: 300,  y1: 200, x2: 300,  y2: 60  },
+    { x1: 300,  y1: 60,  x2: 800,  y2: 60  },
+    { x1: 800,  y1: 60,  x2: 800,  y2: 320 },
+    { x1: 800,  y1: 320, x2: 1400, y2: 320 },
+    { x1: 1400, y1: 320, x2: 1400, y2: 140 },
+    { x1: 1400, y1: 140, x2: 1920, y2: 140 },
+    { x1: 0,    y1: 500, x2: 550,  y2: 500 },
+    { x1: 550,  y1: 500, x2: 550,  y2: 680 },
+    { x1: 550,  y1: 680, x2: 1100, y2: 680 },
+    { x1: 1100, y1: 680, x2: 1100, y2: 440 },
+    { x1: 1100, y1: 440, x2: 1920, y2: 440 },
+    { x1: 160,  y1: 0,   x2: 160,  y2: 140 },
+    { x1: 1300, y1: 0,   x2: 1300, y2: 120 },
+    { x1: 1300, y1: 120, x2: 1920, y2: 120 },
+    { x1: 0,    y1: 860, x2: 700,  y2: 860 },
+    { x1: 700,  y1: 860, x2: 700,  y2: 1080 },
+    { x1: 960,  y1: 1080, x2: 960, y2: 780 },
+    { x1: 960,  y1: 780, x2: 1920, y2: 780 },
   ];
 
   const nodes = [
-    { x: 200, y: 300 }, { x: 500, y: 100 }, { x: 500, y: 400 }, { x: 900, y: 400 },
-    { x: 350, y: 600 }, { x: 350, y: 750 }, { x: 700, y: 750 }, { x: 700, y: 500 },
-    { x: 100, y: 200 }, { x: 800, y: 180 }, { x: 450, y: 900 }, { x: 600, y: 850 },
+    { x: 300,  y: 200 }, { x: 800,  y: 60  }, { x: 800,  y: 320 }, { x: 1400, y: 320 },
+    { x: 550,  y: 500 }, { x: 550,  y: 680 }, { x: 1100, y: 680 }, { x: 1100, y: 440 },
+    { x: 160,  y: 140 }, { x: 1300, y: 120 }, { x: 700,  y: 860 }, { x: 960,  y: 780 },
   ];
 
   return (
     <div style={{ position: "absolute", inset: 0, opacity: op }}>
-      <svg width="1080" height="1920" viewBox="0 0 1080 1080" style={{ display: "block" }}>
+      <svg width="1920" height="1080" viewBox="0 0 1920 1080" style={{ display: "block" }}>
         {lines.map((l, i) => (
           <line
             key={i}
@@ -997,8 +1014,8 @@ const Scene3: React.FC = () => {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        padding: "0 60px",
-        gap: 52,
+        padding: "0 100px",
+        gap: 40,
       }}
     >
       {/* "What if AI did 90% of it?" */}
@@ -1012,10 +1029,10 @@ const Scene3: React.FC = () => {
         <div
           style={{
             fontFamily: FONT,
-            fontSize: 60,
+            fontSize: 64,
             fontWeight: 700,
             color: C.white,
-            lineHeight: 1.2,
+            lineHeight: 1.15,
             textShadow: `0 0 24px ${C.electric}55, 0 4px 32px rgba(0,0,0,0.7)`,
           }}
         >
@@ -1034,12 +1051,12 @@ const Scene3: React.FC = () => {
         </div>
       </div>
 
-      {/* Feature cards staggered from bottom */}
+      {/* Feature cards — horizontal row for landscape */}
       <div
         style={{
           display: "flex",
-          flexDirection: "column",
-          gap: 24,
+          flexDirection: "row",
+          gap: 20,
           width: "100%",
         }}
       >
@@ -1050,7 +1067,7 @@ const Scene3: React.FC = () => {
             fps,
             config: { damping: 16, stiffness: 140, mass: 0.8 },
           });
-          const cardY = interpolate(cardSpring, [0, 1], [80, 0]);
+          const cardY = interpolate(cardSpring, [0, 1], [60, 0]);
           const cardOpacity = interpolate(
             frame,
             [cardStart, cardStart + 16],
@@ -1074,6 +1091,7 @@ const Scene3: React.FC = () => {
               style={{
                 opacity: cardOpacity,
                 transform: `translateY(${cardY}px) rotate(${tilt}deg)`,
+                flex: 1,
               }}
             >
               {/* Card outer glow border */}
@@ -1083,24 +1101,25 @@ const Scene3: React.FC = () => {
                   padding: 1.5,
                   background: `linear-gradient(135deg, ${C.cyan}66, ${C.electric}44, ${C.magenta}22)`,
                   boxShadow: `0 0 ${cardGlow}px ${C.cyan}44, 0 4px 20px rgba(0,0,0,0.4)`,
+                  height: "100%",
                 }}
               >
                 <div
                   style={{
                     background: "rgba(13, 27, 62, 0.88)",
                     borderRadius: 17,
-                    padding: "26px 32px",
+                    padding: "28px 28px",
                     display: "flex",
                     alignItems: "center",
-                    gap: 22,
+                    gap: 18,
                     backdropFilter: "blur(12px)",
                   }}
                 >
-                  <div style={{ fontSize: 36, flexShrink: 0 }}>{card.icon}</div>
+                  <div style={{ fontSize: 32, flexShrink: 0 }}>{card.icon}</div>
                   <div
                     style={{
                       fontFamily: FONT,
-                      fontSize: 30,
+                      fontSize: 26,
                       fontWeight: 600,
                       color: C.white,
                       lineHeight: 1.3,
@@ -1139,7 +1158,7 @@ const PulsingRings: React.FC<{ peakFrame: number }> = ({ peakFrame }) => {
     >
       {rings.map((delay, i) => {
         const ringFrame = frame - (peakFrame + delay);
-        const radius = interpolate(ringFrame, [0, 90], [0, 600], {
+        const radius = interpolate(ringFrame, [0, 90], [0, 700], {
           extrapolateLeft: "clamp",
           extrapolateRight: "clamp",
         });
@@ -1210,7 +1229,7 @@ const Scene4: React.FC = () => {
     fps,
     config: { damping: 20, stiffness: 80 },
   });
-  const taglineY = interpolate(taglineSpring, [0, 1], [30, 0]);
+  const taglineY = interpolate(taglineSpring, [0, 1], [24, 0]);
   const taglineOpacity = interpolate(frame, [420, 440], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
@@ -1231,7 +1250,7 @@ const Scene4: React.FC = () => {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        gap: 36,
+        gap: 24,
       }}
     >
       {/* Pulsing rings centered on MRR number */}
@@ -1242,7 +1261,7 @@ const Scene4: React.FC = () => {
         <div
           style={{
             fontFamily: FONT,
-            fontSize: 108,
+            fontSize: 120,
             fontWeight: 700,
             color: C.gold,
             lineHeight: 1,
@@ -1259,16 +1278,16 @@ const Scene4: React.FC = () => {
         style={{
           opacity: labelOpacity,
           textAlign: "center",
-          padding: "0 80px",
+          padding: "0 120px",
         }}
       >
         <div
           style={{
             fontFamily: FONT,
-            fontSize: 28,
+            fontSize: 24,
             fontWeight: 400,
             color: C.white,
-            letterSpacing: 2,
+            letterSpacing: 3,
             textTransform: "uppercase",
             opacity: 0.8,
           }}
@@ -1283,13 +1302,13 @@ const Scene4: React.FC = () => {
           opacity: taglineOpacity,
           transform: `translateY(${taglineY}px)`,
           textAlign: "center",
-          padding: "0 60px",
+          padding: "0 80px",
         }}
       >
         <div
           style={{
             fontFamily: FONT,
-            fontSize: 34,
+            fontSize: 30,
             fontWeight: 600,
             color: C.cyan,
             lineHeight: 1.3,
@@ -1300,14 +1319,15 @@ const Scene4: React.FC = () => {
         </div>
       </div>
 
-      {/* Achievement badges */}
+      {/* Achievement badges — horizontal row for landscape */}
       <div
         style={{
           display: "flex",
-          flexDirection: "column",
-          gap: 16,
-          padding: "0 60px",
+          flexDirection: "row",
+          gap: 14,
+          padding: "0 80px",
           width: "100%",
+          justifyContent: "center",
         }}
       >
         {BADGES.map((badge, i) => {
@@ -1317,7 +1337,7 @@ const Scene4: React.FC = () => {
             fps,
             config: { damping: 20, stiffness: 180, mass: 0.6 },
           });
-          const badgeX = interpolate(badgeSpring, [0, 1], [100, 0]);
+          const badgeY = interpolate(badgeSpring, [0, 1], [40, 0]);
           const badgeOpacity = interpolate(
             frame,
             [badgeStart, badgeStart + 12],
@@ -1330,7 +1350,7 @@ const Scene4: React.FC = () => {
               key={i}
               style={{
                 opacity: badgeOpacity,
-                transform: `translateX(${badgeX}px)`,
+                transform: `translateY(${badgeY}px)`,
                 display: "flex",
                 justifyContent: "center",
               }}
@@ -1340,14 +1360,15 @@ const Scene4: React.FC = () => {
                   background: "rgba(0,212,170,0.12)",
                   border: `1px solid ${C.cyan}66`,
                   borderRadius: 50,
-                  padding: "10px 30px",
+                  padding: "8px 24px",
                   boxShadow: `0 0 12px ${C.cyan}22`,
+                  whiteSpace: "nowrap",
                 }}
               >
                 <div
                   style={{
                     fontFamily: FONT,
-                    fontSize: 22,
+                    fontSize: 18,
                     fontWeight: 500,
                     color: C.cyan,
                     letterSpacing: 1,
@@ -1457,8 +1478,8 @@ const Scene5: React.FC = () => {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        gap: 40,
-        padding: "0 48px",
+        gap: 32,
+        padding: "0 120px",
         transform: `scale(${finalPulse})`,
       }}
     >
@@ -1468,6 +1489,7 @@ const Scene5: React.FC = () => {
           opacity: ctaOpacity,
           transform: `scale(${ctaScale})`,
           width: "100%",
+          maxWidth: 1100,
           display: "flex",
           justifyContent: "center",
         }}
@@ -1486,7 +1508,7 @@ const Scene5: React.FC = () => {
             style={{
               background: "rgba(10, 10, 35, 0.95)",
               borderRadius: 22,
-              padding: "30px 40px",
+              padding: "28px 48px",
               textAlign: "center",
               backdropFilter: "blur(16px)",
             }}
@@ -1494,15 +1516,15 @@ const Scene5: React.FC = () => {
             <div
               style={{
                 fontFamily: FONT,
-                fontSize: 52,
+                fontSize: 60,
                 fontWeight: 700,
-                letterSpacing: 2,
+                letterSpacing: 3,
                 textTransform: "uppercase",
                 background: `linear-gradient(90deg, ${C.cyan}, ${C.electric}, ${C.white})`,
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 backgroundClip: "text",
-                lineHeight: 1.1,
+                lineHeight: 1.05,
               }}
             >
               JOIN THE
@@ -1510,15 +1532,15 @@ const Scene5: React.FC = () => {
             <div
               style={{
                 fontFamily: FONT,
-                fontSize: 52,
+                fontSize: 60,
                 fontWeight: 700,
-                letterSpacing: 2,
+                letterSpacing: 3,
                 textTransform: "uppercase",
                 background: `linear-gradient(90deg, ${C.magenta}, ${C.electric}, ${C.cyan})`,
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 backgroundClip: "text",
-                lineHeight: 1.1,
+                lineHeight: 1.05,
               }}
             >
               ACCELERANTS
@@ -1532,7 +1554,7 @@ const Scene5: React.FC = () => {
         <div
           style={{
             fontFamily: FONT,
-            fontSize: 36,
+            fontSize: 34,
             fontWeight: 400,
             color: C.white,
             opacity: 0.85,
@@ -1564,7 +1586,7 @@ const Scene5: React.FC = () => {
           opacity: brandOpacity,
           textAlign: "center",
           position: "absolute",
-          bottom: 100,
+          bottom: 48,
           left: 0,
           right: 0,
         }}
@@ -1572,10 +1594,10 @@ const Scene5: React.FC = () => {
         {/* Separator line */}
         <div
           style={{
-            marginBottom: 18,
+            marginBottom: 14,
             height: 1,
             background: `linear-gradient(90deg, transparent, ${C.cyan}77, transparent)`,
-            width: "60%",
+            width: "40%",
             marginLeft: "auto",
             marginRight: "auto",
           }}
@@ -1583,7 +1605,7 @@ const Scene5: React.FC = () => {
         <div
           style={{
             fontFamily: FONT,
-            fontSize: 22,
+            fontSize: 18,
             fontWeight: 400,
             letterSpacing: 6,
             textTransform: "uppercase",

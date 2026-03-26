@@ -8,9 +8,9 @@ tags: [tasks, active]
 
 ## Target: $5,000 USD Net MRR by May 15, 2026
 
-- **Current Net:** ~$2,691 USD/mo ($191 base + $2,500 Bennett CM) + $3,000 USD upfront collected.
-- **Gap:** $2,309 USD/mo (~5-6 new OASIS clients at $400-500/mo)
-- **Critical Risk:** 93% revenue from Bennett — diversification is #1 priority
+- **Current Net:** ~$2,982 USD/mo ($191 base + $2,500 Bennett flat + $291 Bennett 15% rev share on $1,940 community MRR) + $3,000 USD upfront collected.
+- **Gap:** ~$2,018 USD/mo (~4-5 new OASIS clients at $400-500/mo)
+- **Critical Risk:** 94% revenue from Bennett — diversification is #1 priority
 - **Pipeline:** 50+ leads researched, 20+ emails sent, 2 warm (Cedarwood, Vortex)
 
 ---
@@ -24,7 +24,8 @@ tags: [tasks, active]
 
 ## P1 — Infrastructure (Stable)
 
-- [x] [P1] **Skool daemon: watchdog fixed** — Was spawning 67+ zombie processes. New Python watchdog with tasklist detection + CREATE_NO_WINDOW. Single instance running headless (2026-03-23).
+- [x] [P1] **Skool daemon: heartbeat watchdog** — Rewrote watchdog with heartbeat-first liveness (2026-03-26). wmic was unreliable on Win11, causing constant restart cycles. Now daemon writes heartbeat every cycle, watchdog checks freshness.
+- [x] [P1] **Telegram Bridge V11.0** — Full-context parity (2026-03-26). Loads CLAUDE.md, brain files, APP_REGISTRY. Removed --model sonnet, increased --max-turns to 25. PM2 restarted.
 - [x] [P1] **Content pipeline: LIVE** — Auto-posting enabled via `late_publisher.py`. 5 posts published to X (2026-03-24). Scheduler calls `late_publisher.py publish-due` on cron. 16 scheduled + 21 drafts remaining in calendar.
 - [ ] [P1] **Create Google Meet link** — Store in .env.agents for booking confirmations
 - [ ] [P1] **Wire n8n to cron_engine** — Connect n8n workflows to execute cron job actions
@@ -36,13 +37,9 @@ tags: [tasks, active]
 | TIKTIK Camera Feed | Midas network spec (NVR IP/creds/channels) | 2026-03-17 |
 | LinkedIn automation | Need local Chrome auth hookup | 2026-03-04 |
 | On The Bay Painting | Client not ready — revisit in weeks/months | 2026-03-16 |
-| PropFlow | Pivoted dev hours to OASIS | 2026-03-01 |
 
-## Recently Completed (March 23)
-- [x] **Stripe webhook fix** — All Stripe serverless functions on OASIS platform fixed (Node v24 crash, inline imports)
-- [x] **Watchdog zombie fix** — 67 Python processes killed, new Python-based watchdog with headless daemon
-- [x] **OASIS framework rebranded** — Agency Accelerants → OASIS AI Solutions for hometown friends
-- [x] **Skool DM strategy** — Conversion-focused prompts, paid member skip, double-message bug fixed
-- [x] **Payment links created** — 2 Stripe links ($300 + $200/mo each) for new clients
+## Recently Completed (March 25)
+- [x] **PropFlow production hardening** — 4 waves, 20+ commits, 50+ files. All API routes, mutations, queries company_id-scoped. RLS migration applied (10 tables). 7/7 audit PASS. Production-ready for multi-tenant use.
+- [x] **PropFlow automation engine** — Python FastAPI → inline Next.js TypeScript. E2E tested. error/loading boundaries added to 5 routes.
 
-*Last updated: 2026-03-24*
+*Last updated: 2026-03-26*

@@ -43,3 +43,29 @@ tags: [archive, sessions]
 **Change:** Built 4 complete Skool lesson HTML files for the new "Python Automation Engines" course, replacing the old "ManyChat Automation" course. All files follow Tiptap-compatible HTML format. Full gamification with XP rewards (100/150/175/200 = 625 total), level progression L0→L3, and all 8 callout types.
 **Files:** courses/python-engines/lesson-01-engine-pattern.html, lesson-02-crm-lead-engine.html, lesson-03-email-booking-content.html, lesson-04-autonomous-stack.html
 **Commit:** pending
+
+---
+
+### 2026-03-20 — cc-funnel app (NEW)
+**Change:** Built complete multi-step lead capture funnel (Next.js 14, Tailwind, Supabase, Telegram). 3-step form: interest → targeted questions → contact info. Supabase `funnel_leads` table (15 columns), RLS enabled. GitHub: CC90210/cc-funnel. Commit: 664ce9a on master.
+
+### 2026-03-20 — Skool Classroom Restructure
+**Change:** Merged Business Tools (4 pages) into Agency Fundamentals (now 12 pages). Deleted Business Tools course. Created CLI Wrapping lesson in Python Automation Engines. Method: Playwright MCP. Commit: 4cee63d.
+
+### 2026-03-20 — Bug Audit + System Fixes
+**Change:** 58 bugs fixed across 15 files (1 CRITICAL, 6 HIGH, 15 MEDIUM, 36 LOW). Key: revenue_engine CRITICAL NameError, 2x Windows strftime crashes, JS injection in Instagram DMs, Claude model ID, MRR formula. Instagram Claude API integration rewritten. Telegram bot duplicate-polling fix. 6 commits.
+
+### 2026-03-20 — CC Funnel E2E Test + Obsidian Vault Integration
+**Change:** Submitted test lead on live cc-funnel, verified Supabase storage and Telegram notify, cleaned test data. Created .obsidian/ config (8 files), graph view color groups, 6 templates. brain/DASHBOARD.md created. 56+ [[wiki-links]] added across 15 files.
+
+### 2026-03-21 — GWS CLI + System Audit + Skool Engine Build
+**Change:** GWS CLI v0.18.1 installed, oasisaisolutions@gmail.com authenticated, 93 skills imported. Deleted 13 dead scripts. Telegram noise reduction (category filtering). Built scripts/skool_engine.py — autonomous Skool community agent (feed scanner, DM responder, member welcome, Claude API, rate limiting, crash recovery). First cycle: 5 replies posted, 3 DMs sent. Skool engine LIVE.
+
+### 2026-03-21 — Skool Content + OpenCLI Integration
+**Change:** Published Lead Magnets lessons 5-6 to Skool. Fixed UTF-8 mojibake across L1-L3 via Playwright MCP. Created SkoolIntro Remotion composition (450 frames, 15s). Integrated OpenCLI v1.1.1 (46 platforms, 345+ commands). Deleted 17 PNG junk files. Cross-synced CLAUDE.md, GEMINI.md, ANTIGRAVITY.md, brain/CAPABILITIES.md.
+
+### 2026-03-22 — Safety Hardening + MCP-to-CLI Migration
+**Change:** Implemented 4 Claude Code hooks (PreToolUse: .env block + destructive block, PostToolUse: audit log, Notification: desktop alert). 18 permission deny rules added. 16 native Claude Code skills registered. Audited 8 MCP servers — 4 working, 4 broken. Created late_tool.py. Removed 4 broken MCPs from all 3 configs. Updated routing to CLI-first.
+
+### 2026-03-22 — Shopify Ad Engine v1.0 (NEW PROJECT)
+**Change:** Built AI-powered ad creation system at C:\Users\User\APPS\shopify-ad-engine for CC's friend Kalem. 5 Remotion compositions (ProductShowcase, UGCTestimonial, CountdownSale, ComparisonAd, CinematicReveal). Scripts: shopify_sync.js, render_batch.js, meta_ads_engine.py. Fixed font weight + padding issues. Remotion Studio confirmed on port 3200. 2 commits pushed to CC90210/shopify-ad-engine.

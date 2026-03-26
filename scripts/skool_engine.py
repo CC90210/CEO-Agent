@@ -46,8 +46,15 @@ REPLIED_POSTS_PATH = TMP_DIR / "skool_replied_posts.json"
 MEMBER_STATE_PATH = TMP_DIR / "skool_member_state.json"
 DM_CONVERSATIONS_PATH = TMP_DIR / "skool_dm_conversations.json"
 DAEMON_PID_PATH = TMP_DIR / "skool_daemon.pid"
+HEARTBEAT_PATH = TMP_DIR / "skool_daemon.heartbeat"
 
 COMMUNITY_URL = "https://www.skool.com/agency-accelerants-6209"
+
+# OUTREACH KILL SWITCH — Disables proactive DM outreach (welcome, nurture, engage).
+# Post replies and DM responses remain active.
+# Enabled 2026-03-25: CC confirmed outreach reached all free members.
+SKOOL_DISABLED = False          # Global kill switch — False = engine runs
+OUTREACH_DISABLED = True        # True = no proactive DMs, only respond to posts + incoming DMs
 COMMUNITY_FEED_URL = COMMUNITY_URL
 MEMBERS_URL = f"{COMMUNITY_URL}/-/members"
 
@@ -728,6 +735,11 @@ def _type_and_submit_comment(page, text: str) -> bool:
 
 def cmd_engage_members(args, page=None, ctx=None):
     """Engage all members: welcome new ones, nurture free ones toward conversion."""
+    if OUTREACH_DISABLED:
+        msg = "Member outreach is DISABLED (OUTREACH_DISABLED=True since 2026-03-25). Only post replies and DM responses are active."
+        log.warning(msg)
+        return {"scanned": 0, "welcomed": 0, "nurtured": 0, "skipped": 0, "errors": [], "dmed_usernames": set()}
+
     from playwright.sync_api import sync_playwright
 
     member_state = _load_json(MEMBER_STATE_PATH)
@@ -1360,16 +1372,20 @@ def cmd_auto(args, page=None, ctx=None, cycle=0):
         log.info("\n--- Scanning community posts ---")
         all_results["posts"] = cmd_scan_posts(args, page=page, ctx=ctx)
 
-        # Member engagement is heavier (DMs) — only run every Nth cycle
-        run_engagement = (cycle == 0) or (cycle % ENGAGEMENT_EVERY_N_CYCLES == 1)
+        # Member engagement (proactive outreach) — disabled via OUTREACH_DISABLED flag
         just_dmed = set()
-        if run_engagement:
-            log.info("\n--- Engaging members ---")
-            all_results["members"] = cmd_engage_members(args, page=page, ctx=ctx)
-            just_dmed = all_results["members"].get("dmed_usernames", set())
-        else:
-            log.info(f"\n--- Skipping member engagement (cycle {cycle}, next at cycle {cycle + (ENGAGEMENT_EVERY_N_CYCLES - (cycle - 1) % ENGAGEMENT_EVERY_N_CYCLES)}) ---")
+        if OUTREACH_DISABLED:
+            log.info("\n--- Member outreach DISABLED (OUTREACH_DISABLED=True) ---")
             all_results["members"] = {}
+        else:
+            run_engagement = (cycle == 0) or (cycle % ENGAGEMENT_EVERY_N_CYCLES == 1)
+            if run_engagement:
+                log.info("\n--- Engaging members ---")
+                all_results["members"] = cmd_engage_members(args, page=page, ctx=ctx)
+                just_dmed = all_results["members"].get("dmed_usernames", set())
+            else:
+                log.info(f"\n--- Skipping member engagement (cycle {cycle}) ---")
+                all_results["members"] = {}
 
         log.info("\n--- Scanning DMs ---")
         all_results["dms"] = cmd_scan_dms(args, page=page, ctx=ctx, just_dmed=just_dmed)
@@ -1447,6 +1463,9 @@ def cmd_daemon(args):
     # Write PID file for tracking
     _save_json(DAEMON_PID_PATH, {"pid": os.getpid(), "started": _now(), "interval": interval})
 
+    # Write initial heartbeat (watchdog checks this for liveness)
+    _save_json(HEARTBEAT_PATH, {"pid": os.getpid(), "ts": _now(), "cycle": 0})
+
     # Handle graceful shutdown
     running = [True]
 
@@ -1482,6 +1501,12 @@ def cmd_daemon(args):
                     log.info(f"\n{'='*50}")
                     log.info(f"Cycle {cycle} at {datetime.now().strftime('%H:%M:%S')}")
                     log.info(f"{'='*50}")
+
+                    # Update heartbeat every cycle so watchdog knows we're alive
+                    try:
+                        _save_json(HEARTBEAT_PATH, {"pid": os.getpid(), "ts": _now(), "cycle": cycle})
+                    except Exception:
+                        pass
 
                     try:
                         cmd_auto(args, page=page, ctx=ctx, cycle=cycle)
@@ -1523,9 +1548,11 @@ def cmd_daemon(args):
                     break
                 time.sleep(10)
 
-    # Cleanup PID file
+    # Cleanup PID + heartbeat files
     if DAEMON_PID_PATH.exists():
         DAEMON_PID_PATH.unlink()
+    if HEARTBEAT_PATH.exists():
+        HEARTBEAT_PATH.unlink()
 
     log.info("Daemon stopped gracefully.")
     notify("Skool daemon stopped", category="system")
@@ -1646,7 +1673,7 @@ def main():
     sub.add_parser("login", help="Launch browser for manual Skool login")
     sub.add_parser("scan-posts", help="Reply to community posts")
     sub.add_parser("scan-dms", help="Reply to incoming DMs")
-    sub.add_parser("engage-members", help="Welcome + nurture members")
+    sub.add_parser("engage-members", help="Welcome + nurture members (disabled when OUTREACH_DISABLED=True)")
     sub.add_parser("auto", help="Run all scans once")
     sub.add_parser("status", help="Show engine status and stats")
 
@@ -1654,6 +1681,16 @@ def main():
     daemon_parser.add_argument("--interval", type=int, default=2, help="Minutes between cycles (default: 2)")
 
     args = parser.parse_args()
+
+    # Kill switch — refuse to run if disabled
+    if SKOOL_DISABLED:
+        msg = "Skool Engine is DISABLED (kill switch active since 2026-03-25). To re-enable, set SKOOL_DISABLED = False in skool_engine.py."
+        log.warning(msg)
+        if args.json if hasattr(args, 'json') else False:
+            safe_print(json.dumps({"status": "disabled", "message": msg}))
+        else:
+            safe_print(msg)
+        sys.exit(0)
 
     if not args.command:
         parser.print_help()
