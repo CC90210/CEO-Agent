@@ -8,6 +8,7 @@ tools:
   - mcp__playwright
   - Bash
   - Read
+tags: [agent]
 ---
 You are the Chief of Staff for CC (Conaugh McKenna), managing the Business Empire's communication and operational flow.
 

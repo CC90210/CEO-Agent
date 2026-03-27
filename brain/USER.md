@@ -47,13 +47,23 @@ Current net MRR is ~$2,982 USD ($191 base + $2,500 Bennett flat + $291 Bennett 1
 | Brand | Type | Focus |
 |-------|------|-------|
 | **OASIS AI Solutions** | AI Automation Agency | Retainers for local service businesses (HVAC, Wellness). |
-| **PropFlow** | Real Estate SaaS | Real estate CRM/Automation. |
+| **PropFlow** | Real Estate SaaS | Real estate CRM/Automation. **50-50 with Adon.** |
 | **Nostalgic Requests** | Music/DJ SaaS | Dark-theme request system for live events. |
 | **Kona Makana** | Personal Brand | Content, consulting, and building in public. |
 | **DJ Services** | Entertainment | Live sets, gig booking, and audio culture branding. |
 | **Consulting** | Business Strategy | High-level leverage and automation strategy for entrepreneurs. |
 
-**Partner:** Adon (content + client relations) — PropFlow partnership status uncertain (monitoring).
+**Partner:** Adon — 50-50 on PropFlow only. Responsible for networking, connections, marketing. CC owns 100% of OASIS AI. Technically 3-4 months behind CC but valuable for network access.
+
+## CC's Role (Non-Delegable)
+
+| CC Does | Bravo Handles |
+|---------|---------------|
+| Content creation (personal brand, video, posts) | Scheduling, distribution, repurposing, analytics |
+| Sales calls, face-to-face meetings | Lead research, follow-up drafts, CRM updates |
+| Client relationship management | Deliverable tracking, invoice reminders, health scoring |
+| Strategic decisions (pricing, partnerships) | Data gathering, option analysis, recommendations |
+| Coaching/teaching sessions | Session prep, materials, scheduling, follow-ups |
 
 ## Content Voice
 
@@ -67,4 +77,4 @@ Current net MRR is ~$2,982 USD ($191 base + $2,500 Bennett flat + $291 Bennett 1
 **"Done with money problems."**
 Every action is fueled by the drive to build real wealth and a business empire from every dollar (USD) earned.
 
-*Last synced: 2026-03-18*
+*Last synced: 2026-03-26*

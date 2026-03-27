@@ -43,6 +43,8 @@ For COMPLEX+ tasks, use SPARC methodology (`skills/sparc-methodology/SKILL.md`).
 | Documentation updates | **Documenter** | `/update-docs`, post-feature docs |
 | File search, codebase navigation, code analysis | **Explorer** | Search queries, "find X", "where is Y" |
 | Generate new subagent definitions | **Meta-Agent** | "I need an agent that...", new capability requests |
+| Morning briefing, revenue status, pipeline check, client health | **Bravo (CEO Briefing)** | `/briefing`, session start Monday, "what's the status" |
+| Tax, trading, accounting, budgeting, FIRE, crypto | **Atlas (CFO)** | Finance questions, tax strategy, trading performance, wealth planning |
 
 ## Subagent Definitions
 
@@ -141,6 +143,16 @@ For COMPLEX+ tasks, use SPARC methodology (`skills/sparc-methodology/SKILL.md`).
 - **File:** [[agents/meta-agent]]
 - **Purpose:** Generate complete subagent definition files from natural language descriptions. Checks for overlap with existing agents before creating a new one.
 - **Principles:** Check AGENTS.md first — don't create duplicates. Reject requests where >50% coverage already exists. Tag all generated agents `[PROBATIONARY]`. Always register in AGENTS.md and update CAPABILITIES.md count.
+
+### External: Atlas (CFO — Separate Project)
+- **Model Tier:** Opus (separate project, own CLAUDE.md)
+- **Project:** `C:\Users\User\APPS\trading-agent`
+- **GitHub:** CC90210/atlas-trading-agent
+- **Purpose:** CC's CFO — autonomous trading, tax strategy (CRA-accurate), accounting, budgeting, FIRE planning, wealth building.
+- **Capabilities:** 12 trading strategies (regime-aware), 10 AI analyst agents, 4 finance modules (tax, advisor, budget, wealth tracker), live trading on Kraken + OANDA.
+- **Relationship to Bravo:** Bravo is CEO (business ops, revenue, clients). Atlas is CFO (capital, tax, trading). They share CC context but do NOT modify each other's files. Atlas READs from Business-Empire-Agent. Bravo READs from trading-agent.
+- **Routing rule:** Any question about taxes, trading, crypto gains, budgeting, FIRE, registered accounts (TFSA/RRSP/FHSA), or financial strategy → defer to Atlas or reference its docs.
+- **Key files:** `docs/ATLAS_TAX_STRATEGY.md` (tax playbook), `brain/STATE.md` (trading status), `finance/tax.py` (calculator), `core/risk_manager.py` (kill switches)
 
 ## Agent Permissions (Claims-Based Access Control)
 

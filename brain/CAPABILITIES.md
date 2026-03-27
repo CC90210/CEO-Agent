@@ -81,17 +81,16 @@ See `brain/AGENTS.md` for the complete registry with orchestration decision matr
 | content-creator | Sonnet | Copywriting, social content, CC's 5 pillars |
 | debugger | Sonnet | Bug investigation, root cause analysis |
 | documenter | Haiku | Documentation, memory updates |
-| explorer | Haiku | Codebase navigation (read-only) |
+| chief-of-staff | Sonnet | Communication, mission control, outreach |
+| explorer | Haiku | Codebase navigation, file search (read-only) |
 | git-ops | Haiku | Git operations, PR management |
 | researcher | Sonnet | Market research via Playwright |
 | reviewer | Sonnet | Code quality & security audit |
-| social-publisher | Haiku | Late API posting, platform char limits |
+| revenue-hunter | Sonnet | Sales strategy, lead nurturing |
+| social-publisher | Haiku | Zernio API posting, platform char limits |
 | video-editor | Sonnet | FFmpeg, Remotion, captions |
 | workflow-builder | Sonnet | n8n automation creation |
 | writer | Sonnet | Code writing, feature implementation |
-| chief-of-staff | Sonnet | Communication, mission control, outreach |
-| revenue-hunter | Sonnet | Sales strategy, lead nurturing |
-| explorer | Haiku | Codebase navigation, file search (read-only) |
 | meta-agent | Sonnet | Generate new subagent definitions from descriptions [PROBATIONARY] |
 
 ## CLI-Anything (Universal CLI Generation)
@@ -122,7 +121,7 @@ Transform any website into structured CLI commands via browser automation. Compl
 
 | Tool | Script | Replaces MCP | Key Commands |
 |------|--------|-------------|-------------|
-| **Late** | `scripts/late_tool.py` | Late MCP (env var broken) | `accounts`, `profiles`, `posts`, `create`, `cross-post`, `publish`, `failed` |
+| **Zernio (Late)** | `scripts/late_tool.py` | Late MCP (env var broken) | `accounts`, `profiles`, `posts`, `create`, `cross-post`, `publish`, `failed` |
 | **n8n** | `scripts/n8n_tool.py` | n8n-mcp (returns 0 results) | `list`, `search`, `get`, `execute`, `activate`, `deactivate`, `executions`, `stats` |
 | **Supabase** | `scripts/supabase_tool.py` | Supabase MCP (token expired) | `list-projects`, `list-tables`, `select`, `insert`, `update`, `delete`, `query` |
 | **Stripe** | `scripts/stripe_tool.py` | Stripe MCP (v0.3.1 proxy mode) | `balance`, `customers`, `products`, `invoices`, `subscriptions`, `charges` |
@@ -221,11 +220,11 @@ All engines: `--json` flag for agent consumption, credentials from `.env.agents`
 | /status | Project status report |
 | /sync | End-of-session sync |
 
-## Skills (160 total — 67 core + 42 GWS + 41 recipes + 10 personas)
+## Skills (162 total — 69 core + 42 GWS + 41 recipes + 10 personas)
 
 > **Note:** All skills use the Claude Agent Skills 2.0 structure. They are stored in `skills/[skill-name]/SKILL.md` format. The descriptions inside the frontmatter define their activation triggers.
 
-### Core Skills (67)
+### Core Skills (69)
 
 | Category | Skills |
 |----------|--------|
@@ -233,7 +232,7 @@ All engines: `--json` flag for agent consumption, credentials from `.env.agents`
 | **Methodology** | sparc-methodology |
 | **Development** | systematic-debugging, test-driven-development, verification-before-completion, executing-plans, writing-plans, finishing-a-development-branch, using-git-worktrees, code-review, receiving-code-review, requesting-code-review, ship, subagent-driven-development, dispatching-parallel-agents |
 | **Browser & Testing** | browser-automation, e2e-testing, webapp-testing |
-| **Content & Outreach** | content-engine, writing-skills, doc-coauthoring, internal-comms, brand-guidelines, brainstorming, linkedin-outreach, market-research, investor-materials, strategic-compact, retro, notebooklm |
+| **Content & Outreach** | content-engine, writing-skills, doc-coauthoring, internal-comms, brand-guidelines, brainstorming, linkedin-outreach, market-research, investor-materials, strategic-compact, retro, notebooklm, ceo-briefing, daily-planner |
 | **Automation** | n8n-mcp-integration, n8n-patterns, supabase-patterns, ai-integration, skool-automation |
 | **Creative** | frontend-design, canvas-design, algorithmic-art, theme-factory, web-artifacts-builder, slack-gif-creator |
 | **Files** | pdf, docx, pptx, xlsx |
@@ -263,7 +262,7 @@ All engines: `--json` flag for agent consumption, credentials from `.env.agents`
 | GoHighLevel | n8n webhooks | CRM for OASIS clients |
 | Twilio | API/n8n | SMS & voice (Nostalgic Requests) |
 | Shopify | Admin UI | FromOasis e-commerce |
-| Telegram | telegram_agent.js (V6.0) | CLI bridge for remote execution — routes to Gemini/Claude. Prefers global gemini install. Start: `npm run telegram` |
+| Telegram | telegram_agent.js (V11.0) | CLI bridge for remote execution — full-context parity, loads CLAUDE.md + brain files. 25 max turns. Start: `npm run telegram` |
 
 ## Video Production Pipeline
 
@@ -319,7 +318,7 @@ These are registered in Claude Code's native skill system with proper frontmatte
 | `/ship` | Ready to deploy | Full 9-phase shipping pipeline |
 | `/retro` | Weekly (Sunday/Monday) | Retrospective with scores + actions |
 | `/content` | Content creation | Brand voice content with trend check |
-| `/post` | After content approval | Publish via Late MCP |
+| `/post` | After content approval | Publish via Zernio (formerly Late) |
 | `/plan-feature` | New feature request | Deep analysis → implementation plan |
 | `/execute` | Plan approved | Step-by-step plan execution |
 | `/debug` | Bug encountered | Root-cause-first debugging |

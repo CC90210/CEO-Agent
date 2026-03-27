@@ -9,6 +9,7 @@ tools:
   - Grep
   - Bash
   - mcp__playwright
+tags: [agent]
 ---
 You are Bravo's research and competitive intelligence specialist for CC.
 

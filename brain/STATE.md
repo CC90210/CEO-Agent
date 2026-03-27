@@ -4,7 +4,7 @@ tags: [state, ephemeral]
 
 # STATE — Current Operational State
 
-> Updated 2026-03-26 | **Telegram Bridge V11.0 deployed (full-context parity). Skool watchdog rewritten (heartbeat-first, wmic eliminated). Full automation audit: ALL HEALTHY. PropFlow production-ready.**
+> Updated 2026-03-27 | **Full system finalization: ALL 15/15 systems operational. Skool daemon zombie detection fixed + restarted (PID 113640). edit_content_v2.py syntax error fixed. brain/CAPABILITIES.md deduped + corrected. All stale references updated (Late→Zernio). 25 Python scripts pass syntax check. PM2 healthy (telegram + scheduler).**
 
 ## Operational Status
 
@@ -13,7 +13,7 @@ tags: [state, ephemeral]
 | **Version** | V5.5 | Self-Evolving Super-Intelligence (Bravo) |
 | **Position**| ACTIVE | Community Manager for Bennett's Agency Accelerator + Lead Gen Funnel Operator |
 | **Confidence** | 0.99 | All automations production-grade. PropFlow ready. Telegram V11.0 live. Skool watchdog heartbeat-first. Full audit: 0 critical issues. |
-| **Focus Area** | **CLIENT ACQUISITION + REVENUE DIVERSIFICATION** | cc-funnel deployed, late_publisher.py working, content calendar auto-posting. Skool Engine RESPONSE-ONLY. Next: close OASIS retainer clients. 94% revenue in Bennett = critical risk. |
+| **Focus Area** | **CONTENT-FIRST FUNNEL + BENNETT COACHING DEAL** | #1 priority: CC creates content (personal brand), Bravo distributes. Bennett referred 2 coaching clients ($10K upfront). Inbound funnel replaces cold outreach. 94% revenue in Bennett = critical risk. |
 | **Energy** | MAXIMUM | Content studio operational (Remotion). PM2 processes healthy. GWS authenticated. Skool daemon stable (response-only mode). |
 | **Memory Health** | EXCELLENT | Files trimmed. Stale tasks purged. Vault configured. Session logged. |
 
@@ -38,20 +38,21 @@ tags: [state, ephemeral]
 | **Telegram Bridge** | ✅ V11.0 LIVE | Full-context parity — loads CLAUDE.md, brain files, APP_REGISTRY. 25 max turns. PM2 restarted 2026-03-26. |
 | **Stripe SDK** | ✅ LIVE | Multi-account (OASIS, PropFlow, Nostalgic) |
 | **Supabase SDK** | ✅ LIVE | Bravo, OASIS, Nostalgic projects |
-| **Late MCP** | ✅ WORKING | 8 connected accounts for social distribution |
-| **n8n-mcp** | ✅ WORKING | 44+ workflows via REST API |
+| **Zernio (Late) CLI** | ✅ WORKING | 8 connected accounts for social distribution via `late_tool.py` |
+| **n8n CLI** | ✅ WORKING | 47 workflows via `n8n_tool.py` REST API |
 | **Lead CRM** | ✅ AUDITED | `lead_engine.py` — scoring, pipeline, funnel tracking |
 | **Email Engine** | ✅ AUDITED | `email_engine.py` — Gmail SMTP, templates, nurture sequences |
 | **Booking System** | ✅ AUDITED | `booking_engine.py` — slot management, Windows strftime fixed |
-| **Content Calendar** | ✅ LIVE | Auto-posting via `late_publisher.py`. 5 published, 16 scheduled, 21 drafts. Late API: `https://getlate.dev/api/v1/`. Raw HTTP (SDK Pydantic broken). |
+| **Content Calendar** | ✅ LIVE | Auto-posting via `late_publisher.py`. 5 published, 16 scheduled, 21 drafts. Zernio API (formerly Late): `https://zernio.com/api/v1/`. Raw HTTP. |
 | **Revenue Dashboard** | ✅ AUDITED | `revenue_engine.py` — CRITICAL NameError fixed, MRR formula corrected |
 | **Instagram Automation** | ✅ AUDITED | `instagram_engine.py` — Claude API replies, 10 bugs fixed |
 | **Scheduler** | ✅ AUDITED | `scheduler.py` — timestamp format fixed, restarted with fixes |
 | **Outreach Engine** | ✅ AUDITED | `outreach_engine.py` — ICS timezone fixed, email_log insert fixed |
 | **Obsidian Vault** | ✅ READY | Business-Empire-Agent repo configured as Obsidian vault. 34 files created. Community plugins staged. |
 | **Content Studio** | ✅ READY | Remotion 4.0.436 environment with QuoteCard, SkoolIntro, CeoLog, SobrietyLog compositions. |
-| **Skool Classroom** | ✅ OPERATIONAL | 12 courses, 60+ lessons. Lead Magnets emoji fixes deployed (2026-03-21). Lessons 5-6 published. |
+| **Skool Classroom** | ✅ OPERATIONAL | 12 courses, 60+ lessons. Image audit complete (45 placements identified). Lead Magnets emoji fixes deployed (2026-03-21). |
 | **OpenCLI** | ✅ INSTALLED | v1.1.1 globally installed. 46 platforms, 345+ commands. Website-to-CLI via browser automation. `opencli list` to discover. |
+| **Atlas (CFO Agent)** | ✅ LIVE | Separate project (`trading-agent/`). 12 strategies, live on Kraken ($136) + OANDA. Tax/accounting/FIRE modules complete. CRA filing prepped for 2024-2025. |
 
 ## PropFlow Production Hardening Status (2026-03-26)
 
@@ -62,7 +63,7 @@ tags: [state, ephemeral]
 
 ## Capability Counts (2026-03-26)
 
-- **Skills:** 154 (61 core + 42 GWS + 41 recipes + 10 personas) + 16 native Claude Code skills
+- **Skills:** 156 (63 core + 42 GWS + 41 recipes + 10 personas) + 16 native Claude Code skills
 - **Agents:** 16 (core + meta-agent)
 - **Workflows:** 20 (.agents/workflows/)
 - **Supabase tables:** 28 (14 agent + 14 business ops)
@@ -80,11 +81,11 @@ tags: [state, ephemeral]
 
 ## Last Heartbeat
 
-- **Date:** 2026-03-26
+- **Date:** 2026-03-27
 - **Agent:** BRAVO via Claude Code (Opus 4.6)
-- **Result:** Telegram Bridge V11.0 deployed (full-context parity). Skool watchdog rewritten (heartbeat-first). Full automation audit: ALL HEALTHY (scheduler, telegram, skool engine, content pipeline, email/booking engines, revenue engine). 0 critical issues.
+- **Result:** Full system finalization — 15/15 systems verified operational. Skool daemon zombie detection fixed (`_is_daemon_running()` now detects stale heartbeats + missing heartbeat files → auto-takeover). edit_content_v2.py Python 3.12 syntax error fixed. CAPABILITIES.md duplicate agent entries fixed. All Late→Zernio references updated in STATE.md. PM2 processes healthy. 25/25 Python scripts pass syntax check. 11/11 CLI tools return successful responses.
 
-*Last updated: 2026-03-26*
+*Last updated: 2026-03-27*
 
 ## Obsidian Links
 > Connected notes for graph navigation

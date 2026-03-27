@@ -11,15 +11,17 @@ tags: [tasks, active]
 - **Current Net:** ~$2,982 USD/mo ($191 base + $2,500 Bennett flat + $291 Bennett 15% rev share on $1,940 community MRR) + $3,000 USD upfront collected.
 - **Gap:** ~$2,018 USD/mo (~4-5 new OASIS clients at $400-500/mo)
 - **Critical Risk:** 94% revenue from Bennett — diversification is #1 priority
-- **Pipeline:** 50+ leads researched, 20+ emails sent, 2 warm (Cedarwood, Vortex)
+- **Pipeline:** Cedarwood/Vortex deprioritized. Focus shifted to inbound funnel via content. Bennett coaching referral: $10K opportunity (2 companies).
 
 ---
 
 ## P0 — Revenue-Generating Work (CC's Morning Priorities)
 
-- [ ] [P0] **Close first OASIS retainer client** — Cedarwood and Vortex are warm. Follow up, book calls, close.
+- [ ] [P0] **Bennett Coaching Deal — $10K upfront** — Two companies (tugboat + real estate) referred by Bennett. $5K each, 16 sessions, 1hr/session. Structure the offering, set pricing, schedule sessions. This is immediate cash.
+- [ ] [P0] **Content Engine: CC's #1 Priority** — Build daily content routine for Kona Makana personal brand. Content is the inbound funnel. CC creates, Bravo handles scheduling/distribution/repurposing.
+- [ ] [P0] **Close first OASIS retainer client** — Cedarwood/Vortex deprioritized (effectively dead). Focus on inbound funnel via content.
 - [ ] [P0] **Import 47+ leads to CRM** — Only 3 in system (Bennett, Cedarwood, Vortex). Run bulk import from research pipeline.
-- [ ] [P0] **Open booking slots** — `python scripts/booking_engine.py slots open-week`
+- [x] [P0] **Open booking slots** — 40 slots opened (March 30 - April 10, weekdays 3-5pm). Done 2026-03-26.
 - [x] [P0] **BUILD: Inbound Lead Engine (Option B)** — 6 phases COMPLETE. Content auto-posting LIVE (5 posts published to X). CTA rotation active. IG DM → CRM bridge wired. Nurture emails have booking links. cc-funnel has booking CTA on success screen. E2E verified 2026-03-24. **Remaining:** Set `NEXT_PUBLIC_BOOKING_LINK` and `BOOKING_MEET_LINK` env vars once CC creates Google Meet link.
 
 ## P1 — Infrastructure (Stable)
@@ -42,4 +44,4 @@ tags: [tasks, active]
 - [x] **PropFlow production hardening** — 4 waves, 20+ commits, 50+ files. All API routes, mutations, queries company_id-scoped. RLS migration applied (10 tables). 7/7 audit PASS. Production-ready for multi-tenant use.
 - [x] **PropFlow automation engine** — Python FastAPI → inline Next.js TypeScript. E2E tested. error/loading boundaries added to 5 routes.
 
-*Last updated: 2026-03-26*
+*Last updated: 2026-03-27*

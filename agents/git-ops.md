@@ -5,6 +5,7 @@ model: haiku
 tools:
   - Bash
   - Read
+tags: [agent]
 ---
 You are Bravo's git operations agent for CC.
 

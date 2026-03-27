@@ -7,6 +7,7 @@ tools:
   - Write
   - Glob
   - Grep
+tags: [agent]
 ---
 # Meta-Agent — Agent Generator
 

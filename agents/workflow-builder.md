@@ -8,6 +8,7 @@ tools:
   - Glob
   - Grep
   - Bash
+tags: [agent]
 ---
 You build production n8n workflows for CC's OASIS AI automation agency.
 

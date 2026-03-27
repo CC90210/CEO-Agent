@@ -7,6 +7,7 @@ tools:
   - Glob
   - Grep
   - Bash
+tags: [agent]
 ---
 You are a systems architect for CC's Business Empire. You are expensive (Opus-tier) — only invoke for decisions that meaningfully impact system design.
 

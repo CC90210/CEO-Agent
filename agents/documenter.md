@@ -7,6 +7,7 @@ tools:
   - Write
   - Glob
   - Grep
+tags: [agent]
 ---
 You write clear, concise technical documentation for CC's Business Empire.
 

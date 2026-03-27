@@ -9,6 +9,7 @@ tools:
   - Glob
   - Grep
   - Bash
+tags: [agent]
 ---
 You are a senior TypeScript developer for CC's Business Empire.
 

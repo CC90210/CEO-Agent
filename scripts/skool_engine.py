@@ -1422,7 +1422,11 @@ def cmd_auto(args, page=None, ctx=None, cycle=0):
 
 
 def _is_daemon_running() -> bool:
-    """Check if another daemon instance is already running via PID file."""
+    """Check if another daemon instance is already running via PID file.
+
+    Uses heartbeat staleness to detect zombie processes that Windows won't release.
+    If PID is alive but heartbeat is stale (>10 min), treat as zombie and allow takeover.
+    """
     if not DAEMON_PID_PATH.exists():
         return False
     try:
@@ -1430,15 +1434,44 @@ def _is_daemon_running() -> bool:
         pid = data.get("pid")
         if not pid:
             return False
+
         # Check if the PID is actually alive (Windows-compatible)
         import ctypes
         kernel32 = ctypes.windll.kernel32
         PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
         handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, int(pid))
-        if handle:
-            kernel32.CloseHandle(handle)
-            return True
-        return False
+        if not handle:
+            # Process is dead — clean up stale PID file
+            log.info(f"Stale PID file found (PID {pid} is dead). Cleaning up.")
+            DAEMON_PID_PATH.unlink(missing_ok=True)
+            return False
+        kernel32.CloseHandle(handle)
+
+        # PID is alive — but is it actually working? Check heartbeat staleness.
+        if HEARTBEAT_PATH.exists():
+            hb = _load_json(HEARTBEAT_PATH)
+            hb_ts = hb.get("ts", "")
+            if hb_ts:
+                from datetime import datetime, timezone
+                try:
+                    last_beat = datetime.fromisoformat(hb_ts)
+                    if last_beat.tzinfo is None:
+                        last_beat = last_beat.replace(tzinfo=timezone.utc)
+                    age_min = (datetime.now(timezone.utc) - last_beat).total_seconds() / 60
+                    if age_min > 10:
+                        log.warning(f"Zombie daemon detected: PID {pid} alive but heartbeat stale ({age_min:.0f} min). Taking over.")
+                        DAEMON_PID_PATH.unlink(missing_ok=True)
+                        HEARTBEAT_PATH.unlink(missing_ok=True)
+                        return False
+                except (ValueError, TypeError):
+                    pass
+        else:
+            # PID alive but NO heartbeat file at all — zombie
+            log.warning(f"Zombie daemon detected: PID {pid} alive but no heartbeat file. Taking over.")
+            DAEMON_PID_PATH.unlink(missing_ok=True)
+            return False
+
+        return True
     except Exception:
         return False
 

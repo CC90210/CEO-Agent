@@ -8,6 +8,7 @@ tools:
   - Glob
   - Grep
   - Bash
+tags: [agent]
 ---
 You are a systematic debugger for CC's Business Empire.
 

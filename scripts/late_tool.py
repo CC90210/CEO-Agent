@@ -184,7 +184,7 @@ def cmd_create(args):
         print("ERROR: LATE_API_KEY not found in .env.agents", file=sys.stderr)
         sys.exit(1)
 
-    base = "https://getlate.dev/api"
+    base = "https://zernio.com/api"
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",

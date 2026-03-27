@@ -7,6 +7,7 @@ tools:
   - Glob
   - Grep
   - Bash
+tags: [agent]
 ---
 You are a codebase explorer for CC's Business Empire. Find files, read code, report findings. 
 

@@ -64,9 +64,9 @@ When CC asks a question, answer it using MCP tools. Do NOT dump file contents or
 | Database queries, tables | **supabase_tool.py** | `python scripts/supabase_tool.py select <table> --project bravo --limit 10` |
 | Payments, subscriptions | **stripe_tool.py** | `python scripts/stripe_tool.py balance`, `customers`, `invoices` |
 | Website-to-CLI, API discovery | **OpenCLI** | `opencli explore <url>`, `opencli list`, `opencli <platform> <cmd>` |
-| Email (send/read/triage) | **gws CLI** | `gws gmail +send`, `gws gmail +read`, `gws gmail +triage` |
-| Calendar (events/agenda) | **gws CLI** | `gws calendar +agenda`, `gws calendar +insert` |
-| Google Drive / Sheets / Docs | **gws CLI** | `gws drive files list`, `gws sheets +read`, `gws docs +write` |
+| Email (send/read/triage) | **gws CLI** | `gws gmail users messages list --params '{"userId":"me"}'`, `gws gmail users messages send` |
+| Calendar (events/agenda) | **gws CLI** | `gws calendar events list --params '{"calendarId":"primary","singleEvents":true,"orderBy":"startTime"}'` |
+| Google Drive / Sheets / Docs | **gws CLI** | `gws drive files list --params '{"pageSize":10}'`, `gws sheets spreadsheets get` |
 | Scrape page data (text, links, tables) | **Playwright CLI** | `node .claude/skills/playwright/scripts/run.js <url> [--links] [--table css] [--selector css]` |
 
 **Why CLI-first:** MCP servers with credentials (Late, n8n, Supabase, Stripe) break frequently — env var passing fails, tokens expire, packages change auth methods. CLI tools read `.env.agents` directly and never break.
@@ -139,7 +139,7 @@ Commands registered as native Claude Code skills (`.claude/skills/`) AND as work
 | `/commit` | Smart commit with conventional format (`bravo: type — desc`) |
 | `/create-prd` | Generate PRD for client projects |
 | `/content` | Create platform-optimized content using CC's brand voice |
-| `/post` | Publish to social media via Late MCP |
+| `/post` | Publish to social media via Zernio (formerly Late) |
 | `/research` | Multi-source research (OpenCLI + Playwright + Context7) |
 | `/cli-anything` | Generate CLI wrapper for any software/API/service |
 | `/opencli` | Explore websites, run prebuilt adapters, create website CLI adapters |
@@ -252,7 +252,7 @@ If unsure whether session is ending, ask CC.
 **4 Working MCPs (stateless — keep):** Playwright, Context7, Memory, Sequential Thinking
 **4 Replaced by CLI (credential MCPs — broken):**
 - **n8n MCP** → `python scripts/n8n_tool.py` (47 workflows, full CRUD)
-- **Late MCP** → `python scripts/late_tool.py` (8 accounts, posting, cross-post)
+- **Zernio (Late) MCP** → `python scripts/late_tool.py` (8 accounts, posting, cross-post)
 - **Supabase MCP** → `python scripts/supabase_tool.py` (3 projects, full CRUD)
 - **Stripe MCP** → `python scripts/stripe_tool.py` (multi-account, all ops)
 

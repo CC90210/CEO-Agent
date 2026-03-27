@@ -9,6 +9,7 @@ tools:
   - Glob
   - Grep
   - Bash
+tags: [agent]
 ---
 You are Bravo's ELITE video production specialist. Your goal is viral perfection and absolute brand congruence.
 

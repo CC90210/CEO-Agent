@@ -46,7 +46,7 @@ tags: [sops, processes]
    - Threads: Max 500 chars
 5. Validate character count for EACH platform version
 6. Present to CC for approval
-7. Post via Late MCP (posts_create or posts_cross_post)
+7. Post via Zernio API (late_tool.py create or cross-post)
 8. Log result in SESSION_LOG
 **Success Criteria:** Post published, no character limit rejections, CC approves content
 **Executions:** 2 | **Success Rate:** 50% (1st attempt failed on X char limit)
@@ -145,6 +145,59 @@ tags: [sops, processes]
 4. For REST API fallback: use `curl -H "X-N8N-API-KEY: $N8N_API_KEY" https://n8n.srv993801.hstgr.cloud/api/v1/...`
 5. Report results clearly — workflow name, status, node count, trigger type
 **Success Criteria:** Workflows listed/executed correctly, real data returned
+**Executions:** 0 | **Success Rate:** N/A
+**Last Executed:** N/A
+
+### SOP-007: Weekly Revenue Review (CEO)
+**Category:** finance
+**Status:** `[PROBATIONARY]` — New SOP, 2026-03-26
+**Trigger:** Monday morning, /briefing command, CC asks about revenue
+**Prerequisites:** Stripe CLI tool, revenue_engine.py, ACTIVE_TASKS.md
+**Steps:**
+1. Pull current MRR: `python scripts/revenue_engine.py mrr --json`
+2. Compare against $5,000 USD target — calculate gap and pace
+3. Check revenue concentration (% from top client)
+4. Flag if concentration >80% (CRITICAL) or >60% (HIGH risk)
+5. Review pipeline: how many leads at each stage?
+6. Calculate: at current close rate, when do we hit target?
+7. Report to CC in 5 lines or less — MRR, gap, pace, risk, #1 action
+**Success Criteria:** CC knows exact MRR, gap to target, and what to do next
+**Executions:** 0 | **Success Rate:** N/A
+**Last Executed:** N/A
+
+### SOP-008: Client Health Check (CEO)
+**Category:** client
+**Status:** `[PROBATIONARY]` — New SOP, 2026-03-26
+**Trigger:** Weekly (part of /briefing), or when CC asks about a client
+**Prerequisites:** Supabase leads table, lead_interactions, revenue_events
+**Steps:**
+1. List all clients with status=client in CRM
+2. For each client, check:
+   - Last interaction date (flag if >14 days)
+   - Revenue contribution (flag if >50% of total MRR)
+   - Deliverable status (on-time, overdue, upcoming)
+   - Any negative signals (complaints, slow responses, scope changes)
+3. Score each client: HEALTHY (all good), AT-RISK (1+ flag), CRITICAL (2+ flags or revenue >70%)
+4. For AT-RISK/CRITICAL: generate specific action (e.g., "Send check-in email to Bennett")
+5. Report to CC: client list with scores and recommended actions
+**Success Criteria:** No client goes unmonitored for more than 7 days
+**Executions:** 0 | **Success Rate:** N/A
+**Last Executed:** N/A
+
+### SOP-009: Pipeline Review & Follow-Up (CEO)
+**Category:** client
+**Status:** `[PROBATIONARY]` — New SOP, 2026-03-26
+**Trigger:** Monday + Thursday, or CC asks about leads/pipeline
+**Prerequisites:** lead_engine.py, email_engine.py, booking_engine.py
+**Steps:**
+1. Pull full pipeline: `python scripts/lead_engine.py pipeline --json`
+2. Identify leads with no interaction in 7+ days → generate follow-up actions
+3. Identify warm leads (score >60) → prioritize for outreach today
+4. Check if any booked calls are coming up this week: `python scripts/booking_engine.py slots list --json`
+5. For each warm lead, draft a follow-up action (email, call, or DM)
+6. Report: total leads, warm count, overdue follow-ups, booked calls, recommended actions
+7. If CC approves follow-ups, execute via email_engine.py or suggest manual action
+**Success Criteria:** No warm lead goes cold without a follow-up attempt
 **Executions:** 0 | **Success Rate:** N/A
 **Last Executed:** N/A
 

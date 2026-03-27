@@ -15,8 +15,8 @@ Importing npm packages from shared `api/_lib/*.ts` causes FUNCTION_INVOCATION_FA
 ### [PROBATIONARY] 2026-03-23 — Windows watchdog: use tasklist not os.kill
 `os.kill(pid, 0)` unreliable on Windows. Use `tasklist`-based process detection. Use `CREATE_NO_WINDOW` for headless daemons. Never use `/rl highest` in Task Scheduler.
 
-### Late API Posting `[VALIDATED]`
-Validate char limits → rewrite per platform (X=280, Threads=500, IG=2200, LinkedIn=3000) → present to CC → post via Late CLI → log.
+### Zernio (Late) API Posting `[VALIDATED]`
+Validate char limits → rewrite per platform (X=280, Threads=500, IG=2200, LinkedIn=3000) → present to CC → post via Zernio CLI (late_tool.py) → log.
 
 ### Multi-Agent Routing `[VALIDATED]`
 Simple tasks → Gemini. Multi-file architecture → Claude Code. Research → Anti-Gravity. Content → any agent.

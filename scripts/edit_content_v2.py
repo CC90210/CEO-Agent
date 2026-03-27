@@ -418,10 +418,6 @@ if __name__ == "__main__":
         print(f"❌ File not found: {args.input}")
         sys.exit(1)
 
-    # Override model if specified
-    global WHISPER_MODEL
-    WHISPER_MODEL = args.model
-
     if args.transcribe_only:
         transcribe_word_level(args.input, offset=args.offset, model_name=args.model)
     else:

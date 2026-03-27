@@ -31,7 +31,7 @@ dependencies: []
 | Social media posts | `python scripts/late_tool.py` | `accounts`, `posts`, `create --text "..." --account <id>`, `cross-post` | "Post this to X" |
 | Database queries | `python scripts/supabase_tool.py` | `select <table>`, `insert`, `update`, `delete`, `sql "..."` | "Show my tables" |
 | Payments / billing | `python scripts/stripe_tool.py` | `balance`, `customers`, `invoices`, `products`, `subscriptions` | "Check my Stripe balance" |
-| Email / Calendar | `gws` CLI | `gmail +send`, `gmail +read`, `calendar +agenda` | "Check my email" |
+| Email / Calendar | `gws` CLI | `gws gmail users messages list`, `gws calendar events list` (REST-style syntax, use --params for filters) | "Check my email" |
 | Website-to-CLI | OpenCLI | `opencli explore <url>`, `opencli <platform> <cmd>` | "What's trending?" |
 
 **Why CLI-first:** MCP servers requiring credentials (Supabase, n8n, Stripe, Late) consistently fail due to env var passing issues on Windows, token expiry, and package auth changes. CLI tools read `.env.agents` directly — they never break.

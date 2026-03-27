@@ -10,6 +10,69 @@ tags: [daily]
 
 ---
 
+### 2026-03-27 — Full System Finalization + Skool Daemon Fix
+**Agent:** Claude Code (Bravo)
+**Goal:** CC requested "literally fix everything" — all systems 100% operational.
+
+**Fixes Applied:**
+- Skool daemon zombie detection rewritten: `_is_daemon_running()` now checks heartbeat staleness (>10 min = zombie) and missing heartbeat files. Old PID 26564 was unkillable (access denied) — new logic auto-takes-over by clearing stale PID/heartbeat files. Fresh daemon started (PID 113640), auto-login successful, scanning 30 posts + 30 DMs per cycle.
+- `edit_content_v2.py` SyntaxError fixed: Python 3.12 rejects `global WHISPER_MODEL` after prior use. Removed unnecessary global declaration.
+- `brain/CAPABILITIES.md`: duplicate `chief-of-staff` row removed, `explorer` restored, `social-publisher` updated to Zernio, `/post` command updated, Telegram version corrected V6.0→V11.0.
+- `brain/STATE.md`: `Late MCP` → `Zernio (Late) CLI`, `n8n-mcp` → `n8n CLI`, workflow count 44→47.
+- `memory/ACTIVE_TASKS.md`: booking slots marked complete, Cedarwood/Vortex updated to "deprioritized".
+
+**Verification Results:**
+- 25/25 Python scripts: syntax OK
+- 11/11 CLI tools: returning data (Stripe, Supabase, n8n, Zernio, Lead CRM, Email, Booking, Revenue, Cron, GWS Gmail, GWS Calendar)
+- PM2: scheduler (online, 104min) + telegram-bot (online, 7h)
+- Skool daemon: online, cycle 0+ complete, response-only mode
+- 15/15 agent .md files present with YAML frontmatter
+- 20/20 critical brain/ + memory/ files present
+- 0 stale `getlate.dev` references in active code/config
+
+**Files:** `scripts/skool_engine.py`, `scripts/edit_content_v2.py`, `brain/CAPABILITIES.md`, `brain/STATE.md`, `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md`
+
+---
+
+### 2026-03-26 — CEO Evolution: Atlas Integration + Briefing + Daily Planner + Business Intel
+**Agent:** Claude Code (Bravo)
+**Goal:** CC requested proactive CEO capability upgrades. Major business intelligence captured.
+
+**Atlas (CFO) Integration:**
+- Updated APP_REGISTRY.md with CFO aliases (cfo, finance, tax)
+- Added Atlas to AGENTS.md orchestration matrix + full "External: Atlas (CFO)" section
+- Added cross-project references in both directions (Bravo→Atlas, Atlas→Bravo)
+- CEO/CFO boundary: read-only cross-project, no mutual file writes
+
+**New Skills Created:**
+- `skills/ceo-briefing/SKILL.md` — Morning briefing: MRR, pipeline, client health, Atlas snapshot, blocked items, #1 priority
+- `skills/daily-planner/SKILL.md` — Structured daily plan: content block, revenue actions, admin, tomorrow prep. Day templates (Monday=strategy, Wed=content batch, etc.)
+
+**Business Intel Captured (from CC):**
+- Bennett: no formal contract, $2,500/mo + 15% rev share, friend-based. NEW: referred 2 coaching clients (tugboat + real estate), $5K each = $10K upfront
+- Adon: 50-50 on PropFlow only, CC owns 100% OASIS. Adon = networking/connections. 3-4 months behind CC technically.
+- Pipeline: Cedarwood/Vortex deprioritized. Inbound funnel via content is new strategy.
+- CC's role: content, sales, face-to-face. Bravo handles everything else.
+- Overhead: ~$184/mo (Claude $140, Supabase $25, Hostinger $14, ElevenLabs ~$5)
+- Content creation is #1 priority for lead generation
+
+**Memory Updates:**
+- Fixed 5 stale facts in LONG_TERM.md (OASIS revenue was $250, now $2,982)
+- Added 7 new business facts to LONG_TERM.md
+- Added 3 CEO SOPs (SOP-007 revenue review, SOP-008 client health, SOP-009 pipeline review)
+- Updated USER.md with CC/Bravo role division table and Adon partnership clarity
+
+**Files:** 12+ files across brain/, memory/, skills/
+
+---
+
+### 2026-03-26 — Skool Image Audit (All 12 Courses)
+**Agent:** Claude Code (Bravo)
+**Change:** Deep audit of all 12 Agency Accelerants courses (~81 lessons) via 3 parallel Playwright agents. Produced `courses/SKOOL_IMAGE_AUDIT.md` — 45 image placements (40 AI prompts + 5 screenshots). 3 iterations: 211→58→45 images per CC feedback. Course 9 (Live Closes) is video-only (Loom embeds).
+**Files:** `courses/SKOOL_IMAGE_AUDIT.md`
+
+---
+
 ### 2026-03-26 — Telegram Bridge V11.0 + Skool Watchdog Heartbeat Fix + Full Automation Audit
 **Agent:** Claude Code (Bravo)
 **Goal:** CC requested: "Pick a very high-importance task — polish automations, fix Telegram bridge."
