@@ -201,6 +201,179 @@ tags: [sops, processes]
 **Executions:** 0 | **Success Rate:** N/A
 **Last Executed:** N/A
 
+### SOP-010: Weekly Revenue Review
+**Category:** finance
+**Status:** `[PROBATIONARY]` — New SOP, 2026-03-28
+**Trigger:** Every Monday morning (part of /briefing)
+**Prerequisites:** Stripe access, Supabase access
+**Steps:**
+1. Run `python scripts/stripe_tool.py balance` — check current balance
+2. Run `python scripts/revenue_engine.py dashboard` — pull MRR breakdown
+3. Compare current MRR vs target ($5,000 USD by May 15, 2026)
+4. Calculate gap and required weekly growth rate
+5. Check pipeline: how many leads in proposal/negotiation stage?
+6. IF gap > $1,000: flag as CRITICAL, recommend specific outreach actions
+7. IF gap < $500: flag as ON TRACK, recommend optimization actions
+8. Log revenue snapshot to memory/SESSION_LOG.md
+**Success Criteria:** Weekly revenue visibility, gap clearly quantified, action plan generated
+**Failure Handling:** If Stripe unavailable, use last known MRR from STATE.md + manual update prompt
+**Executions:** 0 | **Success Rate:** N/A
+**Last Executed:** N/A
+**Owner:** Bravo
+
+### SOP-011: Client Onboarding (New Client)
+**Category:** client
+**Status:** `[PROBATIONARY]` — New SOP, 2026-03-28
+**Trigger:** New client signs contract or pays first invoice
+**Prerequisites:** Signed contract, payment received, client contact info
+**Steps:**
+1. Create client record in Supabase `leads` table with status='client'
+2. Send welcome email using `data/templates/emails/client-checkin.md` (adapted for onboarding)
+3. Schedule kickoff call (within 5 business days)
+4. Generate project brief using `data/templates/documents/project-brief.md`
+5. Set up access: create Slack channel or communication thread
+6. Run discovery session: document requirements, pain points, success criteria
+7. Create project plan with milestones using `skills/project-management/SKILL.md`
+8. Set up recurring check-ins (bi-weekly or monthly)
+9. Add client to health monitoring (`scripts/client_health.py`)
+10. Log onboarding to memory/SESSION_LOG.md
+**Success Criteria:** Client fully onboarded within 5 business days, kickoff completed, project plan approved
+**Failure Handling:** If client unresponsive > 3 days, escalate with phone call
+**Executions:** 0 | **Success Rate:** N/A
+**Last Executed:** N/A
+**Owner:** CC + Bravo
+
+### SOP-012: Quarterly Business Review (QBR)
+**Category:** admin
+**Status:** `[PROBATIONARY]` — New SOP, 2026-03-28
+**Trigger:** Last week of each quarter (March, June, September, December)
+**Prerequisites:** 90 days of data in Stripe, Supabase, memory files
+**Steps:**
+1. Run `python scripts/financial_model.py unit-economics` — calculate CAC, LTV, payback
+2. Run `python scripts/financial_model.py concentration` — check Herfindahl index
+3. Run `python scripts/competitive_intel.py report` — competitive landscape update
+4. Run `python scripts/client_health.py report` — full client health snapshot
+5. Grade previous quarter's OKRs (0.0-1.0 scale per key result)
+6. Identify top 3 wins and top 3 misses
+7. Run scenario modeling: bull/base/bear for next quarter
+8. Draft next quarter's OKRs (max 3 objectives, 3-5 KRs each)
+9. Compile into QBR report using `skills/strategic-planning/SKILL.md` template
+10. Present to CC for review and approval
+11. Log approved OKRs to brain/STATE.md
+**Success Criteria:** Complete QBR report with graded OKRs, new OKRs approved, strategic adjustments documented
+**Failure Handling:** If data gaps exist, note them in report and use best available estimates
+**Executions:** 0 | **Success Rate:** N/A
+**Last Executed:** N/A
+**Owner:** Bravo
+
+### SOP-013: Proposal-to-Close Pipeline
+**Category:** client
+**Status:** `[PROBATIONARY]` — New SOP, 2026-03-28
+**Trigger:** Lead reaches "discovery" stage in pipeline
+**Prerequisites:** Discovery call completed, pain points identified, budget range known
+**Steps:**
+1. Generate proposal: `python scripts/proposal_generator.py create --client "Name" --type retainer --tier growth`
+2. Review proposal against `skills/proposal-generation/SKILL.md` checklist
+3. Send proposal with cover email (personalized, reference specific pain points from discovery)
+4. Day 1: Confirm receipt, answer questions
+5. Day 3: Soft follow-up if no response
+6. Day 7: Value-add follow-up (share relevant case study or insight)
+7. Day 14: Direct ask — "Ready to move forward or any concerns?"
+8. IF accepted: Trigger SOP-011 (Client Onboarding)
+9. IF rejected: Log reason in win/loss tracker, move to nurture sequence
+10. IF no response after 30 days: Breakup email, move to cold nurture
+**Success Criteria:** Proposal sent within 48 hours of discovery, follow-up cadence executed, outcome logged
+**Failure Handling:** If proposal rejected, analyze reason and update pricing/positioning if pattern emerges
+**Executions:** 0 | **Success Rate:** N/A
+**Last Executed:** N/A
+**Owner:** CC (sends) + Bravo (generates, tracks)
+
+### SOP-014: Monthly Competitive Intelligence Update
+**Category:** research
+**Status:** `[PROBATIONARY]` — New SOP, 2026-03-28
+**Trigger:** First Monday of each month
+**Prerequisites:** `data/competitors.json` populated with at least 3 competitors
+**Steps:**
+1. Load competitor list from `data/competitors.json`
+2. For each competitor: check pricing page via Playwright, note changes
+3. Check G2/Capterra for new reviews mentioning competitors
+4. Check LinkedIn/X for competitor content and positioning changes
+5. Check job postings (signals growth areas or pivots)
+6. Update `data/competitors.json` with findings
+7. Regenerate battlecards for any competitor with significant changes
+8. Generate monthly competitive summary
+9. IF competitor made a major move (price drop, new feature, funding): alert CC immediately
+10. Log to memory/SESSION_LOG.md
+**Success Criteria:** All tracked competitors reviewed, changes documented, battlecards current
+**Failure Handling:** If Playwright can't access a site, note as "BLOCKED" and try alternative data sources
+**Executions:** 0 | **Success Rate:** N/A
+**Last Executed:** N/A
+**Owner:** Bravo (researcher agent)
+
+### SOP-015: Meeting Prep & Follow-Up
+**Category:** admin
+**Status:** `[PROBATIONARY]` — New SOP, 2026-03-28
+**Trigger:** Any scheduled meeting on CC's calendar
+**Prerequisites:** Calendar access (Google Workspace), meeting details (who, what, when)
+**Steps:**
+1. Scan calendar for meetings in next 24 hours
+2. For each meeting: search memory/knowledge graph for relationship history
+3. Check lead tracker for pipeline stage and last interaction
+4. Pull recent email threads with the contact
+5. Generate pre-meeting brief using `skills/meeting-automation/SKILL.md` template
+6. Present brief to CC before the meeting
+7. After meeting: prompt CC for key decisions and action items
+8. Draft follow-up email within 2 hours
+9. Update CRM/lead tracker with interaction notes
+10. Schedule next touchpoint
+**Success Criteria:** Brief delivered before every meeting, follow-up sent within 2 hours, CRM updated
+**Failure Handling:** If no prior history found, generate brief from company research only
+**Executions:** 0 | **Success Rate:** N/A
+**Last Executed:** N/A
+**Owner:** Bravo (chief of staff agent)
+
+### SOP-016: Content Publishing Cadence
+**Category:** content
+**Status:** `[PROBATIONARY]` — New SOP, 2026-03-28
+**Trigger:** Daily (part of morning routine)
+**Prerequisites:** Content Bible loaded, Late/Zernio accounts connected
+**Steps:**
+1. Check content calendar: what's scheduled for today?
+2. IF nothing scheduled: generate content using daily pillar rotation (Sobriety Log / Quote Drop / CEO Log)
+3. Draft content using `skills/content-engine/SKILL.md` and platform-specific templates from `data/templates/content/`
+4. Validate character limits: X=280, Threads=500, IG=2200, LinkedIn=3000, TikTok=4000
+5. Present draft to CC for approval (or auto-publish if CC has pre-approved the pillar)
+6. Publish via `python scripts/late_tool.py create --text "..." --account <id>`
+7. Cross-post to relevant platforms using profile-based publishing
+8. Log published content to memory/SESSION_LOG.md
+9. Check engagement after 24 hours: note top-performing posts
+**Success Criteria:** Minimum 1 post/day across at least 2 platforms
+**Failure Handling:** If Late API fails, draft content and save for manual posting
+**Executions:** 0 | **Success Rate:** N/A
+**Last Executed:** N/A
+**Owner:** Bravo (social publisher agent)
+
+### SOP-017: Weekly Knowledge Maintenance
+**Category:** admin
+**Status:** `[PROBATIONARY]` — New SOP, 2026-03-28
+**Trigger:** Every Sunday (part of /knowledge-maintenance workflow)
+**Prerequisites:** Access to all memory files
+**Steps:**
+1. Check SESSION_LOG.md line count — compress if >200 lines (archive to ARCHIVES/)
+2. Review ACTIVE_TASKS.md — remove completed tasks older than 7 days
+3. Scan PATTERNS.md for [PROBATIONARY] entries with 3+ successful uses → promote to [VALIDATED]
+4. Check MISTAKES.md for recurring themes → create prevention SOPs if pattern found
+5. Verify data/competitors.json freshness — flag entries older than 30 days
+6. Run confidence decay on LONG_TERM.md facts (>30 days: -0.1, >90 days: -0.3)
+7. Verify all [[wiki-links]] in brain/ and memory/ files resolve correctly
+8. Update brain/STATE.md with current operational snapshot
+9. Log maintenance summary to SESSION_LOG.md
+**Success Criteria:** All memory files within size limits, no stale data, all links valid
+**Failure Handling:** If a file is corrupted, restore from last git commit
+**Executions:** 0 | **Success Rate:** N/A
+**Last Executed:** N/A
+**Owner:** Bravo
+
 ---
 
 ## SOP Promotion Pipeline

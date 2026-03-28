@@ -37,6 +37,20 @@ aliases:
 - [[memory/SOP_LIBRARY]] — Standard procedures
 - [[memory/LONG_TERM]] — Persistent facts
 
+### CEO Operating System
+- [[brain/CEO_OPERATING_SYSTEM]] — 7 domains, daily rhythm, scaling triggers
+- [[skills/strategic-planning/SKILL]] — OKRs, quarterly planning
+- [[skills/client-success/SKILL]] — Health scoring, churn prevention, NPS
+- [[skills/competitive-intelligence/SKILL]] — Market research, `/competitive-report`
+- [[skills/financial-modeling/SKILL]] — Unit economics, scenario planning
+- [[skills/team-management/SKILL]] — Hiring, onboarding, 1:1s, RACI
+- [[skills/scaling-playbook/SKILL]] — Growth tiers, pricing evolution
+- [[skills/knowledge-management/SKILL]] — `/knowledge-maintenance`
+- [[skills/project-management/SKILL]] — Phase gates, milestones
+- [[skills/meeting-automation/SKILL]] — `/meeting-prep`, follow-up
+- [[skills/brand-guidelines/SKILL]] — Voice, tone, visual consistency
+- [[skills/content-engine/SKILL]] — Daily content rhythm
+
 ### Brand Context
 - [[APPS_CONTEXT/OASIS_AI_CLAUDE]] — OASIS AI Solutions
 - [[APPS_CONTEXT/PROPFLOW_CLAUDE]] — PropFlow

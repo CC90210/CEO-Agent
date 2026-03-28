@@ -24,6 +24,15 @@ tags: [tasks, active]
 - [x] [P0] **Open booking slots** — 40 slots opened (March 30 - April 10, weekdays 3-5pm). Done 2026-03-26.
 - [x] [P0] **BUILD: Inbound Lead Engine (Option B)** — 6 phases COMPLETE. Content auto-posting LIVE (5 posts published to X). CTA rotation active. IG DM → CRM bridge wired. Nurture emails have booking links. cc-funnel has booking CTA on success screen. E2E verified 2026-03-24. **Remaining:** Set `NEXT_PUBLIC_BOOKING_LINK` and `BOOKING_MEET_LINK` env vars once CC creates Google Meet link.
 
+## P1 — CEO Operating System (Built 2026-03-28) ✅
+
+- [x] [P1] **Build CEO Operating System** — 3-wave parallel build. 15 new skills, 10 workflows, 5 CLI scripts, 10 templates, 8 SOPs, 3 brain files. COMPLETE.
+- [x] [P1] **Create OKRs.md** — Q2 2026 OKRs set (3 objectives, 11 key results). Done 2026-03-28.
+- [x] [P1] **Create RISK_REGISTER.md** — 10 active risks logged. Done 2026-03-28.
+- [x] [P1] **Create QBR + investor templates** — Done 2026-03-28.
+- [ ] [P1] **Grade Q2 OKRs weekly** — Every Monday, update confidence scores in `brain/OKRs.md`. First check-in: 2026-04-07.
+- [ ] [P1] **Review R-001 + R-010 weekly** — Bennett churn risk and scope creep. Check during briefing each Monday.
+
 ## P1 — CEO Operations Tools (New 2026-03-28)
 
 - [ ] [P1] **Run first client health report** — `python scripts/client_health.py report`. All active clients scored. Set up `client_health_snapshots` table in Supabase for trend tracking.

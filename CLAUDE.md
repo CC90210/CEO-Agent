@@ -152,6 +152,16 @@ Commands registered as native Claude Code skills (`.claude/skills/`) AND as work
 | `/debug` | Systematic root-cause-first debugging |
 | `/health` | Full system health check (MCP, memory, sync, workspace) |
 | `/status` | Quick status report from memory files |
+| `/client-health` | Client health scoring, churn alerts, retention actions |
+| `/proposal` | Generate client proposals and SOWs from templates |
+| `/strategic-review` | Quarterly strategic review (revenue, pipeline, competitive, OKRs) |
+| `/competitive-report` | Monthly competitor monitoring and battlecard updates |
+| `/qbr` | Full quarterly business review with OKR grading |
+| `/onboard-team-member` | Contractor/team member onboarding workflow |
+| `/meeting-prep` | Pre-meeting briefs and post-meeting action capture |
+| `/investor-update` | Monthly investor/stakeholder update email |
+| `/knowledge-maintenance` | Weekly knowledge system maintenance and cleanup |
+| `/financial-model` | Unit economics, forecasting, scenario modeling |
 
 ## Sub-Agent Orchestration
 

@@ -45,6 +45,15 @@ For COMPLEX+ tasks, use SPARC methodology (`skills/sparc-methodology/SKILL.md`).
 | Generate new subagent definitions | **Meta-Agent** | "I need an agent that...", new capability requests |
 | Morning briefing, revenue status, pipeline check, client health | **Bravo (CEO Briefing)** | `/briefing`, session start Monday, "what's the status" |
 | Tax, trading, accounting, budgeting, FIRE, crypto | **Atlas (CFO)** | Finance questions, tax strategy, trading performance, wealth planning |
+| Client health, churn risk, NPS | **Chief of Staff** | `/client-health`, retention concerns |
+| Proposals, SOWs, quotes | **Content Creator** | `/proposal`, deal closing |
+| Competitive analysis, market research | **Researcher** | `/competitive-report`, market questions |
+| Financial modeling, unit economics | **Architect** | `/financial-model`, pricing strategy |
+| Strategic planning, OKRs, QBRs | **Bravo (CEO Briefing)** | `/qbr`, `/strategic-review` |
+| Team onboarding, hiring, 1:1s | **Chief of Staff** | `/onboard-team-member`, team management |
+| Meeting prep, follow-up | **Chief of Staff** | `/meeting-prep`, calendar management |
+| Project tracking, milestones, status | **Planner** | project status questions |
+| Investor updates, pitch prep | **Content Creator** | `/investor-update`, fundraising |
 
 ## Subagent Definitions
 

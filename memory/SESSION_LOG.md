@@ -10,6 +10,95 @@ tags: [daily]
 
 ---
 
+### 2026-03-28 — CEO Operating System: Full 3-Wave Build (Session Summary)
+**Agent:** Claude Code (Bravo)
+**Scope:** Largest single-session build in Bravo history. CC requested "go above and beyond expectation, take as long as you need" to build a complete CEO-in-a-box engine. Atlas also upgraded to CFO V2.0 (acknowledged, not modified).
+
+**Wave 1 — CEO Intelligence Layer (3 parallel agents):**
+- `skills/strategic-planning/SKILL.md` — OKR framework, SWOT/Porter's, scenario planning, QBR templates
+- `skills/competitive-intelligence/SKILL.md` — Competitor tracking, battlecard generation, monitoring cadence
+- `skills/financial-modeling/SKILL.md` — Unit economics, SaaS metrics, cohort analysis, cash flow forecasting
+- `scripts/competitive_intel.py` — Full CRUD for competitor profiles in data/competitors.json
+- `scripts/financial_model.py` — Unit economics, forecast, scenario, concentration, runway
+- 3 workflows: strategic-review, competitive-report, qbr
+
+**Wave 2 — CEO Operational Layer (4 parallel agents):**
+- `skills/client-success/SKILL.md` — Health scoring (5 dimensions, 0-100), churn prediction, retention playbooks
+- `skills/proposal-generation/SKILL.md` — 8-section proposals, pricing matrices, SOW/NDA templates
+- `skills/team-management/SKILL.md` — Hiring framework, onboarding, 1:1s, performance reviews, RACI
+- `skills/meeting-automation/SKILL.md` — Pre-meeting briefs, 5 meeting type templates, follow-up cadence
+- `skills/project-management/SKILL.md` — 5-phase project structure with gates, status reports
+- `skills/ceo-dashboard/SKILL.md` — 5 North Star metrics, revenue/pipeline/ops/content dashboards
+- `skills/investor-communications/SKILL.md` — Monthly updates, pitch deck, advisory board management
+- `skills/knowledge-management/SKILL.md` — PARA framework, capture protocols, freshness scoring
+- `skills/scaling-playbook/SKILL.md` — Revenue-based scaling triggers, first hire framework, productization
+- `scripts/client_health.py`, `scripts/proposal_generator.py`, `scripts/ceo_dashboard.py` — 3 new CLI tools
+- 4 workflows: client-health-report, generate-proposal, onboard-team-member, meeting-prep, ceo-briefing, investor-update, knowledge-maintenance
+- 10 templates: 5 email (cold-outreach, follow-up, invoice-reminder, client-checkin, win-back), 2 document (project-brief, status-report, case-study), 2 content (linkedin-post, x-thread)
+
+**Wave 3 — CEO Risk/Sales/Planning Layer (3 parallel agents):**
+- `skills/risk-management/SKILL.md` — 6 risk categories, Bennett churn contingency
+- `skills/crisis-response/SKILL.md` — P0-P3 classification, 5 pre-built response plans
+- `skills/sales-methodology/SKILL.md` — NEPQ 8-phase framework, objection handling
+- `brain/OKRs.md` — Q2 2026 objectives (3 objectives, 11 key results)
+- `brain/RISK_REGISTER.md` — 10 active risks (R-001 through R-010)
+- `brain/CEO_OPERATING_SYSTEM.md` — Master 7-domain reference
+- 8 SOPs added to SOP_LIBRARY.md (SOP-010 through SOP-017)
+- `data/templates/documents/qbr-report.md`, `data/templates/documents/investor-update.md`
+
+**Updated Registries:** CAPABILITIES.md, CLAUDE.md (10 new commands), DASHBOARD.md, AGENTS.md (9 new routing rows)
+**Totals after session:** ~174 skills, 30 workflows, 39 scripts, 16 agents, 10 new templates, 8 new SOPs, 3 new brain files
+**Script verification:** Pending (debugger agent running)
+**Commit:** pending
+
+---
+
+### 2026-03-28 — CEO Planning Documents: OKRs, Risk Register, QBR + Investor Update Templates
+**Agent:** Claude Code (Bravo)
+**Change:** Created 4 foundational CEO planning documents. `brain/OKRs.md` sets Q2 2026 OKRs across 3 objectives (revenue/diversification, systematize delivery, content engine) with 11 key results, confidence scores, and grading scale. `brain/RISK_REGISTER.md` captures 10 active business risks (R-001 through R-010), sorted by severity with probability, impact, mitigation, owner, and review cadence. `data/templates/documents/qbr-report.md` is the quarterly business review template covering financials, pipeline, client health, competitive landscape, OKR grading, and risk updates. `data/templates/documents/investor-update.md` is the monthly advisor/investor email template with key metrics table and structured asks section.
+**Files:** `brain/OKRs.md` (created), `brain/RISK_REGISTER.md` (created), `data/templates/documents/qbr-report.md` (created), `data/templates/documents/investor-update.md` (created)
+**Commit:** pending
+
+### 2026-03-28 — CEO Risk Management + Crisis Response + Sales Methodology Skills
+**Agent:** Claude Code (Bravo)
+**Change:** Created 3 new CEO-level skills. `skills/risk-management/SKILL.md` covers 6 risk categories (revenue, operational, financial, reputation, legal, technology) with severity ratings, 4-tier crisis response classification, and a detailed Bennett churn contingency playbook. `skills/crisis-response/SKILL.md` provides 5 pre-built response plans (client emergency, revenue emergency, security breach, tool outage, team emergency) with P0-P3 classification and communication templates. `skills/sales-methodology/SKILL.md` documents the full NEPQ framework (8 phases: connection through close) with objection handling bank, discovery call prep checklist, and sales metrics targets.
+**Files:** `skills/risk-management/SKILL.md` (created), `skills/crisis-response/SKILL.md` (created), `skills/sales-methodology/SKILL.md` (created)
+**Commit:** pending
+
+### 2026-03-28 — SOP Library: CEO-Level SOPs Added (SOP-010 through SOP-017)
+**Agent:** Claude Code (Bravo)
+**Change:** Appended 8 new CEO-level SOPs to `memory/SOP_LIBRARY.md`. Covers revenue review (010), client onboarding (011), quarterly business review (012), proposal-to-close pipeline (013), monthly competitive intelligence (014), meeting prep and follow-up (015), content publishing cadence (016), and weekly knowledge maintenance (017). All tagged [PROBATIONARY]. No existing content modified.
+**Files:** `memory/SOP_LIBRARY.md` (updated)
+**Commit:** pending
+
+### 2026-03-28 — CEO Operating System: Brain-Level Architecture
+**Agent:** Claude Code (Bravo)
+**Change:** Created `brain/CEO_OPERATING_SYSTEM.md` (7 CEO domains mapped to tools/commands, daily rhythm, scaling triggers, Bravo/Atlas integration). Added CEO Operating System nav section to `brain/DASHBOARD.md` (12 skill links). Extended `brain/AGENTS.md` decision matrix with 9 new CEO-domain routing rows (client health, proposals, competitive analysis, financial modeling, OKRs, team management, meeting prep, project tracking, investor updates).
+**Files:** `brain/CEO_OPERATING_SYSTEM.md` (created), `brain/DASHBOARD.md` (updated), `brain/AGENTS.md` (updated)
+**Commit:** pending
+
+### 2026-03-28 — CEO Intelligence Layer: Strategic Planning + Competitive Intel + Financial Modeling
+**Agent:** Claude Code (Bravo)
+**Goal:** Build full CEO decision-making toolkit — strategic planning framework, competitive intelligence engine, and financial modeling suite.
+
+**Files Created (8):**
+- `skills/strategic-planning/SKILL.md` — OKR framework (set/check-in/grade), annual planning (SWOT, Porter's Five Forces, Blue Ocean Canvas), scenario planning (Bull/Base/Bear with CC-specific examples: Bennett churn, 3 new clients, PropFlow launch), decision frameworks (EV, reversibility matrix, Bezos one-way/two-way door), QBR and weekly CEO review templates
+- `skills/competitive-intelligence/SKILL.md` — competitor tracking (profile/battlecard templates, monitoring cadence), data collection methods (Playwright, OpenCLI, job postings, review sites), analysis frameworks (feature matrix, pricing map, win/loss, differentiation gap), competitive response playbook (4 scenarios), OASIS AI competitor category map (4 categories)
+- `skills/financial-modeling/SKILL.md` — unit economics formulas (CAC, LTV, LTV:CAC, payback, burn, runway), SaaS metrics dashboard (MRR components, churn, NRR, Quick Ratio), cohort analysis framework, scenario modeling templates, cash flow forecasting, CC-specific snapshot (HHI 0.88 CRITICAL, $2,018 gap to target, 47 days remaining)
+- `scripts/competitive_intel.py` — full CRUD for competitor profiles stored in data/competitors.json; battlecard generation; feature matrix; landscape report; JSON flag for agent consumption
+- `scripts/financial_model.py` — unit-economics, forecast, scenario (bull/base/bear), concentration (Herfindahl), runway with Bennett churn worst-case; all CC defaults baked in
+- `.agents/workflows/strategic-review.md` — /strategic-review trigger; 8-step quarterly review pulling live Stripe, pipeline, competitive, and OKR data
+- `.agents/workflows/competitive-report.md` — /competitive-report trigger; monthly competitor scan (pricing, features, job postings, reviews, battlecard updates)
+- `.agents/workflows/qbr.md` — /qbr trigger; OKR grading (0.0-1.0), QBR report compilation, next quarter OKR drafting with CC approval gate
+
+**Directories Used:** `data/` (already existed), `skills/strategic-planning/`, `skills/competitive-intelligence/`, `skills/financial-modeling/` (created)
+
+**Scripts verified:** Both Python scripts smoke-tested against all subcommands. Zero errors. Unicode-safe for Windows cp1252 terminal encoding.
+
+**CAPABILITIES.md updated:** 162 → 165 skills (3 new CEO Intelligence skills), 20 → 23 workflows (3 new), 6 → 8 business ops engines (2 new CLIs)
+
+---
+
 ### 2026-03-28 — CEO Capabilities: Investor Comms + Knowledge Management + Scaling Playbook
 **Agent:** Claude Code (Bravo)
 **Goal:** Build CEO intelligence layer — investor communications, knowledge management, and scaling playbook.
@@ -32,6 +121,24 @@ tags: [daily]
 
 ---
 
+### 2026-03-28 — CEO Capabilities: Team Management + Meeting Automation + Project Management + CEO Dashboard
+**Agent:** Claude Code (Bravo)
+**Goal:** Build CEO operational layer — team management framework, meeting automation system, project delivery framework, unified KPI dashboard, and live dashboard CLI.
+
+**Files Created (9):**
+- `skills/team-management/SKILL.md` — Full hiring framework (role definition, JD generator, interview question bank by role type, scoring rubric 1-5 weighted, red/green flags), contractor onboarding Day 0-30 protocol, weekly + monthly 1:1 templates, quarterly performance review framework with rating scale, RACI delegation template, capacity planning with utilization targets, communication protocols, offboarding checklist
+- `skills/meeting-automation/SKILL.md` — Pre-meeting brief template (WHO/CONTEXT/OBJECTIVE/AGENDA/PREP/ALERTS), 5 meeting type templates (discovery, client check-in, strategy session, partnership, standup), post-meeting 6-step capture protocol, follow-up cadence by meeting type (day-by-day schedule), no-response escalation scripts, calendar intelligence (daily scan, weekly load review)
+- `skills/project-management/SKILL.md` — Project definition template (scope, stakeholders, risks), 5-phase structure (Discovery → Build → Review → Launch → Optimize) with gates, milestone tracking table with status flow, weekly status report template (GREEN/YELLOW/RED), change request template, scope creep detection rules, multi-project dashboard table, project retrospective template with profitability calc
+- `skills/ceo-dashboard/SKILL.md` — 5 North Star metrics (MRR, pipeline, client health, cash, content velocity), revenue dashboard (MRR breakdown, 6-month trend, composition analysis, brand split), pipeline dashboard (by stage, funnel conversion, pipeline velocity, top 3 leads), operations dashboard (active projects, deliverable health, tool costs), content dashboard (weekly volume, engagement, audience growth), health dashboard (client tiers, system health, infra cost trend), weekly CEO digest template (format for /briefing output)
+- `scripts/ceo_dashboard.py` — Python CLI: `briefing` (5 North Stars), `revenue` (Stripe multi-account MRR), `pipeline` (LEAD_TRACKER.csv parsing), `content` (Late/Zernio weekly count), `full` (all dashboards), `--json` flag for agent consumption. Graceful fallback: Stripe unavailable → memory scan for MRR. Windows cp1252 safe (no Unicode block chars). Verified clean on all subcommands.
+- `.agents/workflows/onboard-team-member.md` — /onboard-team-member trigger; 8-step workflow: gather info, generate checklist, draft NDA/contract, provision access list, prepare context package, schedule check-ins, add to brain/STATE.md team section, log to SESSION_LOG
+- `.agents/workflows/meeting-prep.md` — /meeting-prep trigger; Step 1: calendar scan (GWS), Steps 2-3: multi-source context gather (LEAD_TRACKER, SESSION_LOG, Memory MCP, Gmail), generate briefs, present digest; post-meeting capture: decisions, action items, follow-up email draft (human review gate), lead tracker update, SESSION_LOG entry
+- `.agents/workflows/ceo-briefing.md` — /briefing trigger; 8-step: run ceo_dashboard.py, check ACTIVE_TASKS, scan calendar, run client_health alerts, compile full digest with 5 North Stars + today's meetings + top priorities + alerts + #1 priority for the day, priority decision hierarchy (client emergency → revenue recovery → close-ready deal → overdue deliverable → pipeline → content → backlog), update STATE.md if new info found, log to SESSION_LOG
+
+**Verified:** ceo_dashboard.py tested on briefing, revenue, pipeline, --json briefing commands. Zero errors. MRR reads $5,000 from brain/STATE.md scan (memory fallback working). Pipeline reads 0 leads (LEAD_TRACKER.csv has no active discovery/proposal/negotiation rows — expected).
+
+---
+
 ### 2026-03-28 — CEO Capabilities: Client Success + Proposal Generation
 **Agent:** Claude Code (Bravo)
 **Goal:** Build complete client health and proposal generation system for CC's CEO dashboard.
@@ -46,6 +153,13 @@ tags: [daily]
 - `proposals/.gitkeep` — proposals output directory initialised
 
 **Verified:** Both Python scripts parse cleanly (`--help` and `templates` subcommand confirmed working)
+
+---
+
+### 2026-03-28 — CAPABILITIES.md Registry Update
+**Agent:** Claude Code (Bravo)
+**Change:** Updated brain/CAPABILITIES.md to reflect all CEO Operating System capabilities built today. Accurate counts verified by filesystem glob (174 skills, 30 workflows, 34 scripts, 16 agents). Added CEO Operating System section with 12 new skills, 5 new scripts, 10 new workflows, and data infrastructure. Updated workflow table with cadences. Updated header with 2026-03-28 date and verified totals.
+**Files:** `brain/CAPABILITIES.md`
 
 ---
 

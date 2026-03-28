@@ -4,7 +4,8 @@ tags: [capabilities, tools]
 
 # CAPABILITIES — Tool & Integration Registry
 
-> Complete inventory of what Bravo can do. Updated when new tools are added.
+> Complete inventory of what Bravo can do. Last updated: 2026-03-28.
+> **Totals: 174 skills · 30 workflows · 34 scripts · 16 agents · 4 MCP servers**
 
 ## MCP Servers (By Interface)
 
@@ -20,7 +21,7 @@ tags: [capabilities, tools]
 
 Models: Gemini 3.1 Pro High/Low, Gemini 3 Flash, Claude Sonnet/Opus 4.6, GPT-OSS 120B Medium
 Entry Point: `ANTIGRAVITY.md` | Config: `.vscode/mcp.json`
-Workflows: `.agents/workflows/` (15 workflows: post, status, health, prime, content, commit, n8n, sync, research, debug, client-onboard, cli-anything, skool-edit, skool-push, evolve)
+Workflows: `.agents/workflows/` (30 workflows: post, status, health, prime, content, commit, n8n, sync, research, debug, client-onboard, cli-anything, skool-edit, skool-push, evolve, briefing, client-health-report, generate-proposal, strategic-review, competitive-report, qbr, onboard-team-member, meeting-prep, investor-update, knowledge-maintenance, review, ship, retro, create-prd, opencli)
 
 | Server | Purpose | Config |
 |--------|---------|--------|
@@ -128,7 +129,7 @@ Transform any website into structured CLI commands via browser automation. Compl
 
 **Pattern:** Stateless MCPs (Playwright, Context7, Memory, Sequential Thinking) work fine. Credential MCPs break. CLI tools read `.env.agents` directly — never break.
 
-## Business Operations Engines (6 CLI tools — zero paid services)
+## Business Operations Engines (8 CLI tools — zero paid services)
 
 | Engine | Script | Purpose | Key Commands |
 |--------|--------|---------|-------------|
@@ -137,9 +138,49 @@ Transform any website into structured CLI commands via browser automation. Compl
 | **Booking** | `scripts/booking_engine.py` | Self-hosted Cal.com replacement, slot management | `slots open/open-week/list/close`, `book`, `cancel`, `available`, `remind`, `complete` |
 | **Content** | `scripts/content_engine.py` | Content calendar, templates, multi-platform posting | `calendar`, `create`, `create-multi`, `templates list/create/render`, `due`, `week-plan`, `stats` |
 | **Revenue** | `scripts/revenue_engine.py` | MRR tracking, Stripe sync, forecasting | `mrr`, `dashboard`, `sync-stripe`, `log-revenue`, `history`, `forecast`, `clients`, `goal` |
+| **Competitive Intel** | `scripts/competitive_intel.py` | Competitor profiles, battlecards, landscape reports | `add`, `list`, `view`, `update`, `battlecard`, `report`, `matrix`, `delete` |
+| **Financial Model** | `scripts/financial_model.py` | Unit economics, scenario modeling, concentration risk | `unit-economics`, `forecast`, `scenario`, `concentration`, `runway` |
 | **Cron** | `scripts/cron_engine.py` | Automated job scheduling, 12 seeded business workflows | `list`, `add`, `toggle`, `run`, `due`, `seed` |
 
 All engines: `--json` flag for agent consumption, credentials from `.env.agents`, Supabase backend.
+
+## CEO Operating System (5 CLI tools — added 2026-03-28)
+
+These scripts power the CEO dashboard, client health tracking, proposals, and business intelligence layer. All support `--json` and read from `.env.agents`.
+
+| Tool | Script | Purpose | Key Commands |
+|------|--------|---------|-------------|
+| **Client Health** | `scripts/client_health.py` | Health scoring (0-100), churn prediction, NPS tracking | `report`, `score <client>`, `alerts`, `trends` |
+| **Proposal Generator** | `scripts/proposal_generator.py` | Proposal/SOW/NDA generation from templates | `generate`, `list-templates`, `preview`, `export` |
+| **CEO Dashboard** | `scripts/ceo_dashboard.py` | Unified KPI aggregator across all business data | `briefing`, `revenue`, `pipeline`, `full` |
+
+The following were added to the Business Operations Engines table above (already present):
+
+- `scripts/competitive_intel.py` — Competitor CRUD + battlecard generation + landscape matrix
+- `scripts/financial_model.py` — CAC/LTV/payback, SaaS metrics, cohort analysis, cash flow scenarios
+
+**Data infrastructure (added 2026-03-28):**
+- `data/competitors.json` — Persistent competitor intelligence store
+- `data/market_research/` — Market research archive
+- `data/templates/` — Reusable proposal/SOW/NDA template library
+- `proposals/` — Generated proposals output directory
+
+**Skills backing this system (12 new — `skills/*/SKILL.md`):**
+
+| Skill | Purpose |
+|-------|---------|
+| `client-success` | Health scoring (0-100), churn prediction, retention playbooks, NPS, expansion |
+| `proposal-generation` | Proposal/SOW/NDA generation, pricing matrices, follow-up cadence |
+| `strategic-planning` | OKR framework, scenario planning (bull/base/bear), QBR template, weekly CEO review |
+| `competitive-intelligence` | Competitor tracking, battlecards, monitoring cadence, response playbooks |
+| `financial-modeling` | Unit economics (CAC/LTV/payback), SaaS metrics, cohort analysis, cash flow forecasting |
+| `team-management` | Hiring framework, contractor onboarding, 1:1s, performance reviews, RACI delegation |
+| `meeting-automation` | Pre-meeting briefs, post-meeting protocol, follow-up cadence, calendar intelligence |
+| `project-management` | Project definition, phase gates, milestone tracking, scope management, multi-project dashboard |
+| `ceo-dashboard` | 5 North Star metrics, revenue/pipeline/ops/content/health dashboards, weekly digest |
+| `investor-communications` | Monthly updates, pitch deck structure, advisory board, valuation, partnerships |
+| `knowledge-management` | PARA framework, capture protocols, progressive summarization, template library |
+| `scaling-playbook` | Revenue-based scaling triggers, first hire framework, service productization, pricing evolution |
 
 ## Platform Automation Engines (Browser-Based)
 
@@ -195,36 +236,46 @@ All engines: `--json` flag for agent consumption, credentials from `.env.agents`
 | Content Week Plan | Sunday 8pm | content_planning |
 | Instagram Research | Mon/Wed/Fri 11am | ig_research |
 
-## Workflows (20 active — `.agents/workflows/`)
+## Workflows (30 active — `.agents/workflows/`)
 
-| Command | Purpose |
-|---------|---------|
-| /cli-anything | Generate CLI wrapper for any software/API/service |
-| /client-onboard | New OASIS client setup |
-| /commit | Smart commit — conventional format, staged analysis |
-| /content | Create platform content (with OpenCLI trend check) |
-| /create-prd | Generate 15-section PRD for client projects |
-| /debug | Systematic bug fixing |
-| /evolve | Extract session patterns → promote to skills, SOPs, or CLAUDE.md rules |
-| /health | Full workspace diagnostic |
-| /n8n | Search, inspect, manage n8n workflows |
-| /opencli | Explore websites, run prebuilt adapters, create website CLI adapters |
-| /post | Publish via Late API (with OpenCLI verification) |
-| /prime | Load full project context |
-| /research | Competitive intelligence (OpenCLI-first for platforms) |
-| /retro | Weekly retrospective — commits, scores, patterns, improvement actions |
-| /review | Pre-landing code review with Fix-First methodology |
-| /ship | Full shipping pipeline — test, review, changelog, PR, deploy |
-| /skool-edit | Edit Skool lessons or About page via Playwright |
-| /skool-push | Bulk-push course content to Skool |
-| /status | Project status report |
-| /sync | End-of-session sync |
+| Command | Cadence | Purpose |
+|---------|---------|---------|
+| /briefing | Daily | CEO morning briefing — MRR, pipeline, client health, #1 priority |
+| /cli-anything | On-demand | Generate CLI wrapper for any software/API/service |
+| /client-health | Weekly (Fri) | Client health scoring, churn risk alerts, retention actions |
+| /client-onboard | On-demand | New OASIS client setup |
+| /commit | On-demand | Smart commit — conventional format, staged analysis |
+| /competitive-report | Monthly | Competitor scan — pricing, features, reviews, battlecard updates |
+| /content | On-demand | Create platform content (with OpenCLI trend check) |
+| /create-prd | On-demand | Generate 15-section PRD for client projects |
+| /debug | On-demand | Systematic bug fixing |
+| /evolve | On-demand | Extract session patterns → promote to skills, SOPs, or CLAUDE.md rules |
+| /health | On-demand | Full workspace diagnostic |
+| /investor-update | Monthly | Investor/advisor monthly update — metrics, milestones, risks |
+| /knowledge-maintenance | Weekly (Sun) | PARA capture review, inbox zero, template library update |
+| /meeting-prep | On-demand | Pre-meeting brief, agenda, context, post-meeting follow-up |
+| /n8n | On-demand | Search, inspect, manage n8n workflows |
+| /onboard-team-member | On-demand | Contractor/hire onboarding — docs, access, 30-day plan |
+| /opencli | On-demand | Explore websites, run prebuilt adapters, create website CLI adapters |
+| /post | On-demand | Publish via Zernio (with OpenCLI verification) |
+| /prime | On-demand | Load full project context |
+| /proposal | On-demand | Generate proposal/SOW/NDA from client brief |
+| /qbr | Quarterly | Quarterly business review — grade OKRs, compile QBR, next quarter targets |
+| /research | On-demand | Competitive intelligence (OpenCLI-first for platforms) |
+| /retro | Weekly (Sun/Mon) | Retrospective — commits, scores, patterns, improvement actions |
+| /review | On-demand | Pre-landing code review with Fix-First methodology |
+| /ship | On-demand | Full shipping pipeline — test, review, changelog, PR, deploy |
+| /skool-edit | On-demand | Edit Skool lessons or About page via Playwright |
+| /skool-push | On-demand | Bulk-push course content to Skool |
+| /status | On-demand | Project status report |
+| /strategic-review | Quarterly | Strategic review — revenue, pipeline, competitive, OKR progress |
+| /sync | On-demand | End-of-session sync |
 
-## Skills (162 total — 69 core + 42 GWS + 41 recipes + 10 personas)
+## Skills (174 total — 81 core + 42 GWS + 41 recipes + 10 personas)
 
 > **Note:** All skills use the Claude Agent Skills 2.0 structure. They are stored in `skills/[skill-name]/SKILL.md` format. The descriptions inside the frontmatter define their activation triggers.
 
-### Core Skills (69)
+### Core Skills (81)
 
 | Category | Skills |
 |----------|--------|
@@ -233,6 +284,7 @@ All engines: `--json` flag for agent consumption, credentials from `.env.agents`
 | **Development** | systematic-debugging, test-driven-development, verification-before-completion, executing-plans, writing-plans, finishing-a-development-branch, using-git-worktrees, code-review, receiving-code-review, requesting-code-review, ship, subagent-driven-development, dispatching-parallel-agents |
 | **Browser & Testing** | browser-automation, e2e-testing, webapp-testing |
 | **Content & Outreach** | content-engine, writing-skills, doc-coauthoring, internal-comms, brand-guidelines, brainstorming, linkedin-outreach, market-research, investor-materials, strategic-compact, retro, notebooklm, ceo-briefing, daily-planner |
+| **CEO Operating System** | strategic-planning, competitive-intelligence, financial-modeling, client-success, proposal-generation, team-management, meeting-automation, project-management, ceo-dashboard, investor-communications, knowledge-management, scaling-playbook |
 | **Automation** | n8n-mcp-integration, n8n-patterns, supabase-patterns, ai-integration, skool-automation |
 | **Creative** | frontend-design, canvas-design, algorithmic-art, theme-factory, web-artifacts-builder, slack-gif-creator |
 | **Files** | pdf, docx, pptx, xlsx |
