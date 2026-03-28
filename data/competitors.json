@@ -1,0 +1,66 @@
+[
+  {
+    "name": "Make.com",
+    "url": "https://make.com",
+    "pricing_url": "",
+    "category": "indirect",
+    "founded": "",
+    "funding": "",
+    "target_market": "",
+    "pricing": {
+      "core": "$9/mo",
+      "pro": "$16/mo",
+      "teams": "$29/mo"
+    },
+    "strengths": [
+      "Huge template library"
+    ],
+    "weaknesses": [
+      "Steep learning curve, no human support layer"
+    ],
+    "features": [],
+    "notes": [
+      "No-code automation platform, main DIY alternative"
+    ],
+    "win_conditions": [
+      "We deliver results, they give tools"
+    ],
+    "loss_conditions": [
+      "Price-sensitive buyers who want DIY"
+    ],
+    "review_themes": {
+      "praise": "",
+      "complaints": ""
+    },
+    "positioning": "",
+    "our_counter_positioning": "",
+    "created": "2026-03-28",
+    "updated": "2026-03-28"
+  },
+  {
+    "name": "Lindy AI",
+    "url": "https://lindy.ai",
+    "pricing_url": "",
+    "category": "indirect",
+    "founded": "",
+    "funding": "",
+    "target_market": "",
+    "pricing": {},
+    "strengths": [],
+    "weaknesses": [],
+    "features": [],
+    "notes": [
+      "AI agent platform for SMBs"
+    ],
+    "win_conditions": [],
+    "loss_conditions": [],
+    "review_themes": {
+      "praise": "",
+      "complaints": ""
+    },
+    "positioning": "",
+    "our_counter_positioning": "",
+    "created": "2026-03-28",
+    "updated": "2026-03-28"
+  }
+]

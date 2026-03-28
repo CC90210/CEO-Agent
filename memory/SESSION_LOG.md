@@ -10,6 +10,45 @@ tags: [daily]
 
 ---
 
+### 2026-03-28 — CEO Capabilities: Investor Comms + Knowledge Management + Scaling Playbook
+**Agent:** Claude Code (Bravo)
+**Goal:** Build CEO intelligence layer — investor communications, knowledge management, and scaling playbook.
+
+**Files Created (10):**
+- `skills/investor-communications/SKILL.md` — monthly investor update template, pitch deck 10-slide blueprint, advisory board management (recruitment, cadence, value extraction), valuation estimation (revenue multiples by stage, comparable analysis), partnership/JV frameworks (evaluation criteria, rev share models, agreement checklist, exit clauses)
+- `skills/knowledge-management/SKILL.md` — PARA implementation mapped to project files, information capture protocols (7 types: meetings/market/competitors/clients/trends/learnings), progressive summarization (4-layer Forte method), retrieval framework (5 paths: topic/time/person/project/pattern), freshness scoring by data type, full template library (6 email types, 6 document types, 5 content types), weekly maintenance checklist
+- `skills/scaling-playbook/SKILL.md` — revenue-based scaling triggers ($0 to $50K+ MRR stages), first hire ROI ranking (4 roles), FT vs contractor vs agency comparison, Canadian compensation benchmarks, productization pathway (Level 1-4: custom to SaaS), pricing strategy evolution (solo/team/scale), operations scaling checklist, CC-specific roadmap (NOW/NEXT/THEN/FUTURE milestones)
+- `data/competitors.json` — structured competitor intelligence for OASIS AI and PropFlow (Zapier, Make, SingleKey with strengths/weaknesses/features/notes)
+- `data/market_research/README.md` — archive structure, freshness policy, file naming convention, research template
+- `data/templates/README.md` — template library index, category map, update protocol, skill cross-references
+- `proposals/README.md` — naming convention, proposal types, workflow, status tracking, archiving policy
+- `.agents/workflows/investor-update.md` — `/investor-update` command; 8-step workflow: Stripe pull, pipeline pull, burn rate calc, metrics table, session log review, draft email, CC review gate, session log update
+- `.agents/workflows/knowledge-maintenance.md` — `/knowledge-maintenance` command; 10-step workflow: log compression, pattern promotion, competitor freshness, mistakes analysis, confidence audit, tasks cleanup, wiki-link integrity, STATE.md refresh, template review, maintenance summary
+
+**Directories Created:**
+- `data/`, `data/market_research/verticals/`, `data/market_research/trends/`, `data/templates/proposals/`, `data/templates/emails/`, `data/templates/documents/`, `data/templates/content/`, `data/templates/reports/`
+
+**Verified:** All 9 files created successfully. Competitor JSON validated. All skills have correct YAML frontmatter and Obsidian links.
+
+---
+
+### 2026-03-28 — CEO Capabilities: Client Success + Proposal Generation
+**Agent:** Claude Code (Bravo)
+**Goal:** Build complete client health and proposal generation system for CC's CEO dashboard.
+
+**Files Created (7):**
+- `skills/client-success/SKILL.md` — health score algorithm (5 weighted dimensions, 0-100), risk tiers, churn prediction triggers, retention playbooks (GREEN/YELLOW/ORANGE/RED), NPS framework, expansion playbook, lifecycle stages, weekly report template
+- `skills/proposal-generation/SKILL.md` — full proposal structure (8 sections), pricing matrix (retainer $500-5K, project $2K-15K, discovery), SOW template, NDA structure, follow-up cadence, win/loss analysis
+- `scripts/client_health.py` — CLI tool: `report`, `score <name>`, `alerts`, `trends` subcommands; calculates weighted health scores from Supabase leads table; color-coded tier output; demo data fallback; `--json` flag
+- `scripts/proposal_generator.py` — CLI tool: `create`, `list`, `templates` subcommands; generates full markdown proposals for retainer/project/discovery types; Good/Better/Best pricing tiers; auto-updates Supabase lead status on create
+- `.agents/workflows/client-health-report.md` — `/client-health` workflow; Friday cadence; 7 steps including RED alert protocol and Supabase snapshot logging
+- `.agents/workflows/generate-proposal.md` — `/proposal` workflow; pre-flight checklist, 7 steps through generation, review, send, and follow-up scheduling
+- `proposals/.gitkeep` — proposals output directory initialised
+
+**Verified:** Both Python scripts parse cleanly (`--help` and `templates` subcommand confirmed working)
+
+---
+
 ### 2026-03-27 — Full System Finalization + Skool Daemon Fix
 **Agent:** Claude Code (Bravo)
 **Goal:** CC requested "literally fix everything" — all systems 100% operational.

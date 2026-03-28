@@ -24,6 +24,17 @@ tags: [tasks, active]
 - [x] [P0] **Open booking slots** — 40 slots opened (March 30 - April 10, weekdays 3-5pm). Done 2026-03-26.
 - [x] [P0] **BUILD: Inbound Lead Engine (Option B)** — 6 phases COMPLETE. Content auto-posting LIVE (5 posts published to X). CTA rotation active. IG DM → CRM bridge wired. Nurture emails have booking links. cc-funnel has booking CTA on success screen. E2E verified 2026-03-24. **Remaining:** Set `NEXT_PUBLIC_BOOKING_LINK` and `BOOKING_MEET_LINK` env vars once CC creates Google Meet link.
 
+## P1 — CEO Operations Tools (New 2026-03-28)
+
+- [ ] [P1] **Run first client health report** — `python scripts/client_health.py report`. All active clients scored. Set up `client_health_snapshots` table in Supabase for trend tracking.
+- [ ] [P1] **Generate Bennett proposal (optional)** — Test `proposal_generator.py create --client "Bennett" --type retainer --tier scale` to verify output quality before using with new prospects.
+- [ ] [P1] **Populate competitor intelligence** — `data/competitors.json` has schema + 2 seed entries (Make.com, Lindy AI). Add Zapier, SingleKey, and any other active competitors CC tracks. Run `/knowledge-maintenance` weekly to flag stale entries.
+- [ ] [P1] **Run first investor/advisor update** — `/investor-update` command. Draft the March 2026 monthly update for any current advisors. Good practice for investor-readiness at $5K MRR.
+- [ ] [P1] **Identify first hire** — Use `skills/scaling-playbook/SKILL.md` First Hire Framework. At $2.9K MRR the constraint is pipeline work eating delivery time. VA hire at $5K MRR trigger. Start shortlisting candidates on Upwork now.
+- [ ] [P2] **Fill `data/market_research/`** — HVAC automation market (Canada), PropFlow proptech landscape, AI agency market sizing. Use `/research` command. Inform pitch deck and pricing strategy.
+- [ ] [P2] **Run first weekly knowledge maintenance** — `/knowledge-maintenance` — compress SESSION_LOG, check patterns, verify wiki-links. Best run Sunday mornings.
+- [ ] [P1] **Import 47+ leads** — Prerequisite for health scoring to work at scale. Only 3 leads in system now.
+
 ## P1 — Infrastructure (Stable)
 
 - [x] [P1] **Skool daemon: heartbeat watchdog** — Rewrote watchdog with heartbeat-first liveness (2026-03-26). wmic was unreliable on Win11, causing constant restart cycles. Now daemon writes heartbeat every cycle, watchdog checks freshness.
@@ -44,4 +55,4 @@ tags: [tasks, active]
 - [x] **PropFlow production hardening** — 4 waves, 20+ commits, 50+ files. All API routes, mutations, queries company_id-scoped. RLS migration applied (10 tables). 7/7 audit PASS. Production-ready for multi-tenant use.
 - [x] **PropFlow automation engine** — Python FastAPI → inline Next.js TypeScript. E2E tested. error/loading boundaries added to 5 routes.
 
-*Last updated: 2026-03-27*
+*Last updated: 2026-03-28*
