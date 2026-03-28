@@ -1,1 +1,125 @@
-[]
+[
+  {
+    "name": "Make.com",
+    "url": "https://make.com",
+    "pricing_url": "",
+    "category": "direct",
+    "founded": "",
+    "funding": "",
+    "target_market": "SMBs and agencies needing workflow automation",
+    "pricing": {
+      "free": "1000 ops/mo",
+      "core": "$10.59/mo",
+      "pro": "$18.82/mo",
+      "teams": "$34.12/mo",
+      "enterprise": "Custom"
+    },
+    "strengths": [],
+    "weaknesses": [],
+    "features": [],
+    "notes": [
+      "Primary competitor. Visual workflow builder, 1000+ integrations. Weakness: no AI strategy, no done-for-you service, no client management. Our edge: AI-native + managed service."
+    ],
+    "win_conditions": [],
+    "loss_conditions": [],
+    "review_themes": {
+      "praise": "",
+      "complaints": ""
+    },
+    "positioning": "",
+    "our_counter_positioning": "",
+    "created": "2026-03-28",
+    "updated": "2026-03-28"
+  },
+  {
+    "name": "Zapier",
+    "url": "https://zapier.com",
+    "pricing_url": "",
+    "category": "direct",
+    "founded": "",
+    "funding": "",
+    "target_market": "Non-technical users automating between SaaS apps",
+    "pricing": {
+      "free": "100 tasks/mo",
+      "starter": "$29.99/mo",
+      "professional": "$73.50/mo",
+      "team": "$103.50/mo",
+      "enterprise": "Custom"
+    },
+    "strengths": [],
+    "weaknesses": [],
+    "features": [],
+    "notes": [
+      "Largest automation platform. Simple trigger-action model. Weakness: limited logic, expensive at scale, no AI layer, no managed service. Good for simple zaps, not business systems."
+    ],
+    "win_conditions": [],
+    "loss_conditions": [],
+    "review_themes": {
+      "praise": "",
+      "complaints": ""
+    },
+    "positioning": "",
+    "our_counter_positioning": "",
+    "created": "2026-03-28",
+    "updated": "2026-03-28"
+  },
+  {
+    "name": "Lindy AI",
+    "url": "https://lindy.ai",
+    "pricing_url": "",
+    "category": "indirect",
+    "founded": "",
+    "funding": "",
+    "target_market": "AI-curious professionals wanting AI assistants",
+    "pricing": {
+      "starter": "$49/mo",
+      "pro": "$99/mo"
+    },
+    "strengths": [],
+    "weaknesses": [],
+    "features": [],
+    "notes": [
+      "AI agent builder. Pre-built AI assistants. Weakness: consumer-focused, no business operations depth, no local service business expertise. Different market but overlapping positioning."
+    ],
+    "win_conditions": [],
+    "loss_conditions": [],
+    "review_themes": {
+      "praise": "",
+      "complaints": ""
+    },
+    "positioning": "",
+    "our_counter_positioning": "",
+    "created": "2026-03-28",
+    "updated": "2026-03-28"
+  },
+  {
+    "name": "SingleKey",
+    "url": "https://singlekey.com",
+    "pricing_url": "",
+    "category": "indirect",
+    "founded": "",
+    "funding": "",
+    "target_market": "Canadian landlords (147K+) needing tenant screening and rent collection",
+    "pricing": {
+      "screening": "$29.99+/report",
+      "rent_guarantee": "5% monthly rent",
+      "rent_collection": "Free"
+    },
+    "strengths": [],
+    "weaknesses": [],
+    "features": [],
+    "notes": [
+      "PropFlow competitor (real estate vertical). SOC 2 certified. Strong screening data (Certn). Weakness: no CRM, no workflow automation, Ontario-centric. PropFlow edge: full CRM + automation + tenant portal."
+    ],
+    "win_conditions": [],
+    "loss_conditions": [],
+    "review_themes": {
+      "praise": "",
+      "complaints": ""
+    },
+    "positioning": "",
+    "our_counter_positioning": "",
+    "created": "2026-03-28",
+    "updated": "2026-03-28"
+  }
+]

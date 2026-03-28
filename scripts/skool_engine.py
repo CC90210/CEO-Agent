@@ -51,10 +51,11 @@ HEARTBEAT_PATH = TMP_DIR / "skool_daemon.heartbeat"
 COMMUNITY_URL = "https://www.skool.com/agency-accelerants-6209"
 
 # OUTREACH KILL SWITCH — Disables proactive DM outreach (welcome, nurture, engage).
-# Post replies and DM responses remain active.
+# Post replies and DM responses remain active (unless DM_RESPONSE_DISABLED is True).
 # Enabled 2026-03-25: CC confirmed outreach reached all free members.
 SKOOL_DISABLED = False          # Global kill switch — False = engine runs
 OUTREACH_DISABLED = True        # True = no proactive DMs, only respond to posts + incoming DMs
+DM_RESPONSE_DISABLED = True     # True = don't auto-reply to incoming DMs. CC handles DMs personally. (2026-03-28)
 COMMUNITY_FEED_URL = COMMUNITY_URL
 MEMBERS_URL = f"{COMMUNITY_URL}/-/members"
 
@@ -1176,6 +1177,12 @@ def cmd_scan_dms(args, page=None, ctx=None, just_dmed=None):
                    These are skipped to prevent double-messaging.
     """
     from playwright.sync_api import sync_playwright
+
+    # DM response kill switch — CC handles DMs personally (2026-03-28)
+    if DM_RESPONSE_DISABLED:
+        msg = "DM auto-reply is DISABLED (DM_RESPONSE_DISABLED=True since 2026-03-28). CC handles DMs personally."
+        log.info(msg)
+        return {"checked": 0, "replied": 0, "skipped": 0, "errors": [], "message": msg}
 
     just_dmed = just_dmed or set()
     member_state = _load_json(MEMBER_STATE_PATH)
