@@ -4,8 +4,8 @@ tags: [capabilities, tools]
 
 # CAPABILITIES — Tool & Integration Registry
 
-> Complete inventory of what Bravo can do. Last updated: 2026-03-28.
-> **Totals: 177 skills · 30 workflows · 34 scripts · 15 agents · 4 MCP servers**
+> Complete inventory of what Bravo can do. Last updated: 2026-03-31.
+> **Totals: 178 skills · 30 workflows · 37 scripts · 15 agents · 4 MCP servers**
 
 ## MCP Servers (By Interface)
 
@@ -74,25 +74,7 @@ Full routing table with local paths, GitHub URLs, tech stacks: `brain/APP_REGIST
 
 ## Sub-Agents (16)
 
-See `brain/AGENTS.md` for the complete registry with orchestration decision matrix.
-
-| Agent | Model | Specialty |
-|-------|-------|-----------|
-| architect | Opus | System design, DB schema, multi-service planning |
-| content-creator | Sonnet | Copywriting, social content, CC's 5 pillars |
-| debugger | Sonnet | Bug investigation, root cause analysis |
-| documenter | Haiku | Documentation, memory updates |
-| chief-of-staff | Sonnet | Communication, mission control, outreach |
-| explorer | Haiku | Codebase navigation, file search (read-only) |
-| git-ops | Haiku | Git operations, PR management |
-| researcher | Sonnet | Market research via Playwright |
-| reviewer | Sonnet | Code quality & security audit |
-| revenue-hunter | Sonnet | Sales strategy, lead nurturing |
-| social-publisher | Haiku | Zernio API posting, platform char limits |
-| video-editor | Sonnet | FFmpeg, Remotion, captions |
-| workflow-builder | Sonnet | n8n automation creation |
-| writer | Sonnet | Code writing, feature implementation |
-| meta-agent | Sonnet | Generate new subagent definitions from descriptions [PROBATIONARY] |
+See `brain/AGENTS.md` for the complete registry with orchestration decision matrix, permission levels, and scope restrictions.
 
 ## CLI-Anything (Universal CLI Generation)
 
@@ -143,6 +125,19 @@ Transform any website into structured CLI commands via browser automation. Compl
 | **Cron** | `scripts/cron_engine.py` | Automated job scheduling, 12 seeded business workflows | `list`, `add`, `toggle`, `run`, `due`, `seed` |
 
 All engines: `--json` flag for agent consumption, credentials from `.env.agents`, Supabase backend.
+
+## System Maintenance Tools (3 CLI tools — added 2026-03-31, inspired by Claude Code internals)
+
+Patterns extracted from Claude Code's internal harness architecture (1,902 TS files, 35 subsystems). These implement the same context management, cost tracking, and memory aging patterns that Claude Code uses internally.
+
+| Tool | Script | Purpose | Key Commands |
+|------|--------|---------|-------------|
+| **Context Manager** | `scripts/context_manager.py` | Tiered loading, transcript compaction, deferred init health | `tier "<query>"`, `compact [--dry-run]`, `status`, `health` |
+| **Cost Tracker** | `scripts/cost_tracker.py` | Per-operation cost tracking (label:units), budget alerts | `log --label X --units N`, `summary [--period today]`, `budget --check`, `session` |
+| **Memory Aging** | `scripts/memory_aging.py` | Confidence decay, stale fact detection, memory health grading | `scan`, `stale [--days 30]`, `health`, `archive [--dry-run]` |
+
+**Config:** `.agents/config.toml` sections `[context]`, `[cost_tracking]`, `[memory_aging]`
+**Skill:** `skills/context-optimization/SKILL.md` — full reference for all 5 patterns
 
 ## CEO Operating System (5 CLI tools — added 2026-03-28)
 
@@ -279,7 +274,7 @@ The following were added to the Business Operations Engines table above (already
 
 | Category | Skills |
 |----------|--------|
-| **Agent Intelligence** | heartbeat, self-healing, memory-management, growth-engine, sop-breakdown, sequential-reasoning, mcp-operations, task-routing, anti-drift, agent-permissions, hooks-automation, background-workers |
+| **Agent Intelligence** | heartbeat, self-healing, memory-management, growth-engine, sop-breakdown, sequential-reasoning, mcp-operations, task-routing, anti-drift, agent-permissions, hooks-automation, background-workers, context-optimization |
 | **Methodology** | sparc-methodology |
 | **Development** | systematic-debugging, test-driven-development, verification-before-completion, executing-plans, writing-plans, finishing-a-development-branch, using-git-worktrees, code-review, receiving-code-review, requesting-code-review, ship, subagent-driven-development, dispatching-parallel-agents |
 | **Browser & Testing** | browser-automation, e2e-testing, webapp-testing |

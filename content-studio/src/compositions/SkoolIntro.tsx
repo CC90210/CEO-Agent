@@ -13,30 +13,97 @@ loadFont("normal", { weights: ["300", "400", "500", "700"], subsets: ["latin"] }
 
 const FONT = spaceGroteskFamily;
 
+// Agency Accelerants brand palette — black-first, clean, bold
 const C = {
-  cyan: "#00D4AA",
-  magenta: "#FF006E",
   white: "#FFFFFF",
-  bgPurple: "#1a0533",
-  bgTeal: "#0a2e3d",
-  bgMidnight: "#0d1b3e",
-  electric: "#00BFFF",
-  gold: "#FFD700",
+  offWhite: "#E8E8E8",
+  black: "#000000",
+  bgDark: "#0A0A0A",
+  bgCard: "#111111",
+  patternA: "#1A1A1A",
+  accent: "#CCCCCC",
+  highlight: "#FFFFFF",
+  subtleGlow: "#444444",
+  dimText: "#888888",
 };
 
 // ---------------------------------------------------------------------------
-// Scene 1 helpers
+// Repeating "A" pattern background — matches Agency Accelerants brand
 // ---------------------------------------------------------------------------
-
-const AnimatedBackground: React.FC = () => {
+const RepeatingABackground: React.FC = () => {
   const frame = useCurrentFrame();
 
-  // Rotate gradient angle over full video duration
-  const angle = interpolate(frame, [0, 600], [135, 270], {
+  const fadeIn = interpolate(frame, [0, 20], [0, 1], {
     extrapolateRight: "clamp",
   });
 
-  const opacity = interpolate(frame, [0, 20], [0, 1], {
+  // Subtle drift animation — pattern moves slowly
+  const driftX = interpolate(frame, [0, 600], [0, -40], {
+    extrapolateRight: "clamp",
+  });
+  const driftY = interpolate(frame, [0, 600], [0, -20], {
+    extrapolateRight: "clamp",
+  });
+
+  // Grid of bold italic "A" characters
+  const cols = 22;
+  const rows = 14;
+  const cellW = 110;
+  const cellH = 100;
+
+  const letters: React.ReactNode[] = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const x = c * cellW - 60;
+      const y = r * cellH - 40;
+      // Stagger odd rows for visual rhythm
+      const offsetX = r % 2 === 1 ? cellW * 0.5 : 0;
+
+      letters.push(
+        <div
+          key={`${r}-${c}`}
+          style={{
+            position: "absolute",
+            left: x + offsetX,
+            top: y,
+            fontFamily: FONT,
+            fontSize: 72,
+            fontWeight: 700,
+            fontStyle: "italic",
+            color: C.patternA,
+            lineHeight: 1,
+            userSelect: "none",
+          }}
+        >
+          A
+        </div>,
+      );
+    }
+  }
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        inset: -100,
+        opacity: fadeIn,
+        transform: `translate(${driftX}px, ${driftY}px)`,
+        overflow: "hidden",
+      }}
+    >
+      {letters}
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Subtle vignette — darkens edges for focus
+// ---------------------------------------------------------------------------
+const Vignette: React.FC<{ startFrame: number }> = ({ startFrame }) => {
+  const frame = useCurrentFrame();
+
+  const opacity = interpolate(frame, [startFrame, startFrame + 20], [0, 1], {
+    extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
@@ -46,410 +113,44 @@ const AnimatedBackground: React.FC = () => {
         position: "absolute",
         inset: 0,
         opacity,
-        background: `linear-gradient(${angle}deg, ${C.bgPurple} 0%, ${C.bgMidnight} 50%, ${C.bgTeal} 100%)`,
+        background:
+          "radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.7) 100%)",
+        pointerEvents: "none",
       }}
     />
   );
 };
 
-// Five orbs repositioned for 1920x1080 landscape canvas
-const GlowOrbs: React.FC = () => {
+// ---------------------------------------------------------------------------
+// Clean transition wipe — horizontal sweep
+// ---------------------------------------------------------------------------
+const TransitionWipe: React.FC<{ peakFrame: number }> = ({ peakFrame }) => {
   const frame = useCurrentFrame();
 
-  const fadeIn = interpolate(frame, [0, 30], [0, 1], {
-    extrapolateRight: "clamp",
-  });
-
-  const p1 = Math.sin((frame / 30) * Math.PI * 0.7);
-  const p2 = Math.sin((frame / 30) * Math.PI * 0.55 + 1.4);
-  const p3 = Math.sin((frame / 30) * Math.PI * 0.45 + 2.8);
-  const p4 = Math.sin((frame / 30) * Math.PI * 0.62 + 0.6);
-  const p5 = Math.sin((frame / 30) * Math.PI * 0.38 + 3.5);
-
-  const scale1 = interpolate(p1, [-1, 1], [0.88, 1.12]);
-  const scale2 = interpolate(p2, [-1, 1], [0.85, 1.15]);
-  const scale3 = interpolate(p3, [-1, 1], [0.9, 1.1]);
-  const scale4 = interpolate(p4, [-1, 1], [0.87, 1.13]);
-  const scale5 = interpolate(p5, [-1, 1], [0.92, 1.08]);
-
-  return (
-    <div style={{ position: "absolute", inset: 0, opacity: fadeIn }}>
-      {/* Top-right cyan */}
-      <div
-        style={{
-          position: "absolute",
-          top: 60,
-          right: -150,
-          width: 500,
-          height: 500,
-          borderRadius: "50%",
-          background: `radial-gradient(circle, ${C.cyan}55 0%, transparent 70%)`,
-          filter: "blur(70px)",
-          transform: `scale(${scale1})`,
-        }}
-      />
-      {/* Bottom-left magenta */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: 80,
-          left: -160,
-          width: 480,
-          height: 480,
-          borderRadius: "50%",
-          background: `radial-gradient(circle, ${C.magenta}44 0%, transparent 70%)`,
-          filter: "blur(80px)",
-          transform: `scale(${scale2})`,
-        }}
-      />
-      {/* Center electric blue */}
-      <div
-        style={{
-          position: "absolute",
-          top: "42%",
-          left: "50%",
-          width: 600,
-          height: 600,
-          marginLeft: -300,
-          marginTop: -300,
-          borderRadius: "50%",
-          background: `radial-gradient(circle, ${C.electric}28 0%, transparent 65%)`,
-          filter: "blur(90px)",
-          transform: `scale(${scale3})`,
-        }}
-      />
-      {/* Lower-right cyan accent */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: -80,
-          right: -80,
-          width: 420,
-          height: 420,
-          borderRadius: "50%",
-          background: `radial-gradient(circle, ${C.cyan}33 0%, transparent 70%)`,
-          filter: "blur(60px)",
-          transform: `scale(${scale4})`,
-        }}
-      />
-      {/* Mid-left magenta accent — repositioned from portrait top:600 */}
-      <div
-        style={{
-          position: "absolute",
-          top: 200,
-          left: -80,
-          width: 340,
-          height: 340,
-          borderRadius: "50%",
-          background: `radial-gradient(circle, ${C.magenta}30 0%, transparent 70%)`,
-          filter: "blur(55px)",
-          transform: `scale(${scale5})`,
-        }}
-      />
-    </div>
+  const opacity = interpolate(
+    frame,
+    [peakFrame - 6, peakFrame, peakFrame + 10],
+    [0, 0.2, 0],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
   );
-};
-
-// 10 geometric particles drifting upward — x positions spread across 1920px
-const FloatingParticles: React.FC = () => {
-  const frame = useCurrentFrame();
-
-  const particles: {
-    x: number;
-    startY: number;
-    size: number;
-    speed: number;
-    color: string;
-    shape: "circle" | "diamond" | "hex";
-    phaseOffset: number;
-    wobbleAmp: number;
-    opacity: number;
-  }[] = [
-    { x: 120,  startY: 1060, size: 10, speed: 2.4, color: C.cyan,    shape: "circle",  phaseOffset: 0,   wobbleAmp: 24, opacity: 0.5 },
-    { x: 320,  startY: 1080, size: 14, speed: 1.8, color: C.magenta, shape: "diamond", phaseOffset: 1.2, wobbleAmp: 18, opacity: 0.45 },
-    { x: 560,  startY: 1100, size: 8,  speed: 2.1, color: C.electric,shape: "circle",  phaseOffset: 2.4, wobbleAmp: 30, opacity: 0.5 },
-    { x: 800,  startY: 1040, size: 12, speed: 1.6, color: C.cyan,    shape: "hex",     phaseOffset: 0.6, wobbleAmp: 16, opacity: 0.4 },
-    { x: 1040, startY: 1070, size: 16, speed: 2.7, color: C.gold,    shape: "diamond", phaseOffset: 3.0, wobbleAmp: 22, opacity: 0.38 },
-    { x: 1260, startY: 1020, size: 9,  speed: 1.9, color: C.magenta, shape: "circle",  phaseOffset: 1.8, wobbleAmp: 28, opacity: 0.48 },
-    { x: 1460, startY: 1090, size: 11, speed: 2.2, color: C.electric,shape: "hex",     phaseOffset: 4.2, wobbleAmp: 20, opacity: 0.42 },
-    { x: 220,  startY: 1000, size: 7,  speed: 3.0, color: C.gold,    shape: "circle",  phaseOffset: 2.0, wobbleAmp: 14, opacity: 0.35 },
-    { x: 680,  startY: 1050, size: 13, speed: 1.5, color: C.cyan,    shape: "diamond", phaseOffset: 0.3, wobbleAmp: 26, opacity: 0.44 },
-    { x: 1640, startY: 980,  size: 6,  speed: 2.6, color: C.magenta, shape: "circle",  phaseOffset: 3.7, wobbleAmp: 12, opacity: 0.4 },
-    { x: 1800, startY: 1060, size: 10, speed: 2.0, color: C.cyan,    shape: "hex",     phaseOffset: 1.5, wobbleAmp: 18, opacity: 0.38 },
-  ];
-
-  return (
-    <AbsoluteFill style={{ pointerEvents: "none" }}>
-      {particles.map((p, i) => {
-        // Travel distance covers 1080 height + 200 buffer
-        const totalTravel = 1080 + 200;
-        const yOffset = ((frame * p.speed) % totalTravel);
-        const xWobble = Math.sin(frame * 0.04 + p.phaseOffset) * p.wobbleAmp;
-        const currentY = p.startY - yOffset;
-        const alphaWobble = p.opacity + Math.sin(frame * 0.07 + p.phaseOffset) * 0.15;
-
-        const borderRadius =
-          p.shape === "circle" ? "50%" : p.shape === "hex" ? "18%" : "2px";
-        const rotate = p.shape === "diamond" ? 45 : p.shape === "hex" ? (frame * 0.3 + i * 30) % 360 : 0;
-
-        return (
-          <div
-            key={i}
-            style={{
-              position: "absolute",
-              left: p.x + xWobble,
-              top: currentY,
-              width: p.size,
-              height: p.size,
-              borderRadius,
-              background: p.color,
-              opacity: Math.max(0, Math.min(1, alphaWobble)),
-              transform: `rotate(${rotate}deg)`,
-              boxShadow: `0 0 ${p.size * 1.5}px ${p.color}88`,
-            }}
-          />
-        );
-      })}
-    </AbsoluteFill>
-  );
-};
-
-// Holographic hexagon — SVG recentered for 1920x1080
-const HolographicHexagon: React.FC<{ startFrame: number; endFrame: number }> = ({
-  startFrame,
-  endFrame,
-}) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-
-  const entryProgress = spring({
-    frame: frame - startFrame,
-    fps,
-    config: { damping: 20, stiffness: 60, mass: 1.2 },
-  });
-
-  const fadeOut = interpolate(frame, [endFrame - 20, endFrame], [1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  const opacity = interpolate(entryProgress, [0, 1], [0, 1]) * fadeOut;
-  const scale = interpolate(entryProgress, [0, 1], [0.5, 1]);
-  const rotation = frame * 0.3;
-
-  // Pulsing glow intensity on the hex strokes
-  const glowStrength = interpolate(
-    Math.sin((frame / 30) * Math.PI * 0.8),
-    [-1, 1],
-    [2, 5]
-  );
-
-  // Hexagon centered in 1920x1080 canvas
-  const r = 200;
-  const cx = 960;
-  const cy = 540;
-  const points = Array.from({ length: 6 }, (_, i) => {
-    const angle = (Math.PI / 3) * i - Math.PI / 2;
-    return `${cx + r * Math.cos(angle)},${cy + r * Math.sin(angle)}`;
-  }).join(" ");
-
-  // Inner hexagon at 60% scale
-  const r2 = 120;
-  const points2 = Array.from({ length: 6 }, (_, i) => {
-    const angle = (Math.PI / 3) * i - Math.PI / 2 + Math.PI / 6;
-    return `${cx + r2 * Math.cos(angle)},${cy + r2 * Math.sin(angle)}`;
-  }).join(" ");
 
   return (
     <div
       style={{
         position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
+        inset: 0,
+        background: C.white,
         opacity,
-        transform: `scale(${scale}) rotate(${rotation}deg)`,
-      }}
-    >
-      <svg width="1920" height="1080" viewBox="0 0 1920 1080">
-        <defs>
-          <filter id="hexGlow">
-            <feGaussianBlur stdDeviation={glowStrength} result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-        {/* Outer hexagon */}
-        <polygon
-          points={points}
-          fill="none"
-          stroke={C.cyan}
-          strokeWidth="1.5"
-          strokeOpacity="0.7"
-          filter="url(#hexGlow)"
-        />
-        {/* Inner hexagon, counter-rotating visual */}
-        <polygon
-          points={points2}
-          fill="none"
-          stroke={C.electric}
-          strokeWidth="1"
-          strokeOpacity="0.5"
-          filter="url(#hexGlow)"
-        />
-        {/* Spoke lines from center to outer vertices */}
-        {Array.from({ length: 6 }, (_, i) => {
-          const angle = (Math.PI / 3) * i - Math.PI / 2;
-          return (
-            <line
-              key={i}
-              x1={cx}
-              y1={cy}
-              x2={cx + r * Math.cos(angle)}
-              y2={cy + r * Math.sin(angle)}
-              stroke={C.cyan}
-              strokeWidth="0.6"
-              strokeOpacity="0.3"
-            />
-          );
-        })}
-        {/* Center crosshair dot */}
-        <circle cx={cx} cy={cy} r={4} fill={C.cyan} opacity={0.6} filter="url(#hexGlow)" />
-      </svg>
-    </div>
-  );
-};
-
-// ---------------------------------------------------------------------------
-// DataStream — columns spread across 1920px width
-// ---------------------------------------------------------------------------
-const DataStream: React.FC = () => {
-  const frame = useCurrentFrame();
-
-  const columns = [
-    { x: 60,   speed: 1.4, chars: 14, phaseOffset: 0 },
-    { x: 240,  speed: 1.1, chars: 10, phaseOffset: 3.2 },
-    { x: 480,  speed: 1.7, chars: 16, phaseOffset: 1.1 },
-    { x: 720,  speed: 1.3, chars: 12, phaseOffset: 2.5 },
-    { x: 960,  speed: 1.5, chars: 10, phaseOffset: 0.7 },
-    { x: 1200, speed: 1.2, chars: 14, phaseOffset: 4.1 },
-    { x: 1440, speed: 1.6, chars: 12, phaseOffset: 1.8 },
-    { x: 1680, speed: 1.0, chars: 10, phaseOffset: 3.8 },
-    { x: 160,  speed: 1.8, chars: 11, phaseOffset: 2.1 },
-    { x: 840,  speed: 1.3, chars: 13, phaseOffset: 0.9 },
-  ];
-
-  const CHARS = "01アイウエオABCDEF<>{}[]";
-  const globalOpacity = interpolate(frame, [0, 40], [0, 0.22], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  return (
-    <AbsoluteFill style={{ pointerEvents: "none", opacity: globalOpacity }}>
-      {columns.map((col, ci) => {
-        return Array.from({ length: col.chars }, (_, ri) => {
-          // Travel height based on 1080 landscape height
-          const totalHeight = 1080 + col.chars * 36;
-          const yBase = ((frame * col.speed * 1.5 + ri * 36 + col.phaseOffset * 120) % totalHeight) - 60;
-          const charIndex = Math.floor((frame * 0.3 + ri * 7 + ci * 13) % CHARS.length);
-          const headOpacity = ri === 0 ? 1 : interpolate(ri, [0, col.chars], [0.9, 0.05]);
-          const color = ri === 0 ? C.white : ri < 3 ? C.cyan : C.electric;
-
-          return (
-            <div
-              key={`${ci}-${ri}`}
-              style={{
-                position: "absolute",
-                left: col.x,
-                top: yBase,
-                fontFamily: "monospace",
-                fontSize: 14,
-                color,
-                opacity: headOpacity,
-                lineHeight: 1,
-                textShadow: ri < 2 ? `0 0 8px ${C.cyan}` : "none",
-                userSelect: "none",
-              }}
-            >
-              {CHARS[charIndex]}
-            </div>
-          );
-        });
-      })}
-    </AbsoluteFill>
-  );
-};
-
-// ---------------------------------------------------------------------------
-// EnergyWave — expanding concentric rings from center
-// ---------------------------------------------------------------------------
-const EnergyWave: React.FC<{ triggerFrame: number }> = ({ triggerFrame }) => {
-  const frame = useCurrentFrame();
-  const WAVE_INTERVAL = 60;
-  const NUM_WAVES = 4;
-
-  return (
-    <div
-      style={{
-        position: "absolute",
-        top: "50%",
-        left: "50%",
-        width: 0,
-        height: 0,
         pointerEvents: "none",
       }}
-    >
-      {Array.from({ length: NUM_WAVES }, (_, i) => {
-        const waveFrame = frame - triggerFrame - i * WAVE_INTERVAL;
-        if (waveFrame < 0) return null;
-
-        // Max radius covers 1920x1080 diagonal
-        const radius = interpolate(waveFrame, [0, 120], [0, 1100], {
-          extrapolateLeft: "clamp",
-          extrapolateRight: "clamp",
-        });
-        const waveOpacity = interpolate(waveFrame, [0, 20, 120], [0, 0.4, 0], {
-          extrapolateLeft: "clamp",
-          extrapolateRight: "clamp",
-        });
-        const color = i % 2 === 0 ? C.cyan : C.magenta;
-        const thickness = interpolate(waveFrame, [0, 120], [3, 0.5], {
-          extrapolateLeft: "clamp",
-          extrapolateRight: "clamp",
-        });
-
-        return (
-          <div
-            key={i}
-            style={{
-              position: "absolute",
-              top: -radius,
-              left: -radius,
-              width: radius * 2,
-              height: radius * 2,
-              borderRadius: "50%",
-              border: `${thickness}px solid ${color}`,
-              opacity: waveOpacity,
-              boxShadow: `0 0 16px ${color}44, inset 0 0 16px ${color}22`,
-            }}
-          />
-        );
-      })}
-    </div>
+    />
   );
 };
 
 // ---------------------------------------------------------------------------
-// HolographicGrid — perspective grid adapted for 1920x1080
+// Minimal scan line — subtle horizontal sweep
 // ---------------------------------------------------------------------------
-const HolographicGrid: React.FC<{ startFrame: number; endFrame: number }> = ({
+const ScanLine: React.FC<{ startFrame: number; endFrame: number }> = ({
   startFrame,
   endFrame,
 }) => {
@@ -457,75 +158,36 @@ const HolographicGrid: React.FC<{ startFrame: number; endFrame: number }> = ({
 
   const opacity = interpolate(
     frame,
-    [startFrame, startFrame + 30, endFrame - 20, endFrame],
-    [0, 0.35, 0.35, 0],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+    [startFrame, startFrame + 8, endFrame - 8, endFrame],
+    [0, 0.25, 0.25, 0],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
   );
 
-  const scroll = (frame * 2) % 100;
-
-  // Horizon at ~37% of 1080 height, vanishing point centered at 1920/2
-  const HORIZON_Y = 400;
-  const VP_X = 960;
-  const GRID_COLOR = C.electric;
-  const NUM_V_LINES = 13;
-  const NUM_H_LINES = 8;
-
-  const vLines = Array.from({ length: NUM_V_LINES }, (_, i) => {
-    const t = i / (NUM_V_LINES - 1);
-    const bottomX = t * 1920;
-    return { x1: VP_X, y1: HORIZON_Y, x2: bottomX, y2: 1080 };
+  const progress = interpolate(frame, [startFrame, endFrame], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
   });
 
-  const hLines = Array.from({ length: NUM_H_LINES }, (_, i) => {
-    const t = ((i / NUM_H_LINES) + scroll / 100) % 1;
-    const perspT = Math.pow(t, 2);
-    const y = HORIZON_Y + perspT * (1080 - HORIZON_Y);
-    const spreadX = perspT * VP_X;
-    return { x1: VP_X - spreadX, y1: y, x2: VP_X + spreadX, y2: y, alpha: t };
-  });
+  const top = progress * 1080;
 
   return (
-    <div style={{ position: "absolute", inset: 0, opacity }}>
-      <svg width="1920" height="1080" viewBox="0 0 1920 1080" style={{ display: "block" }}>
-        <defs>
-          <linearGradient id="gridFade" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={GRID_COLOR} stopOpacity="0" />
-            <stop offset="60%" stopColor={GRID_COLOR} stopOpacity="0.5" />
-            <stop offset="100%" stopColor={GRID_COLOR} stopOpacity="0.8" />
-          </linearGradient>
-        </defs>
-        {vLines.map((l, i) => (
-          <line
-            key={`v${i}`}
-            x1={l.x1}
-            y1={l.y1}
-            x2={l.x2}
-            y2={l.y2}
-            stroke="url(#gridFade)"
-            strokeWidth="0.6"
-            strokeOpacity="0.6"
-          />
-        ))}
-        {hLines.map((l, i) => (
-          <line
-            key={`h${i}`}
-            x1={l.x1}
-            y1={l.y1}
-            x2={l.x2}
-            y2={l.y2}
-            stroke={GRID_COLOR}
-            strokeWidth="0.5"
-            strokeOpacity={l.alpha * 0.7}
-          />
-        ))}
-      </svg>
-    </div>
+    <div
+      style={{
+        position: "absolute",
+        top,
+        left: 0,
+        right: 0,
+        height: 1,
+        background: `linear-gradient(90deg, transparent, ${C.accent}cc, transparent)`,
+        opacity,
+        pointerEvents: "none",
+      }}
+    />
   );
 };
 
 // ---------------------------------------------------------------------------
-// Scene 1: Opening — Agency Accelerants hero text
+// Scene 1: Opening — Agency Accelerants hero
 // ---------------------------------------------------------------------------
 const Scene1: React.FC = () => {
   const frame = useCurrentFrame();
@@ -542,13 +204,6 @@ const Scene1: React.FC = () => {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-
-  // Title glow pulse
-  const titleGlow = interpolate(
-    Math.sin((frame / 30) * Math.PI * 1.1),
-    [-1, 1],
-    [12, 30]
-  );
 
   // Subtitle fades in from frame 48
   const subtitleSpring = spring({
@@ -568,7 +223,7 @@ const Scene1: React.FC = () => {
     extrapolateRight: "clamp",
   });
 
-  // Scene 1 exit: fade out from frame 96
+  // Scene exit
   const sceneOpacity = interpolate(frame, [96, 120], [1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
@@ -586,7 +241,7 @@ const Scene1: React.FC = () => {
         paddingBottom: 60,
       }}
     >
-      {/* "AGENCY ACCELERANTS" */}
+      {/* "AGENCY ACCELERANTS" — bold, white, italic to match brand */}
       <div
         style={{
           opacity: titleOpacity,
@@ -598,13 +253,14 @@ const Scene1: React.FC = () => {
         <div
           style={{
             fontFamily: FONT,
-            fontSize: 88,
+            fontSize: 92,
             fontWeight: 700,
-            letterSpacing: 8,
+            fontStyle: "italic",
+            letterSpacing: 6,
             textTransform: "uppercase",
             color: C.white,
             lineHeight: 1.05,
-            textShadow: `0 0 ${titleGlow}px ${C.cyan}cc, 0 0 ${titleGlow * 2}px ${C.cyan}55, 0 4px 32px rgba(0,0,0,0.6)`,
+            textShadow: "0 4px 40px rgba(0,0,0,0.8)",
           }}
         >
           AGENCY
@@ -612,37 +268,34 @@ const Scene1: React.FC = () => {
         <div
           style={{
             fontFamily: FONT,
-            fontSize: 88,
+            fontSize: 92,
             fontWeight: 700,
-            letterSpacing: 8,
+            fontStyle: "italic",
+            letterSpacing: 6,
             textTransform: "uppercase",
-            background: `linear-gradient(90deg, ${C.cyan}, ${C.electric}, ${C.magenta})`,
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
+            color: C.white,
             lineHeight: 1.05,
-            textShadow: "none",
+            textShadow: "0 4px 40px rgba(0,0,0,0.8)",
           }}
         >
           ACCELERANTS
         </div>
       </div>
 
-      {/* Separator */}
+      {/* Separator — clean white line */}
       <div
         style={{
-          marginTop: 16,
-          width: `${lineScale * 900}px`,
-          height: 1,
-          background: `linear-gradient(90deg, transparent, ${C.cyan}cc, ${C.electric}cc, transparent)`,
-          boxShadow: `0 0 12px ${C.cyan}88`,
+          marginTop: 20,
+          width: `${lineScale * 600}px`,
+          height: 2,
+          background: `linear-gradient(90deg, transparent, ${C.white}cc, transparent)`,
         }}
       />
 
       {/* "by Bennet Spooner" */}
       <div
         style={{
-          marginTop: 16,
+          marginTop: 18,
           opacity: subtitleOpacity,
           transform: `translateY(${subtitleY}px)`,
         }}
@@ -650,58 +303,18 @@ const Scene1: React.FC = () => {
         <div
           style={{
             fontFamily: FONT,
-            fontSize: 28,
+            fontSize: 24,
             fontWeight: 400,
-            letterSpacing: 5,
-            color: C.cyan,
+            letterSpacing: 6,
+            color: C.dimText,
             textTransform: "uppercase",
             textAlign: "center",
-            textShadow: `0 0 14px ${C.cyan}99`,
           }}
         >
           by Bennet Spooner
         </div>
       </div>
     </AbsoluteFill>
-  );
-};
-
-// ---------------------------------------------------------------------------
-// Scan line sweeping down the screen — travels 1080px height
-// ---------------------------------------------------------------------------
-const ScanLine: React.FC<{ startFrame: number; endFrame: number }> = ({
-  startFrame,
-  endFrame,
-}) => {
-  const frame = useCurrentFrame();
-
-  const opacity = interpolate(frame, [startFrame, startFrame + 10, endFrame - 10, endFrame], [0, 0.45, 0.45, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  const progress = interpolate(frame, [startFrame, endFrame], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  // Travel across 1080px landscape height
-  const top = progress * 1080;
-
-  return (
-    <div
-      style={{
-        position: "absolute",
-        top,
-        left: 0,
-        right: 0,
-        height: 2,
-        background: `linear-gradient(90deg, transparent, ${C.electric}cc, ${C.cyan}cc, transparent)`,
-        opacity,
-        boxShadow: `0 0 8px ${C.electric}88`,
-        pointerEvents: "none",
-      }}
-    />
   );
 };
 
@@ -718,7 +331,6 @@ const Scene2: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // Scene 2 active: frames 120-228
   const sceneIn = interpolate(frame, [120, 144], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
@@ -729,13 +341,13 @@ const Scene2: React.FC = () => {
   });
   const sceneOpacity = Math.min(sceneIn, sceneOut);
 
-  // Headline typewriter: frames 132-178
+  // Headline typewriter
   const headline = "Still doing everything manually?";
   const charsShown = Math.floor(
     interpolate(frame, [132, 178], [0, headline.length], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
-    })
+    }),
   );
   const visibleHeadline = headline.slice(0, charsShown);
   const cursorVisible =
@@ -762,7 +374,7 @@ const Scene2: React.FC = () => {
             fontWeight: 700,
             color: C.white,
             lineHeight: 1.15,
-            textShadow: "0 4px 24px rgba(0,0,0,0.6)",
+            textShadow: "0 4px 30px rgba(0,0,0,0.7)",
           }}
         >
           {visibleHeadline}
@@ -772,17 +384,16 @@ const Scene2: React.FC = () => {
                 display: "inline-block",
                 width: 3,
                 height: "0.8em",
-                background: C.magenta,
+                background: C.white,
                 marginLeft: 5,
                 verticalAlign: "middle",
-                boxShadow: `0 0 10px ${C.magenta}`,
               }}
             />
           )}
         </div>
       </div>
 
-      {/* Staggered bullets — horizontal row for landscape */}
+      {/* Staggered bullet cards */}
       <div
         style={{
           display: "flex",
@@ -803,7 +414,7 @@ const Scene2: React.FC = () => {
             frame,
             [bulletStart, bulletStart + 14],
             [0, 1],
-            { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+            { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
           );
 
           return (
@@ -812,32 +423,19 @@ const Scene2: React.FC = () => {
               style={{
                 opacity: bulletOpacity,
                 transform: `translateY(${bulletY}px)`,
-                display: "flex",
-                flexDirection: "column",
-                gap: 10,
                 flex: 1,
-                position: "relative",
               }}
             >
-              {/* Red glow behind each bullet card */}
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  background: `linear-gradient(135deg, ${C.magenta}18, transparent)`,
-                  borderRadius: 12,
-                }}
-              />
               <div
                 style={{
                   borderRadius: 12,
-                  border: `1px solid ${C.magenta}44`,
+                  border: `1px solid ${C.subtleGlow}`,
+                  background: "rgba(20,20,20,0.85)",
                   padding: "20px 24px",
                   display: "flex",
                   alignItems: "center",
                   gap: 14,
-                  position: "relative",
-                  zIndex: 1,
+                  backdropFilter: "blur(8px)",
                 }}
               >
                 <div
@@ -845,7 +443,7 @@ const Scene2: React.FC = () => {
                     fontFamily: FONT,
                     fontSize: 22,
                     fontWeight: 400,
-                    color: C.magenta,
+                    color: C.dimText,
                     flexShrink: 0,
                   }}
                 >
@@ -856,7 +454,7 @@ const Scene2: React.FC = () => {
                     fontFamily: FONT,
                     fontSize: 28,
                     fontWeight: 500,
-                    color: C.white,
+                    color: C.offWhite,
                     lineHeight: 1.25,
                   }}
                 >
@@ -868,105 +466,6 @@ const Scene2: React.FC = () => {
         })}
       </div>
     </AbsoluteFill>
-  );
-};
-
-// ---------------------------------------------------------------------------
-// Flash/pulse effect at scene transition
-// ---------------------------------------------------------------------------
-const TransitionFlash: React.FC<{ peakFrame: number }> = ({ peakFrame }) => {
-  const frame = useCurrentFrame();
-
-  const opacity = interpolate(
-    frame,
-    [peakFrame - 8, peakFrame, peakFrame + 12],
-    [0, 0.35, 0],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-  );
-
-  return (
-    <div
-      style={{
-        position: "absolute",
-        inset: 0,
-        background: C.white,
-        opacity,
-        pointerEvents: "none",
-      }}
-    />
-  );
-};
-
-// ---------------------------------------------------------------------------
-// Circuit board SVG pattern — adapted for 1920x1080
-// ---------------------------------------------------------------------------
-const CircuitPattern: React.FC<{ fadeInStart: number; opacity: number }> = ({
-  fadeInStart,
-  opacity: maxOpacity,
-}) => {
-  const frame = useCurrentFrame();
-
-  const op = interpolate(frame, [fadeInStart, fadeInStart + 30], [0, maxOpacity], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  // Circuit paths scaled for 1920x1080
-  const lines = [
-    { x1: 0,    y1: 200, x2: 300,  y2: 200 },
-    { x1: 300,  y1: 200, x2: 300,  y2: 60  },
-    { x1: 300,  y1: 60,  x2: 800,  y2: 60  },
-    { x1: 800,  y1: 60,  x2: 800,  y2: 320 },
-    { x1: 800,  y1: 320, x2: 1400, y2: 320 },
-    { x1: 1400, y1: 320, x2: 1400, y2: 140 },
-    { x1: 1400, y1: 140, x2: 1920, y2: 140 },
-    { x1: 0,    y1: 500, x2: 550,  y2: 500 },
-    { x1: 550,  y1: 500, x2: 550,  y2: 680 },
-    { x1: 550,  y1: 680, x2: 1100, y2: 680 },
-    { x1: 1100, y1: 680, x2: 1100, y2: 440 },
-    { x1: 1100, y1: 440, x2: 1920, y2: 440 },
-    { x1: 160,  y1: 0,   x2: 160,  y2: 140 },
-    { x1: 1300, y1: 0,   x2: 1300, y2: 120 },
-    { x1: 1300, y1: 120, x2: 1920, y2: 120 },
-    { x1: 0,    y1: 860, x2: 700,  y2: 860 },
-    { x1: 700,  y1: 860, x2: 700,  y2: 1080 },
-    { x1: 960,  y1: 1080, x2: 960, y2: 780 },
-    { x1: 960,  y1: 780, x2: 1920, y2: 780 },
-  ];
-
-  const nodes = [
-    { x: 300,  y: 200 }, { x: 800,  y: 60  }, { x: 800,  y: 320 }, { x: 1400, y: 320 },
-    { x: 550,  y: 500 }, { x: 550,  y: 680 }, { x: 1100, y: 680 }, { x: 1100, y: 440 },
-    { x: 160,  y: 140 }, { x: 1300, y: 120 }, { x: 700,  y: 860 }, { x: 960,  y: 780 },
-  ];
-
-  return (
-    <div style={{ position: "absolute", inset: 0, opacity: op }}>
-      <svg width="1920" height="1080" viewBox="0 0 1920 1080" style={{ display: "block" }}>
-        {lines.map((l, i) => (
-          <line
-            key={i}
-            x1={l.x1}
-            y1={l.y1}
-            x2={l.x2}
-            y2={l.y2}
-            stroke={C.cyan}
-            strokeWidth="0.7"
-            strokeOpacity="0.5"
-          />
-        ))}
-        {nodes.map((n, i) => (
-          <circle
-            key={i}
-            cx={n.x}
-            cy={n.y}
-            r={3}
-            fill={C.cyan}
-            opacity={0.6}
-          />
-        ))}
-      </svg>
-    </div>
   );
 };
 
@@ -983,7 +482,6 @@ const Scene3: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // Scene 3: frames 228-370
   const sceneIn = interpolate(frame, [228, 254], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
@@ -994,7 +492,7 @@ const Scene3: React.FC = () => {
   });
   const sceneOpacity = Math.min(sceneIn, sceneOut);
 
-  // "What if AI did 90% of it?" spring scale-in from frame 232
+  // "What if AI did 90% of it?" spring
   const questionSpring = spring({
     frame: frame - 232,
     fps,
@@ -1033,16 +531,15 @@ const Scene3: React.FC = () => {
             fontWeight: 700,
             color: C.white,
             lineHeight: 1.15,
-            textShadow: `0 0 24px ${C.electric}55, 0 4px 32px rgba(0,0,0,0.7)`,
+            textShadow: "0 4px 40px rgba(0,0,0,0.8)",
           }}
         >
           What if AI did{" "}
           <span
             style={{
-              background: `linear-gradient(90deg, ${C.cyan}, ${C.electric})`,
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
+              fontStyle: "italic",
+              textDecoration: "underline",
+              textUnderlineOffset: 8,
             }}
           >
             90%
@@ -1051,7 +548,7 @@ const Scene3: React.FC = () => {
         </div>
       </div>
 
-      {/* Feature cards — horizontal row for landscape */}
+      {/* Feature cards */}
       <div
         style={{
           display: "flex",
@@ -1072,42 +569,30 @@ const Scene3: React.FC = () => {
             frame,
             [cardStart, cardStart + 16],
             [0, 1],
-            { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+            { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
           );
-
-          // Card glow pulse per card, offset phase
-          const cardGlow = interpolate(
-            Math.sin((frame / 30) * Math.PI * 0.9 + i * 1.5),
-            [-1, 1],
-            [6, 18]
-          );
-
-          // Subtle tilt oscillation
-          const tilt = Math.sin((frame / 30) * Math.PI * 0.5 + i * 0.8) * 0.5;
 
           return (
             <div
               key={i}
               style={{
                 opacity: cardOpacity,
-                transform: `translateY(${cardY}px) rotate(${tilt}deg)`,
+                transform: `translateY(${cardY}px)`,
                 flex: 1,
               }}
             >
-              {/* Card outer glow border */}
               <div
                 style={{
-                  borderRadius: 18,
+                  borderRadius: 16,
                   padding: 1.5,
-                  background: `linear-gradient(135deg, ${C.cyan}66, ${C.electric}44, ${C.magenta}22)`,
-                  boxShadow: `0 0 ${cardGlow}px ${C.cyan}44, 0 4px 20px rgba(0,0,0,0.4)`,
+                  background: `linear-gradient(135deg, ${C.accent}44, ${C.subtleGlow}22)`,
                   height: "100%",
                 }}
               >
                 <div
                   style={{
-                    background: "rgba(13, 27, 62, 0.88)",
-                    borderRadius: 17,
+                    background: "rgba(15,15,15,0.92)",
+                    borderRadius: 15,
                     padding: "28px 28px",
                     display: "flex",
                     alignItems: "center",
@@ -1140,60 +625,10 @@ const Scene3: React.FC = () => {
 // ---------------------------------------------------------------------------
 // Scene 4: Social Proof — animated counter + authority signals
 // ---------------------------------------------------------------------------
-const PulsingRings: React.FC<{ peakFrame: number }> = ({ peakFrame }) => {
-  const frame = useCurrentFrame();
-
-  const rings = [0, 18, 36];
-
-  return (
-    <div
-      style={{
-        position: "absolute",
-        top: "50%",
-        left: "50%",
-        width: 0,
-        height: 0,
-        pointerEvents: "none",
-      }}
-    >
-      {rings.map((delay, i) => {
-        const ringFrame = frame - (peakFrame + delay);
-        const radius = interpolate(ringFrame, [0, 90], [0, 700], {
-          extrapolateLeft: "clamp",
-          extrapolateRight: "clamp",
-        });
-        const ringOpacity = interpolate(ringFrame, [0, 30, 90], [0, 0.5, 0], {
-          extrapolateLeft: "clamp",
-          extrapolateRight: "clamp",
-        });
-        const color = i === 0 ? C.cyan : i === 1 ? C.electric : C.magenta;
-
-        return (
-          <div
-            key={i}
-            style={{
-              position: "absolute",
-              top: -radius,
-              left: -radius,
-              width: radius * 2,
-              height: radius * 2,
-              borderRadius: "50%",
-              border: `1.5px solid ${color}`,
-              opacity: ringOpacity,
-              boxShadow: `0 0 12px ${color}55`,
-            }}
-          />
-        );
-      })}
-    </div>
-  );
-};
-
 const Scene4: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // Scene 4: frames 370-490
   const sceneIn = interpolate(frame, [370, 396], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
@@ -1204,26 +639,21 @@ const Scene4: React.FC = () => {
   });
   const sceneOpacity = Math.min(sceneIn, sceneOut);
 
-  // Animated counter: $0 → $5,000 over frames 385-450
+  // Animated counter: $0 → $5,000
   const counterValue = Math.floor(
     interpolate(frame, [385, 450], [0, 5000], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
-    })
-  );
-  const counterGlow = interpolate(
-    Math.sin((frame / 30) * Math.PI * 1.2),
-    [-1, 1],
-    [10, 28]
+    }),
   );
 
-  // "Monthly Recurring Revenue Target" fades in from frame 400
+  // "Monthly Recurring Revenue Target" fades in
   const labelOpacity = interpolate(frame, [400, 422], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  // Tagline spring from frame 420
+  // Tagline spring
   const taglineSpring = spring({
     frame: frame - 420,
     fps,
@@ -1235,7 +665,6 @@ const Scene4: React.FC = () => {
     extrapolateRight: "clamp",
   });
 
-  // Badges spring in staggered from frame 440
   const BADGES = [
     "Scale to 6 Figures with AI",
     "Done-For-You Automations",
@@ -1253,9 +682,6 @@ const Scene4: React.FC = () => {
         gap: 24,
       }}
     >
-      {/* Pulsing rings centered on MRR number */}
-      <PulsingRings peakFrame={385} />
-
       {/* Animated counter */}
       <div style={{ textAlign: "center" }}>
         <div
@@ -1263,9 +689,9 @@ const Scene4: React.FC = () => {
             fontFamily: FONT,
             fontSize: 120,
             fontWeight: 700,
-            color: C.gold,
+            color: C.white,
             lineHeight: 1,
-            textShadow: `0 0 ${counterGlow}px ${C.gold}cc, 0 0 ${counterGlow * 2}px ${C.gold}55`,
+            textShadow: "0 0 60px rgba(255,255,255,0.3), 0 4px 40px rgba(0,0,0,0.6)",
             letterSpacing: -2,
           }}
         >
@@ -1286,10 +712,9 @@ const Scene4: React.FC = () => {
             fontFamily: FONT,
             fontSize: 24,
             fontWeight: 400,
-            color: C.white,
+            color: C.dimText,
             letterSpacing: 3,
             textTransform: "uppercase",
-            opacity: 0.8,
           }}
         >
           Monthly Recurring Revenue Target
@@ -1310,16 +735,15 @@ const Scene4: React.FC = () => {
             fontFamily: FONT,
             fontSize: 30,
             fontWeight: 600,
-            color: C.cyan,
+            color: C.offWhite,
             lineHeight: 1.3,
-            textShadow: `0 0 14px ${C.cyan}88`,
           }}
         >
           Built by entrepreneurs, for entrepreneurs
         </div>
       </div>
 
-      {/* Achievement badges — horizontal row for landscape */}
+      {/* Achievement badges */}
       <div
         style={{
           display: "flex",
@@ -1342,7 +766,7 @@ const Scene4: React.FC = () => {
             frame,
             [badgeStart, badgeStart + 12],
             [0, 1],
-            { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+            { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
           );
 
           return (
@@ -1357,11 +781,10 @@ const Scene4: React.FC = () => {
             >
               <div
                 style={{
-                  background: "rgba(0,212,170,0.12)",
-                  border: `1px solid ${C.cyan}66`,
+                  background: "rgba(255,255,255,0.06)",
+                  border: `1px solid ${C.subtleGlow}`,
                   borderRadius: 50,
                   padding: "8px 24px",
-                  boxShadow: `0 0 12px ${C.cyan}22`,
                   whiteSpace: "nowrap",
                 }}
               >
@@ -1370,11 +793,11 @@ const Scene4: React.FC = () => {
                     fontFamily: FONT,
                     fontSize: 18,
                     fontWeight: 500,
-                    color: C.cyan,
+                    color: C.offWhite,
                     letterSpacing: 1,
                   }}
                 >
-                  ✦ {badge}
+                  {badge}
                 </div>
               </div>
             </div>
@@ -1386,44 +809,18 @@ const Scene4: React.FC = () => {
 };
 
 // ---------------------------------------------------------------------------
-// Vignette — darkens edges for cinematic depth
-// ---------------------------------------------------------------------------
-const Vignette: React.FC<{ startFrame: number }> = ({ startFrame }) => {
-  const frame = useCurrentFrame();
-
-  const opacity = interpolate(frame, [startFrame, startFrame + 30], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  return (
-    <div
-      style={{
-        position: "absolute",
-        inset: 0,
-        opacity,
-        background:
-          "radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.65) 100%)",
-        pointerEvents: "none",
-      }}
-    />
-  );
-};
-
-// ---------------------------------------------------------------------------
 // Scene 5: CTA Close
 // ---------------------------------------------------------------------------
 const Scene5: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // Scene 5: frames 490-600
   const sceneOpacity = interpolate(frame, [490, 514], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  // "JOIN THE ACCELERANTS" bouncy spring from frame 498
+  // "JOIN THE ACCELERANTS" bouncy spring
   const ctaSpring = spring({
     frame: frame - 498,
     fps,
@@ -1435,39 +832,37 @@ const Scene5: React.FC = () => {
     extrapolateRight: "clamp",
   });
 
-  // Gradient border animation on CTA button
+  // Border shimmer
   const borderAngle = interpolate(frame, [498, 600], [0, 360], {
     extrapolateRight: "clamp",
   });
 
-  // CTA glow pulse
-  const ctaGlow = interpolate(
-    Math.sin((frame / 30) * Math.PI * 1.3),
-    [-1, 1],
-    [12, 35]
-  );
-
-  // "Your AI Empire Starts Here" typewriter from frame 516
+  // "Your AI Empire Starts Here" typewriter
   const tagline = "Your AI Empire Starts Here";
   const taglineChars = Math.floor(
     interpolate(frame, [518, 560], [0, tagline.length], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
-    })
+    }),
   );
   const visibleTagline = tagline.slice(0, taglineChars);
 
-  // Brand watermark fades in from frame 540
+  // Brand watermark
   const brandOpacity = interpolate(frame, [540, 562], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
 
-  // Final pulse: frames 570-600, scale 1→1.02→1
+  // Final pulse
   const finalPulse = interpolate(
-    Math.sin(interpolate(frame, [570, 600], [0, Math.PI], { extrapolateLeft: "clamp", extrapolateRight: "clamp" })),
+    Math.sin(
+      interpolate(frame, [570, 600], [0, Math.PI], {
+        extrapolateLeft: "clamp",
+        extrapolateRight: "clamp",
+      }),
+    ),
     [0, 1],
-    [1, 1.018]
+    [1, 1.018],
   );
 
   return (
@@ -1494,21 +889,20 @@ const Scene5: React.FC = () => {
           justifyContent: "center",
         }}
       >
-        {/* Outer animated gradient ring */}
+        {/* Outer animated border ring */}
         <div
           style={{
-            borderRadius: 24,
+            borderRadius: 20,
             padding: 2,
-            background: `linear-gradient(${borderAngle}deg, ${C.cyan}, ${C.electric}, ${C.magenta}, ${C.cyan})`,
-            boxShadow: `0 0 ${ctaGlow}px ${C.cyan}66, 0 0 ${ctaGlow * 1.5}px ${C.magenta}44`,
+            background: `linear-gradient(${borderAngle}deg, ${C.white}88, ${C.accent}44, ${C.white}88)`,
             width: "100%",
           }}
         >
           <div
             style={{
-              background: "rgba(10, 10, 35, 0.95)",
-              borderRadius: 22,
-              padding: "28px 48px",
+              background: "rgba(10, 10, 10, 0.95)",
+              borderRadius: 18,
+              padding: "32px 48px",
               textAlign: "center",
               backdropFilter: "blur(16px)",
             }}
@@ -1516,15 +910,14 @@ const Scene5: React.FC = () => {
             <div
               style={{
                 fontFamily: FONT,
-                fontSize: 60,
+                fontSize: 64,
                 fontWeight: 700,
-                letterSpacing: 3,
+                fontStyle: "italic",
+                letterSpacing: 4,
                 textTransform: "uppercase",
-                background: `linear-gradient(90deg, ${C.cyan}, ${C.electric}, ${C.white})`,
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
+                color: C.white,
                 lineHeight: 1.05,
+                textShadow: "0 0 40px rgba(255,255,255,0.2)",
               }}
             >
               JOIN THE
@@ -1532,15 +925,14 @@ const Scene5: React.FC = () => {
             <div
               style={{
                 fontFamily: FONT,
-                fontSize: 60,
+                fontSize: 64,
                 fontWeight: 700,
-                letterSpacing: 3,
+                fontStyle: "italic",
+                letterSpacing: 4,
                 textTransform: "uppercase",
-                background: `linear-gradient(90deg, ${C.magenta}, ${C.electric}, ${C.cyan})`,
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
+                color: C.white,
                 lineHeight: 1.05,
+                textShadow: "0 0 40px rgba(255,255,255,0.2)",
               }}
             >
               ACCELERANTS
@@ -1556,7 +948,7 @@ const Scene5: React.FC = () => {
             fontFamily: FONT,
             fontSize: 34,
             fontWeight: 400,
-            color: C.white,
+            color: C.offWhite,
             opacity: 0.85,
             letterSpacing: 1,
             lineHeight: 1.4,
@@ -1570,10 +962,9 @@ const Scene5: React.FC = () => {
                 display: "inline-block",
                 width: 2,
                 height: "0.8em",
-                background: C.electric,
+                background: C.white,
                 marginLeft: 4,
                 verticalAlign: "middle",
-                boxShadow: `0 0 8px ${C.electric}`,
               }}
             />
           )}
@@ -1591,12 +982,11 @@ const Scene5: React.FC = () => {
           right: 0,
         }}
       >
-        {/* Separator line */}
         <div
           style={{
             marginBottom: 14,
             height: 1,
-            background: `linear-gradient(90deg, transparent, ${C.cyan}77, transparent)`,
+            background: `linear-gradient(90deg, transparent, ${C.accent}55, transparent)`,
             width: "40%",
             marginLeft: "auto",
             marginRight: "auto",
@@ -1609,8 +999,7 @@ const Scene5: React.FC = () => {
             fontWeight: 400,
             letterSpacing: 6,
             textTransform: "uppercase",
-            color: C.cyan,
-            textShadow: `0 0 12px ${C.cyan}88`,
+            color: C.dimText,
             opacity: 0.9,
           }}
         >
@@ -1622,41 +1011,21 @@ const Scene5: React.FC = () => {
 };
 
 // ---------------------------------------------------------------------------
-// Root composition — no props, named export
+// Root composition
 // ---------------------------------------------------------------------------
 export const SkoolIntro: React.FC = () => {
   return (
-    <AbsoluteFill style={{ overflow: "hidden", background: C.bgMidnight }}>
-      {/* ── Layer 0: Animated gradient background (entire video) ── */}
-      <AnimatedBackground />
+    <AbsoluteFill style={{ overflow: "hidden", background: C.bgDark }}>
+      {/* ── Layer 0: Black background with repeating "A" pattern ── */}
+      <RepeatingABackground />
 
-      {/* ── Layer 1: Glow orbs (entire video, ambient depth) ── */}
-      <GlowOrbs />
+      {/* ── Layer 1: Vignette for focus ── */}
+      <Vignette startFrame={0} />
 
-      {/* ── Layer 2: Floating particles (entire video, upward drift) ── */}
-      <FloatingParticles />
-
-      {/* ── Layer 2b: DataStream (subtle Matrix-style data rain, entire video) ── */}
-      <DataStream />
-
-      {/* ── Layer 2c: HolographicGrid (Scene 4+5, perspective grid floor) ── */}
-      <HolographicGrid startFrame={370} endFrame={600} />
-
-      {/* ── Layer 2d: EnergyWave pulses at scene transitions ── */}
-      <EnergyWave triggerFrame={120} />
-      <EnergyWave triggerFrame={370} />
-      <EnergyWave triggerFrame={490} />
-
-      {/* ── Layer 3: Circuit pattern (Scene 3 fade-in) ── */}
-      <CircuitPattern fadeInStart={228} opacity={0.18} />
-
-      {/* ── Layer 4: Holographic hexagon (Scene 1, frames 8-120) ── */}
-      <HolographicHexagon startFrame={8} endFrame={120} />
-
-      {/* ── Layer 5: Scan line sweep (Scene 2, frames 120-225) ── */}
+      {/* ── Layer 2: Subtle scan line (Scene 2) ── */}
       <ScanLine startFrame={120} endFrame={225} />
 
-      {/* ── Layer 6: Scene content ── */}
+      {/* ── Layer 3: Scene content ── */}
 
       {/* Scene 1: Opening Hook — frames 0-120 */}
       <Scene1 />
@@ -1673,14 +1042,11 @@ export const SkoolIntro: React.FC = () => {
       {/* Scene 5: CTA Close — frames 490-600 */}
       <Scene5 />
 
-      {/* ── Layer 7: Transition flashes ── */}
-      <TransitionFlash peakFrame={120} />
-      <TransitionFlash peakFrame={228} />
-      <TransitionFlash peakFrame={370} />
-      <TransitionFlash peakFrame={490} />
-
-      {/* ── Layer 8: Vignette (cinematic edge darkening) ── */}
-      <Vignette startFrame={0} />
+      {/* ── Layer 4: Transition wipes ── */}
+      <TransitionWipe peakFrame={120} />
+      <TransitionWipe peakFrame={228} />
+      <TransitionWipe peakFrame={370} />
+      <TransitionWipe peakFrame={490} />
     </AbsoluteFill>
   );
 };

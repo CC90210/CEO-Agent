@@ -88,6 +88,50 @@ def send_telegram(message: str):
         print(f"Telegram notify failed: {e}")
 
 
+# --- Email template helpers ---
+
+GMAIL_USER = "oasisaisolutions@gmail.com"
+
+def _booking_link() -> str:
+    """Return booking link from env, or fallback to mailto reply."""
+    link = os.environ.get("BOOKING_MEET_LINK", "")
+    if link:
+        return link
+    return f"mailto:{GMAIL_USER}?subject=Book%20My%20Free%20Strategy%20Call"
+
+
+def _email_wrapper(content: str) -> str:
+    """Wrap email content in branded OASIS AI HTML template."""
+    return f"""
+    <div style="background:#0a0a0a;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+      <!-- Header -->
+      <div style="background:#111;padding:20px 24px;text-align:center;border-bottom:2px solid #e8c547">
+        <span style="color:#faf9f5;font-size:20px;font-weight:700;letter-spacing:1px">OASIS</span>
+        <span style="color:#e8c547;font-size:20px;font-weight:700;letter-spacing:1px"> AI</span>
+        <p style="color:#666;font-size:11px;margin:4px 0 0;text-transform:uppercase;letter-spacing:2px">Automation That Works For You</p>
+      </div>
+      <!-- Body -->
+      <div style="padding:32px 24px">
+        <div style="max-width:520px;margin:0 auto">
+          {content}
+        </div>
+      </div>
+      <!-- Footer -->
+      <div style="background:#111;padding:20px 24px;text-align:center;border-top:1px solid #222">
+        <p style="color:#888;font-size:13px;margin:0 0 4px"><strong>Conaugh McKenna</strong> | Founder, OASIS AI Solutions</p>
+        <p style="color:#555;font-size:11px;margin:0">Collingwood, ON &middot; <a href="https://www.instagram.com/konamakana" style="color:#e8c547;text-decoration:none">@konamakana</a></p>
+      </div>
+    </div>"""
+
+
+def _cta_button(text: str, href: str = "") -> str:
+    """Render a branded CTA button."""
+    link = href or _booking_link()
+    return f"""<p style="text-align:center;margin:28px 0">
+              <a href="{link}" style="display:inline-block;background:#e8c547;color:#0a0a0a;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px">{text}</a>
+            </p>"""
+
+
 # --- Follow-up email templates ---
 
 def day2_email(name: str, interests: list, data: dict) -> tuple[str, str]:
@@ -95,51 +139,32 @@ def day2_email(name: str, interests: list, data: dict) -> tuple[str, str]:
 
     if "ai" in interests:
         subject = f"{first}, your AI audit is ready"
-        body = f"""
-        <div style="background:#0a0a0a;padding:40px 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
-          <div style="max-width:520px;margin:0 auto">
+        content = f"""
             <h2 style="color:#faf9f5;margin:0 0 16px">Hey {first},</h2>
-            <p style="color:#ccc;line-height:1.6">I just finished reviewing <strong>{data.get('business_name', 'your business')}</strong>.</p>
-            <p style="color:#ccc;line-height:1.6">Here's what I found: there are <strong>at least 3 workflows</strong> you're doing manually right now that could be fully automated — saving you an estimated 10-15 hours per week.</p>
-            <p style="color:#ccc;line-height:1.6">I put together a quick breakdown. Want me to send it over? Just reply to this email or DM me on Instagram{' @' + data.get('instagram_handle', '') if data.get('instagram_handle') else ''}.</p>
-            <p style="color:#ccc;line-height:1.6">Or if you're ready to talk, grab a free 15-min slot: <a href="{os.environ.get('BOOKING_MEET_LINK', 'https://cc-funnel.vercel.app')}" style="color:#e8c547">Book a call &rarr;</a></p>
-            <p style="color:#ccc;line-height:1.6">No pressure, no pitch — just the analysis.</p>
-            <div style="margin-top:32px;border-top:1px solid #2a2a2a;padding-top:16px">
-              <p style="color:#888;font-size:14px;margin:0">— CC McKenna</p>
-              <p style="color:#666;font-size:12px;margin:4px 0 0">Founder, OASIS AI Solutions</p>
-            </div>
-          </div>
-        </div>"""
+            <p style="color:#ccc;line-height:1.7">I just finished reviewing <strong style="color:#faf9f5">{data.get('business_name', 'your business')}</strong>.</p>
+            <p style="color:#ccc;line-height:1.7">Here's what I found: there are <strong style="color:#faf9f5">at least 3 workflows</strong> you're doing manually right now that could be fully automated — saving you an estimated 10-15 hours per week.</p>
+            <p style="color:#ccc;line-height:1.7">I put together a quick breakdown. Want me to send it over? Just reply to this email{' or DM me on Instagram @' + data.get('instagram_handle', '') if data.get('instagram_handle') else ''}.</p>
+            <p style="color:#ccc;line-height:1.7">Or if you're ready to talk, grab a free 15-min slot:</p>
+            {_cta_button("Book Your Free Strategy Call")}
+            <p style="color:#999;line-height:1.7;font-size:14px">No pressure, no pitch — just the analysis.</p>"""
     elif "music" in interests:
         subject = f"{first}, quick question about your event"
-        body = f"""
-        <div style="background:#0a0a0a;padding:40px 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
-          <div style="max-width:520px;margin:0 auto">
+        content = f"""
             <h2 style="color:#faf9f5;margin:0 0 16px">Hey {first},</h2>
-            <p style="color:#ccc;line-height:1.6">Just following up on your {data.get('event_type', 'event')} inquiry{' for ' + data.get('event_date', '') if data.get('event_date') else ''}.</p>
-            <p style="color:#ccc;line-height:1.6">I've got some availability opening up and wanted to make sure I don't miss your date. What's the best way to chat — email, DM, or a quick call?</p>
-            <p style="color:#ccc;line-height:1.6">I'll put together a vibe proposal based on what you told me{' (' + data.get('music_vibe', '') + ')' if data.get('music_vibe') else ''} so you can see exactly what the set would feel like.</p>
-            <div style="margin-top:32px;border-top:1px solid #2a2a2a;padding-top:16px">
-              <p style="color:#888;font-size:14px;margin:0">— CC</p>
-            </div>
-          </div>
-        </div>"""
+            <p style="color:#ccc;line-height:1.7">Just following up on your {data.get('event_type', 'event')} inquiry{' for ' + data.get('event_date', '') if data.get('event_date') else ''}.</p>
+            <p style="color:#ccc;line-height:1.7">I've got some availability opening up and wanted to make sure I don't miss your date. What's the best way to chat — email, DM, or a quick call?</p>
+            <p style="color:#ccc;line-height:1.7">I'll put together a vibe proposal based on what you told me{' (' + data.get('music_vibe', '') + ')' if data.get('music_vibe') else ''} so you can see exactly what the set would feel like.</p>
+            <p style="color:#ccc;line-height:1.7"><strong style="color:#faf9f5">Just reply to this email</strong> and we'll get it locked in.</p>"""
     else:
         subject = f"{first}, let's book your strategy session"
-        body = f"""
-        <div style="background:#0a0a0a;padding:40px 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
-          <div style="max-width:520px;margin:0 auto">
+        content = f"""
             <h2 style="color:#faf9f5;margin:0 0 16px">Hey {first},</h2>
-            <p style="color:#ccc;line-height:1.6">I wanted to reach out about your free brand strategy session.</p>
-            <p style="color:#ccc;line-height:1.6">You mentioned your goal is to <strong>{data.get('brand_goal', 'grow your brand')}</strong>{' targeting ' + data.get('audience', '') if data.get('audience') else ''} — I've got some specific ideas that could move the needle fast.</p>
-            <p style="color:#ccc;line-height:1.6">Just reply with a time that works this week and I'll block 15 minutes for us. Completely free, no strings.</p>
-            <div style="margin-top:32px;border-top:1px solid #2a2a2a;padding-top:16px">
-              <p style="color:#888;font-size:14px;margin:0">— CC McKenna</p>
-            </div>
-          </div>
-        </div>"""
+            <p style="color:#ccc;line-height:1.7">I wanted to reach out about your free brand strategy session.</p>
+            <p style="color:#ccc;line-height:1.7">You mentioned your goal is to <strong style="color:#faf9f5">{data.get('brand_goal', 'grow your brand')}</strong>{' targeting ' + data.get('audience', '') if data.get('audience') else ''} — I've got some specific ideas that could move the needle fast.</p>
+            <p style="color:#ccc;line-height:1.7">Just reply with a time that works this week and I'll block 15 minutes for us. Completely free, no strings.</p>
+            {_cta_button("Book Your Free Session")}"""
 
-    return subject, body
+    return subject, _email_wrapper(content)
 
 
 def day5_email(name: str, interests: list, data: dict) -> tuple[str, str]:
@@ -147,53 +172,28 @@ def day5_email(name: str, interests: list, data: dict) -> tuple[str, str]:
 
     if "ai" in interests:
         subject = f"Last call, {first} — your AI audit expires soon"
-        body = f"""
-        <div style="background:#0a0a0a;padding:40px 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
-          <div style="max-width:520px;margin:0 auto">
+        content = f"""
             <h2 style="color:#faf9f5;margin:0 0 16px">{first},</h2>
-            <p style="color:#ccc;line-height:1.6">Quick heads up — I did the full audit for <strong>{data.get('business_name', 'your business')}</strong> and it's sitting in my drafts waiting for you.</p>
-            <p style="color:#ccc;line-height:1.6">I can only keep these personalized for so long before I move on to the next batch.</p>
-            <p style="color:#ccc;line-height:1.6;text-align:center;margin:24px 0">
-              <a href="{os.environ.get('BOOKING_MEET_LINK', 'https://cc-funnel.vercel.app')}" style="display:inline-block;background:#e8c547;color:#0a0a0a;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Book Your Free Audit Call &rarr;</a>
-            </p>
-            <p style="color:#ccc;line-height:1.6">Either way, no hard feelings. Just didn't want you to miss something that could genuinely save you hours every week.</p>
-            <div style="margin-top:32px;border-top:1px solid #2a2a2a;padding-top:16px">
-              <p style="color:#888;font-size:14px;margin:0">— CC</p>
-            </div>
-          </div>
-        </div>"""
+            <p style="color:#ccc;line-height:1.7">Quick heads up — I did the full audit for <strong style="color:#faf9f5">{data.get('business_name', 'your business')}</strong> and it's sitting in my drafts waiting for you.</p>
+            <p style="color:#ccc;line-height:1.7">I can only keep these personalized for so long before I move on to the next batch.</p>
+            {_cta_button("Book Your Free Audit Call")}
+            <p style="color:#999;line-height:1.7;font-size:14px">Either way, no hard feelings. Just didn't want you to miss something that could genuinely save you hours every week.</p>"""
     elif "music" in interests:
         subject = f"{first} — still looking for a DJ?"
-        body = f"""
-        <div style="background:#0a0a0a;padding:40px 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
-          <div style="max-width:520px;margin:0 auto">
+        content = f"""
             <h2 style="color:#faf9f5;margin:0 0 16px">Hey {first},</h2>
-            <p style="color:#ccc;line-height:1.6">Just checking in — my calendar is filling up and I want to make sure your event doesn't slip through the cracks.</p>
-            <p style="color:#ccc;line-height:1.6">If you've already found someone, no worries at all. But if you're still looking, let me know and I'll lock your date in before it's gone.</p>
-            <p style="color:#ccc;line-height:1.6">Quickest way: <a href="{os.environ.get('BOOKING_MEET_LINK', 'https://cc-funnel.vercel.app')}" style="color:#e8c547">Book a quick call &rarr;</a></p>
-            <div style="margin-top:32px;border-top:1px solid #2a2a2a;padding-top:16px">
-              <p style="color:#888;font-size:14px;margin:0">— CC</p>
-            </div>
-          </div>
-        </div>"""
+            <p style="color:#ccc;line-height:1.7">Just checking in — my calendar is filling up and I want to make sure your event doesn't slip through the cracks.</p>
+            <p style="color:#ccc;line-height:1.7">If you've already found someone, no worries at all. But if you're still looking, let me know and I'll lock your date in before it's gone.</p>
+            {_cta_button("Book a Quick Call")}"""
     else:
         subject = f"{first}, your free session is still available"
-        body = f"""
-        <div style="background:#0a0a0a;padding:40px 20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
-          <div style="max-width:520px;margin:0 auto">
+        content = f"""
             <h2 style="color:#faf9f5;margin:0 0 16px">{first},</h2>
-            <p style="color:#ccc;line-height:1.6">Your free brand strategy session is still on the table. I only do a few of these a week, so I wanted to make sure you didn't forget.</p>
-            <p style="color:#ccc;line-height:1.6">15 minutes, zero pitch, and you'll walk away with at least one thing you can implement immediately.</p>
-            <p style="color:#ccc;line-height:1.6;text-align:center;margin:24px 0">
-              <a href="{os.environ.get('BOOKING_MEET_LINK', 'https://cc-funnel.vercel.app')}" style="display:inline-block;background:#e8c547;color:#0a0a0a;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600">Book Your Free Session &rarr;</a>
-            </p>
-            <div style="margin-top:32px;border-top:1px solid #2a2a2a;padding-top:16px">
-              <p style="color:#888;font-size:14px;margin:0">— CC McKenna</p>
-            </div>
-          </div>
-        </div>"""
+            <p style="color:#ccc;line-height:1.7">Your free brand strategy session is still on the table. I only do a few of these a week, so I wanted to make sure you didn't forget.</p>
+            <p style="color:#ccc;line-height:1.7">15 minutes, zero pitch, and you'll walk away with at least one thing you can implement immediately.</p>
+            {_cta_button("Book Your Free Session")}"""
 
-    return subject, body
+    return subject, _email_wrapper(content)
 
 
 def run_nurture(as_json: bool = False):

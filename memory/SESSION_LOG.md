@@ -10,6 +10,88 @@ tags: [daily]
 
 ---
 
+### 2026-03-31 — Context Manager CLI Tool
+**Agent:** Claude Code (Bravo)
+**Change:** Built `scripts/context_manager.py` — three-feature context management utility inspired by Claude Code's internal patterns. Feature 1: `compact` command archives old SESSION_LOG.md entries to `memory/ARCHIVES/sessions-YYYY-MM.md`, keeps last N (default 10); `status` reports line count, entry count, oldest/newest date, and recommended action. Feature 2: `tier` command classifies a query string and recommends which brain/memory files to load (T1=185 lines, T2=789 lines, T3=1275 lines) based on keyword matching. Feature 3: `health` command checks all 4 MCP servers (via npm) and 5 CLI tools (script existence + env key presence) without loading anything. All commands support `--json` flag. Windows UTF-8 output handling included.
+**Files:** scripts/context_manager.py (new)
+
+---
+
+### 2026-03-31 — Cost Tracker CLI Tool
+**Agent:** Claude Code (Bravo)
+**Change:** Built `scripts/cost_tracker.py` — stdlib-only (no external deps) per-operation cost tracking following the Claude Code label:units pattern. SQLite backend at `tmp/cost_tracker.db`. Four subcommands: `log` (record event), `summary` (breakdown by label, period filter), `session` (current session events via BRAVO_SESSION_ID env var), `budget` (set/check/list per-label limits). All commands support `--json`. WARN at 80% budget, OVER at 100%.
+**Files:** scripts/cost_tracker.py (new)
+
+---
+
+### 2026-03-31 — memory_aging.py — Confidence Decay Automation
+**Agent:** Claude Code (Bravo)
+**Change:** Built `scripts/memory_aging.py` — implements the exponential decay model from BRAIN_LOOP.md as a runnable CLI tool. Four subcommands: `scan` (decayed confidence table for all 42 entries across 5 memory files), `stale` (facts not updated in N days), `health` (budget violations, duplicate detection, probationary count, scored A-F), `archive` (SESSION_LOG + ACTIVE_TASKS pruning with --dry-run). Pure stdlib, UTF-8 safe on Windows cp1252 terminals, supports --json for agent consumption.
+**Files:** scripts/memory_aging.py (new)
+**Real data on first run:** 4 LOW-confidence entries, 17 stale (>=30 days), 5 line-budget violations, health score 48/100 (D) — brain/ combined is 2292 lines vs 500 budget.
+
+---
+
+### 2026-03-31 — Context Optimization: Full 7-Pattern Implementation
+**Agent:** Claude Code (Bravo)
+**Goal:** Cross-reference claw-code repo (Claude Code's leaked internal architecture) with our system, implement all transferable optimization patterns.
+**Research:** Deep-dived instructkr/claw-code — clean-room Python rewrite of Claude Code's 1,902-file TypeScript harness. Revealed 7-stage bootstrap, transcript compaction (12 turns), tool pool simple mode (184→3 tools), deny-list permissions, deferred init, CostTracker label:units, memdir memory aging.
+**Implemented:**
+- 3 new scripts: `context_manager.py` (tiered loading + compaction), `cost_tracker.py` (label:units tracking), `memory_aging.py` (confidence decay)
+- 1 new skill: `skills/context-optimization/SKILL.md` — reference for all 5 patterns
+- Updated `.agents/config.toml` — added `[context]` (3 tiers), `[cost_tracking]` (unit costs + budgets), `[memory_aging]` (decay rates + thresholds) sections
+- Updated `CLAUDE.md` — added RULE -1 (Context-Aware Loading) with tier table + maintenance CLI tools
+- Updated `brain/INTERACTION_PROTOCOL.md` — added Section 8 (Context Management Hooks: compaction, cost tracking, aging, tier classification)
+- Updated `brain/CAPABILITIES.md` — added System Maintenance Tools section (3 scripts), updated totals (178 skills, 37 scripts), de-duplicated agent list (now references AGENTS.md as single source of truth)
+**Files:** 7 files modified, 4 files created
+**Pattern:** [PROBATIONARY] Context-aware loading reduces context overhead by 75-96% for simple queries (T1=185 lines vs T3=4,944 lines)
+
+---
+
+### 2026-03-30 — Google Workspace CLI Tool + Andre Meeting Setup
+**Agent:** Claude Code (Bravo)
+**Change:** Built `scripts/google_tool.py` — unified Google Workspace CLI wrapping gws with SMTP fallback. Fixed gws token expiry (Google Cloud OAuth app was in "Testing" mode — 7-day token expiry. CC published app to Production — tokens now permanent). Created calendar event + sent email with Meet link to andre@upkeepmedia.com for Wednesday April 1 at 4pm ET. Updated CLAUDE.md routing table to use google_tool.py for email/calendar.
+**Files:** scripts/google_tool.py (new), CLAUDE.md (updated routing)
+
+---
+
+### 2026-03-30 — Skool Image Audit V2 (Full Diagnostic)
+**Change:** Complete re-scrape of all 12 courses, 81 lessons via Playwright. Mapped every section heading, every existing image, identified 49 new images needed (39 AI-gen + 10 screenshots). Rewrote SKOOL_IMAGE_AUDIT.md from scratch with verified lesson names, real section headings, and accurate placement instructions.
+**Files:** courses/SKOOL_IMAGE_AUDIT.md (complete rewrite)
+
+---
+
+### 2026-03-29 — SkoolIntro Remotion Video Rebrand
+**Agent:** Claude Code (Bravo)
+**Goal:** Rebrand the 20-second Skool intro video from cyberpunk theme to Agency Accelerants brand identity.
+
+**Change:** Rebranded `content-studio/src/compositions/SkoolIntro.tsx` with complete visual overhaul. Removed purple/teal cyberpunk gradient backgrounds, sci-fi effects (Matrix data streams, holographic hexagons, circuit patterns, glow orbs), and replaced with black + repeating italic "A" pattern monochrome design. Updated color palette to black/white/gray. Maintained all 5 scenes and animation flow intact. Build passes, rendered 600/600 frames (5 MB output). Video ready for Skool community integration.
+
+**Files changed:**
+- `content-studio/src/compositions/SkoolIntro.tsx` (refactored)
+- `content-studio/out/SkoolIntro.mp4` (regenerated)
+
+**Verification:** `npm run build` ✓ zero errors. Render: 600/600 frames ✓. Output MP4 valid and playable ✓.
+
+---
+
+### 2026-03-27 — Skool Bot Personality Overhaul (AI Slop Elimination)
+**Agent:** Claude Code (Bravo)
+**Goal:** Purge all AI slop patterns from Skool engine — cheerleader voice → critical mentor. Remove all em dashes (typography slop). Add anti-AI-slop post-processing to all 4 message generators.
+
+**Changes to `scripts/skool_engine.py`:**
+- Added `_strip_ai_slop()` function to `generate_dm_reply()` (was missing — now all 4 generators have it)
+- Added "NEVER use em dashes (—)" instruction to: free welcome DM, nurture DM, and DM reply prompts
+- Updated nurture DM personality from salesy cheerleader ("love this", "excited") to challenging direct mentor ("here's the gap", "real talk")
+- Purged 13 literal em dashes from stage context strings and prompt templates
+- All 4 generators now have consistent anti-AI-slop instructions (no "great question", no "love this", no "absolutely", no "fantastic")
+
+**Verification:** `python -m py_compile scripts/skool_engine.py` — syntax OK. No structural changes; this is pure message quality improvement.
+
+**Status:** Ready for production testing. Daemon needs restart to pick up new prompts next cycle.
+
+---
+
 ### 2026-03-28 — CEO Operating System: Full 3-Wave Build (Session Summary)
 **Agent:** Claude Code (Bravo)
 **Scope:** Largest single-session build in Bravo history. CC requested "go above and beyond expectation, take as long as you need" to build a complete CEO-in-a-box engine. Atlas also upgraded to CFO V2.0 (acknowledged, not modified).
@@ -187,141 +269,16 @@ tags: [daily]
 
 ---
 
-### 2026-03-26 — CEO Evolution: Atlas Integration + Briefing + Daily Planner + Business Intel
+### 2026-03-28 — Skool DM Automation Fully Deleted
 **Agent:** Claude Code (Bravo)
-**Goal:** CC requested proactive CEO capability upgrades. Major business intelligence captured.
-
-**Atlas (CFO) Integration:**
-- Updated APP_REGISTRY.md with CFO aliases (cfo, finance, tax)
-- Added Atlas to AGENTS.md orchestration matrix + full "External: Atlas (CFO)" section
-- Added cross-project references in both directions (Bravo→Atlas, Atlas→Bravo)
-- CEO/CFO boundary: read-only cross-project, no mutual file writes
-
-**New Skills Created:**
-- `skills/ceo-briefing/SKILL.md` — Morning briefing: MRR, pipeline, client health, Atlas snapshot, blocked items, #1 priority
-- `skills/daily-planner/SKILL.md` — Structured daily plan: content block, revenue actions, admin, tomorrow prep. Day templates (Monday=strategy, Wed=content batch, etc.)
-
-**Business Intel Captured (from CC):**
-- Bennett: no formal contract, $2,500/mo + 15% rev share, friend-based. NEW: referred 2 coaching clients (tugboat + real estate), $5K each = $10K upfront
-- Adon: 50-50 on PropFlow only, CC owns 100% OASIS. Adon = networking/connections. 3-4 months behind CC technically.
-- Pipeline: Cedarwood/Vortex deprioritized. Inbound funnel via content is new strategy.
-- CC's role: content, sales, face-to-face. Bravo handles everything else.
-- Overhead: ~$184/mo (Claude $140, Supabase $25, Hostinger $14, ElevenLabs ~$5)
-- Content creation is #1 priority for lead generation
-
-**Memory Updates:**
-- Fixed 5 stale facts in LONG_TERM.md (OASIS revenue was $250, now $2,982)
-- Added 7 new business facts to LONG_TERM.md
-- Added 3 CEO SOPs (SOP-007 revenue review, SOP-008 client health, SOP-009 pipeline review)
-- Updated USER.md with CC/Bravo role division table and Adon partnership clarity
-
-**Files:** 12+ files across brain/, memory/, skills/
+**Issue:** Two stale daemon processes (PID 48772, 113640) were running old code, sending outreach DMs to Lloyd Brown and Brian Karuki despite OUTREACH_DISABLED=True. The DM auto-reply bot was also glitching, sending "garbled message" replies and double-messaging members.
+**Fix:**
+- Killed both daemon processes immediately
+- Deleted ALL DM-related code from `scripts/skool_engine.py` (864 lines removed, 1735→871 lines)
+- Removed: generate_welcome_dm, generate_nurture_dm, generate_dm_reply, cmd_engage_members, cmd_scan_dms, all DM sending helpers, member extraction, chat scraping, all DM constants and CLI subcommands
+- Cleaned stale PID/heartbeat files
+- Engine now does exactly ONE thing: respond to community posts via generate_post_reply()
+**CC directive:** "The only automation we should be using for the Skool community is the community nurturing automation that responds to people's posts."
+**Files:** `scripts/skool_engine.py` (1735→871 lines, all DM code deleted)
 
 ---
-
-### 2026-03-26 — Skool Image Audit (All 12 Courses)
-**Agent:** Claude Code (Bravo)
-**Change:** Deep audit of all 12 Agency Accelerants courses (~81 lessons) via 3 parallel Playwright agents. Produced `courses/SKOOL_IMAGE_AUDIT.md` — 45 image placements (40 AI prompts + 5 screenshots). 3 iterations: 211→58→45 images per CC feedback. Course 9 (Live Closes) is video-only (Loom embeds).
-**Files:** `courses/SKOOL_IMAGE_AUDIT.md`
-
----
-
-### 2026-03-26 — Telegram Bridge V11.0 + Skool Watchdog Heartbeat Fix + Full Automation Audit
-**Agent:** Claude Code (Bravo)
-**Goal:** CC requested: "Pick a very high-importance task — polish automations, fix Telegram bridge."
-
-**Telegram Bridge V11.0 (Full-Context Parity):**
-- Removed `--model sonnet` — now uses default model (CC has Max plan)
-- Increased `--max-turns` from 5 to 25 (was way too restrictive for complex tasks)
-- Expanded `buildPrompt()` — now loads CLAUDE.md (120 lines), SOUL.md, USER.md, STATE.md, ACTIVE_TASKS.md, SESSION_LOG.md (last 30), APP_REGISTRY.md, and CLI tool routing summary
-- System prompt upgraded: references full project structure, CLI tools, app registry routing, memory update rules
-- PM2 restarted, V11.0 confirmed running clean
-
-**Skool Watchdog Heartbeat Fix:**
-- Root cause: `wmic` process detection unreliable on Windows 11 (deprecated). Watchdog thought daemon was dead when it was running fine (cycle 58+). Caused constant start/kill/restart cycle, killed 44 orphans at one point.
-- Fix: Heartbeat-first liveness detection. `skool_engine.py` now writes `tmp/skool_daemon.heartbeat` every cycle (~2 min). Watchdog checks heartbeat freshness (< 10 min = alive), falls back to kernel32 PID check, only restarts if truly dead.
-- Updated: `skool_engine.py` (heartbeat write), `skool_watchdog.py` (full rewrite — heartbeat-first), `bravo_startup.pyw` (heartbeat check before wmic)
-- Wrote temporary heartbeat for running daemon to bridge until next reboot
-
-**Full Automation Audit Results:**
-- Scheduler (PM2): HEALTHY — 22h uptime, 11 restarts (normal Supabase timeouts), executing email inbox + funnel sync jobs
-- Telegram Bot (PM2): HEALTHY — V11.0 running clean, 0 errors
-- Skool Engine: HEALTHY — cycle 58+, scanning 30 posts + 30 DMs per cycle, response-only mode
-- Content Pipeline (Late): HEALTHY — 8 platforms connected, 42 content pieces (5 posted, 16 scheduled, 21 drafts)
-- Email/Booking Engines: HEALTHY — all audited Session 6, 0 known bugs
-- Revenue Engine: HEALTHY — critical NameError fixed Session 6, tracking $2,982 MRR
-
-**Files:** `telegram_agent.js`, `scripts/skool_engine.py`, `scripts/skool_watchdog.py`, `scripts/bravo_startup.pyw`
-
----
-
-### 2026-03-26 — PropFlow Production Hardening — Final Wave 4 + RLS Migration + Audit
-**Agent:** Claude Code (Bravo)
-**Change:** Wave 4 Python backend hardening (CORS restriction, JWT verification fix, SMTP error handling, Stripe v20 types, query bounds). CC ran `multi_tenant_rls.sql` — all 10 tables now company-scoped, god-mode policies dropped. Final audit: 7/7 PASS (build clean, zero hardcoded credentials, all routes authenticated, all tables RLS-scoped, no error leaks, Stripe webhook verified, no N+1 queries). Commit: `617a720` pushed to origin/main.
-**Files:** 7 files across `src/app/api/`, `automations/`, `src/lib/`
-
----
-
-### 2026-03-26 — PropFlow Production Hardening Wave 2 + Wave 3
-**Agent:** Claude Code (Bravo)
-**Change:** Wave 2: 1 CRITICAL + 7 HIGH security issues fixed (cross-tenant webhook override, signup password takeover vector, invoice payment_failed handling, team/remove deleteUser, social/callback guard, mock service-role key removal, Stripe error sanitization, filename sanitization). Wave 3: 2 CRITICAL + 3 HIGH in automations/ (SMTP plaintext fallback, JWT error leak, bearer token validation, document URL SSRF, SingleKey error sanitization). 3 commits: `4e5b372`, `bded17f`, others.
-
----
-
-### 2026-03-25/26 — PropFlow Multi-Tenant Security Hardening (Session 4)
-**Agent:** Claude Code (Bravo)
-**Change:** 19 files, 3 waves. Wave 1: AutomationSettings TypeScript interface, admin-gated credential API, credential management UI, automation_rls.sql. Wave 2: saveError.message leak fix, automations callback rewrite, god-mode RLS replaced, VALID_AUTOMATION_TYPES whitelist. Wave 3: 6 parallel diagnostic agents — social webhook validation, CSV 5MB limit, dispatcher hardcoded URLs → env var, constant-time comparison on webhooks, master multi_tenant_rls.sql covering 10 tables. Commit: `e28e8e1` pushed to origin/main.
-
----
-
-### 2026-03-25 — PropFlow Production Hardening Marathon (Sessions 2-3)
-**Agent:** Claude Code (Bravo)
-**Change:** 20 rounds, 20 commits, 50+ files. Session 2 (rounds 1-10): CRITICAL — 5 mutation hooks missing company_id scoping. HIGH — cross-tenant profile access, webhook signature bypass, listUsers scalability bomb. 9 console.log PII leaks removed. Session 3 (rounds 11-20, autonomous): error boundaries, double-submit prevention, Zod validation on 5 routes, rate limiting on 10 endpoints, query limits on 9 data paths, tenant routes in middleware, Stripe webhook idempotency (LRU dedup), company scoping + error sanitization across 7 files. Commits: `6945847` through `c5a5e3a`. Total 10 rounds: zero known CRITICAL/HIGH vulnerabilities remaining.
-
----
-
-### 2026-03-25 — PropFlow: Automation Engine Conversion + E2E Testing + error/loading Boundaries
-**Agent:** Claude Code (Bravo)
-**Change:** Converted Python FastAPI automation backend to inline Next.js TypeScript engine (`src/lib/automations/engine.ts`). Handles DOCUMENT_SEND, LEASE_GENERATED, INVOICE_CREATED. Replaced dispatcher.ts and trigger route. E2E test: authenticated as Carl Josh James via Playwright, tested 20+ routes, fixed Admin companies Supabase 400 error and maintenance console.warn. Added 5 error.tsx + 3 loading.tsx files to dashboard routes. Commits: `341471f`, `5673f85` pushed to origin/main.
-
----
-
-### 2026-03-25 — Playwright CLI Skill Implementation
-**Agent:** Claude Code (Bravo)
-**Change:** Created `.claude/skills/playwright/scripts/run.js` — headless Chromium JSON-first CLI wrapper with 9 flags. Token savings: ~200-500 tokens per page vs 20,000-30,000 with MCP screenshots. Updated `skills/browser-automation/SKILL.md` and `CLAUDE.md` Rule 2.
-
----
-
-### 2026-03-25 — Skool response-only mode + Telegram V10 + content pipeline audit
-**Agent:** Claude Code (Bravo)
-**Change:** Switched Skool engine to response-only (OUTREACH_DISABLED=True — replies only, no proactive DMs). Telegram Bridge V10.0 — reads STATE.md, SESSION_LOG.md, ACTIVE_TASKS.md before every Claude spawn. Content pipeline audited: text-to-social 9/10, visual content 0/10 (no image/video API integrated).
-**Files:** `scripts/skool_engine.py`, `scripts/bravo_startup.pyw`, `telegram_agent.js`, `brain/STATE.md`
-
----
-
-### 2026-03-24 — Inbound Lead Engine: Full Build Execution
-**Agent:** Claude Code (Bravo)
-**Change:** Fixed Late API base URL (`https://getlate.dev/api/v1/`). Published 5 posts to X/Twitter. Fixed late_publisher.py nested ID extraction. Added booking CTA to cc-funnel success screen (`NEXT_PUBLIC_BOOKING_LINK`). Built `scripts/late_publisher.py` (270 lines) — reads Supabase content_calendar, resolves Late account IDs, validates character limits, publishes, updates status. All 6 inbound engine phases E2E verified. Commit: `3996a7a` pushed to cc-funnel origin/master.
-
----
-
-### 2026-03-24 — PropFlow security audit + production hardening
-**Agent:** Claude Code (Bravo)
-**Change:** 2 commits. Security fixes (d557053): property detail auth, useAuth unsafe auto-resolution, checkPlanLimits company_id filter, property-actions ownership verification, generate-document route scoping, pdf-generator company_id filter. Production fixes (cb3cbcb): 3 unprotected API route auth checks, analytics column fix, CSP update, FK migration for landlord_properties.
-
----
-
-### 2026-03-23 — Watchdog zombie fix + OASIS framework rebranding
-**Agent:** Claude Code (Bravo)
-**Change:** Killed 67 zombie Python processes. Rewrote `scripts/skool_watchdog.py` with proper tasklist-based PID detection + orphan killing + CREATE_NO_WINDOW flag. Rebranded AGENCY_ACCELERANTS_FRAMEWORK.md → OASIS AI Solutions for hometown friends.
-
----
-
-### 2026-03-23 — OASIS AI Platform: Stripe webhook fix
-**Change:** Fixed FUNCTION_INVOCATION_FAILED on all Stripe serverless functions. Root cause: Vercel Node v24 upgrade broke `stripe` + `@supabase/supabase-js` on top-level import. Fix: inline all dependencies directly in each handler file, zero `_lib/` imports. Commit: `944c320` pushed to origin/main.
-
----
-
-### 2026-03-23 — Skool Daemon Crash Fix + Cole Aarts DM + DM Strategy Overhaul
-**Agent:** Claude Code (Bravo)
-**Change:** Crash fix: added `_is_daemon_running()` PID check (was two instances running simultaneously → browser lock conflict). Atomic state file writes (write .tmp then os.replace). Cole Aarts called out the AI — CC responded with radical transparency. DM strategy overhaul: conversion-focused prompts rewritten (welcome DM plants upgrade seed, 4-stage nurture sequence with direct $97/mo offer). Daemon restarted PID 59248.

@@ -27,6 +27,30 @@ Build CC's empire by multiplying his impact through AI automation. Current north
 
 ## HOW — Workflows & Rules
 
+### RULE -1: CONTEXT-AWARE LOADING (Performance — from Claude Code internals)
+
+**Not every query needs 4,944 lines of context.** Match the load to the task — Claude Code itself uses a "simple mode" that reduces 184 tools to 3 for lightweight queries.
+
+| Query Type | Tier | Load | ~Lines |
+|---|---|---|---|
+| Status, lookup, "what's the MRR?" | **T1 Minimal** | STATE.md + ACTIVE_TASKS.md only | ~185 |
+| Build, fix, implement, debug | **T2 Standard** | T1 + AGENTS.md + CAPABILITIES.md + SESSION_LOG.md | ~780 |
+| Architecture, SPARC, system redesign | **T3 Full** | Everything in brain/ + memory/ | ~4,944 |
+
+**Default to T2.** Only escalate to T3 when the task explicitly requires cross-system understanding.
+CLI: `python scripts/context_manager.py tier "<query>"` to classify programmatically.
+
+**System maintenance CLI tools** (run periodically, not every session):
+
+| Tool | Command | Purpose |
+|---|---|---|
+| Context compaction | `python scripts/context_manager.py compact` | Archive old SESSION_LOG entries (keep last 10) |
+| Cost tracking | `python scripts/cost_tracker.py summary` | Per-operation cost visibility |
+| Memory aging | `python scripts/memory_aging.py scan` | Detect stale facts with decayed confidence |
+| Memory health | `python scripts/memory_aging.py health` | Letter-graded memory system assessment |
+
+Config: `.agents/config.toml` sections `[context]`, `[cost_tracking]`, `[memory_aging]`.
+
 ### RULE 0: CONTINUOUS STATE SYNC + CROSS-AI CONTEXT (CRITICAL — NON-NEGOTIABLE)
 
 **CC uses 3 AI agents interchangeably** (Claude Code, Gemini CLI, Antigravity IDE). Work done in ANY agent MUST be visible to ALL others.
@@ -64,8 +88,8 @@ When CC asks a question, answer it using MCP tools. Do NOT dump file contents or
 | Database queries, tables | **supabase_tool.py** | `python scripts/supabase_tool.py select <table> --project bravo --limit 10` |
 | Payments, subscriptions | **stripe_tool.py** | `python scripts/stripe_tool.py balance`, `customers`, `invoices` |
 | Website-to-CLI, API discovery | **OpenCLI** | `opencli explore <url>`, `opencli list`, `opencli <platform> <cmd>` |
-| Email (send/read/triage) | **gws CLI** | `gws gmail users messages list --params '{"userId":"me"}'`, `gws gmail users messages send` |
-| Calendar (events/agenda) | **gws CLI** | `gws calendar events list --params '{"calendarId":"primary","singleEvents":true,"orderBy":"startTime"}'` |
+| Email (send/read/triage) | **google_tool.py** | `python scripts/google_tool.py gmail send --to "..." --subject "..." --body "..."`, `gmail list`, `gmail read <id>` |
+| Calendar (events/agenda) | **google_tool.py** | `python scripts/google_tool.py calendar list`, `calendar create --title "..." --start "..." --end "..." [--meet] [--attendees "..."]` |
 | Google Drive / Sheets / Docs | **gws CLI** | `gws drive files list --params '{"pageSize":10}'`, `gws sheets spreadsheets get` |
 | Scrape page data (text, links, tables) | **Playwright CLI** | `node .claude/skills/playwright/scripts/run.js <url> [--links] [--table css] [--selector css]` |
 
@@ -197,6 +221,7 @@ Note: All skills are stored in the Agent Skills 2.0 structure format: `skills/[s
 - Agent permissions: @skills/agent-permissions/SKILL.md
 - Hooks automation: @skills/hooks-automation/SKILL.md
 - Background workers: @skills/background-workers/SKILL.md
+- Context optimization: @skills/context-optimization/SKILL.md
 
 ## AI Slop Detection
 

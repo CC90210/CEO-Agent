@@ -326,6 +326,114 @@ required_outputs = ["all tests pass", "build succeeds", "changelog entry", "docu
 approval_required = false
 
 # =============================================================================
+# Context Management (Inspired by Claude Code Harness Internals)
+# =============================================================================
+# Source: Claude Code uses 7-stage bootstrap, transcript compaction at 12 turns,
+# and a "simple mode" that reduces 184 tools to 3 for lightweight queries.
+# These settings bring that discipline to our agent system.
+
+[context]
+enabled = true
+
+# Tiered context loading — don't load everything for every query
+# TIER 1 (minimal): STATUS check, quick lookup → ~185 lines
+# TIER 2 (standard): Feature work, bug fixes → ~780 lines
+# TIER 3 (full): Architecture, complex multi-file → ~4,944 lines
+default_tier = 2
+
+[context.tier1_files]
+# Minimal context — only for status checks and simple lookups
+files = ["brain/STATE.md", "memory/ACTIVE_TASKS.md"]
+
+[context.tier2_files]
+# Standard context — for typical development and operational tasks
+files = ["brain/STATE.md", "brain/AGENTS.md", "brain/CAPABILITIES.md", "memory/ACTIVE_TASKS.md", "memory/SESSION_LOG.md"]
+
+[context.tier3_files]
+# Full context — for architecture, complex multi-file tasks, and SPARC
+files = ["brain/STATE.md", "brain/AGENTS.md", "brain/CAPABILITIES.md", "brain/INTERACTION_PROTOCOL.md", "brain/BRAIN_LOOP.md", "brain/HEARTBEAT.md", "memory/ACTIVE_TASKS.md", "memory/SESSION_LOG.md", "memory/PATTERNS.md", "memory/MISTAKES.md"]
+
+# Transcript compaction — prevent context bloat during long sessions
+[context.compaction]
+# Archive SESSION_LOG entries older than this many days
+archive_after_days = 14
+# Maximum entries to keep in active SESSION_LOG
+max_active_entries = 10
+# Maximum lines before triggering compaction warning
+max_lines_threshold = 200
+# Archive destination pattern
+archive_path = "memory/ARCHIVES/sessions-{year}-{month}.md"
+
+# Deferred init — only load heavy resources when task requires them
+[context.deferred]
+# These resources load only when their domain is detected in the task
+mcp_servers = ["playwright", "context7", "memory", "sequential-thinking"]
+heavy_skills = ["e2e-testing", "sparc-methodology", "ship"]
+heavy_scripts = ["instagram_engine.py", "booking_engine.py", "skool_engine.py"]
+
+# =============================================================================
+# Cost Tracking (Inspired by Claude Code CostTracker pattern)
+# =============================================================================
+# Every operation gets a label:units cost entry. Track what's expensive.
+
+[cost_tracking]
+enabled = true
+db_path = "tmp/cost_tracker.db"
+
+# Default unit costs by operation type
+[cost_tracking.unit_costs]
+supabase_query = 1
+supabase_write = 2
+stripe_api = 2
+n8n_execute = 3
+late_post = 2
+late_crosspost = 5
+playwright_session = 5
+playwright_navigate = 1
+context7_query = 1
+mcp_memory_search = 1
+cli_tool_call = 1
+git_push = 1
+file_edit = 0.5
+
+# Budget alerts (units per period)
+[cost_tracking.budgets]
+daily_total = 500
+daily_supabase = 100
+daily_playwright = 50
+daily_stripe = 30
+
+# =============================================================================
+# Memory Aging (Inspired by Claude Code memdir subsystem)
+# =============================================================================
+# Automated confidence decay prevents stale facts from driving decisions.
+
+[memory_aging]
+enabled = true
+
+# Decay rates by category (lambda values for exponential decay)
+[memory_aging.decay_rates]
+business = 0.02      # Fast decay — pricing, clients, team change quickly
+technical = 0.015    # Medium decay — APIs, configs, versions
+architectural = 0.005 # Slow decay — design decisions are durable
+identity = 0.0       # No decay — values and mission are permanent
+
+# Confidence thresholds
+[memory_aging.thresholds]
+high = 0.8           # Above: full autonomy
+medium = 0.5         # 0.5-0.8: execute with enhanced logging
+low = 0.2            # Below 0.5: present plan to CC first
+stale_days = 30      # Flag facts not updated in 30 days
+critical_stale_days = 90  # Force review of facts not updated in 90 days
+
+# Auto-archive rules
+[memory_aging.archive]
+session_log_max_days = 14
+active_tasks_completed_max_days = 7
+mistakes_max_entries = 30
+patterns_max_entries = 30
+
+# =============================================================================
 # Logging Settings
 # =============================================================================
 

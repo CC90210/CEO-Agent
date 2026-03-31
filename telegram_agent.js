@@ -5,14 +5,12 @@ const fs = require('fs');
 const path = require('path');
 
 // ============================================================
-// BRAVO TELEGRAM BRIDGE V11.0
+// BRAVO TELEGRAM BRIDGE V12.0
 //
-// V7.2 fixes preserved: shell:false, node direct spawn.
-// V8.0 fixes: 5-min timeout, progress updates, crash recovery,
-// both CLIs working in tandem, cleaner help.
-// V10.0: Claude-First + Context-Aware (reads STATE/SESSION_LOG/ACTIVE_TASKS)
 // V11.0: Full-Context Parity — loads CLAUDE.md, brain files, skills refs.
-//         Removed --model sonnet (uses default). --max-turns 25.
+// V12.0: Conversation Memory — stores last 15 messages per chat,
+//         injects chat history into every Claude/Gemini spawn so
+//         CC can reference previous messages naturally.
 // ============================================================
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -37,7 +35,49 @@ const log = (msg) => {
     try { fs.appendFileSync(LOG_FILE, line); } catch (_) {}
 };
 
-log('Bravo Telegram Bridge V11.0 (Full-Context Parity) starting...');
+log('Bravo Telegram Bridge V12.0 (Conversation Memory) starting...');
+
+// ---- CONVERSATION HISTORY ----
+// Stores last N message pairs (user + assistant) per chat.
+// Persisted to disk so PM2 restarts don't lose context.
+const MAX_HISTORY = 15; // messages (not pairs) — covers ~7-8 exchanges
+const HISTORY_FILE = path.join(__dirname, 'tmp', 'telegram_history.json');
+
+// { chatId: [ { role: 'user'|'assistant', text: '...', ts: ISO } ] }
+let chatHistory = {};
+
+// Load persisted history on startup
+try {
+    if (fs.existsSync(HISTORY_FILE)) {
+        chatHistory = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
+        const chatCount = Object.keys(chatHistory).length;
+        if (chatCount > 0) log(`[HISTORY] Loaded ${chatCount} chat(s) from disk`);
+    }
+} catch (_) { chatHistory = {}; }
+
+const saveHistory = () => {
+    try { fs.writeFileSync(HISTORY_FILE, JSON.stringify(chatHistory)); } catch (_) {}
+};
+
+const addToHistory = (chatId, role, text) => {
+    const id = String(chatId);
+    if (!chatHistory[id]) chatHistory[id] = [];
+    chatHistory[id].push({ role, text: text.substring(0, 2000), ts: new Date().toISOString() });
+    // Trim to MAX_HISTORY messages
+    if (chatHistory[id].length > MAX_HISTORY) {
+        chatHistory[id] = chatHistory[id].slice(-MAX_HISTORY);
+    }
+    saveHistory();
+};
+
+const getHistoryBlock = (chatId) => {
+    const id = String(chatId);
+    const msgs = chatHistory[id];
+    if (!msgs || msgs.length === 0) return '';
+    return '\n=== RECENT CONVERSATION HISTORY ===\n' +
+        msgs.map(m => `[${m.role.toUpperCase()}]: ${m.text}`).join('\n') +
+        '\n=== END HISTORY ===\n';
+};
 
 // ---- PATHS ----
 // Resolve actual script paths so we spawn node directly (no .cmd wrappers)
@@ -88,7 +128,12 @@ const autoRegisterUser = (userId) => {
 };
 
 // Static prompt for Gemini (Gemini reads brain files via MCP anyway)
-const SYSTEM_PROMPT_STATIC = `You are BRAVO, CC's AI assistant on Telegram. RULES: (1) Answer the question directly in 1-5 sentences. (2) Do NOT summarize recent work, session history, or system status unless explicitly asked. (3) Do NOT greet CC with a status update. (4) Do NOT say what you just fixed or built. (5) Just answer what was asked. CC's message:`;
+const buildGeminiPrompt = (chatId) => {
+    const history = getHistoryBlock(chatId);
+    return `You are BRAVO, CC's AI assistant on Telegram. RULES: (1) Answer the question directly in 1-5 sentences. (2) Do NOT summarize recent work, session history, or system status unless explicitly asked. (3) Do NOT greet CC with a status update. (4) Do NOT say what you just fixed or built. (5) Just answer what was asked. (6) Use the CONVERSATION HISTORY below for context from prior messages.
+${history}
+CC's message:`;
+};
 
 // Reads a file safely, returns content or empty string
 const readFileSafe = (relPath, maxLines = 0) => {
@@ -151,14 +196,15 @@ const loadContext = () => {
     return full.length > 8000 ? full.substring(0, 8000) + '\n...(truncated)' : full;
 };
 
-// Dynamic prompt for Claude — injects full project context on every message
-const buildPrompt = () => {
+// Dynamic prompt for Claude — injects full project context + conversation history
+const buildPrompt = (chatId) => {
     const context = loadContext();
+    const history = getHistoryBlock(chatId);
     return `You are BRAVO V5.5, CC's Lead Architect and AI business manager, running via Telegram bridge.
 You have full access to the Business-Empire-Agent project at C:\\Users\\User\\Business-Empire-Agent.
 
 ${context}
-
+${history}
 TELEGRAM-SPECIFIC RULES:
 (1) Answer directly in 1-5 sentences unless the task requires more.
 (2) Do NOT dump file contents unless asked.
@@ -168,6 +214,7 @@ TELEGRAM-SPECIFIC RULES:
 (6) Address the user as CC. Be direct, no filler. Use "Conaugh McKenna" for external/B2B comms.
 (7) You have up to 25 turns — use them for multi-step tasks. Don't rush.
 (8) All credentials are in .env.agents — NEVER hardcode secrets.
+(9) IMPORTANT: The RECENT CONVERSATION HISTORY above contains previous messages from this chat session. Use it to maintain context. If CC references something from a prior message, check the history.
 
 CC's message:`;
 };
@@ -204,7 +251,7 @@ const killTree = (pid) => {
 // ---- CLI EXECUTION ----
 const executeCli = (tool, userPrompt, chatId) => {
     return new Promise((resolve) => {
-        const fullPrompt = tool === 'claude' ? `${buildPrompt()} ${userPrompt}` : `${SYSTEM_PROMPT_STATIC} ${userPrompt}`;
+        const fullPrompt = tool === 'claude' ? `${buildPrompt(chatId)} ${userPrompt}` : `${buildGeminiPrompt(chatId)} ${userPrompt}`;
         const timeout = tool === 'claude' ? CLAUDE_TIMEOUT : GEMINI_TIMEOUT;
         let cmd, args;
 
@@ -357,14 +404,15 @@ bot.on('message', async (msg) => {
 
     if (text === '/start' || text === '/help') {
         return bot.sendMessage(chatId, [
-            'Bravo Bridge V11.0 (Full-Context Parity)',
+            'Bravo Bridge V12.0 (Conversation Memory)',
             '',
             'Just type anything → Claude Code (default, 25 turns)',
             '!gemini <query> → Gemini CLI (fallback)',
             '!sys <cmd> → shell command on PC',
+            '/clear — clear conversation history',
             '',
-            'Claude: 10 min timeout, full CLAUDE.md + brain context.',
-            'Gemini: 5 min timeout, MCP-aware.',
+            'Claude: 10 min timeout, full context + last 15 messages.',
+            'Gemini: 5 min timeout, MCP-aware + last 15 messages.',
             '',
             '/whoami — show your Telegram user ID'
         ].join('\n'));
@@ -372,6 +420,12 @@ bot.on('message', async (msg) => {
 
     if (text === '/whoami') {
         return bot.sendMessage(chatId, `User ID: ${userId}\nUsername: ${user}\nChat ID: ${chatId}`);
+    }
+
+    if (text === '/clear') {
+        chatHistory[String(chatId)] = [];
+        saveHistory();
+        return bot.sendMessage(chatId, 'Conversation history cleared.');
     }
 
     try {
@@ -390,10 +444,16 @@ bot.on('message', async (msg) => {
         const prompt = text.replace(/^!(claude|gemini|bravo)\s+/, '');
         const tool = isGemini ? 'gemini' : 'claude';
 
+        // Store user message in history
+        addToHistory(chatId, 'user', prompt);
+
         await bot.sendChatAction(chatId, 'typing');
         await bot.sendMessage(chatId, isGemini ? 'Gemini thinking...' : 'Claude thinking...');
 
         const result = await executeCli(tool, prompt, chatId);
+
+        // Store assistant response in history (first 2000 chars)
+        addToHistory(chatId, 'assistant', result || 'No response.');
 
         // Telegram limit is 4096 chars
         const chunks = (result || 'No response.').match(/[\s\S]{1,4000}/g) || ['No response.'];
@@ -442,4 +502,4 @@ process.on('unhandledRejection', (err) => {
     log(`[UNHANDLED] ${err.message || err}`);
 });
 
-log('Bridge V11.0 ready.');
+log('Bridge V12.0 ready.');

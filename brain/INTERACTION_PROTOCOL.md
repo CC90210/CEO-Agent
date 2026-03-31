@@ -288,7 +288,33 @@ High-activation memories get priority in context loading. Low-activation memorie
 
 ---
 
-## 8. SESSION END PROTOCOL (MANDATORY)
+## 8. CONTEXT MANAGEMENT HOOKS (Inspired by Claude Code Harness)
+
+These hooks implement patterns from Claude Code's internal runtime: transcript compaction, cost tracking, and memory aging. Config: `.agents/config.toml` sections `[context]`, `[cost_tracking]`, `[memory_aging]`.
+
+### 8a. Transcript Compaction Hook
+**Trigger:** Session start (if SESSION_LOG.md > 200 lines) or memory worker (every 30 min)
+**Action:** Run `python scripts/context_manager.py compact` to archive entries > 14 days old
+**Config:** `.agents/config.toml` [context.compaction] — max_active_entries=10, archive_after_days=14
+
+### 8b. Cost Tracking Hook
+**Trigger:** After every CLI tool call or MCP interaction
+**Action:** Log `python scripts/cost_tracker.py log --label "<tool>" --units <N> --detail "<summary>"`
+**Config:** `.agents/config.toml` [cost_tracking] — unit costs per operation type, daily budget alerts
+
+### 8c. Memory Aging Hook
+**Trigger:** Weekly (during `/retro`) or on-demand
+**Action:** Run `python scripts/memory_aging.py scan` to detect decayed confidence scores
+**Config:** `.agents/config.toml` [memory_aging] — decay rates by category (business λ=0.02, technical λ=0.015, architectural λ=0.005)
+
+### 8d. Context Tier Hook
+**Trigger:** Session start (classify first query)
+**Action:** Determine T1/T2/T3 context tier via `python scripts/context_manager.py tier "<query>"`
+**Purpose:** Avoid loading 4,944 lines for a status check that needs 185
+
+---
+
+## 9. SESSION END PROTOCOL (MANDATORY)
 
 Before any session ends, this MUST happen:
 

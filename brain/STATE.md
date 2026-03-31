@@ -4,7 +4,7 @@ tags: [state, ephemeral]
 
 # STATE — Current Operational State
 
-> Updated 2026-03-28 | **CEO Operating System FULLY BUILT — 3-wave parallel session. 15 new skills, 10 new workflows, 5 new CLI scripts, 10 new templates (email/document/content), 8 new SOPs, 3 new brain files (CEO_OPERATING_SYSTEM, OKRs, RISK_REGISTER). Totals: ~174 skills, 30 workflows, 39 scripts. Bravo is now a full CEO-in-a-box. Atlas upgraded to CFO V2.0 (53 docs, 16 skills). Script verification pending.**
+> Updated 2026-03-31 | **Context Optimization implemented (7 patterns from Claude Code internals). GWS operational. Andre meeting April 1, 4pm ET.**
 
 ## Operational Status
 
@@ -12,10 +12,22 @@ tags: [state, ephemeral]
 |-----------|-------|-------|
 | **Version** | V5.5 | Self-Evolving Super-Intelligence (Bravo) |
 | **Position**| ACTIVE | Community Manager for Bennett's Agency Accelerator + Lead Gen Funnel Operator |
-| **Confidence** | 0.99 | All automations production-grade. PropFlow ready. Telegram V11.0 live. Skool watchdog heartbeat-first. Full audit: 0 critical issues. |
+| **Confidence** | 0.99 | All automations production-grade. PropFlow ready. Telegram V11.0 live. Skool post-reply only (DM code deleted). Full audit: 0 critical issues. |
 | **Focus Area** | **CONTENT-FIRST FUNNEL + BENNETT COACHING DEAL** | #1 priority: CC creates content (personal brand), Bravo distributes. Bennett referred 2 coaching clients ($10K upfront). Inbound funnel replaces cold outreach. 94% revenue in Bennett = critical risk. |
-| **Energy** | MAXIMUM | Content studio operational (Remotion). PM2 processes healthy. GWS authenticated. Skool daemon stable (response-only mode). |
+| **Energy** | MAXIMUM | Content studio operational (Remotion). PM2 processes healthy. GWS authenticated. Skool engine stable (post-reply only). CEO Operating System complete. |
 | **Memory Health** | EXCELLENT | Files trimmed. Stale tasks purged. Vault configured. Session logged. |
+
+## Skool Automation Status (2026-03-28)
+
+**Bot Mode — POST-REPLY ONLY (All DM Code Deleted)**
+- **What was deleted:** generate_welcome_dm, generate_nurture_dm, generate_dm_reply, cmd_engage_members, cmd_scan_dms, all DM sending helpers, member extraction, chat scraping
+- **Lines of code:** 1735 → 871 (864 lines removed, 50% deletion)
+- **Current functionality:** Single function: `generate_post_reply()` — replies to community posts when CC or members post
+- **Daemon processes:** Both stale PIDs (48772, 113640) killed. Engine ready for clean restart.
+- **Heartbeat:** Working. `/tmp/skool_daemon.heartbeat` written every cycle.
+- **Next:** Fresh daemon start will load new code (post-reply only, no DM automation)
+
+---
 
 ## North Star: $5,000 USD Net MRR by May 15, 2026
 
@@ -31,8 +43,8 @@ tags: [state, ephemeral]
 
 | Tool | Status | Purpose |
 |--------|--------|---------|
-| **Google Workspace CLI** | ✅ LIVE | gws v0.18.1, oasisaisolutions@gmail.com authenticated. 93 skills available. Email, Calendar, Drive, Sheets, Docs commands. |
-| **Skool Community Engine** | 🔁 RESPONSE-ONLY | Outreach disabled (OUTREACH_DISABLED=True) since 2026-03-25. Daemon runs to reply to community posts + respond to incoming DMs. No proactive welcome/nurture DMs. |
+| **Google Workspace CLI** | ✅ FULLY CONNECTED | `scripts/google_tool.py` wraps gws v0.18.1 + SMTP fallback. oasisaisolutions@gmail.com authenticated. 14 OAuth scopes. Production mode (permanent tokens). Email, Calendar, Drive, Sheets, Docs commands. 5 integration tests passing. |
+| **Skool Community Engine** | 🔁 POST-REPLY ONLY | All DM code deleted 2026-03-28. Daemon runs to reply to community posts only. No welcome DMs, nurture DMs, DM auto-reply, or member scanning. Response-only mode. |
 | **Skool Watchdog** | ✅ HEARTBEAT-FIRST | Rewritten 2026-03-26: heartbeat-based liveness (wmic eliminated). Daemon writes heartbeat every cycle, watchdog checks freshness < 10 min. |
 | **cc-funnel** | ✅ LIVE | Lead capture form → Supabase → Telegram notify → Booking CTA on success screen. Needs `NEXT_PUBLIC_BOOKING_LINK` env var. |
 | **Telegram Bridge** | ✅ V11.0 LIVE | Full-context parity — loads CLAUDE.md, brain files, APP_REGISTRY. 25 max turns. PM2 restarted 2026-03-26. |
@@ -61,15 +73,27 @@ tags: [state, ephemeral]
 - Zero known CRITICAL/HIGH vulnerabilities, build clean (99 pages, zero TS errors)
 - `SUPABASE_JWT_SECRET`: CONFIGURED (added 2026-03-26)
 
-## Capability Counts (2026-03-26)
+## CEO Operating System (2026-03-28)
 
-- **Skills:** 156 (63 core + 42 GWS + 41 recipes + 10 personas) + 16 native Claude Code skills
+**FULLY BUILT — 3-Wave Session Complete**
+- **Skills:** 15 new (strategic-planning, competitive-intelligence, financial-modeling, client-success, proposal-generation, team-management, meeting-automation, project-management, ceo-dashboard, investor-communications, knowledge-management, scaling-playbook, risk-management, crisis-response, sales-methodology)
+- **Workflows:** 10 new (.agents/workflows/ — strategic-review, competitive-report, qbr, client-health-report, generate-proposal, onboard-team-member, meeting-prep, ceo-briefing, investor-update, knowledge-maintenance)
+- **CLI Scripts:** 5 new (competitive_intel.py, financial_model.py, client_health.py, proposal_generator.py, ceo_dashboard.py)
+- **Brain Files:** 3 new (CEO_OPERATING_SYSTEM.md, OKRs.md, RISK_REGISTER.md)
+- **SOPs:** 8 new (SOP-010 through SOP-017) — all [PROBATIONARY]
+- **Templates:** 10 new (5 email, 2 document, 2 content, 1 report)
+- Status: **Script verification pending. Commit pending.**
+
+## Capability Counts (2026-03-31)
+
+- **Skills:** 178 (core + GWS + recipes + personas + context-optimization) + 16 native Claude Code skills
 - **Agents:** 16 (core + meta-agent)
-- **Workflows:** 20 (.agents/workflows/)
+- **Workflows:** 30 (.agents/workflows/)
+- **Scripts:** 37 (CLI engines + CEO tools + system maintenance)
 - **Supabase tables:** 28 (14 agent + 14 business ops)
 - **MCP servers:** 4 working (Playwright, Context7, Memory, Sequential Thinking) + 4 replaced by CLI
-- **CLI engines:** 11 (lead, email, booking, content, revenue, cron, gws, skool_engine, opencli, late_tool, n8n_tool)
-- **Hooks:** 4 active (2 PreToolUse safety, 1 PostToolUse audit, 1 Notification alert)
+- **System maintenance tools:** 3 new (context_manager.py, cost_tracker.py, memory_aging.py)
+- **Hooks:** 4 active (2 PreToolUse safety, 1 PostToolUse audit, 1 Notification alert) + 4 context hooks (compaction, cost, aging, tier)
 - **Permission deny rules:** 18 (credential protection, destructive ops, Obsidian config)
 
 ## Known Blockers
@@ -79,13 +103,28 @@ tags: [state, ephemeral]
 | TIKTIK IP Camera | MEDIUM | Waiting on Midas for NVR spec |
 | LinkedIn Auth | LOW | Need Chrome auth hookup when ready |
 
+## Context Optimization (2026-03-31 — from Claude Code Internals)
+
+**NEW:** 7 patterns from Claude Code's internal harness architecture implemented:
+1. **Tiered context loading** — T1 (185 lines), T2 (780 lines), T3 (4,944 lines). Default T2.
+2. **Transcript compaction** — Auto-archive SESSION_LOG entries > 14 days. Keep last 10.
+3. **Tool pool simple mode** — RULE -1 in CLAUDE.md: match context load to task complexity.
+4. **Cost tracking** — SQLite-backed label:units per operation. Budget alerts at 80%.
+5. **Memory aging** — Exponential confidence decay (λ by category). Stale fact detection.
+6. **Deferred init** — Heavy resources (Playwright, SPARC, e2e) load only when needed.
+7. **Deny-list permissions** — Config-driven prefix matching in `.agents/config.toml`.
+
+**Tools:** `context_manager.py`, `cost_tracker.py`, `memory_aging.py`
+**Config:** `.agents/config.toml` [context], [cost_tracking], [memory_aging]
+**Skill:** `skills/context-optimization/SKILL.md`
+
 ## Last Heartbeat
 
-- **Date:** 2026-03-27
+- **Date:** 2026-03-31
 - **Agent:** BRAVO via Claude Code (Opus 4.6)
-- **Result:** Full system finalization — 15/15 systems verified operational. Skool daemon zombie detection fixed (`_is_daemon_running()` now detects stale heartbeats + missing heartbeat files → auto-takeover). edit_content_v2.py Python 3.12 syntax error fixed. CAPABILITIES.md duplicate agent entries fixed. All Late→Zernio references updated in STATE.md. PM2 processes healthy. 25/25 Python scripts pass syntax check. 11/11 CLI tools return successful responses.
+- **Result:** Full context optimization implementation. 7 patterns from claw-code repo cross-referenced and implemented. 4 new files created, 7 files updated. System maintenance CLI tools operational.
 
-*Last updated: 2026-03-27*
+*Last updated: 2026-03-31*
 
 ## Obsidian Links
 > Connected notes for graph navigation

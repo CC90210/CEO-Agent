@@ -1,258 +1,284 @@
 ---
 tags: [skool, content, audit]
 created: 2026-03-26
+updated: 2026-03-30
 ---
 
-# Skool Image Guide — Agency Accelerants
+# Skool Image Guide — 49 Images Needed
 
-For each image below: copy the **prompt** into your AI image generator. Upload the result into the lesson at the spot described in **where**.
+**39 AI-gen | 10 screenshots**
 
-Images marked 📸 = you need to screenshot something instead of generating.
+**Brand rules for ALL AI images:**
+- Background: solid black (#0A0A0A) with a subtle repeating pattern of bold italic capital "A" letters in very dark gray (#1A1A1A) — the Agency Accelerants signature texture
+- Typography: bold, italic, uppercase — premium tech aesthetic
+- Color palette: primarily white and light gray on black. Accent sparingly with gold (#FFD700) for highlights and achievements only
+- Style: sleek, premium, editorial — think Apple keynote meets Bloomberg terminal. NOT generic infographic. NOT colorful cartoon.
+- No emojis, no clip art, no stock photo elements
+- All text must be spelled correctly and razor-sharp legible
+- Resolution: 1200×675px minimum (16:9)
 
 ---
 
 ## Course 1: Start Here — AI Basics
 
-### 1. Chatbot vs Agent
-- **Where:** Lesson "The AI Landscape" — after the chatbot vs agent section
-- **Prompt:** A clean split-screen diagram on a dark background. Left side labeled "CHATBOT" shows a simple back-and-forth arrow between a person icon and an AI icon. Right side labeled "AGENT" shows a person sending one message to an AI which then branches out into 5 different action steps connected by lines. Minimal flat design, no gradients.
+### Welcome & What You'll Learn
+1. **After "Your Progress Path"**
+> 🎨 Create a premium horizontal roadmap on a black background (#0A0A0A) with a subtle repeating pattern of bold italic "A" letters in dark gray (#1A1A1A). A sleek horizontal white line spans the width with six evenly spaced nodes. Each node is a sharp white circle with a bold number inside (1-6). Below each node in bold uppercase white text: "AI BASICS", "AGENCY MODEL", "ENVIRONMENT", "CLAUDE CODE", "MCPs", "ADVANCED AGENTS". Node 1 has a bright white glow ring around it indicating current position, with small italic text beneath it reading "YOU ARE HERE". The remaining nodes are slightly dimmer. Thin dotted white line connects all nodes. The overall feel should be like a premium product launch timeline — minimal, high-contrast, confident. No clip art. No colors except white and very subtle gray gradients on the line.
 
-### 2. Context Window Comparison
-- **Where:** Lesson "How AI Thinks" — after context window sizes
-- **Prompt:** A horizontal bar chart on a dark background comparing AI context windows. Three bars: Gemini at 1 million tokens (blue, longest), Claude at 200 thousand tokens (purple, medium), GPT-4 at 128 thousand tokens (green, shortest). A small book icon to the side with text "1 novel = 80K words" for scale. Clean data visualization.
-
-### 3. Good Prompt vs Bad Prompt
-- **Where:** Lesson "How AI Thinks" — after the prompt examples
-- **Prompt:** Two boxes side by side on a dark background. Left box has a red border and X icon, contains the text "Make me a website" in small plain text. Right box has a green border and checkmark icon, contains a longer detailed prompt with three labeled callout arrows pointing to sections marked "Context", "Task", and "Constraints". Clean, readable.
-
-### 4. The 4-Layer Tool Stack
-- **Where:** Lesson "The Tool Stack" — after the 4 layers intro
-- **Prompt:** Four stacked horizontal blocks on a dark background, building upward like layers. Bottom block is blue labeled "Layer 1: IDE — Your workspace". Second block is green labeled "Layer 2: CLI — Your command line". Third is orange labeled "Layer 3: APIs — Software talks to software". Top is purple labeled "Layer 4: MCPs — AI connects to tools automatically". Clean flat design.
-
-### 5. 10-Day Bootcamp Roadmap
-- **Where:** Lesson "The Tool Stack" — after the tools timeline
-- **Prompt:** A horizontal timeline on a dark background spanning Day 1 to Day 10. Four color sections: green section for Days 1-3 listing VS Code, Terminal, Git, Claude Code and MCPs. Yellow section for Days 4-5 listing Python, APIs, Supabase. Orange section for Days 6-8 listing n8n, Vercel, Stripe, Late API. Red section for Days 9-10 listing Multi-agent systems, Custom skills, Capstone. Clean roadmap style.
-
-### 6. HVAC Automation Before/After
-- **Where:** Lesson "Business Case Studies" — before the HVAC case study
-- **Prompt:** A split comparison on a dark background. Left panel tinted red labeled "BEFORE" shows a clock icon reading 4-6 hours with icons for manually reading email, typing a reply, and sending it. Right panel tinted green labeled "AFTER" shows a clock icon reading 15 minutes with icons for email arriving, AI drafting a response, owner clicking approve, and auto-send. Clean infographic style.
-
-### 7. Case Study Results Dashboard
-- **Where:** Lesson "Business Case Studies" — after the HVAC results
-- **Prompt:** A simple dashboard mockup on a dark background with four metric cards in a 2x2 grid. Top left card shows "Time Saved" with "2 hrs to 10 min" and a downward arrow. Top right shows "Response Time" with "4-6 hrs to 15 min" and a downward arrow. Bottom left shows "Lead Conversion" with "+35%" and an upward arrow. Bottom right shows "Monthly Value" with "$4,200". Clean SaaS dashboard style.
-
-### 8. AI Skills Staircase
-- **Where:** Lesson "The Mindset Shift" — after the hierarchy of AI skills
-- **Prompt:** An ascending staircase on a dark background with 6 steps going from bottom-left to top-right. Each step is labeled: Level 0 Awareness in gray, Level 1 User in yellow with a dotted line saying "most people stop here", Level 2 Builder in green, Level 3 Integrator in blue, Level 4 Automator in purple, Level 5 Architect in gold at the top. A small person icon is climbing the stairs. An arrow along the side labeled "This bootcamp" spans from Level 1 to Level 5.
+*Other 5 lessons already have images. ✅*
 
 ---
 
 ## Course 2: Agency Fundamentals
 
-### 9. Three-Tier Pricing
-- **Where:** Lesson "The AI Agency Model" — after the revenue model
-- **Prompt:** Three pricing columns on a dark background. Left column in green labeled "$500/mo Starter" with 3 bullet point icons. Middle column in yellow labeled "$1,000-1,500/mo Growth" with 4 bullet point icons. Right column in red labeled "$2,000+/mo Premium" with 5 bullet point icons. Below all three columns is a highlighted equation: "5 clients x $1,000 = $5,000 MRR". Clean pricing table style.
+### The AI Agency Model
+2. **After "Revenue Model (The Math That Matters)"**
+> 🎨 Create a bold revenue equation graphic on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Three large typographic blocks arranged horizontally with clean "×" and "=" symbols between them. Block 1: white bold italic uppercase "5 CLIENTS". Block 2: white bold italic uppercase "$1,000/MO". Block 3: outlined in gold (#FFD700) with gold bold italic text "$5,000 MRR". Below the equation, smaller white italic text: "Your first milestone." The typography should feel like a premium financial display — Bloomberg terminal meets luxury branding. High contrast, no clutter, no icons. The gold should feel earned, not decorative.
 
-### 10. Agency Tech Stack Layers
-- **Where:** Lesson "Your Tech Stack" — after the core stack
-- **Prompt:** A layered architecture diagram on a dark background with 5 horizontal layers stacked bottom to top. Bottom layer: GitHub labeled "Version Control". Second: Supabase labeled "Database and Auth". Third layer split into two side by side: Claude Code labeled "AI Partner" and n8n labeled "Automation". Fourth: Vercel labeled "Deployment". Top: Stripe labeled "Payments". Arrows connecting layers showing data flow upward.
+### Your Tech Stack & Service Menu
+3. **After "The Core Stack"**
+> 🎨 Create a sleek tool stack display on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Six square cards arranged in a clean horizontal row with subtle spacing. Each card is a dark (#111111) rounded square with a thin white border, containing a minimal white line-art icon and a bold uppercase label below. Left to right: terminal cursor icon "CLAUDE CODE", database cylinder "SUPABASE", connected nodes icon "N8N", angle brackets icon "VS CODE", credit card icon "STRIPE", globe icon "VERCEL". Below the row, a thin horizontal white line with small italic text: "YOUR AGENCY OPERATING SYSTEM". The cards should feel like an app dock — premium, consistent, technical. No color except white on black.
 
-### 11. Discovery Call Timeline
-- **Where:** Lesson "Discovery Call Framework" — after the framework intro
-- **Prompt:** A horizontal progress bar on a dark background divided into 4 colored sections. Blue section labeled "Rapport" showing 5 min. Orange section labeled "Pain Discovery" showing 15 min. Green section labeled "Solution Preview" showing 10 min. Purple section labeled "Next Steps" showing 5 min. Total: 35 minutes. Simple icons above each section.
+### Client Acquisition Playbook
+4. **After "The 3-Message Sequence"**
+> 🎨 Create a vertical 3-step outreach sequence on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Three sleek message cards stacked vertically with thin white connecting lines between them. Each card is a dark rounded rectangle (#111111) with a thin white left border accent. Card 1: large bold "01" in white, title "PATTERN INTERRUPT" in bold italic white, subtitle in gray: "Break their scroll with something unexpected". Card 2: "02", "VALUE DROP", "Free insight that proves your expertise". Card 3: "03", "SOFT CTA", "Would it help if I showed you how?". A subtle downward arrow flow between cards. The feel should be like a premium sales playbook — structured, confident, not cluttered. No chat bubble clip art.
 
-### 12. Value Balance Scale
-- **Where:** Lesson "Proposals & Pricing" — after the pricing section
-- **Prompt:** A balance scale on a dark background. The left side is small and light, labeled "$1,000 per month". The right side is heavy and tipping down, labeled with four items: "80+ hours saved", "$4,200 recovered revenue", "24/7 automation", "Professional AI infrastructure". Gold accent highlights. The right side clearly outweighs the left.
+### Sales Assets & Closing
+5. **After "The One-Pager"**
+> 📸 Create a one-page sales document in Notion or Google Docs (dark theme). Include: headline "AI Automation for [Your Niche]", 3 bullet-point value props, a 3-tier pricing table (Starter $500, Growth $1,000, Premium $2,000+), and a bold CTA "Book Your Discovery Call". Screenshot the full page. Make sure it looks polished — this is what students will model their own after.
 
-### 13. Client Lifecycle Circle
-- **Where:** Lesson "Fulfillment & Retention" — after retention strategies
-- **Prompt:** A circular diagram on a dark background with 5 stages connected by arrows going clockwise. The stages are: Onboard with a handshake icon, Deliver with a rocket icon, Report with a chart icon, Upsell with an upward arrow icon, and Retain with a heart icon. Center text reads "Client Lifecycle". Clean and professional.
+### The Discovery Call Framework
+6. **After "The 5-Phase Call Structure"**
+> 🎨 Create a horizontal 5-phase call flow on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Five slim vertical panels arranged side by side, each a tall dark rectangle (#111111) with a thin top border in white. Each panel contains: a large bold number (1-5) at the top, a bold italic uppercase title in white, and a one-line subtitle in gray. Panel 1: "RAPPORT" / "Build trust in 3 minutes". Panel 2: "PAIN" / "Uncover the real problem". Panel 3: "IMPACT" / "Quantify the cost of inaction". Panel 4: "SOLUTION" / "Present your system". Panel 5: "CLOSE" / "Ask for the commitment". Below all panels, centered italic text: "30-45 MINUTES". The aesthetic should feel like a premium conference agenda — clean columns, typographic hierarchy, no icons.
+
+### Client Onboarding System
+7. **After "Onboarding Checklist"**
+> 🎨 Create a premium onboarding checklist on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Five rows, each a horizontal dark card (#111111) with a status indicator on the left. First 3 rows: bright white filled square checkmark, text in white: "WELCOME EMAIL SENT", "ACCESS CREDENTIALS SHARED", "KICKOFF CALL SCHEDULED". Last 2 rows: empty square outline (gray), text in dimmer gray: "WEEK 1 DELIVERABLES", "FIRST CHECK-IN BOOKED". At the bottom, a slim progress bar — 60% filled in white, 40% dark gray. Small text below: "60% COMPLETE". The feel should be like a premium project management interface — Notion or Linear aesthetic. Clean, minimal, status-driven.
+
+### Fulfillment & Retention
+8. **After "Churn Signals"**
+> 🎨 Create a churn risk indicator panel on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Header in bold italic uppercase white: "CHURN RISK SIGNALS". Four horizontal rows, each a dark card (#111111). Each row has a small circle indicator on the left and bold white text. Row 1: red circle (#EF4444), "NO RESPONSE IN 7+ DAYS". Row 2: orange circle (#F97316), "SKIPPING CHECK-IN CALLS". Row 3: amber circle (#EAB308), "ASKING ABOUT CONTRACT TERMS". Row 4: red circle (#EF4444), "COMPETITOR MENTIONED". The overall feel should be like a monitoring dashboard — urgent, clear, actionable. No decorative elements.
+
+### Stripe Setup & Payment Processing
+9. **After "Create Your Stripe Account"**
+> 📸 Open Stripe dashboard (dashboard.stripe.com). Switch to dark mode if available. Screenshot the main overview page with the left sidebar visible showing: Payments, Customers, Products, Billing, Connect. Make sure some data or the empty state is visible in the main area.
+
+### Social Media Automation & Content Pipeline
+10. **After "Content Automation Pipeline"**
+> 🎨 Create a weekly content calendar on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). A 7-column grid with bold uppercase day headers: "MON" through "SUN". Each cell is a dark card (#111111). Populated cells contain a slim tag with the platform name in small uppercase text. Monday: white tag "LINKEDIN — Thought Leadership". Tuesday: white tag "INSTAGRAM — Behind the Scenes". Wednesday: white tags "LINKEDIN — Case Study" and "EMAIL — Newsletter". Thursday: white tag "INSTAGRAM — Quick Tip". Friday: white tag "LINKEDIN — CTA Post". Saturday: white tag "TIKTOK — Raw Content". Sunday: dimmer gray text "REST / BATCH PREP". Header above the grid in bold italic: "WEEKLY CONTENT PIPELINE". Aesthetic should feel like a premium editorial calendar — structured, typographic, no colorful icons.
+
+### Agent Command Center & Dashboard
+11. **After "Dashboard Sections"**
+> 📸 Open VS Code (dark theme). Split view: code file on the left (any Python script or markdown), terminal on the right showing structured output (run `python scripts/ceo_dashboard.py` or similar to get dashboard-like text). Screenshot the full IDE window. This shows students what a real "command center" looks like — code + live output, not a mockup.
+
+### Exercise: Build the Money Stack
+12. **After "The Mission"**
+> 🎨 Create a value ladder pyramid on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Five horizontal tiers stacked vertically, widest at bottom, narrowest at top. Each tier is a dark card (#111111) with bold italic uppercase white text. Bottom (widest): "COLD OUTREACH PIPELINE". Tier 2: "DISCOVERY CALLS". Tier 3: "PROPOSALS + PRICING". Tier 4: "5 PAYING CLIENTS". Top (narrowest, gold (#FFD700) border): "$5,000 MRR". A slim vertical arrow on the right side labeled "VALUE LADDER" in small italic white text. The pyramid should feel aspirational and structured — like a financial goal framework, not a generic funnel clip art.
+
+*Proposals & Pricing already has an image. ✅*
 
 ---
 
 ## Course 3: Environment Setup
 
-### 14. 📸 Terminal Basics
-- **Where:** Terminal basics lesson — throughout
-- **Screenshot:** Open your terminal. Run these commands in sequence: `pwd`, `ls`, `mkdir test-project`, `cd test-project`. Screenshot the full terminal window showing all commands and their output.
+### Terminal Basics
+13. **After "Welcome to the Terminal"**
+> 📸 Open your terminal (dark theme — black or near-black background). Run these commands in sequence: `pwd`, then `ls`, then `mkdir test-project && cd test-project`. Screenshot showing the prompt, all three commands, and their output. The terminal should look clean and professional — this is the first thing students see when they open a terminal.
 
-### 15. 📸 Claude Code First Run
-- **Where:** Claude Code installation lesson — after setup
-- **Screenshot:** Open terminal, type `claude`. Ask it to "create a hello world index.html". Screenshot showing the Claude Code interface, your request, and its response creating the file.
+### Node.js, Git & GitHub
+14. **After "Git -- Your Code Time Machine"**
+> 🎨 Create a horizontal Git workflow on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Four stages arranged left to right, each a dark vertical panel (#111111) with bold italic uppercase white text. Panel 1: "WORKING DIRECTORY" with small gray text "your files". Panel 2: "STAGING AREA" with "ready to save". Panel 3: "LOCAL REPO" with "saved history". Panel 4: "GITHUB" with "cloud backup". Between each panel, a sleek white arrow with a command label above it in monospace font: "git add", "git commit", "git push". The flow should feel like a premium technical diagram — clean, directional, no folder or cloud clip art icons. Typography-driven.
+
+*Installing Claude Code and IDE's already have images. ✅*
 
 ---
 
 ## Course 4: Claude Code Mastery
 
-### 16. Claude Code Architecture
-- **Where:** Architecture lesson — after the overview
-- **Prompt:** An architecture diagram on a dark background. In the center is a box labeled "Claude Model". Four inputs flow in from the left: "Your Prompt", "CLAUDE.md Instructions", "Project Files", and "MCP Tools". Four outputs flow out to the right: "Edit Files", "Run Commands", "Call MCP Tools", and "Text Response". Clean connecting lines between everything.
+### How Claude Code Works
+15. **After "Claude Code Architecture"**
+> 🎨 Create a horizontal architecture diagram on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Center: a large dark panel (#111111) with an orange-tan (#D4A574) border, containing bold italic uppercase "CLAUDE MODEL" and a subtle brain line-art icon. Left side: four slim dark cards stacked vertically with thin white arrows pointing into the center panel. Labels in bold white: "YOUR PROMPT", "CLAUDE.MD", "PROJECT FILES", "MCP TOOLS". Right side: four slim dark cards with arrows pointing out: "EDIT FILES", "RUN COMMANDS", "CALL MCPs", "TEXT RESPONSE". The left side header: "INPUTS" in small gray italic. Right side: "OUTPUTS". Clean architectural diagram feel — like a system design document, not a flowchart clip art.
 
-### 17. Prompt Quality Pyramid
-- **Where:** 4 Levels of Prompting lesson — overview
-- **Prompt:** A pyramid with 4 tiers on a dark background. Bottom tier is wide and labeled "Level 1 Basic" with example text "make a website". Second tier labeled "Level 2 Specific" with "create a landing page with hero, services, and contact form". Third tier labeled "Level 3 Contextual" with "full prompt with context, task, and constraints". Top tier is narrow and labeled "Level 4 Architect" with "system-level instructions referencing project files". Arrow on the side labeled "Output Quality" pointing upward.
+### Effective Prompting
+16. **After "The 4 Levels of Prompting"**
+> 🎨 Create an ascending 4-level progression on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Four horizontal bars ascending from bottom-left to top-right like a staircase. Each bar is a dark panel (#111111) with bold italic uppercase text. Bottom bar (dimmer gray text): "LEVEL 1: BASIC" — "One-line requests". Bar 2 (white text): "LEVEL 2: STRUCTURED" — "Context + Task + Constraints". Bar 3 (bright white): "LEVEL 3: SYSTEM" — "CLAUDE.md + project context". Top bar (gold (#FFD700) top border): "LEVEL 4: ARCHITECT" — "Multi-agent orchestration". A thin vertical line on the left connects all levels with small text "YOUR PROGRESSION". The feel should be like a skill tree or rank progression — premium, aspirational.
 
-### 18. 📸 CLAUDE.md in VS Code
-- **Where:** CLAUDE.md lesson — after the structure explanation
-- **Screenshot:** Open a CLAUDE.md file in VS Code with a dark theme. Show the full file with the minimap visible on the right side. The key sections (project description, rules, tool routing) should be visible.
+### CLAUDE.md & Project Config
+17. **After "What Goes in CLAUDE.md"**
+> 📸 Open your CLAUDE.md file in VS Code (dark theme). Make sure visible sections include: the project description at the top, a rules section, a tool routing table, and at least one @import reference. Screenshot the full editor. Crop to show just the editor — no desktop clutter. Students will model their CLAUDE.md after this.
 
-### 19. Multi-Agent Org Chart
-- **Where:** Subagent Delegation lesson — after the concept
-- **Prompt:** An organizational chart on a dark background. At the top is one large node labeled "Lead Agent" as the coordinator. Below it, connected by lines, are 6 smaller specialist nodes: "Architect" with a blueprint icon, "Coder" with a code brackets icon, "Reviewer" with a magnifying glass icon, "Debugger" with a bug icon, "Researcher" with a book icon, and "Content Creator" with a pen icon. Clean org-chart layout.
+### File Operations & Exercise
+18. **After "Subagents"**
+> 🎨 Create a delegation hierarchy on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Top center: a premium dark card (#111111) with gold (#FFD700) border, bold italic "LEAD AGENT" with subtitle "Coordinator". Three thin white lines extend downward to three smaller dark cards in a row. Left card: "READ AGENT" with subtitle "Analyzes files". Center card: "WRITE AGENT" with subtitle "Implements code". Right card: "TEST AGENT" with subtitle "Validates output". Below all three, a horizontal dark bar: "PROJECT FILES". Thin arrows show bidirectional data flow. The aesthetic should feel like an org chart from a premium tech company — clean hierarchy, no cartoon characters.
+
+### Building Custom Skills
+19. **After "Anatomy of a Skill"**
+> 📸 Open a real skill file in VS Code (dark theme) — e.g., `.claude/skills/commit/SKILL.md` or any custom skill you've built. The screenshot should clearly show: the YAML frontmatter block at the top (name, description fields), and the first several lines of instruction markdown below. Students need to see what a real skill file looks like on disk.
+
+### Advanced Skills & Automation
+20. **After "Skill Chaining"**
+> 🎨 Create a multi-agent org chart on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Top center: a large dark card (#111111) with gold (#FFD700) border containing bold italic "LEAD AGENT" and subtitle "ORCHESTRATOR". Six thin white lines extend downward to six smaller dark cards in a row. Each card has a small colored top border accent and bold white label: blue accent "ARCHITECT", green "CODER", yellow "REVIEWER", red "DEBUGGER", teal "RESEARCHER", purple "WRITER". Below each label, one-line gray italic subtitle: "Designs systems", "Implements code", "Guards quality", "Fixes bugs", "Gathers intel", "Creates content". Premium tech org chart feel — no circle avatars or clip art.
 
 ---
 
 ## Course 5: MCPs & Integrations
 
-### 20. MCP Architecture
-- **Where:** Lesson "What Are MCPs?" — after the USB ports analogy
-- **Prompt:** Three connected boxes on a dark background arranged left to right. Left box labeled "AI Client" with subtitle "Claude Code". Middle box labeled "MCP Server" with subtitle "Translation Layer". Right box labeled "External Service" with subtitle "Database, Browser, API". Bidirectional arrows between each box labeled "JSON-RPC". Clean minimal technical diagram.
+### Playwright & Web Automation
+21. **After "The 5-Step Workflow"**
+> 🎨 Create a horizontal 5-step automation flow on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Five dark panels (#111111) arranged horizontally with sleek white arrows between them. Each panel has a large bold number (1-5) and bold italic uppercase label. 1: "NAVIGATE". 2: "SNAPSHOT". 3: "INTERACT". 4: "RE-SNAPSHOT". 5: "VERIFY". Below each label, one-line gray subtitle: "Go to URL", "Read the page", "Click or type", "Refresh state", "Confirm result". Below the entire flow, a highlighted italic callout: "ALWAYS RE-SNAPSHOT AFTER ANY PAGE CHANGE". Premium process diagram — clean, sequential, no browser window clip art.
 
-### 21. Restaurant API Analogy
-- **Where:** Lesson "What Is an API?" — after the restaurant analogy
-- **Prompt:** An illustration on a dark background showing a restaurant scene. On the left is a person at a table labeled "Client" with a menu labeled "API Docs". In the center is a waiter carrying a tray labeled "API". On the right is a kitchen labeled "Server". A dotted arrow goes from client to kitchen labeled "Request" and a dotted arrow returns labeled "Response". Flat illustration style.
+### Memory, Context7 & Thinking
+22. **After "The Intelligence Stack"**
+> 🎨 Create a vertical 3-layer intelligence stack on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Three horizontal dark panels (#111111) stacked vertically with thin white spacing. Top panel (thin blue (#3B82F6) top border): bold italic "SEQUENTIAL THINKING" with gray subtitle "Multi-step structured reasoning". Middle panel (thin green (#22C55E) top border): "CONTEXT7" / "Live library documentation". Bottom panel (thin purple (#8B5CF6) top border): "MEMORY MCP" / "Persistent knowledge graph". Right side: thin bidirectional arrows between all three layers. Header above in bold italic: "THE INTELLIGENCE STACK". Premium layered architecture feel.
 
-### 22. .env Security Pattern
-- **Where:** Lesson "CLI Wrappers" — after the .env pattern
-- **Prompt:** Three file icons on a dark background arranged in a row. Left file icon labeled ".env" has a red padlock icon and text below reading "Contains secrets — never commit to git". Center file icon labeled ".gitignore" has a shield icon and shows ".env" as a listed entry inside it. Right file icon labeled ".env.example" has a green globe icon and text below reading "Template with placeholder values — safe to share". An arrow shows .gitignore blocking .env from reaching a git logo.
+### What Is an API?
+23. **After "The Restaurant Analogy"**
+> 🎨 Create a horizontal 3-part analogy on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Three dark panels (#111111) arranged horizontally. Left panel: bold italic "YOU" with gray subtitle "The Client" and smaller text "Places the order". Center panel (slightly taller, thin white border): bold italic "API" with subtitle "The Waiter" and "Carries the request". Right panel: bold italic "SERVER" with subtitle "The Kitchen" and "Prepares the response". Sleek white arrows: solid arrow right from You → API → Server, dashed arrow left from Server → API → You. Below: italic text "REQUEST →  ←  RESPONSE". Clean editorial diagram — no cartoon waiter or restaurant imagery.
+
+*What Are MCPs? already has an image. Other lessons are code-heavy / exercises. ✅*
 
 ---
 
 ## Course 6: Secure OpenClaw Setup
 
-### 23. Credential Hierarchy
-- **Where:** Lesson "Security-First Architecture" — after credential levels
-- **Prompt:** A pyramid with 4 tiers on a dark background. Top tier is red and narrow, labeled "CRITICAL" with text "Supabase service role, Stripe live keys". Second tier is orange, labeled "SENSITIVE" with text "API keys, OAuth tokens". Third tier is yellow, labeled "RESTRICTED" with text "Read-only tokens". Bottom tier is green and wide, labeled "PUBLIC" with text "Anon keys, public URLs". Clean flat design.
+### Security-First Agent Architecture
+24. **After "The Credential Hierarchy"**
+> 🎨 Create a 4-tier security pyramid on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Four horizontal tiers narrowing from bottom to top. Each tier is a dark panel (#111111) with a colored left border. Top (narrowest, red #EF4444 border): bold italic "CRITICAL" with gray text "Service role keys, Stripe live secrets". Tier 2 (orange #F97316): "SENSITIVE" / "API keys, OAuth tokens". Tier 3 (amber #EAB308): "RESTRICTED" / "Read-only tokens, anon keys". Bottom (widest, green #22C55E): "PUBLIC" / "URLs, documentation". A slim white padlock icon centered above the top tier. The feel should be like a classified security clearance chart — authoritative, structured, serious.
 
-### 24. Emergency Response Card
-- **Where:** Lesson "API Key Rotation" — after the emergency section
-- **Prompt:** A card with a red border on a dark background. Header text reads "KEY COMPROMISE RESPONSE" in bold white. Below are 6 large numbered steps: 1 Revoke the exposed key immediately, 2 Generate a new replacement key, 3 Update .env.agents with the new key, 4 Restart all services, 5 Audit access logs for unauthorized use, 6 Notify affected clients if applicable. High contrast, bold text, designed to be quickly scannable.
+### API Key Rotation & Access Controls
+25. **After "Building a Rotation Schedule"**
+> 🎨 Create a horizontal rotation timeline on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). A thin white horizontal line spanning the width. Four node markers along the line. Each marker is a white vertical tick with a dark card (#111111) hanging below it. Card 1: green (#22C55E) top border, "DAY 1" / "Generate new keys". Card 2: amber top border, "DAY 30" / "Rotate Supabase token". Card 3: amber top border, "DAY 60" / "Rotate API keys". Card 4: red (#EF4444) top border, "DAY 90" / "Full security audit". Header: bold italic "ROTATION SCHEDULE". Premium timeline — like a project management Gantt chart, not a generic timeline clip art.
 
 ---
 
 ## Course 7: Lead Magnets
 
-### 25. Lead Magnet Conversion Rates
-- **Where:** Lesson "Fundamentals" — after the types ranked
-- **Prompt:** A horizontal bar chart on a dark background with 7 bars sorted from highest to lowest conversion rate. The bars and their labels: AI Readiness Checklist at 30-40 percent, Bundled Toolkit at 25-35 percent, ROI Calculator at 25-35 percent, Prompt Library at 20-35 percent, Mini-Course at 20-30 percent, Free Audit at 15-25 percent, Workflow Maps at 15-20 percent. Bars are colored in a gradient from green for highest to yellow for lowest.
+### Lead Magnet Fundamentals
+26. **After "Lead Magnet Types Ranked"**
+> 🎨 Create a ranked effectiveness chart on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Seven horizontal bars of decreasing length from top to bottom. Each bar is a slim dark panel (#111111) with white text inside. The top bar has a gold (#FFD700) left border and bold text: "#1 AI READINESS CHECKLIST". Remaining bars in white with decreasing brightness: "#2 ROI CALCULATOR", "#3 PROMPT LIBRARY", "#4 WORKFLOW TEMPLATE", "#5 VIDEO MINI-COURSE", "#6 FREE AUDIT", "#7 EBOOK / GUIDE". Header: bold italic "LEAD MAGNET EFFECTIVENESS". The bars should feel like a leaderboard or performance ranking — not a colorful bar chart.
 
-### 26. Landing Page Wireframe
-- **Where:** Lesson "Build Your Lead Magnet" — after the 8 elements
-- **Prompt:** A website wireframe mockup on a dark background showing a simple landing page layout with 8 numbered annotation callouts. Number 1 points to a headline area at the top. Number 2 points to a short form with two fields for name and email. Number 3 points to a large call-to-action button. Number 4 points to a testimonial quote. Number 5 shows a crossed-out navigation bar area. Number 6 points to a video placeholder. Number 7 shows a phone outline overlay indicating mobile-first. Number 8 shows a speed gauge icon. Clean wireframe drawing style.
+### Build Your Lead Magnet & Landing Page
+27. **After "Landing Page Anatomy"**
+> 🎨 Create a wireframe landing page blueprint on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). A tall dark rectangle (#111111) representing a web page, with five labeled sections inside, each outlined with thin white dashed borders. Section 1 (top): "HERO + HEADLINE" with placeholder lines. Section 2: "PROBLEM STATEMENT" with three bullet-point lines. Section 3: "WHAT YOU'LL GET" with a checklist. Section 4: "SOCIAL PROOF" with star outlines. Section 5 (bottom): "CTA BUTTON" as a solid white rectangle. On the right side, thin white lines connect each section to bold italic labels. The feel should be like an architect's blueprint — structured, annotated, professional wireframe aesthetic.
 
-### 27. Email Nurture Timeline
-- **Where:** Lesson "Distribution & Nurture" — after the 5-email sequence
-- **Prompt:** A horizontal timeline on a dark background with 5 points marked along it at Day 0, Day 2, Day 4, Day 6, and Day 8. Each point has an envelope icon above it. Day 0 is labeled "Delivery" in green. Day 2 is labeled "Dialogue" in blue. Day 4 is labeled "Value Add" in blue. Day 6 is labeled "Social Proof" in yellow. Day 8 is labeled "The Offer" in gold. Clean professional design.
+### Distribution & Email Nurture Sequences
+28. **After "The 5-Email Nurture Sequence"**
+> 🎨 Create a vertical 5-step email sequence on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Five dark cards (#111111) stacked vertically with thin white downward arrows between them. Each card has a large bold number on the left and text on the right. Card 1: "01" / bold "VALUE BOMB" / gray italic "Day 0 — Deliver the lead magnet". Card 2: "02" / "QUICK WIN" / "Day 2 — One actionable tip". Card 3: "03" / "CASE STUDY" / "Day 4 — Proof it works". Card 4: "04" / "OBJECTION BUSTER" / "Day 6 — Handle the #1 concern". Card 5: "05" / "CTA" / "Day 8 — Book the call". Premium drip campaign visual — editorial, numbered, not envelope clip art.
 
-### 28. Marketing Funnel
-- **Where:** Lesson "Metrics & Optimization" — after the funnel metrics
-- **Prompt:** A vertical funnel diagram on a dark background narrowing from top to bottom. The widest section at top is labeled "Visitors". Below it with "10-30%" between them is "Leads". Below with "35-50% open rate" is "Engaged Subscribers". Below with "8-12%" is "Booked Calls". The narrowest section at bottom with "20-30% close rate" is "Clients". Color gradient from blue at top to gold at bottom.
+### Metrics, Optimization & AI Scaling
+29. **After "Metrics Dashboard"**
+> 🎨 Create a conversion funnel on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Five horizontal bars narrowing from top to bottom, each a dark panel (#111111). Between each bar, a thin line with a conversion percentage in small white text. Top bar (widest): "VISITORS". Gap: "10-30% →". Bar 2: "LEADS". Gap: "35-50% open →". Bar 3: "ENGAGED SUBSCRIBERS". Gap: "8-12% →". Bar 4: "BOOKED CALLS". Gap: "20-30% →". Bottom bar (narrowest, gold #FFD700 border): "CLIENTS". The funnel should feel like a premium analytics dashboard visualization — not a colorful marketing funnel. Data-driven, typographic.
+
+### How I Built 20k Lead list with Manychat
+30. **After "System Overview"**
+> 📸 Open your ManyChat dashboard and navigate to any automation flow. Screenshot the visual flow builder canvas showing connected nodes/steps. If no live flow exists, screenshot the ManyChat automation templates page. Dark theme if available.
+
+*Notion lesson already has 3 screenshots. ✅*
 
 ---
 
 ## Course 8: Automation & Workflows
 
-### 29. Manual vs Automated
-- **Where:** Lesson "Automation Mindset" — after the Rule of Three
-- **Prompt:** A split comparison on a dark background. Left panel has a red tint and is labeled "BEFORE — Manual". It shows 5 task lines and text reading "50 min/day" and "300+ hours per year wasted". Right panel has a green tint and is labeled "AFTER — Automated". It shows the same 5 tasks with checkmark icons and text reading "0 min/day" and "Runs while you sleep". Clean infographic.
+### The Automation Mindset & n8n Setup
+31. **After "The Rule of Three"**
+> 🎨 Create a before/after split on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Two vertical panels side by side separated by a thin white line. Left panel: dim red (#EF4444) header bar, bold italic "BEFORE — MANUAL". Five rows with small clock icons and task names in white. Bottom: large bold "50 MIN/DAY" and smaller gray text "300+ hours/year wasted". Right panel: green (#22C55E) header bar, bold italic "AFTER — AUTOMATED". Same five rows but with checkmark icons. Bottom: large bold "0 MIN/DAY" and "Runs while you sleep". The contrast should be dramatic and immediate — the right side should feel like relief. Premium dashboard split-view aesthetic.
 
-### 30. 📸 n8n Dashboard
-- **Where:** Lesson "Automation Mindset" — after the dashboard tour
-- **Screenshot:** Open your n8n instance dashboard. Screenshot the main view showing the workflow list, with the left sidebar navigation visible (Workflows, Credentials, Executions).
+### Workflow Patterns & Webhooks
+32. **After "The 4 Workflow Patterns"**
+> 🎨 Create a 2×2 pattern grid on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Four quadrants separated by thin white crosshair lines. Each quadrant is a dark panel (#111111) with a bold italic label and a minimal white line diagram below it. Top-left: "SEQUENTIAL" — three small squares connected in a straight line by arrows. Top-right: "PARALLEL" — one square splitting into three parallel squares. Bottom-left: "CONDITIONAL" — one square splitting at a diamond into two paths. Bottom-right: "LOOP" — three squares in a line with a curved arrow returning from the last to the first. Clean, minimal, technical — like a textbook diagram with premium styling.
 
-### 31. Cron Syntax Breakdown
-- **Where:** Lesson "Cron Jobs" — after the cron syntax explanation
-- **Prompt:** A cron syntax diagram on a dark background showing five asterisks in a row with each one a different color. Below each asterisk is a label: Minute in blue, Hour in green, Day of Month in yellow, Month in orange, Day of Week in red. Below that are three example lines: "0 9 * * 1-5" equals "Weekdays at 9am", "*/15 * * * *" equals "Every 15 minutes", "0 0 1 * *" equals "First of month at midnight". Monospace font for the cron expressions.
+### Cron Jobs & n8n + Claude Code
+33. **After "n8n + Claude Code"**
+> 📸 Open your n8n dashboard and show a workflow canvas with connected nodes. Ideally show a workflow that includes an AI or HTTP node. Screenshot the full canvas view. Dark theme preferred.
+
+### Cron Job Fundamentals
+34. **After "Cron Syntax Deep Dive"**
+> 🎨 Create a cron expression anatomy diagram on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Top center: large bold monospace white text "0 9 * * 1-5". Below, five thin vertical white lines drop down from each segment of the expression to five dark cards (#111111) arranged in a row. Card labels in bold white: "MINUTE", "HOUR", "DAY/MONTH", "MONTH", "DAY/WEEK". Below each label, the value in gray: "0", "9", "Any", "Any", "Mon-Fri". At the bottom, a horizontal dark bar with italic white text: "→ AT 9:00 AM, MONDAY THROUGH FRIDAY". The feel should be like a premium code annotation — technical, precise, editorial.
+
+### Production Patterns
+35. **After "Three-Tier Architecture"**
+> 🎨 Create a 3-environment architecture on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Three tall dark panels (#111111) side by side. Left panel: blue (#3B82F6) top border, bold italic "DEVELOPMENT", gray subtitle "localhost", small text "Break things here". Center: amber (#EAB308) top border, "STAGING" / "test.example.com" / "Verify before deploy". Right: green (#22C55E) top border, "PRODUCTION" / "app.example.com" / "Users see this". White arrows between panels: "git push →" and "deploy →". The aesthetic should be like a DevOps pipeline diagram — authoritative, structured, three distinct environments clearly separated.
 
 ---
 
 ## Course 9: Live Closes
 
-### 32. Objection Handling Flow
-- **Where:** Lesson "Handling I Need to Think About It" — below the video
-- **Prompt:** A flowchart on a dark background with 5 steps connected by arrows. Step 1 in a red rounded box: "Objection Stated". Step 2 in yellow: "Acknowledge". Step 3 in yellow: "Isolate the Real Concern". Step 4 in green: "Reframe the Value". Step 5 in green: "Trial Close". Arrows flow left to right between each step. Clean minimal design.
-
-### 33. Follow-Up Timeline
-- **Where:** Lesson "The Follow-Up Machine" — below the video
-- **Prompt:** A horizontal timeline on a dark background spanning 30 days with 7 marked touchpoints. Day 0 with an email icon, Day 1 with a chat/DM icon, Day 3 with an email icon, Day 7 with a phone icon, Day 14 with an email icon, Day 21 with a chat/DM icon, Day 30 with a final email icon. Each touchpoint is color-coded by channel type. Clean and scannable.
+*All 4 lessons are video-only Loom embeds. No images needed.*
 
 ---
 
 ## Course 10: Python Automation Engines
 
-### 34. SaaS Replacement Comparison
-- **Where:** Lesson "The Engine Pattern" — after the $47K wake-up call
-- **Prompt:** A comparison table on a dark background with two columns. Left column header in red reads "SaaS Tools" and lists 8 items with their monthly costs: HubSpot $45, Mailchimp $20, Calendly $12, Buffer $6, ManyChat $15, Zapier $20, Slack $8, Baremetrics $50, totaling $176 per month. Right column header in green reads "Python Engines" and shows "$0" next to each matching replacement. Bottom shows total annual savings highlighted in gold: "$2,112/year saved". Clean table design.
+### The Engine Pattern — $47K/Year for $0
+36. **After "The $47K Wake-Up Call"**
+> 🎨 Create a dramatic cost comparison on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Two vertical columns. Left column: red (#EF4444) header bar "SAAS STACK". Five dark cards (#111111) stacked vertically, each with a red price tag: "HUBSPOT — $800/MO", "CALENDLY — $240/MO", "MAILCHIMP — $350/MO", "BUFFER — $120/MO", "ZAPIER — $500/MO". Bottom: bold red "$47,004/YEAR". Right column: green (#22C55E) header bar "PYTHON ENGINES". Five matching cards with green "$0" tags: "crm_engine.py", "booking_engine.py", "email_engine.py", "content_engine.py", "scheduler.py". Bottom: bold green "$0/YEAR". A large bold strikethrough on the left total and a gold glow on the right. The visual impact should be visceral — the savings should hit immediately.
 
-### 35. Sales Pipeline Funnel
-- **Where:** Lesson "CRM & Lead Engine" — after the pipeline stages
-- **Prompt:** A horizontal funnel on a dark background with 6 stages narrowing from left to right. The stages are: New, Contacted, Qualified, Proposal, Negotiating, Won. Each stage is a different shade getting darker toward the right. There is also a downward branch from any stage to a "Lost" box below the funnel. Clean, minimal sales pipeline visualization.
+### CRM & Lead Engine — HubSpot Replacement
+37. **After "Pipeline Stages"**
+> 🎨 Create a horizontal sales pipeline on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Six dark panels (#111111) arranged horizontally with thin white arrow connectors. Each panel has a colored top border that shifts from cool to warm as the deal progresses. Panel 1 (blue border): "NEW LEAD" / "100%". Panel 2 (light blue): "CONTACTED" / "60%". Panel 3 (teal): "QUALIFIED" / "40%". Panel 4 (amber): "PROPOSAL" / "25%". Panel 5 (orange): "NEGOTIATION" / "15%". Panel 6 (green border, gold text): "CLOSED WON" / "10%". Header: "CRM PIPELINE". The percentages show conversion at each stage. Premium CRM dashboard aesthetic.
 
-### 36. Full 11-Engine Architecture
-- **Where:** Lesson "The Autonomous Stack" — after the full stack map
-- **Prompt:** A three-tier architecture diagram on a dark background. Bottom tier is a wide bar labeled "Supabase" as the shared data layer. Middle tier shows 11 small connected boxes representing Python engines: CRM, Email, Booking, Content, Instagram, Revenue, Weather, and others. Top tier shows two boxes: "Scheduler" orchestrating everything and "Notify" sending alerts to a Telegram icon. Clean connecting lines between tiers.
+### The Autonomous Stack — Full Autonomy
+38. **After "The Full Stack: How All 11 Engines Connect"**
+> 🎨 Create a 3-tier engine architecture on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Bottom tier: a wide dark panel (#111111) with green (#22C55E) border spanning the full width, bold italic "SUPABASE — SHARED DATA LAYER". Middle tier: eleven small dark cards (#111111) in a compact horizontal row, each with tiny bold white labels: "CRM", "EMAIL", "BOOK", "CONTENT", "IG", "REV", "WEATHER", "OUTREACH", "SCHED", "PUB", "ANALYTICS". Top tier: two slightly larger cards centered above — "SCHEDULER" with a clock notation and "NOTIFY → TELEGRAM" with an arrow. Thin white lines connect all tiers showing data flow. The diagram should feel like a real system architecture — dense, interconnected, powerful.
+
+### CLI Wrapping — Build Your Own Software
+39. **After "The Universal CLI Wrapper Pattern"**
+> 🎨 Create a horizontal 5-layer flow on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Five dark vertical panels (#111111) arranged left to right with white arrow connectors. Panel 1: "CLI INTERFACE" / gray subtitle "User types command". Panel 2: "ARG PARSER" / "Validates flags". Panel 3: "BACKEND" / "Calls subprocess". Panel 4: "EXTERNAL TOOL" / "The real software". Panel 5: "JSON OUTPUT" / "Structured response". A thin dashed return arrow below flowing right to left labeled "Error handling". Premium technical pipeline diagram — like a data flow in an engineering doc.
 
 ---
 
 ## Course 11: Database & Backend
 
-### 37. 📸 Supabase Dashboard
-- **Where:** Lesson "Why Databases" — after the dashboard tour
-- **Screenshot:** Open any Supabase project dashboard. Screenshot the full view showing the left sidebar with Table Editor, SQL Editor, Authentication, Storage, Edge Functions, and Settings all visible.
+### Why Databases & Supabase Setup
+40. **After "Setting Up Supabase"**
+> 📸 Open any Supabase project dashboard (dark theme). Screenshot showing the left sidebar with: Table Editor, SQL Editor, Authentication, Storage, Edge Functions, and other menu items visible. The main content area should show either the table editor or the project home.
 
-### 38. CRUD Operations
-- **Where:** Lesson "SQL Basics" — after the four operations intro
-- **Prompt:** Four cards arranged in a row on a dark background. Each card has a colored header and large text. First card is green with "CREATE" and "INSERT INTO" below. Second card is blue with "READ" and "SELECT FROM" below. Third card is yellow with "UPDATE" and "UPDATE SET" below. Fourth card is red with "DELETE" and "DELETE FROM" below. Clean, bold, simple.
+### SQL Basics & CRUD Operations
+41. **After "The Four Operations (CRUD)"**
+> 🎨 Create a 2×2 CRUD grid on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Four quadrants separated by thin white crosshair lines. Each quadrant is a dark panel (#111111) with a colored left border and bold italic text. Top-left (green #22C55E border): "CREATE" with monospace gray text "INSERT INTO". Top-right (blue #3B82F6): "READ" / "SELECT FROM". Bottom-left (amber #EAB308): "UPDATE" / "UPDATE SET". Bottom-right (red #EF4444): "DELETE" / "DELETE FROM". Clean, color-coded, technical reference card aesthetic. No icons — pure typography.
 
-### 39. RLS Before/After
-- **Where:** Lesson "Tables & Security" — after the Row Level Security section
-- **Prompt:** A split comparison on a dark background. Left side labeled "Without RLS" shows an unlocked padlock icon and a database table where all rows are visible and highlighted, with text "Any user sees ALL data". Right side labeled "With RLS" shows a locked padlock icon and the same database table but only 2 of 6 rows are highlighted, with text "Users see only THEIR data". Red tint on left, green tint on right.
+### Tables, Schema Design & Security
+42. **After "Row Level Security (RLS)"**
+> 🎨 Create a before/after RLS comparison on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Two panels separated by a thin white vertical line. Left panel: red (#EF4444) header "WITHOUT RLS". Below, a minimal table representation — 6 horizontal rows all tinted red, indicating full access. Small white padlock icon in "unlocked" state. Bottom text: "ANY USER SEES ALL DATA". Right panel: green (#22C55E) header "WITH RLS". Same table but only 2 rows tinted green (visible), other 4 rows are dark/dimmed (hidden). Locked padlock icon. Bottom text: "USERS SEE ONLY THEIR DATA". The security contrast should be immediately obvious — red = danger, green = secure.
 
-### 40. Local vs Production
-- **Where:** Lesson "Local vs Production" — after the gap explanation
-- **Prompt:** A split image on a dark background. Left side shows a laptop icon with "localhost:3000" text below it and a label "Only you". Right side shows a globe icon with "yourapp.com" text below it and a label "The whole world". A large arrow in the center points from left to right and is labeled "Deploy". Clean, minimal.
+### Local vs Production & Vercel Deployment
+43. **After "Deployment Decision Tree"**
+> 🎨 Create a decision tree on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Top center: a dark diamond shape (#111111) with white border, bold text "WHAT ARE YOU DEPLOYING?". Two branches extend downward. Left branch: "Frontend / Full-stack" → dark card with green border "VERCEL". Right branch: "Backend / API / Bot" → another diamond "NEED FULL SERVER CONTROL?". From that: left "No" → blue bordered card "RAILWAY / RENDER". Right "Yes" → orange bordered card "VPS (HOSTINGER)". White connecting lines and arrows. Premium flowchart — like an engineering decision document.
 
-### 41. Docker Flow
-- **Where:** Lesson "Docker & Containers" — after the 4 building blocks
-- **Prompt:** A horizontal flow diagram on a dark background with three connected elements. Left: a document icon labeled "Dockerfile" with subtitle "The recipe". Arrow points right to a box icon labeled "Image" with subtitle "The frozen meal". Arrow points right to a running container icon labeled "Container" with subtitle "The running app". Above the Image box, a cloud icon labeled "Docker Hub" connects down with an arrow labeled "pull/push". Clean technical diagram.
+### Docker & Containers
+44. **After "What Is Docker?"**
+> 🎨 Create a container portability diagram on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Left side: three separate dark cards (#111111) of different sizes representing "NODE.JS APP", "PYTHON SCRIPT", "POSTGRESQL DB" — scattered and messy-looking. Center: a large dark panel (#111111) with a thick white border (the "container"), containing all three items neatly organized inside, label "DOCKER CONTAINER". Right side: three identical computer outlines labeled "LAPTOP", "SERVER", "CLOUD". White arrows from the container to all three computers. Bottom italic text: "BUILD ONCE. RUN ANYWHERE." The left side should feel chaotic, the center and right should feel ordered and consistent.
 
 ---
 
 ## Course 12: Advanced Agents
 
-### 42. Chatbot vs Agent (Detailed)
-- **Where:** Lesson "Agent Architecture" — after the comparison
-- **Prompt:** A split diagram on a dark background. Left side labeled "CHATBOT" shows a linear flow: User asks, AI answers, conversation forgotten, repeat. A straight line. Right side labeled "AGENT" shows a circular flow: User instructs, AI recalls memory, AI plans approach, AI executes actions, AI stores results, AI learns for next time. A continuous loop. The agent side should look more complex and capable.
+### Agent Architecture & Custom Skills
+45. **After "The 5-Layer Agent Stack"**
+> 🎨 Create a vertical 5-layer agent stack on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Five horizontal dark panels (#111111) stacked bottom to top, each slightly narrower than the one below. Bottom: dim gray border, bold "LAYER 1: RUNTIME" / gray "Terminal, shell, execution environment". Layer 2: "MEMORY" / "Session state, files, database". Layer 3: "SKILLS" / "Reusable capabilities and tools". Layer 4 (bright white text): "REASONING" / "BRAIN_LOOP, multi-hypothesis planning". Top (gold #FFD700 border): "PERSONALITY" / "SOUL.md — Identity, values, voice". A thin vertical arrow on the left labeled "DATA FLOWS UP". Premium layer cake architecture — like a tech stack diagram, aspirational, building toward intelligence.
 
-### 43. 5-Layer Agent Stack
-- **Where:** Lesson "Agent Architecture" — after the 5 layers
-- **Prompt:** Five horizontal layers stacked vertically on a dark background, contained within a human head silhouette outline. Top layer labeled "Brain — Identity and values". Second layer labeled "Memory — Knowledge and history". Third layer labeled "Skills — Specialized capabilities". Fourth layer labeled "Tools — External integrations and MCPs". Bottom layer labeled "Communication — Input and output channels". Each layer a slightly different shade.
+### Memory Systems & Multi-Agent Orchestration
+46. **After "The Three Tiers of Memory"**
+> 🎨 Create a 3-tier memory diagram on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Three dark panels (#111111) arranged horizontally. Left panel (red #EF4444 top border): bold italic "HOT MEMORY" / "Session context" / gray "Gone when session ends". Center panel (amber #EAB308 top border): "WARM MEMORY" / "Files (STATE.md, TASKS.md)" / "Persists across sessions". Right panel (blue #3B82F6 top border): "COLD MEMORY" / "Database (Supabase)" / "Permanent + searchable". Below, white arrows: Hot → Warm → Cold labeled "PERSIST" and Cold → Hot labeled "RECALL". Premium data architecture diagram — clean three-column layout, no thermometer or temperature clip art.
 
-### 44. Knowledge Graph
-- **Where:** Lesson "Memory Systems" — after the Memory MCP section
-- **Prompt:** A network graph on a dark background with 6 circular nodes connected by labeled lines. The nodes are: "CC" in blue, "OASIS AI" in green, "PropFlow" in purple, "Supabase" in orange, "n8n" in orange, and "Stripe" in orange. Lines between them are labeled with relationships like "founded", "builds", "uses", and "connects to". Network visualization style with subtle glow on the connection lines.
+### Command Center Architecture
+47. **After "The 5 Core Components"**
+> 🎨 Create a dashboard wireframe on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). A large dark rectangle (#111111) divided into 5 sections by thin white lines. Top-left section: "SYSTEM STATUS" with three small circles (green, amber, red) representing health indicators. Top-right: "ACTIVE TASKS" with four checkbox-style line items. Center (largest section): "MRR TRACKER" with a simple ascending line graph outline. Bottom-left: "AGENT ACTIVITY" with horizontal log-line placeholders. Bottom-right: "ALERTS" with two warning triangle outlines. Header above: bold italic "AGENT COMMAND CENTER". Premium dashboard wireframe — like a Figma mockup, not a finished UI.
 
-### 45. BRAIN_LOOP Circle
-- **Where:** Lesson "Autonomous Decision Pipelines" — after the BRAIN_LOOP section
-- **Prompt:** A circular diagram on a dark background with 10 steps arranged like a clock. Starting from the top and going clockwise: 1 Orient, 2 Recall, 3 Assess, 4 Plan, 5 Verify, 6 Execute, 7 Reflect, 8 Store, 9 Evolve, 10 Heal. Each step has a small simple icon next to it. Arrows connect each step to the next, forming a continuous clockwise loop. Center text reads "BRAIN LOOP". Professional and clean.
+### Multi-Agent Orchestration
+48. **After "The Decision Matrix"**
+> 🎨 Create a routing table on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). A dark panel (#111111) styled as a sleek table. Header row: "TASK SIGNAL" and "ASSIGNED AGENT" in bold italic white. Six data rows, each with a thin colored left border matching the agent. Row 1 (blue border): "System design, schema planning" → "ARCHITECT". Row 2 (green): "Code implementation, features" → "CODER". Row 3 (yellow): "Security audit, code quality" → "REVIEWER". Row 4 (red): "Bug investigation, errors" → "DEBUGGER". Row 5 (teal): "Market research, documentation" → "RESEARCHER". Row 6 (purple): "Content, copy, communications" → "WRITER". Premium data table — like a Notion database view, clean and scannable.
+
+### Autonomous Decision Pipelines
+49. **After "The BRAIN_LOOP"**
+> 🎨 Create a circular 10-step reasoning loop on a black background (#0A0A0A) with subtle repeating italic "A" pattern in dark gray (#1A1A1A). Ten nodes arranged evenly around a large circle. Each node is a small dark circle (#111111) with a thin white border and bold italic uppercase label positioned outside the circle. Clockwise from 12 o'clock: "ORIENT", "RECALL", "ASSESS", "PLAN", "VERIFY", "EXECUTE", "REFLECT", "STORE", "EVOLVE", "HEAL". Sleek curved white arrows connect each node to the next, forming a continuous loop. In the center of the circle: bold italic gold (#FFD700) text "BRAIN LOOP" with a very subtle white glow. The diagram should feel like a premium reasoning framework visualization — cerebral, structured, powerful. Not a basic cycle chart.
 
 ---
 
-## Quick Reference
+## Totals
 
-| # | Course | Image | Type |
-|---|--------|-------|------|
-| 1-8 | Start Here — AI Basics | 8 images | 8 AI generated |
-| 9-13 | Agency Fundamentals | 5 images | 5 AI generated |
-| 14-15 | Environment Setup | 2 images | 2 screenshots |
-| 16-19 | Claude Code Mastery | 4 images | 2 AI + 1 screenshot + 1 AI |
-| 20-22 | MCPs & Integrations | 3 images | 3 AI generated |
-| 23-24 | Secure OpenClaw | 2 images | 2 AI generated |
-| 25-28 | Lead Magnets | 4 images | 4 AI generated |
-| 29-31 | Automation & Workflows | 3 images | 2 AI + 1 screenshot |
-| 32-33 | Live Closes | 2 images | 2 AI generated |
-| 34-36 | Python Engines | 3 images | 3 AI generated |
-| 37-41 | Database & Backend | 5 images | 1 screenshot + 4 AI |
-| 42-45 | Advanced Agents | 4 images | 4 AI generated |
-| **Total** | | **45 images** | **40 AI + 5 screenshots** |
+| Type | Count |
+|------|-------|
+| 🎨 AI Generated | 39 |
+| 📸 Screenshots | 10 |
+| **Total** | **49** |
