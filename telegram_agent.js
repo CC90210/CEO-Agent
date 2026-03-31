@@ -5,12 +5,15 @@ const fs = require('fs');
 const path = require('path');
 
 // ============================================================
-// BRAVO TELEGRAM BRIDGE V12.0
+// BRAVO TELEGRAM BRIDGE V13.0
 //
 // V11.0: Full-Context Parity — loads CLAUDE.md, brain files, skills refs.
 // V12.0: Conversation Memory — stores last 15 messages per chat,
 //         injects chat history into every Claude/Gemini spawn so
 //         CC can reference previous messages naturally.
+// V13.0: Context Optimization — tiered context loading (T1/T2/T3),
+//         cost tracking integration, maintenance tool access.
+//         Inspired by Claude Code's internal harness patterns.
 // ============================================================
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -35,7 +38,7 @@ const log = (msg) => {
     try { fs.appendFileSync(LOG_FILE, line); } catch (_) {}
 };
 
-log('Bravo Telegram Bridge V12.0 (Conversation Memory) starting...');
+log('Bravo Telegram Bridge V13.0 (Context Optimization) starting...');
 
 // ---- CONVERSATION HISTORY ----
 // Stores last N message pairs (user + assistant) per chat.
@@ -146,60 +149,101 @@ const readFileSafe = (relPath, maxLines = 0) => {
     } catch (_) { return ''; }
 };
 
-// Loads full project context for Claude — mirrors what direct Claude Code sees
-// Budget: ~8000 chars to stay within Claude's -p prompt limits
-const loadContext = () => {
+// ---- CONTEXT TIER CLASSIFICATION (from Claude Code harness patterns) ----
+// Claude Code uses "simple mode" (184 tools → 3) for lightweight queries.
+// We mirror this: classify query → load only needed context.
+const T1_KEYWORDS = ['status', 'check', 'what', 'how much', 'mrr', 'balance', 'count', 'list', 'show', 'hello', 'hey', 'hi', 'thanks'];
+const T3_KEYWORDS = ['redesign', 'architecture', 'refactor', 'migrate', 'schema', 'system', 'overhaul', 'sparc', 'complex', 'multi-file'];
+// T2 is the default for everything else (build, fix, implement, debug, etc.)
+
+const classifyTier = (text) => {
+    const t = text.toLowerCase();
+    // T3 keywords win first (most specific)
+    if (T3_KEYWORDS.some(k => t.includes(k))) return 3;
+    // T1 only if ALL words match simple patterns (no action verbs)
+    const words = t.split(/\s+/);
+    const hasActionVerb = /\b(build|fix|implement|create|update|add|modify|debug|test|deploy|write|change|edit|push|ship|review)\b/.test(t);
+    if (!hasActionVerb && T1_KEYWORDS.some(k => t.includes(k))) return 1;
+    return 2;
+};
+
+// Loads project context for Claude — tier-aware loading
+// T1 (~2000 chars): STATE + ACTIVE_TASKS only — for status checks
+// T2 (~5000 chars): T1 + CLAUDE.md + SOUL + USER + SESSION_LOG + tools
+// T3 (~8000 chars): T2 + APP_REGISTRY + AGENTS + full CLAUDE.md
+const loadContext = (tier = 2) => {
     const chunks = [];
 
-    // 1. CLAUDE.md — the master instruction file (first 120 lines covers all rules)
-    const claude_md = readFileSafe('CLAUDE.md', 120);
-    if (claude_md) chunks.push(`=== CLAUDE.md (project instructions) ===\n${claude_md}`);
-
-    // 2. SOUL.md — identity and values
-    const soul = readFileSafe('brain/SOUL.md', 40);
-    if (soul) chunks.push(`=== SOUL.md (identity) ===\n${soul}`);
-
-    // 3. USER.md — CC's profile (first 50 lines covers key info)
-    const user = readFileSafe('brain/USER.md', 50);
-    if (user) chunks.push(`=== USER.md (CC's profile) ===\n${user}`);
-
-    // 4. STATE.md — current operational state
+    // --- TIER 1: Always loaded (minimal context) ---
     const state = readFileSafe('brain/STATE.md');
     if (state) chunks.push(`=== STATE.md (current state) ===\n${state}`);
 
-    // 5. ACTIVE_TASKS.md — current task list
     const tasks = readFileSafe('memory/ACTIVE_TASKS.md', 50);
     if (tasks) chunks.push(`=== ACTIVE_TASKS.md ===\n${tasks}`);
 
-    // 6. SESSION_LOG.md — last 30 lines (recent activity across all agents)
-    const sessionLog = readFileSafe('memory/SESSION_LOG.md');
-    if (sessionLog) {
-        const last30 = sessionLog.split('\n').slice(-30).join('\n').trim();
-        if (last30) chunks.push(`=== SESSION_LOG.md (recent) ===\n${last30}`);
+    if (tier === 1) {
+        chunks.push(`=== Context Tier: T1 MINIMAL (status query) ===`);
+        return chunks.join('\n\n');
     }
 
-    // 7. APP_REGISTRY.md — so it knows about all apps and their paths
-    const appReg = readFileSafe('brain/APP_REGISTRY.md', 40);
-    if (appReg) chunks.push(`=== APP_REGISTRY.md ===\n${appReg}`);
+    // --- TIER 2: Standard context (feature work, operations) ---
+    const claude_md = readFileSafe('CLAUDE.md', tier === 3 ? 200 : 120);
+    if (claude_md) chunks.push(`=== CLAUDE.md (project instructions) ===\n${claude_md}`);
 
-    // 8. Tool routing summary (CLI tools available)
+    const soul = readFileSafe('brain/SOUL.md', 40);
+    if (soul) chunks.push(`=== SOUL.md (identity) ===\n${soul}`);
+
+    const user = readFileSafe('brain/USER.md', 50);
+    if (user) chunks.push(`=== USER.md (CC's profile) ===\n${user}`);
+
+    const sessionLog = readFileSafe('memory/SESSION_LOG.md');
+    if (sessionLog) {
+        const lastN = sessionLog.split('\n').slice(tier === 3 ? -50 : -30).join('\n').trim();
+        if (lastN) chunks.push(`=== SESSION_LOG.md (recent) ===\n${lastN}`);
+    }
+
+    // Tool routing summary — includes new maintenance tools
     chunks.push(`=== Available CLI Tools ===
 - n8n: python scripts/n8n_tool.py [list|get|execute|activate]
 - Late (social): python scripts/late_tool.py [accounts|posts|create]
 - Supabase: python scripts/supabase_tool.py [select|insert|sql]
 - Stripe: python scripts/stripe_tool.py [balance|customers|invoices]
-- Email/Calendar: gws gmail/calendar
+- Email/Calendar: python scripts/google_tool.py [gmail send|gmail list|calendar list|calendar create]
+- Context Manager: python scripts/context_manager.py [tier|compact|status|health]
+- Cost Tracker: python scripts/cost_tracker.py [log|summary|session|budget]
+- Memory Aging: python scripts/memory_aging.py [scan|stale|health|archive]
 - MCP servers: Playwright, Context7, Memory, Sequential Thinking`);
 
+    if (tier === 2) {
+        chunks.push(`=== Context Tier: T2 STANDARD ===`);
+        const full = chunks.join('\n\n');
+        return full.length > 6000 ? full.substring(0, 6000) + '\n...(truncated)' : full;
+    }
+
+    // --- TIER 3: Full context (architecture, complex multi-file) ---
+    const appReg = readFileSafe('brain/APP_REGISTRY.md', 50);
+    if (appReg) chunks.push(`=== APP_REGISTRY.md ===\n${appReg}`);
+
+    const agents = readFileSafe('brain/AGENTS.md', 80);
+    if (agents) chunks.push(`=== AGENTS.md (sub-agent registry) ===\n${agents}`);
+
+    const patterns = readFileSafe('memory/PATTERNS.md', 30);
+    if (patterns) chunks.push(`=== PATTERNS.md ===\n${patterns}`);
+
+    const mistakes = readFileSafe('memory/MISTAKES.md', 30);
+    if (mistakes) chunks.push(`=== MISTAKES.md ===\n${mistakes}`);
+
+    chunks.push(`=== Context Tier: T3 FULL ===`);
     const full = chunks.join('\n\n');
-    // Budget ~8000 chars for the context block
-    return full.length > 8000 ? full.substring(0, 8000) + '\n...(truncated)' : full;
+    return full.length > 10000 ? full.substring(0, 10000) + '\n...(truncated)' : full;
 };
 
-// Dynamic prompt for Claude — injects full project context + conversation history
-const buildPrompt = (chatId) => {
-    const context = loadContext();
+// Dynamic prompt for Claude — tier-aware context loading + conversation history
+const buildPrompt = (chatId, userText = '') => {
+    const tier = classifyTier(userText);
+    const context = loadContext(tier);
     const history = getHistoryBlock(chatId);
+    log(`[TIER] Query classified as T${tier} — loading ${tier === 1 ? 'minimal' : tier === 2 ? 'standard' : 'full'} context`);
     return `You are BRAVO V5.5, CC's Lead Architect and AI business manager, running via Telegram bridge.
 You have full access to the Business-Empire-Agent project at C:\\Users\\User\\Business-Empire-Agent.
 
@@ -251,7 +295,7 @@ const killTree = (pid) => {
 // ---- CLI EXECUTION ----
 const executeCli = (tool, userPrompt, chatId) => {
     return new Promise((resolve) => {
-        const fullPrompt = tool === 'claude' ? `${buildPrompt(chatId)} ${userPrompt}` : `${buildGeminiPrompt(chatId)} ${userPrompt}`;
+        const fullPrompt = tool === 'claude' ? `${buildPrompt(chatId, userPrompt)} ${userPrompt}` : `${buildGeminiPrompt(chatId)} ${userPrompt}`;
         const timeout = tool === 'claude' ? CLAUDE_TIMEOUT : GEMINI_TIMEOUT;
         let cmd, args;
 
@@ -334,6 +378,12 @@ const executeCli = (tool, userPrompt, chatId) => {
             const elapsed = Math.round((Date.now() - startTime) / 1000);
             log(`[DONE] ${tool} code=${code} stdout=${stdout.length}b stderr=${stderr.length}b time=${elapsed}s`);
 
+            // Cost tracking — log the CLI execution
+            const units = tool === 'claude' ? Math.ceil(elapsed / 60) * 3 : Math.ceil(elapsed / 60) * 2;
+            exec(`python scripts/cost_tracker.py log --label "telegram_${tool}" --units ${units} --detail "${userPrompt.substring(0, 80).replace(/"/g, "'")}"`, {
+                cwd: __dirname, windowsHide: true, timeout: 5000
+            }, () => {}); // fire-and-forget
+
             const raw = (stdout.trim() || stderr.trim());
             if (!raw) {
                 resolve(code === 0 ? 'Done.' : `Error (code ${code}). Try !claude for complex tasks.`);
@@ -404,16 +454,21 @@ bot.on('message', async (msg) => {
 
     if (text === '/start' || text === '/help') {
         return bot.sendMessage(chatId, [
-            'Bravo Bridge V12.0 (Conversation Memory)',
+            'Bravo Bridge V13.0 (Context Optimization)',
             '',
             'Just type anything → Claude Code (default, 25 turns)',
             '!gemini <query> → Gemini CLI (fallback)',
             '!sys <cmd> → shell command on PC',
+            '',
+            'Context: Auto-classifies T1/T2/T3 per query.',
+            'Claude: 10 min timeout + last 15 messages.',
+            'Gemini: 5 min timeout, MCP-aware.',
+            '',
+            '/costs — today\'s operation cost summary',
+            '/memhealth — memory system health grade',
+            '/compact — SESSION_LOG compaction status',
+            '/stale — facts older than 30 days',
             '/clear — clear conversation history',
-            '',
-            'Claude: 10 min timeout, full context + last 15 messages.',
-            'Gemini: 5 min timeout, MCP-aware + last 15 messages.',
-            '',
             '/whoami — show your Telegram user ID'
         ].join('\n'));
     }
@@ -426,6 +481,36 @@ bot.on('message', async (msg) => {
         chatHistory[String(chatId)] = [];
         saveHistory();
         return bot.sendMessage(chatId, 'Conversation history cleared.');
+    }
+
+    // V13.0: System maintenance commands — direct access to optimization tools
+    if (text === '/costs') {
+        exec('python scripts/cost_tracker.py summary --period today', { cwd: __dirname, windowsHide: true, timeout: 10000 }, (err, out) => {
+            bot.sendMessage(chatId, out || err?.message || 'No cost data.').catch(() => {});
+        });
+        return;
+    }
+
+    if (text === '/memhealth') {
+        exec('python scripts/memory_aging.py health', { cwd: __dirname, windowsHide: true, timeout: 10000 }, (err, out) => {
+            bot.sendMessage(chatId, out || err?.message || 'Health check failed.').catch(() => {});
+        });
+        return;
+    }
+
+    if (text === '/compact') {
+        exec('python scripts/context_manager.py status', { cwd: __dirname, windowsHide: true, timeout: 10000 }, (err, out) => {
+            bot.sendMessage(chatId, out || err?.message || 'Status check failed.').catch(() => {});
+        });
+        return;
+    }
+
+    if (text === '/stale') {
+        exec('python scripts/memory_aging.py stale --days 30', { cwd: __dirname, windowsHide: true, timeout: 10000 }, (err, out) => {
+            const result = out || err?.message || 'No stale facts found.';
+            bot.sendMessage(chatId, result.substring(0, 4000)).catch(() => {});
+        });
+        return;
     }
 
     try {
@@ -502,4 +587,4 @@ process.on('unhandledRejection', (err) => {
     log(`[UNHANDLED] ${err.message || err}`);
 });
 
-log('Bridge V12.0 ready.');
+log('Bridge V13.0 ready.');
