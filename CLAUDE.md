@@ -92,6 +92,7 @@ When CC asks a question, answer it using MCP tools. Do NOT dump file contents or
 | Calendar (events/agenda) | **google_tool.py** | `python scripts/google_tool.py calendar list`, `calendar create --title "..." --start "..." --end "..." [--meet] [--attendees "..."]` |
 | Google Drive / Sheets / Docs | **gws CLI** | `gws drive files list --params '{"pageSize":10}'`, `gws sheets spreadsheets get` |
 | Scrape page data (text, links, tables) | **Playwright CLI** | `node .claude/skills/playwright/scripts/run.js <url> [--links] [--table css] [--selector css]` |
+| Backend code, debugging, parallel tasks | **Codex CLI** | `/codex:rescue <task>`, `/codex:review`, `/codex:adversarial-review` |
 
 **Why CLI-first:** MCP servers with credentials (Late, n8n, Supabase, Stripe) break frequently — env var passing fails, tokens expire, packages change auth methods. CLI tools read `.env.agents` directly and never break.
 
@@ -141,12 +142,48 @@ When CC mentions modifying code in any app (OASIS, PropFlow, Nostalgic, Grape Vi
 4. Log a 1-2 sentence summary in memory/SESSION_LOG.md
 Business-Empire-Agent is ONLY for agent intelligence (brain/, memory/, skills/, scripts/).
 
+### RULE 8: Codex Dual-AI Delegation (PROACTIVE — Natural Language)
+
+CC will NEVER need to type `/codex:*` commands. Bravo automatically delegates to Codex when the task matches. CC just talks naturally.
+
+**Auto-delegate to Codex (background, no CC approval needed):**
+- Backend-heavy implementation (API routes, server logic, DB queries, webhooks)
+- Deep debugging with stack traces or complex error chains
+- Pre-ship code review (run Codex review in background while working)
+- Any task where CC says "get Codex to..." or "have Codex..." or "ask Codex..."
+
+**Keep in Bravo (never delegate):**
+- Frontend/UI, content, brand voice, social media
+- Business ops, client comms, strategy, memory/state
+- Simple fixes (< 3 files), orchestration, Skool automation
+
+**How to delegate (internal — CC never sees this):**
+```bash
+export CLAUDE_PLUGIN_ROOT="/c/Users/User/Business-Empire-Agent/.claude/plugins/codex"
+# Delegate a task:
+node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" task --write "<task description>"
+# Code review:
+node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" review
+# Adversarial review:
+node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" adversarial-review "<focus>"
+# Check status:
+node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" status
+# Get result:
+node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" result
+```
+
+**Parallel execution pattern:** When delegating to Codex in background, continue working on other parts of the task simultaneously. Don't wait idle. Two AIs, zero downtime.
+
+**Present Codex output verbatim to CC.** Don't paraphrase. If Codex finds issues, present them and ask CC which to fix.
+
 ## Safety & Hooks
 
 **Active hooks** (`.claude/settings.local.json`):
 - **PreToolUse (Edit/Write):** Blocks any attempt to edit `.env`, `.env.*`, or `.env.agents` files. Credentials must be updated manually.
 - **PreToolUse (Bash):** Blocks destructive commands (`rm -rf /`, `git push --force main/master`, `DROP TABLE`, `TRUNCATE TABLE`).
 - **PostToolUse (Bash):** Audit-logs git push, git commit, npm build, and vercel deploy commands to `tmp/hook_audit.log`.
+- **SessionStart:** Initializes Codex companion runtime and session tracking.
+- **SessionEnd:** Shuts down Codex broker, cleans up background jobs.
 - **Notification:** Windows desktop alert when Claude Code needs input (prevents idle sessions).
 
 **Permission deny rules:** `.env*` files, `.obsidian/**`, `rm -rf` root/home/git, force-push to main/master, `git reset --hard`, `git clean -fd`.
@@ -186,12 +223,20 @@ Commands registered as native Claude Code skills (`.claude/skills/`) AND as work
 | `/investor-update` | Monthly investor/stakeholder update email |
 | `/knowledge-maintenance` | Weekly knowledge system maintenance and cleanup |
 | `/financial-model` | Unit economics, forecasting, scenario modeling |
+| `/codex:setup` | Check Codex CLI readiness, toggle review gate |
+| `/codex:review` | Codex code review (second AI opinion on changes) |
+| `/codex:adversarial-review` | Codex challenge review (questions design decisions) |
+| `/codex:rescue` | Delegate task to Codex (debug, fix, implement) |
+| `/codex:status` | Show active/recent Codex background jobs |
+| `/codex:result` | Get completed Codex job output |
+| `/codex:cancel` | Cancel active Codex background job |
 
 ## Sub-Agent Orchestration
 
-See @brain/AGENTS.md for the complete subagent registry (16 agents with decision matrix).
+See @brain/AGENTS.md for the complete subagent registry (17 agents + Codex external with decision matrix).
 **Orchestration config:** `.agents/config.toml` — centralized routing, permissions, anti-drift, workers, SPARC phases.
 
+**Codex delegation (PROACTIVE — no slash commands needed):** Bravo automatically delegates to Codex when the task matches Codex's strengths. CC just describes what he wants in natural language — Bravo decides whether to handle it, delegate to Codex, or split the work. See Rule 8 below and @skills/codex-delegation/SKILL.md. Plugin at `.claude/plugins/codex/`.
 **Task routing (automatic):** Every non-trivial task is classified by complexity (TRIVIAL → ARCHITECTURAL) and routed to the right agent(s). See @skills/task-routing/SKILL.md.
 **Anti-drift:** Checkpoint every 5 steps, scope creep detection (>3 files beyond plan), error cascade stop (2 consecutive failures). See @skills/anti-drift/SKILL.md.
 **SPARC methodology:** COMPLEX+ tasks use Specification → Pseudocode → Architecture → Refinement → Completion. See @skills/sparc-methodology/SKILL.md.
@@ -222,6 +267,7 @@ Note: All skills are stored in the Agent Skills 2.0 structure format: `skills/[s
 - Hooks automation: @skills/hooks-automation/SKILL.md
 - Background workers: @skills/background-workers/SKILL.md
 - Context optimization: @skills/context-optimization/SKILL.md
+- Codex delegation: @skills/codex-delegation/SKILL.md
 
 ## AI Slop Detection
 

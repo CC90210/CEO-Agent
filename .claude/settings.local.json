@@ -66,6 +66,28 @@
         ]
       }
     ],
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'export CLAUDE_PLUGIN_ROOT=\"/c/Users/User/Business-Empire-Agent/.claude/plugins/codex\"; node \"$CLAUDE_PLUGIN_ROOT/scripts/session-lifecycle-hook.mjs\" SessionStart 2>/dev/null || true'"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'export CLAUDE_PLUGIN_ROOT=\"/c/Users/User/Business-Empire-Agent/.claude/plugins/codex\"; node \"$CLAUDE_PLUGIN_ROOT/scripts/session-lifecycle-hook.mjs\" SessionEnd 2>/dev/null || true'"
+          }
+        ]
+      }
+    ],
     "Notification": [
       {
         "matcher": "",

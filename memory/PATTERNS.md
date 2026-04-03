@@ -9,6 +9,20 @@ tags: [patterns, learning]
 
 ## Effective Patterns
 
+### [PROBATIONARY] 2026-04-02 — Python Daemon Change Deployment Protocol
+**Observation:** Changing a Python daemon's source code requires a full restart cycle, not just a file save. Running processes keep old code in memory indefinitely.
+**Pattern — The 5-Step Daemon Redeploy:**
+1. EDIT: Make code changes to the .py file
+2. KILL: Find and kill the running process (check by StartTime, not just CommandLine)
+3. CLEAN: Delete __pycache__/*.pyc for the changed module
+4. VERIFY DEAD: Confirm process is gone with `Get-Process -Id X` AND confirm log files stop updating (check timestamps 30s apart)
+5. RESTART: Start new process, verify first cycle output matches expected behavior
+**Critical Windows commands:**
+- Find zombies: `Get-Process python | Select Id, StartTime, Path | Sort StartTime`
+- Kill invisible processes: `(Get-WmiObject Win32_Process -Filter 'ProcessId=X').Terminate()`
+- Verify log stopped: `stat -c '%Y' logfile; sleep 30; stat -c '%Y' logfile` (timestamps must match)
+**Implication:** Every future daemon deployment (skool, scheduler, instagram, any background Python) must follow this 5-step protocol. Skipping step 4 (verify dead) caused 7 days of unwanted DMs.
+
 ### [PROBATIONARY] 2026-03-23 — Vercel Node v24 shared module crash
 Importing npm packages from shared `api/_lib/*.ts` causes FUNCTION_INVOCATION_FAILED. Vercel's bundler traces all imports from shared files. Fix: inline `await import('package')` in each handler, never from shared modules.
 
@@ -48,4 +62,4 @@ Update existing files, don't create new ones unless strictly required. Lean brai
 - **Deleting files without scanning refs** — `grep -rn "filename"` after EVERY delete/rename.
 - **Hardcoding counts in docs** — Verify actual file counts match documented counts on commit.
 
-*Last updated: 2026-03-23*
+*Last updated: 2026-04-02*

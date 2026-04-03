@@ -10,6 +10,29 @@ tags: [daily]
 
 ---
 
+### 2026-04-01 — New Skill: python-daemon-automation
+**Change:** Created `skills/python-daemon-automation/SKILL.md` — comprehensive skill encoding all lessons from the 7-day zombie daemon incident. Covers: architecture pattern (file lock, heartbeat, PID file, log rotation, kill switches), the 5-step redeploy protocol (EDIT→KILL→CLEAN→VERIFY DEAD→RESTART), watchdog pattern with stale-process detection, Windows process debugging commands, anti-patterns table, and new daemon checklist.
+**Files:** skills/python-daemon-automation/SKILL.md (new, 380+ lines)
+**Agent:** Claude Code (Bravo)
+
+---
+
+### 2026-04-02 — Skool DM Zombie Daemon Fix (CRITICAL)
+**Change:** Found and killed March 26 zombie daemon that was sending unwanted DMs for 7 days despite code changes. Root cause: running Python processes don't pick up source file changes. Added DM_DISABLED kill switch, killed zombie via WMI Terminate, cleaned bytecache, restarted daemon with post-replies-only mode.
+**Files:** scripts/skool_engine.py (DM_DISABLED=True, cmd_auto skips DMs, cmd_scan_dms returns empty), scripts/bravo_startup.pyw (comments updated)
+**Lesson:** 5-Step Daemon Redeploy Protocol created — EDIT → KILL → CLEAN → VERIFY DEAD → RESTART
+**Agent:** Claude Code (Bravo)
+
+---
+
+### 2026-04-01 — Lafreniere PM: Auth System + Client Portal (19 files)
+**Agent:** Claude Code (Bravo)
+**Change:** Built the complete auth system and client portal for the Lafreniere PM Next.js app. Auth: login page (Supabase signInWithPassword, role-based redirect admin vs portal), register page (signUp with metadata, success state), auth layout (centered card on dark bg), Supabase middleware helper (updateSession with cookie handling), root middleware (protects /admin/* for staff, /portal/* for clients, public routes pass through). Portal: layout (server component with session check + PortalNav), dashboard (stats, activity timeline, upcoming, quick actions), quotes page (approve/decline flow, action-required section), jobs page (expandable cards with checklist, JobTimeline component), invoices page (outstanding/paid sections, payment history table), requests page (full form with validation, previous requests with status). Components: PortalNav (sticky, mobile hamburger, user dropdown, sign out), QuoteCard (expandable line items, approve/decline), InvoiceCard (progress bar, pay now, overdue highlight), JobTimeline (7-step visual with green/blue/gray states). UI: Button (CVA variants + loading), Input (label/error/helper), Select, Badge. Also fixed 2 pre-existing bugs: Facebook icon removed from lucide-react (Footer.tsx), QuoteStatus "void" comparison type error (admin quotes page).
+**Files:** 19 new files in src/app/(auth)/, src/app/(portal)/, src/components/portal/, src/components/ui/, src/lib/supabase/middleware.ts, src/middleware.ts
+**Build:** Zero TypeScript errors. All 46 routes compile and pass type check.
+
+---
+
 ### 2026-03-31 — Context Manager CLI Tool
 **Agent:** Claude Code (Bravo)
 **Change:** Built `scripts/context_manager.py` — three-feature context management utility inspired by Claude Code's internal patterns. Feature 1: `compact` command archives old SESSION_LOG.md entries to `memory/ARCHIVES/sessions-YYYY-MM.md`, keeps last N (default 10); `status` reports line count, entry count, oldest/newest date, and recommended action. Feature 2: `tier` command classifies a query string and recommends which brain/memory files to load (T1=185 lines, T2=789 lines, T3=1275 lines) based on keyword matching. Feature 3: `health` command checks all 4 MCP servers (via npm) and 5 CLI tools (script existence + env key presence) without loading anything. All commands support `--json` flag. Windows UTF-8 output handling included.

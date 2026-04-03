@@ -125,37 +125,53 @@ def main():
         python = VENV_PYTHON if VENV_PYTHON.exists() else SYSTEM_PYTHON
         start_daemon("scheduler.py", python=python, log_name="scheduler.log")
 
-    # 2. Skool Engine — RESPONSE-ONLY mode (2026-03-25)
-    # Outreach disabled in skool_engine.py (OUTREACH_DISABLED=True).
-    # Daemon still runs to reply to posts and respond to incoming DMs.
-    # Uses heartbeat file for reliable liveness check (wmic unreliable on Win11).
-    heartbeat_file = ROOT / "tmp" / "skool_daemon.heartbeat"
-    engine_alive = False
-    if heartbeat_file.exists():
+    # 2. Skool Engine V2 — post replies ONLY (DMs disabled 2026-04-02)
+    # CC handles all DMs manually. Only community post replies are automated.
+    # The daemon uses an exclusive file lock (msvcrt.locking) to prevent duplicates.
+    # Check the lock FIRST — if held, daemon is alive. Don't start another.
+    lock_file = ROOT / "tmp" / "skool_daemon.lock"
+    lock_held = False
+    if lock_file.exists():
         try:
-            import json as _json
-            hb = _json.loads(heartbeat_file.read_text())
-            hb_ts = datetime.fromisoformat(hb["ts"])
-            hb_age = (datetime.now(hb_ts.tzinfo) if hb_ts.tzinfo else datetime.now()) - hb_ts
-            if hb_age.total_seconds() < 600:  # 10 min
-                engine_alive = True
-                log(f"Skool Engine: alive (heartbeat {int(hb_age.total_seconds())}s ago, PID {hb.get('pid')})")
+            import msvcrt as _msvcrt
+            fh = open(lock_file, "r+")
+            try:
+                _msvcrt.locking(fh.fileno(), _msvcrt.LK_NBLCK, 1)
+                _msvcrt.locking(fh.fileno(), _msvcrt.LK_UNLCK, 1)
+                fh.close()
+            except (OSError, IOError):
+                fh.close()
+                lock_held = True
         except Exception:
             pass
 
-    if not engine_alive:
+    if lock_held:
+        log("Skool Engine V2: lock held — daemon is alive")
+    else:
+        # Lock not held — check if any zombie processes exist and kill them
         engine_pids = count_processes("skool_engine")
-        if len(engine_pids) > 1:
-            log(f"Skool Engine: {len(engine_pids)} instances — consolidating")
-            kill_extras("skool_engine", keep_count=1)
-        elif len(engine_pids) == 1:
-            log(f"Skool Engine: already running (PID {engine_pids[0]})")
-        else:
-            log("Skool Engine: not running — starting (response-only mode)")
-            python = VENV_PYTHON if VENV_PYTHON.exists() else SYSTEM_PYTHON
-            start_daemon("skool_engine.py", python=python,
-                         args=["daemon", "--interval", "2"],
-                         log_name="skool_engine.log")
+        if engine_pids:
+            log(f"Skool Engine: {len(engine_pids)} orphan(s) found — killing all before fresh start")
+            for pid in engine_pids:
+                try:
+                    subprocess.run(["taskkill", "/F", "/PID", str(pid)],
+                                   capture_output=True, timeout=5,
+                                   creationflags=CREATE_NO_WINDOW)
+                except Exception:
+                    pass
+            time.sleep(2)
+
+        # Clean up stale state files
+        for f in [ROOT / "tmp" / "skool_daemon.pid",
+                  ROOT / "tmp" / "skool_daemon.heartbeat",
+                  lock_file]:
+            f.unlink(missing_ok=True) if f.exists() else None
+
+        log("Skool Engine V2: starting fresh (exclusive lock)")
+        python = VENV_PYTHON if VENV_PYTHON.exists() else SYSTEM_PYTHON
+        start_daemon("skool_engine.py", python=python,
+                     args=["daemon", "--interval", "5"],
+                     log_name="skool_engine.log")
 
     log("Startup complete.")
     log("")

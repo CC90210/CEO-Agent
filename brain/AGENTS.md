@@ -54,6 +54,10 @@ For COMPLEX+ tasks, use SPARC methodology (`skills/sparc-methodology/SKILL.md`).
 | Meeting prep, follow-up | **Chief of Staff** | `/meeting-prep`, calendar management |
 | Project tracking, milestones, status | **Planner** | project status questions |
 | Investor updates, pitch prep | **Content Creator** | `/investor-update`, fundraising |
+| Backend implementation, parallel coding | **Codex Agent** | `/codex:rescue`, heavy backend tasks |
+| Second-opinion code review | **Codex Agent** | `/codex:review`, `/codex:adversarial-review` |
+| Deep debugging, root-cause analysis | **Codex Agent** | `/codex:rescue investigate [bug]` |
+| Pre-ship design challenge | **Codex Agent** | `/codex:adversarial-review --background` |
 
 ## Subagent Definitions
 
@@ -152,6 +156,14 @@ For COMPLEX+ tasks, use SPARC methodology (`skills/sparc-methodology/SKILL.md`).
 - **File:** [[agents/meta-agent]]
 - **Purpose:** Generate complete subagent definition files from natural language descriptions. Checks for overlap with existing agents before creating a new one.
 - **Principles:** Check AGENTS.md first — don't create duplicates. Reject requests where >50% coverage already exists. Tag all generated agents `[PROBATIONARY]`. Always register in AGENTS.md and update CAPABILITIES.md count.
+
+### 17. Codex Agent (External AI Executor)
+- **Model Tier:** External (OpenAI GPT-5.4 via Codex CLI)
+- **File:** [[agents/codex-agent]]
+- **Purpose:** Backend-heavy implementation, deep debugging, adversarial code review, and parallel task execution via OpenAI's Codex runtime. Runs alongside Bravo as a specialist executor.
+- **Principles:** Bravo orchestrates, Codex executes. Delegate backend/debug tasks. Never delegate frontend, content, memory, or business ops. Background by default for heavy tasks. Present Codex output verbatim. See `skills/codex-delegation/SKILL.md` for routing matrix.
+- **Commands:** `/codex:review`, `/codex:adversarial-review`, `/codex:rescue`, `/codex:status`, `/codex:result`, `/codex:cancel`, `/codex:setup`
+- **Plugin location:** `.claude/plugins/codex/`
 
 ### External: Atlas (CFO — Separate Project)
 - **Model Tier:** Opus (separate project, own CLAUDE.md)

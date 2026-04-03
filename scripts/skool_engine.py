@@ -1,21 +1,17 @@
 """
-Skool Community Engine - Autonomous community management via Playwright browser automation.
+Skool Community Engine V2 — Autonomous community management via Playwright.
 
-Full-stack community automation for Agency Accelerants Skool community:
+Features:
 - Replies to community posts in CC's coaching voice
-- Welcomes new paid members ($97/mo) with personal DMs
-- Nurtures free members toward $97/month paid conversion
-- Multi-turn DM conversations with rapport tracking
-- Auto-responds to incoming DMs
-- Daemon mode: runs continuously on configurable intervals
-- Auto-starts on Windows boot via Task Scheduler
+- DMs DISABLED (2026-04-01) — CC handles DMs manually
 
 Usage:
   python scripts/skool_engine.py login              # One-time: manual Skool login
   python scripts/skool_engine.py scan-posts         # Reply to community posts
-  python scripts/skool_engine.py auto               # Run scan once
-  python scripts/skool_engine.py daemon             # Run continuously (default: 2min interval)
-  python scripts/skool_engine.py daemon --interval 15  # Custom interval in minutes
+  python scripts/skool_engine.py auto               # Run post scan
+  python scripts/skool_engine.py daemon             # Run continuously (default: 5min)
+  python scripts/skool_engine.py daemon --interval 5
+  python scripts/skool_engine.py status             # Show engine status
   python scripts/skool_engine.py --dry-run auto     # Preview without posting
   python scripts/skool_engine.py --json auto        # JSON output
 
@@ -27,10 +23,13 @@ import argparse
 import json
 import sys
 import os
+import re
 import time
 import signal
 import logging
-from datetime import datetime, timezone
+import subprocess
+import msvcrt
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -41,33 +40,100 @@ LOG_DIR = TMP_DIR / "logs"
 
 # State files
 REPLIED_POSTS_PATH = TMP_DIR / "skool_replied_posts.json"
+DM_STATE_PATH = TMP_DIR / "skool_dm_state.json"
+MEMBER_STATE_PATH = TMP_DIR / "skool_member_state.json"
 DAEMON_PID_PATH = TMP_DIR / "skool_daemon.pid"
 HEARTBEAT_PATH = TMP_DIR / "skool_daemon.heartbeat"
 
 COMMUNITY_URL = "https://www.skool.com/agency-accelerants-6209"
+ABOUT_URL = "https://www.skool.com/agency-accelerants-6209/about"
 
-SKOOL_DISABLED = False          # Global kill switch — False = engine runs
+SKOOL_DISABLED = False  # Kill switch — set True to stop everything
+
+# ===== DM KILL SWITCH — 2026-04-02 =====
+# CC directive: DMs are DISABLED permanently. Only community post replies run.
+# CC handles all DMs manually. DO NOT change this to False.
+DM_DISABLED = True
+# ========================================
+
 COMMUNITY_FEED_URL = COMMUNITY_URL
-MAX_REPLIES_PER_CYCLE = 5            # Max post replies per scan cycle
+MAX_REPLIES_PER_CYCLE = 5   # Max post replies per scan
+MAX_DM_REPLIES_PER_CYCLE = 0  # DMs disabled — was 5
+
+# Exclusive lock file — prevents multiple daemon instances
+LOCK_FILE_PATH = TMP_DIR / "skool_daemon.lock"
+
+
+class DaemonLock:
+    """Windows file lock using msvcrt.locking. Only ONE daemon can hold this."""
+
+    def __init__(self):
+        self._fh = None
+
+    def acquire(self) -> bool:
+        """Try to acquire exclusive lock. Returns True if successful."""
+        os.makedirs(TMP_DIR, exist_ok=True)
+        try:
+            # Create file if needed, then open without truncating
+            if not LOCK_FILE_PATH.exists():
+                LOCK_FILE_PATH.write_text("")
+            self._fh = open(LOCK_FILE_PATH, "r+b")
+            # Write a byte so msvcrt has something to lock
+            self._fh.write(b"\x00")
+            self._fh.flush()
+            self._fh.seek(0)
+            msvcrt.locking(self._fh.fileno(), msvcrt.LK_NBLCK, 1)
+            return True
+        except (OSError, IOError):
+            if self._fh:
+                try:
+                    self._fh.close()
+                except Exception:
+                    pass
+                self._fh = None
+            return False
+
+    def release(self):
+        if self._fh:
+            try:
+                self._fh.seek(0)
+                msvcrt.locking(self._fh.fileno(), msvcrt.LK_UNLCK, 1)
+                self._fh.close()
+            except Exception:
+                pass
+            self._fh = None
+        LOCK_FILE_PATH.unlink(missing_ok=True)
+
+# CC's availability for calls (Eastern Time)
+CALL_AVAILABILITY = {
+    "days": [0, 1, 2, 3, 4],  # Mon-Fri (0=Monday)
+    "start_hour": 10,  # 10 AM ET
+    "end_hour": 18,    # 6 PM ET
+    "duration_minutes": 30,
+    "timezone": "America/Toronto",
+    "buffer_minutes": 15,  # Buffer between events
+}
 
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 try:
     from notify import notify
 except ImportError:
-    def notify(*a, **kw): return False
+    def notify(*a, **kw):
+        return False
 
 
 # ---------------------------------------------------------------------------
-# Logging setup
+# Logging
 # ---------------------------------------------------------------------------
 
 def setup_logging():
     os.makedirs(LOG_DIR, exist_ok=True)
     log_file = LOG_DIR / f"skool_{datetime.now().strftime('%Y-%m-%d')}.log"
-    # Use UTF-8 for both file and stdout to handle emoji in Claude-generated messages
     stdout_handler = logging.StreamHandler(sys.stdout)
-    stdout_handler.setStream(open(sys.stdout.fileno(), mode='w', encoding='utf-8', closefd=False))
+    stdout_handler.setStream(
+        open(sys.stdout.fileno(), mode="w", encoding="utf-8", closefd=False)
+    )
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
@@ -83,7 +149,7 @@ log = setup_logging()
 
 
 # ---------------------------------------------------------------------------
-# Credential / env loading
+# Env / State helpers
 # ---------------------------------------------------------------------------
 
 def load_env() -> dict:
@@ -100,18 +166,6 @@ def load_env() -> dict:
     return env_vars
 
 
-def safe_print(text):
-    """Print with ASCII-safe encoding for Windows cp1252."""
-    try:
-        print(text)
-    except UnicodeEncodeError:
-        print(text.encode("ascii", "replace").decode("ascii"))
-
-
-# ---------------------------------------------------------------------------
-# State persistence (with file locking to prevent concurrent access)
-# ---------------------------------------------------------------------------
-
 def _load_json(path: Path) -> dict:
     if path.exists():
         try:
@@ -124,20 +178,28 @@ def _load_json(path: Path) -> dict:
 
 def _save_json(path: Path, data: dict):
     os.makedirs(path.parent, exist_ok=True)
-    # Write to temp file first, then atomic rename to prevent corruption
     tmp_path = path.with_suffix(".tmp")
     with open(tmp_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
-    # Atomic replace (Windows: os.replace is atomic within same drive)
     os.replace(tmp_path, path)
 
 
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def safe_print(text):
+    try:
+        print(text)
+    except UnicodeEncodeError:
+        print(text.encode("ascii", "replace").decode("ascii"))
+
+
 # ---------------------------------------------------------------------------
-# Browser context
+# Browser context + login
 # ---------------------------------------------------------------------------
 
 def get_browser_context(playwright):
-    """Launch persistent Chromium context (maintains Skool login session)."""
     os.makedirs(BROWSER_DIR, exist_ok=True)
     return playwright.chromium.launch_persistent_context(
         user_data_dir=BROWSER_DIR,
@@ -152,12 +214,11 @@ def get_browser_context(playwright):
 
 
 def _auto_login(page) -> bool:
-    """Attempt automatic Skool login using credentials from .env.agents."""
     env = load_env()
     email = env.get("SKOOL_EMAIL", "")
     password = env.get("SKOOL_PASSWORD", "")
     if not email or not password:
-        log.warning("No SKOOL_EMAIL/SKOOL_PASSWORD in .env.agents — cannot auto-login")
+        log.warning("No SKOOL_EMAIL/SKOOL_PASSWORD in .env.agents")
         return False
 
     log.info(f"Auto-login attempt as {email}...")
@@ -165,31 +226,21 @@ def _auto_login(page) -> bool:
     time.sleep(4)
 
     try:
-        # Fill email — use #email ID selector (most reliable)
-        email_input = page.locator("#email")
-        email_input.click()
-        email_input.fill(email)
+        page.locator("#email").click()
+        page.locator("#email").fill(email)
         time.sleep(0.5)
-
-        # Fill password — use #password ID selector
-        pw_input = page.locator("#password")
-        pw_input.click()
-        pw_input.fill(password)
+        page.locator("#password").click()
+        page.locator("#password").fill(password)
         time.sleep(1)
+        page.locator('button[type="submit"]').click()
 
-        # Click LOG IN submit button
-        login_btn = page.locator('button[type="submit"]')
-        login_btn.click()
-
-        # Wait for login form to disappear (SPA navigation — URL may lag)
         for _ in range(15):
             time.sleep(1)
-            still_has_form = page.locator("#email").count() > 0
-            if not still_has_form:
+            if page.locator("#email").count() == 0:
                 log.info("Auto-login successful")
                 return True
 
-        log.error("Auto-login failed — login form still present (check credentials)")
+        log.error("Auto-login failed — login form still present")
         return False
     except Exception as e:
         log.error(f"Auto-login error: {e}")
@@ -197,41 +248,35 @@ def _auto_login(page) -> bool:
 
 
 def is_logged_in(page) -> bool:
-    """Check if we have an active Skool session. Auto-logins if credentials available."""
     page.goto(COMMUNITY_FEED_URL, wait_until="domcontentloaded", timeout=60000)
     time.sleep(4)
 
     if "/login" in page.url or "/signup" in page.url:
         return _auto_login(page)
 
-    # Check for authenticated user indicator (profile button or similar)
     is_authed = page.evaluate("""() => {
-        const bodyText = document.body.textContent;
-        // "Log In" button visible = not authenticated
         const btns = [...document.querySelectorAll('button, a')];
         for (const b of btns) {
             const t = b.textContent.trim();
             if (t === 'Log In' || t === 'Sign Up') return false;
         }
-        // Check for authenticated indicators: user avatar, nav links, post elements
         return !!(document.querySelector('[class*="PostItem"]') ||
                   document.querySelector('[class*="PostList"]') ||
                   document.querySelectorAll('a[href*="/classroom"]').length > 0);
     }""")
 
     if not is_authed:
-        log.info("Session appears expired — attempting auto-login...")
+        log.info("Session expired — attempting auto-login...")
         return _auto_login(page)
 
     return True
 
 
 # ---------------------------------------------------------------------------
-# Claude API — voice generation
+# Claude API
 # ---------------------------------------------------------------------------
 
-def _call_claude(system_prompt: str, user_msg: str, max_tokens: int = 200) -> str:
-    """Shared Claude API caller. Returns reply text or empty string on failure."""
+def _call_claude(system_prompt: str, user_msg: str, max_tokens: int = 300) -> str:
     try:
         import anthropic
     except ImportError:
@@ -253,7 +298,6 @@ def _call_claude(system_prompt: str, user_msg: str, max_tokens: int = 200) -> st
             messages=[{"role": "user", "content": user_msg}],
         )
         reply = response.content[0].text.strip()
-        # Strip wrapping quotes
         if (reply.startswith('"') and reply.endswith('"')) or \
            (reply.startswith("'") and reply.endswith("'")):
             reply = reply[1:-1]
@@ -264,17 +308,406 @@ def _call_claude(system_prompt: str, user_msg: str, max_tokens: int = 200) -> st
 
 
 def _strip_ai_slop(text: str) -> str:
-    """Remove em dashes and other AI-sounding artifacts from generated text."""
-    # Replace em dash (U+2014) and en dash (U+2013) with comma or period
-    text = text.replace("\u2014", ",")   # em dash
-    text = text.replace("\u2013", ",")   # en dash
-    text = text.replace(" ,", ",")       # clean double space before comma
-    text = text.replace(",,", ",")       # clean double commas
+    text = text.replace("\u2014", ",")
+    text = text.replace("\u2013", ",")
+    text = text.replace(" ,", ",")
+    text = text.replace(",,", ",")
     return text
 
 
+def _strip_pricing_language(text: str) -> str:
+    """Hard filter: remove ANY pricing, upsell, dollar-amount, or fabricated URL language.
+
+    Applied to ALL DM replies regardless of paid/free status.
+    The bot should NEVER mention specific prices, upsell, or invent links.
+    """
+    # Remove sentences containing dollar amounts ($XX, $XXX, $X,XXX)
+    text = re.sub(r'[^.!?\n]*\$\d[\d,]*[^.!?\n]*[.!?]?\s*', '', text)
+    # Remove sentences mentioning price/pricing/upgrade/upsell keywords
+    text = re.sub(
+        r'[^.!?\n]*\b(price\s+(?:jumps?|goes?\s+up|is\s+going\s+up|increase|rising|changing)|'
+        r'prices?\s+(?:increase|go\s+up|going\s+up|will\s+go)|'
+        r'lock(?:ed|ing)?\s+(?:you\s+)?in|upgrad(?:e|ing|ed)|upsell|'
+        r'before\s+(?:the\s+)?price|current\s+price|special\s+(?:price|offer|deal)|'
+        r'limited\s+time|act\s+(?:fast|now|quickly)|hurry|'
+        r'now.s\s+a\s+good\s+time|good\s+time\s+to\s+(?:jump|join|get)|'
+        r'paid\s+(?:plan|tier|membership)|join\s+(?:the\s+)?paid)\b[^.!?\n]*[.!?]?\s*',
+        '', text, flags=re.IGNORECASE
+    )
+    # Remove sentences containing Calendly links (hallucinated)
+    text = re.sub(r'[^.!?\n]*calendly\.com[^.!?\n]*[.!?]?\s*', '', text, flags=re.IGNORECASE)
+    # Remove any fabricated URLs that aren't Google Meet links
+    # (Google Meet links are real — they come from the booking system)
+    text = re.sub(
+        r'[^.!?\n]*(?:https?://(?!meet\.google\.com)\S+)[^.!?\n]*[.!?]?\s*',
+        '', text, flags=re.IGNORECASE
+    )
+    # Clean up leftover whitespace
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    text = re.sub(r'  +', ' ', text)
+    return text.strip()
+
+
+# ---------------------------------------------------------------------------
+# Member status detection
+# ---------------------------------------------------------------------------
+
+def check_member_status(page, member_slug: str) -> dict:
+    """Visit a member's Skool profile and detect paid vs free status.
+
+    Returns: {"is_paid": bool, "level": str, "name": str}
+
+    On Skool, paid members show a level badge (Level 1+) and have access
+    indicators. Free members show Level 0 or no level badge.
+    We also check our local member_state.json as a cache.
+    """
+    # Check local cache first
+    member_state = _load_json(MEMBER_STATE_PATH)
+    if member_slug in member_state:
+        cached = member_state[member_slug]
+        return {
+            "is_paid": cached.get("is_paid", False),
+            "level": cached.get("level", "unknown"),
+            "name": cached.get("name", member_slug),
+        }
+
+    # Visit profile page to scrape status
+    profile_url = f"https://www.skool.com/agency-accelerants-6209/@{member_slug}"
+    try:
+        page.goto(profile_url, wait_until="domcontentloaded", timeout=30000)
+        time.sleep(3)
+
+        info = page.evaluate("""() => {
+            const body = document.body.textContent || '';
+            // Look for level indicator — paid members have Level 1+
+            const levelMatch = body.match(/Level\\s+(\\d+)/i);
+            const level = levelMatch ? parseInt(levelMatch[1]) : 0;
+
+            // Get display name
+            const nameEl = document.querySelector('h1, [class*="ProfileName"]');
+            const name = nameEl ? nameEl.textContent.trim() : '';
+
+            // Check for paid indicators
+            const isPaid = level >= 1;
+
+            return { level: level, name: name, is_paid: isPaid };
+        }""")
+
+        # Cache the result
+        member_state[member_slug] = {
+            "name": info.get("name", member_slug),
+            "is_paid": info.get("is_paid", False),
+            "level": str(info.get("level", 0)),
+            "checked_at": _now(),
+        }
+        _save_json(MEMBER_STATE_PATH, member_state)
+
+        log.info(f"Member {member_slug}: paid={info.get('is_paid')}, level={info.get('level')}")
+        return info
+
+    except Exception as e:
+        log.error(f"Failed to check member status for {member_slug}: {e}")
+        return {"is_paid": True, "level": "unknown", "name": member_slug}
+
+
+# ---------------------------------------------------------------------------
+# Google Calendar integration
+# ---------------------------------------------------------------------------
+
+def _run_google_tool(args: list, timeout: int = 30) -> str:
+    """Run google_tool.py and return stdout."""
+    cmd = [sys.executable, str(SCRIPTS_DIR / "google_tool.py")] + args
+    try:
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, encoding="utf-8",
+            timeout=timeout, cwd=str(PROJECT_ROOT),
+        )
+        return result.stdout.strip()
+    except Exception as e:
+        log.error(f"google_tool.py failed: {e}")
+        return ""
+
+
+def get_calendar_events(days_ahead: int = 7) -> list:
+    """Fetch upcoming calendar events as JSON."""
+    output = _run_google_tool(["calendar", "list", "--json"])
+    if not output:
+        return []
+    try:
+        return json.loads(output)
+    except json.JSONDecodeError:
+        return []
+
+
+def find_available_slot() -> dict | None:
+    """Find the next available 30-minute slot on CC's calendar.
+
+    Returns: {"start": ISO datetime, "end": ISO datetime} or None
+    """
+    events = get_calendar_events(days_ahead=7)
+    avail = CALL_AVAILABILITY
+    duration = timedelta(minutes=avail["duration_minutes"])
+    buffer = timedelta(minutes=avail["buffer_minutes"])
+
+    # Build list of busy periods from calendar
+    busy_periods = []
+    for ev in events:
+        start_info = ev.get("start", {})
+        end_info = ev.get("end", {})
+        start_str = start_info.get("dateTime", start_info.get("date", ""))
+        end_str = end_info.get("dateTime", end_info.get("date", ""))
+        if start_str and end_str:
+            try:
+                busy_start = datetime.fromisoformat(start_str)
+                busy_end = datetime.fromisoformat(end_str)
+                busy_periods.append((busy_start, busy_end))
+            except ValueError:
+                continue
+
+    busy_periods.sort(key=lambda x: x[0])
+
+    # Try each day for the next 7 days
+    now = datetime.now().astimezone()
+    for day_offset in range(7):
+        check_date = now.date() + timedelta(days=day_offset)
+
+        # Skip weekends
+        if check_date.weekday() not in avail["days"]:
+            continue
+
+        # Build candidate slots for this day
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo(avail["timezone"])
+        day_start = datetime(
+            check_date.year, check_date.month, check_date.day,
+            avail["start_hour"], 0, 0, tzinfo=tz
+        )
+        day_end = datetime(
+            check_date.year, check_date.month, check_date.day,
+            avail["end_hour"], 0, 0, tzinfo=tz
+        )
+
+        # Don't offer past slots
+        if day_offset == 0:
+            # Round up to next 30-min boundary + buffer
+            earliest = now + buffer
+            minutes = earliest.minute
+            if minutes % 30 != 0:
+                earliest = earliest.replace(
+                    minute=(minutes // 30 + 1) * 30 % 60,
+                    second=0, microsecond=0
+                )
+                if (minutes // 30 + 1) * 30 >= 60:
+                    earliest += timedelta(hours=1)
+                    earliest = earliest.replace(minute=0)
+            day_start = max(day_start, earliest)
+
+        # Try each 30-min slot
+        slot_start = day_start
+        while slot_start + duration <= day_end:
+            slot_end = slot_start + duration
+
+            # Check if this slot conflicts with any busy period
+            conflict = False
+            for busy_start, busy_end in busy_periods:
+                # Add buffer around existing events
+                if slot_start < (busy_end + buffer) and slot_end > (busy_start - buffer):
+                    conflict = True
+                    break
+
+            if not conflict:
+                return {
+                    "start": slot_start.isoformat(),
+                    "end": slot_end.isoformat(),
+                    "display": slot_start.strftime("%A %B %d at %I:%M %p ET"),
+                }
+
+            slot_start += timedelta(minutes=30)
+
+    return None
+
+
+def book_meeting(member_name: str, member_email: str = "") -> dict:
+    """Book a 30-min Google Meet on CC's calendar.
+
+    Returns: {"success": bool, "meet_link": str, "display_time": str, "error": str}
+    """
+    slot = find_available_slot()
+    if not slot:
+        return {
+            "success": False,
+            "meet_link": "",
+            "display_time": "",
+            "error": "No available slots in the next 7 days",
+        }
+
+    title = f"Skool Call — {member_name}"
+    description = (
+        f"30-minute call with {member_name} from Agency Accelerants Skool community.\n"
+        f"Booked automatically by Bravo."
+    )
+
+    args = [
+        "calendar", "create",
+        "--title", title,
+        "--start", slot["start"],
+        "--end", slot["end"],
+        "--meet",
+        "--description", description,
+        "--timezone", CALL_AVAILABILITY["timezone"],
+        "--json",
+    ]
+    if member_email:
+        args.extend(["--attendees", member_email])
+
+    output = _run_google_tool(args, timeout=30)
+
+    if not output:
+        return {
+            "success": False,
+            "meet_link": "",
+            "display_time": slot["display"],
+            "error": "Failed to create calendar event",
+        }
+
+    try:
+        event_data = json.loads(output)
+        meet_link = event_data.get("hangoutLink", "")
+        if not meet_link:
+            conf = event_data.get("conferenceData", {})
+            for ep in conf.get("entryPoints", []):
+                if ep.get("entryPointType") == "video":
+                    meet_link = ep.get("uri", "")
+                    break
+    except json.JSONDecodeError:
+        # Non-JSON output — try to extract meet link
+        meet_match = re.search(r"https://meet\.google\.com/[\w-]+", output)
+        meet_link = meet_match.group(0) if meet_match else ""
+
+    log.info(f"Booked meeting: {title} at {slot['display']} — {meet_link}")
+    notify(f"Skool call booked: {member_name} at {slot['display']}", category="booking")
+
+    return {
+        "success": True,
+        "meet_link": meet_link,
+        "display_time": slot["display"],
+        "error": "",
+    }
+
+
+# ---------------------------------------------------------------------------
+# DM response generation
+# ---------------------------------------------------------------------------
+
+def _detect_booking_intent(message: str) -> bool:
+    """Check if a DM message is asking to book a call."""
+    booking_keywords = [
+        r"\bcall\b", r"\bmeeting\b",
+        r"\bbook\b", r"\bschedule\b", r"\b1[:\-]1\b",
+        r"\bone.on.one\b", r"\bhopping on\b", r"\bjump on\b",
+        r"\bset up a call\b", r"\bsetup a call\b", r"\btime to talk\b",
+        r"\bcan we talk\b", r"\bwanna talk\b", r"\bwant to talk\b",
+        r"\bshow you more\b", r"\bshow u more\b",
+        r"\blet'?s connect\b", r"\blets connect\b",
+        r"\bjump on a.{0,10}(call|chat|meet)\b",
+        r"\bdo a call\b", r"\bhop on a call\b",
+    ]
+    msg_lower = message.lower()
+    return any(re.search(kw, msg_lower) for kw in booking_keywords)
+
+
+def generate_dm_reply(
+    member_name: str,
+    member_message: str,
+    conversation_history: str,
+    is_paid: bool,
+    booking_result: dict | None = None,
+) -> str:
+    """Generate a DM reply using Claude. Tone-adaptive based on the query."""
+
+    # Build context about booking if applicable
+    booking_context = ""
+    if booking_result:
+        if booking_result["success"]:
+            booking_context = (
+                f"\nIMPORTANT: A call has been booked for this member. Details:\n"
+                f"- Time: {booking_result['display_time']}\n"
+                f"- Google Meet link: {booking_result['meet_link']}\n"
+                f"Include these details naturally in your reply. "
+                f"Make it feel seamless, not robotic.\n"
+            )
+        else:
+            booking_context = (
+                f"\nThe member asked for a call but no slots are available: "
+                f"{booking_result['error']}. Let them know CC will reach out "
+                f"personally to find a time.\n"
+            )
+
+    # Paid status context
+    paid_context = (
+        "This member is a PAID member. "
+        "They are already fully invested. Treat them as a valued insider."
+        if is_paid
+        else "This member is on the FREE tier. "
+        "Do NOT mention pricing or plans unless they explicitly ask how to upgrade."
+    )
+
+    system = (
+        "You are ghostwriting a Skool DM as Conaugh McKenna (CC), "
+        "a 22-year-old AI automation entrepreneur and admin of the Agency Accelerants "
+        "Skool community. CC runs OASIS AI Solutions.\n\n"
+        "HARD RULES (violation = failure — these override everything):\n"
+        "1. NEVER mention dollar amounts, prices, plans, upgrades, upsells, discounts, "
+        "deals, or anything about cost/payment/pricing. No exceptions.\n"
+        "2. NEVER mention or link to Calendly, calendly.com, or any scheduling tool. "
+        "If a call was booked, the booking details are provided below. Use ONLY those.\n"
+        "3. NEVER invent URLs, links, or information. Only reference info given in this prompt.\n"
+        "4. NEVER use em dashes (—). Use commas, periods, or new sentences instead.\n"
+        "5. NEVER use emojis except a single thumbs up or fire occasionally.\n"
+        "6. Output must be a SINGLE message. No line breaks. Everything on one line.\n\n"
+        f"MEMBER STATUS: {paid_context}\n"
+        f"{booking_context}\n"
+        "SITUATION HANDLING:\n"
+        "- Technical question: be helpful, give a clear next step.\n"
+        "- Frustrated or venting: listen, validate their feelings, show you care. "
+        "Ask what specifically went wrong so you can help fix it.\n"
+        "- Wants to cancel or refund: DO NOT give refund instructions. Instead, "
+        "ask what's not working for them. Show empathy. Offer to hop on a call "
+        "to work through it together. Make them feel heard and valued. Your goal "
+        "is to understand their frustration and help solve their problem.\n"
+        "- Excited or sharing a win: match their energy, celebrate, push them forward.\n"
+        "- Booking a call: confirm the details from the booking info provided.\n"
+        "- Payment timing: just acknowledge, be supportive, no pressure.\n\n"
+        "VOICE:\n"
+        "- Text like a friend. Casual, lowercase fine, short sentences.\n"
+        "- 2-4 sentences max, all on one line. No paragraphs.\n"
+        "- Use their first name. Be genuine. Sound like an equal.\n\n"
+        "Reply with ONLY the message text. No quotes. No line breaks."
+    )
+
+    user = (
+        f"Member: {member_name}\n"
+        f"Their message: {member_message}\n"
+    )
+    if conversation_history:
+        user = (
+            f"Member: {member_name}\n"
+            f"Recent conversation:\n{conversation_history[-800:]}\n\n"
+            f"Their latest message: {member_message}\n"
+        )
+
+    reply = _call_claude(system, user, max_tokens=250)
+    if reply:
+        reply = _strip_ai_slop(reply)
+        reply = _strip_pricing_language(reply)
+    return reply[:1000] if reply else ""
+
+
+# ---------------------------------------------------------------------------
+# Post reply generation (unchanged from V1)
+# ---------------------------------------------------------------------------
+
 def generate_post_reply(post_title: str, post_content: str, author_name: str) -> str:
-    """Generate a community post comment in CC's real coaching voice."""
     system = (
         "You are ghostwriting a Skool community comment as Conaugh McKenna (CC), "
         "a 22-year-old AI automation entrepreneur and admin/coach of the Agency Accelerants community. "
@@ -286,17 +719,16 @@ def generate_post_reply(post_title: str, post_content: str, author_name: str) ->
         "- If someone posts something generic or surface-level, push back respectfully. Ask them to go deeper.\n"
         "- If someone is stuck, don't just empathize. Give them a specific next step and tell them to execute.\n"
         "- You DEMAND growth. You care about these people which means you tell them the truth.\n"
-        "- You challenge assumptions. If someone says 'whats the biggest bottleneck' you don't just list yours, "
-        "you flip the frame and make them think harder about their own situation.\n"
+        "- You challenge assumptions.\n"
         "- You are direct, opinionated, and confident. You've done the work.\n\n"
         "VOICE RULES (non-negotiable):\n"
         "- Write like a real person texting. Casual, lowercase is fine, short sentences.\n"
         "- 2-4 sentences max. No essays.\n"
-        "- NEVER use em dashes (the long dash character). Use commas, periods, or just start a new sentence instead.\n"
+        "- NEVER use em dashes. Use commas, periods, or new sentences.\n"
         "- NEVER use hashtags. NEVER pitch services. NEVER be salesy.\n"
-        "- Avoid generic AI phrases like 'great question', 'love this', 'absolutely', 'I couldn't agree more'.\n"
+        "- Avoid generic AI phrases like 'great question', 'love this', 'absolutely'.\n"
         "- Don't start with compliments. Lead with substance.\n"
-        "- Use first name. Exclamation marks sparingly (max 1 per reply).\n"
+        "- Use first name. Exclamation marks sparingly (max 1).\n"
         "- Sound like a friend who won't let you stay comfortable.\n\n"
         "Reply with ONLY the comment text. No quotes around it."
     )
@@ -306,18 +738,17 @@ def generate_post_reply(post_title: str, post_content: str, author_name: str) ->
         f"Content: {post_content[:800]}\n\n"
         f"Write a reply that challenges or adds real value:"
     )
-    reply = _call_claude(system, user)
+    reply = _call_claude(system, user, max_tokens=200)
     if reply:
         reply = _strip_ai_slop(reply)
     return reply[:1000] if reply else ""
 
 
 # ---------------------------------------------------------------------------
-# Community feed scanning + replying
+# Community post scanning + replying
 # ---------------------------------------------------------------------------
 
 def cmd_scan_posts(args, page=None, ctx=None):
-    """Scan community feed for new posts and reply to unreplied ones."""
     from playwright.sync_api import sync_playwright
 
     replied = _load_json(REPLIED_POSTS_PATH)
@@ -348,7 +779,6 @@ def cmd_scan_posts(args, page=None, ctx=None):
             const results = [];
             const seen = new Set();
             for (const w of wrappers) {
-                // Find post-specific link (has slug path, not ?c= category link)
                 const allLinks = w.querySelectorAll('a[href*="/agency-accelerants-6209/"]');
                 let postLink = null;
                 for (const a of allLinks) {
@@ -365,7 +795,6 @@ def cmd_scan_posts(args, page=None, ctx=None):
                 if (!slug || seen.has(slug)) continue;
                 seen.add(slug);
 
-                // Author: second a[href*="/@"] has the actual name (first has level number)
                 const authorLinks = w.querySelectorAll('a[href*="/@"]');
                 const author = authorLinks.length >= 2 ? authorLinks[1].textContent.trim() :
                                (authorLinks[0] ? authorLinks[0].textContent.trim() : 'Unknown');
@@ -384,7 +813,6 @@ def cmd_scan_posts(args, page=None, ctx=None):
         reply_count = 0
         for post in posts:
             if reply_count >= MAX_REPLIES_PER_CYCLE:
-                log.info(f"Hit reply limit ({MAX_REPLIES_PER_CYCLE}), stopping for this cycle")
                 break
 
             slug = post.get("slug", "")
@@ -453,9 +881,7 @@ def cmd_scan_posts(args, page=None, ctx=None):
 
 
 def _type_and_submit_comment(page, text: str) -> bool:
-    """Type a comment into the Skool ProseMirror editor and submit it."""
     try:
-        # Click on any comment box
         page.evaluate("""() => {
             const editors = document.querySelectorAll('.ProseMirror[contenteditable="true"]');
             for (const ed of editors) {
@@ -479,7 +905,6 @@ def _type_and_submit_comment(page, text: str) -> bool:
         page.keyboard.type(text, delay=12)
         time.sleep(1)
 
-        # Click comment/submit button
         submitted = page.evaluate("""() => {
             const btns = [...document.querySelectorAll('button')];
             for (const btn of btns) {
@@ -504,22 +929,420 @@ def _type_and_submit_comment(page, text: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Auto & Daemon modes
+# DM scanning + replying
 # ---------------------------------------------------------------------------
-# NOTE: All DM outreach, welcome DMs, nurture DMs, and DM auto-reply code was
-# deleted 2026-03-28 per CC's directive. The ONLY automation that runs is
-# community post replies (cmd_scan_posts). CC handles all DMs personally.
 
-def cmd_auto(args, page=None, ctx=None, **_kwargs):
-    """Run community post scanning. Only post replies are active.
+def cmd_scan_dms(args, page=None, ctx=None):
+    """DISABLED 2026-04-02 — CC handles DMs manually. Returns empty results immediately."""
+    if DM_DISABLED:
+        log.info("DMs DISABLED (DM_DISABLED=True). Skipping entirely.")
+        return {"scanned": 0, "replied": 0, "skipped": 0, "booked": 0, "errors": []}
 
-    All DM outreach, welcome DMs, nurture DMs, and DM auto-reply were removed
-    2026-03-28. CC handles all DMs personally.
-    """
+    # Everything below is dead code — kept for reference only
     from playwright.sync_api import sync_playwright
 
-    log.info("=== Skool Engine: Auto Scan (posts only) ===")
+    dm_state = _load_json(DM_STATE_PATH)
+    results = {"scanned": 0, "replied": 0, "skipped": 0, "booked": 0, "errors": []}
+    own_ctx = page is None
+
+    pw_mgr = None
+    if own_ctx:
+        pw_mgr = sync_playwright().start()
+        ctx = get_browser_context(pw_mgr)
+        page = ctx.pages[0] if ctx.pages else ctx.new_page()
+        if not is_logged_in(page):
+            log.error("Not logged into Skool. Run: python scripts/skool_engine.py login")
+            ctx.close()
+            pw_mgr.stop()
+            return results
+
+    try:
+        # Navigate to community page and open chat panel via top nav icon
+        page.goto(COMMUNITY_URL, wait_until="domcontentloaded", timeout=60000)
+        time.sleep(4)
+
+        # Click the chat icon button in the top navbar
+        chat_opened = page.evaluate("""() => {
+            const btns = document.querySelectorAll('button');
+            for (const b of btns) {
+                if ((b.className || '').toString().includes('ChatNotific')) {
+                    b.click();
+                    return true;
+                }
+            }
+            return false;
+        }""")
+
+        if not chat_opened:
+            log.error("Could not find chat button in top nav")
+            results["errors"].append("Chat button not found")
+            if own_ctx:
+                ctx.close()
+                pw_mgr.stop()
+            return results
+
+        time.sleep(4)
+
+        # Parse thread list from the chat popover
+        # Each thread is an <a> with class "ChildrenLink" pointing to /chat?ch=<id>
+        # Text format: "MemberName• TimePreview text..."
+        threads = page.evaluate(r"""() => {
+            const popover = document.querySelector('[class*="PopoverItems"]');
+            if (!popover) return [];
+
+            const anchors = popover.querySelectorAll('a[class*="ChildrenLink"]');
+            const results = [];
+            const seen = new Set();
+
+            for (const a of anchors) {
+                const href = a.getAttribute('href') || '';
+                if (!href.includes('/chat?')) continue;
+
+                const text = a.textContent.trim().replace(/\s+/g, ' ');
+                if (!text || text.length < 5) continue;
+
+                const bulletIdx = text.indexOf('\u2022');
+                if (bulletIdx < 0) continue;
+
+                const name = text.substring(0, bulletIdx).trim();
+                if (!name || name.length > 60 || seen.has(name)) continue;
+                seen.add(name);
+
+                const afterBullet = text.substring(bulletIdx + 1).trim();
+                const timeMatch = afterBullet.match(/^(\d+[hmd])/);
+                const timeAgo = timeMatch ? timeMatch[1] : '';
+                const preview = timeMatch
+                    ? afterBullet.substring(timeMatch[0].length).trim()
+                    : afterBullet;
+
+                const slug = name.toLowerCase()
+                    .replace(/[^\w\s-]/g, '')
+                    .replace(/\s+/g, '-')
+                    .trim();
+
+                // Chat URL for direct navigation
+                const chatUrl = href.startsWith('/') ? 'https://www.skool.com' + href : href;
+
+                results.push({ name, slug, timeAgo, preview: preview.substring(0, 120), chatUrl });
+            }
+            return results;
+        }""")
+
+        log.info(f"Found {len(threads)} DM threads in chat panel")
+        results["scanned"] = len(threads)
+
+        # Identify threads needing a reply.
+        # Skool chat popover shows unread threads with bold/notification indicators.
+        # We detect unread via CSS weight classes on the thread anchor.
+        unread_threads = [t for t in threads if t.get("hasUnread")]
+        if not unread_threads:
+            # No unread indicators found — check up to MAX threads.
+            # The in-conversation anti-spam check (reads actual messages) is the
+            # real guard. This limit just prevents opening 30 threads per cycle.
+            unread_threads = threads[:MAX_DM_REPLIES_PER_CYCLE]
+        log.info(f"Threads to check: {len(unread_threads)} (of {len(threads)})")
+
+        reply_count = 0
+        for thread_idx, thread in enumerate(unread_threads):
+            if reply_count >= MAX_DM_REPLIES_PER_CYCLE:
+                log.info(f"Hit DM reply limit ({MAX_DM_REPLIES_PER_CYCLE})")
+                break
+
+            member_name = thread.get("name", "")
+            member_slug = thread.get("slug", "")
+
+            # Skip own conversations
+            if "conaugh" in member_name.lower():
+                results["skipped"] += 1
+                continue
+
+            log.info(f"Opening DM with {member_name} ({member_slug})...")
+
+            # Navigate directly to the chat URL
+            chat_url = thread.get("chatUrl", "")
+            if not chat_url:
+                log.warning(f"No chat URL for {member_name}")
+                results["errors"].append(f"No chat URL: {member_name}")
+                continue
+
+            try:
+                page.goto(chat_url, wait_until="domcontentloaded", timeout=30000)
+                time.sleep(4)
+                thread_opened = True
+            except Exception as e:
+                log.warning(f"Failed to navigate to chat: {e}")
+                thread_opened = False
+
+            if not thread_opened:
+                log.warning(f"Could not open thread with {member_name}")
+                results["errors"].append(f"Could not open thread: {member_name}")
+                continue
+
+            time.sleep(3)
+
+            # Read the conversation — get last few messages
+            # Skool chat bubbles use class "ChatBubble-sc-" and contain:
+            # "SenderNameTimestampMessage text" all concatenated
+            messages = page.evaluate("""() => {
+                const msgs = [];
+                const bubbles = document.querySelectorAll('[class*="ChatBubble"]');
+
+                // Junk patterns: leaderboard data, system messages, feed snippets
+                const JUNK_PATTERNS = [
+                    /^Leaderboard/i,
+                    /^[0-9]+[A-Z][a-z]+ [A-Z]/,  // "1Lourenço Abreu+47" etc
+                    /broke the ice/i,
+                    /joined the group/i,
+                    /started a conversation/i,
+                ];
+
+                for (const b of bubbles) {
+                    const fullText = b.textContent.trim();
+                    if (!fullText || fullText.length > 2000) continue;
+
+                    // Extract sender name — it's the first text node or first child
+                    // The bubble format is: "SenderName HH:MMam/pm MessageText"
+                    const isFromCC = fullText.startsWith('Conaugh') || fullText.startsWith('CC');
+
+                    // Strip the sender name and timestamp to get just the message
+                    // Pattern: "Name TimeMessage" — time is like "10:03pm", "6:14pm"
+                    const timeMatch = fullText.match(/\\d{1,2}:\\d{2}(?:am|pm)/);
+                    let messageText = fullText;
+                    if (timeMatch) {
+                        const timeEnd = fullText.indexOf(timeMatch[0]) + timeMatch[0].length;
+                        messageText = fullText.substring(timeEnd).trim();
+                    }
+
+                    if (!messageText) continue;
+
+                    // Filter out junk: leaderboard data, system messages, etc.
+                    let isJunk = false;
+                    for (const pat of JUNK_PATTERNS) {
+                        if (pat.test(messageText)) { isJunk = true; break; }
+                    }
+                    if (isJunk) continue;
+
+                    msgs.push({
+                        text: messageText.substring(0, 500),
+                        from: isFromCC ? 'CC' : 'member',
+                    });
+                }
+                return msgs;
+            }""")
+
+            if not messages:
+                log.info(f"  No messages found in thread with {member_name}")
+                results["skipped"] += 1
+                continue
+
+            # RESPONSE-ONLY GUARD: The bot NEVER initiates conversations.
+            # There must be at least one genuine message FROM the member.
+            has_member_message = any(m.get("from") == "member" for m in messages)
+            if not has_member_message:
+                log.info(f"  No member messages in thread — skipping (response-only)")
+                dm_state[member_slug] = {
+                    "last_checked": _now(),
+                    "last_from": "CC",
+                    "skipped": "no_member_msgs",
+                }
+                results["skipped"] += 1
+                continue
+
+            # ANTI-SPAM CHECK: If the last message is from CC, do NOT reply
+            last_message = messages[-1]
+            if last_message.get("from") == "CC":
+                log.info(f"  Last message is from CC — skipping (anti-spam)")
+                dm_state[member_slug] = {
+                    "last_checked": _now(),
+                    "last_from": "CC",
+                    "skipped": "anti_spam",
+                }
+                results["skipped"] += 1
+                continue
+
+            member_message = last_message.get("text", "")
+            log.info(f"  Member says: {member_message[:80]}...")
+
+            # Build conversation history
+            history = "\n".join(
+                f"{'CC' if m['from'] == 'CC' else member_name}: {m['text']}"
+                for m in messages[-6:]
+            )
+
+            # Check member paid/free status
+            member_info = check_member_status(page, member_slug)
+            is_paid = member_info.get("is_paid", True)
+
+            # Navigate back to the chat thread after profile check
+            page.goto(chat_url, wait_until="domcontentloaded", timeout=30000)
+            time.sleep(4)
+
+            # Check for booking intent
+            booking_result = None
+            if _detect_booking_intent(member_message):
+                log.info(f"  Booking intent detected — finding available slot...")
+                booking_result = book_meeting(member_name)
+                if booking_result["success"]:
+                    results["booked"] += 1
+                    log.info(f"  Booked: {booking_result['display_time']}")
+
+            # Generate reply
+            reply_text = generate_dm_reply(
+                member_name=member_name,
+                member_message=member_message,
+                conversation_history=history,
+                is_paid=is_paid,
+                booking_result=booking_result,
+            )
+
+            if not reply_text:
+                results["errors"].append(f"No reply generated for {member_name}")
+                continue
+
+            log.info(f"  Reply: {reply_text[:80]}...")
+
+            if args.dry_run:
+                log.info("  [dry-run] Would send DM reply")
+                dm_state[member_slug] = {
+                    "last_checked": _now(),
+                    "last_reply": reply_text,
+                    "dry_run": True,
+                }
+                results["replied"] += 1
+                reply_count += 1
+                continue
+
+            # PRE-SEND VERIFICATION: Re-read the conversation to confirm
+            # the last message is STILL from the member (not from CC/bot).
+            # This is the final guard against double-texting.
+            presend_messages = page.evaluate("""() => {
+                const msgs = [];
+                const JUNK = [/^Leaderboard/i, /^\\d+[A-Z]/, /broke the ice/i, /joined/i];
+                const bubbles = document.querySelectorAll('[class*="ChatBubble"]');
+                for (const b of bubbles) {
+                    const fullText = b.textContent.trim();
+                    if (!fullText || fullText.length > 2000) continue;
+                    const isFromCC = fullText.startsWith('Conaugh') || fullText.startsWith('CC');
+                    const timeMatch = fullText.match(/\\d{1,2}:\\d{2}(?:am|pm)/);
+                    let msg = fullText;
+                    if (timeMatch) msg = fullText.substring(fullText.indexOf(timeMatch[0]) + timeMatch[0].length).trim();
+                    let junk = false;
+                    for (const p of JUNK) { if (p.test(msg)) { junk = true; break; } }
+                    if (junk) continue;
+                    msgs.push({ from: isFromCC ? 'CC' : 'member' });
+                }
+                return msgs;
+            }""")
+
+            if presend_messages and presend_messages[-1].get("from") == "CC":
+                log.warning(f"  PRE-SEND BLOCK: Last message is now from CC — another instance already replied. Skipping.")
+                dm_state[member_slug] = {
+                    "last_checked": _now(),
+                    "last_from": "CC",
+                    "skipped": "presend_block",
+                }
+                results["skipped"] += 1
+                continue
+
+            # Type and send the DM
+            sent = _type_and_send_dm(page, reply_text)
+            if sent:
+                log.info(f"  DM sent to {member_name}")
+                dm_state[member_slug] = {
+                    "last_checked": _now(),
+                    "last_reply": reply_text,
+                    "last_from": "CC",
+                    "is_paid": is_paid,
+                    "booking": booking_result["display_time"] if booking_result and booking_result["success"] else None,
+                }
+                results["replied"] += 1
+                reply_count += 1
+                notify(f"Skool DM to {member_name}: {reply_text[:80]}...", category="content")
+            else:
+                results["errors"].append(f"Failed to send DM to {member_name}")
+
+            time.sleep(3)
+
+    finally:
+        if own_ctx:
+            ctx.close()
+            pw_mgr.stop()
+
+    _save_json(DM_STATE_PATH, dm_state)
+    return results
+
+
+def _type_and_send_dm(page, text: str) -> bool:
+    """Type a message into the Skool DM chat input and send it."""
+    try:
+        # Find the chat input field
+        focused = page.evaluate("""() => {
+            // Look for ProseMirror editor in DM area
+            const editors = document.querySelectorAll('.ProseMirror[contenteditable="true"]');
+            for (const ed of editors) {
+                ed.click();
+                ed.focus();
+                return 'editor';
+            }
+            // Look for textarea or input
+            const inputs = document.querySelectorAll('textarea, input[type="text"]');
+            for (const inp of inputs) {
+                if (inp.placeholder?.toLowerCase().includes('message') ||
+                    inp.placeholder?.toLowerCase().includes('type') ||
+                    inp.closest('[class*="chat"], [class*="Chat"], [class*="dm"], [class*="DM"]')) {
+                    inp.click();
+                    inp.focus();
+                    return 'input';
+                }
+            }
+            // Look for contenteditable divs
+            const editables = document.querySelectorAll('[contenteditable="true"]');
+            for (const ed of editables) {
+                if (ed.closest('[class*="chat"], [class*="Chat"], [class*="dm"], [class*="DM"]')) {
+                    ed.click();
+                    ed.focus();
+                    return 'editable';
+                }
+            }
+            return 'none';
+        }""")
+
+        if focused == "none":
+            log.error("Could not find DM input field")
+            return False
+
+        time.sleep(0.5)
+
+        # CRITICAL: Strip ALL newlines before typing.
+        # Skool DMs use Enter to send — any \n in the text triggers
+        # a premature send, splitting one reply into multiple messages.
+        clean_text = text.replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
+        clean_text = re.sub(r"  +", " ", clean_text).strip()
+
+        page.keyboard.type(clean_text, delay=15)
+        time.sleep(1)
+
+        # Send with Enter (Skool DMs use Enter to send)
+        page.keyboard.press("Enter")
+        time.sleep(2)
+        return True
+
+    except Exception as e:
+        log.error(f"DM send failed: {e}")
+        return False
+
+
+# ---------------------------------------------------------------------------
+# Auto & Daemon modes
+# ---------------------------------------------------------------------------
+
+def cmd_auto(args, page=None, ctx=None, **_kwargs):
+    """Run full scan: community post replies only. DMs disabled 2026-04-01."""
+    from playwright.sync_api import sync_playwright
+
+    log.info("=== Skool Engine V2: Auto Scan ===")
     log.info(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+    log.info("Mode: post replies ONLY (DMs disabled — CC handles DMs manually)")
 
     all_results = {}
     own_ctx = page is None
@@ -537,6 +1360,9 @@ def cmd_auto(args, page=None, ctx=None, **_kwargs):
         log.info("\n--- Scanning community posts ---")
         all_results["posts"] = cmd_scan_posts(args, page=page, ctx=ctx)
 
+        # DMs disabled 2026-04-01 — CC handles DMs manually
+        all_results["dms"] = {"scanned": 0, "replied": 0, "booked": 0}
+
     except Exception as e:
         log.error(f"Auto scan error: {e}")
         raise
@@ -545,23 +1371,24 @@ def cmd_auto(args, page=None, ctx=None, **_kwargs):
             ctx.close()
             pw_mgr.stop()
 
-    # Summary
     p = all_results.get("posts", {})
     log.info(f"\n=== Summary ===")
     log.info(f"Posts replied: {p.get('replied', 0)}/{p.get('scanned', 0)}")
 
     if p.get("replied", 0) > 0:
-        notify(f"Skool scan: {p.get('replied', 0)} post replies", category="content")
+        notify(
+            f"Skool scan: {p.get('replied', 0)} post replies",
+            category="content",
+        )
 
     return all_results
 
 
-def _is_daemon_running() -> bool:
-    """Check if another daemon instance is already running via PID file.
+# ---------------------------------------------------------------------------
+# Daemon
+# ---------------------------------------------------------------------------
 
-    Uses heartbeat staleness to detect zombie processes that Windows won't release.
-    If PID is alive but heartbeat is stale (>10 min), treat as zombie and allow takeover.
-    """
+def _is_daemon_running() -> bool:
     if not DAEMON_PID_PATH.exists():
         return False
     try:
@@ -570,39 +1397,31 @@ def _is_daemon_running() -> bool:
         if not pid:
             return False
 
-        # Check if the PID is actually alive (Windows-compatible)
         import ctypes
         kernel32 = ctypes.windll.kernel32
-        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
-        handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, int(pid))
+        handle = kernel32.OpenProcess(0x1000, False, int(pid))
         if not handle:
-            # Process is dead — clean up stale PID file
-            log.info(f"Stale PID file found (PID {pid} is dead). Cleaning up.")
             DAEMON_PID_PATH.unlink(missing_ok=True)
             return False
         kernel32.CloseHandle(handle)
 
-        # PID is alive — but is it actually working? Check heartbeat staleness.
         if HEARTBEAT_PATH.exists():
             hb = _load_json(HEARTBEAT_PATH)
             hb_ts = hb.get("ts", "")
             if hb_ts:
-                from datetime import datetime, timezone
                 try:
                     last_beat = datetime.fromisoformat(hb_ts)
                     if last_beat.tzinfo is None:
                         last_beat = last_beat.replace(tzinfo=timezone.utc)
                     age_min = (datetime.now(timezone.utc) - last_beat).total_seconds() / 60
                     if age_min > 10:
-                        log.warning(f"Zombie daemon detected: PID {pid} alive but heartbeat stale ({age_min:.0f} min). Taking over.")
+                        log.warning(f"Zombie daemon: PID {pid} alive but heartbeat stale ({age_min:.0f}m)")
                         DAEMON_PID_PATH.unlink(missing_ok=True)
                         HEARTBEAT_PATH.unlink(missing_ok=True)
                         return False
                 except (ValueError, TypeError):
                     pass
         else:
-            # PID alive but NO heartbeat file at all — zombie
-            log.warning(f"Zombie daemon detected: PID {pid} alive but no heartbeat file. Taking over.")
             DAEMON_PID_PATH.unlink(missing_ok=True)
             return False
 
@@ -612,88 +1431,76 @@ def _is_daemon_running() -> bool:
 
 
 def cmd_daemon(args):
-    """Run continuously in daemon mode with persistent browser and configurable interval."""
     from playwright.sync_api import sync_playwright
 
-    interval = getattr(args, "interval", 2) or 2
+    interval = getattr(args, "interval", 5) or 5
 
-    # CRITICAL: Prevent multiple daemon instances (causes double-replies)
-    if _is_daemon_running():
-        existing = _load_json(DAEMON_PID_PATH)
-        log.error(f"Another daemon is already running (PID {existing.get('pid')}, started {existing.get('started')})")
-        log.error("Kill it first or use: taskkill /PID <pid> /F")
+    # EXCLUSIVE LOCK — only ONE daemon process can hold this lock.
+    # If another daemon is already running, we exit immediately.
+    lock = DaemonLock()
+    if not lock.acquire():
+        log.error("BLOCKED: Another skool_engine daemon holds the lock. Exiting.")
         sys.exit(1)
 
-    log.info(f"=== Skool Engine: Daemon Mode (every {interval} min) ===")
-    log.info("Mode: community post replies only (all DMs disabled)")
+    log.info(f"=== Skool Engine V2: Daemon Mode (every {interval} min) ===")
+    log.info(f"Exclusive lock acquired (PID {os.getpid()})")
+    log.info("Mode: post replies ONLY (DMs disabled 2026-04-01)")
     log.info("Press Ctrl+C to stop")
 
-    # Write PID file for tracking
     _save_json(DAEMON_PID_PATH, {"pid": os.getpid(), "started": _now(), "interval": interval})
-
-    # Write initial heartbeat (watchdog checks this for liveness)
     _save_json(HEARTBEAT_PATH, {"pid": os.getpid(), "ts": _now(), "cycle": 0})
 
-    # Handle graceful shutdown
     running = [True]
 
-    def _shutdown(signum, frame):
-        log.info("Shutdown signal received, stopping after current cycle...")
+    def _shutdown(_signum, _frame):
+        log.info("Shutdown signal received...")
         running[0] = False
 
     signal.signal(signal.SIGINT, _shutdown)
     signal.signal(signal.SIGTERM, _shutdown)
 
-    notify(f"Skool daemon started (every {interval} min)", category="system")
+    notify(f"Skool V2 daemon started (every {interval} min)", category="system")
 
     cycle = 0
     consecutive_failures = 0
-    max_consecutive_failures = 5  # Restart browser after 5 consecutive failures
 
     while running[0]:
         try:
-            # Persistent browser context — reuse across cycles
             with sync_playwright() as pw:
                 ctx = get_browser_context(pw)
                 page = ctx.pages[0] if ctx.pages else ctx.new_page()
 
-                # Verify login before entering the loop
                 if not is_logged_in(page):
-                    log.error("Not logged into Skool. Run: python scripts/skool_engine.py login")
+                    log.error("Not logged into Skool")
                     ctx.close()
-                    notify("Skool daemon: NOT LOGGED IN — run login command", category="system")
+                    notify("Skool daemon: NOT LOGGED IN", category="system")
                     break
 
-                # Inner loop with persistent browser
                 while running[0]:
                     log.info(f"\n{'='*50}")
                     log.info(f"Cycle {cycle} at {datetime.now().strftime('%H:%M:%S')}")
-                    log.info(f"{'='*50}")
 
-                    # Update heartbeat every cycle so watchdog knows we're alive
                     try:
                         _save_json(HEARTBEAT_PATH, {"pid": os.getpid(), "ts": _now(), "cycle": cycle})
                     except Exception:
                         pass
 
                     try:
-                        cmd_auto(args, page=page, ctx=ctx, cycle=cycle)
+                        cmd_auto(args, page=page, ctx=ctx)
                         consecutive_failures = 0
                     except Exception as e:
                         consecutive_failures += 1
-                        log.error(f"Cycle {cycle} failed ({consecutive_failures}/{max_consecutive_failures}): {e}")
-                        notify(f"Skool daemon error (cycle {cycle}): {str(e)[:80]}", category="system")
-
-                        if consecutive_failures >= max_consecutive_failures:
-                            log.warning("Too many consecutive failures — restarting browser...")
-                            break  # Break inner loop to restart browser
+                        log.error(f"Cycle {cycle} failed ({consecutive_failures}/5): {e}")
+                        if consecutive_failures >= 5:
+                            log.warning("Too many failures — restarting browser...")
+                            break
 
                     if not running[0]:
                         break
 
                     cycle += 1
                     log.info(f"Next cycle in {interval} minutes...")
-                    for _ in range(interval * 6):  # 10-second increments
+                    for _ in range(interval * 6):
                         if not running[0]:
                             break
                         time.sleep(10)
@@ -701,116 +1508,91 @@ def cmd_daemon(args):
                 ctx.close()
 
         except Exception as e:
-            log.error(f"Browser context crashed: {e}")
-            notify(f"Skool daemon browser crash: {str(e)[:80]}", category="system")
+            log.error(f"Browser crashed: {e}")
 
         if not running[0]:
             break
 
-        # If we got here from consecutive failures, wait a bit then retry
-        if consecutive_failures >= max_consecutive_failures:
+        if consecutive_failures >= 5:
             consecutive_failures = 0
-            log.info("Waiting 60s before restarting browser...")
+            log.info("Waiting 60s before restart...")
             for _ in range(6):
                 if not running[0]:
                     break
                 time.sleep(10)
 
-    # Cleanup PID + heartbeat files
-    if DAEMON_PID_PATH.exists():
-        DAEMON_PID_PATH.unlink()
-    if HEARTBEAT_PATH.exists():
-        HEARTBEAT_PATH.unlink()
-
-    log.info("Daemon stopped gracefully.")
-    notify("Skool daemon stopped", category="system")
+    DAEMON_PID_PATH.unlink(missing_ok=True)
+    HEARTBEAT_PATH.unlink(missing_ok=True)
+    lock.release()
+    log.info("Daemon stopped. Lock released.")
+    notify("Skool V2 daemon stopped", category="system")
 
 
 # ---------------------------------------------------------------------------
-# Login helper
+# Login / Status
 # ---------------------------------------------------------------------------
 
 def cmd_login(args):
-    """Launch browser in headed mode for manual Skool login."""
     from playwright.sync_api import sync_playwright
 
     log.info("Launching browser for manual Skool login...")
-    log.info("Log in to your Skool account, then close the browser window.")
-    log.info(f"Session persists at: {BROWSER_DIR}")
-
     with sync_playwright() as pw:
         os.makedirs(BROWSER_DIR, exist_ok=True)
         ctx = pw.chromium.launch_persistent_context(
             user_data_dir=BROWSER_DIR,
             headless=False,
             viewport={"width": 1280, "height": 900},
-            user_agent=(
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/120.0.0.0 Safari/537.36"
-            ),
         )
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
         page.goto("https://www.skool.com/login", wait_until="domcontentloaded", timeout=60000)
-
-        log.info("Waiting for you to log in... (close browser when done)")
+        log.info("Log in, then close browser window.")
         try:
             page.wait_for_event("close", timeout=300000)
         except Exception:
             pass
         ctx.close()
-
     log.info("Login session saved.")
 
 
-# ---------------------------------------------------------------------------
-# Status helper
-# ---------------------------------------------------------------------------
-
 def cmd_status(args):
-    """Show current engine state."""
     replied_posts = _load_json(REPLIED_POSTS_PATH)
-    total_posts_replied = sum(1 for p in replied_posts.values() if p.get("reply"))
+    dm_state = _load_json(DM_STATE_PATH)
+    total_posts = sum(1 for p in replied_posts.values() if isinstance(p, dict) and p.get("reply"))
+    total_dms = sum(1 for d in dm_state.values() if isinstance(d, dict) and d.get("last_reply"))
 
-    # Daemon status
     daemon_info = _load_json(DAEMON_PID_PATH)
     daemon_running = False
     if daemon_info.get("pid"):
         try:
-            import subprocess
-            result = subprocess.run(
-                ["tasklist", "/FI", f"PID eq {daemon_info['pid']}", "/NH"],
-                capture_output=True, text=True, timeout=5
-            )
-            daemon_running = str(daemon_info["pid"]) in result.stdout
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            handle = kernel32.OpenProcess(0x1000, False, int(daemon_info["pid"]))
+            if handle:
+                kernel32.CloseHandle(handle)
+                daemon_running = True
         except Exception:
             pass
 
     status = {
         "daemon": {"running": daemon_running, **daemon_info} if daemon_info else {"running": False},
-        "posts_replied": total_posts_replied,
-        "mode": "post replies only (DMs disabled 2026-03-28)",
+        "posts_replied": total_posts,
+        "dms_replied": total_dms,
+        "mode": "V2: post replies ONLY (DMs disabled 2026-04-01)",
+        "kill_switch": SKOOL_DISABLED,
     }
 
-    if args.json:
+    if getattr(args, "json", False):
         print(json.dumps(status, indent=2, default=str))
     else:
+        safe_print(f"Kill switch: {'ON (engine disabled)' if SKOOL_DISABLED else 'OFF (engine active)'}")
         safe_print(f"Daemon: {'RUNNING' if daemon_running else 'STOPPED'}")
         if daemon_running:
             safe_print(f"  PID: {daemon_info.get('pid')} | Interval: {daemon_info.get('interval')}min")
-            safe_print(f"  Started: {daemon_info.get('started', 'unknown')}")
-        safe_print(f"Posts replied: {total_posts_replied}")
-        safe_print(f"Mode: post replies only (all DMs disabled)")
+        safe_print(f"Posts replied (all time): {total_posts}")
+        safe_print(f"DMs replied (historical): {total_dms}")
+        safe_print(f"Mode: V2 — post replies ONLY (DMs disabled 2026-04-01)")
 
     return status
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 # ---------------------------------------------------------------------------
@@ -818,30 +1600,26 @@ def _now() -> str:
 # ---------------------------------------------------------------------------
 
 def main():
-    parser = argparse.ArgumentParser(description="Skool Community Engine — Autonomous Community Management")
+    parser = argparse.ArgumentParser(description="Skool Community Engine V2")
     parser.add_argument("--json", action="store_true", help="JSON output")
-    parser.add_argument("--dry-run", action="store_true", help="Preview actions without posting")
+    parser.add_argument("--dry-run", action="store_true", help="Preview without posting")
 
     sub = parser.add_subparsers(dest="command")
-
-    sub.add_parser("login", help="Launch browser for manual Skool login")
+    sub.add_parser("login", help="Launch browser for Skool login")
     sub.add_parser("scan-posts", help="Reply to community posts")
-    sub.add_parser("auto", help="Run post scan once")
-    sub.add_parser("status", help="Show engine status and stats")
+    sub.add_parser("scan-dms", help="Reply to incoming DMs")
+    sub.add_parser("auto", help="Full scan (posts + DMs)")
+    sub.add_parser("status", help="Show engine status")
 
     daemon_parser = sub.add_parser("daemon", help="Run continuously")
-    daemon_parser.add_argument("--interval", type=int, default=2, help="Minutes between cycles (default: 2)")
+    daemon_parser.add_argument("--interval", type=int, default=5, help="Minutes between cycles (default: 5)")
 
     args = parser.parse_args()
 
-    # Kill switch — refuse to run if disabled
     if SKOOL_DISABLED:
-        msg = "Skool Engine is DISABLED (kill switch active since 2026-03-25). To re-enable, set SKOOL_DISABLED = False in skool_engine.py."
+        msg = "Skool Engine is DISABLED (kill switch active). Set SKOOL_DISABLED = False in skool_engine.py to re-enable."
         log.warning(msg)
-        if args.json if hasattr(args, 'json') else False:
-            safe_print(json.dumps({"status": "disabled", "message": msg}))
-        else:
-            safe_print(msg)
+        safe_print(msg)
         sys.exit(0)
 
     if not args.command:
@@ -851,6 +1629,7 @@ def main():
     commands = {
         "login": cmd_login,
         "scan-posts": cmd_scan_posts,
+        "scan-dms": cmd_scan_dms,
         "auto": cmd_auto,
         "daemon": cmd_daemon,
         "status": cmd_status,
@@ -862,8 +1641,7 @@ def main():
         sys.exit(1)
 
     result = handler(args)
-
-    if args.json and result and args.command not in ("status",):
+    if getattr(args, "json", False) and result and args.command not in ("status",):
         print(json.dumps(result, indent=2, default=str))
 
 

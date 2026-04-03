@@ -86,7 +86,7 @@ tags: [state, ephemeral]
 
 ## Capability Counts (2026-03-31)
 
-- **Skills:** 178 (core + GWS + recipes + personas + context-optimization) + 16 native Claude Code skills
+- **Skills:** 179 (core + GWS + recipes + personas + context-optimization + python-daemon-automation) + 16 native Claude Code skills
 - **Agents:** 16 (core + meta-agent)
 - **Workflows:** 30 (.agents/workflows/)
 - **Scripts:** 37 (CLI engines + CEO tools + system maintenance)
