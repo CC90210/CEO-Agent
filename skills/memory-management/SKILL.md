@@ -31,8 +31,8 @@ Most observations are not worth persisting. Only write when the information will
 
 ### Tier 1: Brain (Always Loaded)
 **Files:** `brain/SOUL.md`, `brain/USER.md`, `brain/STATE.md`
-**Budget:** <500 lines combined
-**Rule:** Loaded at every session start. Must be concise.
+**Budget:** <2500 lines combined (V5.5: 17 agents, 180 skills, CEO OS — structural files scale with system)
+**Rule:** Loaded at every session start. Must be concise but complete.
 
 ### Tier 2: Active Memory (Loaded on Demand)
 **Files:** `memory/ACTIVE_TASKS.md`, `memory/LONG_TERM.md`, `memory/SOP_LIBRARY.md`
@@ -129,7 +129,7 @@ When Supabase is available:
 [ ] LONG_TERM.md — all facts still valid? Confidence scores current?
 [ ] SOP_LIBRARY.md — all SOPs still relevant? Success rates accurate?
 [ ] daily/ — older than 30 days archived?
-[ ] brain/ files — under 500 lines combined?
+[ ] brain/ files — under 2500 lines combined?
 [ ] No orphaned references (links to deleted files)?
 [ ] Supabase sync current (if available)?
 ```

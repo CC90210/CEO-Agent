@@ -90,7 +90,7 @@ LINE_BUDGETS: dict[str, int] = {
     "MISTAKES.md":      30,
     "PATTERNS.md":      30,
 }
-BRAIN_COMBINED_BUDGET = 500
+BRAIN_COMBINED_BUDGET = 2500  # V5.5: 17 agents, 180 skills, CEO OS — structural files are large by design
 
 # Archive retention thresholds
 SESSION_LOG_ARCHIVE_DAYS = 14

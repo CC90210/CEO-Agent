@@ -21,17 +21,27 @@ LOCAL_SETTINGS = PROJECT_ROOT / ".claude" / "settings.local.json"
 
 def check_codex_cli():
     """Check if Codex CLI is installed and accessible."""
-    try:
-        result = subprocess.run(
-            ["codex", "--version"],
-            capture_output=True, text=True, timeout=10
-        )
-        version = result.stdout.strip()
-        return {"status": "ok", "version": version}
-    except FileNotFoundError:
-        return {"status": "missing", "fix": "npm install -g @openai/codex"}
-    except subprocess.TimeoutExpired:
-        return {"status": "timeout"}
+    # On Windows, subprocess may not find npm-installed binaries without shell=True
+    # or explicit .cmd extension. Try multiple paths.
+    candidates = [
+        "codex",
+        "codex.cmd",
+        str(Path.home() / "AppData" / "Roaming" / "npm" / "codex.cmd"),
+    ]
+    for cmd in candidates:
+        try:
+            result = subprocess.run(
+                [cmd, "--version"],
+                capture_output=True, text=True, timeout=10,
+                encoding="utf-8",
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return {"status": "ok", "version": result.stdout.strip()}
+        except (FileNotFoundError, OSError):
+            continue
+        except subprocess.TimeoutExpired:
+            return {"status": "timeout"}
+    return {"status": "missing", "fix": "npm install -g @openai/codex"}
 
 
 def check_codex_auth():
