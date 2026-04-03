@@ -10,6 +10,24 @@ tags: [daily]
 
 ---
 
+### 2026-04-02 — Codex Plugin Integration (Claude Code)
+**Agent:** Bravo (Claude Opus 4.6)
+**Work:**
+- Verified openai/codex-plugin-cc repo legitimacy (10.7k stars, Apache 2.0, official OpenAI)
+- Installed Codex CLI globally (v0.118.0) and authenticated via OAuth
+- Manually integrated Codex plugin into Claude Code ecosystem:
+  - Plugin runtime: `.claude/plugins/codex/` (full companion scripts + broker)
+  - 7 native skills: codex-review, codex-adversarial-review, codex-rescue, codex-setup, codex-status, codex-result, codex-cancel
+  - Agent definition: `agents/codex-agent.md` (Agent #17)
+  - Delegation skill: `skills/codex-delegation/SKILL.md` (intelligent routing matrix)
+  - Session hooks: SessionStart/SessionEnd for Codex broker lifecycle
+  - Updated: CLAUDE.md (commands table, tool routing, skills list), AGENTS.md (routing matrix, agent #17 definition)
+- Full end-to-end verification: setup --json returns ready=true, auth=authenticated
+**Impact:** Dual-AI architecture — Bravo + Codex working in tandem for 2x throughput on complex tasks
+**Files:** codex_integration.md (new memory file), MEMORY.md (updated), SESSION_LOG.md (this entry)
+
+---
+
 ### 2026-04-01 — New Skill: python-daemon-automation
 **Change:** Created `skills/python-daemon-automation/SKILL.md` — comprehensive skill encoding all lessons from the 7-day zombie daemon incident. Covers: architecture pattern (file lock, heartbeat, PID file, log rotation, kill switches), the 5-step redeploy protocol (EDIT→KILL→CLEAN→VERIFY DEAD→RESTART), watchdog pattern with stale-process detection, Windows process debugging commands, anti-patterns table, and new daemon checklist.
 **Files:** skills/python-daemon-automation/SKILL.md (new, 380+ lines)
