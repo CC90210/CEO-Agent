@@ -183,7 +183,7 @@ Each agent operates under a permission level. See `skills/agent-permissions/SKIL
 |-------|--------|--------|
 | **minimal** | read | explorer, researcher, social-publisher, revenue-hunter |
 | **standard** | read, write, execute | writer, reviewer, content-creator, chief-of-staff, video-editor, git-ops, documenter |
-| **elevated** | standard + spawn, memory | architect, debugger, workflow-builder, meta-agent |
+| **elevated** | standard + spawn, memory | architect, debugger, workflow-builder, meta-agent, codex-agent |
 | **admin** | all | Bravo lead agent only |
 
 **Universal blocked:** `.env*`, `*.pem`, `*.key`, `credentials*.json`, `.obsidian/**`

@@ -159,20 +159,19 @@ CC will NEVER need to type `/codex:*` commands. Bravo automatically delegates to
 
 **How to delegate (internal — CC never sees this):**
 ```bash
-export CLAUDE_PLUGIN_ROOT="/c/Users/User/Business-Empire-Agent/.claude/plugins/codex"
-# Delegate a task:
-node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" task --write "<task description>"
-# Code review:
+export CLAUDE_PLUGIN_ROOT="/c/Users/User/.claude/codex-plugin"
+node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" task --write "<context + task>"
 node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" review
-# Adversarial review:
 node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" adversarial-review "<focus>"
-# Check status:
 node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" status
-# Get result:
 node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" result
 ```
 
-**Parallel execution pattern:** When delegating to Codex in background, continue working on other parts of the task simultaneously. Don't wait idle. Two AIs, zero downtime.
+**Context injection (CRITICAL):** Always prepend codebase context when delegating — stack, file paths, constraints, DB schema. Vague prompts produce vague results. See @skills/codex-delegation/SKILL.md for injection protocol.
+
+**Parallel execution:** When delegating to Codex in background, continue working on other parts simultaneously. Two AIs, zero downtime.
+
+**Failure recovery:** First failure → retry with more context. Second → switch Codex model. Third → Bravo takes over. Never retry same prompt 3 times. Log persistent failures to MISTAKES.md.
 
 **Present Codex output verbatim to CC.** Don't paraphrase. If Codex finds issues, present them and ask CC which to fix.
 
@@ -233,7 +232,7 @@ Commands registered as native Claude Code skills (`.claude/skills/`) AND as work
 
 ## Sub-Agent Orchestration
 
-See @brain/AGENTS.md for the complete subagent registry (17 agents + Codex external with decision matrix).
+See @brain/AGENTS.md for the complete subagent registry (17 specialized agents including external Codex executor, with decision matrix).
 **Orchestration config:** `.agents/config.toml` — centralized routing, permissions, anti-drift, workers, SPARC phases.
 
 **Codex delegation (PROACTIVE — no slash commands needed):** Bravo automatically delegates to Codex when the task matches Codex's strengths. CC just describes what he wants in natural language — Bravo decides whether to handle it, delegate to Codex, or split the work. See Rule 8 below and @skills/codex-delegation/SKILL.md. Plugin at `.claude/plugins/codex/`.

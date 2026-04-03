@@ -67,6 +67,8 @@ git = "git-ops"
 social = "social-publisher"
 skool = "writer"                            # Uses skool-automation skill
 exploration = "explorer"
+backend = "codex-agent"                     # Backend-heavy tasks → Codex
+api = "codex-agent"                         # API routes, webhooks → Codex
 
 # =============================================================================
 # Anti-Drift — Preventing Agent Divergence
@@ -133,6 +135,7 @@ workflow-builder = "elevated"
 documenter = "standard"
 explorer = "minimal"        # Read-only by design
 meta-agent = "elevated"     # Can create new agent definitions
+codex-agent = "elevated"    # External AI executor — backend delegation, needs spawn/memory
 
 # Scope restrictions (glob patterns for file access)
 [permissions.scopes]

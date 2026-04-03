@@ -132,6 +132,84 @@ This gives a dual-AI review before shipping — Bravo catches implementation iss
 /codex:cancel
 ```
 
+## Context Injection — Giving Codex Codebase Intelligence
+
+Codex runs in the same repo directory but doesn't have Bravo's brain files. When delegating tasks,
+**inject relevant context into the task prompt** so Codex makes informed decisions.
+
+### Context Injection Protocol
+
+When building a Codex task prompt, prepend relevant context:
+
+```
+<context>
+Project: [app name from APP_REGISTRY.md]
+Stack: [from APP_REGISTRY.md — e.g., "Next.js 14, TypeScript, Supabase, Stripe"]
+Key files: [list the 3-5 most relevant files for this task]
+Constraints: [any architectural rules — e.g., "uses App Router, RLS enabled, Stripe webhooks verified"]
+Related work: [if Bravo already started something, describe what's done]
+</context>
+
+<task>
+[The actual task description]
+</task>
+```
+
+### What to Inject by Task Type
+
+| Task Type | Context to Include |
+|-----------|-------------------|
+| Backend bug fix | Error message, stack trace, relevant file paths, DB schema if applicable |
+| API implementation | Existing route patterns, auth middleware, Supabase table schema |
+| Code review | Branch diff summary, what the feature does, any known risks |
+| Test debugging | Test framework (vitest/jest), failing test output, related source files |
+| Refactoring | Current architecture, files involved, what "done" looks like |
+
+### Example: Delegating a Backend Task
+
+```bash
+export CLAUDE_PLUGIN_ROOT="/c/Users/User/.claude/codex-plugin"
+node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" task --write \
+  "Context: Next.js 14 App Router, Supabase with RLS, Stripe webhooks.
+   The webhook handler at app/api/webhooks/stripe/route.ts is not idempotent —
+   it processes the same event_id twice when Stripe retries.
+   Fix: Add event_id deduplication using the payments table.
+   The Supabase client is initialized in lib/supabase/server.ts.
+   Constraint: Do not disable RLS. Use the service role key server-side only."
+```
+
+## Failure Recovery — When Codex Fails
+
+Codex tasks can fail for several reasons. Bravo must handle each gracefully:
+
+### Failure Types and Recovery
+
+| Failure | Signal | Recovery |
+|---------|--------|----------|
+| **Codex CLI not found** | `setup --json` returns `codex.available: false` | Run `npm install -g @openai/codex` |
+| **Auth expired** | `setup --json` returns `auth.loggedIn: false` | Tell CC to run `codex login` in terminal |
+| **Task timeout** | No result after 15 minutes | Check `/codex:status`, cancel if stuck, retry with simpler scope |
+| **Bad output** | Codex returns malformed or empty result | Don't retry blindly — Bravo takes over the task |
+| **Codex made wrong changes** | Review shows incorrect implementation | Bravo reverts and handles the task directly |
+| **Broker crash** | Session runtime errors | Restart session (SessionEnd + SessionStart hooks will clean up) |
+
+### The 3-Strike Rule
+
+1. **First failure:** Retry with more specific context (inject file contents, narrow scope)
+2. **Second failure:** Switch to a different Codex model (`--model spark` for simpler, `--model gpt-5.4-mini` for faster)
+3. **Third failure:** Bravo takes over. Log to `memory/MISTAKES.md` with what Codex struggled with.
+
+**Never retry the same prompt 3 times.** Each retry must change something: more context, narrower scope, different model, or Bravo takes over.
+
+### Pre-Flight Check
+
+Before any Codex delegation, verify readiness:
+```bash
+export CLAUDE_PLUGIN_ROOT="/c/Users/User/.claude/codex-plugin"
+node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" setup --json 2>/dev/null | head -1
+```
+If `ready: false` — don't delegate. Handle the task directly and note the issue.
+
 ## Anti-Patterns (Never Do These)
 
 1. **Don't delegate AND do the same work.** If Codex is investigating a bug, Bravo works on something else.
@@ -139,6 +217,8 @@ This gives a dual-AI review before shipping — Bravo catches implementation iss
 3. **Don't delegate content creation.** Codex doesn't have CC's brand voice context.
 4. **Don't run Codex on trivial tasks.** The startup overhead makes it slower than Bravo for small fixes.
 5. **Don't ignore Codex results.** Always present Codex output verbatim to CC.
+6. **Don't send vague prompts to Codex.** Always inject codebase context — file paths, stack, constraints.
+7. **Don't retry the same failing prompt.** Change scope, model, or context on each retry.
 
 ## Obsidian Links
 - [[agents/codex-agent]] | [[brain/AGENTS]] | [[brain/CAPABILITIES]]

@@ -4,8 +4,8 @@ tags: [capabilities, tools]
 
 # CAPABILITIES — Tool & Integration Registry
 
-> Complete inventory of what Bravo can do. Last updated: 2026-03-31.
-> **Totals: 178 skills · 30 workflows · 37 scripts · 15 agents · 4 MCP servers**
+> Complete inventory of what Bravo can do. Last updated: 2026-04-03.
+> **Totals: 180 skills · 30 workflows · 37 scripts · 17 agents · 4 MCP servers + Codex (external)**
 
 ## MCP Servers (By Interface)
 
