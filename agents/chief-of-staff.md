@@ -66,5 +66,5 @@ You are the Chief of Staff for CC (Conaugh McKenna), managing the Business Empir
 ## Prerequisites
 - n8n Triage Workflow (ID: triage-hub)
 - Late API Key (in .env.agents)
-- `gws` CLI (Gmail send/search, Calendar ops) — credentials via `scripts/gws-wrapper.cmd`
+- `gws` CLI / `scripts/google_tool.py` (Gmail send/search, Calendar ops) — authenticated via Google OAuth
 - Access to memory/ directory

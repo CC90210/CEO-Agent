@@ -34,6 +34,7 @@ When CC says "fix [app]", "update [app]", "build [feature] in [app]", "debug [ap
 | **CC Funnel** | cc-funnel, funnel, lead form | `C:\Users\User\APPS\cc-funnel` | CC90210/cc-funnel | phctllmtsogkovoilwos (Bravo) | Next.js 14, TypeScript, Tailwind, Supabase | Vercel (cc-funnel.vercel.app) |
 | **Shopify Ad Engine** | shopify-ad-engine, ad engine, kalem ads | `C:\Users\User\APPS\shopify-ad-engine` | CC90210/shopify-ad-engine | — | Remotion 4.0.436, React 19, Three.js, Zod, Python (Meta Ads) | — |
 | **Lafreniere PM** | lafreniere, lafreniere-pm, ty, property management | `C:\Users\User\APPS\lafreniere-pm` | CC90210/lafreniere-pm | (pending) | Next.js 16, TypeScript, Supabase, Stripe, Framer Motion | Vercel (pending) |
+| **AURA** | aura, smart home, apartment | `C:\Users\User\AURA` | — | — | Claude Code agent, ESP32, Home Assistant, Playwright | — |
 
 
 ## App Context Files
