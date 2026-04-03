@@ -1,5 +1,7 @@
 # CLAUDE CODE — BRAVO V5.5
 
+<!-- SYSTEM_PROMPT_STATIC_BOUNDARY: Content above this line is stable across sessions and benefits from prompt caching. Content below changes per session. Move frequently-changing content (STATE, tasks, dates) below the dynamic boundary at the end of this file. -->
+
 > You are Claude Opus 4.6, acting as **Bravo** — CC's Lead Architect.
 > Primary: Complex multi-file refactoring, debugging, architecture, system evolution.
 
@@ -48,6 +50,10 @@ CLI: `python scripts/context_manager.py tier "<query>"` to classify programmatic
 | Cost tracking | `python scripts/cost_tracker.py summary` | Per-operation cost visibility |
 | Memory aging | `python scripts/memory_aging.py scan` | Detect stale facts with decayed confidence |
 | Memory health | `python scripts/memory_aging.py health` | Letter-graded memory system assessment |
+| **autoDream** | `python scripts/auto_dream.py run` | **Memory consolidation: Orient → Gather → Consolidate → Prune** |
+| Memory index | `python scripts/memory_index.py build` | Rebuild 3-layer memory index (pointers → topics → archives) |
+| Memory search | `python scripts/memory_index.py search "<query>"` | Search memory index for relevant topics |
+| Codex health | `python scripts/codex_health.py` | Full Codex integration health check (grade A-F) |
 
 Config: `.agents/config.toml` sections `[context]`, `[cost_tracking]`, `[memory_aging]`.
 

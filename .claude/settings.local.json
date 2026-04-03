@@ -61,7 +61,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'CMD=$(echo $CLAUDE_TOOL_INPUT | python -c \"import sys,json; print(json.load(sys.stdin).get(\\\"command\\\",\\\"\\\"))\" 2>/dev/null); if echo \"$CMD\" | grep -qiE \"^(git\\s+push|git\\s+commit|npm\\s+run\\s+build|vercel\\s+deploy)\"; then echo \"[HOOK] Logged: $CMD\" >> /c/Users/User/Business-Empire-Agent/tmp/hook_audit.log 2>/dev/null; fi'"
+            "command": "bash -c 'CMD=$(echo $CLAUDE_TOOL_INPUT | python -c \"import sys,json; print(json.load(sys.stdin).get(\\\"command\\\",\\\"\\\"))\" 2>/dev/null); if echo \"$CMD\" | grep -qiE \"^(git\\s+push|git\\s+commit|npm\\s+run\\s+build|vercel\\s+deploy)\"; then echo \"[HOOK] Logged: $CMD\" >> /c/Users/User/Business-Empire-Agent/tmp/hook_audit.log 2>/dev/null; fi; if echo \"$CMD\" | grep -qiE \"scripts/(supabase|stripe|n8n|late)_tool\"; then LABEL=$(echo \"$CMD\" | grep -oiE \"(supabase|stripe|n8n|late)_tool\" | head -1); python /c/Users/User/Business-Empire-Agent/scripts/cost_tracker.py log --label \"$LABEL\" --units 2 2>/dev/null; fi'"
           }
         ]
       }
