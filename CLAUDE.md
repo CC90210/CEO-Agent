@@ -312,11 +312,37 @@ When presenting options to CC, always follow this four-step structure:
 
 Never present more than 3 options. If there is one obvious right answer, just do it (Fix-First principle).
 
+### RULE 9: Continuous Self-Improvement (AUTOMATIC — Every Interaction)
+
+Self-improvement is NOT a session-end task. It happens continuously, triggered by natural conversation.
+
+**After EVERY task completion (automatic, no CC prompt needed):**
+1. **Did something break or fail?** → Log to `memory/MISTAKES.md` with root cause + prevention. Don't wait for CC to ask.
+2. **Did a new approach work well?** → Log to `memory/PATTERNS.md` as `[P]` (probationary). Promote to `[V]` after 3 successes.
+3. **Did CC correct my approach?** → That's the most valuable signal. Log the correction AND why, so it never happens twice.
+4. **Did I learn something about CC's preferences?** → Update `brain/USER.md` if it changes how I should work.
+5. **Did task status change?** → Update `memory/ACTIVE_TASKS.md` immediately, not at session end.
+
+**After EVERY debugging session (automatic):**
+- Log the root cause to `memory/MISTAKES.md` even if CC didn't ask
+- If the fix revealed a reusable pattern, log it to `memory/PATTERNS.md`
+
+**After EVERY code review or Codex review:**
+- If review found real issues → ask: "Is this a pattern we should prevent?" → log prevention strategy
+
+**Trigger words from CC that MUST cause memory writes:**
+- "Remember that..." / "Don't forget..." → save immediately
+- "Stop doing X" / "Don't do X again" → save to MISTAKES.md + PATTERNS.md
+- "That worked well" / "Do it like that from now on" → save to PATTERNS.md as `[V]`
+- "We decided..." / "The plan is..." → save to `memory/DECISIONS.md`
+- Frustration signals ("I already told you", "why did you...", "stop") → log to MISTAKES.md, reflect on what went wrong
+
+**The goal:** Every session makes the system smarter. CC should never have to teach the same lesson twice.
+
 ## Session Protocol
 
 ### During work:
-- Update `memory/ACTIVE_TASKS.md` when task status changes
-- New learnings → `memory/PATTERNS.md` (tag `[PROBATIONARY]`) or `memory/MISTAKES.md`
+- Self-improvement runs continuously (Rule 9 above)
 - For MODERATE+ tasks: generate 2-3 hypotheses, rank, execute best. See @brain/BRAIN_LOOP.md
 
 ### Before session ends:
