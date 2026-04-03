@@ -232,7 +232,7 @@ Commands registered as native Claude Code skills (`.claude/skills/`) AND as work
 
 ## Sub-Agent Orchestration
 
-See @brain/AGENTS.md for the complete subagent registry (17 specialized agents including external Codex executor, with decision matrix).
+See `brain/AGENTS.md` for the complete subagent registry (17 specialized agents including external Codex executor, with decision matrix). Load it when delegating COMPLEX+ tasks.
 **Orchestration config:** `.agents/config.toml` — centralized routing, permissions, anti-drift, workers, SPARC phases.
 
 **Codex delegation (PROACTIVE — no slash commands needed):** Bravo automatically delegates to Codex when the task matches Codex's strengths. CC just describes what he wants in natural language — Bravo decides whether to handle it, delegate to Codex, or split the work. See Rule 8 below and @skills/codex-delegation/SKILL.md. Plugin at `.claude/plugins/codex/`.
@@ -242,31 +242,34 @@ See @brain/AGENTS.md for the complete subagent registry (17 specialized agents i
 **Agent permissions:** Claims-based access control (minimal/standard/elevated/admin). See @skills/agent-permissions/SKILL.md.
 **Background workers:** 4 automated workers (audit/memory/sync/optimize) run during sessions. See @skills/background-workers/SKILL.md.
 
-## Skills (loaded on-demand)
+## Skills (on-demand — read the file when executing, not at boot)
 
-Note: All skills are stored in the Agent Skills 2.0 structure format: `skills/[skill-name]/SKILL.md`.
+All skills: `skills/[skill-name]/SKILL.md`. Read the SKILL.md when you need the full protocol.
 
-- Debugging: @skills/systematic-debugging/SKILL.md
-- Self-healing: @skills/self-healing/SKILL.md
-- TDD / Coding: @skills/test-driven-development/SKILL.md
-- Browser automation: @skills/browser-automation/SKILL.md
-- E2E testing: @skills/e2e-testing/SKILL.md
-- Planning: @skills/writing-plans/SKILL.md → @skills/executing-plans/SKILL.md
-- SOPs: @skills/sop-breakdown/SKILL.md
-- Memory management: @skills/memory-management/SKILL.md
-- MCP operations: @skills/mcp-operations/SKILL.md
-- Skool automation: @skills/skool-automation/SKILL.md
-- Code review: @skills/code-review/SKILL.md
-- Ship pipeline: @skills/ship/SKILL.md
-- Weekly retro: @skills/retro/SKILL.md
-- Task routing: @skills/task-routing/SKILL.md
-- Anti-drift: @skills/anti-drift/SKILL.md
-- SPARC methodology: @skills/sparc-methodology/SKILL.md
-- Agent permissions: @skills/agent-permissions/SKILL.md
-- Hooks automation: @skills/hooks-automation/SKILL.md
-- Background workers: @skills/background-workers/SKILL.md
-- Context optimization: @skills/context-optimization/SKILL.md
-- Codex delegation: @skills/codex-delegation/SKILL.md
+| Skill | File | When to Load |
+|-------|------|-------------|
+| Debugging | `skills/systematic-debugging/SKILL.md` | Bug reports, error investigation |
+| Self-healing | `skills/self-healing/SKILL.md` | Session end, system health checks |
+| TDD | `skills/test-driven-development/SKILL.md` | Writing tests, new features |
+| Browser | `skills/browser-automation/SKILL.md` | Playwright tasks |
+| E2E testing | `skills/e2e-testing/SKILL.md` | Full app testing |
+| Planning | `skills/writing-plans/SKILL.md` | COMPLEX+ features |
+| Execution | `skills/executing-plans/SKILL.md` | Implementing plans |
+| SOPs | `skills/sop-breakdown/SKILL.md` | Process creation |
+| Memory | `skills/memory-management/SKILL.md` | Memory cleanup |
+| MCP ops | `skills/mcp-operations/SKILL.md` | Tool troubleshooting |
+| Skool | `skills/skool-automation/SKILL.md` | Skool content editing |
+| Code review | `skills/code-review/SKILL.md` | Pre-ship review |
+| Ship | `skills/ship/SKILL.md` | Deployment pipeline |
+| Retro | `skills/retro/SKILL.md` | Weekly retrospective |
+| Task routing | `skills/task-routing/SKILL.md` | COMPLEX+ task assignment |
+| Anti-drift | `skills/anti-drift/SKILL.md` | Multi-agent tasks |
+| SPARC | `skills/sparc-methodology/SKILL.md` | COMPLEX+ implementation |
+| Permissions | `skills/agent-permissions/SKILL.md` | Access control checks |
+| Hooks | `skills/hooks-automation/SKILL.md` | Hook configuration |
+| Workers | `skills/background-workers/SKILL.md` | System maintenance |
+| Context opt | `skills/context-optimization/SKILL.md` | Performance tuning |
+| Codex | `skills/codex-delegation/SKILL.md` | Codex delegation decisions |
 
 ## AI Slop Detection
 
@@ -350,7 +353,7 @@ Did task status change?
 
 ### During work:
 - Self-improvement runs continuously (Rule 9 above)
-- For MODERATE+ tasks: generate 2-3 hypotheses, rank, execute best. See @brain/BRAIN_LOOP.md
+- For MODERATE+ tasks: generate 2-3 hypotheses, rank, execute best. Load `brain/BRAIN_LOOP.md` for the full protocol.
 
 ### Before session ends:
 1. Update `brain/STATE.md`, `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md`
