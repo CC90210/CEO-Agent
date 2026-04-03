@@ -314,30 +314,37 @@ Never present more than 3 options. If there is one obvious right answer, just do
 
 ### RULE 9: Continuous Self-Improvement (AUTOMATIC — Every Interaction)
 
-Self-improvement is NOT a session-end task. It happens continuously, triggered by natural conversation.
+After completing ANY task, run this decision tree. No exceptions. No "I'll do it later."
 
-**After EVERY task completion (automatic, no CC prompt needed):**
-1. **Did something break or fail?** → Log to `memory/MISTAKES.md` with root cause + prevention. Don't wait for CC to ask.
-2. **Did a new approach work well?** → Log to `memory/PATTERNS.md` as `[P]` (probationary). Promote to `[V]` after 3 successes.
-3. **Did CC correct my approach?** → That's the most valuable signal. Log the correction AND why, so it never happens twice.
-4. **Did I learn something about CC's preferences?** → Update `brain/USER.md` if it changes how I should work.
-5. **Did task status change?** → Update `memory/ACTIVE_TASKS.md` immediately, not at session end.
+```
+TASK COMPLETE → Did anything fail or get corrected?
+  YES → memory/MISTAKES.md (root cause + 1-line prevention)
+  NO  → continue
 
-**After EVERY debugging session (automatic):**
-- Log the root cause to `memory/MISTAKES.md` even if CC didn't ask
-- If the fix revealed a reusable pattern, log it to `memory/PATTERNS.md`
+Was this approach new or non-obvious?
+  YES → memory/PATTERNS.md as [P] (promote to [V] after 3 uses)
+  NO  → continue
 
-**After EVERY code review or Codex review:**
-- If review found real issues → ask: "Is this a pattern we should prevent?" → log prevention strategy
+Did CC express a preference or correction?
+  YES → save WHY, not just WHAT. This is the highest-value signal.
+  NO  → continue
 
-**Trigger words from CC that MUST cause memory writes:**
-- "Remember that..." / "Don't forget..." → save immediately
-- "Stop doing X" / "Don't do X again" → save to MISTAKES.md + PATTERNS.md
-- "That worked well" / "Do it like that from now on" → save to PATTERNS.md as `[V]`
-- "We decided..." / "The plan is..." → save to `memory/DECISIONS.md`
-- Frustration signals ("I already told you", "why did you...", "stop") → log to MISTAKES.md, reflect on what went wrong
+Did task status change?
+  YES → memory/ACTIVE_TASKS.md (immediately, not at session end)
+  NO  → done
+```
 
-**The goal:** Every session makes the system smarter. CC should never have to teach the same lesson twice.
+**CC trigger words → immediate memory write:**
+
+| CC Says | Action |
+|---------|--------|
+| "Remember..." / "Don't forget..." | Save to relevant memory file |
+| "Stop doing X" / "Don't do X" | MISTAKES.md + PATTERNS.md |
+| "That worked" / "Do it like that" | PATTERNS.md as `[V]` |
+| "We decided..." / "The plan is..." | memory/DECISIONS.md |
+| Frustration ("I told you", "why did you") | MISTAKES.md — what went wrong and why |
+
+**The iron law:** CC never teaches the same lesson twice.
 
 ## Session Protocol
 
