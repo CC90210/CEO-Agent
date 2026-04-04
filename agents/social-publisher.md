@@ -53,3 +53,6 @@ Late MCP handles **posting**. OpenCLI handles **reading** from platforms:
 
 ## ALWAYS: Confirm with CC before publishing immediately. Scheduling drafts is fine.
 ## NEVER: Publish without CC's confirmation. Use generic hashtags. Create .js workaround files.
+
+## Obsidian Links
+- [[brain/AGENTS]] | [[memory/content-strategy]] | [[memory/SESSION_LOG]]

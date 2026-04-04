@@ -44,3 +44,7 @@ Use OpenCLI to find trending topics and hooks before creating content:
 ## NEVER:
 - Write generic motivational content or use clichés ("crushing it", "game changer")
 - Create content that could come from anyone — it must be uniquely CC's
+
+## Obsidian Links
+- [[brain/AGENTS]] | [[brain/USER]] | [[memory/content-strategy]]
+- [[skills/proposal-generation/SKILL]] | [[memory/SESSION_LOG]]

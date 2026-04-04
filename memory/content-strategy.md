@@ -1,3 +1,7 @@
+---
+tags: [content, strategy, outreach]
+---
+
 # Content Strategy & Outreach Intelligence
 
 ## CC's Content Bible (2026-03-07)
@@ -96,3 +100,7 @@ Traditional selling triggers resistance. NEPQ (Neuro-Emotional Persuasion Questi
 - Ask, don't tell ("How are you handling X?" not "We automate X")
 - Consequence questions > urgency tactics
 - Tonality in writing = word choice: curious ("I was wondering"), confused ("I'm not sure if"), concerned ("I noticed that")
+
+## Obsidian Links
+- [[brain/USER]] | [[brain/CEO_OPERATING_SYSTEM]] | [[memory/ACTIVE_TASKS]]
+- [[memory/DISCOVERY_PLAYBOOK]] | [[agents/content-creator]] | [[agents/social-publisher]]

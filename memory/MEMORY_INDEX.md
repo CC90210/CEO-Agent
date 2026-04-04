@@ -62,3 +62,8 @@ tags: [memory, index]
 - `ARCHIVES/WHATSAPP_BRIDGE_SOP.md`
 
 *Index built: 2026-04-03*
+
+## Obsidian Links
+- [[brain/STATE]] | [[brain/DASHBOARD]] | [[brain/CAPABILITIES]]
+- [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]] | [[memory/LONG_TERM]]
+- [[memory/MISTAKES]] | [[memory/PATTERNS]] | [[memory/SOP_LIBRARY]]

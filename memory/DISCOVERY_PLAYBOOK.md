@@ -1,3 +1,7 @@
+---
+tags: [sales, outreach, NEPQ]
+---
+
 # UNIVERSAL DISCOVERY PLAYBOOK: OASIS AI SOLUTIONS
 
 > [!NOTE]
@@ -52,3 +56,7 @@
 *   **Data Storage:** Where is the 'Source of Truth'? (Google Sheets, CRM, Notebook?)
 *   **Triggers:** What specific event "starts" a process? (Form fill, Stripe payment, Gmail tag?)
 *   **Handoffs:** How does info move from the Office -> Field Crew?
+
+## Obsidian Links
+- [[brain/USER]] | [[brain/CEO_OPERATING_SYSTEM]] | [[memory/LEAD_TRACKER]]
+- [[memory/content-strategy]] | [[agents/revenue-hunter]]

@@ -34,3 +34,7 @@ You are a senior TypeScript developer for CC's Business Empire.
 1. Run `npm run build` to verify zero errors.
 2. Check: error handling present, mobile responsive, no hardcoded secrets.
 3. Commit with descriptive message describing WHAT and WHY.
+
+## Obsidian Links
+- [[brain/AGENTS]] | [[brain/BRAIN_LOOP]] | [[brain/APP_REGISTRY]]
+- [[skills/executing-plans/SKILL]] | [[memory/PATTERNS]]

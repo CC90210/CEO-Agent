@@ -75,3 +75,6 @@ When generating a new agent, use this structure:
 After generating an agent, tag it `[PROBATIONARY]` in AGENTS.md.
 Track its usage across 3 sessions. If it performs well, promote to `[VALIDATED]`.
 If it causes issues, revise or retire.
+
+## Obsidian Links
+- [[brain/AGENTS]] | [[brain/CAPABILITIES]] | [[brain/GROWTH]]

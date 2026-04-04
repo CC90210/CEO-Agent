@@ -68,3 +68,7 @@ You are the Chief of Staff for CC (Conaugh McKenna), managing the Business Empir
 - Late API Key (in .env.agents)
 - `gws` CLI / `scripts/google_tool.py` (Gmail send/search, Calendar ops) — authenticated via Google OAuth
 - Access to memory/ directory
+
+## Obsidian Links
+- [[brain/AGENTS]] | [[brain/USER]] | [[memory/ACTIVE_TASKS]]
+- [[skills/client-success/SKILL]] | [[memory/LEAD_TRACKER]]

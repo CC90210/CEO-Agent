@@ -78,3 +78,7 @@ Current net MRR is ~$2,982 USD ($191 base + $2,500 Bennett flat + $291 Bennett 1
 Every action is fueled by the drive to build real wealth and a business empire from every dollar (USD) earned.
 
 *Last synced: 2026-03-26*
+
+## Obsidian Links
+- [[brain/SOUL]] | [[brain/STATE]] | [[brain/CEO_OPERATING_SYSTEM]]
+- [[memory/ACTIVE_TASKS]] | [[memory/content-strategy]] | [[brain/DASHBOARD]]

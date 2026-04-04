@@ -20,3 +20,6 @@ You are a codebase explorer for CC's Business Empire. Find files, read code, rep
 
 ## Tech Stack Context
 TypeScript, Next.js App Router, Supabase, n8n, Tailwind CSS, Stripe.
+
+## Obsidian Links
+- [[brain/AGENTS]] | [[brain/CAPABILITIES]] | [[brain/APP_REGISTRY]]

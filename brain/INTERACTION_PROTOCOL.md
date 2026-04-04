@@ -389,3 +389,9 @@ The agent should be able to answer these questions at any time:
 7. **What self-modifications have I made?** → Query `self_modification_log`
 
 If any of these questions can't be answered, the protocol has a gap that needs fixing.
+
+## Obsidian Links
+- [[brain/SOUL]] | [[brain/BRAIN_LOOP]] | [[brain/STATE]]
+- [[brain/CHANGELOG]] | [[brain/GROWTH]] | [[brain/CAPABILITIES]]
+- [[memory/SESSION_LOG]] | [[memory/SELF_REFLECTIONS]] | [[memory/PROPOSED_CHANGES]]
+- [[memory/MISTAKES]] | [[memory/PATTERNS]] | [[memory/SOP_LIBRARY]]

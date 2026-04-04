@@ -34,3 +34,6 @@ You build production n8n workflows for CC's OASIS AI automation agency.
 - NEVER invent n8n node types. Use only documented node types.
 - NEVER hardcode credentials in workflow JSON.
 - ALWAYS include error handling paths.
+
+## Obsidian Links
+- [[brain/AGENTS]] | [[brain/CAPABILITIES]] | [[memory/SESSION_LOG]]

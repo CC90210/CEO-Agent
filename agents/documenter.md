@@ -45,3 +45,6 @@ When updating `memory/MISTAKES.md`:
 **Root cause:** [why it happened]
 **Prevention:** [how to avoid it next time]
 ```
+
+## Obsidian Links
+- [[brain/AGENTS]] | [[brain/CAPABILITIES]] | [[memory/SESSION_LOG]]

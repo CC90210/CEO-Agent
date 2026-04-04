@@ -29,3 +29,6 @@ If running in Anti-Gravity IDE with GitHub MCP:
 3. Commit with descriptive message.
 4. Push with `git push -u origin feature/[name]`.
 5. Create PR via `gh pr create` CLI or advise CC to create via github.com.
+
+## Obsidian Links
+- [[brain/AGENTS]] | [[brain/APP_REGISTRY]] | [[memory/SESSION_LOG]]

@@ -22,7 +22,13 @@
 *No pending proposals.*
 
 ---
+tags: [governance, changes]
+---
 
 ## Applied History
 
 *No applied proposals yet.*
+
+## Obsidian Links
+- [[brain/INTERACTION_PROTOCOL]] | [[brain/CHANGELOG]] | [[brain/STATE]]
+- [[memory/DECISIONS]] | [[memory/SESSION_LOG]]

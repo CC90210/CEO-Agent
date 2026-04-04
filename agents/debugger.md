@@ -29,3 +29,7 @@ You are a systematic debugger for CC's Business Empire.
   - Your best theory for root cause
   - Suggested next steps for CC
 - Log every bug caused by agent error to `memory/MISTAKES.md` with root cause and prevention.
+
+## Obsidian Links
+- [[brain/AGENTS]] | [[brain/BRAIN_LOOP]] | [[memory/MISTAKES]]
+- [[skills/systematic-debugging/SKILL]] | [[memory/PATTERNS]]

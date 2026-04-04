@@ -73,3 +73,7 @@ tags: [changelog, audit]
 **What changed:** Updated to V5.5, new confidence level, updated goals and system health
 **Why:** Standard session-end state update
 **Confidence:** 0.95
+
+## Obsidian Links
+- [[brain/INTERACTION_PROTOCOL]] | [[brain/STATE]] | [[brain/GROWTH]]
+- [[memory/PROPOSED_CHANGES]] | [[memory/SESSION_LOG]]
