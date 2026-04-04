@@ -35,4 +35,13 @@ tags: [decisions, architecture]
 **Decision:** Option 2. `.env.agents` in project root, protected by `.gitignore`.
 **Consequences:** All agents know where to find keys. Key rotation is one file edit.
 
+### 2026-04-04 — Content Pipeline: Codex for Images, Karaoke Captions
+**Context:** CC needs a fully automated content pipeline for video editing, image generation, and distribution. No new API keys — everything through existing subscriptions.
+**Options:**
+1. Use Gemini's image generation API — requires new API key and integration
+2. Use Codex (OpenAI) for images — already authenticated via ChatGPT subscription
+3. External image gen service (Runway, Pika) — adds complexity and cost
+**Decision:** Option 2. Codex handles all image generation via `codex-companion.mjs`. Captions use karaoke-style (MrBeast format) with word-by-word highlighting synced to Whisper timestamps.
+**Consequences:** Zero new API keys. Image generation delegated to Codex, stays within dual-AI architecture (Bravo for orchestration + video editing, Codex for images). Karaoke captions are the proven viral format for scroll-stopping engagement.
+
 ---

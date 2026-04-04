@@ -4,6 +4,9 @@ tags: [mistakes, prevention]
 # MISTAKES LOG
 > [[brain/BRAIN_LOOP]] | [[memory/PATTERNS]] | [[memory/SELF_REFLECTIONS]]
 
+### Day-of-Week Hallucination (2026-04-04)
+Said "Friday" repeatedly when it was Saturday. Never assume or state the day of the week. The system provides the date (2026-04-04) but NOT the day name. If needed, compute it: `date +%A` or `python -c "from datetime import date; print(date.today().strftime('%A'))"`. Never guess temporal information.
+
 ### Zombie Python Daemon (2026-04-02)
 Editing .py does NOT affect running process. Must kill+restart. Find zombies: `Get-Process python | Select Id,StartTime | Sort StartTime`. Kill: `(Get-WmiObject Win32_Process -Filter 'ProcessId=X').Terminate()`. Verify log timestamps stop updating.
 
