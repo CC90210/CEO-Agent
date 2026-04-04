@@ -559,3 +559,8 @@ The Supabase `memories` table uses full-text search, not vector embeddings. Vect
 *Architecture documented: 2026-03-18*
 *System version: Bravo V5.5 — Self-Evolving Intelligence Engine*
 *Owner: Conaugh McKenna (CC), OASIS AI Solutions*
+
+## Obsidian Links
+- [[brain/SOUL]] | [[brain/AGENTS]] | [[brain/CAPABILITIES]] | [[brain/BRAIN_LOOP]]
+- [[brain/INTERACTION_PROTOCOL]] | [[brain/CEO_OPERATING_SYSTEM]]
+- [[skills/INDEX]] | [[.agents/workflows/INDEX]] | [[_templates/INDEX]]

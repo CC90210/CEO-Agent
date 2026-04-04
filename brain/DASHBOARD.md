@@ -110,3 +110,18 @@ TABLE file.size AS "Size", file.mtime AS "Updated"
 FROM "memory"
 SORT file.mtime DESC
 ```
+
+## Vault Navigation — Hub Index Files
+- [[skills/INDEX]] — 180 skills (core, GWS, recipes, personas)
+- [[.agents/workflows/INDEX]] — 30 automated workflows
+- [[APPS_CONTEXT/INDEX]] — 6 brand context files
+- [[content-studio/INDEX]] — Video production + Remotion rules
+- [[data/INDEX]] — Templates (email, content, documents)
+- [[_templates/INDEX]] — Obsidian note templates
+- [[docs/INDEX]] — Legal + technical docs
+- [[courses/INDEX]] — Training frameworks
+- [[media/INDEX]] — Brand assets + outreach
+- [[.rules/INDEX]] — Gemini CLI rules
+- [[memory/MEMORY_INDEX]] — 3-layer memory architecture
+- [[ARCHITECTURE]] — System engineering design
+- [[README]] — Project overview

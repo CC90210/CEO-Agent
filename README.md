@@ -324,3 +324,8 @@ MIT
 ---
 
 *Built with Claude Code, Gemini CLI, and a lot of markdown.*
+
+## Obsidian Links
+- [[ARCHITECTURE]] | [[CLAUDE]] | [[brain/DASHBOARD]]
+- [[brain/SOUL]] | [[brain/AGENTS]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX]] | [[.agents/workflows/INDEX]] | [[APPS_CONTEXT/INDEX]]
