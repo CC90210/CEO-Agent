@@ -24,3 +24,6 @@ description: Create platform-optimized content using CC's brand voice and 5 pill
 5. Present draft to CC for approval. Iterate if needed.
 
 6. Once approved, run `/post` workflow to publish.
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]

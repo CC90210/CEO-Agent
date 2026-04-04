@@ -27,3 +27,6 @@ description: Publish a social media post to one or multiple platforms via Late A
    - Multiple platforms: `mcp_late_posts_cross_post` with comma-separated platforms.
 
 7. Confirm to CC: "Posted to [platforms]. Post ID: [id]."
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]

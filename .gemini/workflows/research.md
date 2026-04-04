@@ -24,3 +24,6 @@ description: Research a topic using Playwright browser and Context7 docs
 5. Save key findings to Memory knowledge graph:
    - `mcp_memory_create_entities` for new topics
    - `mcp_memory_add_observations` for updates to existing topics
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]

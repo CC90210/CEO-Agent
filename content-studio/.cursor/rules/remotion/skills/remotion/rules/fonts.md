@@ -150,3 +150,6 @@ export const Title: React.FC<{ text: string }> = ({ text }) => {
   );
 };
 ```
+
+## Obsidian Links
+- [[content-studio/INDEX]] | [[agents/video-editor]]

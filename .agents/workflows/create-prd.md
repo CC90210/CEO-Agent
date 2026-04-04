@@ -32,3 +32,6 @@ description: Generate a Product Requirements Document for client projects
 5. Save to `.agents/plans/prd-<project-name>.md`.
 
 6. Present to CC for review and iteration.
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]

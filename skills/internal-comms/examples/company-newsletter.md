@@ -63,3 +63,6 @@ Avoid:
 - Update 1
 - Update 2
 - Update 3
+
+## Obsidian Links
+- [[skills/internal-comms/SKILL]] | [[skills/INDEX]]

@@ -38,3 +38,6 @@ Update ALL THREE files immediately:
 - Answer questions about recent work from memory alone — ALWAYS read the files
 - Assume nothing happened if you don't remember — another AI may have done the work
 - Skip the state sync after making changes — this breaks handoffs to other agents
+
+## Obsidian Links
+- [[.rules/INDEX]] | [[brain/INTERACTION_PROTOCOL]]

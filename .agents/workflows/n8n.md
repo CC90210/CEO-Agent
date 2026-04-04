@@ -18,3 +18,6 @@ description: Search, inspect, and manage n8n workflows via MCP
 4. Report results to CC. If the n8n server returns 0 workflows but should have 44+:
    - Report: "n8n-mcp returned 0 workflows. The n8n instance at https://n8n.srv993801.hstgr.cloud may need restarting, or the API key may need regenerating."
    - Do NOT attempt workarounds.
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]

@@ -65,3 +65,6 @@ Nostalgic Requests is a premium song request and payment platform for live music
 /add-performer-feature     → Add a new feature for performer dashboard
 /test-payment              → Test Stripe Connect payment flow
 ```
+
+## Obsidian Links
+- [[APPS_CONTEXT/INDEX]] | [[brain/APP_REGISTRY]]

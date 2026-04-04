@@ -132,3 +132,6 @@ const calculateMetadata: CalculateMetadataFunction = async () => {
   };
 };
 ```
+
+## Obsidian Links
+- [[content-studio/INDEX]] | [[agents/video-editor]]

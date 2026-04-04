@@ -72,3 +72,6 @@ Conaugh McKenna
 Founder, OASIS AI Solutions
 
 *Only good things from now on.*
+
+## Obsidian Links
+- [[data/INDEX]] | [[brain/CEO_OPERATING_SYSTEM]]

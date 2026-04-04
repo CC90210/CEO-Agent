@@ -158,3 +158,6 @@ browser_handle_dialog    accept=true promptText="input"  → Fill prompt dialog
 **Rule:** Default to CLI for data extraction. Use MCP only for stateful interactive sessions.
 
 Full CLI reference: `.claude/skills/playwright/SKILL.md`
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

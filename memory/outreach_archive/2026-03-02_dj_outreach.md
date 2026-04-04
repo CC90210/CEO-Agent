@@ -77,3 +77,6 @@ Only good things,
 CC
 Nostalgic Requests / OASIS AI
 nostalgicrequests.com
+
+## Obsidian Links
+- [[memory/MEMORY_INDEX]] | [[brain/DASHBOARD]]

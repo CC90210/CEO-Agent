@@ -24,3 +24,6 @@ If an agent detects its MCP server is unauthorized (e.g., Supabase or GitHub ret
 
 ## Safe Handling in Subagents
 If an architect agent or writer agent spawns a subagent that requires API access to test code, it must pass the environment variables to the subagent invocation process rather than pasting the raw string into the prompt structure.
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

@@ -3,3 +3,6 @@
 **Root cause:**
 **Prevention:**
 **Recurrence:** First occurrence
+
+## Obsidian Links
+- [[_templates/INDEX]] | [[brain/INTERACTION_PROTOCOL]]

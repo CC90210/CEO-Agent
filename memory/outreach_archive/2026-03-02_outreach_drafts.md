@@ -51,3 +51,6 @@ Only good things,
 
 CC
 OASIS AI Solutions
+
+## Obsidian Links
+- [[memory/MEMORY_INDEX]] | [[brain/DASHBOARD]]

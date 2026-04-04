@@ -116,3 +116,6 @@ Only good things from now on.
 - **Post between 8-10am or 6-8pm ET** for maximum reach
 - **Engage with replies within first hour** — signals the algorithm
 - **Voice:** Direct, confident, no filler. Every word earns its place.
+
+## Obsidian Links
+- [[data/INDEX]] | [[brain/CEO_OPERATING_SYSTEM]]

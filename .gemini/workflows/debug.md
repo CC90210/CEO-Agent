@@ -31,3 +31,6 @@ Use `/debug` whenever something is broken, failing to build, or not working as e
 ## Example Usage
 **User:** `/debug The post_create MCP command is failing for LinkedIn.`
 **Agent:** Proceeds to read recent execution logs, reproduces failure directly, analyzes the API difference, suggests fix, fixes it, and documents the resolution.
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]

@@ -48,3 +48,6 @@ The Business Empire Agent updates this file automatically when:
 - A workflow fails repeatedly (flagged for review)
 
 Each entry links to the workflow's documentation in the relevant project's `docs/workflows/` directory.
+
+## Obsidian Links
+- [[APPS_CONTEXT/INDEX]] | [[brain/APP_REGISTRY]]

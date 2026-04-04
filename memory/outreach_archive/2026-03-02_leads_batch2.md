@@ -148,3 +148,6 @@ Only good things,
 CC
 OASIS AI Solutions
 oasisaisolutions@gmail.com
+
+## Obsidian Links
+- [[memory/MEMORY_INDEX]] | [[brain/DASHBOARD]]

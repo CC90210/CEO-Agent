@@ -89,3 +89,6 @@ Before delivering:
 - Assumptions are visible, not buried.
 - The story is clear without hype language.
 - The final asset is defensible in a partner meeting.
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

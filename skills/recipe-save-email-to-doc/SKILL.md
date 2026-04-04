@@ -27,3 +27,6 @@ Subject: Important Update
 
 [EMAIL BODY]'`
 
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

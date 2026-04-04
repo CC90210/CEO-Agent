@@ -129,3 +129,6 @@ Actions queued:
 - Health score algorithm: `skills/client-success/SKILL.md`
 - Retention playbooks: `skills/client-success/SKILL.md` — Retention Playbooks section
 - Churn triggers: `skills/client-success/SKILL.md` — Churn Prediction Triggers section
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]

@@ -67,3 +67,6 @@ Remote URLs are also supported - you can `fetch()` a remote file via URL instead
 ## Using imported captions
 
 Once parsed, the captions are in the `Caption` format and can be used with all `@remotion/captions` utilities.
+
+## Obsidian Links
+- [[content-studio/INDEX]] | [[agents/video-editor]]

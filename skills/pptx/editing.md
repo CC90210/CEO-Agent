@@ -203,3 +203,6 @@ Handled automatically by unpack/pack. But the Edit tool converts smart quotes to
 
 - **Whitespace**: Use `xml:space="preserve"` on `<a:t>` with leading/trailing spaces
 - **XML parsing**: Use `defusedxml.minidom`, not `xml.etree.ElementTree` (corrupts namespaces)
+
+## Obsidian Links
+- [[skills/pptx/SKILL]] | [[skills/INDEX]]

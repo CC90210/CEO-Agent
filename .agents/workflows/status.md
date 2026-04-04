@@ -30,3 +30,6 @@ Use `/status` for a fast overview without loading full context.
    **MCP Health:** [X/6 servers responding]
    **Known Issues:** [any blockers]
    ```
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]

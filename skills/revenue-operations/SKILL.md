@@ -102,3 +102,6 @@ Use the correct type when logging manual entries. Types flow into the dashboard 
 - **lead_engine.py** — when a lead hits `won`, immediately log the revenue: `revenue_engine.py log-revenue`
 - **supabase_tool.py** — raw access to `revenue_events` and `monthly_snapshots` tables in the bravo project for custom reporting
 - **SESSION_LOG.md** — monthly MRR snapshots belong in session log for cross-AI visibility
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

@@ -282,3 +282,6 @@ updated: 2026-03-30
 | 🎨 AI Generated | 39 |
 | 📸 Screenshots | 10 |
 | **Total** | **49** |
+
+## Obsidian Links
+- [[courses/INDEX]] | [[brain/CEO_OPERATING_SYSTEM]]

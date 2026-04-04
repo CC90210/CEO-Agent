@@ -1148,3 +1148,6 @@ Before sharing a Skill, verify:
     Upload and use Skills programmatically
   </Card>
 </CardGroup>
+
+## Obsidian Links
+- [[skills/writing-skills/SKILL]] | [[skills/INDEX]]

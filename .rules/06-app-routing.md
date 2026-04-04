@@ -20,3 +20,6 @@ When CC mentions modifying code in any app, check `brain/APP_REGISTRY.md` for th
 3. Log a 1-2 sentence summary in `memory/SESSION_LOG.md`
 
 Business-Empire-Agent is ONLY for agent intelligence (brain/, memory/, skills/, scripts/).
+
+## Obsidian Links
+- [[.rules/INDEX]] | [[brain/INTERACTION_PROTOCOL]]

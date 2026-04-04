@@ -64,3 +64,6 @@ python lead_system/build_workflows.py reactivation # Deploy one
 | Speed-to-Lead | $497 | $297/mo | — |
 | Reputation & Referral | $297 | $197/mo | — |
 | Full Suite | $997 | $497/mo | Custom |
+
+## Obsidian Links
+- [[memory/MEMORY_INDEX]] | [[memory/ACTIVE_TASKS]]

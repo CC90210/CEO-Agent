@@ -58,3 +58,6 @@ const input = new Input({
 
 const durationInSeconds = await input.computeDuration();
 ```
+
+## Obsidian Links
+- [[content-studio/INDEX]] | [[agents/video-editor]]

@@ -430,3 +430,6 @@ Every week:
 | `brain/STATE.md` | Update with new status | 6 |
 | `memory/ACTIVE_TASKS.md` | Update tasks | 6 |
 | `memory/SESSION_LOG.md` | Log session | 6 |
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/DASHBOARD]]

@@ -39,3 +39,6 @@ Manage session context by compacting at logical boundaries rather than arbitrary
 - **Use custom summaries**: When compacting, provide a summary of what should be remembered: `/compact Focus on implementing the auth middleware next.`
 - **Don't compact mid-implementation**: Preserve context for related changes to avoid hallucinating file names or logic.
 - **Clear the "dead-end"**: If an approach fails, compact to remove the confusing "noise" from the session context.
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

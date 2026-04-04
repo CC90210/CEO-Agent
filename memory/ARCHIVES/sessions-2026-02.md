@@ -104,3 +104,6 @@
 - Supabase MCP unauthorized (token in .env.agents but not injected into runtime)
 - Late MCP Pydantic issues still present (patched in uv cache)
 - n8n MCP returns 0 workflows (no MCP trigger nodes configured)
+
+## Obsidian Links
+- [[memory/MEMORY_INDEX]] | [[memory/SESSION_LOG]]

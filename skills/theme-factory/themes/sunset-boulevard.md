@@ -17,3 +17,6 @@ A warm and vibrant theme inspired by golden hour sunsets, perfect for energetic 
 ## Best Used For
 
 Creative pitches, marketing presentations, lifestyle brands, event promotions, inspirational content.
+
+## Obsidian Links
+- [[skills/theme-factory/SKILL]] | [[skills/INDEX]]

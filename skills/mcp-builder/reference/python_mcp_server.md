@@ -717,3 +717,5 @@ Before finalizing your Python MCP server implementation, ensure:
 - [ ] All imports resolve correctly
 - [ ] Sample tool calls work as expected
 - [ ] Error scenarios handled gracefully
+## Obsidian Links
+- [[skills/mcp-builder/SKILL]] | [[skills/INDEX]]

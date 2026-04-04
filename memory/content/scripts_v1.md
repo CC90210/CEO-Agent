@@ -37,3 +37,6 @@
 - **Overlay Color**: `#faf9f5` (Oasis Cream)
 - **Accent**: `#141413` (Oasis Night)
 - **Vibe**: High-threshold, premium, local-focused.
+
+## Obsidian Links
+- [[memory/MEMORY_INDEX]] | [[brain/DASHBOARD]]

@@ -68,3 +68,6 @@ npx supabase db push # Push database migrations
 /add-feature         → Plan and implement a new feature
 /db-migrate          → Create and push a database migration
 ```
+
+## Obsidian Links
+- [[APPS_CONTEXT/INDEX]] | [[brain/APP_REGISTRY]]

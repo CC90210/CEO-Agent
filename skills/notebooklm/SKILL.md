@@ -58,3 +58,6 @@ All operations run via `scripts/notebooklm_tool.py`.
 - `notebooklm-py` installed in `.venv`.
 - Manual `notebooklm login` performed once.
 - `.env.agents` has any required Google credentials (though `storage_state.json` handles most).
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

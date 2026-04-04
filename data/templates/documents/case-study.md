@@ -63,3 +63,6 @@ tags: [template, document, marketing]
 
 ---
 *OASIS AI Solutions — Automation That Delivers*
+
+## Obsidian Links
+- [[data/INDEX]] | [[brain/CEO_OPERATING_SYSTEM]]

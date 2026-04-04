@@ -47,3 +47,6 @@ CC teaches small-to-medium business owners how to understand, implement, and lev
 /build-deck          → Create a presentation deck
 /generate-exercise   → Create a hands-on exercise for students
 ```
+
+## Obsidian Links
+- [[APPS_CONTEXT/INDEX]] | [[brain/APP_REGISTRY]]

@@ -165,3 +165,6 @@ oasisaisolutions@gmail.com | oasisai.ca
 | Videos | `{platform}_{date}_{title}.mp4` | `tiktok_20260304_first_client.mp4` |
 | Documents | `{type}_{client}_{date}.pdf` | `proposal_cedarwood_20260304.pdf` |
 | Exports | `{project}_{version}.{ext}` | `onepager_v2.pdf` |
+
+## Obsidian Links
+- [[media/INDEX]] | [[brain/USER]]

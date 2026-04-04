@@ -442,3 +442,6 @@ A: Yes, because you're faster and cheaper. Established agencies charge $3-10k/mo
 
 *Built by Conaugh McKenna — OASIS AI Solutions*
 *Only good things from now on.*
+
+## Obsidian Links
+- [[courses/INDEX]] | [[brain/CEO_OPERATING_SYSTEM]]

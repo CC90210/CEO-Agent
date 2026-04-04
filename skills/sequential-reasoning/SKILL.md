@@ -140,3 +140,6 @@ Recommendation: [clear action]
 Reasoning: [brief chain of logic]
 Risks: [what could go wrong]
 ```
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

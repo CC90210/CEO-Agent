@@ -323,3 +323,6 @@ that prevent repeated mistakes and encode proven patterns.
 ## Scheduling Note
 
 Run `/retro` every Sunday or Monday morning before starting the week's first task. A retro that runs mid-week is better than no retro, but the Sunday/Monday rhythm creates the clearest before/after boundary.
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

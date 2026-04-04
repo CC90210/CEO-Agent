@@ -16,3 +16,6 @@ When CC asks a question:
 - Create Python/JS scripts to replace MCP tools
 
 If an MCP tool fails: report the error in ONE sentence, stop, suggest checking `.env.agents` or restarting IDE.
+
+## Obsidian Links
+- [[.rules/INDEX]] | [[brain/INTERACTION_PROTOCOL]]

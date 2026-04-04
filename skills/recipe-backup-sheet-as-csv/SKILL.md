@@ -23,3 +23,6 @@ Export a Google Sheets spreadsheet as a CSV file for local backup or processing.
 2. Export as CSV: `gws drive files export --params '{"fileId": "SHEET_ID", "mimeType": "text/csv"}'`
 3. Or read values directly: `gws sheets +read --spreadsheet SHEET_ID --range 'Sheet1' --format csv`
 
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

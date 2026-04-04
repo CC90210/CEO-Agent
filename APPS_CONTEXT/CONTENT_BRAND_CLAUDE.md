@@ -51,3 +51,6 @@ CC's personal brand is centered on introspective content, life philosophy, and t
 /schedule-post       → Schedule a post across platforms
 /analyze-engagement  → Review what content performed best
 ```
+
+## Obsidian Links
+- [[APPS_CONTEXT/INDEX]] | [[brain/APP_REGISTRY]]

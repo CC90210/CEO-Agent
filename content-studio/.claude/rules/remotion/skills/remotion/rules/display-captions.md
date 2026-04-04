@@ -182,3 +182,6 @@ For each video, make a new captions JSON file.
   <CaptionPage page={page} />
 </AbsoluteFill>
 ```
+
+## Obsidian Links
+- [[content-studio/INDEX]] | [[agents/video-editor]]

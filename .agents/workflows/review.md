@@ -28,3 +28,6 @@ description: Run pre-landing code review with Fix-First methodology
 6. ASK CC about judgment calls (security, architecture, business logic).
 
 7. Output the Code Review Report (severity-classified findings).
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]

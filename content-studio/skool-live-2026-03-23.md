@@ -50,3 +50,6 @@ tags: [content, skool, live]
 If someone asks where to start: pick ONE repetitive task, ask ChatGPT to help automate it, post your first win here.
 
 Close with: "Only good things from now on." Next live same time next week.
+
+## Obsidian Links
+- [[content-studio/INDEX]] | [[agents/video-editor]]

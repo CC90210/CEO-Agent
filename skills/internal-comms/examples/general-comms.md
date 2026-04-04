@@ -14,3 +14,5 @@
   - Put the most important information first
   - Include relevant links and references
   - Match the company's communication style
+## Obsidian Links
+- [[skills/internal-comms/SKILL]] | [[skills/INDEX]]

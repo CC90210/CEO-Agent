@@ -56,3 +56,6 @@ const input = new Input({
   source: new FileSource(file), // File object from input or drag-drop
 });
 ```
+
+## Obsidian Links
+- [[content-studio/INDEX]] | [[agents/video-editor]]

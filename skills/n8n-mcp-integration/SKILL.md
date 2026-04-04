@@ -86,3 +86,6 @@ Key REST endpoints:
 - `POST /api/v1/workflows/{id}/activate` — Activate a workflow
 - `POST /api/v1/workflows/{id}/deactivate` — Deactivate a workflow
 - `GET /api/v1/executions` — List recent executions
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

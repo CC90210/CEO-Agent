@@ -62,3 +62,6 @@
 *   Implement a PDF generation library (like `jspdf` or `react-pdf`) to generate branded quotes and invoices.
 
 Please acknowledge these requirements and prepare the `npx create-next-app` commands and initial schema."
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/DASHBOARD]]

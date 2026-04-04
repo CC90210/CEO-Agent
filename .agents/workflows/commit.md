@@ -54,3 +54,6 @@ Use `/commit` when completing a feature, bug fix, task, or session.
 2. Runs integrity checks (referential scan, count verification, secret scan).
 3. Proposes `bravo: feat — added real-time notifications for market resolution`
 4. Awaits approval before staging and committing.
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]

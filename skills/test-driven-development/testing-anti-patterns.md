@@ -297,3 +297,6 @@ TDD cycle:
 If TDD reveals you're testing mock behavior, you've gone wrong.
 
 Fix: Test real behavior or question why you're mocking at all.
+
+## Obsidian Links
+- [[skills/test-driven-development/SKILL]] | [[skills/INDEX]]

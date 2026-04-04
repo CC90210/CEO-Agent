@@ -71,3 +71,6 @@ const MyComp: React.FC = () => (
   </AbsoluteFill>
 );
 ```
+
+## Obsidian Links
+- [[content-studio/INDEX]] | [[agents/video-editor]]

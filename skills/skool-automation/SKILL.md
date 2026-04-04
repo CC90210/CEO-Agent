@@ -202,3 +202,6 @@ This skill works for ANY Skool community CC manages (DJ, AI agency, etc.):
 2. Update the base URL in all navigation steps
 3. Same Playwright automation patterns apply — Skool's editor is identical across communities
 4. Content format and gamification patterns are reusable
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

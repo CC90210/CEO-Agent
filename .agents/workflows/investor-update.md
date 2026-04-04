@@ -100,3 +100,6 @@ The update is also saved to `memory/SESSION_LOG.md` for historical tracking.
 - Stripe API fails: use last known MRR from `brain/STATE.md` and flag as estimated
 - Supabase query fails: use lead count from last session log entry
 - Missing data point: always flag as estimated rather than omitting — transparency builds trust
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]

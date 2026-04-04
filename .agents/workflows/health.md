@@ -42,3 +42,6 @@ Use `/health` at session start, after IDE restarts, or when something feels brok
    ```
 
 5. If any server is broken, **fix it** (update the config file directly). Do NOT just report it.
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]

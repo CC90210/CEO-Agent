@@ -196,3 +196,6 @@ const scaled = frequencies.map((value) => {
   return (db - minDb) / (maxDb - minDb);
 });
 ```
+
+## Obsidian Links
+- [[content-studio/INDEX]] | [[agents/video-editor]]

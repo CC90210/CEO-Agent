@@ -252,3 +252,6 @@ When CC says "make a CLI for X":
 - ReplSkin template: `scripts/cli_templates/repl_skin.py`
 - Backend template: `scripts/cli_templates/backend_template.py`
 - Setup template: `scripts/cli_templates/setup_template.py`
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

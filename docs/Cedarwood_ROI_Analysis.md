@@ -25,3 +25,6 @@ We implement a "Zero-Touch" operations layer that handles these tasks autonomous
 **Conaugh McKenna**  
 Founder, OASIS AI Solutions  
 oasisai.work | oasisaisolutions@gmail.com
+
+## Obsidian Links
+- [[docs/INDEX]] | [[brain/DASHBOARD]]

@@ -34,3 +34,6 @@ Lead a team — run standups, coordinate tasks, and communicate.
 - Pipe standup reports to Chat with `gws chat spaces messages create`.
 - Use `--sanitize` for any operations involving sensitive team data.
 
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

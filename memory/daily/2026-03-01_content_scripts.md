@@ -49,3 +49,6 @@
 - (0:15-0:25) One bad transition in a set kills the vibe. One bad transition in a workflow kills the business.
 - (0:25-0:35) Master the flow in one, and you master it in both.
 **Visuals**: Music setup or dark lighting.
+
+## Obsidian Links
+- [[memory/MEMORY_INDEX]] | [[brain/DASHBOARD]]

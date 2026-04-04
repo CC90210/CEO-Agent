@@ -174,3 +174,6 @@ Ran Q[X] strategic review. MRR: $X,XXX ([X]% of target). Top risk: [risk]. Top p
 
 ## Output
 Present the full review to CC. Ask: "Want to run `/qbr` to grade OKRs and set next quarter's targets?"
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]

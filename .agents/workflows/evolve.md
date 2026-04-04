@@ -71,3 +71,6 @@ Before writing ANYTHING, run each candidate through the Five Gates:
 5. PLACEMENT — Which tier/file does it belong in?
 
 Most candidates will be filtered out. This is correct. Only high-signal patterns survive.
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]

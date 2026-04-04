@@ -292,3 +292,6 @@ If text is mispositioned:
 - **Approach A**: Check that you're using PDF coordinates from form_structure.json with `pdf_width`/`pdf_height`
 - **Approach B**: Check that image dimensions match and coordinates are accurate pixels
 - **Hybrid**: Ensure coordinate conversions are correct for visually-estimated fields
+
+## Obsidian Links
+- [[skills/pdf/SKILL]] | [[skills/INDEX]]

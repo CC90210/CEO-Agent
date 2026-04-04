@@ -92,3 +92,6 @@ Load `skills/skool-automation/SKILL.md` for the full Playwright workflow referen
 - ~15-20 seconds per lesson (navigate + edit + inject + save + wait)
 - Full 16-course push (~60 lessons): ~15-20 minutes
 - Single course push (4-5 lessons): ~1-2 minutes
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]

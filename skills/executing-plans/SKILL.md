@@ -85,3 +85,6 @@ After all tasks complete and verified:
 - **superpowers:using-git-worktrees** - REQUIRED: Set up isolated workspace before starting
 - **superpowers:writing-plans** - Creates the plan this skill executes
 - **superpowers:finishing-a-development-branch** - Complete development after all tasks
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

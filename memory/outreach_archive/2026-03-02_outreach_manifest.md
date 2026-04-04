@@ -45,3 +45,6 @@ Status: **READY TO SEND (WAITING FOR USER APPROVAL)**
 1. **User Approval**: Give the "GO" signal.
 2. **Email Send**: I will execute the `scripts/outreach_engine.py` (once verified) or draft these in your Gmail.
 3. **Tracking**: Populate the `outreach_tracker` Supabase table.
+
+## Obsidian Links
+- [[memory/MEMORY_INDEX]] | [[brain/DASHBOARD]]

@@ -201,3 +201,6 @@ git worktree remove <worktree-path>
 
 **Pairs with:**
 - **using-git-worktrees** - Cleans up worktree created by that skill
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

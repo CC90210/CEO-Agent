@@ -172,3 +172,6 @@
 **Files:** `brain/OKRs.md` (created), `brain/RISK_REGISTER.md` (created), `data/templates/documents/qbr-report.md` (created), `data/templates/documents/investor-update.md` (created)
 **Commit:** pending
 
+
+## Obsidian Links
+- [[memory/MEMORY_INDEX]] | [[memory/SESSION_LOG]]

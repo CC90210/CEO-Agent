@@ -12,3 +12,6 @@ description: Quick reference for available tools, skills, and workflows
 - **SDK tools** — `python scripts/supabase_tool.py`, `python scripts/stripe_tool.py`
 - **Content strategy** — `memory/content-strategy.md` (3 daily pillars, NEPQ framework)
 - **Plans** — `.agents/plans/` for implementation plans
+
+## Obsidian Links
+- [[.rules/INDEX]] | [[brain/INTERACTION_PROTOCOL]]

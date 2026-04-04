@@ -268,3 +268,6 @@ The table is not marketing — it is an honest record of leverage. Log it so the
 - Always run from the app's repo directory, not Business-Empire-Agent
 - Log the ship in `memory/SESSION_LOG.md` after completion
 - The CHANGELOG entry goes in the app's repo, not Business-Empire-Agent
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

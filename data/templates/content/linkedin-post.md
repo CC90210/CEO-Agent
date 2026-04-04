@@ -122,3 +122,6 @@ Only good things from now on.
 - **No links in body** — put links in first comment (LinkedIn penalizes posts with links)
 - **Emojis:** Sparingly. One per section max. Never as decoration.
 - **Voice:** Introspective, raw, honest. Write like talking to a friend at 2am.
+
+## Obsidian Links
+- [[data/INDEX]] | [[brain/CEO_OPERATING_SYSTEM]]

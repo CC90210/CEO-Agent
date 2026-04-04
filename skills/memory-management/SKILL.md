@@ -133,3 +133,6 @@ When Supabase is available:
 [ ] No orphaned references (links to deleted files)?
 [ ] Supabase sync current (if available)?
 ```
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

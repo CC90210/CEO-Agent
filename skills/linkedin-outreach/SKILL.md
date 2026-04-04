@@ -53,3 +53,6 @@ python scripts/linkedin_cli.py message john-doe-1234 "Hey John, following up on.
 - **Reliability:** Immune to UI changes (A/B testing, changed CSS classes, hidden buttons).
 - **Headless by Default:** Does not pop open a browser window or steal focus.
 - **Agent Native:** Returns JSON output via standard `click` CLI patterns, making it easy for the Bravo agent to parse results and track campaign success in `memory/`.
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

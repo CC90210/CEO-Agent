@@ -38,3 +38,6 @@ Use `/sync` before ending any session — this is **mandatory** per session prot
 7. If any tasks failed, add a reflexion entry to `memory/SELF_REFLECTIONS.md`.
 
 8. Say: "Memory synced. [X] files updated, [Y] tasks completed."
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]

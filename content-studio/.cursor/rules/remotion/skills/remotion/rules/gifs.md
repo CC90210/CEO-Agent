@@ -139,3 +139,6 @@ export const MyComposition = () => {
 ```
 
 The `<Gif>` component has the same props as `<AnimatedImage>` but only supports GIF files.
+
+## Obsidian Links
+- [[content-studio/INDEX]] | [[agents/video-editor]]

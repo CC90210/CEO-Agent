@@ -116,3 +116,6 @@ Leads stalled at `intent` for 5+ days: follow up directly — not with email, wi
 - **content_engine.py** — top-of-funnel content (posts, reels) drives new leads into `awareness`
 - **booking_engine.py** — the `interest` → `consideration` transition often happens on a discovery call; book it then
 - **revenue_engine.py** — `purchase` stage exits are logged manually as revenue events
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

@@ -6,3 +6,6 @@
 **Files Modified:**
 -
 **Commit:**
+
+## Obsidian Links
+- [[_templates/INDEX]] | [[brain/INTERACTION_PROTOCOL]]

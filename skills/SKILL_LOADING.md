@@ -86,3 +86,6 @@ During RECALL, the agent should:
 5. Proceed with execution using loaded skills as methodology guides
 
 This replaces the previous pattern of loading all skills speculatively. The frontmatter triggers cover 100% of skills with zero ambiguity.
+
+## Obsidian Links
+- [[skills/SKILL_LOADING.md]] | [[skills/INDEX]]

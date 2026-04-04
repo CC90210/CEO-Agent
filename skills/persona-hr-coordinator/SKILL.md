@@ -31,3 +31,6 @@ Handle HR workflows — onboarding, announcements, and employee comms.
 - Always use `--sanitize` for PII-sensitive operations.
 - Create a dedicated 'HR Onboarding' calendar for tracking orientation schedules.
 
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

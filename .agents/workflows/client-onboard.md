@@ -12,3 +12,6 @@ python scripts\contract_generator\generator.py --name "CLIENT_NAME" --email "CLI
 3. Wait for the command to finish executing using the command_status tool.
 4. Update the `memory/LEAD_TRACKER.csv` to mark the lead as 'Closed/Onboarded' if they were on the sheet.
 5. Notify the user that the custom invoice, NDA, and Stripe link have been successfully dispatched.
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]

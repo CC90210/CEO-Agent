@@ -372,3 +372,6 @@ Otherwise → not TDD
 ```
 
 No exceptions without your human partner's permission.
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

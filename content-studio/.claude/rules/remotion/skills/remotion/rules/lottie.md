@@ -68,3 +68,6 @@ return (
   <Lottie animationData={animationData} style={{ width: 400, height: 400 }} />
 );
 ```
+
+## Obsidian Links
+- [[content-studio/INDEX]] | [[agents/video-editor]]

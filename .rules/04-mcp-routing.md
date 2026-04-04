@@ -18,3 +18,6 @@ description: Route queries to the correct MCP server tool
 **8 MCP servers** configured in `.vscode/mcp.json`. Credential-sensitive servers use `cmd /c scripts/*-wrapper.cmd` pattern. Non-credential servers use direct `npx`.
 
 **Platform character limits** (validate BEFORE posting): X=280 | Threads=500 | IG=2200 | LinkedIn=3000 | TikTok=4000
+
+## Obsidian Links
+- [[.rules/INDEX]] | [[brain/INTERACTION_PROTOCOL]]

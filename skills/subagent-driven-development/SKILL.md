@@ -243,3 +243,6 @@ Done!
 
 **Alternative workflow:**
 - **superpowers:executing-plans** - Use for parallel session instead of same-session execution
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

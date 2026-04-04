@@ -26,3 +26,6 @@ When CC says: "make a CLI for X", "wrap X as CLI", "CLI-anything X", or `/cli-an
 - ALWAYS support `--json` flag for agent-readable output.
 - ALWAYS read credentials from `.env.agents` via `load_env_credentials()`.
 - Present Phase 2 design to CC before building.
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]

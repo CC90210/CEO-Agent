@@ -61,3 +61,6 @@ gws gmail +send --to alice@example.com --subject 'Files' --body 'Two files' -a a
 
 - [gws-shared](../gws-shared/SKILL.md) — Global flags and auth
 - [gws-gmail](../gws-gmail/SKILL.md) — All send, read, and manage email commands
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

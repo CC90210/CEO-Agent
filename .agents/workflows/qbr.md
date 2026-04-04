@@ -198,3 +198,6 @@ CC should leave the QBR session with:
 - Never grade an OKR above 1.0 in the record, even if exceeded (note the excess separately)
 - Never present next quarter's OKRs without also sharing what's being retired from this quarter
 - Always present OKR grades BEFORE drafting next quarter's — grading reveals what to carry forward
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]

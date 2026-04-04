@@ -41,3 +41,6 @@
 - [ ] Review Luke's LinkedIn (if accessible by then).
 - [ ] Have the **Nostalgic Requests** demo ready (as a "Value-Add" secondary talk).
 - [ ] Ensure the Google Meet recording is enabled (for transcript analysis).
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/DASHBOARD]]

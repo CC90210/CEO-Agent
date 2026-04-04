@@ -107,3 +107,6 @@ export const MyCompositionSchema = z.object({
   color: zColor(),
 });
 ```
+
+## Obsidian Links
+- [[content-studio/INDEX]] | [[agents/video-editor]]

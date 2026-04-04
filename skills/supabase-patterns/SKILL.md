@@ -78,3 +78,6 @@ const { data } = await supabase
   .select(`*, units(*), areas(name)`)
   .eq('organization_id', orgId);
 ```
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

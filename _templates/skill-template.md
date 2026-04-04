@@ -17,3 +17,6 @@ created: "{{date:YYYY-MM-DD}}"
 ## Process
 
 ## Integration
+
+## Obsidian Links
+- [[_templates/INDEX]] | [[brain/INTERACTION_PROTOCOL]]

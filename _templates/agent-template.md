@@ -17,3 +17,6 @@ created: "{{date:YYYY-MM-DD}}"
 ## Tools Available
 
 ## Escalation Rules
+
+## Obsidian Links
+- [[_templates/INDEX]] | [[brain/INTERACTION_PROTOCOL]]

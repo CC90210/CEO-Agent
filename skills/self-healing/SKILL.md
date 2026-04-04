@@ -120,3 +120,6 @@ All self-healing events are logged to:
 - `memory/SELF_REFLECTIONS.md` (if a lesson was learned)
 - Supabase `self_healing_log` table (when available)
 - `brain/STATE.md` (operational state updated)
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

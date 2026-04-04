@@ -33,3 +33,6 @@ description: Weekly retrospective — analyze commits, scores, patterns, and imp
    - Extract session patterns → promote to skills, SOPs, or CLAUDE.md rules
 
 9. Output the Weekly Retro Report.
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]

@@ -70,3 +70,6 @@ Inbound Call → Twilio Webhook → n8n Workflow → Transcribe (Whisper/Deepgra
 - Cache common responses where appropriate
 - Batch operations when possible
 - Set max_tokens appropriately (don't use 4096 for a yes/no answer)
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

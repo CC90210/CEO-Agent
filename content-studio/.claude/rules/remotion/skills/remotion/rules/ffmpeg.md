@@ -36,3 +36,6 @@ import { Video } from "@remotion/media";
   trimAfter={10 * fps}
 />;
 ```
+
+## Obsidian Links
+- [[content-studio/INDEX]] | [[agents/video-editor]]

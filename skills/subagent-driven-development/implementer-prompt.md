@@ -76,3 +76,6 @@ Task tool (general-purpose):
     - Self-review findings (if any)
     - Any issues or concerns
 ```
+
+## Obsidian Links
+- [[skills/subagent-driven-development/SKILL]] | [[skills/INDEX]]

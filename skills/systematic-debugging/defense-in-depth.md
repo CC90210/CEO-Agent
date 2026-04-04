@@ -120,3 +120,6 @@ All four layers were necessary. During testing, each layer caught bugs the other
 - Debug logging identified structural misuse
 
 **Don't stop at one validation point.** Add checks at every layer.
+
+## Obsidian Links
+- [[skills/systematic-debugging/SKILL]] | [[skills/INDEX]]

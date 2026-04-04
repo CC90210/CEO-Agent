@@ -406,3 +406,5 @@ This skill includes helpful templates and documentation:
 - The **algorithm is where to create** something unique
 - Don't copy the flow field example - build what the philosophy demands
 - But DO keep the exact UI structure and Anthropic branding from the template
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

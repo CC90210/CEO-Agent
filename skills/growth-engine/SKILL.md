@@ -121,3 +121,6 @@ Biggest Challenge: [description]
 | Monthly audit | Full growth review |
 | New MCP/tool added | Log new capability, test integration |
 | Pattern confidence > 0.9 | Promote to SOP if actionable |
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

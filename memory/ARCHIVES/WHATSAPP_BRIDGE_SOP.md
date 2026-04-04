@@ -26,3 +26,6 @@ To ensure the AI sounds like you and doesn't hallucinate:
 1.  **Evolution API Setup:** Install Evolution API (Open Source) on your server to link your actual WhatsApp account to n8n.
 2.  **Workflow Deployment:** Import the "Community Triage" n8n template (I can provide the JSON when you're ready to deploy).
 3.  **Tuning:** Run the bridge in "Shadow Mode" for 3 days (logging responses without sending them) to ensure accuracy.
+
+## Obsidian Links
+- [[memory/MEMORY_INDEX]] | [[memory/SESSION_LOG]]

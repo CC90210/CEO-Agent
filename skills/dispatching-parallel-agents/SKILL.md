@@ -181,3 +181,6 @@ From debugging session (2025-10-03):
 - All investigations completed concurrently
 - All fixes integrated successfully
 - Zero conflicts between agent changes
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

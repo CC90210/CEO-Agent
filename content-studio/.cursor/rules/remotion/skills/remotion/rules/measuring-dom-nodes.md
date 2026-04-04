@@ -32,3 +32,6 @@ export const MyComponent = () => {
   return <div ref={ref}>Content to measure</div>;
 };
 ```
+
+## Obsidian Links
+- [[content-studio/INDEX]] | [[agents/video-editor]]

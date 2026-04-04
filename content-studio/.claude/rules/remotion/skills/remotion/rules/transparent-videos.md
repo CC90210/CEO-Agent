@@ -104,3 +104,6 @@ const calculateMetadata: CalculateMetadataFunction<Props> = async ({
   calculateMetadata={calculateMetadata}
 />;
 ```
+
+## Obsidian Links
+- [[content-studio/INDEX]] | [[agents/video-editor]]

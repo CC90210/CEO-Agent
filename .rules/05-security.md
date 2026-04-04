@@ -12,3 +12,6 @@ description: Security rules — never hardcode secrets, validate inputs
 - Sandbox risky scripts in `tmp/`
 - Confirm with CC before any destructive database operations
 - MCP credential servers use `scripts/*-wrapper.cmd` — credentials read at runtime from `.env.agents`
+
+## Obsidian Links
+- [[.rules/INDEX]] | [[brain/INTERACTION_PROTOCOL]]

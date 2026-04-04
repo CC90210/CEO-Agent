@@ -64,3 +64,6 @@ Load `skills/skool-automation/SKILL.md` for the full Playwright workflow referen
 
 ## About Page Character Limit
 The About page has a hard 1000-character limit. Always check the counter after injecting content. If over limit, compress the copy.
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]

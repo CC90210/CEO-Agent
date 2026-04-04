@@ -195,3 +195,6 @@ const totalDuration =
   transition2Duration;
 // 60 + 60 + 60 - 15 - 20 = 145 frames
 ```
+
+## Obsidian Links
+- [[content-studio/INDEX]] | [[agents/video-editor]]

@@ -122,3 +122,6 @@ heartbeat_tasks:
 - **Self-Healing:** Heartbeat triggers Tier 1 auto-fixes and Tier 2 diagnostics
 - **Memory Management:** Heartbeat triggers bloat prevention checks
 - **Growth Engine:** Heartbeat tracks session-over-session improvements
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

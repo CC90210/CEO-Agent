@@ -36,3 +36,6 @@ Every Sunday, I will deliver a 1-page report that bridges the 8-week curriculum 
 
 ---
 **I’m ready to lock this in and start building the technical assets for Week 2 and 4. Let’s scale this.**
+
+## Obsidian Links
+- [[memory/MEMORY_INDEX]] | [[memory/SESSION_LOG]]

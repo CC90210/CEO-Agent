@@ -116,3 +116,6 @@ To add a composition within another composition, you can use the `<Sequence>` co
   </Sequence>
 </AbsoluteFill>
 ```
+
+## Obsidian Links
+- [[content-studio/INDEX]] | [[agents/video-editor]]

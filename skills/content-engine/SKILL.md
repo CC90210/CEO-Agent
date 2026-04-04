@@ -77,3 +77,6 @@ Before delivering:
 - No generic hype language ("game-changer", "revolutionary").
 - No duplicated copy across platforms unless requested.
 - The CTA matches the content and audience.
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

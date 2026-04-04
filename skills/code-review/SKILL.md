@@ -238,3 +238,6 @@ After completing the review, output this exact structure:
 - Questions for CC → answer before merge, not after
 - See `skills/requesting-code-review/SKILL.md` for sub-agent dispatch pattern
 - See `skills/receiving-code-review/SKILL.md` for how to handle feedback
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

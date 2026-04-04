@@ -180,3 +180,6 @@ Present summary to CC:
 - Do NOT update a battlecard's `win_conditions` or `loss_conditions` without confirming with CC — these affect live sales conversations.
 - Do NOT add a competitor as a "new entrant" without checking it's actually targeting OASIS AI's ICP.
 - Pricing changes should always be logged with a date note, not just overwritten.
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]

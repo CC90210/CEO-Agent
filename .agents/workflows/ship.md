@@ -24,3 +24,6 @@ description: Full shipping pipeline — test, review, changelog, PR, deploy veri
 5. Log the ship to `memory/SESSION_LOG.md`.
 
 6. Return the PR URL to CC.
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]

@@ -117,3 +117,6 @@ After saving the plan, offer execution choice:
 **If Parallel Session chosen:**
 - Guide them to open new session in worktree
 - **REQUIRED SUB-SKILL:** New session uses superpowers:executing-plans
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

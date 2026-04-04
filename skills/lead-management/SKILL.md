@@ -100,3 +100,6 @@ After every send, log the interaction: `lead_engine.py interact <lead_id> --type
 - Log every touchpoint as an interaction. Unlogged touches mean inaccurate scores and missed follow-ups.
 - `followups` surfaces leads based on last interaction date. Run it every morning during outreach blocks.
 - `lost` is not permanent. Re-engage at 60 days with a fresh angle if the business is still relevant.
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

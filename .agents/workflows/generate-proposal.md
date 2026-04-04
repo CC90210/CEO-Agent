@@ -162,3 +162,6 @@ Add a row to the win/loss log mentally: proposal type, tier, loss reason. This f
 - Pricing matrix details: `skills/proposal-generation/SKILL.md` — Pricing Matrix Templates
 - Follow-up cadence: `skills/proposal-generation/SKILL.md` — Follow-Up Cadence section
 - SOW template: `skills/proposal-generation/SKILL.md` — SOW Template section
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]

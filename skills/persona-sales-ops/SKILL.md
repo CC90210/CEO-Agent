@@ -33,3 +33,6 @@ Manage sales workflows — track deals, schedule calls, client comms.
 - Schedule follow-up calls immediately after meetings to maintain momentum.
 - Keep all client-facing documents in a dedicated shared Drive folder.
 
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

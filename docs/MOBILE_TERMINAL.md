@@ -86,3 +86,6 @@ This routes through Gemini by default. For Claude Code specifically, Methods 1-3
 - Use voice-to-text for long prompts — faster than typing on phone
 - The Telegram bridge is best for quick questions and status checks
 - VS Code tunnel is best for actual code work from a tablet
+
+## Obsidian Links
+- [[docs/INDEX]] | [[brain/DASHBOARD]]

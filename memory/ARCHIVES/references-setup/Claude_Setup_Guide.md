@@ -123,3 +123,6 @@ From here, you just open Anti-Gravity, navigate to a project folder, and start c
 | Agent forgot previous work | Say: "/compact" to free up context, or "/clear" for fresh start |
 | Need to switch projects | Navigate to the other project folder in Anti-Gravity's file explorer |
 | Agent hallucinating | Say: "Stop. Read the actual files before continuing. Don't assume." |
+
+## Obsidian Links
+- [[memory/MEMORY_INDEX]] | [[brain/CAPABILITIES]]

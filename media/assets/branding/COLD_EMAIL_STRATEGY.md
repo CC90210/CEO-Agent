@@ -174,3 +174,6 @@ For each cold email batch, track in LEAD_TRACKER.csv:
 - Open rate: 40%+
 - Reply rate: 15%+
 - Meeting rate: 5%+ of total sent
+
+## Obsidian Links
+- [[media/INDEX]] | [[brain/USER]]

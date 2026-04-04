@@ -50,3 +50,6 @@ OASIS AI is a Toronto-based AI automation agency serving small-to-medium busines
 
 - CC (Conaugh) — Founder/CEO, builds all automations and systems
 - Adon — Business partner, content creation, client relations
+
+## Obsidian Links
+- [[APPS_CONTEXT/INDEX]] | [[brain/APP_REGISTRY]]

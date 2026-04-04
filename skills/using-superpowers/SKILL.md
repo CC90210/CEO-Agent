@@ -96,3 +96,6 @@ The skill itself tells you which.
 ## User Instructions
 
 Instructions say WHAT, not HOW. "Add X" or "Fix Y" doesn't mean skip workflows.
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

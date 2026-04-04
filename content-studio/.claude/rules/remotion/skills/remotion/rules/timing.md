@@ -177,3 +177,6 @@ const value1 = interpolate(frame, [0, 100], [0, 1], {
   extrapolateRight: "clamp",
 });
 ```
+
+## Obsidian Links
+- [[content-studio/INDEX]] | [[agents/video-editor]]

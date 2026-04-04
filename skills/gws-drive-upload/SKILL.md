@@ -50,3 +50,6 @@ gws drive +upload ./data.csv --name 'Sales Data.csv'
 
 - [gws-shared](../gws-shared/SKILL.md) — Global flags and auth
 - [gws-drive](../gws-drive/SKILL.md) — All manage files, folders, and shared drives commands
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

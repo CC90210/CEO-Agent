@@ -27,3 +27,6 @@ description: Load full project context — brain, memory, capabilities, and curr
    - Memory: [entity count] entities in knowledge graph
    Ready for commands.
    ```
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]

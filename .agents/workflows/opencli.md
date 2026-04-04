@@ -39,3 +39,6 @@ Load `skills/opencli/SKILL.md` for full documentation.
 ## Post-Action
 - Log results to `memory/SESSION_LOG.md`
 - If a new adapter was created, update `brain/CAPABILITIES.md`
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]

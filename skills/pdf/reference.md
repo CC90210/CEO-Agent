@@ -610,3 +610,5 @@ def extract_text_with_ocr(pdf_path):
 - **qpdf**: Apache License
 - **pdf-lib**: MIT License
 - **pdfjs-dist**: Apache License
+## Obsidian Links
+- [[skills/pdf/SKILL]] | [[skills/INDEX]]

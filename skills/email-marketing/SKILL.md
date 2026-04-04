@@ -109,3 +109,6 @@ Then enroll a lead: `email_engine.py sequence run <sequence_id> --lead-id <lead_
 - **lead_engine.py** — pass `--lead-id` on every send to link the email to the lead record and update interaction history
 - **booking_engine.py** — pull `available` slot link to embed in CTA emails
 - **revenue_engine.py** — no direct link, but won leads from email sequences should be logged there manually
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

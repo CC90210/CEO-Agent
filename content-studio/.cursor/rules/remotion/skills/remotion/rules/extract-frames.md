@@ -227,3 +227,6 @@ try {
   console.error("Frame extraction was aborted or failed:", error);
 }
 ```
+
+## Obsidian Links
+- [[content-studio/INDEX]] | [[agents/video-editor]]

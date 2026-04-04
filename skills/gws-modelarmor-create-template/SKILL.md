@@ -51,3 +51,6 @@ gws modelarmor +create-template --project P --location us-central1 --template-id
 
 - [gws-shared](../gws-shared/SKILL.md) — Global flags and auth
 - [gws-modelarmor](../gws-modelarmor/SKILL.md) — All filter user-generated content for safety commands
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

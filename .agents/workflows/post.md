@@ -30,3 +30,6 @@ description: Publish a social media post to one or multiple platforms via Late A
 
 8. Optional: Verify post visibility via OpenCLI (for platforms with adapters):
    - `opencli twitter profile @cc_handle --json` — confirm post appears in timeline
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]

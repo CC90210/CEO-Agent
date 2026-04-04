@@ -968,3 +968,5 @@ Before finalizing your Node/TypeScript MCP server implementation, ensure:
 - [ ] Server runs: `node dist/index.js --help`
 - [ ] All imports resolve correctly
 - [ ] Sample tool calls work as expected
+## Obsidian Links
+- [[skills/mcp-builder/SKILL]] | [[skills/INDEX]]

@@ -17,3 +17,6 @@ Bravo OS (owned by OASIS AI Solutions) is an autonomous agentic system.
 2. **User Responsibility**: The user is responsible for all actions executed by the agent in "YOLO-mode."
 3. **Liability**: Bravo OS and its creators are not liable for financial decisions or data modifications made during autonomous operation.
 4. **Modifications**: These terms are subject to change as the system evolves to V6.0 and beyond.
+
+## Obsidian Links
+- [[docs/INDEX]] | [[brain/DASHBOARD]]

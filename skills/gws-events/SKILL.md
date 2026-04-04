@@ -65,3 +65,6 @@ gws schema events.<resource>.<method>
 
 Use `gws schema` output to build your `--params` and `--json` flags.
 
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

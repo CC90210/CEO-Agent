@@ -138,3 +138,6 @@ return <div style={fontStyle}>Hello</div>;
 ```tsx
 <div style={{ outline: "2px solid red" }}>Text</div>
 ```
+
+## Obsidian Links
+- [[content-studio/INDEX]] | [[agents/video-editor]]

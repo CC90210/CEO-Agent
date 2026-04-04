@@ -34,3 +34,6 @@ To display captions in your video, load the [./display-captions.md](./display-ca
 ## Importing captions
 
 To import captions from a .srt file, load the [./import-srt-captions.md](./import-srt-captions.md) file for more instructions.
+
+## Obsidian Links
+- [[content-studio/INDEX]] | [[agents/video-editor]]

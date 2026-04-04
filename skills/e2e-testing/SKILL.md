@@ -154,3 +154,6 @@ All saved to: `e2e-screenshots/`
 - **Use:** skills/browser-automation for Playwright MCP reference
 - **Use:** skills/systematic-debugging for any bugs found
 - **Use:** skills/verification-before-completion before claiming tests pass
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]

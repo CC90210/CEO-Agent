@@ -187,3 +187,6 @@ Credential-dependent services use CLI tools that read `.env.agents` directly.
 | Supabase "Unauthorized" | Token expired (30-day) | Regenerate at supabase.com, update `.env.agents` |
 | Playwright "browser in use" | Already open | Not an error — reuse existing session |
 | MCP server hangs | Server crash on init | Restart terminal |
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]
