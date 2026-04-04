@@ -235,6 +235,7 @@ Commands registered as native Claude Code skills (`.claude/skills/`) AND as work
 | `/codex:status` | Show active/recent Codex background jobs |
 | `/codex:result` | Get completed Codex job output |
 | `/codex:cancel` | Cancel active Codex background job |
+| `/content-pipeline` | Full video production: raw → edited + captions + thumbnail + scheduled |
 
 ## Sub-Agent Orchestration
 

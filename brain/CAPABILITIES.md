@@ -139,6 +139,21 @@ Patterns extracted from Claude Code's internal harness architecture (1,902 TS fi
 **Config:** `.agents/config.toml` sections `[context]`, `[cost_tracking]`, `[memory_aging]`
 **Skill:** `skills/context-optimization/SKILL.md` — full reference for all 5 patterns
 
+## Content Pipeline (4 tools — added 2026-04-04)
+
+Elite video production system. CC films → uploads → Bravo processes everything.
+
+| Tool | Script | Purpose | Key Commands |
+|------|--------|---------|-------------|
+| **Content Pipeline** | `scripts/content_pipeline.py` | Master orchestrator — 7-phase video production | `process <video>`, `transcribe`, `caption`, `thumbnail`, `research`, `ideas` |
+| **Codex Image Gen** | `scripts/codex_image_gen.py` | AI image generation via Codex (no extra API keys) | `generate "<prompt>" --style branded`, `styles` |
+| **autoDream** | `scripts/auto_dream.py` | Memory consolidation: Orient → Gather → Consolidate → Prune | `run [--dry-run]`, `status` |
+| **Memory Index** | `scripts/memory_index.py` | 3-layer memory architecture (index → topics → archives) | `build`, `search "<query>"`, `stats` |
+| **Codex Health** | `scripts/codex_health.py` | Full Codex integration health check (grade A-F) | `[--json]` |
+
+**Pipeline:** Film → Whisper word-level → Karaoke captions → FFmpeg encode → Codex images → Thumbnail → Platform captions → Zernio schedule
+**Skill:** `.claude/skills/content-pipeline.md`
+
 ## CEO Operating System (5 CLI tools — added 2026-03-28)
 
 These scripts power the CEO dashboard, client health tracking, proposals, and business intelligence layer. All support `--json` and read from `.env.agents`.
