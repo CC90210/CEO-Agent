@@ -365,11 +365,15 @@ def cmd_keystroke(args):
 
 
 def cmd_click(args):
-    """Click at screen coordinates."""
+    """Click at screen coordinates using win32api (doesn't steal mouse focus)."""
     try:
-        import pyautogui
-        pyautogui.FAILSAFE = False
-        pyautogui.click(args.x, args.y)
+        import ctypes
+        # Use win32api SetCursorPos + mouse_event — faster and less glitchy than pyautogui
+        ctypes.windll.user32.SetCursorPos(args.x, args.y)
+        time.sleep(0.05)
+        ctypes.windll.user32.mouse_event(0x0002, 0, 0, 0, 0)  # MOUSEEVENTF_LEFTDOWN
+        time.sleep(0.05)
+        ctypes.windll.user32.mouse_event(0x0004, 0, 0, 0, 0)  # MOUSEEVENTF_LEFTUP
         return {"ok": True, "output": f"Clicked at {args.x},{args.y}"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
@@ -1179,45 +1183,49 @@ def cmd_kill_process(args):
 # ============================================================
 
 def cmd_right_click(args):
-    """Right-click at screen coordinates."""
+    """Right-click at screen coordinates using win32api."""
     try:
-        import pyautogui
-        pyautogui.FAILSAFE = False
-        pyautogui.rightClick(args.x, args.y)
+        ctypes.windll.user32.SetCursorPos(args.x, args.y)
+        time.sleep(0.05)
+        ctypes.windll.user32.mouse_event(0x0008, 0, 0, 0, 0)  # MOUSEEVENTF_RIGHTDOWN
+        time.sleep(0.05)
+        ctypes.windll.user32.mouse_event(0x0010, 0, 0, 0, 0)  # MOUSEEVENTF_RIGHTUP
         return {"ok": True, "output": f"Right-clicked at {args.x},{args.y}"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
 
 def cmd_double_click(args):
-    """Double-click at screen coordinates."""
+    """Double-click at screen coordinates using win32api."""
     try:
-        import pyautogui
-        pyautogui.FAILSAFE = False
-        pyautogui.doubleClick(args.x, args.y)
+        ctypes.windll.user32.SetCursorPos(args.x, args.y)
+        time.sleep(0.05)
+        for _ in range(2):
+            ctypes.windll.user32.mouse_event(0x0002, 0, 0, 0, 0)
+            time.sleep(0.03)
+            ctypes.windll.user32.mouse_event(0x0004, 0, 0, 0, 0)
+            time.sleep(0.05)
         return {"ok": True, "output": f"Double-clicked at {args.x},{args.y}"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
 
 def cmd_scroll(args):
-    """Scroll up/down by amount."""
+    """Scroll up/down by amount using win32api."""
     try:
-        import pyautogui
-        pyautogui.FAILSAFE = False
-        clicks = abs(args.amount) if args.direction == "up" else -abs(args.amount)
-        pyautogui.scroll(clicks)
+        # MOUSEEVENTF_WHEEL = 0x0800, WHEEL_DELTA = 120
+        direction = 1 if args.direction == "up" else -1
+        amount = abs(args.amount) * 120 * direction
+        ctypes.windll.user32.mouse_event(0x0800, 0, 0, amount, 0)
         return {"ok": True, "output": f"Scrolled {args.direction} by {abs(args.amount)}"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
 
 def cmd_mouse_move(args):
-    """Move mouse cursor to coordinates."""
+    """Move mouse cursor to coordinates using win32api."""
     try:
-        import pyautogui
-        pyautogui.FAILSAFE = False
-        pyautogui.moveTo(args.x, args.y)
+        ctypes.windll.user32.SetCursorPos(args.x, args.y)
         return {"ok": True, "output": f"Mouse moved to {args.x},{args.y}"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
@@ -1502,11 +1510,14 @@ def cmd_browser_close_tab(args):
                 return {"ok": True, "output": "Tab closed"}
             except Exception:
                 pass
-    # Fallback: Ctrl+W
+    # Fallback: Ctrl+W via keybd_event
     try:
-        import pyautogui
-        pyautogui.FAILSAFE = False
-        pyautogui.hotkey('ctrl', 'w')
+        VK_CONTROL = 0x11
+        ctypes.windll.user32.keybd_event(VK_CONTROL, 0, 0, 0)
+        ctypes.windll.user32.keybd_event(0x57, 0, 0, 0)  # W
+        time.sleep(0.05)
+        ctypes.windll.user32.keybd_event(0x57, 0, 2, 0)
+        ctypes.windll.user32.keybd_event(VK_CONTROL, 0, 2, 0)
         return {"ok": True, "output": "Sent Ctrl+W to close tab"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
@@ -1551,13 +1562,17 @@ def cmd_browser_switch_tab(args):
                     return {"ok": True, "output": f"Switched to tab {tab_num}: {tab.get('title', '?')}"}
             except Exception:
                 pass
-    # Fallback: Ctrl+number (1-9)
+    # Fallback: Ctrl+number via keybd_event
     if tab_num < 1 or tab_num > 9:
         return {"ok": False, "error": "Tab number must be 1-9"}
     try:
-        import pyautogui
-        pyautogui.FAILSAFE = False
-        pyautogui.hotkey('ctrl', str(tab_num))
+        VK_CONTROL = 0x11
+        vk_num = 0x30 + tab_num  # VK_0 = 0x30, so VK_1 = 0x31 etc.
+        ctypes.windll.user32.keybd_event(VK_CONTROL, 0, 0, 0)
+        ctypes.windll.user32.keybd_event(vk_num, 0, 0, 0)
+        time.sleep(0.05)
+        ctypes.windll.user32.keybd_event(vk_num, 0, 2, 0)
+        ctypes.windll.user32.keybd_event(VK_CONTROL, 0, 2, 0)
         return {"ok": True, "output": f"Switched to tab {tab_num}"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
@@ -1570,9 +1585,13 @@ def cmd_browser_back(args):
         if r.get("ok"):
             return r
     try:
-        import pyautogui
-        pyautogui.FAILSAFE = False
-        pyautogui.hotkey('alt', 'left')
+        VK_MENU = 0x12
+        VK_LEFT = 0x25
+        ctypes.windll.user32.keybd_event(VK_MENU, 0, 0, 0)
+        ctypes.windll.user32.keybd_event(VK_LEFT, 0, 0, 0)
+        time.sleep(0.05)
+        ctypes.windll.user32.keybd_event(VK_LEFT, 0, 2, 0)
+        ctypes.windll.user32.keybd_event(VK_MENU, 0, 2, 0)
         return {"ok": True, "output": "Navigated back"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
@@ -1585,9 +1604,13 @@ def cmd_browser_forward(args):
         if r.get("ok"):
             return r
     try:
-        import pyautogui
-        pyautogui.FAILSAFE = False
-        pyautogui.hotkey('alt', 'right')
+        VK_MENU = 0x12
+        VK_RIGHT = 0x27
+        ctypes.windll.user32.keybd_event(VK_MENU, 0, 0, 0)
+        ctypes.windll.user32.keybd_event(VK_RIGHT, 0, 0, 0)
+        time.sleep(0.05)
+        ctypes.windll.user32.keybd_event(VK_RIGHT, 0, 2, 0)
+        ctypes.windll.user32.keybd_event(VK_MENU, 0, 2, 0)
         return {"ok": True, "output": "Navigated forward"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
@@ -1610,9 +1633,12 @@ def cmd_browser_reload(args):
             except Exception:
                 pass
     try:
-        import pyautogui
-        pyautogui.FAILSAFE = False
-        pyautogui.hotkey('ctrl', 'r')
+        VK_CONTROL = 0x11
+        ctypes.windll.user32.keybd_event(VK_CONTROL, 0, 0, 0)
+        ctypes.windll.user32.keybd_event(0x52, 0, 0, 0)  # R
+        time.sleep(0.05)
+        ctypes.windll.user32.keybd_event(0x52, 0, 2, 0)
+        ctypes.windll.user32.keybd_event(VK_CONTROL, 0, 2, 0)
         return {"ok": True, "output": "Page reloaded"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
@@ -1815,26 +1841,35 @@ def cmd_open_with(args):
 
 
 def cmd_drag(args):
-    """Drag from one point to another."""
+    """Drag from one point to another using win32api."""
     try:
-        import pyautogui
-        pyautogui.FAILSAFE = False
-        pyautogui.moveTo(args.x1, args.y1)
-        pyautogui.mouseDown()
+        ctypes.windll.user32.SetCursorPos(args.x1, args.y1)
         time.sleep(0.1)
-        pyautogui.moveTo(args.x2, args.y2, duration=0.5)
-        pyautogui.mouseUp()
+        ctypes.windll.user32.mouse_event(0x0002, 0, 0, 0, 0)  # LEFTDOWN
+        time.sleep(0.1)
+        # Move in steps for smooth drag
+        steps = 20
+        for i in range(1, steps + 1):
+            x = args.x1 + (args.x2 - args.x1) * i // steps
+            y = args.y1 + (args.y2 - args.y1) * i // steps
+            ctypes.windll.user32.SetCursorPos(x, y)
+            time.sleep(0.02)
+        ctypes.windll.user32.mouse_event(0x0004, 0, 0, 0, 0)  # LEFTUP
         return {"ok": True, "output": f"Dragged from ({args.x1},{args.y1}) to ({args.x2},{args.y2})"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
 
 def cmd_task_switcher(args):
-    """Open Alt+Tab task switcher."""
+    """Open Alt+Tab task switcher using keybd_event."""
     try:
-        import pyautogui
-        pyautogui.FAILSAFE = False
-        pyautogui.hotkey('alt', 'tab')
+        VK_MENU = 0x12  # Alt
+        VK_TAB = 0x09
+        ctypes.windll.user32.keybd_event(VK_MENU, 0, 0, 0)  # Alt down
+        ctypes.windll.user32.keybd_event(VK_TAB, 0, 0, 0)    # Tab down
+        time.sleep(0.1)
+        ctypes.windll.user32.keybd_event(VK_TAB, 0, 2, 0)    # Tab up
+        ctypes.windll.user32.keybd_event(VK_MENU, 0, 2, 0)   # Alt up
         return {"ok": True, "output": "Task switcher opened"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
@@ -1862,6 +1897,187 @@ if ($procs) {{
     Write-Error "No window found matching: {title_search}"
 }}
 ''')
+
+
+# ============================================================
+# ============================================================
+# COMMANDS — Advanced Utilities
+# ============================================================
+
+def cmd_download_file(args):
+    """Download a file from URL to path."""
+    url = args.url
+    target = args.path or os.path.join(os.environ.get("USERPROFILE", "."), "Downloads", os.path.basename(url.split("?")[0]))
+    try:
+        import requests
+        r = requests.get(url, timeout=60, stream=True)
+        r.raise_for_status()
+        os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
+        with open(target, "wb") as f:
+            for chunk in r.iter_content(chunk_size=8192):
+                f.write(chunk)
+        size = os.path.getsize(target)
+        return {"ok": True, "output": f"Downloaded {size} bytes to {target}", "file": target}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def cmd_open_folder(args):
+    """Open a folder in Explorer."""
+    path = os.path.expanduser(args.path)
+    if os.path.isdir(path):
+        return run_shell(["explorer.exe", path])
+    return {"ok": False, "error": f"Not a directory: {path}"}
+
+
+def cmd_set_wallpaper(args):
+    """Set desktop wallpaper."""
+    path = os.path.expanduser(args.path)
+    if not os.path.isfile(path):
+        return {"ok": False, "error": f"File not found: {path}"}
+    try:
+        SPI_SETDESKWALLPAPER = 0x0014
+        SPIF_UPDATEINIFILE = 0x01
+        SPIF_SENDCHANGE = 0x02
+        ctypes.windll.user32.SystemParametersInfoW(
+            SPI_SETDESKWALLPAPER, 0, path,
+            SPIF_UPDATEINIFILE | SPIF_SENDCHANGE
+        )
+        return {"ok": True, "output": f"Wallpaper set to {path}"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def cmd_screen_resolution(args):
+    """Get or set screen resolution."""
+    if args.width and args.height:
+        return run_powershell(f'''
+Add-Type @"
+using System; using System.Runtime.InteropServices;
+[StructLayout(LayoutKind.Sequential)] public struct DEVMODE {{
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst=32)] public string dmDeviceName;
+    public short dmSpecVersion; public short dmDriverVersion; public short dmSize;
+    public short dmDriverExtra; public int dmFields; public int dmPositionX;
+    public int dmPositionY; public int dmDisplayOrientation; public int dmDisplayFixedOutput;
+    public short dmColor; public short dmDuplex; public short dmYResolution;
+    public short dmTTOption; public short dmCollate;
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst=32)] public string dmFormName;
+    public short dmLogPixels; public int dmBitsPerPel; public int dmPelsWidth;
+    public int dmPelsHeight; public int dmDisplayFlags; public int dmDisplayFrequency;
+}}
+public class Display {{
+    [DllImport("user32.dll")] public static extern int ChangeDisplaySettings(ref DEVMODE devMode, int flags);
+}}
+"@
+$dm = New-Object DEVMODE
+$dm.dmSize = [System.Runtime.InteropServices.Marshal]::SizeOf($dm)
+$dm.dmPelsWidth = {args.width}
+$dm.dmPelsHeight = {args.height}
+$dm.dmFields = 0x180000
+$result = [Display]::ChangeDisplaySettings([ref]$dm, 0)
+if ($result -eq 0) {{ Write-Output "Resolution set to {args.width}x{args.height}" }}
+else {{ Write-Error "Failed to change resolution (code: $result)" }}
+''')
+    else:
+        sw, sh = get_screen_size()
+        return {"ok": True, "output": f"Current resolution: {sw}x{sh}"}
+
+
+def cmd_open_task_manager(args):
+    """Open Task Manager."""
+    return run_shell(["taskmgr.exe"])
+
+
+def cmd_virtual_desktop_new(args):
+    """Create a new virtual desktop (Win+Ctrl+D)."""
+    try:
+        VK_LWIN = 0x5B
+        VK_CONTROL = 0x11
+        ctypes.windll.user32.keybd_event(VK_LWIN, 0, 0, 0)
+        ctypes.windll.user32.keybd_event(VK_CONTROL, 0, 0, 0)
+        ctypes.windll.user32.keybd_event(0x44, 0, 0, 0)  # D
+        time.sleep(0.1)
+        ctypes.windll.user32.keybd_event(0x44, 0, 2, 0)
+        ctypes.windll.user32.keybd_event(VK_CONTROL, 0, 2, 0)
+        ctypes.windll.user32.keybd_event(VK_LWIN, 0, 2, 0)
+        return {"ok": True, "output": "New virtual desktop created"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def cmd_virtual_desktop_switch(args):
+    """Switch virtual desktop left or right (Win+Ctrl+Arrow)."""
+    direction = args.direction
+    try:
+        VK_LWIN = 0x5B
+        VK_CONTROL = 0x11
+        VK_ARROW = 0x25 if direction == "left" else 0x27  # LEFT or RIGHT
+        ctypes.windll.user32.keybd_event(VK_LWIN, 0, 0, 0)
+        ctypes.windll.user32.keybd_event(VK_CONTROL, 0, 0, 0)
+        ctypes.windll.user32.keybd_event(VK_ARROW, 0, 0, 0)
+        time.sleep(0.1)
+        ctypes.windll.user32.keybd_event(VK_ARROW, 0, 2, 0)
+        ctypes.windll.user32.keybd_event(VK_CONTROL, 0, 2, 0)
+        ctypes.windll.user32.keybd_event(VK_LWIN, 0, 2, 0)
+        return {"ok": True, "output": f"Switched to {direction} virtual desktop"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def cmd_virtual_desktop_close(args):
+    """Close current virtual desktop (Win+Ctrl+F4)."""
+    try:
+        VK_LWIN = 0x5B
+        VK_CONTROL = 0x11
+        VK_F4 = 0x73
+        ctypes.windll.user32.keybd_event(VK_LWIN, 0, 0, 0)
+        ctypes.windll.user32.keybd_event(VK_CONTROL, 0, 0, 0)
+        ctypes.windll.user32.keybd_event(VK_F4, 0, 0, 0)
+        time.sleep(0.1)
+        ctypes.windll.user32.keybd_event(VK_F4, 0, 2, 0)
+        ctypes.windll.user32.keybd_event(VK_CONTROL, 0, 2, 0)
+        ctypes.windll.user32.keybd_event(VK_LWIN, 0, 2, 0)
+        return {"ok": True, "output": "Virtual desktop closed"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def cmd_headless_browse(args):
+    """Browse a URL in headless mode (background — no GUI, no mouse).
+    Returns page text, title, or screenshot without touching your screen."""
+    url = args.url
+    action = args.action or "text"
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.goto(url, wait_until="domcontentloaded", timeout=30000)
+
+            if action == "text":
+                text = page.inner_text("body")[:5000]
+                title = page.title()
+                result = {"ok": True, "output": f"Title: {title}\n\n{text}"}
+            elif action == "screenshot":
+                target = args.path or os.path.join(os.environ.get("TEMP", "."), "headless_screenshot.png")
+                page.screenshot(path=target, full_page=True)
+                result = {"ok": True, "output": f"Screenshot saved to {target}", "file": target}
+            elif action == "links":
+                links = page.eval_on_selector_all("a[href]", "els => els.map(e => e.href + ' | ' + e.innerText.trim()).slice(0, 50)")
+                result = {"ok": True, "output": "\n".join(links) if links else "No links found"}
+            elif action == "title":
+                result = {"ok": True, "output": page.title()}
+            elif action == "html":
+                result = {"ok": True, "output": page.content()[:10000]}
+            else:
+                result = {"ok": False, "error": f"Unknown action: {action}"}
+
+            browser.close()
+            return result
+    except ImportError:
+        return {"ok": False, "error": "Playwright not installed. Run: pip install playwright && playwright install chromium"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 
 # ============================================================
@@ -2140,6 +2356,37 @@ def main():
     sub.add_parser("browser-enable-cdp", help="Enable Chrome DevTools Protocol (restarts Chrome)")
     sub.add_parser("browser-cdp-status", help="Check Chrome DevTools Protocol status")
 
+    # ---- Advanced utilities ----
+    p = sub.add_parser("download-file", help="Download file from URL")
+    p.add_argument("--url", required=True)
+    p.add_argument("--path", help="Save path (default: Downloads)")
+
+    p = sub.add_parser("open-folder", help="Open folder in Explorer")
+    p.add_argument("--path", required=True)
+
+    p = sub.add_parser("set-wallpaper", help="Set desktop wallpaper")
+    p.add_argument("--path", required=True)
+
+    p = sub.add_parser("screen-resolution", help="Get/set screen resolution")
+    p.add_argument("--width", type=int)
+    p.add_argument("--height", type=int)
+
+    sub.add_parser("open-task-manager", help="Open Task Manager")
+
+    # ---- Virtual desktops ----
+    sub.add_parser("virtual-desktop-new", help="Create new virtual desktop")
+
+    p = sub.add_parser("virtual-desktop-switch", help="Switch virtual desktop")
+    p.add_argument("--direction", choices=["left", "right"], required=True)
+
+    sub.add_parser("virtual-desktop-close", help="Close current virtual desktop")
+
+    # ---- Headless browser (background — no GUI) ----
+    p = sub.add_parser("headless-browse", help="Browse URL in background (no GUI)")
+    p.add_argument("--url", required=True)
+    p.add_argument("--action", choices=["text", "screenshot", "links", "title", "html"], default="text")
+    p.add_argument("--path", help="Save path for screenshot")
+
     args = parser.parse_args()
 
     # SECURITY: Sanitize string arguments
@@ -2228,6 +2475,16 @@ def main():
         "task-switcher": cmd_task_switcher, "focus-window": cmd_focus_window,
         # Browser CDP management
         "browser-enable-cdp": cmd_browser_enable_cdp, "browser-cdp-status": cmd_browser_cdp_status,
+        # Advanced utilities
+        "download-file": cmd_download_file, "open-folder": cmd_open_folder,
+        "set-wallpaper": cmd_set_wallpaper, "screen-resolution": cmd_screen_resolution,
+        "open-task-manager": cmd_open_task_manager,
+        # Virtual desktops
+        "virtual-desktop-new": cmd_virtual_desktop_new,
+        "virtual-desktop-switch": cmd_virtual_desktop_switch,
+        "virtual-desktop-close": cmd_virtual_desktop_close,
+        # Headless browser
+        "headless-browse": cmd_headless_browse,
     }
 
     result = commands[args.command](args)

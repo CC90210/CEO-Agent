@@ -258,7 +258,16 @@ AUDIO: list-audio | switch-audio --device X
 POWER: shutdown --confirm | restart --confirm | logout --confirm
 BROWSER (Chrome via DevTools Protocol): browser-open --url "..." | browser-js --script "..." | browser-tab-url | browser-tab-title | browser-new-tab --url "..." | browser-close-tab | browser-list-tabs | browser-switch-tab --tab N | browser-back | browser-forward | browser-reload | browser-screenshot [--path X] | browser-get-text | browser-click-element --selector "css" | browser-fill --selector "css" --value "text"
 CDP SETUP: browser-enable-cdp (restarts Chrome with DevTools — run once) | browser-cdp-status
-WINDOWS EXTRAS: installed-apps | startup-apps | disk-usage | open-settings [--page display|sound|network|...] | open-with --file X --app Y | drag --x1 N --y1 N --x2 N --y2 N | task-switcher | focus-window --title "..."
+WINDOWS EXTRAS: installed-apps | startup-apps | disk-usage | open-settings [--page X] | open-with --file X --app Y | focus-window --title "..." | open-task-manager | open-folder --path X
+UTILITIES: download-file --url "..." [--path X] | set-wallpaper --path X | screen-resolution [--width N --height N]
+VIRTUAL DESKTOPS: virtual-desktop-new | virtual-desktop-switch --direction left|right | virtual-desktop-close
+HEADLESS BROWSER (background — no GUI, no mouse, CC keeps working): headless-browse --url "..." --action text|screenshot|links|title|html [--path X]
+
+CONCURRENCY RULES:
+- BACKGROUND commands (safe while CC works): All file ops, network, system info, clipboard, browser CDP, headless-browse, download-file, list-*, get-*, sysinfo, search-*
+- FOREGROUND commands (will interact with CC's screen): click, type, keystroke, scroll, mouse-move, drag, window-*, open (apps), task-switcher. WARN CC before using these.
+- PREFER headless-browse over browser-open when CC is using the PC — it runs in background without touching the screen
+- PREFER browser CDP commands (browser-js, browser-click-element, browser-fill) over click/type for web interaction — CDP works via WebSocket, no mouse movement
 All via: \${PYTHON} scripts/${IS_MAC ? 'macos' : 'windows'}_control.py <command> [args] [--json]
 
 === SoundCloud Music Control (atomic — use this, NOT manual browser steps) ===
