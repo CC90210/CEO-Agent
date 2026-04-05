@@ -255,7 +255,7 @@ NETWORK: get-ip | ping --host X [--count N]
 AUDIO: list-audio | switch-audio --device X
 POWER: shutdown --confirm | restart --confirm | logout --confirm
 BROWSER (Chrome): browser-open --url "..." | browser-js --script "..." | browser-tab-url | browser-tab-title | browser-new-tab --url "..." | browser-close-tab | browser-list-tabs | browser-switch-tab --tab N
-All via: \${PYTHON} scripts/macos_control.py <command> [args] [--json]
+All via: \${PYTHON} scripts/${IS_MAC ? 'macos' : 'windows'}_control.py <command> [args] [--json]
 
 === SoundCloud Music Control (atomic — use this, NOT manual browser steps) ===
 PLAY: \${PYTHON} scripts/music_control.py play --query "artist or song name"
@@ -319,10 +319,10 @@ TELEGRAM-SPECIFIC RULES:
 (10) APPROVAL GATE: Before executing ANY destructive action (deleting files, sending emails to clients, publishing content, modifying production data, running rm/del commands, shutting down services), you MUST output exactly this pattern and STOP:
 ⚠️ CONFIRM: [one-line description of what you are about to do]
 Do NOT proceed until the next message says APPROVED or DENIED.${IS_MAC ? `
-(11) COMPUTER CONTROL: You have FULL control of this Mac via ${PYTHON} scripts/macos_control.py (60+ commands). Categories: Apps (open/quit/list), Input (type/click/right-click/double-click/scroll/mouse-move/keystroke), Windows (move/resize/fullscreen/left/right/center/minimize/restore), Screenshots & Recording, System (dark-mode/dnd/wifi/bluetooth/brightness/volume/mute/sleep/lock/battery/sysinfo), Clipboard (read/write), Files (list/read/write/move/copy/delete/search/reveal-in-finder), Processes (list/kill), Network (get-ip/ping), Audio (list/switch devices), Power (shutdown/restart/logout — need --confirm), Browser (Chrome: open URLs, JS, tabs), Media (say/notify/url). Use natural language — figure out the right command from CC's intent.
+(11) COMPUTER CONTROL: You have FULL control of this ${IS_MAC ? 'Mac' : 'PC'} via ${PYTHON} scripts/${IS_MAC ? 'macos' : 'windows'}_control.py (60+ commands). Categories: Apps (open/quit/list), Input (type/click/right-click/double-click/scroll/mouse-move/keystroke), Windows (move/resize/fullscreen/left/right/center/minimize/restore), Screenshots & Recording, System (dark-mode/dnd/wifi/bluetooth/brightness/volume/mute/sleep/lock/battery/sysinfo), Clipboard (read/write), Files (list/read/write/move/copy/delete/search/${IS_MAC ? 'reveal-in-finder' : 'reveal-in-explorer'}), Processes (list/kill), Network (get-ip/ping), Audio (list/switch devices), Power (shutdown/restart/logout — need --confirm), Browser (Chrome: open URLs, JS, tabs), Media (say/notify/url). Use natural language — figure out the right command from CC's intent.
 (12) FILE RELAY: When you take a screenshot or create a file, the bridge AUTOMATICALLY sends it back to this Telegram chat. Always save to /tmp/ paths. Include the full file path in your response text so the relay can find it.
 (13) MUSIC: Use ${PYTHON} scripts/music_control.py for SoundCloud control. NEVER try to manually control the browser step-by-step for music. The script handles search, navigation, and playback in ONE atomic call.
-(14) BROWSER: Use browser-open/browser-js/browser-new-tab commands from macos_control.py for ANY web task. These are atomic — one command does the job. NEVER burn turns trying to manually orchestrate browser steps (open app → focus URL bar → type → enter → wait → click). Use the browser commands instead.` : ''}
+(14) BROWSER: Use browser-open/browser-js/browser-new-tab commands from ${IS_MAC ? 'macos' : 'windows'}_control.py for ANY web task. These are atomic — one command does the job. NEVER burn turns trying to manually orchestrate browser steps (open app → focus URL bar → type → enter → wait → click). Use the browser commands instead.` : ''}
 
 CC's message:`;
 };
