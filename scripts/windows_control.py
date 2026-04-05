@@ -134,17 +134,22 @@ def _chrome_cdp_available():
 def _chrome_ensure_debug_mode():
     """Ensure Chrome is running with remote debugging enabled.
     Chrome on Windows requires a non-default data dir for CDP.
-    We kill existing Chrome and relaunch with CDP + a separate data dir.
+    We use CDP_Data which is junction-linked to the real profile
+    (shares cookies, passwords, extensions, bookmarks).
+
+    WARNING: This will restart Chrome. All tabs are restored but
+    active sessions (video calls, etc.) will be interrupted.
     Returns True if CDP is available."""
     if _chrome_cdp_available():
         return True
     chrome = _chrome_path()
-    # Must kill existing Chrome first — only one instance per user profile
+    # CDP_Data dir is junction-linked to real profile (set up by Bravo)
+    cdp_data = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Google", "Chrome", "CDP_Data")
+    if not os.path.exists(os.path.join(cdp_data, "Default")):
+        return False  # Junctions not set up — can't use CDP without losing profile
+    # Must kill existing Chrome — only one instance per profile
     run_shell(["taskkill", "/IM", "chrome.exe", "/F"], timeout=10)
     time.sleep(2)
-    # Use a separate CDP data dir (Chrome requirement)
-    cdp_data = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Google", "Chrome", "CDP_Data")
-    os.makedirs(cdp_data, exist_ok=True)
     try:
         subprocess.Popen(
             [chrome, f"--remote-debugging-port={CDP_PORT}",
@@ -1693,14 +1698,19 @@ def cmd_browser_fill(args):
 def cmd_browser_enable_cdp(args):
     """Enable Chrome DevTools Protocol (restarts Chrome with CDP flag).
     This kills Chrome and relaunches with --remote-debugging-port=9222.
-    All tabs are restored. Required for browser-js, browser-fill, etc."""
+    Uses junction-linked profile so all passwords/cookies/extensions are preserved.
+    WARNING: This restarts Chrome — active calls/meets will be interrupted."""
     if _chrome_cdp_available():
         return {"ok": True, "output": "CDP already active on port 9222"}
+    # Check if junctions are set up
+    cdp_data = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Google", "Chrome", "CDP_Data")
+    if not os.path.exists(os.path.join(cdp_data, "Default")):
+        return {"ok": False, "error": "CDP profile junctions not set up. Run setup-permissions to configure."}
     ok = _chrome_ensure_debug_mode()
     if ok:
         tabs = _chrome_get_tabs()
-        return {"ok": True, "output": f"CDP enabled on port {CDP_PORT}. {len(tabs)} tab(s) open."}
-    return {"ok": False, "error": "Failed to enable CDP. Chrome may need manual restart with --remote-debugging-port=9222"}
+        return {"ok": True, "output": f"CDP enabled on port {CDP_PORT}. {len(tabs)} tab(s) open. Profile: GoldStorm (junction-linked)."}
+    return {"ok": False, "error": "Failed to enable CDP. Chrome may need manual restart."}
 
 
 def cmd_browser_cdp_status(args):
