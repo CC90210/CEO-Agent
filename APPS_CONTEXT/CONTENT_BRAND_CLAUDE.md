@@ -1,3 +1,9 @@
+---
+tags: [brand, kona-makana, context]
+---
+
+> [[brain/DASHBOARD]] | [[brain/USER]] | [[memory/content-strategy]]
+
 # CC's Personal Brand — Content & Philosophy
 
 ## Project Overview

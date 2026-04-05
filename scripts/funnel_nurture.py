@@ -25,8 +25,8 @@ if env_path.exists():
         for line in f:
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
-                k, v = line.split("=", 1)
-                os.environ.setdefault(k, v)
+                k, _, v = line.partition("=")
+                os.environ.setdefault(k.strip(), v.strip())
 
 
 def get_supabase():

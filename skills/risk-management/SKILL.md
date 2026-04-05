@@ -140,6 +140,6 @@ Since Bennett represents 94% of revenue, this scenario gets its own playbook:
 6. Post-mortem: Analyze what happened, update risk management, never exceed 40% concentration again
 
 ## Obsidian Links
-- [[brain/CEO_OPERATING_SYSTEM]] | [[brain/STATE]]
+- [[brain/CEO_OPERATING_SYSTEM]] | [[brain/STATE]] | [[brain/CAPABILITIES]]
 - [[skills/client-success/SKILL]] | [[skills/financial-modeling/SKILL]]
 - [[skills/strategic-planning/SKILL]] | [[skills/scaling-playbook/SKILL]]

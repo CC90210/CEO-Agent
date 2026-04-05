@@ -1,3 +1,9 @@
+---
+tags: [brand, training, context]
+---
+
+> [[brain/DASHBOARD]] | [[APPS_CONTEXT/OASIS_AI_CLAUDE]] | [[APPS_CONTEXT/INDEX]]
+
 # AI Training — Teaching Businesses to Use AI
 
 ## Project Overview

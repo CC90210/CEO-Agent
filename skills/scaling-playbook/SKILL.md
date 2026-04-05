@@ -273,6 +273,6 @@ This is the concrete roadmap from current state to empire, specific to CC's situ
 ---
 
 ## Obsidian Links
-- [[skills/financial-modeling/SKILL]] | [[skills/strategic-planning/SKILL]]
+- [[skills/financial-modeling/SKILL]] | [[skills/strategic-planning/SKILL]] | [[brain/CAPABILITIES]]
 - [[skills/investor-communications/SKILL]] | [[brain/USER]] | [[brain/STATE]]
 - [[memory/ACTIVE_TASKS]] | [[memory/SOP_LIBRARY]]

@@ -1,7 +1,12 @@
+---
+tags: [memory, governance]
+---
+
 # BRAVO — Proposed Changes Queue
 
 > Changes to semi-mutable files (entry points, BRAIN_LOOP.md, INTERACTION_PROTOCOL.md) require CC's approval.
 > Agent writes proposals here. CC reviews and approves/rejects.
+> [[brain/STATE]] | [[brain/INTERACTION_PROTOCOL]] | [[brain/CHANGELOG]]
 
 ## Format
 

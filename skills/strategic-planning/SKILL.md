@@ -442,5 +442,5 @@ Run every Monday morning. Target: 15 minutes.
 - **QBR cadence:** Last week of each quarter — run `/qbr` workflow
 
 ## Obsidian Links
-- [[brain/STATE]] | [[brain/USER]] | [[memory/ACTIVE_TASKS]]
+- [[brain/STATE]] | [[brain/USER]] | [[memory/ACTIVE_TASKS]] | [[brain/CAPABILITIES]]
 - [[skills/financial-modeling/SKILL]] | [[skills/competitive-intelligence/SKILL]] | [[skills/ceo-briefing/SKILL]]

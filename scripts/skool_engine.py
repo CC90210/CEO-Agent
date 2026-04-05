@@ -421,6 +421,7 @@ def _run_google_tool(args: list, timeout: int = 30) -> str:
         result = subprocess.run(
             cmd, capture_output=True, text=True, encoding="utf-8",
             timeout=timeout, cwd=str(PROJECT_ROOT),
+            creationflags=0x08000000 if sys.platform == "win32" else 0,
         )
         return result.stdout.strip()
     except Exception as e:
@@ -704,10 +705,74 @@ def generate_dm_reply(
 
 
 # ---------------------------------------------------------------------------
-# Post reply generation (unchanged from V1)
+# Web research for informed replies
+# ---------------------------------------------------------------------------
+
+def _web_search(query: str, max_results: int = 3) -> str:
+    """Search the web via DuckDuckGo and return a brief summary of results."""
+    try:
+        from duckduckgo_search import DDGS
+        with DDGS() as ddgs:
+            results = list(ddgs.text(query, max_results=max_results))
+        if not results:
+            return ""
+        snippets = []
+        for r in results:
+            title = r.get("title", "")
+            body = r.get("body", "")
+            snippets.append(f"- {title}: {body[:200]}")
+        return "\n".join(snippets)
+    except Exception as e:
+        log.warning(f"Web search failed for '{query}': {e}")
+        return ""
+
+
+def _identify_research_topics(post_title: str, post_content: str) -> list[str]:
+    """Use Claude to identify specific tools, products, or concepts in a post that need research."""
+    system = (
+        "You analyze Skool community posts to identify specific tools, products, frameworks, "
+        "companies, methodologies, or technical concepts mentioned that would benefit from a "
+        "quick web search to ensure an informed reply.\n\n"
+        "Rules:\n"
+        "- Only return terms that are SPECIFIC (named tools, products, frameworks, people)\n"
+        "- Do NOT return generic terms like 'AI', 'automation', 'business'\n"
+        "- Return 0-3 search queries, one per line\n"
+        "- If the post only discusses common/generic topics, return NONE\n"
+        "- Each query should be a concise web search query (3-6 words)\n"
+        "- Return ONLY the search queries, nothing else"
+    )
+    user = f"Post title: {post_title}\nPost content: {post_content[:600]}"
+    result = _call_claude(system, user, max_tokens=100)
+    if not result or result.strip().upper() == "NONE":
+        return []
+    queries = [q.strip().lstrip("- ").strip() for q in result.strip().split("\n") if q.strip() and q.strip().upper() != "NONE"]
+    return queries[:3]
+
+
+def _research_post(post_title: str, post_content: str) -> str:
+    """Research any specific topics mentioned in a post before replying."""
+    topics = _identify_research_topics(post_title, post_content)
+    if not topics:
+        return ""
+
+    log.info(f"  Researching {len(topics)} topic(s): {topics}")
+    research_parts = []
+    for query in topics:
+        result = _web_search(query)
+        if result:
+            research_parts.append(f"Research on '{query}':\n{result}")
+
+    return "\n\n".join(research_parts) if research_parts else ""
+
+
+# ---------------------------------------------------------------------------
+# Post reply generation (V2 — research-enhanced)
 # ---------------------------------------------------------------------------
 
 def generate_post_reply(post_title: str, post_content: str, author_name: str) -> str:
+    # Step 1: Research any specific topics mentioned in the post
+    research_context = _research_post(post_title, post_content)
+
     system = (
         "You are ghostwriting a Skool community comment as Conaugh McKenna (CC), "
         "a 22-year-old AI automation entrepreneur and admin/coach of the Agency Accelerants community. "
@@ -721,6 +786,12 @@ def generate_post_reply(post_title: str, post_content: str, author_name: str) ->
         "- You DEMAND growth. You care about these people which means you tell them the truth.\n"
         "- You challenge assumptions.\n"
         "- You are direct, opinionated, and confident. You've done the work.\n\n"
+        "KNOWLEDGE RULES (non-negotiable):\n"
+        "- NEVER say 'I don't know', 'I haven't heard of', 'what is X?', or admit ignorance about ANY topic.\n"
+        "- CC is an AI expert who stays on top of every tool, framework, and trend. He knows his stuff.\n"
+        "- If research context is provided below, USE IT to respond knowledgeably.\n"
+        "- If you're unsure about something specific, pivot to the broader principle or ask the poster a probing question instead.\n"
+        "- You can always connect any topic back to practical AI automation, business systems, or execution.\n\n"
         "VOICE RULES (non-negotiable):\n"
         "- Write like a real person texting. Casual, lowercase is fine, short sentences.\n"
         "- 2-4 sentences max. No essays.\n"
@@ -732,13 +803,18 @@ def generate_post_reply(post_title: str, post_content: str, author_name: str) ->
         "- Sound like a friend who won't let you stay comfortable.\n\n"
         "Reply with ONLY the comment text. No quotes around it."
     )
-    user = (
-        f"Community member {author_name} posted:\n"
-        f"Title: {post_title}\n"
-        f"Content: {post_content[:800]}\n\n"
-        f"Write a reply that challenges or adds real value:"
-    )
-    reply = _call_claude(system, user, max_tokens=200)
+
+    user_parts = [
+        f"Community member {author_name} posted:",
+        f"Title: {post_title}",
+        f"Content: {post_content[:800]}",
+    ]
+    if research_context:
+        user_parts.append(f"\n--- RESEARCH CONTEXT (use this to respond knowledgeably) ---\n{research_context[:1200]}")
+    user_parts.append("\nWrite a reply that challenges or adds real value:")
+
+    user = "\n".join(user_parts)
+    reply = _call_claude(system, user, max_tokens=250)
     if reply:
         reply = _strip_ai_slop(reply)
     return reply[:1000] if reply else ""

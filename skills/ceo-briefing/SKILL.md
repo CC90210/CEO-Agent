@@ -97,5 +97,5 @@ Waiting on others:
 - **Booking Engine:** `scripts/booking_engine.py` — upcoming calls
 
 ## Obsidian Links
-- [[brain/STATE]] | [[memory/ACTIVE_TASKS]] | [[brain/DASHBOARD]]
+- [[brain/STATE]] | [[memory/ACTIVE_TASKS]] | [[brain/DASHBOARD]] | [[brain/CAPABILITIES]]
 - [[skills/revenue-operations/SKILL]] | [[skills/lead-management/SKILL]]

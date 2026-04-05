@@ -376,5 +376,5 @@ Partnerships without exit terms create the worst outcomes: zombie relationships 
 ---
 
 ## Obsidian Links
-- [[skills/investor-materials/SKILL]] | [[skills/financial-modeling/SKILL]]
+- [[skills/investor-materials/SKILL]] | [[skills/financial-modeling/SKILL]] | [[brain/CAPABILITIES]]
 - [[skills/strategic-planning/SKILL]] | [[brain/STATE]] | [[memory/SESSION_LOG]]

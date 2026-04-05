@@ -197,6 +197,6 @@ All settings in `.agents/config.toml`:
 - `[memory_aging]` — Decay rates and thresholds
 
 ## Obsidian Links
-- [[brain/INTERACTION_PROTOCOL]] | [[brain/BRAIN_LOOP]]
+- [[brain/INTERACTION_PROTOCOL]] | [[brain/BRAIN_LOOP]] | [[brain/CAPABILITIES]]
 - [[skills/memory-management/SKILL]] | [[skills/background-workers/SKILL]]
 - [[memory/SESSION_LOG]] | [[memory/PATTERNS]]

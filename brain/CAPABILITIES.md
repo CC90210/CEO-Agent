@@ -4,8 +4,8 @@ tags: [capabilities, tools]
 
 # CAPABILITIES — Tool & Integration Registry
 
-> Complete inventory of what Bravo can do. Last updated: 2026-04-03.
-> **Totals: 180 skills · 30 workflows · 37 scripts · 17 agents · 4 MCP servers + Codex (external)**
+> Complete inventory of what Bravo can do. Last updated: 2026-04-04.
+> **Totals: 180 skills · 31 workflows · 37 scripts · 17 agents · 4 MCP servers + Codex (external)**
 
 ## MCP Servers (By Interface)
 
@@ -57,24 +57,28 @@ Workflows: `.agents/workflows/` (30 workflows: post, status, health, prime, cont
 
 **Organizations:** CC (oktipozhyojufxsytrse), oasis-ai-platform (sajanpiqysuwviucycjh)
 
-## App Registry (8 External Repos)
+## App Registry (12 External Repos)
 
 Full routing table with local paths, GitHub URLs, tech stacks: `brain/APP_REGISTRY.md`
 
-| App | Local Path | Stack |
-|-----|-----------|-------|
-| OASIS AI Platform | `APPS/oasis-ai-platform` | React 18, Supabase |
-| PropFlow | `realestate-App` | Next.js 14, Supabase |
-| Nostalgic Requests | (GitHub only) | Next.js, Supabase |
-| Grape Vine Cottage | `APPS/Grape-Vine-Cottage` | Vite, React 18 |
-| Mindset Companion | `APPS/MINDSET COMPANION APP/cc-mindset` | Next.js 16 |
-| On The Hill | `APPS/ON-THE-HILL-WEBSITE` | Vite, React 19 |
-| Atlas Trading Agent | `APPS/trading-agent` | Python 3.11+, CCXT, Claude API |
-| TIKTIK | `APPS/tiktik` | Next.js 14, Supabase, Tailwind |
+| App | Local Path | Stack | CLAUDE.md |
+|-----|-----------|-------|-----------|
+| OASIS AI Platform | `APPS/oasis-ai-platform` | React 18, Vite, Supabase | Yes |
+| PropFlow | `realestate-App` | Next.js 14, Supabase, Stripe | Yes |
+| Nostalgic Requests | `APPS/nostalgic-requests` | Next.js 16, Supabase, Stripe Connect | Yes |
+| Grape Vine Cottage | `APPS/Grape-Vine-Cottage` | Vite, React 18 | No |
+| Mindset Companion | `APPS/MINDSET COMPANION APP/cc-mindset` | Next.js 16, React 19 | No |
+| On The Hill | `APPS/ON-THE-HILL-WEBSITE` | Vite, React 19 | No |
+| Atlas (CFO) | `APPS/trading-agent` | Python 3.11+, CCXT, Claude API | Yes |
+| TIKTIK | `APPS/tiktik` | Next.js 14, Supabase, Tailwind | Yes |
+| CC Funnel | `APPS/cc-funnel` | Next.js 14, Supabase, Tailwind | Yes |
+| Shopify Ad Engine | `APPS/shopify-ad-engine` | Remotion 4, React 19, Three.js | Yes |
+| Lafreniere PM | `APPS/lafreniere-pm` | Next.js 16, Supabase, Stripe | Yes |
+| AURA | `AURA` | Claude Code agent, ESP32, Home Assistant | No |
 
-## Sub-Agents (16)
+## Sub-Agents (17 incl. Codex)
 
-See `brain/AGENTS.md` for the complete registry with orchestration decision matrix, permission levels, and scope restrictions.
+See `brain/AGENTS.md` for the complete registry with orchestration decision matrix, permission levels, and scope restrictions. Codex (Agent #17) runs as an external AI executor for backend-heavy tasks — see `skills/codex-delegation/SKILL.md`.
 
 ## CLI-Anything (Universal CLI Generation)
 

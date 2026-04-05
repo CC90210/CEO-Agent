@@ -1,4 +1,9 @@
-> **ROUTING:** GitHub: CC90210/nostalgic-requests | Supabase: jqybbrtzpvmefgzzdagz | Deploy: Vercel
+---
+tags: [brand, nostalgic, context]
+---
+
+> **ROUTING:** Local `C:\Users\User\APPS\nostalgic-requests` | GitHub: CC90210/nostalgic-requests | Supabase: jqybbrtzpvmefgzzdagz | Deploy: Vercel
+> [[brain/DASHBOARD]] | [[brain/APP_REGISTRY]] | [[APPS_CONTEXT/INDEX]]
 
 # Nostalgic Requests — Performer Song Request Platform
 

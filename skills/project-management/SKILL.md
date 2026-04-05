@@ -381,6 +381,6 @@ LOG TO MEMORY
 - **Budget tracking** → reference `scripts/stripe_tool.py invoices` for revenue side
 
 ## Obsidian Links
-- [[brain/USER]] | [[memory/ACTIVE_TASKS]] | [[memory/DECISIONS]]
+- [[brain/USER]] | [[memory/ACTIVE_TASKS]] | [[memory/DECISIONS]] | [[brain/CAPABILITIES]]
 - [[skills/client-success/SKILL]] | [[skills/meeting-automation/SKILL]]
 - [[skills/ceo-dashboard/SKILL]] | [[memory/MISTAKES]]

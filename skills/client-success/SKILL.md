@@ -258,6 +258,6 @@ The `/briefing` skill calls `python scripts/client_health.py report --json` in S
 Any ORANGE or RED clients surface as blocked items in Section 5 (Blocked Items).
 
 ## Obsidian Links
-- [[brain/STATE]] | [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]]
+- [[brain/STATE]] | [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]] | [[brain/CAPABILITIES]]
 - [[skills/revenue-operations/SKILL]] | [[skills/lead-management/SKILL]]
 - [[skills/ceo-briefing/SKILL]] | [[brain/USER]]

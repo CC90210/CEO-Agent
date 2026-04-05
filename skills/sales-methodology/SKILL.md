@@ -128,6 +128,6 @@ Before every discovery call:
 - Win/loss reasons (track in pipeline)
 
 ## Obsidian Links
-- [[skills/proposal-generation/SKILL]] | [[skills/client-success/SKILL]]
+- [[skills/proposal-generation/SKILL]] | [[skills/client-success/SKILL]] | [[brain/CAPABILITIES]]
 - [[skills/meeting-automation/SKILL]] | [[skills/lead-management/SKILL]]
 - [[brain/CEO_OPERATING_SYSTEM]] | [[brain/USER]]

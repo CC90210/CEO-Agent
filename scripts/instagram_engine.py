@@ -94,6 +94,7 @@ def capture_lead_to_crm(username: str, intent: str, message_text: str):
             text=True,
             timeout=30,
             cwd=str(PROJECT_ROOT),
+            creationflags=0x08000000 if sys.platform == "win32" else 0,
         )
         if result.returncode == 0:
             notify(

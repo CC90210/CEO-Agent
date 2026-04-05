@@ -171,5 +171,5 @@ When multiple agents work on the same task (COMPLEX+):
 - **Config:** All thresholds and limits in `.agents/config.toml` [anti_drift]
 
 ## Obsidian Links
-- [[brain/BRAIN_LOOP]] | [[brain/AGENTS]] | [[skills/task-routing/SKILL]]
+- [[brain/BRAIN_LOOP]] | [[brain/AGENTS]] | [[skills/task-routing/SKILL]] | [[brain/CAPABILITIES]]
 - [[memory/MISTAKES]] | [[memory/PATTERNS]]

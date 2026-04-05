@@ -117,3 +117,6 @@ Use for: Customer support across web chat, SMS, email, WhatsApp.
 - [ ] No hardcoded credentials
 - [ ] Monitoring/alerting is in place
 - [ ] Workflow is documented with sticky notes
+
+## Obsidian Links
+- [[brain/CAPABILITIES]] | [[skills/INDEX]] | [[brain/DASHBOARD]]

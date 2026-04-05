@@ -610,6 +610,6 @@ Copy this when building any new daemon automation.
 ```
 
 ## Obsidian Links
-- [[scripts/bravo_startup]] | [[scripts/skool_engine]] | [[scripts/skool_watchdog]]
+- [[scripts/bravo_startup]] | [[scripts/skool_engine]] | [[scripts/skool_watchdog]] | [[brain/CAPABILITIES]]
 - [[skills/background-workers/SKILL]] | [[skills/hooks-automation/SKILL]]
 - [[memory/MISTAKES]] | [[memory/SESSION_LOG]]

@@ -1,4 +1,9 @@
+---
+tags: [brand, propflow, context]
+---
+
 > **ROUTING:** Local `C:\Users\User\realestate-App` | GitHub: CC90210/real-estate-App | Deploy: Vercel
+> [[brain/DASHBOARD]] | [[brain/APP_REGISTRY]] | [[APPS_CONTEXT/INDEX]]
 
 # PropFlow — Real Estate Management Platform
 

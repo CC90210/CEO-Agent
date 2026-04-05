@@ -71,4 +71,4 @@ You are the Chief of Staff for CC (Conaugh McKenna), managing the Business Empir
 
 ## Obsidian Links
 - [[brain/AGENTS]] | [[brain/USER]] | [[memory/ACTIVE_TASKS]]
-- [[skills/client-success/SKILL]] | [[memory/LEAD_TRACKER]]
+- [[skills/client-success/SKILL]] | [[memory/LEAD_TRACKER.csv|LEAD_TRACKER]]

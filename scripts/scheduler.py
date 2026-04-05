@@ -23,6 +23,9 @@ import traceback
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
+# On Windows, suppress console window popups from subprocess calls
+CREATE_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
+
 # Notification system
 try:
     from notify import notify, notify_error
@@ -188,6 +191,7 @@ def run_script(script_name: str, args: list[str], timeout: int = 120) -> str:
         encoding="utf-8",
         timeout=timeout,
         cwd=str(PROJECT_ROOT),
+        creationflags=CREATE_NO_WINDOW,
     )
     output = result.stdout.strip()
     if result.returncode != 0:

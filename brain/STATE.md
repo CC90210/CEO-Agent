@@ -4,7 +4,7 @@ tags: [state, ephemeral]
 
 # STATE — Current Operational State
 
-> Updated 2026-03-31 | **Context Optimization implemented (7 patterns from Claude Code internals). GWS operational. Andre meeting April 1, 4pm ET.**
+> Updated 2026-04-04 | **Terminal popup fix deployed. Skool agent V2 (research-enhanced). All startup scripts converted to silent VBS launchers. Scheduler pinned to venv Python.**
 
 ## Operational Status
 
@@ -17,15 +17,15 @@ tags: [state, ephemeral]
 | **Energy** | MAXIMUM | Content studio operational (Remotion). PM2 processes healthy. GWS authenticated. Skool engine stable (post-reply only). CEO Operating System complete. |
 | **Memory Health** | EXCELLENT | Files trimmed. Stale tasks purged. Vault configured. Session logged. |
 
-## Skool Automation Status (2026-03-28)
+## Skool Automation Status (2026-04-04)
 
-**Bot Mode — POST-REPLY ONLY (All DM Code Deleted)**
-- **What was deleted:** generate_welcome_dm, generate_nurture_dm, generate_dm_reply, cmd_engage_members, cmd_scan_dms, all DM sending helpers, member extraction, chat scraping
-- **Lines of code:** 1735 → 871 (864 lines removed, 50% deletion)
-- **Current functionality:** Single function: `generate_post_reply()` — replies to community posts when CC or members post
-- **Daemon processes:** Both stale PIDs (48772, 113640) killed. Engine ready for clean restart.
-- **Heartbeat:** Working. `/tmp/skool_daemon.heartbeat` written every cycle.
-- **Next:** Fresh daemon start will load new code (post-reply only, no DM automation)
+**Bot Mode — POST-REPLY ONLY, V2 RESEARCH-ENHANCED**
+- **V2 upgrade:** Before replying, agent now identifies specific tools/products/frameworks in posts, web-searches them via DuckDuckGo (free, no API key), and injects research context into the reply prompt
+- **Knowledge rules:** Agent will NEVER admit ignorance ("I don't know", "what is X?"). Either responds knowledgeably with research, or pivots to broader principles
+- **Current functionality:** `_identify_research_topics()` → `_web_search()` → `_research_post()` → `generate_post_reply()` pipeline
+- **Daemon:** Running (PID tracked in `tmp/skool_daemon.pid`). 108 posts replied all-time.
+- **Heartbeat:** Working. `tmp/skool_daemon.heartbeat` written every cycle (5 min interval).
+- **DMs:** Permanently disabled. CC handles all DMs manually.
 
 ---
 
@@ -44,8 +44,8 @@ tags: [state, ephemeral]
 | Tool | Status | Purpose |
 |--------|--------|---------|
 | **Google Workspace CLI** | ✅ FULLY CONNECTED | `scripts/google_tool.py` wraps gws v0.18.1 + SMTP fallback. oasisaisolutions@gmail.com authenticated. 14 OAuth scopes. Production mode (permanent tokens). Email, Calendar, Drive, Sheets, Docs commands. 5 integration tests passing. |
-| **Skool Community Engine** | 🔁 POST-REPLY ONLY | All DM code deleted 2026-03-28. Daemon runs to reply to community posts only. No welcome DMs, nurture DMs, DM auto-reply, or member scanning. Response-only mode. |
-| **Skool Watchdog** | ✅ HEARTBEAT-FIRST | Rewritten 2026-03-26: heartbeat-based liveness (wmic eliminated). Daemon writes heartbeat every cycle, watchdog checks freshness < 10 min. |
+| **Skool Community Engine** | ✅ V2 RESEARCH-ENHANCED | Post-reply only (DMs disabled). V2: web research before replying via DuckDuckGo. Never admits ignorance. 108 posts replied all-time. |
+| **Skool Watchdog** | ⚠️ NEEDS ADMIN FIX | Task uses bare `pythonw.exe` — needs full path. Run `scripts/fix_watchdog_task.ps1` as admin. Daemon manually started for now. |
 | **cc-funnel** | ✅ LIVE | Lead capture form → Supabase → Telegram notify → Booking CTA on success screen. Needs `NEXT_PUBLIC_BOOKING_LINK` env var. |
 | **Telegram Bridge** | ✅ V11.0 LIVE | Full-context parity — loads CLAUDE.md, brain files, APP_REGISTRY. 25 max turns. PM2 restarted 2026-03-26. |
 | **Stripe SDK** | ✅ LIVE | Multi-account (OASIS, PropFlow, Nostalgic) |
@@ -58,13 +58,13 @@ tags: [state, ephemeral]
 | **Content Calendar** | ✅ LIVE | Auto-posting via `late_publisher.py`. 5 published, 16 scheduled, 21 drafts. Zernio API (formerly Late): `https://zernio.com/api/v1/`. Raw HTTP. |
 | **Revenue Dashboard** | ✅ AUDITED | `revenue_engine.py` — CRITICAL NameError fixed, MRR formula corrected |
 | **Instagram Automation** | ✅ AUDITED | `instagram_engine.py` — Claude API replies, 10 bugs fixed |
-| **Scheduler** | ✅ AUDITED | `scheduler.py` — timestamp format fixed, restarted with fixes |
+| **Scheduler** | ✅ SILENT | `scheduler.py` — `CREATE_NO_WINDOW` flag added. PM2 pinned to `.venv` Python. No terminal popups. |
 | **Outreach Engine** | ✅ AUDITED | `outreach_engine.py` — ICS timezone fixed, email_log insert fixed |
 | **Obsidian Vault** | ✅ READY | Business-Empire-Agent repo configured as Obsidian vault. 34 files created. Community plugins staged. |
 | **Content Studio** | ✅ READY | Remotion 4.0.436 environment with QuoteCard, SkoolIntro, CeoLog, SobrietyLog compositions. |
 | **Skool Classroom** | ✅ OPERATIONAL | 12 courses, 60+ lessons. Image audit complete (45 placements identified). Lead Magnets emoji fixes deployed (2026-03-21). |
 | **OpenCLI** | ✅ INSTALLED | v1.1.1 globally installed. 46 platforms, 345+ commands. Website-to-CLI via browser automation. `opencli list` to discover. |
-| **Atlas (CFO Agent)** | ✅ LIVE | Separate project (`trading-agent/`). 12 strategies, live on Kraken ($136) + OANDA. Tax/accounting/FIRE modules complete. CRA filing prepped for 2024-2025. |
+| **Atlas (CFO Agent)** | ✅ SILENT | Separate project (`trading-agent/`). 12 strategies, live on Kraken ($136) + OANDA. Startup scripts converted to silent VBS + `CREATE_NO_WINDOW` on all subprocess calls. No terminal popups on boot. |
 
 ## PropFlow Production Hardening Status (2026-03-26)
 
@@ -118,17 +118,33 @@ tags: [state, ephemeral]
 **Config:** `.agents/config.toml` [context], [cost_tracking], [memory_aging]
 **Skill:** `skills/context-optimization/SKILL.md`
 
+## Known Issues (2026-04-04)
+
+| Issue | Severity | Notes |
+|-------|----------|-------|
+| Zernio free plan limit | HIGH | 20 posts/month limit hit. 12 April posts reset to scheduled. Need plan upgrade or reduce posting frequency. |
+| SkoolWatchdog task path | LOW | Needs admin fix: `scripts/fix_watchdog_task.ps1` (one-time). Daemon running manually. |
+| TIKTIK IP Camera | MEDIUM | Waiting on Midas for NVR spec |
+| LinkedIn Auth | LOW | Need Chrome auth hookup when ready |
+| 3 apps missing CLAUDE.md | LOW | Grape Vine, Mindset, On The Hill |
+
 ## Last Heartbeat
 
-- **Date:** 2026-03-31
+- **Date:** 2026-04-04
 - **Agent:** BRAVO via Claude Code (Opus 4.6)
-- **Result:** Full context optimization implementation. 7 patterns from claw-code repo cross-referenced and implemented. 4 new files created, 7 files updated. System maintenance CLI tools operational.
+- **Result:** Terminal popup fix (all startup scripts silent). Skool V2 research-enhanced. Content pipeline debugged (Zernio free plan limit). Full system audit in progress.
 
-*Last updated: 2026-03-31*
+*Last updated: 2026-04-04*
 
 ## Obsidian Links
 > Connected notes for graph navigation
 
-- [[brain/SOUL]] | [[brain/AGENTS]] | [[brain/CAPABILITIES]]
-- [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]]
+- [[brain/SOUL]] | [[brain/USER]] | [[brain/AGENTS]] | [[brain/CAPABILITIES]]
+- [[brain/APP_REGISTRY]] | [[brain/CEO_OPERATING_SYSTEM]] | [[brain/OKRs]]
+- [[brain/BRAIN_LOOP]] | [[brain/GROWTH]] | [[brain/CHANGELOG]]
+- [[brain/RISK_REGISTER]] | [[brain/INTERACTION_PROTOCOL]]
+- [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]] | [[memory/DECISIONS]]
+- [[memory/PATTERNS]] | [[memory/MISTAKES]] | [[memory/SELF_REFLECTIONS]]
+- [[memory/content-strategy]] | [[memory/PROPOSED_CHANGES]]
+- [[skills/skool-automation/SKILL]] | [[skills/codex-delegation/SKILL]]
 - [[brain/DASHBOARD]]

@@ -107,6 +107,7 @@ def send_welcome_email(client, env_vars: dict[str, str], lead_email: str, lead_n
             encoding="utf-8",
             timeout=30,
             cwd=str(PROJECT_ROOT),
+            creationflags=0x08000000 if sys.platform == "win32" else 0,
         )
         if proc.returncode != 0:
             return f"email_failed: {proc.stderr.strip()[:200]}"

@@ -400,6 +400,6 @@ TODAY'S #1 PRIORITY
 - **Atlas CFO snapshot** → `C:\Users\User\APPS\trading-agent\brain\STATE.md` (read-only)
 
 ## Obsidian Links
-- [[brain/STATE]] | [[brain/USER]] | [[memory/ACTIVE_TASKS]]
+- [[brain/STATE]] | [[brain/USER]] | [[memory/ACTIVE_TASKS]] | [[brain/CAPABILITIES]]
 - [[skills/client-success/SKILL]] | [[skills/ceo-briefing/SKILL]]
 - [[.agents/workflows/ceo-briefing]] | [[scripts/ceo_dashboard]]

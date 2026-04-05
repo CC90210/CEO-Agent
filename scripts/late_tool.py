@@ -34,7 +34,7 @@ def load_env():
         sys.exit(1)
 
     env_vars = {}
-    with open(env_path, "r") as f:
+    with open(env_path, "r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line or line.startswith("#"):
@@ -64,6 +64,7 @@ def run_late_sdk(script_code):
             text=True,
             timeout=30,
             env=run_env,
+            creationflags=0x08000000 if sys.platform == "win32" else 0,
         )
         if result.returncode != 0:
             stderr = result.stderr.strip()

@@ -521,6 +521,6 @@ Ask these on the final call (5-10 min max):
 - **Capacity data** → update `brain/STATE.md` (team section)
 
 ## Obsidian Links
-- [[brain/USER]] | [[brain/STATE]] | [[memory/ACTIVE_TASKS]]
+- [[brain/USER]] | [[brain/STATE]] | [[memory/ACTIVE_TASKS]] | [[brain/CAPABILITIES]]
 - [[skills/ceo-dashboard/SKILL]] | [[skills/project-management/SKILL]]
 - [[.agents/workflows/onboard-team-member]]

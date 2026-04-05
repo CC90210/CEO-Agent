@@ -49,7 +49,7 @@ def load_env():
         sys.exit(1)
 
     env_vars = {}
-    with open(env_path, "r") as f:
+    with open(env_path, "r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:

@@ -10,7 +10,8 @@ aliases:
 # Command Center
 
 > **North Star:** $5,000 USD Net MRR by May 15, 2026
-> **Current MRR:** ~$2,691 USD | **Gap:** ~$2,309
+> **Current MRR:** ~$2,871 USD (Stripe $180 + Manual $2,691) | **Gap:** ~$2,129
+> **Risk:** 94% revenue from Bennett — diversification is critical
 
 ---
 
@@ -19,16 +20,19 @@ aliases:
 ### Core Intelligence
 - [[brain/SOUL]] — Identity & values (IMMUTABLE)
 - [[brain/STATE]] — Current operational state
-- [[brain/AGENTS]] — 15 subagent registry
-- [[brain/BRAIN_LOOP]] — 10-step reasoning protocol
+- [[brain/USER]] — CC's profile & preferences
+- [[brain/AGENTS]] — 17 subagent registry (incl. Codex)
+- [[brain/BRAIN_LOOP]] — 10-step reasoning + multi-hypothesis
 - [[brain/CAPABILITIES]] — Tools, MCPs, skills registry
-- [[brain/APP_REGISTRY]] — App routing table
+- [[brain/APP_REGISTRY]] — 12 app routing table
 - [[brain/GROWTH]] — Skill evolution tracker
+- [[brain/CHANGELOG]] — Self-modification audit trail
 
 ### Active Work
 - [[memory/ACTIVE_TASKS]] — Current task board
-- [[memory/SESSION_LOG]] — All agent activity
+- [[memory/SESSION_LOG]] — All agent activity (cross-AI)
 - [[memory/LEAD_TRACKER.csv|LEAD_TRACKER]] — Pipeline (CSV)
+- [[memory/content-strategy]] — Content Bible + outreach
 
 ### Knowledge Base
 - [[memory/PATTERNS]] — Validated patterns
@@ -36,9 +40,12 @@ aliases:
 - [[memory/DECISIONS]] — Architecture decisions
 - [[memory/SOP_LIBRARY]] — Standard procedures
 - [[memory/LONG_TERM]] — Persistent facts
+- [[memory/SELF_REFLECTIONS]] — Reflexion protocol entries
 
 ### CEO Operating System
 - [[brain/CEO_OPERATING_SYSTEM]] — 7 domains, daily rhythm, scaling triggers
+- [[brain/OKRs]] — Q2 2026 objectives & key results
+- [[brain/RISK_REGISTER]] — 10 tracked risks
 - [[skills/strategic-planning/SKILL]] — OKRs, quarterly planning
 - [[skills/client-success/SKILL]] — Health scoring, churn prevention, NPS
 - [[skills/competitive-intelligence/SKILL]] — Market research, `/competitive-report`
@@ -48,8 +55,15 @@ aliases:
 - [[skills/knowledge-management/SKILL]] — `/knowledge-maintenance`
 - [[skills/project-management/SKILL]] — Phase gates, milestones
 - [[skills/meeting-automation/SKILL]] — `/meeting-prep`, follow-up
-- [[skills/brand-guidelines/SKILL]] — Voice, tone, visual consistency
+- [[skills/sales-methodology/SKILL]] — NEPQ framework, objection handling
 - [[skills/content-engine/SKILL]] — Daily content rhythm
+
+### Automations
+- [[skills/skool-automation/SKILL]] — Skool V2 (research-enhanced post replies)
+- [[skills/codex-delegation/SKILL]] — Dual-AI execution (Bravo + Codex)
+- [[skills/cli-anything/SKILL]] — CLI wrapper generation
+- [[skills/browser-automation/SKILL]] — Playwright MCP
+- [[skills/hooks-automation/SKILL]] — Claude Code hooks
 
 ### Brand Context
 - [[APPS_CONTEXT/OASIS_AI_CLAUDE]] — OASIS AI Solutions
@@ -59,7 +73,7 @@ aliases:
 
 ---
 
-## Agent Registry
+## Agent Registry (17 agents)
 | Agent | Model | File |
 |-------|-------|------|
 | Architect | Opus | [[agents/architect]] |
@@ -77,10 +91,27 @@ aliases:
 | Documenter | Haiku | [[agents/documenter]] |
 | Explorer | Haiku | [[agents/explorer]] |
 | Meta-Agent | Sonnet | [[agents/meta-agent]] |
+| Skool Engine | Claude API | [[skills/skool-automation/SKILL]] |
+| Codex Executor | GPT-5.4 | [[skills/codex-delegation/SKILL]] |
 
 ---
 
-## Skills (60 total)
+## Automation Status
+| System | Status | Frequency |
+|--------|--------|-----------|
+| Bravo Scheduler (PM2) | Running | 60s poll |
+| Telegram Bot (PM2) | Running | Always-on |
+| Skool Community V2 | Running | 5 min cycle |
+| Email Inbox Monitor | Active | Every 5 min |
+| Funnel Lead Sync | Active | Every 5 min |
+| Content Publisher | Active | 9am/1pm/7pm |
+| Stripe Revenue Sync | Active | Daily 6am |
+| Lead Follow-up | Active | Daily 8am |
+| Weekly MRR Report | Active | Monday 9am |
+
+---
+
+## Skills (179+ total)
 > Use Dataview query in reading mode to see full skill list with metadata
 
 ---

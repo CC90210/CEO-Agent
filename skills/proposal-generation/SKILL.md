@@ -288,6 +288,6 @@ Before sending any proposal, verify:
 - **CEO Briefing:** Active proposals surface in Section 2 (Pipeline Health) of the daily briefing
 
 ## Obsidian Links
-- [[skills/lead-management/SKILL]] | [[skills/client-success/SKILL]]
+- [[skills/lead-management/SKILL]] | [[skills/client-success/SKILL]] | [[brain/CAPABILITIES]]
 - [[skills/revenue-operations/SKILL]] | [[skills/ceo-briefing/SKILL]]
 - [[memory/SESSION_LOG]] | [[brain/USER]]

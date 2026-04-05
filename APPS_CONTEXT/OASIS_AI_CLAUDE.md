@@ -1,4 +1,9 @@
+---
+tags: [brand, oasis, context]
+---
+
 > **ROUTING:** Local `C:\Users\User\APPS\oasis-ai-platform` | GitHub: CC90210/oasis-ai-platform | Supabase: sajanpiqysuwviucycjh | Deploy: Vercel
+> [[brain/DASHBOARD]] | [[brain/APP_REGISTRY]] | [[APPS_CONTEXT/OASIS_WORKFLOWS]]
 
 # OASIS AI Solutions
 

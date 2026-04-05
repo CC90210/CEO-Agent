@@ -138,5 +138,5 @@ CC should never wonder "what should I be doing right now?" The planner answers t
 Three agents, one empire.
 
 ## Obsidian Links
-- [[skills/ceo-briefing/SKILL]] | [[brain/STATE]] | [[memory/ACTIVE_TASKS]]
+- [[skills/ceo-briefing/SKILL]] | [[brain/STATE]] | [[memory/ACTIVE_TASKS]] | [[brain/CAPABILITIES]]
 - [[skills/content-engine/SKILL]] | [[brain/USER]]

@@ -109,6 +109,7 @@ def _get_account_map() -> dict[str, str]:
             encoding="utf-8",
             timeout=30,
             cwd=str(PROJECT_ROOT),
+            creationflags=0x08000000 if sys.platform == "win32" else 0,
         )
         if result.returncode != 0:
             print(
@@ -187,6 +188,7 @@ def publish_via_late(text: str, account_id: str) -> tuple[bool, str, str]:
             encoding="utf-8",
             timeout=60,
             cwd=str(PROJECT_ROOT),
+            creationflags=0x08000000 if sys.platform == "win32" else 0,
         )
         if result.returncode != 0:
             error = result.stderr.strip() or result.stdout.strip()

@@ -1,3 +1,9 @@
+---
+tags: [brand, oasis, workflows]
+---
+
+> [[APPS_CONTEXT/OASIS_AI_CLAUDE]] | [[brain/APP_REGISTRY]] | [[brain/DASHBOARD]]
+
 # WORKFLOW REGISTRY
 > Auto-maintained by Business Empire Agent. Updated after each workflow creation/modification.
 
