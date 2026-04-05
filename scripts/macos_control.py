@@ -73,6 +73,44 @@ MODIFIER_MAP = {
 }
 
 
+# ---- SECURITY: Input sanitization ----
+
+def sanitize_applescript_string(s):
+    """Remove characters that could break out of AppleScript string interpolation."""
+    return s.replace('"', '').replace('\\', '').replace('\n', ' ').replace('\r', '')
+
+
+def sanitize_url(url):
+    """Validate and sanitize a URL for use in AppleScript."""
+    url = url.strip()
+    if not url.startswith(('http://', 'https://', 'about:', 'file://')):
+        url = 'https://' + url
+    return sanitize_applescript_string(url)
+
+
+# Paths that should never be read/written/deleted via file commands
+SENSITIVE_PATHS = [
+    '/.ssh', '/.aws', '/.gnupg', '/.env', '/credentials',
+    '/id_rsa', '/id_ed25519', '/.npmrc', '/.pypirc',
+    '/keychain', '/Keychains', '/.config/gcloud',
+]
+
+# Process names that should never be killed
+PROTECTED_PROCESSES = [
+    'loginwindow', 'WindowServer', 'kernel_task', 'launchd',
+    'sshd', 'pm2', 'Dock', 'SystemUIServer', 'Finder',
+]
+
+
+def is_sensitive_path(path):
+    """Check if a path touches sensitive files/directories."""
+    expanded = os.path.expanduser(path)
+    for s in SENSITIVE_PATHS:
+        if s in expanded:
+            return True
+    return False
+
+
 # ---- SCREEN SIZE HELPER ----
 
 def get_screen_size():
@@ -103,11 +141,13 @@ RECORD_PID_FILE = "/tmp/macos_control_recording.pid"
 # ============================================================
 
 def cmd_open(args):
-    return run_osascript(f'tell application "{args.app}" to activate')
+    app = sanitize_applescript_string(args.app)
+    return run_osascript(f'tell application "{app}" to activate')
 
 
 def cmd_quit(args):
-    return run_osascript(f'tell application "{args.app}" to quit')
+    app = sanitize_applescript_string(args.app)
+    return run_osascript(f'tell application "{app}" to quit')
 
 
 def cmd_type(args):
@@ -1488,6 +1528,30 @@ def main():
     p.add_argument("--tab", type=int, required=True)
 
     args = parser.parse_args()
+
+    # SECURITY: Sanitize string arguments that get interpolated into AppleScript
+    if hasattr(args, 'app') and args.app:
+        args.app = sanitize_applescript_string(args.app)
+    if hasattr(args, 'url') and args.url:
+        args.url = sanitize_url(args.url)
+    if hasattr(args, 'title') and args.title:
+        args.title = sanitize_applescript_string(args.title)
+    if hasattr(args, 'message') and args.message:
+        args.message = sanitize_applescript_string(args.message)
+
+    # SECURITY: Block sensitive file paths
+    for attr in ('path', 'src', 'dst'):
+        val = getattr(args, attr, None)
+        if val and args.command in ('read-file', 'write-file', 'delete-file', 'move-file', 'copy-file'):
+            if is_sensitive_path(val):
+                print(json.dumps({"ok": False, "error": f"BLOCKED: Path contains sensitive location. Cannot access {val}"}))
+                sys.exit(1)
+
+    # SECURITY: Block killing protected system processes
+    if args.command == 'kill-process' and hasattr(args, 'name') and args.name:
+        if args.name.lower() in [p.lower() for p in PROTECTED_PROCESSES]:
+            print(json.dumps({"ok": False, "error": f"BLOCKED: Cannot kill protected process '{args.name}'"}))
+            sys.exit(1)
 
     commands = {
         # Original

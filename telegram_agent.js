@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 // ============================================================
-// BRAVO TELEGRAM BRIDGE V15.2
+// BRAVO TELEGRAM BRIDGE V15.3
 //
 // V11.0: Full-Context Parity — loads CLAUDE.md, brain files, skills refs.
 // V12.0: Conversation Memory — stores last 15 messages per chat,
@@ -19,6 +19,9 @@ const path = require('path');
 // V15.2: Full Computer Control — 60+ commands: apps, windows, browser, files, processes,
 //         input (scroll/right-click/double-click), network, audio, power, permissions,
 //         SoundCloud music, screenshots/recordings auto-relayed to Telegram chat.
+// V15.3: Security Hardening — AppleScript injection sanitization, !sys blocklist,
+//         callback user ID verification, execFile for cost tracking, sensitive path
+//         blocking, protected process list, rate limiting (5/10s).
 // ============================================================
 
 // ---- PLATFORM DETECTION ----
@@ -48,7 +51,7 @@ const log = (msg) => {
     try { fs.appendFileSync(LOG_FILE, line); } catch (_) {}
 };
 
-log(`Bravo Telegram Bridge V15.2 (${IS_MAC ? 'macOS' : 'Windows'} — Full Autonomy) starting...`);
+log(`Bravo Telegram Bridge V15.3 (${IS_MAC ? 'macOS' : 'Windows'} — Full Autonomy) starting...`);
 
 // ---- CONVERSATION HISTORY ----
 // Stores last N message pairs (user + assistant) per chat.
@@ -71,6 +74,11 @@ try {
 const saveHistory = () => {
     try { fs.writeFileSync(HISTORY_FILE, JSON.stringify(chatHistory)); } catch (_) {}
 };
+
+// ---- RATE LIMITING ----
+const RATE_LIMIT_WINDOW = 10000; // 10 seconds
+const RATE_LIMIT_MAX = 5;        // max 5 messages per window
+const rateLimitMap = {};          // userId -> [timestamps]
 
 const addToHistory = (chatId, role, text) => {
     const id = String(chatId);
@@ -452,11 +460,15 @@ const executeCli = (tool, userPrompt, chatId) => {
             const elapsed = Math.round((Date.now() - startTime) / 1000);
             log(`[DONE] ${tool} code=${code} stdout=${stdout.length}b stderr=${stderr.length}b time=${elapsed}s`);
 
-            // Cost tracking — log the CLI execution
+            // Cost tracking — log the CLI execution (uses execFile to prevent injection)
             const units = tool === 'claude' ? Math.ceil(elapsed / 60) * 3 : Math.ceil(elapsed / 60) * 2;
-            exec(`${PYTHON} scripts/cost_tracker.py log --label "telegram_${tool}" --units ${units} --detail "${userPrompt.substring(0, 80).replace(/"/g, "'")}"`, {
-                cwd: __dirname, windowsHide: true, timeout: 5000
-            }, () => {}); // fire-and-forget
+            const { execFile: execFileTrack } = require('child_process');
+            execFileTrack(PYTHON, [
+                'scripts/cost_tracker.py', 'log',
+                '--label', `telegram_${tool}`,
+                '--units', String(units),
+                '--detail', userPrompt.substring(0, 80)
+            ], { cwd: __dirname, windowsHide: true, timeout: 5000 }, () => {}); // fire-and-forget
 
             const raw = (stdout.trim() || stderr.trim());
             if (!raw) {
@@ -579,11 +591,21 @@ bot.on('message', async (msg) => {
         return bot.sendMessage(chatId, 'Unauthorized.').catch(() => {});
     }
 
+    // SECURITY: Rate limiting
+    const now = Date.now();
+    if (!rateLimitMap[userId]) rateLimitMap[userId] = [];
+    rateLimitMap[userId] = rateLimitMap[userId].filter(t => now - t < RATE_LIMIT_WINDOW);
+    if (rateLimitMap[userId].length >= RATE_LIMIT_MAX) {
+        log(`[RATE] Throttled ${user} (${userId})`);
+        return bot.sendMessage(chatId, 'Slow down — max 5 messages per 10 seconds.').catch(() => {});
+    }
+    rateLimitMap[userId].push(now);
+
     log(`[MSG] ${user} (${userId}): ${text}`);
 
     if (text === '/start' || text === '/help') {
         return bot.sendMessage(chatId, [
-            `Bravo Bridge V15.2 (${IS_MAC ? 'macOS' : 'Windows'} — Full Computer Control)`,
+            `Bravo Bridge V15.3 (${IS_MAC ? 'macOS' : 'Windows'} — Full Computer Control)`,
             '',
             'Just type anything → Claude handles it (25 turns)',
             IS_MAC ? '' : '',
@@ -655,11 +677,32 @@ bot.on('message', async (msg) => {
     }
 
     try {
-        // Shell passthrough
+        // Shell passthrough — with security blocklist
         if (text.startsWith('!sys ')) {
+            const sysCmd = text.slice(5).trim();
+            const SYS_BLOCKLIST = [
+                /rm\s+(-rf?|--recursive)\s+[\/~]/i,    // rm -rf / or ~
+                /mkfs/i, /dd\s+if=/i,                   // disk destruction
+                />\s*\/dev\/sd/i,                        // write to raw devices
+                /DROP\s+TABLE/i, /TRUNCATE\s+TABLE/i,   // database destruction
+                /git\s+push\s+--force\s+(main|master)/i, // force push to main
+                /git\s+reset\s+--hard/i,                 // hard reset
+                /curl.*\|\s*(sh|bash)/i,                 // pipe curl to shell
+                /wget.*\|\s*(sh|bash)/i,                 // pipe wget to shell
+                /\.env/i,                                // .env file access
+                /chmod\s+777/i,                          // world-writable permissions
+                /sudo\s+rm/i,                            // sudo rm
+            ];
+            if (SYS_BLOCKLIST.some(p => p.test(sysCmd))) {
+                await bot.sendMessage(chatId, 'BLOCKED: This command matches a security blocklist pattern.');
+                log(`[SECURITY] Blocked !sys command: ${sysCmd}`);
+                return;
+            }
+            log(`[SYS] Executing: ${sysCmd}`);
             await bot.sendMessage(chatId, 'Running...');
-            exec(text.slice(5), { windowsHide: true, timeout: 30000 }, (err, out, serr) => {
+            exec(sysCmd, { windowsHide: true, timeout: 30000 }, (err, out, serr) => {
                 const r = out || serr || (err ? err.message : 'Done.');
+                log(`[SYS] Result: ${r.substring(0, 200)}`);
                 bot.sendMessage(chatId, r.substring(0, 4000));
             });
             return;
@@ -720,7 +763,7 @@ bot.on('message', async (msg) => {
         }
         log(`[SENT] Delivered ${chunks.length} chunk(s) to chat ${chatId}`);
 
-        // V15.2: File relay — send any screenshots/recordings/files back to chat
+        // V15.3: File relay — send any screenshots/recordings/files back to chat
         const filesSent = await sendFilesToChat(chatId, result || '');
         if (filesSent > 0) log(`[FILE] Relayed ${filesSent} file(s) to chat`);
     } catch (err) {
@@ -732,7 +775,16 @@ bot.on('message', async (msg) => {
 // ---- APPROVAL GATE: Inline keyboard callback handler ----
 bot.on('callback_query', async (query) => {
     const chatId = query.message.chat.id;
+    const callbackUserId = String(query.from.id);
     const data = query.data;
+
+    // SECURITY: Verify the callback comes from an authorized user
+    if (!ALLOWED_USERS.includes(callbackUserId)) {
+        log(`[BLOCKED] Unauthorized callback from user ${callbackUserId}`);
+        await bot.answerCallbackQuery(query.id, { text: 'Unauthorized' }).catch(() => {});
+        return;
+    }
+
     const pending = PENDING_CONFIRMATIONS[String(chatId)];
 
     await bot.answerCallbackQuery(query.id).catch(() => {});
@@ -801,4 +853,4 @@ process.on('unhandledRejection', (err) => {
     log(`[UNHANDLED] ${err.message || err}`);
 });
 
-log(`Bridge V15.2 ready. Platform: ${IS_MAC ? 'macOS' : 'Windows'}. Computer control: ${IS_MAC ? 'FULL CONTROL (60+ cmds)' : 'N/A'}.`);
+log(`Bridge V15.3 ready. Platform: ${IS_MAC ? 'macOS' : 'Windows'}. Computer control: ${IS_MAC ? 'FULL CONTROL (60+ cmds)' : 'N/A'}.`);
