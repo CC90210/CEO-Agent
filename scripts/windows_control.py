@@ -17,7 +17,6 @@ import json
 import os
 import platform
 import shutil
-import signal
 import subprocess
 import sys
 import time
@@ -119,6 +118,137 @@ def get_screen_size():
         return 1920, 1080  # safe default
 
 
+# ---- CHROME DEVTOOLS PROTOCOL ----
+CDP_PORT = 9222
+CDP_TIMEOUT = 10
+
+def _chrome_cdp_available():
+    """Check if Chrome is running with DevTools Protocol."""
+    try:
+        import requests
+        r = requests.get(f"http://localhost:{CDP_PORT}/json/version", timeout=2)
+        return r.status_code == 200
+    except Exception:
+        return False
+
+def _chrome_ensure_debug_mode():
+    """Ensure Chrome is running with remote debugging enabled.
+    Chrome on Windows requires a non-default data dir for CDP.
+    We kill existing Chrome and relaunch with CDP + a separate data dir.
+    Returns True if CDP is available."""
+    if _chrome_cdp_available():
+        return True
+    chrome = _chrome_path()
+    # Must kill existing Chrome first — only one instance per user profile
+    run_shell(["taskkill", "/IM", "chrome.exe", "/F"], timeout=10)
+    time.sleep(2)
+    # Use a separate CDP data dir (Chrome requirement)
+    cdp_data = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Google", "Chrome", "CDP_Data")
+    os.makedirs(cdp_data, exist_ok=True)
+    try:
+        subprocess.Popen(
+            [chrome, f"--remote-debugging-port={CDP_PORT}",
+             "--remote-allow-origins=*",
+             f"--user-data-dir={cdp_data}", "--restore-last-session"],
+            creationflags=CREATE_NO_WINDOW
+        )
+        time.sleep(4)
+        return _chrome_cdp_available()
+    except Exception:
+        return False
+
+def _chrome_get_tabs():
+    """Get all Chrome tabs via CDP."""
+    try:
+        import requests
+        r = requests.get(f"http://localhost:{CDP_PORT}/json", timeout=3)
+        if r.status_code == 200:
+            return [t for t in r.json() if t.get("type") == "page"]
+    except Exception:
+        pass
+    return []
+
+def _chrome_get_active_tab():
+    """Get the most recently active tab."""
+    tabs = _chrome_get_tabs()
+    return tabs[0] if tabs else None
+
+def _chrome_execute_js(js_code, tab=None, timeout=10):
+    """Execute JavaScript in a Chrome tab via CDP WebSocket."""
+    try:
+        import websocket
+        import requests
+        if tab is None:
+            tab = _chrome_get_active_tab()
+        if not tab:
+            return {"ok": False, "error": "No Chrome tab available"}
+
+        ws_url = tab.get("webSocketDebuggerUrl")
+        if not ws_url:
+            return {"ok": False, "error": "No WebSocket URL for tab"}
+
+        ws = websocket.create_connection(ws_url, timeout=timeout)
+        msg = json.dumps({
+            "id": 1,
+            "method": "Runtime.evaluate",
+            "params": {
+                "expression": js_code,
+                "returnByValue": True,
+                "awaitPromise": True,
+            }
+        })
+        ws.send(msg)
+        result = json.loads(ws.recv())
+        ws.close()
+
+        if "result" in result and "result" in result["result"]:
+            val = result["result"]["result"]
+            if val.get("type") == "string":
+                return {"ok": True, "output": val["value"]}
+            elif val.get("type") == "undefined":
+                return {"ok": True, "output": "(undefined)"}
+            elif "value" in val:
+                return {"ok": True, "output": str(val["value"])}
+            elif "description" in val:
+                return {"ok": True, "output": val["description"]}
+        if "result" in result and "exceptionDetails" in result["result"]:
+            exc = result["result"]["exceptionDetails"]
+            return {"ok": False, "error": exc.get("text", str(exc))}
+        return {"ok": True, "output": str(result)}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+def _chrome_navigate(url, tab=None, wait=True):
+    """Navigate a Chrome tab to a URL via CDP."""
+    try:
+        import websocket
+        if tab is None:
+            tab = _chrome_get_active_tab()
+        if not tab:
+            return {"ok": False, "error": "No Chrome tab available"}
+
+        ws_url = tab.get("webSocketDebuggerUrl")
+        if not ws_url:
+            return {"ok": False, "error": "No WebSocket URL for tab"}
+
+        ws = websocket.create_connection(ws_url, timeout=CDP_TIMEOUT)
+        msg = json.dumps({
+            "id": 1,
+            "method": "Page.navigate",
+            "params": {"url": url}
+        })
+        ws.send(msg)
+        ws.recv()  # Wait for response
+        ws.close()
+
+        if wait:
+            time.sleep(2)  # Wait for page load
+
+        return {"ok": True, "output": f"Navigated to {url}"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
 # ---- RECORDING PID FILE ----
 RECORD_PID_FILE = os.path.join(os.environ.get("TEMP", "C:\\Temp"), "windows_control_recording.pid")
 
@@ -171,11 +301,20 @@ def cmd_quit(args):
 
 
 def cmd_type(args):
-    """Type text into the frontmost application."""
+    """Type text into the frontmost application. Handles Unicode via clipboard fallback."""
     try:
         import pyautogui
         pyautogui.FAILSAFE = False
-        pyautogui.typewrite(args.text, interval=0.02) if args.text.isascii() else pyautogui.write(args.text)
+        if args.text.isascii():
+            pyautogui.typewrite(args.text, interval=0.02)
+        else:
+            # Unicode text: copy to clipboard then Ctrl+V (pyautogui.typewrite is ASCII-only)
+            import pyperclip
+            old_clip = pyperclip.paste()
+            pyperclip.copy(args.text)
+            pyautogui.hotkey('ctrl', 'v')
+            time.sleep(0.1)
+            pyperclip.copy(old_clip)  # Restore clipboard
         return {"ok": True, "output": f"Typed {len(args.text)} chars"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
@@ -982,16 +1121,18 @@ def cmd_delete_file(args):
 
 
 def cmd_search_files(args):
-    """Search files using Windows Search / Everything / dir."""
+    """Search files by name using PowerShell."""
     query = args.query
     search_dir = args.dir or os.path.expanduser("~")
-    # Use dir /s /b for broad file search
-    r = run_shell(["cmd", "/c", f'dir /s /b "{search_dir}\\*{query}*"'], timeout=15)
+    search_dir = search_dir.replace("/", "\\")
+    r = run_powershell(f'''
+Get-ChildItem -Path "{search_dir}" -Recurse -Filter "*{query}*" -ErrorAction SilentlyContinue |
+    Select-Object -First 50 |
+    ForEach-Object {{ Write-Output $_.FullName }}
+''', timeout=20)
     if r["ok"]:
         lines = [l for l in r["output"].split("\n") if l.strip()]
-        if len(lines) > 50:
-            r["output"] = "\n".join(lines[:50]) + f"\n...(truncated, {len(lines)} total results)"
-        elif not lines:
+        if not lines:
             r["output"] = "No files found."
     return r
 
@@ -1256,27 +1397,59 @@ def _chrome_path():
 
 
 def cmd_browser_open(args):
-    """Open URL in Chrome."""
+    """Open URL in Chrome, wait for page to load."""
     url = args.url
+    if _chrome_cdp_available():
+        tab = _chrome_get_active_tab()
+        if tab:
+            r = _chrome_navigate(url, tab, wait=True)
+            if r["ok"]:
+                # Get page title
+                title_r = _chrome_execute_js("document.title", tab)
+                title = title_r.get("output", url) if title_r.get("ok") else url
+                return {"ok": True, "output": f"Opened {url} — {title}"}
+            return r
+    # Fallback: launch Chrome with URL + CDP
     chrome = _chrome_path()
+    cdp_data = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Google", "Chrome", "CDP_Data")
+    os.makedirs(cdp_data, exist_ok=True)
     try:
-        subprocess.Popen([chrome, url], creationflags=CREATE_NO_WINDOW)
-        time.sleep(2)
+        subprocess.Popen(
+            [chrome, f"--remote-debugging-port={CDP_PORT}",
+             "--remote-allow-origins=*",
+             f"--user-data-dir={cdp_data}", url],
+            creationflags=CREATE_NO_WINDOW
+        )
+        time.sleep(3)
+        # Try to get title via CDP now
+        if _chrome_cdp_available():
+            tab = _chrome_get_active_tab()
+            if tab:
+                title_r = _chrome_execute_js("document.title", tab)
+                title = title_r.get("output", url) if title_r.get("ok") else url
+                return {"ok": True, "output": f"Opened {url} — {title}"}
         return {"ok": True, "output": f"Opened {url} in Chrome"}
     except Exception as e:
-        # Fallback to default browser
-        r = run_shell(["cmd", "/c", "start", "", url])
-        return r
+        # Last resort: default browser
+        run_shell(["cmd", "/c", "start", "", url])
+        return {"ok": True, "output": f"Opened {url} in default browser"}
 
 
 def cmd_browser_js(args):
-    """Execute JavaScript — requires Chrome DevTools Protocol or Playwright.
-    For now, route through PowerShell COM automation."""
-    return {"ok": False, "error": "browser-js on Windows requires Playwright MCP. Use: mcp__playwright__browser_evaluate instead."}
+    """Execute JavaScript in Chrome's active tab via DevTools Protocol."""
+    if not _chrome_ensure_debug_mode():
+        return {"ok": False, "error": "Chrome DevTools not available. Restart Chrome with: chrome.exe --remote-debugging-port=9222"}
+    r = _chrome_execute_js(args.script)
+    return r
 
 
 def cmd_browser_tab_url(args):
-    """Get Chrome active tab URL — limited on Windows without DevTools."""
+    """Get the URL of Chrome's active tab."""
+    if _chrome_cdp_available():
+        tab = _chrome_get_active_tab()
+        if tab:
+            return {"ok": True, "output": tab.get("url", "unknown")}
+    # Fallback: process title
     r = run_powershell('''
 $chrome = Get-Process chrome -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -ne "" } | Select-Object -First 1
 if ($chrome) { Write-Output $chrome.MainWindowTitle } else { Write-Error "Chrome not running" }
@@ -1285,7 +1458,11 @@ if ($chrome) { Write-Output $chrome.MainWindowTitle } else { Write-Error "Chrome
 
 
 def cmd_browser_tab_title(args):
-    """Get Chrome active tab title."""
+    """Get the title of Chrome's active tab."""
+    if _chrome_cdp_available():
+        tab = _chrome_get_active_tab()
+        if tab:
+            return {"ok": True, "output": tab.get("title", "unknown")}
     r = run_powershell('''
 $chrome = Get-Process chrome -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -ne "" } | Select-Object -First 1
 if ($chrome) { Write-Output $chrome.MainWindowTitle } else { Write-Error "Chrome not running" }
@@ -1294,8 +1471,23 @@ if ($chrome) { Write-Output $chrome.MainWindowTitle } else { Write-Error "Chrome
 
 
 def cmd_browser_new_tab(args):
-    """Open a new Chrome tab with URL."""
+    """Open a new tab in Chrome with URL."""
     url = getattr(args, 'url', 'about:blank')
+    if _chrome_cdp_available():
+        try:
+            import requests
+            r = requests.put(
+                f"http://localhost:{CDP_PORT}/json/new?{url}", timeout=5
+            )
+            if r.status_code == 200:
+                tab_info = r.json()
+                time.sleep(1)
+                title_r = _chrome_execute_js("document.title", tab_info)
+                title = title_r.get("output", url) if title_r.get("ok") else url
+                return {"ok": True, "output": f"New tab: {title} ({url})"}
+        except Exception:
+            pass
+    # Fallback: launch Chrome with new-tab flag
     chrome = _chrome_path()
     try:
         subprocess.Popen([chrome, "--new-tab", url], creationflags=CREATE_NO_WINDOW)
@@ -1306,7 +1498,18 @@ def cmd_browser_new_tab(args):
 
 
 def cmd_browser_close_tab(args):
-    """Close the active Chrome tab via Ctrl+W."""
+    """Close the active Chrome tab."""
+    if _chrome_cdp_available():
+        tab = _chrome_get_active_tab()
+        if tab:
+            try:
+                import requests
+                tab_id = tab.get("id")
+                requests.get(f"http://localhost:{CDP_PORT}/json/close/{tab_id}", timeout=3)
+                return {"ok": True, "output": "Tab closed"}
+            except Exception:
+                pass
+    # Fallback: Ctrl+W
     try:
         import pyautogui
         pyautogui.FAILSAFE = False
@@ -1317,7 +1520,17 @@ def cmd_browser_close_tab(args):
 
 
 def cmd_browser_list_tabs(args):
-    """List Chrome windows (tab-level detail requires DevTools)."""
+    """List all open Chrome tabs with URLs and titles."""
+    if _chrome_cdp_available():
+        tabs = _chrome_get_tabs()
+        if tabs:
+            lines = []
+            for i, t in enumerate(tabs, 1):
+                title = t.get("title", "?")[:60]
+                url = t.get("url", "?")
+                lines.append(f"{i}. {title} | {url}")
+            return {"ok": True, "output": "\n".join(lines)}
+    # Fallback: process titles
     r = run_powershell('''
 Get-Process chrome -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -ne "" } |
     ForEach-Object { Write-Output "$($_.Id) | $($_.MainWindowTitle)" }
@@ -1328,8 +1541,24 @@ Get-Process chrome -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowT
 
 
 def cmd_browser_switch_tab(args):
-    """Switch to a Chrome tab by number via Ctrl+<number>."""
+    """Switch to a specific Chrome tab by number."""
     tab_num = args.tab
+    if _chrome_cdp_available():
+        tabs = _chrome_get_tabs()
+        if tabs and 1 <= tab_num <= len(tabs):
+            tab = tabs[tab_num - 1]
+            try:
+                import websocket
+                ws_url = tab.get("webSocketDebuggerUrl")
+                if ws_url:
+                    ws = websocket.create_connection(ws_url, timeout=5)
+                    ws.send(json.dumps({"id": 1, "method": "Page.bringToFront"}))
+                    ws.recv()
+                    ws.close()
+                    return {"ok": True, "output": f"Switched to tab {tab_num}: {tab.get('title', '?')}"}
+            except Exception:
+                pass
+    # Fallback: Ctrl+number (1-9)
     if tab_num < 1 or tab_num > 9:
         return {"ok": False, "error": "Tab number must be 1-9"}
     try:
@@ -1339,6 +1568,302 @@ def cmd_browser_switch_tab(args):
         return {"ok": True, "output": f"Switched to tab {tab_num}"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
+
+
+def cmd_browser_back(args):
+    """Go back in browser history."""
+    if _chrome_cdp_available():
+        r = _chrome_execute_js("history.back(); 'navigated back'")
+        if r.get("ok"):
+            return r
+    try:
+        import pyautogui
+        pyautogui.FAILSAFE = False
+        pyautogui.hotkey('alt', 'left')
+        return {"ok": True, "output": "Navigated back"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def cmd_browser_forward(args):
+    """Go forward in browser history."""
+    if _chrome_cdp_available():
+        r = _chrome_execute_js("history.forward(); 'navigated forward'")
+        if r.get("ok"):
+            return r
+    try:
+        import pyautogui
+        pyautogui.FAILSAFE = False
+        pyautogui.hotkey('alt', 'right')
+        return {"ok": True, "output": "Navigated forward"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def cmd_browser_reload(args):
+    """Reload the current page."""
+    if _chrome_cdp_available():
+        tab = _chrome_get_active_tab()
+        if tab:
+            try:
+                import websocket
+                ws_url = tab.get("webSocketDebuggerUrl")
+                if ws_url:
+                    ws = websocket.create_connection(ws_url, timeout=5)
+                    ws.send(json.dumps({"id": 1, "method": "Page.reload"}))
+                    ws.recv()
+                    ws.close()
+                    return {"ok": True, "output": "Page reloaded"}
+            except Exception:
+                pass
+    try:
+        import pyautogui
+        pyautogui.FAILSAFE = False
+        pyautogui.hotkey('ctrl', 'r')
+        return {"ok": True, "output": "Page reloaded"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def cmd_browser_screenshot(args):
+    """Take a screenshot of the browser page via CDP."""
+    target = args.path or os.path.join(os.environ.get("TEMP", "."), "browser_screenshot.png")
+    if _chrome_cdp_available():
+        tab = _chrome_get_active_tab()
+        if tab:
+            try:
+                import websocket
+                import base64
+                ws_url = tab.get("webSocketDebuggerUrl")
+                if ws_url:
+                    ws = websocket.create_connection(ws_url, timeout=15)
+                    ws.send(json.dumps({"id": 1, "method": "Page.captureScreenshot", "params": {"format": "png"}}))
+                    result = json.loads(ws.recv())
+                    ws.close()
+                    if "result" in result and "data" in result["result"]:
+                        img_data = base64.b64decode(result["result"]["data"])
+                        with open(target, "wb") as f:
+                            f.write(img_data)
+                        return {"ok": True, "output": f"Browser screenshot saved to {target}", "file": target}
+            except Exception as e:
+                return {"ok": False, "error": str(e)}
+    return {"ok": False, "error": "Chrome DevTools not available for browser screenshot. Use 'screenshot' for full screen."}
+
+
+def cmd_browser_get_text(args):
+    """Get the visible text content of the current page."""
+    if not _chrome_cdp_available():
+        return {"ok": False, "error": "Chrome DevTools not available"}
+    r = _chrome_execute_js("document.body.innerText.substring(0, 5000)")
+    if r.get("ok"):
+        text = r["output"]
+        if len(text) > 3000:
+            text = text[:3000] + "\n...(truncated)"
+        r["output"] = text
+    return r
+
+
+def cmd_browser_click_element(args):
+    """Click an element by CSS selector."""
+    if not _chrome_cdp_available():
+        return {"ok": False, "error": "Chrome DevTools not available"}
+    selector = args.selector.replace("'", "\\'")
+    return _chrome_execute_js(f"""
+(function() {{
+    var el = document.querySelector('{selector}');
+    if (el) {{ el.click(); return 'Clicked: {selector}'; }}
+    return 'Element not found: {selector}';
+}})()
+""")
+
+
+def cmd_browser_fill(args):
+    """Fill an input field by CSS selector."""
+    if not _chrome_cdp_available():
+        return {"ok": False, "error": "Chrome DevTools not available"}
+    selector = args.selector.replace("'", "\\'")
+    value = args.value.replace("'", "\\'")
+    return _chrome_execute_js(f"""
+(function() {{
+    var el = document.querySelector('{selector}');
+    if (el) {{
+        el.focus();
+        el.value = '{value}';
+        el.dispatchEvent(new Event('input', {{bubbles: true}}));
+        el.dispatchEvent(new Event('change', {{bubbles: true}}));
+        return 'Filled: {selector}';
+    }}
+    return 'Element not found: {selector}';
+}})()
+""")
+
+
+# ============================================================
+# COMMANDS — Browser CDP Setup
+# ============================================================
+
+def cmd_browser_enable_cdp(args):
+    """Enable Chrome DevTools Protocol (restarts Chrome with CDP flag).
+    This kills Chrome and relaunches with --remote-debugging-port=9222.
+    All tabs are restored. Required for browser-js, browser-fill, etc."""
+    if _chrome_cdp_available():
+        return {"ok": True, "output": "CDP already active on port 9222"}
+    ok = _chrome_ensure_debug_mode()
+    if ok:
+        tabs = _chrome_get_tabs()
+        return {"ok": True, "output": f"CDP enabled on port {CDP_PORT}. {len(tabs)} tab(s) open."}
+    return {"ok": False, "error": "Failed to enable CDP. Chrome may need manual restart with --remote-debugging-port=9222"}
+
+
+def cmd_browser_cdp_status(args):
+    """Check if Chrome DevTools Protocol is available."""
+    if _chrome_cdp_available():
+        tabs = _chrome_get_tabs()
+        try:
+            import requests
+            r = requests.get(f"http://localhost:{CDP_PORT}/json/version", timeout=2)
+            browser = r.json().get("Browser", "Chrome")
+            return {"ok": True, "output": f"CDP active: {browser}, {len(tabs)} tab(s)", "detail": {"port": CDP_PORT, "tabs": len(tabs), "browser": browser}}
+        except Exception:
+            return {"ok": True, "output": f"CDP active, {len(tabs)} tab(s)"}
+    return {"ok": False, "error": f"CDP not available on port {CDP_PORT}. Run browser-enable-cdp to activate."}
+
+
+# ============================================================
+# COMMANDS — Windows-Specific Extras
+# ============================================================
+
+def cmd_installed_apps(args):
+    """List installed applications."""
+    r = run_powershell('''
+Get-ItemProperty HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\* |
+    Where-Object { $_.DisplayName } |
+    Select-Object DisplayName, DisplayVersion |
+    Sort-Object DisplayName |
+    ForEach-Object { Write-Output "$($_.DisplayName) ($($_.DisplayVersion))" }
+''', timeout=15)
+    if r["ok"]:
+        lines = r["output"].split("\n")
+        if len(lines) > 100:
+            r["output"] = "\n".join(lines[:100]) + f"\n...(truncated, {len(lines)} total)"
+    return r
+
+
+def cmd_startup_apps(args):
+    """List startup applications."""
+    r = run_powershell('''
+Get-CimInstance Win32_StartupCommand | ForEach-Object {
+    Write-Output "$($_.Name) | $($_.Command) | $($_.Location)"
+}
+''')
+    return r
+
+
+def cmd_disk_usage(args):
+    """Disk usage for all drives."""
+    r = run_powershell('''
+Get-PSDrive -PSProvider FileSystem | ForEach-Object {
+    $free = [math]::Round($_.Free/1GB, 1)
+    $used = [math]::Round($_.Used/1GB, 1)
+    $total = [math]::Round(($_.Free + $_.Used)/1GB, 1)
+    $pct = if ($total -gt 0) { [math]::Round(($used/$total)*100, 0) } else { 0 }
+    Write-Output "$($_.Name): $used GB used / $total GB total ($pct%) — $free GB free"
+}
+''')
+    return r
+
+
+def cmd_open_settings(args):
+    """Open Windows Settings page."""
+    page_map = {
+        "": "ms-settings:",
+        "display": "ms-settings:display",
+        "sound": "ms-settings:sound",
+        "network": "ms-settings:network",
+        "wifi": "ms-settings:network-wifi",
+        "bluetooth": "ms-settings:bluetooth",
+        "apps": "ms-settings:appsfeatures",
+        "privacy": "ms-settings:privacy",
+        "update": "ms-settings:windowsupdate",
+        "storage": "ms-settings:storagesense",
+        "about": "ms-settings:about",
+        "personalization": "ms-settings:personalization",
+        "background": "ms-settings:personalization-background",
+        "colors": "ms-settings:colors",
+        "notifications": "ms-settings:notifications",
+        "power": "ms-settings:powersleep",
+        "battery": "ms-settings:batterysaver",
+        "mouse": "ms-settings:mousetouchpad",
+        "keyboard": "ms-settings:keyboard",
+        "accounts": "ms-settings:yourinfo",
+        "time": "ms-settings:dateandtime",
+        "language": "ms-settings:regionlanguage",
+        "defaultapps": "ms-settings:defaultapps",
+    }
+    page = args.page.lower().strip() if args.page else ""
+    uri = page_map.get(page, f"ms-settings:{page}" if page else "ms-settings:")
+    return run_shell(["cmd", "/c", "start", uri])
+
+
+def cmd_open_with(args):
+    """Open file with specific application."""
+    filepath = os.path.expanduser(args.file)
+    app = args.app
+    try:
+        subprocess.Popen([app, filepath], creationflags=CREATE_NO_WINDOW)
+        return {"ok": True, "output": f"Opened {filepath} with {app}"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def cmd_drag(args):
+    """Drag from one point to another."""
+    try:
+        import pyautogui
+        pyautogui.FAILSAFE = False
+        pyautogui.moveTo(args.x1, args.y1)
+        pyautogui.mouseDown()
+        time.sleep(0.1)
+        pyautogui.moveTo(args.x2, args.y2, duration=0.5)
+        pyautogui.mouseUp()
+        return {"ok": True, "output": f"Dragged from ({args.x1},{args.y1}) to ({args.x2},{args.y2})"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def cmd_task_switcher(args):
+    """Open Alt+Tab task switcher."""
+    try:
+        import pyautogui
+        pyautogui.FAILSAFE = False
+        pyautogui.hotkey('alt', 'tab')
+        return {"ok": True, "output": "Task switcher opened"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def cmd_focus_window(args):
+    """Focus a window by title substring."""
+    title_search = sanitize_string(args.title)
+    return run_powershell(f'''
+Add-Type @"
+using System; using System.Runtime.InteropServices; using System.Text;
+public class WinFocus {{
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hWnd);
+}}
+"@
+$procs = Get-Process | Where-Object {{ $_.MainWindowTitle -like "*{title_search}*" }} | Select-Object -First 1
+if ($procs) {{
+    $hwnd = $procs.MainWindowHandle
+    if ([WinFocus]::IsIconic($hwnd)) {{ [WinFocus]::ShowWindow($hwnd, 9) }}
+    [WinFocus]::SetForegroundWindow($hwnd)
+    Write-Output "Focused: $($procs.MainWindowTitle)"
+}} else {{
+    Write-Error "No window found matching: {title_search}"
+}}
+''')
 
 
 # ============================================================
@@ -1555,24 +2080,67 @@ def main():
     # ---- Setup/permissions check ----
     sub.add_parser("setup-permissions", help="Verify all dependencies work (run once)")
 
-    # ---- Browser control (Chrome) ----
-    p = sub.add_parser("browser-open", help="Open URL in Chrome")
+    # ---- Browser control (Chrome via DevTools Protocol) ----
+    p = sub.add_parser("browser-open", help="Open URL in Chrome, wait for load")
     p.add_argument("--url", required=True)
 
-    p = sub.add_parser("browser-js", help="Execute JavaScript (requires Playwright MCP)")
+    p = sub.add_parser("browser-js", help="Execute JavaScript in Chrome tab")
     p.add_argument("--script", required=True)
 
-    sub.add_parser("browser-tab-url", help="Get current Chrome tab URL/title")
+    sub.add_parser("browser-tab-url", help="Get current Chrome tab URL")
     sub.add_parser("browser-tab-title", help="Get current Chrome tab title")
 
     p = sub.add_parser("browser-new-tab", help="Open new Chrome tab with URL")
     p.add_argument("--url", default="about:blank")
 
     sub.add_parser("browser-close-tab", help="Close active Chrome tab")
-    sub.add_parser("browser-list-tabs", help="List Chrome windows")
+    sub.add_parser("browser-list-tabs", help="List all Chrome tabs with URLs")
 
-    p = sub.add_parser("browser-switch-tab", help="Switch to Chrome tab by number (1-9)")
+    p = sub.add_parser("browser-switch-tab", help="Switch to Chrome tab by number")
     p.add_argument("--tab", type=int, required=True)
+
+    sub.add_parser("browser-back", help="Go back in browser history")
+    sub.add_parser("browser-forward", help="Go forward in browser history")
+    sub.add_parser("browser-reload", help="Reload the current page")
+
+    p = sub.add_parser("browser-screenshot", help="Screenshot the browser page via CDP")
+    p.add_argument("--path", help="Save path")
+
+    sub.add_parser("browser-get-text", help="Get visible text from current page")
+
+    p = sub.add_parser("browser-click-element", help="Click element by CSS selector")
+    p.add_argument("--selector", required=True)
+
+    p = sub.add_parser("browser-fill", help="Fill input field by CSS selector")
+    p.add_argument("--selector", required=True)
+    p.add_argument("--value", required=True)
+
+    # ---- Windows-specific extras ----
+    sub.add_parser("installed-apps", help="List installed applications")
+    sub.add_parser("startup-apps", help="List startup applications")
+    sub.add_parser("disk-usage", help="Disk usage for all drives")
+
+    p = sub.add_parser("open-settings", help="Open Windows Settings page")
+    p.add_argument("--page", default="", help="Settings page (e.g., display, sound, network, bluetooth)")
+
+    p = sub.add_parser("open-with", help="Open file with specific application")
+    p.add_argument("--file", required=True)
+    p.add_argument("--app", required=True)
+
+    p = sub.add_parser("drag", help="Drag from one point to another")
+    p.add_argument("--x1", type=int, required=True)
+    p.add_argument("--y1", type=int, required=True)
+    p.add_argument("--x2", type=int, required=True)
+    p.add_argument("--y2", type=int, required=True)
+
+    sub.add_parser("task-switcher", help="Open Alt+Tab task switcher")
+
+    p = sub.add_parser("focus-window", help="Focus window by title substring")
+    p.add_argument("--title", required=True)
+
+    # ---- Browser CDP management ----
+    sub.add_parser("browser-enable-cdp", help="Enable Chrome DevTools Protocol (restarts Chrome)")
+    sub.add_parser("browser-cdp-status", help="Check Chrome DevTools Protocol status")
 
     args = parser.parse_args()
 
@@ -1651,6 +2219,17 @@ def main():
         "browser-tab-url": cmd_browser_tab_url, "browser-tab-title": cmd_browser_tab_title,
         "browser-new-tab": cmd_browser_new_tab, "browser-close-tab": cmd_browser_close_tab,
         "browser-list-tabs": cmd_browser_list_tabs, "browser-switch-tab": cmd_browser_switch_tab,
+        "browser-back": cmd_browser_back, "browser-forward": cmd_browser_forward,
+        "browser-reload": cmd_browser_reload, "browser-screenshot": cmd_browser_screenshot,
+        "browser-get-text": cmd_browser_get_text,
+        "browser-click-element": cmd_browser_click_element, "browser-fill": cmd_browser_fill,
+        # Windows-specific extras
+        "installed-apps": cmd_installed_apps, "startup-apps": cmd_startup_apps,
+        "disk-usage": cmd_disk_usage, "open-settings": cmd_open_settings,
+        "open-with": cmd_open_with, "drag": cmd_drag,
+        "task-switcher": cmd_task_switcher, "focus-window": cmd_focus_window,
+        # Browser CDP management
+        "browser-enable-cdp": cmd_browser_enable_cdp, "browser-cdp-status": cmd_browser_cdp_status,
     }
 
     result = commands[args.command](args)

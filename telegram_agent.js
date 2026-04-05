@@ -256,7 +256,9 @@ PROCESSES: list-processes [--sort cpu|mem] [--limit N] | kill-process --pid N | 
 NETWORK: get-ip | ping --host X [--count N]
 AUDIO: list-audio | switch-audio --device X
 POWER: shutdown --confirm | restart --confirm | logout --confirm
-BROWSER (Chrome): browser-open --url "..." | browser-js --script "..." | browser-tab-url | browser-tab-title | browser-new-tab --url "..." | browser-close-tab | browser-list-tabs | browser-switch-tab --tab N
+BROWSER (Chrome via DevTools Protocol): browser-open --url "..." | browser-js --script "..." | browser-tab-url | browser-tab-title | browser-new-tab --url "..." | browser-close-tab | browser-list-tabs | browser-switch-tab --tab N | browser-back | browser-forward | browser-reload | browser-screenshot [--path X] | browser-get-text | browser-click-element --selector "css" | browser-fill --selector "css" --value "text"
+CDP SETUP: browser-enable-cdp (restarts Chrome with DevTools — run once) | browser-cdp-status
+WINDOWS EXTRAS: installed-apps | startup-apps | disk-usage | open-settings [--page display|sound|network|...] | open-with --file X --app Y | drag --x1 N --y1 N --x2 N --y2 N | task-switcher | focus-window --title "..."
 All via: \${PYTHON} scripts/${IS_MAC ? 'macos' : 'windows'}_control.py <command> [args] [--json]
 
 === SoundCloud Music Control (atomic — use this, NOT manual browser steps) ===
@@ -324,7 +326,7 @@ Do NOT proceed until the next message says APPROVED or DENIED.
 (11) COMPUTER CONTROL: You have FULL control of this ${IS_MAC ? 'Mac' : 'PC'} via ${PYTHON} scripts/${IS_MAC ? 'macos' : 'windows'}_control.py (60+ commands). Categories: Apps (open/quit/list), Input (type/click/right-click/double-click/scroll/mouse-move/keystroke), Windows (move/resize/fullscreen/left/right/center/minimize/restore), Screenshots & Recording, System (dark-mode/dnd/wifi/bluetooth/brightness/volume/mute/sleep/lock/battery/sysinfo), Clipboard (read/write), Files (list/read/write/move/copy/delete/search/${IS_MAC ? 'reveal-in-finder' : 'reveal-in-explorer'}), Processes (list/kill), Network (get-ip/ping), Audio (list/switch devices), Power (shutdown/restart/logout — need --confirm), Browser (Chrome: open URLs, JS, tabs), Media (say/notify/url). Use natural language — figure out the right command from CC's intent.
 (12) FILE RELAY: When you take a screenshot or create a file, the bridge AUTOMATICALLY sends it back to this Telegram chat. Always save to ${TEMP_PATH}${IS_MAC ? '/' : '\\\\'} paths. Include the full file path in your response text so the relay can find it.
 (13) MUSIC: Use ${PYTHON} scripts/music_control.py for SoundCloud control. NEVER try to manually control the browser step-by-step for music. The script handles search, navigation, and playback in ONE atomic call.
-(14) BROWSER: Use browser-open/browser-js/browser-new-tab commands from ${IS_MAC ? 'macos' : 'windows'}_control.py for ANY web task. These are atomic — one command does the job. NEVER burn turns trying to manually orchestrate browser steps (open app → focus URL bar → type → enter → wait → click). Use the browser commands instead.
+(14) BROWSER: Use browser-open/browser-js/browser-new-tab commands from ${IS_MAC ? 'macos' : 'windows'}_control.py for ANY web task. These are atomic — one command does the job. NEVER burn turns trying to manually orchestrate browser steps. On Windows: run browser-enable-cdp ONCE per session to activate Chrome DevTools Protocol (full JS execution, tab control, page screenshots, element clicking, form filling). Use browser-click-element/browser-fill for interacting with page elements.
 
 CC's message:`;
 };

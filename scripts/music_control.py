@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 """
 SoundCloud Music Control — Atomic browser-based music commands.
-Uses Chrome + AppleScript. Requires: Chrome > View > Developer > Allow JavaScript from Apple Events.
+Cross-platform: macOS (AppleScript) + Windows (Chrome DevTools Protocol).
+
+macOS requires: Chrome > View > Developer > Allow JavaScript from Apple Events.
+Windows requires: Chrome running with --remote-debugging-port=9222.
+  Run: python scripts/windows_control.py browser-enable-cdp  (one-time setup)
 
 Usage:
-  python3 scripts/music_control.py play --query "24 songs playboy carti"
-  python3 scripts/music_control.py pause
-  python3 scripts/music_control.py resume
-  python3 scripts/music_control.py skip
-  python3 scripts/music_control.py previous
-  python3 scripts/music_control.py current
-  python3 scripts/music_control.py search --query "lo-fi beats"
+  python scripts/music_control.py play --query "24 songs playboy carti"
+  python scripts/music_control.py pause
+  python scripts/music_control.py resume
+  python scripts/music_control.py skip
+  python scripts/music_control.py previous
+  python scripts/music_control.py current
+  python scripts/music_control.py search --query "lo-fi beats"
 
 All commands support --json flag.
 """
@@ -24,11 +28,140 @@ import sys
 import time
 import urllib.parse
 
+IS_MAC = platform.system() == "Darwin"
+IS_WIN = platform.system() == "Windows"
+CREATE_NO_WINDOW = 0x08000000 if IS_WIN else 0
+CDP_PORT = 9222
 
-def guard_macos():
-    if platform.system() != "Darwin":
-        print(json.dumps({"error": "music_control.py is macOS-only."}))
-        sys.exit(1)
+
+# ---- Windows CDP helpers ----
+
+def _cdp_available():
+    try:
+        import requests
+        r = requests.get(f"http://localhost:{CDP_PORT}/json/version", timeout=2)
+        return r.status_code == 200
+    except Exception:
+        return False
+
+def _cdp_get_tabs():
+    try:
+        import requests
+        r = requests.get(f"http://localhost:{CDP_PORT}/json", timeout=3)
+        if r.status_code == 200:
+            return [t for t in r.json() if t.get("type") == "page"]
+    except Exception:
+        pass
+    return []
+
+def _cdp_execute_js(js_code, tab=None, timeout=10):
+    try:
+        import websocket
+        if tab is None:
+            tabs = _cdp_get_tabs()
+            tab = tabs[0] if tabs else None
+        if not tab:
+            return {"ok": False, "error": "No Chrome tab available. Run: python scripts/windows_control.py browser-enable-cdp"}
+        ws_url = tab.get("webSocketDebuggerUrl")
+        if not ws_url:
+            return {"ok": False, "error": "No WebSocket URL for tab"}
+        ws = websocket.create_connection(ws_url, timeout=timeout)
+        ws.send(json.dumps({"id": 1, "method": "Runtime.evaluate", "params": {"expression": js_code, "returnByValue": True, "awaitPromise": True}}))
+        result = json.loads(ws.recv())
+        ws.close()
+        if "result" in result and "result" in result["result"]:
+            val = result["result"]["result"]
+            if val.get("type") == "string":
+                return {"ok": True, "output": val["value"]}
+            elif "value" in val:
+                return {"ok": True, "output": str(val["value"])}
+        if "result" in result and "exceptionDetails" in result["result"]:
+            return {"ok": False, "error": result["result"]["exceptionDetails"].get("text", "JS error")}
+        return {"ok": True, "output": str(result)}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+def _cdp_navigate(url):
+    try:
+        import websocket
+        tabs = _cdp_get_tabs()
+        tab = tabs[0] if tabs else None
+        if not tab:
+            return {"ok": False, "error": "No Chrome tab"}
+        ws_url = tab.get("webSocketDebuggerUrl")
+        ws = websocket.create_connection(ws_url, timeout=10)
+        ws.send(json.dumps({"id": 1, "method": "Page.navigate", "params": {"url": url}}))
+        ws.recv()
+        ws.close()
+        time.sleep(2)
+        return {"ok": True, "output": f"Navigated to {url}"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+def _cdp_get_url():
+    tabs = _cdp_get_tabs()
+    if tabs:
+        return {"ok": True, "output": tabs[0].get("url", "")}
+    return {"ok": False, "error": "No tabs"}
+
+def _cdp_get_title():
+    tabs = _cdp_get_tabs()
+    if tabs:
+        return {"ok": True, "output": tabs[0].get("title", "")}
+    return {"ok": False, "error": "No tabs"}
+
+
+# ---- Cross-platform wrappers ----
+
+def chrome_open_url_xplat(url):
+    if IS_MAC:
+        return chrome_open_url(url)
+    if _cdp_available():
+        r = _cdp_navigate(url)
+        if r.get("ok"):
+            time.sleep(1)
+            title_r = _cdp_get_title()
+            return {"ok": True, "output": title_r.get("output", url)}
+        return r
+    return {"ok": False, "error": "Chrome CDP not available. Run: python scripts/windows_control.py browser-enable-cdp"}
+
+def chrome_js_xplat(js_code, timeout=15):
+    if IS_MAC:
+        return chrome_js(js_code, timeout)
+    return _cdp_execute_js(js_code, timeout=timeout)
+
+def chrome_get_url_xplat():
+    if IS_MAC:
+        return chrome_get_url()
+    return _cdp_get_url()
+
+def chrome_get_title_xplat():
+    if IS_MAC:
+        return chrome_get_title()
+    return _cdp_get_title()
+
+def send_spacebar():
+    """Send spacebar keystroke to Chrome (play/pause toggle)."""
+    if IS_MAC:
+        return run_osascript('''
+tell application "Google Chrome" to activate
+delay 0.5
+tell application "System Events"
+    key code 49
+end tell
+''')
+    try:
+        import pyautogui
+        pyautogui.FAILSAFE = False
+        # Focus Chrome first
+        subprocess.run(["powershell", "-NoProfile", "-Command",
+            'Add-Type @"\nusing System; using System.Runtime.InteropServices;\npublic class W { [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h); }\n"@\n$p = Get-Process chrome -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1\nif ($p) { [W]::SetForegroundWindow($p.MainWindowHandle) }'],
+            capture_output=True, creationflags=CREATE_NO_WINDOW, timeout=5)
+        time.sleep(0.3)
+        pyautogui.press('space')
+        return {"ok": True, "output": "spacebar sent"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 
 def run_osascript(script, timeout=30):
@@ -147,7 +280,7 @@ def cmd_play(args):
     track_url = f"https://soundcloud.com{track_urls[0]}"
 
     # Step 2: Open the track page directly in Chrome
-    r = chrome_open_url(track_url)
+    r = chrome_open_url_xplat(track_url)
     if not r.get("ok"):
         return r
 
@@ -155,13 +288,13 @@ def cmd_play(args):
     time.sleep(3)
 
     # Step 4: Get track info from page title
-    title_r = chrome_get_title()
+    title_r = chrome_get_title_xplat()
     track_title = title_r.get("output", "Unknown") if title_r.get("ok") else "Unknown"
     if " | " in track_title:
         track_title = track_title.split(" | ")[0]
 
     # Step 5: Try clicking play via JS first
-    r3 = chrome_js("""
+    r3 = chrome_js_xplat("""
 (function() {
     var btn = document.querySelector('.playButton, [aria-label*="Play"], [title="Play"], button.sc-button-play');
     if (btn) { btn.click(); return 'playing'; }
@@ -174,23 +307,17 @@ def cmd_play(args):
     play_status = r3.get("output", "") if r3.get("ok") else ""
 
     if not r3.get("ok") or play_status == "no-play-button":
-        # Fallback: send spacebar via System Events (SoundCloud keyboard shortcut)
-        run_osascript('''
-tell application "Google Chrome" to activate
-delay 0.5
-tell application "System Events"
-    key code 49
-end tell
-''')
+        # Fallback: send spacebar (SoundCloud keyboard shortcut)
+        send_spacebar()
 
     return {"ok": True, "output": f"Now playing: {track_title}"}
 
 
 def cmd_pause(args):
     """Pause/toggle playback."""
-    url_r = chrome_get_url()
+    url_r = chrome_get_url_xplat()
     if url_r.get("ok") and "soundcloud.com" in url_r.get("output", ""):
-        r = chrome_js("""
+        r = chrome_js_xplat("""
 (function() {
     var btn = document.querySelector('.playControls__play');
     if (btn) { btn.click(); return 'toggled'; }
@@ -201,13 +328,7 @@ def cmd_pause(args):
             return {"ok": True, "output": "Toggled play/pause"}
 
     # Fallback: spacebar
-    run_osascript('''
-tell application "Google Chrome" to activate
-delay 0.3
-tell application "System Events"
-    key code 49
-end tell
-''')
+    send_spacebar()
     return {"ok": True, "output": "Toggled play/pause"}
 
 
@@ -218,9 +339,9 @@ def cmd_resume(args):
 
 def cmd_skip(args):
     """Skip to next track."""
-    url_r = chrome_get_url()
+    url_r = chrome_get_url_xplat()
     if url_r.get("ok") and "soundcloud.com" in url_r.get("output", ""):
-        r = chrome_js("""
+        r = chrome_js_xplat("""
 (function() {
     var btn = document.querySelector('.playControls__next, .skipControl__next');
     if (btn) { btn.click(); return 'skipped'; }
@@ -231,21 +352,23 @@ def cmd_skip(args):
             return {"ok": True, "output": "Skipped to next track"}
 
     # Fallback: Shift+Right arrow
-    run_osascript('''
-tell application "Google Chrome" to activate
-delay 0.3
-tell application "System Events"
-    key code 124 using {shift down}
-end tell
-''')
+    if IS_MAC:
+        run_osascript('tell application "Google Chrome" to activate\ndelay 0.3\ntell application "System Events"\n    key code 124 using {shift down}\nend tell')
+    else:
+        try:
+            import pyautogui
+            pyautogui.FAILSAFE = False
+            pyautogui.hotkey('shift', 'right')
+        except Exception:
+            pass
     return {"ok": True, "output": "Skipped to next track"}
 
 
 def cmd_previous(args):
     """Go to previous track."""
-    url_r = chrome_get_url()
+    url_r = chrome_get_url_xplat()
     if url_r.get("ok") and "soundcloud.com" in url_r.get("output", ""):
-        r = chrome_js("""
+        r = chrome_js_xplat("""
 (function() {
     var btn = document.querySelector('.playControls__prev, .skipControl__previous');
     if (btn) { btn.click(); return 'prev'; }
@@ -256,23 +379,25 @@ def cmd_previous(args):
             return {"ok": True, "output": "Went to previous track"}
 
     # Fallback: Shift+Left arrow
-    run_osascript('''
-tell application "Google Chrome" to activate
-delay 0.3
-tell application "System Events"
-    key code 123 using {shift down}
-end tell
-''')
+    if IS_MAC:
+        run_osascript('tell application "Google Chrome" to activate\ndelay 0.3\ntell application "System Events"\n    key code 123 using {shift down}\nend tell')
+    else:
+        try:
+            import pyautogui
+            pyautogui.FAILSAFE = False
+            pyautogui.hotkey('shift', 'left')
+        except Exception:
+            pass
     return {"ok": True, "output": "Went to previous track"}
 
 
 def cmd_current(args):
     """Get info about the currently playing track."""
-    url_r = chrome_get_url()
+    url_r = chrome_get_url_xplat()
     if not url_r.get("ok") or "soundcloud.com" not in url_r.get("output", ""):
         return {"ok": False, "error": "Chrome is not on SoundCloud"}
 
-    r = chrome_js("""
+    r = chrome_js_xplat("""
 (function() {
     var titleEl = document.querySelector('.playbackSoundBadge__titleLink');
     var artistEl = document.querySelector('.playbackSoundBadge__lightLink');
@@ -293,7 +418,7 @@ def cmd_current(args):
 """)
     if not r.get("ok"):
         # Fallback: page title
-        title_r = chrome_get_title()
+        title_r = chrome_get_title_xplat()
         title = title_r.get("output", "Unknown") if title_r.get("ok") else "Unknown"
         if " | " in title:
             title = title.split(" | ")[0]
@@ -317,14 +442,14 @@ def cmd_search(args):
     encoded = urllib.parse.quote(query)
     search_url = f"https://soundcloud.com/search?q={encoded}"
 
-    r = chrome_open_url(search_url)
+    r = chrome_open_url_xplat(search_url)
     if not r.get("ok"):
         return r
 
     time.sleep(2)
 
     # Try getting result titles via JS
-    r2 = chrome_js("""
+    r2 = chrome_js_xplat("""
 (function() {
     var results = [];
     var items = document.querySelectorAll('.soundTitle__title span');
@@ -345,7 +470,6 @@ def cmd_search(args):
 # ---- MAIN ----
 
 def main():
-    guard_macos()
 
     json_output = "--json" in sys.argv
     if json_output:
