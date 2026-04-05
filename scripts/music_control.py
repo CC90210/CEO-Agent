@@ -274,14 +274,17 @@ def cmd_current(args):
 
     r = chrome_js("""
 (function() {
-    var title = document.querySelector('.playbackSoundBadge__titleLink span');
-    var artist = document.querySelector('.playbackSoundBadge__lightLink span');
+    var titleEl = document.querySelector('.playbackSoundBadge__titleLink');
+    var artistEl = document.querySelector('.playbackSoundBadge__lightLink');
     var progress = document.querySelector('.playbackTimeline__timePassed span:last-child');
     var duration = document.querySelector('.playbackTimeline__duration span:last-child');
     var isPlaying = !!document.querySelector('.playControls__play.playing');
+    var title = titleEl ? titleEl.textContent.trim() : 'Unknown';
+    var artist = artistEl ? artistEl.textContent.trim() : 'Unknown';
+    if (title.indexOf('Current track:') === 0) title = title.substring(15).trim();
     return JSON.stringify({
-        title: title ? title.textContent.trim() : 'Unknown',
-        artist: artist ? artist.textContent.trim() : 'Unknown',
+        title: title,
+        artist: artist,
         progress: progress ? progress.textContent.trim() : '?',
         duration: duration ? duration.textContent.trim() : '?',
         playing: isPlaying

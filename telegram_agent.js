@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 // ============================================================
-// BRAVO TELEGRAM BRIDGE V15.1
+// BRAVO TELEGRAM BRIDGE V15.2
 //
 // V11.0: Full-Context Parity — loads CLAUDE.md, brain files, skills refs.
 // V12.0: Conversation Memory — stores last 15 messages per chat,
@@ -16,9 +16,9 @@ const path = require('path');
 // V14.0: Cross-Platform + Computer Control — macOS/Windows runtime detection,
 //         natural language desktop control via macos_control.py,
 //         approval gate for destructive actions (inline Telegram buttons).
-// V15.1: Full Autonomy — window management, system toggles, clipboard relay,
-//         screen recording, file/screenshot relay back to Telegram chat,
-//         SoundCloud browser control, sysinfo. 35+ computer control commands.
+// V15.2: Full Computer Control — 60+ commands: apps, windows, browser, files, processes,
+//         input (scroll/right-click/double-click), network, audio, power, permissions,
+//         SoundCloud music, screenshots/recordings auto-relayed to Telegram chat.
 // ============================================================
 
 // ---- PLATFORM DETECTION ----
@@ -48,7 +48,7 @@ const log = (msg) => {
     try { fs.appendFileSync(LOG_FILE, line); } catch (_) {}
 };
 
-log(`Bravo Telegram Bridge V15.1 (${IS_MAC ? 'macOS' : 'Windows'} — Full Autonomy) starting...`);
+log(`Bravo Telegram Bridge V15.2 (${IS_MAC ? 'macOS' : 'Windows'} — Full Autonomy) starting...`);
 
 // ---- CONVERSATION HISTORY ----
 // Stores last N message pairs (user + assistant) per chat.
@@ -178,7 +178,7 @@ const classifyTier = (text) => {
     if (T3_KEYWORDS.some(k => t.includes(k))) return 3;
     // T1 only if ALL words match simple patterns (no action verbs)
     const words = t.split(/\s+/);
-    const hasActionVerb = /\b(build|fix|implement|create|update|add|modify|debug|test|deploy|write|change|edit|push|ship|review|open|launch|click|screenshot|volume|mute|play|switch|type|control|close|quit|move|resize|fullscreen|minimize|snap|record|recording|dark|wifi|bluetooth|brightness|clipboard|copy|paste|lock|sleep|battery|sysinfo|soundcloud|music|song|track|browse|search|navigate|tab|website|url|google|download|upload)\b/.test(t);
+    const hasActionVerb = /\b(build|fix|implement|create|update|add|modify|debug|test|deploy|write|change|edit|push|ship|review|open|launch|click|screenshot|volume|mute|play|switch|type|control|close|quit|move|resize|fullscreen|minimize|snap|record|recording|dark|wifi|bluetooth|brightness|clipboard|copy|paste|lock|sleep|battery|sysinfo|soundcloud|music|song|track|browse|search|navigate|tab|website|url|google|download|upload|scroll|right.click|double.click|mouse|file|process|kill|delete|reveal|finder|ping|network|ip|audio|shutdown|restart|logout|power)\b/.test(t);
     if (!hasActionVerb && T1_KEYWORDS.some(k => t.includes(k))) return 1;
     return 2;
 };
@@ -232,28 +232,34 @@ const loadContext = (tier = 2) => {
 
     // Computer control (macOS only)
     if (IS_MAC) {
-        chunks.push(`=== macOS Computer Control V2.0 (35+ commands) ===
+        chunks.push(`=== macOS Computer Control V2.1 (60+ commands — FULL CONTROL) ===
 APPS: open --app X | quit --app X | list-apps | frontmost
-INPUT: type --text "..." | keystroke --keys "cmd+c" | click --x N --y N
-WINDOWS: window-move --app X --x N --y N | window-resize --app X --w N --h N | window-fullscreen --app X | window-left --app X | window-right --app X | window-center --app X | window-minimize --app X | window-restore --app X | list-windows
+INPUT: type --text "..." | keystroke --keys "cmd+c" | click --x N --y N | right-click --x N --y N | double-click --x N --y N | scroll --direction up|down [--amount N] | mouse-move --x N --y N
+WINDOWS: window-move --app X --x N --y N | window-resize --app X --w N --h N | window-fullscreen --app X | window-left/right/center --app X | window-minimize/restore --app X | list-windows
 SCREENSHOTS: screenshot [--path /tmp/X.png] | screenshot-window [--path /tmp/X.png]
 RECORDING: record-start [--path /tmp/X.mov] | record-stop
 SYSTEM: dark-mode [--toggle|--on|--off] | dnd --on|--off | wifi --on|--off | bluetooth --on|--off | brightness --level N | volume --level N | mute [--toggle|--on|--off] | sleep-display | lock-screen | trash-empty | battery | sysinfo
 CLIPBOARD: clipboard-read | clipboard-write --text "..."
 MEDIA: say --text "..." | url --url "https://..." | notify --title "..." --message "..."
+FILES: list-files [--path X] [--recursive] | read-file --path X | write-file --path X --content "..." | move-file --src X --dst Y | copy-file --src X --dst Y | delete-file --path X [--force] | search-files --query X [--dir Y] | reveal-in-finder --path X
+PROCESSES: list-processes [--sort cpu|mem] [--limit N] | kill-process --pid N | kill-process --name X
+NETWORK: get-ip | ping --host X [--count N]
+AUDIO: list-audio | switch-audio --device X
+POWER: shutdown --confirm | restart --confirm | logout --confirm
 BROWSER (Chrome): browser-open --url "..." | browser-js --script "..." | browser-tab-url | browser-tab-title | browser-new-tab --url "..." | browser-close-tab | browser-list-tabs | browser-switch-tab --tab N
-All via: ${PYTHON} scripts/macos_control.py <command> [args] [--json]
+All via: \${PYTHON} scripts/macos_control.py <command> [args] [--json]
 
 === SoundCloud Music Control (atomic — use this, NOT manual browser steps) ===
-PLAY: ${PYTHON} scripts/music_control.py play --query "artist or song name"
-PAUSE/RESUME: ${PYTHON} scripts/music_control.py pause | resume
-SKIP/PREV: ${PYTHON} scripts/music_control.py skip | previous
-NOW PLAYING: ${PYTHON} scripts/music_control.py current
-SEARCH: ${PYTHON} scripts/music_control.py search --query "..."
+PLAY: \${PYTHON} scripts/music_control.py play --query "artist or song name"
+PAUSE/RESUME: \${PYTHON} scripts/music_control.py pause | resume
+SKIP/PREV: \${PYTHON} scripts/music_control.py skip | previous
+NOW PLAYING: \${PYTHON} scripts/music_control.py current
+SEARCH: \${PYTHON} scripts/music_control.py search --query "..."
 All support --json flag.
 
-CRITICAL: For music, use music_control.py (1 command = done). For web browsing, use browser-open/browser-js commands. NEVER try to manually orchestrate multi-step browser interactions (open app, focus URL bar, type, press enter, wait, click) — you WILL run out of turns. Use the atomic scripts.
-IMPORTANT: When taking screenshots or recordings, the file is AUTOMATICALLY sent back to the Telegram chat. Always use /tmp/ paths.`);
+CRITICAL: For music, use music_control.py (1 command = done). For web browsing, use browser-open/browser-js commands. NEVER try to manually orchestrate multi-step browser interactions — you WILL run out of turns. Use the atomic scripts.
+IMPORTANT: When taking screenshots or recordings, the file is AUTOMATICALLY sent back to the Telegram chat. Always use /tmp/ paths.
+POWER COMMANDS (shutdown/restart/logout) require --confirm flag. Always ask the user for confirmation FIRST.`);
     }
 
     if (tier === 2) {
@@ -305,7 +311,7 @@ TELEGRAM-SPECIFIC RULES:
 (10) APPROVAL GATE: Before executing ANY destructive action (deleting files, sending emails to clients, publishing content, modifying production data, running rm/del commands, shutting down services), you MUST output exactly this pattern and STOP:
 ⚠️ CONFIRM: [one-line description of what you are about to do]
 Do NOT proceed until the next message says APPROVED or DENIED.${IS_MAC ? `
-(11) COMPUTER CONTROL: You have FULL control of this Mac via ${PYTHON} scripts/macos_control.py (40+ commands). Open/quit apps, type, click, keystroke combos, window management (move, resize, fullscreen, split left/right, center, minimize), screenshots, screen recording, system toggles (dark mode, DND, WiFi, Bluetooth, brightness, volume, mute), clipboard read/write, battery/sysinfo, lock screen, empty trash, text-to-speech, notifications, URL opening, and FULL BROWSER CONTROL (Chrome: open URLs, execute JavaScript, manage tabs, read page content). Use natural language — figure out the right command from CC's intent.
+(11) COMPUTER CONTROL: You have FULL control of this Mac via ${PYTHON} scripts/macos_control.py (60+ commands). Categories: Apps (open/quit/list), Input (type/click/right-click/double-click/scroll/mouse-move/keystroke), Windows (move/resize/fullscreen/left/right/center/minimize/restore), Screenshots & Recording, System (dark-mode/dnd/wifi/bluetooth/brightness/volume/mute/sleep/lock/battery/sysinfo), Clipboard (read/write), Files (list/read/write/move/copy/delete/search/reveal-in-finder), Processes (list/kill), Network (get-ip/ping), Audio (list/switch devices), Power (shutdown/restart/logout — need --confirm), Browser (Chrome: open URLs, JS, tabs), Media (say/notify/url). Use natural language — figure out the right command from CC's intent.
 (12) FILE RELAY: When you take a screenshot or create a file, the bridge AUTOMATICALLY sends it back to this Telegram chat. Always save to /tmp/ paths. Include the full file path in your response text so the relay can find it.
 (13) MUSIC: Use ${PYTHON} scripts/music_control.py for SoundCloud control. NEVER try to manually control the browser step-by-step for music. The script handles search, navigation, and playback in ONE atomic call.
 (14) BROWSER: Use browser-open/browser-js/browser-new-tab commands from macos_control.py for ANY web task. These are atomic — one command does the job. NEVER burn turns trying to manually orchestrate browser steps (open app → focus URL bar → type → enter → wait → click). Use the browser commands instead.` : ''}
@@ -577,19 +583,21 @@ bot.on('message', async (msg) => {
 
     if (text === '/start' || text === '/help') {
         return bot.sendMessage(chatId, [
-            `Bravo Bridge V15.1 (${IS_MAC ? 'macOS' : 'Windows'} — Full Autonomy)`,
+            `Bravo Bridge V15.2 (${IS_MAC ? 'macOS' : 'Windows'} — Full Computer Control)`,
             '',
-            'Just type anything → Claude Code (default, 25 turns)',
+            'Just type anything → Claude handles it (25 turns)',
             IS_MAC ? '' : '',
-            IS_MAC ? 'COMPUTER CONTROL (40+ commands):' : '',
-            IS_MAC ? '"Open Chrome" / "snap Terminal to the left"' : '',
-            IS_MAC ? '"Take a screenshot" → image sent back here' : '',
-            IS_MAC ? '"Start recording" / "stop recording" → video sent' : '',
-            IS_MAC ? '"Toggle dark mode" / "turn off WiFi"' : '',
-            IS_MAC ? '"What\'s on my clipboard?" / "Copy this: ..."' : '',
-            IS_MAC ? '"Play 24 songs by Playboy Carti on SoundCloud"' : '',
-            IS_MAC ? '"Open google.com" / "List my browser tabs"' : '',
-            IS_MAC ? '"Battery?" / "System info?"' : '',
+            IS_MAC ? 'FULL COMPUTER CONTROL (60+ commands):' : '',
+            IS_MAC ? '  Apps: "Open Chrome" / "Quit Safari" / "What apps are running?"' : '',
+            IS_MAC ? '  Windows: "Snap Terminal left" / "Fullscreen Chrome"' : '',
+            IS_MAC ? '  Input: "Click at 500,300" / "Scroll down" / "Type hello"' : '',
+            IS_MAC ? '  Browser: "Open google.com" / "List tabs" / "Run JS on page"' : '',
+            IS_MAC ? '  Files: "List files on Desktop" / "Search for invoices"' : '',
+            IS_MAC ? '  Music: "Play Carti on SoundCloud" / "Skip" / "What\'s playing?"' : '',
+            IS_MAC ? '  System: "Dark mode" / "WiFi off" / "Battery?" / "Brightness 80"' : '',
+            IS_MAC ? '  Screenshots: "Take a screenshot" → sent here automatically' : '',
+            IS_MAC ? '  Network: "What\'s my IP?" / "Ping google.com"' : '',
+            IS_MAC ? '  Power: "Restart" / "Shutdown" (asks for confirmation)' : '',
             '',
             '!gemini <query> → Gemini CLI (fallback)',
             `!sys <cmd> → shell command on ${IS_MAC ? 'Mac' : 'PC'}`,
@@ -712,7 +720,7 @@ bot.on('message', async (msg) => {
         }
         log(`[SENT] Delivered ${chunks.length} chunk(s) to chat ${chatId}`);
 
-        // V15.1: File relay — send any screenshots/recordings/files back to chat
+        // V15.2: File relay — send any screenshots/recordings/files back to chat
         const filesSent = await sendFilesToChat(chatId, result || '');
         if (filesSent > 0) log(`[FILE] Relayed ${filesSent} file(s) to chat`);
     } catch (err) {
@@ -793,4 +801,4 @@ process.on('unhandledRejection', (err) => {
     log(`[UNHANDLED] ${err.message || err}`);
 });
 
-log(`Bridge V15.1 ready. Platform: ${IS_MAC ? 'macOS' : 'Windows'}. Computer control: ${IS_MAC ? 'FULL AUTONOMY (40+ cmds)' : 'N/A'}.`);
+log(`Bridge V15.2 ready. Platform: ${IS_MAC ? 'macOS' : 'Windows'}. Computer control: ${IS_MAC ? 'FULL CONTROL (60+ cmds)' : 'N/A'}.`);

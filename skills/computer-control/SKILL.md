@@ -2,26 +2,17 @@
 tags: [skill]
 ---
 
-# Computer Control V2.0 — Full Desktop Autonomy
+# Computer Control V2.1 — Full Desktop Autonomy (60+ Commands)
 
 ## Overview
 
-CC says "open my email", "snap Safari to the left", "toggle dark mode", or "what's on my clipboard?" via Telegram. Claude translates intent into the correct platform command. On macOS: `scripts/macos_control.py` (35+ AppleScript commands). On Windows: native shell/PowerShell commands.
+CC says anything implying computer control via Telegram. Claude translates intent into the correct command. On macOS: `scripts/macos_control.py` (60+ AppleScript commands). On Windows: native shell/PowerShell commands.
 
 **Core principle:** Claude interprets intent and picks the right tool. The user never types commands.
 
-**File relay:** Screenshots, recordings, and files are automatically sent back to the Telegram chat as images/videos/documents.
+**File relay:** Screenshots, recordings, and files are automatically sent back to the Telegram chat.
 
-## When to Use
-
-- CC sends a message implying local computer control
-- Opening/quitting apps, typing text, sending keystrokes
-- Window management (move, resize, split, fullscreen)
-- Screenshots, screen recording
-- System toggles (dark mode, WiFi, Bluetooth, DND, brightness)
-- Clipboard read/write
-- Music playback via SoundCloud browser
-- System diagnostics (battery, disk, RAM, CPU)
+**First run:** `python3 scripts/macos_control.py setup-permissions` — triggers all macOS permission prompts at once. Click Allow on each. After that, no more popups.
 
 ## macOS Commands (via macos_control.py)
 
@@ -33,12 +24,16 @@ CC says "open my email", "snap Safari to the left", "toggle dark mode", or "what
 | `list-apps` | Running applications |
 | `frontmost` | Current foreground app |
 
-### Input
+### Input Simulation
 | Command | What it does |
 |---------|-------------|
 | `type --text "..."` | Type into frontmost app |
 | `keystroke --keys "cmd+c"` | Send key combination |
 | `click --x <px> --y <px>` | Click at coordinates |
+| `right-click --x <px> --y <px>` | Right-click at coordinates |
+| `double-click --x <px> --y <px>` | Double-click at coordinates |
+| `scroll --direction up\|down [--amount N]` | Scroll up/down |
+| `mouse-move --x <px> --y <px>` | Move cursor to position |
 
 ### Window Management
 | Command | What it does |
@@ -75,13 +70,51 @@ CC says "open my email", "snap Safari to the left", "toggle dark mode", or "what
 | `lock-screen` | Lock the screen |
 | `trash-empty` | Empty the Trash |
 | `battery` | Battery status & time remaining |
-| `sysinfo` | Full system snapshot (battery, disk, RAM, CPU, WiFi, display) |
+| `sysinfo` | Full system snapshot |
 
 ### Clipboard
 | Command | What it does |
 |---------|-------------|
 | `clipboard-read` | Read clipboard contents |
 | `clipboard-write --text "..."` | Write to clipboard |
+
+### File Operations
+| Command | What it does |
+|---------|-------------|
+| `list-files [--path X] [--recursive]` | List directory contents |
+| `read-file --path X` | Read text file (10KB max) |
+| `write-file --path X --content "..."` | Write text to file |
+| `move-file --src X --dst Y` | Move/rename file |
+| `copy-file --src X --dst Y` | Copy file or directory |
+| `delete-file --path X [--force]` | Delete file (--force for dirs) |
+| `search-files --query X [--dir Y]` | Spotlight search |
+| `reveal-in-finder --path X` | Show in Finder |
+
+### Process Management
+| Command | What it does |
+|---------|-------------|
+| `list-processes [--sort cpu\|mem] [--limit N]` | Running processes |
+| `kill-process --pid N` | Kill by PID |
+| `kill-process --name X` | Kill by name |
+
+### Network
+| Command | What it does |
+|---------|-------------|
+| `get-ip` | Local and public IP |
+| `ping --host X [--count N]` | Ping a host |
+
+### Audio Devices
+| Command | What it does |
+|---------|-------------|
+| `list-audio` | List audio I/O devices |
+| `switch-audio --device X` | Switch output device |
+
+### Power (Destructive — requires --confirm)
+| Command | What it does |
+|---------|-------------|
+| `shutdown --confirm` | Shut down Mac |
+| `restart --confirm` | Restart Mac |
+| `logout --confirm` | Log out current user |
 
 ### Media & Utilities
 | Command | What it does |
@@ -103,7 +136,13 @@ CC says "open my email", "snap Safari to the left", "toggle dark mode", or "what
 | `browser-switch-tab --tab N` | Switch to tab by number |
 
 **Prerequisite:** Chrome > View > Developer > Allow JavaScript from Apple Events (one-time toggle).
-Without this, `browser-js` won't work — but all other browser commands work fine.
+
+### Permissions Setup
+| Command | What it does |
+|---------|-------------|
+| `setup-permissions` | Trigger ALL macOS permission prompts at once |
+
+Run once — click Allow on each popup. Covers: Accessibility, Chrome, Finder, Safari, Mail, System Settings, Notes, Calendar, Messages, Screen Recording, Notifications.
 
 ### SoundCloud Music (via `scripts/music_control.py`)
 | Command | What it does |
@@ -118,43 +157,31 @@ Without this, `browser-js` won't work — but all other browser commands work fi
 
 Run music: `python3 scripts/music_control.py <command> [args] [--json]`
 
-All macos_control commands support `--json` flag. Run from project root: `python3 scripts/macos_control.py <command>`
+All macos_control commands: `python3 scripts/macos_control.py <command> [--json]`
 
 ## Natural Language Mapping
 
 | CC says | Command(s) |
 |---------|------------|
-| "open my email" | `url --url "https://gmail.com"` |
+| "open my email" | `browser-open --url "https://gmail.com"` |
 | "snap Safari to the left" | `window-left --app Safari` |
-| "put Chrome on the right" | `window-right --app "Google Chrome"` |
-| "make Terminal fullscreen" | `window-fullscreen --app Terminal` |
 | "take a screenshot" | `screenshot` → auto-sent to Telegram |
-| "start recording my screen" | `record-start` |
-| "stop recording" | `record-stop` → video sent to Telegram |
+| "start recording" | `record-start` |
 | "toggle dark mode" | `dark-mode --toggle` |
-| "turn off WiFi" | `wifi --off` |
 | "what's on my clipboard?" | `clipboard-read` |
-| "copy this to clipboard: ..." | `clipboard-write --text "..."` |
 | "how's my battery?" | `battery` |
-| "system info" | `sysinfo` |
-| "mute" | `mute --on` |
-| "play 24 songs by Playboy Carti" | `music_control.py play --query "24 songs playboy carti"` |
-| "pause the music" | `music_control.py pause` |
-| "skip this song" | `music_control.py skip` |
-| "what's playing?" | `music_control.py current` |
+| "play 24 songs by Carti" | `music_control.py play --query "..."` |
 | "open google.com" | `browser-open --url "https://google.com"` |
 | "list my tabs" | `browser-list-tabs` |
-| "close this tab" | `browser-close-tab` |
-| "close Chrome" | `quit --app "Google Chrome"` |
-| "what apps are running?" | `list-apps` |
-| "lock my screen" | `lock-screen` |
-
-## SoundCloud Music Control
-
-Use `scripts/music_control.py` — atomic commands via Chrome (no manual browser steps):
-- `python3 scripts/music_control.py play --query "artist or song"` — searches + navigates + plays in ONE call
-- `python3 scripts/music_control.py pause` / `resume` / `skip` / `previous`
-- `python3 scripts/music_control.py current` — what's playing now
+| "what's my IP?" | `get-ip` |
+| "list files on Desktop" | `list-files --path ~/Desktop` |
+| "find invoices" | `search-files --query "invoice"` |
+| "kill Chrome" | `kill-process --name Chrome` |
+| "scroll down" | `scroll --direction down` |
+| "ping google" | `ping --host google.com` |
+| "restart my computer" | `restart --confirm` (with approval gate) |
+| "show file in Finder" | `reveal-in-finder --path X` |
+| "what processes are using CPU?" | `list-processes --sort cpu --limit 10` |
 
 ## Approval Gate
 
@@ -163,28 +190,20 @@ Use `scripts/music_control.py` — atomic commands via Chrome (no manual browser
 - Sending emails or messages
 - Running database mutations
 - Publishing content
-- Shutting down/restarting/locking the screen
+- Shutting down/restarting/logging out
 - Emptying trash
 - Turning off WiFi/Bluetooth
+- Killing processes
 
 **Actions NOT requiring confirmation:**
 - Opening/closing apps or URLs
-- Taking screenshots or recordings
-- Window management (move, resize, split)
-- Adjusting volume, brightness, mute
+- Screenshots, recordings
+- Window management
+- Volume, brightness, mute, dark mode
 - Reading clipboard or system info
-- Typing text or keystrokes (user explicitly asked)
-- Toggling dark mode
-
-## Prerequisites
-
-### macOS Accessibility Permissions (One-Time)
-
-`type`, `keystroke`, `click`, `list-windows`, `list-apps`, `frontmost`, and all window management commands require Accessibility permissions:
-1. System Settings > Privacy & Security > Accessibility
-2. Enable the terminal app (Terminal.app, iTerm2, or Node.js binary)
-
-Without permissions, these still work: `open`, `quit`, `screenshot`, `url`, `say`, `volume`, `mute`, `notify`, `dark-mode`, `battery`, `sysinfo`, `clipboard-read`, `clipboard-write`, `record-start`, `record-stop`
+- Typing, clicking, scrolling
+- File listing, reading, searching
+- Network diagnostics (ping, IP)
 
 ## Obsidian Links
 - [[brain/CAPABILITIES]] | [[brain/AGENTS]]

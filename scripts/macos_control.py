@@ -1,71 +1,14 @@
 #!/usr/bin/env python3
 """
-macOS Computer Control V2.0 — Full desktop automation for agent-driven control.
-Uses osascript (built-in macOS) for application control, keystrokes, window management,
-system toggles, clipboard, screen recording, and more.
-No external dependencies — stdlib only.
+macOS Computer Control V2.1 — Full desktop automation for agent-driven control.
+60+ commands covering apps, windows, browser, files, processes, input, system, network, power.
+Uses osascript (built-in macOS). No external dependencies — stdlib only.
 
 Platform: macOS only. Exits with error on other platforms.
-
-Usage:
-  # App control
-  python3 scripts/macos_control.py open --app Safari
-  python3 scripts/macos_control.py quit --app Safari
-  python3 scripts/macos_control.py type --text "Hello world"
-  python3 scripts/macos_control.py keystroke --keys "cmd+c"
-  python3 scripts/macos_control.py click --x 500 --y 300
-  python3 scripts/macos_control.py list-windows
-  python3 scripts/macos_control.py list-apps
-  python3 scripts/macos_control.py frontmost
-
-  # Window management
-  python3 scripts/macos_control.py window-move --app Safari --x 0 --y 0
-  python3 scripts/macos_control.py window-resize --app Safari --w 1280 --h 720
-  python3 scripts/macos_control.py window-fullscreen --app Safari
-  python3 scripts/macos_control.py window-left --app Safari
-  python3 scripts/macos_control.py window-right --app Safari
-  python3 scripts/macos_control.py window-center --app Safari
-  python3 scripts/macos_control.py window-minimize --app Safari
-  python3 scripts/macos_control.py window-restore --app Safari
-
-  # Screenshots & recording
-  python3 scripts/macos_control.py screenshot [--path /tmp/screen.png]
-  python3 scripts/macos_control.py screenshot-window [--path /tmp/win.png]
-  python3 scripts/macos_control.py record-start [--path /tmp/recording.mov]
-  python3 scripts/macos_control.py record-stop
-
-  # System toggles
-  python3 scripts/macos_control.py dark-mode [--on | --off | --toggle]
-  python3 scripts/macos_control.py dnd --on | --off
-  python3 scripts/macos_control.py wifi --on | --off
-  python3 scripts/macos_control.py bluetooth --on | --off
-  python3 scripts/macos_control.py brightness --level 80
-  python3 scripts/macos_control.py volume --level 50
-  python3 scripts/macos_control.py mute [--on | --off | --toggle]
-  python3 scripts/macos_control.py sleep-display
-  python3 scripts/macos_control.py lock-screen
-  python3 scripts/macos_control.py trash-empty
-  python3 scripts/macos_control.py battery
-
-  # Clipboard
-  python3 scripts/macos_control.py clipboard-read
-  python3 scripts/macos_control.py clipboard-write --text "Hello"
-
-  # Media & audio
-  python3 scripts/macos_control.py say --text "Hello CC"
-  python3 scripts/macos_control.py url --url "https://example.com"
-  python3 scripts/macos_control.py notify --title "Alert" --message "Task complete"
-
-  # System info
-  python3 scripts/macos_control.py sysinfo
-
-  # Browser control (Safari)
-  python3 scripts/macos_control.py browser-open --url "https://soundcloud.com"
-  python3 scripts/macos_control.py browser-js --script "document.title"
-  python3 scripts/macos_control.py browser-tab-url
-  python3 scripts/macos_control.py browser-tab-title
+First run: python3 scripts/macos_control.py setup-permissions  (click Allow on each popup, then no more popups)
 
 All commands support --json flag for agent consumption.
+Run: python3 scripts/macos_control.py --help  for full command list.
 """
 
 import argparse
@@ -390,11 +333,41 @@ tell application "{args.app}" to activate''')
 # ============================================================
 
 def cmd_screenshot_window(args):
-    """Screenshot of frontmost window only."""
+    """Screenshot of frontmost window only (non-interactive)."""
     target = args.path or "/tmp/screenshot_window.png"
-    result = run_shell(["screencapture", "-x", "-w", target])
+    # Get frontmost window bounds via System Events — try multiple approaches
+    r = run_osascript('''
+tell application "System Events"
+    set frontApp to first application process whose frontmost is true
+    try
+        set winPos to position of window 1 of frontApp
+        set winSize to size of window 1 of frontApp
+        return (item 1 of winPos as text) & "," & (item 2 of winPos as text) & "," & (item 1 of winSize as text) & "," & (item 2 of winSize as text)
+    on error
+        -- Try getting any visible window
+        repeat with proc in (every process whose visible is true)
+            try
+                set winPos to position of window 1 of proc
+                set winSize to size of window 1 of proc
+                return (item 1 of winPos as text) & "," & (item 2 of winPos as text) & "," & (item 1 of winSize as text) & "," & (item 2 of winSize as text)
+            end try
+        end repeat
+        return "none"
+    end try
+end tell''', timeout=10)
+    if r["ok"] and r["output"] != "none":
+        parts = r["output"].split(",")
+        if len(parts) == 4:
+            x, y, w, h = [p.strip() for p in parts]
+            result = run_shell(["screencapture", "-x", "-R", f"{x},{y},{w},{h}", target])
+            if result["ok"]:
+                result["output"] = f"Window screenshot saved to {target}"
+                result["file"] = target
+            return result
+    # Fallback to full screenshot
+    result = run_shell(["screencapture", "-x", target])
     if result["ok"]:
-        result["output"] = f"Window screenshot saved to {target}"
+        result["output"] = f"Full screenshot saved to {target} (no visible window found)"
         result["file"] = target
     return result
 
@@ -511,13 +484,27 @@ def cmd_bluetooth(args):
 
 def cmd_brightness(args):
     level = max(0, min(100, args.level))
-    # brightness CLI tool (brew install brightness)
+    val = level / 100.0
+    # Method 1: brightness CLI (if installed)
     r = run_shell(["which", "brightness"])
     if r["ok"]:
-        val = level / 100.0
         return run_shell(["brightness", str(val)])
-    # Fallback: AppleScript via System Preferences (less smooth)
-    return {"ok": False, "error": "Install brightness CLI: brew install brightness. Or use volume --level for audio."}
+    # Method 2: DisplayServices private framework (works on macOS 10.14+)
+    py_script = f"""
+import ctypes, ctypes.util
+try:
+    lib = ctypes.cdll.LoadLibrary('/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices')
+    lib.DisplayServicesSetBrightness.argtypes = [ctypes.c_int, ctypes.c_float]
+    lib.DisplayServicesSetBrightness(0, ctypes.c_float({val}))
+    print("Brightness set to {level}%")
+except Exception as e:
+    print(f"ERROR: {{e}}")
+    raise
+"""
+    r2 = run_shell(["python3", "-c", py_script])
+    if r2["ok"] and "ERROR" not in r2.get("output", ""):
+        return {"ok": True, "output": f"Brightness set to {level}%"}
+    return {"ok": False, "error": f"Brightness control failed. Install brightness CLI: brew install brightness"}
 
 
 def cmd_mute(args):
@@ -698,6 +685,425 @@ def cmd_sysinfo(args):
             lines.append(f"{label}: {info[key]}")
 
     return {"ok": True, "output": "\n".join(lines) if lines else "No system info available", "detail": info}
+
+
+# ============================================================
+# COMMANDS — File Operations (V2.1)
+# ============================================================
+
+def cmd_list_files(args):
+    """List files in a directory."""
+    path = args.path or os.path.expanduser("~")
+    flags = ["-la"]
+    if args.recursive:
+        flags = ["-laR"]
+    r = run_shell(["ls"] + flags + [path])
+    if r["ok"]:
+        lines = r["output"].split("\n")
+        if len(lines) > 100:
+            r["output"] = "\n".join(lines[:100]) + f"\n...(truncated, {len(lines)} total lines)"
+    return r
+
+
+def cmd_read_file(args):
+    """Read contents of a file (text only, truncated at 10KB)."""
+    path = os.path.expanduser(args.path)
+    if not os.path.isfile(path):
+        return {"ok": False, "error": f"File not found: {path}"}
+    try:
+        with open(path, "r", errors="replace") as f:
+            content = f.read(10240)
+        truncated = os.path.getsize(path) > 10240
+        return {"ok": True, "output": content + ("\n...(truncated)" if truncated else "")}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def cmd_write_file(args):
+    """Write text content to a file."""
+    path = os.path.expanduser(args.path)
+    try:
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        with open(path, "w") as f:
+            f.write(args.content)
+        return {"ok": True, "output": f"Wrote {len(args.content)} chars to {path}"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def cmd_move_file(args):
+    """Move or rename a file/directory."""
+    import shutil
+    src = os.path.expanduser(args.src)
+    dst = os.path.expanduser(args.dst)
+    try:
+        shutil.move(src, dst)
+        return {"ok": True, "output": f"Moved {src} → {dst}"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def cmd_copy_file(args):
+    """Copy a file or directory."""
+    import shutil
+    src = os.path.expanduser(args.src)
+    dst = os.path.expanduser(args.dst)
+    try:
+        if os.path.isdir(src):
+            shutil.copytree(src, dst)
+        else:
+            shutil.copy2(src, dst)
+        return {"ok": True, "output": f"Copied {src} → {dst}"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def cmd_delete_file(args):
+    """Delete a file (not directories, for safety)."""
+    import shutil
+    path = os.path.expanduser(args.path)
+    if not os.path.exists(path):
+        return {"ok": False, "error": f"Path not found: {path}"}
+    try:
+        if os.path.isdir(path):
+            if args.force:
+                shutil.rmtree(path)
+                return {"ok": True, "output": f"Deleted directory {path}"}
+            return {"ok": False, "error": f"{path} is a directory. Use --force to delete recursively."}
+        os.remove(path)
+        return {"ok": True, "output": f"Deleted {path}"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+def cmd_search_files(args):
+    """Search files using Spotlight (mdfind)."""
+    cmd = ["mdfind"]
+    if args.dir:
+        cmd += ["-onlyin", os.path.expanduser(args.dir)]
+    cmd.append(args.query)
+    r = run_shell(cmd, timeout=15)
+    if r["ok"]:
+        lines = r["output"].split("\n")
+        lines = [l for l in lines if l.strip()]
+        if len(lines) > 50:
+            r["output"] = "\n".join(lines[:50]) + f"\n...(truncated, {len(lines)} total results)"
+        elif not lines:
+            r["output"] = "No files found."
+    return r
+
+
+def cmd_reveal_in_finder(args):
+    """Reveal a file/folder in Finder."""
+    path = os.path.expanduser(args.path)
+    return run_osascript(f'''
+tell application "Finder"
+    reveal POSIX file "{path}"
+    activate
+end tell''')
+
+
+# ============================================================
+# COMMANDS — Process Management (V2.1)
+# ============================================================
+
+def cmd_list_processes(args):
+    """List running processes, sorted by CPU or memory."""
+    sort_flag = "-m" if args.sort == "mem" else "-r"
+    r = run_shell(["ps", "aux", "--sort", sort_flag] if sys.platform == "linux" else ["ps", "aux"])
+    if not r["ok"]:
+        return r
+    lines = r["output"].split("\n")
+    # Sort by CPU% (column 3) descending on macOS
+    if args.sort == "cpu" and len(lines) > 1:
+        header = lines[0]
+        procs = sorted(lines[1:], key=lambda l: float(l.split()[2]) if len(l.split()) > 2 else 0, reverse=True)
+        lines = [header] + procs
+    if args.limit:
+        lines = lines[:args.limit + 1]  # +1 for header
+    r["output"] = "\n".join(lines)
+    return r
+
+
+def cmd_kill_process(args):
+    """Kill a process by name or PID."""
+    if args.pid:
+        r = run_shell(["kill", "-9", str(args.pid)])
+        if r["ok"]:
+            r["output"] = f"Killed PID {args.pid}"
+        return r
+    if args.name:
+        r = run_shell(["pkill", "-f", args.name])
+        if r["ok"]:
+            r["output"] = f"Killed processes matching '{args.name}'"
+        return r
+    return {"ok": False, "error": "Specify --pid or --name"}
+
+
+# ============================================================
+# COMMANDS — Advanced Input (V2.1)
+# ============================================================
+
+def cmd_right_click(args):
+    """Right-click at screen coordinates."""
+    py_script = f"""
+import Quartz
+point = Quartz.CGPointMake({args.x}, {args.y})
+down = Quartz.CGEventCreateMouseEvent(None, Quartz.kCGEventRightMouseDown, point, 0)
+up = Quartz.CGEventCreateMouseEvent(None, Quartz.kCGEventRightMouseUp, point, 0)
+Quartz.CGEventPost(Quartz.kCGHIDEventTap, down)
+Quartz.CGEventPost(Quartz.kCGHIDEventTap, up)
+print("right-clicked at {args.x},{args.y}")
+"""
+    result = run_shell(["python3", "-c", py_script])
+    if not result["ok"] and "No module named" in result.get("error", ""):
+        # Fallback: cliclick
+        r = run_shell(["cliclick", f"rc:{args.x},{args.y}"])
+        if not r["ok"]:
+            return {"ok": False, "error": "Quartz unavailable and cliclick not installed."}
+        return r
+    return result
+
+
+def cmd_double_click(args):
+    """Double-click at screen coordinates."""
+    py_script = f"""
+import Quartz, time
+point = Quartz.CGPointMake({args.x}, {args.y})
+for _ in range(2):
+    down = Quartz.CGEventCreateMouseEvent(None, Quartz.kCGEventLeftMouseDown, point, 0)
+    up = Quartz.CGEventCreateMouseEvent(None, Quartz.kCGEventLeftMouseUp, point, 0)
+    Quartz.CGEventPost(Quartz.kCGHIDEventTap, down)
+    Quartz.CGEventPost(Quartz.kCGHIDEventTap, up)
+    time.sleep(0.05)
+print("double-clicked at {args.x},{args.y}")
+"""
+    result = run_shell(["python3", "-c", py_script])
+    if not result["ok"] and "No module named" in result.get("error", ""):
+        r = run_shell(["cliclick", f"dc:{args.x},{args.y}"])
+        if not r["ok"]:
+            return {"ok": False, "error": "Quartz unavailable and cliclick not installed."}
+        return r
+    return result
+
+
+def cmd_scroll(args):
+    """Scroll up/down by amount."""
+    direction = -abs(args.amount) if args.direction == "down" else abs(args.amount)
+    py_script = f"""
+import Quartz
+event = Quartz.CGEventCreateScrollWheelEvent(None, Quartz.kCGScrollEventUnitLine, 1, {direction})
+Quartz.CGEventPost(Quartz.kCGHIDEventTap, event)
+print("scrolled {'up' if direction > 0 else 'down'} by {abs(args.amount)}")
+"""
+    result = run_shell(["python3", "-c", py_script])
+    if not result["ok"] and "No module named" in result.get("error", ""):
+        # Fallback: use AppleScript key codes (page up/down)
+        key = 116 if args.direction == "up" else 121  # page up / page down
+        return run_osascript(f'''
+tell application "System Events"
+    key code {key}
+end tell''')
+    return result
+
+
+def cmd_mouse_move(args):
+    """Move mouse cursor to coordinates."""
+    py_script = f"""
+import Quartz
+event = Quartz.CGEventCreateMouseEvent(None, Quartz.kCGEventMouseMoved, Quartz.CGPointMake({args.x}, {args.y}), 0)
+Quartz.CGEventPost(Quartz.kCGHIDEventTap, event)
+print("mouse moved to {args.x},{args.y}")
+"""
+    result = run_shell(["python3", "-c", py_script])
+    if not result["ok"] and "No module named" in result.get("error", ""):
+        r = run_shell(["cliclick", f"m:{args.x},{args.y}"])
+        if not r["ok"]:
+            return {"ok": False, "error": "Quartz unavailable and cliclick not installed."}
+        return r
+    return result
+
+
+# ============================================================
+# COMMANDS — Audio Devices (V2.1)
+# ============================================================
+
+def cmd_list_audio(args):
+    """List audio input/output devices."""
+    r = run_shell(["system_profiler", "SPAudioDataType"], timeout=10)
+    if not r["ok"]:
+        return r
+    # Parse into cleaner format
+    devices = []
+    current = {}
+    for line in r["output"].split("\n"):
+        line = line.strip()
+        if not line:
+            if current:
+                devices.append(current)
+                current = {}
+            continue
+        if ":" in line:
+            key, val = line.split(":", 1)
+            current[key.strip()] = val.strip()
+    if current:
+        devices.append(current)
+    names = [d.get("Default Output Device", d.get("Default Input Device", str(d))) for d in devices if d]
+    r["output"] = "\n".join(names) if names else r["output"]
+    return r
+
+
+def cmd_switch_audio(args):
+    """Switch audio output device using SwitchAudioSource (if installed)."""
+    r = run_shell(["which", "SwitchAudioSource"])
+    if r["ok"]:
+        return run_shell(["SwitchAudioSource", "-s", args.device])
+    return {"ok": False, "error": "Install SwitchAudioSource: brew install switchaudio-osx"}
+
+
+# ============================================================
+# COMMANDS — Network (V2.1)
+# ============================================================
+
+def cmd_get_ip(args):
+    """Get local and public IP addresses."""
+    info = {}
+    r = run_shell(["ipconfig", "getifaddr", "en0"])
+    if r["ok"]:
+        info["local_wifi"] = r["output"].strip()
+    r = run_shell(["curl", "-s", "https://api.ipify.org"], timeout=10)
+    if r["ok"]:
+        info["public"] = r["output"].strip()
+    if info:
+        parts = [f"Local: {info.get('local_wifi', '?')}", f"Public: {info.get('public', '?')}"]
+        return {"ok": True, "output": " | ".join(parts), "detail": info}
+    return {"ok": False, "error": "Could not determine IP"}
+
+
+def cmd_ping(args):
+    """Ping a host."""
+    count = str(args.count or 3)
+    r = run_shell(["ping", "-c", count, args.host], timeout=30)
+    return r
+
+
+# ============================================================
+# COMMANDS — Power (V2.1 — Destructive, use with confirmation)
+# ============================================================
+
+def cmd_shutdown(args):
+    """Shut down the Mac. Requires confirmation flag."""
+    if not args.confirm:
+        return {"ok": False, "error": "Destructive action. Add --confirm to proceed."}
+    return run_osascript('tell application "System Events" to shut down')
+
+
+def cmd_restart(args):
+    """Restart the Mac. Requires confirmation flag."""
+    if not args.confirm:
+        return {"ok": False, "error": "Destructive action. Add --confirm to proceed."}
+    return run_osascript('tell application "System Events" to restart')
+
+
+def cmd_logout(args):
+    """Log out the current user. Requires confirmation flag."""
+    if not args.confirm:
+        return {"ok": False, "error": "Destructive action. Add --confirm to proceed."}
+    return run_osascript('tell application "System Events" to log out')
+
+
+# ============================================================
+# COMMANDS — Permissions Setup (V2.1)
+# ============================================================
+
+def cmd_setup_permissions(args):
+    """Trigger all common permission prompts at once so macOS remembers them.
+    Run this once — click Allow on each popup. After that, no more popups."""
+    results = []
+
+    # 1. Accessibility (System Events — keystrokes, clicks)
+    r = run_osascript('''
+tell application "System Events"
+    set frontApp to name of first application process whose frontmost is true
+    return "Accessibility: OK — frontmost app is " & frontApp
+end tell''', timeout=10)
+    results.append(f"Accessibility: {'PASS' if r['ok'] else 'NEEDS PERMISSION — click Allow'}")
+
+    # 2. Automation — Chrome
+    r = run_osascript('''
+tell application "Google Chrome"
+    return "Chrome automation: OK — " & (count of windows) & " windows"
+end tell''', timeout=10)
+    results.append(f"Chrome control: {'PASS' if r['ok'] else 'NEEDS PERMISSION — click Allow'}")
+
+    # 3. Automation — Finder
+    r = run_osascript('''
+tell application "Finder"
+    return "Finder automation: OK"
+end tell''', timeout=10)
+    results.append(f"Finder control: {'PASS' if r['ok'] else 'NEEDS PERMISSION — click Allow'}")
+
+    # 4. Automation — Safari
+    r = run_osascript('''
+tell application "Safari"
+    return "Safari automation: OK"
+end tell''', timeout=10)
+    results.append(f"Safari control: {'PASS' if r['ok'] else 'NEEDS PERMISSION — click Allow'}")
+
+    # 5. Automation — Mail
+    r = run_osascript('''
+tell application "Mail"
+    return "Mail automation: OK"
+end tell''', timeout=10)
+    results.append(f"Mail control: {'PASS' if r['ok'] else 'NEEDS PERMISSION — click Allow'}")
+
+    # 6. Automation — System Preferences/Settings
+    r = run_osascript('''
+tell application "System Settings"
+    return "Settings automation: OK"
+end tell''', timeout=10)
+    results.append(f"System Settings: {'PASS' if r['ok'] else 'NEEDS PERMISSION — click Allow'}")
+
+    # 7. Automation — Notes
+    r = run_osascript('''
+tell application "Notes"
+    return "Notes automation: OK"
+end tell''', timeout=10)
+    results.append(f"Notes control: {'PASS' if r['ok'] else 'NEEDS PERMISSION — click Allow'}")
+
+    # 8. Automation — Calendar
+    r = run_osascript('''
+tell application "Calendar"
+    return "Calendar automation: OK"
+end tell''', timeout=10)
+    results.append(f"Calendar control: {'PASS' if r['ok'] else 'NEEDS PERMISSION — click Allow'}")
+
+    # 9. Automation — Messages (if CC wants)
+    r = run_osascript('''
+tell application "Messages"
+    return "Messages automation: OK"
+end tell''', timeout=10)
+    results.append(f"Messages control: {'PASS' if r['ok'] else 'NEEDS PERMISSION — click Allow'}")
+
+    # 10. Screen recording permission test
+    r = run_shell(["screencapture", "-x", "/tmp/_perm_test.png"])
+    if r["ok"] and os.path.exists("/tmp/_perm_test.png"):
+        sz = os.path.getsize("/tmp/_perm_test.png")
+        results.append(f"Screen capture: {'PASS' if sz > 1000 else 'BLANK — grant Screen Recording permission'}")
+        os.remove("/tmp/_perm_test.png")
+    else:
+        results.append("Screen capture: NEEDS PERMISSION")
+
+    # 11. Notification
+    r = run_osascript('display notification "Permissions setup complete" with title "Bravo"')
+    results.append(f"Notifications: {'PASS' if r['ok'] else 'NEEDS PERMISSION'}")
+
+    summary = "\n".join(results)
+    all_pass = all("PASS" in r for r in results)
+    return {
+        "ok": True,
+        "output": f"{'All permissions granted!' if all_pass else 'Some permissions need approval — click Allow on any popups that appeared, then run again.'}\n\n{summary}"
+    }
 
 
 # ============================================================
@@ -979,6 +1385,89 @@ def main():
     # ---- System info ----
     sub.add_parser("sysinfo", help="Full system info snapshot")
 
+    # ---- File operations ----
+    p = sub.add_parser("list-files", help="List files in a directory")
+    p.add_argument("--path", help="Directory path (default: home)")
+    p.add_argument("--recursive", action="store_true", help="List recursively")
+
+    p = sub.add_parser("read-file", help="Read text file contents")
+    p.add_argument("--path", required=True)
+
+    p = sub.add_parser("write-file", help="Write text to a file")
+    p.add_argument("--path", required=True)
+    p.add_argument("--content", required=True)
+
+    p = sub.add_parser("move-file", help="Move/rename a file")
+    p.add_argument("--src", required=True)
+    p.add_argument("--dst", required=True)
+
+    p = sub.add_parser("copy-file", help="Copy a file or directory")
+    p.add_argument("--src", required=True)
+    p.add_argument("--dst", required=True)
+
+    p = sub.add_parser("delete-file", help="Delete a file")
+    p.add_argument("--path", required=True)
+    p.add_argument("--force", action="store_true", help="Force delete directories")
+
+    p = sub.add_parser("search-files", help="Search files via Spotlight")
+    p.add_argument("--query", required=True)
+    p.add_argument("--dir", help="Limit search to directory")
+
+    p = sub.add_parser("reveal-in-finder", help="Show file in Finder")
+    p.add_argument("--path", required=True)
+
+    # ---- Process management ----
+    p = sub.add_parser("list-processes", help="List running processes")
+    p.add_argument("--sort", choices=["cpu", "mem"], default="cpu")
+    p.add_argument("--limit", type=int, help="Max processes to show")
+
+    p = sub.add_parser("kill-process", help="Kill a process by name or PID")
+    p.add_argument("--pid", type=int)
+    p.add_argument("--name")
+
+    # ---- Advanced input ----
+    p = sub.add_parser("right-click", help="Right-click at coordinates")
+    p.add_argument("--x", type=int, required=True)
+    p.add_argument("--y", type=int, required=True)
+
+    p = sub.add_parser("double-click", help="Double-click at coordinates")
+    p.add_argument("--x", type=int, required=True)
+    p.add_argument("--y", type=int, required=True)
+
+    p = sub.add_parser("scroll", help="Scroll up or down")
+    p.add_argument("--direction", choices=["up", "down"], required=True)
+    p.add_argument("--amount", type=int, default=5, help="Scroll lines (default: 5)")
+
+    p = sub.add_parser("mouse-move", help="Move mouse to coordinates")
+    p.add_argument("--x", type=int, required=True)
+    p.add_argument("--y", type=int, required=True)
+
+    # ---- Audio devices ----
+    sub.add_parser("list-audio", help="List audio devices")
+
+    p = sub.add_parser("switch-audio", help="Switch audio output device")
+    p.add_argument("--device", required=True)
+
+    # ---- Network ----
+    sub.add_parser("get-ip", help="Get local and public IP")
+
+    p = sub.add_parser("ping", help="Ping a host")
+    p.add_argument("--host", required=True)
+    p.add_argument("--count", type=int, default=3)
+
+    # ---- Power (destructive) ----
+    p = sub.add_parser("shutdown", help="Shut down the Mac (needs --confirm)")
+    p.add_argument("--confirm", action="store_true")
+
+    p = sub.add_parser("restart", help="Restart the Mac (needs --confirm)")
+    p.add_argument("--confirm", action="store_true")
+
+    p = sub.add_parser("logout", help="Log out (needs --confirm)")
+    p.add_argument("--confirm", action="store_true")
+
+    # ---- Permissions setup ----
+    sub.add_parser("setup-permissions", help="Trigger all permission prompts (run once)")
+
     # ---- Browser control (Chrome) ----
     p = sub.add_parser("browser-open", help="Open URL in Chrome, wait for load")
     p.add_argument("--url", required=True)
@@ -1028,6 +1517,24 @@ def main():
         "clipboard-read": cmd_clipboard_read, "clipboard-write": cmd_clipboard_write,
         # System info
         "sysinfo": cmd_sysinfo,
+        # File operations
+        "list-files": cmd_list_files, "read-file": cmd_read_file,
+        "write-file": cmd_write_file, "move-file": cmd_move_file,
+        "copy-file": cmd_copy_file, "delete-file": cmd_delete_file,
+        "search-files": cmd_search_files, "reveal-in-finder": cmd_reveal_in_finder,
+        # Process management
+        "list-processes": cmd_list_processes, "kill-process": cmd_kill_process,
+        # Advanced input
+        "right-click": cmd_right_click, "double-click": cmd_double_click,
+        "scroll": cmd_scroll, "mouse-move": cmd_mouse_move,
+        # Audio devices
+        "list-audio": cmd_list_audio, "switch-audio": cmd_switch_audio,
+        # Network
+        "get-ip": cmd_get_ip, "ping": cmd_ping,
+        # Power (destructive)
+        "shutdown": cmd_shutdown, "restart": cmd_restart, "logout": cmd_logout,
+        # Permissions setup
+        "setup-permissions": cmd_setup_permissions,
         # Browser control (Chrome)
         "browser-open": cmd_browser_open, "browser-js": cmd_browser_js,
         "browser-tab-url": cmd_browser_tab_url, "browser-tab-title": cmd_browser_tab_title,
