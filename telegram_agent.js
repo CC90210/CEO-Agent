@@ -27,7 +27,9 @@ const path = require('path');
 // ---- PLATFORM DETECTION ----
 const IS_MAC = process.platform === 'darwin';
 const IS_WIN = process.platform === 'win32';
-const PYTHON = IS_MAC ? 'python3' : 'python';
+const PYTHON = IS_MAC ? 'python3' : path.join(__dirname, '.venv', 'Scripts', 'python.exe');
+const MACHINE_NAME = IS_MAC ? 'MacBook' : 'Windows Desktop';
+const TEMP_PATH = IS_MAC ? '/tmp' : (process.env.TEMP || 'C:\\Temp');
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const LOG_FILE = path.join(__dirname, 'memory', 'telegram_bridge.log');
@@ -239,14 +241,13 @@ const loadContext = (tier = 2) => {
 - MCP servers: Playwright, Context7, Memory, Sequential Thinking`);
 
     // Computer control (cross-platform — macOS + Windows)
-    const TEMP_DIR = IS_MAC ? '/tmp' : '%TEMP%';
     const REVEAL_CMD = IS_MAC ? 'reveal-in-finder' : 'reveal-in-explorer';
     chunks.push(`=== ${IS_MAC ? 'macOS' : 'Windows'} Computer Control V2.1 (60+ commands — FULL CONTROL) ===
 APPS: open --app X | quit --app X | list-apps | frontmost
 INPUT: type --text "..." | keystroke --keys "${IS_MAC ? 'cmd' : 'ctrl'}+c" | click --x N --y N | right-click --x N --y N | double-click --x N --y N | scroll --direction up|down [--amount N] | mouse-move --x N --y N
 WINDOWS: window-move --app X --x N --y N | window-resize --app X --w N --h N | window-fullscreen --app X | window-left/right/center --app X | window-minimize/restore --app X | list-windows
-SCREENSHOTS: screenshot [--path ${TEMP_DIR}/X.png] | screenshot-window [--path ${TEMP_DIR}/X.png]
-RECORDING: record-start [--path ${TEMP_DIR}/X.${IS_MAC ? 'mov' : 'mp4'}] | record-stop
+SCREENSHOTS: screenshot [--path ${TEMP_PATH}/X.png] | screenshot-window [--path ${TEMP_PATH}/X.png]
+RECORDING: record-start [--path ${TEMP_PATH}/X.${IS_MAC ? 'mov' : 'mp4'}] | record-stop
 SYSTEM: dark-mode [--toggle|--on|--off] | dnd --on|--off | wifi --on|--off | bluetooth --on|--off | brightness --level N | volume --level N | mute [--toggle|--on|--off] | sleep-display | lock-screen | trash-empty | battery | sysinfo
 CLIPBOARD: clipboard-read | clipboard-write --text "..."
 MEDIA: say --text "..." | url --url "https://..." | notify --title "..." --message "..."
@@ -267,7 +268,7 @@ SEARCH: \${PYTHON} scripts/music_control.py search --query "..."
 All support --json flag.
 
 CRITICAL: For music, use music_control.py (1 command = done). For web browsing, use browser-open/browser-js commands. NEVER try to manually orchestrate multi-step browser interactions — you WILL run out of turns. Use the atomic scripts.
-IMPORTANT: When taking screenshots or recordings, the file is AUTOMATICALLY sent back to the Telegram chat. Always use ${IS_MAC ? '/tmp/' : '%TEMP%\\\\'} paths.
+IMPORTANT: When taking screenshots or recordings, the file is AUTOMATICALLY sent back to the Telegram chat. Always use ${TEMP_PATH}${IS_MAC ? '/' : '\\\\'} paths.
 POWER COMMANDS (shutdown/restart/logout) require --confirm flag. Always ask the user for confirmation FIRST.`);
 
     if (tier === 2) {
@@ -302,7 +303,8 @@ const buildPrompt = (chatId, userText = '') => {
     log(`[TIER] Query classified as T${tier} — loading ${tier === 1 ? 'minimal' : tier === 2 ? 'standard' : 'full'} context`);
     return `You are BRAVO V5.5, CC's Lead Architect and AI business manager, running via Telegram bridge.
 You have full access to the Business-Empire-Agent project at ${__dirname}.
-Platform: ${IS_MAC ? 'macOS (darwin)' : 'Windows 11 (win32)'}
+Platform: ${IS_MAC ? 'macOS (darwin)' : 'Windows 11 (win32)'} — Machine: ${MACHINE_NAME}
+If CC asks "what machine are you on?" or "where are you running?", answer: "${MACHINE_NAME}" (${IS_MAC ? 'CC\'s MacBook' : 'CC\'s Windows Desktop PC — AMD Ryzen 5 5600GT, 16GB RAM, 1080p'}).
 
 ${context}
 ${history}
@@ -320,7 +322,7 @@ TELEGRAM-SPECIFIC RULES:
 ⚠️ CONFIRM: [one-line description of what you are about to do]
 Do NOT proceed until the next message says APPROVED or DENIED.
 (11) COMPUTER CONTROL: You have FULL control of this ${IS_MAC ? 'Mac' : 'PC'} via ${PYTHON} scripts/${IS_MAC ? 'macos' : 'windows'}_control.py (60+ commands). Categories: Apps (open/quit/list), Input (type/click/right-click/double-click/scroll/mouse-move/keystroke), Windows (move/resize/fullscreen/left/right/center/minimize/restore), Screenshots & Recording, System (dark-mode/dnd/wifi/bluetooth/brightness/volume/mute/sleep/lock/battery/sysinfo), Clipboard (read/write), Files (list/read/write/move/copy/delete/search/${IS_MAC ? 'reveal-in-finder' : 'reveal-in-explorer'}), Processes (list/kill), Network (get-ip/ping), Audio (list/switch devices), Power (shutdown/restart/logout — need --confirm), Browser (Chrome: open URLs, JS, tabs), Media (say/notify/url). Use natural language — figure out the right command from CC's intent.
-(12) FILE RELAY: When you take a screenshot or create a file, the bridge AUTOMATICALLY sends it back to this Telegram chat. Always save to ${IS_MAC ? '/tmp/' : (process.env.TEMP || 'C:\\\\Temp') + '\\\\'} paths. Include the full file path in your response text so the relay can find it.
+(12) FILE RELAY: When you take a screenshot or create a file, the bridge AUTOMATICALLY sends it back to this Telegram chat. Always save to ${TEMP_PATH}${IS_MAC ? '/' : '\\\\'} paths. Include the full file path in your response text so the relay can find it.
 (13) MUSIC: Use ${PYTHON} scripts/music_control.py for SoundCloud control. NEVER try to manually control the browser step-by-step for music. The script handles search, navigation, and playback in ONE atomic call.
 (14) BROWSER: Use browser-open/browser-js/browser-new-tab commands from ${IS_MAC ? 'macos' : 'windows'}_control.py for ANY web task. These are atomic — one command does the job. NEVER burn turns trying to manually orchestrate browser steps (open app → focus URL bar → type → enter → wait → click). Use the browser commands instead.
 
@@ -521,8 +523,11 @@ const cleanOutput = (raw) => {
 // Scans Claude's response for file paths and sends them back to Telegram as
 // photos (images) or documents (videos, PDFs, etc.). This enables "take a
 // screenshot" → image appears in chat, "start recording" → video sent, etc.
-const FILE_PATH_PATTERN = /(?:saved to|File:|file:|Screenshot|screenshot|Recording)[:\s]+([\/~][^\s,)"']+\.(png|jpg|jpeg|gif|mov|mp4|pdf|txt|csv|md|html|zip))/gi;
-const DIRECT_PATH_PATTERN = /(\/tmp\/[^\s,)"']+\.(png|jpg|jpeg|gif|mov|mp4|pdf|txt|csv|md|html|zip))/gi;
+// File path detection — cross-platform (Unix /tmp/ and Windows C:\...\Temp\)
+// Windows paths use single backslash in Claude's output text
+const FILE_EXTS = 'png|jpg|jpeg|gif|mov|mp4|pdf|txt|csv|md|html|zip';
+const FILE_PATH_PATTERN = new RegExp(`(?:saved to|File:|file:|Screenshot|screenshot|Recording)[:\\s]+((?:[/~]|[A-Z]:[\\\\\/])[^\\s,)"']+\\.(?:${FILE_EXTS}))`, 'gi');
+const DIRECT_PATH_PATTERN = new RegExp(`((?:\\/tmp\\/|[A-Z]:[\\\\\/](?:[^\\s,)"']*[\\\\\/])?(?:Temp|tmp|AppData[\\\\\/]Local[\\\\\/]Temp)[\\\\\/])[^\\s,)"']+\\.(?:${FILE_EXTS}))`, 'gi');
 
 const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif']);
 const VIDEO_EXTS = new Set(['mov', 'mp4']);
@@ -605,7 +610,7 @@ bot.on('message', async (msg) => {
 
     if (text === '/start' || text === '/help') {
         return bot.sendMessage(chatId, [
-            `Bravo Bridge V15.3 (${IS_MAC ? 'macOS' : 'Windows'} — Full Computer Control)`,
+            `Bravo Bridge V15.3 (${MACHINE_NAME} — Full Computer Control)`,
             '',
             'Just type anything → Claude handles it (25 turns)',
             '',
@@ -621,7 +626,7 @@ bot.on('message', async (msg) => {
             '  Network: "What\'s my IP?" / "Ping google.com"',
             '  Power: "Restart" / "Shutdown" (asks for confirmation)',
             '',
-            '!gemini <query> �� Gemini CLI (fallback)',
+            '!gemini <query> → Gemini CLI (fallback)',
             `!sys <cmd> → shell command on ${IS_MAC ? 'Mac' : 'PC'}`,
             '',
             'Destructive actions require approval (inline buttons).',
