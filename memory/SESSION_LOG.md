@@ -10,6 +10,19 @@ tags: [daily]
 
 ---
 
+### 2026-04-05 — Telegram Bridge V14.0: Cross-Platform + Computer Control
+**Agent:** Claude Code (Bravo) — macOS
+**Change:** Upgraded Telegram bridge from V13.0 (Windows-only) to V14.0 (cross-platform). Added macOS runtime detection, natural language computer control via `scripts/macos_control.py` (12 AppleScript commands), approval gate for destructive actions (inline Telegram buttons), cross-platform `ecosystem.config.js`. Bot starts clean on macOS with computer control ENABLED.
+**Files:** `telegram_agent.js` (modified), `scripts/macos_control.py` (created), `skills/computer-control/SKILL.md` (created), `ecosystem.config.js` (modified)
+
+### 2026-04-05 — MacBook Full Sync from GitHub
+**Agent:** Claude Code (Bravo) — macOS
+**Change:** Pulled 29 commits (561 files changed, 32K+ lines) from GitHub to MacBook. Fast-forward merge from `7825a6d` to `5998d74`. Resolved settings.local.json conflict (adapted Windows paths to macOS). Created missing `.vscode/mcp.json` (4 MCP servers). All 44 credential keys in `.env.agents` verified present. System fully operational on macOS.
+**State:** 1,174 .md files, 180 skills, 16 agents, 47 scripts, 35 workflows, 4 MCP servers
+**Files:** `.claude/settings.local.json` (macOS paths), `.vscode/mcp.json` (created)
+
+---
+
 ### 2026-03-28 — CEO Risk Management + Crisis Response + Sales Methodology Skills
 **Agent:** Claude Code (Bravo)
 **Change:** Created 3 new CEO-level skills. `skills/risk-management/SKILL.md` covers 6 risk categories (revenue, operational, financial, reputation, legal, technology) with severity ratings, 4-tier crisis response classification, and a detailed Bennett churn contingency playbook. `skills/crisis-response/SKILL.md` provides 5 pre-built response plans (client emergency, revenue emergency, security breach, tool outage, team emergency) with P0-P3 classification and communication templates. `skills/sales-methodology/SKILL.md` documents the full NEPQ framework (8 phases: connection through close) with objection handling bank, discovery call prep checklist, and sales metrics targets.

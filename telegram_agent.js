@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 // ============================================================
-// BRAVO TELEGRAM BRIDGE V13.0
+// BRAVO TELEGRAM BRIDGE V14.0
 //
 // V11.0: Full-Context Parity — loads CLAUDE.md, brain files, skills refs.
 // V12.0: Conversation Memory — stores last 15 messages per chat,
@@ -13,8 +13,15 @@ const path = require('path');
 //         CC can reference previous messages naturally.
 // V13.0: Context Optimization — tiered context loading (T1/T2/T3),
 //         cost tracking integration, maintenance tool access.
-//         Inspired by Claude Code's internal harness patterns.
+// V14.0: Cross-Platform + Computer Control — macOS/Windows runtime detection,
+//         natural language desktop control via macos_control.py,
+//         approval gate for destructive actions (inline Telegram buttons).
 // ============================================================
+
+// ---- PLATFORM DETECTION ----
+const IS_MAC = process.platform === 'darwin';
+const IS_WIN = process.platform === 'win32';
+const PYTHON = IS_MAC ? 'python3' : 'python';
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const LOG_FILE = path.join(__dirname, 'memory', 'telegram_bridge.log');
@@ -38,7 +45,7 @@ const log = (msg) => {
     try { fs.appendFileSync(LOG_FILE, line); } catch (_) {}
 };
 
-log('Bravo Telegram Bridge V13.0 (Context Optimization) starting...');
+log(`Bravo Telegram Bridge V14.0 (${IS_MAC ? 'macOS' : 'Windows'} — Computer Control) starting...`);
 
 // ---- CONVERSATION HISTORY ----
 // Stores last N message pairs (user + assistant) per chat.
@@ -82,22 +89,28 @@ const getHistoryBlock = (chatId) => {
         '\n=== END HISTORY ===\n';
 };
 
-// ---- PATHS ----
-// Resolve actual script paths so we spawn node directly (no .cmd wrappers)
-const NODE_EXE = process.execPath; // The node.exe running this script
-const GEMINI_SCRIPT = path.join(
-    process.env.APPDATA || '',
-    'npm', 'node_modules', '@google', 'gemini-cli', 'dist', 'index.js'
-);
-const CLAUDE_EXE = path.join(
-    process.env.USERPROFILE || '', '.local', 'bin', 'claude.exe'
-);
+// ---- PATHS (cross-platform) ----
+const NODE_EXE = process.execPath;
 
-// Verify paths exist at startup
+const CLAUDE_EXE = IS_MAC
+    ? 'claude'  // in PATH via nvm global install
+    : path.join(process.env.USERPROFILE || '', '.local', 'bin', 'claude.exe');
+
+const GEMINI_SCRIPT = IS_MAC
+    ? (() => {
+        const nvmDir = path.join(process.env.HOME || '', '.nvm', 'versions', 'node');
+        const candidate = path.join(nvmDir, process.version, 'lib', 'node_modules',
+            '@google', 'gemini-cli', 'dist', 'index.js');
+        return candidate;
+      })()
+    : path.join(process.env.APPDATA || '',
+        'npm', 'node_modules', '@google', 'gemini-cli', 'dist', 'index.js');
+
+// Verify paths at startup
 if (!fs.existsSync(GEMINI_SCRIPT)) {
     log(`[WARN] Gemini script not found: ${GEMINI_SCRIPT}`);
 }
-if (!fs.existsSync(CLAUDE_EXE)) {
+if (!IS_MAC && !fs.existsSync(CLAUDE_EXE)) {
     log(`[WARN] Claude exe not found: ${CLAUDE_EXE}`);
 }
 
@@ -162,7 +175,7 @@ const classifyTier = (text) => {
     if (T3_KEYWORDS.some(k => t.includes(k))) return 3;
     // T1 only if ALL words match simple patterns (no action verbs)
     const words = t.split(/\s+/);
-    const hasActionVerb = /\b(build|fix|implement|create|update|add|modify|debug|test|deploy|write|change|edit|push|ship|review)\b/.test(t);
+    const hasActionVerb = /\b(build|fix|implement|create|update|add|modify|debug|test|deploy|write|change|edit|push|ship|review|open|launch|click|screenshot|volume|mute|play|switch|type|control)\b/.test(t);
     if (!hasActionVerb && T1_KEYWORDS.some(k => t.includes(k))) return 1;
     return 2;
 };
@@ -204,15 +217,26 @@ const loadContext = (tier = 2) => {
 
     // Tool routing summary — includes new maintenance tools
     chunks.push(`=== Available CLI Tools ===
-- n8n: python scripts/n8n_tool.py [list|get|execute|activate]
-- Late (social): python scripts/late_tool.py [accounts|posts|create]
-- Supabase: python scripts/supabase_tool.py [select|insert|sql]
-- Stripe: python scripts/stripe_tool.py [balance|customers|invoices]
-- Email/Calendar: python scripts/google_tool.py [gmail send|gmail list|calendar list|calendar create]
-- Context Manager: python scripts/context_manager.py [tier|compact|status|health]
-- Cost Tracker: python scripts/cost_tracker.py [log|summary|session|budget]
-- Memory Aging: python scripts/memory_aging.py [scan|stale|health|archive]
+- n8n: ${PYTHON} scripts/n8n_tool.py [list|get|execute|activate]
+- Late (social): ${PYTHON} scripts/late_tool.py [accounts|posts|create]
+- Supabase: ${PYTHON} scripts/supabase_tool.py [select|insert|sql]
+- Stripe: ${PYTHON} scripts/stripe_tool.py [balance|customers|invoices]
+- Email/Calendar: ${PYTHON} scripts/google_tool.py [gmail send|gmail list|calendar list|calendar create]
+- Context Manager: ${PYTHON} scripts/context_manager.py [tier|compact|status|health]
+- Cost Tracker: ${PYTHON} scripts/cost_tracker.py [log|summary|session|budget]
+- Memory Aging: ${PYTHON} scripts/memory_aging.py [scan|stale|health|archive]
 - MCP servers: Playwright, Context7, Memory, Sequential Thinking`);
+
+    // Computer control (macOS only)
+    if (IS_MAC) {
+        chunks.push(`=== macOS Computer Control ===
+- Desktop control: ${PYTHON} scripts/macos_control.py [open|type|keystroke|click|list-windows|list-apps|frontmost|screenshot|url|say|volume|notify]
+- Example: ${PYTHON} scripts/macos_control.py open --app Safari
+- Example: ${PYTHON} scripts/macos_control.py keystroke --keys "cmd+c"
+- Example: ${PYTHON} scripts/macos_control.py url --url "https://gmail.com"
+- Also available: raw osascript commands, 'open -a AppName', screencapture
+- All commands support --json flag. See skills/computer-control/SKILL.md for full reference.`);
+    }
 
     if (tier === 2) {
         chunks.push(`=== Context Tier: T2 STANDARD ===`);
@@ -245,20 +269,25 @@ const buildPrompt = (chatId, userText = '') => {
     const history = getHistoryBlock(chatId);
     log(`[TIER] Query classified as T${tier} — loading ${tier === 1 ? 'minimal' : tier === 2 ? 'standard' : 'full'} context`);
     return `You are BRAVO V5.5, CC's Lead Architect and AI business manager, running via Telegram bridge.
-You have full access to the Business-Empire-Agent project at C:\\Users\\User\\Business-Empire-Agent.
+You have full access to the Business-Empire-Agent project at ${__dirname}.
+Platform: ${IS_MAC ? 'macOS (darwin)' : 'Windows 11 (win32)'}
 
 ${context}
 ${history}
 TELEGRAM-SPECIFIC RULES:
 (1) Answer directly in 1-5 sentences unless the task requires more.
 (2) Do NOT dump file contents unless asked.
-(3) Use the CLI tools listed above for database, social media, Stripe, and n8n operations.
+(3) Use the CLI tools listed above for database, social media, Stripe, and n8n operations. Use ${PYTHON} (not python) for all script calls.
 (4) For code changes in apps, cd to the app's LOCAL PATH from APP_REGISTRY.md.
 (5) After any significant work, update memory/SESSION_LOG.md and memory/ACTIVE_TASKS.md.
 (6) Address the user as CC. Be direct, no filler. Use "Conaugh McKenna" for external/B2B comms.
 (7) You have up to 25 turns — use them for multi-step tasks. Don't rush.
 (8) All credentials are in .env.agents — NEVER hardcode secrets.
 (9) IMPORTANT: The RECENT CONVERSATION HISTORY above contains previous messages from this chat session. Use it to maintain context. If CC references something from a prior message, check the history.
+(10) APPROVAL GATE: Before executing ANY destructive action (deleting files, sending emails to clients, publishing content, modifying production data, running rm/del commands, shutting down services), you MUST output exactly this pattern and STOP:
+⚠️ CONFIRM: [one-line description of what you are about to do]
+Do NOT proceed until the next message says APPROVED or DENIED.${IS_MAC ? `
+(11) COMPUTER CONTROL: You can control this Mac using ${PYTHON} scripts/macos_control.py. Open apps, type text, send keystrokes, take screenshots, open URLs, adjust volume. Use natural language — figure out the right command from CC's intent.` : ''}
 
 CC's message:`;
 };
@@ -278,17 +307,35 @@ const detectMcps = (text) => {
     return mcps;
 };
 
+// ---- APPROVAL GATE ----
+// Pattern Claude outputs when it needs confirmation for destructive actions.
+// Bridge intercepts, asks CC via Telegram inline keyboard, then re-spawns.
+const CONFIRM_PATTERN = /⚠️\s*CONFIRM:\s*(.+)$/m;
+const PENDING_CONFIRMATIONS = {}; // chatId -> { description, timestamp }
+
+// Clean stale confirmations every 5 minutes
+setInterval(() => {
+    const now = Date.now();
+    for (const [chatId, pending] of Object.entries(PENDING_CONFIRMATIONS)) {
+        if (now - pending.timestamp > 300000) {
+            delete PENDING_CONFIRMATIONS[chatId];
+            log(`[APPROVAL] Stale confirmation expired for chat ${chatId}`);
+        }
+    }
+}, 300000);
+
 // ---- PROCESS TRACKING ----
 const activeChildren = new Set();
 
 const killTree = (pid) => {
     try {
-        // Windows: taskkill /T kills entire process tree
-        spawn('taskkill', ['/pid', String(pid), '/T', '/F'], {
-            windowsHide: true,
-            stdio: 'ignore',
-            shell: false
-        });
+        if (IS_WIN) {
+            spawn('taskkill', ['/pid', String(pid), '/T', '/F'], {
+                windowsHide: true, stdio: 'ignore', shell: false
+            });
+        } else {
+            process.kill(pid, 'SIGKILL');
+        }
     } catch (_) {}
 };
 
@@ -380,7 +427,7 @@ const executeCli = (tool, userPrompt, chatId) => {
 
             // Cost tracking — log the CLI execution
             const units = tool === 'claude' ? Math.ceil(elapsed / 60) * 3 : Math.ceil(elapsed / 60) * 2;
-            exec(`python scripts/cost_tracker.py log --label "telegram_${tool}" --units ${units} --detail "${userPrompt.substring(0, 80).replace(/"/g, "'")}"`, {
+            exec(`${PYTHON} scripts/cost_tracker.py log --label "telegram_${tool}" --units ${units} --detail "${userPrompt.substring(0, 80).replace(/"/g, "'")}"`, {
                 cwd: __dirname, windowsHide: true, timeout: 5000
             }, () => {}); // fire-and-forget
 
@@ -454,15 +501,14 @@ bot.on('message', async (msg) => {
 
     if (text === '/start' || text === '/help') {
         return bot.sendMessage(chatId, [
-            'Bravo Bridge V13.0 (Context Optimization)',
+            `Bravo Bridge V14.0 (${IS_MAC ? 'macOS' : 'Windows'} — Computer Control)`,
             '',
             'Just type anything → Claude Code (default, 25 turns)',
+            IS_MAC ? '"Open Safari" / "take a screenshot" → computer control' : '',
             '!gemini <query> → Gemini CLI (fallback)',
-            '!sys <cmd> → shell command on PC',
+            `!sys <cmd> → shell command on ${IS_MAC ? 'Mac' : 'PC'}`,
             '',
-            'Context: Auto-classifies T1/T2/T3 per query.',
-            'Claude: 10 min timeout + last 15 messages.',
-            'Gemini: 5 min timeout, MCP-aware.',
+            'Destructive actions require your approval (inline buttons).',
             '',
             '/costs — today\'s operation cost summary',
             '/memhealth — memory system health grade',
@@ -470,7 +516,7 @@ bot.on('message', async (msg) => {
             '/stale — facts older than 30 days',
             '/clear — clear conversation history',
             '/whoami — show your Telegram user ID'
-        ].join('\n'));
+        ].filter(Boolean).join('\n'));
     }
 
     if (text === '/whoami') {
@@ -485,28 +531,28 @@ bot.on('message', async (msg) => {
 
     // V13.0: System maintenance commands — direct access to optimization tools
     if (text === '/costs') {
-        exec('python scripts/cost_tracker.py summary --period today', { cwd: __dirname, windowsHide: true, timeout: 10000 }, (err, out) => {
+        exec(`${PYTHON} scripts/cost_tracker.py summary --period today`, { cwd: __dirname, windowsHide: IS_WIN, timeout: 10000 }, (err, out) => {
             bot.sendMessage(chatId, out || err?.message || 'No cost data.').catch(() => {});
         });
         return;
     }
 
     if (text === '/memhealth') {
-        exec('python scripts/memory_aging.py health', { cwd: __dirname, windowsHide: true, timeout: 10000 }, (err, out) => {
+        exec(`${PYTHON} scripts/memory_aging.py health`, { cwd: __dirname, windowsHide: IS_WIN, timeout: 10000 }, (err, out) => {
             bot.sendMessage(chatId, out || err?.message || 'Health check failed.').catch(() => {});
         });
         return;
     }
 
     if (text === '/compact') {
-        exec('python scripts/context_manager.py status', { cwd: __dirname, windowsHide: true, timeout: 10000 }, (err, out) => {
+        exec(`${PYTHON} scripts/context_manager.py status`, { cwd: __dirname, windowsHide: IS_WIN, timeout: 10000 }, (err, out) => {
             bot.sendMessage(chatId, out || err?.message || 'Status check failed.').catch(() => {});
         });
         return;
     }
 
     if (text === '/stale') {
-        exec('python scripts/memory_aging.py stale --days 30', { cwd: __dirname, windowsHide: true, timeout: 10000 }, (err, out) => {
+        exec(`${PYTHON} scripts/memory_aging.py stale --days 30`, { cwd: __dirname, windowsHide: IS_WIN, timeout: 10000 }, (err, out) => {
             const result = out || err?.message || 'No stale facts found.';
             bot.sendMessage(chatId, result.substring(0, 4000)).catch(() => {});
         });
@@ -537,6 +583,37 @@ bot.on('message', async (msg) => {
 
         const result = await executeCli(tool, prompt, chatId);
 
+        // --- APPROVAL GATE: Check if Claude is requesting confirmation ---
+        const confirmMatch = (result || '').match(CONFIRM_PATTERN);
+        if (confirmMatch) {
+            const description = confirmMatch[1].trim();
+            PENDING_CONFIRMATIONS[String(chatId)] = {
+                description,
+                timestamp: Date.now()
+            };
+            log(`[APPROVAL] Confirmation requested: ${description}`);
+            // Store partial response (before the CONFIRM line) in history
+            const idx = result.indexOf(confirmMatch[0]);
+            const beforeConfirm = result.substring(0, idx).trim();
+            if (beforeConfirm) {
+                addToHistory(chatId, 'assistant', beforeConfirm);
+                const preChunks = beforeConfirm.match(/[\s\S]{1,4000}/g) || [];
+                for (const c of preChunks) await bot.sendMessage(chatId, c);
+            }
+            await bot.sendMessage(chatId,
+                `🔒 Bravo wants to perform a destructive action:\n\n${description}\n\nApprove?`,
+                {
+                    reply_markup: {
+                        inline_keyboard: [[
+                            { text: '✅ Yes, proceed', callback_data: 'approve_yes' },
+                            { text: '❌ No, cancel', callback_data: 'approve_no' }
+                        ]]
+                    }
+                }
+            );
+            return; // Wait for callback
+        }
+
         // Store assistant response in history (first 2000 chars)
         addToHistory(chatId, 'assistant', result || 'No response.');
 
@@ -548,6 +625,42 @@ bot.on('message', async (msg) => {
     } catch (err) {
         log(`[CRASH] ${err.message}`);
         bot.sendMessage(chatId, `Error: ${err.message}`).catch(() => {});
+    }
+});
+
+// ---- APPROVAL GATE: Inline keyboard callback handler ----
+bot.on('callback_query', async (query) => {
+    const chatId = query.message.chat.id;
+    const data = query.data;
+    const pending = PENDING_CONFIRMATIONS[String(chatId)];
+
+    await bot.answerCallbackQuery(query.id).catch(() => {});
+
+    if (!pending) {
+        await bot.sendMessage(chatId, 'No pending confirmation found.');
+        return;
+    }
+
+    delete PENDING_CONFIRMATIONS[String(chatId)];
+
+    if (data === 'approve_yes') {
+        await bot.sendMessage(chatId, '✅ Approved. Executing...');
+        log(`[APPROVAL] User approved: ${pending.description}`);
+        addToHistory(chatId, 'user', `APPROVED: Proceed with: ${pending.description}`);
+
+        await bot.sendChatAction(chatId, 'typing');
+        const followUp = `The user has APPROVED the following action: "${pending.description}". Proceed with execution now.`;
+        const result = await executeCli('claude', followUp, chatId);
+
+        addToHistory(chatId, 'assistant', result || 'Done.');
+        const chunks = (result || 'Done.').match(/[\s\S]{1,4000}/g) || ['Done.'];
+        for (const c of chunks) {
+            await bot.sendMessage(chatId, c);
+        }
+    } else {
+        await bot.sendMessage(chatId, '❌ Cancelled. Action was NOT performed.');
+        log(`[APPROVAL] User denied: ${pending.description}`);
+        addToHistory(chatId, 'assistant', `Action cancelled by user: ${pending.description}`);
     }
 });
 
@@ -587,4 +700,4 @@ process.on('unhandledRejection', (err) => {
     log(`[UNHANDLED] ${err.message || err}`);
 });
 
-log('Bridge V13.0 ready.');
+log(`Bridge V14.0 ready. Platform: ${IS_MAC ? 'macOS' : 'Windows'}. Computer control: ${IS_MAC ? 'ENABLED' : 'N/A'}.`);
