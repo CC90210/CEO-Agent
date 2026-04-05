@@ -849,9 +849,24 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 let pollErrorCount = 0;
 bot.on('polling_error', (e) => {
     pollErrorCount++;
+    const msg = e.message || String(e);
+    // 409 Conflict = another bot instance is polling (dual-machine scenario)
+    if (msg.includes('409') || msg.includes('Conflict')) {
+        log(`[POLL] 409 CONFLICT — another bot instance is running (likely the other machine). Backing off for 60s...`);
+        // Don't crash — just wait. The other machine's bot will handle messages.
+        // PM2 will keep us alive. When the other machine's bot stops, we'll resume.
+        bot.stopPolling();
+        setTimeout(() => {
+            if (!shuttingDown) {
+                log(`[POLL] Resuming polling after 409 backoff...`);
+                bot.startPolling();
+            }
+        }, 60000);
+        return;
+    }
     // Log first error, then only every 50th to avoid filling logs
     if (pollErrorCount === 1 || pollErrorCount % 50 === 0) {
-        log(`[POLL] EFATAL: ${e.message} (count: ${pollErrorCount})`);
+        log(`[POLL] EFATAL: ${msg} (count: ${pollErrorCount})`);
     }
 });
 

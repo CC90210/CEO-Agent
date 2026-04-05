@@ -446,21 +446,13 @@ def cmd_volume(args):
     level = max(0, min(100, args.level))
     normalized = level / 100.0
     try:
-        from ctypes import cast, POINTER
-        from comtypes import CLSCTX_ALL
-        from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
-        devices = AudioUtilities.GetSpeakers()
-        interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-        volume = cast(interface, POINTER(IAudioEndpointVolume))
-        volume.SetMasterVolumeLevelScalar(normalized, None)
+        from pycaw.pycaw import AudioUtilities
+        device = AudioUtilities.GetSpeakers()
+        vol = device.EndpointVolume
+        vol.SetMasterVolumeLevelScalar(normalized, None)
         return {"ok": True, "output": f"Volume set to {level}%"}
     except Exception as e:
-        # Fallback to nircmd or PowerShell
-        return run_powershell(f'''
-$wshShell = New-Object -ComObject WScript.Shell
-# Set volume via SendKeys (approximate)
-Write-Output "Volume control requires pycaw: {str(e)[:80]}"
-''')
+        return {"ok": False, "error": f"Volume control failed: {str(e)[:100]}"}
 
 
 def cmd_notify(args):
@@ -521,10 +513,10 @@ $proc = Get-Process -Name "{app}" -ErrorAction SilentlyContinue | Where-Object {
 if ($proc) {{
     $hwnd = $proc.MainWindowHandle
     $rect = New-Object WinMove+RECT
-    [WinMove]::GetWindowRect($hwnd, [ref]$rect)
+    [WinMove]::GetWindowRect($hwnd, [ref]$rect) | Out-Null
     $w = $rect.Right - $rect.Left
     $h = $rect.Bottom - $rect.Top
-    [WinMove]::MoveWindow($hwnd, {args.x}, {args.y}, $w, $h, $true)
+    [void][WinMove]::MoveWindow($hwnd, {args.x}, {args.y}, $w, $h, $true)
     Write-Output "Moved {app} to {args.x},{args.y}"
 }} else {{ Write-Error "No window found for {app}" }}
 ''')
@@ -546,8 +538,8 @@ $proc = Get-Process -Name "{app}" -ErrorAction SilentlyContinue | Where-Object {
 if ($proc) {{
     $hwnd = $proc.MainWindowHandle
     $rect = New-Object WinResize+RECT
-    [WinResize]::GetWindowRect($hwnd, [ref]$rect)
-    [WinResize]::MoveWindow($hwnd, $rect.Left, $rect.Top, {args.w}, {args.h}, $true)
+    [WinResize]::GetWindowRect($hwnd, [ref]$rect) | Out-Null
+    [void][WinResize]::MoveWindow($hwnd, $rect.Left, $rect.Top, {args.w}, {args.h}, $true)
     Write-Output "Resized {app} to {args.w}x{args.h}"
 }} else {{ Write-Error "No window found for {app}" }}
 ''')
@@ -568,12 +560,12 @@ public class WinFS {{
 $proc = Get-Process -Name "{app}" -ErrorAction SilentlyContinue | Where-Object {{ $_.MainWindowHandle -ne 0 }} | Select-Object -First 1
 if ($proc) {{
     $hwnd = $proc.MainWindowHandle
-    [WinFS]::SetForegroundWindow($hwnd)
+    [void][WinFS]::SetForegroundWindow($hwnd)
     if ([WinFS]::IsZoomed($hwnd)) {{
-        [WinFS]::ShowWindow($hwnd, 9)  # SW_RESTORE
+        [void][WinFS]::ShowWindow($hwnd, 9)  # SW_RESTORE
         Write-Output "Restored {app} from maximized"
     }} else {{
-        [WinFS]::ShowWindow($hwnd, 3)  # SW_MAXIMIZE
+        [void][WinFS]::ShowWindow($hwnd, 3)  # SW_MAXIMIZE
         Write-Output "Maximized {app}"
     }}
 }} else {{ Write-Error "No window found for {app}" }}
@@ -597,9 +589,9 @@ public class WinSnap {{
 $proc = Get-Process -Name "{app}" -ErrorAction SilentlyContinue | Where-Object {{ $_.MainWindowHandle -ne 0 }} | Select-Object -First 1
 if ($proc) {{
     $hwnd = $proc.MainWindowHandle
-    [WinSnap]::ShowWindow($hwnd, 9)
-    [WinSnap]::SetForegroundWindow($hwnd)
-    [WinSnap]::MoveWindow($hwnd, 0, 0, {half_w}, {sh}, $true)
+    [void][WinSnap]::ShowWindow($hwnd, 9)
+    [void][WinSnap]::SetForegroundWindow($hwnd)
+    [void][WinSnap]::MoveWindow($hwnd, 0, 0, {half_w}, {sh}, $true)
     Write-Output "Snapped {app} to left half"
 }} else {{ Write-Error "No window found for {app}" }}
 ''')
@@ -622,9 +614,9 @@ public class WinSnapR {{
 $proc = Get-Process -Name "{app}" -ErrorAction SilentlyContinue | Where-Object {{ $_.MainWindowHandle -ne 0 }} | Select-Object -First 1
 if ($proc) {{
     $hwnd = $proc.MainWindowHandle
-    [WinSnapR]::ShowWindow($hwnd, 9)
-    [WinSnapR]::SetForegroundWindow($hwnd)
-    [WinSnapR]::MoveWindow($hwnd, {half_w}, 0, {half_w}, {sh}, $true)
+    [void][WinSnapR]::ShowWindow($hwnd, 9)
+    [void][WinSnapR]::SetForegroundWindow($hwnd)
+    [void][WinSnapR]::MoveWindow($hwnd, {half_w}, 0, {half_w}, {sh}, $true)
     Write-Output "Snapped {app} to right half"
 }} else {{ Write-Error "No window found for {app}" }}
 ''')
@@ -648,13 +640,13 @@ $proc = Get-Process -Name "{app}" -ErrorAction SilentlyContinue | Where-Object {
 if ($proc) {{
     $hwnd = $proc.MainWindowHandle
     $rect = New-Object WinCtr+RECT
-    [WinCtr]::GetWindowRect($hwnd, [ref]$rect)
+    [WinCtr]::GetWindowRect($hwnd, [ref]$rect) | Out-Null
     $w = $rect.Right - $rect.Left
     $h = $rect.Bottom - $rect.Top
     $cx = ({sw} - $w) / 2
     $cy = ({sh} - $h) / 2
-    [WinCtr]::SetForegroundWindow($hwnd)
-    [WinCtr]::MoveWindow($hwnd, [int]$cx, [int]$cy, $w, $h, $true)
+    [void][WinCtr]::SetForegroundWindow($hwnd)
+    [void][WinCtr]::MoveWindow($hwnd, [int]$cx, [int]$cy, $w, $h, $true)
     Write-Output "Centered {app}"
 }} else {{ Write-Error "No window found for {app}" }}
 ''')
@@ -670,7 +662,7 @@ public class WinMin {{ [DllImport("user32.dll")] public static extern bool ShowW
 "@
 $proc = Get-Process -Name "{app}" -ErrorAction SilentlyContinue | Where-Object {{ $_.MainWindowHandle -ne 0 }} | Select-Object -First 1
 if ($proc) {{
-    [WinMin]::ShowWindow($proc.MainWindowHandle, 6)  # SW_MINIMIZE
+    [void][WinMin]::ShowWindow($proc.MainWindowHandle, 6)  # SW_MINIMIZE
     Write-Output "Minimized {app}"
 }} else {{ Write-Error "No window found for {app}" }}
 ''')
@@ -690,8 +682,8 @@ public class WinRst {{
 $proc = Get-Process -Name "{app}" -ErrorAction SilentlyContinue | Where-Object {{ $_.MainWindowHandle -ne 0 }} | Select-Object -First 1
 if ($proc) {{
     $hwnd = $proc.MainWindowHandle
-    [WinRst]::ShowWindow($hwnd, 9)  # SW_RESTORE
-    [WinRst]::SetForegroundWindow($hwnd)
+    [void][WinRst]::ShowWindow($hwnd, 9)  # SW_RESTORE
+    [void][WinRst]::SetForegroundWindow($hwnd)
     Write-Output "Restored {app}"
 }} else {{ Write-Error "No window found for {app}" }}
 ''')
@@ -861,23 +853,19 @@ if ($brightness) {{
 def cmd_mute(args):
     """Toggle/set system mute."""
     try:
-        from ctypes import cast, POINTER
-        from comtypes import CLSCTX_ALL
-        from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
-        devices = AudioUtilities.GetSpeakers()
-        interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-        volume = cast(interface, POINTER(IAudioEndpointVolume))
+        from pycaw.pycaw import AudioUtilities
+        device = AudioUtilities.GetSpeakers()
+        vol = device.EndpointVolume
 
         if args.on:
-            volume.SetMute(1, None)
+            vol.SetMute(1, None)
             return {"ok": True, "output": "Muted"}
         elif args.off:
-            volume.SetMute(0, None)
+            vol.SetMute(0, None)
             return {"ok": True, "output": "Unmuted"}
         else:
-            # Toggle
-            current = volume.GetMute()
-            volume.SetMute(0 if current else 1, None)
+            current = vol.GetMute()
+            vol.SetMute(0 if current else 1, None)
             return {"ok": True, "output": "Unmuted" if current else "Muted"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
@@ -1857,8 +1845,8 @@ public class WinFocus {{
 $procs = Get-Process | Where-Object {{ $_.MainWindowTitle -like "*{title_search}*" }} | Select-Object -First 1
 if ($procs) {{
     $hwnd = $procs.MainWindowHandle
-    if ([WinFocus]::IsIconic($hwnd)) {{ [WinFocus]::ShowWindow($hwnd, 9) }}
-    [WinFocus]::SetForegroundWindow($hwnd)
+    if ([WinFocus]::IsIconic($hwnd)) {{ [void][WinFocus]::ShowWindow($hwnd, 9) }}
+    [void][WinFocus]::SetForegroundWindow($hwnd)
     Write-Output "Focused: $($procs.MainWindowTitle)"
 }} else {{
     Write-Error "No window found matching: {title_search}"
