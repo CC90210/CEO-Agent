@@ -205,6 +205,51 @@ All macos_control commands: `python3 scripts/macos_control.py <command> [--json]
 - File listing, reading, searching
 - Network diagnostics (ping, IP)
 
+## Windows Implementation Path
+
+When CC is back on the Windows desktop, create `scripts/windows_control.py` mirroring the macOS command set. The bridge already detects platform (`IS_MAC`/`IS_WIN`) and routes `python`/`python3` correctly.
+
+### Command Mapping (macOS → Windows)
+
+| Category | macOS (osascript) | Windows Equivalent |
+|----------|------------------|--------------------|
+| **App control** | AppleScript `activate` | PowerShell `Start-Process`, `Stop-Process` |
+| **Window mgmt** | System Events AppleScript | `pywin32` (`win32gui.MoveWindow`, `SetWindowPos`) |
+| **Input simulation** | Quartz CGEvents | `pyautogui` or `pynput` (pip install) |
+| **Screenshots** | `screencapture` CLI | `Pillow` (`ImageGrab.grab()`) or `mss` |
+| **Screen recording** | `screencapture -v` | `ffmpeg -f gdigrab` |
+| **System toggles** | AppleScript / `defaults write` | PowerShell (`Set-WmiInstance`, Registry, `nircmd`) |
+| **Dark mode** | System Events | `reg add "HKCU\...\Themes\Personalize"` |
+| **Volume/mute** | osascript | `nircmd` or `pycaw` |
+| **Brightness** | DisplayServices framework | `WmiMonitorBrightnessMethods` (WMI) |
+| **Clipboard** | `pbcopy`/`pbpaste` | `pyperclip` or PowerShell `Get-Clipboard` |
+| **Files** | Python stdlib (same) | Python stdlib (same — already cross-platform) |
+| **Processes** | `ps aux` | `tasklist`, `taskkill`, `wmic process` |
+| **Network** | `ifconfig`, `ipify.org` | `ipconfig`, `ipify.org` |
+| **Browser** | Chrome AppleScript | Chrome DevTools Protocol via `--remote-debugging-port` |
+| **Notifications** | osascript display notification | `plyer` or PowerShell `BurntToast` module |
+| **Power** | AppleScript `shut down` | `shutdown /s /t 0`, `shutdown /r /t 0`, `logoff` |
+| **Audio devices** | `system_profiler`, `SwitchAudioSource` | `pycaw` or `nircmd` |
+| **DND/Focus** | `shortcuts run` | Focus Assist via Registry |
+| **Lock screen** | `pmset displaysleepnow` | `rundll32 user32.dll,LockWorkStation` |
+
+### Dependencies Needed on Windows
+```
+pip install pyautogui pyperclip pywin32 pillow pycaw plyer mss
+```
+
+### Architecture
+- Same CLI interface: `python scripts/windows_control.py <command> --json`
+- Same argparse structure, same JSON output format
+- telegram_agent.js already routes `PYTHON` correctly per platform
+- Same security gates (sensitive paths adapt to `C:\Users\...`, protected processes adapt to `explorer.exe`, `dwm.exe`, etc.)
+
+### Effort Estimate
+- Human team: ~3 days
+- CC + Bravo: ~45 min (~100x leverage)
+- File operations and network commands work as-is (Python stdlib)
+- Main work: window management (pywin32), input simulation (pyautogui), system toggles (PowerShell/Registry)
+
 ## Obsidian Links
 - [[brain/CAPABILITIES]] | [[brain/AGENTS]]
 - [[skills/browser-automation/SKILL]] | [[skills/security-protocol/SKILL]]
