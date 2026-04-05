@@ -133,32 +133,34 @@ def _chrome_cdp_available():
 
 def _chrome_ensure_debug_mode():
     """Ensure Chrome is running with remote debugging enabled.
-    Chrome on Windows requires a non-default data dir for CDP.
-    We use CDP_Data which is junction-linked to the real profile
-    (shares cookies, passwords, extensions, bookmarks).
+    Kills Chrome and relaunches with --remote-debugging-port=9222
+    using the REAL default profile (CC's GoldStorm — all passwords,
+    cookies, extensions preserved).
 
-    WARNING: This will restart Chrome. All tabs are restored but
-    active sessions (video calls, etc.) will be interrupted.
+    NOTE: Chrome shortcuts have been modified to always include CDP flags.
+    After a reboot, Chrome will auto-start with CDP. This function is
+    only needed when Chrome was launched without the flags.
+
+    WARNING: This restarts Chrome — active calls/meets will be interrupted.
     Returns True if CDP is available."""
     if _chrome_cdp_available():
         return True
     chrome = _chrome_path()
-    # CDP_Data dir is junction-linked to real profile (set up by Bravo)
-    cdp_data = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Google", "Chrome", "CDP_Data")
-    if not os.path.exists(os.path.join(cdp_data, "Default")):
-        return False  # Junctions not set up — can't use CDP without losing profile
-    # Must kill existing Chrome — only one instance per profile
+    # Kill existing Chrome and relaunch with CDP flags (no --user-data-dir = real profile)
     run_shell(["taskkill", "/IM", "chrome.exe", "/F"], timeout=10)
-    time.sleep(2)
+    time.sleep(3)
     try:
         subprocess.Popen(
             [chrome, f"--remote-debugging-port={CDP_PORT}",
-             "--remote-allow-origins=*",
-             f"--user-data-dir={cdp_data}", "--restore-last-session"],
+             "--remote-allow-origins=*", "--restore-last-session"],
             creationflags=CREATE_NO_WINDOW
         )
-        time.sleep(4)
-        return _chrome_cdp_available()
+        time.sleep(5)
+        if _chrome_cdp_available():
+            return True
+        # Chrome may have silently ignored the flag — this is a known Windows issue
+        # The fix is to use the shortcuts (already modified) or reboot
+        return False
     except Exception:
         return False
 
@@ -1410,15 +1412,11 @@ def cmd_browser_open(args):
                 title = title_r.get("output", url) if title_r.get("ok") else url
                 return {"ok": True, "output": f"Opened {url} — {title}"}
             return r
-    # Fallback: launch Chrome with URL + CDP
+    # Fallback: launch Chrome with URL (no CDP — uses real profile)
     chrome = _chrome_path()
-    cdp_data = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Google", "Chrome", "CDP_Data")
-    os.makedirs(cdp_data, exist_ok=True)
     try:
         subprocess.Popen(
-            [chrome, f"--remote-debugging-port={CDP_PORT}",
-             "--remote-allow-origins=*",
-             f"--user-data-dir={cdp_data}", url],
+            [chrome, url],
             creationflags=CREATE_NO_WINDOW
         )
         time.sleep(3)
@@ -1722,21 +1720,18 @@ def cmd_browser_fill(args):
 # ============================================================
 
 def cmd_browser_enable_cdp(args):
-    """Enable Chrome DevTools Protocol (restarts Chrome with CDP flag).
-    This kills Chrome and relaunches with --remote-debugging-port=9222.
-    Uses junction-linked profile so all passwords/cookies/extensions are preserved.
-    WARNING: This restarts Chrome — active calls/meets will be interrupted."""
+    """Enable Chrome DevTools Protocol by restarting Chrome with CDP flags.
+    Uses CC's REAL profile (GoldStorm) — all passwords, cookies, extensions preserved.
+    WARNING: This restarts Chrome — active calls/meets will be interrupted.
+    After reboot, Chrome auto-starts with CDP (shortcuts modified)."""
     if _chrome_cdp_available():
-        return {"ok": True, "output": "CDP already active on port 9222"}
-    # Check if junctions are set up
-    cdp_data = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Google", "Chrome", "CDP_Data")
-    if not os.path.exists(os.path.join(cdp_data, "Default")):
-        return {"ok": False, "error": "CDP profile junctions not set up. Run setup-permissions to configure."}
+        tabs = _chrome_get_tabs()
+        return {"ok": True, "output": f"CDP already active on port {CDP_PORT}. {len(tabs)} tab(s) open."}
     ok = _chrome_ensure_debug_mode()
     if ok:
         tabs = _chrome_get_tabs()
-        return {"ok": True, "output": f"CDP enabled on port {CDP_PORT}. {len(tabs)} tab(s) open. Profile: GoldStorm (junction-linked)."}
-    return {"ok": False, "error": "Failed to enable CDP. Chrome may need manual restart."}
+        return {"ok": True, "output": f"CDP enabled on port {CDP_PORT}. {len(tabs)} tab(s) open. Real profile active."}
+    return {"ok": False, "error": "CDP could not be activated. Chrome may have ignored the --remote-debugging-port flag. Try closing Chrome manually, then reopen it from the desktop shortcut (which has CDP flags built in)."}
 
 
 def cmd_browser_cdp_status(args):
@@ -2081,6 +2076,61 @@ def cmd_headless_browse(args):
 
 
 # ============================================================
+# COMMANDS — System Monitoring
+# ============================================================
+
+def cmd_services(args):
+    """List Windows services (running or all)."""
+    filter_clause = 'Where-Object { $_.Status -eq "Running" }' if not args.all else ''
+    r = run_powershell(f'''
+Get-Service | {filter_clause + ' | ' if filter_clause else ''}
+    Select-Object -First {args.limit or 50} |
+    ForEach-Object {{ Write-Output "$($_.Status) | $($_.Name) | $($_.DisplayName)" }}
+''', timeout=15)
+    return r
+
+
+def cmd_scheduled_tasks(args):
+    """List Windows scheduled tasks."""
+    r = run_powershell('''
+Get-ScheduledTask | Where-Object { $_.State -ne "Disabled" } |
+    Select-Object -First 30 |
+    ForEach-Object { Write-Output "$($_.State) | $($_.TaskName) | $($_.TaskPath)" }
+''', timeout=15)
+    return r
+
+
+def cmd_event_log(args):
+    """Get recent Windows event log entries."""
+    log_name = args.log or "System"
+    count = args.count or 10
+    r = run_powershell(f'''
+Get-EventLog -LogName "{log_name}" -Newest {count} -ErrorAction SilentlyContinue |
+    ForEach-Object {{
+        Write-Output "$($_.TimeGenerated.ToString("yyyy-MM-dd HH:mm")) | $($_.EntryType) | $($_.Source) | $($_.Message.Substring(0, [Math]::Min(100, $_.Message.Length)))"
+    }}
+''', timeout=15)
+    return r
+
+
+def cmd_env_var(args):
+    """Get or set environment variable."""
+    if args.value:
+        os.environ[args.name] = args.value
+        return {"ok": True, "output": f"Set {args.name}={args.value}"}
+    val = os.environ.get(args.name)
+    if val:
+        return {"ok": True, "output": f"{args.name}={val}"}
+    return {"ok": False, "error": f"Environment variable not found: {args.name}"}
+
+
+def cmd_uptime(args):
+    """Get system uptime."""
+    r = run_powershell('$up = (Get-Date) - (Get-CimInstance Win32_OperatingSystem).LastBootUpTime; Write-Output "$($up.Days) days, $($up.Hours) hours, $($up.Minutes) minutes"')
+    return r
+
+
+# ============================================================
 # MAIN
 # ============================================================
 
@@ -2387,6 +2437,23 @@ def main():
     p.add_argument("--action", choices=["text", "screenshot", "links", "title", "html"], default="text")
     p.add_argument("--path", help="Save path for screenshot")
 
+    # ---- System monitoring ----
+    p = sub.add_parser("services", help="List Windows services")
+    p.add_argument("--all", action="store_true", help="Show all (not just running)")
+    p.add_argument("--limit", type=int, default=50)
+
+    sub.add_parser("scheduled-tasks", help="List active scheduled tasks")
+
+    p = sub.add_parser("event-log", help="Get recent event log entries")
+    p.add_argument("--log", default="System", help="Log name (System, Application, Security)")
+    p.add_argument("--count", type=int, default=10)
+
+    p = sub.add_parser("env-var", help="Get or set environment variable")
+    p.add_argument("--name", required=True)
+    p.add_argument("--value", help="Value to set (omit to read)")
+
+    sub.add_parser("uptime", help="System uptime")
+
     args = parser.parse_args()
 
     # SECURITY: Sanitize string arguments
@@ -2485,6 +2552,9 @@ def main():
         "virtual-desktop-close": cmd_virtual_desktop_close,
         # Headless browser
         "headless-browse": cmd_headless_browse,
+        # System monitoring
+        "services": cmd_services, "scheduled-tasks": cmd_scheduled_tasks,
+        "event-log": cmd_event_log, "env-var": cmd_env_var, "uptime": cmd_uptime,
     }
 
     result = commands[args.command](args)

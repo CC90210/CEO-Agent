@@ -263,6 +263,8 @@ UTILITIES: download-file --url "..." [--path X] | set-wallpaper --path X | scree
 VIRTUAL DESKTOPS: virtual-desktop-new | virtual-desktop-switch --direction left|right | virtual-desktop-close
 HEADLESS BROWSER (background — no GUI, no mouse, CC keeps working): headless-browse --url "..." --action text|screenshot|links|title|html [--path X]
 
+MONITORING: services [--all] | scheduled-tasks | event-log [--log System|Application] [--count N] | env-var --name X [--value Y] | uptime
+
 CONCURRENCY RULES:
 - BACKGROUND commands (safe while CC works): All file ops, network, system info, clipboard, browser CDP, headless-browse, download-file, list-*, get-*, sysinfo, search-*
 - FOREGROUND commands (will interact with CC's screen): click, type, keystroke, scroll, mouse-move, drag, window-*, open (apps), task-switcher. WARN CC before using these.
