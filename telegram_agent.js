@@ -182,13 +182,17 @@ const T1_KEYWORDS = ['status', 'check', 'what', 'how much', 'mrr', 'balance', 'c
 const T3_KEYWORDS = ['redesign', 'architecture', 'refactor', 'migrate', 'schema', 'system', 'overhaul', 'sparc', 'complex', 'multi-file'];
 // T2 is the default for everything else (build, fix, implement, debug, etc.)
 
+// Computer control keywords — these get a minimal "just do it" prompt
+const COMPUTER_CONTROL_KEYWORDS = /\b(open|launch|click|screenshot|volume|mute|play|switch|type|control|close|quit|move|resize|fullscreen|minimize|snap|record|dark.?mode|wifi|bluetooth|brightness|clipboard|copy|paste|lock|sleep|battery|sysinfo|soundcloud|music|song|track|browse|search|navigate|tab|website|url|google|amazon|download|scroll|mouse|ping|network|ip|audio|shutdown|restart|cart|inbox|email|gmail|youtube|facebook|instagram|twitter|tiktok|reddit)\b/i;
+
 const classifyTier = (text) => {
     const t = text.toLowerCase();
+    // T0: Computer control — minimal prompt, just commands
+    if (COMPUTER_CONTROL_KEYWORDS.test(t) && !T3_KEYWORDS.some(k => t.includes(k))) return 0;
     // T3 keywords win first (most specific)
     if (T3_KEYWORDS.some(k => t.includes(k))) return 3;
     // T1 only if ALL words match simple patterns (no action verbs)
-    const words = t.split(/\s+/);
-    const hasActionVerb = /\b(build|fix|implement|create|update|add|modify|debug|test|deploy|write|change|edit|push|ship|review|open|launch|click|screenshot|volume|mute|play|switch|type|control|close|quit|move|resize|fullscreen|minimize|snap|record|recording|dark|wifi|bluetooth|brightness|clipboard|copy|paste|lock|sleep|battery|sysinfo|soundcloud|music|song|track|browse|search|navigate|tab|website|url|google|download|upload|scroll|right.click|double.click|mouse|file|process|kill|delete|reveal|finder|ping|network|ip|audio|shutdown|restart|logout|power)\b/.test(t);
+    const hasActionVerb = /\b(build|fix|implement|create|update|add|modify|debug|test|deploy|write|change|edit|push|ship|review)\b/.test(t);
     if (!hasActionVerb && T1_KEYWORDS.some(k => t.includes(k))) return 1;
     return 2;
 };
@@ -311,9 +315,27 @@ POWER COMMANDS (shutdown/restart/logout) require --confirm flag. Always ask the 
 // Dynamic prompt for Claude — tier-aware context loading + conversation history
 const buildPrompt = (chatId, userText = '') => {
     const tier = classifyTier(userText);
-    const context = loadContext(tier);
     const history = getHistoryBlock(chatId);
-    log(`[TIER] Query classified as T${tier} — loading ${tier === 1 ? 'minimal' : tier === 2 ? 'standard' : 'full'} context`);
+    log(`[TIER] Query classified as T${tier} — loading ${tier === 0 ? 'COMPUTER CONTROL' : tier === 1 ? 'minimal' : tier === 2 ? 'standard' : 'full'} context`);
+
+    // T0: Computer control — ultra-minimal prompt for speed
+    if (tier === 0) {
+        return `You are Bravo, CC's AI assistant. You control his Windows PC.
+
+TO OPEN A WEBPAGE: ${PYTHON} scripts/browse_and_capture.py --url "URL"
+This opens CC's real Chrome (logged in), captures the Chrome window screenshot, and returns the path. The screenshot is sent to Telegram automatically. Read the screenshot and tell CC what you see.
+
+TO CHECK SYSTEM: ${PYTHON} scripts/windows_control.py COMMAND --json
+Common: sysinfo, list-apps, list-windows, frontmost, screenshot, volume --level N, mute --toggle, get-ip, disk-usage, battery, uptime, list-processes --sort cpu --limit 5
+
+TO PLAY MUSIC: ${PYTHON} scripts/music_control.py play --query "..." --json
+
+RULES: Use 1 turn. Run the right command, describe the result. Done. Do NOT use Playwright, headless-browse, or any other tool for webpages — ONLY browse_and_capture.py. Do NOT overthink.
+${history}
+CC says:`;
+    }
+
+    const context = loadContext(tier);
     return `You are BRAVO V5.5, CC's Lead Architect and AI business manager, running via Telegram bridge.
 You have full access to the Business-Empire-Agent project at ${__dirname}.
 Platform: ${IS_MAC ? 'macOS (darwin)' : 'Windows 11 (win32)'} — Machine: ${MACHINE_NAME}
@@ -327,22 +349,14 @@ TELEGRAM-SPECIFIC RULES:
 (3) Use the CLI tools listed above for database, social media, Stripe, and n8n operations. Use ${PYTHON} (not python) for all script calls.
 (4) For code changes in apps, cd to the app's LOCAL PATH from APP_REGISTRY.md.
 (5) After any significant work, update memory/SESSION_LOG.md and memory/ACTIVE_TASKS.md.
-(6) Address the user as CC. Be direct, no filler. Use "Conaugh McKenna" for external/B2B comms.
-(7) SPEED IS CRITICAL. Simple tasks (open a page, check something, take a screenshot) should use 1-3 turns MAX. Do NOT overthink, do NOT try multiple approaches. Pick one approach and execute it. Only use extra turns for genuinely complex multi-step tasks.
+(6) Address the user as CC. Be direct, no filler.
+(7) SPEED IS CRITICAL. Simple tasks = 1-3 turns MAX. Do NOT overthink.
 (8) All credentials are in .env.agents — NEVER hardcode secrets.
-(9) IMPORTANT: The RECENT CONVERSATION HISTORY above contains previous messages from this chat session. Use it to maintain context. If CC references something from a prior message, check the history.
-(10) APPROVAL GATE: Before executing ANY destructive action (deleting files, sending emails to clients, publishing content, modifying production data, running rm/del commands, shutting down services), you MUST output exactly this pattern and STOP:
-⚠️ CONFIRM: [one-line description of what you are about to do]
-Do NOT proceed until the next message says APPROVED or DENIED.
-(11) COMPUTER CONTROL: You have FULL control of this ${IS_MAC ? 'Mac' : 'PC'} via ${PYTHON} scripts/${IS_MAC ? 'macos' : 'windows'}_control.py (60+ commands). Categories: Apps (open/quit/list), Input (type/click/right-click/double-click/scroll/mouse-move/keystroke), Windows (move/resize/fullscreen/left/right/center/minimize/restore), Screenshots & Recording, System (dark-mode/dnd/wifi/bluetooth/brightness/volume/mute/sleep/lock/battery/sysinfo), Clipboard (read/write), Files (list/read/write/move/copy/delete/search/${IS_MAC ? 'reveal-in-finder' : 'reveal-in-explorer'}), Processes (list/kill), Network (get-ip/ping), Audio (list/switch devices), Power (shutdown/restart/logout — need --confirm), Browser (Chrome: open URLs, JS, tabs), Media (say/notify/url). Use natural language — figure out the right command from CC's intent.
-(12) FILE RELAY: When you take a screenshot or create a file, the bridge AUTOMATICALLY sends it back to this Telegram chat. Always save to ${TEMP_PATH}${IS_MAC ? '/' : '\\\\'} paths. Include the full file path in your response text so the relay can find it.
-(13) MUSIC: Use ${PYTHON} scripts/music_control.py for SoundCloud control. NEVER try to manually control the browser step-by-step for music. The script handles search, navigation, and playback in ONE atomic call.
-(14) BROWSER (Windows — ONE COMMAND):
-  When CC asks to open/check ANY webpage: ${PYTHON} scripts/browse_and_capture.py --url "https://the-url.com"
-  That's it. ONE command. It opens CC's real Chrome (logged in), waits for load, focuses Chrome, takes screenshot, returns the path. The screenshot is auto-sent to Telegram. Then just tell CC what you see in the screenshot.
-  Do NOT use Playwright, headless-browse, browser-enable-cdp, or any other approach for logged-in pages. Do NOT run multiple commands. Just browse_and_capture.py.
-  For PUBLIC pages where you only need text (no login): headless-browse --url "..." --action text is faster.${IS_MAC ? `
-  On macOS: use browser-open/browser-js from macos_control.py instead (full AppleScript control).` : ''}
+(9) Use RECENT CONVERSATION HISTORY for context from prior messages.
+(10) APPROVAL GATE: Before destructive actions, output "⚠️ CONFIRM: [description]" and STOP.
+(11) COMPUTER CONTROL: ${PYTHON} scripts/windows_control.py <command> --json for desktop control. ${PYTHON} scripts/browse_and_capture.py --url "URL" for opening webpages in CC's real Chrome.
+(12) FILE RELAY: Screenshots/files saved to ${TEMP_PATH} are auto-sent to Telegram.
+(13) MUSIC: ${PYTHON} scripts/music_control.py for SoundCloud.
 
 CC's message:`;
 };
@@ -398,16 +412,18 @@ const killTree = (pid) => {
 const executeCli = (tool, userPrompt, chatId) => {
     return new Promise((resolve) => {
         const fullPrompt = tool === 'claude' ? `${buildPrompt(chatId, userPrompt)} ${userPrompt}` : `${buildGeminiPrompt(chatId)} ${userPrompt}`;
-        const timeout = tool === 'claude' ? CLAUDE_TIMEOUT : GEMINI_TIMEOUT;
+        const timeout = tool === 'claude' ? (tier === 0 ? 120000 : CLAUDE_TIMEOUT) : GEMINI_TIMEOUT; // T0: 2min max
         let cmd, args;
 
         if (tool === 'claude') {
+            const tier = classifyTier(userPrompt);
+            const maxTurns = tier === 0 ? '3' : '10';
             cmd = CLAUDE_EXE;
             args = [
                 '-p', fullPrompt,
                 '--dangerously-skip-permissions',
                 '--output-format', 'text',
-                '--max-turns', '10'
+                '--max-turns', maxTurns
             ];
         } else {
             const mcps = detectMcps(userPrompt);
