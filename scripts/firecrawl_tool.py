@@ -82,10 +82,19 @@ def get_app(env_vars: dict):
 # -- Commands ----------------------------------------------
 
 
+def _to_dict(obj):
+    """Convert firecrawl response objects to plain dicts."""
+    if hasattr(obj, "model_dump"):
+        return obj.model_dump()
+    if hasattr(obj, "__dict__"):
+        return {k: v for k, v in obj.__dict__.items() if not k.startswith("_")}
+    return obj
+
+
 def cmd_scrape(app, args) -> None:
     """Scrape a single page and return clean markdown."""
     jm = args.output_json
-    result = app.scrape_url(args.url, params={"formats": ["markdown"]})
+    result = _to_dict(app.scrape(args.url, formats=["markdown"]))
 
     if jm:
         print(json.dumps(result, indent=2, default=str))
@@ -109,16 +118,14 @@ def cmd_scrape(app, args) -> None:
 def cmd_crawl(app, args) -> None:
     """Crawl a site up to --limit pages and return markdown for each."""
     jm = args.output_json
-    result = app.crawl_url(
-        args.url,
-        params={"limit": args.limit, "scrapeOptions": {"formats": ["markdown"]}},
-    )
+    raw = app.crawl(args.url, limit=args.limit)
+    result = _to_dict(raw)
 
     if jm:
         print(json.dumps(result, indent=2, default=str))
         return
 
-    pages = result.get("data", [])
+    pages = result.get("data", result.get("results", []))
     print(_c(_BOLD + _CYAN, f"Crawl complete: {args.url}", jm))
     print(_c(_DIM, f"Pages crawled: {len(pages)} (limit: {args.limit})", jm))
     print()
@@ -142,13 +149,14 @@ def cmd_crawl(app, args) -> None:
 def cmd_search(app, args) -> None:
     """Search and scrape results."""
     jm = args.output_json
-    result = app.search(args.query)
+    raw = app.search(args.query)
+    result = _to_dict(raw)
 
     if jm:
         print(json.dumps(result, indent=2, default=str))
         return
 
-    data = result.get("data", [])
+    data = result.get("data", result.get("results", []))
     print(_c(_BOLD + _CYAN, f'Search: "{args.query}"', jm))
     print(_c(_DIM, f"Results: {len(data)}", jm))
     print()
@@ -174,8 +182,7 @@ def cmd_extract(app, args) -> None:
     """Extract structured data from a page using a JSON schema."""
     jm = args.output_json
 
-    # Parse schema
-    schema: dict = {}
+    schema = None
     if args.schema:
         try:
             schema = json.loads(args.schema)
@@ -183,11 +190,8 @@ def cmd_extract(app, args) -> None:
             print(f"ERROR: Invalid JSON schema -- {exc}", file=sys.stderr)
             sys.exit(1)
 
-    params: dict = {"formats": ["extract"]}
-    if schema:
-        params["extract"] = {"schema": schema}
-
-    result = app.scrape_url(args.url, params=params)
+    raw = app.extract([args.url], schema=schema)
+    result = _to_dict(raw)
 
     if jm:
         print(json.dumps(result, indent=2, default=str))
@@ -204,13 +208,14 @@ def cmd_extract(app, args) -> None:
 def cmd_map(app, args) -> None:
     """Get site map -- all crawlable URLs for a domain."""
     jm = args.output_json
-    result = app.map_url(args.url)
+    raw = app.map(args.url)
+    result = _to_dict(raw)
 
     if jm:
         print(json.dumps(result, indent=2, default=str))
         return
 
-    links = result.get("links", [])
+    links = result.get("links", result.get("urls", []))
     print(_c(_BOLD + _CYAN, f"Site Map: {args.url}", jm))
     print(_c(_DIM, f"URLs found: {len(links)}", jm))
     print()
