@@ -21,14 +21,26 @@ tags: [reference, tools, workflows]
 | Scrape page data | Playwright CLI | `node .claude/skills/playwright/scripts/run.js <url> [--links] [--table css] [--selector css]` |
 | Backend code, parallel tasks | Codex CLI | `node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" task --write "<task>"` |
 
-## MCP Servers (Working — Stateless)
+## MCP Servers (7 Working)
 
-| MCP | Key Tools |
-|---|---|
-| Playwright | `browser_navigate`, `browser_snapshot`, `browser_click`, `browser_type` |
-| Context7 | `resolve-library-id`, `query-docs` |
-| Memory | `search_nodes`, `create_entities`, `open_nodes` |
-| Sequential Thinking | `sequentialthinking` |
+| MCP | Key Tools | Credentials |
+|---|---|---|
+| Playwright | `browser_navigate`, `browser_snapshot`, `browser_click`, `browser_type` | None |
+| Context7 | `resolve-library-id`, `query-docs` | None |
+| Memory | `search_nodes`, `create_entities`, `open_nodes` | None |
+| Sequential Thinking | `sequentialthinking` | None |
+| **GitHub** | PR management, issues, code search, repo ops | GITHUB_PERSONAL_ACCESS_TOKEN |
+| **Firecrawl** | Web scraping, crawling, search, structured extraction | FIRECRAWL_API_KEY |
+| **Filesystem** | Read/write across Business-Empire-Agent, APPS, .claude | None (path allowlist) |
+
+**Plugin:** claude-mem (auto session compression, context injection across sessions)
+
+## New CLI Tools (Wave 2)
+
+| CC Asks About | CLI Tool | Command |
+|---|---|---|
+| Web scraping, research | `firecrawl_tool.py` | `python scripts/firecrawl_tool.py scrape <url>`, `search <query>`, `crawl <url>` |
+| Semantic memory | `mem0_tool.py` | `python scripts/mem0_tool.py add "fact"`, `search "query"`, `list`, `stats` |
 
 ## System Maintenance CLIs
 
@@ -85,6 +97,8 @@ tags: [reference, tools, workflows]
 | `/codex:status` | Show active/recent Codex background jobs |
 | `/codex:result` | Get completed Codex job output |
 | `/codex:cancel` | Cancel active Codex background job |
+| `/ingest` | Compile raw document into knowledge wiki |
+| `/query-knowledge` | Search compiled knowledge base |
 
 ## Skills Quick Reference
 
@@ -117,6 +131,10 @@ All skills: `skills/[skill-name]/SKILL.md`. Read on demand — not at boot.
 | `security-protocol` | Credential and input validation |
 | `cli-anything` | Generate CLI wrappers |
 | `opencli` | Website-to-CLI automation |
+| `knowledge-compilation` | Ingest raw docs → wiki, query knowledge, lint |
+| `semantic-memory` | Mem0 AI-powered memory (search, add, deduplicate) |
+| `memory-compression` | claude-mem session compression + context injection |
+| `web-scraping` | Firecrawl vs Playwright decision + scraping ops |
 
 ## Codex Companion Quick Commands
 
