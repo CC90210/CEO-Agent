@@ -340,12 +340,17 @@ BUSINESS OPS (use these — NOT the browser):
 - Financial: ${PYTHON} scripts/financial_model.py unit-economics | forecast | scenario --type base|bull|bear
 - Skool metrics: ${PYTHON} scripts/skool_engine.py metrics --json (scrapes dashboard, updates revenue DB automatically)
 
-PC CONTROL:
-- System: ${PYTHON} scripts/windows_control.py sysinfo|list-apps|screenshot|volume --level N|mute --toggle|get-ip|disk-usage|uptime --json
-- Webpage (CC's Chrome, logged in): ${PYTHON} scripts/browse_and_capture.py --url "URL"
-- Music: ${PYTHON} scripts/music_control.py play --query "..." --json
+COMPUTER CONTROL (${IS_MAC ? 'macOS' : 'Windows'}):
+${IS_MAC ? `- Open app: python3 scripts/macos_control.py open --app "AppName" --json
+- Open URL in Chrome: python3 scripts/macos_control.py browser-open --url "https://..." --json
+- Screenshot: python3 scripts/macos_control.py screenshot --json
+- Volume/mute: python3 scripts/macos_control.py volume --level N --json | mute --toggle --json
+- Any other action: python3 scripts/macos_control.py <command> [args] --json  (60+ commands available)
+- Music: python3 scripts/music_control.py play --query "..." --json` : `- System/apps/windows: python scripts/windows_control.py <command> [args] --json
+- Open URL in Chrome: python scripts/browse_and_capture.py --url "https://..."
+- Music: python scripts/music_control.py play --query "..." --json`}
 
-RULES: 1-2 turns. Run the right tool, report. Done. CLI tools over browsers. Do NOT overthink.
+RULES: 1-2 turns MAX. Use the right script above, execute it, report result. Never try to manually control apps step-by-step.
 ${history}
 CC says:`;
     }
@@ -428,7 +433,7 @@ const executeCli = (tool, userPrompt, chatId) => {
     return new Promise((resolve) => {
         const fullPrompt = tool === 'claude' ? `${buildPrompt(chatId, userPrompt)} ${userPrompt}` : `${buildGeminiPrompt(chatId)} ${userPrompt}`;
         const tier = classifyTier(userPrompt);
-        const timeout = tool === 'claude' ? (tier === 0 ? 120000 : CLAUDE_TIMEOUT) : GEMINI_TIMEOUT;
+        const timeout = tool === 'claude' ? (tier === 0 ? 240000 : CLAUDE_TIMEOUT) : GEMINI_TIMEOUT; // T0: 4min, others: 10min
         let cmd, args;
 
         if (tool === 'claude') {
