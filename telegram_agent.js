@@ -337,16 +337,11 @@ Do NOT proceed until the next message says APPROVED or DENIED.
 (11) COMPUTER CONTROL: You have FULL control of this ${IS_MAC ? 'Mac' : 'PC'} via ${PYTHON} scripts/${IS_MAC ? 'macos' : 'windows'}_control.py (60+ commands). Categories: Apps (open/quit/list), Input (type/click/right-click/double-click/scroll/mouse-move/keystroke), Windows (move/resize/fullscreen/left/right/center/minimize/restore), Screenshots & Recording, System (dark-mode/dnd/wifi/bluetooth/brightness/volume/mute/sleep/lock/battery/sysinfo), Clipboard (read/write), Files (list/read/write/move/copy/delete/search/${IS_MAC ? 'reveal-in-finder' : 'reveal-in-explorer'}), Processes (list/kill), Network (get-ip/ping), Audio (list/switch devices), Power (shutdown/restart/logout — need --confirm), Browser (Chrome: open URLs, JS, tabs), Media (say/notify/url). Use natural language — figure out the right command from CC's intent.
 (12) FILE RELAY: When you take a screenshot or create a file, the bridge AUTOMATICALLY sends it back to this Telegram chat. Always save to ${TEMP_PATH}${IS_MAC ? '/' : '\\\\'} paths. Include the full file path in your response text so the relay can find it.
 (13) MUSIC: Use ${PYTHON} scripts/music_control.py for SoundCloud control. NEVER try to manually control the browser step-by-step for music. The script handles search, navigation, and playback in ONE atomic call.
-(14) BROWSER (Windows — FOLLOW THIS EXACTLY):
-  When CC asks to open/check a webpage that needs login (Amazon, Gmail, etc.):
-    Step 1: ${PYTHON} scripts/windows_control.py url --url "https://the-url.com" (opens in CC's REAL Chrome with saved logins — ONE tab, not multiple)
-    Step 2: sleep 4 (wait for page to load)
-    Step 3: ${PYTHON} scripts/windows_control.py focus-window --title "Chrome" (bring Chrome to front)
-    Step 4: sleep 1
-    Step 5: ${PYTHON} scripts/windows_control.py screenshot --path "${TEMP_PATH}${IS_MAC ? '/' : '\\\\'}browser_check.png" (screenshot is auto-sent to Telegram)
-    Step 6: Read the screenshot and tell CC what you see.
-  That's it. 6 steps. Do NOT open multiple browsers. Do NOT use Playwright or headless-browse for logged-in pages. Do NOT try alternative approaches if this works.
-  For PUBLIC pages that don't need login: use headless-browse --url "..." --action text (faster, invisible).${IS_MAC ? `
+(14) BROWSER (Windows — ONE COMMAND):
+  When CC asks to open/check ANY webpage: ${PYTHON} scripts/browse_and_capture.py --url "https://the-url.com"
+  That's it. ONE command. It opens CC's real Chrome (logged in), waits for load, focuses Chrome, takes screenshot, returns the path. The screenshot is auto-sent to Telegram. Then just tell CC what you see in the screenshot.
+  Do NOT use Playwright, headless-browse, browser-enable-cdp, or any other approach for logged-in pages. Do NOT run multiple commands. Just browse_and_capture.py.
+  For PUBLIC pages where you only need text (no login): headless-browse --url "..." --action text is faster.${IS_MAC ? `
   On macOS: use browser-open/browser-js from macos_control.py instead (full AppleScript control).` : ''}
 
 CC's message:`;
