@@ -412,11 +412,11 @@ const killTree = (pid) => {
 const executeCli = (tool, userPrompt, chatId) => {
     return new Promise((resolve) => {
         const fullPrompt = tool === 'claude' ? `${buildPrompt(chatId, userPrompt)} ${userPrompt}` : `${buildGeminiPrompt(chatId)} ${userPrompt}`;
-        const timeout = tool === 'claude' ? (tier === 0 ? 120000 : CLAUDE_TIMEOUT) : GEMINI_TIMEOUT; // T0: 2min max
+        const tier = classifyTier(userPrompt);
+        const timeout = tool === 'claude' ? (tier === 0 ? 120000 : CLAUDE_TIMEOUT) : GEMINI_TIMEOUT;
         let cmd, args;
 
         if (tool === 'claude') {
-            const tier = classifyTier(userPrompt);
             const maxTurns = tier === 0 ? '3' : '10';
             cmd = CLAUDE_EXE;
             args = [
