@@ -250,7 +250,33 @@ The following were added to the Business Operations Engines table above (already
 | Content Week Plan | Sunday 8pm | content_planning |
 | Instagram Research | Mon/Wed/Fri 11am | ig_research |
 
-## Workflows (30 active — `.agents/workflows/`)
+## Knowledge Compilation System (Karpathy-style — added 2026-04-06)
+
+Bypasses RAG entirely. Raw source documents are compiled by an LLM into structured, cross-linked
+markdown wiki pages. Deterministic retrieval via `knowledge/index.md` — no embeddings, no vector stores.
+
+| File | Purpose |
+|------|---------|
+| `knowledge/SCHEMA.md` | Navigation guide for LLMs — read this before any operation |
+| `knowledge/index.md` | Catalog of all wiki pages — start here for queries |
+| `knowledge/log.md` | Chronological ingest history |
+| `knowledge/raw/` | Immutable source documents (never modify) |
+| `knowledge/wiki/` | LLM-compiled structured pages |
+
+**Three operations:**
+- `/ingest` — compile a raw document into the wiki (workflow: `.agents/workflows/ingest.md`)
+- `/query-knowledge` — retrieve sourced answers (workflow: `.agents/workflows/query-knowledge.md`)
+- `/lint-knowledge` — check for broken links, stale facts, missing cross-refs
+
+**Skill:** `skills/knowledge-compilation/SKILL.md`
+
+**Seeded wiki pages (2026-04-06):**
+- `knowledge/wiki/ai-automation-agency.md` — OASIS AI positioning, ICP, services, pitch
+- `knowledge/wiki/revenue-model.md` — MRR breakdown, Bennett deal, $5K gap analysis
+- `knowledge/wiki/tech-stack.md` — Full technology inventory, all tools and integrations
+- `knowledge/wiki/client-playbook.md` — Client lifecycle, NEPQ, health scoring, retention
+
+## Workflows (32 active — `.agents/workflows/`)
 
 | Command | Cadence | Purpose |
 |---------|---------|---------|
@@ -284,6 +310,8 @@ The following were added to the Business Operations Engines table above (already
 | /status | On-demand | Project status report |
 | /strategic-review | Quarterly | Strategic review — revenue, pipeline, competitive, OKR progress |
 | /sync | On-demand | End-of-session sync |
+| /ingest | On-demand | Compile raw document into knowledge wiki |
+| /query-knowledge | On-demand | Sourced answer from compiled knowledge wiki |
 
 ## Skills (174 total — 81 core + 42 GWS + 41 recipes + 10 personas)
 
@@ -304,6 +332,7 @@ The following were added to the Business Operations Engines table above (already
 | **Files** | pdf, docx, pptx, xlsx |
 | **Security** | security-protocol, using-superpowers |
 | **CLI & Integration** | cli-anything, opencli |
+| **Knowledge** | knowledge-compilation |
 | **Meta** | skill-creator, mcp-builder, using-superpowers |
 | **Revenue & Sales** | lead-management, email-marketing, funnel-management, revenue-operations, booking-management |
 

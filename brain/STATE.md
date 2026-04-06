@@ -84,11 +84,22 @@ tags: [state, ephemeral]
 - **Templates:** 10 new (5 email, 2 document, 2 content, 1 report)
 - Status: **Script verification pending. Commit pending.**
 
-## Capability Counts (2026-03-31)
+## Knowledge Compilation System (2026-04-06)
 
-- **Skills:** 179 (core + GWS + recipes + personas + context-optimization + python-daemon-automation) + 16 native Claude Code skills
+**LIVE — Karpathy-style, no RAG**
+- `knowledge/SCHEMA.md` — LLM navigation guide
+- `knowledge/index.md` — catalog of 4 wiki pages
+- `knowledge/log.md` — ingest history
+- `knowledge/raw/` — immutable source documents
+- `knowledge/wiki/` — 4 seeded pages: ai-automation-agency, revenue-model, tech-stack, client-playbook
+- Skill: `skills/knowledge-compilation/SKILL.md`
+- Workflows: `/ingest`, `/query-knowledge`, `/lint-knowledge`
+
+## Capability Counts (2026-04-06)
+
+- **Skills:** 180 (added knowledge-compilation)
 - **Agents:** 16 (core + meta-agent)
-- **Workflows:** 30 (.agents/workflows/)
+- **Workflows:** 32 (.agents/workflows/ — added /ingest, /query-knowledge)
 - **Scripts:** 37 (CLI engines + CEO tools + system maintenance)
 - **Supabase tables:** 28 (14 agent + 14 business ops)
 - **MCP servers:** 4 working (Playwright, Context7, Memory, Sequential Thinking) + 4 replaced by CLI
@@ -134,17 +145,18 @@ tags: [state, ephemeral]
 - **Agent:** BRAVO via Claude Code (Opus 4.6)
 - **Result:** Terminal popup fix (all startup scripts silent). Skool V2 research-enhanced. Content pipeline debugged (Zernio free plan limit). Full system audit in progress.
 
-*Last updated: 2026-04-04*
+*Last updated: 2026-04-06*
 
 ## Obsidian Links
 > Connected notes for graph navigation
 
-- [[brain/SOUL]] | [[brain/USER]] | [[brain/AGENTS]] | [[brain/CAPABILITIES]]
+- [[brain/SOUL]] | [[brain/USER]] | [[brain/AGENTS]] | [[brain/CAPABILITIES]] | [[brain/QUICK_REFERENCE]]
 - [[brain/APP_REGISTRY]] | [[brain/CEO_OPERATING_SYSTEM]] | [[brain/OKRs]]
 - [[brain/BRAIN_LOOP]] | [[brain/GROWTH]] | [[brain/CHANGELOG]]
 - [[brain/RISK_REGISTER]] | [[brain/INTERACTION_PROTOCOL]]
 - [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]] | [[memory/DECISIONS]]
 - [[memory/PATTERNS]] | [[memory/MISTAKES]] | [[memory/SELF_REFLECTIONS]]
 - [[memory/content-strategy]] | [[memory/PROPOSED_CHANGES]]
-- [[skills/skool-automation/SKILL]] | [[skills/codex-delegation/SKILL]]
+- [[skills/skool-automation/SKILL]] | [[skills/codex-delegation/SKILL]] | [[skills/knowledge-compilation/SKILL]]
+- [[knowledge/index]] | [[knowledge/SCHEMA]]
 - [[brain/DASHBOARD]]

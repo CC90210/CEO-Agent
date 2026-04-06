@@ -10,6 +10,36 @@ tags: [daily]
 
 ---
 
+### 2026-04-06 — Karpathy knowledge compilation architecture built
+**Agent:** Claude Code (Bravo)
+**Changes:**
+1. **Created `knowledge/` directory structure** — `raw/`, `wiki/`, `SCHEMA.md`, `index.md`, `log.md`
+2. **Built `skills/knowledge-compilation/SKILL.md`** — full `/ingest`, `/query-knowledge`, `/lint-knowledge` protocols
+3. **Created `.agents/workflows/ingest.md` and `.agents/workflows/query-knowledge.md`** — registered in INDEX.md
+4. **Seeded 4 wiki pages** — `ai-automation-agency.md`, `revenue-model.md`, `tech-stack.md`, `client-playbook.md` — compiled from brain/STATE.md, brain/USER.md, brain/CAPABILITIES.md
+5. **Updated `brain/CAPABILITIES.md`** — knowledge compilation system section added, skill and 2 workflows registered
+6. **Architecture:** Raw (immutable) → LLM compile → Wiki (queryable). No RAG. Deterministic navigation via index.md. Confidence scoring, source attribution, lint operation.
+
+---
+
+### 2026-04-06 — CLAUDE.md compression (386 → 119 lines)
+**Agent:** Claude Code (Bravo)
+**Changes:**
+1. **Compressed CLAUDE.md** from 386 lines to 119 lines — below Anthropic's 150-line compliance threshold
+2. **Created `brain/QUICK_REFERENCE.md`** — relocated CLI tools table, MCP table, system maintenance CLIs, all 37 workflow commands, skills quick reference, and Codex companion commands
+3. **All @imports preserved** — SOUL.md, USER.md, APP_REGISTRY.md, QUICK_REFERENCE.md, AGENTS.md, security-protocol, codex-delegation skill files all still referenced
+4. **Obsidian links maintained** — QUICK_REFERENCE added to STATE.md obsidian links and CAPABILITIES.md already points to APP_REGISTRY
+
+---
+
+### 2026-04-06 — Deep research intelligence report (6 targets)
+**Agent:** Claude Code (Bravo)
+**Changes:**
+1. **Extensive web research** across 6 targets: Karpathy LLM Knowledge Bases, Anthropic engineer workflows, NotebookLM architecture, Obsidian-as-RAG, top Claude Code power users, cutting-edge agent architectures
+2. **Intelligence report** written to `memory/research/2026-04-06-deep-research-intelligence.md` — 12 major findings, each with WHAT/WHY/HOW + applicability rating
+3. **Top 3 immediate actions identified:** (1) Compress CLAUDE.md to <150 lines, (2) Install obra/knowledge-graph plugin for vault graph search, (3) Implement Karpathy's knowledge compilation pattern
+4. **Key discoveries:** Karpathy's "compiled wiki" bypasses RAG entirely (we're 70% there), Anthropic engineers run 5-10 parallel sessions, Mem0 achieves 26% accuracy improvement with 90% fewer tokens, obra/knowledge-graph gives us graph traversal over our Obsidian vault
+
 ### 2026-04-04 — Full system audit + optimization pass
 **Agent:** Claude Code (Bravo)
 **Changes:**

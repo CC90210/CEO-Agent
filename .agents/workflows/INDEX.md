@@ -2,7 +2,7 @@
 tags: [workflows, index, hub]
 ---
 
-# Workflows Index — 30 Automated Pipelines
+# Workflows Index — 32 Automated Pipelines
 
 > Workflow files define slash-command triggers and step-by-step execution plans.
 > [[brain/CAPABILITIES]] | [[brain/AGENTS]] | [[brain/CEO_OPERATING_SYSTEM]]
@@ -19,6 +19,8 @@ tags: [workflows, index, hub]
 - [[.agents/workflows/research]] — Multi-source research
 - [[.agents/workflows/cli-anything]] — CLI wrapper generation
 - [[.agents/workflows/opencli]] — Website-to-CLI adapters
+- [[.agents/workflows/ingest]] — Compile raw documents into the knowledge wiki
+- [[.agents/workflows/query-knowledge]] — Sourced answers from the compiled wiki
 
 ## Content & Social
 - [[.agents/workflows/content]] — Platform-optimized content
