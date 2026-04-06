@@ -10,6 +10,16 @@ tags: [daily]
 
 ---
 
+### 2026-04-06 — Memory update: OASIS AI domain correction + feedback file
+**Agent:** Claude Code (Bravo)
+**Changes:**
+- Created `memory/feedback_oasis_domain.md` — correction: OASIS AI domain is oasisai.work (NOT oasisaisolutions.com). Reason: firecrawl test DNS failure when using wrong domain.
+- Updated `memory/MEMORY.md` — added one-line entry under "OASIS AI Domain" section documenting the correct domain and how-to-apply guidance
+- Audited `brain/USER.md`, `brain/DASHBOARD.md`, `knowledge/wiki/ai-automation-agency.md` for domain references — no occurrences found. Correct domain (oasisai.work) already in place across 6 active files (scripts, context, brand guide, proposals, HTML assets).
+- Archive check: 3 old email references found in `memory/ARCHIVES/lead_system/build_workflows.py` (deprecated 2026-03 code) — left as-is (historical record).
+
+---
+
 ### 2026-04-06 — Knowledge Graph MCP installed + vault indexed
 **Agent:** Claude Code (Bravo)
 **Changes:**
