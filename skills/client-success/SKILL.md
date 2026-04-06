@@ -257,7 +257,175 @@ Run every Friday before the week ends. Output format:
 The `/briefing` skill calls `python scripts/client_health.py report --json` in Section 3.
 Any ORANGE or RED clients surface as blocked items in Section 5 (Blocked Items).
 
+---
+
+## Automated Health Score Calculation
+
+Run `python scripts/client_health.py score <client_name>` to compute a fresh score from raw inputs. The formula is:
+
+```python
+# Input variables (update per client each week)
+payment_score     = compute_payment(days_late, consecutive_late_count)
+engagement_score  = compute_engagement(touchpoints_per_month)
+scope_score       = compute_scope(deliverables_on_time, disputes)
+revenue_score     = compute_revenue(mrr_trend, upsell_recency_days)
+relationship_score = compute_relationship(referral_given, avg_response_hours)
+
+health = (
+    payment_score     * 0.25 +
+    engagement_score  * 0.25 +
+    scope_score       * 0.20 +
+    revenue_score     * 0.15 +
+    relationship_score * 0.15
+)
+# Result: 0.0–100.0, one decimal place
+```
+
+**Quick data-entry format** (paste into CLI or session notes):
+
+```
+CLIENT: [name]
+payment_days_late: 0         # 0 = on time, positive = days late
+consecutive_late: 0          # how many months in a row late
+touchpoints_month: 4         # calls + replies + check-ins this month
+deliverables_on_track: true  # bool
+scope_disputes: 0            # active disputes
+mrr_trend: stable            # growing | stable | declining | at_risk
+upsell_days_ago: null        # null if no recent upsell
+referral_given: false        # gave referral in last 90 days
+avg_response_hours: 18       # average hours to reply
+```
+
+---
+
+## Churn Prediction Model
+
+Three warning signals. Any one moves the client toward RED. Two or more = immediate intervention.
+
+### Signal 1 — Engagement Drop (>20%)
+
+Definition: Touchpoint frequency has dropped by 20%+ vs the prior 4-week average.
+
+```
+Engagement drop % = (prior_avg_touchpoints - current_touchpoints) / prior_avg_touchpoints × 100
+
+If result ≥ 20% → SIGNAL FIRED
+```
+
+Action: Send a warm, non-salesy check-in within 24 hours. Do not mention the metric. Ask one open question about their business.
+
+### Signal 2 — Payment Lateness Pattern
+
+Definition: Two consecutive payments received more than 7 days after due date.
+
+Action: Call (not email) within 48 hours. Do not discuss payment on the call — lead with value. Assess whether the lateness is cash-flow (temporary) or satisfaction-based (deeper problem).
+
+### Signal 3 — Communication Decay
+
+Definition: Average response time has increased by 2x over the trailing 30 days (e.g., was 12 hours, now 24+ hours) AND the client has not proactively initiated contact in 14+ days.
+
+Action: Treat as YELLOW minimum. Initiate a "how can I make this easier for you?" message. Short, low-pressure.
+
+### Combined Signal Scoring
+
+| Active Signals | Minimum Tier |
+|---------------|-------------|
+| 0 | Current tier |
+| 1 | YELLOW |
+| 2 | ORANGE |
+| 3 | RED |
+
+---
+
+## Proactive Retention Playbook
+
+### Quarterly Business Review (QBR) — Client-Facing
+
+Schedule at weeks 12, 24, 36 of each client relationship. This is not an internal report — it's a client-facing meeting.
+
+**Agenda (30 minutes):**
+
+1. **Wins this quarter (10 min)** — Show 3 specific results with numbers. Frame them in the client's language (time saved, leads captured, cost avoided).
+2. **What we're watching (5 min)** — Honest update on anything that didn't go as planned. Don't hide it — they already know.
+3. **Preview next quarter (10 min)** — What we're building or improving. Position it as "the natural next step" based on what they shared today.
+4. **Open question (5 min)** — "What's the one thing that would make this 10x more valuable for you?"
+
+**Prep checklist:**
+- [ ] Pull 3 concrete wins from Supabase logs (automations run, leads generated, hours saved)
+- [ ] Review health score trend for the quarter
+- [ ] Prepare one expansion idea based on their stated pain points
+- [ ] Have contract renewal date visible if within 90 days
+
+### Value Demonstration Touchpoints
+
+Monthly, between QBRs, send one value-proof artifact. Rotate through:
+
+| Month | Artifact Type | Example |
+|-------|-------------|---------|
+| Month 1 | Automation report | "Your lead capture automation ran 47 times this month, saving ~6 hours" |
+| Month 2 | Benchmark | "Your response time is now 4 minutes vs industry average of 3 hours" |
+| Month 3 | Opportunity flag | "I noticed X pattern in your data — we could automate this next" |
+
+Rules: Never send a generic update. Every message should reference something specific to that client.
+
+### Expansion Signals → Expansion Conversation
+
+When 3+ of these are true, schedule an expansion conversation (not an email):
+
+- Health score ≥ 80 for 2 consecutive months
+- Client has mentioned a new pain point or project in any channel
+- MRR stable for 60+ days (stagnant = untapped opportunity)
+- Client gave a referral or positive testimonial in last 90 days
+- Client asked "can you also do X?" in any channel
+
+Expansion conversation structure: "Based on everything we've built together, I think there's an opportunity to [specific next thing]. The way I'd approach it is [brief plan]. Would it make sense to explore that?"
+
+---
+
+## Client Lifetime Value Tracking
+
+### LTV Formula (per client)
+
+```
+Client LTV = Monthly MRR × Gross Margin % × Expected Lifespan (months)
+
+Expected lifespan = 1 ÷ Monthly Churn Rate (for the portfolio)
+
+Example: $1,500/mo × 94% margin × 24 months = $33,840 LTV
+```
+
+### LTV Tier Classification
+
+| LTV Range | Classification | Priority Level |
+|-----------|---------------|---------------|
+| >$30,000 | Enterprise | White-glove. Weekly touchpoints. Never miss a signal. |
+| $15,000–$30,000 | Strategic | Bi-weekly touchpoints. Full QBR. Top of expansion list. |
+| $5,000–$15,000 | Growth | Monthly touchpoints. QBR every 6 months. |
+| <$5,000 | Standard | Async relationship. Monthly report. QBR annually. |
+
+### LTV Tracking in Supabase
+
+```bash
+# Pull LTV estimates for all active clients
+python scripts/client_health.py ltv --all
+
+# Update expected lifespan after churn event
+python scripts/client_health.py ltv update <client_id> --lifespan 18
+```
+
+Store fields: `client_id`, `mrr`, `start_date`, `ltv_estimate`, `ltv_actual_to_date`, `ltv_tier`.
+
+### Portfolio LTV Health Check
+
+Run quarterly. Answer three questions:
+
+1. Is average LTV growing quarter-over-quarter? (Yes = good retention and expansion)
+2. What % of total portfolio LTV is tied to one client? (Target: <50%)
+3. What is the LTV:CAC ratio? (Target: ≥5:1, exceptional ≥10:1)
+
+---
+
 ## Obsidian Links
 - [[brain/STATE]] | [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]] | [[brain/CAPABILITIES]]
 - [[skills/revenue-operations/SKILL]] | [[skills/lead-management/SKILL]]
-- [[skills/ceo-briefing/SKILL]] | [[brain/USER]]
+- [[skills/ceo-briefing/SKILL]] | [[skills/financial-modeling/SKILL]] | [[brain/USER]]

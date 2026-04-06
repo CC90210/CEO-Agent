@@ -298,5 +298,252 @@ From debugging sessions:
 - First-time fix rate: 95% vs 40%
 - New bugs introduced: Near zero vs common
 
+---
+
+## 5 Whys — Root Cause Analysis Template
+
+Use for any bug where the immediate cause is obvious but the underlying cause is not. The goal is to reach the system-level failure, not the surface symptom.
+
+```
+Problem statement: [Describe the bug in one specific sentence]
+
+Why 1: Why did [problem] occur?
+Answer: [First-level cause]
+
+Why 2: Why did [answer to Why 1] occur?
+Answer: [Second-level cause]
+
+Why 3: Why did [answer to Why 2] occur?
+Answer: [Third-level cause]
+
+Why 4: Why did [answer to Why 3] occur?
+Answer: [Fourth-level cause — often reveals the real system issue]
+
+Why 5: Why did [answer to Why 4] occur?
+Answer: [Root cause — this is what we fix]
+
+Root cause: [Restate clearly in one sentence]
+Fix: [The change that addresses the root cause, not any of the intermediate causes]
+Prevention: [What process or check prevents this class of bug in the future?]
+```
+
+**Rules:**
+- Each answer must be a fact, not a hypothesis. If you're unsure, gather evidence before proceeding.
+- Stop at 5 Whys or when you reach a process or architecture failure (rather than a code bug).
+- If two Why chains diverge at the same level — you may have two root causes. Document both.
+
+---
+
+## Binary Search (Bisect) Strategy for Regression Bugs
+
+When you know something used to work and now doesn't, but you don't know which change broke it.
+
+### Step 1 — Establish Bounds
+
+```
+Known good: [commit hash or date when it worked]
+Known bad: [commit hash or date when it broke]
+```
+
+### Step 2 — Find the Midpoint
+
+```bash
+# If using git bisect (most reliable)
+git bisect start
+git bisect bad HEAD
+git bisect good [known-good-commit]
+# Git will checkout the midpoint commit automatically
+```
+
+### Step 3 — Test at Midpoint
+
+Run the minimal reproduction case at the midpoint commit. Mark it:
+
+```bash
+git bisect good   # if it works at this commit
+git bisect bad    # if it's broken at this commit
+# Repeat until git bisect identifies the first bad commit
+git bisect reset  # when done
+```
+
+### Step 4 — Manual Binary Search (No git bisect)
+
+If git bisect isn't available, bisect manually:
+
+```
+Total changes: [N changes between good and bad]
+Round 1: Disable the top 50% of changes. Does the bug still appear?
+  Yes → Bug is in the bottom 50%
+  No  → Bug is in the top 50%
+
+Round 2: Narrow by 50% again. Repeat until you find the single change that introduced the bug.
+
+Typical rounds needed: log₂(N)
+  10 changes → ~4 rounds
+  100 changes → ~7 rounds
+  1,000 changes → ~10 rounds
+```
+
+---
+
+## Log Analysis Patterns
+
+When the bug doesn't reproduce locally and you must debug from logs.
+
+### Error Correlation Pattern
+
+Look for events that cluster around the failure timestamp:
+
+```
+Step 1: Find the error timestamp (T)
+Step 2: Extract all log lines from T-60s to T+10s
+Step 3: Scan for:
+  - Warnings or errors immediately BEFORE T (these are candidate causes)
+  - Any unusual volume spikes (10x+ normal rate = something upstream changed)
+  - Any missing expected log lines (if expected log A doesn't appear before T, A is the failure)
+  - Multiple error types at the same timestamp = shared upstream dependency failing
+```
+
+### Timing Analysis
+
+For performance bugs and intermittent failures, timing tells the story:
+
+```
+Step 1: Extract timestamps for the start and end of each operation
+Step 2: Compute duration for each step in the pipeline
+Step 3: Compare to baseline (prior successful run or documented expectations)
+Step 4: Find the step where duration suddenly increased → that step is the bottleneck
+
+Example:
+  Auth: 12ms (normal)
+  DB query: 4,200ms (baseline: 80ms) ← HERE
+  Response: 4ms (normal)
+  
+  Finding: DB query is 52x slower than baseline. Investigate query plan, indexes, connection pool.
+```
+
+### Log Analysis CLI Commands
+
+```bash
+# Extract lines around a timestamp (logs with ISO timestamps)
+grep "2026-04-06T14:3[0-9]" app.log
+
+# Count error frequency by type
+grep "ERROR" app.log | sed 's/.*ERROR: //' | sort | uniq -c | sort -rn | head -20
+
+# Find the first occurrence of an error
+grep -n "TypeError" app.log | head -1
+
+# Correlate two log files by timestamp
+comm -12 <(grep "14:32" api.log | awk '{print $1}') <(grep "14:32" worker.log | awk '{print $1}')
+```
+
+---
+
+## Hypothesis-Driven Debugging
+
+Structured scientific method for bugs that resist the standard 4-phase process.
+
+### Template
+
+```
+## Debugging Session — [Bug Description] — [Date]
+
+### Observed Behavior
+[What actually happens — specific, not paraphrased]
+
+### Expected Behavior
+[What should happen — from spec, tests, or prior behavior]
+
+### Evidence Gathered So Far
+- [Log line or error message]
+- [Screenshot or test output]
+- [Relevant code path or data state]
+
+### Hypotheses (generate 2–3 before testing any)
+
+Hypothesis A: [Clear statement of what might be wrong]
+  - Confidence: Low / Medium / High
+  - Test: [Minimal action to confirm or deny — ideally one line or one flag change]
+  - Prediction: [If A is correct, we will see X]
+
+Hypothesis B: [Different candidate cause]
+  - Confidence: Low / Medium / High
+  - Test: [Minimal action]
+  - Prediction: [If B is correct, we will see Y]
+
+Hypothesis C: [Third candidate — often the non-obvious one]
+  - Confidence: Low / Medium / High
+  - Test: [Minimal action]
+  - Prediction: [If C is correct, we will see Z]
+
+### Testing Order
+Test highest-confidence hypothesis first. If it fails, test B. Never test multiple simultaneously.
+
+### Results
+Hypothesis A tested: [Confirmed / Denied]
+  - Evidence: [What we saw]
+  - Next: [Proceed to fix / Test B]
+
+### Root Cause
+[Final determination — one sentence]
+
+### Fix Applied
+[Exact change made — file, line, what changed]
+
+### Verification
+[Test or behavior that confirms the fix worked]
+```
+
+---
+
+## Post-Mortem Template
+
+For any bug that caused production impact, a post-mortem is required before the session ends. Post-mortems are blameless — they target systems and processes, not people.
+
+```markdown
+## Post-Mortem — [Incident Title] — [Date]
+
+### Summary
+[2-3 sentences: what broke, how long it was broken, what the impact was]
+
+### Timeline
+
+| Time | Event |
+|------|-------|
+| [T+0:00] | Incident detected |
+| [T+X:XX] | [Key diagnostic step] |
+| [T+X:XX] | Root cause identified |
+| [T+X:XX] | Fix deployed |
+| [T+X:XX] | Confirmed resolved |
+
+**Total time to resolution:** X minutes / hours
+
+### Root Cause
+[The 5 Whys answer — the actual system failure, not the symptom]
+
+### Contributing Factors
+- [Factor 1 — e.g., "No test covered this edge case"]
+- [Factor 2 — e.g., "The error was swallowed silently"]
+- [Factor 3 — e.g., "No alerting on this metric"]
+
+### What Went Well
+- [Something the response did right — build on this]
+
+### Action Items
+
+| Action | Owner | By When |
+|--------|-------|---------|
+| [Add test for this case] | Bravo | Next session |
+| [Add error alerting] | Bravo | This week |
+| [Update runbook] | Bravo | Before next deploy |
+
+### Logged To
+- [ ] memory/MISTAKES.md (root cause + 1-line prevention)
+- [ ] Supabase agent_traces (if applicable)
+```
+
+---
+
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX]] | [[brain/CAPABILITIES]] | [[skills/test-driven-development/SKILL]]

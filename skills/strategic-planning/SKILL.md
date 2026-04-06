@@ -441,6 +441,178 @@ Run every Monday morning. Target: 15 minutes.
 - **Store OKRs:** `memory/ACTIVE_TASKS.md` for current quarter tracking, `brain/STATE.md` for north star progress
 - **QBR cadence:** Last week of each quarter — run `/qbr` workflow
 
+---
+
+## OKR Scoring Methodology
+
+Score each Key Result on a 0.0–1.0 scale at quarter end. Use this rubric consistently — do not adjust scores retrospectively based on what happened.
+
+### Score Rubric
+
+| Score | Color | Meaning | What to Do |
+|-------|-------|---------|-----------|
+| 0.0–0.3 | Red | Did not make meaningful progress | Root cause analysis required. Was the KR realistic? Was effort applied? |
+| 0.4–0.6 | Yellow | Made progress but fell short of target | Partial credit. Carry forward or revise for next quarter. |
+| 0.7–0.9 | Green | Hit the target — this is the goal zone | Validate and build on the success. |
+| 1.0 | Blue | Exceeded target | Validate the win. Also ask: was the target too easy? |
+
+**70% is the success threshold.** An average score of 0.7 across all KRs = a successful quarter. If you score 1.0 on everything, your targets were not ambitious enough.
+
+### Calculating Objective Score
+
+```
+Objective Score = Average of all KR scores for that Objective
+
+OKR Grade = Average of all Objective scores
+
+Example:
+  O1: KR scores = 0.8, 0.6, 0.9 → Objective score = 0.77 (Green)
+  O2: KR scores = 0.4, 0.5, 0.3 → Objective score = 0.40 (Yellow)
+  O3: KR scores = 1.0, 0.9, 0.8 → Objective score = 0.90 (Green)
+
+  OKR Grade = (0.77 + 0.40 + 0.90) ÷ 3 = 0.69 (Yellow — just below target)
+```
+
+### Score Review Questions
+
+After grading, answer these before setting next quarter's OKRs:
+
+- Which KRs scored Red? Was it execution failure or unrealistic target?
+- Which KRs scored 1.0? Should we set a harder target or declare victory and move on?
+- Did any Objective become irrelevant mid-quarter? (If yes: add "OKR relevance review" to mid-quarter check-in process)
+
+---
+
+## Quarterly Planning Cadence
+
+A structured 90-day cycle. Every quarter has the same shape.
+
+### Week 1 (Planning Week)
+
+Run during the first 5 days of the quarter.
+
+- [ ] Complete QBR for the previous quarter (use QBR template above)
+- [ ] Grade all OKRs from last quarter (use scoring rubric above)
+- [ ] Identify the top 3 learnings from last quarter
+- [ ] Draft next quarter's 3 Objectives — validate each: does it move the north star?
+- [ ] Set 3–5 KRs per Objective — verify each is measurable and time-bound
+- [ ] Assign resource allocation (see framework below)
+- [ ] Publish OKRs to `brain/OKRs.md`
+
+### Weeks 2–11 (Execution)
+
+Every Monday:
+- 15-minute OKR check-in (use weekly format above)
+- Update Confidence column
+- If any KR drops below 30% confidence — flag in `memory/ACTIVE_TASKS.md` and act this week
+
+Every 30 days:
+- Mid-quarter review: are the OKRs still the right ones?
+- If a KR is clearly unreachable (< 20% confidence by week 6) → do not change the score target. Log what happened and redirect effort to reachable KRs.
+
+### Week 12 (Close Week)
+
+Final 5 days of the quarter:
+- [ ] Final OKR scoring — freeze all scores
+- [ ] Capture top 3 wins and top 3 misses
+- [ ] Update `brain/STATE.md` with new MRR and north star progress
+- [ ] Competitive positioning review — did anything change?
+- [ ] Prep for Week 1 of next quarter
+
+---
+
+## Resource Allocation Framework
+
+Before each quarter starts, define the time, money, and attention budgets. These are constraints — not wishes.
+
+### Time Budget (CC's 168 hours/week)
+
+Estimate based on current commitments:
+
+```
+| Block | Hours/Week | Non-Negotiable? |
+|-------|-----------|----------------|
+| Sleep (7hrs/night) | 49 | Yes |
+| Nicky's Donuts (weekend job) | ~12 | Yes |
+| Gym | ~5 | Yes — health is infrastructure |
+| Client delivery work | ~15 | Yes — revenue at risk if missed |
+| Sales (discovery calls, outreach) | ~8 | Yes — north star depends on this |
+| Content creation | ~6 | Yes — #1 inbound source |
+| Building / Bravo work | ~10 | Yes |
+| Admin, comms, misc | ~5 | Yes |
+| **Available for new commitments** | **~58** | Context-dependent |
+```
+
+Rule: Any new initiative must justify its time cost against the available budget. If it doesn't fit, something else comes out — not sleep.
+
+### Money Budget (Monthly)
+
+```
+Fixed costs: $184/month
+Variable capacity: remaining from MRR — set a monthly cap for new tool spend
+
+Cap: No new tools > $50/month without a written ROI case (saves X hrs or generates $Y)
+```
+
+### Attention Budget
+
+Max 3 active priorities at a time. Everything else is backlog.
+
+```
+Active priorities this quarter:
+1. [Priority — the one that hits the north star fastest]
+2. [Priority — the one that protects existing revenue]
+3. [Priority — the one that builds future leverage]
+
+Backlog (not this quarter):
+- [Everything else — logged in memory/ACTIVE_TASKS.md as backlog]
+```
+
+---
+
+## Strategic Pivot Criteria
+
+When to double down vs when to pivot. Use this framework for major directional decisions.
+
+### The Pivot Decision Matrix
+
+Before considering a pivot, answer these 4 questions:
+
+1. **Have we actually tested it?** If the strategy has not been executed for at least 90 days with full effort, it is not a pivot situation — it is an execution problem.
+
+2. **Is the feedback signal clear?** Anecdote is not signal. Data is signal. What do the numbers say specifically?
+
+3. **Is this a strategy failure or a tactics failure?** Strategy = what we're building and who it's for. Tactics = how we're reaching them. Changing tactics is not a pivot.
+
+4. **What is the opportunity cost of not pivoting vs pivoting?**
+   - Cost of staying: [X months of sub-target performance]
+   - Cost of pivoting: [Sunk costs + transition time + new learning curve]
+
+### Double Down When
+
+- Early signs of product-market fit (NPS > 40, retention > 90%, referrals happening organically)
+- Performance is below target but improving quarter-over-quarter
+- The core thesis is still intact and the market is validated
+- Root cause of underperformance is identifiable and fixable
+
+### Pivot When
+
+- Multiple quarters of flat or declining performance despite tactic changes
+- A fundamentally better opportunity has emerged in the same market
+- Core assumptions have been disproven by data (not feelings)
+- The unit economics are structurally broken (LTV:CAC < 1)
+
+### Pivot Types (in order of disruption)
+
+1. **Zoom in** — narrow focus to one customer segment or use case (least disruptive)
+2. **Zoom out** — broaden from feature to platform (adds scope, not direction change)
+3. **Customer pivot** — same product, different buyer (medium disruption)
+4. **Value capture pivot** — same product, different business model (medium-high disruption)
+5. **Platform pivot** — the product becomes the enabler for something else (high disruption)
+6. **Full pivot** — new direction (maximum disruption — rare and expensive)
+
+---
+
 ## Obsidian Links
 - [[brain/STATE]] | [[brain/USER]] | [[memory/ACTIVE_TASKS]] | [[brain/CAPABILITIES]]
 - [[skills/financial-modeling/SKILL]] | [[skills/competitive-intelligence/SKILL]] | [[skills/ceo-briefing/SKILL]]

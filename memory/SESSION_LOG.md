@@ -10,6 +10,22 @@ tags: [daily]
 
 ---
 
+### 2026-04-06 — Top 10 skills upgraded with deep operational content
+**Agent:** Claude Code (Bravo)
+**Changes:**
+1. **client-success/SKILL.md** — Added automated health score formula (Python-ready input format), churn prediction model with 3 signals (engagement drop >20%, consecutive late payments, communication decay), proactive QBR agenda, monthly value-proof touchpoints, CLV formula + tier classification (Standard/Growth/Strategic/Enterprise), portfolio LTV health check, Supabase CLI commands for LTV tracking
+2. **sales-methodology/SKILL.md** — Added full NEPQ question bank (30+ questions across all 4 phases), objection handling decision tree (price/timing/trust/competition branches with exact responses), full discovery call script template (17-minute breakdown), follow-up sequence (Day 0/1/3/7/14/30 with specific actions per day), win/loss analysis template with monthly review rubric
+3. **content-engine/SKILL.md** — Added CC's 14 voice calibration rules + anti-patterns, platform-specific optimization matrices (X hooks, LinkedIn authority stories, IG carousel templates, TikTok pattern interrupts with character budgets and timing), 7-day rolling content calendar template, engagement metric targets per platform with response protocols for over/under-performance, repurposing workflow (1 long-form → 5 micro pieces in 30–45 min)
+4. **competitive-intelligence/SKILL.md** — Added automated monitoring checklists (weekly 10-min + monthly 30-min), market signal detection table with 7 signals + responses, enhanced battlecard template (win/lose table + NEPQ objection response), win/loss correlation tracking template with quarterly decision rule (below 40% = strategic issue)
+5. **proposal-generation/SKILL.md** — Added value-first structure (cost-of-today reframe), pricing psychology (anchor high order, savings table, Goldilocks middle-tier), social proof hierarchy (4 levels), case study template, mutual action plan template with joint accountability map
+6. **financial-modeling/SKILL.md** — Added step-by-step unit economics calculator (CAC/LTV/ratio/payback/break-even per client), bull/base/bear scenario template with decision rules, 90-day cash flow projection template with Bennett-churn survival calculation, revenue diversification metrics (HHI thresholds, MRR quality score formula)
+7. **strategic-planning/SKILL.md** — Added OKR scoring methodology (0.0–1.0 with color codes, grading rules), full quarterly cadence template (Week 1/2-11/12 structure), resource allocation framework (time/money/attention budgets), strategic pivot decision matrix (4 questions, double-down vs pivot criteria, 6 pivot types ordered by disruption)
+8. **browser-automation/SKILL.md** — Added resilient selector strategy (data-testid > ARIA > text > CSS > XPath priority), wait strategy hierarchy (text/time/network-idle), error recovery sequence (6-step with screenshot + retry-with-backoff), session persistence pattern (auth once, reuse), multi-tab orchestration with 3-tab limit rule
+9. **systematic-debugging/SKILL.md** — Added 5 Whys template with process rules, binary search (bisect) strategy with git bisect and manual bisect procedures, log analysis patterns (error correlation + timing analysis + CLI commands), hypothesis-driven debugging template, blameless post-mortem template
+10. **ship/SKILL.md** — Added pre-flight checklist (code/environment/database/Stripe/UI/tests), rollback plan template (4 options: git revert/feature flag/migration rollback/Vercel instant), smoke test + 30-min monitoring checklist, changelog auto-generation from git log with category mapping, notification protocol (who to tell, what to say, when)
+
+---
+
 ### 2026-04-06 — Karpathy knowledge compilation architecture built
 **Agent:** Claude Code (Bravo)
 **Changes:**

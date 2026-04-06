@@ -387,6 +387,157 @@ python scripts/competitive_intel.py report --json
 
 ---
 
+---
+
+## Automated Competitor Monitoring Checklist
+
+Run this checklist every Monday (weekly) and the first Monday of each month (monthly). Log findings in `data/competitors.json`.
+
+### Weekly Checklist (10 minutes)
+
+For each tracked competitor:
+
+- [ ] **Pricing page** — load the page, check for any price changes. Note if page structure changed (often signals a pricing redesign is coming).
+- [ ] **Homepage hero** — has the headline or CTA changed? Messaging shifts signal repositioning.
+- [ ] **Blog / content** — any new posts this week? Topic = what they're targeting for SEO authority.
+- [ ] **X / LinkedIn** — scan their last 5 posts. Any product announcements, hiring posts, or "excited to announce" language?
+- [ ] **Job board** — any new postings? Department tells you where they're investing.
+- [ ] Log any change in `data/competitors.json` under `recent_activity` with today's date.
+
+### Monthly Checklist (30 minutes)
+
+- [ ] **G2 / Capterra / Trustpilot** — pull new 1-star and 5-star reviews. Look for recurring themes.
+  - 1-star themes = their weaknesses = our attack angles
+  - 5-star themes = what customers actually love = table stakes we must match
+- [ ] **LinkedIn job postings** — run these searches for each competitor:
+  ```
+  "[Company]" site:linkedin.com/jobs "sales"      → scaling go-to-market
+  "[Company]" site:linkedin.com/jobs "engineer"   → product investment
+  "[Company]" site:linkedin.com/jobs "customer"   → user base growing or troubled
+  ```
+- [ ] **Product changelog or release notes** — check if they publish one. Features launched = roadmap signals.
+- [ ] **Partnership announcements** — new integrations or co-marketing = where they're expanding ICP.
+- [ ] **Pricing model** — is it still the same model (per seat / flat / usage)? Model changes are rare but high-signal.
+- [ ] **Content audit** — what are their top 5 most-shared posts this month? Topic = what's resonating with their audience.
+- [ ] Update all battlecards that changed.
+
+### Market Signal Detection
+
+Watch for these specific signals — each requires a response within 72 hours:
+
+| Signal | What It Means | Response |
+|--------|-------------|---------|
+| Competitor raises ≥$1M funding | 3–6 month window before they accelerate | Move fast on roadmap items that compete |
+| Competitor launches free tier | ICP expansion — they want more top-of-funnel | Evaluate if this pulls our prospects |
+| Competitor cuts price ≥20% | Defensive move (shrinking) or land-grab (growing) | Hold 2 weeks. If 2+ deals cite it, convene pricing review |
+| Competitor acquires a company | Their capability gap is now closed | Update battlecard, assess differentiation |
+| New competitor enters the space | Market is validating the category | Add to watch list, monitor positioning |
+| Competitor's key executive leaves | Instability, possible direction change | Watch for customer migration opportunities |
+| Competitor's Trustpilot score drops 0.5+ points | Product or support issues emerging | Pull their complaints and position against them |
+
+---
+
+## Enhanced Battlecard Template
+
+Battlecards are 1-page pre-call cheat sheets. One per competitor. Pull the relevant one before any discovery call where that competitor is mentioned.
+
+```markdown
+## Battlecard: [Competitor] vs OASIS AI Solutions
+
+**Last updated:** [Date] | **Tier:** Direct / Indirect / Aspirational
+
+---
+
+### How They Position Themselves
+[1–2 sentences — their core message, from their homepage hero and tagline]
+
+### How We Position Against Them
+[1–2 sentences — our counter-positioning. What angle do we lead with?]
+Rule: Never lead with features. Lead with outcomes and accountability.
+
+---
+
+### Where We Win (Our Attack Angles)
+
+| Win Condition | Evidence | One-Line Pitch |
+|-------------|---------|---------------|
+| [e.g., Done-for-you vs DIY] | [They require 5hrs/week setup. We own it.] | "They give you tools. We give you results." |
+| [e.g., Local expertise] | [They're horizontal. We know [industry].] | "We've built this for [industry] specifically." |
+| [e.g., Human accountability] | [Their support is async. You get CC.] | "You have a direct line. Not a ticket queue." |
+
+### Where We Lose (Be Honest)
+
+| Loss Condition | How to Handle It |
+|--------------|----------------|
+| [e.g., Lower price point] | "If price is the primary driver, they may be the better fit for where you are right now. What we've found is clients who start with them often come to us 6 months later when they need results, not just tools." |
+| [e.g., More integrations] | "Fair point. Which integrations are critical for your workflow? [If they list ones we have] — we have those. [If we don't] — that's worth factoring in." |
+
+---
+
+### Handle the "Why not [Competitor]?" Objection
+
+Prospect says: "I was also looking at [Competitor]."
+
+NEPQ response (don't defend — get curious):
+> "Interesting. What's your read on them so far?"
+
+(Let them talk. Then:)
+> "What matters most to you in this decision — is it price, the depth of what gets built, or having someone accountable for results?"
+
+(Map their answer to your strongest win condition above. Let them connect the dots.)
+
+---
+
+### Proof Point (Their Turf)
+[A specific result, case study, or fact that beats them on the dimension they're known for]
+
+### Disqualifiers — When to Lose Gracefully
+- [Situation where the competitor genuinely is a better fit — e.g., "If they need a self-serve tool with no human support, we're not the right fit."]
+```
+
+---
+
+## Win/Loss Correlation with Competitive Positioning
+
+Track this quarterly. Measures whether your competitive positioning is actually working.
+
+```markdown
+## Competitive Win/Loss — Q[X] [YEAR]
+
+### Win Rate by Competitor
+
+| Competitor | Deals Competitive | Won | Lost | Win Rate |
+|-----------|-----------------|-----|------|---------|
+| [Comp A] | X | X | X | X% |
+| [Comp B] | X | X | X | X% |
+| [Comp C] | X | X | X | X% |
+| No competition | X | X | — | X% |
+
+### Most Common Win Reasons (competitive deals)
+1. [Reason — e.g., "trust + accountability" — X occurrences]
+2. [Reason]
+3. [Reason]
+
+### Most Common Loss Reasons (competitive deals)
+1. [Reason — e.g., "price" — X occurrences]
+2. [Reason]
+3. [Reason]
+
+### Positioning Effectiveness Score
+
+For each battlecard, rate: Did the positioning hold up in real deals this quarter?
+- [Competitor]: Held up / Needs update / Completely wrong
+
+### Actions for Next Quarter
+- [ ] Update [Competitor] battlecard — [specific thing to change]
+- [ ] New positioning angle to test: [hypothesis]
+- [ ] Competitor to add to watch list: [name]
+```
+
+**Decision rule:** If win rate against any competitor drops below 40% for two consecutive quarters, treat as a strategic issue — not just a messaging issue. Escalate to a positioning review.
+
+---
+
 ## Obsidian Links
 - [[brain/STATE]] | [[skills/strategic-planning/SKILL]] | [[skills/financial-modeling/SKILL]]
-- [[skills/market-research/SKILL]] | [[memory/ACTIVE_TASKS]] | [[brain/CAPABILITIES]]
+- [[skills/sales-methodology/SKILL]] | [[memory/ACTIVE_TASKS]] | [[brain/CAPABILITIES]]

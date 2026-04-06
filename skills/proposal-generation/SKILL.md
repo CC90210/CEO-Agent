@@ -287,7 +287,137 @@ Before sending any proposal, verify:
 - **Client Health:** After client signs, `lead_engine.py update <id> --status client` triggers onboarding
 - **CEO Briefing:** Active proposals surface in Section 2 (Pipeline Health) of the daily briefing
 
+---
+
+## Value-First Proposal Structure
+
+The default structure leads with ROI, not features. Prospects buy outcomes — not deliverables.
+
+**Wrong order (features-first):**
+Executive Summary → What We'll Build → Scope → Timeline → Price
+
+**Right order (value-first):**
+The Problem → The Outcome → Proof It Works → How We Do It → Investment → Next Steps
+
+Rewrite each section with this lens:
+
+### Reframe: Executive Summary → "The Cost of Today"
+
+Lead with a specific dollar or hour figure representing what the current situation is costing them. Use their numbers from discovery.
+
+> "Right now, [Client Name]'s team spends approximately [X hours/week] on [manual task]. At [their hourly value or opportunity cost], that's [$X] per month in time cost — before accounting for the [leads missed / delays / errors] that come with doing this manually."
+
+Then one sentence on the outcome: "This proposal shows how to close that gap in 30 days."
+
+### Reframe: Proposed Solution → "What Changes"
+
+Frame the deliverables as before-and-after states. Not "we will build an automation" — "today you spend 3 hours on X; after this, it takes 0."
+
+```
+Today: [Current state — specific, uses their words]
+After: [Future state — specific, measurable, theirs to own]
+```
+
+---
+
+## Pricing Psychology
+
+### Anchor High
+
+Always present the highest tier first in the investment section. The first number sets the reference point. Everything after it feels like a relief, not a cost.
+
+Order: Scale ($3,000–$5,000) → Growth ($1,500–$3,000) → Starter ($500–$1,500)
+
+Describe Scale fully and specifically before mentioning the others. Most clients will land on Growth — but anchoring to Scale makes Growth feel reasonable.
+
+### Show Savings (Not Just Price)
+
+For each tier, show what the client gets back — not just what they pay.
+
+| Tier | Monthly Investment | Est. Hours Saved | Est. Revenue Impact | Payback Period |
+|------|-------------------|-----------------|--------------------|----|
+| Scale | $3,500/mo | 40 hrs/mo | $8,000+ | <1 month |
+| Growth | $2,000/mo | 22 hrs/mo | $4,500+ | <1 month |
+| Starter | $750/mo | 8 hrs/mo | $1,800+ | <1 month |
+
+Note: Use conservative estimates. Being right is better than being impressive and wrong.
+
+### The Middle Tier Anchor (Goldilocks)
+
+Highlight the Growth tier as the recommended option. Bold it. Add one sentence: "Most clients in your situation start here — it covers the core outcomes without overbuilding before you've seen the results."
+
+This is not manipulation — it's guidance. Most clients are lost without a recommendation.
+
+### Payment Gate Strategy
+
+For projects, tie payment gates to milestones that are visible and controllable:
+
+```
+Gate 1 (33% upfront): Kickoff — access granted, onboarding complete
+Gate 2 (33% at midpoint): [Specific deliverable] approved by client
+Gate 3 (33% at completion): Go-live confirmed, client signs off
+
+Rule: Never require final payment before client has seen it work.
+This reduces payment disputes by ~80% and builds trust in the relationship.
+```
+
+---
+
+## Social Proof Integration
+
+Every proposal should include at least one proof element. Match proof to the client's industry or pain point.
+
+### Proof Hierarchy (strongest to weakest)
+
+1. **Specific metrics from a named client** — "We built a lead capture system for a Collingwood HVAC company that increased qualified leads by 34% in 60 days."
+2. **Specific metrics from an anonymous client** — "For a local wellness clinic, we automated appointment follow-ups and reduced no-shows from 22% to 8%."
+3. **Outcome statement without metrics** — "We've helped service businesses like yours eliminate the manual bottlenecks that slow down growth."
+4. **Testimonial quote** — Use verbatim, with name and company if permission granted.
+
+### Where to Place Proof in the Proposal
+
+- After the Executive Summary: one proof element that matches their problem
+- In the "About OASIS AI" section: one industry-relevant result
+- In the Timeline section (optional): "Similar builds for [industry] clients took X weeks and produced Y result"
+
+### Case Study Template (for Appendix)
+
+```markdown
+## Case Study: [Client Industry] — [Outcome]
+
+**The situation:** [2 sentences on what they were dealing with]
+**What we built:** [1 sentence — specific system, not generic "automation"]
+**The result:** [Specific metric — hours, dollars, percentage, time]
+**Timeline:** [How long from start to live result]
+**Quote:** "[Client quote if available]"
+```
+
+---
+
+## Mutual Action Plan
+
+Include a "What Happens Next" section at the end of every proposal. This is not the Next Steps CTA — it's a joint accountability map.
+
+```markdown
+## Mutual Action Plan — [Client Name] & OASIS AI
+
+**To move forward, here's what each of us does:**
+
+| Action | Owner | By When |
+|--------|-------|---------|
+| Review proposal and select tier | [Client Name] | [Date — 5 business days] |
+| Sign contract + pay first invoice | [Client Name] | [Date — 2 days after selection] |
+| Provide system access and credentials | [Client Name] | Day 1 of engagement |
+| Send contract + payment link within 24 hours of your selection | Conaugh McKenna | Immediate |
+| Kickoff call scheduled + agenda sent | OASIS AI | Within 48 hours of payment |
+| First deliverable delivered for review | OASIS AI | Week 2 |
+```
+
+Why this works: It makes the client's commitment visible and time-bound. It also signals that OASIS AI is organized and moves fast — which is its own form of social proof.
+
+---
+
 ## Obsidian Links
 - [[skills/lead-management/SKILL]] | [[skills/client-success/SKILL]] | [[brain/CAPABILITIES]]
 - [[skills/revenue-operations/SKILL]] | [[skills/ceo-briefing/SKILL]]
-- [[memory/SESSION_LOG]] | [[brain/USER]]
+- [[skills/sales-methodology/SKILL]] | [[memory/SESSION_LOG]] | [[brain/USER]]

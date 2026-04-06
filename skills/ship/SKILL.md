@@ -269,5 +269,193 @@ The table is not marketing — it is an honest record of leverage. Log it so the
 - Log the ship in `memory/SESSION_LOG.md` after completion
 - The CHANGELOG entry goes in the app's repo, not Business-Empire-Agent
 
+---
+
+## Pre-Flight Checklist
+
+Run this before Phase 7 (Commit and Push). Every item must be checked. No item is optional.
+
+```
+## Pre-Flight — [App Name] — [Date]
+
+### Code Quality
+- [ ] npm run build completes with zero errors (TypeScript strict)
+- [ ] No console.log statements left in production code
+- [ ] No TODO comments that block correctness (cosmetic TODOs are ok)
+- [ ] No hardcoded secrets, API keys, or URLs (use grep to verify)
+
+### Environment
+- [ ] All required environment variables are documented in .env.example
+- [ ] Any new env vars are added to Vercel dashboard for this app
+- [ ] .env.local and .env.agents are NOT staged (git status confirms)
+
+### Database (if Supabase was touched)
+- [ ] Migrations have been run (if schema changed)
+- [ ] RLS is enabled on any new tables
+- [ ] New columns have appropriate NOT NULL constraints or defaults
+- [ ] No raw SQL with string interpolation (use parameterized queries)
+
+### Stripe (if payments were touched)
+- [ ] Webhook signature verification is in place
+- [ ] Idempotency key is used for any charge or subscription operation
+- [ ] Test mode vs live mode env var is correct for this deployment
+
+### UI / Frontend (if any UI changed)
+- [ ] Mobile-responsive check (test at 375px width minimum)
+- [ ] No layout overflow on small screens
+- [ ] Loading and error states are handled (not blank screen)
+- [ ] Accessibility: interactive elements are keyboard-navigable
+
+### Tests
+- [ ] npm test passes (or "No test suite" is explicitly noted in PR)
+- [ ] New feature has at least one test covering the happy path
+```
+
+**Gate:** If any checked item fails → fix it before proceeding. Do not push with known failures.
+
+---
+
+## Rollback Plan
+
+Every ship must have a defined rollback path documented before pushing. Fill this out as Phase 6.5 before the commit.
+
+```markdown
+## Rollback Plan — [Feature Name]
+
+### Risk Assessment
+**Blast radius:** [What breaks if this fails? Users affected? Revenue at risk?]
+**Rollback window:** [How long before rollback becomes difficult? e.g., "Once 100+ users have new data, migration is painful"]
+
+### Rollback Method (choose one)
+
+**Option A — Git revert (fastest, cleanest)**
+```bash
+git revert [commit-hash]
+git push origin main
+```
+Use when: Code-only change, no database migration.
+
+**Option B — Feature flag disable**
+```bash
+# Set flag in Supabase or env var
+FEATURE_X_ENABLED=false
+# Redeploy
+```
+Use when: Feature is gated behind a flag.
+
+**Option C — Database migration rollback**
+```bash
+# Run down migration
+supabase db reset  # or specific rollback script
+```
+Use when: Schema was changed. Define the down migration BEFORE shipping the up migration.
+
+**Option D — Vercel instant rollback**
+```bash
+vercel rollback [deployment-url]
+```
+Use when: Vercel deployment is broken. Rolls back to previous deployment in <30 seconds.
+
+### Rollback Triggers (when to actually execute)
+- [ ] Error rate spikes above 5% within 10 minutes of deploy
+- [ ] Any CRITICAL feature (auth, payment, data write) is broken
+- [ ] Monitoring alert fires within 30 minutes of deploy
+- [ ] CC reports a user-facing issue that cannot be hotfixed in <15 minutes
+```
+
+---
+
+## Deployment Verification Steps
+
+After Vercel deploys (Phase 9 extended). This is not optional — a ship is not complete until verification passes.
+
+### Smoke Test Checklist
+
+Run these within 5 minutes of deploy completing.
+
+```
+[ ] Production URL loads without 500 error
+[ ] The specific feature just shipped works end-to-end (one full happy path)
+[ ] Login / auth still works (critical path — broken auth = total outage)
+[ ] If any Supabase tables were touched: verify a read and write both succeed
+[ ] Browser console shows no new errors (check DevTools → Console)
+[ ] Network tab shows no new 4xx/5xx responses on page load
+[ ] Mobile: open on phone or DevTools mobile emulation at 375px
+```
+
+### Monitoring Check (first 30 minutes post-deploy)
+
+```
+[ ] Vercel Functions: check runtime errors in Vercel dashboard → Functions tab
+[ ] Supabase: check Database → Logs for any sudden spike in errors
+[ ] If Stripe: check Stripe dashboard → Events for any failed webhook deliveries
+[ ] Check browser console on 2-3 different pages (not just the new feature's page)
+```
+
+**If any smoke test fails:** Do not debug in production. Execute the rollback plan immediately, then debug in development.
+
+---
+
+## Changelog Auto-Generation
+
+Generate the changelog entry from git log. Never write it from memory.
+
+```bash
+# Get all commits since last tag or since main diverged
+git log origin/main...HEAD --oneline --no-merges
+
+# Get files changed
+git diff origin/main...HEAD --stat
+
+# Get full diff for context
+git diff origin/main...HEAD
+```
+
+Parse the commits to categorize:
+
+| Commit prefix | Changelog category |
+|--------------|-------------------|
+| feat: / feat — | Added |
+| fix: / fix — | Fixed |
+| refactor: / refactor — | Changed (Technical) |
+| chore: / chore — | Changed (Technical) |
+| perf: | Changed (performance) |
+| docs: | (skip unless user-facing) |
+
+Write the entry in plain English — not commit message syntax. Translate for a non-technical reader.
+
+**Example:**
+```
+Commits:
+  bravo: feat — add Stripe webhook idempotency check
+  bravo: fix — lead capture form not submitting on mobile Safari
+
+Changelog entry:
+  ## [2026-04-06] — CC Funnel
+
+  ### Added
+  - Stripe webhook processing now prevents duplicate charges if Stripe retries an event
+
+  ### Fixed
+  - Lead capture form now submits correctly on mobile Safari (was silently failing)
+```
+
+---
+
+## Notification Protocol
+
+After a successful ship, notify the right people through the right channel.
+
+| Audience | Channel | What to Say |
+|---------|---------|------------|
+| CC (always) | Session output | "Ship complete. PR: [URL]. Verification: [passed/findings]." |
+| Active client (if their feature shipped) | Email or preferred channel | Plain English: what changed and what they can now do |
+| Adon (if PropFlow feature shipped) | Text/Slack | "PropFlow: [feature] is live. [1 sentence on what it does]." |
+| No-one else | — | Don't notify users unless CC explicitly says to |
+
+**Rule:** Never send a notification before verification passes. Announcing a broken feature is worse than announcing nothing.
+
+---
+
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX]] | [[brain/CAPABILITIES]] | [[skills/code-review/SKILL]] | [[skills/systematic-debugging/SKILL]]

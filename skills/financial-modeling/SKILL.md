@@ -378,7 +378,235 @@ python scripts/financial_model.py unit-economics --json
 
 ---
 
+---
+
+## Unit Economics Calculator — Step-by-Step
+
+Use this when evaluating a pricing change, new client acquisition strategy, or hiring decision. Run with actual numbers, not estimates.
+
+### Step 1 — Calculate CAC
+
+```
+CAC = (Monthly cash spend on sales/marketing) + (CC hours on sales × $50/hr opportunity cost)
+      ÷ New clients acquired that month
+
+Example (April 2026):
+  Cash spend: $0 (organic only)
+  CC hours on sales: 8 hrs × $50 = $400
+  New clients: 1
+  CAC = $400 ÷ 1 = $400
+```
+
+If CAC is $0 cash (referral/organic), still track opportunity cost. Invisible costs are real costs.
+
+### Step 2 — Calculate LTV
+
+```
+LTV = Monthly MRR per client × Gross Margin % × Avg Lifespan (months)
+
+Avg Lifespan = 1 ÷ Monthly Churn Rate
+
+Example:
+  ARPU: $1,000/mo
+  Gross Margin: 94%
+  Churn rate: 4%/mo → Avg lifespan: 25 months
+  LTV = $1,000 × 0.94 × 25 = $23,500
+```
+
+### Step 3 — Calculate LTV:CAC Ratio
+
+```
+LTV:CAC = LTV ÷ CAC
+
+Benchmarks:
+  < 1:1  → You lose money on every client. Stop and fix.
+  1–3:1  → Barely viable. Improve margin or reduce CAC.
+  3–5:1  → Healthy. Standard for services.
+  5–10:1 → Great. Keep scaling.
+  > 10:1 → Exceptional. Increase sales spend aggressively.
+
+Example: $23,500 ÷ $400 = 58.75:1 (exceptional — organic acquisition + high margin)
+```
+
+### Step 4 — Calculate Payback Period
+
+```
+Payback Period (months) = CAC ÷ (Monthly ARPU × Gross Margin %)
+
+Example: $400 ÷ ($1,000 × 0.94) = $400 ÷ $940 = 0.4 months (~12 days)
+```
+
+Target: < 6 months for services. < 12 months for SaaS with high churn risk.
+
+### Step 5 — Break-Even Analysis Per Client
+
+At what point does a client become profitable, net of all costs?
+
+```
+Monthly net from client = ARPU - Direct costs (hosting + API + time)
+Cumulative net = Monthly net × Months active
+
+Break-even month = CAC ÷ Monthly net
+
+Example:
+  ARPU: $1,000
+  Direct costs: $60 (Supabase $8 + API $30 + 1hr CC time $22)
+  Monthly net: $940
+  CAC: $400
+  Break-even: $400 ÷ $940 = 0.4 months → profitable by end of month 1
+```
+
+Add this to every new client onboarding record in Supabase.
+
+---
+
+## Scenario Modeling — Bull / Base / Bear
+
+Use for any significant decision: pricing change, new hire, product launch, marketing spend.
+
+### Input Assumptions Matrix
+
+```markdown
+## Scenario: [Decision Name] — [Date]
+
+| Variable | Bear | Base | Bull |
+|---------|------|------|------|
+| New clients/month | 0 | 1 | 2–3 |
+| Avg deal size | $500 | $1,000 | $1,500 |
+| Monthly churn rate | 5% | 2% | 0.5% |
+| Expansion MRR/month | 0% | 2% | 5% |
+| CAC (time cost) | $600 | $400 | $200 |
+
+Assign probabilities (must sum to 100%):
+  Bear: X% | Base: X% | Bull: X%
+```
+
+### Output: Expected MRR Trajectory
+
+```
+Month 1: Bear $X | Base $X | Bull $X
+Month 3: Bear $X | Base $X | Bull $X  
+Month 6: Bear $X | Base $X | Bull $X
+
+Expected Value (weighted avg) = (Bear × P) + (Base × P) + (Bull × P)
+
+Trigger to shift scenarios:
+  → Bear: [specific event, e.g., "Bennett churns or 0 new clients in April"]
+  → Bull: [specific event, e.g., "2 new clients close in April"]
+```
+
+### Decision Rule
+
+- If Bear EV still covers fixed costs → proceed with the decision
+- If Bear EV creates cash flow risk → add a risk mitigation step first
+- If Base EV hits north star within target timeline → this is the right bet
+
+---
+
+## Cash Flow Runway Projection
+
+### 90-Day Forward Projection Template
+
+Update this monthly. It is the single most important number for a solo operator.
+
+```markdown
+## Cash Flow Projection — [Start Date]
+
+### Revenue Inflows (Conservative)
+
+| Source | Month 1 | Month 2 | Month 3 | Notes |
+|--------|---------|---------|---------|-------|
+| Bennett retainer | $2,500 | $2,500 | $2,500 | Flat |
+| Bennett rev share | $451 | $480 | $510 | Growing 6.5%/mo |
+| Other retainers | $191 | $191 | $191 | Stable |
+| New clients | $0 | $500 | $1,000 | 1 new/mo Base |
+| **Total inflows** | **$3,142** | **$3,671** | **$4,201** | |
+
+### Expenses (Outflows)
+
+| Item | Monthly | Quarter Total |
+|------|---------|--------------|
+| Claude Pro | $140 | $420 |
+| Supabase | $25 | $75 |
+| Hostinger VPS | $14 | $42 |
+| Misc domains/tools | $5 | $15 |
+| **Total outflows** | **$184** | **$552** |
+
+### Net Position
+
+| Month | Net | Running Total |
+|-------|-----|--------------|
+| Month 1 | $2,958 | $X (starting balance + $2,958) |
+| Month 2 | $3,487 | $X + $3,487 |
+| Month 3 | $4,017 | $X + $4,017 |
+
+### Runway if Bennett churns tomorrow
+  Monthly expenses without Bennett: $184
+  Monthly revenue without Bennett: ~$191 (other retainers)
+  Net monthly: +$7 (barely cash-flow positive — no buffer)
+  Runway: Indefinite on expenses, but zero growth buffer
+  → This is why HHI reduction is the #1 financial priority
+```
+
+### Runway Calculation
+
+```
+Standard runway: Cash on hand ÷ Monthly burn rate
+Survival runway (if major client churns): Cash on hand ÷ (Monthly expenses - retained revenue)
+
+Target: Survival runway ≥ 6 months at all times
+```
+
+---
+
+## Revenue Diversification Metrics
+
+### Herfindahl-Hirschman Index (HHI) — Client Concentration Risk
+
+Already in this skill above. Target thresholds for action:
+
+| HHI | Status | Action |
+|-----|--------|--------|
+| > 0.7 | Critical | Close 2+ new clients before any other priority |
+| 0.5–0.7 | High risk | Add 1 new client per month until below 0.5 |
+| 0.25–0.5 | Moderate | Monitor. Keep pipeline active. |
+| < 0.25 | Healthy | Shift focus from diversification to expansion |
+
+### Revenue Stream Diversification Score
+
+Track percentage of MRR from each category:
+
+```
+| Stream | MRR | % of Total | Target % |
+|--------|-----|-----------|----------|
+| OASIS retainers | $X | X% | <60% |
+| OASIS rev share | $X | X% | <15% |
+| PropFlow SaaS | $X | X% | >20% by Q3 |
+| Nostalgic Requests | $X | X% | >10% by Q4 |
+| One-time projects | $X | X% | <10% (not recurring) |
+```
+
+Alert rule: If any single stream exceeds 70% of total MRR, HHI is critical regardless of client count.
+
+### MRR Quality Score
+
+Not all MRR is equal. Score the MRR portfolio:
+
+```
+Quality Score = (Contracted MRR × 1.0) + (Handshake MRR × 0.7) + (Rev Share MRR × 0.5)
+                ÷ Total MRR
+
+> 0.85 → High quality (mostly contracted)
+0.65–0.85 → Medium quality (mix of contracted and informal)
+< 0.65 → Low quality (mostly informal — high churn risk)
+
+CC current: ~0.64 (Bennett informal + rev share dominant)
+Target: 0.75+ by adding formal contracts to existing clients
+```
+
+---
+
 ## Obsidian Links
 - [[brain/STATE]] | [[brain/USER]] | [[skills/strategic-planning/SKILL]]
 - [[skills/ceo-briefing/SKILL]] | [[skills/competitive-intelligence/SKILL]]
-- [[memory/ACTIVE_TASKS]] | [[brain/CAPABILITIES]]
+- [[skills/client-success/SKILL]] | [[memory/ACTIVE_TASKS]] | [[brain/CAPABILITIES]]

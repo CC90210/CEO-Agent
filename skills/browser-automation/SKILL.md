@@ -159,5 +159,188 @@ browser_handle_dialog    accept=true promptText="input"  → Fill prompt dialog
 
 Full CLI reference: `.claude/skills/playwright/SKILL.md`
 
+---
+
+## Resilient Selector Strategy
+
+When interacting with elements, use this priority order. Higher entries are more stable across page updates.
+
+```
+Priority 1 — data-testid attributes (most stable — purpose-built for automation)
+  ref = element with data-testid="submit-button"
+
+Priority 2 — ARIA roles and labels (accessible and semantic)
+  ref = button with aria-label="Submit form"
+  ref = input with aria-label="Email address"
+
+Priority 3 — Text content (readable but fragile if copy changes)
+  ref = button containing text "Submit"
+
+Priority 4 — CSS selectors (structure-dependent — breaks on redesigns)
+  ref = .submit-btn (use only if above options unavailable)
+
+Priority 5 — XPath (last resort — extremely brittle)
+  browser_evaluate function="() => document.evaluate('//button[text()=\"Submit\"]', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue"
+```
+
+**Rule:** Always use `browser_snapshot` first to discover what refs and roles are available. Never hardcode a selector you haven't verified from a live snapshot.
+
+---
+
+## Wait Strategies
+
+Flaky automation almost always fails because of premature interaction — clicking before an element is ready. Use these strategies in order of preference.
+
+### Strategy 1 — Wait for Text (Most Reliable)
+
+```
+browser_wait_for    text="Dashboard"          → Wait until page confirms navigation
+browser_wait_for    text="Loading..."         → Wait for loader to appear
+browser_wait_for    textGone="Loading..."     → Wait for loader to disappear
+browser_wait_for    text="Error"              → Detect failure state early
+```
+
+### Strategy 2 — Wait for Specific Time (Fallback Only)
+
+```
+browser_wait_for    time=2    → Wait 2 seconds (use only when no text signal exists)
+```
+
+Use time-based waits only for:
+- Animations completing before screenshot
+- Rate-limited actions (posting, submitting forms)
+- Third-party redirects with no visible text change
+
+**Maximum wait time:** 10 seconds. If an expected element hasn't appeared in 10 seconds, it's a failure — screenshot and report, do not keep waiting.
+
+### Strategy 3 — Network Idle (via Evaluate)
+
+For SPAs where content loads after the page shell:
+
+```javascript
+// Wait for any in-flight XHR/fetch to complete
+browser_evaluate function="() => new Promise(resolve => {
+  if (document.readyState === 'complete') { resolve(); return; }
+  window.addEventListener('load', resolve);
+})"
+```
+
+---
+
+## Error Recovery Patterns
+
+When an action fails, follow this recovery sequence. Never silently retry the same action more than twice.
+
+### Recovery Sequence
+
+```
+Step 1: Take a screenshot immediately
+  browser_take_screenshot filename="error-state-[timestamp].png"
+
+Step 2: Check console for errors
+  browser_console_messages level="error"
+
+Step 3: Check network for failures
+  browser_network_requests includeStatic=false
+
+Step 4: Diagnose
+  - 404/500 from API → backend issue, not automation issue
+  - JS error → page broke during interaction
+  - Element not found → selector stale, re-snapshot
+  - Page blank → navigation failed, try browser_navigate again
+
+Step 5: Retry with modified approach (max 2 retries)
+  Retry 1: Re-snapshot → get fresh refs → retry interaction
+  Retry 2: Navigate back to the start of the flow → re-snapshot → retry from beginning
+
+Step 6: If 2 retries fail → surface to CC with screenshot and error logs. Do not attempt Fix 3.
+```
+
+### Retry with Backoff (for Rate-Limited Pages)
+
+```
+Attempt 1: Immediate
+Attempt 2: Wait 3 seconds, retry
+Attempt 3: Wait 10 seconds, retry
+If all 3 fail: Stop. Report the failure with the screenshot taken in Step 1.
+```
+
+---
+
+## Session Persistence (Cookie and Auth State)
+
+For flows that require authentication, preserve session state across multi-step operations.
+
+### Pattern — Authenticate Once, Reuse Session
+
+```
+Step 1: Navigate to login page
+  browser_navigate url="[login-url]"
+
+Step 2: Authenticate
+  browser_snapshot → get email/password field refs
+  browser_type ref="[email-ref]" text="[email from .env.agents]"
+  browser_type ref="[password-ref]" text="[password from .env.agents]"
+  browser_click ref="[submit-ref]" element="Sign in button"
+
+Step 3: Verify authenticated state
+  browser_wait_for text="[Dashboard / Home / indicator that login worked]"
+  browser_snapshot → confirm you're on the right page
+
+Step 4: Proceed with the actual task
+  [All subsequent navigation inherits the authenticated session]
+  [Do NOT navigate back to the login page mid-flow — session persists in the same browser context]
+```
+
+### Session Expiry Detection
+
+Before running any authenticated flow, verify the session is still valid:
+
+```
+browser_snapshot → look for "Sign in", "Log in", or "Session expired" text
+If found → re-authenticate before proceeding
+If not found → session is active, continue
+```
+
+**Warning:** Never store passwords in markdown files, session logs, or any file tracked by git. Credentials come only from `.env.agents` at runtime.
+
+---
+
+## Multi-Tab Orchestration
+
+For workflows that require parallel browser contexts (e.g., comparing two pages, opening multiple results).
+
+### Open and Switch Between Tabs
+
+```
+# Open a new tab
+browser_tabs action="new"
+browser_navigate url="[second-url]"
+
+# List all open tabs (returns tab IDs)
+browser_tabs action="list"
+
+# Switch to a specific tab
+browser_tabs action="select" index=0   → tab 1 (original)
+browser_tabs action="select" index=1   → tab 2
+
+# Close a specific tab
+browser_tabs action="close" index=1
+```
+
+### Multi-Tab Pattern — Parallel Data Collection
+
+```
+Step 1: Open Tab 1 → navigate to Source A → browser_snapshot → extract data A
+Step 2: Open Tab 2 → navigate to Source B → browser_snapshot → extract data B
+Step 3: Switch back to Tab 1 → proceed with comparison or combined action
+Step 4: Close all secondary tabs → browser_tabs action="close" (for each)
+Step 5: browser_close when done
+```
+
+**Rule:** Never have more than 3 tabs open simultaneously. Each tab costs context tokens for its snapshot. Two tabs is optimal for comparison workflows.
+
+---
+
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX]] | [[brain/CAPABILITIES]] | [[skills/e2e-testing/SKILL]]
