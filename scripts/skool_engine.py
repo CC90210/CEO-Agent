@@ -276,6 +276,55 @@ def is_logged_in(page) -> bool:
 # Claude API
 # ---------------------------------------------------------------------------
 
+def _call_claude_vision(system_prompt: str, user_msg: str, image_data: list = None, max_tokens: int = 300) -> str:
+    """Call Claude with optional image attachments (base64-encoded)."""
+    try:
+        import anthropic
+    except ImportError:
+        log.error("anthropic package not installed")
+        return ""
+
+    env_vars = load_env()
+    api_key = env_vars.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        log.error("ANTHROPIC_API_KEY not found in .env.agents")
+        return ""
+
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+
+        # Build content blocks: text + images
+        content = []
+        if image_data:
+            for img in image_data:
+                content.append({
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": img.get("media_type", "image/png"),
+                        "data": img["data"],
+                    }
+                })
+            content.append({"type": "text", "text": user_msg})
+        else:
+            content = user_msg
+
+        response = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=max_tokens,
+            system=system_prompt,
+            messages=[{"role": "user", "content": content}],
+        )
+        reply = response.content[0].text.strip()
+        if (reply.startswith('"') and reply.endswith('"')) or \
+           (reply.startswith("'") and reply.endswith("'")):
+            reply = reply[1:-1]
+        return reply
+    except Exception as e:
+        log.error(f"Claude vision call failed: {e}")
+        return ""
+
+
 def _call_claude(system_prompt: str, user_msg: str, max_tokens: int = 300) -> str:
     try:
         import anthropic
@@ -769,7 +818,34 @@ def _research_post(post_title: str, post_content: str) -> str:
 # Post reply generation (V2 — research-enhanced)
 # ---------------------------------------------------------------------------
 
-def generate_post_reply(post_title: str, post_content: str, author_name: str) -> str:
+def _capture_post_images(page, max_images: int = 3) -> list:
+    """Capture images from the current post page as base64 for Claude vision."""
+    import base64
+    images = []
+    try:
+        # Find all images in the post content area
+        img_elements = page.query_selector_all('img[src*="skool"], img[src*="amazonaws"], img[src*="cloudfront"], img[src*="uploads"]')
+
+        # Also check for images in the main content area
+        if not img_elements:
+            img_elements = page.query_selector_all('[class*="PostContent"] img, [class*="Content"] img, .ProseMirror img')
+
+        for img_el in img_elements[:max_images]:
+            try:
+                # Screenshot the image element directly
+                img_bytes = img_el.screenshot(timeout=5000)
+                if img_bytes and len(img_bytes) > 500:  # Skip tiny/broken images
+                    b64 = base64.b64encode(img_bytes).decode("utf-8")
+                    images.append({"data": b64, "media_type": "image/png"})
+                    log.info(f"  Captured image ({len(img_bytes)} bytes)")
+            except Exception as e:
+                log.debug(f"  Image capture failed: {e}")
+    except Exception as e:
+        log.debug(f"Image extraction failed: {e}")
+    return images
+
+
+def generate_post_reply(post_title: str, post_content: str, author_name: str, images: list = None) -> str:
     # Step 1: Research any specific topics mentioned in the post
     research_context = _research_post(post_title, post_content)
 
@@ -777,44 +853,59 @@ def generate_post_reply(post_title: str, post_content: str, author_name: str) ->
         "You are ghostwriting a Skool community comment as Conaugh McKenna (CC), "
         "a 22-year-old AI automation entrepreneur and admin/coach of the Agency Accelerants community. "
         "CC runs OASIS AI Solutions. He builds AI agent systems for local businesses and has closed "
-        "$30k+ deals. He is NOT a yes-man. He is a real mentor who challenges his students.\n\n"
-        "PERSONALITY (non-negotiable):\n"
-        "- You are a CRITICAL THINKER first, cheerleader second.\n"
-        "- If someone posts a valid point, agree and build on it with something they haven't considered.\n"
-        "- If someone posts something generic or surface-level, push back respectfully. Ask them to go deeper.\n"
-        "- If someone is stuck, don't just empathize. Give them a specific next step and tell them to execute.\n"
-        "- You DEMAND growth. You care about these people which means you tell them the truth.\n"
-        "- You challenge assumptions.\n"
-        "- You are direct, opinionated, and confident. You've done the work.\n\n"
-        "KNOWLEDGE RULES (non-negotiable):\n"
-        "- NEVER say 'I don't know', 'I haven't heard of', 'what is X?', or admit ignorance about ANY topic.\n"
-        "- CC is an AI expert who stays on top of every tool, framework, and trend. He knows his stuff.\n"
-        "- If research context is provided below, USE IT to respond knowledgeably.\n"
-        "- If you're unsure about something specific, pivot to the broader principle or ask the poster a probing question instead.\n"
-        "- You can always connect any topic back to practical AI automation, business systems, or execution.\n\n"
-        "VOICE RULES (non-negotiable):\n"
+        "$30k+ deals. He's a real mentor who wants every member to succeed.\n\n"
+        "PERSONALITY:\n"
+        "- You are CONSTRUCTIVE and PROGRESSIVE. You build people up while pushing them forward.\n"
+        "- If someone shares work (screenshots, code, websites), acknowledge what they built first, then suggest improvements.\n"
+        "- If someone is early stage or learning, meet them where they are. Encourage the effort, guide the direction.\n"
+        "- If someone posts something incomplete, ask clarifying questions instead of dismissing it.\n"
+        "- Give specific, actionable next steps. Not vague advice.\n"
+        "- You're direct but never condescending. You remember what it felt like to start.\n"
+        "- You genuinely care about each person's progress.\n\n"
+        "IMAGE HANDLING:\n"
+        "- If images are attached, LOOK AT THEM CAREFULLY. Describe what you see and respond to the actual content.\n"
+        "- Screenshots of code, websites, dashboards, tools = comment on the specific work shown.\n"
+        "- If an image is unclear or broken, say something like 'the image didn't load fully on my end, can you drop the link or repost it?'\n"
+        "- NEVER ignore images. NEVER respond as if you can't see them when they're provided.\n\n"
+        "KNOWLEDGE RULES:\n"
+        "- NEVER say 'I don't know' or admit ignorance. CC stays on top of every tool and trend.\n"
+        "- If research context is provided, USE IT.\n"
+        "- Connect topics back to practical AI automation, business systems, or execution.\n\n"
+        "VOICE RULES:\n"
         "- Write like a real person texting. Casual, lowercase is fine, short sentences.\n"
         "- 2-4 sentences max. No essays.\n"
         "- NEVER use em dashes. Use commas, periods, or new sentences.\n"
-        "- NEVER use hashtags. NEVER pitch services. NEVER be salesy.\n"
-        "- Avoid generic AI phrases like 'great question', 'love this', 'absolutely'.\n"
-        "- Don't start with compliments. Lead with substance.\n"
-        "- Use first name. Exclamation marks sparingly (max 1).\n"
-        "- Sound like a friend who won't let you stay comfortable.\n\n"
+        "- NEVER use hashtags. NEVER pitch services.\n"
+        "- Avoid generic phrases like 'great question', 'love this', 'absolutely'.\n"
+        "- Use first name. Sound like a supportive friend who also pushes you to level up.\n\n"
         "Reply with ONLY the comment text. No quotes around it."
     )
 
     user_parts = [
         f"Community member {author_name} posted:",
         f"Title: {post_title}",
-        f"Content: {post_content[:800]}",
     ]
+
+    if post_content.strip():
+        user_parts.append(f"Content: {post_content[:800]}")
+    else:
+        user_parts.append("Content: (no text, check the images)")
+
+    if images:
+        user_parts.append(f"\n[{len(images)} image(s) attached — LOOK AT THEM and respond to what you see]")
+
     if research_context:
-        user_parts.append(f"\n--- RESEARCH CONTEXT (use this to respond knowledgeably) ---\n{research_context[:1200]}")
-    user_parts.append("\nWrite a reply that challenges or adds real value:")
+        user_parts.append(f"\n--- RESEARCH CONTEXT ---\n{research_context[:1200]}")
+    user_parts.append("\nWrite a constructive reply:")
 
     user = "\n".join(user_parts)
-    reply = _call_claude(system, user, max_tokens=250)
+
+    # Use vision API if images are present, regular API otherwise
+    if images:
+        reply = _call_claude_vision(system, user, image_data=images, max_tokens=250)
+    else:
+        reply = _call_claude(system, user, max_tokens=250)
+
     if reply:
         reply = _strip_ai_slop(reply)
     return reply[:1000] if reply else ""
@@ -907,20 +998,7 @@ def cmd_scan_posts(args, page=None, ctx=None):
             content = post.get("content", "")
             log.info(f"Processing post by {author}: {title[:60]}...")
 
-            reply_text = generate_post_reply(title, content, author)
-            if not reply_text:
-                results["errors"].append(f"No reply for {slug}")
-                continue
-
-            log.info(f"  Reply: {reply_text[:80]}...")
-
-            if args.dry_run:
-                log.info("  [dry-run] Would post reply")
-                replied[slug] = {"author": author, "dry_run": True, "ts": _now()}
-                results["replied"] += 1
-                reply_count += 1
-                continue
-
+            # Navigate to the post page FIRST (to get full content + images)
             post_url = f"https://www.skool.com{post['href']}" if post["href"].startswith("/") else post["href"]
             page.goto(post_url, wait_until="domcontentloaded", timeout=30000)
             time.sleep(3)
@@ -933,6 +1011,34 @@ def cmd_scan_posts(args, page=None, ctx=None):
             if already_commented:
                 replied[slug] = {"author": author, "skipped": "already_commented", "ts": _now()}
                 results["skipped"] += 1
+                continue
+
+            # Read the full post content from the page
+            full_content = page.evaluate("""() => {
+                const el = document.querySelector('[class*="PostContent"], [class*="Content"], .ProseMirror');
+                return el ? el.innerText.trim() : '';
+            }""")
+            if full_content:
+                content = full_content[:800]
+
+            # Capture any images from the post for vision analysis
+            post_images = _capture_post_images(page)
+            if post_images:
+                log.info(f"  Captured {len(post_images)} image(s) for vision analysis")
+
+            # Generate reply with full content + images
+            reply_text = generate_post_reply(title, content, author, images=post_images)
+            if not reply_text:
+                results["errors"].append(f"No reply for {slug}")
+                continue
+
+            log.info(f"  Reply: {reply_text[:80]}...")
+
+            if args.dry_run:
+                log.info("  [dry-run] Would post reply")
+                replied[slug] = {"author": author, "dry_run": True, "ts": _now()}
+                results["replied"] += 1
+                reply_count += 1
                 continue
 
             posted = _type_and_submit_comment(page, reply_text)
