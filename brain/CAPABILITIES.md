@@ -5,7 +5,7 @@ tags: [capabilities, tools]
 # CAPABILITIES — Tool & Integration Registry
 
 > Complete inventory of what Bravo can do. Last updated: 2026-04-06.
-> **Totals: 182 skills · 31 workflows · 39 scripts · 17 agents · 4 MCP servers + Codex (external)**
+> **Totals: 183 skills · 31 workflows · 39 scripts · 17 agents · 4 MCP servers + Codex (external)**
 
 ## MCP Servers (By Interface)
 
@@ -79,6 +79,26 @@ Full routing table with local paths, GitHub URLs, tech stacks: `brain/APP_REGIST
 ## Sub-Agents (17 incl. Codex)
 
 See `brain/AGENTS.md` for the complete registry with orchestration decision matrix, permission levels, and scope restrictions. Codex (Agent #17) runs as an external AI executor for backend-heavy tasks — see `skills/codex-delegation/SKILL.md`.
+
+## Agent Teams (Experimental — enabled 2026-04-06)
+
+Claude Code native parallel subagents. Enabled via `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in `~/.claude/settings.json`. Windows uses `teammateMode: "in-process"`.
+
+**Subagent definitions** live in `.claude/agents/` — read by Claude Code natively at spawn time:
+
+| Agent | Model | Purpose |
+|-------|-------|---------|
+| `security-reviewer` | sonnet | Auth flaws, RLS gaps, credential exposure, OWASP top 10 |
+| `researcher` | sonnet | Multi-source research, docs, competitive analysis |
+| `code-reviewer` | sonnet | Two-pass structural + adversarial code review |
+| `content-writer` | opus | Platform content in CC's authentic voice |
+| `debugger` | sonnet | Root-cause debugging, 5 Whys, bisect regressions |
+| `architect` | opus | System design, DB schema, API contracts |
+
+**Spawn via natural language** — no slash command needed:
+> "Spawn a teammate using the security-reviewer agent to audit the auth flow while I implement the new endpoint."
+
+**Skill:** `skills/agent-teams/SKILL.md` — when to use, communication patterns, Windows limitations, anti-patterns.
 
 ## CLI-Anything (Universal CLI Generation)
 
@@ -337,7 +357,7 @@ markdown wiki pages. Deterministic retrieval via `knowledge/index.md` — no emb
 
 | Category | Skills |
 |----------|--------|
-| **Agent Intelligence** | heartbeat, self-healing, memory-management, semantic-memory, growth-engine, sop-breakdown, sequential-reasoning, mcp-operations, task-routing, anti-drift, agent-permissions, hooks-automation, background-workers, context-optimization |
+| **Agent Intelligence** | heartbeat, self-healing, memory-management, semantic-memory, growth-engine, sop-breakdown, sequential-reasoning, mcp-operations, task-routing, anti-drift, agent-permissions, hooks-automation, background-workers, context-optimization, agent-teams |
 | **Methodology** | sparc-methodology |
 | **Development** | systematic-debugging, test-driven-development, verification-before-completion, executing-plans, writing-plans, finishing-a-development-branch, using-git-worktrees, code-review, receiving-code-review, requesting-code-review, ship, subagent-driven-development, dispatching-parallel-agents |
 | **Browser & Testing** | browser-automation, e2e-testing, webapp-testing |

@@ -4,7 +4,7 @@ tags: [state, ephemeral]
 
 # STATE — Current Operational State
 
-> Updated 2026-04-06 | **SYSTEM ADVANCEMENT: CLAUDE.md compressed 69% (119 lines), Karpathy knowledge architecture live, 17 agents upgraded to V5.5+ specialist standard, 10 skills deep-upgraded, 4,880+ lines of operational content added.**
+> Updated 2026-04-06 | **SYSTEM ADVANCEMENT: Agent Teams enabled (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`). 6 native subagent definitions in `.claude/agents/`. Bravo can now spawn parallel teammates for COMPLEX+ tasks.**
 
 ## Operational Status
 

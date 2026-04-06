@@ -10,6 +10,16 @@ tags: [daily]
 
 ---
 
+### 2026-04-06 — Agent Teams enabled + 6 subagent definitions created
+**Agent:** Claude Code (Bravo)
+**Changes:**
+- Merged `env` block and `teammateMode: "in-process"` into `~/.claude/settings.json` — `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`, `CLAUDE_CODE_NO_FLICKER=1`, `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1` now set globally
+- Created `.claude/agents/` directory with 6 subagent definitions: security-reviewer (sonnet), researcher (sonnet), code-reviewer (sonnet), content-writer (opus), debugger (sonnet), architect (opus/worktree)
+- Created `skills/agent-teams/SKILL.md` — when to use, spawn syntax, communication patterns (mailbox + shared task list), Windows constraints, 4 parallel execution patterns
+- Updated `brain/CAPABILITIES.md` — added Agent Teams section with subagent table, added agent-teams to core skills list
+
+---
+
 ### 2026-04-06 — 3 new MCP servers installed (GitHub, Firecrawl, Filesystem)
 **Agent:** Claude Code (Bravo)
 **Changes:**
