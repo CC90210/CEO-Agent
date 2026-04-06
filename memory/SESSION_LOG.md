@@ -10,6 +10,21 @@ tags: [daily]
 
 ---
 
+### 2026-04-06 — claude-mem v11.0.0 installed as Claude Code plugin
+**Agent:** Claude Code (Bravo)
+**Changes:**
+- Installed `claude-mem@11.0.0` via `npx claude-mem install --ide claude-code`
+- Plugin registered in `~/.claude/settings.json` under `enabledPlugins: { "claude-mem@thedotmack": true }`
+- Plugin dir: `~/.claude/plugins/marketplaces/thedotmack/`
+- 5 lifecycle hooks active (Setup, SessionStart, UserPromptSubmit, PostToolUse, Stop, SessionEnd)
+- 5 skills available: `/mem-search`, `/make-plan`, `/do`, `/smart-explore`, `/timeline-report`
+- Bun auto-installs on first session with "startup/clear/compact" prompt — not yet installed
+- SQLite DB will create at `~/.claude-mem/claude-mem.db` on first worker start
+- Skill documented at `skills/memory-compression/SKILL.md`
+- No conflicts with existing MCP memory server (different data models: knowledge graph vs time-series observations)
+
+---
+
 ### 2026-04-06 — All 17 agent specifications upgraded to V5.5+ specialist powerhouse standard
 **Agent:** Claude Code (Bravo)
 **Changes:**
