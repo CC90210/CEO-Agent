@@ -182,13 +182,13 @@ const T1_KEYWORDS = ['status', 'check', 'what', 'how much', 'mrr', 'balance', 'c
 const T3_KEYWORDS = ['redesign', 'architecture', 'refactor', 'migrate', 'schema', 'system', 'overhaul', 'sparc', 'complex', 'multi-file'];
 // T2 is the default for everything else (build, fix, implement, debug, etc.)
 
-// Computer control keywords — these get a minimal "just do it" prompt
-const COMPUTER_CONTROL_KEYWORDS = /\b(open|launch|click|screenshot|volume|mute|play|switch|type|control|close|quit|move|resize|fullscreen|minimize|snap|record|dark.?mode|wifi|bluetooth|brightness|clipboard|copy|paste|lock|sleep|battery|sysinfo|soundcloud|music|song|track|browse|search|navigate|tab|website|url|google|amazon|download|scroll|mouse|ping|network|ip|audio|shutdown|restart|cart|inbox|email|gmail|youtube|facebook|instagram|twitter|tiktok|reddit)\b/i;
+// T0 keywords — quick actions that need minimal context (computer control + business tools)
+const T0_KEYWORDS = /\b(open|launch|click|screenshot|volume|mute|play|switch|type|close|quit|move|resize|fullscreen|minimize|snap|record|dark.?mode|wifi|bluetooth|brightness|clipboard|copy|paste|lock|sleep|battery|sysinfo|soundcloud|music|song|track|browse|tab|website|url|amazon|download|scroll|mouse|ping|network|ip|audio|shutdown|restart|cart|inbox|email|gmail|calendar|meeting|schedule|stripe|balance|invoice|payment|customer|post|social|linkedin|instagram|threads|tiktok|youtube|facebook|reddit|workflow|n8n|supabase|database)\b/i;
 
 const classifyTier = (text) => {
     const t = text.toLowerCase();
-    // T0: Computer control — minimal prompt, just commands
-    if (COMPUTER_CONTROL_KEYWORDS.test(t) && !T3_KEYWORDS.some(k => t.includes(k))) return 0;
+    // T0: Quick action — minimal prompt for computer control + business tools
+    if (T0_KEYWORDS.test(t) && !T3_KEYWORDS.some(k => t.includes(k))) return 0;
     // T3 keywords win first (most specific)
     if (T3_KEYWORDS.some(k => t.includes(k))) return 3;
     // T1 only if ALL words match simple patterns (no action verbs)
@@ -318,19 +318,28 @@ const buildPrompt = (chatId, userText = '') => {
     const history = getHistoryBlock(chatId);
     log(`[TIER] Query classified as T${tier} — loading ${tier === 0 ? 'COMPUTER CONTROL' : tier === 1 ? 'minimal' : tier === 2 ? 'standard' : 'full'} context`);
 
-    // T0: Computer control — ultra-minimal prompt for speed
+    // T0: Quick action — minimal prompt, use the RIGHT tool
     if (tier === 0) {
-        return `You are Bravo, CC's AI assistant. You control his Windows PC.
+        return `You are Bravo, CC's AI assistant on his ${MACHINE_NAME}. You have full CLI access.
 
-TO OPEN A WEBPAGE: ${PYTHON} scripts/browse_and_capture.py --url "URL"
-This opens CC's real Chrome (logged in), captures the Chrome window screenshot, and returns the path. The screenshot is sent to Telegram automatically. Read the screenshot and tell CC what you see.
+BUSINESS TOOLS (use these FIRST — they're faster and more reliable than browsers):
+- Email: ${PYTHON} scripts/google_tool.py gmail list | gmail read <id> | gmail send --to "..." --subject "..." --body "..."
+- Calendar: ${PYTHON} scripts/google_tool.py calendar list | calendar create --title "..." --start "..." --end "..."
+- Stripe: ${PYTHON} scripts/stripe_tool.py balance | customers | invoices
+- Social media: ${PYTHON} scripts/late_tool.py accounts | posts | create --text "..." --account <id>
+- Database: ${PYTHON} scripts/supabase_tool.py select <table> --project bravo --limit 10
+- n8n workflows: ${PYTHON} scripts/n8n_tool.py list | execute <id>
 
-TO CHECK SYSTEM: ${PYTHON} scripts/windows_control.py COMMAND --json
-Common: sysinfo, list-apps, list-windows, frontmost, screenshot, volume --level N, mute --toggle, get-ip, disk-usage, battery, uptime, list-processes --sort cpu --limit 5
+PC CONTROL:
+- System: ${PYTHON} scripts/windows_control.py sysinfo|list-apps|screenshot|volume --level N|mute --toggle|get-ip|disk-usage|uptime --json
+- Open webpage (CC's Chrome, logged in): ${PYTHON} scripts/browse_and_capture.py --url "URL" (captures Chrome window screenshot, auto-sent to Telegram)
+- Music: ${PYTHON} scripts/music_control.py play --query "..." --json
 
-TO PLAY MUSIC: ${PYTHON} scripts/music_control.py play --query "..." --json
-
-RULES: Use 1 turn. Run the right command, describe the result. Done. Do NOT use Playwright, headless-browse, or any other tool for webpages — ONLY browse_and_capture.py. Do NOT overthink.
+RULES:
+1. Use 1-2 turns MAX. Run the right tool, report the result. Done.
+2. For email/calendar/payments: use the CLI tools above, NOT the browser.
+3. For webpages that need CC's login (Amazon cart, etc.): use browse_and_capture.py
+4. Do NOT overthink. Pick the right command and run it.
 ${history}
 CC says:`;
     }
