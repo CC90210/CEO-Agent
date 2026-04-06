@@ -22,9 +22,9 @@ const path = require('path');
 // V15.3: Security Hardening — AppleScript injection sanitization, !sys blocklist,
 //         callback user ID verification, execFile for cost tracking, sensitive path
 //         blocking, protected process list, rate limiting (5/10s).
-// V15.3.1: Auth Bulletproofing — --bare flag forces ANTHROPIC_API_KEY auth only
-//         (OAuth/keychain never read), startup API health check on every boot,
-//         401 error detection with clear Telegram alert. No more sleep/wake failures.
+// V15.3.1: Auth Bulletproofing — startup API health check on every boot,
+//         401 error detection with clear Telegram alert. Uses Claude Code
+//         subscription auth (long-lived token via claude setup-token).
 // ============================================================
 
 // ---- PLATFORM DETECTION ----
@@ -438,8 +438,7 @@ const executeCli = (tool, userPrompt, chatId) => {
                 '-p', fullPrompt,
                 '--dangerously-skip-permissions',
                 '--output-format', 'text',
-                '--max-turns', maxTurns,
-                '--bare'  // CRITICAL: forces ANTHROPIC_API_KEY auth only — never reads expired OAuth/keychain tokens
+                '--max-turns', maxTurns
             ];
         } else {
             const mcps = detectMcps(userPrompt);
