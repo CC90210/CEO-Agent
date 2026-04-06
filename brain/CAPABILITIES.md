@@ -4,8 +4,8 @@ tags: [capabilities, tools]
 
 # CAPABILITIES — Tool & Integration Registry
 
-> Complete inventory of what Bravo can do. Last updated: 2026-04-04.
-> **Totals: 180 skills · 31 workflows · 37 scripts · 17 agents · 4 MCP servers + Codex (external)**
+> Complete inventory of what Bravo can do. Last updated: 2026-04-06.
+> **Totals: 181 skills · 31 workflows · 38 scripts · 17 agents · 4 MCP servers + Codex (external)**
 
 ## MCP Servers (By Interface)
 
@@ -104,7 +104,7 @@ Transform any website into structured CLI commands via browser automation. Compl
 - **Plugin system:** `opencli plugin install github:user/repo` — extend without code changes
 - **Relationship:** cli-anything wraps local software → OpenCLI wraps websites. Use Playwright MCP for one-off browsing, OpenCLI for repeatable web commands.
 
-## MCP Replacement CLI Tools (4 — replaces broken credential MCPs)
+## MCP Replacement CLI Tools (5 — replaces broken credential MCPs)
 
 | Tool | Script | Replaces MCP | Key Commands |
 |------|--------|-------------|-------------|
@@ -112,8 +112,11 @@ Transform any website into structured CLI commands via browser automation. Compl
 | **n8n** | `scripts/n8n_tool.py` | n8n-mcp (returns 0 results) | `list`, `search`, `get`, `execute`, `activate`, `deactivate`, `executions`, `stats` |
 | **Supabase** | `scripts/supabase_tool.py` | Supabase MCP (token expired) | `list-projects`, `list-tables`, `select`, `insert`, `update`, `delete`, `query` |
 | **Stripe** | `scripts/stripe_tool.py` | Stripe MCP (v0.3.1 proxy mode) | `balance`, `customers`, `products`, `invoices`, `subscriptions`, `charges` |
+| **Firecrawl** | `scripts/firecrawl_tool.py` | Firecrawl MCP (fallback) | `scrape`, `crawl`, `search`, `extract`, `map` |
 
 **Pattern:** Stateless MCPs (Playwright, Context7, Memory, Sequential Thinking) work fine. Credential MCPs break. CLI tools read `.env.agents` directly — never break.
+
+**Firecrawl vs Playwright:** Use Firecrawl for data extraction (markdown, structured schemas, site maps, search). Use Playwright for interactive automation (login, forms, clicks). See `skills/web-scraping/SKILL.md` for the full decision guide.
 
 ## Business Operations Engines (8 CLI tools — zero paid services)
 
@@ -332,6 +335,7 @@ markdown wiki pages. Deterministic retrieval via `knowledge/index.md` — no emb
 | **Files** | pdf, docx, pptx, xlsx |
 | **Security** | security-protocol, using-superpowers |
 | **CLI & Integration** | cli-anything, opencli |
+| **Web Scraping** | web-scraping |
 | **Knowledge** | knowledge-compilation |
 | **Meta** | skill-creator, mcp-builder, using-superpowers |
 | **Revenue & Sales** | lead-management, email-marketing, funnel-management, revenue-operations, booking-management |
