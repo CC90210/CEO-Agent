@@ -23,7 +23,7 @@ tags: [user, profile]
 **"$5,000 USD Net MRR by May 15, 2026."**
 > Previous goal ($1,000 USD Net MRR by March 31, 2026) — **ACHIEVED** at $2,691 USD (+169%).
 
-Current net MRR is ~$2,982 USD ($191 base + $2,500 Bennett flat + $291 Bennett 15% rev share on $1,940 community MRR). Rev share grows as community grows. Gap: ~$2,018 USD/mo (~4-5 new clients). Payment link sending ~April 7. Every action drives toward diversification and pipeline growth.
+Current net MRR is ~$3,322 USD ($180 Stripe + $191 base + $2,500 Bennett flat + $451 Bennett 15% rev share on $3,007 Skool community MRR). Skool community: 158 members, 63% engagement, 100% retention, 159 signups last 30d, 5.5% conversion. Rev share grows as community grows. Gap: ~$1,678 USD/mo (~2 new clients). Every action drives toward diversification and pipeline growth.
 
 ## Personal Mission & Values
 

@@ -1672,6 +1672,121 @@ def cmd_status(args):
 
 
 # ---------------------------------------------------------------------------
+# SKOOL METRICS SCRAPER — reads dashboard, updates revenue DB
+# ---------------------------------------------------------------------------
+
+def cmd_metrics(args, page=None, ctx=None):
+    """Scrape Skool dashboard for community metrics and update revenue database."""
+    from playwright.sync_api import sync_playwright
+
+    own_browser = page is None
+    pw = None
+
+    try:
+        if own_browser:
+            pw = sync_playwright().start()
+            ctx = get_browser_context(pw)
+            page = ctx.new_page()
+
+        # Navigate to Skool dashboard
+        safe_print("Scraping Skool dashboard...")
+        page.goto("https://www.skool.com/agency-accelerants/about", wait_until="domcontentloaded", timeout=30000)
+        time.sleep(3)
+
+        # Check if logged in (dashboard shows "Dashboard" link when logged in)
+        try:
+            page.wait_for_selector('a[href*="/about"]', timeout=5000)
+        except Exception:
+            safe_print("Not logged in to Skool. Run: python scripts/skool_engine.py login")
+            return {"ok": False, "error": "Not logged in to Skool"}
+
+        # Navigate to admin dashboard for metrics
+        page.goto("https://www.skool.com/agency-accelerants/settings", wait_until="domcontentloaded", timeout=30000)
+        time.sleep(3)
+
+        # Try to extract metrics from the page
+        metrics = page.evaluate("""() => {
+            const text = document.body.innerText;
+            const result = {};
+
+            // Extract numbers near key labels
+            const memberMatch = text.match(/(\\d+)\\s*Members/i);
+            if (memberMatch) result.members = parseInt(memberMatch[1]);
+
+            const mrrMatch = text.match(/\\$([\\d,]+)\\s*MRR/i);
+            if (mrrMatch) result.mrr = parseFloat(mrrMatch[1].replace(',', ''));
+
+            const engMatch = text.match(/(\\d+)%\\s*Engagement/i);
+            if (engMatch) result.engagement = parseInt(engMatch[1]);
+
+            const retMatch = text.match(/(\\d+)%\\s*Retention/i);
+            if (retMatch) result.retention = parseInt(retMatch[1]);
+
+            return result;
+        }""")
+
+        # If metrics extraction failed from settings, try the main about page
+        if not metrics.get("members"):
+            page.goto("https://www.skool.com/agency-accelerants", wait_until="domcontentloaded", timeout=30000)
+            time.sleep(2)
+            metrics = page.evaluate("""() => {
+                const text = document.body.innerText;
+                const result = {};
+                const memberMatch = text.match(/(\\d[\\d,]*)\\s*(?:Members|members)/);
+                if (memberMatch) result.members = parseInt(memberMatch[1].replace(',', ''));
+                return result;
+            }""")
+
+        safe_print(f"Skool metrics: {json.dumps(metrics)}")
+
+        # Update revenue database if MRR found
+        if metrics.get("mrr"):
+            skool_mrr = metrics["mrr"]
+            rev_share = round(skool_mrr * 0.15, 2)
+            total_bennett = 2500 + rev_share
+            members = metrics.get("members", "?")
+            engagement = metrics.get("engagement", "?")
+            retention = metrics.get("retention", "?")
+
+            # Update Supabase
+            update_note = (f"Bennett: $2500 flat + 15% of ${skool_mrr} Skool MRR (${rev_share}). "
+                          f"{members} members, {engagement}% engagement, {retention}% retention. "
+                          f"Auto-updated {datetime.now().strftime('%Y-%m-%d %H:%M')}.")
+
+            try:
+                result = subprocess.run(
+                    [sys.executable, "scripts/supabase_tool.py", "update", "revenue_events",
+                     json.dumps({"amount_usd": total_bennett, "metadata": json.dumps({"notes": update_note})}),
+                     "--project", "bravo",
+                     "--match", json.dumps({"client_name": "Bennett Agency Accelerator", "type": "subscription_start"})],
+                    capture_output=True, text=True, timeout=15,
+                    creationflags=0x08000000 if sys.platform == "win32" else 0,
+                    cwd=str(PROJECT_ROOT)
+                )
+                if "Updated 1 row" in result.stdout:
+                    safe_print(f"Revenue updated: Bennett → ${total_bennett}/mo")
+                    metrics["revenue_updated"] = True
+                    metrics["total_bennett"] = total_bennett
+                else:
+                    safe_print(f"Revenue update issue: {result.stdout[:200]}")
+            except Exception as e:
+                safe_print(f"Revenue update failed: {e}")
+
+        return {"ok": True, "metrics": metrics}
+
+    except Exception as e:
+        log.error(f"Metrics scrape failed: {e}")
+        return {"ok": False, "error": str(e)}
+    finally:
+        if own_browser:
+            try:
+                ctx.close()
+                pw.stop()
+            except Exception:
+                pass
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -1686,6 +1801,7 @@ def main():
     sub.add_parser("scan-dms", help="Reply to incoming DMs")
     sub.add_parser("auto", help="Full scan (posts + DMs)")
     sub.add_parser("status", help="Show engine status")
+    sub.add_parser("metrics", help="Scrape Skool dashboard metrics and update revenue")
 
     daemon_parser = sub.add_parser("daemon", help="Run continuously")
     daemon_parser.add_argument("--interval", type=int, default=5, help="Minutes between cycles (default: 5)")
@@ -1709,6 +1825,7 @@ def main():
         "auto": cmd_auto,
         "daemon": cmd_daemon,
         "status": cmd_status,
+        "metrics": cmd_metrics,
     }
 
     handler = commands.get(args.command)

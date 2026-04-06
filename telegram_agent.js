@@ -335,6 +335,7 @@ BUSINESS OPS (use these — NOT the browser):
 - n8n: ${PYTHON} scripts/n8n_tool.py list | execute <id>
 - Database: ${PYTHON} scripts/supabase_tool.py select <table> --project bravo --limit 10
 - Financial: ${PYTHON} scripts/financial_model.py unit-economics | forecast | scenario --type base|bull|bear
+- Skool metrics: ${PYTHON} scripts/skool_engine.py metrics --json (scrapes dashboard, updates revenue DB automatically)
 
 PC CONTROL:
 - System: ${PYTHON} scripts/windows_control.py sysinfo|list-apps|screenshot|volume --level N|mute --toggle|get-ip|disk-usage|uptime --json
