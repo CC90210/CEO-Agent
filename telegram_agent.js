@@ -253,7 +253,7 @@ const loadContext = (tier = 2) => {
     const REVEAL_CMD = IS_MAC ? 'reveal-in-finder' : 'reveal-in-explorer';
     chunks.push(`=== ${IS_MAC ? 'macOS' : 'Windows'} Computer Control V2.1 (60+ commands — FULL CONTROL) ===
 APPS: open --app X | quit --app X | list-apps | frontmost
-INPUT: type --text "..." | keystroke --keys "${IS_MAC ? 'cmd' : 'ctrl'}+c" | click --x N --y N | right-click --x N --y N | double-click --x N --y N | scroll --direction up|down [--amount N] | mouse-move --x N --y N
+INPUT: type --text "..." | keystroke --keys "${IS_MAC ? 'cmd' : 'ctrl'}+c" | click --x N --y N | right-click --x N --y N | double-click --x N --y N | scroll --direction up|down [--amount N] | mouse-move --x N --y N | mouse-animate --x N --y N [--duration 0.5] [--steps 30] | drag --x1 N --y1 N --x2 N --y2 N [--duration 0.5]
 WINDOWS: window-move --app X --x N --y N | window-resize --app X --w N --h N | window-fullscreen --app X | window-left/right/center --app X | window-minimize/restore --app X | list-windows
 SCREENSHOTS: screenshot [--path ${TEMP_PATH}/X.png] | screenshot-window [--path ${TEMP_PATH}/X.png]
 RECORDING: record-start [--path ${TEMP_PATH}/X.${IS_MAC ? 'mov' : 'mp4'}] | record-stop
@@ -289,7 +289,7 @@ NOW PLAYING: \${PYTHON} scripts/music_control.py current
 SEARCH: \${PYTHON} scripts/music_control.py search --query "..."
 All support --json flag.
 
-CRITICAL: For music, use music_control.py (1 command = done). For web browsing, use browser-open/browser-js commands. NEVER try to manually orchestrate multi-step browser interactions — you WILL run out of turns. Use the atomic scripts.
+CRITICAL: Use ATOMIC commands: youtube-play (1 cmd → YouTube playing), open --wait (waits for app launch). For web browsing, use browser-open/browser-js. For visual demos, use mouse-animate (smooth cursor movement). NEVER manually orchestrate what a built-in command already does — you WILL run out of turns.
 IMPORTANT: When taking screenshots or recordings, the file is AUTOMATICALLY sent back to the Telegram chat. Always use ${TEMP_PATH}${IS_MAC ? '/' : '\\\\'} paths.
 POWER COMMANDS (shutdown/restart/logout) require --confirm flag. Always ask the user for confirmation FIRST.`);
 
@@ -345,16 +345,27 @@ BUSINESS OPS (use these — NOT the browser):
 - Semantic memory: ${PYTHON} scripts/mem0_tool.py add "fact" | search "query" | list | stats
 
 COMPUTER CONTROL (${IS_MAC ? 'macOS' : 'Windows'}):
-${IS_MAC ? `- Open app: python3 scripts/macos_control.py open --app "AppName" --json
-- Open URL in Chrome: python3 scripts/macos_control.py browser-open --url "https://..." --json
-- Screenshot: python3 scripts/macos_control.py screenshot --json
+${IS_MAC ? `SINGLE-COMMAND WORKFLOWS (use these first — atomic, 1 turn):
+- Play YouTube: python3 scripts/macos_control.py youtube-play --query "lofi beats" --json
+- Open app (wait for launch): python3 scripts/macos_control.py open --app "Serato DJ Pro" --wait --json
+- Screenshot: python3 scripts/macos_control.py screenshot --json  (auto-sent to Telegram)
 - Volume/mute: python3 scripts/macos_control.py volume --level N --json | mute --toggle --json
-- Any other action: python3 scripts/macos_control.py <command> [args] --json  (60+ commands available)
-- Music: python3 scripts/music_control.py play --query "..." --json` : `- System/apps/windows: python scripts/windows_control.py <command> [args] --json
+- Music (SoundCloud): python3 scripts/music_control.py play --query "..." --json
+- Open URL in Chrome: python3 scripts/macos_control.py browser-open --url "https://..." --json
+
+MOUSE & INTERACTION (visual — CC can watch the cursor move):
+- Smooth move: python3 scripts/macos_control.py mouse-animate --x N --y N --duration 0.5 --json
+- Click: python3 scripts/macos_control.py click --x N --y N --json
+- Drag: python3 scripts/macos_control.py drag --x1 N --y1 N --x2 N --y2 N --duration 0.5 --json
+- Type text: python3 scripts/macos_control.py type --text "..." --json
+- Run JS in Chrome: python3 scripts/macos_control.py browser-js --script "document.querySelector('button').click()" --json
+- Get screen size: python3 scripts/macos_control.py screen-size --json
+
+ANY OTHER ACTION: python3 scripts/macos_control.py <command> [args] --json  (65+ commands)` : `- System/apps/windows: python scripts/windows_control.py <command> [args] --json
 - Open URL in Chrome: python scripts/browse_and_capture.py --url "https://..."
 - Music: python scripts/music_control.py play --query "..." --json`}
 
-RULES: 1-2 turns MAX. Use the right script above, execute it, report result. Never try to manually control apps step-by-step.
+RULES: Use ATOMIC commands first (youtube-play, open --wait). For multi-step tasks, chain commands across turns — max 6 turns. Always prefer the single-command version when it exists. Never manually orchestrate what a built-in command already does.
 ${history}
 CC says:`;
     }
@@ -437,11 +448,11 @@ const executeCli = (tool, userPrompt, chatId) => {
     return new Promise((resolve) => {
         const fullPrompt = tool === 'claude' ? `${buildPrompt(chatId, userPrompt)} ${userPrompt}` : `${buildGeminiPrompt(chatId)} ${userPrompt}`;
         const tier = classifyTier(userPrompt);
-        const timeout = tool === 'claude' ? (tier === 0 ? 240000 : CLAUDE_TIMEOUT) : GEMINI_TIMEOUT; // T0: 4min, others: 10min
+        const timeout = tool === 'claude' ? (tier === 0 ? 300000 : CLAUDE_TIMEOUT) : GEMINI_TIMEOUT; // T0: 5min, others: 10min
         let cmd, args;
 
         if (tool === 'claude') {
-            const maxTurns = tier === 0 ? '3' : '10';
+            const maxTurns = tier === 0 ? '6' : '10';
             cmd = CLAUDE_EXE;
             args = [
                 '-p', fullPrompt,

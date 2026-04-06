@@ -111,6 +111,25 @@ def is_sensitive_path(path):
     return False
 
 
+# ---- MOUSETOOL BINARY PATH ----
+# Pre-compiled CoreGraphics binary for reliable mouse control (no pyobjc dependency needed).
+# Built once via: clang -framework ApplicationServices scripts/mousetool.c -o scripts/mousetool
+MOUSETOOL = os.path.join(os.path.dirname(__file__), "mousetool")
+
+def run_mousetool(args_list, timeout=15):
+    """Run the mousetool binary. Parses its JSON output directly."""
+    if not os.path.isfile(MOUSETOOL):
+        return {"ok": False, "error": "mousetool binary not found. Run: clang -framework ApplicationServices scripts/mousetool.c -o scripts/mousetool"}
+    r = run_shell([MOUSETOOL] + [str(a) for a in args_list], timeout=timeout)
+    if r["ok"]:
+        try:
+            # mousetool outputs JSON directly — parse it so we don't double-wrap
+            return json.loads(r["output"])
+        except (json.JSONDecodeError, ValueError):
+            pass
+    return r
+
+
 # ---- SCREEN SIZE HELPER ----
 
 def get_screen_size():
@@ -142,6 +161,26 @@ RECORD_PID_FILE = "/tmp/macos_control_recording.pid"
 
 def cmd_open(args):
     app = sanitize_applescript_string(args.app)
+    wait = getattr(args, 'wait', False)
+    if wait:
+        script = f'''
+tell application "{app}" to activate
+delay 1
+set maxWait to 20
+set waited to 0
+repeat while waited < maxWait
+    tell application "System Events"
+        set frontApp to name of first application process whose frontmost is true
+    end tell
+    if frontApp contains "{app}" then
+        return frontApp & " is active"
+    end if
+    delay 1
+    set waited to waited + 1
+end repeat
+return "{app} launched (loading may continue)"
+'''
+        return run_osascript(script, timeout=25)
     return run_osascript(f'tell application "{app}" to activate')
 
 
@@ -180,22 +219,7 @@ end tell''')
 
 
 def cmd_click(args):
-    py_script = f"""
-import Quartz
-point = Quartz.CGPointMake({args.x}, {args.y})
-down = Quartz.CGEventCreateMouseEvent(None, Quartz.kCGEventLeftMouseDown, point, 0)
-up = Quartz.CGEventCreateMouseEvent(None, Quartz.kCGEventLeftMouseUp, point, 0)
-Quartz.CGEventPost(Quartz.kCGHIDEventTap, down)
-Quartz.CGEventPost(Quartz.kCGHIDEventTap, up)
-print("clicked at {args.x},{args.y}")
-"""
-    result = run_shell(["python3", "-c", py_script])
-    if not result["ok"] and "No module named" in result.get("error", ""):
-        fallback = run_shell(["cliclick", f"c:{args.x},{args.y}"])
-        if not fallback["ok"]:
-            return {"ok": False, "error": "Quartz framework unavailable and cliclick not installed. Install via: brew install cliclick"}
-        return fallback
-    return result
+    return run_mousetool(["click", args.x, args.y])
 
 
 def cmd_list_windows(args):
@@ -886,82 +910,39 @@ def cmd_kill_process(args):
 
 def cmd_right_click(args):
     """Right-click at screen coordinates."""
-    py_script = f"""
-import Quartz
-point = Quartz.CGPointMake({args.x}, {args.y})
-down = Quartz.CGEventCreateMouseEvent(None, Quartz.kCGEventRightMouseDown, point, 0)
-up = Quartz.CGEventCreateMouseEvent(None, Quartz.kCGEventRightMouseUp, point, 0)
-Quartz.CGEventPost(Quartz.kCGHIDEventTap, down)
-Quartz.CGEventPost(Quartz.kCGHIDEventTap, up)
-print("right-clicked at {args.x},{args.y}")
-"""
-    result = run_shell(["python3", "-c", py_script])
-    if not result["ok"] and "No module named" in result.get("error", ""):
-        # Fallback: cliclick
-        r = run_shell(["cliclick", f"rc:{args.x},{args.y}"])
-        if not r["ok"]:
-            return {"ok": False, "error": "Quartz unavailable and cliclick not installed."}
-        return r
-    return result
+    return run_mousetool(["rclick", args.x, args.y])
 
 
 def cmd_double_click(args):
     """Double-click at screen coordinates."""
-    py_script = f"""
-import Quartz, time
-point = Quartz.CGPointMake({args.x}, {args.y})
-for _ in range(2):
-    down = Quartz.CGEventCreateMouseEvent(None, Quartz.kCGEventLeftMouseDown, point, 0)
-    up = Quartz.CGEventCreateMouseEvent(None, Quartz.kCGEventLeftMouseUp, point, 0)
-    Quartz.CGEventPost(Quartz.kCGHIDEventTap, down)
-    Quartz.CGEventPost(Quartz.kCGHIDEventTap, up)
-    time.sleep(0.05)
-print("double-clicked at {args.x},{args.y}")
-"""
-    result = run_shell(["python3", "-c", py_script])
-    if not result["ok"] and "No module named" in result.get("error", ""):
-        r = run_shell(["cliclick", f"dc:{args.x},{args.y}"])
-        if not r["ok"]:
-            return {"ok": False, "error": "Quartz unavailable and cliclick not installed."}
-        return r
-    return result
+    return run_mousetool(["dclick", args.x, args.y])
 
 
 def cmd_scroll(args):
     """Scroll up/down by amount."""
-    direction = -abs(args.amount) if args.direction == "down" else abs(args.amount)
-    py_script = f"""
-import Quartz
-event = Quartz.CGEventCreateScrollWheelEvent(None, Quartz.kCGScrollEventUnitLine, 1, {direction})
-Quartz.CGEventPost(Quartz.kCGHIDEventTap, event)
-print("scrolled {'up' if direction > 0 else 'down'} by {abs(args.amount)}")
-"""
-    result = run_shell(["python3", "-c", py_script])
-    if not result["ok"] and "No module named" in result.get("error", ""):
-        # Fallback: use AppleScript key codes (page up/down)
-        key = 116 if args.direction == "up" else 121  # page up / page down
-        return run_osascript(f'''
-tell application "System Events"
-    key code {key}
-end tell''')
-    return result
+    return run_mousetool(["scroll", args.direction, args.amount])
 
 
 def cmd_mouse_move(args):
-    """Move mouse cursor to coordinates."""
-    py_script = f"""
-import Quartz
-event = Quartz.CGEventCreateMouseEvent(None, Quartz.kCGEventMouseMoved, Quartz.CGPointMake({args.x}, {args.y}), 0)
-Quartz.CGEventPost(Quartz.kCGHIDEventTap, event)
-print("mouse moved to {args.x},{args.y}")
-"""
-    result = run_shell(["python3", "-c", py_script])
-    if not result["ok"] and "No module named" in result.get("error", ""):
-        r = run_shell(["cliclick", f"m:{args.x},{args.y}"])
-        if not r["ok"]:
-            return {"ok": False, "error": "Quartz unavailable and cliclick not installed."}
-        return r
-    return result
+    """Move mouse cursor to coordinates (instant)."""
+    return run_mousetool(["move", args.x, args.y])
+
+
+def cmd_mouse_animate(args):
+    """Smoothly animate the mouse cursor to target coordinates with ease-in-out.
+    Visually shows the cursor traveling across the screen — great for demonstrations."""
+    duration = max(0.1, min(5.0, float(args.duration)))
+    duration_ms = int(duration * 1000)
+    timeout = max(10, int(duration) + 5)
+    return run_mousetool(["animate", args.x, args.y, duration_ms], timeout=timeout)
+
+
+def cmd_drag(args):
+    """Click and drag from (x1,y1) to (x2,y2) with smooth animated movement."""
+    duration = max(0.1, min(5.0, float(args.duration)))
+    duration_ms = int(duration * 1000)
+    timeout = max(10, int(duration) + 5)
+    return run_mousetool(["drag", args.x1, args.y1, args.x2, args.y2, duration_ms], timeout=timeout)
 
 
 # ============================================================
@@ -1295,6 +1276,94 @@ end tell
 
 
 # ============================================================
+# COMMANDS — Workflow Helpers (V2.2)
+# ============================================================
+
+def cmd_screen_size(args):
+    """Return the main display resolution (width x height)."""
+    w, h = get_screen_size()
+    return {"ok": True, "output": f"{w}x{h}", "width": w, "height": h}
+
+
+def cmd_youtube_play(args):
+    """Atomic: open YouTube, search the query, click the first result, and let it play.
+    One command — no multi-turn orchestration needed."""
+    query = sanitize_applescript_string(args.query)
+    # URL-encode spaces as +
+    encoded = query.replace(' ', '+')
+    search_url = f"https://www.youtube.com/results?search_query={encoded}"
+
+    # Step 1 — navigate to search results
+    r = run_osascript(f'''
+tell application "Google Chrome"
+    activate
+    if (count of windows) = 0 then make new window
+    set URL of active tab of window 1 to "{search_url}"
+end tell
+delay 1
+tell application "Google Chrome"
+    set maxWait to 20
+    set waited to 0
+    repeat while waited < maxWait
+        if not (loading of active tab of window 1) then exit repeat
+        delay 1
+        set waited to waited + 1
+    end repeat
+end tell
+return "search loaded"
+''', timeout=30)
+
+    if not r["ok"]:
+        return r
+
+    # Step 2 — click the first video result via JavaScript
+    r2 = run_osascript('''
+tell application "Google Chrome"
+    set jsResult to execute active tab of window 1 javascript "
+        var v = document.querySelector('ytd-video-renderer a#video-title');
+        if (!v) v = document.querySelector('a#video-title');
+        if (v) { var t = v.textContent.trim(); v.click(); t; } else { 'no_result'; }
+    "
+    return jsResult
+end tell
+''', timeout=10)
+
+    if not r2["ok"]:
+        return r2
+
+    clicked_title = r2.get("output", "video")
+    if clicked_title == "no_result":
+        return {"ok": False, "error": f"No YouTube video results found for: {query}"}
+
+    # Step 3 — wait for video page to load
+    run_osascript('''
+tell application "Google Chrome"
+    delay 2
+    set waited to 0
+    repeat while waited < 15
+        if not (loading of active tab of window 1) then exit repeat
+        delay 1
+        set waited to waited + 1
+    end repeat
+end tell
+''', timeout=20)
+
+    # Step 4 — dismiss any "Before you continue" or cookie dialogs, then ensure playback
+    run_osascript('''
+tell application "Google Chrome"
+    execute active tab of window 1 javascript "
+        var btn = document.querySelector('button[aria-label*=Accept], button[aria-label*=Agree], .yt-spec-button-shape-next--filled');
+        if (btn) btn.click();
+        var player = document.querySelector('video');
+        if (player && player.paused) player.play();
+    "
+end tell
+''', timeout=8)
+
+    return {"ok": True, "output": f"YouTube playing: {clicked_title}\nSearch query: {query}"}
+
+
+# ============================================================
 # MAIN
 # ============================================================
 
@@ -1312,6 +1381,7 @@ def main():
     # ---- Original commands ----
     p = sub.add_parser("open", help="Open/activate an application")
     p.add_argument("--app", required=True)
+    p.add_argument("--wait", action="store_true", help="Wait for app to become frontmost before returning")
 
     p = sub.add_parser("quit", help="Quit an application")
     p.add_argument("--app", required=True)
@@ -1424,6 +1494,7 @@ def main():
 
     # ---- System info ----
     sub.add_parser("sysinfo", help="Full system info snapshot")
+    sub.add_parser("screen-size", help="Get main display resolution (width x height)")
 
     # ---- File operations ----
     p = sub.add_parser("list-files", help="List files in a directory")
@@ -1478,9 +1549,22 @@ def main():
     p.add_argument("--direction", choices=["up", "down"], required=True)
     p.add_argument("--amount", type=int, default=5, help="Scroll lines (default: 5)")
 
-    p = sub.add_parser("mouse-move", help="Move mouse to coordinates")
+    p = sub.add_parser("mouse-move", help="Move mouse to coordinates (instant)")
     p.add_argument("--x", type=int, required=True)
     p.add_argument("--y", type=int, required=True)
+
+    p = sub.add_parser("mouse-animate", help="Smoothly animate mouse to coordinates (visible movement)")
+    p.add_argument("--x", type=int, required=True)
+    p.add_argument("--y", type=int, required=True)
+    p.add_argument("--duration", type=float, default=0.5, help="Animation duration in seconds (default: 0.5)")
+    p.add_argument("--steps", type=int, default=30, help="Animation steps (default: 30, more=smoother)")
+
+    p = sub.add_parser("drag", help="Click and drag from (x1,y1) to (x2,y2) with smooth animation")
+    p.add_argument("--x1", type=int, required=True)
+    p.add_argument("--y1", type=int, required=True)
+    p.add_argument("--x2", type=int, required=True)
+    p.add_argument("--y2", type=int, required=True)
+    p.add_argument("--duration", type=float, default=0.5, help="Drag duration in seconds (default: 0.5)")
 
     # ---- Audio devices ----
     sub.add_parser("list-audio", help="List audio devices")
@@ -1527,6 +1611,10 @@ def main():
     p = sub.add_parser("browser-switch-tab", help="Switch to Chrome tab by number")
     p.add_argument("--tab", type=int, required=True)
 
+    # ---- Workflow helpers (V2.2) ----
+    p = sub.add_parser("youtube-play", help="Search YouTube and auto-play the first result (atomic — no multi-turn needed)")
+    p.add_argument("--query", required=True, help="Search query, e.g. 'lofi hip hop radio'")
+
     args = parser.parse_args()
 
     # SECURITY: Sanitize string arguments that get interpolated into AppleScript
@@ -1538,6 +1626,8 @@ def main():
         args.title = sanitize_applescript_string(args.title)
     if hasattr(args, 'message') and args.message:
         args.message = sanitize_applescript_string(args.message)
+    if hasattr(args, 'query') and args.query:
+        args.query = sanitize_applescript_string(args.query)
 
     # SECURITY: Block sensitive file paths
     for attr in ('path', 'src', 'dst'):
@@ -1580,7 +1670,7 @@ def main():
         # Clipboard
         "clipboard-read": cmd_clipboard_read, "clipboard-write": cmd_clipboard_write,
         # System info
-        "sysinfo": cmd_sysinfo,
+        "sysinfo": cmd_sysinfo, "screen-size": cmd_screen_size,
         # File operations
         "list-files": cmd_list_files, "read-file": cmd_read_file,
         "write-file": cmd_write_file, "move-file": cmd_move_file,
@@ -1591,6 +1681,7 @@ def main():
         # Advanced input
         "right-click": cmd_right_click, "double-click": cmd_double_click,
         "scroll": cmd_scroll, "mouse-move": cmd_mouse_move,
+        "mouse-animate": cmd_mouse_animate, "drag": cmd_drag,
         # Audio devices
         "list-audio": cmd_list_audio, "switch-audio": cmd_switch_audio,
         # Network
@@ -1604,6 +1695,8 @@ def main():
         "browser-tab-url": cmd_browser_tab_url, "browser-tab-title": cmd_browser_tab_title,
         "browser-new-tab": cmd_browser_new_tab, "browser-close-tab": cmd_browser_close_tab,
         "browser-list-tabs": cmd_browser_list_tabs, "browser-switch-tab": cmd_browser_switch_tab,
+        # Workflow helpers (V2.2)
+        "youtube-play": cmd_youtube_play,
     }
 
     result = commands[args.command](args)
