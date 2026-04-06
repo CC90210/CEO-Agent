@@ -1,3 +1,5 @@
+import sys, io
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 """
 Client Health Scoring Engine — CEO Dashboard Component
 Reads client data from the Supabase 'leads' table (project: bravo) and
