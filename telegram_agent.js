@@ -630,11 +630,93 @@ const sendFilesToChat = async (chatId, text) => {
     return sent;
 };
 
+// ---- VOICE NOTE TRANSCRIPTION ----
+const handleVoiceMessage = async (msg) => {
+    const chatId = msg.chat.id;
+    const voice = msg.voice || msg.audio;
+    if (!voice) return null;
+
+    try {
+        await bot.sendMessage(chatId, '🎙️ Transcribing...');
+        log(`[VOICE] Received voice note: ${voice.duration}s, ${voice.file_size} bytes`);
+
+        // Download the voice file from Telegram
+        const fileInfo = await bot.getFile(voice.file_id);
+        const fileUrl = `https://api.telegram.org/file/bot${TELEGRAM_TOKEN}/${fileInfo.file_path}`;
+        const tmpDir = process.env.TEMP || '/tmp';
+        const oggPath = path.join(tmpDir, `voice_${Date.now()}.ogg`);
+
+        // Download using curl (reliable on both platforms)
+        const { execSync } = require('child_process');
+        execSync(`curl -s -o "${oggPath}" "${fileUrl}"`, { timeout: 15000, windowsHide: true });
+
+        if (!fs.existsSync(oggPath)) {
+            await bot.sendMessage(chatId, 'Failed to download voice note.');
+            return null;
+        }
+
+        // Transcribe using local Whisper
+        const { execFile } = require('child_process');
+        const transcription = await new Promise((resolve) => {
+            execFile(PYTHON, [
+                'scripts/transcribe.py',
+                '--file', oggPath,
+                '--model', voice.duration > 30 ? 'base' : 'tiny'  // tiny for short, base for longer
+            ], {
+                cwd: __dirname,
+                timeout: 120000,  // 2min max for transcription
+                windowsHide: true,
+            }, (err, stdout, stderr) => {
+                // Clean up OGG file
+                try { fs.unlinkSync(oggPath); } catch (_) {}
+
+                if (err) {
+                    log(`[VOICE] Transcription error: ${err.message}`);
+                    resolve(null);
+                    return;
+                }
+                try {
+                    const result = JSON.parse(stdout.trim());
+                    if (result.ok && result.text) {
+                        log(`[VOICE] Transcribed (${result.duration_s}s): "${result.text.substring(0, 80)}..."`);
+                        resolve(result.text);
+                    } else {
+                        log(`[VOICE] Transcription failed: ${result.error || 'empty'}`);
+                        resolve(null);
+                    }
+                } catch (e) {
+                    log(`[VOICE] Parse error: ${e.message}`);
+                    resolve(null);
+                }
+            });
+        });
+
+        if (transcription) {
+            await bot.sendMessage(chatId, `📝 "${transcription}"\n\nProcessing...`);
+            return transcription;
+        } else {
+            await bot.sendMessage(chatId, "Couldn't transcribe that. Try again or type your message.");
+            return null;
+        }
+    } catch (e) {
+        log(`[VOICE] Error: ${e.message}`);
+        await bot.sendMessage(chatId, 'Voice processing failed.').catch(() => {});
+        return null;
+    }
+};
+
+
 // ---- TELEGRAM HANDLER ----
 bot.on('message', async (msg) => {
     pollErrorCount = 0;
     const chatId = msg.chat.id;
-    const text = msg.text;
+
+    // Handle voice notes — transcribe and process as text
+    let text = msg.text;
+    if (!text && (msg.voice || msg.audio)) {
+        text = await handleVoiceMessage(msg);
+        if (!text) return;
+    }
     if (!text) return;
 
     const userId = String(msg.from.id);
