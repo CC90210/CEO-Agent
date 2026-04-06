@@ -22,6 +22,9 @@ const path = require('path');
 // V15.3: Security Hardening — AppleScript injection sanitization, !sys blocklist,
 //         callback user ID verification, execFile for cost tracking, sensitive path
 //         blocking, protected process list, rate limiting (5/10s).
+// V15.3.1: Auth Bulletproofing — --bare flag forces ANTHROPIC_API_KEY auth only
+//         (OAuth/keychain never read), startup API health check on every boot,
+//         401 error detection with clear Telegram alert. No more sleep/wake failures.
 // ============================================================
 
 // ---- PLATFORM DETECTION ----
@@ -435,7 +438,8 @@ const executeCli = (tool, userPrompt, chatId) => {
                 '-p', fullPrompt,
                 '--dangerously-skip-permissions',
                 '--output-format', 'text',
-                '--max-turns', maxTurns
+                '--max-turns', maxTurns,
+                '--bare'  // CRITICAL: forces ANTHROPIC_API_KEY auth only — never reads expired OAuth/keychain tokens
             ];
         } else {
             const mcps = detectMcps(userPrompt);
@@ -523,6 +527,14 @@ const executeCli = (tool, userPrompt, chatId) => {
                 resolve(code === 0 ? 'Done.' : `Error (code ${code}). Try !claude for complex tasks.`);
                 return;
             }
+
+            // Auth error detection — 401/OAuth expiry gets a clear message to CC
+            if (code !== 0 && /authentication_error|OAuth token has expired|401|Invalid API key|Please obtain a new token/i.test(raw)) {
+                log(`[AUTH ERROR] ${tool} returned auth failure — check ANTHROPIC_API_KEY in .env.agents`);
+                resolve('Auth error — check that ANTHROPIC_API_KEY is valid in .env.agents, then: pm2 restart bravo-telegram');
+                return;
+            }
+
             resolve(cleanOutput(raw));
         });
 
@@ -1009,3 +1021,45 @@ process.on('unhandledRejection', (err) => {
 });
 
 log(`Bridge V15.3 ready. Platform: ${IS_MAC ? 'macOS' : 'Windows'}. Computer control: FULL CONTROL (60+ cmds).`);
+
+// ---- STARTUP AUTH HEALTH CHECK ----
+// Tests ANTHROPIC_API_KEY directly on every boot. If it fails, Telegram alerts CC.
+// Runs 5s after start so polling settles first.
+setTimeout(() => {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+        log('[HEALTH] ANTHROPIC_API_KEY missing — Claude requests will fail');
+        return;
+    }
+    const https = require('https');
+    const body = JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 5,
+        messages: [{ role: 'user', content: 'ping' }]
+    });
+    const req = https.request({
+        hostname: 'api.anthropic.com',
+        path: '/v1/messages',
+        method: 'POST',
+        headers: {
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+            'content-type': 'application/json',
+            'content-length': Buffer.byteLength(body)
+        }
+    }, (res) => {
+        if (res.statusCode === 200) {
+            log('[HEALTH] Anthropic API key: OK');
+        } else {
+            log(`[HEALTH] Anthropic API key FAILED (HTTP ${res.statusCode}) — check .env.agents`);
+            if (ALLOWED_USERS.length > 0) {
+                bot.sendMessage(ALLOWED_USERS[0],
+                    `⚠️ Bravo startup: API key check failed (HTTP ${res.statusCode}).\nBravo will not respond until fixed. Update ANTHROPIC_API_KEY in .env.agents then: pm2 restart bravo-telegram`
+                ).catch(() => {});
+            }
+        }
+    });
+    req.on('error', (e) => log(`[HEALTH] API check error: ${e.message}`));
+    req.write(body);
+    req.end();
+}, 5000);
