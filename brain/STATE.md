@@ -102,7 +102,7 @@ tags: [state, ephemeral]
 - **Workflows:** 32 (.agents/workflows/ — added /ingest, /query-knowledge)
 - **Scripts:** 37 (CLI engines + CEO tools + system maintenance)
 - **Supabase tables:** 28 (14 agent + 14 business ops)
-- **MCP servers:** 4 working (Playwright, Context7, Memory, Sequential Thinking) + 4 replaced by CLI
+- **MCP servers:** 7 working (Playwright, Context7, Memory, Sequential Thinking, GitHub, Firecrawl, Filesystem) + 4 replaced by CLI + claude-mem plugin
 - **System maintenance tools:** 3 new (context_manager.py, cost_tracker.py, memory_aging.py)
 - **Hooks:** 4 active (2 PreToolUse safety, 1 PostToolUse audit, 1 Notification alert) + 4 context hooks (compaction, cost, aging, tier)
 - **Permission deny rules:** 18 (credential protection, destructive ops, Obsidian config)

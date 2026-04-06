@@ -10,6 +10,17 @@ tags: [daily]
 
 ---
 
+### 2026-04-06 — 3 new MCP servers installed (GitHub, Firecrawl, Filesystem)
+**Agent:** Claude Code (Bravo)
+**Changes:**
+- Created `scripts/github-mcp-wrapper.cmd` — reads GITHUB_PERSONAL_ACCESS_TOKEN from .env.agents, runs `@modelcontextprotocol/server-github`
+- Created `scripts/firecrawl-mcp-wrapper.cmd` — reads FIRECRAWL_API_KEY from .env.agents, runs `firecrawl-mcp`. ACTION REQUIRED: CC must add `FIRECRAWL_API_KEY=<key>` to .env.agents manually (hooks block automated edits).
+- Updated `.claude/mcp.json`, `.vscode/mcp.json`, `~/.gemini/settings.json` — all 3 now have 7 MCP servers (4 existing + github + firecrawl + filesystem)
+- Filesystem server path allowlist: Business-Empire-Agent, APPS/, .claude/
+- All configs verified as valid JSON. Servers activate on next session start.
+
+---
+
 ### 2026-04-06 — claude-mem v11.0.0 installed as Claude Code plugin
 **Agent:** Claude Code (Bravo)
 **Changes:**
