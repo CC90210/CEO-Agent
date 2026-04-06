@@ -5,7 +5,7 @@ tags: [capabilities, tools]
 # CAPABILITIES — Tool & Integration Registry
 
 > Complete inventory of what Bravo can do. Last updated: 2026-04-06.
-> **Totals: 181 skills · 31 workflows · 38 scripts · 17 agents · 4 MCP servers + Codex (external)**
+> **Totals: 182 skills · 31 workflows · 39 scripts · 17 agents · 4 MCP servers + Codex (external)**
 
 ## MCP Servers (By Interface)
 
@@ -132,6 +132,19 @@ Transform any website into structured CLI commands via browser automation. Compl
 | **Cron** | `scripts/cron_engine.py` | Automated job scheduling, 12 seeded business workflows | `list`, `add`, `toggle`, `run`, `due`, `seed` |
 
 All engines: `--json` flag for agent consumption, credentials from `.env.agents`, Supabase backend.
+
+## Semantic Memory (1 CLI tool — added 2026-04-06)
+
+Auto-deduplicating semantic memory layer backed by local Qdrant (pgvector upgrade path available).
+Complements markdown memory: markdown handles structured state, mem0 handles fuzzy fact retrieval.
+
+| Tool | Script | Purpose | Key Commands |
+|------|--------|---------|-------------|
+| **Semantic Memory** | `scripts/mem0_tool.py` | Semantic search, auto-dedup, cross-session context injection | `add`, `search`, `list`, `get`, `delete`, `history`, `stats` |
+
+**Stack:** mem0ai 1.0.10, fastembed (thenlper/gte-large, 1024-dim, local ONNX), Claude Haiku (extraction), Qdrant (embedded, local)
+**Storage:** `data/mem0_qdrant/` (persisted, no server required)
+**Skill:** `skills/semantic-memory/SKILL.md` — when to use vs markdown memory, upgrade path to Supabase pgvector
 
 ## System Maintenance Tools (3 CLI tools — added 2026-03-31, inspired by Claude Code internals)
 
@@ -316,15 +329,15 @@ markdown wiki pages. Deterministic retrieval via `knowledge/index.md` — no emb
 | /ingest | On-demand | Compile raw document into knowledge wiki |
 | /query-knowledge | On-demand | Sourced answer from compiled knowledge wiki |
 
-## Skills (174 total — 81 core + 42 GWS + 41 recipes + 10 personas)
+## Skills (175 total — 82 core + 42 GWS + 41 recipes + 10 personas)
 
 > **Note:** All skills use the Claude Agent Skills 2.0 structure. They are stored in `skills/[skill-name]/SKILL.md` format. The descriptions inside the frontmatter define their activation triggers.
 
-### Core Skills (81)
+### Core Skills (82)
 
 | Category | Skills |
 |----------|--------|
-| **Agent Intelligence** | heartbeat, self-healing, memory-management, growth-engine, sop-breakdown, sequential-reasoning, mcp-operations, task-routing, anti-drift, agent-permissions, hooks-automation, background-workers, context-optimization |
+| **Agent Intelligence** | heartbeat, self-healing, memory-management, semantic-memory, growth-engine, sop-breakdown, sequential-reasoning, mcp-operations, task-routing, anti-drift, agent-permissions, hooks-automation, background-workers, context-optimization |
 | **Methodology** | sparc-methodology |
 | **Development** | systematic-debugging, test-driven-development, verification-before-completion, executing-plans, writing-plans, finishing-a-development-branch, using-git-worktrees, code-review, receiving-code-review, requesting-code-review, ship, subagent-driven-development, dispatching-parallel-agents |
 | **Browser & Testing** | browser-automation, e2e-testing, webapp-testing |
