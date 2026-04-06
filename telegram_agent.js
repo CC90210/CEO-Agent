@@ -328,7 +328,7 @@ TELEGRAM-SPECIFIC RULES:
 (4) For code changes in apps, cd to the app's LOCAL PATH from APP_REGISTRY.md.
 (5) After any significant work, update memory/SESSION_LOG.md and memory/ACTIVE_TASKS.md.
 (6) Address the user as CC. Be direct, no filler. Use "Conaugh McKenna" for external/B2B comms.
-(7) You have up to 25 turns — use them for multi-step tasks. Don't rush.
+(7) SPEED IS CRITICAL. Simple tasks (open a page, check something, take a screenshot) should use 1-3 turns MAX. Do NOT overthink, do NOT try multiple approaches. Pick one approach and execute it. Only use extra turns for genuinely complex multi-step tasks.
 (8) All credentials are in .env.agents — NEVER hardcode secrets.
 (9) IMPORTANT: The RECENT CONVERSATION HISTORY above contains previous messages from this chat session. Use it to maintain context. If CC references something from a prior message, check the history.
 (10) APPROVAL GATE: Before executing ANY destructive action (deleting files, sending emails to clients, publishing content, modifying production data, running rm/del commands, shutting down services), you MUST output exactly this pattern and STOP:
@@ -337,13 +337,17 @@ Do NOT proceed until the next message says APPROVED or DENIED.
 (11) COMPUTER CONTROL: You have FULL control of this ${IS_MAC ? 'Mac' : 'PC'} via ${PYTHON} scripts/${IS_MAC ? 'macos' : 'windows'}_control.py (60+ commands). Categories: Apps (open/quit/list), Input (type/click/right-click/double-click/scroll/mouse-move/keystroke), Windows (move/resize/fullscreen/left/right/center/minimize/restore), Screenshots & Recording, System (dark-mode/dnd/wifi/bluetooth/brightness/volume/mute/sleep/lock/battery/sysinfo), Clipboard (read/write), Files (list/read/write/move/copy/delete/search/${IS_MAC ? 'reveal-in-finder' : 'reveal-in-explorer'}), Processes (list/kill), Network (get-ip/ping), Audio (list/switch devices), Power (shutdown/restart/logout — need --confirm), Browser (Chrome: open URLs, JS, tabs), Media (say/notify/url). Use natural language — figure out the right command from CC's intent.
 (12) FILE RELAY: When you take a screenshot or create a file, the bridge AUTOMATICALLY sends it back to this Telegram chat. Always save to ${TEMP_PATH}${IS_MAC ? '/' : '\\\\'} paths. Include the full file path in your response text so the relay can find it.
 (13) MUSIC: Use ${PYTHON} scripts/music_control.py for SoundCloud control. NEVER try to manually control the browser step-by-step for music. The script handles search, navigation, and playback in ONE atomic call.
-(14) BROWSER (CRITICAL — Windows):
-  - To OPEN a page in CC's real Chrome (logged in, with all his accounts): use "url --url ..." or run chrome.exe with the URL. This opens in CC's REAL browser with all saved passwords and cookies.
-  - To SEE what's on CC's screen after opening a page: use "screenshot" and the image is sent back to Telegram automatically. This is how you "read" pages in CC's logged-in browser.
-  - To browse in the BACKGROUND (no GUI, not logged in): use "headless-browse --url ... --action text|screenshot|links"
-  - NEVER use Playwright MCP or headless-browse to check pages that require CC's login (Amazon, Gmail, etc.) — they run in a separate session without CC's cookies. Instead, open the URL in CC's real Chrome, then take a screenshot to see the result.
-  - On macOS: full Chrome control via AppleScript (JS execution, tab reading, etc.) — no limitations.${IS_MAC ? `
-  Use browser-open/browser-js/browser-new-tab from macos_control.py for any web task.` : ''}
+(14) BROWSER (Windows — FOLLOW THIS EXACTLY):
+  When CC asks to open/check a webpage that needs login (Amazon, Gmail, etc.):
+    Step 1: ${PYTHON} scripts/windows_control.py url --url "https://the-url.com" (opens in CC's REAL Chrome with saved logins — ONE tab, not multiple)
+    Step 2: sleep 4 (wait for page to load)
+    Step 3: ${PYTHON} scripts/windows_control.py focus-window --title "Chrome" (bring Chrome to front)
+    Step 4: sleep 1
+    Step 5: ${PYTHON} scripts/windows_control.py screenshot --path "${TEMP_PATH}${IS_MAC ? '/' : '\\\\'}browser_check.png" (screenshot is auto-sent to Telegram)
+    Step 6: Read the screenshot and tell CC what you see.
+  That's it. 6 steps. Do NOT open multiple browsers. Do NOT use Playwright or headless-browse for logged-in pages. Do NOT try alternative approaches if this works.
+  For PUBLIC pages that don't need login: use headless-browse --url "..." --action text (faster, invisible).${IS_MAC ? `
+  On macOS: use browser-open/browser-js from macos_control.py instead (full AppleScript control).` : ''}
 
 CC's message:`;
 };
@@ -408,7 +412,7 @@ const executeCli = (tool, userPrompt, chatId) => {
                 '-p', fullPrompt,
                 '--dangerously-skip-permissions',
                 '--output-format', 'text',
-                '--max-turns', '25'
+                '--max-turns', '10'
             ];
         } else {
             const mcps = detectMcps(userPrompt);
@@ -558,13 +562,20 @@ const sendFilesToChat = async (chatId, text) => {
     // Match "saved to /path/file.ext" patterns
     const pattern1 = new RegExp(FILE_PATH_PATTERN.source, FILE_PATH_PATTERN.flags);
     while ((match = pattern1.exec(text)) !== null) {
-        paths.add(match[1]);
+        if (match[1]) paths.add(match[1]);
     }
 
-    // Match bare /tmp/ paths
+    // Match bare temp paths (Windows C:\...\Temp\ or Unix /tmp/)
     const pattern2 = new RegExp(DIRECT_PATH_PATTERN.source, DIRECT_PATH_PATTERN.flags);
     while ((match = pattern2.exec(text)) !== null) {
-        paths.add(match[1]);
+        if (match[1]) paths.add(match[1]);
+        else if (match[0]) paths.add(match[0]); // fallback to full match
+    }
+
+    // Safety net: brute-force extract any Windows temp file path
+    const winTempPattern = /[A-Z]:\\[^\s,)"']*\\Temp\\[^\s,)"']+\.(?:png|jpg|jpeg|gif|mov|mp4|pdf)/gi;
+    while ((match = winTempPattern.exec(text)) !== null) {
+        paths.add(match[0]);
     }
 
     let sent = 0;
