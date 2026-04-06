@@ -245,7 +245,9 @@ const loadContext = (tier = 2) => {
 - Context Manager: ${PYTHON} scripts/context_manager.py [tier|compact|status|health]
 - Cost Tracker: ${PYTHON} scripts/cost_tracker.py [log|summary|session|budget]
 - Memory Aging: ${PYTHON} scripts/memory_aging.py [scan|stale|health|archive]
-- MCP servers: Playwright, Context7, Memory, Sequential Thinking`);
+- Firecrawl (web scraping): ${PYTHON} scripts/firecrawl_tool.py [scrape|crawl|search|extract|map] <url|query>
+- Semantic memory (mem0): ${PYTHON} scripts/mem0_tool.py [add|search|list|get|delete|stats]
+- MCP servers: Playwright, Context7, Memory, Sequential Thinking, Firecrawl`);
 
     // Computer control (cross-platform — macOS + Windows)
     const REVEAL_CMD = IS_MAC ? 'reveal-in-finder' : 'reveal-in-explorer';
@@ -339,6 +341,8 @@ BUSINESS OPS (use these — NOT the browser):
 - Database: ${PYTHON} scripts/supabase_tool.py select <table> --project bravo --limit 10
 - Financial: ${PYTHON} scripts/financial_model.py unit-economics | forecast | scenario --type base|bull|bear
 - Skool metrics: ${PYTHON} scripts/skool_engine.py metrics --json (scrapes dashboard, updates revenue DB automatically)
+- Web scraping: ${PYTHON} scripts/firecrawl_tool.py scrape <url> | crawl <url> --limit 10 | search "query" | map <url>
+- Semantic memory: ${PYTHON} scripts/mem0_tool.py add "fact" | search "query" | list | stats
 
 COMPUTER CONTROL (${IS_MAC ? 'macOS' : 'Windows'}):
 ${IS_MAC ? `- Open app: python3 scripts/macos_control.py open --app "AppName" --json
@@ -374,7 +378,7 @@ TELEGRAM-SPECIFIC RULES:
 (8) All credentials are in .env.agents — NEVER hardcode secrets.
 (9) Use RECENT CONVERSATION HISTORY for context from prior messages.
 (10) APPROVAL GATE: Before destructive actions, output "⚠️ CONFIRM: [description]" and STOP.
-(11) COMPUTER CONTROL: ${PYTHON} scripts/windows_control.py <command> --json for desktop control. ${PYTHON} scripts/browse_and_capture.py --url "URL" for opening webpages in CC's real Chrome.
+(11) COMPUTER CONTROL: ${PYTHON} scripts/${IS_MAC ? 'macos' : 'windows'}_control.py <command> --json for desktop control. ${PYTHON} scripts/browse_and_capture.py --url "URL" for opening webpages in CC's real Chrome.
 (12) FILE RELAY: Screenshots/files saved to ${TEMP_PATH} are auto-sent to Telegram.
 (13) MUSIC: ${PYTHON} scripts/music_control.py for SoundCloud.
 
