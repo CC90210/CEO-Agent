@@ -5,7 +5,7 @@ tags: [capabilities, tools]
 # CAPABILITIES — Tool & Integration Registry
 
 > Complete inventory of what Bravo can do. Last updated: 2026-04-06.
-> **Totals: 183 skills · 31 workflows · 39 scripts · 17 agents · 4 MCP servers + Codex (external)**
+> **Totals: 183 skills · 31 workflows · 39 scripts · 17 agents · 5 MCP servers + Codex (external)**
 
 ## MCP Servers (By Interface)
 
@@ -16,6 +16,7 @@ tags: [capabilities, tools]
 | **Context7** | Live library documentation lookup | resolve-library-id, query-docs |
 | **Memory** | Persistent knowledge graph across sessions | create_entities, search_nodes, open_nodes |
 | **Sequential Thinking** | Structured multi-step reasoning | sequentialthinking |
+| **Knowledge Graph** | Obsidian vault as graph — PageRank, communities, semantic search, path-finding | kg_search, kg_node, kg_central, kg_bridges, kg_paths, kg_communities, kg_index |
 
 ### Anti-Gravity IDE (Native Local Agent — Multi-Model)
 
@@ -29,6 +30,7 @@ Workflows: `.agents/workflows/` (30 workflows: post, status, health, prime, cont
 | **Context7** | Live library documentation | npx @upstash/context7-mcp |
 | **Memory** | Persistent knowledge graph | npx @modelcontextprotocol/server-memory |
 | **Sequential Thinking** | Multi-step reasoning | npx @modelcontextprotocol/server-sequential-thinking |
+| **Knowledge Graph** | Vault graph — PageRank, communities, semantic search | npx tsx C:\Users\User\tools\knowledge-graph\src\mcp\index.ts |
 
 **SDK INTEGRATIONS (Universal — replaces broken MCPs):**
 | **Supabase** | Database CRUD, queries, RPC | `python scripts/supabase_tool.py select <table> --project bravo --limit 10` |

@@ -42,7 +42,7 @@ Answer using MCP tools. Do NOT dump file contents. Keep answers to 1-5 sentences
 
 ### RULE 2: Tool routing (CLI-first, MCP as fallback)
 
-Working MCPs: Playwright (`browser_navigate`), Context7 (`query-docs`), Memory (`search_nodes`), Sequential Thinking. CLI tools for everything else — they read `.env.agents` directly and never break. Full routing table: @brain/QUICK_REFERENCE.md.
+Working MCPs: Playwright (`browser_navigate`), Context7 (`query-docs`), Memory (`search_nodes`), Sequential Thinking, Knowledge Graph (`kg_search`, `kg_central`, `kg_paths`, `kg_communities`). CLI tools for everything else — they read `.env.agents` directly and never break. Full routing table: @brain/QUICK_REFERENCE.md.
 
 ### RULE 3: CREDENTIALS AND SECURITY (CRITICAL)
 
@@ -112,7 +112,7 @@ During: self-improvement runs continuously (Rule 9). MODERATE+ tasks: generate 2
 
 ## MCP vs CLI Status
 
-Working MCPs: Playwright, Context7, Memory, Sequential Thinking. Replaced by CLI: n8n (`n8n_tool.py`), Zernio/Late (`late_tool.py`), Supabase (`supabase_tool.py`), Stripe (`stripe_tool.py`). No MCP: GitHub (use `git`), Chrome (use Playwright MCP).
+Working MCPs: Playwright, Context7, Memory, Sequential Thinking, Knowledge Graph. Replaced by CLI: n8n (`n8n_tool.py`), Zernio/Late (`late_tool.py`), Supabase (`supabase_tool.py`), Stripe (`stripe_tool.py`). No MCP: GitHub (use `git`), Chrome (use Playwright MCP).
 
 ## Obsidian Links
 - [[brain/SOUL]] | [[brain/STATE]] | [[brain/USER]] | [[brain/APP_REGISTRY]]

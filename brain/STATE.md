@@ -60,7 +60,7 @@ tags: [state, ephemeral]
 | **Instagram Automation** | ✅ AUDITED | `instagram_engine.py` — Claude API replies, 10 bugs fixed |
 | **Scheduler** | ✅ SILENT | `scheduler.py` — `CREATE_NO_WINDOW` flag added. PM2 pinned to `.venv` Python. No terminal popups. |
 | **Outreach Engine** | ✅ AUDITED | `outreach_engine.py` — ICS timezone fixed, email_log insert fixed |
-| **Obsidian Vault** | ✅ READY | Business-Empire-Agent repo configured as Obsidian vault. 34 files created. Community plugins staged. |
+| **Obsidian Vault** | ✅ GRAPH-INDEXED | Business-Empire-Agent configured as Obsidian vault. Knowledge Graph MCP live: 2,117 nodes, 3,725 edges, 696 communities. PageRank, semantic search, path-finding active. |
 | **Content Studio** | ✅ READY | Remotion 4.0.436 environment with QuoteCard, SkoolIntro, CeoLog, SobrietyLog compositions. |
 | **Skool Classroom** | ✅ OPERATIONAL | 12 courses, 60+ lessons. Image audit complete (45 placements identified). Lead Magnets emoji fixes deployed (2026-03-21). |
 | **OpenCLI** | ✅ INSTALLED | v1.1.1 globally installed. 46 platforms, 345+ commands. Website-to-CLI via browser automation. `opencli list` to discover. |
@@ -102,7 +102,7 @@ tags: [state, ephemeral]
 - **Workflows:** 32 (.agents/workflows/ — added /ingest, /query-knowledge)
 - **Scripts:** 37 (CLI engines + CEO tools + system maintenance)
 - **Supabase tables:** 28 (14 agent + 14 business ops)
-- **MCP servers:** 7 working (Playwright, Context7, Memory, Sequential Thinking, GitHub, Firecrawl, Filesystem) + 4 replaced by CLI + claude-mem plugin
+- **MCP servers:** 8 working (Playwright, Context7, Memory, Sequential Thinking, GitHub, Firecrawl, Filesystem, Knowledge Graph) + 4 replaced by CLI + claude-mem plugin
 - **System maintenance tools:** 3 new (context_manager.py, cost_tracker.py, memory_aging.py)
 - **Hooks:** 4 active (2 PreToolUse safety, 1 PostToolUse audit, 1 Notification alert) + 4 context hooks (compaction, cost, aging, tier)
 - **Permission deny rules:** 18 (credential protection, destructive ops, Obsidian config)

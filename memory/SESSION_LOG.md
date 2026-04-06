@@ -10,6 +10,17 @@ tags: [daily]
 
 ---
 
+### 2026-04-06 — Knowledge Graph MCP installed + vault indexed
+**Agent:** Claude Code (Bravo)
+**Changes:**
+- Cloned `obra/knowledge-graph` to `C:\Users\User\tools\knowledge-graph` — npm install clean (254 packages)
+- Indexed Business-Empire-Agent vault: 2,117 nodes, 3,725 edges, 696 Louvain communities, 62 stub nodes
+- Added `knowledge-graph` MCP server to all 3 configs: `.claude/mcp.json`, `.vscode/mcp.json`, `~/.gemini/settings.json`
+- Created `skills/knowledge-graph/SKILL.md` — full tool reference (14 tools), decision matrix vs Grep/Memory MCP, re-indexing CLI
+- Updated `brain/CAPABILITIES.md` (MCP count 4→5 Claude Code, Anti-Gravity table updated), `brain/STATE.md` (MCP count 7→8, Obsidian Vault status), `CLAUDE.md` (both MCP status lines), `GEMINI.md` (error handling line)
+
+---
+
 ### 2026-04-06 — Agent Teams enabled + 6 subagent definitions created
 **Agent:** Claude Code (Bravo)
 **Changes:**

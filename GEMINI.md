@@ -82,7 +82,7 @@ If an MCP tool fails: "The [server] tool returned an error: [error]." — ONE se
 2. **STOP.** Do not attempt a workaround.
 3. Tell CC: "The [tool] failed with: [error]. Check `.env.agents`."
 
-**If a Playwright/Context7/Memory/Sequential Thinking MCP tool returns an error:**
+**If a Playwright/Context7/Memory/Sequential Thinking/Knowledge Graph MCP tool returns an error:**
 1. Report the error in one sentence
 2. **STOP.** Tell CC: "The [server] MCP failed with: [error]. Restart the terminal."
 
