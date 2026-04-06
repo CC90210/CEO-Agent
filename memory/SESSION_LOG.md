@@ -10,6 +10,31 @@ tags: [daily]
 
 ---
 
+### 2026-04-06 — All 17 agent specifications upgraded to V5.5+ specialist powerhouse standard
+**Agent:** Claude Code (Bravo)
+**Changes:**
+- All 17 agent files enhanced with 7 universal sections: Decision Autonomy, Quality Gates, Anti-Patterns, Escalation Protocol, Output Format, Performance Metrics, Collaboration Rules
+- **architect.md** — Options with completeness scores (0-10), dual effort estimates, vendor-lock-in approval gates
+- **writer.md** — 5 TypeScript anti-patterns, build pass quality gates, Debugger delegation trigger on first build fail
+- **debugger.md** — Root-cause-first, 5 Whys, bisect strategy, 3-attempt hard limit with structured escalation report
+- **reviewer.md** — Two-pass review (structural + adversarial), OWASP security checklist, performance checklist (N+1, bundle, waterfalls)
+- **researcher.md** — Multi-source triangulation (min 3 sources), source credibility scoring (A/B/C/D), 500-word brief limit
+- **content-creator.md** — Platform-specific rules (X=controversy, LinkedIn=authority story, IG=visual-first, TikTok=pattern interrupt), voice calibration, engagement targets
+- **video-editor.md** — CRF 18 standard, word-level Whisper captions (non-negotiable), loudnorm broadcast standard, thumbnail generation on every export
+- **revenue-hunter.md** — Full NEPQ framework integration, 100-point lead scoring model (60+ to pursue), Day 1/4/10/21 follow-up cadence
+- **chief-of-staff.md** — Churn prediction signals, proactive retention actions, 7-day silence detection
+- **social-publisher.md** — Zernio 20-post budget awareness, priority publishing order, cross-posting adaptation rules
+- **workflow-builder.md** — Idempotency requirement on all writes, webhook-first mandate, duplicate check before every build
+- **documenter.md** — Wiki-link preservation mandate, PROBATIONARY/VALIDATED pattern lifecycle, Obsidian frontmatter requirements
+- **explorer.md** — Search strategy hierarchy, file:line citation requirement, App Router-aware, 300-word summary limit
+- **git-ops.md** — Secret scan grep patterns, hook bypass blocked, branch naming convention, PR quality gates
+- **meta-agent.md** — Overlap check with % calculation, full 7-section template required, lifecycle enforcement
+- **codex-agent.md** — Context injection protocol, 3-strike failure recovery with model switching, verbatim output requirement
+- **brain/AGENTS.md** — Subagent entries updated with key upgrades summary for each agent
+- **agents/INDEX.md** — Updated to reflect all enhancements with one-line capability summaries
+
+---
+
 ### 2026-04-06 — Top 10 skills upgraded with deep operational content
 **Agent:** Claude Code (Bravo)
 **Changes:**

@@ -98,7 +98,7 @@ tags: [state, ephemeral]
 ## Capability Counts (2026-04-06)
 
 - **Skills:** 180 (added knowledge-compilation)
-- **Agents:** 16 (core + meta-agent)
+- **Agents:** 17 (all upgraded to V5.5+ with Decision Autonomy, Quality Gates, Anti-Patterns, Escalation Protocol, Output Format, Performance Metrics, Collaboration Rules)
 - **Workflows:** 32 (.agents/workflows/ — added /ingest, /query-knowledge)
 - **Scripts:** 37 (CLI engines + CEO tools + system maintenance)
 - **Supabase tables:** 28 (14 agent + 14 business ops)
