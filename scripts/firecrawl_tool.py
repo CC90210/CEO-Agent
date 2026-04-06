@@ -21,6 +21,11 @@ import json
 import sys
 from pathlib import Path
 
+# Fix Windows console encoding for unicode/emoji content
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 
 # ANSI color codes -- suppressed when piping or when --json is used
 _RESET  = "\033[0m"
