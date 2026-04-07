@@ -24,6 +24,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 
 # ── Constants ─────────────────────────────────────────────────────────────────
@@ -143,7 +144,7 @@ def _get_account_map() -> dict[str, str]:
         return _account_map_cache
 
 
-def resolve_account_id(platform: str) -> str | None:
+def resolve_account_id(platform: str) -> Optional[str]:
     """
     Return the Late account ID for the given platform name, or None if unmapped.
     Normalises platform to lowercase before lookup.

@@ -22,6 +22,7 @@ import time
 import traceback
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from typing import Optional, List
 
 # On Windows, suppress console window popups from subprocess calls
 CREATE_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
@@ -70,7 +71,7 @@ def get_client(env_vars: dict[str, str]):
 
 # ── Cron schedule parsing ─────────────────────────────────────────────────────
 
-def parse_cron_schedule(schedule: str) -> timedelta | None:
+def parse_cron_schedule(schedule: str) -> Optional[timedelta]:
     """
     Convert a cron schedule string to a timedelta for the next run interval.
     Supports common patterns. Not a full cron parser - covers our 12 jobs.
@@ -173,6 +174,8 @@ def execute_job(job: dict, env_vars: dict[str, str]) -> str:
             return run_content_generate(env_vars)
         elif action_type == "content_repurpose":
             return run_content_repurpose(env_vars)
+        elif action_type == "lead_outreach_batch":
+            return run_lead_outreach_batch(env_vars)
         else:
             return f"unknown_action_type: {action_type}"
     except Exception as exc:
@@ -181,7 +184,7 @@ def execute_job(job: dict, env_vars: dict[str, str]) -> str:
         return error_msg
 
 
-def run_script(script_name: str, args: list[str], timeout: int = 120) -> str:
+def run_script(script_name: str, args: List[str], timeout: int = 120) -> str:
     """Run a Python script from the scripts/ directory and return its output."""
     cmd = [PYTHON, str(SCRIPTS_DIR / script_name)] + args
     result = subprocess.run(
@@ -205,6 +208,11 @@ def run_script(script_name: str, args: list[str], timeout: int = 120) -> str:
 def run_content_post(config: dict, env_vars: dict) -> str:
     """Publish scheduled content via Late API."""
     return run_script("late_publisher.py", ["--json", "publish-due"], timeout=120)
+
+
+def run_lead_outreach_batch(env_vars: dict) -> str:
+    """Semi-auto outreach: pull new leads, draft emails, send to CC via Telegram for approval."""
+    return run_script("outreach_batch.py", ["--limit", "5"], timeout=120)
 
 
 def run_lead_followup(env_vars: dict) -> str:
