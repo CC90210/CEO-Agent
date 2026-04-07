@@ -10,6 +10,17 @@ tags: [daily]
 
 ---
 
+### 2026-04-06 — V15.4: Telegram bridge stress test + mousetool C binary
+**Agent:** Claude Code (Bravo)
+**Changes:**
+- `scripts/mousetool.c` + `scripts/mousetool` (binary): New native CoreGraphics C binary replacing broken Python Quartz. Compile: `clang -framework ApplicationServices scripts/mousetool.c -o scripts/mousetool`. Commands: pos, move, click, rclick, dclick, animate (smoothstep), drag, scroll.
+- `scripts/macos_control.py` V2.2: All mouse commands (click/rclick/dclick/scroll/move) now use mousetool. New: mouse-animate, drag, youtube-play, screen-size, open --wait. Bug fixes: browser-tab-url/title/browser-js no-window guard, window management _window_guard() helper, quit saving no + pkill fallback.
+- `telegram_agent.js` V15.4: T0 max-turns 3→6, timeout 300s, T0_CODING_EXCLUSIONS (prevents fix/debug tasks routing to T0), added drag/running/processes/apps to T0_KEYWORDS. Tier classifier: 24/24 PASS.
+- Stress test results: youtube-play (Daft Punk confirmed), open --wait Serato DJ Pro ✅, all window cmds ✅, browser guards ✅, security blocks ✅, mouse animate/drag ✅
+- Pushed: commits 4ebd39f + e9d15cf to origin/main. PM2 bravo-telegram V15.4 online.
+
+---
+
 ### 2026-04-06 — Mac integration: Firecrawl + cross-platform browse + bridge routing
 **Agent:** Claude Code (Bravo)
 **Changes:**
