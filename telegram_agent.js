@@ -186,12 +186,15 @@ const T3_KEYWORDS = ['redesign', 'architecture', 'refactor', 'migrate', 'schema'
 // T2 is the default for everything else (build, fix, implement, debug, etc.)
 
 // T0 keywords — quick actions that need minimal context (computer control + business tools)
-const T0_KEYWORDS = /\b(open|launch|click|screenshot|volume|mute|play|switch|type|close|quit|move|resize|fullscreen|minimize|snap|record|dark.?mode|wifi|bluetooth|brightness|clipboard|copy|paste|lock|sleep|battery|sysinfo|soundcloud|music|song|track|browse|tab|website|url|amazon|download|scroll|mouse|ping|network|ip|audio|shutdown|restart|cart|inbox|email|gmail|calendar|meeting|schedule|stripe|balance|invoice|payment|customer|post|social|linkedin|instagram|threads|tiktok|youtube|facebook|reddit|workflow|n8n|supabase|database)\b/i;
+const T0_KEYWORDS = /\b(open|launch|click|screenshot|volume|mute|play|switch|type|close|quit|move|resize|fullscreen|minimize|snap|record|dark.?mode|wifi|bluetooth|brightness|clipboard|copy|paste|lock|sleep|battery|sysinfo|soundcloud|music|song|track|browse|tab|website|url|amazon|download|scroll|mouse|drag|ping|network|ip|audio|shutdown|restart|cart|inbox|email|gmail|calendar|meeting|schedule|stripe|balance|invoice|payment|customer|post|social|linkedin|instagram|threads|tiktok|youtube|facebook|reddit|workflow|n8n|supabase|database|running|processes|apps)\b/i;
+// Coding-task verbs that indicate T2 even if T0 keywords are present (e.g. "fix the supabase bug")
+const T0_CODING_EXCLUSIONS = /\b(fix|debug|implement|refactor|build feature|write code|write function|failing test|unit test|create api|create endpoint|create route|create table|create schema)\b/i;
 
 const classifyTier = (text) => {
     const t = text.toLowerCase();
     // T0: Quick action — minimal prompt for computer control + business tools
-    if (T0_KEYWORDS.test(t) && !T3_KEYWORDS.some(k => t.includes(k))) return 0;
+    // Exclude coding tasks even if they mention T0 keywords (e.g. "fix the supabase schema")
+    if (T0_KEYWORDS.test(t) && !T3_KEYWORDS.some(k => t.includes(k)) && !T0_CODING_EXCLUSIONS.test(t)) return 0;
     // T3 keywords win first (most specific)
     if (T3_KEYWORDS.some(k => t.includes(k))) return 3;
     // T1 only if ALL words match simple patterns (no action verbs)

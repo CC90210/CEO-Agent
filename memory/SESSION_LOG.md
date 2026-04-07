@@ -10,6 +10,17 @@ tags: [daily]
 
 ---
 
+### 2026-04-06 — Mac integration: Firecrawl + cross-platform browse + bridge routing
+**Agent:** Claude Code (Bravo)
+**Changes:**
+- `.claude/mcp.json`: Added Firecrawl MCP server (gitignored, Mac-local)
+- `scripts/browse_and_capture.py`: Rewritten cross-platform — Mac uses `open -a "Google Chrome"` + `screencapture -x`, Windows keeps ctypes/mss logic
+- `telegram_agent.js`: Added firecrawl_tool.py + mem0_tool.py to T0 BUSINESS OPS section; added both to loadContext T2/T3 tool list; Rule (11) now uses IS_MAC conditional for control script name
+- Verified: firecrawl scrape live ✅, mem0 stats ✅, browse_and_capture Mac test ✅ (4.1MB screenshot), bridge V15.3 restart clean ✅
+- Pushed: commit 9f9056f to origin/main
+
+---
+
 ### 2026-04-06 — Memory update: OASIS AI domain correction + feedback file
 **Agent:** Claude Code (Bravo)
 **Changes:**

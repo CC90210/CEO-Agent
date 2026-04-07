@@ -186,7 +186,16 @@ return "{app} launched (loading may continue)"
 
 def cmd_quit(args):
     app = sanitize_applescript_string(args.app)
-    return run_osascript(f'tell application "{app}" to quit')
+    # Try graceful quit first; if it hangs (save dialog), dismiss and force-quit
+    r = run_osascript(f'tell application "{app}" to quit saving no', timeout=5)
+    if not r["ok"]:
+        # Fall back to kill via pkill for stubborn apps
+        r2 = run_shell(["pkill", "-f", app])
+        if r2["ok"]:
+            return {"ok": True, "output": f"Force-quit {app}"}
+        # Last resort: standard quit (may show dialog)
+        return run_osascript(f'tell application "{app}" to quit')
+    return r
 
 
 def cmd_type(args):
@@ -296,7 +305,26 @@ def cmd_notify(args):
 # COMMANDS — Window Management (V2.0)
 # ============================================================
 
+def _window_guard(app):
+    """Check that app has at least one window open. Returns error dict or None (ok)."""
+    r = run_osascript(f'''
+tell application "System Events"
+    tell process "{app}"
+        if (count of windows) = 0 then return "no_windows"
+        return "ok"
+    end tell
+end tell''', timeout=5)
+    if r["ok"] and r["output"] == "no_windows":
+        return {"ok": False, "error": f"'{app}' has no open windows. Use `open --app \"{app}\" --wait` to launch it first, or open a document."}
+    if not r["ok"]:
+        return {"ok": False, "error": f"Cannot find process '{app}': {r.get('error', 'not running')}"}
+    return None
+
+
 def cmd_window_move(args):
+    err = _window_guard(args.app)
+    if err:
+        return err
     return run_osascript(f'''
 tell application "System Events"
     tell process "{args.app}"
@@ -306,6 +334,9 @@ end tell''')
 
 
 def cmd_window_resize(args):
+    err = _window_guard(args.app)
+    if err:
+        return err
     return run_osascript(f'''
 tell application "System Events"
     tell process "{args.app}"
@@ -325,9 +356,11 @@ end tell''')
 
 def cmd_window_left(args):
     """Snap window to left half of screen."""
+    err = _window_guard(args.app)
+    if err:
+        return err
     sw, sh = get_screen_size()
     half_w = sw // 2
-    # Menu bar is ~25px, so start at y=25
     run_osascript(f'tell application "{args.app}" to activate')
     return run_osascript(f'''
 tell application "System Events"
@@ -340,6 +373,9 @@ end tell''')
 
 def cmd_window_right(args):
     """Snap window to right half of screen."""
+    err = _window_guard(args.app)
+    if err:
+        return err
     sw, sh = get_screen_size()
     half_w = sw // 2
     run_osascript(f'tell application "{args.app}" to activate')
@@ -354,8 +390,10 @@ end tell''')
 
 def cmd_window_center(args):
     """Center window on screen."""
+    err = _window_guard(args.app)
+    if err:
+        return err
     sw, sh = get_screen_size()
-    # Get current window size first
     r = run_osascript(f'''
 tell application "System Events"
     tell process "{args.app}"
@@ -378,6 +416,9 @@ end tell''')
 
 
 def cmd_window_minimize(args):
+    err = _window_guard(args.app)
+    if err:
+        return err
     return run_osascript(f'''
 tell application "System Events"
     tell process "{args.app}"
@@ -1169,6 +1210,7 @@ def cmd_browser_js(args):
     escaped = js_code.replace("\\", "\\\\").replace('"', '\\"')
     script = f'''
 tell application "Google Chrome"
+    if (count of windows) = 0 then return "error: Chrome has no open windows"
     set jsResult to execute active tab of window 1 javascript "{escaped}"
     return jsResult
 end tell
@@ -1180,6 +1222,7 @@ def cmd_browser_tab_url(args):
     """Get the URL of Chrome's active tab."""
     script = '''
 tell application "Google Chrome"
+    if (count of windows) = 0 then return "Chrome has no open windows"
     return URL of active tab of window 1
 end tell
 '''
@@ -1190,6 +1233,7 @@ def cmd_browser_tab_title(args):
     """Get the title of Chrome's active tab."""
     script = '''
 tell application "Google Chrome"
+    if (count of windows) = 0 then return "Chrome has no open windows"
     return title of active tab of window 1
 end tell
 '''
