@@ -1,0 +1,116 @@
+# =============================================
+# SECRETS & ENVIRONMENT (NEVER COMMIT)
+# =============================================
+.env
+.env.*
+*.env
+!.env.agents.template
+
+# MCP config files that contain API keys
+references/Claude_Global_MCP.json
+references/Claude_Global_Settings.json
+.claude/mcp.json
+.vscode/mcp.json
+
+# =============================================
+# NODE / PYTHON
+# =============================================
+node_modules/
+__pycache__/
+*.pyc
+
+# =============================================
+# OS FILES
+# =============================================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =============================================
+# IDE & AGENT INTERNALS (per-session, not shared)
+# =============================================
+.antigravityignore
+.gemini/antigravity/
+
+# =============================================
+# VECTOR STORES (binary, machine-local)
+# =============================================
+data/mem0_qdrant/
+
+# =============================================
+# TEMP & DEBUG
+# =============================================
+*.tmp
+*.bak
+*.log
+tmp/
+
+# JSON debug dumps at root
+mcp_out.json
+late_tools.json
+late_accounts.json
+n8n_workflows.json
+*_res.json
+*_err.json
+*_raw*.json
+*_debug*.json
+
+# Agent-generated junk scripts at root
+*_post*.js
+*_test*.js
+direct_*.js
+count_*.js
+
+# =============================================
+# BUILD ARTIFACTS
+# =============================================
+dist/
+build/
+*.local
+blobs/
+
+# =============================================
+# SENSITIVE DATA (lead info, outreach history)
+# =============================================
+memory/LEAD_TRACKER.csv
+memory/outreach_archive/
+
+# =============================================
+# PLAYWRIGHT MCP ARTIFACTS
+# =============================================
+.playwright-mcp/
+
+# =============================================
+# MEDIA (large files — use Git LFS or download separately)
+# =============================================
+media/raw/
+media/exports/
+media/**/*.mp4
+media/**/*.mov
+media/**/*.wav
+media/**/*.mp3
+
+# =============================================
+# BROWSER PROFILES (Gemini LinkedIn automation)
+# =============================================
+scripts/linkedin_automation/chrome_profile/
+
+# =============================================
+# SCREENSHOTS (Playwright captures, reference images)
+# =============================================
+tiktik-*.png
+skool-*.png
+e2e-screenshots/
+
+# =============================================
+# VIRTUAL ENVIRONMENTS
+# =============================================
+.venv/
+
+# =============================================
+# OBSIDIAN — device-specific workspace state
+# =============================================
+.obsidian/workspace.json
+.obsidian/workspaces.json
+.obsidian/workspace-mobile.json
+.obsidian/.obsidian-git-isomorphic-git

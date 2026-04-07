@@ -1,0 +1,131 @@
+<h2>🛠️ Building Custom Skills — Your AI's Skill Tree</h2>
+<p></p>
+<p><strong>XP Reward: +125 XP</strong> | Running Total: 200 XP</p>
+<p><strong>Level: Builder (L1)</strong> — Creating tools that multiply your output.</p>
+<p></p>
+<p>Custom skills are reusable prompt templates that YOU create. They're markdown files that define specialized behaviors Claude Code can execute on command. Think of them as macros — except instead of recording keystrokes, you're recording <strong>expert-level workflows</strong> that fire every time.</p>
+<p></p>
+<p>⚡ <strong>QUICK WIN:</strong> Every skill you build saves 5-10 minutes per use. Build 10 skills, use each 3x/day = <strong>2-3 hours saved daily</strong>. That's not optimization — that's a competitive advantage.</p>
+<p></p>
+<h3>📁 Where Skills Live</h3>
+<p></p>
+<p>Skills are markdown files stored in specific directories:</p>
+<p></p>
+<p>📂 <strong>Project-level:</strong> <code>.claude/commands/your-skill.md</code> — Available only in this project. Triggered with <code>/project:your-skill</code>.</p>
+<p></p>
+<p>🌍 <strong>Global-level:</strong> <code>~/.claude/commands/your-skill.md</code> — Available in every project. Triggered with <code>/user:your-skill</code>.</p>
+<p></p>
+<p>Project skills override global ones with the same name. This lets you have a generic <code>/commit</code> globally and a specialized one per project.</p>
+<p></p>
+<h3>🧬 Anatomy of a Skill</h3>
+<p></p>
+<p>Every skill is a markdown file with optional YAML frontmatter:</p>
+<p></p>
+<p><code>---</code></p>
+<p><code>description: Code review with security focus</code></p>
+<p><code>---</code></p>
+<p><code>Review the staged git changes for:</code></p>
+<p><code>1. Security vulnerabilities (OWASP Top 10)</code></p>
+<p><code>2. Hardcoded secrets or API keys</code></p>
+<p><code>3. Missing error handling</code></p>
+<p><code>4. TypeScript type safety issues</code></p>
+<p><code>Then auto-fix any mechanical issues.</code></p>
+<p><code>Ask before changing business logic.</code></p>
+<p></p>
+<p>That's it. Save as <code>.claude/commands/review.md</code>, trigger with <code>/project:review</code>. Instant expert code review every time.</p>
+<p></p>
+<p>💡 <strong>PRO TIP:</strong> The <code>description</code> field in frontmatter shows up when you type <code>/</code> and browse available commands. Write a clear one-liner so future-you knows what each skill does.</p>
+<p></p>
+<h3>📝 Your First 5 Skills (Build These Now)</h3>
+<p></p>
+<p><strong>1. /commit — Smart Git Commits</strong></p>
+<p><code>---</code></p>
+<p><code>description: Conventional commit with smart message</code></p>
+<p><code>---</code></p>
+<p><code>Look at staged changes (git diff --cached).</code></p>
+<p><code>Write a conventional commit message (feat/fix/refactor/docs).</code></p>
+<p><code>Keep the subject under 72 characters.</code></p>
+<p><code>Include a 1-2 line body if the change isn't obvious.</code></p>
+<p><code>Commit it.</code></p>
+<p></p>
+<p><strong>2. /debug — Systematic Debugging</strong></p>
+<p><code>---</code></p>
+<p><code>description: Root-cause debugging protocol</code></p>
+<p><code>---</code></p>
+<p><code>Read the error message carefully.</code></p>
+<p><code>Search the codebase for the failing function.</code></p>
+<p><code>Trace the data flow backward from the error.</code></p>
+<p><code>Find the ROOT CAUSE — not the symptom.</code></p>
+<p><code>Fix at the source. Verify the fix.</code></p>
+<p><code>Never guess. Always trace.</code></p>
+<p></p>
+<p><strong>3. /explain — Code Explainer</strong></p>
+<p><code>---</code></p>
+<p><code>description: Explain code in plain English</code></p>
+<p><code>---</code></p>
+<p><code>Read the file or function I specify.</code></p>
+<p><code>Explain what it does in plain English.</code></p>
+<p><code>Include: purpose, inputs, outputs, side effects.</code></p>
+<p><code>Flag anything that looks like a bug or risk.</code></p>
+<p></p>
+<p><strong>4. /test — Write Tests First</strong></p>
+<p><code>---</code></p>
+<p><code>description: TDD - write failing test first</code></p>
+<p><code>---</code></p>
+<p><code>For the feature or function I describe:</code></p>
+<p><code>1. Write a failing test FIRST</code></p>
+<p><code>2. Run it — verify it fails</code></p>
+<p><code>3. Write minimal code to pass</code></p>
+<p><code>4. Run again — verify it passes</code></p>
+<p><code>5. Refactor if needed (keep tests green)</code></p>
+<p></p>
+<p><strong>5. /ship — Deployment Checklist</strong></p>
+<p><code>---</code></p>
+<p><code>description: Pre-deployment verification</code></p>
+<p><code>---</code></p>
+<p><code>Before deploying, verify:</code></p>
+<p><code>1. npm run build passes with zero errors</code></p>
+<p><code>2. No hardcoded secrets (grep for API keys)</code></p>
+<p><code>3. No console.log in production code</code></p>
+<p><code>4. Git status is clean</code></p>
+<p><code>5. Push to remote and confirm</code></p>
+<p></p>
+<p>💀 <strong>COMMON MISTAKE:</strong> Making skills too complex. A 5-line skill that does one thing well beats a 50-line skill that tries to do everything. Keep each skill focused on a single workflow. You can always chain them: <code>/review</code> then <code>/commit</code> then <code>/ship</code>.</p>
+<p></p>
+<h3>🔗 Dynamic Skills with Arguments</h3>
+<p></p>
+<p>Skills can accept arguments using the <code>$ARGUMENTS</code> placeholder:</p>
+<p></p>
+<p><code>---</code></p>
+<p><code>description: Refactor a function for clarity</code></p>
+<p><code>---</code></p>
+<p><code>Refactor the function: $ARGUMENTS</code></p>
+<p><code>Goals: clearer naming, smaller functions, better types.</code></p>
+<p><code>Keep the same external behavior. Run tests after.</code></p>
+<p></p>
+<p>Usage: <code>/project:refactor handlePaymentWebhook</code> — Claude knows exactly which function to refactor.</p>
+<p></p>
+<p>🧠 <strong>KEY TAKEAWAY:</strong> Skills are how you encode your expertise into reusable workflows. Every time you solve a problem the hard way, ask: "Can I turn this into a skill so I never solve it manually again?" The answer is almost always yes.</p>
+<p></p>
+<hr>
+<p></p>
+<h2>🔥 CHALLENGE: Build Your Skill Library (+125 XP)</h2>
+<p></p>
+<p>1️⃣ Create the directory: <code>mkdir -p .claude/commands</code></p>
+<p></p>
+<p>2️⃣ Build at least 3 of the 5 starter skills above. Save each as a <code>.md</code> file in <code>.claude/commands/</code>.</p>
+<p></p>
+<p>3️⃣ Test each one — run the slash command and verify it works as expected.</p>
+<p></p>
+<p>4️⃣ Create ONE original skill that solves a problem YOU face regularly.</p>
+<p></p>
+<p>🏆 <strong>BOSS LEVEL:</strong> Chain 3 skills in a real workflow. Example: write code → <code>/review</code> → fix issues → <code>/commit</code> → <code>/ship</code>. Screenshot the full flow. (+75 bonus XP)</p>
+<p></p>
+<h3>✅ Level Up Gate</h3>
+<p>Before moving on, confirm:</p>
+<p>☐ You have at least 3 custom skills in <code>.claude/commands/</code></p>
+<p>☐ You understand project-level vs global-level skills</p>
+<p>☐ You know how to use <code>$ARGUMENTS</code> for dynamic skills</p>
+<p>☐ You've chained at least 2 skills in sequence</p>
+<p></p>
+<p>Share your favorite custom skill in the community with <strong>#MySkills</strong> 🛠️</p>

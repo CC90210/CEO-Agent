@@ -1,0 +1,457 @@
+# =============================================================================
+# BRAVO V5.5 — Orchestration Configuration
+# =============================================================================
+# Single source of truth for agent behavior, routing, security, and performance.
+# All AI interfaces (Claude Code, Gemini CLI, Anti-Gravity) read this config.
+# Place: .agents/config.toml (project-level)
+# =============================================================================
+
+# =============================================================================
+# Core Settings
+# =============================================================================
+
+# Primary model for lead architect work
+model = "claude-opus-4-6"
+
+# Approval policy for agent actions
+# - always: Every action needs CC's approval
+# - destructive-only: Only destructive ops need approval (DEFAULT)
+# - autonomous: Full autonomy (use with caution)
+approval_policy = "destructive-only"
+
+# Sandbox mode for file system access
+# - workspace-write: Can write within Business-Empire-Agent + app repos
+# - read-only: Can only read (for research/audit tasks)
+sandbox_mode = "workspace-write"
+
+# =============================================================================
+# Task Routing — Complexity-Based Agent Assignment
+# =============================================================================
+
+[routing]
+# Enable intelligent task routing (complexity → agent mapping)
+enabled = true
+
+# Default strategy: "complexity" (auto-detect) or "manual" (CC picks)
+strategy = "complexity"
+
+# Complexity thresholds (file count + estimated steps)
+[routing.thresholds]
+trivial_max_files = 1       # Single file, <3 steps → handle inline
+simple_max_files = 2        # 1-2 files, <5 steps → single agent
+moderate_max_files = 5      # 3-5 files, 5-15 steps → specialized agent
+complex_max_files = 15      # 6-15 files → multi-agent with plan
+# >15 files = ARCHITECTURAL → requires CC approval
+
+# Agent assignment by complexity tier
+[routing.agents]
+trivial = "inline"                          # No delegation needed
+simple = "writer"                           # Single coder agent
+moderate = ["writer", "reviewer"]           # Coder + review gate
+complex = ["architect", "writer", "reviewer", "debugger"]  # Full team
+architectural = ["architect", "writer", "reviewer", "debugger", "documenter"]
+
+# Domain-specific routing overrides (keyword → agent)
+[routing.domain_overrides]
+security = "reviewer"
+database = "architect"
+content = "content-creator"
+outreach = "chief-of-staff"
+revenue = "revenue-hunter"
+workflow = "workflow-builder"
+video = "video-editor"
+research = "researcher"
+debugging = "debugger"
+documentation = "documenter"
+git = "git-ops"
+social = "social-publisher"
+skool = "writer"                            # Uses skool-automation skill
+exploration = "explorer"
+backend = "codex-agent"                     # Backend-heavy tasks → Codex
+api = "codex-agent"                         # API routes, webhooks → Codex
+
+# =============================================================================
+# Anti-Drift — Preventing Agent Divergence
+# =============================================================================
+
+[anti_drift]
+enabled = true
+
+# Checkpoint every N task steps (agent must validate alignment)
+checkpoint_interval = 5
+
+# Max agents active simultaneously (prevents coordination overhead)
+max_concurrent_agents = 4
+
+# Max retries before escalating to CC
+max_retries_before_escalate = 3
+
+# Require plan approval for COMPLEX+ tasks
+require_plan_approval = true
+
+# Validation gates between task phases
+[anti_drift.gates]
+pre_execute = true          # Verify plan before executing
+post_execute = true         # Verify output matches intent
+pre_commit = true           # Code review before any commit
+post_deploy = true          # Smoke test after deployment
+
+# Drift detection signals
+[anti_drift.signals]
+scope_creep_threshold = 3   # If >3 files touched beyond plan, flag
+time_overrun_factor = 2.0   # If taking >2x estimated time, checkpoint
+error_cascade_limit = 2     # If 2+ consecutive errors, pause and reassess
+
+# =============================================================================
+# Agent Permissions — Claims-Based Access Control
+# =============================================================================
+
+[permissions]
+enabled = true
+
+# Default permission level for new agents
+default_level = "standard"
+
+# Permission levels (cumulative)
+# minimal: read
+# standard: read, write, execute
+# elevated: standard + spawn, memory
+# admin: all (only Bravo lead agent)
+
+[permissions.agents]
+# Agent-specific permission overrides
+architect = "elevated"      # Can spawn sub-agents, access memory
+writer = "standard"         # Read, write, execute
+reviewer = "standard"       # Read, write (for auto-fixes), execute
+debugger = "elevated"       # Needs memory access for pattern matching
+researcher = "minimal"      # Read-only + web access
+content-creator = "standard"
+social-publisher = "minimal"
+video-editor = "standard"
+chief-of-staff = "standard"
+git-ops = "standard"
+revenue-hunter = "minimal"
+workflow-builder = "elevated"
+documenter = "standard"
+explorer = "minimal"        # Read-only by design
+meta-agent = "elevated"     # Can create new agent definitions
+codex-agent = "elevated"    # External AI executor — backend delegation, needs spawn/memory
+
+# Scope restrictions (glob patterns for file access)
+[permissions.scopes]
+writer = ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.py", "**/*.css", "**/*.json"]
+reviewer = ["**/*"]         # Can read everything for review
+documenter = ["**/*.md", "brain/**", "memory/**", "skills/**"]
+explorer = ["**/*"]         # Read-only on everything
+git-ops = [".git/**", "**/*"]
+content-creator = ["content-studio/**", "media/**", "courses/**"]
+social-publisher = ["scripts/late_tool.py"]
+
+# Blocked patterns (NO agent can touch these)
+[permissions.blocked]
+patterns = [
+    ".env*",
+    "*.pem",
+    "*.key",
+    "credentials*.json",
+    ".obsidian/**"
+]
+
+# =============================================================================
+# Performance & Resource Management
+# =============================================================================
+
+[performance]
+# Maximum concurrent agents (hard limit)
+max_agents = 6
+
+# Task timeout in seconds (default 5 minutes)
+task_timeout = 300
+
+# Memory budget per agent tier
+[performance.memory_budget]
+brain_tier = 500            # Lines — always loaded
+active_tier = 300           # Lines each — loaded on demand
+reference_tier = 200        # Lines each — loaded when needed
+log_tier = 0                # Unlimited — compressed regularly
+
+# Response caching
+[performance.cache]
+enabled = true
+ttl_seconds = 3600          # 1 hour cache for MCP responses
+max_entries = 100
+
+# Parallel execution settings
+[performance.parallel]
+enabled = true
+max_parallel_agents = 3     # Max agents running simultaneously
+batch_size = 3              # Default task batch size for plan execution
+
+# =============================================================================
+# Background Workers
+# =============================================================================
+
+[workers]
+enabled = true
+
+# Audit worker — security and compliance checks
+[workers.audit]
+enabled = true
+priority = "critical"
+interval_seconds = 300      # Every 5 minutes during active session
+tasks = [
+    "scan for hardcoded secrets in staged files",
+    "verify .env.agents not committed",
+    "check hook audit log for anomalies"
+]
+
+# Memory worker — bloat prevention and compression
+[workers.memory]
+enabled = true
+priority = "high"
+interval_seconds = 1800     # Every 30 minutes
+tasks = [
+    "check SESSION_LOG.md line count (compress if >200)",
+    "check ACTIVE_TASKS.md item count (prune if >50)",
+    "verify brain/ files under 500 lines combined",
+    "decay confidence scores on unverified facts"
+]
+
+# Sync worker — cross-AI state synchronization
+[workers.sync]
+enabled = true
+priority = "high"
+interval_seconds = 600      # Every 10 minutes
+tasks = [
+    "update brain/STATE.md with current operational state",
+    "flush pending traces to Supabase",
+    "verify ACTIVE_TASKS.md reflects actual progress"
+]
+
+# Optimize worker — performance and efficiency
+[workers.optimize]
+enabled = true
+priority = "low"
+interval_seconds = 3600     # Every hour
+tasks = [
+    "identify unused skills (no activation in 30 days)",
+    "check for duplicate memory entries",
+    "verify referential integrity across markdown files"
+]
+
+# =============================================================================
+# Hooks — Enhanced Pre/Post Operation Automation
+# =============================================================================
+
+[hooks]
+enabled = true
+
+# Pre-operation hooks (validate before executing)
+[hooks.pre]
+edit = true                 # Validate file permissions + backup
+bash = true                 # Check command safety
+task = true                 # Load relevant memory + assign agent
+commit = true               # Run code review gate
+deploy = true               # Full build verification
+
+# Post-operation hooks (learn after executing)
+[hooks.post]
+edit = true                 # Track file changes, update timestamps
+bash = true                 # Log execution, check for errors
+task = true                 # Store patterns, update metrics
+commit = true               # Update SESSION_LOG, notify
+deploy = true               # Smoke test, update STATE.md
+
+# Learning hooks (trigger pattern extraction)
+[hooks.learning]
+train_on_success = true     # Extract patterns from successful tasks
+train_on_failure = true     # Generate Reflexion entries on failure
+consolidate_interval = 10   # After every 10 tasks, consolidate patterns
+
+# =============================================================================
+# Security Settings
+# =============================================================================
+
+[security]
+# Input validation on all external data
+input_validation = true
+
+# Path traversal prevention
+path_traversal_prevention = true
+
+# Secret scanning in code changes
+secret_scanning = true
+
+# Blocked file patterns (regex)
+blocked_patterns = [
+    "\\.env$",
+    "\\.env\\.",
+    "credentials.*\\.json$",
+    "\\.pem$",
+    "\\.key$"
+]
+
+# Maximum file size for operations (10MB)
+max_file_size = 10485760
+
+# Credential source (ONLY place secrets live)
+credential_store = ".env.agents"
+
+# =============================================================================
+# SPARC Methodology — Structured Development Phases
+# =============================================================================
+
+[sparc]
+enabled = true
+
+# Phase sequence (all phases required for COMPLEX+ tasks)
+phases = ["specification", "pseudocode", "architecture", "refinement", "completion"]
+
+# Phase requirements
+[sparc.specification]
+required_outputs = ["requirements list", "acceptance criteria", "edge cases"]
+approval_required = true    # CC must approve spec before proceeding
+
+[sparc.pseudocode]
+required_outputs = ["algorithm outline", "data flow diagram (text)", "error handling plan"]
+approval_required = false
+
+[sparc.architecture]
+required_outputs = ["file list with changes", "dependency map", "test strategy"]
+approval_required = true    # CC must approve architecture
+
+[sparc.refinement]
+required_outputs = ["code implementation", "test results", "code review pass"]
+approval_required = false
+
+[sparc.completion]
+required_outputs = ["all tests pass", "build succeeds", "changelog entry", "documentation updated"]
+approval_required = false
+
+# =============================================================================
+# Context Management (Inspired by Claude Code Harness Internals)
+# =============================================================================
+# Source: Claude Code uses 7-stage bootstrap, transcript compaction at 12 turns,
+# and a "simple mode" that reduces 184 tools to 3 for lightweight queries.
+# These settings bring that discipline to our agent system.
+
+[context]
+enabled = true
+
+# Tiered context loading — don't load everything for every query
+# TIER 1 (minimal): STATUS check, quick lookup → ~185 lines
+# TIER 2 (standard): Feature work, bug fixes → ~780 lines
+# TIER 3 (full): Architecture, complex multi-file → ~4,944 lines
+default_tier = 2
+
+[context.tier1_files]
+# Minimal context — only for status checks and simple lookups
+files = ["brain/STATE.md", "memory/ACTIVE_TASKS.md"]
+
+[context.tier2_files]
+# Standard context — for typical development and operational tasks
+files = ["brain/STATE.md", "brain/AGENTS.md", "brain/CAPABILITIES.md", "memory/ACTIVE_TASKS.md", "memory/SESSION_LOG.md"]
+
+[context.tier3_files]
+# Full context — for architecture, complex multi-file tasks, and SPARC
+files = ["brain/STATE.md", "brain/AGENTS.md", "brain/CAPABILITIES.md", "brain/INTERACTION_PROTOCOL.md", "brain/BRAIN_LOOP.md", "brain/HEARTBEAT.md", "memory/ACTIVE_TASKS.md", "memory/SESSION_LOG.md", "memory/PATTERNS.md", "memory/MISTAKES.md"]
+
+# Transcript compaction — prevent context bloat during long sessions
+[context.compaction]
+# Archive SESSION_LOG entries older than this many days
+archive_after_days = 14
+# Maximum entries to keep in active SESSION_LOG
+max_active_entries = 10
+# Maximum lines before triggering compaction warning
+max_lines_threshold = 200
+# Archive destination pattern
+archive_path = "memory/ARCHIVES/sessions-{year}-{month}.md"
+
+# Deferred init — only load heavy resources when task requires them
+[context.deferred]
+# These resources load only when their domain is detected in the task
+mcp_servers = ["playwright", "context7", "memory", "sequential-thinking"]
+heavy_skills = ["e2e-testing", "sparc-methodology", "ship"]
+heavy_scripts = ["instagram_engine.py", "booking_engine.py", "skool_engine.py"]
+
+# =============================================================================
+# Cost Tracking (Inspired by Claude Code CostTracker pattern)
+# =============================================================================
+# Every operation gets a label:units cost entry. Track what's expensive.
+
+[cost_tracking]
+enabled = true
+db_path = "tmp/cost_tracker.db"
+
+# Default unit costs by operation type
+[cost_tracking.unit_costs]
+supabase_query = 1
+supabase_write = 2
+stripe_api = 2
+n8n_execute = 3
+late_post = 2
+late_crosspost = 5
+playwright_session = 5
+playwright_navigate = 1
+context7_query = 1
+mcp_memory_search = 1
+cli_tool_call = 1
+git_push = 1
+file_edit = 0.5
+
+# Budget alerts (units per period)
+[cost_tracking.budgets]
+daily_total = 500
+daily_supabase = 100
+daily_playwright = 50
+daily_stripe = 30
+
+# =============================================================================
+# Memory Aging (Inspired by Claude Code memdir subsystem)
+# =============================================================================
+# Automated confidence decay prevents stale facts from driving decisions.
+
+[memory_aging]
+enabled = true
+
+# Decay rates by category (lambda values for exponential decay)
+[memory_aging.decay_rates]
+business = 0.02      # Fast decay — pricing, clients, team change quickly
+technical = 0.015    # Medium decay — APIs, configs, versions
+architectural = 0.005 # Slow decay — design decisions are durable
+identity = 0.0       # No decay — values and mission are permanent
+
+# Confidence thresholds
+[memory_aging.thresholds]
+high = 0.8           # Above: full autonomy
+medium = 0.5         # 0.5-0.8: execute with enhanced logging
+low = 0.2            # Below 0.5: present plan to CC first
+stale_days = 30      # Flag facts not updated in 30 days
+critical_stale_days = 90  # Force review of facts not updated in 90 days
+
+# Auto-archive rules
+[memory_aging.archive]
+session_log_max_days = 14
+active_tasks_completed_max_days = 7
+mistakes_max_entries = 30
+patterns_max_entries = 30
+
+# =============================================================================
+# Logging Settings
+# =============================================================================
+
+[logging]
+# Log level: debug, info, warn, error
+level = "info"
+
+# Tier 1: Supabase traces (every meaningful action)
+tier1_enabled = true
+
+# Tier 2: Session files (SESSION_LOG.md, ACTIVE_TASKS.md)
+tier2_enabled = true
+
+# Tier 3: Diagnostic (tmp/hook_audit.log, daily/*.md)
+tier3_enabled = true
+
+# Audit trail for self-modifications
+self_modification_log = true

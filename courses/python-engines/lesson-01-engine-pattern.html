@@ -1,0 +1,171 @@
+<h2>🐍 The Python Engine Pattern — Your $47K/Year Software Stack for $0</h2>
+<p></p>
+<p><strong>XP Reward: +100 XP</strong> | Running Total: 100 XP</p>
+<p><strong>Level: Explorer (L0)</strong> — Seeing the system before you build it.</p>
+<p></p>
+<p>Every tool you pay a SaaS company for is a database, some business logic, and a UI wrapper. Strip away the UI and you have a Python script. That's the entire insight behind this course. We cancelled $47,000/year in subscriptions by writing the tools ourselves — and Claude Code built most of them in under an hour each.</p>
+<p></p>
+<p>This lesson teaches you the pattern that makes all of it possible.</p>
+<p></p>
+<h3>💸 The $47K/Year Wake-Up Call</h3>
+<p></p>
+<p>Here's what we were paying before we built our own stack:</p>
+<p></p>
+<p><strong>HubSpot CRM</strong> — $800–$3,200/month → replaced by <code>lead_engine.py</code></p>
+<p><strong>Mailchimp</strong> — $100–$300/month → replaced by <code>email_engine.py</code></p>
+<p><strong>Calendly</strong> — $12–$20/month → replaced by <code>booking_engine.py</code></p>
+<p><strong>Buffer</strong> — $15–$99/month → replaced by <code>content_engine.py</code></p>
+<p><strong>ManyChat</strong> — $15–$99/month → replaced by <code>instagram_engine.py</code></p>
+<p><strong>Zapier</strong> — $19–$199/month → replaced by <code>scheduler.py</code></p>
+<p><strong>Slack</strong> — $6–$12/month per seat → replaced by <code>notify.py</code></p>
+<p><strong>Baremetrics</strong> — $99/month → replaced by <code>revenue_engine.py</code></p>
+<p></p>
+<p><strong>Total replaced: $1,066–$3,929/month. Annualised: $12,792–$47,148/year. Cost of our stack: $0 (Supabase free tier, Gmail free tier, Telegram free).</strong></p>
+<p></p>
+<p>💡 <strong>PRO TIP:</strong> The SaaS companies are not selling you software. They are selling you the belief that building it yourself is too hard. It takes Claude Code about 45 minutes to build what took them a team of engineers years. The moat is confidence, not code.</p>
+<p></p>
+<h3>🏗️ The CLI Engine Pattern</h3>
+<p></p>
+<p>Every tool in our stack follows the same structure. Learn this once and you can read, extend, or build any of the 11 engines.</p>
+<p></p>
+<p>The pattern: <strong>one Python file, multiple subcommands, JSON output, credentials from environment, Supabase as the database.</strong></p>
+<p></p>
+<p>Every engine is called from the terminal like this:</p>
+<p></p>
+<p><code>python scripts/lead_engine.py list</code></p>
+<p><code>python scripts/lead_engine.py add --name "Sarah Chen" --email "s@example.com"</code></p>
+<p><code>python scripts/lead_engine.py score --id 42</code></p>
+<p><code>python scripts/lead_engine.py pipeline --stage qualified</code></p>
+<p></p>
+<p>Every engine supports <code>--json</code> output for machine consumption:</p>
+<p></p>
+<p><code>python scripts/lead_engine.py list --json | python -m json.tool</code></p>
+<p></p>
+<p>⚡ <strong>QUICK WIN:</strong> This <code>--json</code> flag is what allows Claude Code, the scheduler, and other engines to talk to each other. It turns a human-readable CLI tool into an API. Add it to every tool you build.</p>
+<p></p>
+<h3>🔬 Anatomy of an Engine</h3>
+<p></p>
+<p>Here is the exact skeleton every engine follows. Read this carefully — the rest of the course assumes you know this structure.</p>
+<p></p>
+<p><strong>1. Imports</strong></p>
+<p><code>import argparse, os, json, sys</code></p>
+<p><code>from datetime import datetime</code></p>
+<p><code>from dotenv import load_dotenv</code></p>
+<p><code>from supabase import create_client</code></p>
+<p></p>
+<p><strong>2. Environment loading</strong></p>
+<p><code>load_dotenv('.env.agents')</code></p>
+<p><code>SUPABASE_URL = os.environ['SUPABASE_URL']</code></p>
+<p><code>SUPABASE_KEY = os.environ['SUPABASE_SERVICE_KEY']</code></p>
+<p></p>
+<p>⚠️ <strong>WARNING:</strong> Always use <code>os.environ['KEY']</code> — not <code>os.environ.get('KEY')</code>. The difference: <code>get()</code> silently returns <code>None</code> when a key is missing, which causes cryptic errors later. Hard brackets raise an immediate, clear <code>KeyError</code> so you know exactly what's wrong.</p>
+<p></p>
+<p><strong>3. Supabase client</strong></p>
+<p><code>supabase = create_client(SUPABASE_URL, SUPABASE_KEY)</code></p>
+<p></p>
+<p><strong>4. Subcommand functions</strong></p>
+<p>Each subcommand is a function that takes parsed args and returns either a dict or prints output. Business logic lives here.</p>
+<p></p>
+<p><code>def cmd_list(args):</code></p>
+<p><code>    result = supabase.table('leads').select('*').limit(args.limit).execute()</code></p>
+<p><code>    if args.json:</code></p>
+<p><code>        print(json.dumps(result.data, indent=2))</code></p>
+<p><code>    else:</code></p>
+<p><code>        for lead in result.data:</code></p>
+<p><code>            print(f"{lead['id']:>4} | {lead['name']:<30} | {lead['stage']}")</code></p>
+<p></p>
+<p><strong>5. Argument parser</strong></p>
+<p><code>def build_parser():</code></p>
+<p><code>    parser = argparse.ArgumentParser(description='Lead Engine')</code></p>
+<p><code>    parser.add_argument('--json', action='store_true')</code></p>
+<p><code>    subs = parser.add_subparsers(dest='command')</code></p>
+<p><code>    p_list = subs.add_parser('list')</code></p>
+<p><code>    p_list.add_argument('--limit', type=int, default=20)</code></p>
+<p><code>    p_list.set_defaults(func=cmd_list)</code></p>
+<p><code>    return parser</code></p>
+<p></p>
+<p><strong>6. main()</strong></p>
+<p><code>if __name__ == '__main__':</code></p>
+<p><code>    parser = build_parser()</code></p>
+<p><code>    args = parser.parse_args()</code></p>
+<p><code>    if not args.command:</code></p>
+<p><code>        parser.print_help()</code></p>
+<p><code>        sys.exit(1)</code></p>
+<p><code>    args.func(args)</code></p>
+<p></p>
+<p>💀 <strong>COMMON MISTAKE:</strong> Putting business logic directly in <code>main()</code>. Each subcommand must be its own function. When Claude Code extends your engine later, it adds a new function and a new <code>add_parser</code> call. Nothing else changes. That's the design.</p>
+<p></p>
+<h3>🤖 How Claude Code Builds These for You</h3>
+<p></p>
+<p>The <code>/cli-anything</code> command in Claude Code follows a 7-phase pipeline:</p>
+<p></p>
+<p>1. <strong>Analyze</strong> — reads the target API or service documentation</p>
+<p>2. <strong>Design</strong> — maps API endpoints to CLI subcommands</p>
+<p>3. <strong>Implement</strong> — writes the engine following the pattern above</p>
+<p>4. <strong>Test</strong> — runs each subcommand against real data</p>
+<p>5. <strong>Package</strong> — adds <code>--json</code>, error handling, help text</p>
+<p>6. <strong>Integrate</strong> — connects it to <code>notify.py</code> and the scheduler</p>
+<p>7. <strong>Document</strong> — updates the skill registry</p>
+<p></p>
+<p>To build a new engine: open Claude Code, type <code>/cli-anything stripe</code> or <code>/cli-anything twilio</code>, and watch it run the full pipeline. You get a production-ready CLI tool in 30–45 minutes instead of 2–3 days.</p>
+<p></p>
+<p>🧠 <strong>KEY TAKEAWAY:</strong> You are not learning Python in this course. You are learning a <em>pattern</em> — one structure that can be applied to any external service. Once you see it in the lead engine and the email engine and the booking engine, you will be able to read any engine in the stack instantly. That pattern literacy is the actual skill.</p>
+<p></p>
+<h3>🛠️ Prerequisites & Environment Setup</h3>
+<p></p>
+<p>You need these before anything else works:</p>
+<p></p>
+<p><strong>Software</strong></p>
+<p>• Python 3.12 or higher — <code>python --version</code> to verify</p>
+<p>• pip — comes with Python</p>
+<p>• A Supabase account (free tier is enough) — supabase.com</p>
+<p>• Git</p>
+<p></p>
+<p><strong>Python dependencies</strong></p>
+<p><code>pip install supabase python-dotenv requests</code></p>
+<p></p>
+<p><strong>The .env.agents file</strong></p>
+<p>Create this file in your project root. It never gets committed to git:</p>
+<p></p>
+<p><code>SUPABASE_URL=https://your-project-id.supabase.co</code></p>
+<p><code>SUPABASE_SERVICE_KEY=your-service-role-key-here</code></p>
+<p><code>SUPABASE_ANON_KEY=your-anon-key-here</code></p>
+<p></p>
+<p>Find these values in your Supabase dashboard under Settings → API.</p>
+<p></p>
+<p>⚠️ <strong>WARNING:</strong> Use the <strong>service role key</strong> (the long one labelled <code>service_role</code>), not the anon key. The service role key bypasses Row Level Security, which your CLI tools need to run without a user session. The anon key is for client-side browser code. Keep them straight.</p>
+<p></p>
+<p>Add <code>.env.agents</code> to your <code>.gitignore</code> immediately:</p>
+<p><code>echo ".env.agents" >> .gitignore</code></p>
+<p></p>
+<hr>
+<p></p>
+<h2>🔥 CHALLENGE: Verify Your Stack (+100 XP)</h2>
+<p></p>
+<p>1️⃣ Create your <code>.env.agents</code> file with real Supabase credentials.</p>
+<p></p>
+<p>2️⃣ Verify it is in <code>.gitignore</code>. Run <code>git status</code> and confirm <code>.env.agents</code> does not appear.</p>
+<p></p>
+<p>3️⃣ Install dependencies:</p>
+<p><code>pip install supabase python-dotenv requests</code></p>
+<p></p>
+<p>4️⃣ Download <code>supabase_tool.py</code> from the course files. Run a live query against your database:</p>
+<p><code>python scripts/supabase_tool.py select leads --limit 5</code></p>
+<p></p>
+<p>(The table will be empty for now — that is expected. A clean empty result means your connection is working.)</p>
+<p></p>
+<p>5️⃣ Run with <code>--json</code> flag and verify the output is valid JSON:</p>
+<p><code>python scripts/supabase_tool.py select leads --limit 5 --json</code></p>
+<p></p>
+<p>🏆 <strong>BOSS LEVEL:</strong> Open Claude Code and type: <code>Read .env.agents and tell me my Supabase project ID.</code> If Claude reads the file and returns your project ID without you typing it manually, your environment is wired correctly. That's the automation loop working. (+50 bonus XP)</p>
+<p></p>
+<h3>✅ Checkpoint</h3>
+<p>Before moving to Lesson 2, confirm:</p>
+<p>☐ Python 3.12 installed and verified</p>
+<p>☐ <code>supabase</code>, <code>python-dotenv</code>, <code>requests</code> installed</p>
+<p>☐ <code>.env.agents</code> exists with real credentials</p>
+<p>☐ <code>.env.agents</code> is gitignored</p>
+<p>☐ Supabase connection verified with a live query</p>
+<p>☐ You can explain the 6-part engine anatomy from memory</p>
+<p></p>
+<p>Post your successful connection output in the community with <strong>#PythonEngines</strong> 🐍</p>
