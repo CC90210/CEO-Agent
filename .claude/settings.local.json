@@ -30,9 +30,7 @@
       "Bash(git reset --hard)",
       "Bash(git clean -fd)"
     ],
-    "additionalDirectories": [
-      "C:\\Users\\User\\.gemini"
-    ]
+    "additionalDirectories": []
   },
   "hooks": {
     "PreToolUse": [
@@ -41,7 +39,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'FILE=$(echo $CLAUDE_TOOL_INPUT | python -c \"import sys,json; print(json.load(sys.stdin).get(\\\"file_path\\\",json.load(sys.stdin).get(\\\"filePath\\\",\\\"\\\"))\" 2>/dev/null); if echo \"$FILE\" | grep -qiE \"\\.(env|env\\..*)$\"; then echo \"{\\\"decision\\\":\\\"block\\\",\\\"reason\\\":\\\"BLOCKED: Cannot edit credential files. Update .env.agents manually.\\\"}\"; exit 0; fi; echo \"{\\\"decision\\\":\\\"allow\\\"}\"'"
+            "command": "bash -c 'FILE=$(echo $CLAUDE_TOOL_INPUT | python3 -c \"import sys,json; print(json.load(sys.stdin).get(\\\"file_path\\\",json.load(sys.stdin).get(\\\"filePath\\\",\\\"\\\"))\" 2>/dev/null); if echo \"$FILE\" | grep -qiE \"\\.(env|env\\..*)$\"; then echo \"{\\\"decision\\\":\\\"block\\\",\\\"reason\\\":\\\"BLOCKED: Cannot edit credential files. Update .env.agents manually.\\\"}\"; exit 0; fi; echo \"{\\\"decision\\\":\\\"allow\\\"}\"'"
           }
         ]
       },
@@ -50,7 +48,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'CMD=$(echo $CLAUDE_TOOL_INPUT | python -c \"import sys,json; print(json.load(sys.stdin).get(\\\"command\\\",\\\"\\\"))\" 2>/dev/null); if echo \"$CMD\" | grep -qiE \"(rm\\s+-rf\\s+(/|~|/\\*|\\.git)$|git\\s+push.*--force.*(main|master)|DROP\\s+TABLE|TRUNCATE\\s+TABLE)\"; then echo \"{\\\"decision\\\":\\\"block\\\",\\\"reason\\\":\\\"BLOCKED: Destructive operation detected. Ask CC for confirmation first.\\\"}\"; exit 0; fi; echo \"{\\\"decision\\\":\\\"allow\\\"}\"'"
+            "command": "bash -c 'CMD=$(echo $CLAUDE_TOOL_INPUT | python3 -c \"import sys,json; print(json.load(sys.stdin).get(\\\"command\\\",\\\"\\\"))\" 2>/dev/null); if echo \"$CMD\" | grep -qiE \"(rm\\s+-rf\\s+(/|~|/\\*|\\.git)$|git\\s+push.*--force.*(main|master)|DROP\\s+TABLE|TRUNCATE\\s+TABLE)\"; then echo \"{\\\"decision\\\":\\\"block\\\",\\\"reason\\\":\\\"BLOCKED: Destructive operation detected. Ask CC for confirmation first.\\\"}\"; exit 0; fi; echo \"{\\\"decision\\\":\\\"allow\\\"}\"'"
           }
         ]
       }
@@ -61,29 +59,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'CMD=$(echo $CLAUDE_TOOL_INPUT | python -c \"import sys,json; print(json.load(sys.stdin).get(\\\"command\\\",\\\"\\\"))\" 2>/dev/null); if echo \"$CMD\" | grep -qiE \"^(git\\s+push|git\\s+commit|npm\\s+run\\s+build|vercel\\s+deploy)\"; then echo \"[HOOK] Logged: $CMD\" >> /c/Users/User/Business-Empire-Agent/tmp/hook_audit.log 2>/dev/null; fi; if echo \"$CMD\" | grep -qiE \"scripts/(supabase|stripe|n8n|late)_tool\"; then LABEL=$(echo \"$CMD\" | grep -oiE \"(supabase|stripe|n8n|late)_tool\" | head -1); python /c/Users/User/Business-Empire-Agent/scripts/cost_tracker.py log --label \"$LABEL\" --units 2 2>/dev/null; fi'"
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash -c 'export CLAUDE_PLUGIN_ROOT=\"/c/Users/User/Business-Empire-Agent/.claude/plugins/codex\"; node \"$CLAUDE_PLUGIN_ROOT/scripts/session-lifecycle-hook.mjs\" SessionStart 2>/dev/null || true'"
-          }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash -c 'export CLAUDE_PLUGIN_ROOT=\"/c/Users/User/Business-Empire-Agent/.claude/plugins/codex\"; node \"$CLAUDE_PLUGIN_ROOT/scripts/session-lifecycle-hook.mjs\" SessionEnd 2>/dev/null || true'"
+            "command": "bash -c 'CMD=$(echo $CLAUDE_TOOL_INPUT | python3 -c \"import sys,json; print(json.load(sys.stdin).get(\\\"command\\\",\\\"\\\"))\" 2>/dev/null); if echo \"$CMD\" | grep -qiE \"^(git\\s+push|git\\s+commit|npm\\s+run\\s+build|vercel\\s+deploy)\"; then echo \"[HOOK] Logged: $CMD\" >> /Users/conaugh/Downloads/business-empire-agent/tmp/hook_audit.log 2>/dev/null; fi'"
           }
         ]
       }
@@ -94,7 +70,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'powershell.exe -Command \"[System.Reflection.Assembly]::LoadWithPartialName(\\\"System.Windows.Forms\\\") | Out-Null; [System.Windows.Forms.MessageBox]::Show(\\\"Claude Code needs your input\\\", \\\"Bravo V5.5\\\", \\\"OK\\\", \\\"Information\\\")\" 2>/dev/null || true'"
+            "command": "osascript -e 'display notification \"Bravo needs your attention.\" with title \"Claude Code\" sound name \"Ping\"' 2>/dev/null || true"
           }
         ]
       }
