@@ -5,7 +5,7 @@ tags: [capabilities, tools]
 # CAPABILITIES — Tool & Integration Registry
 
 > Complete inventory of what Bravo can do. Last updated: 2026-04-06.
-> **Totals: 183 skills · 31 workflows · 39 scripts · 17 agents · 5 MCP servers + Codex (external)**
+> **Totals: 187 skills · 33 workflows · 47 scripts · 17 agents (16 file-based + 6 native Claude Code) · 5 MCP servers + Codex (external)**
 
 ## MCP Servers (By Interface)
 
@@ -22,7 +22,7 @@ tags: [capabilities, tools]
 
 Models: Gemini 3.1 Pro High/Low, Gemini 3 Flash, Claude Sonnet/Opus 4.6, GPT-OSS 120B Medium
 Entry Point: `ANTIGRAVITY.md` | Config: `.vscode/mcp.json`
-Workflows: `.agents/workflows/` (30 workflows: post, status, health, prime, content, commit, n8n, sync, research, debug, client-onboard, cli-anything, skool-edit, skool-push, evolve, briefing, client-health-report, generate-proposal, strategic-review, competitive-report, qbr, onboard-team-member, meeting-prep, investor-update, knowledge-maintenance, review, ship, retro, create-prd, opencli)
+Workflows: `.agents/workflows/` (33 workflows: post, status, health, prime, content, commit, n8n, sync, research, debug, client-onboard, cli-anything, skool-edit, skool-push, evolve, briefing, client-health-report, generate-proposal, strategic-review, competitive-report, qbr, onboard-team-member, meeting-prep, investor-update, knowledge-maintenance, review, ship, retro, create-prd, opencli, ingest, query-knowledge, lint-knowledge)
 
 | Server | Purpose | Config |
 |--------|---------|--------|
@@ -138,6 +138,8 @@ Transform any website into structured CLI commands via browser automation. Compl
 
 **Pattern:** Stateless MCPs (Playwright, Context7, Memory, Sequential Thinking) work fine. Credential MCPs break. CLI tools read `.env.agents` directly — never break.
 
+**Note:** Most CLI tools accept `--json` as a global flag BEFORE the subcommand: `python scripts/tool.py --json subcommand`. Exceptions that accept it AFTER: stripe_tool.py, n8n_tool.py, firecrawl_tool.py, revenue_engine.py, ceo_dashboard.py.
+
 **Firecrawl vs Playwright:** Use Firecrawl for data extraction (markdown, structured schemas, site maps, search). Use Playwright for interactive automation (login, forms, clicks). See `skills/web-scraping/SKILL.md` for the full decision guide.
 
 ## Business Operations Engines (8 CLI tools — zero paid services)
@@ -251,6 +253,20 @@ The following were added to the Business Operations Engines table above (already
 | `scripts/funnel_sync.py` | Sync funnels to GoHighLevel | Active |
 | `scripts/funnel_nurture.py` | Nurture sequence automation | Active |
 
+## Utility Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/browse_and_capture.py` | Browser screenshot + capture |
+| `scripts/content_generator.py` | Claude API content generation |
+| `scripts/generate_covers.py` | Cover art / image generation |
+| `scripts/macos_control.py` | macOS system automation |
+| `scripts/music_control.py` | Audio/music control |
+| `scripts/outreach_engine.py` | Outreach campaign automation |
+| `scripts/render_video.py` | Remotion video rendering |
+| `scripts/skool_watchdog.py` | Skool community monitoring daemon |
+| `scripts/transcribe.py` | Whisper audio transcription |
+
 ## Notification & Scheduling
 
 | Script | Purpose |
@@ -314,7 +330,7 @@ markdown wiki pages. Deterministic retrieval via `knowledge/index.md` — no emb
 - `knowledge/wiki/tech-stack.md` — Full technology inventory, all tools and integrations
 - `knowledge/wiki/client-playbook.md` — Client lifecycle, NEPQ, health scoring, retention
 
-## Workflows (32 active — `.agents/workflows/`)
+## Workflows (33 active — `.agents/workflows/`)
 
 | Command | Cadence | Purpose |
 |---------|---------|---------|

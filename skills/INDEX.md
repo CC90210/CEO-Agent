@@ -41,6 +41,7 @@ tags: [skills, index, hub]
 - [[skills/knowledge-management/SKILL]] — Knowledge system maintenance
 
 ## Content & Outreach
+- [[skills/elite-video-production/SKILL]] — Full automated video production pipeline (hook → cinematic export)
 - [[skills/content-engine/SKILL]] — Content creation pipeline
 - [[skills/email-marketing/SKILL]] — Email campaigns
 - [[skills/linkedin-outreach/SKILL]] — LinkedIn automation

@@ -54,16 +54,12 @@ Your ONLY job is to answer CC's question. Use MCP tools. 1-5 sentences max for s
 
 | CC Asks About | Server | Tool |
 |---|---|---|
-| n8n workflows, automations | **n8n-mcp** | `search_workflows`, `get_workflow_details`, `execute_workflow` |
-| Social posts, scheduling | **Late** | `posts_list`, `posts_create`, `posts_cross_post` |
-| Connected social accounts | **Late** | `accounts_list` |
-| Browse a URL, screenshot | **Playwright** | `browser_navigate`, `browser_snapshot`, `browser_click` |
+| Browse a URL, screenshot, click | **Playwright** | `browser_navigate`, `browser_snapshot`, `browser_click`, `browser_type` |
 | Library docs | **Context7** | `resolve-library-id` → `query-docs` |
 | Knowledge/memory | **Memory** | `search_nodes`, `create_entities`, `open_nodes` |
+| Step-by-step reasoning | **Sequential Thinking** | `sequentialthinking` |
 
-| Query database, tables, SQL | **Supabase** | `execute_sql`, `list_tables`, `apply_migration` |
-| Stripe payments, balance | **Stripe** | (via Stripe MCP tools) |
-| Website-to-CLI, web scraping, API discovery | **OpenCLI** | `opencli explore <url>`, `opencli list`, `opencli <platform> <cmd>` |
+**CLI tools for everything else** — read `.env.agents`, never break. See `brain/QUICK_REFERENCE.md` for the full routing table.
 
 If an MCP tool fails: "The [server] tool returned an error: [error]." — ONE sentence. No curl fallbacks. No workaround scripts. No audit reports.
 
@@ -86,9 +82,9 @@ If an MCP tool fails: "The [server] tool returned an error: [error]." — ONE se
 - **Authorizations:** Enforce RLS on Supabase. DO NOT leave tables public unless explicitly static data.
 - **Execution:** Sandbox risky scripts in `tmp/` or `.agents/tmp/`. Require user consent for destructive DB operations.
 
-### RULE 3.5: CLI-FIRST TOOL ROUTING (CRITICAL)
+### RULE 3.5: CLI TOOLS ARE PRIMARY (NOT FALLBACK)
 
-For n8n, Late, Supabase, and Stripe — use the Python CLI tools in `scripts/`. These are more reliable than MCP servers on Windows and do not require wrapper scripts.
+For n8n, Late/Zernio, Supabase, and Stripe — the Python CLI tools in `scripts/` are the PRIMARY integration method. There are no MCP servers for these services.
 
 - `scripts/n8n_tool.py` — n8n workflow management (list, get, execute, activate/deactivate)
 - `scripts/late_tool.py` — social media posting (accounts, posts, create, cross-post)

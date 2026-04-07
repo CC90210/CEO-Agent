@@ -326,6 +326,50 @@ tags: [daily]
 
 ---
 
+### 2026-04-07 — Full System Stress Test + Orchestration Governance
+
+**Agent:** Claude Code (Bravo V5.5)
+**Trigger:** Routing failure — agent tried Gmail MCP instead of google_tool.py CLI. CC mandated comprehensive stress test and orchestration overhaul.
+
+**Actions:**
+1. Sent follow-up email to Andre Thivierge (Upkeep Media) via `google_tool.py gmail send` — Happy Easter, scheduling Google Meet for Wed/Thu
+2. Stress tested ALL 37 CLI tools in parallel — 33 PASS, 3 DEGRADED (no CLI interface), 1 FAIL (mem0 --json flag)
+3. Tested all 6 MCP servers — 4 PASS (Playwright, Context7, Memory, SeqThink), 2 AUTH fail (Supabase, Late — expected, CLI covers both)
+4. Full routing audit across all entry points (CLAUDE.md, GEMINI.md, ANTIGRAVITY.md, QUICK_REFERENCE.md, CAPABILITIES.md)
+5. Found ANTIGRAVITY.md Rule 2 still recommending dead MCPs — dispatched fix agent
+6. Rebuilt `brain/QUICK_REFERENCE.md` — from 11 tools to all 47, organized by intent
+7. Created `brain/ORCHESTRATION.md` — capability governance, regression prevention protocol, tool hierarchy, stress test checklist
+8. Updated CLAUDE.md Rule 2 — "NEVER ask CC to authenticate anything"
+9. Updated CAPABILITIES.md — header counts, missing tools, --json flag convention
+10. Synchronized all 3 entry points to CLI-first routing
+
+**Root cause:** CLAUDE.md compression (386→119 lines) left QUICK_REFERENCE.md 75% incomplete. Agent had no routing table for 36 of 47 tools.
+**Prevention:** ORCHESTRATION.md now mandates: when adding new capabilities, register in 5 docs + verify 3 existing tools still work.
+**Files:** brain/ORCHESTRATION.md (new), brain/QUICK_REFERENCE.md (rebuilt), CLAUDE.md (Rule 2 updated), ANTIGRAVITY.md (fixed), GEMINI.md (fixed), CAPABILITIES.md (fixed), memory/MISTAKES.md (updated)
+
+### 2026-04-07 — Elite Video Production Skill + Knowledge Wiki
+**Agent:** Claude Code (Bravo V5.5)
+**Trigger:** CC requested extensive research to build the best video editor possible — replace a human editor entirely.
+
+**Research (3 parallel agents):**
+1. Viral video editing: 3-second hook data, MrBeast pacing evolution, Hormozi caption specs, retention toolkit (zoom punch, J-cut, speed ramp, flash frame), SFX timing rules, color grading for iPhone
+2. Cinematic production: FFmpeg color science (curves/LUT/CLUT), 6-stage audio mastering chain, spring physics for motion graphics, auto-reframing, morph cuts via RIFE, lower third specs
+3. AI tools: WhisperX forced alignment, auto-editor silence removal, Fal.ai Flux Schnell (<1s b-roll), noisereduce + Pedalboard audio enhancement, PySceneDetect, YOLOv8 face tracking, reap.video MCP
+
+**Built:**
+- `skills/elite-video-production/SKILL.md` (635 lines) — 15-section comprehensive video production skill with exact FFmpeg commands, Remotion spring presets, ASS caption format, audio mastering chain, SFX timing, color grade presets, 15-step automated pipeline
+- `knowledge/wiki/video-production-bible.md` (438 lines) — Full open-source tool stack with install commands, when to use each, competitive platform reference
+- `knowledge/index.md` updated (5 wiki pages)
+
+**Key upgrades identified (not yet implemented):**
+- WhisperX large-v3-turbo replaces openai-whisper small (eliminates -0.8s timing hack)
+- noisereduce + pedalboard pre-processing (iPhone audio → broadcast quality)
+- auto-editor for silence/filler word removal
+- Fal.ai Flux Schnell for <1s contextual b-roll generation
+- FFmpeg audio mastering chain (gate → EQ → compand → loudnorm -14 LUFS)
+
+---
+
 ### 2026-04-04 — App Ecosystem Health Check + Commits
 **Agent:** Claude Code (Bravo)
 **Change:** Ran comprehensive health check on all 12 apps in APP_REGISTRY.md. All paths valid and in git. Found: 9 apps fully healthy (CLAUDE.md + clean git), 2 apps with uncommitted session changes (trading-agent 11 files, cc-funnel 1 file), 3 apps missing CLAUDE.md (Grape-Vine, Mindset, On-The-Hill), 1 app with no package.json (AURA — agent hybrid, intentional). Committed both dirty repos. APPS_CONTEXT missing context files for 5 secondary apps (optimization priority).

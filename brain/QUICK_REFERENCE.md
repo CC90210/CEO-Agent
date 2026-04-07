@@ -1,151 +1,198 @@
 ---
-tags: [reference, tools, workflows]
+tags: [reference, tools, routing]
 ---
 
-# QUICK REFERENCE — CLI Tools, MCPs, Workflows, Skills
+# QUICK REFERENCE — Complete Tool Routing
 
-> Relocated from CLAUDE.md to keep token budget under 150 lines. Load this file when you need the full routing tables. All agents can @import this.
+> CLAUDE.md Rule 2 points here. When CC asks for ANYTHING, find the right tool below.
+> **Pattern:** CLI-first (reads .env.agents, never breaks). MCP only for stateless tools.
+> **Deep reference:** @brain/CAPABILITIES.md (480 lines — full commands, schemas, config)
 
-## CLI Tool Routing (Rule 2 Detail)
+## Routing by Intent
 
-| CC Asks About | CLI Tool | Command |
-|---|---|---|
-| n8n workflows | `n8n_tool.py` | `python scripts/n8n_tool.py list`, `search <query>`, `execute <id>` |
-| Social posts, scheduling | `late_tool.py` | `python scripts/late_tool.py accounts`, `create --text "..." --account <id>` |
-| Database queries | `supabase_tool.py` | `python scripts/supabase_tool.py select <table> --project bravo --limit 10` |
-| Payments, subscriptions | `stripe_tool.py` | `python scripts/stripe_tool.py balance`, `customers`, `invoices` |
-| Website-to-CLI, API discovery | `opencli` | `opencli explore <url>`, `opencli list`, `opencli <platform> <cmd>` |
-| Email (send/read/triage) | `google_tool.py` | `python scripts/google_tool.py gmail send --to "..." --subject "..." --body "..."`, `gmail list` |
-| Calendar | `google_tool.py` | `python scripts/google_tool.py calendar list`, `calendar create --title "..." --start "..." --end "..."` |
-| Google Drive / Sheets / Docs | `gws` CLI | `gws drive files list --params '{"pageSize":10}'`, `gws sheets spreadsheets get` |
-| Scrape page data | Playwright CLI | `node .claude/skills/playwright/scripts/run.js <url> [--links] [--table css] [--selector css]` |
-| Backend code, parallel tasks | Codex CLI | `node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" task --write "<task>"` |
+### Communication & Scheduling
+| CC Says | Tool | Command |
+|---------|------|---------|
+| Send email / reply / check inbox | `google_tool.py` | `gmail send --to "..." --subject "..." --body "..."`, `gmail list`, `gmail read <id>` |
+| Email sequences / nurture / templates | `email_engine.py` | `send-template`, `sequence run`, `templates list` |
+| Create/check calendar events | `google_tool.py` | `calendar list`, `calendar create --title "..." --start "..." --end "..." [--meet] [--attendees "..."]` |
+| Book meeting / manage slots | `booking_engine.py` | `slots open`, `book`, `available`, `remind` |
+| Google Drive / Sheets / Docs | `gws` CLI | `gws drive files list`, `gws sheets spreadsheets get` |
+| Telegram notification | `notify.py` | `send "message"` |
 
-## MCP Servers (7 Working)
+### Social Media & Content
+| CC Says | Tool | Command |
+|---------|------|---------|
+| Post to social media | `late_tool.py` | `create --text "..." --account <id>`, `cross-post` |
+| Content calendar / planning | `content_engine.py` | `calendar`, `create`, `week-plan`, `due` |
+| "Make this a post" / content pipeline | `content_pipeline.py` | `process <video>`, `transcribe`, `caption`, `thumbnail` |
+| Repurpose content across platforms | `content_repurposer.py` | Transforms content via Claude API |
+| Generate AI images | `codex_image_gen.py` | `generate "<prompt>" --style branded` |
+| Skool community management | `skool_engine.py` | `daemon`, `scan-posts`, `engage-members` |
+| Instagram engagement | `instagram_engine.py` | `daemon`, `check-dms`, `auto-reply` |
+| LinkedIn outreach | `linkedin_cli.py` | `search`, `connect`, `message` |
 
-| MCP | Key Tools | Credentials |
-|---|---|---|
-| Playwright | `browser_navigate`, `browser_snapshot`, `browser_click`, `browser_type` | None |
-| Context7 | `resolve-library-id`, `query-docs` | None |
-| Memory | `search_nodes`, `create_entities`, `open_nodes` | None |
-| Sequential Thinking | `sequentialthinking` | None |
-| **GitHub** | PR management, issues, code search, repo ops | GITHUB_PERSONAL_ACCESS_TOKEN |
-| **Firecrawl** | Web scraping, crawling, search, structured extraction | FIRECRAWL_API_KEY |
-| **Filesystem** | Read/write across Business-Empire-Agent, APPS, .claude | None (path allowlist) |
+### Sales & CRM
+| CC Says | Tool | Command |
+|---------|------|---------|
+| Leads / pipeline / CRM | `lead_engine.py` | `list`, `add`, `score`, `pipeline`, `followups`, `funnel` |
+| Client health / churn risk | `client_health.py` | `report`, `score <client>`, `alerts`, `trends` |
+| Generate proposal / SOW | `proposal_generator.py` | `generate`, `list-templates`, `export` |
+| Competitive analysis / battlecards | `competitive_intel.py` | `add`, `battlecard`, `report`, `matrix` |
+| Scrape leads from Google Maps | `scrape_maps_emails.py` | Maps business data + email extraction |
 
-**Plugin:** claude-mem (auto session compression, context injection across sessions)
+### Revenue & Finance
+| CC Says | Tool | Command |
+|---------|------|---------|
+| MRR / revenue / dashboard | `revenue_engine.py` | `mrr`, `dashboard`, `sync-stripe`, `forecast`, `goal` |
+| Stripe (balance, invoices, subs) | `stripe_tool.py` | `balance`, `customers`, `invoices`, `subscriptions`, `payment-links` |
+| Financial modeling / unit economics | `financial_model.py` | `unit-economics`, `forecast`, `scenario`, `runway` |
+| CEO briefing / KPIs | `ceo_dashboard.py` | `briefing`, `revenue`, `pipeline`, `full` |
 
-## New CLI Tools (Wave 2)
+### Database & Infrastructure
+| CC Says | Tool | Command |
+|---------|------|---------|
+| Supabase query / CRUD | `supabase_tool.py` | `select <table> --project bravo`, `insert`, `update`, `query` |
+| n8n workflows | `n8n_tool.py` | `list`, `search`, `execute <id>`, `stats` |
+| Web scraping (data extraction) | `firecrawl_tool.py` | `scrape <url>`, `search <query>`, `crawl`, `extract` |
+| Web automation (clicks, forms) | Playwright MCP | `browser_navigate`, `browser_click`, `browser_type` |
+| Cron jobs / scheduled tasks | `cron_engine.py` | `list`, `add`, `run`, `due`, `seed` |
+| Funnel sync (GoHighLevel) | `funnel_sync.py` | Sync funnels to GHL |
 
-| CC Asks About | CLI Tool | Command |
-|---|---|---|
-| Web scraping, research | `firecrawl_tool.py` | `python scripts/firecrawl_tool.py scrape <url>`, `search <query>`, `crawl <url>` |
-| Semantic memory | `mem0_tool.py` | `python scripts/mem0_tool.py add "fact"`, `search "query"`, `list`, `stats` |
+### Knowledge & Memory
+| CC Says | Tool | Command |
+|---------|------|---------|
+| Library docs lookup | Context7 MCP | `resolve-library-id`, `query-docs` |
+| Persistent knowledge graph | Memory MCP | `search_nodes`, `create_entities` |
+| Obsidian vault graph queries | Knowledge Graph MCP | `kg_search`, `kg_central`, `kg_paths`, `kg_communities` |
+| Semantic memory (fuzzy search) | `mem0_tool.py` | `add`, `search`, `list`, `stats` |
+| Compile doc into knowledge wiki | `/ingest` workflow | `knowledge/` directory |
+| Query compiled knowledge | `/query-knowledge` workflow | Sourced answers from wiki |
 
-## System Maintenance CLIs
+### System Maintenance
+| CC Says | Tool | Command |
+|---------|------|---------|
+| Context tier loading | `context_manager.py` | `tier "<query>"`, `compact`, `health` |
+| Cost tracking | `cost_tracker.py` | `log --label X`, `summary`, `budget --check` |
+| Stale memory detection | `memory_aging.py` | `scan`, `stale`, `health`, `archive` |
+| Memory consolidation | `auto_dream.py` | `run [--dry-run]`, `status` |
+| Memory index rebuild | `memory_index.py` | `build`, `search "<query>"`, `stats` |
+| Codex health check | `codex_health.py` | `[--json]` |
 
-| Tool | Command | Purpose |
-|---|---|---|
-| Context compaction | `python scripts/context_manager.py compact` | Archive old SESSION_LOG entries |
-| Cost tracking | `python scripts/cost_tracker.py summary` | Per-operation cost visibility |
-| Memory aging | `python scripts/memory_aging.py scan` | Detect stale facts |
-| Memory health | `python scripts/memory_aging.py health` | Letter-graded memory assessment |
-| autoDream | `python scripts/auto_dream.py run` | Memory consolidation |
-| Memory index | `python scripts/memory_index.py build` | Rebuild 3-layer memory index |
-| Memory search | `python scripts/memory_index.py search "<query>"` | Search memory index |
-| Codex health | `python scripts/codex_health.py` | Codex integration health check |
+### Backend / Codex Delegation
+| CC Says | Tool | Command |
+|---------|------|---------|
+| Backend implementation / deep debug | Codex CLI | `node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" task --write "<task>"` |
+| Code review (second opinion) | Codex CLI | `codex-companion.mjs review` |
+| Adversarial review | Codex CLI | `codex-companion.mjs adversarial-review "<focus>"` |
 
-## Workflow Commands (`.agents/workflows/` + `.claude/skills/`)
+## Routing Priority Rules
 
-| Command | Purpose |
-|---|---|
-| `/plan-feature` | Deep codebase analysis → implementation plan in `.agents/plans/` |
-| `/execute` | Execute a plan step by step with validation gates |
-| `/prime` | Load full project context and health report |
-| `/commit` | Smart commit — `bravo: type — desc` format |
-| `/create-prd` | Generate 15-section PRD for client projects |
-| `/content` | Create platform-optimized content using CC's brand voice |
-| `/post` | Publish to social media via Zernio (formerly Late) |
-| `/research` | Multi-source research (OpenCLI + Playwright + Context7) |
-| `/cli-anything` | Generate CLI wrapper for any software/API/service |
-| `/opencli` | Explore websites, run prebuilt adapters, create website CLI adapters |
-| `/skool-edit` | Edit a single Skool lesson or About page via Playwright |
-| `/skool-push` | Batch push content to multiple Skool lessons from local files |
-| `/review` | Pre-landing code review with Fix-First methodology |
-| `/ship` | Full shipping pipeline: test → review → changelog → PR |
-| `/retro` | Weekly retrospective with commit analysis and trend tracking |
-| `/evolve` | Extract session patterns → promote to skills, SOPs, or CLAUDE.md rules |
-| `/debug` | Systematic root-cause-first debugging |
-| `/health` | Full system health check (MCP, memory, sync, workspace) |
-| `/status` | Quick status report from memory files |
-| `/client-health` | Client health scoring, churn alerts, retention actions |
-| `/proposal` | Generate client proposals and SOWs from templates |
-| `/strategic-review` | Quarterly strategic review (revenue, pipeline, competitive, OKRs) |
-| `/competitive-report` | Monthly competitor monitoring and battlecard updates |
-| `/qbr` | Full quarterly business review with OKR grading |
-| `/onboard-team-member` | Contractor/team member onboarding workflow |
-| `/meeting-prep` | Pre-meeting briefs and post-meeting action capture |
-| `/investor-update` | Monthly investor/stakeholder update email |
-| `/knowledge-maintenance` | Weekly knowledge system maintenance and cleanup |
-| `/financial-model` | Unit economics, forecasting, scenario modeling |
-| `/briefing` | Daily CEO morning briefing |
-| `/content-pipeline` | Full video production: raw → edited + captions + thumbnail + scheduled |
-| `/codex:setup` | Check Codex CLI readiness |
-| `/codex:review` | Codex code review (second AI opinion) |
-| `/codex:adversarial-review` | Codex challenge review (questions design decisions) |
-| `/codex:rescue` | Delegate task to Codex (debug, fix, implement) |
-| `/codex:status` | Show active/recent Codex background jobs |
-| `/codex:result` | Get completed Codex job output |
-| `/codex:cancel` | Cancel active Codex background job |
-| `/ingest` | Compile raw document into knowledge wiki |
-| `/query-knowledge` | Search compiled knowledge base |
+When multiple tools could handle a request, use this precedence:
 
-## Skills Quick Reference
+1. **One-off email** → `google_tool.py` | **Email sequence/template** → `email_engine.py`
+2. **One-off web page** → Playwright MCP | **Data extraction at scale** → `firecrawl_tool.py`
+3. **Quick post** → `late_tool.py` | **Full content pipeline** → `content_pipeline.py`
+4. **Simple DB query** → `supabase_tool.py` | **Business metrics** → `revenue_engine.py` or `ceo_dashboard.py`
+5. **Structured memory** → markdown files | **Fuzzy recall** → `mem0_tool.py`
 
-All skills: `skills/[skill-name]/SKILL.md`. Read on demand — not at boot.
+## MCP Servers (7 Active — Stateless Only)
 
-| Skill | When to Load |
-|---|---|
-| `systematic-debugging` | Bug reports, error investigation |
-| `self-healing` | Session end, system health checks |
-| `test-driven-development` | Writing tests, new features |
-| `browser-automation` | Playwright tasks |
-| `e2e-testing` | Full app testing |
-| `writing-plans` | COMPLEX+ features |
-| `executing-plans` | Implementing plans |
-| `sop-breakdown` | Process creation |
-| `memory-management` | Memory cleanup |
-| `mcp-operations` | Tool troubleshooting |
-| `skool-automation` | Skool content editing |
-| `code-review` | Pre-ship review |
-| `ship` | Deployment pipeline |
-| `retro` | Weekly retrospective |
-| `task-routing` | COMPLEX+ task assignment |
-| `anti-drift` | Multi-agent tasks |
-| `sparc-methodology` | COMPLEX+ implementation |
-| `agent-permissions` | Access control checks |
-| `hooks-automation` | Hook configuration |
-| `background-workers` | System maintenance |
-| `context-optimization` | Performance tuning |
-| `codex-delegation` | Codex delegation decisions |
-| `security-protocol` | Credential and input validation |
-| `cli-anything` | Generate CLI wrappers |
-| `opencli` | Website-to-CLI automation |
-| `knowledge-compilation` | Ingest raw docs → wiki, query knowledge, lint |
-| `semantic-memory` | Mem0 AI-powered memory (search, add, deduplicate) |
-| `memory-compression` | claude-mem session compression + context injection |
-| `web-scraping` | Firecrawl vs Playwright decision + scraping ops |
+| MCP | Purpose | Notes |
+|-----|---------|-------|
+| Playwright | Browser automation | Interactive: clicks, forms, screenshots |
+| Context7 | Library documentation | Live docs for any framework |
+| Memory | Knowledge graph | Cross-session persistent entities |
+| Sequential Thinking | Multi-step reasoning | Complex problem decomposition |
+| Knowledge Graph | Obsidian vault queries | PageRank, communities, paths |
+| GitHub | PR/issue management | Via wrapper script (.cmd) |
+| Firecrawl | Web scraping | Via wrapper script (.cmd) |
 
-## Codex Companion Quick Commands
+**NEVER use claude.ai MCP connectors (Gmail, Google Calendar, Square, Cloudflare).** Always use CLI tools.
 
-```bash
-export CLAUDE_PLUGIN_ROOT="/c/Users/User/.claude/codex-plugin"
-node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" task --write "<context + task>"
-node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" review
-node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" adversarial-review "<focus>"
-node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" status
-node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" result
-```
+## `--json` Flag Convention
+
+Most tools accept `--json` BEFORE the subcommand: `python scripts/tool.py --json subcommand`
+Exceptions (accept after): `stripe_tool.py`, `n8n_tool.py`, `firecrawl_tool.py`, `revenue_engine.py`, `ceo_dashboard.py`
+
+## All CLI Tools (47 — prefix: `python scripts/`)
+
+| Script | Category | Type |
+|--------|----------|------|
+| **--- Communication & GWS ---** | | |
+| `google_tool.py` | Gmail, Calendar, Drive, Sheets, Docs | CLI tool |
+| `email_engine.py` | Email sequences, SMTP, templates | CLI tool |
+| `booking_engine.py` | Scheduling / slots | CLI tool |
+| `notify.py` | Telegram notifications | Library (import) |
+| **--- Sales & CRM ---** | | |
+| `lead_engine.py` | CRM, pipeline, scoring | CLI tool |
+| `client_health.py` | Client health scoring | CLI tool |
+| `proposal_generator.py` | Proposals / SOWs | CLI tool |
+| `competitive_intel.py` | Competitor tracking, battlecards | CLI tool |
+| `outreach_engine.py` | Outreach campaign automation | CLI tool |
+| `scrape_maps_emails.py` | Google Maps lead scraping | Script (no --help) |
+| **--- Revenue & Finance ---** | | |
+| `revenue_engine.py` | MRR tracking, Stripe sync | CLI tool |
+| `stripe_tool.py` | Payments, invoices, subscriptions | CLI tool |
+| `financial_model.py` | Unit economics, forecasting | CLI tool |
+| `ceo_dashboard.py` | KPI aggregator, briefings | CLI tool |
+| **--- Content & Social ---** | | |
+| `late_tool.py` | Social posting (Zernio) | CLI tool |
+| `content_engine.py` | Content calendar, planning | CLI tool |
+| `content_pipeline.py` | Video production (master) | CLI tool |
+| `content_repurposer.py` | Cross-platform content | CLI tool |
+| `content_generator.py` | Claude API content generation | CLI tool |
+| `codex_image_gen.py` | AI image generation | CLI tool |
+| `generate_covers.py` | Cover art generation | Script |
+| `edit_content_v2.py` | Whisper transcription + captions | CLI tool |
+| `render_video.py` | Remotion video rendering | Script |
+| `transcribe.py` | Whisper audio transcription | Script |
+| **--- Platform Automation ---** | | |
+| `skool_engine.py` | Skool community automation | Daemon |
+| `skool_watchdog.py` | Skool monitoring | Daemon |
+| `instagram_engine.py` | Instagram DM/engagement | Daemon |
+| `linkedin_cli.py` | LinkedIn outreach | CLI tool |
+| **--- Infrastructure ---** | | |
+| `supabase_tool.py` | Database CRUD (3 projects) | CLI tool |
+| `n8n_tool.py` | Workflow automation | CLI tool |
+| `firecrawl_tool.py` | Web scraping, extraction | CLI tool |
+| `mem0_tool.py` | Semantic memory | CLI tool |
+| `cron_engine.py` | Scheduled jobs | CLI tool |
+| `funnel_sync.py` | GoHighLevel sync | CLI tool |
+| `funnel_nurture.py` | Nurture sequences | CLI tool |
+| **--- System Maintenance ---** | | |
+| `context_manager.py` | Context tier loading, compaction | CLI tool |
+| `cost_tracker.py` | Per-operation cost tracking | CLI tool |
+| `memory_aging.py` | Memory health, stale detection | CLI tool |
+| `auto_dream.py` | Memory consolidation | CLI tool |
+| `memory_index.py` | 3-layer memory indexing | CLI tool |
+| `codex_health.py` | Codex integration diagnostics | CLI tool |
+| `scheduler.py` | Task scheduling | Daemon |
+| **--- System Control ---** | | |
+| `windows_control.py` | Windows system automation (90+ cmds) | CLI tool |
+| `macos_control.py` | macOS system automation | CLI tool |
+| `music_control.py` | Audio/music control | CLI tool |
+| `browse_and_capture.py` | Browser screenshot + capture | Script |
+| `late_publisher.py` | Late API direct publisher | Script |
+
+## Workflow Commands (33 — `.agents/workflows/`)
+
+Full list with descriptions: @brain/CAPABILITIES.md § Workflows
+
+| Daily | Weekly | Monthly | Quarterly | On-Demand |
+|-------|--------|---------|-----------|-----------|
+| `/briefing` | `/retro` | `/competitive-report` | `/qbr` | `/commit`, `/review`, `/ship` |
+| `/ceo-briefing` | `/client-health` | `/investor-update` | `/strategic-review` | `/debug`, `/research`, `/content` |
+| | `/knowledge-maintenance` | | | `/post`, `/proposal`, `/meeting-prep` |
+| | | | | `/plan-feature`, `/execute`, `/prime` |
+| | | | | `/skool-edit`, `/skool-push`, `/opencli` |
+| | | | | `/ingest`, `/query-knowledge`, `/evolve` |
+| | | | | `/generate-proposal`, `/client-health-report` |
+
+## Sub-Agents (17 + 6 Native)
+
+Decision matrix and full registry: @brain/AGENTS.md
+Native Claude Code agents (`.claude/agents/`): architect, code-reviewer, content-writer, debugger, researcher, security-reviewer
 
 ## Obsidian Links
 - [[CLAUDE]] | [[brain/CAPABILITIES]] | [[brain/AGENTS]] | [[brain/STATE]]

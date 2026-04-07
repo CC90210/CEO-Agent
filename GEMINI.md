@@ -67,6 +67,7 @@ Your ONLY job is to answer CC's question. Use MCP tools. 1-5 sentences max for s
 | Social posts, scheduling | `python scripts/late_tool.py` | `accounts`, `posts`, `create`, `cross-post` |
 | Query database, tables, SQL | `python scripts/supabase_tool.py` | `select <table>`, `insert`, `update`, `delete`, `sql "<query>"` |
 | Stripe payments, balance | `python scripts/stripe_tool.py` | `balance`, `customers`, `invoices`, `products`, `subscriptions` |
+| Gmail, Calendar, Drive, Sheets, Docs (GWS) | `python scripts/google_tool.py` | `gmail list`, `calendar events`, `drive list`, `sheets read <id>` |
 | Website-to-CLI, web scraping, API discovery | **OpenCLI** | `opencli explore <url>`, `opencli list`, `opencli <platform> <cmd>` |
 
 All CLI tools read credentials from `.env.agents` automatically. Pass `--json` for machine-readable output.
@@ -82,7 +83,7 @@ If an MCP tool fails: "The [server] tool returned an error: [error]." — ONE se
 2. **STOP.** Do not attempt a workaround.
 3. Tell CC: "The [tool] failed with: [error]. Check `.env.agents`."
 
-**If a Playwright/Context7/Memory/Sequential Thinking/Knowledge Graph MCP tool returns an error:**
+**If a Playwright/Context7/Memory/Sequential Thinking MCP tool returns an error:**
 1. Report the error in one sentence
 2. **STOP.** Tell CC: "The [server] MCP failed with: [error]. Restart the terminal."
 
@@ -201,7 +202,7 @@ Never store app code in Business-Empire-Agent.
 
 **Obsidian Vault:** Business-Empire-Agent is an Obsidian vault. When creating new .md files, include YAML frontmatter with `tags:` and add `[[wiki-links]]` to related files. Preserve existing `[[wiki-links]]` when editing. Templates in `_templates/`.
 
-## Your MCP Servers (4 active) + CLI Tools (4)
+## Your MCP Servers (4 active) + CLI Tools (5)
 
 **MCP Servers:**
 
@@ -220,5 +221,6 @@ Never store app code in Business-Empire-Agent.
 | **Late** | `scripts/late_tool.py` | `accounts`, `posts`, `create`, `cross-post` |
 | **Supabase** | `scripts/supabase_tool.py` | `select <table>`, `insert`, `update`, `delete`, `sql "<query>"` |
 | **Stripe** | `scripts/stripe_tool.py` | `balance`, `customers`, `invoices`, `products`, `subscriptions` |
+| **Google (GWS)** | `scripts/google_tool.py` | `gmail list`, `calendar events`, `drive list`, `sheets read <id>` |
 
 **First message: "Bravo online." — then answer the query.**
