@@ -1,0 +1,16 @@
+{
+  "version": 3,
+  "defaultNote": "brain/DASHBOARD",
+  "openMode": "replaceAll",
+  "manualOpenMode": "replaceAll",
+  "view": "default",
+  "revertView": true,
+  "openOnStartup": true,
+  "hasRibbonIcon": true,
+  "autoCreate": false,
+  "autoScroll": false,
+  "pin": false,
+  "commands": [],
+  "alwaysApply": false,
+  "refreshDataview": false
+}

@@ -1,0 +1,156 @@
+<h2>📋 CRM & Lead Engine — Full HubSpot Replacement for $0</h2>
+<p></p>
+<p><strong>XP Reward: +150 XP</strong> | Running Total: 250 XP</p>
+<p><strong>Level: Builder (L1)</strong> — Building tools that run your business.</p>
+<p></p>
+<p>HubSpot starts at $50/month and runs to $3,200/month for anything beyond basic contact storage. What you are paying for is a database with a pretty UI on top. This lesson gives you the database without the UI — and CLI commands that are faster to use than any web interface.</p>
+<p></p>
+<p><code>lead_engine.py</code> is a complete CRM: contact records, interaction history, lead scoring, pipeline stage tracking, and follow-up reminders. Every record lives in Supabase. Every action takes one line in the terminal.</p>
+<p></p>
+<h3>🗄️ Database Schema</h3>
+<p></p>
+<p>Two tables. That's the entire CRM.</p>
+<p></p>
+<p><strong>Table: leads</strong></p>
+<p><code>id</code> — bigint, primary key, auto-increment</p>
+<p><code>name</code> — text, not null</p>
+<p><code>email</code> — text</p>
+<p><code>phone</code> — text</p>
+<p><code>company</code> — text</p>
+<p><code>source</code> — text (instagram, referral, cold-outreach, inbound, etc.)</p>
+<p><code>stage</code> — text, default 'new' (new → contacted → qualified → proposal → negotiating → won/lost)</p>
+<p><code>score</code> — integer, default 0</p>
+<p><code>notes</code> — text</p>
+<p><code>assigned_to</code> — text</p>
+<p><code>next_followup</code> — timestamptz</p>
+<p><code>created_at</code> — timestamptz, default now()</p>
+<p><code>updated_at</code> — timestamptz, default now()</p>
+<p></p>
+<p><strong>Table: lead_interactions</strong></p>
+<p><code>id</code> — bigint, primary key, auto-increment</p>
+<p><code>lead_id</code> — bigint, foreign key → leads.id</p>
+<p><code>type</code> — text (email_sent, email_opened, email_clicked, call, meeting, dm_reply, proposal_sent, note)</p>
+<p><code>notes</code> — text</p>
+<p><code>created_at</code> — timestamptz, default now()</p>
+<p></p>
+<p>⚡ <strong>QUICK WIN:</strong> Create both tables in the Supabase SQL editor with one query. Open your Supabase project → SQL Editor → paste the CREATE TABLE statements → run. Takes 60 seconds. Every other engine in this stack also starts with schema creation — get comfortable with it now.</p>
+<p></p>
+<h3>🔧 All Commands</h3>
+<p></p>
+<p>Here is the full command surface of <code>lead_engine.py</code>:</p>
+<p></p>
+<p><strong>list</strong> — Show all leads with optional filtering</p>
+<p><code>python scripts/lead_engine.py list</code></p>
+<p><code>python scripts/lead_engine.py list --stage qualified</code></p>
+<p><code>python scripts/lead_engine.py list --limit 10 --json</code></p>
+<p></p>
+<p><strong>add</strong> — Create a new lead</p>
+<p><code>python scripts/lead_engine.py add --name "Sarah Chen" --email "s@acme.com" --company "Acme Corp" --source instagram</code></p>
+<p></p>
+<p><strong>view</strong> — Show a single lead with full interaction history</p>
+<p><code>python scripts/lead_engine.py view --id 42</code></p>
+<p></p>
+<p><strong>update</strong> — Update any field on an existing lead</p>
+<p><code>python scripts/lead_engine.py update --id 42 --stage qualified --notes "Confirmed budget of $2K/mo"</code></p>
+<p></p>
+<p><strong>score</strong> — Recalculate and display the lead score</p>
+<p><code>python scripts/lead_engine.py score --id 42</code></p>
+<p></p>
+<p><strong>interact</strong> — Log an interaction (automatically increments score)</p>
+<p><code>python scripts/lead_engine.py interact --id 42 --type meeting --notes "45-min discovery call, very interested"</code></p>
+<p></p>
+<p><strong>pipeline</strong> — Show all leads grouped by stage with counts</p>
+<p><code>python scripts/lead_engine.py pipeline</code></p>
+<p></p>
+<p><strong>followups</strong> — Show leads where next_followup is overdue or due today</p>
+<p><code>python scripts/lead_engine.py followups</code></p>
+<p></p>
+<p><strong>funnel</strong> — Conversion rates between each stage</p>
+<p><code>python scripts/lead_engine.py funnel</code></p>
+<p></p>
+<h3>📊 Lead Scoring Algorithm</h3>
+<p></p>
+<p>Every lead has a score. Score determines priority. Here are the exact point values:</p>
+<p></p>
+<p><strong>Profile completeness (base score):</strong></p>
+<p>• Email on file: +10 points</p>
+<p>• Phone on file: +10 points</p>
+<p>• Company on file: +5 points</p>
+<p></p>
+<p><strong>Interaction history (+points per occurrence):</strong></p>
+<p>• Any interaction logged: +5 points</p>
+<p>• <code>email_opened</code>: +10 points</p>
+<p>• <code>email_clicked</code>: +15 points</p>
+<p>• <code>meeting</code>: +20 points</p>
+<p>• <code>dm_reply</code>: +15 points</p>
+<p></p>
+<p>A lead who replied to a DM, booked a meeting, and clicked a follow-up email has: 10 (email) + 10 (phone) + 5 (company) + 15 (dm_reply) + 20 (meeting) + 15 (email_clicked) = <strong>75 points</strong>. That is a hot lead. Work that lead today.</p>
+<p></p>
+<p>The scoring function queries <code>lead_interactions</code> and sums weights. It runs on <code>score</code> command and automatically after every <code>interact</code> call.</p>
+<p></p>
+<p>💡 <strong>PRO TIP:</strong> The scheduler runs <code>lead_engine.py followups --json</code> every morning at 8AM and sends the list to Telegram via <code>notify.py</code>. You wake up with your priority call list already in your phone. Set this up in Lesson 4.</p>
+<p></p>
+<h3>🔄 Pipeline Stages</h3>
+<p></p>
+<p>Every lead flows through these stages in order:</p>
+<p></p>
+<p><code>new</code> → Lead entered the system, no contact made yet</p>
+<p><code>contacted</code> → First outreach sent (DM, email, or call)</p>
+<p><code>qualified</code> → Confirmed fit: budget, authority, need, timeline</p>
+<p><code>proposal</code> → Proposal or pricing sent</p>
+<p><code>negotiating</code> → Actively discussing terms</p>
+<p><code>won</code> → Signed. Move them to your client list.</p>
+<p><code>lost</code> → Not proceeding. Log why with a note. Review monthly.</p>
+<p></p>
+<p>Move a lead between stages:</p>
+<p><code>python scripts/lead_engine.py update --id 42 --stage proposal</code></p>
+<p></p>
+<p>The <code>pipeline</code> command shows a visual breakdown of how many leads are in each stage and what your bottleneck is. If you have 20 leads in <code>qualified</code> but only 2 in <code>proposal</code>, you are not sending enough proposals. The data tells you where to focus.</p>
+<p></p>
+<h3>🔗 Integration Points</h3>
+<p></p>
+<p>The lead engine does not operate in isolation. It connects to the rest of the stack:</p>
+<p></p>
+<p><strong>email_engine → lead_engine:</strong> When <code>email_engine.py send</code> delivers an email to a lead, it calls <code>lead_engine.py interact --type email_sent</code> automatically. Every send is logged. You never lose track of who got what.</p>
+<p></p>
+<p><strong>booking_engine → lead_engine:</strong> When a booking is confirmed, <code>booking_engine.py</code> calls <code>lead_engine.py update --stage contacted</code> on the matching email. Stage advances automatically.</p>
+<p></p>
+<p><strong>instagram_engine → lead_engine:</strong> DM replies captured by <code>instagram_engine.py</code> can be piped into <code>lead_engine.py interact --type dm_reply</code>. Score updates automatically.</p>
+<p></p>
+<p><strong>notify.py:</strong> Every time a lead moves to <code>qualified</code> or <code>won</code>, the lead engine fires a Telegram notification via <code>notify.py</code>. You get pinged on your phone the moment a deal closes.</p>
+<p></p>
+<p>💀 <strong>COMMON MISTAKE:</strong> Logging interactions manually after the fact. The value of this system is <em>automatic, real-time logging</em>. Wire up the integrations in Lesson 4 and let the engines talk to each other. If you are manually logging every email send, you have rebuilt HubSpot's worst feature: data entry.</p>
+<p></p>
+<p>🧠 <strong>KEY TAKEAWAY:</strong> A CRM is only as useful as the data inside it. The lead engine is designed so that data enters automatically — through email sends, booking confirmations, and DM replies — without you typing anything. Your job is to run the <code>pipeline</code> and <code>followups</code> commands each morning, not to maintain the database.</p>
+<p></p>
+<hr>
+<p></p>
+<h2>🔥 CHALLENGE: Build Your CRM (+150 XP)</h2>
+<p></p>
+<p>1️⃣ Create both tables in Supabase SQL Editor. Use the schema above as your reference. Run the query and confirm both tables appear in the Table Editor.</p>
+<p></p>
+<p>2️⃣ Add 3 test leads — one from each of these sources: instagram, cold-outreach, referral.</p>
+<p><code>python scripts/lead_engine.py add --name "..." --email "..." --source instagram</code></p>
+<p></p>
+<p>3️⃣ Log 2 interactions on your highest-potential lead — one <code>dm_reply</code> and one <code>meeting</code>.</p>
+<p><code>python scripts/lead_engine.py interact --id 1 --type dm_reply --notes "Replied asking for pricing"</code></p>
+<p><code>python scripts/lead_engine.py interact --id 1 --type meeting --notes "30-min intro call"</code></p>
+<p></p>
+<p>4️⃣ Run <code>score</code> on that lead and verify the points are correct per the scoring algorithm.</p>
+<p></p>
+<p>5️⃣ Move that lead from <code>new</code> to <code>qualified</code> using the <code>update</code> command.</p>
+<p></p>
+<p>6️⃣ Run <code>pipeline</code> and verify you see leads in the correct stages.</p>
+<p></p>
+<p>🏆 <strong>BOSS LEVEL:</strong> Run <code>funnel</code> and calculate your current conversion rate from <code>new</code> to <code>qualified</code>. Then run <code>followups</code> and check if any of your test leads have overdue follow-ups. Set a <code>next_followup</code> timestamp on one lead using the <code>update</code> command and run <code>followups</code> again to confirm it appears. (+75 bonus XP)</p>
+<p></p>
+<h3>✅ Checkpoint</h3>
+<p>Before moving to Lesson 3, confirm:</p>
+<p>☐ Both tables created in Supabase</p>
+<p>☐ At least 3 leads in the system</p>
+<p>☐ Interaction history logged on at least one lead</p>
+<p>☐ Lead scoring working correctly</p>
+<p>☐ <code>pipeline</code> command shows leads in correct stages</p>
+<p>☐ You understand what your bottleneck stage would look like in a real funnel</p>
+<p></p>
+<p>Post your <code>pipeline</code> output in the community with <strong>#LeadEngine</strong> 📋</p>
