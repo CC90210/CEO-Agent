@@ -11,19 +11,36 @@ Output: JSON with screenshot path (auto-relayed to Telegram by the bridge).
 """
 
 import argparse
-import ctypes
-import ctypes.wintypes
 import json
 import os
 import subprocess
+import sys
 import time
 
-CREATE_NO_WINDOW = 0x08000000
-CHROME = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+IS_WIN = sys.platform == "win32"
+IS_MAC = sys.platform == "darwin"
+
+# Output path
+if IS_WIN:
+    TARGET = os.path.join(os.environ.get("TEMP", "."), "browser_check.png")
+else:
+    TARGET = "/tmp/browser_check.png"
 
 
-def get_chrome_window_rect():
-    """Find Chrome window and return its bounding rect (left, top, width, height)."""
+# ── Windows helpers ──────────────────────────────────────────────────────────
+
+def _win_open_chrome(url):
+    import ctypes
+    CHROME = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+    CREATE_NO_WINDOW = 0x08000000
+    subprocess.Popen([CHROME, url], creationflags=CREATE_NO_WINDOW)
+
+
+def _win_screenshot(target):
+    """Find Chrome window rect and screenshot it; fallback to full screen."""
+    import ctypes
+    import ctypes.wintypes
+
     user32 = ctypes.windll.user32
     WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.wintypes.HWND, ctypes.wintypes.LPARAM)
 
@@ -41,23 +58,38 @@ def get_chrome_window_rect():
 
     user32.EnumWindows(WNDENUMPROC(enum_callback), 0)
 
+    import mss
     if chrome_hwnd:
-        # Restore if minimized, bring to front
-        user32.ShowWindow(chrome_hwnd, 9)  # SW_RESTORE
+        user32.ShowWindow(chrome_hwnd, 9)   # SW_RESTORE
         user32.SetForegroundWindow(chrome_hwnd)
-
-        # Get window rect
         rect = ctypes.wintypes.RECT()
         user32.GetWindowRect(chrome_hwnd, ctypes.byref(rect))
-        return {
-            "hwnd": chrome_hwnd,
-            "left": rect.left,
-            "top": rect.top,
+        monitor = {
+            "left": max(rect.left, 0),
+            "top": max(rect.top, 0),
             "width": rect.right - rect.left,
-            "height": rect.bottom - rect.top
+            "height": rect.bottom - rect.top,
         }
-    return None
+        with mss.mss() as sct:
+            img = sct.grab(monitor)
+            mss.tools.to_png(img.rgb, img.size, output=target)
+    else:
+        with mss.mss() as sct:
+            sct.shot(output=target)
 
+
+# ── macOS helpers ────────────────────────────────────────────────────────────
+
+def _mac_open_chrome(url):
+    subprocess.Popen(["open", "-a", "Google Chrome", url])
+
+
+def _mac_screenshot(target):
+    """Full-screen screenshot with sound suppressed (-x)."""
+    subprocess.run(["screencapture", "-x", target], check=False)
+
+
+# ── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
     parser = argparse.ArgumentParser(description="Open URL in Chrome and capture screenshot")
@@ -65,40 +97,30 @@ def main():
     parser.add_argument("--wait", type=int, default=4, help="Seconds to wait for page load")
     args = parser.parse_args()
 
-    target = os.path.join(os.environ.get("TEMP", "."), "browser_check.png")
+    if not IS_WIN and not IS_MAC:
+        print(json.dumps({"ok": False, "error": "Unsupported platform: only macOS and Windows are supported"}))
+        sys.exit(1)
 
     # Step 1: Open URL in Chrome
-    subprocess.Popen([CHROME, args.url], creationflags=CREATE_NO_WINDOW)
+    if IS_WIN:
+        _win_open_chrome(args.url)
+    else:
+        _mac_open_chrome(args.url)
 
     # Step 2: Wait for page to load
     time.sleep(args.wait)
 
-    # Step 3: Find Chrome window and get its rect
-    time.sleep(0.5)
-    chrome = get_chrome_window_rect()
-
-    if chrome:
-        # Step 4: Screenshot JUST the Chrome window (not full screen — avoids focus issues)
-        import mss
-        with mss.mss() as sct:
-            monitor = {
-                "left": max(chrome["left"], 0),
-                "top": max(chrome["top"], 0),
-                "width": chrome["width"],
-                "height": chrome["height"]
-            }
-            img = sct.grab(monitor)
-            mss.tools.to_png(img.rgb, img.size, output=target)
+    # Step 3: Screenshot
+    if IS_WIN:
+        time.sleep(0.5)
+        _win_screenshot(TARGET)
     else:
-        # Fallback: full screen screenshot
-        import mss
-        with mss.mss() as sct:
-            sct.shot(output=target)
+        _mac_screenshot(TARGET)
 
     print(json.dumps({
         "ok": True,
-        "output": f"Opened {args.url} in Chrome and captured screenshot.\nScreenshot saved to {target}",
-        "file": target
+        "output": f"Opened {args.url} in Chrome and captured screenshot.\nScreenshot saved to {TARGET}",
+        "file": TARGET,
     }))
 
 

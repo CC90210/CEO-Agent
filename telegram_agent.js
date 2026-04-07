@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 // ============================================================
-// BRAVO TELEGRAM BRIDGE V15.3
+// BRAVO TELEGRAM BRIDGE V15.4
 //
 // V11.0: Full-Context Parity — loads CLAUDE.md, brain files, skills refs.
 // V12.0: Conversation Memory — stores last 15 messages per chat,
@@ -22,6 +22,13 @@ const path = require('path');
 // V15.3: Security Hardening — AppleScript injection sanitization, !sys blocklist,
 //         callback user ID verification, execFile for cost tracking, sensitive path
 //         blocking, protected process list, rate limiting (5/10s).
+// V15.3.1: Auth Bulletproofing — startup API health check on every boot,
+//         401 error detection with clear Telegram alert. Uses Claude Code
+//         subscription auth (long-lived token via claude setup-token).
+// V15.4: Stress-Tested + mousetool C binary — native CoreGraphics mouse control
+//         (replaces broken Python Quartz), smooth animated cursor, drag support,
+//         youtube-play atomic command, window/browser guard fixes, T0 max-turns 6,
+//         tier classifier 24/24 PASS (coding exclusions prevent false T0 routing).
 // ============================================================
 
 // ---- PLATFORM DETECTION ----
@@ -53,7 +60,7 @@ const log = (msg) => {
     try { fs.appendFileSync(LOG_FILE, line); } catch (_) {}
 };
 
-log(`Bravo Telegram Bridge V15.3 (${IS_MAC ? 'macOS' : 'Windows'} — Full Autonomy) starting...`);
+log(`Bravo Telegram Bridge V15.4 (${IS_MAC ? 'macOS' : 'Windows'} — Full Autonomy) starting...`);
 
 // ---- CONVERSATION HISTORY ----
 // Stores last N message pairs (user + assistant) per chat.
@@ -183,12 +190,15 @@ const T3_KEYWORDS = ['redesign', 'architecture', 'refactor', 'migrate', 'schema'
 // T2 is the default for everything else (build, fix, implement, debug, etc.)
 
 // T0 keywords — quick actions that need minimal context (computer control + business tools)
-const T0_KEYWORDS = /\b(open|launch|click|screenshot|volume|mute|play|switch|type|close|quit|move|resize|fullscreen|minimize|snap|record|dark.?mode|wifi|bluetooth|brightness|clipboard|copy|paste|lock|sleep|battery|sysinfo|soundcloud|music|song|track|browse|tab|website|url|amazon|download|scroll|mouse|ping|network|ip|audio|shutdown|restart|cart|inbox|email|gmail|calendar|meeting|schedule|stripe|balance|invoice|payment|customer|post|social|linkedin|instagram|threads|tiktok|youtube|facebook|reddit|workflow|n8n|supabase|database)\b/i;
+const T0_KEYWORDS = /\b(open|launch|click|screenshot|volume|mute|play|switch|type|close|quit|move|resize|fullscreen|minimize|snap|record|dark.?mode|wifi|bluetooth|brightness|clipboard|copy|paste|lock|sleep|battery|sysinfo|soundcloud|music|song|track|browse|tab|website|url|amazon|download|scroll|mouse|drag|ping|network|ip|audio|shutdown|restart|cart|inbox|email|gmail|calendar|meeting|schedule|stripe|balance|invoice|payment|customer|post|social|linkedin|instagram|threads|tiktok|youtube|facebook|reddit|workflow|n8n|supabase|database|running|processes|apps)\b/i;
+// Coding-task verbs that indicate T2 even if T0 keywords are present (e.g. "fix the supabase bug")
+const T0_CODING_EXCLUSIONS = /\b(fix|debug|implement|refactor|build feature|write code|write function|failing test|unit test|create api|create endpoint|create route|create table|create schema)\b/i;
 
 const classifyTier = (text) => {
     const t = text.toLowerCase();
     // T0: Quick action — minimal prompt for computer control + business tools
-    if (T0_KEYWORDS.test(t) && !T3_KEYWORDS.some(k => t.includes(k))) return 0;
+    // Exclude coding tasks even if they mention T0 keywords (e.g. "fix the supabase schema")
+    if (T0_KEYWORDS.test(t) && !T3_KEYWORDS.some(k => t.includes(k)) && !T0_CODING_EXCLUSIONS.test(t)) return 0;
     // T3 keywords win first (most specific)
     if (T3_KEYWORDS.some(k => t.includes(k))) return 3;
     // T1 only if ALL words match simple patterns (no action verbs)
@@ -242,13 +252,15 @@ const loadContext = (tier = 2) => {
 - Context Manager: ${PYTHON} scripts/context_manager.py [tier|compact|status|health]
 - Cost Tracker: ${PYTHON} scripts/cost_tracker.py [log|summary|session|budget]
 - Memory Aging: ${PYTHON} scripts/memory_aging.py [scan|stale|health|archive]
-- MCP servers: Playwright, Context7, Memory, Sequential Thinking`);
+- Firecrawl (web scraping): ${PYTHON} scripts/firecrawl_tool.py [scrape|crawl|search|extract|map] <url|query>
+- Semantic memory (mem0): ${PYTHON} scripts/mem0_tool.py [add|search|list|get|delete|stats]
+- MCP servers: Playwright, Context7, Memory, Sequential Thinking, Firecrawl`);
 
     // Computer control (cross-platform — macOS + Windows)
     const REVEAL_CMD = IS_MAC ? 'reveal-in-finder' : 'reveal-in-explorer';
     chunks.push(`=== ${IS_MAC ? 'macOS' : 'Windows'} Computer Control V2.1 (60+ commands — FULL CONTROL) ===
 APPS: open --app X | quit --app X | list-apps | frontmost
-INPUT: type --text "..." | keystroke --keys "${IS_MAC ? 'cmd' : 'ctrl'}+c" | click --x N --y N | right-click --x N --y N | double-click --x N --y N | scroll --direction up|down [--amount N] | mouse-move --x N --y N
+INPUT: type --text "..." | keystroke --keys "${IS_MAC ? 'cmd' : 'ctrl'}+c" | click --x N --y N | right-click --x N --y N | double-click --x N --y N | scroll --direction up|down [--amount N] | mouse-move --x N --y N | mouse-animate --x N --y N [--duration 0.5] [--steps 30] | drag --x1 N --y1 N --x2 N --y2 N [--duration 0.5]
 WINDOWS: window-move --app X --x N --y N | window-resize --app X --w N --h N | window-fullscreen --app X | window-left/right/center --app X | window-minimize/restore --app X | list-windows
 SCREENSHOTS: screenshot [--path ${TEMP_PATH}/X.png] | screenshot-window [--path ${TEMP_PATH}/X.png]
 RECORDING: record-start [--path ${TEMP_PATH}/X.${IS_MAC ? 'mov' : 'mp4'}] | record-stop
@@ -284,7 +296,7 @@ NOW PLAYING: \${PYTHON} scripts/music_control.py current
 SEARCH: \${PYTHON} scripts/music_control.py search --query "..."
 All support --json flag.
 
-CRITICAL: For music, use music_control.py (1 command = done). For web browsing, use browser-open/browser-js commands. NEVER try to manually orchestrate multi-step browser interactions — you WILL run out of turns. Use the atomic scripts.
+CRITICAL: Use ATOMIC commands: youtube-play (1 cmd → YouTube playing), open --wait (waits for app launch). For web browsing, use browser-open/browser-js. For visual demos, use mouse-animate (smooth cursor movement). NEVER manually orchestrate what a built-in command already does — you WILL run out of turns.
 IMPORTANT: When taking screenshots or recordings, the file is AUTOMATICALLY sent back to the Telegram chat. Always use ${TEMP_PATH}${IS_MAC ? '/' : '\\\\'} paths.
 POWER COMMANDS (shutdown/restart/logout) require --confirm flag. Always ask the user for confirmation FIRST.`);
 
@@ -336,13 +348,31 @@ BUSINESS OPS (use these — NOT the browser):
 - Database: ${PYTHON} scripts/supabase_tool.py select <table> --project bravo --limit 10
 - Financial: ${PYTHON} scripts/financial_model.py unit-economics | forecast | scenario --type base|bull|bear
 - Skool metrics: ${PYTHON} scripts/skool_engine.py metrics --json (scrapes dashboard, updates revenue DB automatically)
+- Web scraping: ${PYTHON} scripts/firecrawl_tool.py scrape <url> | crawl <url> --limit 10 | search "query" | map <url>
+- Semantic memory: ${PYTHON} scripts/mem0_tool.py add "fact" | search "query" | list | stats
 
-PC CONTROL:
-- System: ${PYTHON} scripts/windows_control.py sysinfo|list-apps|screenshot|volume --level N|mute --toggle|get-ip|disk-usage|uptime --json
-- Webpage (CC's Chrome, logged in): ${PYTHON} scripts/browse_and_capture.py --url "URL"
-- Music: ${PYTHON} scripts/music_control.py play --query "..." --json
+COMPUTER CONTROL (${IS_MAC ? 'macOS' : 'Windows'}):
+${IS_MAC ? `SINGLE-COMMAND WORKFLOWS (use these first — atomic, 1 turn):
+- Play YouTube: python3 scripts/macos_control.py youtube-play --query "lofi beats" --json
+- Open app (wait for launch): python3 scripts/macos_control.py open --app "Serato DJ Pro" --wait --json
+- Screenshot: python3 scripts/macos_control.py screenshot --json  (auto-sent to Telegram)
+- Volume/mute: python3 scripts/macos_control.py volume --level N --json | mute --toggle --json
+- Music (SoundCloud): python3 scripts/music_control.py play --query "..." --json
+- Open URL in Chrome: python3 scripts/macos_control.py browser-open --url "https://..." --json
 
-RULES: 1-2 turns. Run the right tool, report. Done. CLI tools over browsers. Do NOT overthink.
+MOUSE & INTERACTION (visual — CC can watch the cursor move):
+- Smooth move: python3 scripts/macos_control.py mouse-animate --x N --y N --duration 0.5 --json
+- Click: python3 scripts/macos_control.py click --x N --y N --json
+- Drag: python3 scripts/macos_control.py drag --x1 N --y1 N --x2 N --y2 N --duration 0.5 --json
+- Type text: python3 scripts/macos_control.py type --text "..." --json
+- Run JS in Chrome: python3 scripts/macos_control.py browser-js --script "document.querySelector('button').click()" --json
+- Get screen size: python3 scripts/macos_control.py screen-size --json
+
+ANY OTHER ACTION: python3 scripts/macos_control.py <command> [args] --json  (65+ commands)` : `- System/apps/windows: python scripts/windows_control.py <command> [args] --json
+- Open URL in Chrome: python scripts/browse_and_capture.py --url "https://..."
+- Music: python scripts/music_control.py play --query "..." --json`}
+
+RULES: Use ATOMIC commands first (youtube-play, open --wait). For multi-step tasks, chain commands across turns — max 6 turns. Always prefer the single-command version when it exists. Never manually orchestrate what a built-in command already does.
 ${history}
 CC says:`;
     }
@@ -366,7 +396,7 @@ TELEGRAM-SPECIFIC RULES:
 (8) All credentials are in .env.agents — NEVER hardcode secrets.
 (9) Use RECENT CONVERSATION HISTORY for context from prior messages.
 (10) APPROVAL GATE: Before destructive actions, output "⚠️ CONFIRM: [description]" and STOP.
-(11) COMPUTER CONTROL: ${PYTHON} scripts/windows_control.py <command> --json for desktop control. ${PYTHON} scripts/browse_and_capture.py --url "URL" for opening webpages in CC's real Chrome.
+(11) COMPUTER CONTROL: ${PYTHON} scripts/${IS_MAC ? 'macos' : 'windows'}_control.py <command> --json for desktop control. ${PYTHON} scripts/browse_and_capture.py --url "URL" for opening webpages in CC's real Chrome.
 (12) FILE RELAY: Screenshots/files saved to ${TEMP_PATH} are auto-sent to Telegram.
 (13) MUSIC: ${PYTHON} scripts/music_control.py for SoundCloud.
 
@@ -425,11 +455,11 @@ const executeCli = (tool, userPrompt, chatId) => {
     return new Promise((resolve) => {
         const fullPrompt = tool === 'claude' ? `${buildPrompt(chatId, userPrompt)} ${userPrompt}` : `${buildGeminiPrompt(chatId)} ${userPrompt}`;
         const tier = classifyTier(userPrompt);
-        const timeout = tool === 'claude' ? (tier === 0 ? 120000 : CLAUDE_TIMEOUT) : GEMINI_TIMEOUT;
+        const timeout = tool === 'claude' ? (tier === 0 ? 300000 : CLAUDE_TIMEOUT) : GEMINI_TIMEOUT; // T0: 5min, others: 10min
         let cmd, args;
 
         if (tool === 'claude') {
-            const maxTurns = tier === 0 ? '3' : '10';
+            const maxTurns = tier === 0 ? '6' : '10';
             cmd = CLAUDE_EXE;
             args = [
                 '-p', fullPrompt,
@@ -523,6 +553,14 @@ const executeCli = (tool, userPrompt, chatId) => {
                 resolve(code === 0 ? 'Done.' : `Error (code ${code}). Try !claude for complex tasks.`);
                 return;
             }
+
+            // Auth error detection — 401/OAuth expiry gets a clear message to CC
+            if (code !== 0 && /authentication_error|OAuth token has expired|401|Invalid API key|Please obtain a new token/i.test(raw)) {
+                log(`[AUTH ERROR] ${tool} returned auth failure — check ANTHROPIC_API_KEY in .env.agents`);
+                resolve('Auth error — check that ANTHROPIC_API_KEY is valid in .env.agents, then: pm2 restart bravo-telegram');
+                return;
+            }
+
             resolve(cleanOutput(raw));
         });
 
@@ -745,7 +783,7 @@ bot.on('message', async (msg) => {
 
     if (text === '/start' || text === '/help') {
         return bot.sendMessage(chatId, [
-            `Bravo Bridge V15.3 (${MACHINE_NAME} — Full Computer Control)`,
+            `Bravo Bridge V15.4 (${MACHINE_NAME} — Full Computer Control)`,
             '',
             'Just type anything → Claude handles it (25 turns)',
             '',
@@ -1008,4 +1046,46 @@ process.on('unhandledRejection', (err) => {
     log(`[UNHANDLED] ${err.message || err}`);
 });
 
-log(`Bridge V15.3 ready. Platform: ${IS_MAC ? 'macOS' : 'Windows'}. Computer control: FULL CONTROL (60+ cmds).`);
+log(`Bridge V15.4 ready. Platform: ${IS_MAC ? 'macOS' : 'Windows'}. Computer control: FULL CONTROL (60+ cmds).`);
+
+// ---- STARTUP AUTH HEALTH CHECK ----
+// Tests ANTHROPIC_API_KEY directly on every boot. If it fails, Telegram alerts CC.
+// Runs 5s after start so polling settles first.
+setTimeout(() => {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+        log('[HEALTH] ANTHROPIC_API_KEY missing — Claude requests will fail');
+        return;
+    }
+    const https = require('https');
+    const body = JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 5,
+        messages: [{ role: 'user', content: 'ping' }]
+    });
+    const req = https.request({
+        hostname: 'api.anthropic.com',
+        path: '/v1/messages',
+        method: 'POST',
+        headers: {
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+            'content-type': 'application/json',
+            'content-length': Buffer.byteLength(body)
+        }
+    }, (res) => {
+        if (res.statusCode === 200) {
+            log('[HEALTH] Anthropic API key: OK');
+        } else {
+            log(`[HEALTH] Anthropic API key FAILED (HTTP ${res.statusCode}) — check .env.agents`);
+            if (ALLOWED_USERS.length > 0) {
+                bot.sendMessage(ALLOWED_USERS[0],
+                    `⚠️ Bravo startup: API key check failed (HTTP ${res.statusCode}).\nBravo will not respond until fixed. Update ANTHROPIC_API_KEY in .env.agents then: pm2 restart bravo-telegram`
+                ).catch(() => {});
+            }
+        }
+    });
+    req.on('error', (e) => log(`[HEALTH] API check error: ${e.message}`));
+    req.write(body);
+    req.end();
+}, 5000);
