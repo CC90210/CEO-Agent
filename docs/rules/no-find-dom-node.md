@@ -1,0 +1,3 @@
+
+## Obsidian Links
+- [[docs/INDEX]]

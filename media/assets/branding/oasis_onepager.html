@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OASIS AI Solutions — One Pager</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: #141413;
+      color: #FAF9F5;
+      width: 8.5in;
+      height: 11in;
+      margin: 0 auto;
+      padding: 0.6in;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Subtle gradient overlay */
+    body::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(135deg, #141413 0%, #1a1a2e 60%, rgba(10, 132, 255, 0.08) 100%);
+      z-index: 0;
+    }
+
+    .content {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.35in;
+      padding-bottom: 0.15in;
+      border-bottom: 2px solid rgba(10, 132, 255, 0.4);
+    }
+
+    .logo-area h1 {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #FAF9F5 0%, #0A84FF 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .logo-area .tagline {
+      font-size: 12px;
+      color: #8E8E93;
+      margin-top: 4px;
+      font-weight: 500;
+    }
+
+    .contact-info {
+      text-align: right;
+      font-size: 11px;
+      color: #8E8E93;
+      line-height: 1.7;
+    }
+
+    .contact-info a {
+      color: #0A84FF;
+      text-decoration: none;
+    }
+
+    /* Hero Section */
+    .hero {
+      background: linear-gradient(135deg, rgba(10, 132, 255, 0.12) 0%, rgba(10, 132, 255, 0.04) 100%);
+      border: 1px solid rgba(10, 132, 255, 0.2);
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin-bottom: 0.25in;
+      text-align: center;
+    }
+
+    .hero h2 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #FAF9F5;
+    }
+
+    .hero p {
+      font-size: 13px;
+      color: #c7c7cc;
+      line-height: 1.5;
+      max-width: 550px;
+      margin: 0 auto;
+    }
+
+    /* Stats Row */
+    .stats {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 0.25in;
+    }
+
+    .stat-card {
+      flex: 1;
+      background: #1C1C1E;
+      border: 1px solid #2C2C2E;
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .stat-card .number {
+      font-size: 28px;
+      font-weight: 800;
+      color: #0A84FF;
+      line-height: 1;
+    }
+
+    .stat-card .label {
+      font-size: 10px;
+      color: #8E8E93;
+      margin-top: 6px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* Services Grid */
+    .section-title {
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #0A84FF;
+      margin-bottom: 12px;
+    }
+
+    .services-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 0.25in;
+    }
+
+    .service {
+      background: #1C1C1E;
+      border: 1px solid #2C2C2E;
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+
+    .service h4 {
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      color: #FAF9F5;
+    }
+
+    .service p {
+      font-size: 11px;
+      color: #8E8E93;
+      line-height: 1.4;
+    }
+
+    .service .emoji {
+      font-size: 18px;
+      margin-bottom: 6px;
+    }
+
+    /* How It Works */
+    .process {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 0.25in;
+    }
+
+    .step {
+      flex: 1;
+      text-align: center;
+      position: relative;
+    }
+
+    .step .num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #0A84FF;
+      color: #FAF9F5;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 8px;
+    }
+
+    .step h5 {
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 3px;
+    }
+
+    .step p {
+      font-size: 10px;
+      color: #8E8E93;
+      line-height: 1.3;
+    }
+
+    /* Industries */
+    .industries {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 0.25in;
+    }
+
+    .industry-tag {
+      background: rgba(10, 132, 255, 0.1);
+      border: 1px solid rgba(10, 132, 255, 0.2);
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 11px;
+      font-weight: 500;
+      color: #0A84FF;
+    }
+
+    /* CTA */
+    .cta {
+      background: linear-gradient(135deg, #0A84FF 0%, #0066CC 100%);
+      border-radius: 12px;
+      padding: 20px 24px;
+      text-align: center;
+    }
+
+    .cta h3 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .cta p {
+      font-size: 12px;
+      opacity: 0.9;
+      margin-bottom: 10px;
+    }
+
+    .cta .cta-link {
+      display: inline-block;
+      background: #FAF9F5;
+      color: #141413;
+      padding: 10px 28px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 13px;
+      text-decoration: none;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 12px;
+      font-size: 10px;
+      color: #8E8E93;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="content">
+
+    <!-- Header -->
+    <div class="header">
+      <div class="logo-area">
+        <h1>OASIS AI Solutions</h1>
+        <div class="tagline">We build the systems that give you your time back.</div>
+      </div>
+      <div class="contact-info">
+        Conaugh McKenna, Founder<br>
+        <a href="mailto:oasisaisolutions@gmail.com">oasisaisolutions@gmail.com</a><br>
+        <a href="https://oasisai.work">oasisai.work</a> · Collingwood, ON
+      </div>
+    </div>
+
+    <!-- Hero -->
+    <div class="hero">
+      <h2>Stop Spending 10+ Hours a Week on Admin Work</h2>
+      <p>We deploy custom AI automation systems that handle your repetitive tasks — lead follow-ups, scheduling,
+        invoicing, social media, and more — so you can focus on growing your business.</p>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats">
+      <div class="stat-card">
+        <div class="number">15+</div>
+        <div class="label">Hours Saved / Week</div>
+      </div>
+      <div class="stat-card">
+        <div class="number">40%</div>
+        <div class="label">Fewer No-Shows</div>
+      </div>
+      <div class="stat-card">
+        <div class="number">24/7</div>
+        <div class="label">Lead Response</div>
+      </div>
+      <div class="stat-card">
+        <div class="number">2 wk</div>
+        <div class="label">Setup Time</div>
+      </div>
+    </div>
+
+    <!-- Services -->
+    <div class="section-title">What We Automate</div>
+    <div class="services-grid">
+      <div class="service">
+        <div class="emoji">🤖</div>
+        <h4>AI Lead Qualification</h4>
+        <p>Website visitors → qualified leads in your inbox. No manual screening.</p>
+      </div>
+      <div class="service">
+        <div class="emoji">📧</div>
+        <h4>Smart Follow-Ups</h4>
+        <p>Automated email/SMS sequences that nurture leads without lifting a finger.</p>
+      </div>
+      <div class="service">
+        <div class="emoji">📅</div>
+        <h4>Scheduling & Reminders</h4>
+        <p>Auto-book appointments, send reminders, reduce no-shows by 40%.</p>
+      </div>
+      <div class="service">
+        <div class="emoji">📱</div>
+        <h4>Social Media Autopilot</h4>
+        <p>Content creation and posting across all platforms on autopilot.</p>
+      </div>
+      <div class="service">
+        <div class="emoji">💰</div>
+        <h4>Invoicing & Payments</h4>
+        <p>Generate invoices, send payment links, track collections automatically.</p>
+      </div>
+      <div class="service">
+        <div class="emoji">⭐</div>
+        <h4>Review Generation</h4>
+        <p>After every job: automated review requests to Google & Yelp.</p>
+      </div>
+    </div>
+
+    <!-- How It Works -->
+    <div class="section-title">How It Works</div>
+    <div class="process">
+      <div class="step">
+        <div class="num">1</div>
+        <h5>Discovery Call</h5>
+        <p>15 min to understand your workflows and pain points</p>
+      </div>
+      <div class="step">
+        <div class="num">2</div>
+        <h5>Custom Audit</h5>
+        <p>We identify the top 3 automations for your business</p>
+      </div>
+      <div class="step">
+        <div class="num">3</div>
+        <h5>Build & Deploy</h5>
+        <p>We build, test, and launch your systems in 1-2 weeks</p>
+      </div>
+      <div class="step">
+        <div class="num">4</div>
+        <h5>Support & Scale</h5>
+        <p>Ongoing optimization — your systems get smarter over time</p>
+      </div>
+    </div>
+
+    <!-- Industries -->
+    <div class="section-title">Industries We Serve</div>
+    <div class="industries">
+      <span class="industry-tag">🔧 HVAC</span>
+      <span class="industry-tag">🔨 Contractors</span>
+      <span class="industry-tag">🪠 Plumbing</span>
+      <span class="industry-tag">🏠 Roofing</span>
+      <span class="industry-tag">🌿 Landscaping</span>
+      <span class="industry-tag">💆 Spas & Wellness</span>
+      <span class="industry-tag">🦴 Chiropractic</span>
+      <span class="industry-tag">🏥 Med Spas</span>
+      <span class="industry-tag">🚗 Auto Repair</span>
+      <span class="industry-tag">🏡 Real Estate</span>
+      <span class="industry-tag">🦷 Dental</span>
+      <span class="industry-tag">👁️ Optometry</span>
+    </div>
+
+    <!-- CTA -->
+    <div class="cta">
+      <h3>Ready to Get Your Time Back?</h3>
+      <p>Hop on a free 15-minute call — no commitment, no pitch. Just clarity.</p>
+      <a href="https://meet.google.com/oqd-xpoq-fgw" class="cta-link">Join a Quick Call →</a>
+    </div>
+
+    <div class="footer">
+      © 2026 OASIS AI Solutions · Collingwood, Ontario · oasisai.ca
+    </div>
+
+  </div>
+</body>
+
+</html>

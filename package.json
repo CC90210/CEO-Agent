@@ -1,0 +1,35 @@
+{
+  "name": "business-empire-agent",
+  "version": "1.0.0",
+  "description": "> Autonomous AI operations hub for CC's business empire. Manages codebases, deployments, content pipelines, and business operations across OASIS AI Solutions, PropFlow, and Nostalgic Requests.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "telegram": "node telegram_agent.js",
+    "telegram:bg": "node telegram_agent.js >> telegram_bot.log 2>&1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CC90210/business-empire-agent.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/CC90210/business-empire-agent/issues"
+  },
+  "homepage": "https://github.com/CC90210/business-empire-agent#readme",
+  "dependencies": {
+    "@google/genai": "^1.43.0",
+    "@notionhq/client": "^5.11.0",
+    "@remotion/cli": "^4.0.431",
+    "@remotion/renderer": "^4.0.431",
+    "@supabase/supabase-js": "^2.98.0",
+    "dotenv": "^17.3.1",
+    "node-telegram-bot-api": "^0.67.0",
+    "nodemailer": "^8.0.1",
+    "playwright": "^1.58.2",
+    "remotion": "^4.0.431"
+  }
+}

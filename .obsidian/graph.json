@@ -1,0 +1,58 @@
+{
+  "collapse-filter": false,
+  "search": "",
+  "showTags": true,
+  "showAttachments": false,
+  "hideUnresolved": false,
+  "showOrphans": true,
+  "collapse-color-groups": false,
+  "colorGroups": [
+    {
+      "query": "path:brain",
+      "color": {
+        "a": 1,
+        "rgb": 16729156
+      }
+    },
+    {
+      "query": "path:memory",
+      "color": {
+        "a": 1,
+        "rgb": 4439167
+      }
+    },
+    {
+      "query": "path:skills",
+      "color": {
+        "a": 1,
+        "rgb": 3394611
+      }
+    },
+    {
+      "query": "path:agents",
+      "color": {
+        "a": 1,
+        "rgb": 16753920
+      }
+    },
+    {
+      "query": "path:APPS_CONTEXT",
+      "color": {
+        "a": 1,
+        "rgb": 10494192
+      }
+    }
+  ],
+  "collapse-display": false,
+  "showArrow": true,
+  "textFadeMultiplier": -2.2,
+  "nodeSizeMultiplier": 1.171875,
+  "lineSizeMultiplier": 0.4828125,
+  "collapse-forces": false,
+  "centerStrength": 0.604166666666667,
+  "repelStrength": 11.25,
+  "linkStrength": 0.203125,
+  "linkDistance": 500,
+  "scale": 0.05932617187499981,
+  "close": false
+}

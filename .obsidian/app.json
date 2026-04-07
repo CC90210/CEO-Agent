@@ -1,0 +1,22 @@
+{
+  "monoFontFamily": "JetBrains Mono, Fira Code, Consolas, monospace",
+  "useMarkdownLinks": false,
+  "showUnsupportedFiles": false,
+  "newFileLocation": "folder",
+  "newFileFolderPath": "memory/daily",
+  "newLinkFormat": "shortest",
+  "attachmentFolderPath": "media",
+  "alwaysUpdateLinks": true,
+  "showFrontmatter": true,
+  "defaultViewMode": "source",
+  "livePreview": true,
+  "promptDelete": true,
+  "userIgnoreFilters": [
+    "tmp/",
+    "node_modules/",
+    "content-studio/node_modules/",
+    ".git/",
+    "media/raw/",
+    "media/exports/"
+  ]
+}
