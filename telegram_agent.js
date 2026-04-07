@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 // ============================================================
-// BRAVO TELEGRAM BRIDGE V15.3
+// BRAVO TELEGRAM BRIDGE V15.4
 //
 // V11.0: Full-Context Parity — loads CLAUDE.md, brain files, skills refs.
 // V12.0: Conversation Memory — stores last 15 messages per chat,
@@ -25,6 +25,10 @@ const path = require('path');
 // V15.3.1: Auth Bulletproofing — startup API health check on every boot,
 //         401 error detection with clear Telegram alert. Uses Claude Code
 //         subscription auth (long-lived token via claude setup-token).
+// V15.4: Stress-Tested + mousetool C binary — native CoreGraphics mouse control
+//         (replaces broken Python Quartz), smooth animated cursor, drag support,
+//         youtube-play atomic command, window/browser guard fixes, T0 max-turns 6,
+//         tier classifier 24/24 PASS (coding exclusions prevent false T0 routing).
 // ============================================================
 
 // ---- PLATFORM DETECTION ----
@@ -56,7 +60,7 @@ const log = (msg) => {
     try { fs.appendFileSync(LOG_FILE, line); } catch (_) {}
 };
 
-log(`Bravo Telegram Bridge V15.3 (${IS_MAC ? 'macOS' : 'Windows'} — Full Autonomy) starting...`);
+log(`Bravo Telegram Bridge V15.4 (${IS_MAC ? 'macOS' : 'Windows'} — Full Autonomy) starting...`);
 
 // ---- CONVERSATION HISTORY ----
 // Stores last N message pairs (user + assistant) per chat.
@@ -779,7 +783,7 @@ bot.on('message', async (msg) => {
 
     if (text === '/start' || text === '/help') {
         return bot.sendMessage(chatId, [
-            `Bravo Bridge V15.3 (${MACHINE_NAME} — Full Computer Control)`,
+            `Bravo Bridge V15.4 (${MACHINE_NAME} — Full Computer Control)`,
             '',
             'Just type anything → Claude handles it (25 turns)',
             '',
@@ -1042,7 +1046,7 @@ process.on('unhandledRejection', (err) => {
     log(`[UNHANDLED] ${err.message || err}`);
 });
 
-log(`Bridge V15.3 ready. Platform: ${IS_MAC ? 'macOS' : 'Windows'}. Computer control: FULL CONTROL (60+ cmds).`);
+log(`Bridge V15.4 ready. Platform: ${IS_MAC ? 'macOS' : 'Windows'}. Computer control: FULL CONTROL (60+ cmds).`);
 
 // ---- STARTUP AUTH HEALTH CHECK ----
 // Tests ANTHROPIC_API_KEY directly on every boot. If it fails, Telegram alerts CC.
