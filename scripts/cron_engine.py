@@ -21,6 +21,7 @@ import json
 import sys
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from typing import Optional
 
 
 # -- Credential loading --------------------------------------------------------
@@ -175,7 +176,7 @@ SEED_JOBS: list[dict] = [
 
 # -- Cron schedule parsing (next-run approximation) ----------------------------
 
-def _next_run_approx(schedule: str) -> str | None:
+def _next_run_approx(schedule: str) -> Optional[str]:
     """
     Best-effort approximation of the next UTC run time for a 5-field cron expression.
     Handles simple cases (numeric fields, '*', step '/N'). Day-of-week names
@@ -199,7 +200,7 @@ def _next_run_approx(schedule: str) -> str | None:
 
     minute_f, hour_f, dom_f, month_f, dow_f = [normalise(p) for p in parts]
 
-    def parse_int(field: str) -> int | None:
+    def parse_int(field: str) -> Optional[int]:
         try:
             return int(field)
         except (ValueError, TypeError):

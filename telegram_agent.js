@@ -963,6 +963,35 @@ bot.on('callback_query', async (query) => {
         return;
     }
 
+    // ---- OUTREACH BATCH: Approve / Skip inline buttons ----
+    if (data.startsWith('outreach_send_') || data.startsWith('outreach_skip_')) {
+        const leadId = data.replace(/^outreach_(send|skip)_/, '');
+        const action = data.startsWith('outreach_send_') ? 'send' : 'skip';
+        const draftPath = require('path').join(__dirname, 'tmp', 'outreach_drafts', `${leadId}.json`);
+
+        await bot.answerCallbackQuery(query.id, { text: action === 'send' ? '📤 Sending…' : '⏭️ Skipped' }).catch(() => {});
+
+        if (action === 'send') {
+            await bot.sendMessage(chatId, '📤 Sending email...');
+            log(`[OUTREACH] Approved send for lead ${leadId}`);
+            const { execFile } = require('child_process');
+            const PYTHON_BIN = IS_MAC ? 'python3' : 'python';
+            execFile(PYTHON_BIN, ['scripts/outreach_batch.py', '--send-draft', draftPath], { cwd: __dirname, timeout: 30000 }, (err, stdout, stderr) => {
+                let msg = stdout ? stdout.trim() : '';
+                try { const j = JSON.parse(msg); msg = j.output || msg; } catch (_) {}
+                if (err || stderr) msg = msg || `Error: ${stderr || err}`;
+                bot.sendMessage(chatId, msg || '✅ Email sent.').catch(() => {});
+            });
+        } else {
+            log(`[OUTREACH] Skipped lead ${leadId}`);
+            const { execFile } = require('child_process');
+            const PYTHON_BIN = IS_MAC ? 'python3' : 'python';
+            execFile(PYTHON_BIN, ['scripts/outreach_batch.py', '--skip-draft', draftPath], { cwd: __dirname, timeout: 15000 }, () => {});
+            await bot.sendMessage(chatId, `⏭️ Lead skipped.`);
+        }
+        return;
+    }
+
     const pending = PENDING_CONFIRMATIONS[String(chatId)];
 
     await bot.answerCallbackQuery(query.id).catch(() => {});
