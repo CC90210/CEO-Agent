@@ -1,0 +1,249 @@
+"""Skool Engine Watchdog — reliable single-instance daemon management on Windows.
+
+Called by skool_watchdog_silent.pyw every 5 minutes via Task Scheduler.
+Ensures exactly ONE skool_engine daemon is running at all times.
+
+Fixed 2026-03-23: Replaces unreliable os.kill(pid,0) with tasklist-based detection.
+Fixed 2026-03-23: Kills orphan processes before restarting to prevent accumulation.
+Fixed 2026-03-26: Heartbeat-first liveness — wmic is unreliable on Windows 11.
+    The daemon writes tmp/skool_daemon.heartbeat every cycle (~2 min).
+    If heartbeat is fresh (< 10 min), daemon is alive — skip wmic entirely.
+Fixed 2026-04-01: Zombie process detection by start time.
+    A process running >24 hours is considered stale (started before latest code changes).
+    kill_stale_daemons() uses PowerShell WMI to find and terminate such processes.
+    clean_bytecache() purges .pyc files so restarts load fresh source.
+    PID file now records started_at timestamp for age checks without PowerShell.
+"""
+
+import json
+import subprocess
+import sys
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+PID_FILE = ROOT / "tmp" / "skool_daemon.pid"
+HEARTBEAT_FILE = ROOT / "tmp" / "skool_daemon.heartbeat"
+LOCK_FILE = ROOT / "tmp" / "skool_daemon.lock"
+LOG_FILE = ROOT / "tmp" / "logs" / "watchdog.log"
+VENV_PYTHON = ROOT / ".venv" / "Scripts" / "python.exe"
+ENGINE_SCRIPT = ROOT / "scripts" / "skool_engine.py"
+CREATE_NO_WINDOW = 0x08000000
+
+# Heartbeat older than this = daemon is dead
+HEARTBEAT_MAX_AGE = timedelta(minutes=10)
+
+# Processes started more than this long ago are considered stale zombies
+DAEMON_MAX_AGE = timedelta(hours=24)
+
+
+def log(msg: str):
+    """Append timestamped message to watchdog log."""
+    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with open(LOG_FILE, "a") as f:
+        f.write(f"[{datetime.now():%Y-%m-%d %H:%M:%S}] {msg}\n")
+
+
+def is_heartbeat_fresh() -> bool:
+    """Check if daemon heartbeat file exists and is recent."""
+    if not HEARTBEAT_FILE.exists():
+        return False
+    try:
+        data = json.loads(HEARTBEAT_FILE.read_text())
+        ts = datetime.fromisoformat(data["ts"])
+        age = datetime.now(ts.tzinfo) if ts.tzinfo else datetime.now()
+        age = age - ts
+        return age < HEARTBEAT_MAX_AGE
+    except Exception:
+        return False
+
+
+def is_pid_alive(pid: int) -> bool:
+    """Check if a specific PID is alive using Windows kernel32 (reliable)."""
+    try:
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+        if handle:
+            kernel32.CloseHandle(handle)
+            return True
+        return False
+    except Exception:
+        return False
+
+
+def get_daemon_pid() -> int | None:
+    """Read daemon PID from PID file."""
+    if not PID_FILE.exists():
+        return None
+    try:
+        data = json.loads(PID_FILE.read_text())
+        pid = data.get("pid")
+        return int(pid) if pid else None
+    except Exception:
+        return None
+
+
+def kill_stale_daemons():
+    """Kill python processes that have been running longer than DAEMON_MAX_AGE.
+
+    Uses PowerShell WMI to find processes with a start time older than the
+    threshold that reference skool_engine in their command line. Falls back
+    to taskkill if WMI Terminate fails (zombie processes often only die via WMI).
+    """
+    cutoff = datetime.now(timezone.utc) - DAEMON_MAX_AGE
+    # ISO 8601 format PowerShell's Get-Date can parse
+    cutoff_str = cutoff.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    ps_script = (
+        "$cutoff = [datetime]::Parse('" + cutoff_str + "').ToLocalTime(); "
+        "Get-WmiObject Win32_Process "
+        "-Filter \\\"Name='python.exe' OR Name='pythonw.exe'\\\" | "
+        "Where-Object { "
+        "  $_.CommandLine -like '*skool_engine*' -and "
+        "  $_.ConvertToDateTime($_.CreationDate) -lt $cutoff "
+        "} | ForEach-Object { "
+        "  $pid = $_.ProcessId; "
+        "  $start = $_.ConvertToDateTime($_.CreationDate); "
+        "  $result = $_.Terminate(); "
+        "  Write-Output \\\"KILLED:$pid:$start:$($result.ReturnValue)\\\" "
+        "}"
+    )
+
+    try:
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_script],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            creationflags=CREATE_NO_WINDOW,
+        )
+        for line in result.stdout.strip().splitlines():
+            if line.startswith("KILLED:"):
+                parts = line.split(":", 3)
+                pid_killed = parts[1] if len(parts) > 1 else "?"
+                start_time = parts[2] if len(parts) > 2 else "?"
+                return_val = parts[3] if len(parts) > 3 else "?"
+                log(
+                    f"Zombie killed: PID {pid_killed} started {start_time} "
+                    f"(WMI return={return_val})"
+                )
+        if result.stderr.strip():
+            log(f"kill_stale_daemons stderr: {result.stderr.strip()[:200]}")
+    except subprocess.TimeoutExpired:
+        log("kill_stale_daemons: PowerShell timed out")
+    except Exception as exc:
+        log(f"kill_stale_daemons error: {exc}")
+
+
+def clean_bytecache():
+    """Delete skool_engine .pyc files so any restart loads fresh source code."""
+    pycache = ROOT / "scripts" / "__pycache__"
+    if not pycache.exists():
+        return
+    removed = []
+    for pyc in pycache.glob("skool_engine*.pyc"):
+        try:
+            pyc.unlink()
+            removed.append(pyc.name)
+        except Exception as exc:
+            log(f"clean_bytecache: could not remove {pyc.name}: {exc}")
+    if removed:
+        log(f"Bytecache cleared: {', '.join(removed)}")
+
+
+def start_daemon():
+    """Start a single skool_engine daemon — no popup window."""
+    PID_FILE.unlink(missing_ok=True)
+    HEARTBEAT_FILE.unlink(missing_ok=True)
+
+    # Prefer venv python; fall back to sys.executable so CI/bare-Python envs work
+    python_exe = VENV_PYTHON if VENV_PYTHON.exists() else Path(sys.executable)
+    if not python_exe.exists():
+        log(f"ERROR: python executable not found at {python_exe}")
+        return
+
+    log_path = ROOT / "tmp" / "logs" / "skool_daemon_live.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    proc = subprocess.Popen(
+        [str(python_exe), str(ENGINE_SCRIPT), "daemon", "--interval", "5"],
+        cwd=str(ROOT),
+        creationflags=CREATE_NO_WINDOW,
+        stdout=open(log_path, "a"),
+        stderr=subprocess.STDOUT,
+    )
+
+    # Record start time in PID file so future watchdog runs can detect age
+    # without needing a PowerShell call.
+    PID_FILE.write_text(
+        json.dumps({"pid": proc.pid, "started_at": datetime.now().isoformat()})
+    )
+    log(f"Skool daemon started (PID {proc.pid}, python={python_exe.name}, no window)")
+
+
+def is_lock_held() -> bool:
+    """Check if the daemon lock file is held by another process.
+
+    Try to open and lock it. If we can't, another daemon is running.
+    """
+    import msvcrt
+    if not LOCK_FILE.exists():
+        return False
+    try:
+        fh = open(LOCK_FILE, "r+")
+        try:
+            msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+            # We got the lock — no daemon holds it. Release immediately.
+            msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+            fh.close()
+            return False
+        except (OSError, IOError):
+            # Lock is held by another process — daemon is alive
+            fh.close()
+            return True
+    except Exception:
+        return False
+
+
+def main():
+    # PRE-CHECK: Kill stale zombie processes and wipe bytecache first.
+    # A zombie that started >24 hours ago has definitely been running on old code.
+    # Do this unconditionally — it's a no-op if no stale processes exist.
+    kill_stale_daemons()
+    clean_bytecache()
+
+    # PRIMARY CHECK: file lock (most reliable — OS-level, no race conditions)
+    if is_lock_held():
+        # Another daemon process holds the exclusive lock — it's alive
+        return
+
+    # SECONDARY CHECK: heartbeat file (daemon writes this every cycle)
+    if is_heartbeat_fresh():
+        # Daemon is alive and cycling — nothing to do
+        return
+
+    # TERTIARY CHECK: PID file + kernel32 process check
+    daemon_pid = get_daemon_pid()
+    if daemon_pid and is_pid_alive(daemon_pid):
+        # Process is alive but heartbeat is stale/missing — could be startup lag
+        # or first cycle hasn't completed yet. Give it one more watchdog cycle.
+        log(f"PID {daemon_pid} alive but heartbeat stale — waiting one more cycle")
+        return
+
+    # Daemon is truly dead — clean up and restart
+    if daemon_pid:
+        log(f"Daemon PID {daemon_pid} not alive. Cleaning up.")
+    else:
+        log("No daemon PID file found.")
+
+    PID_FILE.unlink(missing_ok=True)
+    HEARTBEAT_FILE.unlink(missing_ok=True)
+    LOCK_FILE.unlink(missing_ok=True)
+
+    log("Skool daemon not running. Starting...")
+    start_daemon()
+
+
+if __name__ == "__main__":
+    main()

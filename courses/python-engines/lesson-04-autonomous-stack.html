@@ -1,0 +1,251 @@
+<h2>🤖 The Autonomous Stack — Scheduler, Notifications & DMs</h2>
+<p></p>
+<p><strong>XP Reward: +200 XP</strong> | Running Total: 625 XP</p>
+<p><strong>Level: Architect (L3)</strong> — Building systems that run without you.</p>
+<p></p>
+<p>The first three lessons gave you the tools. This lesson makes them autonomous. You will wire up a Telegram notification system, an Instagram DM engine, a 24/7 scheduler daemon, and a revenue tracker. By the end, your stack runs itself — alerting you only when something needs a human decision.</p>
+<p></p>
+<p>That is the definition of an autonomous business operation: it works while you sleep, and it only wakes you up when it matters.</p>
+<p></p>
+<hr>
+<p></p>
+<h2>📱 Part 1: notify.py — Your Real-Time Alert System</h2>
+<p></p>
+<p>Telegram replaces Slack for internal notifications. It is free, instant, and works on every device. <code>notify.py</code> is a single-function wrapper that every other engine imports to fire alerts.</p>
+<p></p>
+<h3>BotFather Setup (10 minutes)</h3>
+<p></p>
+<p>1. Open Telegram and search for <code>@BotFather</code></p>
+<p>2. Send <code>/newbot</code> — follow the prompts, give your bot a name</p>
+<p>3. BotFather gives you a <strong>bot token</strong> — looks like <code>7845123456:AAF-something-long</code></p>
+<p>4. Start a chat with your new bot (search for it by name)</p>
+<p>5. Send it any message, then visit: <code>https://api.telegram.org/bot&lt;YOUR_TOKEN&gt;/getUpdates</code></p>
+<p>6. Find <code>"chat":{"id":...</code> in the response — that is your <strong>Chat ID</strong></p>
+<p></p>
+<p>Add both to <code>.env.agents</code>:</p>
+<p><code>TELEGRAM_BOT_TOKEN=7845123456:AAF-your-bot-token</code></p>
+<p><code>TELEGRAM_CHAT_ID=123456789</code></p>
+<p></p>
+<h3>Category-Based Notifications</h3>
+<p></p>
+<p>Every engine sends notifications with a category prefix so you know at a glance what fired:</p>
+<p></p>
+<p>• <code>lead</code> — New lead added, stage change, lead qualified</p>
+<p>• <code>email</code> — Email sent, sequence enrolled, open/click tracked</p>
+<p>• <code>booking</code> — Slot booked, booking cancelled, reminder sent</p>
+<p>• <code>content</code> — Post published, post failed, calendar reminder</p>
+<p>• <code>revenue</code> — New payment, subscription change, MRR milestone</p>
+<p>• <code>instagram</code> — DM received, comment flagged, auto-reply sent</p>
+<p>• <code>system</code> — Scheduler job ran, error caught, health check result</p>
+<p></p>
+<p>Usage from any engine:</p>
+<p><code>from notify import notify</code></p>
+<p><code>notify("lead", f"🎯 New lead qualified: {lead['name']} from {lead['company']}")</code></p>
+<p></p>
+<p>⚡ <strong>QUICK WIN:</strong> Test your bot right now. Run:</p>
+<p><code>python scripts/notify.py test</code></p>
+<p>You should get a message in Telegram within 2 seconds. If you don't, check your token and chat ID. Get this working before you touch any other engine in this lesson.</p>
+<p></p>
+<hr>
+<p></p>
+<h2>📸 Part 2: instagram_engine.py — DM Automation Without the ManyChat Tax</h2>
+<p></p>
+<p>ManyChat charges $15–$99/month to automate Instagram DMs. <code>instagram_engine.py</code> uses a persistent Playwright browser session stored in <code>tmp/ig-browser/</code> and handles DM checking, auto-replies, and comment monitoring through the Instagram web interface directly.</p>
+<p></p>
+<p>This is the same approach used in the production system. It has been tested: sent a real auto-reply in CC's voice, confirmed via Telegram notification.</p>
+<p></p>
+<h3>How the Persistent Session Works</h3>
+<p></p>
+<p>The first time you run the engine, it launches a browser, navigates to instagram.com, and waits for you to log in manually. After login, it saves the browser session state to <code>tmp/ig-browser/</code>. Every subsequent run restores that session — no login required, no 2FA prompts, no captcha.</p>
+<p></p>
+<p>Add credentials to <code>.env.agents</code>:</p>
+<p><code>INSTAGRAM_USERNAME=your_username</code></p>
+<p><code>INSTAGRAM_PASSWORD=your_password</code></p>
+<p></p>
+<h3>Commands</h3>
+<p></p>
+<p><strong>check-dms</strong> — Scan unread DMs and log them to Supabase</p>
+<p><code>python scripts/instagram_engine.py check-dms</code></p>
+<p></p>
+<p><strong>send-dm</strong> — Send a DM to a specific user</p>
+<p><code>python scripts/instagram_engine.py send-dm --username "prospect_handle" --message "Hey, saw your post about..."</code></p>
+<p></p>
+<p><strong>check-comments</strong> — Scan recent post comments and flag replies needed</p>
+<p><code>python scripts/instagram_engine.py check-comments --post-id "abc123"</code></p>
+<p></p>
+<p><strong>log-dm</strong> — Manually log a DM interaction to the lead engine</p>
+<p><code>python scripts/instagram_engine.py log-dm --username "prospect_handle" --direction inbound --content "They asked about pricing"</code></p>
+<p></p>
+<h3>Auto-Reply Logic</h3>
+<p></p>
+<p>The scheduler runs <code>check-dms</code> every 15 minutes. When a new DM matches a trigger keyword (configurable in Supabase <code>ig_auto_replies</code> table), the engine fires <code>send-dm</code> with the corresponding reply template and logs the interaction to the lead engine.</p>
+<p></p>
+<p>Example trigger config in Supabase:</p>
+<p><code>keyword: "pricing"</code></p>
+<p><code>reply: "Hey! Thanks for reaching out. Our packages start at $1,500/month — I'll send you a full breakdown. What's your email?"</code></p>
+<p></p>
+<p>⚠️ <strong>WARNING:</strong> Instagram's automation policies prohibit bulk unsolicited DMs. Use this for <em>reply automation</em> — responding to people who message you first — not for cold outreach blasts. The persistent session approach is also more fragile than an official API; if Instagram changes their web interface, the selectors may break. Check the engine monthly.</p>
+<p></p>
+<p>💀 <strong>COMMON MISTAKE:</strong> Running check-dms too frequently. Every 15 minutes is the right cadence. Every 1 minute triggers rate limiting and risks account flags. The scheduler handles the timing — don't run it manually on a loop.</p>
+<p></p>
+<hr>
+<p></p>
+<h2>⚙️ Part 3: scheduler.py — The 24/7 Conductor</h2>
+<p></p>
+<p>Everything you have built so far runs on demand. The scheduler makes it all autonomous. It reads cron jobs from Supabase, executes them on schedule, and fires Telegram notifications on completion or failure.</p>
+<p></p>
+<h3>Cron Jobs Table Schema</h3>
+<p></p>
+<p><code>id</code> — bigint, primary key</p>
+<p><code>name</code> — text (human-readable job name)</p>
+<p><code>command</code> — text (full shell command to run)</p>
+<p><code>schedule</code> — text (cron expression: "*/15 * * * *")</p>
+<p><code>enabled</code> — boolean, default true</p>
+<p><code>last_run</code> — timestamptz</p>
+<p><code>last_status</code> — text (success/error)</p>
+<p><code>error_message</code> — text</p>
+<p><code>created_at</code> — timestamptz, default now()</p>
+<p></p>
+<h3>The 12 Pre-Seeded Cron Jobs</h3>
+<p></p>
+<p>These are the jobs running in the production stack:</p>
+<p></p>
+<p><code>check-instagram-dms</code> — Every 15 minutes: <code>python scripts/instagram_engine.py check-dms</code></p>
+<p><code>morning-followups</code> — 8AM daily: <code>python scripts/lead_engine.py followups --json | python scripts/notify.py pipe lead</code></p>
+<p><code>email-sequence-processor</code> — Every hour: <code>python scripts/email_engine.py sequence process-due</code></p>
+<p><code>booking-reminders-24h</code> — 9AM daily: <code>python scripts/booking_engine.py remind --hours 24</code></p>
+<p><code>booking-reminders-1h</code> — Every hour: <code>python scripts/booking_engine.py remind --hours 1</code></p>
+<p><code>content-publisher</code> — Every hour: <code>python scripts/content_engine.py due --hours 1 --json | python scripts/scheduler.py dispatch-content</code></p>
+<p><code>revenue-daily-sync</code> — 6AM daily: <code>python scripts/revenue_engine.py sync --source stripe</code></p>
+<p><code>revenue-weekly-report</code> — 7AM Monday: <code>python scripts/revenue_engine.py report --period week | python scripts/notify.py pipe revenue</code></p>
+<p><code>lead-score-refresh</code> — 2AM daily: <code>python scripts/lead_engine.py score --all</code></p>
+<p><code>health-check</code> — Every 30 minutes: <code>python scripts/scheduler.py health --json | python scripts/notify.py pipe system</code></p>
+<p><code>session-log-compress</code> — 3AM Sunday: <code>python scripts/memory_tool.py compress-logs</code></p>
+<p><code>stripe-webhook-verify</code> — Every 6 hours: <code>python scripts/revenue_engine.py verify-webhooks</code></p>
+<p></p>
+<p>💡 <strong>PRO TIP:</strong> Store cron jobs in Supabase, not in a <code>crontab</code> file or hardcoded config. This means you can enable, disable, or modify jobs from anywhere — your phone, Claude Code, a script — without SSHing into a server. The scheduler reads the table on each tick. Change the table, change the schedule.</p>
+<p></p>
+<h3>PM2 Deployment</h3>
+<p></p>
+<p>PM2 keeps the scheduler running 24/7 and restarts it automatically after crashes or reboots.</p>
+<p></p>
+<p>Install PM2:</p>
+<p><code>npm install -g pm2</code></p>
+<p></p>
+<p>Start the scheduler:</p>
+<p><code>pm2 start "python scripts/scheduler.py run" --name "bravo-scheduler" --interpreter none</code></p>
+<p></p>
+<p>Enable auto-start on system reboot:</p>
+<p><code>pm2 startup</code></p>
+<p><code>pm2 save</code></p>
+<p></p>
+<p>Monitor running jobs:</p>
+<p><code>pm2 logs bravo-scheduler</code></p>
+<p><code>pm2 status</code></p>
+<p></p>
+<p>Stop the scheduler:</p>
+<p><code>pm2 stop bravo-scheduler</code></p>
+<p></p>
+<p>⚠️ <strong>WARNING:</strong> The scheduler reads <code>.env.agents</code> for credentials. If you rotate any API key, update <code>.env.agents</code> and run <code>pm2 restart bravo-scheduler</code>. The process reads the file at startup, not at each job execution.</p>
+<p></p>
+<hr>
+<p></p>
+<h2>💰 Part 4: revenue_engine.py — MRR Dashboard</h2>
+<p></p>
+<p>Baremetrics charges $99/month to show you your Stripe data in a dashboard. <code>revenue_engine.py</code> talks directly to the Stripe API and gives you the same metrics in your terminal — and in Telegram on Monday mornings.</p>
+<p></p>
+<h3>Commands</h3>
+<p></p>
+<p><strong>sync</strong> — Pull latest data from Stripe into Supabase</p>
+<p><code>python scripts/revenue_engine.py sync --source stripe</code></p>
+<p></p>
+<p><strong>dashboard</strong> — Show current MRR, ARR, active subscribers, churn rate</p>
+<p><code>python scripts/revenue_engine.py dashboard</code></p>
+<p></p>
+<p><strong>forecast</strong> — Project MRR for next 90 days based on current trend</p>
+<p><code>python scripts/revenue_engine.py forecast --days 90</code></p>
+<p></p>
+<p><strong>goal</strong> — Set and track an MRR goal</p>
+<p><code>python scripts/revenue_engine.py goal --target 5000 --currency usd --deadline "2026-05-15"</code></p>
+<p></p>
+<p><strong>report</strong> — Weekly or monthly revenue summary</p>
+<p><code>python scripts/revenue_engine.py report --period week</code></p>
+<p></p>
+<h3>Connecting to Stripe</h3>
+<p></p>
+<p>Add to <code>.env.agents</code>:</p>
+<p><code>STRIPE_SECRET_KEY=sk_live_your_key_here</code></p>
+<p></p>
+<p>The engine uses the Stripe Python SDK, not the MCP (which is broken in v0.3.1). The <code>sync</code> command pulls customers, subscriptions, and payments into Supabase so you have a local copy of your revenue data that does not depend on Stripe being up.</p>
+<p></p>
+<hr>
+<p></p>
+<h2>🗺️ The Full Stack: How All 11 Engines Connect</h2>
+<p></p>
+<p>Here is the complete picture of how the system works together:</p>
+<p></p>
+<p><strong>Data layer:</strong> Supabase — every engine reads and writes here. One source of truth.</p>
+<p></p>
+<p><strong>Notification layer:</strong> <code>notify.py</code> — every engine imports this. All alerts go to Telegram.</p>
+<p></p>
+<p><strong>Orchestration layer:</strong> <code>scheduler.py</code> — reads cron_jobs from Supabase, calls each engine on schedule.</p>
+<p></p>
+<p><strong>Engine layer (all 11 tools):</strong></p>
+<p>• <code>lead_engine.py</code> — contacts, interactions, scoring, pipeline</p>
+<p>• <code>email_engine.py</code> — sends, templates, sequences</p>
+<p>• <code>booking_engine.py</code> — slots, bookings, confirmations, reminders</p>
+<p>• <code>content_engine.py</code> — calendar, scheduling, Late MCP dispatch</p>
+<p>• <code>instagram_engine.py</code> — DM monitoring, auto-replies</p>
+<p>• <code>revenue_engine.py</code> — Stripe sync, MRR tracking, forecasting</p>
+<p>• <code>notify.py</code> — Telegram alerts (imported by all engines)</p>
+<p>• <code>supabase_tool.py</code> — raw database access for debugging</p>
+<p>• <code>stripe_tool.py</code> — raw Stripe access for debugging</p>
+<p>• <code>edit_content.py</code> — FFmpeg video pipeline</p>
+<p>• <code>memory_tool.py</code> — session log compression, archive management</p>
+<p></p>
+<p><strong>A typical autonomous day looks like this:</strong></p>
+<p></p>
+<p>6AM — <code>revenue_engine.py sync</code> pulls overnight Stripe activity</p>
+<p>7AM (Monday) — weekly revenue report fires to Telegram</p>
+<p>8AM — <code>lead_engine.py followups</code> sends your priority call list to Telegram</p>
+<p>Every 15min — <code>instagram_engine.py check-dms</code> scans for new messages, auto-replies to trigger keywords</p>
+<p>Every hour — due email sequences send, booking reminders fire, due content posts to Late MCP</p>
+<p>Every 30min — health check confirms all jobs are running, alerts on any failures</p>
+<p>Your phone — Telegram notifications for new leads, bookings, DM replies, payments</p>
+<p></p>
+<p>You: open Telegram, see what happened overnight, make three decisions, close Telegram. The rest ran itself.</p>
+<p></p>
+<p>🧠 <strong>KEY TAKEAWAY:</strong> The stack is only worth building if you actually deploy the scheduler. Every engine you built in Lessons 1–3 is a manual tool until the scheduler runs it automatically. PM2 + the cron jobs table is what converts manual tools into an autonomous operation. Do not skip this step.</p>
+<p></p>
+<hr>
+<p></p>
+<h2>🔥 CAPSTONE CHALLENGE: Deploy the Autonomous Stack (+200 XP)</h2>
+<p></p>
+<p>This is the final challenge. Complete all steps and you have a production autonomous stack running.</p>
+<p></p>
+<p>1️⃣ <strong>Telegram setup:</strong> Create your bot via BotFather. Add token and chat ID to <code>.env.agents</code>. Run <code>python scripts/notify.py test</code> and confirm the message arrives in Telegram.</p>
+<p></p>
+<p>2️⃣ <strong>Instagram engine:</strong> Run <code>python scripts/instagram_engine.py check-dms</code> for the first time to create the persistent session. Verify the session state saves to <code>tmp/ig-browser/</code>.</p>
+<p></p>
+<p>3️⃣ <strong>Scheduler setup:</strong> Create the <code>cron_jobs</code> table in Supabase using the schema above. Seed at least 3 active jobs — choose from the pre-seeded list or write your own.</p>
+<p></p>
+<p>4️⃣ <strong>PM2 deployment:</strong> Install PM2 and start the scheduler. Run <code>pm2 status</code> and confirm <code>bravo-scheduler</code> shows as <code>online</code>.</p>
+<p></p>
+<p>5️⃣ <strong>Verify the loop:</strong> Wait 15 minutes after deploying. Check <code>pm2 logs bravo-scheduler</code> and confirm the Instagram DM check ran. Confirm a <code>system</code> category Telegram notification fired from the health check job.</p>
+<p></p>
+<p>6️⃣ <strong>Revenue dashboard:</strong> Add your Stripe key to <code>.env.agents</code>. Run <code>python scripts/revenue_engine.py sync --source stripe</code> followed by <code>python scripts/revenue_engine.py dashboard</code>. Confirm your MRR appears.</p>
+<p></p>
+<p>🏆 <strong>BOSS LEVEL:</strong> Set a revenue goal of $5,000 USD by May 15, 2026 using <code>revenue_engine.py goal</code>. Run <code>forecast --days 57</code> and see where you land. Then open <code>lead_engine.py pipeline</code> and identify which stage has the most leads stuck in it. That is your bottleneck. Write one action you will take this week to move leads through it. Post both the forecast output and your action in the community. (+150 bonus XP)</p>
+<p></p>
+<h3>✅ Final Level Up Gate</h3>
+<p>Before claiming your Architect badge, confirm:</p>
+<p>☐ Telegram bot working, test notification received</p>
+<p>☐ Instagram engine session created and saved</p>
+<p>☐ <code>cron_jobs</code> table populated with at least 3 active jobs</p>
+<p>☐ PM2 running, <code>bravo-scheduler</code> online</p>
+<p>☐ Health check notification received in Telegram</p>
+<p>☐ Revenue dashboard showing Stripe data</p>
+<p>☐ Revenue goal set</p>
+<p>☐ You can explain what happens to a new Instagram DM from the moment it arrives to the moment it updates the lead engine — without looking at the code</p>
+<p></p>
+<p>Post your PM2 status screenshot in the community with <strong>#AutonomousStack</strong> and tag what your stack is replacing 🤖</p>

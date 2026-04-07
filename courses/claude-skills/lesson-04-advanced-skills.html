@@ -1,0 +1,137 @@
+<h2>🚀 Advanced Skills & Automation — Force Multipliers</h2>
+<p></p>
+<p><strong>XP Reward: +200 XP</strong> | Running Total: 550 XP</p>
+<p><strong>Level: Integrator (L2)</strong> — Chaining skills into autonomous workflows.</p>
+<p></p>
+<p>You've built individual skills. Now you learn to <strong>chain them into pipelines</strong> that handle entire workflows autonomously. This is where Claude Code stops being a tool and becomes an <strong>operating system for your work</strong>.</p>
+<p></p>
+<p>⚡ <strong>QUICK WIN:</strong> A single advanced skill can replace a 15-step manual checklist. One command, zero mental overhead, perfect execution every time.</p>
+<p></p>
+<h3>🌐 Browser Automation Skills</h3>
+<p></p>
+<p>With the Playwright MCP connected (from the MCPs module), you can build skills that automate web interactions:</p>
+<p></p>
+<p><strong>Web Research Skill:</strong></p>
+<p><code>---</code></p>
+<p><code>description: Research a topic via web browsing</code></p>
+<p><code>---</code></p>
+<p><code>Research: $ARGUMENTS</code></p>
+<p><code>1. Navigate to relevant sources using Playwright</code></p>
+<p><code>2. Take snapshots to read page content</code></p>
+<p><code>3. Extract key findings into bullet points</code></p>
+<p><code>4. Cite sources with URLs</code></p>
+<p><code>5. Summarize in 3-5 sentences</code></p>
+<p></p>
+<p><strong>Competitive Analysis Skill:</strong></p>
+<p><code>---</code></p>
+<p><code>description: Analyze a competitor's website</code></p>
+<p><code>---</code></p>
+<p><code>Visit: $ARGUMENTS</code></p>
+<p><code>Analyze: pricing, features, positioning, tech stack.</code></p>
+<p><code>Screenshot key pages for reference.</code></p>
+<p><code>Report: strengths, weaknesses, opportunities for us.</code></p>
+<p></p>
+<p>💡 <strong>PRO TIP:</strong> Browser skills work best when you give Claude specific URLs or clear search targets. "Research competitor pricing for AI automation agencies" works better than "research stuff."</p>
+<p></p>
+<h3>🧪 End-to-End Testing Skills</h3>
+<p></p>
+<p>Combine browser automation with testing to build skills that test your actual application:</p>
+<p></p>
+<p><strong>E2E Test Skill:</strong></p>
+<p><code>---</code></p>
+<p><code>description: Full end-to-end test of the application</code></p>
+<p><code>---</code></p>
+<p><code>1. Start the dev server (npm run dev)</code></p>
+<p><code>2. Navigate to each page with Playwright</code></p>
+<p><code>3. Test every form, button, and interaction</code></p>
+<p><code>4. Check console for JavaScript errors</code></p>
+<p><code>5. Test at mobile (375px), tablet (768px), desktop (1440px)</code></p>
+<p><code>6. Screenshot any issues found</code></p>
+<p><code>7. Fix issues, re-test, report results</code></p>
+<p></p>
+<p>This single skill replaces manual QA testing. Run it before every deployment. Catch bugs before your users do.</p>
+<p></p>
+<h3>📋 Plan-Execute Skills</h3>
+<p></p>
+<p>For complex features, break the work into two phases:</p>
+<p></p>
+<p><strong>Phase 1: Plan</strong></p>
+<p><code>---</code></p>
+<p><code>description: Create implementation plan for a feature</code></p>
+<p><code>---</code></p>
+<p><code>Feature: $ARGUMENTS</code></p>
+<p><code>1. Analyze the codebase for relevant files</code></p>
+<p><code>2. Identify dependencies and integration points</code></p>
+<p><code>3. Break into numbered tasks (each 2-5 minutes)</code></p>
+<p><code>4. Include test strategy for each task</code></p>
+<p><code>5. Save plan to docs/plans/ directory</code></p>
+<p><code>6. Wait for approval before executing</code></p>
+<p></p>
+<p><strong>Phase 2: Execute</strong></p>
+<p><code>---</code></p>
+<p><code>description: Execute an approved plan step by step</code></p>
+<p><code>---</code></p>
+<p><code>Load the plan from docs/plans/</code></p>
+<p><code>Execute tasks in order:</code></p>
+<p><code>- Write failing test first</code></p>
+<p><code>- Implement minimal code to pass</code></p>
+<p><code>- Verify before moving to next task</code></p>
+<p><code>- Commit after each completed task</code></p>
+<p><code>Stop and report after every 3 tasks.</code></p>
+<p></p>
+<p>🧠 <strong>KEY TAKEAWAY:</strong> Plan-Execute is how you build features that would normally take days. The plan prevents Claude from going off-track. The execute phase follows a verified path. Combined with TDD, you get reliable code at AI speed.</p>
+<p></p>
+<h3>🔗 Skill Chaining — The Pipeline Pattern</h3>
+<p></p>
+<p>The real power is <strong>chaining skills into pipelines</strong>. Here's a full ship pipeline:</p>
+<p></p>
+<p>1️⃣ <code>/plan</code> → Break feature into tasks</p>
+<p>2️⃣ <code>/execute</code> → Build with TDD</p>
+<p>3️⃣ <code>/review</code> → Auto-fix mechanical issues, flag judgment calls</p>
+<p>4️⃣ <code>/commit</code> → Conventional commit message</p>
+<p>5️⃣ <code>/ship</code> → Build check, push, deploy verification</p>
+<p></p>
+<p>Each skill is simple on its own. Chained together, they form a complete software delivery pipeline. One person with these skills ships faster than a team of 5 without them.</p>
+<p></p>
+<p>⚠️ <strong>WARNING:</strong> Don't build a pipeline skill that calls other skills internally — Claude Code doesn't support nested slash commands. Instead, run them in sequence manually. The discipline of running each step keeps you in control.</p>
+<p></p>
+<h3>🏗️ Building Skills from Experience</h3>
+<p></p>
+<p>The best skills come from your own repeated tasks. Follow this pattern:</p>
+<p></p>
+<p><strong>Step 1:</strong> Notice you're doing something for the 3rd time</p>
+<p><strong>Step 2:</strong> Write down the steps you followed</p>
+<p><strong>Step 3:</strong> Turn those steps into a skill file</p>
+<p><strong>Step 4:</strong> Test it, refine it, use it</p>
+<p></p>
+<p>After 3 uses, review the skill — are there steps you always skip? Remove them. Steps you always add? Include them. Skills evolve.</p>
+<p></p>
+<p>💀 <strong>COMMON MISTAKE:</strong> Building skills for things you'll only do once. Skills are for <strong>repeated workflows</strong>. If you're not going to use it again, just write the prompt directly. Don't over-engineer your toolbox.</p>
+<p></p>
+<hr>
+<p></p>
+<h2>🔥 CAPSTONE CHALLENGE: Build Your Agency Toolkit (+200 XP)</h2>
+<p></p>
+<p>Create a complete skill library for an AI automation agency:</p>
+<p></p>
+<p>1️⃣ <strong>/audit</strong> — Analyze a client's website and report opportunities for AI automation</p>
+<p></p>
+<p>2️⃣ <strong>/proposal</strong> — Generate a client proposal from audit findings (include pricing, timeline, deliverables)</p>
+<p></p>
+<p>3️⃣ <strong>/onboard</strong> — Client onboarding checklist (credentials, access, kickoff agenda)</p>
+<p></p>
+<p>4️⃣ <strong>/deliver</strong> — Deployment checklist for client projects (build, test, deploy, verify, handoff)</p>
+<p></p>
+<p>Test the full chain: <code>/audit</code> a real website → <code>/proposal</code> → <code>/onboard</code> → <code>/deliver</code>.</p>
+<p></p>
+<p>🏆 <strong>BOSS LEVEL:</strong> Add a <code>/research</code> skill that uses Playwright to browse a prospect's website and automatically generate audit findings. Full automation from URL to proposal. (+150 bonus XP)</p>
+<p></p>
+<h3>✅ Level Up Gate</h3>
+<p>Before completing this module, confirm:</p>
+<p>☐ You have at least 6 custom skills in your library</p>
+<p>☐ You've chained 3+ skills in a real workflow</p>
+<p>☐ You understand Plan-Execute for complex features</p>
+<p>☐ You've built at least 1 skill from your own repeated experience</p>
+<p>☐ You know the difference between skill chaining and nested skills</p>
+<p></p>
+<p>Post your agency toolkit in the community with <strong>#AgencyToolkit</strong> 🏗️</p>
