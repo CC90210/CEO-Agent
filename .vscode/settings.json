@@ -1,5 +1,5 @@
 {
-    "python.defaultInterpreterPath": "C:\\Users\\User\\Business-Empire-Agent\\.venv\\Scripts\\python.exe",
+    "python.defaultInterpreterPath": "/usr/bin/python3",
     "python.terminal.activateEnvironment": true,
     "python.analysis.extraPaths": [
         "${workspaceFolder}/scripts"
