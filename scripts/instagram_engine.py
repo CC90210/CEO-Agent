@@ -1131,7 +1131,7 @@ def _generate_reply_via_claude(last_msg: str, convo_context: str, payment_contex
     try:
         client = anthropic.Anthropic(api_key=api_key)
         response = client.messages.create(
-            model="claude-sonnet-4-6",
+            model=os.environ.get("CLAUDE_FAST_MODEL", "claude-sonnet-4-6"),
             max_tokens=150,
             system=system_prompt,
             messages=[{"role": "user", "content": user_msg}],

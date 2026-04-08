@@ -107,7 +107,7 @@ def build_config(env_vars: dict[str, str]) -> dict:
         "llm": {
             "provider": "anthropic",
             "config": {
-                "model": "claude-haiku-4-5-20251001",
+                "model": os.environ.get("CLAUDE_EXTRACTION_MODEL", "claude-haiku-4-5-20251001"),
                 "api_key": anthropic_key,
             },
         },

@@ -310,7 +310,7 @@ def _call_claude_vision(system_prompt: str, user_msg: str, image_data: list = No
             content = user_msg
 
         response = client.messages.create(
-            model="claude-sonnet-4-6",
+            model=env_vars.get("CLAUDE_FAST_MODEL", "claude-sonnet-4-6"),
             max_tokens=max_tokens,
             system=system_prompt,
             messages=[{"role": "user", "content": content}],
@@ -341,7 +341,7 @@ def _call_claude(system_prompt: str, user_msg: str, max_tokens: int = 300) -> st
     try:
         client = anthropic.Anthropic(api_key=api_key)
         response = client.messages.create(
-            model="claude-sonnet-4-6",
+            model=env_vars.get("CLAUDE_FAST_MODEL", "claude-sonnet-4-6"),
             max_tokens=max_tokens,
             system=system_prompt,
             messages=[{"role": "user", "content": user_msg}],

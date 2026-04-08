@@ -1,7 +1,7 @@
 ---
 name: security-reviewer
 description: Reviews code for security vulnerabilities, OWASP top 10, credential exposure
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob
 model: sonnet
 effort: high
 tags: [agent, security]
