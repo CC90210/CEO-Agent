@@ -33,7 +33,29 @@ from pathlib import Path
 warnings.filterwarnings("ignore", message=".*mean pooling.*", category=UserWarning)
 
 
-# ── Credential loading ────────────────────────────────────────────────────────
+# ── Config loading ────────────────────────────────────────────────────────────
+
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _read_config_model(key: str, fallback: str) -> str:
+    """Read a model name from .agents/config.toml."""
+    config_path = _PROJECT_ROOT / ".agents" / "config.toml"
+    if not config_path.exists():
+        return fallback
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith(f"{key}") and "=" in line:
+                    _, _, val = line.partition("=")
+                    val = val.strip().strip('"').strip("'")
+                    if val:
+                        return val
+    except OSError:
+        pass
+    return fallback
+
 
 def load_env() -> dict[str, str]:
     """Load .env.agents from project root."""
@@ -107,7 +129,7 @@ def build_config(env_vars: dict[str, str]) -> dict:
         "llm": {
             "provider": "anthropic",
             "config": {
-                "model": os.environ.get("CLAUDE_EXTRACTION_MODEL", "claude-haiku-4-5-20251001"),
+                "model": _read_config_model("extraction_model", "claude-haiku-4-5-20251001"),
                 "api_key": anthropic_key,
             },
         },

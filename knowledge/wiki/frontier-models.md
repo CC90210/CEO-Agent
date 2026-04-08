@@ -105,17 +105,18 @@ When CC is ready, these can migrate to Claude Code Remote Tasks for cloud execut
 
 **Agent SDK alternative:** For more control, wrap daemons as Agent SDK `query()` loops with session persistence. This gives full tool access + hook lifecycle but still runs on CC's hardware.
 
-## Model Env Vars (Add to .env.agents)
+## Model Config (.agents/config.toml)
 
-```
-# Model Configuration — change these when Mythos API access opens
-CLAUDE_DEFAULT_MODEL=claude-opus-4-6
-CLAUDE_FAST_MODEL=claude-sonnet-4-6
-CLAUDE_EXTRACTION_MODEL=claude-haiku-4-5-20251001
+```toml
+# Change these when Mythos API access opens — all scripts read from here
+model = "claude-opus-4-6"                          # Lead architect (Bravo)
+fast_model = "claude-sonnet-4-6"                   # Daemons, quick tasks
+extraction_model = "claude-haiku-4-5-20251001"     # Mem0, low-cost high-volume
 ```
 
-Scripts that read these: skool_engine.py, instagram_engine.py, mem0_tool.py, mcp-builder/evaluation.py.
-All scripts fall back to hardcoded defaults if env vars are missing — zero breaking changes.
+Scripts that read these: skool_engine.py, instagram_engine.py, mem0_tool.py.
+All scripts fall back to hardcoded defaults if config is missing — zero breaking changes.
+Credentials stay in `.env.agents`. Model config stays in `.agents/config.toml`.
 
 ## Obsidian Links
 - [[knowledge/index]] | [[knowledge/wiki/tech-stack]] | [[knowledge/wiki/revenue-model]]
