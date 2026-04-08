@@ -25,6 +25,7 @@ import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional, List, Dict
 
 
 # ---------------------------------------------------------------------------
@@ -54,7 +55,7 @@ def save_competitors(competitors: list[dict]) -> None:
         json.dump(competitors, f, indent=2, ensure_ascii=False)
 
 
-def find_competitor(competitors: list[dict], name: str) -> dict | None:
+def find_competitor(competitors: List[Dict], name: str) -> Optional[Dict]:
     name_lower = name.lower()
     for c in competitors:
         if c.get("name", "").lower() == name_lower:
