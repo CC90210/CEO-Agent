@@ -373,6 +373,25 @@ TIER_FILES = {
     },
 }
 
+# Token cost estimation (approx 3 tokens per line of markdown, priced at Claude Opus input rate)
+# Opus 4.6: $15/MTok input. Mythos (when available): expected similar or lower per-token.
+COST_PER_TOKEN_USD = 15.0 / 1_000_000  # $0.000015 per token
+TOKENS_PER_LINE = 3  # Conservative estimate for markdown
+
+def estimate_tier_cost(tier: int) -> dict:
+    """Estimate token count and USD cost for a context tier load."""
+    info = TIER_FILES[tier]
+    est_tokens = info["approx_lines"] * TOKENS_PER_LINE
+    est_cost = est_tokens * COST_PER_TOKEN_USD
+    return {
+        "tier": tier,
+        "est_tokens": est_tokens,
+        "est_cost_usd": round(est_cost, 6),
+        "files": len(info["files"]),
+        "approx_lines": info["approx_lines"],
+    }
+
+
 # Keywords that signal each tier. Checked in order from T3 → T1 so higher tiers win.
 TIER_KEYWORDS = {
     3: [
@@ -418,11 +437,15 @@ def cmd_tier(args) -> int:
         if kw in q:
             matched_keywords.append(kw)
 
+    cost = estimate_tier_cost(tier)
+
     result = {
         "query": query,
         "recommended_tier": tier,
         "description": info["description"],
         "approx_lines": info["approx_lines"],
+        "est_tokens": cost["est_tokens"],
+        "est_cost_usd": cost["est_cost_usd"],
         "files_to_load": info["files"],
         "matched_keywords": matched_keywords,
         "tier_rationale": {
@@ -438,6 +461,8 @@ def cmd_tier(args) -> int:
         (
             f"Tier {tier} — {info['description']}\n"
             f"  Approx lines : {info['approx_lines']}\n"
+            f"  Est. tokens  : {cost['est_tokens']:,}\n"
+            f"  Est. cost    : ${cost['est_cost_usd']:.6f}\n"
             f"  Matched on   : {', '.join(matched_keywords) if matched_keywords else 'default'}\n"
             f"\n  Files to load:\n"
             + "\n".join(f"    {f}" for f in info["files"])
