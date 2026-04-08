@@ -107,6 +107,25 @@ def capture_lead_to_crm(username: str, intent: str, message_text: str):
     return False
 
 
+def _read_config_model(key: str, fallback: str) -> str:
+    """Read a model name from .agents/config.toml."""
+    config_path = PROJECT_ROOT / ".agents" / "config.toml"
+    if not config_path.exists():
+        return fallback
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith(f"{key}") and "=" in line:
+                    _, _, val = line.partition("=")
+                    val = val.strip().strip('"').strip("'")
+                    if val:
+                        return val
+    except OSError:
+        pass
+    return fallback
+
+
 def load_env() -> dict:
     env_path = PROJECT_ROOT / ".env.agents"
     if not env_path.exists():
@@ -1131,7 +1150,7 @@ def _generate_reply_via_claude(last_msg: str, convo_context: str, payment_contex
     try:
         client = anthropic.Anthropic(api_key=api_key)
         response = client.messages.create(
-            model=os.environ.get("CLAUDE_FAST_MODEL", "claude-sonnet-4-6"),
+            model=_read_config_model("fast_model", "claude-sonnet-4-6"),
             max_tokens=150,
             system=system_prompt,
             messages=[{"role": "user", "content": user_msg}],
