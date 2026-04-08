@@ -152,6 +152,25 @@ log = setup_logging()
 # Env / State helpers
 # ---------------------------------------------------------------------------
 
+def _read_config_model(key: str, fallback: str) -> str:
+    """Read a model name from .agents/config.toml. Falls back to hardcoded default."""
+    config_path = PROJECT_ROOT / ".agents" / "config.toml"
+    if not config_path.exists():
+        return fallback
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith(f"{key}") and "=" in line:
+                    _, _, val = line.partition("=")
+                    val = val.strip().strip('"').strip("'")
+                    if val:
+                        return val
+    except OSError:
+        pass
+    return fallback
+
+
 def load_env() -> dict:
     env_path = PROJECT_ROOT / ".env.agents"
     if not env_path.exists():
@@ -310,7 +329,7 @@ def _call_claude_vision(system_prompt: str, user_msg: str, image_data: list = No
             content = user_msg
 
         response = client.messages.create(
-            model=env_vars.get("CLAUDE_FAST_MODEL", "claude-sonnet-4-6"),
+            model=_read_config_model("fast_model", "claude-sonnet-4-6"),
             max_tokens=max_tokens,
             system=system_prompt,
             messages=[{"role": "user", "content": content}],
@@ -341,7 +360,7 @@ def _call_claude(system_prompt: str, user_msg: str, max_tokens: int = 300) -> st
     try:
         client = anthropic.Anthropic(api_key=api_key)
         response = client.messages.create(
-            model=env_vars.get("CLAUDE_FAST_MODEL", "claude-sonnet-4-6"),
+            model=_read_config_model("fast_model", "claude-sonnet-4-6"),
             max_tokens=max_tokens,
             system=system_prompt,
             messages=[{"role": "user", "content": user_msg}],

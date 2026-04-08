@@ -10,8 +10,10 @@
 # Core Settings
 # =============================================================================
 
-# Primary model for lead architect work
-model = "claude-opus-4-6"
+# Model configuration — change these when Mythos API access opens
+model = "claude-opus-4-6"              # Lead architect (Bravo)
+fast_model = "claude-sonnet-4-6"       # Daemons, quick tasks (Skool, Instagram, reviews)
+extraction_model = "claude-haiku-4-5-20251001"  # Mem0 extraction, low-cost high-volume
 
 # Approval policy for agent actions
 # - always: Every action needs CC's approval
