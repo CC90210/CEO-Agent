@@ -25,6 +25,8 @@
     "tmp/",
     "media/raw/",
     "media/exports/",
-    "remotion-content"
+    "remotion-content",
+    "skills/gws-",
+    "gritly-fix"
   ]
 }

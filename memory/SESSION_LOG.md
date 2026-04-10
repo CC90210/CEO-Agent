@@ -10,6 +10,16 @@ tags: [daily]
 
 ---
 
+### 2026-04-10 — Obsidian vault optimization (graph cleanup)
+**Agent:** BRAVO
+**Changes:**
+- Fixed `.obsidian/graph.json`: cleared stale `search: "codex"` filter + reset scale (graph was showing ~30 of 400+ nodes)
+- Added to `.obsidian/app.json` userIgnoreFilters: `.agents`, `skills/gws-`, `gritly-fix`
+- Consolidated 41 `skills/recipe-*/SKILL.md` → `skills/google-workspace-recipes/SKILL.md` (693-line cookbook, 7 groups)
+- Updated `skills/INDEX.md`: replaced 42-line GWS section + 14-line recipe grid with 3-line summary; skill count 191 → 149
+- Flagged: `gritly-fix/` is a full Next.js app checked into Business-Empire-Agent — violates App Registry Rule 7, should move to `C:\Users\User\APPS\`
+**Result:** Graph: 396 files/36 orphans → **281 files / 0 orphans**. Skills dir: 234 md → 152 md.
+
 ### 2026-04-09 — Auto-sync
 **Agent:** BRAVO state_sync
 **Note:** gritly: built full auth+onboarding+dashboard foundation, 15 files, zero build errors
