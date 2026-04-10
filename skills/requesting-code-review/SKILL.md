@@ -107,5 +107,8 @@ You: [Fix progress indicators]
 
 See template at: requesting-code-review/code-reviewer.md
 
+## Sub-Files
+- [[skills/requesting-code-review/code-reviewer]] — Subagent prompt template for code review dispatch
+
 ## Obsidian Links
 - [[skills/INDEX]] | [[brain/CAPABILITIES]]

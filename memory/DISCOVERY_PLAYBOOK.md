@@ -58,5 +58,5 @@ tags: [sales, outreach, NEPQ]
 *   **Handoffs:** How does info move from the Office -> Field Crew?
 
 ## Obsidian Links
-- [[brain/USER]] | [[brain/CEO_OPERATING_SYSTEM]] | [[memory/LEAD_TRACKER]]
+- [[brain/USER]] | [[brain/CEO_OPERATING_SYSTEM]] | `memory/LEAD_TRACKER.csv`
 - [[memory/content-strategy]] | [[agents/revenue-hunter]]

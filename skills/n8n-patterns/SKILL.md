@@ -99,7 +99,7 @@ Use for: Customer support across web chat, SMS, email, WhatsApp.
   ],
   "connections": {
     "Node Name": {
-      "main": [[{"node": "Next Node", "type": "main", "index": 0}]]
+      "main": `{"node": "Next Node", "type": "main", "index": 0}`
     }
   },
   "settings": {

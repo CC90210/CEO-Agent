@@ -144,3 +144,7 @@ git push origin main
 - If a dependency fails to install (`pywin32`, `pycaw`, etc.), implement a fallback using PowerShell subprocess calls. Never leave a command unimplemented.
 
 ---
+
+## Obsidian Links
+- [[brain/CAPABILITIES]] | [[brain/AGENTS]]
+- [[skills/cli-anything/SKILL]] | [[skills/python-daemon-automation/SKILL]]

@@ -183,7 +183,7 @@ When CC mentions modifying code in any app (OASIS, PropFlow, Nostalgic, Grape Vi
 3. Commit/push from that repo. Log summary in memory/SESSION_LOG.md
 Never store app code in Business-Empire-Agent.
 
-**Obsidian Vault:** Business-Empire-Agent is an Obsidian vault. When creating new .md files, include YAML frontmatter with `tags:` and add `[[wiki-links]]` to related files. Preserve existing `[[wiki-links]]` when editing. Templates in `_templates/`.
+**Obsidian Vault:** Business-Empire-Agent is an Obsidian vault. When creating new .md files, include YAML frontmatter with `tags:` and add `wiki-links` to related files. Preserve existing `wiki-links` when editing. Templates in `_templates/`.
 
 ## Tools & MCP Servers
 
@@ -235,4 +235,7 @@ Focused rules are in `.rules/` directory:
 `/post`, `/commit`, `/prime`, `/sync`, `/content`, `/n8n`, `/research`, `/client-onboard`, `/debug`, `/health`, `/status`, `/cli-anything`, `/review`, `/ship`, `/retro`, `/skool-edit`, `/skool-push`, `/evolve`
 
 **First message: "Bravo online." — then answer the query.**
+
+## Obsidian Links
+- [[brain/AGENTS]] | [[brain/CAPABILITIES]]
 

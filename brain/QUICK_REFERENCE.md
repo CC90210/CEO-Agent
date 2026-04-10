@@ -17,7 +17,12 @@ tags: [reference, tools, routing]
 | Email sequences / nurture / templates | `email_engine.py` | `send-template`, `sequence run`, `templates list` |
 | Create/check calendar events | `google_tool.py` | `calendar list`, `calendar create --title "..." --start "..." --end "..." [--meet] [--attendees "..."]` |
 | Book meeting / manage slots | `booking_engine.py` | `slots open`, `book`, `available`, `remind` |
-| Google Drive / Sheets / Docs | `gws` CLI | `gws drive files list`, `gws sheets spreadsheets get` |
+| Create/share a Google Doc | `google_tool.py` | `docs create --title "..." [--html file.html]`, `docs read <id>`, `docs export <id> --format pdf` |
+| Create/read/write spreadsheet | `google_tool.py` | `sheets create --title "..."`, `sheets read <id>`, `sheets write <id> --range "A1" --values "..."`, `sheets append <id> --values "..."` |
+| Create presentation / export deck | `google_tool.py` | `slides create --title "..."`, `slides read <id>`, `slides export <id> --format pdf` |
+| Upload/download/share files | `google_tool.py` | `drive upload --file "..."`, `drive download <id>`, `drive share <id> --email "..."`, `drive list` |
+| Google Tasks | `google_tool.py` | `tasks list`, `tasks add --list-id <id> --title "..."`, `tasks complete --list-id <id> --task-id <id>` |
+| Deep research / podcast / study guide | `notebooklm_tool.py` | `ask "..."`, `generate audio`, `source add <url>`, `create --title "..."` |
 | Telegram notification | `notify.py` | `send "message"` |
 
 ### Social Media & Content

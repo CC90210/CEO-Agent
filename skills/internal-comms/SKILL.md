@@ -34,5 +34,11 @@ If the communication type doesn't match any existing guideline, ask for clarific
 ## Keywords
 3P updates, company newsletter, company comms, weekly update, faqs, common questions, updates, internal comms
 
+## Examples
+- [[skills/internal-comms/examples/3p-updates]] — Progress/Plans/Problems format
+- [[skills/internal-comms/examples/company-newsletter]] — Company-wide newsletters
+- [[skills/internal-comms/examples/faq-answers]] — FAQ response format
+- [[skills/internal-comms/examples/general-comms]] — General internal communications
+
 ## Obsidian Links
 - [[skills/INDEX]] | [[brain/CAPABILITIES]]

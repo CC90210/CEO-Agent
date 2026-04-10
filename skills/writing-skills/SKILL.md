@@ -657,5 +657,13 @@ Same benefits: Better quality, fewer surprises, bulletproof results.
 
 If you follow TDD for code, follow it for skills. It's the same discipline applied to documentation.
 
+## References
+- [[skills/writing-skills/anthropic-best-practices]] — Official Anthropic skill authoring guidelines
+- [[skills/writing-skills/persuasion-principles]] — Cialdini persuasion research for skill bulletproofing
+- [[skills/writing-skills/testing-skills-with-subagents]] — Complete methodology for pressure-testing skills
+
+## Examples
+- [[skills/writing-skills/examples/CLAUDE_MD_TESTING]] — CLAUDE.md testing examples and patterns
+
 ## Obsidian Links
 - [[skills/INDEX]] | [[brain/CAPABILITIES]]

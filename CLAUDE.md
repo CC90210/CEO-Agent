@@ -58,7 +58,7 @@ Always verify — run tests, check Supabase, use `git status`. If you can't veri
 
 ### RULE 6: Obsidian Vault Sync
 
-Every new markdown file needs YAML frontmatter with `tags:`, `[[wiki-links]]` to at least 2 related files, and uses templates from `_templates/` when applicable. Preserve existing `[[wiki-links]]` always. Never modify `.obsidian/` config files.
+Every new markdown file needs YAML frontmatter with `tags:`, ``wiki-links`` to at least 2 related files, and uses templates from `_templates/` when applicable. Preserve existing ``wiki-links`` always. Never modify `.obsidian/` config files.
 
 ### RULE 7: App Registry Routing
 

@@ -95,18 +95,18 @@ The Business-Empire-Agent repo IS an Obsidian vault. All markdown files are note
 
 **When creating new markdown files:**
 - Add YAML frontmatter with `tags:` appropriate to the file's directory (e.g., `tags: [skill]` for skills/, `tags: [agent]` for agents/, `tags: [daily]` for memory/daily/)
-- Add `[[wiki-links]]` to related files (especially back to brain/DASHBOARD, brain/STATE, and the parent directory's index)
+- Add `wiki-links` to related files (especially back to brain/DASHBOARD, brain/STATE, and the parent directory's index)
 - Use templates from `_templates/` when the file type matches (daily notes, skills, agents, mistakes, decisions)
 
 **When modifying brain/ or memory/ files:**
-- Preserve existing `[[wiki-links]]` — never remove them
-- If adding new cross-references, add both `@notation` (for agent file loading) AND `[[wiki-link]]` (for Obsidian graph)
+- Preserve existing `wiki-links` — never remove them
+- If adding new cross-references, add both `@notation` (for agent file loading) AND `wiki-link` (for Obsidian graph)
 
 **Never modify:**
 - `.obsidian/` config files (Obsidian manages these)
 - `.obsidian/plugins/` (plugin code and settings)
 
-**Graph health:** The Obsidian graph view depends on [[wiki-links]]. Every new brain/ or memory/ file should link to at least 2 other files.
+**Graph health:** The Obsidian graph view depends on `wiki-links`. Every new brain/ or memory/ file should link to at least 2 other files.
 
 ### RULE 7: App Registry Routing
 
@@ -223,3 +223,6 @@ If unsure whether session is ending, ask CC.
 - **Supabase MCP** — use `python scripts/supabase_tool.py` (full CRUD, 3 projects)
 - **Stripe MCP** — BROKEN (v0.3.1 proxy mode). Use `python scripts/stripe_tool.py` instead (supports `--json` flag)
 - **Chrome** — use Playwright for all web research
+
+## Obsidian Links
+- [[brain/AGENTS]] | [[brain/CAPABILITIES]]

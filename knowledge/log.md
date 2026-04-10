@@ -15,7 +15,7 @@ Each entry records: date, source, pages created or updated, agent that ran the i
 ```
 ### YYYY-MM-DD — [operation type]
 **Source:** `raw/filename.md` or inline
-**Pages affected:** [[wiki/page-name]] (created | updated)
+**Pages affected:** ``wiki/page-name`` (created | updated)
 **Agent:** [who ran it]
 **Notes:** [anything relevant — gaps, conflicts with existing knowledge, follow-ups]
 ```

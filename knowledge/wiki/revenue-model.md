@@ -107,4 +107,4 @@ Cold outreach (NEPQ-style) as secondary source.
 ## Obsidian Links
 - [[knowledge/index]] | [[knowledge/wiki/ai-automation-agency]] | [[knowledge/wiki/client-playbook]]
 - [[brain/STATE]] | [[brain/USER]] | [[brain/OKRs]]
-- [[brain/RISK_REGISTER]] | [[scripts/revenue_engine]]
+- [[brain/RISK_REGISTER]] | `scripts/revenue_engine.py`

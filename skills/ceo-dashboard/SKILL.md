@@ -402,4 +402,4 @@ TODAY'S #1 PRIORITY
 ## Obsidian Links
 - [[brain/STATE]] | [[brain/USER]] | [[memory/ACTIVE_TASKS]] | [[brain/CAPABILITIES]]
 - [[skills/client-success/SKILL]] | [[skills/ceo-briefing/SKILL]]
-- [[.agents/workflows/ceo-briefing]] | [[scripts/ceo_dashboard]]
+- `/ceo-briefing` | `scripts/ceo_dashboard.py`

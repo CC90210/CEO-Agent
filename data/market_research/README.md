@@ -57,4 +57,4 @@ tags: [data, market-research, vertical-name]
 
 ## Obsidian Links
 - [[skills/knowledge-management/SKILL]] | [[skills/market-research/SKILL]]
-- [[data/competitors]] | [[brain/STATE]]
+- `data/competitors.json` | [[brain/STATE]]

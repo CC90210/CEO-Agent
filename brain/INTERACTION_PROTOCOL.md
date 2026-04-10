@@ -347,7 +347,7 @@ Before committing, verify system integrity:
 - **Referential integrity**: If any files were deleted/renamed, grep for stale references
 - **Count accuracy**: If agents/skills/workflows changed, verify CAPABILITIES.md counts match reality
 - **Config sync**: If MCP configs changed, verify .vscode/mcp.json and .gemini/settings.json match
-- **Obsidian vault**: new .md files have frontmatter tags and [[wiki-links]] to related notes
+- **Obsidian vault**: new .md files have frontmatter tags and ``wiki-links`` to related notes
 
 ### Step 8: Confirmation
 - State to CC: **"Memory synced. [X] files updated, [Y] traces logged, [Z] new learnings captured. Integrity: verified."**

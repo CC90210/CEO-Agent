@@ -60,7 +60,7 @@ For each wiki page being modified:
 2. Add or update only the relevant section — no unnecessary rewrites
 3. Update `last_updated` in frontmatter to today
 4. Add the new source to the `sources:` list in frontmatter
-5. Verify at least 2 `[[wiki-links]]` remain present
+5. Verify at least 2 `wiki-links` remain present
 
 For each new wiki page:
 1. Use the template from `knowledge/SCHEMA.md`

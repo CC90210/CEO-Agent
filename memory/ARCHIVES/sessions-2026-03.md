@@ -56,7 +56,7 @@ tags: [archive, sessions]
 **Change:** 58 bugs fixed across 15 files (1 CRITICAL, 6 HIGH, 15 MEDIUM, 36 LOW). Key: revenue_engine CRITICAL NameError, 2x Windows strftime crashes, JS injection in Instagram DMs, Claude model ID, MRR formula. Instagram Claude API integration rewritten. Telegram bot duplicate-polling fix. 6 commits.
 
 ### 2026-03-20 — CC Funnel E2E Test + Obsidian Vault Integration
-**Change:** Submitted test lead on live cc-funnel, verified Supabase storage and Telegram notify, cleaned test data. Created .obsidian/ config (8 files), graph view color groups, 6 templates. brain/DASHBOARD.md created. 56+ [[wiki-links]] added across 15 files.
+**Change:** Submitted test lead on live cc-funnel, verified Supabase storage and Telegram notify, cleaned test data. Created .obsidian/ config (8 files), graph view color groups, 6 templates. brain/DASHBOARD.md created. 56+ ``wiki-links`` added across 15 files.
 
 ### 2026-03-21 — GWS CLI + System Audit + Skool Engine Build
 **Change:** GWS CLI v0.18.1 installed, oasisaisolutions@gmail.com authenticated, 93 skills imported. Deleted 13 dead scripts. Telegram noise reduction (category filtering). Built scripts/skool_engine.py — autonomous Skool community agent (feed scanner, DM responder, member welcome, Claude API, rate limiting, crash recovery). First cycle: 5 replies posted, 3 DMs sent. Skool engine LIVE.

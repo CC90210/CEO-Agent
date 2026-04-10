@@ -545,5 +545,17 @@ For any bug that caused production impact, a post-mortem is required before the 
 
 ---
 
+## Sub-Guides
+- [[skills/systematic-debugging/root-cause-tracing]] — Backward tracing technique through call stacks
+- [[skills/systematic-debugging/defense-in-depth]] — Validation at multiple layers after root cause
+- [[skills/systematic-debugging/condition-based-waiting]] — Replace timeouts with condition polling
+- [[skills/systematic-debugging/CREATION-LOG]] — Creation history and rationale
+
+## Tests
+- [[skills/systematic-debugging/test-academic]] — Academic understanding test
+- [[skills/systematic-debugging/test-pressure-1]] — Pressure scenario 1
+- [[skills/systematic-debugging/test-pressure-2]] — Pressure scenario 2
+- [[skills/systematic-debugging/test-pressure-3]] — Pressure scenario 3
+
 ## Obsidian Links
 - [[skills/INDEX]] | [[brain/CAPABILITIES]] | [[skills/test-driven-development/SKILL]]

@@ -523,4 +523,4 @@ Ask these on the final call (5-10 min max):
 ## Obsidian Links
 - [[brain/USER]] | [[brain/STATE]] | [[memory/ACTIVE_TASKS]] | [[brain/CAPABILITIES]]
 - [[skills/ceo-dashboard/SKILL]] | [[skills/project-management/SKILL]]
-- [[.agents/workflows/onboard-team-member]]
+- `/onboard-team-member`

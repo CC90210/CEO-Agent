@@ -62,7 +62,7 @@ For each affected page:
 - If creating: use the wiki page template from `knowledge/SCHEMA.md`
 - Update the `last_updated` field in the frontmatter
 - Add the new source to the `sources:` frontmatter list
-- Ensure at least 2 `[[wiki-links]]` are present
+- Ensure at least 2 ``wiki-links`` are present
 
 **Step 5 — Update index and log.**
 - Add any new pages to the table in `knowledge/index.md`
@@ -139,7 +139,7 @@ Read `knowledge/index.md`. For each page listed:
 - Flag any listed pages that don't exist on disk
 
 **Step 2 — Link integrity.**
-Read every file in `knowledge/wiki/`. For each `[[wiki-link]]` found:
+Read every file in `knowledge/wiki/`. For each `` ``wiki-link`` `` found:
 - Verify the linked file exists (check both `knowledge/wiki/` and `knowledge/SCHEMA.md`, `knowledge/index.md`)
 - Flag any broken links (target file does not exist)
 
@@ -149,7 +149,7 @@ For each wiki page, verify:
 - `sources:` field is present and non-empty
 - `last_updated:` field is present
 - `confidence:` field is present (0.0–1.0)
-- At least 2 `[[wiki-links]]` in the document body
+- At least 2 ``wiki-links`` in the document body
 
 **Step 4 — Orphan detection.**
 Check `knowledge/log.md`. For each ingest entry:
@@ -169,7 +169,7 @@ Produce a structured report:
 ## Lint Report — YYYY-MM-DD
 
 ### Broken Links
-- [file] → [[link]] (target not found)
+- [file] → `link` (target not found)
 
 ### Missing Frontmatter
 - [file] missing: [field names]
@@ -208,12 +208,12 @@ Append the lint report to `knowledge/log.md` as a lint entry.
 - After ingesting a document with action items → route those to `memory/ACTIVE_TASKS.md`
 - After ingesting competitor data → also update `data/competitors.json` via `scripts/competitive_intel.py`
 - After ingesting client feedback → also update client health score via `scripts/client_health.py`
-- Lint runs as part of `/knowledge-maintenance` workflow → see [[.agents/workflows/knowledge-maintenance]]
+- Lint runs as part of `/knowledge-maintenance` workflow → see `/knowledge-maintenance`
 
 ## Obsidian Links
 - [[knowledge/SCHEMA]] | [[knowledge/index]] | [[knowledge/log]]
 - [[knowledge/wiki/ai-automation-agency]] | [[knowledge/wiki/revenue-model]]
 - [[knowledge/wiki/tech-stack]] | [[knowledge/wiki/client-playbook]]
 - [[skills/knowledge-management/SKILL]] | [[skills/memory-management/SKILL]]
-- [[.agents/workflows/ingest]] | [[.agents/workflows/query-knowledge]]
+- `/ingest` | `/query-knowledge`
 - [[brain/CAPABILITIES]] | [[brain/STATE]]

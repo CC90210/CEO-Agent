@@ -434,5 +434,5 @@ Remotion output must be `.mov` with ProRes 4444 codec for alpha channel preserva
 
 ## Obsidian Links
 - [[knowledge/index]] | [[knowledge/wiki/tech-stack]]
-- [[brain/CAPABILITIES]] | [[memory/content_pipeline_vision]]
-- [[scripts/content_pipeline]] | [[scripts/edit_content_v2]]
+- [[brain/CAPABILITIES]] | `memory/content_pipeline_vision.md`
+- `scripts/content_pipeline.py` | `scripts/edit_content_v2.py`

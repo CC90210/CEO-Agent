@@ -155,4 +155,4 @@ See `skills/ceo-briefing/SKILL.md` for:
 ## Obsidian Links
 - [[skills/ceo-dashboard/SKILL]] | [[skills/ceo-briefing/SKILL]]
 - [[memory/ACTIVE_TASKS]] | [[brain/STATE]] | [[memory/SESSION_LOG]]
-- [[scripts/ceo_dashboard]] | [[skills/client-success/SKILL]]
+- `scripts/ceo_dashboard.py` | [[skills/client-success/SKILL]]
