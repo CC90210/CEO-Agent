@@ -36,6 +36,7 @@ When CC says "fix [app]", "update [app]", "build [feature] in [app]", "debug [ap
 | **Lafreniere PM** | lafreniere, lafreniere-pm, ty, property management | `C:\Users\User\APPS\lafreniere-pm` | CC90210/lafreniere-pm | (pending) | Next.js 16, TypeScript, Supabase, Stripe, Framer Motion | Vercel (pending) |
 | **AURA** | aura, smart home, apartment | `C:\Users\User\AURA` | — | — | Claude Code agent, ESP32, Home Assistant, Playwright | — |
 | **IG Setter Pro** | ig-setter, ig setter, dm automation, manychat | `C:\Users\User\APPS\ig-setter-pro` | CC90210/ig-setter-pro | Turso (ig-setter-cc90210) | Next.js 14, TypeScript, Turso/libSQL, n8n, Claude API, Tailwind | Vercel (ig-setter-pro.vercel.app) |
+| **Gritly** | gritly, field service, fsm, trades app | `C:\Users\User\APPS\gritly` | (pending) | Turso (libSQL) | Next.js 15, TypeScript, Drizzle ORM, Better Auth, Stripe, Framer Motion | Vercel (pending) |
 
 
 ## App Context Files
@@ -44,6 +45,9 @@ Detailed business context for primary brands:
 - OASIS AI: @APPS_CONTEXT/OASIS_AI_CLAUDE.md
 - PropFlow: @APPS_CONTEXT/PROPFLOW_CLAUDE.md
 - Nostalgic Requests: @APPS_CONTEXT/NOSTALGIC_REQUESTS_CLAUDE.md
+- Gritly: @APPS_CONTEXT/GRITLY_CLAUDE.md
+- IG Setter Pro: @APPS_CONTEXT/IG_SETTER_PRO_CLAUDE.md
+- Skool Community (Agency Accelerance / Bennett): @APPS_CONTEXT/SKOOL_COMMUNITY_CLAUDE.md
 
 ## Session Logging Pattern
 

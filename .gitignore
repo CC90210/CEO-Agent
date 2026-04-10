@@ -114,3 +114,7 @@ e2e-screenshots/
 .obsidian/workspaces.json
 .obsidian/workspace-mobile.json
 .obsidian/.obsidian-git-isomorphic-git
+
+# Obsidian plugin binaries (only manifests + data tracked)
+.obsidian/plugins/*/main.js
+.obsidian/plugins/*/styles.css

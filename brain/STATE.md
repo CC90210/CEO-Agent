@@ -117,13 +117,20 @@ tags: [state, ephemeral]
 6. Deferred init — heavy resources load only when needed
 7. Deny-list permissions — config-driven
 
+## Active App Portfolio (2026-04-10 update)
+
+Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
+- **Gritly** — Field Service Management SaaS. Next.js 15, Drizzle, Turso, Stripe, Better Auth. Foundation built (auth+onboarding+dashboard+marketing site). Context: [[APPS_CONTEXT/GRITLY_CLAUDE]]
+- **IG Setter Pro** — Instagram DM automation (ManyChat replacement). Next.js 14, Turso, n8n, Claude API. Live at `ig-setter-pro.vercel.app`. Context: [[APPS_CONTEXT/IG_SETTER_PRO_CLAUDE]]
+- **Agency Accelerance (Skool)** — Bennett Spooner coaching partnership. CC = Head Coach, $2,500/mo + 15% rev share. Contract formalized 2026-04-10. Context: [[APPS_CONTEXT/SKOOL_COMMUNITY_CLAUDE]]
+
 ## Last Heartbeat
 
-- **Date:** 2026-04-09
-- **Agent:** BRAVO via Claude Code (Sonnet 4.6)
-- **Result:** gritly: built full auth+onboarding+dashboard foundation, 15 files, zero build errors
+- **Date:** 2026-04-10
+- **Agent:** BRAVO via Claude Code (Opus 4.6 1M context)
+- **Result:** Google Workspace full ecosystem live (7 services, 30+ commands, 10/10 stress test PASS). NotebookLM CLI wired up. Bennett coaching agreement drafted as Google Doc. Gritly + IG Setter Pro + Skool formally registered with context files. Obsidian plugin bloat removed (5.5M saved). BEA_LITE confusion resolved — only Business-Empire-Agent is canonical.
 
-*Last updated: 2026-04-09*
+*Last updated: 2026-04-10*
 
 ## Obsidian Links
 > Connected notes for graph navigation
@@ -135,22 +142,7 @@ tags: [state, ephemeral]
 - [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]] | [[memory/DECISIONS]]
 - [[memory/PATTERNS]] | [[memory/MISTAKES]] | [[memory/SELF_REFLECTIONS]]
 - [[memory/content-strategy]] | [[memory/PROPOSED_CHANGES]]
+- [[APPS_CONTEXT/INDEX]] | [[APPS_CONTEXT/GRITLY_CLAUDE]] | [[APPS_CONTEXT/IG_SETTER_PRO_CLAUDE]] | [[APPS_CONTEXT/SKOOL_COMMUNITY_CLAUDE]]
 - [[skills/skool-automation/SKILL]] | [[skills/codex-delegation/SKILL]] | [[skills/elite-video-production/SKILL]]
 - [[knowledge/index]] | [[knowledge/SCHEMA]]
 - [[brain/DASHBOARD]]
-
-## Last Heartbeat
-
-- **Date:** 2026-04-09
-- **Agent:** BRAVO via Claude Code (Sonnet 4.6)
-- **Result:** gritly: built full auth+onboarding+dashboard foundation, 15 files, zero build errors
-
-*Last updated: 2026-04-09*
-
-## Last Heartbeat
-
-- **Date:** 2026-04-09
-- **Agent:** BRAVO via Claude Code (Sonnet 4.6)
-- **Result:** gritly: built full auth+onboarding+dashboard foundation, 15 files, zero build errors
-
-*Last updated: 2026-04-09*
