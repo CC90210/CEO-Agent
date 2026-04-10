@@ -132,4 +132,4 @@ If no reply after 14 days:
 
 ## Obsidian Links
 - [[data/templates/emails/follow-up-sequence]] | [[data/templates/emails/client-checkin]]
-- [[memory/LEAD_TRACKER]] | [[brain/USER]]
+- `memory/LEAD_TRACKER.csv` | [[brain/USER]]

@@ -61,5 +61,17 @@ After a preferred theme is selected:
 ## Create your Own Theme
 To handle cases where none of the existing themes work for an artifact, create a custom theme. Based on provided inputs, generate a new theme similar to the ones above. Give the theme a similar name describing what the font/color combinations represent. Use any basic description provided to choose appropriate colors/fonts. After generating the theme, show it for review and verification. Following that, apply the theme as described above.
 
+## Themes
+- [[skills/theme-factory/themes/arctic-frost]] — Cool and crisp winter-inspired theme
+- [[skills/theme-factory/themes/botanical-garden]] — Fresh and organic garden colors
+- [[skills/theme-factory/themes/desert-rose]] — Soft and sophisticated dusty tones
+- [[skills/theme-factory/themes/forest-canopy]] — Natural and grounded earth tones
+- [[skills/theme-factory/themes/golden-hour]] — Rich and warm autumnal palette
+- [[skills/theme-factory/themes/midnight-galaxy]] — Dramatic and cosmic deep tones
+- [[skills/theme-factory/themes/modern-minimalist]] — Clean and contemporary grayscale
+- [[skills/theme-factory/themes/ocean-depths]] — Professional and calming maritime theme
+- [[skills/theme-factory/themes/sunset-boulevard]] — Warm and vibrant sunset colors
+- [[skills/theme-factory/themes/tech-innovation]] — Bold and modern tech aesthetic
+
 ## Obsidian Links
 - [[skills/INDEX]] | [[brain/CAPABILITIES]]

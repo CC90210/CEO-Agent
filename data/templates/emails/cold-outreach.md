@@ -104,5 +104,5 @@ Before sending, verify:
 - [ ] Signature uses full name "Conaugh McKenna" — not "CC" for B2B outreach
 
 ## Obsidian Links
-- [[memory/LEAD_TRACKER]] | [[data/templates/emails/follow-up-sequence]]
+- `memory/LEAD_TRACKER.csv` | [[data/templates/emails/follow-up-sequence]]
 - [[skills/revenue-hunter/SKILL]] | [[brain/USER]]

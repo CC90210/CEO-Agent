@@ -95,7 +95,7 @@ git log --oneline --since="7 days ago" --name-only | grep "\.md$" | sort -u
 ```
 
 For each modified markdown file:
-1. Extract all `[[wiki-links]]` from the file
+1. Extract all `wiki-links` from the file
 2. Verify that the linked file exists at the expected path
 3. Flag any broken links (linked file not found)
 4. Fix any broken links where the target file exists at a different path
@@ -147,3 +147,6 @@ A clean, current intelligence system. All stale data flagged. All patterns at th
 - If any file cannot be read: log the error, skip that step, and flag for manual review
 - If git log fails: skip Step 7, note that wiki-link check was skipped
 - Never delete data without first verifying the archive write succeeded
+
+## Obsidian Links
+- [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]

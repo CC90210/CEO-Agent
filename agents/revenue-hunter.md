@@ -158,6 +158,6 @@ Body: [full message]
 - Neglect the follow-up cadence.
 
 ## Obsidian Links
-- [[brain/AGENTS]] | [[brain/USER]] | [[memory/LEAD_TRACKER.csv|LEAD_TRACKER]]
+- [[brain/AGENTS]] | [[brain/USER]] | `memory/LEAD_TRACKER.csv`
 - [[brain/CEO_OPERATING_SYSTEM]] | [[memory/ACTIVE_TASKS]]
 - [[agents/chief-of-staff]] | [[agents/researcher]]

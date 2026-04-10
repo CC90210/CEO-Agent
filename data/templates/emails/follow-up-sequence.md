@@ -157,5 +157,5 @@ After Touch 5, update `memory/LEAD_TRACKER.csv`:
 ---
 
 ## Obsidian Links
-- [[data/templates/emails/cold-outreach]] | [[memory/LEAD_TRACKER]]
+- [[data/templates/emails/cold-outreach]] | `memory/LEAD_TRACKER.csv`
 - [[brain/USER]] | [[brain/STATE]]

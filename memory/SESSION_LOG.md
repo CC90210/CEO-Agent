@@ -10,6 +10,22 @@ tags: [daily]
 
 ---
 
+### 2026-04-09 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** gritly: built full auth+onboarding+dashboard foundation, 15 files, zero build errors
+
+### 2026-04-09 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** gritly: built full auth+onboarding+dashboard foundation, 15 files, zero build errors
+
+### 2026-04-09 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** gritly: built full auth+onboarding+dashboard foundation — 15 files, zero build errors
+
+### 2026-04-09 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** gritly: built full auth+onboarding+dashboard foundation — 15 files, zero build errors
+
 ### 2026-04-06 — V15.4: Telegram bridge stress test + mousetool C binary
 **Agent:** Claude Code (Bravo)
 **Changes:**
@@ -398,3 +414,28 @@ tags: [daily]
 **Files:** trading-agent (11 files synced), cc-funnel (1 API route fixed)
 **Commits:** trading-agent 5258d8c, cc-funnel 43dc109
 **Health Score:** 8/10 (excellent)
+
+### 2026-04-08 — IG Setter Pro: Full Build
+**Agent:** Claude Code (Bravo)
+**Change:** Built ig-setter-pro from scratch — enhanced rebuild of brodyautomates/ig-setter. Next-gen IG DM automation dashboard replacing ManyChat. Added: multi-account support, conversation history to Claude (contextual awareness), AI-powered lead classification (Haiku), auto-send toggle, NEPQ sales framework, automation rules engine, multi-step DM sequences, token refresh automation, retry logic. 32 files, 8 Supabase tables, 20-node n8n workflow, clean Next.js build.
+**Files:** Full project at C:\Users\User\APPS\ig-setter-pro
+**Commit:** 2f8b300 pushed to CC90210/ig-setter-pro
+**Registry:** Added to APP_REGISTRY.md
+
+### 2026-04-08 — IG Setter Pro: Turso + Deploy + E2E Verification
+**Agent:** Claude Code (Bravo)
+**Change:** Refactored from Supabase to Turso (SQLite edge, $0/mo). Set up Turso database, ran migration (8 tables, 12 indexes). Fixed 4 code quality issues (ID format, StatusBanner key mismatch, FB credential guard, n8n timeout). Fixed Vercel deployment: libsql/client/http import, env var newline trimming, force-dynamic status route. Deployed to Vercel. All 4 health checks green. n8n workflow imported and activated (ID: bHxT1yGic3idTGxC).
+**Deployed:** https://ig-setter-pro.vercel.app
+**n8n Workflow:** bHxT1yGic3idTGxC (22 nodes, active)
+**Turso DB:** ig-setter-cc90210.aws-us-west-2.turso.io
+
+### 2026-04-09 — IG Setter Pro: Production Hardening (3-Agent Audit)
+**Agent:** Claude Code (Bravo) + Code Reviewer + Security Reviewer + Codex
+**Change:** 3 parallel audits (40+ findings). Fixed all CRITICAL/HIGH: client→API fetch refactor (4 new routes), /api/history for Claude context, atomic SQL + message dedup, /api/sequences/pending endpoint, API auth middleware, auto-send flag in webhook response, sanitized errors, FK pragma, date-fns removal, sequence step limits.
+**Bundle:** 117KB → 91.3KB | **Routes:** 9 → 14
+**Commits:** 62fd243, 30c0d84, 3a8f016, 70cf8bb
+
+### 2026-04-08 — Gritly code change
+**Change:** Built the full Gritly marketing website (13 pages + Navbar/Footer/cn utility) — homepage with Framer Motion scroll animations, pricing with monthly/annual toggle, features deep-dive, 14-industry grid with dynamic [slug] pages, migration guide, and about page. Also fixed 4 pre-existing TypeScript/build errors in auth, dashboard, and database types.
+**Files:** src/app/(marketing)/*, src/components/marketing/*, src/lib/utils/cn.ts, src/lib/types/database.ts, src/app/(auth)/login/page.tsx, src/app/(auth)/onboarding/[step]/page.tsx, src/app/(dashboard)/dash/page.tsx
+**Commit:** d7c1ce8 pushed to origin/master

@@ -135,7 +135,7 @@ Escalate to CC when: [specific triggers]
 - **Parallel with:** [agents that can run simultaneously]
 
 ## Obsidian Links
-- [[brain/AGENTS]] | [[relevant-skill]] | [[related-agent]]
+- [[brain/AGENTS]] | ``relevant skill`` | ``related agent``
 ```
 
 ## Self-Improvement

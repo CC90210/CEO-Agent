@@ -316,5 +316,9 @@ with open("encrypted.pdf", "wb") as output:
 - If you need to fill out a PDF form, follow the instructions in FORMS.md
 - For troubleshooting guides, see REFERENCE.md
 
+## Sub-Files
+- [[skills/pdf/forms]] — PDF form filling instructions
+- [[skills/pdf/reference]] — Advanced reference (pypdfium2, pdf-lib, troubleshooting)
+
 ## Obsidian Links
 - [[skills/INDEX]] | [[brain/CAPABILITIES]]

@@ -25,5 +25,8 @@ tags: [data, templates, hub]
 - [[data/templates/emails/invoice-reminder]] — Invoice reminder
 - [[data/templates/emails/win-back]] — Win-back campaign
 
+## Templates Guide
+- [[data/templates/README]] — Template library organization & usage
+
 ## Market Research
 - [[data/market_research/README]] — Research directory

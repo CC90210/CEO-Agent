@@ -168,5 +168,5 @@ Escalate to Bravo when:
 
 ## Obsidian Links
 - [[brain/AGENTS]] | [[brain/USER]] | [[memory/ACTIVE_TASKS]]
-- [[skills/client-success/SKILL]] | [[memory/LEAD_TRACKER.csv|LEAD_TRACKER]]
+- [[skills/client-success/SKILL]] | `memory/LEAD_TRACKER.csv`
 - [[agents/revenue-hunter]] | [[agents/documenter]]

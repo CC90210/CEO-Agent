@@ -7,6 +7,9 @@ tags: [skills, index, hub]
 > Central hub for all Bravo skills. Each skill is a reusable protocol loaded on-demand.
 > [[brain/CAPABILITIES]] | [[brain/AGENTS]] | [[brain/DASHBOARD]]
 
+## Meta
+- [[skills/SKILL_LOADING]] — How skills are loaded and activated across AI interfaces
+
 ## Core Operations
 - [[skills/systematic-debugging/SKILL]] — Bug investigation, root-cause analysis
 - [[skills/code-review/SKILL]] — Pre-ship code quality review
@@ -20,6 +23,7 @@ tags: [skills, index, hub]
 - [[skills/finishing-a-development-branch/SKILL]] — Branch completion protocol
 
 ## Agent Infrastructure
+- [[skills/agent-teams/SKILL]] — Native parallel subagent orchestration
 - [[skills/task-routing/SKILL]] — Complexity-based agent assignment
 - [[skills/anti-drift/SKILL]] — Preventing agent divergence
 - [[skills/sparc-methodology/SKILL]] — SPARC for COMPLEX+ tasks
@@ -36,12 +40,16 @@ tags: [skills, index, hub]
 
 ## Memory & Knowledge
 - [[skills/memory-management/SKILL]] — Memory cleanup and budgets
+- [[skills/memory-compression/SKILL]] — Memory file compression and archival
 - [[skills/strategic-compact/SKILL]] — Context compaction
 - [[skills/sequential-reasoning/SKILL]] — Multi-step reasoning
 - [[skills/knowledge-management/SKILL]] — Knowledge system maintenance
+- [[skills/knowledge-graph/SKILL]] — Knowledge graph operations
+- [[skills/semantic-memory/SKILL]] — Semantic memory with vector search
 
 ## Content & Outreach
 - [[skills/elite-video-production/SKILL]] — Full automated video production pipeline (hook → cinematic export)
+- [[skills/telegram-demo-workflows/SKILL]] — 5 content-ready Telegram demo sequences for filming
 - [[skills/content-engine/SKILL]] — Content creation pipeline
 - [[skills/email-marketing/SKILL]] — Email campaigns
 - [[skills/linkedin-outreach/SKILL]] — LinkedIn automation
@@ -77,6 +85,8 @@ tags: [skills, index, hub]
 - [[skills/e2e-testing/SKILL]] — End-to-end testing
 - [[skills/webapp-testing/SKILL]] — Web app testing
 - [[skills/skool-automation/SKILL]] — Skool content management
+- [[skills/computer-control/SKILL]] — OS-level automation (mouse, keyboard, window management)
+- [[skills/web-scraping/SKILL]] — Web data extraction
 
 ## Development Tools
 - [[skills/mcp-operations/SKILL]] — MCP troubleshooting

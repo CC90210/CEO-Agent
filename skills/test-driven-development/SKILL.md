@@ -373,5 +373,8 @@ Otherwise → not TDD
 
 No exceptions without your human partner's permission.
 
+## Sub-Files
+- [[skills/test-driven-development/testing-anti-patterns]] — Common test anti-patterns to avoid
+
 ## Obsidian Links
 - [[skills/INDEX]] | [[brain/CAPABILITIES]]

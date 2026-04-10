@@ -88,4 +88,4 @@ During RECALL, the agent should:
 This replaces the previous pattern of loading all skills speculatively. The frontmatter triggers cover 100% of skills with zero ambiguity.
 
 ## Obsidian Links
-- [[skills/SKILL_LOADING.md]] | [[skills/INDEX]]
+- [[skills/SKILL_LOADING]] | [[skills/INDEX]]

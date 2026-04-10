@@ -365,7 +365,7 @@ tags: [sops, processes]
 4. Check MISTAKES.md for recurring themes → create prevention SOPs if pattern found
 5. Verify data/competitors.json freshness — flag entries older than 30 days
 6. Run confidence decay on LONG_TERM.md facts (>30 days: -0.1, >90 days: -0.3)
-7. Verify all [[wiki-links]] in brain/ and memory/ files resolve correctly
+7. Verify all ``wiki-links`` in brain/ and memory/ files resolve correctly
 8. Update brain/STATE.md with current operational snapshot
 9. Log maintenance summary to SESSION_LOG.md
 **Success Criteria:** All memory files within size limits, no stale data, all links valid

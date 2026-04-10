@@ -161,4 +161,4 @@ You focus on your customers; we handle the technology."
 - [[knowledge/index]] | [[knowledge/wiki/ai-automation-agency]] | [[knowledge/wiki/revenue-model]]
 - [[brain/USER]] | [[brain/STATE]]
 - [[skills/client-success/SKILL]] | [[skills/proposal-generation/SKILL]] | [[skills/sales-methodology/SKILL]]
-- [[.agents/workflows/client-onboard]] | [[.agents/workflows/client-health-report]]
+- `/client-onboard` | `/client-health-report`

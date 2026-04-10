@@ -154,3 +154,7 @@ what's my MRR?                          → reads brain/USER.md context
 what leads need follow-up?              → queries CRM
 take a screenshot                       → captures current screen
 ```
+
+## Obsidian Links
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/browser-automation/SKILL]] | [[skills/content-engine/SKILL]]

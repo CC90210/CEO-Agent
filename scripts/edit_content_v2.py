@@ -1,10 +1,10 @@
 """
-OASIS AI Video Pipeline — V3 (Elite Production)
+OASIS AI Video Pipeline -- V3 (Elite Production)
 
 Upgrades over V2:
   - WhisperX forced alignment replaces openai-whisper (eliminates timing offset hack)
   - Audio enhancement pre-processing (noisereduce + pedalboard)
-  - FFmpeg audio mastering chain (gate → EQ → compand → loudnorm -14 LUFS)
+  - FFmpeg audio mastering chain (gate -> EQ -> compand -> loudnorm -14 LUFS)
   - Automatic silence/filler word removal via auto-editor
   - Color grading presets (teal_orange, editorial, warm, clean)
   - Cinematic effects (vignette, film grain, unsharp mask)
@@ -33,12 +33,35 @@ Usage:
 
 import os
 import sys
+import warnings
 import subprocess
 import json
 import re
+
+# Suppress non-critical torchcodec warning (pyannote optional dependency, not used by pipeline)
+warnings.filterwarnings("ignore", message=".*torchcodec.*")
 import argparse
 import shutil
 from datetime import datetime
+
+# Windows symlink workaround for HuggingFace model cache
+# (Windows requires Developer Mode for symlinks; this uses file copies instead)
+if sys.platform == "win32":
+    os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+    try:
+        import huggingface_hub.file_download as _hf_dl
+        _orig_symlink = _hf_dl._create_symlink
+        def _safe_symlink(src, dst, new_blob=False):
+            try:
+                _orig_symlink(src, dst, new_blob)
+            except OSError:
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                if os.path.exists(dst):
+                    os.remove(dst)
+                shutil.copy2(src, dst)
+        _hf_dl._create_symlink = _safe_symlink
+    except ImportError:
+        pass
 
 # ============================================================================
 # CONFIG
@@ -176,16 +199,16 @@ def enhance_audio(input_path, output_path=None):
             processed = board(reduced.astype(np.float32), sample_rate)
             sf.write(output_path, processed, sample_rate)
             enhanced = True
-            print(f"  [enhance] Enhanced audio → {os.path.basename(output_path)}")
+            print(f"  [enhance] Enhanced audio -> {os.path.basename(output_path)}")
 
         except ImportError:
             # pedalboard not installed, use noisereduce output only
             sf.write(output_path, reduced, sample_rate)
             enhanced = True
-            print(f"  [enhance] Noise-reduced audio → {os.path.basename(output_path)} (pedalboard not installed)")
+            print(f"  [enhance] Noise-reduced audio -> {os.path.basename(output_path)} (pedalboard not installed)")
 
     except ImportError:
-        print("  [enhance] SKIP — noisereduce not installed (pip install noisereduce soundfile)")
+        print("  [enhance] SKIP -- noisereduce not installed (pip install noisereduce soundfile)")
         shutil.copy2(raw_wav, output_path)
 
     # Cleanup temp
@@ -221,14 +244,14 @@ def remove_silence(input_path, output_path=None, margin=0.3, threshold=0.03):
         print(f"  [silence] Running auto-editor (threshold={threshold}, margin={margin}s)...")
         result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", timeout=300)
         if result.returncode == 0 and os.path.exists(output_path):
-            print(f"  [silence] Trimmed → {os.path.basename(output_path)}")
+            print(f"  [silence] Trimmed -> {os.path.basename(output_path)}")
             return output_path
         else:
             print(f"  [silence] auto-editor failed: {result.stderr[:200] if result.stderr else 'unknown'}")
     except (FileNotFoundError, subprocess.TimeoutExpired):
         print("  [silence] auto-editor not installed (pip install auto-editor)")
 
-    # Fallback: FFmpeg silencedetect → segment-based removal
+    # Fallback: FFmpeg silencedetect -> segment-based removal
     print("  [silence] Falling back to FFmpeg silencedetect...")
     detect_cmd = [
         FFMPEG, "-i", input_path,
@@ -243,7 +266,7 @@ def remove_silence(input_path, output_path=None, margin=0.3, threshold=0.03):
     silence_ends = [float(m.group(1)) for m in re.finditer(r"silence_end: (\d+\.?\d*)", stderr)]
 
     if not silence_starts:
-        print("  [silence] No silence detected — copying original")
+        print("  [silence] No silence detected -- copying original")
         shutil.copy2(input_path, output_path)
         return output_path
 
@@ -275,7 +298,7 @@ def remove_silence(input_path, output_path=None, margin=0.3, threshold=0.03):
         output_path,
     ]
     subprocess.run(cmd, capture_output=True, encoding="utf-8")
-    print(f"  [silence] Trimmed → {os.path.basename(output_path)} ({len(segments)} segments kept)")
+    print(f"  [silence] Trimmed -> {os.path.basename(output_path)} ({len(segments)} segments kept)")
     return output_path
 
 
@@ -338,7 +361,7 @@ def remove_filler_segments(input_path, filler_ranges, output_path=None):
         output_path,
     ]
     subprocess.run(cmd, capture_output=True, encoding="utf-8")
-    print(f"  [fillers] Removed {len(filler_ranges)} filler words → {os.path.basename(output_path)}")
+    print(f"  [fillers] Removed {len(filler_ranges)} filler words -> {os.path.basename(output_path)}")
     return output_path
 
 
@@ -349,14 +372,14 @@ def remove_filler_segments(input_path, filler_ranges, output_path=None):
 def transcribe_word_level(input_path, offset=None, model_name=None, enhanced_audio_path=None):
     """
     Transcribe video with word-level timestamps.
-    Priority: WhisperX (forced alignment) → openai-whisper (with offset hack).
+    Priority: WhisperX (forced alignment) -> openai-whisper (with offset hack).
     """
     audio_source = enhanced_audio_path if enhanced_audio_path and os.path.exists(enhanced_audio_path) else input_path
     base = os.path.splitext(input_path)[0]
     srt_path = base + ".srt"
     words_path = base + ".words.json"
 
-    # Try WhisperX first (best quality — forced alignment, no offset needed)
+    # Try WhisperX first (best quality -- forced alignment, no offset needed)
     try:
         import whisperx
         import torch
@@ -375,7 +398,7 @@ def transcribe_word_level(input_path, offset=None, model_name=None, enhanced_aud
         align_model, align_metadata = whisperx.load_align_model(language_code="en", device=device)
         result = whisperx.align(result["segments"], align_model, align_metadata, audio, device)
 
-        # Extract word-level data (no offset needed — alignment is precise)
+        # Extract word-level data (no offset needed -- alignment is precise)
         all_words = []
         for seg in result.get("segments", []):
             for w in seg.get("words", []):
@@ -402,7 +425,7 @@ def transcribe_word_level(input_path, offset=None, model_name=None, enhanced_aud
                 "srt_path": srt_path, "words_path": words_path, "engine": "whisperx"}
 
     except ImportError:
-        print("  [transcribe] WhisperX not installed — falling back to openai-whisper")
+        print("  [transcribe] WhisperX not installed -- falling back to openai-whisper")
 
     # Fallback: openai-whisper (with offset hack)
     try:
@@ -511,13 +534,13 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             for k, w in enumerate(chunk):
                 word_text = w["word"].upper() if caps else w["word"]
                 if k == j:
-                    # Active word — brand color, slightly larger
+                    # Active word -- brand color, slightly larger
                     parts.append(
                         f"{{\\c{highlight_color}\\fscx110\\fscy110\\bord5}}"
                         f"{word_text}{{\\r}}"
                     )
                 else:
-                    # Other words — dimmed
+                    # Other words -- dimmed
                     parts.append(f"{{\\c{base_color}}}{word_text}{{\\r}}")
 
             text = " ".join(parts)
@@ -530,7 +553,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         f.write(header)
         f.write("\n".join(events))
 
-    print(f"  [captions] {style}: {len(events)} events → {os.path.basename(output_path)}")
+    print(f"  [captions] {style}: {len(events)} events -> {os.path.basename(output_path)}")
     return output_path
 
 
@@ -548,7 +571,7 @@ def edit_video(input_path, output_path=None, orientation="portrait",
     OASIS AI Elite Video Pipeline V3.
     """
     print(f"\n{'='*60}")
-    print(f"  OASIS AI Video Pipeline V3 — Elite Production")
+    print(f"  OASIS AI Video Pipeline V3 -- Elite Production")
     print(f"{'='*60}")
     print(f"  Input: {os.path.basename(input_path)}")
     print(f"  Orientation: {orientation}")
@@ -731,7 +754,7 @@ def edit_video(input_path, output_path=None, orientation="portrait",
     print(f"  Encoding...")
     try:
         subprocess.run(command, check=True, capture_output=True, encoding="utf-8")
-        print(f"\n  SUCCESS → {output_path}")
+        print(f"\n  SUCCESS -> {output_path}")
 
         info = probe_video(output_path)
         if info:
@@ -764,7 +787,7 @@ def edit_video(input_path, output_path=None, orientation="portrait",
 # ============================================================================
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="OASIS AI Video Pipeline V3 — Elite Production")
+    parser = argparse.ArgumentParser(description="OASIS AI Video Pipeline V3 -- Elite Production")
     parser.add_argument("input", help="Path to input video file")
     parser.add_argument("-o", "--output", help="Output path (auto-generated if omitted)")
     parser.add_argument("--orientation", choices=["portrait", "landscape"], default="portrait")

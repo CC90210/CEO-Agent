@@ -183,6 +183,36 @@ Patterns extracted from Claude Code's internal harness architecture (1,902 TS fi
 **Config:** `.agents/config.toml` sections `[context]`, `[cost_tracking]`, `[memory_aging]`
 **Skill:** `skills/context-optimization/SKILL.md` — full reference for all 5 patterns
 
+## Google Workspace (1 CLI tool — 7 services, 30+ commands)
+
+Full Google ecosystem via `scripts/google_tool.py`. Auth: GWS CLI keyring (auto-refreshes). All commands support `--json`.
+
+| Service | Commands | Scope |
+|---------|----------|-------|
+| **Calendar** | `calendar list`, `calendar create`, `calendar delete` | Read/write events, Meet links, attendees |
+| **Gmail** | `gmail send`, `gmail list`, `gmail read` | Send/read/manage email (SMTP fallback) |
+| **Drive** | `drive list`, `drive upload`, `drive download`, `drive delete`, `drive info`, `drive share` | Files, folders, permissions |
+| **Docs** | `docs create [--html file]`, `docs read`, `docs append`, `docs export [--format pdf/docx/txt/html]` | Create from HTML, read, export |
+| **Sheets** | `sheets create`, `sheets read`, `sheets write`, `sheets append`, `sheets info` | Spreadsheets, ranges, row ops |
+| **Slides** | `slides create`, `slides read`, `slides export [--format pdf/pptx]` | Presentations, export |
+| **Tasks** | `tasks list`, `tasks add`, `tasks complete` | Task lists, create/complete tasks |
+
+**Not yet authorized (need `gws auth login --scopes ...`):** Meet API (meeting management), YouTube Data API, People/Contacts, Forms, Chat, Keep, Classroom.
+
+## NotebookLM (1 CLI tool — deep research RAG)
+
+On-site RAG for source-grounded chat, podcast generation, and multi-format content. Auth: browser session (`~/.notebooklm/storage_state.json`).
+
+| Tool | Script | Key Commands |
+|------|--------|-------------|
+| **NotebookLM** | `scripts/notebooklm_tool.py` | `list`, `create --title "..."`, `use <id>`, `ask "..."`, `summary` |
+| | | `source add <url/file>`, `source add-research <query>`, `source list` |
+| | | `generate audio/video/report/quiz/flashcards/slide-deck [--wait]` |
+| | | `download audio/video/report <path>` |
+
+**Auth status:** Session expired — CC needs to run `notebooklm login` once in terminal.
+**Skill:** `skills/notebooklm/SKILL.md` — workflows, pipelines, strategic patterns.
+
 ## Content Pipeline (4 tools — added 2026-04-04)
 
 Elite video production system. CC films → uploads → Bravo processes everything.
@@ -489,6 +519,9 @@ These are registered in Claude Code's native skill system with proper frontmatte
 - **Payments:** Stripe (3 brand accounts)
 - **Automation:** n8n (Hostinger VPS: https://n8n.srv993801.hstgr.cloud)
 - **AI Models:** Claude Opus/Sonnet, Gemini 1.5 Pro/Flash, GPT-4o, Gemini CLI (v0.32.1)
+
+## Setup & Bootstrap
+- [[scripts/windows_bootstrap]] — Windows environment bootstrap guide (Python, FFmpeg, Node, dependencies)
 
 ## Obsidian Links
 - [[brain/AGENTS]] | [[brain/STATE]] | [[brain/APP_REGISTRY]]

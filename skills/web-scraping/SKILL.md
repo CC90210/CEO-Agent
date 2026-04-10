@@ -124,4 +124,4 @@ Get your key at [firecrawl.dev](https://firecrawl.dev). The free tier covers mos
 
 ## Obsidian Links
 - [[skills/browser-automation/SKILL]] | [[brain/CAPABILITIES]]
-- [[scripts/firecrawl_tool]] | [[memory/ACTIVE_TASKS]]
+- `scripts/firecrawl_tool.py` | [[memory/ACTIVE_TASKS]]

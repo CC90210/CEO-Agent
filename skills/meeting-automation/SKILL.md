@@ -407,4 +407,4 @@ This is the highest-value habit to build — capture while context is hot.
 ## Obsidian Links
 - [[brain/USER]] | [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]] | [[brain/CAPABILITIES]]
 - [[skills/client-success/SKILL]] | [[skills/ceo-dashboard/SKILL]]
-- [[.agents/workflows/meeting-prep]]
+- `/meeting-prep`
