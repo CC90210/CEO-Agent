@@ -18,6 +18,7 @@ aliases:
 ## Quick Navigation
 
 ### Core Intelligence
+- [[brain/INDEX]] — Brain directory overview
 - [[brain/SOUL]] — Identity & values (IMMUTABLE)
 - [[brain/STATE]] — Current operational state
 - [[brain/USER]] — CC's profile & preferences
@@ -31,7 +32,7 @@ aliases:
 ### Active Work
 - [[memory/ACTIVE_TASKS]] — Current task board
 - [[memory/SESSION_LOG]] — All agent activity (cross-AI)
-- [[memory/LEAD_TRACKER.csv|LEAD_TRACKER]] — Pipeline (CSV)
+- `memory/LEAD_TRACKER.csv` — Pipeline (CSV)
 - [[memory/content-strategy]] — Content Bible + outreach
 
 ### Knowledge Base
@@ -70,6 +71,10 @@ aliases:
 - [[APPS_CONTEXT/PROPFLOW_CLAUDE]] — PropFlow
 - [[APPS_CONTEXT/NOSTALGIC_REQUESTS_CLAUDE]] — Nostalgic Requests
 - [[APPS_CONTEXT/CONTENT_BRAND_CLAUDE]] — Kona Makana
+
+### Resources
+- [[proposals/README]] — Generated proposals directory
+- [[memory/ARCHIVES/references-setup/awesome-claude-skills/README]] — Claude Skills reference library
 
 ---
 

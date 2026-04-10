@@ -95,7 +95,7 @@ wc -l tmp/hook_audit.log 2>/dev/null | awk '{if ($1 > 1000) print "WARN: audit l
 |------|-------------|------------|
 | Unused skill detection | Check skill_activation table for dormant skills | Report (don't delete) |
 | Duplicate memory entries | Scan LONG_TERM.md + PATTERNS.md for duplicates | Merge automatically |
-| Referential integrity | Grep for broken [[wiki-links]] in markdown | Fix broken links |
+| Referential integrity | Grep for broken ``wiki-links`` in markdown | Fix broken links |
 | Pattern promotion | Check [PROBATIONARY] patterns with 3+ uses | Promote to [VALIDATED] |
 | SOP success rates | Review SOP execution counts and failure rates | Flag SOPs with <70% success |
 

@@ -158,7 +158,7 @@ For COMPLEX+ tasks, use SPARC methodology (`skills/sparc-methodology/SKILL.md`).
 - **File:** [[agents/documenter]]
 - **Purpose:** Update documentation, memory files, and brain files. Maintains Obsidian wiki-link graph.
 - **Key upgrades:** Wiki-link preservation mandate. Obsidian frontmatter requirements. Pattern file formats (PROBATIONARY/VALIDATED lifecycle).
-- **Principles:** No filler. ISO 8601 timestamps always. Read before append. Preserve [[wiki-links]].
+- **Principles:** No filler. ISO 8601 timestamps always. Read before append. Preserve ``wiki-links``.
 
 ### 15. Explorer (Codebase Navigator)
 - **Model Tier:** Haiku
@@ -229,6 +229,12 @@ Multi-agent tasks use drift detection. See `skills/anti-drift/SKILL.md` and `.ag
 2. **Patterns** → Log to `memory/PATTERNS.md` (tag `[PROBATIONARY]` until verified across 3+ sessions).
 3. **Decisions** → Log to `memory/DECISIONS.md` with date, rationale, and alternatives considered.
 4. **Reflections** → Log failures to `memory/SELF_REFLECTIONS.md` using Reflexion framework.
+
+## AI Entry Points
+- [[GEMINI]] — Gemini CLI entry point (Bravo Inference Engine)
+- [[ANTIGRAVITY]] — Antigravity IDE entry point (Bravo Infantry / Architect Hybrid)
+- [[.gemini/rules/GEMINI]] — Gemini-specific rules copy
+- [[.gemini/rules/ANTIGRAVITY]] — Antigravity-specific rules copy
 
 ## Obsidian Links
 - [[brain/SOUL]] | [[brain/CAPABILITIES]] | [[brain/BRAIN_LOOP]]

@@ -244,5 +244,10 @@ Done!
 **Alternative workflow:**
 - **superpowers:executing-plans** - Use for parallel session instead of same-session execution
 
+## Prompts
+- [[skills/subagent-driven-development/implementer-prompt]] — Implementer subagent dispatch template
+- [[skills/subagent-driven-development/spec-reviewer-prompt]] — Spec compliance reviewer template
+- [[skills/subagent-driven-development/code-quality-reviewer-prompt]] — Code quality reviewer template
+
 ## Obsidian Links
 - [[skills/INDEX]] | [[brain/CAPABILITIES]]

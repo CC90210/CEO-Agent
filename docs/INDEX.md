@@ -11,3 +11,6 @@ tags: [docs, index, hub]
 - [[docs/LEGAL]] — Legal templates and compliance
 - [[docs/Cedarwood_ROI_Analysis]] — Cedarwood prospect ROI analysis
 - [[docs/MOBILE_TERMINAL]] — Mobile terminal setup guide
+
+## Development Rules
+- [[docs/rules/no-find-dom-node]] — Rule: avoid findDOMNode (deprecated React API)

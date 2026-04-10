@@ -8,6 +8,7 @@ tags: [memory, index]
 > **Layer 3:** Archives. Grep-only: `memory/ARCHIVES/*.md`
 
 > Generated: 2026-04-03 | Files: 8 memory + 8 brain + 6 archives
+> Archives: [[memory/ARCHIVES/README]] | Lead System: [[memory/ARCHIVES/lead_system/README]]
 
 ## Memory Files (Layer 2 -- load when needed)
 

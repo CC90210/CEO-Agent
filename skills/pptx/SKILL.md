@@ -234,5 +234,9 @@ pdftoppm -jpeg -r 150 -f N -l N output.pdf slide-fixed
 - LibreOffice (`soffice`) - PDF conversion (auto-configured for sandboxed environments via `scripts/office/soffice.py`)
 - Poppler (`pdftoppm`) - PDF to images
 
+## Sub-Files
+- [[skills/pptx/editing]] — Editing existing presentations via XML manipulation
+- [[skills/pptx/pptxgenjs]] — Creating presentations from scratch with PptxGenJS
+
 ## Obsidian Links
 - [[skills/INDEX]] | [[brain/CAPABILITIES]]

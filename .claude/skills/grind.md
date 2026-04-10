@@ -15,7 +15,7 @@ CC wants to relax while Bravo handles everything. Run the full pipeline:
 
 ## Phase 2: Fix Everything (5-10 min)
 1. Check all Python scripts compile: `python -m py_compile scripts/*.py`
-2. Grep for broken [[wiki-links]] — fix any that point to deleted files
+2. Grep for broken `wiki-links` — fix any that point to deleted files
 3. Grep for stale @references in CLAUDE.md — fix any that point to missing files
 4. Check CAPABILITIES.md counts against actual file counts
 5. Run `git status` — any untracked files that should be committed?

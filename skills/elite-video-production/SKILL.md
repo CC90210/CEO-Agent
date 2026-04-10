@@ -632,4 +632,4 @@ Before delivering any output, verify all of the following:
 
 ## Obsidian Links
 - [[skills/content-engine/SKILL]] | [[brain/CAPABILITIES]] | [[memory/content-strategy]]
-- [[memory/content_pipeline_vision]] | [[skills/INDEX]]
+- `memory/content_pipeline_vision.md` | [[skills/INDEX]]

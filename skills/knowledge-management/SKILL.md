@@ -362,7 +362,7 @@ Run every Sunday as part of the `/knowledge-maintenance` workflow.
 [ ] ACTIVE_TASKS.md — remove completed tasks older than 7 days. Any tasks stale for 14+ days?
 [ ] Template library — any templates used this week? Update them if gaps appeared in use
 [ ] brain/STATE.md — does this reflect current operational reality? Update any stale fields
-[ ] Wiki-links integrity — any broken [[wiki-links]] in modified files this week?
+[ ] Wiki-links integrity — any broken `wiki-links` in modified files this week?
 [ ] New insights from this week — extracted and filed correctly? (patterns, mistakes, decisions)
 ```
 
@@ -371,4 +371,4 @@ Run every Sunday as part of the `/knowledge-maintenance` workflow.
 ## Obsidian Links
 - [[skills/memory-management/SKILL]] | [[skills/sop-breakdown/SKILL]] | [[brain/CAPABILITIES]]
 - [[memory/PATTERNS]] | [[memory/MISTAKES]] | [[memory/LONG_TERM]]
-- [[memory/SESSION_LOG]] | [[brain/STATE]] | [[data/competitors]]
+- [[memory/SESSION_LOG]] | [[brain/STATE]] | `data/competitors.json`

@@ -66,10 +66,10 @@ Check the knowledge base for consistency and completeness.
 **Input:** None (runs against the whole wiki)
 **Process:**
 1. Read `index.md` — verify every listed page exists on disk
-2. Read every wiki page — extract all `[[wiki-links]]`
+2. Read every wiki page — extract all ``wiki-links``
 3. Verify each linked page exists in `index.md` and on disk
 4. Check every page for a `last_updated` frontmatter field — flag if missing
-5. Check every page for at least 2 `[[wiki-links]]` — flag if fewer
+5. Check every page for at least 2 ``wiki-links`` — flag if fewer
 6. Cross-check `log.md` — are all ingested sources reflected in at least one wiki page?
 7. Output a lint report with: broken links, stale pages, orphaned sources, missing cross-refs
 
@@ -88,7 +88,7 @@ confidence: 0.9
 # [Page Title]
 
 > One-sentence summary of what this page covers.
-> [[knowledge/index]] | [[knowledge/wiki/<related-page>]]
+> `[[knowledge/index]]` | ```related wiki pages```
 
 ## [Section 1]
 
@@ -103,7 +103,7 @@ confidence: 0.9
 - Compiled from: brain/STATE.md, brain/USER.md, etc.
 
 ## Obsidian Links
-- [[knowledge/index]] | [[knowledge/wiki/<related>]] | [[<brain-file>]]
+- `[[knowledge/index]]` | ```related wiki pages``` | ```the relevant brain file```
 ```
 
 ## Confidence Scoring
@@ -123,8 +123,8 @@ Confidence decays by 0.05 per 30 days without a re-ingest.
 
 1. Every wiki page links to `[[knowledge/index]]`
 2. Every wiki page links to at least 2 other wiki pages or brain files
-3. Use `[[knowledge/wiki/page-name]]` format for wiki-to-wiki links
-4. Use `[[brain/FILE]]` format for links to brain files
+3. Use `` ```knowledge/wiki/page-name``` `` format for wiki-to-wiki links
+4. Use `` ``brain/FILE`` `` format for links to brain files
 5. The index links to every wiki page
 
 ## What Goes in `raw/`
