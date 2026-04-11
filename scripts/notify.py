@@ -91,10 +91,20 @@ def notify(message: str, category: str = "system", silent: bool = False, force: 
 
     env = _load_env()
     token = env.get("TELEGRAM_BOT_TOKEN")
-    chat_id = env.get("TELEGRAM_ALLOWED_USERS", "").split(",")[0].strip()
+    # V2.1 2026-04-11: Guarded chat_id parsing. Old code used
+    # `.split(",")[0].strip()` which returned "" on empty/whitespace env
+    # and silently failed at Telegram send. Now we filter valid IDs and
+    # log a visible error when none are found.
+    raw_users = env.get("TELEGRAM_ALLOWED_USERS", "")
+    chat_ids = [c.strip() for c in raw_users.split(",") if c.strip()]
 
-    if not token or not chat_id:
+    if not token:
+        print("[notify] TELEGRAM_BOT_TOKEN missing in .env.agents", file=sys.stderr)
         return False
+    if not chat_ids:
+        print("[notify] TELEGRAM_ALLOWED_USERS empty or malformed in .env.agents", file=sys.stderr)
+        return False
+    chat_id = chat_ids[0]
 
     try:
         import requests

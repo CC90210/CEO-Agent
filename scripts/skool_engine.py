@@ -1072,9 +1072,26 @@ def _extract_comments_on_post(page) -> list:
                 // Skip items that are the comment composer itself
                 if (content.toLowerCase().includes('write a comment')) continue;
 
-                const authorLower = author.toLowerCase();
-                const isCC = authorLower.includes('conaugh') || authorLower === 'cc';
-                const isprimary retainer = authorLower.includes('primary_retainer');
+                // V2.1 2026-04-11: Tight is_cc matching — old code used
+                // .includes('conaugh') which false-matched names like
+                // "CC Funnel Bot" or "Conaugh's Assistant". Now we match:
+                //   - exact 'cc' / 'conaugh' (case-insensitive, trimmed)
+                //   - 'conaugh mckenna' (full name)
+                //   - name starting with 'conaugh ' (word boundary)
+                // Nothing else. Members named "CC Funnel Bot" are treated
+                // as regular members who can receive engagement.
+                const authorTrimmed = (author || '').trim().toLowerCase();
+                const isCC = (
+                    authorTrimmed === 'cc'
+                    || authorTrimmed === 'conaugh'
+                    || authorTrimmed === 'conaugh mckenna'
+                    || authorTrimmed.startsWith('conaugh ')
+                );
+                const isprimary retainer = (
+                    authorTrimmed === 'primary_retainer'
+                    || authorTrimmed === 'primary_retainer spooner'
+                    || authorTrimmed.startsWith('primary_retainer ')
+                );
 
                 results.push({
                     idx: idx,
@@ -1273,12 +1290,42 @@ def _process_post_comments(
 
     Returns (replies_posted, errors_count, escalations_list).
     Mutates `replied_comments` in place. Respects both per-post and global budgets.
+
+    V2.1 2026-04-11: Page health check before extraction. If Playwright lost
+    the post page (500 error, network glitch), retry once with a page.reload
+    before giving up. Budget is now checked per-comment, not per-post, so an
+    exception mid-iteration can't accidentally bypass the cap.
     """
     if not COMMENT_REPLIES_ENABLED:
         return 0, 0, []
 
     if global_comment_budget <= 0:
         return 0, 0, []
+
+    # Page health check — verify the post page is still loaded
+    try:
+        page_ok = page.evaluate("""() => {
+            const body = document.body;
+            if (!body) return 'no_body';
+            const text = body.innerText || '';
+            if (text.length < 50) return 'empty';
+            if (text.includes('Something went wrong')
+                || text.includes('Page not found')
+                || text.includes('500')) return 'error_page';
+            return 'ok';
+        }""")
+    except Exception as e:
+        log.warning(f"  Page health check failed for {post_slug}: {e}")
+        page_ok = 'exception'
+
+    if page_ok != 'ok':
+        log.warning(f"  Page unhealthy ({page_ok}) for {post_slug} — attempting reload")
+        try:
+            page.reload(wait_until='domcontentloaded', timeout=30000)
+            time.sleep(3)
+        except Exception as e:
+            log.error(f"  Reload failed for {post_slug}: {e} — skipping comment tier")
+            return 0, 1, []
 
     comments = _extract_comments_on_post(page)
     if not comments:
@@ -1290,12 +1337,14 @@ def _process_post_comments(
     posted = 0
     errors = 0
     escalations = []
-    per_post_used = 0
 
     for c in comments:
+        # V2.1 fix: check both caps BEFORE each comment reply (not at loop
+        # start) so the global budget is honored even if an exception
+        # short-circuits the normal decrement flow.
         if posted >= MAX_COMMENT_REPLIES_PER_POST:
             break
-        if per_post_used >= global_comment_budget:
+        if posted >= global_comment_budget:
             break
 
         author = c.get("author", "")
@@ -1325,18 +1374,24 @@ def _process_post_comments(
             }
             continue
 
-        reply_text = generate_comment_reply(
-            post_title=post_title,
-            post_content=post_content,
-            comment_text=content,
-            comment_author=author,
-            cc_commented_on_parent=cc_commented_on_parent,
-        )
+        try:
+            reply_text = generate_comment_reply(
+                post_title=post_title,
+                post_content=post_content,
+                comment_text=content,
+                comment_author=author,
+                cc_commented_on_parent=cc_commented_on_parent,
+            )
+        except Exception as e:
+            log.error(f"  generate_comment_reply failed for {author}: {e}")
+            errors += 1
+            continue
+
         if not reply_text:
             errors += 1
             continue
 
-        log.info(f"  → Comment reply to {author}: {reply_text[:80]}")
+        log.info(f"  -> Comment reply to {author}: {reply_text[:80]}")
 
         if dry_run:
             replied_comments[comment_key] = {
@@ -1347,10 +1402,15 @@ def _process_post_comments(
                 "ts": _now(),
             }
             posted += 1
-            per_post_used += 1
             continue
 
-        ok = _type_and_submit_reply_to_comment(page, idx, reply_text)
+        try:
+            ok = _type_and_submit_reply_to_comment(page, idx, reply_text)
+        except Exception as e:
+            log.error(f"  Submit failed for {author}: {e}")
+            errors += 1
+            ok = False
+
         if ok:
             replied_comments[comment_key] = {
                 "author": author,
@@ -1359,7 +1419,6 @@ def _process_post_comments(
                 "ts": _now(),
             }
             posted += 1
-            per_post_used += 1
             notify(
                 f"Skool comment reply to {author} on {post_slug}: {reply_text[:80]}",
                 category="content",

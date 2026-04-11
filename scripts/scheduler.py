@@ -484,16 +484,48 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
         # Execute the job
         result_msg = execute_job(job, env_vars)
 
-        # Update the job record
+        # V2.1 2026-04-11: Retry-on-error logic.
+        # Old: next_run_at always advances to the normal schedule, so a daily
+        # 6am job that fails at 06:00:30 won't retry until 24h later.
+        # New: if the result is an ERROR, schedule a retry in 5 minutes instead
+        # of waiting for the full schedule. Max 5 consecutive retries before
+        # giving up and waiting for the next scheduled slot.
+        result_is_error = "ERROR" in result_msg or "FAILED" in result_msg
         new_count = (job.get("run_count") or 0) + 1
-        next_run = calculate_next_run(job.get("schedule", ""))
+        fail_count = (job.get("fail_count") or 0) if hasattr(job, "get") else 0
 
-        client.table("cron_jobs").update({
+        if result_is_error:
+            fail_count += 1
+            if fail_count < 5:
+                # Retry in 5 minutes
+                retry_dt = datetime.now(timezone.utc) + timedelta(minutes=5)
+                next_run = retry_dt.isoformat()
+                log(f"  ERROR on {job_name}, retry scheduled in 5 min (attempt {fail_count}/5)")
+            else:
+                # Give up, wait for next regular schedule
+                next_run = calculate_next_run(job.get("schedule", ""))
+                log(f"  ERROR on {job_name}, 5 retries exhausted, waiting for next schedule")
+                fail_count = 0  # reset after giving up
+        else:
+            next_run = calculate_next_run(job.get("schedule", ""))
+            fail_count = 0  # successful run resets the counter
+
+        update_payload = {
             "last_run_at": datetime.now(timezone.utc).isoformat(),
             "run_count": new_count,
             "next_run_at": next_run,
             "last_result": result_msg[:500],
-        }).eq("id", job_id).execute()
+        }
+        # Only set fail_count if the column exists (graceful — some deployments
+        # may not have the migration yet). Catch the error if column missing.
+        try:
+            client.table("cron_jobs").update({
+                **update_payload,
+                "fail_count": fail_count,
+            }).eq("id", job_id).execute()
+        except Exception:
+            # Fall back to update without fail_count (column doesn't exist)
+            client.table("cron_jobs").update(update_payload).eq("id", job_id).execute()
 
         log(f"COMPLETED: {job_name} -> {result_msg[:200]}")
 
@@ -523,24 +555,45 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
         # ONLY notify CC when something ACTIONABLE happened.
         # Zero-result checks (no new DMs, no new emails, no content due) = silence.
         # CC said: "I don't need Telegram messages every 5 minutes saying there was nothing."
-        skip_phrases = [
-            "no content due", "[]", "no leads", "no active", "0 need nurture",
-            "no unread", "unread_count\": 0", "unread_count\":0",
-            '"unread_count": 0', '"message": "no unread',
-            "0 unread", "no new", "ok", "checked",
-            '"published": 0', "no replies sent", "0 auto-replies",
-            "no drafts found", "no posts to repurpose",
-            # V2 filters (2026-04-11) — kill the Stripe/Nurture daily spam
-            "stripe sync ok: 0 new",
+        # V2.1 2026-04-11: Routine detection uses PREFIX matching, not substring.
+        # The old substring approach had a critical bug: 'ok' was matching inside
+        # 'booking', 'no new' matching 'no newsletter', etc. Every handler that
+        # returns its own routine-silent phrase now uses a canonical prefix.
+        # Error detection stays as substring match (intentional — ERROR/FAILED
+        # can appear inside a longer message and we still want to surface it).
+        routine_prefixes = (
+            # Engine-handled digests (engine already fired its own notify)
+            "stripe sync ok:",
             "nurture run complete: no",
-            "nurture-handled-by-digest",      # nurture digest handled by engine itself
+            "nurture-handled-by-digest",
             "funnel sync: 0 new",
-            "funnel-sync-handled",            # notify already fired by engine
+            "funnel-sync-handled",
             "fast-poll: 0 new",
-            "fast-poll-handled",              # notify already fired by engine (consolidated digest)
-        ]
-        result_lower = result_msg.lower()
-        is_routine = any(phrase in result_lower for phrase in skip_phrases)
+            "fast-poll-handled",
+            # Generic empty-result signals
+            "no content due",
+            "no leads",
+            "no active",
+            "0 need nurture",
+            "no unread",
+            "0 unread",
+            "no drafts found",
+            "no posts to repurpose",
+            "no replies sent",
+            "0 auto-replies",
+            # run_script's default "ok" fallback for empty-stdout successful runs
+            # (guarded: must be EXACTLY "ok", not just contain it)
+        )
+        result_lower = result_msg.lower().strip()
+        is_routine = (
+            result_lower == "ok"
+            or result_lower == "[]"
+            or result_lower.startswith(routine_prefixes)
+            or '"unread_count": 0' in result_lower
+            or '"unread_count":0' in result_lower
+            or '"published": 0' in result_lower
+            or '"message": "no unread' in result_lower
+        )
         is_error = "ERROR" in result_msg or "FAILED" in result_msg
 
         if is_error:
@@ -591,12 +644,25 @@ def main():
     log("")
 
     consecutive_errors = 0
+    cycles = 0
     while True:
         try:
             jobs_run = check_and_run_due_jobs(client, env_vars)
             if jobs_run > 0:
                 log(f"Cycle complete: {jobs_run} job(s) executed")
             consecutive_errors = 0
+
+            # V2.1 2026-04-11: Every 5 cycles (~5 min), re-run next_run_at
+            # initialization to catch any jobs that were added dynamically
+            # via `cron_engine.py seed` or manual Supabase inserts while the
+            # scheduler was already running. This fixes the latent bug where
+            # new jobs with null next_run_at would be dead until next restart.
+            cycles += 1
+            if cycles % 5 == 0:
+                try:
+                    initialize_next_run_times(client)
+                except Exception as init_exc:
+                    log(f"  [warn] periodic init failed: {init_exc}")
         except KeyboardInterrupt:
             log("Shutdown requested. Goodbye.")
             break
