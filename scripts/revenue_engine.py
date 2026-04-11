@@ -856,7 +856,19 @@ Examples:
 
 def main():
     parser = build_parser()
+
+    # V2 2026-04-11: pre-scan argv for `--json` BEFORE subcommand so that
+    # `python revenue_engine.py --json sync-stripe` behaves identically to
+    # `python revenue_engine.py sync-stripe --json`. The argparse subparser
+    # inheritance pattern silently clobbers the top-level flag, which was
+    # producing mixed stdout (JSON + human text) and breaking scheduler
+    # fail-closed parsers downstream.
+    import sys as _sys
+    _pre_json = "--json" in _sys.argv[1:]
+
     args = parser.parse_args()
+    if _pre_json:
+        args.output_json = True
 
     if not args.command:
         parser.print_help()

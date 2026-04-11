@@ -170,6 +170,8 @@ def execute_job(job: dict, env_vars: dict[str, str]) -> str:
             return run_email_inbox_check(env_vars)
         elif action_type == "funnel_sync":
             return run_funnel_sync(env_vars)
+        elif action_type == "funnel_fast_poll":
+            return run_funnel_fast_poll(env_vars)
         elif action_type == "content_generate":
             return run_content_generate(env_vars)
         elif action_type == "content_repurpose":
@@ -240,8 +242,42 @@ def run_booking_reminder(env_vars: dict) -> str:
 
 
 def run_stripe_sync(env_vars: dict) -> str:
-    """Sync recent Stripe events into revenue_events table."""
-    return run_script("revenue_engine.py", ["--json", "sync-stripe"])
+    """Sync recent Stripe events into revenue_events table.
+
+    Fail-closed parsing: any parse failure, exit-code error, or top-level
+    `error` field is reported as ERROR so the alerting layer surfaces it.
+    Only a CLEAN JSON result with `inserted == 0 && errors == 0` is
+    classified as routine-silent.
+    """
+    result = run_script("revenue_engine.py", ["--json", "sync-stripe"])
+
+    # Fail-closed: non-JSON output or FAILED prefix means something broke
+    if not result or not result.strip().startswith("{"):
+        return f"ERROR: stripe sync returned non-JSON: {result[:200]}"
+    if result.startswith("FAILED"):
+        return f"ERROR: stripe sync {result[:300]}"
+
+    try:
+        data = json.loads(result)
+    except (json.JSONDecodeError, TypeError) as exc:
+        return f"ERROR: stripe sync JSON parse failed: {exc}"
+
+    # Top-level error field is a hard failure, not a routine result
+    if data.get("error"):
+        return f"ERROR: stripe sync {data['error']}"
+
+    inserted = int(data.get("inserted", 0) or 0)
+    errors = int(data.get("errors", 0) or 0)
+
+    if inserted == 0 and errors == 0:
+        return "stripe sync ok: 0 new events"  # routine -> silent
+
+    parts = []
+    if inserted:
+        parts.append(f"{inserted} new Stripe event(s)")
+    if errors:
+        parts.append(f"{errors} errors")
+    return "Stripe: " + ", ".join(parts)
 
 
 def run_revenue_report(env_vars: dict) -> str:
@@ -255,30 +291,52 @@ def run_pipeline_review(env_vars: dict) -> str:
 
 
 def run_nurture_check(env_vars: dict) -> str:
-    """Run funnel lead nurture sequence (Day 2 + Day 5 follow-ups)."""
-    # Run the funnel nurture engine
-    funnel_result = run_script("funnel_nurture.py", ["run"])
+    """Run funnel lead nurture sequence (Day 2 + Day 5 follow-ups).
 
-    # Also check legacy email sequences
-    seq_result = run_script("email_engine.py", ["--json", "sequence", "list"])
+    Fail-closed parsing: funnel_nurture.py fires its OWN rich Telegram digest
+    via notify() when day2_sent or day5_sent > 0, so this handler returns a
+    routine skip-phrase to prevent scheduler double-notify. Parse failures,
+    stderr output, or any errors field break the filter and surface ERROR.
+    """
+    funnel_result = run_script("funnel_nurture.py", ["--json", "run"])
+
+    # Fail-closed: non-JSON output means noise leaked to stdout or runtime error
+    if not funnel_result or not funnel_result.strip().startswith("{"):
+        # funnel_nurture prints human-readable status when not in --json mode,
+        # but in --json mode stdout should be pure JSON. Non-{ prefix = broken.
+        return f"ERROR: nurture returned non-JSON: {funnel_result[:200]}"
+    if funnel_result.startswith("FAILED"):
+        return f"ERROR: nurture {funnel_result[:300]}"
+
     try:
-        sequences = json.loads(seq_result)
-    except (json.JSONDecodeError, TypeError):
-        sequences = []
+        data = json.loads(funnel_result)
+    except (json.JSONDecodeError, TypeError) as exc:
+        return f"ERROR: nurture JSON parse failed: {exc}"
 
-    leads_result = run_script("lead_engine.py", ["--json", "list"])
-    try:
-        leads = json.loads(leads_result)
-    except (json.JSONDecodeError, TypeError):
-        leads = []
+    day2 = len(data.get("day2_sent", []) or [])
+    day5 = len(data.get("day5_sent", []) or [])
+    errors_list = data.get("errors", []) or []
+    errors = len(errors_list)
 
-    nurture_candidates = [
-        l for l in leads
-        if isinstance(l, dict) and l.get("status") in ("new", "contacted")
-        and l.get("email")
-    ]
+    # Zero-action runs = routine-silent. funnel_nurture's own digest handles
+    # the actionable case, so the scheduler wrap intentionally stays quiet
+    # here via the skip_phrases filter.
+    if day2 == 0 and day5 == 0 and errors == 0:
+        return "nurture run complete: no follow-ups due"  # routine -> silent
 
-    return f"Funnel: {funnel_result.strip()} | Legacy: {len(nurture_candidates)} lead(s), {len(sequences)} sequence(s)"
+    parts = []
+    if day2:
+        parts.append(f"{day2} Day-2 sent")
+    if day5:
+        parts.append(f"{day5} Day-5 sent")
+    if errors:
+        parts.append(f"{errors} errors: {errors_list[0][:100] if errors_list else ''}")
+    # Return "nurture-handled-by-digest" phrase so the scheduler wrap stays
+    # silent (funnel_nurture already sent the rich HTML digest). If errors
+    # exist, we DO want scheduler to surface them — ERROR breaks the filter.
+    if errors:
+        return "ERROR: nurture had failures: " + ", ".join(parts)
+    return "nurture-handled-by-digest: " + ", ".join(parts)  # routine -> silent
 
 
 def run_monthly_snapshot(env_vars: dict) -> str:
@@ -318,8 +376,76 @@ def run_email_inbox_check(env_vars: dict) -> str:
 
 
 def run_funnel_sync(_env_vars: dict) -> str:
-    """Sync new funnel_leads from the last 24h into the CRM leads table."""
-    return run_script("funnel_sync.py", ["run", "--json"], timeout=60)
+    """Sync new funnel_leads from the last 24h into the CRM leads table.
+
+    Fail-closed: non-JSON output or top-level error becomes ERROR. In priority
+    (fast-poll) mode, funnel_sync.py fires its own consolidated Telegram digest,
+    so this handler returns a routine-silent phrase to prevent scheduler
+    double-notify. In daily mode, scheduler does the notification.
+    """
+    result = run_script("funnel_sync.py", ["run", "--json"], timeout=60)
+
+    if not result or not result.strip().startswith("{"):
+        return f"ERROR: funnel sync returned non-JSON: {result[:200]}"
+    if result.startswith("FAILED"):
+        return f"ERROR: funnel sync {result[:300]}"
+
+    try:
+        data = json.loads(result)
+    except (json.JSONDecodeError, TypeError) as exc:
+        return f"ERROR: funnel sync JSON parse failed: {exc}"
+
+    if data.get("error"):
+        return f"ERROR: funnel sync {data['error']}"
+
+    synced = data.get("synced", []) or []
+    errors = data.get("errors", []) or []
+
+    if not synced and not errors:
+        return "funnel sync: 0 new leads"  # routine -> silent
+
+    if errors:
+        return f"ERROR: funnel sync had {len(errors)} errors: {errors[0] if errors else ''}"
+
+    # synced > 0 and no errors: funnel_sync already fired per-lead notify()
+    # in non-priority mode (or consolidated digest in priority mode), so tell
+    # scheduler to stay silent via the skip-phrase filter.
+    return f"funnel-sync-handled: {len(synced)} new lead(s) synced"
+
+
+def run_funnel_fast_poll(_env_vars: dict) -> str:
+    """Fast-poll funnel_leads (last 2 minutes) for near-realtime CC alerts.
+
+    funnel_sync.py fast-poll mode fires a consolidated high-priority Telegram
+    digest when new leads land. This handler returns a routine-silent phrase
+    on empty runs so the scheduler doesn't spam CC every 60 seconds.
+    """
+    result = run_script("funnel_sync.py", ["fast-poll", "--json"], timeout=30)
+
+    if not result or not result.strip().startswith("{"):
+        return f"ERROR: fast-poll returned non-JSON: {result[:200]}"
+    if result.startswith("FAILED"):
+        return f"ERROR: fast-poll {result[:300]}"
+
+    try:
+        data = json.loads(result)
+    except (json.JSONDecodeError, TypeError) as exc:
+        return f"ERROR: fast-poll JSON parse failed: {exc}"
+
+    if data.get("error"):
+        return f"ERROR: fast-poll {data['error']}"
+
+    synced = data.get("synced", []) or []
+    errors = data.get("errors", []) or []
+
+    if not synced and not errors:
+        return "fast-poll: 0 new leads"  # routine -> silent
+
+    if errors:
+        return f"ERROR: fast-poll had {len(errors)} errors: {errors[0] if errors else ''}"
+
+    # funnel_sync fast-poll already sent the consolidated digest — stay silent.
+    return f"fast-poll-handled: {len(synced)} new lead(s) alerted"
 
 
 # ── Main loop ─────────────────────────────────────────────────────────────────
@@ -388,6 +514,7 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
             "ig_auto_reply": "instagram",
             "email_inbox_check": "email",
             "funnel_sync": "lead",
+            "funnel_fast_poll": "lead",
             "content_generate": "content",
             "content_repurpose": "content",
         }
@@ -403,6 +530,14 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
             "0 unread", "no new", "ok", "checked",
             '"published": 0', "no replies sent", "0 auto-replies",
             "no drafts found", "no posts to repurpose",
+            # V2 filters (2026-04-11) — kill the Stripe/Nurture daily spam
+            "stripe sync ok: 0 new",
+            "nurture run complete: no",
+            "nurture-handled-by-digest",      # nurture digest handled by engine itself
+            "funnel sync: 0 new",
+            "funnel-sync-handled",            # notify already fired by engine
+            "fast-poll: 0 new",
+            "fast-poll-handled",              # notify already fired by engine (consolidated digest)
         ]
         result_lower = result_msg.lower()
         is_routine = any(phrase in result_lower for phrase in skip_phrases)

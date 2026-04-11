@@ -165,10 +165,18 @@ SEED_JOBS: list[dict] = [
     },
     {
         "name": "Funnel Lead Sync",
-        "description": "Sync new funnel_leads to CRM leads table + fire welcome email",
+        "description": "Sync new funnel_leads to CRM leads table + fire welcome email (24h backstop)",
         "schedule": "*/5 * * * *",
         "action_type": "funnel_sync",
         "action_config": {"auto_welcome_email": True},
+        "is_active": True,
+    },
+    {
+        "name": "Funnel Fast-Poll",
+        "description": "Near-realtime funnel_leads detection (2-minute window). Fires high-priority Telegram digest when new form submissions land, so CC knows within ~1 min of a lead filling out the CC Funnel on Instagram/social.",
+        "schedule": "*/1 * * * *",
+        "action_type": "funnel_fast_poll",
+        "action_config": {"window_seconds": 120, "priority": True},
         "is_active": True,
     },
 ]
