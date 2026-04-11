@@ -469,7 +469,15 @@ def main():
     # credentials
     p_creds = subparsers.add_parser("credentials", parents=[parent], help="List credentials")
 
+    # V2 2026-04-11: pre-scan argv for --json BEFORE subcommand so that
+    # `python n8n_tool.py --json list` behaves identically to
+    # `python n8n_tool.py list --json`. Same bug class as revenue_engine.py:
+    # argparse subparser inheritance silently clobbers the top-level flag.
+    _pre_json = "--json" in sys.argv[1:]
+
     args = parser.parse_args()
+    if _pre_json:
+        args.output_json = True
 
     if not args.command:
         parser.print_help()
