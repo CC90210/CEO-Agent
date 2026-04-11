@@ -118,3 +118,28 @@ e2e-screenshots/
 # Obsidian plugin binaries (only manifests + data tracked)
 .obsidian/plugins/*/main.js
 .obsidian/plugins/*/styles.css
+
+# =============================================
+# STRAY APP ARTIFACTS (RULE 7 enforcement)
+# Prevents app code / debug files from other repos ending up in BEA root
+# =============================================
+# Stray .git folders (from cross-repo operations)
+*-fix-git/
+*-backup-git/
+*.git-backup/
+
+# App-specific screenshots / test artifacts at BEA root
+/gritly-*
+/oasis-*
+/propflow-*
+/nostalgic-*
+/ig-setter-*
+/cc-funnel-*
+/tiktik-*
+/mindset-*
+/atlas-*
+/lafreniere-*
+/aura-*
+/grapevine-*
+/on-the-hill-*
+/shopify-ad-*
