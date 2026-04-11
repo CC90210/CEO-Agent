@@ -117,10 +117,18 @@ def notify(message: str, category: str = "system", silent: bool = False, force: 
                 "parse_mode": "HTML",
                 "disable_notification": silent,
             },
-            timeout=10,
+            timeout=5,  # V2 2026-04-11: 10s -> 5s to prevent scheduler loop stalls
         )
-        return resp.json().get("ok", False)
-    except Exception:
+        ok = resp.json().get("ok", False)
+        if not ok:
+            # Log to stderr so scheduler's PM2 logs surface delivery failures
+            # (e.g., 403 bot blocked, 429 rate limit). Fail-closed visibility.
+            err_info = resp.json().get("description", f"HTTP {resp.status_code}")
+            print(f"[notify] Telegram send failed: {err_info}", file=sys.stderr)
+        return ok
+    except Exception as exc:
+        # Visible failure beats silent failure. PM2 logs catch this.
+        print(f"[notify] Telegram send exception: {exc}", file=sys.stderr)
         return False
 
 

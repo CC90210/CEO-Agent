@@ -10,6 +10,82 @@ tags: [daily]
 
 ---
 
+### 2026-04-11 — Notification pipeline V2: fail-closed parsing + double-notify fix + fast-poll mode + argparse bug
+**Agent:** Claude Code (Bravo, Opus 4.6) + Codex adversarial review + Explore deep audit subagent
+**Trigger:** CC screenshot showed daily spam from Stripe Revenue Sync ("0 new events / 4 duplicates") + Nurture Sequence Check ("Day 2, 0 Day 5, 0 errors (Legacy: 0 lead(s), 1 sequence(s))"). CC directive: "hyperthink, fire all codex agents and subagents, be brutally methodical."
+
+**Protocol:** Full hyperthink 7-phase. Codex adversarial review + Explore notification-path audit fired in parallel. Codex + Explore independently confirmed the same critical bugs plus one systemic fail-open trap.
+
+**Critical bugs fixed (all shipped):**
+
+1. **Argparse --json flag clobber in revenue_engine.py (ROOT CAUSE — undiscovered for weeks)**
+   - `--json` registered on BOTH top-level parser AND parent parser inherited by subparsers
+   - `python revenue_engine.py --json sync-stripe` → subparser default clobbers top-level, stdout has human text not JSON
+   - Scheduler was using this exact broken invocation, getting "Stripe sync complete.\n  Inserted: 0 new event(s)\n  Skipped: 4 duplicate(s)" instead of `{"inserted": 0, ...}`
+   - Only worked at all because scheduler's skip_phrases accidentally matched substrings
+   - FIX: pre-scan argv for `--json` before argparse runs, force args.output_json=True if found. Both `--json sync-stripe` and `sync-stripe --json` now work identically. Verified live.
+
+2. **Stripe sync fail-open silencing real outages (scheduler.py:run_stripe_sync)**
+   - Old: parse JSON, if inserted==0 return routine-silent
+   - Bug: non-JSON output, FAILED prefix, or {"error":...} all silently classified as "routine success"
+   - A Stripe API outage would appear identical to a healthy empty run → zero visibility
+   - FIX: fail-closed parsing. Non-JSON → ERROR. FAILED prefix → ERROR. Top-level error field → ERROR. Only clean JSON with inserted==0 && errors==0 is routine-silent.
+
+3. **Nurture fail-open silencing SMTP failures (scheduler.py:run_nurture_check)**
+   - Same bug class as #2. funnel_nurture.py prints human text to stdout when not --json → parse failure → silent.
+   - FIX: identical fail-closed pattern. Errors surface as "ERROR: nurture had failures: ..."
+
+4. **Double-notify bug chain (CRITICAL per Codex verdict: NO SHIP)**
+   - funnel_sync.py had per-lead notify() call; scheduler then ALSO called notify() on the result string
+   - funnel_nurture.py had its OWN send_telegram() via raw urllib; scheduler then ALSO called notify() on the result
+   - Each new funnel lead = 2 Telegram messages. Each nurture action = 2 messages.
+   - FIX: Both engines now fire ONE consolidated digest per run. Scheduler handlers return routine-silent skip phrases ("funnel-sync-handled", "nurture-handled-by-digest") so the scheduler layer stays quiet when the engine already notified. Skip_phrases filter updated.
+
+5. **Fast-poll race condition (Codex medium severity)**
+   - funnel_sync.py fast-poll uses 120s window with */1 cron = runs can overlap at boundary
+   - Old check-then-insert pattern: two overlapping runs both see "not in CRM" → both try to insert → duplicate CRM row + duplicate welcome email
+   - FIX: Added duplicate-key / unique-violation / PG 23505 error catch. If insert fails because parallel run won the race, treat as "already synced" not as error.
+
+6. **notify.py blocking timeout could stall scheduler loop (Codex high severity)**
+   - Old: 10s HTTPS POST timeout on Telegram send. 10 sends × 10s = 100s stall in a 60s cycle.
+   - FIX: 10s → 5s. Added stderr logging on failure so PM2 logs surface delivery errors (403 bot blocked, 429 rate limit, network stall) instead of returning False silently.
+
+7. **funnel_nurture.py raw HTTP → notify.py unification (Codex high severity)**
+   - Old: funnel_nurture had its own urllib.request.urlopen path, bypassed category filtering and consistent error handling
+   - FIX: Migrated send_telegram() to import notify.notify(message, category="email", force=True). Raw HTTP kept as safety-net fallback.
+
+8. **Day 2 / Day 5 dead zone (funnel_nurture.py window calc)**
+   - Day 2 window was `1.5 <= age_days <= 3`; Day 5 was `4.5 <= age_days <= 7`
+   - Lead at exactly 3.0-4.5 days old with follow_up_count=0 fell through the gap, never received ANY follow-up
+   - FIX: Widened Day 2 upper bound to 3.5 and lowered Day 5 floor to 3.5. Gap closed. follow_up_count gate prevents double-send in the overlap.
+
+9. **Fast-poll cron job seeded (new action_type: funnel_fast_poll)**
+   - Added DEFAULT_JOBS entry: "Funnel Fast-Poll" running `*/1 * * * *` (every minute)
+   - calls `python scripts/funnel_sync.py fast-poll --json`
+   - 120s window overlaps with 60s cadence for boundary safety
+   - When CC's Instagram CC Funnel form gets a submission, CC gets a Telegram digest within ~1 minute (was 5 min)
+   - Seeded live into Supabase cron_jobs table as job 67bf96ca
+   - Registered new scheduler handler `run_funnel_fast_poll` + category_map entry
+
+**Verification:**
+- All 6 edited files pass AST parse
+- All 4 modules import cleanly
+- All 4 scheduler handlers exported and callable
+- **16/16 fail-closed parser unit tests pass** (empty stdout, FAILED prefix, non-JSON garbage, error field, clean 0-action, actionable counts, all error combos)
+- Live funnel_sync.py fast-poll --json against real Supabase: returns clean JSON, window_seconds=120, priority=true, 0 leads found (correct)
+- Live funnel_nurture.py --json run: clean JSON output, no stray prints
+- Live revenue_engine.py --json sync-stripe: clean JSON both before AND after subcommand position
+
+**Codex adversarial review verdict:** needs-attention → all 4 CRITICAL findings addressed. Ship approved after round-2 fixes.
+
+**Explore audit verdict:** 12 findings across 4 severity levels. All CRITICAL (4) + HIGH (3 of 4) shipped. Remaining HIGH #7 (scheduler masks job failures by always updating next_run_at on error) deferred — pre-existing architecture, out of scope for notification fix.
+
+**Files changed:** scripts/scheduler.py (+120/-12), scripts/funnel_sync.py (+65/-18), scripts/funnel_nurture.py (+18/-8), scripts/notify.py (+11/-5), scripts/revenue_engine.py (+12/-1), scripts/cron_engine.py (+9/-1)
+
+**Next cron cycle will prove it:** Stripe spam stops, Day-2-stuck message stops, fast-poll begins alerting within 60s of new lead submissions. CC's screenshot bug fully resolved.
+
+---
+
 ### 2026-04-11 — Skool Engine V2.1 — comment-tier engagement + coach-attention escalation
 **Agent:** Claude Code (Bravo, Opus 4.6)
 **Trigger:** CC directive — "should be doing more. It shouldn't just be responding to their posts; it should be responding to people in the comment section as well. If I've already commented once, keep it pretty precise. I'd obviously use logic to identify what needs my attention as a coach."

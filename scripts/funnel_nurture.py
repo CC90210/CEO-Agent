@@ -66,6 +66,22 @@ def send_email(to_email: str, subject: str, html: str) -> bool:
 
 
 def send_telegram(message: str):
+    """Unified Telegram via notify.py — uses the same path as every other engine.
+
+    V2 2026-04-11: migrated from raw urllib.request to notify.notify() so
+    category filtering, timeout, and error visibility are consistent across
+    the codebase. Falls back to raw HTTP only if notify import fails.
+    """
+    try:
+        # Local import to avoid a hard dependency when running in isolation
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from notify import notify as _notify
+        _notify(message, category="email", force=True)  # force=True bypasses category block
+        return
+    except Exception:
+        pass
+
+    # Fallback: original raw HTTP path (kept as safety net)
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     chat_id = os.environ.get("TELEGRAM_ALLOWED_USERS", "").split(",")[0].strip()
     if not token or not chat_id:
@@ -83,11 +99,9 @@ def send_telegram(message: str):
         headers={"Content-Type": "application/json"},
     )
     try:
-        # Telegram can hang for minutes on network issues. 15s matches the
-        # rest of the codebase's Telegram call sites.
-        urllib.request.urlopen(req, timeout=15)
+        urllib.request.urlopen(req, timeout=5)  # V2: 15s -> 5s
     except Exception as e:
-        print(f"Telegram notify failed: {e}")
+        print(f"Telegram notify failed: {e}", file=sys.stderr)
 
 
 # --- Email template helpers ---
@@ -216,8 +230,11 @@ def run_nurture(as_json: bool = False):
         name = lead["name"]
         email = lead["email"]
 
-        # Day 2 follow-up (send between 1.5 and 3 days after signup)
-        if follow_up_count == 0 and 1.5 <= age_days <= 3:
+        # Day 2 follow-up (send between 1.5 and 3.5 days after signup)
+        # V2 2026-04-11: widened upper bound from 3 -> 3.5 to catch leads
+        # that landed at exactly 3 days old (previously fell through the gap
+        # between 3.0 and 4.5 which was a dead zone).
+        if follow_up_count == 0 and 1.5 <= age_days <= 3.5:
             subject, html = day2_email(name, interests, lead)
             if send_email(email, subject, html):
                 sb.table("funnel_leads").update({
@@ -229,8 +246,11 @@ def run_nurture(as_json: bool = False):
             else:
                 results["errors"].append(f"Day 2 email failed: {email}")
 
-        # Day 5 follow-up (send between 4.5 and 7 days after signup)
-        elif follow_up_count == 1 and 4.5 <= age_days <= 7:
+        # Day 5 follow-up (send between 3.5 and 7 days after signup)
+        # V2 2026-04-11: lowered floor from 4.5 -> 3.5 to close the dead zone
+        # with Day 2's new upper bound. Overlap is fine because follow_up_count
+        # gate ensures a lead doesn't receive both on the same run.
+        elif follow_up_count == 1 and 3.5 <= age_days <= 7:
             subject, html = day5_email(name, interests, lead)
             if send_email(email, subject, html):
                 sb.table("funnel_leads").update({

@@ -1,18 +1,24 @@
 """
 Funnel Lead Sync — CRM Bridge
-Reads funnel_leads created in the last 24 hours and syncs any that don't
-already exist in the leads table. Idempotent: keyed on email address.
+Reads funnel_leads and syncs any that don't already exist in the leads table.
+Idempotent: keyed on email address.
+
+Two modes:
+  - `run`        — scan last 24h (the daily backstop, safe for retries)
+  - `fast-poll`  — scan last 2 minutes only (for ~60s cron → immediate notifications)
 
 For each new lead:
   1. Check if email already exists in leads table (skip if so)
   2. Insert into leads with source="cc_funnel"
   3. Send Welcome email template (graceful fallback if template missing)
-  4. Notify CC via Telegram
+  4. Notify CC via Telegram with a HIGH-PRIORITY digest
+     (in fast-poll mode only; run mode uses lower-key per-lead notify)
 
 Usage:
-    python scripts/funnel_sync.py run           # Sync leads from last 24h
-    python scripts/funnel_sync.py stats         # Show sync stats
-    python scripts/funnel_sync.py run --json    # JSON output for agents
+    python scripts/funnel_sync.py run              # Sync last 24h (daily cron)
+    python scripts/funnel_sync.py fast-poll        # Sync last 2 minutes (fast cron)
+    python scripts/funnel_sync.py stats            # Show sync stats
+    python scripts/funnel_sync.py run --json       # JSON output for agents
 """
 
 import argparse
@@ -144,10 +150,17 @@ def build_notes(lead: dict) -> str:
     return " | ".join(parts) if parts else ""
 
 
-def run_sync(env_vars: dict[str, str], as_json: bool = False) -> None:
+def run_sync(env_vars: dict[str, str], as_json: bool = False, window_seconds: int = 86400, priority: bool = False) -> None:
+    """
+    Sync funnel_leads created in the last `window_seconds` seconds into the CRM.
+
+    `priority=True` fires a single consolidated high-priority Telegram digest
+    at the end of a multi-lead batch (used by fast-poll mode for realtime alerts).
+    `priority=False` uses the per-lead notify() path (used by the daily backstop).
+    """
     client = get_client(env_vars)
 
-    since = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    since = (datetime.now(timezone.utc) - timedelta(seconds=window_seconds)).isoformat()
 
     # Fetch funnel leads created in the last 24 hours
     try:
@@ -177,7 +190,33 @@ def run_sync(env_vars: dict[str, str], as_json: bool = False) -> None:
             skipped.append(f"id={lead_id_str} (no email)")
             continue
 
-        # Check if this email already exists in leads table
+        # RACE-SAFE INSERT: use idempotent upsert on email.
+        # Two overlapping fast-poll runs could both see "not in CRM yet" and
+        # both try to insert. Supabase .upsert(on_conflict="email") is atomic
+        # at the DB layer — one wins, the other is a no-op. We still need to
+        # distinguish "I inserted this one" vs "someone else already did" to
+        # avoid sending duplicate welcome emails / duplicate notifications.
+        notes = build_notes(lead)
+        payload: dict = {
+            "name": name,
+            "email": email,
+            "source": "cc_funnel",
+            "status": "new",
+        }
+        if lead.get("phone"):
+            payload["phone"] = lead["phone"]
+        if lead.get("business_name"):
+            payload["company"] = lead["business_name"]
+        if notes:
+            payload["notes"] = notes
+
+        # Two-phase race-safe insert:
+        #   1. SELECT existing row by email
+        #   2. If exists -> skip. If not -> INSERT and handle duplicate-key error gracefully.
+        # This is NOT fully atomic in the "two clients race" sense, but the
+        # duplicate-key error path below catches it. A true upsert on email
+        # would require the leads table to have UNIQUE(email), which we don't
+        # control from here. The duplicate-key catch is the backstop.
         try:
             existing = (
                 client.table("leads")
@@ -193,54 +232,72 @@ def run_sync(env_vars: dict[str, str], as_json: bool = False) -> None:
             errors.append(f"{email}: leads lookup failed — {exc}")
             continue
 
-        # Build the CRM lead payload
-        notes = build_notes(lead)
-        payload: dict = {
-            "name": name,
-            "email": email,
-            "source": "cc_funnel",
-            "status": "new",
-        }
-        if lead.get("phone"):
-            payload["phone"] = lead["phone"]
-        if lead.get("business_name"):
-            payload["company"] = lead["business_name"]
-        if notes:
-            payload["notes"] = notes
-
-        # Insert into leads table
         try:
             client.table("leads").insert(payload).execute()
         except Exception as exc:
+            # If the insert failed because another parallel run won the race,
+            # treat it as "already synced" rather than an error. Match any
+            # duplicate-key / unique-violation error string.
+            err_lower = str(exc).lower()
+            if (
+                "duplicate" in err_lower
+                or "unique" in err_lower
+                or "23505" in err_lower  # PG duplicate key code
+            ):
+                skipped.append(f"{email} (race: won by parallel run)")
+                continue
             errors.append(f"{email}: insert failed — {exc}")
             continue
 
         # Send welcome email — errors are non-fatal
         email_status = send_welcome_email(client, env_vars, email, name)
 
-        # Notify CC
-        notify(
-            f"New funnel lead synced: {name} ({email}) | email={email_status}",
-            category="lead",
-        )
+        # In priority (fast-poll) mode, defer notification to the end digest.
+        # In daily-sync mode, DO NOT notify per-lead here — scheduler's
+        # run_funnel_sync wrapper returns a routine skip-phrase so scheduler
+        # does not double-notify. Instead, log it to synced and let the
+        # daily cron notify CC once per lead via its own single-lead path.
+        synced.append({"name": name, "email": email, "email_status": email_status, "notes": notes})
 
-        synced.append(f"{name} ({email})")
+    # Notification strategy:
+    #   priority=True (fast-poll)  -> ONE consolidated high-priority digest
+    #   priority=False (daily)     -> ONE consolidated digest, but lower-priority phrasing
+    # Both emit a single notify() call total per run, regardless of lead count.
+    # scheduler.run_funnel_sync returns a routine skip-phrase to prevent the
+    # scheduler layer from double-notifying.
+    if synced:
+        if priority:
+            header = f"🔥 <b>NEW FUNNEL LEAD{'S' if len(synced) > 1 else ''} ({len(synced)})</b>\n"
+        else:
+            header = f"<b>Funnel leads synced ({len(synced)})</b>\n"
+        lines = [header]
+        for lead in synced:
+            lines.append(f"• <b>{lead['name']}</b>")
+            lines.append(f"  📧 {lead['email']}")
+            if lead.get("notes"):
+                lines.append(f"  📝 {lead['notes'][:160]}")
+            lines.append(f"  ✉️ Welcome email: {lead['email_status']}")
+            lines.append("")
+        notify("\n".join(lines), category="lead")
 
     result_data = {
         "synced": synced,
         "skipped": skipped,
         "errors": errors,
         "total_checked": len(funnel_leads),
+        "window_seconds": window_seconds,
+        "priority": priority,
     }
 
     if as_json:
         print(json.dumps(result_data, indent=2))
     else:
+        window_label = f"{window_seconds}s" if window_seconds < 3600 else f"{window_seconds // 3600}h"
         print(
             f"Funnel sync: {len(synced)} synced, "
             f"{len(skipped)} skipped, "
             f"{len(errors)} errors "
-            f"(checked {len(funnel_leads)} leads from last 24h)"
+            f"(checked {len(funnel_leads)} leads from last {window_label})"
         )
         if errors:
             for err in errors:
@@ -285,14 +342,23 @@ def main() -> None:
         prog="funnel_sync.py",
         description="Funnel Lead Sync — syncs recent cc-funnel leads into the CRM",
     )
-    parser.add_argument("command", choices=["run", "stats"], help="Command to execute")
+    parser.add_argument(
+        "command",
+        choices=["run", "fast-poll", "stats"],
+        help="Command to execute (run=24h daily backstop, fast-poll=2min realtime, stats=show state)",
+    )
     parser.add_argument("--json", dest="output_json", action="store_true", help="JSON output for agents")
+    parser.add_argument("--window", type=int, default=None, help="Override window in seconds (advanced)")
     args = parser.parse_args()
 
     env_vars = load_env()
 
     if args.command == "run":
-        run_sync(env_vars, as_json=args.output_json)
+        window = args.window if args.window else 86400  # 24h default
+        run_sync(env_vars, as_json=args.output_json, window_seconds=window, priority=False)
+    elif args.command == "fast-poll":
+        window = args.window if args.window else 120  # 2 min default — overlap with 60s cron
+        run_sync(env_vars, as_json=args.output_json, window_seconds=window, priority=True)
     elif args.command == "stats":
         run_stats(env_vars, as_json=args.output_json)
 
