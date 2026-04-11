@@ -70,7 +70,10 @@ class N8nClient:
         req.add_header("Accept", "application/json")
 
         try:
-            with urlopen(req) as resp:
+            # Timeout is mandatory — without it a hung n8n instance can freeze
+            # any cron job calling this tool indefinitely. 30s matches other
+            # CLI tools in scripts/.
+            with urlopen(req, timeout=30) as resp:
                 return json.loads(resp.read().decode("utf-8"))
         except HTTPError as e:
             error_body = e.read().decode("utf-8") if e.fp else ""

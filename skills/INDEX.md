@@ -9,6 +9,7 @@ tags: [skills, index, hub]
 
 ## Meta
 - [[skills/SKILL_LOADING]] — How skills are loaded and activated across AI interfaces
+- [[skills/hyperthink/SKILL]] — **Maximum-depth reasoning protocol** (wraps ultrathink + 7-phase LATS + Reflexion). Fire for architectural / irreversible / multi-hypothesis problems. Trigger: CC says "hyperthink" or any `think harder` synonym.
 
 ## Core Operations
 - [[skills/systematic-debugging/SKILL]] — Bug investigation, root-cause analysis
