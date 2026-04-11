@@ -1,14 +1,19 @@
 """
-Skool Community Engine V2 — Autonomous community management via Playwright.
+Skool Community Engine V2.1 — Autonomous community management via Playwright.
 
 Features:
 - Replies to community posts in CC's coaching voice
+- Replies to COMMENTS inside posts (V2.1 — added 2026-04-11)
+- When CC has already top-level commented on a post, Bravo's comment replies are
+  brief and complementary (never step on CC's voice)
+- Detects posts/comments needing CC's personal attention (crisis, hot leads, direct
+  @-mentions, explicit coaching asks) and escalates via Telegram instead of auto-replying
 - DMs DISABLED (2026-04-01) — CC handles DMs manually
 
 Usage:
   python scripts/skool_engine.py login              # One-time: manual Skool login
-  python scripts/skool_engine.py scan-posts         # Reply to community posts
-  python scripts/skool_engine.py auto               # Run post scan
+  python scripts/skool_engine.py scan-posts         # Reply to community posts + comments
+  python scripts/skool_engine.py auto               # Run post+comment scan
   python scripts/skool_engine.py daemon             # Run continuously (default: 5min)
   python scripts/skool_engine.py daemon --interval 5
   python scripts/skool_engine.py status             # Show engine status
@@ -40,6 +45,8 @@ LOG_DIR = TMP_DIR / "logs"
 
 # State files
 REPLIED_POSTS_PATH = TMP_DIR / "skool_replied_posts.json"
+REPLIED_COMMENTS_PATH = TMP_DIR / "skool_replied_comments.json"  # V2.1: comment reply state
+ESCALATED_PATH = TMP_DIR / "skool_escalated.json"  # V2.1: posts/comments sent to CC's Telegram
 DM_STATE_PATH = TMP_DIR / "skool_dm_state.json"
 MEMBER_STATE_PATH = TMP_DIR / "skool_member_state.json"
 DAEMON_PID_PATH = TMP_DIR / "skool_daemon.pid"
@@ -59,6 +66,35 @@ DM_DISABLED = True
 COMMUNITY_FEED_URL = COMMUNITY_URL
 MAX_REPLIES_PER_CYCLE = 5   # Max post replies per scan
 MAX_DM_REPLIES_PER_CYCLE = 0  # DMs disabled — was 5
+
+# V2.1 — Comment engagement tier
+COMMENT_REPLIES_ENABLED = True          # Master switch for comment replies
+MAX_COMMENT_REPLIES_PER_CYCLE = 8       # Max comment replies per full daemon cycle
+MAX_COMMENT_REPLIES_PER_POST = 3        # Max comment replies on any one post per cycle
+COMMENT_BRIEF_CHAR_LIMIT = 180          # Hard cap when CC already top-level commented
+
+# Escalation signals — these phrases/conditions trigger a Telegram alert instead of auto-reply.
+# Reason: Bravo should never auto-reply to a crisis, a hot lead, or a direct @-mention of CC.
+# Those are moments that need CC's real voice, not a ghostwriter.
+ESCALATION_KEYWORDS = [
+    # Direct mentions of CC
+    "@conaugh", "@cc", "@coach",
+    # Explicit help / coaching asks
+    "need help", "help me", "can anyone help", "stuck on", "don't know what to do",
+    "quitting", "giving up", "burned out", "burning out", "can't do this",
+    "about to quit",
+    # Crisis / emotional
+    "crisis", "emergency", "panic", "desperate",
+    "angry", "furious", "losing it", "i'm done",
+    # Money / account issues
+    "refund", "cancel my membership", "want my money back", "want out",
+    # Hot wins that deserve CC's personal note (not an auto-reply)
+    "closed my first", "signed my first", "won my first", "just closed a",
+    "got my first client", "first retainer", "big client",
+    # Explicit asks to talk
+    "dm me", "can we talk", "can we hop on a call", "can we jump on a call",
+    "need a call",
+]
 
 # Exclusive lock file — prevents multiple daemon instances
 LOCK_FILE_PATH = TMP_DIR / "skool_daemon.lock"
@@ -931,6 +967,411 @@ def generate_post_reply(post_title: str, post_content: str, author_name: str, im
 
 
 # ---------------------------------------------------------------------------
+# V2.1 — Comment-tier engagement helpers
+# ---------------------------------------------------------------------------
+
+def _needs_coach_attention(title: str, content: str, author: str = "") -> tuple[bool, str]:
+    """Rule-based check: does this post/comment need CC's personal attention instead of auto-reply?
+
+    Returns (needs_attention, reason). Errs on the side of escalation — a false positive
+    costs one Telegram ping; a false negative costs trust with the community.
+    """
+    # Never escalate moderators' own posts/comments to themselves.
+    author_lower = (author or "").lower()
+    if "conaugh" in author_lower or author_lower == "cc" or "primary_retainer" in author_lower:
+        return False, ""
+
+    text = f"{title} {content}".lower()
+    for kw in ESCALATION_KEYWORDS:
+        if kw in text:
+            return True, f"keyword: '{kw}'"
+    # Long emotional content (>600 chars) with question marks is often a venting post
+    if len(content) > 600 and content.count("?") >= 3:
+        return True, "long venting post w/ multiple questions"
+    return False, ""
+
+
+def _escalate_to_cc(post_url: str, author: str, snippet: str, reason: str, kind: str = "post"):
+    """Send a Telegram alert to CC via notify() — do NOT auto-reply to this item."""
+    try:
+        msg = (
+            f"[Skool — coach attention] {kind} by {author}\n"
+            f"Reason: {reason}\n"
+            f"Excerpt: {snippet[:160]}...\n"
+            f"Link: {post_url}"
+        )
+        notify(msg, category="skool-escalation")
+    except Exception as e:
+        log.warning(f"Escalation notify failed: {e}")
+
+    try:
+        escalated = _load_json(ESCALATED_PATH)
+        key = f"{kind}:{post_url}:{author}"
+        escalated[key] = {"reason": reason, "ts": _now(), "snippet": snippet[:200]}
+        _save_json(ESCALATED_PATH, escalated)
+    except Exception as e:
+        log.warning(f"Escalation log failed: {e}")
+
+
+def _extract_comments_on_post(page) -> list:
+    """Extract the comment list on the currently loaded post page.
+
+    Returns a list of dicts: [{idx, author, content, is_cc, is_primary_retainer}, ...]
+    Resilient to selector drift — tries multiple strategies. Degrades to empty list
+    on failure (never raises).
+    """
+    try:
+        comments = page.evaluate(r"""() => {
+            // Try multiple comment wrapper selector patterns (Skool changes these periodically)
+            const selectors = [
+                '[class*="CommentItem"]',
+                '[class*="Comment-sc-"]',
+                '[class*="commentWrapper"]',
+                'div[data-comment-id]',
+                '[class*="CommentThread"] > div',
+            ];
+
+            let wrappers = [];
+            for (const sel of selectors) {
+                const found = document.querySelectorAll(sel);
+                if (found.length > 0) {
+                    wrappers = Array.from(found);
+                    break;
+                }
+            }
+            if (!wrappers.length) return [];
+
+            const results = [];
+            let idx = 0;
+            for (const w of wrappers) {
+                idx++;
+
+                // Author
+                const authorLink = w.querySelector('a[href*="/@"]');
+                const author = authorLink ? (authorLink.textContent || '').trim() : '';
+                if (!author) continue;
+
+                // Content — try several selectors
+                const contentSels = [
+                    '[class*="CommentContent"]',
+                    '[class*="CommentBody"]',
+                    '[class*="CommentText"]',
+                    '.ProseMirror',
+                    '[class*="Content"]',
+                ];
+                let content = '';
+                for (const cs of contentSels) {
+                    const el = w.querySelector(cs);
+                    if (el && (el.textContent || '').trim().length > 3) {
+                        content = (el.textContent || '').trim();
+                        break;
+                    }
+                }
+                if (!content || content.length < 5) continue;
+
+                // Skip items that are the comment composer itself
+                if (content.toLowerCase().includes('write a comment')) continue;
+
+                const authorLower = author.toLowerCase();
+                const isCC = authorLower.includes('conaugh') || authorLower === 'cc';
+                const isprimary retainer = authorLower.includes('primary_retainer');
+
+                results.push({
+                    idx: idx,
+                    author: author,
+                    content: content.substring(0, 500),
+                    is_cc: isCC,
+                    is_primary_retainer: isprimary retainer,
+                });
+            }
+            return results;
+        }""")
+        return comments or []
+    except Exception as e:
+        log.warning(f"Failed to extract comments: {e}")
+        return []
+
+
+def generate_comment_reply(
+    post_title: str,
+    post_content: str,
+    comment_text: str,
+    comment_author: str,
+    cc_commented_on_parent: bool,
+) -> str:
+    """Generate a reply to a community member's comment.
+
+    If cc_commented_on_parent=True, the reply is BRIEF (<=180 chars) and complementary —
+    Bravo never steps on CC's coaching voice when CC has already weighed in on the post.
+    Otherwise, full coaching-voice response (2-4 sentences).
+    """
+    if cc_commented_on_parent:
+        length_rule = (
+            "CRITICAL CONSTRAINT: CC (Conaugh McKenna) has ALREADY left a top-level comment "
+            "on this post. Your reply must be BRIEF (absolute max 180 characters, ideally 120), "
+            "complementary to CC's voice, and NEVER restate or contradict what a coach would say. "
+            "You are a supportive second voice — a quick validating ack, a tactical micro-observation, "
+            "or an encouraging nod. Do NOT give full coaching advice — that is CC's lane on this post. "
+            "Examples of good brief replies:\n"
+            "- 'This. The messaging reframe is 80% of it.'\n"
+            "- 'Agreed — tested this myself last month and the response rate doubled.'\n"
+            "- 'The discovery question in step 2 is the unlock for me.'"
+        )
+        max_tokens = 80
+    else:
+        length_rule = (
+            "Write a constructive, specific reply in 2 to 4 sentences. Reference the specific thing "
+            "the commenter said. Coaching voice: direct, honest, no hype. If they asked a question, "
+            "answer it concretely. If they shared a win, acknowledge the specific thing they did right. "
+            "If they shared a problem, offer one concrete next step."
+        )
+        max_tokens = 200
+
+    system = (
+        "You are ghostwriting a Skool community COMMENT REPLY as Conaugh McKenna (CC), founder of "
+        "OASIS AI Solutions and head coach of the the prior community community. The community is "
+        "for people building AI automation agencies.\n\n"
+        "Voice rules:\n"
+        "- Direct, specific, no hype language ('game-changer', 'revolutionary', 'unlock the power')\n"
+        "- Never preachy — no 'you should'\n"
+        "- First person when relevant, conversational\n"
+        "- Never mention pricing or promote OASIS services\n"
+        "- Never admit ignorance — if you don't know a specific tool, pivot to broader principles\n\n"
+        f"{length_rule}\n\n"
+        "Output ONLY the reply text. No quotes, no line breaks, no preamble."
+    )
+
+    user = (
+        f"ORIGINAL POST TITLE: {post_title}\n"
+        f"ORIGINAL POST (excerpt): {post_content[:400]}\n\n"
+        f"COMMENT by {comment_author}:\n{comment_text[:400]}\n\n"
+        f"Write the reply now:"
+    )
+
+    reply = _call_claude(system, user, max_tokens=max_tokens)
+    if not reply:
+        return ""
+
+    reply = _strip_ai_slop(reply)
+    reply = _strip_pricing_language(reply)
+
+    # Hard enforce brevity when CC already commented
+    if cc_commented_on_parent and len(reply) > COMMENT_BRIEF_CHAR_LIMIT:
+        trimmed = reply[:COMMENT_BRIEF_CHAR_LIMIT]
+        # Cut at last sentence or word boundary
+        for end in ('. ', '? ', '! '):
+            if end in trimmed:
+                trimmed = trimmed.rsplit(end, 1)[0] + end.strip()
+                break
+        else:
+            trimmed = trimmed.rsplit(' ', 1)[0] + '.'
+        reply = trimmed
+
+    return reply[:500]
+
+
+def _type_and_submit_reply_to_comment(page, comment_idx: int, text: str) -> bool:
+    """Click the Reply button on the comment at position `comment_idx` (1-based) and submit text.
+
+    Reuses the same selector strategy as _extract_comments_on_post to stay consistent.
+    Returns True on success, False on any failure (never raises).
+    """
+    try:
+        click_result = page.evaluate(r"""(idx) => {
+            const selectors = [
+                '[class*="CommentItem"]',
+                '[class*="Comment-sc-"]',
+                '[class*="commentWrapper"]',
+                'div[data-comment-id]',
+                '[class*="CommentThread"] > div',
+            ];
+            let wrappers = [];
+            for (const sel of selectors) {
+                const found = document.querySelectorAll(sel);
+                if (found.length > 0) {
+                    wrappers = Array.from(found);
+                    break;
+                }
+            }
+            if (!wrappers.length || wrappers.length < idx) return 'no_wrapper';
+
+            const w = wrappers[idx - 1];
+            // Scroll into view so Skool renders the reply affordances
+            w.scrollIntoView({ block: 'center' });
+
+            const clickables = w.querySelectorAll('button, a, span[role="button"]');
+            for (const b of clickables) {
+                const t = (b.textContent || '').trim().toLowerCase();
+                if (t === 'reply' || t === 'respond') {
+                    b.click();
+                    return 'clicked';
+                }
+            }
+            return 'no_button';
+        }""", comment_idx)
+
+        if click_result != 'clicked':
+            log.warning(f"  Comment {comment_idx}: reply click failed ({click_result})")
+            return False
+
+        time.sleep(1.5)
+
+        # Focus the editor that just opened — prefer the last visible editable ProseMirror
+        focused = page.evaluate("""() => {
+            const editors = document.querySelectorAll('.ProseMirror[contenteditable="true"]');
+            const visible = Array.from(editors).filter(e => {
+                const r = e.getBoundingClientRect();
+                return r.width > 0 && r.height > 0;
+            });
+            if (!visible.length) return false;
+            const target = visible[visible.length - 1];
+            target.click();
+            return true;
+        }""")
+        if not focused:
+            log.warning(f"  Comment {comment_idx}: reply editor not found after click")
+            return False
+
+        time.sleep(0.5)
+        page.keyboard.type(text, delay=12)
+        time.sleep(1)
+
+        submitted = page.evaluate("""() => {
+            const btns = [...document.querySelectorAll('button')];
+            for (const btn of btns) {
+                const txt = (btn.textContent || '').trim().toLowerCase();
+                if ((txt === 'reply' || txt === 'comment' || txt === 'post' || txt === 'send')
+                    && !btn.disabled) {
+                    btn.click();
+                    return 'clicked';
+                }
+            }
+            return 'no_button';
+        }""")
+
+        if submitted == 'no_button':
+            page.keyboard.press('Control+Enter')
+
+        time.sleep(2)
+        return True
+    except Exception as e:
+        log.error(f"  Comment {comment_idx}: submission failed: {e}")
+        return False
+
+
+def _process_post_comments(
+    page,
+    post_slug: str,
+    post_title: str,
+    post_content: str,
+    cc_commented_on_parent: bool,
+    replied_comments: dict,
+    global_comment_budget: int,
+    dry_run: bool,
+) -> tuple[int, int, list]:
+    """Scan the comment section on the currently-loaded post page and reply where appropriate.
+
+    Returns (replies_posted, errors_count, escalations_list).
+    Mutates `replied_comments` in place. Respects both per-post and global budgets.
+    """
+    if not COMMENT_REPLIES_ENABLED:
+        return 0, 0, []
+
+    if global_comment_budget <= 0:
+        return 0, 0, []
+
+    comments = _extract_comments_on_post(page)
+    if not comments:
+        log.info(f"  No comments extracted for {post_slug}")
+        return 0, 0, []
+
+    log.info(f"  Found {len(comments)} comment(s) on {post_slug}")
+
+    posted = 0
+    errors = 0
+    escalations = []
+    per_post_used = 0
+
+    for c in comments:
+        if posted >= MAX_COMMENT_REPLIES_PER_POST:
+            break
+        if per_post_used >= global_comment_budget:
+            break
+
+        author = c.get("author", "")
+        content = c.get("content", "")
+        idx = c.get("idx", 0)
+
+        # Never reply to CC, primary retainer, or empty comments
+        if c.get("is_cc") or c.get("is_primary_retainer"):
+            continue
+        if not content or not author:
+            continue
+
+        comment_key = f"{post_slug}::{idx}::{author}::{content[:40]}"
+        if comment_key in replied_comments:
+            continue
+
+        # Escalation check — if this comment deserves CC's personal attention, ping Telegram and skip auto-reply
+        needs_coach, reason = _needs_coach_attention(post_title, content, author)
+        if needs_coach:
+            post_url = f"https://www.skool.com/agency-accelerants-6209/{post_slug}"
+            _escalate_to_cc(post_url, author, content, reason, kind="comment")
+            escalations.append({"slug": post_slug, "author": author, "reason": reason})
+            replied_comments[comment_key] = {
+                "escalated": True,
+                "reason": reason,
+                "ts": _now(),
+            }
+            continue
+
+        reply_text = generate_comment_reply(
+            post_title=post_title,
+            post_content=post_content,
+            comment_text=content,
+            comment_author=author,
+            cc_commented_on_parent=cc_commented_on_parent,
+        )
+        if not reply_text:
+            errors += 1
+            continue
+
+        log.info(f"  → Comment reply to {author}: {reply_text[:80]}")
+
+        if dry_run:
+            replied_comments[comment_key] = {
+                "author": author,
+                "reply": reply_text,
+                "dry_run": True,
+                "brief": cc_commented_on_parent,
+                "ts": _now(),
+            }
+            posted += 1
+            per_post_used += 1
+            continue
+
+        ok = _type_and_submit_reply_to_comment(page, idx, reply_text)
+        if ok:
+            replied_comments[comment_key] = {
+                "author": author,
+                "reply": reply_text,
+                "brief": cc_commented_on_parent,
+                "ts": _now(),
+            }
+            posted += 1
+            per_post_used += 1
+            notify(
+                f"Skool comment reply to {author} on {post_slug}: {reply_text[:80]}",
+                category="content",
+            )
+            time.sleep(3)  # Pace between comment submissions
+        else:
+            errors += 1
+
+    return posted, errors, escalations
+
+
+# ---------------------------------------------------------------------------
 # Community post scanning + replying
 # ---------------------------------------------------------------------------
 
@@ -938,7 +1379,19 @@ def cmd_scan_posts(args, page=None, ctx=None):
     from playwright.sync_api import sync_playwright
 
     replied = _load_json(REPLIED_POSTS_PATH)
-    results = {"scanned": 0, "replied": 0, "skipped": 0, "errors": []}
+    replied_comments = _load_json(REPLIED_COMMENTS_PATH)
+    results = {
+        "scanned": 0,
+        "replied": 0,
+        "skipped": 0,
+        "errors": [],
+        # V2.1 — comment tier + escalation counters
+        "comment_replies": 0,
+        "comment_errors": 0,
+        "escalations": 0,
+    }
+    # Global comment-reply budget for the whole scan (respects daily/per-cycle cap)
+    comment_budget_remaining = MAX_COMMENT_REPLIES_PER_CYCLE if COMMENT_REPLIES_ENABLED else 0
     own_ctx = page is None
 
     pw_mgr = None
@@ -1022,15 +1475,12 @@ def cmd_scan_posts(args, page=None, ctx=None):
             page.goto(post_url, wait_until="domcontentloaded", timeout=30000)
             time.sleep(3)
 
-            already_commented = page.evaluate("""() => {
+            # V2.1: detect whether CC has already top-level commented on this post.
+            # DO NOT skip — flag it so comment replies can be tone-adjusted (brief + complementary).
+            cc_commented_on_parent = page.evaluate("""() => {
                 const links = document.querySelectorAll('a[href*="/@conaugh"]');
                 return links.length > 1;
             }""")
-
-            if already_commented:
-                replied[slug] = {"author": author, "skipped": "already_commented", "ts": _now()}
-                results["skipped"] += 1
-                continue
 
             # Read the full post content from the page
             full_content = page.evaluate("""() => {
@@ -1040,37 +1490,111 @@ def cmd_scan_posts(args, page=None, ctx=None):
             if full_content:
                 content = full_content[:800]
 
+            # V2.1: escalation check on the post itself. If this post needs CC's personal
+            # attention (crisis, hot lead, direct @-mention, explicit coaching ask),
+            # Telegram-ping CC and SKIP the auto-reply — let CC respond in his real voice.
+            needs_coach, escalation_reason = _needs_coach_attention(title, content, author)
+            if needs_coach:
+                log.info(f"  ⚠️  Escalating to CC (post): {escalation_reason}")
+                _escalate_to_cc(post_url, author, content, escalation_reason, kind="post")
+                replied[slug] = {
+                    "author": author,
+                    "escalated": True,
+                    "reason": escalation_reason,
+                    "ts": _now(),
+                }
+                results["escalations"] += 1
+                # Still scan comments — members may have replied with something worth engaging
+                c_posted, c_errors, c_escalations = _process_post_comments(
+                    page=page,
+                    post_slug=slug,
+                    post_title=title,
+                    post_content=content,
+                    cc_commented_on_parent=cc_commented_on_parent,
+                    replied_comments=replied_comments,
+                    global_comment_budget=comment_budget_remaining,
+                    dry_run=args.dry_run,
+                )
+                results["comment_replies"] += c_posted
+                results["comment_errors"] += c_errors
+                results["escalations"] += len(c_escalations)
+                comment_budget_remaining = max(0, comment_budget_remaining - c_posted)
+                continue
+
             # Capture any images from the post for vision analysis
             post_images = _capture_post_images(page)
             if post_images:
                 log.info(f"  Captured {len(post_images)} image(s) for vision analysis")
 
-            # Generate reply with full content + images
-            reply_text = generate_post_reply(title, content, author, images=post_images)
-            if not reply_text:
-                results["errors"].append(f"No reply for {slug}")
-                continue
-
-            log.info(f"  Reply: {reply_text[:80]}...")
-
-            if args.dry_run:
-                log.info("  [dry-run] Would post reply")
-                replied[slug] = {"author": author, "dry_run": True, "ts": _now()}
-                results["replied"] += 1
-                reply_count += 1
-                continue
-
-            posted = _type_and_submit_comment(page, reply_text)
-            if posted:
-                log.info("  Comment posted")
-                replied[slug] = {"author": author, "reply": reply_text, "ts": _now()}
-                results["replied"] += 1
-                reply_count += 1
-                notify(f"Skool reply to {author}: {reply_text[:80]}...", category="content")
+            # TOP-LEVEL REPLY — only if CC hasn't already commented and post budget allows
+            if cc_commented_on_parent:
+                log.info("  CC already commented top-level — skipping Bravo top-level reply, "
+                         "proceeding to comment-tier engagement")
+                replied[slug] = {
+                    "author": author,
+                    "cc_already_commented": True,
+                    "ts": _now(),
+                }
             else:
-                results["errors"].append(f"Failed to comment on {slug}")
+                # Generate reply with full content + images
+                reply_text = generate_post_reply(title, content, author, images=post_images)
+                if not reply_text:
+                    results["errors"].append(f"No reply for {slug}")
+                    # Still try to engage comments even if top-level failed
+                    reply_text = None
 
-            time.sleep(3)
+                if reply_text:
+                    log.info(f"  Reply: {reply_text[:80]}...")
+
+                    if args.dry_run:
+                        log.info("  [dry-run] Would post reply")
+                        replied[slug] = {"author": author, "dry_run": True, "ts": _now()}
+                        results["replied"] += 1
+                        reply_count += 1
+                    else:
+                        posted = _type_and_submit_comment(page, reply_text)
+                        if posted:
+                            log.info("  Comment posted")
+                            replied[slug] = {"author": author, "reply": reply_text, "ts": _now()}
+                            results["replied"] += 1
+                            reply_count += 1
+                            notify(f"Skool reply to {author}: {reply_text[:80]}...", category="content")
+                        else:
+                            results["errors"].append(f"Failed to comment on {slug}")
+
+                time.sleep(3)
+
+            # V2.1: COMMENT-TIER ENGAGEMENT — scan and reply to other members' comments
+            # on this post. Tone adjusts automatically based on cc_commented_on_parent.
+            if comment_budget_remaining > 0:
+                # Scroll to the comment section to make sure Skool has rendered it
+                try:
+                    page.evaluate("window.scrollBy(0, 1200)")
+                    time.sleep(2)
+                except Exception:
+                    pass
+
+                c_posted, c_errors, c_escalations = _process_post_comments(
+                    page=page,
+                    post_slug=slug,
+                    post_title=title,
+                    post_content=content,
+                    cc_commented_on_parent=cc_commented_on_parent,
+                    replied_comments=replied_comments,
+                    global_comment_budget=comment_budget_remaining,
+                    dry_run=args.dry_run,
+                )
+                results["comment_replies"] += c_posted
+                results["comment_errors"] += c_errors
+                results["escalations"] += len(c_escalations)
+                comment_budget_remaining = max(0, comment_budget_remaining - c_posted)
+
+                if c_posted or c_escalations:
+                    log.info(
+                        f"  Comment tier: {c_posted} replies, "
+                        f"{len(c_escalations)} escalations, "
+                        f"{comment_budget_remaining} budget remaining"
+                    )
 
     finally:
         if own_ctx:
@@ -1078,6 +1602,7 @@ def cmd_scan_posts(args, page=None, ctx=None):
             pw_mgr.stop()
 
     _save_json(REPLIED_POSTS_PATH, replied)
+    _save_json(REPLIED_COMMENTS_PATH, replied_comments)
     return results
 
 
@@ -1575,12 +2100,21 @@ def cmd_auto(args, page=None, ctx=None, **_kwargs):
     p = all_results.get("posts", {})
     log.info(f"\n=== Summary ===")
     log.info(f"Posts replied: {p.get('replied', 0)}/{p.get('scanned', 0)}")
+    log.info(f"Comment replies: {p.get('comment_replies', 0)}  errors: {p.get('comment_errors', 0)}")
+    log.info(f"Escalations to CC: {p.get('escalations', 0)}")
 
-    if p.get("replied", 0) > 0:
-        notify(
-            f"Skool scan: {p.get('replied', 0)} post replies",
-            category="content",
-        )
+    total_engagements = p.get("replied", 0) + p.get("comment_replies", 0)
+    escalations = p.get("escalations", 0)
+
+    if total_engagements > 0 or escalations > 0:
+        parts = []
+        if p.get("replied", 0):
+            parts.append(f"{p.get('replied', 0)} post replies")
+        if p.get("comment_replies", 0):
+            parts.append(f"{p.get('comment_replies', 0)} comment replies")
+        if escalations:
+            parts.append(f"{escalations} ESCALATIONS to CC")
+        notify("Skool scan: " + ", ".join(parts), category="content")
 
     return all_results
 
