@@ -124,19 +124,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 - **IG Setter Pro** — Instagram DM automation (ManyChat replacement). Next.js 14, Turso, n8n, Claude API. Live at `ig-setter-pro.vercel.app`. Context: [[APPS_CONTEXT/IG_SETTER_PRO_CLAUDE]]
 - **the prior community (Skool)** — the prior client coaching partnership. CC = Head Coach, $2,500/mo + 15% rev share. Contract formalized 2026-04-10. Context: [[APPS_CONTEXT/SKOOL_COMMUNITY_CLAUDE]]
 
-## Last Heartbeat
-
-- **Date:** 2026-04-11
-- **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** hyperthink skill + production hardening session (audit + 10 engines reviewed + 6 critical fixes + CASL compliance module)
-
-*Last updated: 2026-04-11*
-
 ## Obsidian Links
 > Connected notes for graph navigation
 
 - [[brain/SOUL]] | [[brain/USER]] | [[brain/AGENTS]] | [[brain/CAPABILITIES]] | [[brain/QUICK_REFERENCE]]
-- [[brain/APP_REGISTRY]] | [[brain/CEO_OPERATING_SYSTEM]] | [[brain/OKRs]]
+- [[brain/APP_REGISTRY]] | [[brain/CEO_OPERATING_SYSTEM]] | [[brain/OKRs]] | [[brain/CLIENT_READY]]
 - [[brain/BRAIN_LOOP]] | [[brain/GROWTH]] | [[brain/CHANGELOG]]
 - [[brain/RISK_REGISTER]] | [[brain/INTERACTION_PROTOCOL]] | [[brain/ORCHESTRATION]]
 - [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]] | [[memory/DECISIONS]]
@@ -144,21 +136,14 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 - [[memory/content-strategy]] | [[memory/PROPOSED_CHANGES]]
 - [[APPS_CONTEXT/INDEX]] | [[APPS_CONTEXT/GRITLY_CLAUDE]] | [[APPS_CONTEXT/IG_SETTER_PRO_CLAUDE]] | [[APPS_CONTEXT/SKOOL_COMMUNITY_CLAUDE]]
 - [[skills/skool-automation/SKILL]] | [[skills/codex-delegation/SKILL]] | [[skills/elite-video-production/SKILL]]
+- [[skills/ethical-hacking/SKILL]] | [[skills/sales-closing/SKILL]]
 - [[knowledge/index]] | [[knowledge/SCHEMA]]
 - [[brain/DASHBOARD]]
 
 ## Last Heartbeat
 
 - **Date:** 2026-04-11
-- **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** hyperthink skill + production hardening session (audit + 10 engines reviewed + 6 critical fixes + CASL compliance module)
-
-*Last updated: 2026-04-11*
-
-## Last Heartbeat
-
-- **Date:** 2026-04-11
-- **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** hyperthink skill + production hardening session (audit + 10 engines reviewed + 6 critical fixes + CASL compliance module)
+- **Agent:** BRAVO via Claude Code (claude-opus-4-6 — Lead architect)
+- **Result:** Skool Engine V2.1 (comment tier + coach escalation) + Bravo self-upgrade rounds 1/2/3 + CLIENT_READY checklist + Mac sync script
 
 *Last updated: 2026-04-11*
