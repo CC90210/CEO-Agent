@@ -15,6 +15,7 @@ Read `brain/STATE.md`, `memory/ACTIVE_TASKS.md`, and `memory/SESSION_LOG.md` bef
 - **Fix-First:** Auto-fix mechanical issues (dead code, imports, typos). ASK for judgment calls (security, architecture, business logic).
 - **Dual Effort Estimation:** Show human-team time AND CC+Bravo time on every estimate (e.g., "~1 week human / ~30 min Bravo").
 - **Surgical Changes:** Touch ONLY what was requested. No drive-by refactoring, no "while I'm here" changes.
+- **Hyperthink when stakes demand it:** If CC says "hyperthink" / "ultrathink" / "think harder" / "think super hard" / "think intensely", OR the task is architectural / irreversible / multi-hypothesis, load [[skills/hyperthink/SKILL]] and run the 7-phase protocol verbatim. Start the response with `HYPERTHINK ENGAGED`. Check `~/.claude/AGENT_COORDINATION.md` first (Phase 5) to avoid collisions with sibling Claude agents.
 
 ## WHAT — Project & Stack
 

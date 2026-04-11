@@ -43,6 +43,7 @@ Design the approach using multi-hypothesis generation:
 - Select the best approach, but **track alternatives** for backtracking on failure
 - Identify which tools/MCPs/skills are needed
 - Estimate complexity: TRIVIAL / MODERATE / COMPLEX / ARCHITECTURAL
+- **For ARCHITECTURAL or irreversible tasks: engage [[skills/hyperthink/SKILL]]** — the 7-phase protocol replaces Step 4 with forced 3-way divergence + stress test + rollback path. CC can also fire it manually with "hyperthink" / "ultrathink" / "think harder".
 - For COMPLEX+: use **SPARC methodology** (`skills/sparc-methodology/SKILL.md`) — Specification → Pseudocode → Architecture → Refinement → Completion
 - For COMPLEX+: present plan to CC for approval before executing
 - For LOW confidence (<0.5): present plan AND alternatives to CC

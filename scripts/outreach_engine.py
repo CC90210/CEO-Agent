@@ -22,6 +22,18 @@ from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
+from zoneinfo import ZoneInfo
+
+# CASL compliance is MANDATORY for all outbound cold email from a Canadian
+# business. Do not bypass. See scripts/casl_compliance.py for details.
+_SCRIPTS_DIR = Path(__file__).resolve().parent
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
+from casl_compliance import (  # noqa: E402
+    should_suppress,
+    build_casl_footer,
+    add_list_unsubscribe_headers,
+)
 
 
 # -- Credentials ---------------------------------------------------------------
@@ -118,9 +130,20 @@ END:VCALENDAR"""
 
 
 def build_email_body(lead_name, business_name, business_type, meet_link, meeting_datetime):
-    """Build the outreach email body. Authentic, direct, no hustle-culture."""
+    """Build the outreach email body. Authentic, direct, no hustle-culture.
+
+    Timezone: renders the meeting time in CC's local timezone (America/Toronto),
+    which handles EST/EDT transitions automatically. Previous versions
+    hardcoded 'EST' which was wrong for ~8 months of the year.
+    """
+    toronto = ZoneInfo("America/Toronto")
     start = datetime.fromisoformat(meeting_datetime)
-    date_str = start.strftime("%A, %B %d at %I:%M %p")
+    if start.tzinfo is None:
+        # Assume UTC if naive — all upstream call sites now pass UTC
+        start = start.replace(tzinfo=timezone.utc)
+    local = start.astimezone(toronto)
+    tz_abbr = local.strftime("%Z") or "ET"  # EST in winter, EDT in summer
+    date_str = local.strftime(f"%A, %B %d at %I:%M %p {tz_abbr}")
 
     body = f"""Hi {lead_name},
 
@@ -132,7 +155,7 @@ I'd love to show you exactly how this works for your business. No pitch, just a 
 
 I've set aside time for a 30-minute discovery call:
 
-    {date_str} EST
+    {date_str}
     Google Meet: {meet_link}
 
 If that time doesn't work, just reply with what does.
@@ -158,11 +181,21 @@ def send_outreach(
 ):
     """
     Full outreach pipeline:
-    1. Generate Meet link
-    2. Build personalized email
-    3. Generate .ics calendar invite
-    4. Send email with invite attached
+    1. CASL suppression check (hard stop if listed)
+    2. Generate Meet link
+    3. Build personalized email + CASL footer
+    4. Generate .ics calendar invite
+    5. Send email with invite attached + List-Unsubscribe headers
     """
+    # CASL hard-stop: never send to a suppressed address. Returns early with
+    # a non-error status so callers can log + move on without raising.
+    if should_suppress(lead_email):
+        return {
+            "status": "suppressed",
+            "to": lead_email,
+            "error": "Email is on the CASL suppression list — send aborted.",
+        }
+
     gmail_user = os.environ.get("GMAIL_USER", "oasisaisolutions@gmail.com")
     gmail_app_password = os.environ.get("GMAIL_APP_PASSWORD")
     if not gmail_app_password:
@@ -175,6 +208,9 @@ def send_outreach(
         email_body = build_email_body(
             lead_name, business_name, business_type, meet_link, meeting_datetime
         )
+    # CASL footer — sender name, business address, unsubscribe link. Mandatory.
+    email_body = email_body + build_casl_footer(lead_email)
+
     ics_content = generate_ics(
         lead_name, lead_email, meeting_datetime, meeting_duration_min,
         meet_link, gmail_user
@@ -186,6 +222,9 @@ def send_outreach(
     msg["Subject"] = subject
     msg["From"] = f"OASIS AI Solutions <{gmail_user}>"
     msg["To"] = lead_email
+    # RFC 2369/8058 headers — gives Gmail/Outlook native unsubscribe button
+    # and is a CAN-SPAM requirement as of Feb 2024.
+    add_list_unsubscribe_headers(msg, lead_email)
 
     msg.attach(MIMEText(email_body, "plain"))
 
