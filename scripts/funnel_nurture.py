@@ -83,7 +83,9 @@ def send_telegram(message: str):
         headers={"Content-Type": "application/json"},
     )
     try:
-        urllib.request.urlopen(req)
+        # Telegram can hang for minutes on network issues. 15s matches the
+        # rest of the codebase's Telegram call sites.
+        urllib.request.urlopen(req, timeout=15)
     except Exception as e:
         print(f"Telegram notify failed: {e}")
 
