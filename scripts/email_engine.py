@@ -697,6 +697,13 @@ def cmd_stats(env_vars, args, output_json=False):
 SKIP_SENDERS = ("noreply@", "no-reply@", "mailer-daemon@", "postmaster@")
 IMAP_MAX_EMAILS = 20
 
+# V2.1 2026-04-11: Poison UID tracking. If an IMAP fetch fails repeatedly
+# on the same UID (e.g., corrupt message, encoding error), quarantine it
+# by marking it \Seen after 3 failed attempts. This prevents a bad message
+# at the head of the UNSEEN queue from blocking newer messages forever.
+POISON_UID_PATH = Path(__file__).resolve().parent.parent / "tmp" / "imap_poison_uids.json"
+POISON_MAX_ATTEMPTS = 3
+
 
 def _decode_header_value(raw_value):
     """Decode an email header value to a plain ASCII-safe string."""
@@ -780,14 +787,64 @@ def cmd_check_inbox(env_vars, args, output_json=False):
         # Cap to avoid long runs
         message_ids = message_ids[:IMAP_MAX_EMAILS]
 
+        # V2.1 2026-04-11: Load poison UID tracker
+        poison_state = {}
+        try:
+            if POISON_UID_PATH.exists():
+                with open(POISON_UID_PATH, "r", encoding="utf-8") as pf:
+                    poison_state = json.load(pf)
+        except Exception:
+            poison_state = {}
+
         for uid in message_ids:
+            uid_str = uid.decode() if isinstance(uid, bytes) else str(uid)
             fetch_status, fetch_data = imap.fetch(uid, "(RFC822)")
+
+            # V2.1: Handle fetch failures explicitly. Track failed UIDs and
+            # quarantine them by marking \Seen after POISON_MAX_ATTEMPTS
+            # failures, so a corrupt message at the head of the queue can't
+            # block newer messages forever.
             if fetch_status != "OK" or not fetch_data or fetch_data[0] is None:
+                attempts = poison_state.get(uid_str, 0) + 1
+                poison_state[uid_str] = attempts
+                if attempts >= POISON_MAX_ATTEMPTS:
+                    print(
+                        f"[email_inbox] Poison UID {uid_str}: quarantining after "
+                        f"{attempts} failed fetches — marking \\Seen",
+                        file=sys.stderr,
+                    )
+                    try:
+                        imap.store(uid, "+FLAGS", "\\Seen")
+                        poison_state.pop(uid_str, None)
+                    except Exception as pq_err:
+                        print(f"[email_inbox] Quarantine failed: {pq_err}", file=sys.stderr)
+                else:
+                    print(
+                        f"[email_inbox] UID {uid_str}: fetch failed "
+                        f"(attempt {attempts}/{POISON_MAX_ATTEMPTS})",
+                        file=sys.stderr,
+                    )
                 continue
 
             raw_bytes = fetch_data[0][1]
             if not isinstance(raw_bytes, bytes):
+                attempts = poison_state.get(uid_str, 0) + 1
+                poison_state[uid_str] = attempts
+                if attempts >= POISON_MAX_ATTEMPTS:
+                    print(
+                        f"[email_inbox] Poison UID {uid_str}: non-bytes payload, "
+                        f"quarantining after {attempts} attempts",
+                        file=sys.stderr,
+                    )
+                    try:
+                        imap.store(uid, "+FLAGS", "\\Seen")
+                        poison_state.pop(uid_str, None)
+                    except Exception as pq_err:
+                        print(f"[email_inbox] Quarantine failed: {pq_err}", file=sys.stderr)
                 continue
+
+            # Successfully fetched — clear any poison tracking for this UID
+            poison_state.pop(uid_str, None)
 
             msg = email.message_from_bytes(raw_bytes)
             from_addr = _decode_header_value(msg.get("From", ""))
@@ -832,6 +889,14 @@ def cmd_check_inbox(env_vars, args, output_json=False):
 
             # Mark as read
             imap.store(uid, "+FLAGS", "\\Seen")
+
+        # V2.1: Persist poison UID tracker so failure counts survive across runs
+        try:
+            POISON_UID_PATH.parent.mkdir(parents=True, exist_ok=True)
+            with open(POISON_UID_PATH, "w", encoding="utf-8") as pf:
+                json.dump(poison_state, pf, indent=2)
+        except Exception as save_err:
+            print(f"[email_inbox] Could not save poison UID state: {save_err}", file=sys.stderr)
 
     finally:
         if imap:

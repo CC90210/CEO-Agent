@@ -1285,6 +1285,7 @@ def _process_post_comments(
     replied_comments: dict,
     global_comment_budget: int,
     dry_run: bool,
+    persist_callback=None,
 ) -> tuple[int, int, list]:
     """Scan the comment section on the currently-loaded post page and reply where appropriate.
 
@@ -1372,6 +1373,8 @@ def _process_post_comments(
                 "reason": reason,
                 "ts": _now(),
             }
+            if persist_callback:
+                persist_callback()  # V2.1: crash-safe state
             continue
 
         try:
@@ -1402,6 +1405,8 @@ def _process_post_comments(
                 "ts": _now(),
             }
             posted += 1
+            if persist_callback:
+                persist_callback()
             continue
 
         try:
@@ -1412,12 +1417,17 @@ def _process_post_comments(
             ok = False
 
         if ok:
+            # V2.1: Persist IMMEDIATELY after public Skool action. If Playwright
+            # crashes on the next comment, the next cycle must see we already
+            # replied to this one and not double-reply publicly.
             replied_comments[comment_key] = {
                 "author": author,
                 "reply": reply_text,
                 "brief": cc_commented_on_parent,
                 "ts": _now(),
             }
+            if persist_callback:
+                persist_callback()
             posted += 1
             notify(
                 f"Skool comment reply to {author} on {post_slug}: {reply_text[:80]}",
@@ -1452,6 +1462,22 @@ def cmd_scan_posts(args, page=None, ctx=None):
     # Global comment-reply budget for the whole scan (respects daily/per-cycle cap)
     comment_budget_remaining = MAX_COMMENT_REPLIES_PER_CYCLE if COMMENT_REPLIES_ENABLED else 0
     own_ctx = page is None
+
+    # V2.1 2026-04-11: Crash-safe state persistence. Instead of saving state
+    # only at the end of the cycle (which loses every reply-so-far if Playwright
+    # crashes mid-loop), we save after every mutation. Helper closures bind
+    # to the local dicts so every save picks up the latest state.
+    def _persist_replied():
+        try:
+            _save_json(REPLIED_POSTS_PATH, replied)
+        except Exception as e:
+            log.warning(f"  Failed to persist replied state: {e}")
+
+    def _persist_comments():
+        try:
+            _save_json(REPLIED_COMMENTS_PATH, replied_comments)
+        except Exception as e:
+            log.warning(f"  Failed to persist comment state: {e}")
 
     pw_mgr = None
     if own_ctx:
@@ -1554,7 +1580,7 @@ def cmd_scan_posts(args, page=None, ctx=None):
             # Telegram-ping CC and SKIP the auto-reply — let CC respond in his real voice.
             needs_coach, escalation_reason = _needs_coach_attention(title, content, author)
             if needs_coach:
-                log.info(f"  ⚠️  Escalating to CC (post): {escalation_reason}")
+                log.info(f"  [ESCALATE] CC (post): {escalation_reason}")
                 _escalate_to_cc(post_url, author, content, escalation_reason, kind="post")
                 replied[slug] = {
                     "author": author,
@@ -1563,6 +1589,7 @@ def cmd_scan_posts(args, page=None, ctx=None):
                     "ts": _now(),
                 }
                 results["escalations"] += 1
+                _persist_replied()  # V2.1: crash-safe — persist before comment scan
                 # Still scan comments — members may have replied with something worth engaging
                 c_posted, c_errors, c_escalations = _process_post_comments(
                     page=page,
@@ -1573,11 +1600,13 @@ def cmd_scan_posts(args, page=None, ctx=None):
                     replied_comments=replied_comments,
                     global_comment_budget=comment_budget_remaining,
                     dry_run=args.dry_run,
+                    persist_callback=_persist_comments,
                 )
                 results["comment_replies"] += c_posted
                 results["comment_errors"] += c_errors
                 results["escalations"] += len(c_escalations)
                 comment_budget_remaining = max(0, comment_budget_remaining - c_posted)
+                _persist_comments()
                 continue
 
             # Capture any images from the post for vision analysis
@@ -1594,6 +1623,7 @@ def cmd_scan_posts(args, page=None, ctx=None):
                     "cc_already_commented": True,
                     "ts": _now(),
                 }
+                _persist_replied()  # V2.1: crash-safe state
             else:
                 # Generate reply with full content + images
                 reply_text = generate_post_reply(title, content, author, images=post_images)
@@ -1610,11 +1640,17 @@ def cmd_scan_posts(args, page=None, ctx=None):
                         replied[slug] = {"author": author, "dry_run": True, "ts": _now()}
                         results["replied"] += 1
                         reply_count += 1
+                        _persist_replied()
                     else:
                         posted = _type_and_submit_comment(page, reply_text)
                         if posted:
                             log.info("  Comment posted")
+                            # V2.1: Persist IMMEDIATELY after public Skool action.
+                            # If Playwright crashes on the next post, the next
+                            # cycle must see we already replied to this one and
+                            # not double-reply publicly.
                             replied[slug] = {"author": author, "reply": reply_text, "ts": _now()}
+                            _persist_replied()
                             results["replied"] += 1
                             reply_count += 1
                             notify(f"Skool reply to {author}: {reply_text[:80]}...", category="content")
@@ -1642,11 +1678,13 @@ def cmd_scan_posts(args, page=None, ctx=None):
                     replied_comments=replied_comments,
                     global_comment_budget=comment_budget_remaining,
                     dry_run=args.dry_run,
+                    persist_callback=_persist_comments,
                 )
                 results["comment_replies"] += c_posted
                 results["comment_errors"] += c_errors
                 results["escalations"] += len(c_escalations)
                 comment_budget_remaining = max(0, comment_budget_remaining - c_posted)
+                _persist_comments()  # V2.1: flush after per-post processing
 
                 if c_posted or c_escalations:
                     log.info(
