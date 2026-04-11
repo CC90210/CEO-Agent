@@ -218,21 +218,52 @@ def run_lead_outreach_batch(env_vars: dict) -> str:
 
 
 def run_lead_followup(env_vars: dict) -> str:
-    """Check for leads needing follow-up and auto-score unscored leads."""
-    # Auto-score any leads with score=0
-    try:
-        leads_result = run_script("lead_engine.py", ["--json", "list"])
-        leads = json.loads(leads_result)
-        scored = 0
-        for lead in (leads if isinstance(leads, list) else []):
-            if isinstance(lead, dict) and (lead.get("score") or 0) == 0 and lead.get("id"):
-                run_script("lead_engine.py", ["--json", "score", lead["id"]])
-                scored += 1
-        score_msg = f", scored {scored} lead(s)" if scored else ""
-    except Exception:
-        score_msg = ""
+    """Check for leads needing follow-up and auto-score unscored leads.
 
+    V2.1 2026-04-11: Fail-closed. Removed blanket exception swallow.
+    Subprocess errors, non-JSON output, and parse failures all surface as
+    ERROR instead of being silenced. Matches the pattern of run_stripe_sync,
+    run_nurture_check, run_funnel_sync, run_funnel_fast_poll.
+    """
+    # Phase 1: fetch leads list
+    leads_result = run_script("lead_engine.py", ["--json", "list"])
+    if not leads_result or leads_result.startswith("FAILED"):
+        return f"ERROR: lead_followup list failed: {leads_result[:200] if leads_result else 'empty'}"
+
+    # JSON parse is required in --json mode. Non-JSON output means something broke.
+    stripped = leads_result.strip()
+    if not stripped.startswith(("[", "{")):
+        return f"ERROR: lead_followup list returned non-JSON: {stripped[:200]}"
+    try:
+        leads = json.loads(stripped)
+    except json.JSONDecodeError as exc:
+        return f"ERROR: lead_followup list JSON parse failed: {exc}"
+
+    # Phase 2: auto-score any unscored leads
+    scored = 0
+    score_errors = 0
+    for lead in (leads if isinstance(leads, list) else []):
+        if isinstance(lead, dict) and (lead.get("score") or 0) == 0 and lead.get("id"):
+            score_result = run_script("lead_engine.py", ["--json", "score", lead["id"]])
+            if not score_result or score_result.startswith("FAILED"):
+                score_errors += 1
+            else:
+                scored += 1
+
+    score_msg = f", scored {scored} lead(s)" if scored else ""
+    err_msg = f", {score_errors} score error(s)" if score_errors else ""
+
+    # Phase 3: fetch the followups list
     followups = run_script("lead_engine.py", ["--json", "followups"])
+    if not followups or followups.startswith("FAILED"):
+        return f"ERROR: lead_followup followups failed: {followups[:200] if followups else 'empty'}{err_msg}"
+
+    # Non-JSON and non-routine output is still allowed (lead_engine followups
+    # emits a human-friendly string when there are no follow-ups to report).
+    # But we bubble up any score_errors as an ERROR so CC sees them.
+    if score_errors:
+        return f"ERROR: lead_followup: {followups[:150]}{score_msg}{err_msg}"
+
     return followups + score_msg
 
 
