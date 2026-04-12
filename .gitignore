@@ -143,3 +143,12 @@ e2e-screenshots/
 /grapevine-*
 /on-the-hill-*
 /shopify-ad-*
+
+# Security — key and certificate files
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der

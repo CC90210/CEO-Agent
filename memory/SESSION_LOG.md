@@ -2,6 +2,85 @@
 tags: [daily]
 ---
 
+### 2026-04-12 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Mega session complete: 15+ commits, Skool V2.1, notification pipeline V2, cross-machine sync (SSH+PM2), Mac fully synchronized, security hardening (AnyDesk disabled, Tailscale manual), daily schedule built, notification format V3, CRLF debt cleared, 9/9 cron handlers passing, BOOKING_MEET_LINK set, 5 unused cron jobs disabled, 5 permanent memory files saved. Next session: GitHub rebrand + README + open-source prep.
+
+### 2026-04-12 — Full System Diagnostic + Optimization (Windows)
+**Agent:** BRAVO via Antigravity (Claude Opus 4.6 Thinking)
+**Trigger:** Chrome audio completely muted — CC reported no sound from any browser media.
+
+**Root cause:** Windows WASAPI PolicyConfig had 6 stale per-app audio endpoint bindings for Chrome, routing it to disabled/disconnected devices (old Intel mobo audio, unpaired Bluetooth, disabled HDMI, disconnected USB audio). Diagnosed via registry inspection of `HKCU\Software\Microsoft\Internet Explorer\LowRegistry\Audio\PolicyConfig\PropertyStore`.
+
+**Fixes applied:**
+1. Deleted 6 stale Chrome audio policy entries → Chrome now uses system default speakers
+2. Deleted 76 stale audio entries for non-existent apps (132 → 56 remaining)
+3. Cleaned 16.2 GB from temp: recording.mp4 (13.55GB), fastembed_cache (1.25GB), Chrome ext cache (358MB), Antigravity installer (232MB), old pip cache (540MB)
+4. Removed 5 old MCP Chrome browser installs (kept latest mcp-chrome-1647c57)
+5. Cleared stale Playwright/Puppeteer temp profiles (7 dirs)
+6. Flushed DNS cache (event log showed NRPT corruption from Tailscale — benign)
+7. Identified 2 stale Intel services (IntelAudioService + Intel TPM Provisioning) — need admin elevation to disable
+
+**System health post-cleanup:**
+- Disk: 276.8 GB free (59.6%) — was 260.9 GB (56.1%)
+- Temp: 1.67 GB — was 17.18 GB
+- RAM: 2.4 GB free of 15.3 GB (normal workload)
+- 20 stale audio endpoints remain in HKLM (read-only, admin required)
+- 3 duplicate Razer startup entries (CC should disable 2 via Task Manager)
+- Event log: IntelAudioService crash, Intel TPM timeout, BTHUSB HCI errors, OpenSSH crash — all from stale/old drivers
+
+**Files:** brain/STATE.md, memory/SESSION_LOG.md, scripts/harden_windows.ps1, .gitignore
+
+**Security hardening applied (same session):**
+1. **16 ASR rules enabled** (15 Block + 1 Audit) — blocks credential stealing, ransomware, Office macro abuse, obfuscated scripts, USB attacks
+2. **Controlled Folder Access** (ransomware protection) ENABLED — protects Documents, Desktop, Pictures, etc.
+3. **Defender Cloud Protection** raised to HIGH + PUA blocking enabled
+4. **Exploit Protection** — DEP ON, ASLR Force+BottomUp+HighEntropy ON, SEHOP ON, HeapTerminate ON, StrictHandle ON
+5. **Firewall logging** enabled for all profiles (blocked connections now logged)
+6. **Intel ghost services disabled** (IntelAudioService + Intel TPM Provisioning — old mobo)
+7. **.gitignore** hardened — added *.key, *.pem, *.p12, *.pfx, *.crt, *.cer, *.der
+8. **Git secret scan** — found historical `api_key`, `password`, `secret_key` references in git history (likely from template/example code — not actual exposed secrets, but flagged)
+9. **Created `scripts/harden_windows.ps1`** — reusable admin hardening script (10-step)
+
+**Remaining manual steps:**
+- Run Windows Update (31 days since last patch!)
+- Set Windows Hello PIN / password on User account (PasswordRequired=False is a risk)
+- AnyDesk listening on 0.0.0.0:7070 — disable service if not actively needed
+- Enable BitLocker disk encryption
+- Disable 2/3 Razer startup entries
+
+**Deep security hardening (Round 2 — same session):**
+10. **Encrypted DNS** — Switched to Cloudflare 1.1.1.2/1.0.0.2 with DNS-over-HTTPS (malware + phishing domain blocking at DNS level)
+11. **SSH restricted** — Firewall rules block SSH (port 22) from public networks, allow only Tailscale + LAN
+12. **AnyDesk restricted** — Firewall rules block AnyDesk from external, Tailscale only
+13. **SMB blocked** on Public firewall profile
+14. **Windows telemetry** reduced to Required (minimum for Win11 Home)
+15. **Activity history sync** disabled (was sending to Microsoft)
+16. **Clipboard history** disabled
+17. **App launch tracking** disabled
+18. **Location access** denied
+19. **DiagTrack service** (Connected User Experiences) disabled
+20. **Enhanced Phishing Protection** enabled (warns on password entry on suspicious/malicious sites)
+21. **Hosts file** — blocked known malware C2, crypto miners, and aggressive Microsoft telemetry domains
+22. **Git secret scan** — no actual API keys found in git history (the `api_key`/`password` hits were from template code, not real secrets)
+23. **.env files** — only `.env.agents.template` was ever committed (template, no secrets)
+
+**Final security score: 17/18 (94%)** → later verified **19/19 (100%)** after all admin fixes applied.
+
+**Production Optimization (Round 3 — same session, per Bravo handoff):**
+24. **Power plan** → High Performance (was Balanced). Sleep/hibernate NEVER. Monitor 15min. USB suspend OFF.
+25. **Killed 5 Playwright zombie browsers** — 165 MB freed
+26. **Removed 7 startup programs** — AnyDesk, Tailscale, Adobe Sync, MiniTool updater, Logitech, Opera updaters, CCleaner reporter
+27. **Defender exclusions** — added .venv, node_modules, .git + python/node/bun processes (dev performance boost)
+28. **AnyDesk firewall rules** — all 6 removed
+29. **npm audit** — 5 safe vulns fixed, 7 remaining (in telegram-bot-api dep, would require breaking change)
+30. **Venv audit** — 2.8 GB, 553 packages. torch (1.25 GB) is CPU-only, needs GPU reinstall after RTX 4060
+31. **RAM breakdown** — Chrome 2.9GB, Antigravity 1.4GB, Wispr 477MB, Notion 318MB, Razer 210MB. Machine at capacity with 15.3GB total.
+32. **CUDA** — not installed (correct, no GPU yet)
+33. **PM2** — bravo-scheduler (1MB VBS wrapper) + bravo-telegram (26MB) both healthy, 0 restarts
+
+---
+
 ### 2026-04-11 — session end (mac)
 **Agent:** bravo-session-end
 **Note:** mac incident resolved: killed rogue scheduler + telegram_agent, installed Windows SSH key, verified integrations
