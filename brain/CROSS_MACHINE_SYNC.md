@@ -13,7 +13,35 @@ created: 2026-04-11
 
 1. **Boot with `git pull`, end with `git push`.** Every Claude Code session on either machine opens with a pull and closes with a commit + push. No exceptions. If you skip the pull, you're guaranteed to fight the other machine eventually.
 
-2. **Only ONE machine runs production daemons.** That's Windows. The Mac can read, analyze, edit, and run ad-hoc commands, but it never starts the scheduler, skool daemon, telegram-bot, or any cron worker. Two schedulers against the same Supabase `cron_jobs` table = every job runs twice.
+2. **Only ONE machine runs production daemons. That's WINDOWS. Mac runs NOTHING.**
+
+   - ❌ Mac must NOT run `scheduler.py`
+   - ❌ Mac must NOT run `skool_engine.py daemon`
+   - ❌ Mac must NOT run `telegram_agent.js`
+   - ❌ Mac must NOT have ANY PM2 processes under the `bravo-*` namespace
+   - ❌ Mac must NOT run any cron worker that touches Supabase `cron_jobs`
+
+   **Skool daemon specifically:** Windows-exclusive. The Chromium profile at
+   `tmp/skool-browser/` holds CC's Skool auth session, and an OS-level file
+   lock (`msvcrt.locking` via `DaemonLock` class) prevents two instances.
+   Running Skool daemon on Mac means a second browser session logs into the
+   same Skool account → Skool sees two devices → double-replies publicly in
+   the the prior community community with CC's name attached. **NEVER.**
+
+   **Telegram bridge specifically:** Only one bridge can exist globally. Both
+   bridges use the same `TELEGRAM_BOT_TOKEN`, which means Telegram's
+   long-poll `getUpdates` API will randomly route messages to whichever
+   bridge grabs them first — effectively both bridges get random half the
+   messages, neither sees the full picture. **Windows runs the single
+   telegram bridge. Mac never starts one.**
+
+   **Incident 2026-04-11:** Mac had rogue scheduler + telegram_agent running
+   under PM2 for ~40 hours (started Tuesday 6PM from hand-launch, then
+   PM2-managed with restart counter 2188 for scheduler, 9 for telegram).
+   Net damage was minimal only because the shared Supabase `cron_jobs`
+   table acted as an accidental mutex. Both daemons deleted from Mac PM2 on
+   2026-04-11 with `pm2 delete bravo-scheduler` and `pm2 delete bravo-telegram`.
+   **If you ever see `bravo-*` in `pm2 list` on Mac, delete it immediately.**
 
 3. **Declare your session in `memory/ACTIVE_SESSION.json` before you start real work.** This tells the other machine "I'm live, don't stomp on these files." Claimed sessions auto-expire after 30 minutes of no heartbeat so a crashed session doesn't lock the repo forever.
 
@@ -21,7 +49,7 @@ created: 2026-04-11
 
 | File/Directory | Owner | Notes |
 |---|---|---|
-| `.env.agents` | **LOCAL to each machine** | NEVER committed. Each box has its own copy with machine-specific overrides (GWS_PATH, paths, etc). |
+| `.env.agents` | **LOCAL to each machine** | NEVER committed. Each box has its own copy with machine-specific overrides (GWS_PATH, paths, etc). Both machines use the SAME `TELEGRAM_BOT_TOKEN` and SAME `BRAVO_SUPABASE_*` — that's intentional (single source of truth for state), but it also means both machines must NEVER run the telegram bridge or scheduler simultaneously. |
 | `tmp/` | **LOCAL to each machine** | Gitignored. Daemon state, browser profiles, heartbeats. Never shared. |
 | `brain/` | **shared, read-mostly** | Both machines read. Edits go through normal commit flow. |
 | `memory/SESSION_LOG.md` | **append-only shared** | Both machines append to the top. Git merges cleanly because every entry is a new section. |
@@ -74,6 +102,17 @@ If two machines edit the same file at the same time (rare but possible):
 3. You resolve manually, re-run session-end, push clean
 
 **Never force-push main.** Ever. If you hit a divergence you can't resolve, leave it alone and come back from the other machine.
+
+## Repo Location Per Machine
+
+Different machines, different clone paths. When SSH-ing across machines, use the absolute path:
+
+| Machine | Repo path |
+|---|---|
+| Windows (CCPC) | `C:\Users\User\Business-Empire-Agent` (bash: `/c/Users/User/Business-Empire-Agent`) |
+| Mac (Conaughs-MacBook-Air) | `/Users/conaugh/Downloads/business-empire-agent` |
+
+**Do NOT assume `~/APPS/Business-Empire-Agent` on Mac** — that path does not exist. If you ever need to move the Mac clone to `~/APPS/` for consistency, it requires killing any running processes, rsync-ing the tree, and re-cloning PM2 state. For now, `Downloads/` is fine.
 
 ## Machine Identification
 
