@@ -96,15 +96,17 @@ tags: [state, ephemeral]
 - Skill: `skills/knowledge-compilation/SKILL.md`
 - Workflows: `/ingest`, `/query-knowledge`, `/lint-knowledge`
 
-## Capability Counts (2026-04-07)
+## Capability Counts (2026-04-11, verified via find)
 
-- **Skills:** 187+ (added elite-video-production)
+- **Skills:** 152 (verified `find skills -name SKILL.md | wc -l`)
 - **Agents:** 17 (all upgraded to V5.5+ standard)
-- **Workflows:** 33 (.agents/workflows/)
-- **Scripts:** 47 CLI engines
+- **Workflows:** 35 (.agents/workflows/, includes close-review)
+- **Scripts:** 56 Python engines in scripts/
 - **Supabase tables:** 28 (14 agent + 14 business ops)
 - **MCP servers:** 8 working + 4 replaced by CLI + claude-mem plugin
 - **Hooks:** 4 active safety/audit hooks
+- **Cross-machine sync:** Windows (CCPC, 192.168.2.133) production + Mac (Conaughs-MacBook-Air, 192.168.2.196) cold-standby via `ssh cc-mac`
+- **PM2 state:** Windows runs bravo-scheduler + telegram-bot (standalone) + skool daemon (standalone). Mac has bravo-telegram registered but stopped.
 
 ## Context Optimization (2026-03-31)
 

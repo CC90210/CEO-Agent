@@ -140,6 +140,43 @@ The skool daemon uses a **file-based lock** at `tmp/skool_daemon.lock` (Windows 
 
 Enforcement: the session script checks which machine you're on and refuses to start skool daemon if `machine != "windows"`.
 
+## Telegram Bridge Handoff Protocol (Windows ↔ Mac)
+
+**Default state:**
+- Windows runs `telegram-bot` (PID 13556, 5d stable uptime) — **LIVE**
+- Mac has `bravo-telegram` registered in PM2 — **STOPPED**
+
+Both declared in `ecosystem.config.js`. Single-instance invariant: same `TELEGRAM_BOT_TOKEN` on both machines means only ONE bridge should ever be running. Two bridges = random message routing between them.
+
+### Hand off FROM Windows TO Mac (CC wants to control Telegram from MacBook)
+
+```bash
+# On Windows (or via SSH from wherever):
+ssh cc-mac "cd /Users/conaugh/Downloads/business-empire-agent && pm2 start bravo-telegram"
+# Wait ~5 seconds, verify Mac is online:
+ssh cc-mac "pm2 list"
+# Then stop Windows:
+pm2 stop telegram-bot
+pm2 save
+```
+
+### Hand off FROM Mac TO Windows (return control to desktop)
+
+```bash
+# On Windows (first):
+pm2 start telegram-bot
+pm2 save
+# Then stop Mac:
+ssh cc-mac "pm2 stop bravo-telegram && pm2 save"
+```
+
+### Hard rules
+
+- **NEVER both running.** Two bridges sharing `TELEGRAM_BOT_TOKEN` → Telegram routes each message to whichever grabs it first, alternating randomly. Your phone commands will feel broken.
+- **Skool daemon stays Windows-only regardless of telegram location.** It has no Mac equivalent and uses an OS-level DaemonLock.
+- **Scheduler stays Windows-only regardless of telegram location.** Never run two schedulers against one Supabase `cron_jobs` table.
+- **Only telegram bridge is handoff-capable.** Everything else (scheduler, skool, content automation) is Windows-pinned.
+
 ## Telegram as the Cross-Machine Control Plane
 
 Your existing `telegram_agent.js` already acts as a bridge between your phone and either machine. Two enhancements make it a true multi-machine control plane:
