@@ -1,16 +1,19 @@
 """
-Bravo Notification System - Telegram alerts for all engine actions.
+Bravo Notification System - Telegram alerts for CC.
 
-Every engine imports this module to send CC real-time updates.
+V3 (2026-04-12): Human-readable format. No brackets. No JSON. No system status.
+Every message must pass the "3-second glance test": CC should understand it
+immediately on his phone without decoding anything.
+
 Usage:
     from notify import notify
-    notify("New lead booked a call for Tuesday 3pm")
-    notify("Revenue update: $2,871 MRR", category="revenue")
+    notify("New lead: John from Acme HVAC just submitted the funnel form", category="lead")
+    notify("Stripe: $800 payment received from Bennett Agency", category="revenue")
 
-Categories: lead, email, booking, content, revenue, outreach, instagram, system
+Categories: lead, email, booking, content, revenue, outreach, instagram, system, skool-escalation
 
 FILTERING: Only high-signal categories reach CC's Telegram.
-- ALWAYS SEND: lead, booking, revenue, error
+- ALWAYS SEND (with sound): lead, booking, revenue, skool-escalation
 - SILENT (no sound): email, outreach
 - BLOCKED (never send): content, instagram, system
 Override via NOTIFY_BLOCKED_CATEGORIES in .env.agents (comma-separated).
@@ -55,16 +58,19 @@ def _get_blocked_categories() -> set[str]:
     return DEFAULT_BLOCKED
 
 
-# Category prefix map (using basic chars for Windows compatibility)
+# V3 2026-04-12: Human-readable category labels. No brackets, no all-caps.
+# CC's feedback: "the format is gross, I don't know what [REVENUE] means,
+# it goes over my head." New format: clean emoji + plain English label.
 CATEGORY_PREFIX = {
-    "lead": "[LEAD]",
-    "email": "[EMAIL]",
-    "booking": "[BOOKING]",
-    "content": "[CONTENT]",
-    "revenue": "[REVENUE]",
-    "outreach": "[OUTREACH]",
-    "instagram": "[IG]",
-    "system": "[SYSTEM]",
+    "lead": "New Lead",
+    "email": "Email",
+    "booking": "Booking",
+    "content": "Content",
+    "revenue": "Revenue",
+    "outreach": "Outreach",
+    "instagram": "Instagram",
+    "system": "System",
+    "skool-escalation": "Skool (needs you)",
 }
 
 
@@ -111,9 +117,12 @@ def notify(message: str, category: str = "system", silent: bool = False, force: 
     except ImportError:
         return False
 
-    prefix = CATEGORY_PREFIX.get(category, "[BRAVO]")
-    timestamp = datetime.now().strftime("%H:%M")
-    full_message = f"{prefix} {message}\n-- {timestamp}"
+    # V3 2026-04-12: Clean human-readable format.
+    # Old: "[REVENUE] Stripe Revenue Sync: Stripe sync complete.\n  Inserted: 0 new event(s)\n  Skipped: 4 duplicate(s)\n-- 17:34"
+    # New: "Revenue\n$800 payment from Bennett Agency\n\n12:34 PM"
+    prefix = CATEGORY_PREFIX.get(category, "Bravo")
+    timestamp = datetime.now().strftime("%-I:%M %p")  # 12-hour format, no leading zero
+    full_message = f"{prefix}\n{message}\n\n{timestamp}"
     if len(full_message) > 4096:
         full_message = full_message[:4093] + "..."
 
