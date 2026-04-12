@@ -2,6 +2,22 @@
 tags: [daily]
 ---
 
+### 2026-04-11 — session end (mac)
+**Agent:** bravo-session-end
+**Note:** mac incident resolved: killed rogue scheduler + telegram_agent, installed Windows SSH key, verified integrations
+
+
+
+### 2026-04-11 — sync-from-github (macos)
+**Agent:** sync-from-github.sh
+**Action:** Pulled origin/main → f7ddfd1 (was 1993014)
+**Behind before pull:** 4 commits
+**Platform:** macos
+**Daemon status:** none detected
+**Verification:** all critical scripts parse + import clean
+
+
+
 # SESSION LOG
 > Agent appends after each working session. Use ISO 8601 dates.
 > **Archive:** Sessions older than 14 days → `memory/ARCHIVES/sessions-YYYY-MM.md`
