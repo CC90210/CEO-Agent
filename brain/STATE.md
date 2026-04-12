@@ -4,7 +4,7 @@ tags: [state, ephemeral]
 
 # STATE — Current Operational State
 
-> Updated 2026-04-07 | **V15.4 macOS bridge live. Scheduler crash fixed (Python 3.9 compat). Semi-auto outreach loop deploying. All 12 cron jobs now running on Mac.**
+> Updated 2026-04-11 | **Notification pipeline V2.1 live. Cross-machine sync protocol deployed (Windows CCPC production, Mac cold-standby). SSH control plane live. 40/40 fail-closed tests pass. Skool V2.1 comment-tier engagement. 152 skills, 56 scripts, 18 cron jobs (15 active + Funnel Fast-Poll).**
 
 ## Operational Status
 
