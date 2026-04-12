@@ -49,6 +49,30 @@ bold "=== BRAVO SESSION START ==="
 info "Machine: $MACHINE ($HOST)"
 info "Repo:    $REPO_ROOT"
 
+# ---- Daemon exclusivity enforcement (Mac must never run production daemons) --
+if [[ "$MACHINE" == "mac" || "$MACHINE" == "linux" ]]; then
+    ROGUE_PROCS=""
+    if command -v pgrep &>/dev/null; then
+        ROGUE_PROCS=$(pgrep -fl "scripts/scheduler.py\|scripts/skool_engine.py daemon\|telegram_agent.js" 2>/dev/null || true)
+    else
+        ROGUE_PROCS=$(ps aux 2>/dev/null | grep -E "scripts/scheduler.py|scripts/skool_engine.py daemon|telegram_agent.js" | grep -v grep || true)
+    fi
+    if [[ -n "$ROGUE_PROCS" ]]; then
+        err "ROGUE DAEMONS DETECTED on $MACHINE — these must only run on Windows:"
+        echo "$ROGUE_PROCS" | sed 's/^/  /'
+        err "Kill them immediately with: kill <PID> (or pm2 delete <name> if PM2-managed)"
+        err "See brain/CROSS_MACHINE_SYNC.md Rule 2 for why this matters."
+    fi
+    if command -v pm2 &>/dev/null; then
+        PM2_ROGUE=$(pm2 jlist 2>/dev/null | grep -oE '"name":"bravo-[a-z]+"' | sort -u || true)
+        if [[ -n "$PM2_ROGUE" ]]; then
+            err "ROGUE PM2 ENTRIES DETECTED on $MACHINE:"
+            echo "$PM2_ROGUE" | sed 's/^/  /'
+            err "Delete with: pm2 delete bravo-scheduler bravo-telegram bravo-skool && pm2 save"
+        fi
+    fi
+fi
+
 # ---- Git pull ----------------------------------------------------------------
 info "Pulling origin/main..."
 if ! git fetch origin main --quiet 2>/dev/null; then
