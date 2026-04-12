@@ -201,8 +201,13 @@ def run_script(script_name: str, args: List[str], timeout: int = 120) -> str:
     output = result.stdout.strip()
     if result.returncode != 0:
         error = result.stderr.strip()
-        return f"FAILED (exit {result.returncode}): {error[:500]}"
-    return output[:500] if output else "ok"
+        return f"FAILED (exit {result.returncode}): {error[:2000]}"
+    # V2.1 2026-04-11: Increased from 500 to 8000 chars. The old 500 limit
+    # was truncating JSON arrays mid-object, causing downstream JSON parse
+    # failures in fail-closed handlers (specifically run_lead_followup which
+    # receives ~2200 chars of lead data). 8000 covers any realistic CRM
+    # response while still preventing runaway stdout from eating memory.
+    return output[:8000] if output else "ok"
 
 
 # ── Job handlers ──────────────────────────────────────────────────────────────

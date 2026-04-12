@@ -2262,6 +2262,38 @@ def _is_daemon_running() -> bool:
         return False
 
 
+def _prune_stale_state(max_age_days: int = 30):
+    """Remove entries older than max_age_days from replied_posts and replied_comments.
+
+    Prevents unbounded growth of state files. Runs once per hour in daemon mode.
+    Entries older than 30 days will never be re-encountered in the Skool feed
+    (Skool shows ~20 most recent posts), so removing them is safe.
+    """
+    pruned_total = 0
+    for path in (REPLIED_POSTS_PATH, REPLIED_COMMENTS_PATH, ESCALATED_PATH):
+        if not path.exists():
+            continue
+        try:
+            data = _load_json(path)
+            if not isinstance(data, dict) or not data:
+                continue
+            before = len(data)
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=max_age_days)).isoformat()
+            # Keep entries that either have no 'ts' field or have ts >= cutoff
+            pruned = {
+                k: v for k, v in data.items()
+                if not isinstance(v, dict) or not v.get("ts") or v["ts"] >= cutoff
+            }
+            removed = before - len(pruned)
+            if removed > 0:
+                _save_json(path, pruned)
+                log.info(f"  Pruned {removed} entries older than {max_age_days}d from {path.name}")
+                pruned_total += removed
+        except Exception as e:
+            log.warning(f"  Prune failed on {path.name}: {e}")
+    return pruned_total
+
+
 def cmd_daemon(args):
     from playwright.sync_api import sync_playwright
 
@@ -2331,6 +2363,14 @@ def cmd_daemon(args):
                         break
 
                     cycle += 1
+
+                    # V2.1: Prune stale state every 12 cycles (~1 hour at 5min interval)
+                    if cycle % 12 == 0:
+                        try:
+                            _prune_stale_state(max_age_days=30)
+                        except Exception as prune_err:
+                            log.warning(f"State prune failed: {prune_err}")
+
                     log.info(f"Next cycle in {interval} minutes...")
                     for _ in range(interval * 6):
                         if not running[0]:
