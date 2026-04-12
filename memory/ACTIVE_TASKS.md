@@ -40,11 +40,10 @@ tags: [tasks, active]
 > **The real play: stack legitimate agency retainers through content + cold outreach.** No coaching crutch.
 
 ### Week 1 (Apr 12–18) — CONTENT ENGINE DAILY + COLD OUTREACH VOLUME
-- [ ] Ship 1 Kona Makana long-form video end-to-end through Remotion pipeline (CC records, Bravo edits via `content_pipeline.py`)
-- [ ] Daily content cascade: 1 long-form → 5 cross-posts (X, LinkedIn, IG, TikTok, Threads) via `content_engine` skill repurposing workflow
+- [ ] Ship 1 Kona Makana long-form video through Remotion pipeline (CC records, Bravo edits via `content_pipeline.py`)
+- [ ] Daily content cascade: 1 long-form → 5 cross-posts via `content_engine` repurposing workflow
 - [ ] Import 47 stale leads to CRM — `python scripts/lead_engine.py bulk-import`
-- [ ] Semi-auto outreach loop live: 20 cold emails/day minimum, `outreach_batch.py` → Telegram approve → send
-- [ ] Study `skills/sales-methodology` (NEPQ) + `skills/sales-closing` nightly — 30 min/day
+- [ ] Semi-auto outreach: 20 cold emails/day — `outreach_batch.py` → Telegram approve → send
 - [ ] Decide: Zernio upgrade ($29/mo) or frequency cut to 20/mo
 - **Target:** 3 discovery calls booked, 50+ cold touches made, 1 long-form shipped
 
@@ -81,9 +80,15 @@ tags: [tasks, active]
 - [x] Create `skills/sales-closing/SKILL.md` — NEPQ extension into closing
 - [x] Verify Antigravity MCP config (.vscode/mcp.json, 8 servers healthy)
 - [x] Build `/close-review` workflow — paste transcript, get NEPQ+LAER scoring, auto-log patterns
-- [x] Sync `ANTIGRAVITY.md` with `CLAUDE.md` (MCP 4→8, skills 55→150, agents 16→17, workflows 15→34, Hyperthink/Codex/Self-improvement rules)
-- [x] **Skool Engine V2.1** — comment-tier engagement + coach-attention escalation. Bravo now replies to comments on posts (not just post bodies), tone-adjusts when CC already top-level commented (brief + complementary, ≤180 chars), and Telegram-escalates posts/comments that need CC's personal voice (crisis, hot leads, @-mentions, direct coaching asks). 38 escalation keywords, 9/9 unit tests pass. Graceful degradation on Skool DOM drift. Daemon PID 2196 picks up changes on next restart.
-- [ ] CC: restart skool daemon to activate V2.1 — `taskkill //PID 2196 //F && python scripts/skool_engine.py daemon --interval 5 &` (or via PM2 restart). NO auto-restart by Bravo — requires CC authorization.
+- [x] Sync `ANTIGRAVITY.md` with `CLAUDE.md` (MCP 4→8, skills 55→150, agents 16→17, workflows 15→34)
+- [x] **Skool Engine V2.1** — comment-tier + coach-attention escalation + crash-safe state + is_cc tightening
+- [x] Skool daemon restarted on V2.1 (PID 11176, cycle 41+, HEALTHY)
+- [x] **Notification pipeline V2.1** — fail-closed parsing, double-notify fix, fast-poll, retry-on-error, IMAP poison UID, argparse root-cause
+- [x] **Cross-machine sync** — SSH control plane, session scripts, ACTIVE_SESSION.json, HANDOFF.md protocol
+- [x] **Mac synchronized** — Python 3.12.13, all integration tests passing, telegram cold-standby in PM2
+- [x] **PM2 name mismatch fixed** — Windows now uses `bravo-scheduler` + `bravo-telegram` (matches ecosystem.config.js)
+- [x] **CRLF debt cleared** — 39 Python files normalized to LF + .gitattributes enforcing LF on *.py/*.sh/*.js
+- [x] **requirements.txt generated** — 17 core packages, committed for reproducible installs
 - [ ] CC: install eJPT study materials (see ethical-hacking skill, $200)
 - [ ] CC: first TryHackMe session (30 min) this week
 - [ ] Bravo: after 3 real deals, update sales-closing with observed objections
