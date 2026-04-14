@@ -79,6 +79,21 @@ tags: [daily]
 32. **CUDA** — not installed (correct, no GPU yet)
 33. **PM2** — bravo-scheduler (1MB VBS wrapper) + bravo-telegram (26MB) both healthy, 0 restarts
 
+**Deep Pass (Round 4 — fine-tuning sweep):**
+34. **Temp folder cleaned** — 366 items, 1,657 MB freed
+35. **Bloat services disabled** — GameManagerService3, DiagTrack, MapsBroker, WMPNetworkSvc, WerSvc, PhoneSvc, 4× Xbox services
+36. **PowerShell V2 disabled** — prevents downgrade attacks (only PS5+ allowed)
+37. **PATH cleaned** — removed dead Ollama entry, deduplicated 7 duplicate entries
+38. **Git worktree pruned** — stale `worktree-agent-a58d3769` removed
+39. **DNS cache flushed**
+40. **SSD health** — Kingston NV3 500G: Healthy, TRIM enabled ✅
+41. **Event log reviewed** — TPM-WMI errors (harmless, no TPM chip), DNS-Client errors (transient), BTHUSB errors (Bluetooth driver hiccup)
+42. **Hosts file** — 15 domains blocked (malware C2 + trackers)
+43. **Network audit** — only Wi-Fi 2 + Tailscale active. 6 unused virtual adapters identified (harmless)
+44. **Listening ports** — sshd (22), svchost services, spoolsv. GameManagerService3 removed from listeners.
+45. **Total space reclaimed this session** — ~18 GB (temp cleanup + earlier 16.2 GB)
+46. **Final state** — 278 GB free disk, 4.9 GB free RAM, CPU 8%, SSD healthy
+
 ---
 
 ### 2026-04-11 — session end (mac)
