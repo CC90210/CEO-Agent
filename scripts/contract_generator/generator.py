@@ -178,7 +178,7 @@ class InvoiceContractGenerator:
         doc.build(elements)
 
     def send_email_with_documents(self, client_name: str, client_email: str, invoice_path: str, contract_path: str, payment_link: str):
-        gmail_user = os.environ.get("GMAIL_USER", "oasisaisolutions@gmail.com")
+        gmail_user = os.environ.get("GMAIL_USER", "conaugh@oasisai.work")
         gmail_pw = os.environ.get("GMAIL_APP_PASSWORD")
         
         if not gmail_pw:

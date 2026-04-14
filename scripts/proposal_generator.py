@@ -265,7 +265,7 @@ OASIS AI Solutions helps small and mid-sized businesses automate the work that's
 
 {_section_divider("Next Steps")}
 
-To move forward, reply with your preferred tier or any questions, and I'll send the contract and first invoice within 24 hours. If you'd like to talk through anything live, book a 20-minute call here: [your calendar link].
+To move forward, reply with your preferred tier or any questions, and I'll send the contract and first invoice within 24 hours. If you'd like to talk through anything live, book a 20-minute call here: https://calendar.app.google/LtfncxqEhwPnEaz77
 
 This proposal is valid until **{expiry}**.
 
@@ -374,7 +374,7 @@ This proposal is valid until **{expiry}**.
 
 ---
 
-*Questions? Reply here or book a call: [calendar link]*
+*Questions? Reply here or book a call: https://calendar.app.google/LtfncxqEhwPnEaz77*
 """
 
 
