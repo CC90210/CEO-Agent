@@ -21,6 +21,7 @@ Usage:
 
 import argparse
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -737,6 +738,10 @@ Examples:
     p_search.add_argument("query", help="Search string")
 
     # -- funnel ----------------------------------------------------------------
+    p_bulk = subparsers.add_parser("bulk-import", help="Bulk import leads from LEAD_TRACKER.csv")
+    p_bulk.add_argument("--file", default="memory/LEAD_TRACKER.csv", help="Path to CSV (default: memory/LEAD_TRACKER.csv)")
+    p_bulk.add_argument("--dry-run", action="store_true", help="Parse and validate without inserting")
+
     p_funnel = subparsers.add_parser("funnel", help="Enroll or update a lead in a funnel")
     p_funnel.add_argument("lead_id", help="Lead UUID")
     p_funnel.add_argument("funnel_slug", help="Funnel slug identifier")
@@ -746,6 +751,117 @@ Examples:
 
 
 # -- Entry point ---------------------------------------------------------------
+
+def cmd_bulk_import(client, args, output_json: bool):
+    """Bulk import leads from LEAD_TRACKER.csv into Supabase."""
+    import csv
+    import re
+
+    csv_path = args.file
+    if not os.path.isabs(csv_path):
+        csv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), csv_path)
+
+    if not os.path.exists(csv_path):
+        print(f"ERROR: File not found: {csv_path}", file=sys.stderr)
+        sys.exit(1)
+
+    # Load existing leads to dedupe by email + company
+    existing = client.table("leads").select("email,company").execute().data or []
+    existing_emails = {r.get("email", "").lower() for r in existing if r.get("email")}
+    existing_companies = {r.get("company", "").lower() for r in existing if r.get("company")}
+
+    email_re = re.compile(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
+
+    status_map = {
+        "sent": "contacted",
+        "called": "contacted",
+        "called+emailed": "contacted",
+        "meeting booked": "qualified",
+        "warm": "qualified",
+        "qualified": "qualified",
+        "won": "won",
+        "lost": "lost",
+        "proposal": "proposal",
+    }
+
+    to_insert, skipped = [], []
+    now = datetime.now(timezone.utc).isoformat()
+
+    with open(csv_path, "r", encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            name = (row.get("Lead Name") or "").strip()
+            company = (row.get("Business Name") or "").strip()
+            category = (row.get("Category") or "").strip()
+            contact = (row.get("Email/Contact") or "").strip()
+            phone = (row.get("Phone") or "").strip() or None
+            raw_status = (row.get("Status") or "sent").strip().lower()
+
+            if not name and not company:
+                continue
+
+            email = None
+            m = email_re.search(contact)
+            if m:
+                email = m.group(0).lower()
+
+            # Dedupe
+            if email and email in existing_emails:
+                skipped.append(f"{name} ({company}) — email exists")
+                continue
+            if company and company.lower() in existing_companies:
+                skipped.append(f"{name} ({company}) — company exists")
+                continue
+
+            # Map status
+            mapped_status = "contacted"
+            for key, val in status_map.items():
+                if key in raw_status:
+                    mapped_status = val
+                    break
+
+            payload = {
+                "name": name or company,
+                "status": mapped_status,
+                "created_at": now,
+                "updated_at": now,
+                "source": "cold_outreach",
+                "notes": f"Imported from LEAD_TRACKER.csv | Category: {category} | Original status: {row.get('Status', '')}",
+            }
+            if email:
+                payload["email"] = email
+                existing_emails.add(email)
+            if phone:
+                payload["phone"] = phone
+            if company:
+                payload["company"] = company
+                existing_companies.add(company.lower())
+
+            to_insert.append(payload)
+
+    print(f"Parsed: {len(to_insert)} new leads | Skipped duplicates: {len(skipped)}")
+
+    if args.dry_run:
+        print("\n-- DRY RUN -- Sample (first 5):")
+        for p in to_insert[:5]:
+            print(f"  {p['name']:30} {p.get('email','-'):35} {p.get('company','-'):30} [{p['status']}]")
+        return
+
+    if not to_insert:
+        print("Nothing to import.")
+        return
+
+    # Batch insert in chunks of 50
+    inserted = 0
+    for i in range(0, len(to_insert), 50):
+        batch = to_insert[i:i+50]
+        result = client.table("leads").insert(batch).execute()
+        inserted += len(result.data or [])
+
+    print(f"\n[OK] Imported {inserted} leads into Supabase.")
+    if skipped:
+        print(f"     Skipped {len(skipped)} duplicates.")
+
 
 def main():
     parser = build_parser()
@@ -770,6 +886,7 @@ def main():
         "pipeline": cmd_pipeline,
         "search": cmd_search,
         "funnel": cmd_funnel,
+        "bulk-import": cmd_bulk_import,
     }
 
     handler = dispatch.get(args.command)

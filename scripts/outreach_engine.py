@@ -196,7 +196,7 @@ def send_outreach(
             "error": "Email is on the CASL suppression list — send aborted.",
         }
 
-    gmail_user = os.environ.get("GMAIL_USER", "oasisaisolutions@gmail.com")
+    gmail_user = os.environ.get("GMAIL_USER", "conaugh@oasisai.work")
     gmail_app_password = os.environ.get("GMAIL_APP_PASSWORD")
     if not gmail_app_password:
         raise ValueError("GMAIL_APP_PASSWORD not set. Load from .env.agents.")

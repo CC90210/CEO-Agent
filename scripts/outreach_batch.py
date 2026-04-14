@@ -345,7 +345,7 @@ def send_approved_draft(draft_path_str, env_vars):
     # CASL footer — sender, address, unsubscribe link. Mandatory.
     body = body + build_casl_footer(lead_email)
 
-    gmail_user = env_vars.get("GMAIL_USER", "oasisaisolutions@gmail.com")
+    gmail_user = env_vars.get("GMAIL_USER", "conaugh@oasisai.work")
     gmail_app_password = env_vars.get("GMAIL_APP_PASSWORD")
     if not gmail_app_password:
         print(json.dumps({"ok": False, "error": "GMAIL_APP_PASSWORD not set in .env.agents"}))

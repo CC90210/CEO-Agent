@@ -106,11 +106,11 @@ def send_telegram(message: str):
 
 # --- Email template helpers ---
 
-GMAIL_USER = "oasisaisolutions@gmail.com"
+GMAIL_USER = "conaugh@oasisai.work"
 
 def _booking_link() -> str:
     """Return booking link from env, or fallback to mailto reply."""
-    link = os.environ.get("BOOKING_MEET_LINK", "")
+    link = os.environ.get("BOOKING_LINK", "") or os.environ.get("BOOKING_MEET_LINK", "")
     if link:
         return link
     return f"mailto:{GMAIL_USER}?subject=Book%20My%20Free%20Strategy%20Call"
