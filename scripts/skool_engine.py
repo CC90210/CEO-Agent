@@ -189,7 +189,11 @@ log = setup_logging()
 # ---------------------------------------------------------------------------
 
 def _read_config_model(key: str, fallback: str) -> str:
-    """Read a model name from .agents/config.toml. Falls back to hardcoded default."""
+    """Read a model name from .agents/config.toml. Falls back to hardcoded default.
+
+    Strips inline `#` comments before dequoting so TOML lines like
+    `fast_model = "claude-sonnet-4-6"  # comment` parse correctly.
+    """
     config_path = PROJECT_ROOT / ".agents" / "config.toml"
     if not config_path.exists():
         return fallback
@@ -199,7 +203,15 @@ def _read_config_model(key: str, fallback: str) -> str:
                 line = line.strip()
                 if line.startswith(f"{key}") and "=" in line:
                     _, _, val = line.partition("=")
-                    val = val.strip().strip('"').strip("'")
+                    # Strip inline comments: find first # outside of a quoted string
+                    in_quote = None
+                    for i, ch in enumerate(val):
+                        if ch in ('"', "'"):
+                            in_quote = None if in_quote == ch else (in_quote or ch)
+                        elif ch == '#' and in_quote is None:
+                            val = val[:i]
+                            break
+                    val = val.strip().strip('"').strip("'").strip()
                     if val:
                         return val
     except OSError:
@@ -917,6 +929,15 @@ def generate_post_reply(post_title: str, post_content: str, author_name: str, im
         "- Give specific, actionable next steps. Not vague advice.\n"
         "- You're direct but never condescending. You remember what it felt like to start.\n"
         "- You genuinely care about each person's progress.\n\n"
+        "CONSTRUCTIVE CRITICISM FLAG (IMPORTANT):\n"
+        "- WHENEVER you give critique, suggestions for improvement, or point out what's missing or could be better,\n"
+        "  you MUST explicitly flag it. Open that part of the reply with a natural phrase like:\n"
+        "    \"hey, here's some constructive criticism\" or\n"
+        "    \"quick constructive note\" or\n"
+        "    \"one piece of constructive feedback\"\n"
+        "- This signals to the member that feedback is coming before you deliver it, so it lands well.\n"
+        "- If the reply is pure encouragement with no critique, no flag needed.\n"
+        "- If the reply mixes encouragement AND critique, put the flag right before the critique part.\n\n"
         "IMAGE HANDLING:\n"
         "- If images are attached, LOOK AT THEM CAREFULLY. Describe what you see and respond to the actual content.\n"
         "- Screenshots of code, websites, dashboards, tools = comment on the specific work shown.\n"
