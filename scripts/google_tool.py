@@ -110,7 +110,7 @@ def refresh_gws_auth():
 
 def gmail_send_smtp(to, subject, body, ics_content=None):
     """Send email via SMTP as fallback when gws CLI auth fails."""
-    gmail_user = os.environ.get("GMAIL_USER", "oasisaisolutions@gmail.com")
+    gmail_user = os.environ.get("GMAIL_USER", "conaugh@oasisai.work")
     gmail_pass = os.environ.get("GMAIL_APP_PASSWORD")
     if not gmail_pass:
         return None, "GMAIL_APP_PASSWORD not set in .env.agents"
@@ -1117,7 +1117,7 @@ def _now_iso():
 def _encode_email(to, subject, body):
     """Create base64url encoded email for Gmail API."""
     import base64
-    gmail_user = os.environ.get("GMAIL_USER", "oasisaisolutions@gmail.com")
+    gmail_user = os.environ.get("GMAIL_USER", "conaugh@oasisai.work")
     message = MIMEText(body)
     message["to"] = to
     message["from"] = f"Conaugh McKenna <{gmail_user}>"
