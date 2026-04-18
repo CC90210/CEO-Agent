@@ -35,7 +35,7 @@ When CC says "fix [app]", "update [app]", "build [feature] in [app]", "debug [ap
 | **CC Funnel** | cc-funnel, funnel, lead form | `C:\Users\User\APPS\cc-funnel` | CC90210/cc-funnel | phctllmtsogkovoilwos (Bravo) | Next.js 14, TypeScript, Tailwind, Supabase | Vercel (cc-funnel.vercel.app) |
 | **Shopify Ad Engine** | shopify-ad-engine, ad engine, kalem ads | `C:\Users\User\APPS\shopify-ad-engine` | CC90210/shopify-ad-engine | — | Remotion 4.0.436, React 19, Three.js, Zod, Python (Meta Ads) | — |
 | **Lafreniere PM** | lafreniere, lafreniere-pm, ty, property management | `C:\Users\User\APPS\lafreniere-pm` | CC90210/lafreniere-pm | (pending) | Next.js 16, TypeScript, Supabase, Stripe, Framer Motion | Vercel (pending) |
-| **AURA** | aura, smart home, apartment | `C:\Users\User\AURA` | — | — | Claude Code agent, ESP32, Home Assistant, Playwright | — |
+| **Aura (Life/Home Agent)** | aura, smart home, apartment, life, habits, home agent | `C:\Users\User\AURA` | CC90210/Aura-Home-Agent | — | Claude Code agent, Raspberry Pi 5, Home Assistant, ESP32, voice agent | RPi5 hub |
 | **IG Setter Pro** | ig-setter, ig setter, dm automation, manychat | `C:\Users\User\APPS\ig-setter-pro` | CC90210/ig-setter-pro | Turso (ig-setter-cc90210) | Next.js 14, TypeScript, Turso/libSQL, n8n, Claude API, Tailwind | Vercel (ig-setter-pro.vercel.app) |
 | **Gritly** | gritly, field service, fsm, trades app | `C:\Users\User\APPS\gritly` | (pending) | Turso (libSQL) | Next.js 15, TypeScript, Drizzle ORM, Better Auth, Stripe, Framer Motion | Vercel (pending) |
 | **Hermes** | hermes, lowinger, emmanuel, commerce agent, pos agent | `C:\Users\User\APPS\hermes` | CC90210/hermes (private) | — | Python 3.12, Ollama, SQLite, FastAPI, Playwright | Local (client machine) |

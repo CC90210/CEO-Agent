@@ -2,56 +2,87 @@
 tags: [architecture, c-suite, multi-agent]
 ---
 
-# C-SUITE ARCHITECTURE — Three-Agent Operating Model
+# AGENT ARCHITECTURE — Four-Agent Operating Model
 
-> **Purpose:** Defines the organizational structure, decision rights, communication protocols, and inter-agent conventions for CC's AI C-Suite.
+> **Purpose:** Defines the organizational structure, decision rights, communication protocols, and inter-agent conventions for CC's full AI operating system — the C-Suite (business) + Aura (life/home).
 > **Last updated:** 2026-04-18
 
-## The Board
+## The Four Agents
 
 ```
-CC (Board Chair — human decision-maker, final authority)
-│
-├── Atlas (CFO)     — Money, tax, research, compliance, wealth
-│   Project: C:\Users\User\APPS\CFO-Agent
-│   GitHub: CC90210/CFO-Agent
-│   Pulse: data/pulse/cfo_pulse.json
+CC (Final Authority — human decision-maker)
 │
 ├── Bravo (CEO)     — Strategy, clients, revenue, partnerships, vision
 │   Project: C:\Users\User\Business-Empire-Agent
 │   GitHub: CC90210/CEO-Agent
-│   Pulse: data/pulse/ceo_pulse.json
+│   Pulse:   data/pulse/ceo_pulse.json
+│   Orchestrates apps: ig-setter-pro (PULSE), cc-funnel, Skool automation
 │
-└── Maven (CMO)     — Brand, content, ads, funnels, distribution, growth, research
-    Project: C:\Users\User\CMO-Agent
-    GitHub: CC90210/CMO-Agent
-    Pulse: data/pulse/cmo_pulse.json
-    Orchestrates: shopify-ad-engine, ig-setter-pro, cc-funnel
+├── Atlas (CFO)     — Money, tax, research, compliance, wealth
+│   Project: C:\Users\User\APPS\CFO-Agent
+│   GitHub: CC90210/CFO-Agent
+│   Pulse:   data/pulse/cfo_pulse.json
+│
+├── Maven (CMO)     — Brand, content, ads, funnels, growth, multi-client marketing
+│   Project: C:\Users\User\CMO-Agent
+│   GitHub: CC90210/CMO-Agent
+│   Pulse:   data/pulse/cmo_pulse.json
+│   Orchestrates apps: ad-engine (Remotion + Meta Ads + Shopify)
+│
+└── Aura (Life/Home) — CC's personal life + apartment agent. Habits,
+    accountability, routines, presence detection, voice/clap triggers,
+    smart-home control. Lives WITH CC (and roommate Adon).
+    Project: C:\Users\User\AURA
+    GitHub:  CC90210/Aura-Home-Agent
+    Pulse:   data/pulse/aura_pulse.json (create on first joint session)
+    Orchestrates: Home Assistant (RPi5 hub), voice agent, smart mirror,
+                  ESP32 sensors, Govee/Sonos/locks/cameras
 ```
+
+## Business vs Life Scope (the big split)
+
+The 4 agents divide along two axes:
+
+| Scope | Agents | Mission |
+|-------|--------|---------|
+| **Business** (C-Suite) | Bravo + Atlas + Maven | Run OASIS AI + client portfolio — revenue, money, marketing |
+| **Life / Home** | Aura | CC's apartment, habits, routines, health, accountability |
+
+These don't overlap operationally — Aura never touches business ops, and the C-Suite never controls the thermostat. But they **do** share awareness via pulses: if Atlas says "runway is tight," Aura might suggest skipping takeout. If Bravo closes a big deal, Aura celebrates it in the apartment. If Maven has a video shoot tomorrow, Aura sets the lighting.
+
+## PULSE vs Agents (important clarification)
+
+**PULSE** (ig-setter-pro) is an **app**, not an agent. It's CC's DM automation product (ManyChat replacement). It's one of many apps in the OASIS portfolio — alongside PropFlow, Nostalgic Requests, cc-funnel, TIKTIK, Skool community, etc. The 4 agents OPERATE these apps; they are not themselves apps.
 
 ## Decision Rights Matrix
 
-| Question | Owner | Advisor |
-|----------|-------|---------|
-| "How much runway do I have?" | Atlas | — |
-| "Which client to pursue?" | Bravo | Maven (market fit), Atlas (pricing) |
-| "What content to post?" | Maven | Bravo (brand alignment) |
-| "Should I raise prices?" | Bravo | Atlas (tax impact), Maven (positioning) |
-| "Can I afford paid ads?" | Atlas (spend gate) | Maven (execution plan) |
-| "Incorporate now or wait?" | Atlas | — |
-| "What's the brand voice?" | Maven | Bravo (strategic direction) |
-| "Should I hire?" | Bravo | Atlas (cost model), Maven (marketing ROI) |
-| "What vertical to target next?" | Bravo | Maven (market research), Atlas (revenue model) |
-| "Should I pivot a product?" | Bravo | Maven (competitive intel), Atlas (financial viability) |
+| Question | Owner | Advisor(s) |
+|----------|-------|-----------|
+| "How much runway do I have?" | **Atlas** | — |
+| "Which client to pursue?" | **Bravo** | Maven (market fit), Atlas (pricing) |
+| "What content to post?" | **Maven** | Bravo (brand alignment) |
+| "Should I raise prices?" | **Bravo** | Atlas (tax impact), Maven (positioning) |
+| "Can I afford paid ads?" | **Atlas** (spend gate) | Maven (execution plan) |
+| "Incorporate now or wait?" | **Atlas** | — |
+| "What's the brand voice?" | **Maven** | Bravo (strategic direction) |
+| "Should I hire?" | **Bravo** | Atlas (cost model), Maven (marketing ROI) |
+| "What vertical to target next?" | **Bravo** | Maven (market research), Atlas (revenue model) |
+| "Should I pivot a product?" | **Bravo** | Maven (competitive intel), Atlas (financial viability) |
+| "What's my apartment status?" | **Aura** | — |
+| "Am I hitting my daily habits?" | **Aura** | — |
+| "Should I go to the gym now?" | **Aura** (checks presence + schedule) | — |
+| "Turn on creative-studio lighting" | **Aura** | — |
+| "What did I accomplish this week?" | **Aura** (weekly_reflections.json) | Bravo (business side) |
 
 ## Conflict Resolution Protocol
 
 1. **Atlas** has veto power on any **spend** decision (capital preservation > growth)
-2. **Bravo** has veto power on any **client-facing** decision (strategy > tactics)
+2. **Bravo** has veto power on any **client-facing / strategic** decision (strategy > tactics)
 3. **Maven** executes within the budget Atlas approves and the strategy Bravo sets
-4. When agents disagree → **CC decides** (board chair tiebreaker)
+4. **Aura** has domain sovereignty over CC's physical environment + habits — business agents can READ Aura's state but cannot override Aura's guest-mode, roommate-sensitive routines, or sleep protection
+5. When agents disagree → **CC decides** (final authority)
 
-## 3-Way Pulse Protocol
+## 4-Way Pulse Protocol
 
 ### Schema Overview
 
@@ -59,17 +90,19 @@ Each agent maintains a pulse file that others read:
 
 | Pulse File | Writer | Location | Readers | Key Data |
 |------------|--------|----------|---------|----------|
-| `ceo_pulse.json` | Bravo | `Business-Empire-Agent/data/pulse/` | Atlas, Maven | MRR, strategy, client health, directives |
-| `cfo_pulse.json` | Atlas | `APPS/CFO-Agent/data/pulse/` | Bravo, Maven | Runway, spend gate, tax deadlines, FX rates |
-| `cmo_pulse.json` | Maven | `CMO-Agent/data/pulse/` | Bravo, Atlas | Content pipeline, ad performance, funnel metrics, brand health |
+| `ceo_pulse.json` | Bravo | `Business-Empire-Agent/data/pulse/` | Atlas, Maven, Aura | MRR, strategy, client health, directives |
+| `cfo_pulse.json` | Atlas | `APPS/CFO-Agent/data/pulse/` | Bravo, Maven, Aura | Runway, spend gate, tax deadlines, FX rates |
+| `cmo_pulse.json` | Maven | `CMO-Agent/data/pulse/` | Bravo, Atlas, Aura | Content pipeline, ad perf, funnel metrics, brand health |
+| `aura_pulse.json` | Aura | `AURA/data/pulse/` | Bravo, Atlas, Maven | Presence, mood, habit streaks, sleep/energy, guest mode, apartment status |
 
 ### Read Protocol
 
 | Agent | On Session Start, Read: |
 |-------|------------------------|
-| **Bravo** | `cfo_pulse.json` (runway), `cmo_pulse.json` (brand health, funnel metrics) |
-| **Atlas** | `ceo_pulse.json` (revenue targets), `cmo_pulse.json` (ad spend for cashflow/tax) |
-| **Maven** | `ceo_pulse.json` (strategy directives), `cfo_pulse.json` (spend gate approval) |
+| **Bravo** | `cfo_pulse.json` (runway), `cmo_pulse.json` (brand health), `aura_pulse.json` (CC's energy/availability) |
+| **Atlas** | `ceo_pulse.json` (revenue), `cmo_pulse.json` (ad spend), `aura_pulse.json` (lifestyle spend patterns) |
+| **Maven** | `ceo_pulse.json` (directives), `cfo_pulse.json` (spend gate), `aura_pulse.json` (CC's creative availability) |
+| **Aura** | All 3 C-Suite pulses (to know if CC just closed a deal, is in a lean week, or has a content shoot scheduled) |
 
 ### Write Protocol
 
