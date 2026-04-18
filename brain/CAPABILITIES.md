@@ -149,7 +149,7 @@ Transform any website into structured CLI commands via browser automation. Compl
 | **Lead CRM** | `scripts/lead_engine.py` | Full pipeline management, scoring, interactions | `list`, `add`, `view`, `update`, `score`, `interact`, `followups`, `pipeline`, `search`, `funnel` |
 | **Email** | `scripts/email_engine.py` | Free Gmail SMTP sending, templates, nurture sequences | `send`, `send-template`, `templates list/create`, `sequence list/create/run`, `log`, `stats` |
 | **Booking** | `scripts/booking_engine.py` | Self-hosted Cal.com replacement, slot management | `slots open/open-week/list/close`, `book`, `cancel`, `available`, `remind`, `complete` |
-| **Content** | `scripts/content_engine.py` | Content calendar, templates, multi-platform posting | `calendar`, `create`, `create-multi`, `templates list/create/render`, `due`, `week-plan`, `stats` |
+| **Content** | `../CMO-Agent/scripts/content_engine.py` | Content calendar, templates, multi-platform posting | `calendar`, `create`, `create-multi`, `templates list/create/render`, `due`, `week-plan`, `stats` |
 | **Revenue** | `scripts/revenue_engine.py` | MRR tracking, Stripe sync, forecasting | `mrr`, `dashboard`, `sync-stripe`, `log-revenue`, `history`, `forecast`, `clients`, `goal` |
 | **Competitive Intel** | `scripts/competitive_intel.py` | Competitor profiles, battlecards, landscape reports | `add`, `list`, `view`, `update`, `battlecard`, `report`, `matrix`, `delete` |
 | **Financial Model** | `scripts/financial_model.py` | Unit economics, scenario modeling, concentration risk | `unit-economics`, `forecast`, `scenario`, `concentration`, `runway` |
@@ -219,7 +219,7 @@ Elite video production system. CC films → uploads → Bravo processes everythi
 
 | Tool | Script | Purpose | Key Commands |
 |------|--------|---------|-------------|
-| **Content Pipeline** | `scripts/content_pipeline.py` | Master orchestrator — 7-phase video production | `process <video>`, `transcribe`, `caption`, `thumbnail`, `research`, `ideas` |
+| **Content Pipeline** | `../CMO-Agent/scripts/content_pipeline.py` | Master orchestrator — 7-phase video production | `process <video>`, `transcribe`, `caption`, `thumbnail`, `research`, `ideas` |
 | **Codex Image Gen** | `scripts/codex_image_gen.py` | AI image generation via Codex (no extra API keys) | `generate "<prompt>" --style branded`, `styles` |
 | **autoDream** | `scripts/auto_dream.py` | Memory consolidation: Orient → Gather → Consolidate → Prune | `run [--dry-run]`, `status` |
 | **Memory Index** | `scripts/memory_index.py` | 3-layer memory architecture (index → topics → archives) | `build`, `search "<query>"`, `stats` |
@@ -279,7 +279,7 @@ The following were added to the Business Operations Engines table above (already
 | Script | Purpose | Status |
 |--------|---------|--------|
 | `scripts/scrape_maps_emails.py` | Google Maps business data + email extraction | Active |
-| `scripts/content_repurposer.py` | Transform content across platforms via Claude API | Active |
+| `../CMO-Agent/scripts/content_repurposer.py` | Transform content across platforms via Claude API | Active |
 | `scripts/funnel_sync.py` | Sync funnels to GoHighLevel | Active |
 | `scripts/funnel_nurture.py` | Nurture sequence automation | Active |
 
@@ -288,12 +288,12 @@ The following were added to the Business Operations Engines table above (already
 | Script | Purpose |
 |--------|---------|
 | `scripts/browse_and_capture.py` | Browser screenshot + capture |
-| `scripts/content_generator.py` | Claude API content generation |
+| `../CMO-Agent/scripts/content_generator.py` | Claude API content generation |
 | `scripts/generate_covers.py` | Cover art / image generation |
 | `scripts/macos_control.py` | macOS system automation |
 | `scripts/music_control.py` | Audio/music control |
 | `scripts/outreach_engine.py` | Outreach campaign automation |
-| `scripts/render_video.py` | Remotion video rendering |
+| `../CMO-Agent/scripts/render_video.py` | Remotion video rendering |
 | `scripts/skool_watchdog.py` | Skool community monitoring daemon |
 | `scripts/transcribe.py` | Whisper audio transcription |
 
@@ -454,9 +454,9 @@ markdown wiki pages. Deterministic retrieval via `knowledge/index.md` — no emb
 | ElevenLabs | elevenlabs SDK | Text-to-speech voiceover generation |
 | Remotion | 4.0.436 | Programmatic video/animation generation (37 Claude skills) |
 
-Pipeline script: `scripts/edit_content_v2.py` — probe, transcribe, voiceover, edit
-Remotion Studio: `content-studio/` — React-based video compositions (OasisPromo, QuoteDrop, CeoLog, SobrietyLog)
-Remotion Skills: `content-studio/.claude/rules/remotion/` — 37 rule files for AI-assisted video generation
+Pipeline script: `../CMO-Agent/scripts/edit_content_v2.py` — probe, transcribe, voiceover, edit
+Remotion Studio: `../CMO-Agent/content-studio/` — React-based video compositions (OasisPromo, QuoteDrop, CeoLog, SobrietyLog)
+Remotion Skills: `../CMO-Agent/content-studio/.claude/rules/remotion/` — 37 rule files for AI-assisted video generation
 Agent: `agents/video-editor.md` (no dedicated workflow — invoke via content pipeline)
 
 ## Orchestration Config (`.agents/config.toml`)

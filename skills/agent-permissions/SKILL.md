@@ -45,7 +45,7 @@ Each agent's write access is limited to specific file patterns:
 | **writer** | `**/*.ts`, `**/*.tsx`, `**/*.js`, `**/*.py`, `**/*.css`, `**/*.json` | Code files only |
 | **reviewer** | `**/*` (read) + auto-fix on code files | Can read everything, write only for mechanical fixes |
 | **documenter** | `**/*.md`, `brain/**`, `memory/**`, `skills/**` | Markdown and intelligence files |
-| **content-creator** | `content-studio/**`, `media/**`, `courses/**` | Content assets only |
+| **content-creator** | `../CMO-Agent/content-studio/**`, `media/**`, `courses/**` | Content assets only |
 | **social-publisher** | (none — delegates to late_tool.py) | No direct file access needed |
 | **explorer** | (none — read-only by design) | Never writes, edits, or deletes |
 | **git-ops** | `.git/**`, staging area | Git operations only |

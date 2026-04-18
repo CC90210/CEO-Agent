@@ -1,6 +1,6 @@
 ---
 tags: [knowledge, video, production, tools]
-sources: [memory/MEMORY.md, scripts/content_pipeline.py, scripts/edit_content_v2.py, content-studio/]
+sources: [memory/MEMORY.md, ../CMO-Agent/scripts/content_pipeline.py, ../CMO-Agent/scripts/edit_content_v2.py, ../CMO-Agent/content-studio/]
 last_updated: 2026-04-06
 confidence: 0.93
 ---
@@ -400,16 +400,16 @@ Remotion output must be `.mov` with ProRes 4444 codec for alpha channel preserva
 
 | File | Purpose | Status |
 |------|---------|--------|
-| `scripts/content_pipeline.py` | Master 7-phase orchestrator | Active |
-| `scripts/edit_content_v2.py` | Whisper + ASS captions + FFmpeg encode | Active |
+| `../CMO-Agent/scripts/content_pipeline.py` | Master 7-phase orchestrator | Active |
+| `../CMO-Agent/scripts/edit_content_v2.py` | Whisper + ASS captions + FFmpeg encode | Active |
 | `scripts/transcribe.py` | Standalone Whisper wrapper | Active |
 | `scripts/codex_image_gen.py` | AI image generation (Fal.ai + DALL-E) | Active |
-| `scripts/render_video.py` | Remotion rendering bridge | Active |
-| `content-studio/src/compositions/OasisPromo.tsx` | OASIS brand composition | Active |
-| `content-studio/src/compositions/QuoteDrop.tsx` | Daily quote drop format | Active |
-| `content-studio/src/compositions/CeoLog.tsx` | CEO log talking-head format | Active |
-| `content-studio/src/compositions/SkoolIntro.tsx` | Skool community intro | Active |
-| `content-studio/.claude/rules/remotion/` | 30+ Remotion skill rules | Reference |
+| `../CMO-Agent/scripts/render_video.py` | Remotion rendering bridge | Active |
+| `../CMO-Agent/content-studio/src/compositions/OasisPromo.tsx` | OASIS brand composition | Active |
+| `../CMO-Agent/content-studio/src/compositions/QuoteDrop.tsx` | Daily quote drop format | Active |
+| `../CMO-Agent/content-studio/src/compositions/CeoLog.tsx` | CEO log talking-head format | Active |
+| `../CMO-Agent/content-studio/src/compositions/SkoolIntro.tsx` | Skool community intro | Active |
+| `../CMO-Agent/content-studio/.claude/rules/remotion/` | 30+ Remotion skill rules | Reference |
 
 ### Pipeline Phase Summary
 1. **Ingest** — probe video metadata (resolution, fps, duration, audio channels)
@@ -435,4 +435,4 @@ Remotion output must be `.mov` with ProRes 4444 codec for alpha channel preserva
 ## Obsidian Links
 - [[knowledge/index]] | [[knowledge/wiki/tech-stack]]
 - [[brain/CAPABILITIES]] | `memory/content_pipeline_vision.md`
-- `scripts/content_pipeline.py` | `scripts/edit_content_v2.py`
+- `../CMO-Agent/scripts/content_pipeline.py` | `../CMO-Agent/scripts/edit_content_v2.py`

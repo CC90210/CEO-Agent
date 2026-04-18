@@ -211,7 +211,7 @@ For COMPLEX+ tasks, use SPARC methodology (`skills/sparc-methodology/SKILL.md`).
 - **Relationship to Atlas:** Atlas approves spend gates. Maven checks `cfo_pulse.json` before ANY paid campaign. Ad spend = T2125 business expense.
 - **Routing rule:** Any question about content creation, ad campaigns, brand voice, SEO, funnels, marketing research, social media strategy, or growth experiments → defer to Maven or reference its docs.
 - **Key files:** `brain/SOUL.md` (identity), `brain/CAPABILITIES.md` (tool inventory), `brain/STATE.md` (campaign status)
-- **Receives from Bravo (migration):** content-engine, email-marketing, funnel-management, brand-guidelines, growth-engine, competitive-intelligence, elite-video-production, lead-management, linkedin-outreach, persona-content-creator skills + content-studio/
+- **Receives from Bravo (migration):** content-engine, email-marketing, funnel-management, brand-guidelines, growth-engine, competitive-intelligence, elite-video-production, lead-management, linkedin-outreach, persona-content-creator skills + ../CMO-Agent/content-studio/
 
 ## Agent Permissions (Claims-Based Access Control)
 

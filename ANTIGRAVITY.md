@@ -110,7 +110,7 @@ Delegation: Complex features → planner. Architecture → architect. Code revie
 - **34 workflows** in `.agents/workflows/`. Key: `/plan-feature` → `/execute` → `/commit`, `/cli-anything <target>`, `/opencli`, `/review`, `/ship`, `/retro`, `/briefing`, `/ceo-briefing`, `/content`, `/post`, `/skool-edit`, `/skool-push`, `/ingest`, `/query-knowledge`, `/evolve`, `/close-review` (sales transcript analysis)
 - **150 skills** in `skills/` directory. Each stored in `skills/[skill-name]/SKILL.md` format. Key strategic skills: **hyperthink** (multi-hypothesis protocol for architectural decisions), **systematic-debugging**, **sales-methodology** (NEPQ discovery), **sales-closing** (LAER objection loop + 6 close techniques), **ethical-hacking** (authorized offensive security + secure-by-default coding), **content-engine** (CC voice, hooks, platform matrix), **elite-video-production**, **codex-delegation**, **cli-anything**, **ship**, **retro**, **skool-automation**
 - **Progressive skill loading**: Skills load in 3 tiers (frontmatter → instructions → references) to conserve context
-- **Video pipeline**: `scripts/content_pipeline.py` (master orchestrator) + `scripts/edit_content_v2.py` — FFmpeg 8.0.1, word-level Whisper, ElevenLabs, Remotion 4.0.436
+- **Video pipeline**: `../CMO-Agent/scripts/content_pipeline.py` (master orchestrator) + `../CMO-Agent/scripts/edit_content_v2.py` — FFmpeg 8.0.1, word-level Whisper, ElevenLabs, Remotion 4.0.436
 - **Plans**: Implementation plans in `.agents/plans/`
 - **Media**: `media/raw/` (input), `media/exports/` (output), `media/assets/` (logos, branding)
 

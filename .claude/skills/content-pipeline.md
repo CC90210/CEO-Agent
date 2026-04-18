@@ -7,26 +7,26 @@ description: "Full content pipeline: raw video → edited with karaoke captions,
 CC uploads raw video. Run the full pipeline:
 
 ```bash
-python scripts/content_pipeline.py process <video_path> [--topic "AI agents"] [--platforms instagram tiktok youtube_shorts linkedin]
+python ../CMO-Agent/scripts/content_pipeline.py process <video_path> [--topic "AI agents"] [--platforms instagram tiktok youtube_shorts linkedin]
 ```
 
 ## Individual Commands
 
 ```bash
 # Transcribe with word-level timestamps
-python scripts/content_pipeline.py transcribe <video>
+python ../CMO-Agent/scripts/content_pipeline.py transcribe <video>
 
 # Generate karaoke captions from transcript
-python scripts/content_pipeline.py caption <words.json>
+python ../CMO-Agent/scripts/content_pipeline.py caption <words.json>
 
 # Generate thumbnail
-python scripts/content_pipeline.py thumbnail <video> --text "Bold Title Here"
+python ../CMO-Agent/scripts/content_pipeline.py thumbnail <video> --text "Bold Title Here"
 
 # Research competitor content
-python scripts/content_pipeline.py research chase.h.ai
+python ../CMO-Agent/scripts/content_pipeline.py research chase.h.ai
 
 # Generate content ideas
-python scripts/content_pipeline.py ideas --niche "AI automation" --count 10
+python ../CMO-Agent/scripts/content_pipeline.py ideas --niche "AI automation" --count 10
 
 # Generate AI image via Codex
 python scripts/codex_image_gen.py generate "prompt" --style branded --output path.png

@@ -60,7 +60,7 @@ tools because credential passing through MCP breaks frequently.
 | Lead CRM | `scripts/lead_engine.py` | — |
 | Email | `scripts/email_engine.py` | — |
 | Booking | `scripts/booking_engine.py` | — |
-| Content calendar | `scripts/content_engine.py` | — |
+| Content calendar | `../CMO-Agent/scripts/content_engine.py` | — |
 | Revenue tracking | `scripts/revenue_engine.py` | — |
 | Competitive intel | `scripts/competitive_intel.py` | — |
 | Financial model | `scripts/financial_model.py` | — |
@@ -109,7 +109,7 @@ All scripts: support `--json` flag, read credentials from `.env.agents`, Supabas
 
 ## Content Pipeline Stack
 
-Raw iPhone video → `scripts/content_pipeline.py` → Whisper word-level transcription →
+Raw iPhone video → `../CMO-Agent/scripts/content_pipeline.py` → Whisper word-level transcription →
 karaoke captions → FFmpeg encode (1080×1920, CRF 18) → Codex image insertion →
 thumbnail generation → Zernio schedule across 6 platforms.
 
