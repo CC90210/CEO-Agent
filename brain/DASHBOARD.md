@@ -49,7 +49,7 @@ aliases:
 - [[brain/RISK_REGISTER]] — 10 tracked risks
 - [[skills/strategic-planning/SKILL]] — OKRs, quarterly planning
 - [[skills/client-success/SKILL]] — Health scoring, churn prevention, NPS
-- [[../Marketing-Agent/skills/competitive-intelligence/SKILL]] — Market research, `/competitive-report`
+- [[../CMO-Agent/skills/competitive-intelligence/SKILL]] — Market research, `/competitive-report`
 - [[skills/financial-modeling/SKILL]] — Unit economics, scenario planning
 - [[skills/team-management/SKILL]] — Hiring, onboarding, 1:1s, RACI
 - [[skills/scaling-playbook/SKILL]] — Growth tiers, pricing evolution
@@ -57,7 +57,7 @@ aliases:
 - [[skills/project-management/SKILL]] — Phase gates, milestones
 - [[skills/meeting-automation/SKILL]] — `/meeting-prep`, follow-up
 - [[skills/sales-methodology/SKILL]] — NEPQ framework, objection handling
-- [[../Marketing-Agent/skills/content-engine/SKILL]] — Daily content rhythm
+- [[../CMO-Agent/skills/content-engine/SKILL]] — Daily content rhythm
 
 ### Automations
 - [[skills/skool-automation/SKILL]] — Skool V2 (research-enhanced post replies)

@@ -139,4 +139,4 @@ Three agents, one empire.
 
 ## Obsidian Links
 - [[skills/ceo-briefing/SKILL]] | [[brain/STATE]] | [[memory/ACTIVE_TASKS]] | [[brain/CAPABILITIES]]
-- [[../../Marketing-Agent/skills/content-engine/SKILL]] | [[brain/USER]]
+- [[../../CMO-Agent/skills/content-engine/SKILL]] | [[brain/USER]]

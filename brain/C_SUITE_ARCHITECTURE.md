@@ -23,8 +23,8 @@ CC (Board Chair — human decision-maker, final authority)
 │   Pulse: data/pulse/ceo_pulse.json
 │
 └── Maven (CMO)     — Brand, content, ads, funnels, distribution, growth, research
-    Project: C:\Users\User\Marketing-Agent
-    GitHub: CC90210/Marketing-Agent
+    Project: C:\Users\User\CMO-Agent
+    GitHub: CC90210/CMO-Agent
     Pulse: data/pulse/cmo_pulse.json
     Orchestrates: shopify-ad-engine, ig-setter-pro, cc-funnel
 ```
@@ -61,7 +61,7 @@ Each agent maintains a pulse file that others read:
 |------------|--------|----------|---------|----------|
 | `ceo_pulse.json` | Bravo | `Business-Empire-Agent/data/pulse/` | Atlas, Maven | MRR, strategy, client health, directives |
 | `cfo_pulse.json` | Atlas | `APPS/CFO-Agent/data/pulse/` | Bravo, Maven | Runway, spend gate, tax deadlines, FX rates |
-| `cmo_pulse.json` | Maven | `Marketing-Agent/data/pulse/` | Bravo, Atlas | Content pipeline, ad performance, funnel metrics, brand health |
+| `cmo_pulse.json` | Maven | `CMO-Agent/data/pulse/` | Bravo, Atlas | Content pipeline, ad performance, funnel metrics, brand health |
 
 ### Read Protocol
 
@@ -103,33 +103,47 @@ Maven wants to run $500 Meta campaign
 
 **Golden rule:** Update in-place, don't spawn. Each agent modifies only files in its own project.
 
+## Shared Database (All 3 Agents)
+
+All three C-Suite agents share a single **Supabase project** (`phctllmtsogkovoilwos`) as their long-term memory and cross-agent analytics layer. See [`../CMO-Agent/brain/SHARED_DB.md`](../../CMO-Agent/brain/SHARED_DB.md) for the full schema + conventions.
+
+| Layer | Where | Purpose |
+|-------|-------|---------|
+| **Now-state (pulse)** | Each agent's `data/pulse/*.json` | Fast, local, survives DB outages |
+| **Long-term memory** | Shared Supabase `phctllmtsogkovoilwos` | Traces, patterns, session logs, skill activation |
+| **App-specific data** | Each app's own DB (Turso for PULSE, etc.) | App sovereignty |
+
+Every Supabase row written by any agent MUST include `agent: 'bravo' | 'atlas' | 'maven'` for filtering and audit. RLS enforces that an agent can only write rows with its own name.
+
 ## Cross-Agent Read Access (Delegation & Orchestration)
 
 Every agent has **full read access** to every other agent's file tree. This is non-negotiable — it's how intelligent delegation works without duplicating knowledge.
 
 | Read | What to Look For |
 |------|-----------------|
-| `../Business-Empire-Agent/brain/` | Current strategy, OKRs, decision matrix, CEO directives |
-| `../Business-Empire-Agent/skills/` | CEO-domain capabilities (revenue-ops, client-success, sales-closing, NEPQ, meeting-automation) |
-| `../CFO-Agent/brain/` | Runway, tax rules, FX context, wealth strategy |
+| `C:\Users\User\Business-Empire-Agent\brain\` | Current strategy, OKRs, decision matrix, CEO directives |
+| `C:\Users\User\Business-Empire-Agent\skills\` | CEO-domain capabilities (revenue-ops, client-success, sales-closing, NEPQ, meeting-automation) |
+| `C:\Users\User\APPS\CFO-Agent\brain\` | Runway, tax rules, FX context, wealth strategy |
 | `../CFO-Agent/skills/` | Financial skills (tax-canada, trading-execution, wealth-projection) |
-| `../Marketing-Agent/brain/clients/` | Brand voice, target ICP, active campaigns per brand |
-| `../Marketing-Agent/skills/` | Marketing skills (content-engine, ad-copywriting, funnel-management, elite-video-production) |
-| `../*/data/pulse/*.json` | Real-time state sync (runway, spend gate, MRR, funnel metrics) |
+| `../CMO-Agent/brain/clients/` | Brand voice, target ICP, active campaigns per brand |
+| `C:\Users\User\CMO-Agent\brain\clients\` | Brand voice, target ICP, active campaigns per brand |
+| `C:\Users\User\CMO-Agent\skills\` | Marketing skills (content-engine, ad-copywriting, funnel-management, elite-video-production) |
+| `C:\Users\User\CMO-Agent\ad-engine\` | Remotion video ad templates + Meta Ads SDK |
+| Pulse files (`data/pulse/*.json`) | Real-time state sync across all 3 agent repos |
 
 **Write rule:** Every agent writes **only** inside its own project directory. Never reach across to modify another agent's files — that's a sovereignty violation. If you need another agent to change something, update your pulse with a request; they'll read it and act.
 
 **Delegation example:**
 ```
 User asks Bravo: "Plan a Meta ad for PULSE"
-  → Bravo reads ../Marketing-Agent/skills/content-engine/SKILL.md
-  → Bravo reads ../Marketing-Agent/brain/clients/oasis-ai.md
+  → Bravo reads ../CMO-Agent/skills/content-engine/SKILL.md
+  → Bravo reads ../CMO-Agent/brain/clients/oasis-ai.md
   → Bravo writes a strategic brief to ceo_pulse.json
   → User reopens Maven: Maven reads ceo_pulse.json
   → Maven executes the ad launch
 ```
 
-**Tool sharing:** Each agent's `scripts/` directory is a set of CLI tools. Other agents may *invoke* (not modify) these scripts via subprocess. If Bravo needs to send an email, it can shell out to `../Marketing-Agent/scripts/email_engine.py` (or the local Bravo copy still in Business-Empire-Agent during transition).
+**Tool sharing:** Each agent's `scripts/` directory is a set of CLI tools. Other agents may *invoke* (not modify) these scripts via subprocess. If Bravo needs to send an email, it can shell out to `../CMO-Agent/scripts/email_engine.py` (or the local Bravo copy still in Business-Empire-Agent during transition).
 
 ## Maven (CMO) — Full Scope
 
@@ -179,7 +193,7 @@ User asks Bravo: "Plan a Meta ad for PULSE"
 
 | System | Location | Status | Purpose |
 |--------|----------|--------|---------|
-| Marketing-Agent (HQ) | `C:\Users\User\Marketing-Agent` | Production | 16 agents, 19 skills, Meta + Google Ads |
+| Marketing-Agent (HQ) | `C:\Users\User\CMO-Agent` | Production | 16 agents, 19 skills, Meta + Google Ads |
 | Shopify Ad Engine | `C:\Users\User\APPS\shopify-ad-engine` | Available | Remotion video ad pipeline, 5 templates |
 | IG Setter Pro | `C:\Users\User\APPS\ig-setter-pro` | Deployed | Instagram DM automation, Vercel live |
 | CC Funnel | `C:\Users\User\APPS\cc-funnel` | Live | Lead capture → Supabase → Telegram |
@@ -226,7 +240,7 @@ User asks Bravo: "Plan a Meta ad for PULSE"
 - [x] Create this architecture document
 - [x] Update STATE.md and SESSION_LOG.md
 
-### Phase 2: Maven Identity Transformation (Next Session — IN Marketing-Agent/)
+### Phase 2: Maven Identity Transformation (Next Session — IN CMO-Agent/)
 - [ ] Rewrite `SOUL.md` — AdVantage V2.0 → Maven V1.0 (multi-client CMO, not single-client ad manager)
 - [ ] Rewrite `CLAUDE.md` — Add CC's brands (OASIS AI, PropFlow, Nostalgic Requests), multi-client routing, pulse protocol
 - [ ] Create `GEMINI.md` — Maven entry point for Gemini CLI runtime

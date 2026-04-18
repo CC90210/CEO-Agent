@@ -67,7 +67,7 @@ tags: [state, ephemeral]
 | **Semantic Memory** | ✅ LIVE | `scripts/mem0_tool.py` — Qdrant embedded, fastembed, Claude Haiku extraction. |
 | **OpenCLI** | ✅ INSTALLED | v1.1.1 globally. 46 platforms, 345+ commands. |
 | **Atlas (CFO Agent)** | ✅ LIVE | Separate project (CFO-Agent/). 16 skill playbooks, 8 CFO modules, 59 tax docs. Live Telegram bot (PM2). Pulse: `data/pulse/cfo_pulse.json`. |
-| **Maven (CMO Agent)** | 🔄 INITIALIZING | Separate project (Marketing-Agent/). Identity transformation from single-client AdVantage → multi-client Maven. 16 agents, 19 skills, Meta+Google Ads. Pulse: `data/pulse/cmo_pulse.json`. |
+| **Maven (CMO Agent)** | 🔄 INITIALIZING | Separate project (CMO-Agent/). Identity transformation from single-client AdVantage → multi-client Maven. 16 agents, 19 skills, Meta+Google Ads. Pulse: `data/pulse/cmo_pulse.json`. |
 | **Firecrawl** | ✅ LIVE | `scripts/firecrawl_tool.py` + MCP server. Web scraping and structured extraction. |
 
 ## Known Issues (Priority Order)
@@ -138,7 +138,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 - [[memory/PATTERNS]] | [[memory/MISTAKES]] | [[memory/SELF_REFLECTIONS]]
 - [[memory/content-strategy]] | [[memory/PROPOSED_CHANGES]]
 - [[APPS_CONTEXT/INDEX]] | [[APPS_CONTEXT/GRITLY_CLAUDE]] | [[APPS_CONTEXT/IG_SETTER_PRO_CLAUDE]] | [[APPS_CONTEXT/SKOOL_COMMUNITY_CLAUDE]]
-- [[skills/skool-automation/SKILL]] | [[skills/codex-delegation/SKILL]] | [[../Marketing-Agent/skills/elite-video-production/SKILL]]
+- [[skills/skool-automation/SKILL]] | [[skills/codex-delegation/SKILL]] | [[../CMO-Agent/skills/elite-video-production/SKILL]]
 - [[skills/ethical-hacking/SKILL]] | [[skills/sales-closing/SKILL]]
 - [[knowledge/index]] | [[knowledge/SCHEMA]]
 - [[brain/DASHBOARD]]
@@ -147,6 +147,6 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-04-18
 - **Agent:** BRAVO via Antigravity (Claude Opus 4.6 Thinking)
-- **Result:** C-Suite Architecture buildout: Fixed stale Atlas reference (trading-agent → CFO-Agent), added Maven (CMO) to AGENTS.md decision matrix + external agents, created 3-way pulse protocol (ceo_pulse.json + cmo_pulse.json), created brain/C_SUITE_ARCHITECTURE.md (decision rights, conflict resolution, spend gate flow, skill migration plan, 5-phase implementation roadmap). Maven = Marketing-Agent transformed from single-client AdVantage → multi-client CMO. Next: Maven identity transformation in Marketing-Agent/ repo.
+- **Result:** C-Suite Architecture buildout: Fixed stale Atlas reference (trading-agent → CFO-Agent), added Maven (CMO) to AGENTS.md decision matrix + external agents, created 3-way pulse protocol (ceo_pulse.json + cmo_pulse.json), created brain/C_SUITE_ARCHITECTURE.md (decision rights, conflict resolution, spend gate flow, skill migration plan, 5-phase implementation roadmap). Maven = Marketing-Agent transformed from single-client AdVantage → multi-client CMO. Next: Maven identity transformation in CMO-Agent/ repo.
 
 *Last updated: 2026-04-18*

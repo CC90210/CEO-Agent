@@ -25,7 +25,7 @@ tags: [daily]
 - Skill migration (10 skills): PENDING CC approval before executing
 
 **Next steps:**
-- Phase 2: Maven identity transformation in Marketing-Agent/ repo (rewrite SOUL.md, CLAUDE.md, add GEMINI.md + ANTIGRAVITY.md)
+- Phase 2: Maven identity transformation in CMO-Agent/ repo (rewrite SOUL.md, CLAUDE.md, add GEMINI.md + ANTIGRAVITY.md)
 - Phase 3: Execute skill migration (10 skills Bravo → Maven) with CC approval
 - Phase 4: Multi-client expansion (OASIS AI, PropFlow, Nostalgic Requests profiles)
 
@@ -600,7 +600,7 @@ tags: [daily]
 
 **Files Created (8):**
 - `skills/strategic-planning/SKILL.md` — OKR framework (set/check-in/grade), annual planning (SWOT, Porter's Five Forces, Blue Ocean Canvas), scenario planning (Bull/Base/Bear with CC-specific examples: primary retainer churn, 3 new clients, PropFlow launch), decision frameworks (EV, reversibility matrix, Bezos one-way/two-way door), QBR and weekly CEO review templates
-- `../Marketing-Agent/skills/competitive-intelligence/SKILL.md` — competitor tracking (profile/battlecard templates, monitoring cadence), data collection methods (Playwright, OpenCLI, job postings, review sites), analysis frameworks (feature matrix, pricing map, win/loss, differentiation gap), competitive response playbook (4 scenarios), OASIS AI competitor category map (4 categories)
+- `../CMO-Agent/skills/competitive-intelligence/SKILL.md` — competitor tracking (profile/battlecard templates, monitoring cadence), data collection methods (Playwright, OpenCLI, job postings, review sites), analysis frameworks (feature matrix, pricing map, win/loss, differentiation gap), competitive response playbook (4 scenarios), OASIS AI competitor category map (4 categories)
 - `skills/financial-modeling/SKILL.md` — unit economics formulas (CAC, LTV, LTV:CAC, payback, burn, runway), SaaS metrics dashboard (MRR components, churn, NRR, Quick Ratio), cohort analysis framework, scenario modeling templates, cash flow forecasting, CC-specific snapshot (HHI 0.88 CRITICAL, $2,018 gap to target, 47 days remaining)
 - `scripts/competitive_intel.py` — full CRUD for competitor profiles stored in data/competitors.json; battlecard generation; feature matrix; landscape report; JSON flag for agent consumption
 - `scripts/financial_model.py` — unit-economics, forecast, scenario (bull/base/bear), concentration (Herfindahl), runway with primary retainer churn worst-case; all CC defaults baked in
@@ -608,7 +608,7 @@ tags: [daily]
 - `.agents/workflows/competitive-report.md` — /competitive-report trigger; monthly competitor scan (pricing, features, job postings, reviews, battlecard updates)
 - `.agents/workflows/qbr.md` — /qbr trigger; OKR grading (0.0-1.0), QBR report compilation, next quarter OKR drafting with CC approval gate
 
-**Directories Used:** `data/` (already existed), `skills/strategic-planning/`, `../Marketing-Agent/skills/competitive-intelligence/`, `skills/financial-modeling/` (created)
+**Directories Used:** `data/` (already existed), `skills/strategic-planning/`, `../CMO-Agent/skills/competitive-intelligence/`, `skills/financial-modeling/` (created)
 
 **Scripts verified:** Both Python scripts smoke-tested against all subcommands. Zero errors. Unicode-safe for Windows cp1252 terminal encoding.
 
@@ -749,7 +749,7 @@ tags: [daily]
 3. AI tools: WhisperX forced alignment, auto-editor silence removal, Fal.ai Flux Schnell (<1s b-roll), noisereduce + Pedalboard audio enhancement, PySceneDetect, YOLOv8 face tracking, reap.video MCP
 
 **Built:**
-- `../Marketing-Agent/skills/elite-video-production/SKILL.md` (635 lines) — 15-section comprehensive video production skill with exact FFmpeg commands, Remotion spring presets, ASS caption format, audio mastering chain, SFX timing, color grade presets, 15-step automated pipeline
+- `../CMO-Agent/skills/elite-video-production/SKILL.md` (635 lines) — 15-section comprehensive video production skill with exact FFmpeg commands, Remotion spring presets, ASS caption format, audio mastering chain, SFX timing, color grade presets, 15-step automated pipeline
 - `knowledge/wiki/video-production-bible.md` (438 lines) — Full open-source tool stack with install commands, when to use each, competitive platform reference
 - `knowledge/index.md` updated (5 wiki pages)
 
