@@ -45,6 +45,10 @@ For COMPLEX+ tasks, use SPARC methodology (`skills/sparc-methodology/SKILL.md`).
 | Generate new subagent definitions | **Meta-Agent** | "I need an agent that...", new capability requests |
 | Morning briefing, revenue status, pipeline check, client health | **Bravo (CEO Briefing)** | `/briefing`, session start Monday, "what's the status" |
 | Tax, trading, accounting, budgeting, FIRE, crypto | **Atlas (CFO)** | Finance questions, tax strategy, trading performance, wealth planning |
+| Content creation, brand voice, marketing advice | **Maven (CMO)** | Content strategy, ad campaigns, brand guidelines, marketing research |
+| Ad campaigns (Meta, Google), paid media | **Maven (CMO)** | `/campaign-create`, ad performance, ROAS optimization |
+| Funnels, lead capture, growth experiments | **Maven (CMO)** | Funnel optimization, A/B testing, conversion rate |
+| SEO, AEO, social media strategy | **Maven (CMO)** | Platform optimization, audience growth, organic distribution |
 | Client health, churn risk, NPS | **Chief of Staff** | `/client-health`, retention concerns |
 | Proposals, SOWs, quotes | **Content Creator** | `/proposal`, deal closing |
 | Competitive analysis, market research | **Researcher** | `/competitive-report`, market questions |
@@ -185,13 +189,29 @@ For COMPLEX+ tasks, use SPARC methodology (`skills/sparc-methodology/SKILL.md`).
 
 ### External: Atlas (CFO — Separate Project)
 - **Model Tier:** Opus (separate project, own CLAUDE.md)
-- **Project:** `C:\Users\User\APPS\trading-agent`
-- **GitHub:** CC90210/atlas-trading-agent
-- **Purpose:** CC's CFO — autonomous trading, tax strategy (CRA-accurate), accounting, budgeting, FIRE planning, wealth building.
-- **Capabilities:** 12 trading strategies (regime-aware), 10 AI analyst agents, 4 finance modules (tax, advisor, budget, wealth tracker), live trading on Kraken + OANDA.
-- **Relationship to Bravo:** Bravo is CEO (business ops, revenue, clients). Atlas is CFO (capital, tax, trading). They share CC context but do NOT modify each other's files. Atlas READs from Business-Empire-Agent. Bravo READs from trading-agent.
-- **Routing rule:** Any question about taxes, trading, crypto gains, budgeting, FIRE, registered accounts (TFSA/RRSP/FHSA), or financial strategy → defer to Atlas or reference its docs.
-- **Key files:** `docs/ATLAS_TAX_STRATEGY.md` (tax playbook), `brain/STATE.md` (trading status), `finance/tax.py` (calculator), `core/risk_manager.py` (kill switches)
+- **Project:** `C:\Users\User\APPS\CFO-Agent`
+- **GitHub:** CC90210/CFO-Agent
+- **Purpose:** CC's CFO — tax strategy (CRA T1/T2125/T5013), accounting, stock research, wealth management, compliance, international tax planning.
+- **Capabilities:** 16 skill playbooks, 8 CFO modules (tax, advisor, budget, wealth, accounting, compliance, international, planning), 10 research modules, 59 tax docs (~80K lines), live Telegram bot (PM2).
+- **Pulse:** `data/pulse/cfo_pulse.json` — read by Bravo + Maven (CMO) for spend gates and runway checks.
+- **Relationship to Bravo:** Bravo is CEO (business ops, revenue, clients). Atlas is CFO (capital, tax, research, compliance). They share CC context but do NOT modify each other's files. Atlas READs from Business-Empire-Agent. Bravo READs from CFO-Agent.
+- **Relationship to Maven:** Atlas has veto power on any spend decision. Maven (CMO) checks `cfo_pulse.json` spend gate before committing ad budget.
+- **Routing rule:** Any question about taxes, crypto gains, budgeting, FIRE, registered accounts (TFSA/RRSP/FHSA), stock research, compliance, or financial strategy → defer to Atlas or reference its docs.
+- **Key files:** `brain/USER.md` (CC profile), `brain/CAPABILITIES.md` (auto-generated), `finance/tax.py` (calculator), `research/stock_picker.py` (10-layer research)
+
+### External: Maven (CMO — Separate Project)
+- **Model Tier:** Opus (separate project, own CLAUDE.md)
+- **Project:** `C:\Users\User\Marketing-Agent`
+- **GitHub:** CC90210/Marketing-Agent
+- **Purpose:** CC's CMO — brand strategy, content creation & editing, paid ads (Meta + Google), organic distribution, deep market research, funnels, growth experiments, marketing advice.
+- **Capabilities:** 16 sub-agents (ad-strategist, content-creator, seo-specialist, video-editor, image-generator, email-outbound, etc.), 19+ skills, Meta Ads API + Google Ads API, Gemini Imagen, Remotion video pipeline.
+- **Orchestrates:** shopify-ad-engine (video ads), ig-setter-pro (Instagram), cc-funnel (lead capture).
+- **Pulse:** `data/pulse/cmo_pulse.json` — read by Bravo (brand health, funnel metrics) + Atlas (ad spend for tax/cashflow).
+- **Relationship to Bravo:** Bravo sets strategy and client priorities. Maven executes within the strategy Bravo defines. Maven does NOT handle client delivery or revenue operations.
+- **Relationship to Atlas:** Atlas approves spend gates. Maven checks `cfo_pulse.json` before ANY paid campaign. Ad spend = T2125 business expense.
+- **Routing rule:** Any question about content creation, ad campaigns, brand voice, SEO, funnels, marketing research, social media strategy, or growth experiments → defer to Maven or reference its docs.
+- **Key files:** `brain/SOUL.md` (identity), `brain/CAPABILITIES.md` (tool inventory), `brain/STATE.md` (campaign status)
+- **Receives from Bravo (migration):** content-engine, email-marketing, funnel-management, brand-guidelines, growth-engine, competitive-intelligence, elite-video-production, lead-management, linkedin-outreach, persona-content-creator skills + content-studio/
 
 ## Agent Permissions (Claims-Based Access Control)
 

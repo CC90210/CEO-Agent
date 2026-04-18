@@ -313,4 +313,4 @@ Go build something. Only good things from now on.
 
 ## Obsidian Links
 - [[content-studio/INDEX]] | [[brain/USER]] | [[courses/INDEX]]
-- [[skills/content-engine/SKILL]] | [[agents/content-creator]]
+- [[../Marketing-Agent/skills/content-engine/SKILL]] | [[agents/content-creator]]

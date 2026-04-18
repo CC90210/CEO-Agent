@@ -11,7 +11,7 @@ last_updated: 2026-04-11
 >
 > If the repo isn't cloned on Mac yet, run this first in Terminal:
 > ```bash
-> mkdir -p ~/APPS && cd ~/APPS && git clone https://github.com/CC90210/business-empire-agent.git && cd business-empire-agent
+> mkdir -p ~/APPS && cd ~/APPS && git clone https://github.com/CC90210/CEO-Agent.git && cd business-empire-agent
 > ```
 
 ---
