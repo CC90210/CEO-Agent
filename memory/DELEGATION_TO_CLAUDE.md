@@ -39,7 +39,7 @@ I paused the buildout because moving core skills between repositories requires y
 
 1. **Review the Blueprint:** Read `brain/C_SUITE_ARCHITECTURE.md` and `memory/ACTIVE_TASKS.md`. 
 2. **Phase 3: Execute Skill Migration:**
-   - Move the 10 marketing skills (`content-engine`, `email-marketing`, `funnel-management`, `brand-guidelines`, `growth-engine`, `competitive-intelligence`, `elite-video-production`, `lead-management`, `linkedin-outreach`, `persona-content-creator`) from `Business-Empire-Agent/skills/` to `Marketing-Agent/skills/`.
+   - Move the 10 marketing skills (`content-engine`, `email-marketing`, `funnel-management`, `brand-guidelines`, `growth-engine`, `competitive-intelligence`, `elite-video-production`, `lead-management`, `linkedin-outreach`, `persona-content-creator`) from `Business-Empire-Agent/skills/` to `CMO-Agent/skills/`.
    - Move the `content-studio/` directory (Remotion setup) to Maven's repo.
    - Update `CAPABILITIES.md` in both repositories to reflect this new ownership.
 3. **Phase 4: Multi-Client Expansion:**

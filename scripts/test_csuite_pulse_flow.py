@@ -24,7 +24,7 @@ from datetime import datetime
 
 BRAVO = Path(r"C:\Users\User\Business-Empire-Agent\data\pulse\ceo_pulse.json")
 ATLAS = Path(r"C:\Users\User\APPS\CFO-Agent\data\pulse\cfo_pulse.json")
-MAVEN = Path(r"C:\Users\User\Marketing-Agent\data\pulse\cmo_pulse.json")
+MAVEN = Path(r"C:\Users\User\CMO-Agent\data\pulse\cmo_pulse.json")
 
 FAIL = 0
 PASS = 0

@@ -201,8 +201,8 @@ For COMPLEX+ tasks, use SPARC methodology (`skills/sparc-methodology/SKILL.md`).
 
 ### External: Maven (CMO — Separate Project)
 - **Model Tier:** Opus (separate project, own CLAUDE.md)
-- **Project:** `C:\Users\User\Marketing-Agent`
-- **GitHub:** CC90210/Marketing-Agent
+- **Project:** `C:\Users\User\CMO-Agent`
+- **GitHub:** CC90210/CMO-Agent
 - **Purpose:** CC's CMO — brand strategy, content creation & editing, paid ads (Meta + Google), organic distribution, deep market research, funnels, growth experiments, marketing advice.
 - **Capabilities:** 16 sub-agents (ad-strategist, content-creator, seo-specialist, video-editor, image-generator, email-outbound, etc.), 19+ skills, Meta Ads API + Google Ads API, Gemini Imagen, Remotion video pipeline.
 - **Orchestrates:** shopify-ad-engine (video ads), ig-setter-pro (Instagram), cc-funnel (lead capture).
