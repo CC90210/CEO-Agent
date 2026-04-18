@@ -126,5 +126,5 @@ Escalate to CC when:
 
 ## Obsidian Links
 - [[brain/AGENTS]] | [[brain/CAPABILITIES]] | [[memory/LONG_TERM]]
-- [[../Marketing-Agent/skills/competitive-intelligence/SKILL]] | [[brain/OPENCLI_STRATEGY]]
+- [[../CMO-Agent/skills/competitive-intelligence/SKILL]] | [[brain/OPENCLI_STRATEGY]]
 - [[agents/content-creator]] | [[agents/revenue-hunter]]

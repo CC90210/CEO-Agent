@@ -340,7 +340,7 @@ tags: [sops, processes]
 **Steps:**
 1. Check content calendar: what's scheduled for today?
 2. IF nothing scheduled: generate content using daily pillar rotation (Sobriety Log / Quote Drop / CEO Log)
-3. Draft content using `../Marketing-Agent/skills/content-engine/SKILL.md` and platform-specific templates from `data/templates/content/`
+3. Draft content using `../CMO-Agent/skills/content-engine/SKILL.md` and platform-specific templates from `data/templates/content/`
 4. Validate character limits: X=280, Threads=500, IG=2200, LinkedIn=3000, TikTok=4000
 5. Present draft to CC for approval (or auto-publish if CC has pre-approved the pillar)
 6. Publish via `python scripts/late_tool.py create --text "..." --account <id>`

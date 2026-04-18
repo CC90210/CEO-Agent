@@ -418,6 +418,6 @@ Why this works: It makes the client's commitment visible and time-bound. It also
 ---
 
 ## Obsidian Links
-- [[../../Marketing-Agent/skills/lead-management/SKILL]] | [[skills/client-success/SKILL]] | [[brain/CAPABILITIES]]
+- [[../../CMO-Agent/skills/lead-management/SKILL]] | [[skills/client-success/SKILL]] | [[brain/CAPABILITIES]]
 - [[skills/revenue-operations/SKILL]] | [[skills/ceo-briefing/SKILL]]
 - [[skills/sales-methodology/SKILL]] | [[memory/SESSION_LOG]] | [[brain/USER]]

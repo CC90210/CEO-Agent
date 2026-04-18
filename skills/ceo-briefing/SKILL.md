@@ -98,4 +98,4 @@ Waiting on others:
 
 ## Obsidian Links
 - [[brain/STATE]] | [[memory/ACTIVE_TASKS]] | [[brain/DASHBOARD]] | [[brain/CAPABILITIES]]
-- [[skills/revenue-operations/SKILL]] | [[../../Marketing-Agent/skills/lead-management/SKILL]]
+- [[skills/revenue-operations/SKILL]] | [[../../CMO-Agent/skills/lead-management/SKILL]]

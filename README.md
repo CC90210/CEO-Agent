@@ -7,7 +7,7 @@ Built by one person with AI. Running 24/7 since March 2026.
 **The C-Suite:**
 - 🏛️ **Bravo (CEO)** — this repo: [CC90210/CEO-Agent](https://github.com/CC90210/CEO-Agent)
 - 💰 **Atlas (CFO)** — [CC90210/CFO-Agent](https://github.com/CC90210/CFO-Agent)
-- 🎨 **Maven (CMO)** — [CC90210/Marketing-Agent](https://github.com/CC90210/Marketing-Agent)
+- 🎨 **Maven (CMO)** — [CC90210/CMO-Agent](https://github.com/CC90210/CMO-Agent)
 
 See [`brain/C_SUITE_ARCHITECTURE.md`](brain/C_SUITE_ARCHITECTURE.md) for the governance, pulse protocol, and decision rights matrix.
 

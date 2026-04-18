@@ -70,9 +70,9 @@ tags: [brain, ceo, operating-system]
 
 | Function | Tool | Command |
 |----------|------|---------|
-| Content creation | `../Marketing-Agent/skills/content-engine/SKILL.md` | `/content` |
+| Content creation | `../CMO-Agent/skills/content-engine/SKILL.md` | `/content` |
 | Social publishing | `scripts/late_tool.py` | `/post` |
-| Brand voice | `../Marketing-Agent/skills/brand-guidelines/SKILL.md` | Consistency enforcement |
+| Brand voice | `../CMO-Agent/skills/brand-guidelines/SKILL.md` | Consistency enforcement |
 | Skool community | `skills/skool-automation/SKILL.md` | `/skool-push` |
 | Template library | `data/templates/content/` | LinkedIn, X, IG templates |
 
@@ -122,6 +122,6 @@ Bravo is CEO, Atlas is CFO. Bravo READs Atlas context. Atlas READs Bravo context
 - [[brain/SOUL]] | [[brain/STATE]] | [[brain/AGENTS]]
 - [[brain/CAPABILITIES]] | [[brain/DASHBOARD]]
 - [[skills/strategic-planning/SKILL]] | [[skills/client-success/SKILL]]
-- [[../Marketing-Agent/skills/competitive-intelligence/SKILL]] | [[skills/financial-modeling/SKILL]]
+- [[../CMO-Agent/skills/competitive-intelligence/SKILL]] | [[skills/financial-modeling/SKILL]]
 - [[skills/team-management/SKILL]] | [[skills/ceo-dashboard/SKILL]]
 - [[skills/scaling-playbook/SKILL]] | [[skills/knowledge-management/SKILL]]

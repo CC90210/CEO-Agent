@@ -103,7 +103,7 @@ tags: [tasks, active]
 - [x] Create 3-way pulse protocol (ceo_pulse.json + cmo_pulse.json)
 - [x] Create C_SUITE_ARCHITECTURE.md
 
-### Phase 2: Maven Identity (IN Marketing-Agent/ repo) ✅ COMPLETE
+### Phase 2: Maven Identity (IN CMO-Agent/ repo) ✅ COMPLETE
 - [x] Rewrite SOUL.md — AdVantage V2.0 → Maven V1.0
 - [x] Rewrite CLAUDE.md — multi-client, pulse protocol, CC's brands
 - [x] Create GEMINI.md + ANTIGRAVITY.md entry points
