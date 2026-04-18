@@ -87,7 +87,7 @@ All scripts: support `--json` flag, read credentials from `.env.agents`, Supabas
 | Grape Vine Cottage | Vite, React 18 | `APPS/Grape-Vine-Cottage` |
 | Mindset Companion | Next.js 16, React 19 | `APPS/MINDSET COMPANION APP/cc-mindset` |
 | On The Hill | Vite, React 19 | `APPS/ON-THE-HILL-WEBSITE` |
-| Atlas (CFO) | Python 3.11+, CCXT, Claude API | `APPS/trading-agent` |
+| Atlas (CFO) | Python 3.11+, CCXT, Claude API | `APPS/CFO-Agent` |
 | TIKTIK | Next.js 14, Supabase, Tailwind | `APPS/tiktik` |
 | CC Funnel | Next.js 14, Supabase, Tailwind | `APPS/cc-funnel` |
 | Shopify Ad Engine | Remotion 4, React 19, Three.js | `APPS/shopify-ad-engine` |
