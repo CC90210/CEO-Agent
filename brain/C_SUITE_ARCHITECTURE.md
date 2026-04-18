@@ -129,7 +129,9 @@ Maven wants to run $500 Meta campaign
 |--------|-------|------------|
 | `brain/`, `memory/`, `skills/` in Business-Empire-Agent | Bravo | READ only |
 | `brain/`, `memory/`, `skills/` in CFO-Agent | Atlas | READ only |
-| `brain/`, `memory/`, `skills/` in Marketing-Agent | Maven | READ only |
+| `brain/`, `memory/`, `skills/` in CMO-Agent | Maven | READ only |
+| `brain/`, `memory/`, `skills/`, `content-studio/`, `ad-engine/` in CMO-Agent | Maven | READ only |
+| `brain/`, `memory/`, `skills/` in Aura-Home-Agent | Aura | READ only |
 | `data/pulse/ceo_pulse.json` | Bravo | READ only |
 | `data/pulse/cfo_pulse.json` | Atlas | READ only |
 | `data/pulse/cmo_pulse.json` | Maven | READ only |
@@ -245,7 +247,7 @@ User asks Bravo: "Plan a Meta ad for PULSE"
 | lead-management | Business-Empire-Agent/skills/ | PENDING |
 | linkedin-outreach | Business-Empire-Agent/skills/ | PENDING |
 | persona-content-creator | Business-Empire-Agent/skills/ | PENDING |
-| content-studio/ | Business-Empire-Agent/ | PENDING |
+| ../CMO-Agent/content-studio/ | Business-Empire-Agent/ | PENDING |
 
 ### Skills Staying with Bravo (CEO)
 
@@ -283,7 +285,7 @@ User asks Bravo: "Plan a Meta ad for PULSE"
 
 ### Phase 3: Skill Migration (Requires CC Approval)
 - [ ] Copy 10 marketing skills from Business-Empire-Agent → Marketing-Agent
-- [ ] Move content-studio/ Remotion setup to Marketing-Agent
+- [ ] Move ../CMO-Agent/content-studio/ Remotion setup to Marketing-Agent
 - [ ] Adapt skills to Maven's voice and multi-client context
 - [ ] Remove migrated skills from Bravo's active routing (keep as READ references)
 - [ ] Update both agents' CAPABILITIES.md

@@ -47,7 +47,7 @@ Why: [1 sentence]
 
 ### Step 2: Content Priority
 CC said content is #1. Every day should have a content block:
-- Check `python scripts/content_engine.py due --json` for scheduled content
+- Check `python ../CMO-Agent/scripts/content_engine.py due --json` for scheduled content
 - Check content calendar in Supabase for what's planned
 - If nothing planned: suggest a topic from CC's content pillars:
   1. Sobriety Log (daily transformation story)
@@ -124,7 +124,7 @@ CC's batch upload day. CC uploads video/files, Bravo schedules 1 piece/day acros
 ## Integration
 
 - **CEO Briefing:** Daily planner is part of the /briefing output (Section 2)
-- **Content Engine:** `scripts/content_engine.py` for calendar and scheduling
+- **Content Engine:** `../CMO-Agent/scripts/content_engine.py` for calendar and scheduling
 - **Late Publisher:** `scripts/late_publisher.py` for distribution
 - **Google Workspace:** `gws calendar events list` for calendar events (REST-style, use --params)
 - **Booking Engine:** `scripts/booking_engine.py` for scheduled calls

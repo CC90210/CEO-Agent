@@ -700,7 +700,7 @@ tags: [daily]
 - 20/20 critical brain/ + memory/ files present
 - 0 stale `getlate.dev` references in active code/config
 
-**Files:** `scripts/skool_engine.py`, `scripts/edit_content_v2.py`, `brain/CAPABILITIES.md`, `brain/STATE.md`, `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md`
+**Files:** `scripts/skool_engine.py`, `../CMO-Agent/scripts/edit_content_v2.py`, `brain/CAPABILITIES.md`, `brain/STATE.md`, `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md`
 
 ---
 

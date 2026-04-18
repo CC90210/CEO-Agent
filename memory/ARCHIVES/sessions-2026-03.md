@@ -10,8 +10,8 @@ tags: [archive, sessions]
 ---
 
 ### 2026-03-19 — Remotion Quote Card Pipeline (Claude Code, Sonnet 4.6)
-**Change:** Built Remotion video pipeline at `remotion-content/`. Files created: `package.json`, `tsconfig.json`, `src/index.ts`, `src/Root.tsx`, `src/compositions/QuoteCard.tsx`. QuoteCard is a 5s 1080x1920 portrait composition with spring-animated accent line, fade+rise quote text, delayed author reveal, and pillar tag watermark — all in CC's brand colors (#141413 bg, #faf9f5 text, #D4A574 accent). Also built `scripts/render_video.py` with two sub-commands: `quote` (inline text) and `from-calendar` (reads Supabase content_calendar row, writes video_path back). Python script verified: zero syntax errors, --help works.
-**Files:** remotion-content/package.json, remotion-content/tsconfig.json, remotion-content/src/index.ts, remotion-content/src/Root.tsx, remotion-content/src/compositions/QuoteCard.tsx, scripts/render_video.py (new)
+**Change:** Built Remotion video pipeline at `remotion-content/`. Files created: `package.json`, `tsconfig.json`, `src/index.ts`, `src/Root.tsx`, `src/compositions/QuoteCard.tsx`. QuoteCard is a 5s 1080x1920 portrait composition with spring-animated accent line, fade+rise quote text, delayed author reveal, and pillar tag watermark — all in CC's brand colors (#141413 bg, #faf9f5 text, #D4A574 accent). Also built `../CMO-Agent/scripts/render_video.py` with two sub-commands: `quote` (inline text) and `from-calendar` (reads Supabase content_calendar row, writes video_path back). Python script verified: zero syntax errors, --help works.
+**Files:** remotion-content/package.json, remotion-content/tsconfig.json, remotion-content/src/index.ts, remotion-content/src/Root.tsx, remotion-content/src/compositions/QuoteCard.tsx, ../CMO-Agent/scripts/render_video.py (new)
 **Commit:** pending
 **Next step:** `cd remotion-content && npm install` then `npm start` to preview in Remotion Studio.
 
@@ -21,13 +21,13 @@ tags: [archive, sessions]
 **Commit:** pending
 
 ### 2026-03-19 — Content Repurposing Engine (Claude Code, Sonnet 4.6)
-**Change:** Built `scripts/content_repurposer.py` — adapts posts from X to LinkedIn, Instagram, Threads, TikTok via Claude API. Three commands: `repurpose <id>` (single post), `repurpose-day <date>` (all posts that day), `repurpose-week` (X-only posts in next 7 days). Duplicate guard: checks platform+scheduled_for before creating. `--json` flag for scheduler integration. Follows same load_env/create_client patterns as stripe_tool.py and supabase_tool.py.
-**Files:** scripts/content_repurposer.py (new)
+**Change:** Built `../CMO-Agent/scripts/content_repurposer.py` — adapts posts from X to LinkedIn, Instagram, Threads, TikTok via Claude API. Three commands: `repurpose <id>` (single post), `repurpose-day <date>` (all posts that day), `repurpose-week` (X-only posts in next 7 days). Duplicate guard: checks platform+scheduled_for before creating. `--json` flag for scheduler integration. Follows same load_env/create_client patterns as stripe_tool.py and supabase_tool.py.
+**Files:** ../CMO-Agent/scripts/content_repurposer.py (new)
 **Commit:** pending
 
 ### 2026-03-19 — Content Generator Script Built (Claude Code, Sonnet 4.6)
-**Change:** Built `scripts/content_generator.py` — Claude API-powered script that takes `[DRAFT]` placeholders from the Supabase `content_calendar` table and generates real, brand-voice content. Three commands: `generate-week` (all drafts at once), `generate-one <id>` (single draft), `regenerate <id>` (overwrite existing). Enforces platform character limits, loads `ANTHROPIC_API_KEY` from `.env.agents`, follows CC's 5 content pillar voice rules with hardcoded examples per pillar. Uses `claude-sonnet-4-20250514`. Supports `--json` flag for scheduler/agent consumption.
-**Files:** scripts/content_generator.py (new)
+**Change:** Built `../CMO-Agent/scripts/content_generator.py` — Claude API-powered script that takes `[DRAFT]` placeholders from the Supabase `content_calendar` table and generates real, brand-voice content. Three commands: `generate-week` (all drafts at once), `generate-one <id>` (single draft), `regenerate <id>` (overwrite existing). Enforces platform character limits, loads `ANTHROPIC_API_KEY` from `.env.agents`, follows CC's 5 content pillar voice rules with hardcoded examples per pillar. Uses `claude-sonnet-4-20250514`. Supports `--json` flag for scheduler/agent consumption.
+**Files:** ../CMO-Agent/scripts/content_generator.py (new)
 
 ### 2026-03-19 — Content Auto-Posting Pipeline (Session 2)
 **What:** Built autonomous content publishing bridge. Created `scripts/late_publisher.py` that reads due content from Supabase content_calendar and publishes directly via Late SDK (no MCP session needed). Updated `scheduler.py`'s `run_content_post()` to call it instead of the old stub that just reported what was due. Also committed the debugger's encoding="utf-8" fix for scheduler subprocess.

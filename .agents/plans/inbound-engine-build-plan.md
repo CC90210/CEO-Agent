@@ -26,9 +26,9 @@ Everything below is BUILT but **turned off or disconnected**:
 | Lead CRM | `scripts/lead_engine.py` | ✅ Working |
 | Email engine | `scripts/email_engine.py` | ✅ Working |
 | Booking system | `scripts/booking_engine.py` | ✅ Working |
-| Content calendar | `scripts/content_engine.py` | ✅ 21 drafts sitting idle |
-| Content generator | `scripts/content_generator.py` | ✅ Claude API powered |
-| Content repurposer | `scripts/content_repurposer.py` | ✅ Cross-platform |
+| Content calendar | `../CMO-Agent/scripts/content_engine.py` | ✅ 21 drafts sitting idle |
+| Content generator | `../CMO-Agent/scripts/content_generator.py` | ✅ Claude API powered |
+| Content repurposer | `../CMO-Agent/scripts/content_repurposer.py` | ✅ Cross-platform |
 | Late API (social posting) | `scripts/late_tool.py` | ✅ 8 accounts connected |
 | Late publisher | `scripts/late_publisher.py` | ⏸️ Built, auto-posting DISABLED |
 | Scheduler daemon | `scripts/scheduler.py` | ✅ PM2, but content posting stubbed |
@@ -100,7 +100,7 @@ Run these commands to insert CTA-enabled templates:
 
 ```bash
 # Sobriety Log (daily)
-python scripts/content_engine.py templates create \
+python ../CMO-Agent/scripts/content_engine.py templates create \
   --name "Sobriety Log with CTA" \
   --platform x \
   --pillar sobriety_log \
@@ -108,7 +108,7 @@ python scripts/content_engine.py templates create \
   --vars '["day_number", "insight"]'
 
 # CEO Log (daily)
-python scripts/content_engine.py templates create \
+python ../CMO-Agent/scripts/content_engine.py templates create \
   --name "CEO Log with CTA" \
   --platform x \
   --pillar ceo_log \
@@ -116,7 +116,7 @@ python scripts/content_engine.py templates create \
   --vars '["insight"]'
 
 # Quote Drop (daily)
-python scripts/content_engine.py templates create \
+python ../CMO-Agent/scripts/content_engine.py templates create \
   --name "Quote Drop with CTA" \
   --platform x \
   --pillar quote_drop \
@@ -124,7 +124,7 @@ python scripts/content_engine.py templates create \
   --vars '["quote", "author"]'
 
 # Educational (alternating days)
-python scripts/content_engine.py templates create \
+python ../CMO-Agent/scripts/content_engine.py templates create \
   --name "Educational with CTA" \
   --platform x \
   --pillar educational \
@@ -134,7 +134,7 @@ python scripts/content_engine.py templates create \
 
 ### 2B. Update content_generator.py to include CTA
 
-In `scripts/content_generator.py`, update the generation prompt to include a soft CTA in every post. The CTA should rotate between:
+In `../CMO-Agent/scripts/content_generator.py`, update the generation prompt to include a soft CTA in every post. The CTA should rotate between:
 - `"Free AI audit → cc-funnel.vercel.app"`
 - `"DM me 'AUDIT' for a free business review"`
 - `"Link in bio for your free automation assessment"`
@@ -193,13 +193,13 @@ def run_content_post(config: dict, env_vars: dict) -> str:
 
 ```bash
 # Generate 21 draft slots (3/day x 7 days) in content_calendar
-python scripts/content_engine.py week-plan
+python ../CMO-Agent/scripts/content_engine.py week-plan
 
 # Auto-generate real content for all drafts via Claude API
-python scripts/content_generator.py generate-week
+python ../CMO-Agent/scripts/content_generator.py generate-week
 
 # Repurpose X posts to LinkedIn, Instagram, Threads
-python scripts/content_repurposer.py repurpose-week --platforms linkedin,instagram,threads
+python ../CMO-Agent/scripts/content_repurposer.py repurpose-week --platforms linkedin,instagram,threads
 ```
 
 **Verify:** After running these, check `content_calendar` has entries with status=`scheduled` and real body text (not placeholder `[DRAFT - ...]`).
@@ -330,7 +330,7 @@ After form submission, the success screen should include a "Book a call now" but
 ```bash
 # Test a single post (use a real draft from content_calendar)
 python scripts/late_tool.py posts --limit 5
-python scripts/content_engine.py due
+python ../CMO-Agent/scripts/content_engine.py due
 ```
 
 ### 6C. Confirm all cron jobs are active
@@ -422,7 +422,7 @@ Every week:
 | `APPS/cc-funnel/src/app/globals.css` | New styles | 1 |
 | `APPS/cc-funnel/src/app/layout.tsx` | Meta tags | 1 |
 | `APPS/cc-funnel/public/og-image.png` | New file (generate) | 1 |
-| `scripts/content_generator.py` | Add CTA rotation to generation prompt | 2 |
+| `../CMO-Agent/scripts/content_generator.py` | Add CTA rotation to generation prompt | 2 |
 | `scripts/scheduler.py` (line ~201) | Un-stub `run_content_post` | 3 |
 | `scripts/late_publisher.py` | Verify/fix publish-due command | 3 |
 | `scripts/instagram_engine.py` | Add DM → CRM bridge | 4 |

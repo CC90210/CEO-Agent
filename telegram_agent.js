@@ -342,7 +342,7 @@ BUSINESS OPS (use these — NOT the browser):
 - CEO Briefing: ${PYTHON} scripts/ceo_dashboard.py briefing | revenue | pipeline | content | full
 - Leads/CRM: ${PYTHON} scripts/lead_engine.py list | add "Name" --email x | followups | view <id>
 - Client Health: ${PYTHON} scripts/client_health.py report | alerts | score <name>
-- Content: ${PYTHON} scripts/content_engine.py calendar | create --platform x --pillar ceo_log --body "..." | due
+- Content: ${PYTHON} ../CMO-Agent/scripts/content_engine.py calendar | create --platform x --pillar ceo_log --body "..." | due
 - Social: ${PYTHON} scripts/late_tool.py accounts | posts | create --text "..." --account <id>
 - n8n: ${PYTHON} scripts/n8n_tool.py list | execute <id>
 - Database: ${PYTHON} scripts/supabase_tool.py select <table> --project bravo --limit 10

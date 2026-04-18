@@ -151,7 +151,7 @@ SORT file.mtime DESC
 - [[skills/INDEX]] — 180 skills (core, GWS, recipes, personas)
 - [[.agents/workflows/INDEX]] — 30 automated workflows
 - [[APPS_CONTEXT/INDEX]] — 6 brand context files
-- [[content-studio/INDEX]] — Video production + Remotion rules
+- [[../CMO-Agent/content-studio/INDEX]] — Video production + Remotion rules
 - [[data/INDEX]] — Templates (email, content, documents)
 - [[_templates/INDEX]] — Obsidian note templates
 - [[docs/INDEX]] — Legal + technical docs

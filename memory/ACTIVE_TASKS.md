@@ -111,7 +111,7 @@ tags: [tasks, active]
 
 ### Phase 3: Skill Migration (CC approval required)
 - [ ] Copy 10 marketing skills from Bravo → Maven (content-engine, email-marketing, funnel-management, brand-guidelines, growth-engine, competitive-intelligence, elite-video-production, lead-management, linkedin-outreach, persona-content-creator)
-- [ ] Move content-studio/ to Maven
+- [ ] Move ../CMO-Agent/content-studio/ to Maven
 - [ ] Update both agents' CAPABILITIES.md
 
 ### Phase 4: Multi-Client Expansion
