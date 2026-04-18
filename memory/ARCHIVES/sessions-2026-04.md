@@ -129,7 +129,7 @@
 
 **Wave 1 — CEO Intelligence Layer (3 parallel agents):**
 - `skills/strategic-planning/SKILL.md` — OKR framework, SWOT/Porter's, scenario planning, QBR templates
-- `skills/competitive-intelligence/SKILL.md` — Competitor tracking, battlecard generation, monitoring cadence
+- `../Marketing-Agent/skills/competitive-intelligence/SKILL.md` — Competitor tracking, battlecard generation, monitoring cadence
 - `skills/financial-modeling/SKILL.md` — Unit economics, SaaS metrics, cohort analysis, cash flow forecasting
 - `scripts/competitive_intel.py` — Full CRUD for competitor profiles in data/competitors.json
 - `scripts/financial_model.py` — Unit economics, forecast, scenario, concentration, runway

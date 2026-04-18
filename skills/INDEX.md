@@ -49,19 +49,11 @@ tags: [skills, index, hub]
 - [[skills/semantic-memory/SKILL]] — Semantic memory with vector search
 
 ## Content & Outreach
-- [[skills/elite-video-production/SKILL]] — Full automated video production pipeline (hook → cinematic export)
 - [[skills/telegram-demo-workflows/SKILL]] — 5 content-ready Telegram demo sequences for filming
-- [[skills/content-engine/SKILL]] — Content creation pipeline
-- [[skills/email-marketing/SKILL]] — Email campaigns
-- [[skills/linkedin-outreach/SKILL]] — LinkedIn automation
-- [[skills/lead-management/SKILL]] — Lead tracking
 - [[skills/revenue-operations/SKILL]] — Revenue pipeline
-- [[skills/funnel-management/SKILL]] — Funnel tracking and optimization
-- [[skills/growth-engine/SKILL]] — Growth strategy and execution
 
 ## Business Operations
 - [[skills/proposal-generation/SKILL]] — Client proposals and SOWs
-- [[skills/competitive-intelligence/SKILL]] — Market analysis
 - [[skills/market-research/SKILL]] — Market research and analysis
 - [[skills/client-success/SKILL]] — Client health scoring
 - [[skills/scaling-playbook/SKILL]] — Growth playbook
@@ -119,7 +111,6 @@ tags: [skills, index, hub]
 
 ## Creative
 - [[skills/brainstorming/SKILL]] — Ideation sessions
-- [[skills/brand-guidelines/SKILL]] — Brand consistency
 - [[skills/canvas-design/SKILL]] — Visual design
 - [[skills/frontend-design/SKILL]] — UI/UX design
 - [[skills/theme-factory/SKILL]] — Theme generation
@@ -131,7 +122,6 @@ tags: [skills, index, hub]
 - [[skills/persona-sales-ops/SKILL]] — Sales operations mode
 - [[skills/persona-researcher/SKILL]] — Research mode
 - [[skills/persona-project-manager/SKILL]] — PM mode
-- [[skills/persona-content-creator/SKILL]] — Content creator mode
 - [[skills/persona-customer-support/SKILL]] — Support mode
 - [[skills/persona-event-coordinator/SKILL]] — Event planning mode
 - [[skills/persona-hr-coordinator/SKILL]] — HR mode

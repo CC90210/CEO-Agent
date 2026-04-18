@@ -2,6 +2,37 @@
 tags: [daily]
 ---
 
+### 2026-04-18 — C-Suite Architecture Buildout: Atlas Fix + Maven (CMO) Definition + 3-Way Pulse Protocol
+**Agent:** BRAVO via Antigravity (Claude Opus 4.6 Thinking)
+**Trigger:** Atlas delegation from Session 31 (CFO-Agent audit) — CC articulated the full AI C-Suite vision: CFO + CEO + CMO operating as personal board of directors.
+
+**Changes shipped:**
+1. **Fixed stale Atlas reference** — `brain/AGENTS.md` lines 186-194 updated: `trading-agent` → `CFO-Agent`, capabilities updated (16 playbooks, 8 modules, 59 tax docs), key files corrected, pulse reference added.
+2. **Added Maven (CMO) to AGENTS.md** — Full external agent entry with purpose, capabilities, orchestrated systems (shopify-ad-engine, ig-setter-pro, cc-funnel), pulse file, relationships to Bravo + Atlas, routing rules, skill migration list.
+3. **Added 4 CMO routing rows to Decision Matrix** — Content creation, ad campaigns, funnels, SEO all route to Maven.
+4. **Created `data/pulse/ceo_pulse.json`** — Bravo's pulse with revenue status, strategic directives to CMO and CFO, client health signals.
+5. **Created `data/pulse/cmo_pulse.json`** — Maven's pulse with content pipeline, ad performance, funnel metrics, brand health, orchestrated systems, spend gate fields.
+6. **Created `brain/C_SUITE_ARCHITECTURE.md`** — Comprehensive architecture document: board structure, decision rights matrix, conflict resolution protocol, 3-way pulse read/write protocol, spend gate flow, file ownership rules, Maven full scope diagram, skill migration table (10 skills Bravo → Maven), implementation roadmap (5 phases).
+7. **Updated `brain/STATE.md`** — Atlas entry corrected (CFO-Agent, LIVE), Maven entry added (INITIALIZING), heartbeat updated.
+
+**Name decision:** CMO agent named **Maven** — means "expert/knowledgeable person." Fits the deep research + content creation + strategic marketing advice role CC described.
+
+**Key architectural decisions:**
+- Maven owns ALL marketing: content creation, content editing, paid ads, organic distribution, deep research, funnels, brand intelligence
+- Bravo retains: revenue ops, sales closing, client success, strategic planning, team management
+- Atlas retains: veto on ALL spend decisions, financial modeling, tax strategy
+- 3-way pulse protocol: each agent reads two others' pulse files, writes only its own
+- Skill migration (10 skills): PENDING CC approval before executing
+
+**Next steps:**
+- Phase 2: Maven identity transformation in Marketing-Agent/ repo (rewrite SOUL.md, CLAUDE.md, add GEMINI.md + ANTIGRAVITY.md)
+- Phase 3: Execute skill migration (10 skills Bravo → Maven) with CC approval
+- Phase 4: Multi-client expansion (OASIS AI, PropFlow, Nostalgic Requests profiles)
+
+**Files:** brain/AGENTS.md, brain/STATE.md, brain/C_SUITE_ARCHITECTURE.md (new), data/pulse/ceo_pulse.json (new), data/pulse/cmo_pulse.json (new), memory/SESSION_LOG.md, memory/ACTIVE_TASKS.md
+
+
+
 ### 2026-04-18 — Hermes v0.1.0 shipped (Emmanuel Lowinger's commerce agent)
 **Change:** Full production build of Hermes — OASIS AI's wholesale commerce agent — for client Emmanuel Lowinger. Scaffolded 31 files (orchestrator, email/POS/phone agents, A2000 4-mode adapter, Ollama-backed PO parser for PDF/Excel/EDI X12 850/text, SQLite storage, demo mode, tests, CI, docs). Reconciled architectural drift between parallel-written modules (module-level imports, POParser class, unified POSAgent signatures). Rebranded "Lowinger AOS" → "Hermes" across 24 files. Renamed folder `C:\Users\User\APPS\lowinger-aos` → `C:\Users\User\APPS\hermes`. Created private GitHub repo CC90210/hermes and pushed 58 files on main. 36/36 tests passing. End-to-end demo runs in ~0.1s in mock mode (PO parsed → A2000 order entered → invoice retrieved → email drafted).
 **Files:** 58 files in C:\Users\User\APPS\hermes — see repo
@@ -569,7 +600,7 @@ tags: [daily]
 
 **Files Created (8):**
 - `skills/strategic-planning/SKILL.md` — OKR framework (set/check-in/grade), annual planning (SWOT, Porter's Five Forces, Blue Ocean Canvas), scenario planning (Bull/Base/Bear with CC-specific examples: Bennett churn, 3 new clients, PropFlow launch), decision frameworks (EV, reversibility matrix, Bezos one-way/two-way door), QBR and weekly CEO review templates
-- `skills/competitive-intelligence/SKILL.md` — competitor tracking (profile/battlecard templates, monitoring cadence), data collection methods (Playwright, OpenCLI, job postings, review sites), analysis frameworks (feature matrix, pricing map, win/loss, differentiation gap), competitive response playbook (4 scenarios), OASIS AI competitor category map (4 categories)
+- `../Marketing-Agent/skills/competitive-intelligence/SKILL.md` — competitor tracking (profile/battlecard templates, monitoring cadence), data collection methods (Playwright, OpenCLI, job postings, review sites), analysis frameworks (feature matrix, pricing map, win/loss, differentiation gap), competitive response playbook (4 scenarios), OASIS AI competitor category map (4 categories)
 - `skills/financial-modeling/SKILL.md` — unit economics formulas (CAC, LTV, LTV:CAC, payback, burn, runway), SaaS metrics dashboard (MRR components, churn, NRR, Quick Ratio), cohort analysis framework, scenario modeling templates, cash flow forecasting, CC-specific snapshot (HHI 0.88 CRITICAL, $2,018 gap to target, 47 days remaining)
 - `scripts/competitive_intel.py` — full CRUD for competitor profiles stored in data/competitors.json; battlecard generation; feature matrix; landscape report; JSON flag for agent consumption
 - `scripts/financial_model.py` — unit-economics, forecast, scenario (bull/base/bear), concentration (Herfindahl), runway with Bennett churn worst-case; all CC defaults baked in
@@ -577,7 +608,7 @@ tags: [daily]
 - `.agents/workflows/competitive-report.md` — /competitive-report trigger; monthly competitor scan (pricing, features, job postings, reviews, battlecard updates)
 - `.agents/workflows/qbr.md` — /qbr trigger; OKR grading (0.0-1.0), QBR report compilation, next quarter OKR drafting with CC approval gate
 
-**Directories Used:** `data/` (already existed), `skills/strategic-planning/`, `skills/competitive-intelligence/`, `skills/financial-modeling/` (created)
+**Directories Used:** `data/` (already existed), `skills/strategic-planning/`, `../Marketing-Agent/skills/competitive-intelligence/`, `skills/financial-modeling/` (created)
 
 **Scripts verified:** Both Python scripts smoke-tested against all subcommands. Zero errors. Unicode-safe for Windows cp1252 terminal encoding.
 
@@ -718,7 +749,7 @@ tags: [daily]
 3. AI tools: WhisperX forced alignment, auto-editor silence removal, Fal.ai Flux Schnell (<1s b-roll), noisereduce + Pedalboard audio enhancement, PySceneDetect, YOLOv8 face tracking, reap.video MCP
 
 **Built:**
-- `skills/elite-video-production/SKILL.md` (635 lines) — 15-section comprehensive video production skill with exact FFmpeg commands, Remotion spring presets, ASS caption format, audio mastering chain, SFX timing, color grade presets, 15-step automated pipeline
+- `../Marketing-Agent/skills/elite-video-production/SKILL.md` (635 lines) — 15-section comprehensive video production skill with exact FFmpeg commands, Remotion spring presets, ASS caption format, audio mastering chain, SFX timing, color grade presets, 15-step automated pipeline
 - `knowledge/wiki/video-production-bible.md` (438 lines) — Full open-source tool stack with install commands, when to use each, competitive platform reference
 - `knowledge/index.md` updated (5 wiki pages)
 

@@ -138,7 +138,7 @@ On a fresh machine (e.g., CC's MacBook):
 1. **Clone the repo**
    ```bash
    cd ~/APPS  # or wherever you keep projects
-   git clone https://github.com/CC90210/business-empire-agent.git
+   git clone https://github.com/CC90210/CEO-Agent.git
    cd business-empire-agent
    ```
 

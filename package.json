@@ -1,5 +1,5 @@
 {
-  "name": "business-empire-agent",
+  "name": "ceo-agent",
   "version": "1.0.0",
   "description": "> Autonomous AI operations hub for CC's business empire. Manages codebases, deployments, content pipelines, and business operations across OASIS AI Solutions, PropFlow, and Nostalgic Requests.",
   "main": "index.js",
@@ -10,16 +10,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/CC90210/business-empire-agent.git"
+    "url": "git+https://github.com/CC90210/CEO-Agent.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/CC90210/business-empire-agent/issues"
+    "url": "https://github.com/CC90210/CEO-Agent/issues"
   },
-  "homepage": "https://github.com/CC90210/business-empire-agent#readme",
+  "homepage": "https://github.com/CC90210/CEO-Agent#readme",
   "dependencies": {
     "@google/genai": "^1.43.0",
     "@notionhq/client": "^5.11.0",

@@ -1,8 +1,15 @@
-# Business Empire Agent
+# CEO Agent — Bravo
 
-> A self-evolving AI operations system that runs an entire business. Not a framework. Not a demo. A production system managing real revenue, real clients, and real automations across two machines, three AI interfaces, and 56 CLI tools.
+> **Bravo (CEO)** — strategy, clients, revenue, partnerships, vision. One third of a three-agent AI C-Suite running CC's business empire. Paired with **Atlas (CFO)** for finance + tax + wealth, and **Maven (CMO)** for brand + content + ads + funnels. Not a framework. Not a demo. A production system managing real revenue, real clients, and real automations across two machines, three AI interfaces, and 56 CLI tools.
 
 Built by one person with AI. Running 24/7 since March 2026.
+
+**The C-Suite:**
+- 🏛️ **Bravo (CEO)** — this repo: [CC90210/CEO-Agent](https://github.com/CC90210/CEO-Agent)
+- 💰 **Atlas (CFO)** — [CC90210/CFO-Agent](https://github.com/CC90210/CFO-Agent)
+- 🎨 **Maven (CMO)** — [CC90210/Marketing-Agent](https://github.com/CC90210/Marketing-Agent)
+
+See [`brain/C_SUITE_ARCHITECTURE.md`](brain/C_SUITE_ARCHITECTURE.md) for the governance, pulse protocol, and decision rights matrix.
 
 ---
 
@@ -221,7 +228,7 @@ CLI-first architecture: services requiring API credentials use Python CLI tools 
 
 ```bash
 # Clone
-git clone https://github.com/CC90210/business-empire-agent.git
+git clone https://github.com/CC90210/CEO-Agent.git
 cd business-empire-agent
 
 # Set up credentials (see brain/CREDENTIALS_SCAFFOLD.md for the full list)
