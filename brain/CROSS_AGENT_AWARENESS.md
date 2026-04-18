@@ -2,13 +2,24 @@
 tags: [c-suite, protocol, awareness]
 ---
 
-# CROSS-AGENT AWARENESS — How Agents Stay in Sync With Each Other
+# CROSS-AGENT AWARENESS — How the 4 Agents Stay in Sync
 
-> The 3-agent C-Suite only works if each agent knows what the others are doing. This document defines the awareness protocol.
+> The 4-agent operating system (Bravo + Atlas + Maven + Aura) only works if each agent knows what the others are doing. This document defines the awareness protocol.
+
+## The 4 Agents at a Glance
+
+| Agent | Scope | Lives At | Pulse |
+|-------|-------|----------|-------|
+| **Bravo** (CEO) | Business strategy, clients, revenue | `C:\Users\User\Business-Empire-Agent` | `ceo_pulse.json` |
+| **Atlas** (CFO) | Money, tax, runway, research | `C:\Users\User\APPS\CFO-Agent` | `cfo_pulse.json` |
+| **Maven** (CMO) | Brand, content, ads, funnels | `C:\Users\User\CMO-Agent` | `cmo_pulse.json` |
+| **Aura** (Life) | Apartment, habits, accountability | `C:\Users\User\AURA` | `aura_pulse.json` |
 
 ## The Problem
 
-CC talks to one agent at a time. If CC tells Maven about a campaign idea, then 3 hours later asks Bravo "what's my strategy?", Bravo must know Maven just discussed that campaign — otherwise the three agents contradict each other and CC loses trust.
+CC talks to one agent at a time. If CC tells Maven about a campaign idea, then 3 hours later asks Bravo "what's my strategy?", Bravo must know Maven just discussed that campaign — otherwise the four agents contradict each other and CC loses trust.
+
+Same with Aura: if CC is in a lean week per Atlas, Aura should know not to recommend ordering takeout. If CC just closed a deal per Bravo, Aura should reflect that in the morning briefing.
 
 ## The Solution: Pulse Files Carry a Session Summary
 
@@ -72,7 +83,8 @@ Order of precedence:
 1. **Atlas on money** — if Atlas says "no budget for that," Maven cannot override
 2. **Bravo on strategy** — if Bravo says "that's not our target ICP," Maven reframes
 3. **Maven on execution** — Bravo + Atlas defer to Maven on HOW to run an ad campaign once the WHY and the BUDGET are set
-4. **CC on everything** — final tiebreaker, always
+4. **Aura on CC's physical/health domain** — business agents can't override Aura's guest mode, roommate-sensitive timing, or sleep protection
+5. **CC on everything** — final tiebreaker, always
 
 See `C_SUITE_ARCHITECTURE.md` Decision Rights Matrix for the full map.
 

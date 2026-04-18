@@ -18,13 +18,13 @@ Run: python scripts/test_csuite_pulse_flow.py
 """
 
 import json
-import os
 from pathlib import Path
 from datetime import datetime
 
 BRAVO = Path(r"C:\Users\User\Business-Empire-Agent\data\pulse\ceo_pulse.json")
 ATLAS = Path(r"C:\Users\User\APPS\CFO-Agent\data\pulse\cfo_pulse.json")
 MAVEN = Path(r"C:\Users\User\CMO-Agent\data\pulse\cmo_pulse.json")
+AURA  = Path(r"C:\Users\User\AURA\data\pulse\aura_pulse.json")
 
 FAIL = 0
 PASS = 0
@@ -55,6 +55,10 @@ def test_existence():
     assert_true(BRAVO.exists(), f"ceo_pulse.json exists ({BRAVO})")
     assert_true(ATLAS.exists(), f"cfo_pulse.json exists ({ATLAS})")
     assert_true(MAVEN.exists(), f"cmo_pulse.json exists ({MAVEN})")
+    if AURA.exists():
+        assert_true(True, f"aura_pulse.json exists ({AURA}) — 4-way protocol active")
+    else:
+        print(f"  SKIP  aura_pulse.json not yet created ({AURA}) — Aura hasn't joined the protocol yet")
 
 
 def test_cross_read():
