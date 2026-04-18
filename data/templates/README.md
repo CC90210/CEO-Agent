@@ -23,8 +23,8 @@ Templates are referenced by skills and scripts. Specific usage points:
 | `skills/investor-communications/SKILL.md` | `/reports/investor-update.md`, `/reports/qbr.md` |
 | `skills/knowledge-management/SKILL.md` | All categories |
 | `skills/proposal-generation/SKILL.md` | `/proposals/retainer-proposal.md`, `/proposals/project-sow.md` |
-| `skills/email-marketing/SKILL.md` | `/emails/cold-outreach.md`, `/emails/follow-up.md` |
-| `skills/content-engine/SKILL.md` | `/content/linkedin-post.md`, `/content/x-thread.md` |
+| `../Marketing-Agent/skills/email-marketing/SKILL.md` | `/emails/cold-outreach.md`, `/emails/follow-up.md` |
+| `../Marketing-Agent/skills/content-engine/SKILL.md` | `/content/linkedin-post.md`, `/content/x-thread.md` |
 
 ## Update Protocol
 
@@ -49,4 +49,4 @@ Examples:
 
 ## Obsidian Links
 - [[skills/knowledge-management/SKILL]] | [[skills/proposal-generation/SKILL]]
-- [[skills/email-marketing/SKILL]] | [[skills/content-engine/SKILL]]
+- [[../Marketing-Agent/skills/email-marketing/SKILL]] | [[../Marketing-Agent/skills/content-engine/SKILL]]

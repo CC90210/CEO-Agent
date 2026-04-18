@@ -93,4 +93,35 @@ tags: [tasks, active]
 - [ ] CC: first TryHackMe session (30 min) this week
 - [ ] Bravo: after 3 real deals, update sales-closing with observed objections
 
-*Last updated: 2026-04-11*
+## C-Suite Architecture Buildout (2026-04-18)
+> CC's vision: Full AI C-Suite — Atlas (CFO) + Bravo (CEO) + Maven (CMO) as personal board of directors.
+> Architecture doc: [[brain/C_SUITE_ARCHITECTURE]]
+
+### Phase 1: Architecture ✅ COMPLETE
+- [x] Fix stale Atlas reference in AGENTS.md (trading-agent → CFO-Agent)
+- [x] Add Maven (CMO) to AGENTS.md + decision matrix
+- [x] Create 3-way pulse protocol (ceo_pulse.json + cmo_pulse.json)
+- [x] Create C_SUITE_ARCHITECTURE.md
+
+### Phase 2: Maven Identity (IN Marketing-Agent/ repo) ✅ COMPLETE
+- [x] Rewrite SOUL.md — AdVantage V2.0 → Maven V1.0
+- [x] Rewrite CLAUDE.md — multi-client, pulse protocol, CC's brands
+- [x] Create GEMINI.md + ANTIGRAVITY.md entry points
+- [x] Add pulse read/write logic
+
+### Phase 3: Skill Migration (CC approval required)
+- [ ] Copy 10 marketing skills from Bravo → Maven (content-engine, email-marketing, funnel-management, brand-guidelines, growth-engine, competitive-intelligence, elite-video-production, lead-management, linkedin-outreach, persona-content-creator)
+- [ ] Move content-studio/ to Maven
+- [ ] Update both agents' CAPABILITIES.md
+
+### Phase 4: Multi-Client Expansion
+- [ ] Add OASIS AI, PropFlow, Nostalgic Requests client profiles to Maven
+- [ ] Add CC personal brand profile
+- [ ] Client routing in Maven's CLAUDE.md
+
+### Phase 5: Integration Testing
+- [ ] 3-way pulse read/write verification
+- [ ] Spend gate flow end-to-end test
+- [ ] Routing test: marketing → Maven, not Bravo
+
+*Last updated: 2026-04-18*

@@ -29,7 +29,8 @@ When CC says "fix [app]", "update [app]", "build [feature] in [app]", "debug [ap
 | **Grape Vine Cottage** | grape vine, grapevine, cottage | `C:\Users\User\APPS\Grape-Vine-Cottage` | CC90210/grapevinecottage | — | Vite, React 18, Shadcn/ui | Vercel |
 | **Mindset Companion** | mindset, lucid | `C:\Users\User\APPS\MINDSET COMPANION APP\cc-mindset` | CC90210/MINDSET-COMPANION-LUCID | — | Next.js 16, React 19 | Vercel |
 | **On The Hill** | on the hill, OTH | `C:\Users\User\APPS\ON-THE-HILL-WEBSITE` | CC90210/ON-THE-HILL | — | Vite, React 19 | — |
-| **Atlas Trading Agent (CFO)** | atlas, trading agent, trader, cfo, finance, tax | `C:\Users\User\APPS\trading-agent` | CC90210/atlas-trading-agent | — | Python 3.11+, CCXT, Claude API, SQLite | — |
+| **Atlas (CFO Agent)** | atlas, cfo, finance, tax, trading agent, trader | `C:\Users\User\APPS\CFO-Agent` | CC90210/CFO-Agent | — | Python 3.11+, CCXT, Claude API, SQLite | — |
+| **Maven (CMO Agent)** | maven, cmo, marketing, ads, content, funnel, brand | `C:\Users\User\Marketing-Agent` | CC90210/Marketing-Agent | — | Python, Node, Meta + Google Ads SDKs, Remotion | — |
 | **TIKTIK** | tiktik, daycare, attendance | `C:\Users\User\APPS\tiktik` | CC90210/tiktik | icgazynsnqyombvkocwb | Next.js 14, TypeScript, Supabase, Tailwind | Vercel (tiktik-psi.vercel.app) |
 | **CC Funnel** | cc-funnel, funnel, lead form | `C:\Users\User\APPS\cc-funnel` | CC90210/cc-funnel | phctllmtsogkovoilwos (Bravo) | Next.js 14, TypeScript, Tailwind, Supabase | Vercel (cc-funnel.vercel.app) |
 | **Shopify Ad Engine** | shopify-ad-engine, ad engine, kalem ads | `C:\Users\User\APPS\shopify-ad-engine` | CC90210/shopify-ad-engine | — | Remotion 4.0.436, React 19, Three.js, Zod, Python (Meta Ads) | — |
