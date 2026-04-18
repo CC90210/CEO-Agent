@@ -98,6 +98,7 @@ ESCALATION_KEYWORDS = [
 
 # Exclusive lock file — prevents multiple daemon instances
 LOCK_FILE_PATH = TMP_DIR / "skool_daemon.lock"
+RESTART_SENTINEL = TMP_DIR / "skool_restart_requested"
 
 
 class DaemonLock:
@@ -886,25 +887,47 @@ def _research_post(post_title: str, post_content: str) -> str:
 # ---------------------------------------------------------------------------
 
 def _capture_post_images(page, max_images: int = 3) -> list:
-    """Capture images from the current post page as base64 for Claude vision."""
+    """Capture real content images from the post body.
+
+    Scoped strictly to the post content container so author avatars, reactor
+    avatars, and UI chrome never get picked up as "attached images". Also
+    filters out anything the DOM identifies as an avatar/profile pic and
+    anything below a size floor (avatars are typically 40-96px square).
+    """
     import base64
     images = []
     try:
-        # Find all images in the post content area
-        img_elements = page.query_selector_all('img[src*="skool"], img[src*="amazonaws"], img[src*="cloudfront"], img[src*="uploads"]')
+        img_elements = page.query_selector_all(
+            '[class*="PostContent"] img, [class*="post-content"] img, '
+            '[class*="PostBody"] img, .ProseMirror img'
+        )
 
-        # Also check for images in the main content area
-        if not img_elements:
-            img_elements = page.query_selector_all('[class*="PostContent"] img, [class*="Content"] img, .ProseMirror img')
-
-        for img_el in img_elements[:max_images]:
+        for img_el in img_elements[:max_images * 3]:  # oversample, filter below
+            if len(images) >= max_images:
+                break
             try:
-                # Screenshot the image element directly
+                meta = img_el.evaluate("""(el) => ({
+                    src: el.src || '',
+                    alt: (el.alt || '').toLowerCase(),
+                    cls: (el.className || '').toString().toLowerCase(),
+                    w: el.naturalWidth || el.width || 0,
+                    h: el.naturalHeight || el.height || 0,
+                })""")
+                src = (meta.get("src") or "").lower()
+                blob = f"{meta.get('alt','')} {meta.get('cls','')} {src}"
+                if any(k in blob for k in ("avatar", "profile", "userpic", "member-pic")):
+                    continue
+                # Avatars are small; real screenshots are >= ~200px on a side
+                if meta.get("w", 0) and meta.get("w", 0) < 200:
+                    continue
+                if meta.get("h", 0) and meta.get("h", 0) < 200:
+                    continue
+
                 img_bytes = img_el.screenshot(timeout=5000)
-                if img_bytes and len(img_bytes) > 500:  # Skip tiny/broken images
+                if img_bytes and len(img_bytes) > 2000:
                     b64 = base64.b64encode(img_bytes).decode("utf-8")
                     images.append({"data": b64, "media_type": "image/png"})
-                    log.info(f"  Captured image ({len(img_bytes)} bytes)")
+                    log.info(f"  Captured image ({len(img_bytes)} bytes, {meta.get('w')}x{meta.get('h')})")
             except Exception as e:
                 log.debug(f"  Image capture failed: {e}")
     except Exception as e:
@@ -939,10 +962,9 @@ def generate_post_reply(post_title: str, post_content: str, author_name: str, im
         "- If the reply is pure encouragement with no critique, no flag needed.\n"
         "- If the reply mixes encouragement AND critique, put the flag right before the critique part.\n\n"
         "IMAGE HANDLING:\n"
-        "- If images are attached, LOOK AT THEM CAREFULLY. Describe what you see and respond to the actual content.\n"
-        "- Screenshots of code, websites, dashboards, tools = comment on the specific work shown.\n"
-        "- If an image is unclear or broken, say something like 'the image didn't load fully on my end, can you drop the link or repost it?'\n"
-        "- NEVER ignore images. NEVER respond as if you can't see them when they're provided.\n\n"
+        "- If — and ONLY if — images are explicitly attached below, look at them and respond to the specific work shown (code, websites, dashboards, screenshots).\n"
+        "- If no images are attached, respond to the text ONLY. Do NOT mention images, screenshots, attachments, or anything visual. Do NOT ask them to resend, repost, or share an image. Do NOT speculate that something was cut off.\n"
+        "- Never apologize for not seeing an image. Never hallucinate images that weren't provided.\n\n"
         "KNOWLEDGE RULES:\n"
         "- NEVER say 'I don't know' or admit ignorance. CC stays on top of every tool and trend.\n"
         "- If research context is provided, USE IT.\n"
@@ -964,11 +986,15 @@ def generate_post_reply(post_title: str, post_content: str, author_name: str, im
 
     if post_content.strip():
         user_parts.append(f"Content: {post_content[:800]}")
+    elif images:
+        user_parts.append("Content: (no text — respond to the attached image(s))")
     else:
-        user_parts.append("Content: (no text, check the images)")
+        user_parts.append("Content: (no text and no images — the post is just a title. Respond to the title only; do NOT mention missing content or ask for more.)")
 
     if images:
-        user_parts.append(f"\n[{len(images)} image(s) attached — LOOK AT THEM and respond to what you see]")
+        user_parts.append(f"\n[{len(images)} image(s) attached — respond to what you see]")
+    else:
+        user_parts.append("\n[No images attached. Respond to the text only. Do not mention images, screenshots, or anything visual.]")
 
     if research_context:
         user_parts.append(f"\n--- RESEARCH CONTEXT ---\n{research_context[:1200]}")
@@ -984,6 +1010,40 @@ def generate_post_reply(post_title: str, post_content: str, author_name: str, im
 
     if reply:
         reply = _strip_ai_slop(reply)
+
+    # HARD GUARD: when no images were attached, reject any reply that mentions
+    # images/screenshots/attachments/cut-off content. Regenerate up to 2 times
+    # with an even stricter instruction. If it still hallucinates, skip the post.
+    if not images and reply:
+        banned_phrases = [
+            "image", "images", "screenshot", "screenshots", "attach", "attached",
+            "attachment", "upload", "uploaded", "photo", "picture", "pic ", "pics",
+            "cut off", "cut-off", "cutoff", "got cut", "didn't load", "didnt load",
+            "not loading", "loaded fully", "drop the link", "repost", "re-post",
+            "resend", "re-send", "can't see", "cant see", "can't view",
+            "profile pic", "profile picture",
+        ]
+        for attempt in range(2):
+            low = reply.lower()
+            if not any(p in low for p in banned_phrases):
+                break
+            log.warning(f"  Reply mentioned non-existent image (attempt {attempt+1}); regenerating")
+            stricter = (
+                user
+                + "\n\nABSOLUTE CONSTRAINT: There are NO images on this post. "
+                "Your reply MUST NOT contain any of these words: image, screenshot, "
+                "attachment, photo, picture, cut off, didn't load, repost, resend. "
+                "Respond only to the written text above."
+            )
+            reply = _call_claude(system, stricter, max_tokens=250) or reply
+            if reply:
+                reply = _strip_ai_slop(reply)
+        else:
+            low = reply.lower()
+            if any(p in low for p in banned_phrases):
+                log.error("  Reply still hallucinated image after 2 retries — skipping post")
+                return ""
+
     return reply[:1000] if reply else ""
 
 
@@ -2362,6 +2422,15 @@ def cmd_daemon(args):
                     break
 
                 while running[0]:
+                    if RESTART_SENTINEL.exists():
+                        log.info("Restart sentinel detected — graceful shutdown for code reload")
+                        try:
+                            RESTART_SENTINEL.unlink()
+                        except Exception:
+                            pass
+                        running[0] = False
+                        break
+
                     log.info(f"\n{'='*50}")
                     log.info(f"Cycle {cycle} at {datetime.now().strftime('%H:%M:%S')}")
 

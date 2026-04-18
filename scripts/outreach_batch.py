@@ -117,6 +117,7 @@ def draft_email_claude(lead, env_vars):
 
     client = anthropic.Anthropic(api_key=env_vars.get("ANTHROPIC_API_KEY"))
 
+    booking_link = env_vars.get("BOOKING_LINK", "https://calendar.app.google/tpfvJYBGircnGu8G8")
     prompt = f"""Write a short cold email from Conaugh McKenna, founder of OASIS AI Solutions.
 
 Lead:
@@ -130,8 +131,11 @@ Rules:
 - No opener clichés ("hope this finds you", "I came across your profile", "quick question")
 - First line: one specific pain point for a {biz_type} (scheduling chaos, chasing quotes, slow follow-ups)
 - One concrete stat: clients save 10-15 hrs/week on admin
-- CTA: "Worth a 15-min call?" with no link (CC will add it)
-- Signature: Conaugh McKenna / OASIS AI Solutions
+- CTA: "Grab any slot that works for you: {booking_link}"
+- Signature block (exact format, including the booking link line):
+    Conaugh McKenna
+    OASIS AI Solutions
+    oasisai.work | Book a call: {booking_link}
 - Subject line on line 1 as "Subject: [subject]"
 - Blank line, then body
 

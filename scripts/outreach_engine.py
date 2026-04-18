@@ -145,6 +145,7 @@ def build_email_body(lead_name, business_name, business_type, meet_link, meeting
     tz_abbr = local.strftime("%Z") or "ET"  # EST in winter, EDT in summer
     date_str = local.strftime(f"%A, %B %d at %I:%M %p {tz_abbr}")
 
+    booking_link = os.environ.get("BOOKING_LINK", "https://calendar.app.google/tpfvJYBGircnGu8G8")
     body = f"""Hi {lead_name},
 
 I came across {business_name} and noticed a few areas where AI automation could make a real difference - specifically around scheduling, follow-ups, and client communication.
@@ -158,13 +159,13 @@ I've set aside time for a 30-minute discovery call:
     {date_str}
     Google Meet: {meet_link}
 
-If that time doesn't work, just reply with what does.
+If that time doesn't work, grab any slot that works for you: {booking_link}
 
 Looking forward to connecting.
 
 Conaugh McKenna
 Founder, OASIS AI Solutions
-oasisai.work"""
+oasisai.work | Book a call: {booking_link}"""
     return body
 
 
