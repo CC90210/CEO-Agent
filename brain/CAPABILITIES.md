@@ -71,7 +71,7 @@ Full routing table with local paths, GitHub URLs, tech stacks: `brain/APP_REGIST
 | Grape Vine Cottage | `APPS/Grape-Vine-Cottage` | Vite, React 18 | No |
 | Mindset Companion | `APPS/MINDSET COMPANION APP/cc-mindset` | Next.js 16, React 19 | No |
 | On The Hill | `APPS/ON-THE-HILL-WEBSITE` | Vite, React 19 | No |
-| Atlas (CFO) | `APPS/trading-agent` | Python 3.11+, CCXT, Claude API | Yes |
+| Atlas (CFO) | `APPS/CFO-Agent` | Python 3.11+, CCXT, Claude API | Yes |
 | TIKTIK | `APPS/tiktik` | Next.js 14, Supabase, Tailwind | Yes |
 | CC Funnel | `APPS/cc-funnel` | Next.js 14, Supabase, Tailwind | Yes |
 | Shopify Ad Engine | `APPS/shopify-ad-engine` | Remotion 4, React 19, Three.js | Yes |
