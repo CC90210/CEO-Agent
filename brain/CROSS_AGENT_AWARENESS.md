@@ -77,6 +77,29 @@ If CC starts discussing (for example) paid ads with Bravo:
 
 This is the **pass-the-baton** pattern. No agent ever reaches across and writes to another agent's file — they write to their OWN pulse and count on the other to read it.
 
+## Multi-Resident Privacy (Aura-specific)
+
+Aura serves a household with 2+ residents (CC + Adon currently; possibly more over time). Each resident has private life data. Agents must respect resident boundaries:
+
+- **CC's agents** (Bravo, Atlas, Maven) may read `aura_pulse.json`'s
+  `apartment_shared` + `residents.cc.*` sections. The `residents.adon.*`
+  section is opaque by default.
+- **Adon's agent(s)** (his AIOS stack, when he connects) may read
+  `apartment_shared` + `residents.adon.*`. CC's section is opaque to
+  them by default.
+- Only fields each resident explicitly opts into sharing (listed in
+  `aura_pulse.json` under `*_shared_fields`) cross the boundary.
+- **Never ask Aura about the other resident's habits, health, mood,
+  spending, or schedule.** If a question requires that data, tell CC
+  and let CC decide whether to include Adon in the loop.
+- Cross-resident data reads are logged to Supabase `agent_traces` for
+  transparency.
+
+When Adon's AIOS agent joins the shared Supabase DB, its rows will carry
+`resident: 'adon'` alongside `agent: 'adon_<name>'`. CC's agents continue
+tagging `resident: 'cc'`. Rows tagged `resident: 'shared'` are readable
+by any agent (apartment status, utilities, etc.).
+
 ## Conflict Resolution (if two agents hold contradictory state)
 
 Order of precedence:
