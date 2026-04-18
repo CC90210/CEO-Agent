@@ -206,7 +206,40 @@ def is_lock_held() -> bool:
         return False
 
 
+def force_restart_if_requested():
+    """Check for restart sentinel file. If present, kill current daemon and restart."""
+    sentinel = ROOT / "tmp" / "skool_restart_requested"
+    if not sentinel.exists():
+        return False
+    log("Restart sentinel found — forcing daemon restart for code reload")
+    sentinel.unlink(missing_ok=True)
+
+    daemon_pid = get_daemon_pid()
+    if daemon_pid:
+        try:
+            subprocess.run(
+                ["taskkill", "/F", "/PID", str(daemon_pid)],
+                capture_output=True, timeout=10, creationflags=CREATE_NO_WINDOW,
+            )
+            log(f"Force-killed daemon PID {daemon_pid}")
+        except Exception as exc:
+            log(f"Force-kill failed for PID {daemon_pid}: {exc}")
+        import time
+        time.sleep(2)
+
+    PID_FILE.unlink(missing_ok=True)
+    HEARTBEAT_FILE.unlink(missing_ok=True)
+    LOCK_FILE.unlink(missing_ok=True)
+    clean_bytecache()
+    start_daemon()
+    return True
+
+
 def main():
+    # HOT-RELOAD: If a restart sentinel exists, force-kill and restart immediately
+    if force_restart_if_requested():
+        return
+
     # PRE-CHECK: Kill stale zombie processes and wipe bytecache first.
     # A zombie that started >24 hours ago has definitely been running on old code.
     # Do this unconditionally — it's a no-op if no stale processes exist.

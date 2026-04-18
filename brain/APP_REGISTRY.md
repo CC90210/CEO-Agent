@@ -37,6 +37,7 @@ When CC says "fix [app]", "update [app]", "build [feature] in [app]", "debug [ap
 | **AURA** | aura, smart home, apartment | `C:\Users\User\AURA` | — | — | Claude Code agent, ESP32, Home Assistant, Playwright | — |
 | **IG Setter Pro** | ig-setter, ig setter, dm automation, manychat | `C:\Users\User\APPS\ig-setter-pro` | CC90210/ig-setter-pro | Turso (ig-setter-cc90210) | Next.js 14, TypeScript, Turso/libSQL, n8n, Claude API, Tailwind | Vercel (ig-setter-pro.vercel.app) |
 | **Gritly** | gritly, field service, fsm, trades app | `C:\Users\User\APPS\gritly` | (pending) | Turso (libSQL) | Next.js 15, TypeScript, Drizzle ORM, Better Auth, Stripe, Framer Motion | Vercel (pending) |
+| **Hermes** | hermes, lowinger, emmanuel, commerce agent, pos agent | `C:\Users\User\APPS\hermes` | CC90210/hermes (private) | — | Python 3.12, Ollama, SQLite, FastAPI, Playwright | Local (client machine) |
 
 
 ## App Context Files

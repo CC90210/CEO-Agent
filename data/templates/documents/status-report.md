@@ -108,7 +108,7 @@ Items that require a client decision before work can proceed or a decision deadl
 ---
 
 *OASIS AI Solutions — Weekly Project Update*
-*Questions? Reply to this email or book time at [calendar link]*
+*Questions? Reply to this email or book time at https://calendar.app.google/tpfvJYBGircnGu8G8*
 
 ---
 
