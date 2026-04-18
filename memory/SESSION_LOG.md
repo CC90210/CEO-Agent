@@ -2,6 +2,16 @@
 tags: [daily]
 ---
 
+### 2026-04-18 — Hermes v0.1.0 shipped (Emmanuel Lowinger's commerce agent)
+**Change:** Full production build of Hermes — OASIS AI's wholesale commerce agent — for client Emmanuel Lowinger. Scaffolded 31 files (orchestrator, email/POS/phone agents, A2000 4-mode adapter, Ollama-backed PO parser for PDF/Excel/EDI X12 850/text, SQLite storage, demo mode, tests, CI, docs). Reconciled architectural drift between parallel-written modules (module-level imports, POParser class, unified POSAgent signatures). Rebranded "Lowinger AOS" → "Hermes" across 24 files. Renamed folder `C:\Users\User\APPS\lowinger-aos` → `C:\Users\User\APPS\hermes`. Created private GitHub repo CC90210/hermes and pushed 58 files on main. 36/36 tests passing. End-to-end demo runs in ~0.1s in mock mode (PO parsed → A2000 order entered → invoice retrieved → email drafted).
+**Files:** 58 files in C:\Users\User\APPS\hermes — see repo
+**Commit:** ee68887 pushed to origin/main at CC90210/hermes
+
+### 2026-04-15 — PULSE (ig-setter-pro) dashboard pages build
+**Change:** Built 6 new files for PULSE by OASIS: `DashboardNav` shared nav component + 5 dashboard pages (Subscribers, Automations, Broadcasts, Analytics, Settings). All pages connect to existing API routes, match the mint/dark aesthetic, and have full CRUD modals.
+**Files:** `components/DashboardNav.tsx`, `app/subscribers/page.tsx`, `app/automations/page.tsx`, `app/broadcasts/page.tsx`, `app/analytics/page.tsx`, `app/settings/page.tsx`, `app/globals.css` (extended)
+**Commit:** pending — bash fork exhaustion prevented `npm run build` on this machine; CC should run locally
+
 ### 2026-04-12 — Auto-sync
 **Agent:** BRAVO state_sync
 **Note:** Mega session complete: 15+ commits, Skool V2.1, notification pipeline V2, cross-machine sync (SSH+PM2), Mac fully synchronized, security hardening (AnyDesk disabled, Tailscale manual), daily schedule built, notification format V3, CRLF debt cleared, 9/9 cron handlers passing, BOOKING_MEET_LINK set, 5 unused cron jobs disabled, 5 permanent memory files saved. Next session: GitHub rebrand + README + open-source prep.

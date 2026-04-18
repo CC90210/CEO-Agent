@@ -12,6 +12,31 @@ references/Claude_Global_Settings.json
 .claude/mcp.json
 .vscode/mcp.json
 
+# Runtime locks and session state
+.claude/scheduled_tasks.lock
+.claude/*.lock
+.claude/projects/
+.claude/todos/
+
+# Live financial / pulse state (exact MRR figures, client revenue)
+data/pulse/ceo_pulse.json
+data/pulse/*.json
+!data/pulse/README.md
+
+# Credential files (extra defense)
+*credentials*.json
+*credentials*.yaml
+*.pem
+*.key
+id_rsa
+id_ed25519
+*.ppk
+
+# API tokens / keys accidentally saved
+*_token.txt
+*_api_key.txt
+secrets/
+
 # =============================================
 # NODE / PYTHON
 # =============================================
@@ -144,7 +169,7 @@ e2e-screenshots/
 /on-the-hill-*
 /shopify-ad-*
 
-# Security — key and certificate files
+# Security ï¿½ key and certificate files
 *.key
 *.pem
 *.p12
