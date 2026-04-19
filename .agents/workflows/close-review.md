@@ -128,6 +128,6 @@ Bravo: [reads transcript, produces full analysis, logs pattern, proposes a
 ## Obsidian Links
 - [[skills/sales-methodology/SKILL]]
 - [[skills/sales-closing/SKILL]]
-- [[memory/sales_patterns]]
+- [[memory/PATTERNS]]
 - [[memory/PATTERNS]]
 - [[brain/USER]]
