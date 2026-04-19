@@ -286,6 +286,6 @@ If that prints "ALL GREEN" at the end, the Mac is fully synced and operational a
 
 ## Obsidian Links
 - [[brain/CREDENTIALS_SCAFFOLD]]
-- [[scripts/sync-from-github]]
+- sync-from-github
 - [[brain/STATE]]
 - [[brain/CLIENT_READY]]

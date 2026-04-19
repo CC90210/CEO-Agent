@@ -184,6 +184,6 @@ Three losses with the same objection = update this skill. That's the iron law: C
 - [[skills/sales-methodology/SKILL]]
 - [[skills/proposal-generation/SKILL]] *(if exists)*
 - [[skills/client-success/SKILL]]
-- [[memory/feedback_objection_handling]]
+- feedback_objection_handling
 - [[brain/USER]]
 - [[brain/SOUL]]
