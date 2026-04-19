@@ -19,4 +19,4 @@ tags: [apps, context, hub]
 - [[APPS_CONTEXT/OASIS_WORKFLOWS]] — OASIS n8n automation workflows
 
 ## Related Files
-- [[APPS_CONTEXT/GRITLY_MARKET_RESEARCH]] — Gritly competitive landscape research (JSON)
+- GRITLY_MARKET_RESEARCH — Gritly competitive landscape research (JSON)

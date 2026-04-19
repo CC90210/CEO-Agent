@@ -192,4 +192,4 @@ This is future work — the protocol supports it, the implementation is ~60 line
 - [[memory/SESSION_LOG]]
 - [[memory/ACTIVE_TASKS]]
 - [[memory/HANDOFF]]
-- [[memory/ACTIVE_SESSION]]
+- [[memory/SESSION_LOG]]
