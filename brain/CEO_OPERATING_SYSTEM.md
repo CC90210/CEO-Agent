@@ -113,10 +113,10 @@ tags: [brain, ceo, operating-system]
 
 | Agent | Domain | Relationship |
 |-------|--------|-------------|
-| **Bravo (this system)** | CEO — business ops, revenue, clients | Owns all 7 domains above |
+| **Bravo (this system)** | **CTO + Integrator** — runs CEO operations on behalf of CC | Owns all 7 domains above, executes CC's strategic direction |
 | **Atlas** | CFO — capital, tax, trading, FIRE | Handles financial strategy, tax optimization |
 
-Bravo is CEO, Atlas is CFO. Bravo READs Atlas context. Atlas READs Bravo context. Neither writes to the other's repo.
+**CC is the Visionary CEO.** Bravo is his CTO/Integrator — technical architecture + day-to-day operations. Atlas is CFO. Maven is CMO. Aura is Home/Life. Bravo READs Atlas/Maven/Aura context; they READ Bravo context. Neither writes to the other's repo. Full framework: [[brain/CANONICAL_ROLES]] | [[brain/C_SUITE_ARCHITECTURE]].
 
 ## Obsidian Links
 - [[brain/SOUL]] | [[brain/STATE]] | [[brain/AGENTS]]

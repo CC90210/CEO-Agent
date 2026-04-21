@@ -6,6 +6,8 @@ tags: [agents, orchestration]
 
 > **PURPOSE:** Single source of truth for all specialized subagents. Every AI interface (Claude, Gemini, Antigravity) references this file to determine delegation strategy.
 > **RULE:** When a task matches a subagent's domain, adopt that subagent's mindset and principles. For Claude Code, delegate to the actual `agents/*.md` files.
+>
+> **Related:** [[brain/CROSS_AGENT_AWARENESS]] — how Bravo/Atlas/Maven/Aura stay in sync via pulse files. [[brain/HOW_TO_USE_THE_4_AGENTS]] — CC's operating manual ("which agent do I ask when?"). [[brain/AGENT_SELF_IMPROVEMENT_PROMPTS]] — paste-into-IDE prompts to level up sibling agents.
 
 ## Task Routing (Auto-Assignment)
 
@@ -194,7 +196,7 @@ For COMPLEX+ tasks, use SPARC methodology (`skills/sparc-methodology/SKILL.md`).
 - **Purpose:** CC's CFO — tax strategy (CRA T1/T2125/T5013), accounting, stock research, wealth management, compliance, international tax planning.
 - **Capabilities:** 16 skill playbooks, 8 CFO modules (tax, advisor, budget, wealth, accounting, compliance, international, planning), 10 research modules, 59 tax docs (~80K lines), live Telegram bot (PM2).
 - **Pulse:** `data/pulse/cfo_pulse.json` — read by Bravo + Maven (CMO) for spend gates and runway checks.
-- **Relationship to Bravo:** Bravo is CEO (business ops, revenue, clients). Atlas is CFO (capital, tax, research, compliance). They share CC context but do NOT modify each other's files. Atlas READs from Business-Empire-Agent. Bravo READs from CFO-Agent.
+- **Relationship to Bravo:** CC is Visionary CEO. Bravo is CC's CTO/Integrator (business ops, revenue, clients, infrastructure). Atlas is CFO (capital, tax, research, compliance). All three share CC context but do NOT modify each other's files. Atlas READs from Business-Empire-Agent. Bravo READs from CFO-Agent.
 - **Relationship to Maven:** Atlas has veto power on any spend decision. Maven (CMO) checks `cfo_pulse.json` spend gate before committing ad budget.
 - **Routing rule:** Any question about taxes, crypto gains, budgeting, FIRE, registered accounts (TFSA/RRSP/FHSA), stock research, compliance, or financial strategy → defer to Atlas or reference its docs.
 - **Key files:** `brain/USER.md` (CC profile), `brain/CAPABILITIES.md` (auto-generated), `finance/tax.py` (calculator), `research/stock_picker.py` (10-layer research)

@@ -4,8 +4,10 @@ tags: [capabilities, tools]
 
 # CAPABILITIES — Tool & Integration Registry
 
-> Complete inventory of what Bravo can do. Last updated: 2026-04-06.
+> Complete inventory of what Bravo can do. Last updated: 2026-04-21.
 > **Totals: 187 skills · 33 workflows · 47 scripts · 17 agents (16 file-based + 6 native Claude Code) · 5 MCP servers + Codex (external)**
+>
+> **📦 For the shareable GitHub repo catalog (CC's "tool shed" for clients/prospects): see [[brain/TOOL_SHED]]**
 
 ## MCP Servers (By Interface)
 
@@ -213,20 +215,16 @@ On-site RAG for source-grounded chat, podcast generation, and multi-format conte
 **Auth status:** Session expired — CC needs to run `notebooklm login` once in terminal.
 **Skill:** `skills/notebooklm/SKILL.md` — workflows, pipelines, strategic patterns.
 
-## Content Pipeline (4 tools — added 2026-04-04)
-
-Elite video production system. CC films → uploads → Bravo processes everything.
+## Bravo Memory + Intelligence Tools (added 2026-04-04)
 
 | Tool | Script | Purpose | Key Commands |
 |------|--------|---------|-------------|
-| **Content Pipeline** | `../CMO-Agent/scripts/content_pipeline.py` | Master orchestrator — 7-phase video production | `process <video>`, `transcribe`, `caption`, `thumbnail`, `research`, `ideas` |
 | **Codex Image Gen** | `scripts/codex_image_gen.py` | AI image generation via Codex (no extra API keys) | `generate "<prompt>" --style branded`, `styles` |
 | **autoDream** | `scripts/auto_dream.py` | Memory consolidation: Orient → Gather → Consolidate → Prune | `run [--dry-run]`, `status` |
 | **Memory Index** | `scripts/memory_index.py` | 3-layer memory architecture (index → topics → archives) | `build`, `search "<query>"`, `stats` |
 | **Codex Health** | `scripts/codex_health.py` | Full Codex integration health check (grade A-F) | `[--json]` |
 
-**Pipeline:** Film → Whisper word-level → Karaoke captions → FFmpeg encode → Codex images → Thumbnail → Platform captions → Zernio schedule
-**Skill:** `.claude/skills/content-pipeline.md`
+**Content pipeline moved to Maven** — see section above. When CC says "make this a post," route to `C:\Users\User\CMO-Agent`.
 
 ## CEO Operating System (5 CLI tools — added 2026-03-28)
 
@@ -329,6 +327,20 @@ Four entry files at the repo root — one per AI tooling surface. Every agent th
 | CASL | `scripts/casl_compliance.py` | Suppression + footer + RFC 2369/8058 headers. Composed by the gateway. |
 
 Rewired engines (all route through gateway): `outreach_engine`, `outreach_batch`, `email_engine`, `funnel_nurture`, `booking_engine`. See [[skills/send-gateway/SKILL]] for complete contract.
+
+## Agent Governance Scripts (V5.6+)
+
+Scripts that enforce Bravo's coherence, autonomy, and self-correction. Run in-process or on cron. All accept `--json` for agent-readable output.
+
+| Script | Purpose | Usage |
+|---|---|---|
+| `scripts/self_audit.py` | **Self-diagnostic health check.** Scans brain/, memory/, skills/, agents/, scripts/ for orphans, broken wiring, undocumented scripts, MCP config drift. Emits 0-100 health score. | `python scripts/self_audit.py` (human) or `--json` |
+| `scripts/draft_critic.py` | Adversarial second-opinion reviewer. Runs on every Claude-drafted outbound before `send_gateway`. Answers the 2026-04-19 "dumb outreach" complaint. | Called by gateway hook, also `--review <draft>` |
+| `scripts/inbound_classifier.py` | The inbound chokepoint companion to `send_gateway`. Classifies every inbound email/DM into unified `lead_interactions` ledger so no engine re-contacts a replied lead. | Called by engines; `--classify <payload>` |
+| `scripts/autonomous_agent.py` | The always-on reasoning loop. Wakes on schedule or Telegram poke, consults pulse files, picks highest-leverage action, executes, logs. | `python scripts/autonomous_agent.py --once` or daemon mode |
+| `scripts/state_sync.py` | Canonicalizes session state at end of every session. **NON-NEGOTIABLE** per Rule 4. | `python scripts/state_sync.py --note "<1-sentence summary>"` |
+| `scripts/register_skill.py` | Internal admin: adds a new skill directory + SKILL.md frontmatter + INDEX link. | `python scripts/register_skill.py <name> <category>` |
+| `scripts/build_maven_env.py` | One-time setup: seeds Maven's `.env.agents` from Bravo's shared infra credentials. | Run once per Maven bootstrap |
 
 ## Business Ops Database Schema (14 tables — Supabase Bravo)
 
@@ -462,27 +474,20 @@ markdown wiki pages. Deterministic retrieval via `knowledge/index.md` — no emb
 | n8n | n8n-mcp / API | Workflow automation (Full CRUD via Bravo) |
 | Gmail | API / SMTP | Email drafting, research, and approval-based sending |
 | Notion | API | Task tracking, project management, and knowledge base |
-| ElevenLabs | Python SDK | Voice & audio generation (elevenlabs pip package) |
 | Vercel | Git push auto-deploy | Hosting & previews |
 | GoHighLevel | n8n webhooks | CRM for OASIS clients |
 | Twilio | API/n8n | SMS & voice (Nostalgic Requests) |
 | Shopify | Admin UI | FromOasis e-commerce |
 | Telegram | telegram_agent.js (V11.0) | CLI bridge for remote execution — full-context parity, loads CLAUDE.md + brain files. 25 max turns. Start: `npm run telegram` |
 
-## Video Production Pipeline
+## Video Production Pipeline — OWNED BY MAVEN
 
-| Tool | Version | Purpose |
-|------|---------|---------|
-| FFmpeg | 8.0.1 (full build) | Video encoding, overlays, captions, audio normalization |
-| Python | 3.12.10 | Script runtime for edit_content_v2.py |
-| Whisper | openai-whisper | Auto-transcription → SRT captions |
-| ElevenLabs | elevenlabs SDK | Text-to-speech voiceover generation |
-| Remotion | 4.0.436 | Programmatic video/animation generation (37 Claude skills) |
+The full video stack (FFmpeg + Whisper + Remotion + ElevenLabs + content-studio + 37 Remotion skills) lives in the CMO-Agent repo. When CC says "make this a post" with a video, route the task there. Bravo does not own any video production scripts, skills, or agents.
 
-Pipeline script: `../CMO-Agent/scripts/edit_content_v2.py` — probe, transcribe, voiceover, edit
-Remotion Studio: `../CMO-Agent/content-studio/` — React-based video compositions (OasisPromo, QuoteDrop, CeoLog, SobrietyLog)
-Remotion Skills: `../CMO-Agent/content-studio/.claude/rules/remotion/` — 37 rule files for AI-assisted video generation
-Agent: `agents/video-editor.md` (no dedicated workflow — invoke via content pipeline)
+- Repo: `C:\Users\User\CMO-Agent`
+- Pipeline: `../CMO-Agent/scripts/edit_content_v2.py`
+- Studio: `../CMO-Agent/content-studio/`
+- Remotion skills: `../CMO-Agent/content-studio/.claude/rules/remotion/`
 
 ## Orchestration Config (`.agents/config.toml`)
 

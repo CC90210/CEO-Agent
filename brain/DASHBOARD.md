@@ -86,9 +86,6 @@ aliases:
 | Reviewer | Sonnet | [[agents/reviewer]] |
 | Debugger | Sonnet | [[agents/debugger]] |
 | Researcher | Sonnet | [[agents/researcher]] |
-| Content Creator | Sonnet | [[agents/content-creator]] |
-| Social Publisher | Haiku | [[agents/social-publisher]] |
-| Video Editor | Sonnet | [[agents/video-editor]] |
 | Chief of Staff | Sonnet | [[agents/chief-of-staff]] |
 | Git Ops | Haiku | [[agents/git-ops]] |
 | Revenue Hunter | Sonnet | [[agents/revenue-hunter]] |

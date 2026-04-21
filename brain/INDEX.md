@@ -9,6 +9,7 @@ tags: [brain, index]
 
 ## Immutable
 - [[brain/SOUL]] — Identity, values, personality (never modified by agents)
+- [[brain/PERSONALITY]] — How I show up — voice, opinions, quirks, growth edges
 
 ## Semi-Mutable (CC approval required)
 - [[brain/INTERACTION_PROTOCOL]] — Logging, sync, self-improvement governance
@@ -33,3 +34,10 @@ tags: [brain, index]
 
 ## Reference
 - [[brain/USER]] — CC's profile, preferences, financial reality
+- [[brain/AGENT_GAP_AUDIT]] — Cross-agent gap analysis (completeness tracking)
+- [[brain/PRODUCT_VERTICALS]] — Vertical-specific lead-gen + pricing research
+- [[brain/MAC_ANTIGRAVITY_PROMPT]] — Self-contained Mac sync prompt (one-time paste-ready)
+- [[brain/HOW_TO_USE_THE_4_AGENTS]] — CC's operating manual: which agent do I ask when
+- [[brain/CROSS_AGENT_AWARENESS]] — Pulse-file protocol for Bravo/Atlas/Maven/Aura sync
+- [[brain/AGENT_SELF_IMPROVEMENT_PROMPTS]] — Paste-into-IDE prompts to level up sibling agents
+- [[brain/TOOL_SHED]] — Curated shareable GitHub repo catalog (client-facing)

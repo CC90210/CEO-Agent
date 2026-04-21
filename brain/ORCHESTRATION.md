@@ -97,10 +97,10 @@ When the same user request could map to multiple tools:
 |-----------|------------|
 | "Send email" | One-off → `google_tool.py` · Sequence → `email_engine.py` |
 | "Scrape this page" | Interactive/forms → Playwright MCP · Data extraction → `firecrawl_tool.py` |
-| "Post content" | Single post → `late_tool.py` · Full pipeline → `content_pipeline.py` |
+| "Post content" | Single post → `late_tool.py` · Full pipeline → Maven (`../CMO-Agent/scripts/content_pipeline.py`) |
 | "Check revenue" | Quick MRR → `revenue_engine.py` · Full dashboard → `ceo_dashboard.py` |
 | "Search memory" | Structured → markdown files · Fuzzy → `mem0_tool.py` · Graph → Memory MCP |
-| "Transcribe audio" | Full pipeline → `content_pipeline.py` · Audio only → `transcribe.py` or `edit_content_v2.py` |
+| "Transcribe audio" | Quick voice note → `scripts/transcribe.py` · Full video pipeline → Maven (`../CMO-Agent/scripts/content_pipeline.py`) |
 | "Generate image" | AI generation → `codex_image_gen.py` · Cover art → `generate_covers.py` |
 | "Book a meeting" | CC's calendar → `google_tool.py` · Client booking → `booking_engine.py` |
 

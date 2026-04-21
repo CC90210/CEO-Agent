@@ -31,13 +31,12 @@ tags: [reference, tools, routing]
 ### Social Media & Content
 | CC Says | Tool | Command |
 |---------|------|---------|
-| Post to social media | `late_tool.py` | `create --text "..." --account <id>`, `cross-post` |
-| Content calendar / planning | `content_engine.py` | `calendar`, `create`, `week-plan`, `due` |
-| "Make this a post" / content pipeline | `content_pipeline.py` | `process <video>`, `transcribe`, `caption`, `thumbnail` |
-| Repurpose content across platforms | `content_repurposer.py` | Transforms content via Claude API |
+| Post to social media (quick) | `late_tool.py` | `create --text "..." --account <id>`, `cross-post` |
+| "Make this a post" / full video pipeline | **Maven** (`../CMO-Agent/scripts/content_pipeline.py`) | Route to Maven — Bravo does not own video production |
+| Content calendar / brand voice / captions | **Maven** | All copywriting + scheduling + brand voice lives in CMO-Agent |
 | Generate AI images | `codex_image_gen.py` | `generate "<prompt>" --style branded` |
 | Skool community management | `skool_engine.py` | `daemon`, `scan-posts`, `engage-members` |
-| Instagram engagement | `instagram_engine.py` | `daemon`, `check-dms`, `auto-reply` |
+| Instagram engagement (DMs/replies) | `instagram_engine.py` | `daemon`, `check-dms`, `auto-reply` |
 | LinkedIn outreach | `linkedin_cli.py` | `search`, `connect`, `message` |
 
 ### Sales & CRM
@@ -100,7 +99,7 @@ When multiple tools could handle a request, use this precedence:
 
 1. **One-off email** → `google_tool.py` | **Email sequence/template** → `email_engine.py`
 2. **One-off web page** → Playwright MCP | **Data extraction at scale** → `firecrawl_tool.py`
-3. **Quick post** → `late_tool.py` | **Full content pipeline** → `content_pipeline.py`
+3. **Quick post** → `late_tool.py` | **Full content pipeline** → Maven (`../CMO-Agent/scripts/content_pipeline.py`)
 4. **Simple DB query** → `supabase_tool.py` | **Business metrics** → `revenue_engine.py` or `ceo_dashboard.py`
 5. **Structured memory** → markdown files | **Fuzzy recall** → `mem0_tool.py`
 

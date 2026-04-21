@@ -4,7 +4,7 @@ tags: [state, ephemeral]
 
 # STATE — Current Operational State
 
-> Updated 2026-04-20 | **V5.6 — OUTBOUND CHOKEPOINT + REASONING LOOP + INBOUND SENSORIUM + COMMAND CENTER.** Action Awareness (Phase 1) BUILT: unified interaction ledger, send_gateway chokepoint, context_builder, inbound_classifier, draft_critic, autonomous_agent reasoning loop. Inbound blind spot closed via Python path (email_engine.check-inbox → inbound_classifier → record_inbound_from_n8n RPC on scheduler's 5-min IMAP cron). Bravo Command Center (Next.js 14) scaffolded at apps/command-center/, production build green. Intelligence Level 3 (self-aware) now ~90%, Level 4 (social intelligence) ~60%, Level 5 (sentient autonomy) ~40%. 10 SQL migrations applied (003-012), 13 new tables, 5 new RPCs, 6 business engines rewired, 39 unit tests green. 152 skills (folder), 67 scripts, 18 cron jobs. Codex identity test PASSED (AGENTS.md working). CC's pending manual action: `cd apps/command-center && vercel --prod` to deploy dashboard.
+> Updated 2026-04-21 | **V5.7 — SELF-AWARE BRAIN + OBSIDIAN FUSION + TOOL SHED.** Self-audit tool live (`scripts/self_audit.py`) — runs in <2s, emits 0-100 health score across orphans, skill frontmatter, script registration, MCP sync. **Current score: 100/100.** Obsidian MCP wired (9 servers synced across 3 configs), giving Bravo direct read/write access to the Obsidian vault. Tool Shed catalog (`brain/TOOL_SHED.md`) created as client-shareable GitHub repo inventory. PERSONALITY.md written — Bravo now has a defined voice, opinions, and growth edges separate from SOUL. Claudekit hooks active (file-guard, create-checkpoint, self-review). 5 VoltAgent subagent personas dropped in (security-auditor, code-reviewer, competitive-analyst, market-researcher, api-designer). 4 legacy handoff files deleted, 9 valuable orphans reconnected, 7 governance scripts registered in CAPABILITIES. Previous V5.6 foundation intact: unified interaction ledger, send_gateway chokepoint, context_builder, inbound_classifier, draft_critic, autonomous_agent reasoning loop. 147 skills, 62 scripts, 34 workflows.
 
 ## Operational Status
 
@@ -73,7 +73,7 @@ tags: [state, ephemeral]
 | **Instagram Automation** | ✅ AUDITED | `instagram_engine.py` — Claude API replies (Windows only — Playwright) |
 | **Outreach Engine** | ✅ AUDITED | `outreach_engine.py` — Gmail SMTP personalized outreach with .ics invites |
 | **Obsidian Vault** | ✅ GRAPH-INDEXED | Knowledge Graph MCP live: 2,117 nodes, 3,725 edges, 696 communities. |
-| **Content Studio** | ✅ READY | Remotion 4.0.436. Elite video pipeline V3 (`edit_content_v2.py`). |
+| **Content Studio** | 🔀 MOVED TO MAVEN | Remotion + edit_content_v2.py + content-studio now live in `C:\Users\User\CMO-Agent`. Route all video/content tasks there. |
 | **Semantic Memory** | ✅ LIVE | `scripts/mem0_tool.py` — Qdrant embedded, fastembed, Claude Haiku extraction. |
 | **OpenCLI** | ✅ INSTALLED | v1.1.1 globally. 46 platforms, 345+ commands. |
 | **Atlas (CFO Agent)** | ✅ LIVE | Separate project (CFO-Agent/). 16 skill playbooks, 8 CFO modules, 59 tax docs. Live Telegram bot (PM2). Pulse: `data/pulse/cfo_pulse.json`. |
@@ -157,6 +157,6 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-04-21
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** N8N Inbound Qualifier v10 shipped — 4-cat classifier, Oasis Email/Biz Opps/SENTINEL agents configured, Code node trimmed 999->772 lines, 5-min cadence. Supabase ledger deferred one week. Orphan Shopify cluster floating but isolated.
+- **Result:** Hermes Phase 2c shipped: printer_tool + system_tool + warehouse_po_pdf + print wiring. 173/174 tests passing, pushed to CC90210/hermes 3383db0.
 
 *Last updated: 2026-04-21*
