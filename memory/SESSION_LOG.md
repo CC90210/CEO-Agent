@@ -2,6 +2,28 @@
 tags: [daily]
 ---
 
+### 2026-04-21 — Bravo V5.7 deep self-clean + growth features
+**Change:** CC called out move-too-fast behavior + redundant content-seed file + "hundreds of orphans" in Obsidian graph. Ran third-perspective self-audit: deleted 4 legacy files (TOOL_SHED_PLAIN_ENGLISH, HANDOFF, CLAUDE_CODE_HANDOFF, DELEGATION_TO_CLAUDE), reconnected 9 valuable "orphans" via brain/INDEX + brain/AGENTS (HOW_TO_USE_THE_4_AGENTS, CROSS_AGENT_AWARENESS, AGENT_SELF_IMPROVEMENT_PROMPTS, AGENT_GAP_AUDIT, PRODUCT_VERTICALS, MAC_ANTIGRAVITY_PROMPT, TOOL_SHED, close-review workflow, hyperthink workflow). Wrote brain/PERSONALITY.md — Bravo's lived voice, opinions, quirks, growth edges. Built scripts/self_audit.py — automated orphan/wiring/MCP-drift detector with 0-100 health score (runs in <2s). Registered 7 governance scripts in CAPABILITIES.md (self_audit, draft_critic, inbound_classifier, autonomous_agent, state_sync, register_skill, build_maven_env). Created skills/verticals/SKILL.md namespace doc. Confirmed all 3 MCP configs synced with 9 servers including new Obsidian MCP (CC installed Local REST API key).
+**Files:** +3 created (PERSONALITY.md, self_audit.py, verticals/SKILL.md), -4 deleted (legacy handoffs + content seeds), ~12 edited (brain/INDEX, brain/AGENTS, brain/SOUL, brain/STATE, skills/INDEX, workflows/INDEX, CAPABILITIES, 3 MCP configs, 1 wrapper script)
+**Health:** self_audit score went 69 → 100/100 (DEGRADED → HEALTHY). Zero orphans. All skills/scripts registered. All MCP configs synced.
+**Learned:** Orphans ≠ delete-candidates. Default to reconnect. Audit-agent output needs human verification before destructive action (false positives on namespace folders, on same-session additions, on package-style scripts). Content-seeds belong in Maven, not brain/.
+
+### 2026-04-21 — Tool Shed catalog + Claudekit + VoltAgent + Obsidian MCP
+**Change:** Researched + installed cutting-edge Claude Code extension stack. Created brain/TOOL_SHED.md — shareable GitHub repo catalog for clients/prospects (15 CC apps, top 10 Claude Code repos, MCP servers, content pipeline, research patterns). Installed claudekit globally with 3 hooks (file-guard, create-checkpoint, self-review). Cherry-picked 5 VoltAgent subagent personas into agents/voltagent/. Added Obsidian MCP to all 3 configs with wrapper script reading OBSIDIAN_API_KEY from .env.agents. Installed Error Lens + REST Client in Antigravity IDE.
+**Files:** brain/TOOL_SHED.md (new), agents/voltagent/*.md (5 new), scripts/obsidian-mcp-wrapper.cmd (new), .claude/settings.json (claudekit hooks), 3 MCP configs (+obsidian server)
+**Commit:** pending
+
+### 2026-04-21 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Hermes Phase 2c shipped: printer_tool + system_tool + warehouse_po_pdf + print wiring. 173/174 tests passing, pushed to CC90210/hermes 3383db0.
+
+### 2026-04-21 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Bravo/Maven split doc drift cleaned: deleted content-creator/video-editor/social-publisher agents + .claude/skills/content-pipeline.md. Fixed README.md (content production claim, stale script list), CLAUDE.md Rule 8 (removed content/brand from Keep in Bravo), brain/CAPABILITIES.md (video stack reframed as Maven-owned, ElevenLabs removed), agents/INDEX.md, brain/DASHBOARD.md (stale agent rows), ORCHESTRATION.md + QUICK_REFERENCE.md (content routes to Maven), STATE.md (Content Studio marked as moved).
+
+### 2026-04-18 — Hermes IDE layer built (CLAUDE.md, 8 CLI scripts, 8 slash commands, install.ps1)
+**Change:** Full IDE layer scaffolded on CC90210/hermes. CLAUDE.md rewritten as Emmanuel's entry point (Hermes identity, tool routing, session protocol). 8 CLI scripts in scripts/ (report, po, pos, email, invoice, customer, quote, chargeback, health, state_sync, setup_db). 8 slash commands in .claude/commands/. brain/EMMANUEL.md + STATE.md + QUICK_REFERENCE.md + 6 memory files + install.ps1 one-shot Windows installer. 141 tests passing, 0 regressions. Committed edc87c7.
+
 ### 2026-04-21 — Hermes v0.2.0 production-grade audit + IDE Hermes design + meeting plan
 **Change:** Deep audit found 23 issues (4 P0 ship-stoppers, 8 P1 production risks, 7 security findings, 10 critical test-coverage gaps). All P0+P1+security fixes landed on CC90210/hermes: send_invoice signature crash, IMAP mark_seen for duplicate-order prevention, per-order retry counter (replacing broken global counter), real IMAP NOOP health check, async Ollama (no event-loop blocking), datetime.utcnow deprecation, SMTP timeout, header/HTML injection sanitization, 10MB attachment cap, 0-byte PDF guard, mode-specific config validation, EDI ISA control number collision, async deprecations. Test count 36→58 (+22 new tests). Designed IDE Hermes layer (docs/IDE_HERMES_DESIGN.md, 285 lines) — Emmanuel gets Claude Code with Hermes identity, two-layer one-brain architecture, SQLite as integration point. Wrote Emmanuel meeting plan (docs/MEETING_PLAN.md, ~2,100 words). Privatized BEA repo (was PUBLIC with MRR data). Hardened both repos: gitignore, GitHub Dependabot, detect-secrets baselines (0 real secrets).
 **Files:** Hermes — 12 source, 4 new docs, 3 new test files; BEA — .gitignore + baseline + 5 modified scripts
@@ -872,3 +894,9 @@ tags: [daily]
 **Change:** Built the full Gritly marketing website (13 pages + Navbar/Footer/cn utility) — homepage with Framer Motion scroll animations, pricing with monthly/annual toggle, features deep-dive, 14-industry grid with dynamic [slug] pages, migration guide, and about page. Also fixed 4 pre-existing TypeScript/build errors in auth, dashboard, and database types.
 **Files:** src/app/(marketing)/*, src/components/marketing/*, src/lib/utils/cn.ts, src/lib/types/database.ts, src/app/(auth)/login/page.tsx, src/app/(auth)/onboarding/[step]/page.tsx, src/app/(dashboard)/dash/page.tsx
 **Commit:** d7c1ce8 pushed to origin/master
+
+
+### 2026-04-18 — Hermes code change
+**Change:** Rewrote BUILD_PLAN.md, DISCOVERY_QUESTIONS.md, MEETING_PLAN.md to reflect full Walgreens compliance scope ($50K-$150K/yr chargeback exposure); scaffolded 8 new adapter modules (edi_855_ack, edi_856_asn, edi_820_remit, gs1_128_label, matrix_expander, contract_price, credit_check, chargeback_tracker) with full docstrings and NotImplementedError bodies; updated brain/CAPABILITIES.md and brain/HERMES.md.
+**Files:** adapters/edi_855_ack.py, adapters/edi_856_asn.py, adapters/edi_820_remit.py, adapters/gs1_128_label.py, adapters/matrix_expander.py, adapters/contract_price.py, adapters/credit_check.py, adapters/chargeback_tracker.py, docs/BUILD_PLAN.md, docs/DISCOVERY_QUESTIONS.md, docs/MEETING_PLAN.md, brain/CAPABILITIES.md, brain/HERMES.md
+**Commit:** 405dfc4

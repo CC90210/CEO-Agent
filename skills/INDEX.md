@@ -2,7 +2,7 @@
 tags: [skills, index, hub]
 ---
 
-# Skills Index — 149 Specialized Capabilities
+# Skills Index — 147 Specialized Capabilities
 
 > Central hub for all Bravo skills. Each skill is a reusable protocol loaded on-demand.
 > [[brain/CAPABILITIES]] | [[brain/AGENTS]] | [[brain/DASHBOARD]]
@@ -51,6 +51,7 @@ tags: [skills, index, hub]
 ## Content & Outreach
 - [[skills/telegram-demo-workflows/SKILL]] — 5 content-ready Telegram demo sequences for filming
 - [[skills/revenue-operations/SKILL]] — Revenue pipeline
+- [[skills/send-gateway/SKILL]] — **The single outbound chokepoint** for every email/DM/outbound message. Enforces CASL compliance, cooldowns, daily caps, cross-engine idempotency. Every autonomous send goes through `scripts/send_gateway.py`.
 
 ## Business Operations
 - [[skills/proposal-generation/SKILL]] — Client proposals and SOWs

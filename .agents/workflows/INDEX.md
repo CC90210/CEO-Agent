@@ -2,7 +2,7 @@
 tags: [workflows, index, hub]
 ---
 
-# Workflows Index — 32 Automated Pipelines
+# Workflows Index — 34 Automated Pipelines
 
 > Workflow files define slash-command triggers and step-by-step execution plans.
 > [[brain/CAPABILITIES]] | [[brain/AGENTS]] | [[brain/CEO_OPERATING_SYSTEM]]
@@ -10,9 +10,11 @@ tags: [workflows, index, hub]
 ## Core Development
 - [[.agents/workflows/commit]] — Smart conventional commits
 - [[.agents/workflows/review]] — Pre-ship code review
+- [[.agents/workflows/close-review]] — Close out an open code review after fixes
 - [[.agents/workflows/ship]] — Full shipping pipeline
 - [[.agents/workflows/debug]] — Systematic debugging
 - [[.agents/workflows/prime]] — Full context load
+- [[.agents/workflows/hyperthink]] — Maximum-depth reasoning (LATS + Reflexion + 7 phases) for architectural/irreversible decisions
 
 ## Planning & Execution
 - [[.agents/workflows/create-prd]] — Product requirement docs

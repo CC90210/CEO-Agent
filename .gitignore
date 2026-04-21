@@ -143,6 +143,9 @@ e2e-screenshots/
 # Obsidian plugin binaries (only manifests + data tracked)
 .obsidian/plugins/*/main.js
 .obsidian/plugins/*/styles.css
+# CRITICAL: plugin data.json files contain API keys + private TLS certs — never commit
+.obsidian/plugins/*/data.json
+.obsidian/plugins/obsidian-local-rest-api/
 
 # =============================================
 # STRAY APP ARTIFACTS (RULE 7 enforcement)
