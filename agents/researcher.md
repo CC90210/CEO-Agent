@@ -4,10 +4,11 @@ description: "MUST BE USED for competitive analysis, market research, trend iden
 model: sonnet
 tools:
   - Read
-  - Write
-  - Glob
   - Grep
+  - Glob
   - Bash
+  - WebSearch
+  - WebFetch
   - mcp__playwright
 tags: [agent]
 ---

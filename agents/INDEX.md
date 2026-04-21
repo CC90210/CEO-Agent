@@ -35,6 +35,9 @@ From [VoltAgent/awesome-claude-code-subagents](https://github.com/VoltAgent/awes
 - [[agents/voltagent/market-researcher]] — Market sizing, TAM/SAM/SOM, trend analysis (Sonnet)
 - [[agents/voltagent/api-designer]] — REST/GraphQL API contracts + OpenAPI specs (Sonnet)
 
+## Quality Gate (Claude Code Native)
+- [[.claude/agents/validator]] — Haiku validator. Scores sub-agent outputs against success criteria. Catches hallucinated claims, silent failures, scope violations before results reach CC. Fire after every parallel spawn or Codex file-modifying task. Closes Anthropic's Observability-Evaluation Gap.
+
 ## External
 - [[agents/codex-agent]] — OpenAI Codex executor (backend, debugging, adversarial review). Verbatim output to CC.
 - See [[skills/codex-delegation/SKILL]] for routing matrix

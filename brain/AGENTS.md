@@ -184,7 +184,16 @@ For COMPLEX+ tasks, use SPARC methodology (`skills/sparc-methodology/SKILL.md`).
 - **Key upgrades:** Mandatory overlap check with % calculation. Full 7-section template required on all generated agents. PROBATIONARY → VALIDATED lifecycle enforced.
 - **Principles:** Check AGENTS.md first. >50% overlap = enhance existing. Tag all generated agents `[PROBATIONARY]`. All 7 sections required.
 
-### 17. Codex Agent (External AI Executor)
+### 17.5 Validator (Silent-Failure Detector — NEW 2026-04-21)
+- **Model Tier:** Haiku (fast, deterministic, cheap)
+- **File:** `.claude/agents/validator.md` (Claude Code native — spawned via Task tool)
+- **Purpose:** Post-execution quality gate for any multi-agent or high-risk operation. Scores sub-agent outputs against success criteria; catches hallucinated claims, silent failures, and scope violations BEFORE results reach CC. Closes Anthropic's named "Observability-Evaluation Gap" (arXiv:2604.14228).
+- **Key upgrades:** Structured claim verification (VERIFIED/REFUTED/UNVERIFIABLE). Scope violation detection. Test re-run with exit-code diffing. Three-tier verdict (APPROVE ≥85 / WARN 70-84 / REJECT <70). Recommendation string for orchestrator.
+- **Principles:** READ-ONLY. Never spawn sub-agents. Never invent success criteria. Max 2-min runtime. Output-schema-only response (no narration).
+- **When to fire:** after every parallel spawn, every Codex file-modifying task, every risk-3 or blast_radius-3 operation.
+- **Originating lesson:** session 2026-04-21, orphan-audit returned 3 false-positive claims. Bravo caught them via manual verification. Validator codifies that verification step.
+
+### 18. Codex Agent (External AI Executor)
 - **Model Tier:** External (OpenAI GPT-5.4 via Codex CLI)
 - **File:** [[agents/codex-agent]]
 - **Purpose:** Backend-heavy implementation, deep debugging, adversarial code review, and parallel task execution via OpenAI's Codex runtime.
