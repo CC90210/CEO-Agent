@@ -7,12 +7,16 @@ tags: [agents, orchestration]
 > **PURPOSE:** Single source of truth for all specialized subagents. Every AI interface (Claude, Gemini, Antigravity) references this file to determine delegation strategy.
 > **RULE:** When a task matches a subagent's domain, adopt that subagent's mindset and principles. For Claude Code, delegate to the actual `agents/*.md` files.
 >
-> **Related:** [[brain/CROSS_AGENT_AWARENESS]] — how Bravo/Atlas/Maven/Aura stay in sync via pulse files. [[brain/HOW_TO_USE_THE_4_AGENTS]] — CC's operating manual ("which agent do I ask when?"). [[brain/AGENT_SELF_IMPROVEMENT_PROMPTS]] — paste-into-IDE prompts to level up sibling agents.
+> **Read first for any non-trivial delegation:** [[brain/ORCHESTRATION#PART 1 — DELEGATION & ORCHESTRATION PROTOCOL (V5.7, 2026-04-21)]] — risk-weighted routing score, layer selection matrix (agents/ vs .claude/agents/ vs voltagent/ vs Codex), handoff contract, result schema, Validator pattern, per-domain verification contracts, 3-tier model routing (Haiku/Sonnet/Opus).
+>
+> **Related:** [[brain/CROSS_AGENT_AWARENESS]] — how Bravo/Atlas/Maven/Aura stay in sync via pulse files. [[brain/HOW_TO_USE_THE_4_AGENTS]] — CC's operating manual. [[brain/AGENT_SELF_IMPROVEMENT_PROMPTS]] — paste-into-IDE prompts to level up sibling agents.
 
 ## Task Routing (Auto-Assignment)
 
 **All non-trivial tasks are routed automatically** via the task routing skill (`skills/task-routing/SKILL.md`).
-Config: `.agents/config.toml` [routing] section. The router classifies complexity and assigns agents.
+Config: `.agents/config.toml` [routing] section.
+
+**⚠ V5.7 update (2026-04-21):** file-count tiering below is the LEGACY classifier. The primary decision is now **risk-weighted routing** per [[brain/ORCHESTRATION#Risk-Weighted Routing (replaces file-count tiering)]] — a 1-file irreversible Stripe edit is higher risk than a 10-file CSS cleanup. Use the risk-weighted score to decide reviewer/Codex/CC-approval gates; use the file-count tier below only as a secondary sanity check on team size.
 
 | Complexity | Agent Assignment | Approval |
 |-----------|-----------------|----------|
