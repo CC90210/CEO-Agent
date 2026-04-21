@@ -201,6 +201,19 @@ Full Google ecosystem via `scripts/google_tool.py`. Auth: GWS CLI keyring (auto-
 
 **Not yet authorized (need `gws auth login --scopes ...`):** Meet API (meeting management), YouTube Data API, People/Contacts, Forms, Chat, Keep, Classroom.
 
+### Markdown → Google Doc Export
+
+`scripts/md_to_gdoc.py` — thin wrapper that converts any `brain/*.md` (or any markdown file) to a styled Google Doc. Strips YAML frontmatter, renders tables/code/blockquotes with inline CSS, calls `google_tool.py docs create`.
+
+| Command | Effect |
+|---------|--------|
+| `python scripts/md_to_gdoc.py brain/TOOL_SHED.md` | Creates Doc titled from first H1 |
+| `python scripts/md_to_gdoc.py brain/X.md --title "Custom Title"` | Custom title |
+| `python scripts/md_to_gdoc.py brain/X.md --folder <drive-id>` | Place in specific Drive folder |
+| `python scripts/md_to_gdoc.py brain/X.md --json` | Agent-readable `{id, name, url}` |
+
+Use when CC asks for a shareable version of any brain/ or memory/ doc. Docs are private by default — use `google_tool.py drive share` to share with specific emails.
+
 ## NotebookLM (1 CLI tool — deep research RAG)
 
 On-site RAG for source-grounded chat, podcast generation, and multi-format content. Auth: browser session (`~/.notebooklm/storage_state.json`).
