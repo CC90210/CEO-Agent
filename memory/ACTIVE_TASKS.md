@@ -8,6 +8,18 @@ tags: [tasks, active]
 - **Current:** ~$2,982 USD/mo | **Gap:** ~$2,018 USD/mo (~4-5 new clients)
 - **Risk:** 94% revenue from Bennett — diversification is #1 priority
 
+## 🎯 CONSULTING RETAINER PITCH — Alejandro Andrade (2026-04-21)
+- **Owner:** CC (text draft ready, awaiting send)
+- **Scope:** Associate / consultant access — Google Meets when he needs, async availability, repo + cloud reviews. NOT agency-retainer, NOT weekly-guaranteed deliverables.
+- **Pricing:** **$450/mo minimum** · non-negotiable
+- **Context:** $1,500 one-off already paid — that covered the Tool Shed + AIOS Roadmap (his to keep forever). Retainer is separate, for ongoing access.
+- **Deadline for his reply:** **Wednesday 2026-04-23**
+- **On YES:** Stripe subscription link for $450/mo within 1 hour. First Google Meet scheduled when he asks.
+- **On NO / silent:** 30-day watch. **Re-check 2026-05-21.** Do NOT chase. Hold price line if he counter-offers below $450.
+- **Pending blocker:** CC to send me Alejandro's email so I can share the 3 Google Docs (Tool Shed, Client Playbook, Benchmark/AIOS Roadmap) via `google_tool.py drive share`.
+- **Full context:** [[memory/project_alejandro_andrade]] (auto-memory)
+- **Risk flag:** He framed Claude Code as "leaked info from Anthropic enterprise" in the meeting. If retainer signs, early check-in to align tech framing so it doesn't reflect on CC.
+
 ## 🎯 HIGH-PRIORITY WARM LEAD — Basque Landscaping (2026-04-20)
 - **Owner:** Jonathan Hutton · `(705) 539-0547`
 - **Status:** `qualified` · **Score:** 75
