@@ -2,6 +2,7 @@
 name: gws-gmail-send
 version: 1.0.0
 description: "Gmail: Send an email."
+disable-model-invocation: true
 metadata:
   openclaw:
     category: "productivity"

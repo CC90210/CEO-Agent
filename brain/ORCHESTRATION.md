@@ -176,7 +176,7 @@ Bravo's mitigations for this gap:
 
 Anthropic's explicit position (from Claude Code Best Practices, 2026): *"If your CLAUDE.md is too long, Claude ignores half of it. Every line must pass the test: 'Would removing this cause Claude to make mistakes?'"*
 
-Current Bravo CLAUDE.md: ~140 lines. **Approaching the instruction-loss threshold.** When adding to CLAUDE.md, enforce the test. Move skill-specific or domain-specific knowledge to skills/ (loaded on demand per Agent Skills protocol).
+Current Bravo CLAUDE.md: **120 lines (verified 2026-04-21)** — safely under the 150-line instruction-loss threshold. When adding to CLAUDE.md, enforce the test. Move skill-specific or domain-specific knowledge to skills/ (loaded on demand per Agent Skills protocol).
 
 **Five-layer context compaction pipeline** (loaded transparently by Claude Code when context pressure rises):
 1. Budget reduction (truncate old tool results)
@@ -196,7 +196,18 @@ This was previously conflated across `brain/AGENTS.md` and `agents/INDEX.md`. Th
 
 **Rule:** if the task needs information → Skill. If the task needs execution + returns a report → Sub-agent.
 
-**Destructive skills must now carry `disable-model-invocation: true`** in their frontmatter so they only fire on explicit `/skill-name` invocation, not semantic match. Candidates for this flag in Bravo's stack: `send-gateway`, `stripe-ops`, `supabase-writes`, any `/ship`-class skill. (Sweep pending — track in ACTIVE_TASKS.)
+**Destructive skills carry `disable-model-invocation: true`** in their frontmatter so they only fire on explicit `/skill-name` invocation, not semantic match.
+
+**Flagged as of 2026-04-21 (sweep complete):**
+- `skills/send-gateway/SKILL.md` — outbound email/DM chokepoint
+- `skills/ship/SKILL.md` — full deployment pipeline
+- `skills/gws-gmail-send/SKILL.md` — Gmail send
+- `skills/gws-gmail-reply/SKILL.md` — Gmail reply (sends)
+- `skills/gws-gmail-reply-all/SKILL.md` — Gmail reply-all (sends)
+- `skills/gws-chat-send/SKILL.md` — Google Chat send
+- `skills/skool-automation/SKILL.md` — community content edits
+
+**Rule for future skills:** any skill that mutates external state (sends, posts, publishes, pays, deploys, writes to a production DB) MUST have the flag. Read-only knowledge skills (e.g., `supabase-patterns` for SQL guidance) do NOT need the flag.
 
 ## 3-Tier Model Routing (wshobson/agents pattern)
 

@@ -4,6 +4,7 @@ description: Manage Skool community content (lessons, about page, courses) using
 triggers: [Skool, lesson, classroom, community, Tiptap, course, Skool edit]
 tier: specialized
 dependencies: [browser-automation]
+disable-model-invocation: true
 ---
 
 # Skool Automation — Community Content Management

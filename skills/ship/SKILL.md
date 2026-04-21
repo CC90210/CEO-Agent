@@ -4,6 +4,7 @@ description: Full deployment pipeline for any app in the registry. Use when CC s
 triggers: [ship, deploy, push live, release, go live, ship it]
 tier: standard
 dependencies: [verification-before-completion, code-review, finishing-a-development-branch]
+disable-model-invocation: true
 ---
 
 # Ship — Full Deployment Pipeline
