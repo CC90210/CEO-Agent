@@ -2,7 +2,7 @@
 tags: [skills, index, hub]
 ---
 
-# Skills Index — 147 Specialized Capabilities
+# Skills Index — 146 Specialized Capabilities
 
 > Central hub for all Bravo skills. Each skill is a reusable protocol loaded on-demand.
 > [[brain/CAPABILITIES]] | [[brain/AGENTS]] | [[brain/DASHBOARD]]
@@ -38,6 +38,7 @@ tags: [skills, index, hub]
 - [[skills/self-healing/SKILL]] — System health recovery
 - [[skills/heartbeat/SKILL]] — Proactive monitoring heartbeat
 - [[skills/ai-integration/SKILL]] — AI service integration patterns
+- [[skills/agent-inbox/SKILL]] — **Async agent-to-agent messaging** (mcp_agent_mail pattern). Codex posts task-complete → Bravo picks up on next checkpoint. Replaces polling. Backed by `scripts/agent_inbox.py`.
 
 ## Memory & Knowledge
 - [[skills/memory-management/SKILL]] — Memory cleanup and budgets

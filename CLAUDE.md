@@ -109,7 +109,7 @@ Pattern: `skills/[skill-name]/SKILL.md`. Key skills: `systematic-debugging`, `se
 
 ## Session Protocol
 
-During: self-improvement runs continuously (Rule 9). MODERATE+ tasks: generate 2-3 hypotheses, rank, execute best. See `brain/BRAIN_LOOP.md`. Before ending: **run `python scripts/state_sync.py --note "[1-sentence summary of what changed]"` — this is NON-NEGOTIABLE.** Then update `ACTIVE_TASKS.md` → Reflexion if tasks failed → `git commit -m "bravo: sync — session YYYY-MM-DD"` → say "Memory synced."
+On start: run `python scripts/agent_inbox.py list --to bravo` — surface any urgent/high messages from Codex/Atlas/Maven/Aura before new work. During: self-improvement runs continuously (Rule 9). MODERATE+ tasks: generate 2-3 hypotheses, rank, execute best. See `brain/BRAIN_LOOP.md`. After any parallel sub-agent spawn or Codex file-modifying task: spawn `validator` via Task tool before surfacing to CC (closes Observability-Evaluation Gap — see @brain/ORCHESTRATION.md §Validator). Before ending: **run `python scripts/state_sync.py --note "[1-sentence summary]"` — NON-NEGOTIABLE.** Then update `ACTIVE_TASKS.md` → Reflexion if tasks failed → `git commit -m "bravo: sync — session YYYY-MM-DD"` → say "Memory synced."
 
 ## MCP vs CLI Status
 
