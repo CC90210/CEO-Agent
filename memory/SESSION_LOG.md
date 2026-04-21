@@ -2,6 +2,81 @@
 tags: [daily]
 ---
 
+### 2026-04-21 — Hermes v0.2.0 production-grade audit + IDE Hermes design + meeting plan
+**Change:** Deep audit found 23 issues (4 P0 ship-stoppers, 8 P1 production risks, 7 security findings, 10 critical test-coverage gaps). All P0+P1+security fixes landed on CC90210/hermes: send_invoice signature crash, IMAP mark_seen for duplicate-order prevention, per-order retry counter (replacing broken global counter), real IMAP NOOP health check, async Ollama (no event-loop blocking), datetime.utcnow deprecation, SMTP timeout, header/HTML injection sanitization, 10MB attachment cap, 0-byte PDF guard, mode-specific config validation, EDI ISA control number collision, async deprecations. Test count 36→58 (+22 new tests). Designed IDE Hermes layer (docs/IDE_HERMES_DESIGN.md, 285 lines) — Emmanuel gets Claude Code with Hermes identity, two-layer one-brain architecture, SQLite as integration point. Wrote Emmanuel meeting plan (docs/MEETING_PLAN.md, ~2,100 words). Privatized BEA repo (was PUBLIC with MRR data). Hardened both repos: gitignore, GitHub Dependabot, detect-secrets baselines (0 real secrets).
+**Files:** Hermes — 12 source, 4 new docs, 3 new test files; BEA — .gitignore + baseline + 5 modified scripts
+**Commit:** Hermes 65eb0c4 (3 commits today), BEA dd332ff (5 commits today)
+
+### 2026-04-21 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** N8N Inbound Qualifier v10 shipped — 4-cat classifier, Oasis Email/Biz Opps/SENTINEL agents configured, Code node trimmed 999->772 lines, 5-min cadence. Supabase ledger deferred one week. Orphan Shopify cluster floating but isolated.
+
+### 2026-04-20 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Python->N8N responsibility handoff started 2026-04-20 PM: disabled Lead Follow-up Check + Email Inbox Monitor crons (Python no longer owns inbound or followup reminders). N8N on Hostinger cloud now owns both. Produced docs/N8N_v10_REFINEMENT.md — 8-step manual click plan for CC to refine the Inbound Qualifier (delete Shopify, simplify classifier to 6 categories with Unsubscribe, rewrite OASIS Email Agent + Business Opportunities Agent system prompts production-grade, SENTINEL cleanup with Gmail expense labels, add Supabase Log to Bravo Ledger node so dashboard sees classified inbound, kill unused Internal & Operations). Pending Bravo action: create add_email_suppression RPC + email_suppressions Supabase table on CC's say-so.
+
+### 2026-04-20 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Afternoon sales extension: Tremont Cafe callback (Emon) -> qualified + post-call email sent. Iron Skillet Collingwood email corrected to collingwood@theironskillet.ca (was wrongly the Wasaga address) + post-call email sent (cooldown override legit since first send to correct address). Warm-revival batch #2 fired (10 more sends, all OK — 20 total today). Call sheet v2 generated with validation (franchise + bad-area-code + dead-notes filters, same-day dedup). Pipeline: contacted=164, qualified=3 (Basque+Tremont+Cedarwood), lost=19, new=13.
+
+### 2026-04-20 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** 2026-04-20 sales session complete. 10 warm-revival emails sent via gateway (1 replacement after CC's test account filtered + suppressed). 10 cold calls executed by CC — ONE WARM QUALIFIED LEAD: Basque Landscaping (Jonathan Hutton), interested in custom software build, 15-yr exit-value angle landed, next_followup 2026-04-26. Cleaned 3 bad leads from CRM (Wasaga Brewing permanently closed, Rooted Chiro bad data/US-based, Anytime Fitness franchise no-fit). Logged VM/no-answer calls for Collingwood Charters, Peak Living, Tremont Cafe. goldstorm2003@gmail.com permanently suppressed in CASL list. New memory: feedback_verify_leads_before_calls.md — need to build pre-call lead validation before next cold-call session.
+
+### 2026-04-20 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Agent Dashboard LIVE on Vercel: https://agent-dashboard-cc90210.vercel.app. Scope=cc90210 personal, Vercel SSO deployment protection ON (CC auths once), both Supabase env vars set, all 6 pages built as serverless functions. Playbook saved to memory/reference_vercel_deploy.md so future sessions don't re-stumble on OIDC-token + CI=1 + nextjs-framework pins.
+
+### 2026-04-20 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** V5.6 EXTENDED: (1) Codex identity test PASSED — identifies as 'Codex, operating as the backend executor in CC's Business-Empire-Agent' per AGENTS.md. (2) N8N inbound blind spot closed via PYTHON route instead of editing 68-node AI workflow via SDK: email_engine.check-inbox now calls inbound_classifier + record_inbound_from_n8n RPC on every IMAP poll; N8N workflow untouched (keeps handling auto-reply logic). (3) Bravo Command Center shipped — Next.js 14 app at apps/command-center/ with 6 pages (Today, Decisions, Inbound, Outbound, Leads, Agents), OASIS-brand dark+gold theme, server-side Supabase queries, production build green (87 kB shared bundle, all pages force-dynamic). CC pending: npm i -g vercel && cd apps/command-center && vercel login && vercel link && vercel --prod. 39 tests green, every Python file parses clean.
+
+### 2026-04-20 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** V5.6 finalized (deep diagnostic + cleanup): 39 tests green, all 13 new tables + 5 RPCs verified in production, contract_generator rewired closing last gateway bypass, 2 invalid skill frontmatter files fixed (computer-control, skool-automation), orphan registry row deactivated (content-creation), bare except clauses in scrape_maps_emails fixed, GEMINI.md + ANTIGRAVITY.md + AGENTS.md cross-reference sync per Rule 4, casl_compliance docstring updated, STATE.md Active Infrastructure table now lists 9 V5.6 components. CC manual action pending: N8N Supabase node paste-in per docs/N8N_INBOUND_INTEGRATION.md (~3 min). Deferred by CC: Vercel dashboard, full skill-library registration (138 folder skills not yet in registry).
+
+### 2026-04-20 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** V5.6 FINALIZED 2026-04-20. Session complete: 7 builds (V5.6 chokepoint, reasoning loop, AGENTS.md, N8N RPC, Playbook, skill scaffold) + 2 bug sweeps (8 total issues fixed) + expanded test suite (17 -> 39 tests). 14 new files at root (8 Python, 6 SQL migrations 003-012, 3 docs AGENTS.md PLAYBOOK.md N8N_INBOUND), 5 engines rewired to gateway, contract_generator rewired (closed last bypass), gateway extended with PDF attachment support. Deferred: Vercel dashboard (by CC request), contract_generator bypass had been outstanding now fixed, pre-existing skill-library drift surfaced by audit (144 folder / 7 registry / 121 not in docs) but not auto-fixed per scope discipline. Next session pick-up: CC wires N8N inbound node (docs/N8N_INBOUND_INTEGRATION.md), Vercel dashboard v1, reply classifier graduation from keyword to Haiku in context_builder.
+
+### 2026-04-20 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Bug sweep 2026-04-20: fixed 4 issues in V5.6 + reasoning-loop stack — (1) critic key-name mismatch (final_verdict not verdict) that was silently bypassing draft_critic escalation; (2) mark_dormant was setting status='lost' instead of preserving 'contacted' + dormancy note; (3) detect_due_followups touch count included inbound rows, tightened to email_sent only; (4) email_engine.send_email_smtp converted to hard-fail deprecation shim, dead imports removed. Flagged for follow-on: contract_generator/generator.py:226 smtplib bypass. 17 tests green, live dry-run tick clean.
+
+### 2026-04-20 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** V5.6 foundation ONLINE. Migration 003 applied (cooldown_until, agent_source, metadata on lead_interactions, 4 indexes). Migration 004 applied (exec_sql RPC — permanent fix, future migrations use never-expiring service_role path). apply_migration.py rewired to prefer RPC, PAT now fallback only. Live E2E probe confirmed gateway writes all 3 new columns correctly. 17 tests green.
+
+### 2026-04-20 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** V5.6 outbound chokepoint built: send_gateway.py (CASL+cooldown+cap+multi-brand+.ics) + context_builder.py (stage/sentiment/persona prompt) + migration 003 (cooldown_until+agent_source+metadata on lead_interactions) + 5 engines rewired (outreach_engine, outreach_batch, email_engine, funnel_nurture, booking_engine) + 17 tests green. CASL bypass closed across email_engine/funnel_nurture/booking_engine. Migration 003 authored+applier built, apply pending Supabase token rotation.
+
+### 2026-04-20 — Intelligence Audit: 8 Critical Gaps Identified + Claude Code Handoff
+**Agent:** BRAVO via Antigravity (Claude Opus 4.6 Thinking)
+**Trigger:** CC deep audit request — "why does the AI miscalculate its work?" + "tell Claude Code what you did"
+
+**Audit completed:**
+- Full file structure cross-reference (brain/, memory/, scripts/, skills/, agents/, .agents/, data/, supabase/)
+- Read 15+ critical files: ARCHITECTURE.md, STATE.md, BRAIN_LOOP.md, telegram_agent.js, email_engine.py, outreach_engine.py, funnel_nurture.py, cron_engine.py, scheduler.py, HEARTBEAT.md, ORCHESTRATION.md, SOUL.md, ecosystem.config.js
+- Mapped all 60 scripts, 152 skills, 17 agents, 35 workflows, 28 Supabase tables
+- Verified N8N workflows: 52 total, 11 active — confirmed CC's inbound agent is `OASIS Inbound Qualifier (Bravo Aware)` (ID: 1cGIN32alM8sf8OV), a 68-node N8N workflow (NOT a Gmail script)
+
+**8 critical gaps identified preventing autonomous intelligence:**
+1. **No Action Ledger** — agents don't check what they've already done before acting
+2. **No Agent State Persistence** — every cron/Telegram execution is stateless
+3. **No Interaction Context Engine** — no per-lead communication history available at send time
+4. **No Idempotency Protocol** — direct cause of duplicate emails
+5. **No Persona Engine** — single template, no adaptive tone/style
+6. **No Action Rate Limiter** — no per-entity cooldowns
+7. **No Conversational Intelligence** — no reply sentiment/intent analysis
+8. **No Daemon-Mode Brain Loop** — Brain Loop only runs in IDE, not in scheduler/cron
+
+**Intelligence level assessment:** Level 1-2 (reactive + structured automation) at 90-95%. Level 3-5 (self-aware → sentient autonomy) at ~15%.
+
+**Files updated:** brain/STATE.md, memory/ACTIVE_TASKS.md (Sentient Autonomy Buildout section added), memory/SESSION_LOG.md
+**Artifact:** `bravo_intelligence_audit.md` — full report with mermaid diagrams, gap analysis, root cause flowchart, 3-phase roadmap
+**Handoff:** `CLAUDE_CODE_HANDOFF.md` created for Claude Code delegation — Phase 1 Action Awareness build + full file structure upgrade
+
 ### 2026-04-20 — Auto-sync
 **Agent:** BRAVO state_sync
 **Note:** brain/PRODUCT_VERTICALS.md written — 6-section research doc covering template architecture, canonical agent frameworks, 6 vertical packs, lead management, marketing research, and product pricing for Business in a Box
