@@ -20,7 +20,7 @@ This system replaced a team. It handles:
 - **Lead capture and nurturing** -- funnel form submissions trigger instant Telegram alerts, automated welcome emails, and a Day 2 / Day 5 follow-up sequence. All fail-closed with 40 unit tests.
 - **Community management** -- a Skool automation engine that replies to posts AND comments, detects when a member needs the founder's personal attention (crisis, hot leads, direct mentions), and escalates via Telegram instead of auto-replying. Crash-safe state persistence so a Playwright failure never causes a public double-reply.
 - **Revenue tracking** -- Stripe sync, MRR calculation, client health scoring, pipeline reviews, and CEO briefings. All on scheduled cron jobs.
-- **Content production** -- raw phone video goes in, word-level captioned and branded video comes out. FFmpeg 8 + Whisper + Remotion 4.
+- **Inbound email triage** -- N8N workflow classifies every inbound Gmail into 4 categories (Client Tech Support / Business Opportunities / Financial & Legal / Low Priority) and hands off to the matching sub-agent for reply, labeling, or Telegram escalation.
 - **Cross-machine orchestration** -- Windows desktop is the production server. MacBook is a cold-standby node. SSH passwordless control, PM2 process management, git-based session handoff protocol. One machine runs daemons, the other reads and edits. Never both.
 - **Self-improvement** -- every session generates patterns, mistakes, and reflections. Patterns get tagged [PROBATIONARY] and promoted to [VALIDATED] after 3 successful uses. The system literally gets smarter over time.
 
@@ -63,7 +63,6 @@ Business-Empire-Agent/
 |   |-- hyperthink/              # Maximum-depth multi-hypothesis reasoning protocol
 |   |-- sales-closing/           # LAER objection loop + 6 close techniques
 |   |-- ethical-hacking/         # Authorized pentest methodology + secure-by-default coding
-|   |-- content-engine/          # Platform-optimized content with CC's voice calibration
 |   |-- skool-automation/        # Community management (V2.1 comment-tier + escalation)
 |   +-- [147 more]
 |
@@ -73,7 +72,6 @@ Business-Empire-Agent/
 |   |-- revenue_engine.py        # MRR tracking, Stripe sync, forecasting
 |   |-- funnel_sync.py           # CRM bridge with fast-poll mode (60s alert latency)
 |   |-- funnel_nurture.py        # Day 2 / Day 5 email sequences with CASL compliance
-|   |-- content_pipeline.py      # Raw video to captioned, branded, multi-platform output
 |   |-- notify.py                # Human-readable Telegram alerts (V3 format)
 |   |-- email_engine.py          # Gmail SMTP + IMAP with poison UID quarantine
 |   |-- lead_engine.py           # CRM: scoring, pipeline, follow-ups
@@ -157,8 +155,7 @@ Every script follows the same pattern: read `.env.agents` for credentials, accep
 | Revenue and Finance | `revenue_engine.py`, `stripe_tool.py`, `financial_model.py`, `ceo_dashboard.py` | MRR tracking, Stripe sync, forecasting, CEO briefings |
 | Sales and CRM | `lead_engine.py`, `client_health.py`, `proposal_generator.py`, `competitive_intel.py` | Lead scoring, pipeline, health reports, battlecards |
 | Email and Outreach | `email_engine.py`, `funnel_nurture.py`, `funnel_sync.py`, `outreach_engine.py` | Gmail SMTP/IMAP, nurture sequences, CRM bridge |
-| Content and Media | `content_pipeline.py`, `content_engine.py`, `edit_content_v2.py`, `render_video.py` | Video production, content calendar, Remotion rendering |
-| Platform Automation | `skool_engine.py`, `instagram_engine.py`, `linkedin_cli.py`, `late_tool.py` | Community management, social publishing |
+| Community Management | `skool_engine.py` | Skool community daemon (2,600 lines, V2.1) |
 | Infrastructure | `supabase_tool.py`, `n8n_tool.py`, `google_tool.py`, `firecrawl_tool.py` | Database, workflows, Google Workspace, web scraping |
 | System | `scheduler.py`, `notify.py`, `cron_engine.py`, `cost_tracker.py`, `mem0_tool.py` | Cron orchestration, alerts, cost tracking, semantic memory |
 

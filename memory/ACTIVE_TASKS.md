@@ -8,6 +8,40 @@ tags: [tasks, active]
 - **Current:** ~$2,982 USD/mo | **Gap:** ~$2,018 USD/mo (~4-5 new clients)
 - **Risk:** 94% revenue from Bennett — diversification is #1 priority
 
+## 🎯 HIGH-PRIORITY WARM LEAD — Basque Landscaping (2026-04-20)
+- **Owner:** Jonathan Hutton · `(705) 539-0547`
+- **Status:** `qualified` · **Score:** 75
+- **Deal shape:** **Custom software build** (Gritly-style — he owns the software, tailored to his use cases). Not a retainer — one-time + maintenance.
+- **Angle that landed:** 15-year exit value — custom software asset makes the business sell for significantly more when he exits.
+- **Timeline:** He said "3 weeks busy" — CC shortened to 1 week follow-up. **next_followup_at = 2026-04-26**
+- **Next action:** CC rings back 2026-04-26 (or sooner if an opening appears). Goal: book the 15-min Zoom walkthrough. Compress the pitch.
+- **Keep him warm meantime:** one-touch LinkedIn view + maybe one content piece about custom-software-as-asset if CC wants to subtly land it in his feed.
+- **Why it matters:** First real qualified lead outside Bennett in weeks. This is the diversification play.
+
+## CC Manual Action Required
+
+## CC Manual Action Required
+- [x] **Deploy command center to Vercel** — DONE 2026-04-20. Live at https://agent-dashboard-cc90210.vercel.app (Vercel SSO-gated — CC logs in once, dashboard loads). Deploy playbook saved to memory/reference_vercel_deploy.md.
+
+## 🔨 N8N Inbound Qualifier V10 Refinement — roadmap (2026-04-20 PM)
+> CC's direction: move all inbound + follow-up reminders OFF Python (machine isn't 24/7) and ONTO N8N (Hostinger cloud, 24/7). Already done: disabled `Lead Follow-up Check` + `Email Inbox Monitor` crons. All future inbound work lives in N8N.
+
+**Full 8-step click-by-click plan at:** `docs/N8N_v10_REFINEMENT.md` (~15 min of clicks in the N8N UI)
+
+Pending CC execution in N8N:
+- [ ] Step 1: delete Shopify branch (Oasis Chat Agent + 8 tool nodes)
+- [ ] Step 2: paste new Classifier system prompt (6 categories now, Products dropped, Unsubscribe added)
+- [ ] Step 3: paste new OASIS Email Agent prompt (production-grade tech support)
+- [ ] Step 4: paste new Business Opportunities Agent prompt (lead convo + booking link)
+- [ ] Step 5: SENTINEL cleanup (remove Research Agent + Perplexity + Google Sheets; add Gmail "Business Expenses" / "Legal" / "Atlas/Review" labels)
+- [ ] Step 6: add ONE Supabase `Log to Bravo Ledger` node (calls `record_inbound_from_n8n` RPC → dashboard sees every classified email)
+- [ ] Step 7: add 4-node Unsubscribe chain (STOP replies auto-suppress via Supabase)
+- [ ] Step 8: delete Internal & Operations Agent (unused — no team members)
+
+Bravo-side pending:
+- [ ] Create `add_email_suppression` Supabase RPC + `email_suppressions` table (needed for Step 7) — ready to ship on CC's say-so
+- [ ] **(Optional) Wire N8N Supabase node** into workflow `OASIS Inbound Qualifier (Bravo Aware)` (ID `1cGIN32alM8sf8OV`) — NO LONGER REQUIRED as of 2026-04-20. The Python path (`email_engine.py check-inbox` now calls `inbound_classifier` + `record_inbound_from_n8n` RPC automatically via scheduler's 5-min IMAP poll) closes the blind spot. Wiring the N8N node would add redundancy; skip unless CC wants dual-path coverage. Paste-in config preserved at [docs/N8N_INBOUND_INTEGRATION.md](../docs/N8N_INBOUND_INTEGRATION.md).
+
 ## P0 — Revenue
 - [ ] **Content Engine daily** — Kona Makana inbound funnel. 1 long-form/day through Remotion pipeline + 5 cross-posts. Zernio free plan limit (20/mo) hit — upgrade or cut.
 - [ ] **Cold outreach volume** — 20+ touches/day via semi-auto loop. Deploy `skills/sales-closing` on every reply.
@@ -124,4 +158,43 @@ tags: [tasks, active]
 - [ ] Spend gate flow end-to-end test
 - [ ] Routing test: marketing → Maven, not Bravo
 
-*Last updated: 2026-04-18*
+*Last updated: 2026-04-20*
+
+## Sentient Autonomy Buildout (2026-04-20)
+> From intelligence audit: 8 critical gaps preventing autonomous agent intelligence.
+> Audit artifact: `artifacts/bravo_intelligence_audit.md`
+
+### Phase 1: Action Awareness — **BUILT + REARCHITECTED 2026-04-20**
+Decision: extended the existing `lead_interactions` table instead of creating a new `agent_actions` table (three engines already wrote there — adding a second ledger would deepen fragmentation). `scripts/send_gateway.py` replaces the proposed `action_guard.py` and enforces idempotency **architecturally** — callers can't bypass it because the smtplib call lives inside the gateway and nowhere else.
+
+- [x] SQL migration 003 `database/003_unified_interaction_ledger.sql` — adds cooldown_until, agent_source, metadata + 4 indexes to lead_interactions
+- [x] `scripts/send_gateway.py` — single outbound chokepoint (CASL + cooldown + daily cap + multi-brand + .ics attachments + 3-way logging)
+- [x] `scripts/context_builder.py` — relationship stage + sentiment + prompt composition for persona engine
+- [x] `scripts/apply_migration.py` — Management API migration runner
+- [x] Rewire outreach_engine → gateway
+- [x] Rewire outreach_batch → gateway
+- [x] Rewire email_engine (cmd_send + cmd_send_template + cmd_sequence_run) → gateway
+- [x] Rewire funnel_nurture → gateway
+- [x] Rewire booking_engine (confirmation + reminder, transactional intent) → gateway
+- [x] CASL bypass closed in email_engine.cmd_send + funnel_nurture.send_email + booking_engine paths
+- [x] 17 tests green (golden, suppression, transactional bypass, cooldown, daily cap, dry-run, validation, SMTP failure, brand, auto-create, stage inference, sentiment, prompt composition)
+- [x] Per-channel cooldown config (email 72h, IG 48h, LinkedIn 72h, phone 168h)
+- [x] Daily caps (email 50, IG 30, LinkedIn 20, phone 15)
+- [x] Multi-brand identity (oasis, kona_makana, nostalgic) — drives CASL footer
+- [x] `skills/send-gateway/SKILL.md` — full caller contract
+- [x] CAPABILITIES.md + QUICK_REFERENCE.md + ARCHITECTURE.md updated to V5.6
+- [ ] **Apply migration 003** — requires CC to rotate SUPABASE_ACCESS_TOKEN (current token expired) OR paste the SQL into Supabase Dashboard SQL editor. Migration is purely additive, safe to apply mid-traffic. Until applied, gateway runs in degraded-compatibility mode (falls back to legacy schema, logs a warning).
+
+### Phase 2: Interaction Intelligence — partially unlocked by Phase 1
+- [x] Unified interaction ledger (replaces the proposed interaction_timeline)
+- [ ] Wire email inbox check (IMAP) to lead_interactions with type=email_received
+- [ ] Build reply classifier (Claude Haiku sentiment/intent) — replaces context_builder's keyword classifier
+- [ ] Build persona engine skill files (cold/contacted/warm/engaged/dormant/active_client)
+- [ ] Wire persona prompt composer into outreach_batch Claude Haiku draft call
+
+### Phase 3: Autonomous Reasoning — PLANNED
+- [ ] Build daemon brain loop (`scripts/autonomous_agent.py tick`) — portable state machine cron + Telegram both invoke
+- [ ] Wire Telegram `/tick` command to autonomous reasoning loop
+- [ ] Add N8N Supabase-write node to OASIS Inbound Qualifier (closes the fifth-writer blind spot)
+- [ ] Build autonomous decision engine ("should I contact this lead?") consuming context_builder output
+

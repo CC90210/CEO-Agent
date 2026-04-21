@@ -13,27 +13,18 @@ Usage:
 import argparse
 import json
 import os
-import smtplib
 import sys
 import uuid
 from datetime import datetime, timedelta, timezone
-from email import encoders
-from email.mime.base import MIMEBase
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-# CASL compliance is MANDATORY for all outbound cold email from a Canadian
-# business. Do not bypass. See scripts/casl_compliance.py for details.
+# All outbound now goes through send_gateway (2026-04-20 rewire). CASL,
+# suppression, cooldown, daily cap, and ledger logging are enforced there
+# architecturally — this engine only assembles business-specific copy.
 _SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
-from casl_compliance import (  # noqa: E402
-    should_suppress,
-    build_casl_footer,
-    add_list_unsubscribe_headers,
-)
 
 
 # -- Credentials ---------------------------------------------------------------
@@ -178,86 +169,70 @@ def send_outreach(
     meeting_duration_min=30,
     dry_run=False,
     custom_subject=None,
-    custom_body=None
+    custom_body=None,
+    lead_id=None,
 ):
+    """Personalized cold outreach with .ics calendar invite.
+
+    REWIRED 2026-04-20 — physical send, CASL enforcement, List-Unsubscribe
+    headers, suppression check, cooldown check, daily cap, and ledger logging
+    are ALL handled by send_gateway. This function now only assembles
+    business-specific copy and delegates.
+
+    Return shape preserved for legacy callers (cmd_send): keys `status`,
+    `to`, `meet_link`, `meeting_time`, optional `error` / `reason`.
     """
-    Full outreach pipeline:
-    1. CASL suppression check (hard stop if listed)
-    2. Generate Meet link
-    3. Build personalized email + CASL footer
-    4. Generate .ics calendar invite
-    5. Send email with invite attached + List-Unsubscribe headers
-    """
-    # CASL hard-stop: never send to a suppressed address. Returns early with
-    # a non-error status so callers can log + move on without raising.
-    if should_suppress(lead_email):
-        return {
-            "status": "suppressed",
-            "to": lead_email,
-            "error": "Email is on the CASL suppression list — send aborted.",
-        }
+    from send_gateway import send as gateway_send  # local import to avoid cycles
 
     gmail_user = os.environ.get("GMAIL_USER", "conaugh@oasisai.work")
-    gmail_app_password = os.environ.get("GMAIL_APP_PASSWORD")
-    if not gmail_app_password:
-        raise ValueError("GMAIL_APP_PASSWORD not set. Load from .env.agents.")
-
     meet_link = generate_meet_link()
-    if custom_body:
-        email_body = custom_body
-    else:
-        email_body = build_email_body(
-            lead_name, business_name, business_type, meet_link, meeting_datetime
-        )
-    # CASL footer — sender name, business address, unsubscribe link. Mandatory.
-    email_body = email_body + build_casl_footer(lead_email)
+
+    email_body = custom_body if custom_body else build_email_body(
+        lead_name, business_name, business_type, meet_link, meeting_datetime
+    )
 
     ics_content = generate_ics(
         lead_name, lead_email, meeting_datetime, meeting_duration_min,
-        meet_link, gmail_user
+        meet_link, gmail_user,
     )
 
-    subject = custom_subject if custom_subject else f"{business_name} - Save 10+ Hours/Week with AI Automation"
+    subject = (custom_subject if custom_subject
+               else f"{business_name} - Save 10+ Hours/Week with AI Automation")
 
-    msg = MIMEMultipart("mixed")
-    msg["Subject"] = subject
-    msg["From"] = f"OASIS AI Solutions <{gmail_user}>"
-    msg["To"] = lead_email
-    # RFC 2369/8058 headers — gives Gmail/Outlook native unsubscribe button
-    # and is a CAN-SPAM requirement as of Feb 2024.
-    add_list_unsubscribe_headers(msg, lead_email)
-
-    msg.attach(MIMEText(email_body, "plain"))
-
-    ics_part = MIMEBase("text", "calendar", method="REQUEST")
-    ics_part.set_payload(ics_content.encode("utf-8"))
-    encoders.encode_base64(ics_part)
-    ics_part.add_header(
-        "Content-Disposition", "attachment", filename="meeting.ics"
-    )
-    msg.attach(ics_part)
-
-    if dry_run:
-        print(f"[DRY RUN] Would send to: {lead_email}")
-        print(f"[DRY RUN] Subject: {subject}")
-        print(f"[DRY RUN] Meet link: {meet_link}")
-        print(f"[DRY RUN] Body:\n{email_body}")
-        return {"status": "dry_run", "to": lead_email, "meet_link": meet_link}
-
-    try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-            smtp.login(gmail_user, gmail_app_password)
-            smtp.send_message(msg)
-        return {
-            "status": "sent",
-            "to": lead_email,
+    gw = gateway_send(
+        channel="email",
+        agent_source="outreach_engine",
+        to_email=lead_email,
+        lead_id=lead_id,
+        subject=subject,
+        body_text=email_body,
+        brand="oasis",
+        intent="commercial",
+        ics_content=ics_content,
+        ics_filename="meeting.ics",
+        metadata={
             "meet_link": meet_link,
-            "meeting_time": meeting_datetime,
-        }
-    except smtplib.SMTPAuthenticationError as e:
-        return {"status": "error", "error": f"SMTP authentication failed — check GMAIL_APP_PASSWORD in .env.agents: {e}"}
-    except Exception as e:
-        return {"status": "error", "error": str(e)}
+            "meeting_datetime": meeting_datetime,
+            "meeting_duration_min": meeting_duration_min,
+            "business_name": business_name,
+            "business_type": business_type,
+        },
+        dry_run=dry_run,
+    )
+
+    # Translate gateway result into the legacy shape cmd_send expects.
+    status = gw.get("status", "error")
+    base: dict = {"status": status, "to": lead_email, "meet_link": meet_link}
+    if status == "sent":
+        base["meeting_time"] = meeting_datetime
+        base["interaction_id"] = gw.get("interaction_id")
+    elif status == "dry_run":
+        base["reason"] = gw.get("reason", "dry_run")
+    elif status in {"blocked", "suppressed"}:
+        base["error"] = gw.get("reason", status)
+    else:  # error
+        base["error"] = gw.get("reason", "unknown gateway error")
+    return base
 
 
 # -- Formatting helpers --------------------------------------------------------
@@ -318,22 +293,11 @@ def cmd_send(db, args, output_json):
         dry_run=getattr(args, "dry_run", False),
         custom_subject=getattr(args, "subject", None),
         custom_body=getattr(args, "body", None),
+        lead_id=args.lead_id,
     )
 
-    # Log to email_log table if the send was real (not a dry run)
-    if result.get("status") == "sent":
-        try:
-            email_body = result.get("body", "")
-            db.table("email_log").insert({
-                "to_email": lead_email,
-                "subject": f"{business_name} - Save 10+ Hours/Week with AI Automation",
-                "status": "sent",
-                "lead_id": args.lead_id,
-                "sent_at": datetime.now(timezone.utc).isoformat(),
-                "body_preview": email_body[:200] if email_body else "",
-            }).execute()
-        except Exception as e:
-            print(f"Warning: could not write to email_log: {e}", file=sys.stderr)
+    # send_gateway handles email_log + lead_interactions + leads.last_contacted_at.
+    # No per-caller logging needed — that was the whole point of the rewire.
 
     if output_json:
         print(json.dumps(result, indent=2, default=str))

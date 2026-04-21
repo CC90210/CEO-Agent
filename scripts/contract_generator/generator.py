@@ -1,11 +1,9 @@
 import os
-import io
+import sys
 import time
-import smtplib
-from email.message import EmailMessage
-import mimetypes
 import stripe
 import argparse
+from pathlib import Path
 from dotenv import load_dotenv
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -14,6 +12,16 @@ from reportlab.lib import colors
 
 # Load env vars
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env.agents'))
+
+# Physical send lives in the V5.6 chokepoint (scripts/send_gateway.py).
+# Rewired 2026-04-20 — onboarding emails are TRANSACTIONAL mail (client
+# just paid / agreed), so intent='transactional' bypasses suppression
+# while still adding CASL footer + List-Unsubscribe and writing to the
+# unified ledger. Before this rewire, onboarding emails were a gateway
+# bypass and skipped legal hygiene.
+_SCRIPTS_DIR = Path(__file__).resolve().parent.parent
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
 
 stripe.api_key = os.getenv("STRIPE_RESTRICTED_KEY") or os.getenv("STRIPE_SECRET_KEY")
 
@@ -178,18 +186,15 @@ class InvoiceContractGenerator:
         doc.build(elements)
 
     def send_email_with_documents(self, client_name: str, client_email: str, invoice_path: str, contract_path: str, payment_link: str):
-        gmail_user = os.environ.get("GMAIL_USER", "conaugh@oasisai.work")
-        gmail_pw = os.environ.get("GMAIL_APP_PASSWORD")
-        
-        if not gmail_pw:
-            print("GMAIL_APP_PASSWORD not set. Cannot send email.")
-            return
+        """Send onboarding email through the V5.6 send_gateway (rewired 2026-04-20).
 
-        msg = EmailMessage()
-        msg['Subject'] = f"OASIS AI Solutions - Onboarding & Service Agreement for {client_name}"
-        msg['From'] = gmail_user
-        msg['To'] = client_email
-        
+        Treated as intent='transactional' because the client just paid / agreed,
+        so suppression-list check is skipped. CASL footer + List-Unsubscribe
+        headers + lead_interactions ledger write all happen inside the gateway.
+        """
+        from send_gateway import send as gateway_send
+
+        subject = f"OASIS AI Solutions - Onboarding & Service Agreement for {client_name}"
         body = f"""Welcome to OASIS AI Solutions, {client_name}.
 
 We are thrilled to officially partner with you to scale your operations through automation.
@@ -210,25 +215,41 @@ Only good things,
 Conaugh McKenna
 Founder | OASIS AI Solutions
 """
-        msg.set_content(body)
-        
-        # Attach Invoice
-        with open(invoice_path, 'rb') as f:
-            pdf_data = f.read()
-            msg.add_attachment(pdf_data, maintype='application', subtype='pdf', filename=os.path.basename(invoice_path))
-            
-        # Attach Contract
-        with open(contract_path, 'rb') as f:
-            pdf_data = f.read()
-            msg.add_attachment(pdf_data, maintype='application', subtype='pdf', filename=os.path.basename(contract_path))
 
-        try:
-            with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-                smtp.login(gmail_user, gmail_pw)
-                smtp.send_message(msg)
+        # Read PDF attachments into bytes for the gateway.
+        attachments = []
+        for path, label in [(invoice_path, "invoice"), (contract_path, "contract")]:
+            try:
+                with open(path, "rb") as f:
+                    attachments.append({
+                        "filename": os.path.basename(path),
+                        "content": f.read(),
+                        "content_type": "application/pdf",
+                    })
+            except (OSError, IOError) as e:
+                print(f"Warning: could not read {label} PDF at {path}: {e}")
+
+        result = gateway_send(
+            channel="email",
+            agent_source="contract_generator",
+            to_email=client_email,
+            subject=subject,
+            body_text=body,
+            brand="oasis",
+            intent="transactional",
+            attachments=attachments,
+            metadata={
+                "client_name": client_name,
+                "payment_link": payment_link,
+                "invoice_path": invoice_path,
+                "contract_path": contract_path,
+            },
+        )
+
+        if result.get("status") == "sent":
             print(f"✅ Onboarding email sent to {client_email}")
-        except Exception as e:
-            print(f"❌ Failed to send email: {e}")
+        else:
+            print(f"❌ Failed to send email: {result.get('status')} — {result.get('reason')}")
 
 def onboard_client(client_name: str, client_email: str, upfront_amount: int, monthly_amount: int):
     print(f"Starting onboarding for {client_name} ({client_email})...")

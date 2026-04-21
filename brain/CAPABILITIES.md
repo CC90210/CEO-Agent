@@ -109,7 +109,7 @@ Generate agent-native CLI wrappers for any software, API, or service. When MCPs 
 - **Skill:** `skills/cli-anything/SKILL.md` — 7-phase pipeline (analyze → design → implement → test → package → integrate)
 - **Workflow:** `.agents/workflows/cli-anything.md` — `/cli-anything <target>` trigger
 - **Templates:** `scripts/cli_templates/` — reusable Python components (ReplSkin, Backend, setup.py)
-- **Existing CLIs:** `supabase_tool.py`, `stripe_tool.py`, `edit_content_v2.py` (already follow this pattern)
+- **Existing CLIs:** `supabase_tool.py`, `stripe_tool.py` (already follow this pattern)
 - **Based on:** [HKUDS/CLI-Anything](https://github.com/HKUDS/CLI-Anything) methodology
 
 ## OpenCLI (Website-to-CLI Automation)
@@ -305,11 +305,36 @@ The following were added to the Business Operations Engines table above (already
 | `scripts/scheduler.py` | Task scheduling system |
 | `scripts/late_publisher.py` | Late API publishing wrapper |
 
+## Agent Entry Points (V5.6 — 2026-04-20)
+
+Four entry files at the repo root — one per AI tooling surface. Every agent that opens this repo wakes up with the same identity via the shared `brain/` and `memory/` directories. Edit one, sync the others (Rule 4).
+
+| File | Read by | Role of the agent |
+|---|---|---|
+| [CLAUDE.md](../CLAUDE.md) | Claude Code CLI | Bravo — Lead Architect, business ops, memory writes |
+| [GEMINI.md](../GEMINI.md) | Gemini CLI | Fast diagnostics, heartbeat, fallback execution |
+| [ANTIGRAVITY.md](../ANTIGRAVITY.md) | Antigravity IDE (VS Code native) | Infantry / Architect hybrid, primary IDE agent |
+| [AGENTS.md](../AGENTS.md) | **Codex CLI + Codex IDE extension, Cursor, Windsurf** | **Backend executor in the dual-AI pattern** |
+
+## Outbound Communication Architecture (V5.6 — 2026-04-20)
+
+**All autonomous sends route through `scripts/send_gateway.py`.** Direct `smtplib` calls from business engines are a regression and must be reverted in review.
+
+| Layer | File | Role |
+|---|---|---|
+| Gateway | `scripts/send_gateway.py` | Single chokepoint. CASL + cooldown + daily cap + multi-brand + logging. 17 tests green. |
+| Context | `scripts/context_builder.py` | `get_entity_context()` — relationship stage, sentiment, prior interactions. Input for persona-aware LLM drafts. |
+| Migrations | `scripts/apply_migration.py` | Applies `database/*.sql` via Supabase Management API. |
+| Ledger | `lead_interactions` table (+ migration 003: `cooldown_until`, `agent_source`, `metadata`) | Unified cross-engine action log. |
+| CASL | `scripts/casl_compliance.py` | Suppression + footer + RFC 2369/8058 headers. Composed by the gateway. |
+
+Rewired engines (all route through gateway): `outreach_engine`, `outreach_batch`, `email_engine`, `funnel_nurture`, `booking_engine`. See [[skills/send-gateway/SKILL]] for complete contract.
+
 ## Business Ops Database Schema (14 tables — Supabase Bravo)
 
 | Domain | Tables | Purpose |
 |--------|--------|---------|
-| **CRM** | `leads`, `lead_interactions` | Lead tracking, interaction history, scoring |
+| **CRM** | `leads`, `lead_interactions` (extended 2026-04-20 with cooldown_until + agent_source + metadata for unified ledger) | Lead tracking, interaction history, scoring, cross-engine cooldown enforcement |
 | **Funnels** | `funnels`, `funnel_entries` | Conversion funnel tracking |
 | **Email** | `email_templates`, `nurture_sequences`, `email_log` | Email marketing, sequences, delivery tracking |
 | **Bookings** | `booking_slots`, `bookings` | Self-hosted scheduling system |

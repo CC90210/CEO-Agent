@@ -5,12 +5,22 @@ Single source of truth for CASL (Canada's Anti-Spam Legislation) requirements:
 - Working unsubscribe mechanism
 - Suppression list check before every send
 
-Import from outreach_engine.py, outreach_batch.py, email_engine.py, funnel_nurture.py.
+AS OF 2026-04-20 (V5.6 chokepoint era): the only callers that matter are
+`scripts/send_gateway.py` (which applies these to every outbound commercial
+AND transactional send) and `scripts/outreach_batch.py` (which calls
+should_suppress pre-draft so suppressed addresses don't burn Claude Haiku
+tokens on emails that can never be sent). All business engines
+(outreach_engine, email_engine, funnel_nurture, booking_engine,
+contract_generator) delegate physical send to send_gateway — they no
+longer call these functions directly.
+
 Every outgoing commercial email MUST:
   1. Call should_suppress(lead_email) and refuse to send if True
   2. Append build_casl_footer(...) to the email body
+  3. Add List-Unsubscribe + List-Unsubscribe-Post headers (RFC 2369/8058)
 
-Fines for violations are up to $10M per incident for businesses. Do not bypass.
+The gateway enforces #1, #2, and #3 architecturally. Do not bypass.
+Fines for violations are up to $10M per incident for businesses.
 """
 
 import csv
@@ -99,17 +109,19 @@ def build_casl_footer(
     business_name = business_name or os.environ.get("CASL_BUSINESS_NAME", DEFAULT_BUSINESS_NAME)
     business_address = business_address or os.environ.get("CASL_BUSINESS_ADDRESS", DEFAULT_BUSINESS_ADDRESS)
     sender_name = sender_name or os.environ.get("CASL_SENDER_NAME", DEFAULT_SENDER_NAME)
-    unsubscribe_base = unsubscribe_base or os.environ.get("CASL_UNSUBSCRIBE_URL", DEFAULT_UNSUBSCRIBE_BASE)
 
-    from urllib.parse import urlencode
-    unsub_link = f"{unsubscribe_base}?{urlencode({'email': recipient_email})}"
-
+    # 2026-04-20: dropped the https://oasisai.work/unsubscribe link from the
+    # footer — that page didn't exist and CC confirmed it was a dead end.
+    # Reply-STOP is the primary mechanism now; email_engine.check-inbox
+    # auto-suppresses any lead whose inbound classifier flags intent=unsubscribe.
+    # Reply-STOP is CASL-compliant as long as the opt-out is processed within
+    # 10 business days — the auto-suppression handler does this in seconds.
     footer = (
         "\n\n---\n"
         f"{sender_name} — {business_name}\n"
         f"{business_address}\n"
-        f"Unsubscribe: {unsub_link}\n"
-        "Or reply with STOP to opt out within 10 business days.\n"
+        "To opt out, just reply STOP and you will be removed from the list "
+        "within 24 hours (usually within the hour).\n"
     )
     return footer
 
@@ -125,19 +137,16 @@ def build_casl_footer_html(
     business_name = business_name or os.environ.get("CASL_BUSINESS_NAME", DEFAULT_BUSINESS_NAME)
     business_address = business_address or os.environ.get("CASL_BUSINESS_ADDRESS", DEFAULT_BUSINESS_ADDRESS)
     sender_name = sender_name or os.environ.get("CASL_SENDER_NAME", DEFAULT_SENDER_NAME)
-    unsubscribe_base = unsubscribe_base or os.environ.get("CASL_UNSUBSCRIBE_URL", DEFAULT_UNSUBSCRIBE_BASE)
 
-    from urllib.parse import urlencode
     from html import escape
-    unsub_link = f"{unsubscribe_base}?{urlencode({'email': recipient_email})}"
 
     return (
         '<hr style="margin-top:24px;border:none;border-top:1px solid #ddd"/>'
         '<div style="font-size:11px;color:#888;font-family:sans-serif;line-height:1.5">'
         f'{escape(sender_name)} — {escape(business_name)}<br/>'
         f'{escape(business_address)}<br/>'
-        f'<a href="{escape(unsub_link)}" style="color:#888">Unsubscribe</a> '
-        'or reply STOP to opt out within 10 business days.'
+        'To opt out, just reply <strong>STOP</strong> and you will be removed '
+        'from the list within 24 hours (usually within the hour).'
         '</div>'
     )
 
@@ -149,11 +158,19 @@ def add_list_unsubscribe_headers(msg, recipient_email: str) -> None:
     'Unsubscribe' button. Without them, the cold email looks like spam and
     deliverability tanks. With them, recipients get a one-click unsubscribe
     that satisfies both CASL and CAN-SPAM.
+
+    2026-04-20: mailto-only. We removed the https fallback because the
+    https://oasisai.work/unsubscribe page was a 404. The mailto version
+    (List-Unsubscribe-Post one-click) still gives recipients the native
+    Gmail/Outlook "Unsubscribe" button — Gmail sends a pre-filled email
+    to unsubscribe@oasisai.work when they click it, and email_engine.check-inbox
+    auto-suppresses whoever sent it. Simpler + actually works.
     """
-    unsub_base = os.environ.get("CASL_UNSUBSCRIBE_URL", DEFAULT_UNSUBSCRIBE_BASE)
-    from urllib.parse import urlencode
-    unsub_url = f"{unsub_base}?{urlencode({'email': recipient_email})}"
-    msg["List-Unsubscribe"] = f"<mailto:unsubscribe@oasisai.work?subject=unsubscribe>, <{unsub_url}>"
+    gmail_user = os.environ.get("GMAIL_USER") or os.environ.get("GMAIL_ADDRESS") or "conaugh@oasisai.work"
+    # Use conaugh@oasisai.work (the real inbox we monitor) so the mailto
+    # lands somewhere a human actually reads. Subject 'unsubscribe' is the
+    # trigger the classifier watches for.
+    msg["List-Unsubscribe"] = f"<mailto:{gmail_user}?subject=unsubscribe>"
     msg["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
 
 

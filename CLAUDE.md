@@ -51,7 +51,7 @@ All credentials in `.env.agents`. NEVER hardcode secrets. See @skills/security-p
 
 ### RULE 4: Cross-file sync
 
-Changing ANY config/entry point → update ALL files that reference it: MCP configs (`.claude/mcp.json`, `.vscode/mcp.json`, `~/.gemini/settings.json`), entry points (`CLAUDE.md`, `GEMINI.md`, `ANTIGRAVITY.md`, `telegram_agent.js`), docs (`brain/CAPABILITIES.md`, `brain/AGENTS.md`).
+Changing ANY config/entry point → update ALL files that reference it: MCP configs (`.claude/mcp.json`, `.vscode/mcp.json`, `~/.gemini/settings.json`), entry points (`CLAUDE.md`, `GEMINI.md`, `ANTIGRAVITY.md`, `AGENTS.md`, `telegram_agent.js`), docs (`brain/CAPABILITIES.md`, `brain/AGENTS.md`).
 
 ### RULE 5: Verification
 
@@ -67,7 +67,7 @@ CC mentions an app → load @brain/APP_REGISTRY.md → `cd` to LOCAL PATH → ma
 
 ### RULE 8: Codex Dual-AI Delegation (PROACTIVE)
 
-Auto-delegate to Codex (no CC approval): backend implementation, deep debugging with stack traces, pre-ship code review, any "get Codex to..." request. Keep in Bravo: frontend/UI, content, brand voice, business ops, memory/state, simple fixes (< 3 files). Delegate via:
+Auto-delegate to Codex (no CC approval): backend implementation, deep debugging with stack traces, pre-ship code review, any "get Codex to..." request. Keep in Bravo: frontend/UI, business ops, memory/state, simple fixes (< 3 files). Content/brand/ads belong to Maven — route to `C:\Users\User\CMO-Agent`, not here. Delegate to Codex via:
 ```bash
 export CLAUDE_PLUGIN_ROOT="/c/Users/User/.claude/codex-plugin"
 node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" task --write "<context + task>"

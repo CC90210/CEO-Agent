@@ -1,7 +1,35 @@
-# ARCHITECTURE — Business-Empire-Agent V5.5
+# ARCHITECTURE — Business-Empire-Agent V5.6
 
 > This document explains the engineering design of Bravo — not just what it is, but why every decision was made this way.
 > Written for engineers who need to understand the system deeply enough to extend, debug, or rebuild any part of it.
+
+## V5.6 — Outbound Communication Chokepoint (2026-04-20)
+
+Every autonomous outbound action now routes through a single entry point: `scripts/send_gateway.py`. This is the V5.6 headline change.
+
+**Why:** Before V5.6 four Python engines plus the N8N inbound qualifier could contact the same lead on the same day without seeing each other. The audit of 2026-04-19 traced the "AI sends 10 emails in a row" bug to this fragmentation. Idempotency was a library callers had to remember — so they forgot, or each wrote their own.
+
+**How it works:**
+
+1. Every engine imports `from send_gateway import send`.
+2. `send()` enforces four gates in order: CASL suppression (commercial intent only) → active cooldown on (lead, channel) → daily cap per channel → channel-specific physical send.
+3. Every successful send writes to `lead_interactions` (architectural truth with `cooldown_until` + `agent_source` + `metadata`), mirrors to `email_log` (legacy SMTP truth), and bumps `leads.last_contacted_at`.
+4. Failures write to `email_log` with `status='failed'` for forensics.
+5. The return shape is stable: `{"status": sent|blocked|suppressed|dry_run|error, "reason": str, "lead_id", "interaction_id", "cooldown_until", "daily_count"}`. `send()` never raises.
+
+**Architectural contract:** A PR that calls `smtplib.SMTP_SSL()` from a business engine (outreach / funnel / booking / email) must be rejected. The chokepoint is the only path. This rule is what makes the cooldown ledger meaningful — one bypass invalidates the whole guarantee.
+
+**Supporting files:**
+
+- `database/003_unified_interaction_ledger.sql` — adds `cooldown_until`, `agent_source`, `metadata` columns + four indexes to `lead_interactions`. Purely additive, safe to apply mid-traffic.
+- `scripts/apply_migration.py` — Management API runner for SQL migrations.
+- `scripts/context_builder.py` — `get_entity_context(lead_id)` returns relationship stage, sentiment trajectory, and a compose-ready prompt block. Foundation for persona-aware LLM drafts.
+- `scripts/test_send_gateway.py` — 17 tests covering golden, suppression, cooldown, daily cap, dry-run, input validation, SMTP failure, brand identity, auto-create lead, sentiment, stage inference. Must pass before any gateway change ships.
+- `skills/send-gateway/SKILL.md` — full caller contract and extension guide.
+
+**Engines rewired (five):** `outreach_engine`, `outreach_batch`, `email_engine`, `funnel_nurture`, `booking_engine`. Each now delegates physical send + CASL + logging to the gateway; each keeps only its business-specific logic (template rendering, .ics generation, Telegram callback flow).
+
+**Still outside the chokepoint (tracked):** The N8N `OASIS Inbound Qualifier` workflow writes replies directly via Gmail node — closing this is a one-node N8N change (add a Supabase write to `lead_interactions` with `agent_source='n8n_inbound'`). Documented as follow-on work.
 
 ---
 
