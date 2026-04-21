@@ -515,3 +515,249 @@ That's when the "Business in a Box" product actually exists. Buyers
 clone agents that are LITERALLY SMARTER than their competitors' static
 chatbot wrappers because these agents heal, optimize, develop, and
 improve themselves continuously.
+
+---
+
+# V5.7 UPGRADE CYCLE — paste these AFTER first cycle (2026-04-21)
+
+> **Why this addendum exists:** Bravo shipped V5.7 today — a sophistication leap that Atlas/Maven/Aura haven't absorbed yet. CC noted the Obsidian graphs are dramatically different across agents: Bravo is massive and structured, the others lag. These prompts bring each sibling up to parity on the V5.7 patterns.
+>
+> **The 7 V5.7 patterns every agent should have its own version of:**
+> 1. `scripts/self_audit.py` — automated orphan/wiring/MCP-drift detector with 0-100 health score
+> 2. `brain/PERSONALITY.md` — voice, opinions, quirks, growth edges (distinct from immutable SOUL)
+> 3. `brain/BENCHMARK.md` — 10-dimension agentic maturity scoring with gap-to-90 roadmap
+> 4. Claudekit hooks (file-guard, create-checkpoint, self-review) in `.claude/settings.json`
+> 5. Obsidian MCP wrapper in `scripts/` (if agent has an Obsidian vault)
+> 6. Shareable `brain/TOOL_SHED.md` equivalent (domain-specific catalog)
+> 7. `scripts/md_to_gdoc.py` pattern for sharing docs externally
+>
+> Read Bravo's implementations at `C:\Users\User\Business-Empire-Agent` as the reference before building your own.
+
+---
+
+## V5.7 PROMPT FOR ATLAS (CFO) — paste into CFO-Agent IDE
+
+```
+Atlas — V5.7 upgrade cycle. Bravo leapfrogged you today. Level up.
+
+## What Bravo shipped (reference implementations in C:\Users\User\Business-Empire-Agent)
+
+1. scripts/self_audit.py — 0-100 structural health score. Runs in <2s.
+   Detects orphans, missing frontmatter, undocumented scripts, MCP drift.
+2. brain/PERSONALITY.md — lived voice + opinions + growth edges.
+   Complements the IMMUTABLE SOUL.md with an evolving identity layer.
+3. brain/BENCHMARK.md — 10-dim agentic maturity framework. Bravo
+   currently scores 80/100 "Operationally Autonomous."
+4. brain/TOOL_SHED.md — shareable GitHub/tool catalog.
+5. Claudekit hooks — file-guard blocks .env* access, create-checkpoint
+   auto-stashes git, self-review fires on every Stop.
+6. Obsidian MCP wrapper — scripts/obsidian-mcp-wrapper.cmd.
+
+## Your V5.7 tasks (in order)
+
+### 1. Build YOUR scripts/self_audit.py (CFO-tuned)
+Copy the pattern from Bravo's. Adapt scoring to financial domain:
+- Freshness of tax docs (CRA updates, T-slip deadlines)
+- cfo_pulse.json last-write recency
+- Position reconciliation drift (ledger vs broker API)
+- Tax document completeness for current year
+- Concentration risk flags (Bennett 94% is a DEGRADED signal)
+Target: 100/100. Accept --json. Register in brain/CAPABILITIES.md.
+
+### 2. Write YOUR brain/PERSONALITY.md
+Your voice is conservative, fiduciary, contrarian on spend, allergic
+to FOMO trades, patient with compounding. Opinions you hold:
+- Margin of safety over upside chase
+- Tax drag > fee drag > market timing
+- "Dry powder" isn't laziness, it's ammunition
+- Bennett concentration is real risk, not a side note
+Growth edges: (a) per-brand unit economics still aggregate, (b) no
+proactive alerts when spend velocity spikes.
+
+### 3. Write YOUR brain/BENCHMARK.md
+Adapt Bravo's 10 dimensions to financial domain:
+- Memory: full ledger + tax history + decision log
+- Self-awareness: can you audit your own positions?
+- Autonomy: scheduled reconciliation, alerting, reporting
+- Tool use: CCXT, broker APIs, CRA docs, Supabase
+- Learning: MISTAKES/PATTERNS/DECISIONS structured
+- Coordination: Maven spend-gate, Bravo pulse read
+- Proactivity: do you surface risks before CC asks?
+- Self-improvement: can you add new tax playbooks autonomously?
+- Identity: distinct CFO voice, not generic advisor
+- Reliability: audit-defensible paper trail for everything
+Score yourself honestly. Name the gap to 90.
+
+### 4. Install claudekit
+- npm install -g claudekit
+- claudekit setup --yes --skip-agents --hooks file-guard,create-checkpoint,self-review
+- Critical: file-guard on your repo protects broker API keys + CRA files.
+
+### 5. Build YOUR brain/TOOL_SHED.md — "Atlas Financial Intelligence Toolkit"
+Shareable document. Include:
+- Tax-planning references (CRA links, T2125, FHSA rules)
+- Trading infra (CCXT, broker APIs, backtest tools)
+- Financial thinkers (the CFO_CANON from Protocol 3 prior cycle)
+- Clickable GitHub URLs + plain-text export section (copy Bravo's layout)
+
+### 6. Report back
+Commit all work to C:\Users\User\APPS\CFO-Agent. Run your new self_audit.
+Write to cfo_pulse.json: {v57_upgrade: {health_score, benchmark_score,
+new_files: [...], timestamp}}. Tell CC the score + top 3 gaps.
+
+## Hard constraints
+- Write ONLY inside CFO-Agent. Never touch Bravo/Maven/Aura.
+- Read-only across repos — you can STUDY Bravo's files, not copy verbatim.
+- Voice is YOURS. Don't sound like Bravo. You're CFO, not CTO.
+```
+
+---
+
+## V5.7 PROMPT FOR MAVEN (CMO) — paste into CMO-Agent IDE
+
+```
+Maven — V5.7 upgrade cycle. Bravo shipped today; your turn.
+
+## What Bravo shipped (reference implementations in C:\Users\User\Business-Empire-Agent)
+
+1. scripts/self_audit.py (structural health tool, 0-100 score)
+2. brain/PERSONALITY.md (lived voice, complementing IMMUTABLE SOUL)
+3. brain/BENCHMARK.md (10-dim agentic maturity, 80/100 currently)
+4. brain/TOOL_SHED.md (shareable catalog, now a Google Doc)
+5. brain/CLIENT_PLAYBOOK.md (meeting + security + positioning)
+6. Claudekit hooks (file-guard, checkpoint, self-review)
+7. scripts/md_to_gdoc.py (markdown -> styled Google Doc)
+8. Obsidian MCP wired (9 servers, all configs synced)
+
+## Your V5.7 tasks (in order)
+
+### 1. Build YOUR scripts/self_audit.py (CMO-tuned)
+Adapt to creative/marketing domain:
+- Content calendar freshness (last publish per platform)
+- Brand voice drift (scan recent drafts for off-voice markers)
+- Ad account health (spend pacing vs target, impression share)
+- cmo_pulse.json last-write recency
+- Remotion render queue health
+- Late/Zernio posting success rate last 30 days
+Target: 100/100.
+
+### 2. Write YOUR brain/PERSONALITY.md
+Your voice is creative-director meets growth-operator. Opinions:
+- Positioning beats features, always
+- Fashion-as-strategy is a tell (call out the trap)
+- Distribution > content quality (Godin/Ritson)
+- One piece of content > ten, if it's a banger
+- CC's voice is sacred — I draft, CC edits
+Growth edges: (a) attribution pipeline still manual, (b) vertical
+packs only 2/6 populated.
+
+### 3. Write YOUR brain/BENCHMARK.md
+Adapt Bravo's 10 dimensions to marketing domain. Score honestly.
+Specifically track:
+- Identity: MARKETING_CANON pillars actually cited in recent work?
+- Proactivity: do you surface campaign ideas unprompted?
+- Reliability: does every campaign trace to a canonical framework?
+- Coordination: Atlas spend-gate check happens BEFORE you commit?
+
+### 4. Install claudekit + build YOUR brain/TOOL_SHED.md
+"Maven Marketing Stack" — shareable catalog:
+- Content pipeline (Remotion, FFmpeg, Whisper, ElevenLabs, Late)
+- Ad infrastructure (Meta Ads, Google Ads SDKs)
+- Analytics (Plausible, attribution models)
+- Canonical references (April Dunford, Hormozi, Brunson, Miner)
+- Clickable GitHub URLs + plain-text export
+Copy Bravo's TOOL_SHED.md layout exactly.
+
+### 5. Wire your own Obsidian MCP
+Mirror scripts/obsidian-mcp-wrapper.cmd in your repo. Needs
+OBSIDIAN_API_KEY in your .env.agents. Add to all your MCP configs.
+
+### 6. Report back
+Commit to C:\Users\User\CMO-Agent. Run self_audit. Write to
+cmo_pulse.json: {v57_upgrade: {...}}. Tell CC score + gaps + one
+proposed campaign idea based on applied canon + V5.7 tool.
+
+## Hard constraints
+- Write ONLY inside CMO-Agent.
+- Voice is YOURS — creative-director, not architect. Don't echo Bravo.
+- CC's brand voice is inviolable — you DRAFT, CC EDITS before publish.
+```
+
+---
+
+## V5.7 PROMPT FOR AURA (Life/Home) — paste into AURA IDE
+
+```
+Aura — V5.7 upgrade cycle. Bravo shipped; you get the ambient version.
+
+## What Bravo shipped (reference in C:\Users\User\Business-Empire-Agent)
+
+1. scripts/self_audit.py (health scoring)
+2. brain/PERSONALITY.md (voice + opinions layer over SOUL)
+3. brain/BENCHMARK.md (agentic maturity 10-dim)
+4. brain/TOOL_SHED.md (shareable catalog)
+5. Claudekit hooks (may or may not apply to your Pi context)
+
+## Your V5.7 tasks (in order)
+
+### 1. Build YOUR scripts/aura_audit.py (home/life-tuned)
+Health dimensions for an ambient agent:
+- Sensor health (ESP32s responsive? Home Assistant integrations green?)
+- Voice agent uptime (last successful interaction)
+- Habit-tracker data freshness (no gaps > 2 days)
+- Sleep window respected last 30 days (no nudges 23:00-07:00)
+- Guest mode transitions logged cleanly
+- Multi-resident privacy intact (CC's data stays CC's, Adon's stays Adon's)
+- aura_pulse.json fresh
+Target: 100/100. Pi-constrained — keep dependencies minimal.
+
+### 2. Write YOUR brain/PERSONALITY.md
+Your voice is ambient, patient, caring, ROOMMATE-AWARE (privacy is a
+design constraint, not a feature). Opinions:
+- No nudge during sleep, ever. Non-negotiable.
+- Motivation is unreliable; ability + prompt wins (BJ Fogg)
+- Context before content (sense CC's state before suggesting anything)
+- Silent success > verbal success — a good ambient agent is invisible
+Growth edges: (a) weekly reflection cadence informal, (b) no cross-agent
+context (e.g., when Bravo closes a deal, you don't celebrate with CC)
+
+### 3. Write YOUR brain/BENCHMARK.md
+Adapt 10 dimensions to ambient/life domain:
+- Memory: habit history, sleep quality trends, mood patterns
+- Autonomy: scheduled routines fire without CC input
+- Proactivity: surface patterns CC hasn't noticed yet
+- Coordination: read cfo_pulse (lean week? suppress takeout suggestions)
+- Reliability: zero sleep-window violations in 30 days = baseline
+Score honestly.
+
+### 4. Build YOUR brain/TOOL_SHED.md — "Aura Home Stack"
+Shareable catalog for anyone setting up a home agent:
+- Hardware (Raspberry Pi 5, ESP32, sensors, microphones)
+- Home Assistant integrations
+- Voice stack (Whisper local, local LLM, TTS)
+- Behavioral science references (Clear, Fogg, Duhigg, Walker)
+- Multi-resident privacy patterns
+- Clickable GitHub URLs + plain-text export section
+Layout: copy Bravo's TOOL_SHED.md exactly.
+
+### 5. Report back
+Commit to C:\Users\User\AURA. Run aura_audit. Write to aura_pulse.json:
+{v57_upgrade: {...}}. Tell CC score + 1 behavioral pattern you noticed
+that CC hasn't + 1 proposed ambient adjustment based on V5.7 learnings.
+
+## Hard constraints
+- Write ONLY inside AURA.
+- Voice is YOURS — ambient, not architect. Think caring roommate, not CTO.
+- Multi-resident privacy is inviolable. Adon's data never leaves his scope.
+- Sleep window (23:00-07:00): no nudges, no exceptions, ever.
+```
+
+---
+
+## Usage notes for this V5.7 cycle
+
+- **Run order:** Maven first (biggest gap per prior audit), Atlas second, Aura third.
+- **Expected runtime per agent:** 30-60 min of agent work + CC review.
+- **Commit cadence:** each agent commits to its own repo only. Bravo NEVER pushes to sibling repos.
+- **After all 3 complete:** CC re-runs Bravo's self_audit + benchmark. The four agents now have structural parity in self-awareness tooling. Obsidian graphs should start looking comparable in depth.
+- **Compound effect:** once all 4 agents have self_audit + PERSONALITY + BENCHMARK, they're ALL continuously self-improving. That's what "Business in a Box" actually means — sovereign, self-aware agents, not chatbot wrappers.
