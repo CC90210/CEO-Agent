@@ -113,12 +113,46 @@ For any complex multi-agent operation, the flow is 3 phases, not 2:
 3. VALIDATION (Haiku validator subagent, NEW) — scores results against success criteria BEFORE surfacing to CC
 ```
 
-**The Validator is a read-only Haiku agent** that receives:
+**The Validator is a read-only Haiku agent** (`.claude/agents/validator.md`) that receives:
 - The original task success criteria
 - Each sub-agent's Result Schema output
 - The list of changed files
 
 It returns: `validation_score` (0-100) and `failure_reasons[]`. If `validation_score < 70`, Bravo re-runs the failing step before reporting to CC.
+
+### How Bravo Invokes the Validator (MANDATORY after these triggers)
+
+Spawn via Claude Code Task tool with `subagent_type: validator` after:
+1. Any **parallel sub-agent spawn** (2+ agents ran concurrently)
+2. Any **Codex task** that reports changed files (check via `codex-companion.mjs result <id>`)
+3. Any operation scoring **risk=3 or blast_radius=3** per §Risk-Weighted Routing
+4. Before running `/ship`, `/commit`, or any destructive skill
+
+**Example invocation:**
+```
+Task: validator
+Prompt: |
+  Validate the recent parallel orphan-audit + wiring-audit spawn.
+  
+  GOAL: Find orphans and broken wiring in the knowledge graph.
+  SUCCESS CRITERIA: Every flagged orphan has zero inbound links; every
+  flagged missing-script is actually absent from docs.
+  SCOPE: brain/, memory/, skills/, scripts/, agents/
+  
+  Sub-agent result A (orphan audit):
+    findings: ["agents/voltagent/* are orphans (5 files)", ...]
+    changed_files: []
+    confidence: 72
+  
+  Sub-agent result B (wiring audit):
+    findings: ["skills/verticals missing SKILL.md", ...]
+    changed_files: []
+    confidence: 88
+  
+  Score both. Recommend: ship | rerun | escalate.
+```
+
+**Do NOT invoke validator for:** trivial inline work, single-file edits you verified yourself, pure read operations.
 
 **Precedent:** wshobson/agents uses this pattern across 112 agents. Anthropic's own Claude Code Design Space Paper (arXiv:2604.14228) names its absence the "Observability-Evaluation Gap" — the #1 blind spot in typical multi-agent setups.
 
@@ -169,7 +203,7 @@ Anthropic's Claude Code Design Space Paper (arXiv:2604.14228) explicitly calls o
 Bravo's mitigations for this gap:
 1. **Validator subagent** (above) — Haiku reads all sub-agent outputs against criteria
 2. **Result Schema** (above) — every agent must self-report `confidence` + `risks`
-3. **Agent inbox** (future upgrade) — per `mcp_agent_mail` pattern, `tmp/agent_inbox/*.json` lets async agents post findings for Bravo to pick up at checkpoints, replacing blocking polls
+3. **Agent inbox** (SHIPPED 2026-04-21) — `scripts/agent_inbox.py` + `skills/agent-inbox/SKILL.md` + `tmp/agent_inbox/`. Bravo reads the inbox on session start per CLAUDE.md Session Protocol. Codex, Atlas, Maven, Aura all post to the inbox for async coordination. **Integration hook pending:** `codex-companion.mjs` should auto-post a completion message after every background task — currently manual, next session's wiring task.
 4. **MISTAKES.md tag** — when an agent claim turns out wrong (like the orphan-audit false positives in session 2026-04-21), log tagged `agent-hallucination` so patterns surface over time
 
 ## Bravo's Own Context Budget (from Anthropic 2026 docs)
