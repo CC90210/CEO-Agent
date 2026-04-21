@@ -32,6 +32,12 @@ tags: [brain, index]
 - [[brain/STATE]] — Current operational state + known issues
 - [[brain/CHANGELOG]] — Self-modification audit trail
 
+## Client-Facing & Performance
+- [[brain/CLIENT_PLAYBOOK]] — Meeting play-by-play, security playbook, AI industry map, CC's 30-sec intro
+- [[brain/BENCHMARK]] — Agentic maturity score (V5.7: 80/100 "Operationally Autonomous"), 10 dimensions, gap-to-90 roadmap
+- [[brain/TOOL_SHED]] — Shareable GitHub repo catalog with clickable + plain-text URLs
+- [[brain/CANONICAL_ROLES]] — Who does what in CC's 4-agent operating system
+
 ## Reference
 - [[brain/USER]] — CC's profile, preferences, financial reality
 - [[brain/AGENT_GAP_AUDIT]] — Cross-agent gap analysis (completeness tracking)
