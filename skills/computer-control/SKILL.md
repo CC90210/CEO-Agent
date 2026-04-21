@@ -1,4 +1,6 @@
 ---
+name: computer-control
+description: Full desktop autonomy via Telegram — 60+ commands for app control, windows, browser, files, mouse, audio, power. Routes to macOS AppleScript or Windows PowerShell based on platform. Triggered by natural-language intent ("open Chrome", "take a screenshot", "lock my computer").
 tags: [skill]
 ---
 

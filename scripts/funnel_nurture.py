@@ -12,10 +12,7 @@ Usage:
 import os
 import sys
 import json
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Load .env.agents
@@ -27,6 +24,11 @@ if env_path.exists():
             if line and not line.startswith("#") and "=" in line:
                 k, _, v = line.partition("=")
                 os.environ.setdefault(k.strip(), v.strip())
+
+# Physical send + CASL + cooldown + daily cap + ledger logging all live in
+# send_gateway (2026-04-20 rewire). This engine only owns the Day-2/Day-5
+# timing logic + the HTML template bodies.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 
 def get_supabase():
@@ -43,26 +45,41 @@ def get_supabase():
         sys.exit(1)
 
 
-def send_email(to_email: str, subject: str, html: str) -> bool:
-    gmail_user = os.environ.get("GMAIL_USER", "")
-    gmail_pass = os.environ.get("GMAIL_APP_PASSWORD", "")
-    if not gmail_user or not gmail_pass:
-        return False
+def send_email(to_email: str, subject: str, html: str, lead_id: str | None = None) -> bool:
+    """Nurture send (Day 2 / Day 5). REWIRED 2026-04-20 → send_gateway.
 
-    msg = MIMEMultipart("alternative")
-    msg["From"] = f'"Conaugh McKenna" <{gmail_user}>'
-    msg["To"] = to_email
-    msg["Subject"] = subject
-    msg.attach(MIMEText(html, "html"))
+    Gateway handles CASL suppression, footer, List-Unsubscribe, cooldown,
+    daily cap, lead_interactions, email_log mirror. Returns True on send,
+    False on any block / error. The run_nurture loop still updates
+    follow_up_count so downstream display state stays correct.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from send_gateway import send as gateway_send
+    # Generate a text fallback from the HTML for clients that drop HTML.
+    import re
+    text_fallback = re.sub(r"<[^>]+>", " ", html)
+    text_fallback = re.sub(r"\s+", " ", text_fallback).strip()[:4000]
 
-    try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(gmail_user, gmail_pass)
-            server.sendmail(gmail_user, to_email, msg.as_string())
-        return True
-    except Exception as e:
-        print(f"Email send failed to {to_email}: {e}")
+    gw = gateway_send(
+        channel="email",
+        agent_source="funnel_nurture",
+        to_email=to_email,
+        lead_id=lead_id,
+        subject=subject,
+        body_text=text_fallback,
+        body_html=html,
+        brand="oasis",
+        intent="commercial",
+        metadata={"source": "funnel_nurture"},
+    )
+    if gw.get("status") != "sent":
+        print(
+            f"[funnel_nurture] send blocked/failed for {to_email}: "
+            f"{gw.get('status')} — {gw.get('reason')}",
+            file=sys.stderr,
+        )
         return False
+    return True
 
 
 def send_telegram(message: str):
@@ -236,7 +253,7 @@ def run_nurture(as_json: bool = False):
         # between 3.0 and 4.5 which was a dead zone).
         if follow_up_count == 0 and 1.5 <= age_days <= 3.5:
             subject, html = day2_email(name, interests, lead)
-            if send_email(email, subject, html):
+            if send_email(email, subject, html, lead_id=lead.get("id")):
                 sb.table("funnel_leads").update({
                     "follow_up_count": 1,
                     "last_follow_up": now.isoformat(),
@@ -252,7 +269,7 @@ def run_nurture(as_json: bool = False):
         # gate ensures a lead doesn't receive both on the same run.
         elif follow_up_count == 1 and 3.5 <= age_days <= 7:
             subject, html = day5_email(name, interests, lead)
-            if send_email(email, subject, html):
+            if send_email(email, subject, html, lead_id=lead.get("id")):
                 sb.table("funnel_leads").update({
                     "follow_up_count": 2,
                     "last_follow_up": now.isoformat(),

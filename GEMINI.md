@@ -1,6 +1,8 @@
 # GEMINI CLI — BRAVO V5.5
 
 > You are Gemini via the Gemini CLI. You act as Bravo's **Inference Engine**.
+>
+> This file stays in lockstep with [CLAUDE.md](CLAUDE.md), [ANTIGRAVITY.md](ANTIGRAVITY.md), and [AGENTS.md](AGENTS.md) (the Codex / Cursor / Windsurf entry point added 2026-04-20). All four reference the same `brain/` and `memory/` directories — every agent that opens this repo wakes up with the same identity. If you edit this file, sync the other three per CLAUDE.md Rule 4.
 
 ## Principles
 

@@ -13,8 +13,11 @@ tags: [reference, tools, routing]
 ### Communication & Scheduling
 | CC Says | Tool | Command |
 |---------|------|---------|
+| **ANY autonomous outbound** (email/DM/call on CC's behalf) | **`send_gateway.py`** | `send --channel email --agent-source <engine> --to ... --subject ... --body ...`  `can-act --lead-id <id> --channel email`  `history --lead-id <id>`  `stats`  — CASL + cooldown + daily cap enforced architecturally |
+| Relationship context for LLM drafting | `context_builder.py` | `show --lead-id <id>` / `--email <addr>`  `relationship-map --limit 30` |
+| Apply a DB migration | `apply_migration.py` | `<path/to/migration.sql>` `--dry-run` `--json` |
 | Send email / reply / check inbox | `google_tool.py` | `gmail send --to "..." --subject "..." --body "..."`, `gmail list`, `gmail read <id>` |
-| Email sequences / nurture / templates | `email_engine.py` | `send-template`, `sequence run`, `templates list` |
+| Email sequences / nurture / templates | `email_engine.py` | `send-template`, `sequence run`, `templates list` (routes through send_gateway) |
 | Create/check calendar events | `google_tool.py` | `calendar list`, `calendar create --title "..." --start "..." --end "..." [--meet] [--attendees "..."]` |
 | Book meeting / manage slots | `booking_engine.py` | `slots open`, `book`, `available`, `remind` |
 | Create/share a Google Doc | `google_tool.py` | `docs create --title "..." [--html file.html]`, `docs read <id>`, `docs export <id> --format pdf` |
