@@ -19,28 +19,30 @@ updated: 2026-04-21
 
 ## ⚡ Quick Use-Case Router
 
-When someone asks you for a solution, send them here.
+When someone asks you for a solution, send them here. **All repo names are clickable GitHub URLs.** If you're pasting this into a plain-text channel (email, SMS, Slack without markdown), use the **Plain-Text Export** at the bottom of this doc.
 
 | Someone needs... | Send them this repo |
 |------------------|---------------------|
-| "How do I use AI to code faster?" | `hesreallyhim/awesome-claude-code` + [Claude Code](https://claude.com/claude-code) |
-| "I want AI agents that remember across sessions" | `wshobson/agents` (Pensyve memory) |
-| "I need to run 20 AI agents in parallel on one codebase" | `Dicklesworthstone/claude_code_agent_farm` |
-| "I want drop-in AI personas for my workflow" | `VoltAgent/awesome-claude-code-subagents` (131+ personas) |
-| "I want to save my Claude sessions and search them later" | `claude-mem` (already in CC's stack) |
-| "I need to automate my DMs and capture leads" | `CC90210/ig-setter-pro` (PULSE) |
-| "I need a real estate CRM" | `CC90210/real-estate-App` (PropFlow) |
-| "I want live song requests at my gigs" | `CC90210/nostalgic-requests` |
-| "I run a field service business (HVAC, landscaping, etc.)" | `CC90210/gritly` |
-| "I run a daycare and need attendance tracking" | `CC90210/tiktik` |
-| "I need a lead capture funnel with payment" | `CC90210/cc-funnel` |
-| "I sell Shopify products and want AI ad videos" | `CC90210/shopify-ad-engine` |
-| "I need a compliance/EDI/POS agent for wholesale" | `CC90210/hermes` (private — OASIS only) |
-| "I want an AI CFO watching my finances" | `CC90210/CFO-Agent` (Atlas) |
-| "I want an AI marketer writing & shipping my content" | `CC90210/CMO-Agent` (Maven) |
-| "I want an AI running my smart home" | `CC90210/Aura-Home-Agent` |
-| "I need to scrape a website and structure the data" | Firecrawl MCP + Playwright MCP |
-| "I need to scan my code for security issues before shipping" | `carlrannaberg/claudekit` |
+| "How do I use AI to code faster?" | [hesreallyhim/awesome-claude-code](https://github.com/hesreallyhim/awesome-claude-code) + [Claude Code](https://claude.com/claude-code) |
+| "I want AI agents that remember across sessions" | [wshobson/agents](https://github.com/wshobson/agents) (Pensyve memory) |
+| "I need to run 20 AI agents in parallel on one codebase" | [Dicklesworthstone/claude_code_agent_farm](https://github.com/Dicklesworthstone/claude_code_agent_farm) |
+| "I want drop-in AI personas for my workflow" | [VoltAgent/awesome-claude-code-subagents](https://github.com/VoltAgent/awesome-claude-code-subagents) (131+ personas) |
+| "I want to save my Claude sessions and search them later" | [thedotmack/claude-mem](https://github.com/thedotmack/claude-mem) (already in CC's stack) |
+| "I need to automate my DMs and capture leads" | [CC90210/ig-setter-pro](https://github.com/CC90210/ig-setter-pro) (PULSE) |
+| "I need a real estate CRM" | [CC90210/real-estate-App](https://github.com/CC90210/real-estate-App) (PropFlow) |
+| "I want live song requests at my gigs" | [CC90210/nostalgic-requests](https://github.com/CC90210/nostalgic-requests) |
+| "I run a field service business (HVAC, landscaping, etc.)" | [CC90210/gritly](https://github.com/CC90210/gritly) |
+| "I run a daycare and need attendance tracking" | [CC90210/tiktik](https://github.com/CC90210/tiktik) |
+| "I need a lead capture funnel with payment" | [CC90210/cc-funnel](https://github.com/CC90210/cc-funnel) |
+| "I sell Shopify products and want AI ad videos" | [CC90210/shopify-ad-engine](https://github.com/CC90210/shopify-ad-engine) |
+| "I need a compliance/EDI/POS agent for wholesale" | CC90210/hermes (private — OASIS only — DM CC) |
+| "I want an AI CFO watching my finances" | [CC90210/CFO-Agent](https://github.com/CC90210/CFO-Agent) (Atlas) |
+| "I want an AI marketer writing & shipping my content" | [CC90210/CMO-Agent](https://github.com/CC90210/CMO-Agent) (Maven) |
+| "I want an AI running my smart home" | [CC90210/Aura-Home-Agent](https://github.com/CC90210/Aura-Home-Agent) |
+| "I need to scrape a website and structure the data" | [firecrawl/firecrawl-mcp-server](https://github.com/firecrawl/firecrawl-mcp-server) + [microsoft/playwright-mcp](https://github.com/microsoft/playwright-mcp) |
+| "I need to scan my code for security issues before shipping" | [carlrannaberg/claudekit](https://github.com/carlrannaberg/claudekit) |
+| "I want to query my Obsidian vault with AI" | [cyanheads/obsidian-mcp-server](https://github.com/cyanheads/obsidian-mcp-server) |
+| "I need a Postgres performance-tuning MCP" | [crystaldba/postgres-mcp](https://github.com/crystaldba/postgres-mcp) |
 
 ---
 
@@ -235,10 +237,95 @@ npm install -g @carlrannaberg/claudekit
 - ✅ VS Code extensions: Error Lens v3.28.0 + REST Client v0.25.0 installed in Antigravity.
 - ⚠️ Obsidian MCP: wrapper + 3-file config synced. **PENDING:** CC must install "Local REST API" plugin in Obsidian, copy API key → add `OBSIDIAN_API_KEY=...` to `.env.agents`, then restart IDE.
 
+## 📋 Plain-Text Export (copy-paste into email, SMS, Slack, WhatsApp)
+
+> These are the same links above but in raw-URL format so they render in ANY channel — not just markdown viewers. Copy any block and paste directly.
+
+### CC's Production Apps
+```
+OASIS AI Platform     https://github.com/CC90210/oasis-ai-platform
+PropFlow (real estate) https://github.com/CC90210/real-estate-App
+Nostalgic Requests     https://github.com/CC90210/nostalgic-requests
+TIKTIK (daycare)       https://github.com/CC90210/tiktik
+CC Funnel              https://github.com/CC90210/cc-funnel
+IG Setter Pro (PULSE)  https://github.com/CC90210/ig-setter-pro
+Shopify Ad Engine      https://github.com/CC90210/shopify-ad-engine
+Grape Vine Cottage     https://github.com/CC90210/grapevinecottage
+On The Hill            https://github.com/CC90210/ON-THE-HILL
+Mindset Companion      https://github.com/CC90210/MINDSET-COMPANION-LUCID
+Lafreniere PM          https://github.com/CC90210/lafreniere-pm
+```
+
+### CC's AI Agent Triad
+```
+Bravo (CEO/CTO Agent)  https://github.com/CC90210/CEO-Agent
+Atlas (CFO Agent)      https://github.com/CC90210/CFO-Agent
+Maven (CMO Agent)      https://github.com/CC90210/CMO-Agent
+Aura (Home Agent)      https://github.com/CC90210/Aura-Home-Agent
+```
+
+### Top 10 Claude Code Extension Repos (2026)
+```
+1. wshobson/agents                    https://github.com/wshobson/agents
+2. carlrannaberg/claudekit            https://github.com/carlrannaberg/claudekit
+3. VoltAgent subagents                https://github.com/VoltAgent/awesome-claude-code-subagents
+4. Dicklesworthstone/agent_farm       https://github.com/Dicklesworthstone/claude_code_agent_farm
+5. steipete/claude-code-mcp           https://github.com/steipete/claude-code-mcp
+6. ruvnet/ruflo                       https://github.com/ruvnet/ruflo
+7. hesreallyhim/awesome-claude-code   https://github.com/hesreallyhim/awesome-claude-code
+8. affaan-m/everything-claude-code    https://github.com/affaan-m/everything-claude-code
+9. rohitg00/awesome-claude-code-toolkit https://github.com/rohitg00/awesome-claude-code-toolkit
+10. VILA-Lab/Dive-into-Claude-Code    https://github.com/VILA-Lab/Dive-into-Claude-Code
+```
+
+### MCP Servers Worth Running
+```
+Playwright MCP          https://github.com/microsoft/playwright-mcp
+Supabase MCP            https://github.com/supabase-community/supabase-mcp
+Context7 MCP            https://github.com/upstash/context7
+Firecrawl MCP           https://github.com/firecrawl/firecrawl-mcp-server
+GitHub MCP (official)   https://github.com/github/github-mcp-server
+Obsidian MCP (cyanheads) https://github.com/cyanheads/obsidian-mcp-server
+Postgres MCP Pro        https://github.com/crystaldba/postgres-mcp
+Memory MCP              https://github.com/modelcontextprotocol/servers
+Sequential Thinking MCP https://github.com/modelcontextprotocol/servers
+n8n MCP (community)     https://github.com/czlonkowski/n8n-mcp
+Late/Zernio API         https://zernio.com
+```
+
+### Content & Media Pipeline
+```
+Remotion (programmatic video) https://github.com/remotion-dev/remotion
+FFmpeg (encoding)             https://ffmpeg.org
+OpenAI Whisper (transcription) https://github.com/openai/whisper
+ElevenLabs (voice)            https://elevenlabs.io
+```
+
+### Research Inspirations (patterns, not forks)
+```
+Voyager (NVIDIA)          https://voyager.minedojo.org
+Reflexion paper           https://arxiv.org/abs/2303.11366
+LATS paper                https://arxiv.org/abs/2310.04406
+CLI-Anything methodology  https://github.com/HKUDS/CLI-Anything
+Cole Medin's repos        https://github.com/coleam00
+Jeremy Miner NEPQ         https://www.7thlevelhq.com
+```
+
+---
+
+## 🔒 Security Context (when sharing)
+
+- **These are ALL public repos** except CC90210/hermes (client-specific, private).
+- **The Tool Shed doc itself is shareable** — no credentials, no business logic, no internal paths exposed.
+- **What's NOT in this doc (intentionally):** `.env.agents`, client databases, API keys, MRR figures, the `memory/` journals.
+- **When publishing as a Gist:** strip this "Security Context" section and the "Maintenance" section below — those are for CC, not external readers.
+
+---
+
 ## Maintenance
 
-- **Owner:** Bravo (Business-Empire-Agent)
+- **Owner:** Bravo (CTO, on behalf of CC)
 - **Update trigger:** Any new repo clone, MCP install, or major integration. Log the entry here BEFORE committing the install.
-- **Shareable URL** (when ready): publish this as a Gist or public repo README so CC can send links in sales conversations.
-- **Content companion:** [[brain/TOOL_SHED_PLAIN_ENGLISH]] — paste-ready hooks for Maven.
+- **Publish protocol:** When CC is ready to share publicly — copy Sections 1-7 + Plain-Text Export into a GitHub Gist, strip internal commentary, link from oasisai.work, email signature, Skool.
 - **Last full audit:** 2026-04-21
+- **Companion docs:** [[brain/CLIENT_PLAYBOOK]] (meeting + security material) · [[brain/BENCHMARK]] (sentience + capability score)
