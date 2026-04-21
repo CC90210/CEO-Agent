@@ -19,12 +19,9 @@ import json
 import os
 import re
 import sys
-import smtplib
 import urllib.request
 import urllib.parse
 from datetime import datetime, timezone
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -36,11 +33,10 @@ SENT_DIR = PROJECT_ROOT / "tmp" / "outreach_drafts_sent"
 _SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
-from casl_compliance import (  # noqa: E402
-    should_suppress,
-    build_casl_footer,
-    add_list_unsubscribe_headers,
-)
+from casl_compliance import should_suppress  # noqa: E402
+# CASL footer + List-Unsubscribe headers are applied inside send_gateway now;
+# outreach_batch only needs should_suppress for pre-draft filtering so we
+# don't waste Claude Haiku tokens drafting mail that can never be sent.
 
 
 # ── Env loading ────────────────────────────────────────────────────────────────
@@ -346,58 +342,62 @@ def send_approved_draft(draft_path_str, env_vars):
         subject = lines[0].split(":", 1)[1].strip()
         body_start = 2 if len(lines) > 2 and lines[1].strip() == "" else 1
     body = "\n".join(lines[body_start:]).strip()
-    # CASL footer — sender, address, unsubscribe link. Mandatory.
-    body = body + build_casl_footer(lead_email)
 
-    gmail_user = env_vars.get("GMAIL_USER", "conaugh@oasisai.work")
-    gmail_app_password = env_vars.get("GMAIL_APP_PASSWORD")
-    if not gmail_app_password:
-        print(json.dumps({"ok": False, "error": "GMAIL_APP_PASSWORD not set in .env.agents"}))
-        sys.exit(1)
+    # Route through send_gateway (REWIRED 2026-04-20): CASL footer,
+    # List-Unsubscribe headers, suppression check, cooldown, daily cap, and
+    # ledger logging all handled architecturally. This function now only
+    # manages draft claim/rename state and the Telegram approval flow.
+    from send_gateway import send as gateway_send
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = f"Conaugh McKenna — OASIS AI <{gmail_user}>"
-    msg["To"] = lead_email
-    # RFC 2369/8058 List-Unsubscribe — native Gmail/Outlook unsubscribe button.
-    add_list_unsubscribe_headers(msg, lead_email)
-    msg.attach(MIMEText(body, "plain"))
+    gw = gateway_send(
+        channel="email",
+        agent_source="outreach_batch",
+        to_email=lead_email,
+        lead_id=lead_id,
+        subject=subject,
+        body_text=body,
+        brand="oasis",
+        intent="commercial",
+        metadata={
+            "source": "outreach_batch",
+            "draft_path": str(claimed_path),
+            "company": company,
+        },
+    )
 
-    try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-            smtp.login(gmail_user, gmail_app_password)
-            smtp.send_message(msg)
-
-        # Update lead status + log interaction
-        db = get_supabase(env_vars)
-        db.table("leads").update({
-            "status": "contacted",
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }).eq("id", lead_id).execute()
-
-        db.table("lead_interactions").insert({
-            "lead_id": lead_id,
-            "type": "email_sent",
-            "channel": "email",
-            "subject": subject,
-            "content": body[:500],
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        }).execute()
+    if gw.get("status") == "sent":
+        # The gateway wrote lead_interactions and email_log. We still set
+        # status='contacted' so the CRM pipeline view moves forward.
+        try:
+            db = get_supabase(env_vars)
+            db.table("leads").update({
+                "status": "contacted",
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }).eq("id", lead_id).execute()
+        except Exception as status_err:  # noqa: BLE001
+            print(
+                f"[outreach_batch] lead status update warning: {status_err}",
+                file=sys.stderr,
+            )
 
         print(json.dumps({
             "ok": True,
             "output": f"Email sent to {lead_name} ({lead_email}). Lead marked as contacted.",
             "lead_id": lead_id,
             "to": lead_email,
+            "interaction_id": gw.get("interaction_id"),
         }))
-
-    except Exception as e:
-        # Send failed — move the draft back so CC can retry.
+    else:
+        # Send blocked/suppressed/errored — return the draft so CC can retry.
         try:
             claimed_path.rename(draft_path)
         except OSError:
             pass
-        print(json.dumps({"ok": False, "error": str(e)}))
+        print(json.dumps({
+            "ok": False,
+            "error": gw.get("reason", "unknown gateway error"),
+            "status": gw.get("status"),
+        }))
         sys.exit(1)
 
 

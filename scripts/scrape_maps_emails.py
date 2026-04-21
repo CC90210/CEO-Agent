@@ -51,7 +51,7 @@ async def get_emails_from_url(page, url):
         # Filter out common junk
         emails = [e.lower() for e in emails if not e.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.svg', 'sentry.io', 'email.com', 'example.com', 'wixpress.com', 'squarespace.com'))]
         return emails
-    except:
+    except Exception:
         return []
 
 async def scrape_google_maps(page, browser, city, category, niche_label, existing_emails, leads_list, target_count):
@@ -60,7 +60,7 @@ async def scrape_google_maps(page, browser, city, category, niche_label, existin
     try:
         await page.goto(f"https://www.google.com/maps/search/{query.replace(' ', '+')}", timeout=15000)
         await page.wait_for_selector('div[role="feed"]', timeout=10000)
-    except:
+    except Exception:
         print(f"  No results or captcha for {city} {category}")
         return
 

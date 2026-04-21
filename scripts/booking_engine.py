@@ -31,14 +31,9 @@ Usage:
 
 import argparse
 import json
-import smtplib
 import sys
 import uuid
 from datetime import date, datetime, time, timedelta, timezone
-from email import encoders
-from email.mime.base import MIMEBase
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from pathlib import Path
 
 # Optional Telegram notifications — non-fatal if notify.py is absent
@@ -48,6 +43,12 @@ try:
 except ImportError:
     def _telegram_notify(*_args: object, **_kwargs: object) -> bool:  # type: ignore[misc]
         return False
+
+# Physical send + CASL footer + List-Unsubscribe + ledger logging all live in
+# send_gateway (2026-04-20 rewire). Booking confirmations and reminders are
+# TRANSACTIONAL mail (recipient booked the call themselves, implied consent
+# under CASL s. 10(9)) — the gateway's intent="transactional" keyword handles
+# that by skipping the suppression check while still adding footer + headers.
 
 
 # ---------------------------------------------------------------------------
@@ -336,21 +337,15 @@ def _send_booking_confirmation(
     booking: dict,
     slot: dict,
 ) -> None:
-    """
-    Send a confirmation email with an .ics attachment to the attendee.
-    Logs the result to the email_log Supabase table.
-    SMTP failure is non-fatal: a warning is printed and the booking stands.
-    """
-    gmail_address = env_vars.get("GMAIL_USER") or env_vars.get("GMAIL_ADDRESS")
-    app_password = env_vars.get("GMAIL_APP_PASSWORD")
+    """Send the booking confirmation via send_gateway (REWIRED 2026-04-20).
 
-    if not gmail_address or not app_password:
-        print(
-            "Warning: GMAIL_USER/GMAIL_ADDRESS or GMAIL_APP_PASSWORD not set in .env.agents"
-            " -- confirmation email skipped.",
-            file=sys.stderr,
-        )
-        return
+    Transactional intent — the attendee just booked this call themselves,
+    so CASL suppression check is skipped (s. 10(9) implied-consent
+    exemption). CASL footer + List-Unsubscribe headers still applied.
+    SMTP failure is non-fatal — the booking itself stands even if the
+    confirmation email fails to deliver.
+    """
+    from send_gateway import send as gateway_send  # local import avoids cycles
 
     attendee_name = booking["name"]
     attendee_email = booking["email"]
@@ -360,6 +355,7 @@ def _send_booking_confirmation(
     meeting_type = booking["meeting_type"]
     notes = booking.get("notes")
 
+    gmail_address = env_vars.get("GMAIL_USER") or env_vars.get("GMAIL_ADDRESS", "")
     subject = "Your Discovery Call with Conaugh McKenna - Confirmed"
     body_text = _build_confirmation_body(
         attendee_name, slot_date, start_time, end_time, meeting_type, notes
@@ -369,56 +365,30 @@ def _send_booking_confirmation(
         gmail_address, notes
     )
 
-    msg = MIMEMultipart("mixed")
-    msg["Subject"] = subject
-    msg["From"] = f"Conaugh McKenna <{gmail_address}>"
-    msg["To"] = attendee_email
-    msg.attach(MIMEText(body_text, "plain"))
-
-    ics_part = MIMEBase("text", "calendar", method="REQUEST")
-    ics_part.set_payload(ics_content.encode("utf-8"))
-    encoders.encode_base64(ics_part)
-    ics_part.add_header("Content-Disposition", "attachment", filename="invite.ics")
-    msg.attach(ics_part)
-
-    error_message: str | None = None
-    status = "failed"
-    try:
-        with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
-            server.ehlo()
-            server.starttls()
-            server.ehlo()
-            server.login(gmail_address, app_password)
-            server.sendmail(gmail_address, attendee_email, msg.as_string())
-        status = "sent"
-    except smtplib.SMTPAuthenticationError:
-        error_message = "SMTP authentication failed. Check GMAIL_APP_PASSWORD in .env.agents."
-    except smtplib.SMTPRecipientsRefused:
-        error_message = f"Recipient address refused: {attendee_email}"
-    except smtplib.SMTPException as exc:
-        error_message = f"SMTP error: {exc}"
-    except Exception as exc:  # noqa: BLE001 -- non-fatal, must not crash booking flow
-        error_message = f"Unexpected error sending confirmation: {exc}"
-
-    if error_message:
-        print(f"Warning: confirmation email not sent -- {error_message}", file=sys.stderr)
-
-    # Log to email_log regardless of outcome
-    log_row: dict = {
-        "to_email": attendee_email,
-        "subject": subject,
-        "body_preview": body_text[:200],
-        "status": status,
-        "sent_at": datetime.now(timezone.utc).isoformat() if status == "sent" else None,
-        "error_message": error_message,
-    }
-    if booking.get("lead_id"):
-        log_row["lead_id"] = booking["lead_id"]
-
-    try:
-        client.table("email_log").insert(log_row).execute()
-    except Exception as exc:  # noqa: BLE001 -- logging failure must not crash booking flow
-        print(f"Warning: could not write to email_log: {exc}", file=sys.stderr)
+    gw = gateway_send(
+        channel="email",
+        agent_source="booking_engine",
+        to_email=attendee_email,
+        lead_id=booking.get("lead_id"),
+        subject=subject,
+        body_text=body_text,
+        brand="oasis",
+        intent="transactional",
+        ics_content=ics_content,
+        ics_filename="invite.ics",
+        metadata={
+            "booking_id": booking.get("id"),
+            "slot_id": slot.get("id"),
+            "slot_date": slot_date,
+            "meeting_type": meeting_type,
+        },
+    )
+    if gw.get("status") != "sent":
+        print(
+            f"Warning: booking confirmation not sent — "
+            f"{gw.get('status')} — {gw.get('reason')}",
+            file=sys.stderr,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -883,15 +853,9 @@ def _send_reminder_email(
     slot: dict,
     meet_link: str | None,
 ) -> tuple[bool, str | None]:
-    """
-    Send a reminder email for a booking scheduled for tomorrow.
-    Returns (success, error_message).
-    """
-    gmail_address = env_vars.get("GMAIL_USER") or env_vars.get("GMAIL_ADDRESS")
-    app_password = env_vars.get("GMAIL_APP_PASSWORD")
-
-    if not gmail_address or not app_password:
-        return False, "GMAIL_USER/GMAIL_ADDRESS or GMAIL_APP_PASSWORD not set in .env.agents"
+    """Send a next-day reminder via send_gateway (REWIRED 2026-04-20).
+    Transactional intent. Returns (success, error_message)."""
+    from send_gateway import send as gateway_send  # noqa: F401  (used below)
 
     attendee_name = booking["name"]
     attendee_email = booking["email"]
@@ -905,28 +869,25 @@ def _send_reminder_email(
         attendee_name, slot_date, start_time, end_time, meeting_type, meet_link
     )
 
-    msg = MIMEMultipart("mixed")
-    msg["Subject"] = subject
-    msg["From"] = f"Conaugh McKenna <{gmail_address}>"
-    msg["To"] = attendee_email
-    msg.attach(MIMEText(body_text, "plain"))
-
-    try:
-        with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
-            server.ehlo()
-            server.starttls()
-            server.ehlo()
-            server.login(gmail_address, app_password)
-            server.sendmail(gmail_address, attendee_email, msg.as_string())
+    gw = gateway_send(
+        channel="email",
+        agent_source="booking_engine",
+        to_email=attendee_email,
+        lead_id=booking.get("lead_id"),
+        subject=subject,
+        body_text=body_text,
+        brand="oasis",
+        intent="transactional",
+        metadata={
+            "booking_id": booking.get("id"),
+            "slot_id": slot.get("id"),
+            "reminder_for_date": slot_date,
+            "meet_link": meet_link,
+        },
+    )
+    if gw.get("status") == "sent":
         return True, None
-    except smtplib.SMTPAuthenticationError:
-        return False, "SMTP authentication failed. Check GMAIL_APP_PASSWORD in .env.agents."
-    except smtplib.SMTPRecipientsRefused:
-        return False, f"Recipient address refused: {attendee_email}"
-    except smtplib.SMTPException as exc:
-        return False, f"SMTP error: {exc}"
-    except Exception as exc:  # noqa: BLE001 — non-fatal, must not crash the reminder run
-        return False, f"Unexpected error: {exc}"
+    return False, gw.get("reason", f"gateway status={gw.get('status')}")
 
 
 def cmd_auto_book(client, args, json_mode: bool, env_vars: dict[str, str]) -> None:

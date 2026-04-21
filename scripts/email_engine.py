@@ -23,11 +23,8 @@ import email.header
 import imaplib
 import json
 import re
-import smtplib
 import sys
 from datetime import datetime, timezone
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -36,6 +33,11 @@ try:
     from notify import notify
 except ImportError:
     def notify(*a, **kw): return False
+
+# Physical send + CASL enforcement now lives inside send_gateway.py
+# (V5.6 chokepoint). cmd_send / cmd_send_template / cmd_sequence_run
+# all route through it. The legacy send_email_smtp() below is a
+# hard-fail deprecation shim — calling it raises RuntimeError.
 
 
 # -- Credentials -------------------------------------------
@@ -100,38 +102,34 @@ def get_smtp_credentials(env_vars):
 # -- SMTP --------------------------------------------------
 
 
-def send_email_smtp(gmail_address, app_password, to_email, subject, body_text, body_html=None):
+def send_email_smtp(
+    gmail_address,
+    app_password,
+    to_email,
+    subject,
+    body_text,
+    body_html=None,
+    casl_mode="commercial",
+):
+    """DEPRECATED 2026-04-20 — use scripts/send_gateway.send() instead.
+
+    Every outbound email in this codebase now routes through the V5.6
+    chokepoint (send_gateway.py). This function is kept only so
+    well-meaning future imports fail loudly rather than silently
+    bypassing CASL, cooldown, daily-cap, and the unified ledger.
+
+    The CASL-aware smtplib code that used to live here now lives inside
+    send_gateway._send_email_smtp() and is enforced there — you cannot
+    accidentally skip it from a business engine.
+
+    Returns: raises RuntimeError. Do not call.
     """
-    Send an email via Gmail SMTP with STARTTLS.
-    Returns (success: bool, error_message: str | None).
-    """
-    try:
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"] = gmail_address
-        msg["To"] = to_email
-
-        msg.attach(MIMEText(body_text, "plain"))
-        if body_html:
-            msg.attach(MIMEText(body_html, "html"))
-
-        with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
-            server.ehlo()
-            server.starttls()
-            server.ehlo()
-            server.login(gmail_address, app_password)
-            server.sendmail(gmail_address, to_email, msg.as_string())
-
-        return True, None
-
-    except smtplib.SMTPAuthenticationError:
-        return False, "SMTP authentication failed. Check GMAIL_APP_PASSWORD in .env.agents."
-    except smtplib.SMTPRecipientsRefused:
-        return False, f"Recipient address refused by server: {to_email}"
-    except smtplib.SMTPException as e:
-        return False, f"SMTP error: {str(e)}"
-    except Exception as e:
-        return False, f"Unexpected error: {str(e)}"
+    raise RuntimeError(
+        "email_engine.send_email_smtp() is deprecated. Use "
+        "send_gateway.send(channel='email', agent_source=..., to_email=..., "
+        "subject=..., body_text=..., intent='commercial'|'transactional'). "
+        "See skills/send-gateway/SKILL.md for the full contract."
+    )
 
 
 # -- Template rendering -------------------------------------
@@ -181,36 +179,38 @@ def log_email(db, to_email, subject, body_preview, status, lead_id=None,
 
 
 def cmd_send(env_vars, args, output_json=False):
-    """Send a one-off email directly."""
-    db = get_supabase(env_vars)
-    gmail_address, app_password = get_smtp_credentials(env_vars)
+    """Send a one-off email. REWIRED 2026-04-20 → send_gateway.
 
-    body_text = args.body
-    body_html = getattr(args, "html", None)
-    lead_id = getattr(args, "lead_id", None)
+    Gateway handles: CASL suppression, CASL footer, List-Unsubscribe,
+    cooldown, daily cap, lead_interactions ledger, email_log mirror,
+    leads.last_contacted_at bump. --transactional flips intent so
+    suppressed recipients still receive booking/reminder-style mail.
+    """
+    from send_gateway import send as gateway_send
 
-    success, error = send_email_smtp(
-        gmail_address, app_password,
-        args.to, args.subject, body_text, body_html,
-    )
-
-    status = "sent" if success else "failed"
-    log_id = log_email(
-        db,
+    intent = "transactional" if getattr(args, "transactional", False) else "commercial"
+    gw = gateway_send(
+        channel="email",
+        agent_source="email_engine",
         to_email=args.to,
+        lead_id=getattr(args, "lead_id", None),
         subject=args.subject,
-        body_preview=body_html or body_text,
-        status=status,
-        lead_id=lead_id,
-        error_message=error,
+        body_text=args.body,
+        body_html=getattr(args, "html", None),
+        brand=getattr(args, "brand", "oasis"),
+        intent=intent,
     )
 
+    # Preserve the legacy return shape for any script that parses this output.
+    success = gw.get("status") == "sent"
+    status = "sent" if success else "failed"
     result = {
         "status": status,
         "to": args.to,
         "subject": args.subject,
-        "log_id": log_id,
-        "error": error,
+        "log_id": gw.get("interaction_id"),
+        "gateway_status": gw.get("status"),
+        "error": gw.get("reason") if not success else None,
     }
 
     if output_json:
@@ -219,65 +219,66 @@ def cmd_send(env_vars, args, output_json=False):
 
     if success:
         print(f"Sent to {args.to} - subject: {args.subject}")
-        if log_id:
-            print(f"  Logged (id: {log_id})")
+        if result["log_id"]:
+            print(f"  Logged (id: {result['log_id']})")
     else:
-        print(f"ERROR: Failed to send to {args.to}", file=sys.stderr)
-        print(f"  {error}", file=sys.stderr)
+        print(f"ERROR: send failed ({gw.get('status')}): {gw.get('reason')}",
+              file=sys.stderr)
         sys.exit(1)
 
 
 def cmd_send_template(env_vars, args, output_json=False):
-    """Send a stored template to an address, rendering {{variables}}."""
-    db = get_supabase(env_vars)
-    gmail_address, app_password = get_smtp_credentials(env_vars)
+    """Render a stored template and send via send_gateway.
 
-    # Fetch template
+    REWIRED 2026-04-20. Template fetch + variable rendering stays here
+    (template engine is email_engine's job); physical send + CASL +
+    cooldown + logging delegated to send_gateway.
+    """
+    from send_gateway import send as gateway_send
+    db = get_supabase(env_vars)
+
     try:
         result = db.table("email_templates").select("*").eq("id", args.template_id).execute()
     except Exception as e:
         print(f"ERROR: Could not fetch template: {e}", file=sys.stderr)
         sys.exit(1)
-
     if not result.data:
         print(f"ERROR: Template not found: {args.template_id}", file=sys.stderr)
         sys.exit(1)
 
     tmpl = result.data[0]
     variables = json.loads(args.vars) if args.vars else {}
-
     subject = render_template(tmpl["subject"], variables)
     body_html = render_template(tmpl.get("body_html") or "", variables) or None
-    # Generate plain-text fallback by stripping HTML tags
     body_text = re.sub(r"<[^>]+>", "", body_html or "") if body_html else subject
 
-    lead_id = getattr(args, "lead_id", None)
-
-    success, error = send_email_smtp(
-        gmail_address, app_password,
-        args.to, subject, body_text, body_html,
-    )
-
-    status = "sent" if success else "failed"
-    log_id = log_email(
-        db,
+    intent = "transactional" if getattr(args, "transactional", False) else "commercial"
+    gw = gateway_send(
+        channel="email",
+        agent_source="email_engine",
         to_email=args.to,
+        lead_id=getattr(args, "lead_id", None),
         subject=subject,
-        body_preview=body_html or body_text,
-        status=status,
-        lead_id=lead_id,
-        template_id=args.template_id,
-        error_message=error,
+        body_text=body_text,
+        body_html=body_html,
+        brand=getattr(args, "brand", "oasis"),
+        intent=intent,
+        metadata={
+            "template_id": args.template_id,
+            "template_name": tmpl.get("name"),
+        },
     )
 
+    success = gw.get("status") == "sent"
     result_dict = {
-        "status": status,
+        "status": "sent" if success else "failed",
         "to": args.to,
         "subject": subject,
         "template_id": args.template_id,
         "template_name": tmpl.get("name"),
-        "log_id": log_id,
-        "error": error,
+        "log_id": gw.get("interaction_id"),
+        "gateway_status": gw.get("status"),
+        "error": gw.get("reason") if not success else None,
     }
 
     if output_json:
@@ -286,11 +287,11 @@ def cmd_send_template(env_vars, args, output_json=False):
 
     if success:
         print(f"Sent template '{tmpl.get('name')}' to {args.to}")
-        if log_id:
-            print(f"  Logged (id: {log_id})")
+        if result_dict["log_id"]:
+            print(f"  Logged (id: {result_dict['log_id']})")
     else:
-        print(f"ERROR: Failed to send to {args.to}", file=sys.stderr)
-        print(f"  {error}", file=sys.stderr)
+        print(f"ERROR: send failed ({gw.get('status')}): {gw.get('reason')}",
+              file=sys.stderr)
         sys.exit(1)
 
 
@@ -552,28 +553,45 @@ def cmd_sequence_run(env_vars, args, output_json=False):
         body_html = render_template(tmpl.get("body_html") or "", step_vars) or None
         body_text = re.sub(r"<[^>]+>", "", body_html or "") if body_html else subject
 
-        # Step 0 is sent immediately; future steps are logged as queued
+        # Step 0 sends immediately via send_gateway; future steps log as queued.
+        # Gateway handles CASL, cooldown, daily cap, lead_interactions + email_log.
         if delay_hours == 0:
-            success, error = send_email_smtp(
-                gmail_address, app_password,
-                lead_email, subject, body_text, body_html,
+            from send_gateway import send as gateway_send
+            gw = gateway_send(
+                channel="email",
+                agent_source="email_engine",
+                to_email=lead_email,
+                lead_id=args.lead_id,
+                subject=subject,
+                body_text=body_text,
+                body_html=body_html,
+                brand="oasis",
+                intent="commercial",
+                metadata={
+                    "template_id": tmpl["id"],
+                    "sequence_id": args.sequence_id,
+                    "step": i + 1,
+                },
             )
-            status = "sent" if success else "failed"
+            success = gw.get("status") == "sent"
+            error = None if success else gw.get("reason")
+            status = "sent" if success else ("queued" if gw.get("status") == "blocked" else "failed")
         else:
+            # Delayed step — log as queued in email_log for visibility; a
+            # future scheduler can pick these up and re-enter the sequence.
             success, error = True, None
             status = "queued"
-
-        log_email(
-            db,
-            to_email=lead_email,
-            subject=subject,
-            body_preview=body_html or body_text,
-            status=status,
-            lead_id=args.lead_id,
-            template_id=tmpl["id"],
-            sequence_id=args.sequence_id,
-            error_message=error,
-        )
+            log_email(
+                db,
+                to_email=lead_email,
+                subject=subject,
+                body_preview=body_html or body_text,
+                status=status,
+                lead_id=args.lead_id,
+                template_id=tmpl["id"],
+                sequence_id=args.sequence_id,
+                error_message=error,
+            )
 
         results.append({
             "step": i + 1,
@@ -703,6 +721,28 @@ IMAP_MAX_EMAILS = 20
 # at the head of the UNSEEN queue from blocking newer messages forever.
 POISON_UID_PATH = Path(__file__).resolve().parent.parent / "tmp" / "imap_poison_uids.json"
 POISON_MAX_ATTEMPTS = 3
+
+
+def _extract_email_address(from_header: str) -> str:
+    """Given a From: header string like '"Jane Doe" <jane@acme.com>', return
+    just the lowercased email address. Returns empty string on parse failure."""
+    import email.utils
+    try:
+        _, addr = email.utils.parseaddr(from_header or "")
+        return (addr or "").strip().lower()
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def _extract_display_name(from_header: str) -> str:
+    """Given a From: header, return just the display name portion (without
+    quotes) or empty string. Example: '"Jane Doe" <jane@acme.com>' -> 'Jane Doe'."""
+    import email.utils
+    try:
+        name, _ = email.utils.parseaddr(from_header or "")
+        return (name or "").strip()
+    except Exception:  # noqa: BLE001
+        return ""
 
 
 def _decode_header_value(raw_value):
@@ -867,7 +907,7 @@ def cmd_check_inbox(env_vars, args, output_json=False):
             }
             found_emails.append(email_entry)
 
-            # Log to Supabase email_log
+            # Log to Supabase email_log (legacy SMTP-layer visibility)
             try:
                 db.table("email_log").insert({
                     "to_email": address,
@@ -879,9 +919,109 @@ def cmd_check_inbox(env_vars, args, output_json=False):
             except Exception as db_err:
                 print(f"Warning: could not log inbound email to Supabase: {db_err}", file=sys.stderr)
 
-            # Telegram notification
+            # V5.6 — route through inbound_classifier + record_inbound_from_n8n
+            # RPC so the unified ledger gets every classified inbound. This
+            # is the Python-side replacement for the N8N Supabase node (we
+            # leave the 68-node OASIS Inbound Qualifier untouched; it keeps
+            # doing auto-reply logic). Fail-closed: if classifier or RPC
+            # fails, the email is still marked read and the legacy email_log
+            # row is preserved.
+            classification: dict = {}
+            try:
+                from inbound_classifier import classify as _classify_inbound
+                classification = _classify_inbound(
+                    content=preview,
+                    channel="email",
+                    subject=subject,
+                    from_identity=_extract_email_address(from_addr),
+                )
+            except Exception as cls_err:
+                print(f"[email_inbox] classifier warning: {cls_err}", file=sys.stderr)
+                classification = {"sentiment": "unknown", "intent": "other",
+                                  "priority": "cold", "confidence": 0.0,
+                                  "fallback": True}
+
+            try:
+                sender_addr = _extract_email_address(from_addr)
+                rpc_params = {
+                    "p_from_email": sender_addr,
+                    "p_from_name": _extract_display_name(from_addr),
+                    "p_subject": subject,
+                    "p_content": preview,
+                    "p_classification": classification,
+                    "p_message_id": uid_str,
+                }
+                db.rpc("record_inbound_from_n8n", rpc_params).execute()
+            except Exception as rpc_err:
+                # Don't block the inbox flow on ledger errors — email_log still captures.
+                print(f"[email_inbox] ledger write warning: {rpc_err}", file=sys.stderr)
+
+            # ---- AUTO-SUPPRESS on "STOP" / unsubscribe intent -------------------
+            # When the classifier flags intent=unsubscribe OR the subject/body
+            # starts with a bare STOP/UNSUBSCRIBE, auto-add the sender to the
+            # CASL suppression list. Reply-STOP is now the primary opt-out path
+            # (the https://oasisai.work/unsubscribe link was removed from the
+            # footer 2026-04-20 since that page didn't exist). This handler is
+            # what makes reply-STOP actually legally compliant — CASL requires
+            # opt-outs to be processed within 10 business days; this does it
+            # within 5 minutes (next scheduler tick).
+            intent = (classification or {}).get("intent", "")
+            preview_upper = (preview or "").strip().upper()
+            subject_upper = (subject or "").strip().upper()
+            is_stop_signal = (
+                intent == "unsubscribe"
+                or preview_upper.startswith(("STOP", "UNSUBSCRIBE", "REMOVE ME"))
+                or subject_upper.startswith(("STOP", "UNSUBSCRIBE", "REMOVE ME"))
+            )
+            if is_stop_signal and sender_addr:
+                try:
+                    sys.path.insert(0, str(Path(__file__).resolve().parent))
+                    from casl_compliance import add_suppression
+                    add_suppression(sender_addr, reason="auto_reply_stop_2026_04_20")
+                    # Mark any matching lead as 'lost' + note
+                    try:
+                        r = db.table("leads").select("id,notes").eq("email", sender_addr).execute().data or []
+                        for lead in r:
+                            db.table("leads").update({
+                                "status": "lost",
+                                "notes": (lead.get("notes") or "").strip() + (
+                                    f"\n[{datetime.now(timezone.utc).date().isoformat()}] "
+                                    "AUTO-SUPPRESSED — inbound STOP/unsubscribe reply detected. "
+                                    "Added to CASL suppression list; gateway will block all "
+                                    "future sends."
+                                ),
+                                "updated_at": datetime.now(timezone.utc).isoformat(),
+                            }).eq("id", lead["id"]).execute()
+                    except Exception as lead_err:
+                        print(f"[email_inbox] lead update on STOP failed: {lead_err}", file=sys.stderr)
+                    # Loud Telegram ping so CC knows someone opted out
+                    notify(
+                        f"STOP received from {sender_addr}\n"
+                        f"Subject: {subject}\n"
+                        f"Auto-suppressed — they will not receive further emails.",
+                        category="email",
+                        force=True,
+                    )
+                    print(f"[email_inbox] AUTO-SUPPRESSED {sender_addr} (reply-STOP intent)",
+                          file=sys.stderr)
+                except Exception as sup_err:
+                    # If suppression fails, surface loudly — this is a compliance risk
+                    print(f"[email_inbox] CRITICAL: STOP auto-suppress FAILED for "
+                          f"{sender_addr}: {sup_err}", file=sys.stderr)
+                    notify(
+                        f"CRITICAL: STOP received from {sender_addr} but auto-suppress "
+                        f"FAILED: {sup_err}. Add them to suppression list MANUALLY now.",
+                        category="email",
+                        force=True,
+                    )
+
+            # Telegram notification — enriched with classifier intent/priority.
+            priority_emoji = {"hot": "🔥", "warm": "♨️", "cold": "❄️", "low": "📥"}.get(
+                classification.get("priority"), "📧"
+            )
             notify_msg = (
-                f"[Email Inbox] New email from: {from_addr}\n"
+                f"{priority_emoji} {classification.get('intent','email')} "
+                f"({classification.get('priority','—')}): {from_addr}\n"
                 f"Subject: {subject}\n"
                 f"Preview: {preview[:120]}"
             )
@@ -969,6 +1109,12 @@ Examples:
     p_send.add_argument("--body", required=True, help="Plain text body")
     p_send.add_argument("--html", dest="html", default=None, help="HTML body (optional)")
     p_send.add_argument("--lead-id", dest="lead_id", default=None, help="Lead UUID for log association")
+    p_send.add_argument("--brand", default="oasis",
+                        choices=["oasis", "kona_makana", "nostalgic"],
+                        help="Brand identity (drives CASL footer sender + address)")
+    p_send.add_argument("--transactional", action="store_true",
+                        help="Transactional intent — skip suppression list check "
+                             "(CASL s.10(9) exemption). Use for confirmations only.")
 
     # send-template
     p_st = subparsers.add_parser("send-template", help="Send a stored template")
@@ -976,6 +1122,10 @@ Examples:
     p_st.add_argument("--to", required=True, help="Recipient email address")
     p_st.add_argument("--vars", default=None, help='Variable substitution JSON: \'{"first_name": "John"}\'')
     p_st.add_argument("--lead-id", dest="lead_id", default=None, help="Lead UUID for log association")
+    p_st.add_argument("--brand", default="oasis",
+                      choices=["oasis", "kona_makana", "nostalgic"])
+    p_st.add_argument("--transactional", action="store_true",
+                      help="Transactional intent (welcome / confirmation / reminder).")
 
     # templates (sub-group)
     p_tmpl = subparsers.add_parser("templates", help="Manage email templates")

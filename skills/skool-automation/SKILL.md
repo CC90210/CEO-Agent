@@ -1,5 +1,5 @@
 ---
-name: Skool Automation
+name: skool-automation
 description: Manage Skool community content (lessons, about page, courses) using Playwright MCP browser automation
 triggers: [Skool, lesson, classroom, community, Tiptap, course, Skool edit]
 tier: specialized
