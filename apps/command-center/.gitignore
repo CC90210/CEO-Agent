@@ -1,0 +1,29 @@
+# Next.js build output + dev caches
+.next/
+out/
+build/
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Env files — NEVER commit credentials
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.production.local
+
+# Type checker cache
+*.tsbuildinfo
+next-env.d.ts
+
+# Vercel
+.vercel
+
+# macOS / Windows noise
+.DS_Store
+Thumbs.db
+
+.vercel
