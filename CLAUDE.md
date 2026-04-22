@@ -43,7 +43,7 @@ Answer using MCP tools. Do NOT dump file contents. Keep answers to 1-5 sentences
 
 ### RULE 2: Tool routing (CLI-first — NEVER ask CC to authenticate anything)
 
-47 CLI tools in `scripts/` are the PRIMARY execution layer — they read `.env.agents` and never break. MCPs are SECONDARY (Playwright, Context7, Memory, Sequential Thinking, Knowledge Graph only — stateless). **NEVER use claude.ai MCP connectors.** Full routing: @brain/QUICK_REFERENCE.md. Governance: @brain/ORCHESTRATION.md.
+47 CLI tools in `scripts/` are the PRIMARY execution layer — they read `.env.agents` and never break. MCPs are SECONDARY (Playwright, Context7, Memory, Sequential Thinking, Knowledge Graph only — stateless). Browser Harness is the direct logged-in browser layer; diagnose with `python scripts/browser_harness_doctor.py`, setup with `npm run browser:setup`, and obey @browser/SAFETY.md. **NEVER use claude.ai MCP connectors.** Full routing: @brain/QUICK_REFERENCE.md. Governance: @brain/ORCHESTRATION.md.
 
 ### RULE 3: CREDENTIALS AND SECURITY (CRITICAL)
 
@@ -94,7 +94,7 @@ Hooks in `.claude/settings.local.json`: Edit/Write blocks `.env*` files. Bash bl
 
 ## Skills (on-demand — load SKILL.md when needed, not at boot)
 
-Pattern: `skills/[skill-name]/SKILL.md`. Key skills: `systematic-debugging`, `self-healing`, `test-driven-development`, `browser-automation`, `e2e-testing`, `writing-plans`, `executing-plans`, `skool-automation`, `code-review`, `ship`, `retro`, `task-routing`, `anti-drift`, `sparc-methodology`, `agent-permissions`, `hooks-automation`, `background-workers`, `context-optimization`, `codex-delegation`, `security-protocol`, `memory-management`, `mcp-operations`, `sop-breakdown`. Full workflow commands: @brain/QUICK_REFERENCE.md.
+Pattern: `skills/[skill-name]/SKILL.md`. Key skills: `systematic-debugging`, `self-healing`, `test-driven-development`, `browser-harness`, `browser-automation`, `e2e-testing`, `agent-runtime-packaging`, `writing-plans`, `executing-plans`, `skool-automation`, `code-review`, `ship`, `retro`, `task-routing`, `anti-drift`, `sparc-methodology`, `agent-permissions`, `hooks-automation`, `background-workers`, `context-optimization`, `codex-delegation`, `security-protocol`, `memory-management`, `mcp-operations`, `sop-breakdown`. Full workflow commands: @brain/QUICK_REFERENCE.md.
 
 ## AI Slop Detection — STOP and redo if you catch any of these
 
@@ -113,7 +113,7 @@ On start: run `python scripts/agent_inbox.py list --to bravo` — surface any ur
 
 ## MCP vs CLI Status
 
-Working MCPs: Playwright, Context7, Memory, Sequential Thinking, Knowledge Graph. Replaced by CLI: n8n (`n8n_tool.py`), Zernio/Late (`late_tool.py`), Supabase (`supabase_tool.py`), Stripe (`stripe_tool.py`), GWS (`google_tool.py`). No MCP: GitHub (use `git`), Chrome (use Playwright MCP). Full routing: @brain/QUICK_REFERENCE.md.
+Working MCPs: Playwright, Context7, Memory, Sequential Thinking, Knowledge Graph. Replaced by CLI: n8n (`n8n_tool.py`), Zernio/Late (`late_tool.py`), Supabase (`supabase_tool.py`), Stripe (`stripe_tool.py`), GWS (`google_tool.py`). Browser Harness handles real logged-in Chrome/Edge workflows when Playwright MCP is too generic. No MCP: GitHub (use `git`). Full routing: @brain/QUICK_REFERENCE.md.
 
 ## Obsidian Links
 - [[brain/SOUL]] | [[brain/STATE]] | [[brain/USER]] | [[brain/APP_REGISTRY]]

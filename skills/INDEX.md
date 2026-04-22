@@ -2,7 +2,7 @@
 tags: [skills, index, hub]
 ---
 
-# Skills Index — 146 Specialized Capabilities
+# Skills Index — 148 Specialized Capabilities
 
 > Central hub for all Bravo skills. Each skill is a reusable protocol loaded on-demand.
 > [[brain/CAPABILITIES]] | [[brain/AGENTS]] | [[brain/DASHBOARD]]
@@ -24,6 +24,7 @@ tags: [skills, index, hub]
 - [[skills/finishing-a-development-branch/SKILL]] — Branch completion protocol
 
 ## Agent Infrastructure
+- [[skills/agent-runtime-packaging/SKILL]] — Product-grade agent infrastructure: onboarding diagnostics, runtime home, packaging, skill lifecycle, tool manifests, Browser Harness integration, and agent scaffolds.
 - [[skills/agent-teams/SKILL]] — Native parallel subagent orchestration
 - [[skills/task-routing/SKILL]] — Complexity-based agent assignment
 - [[skills/anti-drift/SKILL]] — Preventing agent divergence
@@ -76,6 +77,7 @@ tags: [skills, index, hub]
 - [[skills/ceo-dashboard/SKILL]] — CEO metrics dashboard
 
 ## Browser & Automation
+- [[skills/browser-harness/SKILL]] — **Direct Chrome/Edge control + compounding browser domain skills** with Bravo safety gates. Installed at `C:\Users\User\APPS\browser-harness`; diagnose with `python scripts/browser_harness_doctor.py`.
 - [[skills/browser-automation/SKILL]] — Playwright tasks
 - [[skills/e2e-testing/SKILL]] — End-to-end testing
 - [[skills/webapp-testing/SKILL]] — Web app testing

@@ -63,6 +63,7 @@ tags: [reference, tools, routing]
 | n8n workflows | `n8n_tool.py` | `list`, `search`, `execute <id>`, `stats` |
 | Web scraping (data extraction) | `firecrawl_tool.py` | `scrape <url>`, `search <query>`, `crawl`, `extract` |
 | Web automation (clicks, forms) | Playwright MCP | `browser_navigate`, `browser_click`, `browser_type` |
+| Real logged-in browser control + reusable site memory | Browser Harness | `python scripts/browser_harness_doctor.py`; setup: `& (Get-Command browser-harness).Source --setup`; workflow: `/.agents/workflows/browser-harness.md` |
 | Cron jobs / scheduled tasks | `cron_engine.py` | `list`, `add`, `run`, `due`, `seed` |
 | Funnel sync (GoHighLevel) | `funnel_sync.py` | Sync funnels to GHL |
 
@@ -85,6 +86,8 @@ tags: [reference, tools, routing]
 | Memory consolidation | `auto_dream.py` | `run [--dry-run]`, `status` |
 | Memory index rebuild | `memory_index.py` | `build`, `search "<query>"`, `stats` |
 | Codex health check | `codex_health.py` | `[--json]` |
+| Onboarding diagnostics | `onboarding_diagnostics.py` | `[--json]` |
+| Browser Harness diagnostics | `browser_harness_doctor.py` | `[--json] [--strict]` |
 
 ### Backend / Codex Delegation
 | CC Says | Tool | Command |
@@ -163,6 +166,8 @@ Exceptions (accept after): `stripe_tool.py`, `n8n_tool.py`, `firecrawl_tool.py`,
 | `supabase_tool.py` | Database CRUD (3 projects) | CLI tool |
 | `n8n_tool.py` | Workflow automation | CLI tool |
 | `firecrawl_tool.py` | Web scraping, extraction | CLI tool |
+| `browser_harness_doctor.py` | Browser Harness install/attach diagnostics | CLI tool |
+| `onboarding_diagnostics.py` | Productized Bravo onboarding health check | CLI tool |
 | `mem0_tool.py` | Semantic memory | CLI tool |
 | `cron_engine.py` | Scheduled jobs | CLI tool |
 | `funnel_sync.py` | GoHighLevel sync | CLI tool |

@@ -50,6 +50,20 @@ The 4 agents divide along two axes:
 
 These don't overlap operationally — Aura never touches business ops, and the C-Suite never controls the thermostat. But they **do** share awareness via pulses: if Atlas says "runway is tight," Aura might suggest skipping takeout. If Bravo closes a big deal, Aura celebrates it in the apartment. If Maven has a video shoot tomorrow, Aura sets the lighting.
 
+## Shared Browser Intelligence Layer
+
+Browser Harness is the shared direct-browser layer across Bravo, Atlas, Maven, Aura, and Hermes/client agents. Bravo owns the installation, diagnostics, safety rules, and starter domain-skill library in `browser/`. Each agent inherits the power but not unlimited permission:
+
+| Agent | Browser Scope | Hard Gate |
+|---|---|---|
+| Bravo | business dashboards, GitHub, Supabase, Vercel, n8n, Stripe read-only, Google Workspace, client portals | no outbound/admin/production/destructive action without CC approval |
+| Atlas | finance, tax, bank, accounting, Stripe finance views | no money movement, filing, refund, subscription, or bank change without CC approval |
+| Maven | content platforms, ad dashboards, analytics, Canva, LinkedIn/X | no publish, DM, campaign, budget, or billing change without CC approval |
+| Aura | home dashboards, router/local devices, Home Assistant | no locks, cameras, alarms, resets, or privacy-sensitive views without CC approval |
+| Hermes/client agents | supplier portals, warehouse/order systems, client workflows | per-client approval profile and audit trail required |
+
+Browser Harness is for authenticated UI work and compounding domain skills. It never bypasses the V5.6 outbound chokepoint or the finance/production safety gates.
+
 ## PULSE vs Agents (important clarification)
 
 **PULSE** (ig-setter-pro) is an **app**, not an agent. It's CC's DM automation product (ManyChat replacement). It's one of many apps in the OASIS portfolio — alongside PropFlow, Nostalgic Requests, cc-funnel, TIKTIK, Skool community, etc. The 4 agents OPERATE these apps; they are not themselves apps.

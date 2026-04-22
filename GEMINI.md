@@ -71,8 +71,11 @@ Your ONLY job is to answer CC's question. Use MCP tools. 1-5 sentences max for s
 | Stripe payments, balance | `python scripts/stripe_tool.py` | `balance`, `customers`, `invoices`, `products`, `subscriptions` |
 | Gmail, Calendar, Drive, Sheets, Docs (GWS) | `python scripts/google_tool.py` | `gmail list`, `calendar events`, `drive list`, `sheets read <id>` |
 | Website-to-CLI, web scraping, API discovery | **OpenCLI** | `opencli explore <url>`, `opencli list`, `opencli <platform> <cmd>` |
+| Real logged-in browser control | **Browser Harness** | `python scripts/browser_harness_doctor.py`, `npm run browser:setup` |
 
 All CLI tools read credentials from `.env.agents` automatically. Pass `--json` for machine-readable output.
+
+Browser Harness is shared by Bravo, Atlas, Maven, Aura, and Hermes. Use `skills/browser-harness/SKILL.md`, `browser/domain-skills/`, and `browser/SAFETY.md`; never click send/publish/billing/finance/admin/destructive/production actions without explicit CC approval.
 
 If an MCP tool fails: "The [server] tool returned an error: [error]." — ONE sentence. No curl fallbacks. No workaround scripts. No audit reports.
 
