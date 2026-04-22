@@ -4,6 +4,10 @@ tags: [daily]
 
 ### 2026-04-22 — Auto-sync
 **Agent:** BRAVO state_sync
+**Note:** Codex pushed the Browser Harness runtime branch codex/browser-harness-runtime to GitHub. Draft PR creation was blocked because gh is not authenticated and the GitHub connector returned 404 for this private repo. Browser attach remains pending Chrome/Edge remote-debugging approval.
+
+### 2026-04-22 — Auto-sync
+**Agent:** BRAVO state_sync
 **Note:** Codex installed Browser Harness in the APPS browser-harness checkout, registered the global Codex skill, added Bravo browser/domain-skill infrastructure, onboarding diagnostics, runtime packaging skill, npm doctor scripts, and verified self_audit 100/100. Browser attach is pending CC's one-time Chrome/Edge remote-debugging approval.
 
 ### 2026-04-22 — Auto-sync
