@@ -161,6 +161,21 @@ Every script follows the same pattern: read `.env.agents` for credentials, accep
 
 ---
 
+## Browser Harness Layer
+
+Bravo now has Browser Harness installed as the direct logged-in browser layer:
+
+- Checkout: `C:\Users\User\APPS\browser-harness`
+- Skill: `skills/browser-harness/SKILL.md`
+- Domain memory: `browser/domain-skills/`
+- Interaction memory: `browser/interaction-skills/`
+- Diagnostics: `python scripts/browser_harness_doctor.py`
+- Full onboarding doctor: `python scripts/onboarding_diagnostics.py`
+
+Use this when a task needs authenticated UI control, screenshots, browser-only workflows, or reusable site knowledge. Business actions remain gated: outbound goes through `scripts/send_gateway.py`, and any send/publish/delete/billing/finance/admin/production click requires explicit approval.
+
+---
+
 ## Scheduler (Fail-Closed Architecture)
 
 10 active cron jobs, all verified against real services with 9/9 handler tests passing.
@@ -240,6 +255,10 @@ pip install -r requirements.txt
 
 # Install Node dependencies (for telegram bridge + MCP servers)
 npm install
+
+# Check next-gen onboarding + browser infrastructure
+python scripts/onboarding_diagnostics.py
+python scripts/browser_harness_doctor.py
 
 # Start with any AI interface
 # Claude Code reads CLAUDE.md automatically

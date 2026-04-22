@@ -1,0 +1,58 @@
+# Bravo product configuration example.
+# Copy to ~/.bravo/config.toml when the product CLI lands.
+
+[profile]
+active = "bravo"
+home = "~/.bravo"
+repo = "C:/Users/User/Business-Empire-Agent"
+
+[runtime]
+session_store = "~/.bravo/sessions/bravo.sqlite"
+logs_dir = "~/.bravo/logs"
+cache_dir = "~/.bravo/cache"
+skills_dir = "~/.bravo/skills"
+
+[browser_harness]
+enabled = true
+checkout = "C:/Users/User/APPS/browser-harness"
+executable = "C:/Users/User/.local/bin/browser-harness.exe"
+domain_skills = "browser/domain-skills"
+interaction_skills = "browser/interaction-skills"
+approval_required_for_writes = true
+
+[doctor]
+run_self_audit = true
+run_browser_harness = true
+run_tool_versions = true
+strict_browser_attach = false
+
+[safety]
+outbound_chokepoint = "scripts/send_gateway.py"
+require_approval_for_browser_writes = true
+require_approval_for_finance = true
+require_approval_for_production_settings = true
+
+[agents.bravo]
+role = "business operations brain"
+browser_allowed = true
+
+[agents.atlas]
+role = "CFO"
+browser_allowed = true
+approval_required_for_money_movement = true
+
+[agents.maven]
+role = "CMO"
+browser_allowed = true
+approval_required_for_publish = true
+approval_required_for_ad_budget = true
+
+[agents.aura]
+role = "life and home agent"
+browser_allowed = true
+approval_required_for_physical_devices = true
+
+[agents.hermes]
+role = "client operations agent"
+browser_allowed = true
+approval_required_for_client_portals = true

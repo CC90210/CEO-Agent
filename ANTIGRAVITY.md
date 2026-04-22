@@ -57,11 +57,14 @@ Your ONLY job is to answer CC's question. Use MCP tools. 1-5 sentences max for s
 | CC Asks About | Server | Tool |
 |---|---|---|
 | Browse a URL, screenshot, click | **Playwright** | `browser_navigate`, `browser_snapshot`, `browser_click`, `browser_type` |
+| Real logged-in browser control | **Browser Harness** | `python scripts/browser_harness_doctor.py`, `npm run browser:setup` |
 | Library docs | **Context7** | `resolve-library-id` → `query-docs` |
 | Knowledge/memory | **Memory** | `search_nodes`, `create_entities`, `open_nodes` |
 | Step-by-step reasoning | **Sequential Thinking** | `sequentialthinking` |
 
 **CLI tools for everything else** — read `.env.agents`, never break. See `brain/QUICK_REFERENCE.md` for the full routing table.
+
+Browser Harness is shared by Bravo, Atlas, Maven, Aura, and Hermes. Use `skills/browser-harness/SKILL.md`, `browser/domain-skills/`, and `browser/SAFETY.md`; never click send/publish/billing/finance/admin/destructive/production actions without explicit CC approval.
 
 If an MCP tool fails: "The [server] tool returned an error: [error]." — ONE sentence. No curl fallbacks. No workaround scripts. No audit reports.
 

@@ -4,7 +4,7 @@ tags: [capabilities, tools]
 
 # CAPABILITIES — Tool & Integration Registry
 
-> Complete inventory of what Bravo can do. Last updated: 2026-04-21.
+> Complete inventory of what Bravo can do. Last updated: 2026-04-22.
 > **Totals: 187 skills · 33 workflows · 47 scripts · 17 agents (16 file-based + 6 native Claude Code) · 5 MCP servers + Codex (external)**
 >
 > **📦 For the shareable GitHub repo catalog (CC's "tool shed" for clients/prospects): see [[brain/TOOL_SHED]]**
@@ -128,6 +128,25 @@ Transform any website into structured CLI commands via browser automation. Compl
 - **Plugin system:** `opencli plugin install github:user/repo` — extend without code changes
 - **Relationship:** cli-anything wraps local software → OpenCLI wraps websites. Use Playwright MCP for one-off browsing, OpenCLI for repeatable web commands.
 
+## Browser Harness (Direct Browser Control + Domain Skills)
+
+Browser Harness is installed as Bravo's direct Chrome/Edge control layer. It complements Playwright MCP, Firecrawl, and OpenCLI by attaching to a real logged-in browser and turning site-specific discoveries into durable domain skills.
+
+- **Stable checkout:** `C:\Users\User\APPS\browser-harness`
+- **Executable:** `C:\Users\User\.local\bin\browser-harness.exe`
+- **Global Codex skill:** `C:\Users\User\.codex\skills\browser-harness`
+- **Bravo skill:** `skills/browser-harness/SKILL.md`
+- **Runtime packaging skill:** `skills/agent-runtime-packaging/SKILL.md`
+- **Diagnostics:** `python scripts/browser_harness_doctor.py`
+- **Onboarding doctor:** `python scripts/onboarding_diagnostics.py`
+- **Workflow:** `.agents/workflows/browser-harness.md`
+- **Domain skills:** `browser/domain-skills/`
+- **Interaction skills:** `browser/interaction-skills/`
+
+**Current Windows note:** upstream Browser Harness assumed Unix sockets. The editable checkout has a local Windows compatibility patch that falls back to localhost TCP when `socket.AF_UNIX` is unavailable. Chrome/Edge still needs one-time remote-debugging profile approval before attach works.
+
+**Safety:** Browser Harness may inspect and draft, but any real send/publish/delete/billing/finance/admin/production action requires explicit CC approval. Outbound communication still goes through `scripts/send_gateway.py`.
+
 ## MCP Replacement CLI Tools (5 — replaces broken credential MCPs)
 
 | Tool | Script | Replaces MCP | Key Commands |
@@ -137,6 +156,8 @@ Transform any website into structured CLI commands via browser automation. Compl
 | **Supabase** | `scripts/supabase_tool.py` | Supabase MCP (token expired) | `list-projects`, `list-tables`, `select`, `insert`, `update`, `delete`, `query` |
 | **Stripe** | `scripts/stripe_tool.py` | Stripe MCP (v0.3.1 proxy mode) | `balance`, `customers`, `products`, `invoices`, `subscriptions`, `charges` |
 | **Firecrawl** | `scripts/firecrawl_tool.py` | Firecrawl MCP (fallback) | `scrape`, `crawl`, `search`, `extract`, `map` |
+| **Browser Harness Doctor** | `scripts/browser_harness_doctor.py` | Browser Harness install/attach diagnostics | `[--json] [--strict]` |
+| **Onboarding Diagnostics** | `scripts/onboarding_diagnostics.py` | Productized setup readiness check | `[--json]` |
 
 **Pattern:** Stateless MCPs (Playwright, Context7, Memory, Sequential Thinking) work fine. Credential MCPs break. CLI tools read `.env.agents` directly — never break.
 
