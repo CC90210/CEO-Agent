@@ -38,6 +38,7 @@ For COMPLEX+ tasks, use SPARC methodology (`skills/sparc-methodology/SKILL.md`).
 | Security audit, code quality | **Reviewer** | `/review`, `/commit` (pre-commit gate) |
 | Market research, documentation lookup | **Researcher** | `/research`, unknown APIs |
 | Website-to-CLI, platform data, API discovery | **Researcher** | `/opencli`, `opencli explore`, `opencli <platform>` |
+| Authenticated web app control, screenshots, domain-skill learning | **Browser Harness + owning agent** | `skills/browser-harness`, `.agents/workflows/browser-harness`, owner gates below |
 | Content creation, brand voice | **Content Creator** | `/content`, marketing tasks |
 | Social media publishing | **Social Publisher** | `/post`, cross-posting |
 | Video/audio production | **Video Editor** | `/content` (media pipeline) |
@@ -227,6 +228,20 @@ For COMPLEX+ tasks, use SPARC methodology (`skills/sparc-methodology/SKILL.md`).
 - **Routing rule:** Any question about content creation, ad campaigns, brand voice, SEO, funnels, marketing research, social media strategy, or growth experiments → defer to Maven or reference its docs.
 - **Key files:** `brain/SOUL.md` (identity), `brain/CAPABILITIES.md` (tool inventory), `brain/STATE.md` (campaign status)
 - **Receives from Bravo (migration):** content-engine, email-marketing, funnel-management, brand-guidelines, growth-engine, competitive-intelligence, elite-video-production, lead-management, linkedin-outreach, persona-content-creator skills + ../CMO-Agent/content-studio/
+
+## Shared Browser Harness Layer
+
+Browser Harness is a shared capability, not a new sovereign agent. Bravo owns the repo-level installation, diagnostics, safety rules, and `browser/domain-skills/` seed library. Each agent may use the layer only inside its domain:
+
+| Agent | Browser Harness Scope | Approval Gate |
+|---|---|---|
+| Bravo | GitHub, Supabase, Vercel, n8n, Stripe read-only, Google Workspace, client portals | approval before send/publish/billing/admin/destructive/production actions |
+| Atlas | finance dashboards, Stripe/accounting/tax portals | approval before money movement, filings, refunds, bank/billing changes |
+| Maven | LinkedIn, X/Twitter, Meta Ads, Google Ads, Canva, schedulers, analytics | approval before publishing, messaging, ad budget, campaign changes |
+| Aura | Home Assistant, router/device dashboards, local home services | approval before locks, cameras, alarms, resets, privacy-sensitive views |
+| Hermes/client agents | supplier/client portals and browser-only workflows | per-client approval profile and audit trail required |
+
+Outbound communication still goes through `scripts/send_gateway.py`. Browser domain skills must never store secrets, cookies, tokens, raw coordinates, private screenshots, or task diaries.
 
 ## Agent Permissions (Claims-Based Access Control)
 

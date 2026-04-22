@@ -86,8 +86,11 @@ The `scripts/` directory contains ~60 production CLI tools that read `.env.agent
 | Google Workspace | `python scripts/google_tool.py <subcommand>` |
 | n8n workflow operations | `python scripts/n8n_tool.py <command>` |
 | Telegram notification to CC | `python scripts/notify.py "message"` |
+| Browser Harness diagnostics / setup | `python scripts/browser_harness_doctor.py` / `npm run browser:setup` |
 
 Full routing: [brain/QUICK_REFERENCE.md](brain/QUICK_REFERENCE.md).
+
+Browser Harness is the shared direct-browser layer for Bravo, Atlas, Maven, Aura, and Hermes. Use it through [skills/browser-harness/SKILL.md](skills/browser-harness/SKILL.md) and [browser/SAFETY.md](browser/SAFETY.md); any real send, publish, finance, admin, destructive, or production browser action requires explicit CC approval and outbound still goes through `scripts/send_gateway.py`.
 
 ### RULE 3: CREDENTIALS AND SECURITY
 

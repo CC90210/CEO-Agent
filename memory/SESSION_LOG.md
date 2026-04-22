@@ -2,6 +2,18 @@
 tags: [daily]
 ---
 
+### 2026-04-22 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Codex pushed the Browser Harness runtime branch codex/browser-harness-runtime to GitHub. Draft PR creation was blocked because gh is not authenticated and the GitHub connector returned 404 for this private repo. Browser attach remains pending Chrome/Edge remote-debugging approval.
+
+### 2026-04-22 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Codex installed Browser Harness in the APPS browser-harness checkout, registered the global Codex skill, added Bravo browser/domain-skill infrastructure, onboarding diagnostics, runtime packaging skill, npm doctor scripts, and verified self_audit 100/100. Browser attach is pending CC's one-time Chrome/Edge remote-debugging approval.
+
+### 2026-04-22 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Codex completed Hermes Agent + Browser Harness cross-analysis, wrote docs/AGENT_REPO_CROSS_ANALYSIS_2026-04-22.md, and verified self_audit 100/100; diagnostic only, no production code changed.
+
 ### 2026-04-21 — Bravo V5.7 deep self-clean + growth features
 **Change:** CC called out move-too-fast behavior + redundant content-seed file + "hundreds of orphans" in Obsidian graph. Ran third-perspective self-audit: deleted 4 legacy files (TOOL_SHED_PLAIN_ENGLISH, HANDOFF, CLAUDE_CODE_HANDOFF, DELEGATION_TO_CLAUDE), reconnected 9 valuable "orphans" via brain/INDEX + brain/AGENTS (HOW_TO_USE_THE_4_AGENTS, CROSS_AGENT_AWARENESS, AGENT_SELF_IMPROVEMENT_PROMPTS, AGENT_GAP_AUDIT, PRODUCT_VERTICALS, MAC_ANTIGRAVITY_PROMPT, TOOL_SHED, close-review workflow, hyperthink workflow). Wrote brain/PERSONALITY.md — Bravo's lived voice, opinions, quirks, growth edges. Built scripts/self_audit.py — automated orphan/wiring/MCP-drift detector with 0-100 health score (runs in <2s). Registered 7 governance scripts in CAPABILITIES.md (self_audit, draft_critic, inbound_classifier, autonomous_agent, state_sync, register_skill, build_maven_env). Created skills/verticals/SKILL.md namespace doc. Confirmed all 3 MCP configs synced with 9 servers including new Obsidian MCP (CC installed Local REST API key).
 **Files:** +3 created (PERSONALITY.md, self_audit.py, verticals/SKILL.md), -4 deleted (legacy handoffs + content seeds), ~12 edited (brain/INDEX, brain/AGENTS, brain/SOUL, brain/STATE, skills/INDEX, workflows/INDEX, CAPABILITIES, 3 MCP configs, 1 wrapper script)

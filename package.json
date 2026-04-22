@@ -6,7 +6,10 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "telegram": "node telegram_agent.js",
-    "telegram:bg": "node telegram_agent.js >> telegram_bot.log 2>&1"
+    "telegram:bg": "node telegram_agent.js >> telegram_bot.log 2>&1",
+    "browser:doctor": "python scripts/browser_harness_doctor.py",
+    "browser:setup": "powershell -NoProfile -Command \"& (Get-Command browser-harness).Source --setup\"",
+    "onboarding:doctor": "python scripts/onboarding_diagnostics.py"
   },
   "repository": {
     "type": "git",
