@@ -39,6 +39,14 @@ import shutil
 import sys
 from pathlib import Path
 
+# Force UTF-8 output on Windows (cp1252 default breaks on any non-ASCII).
+if os.name == "nt":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_HOME = Path(os.path.expanduser("~/.bravo"))
 CONFIG_EXAMPLE = REPO_ROOT / "config" / "bravo-config.example.toml"
@@ -102,13 +110,13 @@ def ensure_home(home: Path = DEFAULT_HOME) -> Path:
     env_template = home / ".env.template"
     if not env_template.exists() and ENV_SOURCE.exists():
         try:
-            keys = _extract_env_keys(ENV_SOURCE)
-            env_template.write_text(
-                "# Bravo environment template — fill values locally.\n"
-                "# Never commit populated .env files.\n\n"
-                + "\n".join(f"{k}=" for k in keys) + "\n",
-                encoding="utf-8",
-            )
+            # Single source of truth for env-key parsing: install/bootstrap.py
+            repo_install = REPO_ROOT / "install"
+            if str(repo_install) not in sys.path:
+                sys.path.insert(0, str(repo_install))
+            from bootstrap import extract_env_keys, write_env_template  # type: ignore
+            keys = extract_env_keys(ENV_SOURCE)
+            write_env_template(keys, env_template)
         except Exception:
             pass
     # Seed profiles
@@ -118,20 +126,6 @@ def ensure_home(home: Path = DEFAULT_HOME) -> Path:
             continue
         profile_path.write_text(_render_profile(name, settings), encoding="utf-8")
     return home
-
-
-def _extract_env_keys(env_path: Path) -> list[str]:
-    """Return list of env keys from a .env file (never values)."""
-    keys: list[str] = []
-    for line in env_path.read_text(encoding="utf-8", errors="ignore").splitlines():
-        s = line.strip()
-        if not s or s.startswith("#"):
-            continue
-        if "=" in s:
-            k = s.split("=", 1)[0].strip()
-            if k and k.isidentifier() or (k and all(c.isalnum() or c == "_" for c in k)):
-                keys.append(k)
-    return keys
 
 
 def _render_profile(name: str, settings: dict) -> str:

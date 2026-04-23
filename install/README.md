@@ -1,54 +1,90 @@
-# Install And Onboarding
+# Install — Bravo One-Command Setup
 
-This directory is the landing zone for Bravo's product installer.
+Idempotent installers for Windows, macOS, Linux, and WSL. Safe to re-run.
+Neither script reads, writes, or copies the secrets file — they only generate
+a keys-only template for the operator to fill in manually.
 
-The immediate goal is to turn the repo into a Hermes-grade installable product without weakening the existing business logic.
-
-## Current Safe Diagnostics
-
-Run:
+## Windows
 
 ```powershell
-python scripts/onboarding_diagnostics.py
+powershell -ExecutionPolicy Bypass -File install/install.ps1
 ```
 
-Browser Harness only:
+Options:
+- `-SkipPathUpdate` — don't add `~\.bravo\bin` to user PATH
+- `-DryRun` — report what would happen without writing
+- `-Quiet` — suppress the banner
 
-```powershell
-python scripts/browser_harness_doctor.py
+## macOS / Linux / WSL
+
+```bash
+bash install/install.sh
 ```
 
-## Installer Roadmap
+Options:
+- `--skip-path` — don't append to `~/.zshrc` or `~/.bashrc`
+- `--dry-run` — report what would happen without writing
 
-Planned commands:
+## What Gets Created
 
-```text
-bravo setup
-bravo doctor
-bravo status
-bravo browser setup
-bravo browser doctor
-bravo skills list
-bravo tools list
-bravo agent create
+```
+~/.bravo/
+├── bin/
+│   └── bravo (POSIX) or bravo.cmd (Windows)   # launcher shim
+├── config.toml                                # copied from config/bravo-config.example.toml
+├── .env.template                              # keys-only, no values
+├── profiles/
+│   ├── bravo.toml
+│   ├── atlas.toml
+│   ├── maven.toml
+│   ├── aura.toml
+│   └── hermes.toml
+├── sessions/
+│   └── bravo.sqlite                           # populated on first `bravo sessions ingest`
+├── logs/
+├── skills/
+├── browser/
+│   ├── domain-skills/
+│   └── interaction-skills/
+└── cache/
 ```
 
-Planned files:
+## Under the Hood
 
-```text
-install/install.ps1
-install/install.sh
-bravo_cli/main.py
-config/bravo-config.example.toml
-runtime/session_store.py
-runtime/tool_manifest.py
+Both installers call `install/bootstrap.py` (cross-platform Python helper) which:
+
+1. Parses `.env.agents` for **key names only** (values are never read, copied, or logged)
+2. Writes `~/.bravo/.env.template` with `KEY=` lines the operator completes by hand
+3. Calls `runtime.profile_home.ensure_home(...)` to create the tree + seed profiles
+4. Writes the `bravo` launcher shim to `~/.bravo/bin/`
+
+You can also invoke the bootstrap directly:
+
+```bash
+python install/bootstrap.py --check    # report prereqs, don't write
+python install/bootstrap.py --json     # run + emit JSON
+python install/bootstrap.py --no-shim  # skip the launcher
 ```
 
-## Install Principles
+## Smoke Tests (run after install)
 
-- Windows-first because CC's primary workstation is Windows.
-- POSIX/WSL support second.
-- No installer should overwrite `.env.agents`.
-- No installer should run destructive database, Stripe, git, or file operations.
-- Setup should generate templates, check tools, and explain next actions.
-- Doctor should be read-only.
+```bash
+bravo doctor       # full 100-point health check
+bravo status       # one-screen operational summary
+bravo agent list   # see the 20 registered sub-agents
+```
+
+## Install Principles (Non-Negotiable)
+
+- Windows-first. POSIX/WSL second. macOS tested opportunistically.
+- No installer reads, writes, or copies the secrets file.
+- No installer runs destructive database, Stripe, git, or file operations.
+- Setup generates templates, checks tools, explains next actions.
+- Doctor is read-only.
+- Idempotent: safe to re-run any number of times.
+- The `bravo` shim is a thin launcher, not a reimplementation.
+
+## Related
+- [[runtime/profile_home]] — ensure_home implementation
+- [[bravo_cli/main]] — the CLI the installer wires up
+- [[brain/BRAVO_PRODUCT_ROADMAP]] — where this install path fits
