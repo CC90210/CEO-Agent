@@ -13,6 +13,73 @@ See [`brain/C_SUITE_ARCHITECTURE.md`](brain/C_SUITE_ARCHITECTURE.md) for the gov
 
 ---
 
+## Quick Install
+
+One command, one doctor, one wizard. Works on Windows 11, macOS, and Linux/WSL.
+
+**Windows (PowerShell):**
+```powershell
+git clone https://github.com/CC90210/CEO-Agent.git
+cd CEO-Agent
+powershell -ExecutionPolicy Bypass -File install/install.ps1
+bravo doctor
+bravo setup
+```
+
+**macOS / Linux / WSL:**
+```bash
+git clone https://github.com/CC90210/CEO-Agent.git
+cd CEO-Agent
+bash install/install.sh
+bravo doctor
+bravo setup
+```
+
+What you get after install:
+- `bravo` on your PATH (launches from `bin/bravo` or `bin/bravo.cmd`)
+- `~/.bravo/` home directory (config, profiles, sessions, logs, skills, cache)
+- A populated `.env.template` (never reads or copies secrets)
+- 73 CLI tools discoverable via `bravo tools`
+- 148 skills discoverable via `bravo skills`
+- 20 sub-agents discoverable via `bravo agent list`
+- Full-text search over session history via `bravo sessions search <query>`
+- Browser Harness integration with Chrome / Edge
+
+## First Five Commands
+
+```bash
+bravo                    # Branded launch — status + quick help
+bravo doctor             # Full health check (100-point audit)
+bravo status             # One-screen operational summary
+bravo agent list         # See the 20 sub-agents available
+bravo sessions recent    # Rewind recent work across all sessions
+```
+
+## Forge a New Agent
+
+Bravo's moat: it can scaffold a new agent in seconds, with identity, memory, safety, and a doctor command on day one.
+
+```bash
+bravo agent create Hermes --role "client commerce operations"
+bravo agent doctor Hermes
+```
+
+See [`skills/agent-forge/SKILL.md`](skills/agent-forge/SKILL.md) for the full template contract.
+
+## Browser Automation That Learns
+
+Real logged-in browser control with a two-layer memory system (interaction skills + site-specific domain skills), CC-approval gates on writes, and the V5.6 outbound chokepoint preserved end-to-end.
+
+```bash
+bravo browser doctor           # Is Chrome attached?
+bravo browser setup            # One-time Chrome remote-debug approval
+bravo browser learn linkedin   # Scaffold a new domain skill
+```
+
+See [`browser/SAFETY.md`](browser/SAFETY.md) for the approval policy.
+
+---
+
 ## What This Actually Does
 
 This system replaced a team. It handles:

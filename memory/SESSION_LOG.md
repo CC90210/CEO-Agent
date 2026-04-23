@@ -2,6 +2,96 @@
 tags: [daily]
 ---
 
+
+### 2026-04-22 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** End of session. Created memory/CLAUDE_HANDOVER.md detailing the outbound blast execution, the 404 Calendly link hallucination, the fix deployed, and the mandate for a full system diagnostic of outdated hardcoded links in legacy scripts. Claude MUST read memory/CLAUDE_HANDOVER.md before proceeding.
+
+### 2026-04-22 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** CRITICAL PROTOCOL UPDATE: All future outbound emails (cold or follow-up) MUST include the calendar booking link and website link. Antigravity failed to include links in the Apr 22 blast. This is now a hard requirement for all agents.
+
+### 2026-04-22 — Bravo V1.0 Productization (Agent Factory + Runtime Layer)
+**Agent:** Bravo (Claude Opus 4.7, 1M context)
+**Trigger:** CC asked for "extensive work" — merge PR #10, productize Bravo like Hermes/OpenClaw, deep review, push everything, update Obsidian graphs.
+
+**Intelligence:** Research agents confirmed production Hermes = NousResearch/hermes-agent v0.10.0 (95.6K stars, April 16 release). OpenClaw = Peter Steinberger's agent (68K stars, now OpenAI-sponsored). Bravo's moats: 17-agent business orchestration, persistent state for 3 AI systems, revenue-tied governance — none of these are in Hermes.
+
+**PR #10 merged:** fd9be18 on main. 48 files, +2289 lines. Browser Harness skill pack, runtime scaffolding, diagnostics, cross-agent wiring. Send_gateway chokepoint preserved.
+
+**Product layer shipped:**
+- `bravo_cli/main.py` v0.2.0 — 16 subcommands (doctor, status, setup, tools, skills, agent, browser, sessions, profile, logs, config, update, run, version). Branded BRAVO banner, MRR/profile context, UTF-8 enforced, ASCII fallback.
+- `runtime/` — `session_store.py` (SQLite FTS5, 59 entries ingested), `tool_manifest.py` (filesystem-truth registry: 73 scripts, 149 skills, 20 agents, 35 workflows), `profile_home.py` (~/.bravo/ tree with 5 profiles).
+- `install/` — `install.ps1` (Windows), `install.sh` (POSIX), `bootstrap.py` (shared helper). Idempotent, never mutates .env.agents, generates .env.template from keys only (57 keys extracted).
+- `skills/agent-forge/SKILL.md` + `templates/agent-scaffold/` (12 files) — Agent Forge: `bravo agent create <name>` scaffolds a full agent in seconds. Tested end-to-end at 100/100 audit score.
+- `bin/bravo` + `bin/bravo.cmd` — shell launchers.
+- `scripts/catalog_sync.py` — ends count drift; auto-regenerates manifest blocks in brain/CAPABILITIES.md + brain/STATE.md.
+- `brain/BRAVO_PRODUCT_ROADMAP.md` — V1.0/V1.1/V2.0 vision, leapfrog strategy, success criteria.
+- `README.md` — conversion-grade quick-install section at top.
+
+**Verification:** bravo doctor → HEALTHY (99/100). browser_harness_doctor → chrome running + daemon alive. onboarding_diagnostics → all OK. Agent Forge smoke test → 100/100 on forged scaffold. Zero orphans.
+
+**What Bravo does NOT do:** monolithic AIAgent class, bypass send_gateway, mutate .env.agents from installer, weaken CLAUDE.md below 120-line instruction-loss threshold.
+
+**Codex delegation:** attempted install script delegation; Codex bailed into rescue phase at 3m30s. Wrote installers directly (524 lines).
+
+**Next:** deploy Agent Forge to create Hermes-for-Emmanuel client agent. Start Phase V1.1 (gateway modularization, trajectory export, credential pool, ACP IDE integration).
+
+### 2026-04-22 — GitHub Auth Fix + PR #10 Created + Bravo CLI v0.1.0 Built
+**Agent:** BRAVO via Antigravity (Claude Opus 4.6 Thinking)
+**Trigger:** CC reported GitHub 404 on PR creation link and Docker errors from GitHub MCP server.
+
+**GitHub Fix:**
+- Authenticated `gh` CLI using `GITHUB_PERSONAL_ACCESS_TOKEN` from `.env.agents` → logged in as CC90210 with full repo scopes
+- Created Draft PR #10: https://github.com/CC90210/CEO-Agent/pull/10 — "feat: Browser Harness runtime layer + Hermes cross-analysis infrastructure" (48 files, +2,289 lines, -10 lines)
+- Fixed GitHub MCP server: cleared corrupted npx cache (`npm cache clean --force` + removed `_npx` dir). The `@modelcontextprotocol/server-github` npm package is deprecated but still works. The new `github/github-mcp-server` requires Docker which isn't installed — current npm wrapper is fine.
+- Verified `scripts/github-mcp-wrapper.cmd` works end-to-end: "GitHub MCP Server running on stdio"
+
+**Bravo CLI v0.1.0:**
+- Built unified CLI at `bravo_cli/main.py` — the #1 gap vs Hermes identified in cross-analysis
+- Commands: `bravo doctor`, `bravo status`, `bravo setup`, `bravo tools`, `bravo skills`, `bravo run <script>`, `bravo version`
+- `bravo doctor` wraps self_audit + browser_harness_doctor + tool checks + env file checks into one screen
+- `bravo status` shows live STATE.md fields + active task counts + last session
+- Fixed Windows cp1252 Unicode encoding issue (force UTF-8 stdout + ASCII fallback symbols)
+- Tested: doctor passes (100/100), status shows all 6 operational fields
+
+**Files:** `bravo_cli/__init__.py`, `bravo_cli/main.py` (new)
+
+### 2026-04-22 — Browser Harness PR Review + Hermes/Browser Harness Cross-Analysis
+**Agent:** BRAVO via Antigravity (Claude Opus 4.6 Thinking)
+**Trigger:** Codex pushed `codex/browser-harness-runtime` branch with 48 files (+2,289 lines) covering Browser Harness integration, runtime scaffolding, and cross-agent infrastructure. CC requested full PR review + independent cross-analysis of Hermes Agent (109K stars) and Browser Harness (4.5K stars).
+
+**PR Review:**
+- Branch diff confirmed clean — only Browser Harness/runtime/cross-agent infra files, no unrelated dirty files mixed in
+- 48 files changed, all additive, no credential changes, no database mutations
+- V5.6 send_gateway chokepoint preserved
+- All 4 entry points (AGENTS.md, CLAUDE.md, GEMINI.md, ANTIGRAVITY.md) synced
+- PR creation BLOCKED — gh CLI not authenticated, browser not logged into GitHub. CC must open PR manually at: https://github.com/CC90210/CEO-Agent/pull/new/codex/browser-harness-runtime
+
+**Diagnostics:**
+- self_audit.py: 100/100 ✅
+- onboarding_diagnostics.py: OK (rg missing — non-critical)
+- browser_harness_doctor.py: Install OK, Attach PENDING (Chrome remote-debug approval needed)
+
+**Cross-Analysis Codex Claim Validation (all 4 confirmed):**
+1. Hermes wins on install/setup/CLI/runtime/gateway/session search — CONFIRMED
+2. Browser Harness wins on direct browser control + self-healing compounding — CONFIRMED
+3. Bravo wins on business awareness/safety/revenue ops/founder execution — CONFIRMED
+4. Biggest Bravo gaps: CLI, wizard, doctor, runtime home, skill lifecycle, session search — CONFIRMED
+
+**Additional findings Codex missed:** Hermes has ACP agent-to-agent protocol, trajectory compressor, batch runner, RL CLI, datagen configs, Nix+Homebrew packaging, Docker support, 10 versioned releases, web interface, environments system.
+
+**Execution roadmap created:** 6-phase plan (CLI+Doctor → Installer → Browser Attach → Agent Forge → Session Search → Terminal Polish).
+
+**Files:** Artifact at artifacts/browser_harness_cross_analysis.md
+**Decision points for CC:** Merge PR? Complete browser setup? Build bravo CLI? Install ripgrep? Agent Forge priority?
+
+### 2026-04-22 — Cold Call Confidence + Pitch Refinement
+**Agent:** BRAVO via Antigravity (Claude Opus 4.6 Thinking)
+**Trigger:** CC asked for confidence notes and help refining his core AI partnership pitch.
+**Change:** Added "CC's Core Pitch — The Partnership Frame" section and "Pre-Call Confidence Anchors" section to `skills/sales-closing/SKILL.md` — refined core pitch line ("partner who grows with you through this next era"), 5 mindset anchors, mid-call reset, fallback close. Initially created orphan `memory/COLD_CALL_CONFIDENCE.md` — CC corrected: content belongs in existing skill file, not a new file. Deleted orphan, added to sales-closing/SKILL.md instead.
+**Files:** skills/sales-closing/SKILL.md (updated), memory/COLD_CALL_CONFIDENCE.md (created then deleted)
+
 ### 2026-04-22 — Auto-sync
 **Agent:** BRAVO state_sync
 **Note:** Codex pushed the Browser Harness runtime branch codex/browser-harness-runtime to GitHub. Draft PR creation was blocked because gh is not authenticated and the GitHub connector returned 404 for this private repo. Browser attach remains pending Chrome/Edge remote-debugging approval.

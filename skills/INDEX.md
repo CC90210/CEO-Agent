@@ -24,6 +24,7 @@ tags: [skills, index, hub]
 - [[skills/finishing-a-development-branch/SKILL]] — Branch completion protocol
 
 ## Agent Infrastructure
+- [[skills/agent-forge/SKILL]] — Create new agents from template with identity, memory, safety, and a doctor command on day one. Bravo's moat extension.
 - [[skills/agent-runtime-packaging/SKILL]] — Product-grade agent infrastructure: onboarding diagnostics, runtime home, packaging, skill lifecycle, tool manifests, Browser Harness integration, and agent scaffolds.
 - [[skills/agent-teams/SKILL]] — Native parallel subagent orchestration
 - [[skills/task-routing/SKILL]] — Complexity-based agent assignment

@@ -3,15 +3,23 @@
 bravo — the unified CLI front door for Business-Empire-Agent.
 
 Usage:
-    bravo doctor          Full system health check
-    bravo status          One-screen operational summary
-    bravo setup           Guided first-time setup wizard
-    bravo tools [list]    List available CLI tools
-    bravo skills [list]   List registered skills
-    bravo run <script>    Run a script from scripts/ by name
-    bravo version         Show version and agent info
+    bravo doctor              Full system health check
+    bravo status              One-screen operational summary
+    bravo setup               Guided first-time setup wizard
+    bravo tools               List available CLI tools (from manifest)
+    bravo skills              List registered skills
+    bravo run <script>        Run a script from scripts/ by name
+    bravo config show|set     Show or set product config (~/.bravo/config.toml)
+    bravo browser             setup | doctor | learn <site>
+    bravo agent               list | create <name> | doctor <name>
+    bravo sessions            search <q> | recent | stats | ingest
+    bravo profile             list | show | use <name>
+    bravo logs                Tail ~/.bravo/logs
+    bravo update              git pull + catalog sync + session ingest
+    bravo version             Show version and agent info
 
-This wraps existing scripts — it never duplicates business logic.
+Wraps existing scripts + the runtime layer. Never duplicates business logic.
+Preserves V5.6 outbound chokepoint (scripts/send_gateway.py).
 """
 
 from __future__ import annotations
@@ -29,14 +37,21 @@ from typing import Any
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = REPO_ROOT / "scripts"
 SKILLS_DIR = REPO_ROOT / "skills"
+AGENTS_DIR = REPO_ROOT / "agents"
 BRAIN_DIR = REPO_ROOT / "brain"
 MEMORY_DIR = REPO_ROOT / "memory"
+TEMPLATES_DIR = REPO_ROOT / "templates"
 ENV_FILE = REPO_ROOT / ".env.agents"
 CONFIG_EXAMPLE = REPO_ROOT / "config" / "bravo-config.example.toml"
+BRAVO_HOME = Path(os.path.expanduser("~/.bravo"))
+
+# Make `runtime` package importable without installing.
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 # ANSI colors — degrade gracefully on dumb terminals
 _COLOR = os.environ.get("NO_COLOR") is None and sys.stdout.isatty()
@@ -74,11 +89,14 @@ WARN = _safe("\u25cb", "o")     # ○ or o
 ALERT = _safe("\u26a0", "!")    # ⚠ or !
 
 BANNER = r"""
- ____  ____    __    _  _  _____
-(  _ \(  _ \  /__\  ( \/ )(  _  )
- ) _ < )   / /(__)\  \  /  )(_)(
-(____/(_)\_)(__)(__)  \/  (_____)
+  ____  ____    ____  _     _____
+ | __ )|  _ \  / \ \ \   / / _ \
+ |  _ \| |_) |/ _ \ \ \ / / | | |
+ | |_) |  _ </ ___ \ \ V /| |_| |
+ |____/|_| \_\_/   \_\ |_|  \___/
 """
+
+TAGLINE = "Business-Empire-Agent — Agent Factory + Operations Brain"
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -524,22 +542,331 @@ def cmd_setup(_args: argparse.Namespace) -> int:
     return 0 if steps_passed == steps_total else 1
 
 
+# ── New commands: config, browser, agent, sessions, profile, logs, update ─────
+
+def _dispatch_runtime(module: str, argv: list[str]) -> int:
+    """Invoke a runtime.<module> module with argv."""
+    cmd = [sys.executable, "-m", f"runtime.{module}"] + argv
+    return subprocess.call(cmd, cwd=str(REPO_ROOT))
+
+
+def cmd_config(args: argparse.Namespace) -> int:
+    """Show or edit ~/.bravo/config.toml."""
+    config_path = BRAVO_HOME / "config.toml"
+    action = (args.action or "show").lower()
+
+    if action == "show":
+        if not config_path.exists():
+            print(f"{YELLOW('Not initialized.')} Run: {CYAN('bravo profile init')} "
+                  f"or {CYAN('python -m runtime.profile_home init')}")
+            return 1
+        print(BOLD(CYAN(f"BRAVO CONFIG")) + f"  {DIM(str(config_path))}")
+        print()
+        print(config_path.read_text(encoding="utf-8"))
+        return 0
+
+    if action == "path":
+        print(config_path)
+        return 0
+
+    if action == "set":
+        if not args.key or args.value is None:
+            print(f"{RED('Usage:')} bravo config set <key> <value>")
+            return 1
+        # Simple TOML key=value replacement (section.key or top-level)
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        text = config_path.read_text(encoding="utf-8") if config_path.exists() else ""
+        key = args.key
+        value = args.value
+        quoted = f'"{value}"' if not value.replace(".", "").replace("-", "").isalnum() else value
+        # Replace `key = ...` if present; else append
+        pattern = rf"^({re.escape(key)})\s*=\s*.+$"
+        if re.search(pattern, text, re.MULTILINE):
+            text = re.sub(pattern, rf"\1 = {quoted}", text, flags=re.MULTILINE)
+        else:
+            text = text.rstrip() + f"\n{key} = {quoted}\n"
+        config_path.write_text(text, encoding="utf-8")
+        print(f"{GREEN(OK)} set {BOLD(key)} = {quoted}")
+        return 0
+
+    print(f"{RED('Unknown action:')} {action}")
+    return 1
+
+
+def cmd_browser(args: argparse.Namespace) -> int:
+    """Browser Harness setup / doctor / learn <site>."""
+    action = (args.action or "doctor").lower()
+
+    if action == "doctor":
+        print(BOLD(CYAN("BRAVO BROWSER DOCTOR")))
+        print()
+        return subprocess.call(
+            [sys.executable, str(SCRIPTS_DIR / "browser_harness_doctor.py")]
+            + (["--strict"] if args.strict else []),
+            cwd=str(REPO_ROOT),
+        )
+
+    if action == "setup":
+        print(BOLD(CYAN("BRAVO BROWSER SETUP")))
+        print()
+        print(f"  {DIM('This runs browser-harness --setup and walks Chrome remote-debug approval.')}")
+        print(f"  {DIM('Required one time per machine.')}")
+        print()
+        return subprocess.call(
+            ["powershell", "-NoProfile", "-Command",
+             "& (Get-Command browser-harness).Source --setup"],
+            cwd=str(REPO_ROOT),
+        )
+
+    if action == "learn":
+        if not args.site:
+            print(f"{RED('Usage:')} bravo browser learn <site>")
+            print(f"  {DIM('Creates a new browser/domain-skills/<site>.md stub from the template.')}")
+            return 1
+        template = REPO_ROOT / "browser" / "DOMAIN_SKILL_TEMPLATE.md"
+        out = REPO_ROOT / "browser" / "domain-skills" / f"{args.site}.md"
+        if out.exists():
+            print(f"{YELLOW('Exists:')} {out}")
+            return 0
+        if not template.exists():
+            print(f"{RED('Template missing:')} {template}")
+            return 1
+        out.parent.mkdir(parents=True, exist_ok=True)
+        content = template.read_text(encoding="utf-8").replace("<site>", args.site)
+        out.write_text(content, encoding="utf-8")
+        print(f"{GREEN(OK)} Created {out}")
+        print(f"  {DIM('Fill in URL patterns, selectors, waits, traps, approval actions.')}")
+        return 0
+
+    print(f"{RED('Unknown browser action:')} {action}")
+    return 1
+
+
+def cmd_agent(args: argparse.Namespace) -> int:
+    """Agent Forge — list, create, doctor named agents."""
+    action = (args.action or "list").lower()
+
+    if action == "list":
+        print(BOLD(CYAN("BRAVO AGENTS")))
+        print()
+        from runtime.tool_manifest import _collect_agents  # lazy
+        agents = _collect_agents()
+        by_location: dict[str, list[dict]] = {}
+        for a in agents:
+            by_location.setdefault(a["location"], []).append(a)
+        for loc, items in sorted(by_location.items()):
+            print(f"  {BOLD(loc)}")
+            for a in items:
+                desc = f"  {DIM(a['description'])}" if a["description"] else ""
+                model = f"  [{a['model']}]" if a["model"] != "unspecified" else ""
+                print(f"    {CYAN(a['name']):30s}{model}{desc}")
+            print()
+        print(f"  {DIM(f'{len(agents)} agents total')}")
+        return 0
+
+    if action == "create":
+        if not args.name:
+            print(f"{RED('Usage:')} bravo agent create <name> [--template <template>] [--path <repo-path>]")
+            return 1
+        template = args.template or "default"
+        scaffold = TEMPLATES_DIR / "agent-scaffold"
+        if not scaffold.exists():
+            print(f"{RED('Scaffold template missing:')} {scaffold}")
+            print(f"  {DIM('Expected at templates/agent-scaffold/ — create it first.')}")
+            return 1
+        target = Path(args.path).expanduser() if args.path else (REPO_ROOT / "agents" / f"_forge_{args.name}")
+        if target.exists() and any(target.iterdir()):
+            print(f"{RED('Target not empty:')} {target}")
+            return 1
+        target.mkdir(parents=True, exist_ok=True)
+        # Copy scaffold tree, templating {{AGENT_NAME}}
+        copied = 0
+        for src in scaffold.rglob("*"):
+            if src.is_dir() or ".git" in src.parts:
+                continue
+            rel = src.relative_to(scaffold)
+            dest = target / str(rel).replace("__AGENT__", args.name.lower())
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                text = src.read_text(encoding="utf-8")
+                text = (text.replace("{{AGENT_NAME}}", args.name)
+                            .replace("{{agent_name}}", args.name.lower())
+                            .replace("{{AGENT_ROLE}}", args.role or "operations")
+                            .replace("{{AGENT_TEMPLATE}}", template)
+                            .replace("{{DATE}}", dt.datetime.now().strftime("%Y-%m-%d")))
+                dest.write_text(text, encoding="utf-8")
+            except (UnicodeDecodeError, UnicodeError):
+                shutil.copy2(src, dest)
+            copied += 1
+        print(f"{GREEN(OK)} Forged agent {BOLD(args.name)} at {target}")
+        print(f"  Files copied: {copied}")
+        print(f"  Template: {template}")
+        print(f"  Next: {CYAN(f'cd {target} && bravo agent doctor {args.name}')}")
+        return 0
+
+    if action == "doctor":
+        if not args.name:
+            print(f"{RED('Usage:')} bravo agent doctor <name>")
+            return 1
+        # Look for the agent in known locations
+        candidates = [
+            AGENTS_DIR / f"{args.name}.md",
+            REPO_ROOT / ".claude" / "agents" / f"{args.name}.md",
+            REPO_ROOT / "agents" / "voltagent" / f"{args.name}.md",
+            REPO_ROOT / "agents" / f"_forge_{args.name}" / "AGENTS.md",
+        ]
+        found = [p for p in candidates if p.exists()]
+        if not found:
+            print(f"{RED('Agent not found:')} {args.name}")
+            return 1
+        print(BOLD(CYAN(f"AGENT DOCTOR: {args.name}")))
+        print()
+        for p in found:
+            rel = p.relative_to(REPO_ROOT)
+            text = p.read_text(encoding="utf-8", errors="ignore")
+            has_desc = "description:" in text[:500].lower()
+            has_tools = "tools:" in text[:500].lower()
+            has_model = "model:" in text[:500].lower()
+            print(f"  {GREEN(OK)} {rel}")
+            for label, ok in [("description", has_desc), ("tools", has_tools), ("model", has_model)]:
+                mark = GREEN(OK) if ok else YELLOW(WARN)
+                print(f"    {mark} {label}")
+        return 0
+
+    print(f"{RED('Unknown agent action:')} {action}")
+    return 1
+
+
+def cmd_sessions(args: argparse.Namespace) -> int:
+    """Session FTS search / recent / stats / ingest."""
+    action = (args.action or "recent").lower()
+    if action == "search":
+        if not args.query:
+            print(f"{RED('Usage:')} bravo sessions search <query>")
+            return 1
+        return _dispatch_runtime("session_store",
+                                 ["search", args.query, "--limit", str(args.limit)])
+    if action == "recent":
+        return _dispatch_runtime("session_store",
+                                 ["recent", "--limit", str(args.limit)])
+    if action == "stats":
+        return _dispatch_runtime("session_store", ["stats"])
+    if action == "ingest":
+        return _dispatch_runtime("session_store", ["ingest"])
+    print(f"{RED('Unknown sessions action:')} {action}")
+    return 1
+
+
+def cmd_profile(args: argparse.Namespace) -> int:
+    """Profile home management."""
+    action = (args.action or "list").lower()
+    if action == "list":
+        return _dispatch_runtime("profile_home", ["list"])
+    if action == "init":
+        return _dispatch_runtime("profile_home", ["init"])
+    if action == "info" or action == "show":
+        return _dispatch_runtime("profile_home", ["info"])
+    if action == "use":
+        if not args.name:
+            print(f"{RED('Usage:')} bravo profile use <name>")
+            return 1
+        config_path = BRAVO_HOME / "config.toml"
+        if not config_path.exists():
+            print(f"{RED('Config not initialized.')} Run: {CYAN('bravo profile init')}")
+            return 1
+        text = config_path.read_text(encoding="utf-8")
+        new_text = re.sub(r'^active\s*=\s*".*?"',
+                          f'active = "{args.name}"', text, flags=re.MULTILINE, count=1)
+        if new_text == text:
+            new_text = text.rstrip() + f'\n[profile]\nactive = "{args.name}"\n'
+        config_path.write_text(new_text, encoding="utf-8")
+        print(f"{GREEN(OK)} Active profile set to {BOLD(args.name)}")
+        return 0
+    print(f"{RED('Unknown profile action:')} {action}")
+    return 1
+
+
+def cmd_logs(args: argparse.Namespace) -> int:
+    """Tail the most recent logs in ~/.bravo/logs/."""
+    logs_dir = BRAVO_HOME / "logs"
+    if not logs_dir.exists():
+        print(f"{YELLOW('Logs dir not initialized:')} {logs_dir}")
+        print(f"  Run: {CYAN('bravo profile init')}")
+        return 1
+    files = sorted(logs_dir.glob("*.log"),
+                   key=lambda p: p.stat().st_mtime, reverse=True)
+    if not files:
+        print(f"{DIM('No log files in')} {logs_dir}")
+        return 0
+    path = files[0]
+    print(BOLD(CYAN(f"{path.name}"))
+          + DIM(f"  (last {args.tail} lines)"))
+    print()
+    try:
+        lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+        for line in lines[-args.tail:]:
+            print(line)
+    except Exception as exc:
+        print(f"{RED('Error reading log:')} {exc}")
+        return 1
+    return 0
+
+
+def cmd_update(_args: argparse.Namespace) -> int:
+    """Run git pull + catalog_sync + session_store ingest (safe, idempotent)."""
+    print(BOLD(CYAN("BRAVO UPDATE")))
+    print()
+    print(f"{BOLD('1.')} git pull --ff-only")
+    r1 = _run(["git", "pull", "--ff-only"])
+    print(r1["stdout"] or r1["stderr"])
+    print()
+    print(f"{BOLD('2.')} catalog sync")
+    r2 = _run([sys.executable, str(SCRIPTS_DIR / "catalog_sync.py")])
+    print(r2["stdout"] or r2["stderr"])
+    print()
+    print(f"{BOLD('3.')} session store ingest")
+    r3 = _run([sys.executable, "-m", "runtime.session_store", "ingest"])
+    print(r3["stdout"] or r3["stderr"])
+    print()
+    all_ok = r1["ok"] and r2["ok"] and r3["ok"]
+    print(GREEN(OK + " Update complete") if all_ok else YELLOW(WARN + " Some steps had warnings"))
+    return 0 if all_ok else 1
+
+
 # ── Main parser ────────────────────────────────────────────────────────────────
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="bravo",
-        description="Bravo — Business-Empire-Agent CLI",
+        description="Bravo — Business-Empire-Agent CLI (Agent Factory + Operations Brain)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Commands:
-  doctor      Full system health check
-  status      One-screen operational summary
-  setup       Guided first-time setup wizard
-  tools       List available CLI tools
-  skills      List registered skills
-  run <name>  Run a script from scripts/ by name
-  version     Show version info
+Core:
+  doctor               Full system health check
+  status               One-screen operational summary
+  setup                Guided first-time setup wizard
+  version              Show version info
+
+Discovery:
+  tools                List available CLI tools
+  skills               List registered skills
+  agent list           List registered sub-agents
+
+Runtime:
+  config show|set      View / edit ~/.bravo/config.toml
+  profile list|use     Switch active agent profile
+  sessions search <q>  FTS search across session logs
+  sessions recent      Most recent sessions
+  logs [--tail N]      Tail the newest log file
+
+Automation:
+  browser setup        One-time Chrome remote-debug approval
+  browser doctor       Browser Harness diagnostics
+  browser learn <site> Scaffold a new browser domain skill
+  agent create <name>  Forge a new agent from template
+  agent doctor <name>  Validate an agent's structure
+  run <script>         Run a script from scripts/
+  update               git pull + catalog sync + session ingest
 """,
     )
     sub = parser.add_subparsers(dest="command")
@@ -550,10 +877,53 @@ Commands:
     sub.add_parser("tools", help="List available CLI tools", aliases=["tool"])
     sub.add_parser("skills", help="List registered skills", aliases=["skill"])
     sub.add_parser("version", help="Show version info")
+    sub.add_parser("update", help="git pull + catalog sync + session ingest")
 
     run_p = sub.add_parser("run", help="Run a script from scripts/")
     run_p.add_argument("script", help="Script name (without .py)")
     run_p.add_argument("extra_args", nargs=argparse.REMAINDER, help="Arguments to pass to the script")
+
+    # config show | set <key> <value> | path
+    cfg_p = sub.add_parser("config", help="View / edit ~/.bravo/config.toml")
+    cfg_p.add_argument("action", nargs="?", default="show",
+                       choices=["show", "set", "path"])
+    cfg_p.add_argument("key", nargs="?")
+    cfg_p.add_argument("value", nargs="?")
+
+    # browser setup | doctor | learn <site>
+    br_p = sub.add_parser("browser", help="Browser Harness setup / doctor / learn")
+    br_p.add_argument("action", nargs="?", default="doctor",
+                      choices=["setup", "doctor", "learn"])
+    br_p.add_argument("site", nargs="?", help="Site slug for `browser learn <site>`")
+    br_p.add_argument("--strict", action="store_true",
+                      help="Doctor: fail if browser attach is not live")
+
+    # agent list | create <name> | doctor <name>
+    ag_p = sub.add_parser("agent", help="Agent Forge — list / create / doctor")
+    ag_p.add_argument("action", nargs="?", default="list",
+                      choices=["list", "create", "doctor"])
+    ag_p.add_argument("name", nargs="?")
+    ag_p.add_argument("--template", help="Template name (default: default)")
+    ag_p.add_argument("--role", help="Role description for the new agent")
+    ag_p.add_argument("--path", help="Target path (defaults to agents/_forge_<name>/)")
+
+    # sessions search <q> | recent | stats | ingest
+    ss_p = sub.add_parser("sessions", help="Session FTS search / recent / stats")
+    ss_p.add_argument("action", nargs="?", default="recent",
+                      choices=["search", "recent", "stats", "ingest"])
+    ss_p.add_argument("query", nargs="?", help="Search query")
+    ss_p.add_argument("--limit", type=int, default=10)
+
+    # profile list | show | use <name> | init
+    pr_p = sub.add_parser("profile", help="Agent profile home management")
+    pr_p.add_argument("action", nargs="?", default="list",
+                      choices=["list", "show", "info", "use", "init"])
+    pr_p.add_argument("name", nargs="?")
+
+    # logs --tail N
+    lg_p = sub.add_parser("logs", help="Tail the most recent log in ~/.bravo/logs")
+    lg_p.add_argument("--tail", type=int, default=50,
+                      help="Number of lines to print (default 50)")
 
     return parser
 
@@ -568,7 +938,49 @@ COMMAND_MAP = {
     "skill": cmd_skills,
     "run": cmd_run,
     "version": cmd_version,
+    "config": cmd_config,
+    "browser": cmd_browser,
+    "agent": cmd_agent,
+    "sessions": cmd_sessions,
+    "profile": cmd_profile,
+    "logs": cmd_logs,
+    "update": cmd_update,
 }
+
+
+def _launch_banner() -> None:
+    """Branded launch screen — shown on bare `bravo` invocation."""
+    print(BOLD(CYAN(BANNER)))
+    print(f"  {BOLD('Bravo')} {DIM(f'v{VERSION}')}  {DIM('|')}  "
+          f"{MAGENTA(TAGLINE)}")
+    print(f"  {DIM(str(dt.datetime.now().strftime('%Y-%m-%d %H:%M')))}"
+          f"  {DIM('|')}  {DIM('Only good things from now on.')}")
+    print()
+    # Profile + health glance
+    try:
+        from runtime.profile_home import get_active_profile
+        profile = get_active_profile()
+    except Exception:
+        profile = "bravo"
+    version = _read_state_field("Version")
+    pos = _read_state_field("Position")
+    line = f"  Profile: {CYAN(profile):20s}  Version: {CYAN(version):18s}  Stance: {CYAN(pos)}"
+    print(line)
+    # MRR line if available from STATE.md
+    mrr = _read_state_field("MRR")
+    target = _read_state_field("Target")
+    if mrr and mrr != "unknown":
+        print(f"  MRR:     {GREEN(mrr):20s}  Target:  {CYAN(target or '$5,000')}")
+    print()
+    print(f"  {DIM('Commands:')} "
+          f"{CYAN('doctor')} {DIM('|')} "
+          f"{CYAN('status')} {DIM('|')} "
+          f"{CYAN('agent')} {DIM('|')} "
+          f"{CYAN('browser')} {DIM('|')} "
+          f"{CYAN('sessions')} {DIM('|')} "
+          f"{CYAN('update')}")
+    print(f"  {DIM('Help:')}     bravo --help")
+    print()
 
 
 def main() -> int:
@@ -576,12 +988,7 @@ def main() -> int:
     args = parser.parse_args()
 
     if not args.command:
-        # No command — show banner + status
-        print(BOLD(MAGENTA(BANNER)))
-        print(f"  {BOLD('Bravo CLI')} v{VERSION}")
-        print(f"  {DIM('Business-Empire-Agent')}")
-        print(f"  {DIM('Run: bravo <command> — or: bravo --help')}")
-        print()
+        _launch_banner()
         return cmd_status(args)
 
     handler = COMMAND_MAP.get(args.command)

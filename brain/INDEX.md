@@ -27,6 +27,7 @@ tags: [brain, index]
 - [[brain/RISK_REGISTER]] — 10 tracked business risks
 - [[brain/APP_REGISTRY]] — 12 external app routing table
 - [[brain/OPENCLI_STRATEGY]] — Website-to-CLI automation strategy
+- [[brain/BRAVO_PRODUCT_ROADMAP]] — V1.0 → V2.0 path, leapfrog Hermes + OpenClaw
 
 ## Ephemeral (updated every session)
 - [[brain/STATE]] — Current operational state + known issues
