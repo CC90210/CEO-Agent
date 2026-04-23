@@ -27,6 +27,10 @@ from pathlib import Path
 BRAVO_HOME = Path(os.path.expanduser("~/.bravo"))
 ENV_PATH = BRAVO_HOME / ".env"
 
+# Repo-side env file (legacy path; existing scripts load from here).
+REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ENV = REPO_ROOT / ".env.agents"
+
 # Force UTF-8 output on Windows.
 if os.name == "nt":
     try:
@@ -364,12 +368,44 @@ def step_optional() -> None:
             write_env(key, val)
             print(f"    {GREEN('✓')} Saved.")
 
+def _mirror_to_repo_env() -> bool:
+    """Copy ~/.bravo/.env to <repo>/.env.agents when the repo file is missing
+    or empty. Existing scripts in scripts/ load env from the repo path, so
+    without this step the wizard's keys would never reach them."""
+    if not ENV_PATH.exists():
+        return False
+    # Only bootstrap — never overwrite a populated repo env.
+    if REPO_ENV.exists():
+        try:
+            text = REPO_ENV.read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            return False
+        populated = any(
+            "=" in ln and ln.split("=", 1)[1].strip()
+            and not ln.strip().startswith("#")
+            for ln in text.splitlines()
+        )
+        if populated:
+            return False
+    try:
+        REPO_ENV.write_text(ENV_PATH.read_text(encoding="utf-8"),
+                            encoding="utf-8")
+        return True
+    except Exception:
+        return False
+
+
 def step_finalize(profile: str) -> None:
     section("6/6  Finalize")
     # Write active profile marker
     write_env("BRAVO_ACTIVE_PROFILE", profile)
+    mirrored = _mirror_to_repo_env()
     print(f"  {GREEN('✓')} Active profile: {BOLD(profile)}")
-    print(f"  {GREEN('✓')} Env file:       {CYAN(str(ENV_PATH))}")
+    print(f"  {GREEN('✓')} Home env:       {CYAN(str(ENV_PATH))}")
+    if mirrored:
+        print(f"  {GREEN('✓')} Repo env:       {CYAN(str(REPO_ENV))}  {DIM('(bootstrapped)')}")
+    else:
+        print(f"  {DIM('Repo env already populated — not overwritten.')}")
     print()
     print(f"  {BOLD('Next commands to try:')}")
     print(f"    {CYAN('bravo doctor')}         — full health check")
