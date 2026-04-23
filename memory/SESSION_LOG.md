@@ -26,6 +26,33 @@ tags: [daily]
 **Agent:** BRAVO state_sync
 **Note:** Updated n8n workflow 'OASIS Inbound Qualifier (Bravo Aware)' to fix email inbound automation. Adjusted SENTINEL prompt to correctly route Business Expenses and Income & Invoices to separate Gmail labels. Added 'Mark as read' to income path.
 
+### 2026-04-23 — Deep Diagnostic + System Cleanup (~390MB recovered)
+**Agent:** Bravo (Claude Opus 4.7)
+**Trigger:** CC — "deep diagnostic of the system and delete any redundant files or screenshots... clean and prune the system to make sure it's running completely fine, optimized, and that all wiring is perfect."
+
+**Storage recovered: ~390MB**
+- `tmp/skool-browser/Default/Code Cache` (292MB) + Cache (21MB) + GPUCache + DawnWebGPUCache + DawnGraphiteCache — Chrome was closed; login state in Local Storage + Session Storage preserved.
+- `tmp/repo-research/` (57MB) — reference clones of hermes-agent + browser-harness, re-cloneable.
+- `.claude/worktrees/agent-a309c8bb/` (17MB) — legacy worktree flagged in memory S3712.
+- `tmp/powershell_profile_backups/*.bak` — kept most recent.
+- `tmp/logs/skool_2026-04-{12,14,15}.log` — kept last 3 days.
+- `tmp/` one-offs: outbound_blast.py + v2 (Apr 21 Calendly incident artifacts), codex prompt dumps, asr-fix / obs_unblock / reinstall_vlc / fix_hosts_threats, stale call sheets + email batches, n8n_code_node_v9 (kept v10), HTML exports (now in Google Docs), admin security snapshots, empty pm2 error logs.
+- `__pycache__/` under bravo_cli, runtime, scripts, scripts/cli_templates, scripts/contract_generator.
+- Empty `tmp/tmpxez4_p1w/` dir.
+
+**Zero Playwright screenshots found** — image inventory came back clean (all 54 images are inside `.venv/` dependencies, none in project output).
+
+**Wiring fixes (broken wiki-link count: 33 → 27):**
+- `brain/AGENTS.md` — consolidated content-creator / social-publisher / video-editor subsections into a single "MOVED TO MAVEN" block (these agents live at `../CMO-Agent/agents/`).
+- `agents/researcher.md`, `memory/content-strategy.md` — updated broken wiki-links to Maven-relative paths.
+- Remaining 27 are expected: auto-memory (outside repo), script-file refs (not `.md`), doc example syntax, deprecated concepts — low value to chase.
+
+**.gitignore hardened:** added `.pytest_cache/`, `.mypy_cache/`, `.ruff_cache/`, `.claude/worktrees/`, `.claude/settings.local.json`.
+
+**Self-audit: 98 → 100/100.** Zero orphans. 67 scripts, 149 skills, 9 MCP.
+**Tests: 48/48 passing.**
+**Preserved (live/active):** cost_tracker.db, tmp/agent_inbox/, Local Storage cookies, skool_daemon.{pid,heartbeat,lock}, skool_{escalated,replied_*}.json, telegram_history.json, AI_WORKSTATION_REPORT, pm2-*-out.log, ig-setter / pulse / n8n_code_node_v10 workflow refs, last 3 days of skool logs.
+
 ### 2026-04-22 — V6.0 Architecture Brief + Stale-Data Diagnostic + send_gateway Audit
 **Agent:** Bravo (Claude Opus 4.7, 1M context) acting as Principal Systems Architect
 **Trigger:** CC delivered V6.0 upgrade brief (Pulse race condition, token burn, IDE dependency, client security) + Antigravity handover (stale-data diagnostic + send_gateway safety review + Alejandro prep).

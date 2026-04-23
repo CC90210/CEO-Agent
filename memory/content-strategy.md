@@ -103,4 +103,4 @@ Traditional selling triggers resistance. NEPQ (Neuro-Emotional Persuasion Questi
 
 ## Obsidian Links
 - [[brain/USER]] | [[brain/CEO_OPERATING_SYSTEM]] | [[memory/ACTIVE_TASKS]]
-- [[memory/DISCOVERY_PLAYBOOK]] | [[agents/content-creator]] | [[agents/social-publisher]]
+- [[memory/DISCOVERY_PLAYBOOK]] | [[../CMO-Agent/agents/content-creator]] | [[../CMO-Agent/agents/social-publisher]]

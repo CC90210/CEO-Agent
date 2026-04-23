@@ -158,11 +158,8 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 ## Last Heartbeat
 
 - **Date:** 2026-04-23
-- **Agent:** Codex acting as backend executor
-- **Result:** send_gateway hardening pass shipped for outbound scale: 24h bounce-rate circuit breaker (3% / 20-sample gate), hourly caps, per-domain 24h cap, draft_critic commercial-email block, reservation-based race guard with exec_sql advisory-lock RPC path + fallback, stats extension, Telegram 80%-of-cap alert, and `doctor` DNS reputation CLI. Added `scripts/dns_reputation.py`. Verified with `python scripts/test_send_gateway.py` — 48/48 passing. `python scripts/send_gateway.py doctor --domain oasisai.work` now prints SPF/DKIM/DMARC/MX report. 
-- **Date:** 2026-04-22
-- **Agent:** Bravo (Claude Opus 4.7, 1M context) acting as Principal Systems Architect
-- **Result:** V6.0 architecture brief delivered (`docs/V6_ARCHITECTURE.md`, ~450 lines) answering the 4 upgrade questions: pgvector RAG, Postgres LISTEN/NOTIFY events, Hetzner Docker VPS, 12-layer client security. Stale-data sweep complete: 3 edits (OASIS_AI_CLAUDE.md, MAC_SYNC_PROMPT.md, ARCHIVES/build_workflows.py). send_gateway audit: NOT READY for $5k MRR volume — 2 critical gaps (bounce handling, domain reputation), 3 needs-work, 1 borderline-critical CASL gap. Alejandro retainer brief ready for Wed/Thu call.
+- **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
+- **Result:** Updated n8n workflow 'OASIS Inbound Qualifier (Bravo Aware)' to fix email inbound automation. Adjusted SENTINEL prompt to correctly route Business Expenses and Income & Invoices to separate Gmail labels. Added 'Mark as read' to income path.
 
 *Last updated: 2026-04-23*
 

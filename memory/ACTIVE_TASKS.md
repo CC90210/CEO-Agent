@@ -65,7 +65,7 @@ Pending CC execution in N8N:
 - [ ] Step 2: paste new Classifier system prompt (6 categories now, Products dropped, Unsubscribe added)
 - [ ] Step 3: paste new OASIS Email Agent prompt (production-grade tech support)
 - [ ] Step 4: paste new Business Opportunities Agent prompt (lead convo + booking link)
-- [ ] Step 5: SENTINEL cleanup (remove Research Agent + Perplexity + Google Sheets; add Gmail "Business Expenses" / "Legal" / "Atlas/Review" labels)
+- [x] Step 5: SENTINEL cleanup (remove Research Agent + Perplexity + Google Sheets; add Gmail "Business Expenses" / "Legal" / "Atlas/Review" labels)
 - [ ] Step 6: add ONE Supabase `Log to Bravo Ledger` node (calls `record_inbound_from_n8n` RPC → dashboard sees every classified email)
 - [ ] Step 7: add 4-node Unsubscribe chain (STOP replies auto-suppress via Supabase)
 - [ ] Step 8: delete Internal & Operations Agent (unused — no team members)

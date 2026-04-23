@@ -115,26 +115,9 @@ For COMPLEX+ tasks, use SPARC methodology (`skills/sparc-methodology/SKILL.md`).
 - **Key upgrades:** Multi-source triangulation (minimum 3 sources per claim). Source credibility scoring (A/B/C/D). 500-word brief limit enforced.
 - **Principles:** Facts over impressions. Distill into actionable briefs. Never present single-source findings as facts.
 
-### 7. Content Creator (Brand Voice Engine)
-- **Model Tier:** Sonnet
-- **File:** [[agents/content-creator]]
-- **Purpose:** Draft posts, scripts, marketing copy aligned with CC's 5 content pillars.
-- **Key upgrades:** Platform-specific optimization rules (X=controversy, LinkedIn=authority+story, IG=visual-first, TikTok=pattern-interrupt). Voice calibration rules. Engagement metric targets per platform.
-- **Principles:** Authentic voice. No hustle-culture jargon. Specific > generic. Platform-native formatting.
+### 7-9. Content / Social / Video — MOVED TO MAVEN (CMO-Agent repo)
 
-### 8. Social Publisher (Distribution Layer)
-- **Model Tier:** Haiku
-- **File:** [[agents/social-publisher]]
-- **Purpose:** Manage Zernio/Late CLI for posting, scheduling, and cross-posting.
-- **Key upgrades:** Zernio 20-post/month budget awareness. Priority order for budget allocation. Cross-posting adaptation rules per platform.
-- **Principles:** Validate character limits before posting. Never publish without CC confirmation. Never create workaround scripts.
-
-### 9. Video Editor (Media Pipeline)
-- **Model Tier:** Sonnet
-- **File:** [[agents/video-editor]]
-- **Purpose:** Execute FFmpeg, Whisper, ElevenLabs, and Remotion pipelines.
-- **Key upgrades:** Cinematic quality standards (CRF 18, loudnorm broadcast standard). Word-level Whisper caption sync (non-negotiable). Thumbnail generation on every export. Color grade specification.
-- **Principles:** No shortcuts on quality. Word-level captions only. Audio normalized to broadcast standard.
+Per STATE.md "Content Studio | MOVED TO MAVEN", the `content-creator`, `social-publisher`, and `video-editor` personas live in `C:\Users\User\CMO-Agent\agents\` as part of Maven's 16 sub-agent stack. Route all content, posting, and video pipeline work to Maven — local wiki-links to those three agent names will fail to resolve here by design (the files do not exist in this repo). See [[brain/APP_REGISTRY]] → Maven for path + GitHub.
 
 ### 10. Chief of Staff (Communication & Mission Control)
 - **Model Tier:** Sonnet
