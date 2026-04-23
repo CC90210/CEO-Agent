@@ -13,27 +13,40 @@ See [`brain/C_SUITE_ARCHITECTURE.md`](brain/C_SUITE_ARCHITECTURE.md) for the gov
 
 ---
 
-## Quick Install
-
-One command, one doctor, one wizard. Works on Windows 11, macOS, and Linux/WSL.
-
-**Windows (PowerShell):**
-```powershell
-git clone https://github.com/CC90210/CEO-Agent.git
-cd CEO-Agent
-powershell -ExecutionPolicy Bypass -File install/install.ps1
-bravo doctor
-bravo setup
-```
+## Quick Install (One Line)
 
 **macOS / Linux / WSL:**
 ```bash
-git clone https://github.com/CC90210/CEO-Agent.git
-cd CEO-Agent
-bash install/install.sh
-bravo doctor
-bravo setup
+curl -sSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.sh | bash
 ```
+
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.ps1 | iex
+```
+
+That single line:
+1. Checks for Python + Node + Git (prints the `winget` / `brew` / `apt` command if anything's missing)
+2. Clones the repo to `~/bravo-repo`
+3. Creates your `~/.bravo/` home directory
+4. Puts a `bravo` command on your PATH
+5. Launches the interactive setup wizard — it walks you through:
+   - Which agent profile you want (Bravo, Atlas, Maven, Aura, Hermes, or custom)
+   - Your Anthropic API key (required) and OpenAI key (optional)
+   - Telegram bridge setup — paste your BotFather token, it validates live, auto-detects your chat_id, and sends you a test message
+   - Optional: Stripe, Supabase, n8n
+6. Runs `bravo doctor` to confirm everything works
+
+After install:
+
+```bash
+bravo doctor            # full health check
+bravo status            # live operational summary
+bravo agent list        # see the 20 sub-agents
+bravo sessions recent   # rewind past sessions
+```
+
+## What You Get
 
 What you get after install:
 - `bravo` on your PATH (launches from `bin/bravo` or `bin/bravo.cmd`)

@@ -432,11 +432,26 @@ def cmd_run(args: argparse.Namespace) -> int:
     return subprocess.call(cmd, cwd=str(REPO_ROOT))
 
 
-def cmd_setup(_args: argparse.Namespace) -> int:
-    """Guided first-time setup wizard."""
+def cmd_setup(args: argparse.Namespace) -> int:
+    """Guided first-time setup wizard.
+
+    Default: interactive Q&A (asks about profile, Anthropic, OpenAI,
+    Telegram bridge, Stripe, Supabase, n8n). Writes to ~/.bravo/.env.
+
+    Use `bravo setup --noninteractive` to run the old diagnostic-only flow.
+    """
+    if not getattr(args, "noninteractive", False):
+        try:
+            from bravo_cli.wizard import run_wizard
+        except Exception as exc:
+            print(f"{RED('Wizard failed to load:')} {exc}")
+            return 1
+        return run_wizard()
+
+    # Legacy: diagnostic-only mode
     print(BOLD(MAGENTA(BANNER)))
-    print(BOLD("BRAVO SETUP WIZARD"))
-    print(f"  {DIM('Setting up your Business-Empire-Agent environment')}")
+    print(BOLD("BRAVO SETUP (diagnostic mode)"))
+    print(f"  {DIM('Checking environment only — no prompts.')}")
     print()
 
     steps_passed = 0
@@ -873,7 +888,9 @@ Automation:
 
     sub.add_parser("doctor", help="Full system health check")
     sub.add_parser("status", help="One-screen operational summary")
-    sub.add_parser("setup", help="Guided first-time setup wizard")
+    setup_p = sub.add_parser("setup", help="Guided first-time setup wizard")
+    setup_p.add_argument("--noninteractive", action="store_true",
+                         help="Skip prompts; run diagnostic-only mode")
     sub.add_parser("tools", help="List available CLI tools", aliases=["tool"])
     sub.add_parser("skills", help="List registered skills", aliases=["skill"])
     sub.add_parser("version", help="Show version info")

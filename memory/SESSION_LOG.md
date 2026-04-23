@@ -3,6 +3,29 @@ tags: [daily]
 ---
 
 
+### 2026-04-23 — Bravo V1.1: real setup wizard + one-line installer (public)
+**Agent:** Bravo (Claude Opus 4.7, 1M context)
+**Trigger:** CC asked for "actual functionality" — setup wizard that walks clients/developers through config like Hermes/OpenAI, with Telegram bridge setup built in. Repo is public.
+
+**Built:**
+- `bravo_cli/wizard.py` — interactive setup wizard (zero-dep, stdlib only). 6 steps: profile picker, Anthropic (required), OpenAI (optional), Telegram bridge (getMe validation -> chat_id auto-detect via getUpdates polling -> test message), optional services (Stripe/Supabase/n8n), finalize. Writes to `~/.bravo/.env` with 0600 mode on POSIX.
+- `bravo_cli/main.py` — `cmd_setup` now dispatches to wizard by default; `--noninteractive` runs legacy diagnostic mode.
+- `install/quickstart.sh` — one-line curl|bash for macOS/Linux/WSL. Prereq check, clone-or-update, run install.sh, launch wizard.
+- `install/quickstart.ps1` — one-line irm|iex for Windows PowerShell. Same flow with winget suggestions for missing prereqs.
+- `README.md` — replaced the two-step quick-install with the true one-liner at the top.
+
+**Public URL live after push:**
+- `curl -sSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.sh | bash`
+- `irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.ps1 | iex`
+
+**Pre-flip secret scan:** clean. 1063 tracked files, zero hardcoded API keys / JWTs / SSH keys / Bearer tokens. The archived MCP config uses `${VAR}` placeholders only. Repo was already public — no visibility flip needed.
+
+**Health:** self_audit 100/100, 0 orphans, 325 markdown files.
+
+### 2026-04-23 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Updated n8n workflow 'OASIS Inbound Qualifier (Bravo Aware)' to fix email inbound automation. Adjusted SENTINEL prompt to correctly route Business Expenses and Income & Invoices to separate Gmail labels. Added 'Mark as read' to income path.
+
 ### 2026-04-22 — V6.0 Architecture Brief + Stale-Data Diagnostic + send_gateway Audit
 **Agent:** Bravo (Claude Opus 4.7, 1M context) acting as Principal Systems Architect
 **Trigger:** CC delivered V6.0 upgrade brief (Pulse race condition, token burn, IDE dependency, client security) + Antigravity handover (stale-data diagnostic + send_gateway safety review + Alejandro prep).
