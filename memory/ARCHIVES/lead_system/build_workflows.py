@@ -1,4 +1,12 @@
 """
+ARCHIVED 2026-04-22 — DO NOT USE. DO NOT IMPORT.
+This file is obsolete n8n workflow template code from an earlier lead system.
+It previously contained a stale Calendly booking link that caused an agent
+hallucination (see memory/CLAUDE_HANDOVER.md). The link has been replaced
+with the current Google Calendar link, but the FILE AS A WHOLE is archived.
+Authoritative booking link: brain/USER.md → Critical Links section
+         or .env.agents → BOOKING_LINK
+
 Build and deploy OASIS Lead System workflows to n8n.
 Run: python lead_system/build_workflows.py [reactivation|speed-to-lead|nurture|reputation|all]
 """
@@ -616,7 +624,7 @@ def build_speed_to_lead():
                     "model": "gpt-4o-mini",
                     "messages": {
                         "values": [{
-                            "content": "=You are an instant lead responder for OASIS AI Solutions. A new lead just came in. Respond within seconds.\n\nLead: {{ $json.name }}\nBusiness: {{ $json.business || 'Not specified' }}\nInterest: {{ $json.service || 'AI automation' }}\nSource: {{ $json.source }}\n\nWrite a SHORT, warm, immediate response email:\n1. Thank them by name for reaching out\n2. Acknowledge their specific interest\n3. ONE sentence about how OASIS helps businesses like theirs\n4. Include a booking link: https://calendly.com/oasisaisolutions/discovery\n5. Under 100 words. Warm, fast, professional.\n6. Sign off: Conaugh McKenna, OASIS AI Solutions\n\nReturn JSON: {\"subject\": \"...\", \"body\": \"...\"}",
+                            "content": "=You are an instant lead responder for OASIS AI Solutions. A new lead just came in. Respond within seconds.\n\nLead: {{ $json.name }}\nBusiness: {{ $json.business || 'Not specified' }}\nInterest: {{ $json.service || 'AI automation' }}\nSource: {{ $json.source }}\n\nWrite a SHORT, warm, immediate response email:\n1. Thank them by name for reaching out\n2. Acknowledge their specific interest\n3. ONE sentence about how OASIS helps businesses like theirs\n4. Include a booking link: https://calendar.app.google/tpfvJYBGircnGu8G8\n5. Under 100 words. Warm, fast, professional.\n6. Sign off: Conaugh McKenna, OASIS AI Solutions\n\nReturn JSON: {\"subject\": \"...\", \"body\": \"...\"}",
                             "role": "user"
                         }]
                     },

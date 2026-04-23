@@ -18,6 +18,7 @@ codebase — regressions here fan out to every business engine.
 from __future__ import annotations
 
 import json
+import re
 import sys
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -133,6 +134,19 @@ class _FakeUpdate:
         return res
 
 
+class _FakeRPC:
+    def __init__(self, db: "FakeSupabase", function_name: str, params: dict[str, Any]):
+        self.db = db
+        self.function_name = function_name
+        self.params = params
+
+    def execute(self):
+        if self.function_name != "exec_sql":
+            raise RuntimeError(f"unsupported RPC: {self.function_name}")
+        sql_query = self.params.get("sql_query", "")
+        return self.db._handle_exec_sql(sql_query)
+
+
 class _FakeTable:
     def __init__(self, name, rows=None):
         self.name = name
@@ -158,11 +172,92 @@ class FakeSupabase:
             "lead_interactions": _FakeTable("lead_interactions"),
             "email_log": _FakeTable("email_log"),
         }
+        self.force_lock_contention = False
+        self.disable_rpc = False
 
     def table(self, name):
         if name not in self.tables:
             self.tables[name] = _FakeTable(name)
         return self.tables[name]
+
+    def rpc(self, function_name, params):
+        if self.disable_rpc:
+            raise RuntimeError("RPC unavailable")
+        return _FakeRPC(self, function_name, params)
+
+    def _handle_exec_sql(self, sql_query: str):
+        marker_match = re.search(r"/\*\s*send_gateway_reserve:(.*?)\s*\*/", sql_query, re.DOTALL)
+        if not marker_match:
+            raise RuntimeError("unsupported exec_sql payload")
+        marker = json.loads(marker_match.group(1))
+        existing = next(
+            (
+                row for row in self.tables["lead_interactions"].rows
+                if row.get("lead_id") == marker.get("lead_id")
+                and row.get("channel") == marker.get("channel")
+                and row.get("type") == "reserving"
+            ),
+            None,
+        )
+
+        class R:
+            pass
+
+        res = R()
+        if self.force_lock_contention:
+            res.data = {"status": "ok", "rows": [{"lock_acquired": False}]}
+            return res
+        if existing:
+            res.data = {
+                "status": "ok",
+                "rows": [{
+                    "lock_acquired": True,
+                    "existing_reservation_id": existing.get("id"),
+                    "reservation_id": None,
+                }],
+            }
+            return res
+
+        now = datetime.now(timezone.utc).isoformat()
+        row = {
+            "id": f"fake-{len(self.tables['lead_interactions'].rows) + 1}",
+            "lead_id": marker.get("lead_id"),
+            "channel": marker.get("channel"),
+            "type": "reserving",
+            "created_at": now,
+            "subject": marker.get("subject"),
+            "content": marker.get("content_preview"),
+            "agent_source": marker.get("agent_source"),
+            "cooldown_until": marker.get("cooldown_until"),
+            "metadata": marker.get("metadata") or {},
+        }
+        self.tables["lead_interactions"].rows.append(row)
+        res.data = {
+            "status": "ok",
+            "rows": [{
+                "lock_acquired": True,
+                "existing_reservation_id": None,
+                "reservation_id": row["id"],
+                "reservation_created_at": now,
+            }],
+        }
+        return res
+
+
+class _FailingSelect(_FakeSelect):
+    def execute(self):
+        raise RuntimeError("ledger unavailable")
+
+
+class _FailingTable(_FakeTable):
+    def select(self, cols="*", count=None):
+        return _FailingSelect(self, cols, count)
+
+
+class FailingLedgerSupabase(FakeSupabase):
+    def __init__(self):
+        super().__init__()
+        self.tables["lead_interactions"] = _FailingTable("lead_interactions")
 
 
 # ---- Shared fixtures --------------------------------------------------------
@@ -197,6 +292,14 @@ class TestSendGateway(unittest.TestCase):
         _fresh_env({})
         self.sg = _import_gateway_fresh()
         self.db = FakeSupabase()
+        self.sg._DAILY_CAP_ALERTS_SENT.clear()
+        self._critic_patcher = mock.patch.object(
+            self.sg,
+            "critique_draft",
+            return_value={"verdict": "ship", "reasons": [], "notes": ""},
+        )
+        self._critic_patcher.start()
+        self.addCleanup(self._critic_patcher.stop)
         # Seed one lead so resolve_lead_id has something to find
         self.db.tables["leads"].rows.append({
             "id": "lead-001",
@@ -217,9 +320,16 @@ class TestSendGateway(unittest.TestCase):
         return mock.patch.object(self.sg, "should_suppress",
                                  return_value=value)
 
+    def _patch_critic(self, verdict: str, reasons: list[str] | None = None):
+        return mock.patch.object(
+            self.sg,
+            "critique_draft",
+            return_value={"verdict": verdict, "reasons": reasons or [], "notes": ""},
+        )
+
     # 1. Golden path: commercial email, fresh recipient
     def test_01_golden_path_sent(self):
-        with self._patch_smtp_ok(), self._patch_suppress(False):
+        with self._patch_smtp_ok(), self._patch_suppress(False), mock.patch.object(self.sg, "_telegram_notify", return_value=False):
             r = self.sg.send(
                 channel="email",
                 agent_source="test_harness",
@@ -276,7 +386,7 @@ class TestSendGateway(unittest.TestCase):
             "created_at": now.isoformat(),
             "cooldown_until": (now + timedelta(hours=48)).isoformat(),
         })
-        with self._patch_smtp_ok(), self._patch_suppress(False):
+        with self._patch_smtp_ok(), self._patch_suppress(False), mock.patch.object(self.sg, "_telegram_notify", return_value=False):
             r = self.sg.send(
                 channel="email",
                 agent_source="test_harness",
@@ -290,7 +400,7 @@ class TestSendGateway(unittest.TestCase):
 
     # 5. Daily cap enforced
     def test_05_daily_cap_blocks(self):
-        now = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc) - timedelta(hours=2)
         cap = self.sg.DAILY_CAPS["email"]
         for i in range(cap):
             self.db.tables["lead_interactions"].rows.append({
@@ -300,7 +410,7 @@ class TestSendGateway(unittest.TestCase):
                 "type": "email_sent",
                 "created_at": now.isoformat(),
             })
-        with self._patch_smtp_ok(), self._patch_suppress(False):
+        with self._patch_smtp_ok(), self._patch_suppress(False), mock.patch.object(self.sg, "_telegram_notify", return_value=False):
             r = self.sg.send(
                 channel="email",
                 agent_source="test_harness",
@@ -311,6 +421,24 @@ class TestSendGateway(unittest.TestCase):
             )
         self.assertEqual(r["status"], "blocked")
         self.assertIn("daily cap", r["reason"])
+
+    def test_05b_cooldown_ledger_failure_blocks(self):
+        r = self.sg.can_act(
+            lead_id="lead-001",
+            channel="email",
+            db=FailingLedgerSupabase(),
+        )
+        self.assertFalse(r["allowed"])
+        self.assertIn("cooldown ledger unavailable", r["reason"])
+
+    def test_05c_daily_cap_ledger_failure_blocks_without_lead(self):
+        r = self.sg.can_act(
+            lead_id=None,
+            channel="email",
+            db=FailingLedgerSupabase(),
+        )
+        self.assertFalse(r["allowed"])
+        self.assertIn("hourly cap ledger unavailable", r["reason"])
 
     # 6. Dry-run produces no side effects
     def test_06_dry_run_no_side_effects(self):
@@ -419,6 +547,132 @@ class TestSendGateway(unittest.TestCase):
                 if l.get("email") == "brand-new@acme.example"]
         self.assertEqual(len(auto), 1)
         self.assertEqual(auto[0].get("source"), "gateway_autocreate")
+
+    def test_13_bounce_rate_over_threshold_blocks(self):
+        now = datetime.now(timezone.utc).isoformat()
+        self.db.tables["email_log"].rows.extend(
+            [{"status": "sent", "sent_at": now} for _ in range(19)]
+            + [{"status": "failed", "sent_at": now}]
+        )
+        self.db.tables["email_log"].rows.append({"status": "failed", "sent_at": now})
+        r = self.sg.can_act(
+            lead_id="lead-001",
+            channel="email",
+            to_email="jane@acme.example",
+            db=self.db,
+        )
+        self.assertFalse(r["allowed"])
+        self.assertIn("bounce-rate circuit breaker", r["reason"])
+
+    def test_14_hourly_cap_blocks(self):
+        now = datetime.now(timezone.utc).isoformat()
+        cap = self.sg.HOURLY_CAPS["email"]
+        for i in range(cap):
+            self.db.tables["lead_interactions"].rows.append({
+                "id": f"h-{i}",
+                "lead_id": f"other-{i}",
+                "channel": "email",
+                "type": "email_sent",
+                "created_at": now,
+            })
+        r = self.sg.can_act(
+            lead_id="lead-001",
+            channel="email",
+            to_email="jane@acme.example",
+            db=self.db,
+        )
+        self.assertFalse(r["allowed"])
+        self.assertIn("hourly cap", r["reason"])
+
+    def test_15_domain_cap_blocks(self):
+        now = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+        self.db.tables["leads"].rows.extend([
+            {"id": "lead-002", "email": "ops@acme.example"},
+            {"id": "lead-003", "email": "sales@acme.example"},
+            {"id": "lead-004", "email": "team@acme.example"},
+        ])
+        for idx, lead_id in enumerate(["lead-002", "lead-003", "lead-004"], start=1):
+            self.db.tables["lead_interactions"].rows.append({
+                "id": f"d-{idx}",
+                "lead_id": lead_id,
+                "channel": "email",
+                "type": "email_sent",
+                "created_at": now,
+            })
+        r = self.sg.can_act(
+            lead_id="lead-001",
+            channel="email",
+            to_email="jane@acme.example",
+            db=self.db,
+        )
+        self.assertFalse(r["allowed"])
+        self.assertIn("domain cap", r["reason"])
+
+    def test_16_draft_critic_rejection_blocks_send(self):
+        with self._patch_smtp_ok(), self._patch_suppress(False), self._patch_critic("reject", ["spammy opening"]):
+            r = self.sg.send(
+                channel="email",
+                agent_source="test_harness",
+                to_email="jane@acme.example",
+                subject="hi",
+                body_text="hi",
+                db=self.db,
+            )
+        self.assertEqual(r["status"], "blocked")
+        self.assertIn("draft_critic rejected", r["reason"])
+        self.assertEqual(len(self.db.tables["lead_interactions"].rows), 0)
+
+    def test_17_advisory_lock_contention_blocks(self):
+        self.db.force_lock_contention = True
+        with self._patch_smtp_ok(), self._patch_suppress(False):
+            r = self.sg.send(
+                channel="email",
+                agent_source="test_harness",
+                to_email="jane@acme.example",
+                subject="hi",
+                body_text="hello",
+                db=self.db,
+            )
+        self.assertEqual(r["status"], "blocked")
+        self.assertIn("concurrent send detected", r["reason"])
+
+    def test_18_get_daily_stats_includes_bounce_rate_and_hourly_counts(self):
+        now = datetime.now(timezone.utc).isoformat()
+        self.db.tables["lead_interactions"].rows.append({
+            "id": "stats-1",
+            "lead_id": "lead-001",
+            "channel": "email",
+            "type": "email_sent",
+            "created_at": now,
+        })
+        self.db.tables["email_log"].rows.extend([
+            {"status": "sent", "sent_at": now},
+            {"status": "failed", "sent_at": now},
+        ] + [{"status": "sent", "sent_at": now} for _ in range(18)])
+        stats = self.sg.get_daily_stats(self.db)
+        self.assertIn("bounce_rate", stats)
+        self.assertIn("hourly_counts", stats)
+        self.assertIn("email", stats["hourly_counts"])
+
+    def test_19_daily_cap_threshold_triggers_telegram_alert(self):
+        now = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+        threshold = int(self.sg.DAILY_CAPS["email"] * 0.8)
+        for i in range(threshold):
+            self.db.tables["lead_interactions"].rows.append({
+                "id": f"a-{i}",
+                "lead_id": f"lead-{i}",
+                "channel": "email",
+                "type": "email_sent",
+                "created_at": now,
+            })
+        with mock.patch.object(self.sg, "_telegram_notify", return_value=True) as notify_mock:
+            self.sg.can_act(
+                lead_id="lead-001",
+                channel="email",
+                to_email="jane@acme.example",
+                db=self.db,
+            )
+        self.assertTrue(notify_mock.called)
 
 
 class TestInboundClassifier(unittest.TestCase):
@@ -648,9 +902,15 @@ class TestRegisterSkill(unittest.TestCase):
 
     def test_03_frontmatter_parser_rejects_mismatch(self):
         # Build a fake skill in a tmp dir where frontmatter name != folder name
-        import tempfile, shutil
+        import shutil
+        import uuid
         from pathlib import Path as P
-        with tempfile.TemporaryDirectory() as tmp:
+        tmp_root = PROJECT_ROOT / "tmp"
+        tmp_root.mkdir(exist_ok=True)
+        tmp = tmp_root / f"skill-test-{uuid.uuid4().hex}"
+        shutil.rmtree(tmp, ignore_errors=True)
+        tmp.mkdir(parents=True, exist_ok=True)
+        try:
             fake_skills = P(tmp) / "skills"
             (fake_skills / "my-skill").mkdir(parents=True)
             (fake_skills / "my-skill" / "SKILL.md").write_text(
@@ -667,6 +927,8 @@ class TestRegisterSkill(unittest.TestCase):
                 self.assertIn("does not match folder", msgs)
             finally:
                 self.rs.SKILLS_DIR = orig
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
 class TestContextBuilder(unittest.TestCase):

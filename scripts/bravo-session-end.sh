@@ -1,13 +1,23 @@
 #!/usr/bin/env bash
 # bravo-session-end.sh
 # Run at the END of every Claude Code session on either machine.
-# Writes SESSION_LOG entry + HANDOFF.md, commits + pushes, releases ACTIVE_SESSION.
+# Writes SESSION_LOG entry + HANDOFF.md, commits handoff files, releases ACTIVE_SESSION.
+# Push is opt-in: pass --push or set BRAVO_SESSION_END_PUSH=1.
 #
 # Usage: bash scripts/bravo-session-end.sh "one-line summary of what I did"
+#        bash scripts/bravo-session-end.sh --push "one-line summary of what I did"
 
 set -uo pipefail
 
-SUMMARY="${1:-session complete}"
+PUSH=0
+SUMMARY=""
+for arg in "$@"; do
+    case "$arg" in
+        --push) PUSH=1 ;;
+        *) SUMMARY="${SUMMARY}${SUMMARY:+ }${arg}" ;;
+    esac
+done
+SUMMARY="${SUMMARY:-session complete}"
 
 # ---- Colors ------------------------------------------------------------------
 if [[ -z "${NO_COLOR:-}" ]] && [[ -t 1 ]]; then
@@ -128,33 +138,41 @@ PYEOF
     ok "Released ACTIVE_SESSION claim"
 fi
 
-# ---- 4. Commit + push --------------------------------------------------------
-if ! git diff --quiet || ! git diff --cached --quiet; then
-    info "Staging changes..."
-    git add memory/SESSION_LOG.md memory/HANDOFF.md memory/ACTIVE_SESSION.json 2>/dev/null || true
-    # Also stage any tracked file that has changes
-    git add -u 2>/dev/null || true
+# ---- 4. Commit handoff files -------------------------------------------------
+HANDOFF_FILES=(memory/SESSION_LOG.md memory/HANDOFF.md memory/ACTIVE_SESSION.json)
 
-    if git diff --cached --quiet; then
-        warn "Nothing staged — skipping commit."
+if ! git diff --quiet -- "${HANDOFF_FILES[@]}" || ! git diff --cached --quiet -- "${HANDOFF_FILES[@]}"; then
+    info "Staging handoff files only..."
+    git add "${HANDOFF_FILES[@]}" 2>/dev/null || true
+
+    if git diff --cached --quiet -- "${HANDOFF_FILES[@]}"; then
+        warn "Nothing staged for handoff files — skipping commit."
     else
         COMMIT_MSG="bravo($MACHINE): $SUMMARY"
-        if git commit -m "$COMMIT_MSG" --quiet 2>&1; then
-            ok "Committed: $COMMIT_MSG"
-            if git push origin main --quiet 2>&1; then
-                ok "Pushed to origin/main"
+        if git commit -m "$COMMIT_MSG" --quiet -- "${HANDOFF_FILES[@]}" 2>&1; then
+            ok "Committed handoff files: $COMMIT_MSG"
+            if [[ "$PUSH" == "1" || "${BRAVO_SESSION_END_PUSH:-0}" == "1" ]]; then
+                if git push origin main --quiet 2>&1; then
+                    ok "Pushed to origin/main"
+                else
+                    err "Push failed — resolve and push manually."
+                    exit 2
+                fi
             else
-                err "Push failed — resolve and push manually."
-                exit 2
+                info "Push skipped. Re-run with --push or run git push when ready."
             fi
         else
-            warn "Commit skipped (pre-commit hook or empty diff)."
+            warn "Commit skipped (pre-commit hook or empty handoff diff)."
         fi
     fi
 else
-    info "No uncommitted changes."
+    info "No handoff file changes."
+fi
+
+if ! git diff --quiet || ! git diff --cached --quiet; then
+    warn "Other worktree or staged changes were left untouched."
 fi
 
 echo
-ok "Session ended cleanly. Other machine can now pull and resume."
+ok "Session ended cleanly."
 echo

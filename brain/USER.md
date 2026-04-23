@@ -65,6 +65,11 @@ Current net MRR is ~$3,322 USD ($180 Stripe + $191 base + $2,500 Bennett flat + 
 | Strategic decisions (pricing, partnerships) | Data gathering, option analysis, recommendations |
 | Coaching/teaching sessions | Session prep, materials, scheduling, follow-ups |
 
+## Critical Links (Never Guess These)
+- **Booking Link:** `https://calendar.app.google/tpfvJYBGircnGu8G8` (DO NOT use Calendly)
+- **Website:** `https://oasisai.work`
+- **Primary Email:** `conaugh@oasisai.work`
+
 ## Content Voice
 
 - Introspective, raw, honest, never preachy.

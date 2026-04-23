@@ -84,6 +84,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import smtplib
 import sys
@@ -116,6 +117,16 @@ except ImportError:
     def _telegram_notify(*_a: Any, **_kw: Any) -> bool:  # type: ignore[misc]
         return False
 
+try:
+    from draft_critic import critique_draft  # noqa: F401
+except ImportError:
+    def critique_draft(*_a: Any, **_kw: Any) -> dict:  # type: ignore[misc]
+        return {
+            "verdict": "reject",
+            "reasons": ["draft_critic unavailable"],
+            "notes": "draft_critic unavailable",
+        }
+
 
 # ---- Canonical constants ----------------------------------------------------
 
@@ -137,6 +148,15 @@ DAILY_CAPS: dict[str, int] = {
     "instagram": 30,    # 30 DMs/day (IG is especially spam-sensitive)
     "linkedin": 20,     # 20 connection requests / messages / day
     "phone": 15,        # 15 calls/day sanity bound
+}
+
+# Hourly caps protect the domain reputation from bursty sends even when the
+# daily cap is still far away.
+HOURLY_CAPS: dict[str, int] = {
+    "email": 10,
+    "instagram": 6,
+    "linkedin": 4,
+    "phone": 3,
 }
 
 # Canonical agent_source tags — whoever is calling MUST identify itself.
@@ -187,6 +207,9 @@ BRAND_IDENTITY: dict[str, dict[str, str]] = {
 }
 
 DEFAULT_BRAND = "oasis"
+RESERVATION_WINDOW_MINUTES = 30
+DAILY_ALERT_THRESHOLD = 0.8
+_DAILY_CAP_ALERTS_SENT: set[str] = set()
 
 
 # ---- Env + DB ---------------------------------------------------------------
@@ -220,6 +243,91 @@ def get_supabase(env_vars: Optional[dict[str, str]] = None):
         )
     from supabase import create_client
     return create_client(url, key)
+
+
+def _env_bool(env: dict[str, str], key: str, default: bool) -> bool:
+    raw = (env.get(key) or os.environ.get(key) or "").strip().lower()
+    if not raw:
+        return default
+    return raw not in {"0", "false", "no", "off"}
+
+
+def _env_int(env: dict[str, str], key: str, default: int) -> int:
+    raw = (env.get(key) or os.environ.get(key) or "").strip()
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+def _env_ratio(env: dict[str, str], key: str, default: float) -> float:
+    raw = (env.get(key) or os.environ.get(key) or "").strip()
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        return default
+    if value > 1:
+        value /= 100.0
+    return max(0.0, min(1.0, value))
+
+
+def _sql_literal(value: Any) -> str:
+    if value is None:
+        return "NULL"
+    text = str(value).replace("'", "''")
+    return f"'{text}'"
+
+
+def _json_sql_literal(value: Any) -> str:
+    return _sql_literal(json.dumps(value or {}, separators=(",", ":"))) + "::jsonb"
+
+
+def _extract_domain(to_email: Optional[str]) -> Optional[str]:
+    normalized = (to_email or "").strip().lower()
+    if "@" not in normalized:
+        return None
+    _, _, domain = normalized.rpartition("@")
+    return domain or None
+
+
+def _count_window(db: Any, channel: str, window_start: datetime) -> int:
+    rows = (
+        db.table("lead_interactions")
+        .select("id", count="exact")
+        .eq("channel", channel)
+        .gte("created_at", window_start.isoformat())
+        .execute()
+    )
+    return rows.count or 0
+
+
+def _daily_alert_key(channel: str, day_start: datetime) -> str:
+    return f"{day_start.date().isoformat()}:{channel}"
+
+
+def _maybe_notify_daily_cap_threshold(channel: str, count: int, cap: Optional[int]) -> None:
+    if cap is None or cap <= 0:
+        return
+    threshold = max(1, math.ceil(cap * DAILY_ALERT_THRESHOLD))
+    if count < threshold:
+        return
+    day_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    key = _daily_alert_key(channel, day_start)
+    if key in _DAILY_CAP_ALERTS_SENT:
+        return
+    _DAILY_CAP_ALERTS_SENT.add(key)
+    try:
+        _telegram_notify(
+            f"{channel} outbound is at {count}/{cap} today. "
+            "Gateway is still open, but you're inside the red zone.",
+            category="outreach",
+        )
+    except Exception:  # noqa: BLE001
+        pass
 
 
 # ---- Lead resolution --------------------------------------------------------
@@ -258,6 +366,104 @@ def resolve_lead_id(db, to_email: Optional[str], lead_id: Optional[str]) -> Opti
         return None
 
 
+def get_bounce_rate(db, last_n_hours: int = 24) -> float:
+    """Return failed/total for recent email sends.
+
+    A minimum sample size is enforced so the gateway does not overreact to a
+    tiny denominator early in the day.
+    """
+    stats = _get_bounce_window_stats(db, last_n_hours=last_n_hours)
+    return stats["rate"]
+
+
+def _get_bounce_window_stats(db, last_n_hours: int = 24) -> dict[str, Any]:
+    now = datetime.now(timezone.utc)
+    window_start = now - timedelta(hours=last_n_hours)
+    env = load_env()
+    minimum_sample = _env_int(env, "BOUNCE_MIN_SAMPLE_SIZE", 20)
+    try:
+        rows = (
+            db.table("email_log")
+            .select("status, sent_at")
+            .gte("sent_at", window_start.isoformat())
+            .execute()
+            .data
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(f"[send_gateway] bounce-rate query warning: {exc}", file=sys.stderr)
+        return {"rate": 0.0, "failed": 0, "total": 0, "minimum_sample": minimum_sample}
+
+    total = 0
+    failed = 0
+    for row in rows or []:
+        status = (row.get("status") or "").strip().lower()
+        if status not in {"sent", "failed"}:
+            continue
+        total += 1
+        if status == "failed":
+            failed += 1
+    rate = (failed / total) if total >= minimum_sample and total > 0 else 0.0
+    return {"rate": rate, "failed": failed, "total": total, "minimum_sample": minimum_sample}
+
+
+def can_act_domain(
+    db: Any,
+    to_email: Optional[str],
+    channel: str = "email",
+    last_n_hours: int = 24,
+) -> dict[str, Any]:
+    """Enforce a domain-level cap so ten teammates at one company do not all
+    get hit inside the same day."""
+    env = load_env()
+    cap = _env_int(env, "DOMAIN_DAILY_CAP", 3)
+    domain = _extract_domain(to_email)
+    if not domain or cap <= 0:
+        return {"allowed": True, "reason": "ok", "domain": domain, "count": 0, "cap": cap}
+
+    window_start = datetime.now(timezone.utc) - timedelta(hours=last_n_hours)
+    try:
+        leads = db.table("leads").select("id, email").execute().data or []
+        lead_ids = {
+            row.get("id")
+            for row in leads
+            if row.get("id") and (row.get("email") or "").strip().lower().endswith("@" + domain)
+        }
+        if not lead_ids:
+            return {"allowed": True, "reason": "ok", "domain": domain, "count": 0, "cap": cap}
+
+        recent = (
+            db.table("lead_interactions")
+            .select("lead_id, channel, created_at")
+            .eq("channel", channel)
+            .gte("created_at", window_start.isoformat())
+            .execute()
+            .data
+        ) or []
+        count = sum(1 for row in recent if row.get("lead_id") in lead_ids)
+        if count >= cap:
+            return {
+                "allowed": False,
+                "reason": f"domain cap hit: {count}/{cap} {channel} actions to @{domain} in the last 24h",
+                "domain": domain,
+                "count": count,
+                "cap": cap,
+            }
+        return {"allowed": True, "reason": "ok", "domain": domain, "count": count, "cap": cap}
+    except Exception as exc:  # noqa: BLE001
+        print(
+            f"[send_gateway] domain-cap query failed: {exc}; "
+            "blocking send because the domain ledger is unavailable.",
+            file=sys.stderr,
+        )
+        return {
+            "allowed": False,
+            "reason": f"domain cap ledger unavailable: {exc}",
+            "domain": domain,
+            "count": 0,
+            "cap": cap,
+        }
+
+
 # ---- Idempotency core -------------------------------------------------------
 
 def can_act(
@@ -286,6 +492,7 @@ def can_act(
     now = datetime.now(timezone.utc)
     channel = channel.lower()
 
+    env = load_env()
     result: dict[str, Any] = {
         "allowed": True,
         "reason": "ok",
@@ -293,23 +500,48 @@ def can_act(
         "cooldown_until": None,
         "daily_count": 0,
         "daily_cap": DAILY_CAPS.get(channel),
+        "hourly_count": 0,
+        "hourly_cap": HOURLY_CAPS.get(channel),
+        "domain_count": 0,
+        "domain_cap": _env_int(env, "DOMAIN_DAILY_CAP", 3),
+        "bounce_rate": 0.0,
     }
 
-    # Gate 1: empty email (commercial intent will catch suppression separately).
+    # Gate 1: bounce-rate circuit breaker.
+    try:
+        bounce_stats = _get_bounce_window_stats(db, last_n_hours=24)
+        result["bounce_rate"] = bounce_stats["rate"]
+        bounce_threshold = _env_ratio(env, "BOUNCE_RATE_THRESHOLD", 0.03)
+        if bounce_stats["total"] >= bounce_stats["minimum_sample"] and bounce_stats["rate"] > bounce_threshold:
+            result.update(
+                allowed=False,
+                reason=(
+                    "bounce-rate circuit breaker active: "
+                    f"{bounce_stats['failed']}/{bounce_stats['total']} "
+                    f"({bounce_stats['rate']:.1%}) over the last 24h"
+                ),
+            )
+            return result
+    except Exception as exc:  # noqa: BLE001
+        result.update(allowed=False, reason=f"bounce-rate check failed: {exc}")
+        return result
+
+    # Gate 2: empty email (commercial intent will catch suppression separately).
     if to_email is not None and not (to_email or "").strip():
         result.update(allowed=False, reason="empty recipient")
         return result
 
-    # Gate 2: active cooldown on this lead+channel.
+    # Gate 3: active cooldown on this lead+channel.
     if lead_id:
+        last = None
         try:
             rows = (
                 db.table("lead_interactions")
-                .select("created_at, cooldown_until")
+                .select("created_at, cooldown_until, type")
                 .eq("lead_id", lead_id)
                 .eq("channel", channel)
                 .order("created_at", desc=True)
-                .limit(1)
+                .limit(10)
                 .execute()
                 .data
             )
@@ -319,11 +551,11 @@ def can_act(
             try:
                 rows = (
                     db.table("lead_interactions")
-                    .select("created_at")
+                    .select("created_at, type")
                     .eq("lead_id", lead_id)
                     .eq("channel", channel)
                     .order("created_at", desc=True)
-                    .limit(1)
+                    .limit(10)
                     .execute()
                     .data
                 )
@@ -332,13 +564,26 @@ def can_act(
             except Exception as exc2:  # noqa: BLE001
                 print(
                     f"[send_gateway] can_act cooldown query failed: {exc2}; "
-                    "treating as allowed (degraded mode).",
+                    "blocking send because the interaction ledger is unavailable.",
                     file=sys.stderr,
                 )
-                rows = []
+                result.update(
+                    allowed=False,
+                    reason=f"cooldown ledger unavailable: {exc2}",
+                )
+                return result
 
         if rows:
-            last = rows[0]
+            for candidate in rows:
+                ctype = (candidate.get("type") or "").strip().lower()
+                if ctype == f"{channel}_failed" or ctype == "email_failed":
+                    continue
+                if ctype == "reserving":
+                    result.update(allowed=False, reason="concurrent send detected")
+                    return result
+                last = candidate
+                break
+        if rows and last:
             result["last_action_at"] = last.get("created_at")
             cu_raw = last.get("cooldown_until")
             if cu_raw:
@@ -381,20 +626,30 @@ def can_act(
                 except (ValueError, TypeError):
                     pass
 
-    # Gate 3: daily cap.
+    # Gate 3b: hourly cap.
+    hourly_cap = HOURLY_CAPS.get(channel)
+    if hourly_cap is not None:
+        try:
+            count = _count_window(db, channel, now - timedelta(hours=1))
+            result["hourly_count"] = count
+            if count >= hourly_cap:
+                result.update(
+                    allowed=False,
+                    reason=f"hourly cap hit: {count}/{hourly_cap} {channel} actions in the last hour",
+                )
+                return result
+        except Exception as exc:  # noqa: BLE001
+            result.update(allowed=False, reason=f"hourly cap ledger unavailable: {exc}")
+            return result
+
+    # Gate 4: daily cap.
     cap = DAILY_CAPS.get(channel)
     if cap is not None:
         try:
             day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-            rows = (
-                db.table("lead_interactions")
-                .select("id", count="exact")
-                .eq("channel", channel)
-                .gte("created_at", day_start.isoformat())
-                .execute()
-            )
-            count = rows.count or 0
+            count = _count_window(db, channel, day_start)
             result["daily_count"] = count
+            _maybe_notify_daily_cap_threshold(channel, count, cap)
             if count >= cap:
                 result.update(
                     allowed=False,
@@ -403,14 +658,289 @@ def can_act(
                 return result
         except Exception as exc:  # noqa: BLE001
             print(
-                f"[send_gateway] can_act daily-cap query failed: {exc}",
+                f"[send_gateway] can_act daily-cap query failed: {exc}; "
+                "blocking send because the interaction ledger is unavailable.",
                 file=sys.stderr,
             )
+            result.update(
+                allowed=False,
+                reason=f"daily cap ledger unavailable: {exc}",
+            )
+            return result
+
+    # Gate 5: domain cap.
+    domain_check = can_act_domain(db=db, to_email=to_email, channel=channel)
+    result["domain_count"] = domain_check.get("count", 0)
+    result["domain_cap"] = domain_check.get("cap")
+    if not domain_check["allowed"]:
+        result.update(allowed=False, reason=domain_check["reason"])
+        return result
 
     return result
 
 
 # ---- Logging ----------------------------------------------------------------
+
+def _mirror_email_log(
+    db: Any,
+    *,
+    to_email: Optional[str],
+    subject: Optional[str],
+    content_preview: Optional[str],
+    status: str,
+    lead_id: Optional[str],
+    error_message: Optional[str] = None,
+) -> None:
+    try:
+        payload = {
+            "to_email": to_email,
+            "subject": subject or "",
+            "body_preview": (content_preview or "")[:200],
+            "status": status,
+            "sent_at": datetime.now(timezone.utc).isoformat(),
+            "lead_id": lead_id,
+        }
+        if error_message:
+            payload["error_message"] = error_message
+        db.table("email_log").insert(payload).execute()
+    except Exception as exc:  # noqa: BLE001
+        print(f"[send_gateway] email_log mirror warning: {exc}", file=sys.stderr)
+
+
+def _touch_lead_last_contact(db: Any, lead_id: Optional[str], action_type: str) -> None:
+    if lead_id and action_type in {"email_sent", "dm_sent", "call"}:
+        try:
+            now = datetime.now(timezone.utc).isoformat()
+            db.table("leads").update({
+                "last_contacted_at": now,
+                "updated_at": now,
+            }).eq("id", lead_id).execute()
+        except Exception as exc:  # noqa: BLE001
+            print(f"[send_gateway] leads.last_contacted_at update warning: {exc}", file=sys.stderr)
+
+
+def _update_interaction_row(db: Any, interaction_id: str, payload: dict[str, Any]) -> bool:
+    try:
+        db.table("lead_interactions").update(payload).eq("id", interaction_id).execute()
+        return True
+    except Exception:
+        reduced = {
+            k: v for k, v in payload.items()
+            if k not in {"cooldown_until", "agent_source", "metadata"}
+        }
+        try:
+            db.table("lead_interactions").update(reduced).eq("id", interaction_id).execute()
+            return True
+        except Exception as exc2:  # noqa: BLE001
+            print(f"[send_gateway] lead_interactions update failed: {exc2}", file=sys.stderr)
+            return False
+
+
+def _try_reserve_slot_via_rpc(
+    db: Any,
+    *,
+    lead_id: str,
+    channel: str,
+    subject: Optional[str],
+    content_preview: Optional[str],
+    agent_source: str,
+    cooldown_hours: Optional[int],
+    metadata: Optional[dict[str, Any]],
+) -> dict[str, Any]:
+    now = datetime.now(timezone.utc)
+    cooldown_until = (
+        (now + timedelta(hours=cooldown_hours)).isoformat()
+        if cooldown_hours and cooldown_hours > 0 else None
+    )
+    reservation_metadata = dict(metadata or {})
+    reservation_metadata.update({
+        "reservation_status": "pending",
+        "reserved_at": now.isoformat(),
+    })
+    marker = {
+        "lead_id": lead_id,
+        "channel": channel,
+        "subject": (subject or "")[:500],
+        "content_preview": (content_preview or "")[:1000],
+        "agent_source": agent_source,
+        "cooldown_until": cooldown_until,
+        "metadata": reservation_metadata,
+    }
+    sql = (
+        f"/* send_gateway_reserve:{json.dumps(marker, separators=(',', ':'))} */ "
+        "WITH guard AS ("
+        f"  SELECT pg_try_advisory_xact_lock(hashtext({_sql_literal(lead_id + '|' + channel)})) AS acquired"
+        "), existing AS ("
+        "  SELECT id FROM lead_interactions"
+        f"  WHERE lead_id = {_sql_literal(lead_id)}"
+        f"    AND channel = {_sql_literal(channel)}"
+        "    AND type = 'reserving'"
+        f"    AND created_at >= NOW() - INTERVAL '{RESERVATION_WINDOW_MINUTES} minutes'"
+        "  ORDER BY created_at DESC"
+        "  LIMIT 1"
+        "), inserted AS ("
+        "  INSERT INTO lead_interactions (lead_id, type, channel, created_at, subject, content, agent_source, cooldown_until, metadata)"
+        "  SELECT "
+        f"    {_sql_literal(lead_id)},"
+        "    'reserving',"
+        f"    {_sql_literal(channel)},"
+        "    NOW(),"
+        f"    {_sql_literal((subject or '')[:500])},"
+        f"    {_sql_literal((content_preview or '')[:1000])},"
+        f"    {_sql_literal(agent_source)},"
+        f"    {_sql_literal(cooldown_until)},"
+        f"    {_json_sql_literal(reservation_metadata)} "
+        "  FROM guard"
+        "  WHERE acquired AND NOT EXISTS (SELECT 1 FROM existing)"
+        "  RETURNING id, created_at"
+        ") "
+        "SELECT "
+        "  COALESCE((SELECT acquired FROM guard), false) AS lock_acquired, "
+        "  (SELECT id FROM existing LIMIT 1) AS existing_reservation_id, "
+        "  (SELECT id FROM inserted LIMIT 1) AS reservation_id, "
+        "  (SELECT created_at FROM inserted LIMIT 1) AS reservation_created_at"
+    )
+    res = db.rpc("exec_sql", {"sql_query": sql}).execute()
+    data = getattr(res, "data", None)
+    if isinstance(data, dict):
+        rows = data.get("rows") or []
+    elif isinstance(data, list):
+        rows = data
+    else:
+        rows = []
+    row = rows[0] if rows else {}
+    if not row.get("lock_acquired", True):
+        return {"status": "blocked", "reason": "concurrent send detected"}
+    if row.get("existing_reservation_id"):
+        return {"status": "blocked", "reason": "concurrent send detected"}
+    if row.get("reservation_id"):
+        return {"status": "reserved", "reservation_id": row["reservation_id"], "mode": "rpc"}
+    return {"status": "error", "reason": "reservation RPC returned no reservation_id"}
+
+
+def reserve_send_slot(
+    db: Any,
+    *,
+    lead_id: Optional[str],
+    channel: str,
+    subject: Optional[str],
+    content_preview: Optional[str],
+    agent_source: str,
+    cooldown_hours: Optional[int],
+    metadata: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+    reservation_metadata = dict(metadata or {})
+    reservation_metadata.update({
+        "reservation_status": "pending",
+        "reserved_at": datetime.now(timezone.utc).isoformat(),
+    })
+    if lead_id and hasattr(db, "rpc"):
+        try:
+            return _try_reserve_slot_via_rpc(
+                db,
+                lead_id=lead_id,
+                channel=channel,
+                subject=subject,
+                content_preview=content_preview,
+                agent_source=agent_source,
+                cooldown_hours=cooldown_hours,
+                metadata=metadata,
+            )
+        except Exception as exc:  # noqa: BLE001
+            print(f"[send_gateway] reservation RPC unavailable: {exc}", file=sys.stderr)
+
+    now = datetime.now(timezone.utc)
+    payload: dict[str, Any] = {
+        "type": "reserving",
+        "channel": channel,
+        "created_at": now.isoformat(),
+        "subject": (subject or "")[:500],
+        "content": (content_preview or "")[:1000],
+        "agent_source": agent_source,
+        "metadata": reservation_metadata,
+    }
+    if lead_id:
+        payload["lead_id"] = lead_id
+    if cooldown_hours and cooldown_hours > 0:
+        payload["cooldown_until"] = (now + timedelta(hours=cooldown_hours)).isoformat()
+    try:
+        res = db.table("lead_interactions").insert(payload).execute()
+        reservation_id = res.data[0].get("id") if res.data else None
+        return {"status": "reserved", "reservation_id": reservation_id, "mode": "fallback"}
+    except Exception:
+        reduced = {
+            k: v for k, v in payload.items()
+            if k not in {"cooldown_until", "agent_source", "metadata"}
+        }
+        try:
+            res = db.table("lead_interactions").insert(reduced).execute()
+            reservation_id = res.data[0].get("id") if res.data else None
+            return {"status": "reserved", "reservation_id": reservation_id, "mode": "fallback_legacy"}
+        except Exception as exc2:  # noqa: BLE001
+            return {"status": "error", "reason": f"reservation failed: {exc2}"}
+
+
+def finalize_reserved_action(
+    db: Any,
+    *,
+    interaction_id: Optional[str],
+    lead_id: Optional[str],
+    channel: str,
+    action_type: str,
+    subject: Optional[str],
+    content_preview: Optional[str],
+    agent_source: str,
+    cooldown_hours: Optional[int],
+    metadata: Optional[dict[str, Any]] = None,
+    to_email: Optional[str] = None,
+    error_message: Optional[str] = None,
+) -> Optional[str]:
+    if not interaction_id:
+        return log_action(
+            db=db,
+            lead_id=lead_id,
+            channel=channel,
+            action_type=action_type,
+            subject=subject,
+            content_preview=content_preview,
+            agent_source=agent_source,
+            cooldown_hours=cooldown_hours,
+            metadata=metadata,
+            to_email=to_email,
+        )
+
+    now = datetime.now(timezone.utc)
+    final_metadata = dict(metadata or {})
+    final_metadata["reservation_status"] = "completed" if action_type.endswith("_sent") else "failed"
+    if error_message:
+        final_metadata["error_message"] = error_message
+    payload: dict[str, Any] = {
+        "type": action_type,
+        "subject": (subject or "")[:500],
+        "content": (content_preview or "")[:1000],
+        "agent_source": agent_source,
+        "metadata": final_metadata,
+    }
+    if action_type.endswith("_sent") and cooldown_hours and cooldown_hours > 0:
+        payload["cooldown_until"] = (now + timedelta(hours=cooldown_hours)).isoformat()
+    else:
+        payload["cooldown_until"] = None
+    ok = _update_interaction_row(db, interaction_id, payload)
+    if not ok:
+        return None
+    if channel == "email":
+        _mirror_email_log(
+            db,
+            to_email=to_email,
+            subject=subject,
+            content_preview=content_preview,
+            status="sent" if action_type == "email_sent" else "failed",
+            lead_id=lead_id,
+            error_message=error_message,
+        )
+    if action_type.endswith("_sent"):
+        _touch_lead_last_contact(db, lead_id, action_type)
+    return interaction_id
 
 def log_action(
     db,
@@ -481,28 +1011,17 @@ def log_action(
     # Mirror email sends to email_log for backward compatibility with all
     # legacy queries and analytics built on email_log.
     if channel == "email" and action_type in {"email_sent", "email_reply"}:
-        try:
-            db.table("email_log").insert({
-                "to_email": to_email,
-                "subject": subject or "",
-                "body_preview": (content_preview or "")[:200],
-                "status": "sent" if action_type == "email_sent" else "received",
-                "sent_at": now.isoformat(),
-                "lead_id": lead_id,
-            }).execute()
-        except Exception as exc:  # noqa: BLE001
-            # Legacy mirror is best-effort; lead_interactions is truth.
-            print(f"[send_gateway] email_log mirror warning: {exc}", file=sys.stderr)
+        _mirror_email_log(
+            db,
+            to_email=to_email,
+            subject=subject,
+            content_preview=content_preview,
+            status="sent" if action_type == "email_sent" else "received",
+            lead_id=lead_id,
+        )
 
     # Update leads.last_contacted_at so the CRM view stays fresh.
-    if lead_id and action_type in {"email_sent", "dm_sent", "call"}:
-        try:
-            db.table("leads").update({
-                "last_contacted_at": now.isoformat(),
-                "updated_at": now.isoformat(),
-            }).eq("id", lead_id).execute()
-        except Exception as exc:  # noqa: BLE001
-            print(f"[send_gateway] leads.last_contacted_at update warning: {exc}", file=sys.stderr)
+    _touch_lead_last_contact(db, lead_id, action_type)
 
     return interaction_id
 
@@ -531,23 +1050,29 @@ def get_daily_stats(db, channel: Optional[str] = None) -> dict:
     and the CEO briefing."""
     now = datetime.now(timezone.utc)
     day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    result: dict[str, Any] = {"date": day_start.date().isoformat(), "channels": {}}
+    result: dict[str, Any] = {
+        "date": day_start.date().isoformat(),
+        "channels": {},
+        "hourly_counts": {},
+        "bounce_rate": get_bounce_rate(db),
+    }
     channels = [channel] if channel else list(KNOWN_CHANNELS)
     for c in channels:
         try:
-            r = (
-                db.table("lead_interactions")
-                .select("id", count="exact")
-                .eq("channel", c)
-                .gte("created_at", day_start.isoformat())
-                .execute()
-            )
+            r_count = _count_window(db, c, day_start)
             result["channels"][c] = {
-                "count": r.count or 0,
+                "count": r_count,
                 "cap": DAILY_CAPS.get(c),
             }
         except Exception as exc:  # noqa: BLE001
             result["channels"][c] = {"count": None, "cap": DAILY_CAPS.get(c), "error": str(exc)}
+        try:
+            result["hourly_counts"][c] = {
+                "count": _count_window(db, c, now - timedelta(hours=1)),
+                "cap": HOURLY_CAPS.get(c),
+            }
+        except Exception as exc:  # noqa: BLE001
+            result["hourly_counts"][c] = {"count": None, "cap": HOURLY_CAPS.get(c), "error": str(exc)}
     result["total"] = sum(
         (c["count"] or 0) for c in result["channels"].values()
     )
@@ -783,6 +1308,55 @@ def send(
                     "lead_id": lead_id, "interaction_id": None,
                     "cooldown_until": None, "daily_count": None}
 
+        effective_cooldown = (
+            cooldown_hours
+            if cooldown_hours is not None
+            else DEFAULT_COOLDOWNS.get(channel, 0)
+        )
+        full_metadata = dict(metadata or {})
+        full_metadata.update({
+            "brand": brand,
+            "intent": intent,
+            "sent_at": datetime.now(timezone.utc).isoformat(),
+        })
+
+        if intent == "commercial" and _env_bool(env, "DRAFT_CRITIC_ENABLED", True):
+            critic_result = critique_draft(
+                draft_subject=subject,  # type: ignore[arg-type]
+                draft_body=body_text,  # type: ignore[arg-type]
+                brand=brand,
+                intent=intent,
+                env=env,
+            )
+            if critic_result.get("verdict") == "reject":
+                reasons = critic_result.get("reasons") or []
+                reason_text = "; ".join(str(r) for r in reasons[:5]) or critic_result.get("notes") or "rejected"
+                return {"status": "blocked",
+                        "reason": f"draft_critic rejected: {reason_text}",
+                        "lead_id": lead_id, "interaction_id": None,
+                        "cooldown_until": None, "daily_count": None}
+
+        reservation = reserve_send_slot(
+            db=db,
+            lead_id=lead_id,
+            channel=channel,
+            subject=subject,
+            content_preview=body_text,
+            agent_source=agent_source,
+            cooldown_hours=effective_cooldown,
+            metadata=full_metadata,
+        )
+        if reservation["status"] == "blocked":
+            return {"status": "blocked",
+                    "reason": reservation["reason"],
+                    "lead_id": lead_id, "interaction_id": None,
+                    "cooldown_until": None, "daily_count": None}
+        if reservation["status"] != "reserved":
+            return {"status": "error",
+                    "reason": reservation.get("reason", "reservation failed"),
+                    "lead_id": lead_id, "interaction_id": None,
+                    "cooldown_until": None, "daily_count": None}
+
         mime = _build_email_mime(
             gmail_address=gmail_user,
             brand=brand_cfg,
@@ -797,18 +1371,20 @@ def send(
         )
         ok, err = _send_email_smtp(env, mime, to_email)  # type: ignore[arg-type]
         if not ok:
-            # Log failure so future diagnostics see the attempt.
-            try:
-                db.table("email_log").insert({
-                    "to_email": to_email,
-                    "subject": subject or "",
-                    "body_preview": (body_text or "")[:200],
-                    "status": "failed",
-                    "error_message": err,
-                    "lead_id": lead_id,
-                }).execute()
-            except Exception:  # noqa: BLE001
-                pass
+            finalize_reserved_action(
+                db=db,
+                interaction_id=reservation.get("reservation_id"),
+                lead_id=lead_id,
+                channel=channel,
+                action_type="email_failed",
+                subject=subject,
+                content_preview=body_text,
+                agent_source=agent_source,
+                cooldown_hours=None,
+                metadata=full_metadata,
+                to_email=to_email,
+                error_message=err,
+            )
             return {"status": "error", "reason": err,
                     "lead_id": lead_id, "interaction_id": None,
                     "cooldown_until": None, "daily_count": None}
@@ -825,8 +1401,9 @@ def send(
             "intent": intent,
             "sent_at": datetime.now(timezone.utc).isoformat(),
         })
-        interaction_id = log_action(
+        interaction_id = finalize_reserved_action(
             db=db,
+            interaction_id=reservation.get("reservation_id"),
             lead_id=lead_id,
             channel=channel,
             action_type="email_sent",
@@ -962,7 +1539,27 @@ def _cmd_stats(args) -> int:
             cap = d.get("cap")
             cnt = d.get("count")
             print(f"  {ch:10}  {cnt}/{cap if cap is not None else '-'}")
+        print(f"Bounce rate (24h): {s['bounce_rate']:.1%}")
+        print("Hourly counts:")
+        for ch, d in s["hourly_counts"].items():
+            cap = d.get("cap")
+            cnt = d.get("count")
+            print(f"  {ch:10}  {cnt}/{cap if cap is not None else '-'}")
         print(f"  TOTAL      {s['total']}")
+    return 0
+
+
+def _cmd_doctor(args) -> int:
+    from dns_reputation import check_sender_reputation, format_reputation_report
+
+    env = load_env()
+    default_sender = env.get("GMAIL_USER") or env.get("GMAIL_ADDRESS") or ""
+    domain = args.domain or _extract_domain(default_sender)
+    report = check_sender_reputation(domain or "")
+    if args.output_json:
+        _print_json(report)
+    else:
+        print(format_reputation_report(report))
     return 0
 
 
@@ -1000,6 +1597,9 @@ def main() -> None:
     pss = sub.add_parser("stats", help="Today's outbound counts by channel")
     pss.add_argument("--channel", default=None, choices=sorted(KNOWN_CHANNELS))
 
+    pd = sub.add_parser("doctor", help="Check sender-domain SPF/DKIM/DMARC")
+    pd.add_argument("--domain", default=None, help="Override sender domain")
+
     args = p.parse_args()
 
     if args.command == "send":
@@ -1010,6 +1610,8 @@ def main() -> None:
         sys.exit(_cmd_history(args))
     elif args.command == "stats":
         sys.exit(_cmd_stats(args))
+    elif args.command == "doctor":
+        sys.exit(_cmd_doctor(args))
     else:
         p.print_help()
         sys.exit(1)

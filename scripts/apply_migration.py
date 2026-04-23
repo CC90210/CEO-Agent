@@ -16,8 +16,10 @@ Credentials required in .env.agents:
   BRAVO_SUPABASE_URL         Project URL (https://<ref>.supabase.co)
 
 Safety:
-  - DOES NOT execute anything that parses as DROP TABLE or TRUNCATE TABLE.
-    These are blocked at the client side. Comment-out check is line-based.
+  - DOES NOT execute SQL that parses as destructive table/schema removal,
+    broad data mutation, privilege changes, or policy/RLS weakening.
+    These are blocked at the client side after comments and strings are
+    stripped.
   - Prints the full statement before sending. Use --dry-run to preview only.
   - On error, prints the Supabase API error body so the failure is debuggable.
 """
@@ -56,6 +58,13 @@ BLOCKED_PATTERNS = [
     re.compile(r"\bTRUNCATE\s+TABLE\b", re.IGNORECASE),
     re.compile(r"\bDROP\s+DATABASE\b", re.IGNORECASE),
     re.compile(r"\bDROP\s+SCHEMA\b", re.IGNORECASE),
+    re.compile(r"\bDELETE\s+FROM\b", re.IGNORECASE),
+    re.compile(r"\bUPDATE\s+[\w.\"`]+\s+SET\b", re.IGNORECASE),
+    re.compile(r"\bGRANT\b", re.IGNORECASE),
+    re.compile(r"\bREVOKE\b", re.IGNORECASE),
+    re.compile(r"\bALTER\s+(ROLE|USER|DATABASE|SYSTEM)\b", re.IGNORECASE),
+    re.compile(r"\b(DROP|ALTER)\s+POLICY\b", re.IGNORECASE),
+    re.compile(r"\bDISABLE\s+ROW\s+LEVEL\s+SECURITY\b", re.IGNORECASE),
 ]
 
 

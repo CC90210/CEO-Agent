@@ -8,14 +8,34 @@ tags: [tasks, active]
 - **Current:** ~$2,982 USD/mo | **Gap:** ~$2,018 USD/mo (~4-5 new clients)
 - **Risk:** 94% revenue from Bennett — diversification is #1 priority
 
+## 🏗 V6.0 FINALIZATION (2026-04-22)
+- **Status:** Scaffolds shipped (dormant), send_gateway hardening in progress via Codex, V6 architecture doc signed-off.
+- **Owner:** Bravo (scaffold) + CC (sign-off on 4 open questions in docs/V6_ARCHITECTURE.md)
+- **Shipped this session:**
+  - `docs/V6_ARCHITECTURE.md` — Principal-Architect design doc (~450 lines)
+  - `database/014_v6_pgvector_memory.sql` — pgvector + memory_chunks + search_memory_chunks RPC
+  - `database/015_v6_event_bus_extensions.sql` — LISTEN/NOTIFY + claim/ack/fail RPCs, FOR UPDATE SKIP LOCKED
+  - `scripts/event_bus.py`, `scripts/memory_chunker.py`, `scripts/memory_ingest.py`, `scripts/memory_query.py`, `scripts/pii_scrubber.py`
+  - `infra/Dockerfile`, `infra/docker-compose.yml`, `infra/Caddyfile`, `infra/README.md`, `infra/.dockerignore`
+  - `.github/workflows/deploy-vps.yml`
+  - Codex-delivered send_gateway hardening: bounce circuit breaker + HOURLY_CAPS + per-domain cooldown + draft_critic wired + dns_reputation.py doctor
+- **CC decision points (blocking activation):**
+  1. VPS region — Hetzner Germany (€6.90/mo, recommended) or OVH Canada
+  2. Dedicated GPU VPS for self-hosted LLM — recommend: defer until first regulated client
+  3. SOC 2 timeline — recommend: defer until $30k+/yr deal ROI-justifies
+  4. Obsidian sync model — recommend: keep local, git-sync to VPS
+- **Activation sequence (after CC sign-off):** apply migration 015 (event bus ext) Week 1 → provision VPS Week 2 → migration 014 (pgvector) + ingest Week 3 → cutover Week 4.
+- **Full context:** [[docs/V6_ARCHITECTURE]] | [[infra/README]] | [[memory/project_v6_architecture]] | [[memory/project_send_gateway_audit]]
+
 ## 🎯 CONSULTING RETAINER PITCH — Alejandro Andrade (2026-04-21)
-- **Owner:** CC (text draft ready, awaiting send)
+- **Owner:** CC
+- **Status:** 3 texts sent post-call (Apr 21) — delivered but unread/no response for ~24h. **NO MORE TEXTS.** Next action is a **phone call Wed Apr 23 or Thu Apr 24** — casual follow-up, not chasing.
 - **Scope:** Associate / consultant access — Google Meets when he needs, async availability, repo + cloud reviews. NOT agency-retainer, NOT weekly-guaranteed deliverables.
 - **Pricing:** **$450/mo minimum** · non-negotiable
 - **Context:** $1,500 one-off already paid — that covered the Tool Shed + AIOS Roadmap (his to keep forever). Retainer is separate, for ongoing access.
-- **Deadline for his reply:** **Wednesday 2026-04-23**
+- **Call script:** "Hey Alejandro, just following up on those texts. Wanted to see where your head's at — any questions on the retainer?" → then listen.
 - **On YES:** Stripe subscription link for $450/mo within 1 hour. First Google Meet scheduled when he asks.
-- **On NO / silent:** 30-day watch. **Re-check 2026-05-21.** Do NOT chase. Hold price line if he counter-offers below $450.
+- **On NO / silent after call:** 30-day watch. **Re-check 2026-05-21.** Do NOT chase. Hold price line if he counter-offers below $450.
 - **Pending blocker:** CC to send me Alejandro's email so I can share the 3 Google Docs (Tool Shed, Client Playbook, Benchmark/AIOS Roadmap) via `google_tool.py drive share`.
 - **Full context:** [[memory/project_alejandro_andrade]] (auto-memory)
 - **Risk flag:** He framed Claude Code as "leaked info from Anthropic enterprise" in the meeting. If retainer signs, early check-in to align tech framing so it doesn't reflect on CC.

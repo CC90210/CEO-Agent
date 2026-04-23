@@ -151,7 +151,9 @@ GMAIL_ADDRESS=oasisaisolutions@gmail.com
 CLAUDE_MODEL=claude-sonnet-4-20250514
 
 # Booking link for funnel nurture Day-2 emails — falls back to mailto: if unset
-BOOKING_MEET_LINK=<your Cal.com / Calendly / Google Meet booking URL>
+# Authoritative value lives in .env.agents BOOKING_LINK and brain/USER.md Critical Links.
+# Current canonical link: https://calendar.app.google/tpfvJYBGircnGu8G8
+BOOKING_MEET_LINK=https://calendar.app.google/tpfvJYBGircnGu8G8
 
 # Notify category filter — blocks spam categories. Default is fine.
 NOTIFY_BLOCKED_CATEGORIES=content,instagram,system

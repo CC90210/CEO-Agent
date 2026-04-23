@@ -3,6 +3,35 @@ tags: [daily]
 ---
 
 
+### 2026-04-22 — V6.0 Architecture Brief + Stale-Data Diagnostic + send_gateway Audit
+**Agent:** Bravo (Claude Opus 4.7, 1M context) acting as Principal Systems Architect
+**Trigger:** CC delivered V6.0 upgrade brief (Pulse race condition, token burn, IDE dependency, client security) + Antigravity handover (stale-data diagnostic + send_gateway safety review + Alejandro prep).
+
+**Stale-data diagnostic (parallel explorer agent):**
+- Only ONE active-path hit: `APPS_CONTEXT/OASIS_AI_CLAUDE.md:52` still claimed "Calendly integration" — replaced with Google Calendar link + guard comment.
+- `brain/MAC_SYNC_PROMPT.md:154` placeholder listed Calendly as a valid booking tool — replaced with canonical link + pointer to .env.agents.
+- `memory/ARCHIVES/lead_system/build_workflows.py:619` (the original hallucination source) — link updated to correct Google Calendar link + added ARCHIVED header at top of file warning future agents.
+- All other hits are legitimate documentation of the incident (USER.md, STATE.md, SESSION_LOG, CLAUDE_HANDOVER) or defensive guards (skool_engine.py strips Calendly hallucinations) — no edits needed.
+- No stale phone numbers, no obsolete pricing in live send paths. All active outreach scripts correctly read from .env.agents BOOKING_LINK.
+
+**send_gateway.py audit (parallel code-reviewer agent):**
+Ship-readiness verdict for $5k MRR outbound volume: **NOT READY**. 2 CRITICAL gaps, 3 needs-work, 1 borderline-critical CASL gap.
+- CRITICAL: no bounce-rate circuit breaker (single bad list can permanently damage Workspace reputation).
+- CRITICAL: no SPF/DKIM/DMARC validation, no spam-word linting, no warmup enforcement. draft_critic.py exists but isn't invoked by send().
+- NEEDS-WORK: no per-hour cap (can burst 50/day in 60s), no per-domain cooldown (can hit 10 contacts at same company same day), non-atomic check-then-act = concurrent callers can exceed caps by 1.
+- BORDERLINE: CASL unsubscribe relies 100% on inbound classifier + reply-STOP; the HTTPS /unsubscribe endpoint was removed as a 404 and needs to be wired back into cc-funnel.
+
+**V6.0 Architecture doc written:** `docs/V6_ARCHITECTURE.md` (~450 lines). Principal-Architect-level response to the 4 brief questions:
+- Q1 Memory: Supabase pgvector + BM25 hybrid. Markdown stays source of truth. Realistic ~60-65% boot token reduction, not marketing's 90%. Migration path in 4 weeks.
+- Q2 Events: Postgres LISTEN/NOTIFY on existing `agent_events` table with `FOR UPDATE SKIP LOCKED` workers. No Redis. Kills JSON pulse race condition.
+- Q3 Autonomy: Hetzner CX32 VPS (€6.90/mo), Docker Compose, Caddy+Let's Encrypt, Tailscale SSH. GitHub Actions deploy. ~$10 USD/mo total.
+- Q4 Security: 12-layer defense-in-depth. Verbatim client-sales answer + full architecture. Trust Center page + DPA template as first shippable. SOC 2 deferred until $30k+/yr deal.
+- Sequencing recommendation: Event bus → VPS → RAG → Security hardening. Full V6 operational by end of May 2026 (aligned with $5k MRR target).
+
+**Alejandro brief:** Ready on demand (memory/project_alejandro_andrade.md). Retainer pitch was $450/mo minimum, non-negotiable, text channel, deadline Wed 2026-04-23. Flag: he may counter-offer — hold the line.
+
+**Open questions for CC in the V6 doc:** VPS region (Germany vs Canada), speculative GPU VPS build, SOC 2 timeline, Obsidian sync model.
+
 ### 2026-04-22 — Auto-sync
 **Agent:** BRAVO state_sync
 **Note:** End of session. Created memory/CLAUDE_HANDOVER.md detailing the outbound blast execution, the 404 Calendly link hallucination, the fix deployed, and the mandate for a full system diagnostic of outdated hardcoded links in legacy scripts. Claude MUST read memory/CLAUDE_HANDOVER.md before proceeding.
@@ -1002,3 +1031,10 @@ tags: [daily]
 **Change:** Rewrote BUILD_PLAN.md, DISCOVERY_QUESTIONS.md, MEETING_PLAN.md to reflect full Walgreens compliance scope ($50K-$150K/yr chargeback exposure); scaffolded 8 new adapter modules (edi_855_ack, edi_856_asn, edi_820_remit, gs1_128_label, matrix_expander, contract_price, credit_check, chargeback_tracker) with full docstrings and NotImplementedError bodies; updated brain/CAPABILITIES.md and brain/HERMES.md.
 **Files:** adapters/edi_855_ack.py, adapters/edi_856_asn.py, adapters/edi_820_remit.py, adapters/gs1_128_label.py, adapters/matrix_expander.py, adapters/contract_price.py, adapters/credit_check.py, adapters/chargeback_tracker.py, docs/BUILD_PLAN.md, docs/DISCOVERY_QUESTIONS.md, docs/MEETING_PLAN.md, brain/CAPABILITIES.md, brain/HERMES.md
 **Commit:** 405dfc4
+
+---
+
+### 2026-04-23 — Send Gateway Hardening For Outbound Scale
+**Agent:** Codex
+**Change:** Hardened `scripts/send_gateway.py` for higher-volume outbound: added 24h bounce-rate circuit breaker, hourly caps, per-domain 24h cap, daily-cap Telegram red-zone alert, reservation-based race protection with exec_sql advisory-lock RPC path + fallback, draft_critic gating for commercial email, and stats payload extensions. Added `scripts/dns_reputation.py` plus the `doctor` CLI. Exposed `critique_draft()` in `scripts/draft_critic.py` and extended `scripts/test_send_gateway.py` to 48 passing tests.
+**Verification:** `python scripts/test_send_gateway.py` → 48/48 passing. `python -m py_compile scripts/send_gateway.py scripts/draft_critic.py scripts/dns_reputation.py scripts/test_send_gateway.py` → OK. `python scripts/send_gateway.py doctor --domain oasisai.work` prints SPF/DKIM/DMARC/MX report. `get_daily_stats()` JSON now includes `bounce_rate` + `hourly_counts`.

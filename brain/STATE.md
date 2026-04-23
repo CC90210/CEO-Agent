@@ -43,7 +43,7 @@ tags: [state, ephemeral]
 
 | Tool | Status | Purpose |
 |--------|--------|---------|
-| **Send Gateway** | ✅ V5.6 LIVE | `scripts/send_gateway.py` — single outbound chokepoint. CASL + cooldown + daily cap + multi-brand + .ics + PDF attachments. 39 tests green. All 6 business engines (outreach_engine, outreach_batch, email_engine, funnel_nurture, booking_engine, contract_generator) rewired through it. |
+| **Send Gateway** | ✅ V5.6 HARDENED (2026-04-23) | `scripts/send_gateway.py` — single outbound chokepoint. CASL + cooldown + daily cap + hourly cap + domain cap + bounce breaker + draft critic gate + reservation guard + DNS doctor. `scripts/dns_reputation.py` added. 48 tests green. All 6 business engines (outreach_engine, outreach_batch, email_engine, funnel_nurture, booking_engine, contract_generator) rewired through it. |
 | **Unified Interaction Ledger** | ✅ V5.6 LIVE | `lead_interactions` table extended (cooldown_until + agent_source + metadata + 4 indexes) via migration 003. Shared memory across every outbound + N8N inbound. |
 | **Context Builder** | ✅ V5.6 LIVE | `scripts/context_builder.py` — relationship stage + sentiment + prompt composition. Feeds persona-aware drafts. |
 | **Inbound Classifier** | ✅ V5.6 LIVE | `scripts/inbound_classifier.py` — Claude Haiku intent/sentiment/priority classifier + keyword fallback. Writes to `lead_interactions` + publishes `agent_events.inbound.classified`. |
@@ -145,7 +145,8 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 - [[brain/APP_REGISTRY]] | [[brain/CEO_OPERATING_SYSTEM]] | [[brain/OKRs]] | [[brain/CLIENT_READY]]
 - [[brain/BRAIN_LOOP]] | [[brain/GROWTH]] | [[brain/CHANGELOG]]
 - [[brain/RISK_REGISTER]] | [[brain/INTERACTION_PROTOCOL]] | [[brain/ORCHESTRATION]]
-- [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]] | [[memory/DECISIONS]]
+- [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]] | [[memory/DECISIONS]] | [[memory/CLAUDE_HANDOVER]]
+- [[docs/V6_ARCHITECTURE]] | [[infra/README]]
 - [[memory/PATTERNS]] | [[memory/MISTAKES]] | [[memory/SELF_REFLECTIONS]]
 - [[memory/content-strategy]] | [[memory/PROPOSED_CHANGES]]
 - [[APPS_CONTEXT/INDEX]] | [[APPS_CONTEXT/GRITLY_CLAUDE]] | [[APPS_CONTEXT/IG_SETTER_PRO_CLAUDE]] | [[APPS_CONTEXT/SKOOL_COMMUNITY_CLAUDE]]
@@ -156,11 +157,14 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
+- **Date:** 2026-04-23
+- **Agent:** Codex acting as backend executor
+- **Result:** send_gateway hardening pass shipped for outbound scale: 24h bounce-rate circuit breaker (3% / 20-sample gate), hourly caps, per-domain 24h cap, draft_critic commercial-email block, reservation-based race guard with exec_sql advisory-lock RPC path + fallback, stats extension, Telegram 80%-of-cap alert, and `doctor` DNS reputation CLI. Added `scripts/dns_reputation.py`. Verified with `python scripts/test_send_gateway.py` — 48/48 passing. `python scripts/send_gateway.py doctor --domain oasisai.work` now prints SPF/DKIM/DMARC/MX report. 
 - **Date:** 2026-04-22
-- **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** End of session. Created memory/CLAUDE_HANDOVER.md detailing the outbound blast execution, the 404 Calendly link hallucination, the fix deployed, and the mandate for a full system diagnostic of outdated hardcoded links in legacy scripts. Claude MUST read memory/CLAUDE_HANDOVER.md before proceeding.
+- **Agent:** Bravo (Claude Opus 4.7, 1M context) acting as Principal Systems Architect
+- **Result:** V6.0 architecture brief delivered (`docs/V6_ARCHITECTURE.md`, ~450 lines) answering the 4 upgrade questions: pgvector RAG, Postgres LISTEN/NOTIFY events, Hetzner Docker VPS, 12-layer client security. Stale-data sweep complete: 3 edits (OASIS_AI_CLAUDE.md, MAC_SYNC_PROMPT.md, ARCHIVES/build_workflows.py). send_gateway audit: NOT READY for $5k MRR volume — 2 critical gaps (bounce handling, domain reputation), 3 needs-work, 1 borderline-critical CASL gap. Alejandro retainer brief ready for Wed/Thu call.
 
-*Last updated: 2026-04-22*
+*Last updated: 2026-04-23*
 
 ## Manifest
 

@@ -40,19 +40,7 @@ const TEMP_PATH = IS_MAC ? '/tmp' : (process.env.TEMP || 'C:\\Temp');
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const LOG_FILE = path.join(__dirname, 'memory', 'telegram_bridge.log');
-
-if (!TELEGRAM_TOKEN) {
-    console.error('TELEGRAM_BOT_TOKEN missing in .env.agents');
-    process.exit(1);
-}
-
-const bot = new TelegramBot(TELEGRAM_TOKEN, {
-    polling: {
-        autoStart: true,
-        params: { timeout: 30 }
-    },
-    request: { timeout: 60000 }
-});
+const LOCK_FILE = path.join(__dirname, 'tmp', 'bravo_telegram.lock.json');
 
 const log = (msg) => {
     const line = `[${new Date().toISOString()}] ${msg}\n`;
@@ -60,7 +48,68 @@ const log = (msg) => {
     try { fs.appendFileSync(LOG_FILE, line); } catch (_) {}
 };
 
-log(`Bravo Telegram Bridge V15.4 (${IS_MAC ? 'macOS' : 'Windows'} — Full Autonomy) starting...`);
+const ensureTmpDir = () => {
+    try { fs.mkdirSync(path.join(__dirname, 'tmp'), { recursive: true }); } catch (_) {}
+};
+
+const isPidAlive = (pid) => {
+    if (!pid || Number.isNaN(Number(pid))) return false;
+    try {
+        process.kill(Number(pid), 0);
+        return true;
+    } catch (_) {
+        return false;
+    }
+};
+
+const acquireInstanceLock = () => {
+    ensureTmpDir();
+    try {
+        if (fs.existsSync(LOCK_FILE)) {
+            const existing = JSON.parse(fs.readFileSync(LOCK_FILE, 'utf8'));
+            if (existing.pid && existing.pid !== process.pid && isPidAlive(existing.pid)) {
+                log(`[LOCK] Another local bridge owns polling (pid ${existing.pid}, ${existing.machine || 'unknown machine'}). Exiting cleanly.`);
+                process.exit(0);
+            }
+            log(`[LOCK] Replacing stale bridge lock from pid ${existing.pid || 'unknown'}.`);
+        }
+    } catch (err) {
+        log(`[LOCK] Could not read existing lock; replacing it (${err.message || err}).`);
+    }
+
+    fs.writeFileSync(LOCK_FILE, JSON.stringify({
+        pid: process.pid,
+        machine: MACHINE_NAME,
+        platform: process.platform,
+        started_at: new Date().toISOString()
+    }, null, 2));
+};
+
+const releaseInstanceLock = () => {
+    try {
+        if (!fs.existsSync(LOCK_FILE)) return;
+        const existing = JSON.parse(fs.readFileSync(LOCK_FILE, 'utf8'));
+        if (existing.pid === process.pid) fs.unlinkSync(LOCK_FILE);
+    } catch (_) {}
+};
+
+if (!TELEGRAM_TOKEN) {
+    console.error('TELEGRAM_BOT_TOKEN missing in .env.agents');
+    process.exit(1);
+}
+
+acquireInstanceLock();
+process.on('exit', releaseInstanceLock);
+
+const bot = new TelegramBot(TELEGRAM_TOKEN, {
+    polling: {
+        autoStart: false,
+        params: { timeout: 30 }
+    },
+    request: { timeout: 60000 }
+});
+
+log(`Bravo Telegram Bridge V15.4 (${IS_MAC ? 'macOS' : 'Windows'} - guarded autonomy) starting...`);
 
 // ---- CONVERSATION HISTORY ----
 // Stores last N message pairs (user + assistant) per chat.
@@ -463,7 +512,7 @@ const executeCli = (tool, userPrompt, chatId) => {
             cmd = CLAUDE_EXE;
             args = [
                 '-p', fullPrompt,
-                '--dangerously-skip-permissions',
+                '--permission-mode', 'acceptEdits',
                 '--output-format', 'text',
                 '--max-turns', maxTurns
             ];
@@ -475,7 +524,7 @@ const executeCli = (tool, userPrompt, chatId) => {
                 '--no-warnings=DEP0040',
                 GEMINI_SCRIPT,
                 '-p', fullPrompt,
-                '--approval-mode', 'yolo',
+                '--approval-mode', 'auto_edit',
                 '--output-format', 'text',
                 ...mcpArgs
             ];
@@ -800,7 +849,7 @@ bot.on('message', async (msg) => {
             '  Power: "Restart" / "Shutdown" (asks for confirmation)',
             '',
             '!gemini <query> → Gemini CLI (fallback)',
-            `!sys <cmd> → shell command on ${IS_MAC ? 'Mac' : 'PC'}`,
+            '!sys is disabled; use natural-language computer control commands instead.',
             '',
             'Destructive actions require approval (inline buttons).',
             'Screenshots & files auto-sent back to this chat.',
@@ -855,34 +904,13 @@ bot.on('message', async (msg) => {
     }
 
     try {
-        // Shell passthrough — with security blocklist
+        // Raw shell passthrough is intentionally disabled. Use the natural
+        // language computer-control route, which has scoped tools and approval
+        // gates for destructive actions.
         if (text.startsWith('!sys ')) {
             const sysCmd = text.slice(5).trim();
-            const SYS_BLOCKLIST = [
-                /rm\s+(-rf?|--recursive)\s+[\/~]/i,    // rm -rf / or ~
-                /mkfs/i, /dd\s+if=/i,                   // disk destruction
-                />\s*\/dev\/sd/i,                        // write to raw devices
-                /DROP\s+TABLE/i, /TRUNCATE\s+TABLE/i,   // database destruction
-                /git\s+push\s+--force\s+(main|master)/i, // force push to main
-                /git\s+reset\s+--hard/i,                 // hard reset
-                /curl.*\|\s*(sh|bash)/i,                 // pipe curl to shell
-                /wget.*\|\s*(sh|bash)/i,                 // pipe wget to shell
-                /\.env/i,                                // .env file access
-                /chmod\s+777/i,                          // world-writable permissions
-                /sudo\s+rm/i,                            // sudo rm
-            ];
-            if (SYS_BLOCKLIST.some(p => p.test(sysCmd))) {
-                await bot.sendMessage(chatId, 'BLOCKED: This command matches a security blocklist pattern.');
-                log(`[SECURITY] Blocked !sys command: ${sysCmd}`);
-                return;
-            }
-            log(`[SYS] Executing: ${sysCmd}`);
-            await bot.sendMessage(chatId, 'Running...');
-            exec(sysCmd, { windowsHide: true, timeout: 30000 }, (err, out, serr) => {
-                const r = out || serr || (err ? err.message : 'Done.');
-                log(`[SYS] Result: ${r.substring(0, 200)}`);
-                bot.sendMessage(chatId, r.substring(0, 4000));
-            });
+            log(`[SECURITY] Rejected disabled !sys command: ${sysCmd.substring(0, 200)}`);
+            await bot.sendMessage(chatId, '!sys is disabled. Ask me in normal language and I will route it through guarded computer-control tools.');
             return;
         }
 
@@ -1047,21 +1075,17 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 // Suppress polling errors (network drops, sleep/wake cycles)
 // node-telegram-bot-api auto-retries polling — just log, don't crash
 let pollErrorCount = 0;
+let pollingDormant = false;
 bot.on('polling_error', (e) => {
     pollErrorCount++;
     const msg = e.message || String(e);
     // 409 Conflict = another bot instance is polling (dual-machine scenario)
     if (msg.includes('409') || msg.includes('Conflict')) {
-        log(`[POLL] 409 CONFLICT — another bot instance is running (likely the other machine). Backing off for 60s...`);
-        // Don't crash — just wait. The other machine's bot will handle messages.
-        // PM2 will keep us alive. When the other machine's bot stops, we'll resume.
-        bot.stopPolling();
-        setTimeout(() => {
-            if (!shuttingDown) {
-                log(`[POLL] Resuming polling after 409 backoff...`);
-                bot.startPolling();
-            }
-        }, 60000);
+        if (!pollingDormant) {
+            pollingDormant = true;
+            log('[POLL] 409 conflict: another bot instance owns this Telegram token. Entering dormant mode until PM2 restarts this process.');
+        }
+        bot.stopPolling().catch(() => {});
         return;
     }
     // Log first error, then only every 50th to avoid filling logs
@@ -1076,6 +1100,18 @@ process.on('unhandledRejection', (err) => {
 });
 
 log(`Bridge V15.4 ready. Platform: ${IS_MAC ? 'macOS' : 'Windows'}. Computer control: FULL CONTROL (60+ cmds).`);
+
+try {
+    const pollingStart = bot.startPolling();
+    log('[POLL] Polling requested.');
+    if (pollingStart && typeof pollingStart.catch === 'function') {
+        pollingStart.catch((err) => {
+            log(`[POLL] Failed to start polling: ${err.message || err}`);
+        });
+    }
+} catch (err) {
+    log(`[POLL] Failed to start polling: ${err.message || err}`);
+}
 
 // ---- STARTUP AUTH HEALTH CHECK ----
 // Tests ANTHROPIC_API_KEY directly on every boot. If it fails, Telegram alerts CC.

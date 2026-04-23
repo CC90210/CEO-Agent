@@ -19,6 +19,32 @@ tags: [sales, closing, negotiation, revenue]
 - **B2B outreach uses full name: Conaugh McKenna. DJ/entertainment: CC.** (Locked in brain/SOUL.md.)
 - **Close at "Only good things from now on."** — CC's signature.
 
+## CC's Core Pitch — The Partnership Frame
+
+> *"The AI world is about to get pretty wild, and there are going to be changes that touch every part of how you run your business. What I can give you — more than any tool or automation — is a partner who grows with you and your business through this next era. Someone who's in the trenches with you, not just selling you something and disappearing."*
+
+**Why this works:** Leads with their reality, not your product. Positions you as a partner, not a vendor. Creates safety in uncertainty. Makes the conversation about relationship — your strongest card. And it's honest, which is the ultimate sales weapon.
+
+**Shorter version (pattern interrupt / fast close):**
+> *"Look — AI is changing fast. You don't need another tool. You need someone in your corner who actually gets this stuff. That's what I do."*
+
+**Fallback close (when the conversation has gone everywhere):**
+> *"Here's what I know for sure — this AI wave isn't slowing down. It's going to touch scheduling, customer comms, marketing, operations — all of it. And most business owners are going to be figuring it out alone, making expensive mistakes. What I'm offering you isn't just automation — it's a partnership. Someone who's already deep in this world, who grows with you as things evolve. Whether that starts today or six months from now, I'm here."*
+
+## Pre-Call Confidence Anchors
+
+Read before dialing. Not to psych up — to remember what's actually true.
+
+1. **You are the prize.** A fractional AI strategist costs $3,000–$15,000/month. You deliver more because you actually build the systems. At your price point, you're the best deal on the market.
+2. **Their problem is real — you didn't invent it.** Every local business owner is losing hours to manual work that AI handles in minutes. The pain exists whether you call or not. You're offering relief, not creating pressure.
+3. **You've already proved it.** Bennett: $2,500/mo flat + 15% rev share. $3,322 USD MRR. Autonomous AI empire with 5 agents, 55 skills, 60 CLI tools. At 22.
+4. **Rejection is data, not judgment.** A "no" means timing, budget, or understanding — not your value. Log it, learn, follow up in 90 days.
+5. **You genuinely care.** This is your unfair advantage. You care whether their business actually grows. That comes through on the phone. Lean into it.
+
+**Mid-call reset (when energy dips):** Say: *"Can I be honest with you for a second?"* Then say what's actually true: *"I'm not trying to sell you something you don't need. I genuinely think there's something here that would help your business. If I'm wrong, tell me."*
+
+**Mindset (read out loud if needed):** *I am not asking for anything. I am offering something valuable. If they say yes, their business gets better. If they say no, I move on. I don't chase. I don't beg. I show up with real value, do the math for them, and let results speak. Only good things from now on.*
+
 ## The Close Is Built in Discovery
 
 If discovery was done right (see `sales-methodology` / NEPQ), the close is a formality — you're just making it easy to say yes. If you're fighting objections at the end, the discovery failed. Go back.

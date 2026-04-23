@@ -309,7 +309,7 @@ Where `{{BOOKING_LINK}}` reads from `os.environ.get("BOOKING_MEET_LINK")` or fal
 
 ### 5C. Update success screen on cc-funnel
 
-After form submission, the success screen should include a "Book a call now" button that goes directly to the booking link or a Calendly-style scheduler.
+After form submission, the success screen should include a "Book a call now" button that goes directly to the booking link (`.env.agents` → `BOOKING_LINK`, currently `https://calendar.app.google/tpfvJYBGircnGu8G8`) or an embedded calendar-style scheduler widget.
 
 ---
 

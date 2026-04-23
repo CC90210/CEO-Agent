@@ -20,6 +20,23 @@ tags: [changelog, audit]
 
 ## Changelog
 
+### 2026-04-22 — V6.0 Finalization Session — MULTI-FILE SCAFFOLD + SEND_GATEWAY HARDENING
+**Tier:** SEMI-MUTABLE (scaffolds are dormant until CC approves activation)
+**What changed:**
+- NEW `docs/V6_ARCHITECTURE.md` — Principal Architect design doc answering CC's 4 V6 upgrade questions
+- NEW `database/014_v6_pgvector_memory.sql` — pgvector + memory_chunks + search_memory_chunks RPC (hybrid retrieval)
+- NEW `database/015_v6_event_bus_extensions.sql` — LISTEN/NOTIFY trigger + claim/ack/fail RPCs + FOR UPDATE SKIP LOCKED
+- NEW scripts: `event_bus.py` (pub/sub + offline queue), `memory_chunker.py` (MD → chunks), `memory_ingest.py` (chunks → pgvector), `memory_query.py` (RAG retrieval), `pii_scrubber.py` (reversible redaction)
+- NEW `infra/` — Dockerfile (Python 3.12-slim non-root), docker-compose.yml (5 daemons + pgbouncer + Caddy), Caddyfile (Let's Encrypt + security headers), .dockerignore, README.md runbook
+- NEW `.github/workflows/deploy-vps.yml` — CD pipeline with tests + Telegram notify
+- UPDATE `scripts/send_gateway.py` (via Codex) — bounce circuit breaker, HOURLY_CAPS, per-domain cooldown, draft_critic gate, DNS reputation doctor
+- NEW `scripts/dns_reputation.py` (via Codex) — SPF/DKIM/DMARC verification
+- FIX stale Calendly references in `APPS_CONTEXT/OASIS_AI_CLAUDE.md`, `brain/MAC_SYNC_PROMPT.md`, `memory/ARCHIVES/lead_system/build_workflows.py`, `.agents/plans/inbound-engine-build-plan.md`
+- UPDATE `brain/CAPABILITIES.md` — registered browser_connect.py + V6 scaffold table
+- UPDATE `brain/STATE.md`, `memory/SESSION_LOG.md`, `memory/ACTIVE_TASKS.md` — session outputs + V6 active task
+**Why:** CC's V6.0 upgrade brief (architectural vulnerabilities: pulse JSON race conditions, context collapse, IDE dependency) + Antigravity handover (stale-data diagnostic + send_gateway $5k MRR audit). Scaffolding V6 in-repo lets CC sign-off and activate incrementally without rewriting under pressure. Send_gateway hardening closes the 2 CRITICAL gaps blocking outbound scale past 50/day.
+**Confidence:** 0.92 (code compiles; chunker + PII scrubber smoke-tested; migrations 014/015 unapplied; VPS unprovisioned; awaiting Codex test results on send_gateway)
+
 ### 2026-03-01 — AGENT_CORE_DIRECTIVES.md — UPDATE (V5.4 → V5.5)
 **Tier:** SEMI-MUTABLE (approved by CC during session)
 **What changed:** Added Interaction Protocol to boot sequence, self-evolution section, interaction governance section, updated file structure with mutability tags

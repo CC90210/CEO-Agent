@@ -357,6 +357,50 @@ def critique(
         }
 
 
+def critique_draft(
+    draft_subject: str,
+    draft_body: str,
+    relationship_context: Optional[dict] = None,
+    brand: str = "oasis",
+    intent: str = "commercial",
+    env: Optional[dict[str, str]] = None,
+) -> dict:
+    """Gateway-friendly wrapper around critique().
+
+    send_gateway wants a strict ship/reject gate. Any non-ship verdict is
+    treated as reject so low-quality or unreviewed drafts fail closed before
+    they ever hit SMTP.
+    """
+    result = critique(
+        draft_subject=draft_subject,
+        draft_body=draft_body,
+        relationship_context=relationship_context,
+        brand=brand,
+        intent=intent,
+        env=env,
+    )
+    reasons: list[str] = []
+    for issue in result.get("issues") or []:
+        excerpt = (issue.get("excerpt") or "").strip()
+        reason = (issue.get("reason") or "").strip()
+        if excerpt and reason:
+            reasons.append(f"{excerpt}: {reason}")
+        elif reason:
+            reasons.append(reason)
+        elif excerpt:
+            reasons.append(excerpt)
+    if result.get("notes"):
+        reasons.append(str(result["notes"]))
+    return {
+        "verdict": "ship" if result.get("verdict") == "ship" else "reject",
+        "score": result.get("score"),
+        "issues": result.get("issues") or [],
+        "reasons": reasons[:10],
+        "notes": result.get("notes") or "",
+        "raw_verdict": result.get("verdict"),
+    }
+
+
 def revise(
     draft_subject: str,
     draft_body: str,

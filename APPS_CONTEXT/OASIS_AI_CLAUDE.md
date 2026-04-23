@@ -49,7 +49,7 @@ OASIS AI is a Toronto-based AI automation agency serving small-to-medium busines
 
 - URL: https://oasisai.work
 - Built with Next.js
-- Calendly integration for booking calls
+- Booking link: https://calendar.app.google/tpfvJYBGircnGu8G8 (Google Calendar — DO NOT use Calendly; also see brain/USER.md Critical Links and .env.agents BOOKING_LINK)
 
 ## Team
 

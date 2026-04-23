@@ -138,6 +138,7 @@ Browser Harness is installed as Bravo's direct Chrome/Edge control layer. It com
 - **Bravo skill:** `skills/browser-harness/SKILL.md`
 - **Runtime packaging skill:** `skills/agent-runtime-packaging/SKILL.md`
 - **Diagnostics:** `python scripts/browser_harness_doctor.py`
+- **Direct attach helper:** `python scripts/browser_connect.py` — connect to the running CDP browser (headless-aware)
 - **Onboarding doctor:** `python scripts/onboarding_diagnostics.py`
 - **Workflow:** `.agents/workflows/browser-harness.md`
 - **Domain skills:** `browser/domain-skills/`
@@ -157,7 +158,28 @@ Browser Harness is installed as Bravo's direct Chrome/Edge control layer. It com
 | **Stripe** | `scripts/stripe_tool.py` | Stripe MCP (v0.3.1 proxy mode) | `balance`, `customers`, `products`, `invoices`, `subscriptions`, `charges` |
 | **Firecrawl** | `scripts/firecrawl_tool.py` | Firecrawl MCP (fallback) | `scrape`, `crawl`, `search`, `extract`, `map` |
 | **Browser Harness Doctor** | `scripts/browser_harness_doctor.py` | Browser Harness install/attach diagnostics | `[--json] [--strict]` |
+| **Browser Connect** | `scripts/browser_connect.py` | Attach to the running CDP browser and run scripted actions | `[--url URL] [--eval SNIPPET]` |
 | **Onboarding Diagnostics** | `scripts/onboarding_diagnostics.py` | Productized setup readiness check | `[--json]` |
+
+## V6.0 Scaffolds (2026-04-22 — not yet active; migrations 014/015 not applied)
+
+> V6.0 is scaffolded but NOT activated. `docs/V6_ARCHITECTURE.md` is the design doc. Activation gated on CC sign-off on the 4 open questions.
+
+| Component | Path | Purpose | CLI |
+|-----------|------|---------|-----|
+| **Event Bus** | `scripts/event_bus.py` | Postgres LISTEN/NOTIFY pub/sub replacing pulse JSON | `publish`, `stats`, `reap`, `drain`, `tail` |
+| **Memory Chunker** | `scripts/memory_chunker.py` | Markdown → RAG chunks with wiki-link provenance | `<path> [--stats] [--json]` |
+| **Memory Ingest** | `scripts/memory_ingest.py` | Chunk + embed + upsert to `memory_chunks` | `[--dry-run] [--only FILE] [--force-reembed]` |
+| **Memory Query** | `scripts/memory_query.py` | Hybrid RAG retrieval (vector + trigram + freshness) | `--task "..." [--k N] [--format markdown\|json]` |
+| **PII Scrubber** | `scripts/pii_scrubber.py` | Regex + optional Presidio PII redaction with reversible table | `scrub`, `unscrub`, `audit` |
+| **DNS Reputation Doctor** | `scripts/dns_reputation.py` | Check SPF/DKIM/DMARC presence for a sender domain (invoked by `send_gateway.py doctor`) | `--domain oasisai.work` |
+| **Webhook Listener** | `scripts/webhook_listener.py` | FastAPI endpoint for Stripe (sig-verified) / N8N (token) / Telegram updates → event bus | `uvicorn webhook_listener:app` |
+| **V6 Migration 014** | `database/014_v6_pgvector_memory.sql` | pgvector + `memory_chunks` + `search_memory_chunks` RPC | `python scripts/apply_migration.py database/014_v6_pgvector_memory.sql` |
+| **V6 Migration 015** | `database/015_v6_event_bus_extensions.sql` | LISTEN/NOTIFY trigger + `claim_events`/`ack_event`/`fail_event` RPCs | `python scripts/apply_migration.py database/015_v6_event_bus_extensions.sql` |
+| **Docker stack** | `infra/Dockerfile` + `infra/docker-compose.yml` | 5-service containerized daemon set for headless VPS | `docker compose -f infra/docker-compose.yml up -d` |
+| **Caddy reverse proxy** | `infra/Caddyfile` | TLS + webhook routing | loaded by Caddy container |
+| **VPS deploy workflow** | `.github/workflows/deploy-vps.yml` | CD on push to main | auto |
+| **Infra runbook** | `infra/README.md` | VPS hardening + deploy + rollback playbook | — |
 
 **Pattern:** Stateless MCPs (Playwright, Context7, Memory, Sequential Thinking) work fine. Credential MCPs break. CLI tools read `.env.agents` directly — never break.
 

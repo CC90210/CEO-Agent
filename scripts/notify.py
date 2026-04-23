@@ -121,7 +121,7 @@ def notify(message: str, category: str = "system", silent: bool = False, force: 
     # Old: "[REVENUE] Stripe Revenue Sync: Stripe sync complete.\n  Inserted: 0 new event(s)\n  Skipped: 4 duplicate(s)\n-- 17:34"
     # New: "Revenue\n$800 payment from Bennett Agency\n\n12:34 PM"
     prefix = CATEGORY_PREFIX.get(category, "Bravo")
-    timestamp = datetime.now().strftime("%-I:%M %p")  # 12-hour format, no leading zero
+    timestamp = datetime.now().strftime("%#I:%M %p")  # 12-hour format, no leading zero
     full_message = f"{prefix}\n{message}\n\n{timestamp}"
     if len(full_message) > 4096:
         full_message = full_message[:4093] + "..."
