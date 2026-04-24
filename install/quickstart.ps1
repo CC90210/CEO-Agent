@@ -27,22 +27,22 @@ if (-not $RepoDir) { $RepoDir = Join-Path $env:USERPROFILE 'bravo-repo' }
 # Make sure our output is UTF-8 so the box drawing + block chars render right
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 
-# Banner (ANSI Shadow block font, framed, with OASIS AI tagline)
+# Banner — OASIS AI primary wordmark, ANSI Shadow block font, framed
 $banner = @'
 
-╔══════════════════════════════════════════════════════════════╗
-║                                                              ║
-║    ██████╗ ██████╗  █████╗ ██╗   ██╗ ██████╗                 ║
-║    ██╔══██╗██╔══██╗██╔══██╗██║   ██║██╔═══██╗                ║
-║    ██████╔╝██████╔╝███████║██║   ██║██║   ██║                ║
-║    ██╔══██╗██╔══██╗██╔══██║╚██╗ ██╔╝██║   ██║                ║
-║    ██████╔╝██║  ██║██║  ██║ ╚████╔╝ ╚██████╔╝                ║
-║    ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝  ╚═══╝   ╚═════╝                 ║
-║                                                              ║
-║    Agent Factory · Business-in-a-Box                         ║
-║    Made by OASIS AI · oasisai.work                           ║
-║                                                              ║
-╚══════════════════════════════════════════════════════════════╝
+╔════════════════════════════════════════════════════════════════════╗
+║                                                                    ║
+║    ██████╗  █████╗ ███████╗██╗███████╗    █████╗ ██╗               ║
+║   ██╔═══██╗██╔══██╗██╔════╝██║██╔════╝   ██╔══██╗██║               ║
+║   ██║   ██║███████║███████╗██║███████╗   ███████║██║               ║
+║   ██║   ██║██╔══██║╚════██║██║╚════██║   ██╔══██║██║               ║
+║   ╚██████╔╝██║  ██║███████║██║███████║   ██║  ██║██║               ║
+║    ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝╚══════╝   ╚═╝  ╚═╝╚═╝               ║
+║                                                                    ║
+║    Agent Factory · Business-in-a-Box                               ║
+║    oasisai.work                                                    ║
+║                                                                    ║
+╚════════════════════════════════════════════════════════════════════╝
 '@
 Write-Host $banner -ForegroundColor Cyan
 Write-Host "  Bravo quickstart - one-line install" -ForegroundColor White

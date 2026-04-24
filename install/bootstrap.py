@@ -108,10 +108,11 @@ def run(args: argparse.Namespace) -> int:
 
     report: dict = {"home": str(home), "repo": str(repo), "actions": []}
 
-    # Prereqs (report only)
+    # Prereqs (report only) — kept in sync with install.sh / install.ps1
+    # which both require python, git, node, AND npm.
     prereqs = check_prereqs()
     report["prereqs"] = prereqs
-    missing_required = [k for k in ("python", "git", "node") if not prereqs.get(k)]
+    missing_required = [k for k in ("python", "git", "node", "npm") if not prereqs.get(k)]
     if missing_required:
         report["actions"].append(f"missing required tools: {missing_required}")
 

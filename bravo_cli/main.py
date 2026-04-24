@@ -88,22 +88,22 @@ WARN = _safe("\u25cb", "o")     # ○ or o
 ALERT = _safe("\u26a0", "!")    # ⚠ or !
 
 BANNER = r"""
-╔══════════════════════════════════════════════════════════════╗
-║                                                              ║
-║    ██████╗ ██████╗  █████╗ ██╗   ██╗ ██████╗                 ║
-║    ██╔══██╗██╔══██╗██╔══██╗██║   ██║██╔═══██╗                ║
-║    ██████╔╝██████╔╝███████║██║   ██║██║   ██║                ║
-║    ██╔══██╗██╔══██╗██╔══██║╚██╗ ██╔╝██║   ██║                ║
-║    ██████╔╝██║  ██║██║  ██║ ╚████╔╝ ╚██████╔╝                ║
-║    ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝  ╚═══╝   ╚═════╝                 ║
-║                                                              ║
-║    Agent Factory · Business-in-a-Box                         ║
-║    Made by OASIS AI · oasisai.work                           ║
-║                                                              ║
-╚══════════════════════════════════════════════════════════════╝
+╔════════════════════════════════════════════════════════════════════╗
+║                                                                    ║
+║    ██████╗  █████╗ ███████╗██╗███████╗    █████╗ ██╗               ║
+║   ██╔═══██╗██╔══██╗██╔════╝██║██╔════╝   ██╔══██╗██║               ║
+║   ██║   ██║███████║███████╗██║███████╗   ███████║██║               ║
+║   ██║   ██║██╔══██║╚════██║██║╚════██║   ██╔══██║██║               ║
+║   ╚██████╔╝██║  ██║███████║██║███████║   ██║  ██║██║               ║
+║    ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝╚══════╝   ╚═╝  ╚═╝╚═╝               ║
+║                                                                    ║
+║    Agent Factory · Business-in-a-Box                               ║
+║    oasisai.work                                                    ║
+║                                                                    ║
+╚════════════════════════════════════════════════════════════════════╝
 """
 
-TAGLINE = "Agent Factory — Business-in-a-Box · Made by OASIS AI"
+TAGLINE = "OASIS AI — Agent Factory · Business-in-a-Box"
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -626,11 +626,21 @@ def cmd_browser(args: argparse.Namespace) -> int:
         print(f"  {DIM('This runs browser-harness --setup and walks Chrome remote-debug approval.')}")
         print(f"  {DIM('Required one time per machine.')}")
         print()
-        return subprocess.call(
-            ["powershell", "-NoProfile", "-Command",
-             "& (Get-Command browser-harness).Source --setup"],
-            cwd=str(REPO_ROOT),
-        )
+        # Resolve the browser-harness executable cross-platform.
+        harness_path = shutil.which("browser-harness")
+        if not harness_path:
+            print(f"  {RED('browser-harness not on PATH.')}")
+            print(f"  {DIM('Install from: https://github.com/browser-use/browser-harness')}")
+            return 1
+        if os.name == "nt":
+            # PowerShell handles the uv-shim edge cases better on Windows.
+            return subprocess.call(
+                ["powershell", "-NoProfile", "-Command",
+                 f"& '{harness_path}' --setup"],
+                cwd=str(REPO_ROOT),
+            )
+        # macOS / Linux / WSL — direct invocation.
+        return subprocess.call([harness_path, "--setup"], cwd=str(REPO_ROOT))
 
     if action == "learn":
         if not args.site:

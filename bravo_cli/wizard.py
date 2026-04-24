@@ -21,6 +21,8 @@ import getpass
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
 import time
 import urllib.error
@@ -91,6 +93,7 @@ RED     = lambda t: _c("31", t)
 CYAN    = lambda t: _c("36", t)
 MAGENTA = lambda t: _c("35", t)
 BLUE    = lambda t: _c("34", t)
+BRIGHT_BLUE = lambda t: _c("94", t)
 BG_CYAN = lambda t: _c("46;30", t)
 
 OK = "✓" if _UNICODE else "+"
@@ -109,45 +112,109 @@ def link(url: str, text: str | None = None) -> str:
 
 # ── Banner + branding ─────────────────────────────────────────────────────────
 
-_BANNER_UNICODE = r"""
-╔══════════════════════════════════════════════════════════════╗
-║                                                              ║
-║    ██████╗ ██████╗  █████╗ ██╗   ██╗ ██████╗                 ║
-║    ██╔══██╗██╔══██╗██╔══██╗██║   ██║██╔═══██╗                ║
-║    ██████╔╝██████╔╝███████║██║   ██║██║   ██║                ║
-║    ██╔══██╗██╔══██╗██╔══██║╚██╗ ██╔╝██║   ██║                ║
-║    ██████╔╝██║  ██║██║  ██║ ╚████╔╝ ╚██████╔╝                ║
-║    ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝  ╚═══╝   ╚═════╝                 ║
-║                                                              ║
-║    Agent Factory · Business-in-a-Box                         ║
-║    Made by OASIS AI · oasisai.work                           ║
-║                                                              ║
-╚══════════════════════════════════════════════════════════════╝
+# Primary wordmark. Shown on wizard open. Thick ANSI Shadow block letters.
+_OASIS_BANNER_UNICODE = r"""
+╔════════════════════════════════════════════════════════════════════╗
+║                                                                    ║
+║    ██████╗  █████╗ ███████╗██╗███████╗    █████╗ ██╗               ║
+║   ██╔═══██╗██╔══██╗██╔════╝██║██╔════╝   ██╔══██╗██║               ║
+║   ██║   ██║███████║███████╗██║███████╗   ███████║██║               ║
+║   ██║   ██║██╔══██║╚════██║██║╚════██║   ██╔══██║██║               ║
+║   ╚██████╔╝██║  ██║███████║██║███████║   ██║  ██║██║               ║
+║    ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝╚══════╝   ╚═╝  ╚═╝╚═╝               ║
+║                                                                    ║
+║    Agent Factory · Business-in-a-Box                               ║
+║    oasisai.work                                                    ║
+║                                                                    ║
+╚════════════════════════════════════════════════════════════════════╝
 """
 
-_BANNER_ASCII = r"""
-+==============================================================+
-|                                                              |
-|   ######  ######   #####   ##   ##   ######                  |
-|   ##   ## ##   ## ##   ##  ##   ##  ##    ##                 |
-|   ######  ######  #######  ##   ##  ##    ##                 |
-|   ##   ## ##   ## ##   ##  ##   ##  ##    ##                 |
-|   ######  ##   ## ##   ##   #####    ######                  |
-|                                                              |
-|   Agent Factory * Business-in-a-Box                          |
-|   Made by OASIS AI * oasisai.work                            |
-|                                                              |
-+==============================================================+
+_OASIS_BANNER_ASCII = r"""
++====================================================================+
+|                                                                    |
+|    ######   #####  ######  ####  ######    ####  ####              |
+|   ##   ## ##   ## ##       ##   ##        ##  ## ##  ##            |
+|   ##   ## ####### ######   ##   ######    ###### ##  ##            |
+|   ##   ## ##   ##     ##   ##       ##    ##  ## ##  ##            |
+|    #####  ##   ## ######  ####  ######    ##  ## ##  ##            |
+|                                                                    |
+|    Agent Factory * Business-in-a-Box                               |
+|    oasisai.work                                                    |
+|                                                                    |
++====================================================================+
 """
+
+# Per-agent block-letter wordmarks. Shown AFTER the user picks a profile,
+# in that agent's color. Each one is ANSI Shadow style for consistency.
+_AGENT_FIGLETS_UNICODE = {
+    "bravo": r"""
+██████╗ ██████╗  █████╗ ██╗   ██╗ ██████╗
+██╔══██╗██╔══██╗██╔══██╗██║   ██║██╔═══██╗
+██████╔╝██████╔╝███████║██║   ██║██║   ██║
+██╔══██╗██╔══██╗██╔══██║╚██╗ ██╔╝██║   ██║
+██████╔╝██║  ██║██║  ██║ ╚████╔╝ ╚██████╔╝
+╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝  ╚═══╝   ╚═════╝""",
+    "atlas": r"""
+ █████╗ ████████╗██╗      █████╗ ███████╗
+██╔══██╗╚══██╔══╝██║     ██╔══██╗██╔════╝
+███████║   ██║   ██║     ███████║███████╗
+██╔══██║   ██║   ██║     ██╔══██║╚════██║
+██║  ██║   ██║   ███████╗██║  ██║███████║
+╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚══════╝""",
+    "maven": r"""
+███╗   ███╗ █████╗ ██╗   ██╗███████╗███╗   ██╗
+████╗ ████║██╔══██╗██║   ██║██╔════╝████╗  ██║
+██╔████╔██║███████║██║   ██║█████╗  ██╔██╗ ██║
+██║╚██╔╝██║██╔══██║╚██╗ ██╔╝██╔══╝  ██║╚██╗██║
+██║ ╚═╝ ██║██║  ██║ ╚████╔╝ ███████╗██║ ╚████║
+╚═╝     ╚═╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═══╝""",
+    "aura": r"""
+ █████╗ ██╗   ██╗██████╗  █████╗
+██╔══██╗██║   ██║██╔══██╗██╔══██╗
+███████║██║   ██║██████╔╝███████║
+██╔══██║██║   ██║██╔══██╗██╔══██║
+██║  ██║╚██████╔╝██║  ██║██║  ██║
+╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝""",
+    "hermes": r"""
+██╗  ██╗███████╗██████╗ ███╗   ███╗███████╗███████╗
+██║  ██║██╔════╝██╔══██╗████╗ ████║██╔════╝██╔════╝
+███████║█████╗  ██████╔╝██╔████╔██║█████╗  ███████╗
+██╔══██║██╔══╝  ██╔══██╗██║╚██╔╝██║██╔══╝  ╚════██║
+██║  ██║███████╗██║  ██║██║ ╚═╝ ██║███████╗███████║
+╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝╚══════╝""",
+    "custom": r"""
+ ██████╗██╗   ██╗███████╗████████╗ ██████╗ ███╗   ███╗
+██╔════╝██║   ██║██╔════╝╚══██╔══╝██╔═══██╗████╗ ████║
+██║     ██║   ██║███████╗   ██║   ██║   ██║██╔████╔██║
+██║     ██║   ██║╚════██║   ██║   ██║   ██║██║╚██╔╝██║
+╚██████╗╚██████╔╝███████║   ██║   ╚██████╔╝██║ ╚═╝ ██║
+ ╚═════╝ ╚═════╝ ╚══════╝   ╚═╝    ╚═════╝ ╚═╝     ╚═╝""",
+}
+
+# ASCII fallback figlets (same shape, `#` characters).
+_AGENT_FIGLETS_ASCII = {
+    "bravo":  "\n######  ######   ####   ##  ##   #####\n##   ## ##   ## ##  ##  ##  ##  ##   ##\n######  ######  ######  ##  ##  ##   ##\n##   ## ##   ## ##  ##   ####   ##   ##\n######  ##  ## ##  ##    ##     #####",
+    "atlas":  "\n #####  ######## ##       #####   #####\n##   ##    ##    ##      ##   ## ##\n#######    ##    ##      ####### ######\n##   ##    ##    ##      ##   ##      ##\n##   ##    ##    ####### ##   ## ######",
+    "maven":  "\n###   ###  #####  ##   ## ####### ###   ##\n####  ###  ##  ## ##   ## ##      ####  ##\n## #### ## ######  ##   ## #####   ## ## ##\n##  ##  ## ##  ##  ## ##   ##      ##  ####\n##      ## ##  ##    ###    ####### ##   ###",
+    "aura":   "\n #####  ##   ## ######   #####\n##   ## ##   ## ##   ## ##   ##\n####### ##   ## ######  #######\n##   ## ##   ## ##   ## ##   ##\n##   ##  #####  ##   ## ##   ##",
+    "hermes": "\n##   ## ####### ######  ###   ### ####### #######\n##   ## ##      ##   ## ####  ### ##      ##\n####### #####   ######  ## #### # #####   #######\n##   ## ##      ##   ## ##  ##  # ##           ##\n##   ## ####### ##   ## ##      # ####### #######",
+    "custom": "\n #####  ##   ## ####### ####### ####### ###   ###\n##      ##   ## ##         ##   ##   ## ####  ###\n##      ##   ## #######    ##   ##   ## ## #### #\n##      ##   ##      ##    ##   ##   ## ##  ##  #\n ######  #####  #######    ##    #####  ##      #",
+}
+
+def _agent_figlet(slug: str) -> str:
+    """Return the agent's ASCII art, Unicode or plain depending on terminal."""
+    src = _AGENT_FIGLETS_UNICODE if _UNICODE else _AGENT_FIGLETS_ASCII
+    return src.get(slug, "")
 
 def banner() -> str:
-    return _BANNER_UNICODE if _UNICODE else _BANNER_ASCII
+    return _OASIS_BANNER_UNICODE if _UNICODE else _OASIS_BANNER_ASCII
 
 OASIS_URL = "https://oasisai.work"
 
 def print_banner() -> None:
+    """Primary wordmark shown when the wizard opens. Brand-first."""
     print(CYAN(banner()))
-    print(f"  {DIM('version:')} {BOLD('V1.2')}  "
+    print(f"  {DIM('version:')} {BOLD('V1.4')}  "
           f"{DIM('|')}  {DIM('home:')} {link(OASIS_URL, 'oasisai.work')}  "
           f"{DIM('|')}  {DIM('press Ctrl+C anytime')}")
     print()
@@ -207,7 +274,7 @@ PROFILES: dict[str, dict] = {
     "hermes": {
         "name": "Hermes",
         "icon": "⚡" if _UNICODE else "^",
-        "color": BLUE,
+        "color": BRIGHT_BLUE,  # differentiated from Bravo's cyan
         "role": "Client operations agent",
         "tagline": "Commerce · orders · inventory · client portals",
         "required": ["anthropic"],
@@ -229,6 +296,151 @@ PROFILES: dict[str, dict] = {
         "extra": [],
     },
 }
+
+# ── Per-agent GitHub repos (all public on CC90210) ────────────────────────────
+
+AGENT_REPOS: dict[str, dict] = {
+    "bravo":  {"url": "https://github.com/CC90210/CEO-Agent.git",        "dir": "~/bravo-repo"},
+    "atlas":  {"url": "https://github.com/CC90210/CFO-Agent.git",        "dir": "~/atlas-repo"},
+    "maven":  {"url": "https://github.com/CC90210/CMO-Agent.git",        "dir": "~/maven-repo"},
+    "aura":   {"url": "https://github.com/CC90210/Aura-Home-Agent.git",  "dir": "~/aura-repo"},
+    "hermes": {"url": "https://github.com/CC90210/hermes.git",           "dir": "~/hermes-repo"},
+    "custom": None,  # No repo — scaffolded via `bravo agent create` after setup.
+}
+
+# ── Per-agent dynamic questions ───────────────────────────────────────────────
+#
+# Each entry is a dict with:
+#   key      — ENV_KEY the answer gets written to
+#   prompt   — what the user sees
+#   type     — "text" | "choice" | "yesno"
+#   default  — value used when user presses Enter
+#   choices  — for type=choice, the menu options
+#   secret   — True to hide input (getpass)
+
+PROFILE_QUESTIONS: dict[str, list[dict]] = {
+    "bravo": [
+        {"key": "BRAVO_NORTH_STAR_METRIC", "prompt": "North-star metric",
+         "type": "choice", "choices": ["MRR", "ARR", "Revenue", "Users", "Other"], "default": "MRR"},
+        {"key": "BRAVO_TARGET",      "prompt": "Target (e.g., $5,000 MRR by 2026-05-15)",
+         "type": "text", "default": "$5,000 MRR"},
+        {"key": "BRAVO_TIMEZONE",    "prompt": "Timezone (IANA, e.g., America/Toronto)",
+         "type": "text", "default": "America/Toronto"},
+        {"key": "BRAVO_WORKING_HOURS", "prompt": "Working hours (e.g., 09:00-18:00)",
+         "type": "text", "default": "09:00-18:00"},
+        {"key": "BRAVO_CHECKIN_CADENCE", "prompt": "How often should Bravo check in?",
+         "type": "choice", "choices": ["hourly", "daily", "weekly", "on-demand"], "default": "daily"},
+        {"key": "BRAVO_PRIMARY_BRAND", "prompt": "Primary business / brand name",
+         "type": "text", "default": "OASIS AI"},
+    ],
+    "atlas": [
+        {"key": "ATLAS_TAX_REGION",   "prompt": "Tax region",
+         "type": "choice", "choices": ["CA", "US", "UK", "EU", "AU", "OTHER"], "default": "CA"},
+        {"key": "ATLAS_BASE_CURRENCY", "prompt": "Base currency",
+         "type": "choice", "choices": ["USD", "CAD", "EUR", "GBP", "AUD"], "default": "USD"},
+        {"key": "ATLAS_FISCAL_YEAR_START", "prompt": "Fiscal year start (MM-DD)",
+         "type": "text", "default": "01-01"},
+        {"key": "ATLAS_RISK_TOLERANCE", "prompt": "Investment risk tolerance",
+         "type": "choice", "choices": ["conservative", "moderate", "aggressive"], "default": "moderate"},
+        {"key": "ATLAS_TRADING_ENABLED", "prompt": "Allow Atlas to place live trades? (REQUIRES explicit approval per trade either way)",
+         "type": "yesno", "default": False},
+        {"key": "ATLAS_BUDGET_REVIEW_CADENCE", "prompt": "Budget review cadence",
+         "type": "choice", "choices": ["weekly", "bi-weekly", "monthly", "quarterly"], "default": "monthly"},
+        {"key": "ATLAS_FIRE_TARGET_CAD", "prompt": "FIRE / wealth target (CAD, or blank to skip)",
+         "type": "text", "default": ""},
+    ],
+    "maven": [
+        {"key": "MAVEN_BRAND_VOICE", "prompt": "Brand voice",
+         "type": "choice", "choices": ["professional", "casual", "provocative", "educational", "friendly"], "default": "casual"},
+        {"key": "MAVEN_PRIMARY_PLATFORM", "prompt": "Primary publishing platform",
+         "type": "choice", "choices": ["linkedin", "x", "instagram", "tiktok", "youtube", "skool"], "default": "linkedin"},
+        {"key": "MAVEN_POSTING_FREQUENCY", "prompt": "Posting frequency",
+         "type": "choice", "choices": ["daily", "weekdays", "3x-week", "weekly", "varies"], "default": "daily"},
+        {"key": "MAVEN_CONTENT_TYPES", "prompt": "Content types (comma-separated: video,image,text,audio)",
+         "type": "text", "default": "video,text"},
+        {"key": "MAVEN_PRIMARY_CTA", "prompt": "Primary CTA URL (booking / lead magnet / product)",
+         "type": "text", "default": "https://calendar.app.google/"},
+        {"key": "MAVEN_TARGET_AUDIENCE", "prompt": "Target audience (one sentence)",
+         "type": "text", "default": "solo founders building with AI"},
+        {"key": "MAVEN_APPROVAL_BEFORE_PUBLISH", "prompt": "Require approval before publishing?",
+         "type": "yesno", "default": True},
+    ],
+    "aura": [
+        {"key": "AURA_RESIDENCE_CITY", "prompt": "Primary residence city",
+         "type": "text", "default": "Collingwood"},
+        {"key": "AURA_HOME_PLATFORM", "prompt": "Smart-home platform",
+         "type": "choice", "choices": ["home-assistant", "homekit", "google-home", "alexa", "none"], "default": "home-assistant"},
+        {"key": "AURA_WAKE_TIME", "prompt": "Target wake time (HH:MM)",
+         "type": "text", "default": "07:00"},
+        {"key": "AURA_SLEEP_TIME", "prompt": "Target sleep time (HH:MM)",
+         "type": "text", "default": "23:00"},
+        {"key": "AURA_PRIVACY_MODE", "prompt": "Processing mode",
+         "type": "choice", "choices": ["on-device", "hybrid", "cloud"], "default": "on-device"},
+        {"key": "AURA_VOICE_ENABLED", "prompt": "Enable voice interaction?",
+         "type": "yesno", "default": True},
+        {"key": "AURA_APPROVAL_FOR_PHYSICAL_DEVICES", "prompt": "Require approval before triggering locks/cameras/alarms?",
+         "type": "yesno", "default": True},
+    ],
+    "hermes": [
+        {"key": "HERMES_CLIENT_NAME", "prompt": "Client name",
+         "type": "text", "default": ""},
+        {"key": "HERMES_CLIENT_INDUSTRY", "prompt": "Client industry",
+         "type": "choice", "choices": ["ecommerce", "retail", "hospitality", "services", "saas", "other"], "default": "ecommerce"},
+        {"key": "HERMES_COMMERCE_PLATFORM", "prompt": "Primary commerce platform",
+         "type": "choice", "choices": ["shopify", "stripe", "square", "woocommerce", "custom"], "default": "shopify"},
+        {"key": "HERMES_ORDER_VOLUME_MONTHLY", "prompt": "Rough monthly order volume",
+         "type": "choice", "choices": ["<50", "50-500", "500-5000", "5000+"], "default": "50-500"},
+        {"key": "HERMES_INVENTORY_TRACKING", "prompt": "Does Hermes need to manage inventory?",
+         "type": "yesno", "default": True},
+        {"key": "HERMES_SUPPORT_CHANNELS", "prompt": "Customer support channels (comma-separated: email,chat,sms)",
+         "type": "text", "default": "email"},
+        {"key": "HERMES_APPROVAL_FOR_REFUNDS", "prompt": "Require approval before issuing refunds?",
+         "type": "yesno", "default": True},
+    ],
+    "custom": [
+        {"key": "CUSTOM_AGENT_NAME", "prompt": "Name for your new agent",
+         "type": "text", "default": ""},
+        {"key": "CUSTOM_AGENT_ROLE", "prompt": "Role (one line)",
+         "type": "text", "default": ""},
+        {"key": "CUSTOM_AGENT_DOMAIN", "prompt": "Domain / industry",
+         "type": "text", "default": ""},
+        {"key": "CUSTOM_AGENT_PRIMARY_OUTCOME", "prompt": "Primary outcome this agent should drive",
+         "type": "text", "default": ""},
+    ],
+}
+
+# ── Shared "about your business" block (asked for business-y agents) ──────────
+#
+# Deep, not extensive. Five questions that transform a general-purpose agent
+# (CEO/CFO/CMO/commerce) into one tailored to the user's actual business.
+# Example: answering "real estate agent" in the industry question turns Maven
+# from a generic CMO into a real-estate marketing operator.
+
+BUSINESS_CONTEXT_QUESTIONS: list[dict] = [
+    {"key": "USER_INDUSTRY",
+     "prompt": "Industry / business type",
+     "type": "choice",
+     "choices": ["real-estate", "saas", "agency", "ecommerce", "consulting",
+                 "content-creator", "services", "coaching", "finance",
+                 "healthcare", "education", "other"],
+     "default": "services"},
+    {"key": "USER_PRIMARY_METRIC",
+     "prompt": "The ONE metric that matters to you right now",
+     "type": "text", "default": ""},
+    {"key": "USER_DAILY_WORK",
+     "prompt": "What you actually do day-to-day (one sentence)",
+     "type": "text", "default": ""},
+    {"key": "USER_FIRST_WORKFLOW_TARGET",
+     "prompt": "First workflow you want this agent to automate",
+     "type": "text", "default": ""},
+    {"key": "USER_OFF_LIMITS",
+     "prompt": "Anything this agent should NEVER do (e.g., post without approval)",
+     "type": "text", "default": ""},
+]
+
+# Profiles that get the shared business-context block in addition to their
+# per-agent questions. Aura is lifestyle, Custom is user-defined — both skip.
+BUSINESS_CONTEXT_PROFILES = {"bravo", "atlas", "maven", "hermes"}
 
 # ── Integrations ──────────────────────────────────────────────────────────────
 
@@ -973,15 +1185,22 @@ def step_profile(total_steps: int) -> str:
 
 
 def _confirm_profile(slug: str) -> None:
-    """Big, impossible-to-miss confirmation of the selected profile."""
+    """Big, impossible-to-miss confirmation. Shows the agent's block-letter
+    figlet in the agent's color, plus role + tagline."""
     p = PROFILES[slug]
     color = p["color"]
-    name_upper = p["name"].upper()
+    figlet = _agent_figlet(slug)
     print()
     print(f"  {color('━' * 62)}")
-    print(f"  {color(OK)} {BOLD(color('SELECTED: ' + name_upper))}")
-    print(f"    {DIM('Role:')}    {p['role']}")
-    print(f"    {DIM('Focus:')}   {p['tagline']}")
+    if figlet:
+        # Indent each line of the figlet for alignment.
+        for line in figlet.splitlines():
+            if line.strip():
+                print(f"  {color(line)}")
+    print()
+    print(f"  {color(OK)}  {BOLD(color('SELECTED: ' + p['name'].upper()))}")
+    print(f"     {DIM('Role:')}   {p['role']}")
+    print(f"     {DIM('Focus:')}  {p['tagline']}")
     print(f"  {color('━' * 62)}")
     print()
     try:
@@ -989,6 +1208,102 @@ def _confirm_profile(slug: str) -> None:
     except (EOFError, KeyboardInterrupt):
         print()
         sys.exit(130)
+
+
+# ── Dynamic questions + repo clone steps ──────────────────────────────────────
+
+def _ask_one(q: dict) -> str:
+    """Ask a single question from a PROFILE_QUESTIONS / BUSINESS_CONTEXT entry."""
+    qtype = q.get("type", "text")
+    label = q["prompt"]
+    default = q.get("default")
+    if qtype == "choice":
+        choices = q["choices"]
+        print(f"  {label}  {DIM('(' + '/'.join(choices) + ')')}")
+        default_str = default if default in choices else choices[0]
+        while True:
+            raw = prompt(f"  answer", default=str(default_str)).strip().lower()
+            if raw in choices:
+                return raw
+            # Try partial match (user typed "con" for "consulting").
+            hits = [c for c in choices if c.startswith(raw)]
+            if len(hits) == 1:
+                return hits[0]
+            print(f"  {RED('Pick one of:')} {', '.join(choices)}")
+    if qtype == "yesno":
+        return "true" if yes_no(label, default=bool(default)) else "false"
+    # text (default)
+    if q.get("secret"):
+        val = secret_prompt(label)
+    else:
+        val = prompt(label, default=str(default) if default else None)
+    return val
+
+
+def step_business_context(profile: str, step_num: int, total: int) -> None:
+    """Deep, not extensive. Five shared questions that turn any general-purpose
+    agent (CEO/CFO/CMO/commerce) into one tailored to the user's actual
+    business. A real-estate agent and a SaaS founder get different behavior
+    from the same Maven install because the ANSWERS differ."""
+    if profile not in BUSINESS_CONTEXT_PROFILES:
+        return
+    step_header(step_num, total, "About your business",
+                "Deep, five questions. These shape every agent response you'll get.")
+    for q in BUSINESS_CONTEXT_QUESTIONS:
+        ans = _ask_one(q)
+        if ans:
+            write_env(q["key"], ans)
+
+
+def step_agent_questions(profile: str, step_num: int, total: int) -> None:
+    """Per-agent targeted questions — north star, fiscal year, brand voice,
+    residence city, client industry, etc."""
+    qs = PROFILE_QUESTIONS.get(profile, [])
+    if not qs:
+        return
+    p = PROFILES[profile]
+    step_header(step_num, total, f"Tune {p['name']} to how you operate",
+                f"{len(qs)} questions. Answers write to your repo .env.agents.")
+    for q in qs:
+        ans = _ask_one(q)
+        if ans:
+            write_env(q["key"], ans)
+
+
+def step_clone_agent_repo(profile: str, step_num: int, total: int) -> None:
+    """Offer to clone the selected agent's own GitHub repo into ~/.
+
+    The OASIS AI wizard is ONE entry point for all five agents. If someone
+    picks Atlas, we fetch CFO-Agent; Maven -> CMO-Agent; etc. All five
+    sibling repos are public on github.com/CC90210."""
+    repo_info = AGENT_REPOS.get(profile)
+    if not repo_info:
+        # Custom — no repo to clone; user scaffolds via `bravo agent create`.
+        return
+    p = PROFILES[profile]
+    target = Path(repo_info["dir"]).expanduser()
+    step_header(step_num, total, f"Clone the {p['name']} repo",
+                f"Grabs {repo_info['url']} into {target}")
+    if target.exists() and (target / ".git").exists():
+        print(f"  {GREEN(OK)} Already cloned at {CYAN(str(target))} — skipping.")
+        return
+    if not yes_no(f"Clone {p['name']} to {target}?", default=True):
+        print(f"  {DIM('Skipped. You can clone manually later.')}")
+        return
+    if not shutil.which("git"):
+        print(f"  {RED('git not on PATH. Install Git, then re-run.')}")
+        return
+    print(f"  {DIM(ARROW + ' Cloning... (shallow, depth 10)')}")
+    try:
+        r = subprocess.run(["git", "clone", "--depth", "10",
+                            repo_info["url"], str(target)],
+                           capture_output=True, text=True, timeout=300)
+        if r.returncode == 0:
+            print(f"  {GREEN(OK)} Cloned to {CYAN(str(target))}")
+        else:
+            print(f"  {RED('Clone failed:')} {r.stderr.strip()[:200]}")
+    except Exception as exc:
+        print(f"  {RED('Clone error:')} {exc}")
 
 def step_ai(profile: str, step_num: int, total: int) -> None:
     p = PROFILES[profile]
@@ -1089,7 +1404,6 @@ def step_finalize(profile: str, step_num: int, total: int) -> None:
     hr("═", 64)
     print()
     if yes_no("Run `bravo doctor` now to verify everything?", default=True):
-        import subprocess
         bravo_cmd = REPO_ROOT / "bravo_cli" / "main.py"
         subprocess.call([sys.executable, str(bravo_cmd), "doctor"],
                         cwd=str(REPO_ROOT))
@@ -1102,25 +1416,38 @@ def run_wizard(profile_override: str | None = None) -> int:
         if profile_override and profile_override in PROFILES:
             profile = profile_override
             p = PROFILES[profile]
-            print(f"  {p['color'](OK)} Profile pre-selected via --profile: "
-                  f"{BOLD(p['name'])}")
+            _confirm_profile(profile)
         else:
             profile = step_profile(total_steps=5)
         p = PROFILES[profile]
-        steps_total = 2  # ai + finalize always
-        if p["chat"]:      steps_total += 1
-        if p["business"]:  steps_total += 1
-        if p["extra"]:     steps_total += 1
 
-        step = 1  # profile already done as step 1 in the header
-        step += 1; step_ai(profile, step, steps_total + 1)
+        # Build the dynamic step count for progress headers.
+        step_count = 1  # finalize always runs
+        if AGENT_REPOS.get(profile):                       step_count += 1  # clone
+        if profile in BUSINESS_CONTEXT_PROFILES:            step_count += 1  # business ctx
+        if PROFILE_QUESTIONS.get(profile):                  step_count += 1  # agent qs
+        step_count += 1                                     # ai
+        if p["chat"]:                                       step_count += 1
+        if p["business"]:                                   step_count += 1
+        if p["extra"]:                                      step_count += 1
+
+        step = 1  # profile picker was step 1
+        total = step_count + 1
+
+        if AGENT_REPOS.get(profile):
+            step += 1; step_clone_agent_repo(profile, step, total)
+        if profile in BUSINESS_CONTEXT_PROFILES:
+            step += 1; step_business_context(profile, step, total)
+        if PROFILE_QUESTIONS.get(profile):
+            step += 1; step_agent_questions(profile, step, total)
+        step += 1; step_ai(profile, step, total)
         if p["chat"]:
-            step += 1; step_chat(profile, step, steps_total + 1)
+            step += 1; step_chat(profile, step, total)
         if p["business"]:
-            step += 1; step_business(profile, step, steps_total + 1)
+            step += 1; step_business(profile, step, total)
         if p["extra"]:
-            step += 1; step_extra(profile, step, steps_total + 1)
-        step += 1; step_finalize(profile, step, steps_total + 1)
+            step += 1; step_extra(profile, step, total)
+        step += 1; step_finalize(profile, step, total)
         return 0
     except KeyboardInterrupt:
         print()
