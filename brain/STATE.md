@@ -159,7 +159,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-04-24
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Codex cleaned up the public CEO-Agent quickstart flow after CC feedback. Commit f02dda1 pushed. The raw PowerShell one-liner now keeps the polished OASIS AI banner, prepares the local Agent Factory quietly, removes the pre-selection 'Bravo installed' moment, launches 'OASIS AI setup', and the wizard welcome now says to choose an OASIS AI agent. Picker still requires an explicit agent number. Verified raw GitHub quickstart and wizard text.
+- **Result:** Codex fixed duplicate Google Calendar link in OASIS templates after CC noticed sent emails had CTA button plus raw calendar signature link. Updated scripts/wire_all_templates.py and Bravo email_templates so each OASIS template now renders exactly one Google Calendar CTA href, one website href, no leftover placeholders; draft_critic ships all three templates. No new emails sent.
 
 *Last updated: 2026-04-24*
 

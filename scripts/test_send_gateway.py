@@ -622,6 +622,38 @@ class TestSendGateway(unittest.TestCase):
         self.assertIn("draft_critic rejected", r["reason"])
         self.assertEqual(len(self.db.tables["lead_interactions"].rows), 0)
 
+    def test_16b_draft_critic_non_ship_verdict_blocks_send(self):
+        with self._patch_smtp_ok(), self._patch_suppress(False), self._patch_critic("escalate", ["manual review"]):
+            r = self.sg.send(
+                channel="email",
+                agent_source="test_harness",
+                to_email="jane@acme.example",
+                subject="hi",
+                body_text="hi",
+                db=self.db,
+            )
+        self.assertEqual(r["status"], "blocked")
+        self.assertIn("draft_critic rejected", r["reason"])
+        self.assertEqual(len(self.db.tables["lead_interactions"].rows), 0)
+
+    def test_16c_draft_critic_exception_blocks_send(self):
+        with (
+            self._patch_smtp_ok(),
+            self._patch_suppress(False),
+            mock.patch.object(self.sg, "critique_draft", side_effect=RuntimeError("critic down")),
+        ):
+            r = self.sg.send(
+                channel="email",
+                agent_source="test_harness",
+                to_email="jane@acme.example",
+                subject="hi",
+                body_text="hi",
+                db=self.db,
+            )
+        self.assertEqual(r["status"], "blocked")
+        self.assertIn("draft_critic unavailable", r["reason"])
+        self.assertEqual(len(self.db.tables["lead_interactions"].rows), 0)
+
     def test_17_advisory_lock_contention_blocks(self):
         self.db.force_lock_contention = True
         with self._patch_smtp_ok(), self._patch_suppress(False):

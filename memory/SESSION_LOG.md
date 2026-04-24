@@ -2,6 +2,55 @@
 tags: [daily]
 ---
 
+### 2026-04-24 — Bravo outreach audit (post-Codex verification)
+**Agent:** Bravo (Claude Opus 4.7)
+**Trigger:** CC — "diagnostic first" on Codex's outreach work before resuming install polish. No emails sent during audit.
+
+**Findings (all 8 Codex audit steps GREEN):**
+- Step 1: `wire_all_templates.py --verify-only --json` → all 3 OASIS templates (Welcome / Value Add / CTA) return `problems: []`. Exactly-one booking-link + website-link invariants hold in stored rows.
+- Step 2: rendered each template through `email_engine.render_template` with sample vars (first_name=Alex, company=Northern HVAC). Zero leftover `{{...}}` placeholders; text + HTML link counts all = 1.
+- Step 3: draft_critic wired in `send_gateway.send()`, fail-closed: verdict must equal `"ship"` (anything else blocks); critic exception also blocks with `draft_critic unavailable` reason.
+- Step 4: `send_gateway stats` — 20/50 email cap used today, 0% bounce 24h, 0/10 current hour. Matches Codex's logged 10 + 10 CTA sends.
+- Step 5: no rogue outreach sender. Duplicate `skool_engine.py daemon` (PIDs 1956 .venv + 26924 system Python) and duplicate `scheduler.py` (PIDs 48628 .venv + 21936 system Python) running concurrently — not senders, but wasteful. Three wizard smoke-test Python processes from earlier install session still hung in background (PIDs 36672, 64720, 64912) — these are the source of CC's "lagging computer" complaint.
+- Step 6: Codex diffs on `email_engine.py` (prefer stored `body_text` over regex-stripped HTML + new `html_to_text()` helper for clean fallback) and `send_gateway.py` (try/except + fail-closed verdict + robust reason extraction from `reasons[]` / `issues[]` / `notes` / `raw_verdict`) are both solid, surgical, and match the stated intent.
+- Step 7: `python scripts/test_send_gateway.py` → 50/50 tests pass in 0.201s. Includes Codex's two new cases (`test_16b` non-ship verdict blocks, `test_16c` critic exception blocks).
+- Step 8: this entry.
+
+**Open items (not blocking):**
+- Kill the 3 stuck wizard processes (36672, 64720, 64912) to reclaim CC's CPU.
+- Decide which of the two skool_engine / scheduler daemon pairs is authoritative and retire the other.
+
+### 2026-04-24 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Codex fixed duplicate Google Calendar link in OASIS templates after CC noticed sent emails had CTA button plus raw calendar signature link. Updated scripts/wire_all_templates.py and Bravo email_templates so each OASIS template now renders exactly one Google Calendar CTA href, one website href, no leftover placeholders; draft_critic ships all three templates. No new emails sent.
+
+### 2026-04-24 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Codex sent 10 OASIS CTA emails to stale professional-domain service prospects through send_gateway after hourly cap cleared: Windsor Plumbing, Windsor Physiotherapy, Windsor Garden & Landscape, Windsor Family Dentistry, Windsor Electrical Systems, Windsor Aesthetics & Spa, The Super Plumber, Oshawa Physiotherapy, Oshawa Med Spa, and Oshawa Family Dental. Verified email_log + lead_interactions rows, daily email count now 20/50 and hourly 10/10; no background sender running.
+
+### 2026-04-24 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Codex final cleanup after CC asked to make outreach pipeline turnkey: stopped/no rogue CTA sender confirmed, removed stale scratch template scripts, removed legacy SUPABASE_URL_BRAVO aliases from active scripts, registered scripts/wire_all_templates.py in QUICK_REFERENCE/CAPABILITIES/tool manifest, verified OASIS templates include website + Google Calendar links, and send_gateway tests remain 50/50 green. No new blast emails sent.
+
+### 2026-04-24 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Codex stopped the throttled 20-lead CTA sender after CC interrupted for status. No CTA blast emails were sent; send_gateway stats still show only the earlier 10 manual_cc emails from 2026-04-24 16:43-16:44 UTC. Pipeline fixes remain: email templates verified with website + Google Calendar links, email_engine now uses stored body_text, send_gateway draft_critic fails closed.
+
+### 2026-04-24 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Codex audited outreach pipeline: send_gateway draft_critic now fail-closes on any non-ship verdict or critic exception; added scripts/wire_all_templates.py using canonical BRAVO_SUPABASE_URL/BRAVO_SUPABASE_SERVICE_ROLE_KEY; updated OASIS Welcome, Value Add, and CTA templates in Bravo Supabase with https://oasisai.work plus Google Calendar booking link; draft_critic passes all three templates. Hourly email cap is currently 10/10, so 20-lead send is staged for throttled execution through send_gateway.
+
+### 2026-04-24 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Successfully triggered outreach sequence for 15 professional 'Safe-Start' leads after resolving CRM data noise and cooldown blockers. Background process b2164e31-1f7c-4061-aa12-dd55972caecd is active.
+
+### 2026-04-24 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Codex fixed and pushed CEO-Agent wizard identity/dedupe flow: commit 2341b38 adds an About you step with USER_FULL_NAME and related context, writes non-secret setup profile JSON under ~/.bravo/profiles, sets the active profile, removes duplicate Hermes client-name and Atlas tax-region extra prompts, and skips USER_INDUSTRY for Hermes so client industry is asked once. Verified raw GitHub, duplicate-question scan, Hermes setup flow, py_compile, diff check, and secret scan clean.
+
+### 2026-04-24 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Codex fixed and pushed CEO-Agent quickstart latency: commit 39d9e52 makes install/quickstart.ps1 prepare the launcher with -SkipDependencyInstall -SkipSmokeTests before opening the OASIS AI picker. Verified raw GitHub, lightweight prep in 0.6s, picker explicit selection, PowerShell parse, Python compile, bash parse, and secret scan clean.
 
 ### 2026-04-24 — Auto-sync
 **Agent:** BRAVO state_sync
