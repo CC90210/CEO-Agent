@@ -21,9 +21,11 @@ supabase==2.28.2
 fastapi==0.118.0
 uvicorn[standard]==0.32.0
 python-multipart==0.0.26
-# openai is optional — memory_ingest.py falls back to Ollama or a deterministic
-# hash-stub for dev. Pin to the version that matches text-embedding-3-small.
-openai==1.59.9
+# openai: needs >=1.90.0 for mem0ai 1.0.10 compatibility. Upper bound on
+# 3.x as a safety net — the SDK has never had a major breaking change
+# in the 1.x → 2.x line for our usage (text-embedding-3-small, chat.completions),
+# so this range is safe.
+openai>=1.90.0,<3.0
 # pytest only needed for the CI deploy workflow
 pytest==9.0.3
 dnspython==2.7.0
