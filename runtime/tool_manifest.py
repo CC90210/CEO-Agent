@@ -43,7 +43,7 @@ WORKFLOWS_DIR = REPO_ROOT / ".agents" / "workflows"
 
 CATEGORY_KEYWORDS = [
     ("Communication", ["email", "send_gateway", "notify", "outreach", "inbound", "gmail",
-                       "telegram", "chat", "gws_"]),
+                       "telegram", "chat", "gws_", "wire_all_templates"]),
     ("Data & Memory", ["supabase", "lead", "client_", "context", "funnel", "mem0",
                        "memory", "state_sync", "agent_inbox"]),
     ("Finance",       ["stripe", "revenue", "cost", "financial", "budget",

@@ -193,6 +193,7 @@ Browser Harness is installed as Bravo's direct Chrome/Edge control layer. It com
 |--------|--------|---------|-------------|
 | **Lead CRM** | `scripts/lead_engine.py` | Full pipeline management, scoring, interactions | `list`, `add`, `view`, `update`, `score`, `interact`, `followups`, `pipeline`, `search`, `funnel` |
 | **Email** | `scripts/email_engine.py` | Free Gmail SMTP sending, templates, nurture sequences | `send`, `send-template`, `templates list/create`, `sequence list/create/run`, `log`, `stats` |
+| **Template Wiring** | `scripts/wire_all_templates.py` | Canonical OASIS template sync + verification. Enforces website link + Google Calendar CTA in `email_templates`. | `--verify-only --json` / `--dry-run` |
 | **Booking** | `scripts/booking_engine.py` | Self-hosted Cal.com replacement, slot management | `slots open/open-week/list/close`, `book`, `cancel`, `available`, `remind`, `complete` |
 | **Content** | `../CMO-Agent/scripts/content_engine.py` | Content calendar, templates, multi-platform posting | `calendar`, `create`, `create-multi`, `templates list/create/render`, `due`, `week-plan`, `stats` |
 | **Revenue** | `scripts/revenue_engine.py` | MRR tracking, Stripe sync, forecasting | `mrr`, `dashboard`, `sync-stripe`, `log-revenue`, `history`, `forecast`, `clients`, `goal` |
@@ -381,6 +382,7 @@ Four entry files at the repo root — one per AI tooling surface. Every agent th
 | Migrations | `scripts/apply_migration.py` | Applies `database/*.sql` via Supabase Management API. |
 | Ledger | `lead_interactions` table (+ migration 003: `cooldown_until`, `agent_source`, `metadata`) | Unified cross-engine action log. |
 | CASL | `scripts/casl_compliance.py` | Suppression + footer + RFC 2369/8058 headers. Composed by the gateway. |
+| Templates | `scripts/wire_all_templates.py` | Keeps OASIS Welcome / Value Add / CTA congruent across sessions. Verifies `https://oasisai.work` + `https://calendar.app.google/tpfvJYBGircnGu8G8`. |
 
 Rewired engines (all route through gateway): `outreach_engine`, `outreach_batch`, `email_engine`, `funnel_nurture`, `booking_engine`. See [[skills/send-gateway/SKILL]] for complete contract.
 

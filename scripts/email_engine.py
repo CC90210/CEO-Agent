@@ -144,6 +144,22 @@ def render_template(template_str, variables):
     return re.sub(r"\{\{([^}]+)\}\}", replacer, template_str)
 
 
+def html_to_text(html):
+    """Convert simple stored-template HTML to readable plain text."""
+    if not html:
+        return ""
+    import html as html_lib
+
+    text = re.sub(r"(?i)<br\s*/?>", "\n", html)
+    text = re.sub(r"(?i)</p\s*>", "\n\n", text)
+    text = re.sub(r"(?i)</li\s*>", "\n", text)
+    text = re.sub(r"(?i)<li\s*>", "- ", text)
+    text = re.sub(r"<[^>]+>", "", text)
+    text = html_lib.unescape(text)
+    lines = [line.rstrip() for line in text.splitlines()]
+    return "\n".join(lines).strip()
+
+
 # -- Supabase logging ---------------------------------------
 
 
@@ -250,7 +266,12 @@ def cmd_send_template(env_vars, args, output_json=False):
     variables = json.loads(args.vars) if args.vars else {}
     subject = render_template(tmpl["subject"], variables)
     body_html = render_template(tmpl.get("body_html") or "", variables) or None
-    body_text = re.sub(r"<[^>]+>", "", body_html or "") if body_html else subject
+    body_text_template = tmpl.get("body_text") or ""
+    body_text = (
+        render_template(body_text_template, variables)
+        if body_text_template
+        else (html_to_text(body_html) if body_html else subject)
+    )
 
     intent = "transactional" if getattr(args, "transactional", False) else "commercial"
     gw = gateway_send(
@@ -551,7 +572,12 @@ def cmd_sequence_run(env_vars, args, output_json=False):
         tmpl = tmpl_result.data[0]
         subject = render_template(tmpl["subject"], step_vars)
         body_html = render_template(tmpl.get("body_html") or "", step_vars) or None
-        body_text = re.sub(r"<[^>]+>", "", body_html or "") if body_html else subject
+        body_text_template = tmpl.get("body_text") or ""
+        body_text = (
+            render_template(body_text_template, step_vars)
+            if body_text_template
+            else (html_to_text(body_html) if body_html else subject)
+        )
 
         # Step 0 sends immediately via send_gateway; future steps log as queued.
         # Gateway handles CASL, cooldown, daily cap, lead_interactions + email_log.

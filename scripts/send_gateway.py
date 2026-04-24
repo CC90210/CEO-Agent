@@ -1321,16 +1321,40 @@ def send(
         })
 
         if intent == "commercial" and _env_bool(env, "DRAFT_CRITIC_ENABLED", True):
-            critic_result = critique_draft(
-                draft_subject=subject,  # type: ignore[arg-type]
-                draft_body=body_text,  # type: ignore[arg-type]
-                brand=brand,
-                intent=intent,
-                env=env,
-            )
-            if critic_result.get("verdict") == "reject":
-                reasons = critic_result.get("reasons") or []
-                reason_text = "; ".join(str(r) for r in reasons[:5]) or critic_result.get("notes") or "rejected"
+            try:
+                critic_result = critique_draft(
+                    draft_subject=subject,  # type: ignore[arg-type]
+                    draft_body=body_text,  # type: ignore[arg-type]
+                    brand=brand,
+                    intent=intent,
+                    env=env,
+                )
+            except Exception as exc:  # noqa: BLE001
+                return {"status": "blocked",
+                        "reason": f"draft_critic unavailable: {exc}",
+                        "lead_id": lead_id, "interaction_id": None,
+                        "cooldown_until": None, "daily_count": None}
+
+            critic_verdict = str(critic_result.get("verdict") or "").strip().lower()
+            if critic_verdict != "ship":
+                reasons = [str(r) for r in (critic_result.get("reasons") or []) if str(r).strip()]
+                if not reasons:
+                    for issue in critic_result.get("issues") or []:
+                        reason = str(issue.get("reason") or "").strip()
+                        excerpt = str(issue.get("excerpt") or "").strip()
+                        if excerpt and reason:
+                            reasons.append(f"{excerpt}: {reason}")
+                        elif reason:
+                            reasons.append(reason)
+                        elif excerpt:
+                            reasons.append(excerpt)
+                reason_text = (
+                    "; ".join(reasons[:5])
+                    or critic_result.get("notes")
+                    or critic_result.get("raw_verdict")
+                    or critic_verdict
+                    or "non-ship verdict"
+                )
                 return {"status": "blocked",
                         "reason": f"draft_critic rejected: {reason_text}",
                         "lead_id": lead_id, "interaction_id": None,
