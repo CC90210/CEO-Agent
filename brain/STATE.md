@@ -159,7 +159,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-04-24
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Codex fixed duplicate Google Calendar link in OASIS templates after CC noticed sent emails had CTA button plus raw calendar signature link. Updated scripts/wire_all_templates.py and Bravo email_templates so each OASIS template now renders exactly one Google Calendar CTA href, one website href, no leftover placeholders; draft_critic ships all three templates. No new emails sent.
+- **Result:** Full-scope build review: verified Codex outreach fixes green, folded render-audit into wire_all_templates.py (--render-check), hardened install/bootstrap.py pip+npm log capture, killed 3 stuck wizard procs, cleared manifest drift, pushed 3 commits. Health 100/100.
 
 *Last updated: 2026-04-24*
 
