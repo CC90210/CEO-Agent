@@ -178,23 +178,46 @@ def verify_requirements(repo_root: Path) -> tuple[bool, str]:
 def install_python_deps(repo_root: Path) -> tuple[bool, str]:
     """Run `pip install -r requirements.txt` if that file exists.
 
-    Idempotent — pip skips already-satisfied packages. We DON'T use --quiet
-    so the user sees which specific package failed if something breaks
-    (the previous silent-fail hid a whisper+triton incompatibility on
-    Windows until users reported it).
+    Strategy after three rounds of hotfix pain:
+      - Use -q (single q) to suppress per-package progress bars. On Windows
+        PowerShell, verbose pip output chokes the console to the point of
+        looking frozen — -q keeps warnings + errors visible but drops the
+        spam.
+      - Capture full stdout+stderr to ~/.bravo/logs/pip-install.log so
+        the user can grep for problems if the short error isn't enough.
+      - On non-zero exit, extract the actual ERROR line from the log and
+        surface it in the return detail.
     """
     req = repo_root / "requirements.txt"
     if not req.exists():
         return True, "no requirements.txt — skipped"
     import subprocess
+    log_dir = Path.home() / ".bravo" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / "pip-install.log"
+    print(f"    (first run takes 2-5 min. full log: {log_path})")
     try:
-        r = subprocess.run(
-            [sys.executable, "-m", "pip", "install",
-             "--disable-pip-version-check", "-r", str(req)],
-            timeout=900)
+        with open(log_path, "w", encoding="utf-8", errors="replace") as f:
+            r = subprocess.run(
+                [sys.executable, "-m", "pip", "install", "-q",
+                 "--disable-pip-version-check", "-r", str(req)],
+                stdout=f, stderr=subprocess.STDOUT, timeout=1200)
         if r.returncode == 0:
             return True, "installed (pip skips already-satisfied)"
-        return False, f"pip exit {r.returncode} — see output above for which package failed"
+        # Extract the pip ERROR line from the log for a useful detail.
+        err_line = ""
+        try:
+            log = log_path.read_text(encoding="utf-8", errors="replace")
+            for line in log.splitlines():
+                s = line.strip()
+                if s.startswith("ERROR:") or "could not find" in s.lower():
+                    err_line = s[:200]
+                    break
+        except Exception:
+            pass
+        return False, (err_line or f"pip exit {r.returncode}") + f" (full log: {log_path})"
+    except subprocess.TimeoutExpired:
+        return False, f"pip timed out after 20 min — see {log_path}"
     except Exception as exc:  # noqa: BLE001
         return False, f"pip error: {exc}"
 
@@ -202,26 +225,39 @@ def install_python_deps(repo_root: Path) -> tuple[bool, str]:
 def install_node_deps(repo_root: Path) -> tuple[bool, str]:
     """Run `npm install` at repo root if package.json exists.
 
-    Idempotent — npm checks node_modules and only installs missing
-    packages. Returns (ok, detail) for consistent shell output.
-
-    NOT using --silent on purpose — the whisper incident showed that
-    hiding package-manager output makes debugging impossible when a
-    single dependency fails. Users see normal npm progress; if anything
-    breaks, they see exactly which package and why.
+    Same strategy as install_python_deps: output -> log file, quiet
+    console, extract error on failure. --silent on npm suppresses
+    install chatter but still surfaces errors at exit time.
     """
     pkg = repo_root / "package.json"
     if not pkg.exists():
         return True, "no package.json — skipped"
     import subprocess
+    log_dir = Path.home() / ".bravo" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / "npm-install.log"
     try:
-        r = subprocess.run(
-            ["npm", "install", "--no-audit", "--no-fund"],
-            cwd=str(repo_root), timeout=900,
-            shell=(os.name == "nt"))  # Windows needs shell for `npm.cmd`
+        with open(log_path, "w", encoding="utf-8", errors="replace") as f:
+            r = subprocess.run(
+                ["npm", "install", "--silent", "--no-audit", "--no-fund"],
+                cwd=str(repo_root), timeout=900,
+                stdout=f, stderr=subprocess.STDOUT,
+                shell=(os.name == "nt"))  # Windows needs shell for npm.cmd
         if r.returncode == 0:
             return True, "installed (npm skips already-installed)"
-        return False, f"npm exit {r.returncode} — see output above for which package failed"
+        err_line = ""
+        try:
+            log = log_path.read_text(encoding="utf-8", errors="replace")
+            for line in log.splitlines():
+                s = line.strip()
+                if s.lower().startswith("npm err") or s.startswith("ERROR"):
+                    err_line = s[:200]
+                    break
+        except Exception:
+            pass
+        return False, (err_line or f"npm exit {r.returncode}") + f" (full log: {log_path})"
+    except subprocess.TimeoutExpired:
+        return False, f"npm timed out after 15 min — see {log_path}"
     except Exception as exc:  # noqa: BLE001
         return False, f"npm error: {exc}"
 
