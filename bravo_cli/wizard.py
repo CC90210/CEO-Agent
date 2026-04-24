@@ -18,6 +18,7 @@ Zero external dependencies — stdlib only (urllib, getpass, json, re).
 from __future__ import annotations
 
 import getpass
+import datetime as dt
 import json
 import os
 import re
@@ -253,7 +254,7 @@ PROFILES: dict[str, dict] = {
         "ai": ["anthropic", "openai"],
         "chat": ["telegram", "discord", "slack"],
         "business": ["stripe", "plaid", "ccxt"],
-        "extra": ["tax_region"],
+        "extra": [],
     },
     "maven": {
         "name": "Maven",
@@ -289,7 +290,7 @@ PROFILES: dict[str, dict] = {
         "ai": ["anthropic", "openai"],
         "chat": ["telegram", "discord", "slack", "whatsapp"],
         "business": ["stripe", "supabase"],
-        "extra": ["client_name"],
+        "extra": [],
     },
     "custom": {
         "name": "Custom",
@@ -390,9 +391,9 @@ PROFILE_QUESTIONS: dict[str, list[dict]] = {
          "type": "yesno", "default": True},
     ],
     "hermes": [
-        {"key": "HERMES_CLIENT_NAME", "prompt": "Client name",
-         "type": "text", "default": ""},
-        {"key": "HERMES_CLIENT_INDUSTRY", "prompt": "Client industry",
+        {"key": "HERMES_CLIENT_NAME", "prompt": "Client/company name Hermes will operate for",
+         "type": "text", "default": "", "required": True},
+        {"key": "HERMES_CLIENT_INDUSTRY", "prompt": "Client/company industry Hermes will operate for",
          "type": "choice", "choices": ["ecommerce", "retail", "hospitality", "services", "saas", "other"], "default": "ecommerce"},
         {"key": "HERMES_COMMERCE_PLATFORM", "prompt": "Primary commerce platform",
          "type": "choice", "choices": ["shopify", "stripe", "square", "woocommerce", "custom"], "default": "shopify"},
@@ -424,9 +425,24 @@ PROFILE_QUESTIONS: dict[str, list[dict]] = {
 # Example: answering "real estate agent" in the industry question turns Maven
 # from a generic CMO into a real-estate marketing operator.
 
+USER_IDENTITY_QUESTIONS: list[dict] = [
+    {"key": "USER_FULL_NAME",
+     "prompt": "User's full name (who is using this agent?)",
+     "type": "text", "default": "", "required": True},
+    {"key": "USER_PREFERRED_NAME",
+     "prompt": "What should the agent call you?",
+     "type": "text", "default": ""},
+    {"key": "USER_BUSINESS_NAME",
+     "prompt": "Your business / brand name",
+     "type": "text", "default": ""},
+    {"key": "USER_ROLE",
+     "prompt": "Your role or title",
+     "type": "text", "default": ""},
+]
+
 BUSINESS_CONTEXT_QUESTIONS: list[dict] = [
     {"key": "USER_INDUSTRY",
-     "prompt": "Industry / business type",
+     "prompt": "Your business / operator type",
      "type": "choice",
      "choices": ["real-estate", "saas", "agency", "ecommerce", "consulting",
                  "content-creator", "services", "coaching", "finance",
@@ -449,6 +465,37 @@ BUSINESS_CONTEXT_QUESTIONS: list[dict] = [
 # Profiles that get the shared business-context block in addition to their
 # per-agent questions. Aura is lifestyle, Custom is user-defined — both skip.
 BUSINESS_CONTEXT_PROFILES = {"bravo", "atlas", "maven", "hermes"}
+
+COMMON_CONTEXT_KEYS = [
+    "USER_FULL_NAME",
+    "USER_PREFERRED_NAME",
+    "USER_BUSINESS_NAME",
+    "USER_ROLE",
+    "USER_INDUSTRY",
+    "USER_PRIMARY_METRIC",
+    "USER_DAILY_WORK",
+    "USER_FIRST_WORKFLOW_TARGET",
+    "USER_OFF_LIMITS",
+]
+
+PROFILE_CONTEXT_PREFIXES = {
+    "bravo": ["BRAVO_"],
+    "atlas": ["ATLAS_"],
+    "maven": ["MAVEN_"],
+    "aura": ["AURA_"],
+    "hermes": ["HERMES_"],
+    "custom": ["CUSTOM_"],
+}
+
+PRIVATE_VALUE_MARKERS = (
+    "API_KEY",
+    "TOKEN",
+    "SECRET",
+    "PASSWORD",
+    "WEBHOOK",
+    "DSN",
+    "PRIVATE",
+)
 
 # ── Integrations ──────────────────────────────────────────────────────────────
 
@@ -926,6 +973,84 @@ def read_env(key: str) -> str | None:
             return v.strip()
     return None
 
+
+def _read_env_map() -> dict[str, str]:
+    if not ENV_PATH.exists():
+        return {}
+    values: dict[str, str] = {}
+    for raw in ENV_PATH.read_text(encoding="utf-8", errors="ignore").splitlines():
+        s = raw.strip()
+        if not s or s.startswith("#") or "=" not in s:
+            continue
+        key, _, value = s.partition("=")
+        key = key.strip()
+        value = value.strip()
+        if key and value:
+            values[key] = value
+    return values
+
+
+def _public_context_values(profile: str) -> dict[str, str]:
+    values = _read_env_map()
+    prefixes = PROFILE_CONTEXT_PREFIXES.get(profile, [])
+    allowed = set(COMMON_CONTEXT_KEYS)
+    for key in values:
+        if any(key.startswith(prefix) for prefix in prefixes):
+            allowed.add(key)
+    safe: dict[str, str] = {}
+    for key in sorted(allowed):
+        value = values.get(key)
+        if not value:
+            continue
+        if any(marker in key for marker in PRIVATE_VALUE_MARKERS):
+            continue
+        safe[key] = value
+    return safe
+
+
+def _write_setup_profile(profile: str) -> Path:
+    """Persist non-secret setup context under ~/.bravo/profiles/."""
+    BRAVO_HOME.mkdir(parents=True, exist_ok=True)
+    profiles_dir = BRAVO_HOME / "profiles"
+    profiles_dir.mkdir(parents=True, exist_ok=True)
+    context = _public_context_values(profile)
+    payload = {
+        "schema": "oasis.agent_setup.v1",
+        "profile": profile,
+        "profile_name": PROFILES[profile]["name"],
+        "role": PROFILES[profile]["role"],
+        "env_file": str(ENV_PATH),
+        "written_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+        "operator": {
+            "full_name": context.get("USER_FULL_NAME", ""),
+            "preferred_name": context.get("USER_PREFERRED_NAME", ""),
+            "business_name": context.get("USER_BUSINESS_NAME", ""),
+            "role": context.get("USER_ROLE", ""),
+        },
+        "context": context,
+    }
+    path = profiles_dir / f"{profile}.setup.json"
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    _chmod_secret_file(path)
+    return path
+
+
+def _set_active_profile(profile: str) -> Path:
+    """Make `bravo` open on the agent the user just configured."""
+    BRAVO_HOME.mkdir(parents=True, exist_ok=True)
+    config_path = BRAVO_HOME / "config.toml"
+    text = config_path.read_text(encoding="utf-8", errors="ignore") if config_path.exists() else ""
+    if re.search(r"^\s*active\s*=", text, flags=re.MULTILINE):
+        text = re.sub(r'^\s*active\s*=\s*".*?"',
+                      f'active = "{profile}"', text,
+                      flags=re.MULTILINE, count=1)
+    elif "[profile]" in text:
+        text = text.replace("[profile]", f'[profile]\nactive = "{profile}"', 1)
+    else:
+        text = f'[profile]\nactive = "{profile}"\n' + text
+    config_path.write_text(text.rstrip() + "\n", encoding="utf-8")
+    return config_path
+
 # (mirror_to_repo_env removed — ENV_PATH is already the repo file.)
 
 # ── I/O helpers ───────────────────────────────────────────────────────────────
@@ -1380,6 +1505,7 @@ def _ask_one(q: dict) -> str:
     qtype = q.get("type", "text")
     label = q["prompt"]
     default = q.get("default")
+    required = bool(q.get("required", False))
     if qtype == "choice":
         choices = q["choices"]
         print(f"  {label}  {DIM('(' + '/'.join(choices) + ')')}")
@@ -1404,8 +1530,29 @@ def _ask_one(q: dict) -> str:
     if q.get("secret"):
         val = secret_prompt(label)
     else:
-        val = prompt(label, default=str(default) if default else None)
+        val = prompt(label, default=str(default) if default else None,
+                     required=required)
     return val
+
+
+def _business_context_questions(profile: str) -> list[dict]:
+    """Return shared context questions, with profile-specific de-duplication."""
+    if profile == "hermes":
+        # Hermes asks for the client/company industry in its own focused block.
+        # Asking USER_INDUSTRY first felt like the same question twice.
+        return [q for q in BUSINESS_CONTEXT_QUESTIONS
+                if q["key"] != "USER_INDUSTRY"]
+    return BUSINESS_CONTEXT_QUESTIONS
+
+
+def step_user_identity(profile: str, step_num: int, total: int) -> None:
+    """Capture who the agent works for before any domain-specific setup."""
+    step_header(step_num, total, "About you",
+                "This teaches the agent who is using it and where to save that memory.")
+    for q in USER_IDENTITY_QUESTIONS:
+        ans = _ask_one(q)
+        if ans:
+            write_env(q["key"], ans)
 
 
 def step_business_context(profile: str, step_num: int, total: int) -> None:
@@ -1415,9 +1562,10 @@ def step_business_context(profile: str, step_num: int, total: int) -> None:
     from the same Maven install because the ANSWERS differ."""
     if profile not in BUSINESS_CONTEXT_PROFILES:
         return
-    step_header(step_num, total, "About your business",
-                "Five questions. Press Enter to skip anything you'd rather come back to.")
-    for q in BUSINESS_CONTEXT_QUESTIONS:
+    questions = _business_context_questions(profile)
+    step_header(step_num, total, "Operating context",
+                f"{len(questions)} questions. Press Enter to skip anything you'd rather come back to.")
+    for q in questions:
         ans = _ask_one(q)
         if ans:
             write_env(q["key"], ans)
@@ -1430,7 +1578,10 @@ def step_agent_questions(profile: str, step_num: int, total: int) -> None:
     if not qs:
         return
     p = PROFILES[profile]
-    step_header(step_num, total, f"Tune {p['name']} to how you operate",
+    title = (f"Tune {p['name']} to the client operation"
+             if profile == "hermes"
+             else f"Tune {p['name']} to how you operate")
+    step_header(step_num, total, title,
                 f"{len(qs)} questions. Defaults are good — press Enter to accept.")
     for q in qs:
         ans = _ask_one(q)
@@ -1605,18 +1756,6 @@ def step_extra(profile: str, step_num: int, total: int) -> None:
     step_header(step_num, total, f"{p['name']}-specific integrations",
                 f"Tools that make sense for a {p['role'].lower()}.")
     for slug in p["extra"]:
-        if slug == "tax_region":
-            region = prompt("Tax region (CA/US/UK/EU/OTHER)", default="CA").strip()
-            write_env("ATLAS_TAX_REGION", region.upper())
-            print()
-            continue
-        if slug == "client_name":
-            name = prompt("Client name (for Hermes scaffolding later)",
-                          default="").strip()
-            if name:
-                write_env("HERMES_CLIENT_NAME", name)
-            print()
-            continue
         integration_step(slug, required=False)
 
 def _playwright_chromium_present() -> bool:
@@ -1735,12 +1874,16 @@ def step_finalize(profile: str, step_num: int, total: int) -> None:
     step_header(step_num, total, "Finalize",
                 "Summary of saved credentials and next steps.")
     write_env("BRAVO_ACTIVE_PROFILE", profile)
+    config_path = _set_active_profile(profile)
+    setup_profile_path = _write_setup_profile(profile)
     p = PROFILES[profile]
 
     # Big summary panel
     print()
     print(f"  {GREEN(OK)} Profile:  {p['color'](BOLD(p['name']))}  {DIM('· ' + p['role'])}")
     print(f"  {GREEN(OK)} Env file: {CYAN(str(ENV_PATH))}")
+    print(f"  {GREEN(OK)} Setup profile: {CYAN(str(setup_profile_path))}")
+    print(f"  {GREEN(OK)} Active config: {CYAN(str(config_path))}")
     print(f"  {GREEN(OK)} Home dir: {CYAN(str(BRAVO_HOME))}  {DIM('(profiles, sessions, logs)')}")
     print()
 
@@ -1798,6 +1941,7 @@ def run_wizard(profile_override: str | None = None) -> int:
         # Compute the total from what actually applies to the chosen profile.
         total = 1  # finalize always runs
         if AGENT_REPOS.get(profile):                       total += 1  # clone
+        total += 1                                         # user identity
         if profile in BUSINESS_CONTEXT_PROFILES:           total += 1  # business ctx
         if PROFILE_QUESTIONS.get(profile):                 total += 1  # agent qs
         total += 1                                         # ai
@@ -1810,6 +1954,7 @@ def run_wizard(profile_override: str | None = None) -> int:
 
         if AGENT_REPOS.get(profile):
             step += 1; step_clone_agent_repo(profile, step, total)
+        step += 1; step_user_identity(profile, step, total)
         if profile in BUSINESS_CONTEXT_PROFILES:
             step += 1; step_business_context(profile, step, total)
         if PROFILE_QUESTIONS.get(profile):
