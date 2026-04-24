@@ -5,11 +5,12 @@ Walks a new user through:
   2. AI provider keys (Anthropic required; OpenAI + Google AI optional)
   3. Chat bridges (Telegram, Discord, Slack, WhatsApp/Twilio)
   4. Domain integrations (per profile: finance / marketing / home / client)
-  5. Doctor run + summary
+  5. Final summary + optional `bravo doctor` run
 
-Writes secrets to ~/.bravo/.env (0600 on POSIX). If the repo's .env.agents
-is missing or empty, it's bootstrapped with the same contents so existing
-scripts in scripts/ (which load from the repo) start working immediately.
+Writes secrets DIRECTLY to <repo>/.env.agents (0600 on POSIX) — that is
+exactly where the 73 scripts in scripts/ load env from, so every key works
+the instant it is saved. ~/.bravo/ is still used for profiles / sessions /
+logs / cache, but NOT for env anymore (simpler, no mirror step).
 
 Zero external dependencies — stdlib only (urllib, getpass, json, re).
 """
@@ -30,10 +31,12 @@ from typing import Callable
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 
-BRAVO_HOME = Path(os.path.expanduser("~/.bravo"))
-ENV_PATH = BRAVO_HOME / ".env"
 REPO_ROOT = Path(__file__).resolve().parent.parent
-REPO_ENV = REPO_ROOT / ".env.agents"
+ENV_PATH = REPO_ROOT / ".env.agents"          # Single source of truth.
+BRAVO_HOME = Path(os.path.expanduser("~/.bravo"))  # Still used for profiles / sessions.
+
+# Tracks which keys the user saved in this session (for final summary).
+_SAVED_THIS_SESSION: list[str] = []
 
 # Force UTF-8 output on Windows.
 if os.name == "nt":
@@ -345,7 +348,7 @@ INTEGRATIONS: dict[str, dict] = {
         ],
     },
     "supabase": {
-        "env_key": "SUPABASE_URL",
+        "env_key": "BRAVO_SUPABASE_URL",
         "label": "Supabase",
         "tagline": "Persistent state + CRM + memory store",
         "url": "https://supabase.com/dashboard/projects",
@@ -354,10 +357,11 @@ INTEGRATIONS: dict[str, dict] = {
         "instructions": [
             "Go to supabase.com/dashboard/projects",
             "Pick your project -> Settings -> API",
-            "Copy the Project URL here; you'll paste the anon key next",
+            "Copy the Project URL here; service_role key on the next prompt",
+            "(service_role is needed for server-side scripts to bypass RLS)",
         ],
-        "followup_key": "SUPABASE_ANON_KEY",
-        "followup_label": "Supabase anon key",
+        "followup_key": "BRAVO_SUPABASE_SERVICE_ROLE_KEY",
+        "followup_label": "Supabase service_role key (NOT the anon key)",
         "followup_secret": True,
     },
     "n8n": {
@@ -447,16 +451,20 @@ INTEGRATIONS: dict[str, dict] = {
         ],
     },
     "linkedin": {
-        "env_key": "LINKEDIN_ACCESS_TOKEN",
+        "env_key": "LINKEDIN_EMAIL",
         "label": "LinkedIn",
-        "tagline": "Post scheduling, messaging, company page",
-        "url": "https://www.linkedin.com/developers/apps",
-        "format": "OAuth token",
-        "secret": True,
+        "tagline": "Automation via account credentials (read-only browser session)",
+        "url": "https://www.linkedin.com",
+        "format": "your LinkedIn email",
+        "secret": False,
         "instructions": [
-            "LinkedIn Developers -> Create App",
-            "Auth -> Request an access token with w_member_social",
+            "Enter the LinkedIn account credentials used by Maven's automation",
+            "We store these locally only — never committed to git",
+            "Password comes next (hidden input)",
         ],
+        "followup_key": "LINKEDIN_PASSWORD",
+        "followup_label": "LinkedIn password",
+        "followup_secret": True,
     },
     "x_twitter": {
         "env_key": "TWITTER_BEARER_TOKEN",
@@ -504,11 +512,15 @@ INTEGRATIONS: dict[str, dict] = {
 # ── Env file I/O ──────────────────────────────────────────────────────────────
 
 def ensure_env_file() -> None:
+    # Home directory for sessions/profiles (not for env anymore).
     BRAVO_HOME.mkdir(parents=True, exist_ok=True)
+    # .env.agents lives in the repo; create if absent.
+    ENV_PATH.parent.mkdir(parents=True, exist_ok=True)
     if not ENV_PATH.exists():
         ENV_PATH.write_text(
-            "# Bravo environment — managed by `bravo setup`.\n"
-            "# One KEY=value per line. Never commit this file.\n\n",
+            "# Bravo .env.agents — managed by `bravo setup`.\n"
+            "# One KEY=value per line. Never commit this file.\n"
+            "# Scripts in scripts/ load directly from here.\n\n",
             encoding="utf-8",
         )
         if os.name != "nt":
@@ -517,7 +529,9 @@ def ensure_env_file() -> None:
             except Exception:
                 pass
 
-def write_env(key: str, value: str) -> None:
+def write_env(key: str, value: str, announce: bool = True) -> None:
+    """Write KEY=value to the repo's .env.agents. Per-key merge — never
+    clobbers other keys. Prints a save confirmation by default."""
     ensure_env_file()
     text = ENV_PATH.read_text(encoding="utf-8", errors="ignore")
     pattern = re.compile(rf"^{re.escape(key)}=.*$", re.MULTILINE)
@@ -527,6 +541,11 @@ def write_env(key: str, value: str) -> None:
     else:
         new_text = text.rstrip() + f"\n{line}\n"
     ENV_PATH.write_text(new_text, encoding="utf-8")
+    if key not in _SAVED_THIS_SESSION:
+        _SAVED_THIS_SESSION.append(key)
+    if announce:
+        print(f"    {GREEN(OK)} Saved {BOLD(key)} "
+              f"{DIM('→ ' + str(ENV_PATH))}")
 
 def read_env(key: str) -> str | None:
     if not ENV_PATH.exists():
@@ -540,26 +559,7 @@ def read_env(key: str) -> str | None:
             return v.strip()
     return None
 
-def mirror_to_repo_env() -> bool:
-    """Bootstrap <repo>/.env.agents when missing or empty. Never overwrites."""
-    if not ENV_PATH.exists():
-        return False
-    if REPO_ENV.exists():
-        try:
-            text = REPO_ENV.read_text(encoding="utf-8", errors="ignore")
-        except Exception:
-            return False
-        populated = any(
-            "=" in ln and ln.split("=", 1)[1].strip() and not ln.strip().startswith("#")
-            for ln in text.splitlines()
-        )
-        if populated:
-            return False
-    try:
-        REPO_ENV.write_text(ENV_PATH.read_text(encoding="utf-8"), encoding="utf-8")
-        return True
-    except Exception:
-        return False
+# (mirror_to_repo_env removed — ENV_PATH is already the repo file.)
 
 # ── I/O helpers ───────────────────────────────────────────────────────────────
 
@@ -816,6 +816,9 @@ def telegram_flow(profile_name: str) -> bool:
         return False
     print(f"  {GREEN(OK)} Captured chat_id {BOLD(str(chat_id))}")
     write_env("TELEGRAM_CHAT_ID", str(chat_id))
+    # telegram_agent.js + funnel_nurture.py read TELEGRAM_ALLOWED_USERS for
+    # outbound messages. Keep them in sync so the bridge works end-to-end.
+    write_env("TELEGRAM_ALLOWED_USERS", str(chat_id))
     test_msg = (f"✅ {profile_name} is connected to Telegram. "
                 "You will get updates here. Reply /help anytime.")
     if tg_send(token, chat_id, test_msg):
@@ -873,7 +876,7 @@ def integration_step(slug: str, required: bool) -> bool:
                 return False
     write_env(spec["env_key"], value)
 
-    # Follow-up key (e.g., SUPABASE_ANON_KEY, N8N_API_KEY)
+    # Follow-up key (e.g., SUPABASE service_role, N8N_API_KEY, TWILIO token)
     if spec.get("followup_key"):
         fkey = spec["followup_key"]
         flabel = spec.get("followup_label", fkey)
@@ -882,7 +885,6 @@ def integration_step(slug: str, required: bool) -> bool:
                 if fsecret else prompt(flabel))
         if fval:
             write_env(fkey, fval)
-            print(f"    {GREEN(OK)} {fkey} saved")
     print()
     return True
 
@@ -913,17 +915,35 @@ def step_profile(total_steps: int) -> str:
               f"{DIM('(' + icon + ')')}")
         print()
     while True:
-        raw = prompt(f"Pick an agent (1-{len(slugs)})", default="1")
+        raw = prompt(f"Pick an agent (1-{len(slugs)})", default="1").strip()
         try:
             n = int(raw)
             if 1 <= n <= len(slugs):
                 chosen = slugs[n - 1]
-                print(f"  {PROFILES[chosen]['color'](OK)} "
-                      f"Selected: {BOLD(PROFILES[chosen]['name'])}")
+                _confirm_profile(chosen)
                 return chosen
         except ValueError:
             pass
         print(f"  {RED('Enter a number 1-' + str(len(slugs)))}")
+
+
+def _confirm_profile(slug: str) -> None:
+    """Big, impossible-to-miss confirmation of the selected profile."""
+    p = PROFILES[slug]
+    color = p["color"]
+    name_upper = p["name"].upper()
+    print()
+    print(f"  {color('━' * 62)}")
+    print(f"  {color(OK)} {BOLD(color('SELECTED: ' + name_upper))}")
+    print(f"    {DIM('Role:')}    {p['role']}")
+    print(f"    {DIM('Focus:')}   {p['tagline']}")
+    print(f"  {color('━' * 62)}")
+    print()
+    try:
+        input(f"  {DIM('Press Enter to continue with ' + BOLD(p['name']) + '...')} ")
+    except (EOFError, KeyboardInterrupt):
+        print()
+        sys.exit(130)
 
 def step_ai(profile: str, step_num: int, total: int) -> None:
     p = PROFILES[profile]
@@ -965,33 +985,47 @@ def step_extra(profile: str, step_num: int, total: int) -> None:
                 f"Tools that make sense for a {p['role'].lower()}.")
     for slug in p["extra"]:
         if slug == "tax_region":
-            region = prompt("Tax region (CA/US/UK/EU/OTHER)", default="CA")
+            region = prompt("Tax region (CA/US/UK/EU/OTHER)", default="CA").strip()
             write_env("ATLAS_TAX_REGION", region.upper())
-            print(f"  {GREEN(OK)} ATLAS_TAX_REGION={region.upper()}")
             print()
             continue
         if slug == "client_name":
-            name = prompt("Client name (for Hermes scaffolding later)", default="")
+            name = prompt("Client name (for Hermes scaffolding later)",
+                          default="").strip()
             if name:
                 write_env("HERMES_CLIENT_NAME", name)
-                print(f"  {GREEN(OK)} HERMES_CLIENT_NAME={name}")
             print()
             continue
         integration_step(slug, required=False)
 
 def step_finalize(profile: str, step_num: int, total: int) -> None:
     step_header(step_num, total, "Finalize",
-                "Writing config, mirroring to repo, verifying.")
+                "Summary of saved credentials and next steps.")
     write_env("BRAVO_ACTIVE_PROFILE", profile)
-    mirrored = mirror_to_repo_env()
     p = PROFILES[profile]
-    print(f"  {GREEN(OK)} Profile:     {p['color'](BOLD(p['name']))}  {DIM('(' + p['role'] + ')')}")
-    print(f"  {GREEN(OK)} Home env:    {CYAN(str(ENV_PATH))}")
-    if mirrored:
-        print(f"  {GREEN(OK)} Repo env:    {CYAN(str(REPO_ENV))}  {DIM('(bootstrapped)')}")
-    else:
-        print(f"  {DIM('Repo env already populated — not overwritten.')}")
+
+    # Big summary panel
     print()
+    print(f"  {GREEN(OK)} Profile:  {p['color'](BOLD(p['name']))}  {DIM('· ' + p['role'])}")
+    print(f"  {GREEN(OK)} Env file: {CYAN(str(ENV_PATH))}")
+    print(f"  {GREEN(OK)} Home dir: {CYAN(str(BRAVO_HOME))}  {DIM('(profiles, sessions, logs)')}")
+    print()
+
+    # List every key saved in THIS wizard session so the user sees exactly
+    # what was wired up — CC's "when they answer all the questions, it should
+    # work" criterion.
+    unique_saved = []
+    for k in _SAVED_THIS_SESSION:
+        if k not in unique_saved:
+            unique_saved.append(k)
+    if unique_saved:
+        hr("─", 64)
+        print(f"  {BOLD('Saved this session:')}  {DIM(f'{len(unique_saved)} key(s)')}")
+        for k in unique_saved:
+            print(f"    {GREEN(OK)} {k}")
+        hr("─", 64)
+        print()
+
     print(f"  {BOLD('Next commands:')}")
     print(f"    {CYAN('bravo doctor')}          {DIM('— full health check')}")
     print(f"    {CYAN('bravo status')}          {DIM('— live operational summary')}")
@@ -1008,6 +1042,12 @@ def step_finalize(profile: str, step_num: int, total: int) -> None:
     print(f"  {BOLD(GREEN('Setup complete.'))}  "
           f"{DIM('Made by OASIS AI ·')} {link(OASIS_URL, 'oasisai.work')}")
     hr("═", 64)
+    print()
+    if yes_no("Run `bravo doctor` now to verify everything?", default=True):
+        import subprocess
+        bravo_cmd = REPO_ROOT / "bravo_cli" / "main.py"
+        subprocess.call([sys.executable, str(bravo_cmd), "doctor"],
+                        cwd=str(REPO_ROOT))
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
