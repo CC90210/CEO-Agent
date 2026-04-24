@@ -1220,7 +1220,7 @@ def step_profile() -> str:
               f"{DIM('(' + icon + ')')}")
         print()
     while True:
-        raw = prompt(f"Pick an agent (1-{len(slugs)})", default="1").strip()
+        raw = prompt(f"Pick an agent (1-{len(slugs)})", required=True).strip()
         try:
             n = int(raw)
             if 1 <= n <= len(slugs):

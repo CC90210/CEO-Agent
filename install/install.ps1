@@ -38,7 +38,7 @@ function Write-Banner {
 
 '@
     Write-Host $banner -ForegroundColor Cyan
-    Write-Host "  Bravo installer — Business-Empire-Agent" -ForegroundColor White
+    Write-Host "  Bravo installer - CEO-Agent" -ForegroundColor White
     Write-Host "  repo: $repoRoot" -ForegroundColor DarkGray
     Write-Host ""
 }
@@ -53,7 +53,7 @@ function Step {
     param([string]$Label, [scriptblock]$Action)
     Write-Host "==> $Label" -ForegroundColor White
     if ($DryRun) {
-        Write-Host "    (dry run — skipping)" -ForegroundColor DarkGray
+        Write-Host "    (dry run - skipping)" -ForegroundColor DarkGray
         return
     }
     & $Action
@@ -138,7 +138,7 @@ if (-not $SkipPathUpdate) {
     Write-Host ""
 }
 
-# 5. Smoke tests — propagate failures instead of silently swallowing them
+# 5. Smoke tests - propagate failures instead of silently swallowing them
 Step "Running self_audit + browser_harness_doctor" {
     & python "$repoRoot\scripts\self_audit.py" 2>&1 | Select-Object -Last 5 | Write-Host
     if ($LASTEXITCODE -ne 0) {

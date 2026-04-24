@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Bravo quickstart — one-line install for Windows PowerShell.
+  Bravo quickstart - one-line install for Windows PowerShell.
 
 .DESCRIPTION
   Usage (from a fresh PowerShell):
@@ -10,7 +10,7 @@
     irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.ps1 | iex
 
   What it does:
-    1. Checks prereqs (python, node, git) — offers winget commands if missing
+    1. Checks prereqs (python, node, git) - offers winget commands if missing
     2. Clones CC90210/CEO-Agent into $HOME\bravo-repo (or updates if present)
     3. Runs install\install.ps1 (idempotent)
     4. Launches `bravo setup` (the interactive wizard)
@@ -24,25 +24,19 @@ $RepoUrl = 'https://github.com/CC90210/CEO-Agent.git'
 $RepoDir = $env:BRAVO_REPO_DIR
 if (-not $RepoDir) { $RepoDir = Join-Path $env:USERPROFILE 'bravo-repo' }
 
-# Make sure our output is UTF-8 so the box drawing + block chars render right
+# Make sure our output is UTF-8 when the terminal supports it.
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 
-# Banner — OASIS AI primary wordmark, ANSI Shadow block font, framed
+# Banner - ASCII-safe for Windows PowerShell 5.1.
 $banner = @'
 
-╔════════════════════════════════════════════════════════════════════╗
-║                                                                    ║
-║    ██████╗  █████╗ ███████╗██╗███████╗    █████╗ ██╗               ║
-║   ██╔═══██╗██╔══██╗██╔════╝██║██╔════╝   ██╔══██╗██║               ║
-║   ██║   ██║███████║███████╗██║███████╗   ███████║██║               ║
-║   ██║   ██║██╔══██║╚════██║██║╚════██║   ██╔══██║██║               ║
-║   ╚██████╔╝██║  ██║███████║██║███████║   ██║  ██║██║               ║
-║    ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝╚══════╝   ╚═╝  ╚═╝╚═╝               ║
-║                                                                    ║
-║    Agent Factory · Business-in-a-Box                               ║
-║    oasisai.work                                                    ║
-║                                                                    ║
-╚════════════════════════════════════════════════════════════════════╝
++====================================================================+
+|                                                                    |
+|     OASIS AI                                                       |
+|     Agent Factory - Business-in-a-Box                              |
+|     oasisai.work                                                   |
+|                                                                    |
++====================================================================+
 '@
 Write-Host $banner -ForegroundColor Cyan
 Write-Host "  Bravo quickstart - one-line install" -ForegroundColor White
@@ -89,7 +83,10 @@ Write-Host ""
 
 # Install
 Write-Host "==> Running install\install.ps1" -ForegroundColor White
-powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoDir 'install\install.ps1') -SkipPathUpdate
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoDir 'install\install.ps1') -SkipPathUpdate
+if ($LASTEXITCODE -ne 0) {
+    throw "install.ps1 failed with exit code $LASTEXITCODE"
+}
 Write-Host ""
 
 # Ensure ~/.bravo/bin is on PATH for THIS session before launching wizard
@@ -104,11 +101,9 @@ Write-Host " Launching the Bravo setup wizard..." -ForegroundColor Cyan
 Write-Host "=================================================" -ForegroundColor Cyan
 Write-Host ""
 
-$bravoCmd = Join-Path $binDir 'bravo.cmd'
-if (Test-Path $bravoCmd) {
-    & $bravoCmd setup
-} else {
-    python (Join-Path $RepoDir 'bravo_cli\main.py') setup
+python (Join-Path $RepoDir 'bravo_cli\main.py') setup
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
 }
 
 Write-Host ""

@@ -94,11 +94,7 @@ printf '%s Launching the Bravo setup wizard...%s\n' "$C_CYAN" "$C_RESET"
 printf '%s=================================================%s\n\n' "$C_CYAN" "$C_RESET"
 
 export PATH="$HOME/.bravo/bin:$PATH"
-if command -v bravo >/dev/null 2>&1; then
-    bravo setup
-else
-    python3 "$REPO_DIR/bravo_cli/main.py" setup
-fi
+python3 "$REPO_DIR/bravo_cli/main.py" setup
 
 echo
 printf '%s[+] Done.%s Next shells: add %s$HOME/.bravo/bin%s to PATH.\n' \
