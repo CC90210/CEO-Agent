@@ -47,10 +47,10 @@ echo "  Bravo quickstart — one-line install"
 printf '  %sRepo:%s %s\n' "$C_DIM" "$C_RESET" "$REPO_URL"
 printf '  %sDest:%s %s\n\n' "$C_DIM" "$C_RESET" "$REPO_DIR"
 
-# --- Prereqs ---
+# --- Prereqs (kept in sync with install.sh + bootstrap.py) ---
 echo "==> Checking prerequisites"
 missing=()
-for tool in python3 git node; do
+for tool in python3 git node npm; do
     if ! command -v "$tool" >/dev/null 2>&1; then
         missing+=("$tool")
         printf '    %s[X] %s%s\n' "$C_RED" "$tool" "$C_RESET"

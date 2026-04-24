@@ -50,10 +50,10 @@ Write-Host "  Repo: $RepoUrl" -ForegroundColor DarkGray
 Write-Host "  Dest: $RepoDir" -ForegroundColor DarkGray
 Write-Host ""
 
-# Prereqs
+# Prereqs (kept in sync with install.ps1 + bootstrap.py)
 Write-Host "==> Checking prerequisites" -ForegroundColor White
 $missing = @()
-foreach ($tool in @('python', 'node', 'git')) {
+foreach ($tool in @('python', 'node', 'npm', 'git')) {
     if (Get-Command $tool -ErrorAction SilentlyContinue) {
         Write-Host "    [+] $tool" -ForegroundColor Green
     } else {

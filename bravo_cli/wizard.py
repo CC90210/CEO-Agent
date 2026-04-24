@@ -1166,9 +1166,14 @@ def step_welcome() -> None:
     except (EOFError, KeyboardInterrupt):
         sys.exit(130)
 
-def step_profile(total_steps: int) -> str:
-    step_header(1, total_steps, "Choose an agent profile",
-                "Pick the role this install is for — integrations adapt to it.")
+def step_profile() -> str:
+    # Header is deliberately unnumbered — step count depends on which agent
+    # they pick, so "[1/9]" would be a lie for Bravo (where total is 8) or
+    # Custom (5). Numbered progress starts after the pick.
+    print()
+    print(f"{BG_CYAN('  Choose an agent profile  ')}")
+    print(f"    {DIM('Each agent adapts its integrations and questions to its role.')}")
+    hr()
     print()
     slugs = list(PROFILES.keys())
     for idx, slug in enumerate(slugs, start=1):
@@ -1229,12 +1234,17 @@ def _ask_one(q: dict) -> str:
         choices = q["choices"]
         print(f"  {label}  {DIM('(' + '/'.join(choices) + ')')}")
         default_str = default if default in choices else choices[0]
+        # Case-insensitive map so choices like ["MRR","ARR"] or ["CA","US"]
+        # work when the user types "mrr" OR "MRR" OR presses Enter to accept
+        # a default like "MRR". Canonical stored value is whatever is in
+        # the choices list; we always return that exact form.
+        canon = {c.lower(): c for c in choices}
         while True:
             raw = prompt(f"  answer", default=str(default_str)).strip().lower()
-            if raw in choices:
-                return raw
-            # Try partial match (user typed "con" for "consulting").
-            hits = [c for c in choices if c.startswith(raw)]
+            if raw in canon:
+                return canon[raw]
+            # Partial match — "con" -> "consulting", "ca" -> "CA".
+            hits = [canon[k] for k in canon if k.startswith(raw)]
             if len(hits) == 1:
                 return hits[0]
             print(f"  {RED('Pick one of:')} {', '.join(choices)}")
@@ -1278,12 +1288,29 @@ def step_agent_questions(profile: str, step_num: int, total: int) -> None:
             write_env(q["key"], ans)
 
 
+def _reroot_env_path(target: Path) -> None:
+    """Point subsequent write_env() calls at the cloned agent's repo.
+
+    Without this, every key the user enters after picking Atlas/Maven/Aura/
+    Hermes would still land in the LAUNCHER repo (whichever repo ships the
+    wizard), leaving the cloned agent's .env.agents empty. Codex V1.4 review
+    flagged this as a high-severity launch blocker.
+    """
+    global ENV_PATH
+    ENV_PATH = target / ".env.agents"
+
+
 def step_clone_agent_repo(profile: str, step_num: int, total: int) -> None:
     """Offer to clone the selected agent's own GitHub repo into ~/.
 
     The OASIS AI wizard is ONE entry point for all five agents. If someone
     picks Atlas, we fetch CFO-Agent; Maven -> CMO-Agent; etc. All five
-    sibling repos are public on github.com/CC90210."""
+    sibling repos are public on github.com/CC90210.
+
+    On successful clone (or when an existing clone is detected), we re-root
+    the wizard's ENV_PATH to the cloned repo so all subsequent key writes
+    land where that agent's scripts will read them.
+    """
     repo_info = AGENT_REPOS.get(profile)
     if not repo_info:
         # Custom — no repo to clone; user scaffolds via `bravo agent create`.
@@ -1292,11 +1319,16 @@ def step_clone_agent_repo(profile: str, step_num: int, total: int) -> None:
     target = Path(repo_info["dir"]).expanduser()
     step_header(step_num, total, f"Clone the {p['name']} repo",
                 f"Grabs {repo_info['url']} into {target}")
+
     if target.exists() and (target / ".git").exists():
-        print(f"  {GREEN(OK)} Already cloned at {CYAN(str(target))} — skipping.")
+        print(f"  {GREEN(OK)} Already cloned at {CYAN(str(target))}")
+        _reroot_env_path(target)
+        print(f"  {GREEN(OK)} Config will save to {CYAN(str(ENV_PATH))}")
         return
     if not yes_no(f"Clone {p['name']} to {target}?", default=True):
-        print(f"  {DIM('Skipped. You can clone manually later.')}")
+        print(f"  {YELLOW(WARN)} Skipped clone — config will save to the launcher repo")
+        print(f"     {DIM('(' + str(ENV_PATH) + ')')}")
+        print(f"  {DIM('For a clean ' + p['name'] + ' install, re-run and accept the clone.')}")
         return
     if not shutil.which("git"):
         print(f"  {RED('git not on PATH. Install Git, then re-run.')}")
@@ -1308,10 +1340,15 @@ def step_clone_agent_repo(profile: str, step_num: int, total: int) -> None:
                            capture_output=True, text=True, timeout=300)
         if r.returncode == 0:
             print(f"  {GREEN(OK)} Cloned to {CYAN(str(target))}")
+            _reroot_env_path(target)
+            print(f"  {GREEN(OK)} Config will save to {CYAN(str(ENV_PATH))}")
         else:
-            print(f"  {RED('Clone failed:')} {r.stderr.strip()[:200]}")
+            err_msg = r.stderr.strip()[:200] or "unknown error"
+            print(f"  {RED('Clone failed:')} {err_msg}")
+            print(f"  {YELLOW(WARN)} Continuing with launcher repo as config destination.")
     except Exception as exc:
         print(f"  {RED('Clone error:')} {exc}")
+        print(f"  {YELLOW(WARN)} Continuing with launcher repo as config destination.")
 
 def step_ai(profile: str, step_num: int, total: int) -> None:
     p = PROFILES[profile]
@@ -1426,21 +1463,21 @@ def run_wizard(profile_override: str | None = None) -> int:
             p = PROFILES[profile]
             _confirm_profile(profile)
         else:
-            profile = step_profile(total_steps=5)
+            profile = step_profile()
         p = PROFILES[profile]
 
-        # Build the dynamic step count for progress headers.
-        step_count = 1  # finalize always runs
-        if AGENT_REPOS.get(profile):                       step_count += 1  # clone
-        if profile in BUSINESS_CONTEXT_PROFILES:            step_count += 1  # business ctx
-        if PROFILE_QUESTIONS.get(profile):                  step_count += 1  # agent qs
-        step_count += 1                                     # ai
-        if p["chat"]:                                       step_count += 1
-        if p["business"]:                                   step_count += 1
-        if p["extra"]:                                      step_count += 1
+        # Numbered steps start AFTER the profile pick (picker is unnumbered).
+        # Compute the total from what actually applies to the chosen profile.
+        total = 1  # finalize always runs
+        if AGENT_REPOS.get(profile):                       total += 1  # clone
+        if profile in BUSINESS_CONTEXT_PROFILES:           total += 1  # business ctx
+        if PROFILE_QUESTIONS.get(profile):                 total += 1  # agent qs
+        total += 1                                         # ai
+        if p["chat"]:                                      total += 1
+        if p["business"]:                                  total += 1
+        if p["extra"]:                                     total += 1
 
-        step = 1  # profile picker was step 1
-        total = step_count + 1
+        step = 0
 
         if AGENT_REPOS.get(profile):
             step += 1; step_clone_agent_repo(profile, step, total)
