@@ -30,7 +30,9 @@
       "Bash(git reset --hard)",
       "Bash(git clean -fd)"
     ],
-    "additionalDirectories": []
+    "additionalDirectories": [
+      "C:\\Users\\User\\Business-Empire-Agent\\.claude\\skills"
+    ]
   },
   "hooks": {
     "PreToolUse": [

@@ -157,11 +157,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-04-23
+- **Date:** 2026-04-24
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Updated n8n workflow 'OASIS Inbound Qualifier (Bravo Aware)' to fix email inbound automation. Adjusted SENTINEL prompt to correctly route Business Expenses and Income & Invoices to separate Gmail labels. Added 'Mark as read' to income path.
+- **Result:** Codex cleaned up the public CEO-Agent quickstart flow after CC feedback. Commit f02dda1 pushed. The raw PowerShell one-liner now keeps the polished OASIS AI banner, prepares the local Agent Factory quietly, removes the pre-selection 'Bravo installed' moment, launches 'OASIS AI setup', and the wizard welcome now says to choose an OASIS AI agent. Picker still requires an explicit agent number. Verified raw GitHub quickstart and wizard text.
 
-*Last updated: 2026-04-23*
+*Last updated: 2026-04-24*
 
 ## Manifest
 

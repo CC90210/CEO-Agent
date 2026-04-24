@@ -1564,6 +1564,118 @@ def step_extra(profile: str, step_num: int, total: int) -> None:
             continue
         integration_step(slug, required=False)
 
+def _playwright_chromium_present() -> bool:
+    """Return True if a Playwright chromium build is already on disk.
+
+    Checks the OS-specific cache dir Playwright uses. Skipping the download
+    when already present matters — 500 MB / 1-3 min of tax on re-runs.
+    """
+    if os.name == "nt":
+        cache = Path(os.environ.get("LOCALAPPDATA", "")) / "ms-playwright"
+    elif sys.platform == "darwin":
+        cache = Path.home() / "Library" / "Caches" / "ms-playwright"
+    else:
+        cache = Path.home() / ".cache" / "ms-playwright"
+    if not cache.exists():
+        return False
+    # Playwright stores chromium under chromium-<revision>/chrome-<platform>/
+    return any(p.name.startswith("chromium-") for p in cache.iterdir())
+
+
+def step_playwright_browsers(step_num: int, total: int) -> None:
+    """Opt-in Chromium install for browser automation.
+
+    ~500 MB download. Skipped entirely when already installed. Never forced
+    — many clients only need the chat/ops side of an agent. If they say
+    yes, shells out to `python -m playwright install chromium`.
+    """
+    step_header(step_num, total, "Browser automation (optional)",
+                "Chromium binaries for Playwright. ~500 MB — skip if unsure.")
+    # If Playwright isn't even installed, there's nothing to do.
+    try:
+        r = subprocess.run(
+            [sys.executable, "-c", "import playwright; print('ok')"],
+            capture_output=True, text=True, timeout=10)
+        if r.returncode != 0:
+            print(f"  {DIM('Playwright package not found — skipping. Re-run setup after fixing pip.')}")
+            return
+    except Exception:
+        print(f"  {DIM('Could not probe Playwright — skipping.')}")
+        return
+    # Idempotent short-circuit.
+    if _playwright_chromium_present():
+        print(f"  {GREEN(OK)} Chromium already installed — skipping download.")
+        return
+    print(f"  {BOLD('Skool automation, client-portal scrapers, and every browser-use')}")
+    print(f"  {BOLD('skill need this.')} {DIM('Chat/Stripe/Supabase only? Skip it.')}")
+    print()
+    if not yes_no("Download Chromium for Playwright now (~500 MB)?",
+                  default=False):
+        print(f"  {DIM('Skipped. Run `python -m playwright install chromium` later if needed.')}")
+        return
+    print(f"  {DIM(ARROW + ' This takes 1-3 minutes on a reasonable connection...')}")
+    try:
+        r = subprocess.run(
+            [sys.executable, "-m", "playwright", "install", "chromium"],
+            timeout=600)
+        if r.returncode == 0:
+            print(f"  {GREEN(OK)} Chromium installed.")
+        else:
+            print(f"  {YELLOW(WARN)} Install exited {r.returncode}. "
+                  f"Try `python -m playwright install chromium` manually.")
+    except Exception as exc:
+        print(f"  {RED('Install error:')} {exc}")
+
+
+def step_browser_harness(step_num: int, total: int) -> None:
+    """Detect + optionally install Browser Harness.
+
+    Complementary to Playwright — Browser Harness attaches to the user's
+    LOGGED-IN Chrome/Edge for real-account actions (Skool posting, LinkedIn
+    DMs, Stripe dashboard reads, etc.). Playwright launches its own
+    throwaway browser; Browser Harness hijacks yours.
+
+    Pre-existing installs are detected and skipped. Fresh installs are
+    offered as opt-in since they need one-time Chrome remote-debug approval
+    before they can attach.
+    """
+    step_header(step_num, total, "Browser Harness (optional)",
+                "Attaches to your logged-in Chrome/Edge for real-account actions.")
+    harness_exe = shutil.which("browser-harness")
+    local_exe = Path.home() / ".local" / "bin" / (
+        "browser-harness.exe" if os.name == "nt" else "browser-harness")
+    if harness_exe or local_exe.exists():
+        found = harness_exe or str(local_exe)
+        print(f"  {GREEN(OK)} Already installed at {CYAN(str(found))}")
+        print(f"  {DIM('Next: run')} {CYAN('bravo browser setup')} "
+              f"{DIM('for one-time Chrome remote-debug approval.')}")
+        return
+    print(f"  {DIM('Different from Playwright — hijacks your REAL browser session.')}")
+    print(f"  {DIM('Skool, LinkedIn, Stripe dashboard, etc. all need this.')}")
+    print()
+    if not yes_no("Install Browser Harness now?", default=False):
+        print(f"  {DIM('Skipped. Later:')} {link('https://github.com/browser-use/browser-use', 'github.com/browser-use/browser-use')}")
+        return
+    # Preferred install path: uv tool (fast, isolated). Fall back to pip.
+    if shutil.which("uv"):
+        cmd = ["uv", "tool", "install", "browser-use"]
+        print(f"  {DIM(ARROW + ' uv tool install browser-use...')}")
+    else:
+        cmd = [sys.executable, "-m", "pip", "install", "browser-use"]
+        print(f"  {DIM(ARROW + ' pip install browser-use...')}")
+    try:
+        r = subprocess.run(cmd, timeout=300)
+        if r.returncode == 0:
+            print(f"  {GREEN(OK)} Installed.")
+            print(f"  {DIM('Next: run')} {CYAN('bravo browser setup')} "
+                  f"{DIM('for one-time Chrome remote-debug approval.')}")
+        else:
+            print(f"  {YELLOW(WARN)} Install exited {r.returncode}. "
+                  f"See {link('https://github.com/browser-use/browser-use')}")
+    except Exception as exc:
+        print(f"  {RED('Install error:')} {exc}")
+
+
 def step_finalize(profile: str, step_num: int, total: int) -> None:
     step_header(step_num, total, "Finalize",
                 "Summary of saved credentials and next steps.")
@@ -1637,6 +1749,7 @@ def run_wizard(profile_override: str | None = None) -> int:
         if p["chat"]:                                      total += 1
         if p["business"]:                                  total += 1
         if p["extra"]:                                     total += 1
+        total += 2                                         # playwright + harness
 
         step = 0
 
@@ -1653,6 +1766,9 @@ def run_wizard(profile_override: str | None = None) -> int:
             step += 1; step_business(profile, step, total)
         if p["extra"]:
             step += 1; step_extra(profile, step, total)
+        # Binary deps — both idempotent (skip if already installed).
+        step += 1; step_playwright_browsers(step, total)
+        step += 1; step_browser_harness(step, total)
         step += 1; step_finalize(profile, step, total)
         return 0
     except KeyboardInterrupt:

@@ -35,7 +35,8 @@ That single line:
    - Your Anthropic API key (required) and OpenAI key (optional)
    - Telegram bridge setup — paste your BotFather token, it validates live, auto-detects your chat_id, and sends you a test message
    - Optional: Stripe, Supabase, n8n
-6. Runs `bravo doctor` to confirm everything works
+6. Saves setup answers to a local `.env.agents` file that is gitignored and locally excluded from commits
+7. Runs `bravo doctor` to confirm everything works
 
 After install:
 
@@ -52,6 +53,7 @@ What you get after install:
 - `bravo` on your PATH (launches from `bin/bravo` or `bin/bravo.cmd`)
 - `~/.bravo/` home directory (config, profiles, sessions, logs, skills, cache)
 - A populated `.env.template` (never reads or copies secrets)
+- A local `.env.agents` created by the wizard only when you enter credentials
 - 73 CLI tools discoverable via `bravo tools`
 - 148 skills discoverable via `bravo skills`
 - 20 sub-agents discoverable via `bravo agent list`

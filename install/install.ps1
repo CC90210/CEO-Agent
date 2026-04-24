@@ -121,6 +121,41 @@ Step "Creating ~/.bravo/ home + profiles + env template" {
     python "$repoRoot\install\bootstrap.py" --home "$bravoHome" --repo "$repoRoot"
 }
 
+# 2a. Install Python package dependencies (requirements.txt)
+Step "Installing Python packages (anthropic, stripe, supabase, playwright, ...)" {
+    $reqFile = Join-Path $repoRoot 'requirements.txt'
+    if (Test-Path $reqFile) {
+        & python -m pip install --quiet --disable-pip-version-check -r $reqFile
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "    WARN: pip install exited $LASTEXITCODE — some scripts may fail" -ForegroundColor Yellow
+        } else {
+            Write-Host "    installed" -ForegroundColor Green
+        }
+    } else {
+        Write-Host "    (no requirements.txt — skipped)" -ForegroundColor DarkGray
+    }
+}
+
+# 2b. Install Node.js package dependencies (package.json)
+Step "Installing Node packages (telegram-bot-api, supabase-js, remotion, ...)" {
+    $pkgJson = Join-Path $repoRoot 'package.json'
+    if (Test-Path $pkgJson) {
+        Push-Location $repoRoot
+        try {
+            & npm install --silent --no-audit --no-fund
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "    WARN: npm install exited $LASTEXITCODE" -ForegroundColor Yellow
+            } else {
+                Write-Host "    installed" -ForegroundColor Green
+            }
+        } finally {
+            Pop-Location
+        }
+    } else {
+        Write-Host "    (no package.json — skipped)" -ForegroundColor DarkGray
+    }
+}
+
 # 3. Confirm shim present
 Step "Verifying bravo shim at $binDir\bravo.cmd" {
     if (-not (Test-Path (Join-Path $binDir 'bravo.cmd'))) {

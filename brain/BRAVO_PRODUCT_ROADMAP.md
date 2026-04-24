@@ -52,7 +52,7 @@ The V1.0 push closes that gap and then leapfrogs with the moat.
 - `install/install.ps1` — Windows one-command
 - `install/install.sh` — POSIX one-command
 - `install/bootstrap.py` — cross-platform shared helper
-- Never touches `.env.agents`; generates `.env.template` from keys only
+- Installers never touch secret values; the setup wizard writes local `.env.agents` only after git safety checks
 
 ### Phase 6 — Terminal Polish ✅
 - BRAVO ASCII banner, cyan + magenta theme, ASCII fallback for cp1252 Windows
@@ -121,7 +121,7 @@ The V1.0 push closes that gap and then leapfrogs with the moat.
 - **No monolithic `AIAgent` class** — Bravo preserves the 17-agent routing matrix with domain-specific personalities, safety gates, and decision autonomy. A single class across all entry points is elegant for Hermes; it would erase Bravo's moat.
 - **No cookies/sessions/credentials in browser domain skills** — domain skills describe site mechanics only; auth state stays with the live browser profile.
 - **No bypass of `send_gateway.py`** — outbound chokepoint is V5.6 canon and survives every refactor.
-- **No `.env.agents` mutation by any installer or wizard** — install scripts generate `.env.template` from keys only; CC fills values by hand.
+- **No unsafe `.env.agents` mutation** — installers generate templates only; the wizard refuses tracked env files and locally excludes `.env.agents` before writing credentials.
 - **No aggressive compression of CLAUDE.md** — 120-line instruction-loss threshold is respected; skill-specific content moves to `skills/`, not removed.
 
 ---

@@ -1,8 +1,9 @@
 # Install — Bravo One-Command Setup
 
 Idempotent installers for Windows, macOS, Linux, and WSL. Safe to re-run.
-Neither script reads, writes, or copies the secrets file — they only generate
-a keys-only template for the operator to fill in manually.
+The installer scripts do not read, write, or copy secret values — they only
+generate a keys-only template. The interactive `bravo setup` wizard is the
+separate step that can write credentials to a local, gitignored `.env.agents`.
 
 ## Windows
 
@@ -77,7 +78,8 @@ bravo agent list   # see the 20 registered sub-agents
 ## Install Principles (Non-Negotiable)
 
 - Windows-first. POSIX/WSL second. macOS tested opportunistically.
-- No installer reads, writes, or copies the secrets file.
+- No installer reads, writes, or copies secret values.
+- The setup wizard writes `.env.agents` only after confirming it is not tracked by git.
 - No installer runs destructive database, Stripe, git, or file operations.
 - Setup generates templates, checks tools, explains next actions.
 - Doctor is read-only.

@@ -3,6 +3,22 @@ tags: [daily]
 ---
 
 
+### 2026-04-24 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Codex cleaned up the public CEO-Agent quickstart flow after CC feedback. Commit f02dda1 pushed. The raw PowerShell one-liner now keeps the polished OASIS AI banner, prepares the local Agent Factory quietly, removes the pre-selection 'Bravo installed' moment, launches 'OASIS AI setup', and the wizard welcome now says to choose an OASIS AI agent. Picker still requires an explicit agent number. Verified raw GitHub quickstart and wizard text.
+
+### 2026-04-24 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Codex corrected the actual raw GitHub setup path in C:/Users/User/bravo-repo / CC90210/CEO-Agent. Commit 812c28a pushed to main. Fixed install.ps1 Windows PowerShell parse failure, made quickstart.ps1 fail closed on installer/wizard errors, launched wizard directly from the freshly updated repo instead of stale ~/.bravo shim, updated POSIX quickstart similarly, and removed default profile=Bravo picker behavior so users must explicitly choose an agent. Verified raw.githubusercontent.com now serves ASCII-safe quickstart/install files and correct C:/Users/User/bravo-repo/.env.agents destination.
+
+### 2026-04-24 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Codex corrected the actual raw GitHub setup path in C:\Users\User\bravo-repo / CC90210/CEO-Agent. Commit 812c28a pushed to main. Fixed install.ps1 Windows PowerShell parse failure, made quickstart.ps1 fail closed on installer/wizard errors, launched wizard directly from the freshly updated repo instead of stale ~/.bravo shim, updated POSIX quickstart similarly, and removed default profile=Bravo picker behavior so users must explicitly choose an agent. Verified raw.githubusercontent.com now serves ASCII-safe quickstart/install files and correct C:\Users\User\bravo-repo\.env.agents destination.
+
+### 2026-04-24 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Codex finalized setup wizard security pass. Hardened bravo_cli/wizard.py so .env.agents writes fail closed if tracked by git, add local git excludes for cloned agent repos, sanitize/atomically write env values, and preserve 0600 on POSIX. Fixed scan_secrets.py Windows history decoding + path-aware allowlist + Telegram placeholder handling. Made PowerShell installers ASCII-safe. Current-tree secret scans clean for Bravo, Maven/CMO, Atlas/CFO, Hermes, and AURA; Bravo history still contains one old Telegram token at commit fe9a91b6 in scripts/execute_gym_outreach.py, requiring explicit history rewrite/force-push approval to fully scrub.
+
 ### 2026-04-23 — Bravo V1.1: real setup wizard + one-line installer (public)
 **Agent:** Bravo (Claude Opus 4.7, 1M context)
 **Trigger:** CC asked for "actual functionality" — setup wizard that walks clients/developers through config like Hermes/OpenAI, with Telegram bridge setup built in. Repo is public.

@@ -146,9 +146,16 @@ SKIP_DIRS = {
 
 def _git_cmd(args: list[str], cwd: Path) -> tuple[int, str]:
     try:
-        r = subprocess.run(["git", *args], cwd=str(cwd), text=True,
-                           capture_output=True, timeout=120)
-        return r.returncode, r.stdout
+        r = subprocess.run(
+            ["git", *args],
+            cwd=str(cwd),
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            capture_output=True,
+            timeout=120,
+        )
+        return r.returncode, r.stdout or ""
     except Exception as exc:  # noqa: BLE001
         return 1, str(exc)
 
@@ -199,6 +206,9 @@ def _scan_text(text: str) -> list[tuple[str, str]]:
             # Skip obvious placeholders.
             if any(ph in matched for ph in PLACEHOLDERS):
                 continue
+            # Common Telegram documentation placeholder, not a live bot token.
+            if name == "Telegram bot token" and matched.startswith("123456:"):
+                continue
             # Redact the middle of the match — keep 8 chars at each end.
             redacted = (matched[:8] + "..." + matched[-8:]
                         if len(matched) > 20 else matched[:4] + "...")
@@ -248,13 +258,23 @@ def scan_history(repo_root: Path) -> dict:
             ["show", "--no-color", "--unified=0", commit], cwd=repo_root)
         if rc != 0:
             continue
+        current_path = ""
         for line in diff_out.splitlines():
+            if line.startswith("+++ b/"):
+                current_path = line[6:].strip()
+                continue
+            if line.startswith("+++ /dev/null"):
+                current_path = ""
+                continue
+            if current_path in ALLOWLIST_FILES:
+                continue
             # Only scan added lines to reduce noise.
             if not line.startswith("+") or line.startswith("+++"):
                 continue
             added = line[1:]
             for name, redacted in _scan_text(added):
                 findings.append({"commit": commit[:8], "rule": name,
+                                 "path": current_path or "?",
                                  "match": redacted})
     return {"mode": "history", "repo": str(repo_root),
             "commits_scanned": len(commits), "findings": findings}
@@ -275,7 +295,7 @@ def _format_findings(result: dict) -> int:
         if mode == "tree":
             print(f"    [{f['rule']}]  {f['path']}")
         else:
-            print(f"    [{f['rule']}]  commit {f.get('commit', '?')}")
+            print(f"    [{f['rule']}]  commit {f.get('commit', '?')}  {f.get('path', '?')}")
         print(f"        match: {f['match']}")
     print()
     print("Remediation:")
