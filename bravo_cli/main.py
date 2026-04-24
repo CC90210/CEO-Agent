@@ -46,7 +46,6 @@ BRAIN_DIR = REPO_ROOT / "brain"
 MEMORY_DIR = REPO_ROOT / "memory"
 TEMPLATES_DIR = REPO_ROOT / "templates"
 ENV_FILE = REPO_ROOT / ".env.agents"
-CONFIG_EXAMPLE = REPO_ROOT / "config" / "bravo-config.example.toml"
 BRAVO_HOME = Path(os.path.expanduser("~/.bravo"))
 
 # Make `runtime` package importable without installing.
@@ -138,16 +137,6 @@ def _read_state_field(field: str) -> str:
     pattern = rf"\|\s*\*\*{re.escape(field)}\*\*\s*\|\s*([^|]+)\|"
     m = re.search(pattern, text)
     return m.group(1).strip() if m else "unknown"
-
-
-def _count_lines(path: Path, ext: str) -> int:
-    total = 0
-    for f in path.rglob(f"*{ext}"):
-        try:
-            total += sum(1 for _ in f.open(encoding="utf-8", errors="ignore"))
-        except Exception:
-            pass
-    return total
 
 
 # ── Commands ───────────────────────────────────────────────────────────────────
@@ -443,10 +432,12 @@ def cmd_run(args: argparse.Namespace) -> int:
 def cmd_setup(args: argparse.Namespace) -> int:
     """Guided first-time setup wizard.
 
-    Default: interactive Q&A (asks about profile, Anthropic, OpenAI,
-    Telegram bridge, Stripe, Supabase, n8n). Writes to ~/.bravo/.env.
+    Default: interactive Q&A (profile picker, AI providers, chat bridges,
+    business integrations). Writes directly to <repo>/.env.agents so all
+    existing scripts in scripts/ pick up the keys immediately.
 
-    Use `bravo setup --noninteractive` to run the old diagnostic-only flow.
+    Use `bravo setup --noninteractive` to run the diagnostic-only flow.
+    Use `bravo setup --profile atlas` (etc.) to skip the profile picker.
     """
     if not getattr(args, "noninteractive", False):
         try:
@@ -646,8 +637,23 @@ def cmd_browser(args: argparse.Namespace) -> int:
             print(f"{RED('Usage:')} bravo browser learn <site>")
             print(f"  {DIM('Creates a new browser/domain-skills/<site>.md stub from the template.')}")
             return 1
+        # Sanitize: only allow [a-z0-9_-], lowercase. Blocks path traversal
+        # (../), absolute paths (/etc/...), and funky unicode.
+        site = args.site.strip().lower()
+        if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", site):
+            print(f"{RED('Invalid site slug:')} {args.site!r}")
+            print(f"  {DIM('Allowed: a-z, 0-9, _, -. Max 64 chars. Must start with a letter/digit.')}")
+            return 1
         template = REPO_ROOT / "browser" / "DOMAIN_SKILL_TEMPLATE.md"
-        out = REPO_ROOT / "browser" / "domain-skills" / f"{args.site}.md"
+        domain_skills_dir = (REPO_ROOT / "browser" / "domain-skills").resolve()
+        out = (domain_skills_dir / f"{site}.md").resolve()
+        # Defense in depth: even after regex, verify the resolved path is
+        # inside domain_skills_dir.
+        try:
+            out.relative_to(domain_skills_dir)
+        except ValueError:
+            print(f"{RED('Path escape detected — refusing to write outside browser/domain-skills/')}")
+            return 1
         if out.exists():
             print(f"{YELLOW('Exists:')} {out}")
             return 0
@@ -655,7 +661,7 @@ def cmd_browser(args: argparse.Namespace) -> int:
             print(f"{RED('Template missing:')} {template}")
             return 1
         out.parent.mkdir(parents=True, exist_ok=True)
-        content = template.read_text(encoding="utf-8").replace("<site>", args.site)
+        content = template.read_text(encoding="utf-8").replace("<site>", site)
         out.write_text(content, encoding="utf-8")
         print(f"{GREEN(OK)} Created {out}")
         print(f"  {DIM('Fill in URL patterns, selectors, waits, traps, approval actions.')}")

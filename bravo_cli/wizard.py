@@ -530,16 +530,39 @@ def ensure_env_file() -> None:
                 pass
 
 def write_env(key: str, value: str, announce: bool = True) -> None:
-    """Write KEY=value to the repo's .env.agents. Per-key merge — never
-    clobbers other keys. Prints a save confirmation by default."""
+    """Write KEY=value to the repo's .env.agents.
+
+    Rewrites the file line-by-line so duplicate keys get collapsed to a
+    single occurrence holding the latest value. Comments and blank lines
+    are preserved in place. Never clobbers OTHER keys.
+    """
     ensure_env_file()
     text = ENV_PATH.read_text(encoding="utf-8", errors="ignore")
-    pattern = re.compile(rf"^{re.escape(key)}=.*$", re.MULTILINE)
-    line = f"{key}={value}"
-    if pattern.search(text):
-        new_text = pattern.sub(line, text)
-    else:
-        new_text = text.rstrip() + f"\n{line}\n"
+    out_lines: list[str] = []
+    replaced = False
+    for raw in text.splitlines():
+        s = raw.strip()
+        # Preserve comments and blanks as-is.
+        if not s or s.startswith("#"):
+            out_lines.append(raw)
+            continue
+        if "=" not in s:
+            out_lines.append(raw)
+            continue
+        k = s.split("=", 1)[0].strip()
+        if k == key:
+            if replaced:
+                # Drop any duplicate occurrences after the first replacement.
+                continue
+            out_lines.append(f"{key}={value}")
+            replaced = True
+            continue
+        out_lines.append(raw)
+    if not replaced:
+        # Key didn't exist — append it.
+        out_lines.append(f"{key}={value}")
+    # Rejoin; keep a single trailing newline.
+    new_text = "\n".join(out_lines).rstrip() + "\n"
     ENV_PATH.write_text(new_text, encoding="utf-8")
     if key not in _SAVED_THIS_SESSION:
         _SAVED_THIS_SESSION.append(key)
@@ -657,13 +680,17 @@ def validate_anthropic(key: str) -> tuple[bool, str]:
         return False, str(e)[:80]
 
 def validate_openai(key: str) -> tuple[bool, str]:
+    # `status == 0` means the HTTP helper caught an exception (DNS / TLS /
+    # connect refused / timeout). Treat that as "cannot verify", not "ok".
     status, _ = _http_get("https://api.openai.com/v1/models",
                           {"Authorization": f"Bearer {key}"})
     if status == 200:
         return True, "accepted"
     if status == 401:
         return False, "unauthorized"
-    return status == 0, f"HTTP {status}"
+    if status == 0:
+        return False, "network error — could not reach OpenAI"
+    return False, f"HTTP {status}"
 
 def validate_google_ai(key: str) -> tuple[bool, str]:
     status, _ = _http_get(
@@ -672,7 +699,9 @@ def validate_google_ai(key: str) -> tuple[bool, str]:
         return True, "accepted"
     if status in (401, 403):
         return False, "unauthorized"
-    return status == 0, f"HTTP {status}"
+    if status == 0:
+        return False, "network error — could not reach Google AI"
+    return False, f"HTTP {status}"
 
 def validate_stripe(key: str) -> tuple[bool, str]:
     status, _ = _http_get("https://api.stripe.com/v1/balance",
@@ -681,6 +710,8 @@ def validate_stripe(key: str) -> tuple[bool, str]:
         return True, "accepted"
     if status == 401:
         return False, "unauthorized"
+    if status == 0:
+        return False, "network error — could not reach Stripe"
     return False, f"HTTP {status}"
 
 def validate_slack(token: str) -> tuple[bool, str]:
@@ -808,13 +839,27 @@ def telegram_flow(profile_name: str) -> bool:
     print(f"  {BOLD('5.')} Press {CYAN('Start')} or send any message (like {CYAN('hi')})")
     print(f"  {BOLD('6.')} Come back here — the wizard detects your chat automatically")
     print()
+    # Flush any pending updates from before the user messaged the bot — this
+    # stops a stale backlog from binding the wrong chat_id.
+    try:
+        _tg_api(token, "getUpdates", {"offset": -1})
+    except Exception:
+        pass
     input(f"  {DIM('Press Enter once you have messaged your bot...')} ")
-    print(f"  {DIM(ARROW + ' Listening for your message (up to 120s)...')}")
+    print(f"  {DIM(ARROW + ' Listening for a fresh message (up to 120s)...')}")
     chat_id = tg_wait_for_chat_id(token, timeout=120)
     if chat_id is None:
         print(f"  {YELLOW('No message detected.')} Re-run {CYAN('bravo setup')} later.")
         return False
-    print(f"  {GREEN(OK)} Captured chat_id {BOLD(str(chat_id))}")
+    print(f"  {GREEN(OK)} Detected chat_id {BOLD(str(chat_id))}")
+    # Explicit operator confirmation — Codex self-review surfaced this: if
+    # multiple people chat the bot during setup, the first one "wins" the
+    # bridge without the user noticing.
+    if not yes_no(f"Is {BOLD(str(chat_id))} YOUR chat (the one you just messaged from)?",
+                  default=True):
+        print(f"  {YELLOW('Not bound.')} Re-run {CYAN('bravo setup')} "
+              f"when your bot has no backlog.")
+        return False
     write_env("TELEGRAM_CHAT_ID", str(chat_id))
     # telegram_agent.js + funnel_nurture.py read TELEGRAM_ALLOWED_USERS for
     # outbound messages. Keep them in sync so the bridge works end-to-end.

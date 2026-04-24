@@ -139,23 +139,35 @@ class SessionStore:
         return count
 
     def search(self, query: str, limit: int = 10) -> list[dict]:
-        """Full-text ranked search across all ingested sessions."""
-        # Escape FTS5 special characters
-        safe_query = query.replace('"', '""')
-        fts_query = f'"{safe_query}"' if " " in safe_query else safe_query
-        rows = self.conn.execute(
-            """
-            SELECT s.id, s.date, s.title, s.agent, s.source_file,
-                   snippet(sessions_fts, 2, '<<', '>>', ' … ', 24) AS snippet,
-                   rank
-            FROM sessions_fts
-            JOIN sessions s ON s.id = sessions_fts.rowid
-            WHERE sessions_fts MATCH ?
-            ORDER BY rank
-            LIMIT ?
-            """,
-            (fts_query, limit),
-        ).fetchall()
+        """Full-text ranked search across all ingested sessions.
+
+        Quotes the full query as a single FTS5 phrase so operator tokens
+        (OR, AND, NEAR, NOT), column-qualifier syntax (``foo:bar``), and
+        special chars don't blow up the parser. Empty queries return [].
+        """
+        if not query or not query.strip():
+            return []
+        # FTS5 escape: inside a double-quoted phrase, "" is a literal ".
+        safe_query = '"' + query.strip().replace('"', '""') + '"'
+        try:
+            rows = self.conn.execute(
+                """
+                SELECT s.id, s.date, s.title, s.agent, s.source_file,
+                       snippet(sessions_fts, 2, '<<', '>>', ' … ', 24) AS snippet,
+                       rank
+                FROM sessions_fts
+                JOIN sessions s ON s.id = sessions_fts.rowid
+                WHERE sessions_fts MATCH ?
+                ORDER BY rank
+                LIMIT ?
+                """,
+                (safe_query, limit),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            # Malformed FTS query (shouldn't happen after quoting, but keep
+            # the failure quiet and return no results rather than crashing
+            # the caller).
+            return []
         return [dict(r) for r in rows]
 
     def recent(self, limit: int = 10) -> list[dict]:

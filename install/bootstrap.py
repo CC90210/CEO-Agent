@@ -24,8 +24,6 @@ if str(REPO_ROOT) not in sys.path:
 
 from runtime.profile_home import ensure_home, DEFAULT_HOME, SUBDIRS  # noqa: E402
 
-CONFIG_EXAMPLE = REPO_ROOT / "config" / "bravo-config.example.toml"
-
 
 def extract_env_keys(env_path: Path) -> list[str]:
     """Parse .env-style file, return list of keys (never values)."""

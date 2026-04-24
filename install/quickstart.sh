@@ -12,7 +12,7 @@
 #
 # It NEVER touches your existing .env files, and NEVER asks for sudo.
 
-set -e
+set -euo pipefail
 
 REPO_URL="https://github.com/CC90210/CEO-Agent.git"
 REPO_DIR="${BRAVO_REPO_DIR:-$HOME/bravo-repo}"
