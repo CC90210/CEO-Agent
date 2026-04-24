@@ -454,7 +454,7 @@ def cmd_setup(args: argparse.Namespace) -> int:
         except Exception as exc:
             print(f"{RED('Wizard failed to load:')} {exc}")
             return 1
-        return run_wizard()
+        return run_wizard(profile_override=getattr(args, "profile", None))
 
     # Legacy: diagnostic-only mode
     print(BOLD(MAGENTA(BANNER)))
@@ -899,6 +899,9 @@ Automation:
     setup_p = sub.add_parser("setup", help="Guided first-time setup wizard")
     setup_p.add_argument("--noninteractive", action="store_true",
                          help="Skip prompts; run diagnostic-only mode")
+    setup_p.add_argument("--profile",
+                         choices=["bravo", "atlas", "maven", "aura", "hermes", "custom"],
+                         help="Pre-select a profile (skips the picker)")
     sub.add_parser("tools", help="List available CLI tools", aliases=["tool"])
     sub.add_parser("skills", help="List registered skills", aliases=["skill"])
     sub.add_parser("version", help="Show version info")

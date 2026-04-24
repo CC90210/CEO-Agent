@@ -1,16 +1,16 @@
 anthropic==0.85.0
 beautifulsoup4==4.14.3
 click==8.3.1
-cryptography==46.0.5
+cryptography==46.0.7
 firecrawl-py==4.22.0
 mem0ai==1.0.10
 numpy==2.4.2
-pillow==12.1.1
+pillow==12.2.0
 playwright==1.58.0
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.2
 requests-oauthlib==2.0.0
-requests==2.32.5
+requests==2.33.0
 stripe==14.4.0
 supabase-auth==2.28.2
 supabase-functions==2.28.2
@@ -20,10 +20,10 @@ supabase==2.28.2
 # deploy is live). Comment out if you want a minimal local dev install.
 fastapi==0.118.0
 uvicorn[standard]==0.32.0
-python-multipart==0.0.20
+python-multipart==0.0.26
 # openai is optional — memory_ingest.py falls back to Ollama or a deterministic
 # hash-stub for dev. Pin to the version that matches text-embedding-3-small.
 openai==1.59.9
 # pytest only needed for the CI deploy workflow
-pytest==8.3.4
+pytest==9.0.3
 dnspython==2.7.0

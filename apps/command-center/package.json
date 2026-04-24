@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
-    "next": "^14.2.34",
+    "next": "^14.2.35",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -22,7 +22,11 @@
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.14",
-    "typescript": "^5.6.3",
-    "vercel": "^51.8.0"
+    "typescript": "^5.6.3"
+  },
+  "overrides": {
+    "tar": "^7.5.11",
+    "undici": "^6.23.1",
+    "minimatch": "^9.0.5"
   }
 }

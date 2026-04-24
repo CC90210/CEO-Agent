@@ -42,5 +42,11 @@
     "nodemailer": "^8.0.1",
     "playwright": "^1.58.2",
     "remotion": "^4.0.431"
+  },
+  "overrides": {
+    "form-data": "^2.5.4",
+    "tough-cookie": "^4.1.4",
+    "qs": "^6.14.0",
+    "uuid": "^10.0.0"
   }
 }
