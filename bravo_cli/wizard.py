@@ -101,7 +101,6 @@ YELLOW  = lambda t: _c("33", t)
 RED     = lambda t: _c("31", t)
 CYAN    = lambda t: _c("36", t)
 MAGENTA = lambda t: _c("35", t)
-BLUE    = lambda t: _c("34", t)
 BRIGHT_BLUE = lambda t: _c("94", t)
 BG_CYAN = lambda t: _c("46;30", t)
 
@@ -1088,7 +1087,7 @@ def prompt(label: str, default: str | None = None, required: bool = False) -> st
             return default
         if not required:
             return ""
-        print(f"  {YELLOW('This one is needed — please enter a value.')}")
+        print(f"  {YELLOW('Required. Please try again.')}")
 
 def yes_no(label: str, default: bool = False) -> bool:
     hint = "Y/n" if default else "y/N"
@@ -1437,7 +1436,7 @@ def step_welcome() -> None:
     print(f"  {DIM('Nothing is uploaded; you stay in full control.')}")
     print()
     try:
-        input(f"  {BOLD('Press Enter to begin...')} ")
+        input(f"  {BOLD('Press Enter when ready...')} ")
     except (EOFError, KeyboardInterrupt):
         sys.exit(130)
 
@@ -1447,7 +1446,7 @@ def step_profile() -> str:
     # Custom (5). Numbered progress starts after the pick.
     print()
     print(f"{BG_CYAN('  Choose an agent profile  ')}")
-    print(f"    {DIM('Each agent adapts its integrations and questions to its role.')}")
+    print(f"    {DIM('Each agent has different tools for its role.')}")
     hr()
     print()
     slugs = list(PROFILES.keys())
@@ -1720,7 +1719,7 @@ def step_clone_agent_repo(profile: str, step_num: int, total: int) -> None:
 def step_ai(profile: str, step_num: int, total: int) -> None:
     p = PROFILES[profile]
     step_header(step_num, total, "AI providers",
-                "Anthropic is required. Others are optional fallbacks / delegates.")
+                "Anthropic is required. Others are backup options.")
     for slug in p["ai"]:
         required = slug in p["required"]
         integration_step(slug, required=required)
