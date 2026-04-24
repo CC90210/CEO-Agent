@@ -39,6 +39,14 @@ BRAVO_HOME = Path(os.path.expanduser("~/.bravo"))  # Still used for profiles / s
 
 # Tracks which keys the user saved in this session (for final summary).
 _SAVED_THIS_SESSION: list[str] = []
+_ENV_KEY_RE = re.compile(r"^[A-Z][A-Z0-9_]{1,120}$")
+_ENV_EXCLUDE_PATTERNS = [
+    ".env",
+    ".env.*",
+    "*.env",
+    ".env.agents",
+    ".env.agents.local",
+]
 
 # Force UTF-8 output on Windows.
 if os.name == "nt":
@@ -741,11 +749,116 @@ INTEGRATIONS: dict[str, dict] = {
 
 # ── Env file I/O ──────────────────────────────────────────────────────────────
 
+def _git_run(args: list[str], cwd: Path, timeout: int = 10) -> subprocess.CompletedProcess[str] | None:
+    """Small git wrapper for safety checks. Returns None when git is absent."""
+    if not shutil.which("git"):
+        return None
+    try:
+        return subprocess.run(
+            ["git", *args],
+            cwd=str(cwd),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+        )
+    except Exception:
+        return None
+
+
+def _git_root_for(path: Path) -> Path | None:
+    """Return the containing git root for path, if any."""
+    cwd = path if path.is_dir() else path.parent
+    if not cwd.exists():
+        return None
+    result = _git_run(["rev-parse", "--show-toplevel"], cwd)
+    if not result or result.returncode != 0:
+        return None
+    root = result.stdout.strip()
+    return Path(root).resolve() if root else None
+
+
+def _git_rel(path: Path, root: Path) -> str | None:
+    try:
+        return path.resolve().relative_to(root).as_posix()
+    except ValueError:
+        return None
+
+
+def _git_file_is_tracked(root: Path, rel: str) -> bool:
+    result = _git_run(["ls-files", "--error-unmatch", "--", rel], root)
+    return bool(result and result.returncode == 0)
+
+
+def _git_file_is_ignored(root: Path, rel: str) -> bool:
+    result = _git_run(["check-ignore", "-q", "--", rel], root)
+    return bool(result and result.returncode == 0)
+
+
+def _git_info_exclude(root: Path) -> Path | None:
+    result = _git_run(["rev-parse", "--git-path", "info/exclude"], root)
+    if not result or result.returncode != 0:
+        return None
+    raw = result.stdout.strip()
+    return (root / raw).resolve() if raw else None
+
+
+def _ensure_env_is_git_safe(path: Path) -> None:
+    """Guarantee the env file cannot be accidentally committed."""
+    root = _git_root_for(path)
+    if not root:
+        return
+    rel = _git_rel(path, root)
+    if not rel:
+        return
+    if _git_file_is_tracked(root, rel):
+        raise RuntimeError(
+            f"Refusing to write secrets because {rel} is tracked by git. "
+            "Remove it from git history/index before running setup."
+        )
+    if _git_file_is_ignored(root, rel):
+        return
+
+    exclude = _git_info_exclude(root)
+    if not exclude:
+        raise RuntimeError(f"Could not locate .git/info/exclude for {root}")
+    exclude.parent.mkdir(parents=True, exist_ok=True)
+    existing = exclude.read_text(encoding="utf-8", errors="ignore") if exclude.exists() else ""
+    existing_lines = {line.strip() for line in existing.splitlines()}
+    additions = [p for p in [rel, *_ENV_EXCLUDE_PATTERNS] if p not in existing_lines]
+    if additions:
+        prefix = "" if not existing or existing.endswith("\n") else "\n"
+        block = prefix + "\n# Bravo local secrets\n" + "\n".join(additions) + "\n"
+        exclude.write_text(existing + block, encoding="utf-8")
+
+    if not _git_file_is_ignored(root, rel):
+        raise RuntimeError(f"Could not git-ignore secret env file: {path}")
+
+
+def _chmod_secret_file(path: Path) -> None:
+    if os.name == "nt":
+        return
+    try:
+        os.chmod(path, 0o600)
+    except Exception:
+        pass
+
+
+def _clean_env_value(key: str, value: str) -> str:
+    if not _ENV_KEY_RE.fullmatch(key):
+        raise ValueError(f"Invalid env key: {key!r}")
+    if any(ch in value for ch in ("\n", "\r", "\x00")):
+        raise ValueError(f"Refusing to write multiline/env-breaking value for {key}")
+    return value.strip()
+
+
 def ensure_env_file() -> None:
     # Home directory for sessions/profiles (not for env anymore).
     BRAVO_HOME.mkdir(parents=True, exist_ok=True)
     # .env.agents lives in the repo; create if absent.
     ENV_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _ensure_env_is_git_safe(ENV_PATH)
     if not ENV_PATH.exists():
         ENV_PATH.write_text(
             "# Bravo .env.agents — managed by `bravo setup`.\n"
@@ -753,11 +866,7 @@ def ensure_env_file() -> None:
             "# Scripts in scripts/ load directly from here.\n\n",
             encoding="utf-8",
         )
-        if os.name != "nt":
-            try:
-                os.chmod(ENV_PATH, 0o600)
-            except Exception:
-                pass
+    _chmod_secret_file(ENV_PATH)
 
 def write_env(key: str, value: str, announce: bool = True) -> None:
     """Write KEY=value to the repo's .env.agents.
@@ -767,6 +876,7 @@ def write_env(key: str, value: str, announce: bool = True) -> None:
     are preserved in place. Never clobbers OTHER keys.
     """
     ensure_env_file()
+    value = _clean_env_value(key, value)
     text = ENV_PATH.read_text(encoding="utf-8", errors="ignore")
     out_lines: list[str] = []
     replaced = False
@@ -793,7 +903,11 @@ def write_env(key: str, value: str, announce: bool = True) -> None:
         out_lines.append(f"{key}={value}")
     # Rejoin; keep a single trailing newline.
     new_text = "\n".join(out_lines).rstrip() + "\n"
-    ENV_PATH.write_text(new_text, encoding="utf-8")
+    tmp_path = ENV_PATH.with_name(f"{ENV_PATH.name}.tmp")
+    tmp_path.write_text(new_text, encoding="utf-8")
+    _chmod_secret_file(tmp_path)
+    tmp_path.replace(ENV_PATH)
+    _chmod_secret_file(ENV_PATH)
     if key not in _SAVED_THIS_SESSION:
         _SAVED_THIS_SESSION.append(key)
     if announce:
@@ -1129,22 +1243,23 @@ def integration_step(slug: str, required: bool) -> bool:
             print(f"  {DIM('Skipped.')}")
             return False
 
-    # ── Offer CLI-based auth first, before asking for a raw API key ─────────
-    # If the provider's companion CLI is installed (Claude Code / Codex /
-    # Gemini CLI), it already manages auth in the OS's secure credential
-    # store (Keychain on macOS, Credential Manager on Windows, libsecret on
-    # Linux). Using that is more secure than pasting a raw key into our
-    # .env.agents — the token never touches a plain-text file.
+    # ── Offer CLI-based auth as an alternative to a raw API key ─────────────
+    # Companion CLIs (Claude Code / Codex / Gemini CLI) manage auth in the OS
+    # secure credential store. More private than a raw key in .env.agents.
+    # BUT: today only a subset of downstream scripts respect the _AUTH_MODE
+    # marker. Default is "No" so the safe path (raw key — every script works)
+    # is one-Enter. Opt in only if you know what you're doing.
     cli = spec.get("cli_auth")
     if cli and shutil.which(cli["cmd"]):
         print(f"    {GREEN(OK)} Detected {BOLD(cli['label'])} on PATH.")
-        print(f"    {DIM('Using that skips the raw API key — auth stays in your OS keychain.')}")
-        if yes_no(f"Use {cli['label']} instead of pasting a key?", default=True):
+        print(f"    {DIM('CLI auth stays in your OS keychain — no raw key on disk.')}")
+        print(f"    {YELLOW(WARN)} {DIM('Beta: existing scripts still expect a raw key. If unsure, say No.')}")
+        if yes_no(f"Use {cli['label']} anyway?", default=False):
             write_env(cli["mode_key"], cli["mode_value"])
-            print(f"    {DIM('Downstream scripts should read ' + cli['mode_key'] + ' and call ' + cli['cmd'] + ' instead of hitting the raw API.')}")
+            print(f"    {DIM('Marker written. Wire scripts to read ' + cli['mode_key'] + ' over time.')}")
             print()
             return True
-        print(f"    {DIM('OK, falling back to raw API key.')}")
+        print(f"    {DIM('Good call — raw key is the reliable path today.')}")
 
     # Tell user where to get it
     print(f"    {DIM('Get it:')} {link(spec['url'])}")
@@ -1335,6 +1450,17 @@ def _reroot_env_path(target: Path) -> None:
     ENV_PATH = target / ".env.agents"
 
 
+def _activate_env_destination(target: Path) -> bool:
+    """Switch env writes to target/.env.agents and harden that destination."""
+    _reroot_env_path(target)
+    try:
+        ensure_env_file()
+        return True
+    except Exception as exc:  # noqa: BLE001
+        print(f"  {RED('Secret-file safety check failed:')} {exc}")
+        sys.exit(1)
+
+
 def step_clone_agent_repo(profile: str, step_num: int, total: int) -> None:
     """Offer to clone the selected agent's own GitHub repo into ~/.
 
@@ -1357,8 +1483,8 @@ def step_clone_agent_repo(profile: str, step_num: int, total: int) -> None:
 
     if target.exists() and (target / ".git").exists():
         print(f"  {GREEN(OK)} Already cloned at {CYAN(str(target))}")
-        _reroot_env_path(target)
-        print(f"  {GREEN(OK)} Config will save to {CYAN(str(ENV_PATH))}")
+        if _activate_env_destination(target):
+            print(f"  {GREEN(OK)} Config will save to {CYAN(str(ENV_PATH))}")
         return
     if not yes_no(f"Clone {p['name']} to {target}?", default=True):
         print(f"  {YELLOW(WARN)} Skipped clone — config will save to the launcher repo")
@@ -1375,8 +1501,8 @@ def step_clone_agent_repo(profile: str, step_num: int, total: int) -> None:
                            capture_output=True, text=True, timeout=300)
         if r.returncode == 0:
             print(f"  {GREEN(OK)} Cloned to {CYAN(str(target))}")
-            _reroot_env_path(target)
-            print(f"  {GREEN(OK)} Config will save to {CYAN(str(ENV_PATH))}")
+            if _activate_env_destination(target):
+                print(f"  {GREEN(OK)} Config will save to {CYAN(str(ENV_PATH))}")
         else:
             err_msg = r.stderr.strip()[:200] or "unknown error"
             print(f"  {RED('Clone failed:')} {err_msg}")

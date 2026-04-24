@@ -63,38 +63,49 @@ SUBDIRS = [
     "cache",
 ]
 
+# Per-profile metadata. repo_path is derived from the current user's home at
+# profile-write time via _resolve_repo_path() — never hardcoded to CC's
+# machine layout. When someone clones via the OASIS AI wizard, their profile
+# TOML files reflect THEIR user home, not mine.
 PROFILES = {
-    "bravo": {
-        "role": "business operations brain",
-        "browser_allowed": True,
-        "repo_path": "C:/Users/User/Business-Empire-Agent",
-    },
-    "atlas": {
-        "role": "CFO — finance, tax, trading, budgeting",
-        "browser_allowed": True,
-        "repo_path": "C:/Users/User/APPS/CFO-Agent",
-        "approval_required_for_money_movement": True,
-    },
-    "maven": {
-        "role": "CMO — content, ads, funnel, brand",
-        "browser_allowed": True,
-        "repo_path": "C:/Users/User/CMO-Agent",
-        "approval_required_for_publish": True,
-        "approval_required_for_ad_budget": True,
-    },
-    "aura": {
-        "role": "Life/Home agent — ambient, habits, routines",
-        "browser_allowed": True,
-        "repo_path": "C:/Users/User/AURA",
-        "approval_required_for_physical_devices": True,
-    },
-    "hermes": {
-        "role": "Client operations agent",
-        "browser_allowed": True,
-        "repo_path": "C:/Users/User/APPS/hermes",
-        "approval_required_for_client_portals": True,
-    },
+    "bravo":  {"role": "Business operations brain",
+               "browser_allowed": True,
+               "repo_dir_name": "bravo-repo"},
+    "atlas":  {"role": "CFO — finance, tax, trading, budgeting",
+               "browser_allowed": True,
+               "repo_dir_name": "atlas-repo",
+               "approval_required_for_money_movement": True},
+    "maven":  {"role": "CMO — content, ads, funnel, brand",
+               "browser_allowed": True,
+               "repo_dir_name": "maven-repo",
+               "approval_required_for_publish": True,
+               "approval_required_for_ad_budget": True},
+    "aura":   {"role": "Life/Home agent — ambient, habits, routines",
+               "browser_allowed": True,
+               "repo_dir_name": "aura-repo",
+               "approval_required_for_physical_devices": True},
+    "hermes": {"role": "Client operations agent",
+               "browser_allowed": True,
+               "repo_dir_name": "hermes-repo",
+               "approval_required_for_client_portals": True},
 }
+
+
+def _resolve_repo_path(slug: str, settings: dict) -> str:
+    """Return the expected on-disk repo path for this profile.
+
+    Preference order:
+      1. Environment override — BRAVO_REPO_PATH / ATLAS_REPO_PATH / ...
+      2. The sibling clone the OASIS AI wizard uses (~/<slug>-repo)
+      3. Fall back to repo_dir_name under the user home.
+    """
+    env_key = f"{slug.upper()}_REPO_PATH"
+    env_override = os.environ.get(env_key)
+    if env_override:
+        return env_override
+    home = Path.home()
+    dir_name = settings.get("repo_dir_name", f"{slug}-repo")
+    return str(home / dir_name).replace("\\", "/")
 
 
 def ensure_home(home: Path = DEFAULT_HOME) -> Path:
@@ -130,7 +141,15 @@ def ensure_home(home: Path = DEFAULT_HOME) -> Path:
 
 def _render_profile(name: str, settings: dict) -> str:
     lines = [f"# Bravo profile: {name}", "", "[profile]", f'name = "{name}"']
+    # Compute repo_path dynamically from the current user's home — never
+    # serialize a machine-specific hardcoded path into the TOML.
+    repo_path = _resolve_repo_path(name, settings)
+    lines.append(f'repo_path = "{repo_path}"')
     for k, v in settings.items():
+        # repo_dir_name is a lookup hint for _resolve_repo_path(), not part of
+        # the serialized profile.
+        if k == "repo_dir_name":
+            continue
         if isinstance(v, bool):
             lines.append(f"{k} = {'true' if v else 'false'}")
         elif isinstance(v, str):
