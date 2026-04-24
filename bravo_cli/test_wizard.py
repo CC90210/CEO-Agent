@@ -146,5 +146,34 @@ class TestBannerVersion(unittest.TestCase):
         self.assertIn("V1.4", buf.getvalue())
 
 
+class TestSecretsMask(unittest.TestCase):
+    """_mask_value must never leak length info for long tokens, and must
+    always redact the middle for anything long enough to be sensitive."""
+
+    def setUp(self):
+        from bravo_cli import main as m
+        self.mask = m._mask_value
+
+    def test_empty_value(self):
+        self.assertEqual(self.mask(""), "(empty)")
+
+    def test_short_value_fully_starred(self):
+        # <=8 chars is fully starred — too short to hint at
+        self.assertEqual(self.mask("a"), "*")
+        self.assertEqual(self.mask("abcd1234"), "********")
+
+    def test_long_value_fixed_length_mask(self):
+        # Stripe live keys are ~250+ chars. Mask must not leak that.
+        short = self.mask("sk-ant-1234567890abcdef")
+        very_long = self.mask("sk-live-" + "x" * 500 + "tail")
+        # Both should be exactly first4 + 8 stars + last4 = 16 chars
+        self.assertEqual(len(short), 16)
+        self.assertEqual(len(very_long), 16)
+        self.assertTrue(short.startswith("sk-a"))
+        self.assertTrue(very_long.startswith("sk-l"))
+        self.assertTrue(very_long.endswith("tail"))
+        self.assertIn("********", very_long)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

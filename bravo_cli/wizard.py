@@ -1918,7 +1918,15 @@ def step_finalize(profile: str, step_num: int, total: int) -> None:
           f"{DIM('Made by OASIS AI ·')} {link(OASIS_URL, 'oasisai.work')}")
     hr("═", 64)
     print()
-    if yes_no("Run `bravo doctor` now to verify everything?", default=True):
+    # Auto-run bravo doctor — no prompt. OpenClaw parity: onboarding that
+    # asks "want me to verify this worked?" is weaker than onboarding that
+    # just verifies it. Users who need to skip (CI, container builds) can
+    # set BRAVO_SKIP_POST_DOCTOR=1 before running the wizard.
+    if os.environ.get("BRAVO_SKIP_POST_DOCTOR") == "1":
+        print(f"  {DIM('BRAVO_SKIP_POST_DOCTOR=1 — skipping post-install doctor.')}")
+    else:
+        print(f"  {BOLD('Running')} {CYAN('bravo doctor')} {BOLD('to verify everything...')}")
+        print()
         bravo_cmd = REPO_ROOT / "bravo_cli" / "main.py"
         subprocess.call([sys.executable, str(bravo_cmd), "doctor"],
                         cwd=str(REPO_ROOT))

@@ -148,6 +148,79 @@ def cmd_version(_args: argparse.Namespace) -> int:
     return 0
 
 
+def _mask_value(value: str) -> str:
+    """Return a display-safe mask: first 4 + 8 stars + last 4 of the value.
+
+    Fixed-length mask keeps columns aligned for long tokens (Stripe, Turso)
+    without leaking length information about the credential.
+    """
+    if not value:
+        return "(empty)"
+    if len(value) <= 8:
+        return "*" * len(value)
+    return f"{value[:4]}{'*' * 8}{value[-4:]}"
+
+
+def _read_env_files() -> dict[str, tuple[str, str]]:
+    """Return {key: (value, source_path)} pulling from every .env.agents
+    location the wizard might have written to."""
+    candidates = [
+        BRAVO_HOME / ".env",
+        ENV_FILE,
+        REPO_ROOT / ".env.agents",
+    ]
+    seen: dict[str, tuple[str, str]] = {}
+    for path in candidates:
+        if not path.exists():
+            continue
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            continue
+        for line in text.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, val = line.partition("=")
+            key = key.strip()
+            if key and key not in seen:
+                seen[key] = (val.strip(), str(path))
+    return seen
+
+
+def cmd_secrets(args: argparse.Namespace) -> int:
+    """bravo secrets list | audit — OpenClaw-parity credential UX."""
+    action = (getattr(args, "action", None) or "list").lower()
+    if action == "list":
+        found = _read_env_files()
+        if not found:
+            print(f"  {YELLOW('No secrets found.')}  Run {CYAN('bravo setup')} to create one.")
+            return 1
+        print(f"  {BOLD('Credentials')}  {DIM(f'({len(found)} key(s), masked)')}")
+        print()
+        for key in sorted(found):
+            val, src = found[key]
+            print(f"    {GREEN(OK)} {key:36s}  {DIM(_mask_value(val))}  "
+                  f"{DIM('[' + Path(src).name + ']')}")
+        print()
+        print(f"  {DIM('Values are displayed masked. Run')} {CYAN('bravo secrets audit')} "
+              f"{DIM('to scan for plaintext leaks in the repo.')}")
+        return 0
+    if action == "audit":
+        scanner = REPO_ROOT / "scripts" / "scan_secrets.py"
+        if not scanner.exists():
+            print(f"  {RED(FAIL)} {scanner} not found — cannot audit.")
+            return 1
+        print(f"  {BOLD('Running')} {CYAN('scripts/scan_secrets.py')}{BOLD('...')}")
+        print()
+        import subprocess  # local import — keeps top-level imports quiet
+        r = subprocess.run([sys.executable, str(scanner)],
+                           cwd=str(REPO_ROOT))
+        return r.returncode
+    print(f"  {RED('Unknown action:')} {action}. Try: list | audit")
+    return 2
+
+
 def cmd_doctor(_args: argparse.Namespace) -> int:
     """Unified health check — wraps self_audit + onboarding_diagnostics."""
     print(BOLD(CYAN("BRAVO DOCTOR")))
@@ -905,6 +978,10 @@ Automation:
   agent doctor <name>  Validate an agent's structure
   run <script>         Run a script from scripts/
   update               git pull + catalog sync + session ingest
+
+Security:
+  secrets list         Masked display of all configured credentials
+  secrets audit        Scan the repo for plaintext tokens (scan_secrets.py)
 """,
     )
     sub = parser.add_subparsers(dest="command")
@@ -968,6 +1045,12 @@ Automation:
     lg_p.add_argument("--tail", type=int, default=50,
                       help="Number of lines to print (default 50)")
 
+    # secrets list | audit — OpenClaw-parity credential UX
+    sec_p = sub.add_parser("secrets",
+                           help="Masked credential display + plaintext audit")
+    sec_p.add_argument("action", nargs="?", default="list",
+                       choices=["list", "audit"])
+
     return parser
 
 
@@ -988,6 +1071,7 @@ COMMAND_MAP = {
     "profile": cmd_profile,
     "logs": cmd_logs,
     "update": cmd_update,
+    "secrets": cmd_secrets,
 }
 
 
