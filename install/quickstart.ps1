@@ -12,7 +12,7 @@
   What it does:
     1. Checks prereqs (python, node, git) - offers winget commands if missing
     2. Clones CC90210/CEO-Agent into $HOME\bravo-repo (or updates if present)
-    3. Runs install\install.ps1 (idempotent)
+    3. Prepares the local Agent Factory launcher (idempotent, no heavy deps)
     4. Launches `bravo setup` (the interactive wizard)
 
   Never touches existing env files; never asks for admin.
@@ -90,7 +90,7 @@ Write-Host ""
 # Install quietly. The user-facing product moment is the OASIS AI picker below,
 # not an internal install banner before they choose an agent.
 Write-Host "==> Preparing local Agent Factory" -ForegroundColor White
-& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoDir 'install\install.ps1') -SkipPathUpdate -Quiet
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoDir 'install\install.ps1') -SkipPathUpdate -Quiet -SkipDependencyInstall -SkipSmokeTests
 if ($LASTEXITCODE -ne 0) {
     throw "install.ps1 failed with exit code $LASTEXITCODE"
 }

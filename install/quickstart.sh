@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Bravo quickstart — one-line install for macOS / Linux / WSL.
+# OASIS AI setup — one-line installer for macOS / Linux / WSL.
 #
 # Usage (from a fresh shell):
 #   curl -sSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.sh | bash
@@ -7,7 +7,7 @@
 # What this does:
 #   1. Checks prerequisites (python3, git, node)
 #   2. Clones CC90210/CEO-Agent into ~/bravo-repo  (or updates if it exists)
-#   3. Runs install/install.sh  (idempotent)
+#   3. Prepares the local Agent Factory launcher (idempotent, no heavy deps)
 #   4. Launches `bravo setup`  (the interactive wizard)
 #
 # It NEVER touches your existing .env files, and NEVER asks for sudo.
@@ -43,7 +43,7 @@ cat <<'BANNER'
 ╚════════════════════════════════════════════════════════════════════╝
 BANNER
 printf '%s' "$C_RESET"
-echo "  Bravo quickstart — one-line install"
+echo "  OASIS AI setup - choose your agent, then configure it"
 printf '  %sRepo:%s %s\n' "$C_DIM" "$C_RESET" "$REPO_URL"
 printf '  %sDest:%s %s\n\n' "$C_DIM" "$C_RESET" "$REPO_DIR"
 
@@ -83,14 +83,21 @@ else
 fi
 echo
 
-# --- Install ---
-echo "==> Running install/install.sh"
-bash "$REPO_DIR/install/install.sh" --skip-path
+# --- Lightweight local prep ---
+echo "==> Preparing local Agent Factory"
+prep_log="${TMPDIR:-/tmp}/oasis-agent-factory-install.log"
+if ! bash "$REPO_DIR/install/install.sh" --skip-path --skip-deps --skip-smoke >"$prep_log" 2>&1; then
+    printf '    %s[X] prep failed%s\n' "$C_RED" "$C_RESET"
+    echo "    Log: $prep_log"
+    tail -40 "$prep_log" || true
+    exit 1
+fi
+printf '    %s[+] ready%s\n' "$C_GREEN" "$C_RESET"
 echo
 
 # --- Launch wizard ---
 printf '%s=================================================%s\n' "$C_CYAN" "$C_RESET"
-printf '%s Launching the Bravo setup wizard...%s\n' "$C_CYAN" "$C_RESET"
+printf '%s Launching OASIS AI setup...%s\n' "$C_CYAN" "$C_RESET"
 printf '%s=================================================%s\n\n' "$C_CYAN" "$C_RESET"
 
 export PATH="$HOME/.bravo/bin:$PATH"

@@ -6,6 +6,7 @@
 #   bash install/install.sh
 #   bash install/install.sh --skip-path
 #   bash install/install.sh --dry-run
+#   bash install/install.sh --skip-deps --skip-smoke
 
 set -euo pipefail
 
@@ -16,11 +17,15 @@ BIN_DIR="$BRAVO_HOME/bin"
 
 DRY_RUN=0
 SKIP_PATH=0
+SKIP_DEPS=0
+SKIP_SMOKE=0
 for arg in "$@"; do
     case "$arg" in
-        --dry-run)   DRY_RUN=1 ;;
-        --skip-path) SKIP_PATH=1 ;;
-        *)           echo "unknown arg: $arg"; exit 1 ;;
+        --dry-run)    DRY_RUN=1 ;;
+        --skip-path)  SKIP_PATH=1 ;;
+        --skip-deps)  SKIP_DEPS=1 ;;
+        --skip-smoke) SKIP_SMOKE=1 ;;
+        *)            echo "unknown arg: $arg"; exit 1 ;;
     esac
 done
 
@@ -117,14 +122,16 @@ echo
 
 # Python + Node dependencies via the shared bootstrap helper.
 # Same code path as install.ps1 — single source of truth in bootstrap.py.
-echo "==> Installing Python + Node packages (pip + npm, both idempotent)"
-if [ "$DRY_RUN" -eq 1 ]; then
-    echo "    ${C_DIM}(dry run — skipping)${C_RESET}"
-else
-    python3 "$REPO_ROOT/install/bootstrap.py" --repo "$REPO_ROOT" --install-deps \
-        || echo "    ${C_YELLOW}WARN: some packages failed to install${C_RESET}"
+if [ "$SKIP_DEPS" -eq 0 ]; then
+    echo "==> Installing Python + Node packages (pip + npm, both idempotent; first run can take 2-5 min)"
+    if [ "$DRY_RUN" -eq 1 ]; then
+        echo "    ${C_DIM}(dry run — skipping)${C_RESET}"
+    else
+        python3 "$REPO_ROOT/install/bootstrap.py" --repo "$REPO_ROOT" --install-deps \
+            || echo "    ${C_YELLOW}WARN: some packages failed to install${C_RESET}"
+    fi
+    echo
 fi
-echo
 
 # Verify shim
 echo "==> Verifying bravo shim at $BIN_DIR/bravo"
@@ -169,15 +176,17 @@ if [ "$SKIP_PATH" -eq 0 ]; then
 fi
 
 # Smoke tests
-echo "==> Running self_audit"
-if [ "$DRY_RUN" -eq 0 ]; then
-    python3 "$REPO_ROOT/scripts/self_audit.py" 2>&1 | tail -5 || true
+if [ "$SKIP_SMOKE" -eq 0 ]; then
+    echo "==> Running self_audit"
+    if [ "$DRY_RUN" -eq 0 ]; then
+        python3 "$REPO_ROOT/scripts/self_audit.py" 2>&1 | tail -5 || true
+    fi
+    echo
 fi
-echo
 
 # Done
 printf '%s=================================================%s\n' "$C_CYAN" "$C_RESET"
-printf '%s Bravo installed.%s\n' "$C_CYAN" "$C_RESET"
+printf '%s OASIS AI Agent Factory is ready.%s\n' "$C_CYAN" "$C_RESET"
 printf '%s=================================================%s\n' "$C_CYAN" "$C_RESET"
 echo
 echo "  Next:"
