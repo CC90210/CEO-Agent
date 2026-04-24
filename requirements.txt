@@ -28,6 +28,10 @@ openai==1.59.9
 pytest==9.0.3
 dnspython==2.7.0
 
-# Optional — only needed by scripts/transcribe.py for local audio/video
-# transcription. 1-2 GB download (model weights). Comment out to skip.
-openai-whisper==20231117
+# openai-whisper is NOT listed here on purpose. It pulls in triton + torch
+# which frequently fail to install on Windows (needs CUDA / build tools).
+# If you need scripts/transcribe.py, install manually:
+#     pip install openai-whisper
+# On Windows with a CPU-only setup you may need:
+#     pip install torch --index-url https://download.pytorch.org/whl/cpu
+#     pip install openai-whisper

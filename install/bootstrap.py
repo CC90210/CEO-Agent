@@ -135,9 +135,10 @@ def install_mcp_config(repo_root: Path) -> tuple[bool, str]:
 def install_python_deps(repo_root: Path) -> tuple[bool, str]:
     """Run `pip install -r requirements.txt` if that file exists.
 
-    Idempotent — pip skips already-satisfied packages on its own, but
-    this helper short-circuits early when the file is absent. Returns
-    (ok, detail) so both shell installers can print consistent messaging.
+    Idempotent — pip skips already-satisfied packages. We DON'T use --quiet
+    so the user sees which specific package failed if something breaks
+    (the previous silent-fail hid a whisper+triton incompatibility on
+    Windows until users reported it).
     """
     req = repo_root / "requirements.txt"
     if not req.exists():
@@ -145,12 +146,12 @@ def install_python_deps(repo_root: Path) -> tuple[bool, str]:
     import subprocess
     try:
         r = subprocess.run(
-            [sys.executable, "-m", "pip", "install", "--quiet",
+            [sys.executable, "-m", "pip", "install",
              "--disable-pip-version-check", "-r", str(req)],
             timeout=900)
         if r.returncode == 0:
             return True, "installed (pip skips already-satisfied)"
-        return False, f"pip exit {r.returncode}"
+        return False, f"pip exit {r.returncode} — see output above for which package failed"
     except Exception as exc:  # noqa: BLE001
         return False, f"pip error: {exc}"
 
