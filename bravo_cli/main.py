@@ -72,7 +72,6 @@ GREEN = lambda t: _c("32", t)
 YELLOW = lambda t: _c("33", t)
 RED = lambda t: _c("31", t)
 CYAN = lambda t: _c("36", t)
-MAGENTA = lambda t: _c("35", t)
 
 # Safe symbols — fall back to ASCII if terminal can't handle Unicode
 def _safe(uchar: str, fallback: str) -> str:
@@ -448,7 +447,7 @@ def cmd_setup(args: argparse.Namespace) -> int:
         return run_wizard(profile_override=getattr(args, "profile", None))
 
     # Legacy: diagnostic-only mode
-    print(BOLD(MAGENTA(BANNER)))
+    print(BOLD(CYAN(BANNER)))
     print(BOLD("BRAVO SETUP (diagnostic mode)"))
     print(f"  {DIM('Checking environment only — no prompts.')}")
     print()
@@ -996,7 +995,7 @@ def _launch_banner() -> None:
     """Branded launch screen — shown on bare `bravo` invocation."""
     print(BOLD(CYAN(BANNER)))
     print(f"  {BOLD('Bravo')} {DIM(f'v{VERSION}')}  {DIM('|')}  "
-          f"{MAGENTA(TAGLINE)}")
+          f"{DIM(TAGLINE)}")
     print(f"  {DIM(str(dt.datetime.now().strftime('%Y-%m-%d %H:%M')))}"
           f"  {DIM('|')}  {DIM('Only good things from now on.')}")
     print()
