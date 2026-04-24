@@ -161,6 +161,11 @@ def install_node_deps(repo_root: Path) -> tuple[bool, str]:
 
     Idempotent — npm checks node_modules and only installs missing
     packages. Returns (ok, detail) for consistent shell output.
+
+    NOT using --silent on purpose — the whisper incident showed that
+    hiding package-manager output makes debugging impossible when a
+    single dependency fails. Users see normal npm progress; if anything
+    breaks, they see exactly which package and why.
     """
     pkg = repo_root / "package.json"
     if not pkg.exists():
@@ -168,12 +173,12 @@ def install_node_deps(repo_root: Path) -> tuple[bool, str]:
     import subprocess
     try:
         r = subprocess.run(
-            ["npm", "install", "--silent", "--no-audit", "--no-fund"],
+            ["npm", "install", "--no-audit", "--no-fund"],
             cwd=str(repo_root), timeout=900,
             shell=(os.name == "nt"))  # Windows needs shell for `npm.cmd`
         if r.returncode == 0:
             return True, "installed (npm skips already-installed)"
-        return False, f"npm exit {r.returncode}"
+        return False, f"npm exit {r.returncode} — see output above for which package failed"
     except Exception as exc:  # noqa: BLE001
         return False, f"npm error: {exc}"
 
