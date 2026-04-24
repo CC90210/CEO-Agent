@@ -175,91 +175,94 @@ def verify_requirements(repo_root: Path) -> tuple[bool, str]:
         return False, f"verify error: {exc}"
 
 
-def install_python_deps(repo_root: Path) -> tuple[bool, str]:
-    """Run `pip install -r requirements.txt` if that file exists.
+def _run_install_with_log(
+    cmd: list[str],
+    *,
+    log_name: str,
+    timeout: int,
+    error_matcher,
+    tool: str,
+    cwd: Path | None = None,
+    shell: bool = False,
+    preface: str | None = None,
+) -> tuple[bool, str]:
+    """Run a package-install subprocess with log-file capture + error extraction.
 
-    Strategy after three rounds of hotfix pain:
-      - Use -q (single q) to suppress per-package progress bars. On Windows
-        PowerShell, verbose pip output chokes the console to the point of
-        looking frozen — -q keeps warnings + errors visible but drops the
-        spam.
-      - Capture full stdout+stderr to ~/.bravo/logs/pip-install.log so
-        the user can grep for problems if the short error isn't enough.
-      - On non-zero exit, extract the actual ERROR line from the log and
-        surface it in the return detail.
+    Shared scaffold for pip and npm. Rationale: PowerShell on Windows
+    chokes on verbose package-manager output; fully silent hides real
+    errors. Solution is to capture everything to a log file, keep the
+    console quiet, and on failure grep the log for the first actionable
+    error line.
+
+    error_matcher(line: str) -> bool — called per stripped log line to
+    decide whether this is the error worth surfacing.
     """
+    import subprocess
+
+    log_dir = Path.home() / ".bravo" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / log_name
+    if preface:
+        print(preface.replace("{log}", str(log_path)))
+    try:
+        with open(log_path, "w", encoding="utf-8", errors="replace") as f:
+            r = subprocess.run(
+                cmd,
+                cwd=str(cwd) if cwd else None,
+                timeout=timeout,
+                stdout=f,
+                stderr=subprocess.STDOUT,
+                shell=shell,
+            )
+        if r.returncode == 0:
+            return True, f"installed ({tool} skips already-satisfied)"
+        err_line = ""
+        try:
+            for line in log_path.read_text(encoding="utf-8", errors="replace").splitlines():
+                s = line.strip()
+                if error_matcher(s):
+                    err_line = s[:200]
+                    break
+        except Exception:
+            pass
+        return False, (err_line or f"{tool} exit {r.returncode}") + f" (full log: {log_path})"
+    except subprocess.TimeoutExpired:
+        mins = timeout // 60
+        return False, f"{tool} timed out after {mins} min — see {log_path}"
+    except Exception as exc:  # noqa: BLE001
+        return False, f"{tool} error: {exc}"
+
+
+def install_python_deps(repo_root: Path) -> tuple[bool, str]:
+    """Run `pip install -r requirements.txt` if that file exists."""
     req = repo_root / "requirements.txt"
     if not req.exists():
         return True, "no requirements.txt — skipped"
-    import subprocess
-    log_dir = Path.home() / ".bravo" / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log_path = log_dir / "pip-install.log"
-    print(f"    (first run takes 2-5 min. full log: {log_path})")
-    try:
-        with open(log_path, "w", encoding="utf-8", errors="replace") as f:
-            r = subprocess.run(
-                [sys.executable, "-m", "pip", "install", "-q",
-                 "--disable-pip-version-check", "-r", str(req)],
-                stdout=f, stderr=subprocess.STDOUT, timeout=1200)
-        if r.returncode == 0:
-            return True, "installed (pip skips already-satisfied)"
-        # Extract the pip ERROR line from the log for a useful detail.
-        err_line = ""
-        try:
-            log = log_path.read_text(encoding="utf-8", errors="replace")
-            for line in log.splitlines():
-                s = line.strip()
-                if s.startswith("ERROR:") or "could not find" in s.lower():
-                    err_line = s[:200]
-                    break
-        except Exception:
-            pass
-        return False, (err_line or f"pip exit {r.returncode}") + f" (full log: {log_path})"
-    except subprocess.TimeoutExpired:
-        return False, f"pip timed out after 20 min — see {log_path}"
-    except Exception as exc:  # noqa: BLE001
-        return False, f"pip error: {exc}"
+    return _run_install_with_log(
+        [sys.executable, "-m", "pip", "install", "-q",
+         "--disable-pip-version-check", "-r", str(req)],
+        log_name="pip-install.log",
+        timeout=1200,
+        error_matcher=lambda s: s.startswith("ERROR:") or "could not find" in s.lower(),
+        tool="pip",
+        preface="    (first run takes 2-5 min. full log: {log})",
+    )
 
 
 def install_node_deps(repo_root: Path) -> tuple[bool, str]:
-    """Run `npm install` at repo root if package.json exists.
-
-    Same strategy as install_python_deps: output -> log file, quiet
-    console, extract error on failure. --silent on npm suppresses
-    install chatter but still surfaces errors at exit time.
-    """
+    """Run `npm install` at repo root if package.json exists."""
     pkg = repo_root / "package.json"
     if not pkg.exists():
         return True, "no package.json — skipped"
-    import subprocess
-    log_dir = Path.home() / ".bravo" / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log_path = log_dir / "npm-install.log"
-    try:
-        with open(log_path, "w", encoding="utf-8", errors="replace") as f:
-            r = subprocess.run(
-                ["npm", "install", "--silent", "--no-audit", "--no-fund"],
-                cwd=str(repo_root), timeout=900,
-                stdout=f, stderr=subprocess.STDOUT,
-                shell=(os.name == "nt"))  # Windows needs shell for npm.cmd
-        if r.returncode == 0:
-            return True, "installed (npm skips already-installed)"
-        err_line = ""
-        try:
-            log = log_path.read_text(encoding="utf-8", errors="replace")
-            for line in log.splitlines():
-                s = line.strip()
-                if s.lower().startswith("npm err") or s.startswith("ERROR"):
-                    err_line = s[:200]
-                    break
-        except Exception:
-            pass
-        return False, (err_line or f"npm exit {r.returncode}") + f" (full log: {log_path})"
-    except subprocess.TimeoutExpired:
-        return False, f"npm timed out after 15 min — see {log_path}"
-    except Exception as exc:  # noqa: BLE001
-        return False, f"npm error: {exc}"
+    return _run_install_with_log(
+        ["npm", "install", "--silent", "--no-audit", "--no-fund"],
+        log_name="npm-install.log",
+        timeout=900,
+        error_matcher=lambda s: s.lower().startswith("npm err") or s.startswith("ERROR"),
+        tool="npm",
+        cwd=repo_root,
+        shell=(os.name == "nt"),  # Windows needs shell for npm.cmd
+    )
 
 
 def run(args: argparse.Namespace) -> int:
