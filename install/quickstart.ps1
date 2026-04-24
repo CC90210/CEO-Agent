@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Bravo quickstart - one-line install for Windows PowerShell.
+  OASIS AI Agent Factory quickstart for Windows PowerShell.
 
 .DESCRIPTION
   Usage (from a fresh PowerShell):
@@ -27,19 +27,25 @@ if (-not $RepoDir) { $RepoDir = Join-Path $env:USERPROFILE 'bravo-repo' }
 # Make sure our output is UTF-8 when the terminal supports it.
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
 
-# Banner - ASCII-safe for Windows PowerShell 5.1.
+# Banner - OASIS AI primary wordmark.
 $banner = @'
 
-+====================================================================+
-|                                                                    |
-|     OASIS AI                                                       |
-|     Agent Factory - Business-in-a-Box                              |
-|     oasisai.work                                                   |
-|                                                                    |
-+====================================================================+
+╔════════════════════════════════════════════════════════════════════╗
+║                                                                    ║
+║    ██████╗  █████╗ ███████╗██╗███████╗    █████╗ ██╗               ║
+║   ██╔═══██╗██╔══██╗██╔════╝██║██╔════╝   ██╔══██╗██║               ║
+║   ██║   ██║███████║███████╗██║███████╗   ███████║██║               ║
+║   ██║   ██║██╔══██║╚════██║██║╚════██║   ██╔══██║██║               ║
+║   ╚██████╔╝██║  ██║███████║██║███████║   ██║  ██║██║               ║
+║    ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝╚══════╝   ╚═╝  ╚═╝╚═╝               ║
+║                                                                    ║
+║    Agent Factory · Business-in-a-Box                               ║
+║    oasisai.work                                                    ║
+║                                                                    ║
+╚════════════════════════════════════════════════════════════════════╝
 '@
 Write-Host $banner -ForegroundColor Cyan
-Write-Host "  Bravo quickstart - one-line install" -ForegroundColor White
+Write-Host "  OASIS AI setup - choose your agent, then configure it" -ForegroundColor White
 Write-Host "  Repo: $RepoUrl" -ForegroundColor DarkGray
 Write-Host "  Dest: $RepoDir" -ForegroundColor DarkGray
 Write-Host ""
@@ -81,12 +87,14 @@ if (Test-Path (Join-Path $RepoDir '.git')) {
 }
 Write-Host ""
 
-# Install
-Write-Host "==> Running install\install.ps1" -ForegroundColor White
-& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoDir 'install\install.ps1') -SkipPathUpdate
+# Install quietly. The user-facing product moment is the OASIS AI picker below,
+# not an internal install banner before they choose an agent.
+Write-Host "==> Preparing local Agent Factory" -ForegroundColor White
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoDir 'install\install.ps1') -SkipPathUpdate -Quiet
 if ($LASTEXITCODE -ne 0) {
     throw "install.ps1 failed with exit code $LASTEXITCODE"
 }
+Write-Host "    [+] ready" -ForegroundColor Green
 Write-Host ""
 
 # Ensure ~/.bravo/bin is on PATH for THIS session before launching wizard
@@ -97,7 +105,7 @@ if ($env:PATH -notlike "*$binDir*") {
 
 # Launch wizard
 Write-Host "=================================================" -ForegroundColor Cyan
-Write-Host " Launching the Bravo setup wizard..." -ForegroundColor Cyan
+Write-Host " Launching OASIS AI setup..." -ForegroundColor Cyan
 Write-Host "=================================================" -ForegroundColor Cyan
 Write-Host ""
 

@@ -51,6 +51,15 @@ function Test-Tool {
 
 function Step {
     param([string]$Label, [scriptblock]$Action)
+    if ($Quiet) {
+        if (-not $DryRun) {
+            & $Action *> $null
+            if ($LASTEXITCODE -ne 0) {
+                throw "$Label failed with exit code $LASTEXITCODE"
+            }
+        }
+        return
+    }
     Write-Host "==> $Label" -ForegroundColor White
     if ($DryRun) {
         Write-Host "    (dry run - skipping)" -ForegroundColor DarkGray
@@ -64,7 +73,7 @@ function Step {
 if (-not $Quiet) { Write-Banner }
 
 # 1. Prereq scan
-Write-Host "==> Checking prerequisites" -ForegroundColor White
+if (-not $Quiet) { Write-Host "==> Checking prerequisites" -ForegroundColor White }
 $required = @{
     python = Test-Tool 'python'
     node   = Test-Tool 'node'
@@ -81,13 +90,13 @@ $optional = @{
 foreach ($pair in $required.GetEnumerator()) {
     $mark = if ($pair.Value) { '+' } else { 'X' }
     $color = if ($pair.Value) { 'Green' } else { 'Red' }
-    Write-Host ("    [{0}] {1}" -f $mark, $pair.Key) -ForegroundColor $color
+    if (-not $Quiet) { Write-Host ("    [{0}] {1}" -f $mark, $pair.Key) -ForegroundColor $color }
 }
 foreach ($pair in $optional.GetEnumerator()) {
     $mark = if ($pair.Value) { '+' } else { 'o' }
     $color = if ($pair.Value) { 'Green' } else { 'DarkYellow' }
     $suffix = if ($pair.Value) { '' } else { ' (optional)' }
-    Write-Host ("    [{0}] {1}{2}" -f $mark, $pair.Key, $suffix) -ForegroundColor $color
+    if (-not $Quiet) { Write-Host ("    [{0}] {1}{2}" -f $mark, $pair.Key, $suffix) -ForegroundColor $color }
 }
 
 $missing = $required.GetEnumerator() | Where-Object { -not $_.Value } | ForEach-Object { $_.Key }
@@ -105,7 +114,7 @@ if ($missing.Count -gt 0) {
     }
     exit 2
 }
-Write-Host ""
+if (-not $Quiet) { Write-Host "" }
 
 # 2. Run bootstrap
 Step "Creating ~/.bravo/ home + profiles + env template" {
@@ -121,21 +130,21 @@ Step "Verifying bravo shim at $binDir\bravo.cmd" {
 
 # 4. Add to PATH if not present
 if (-not $SkipPathUpdate) {
-    Write-Host "==> Ensuring $binDir is on user PATH" -ForegroundColor White
+    if (-not $Quiet) { Write-Host "==> Ensuring $binDir is on user PATH" -ForegroundColor White }
     $userPath = [Environment]::GetEnvironmentVariable('PATH', 'User')
     if ($null -eq $userPath) { $userPath = '' }
     if ($userPath -notlike "*$binDir*") {
         if (-not $DryRun) {
             $newPath = if ($userPath) { "$userPath;$binDir" } else { $binDir }
             [Environment]::SetEnvironmentVariable('PATH', $newPath, 'User')
-            Write-Host "    added $binDir to PATH (new shells will see it)" -ForegroundColor Green
+            if (-not $Quiet) { Write-Host "    added $binDir to PATH (new shells will see it)" -ForegroundColor Green }
         } else {
-            Write-Host "    (dry run) would add $binDir to PATH" -ForegroundColor DarkGray
+            if (-not $Quiet) { Write-Host "    (dry run) would add $binDir to PATH" -ForegroundColor DarkGray }
         }
     } else {
-        Write-Host "    already on PATH" -ForegroundColor Green
+        if (-not $Quiet) { Write-Host "    already on PATH" -ForegroundColor Green }
     }
-    Write-Host ""
+    if (-not $Quiet) { Write-Host "" }
 }
 
 # 5. Smoke tests - propagate failures instead of silently swallowing them
@@ -153,15 +162,16 @@ Step "Running self_audit + browser_harness_doctor" {
     }
 }
 
-# 6. Final banner
-Write-Host ""
-Write-Host "=================================================" -ForegroundColor Cyan
-Write-Host " Bravo installed." -ForegroundColor Cyan
-Write-Host "=================================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "  Next steps:" -ForegroundColor White
-Write-Host "    1. Open a new PowerShell window (PATH update)" -ForegroundColor DarkGray
-Write-Host "    2. bravo doctor" -ForegroundColor Green
-Write-Host "    3. bravo setup" -ForegroundColor Green
-Write-Host "    4. bravo agent list" -ForegroundColor Green
-Write-Host ""
+if (-not $Quiet) {
+    Write-Host ""
+    Write-Host "=================================================" -ForegroundColor Cyan
+    Write-Host " OASIS AI Agent Factory is ready." -ForegroundColor Cyan
+    Write-Host "=================================================" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "  Next steps:" -ForegroundColor White
+    Write-Host "    1. Open a new PowerShell window (PATH update)" -ForegroundColor DarkGray
+    Write-Host "    2. bravo doctor" -ForegroundColor Green
+    Write-Host "    3. bravo setup" -ForegroundColor Green
+    Write-Host "    4. bravo agent list" -ForegroundColor Green
+    Write-Host ""
+}

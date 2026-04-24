@@ -1192,7 +1192,7 @@ def integration_step(slug: str, required: bool) -> bool:
 
 def step_welcome() -> None:
     print_banner()
-    print(f"  {BOLD('Welcome.')} This wizard sets up a working Bravo agent in under 5 minutes.")
+    print(f"  {BOLD('Welcome.')} Choose an OASIS AI agent, then connect the tools it needs.")
     print(f"  {DIM('Keys go to')} {CYAN(str(ENV_PATH))}  {DIM('(0600 on POSIX)')}.")
     print(f"  {DIM('Nothing is uploaded; you stay in full control.')}")
     print()
