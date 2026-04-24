@@ -1,0 +1,81 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(*)",
+      "mcp__playwright__*",
+      "mcp__sequential-thinking__*",
+      "mcp__context7__*",
+      "mcp__memory__*",
+      "WebFetch(domain:www.skool.com)",
+      "WebFetch(domain:www.humanlayer.dev)",
+      "WebFetch(domain:raw.githubusercontent.com)"
+    ],
+    "deny": [
+      "Edit(.env)",
+      "Edit(.env.*)",
+      "Edit(.env.agents)",
+      "Write(.env)",
+      "Write(.env.*)",
+      "Write(.env.agents)",
+      "Edit(.obsidian/**)",
+      "Write(.obsidian/**)",
+      "Bash(rm -rf /)",
+      "Bash(rm -rf ~)",
+      "Bash(rm -rf /*)",
+      "Bash(rm -rf .git)",
+      "Bash(git push * --force main)",
+      "Bash(git push * --force master)",
+      "Bash(git push --force origin main)",
+      "Bash(git push --force origin master)",
+      "Bash(git reset --hard)",
+      "Bash(git clean -fd)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\User\\Business-Empire-Agent\\.claude\\skills"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'FILE=$(echo $CLAUDE_TOOL_INPUT | python3 -c \"import sys,json; print(json.load(sys.stdin).get(\\\"file_path\\\",json.load(sys.stdin).get(\\\"filePath\\\",\\\"\\\"))\" 2>/dev/null); if echo \"$FILE\" | grep -qiE \"\\.(env|env\\..*)$\"; then echo \"{\\\"decision\\\":\\\"block\\\",\\\"reason\\\":\\\"BLOCKED: Cannot edit credential files. Update .env.agents manually.\\\"}\"; exit 0; fi; echo \"{\\\"decision\\\":\\\"allow\\\"}\"'"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'CMD=$(echo $CLAUDE_TOOL_INPUT | python3 -c \"import sys,json; print(json.load(sys.stdin).get(\\\"command\\\",\\\"\\\"))\" 2>/dev/null); if echo \"$CMD\" | grep -qiE \"(rm\\s+-rf\\s+(/|~|/\\*|\\.git)$|git\\s+push.*--force.*(main|master)|DROP\\s+TABLE|TRUNCATE\\s+TABLE)\"; then echo \"{\\\"decision\\\":\\\"block\\\",\\\"reason\\\":\\\"BLOCKED: Destructive operation detected. Ask CC for confirmation first.\\\"}\"; exit 0; fi; echo \"{\\\"decision\\\":\\\"allow\\\"}\"'"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'CMD=$(echo $CLAUDE_TOOL_INPUT | python3 -c \"import sys,json; print(json.load(sys.stdin).get(\\\"command\\\",\\\"\\\"))\" 2>/dev/null); if echo \"$CMD\" | grep -qiE \"^(git\\s+push|git\\s+commit|npm\\s+run\\s+build|vercel\\s+deploy)\"; then echo \"[HOOK] Logged: $CMD\" >> /Users/conaugh/Downloads/business-empire-agent/tmp/hook_audit.log 2>/dev/null; fi'"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "osascript -e 'display notification \"Bravo needs your attention.\" with title \"Claude Code\" sound name \"Ping\"' 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}

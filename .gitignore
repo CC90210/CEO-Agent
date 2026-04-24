@@ -1,0 +1,190 @@
+# =============================================
+# SECRETS & ENVIRONMENT (NEVER COMMIT)
+# =============================================
+.env
+.env.*
+*.env
+!.env.agents.template
+
+# MCP config files that contain API keys
+references/Claude_Global_MCP.json
+references/Claude_Global_Settings.json
+.claude/mcp.json
+.vscode/mcp.json
+# ...but ship the safe template (no credentials) so the installer can
+# seed a fresh clone's mcp.json.
+!.claude/mcp.json.template
+
+# Runtime locks and session state
+.claude/scheduled_tasks.lock
+.claude/*.lock
+.claude/projects/
+.claude/todos/
+
+# Live financial / pulse state (exact MRR figures, client revenue)
+data/pulse/ceo_pulse.json
+data/pulse/*.json
+!data/pulse/README.md
+
+# Credential files (extra defense)
+*credentials*.json
+*credentials*.yaml
+*.pem
+*.key
+id_rsa
+id_ed25519
+*.ppk
+
+# API tokens / keys accidentally saved
+*_token.txt
+*_api_key.txt
+secrets/
+
+# =============================================
+# NODE / PYTHON
+# =============================================
+node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# =============================================
+# OS FILES
+# =============================================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =============================================
+# IDE & AGENT INTERNALS (per-session, not shared)
+# =============================================
+.antigravityignore
+.gemini/antigravity/
+.claude/worktrees/
+.claude/settings.local.json
+
+# =============================================
+# VECTOR STORES (binary, machine-local)
+# =============================================
+data/mem0_qdrant/
+
+# =============================================
+# TEMP & DEBUG
+# =============================================
+*.tmp
+*.bak
+*.log
+tmp/
+
+# JSON debug dumps at root
+mcp_out.json
+late_tools.json
+late_accounts.json
+n8n_workflows.json
+*_res.json
+*_err.json
+*_raw*.json
+*_debug*.json
+
+# Agent-generated junk scripts at root
+*_post*.js
+*_test*.js
+direct_*.js
+count_*.js
+
+# =============================================
+# BUILD ARTIFACTS
+# =============================================
+dist/
+build/
+*.local
+blobs/
+
+# =============================================
+# SENSITIVE DATA (lead info, outreach history)
+# =============================================
+memory/LEAD_TRACKER.csv
+memory/outreach_archive/
+
+# =============================================
+# PLAYWRIGHT MCP ARTIFACTS
+# =============================================
+.playwright-mcp/
+
+# =============================================
+# MEDIA (large files — use Git LFS or download separately)
+# =============================================
+media/raw/
+media/exports/
+media/**/*.mp4
+media/**/*.mov
+media/**/*.wav
+media/**/*.mp3
+
+# =============================================
+# BROWSER PROFILES (Gemini LinkedIn automation)
+# =============================================
+scripts/linkedin_automation/chrome_profile/
+
+# =============================================
+# SCREENSHOTS (Playwright captures, reference images)
+# =============================================
+tiktik-*.png
+skool-*.png
+e2e-screenshots/
+
+# =============================================
+# VIRTUAL ENVIRONMENTS
+# =============================================
+.venv/
+
+# =============================================
+# OBSIDIAN — device-specific workspace state
+# =============================================
+.obsidian/workspace.json
+.obsidian/workspaces.json
+.obsidian/workspace-mobile.json
+.obsidian/.obsidian-git-isomorphic-git
+
+# Obsidian plugin binaries (only manifests + data tracked)
+.obsidian/plugins/*/main.js
+.obsidian/plugins/*/styles.css
+# CRITICAL: plugin data.json files contain API keys + private TLS certs — never commit
+.obsidian/plugins/*/data.json
+.obsidian/plugins/obsidian-local-rest-api/
+
+# =============================================
+# STRAY APP ARTIFACTS (RULE 7 enforcement)
+# Prevents app code / debug files from other repos ending up in BEA root
+# =============================================
+# Stray .git folders (from cross-repo operations)
+*-fix-git/
+*-backup-git/
+*.git-backup/
+
+# App-specific screenshots / test artifacts at BEA root
+/gritly-*
+/oasis-*
+/propflow-*
+/nostalgic-*
+/ig-setter-*
+/cc-funnel-*
+/tiktik-*
+/mindset-*
+/atlas-*
+/lafreniere-*
+/aura-*
+/grapevine-*
+/on-the-hill-*
+/shopify-ad-*
+
+# Security � key and certificate files
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der

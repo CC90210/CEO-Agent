@@ -1,0 +1,17 @@
+node_modules
+content-studio/node_modules
+.venv
+.claude
+.cursor
+.git
+.rules
+.agents/plans
+.agents/workflows
+.agents/config.toml
+.gemini
+.playwright-mcp
+.vscode
+tmp
+media/raw
+media/exports
+remotion-content

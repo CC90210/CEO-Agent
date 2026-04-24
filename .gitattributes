@@ -1,0 +1,38 @@
+# Enforce LF line endings for all Python scripts (cross-platform consistency).
+# Without this, Windows creates CRLF files that break shebang lines on Mac/Linux.
+*.py text eol=lf
+
+# Shell scripts must be LF (CRLF breaks bash on Unix).
+*.sh text eol=lf
+
+# JavaScript — keep consistent.
+*.js text eol=lf
+*.mjs text eol=lf
+
+# JSON, YAML, TOML — text, auto.
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.toml text eol=lf
+
+# Markdown — leave as-is (CRLF won't break rendering).
+*.md text
+
+# Config files.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary files — never normalize.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.db binary
+*.sqlite binary
+*.lock binary

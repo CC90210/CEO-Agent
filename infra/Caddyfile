@@ -1,0 +1,75 @@
+# Bravo V6.0 — Caddy reverse proxy
+#
+# Public entrypoint for webhooks (N8N, Stripe, Telegram) + an optional
+# admin endpoint for CC. HTTPS via automatic Let's Encrypt.
+#
+# Replace OPS_DOMAIN with the actual FQDN you point at the VPS, e.g.,
+# ops.oasisai.work. The email is required by Let's Encrypt for cert renewal
+# notices — use Konamak@icloud.com or a dedicated alias.
+
+{
+    email {$CADDY_ACME_EMAIL:Konamak@icloud.com}
+    # Stricter defaults: disable OCSP stapling leaks, block HTTP/3 if unstable
+    # servers_policy internal  # uncomment if you want internal CA for staging
+}
+
+# ── Production webhook endpoint ───────────────────────────────────────────
+{$OPS_DOMAIN:ops.oasisai.work} {
+    encode zstd gzip
+    log {
+        output file /data/logs/access.log {
+            roll_size 10mb
+            roll_keep 10
+        }
+    }
+
+    # Rate-limit aggressively — this endpoint receives webhooks, not humans.
+    # Legitimate sources (Stripe, N8N, Telegram) are well under these caps.
+    @abuse {
+        path /healthz
+        not remote_ip private_ranges
+    }
+
+    handle /healthz {
+        respond "ok" 200
+    }
+
+    # Stripe webhook: verified by Stripe signature inside scripts/webhook_listener.py
+    handle /webhooks/stripe* {
+        reverse_proxy bravo-webhook:8000 {
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # N8N inbound lead / form webhooks.
+    handle /webhooks/n8n* {
+        reverse_proxy bravo-webhook:8000
+    }
+
+    # Telegram webhook (if we move off long-polling).
+    handle /webhooks/telegram* {
+        reverse_proxy bravo-webhook:8000
+    }
+
+    # Catch-all: 404 anything not explicitly routed.
+    handle {
+        respond "not found" 404
+    }
+
+    # Security headers baseline.
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "no-referrer"
+        Permissions-Policy "geolocation=(), microphone=(), camera=()"
+    }
+}
+
+# ── Redirect http → https automatically (Caddy does this by default but
+#     being explicit lets CC see the config) ──────────────────────────────
+http://{$OPS_DOMAIN:ops.oasisai.work} {
+    redir https://{host}{uri} permanent
+}
