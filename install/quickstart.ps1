@@ -24,15 +24,25 @@ $RepoUrl = 'https://github.com/CC90210/CEO-Agent.git'
 $RepoDir = $env:BRAVO_REPO_DIR
 if (-not $RepoDir) { $RepoDir = Join-Path $env:USERPROFILE 'bravo-repo' }
 
-# Banner
+# Make sure our output is UTF-8 so the box drawing + block chars render right
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
+
+# Banner (ANSI Shadow block font, framed, with OASIS AI tagline)
 $banner = @'
 
-  ____  ____    ____  _     _____
- | __ )|  _ \  / \ \ \   / / _ \
- |  _ \| |_) |/ _ \ \ \ / / | | |
- | |_) |  _ </ ___ \ \ V /| |_| |
- |____/|_| \_\_/   \_\ |_|  \___/
-
+╔══════════════════════════════════════════════════════════════╗
+║                                                              ║
+║    ██████╗ ██████╗  █████╗ ██╗   ██╗ ██████╗                 ║
+║    ██╔══██╗██╔══██╗██╔══██╗██║   ██║██╔═══██╗                ║
+║    ██████╔╝██████╔╝███████║██║   ██║██║   ██║                ║
+║    ██╔══██╗██╔══██╗██╔══██║╚██╗ ██╔╝██║   ██║                ║
+║    ██████╔╝██║  ██║██║  ██║ ╚████╔╝ ╚██████╔╝                ║
+║    ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝  ╚═══╝   ╚═════╝                 ║
+║                                                              ║
+║    Agent Factory · Business-in-a-Box                         ║
+║    Made by OASIS AI · oasisai.work                           ║
+║                                                              ║
+╚══════════════════════════════════════════════════════════════╝
 '@
 Write-Host $banner -ForegroundColor Cyan
 Write-Host "  Bravo quickstart - one-line install" -ForegroundColor White
