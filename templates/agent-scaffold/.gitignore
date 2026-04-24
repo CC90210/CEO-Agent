@@ -1,11 +1,64 @@
+# =============================================================================
+# SECRETS — NEVER COMMIT
+# Forged-agent baseline hardened after the 2026-04-24 CMO-Agent leak incident.
+# =============================================================================
 .env
 .env.*
 !.env.example
+!.env.agents.template
+
+# Token / credential files (the exact shape that leaked before)
+*.token
+*_token.txt
+*_token.json
+*token*.txt
+.long_lived_token*
+credentials.json
+service_account.json
+*.credentials.json
+
+# SSH / TLS material
+id_rsa
+id_ed25519
+id_ecdsa
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+
+# MCP / IDE configs that commonly carry API keys
+.claude/mcp.json
+.vscode/mcp.json
+mcp.json
+
+# =============================================================================
+# PYTHON / NODE
+# =============================================================================
 __pycache__/
 *.pyc
+*.pyo
 .venv/
+venv/
 node_modules/
+
+# =============================================================================
+# OS
+# =============================================================================
 .DS_Store
+Thumbs.db
+desktop.ini
+
+# =============================================================================
+# LOCAL / TEMP
+# =============================================================================
 tmp/
 *.log
 *.sqlite
+*.sqlite-*
+
+# =============================================================================
+# OBSIDIAN (per-device workspace state — data.json holds plugin keys)
+# =============================================================================
+.obsidian/workspace*.json
+.obsidian/plugins/*/data.json

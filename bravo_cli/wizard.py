@@ -461,6 +461,12 @@ INTEGRATIONS: dict[str, dict] = {
             "Settings -> API Keys -> Create Key",
             "Copy the full key (starts with sk-ant-)",
         ],
+        "cli_auth": {
+            "cmd": "claude",
+            "mode_key": "ANTHROPIC_AUTH_MODE",
+            "mode_value": "claude_code_cli",
+            "label": "Claude Code CLI (OS keychain auth)",
+        },
     },
     "openai": {
         "env_key": "OPENAI_API_KEY",
@@ -473,6 +479,12 @@ INTEGRATIONS: dict[str, dict] = {
             "Sign in to platform.openai.com",
             "API keys -> Create new secret key",
         ],
+        "cli_auth": {
+            "cmd": "codex",
+            "mode_key": "OPENAI_AUTH_MODE",
+            "mode_value": "codex_cli",
+            "label": "Codex CLI (OS keychain auth)",
+        },
     },
     "google_ai": {
         "env_key": "GOOGLE_AI_API_KEY",
@@ -485,6 +497,12 @@ INTEGRATIONS: dict[str, dict] = {
             "Sign in to aistudio.google.com",
             "Get API Key -> Create API key",
         ],
+        "cli_auth": {
+            "cmd": "gemini",
+            "mode_key": "GOOGLE_AI_AUTH_MODE",
+            "mode_value": "gemini_cli",
+            "label": "Gemini CLI (OS keychain auth)",
+        },
     },
     # Chat bridges
     "telegram": {
@@ -1110,6 +1128,23 @@ def integration_step(slug: str, required: bool) -> bool:
         if not required and not yes_no("Add it now?", default=False):
             print(f"  {DIM('Skipped.')}")
             return False
+
+    # ── Offer CLI-based auth first, before asking for a raw API key ─────────
+    # If the provider's companion CLI is installed (Claude Code / Codex /
+    # Gemini CLI), it already manages auth in the OS's secure credential
+    # store (Keychain on macOS, Credential Manager on Windows, libsecret on
+    # Linux). Using that is more secure than pasting a raw key into our
+    # .env.agents — the token never touches a plain-text file.
+    cli = spec.get("cli_auth")
+    if cli and shutil.which(cli["cmd"]):
+        print(f"    {GREEN(OK)} Detected {BOLD(cli['label'])} on PATH.")
+        print(f"    {DIM('Using that skips the raw API key — auth stays in your OS keychain.')}")
+        if yes_no(f"Use {cli['label']} instead of pasting a key?", default=True):
+            write_env(cli["mode_key"], cli["mode_value"])
+            print(f"    {DIM('Downstream scripts should read ' + cli['mode_key'] + ' and call ' + cli['cmd'] + ' instead of hitting the raw API.')}")
+            print()
+            return True
+        print(f"    {DIM('OK, falling back to raw API key.')}")
 
     # Tell user where to get it
     print(f"    {DIM('Get it:')} {link(spec['url'])}")

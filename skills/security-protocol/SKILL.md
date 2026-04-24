@@ -1,7 +1,7 @@
 ---
 name: security-protocol
 description: Secrets and authentication management. Ensures API keys, tokens, and credentials are NEVER exposed in plain text. Use when handling any credential, API key, or sensitive configuration.
-triggers: [secret, credential, API key, exposed, rotation, security, token, password]
+triggers: [secret, credential, API key, exposed, rotation, security, token, password, leak, gitguardian]
 tier: core
 dependencies: []
 ---
@@ -11,19 +11,114 @@ dependencies: []
 > **Purpose:** Ensures API keys, tokens, and database credentials are NEVER exposed in plain text files when different AI platforms interact with this workspace.
 
 ## Core Rules
-1. **Never Hardcode Secrets:** No credentials of any kind are to be placed in entry points (`CLAUDE.md`, `ANTIGRAVITY.md`, `GEMINI.md`), or any script.
-2. **The Source of Truth:** All agents must read tokens exclusively from the `.env.agents` file located in the root directory.
-3. **MCP Configs:** When generating configuration files for new MCP servers, instruct the server initialization process to absorb the keys from the `.env.agents` or local shell environment variables rather than typing them out locally.
 
-## `.env.agents` Setup
-CC provides the actual tokens inside the `.env.agents` file. This file is tracked by `.gitignore` so it never commits to a repository. 
-If an agent detects its MCP server is unauthorized (e.g., Supabase or GitHub returns a 401), it must:
-1. Verify if `.env.agents` contains the value.
-2. Notify CC directly if it is missing: "I am missing the SUPABASE_ACCESS_TOKEN in .env.agents. Please update it."
-3. Wait for confirmation before proceeding.
+1. **Never hardcode secrets.** No credentials of any kind belong in entry points (`CLAUDE.md`, `ANTIGRAVITY.md`, `GEMINI.md`) or any script. No `api_key = "sk-..."` lines anywhere.
+2. **Single source of truth.** All agents must read tokens exclusively from the repo's `.env.agents` file. Never put them in code, never in commit messages.
+3. **No new file types that hold raw secrets.** Files like `.long_lived_token.txt`, `credentials.json`, `service_account.json` should never exist inside a repo. If a tool needs such a file, put it outside the repo and reference it by path in `.env.agents`.
+4. **MCP configs absorb from env.** When generating configuration files for new MCP servers, the server init process must read keys from `.env.agents` or local shell env vars — never paste tokens into JSON configs.
+5. **`.env.agents` is gitignored everywhere.** The repo root `.gitignore` in every agent must include `.env` + `.env.*` with only `.env.agents.template` whitelisted.
+
+## Detection — Run Before Every Push
+
+Every agent ships with `scripts/scan_secrets.py`. Run it before shipping anything sensitive:
+
+```bash
+# Fast: scan the working tree (skips gitignored files)
+python scripts/scan_secrets.py
+
+# Thorough: scan every commit in every branch (catches leaked-once-then-deleted)
+python scripts/scan_secrets.py --history
+
+# Scan a sibling agent's repo
+python scripts/scan_secrets.py --path ~/CMO-Agent
+```
+
+The scanner catches (non-exhaustive):
+- Anthropic, OpenAI, Google AI keys (`sk-ant-`, `sk-`, `AIza`)
+- GitHub PATs (`ghp_`, `gho_`, `github_pat_`)
+- Supabase service role (`sbp_`)
+- Stripe live/test secrets (`sk_live_`, `sk_test_`)
+- AWS access keys (`AKIA`, `ASIA`)
+- Slack, Discord, Telegram bot tokens
+- Twilio SIDs
+- **Facebook/Meta long-lived access tokens (`EAA...`)** ← the 2026-04-24 CMO-Agent leak pattern
+- PGP / SSH / JWT material
+- Suspicious filenames (`*_token.txt`, `credentials.json`, `id_rsa`, etc.)
+
+## Incident Response — When A Leak Is Discovered
+
+### 1. Rotate the credential at its provider BEFORE anything else
+The leaked value is already public. Scrubbing git history on its own is insufficient — attackers may have already cloned. Revoke first.
+
+- Anthropic: https://console.anthropic.com/settings/keys → Revoke
+- OpenAI: https://platform.openai.com/api-keys → Delete
+- Stripe: dashboard → Developers → API keys → Reveal & Roll
+- GitHub: https://github.com/settings/tokens → Delete
+- Facebook/Meta: https://developers.facebook.com/apps → Settings → Basic → **Reset App Secret** (this invalidates every token ever issued to the app)
+- Supabase: project → Settings → API → generate new service_role
+- Telegram bots: @BotFather → `/revoke`
+
+### 2. Scrub git history
+```bash
+pip install git-filter-repo
+git branch emergency-backup-before-scrub
+git filter-repo --path <leaked-file> --invert-paths --force
+git push origin --force --all
+git push origin --force --tags
+```
+
+### 3. Prevent recurrence
+Add the leaked file's pattern to `.gitignore`, then commit + push.
+
+### 4. Notify
+If the leak affected anything client-facing (Stripe, client tokens, client data), notify CC immediately. Write a Reflexion entry in `memory/MISTAKES.md` documenting the root cause.
+
+## Known Leak Patterns (add to `.gitignore` of every new repo)
+
+```gitignore
+# Secrets
+.env
+.env.*
+!.env.agents.template
+!.env.example
+
+# Token/credential files
+*.token
+*_token.txt
+*_token.json
+*token*.txt
+.long_lived_token*
+credentials.json
+service_account.json
+
+# SSH / TLS
+id_rsa
+id_ed25519
+*.pem
+*.key
+*.p12
+*.pfx
+
+# MCP configs (often carry API keys)
+.claude/mcp.json
+.vscode/mcp.json
+```
+
+`templates/agent-scaffold/.gitignore` ships with all of this — every forged agent inherits it.
+
+## Incidents Log
+
+**2026-04-24 — CMO-Agent Facebook token leak**
+- Root cause: `.long_lived_token.txt` (183-char Facebook long-lived User Access Token) was committed in Maven's initial commit `3e6e83e` on 2026-04-18. When CMO-Agent was flipped public later (to enable the cross-agent OASIS AI setup wizard clone flow), the token became world-readable. GitGuardian flagged it.
+- Detection gap: `.env*` was gitignored but not `*.token` / `*token*.txt`. The filename didn't trip the narrow gitignore.
+- Fix applied: `scripts/scan_secrets.py` + hardened `.gitignore` patterns + scanner in `bravo setup` workflow + this skill updated.
+- Prevention: every forged agent now inherits the hardened `.gitignore` via `templates/agent-scaffold/`. Pre-push scans recommended before any public flip.
 
 ## Safe Handling in Subagents
-If an architect agent or writer agent spawns a subagent that requires API access to test code, it must pass the environment variables to the subagent invocation process rather than pasting the raw string into the prompt structure.
+
+When spawning subagents that need API access, pass secrets via environment variables or a shared `.env.agents` path reference — never paste the raw string into the prompt structure.
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX]] | [[brain/CAPABILITIES]] | [[memory/MISTAKES]]
+- [[scripts/scan_secrets]] (the detection tool)
+- [[templates/agent-scaffold/.gitignore]] (the baseline)
