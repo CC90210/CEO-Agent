@@ -324,7 +324,7 @@ PROFILE_QUESTIONS: dict[str, list[dict]] = {
          "type": "choice", "choices": ["MRR", "ARR", "Revenue", "Users", "Other"], "default": "MRR"},
         {"key": "BRAVO_TARGET",      "prompt": "Target (e.g., $5,000 MRR by 2026-05-15)",
          "type": "text", "default": "$5,000 MRR"},
-        {"key": "BRAVO_TIMEZONE",    "prompt": "Timezone (IANA, e.g., America/Toronto)",
+        {"key": "BRAVO_TIMEZONE",    "prompt": "Timezone (e.g., America/Toronto)",
          "type": "text", "default": "America/Toronto"},
         {"key": "BRAVO_WORKING_HOURS", "prompt": "Working hours (e.g., 09:00-18:00)",
          "type": "text", "default": "09:00-18:00"},
@@ -810,7 +810,15 @@ def step_header(number: int, total: int, title: str, subtitle: str = "") -> None
     hr()
 
 def prompt(label: str, default: str | None = None, required: bool = False) -> str:
-    hint = f" [{default}]" if default else (f" {DIM('(required)')}" if required else "")
+    # "Enter to skip" hint when there's no default and it's optional — this
+    # makes the long question flow feel lighter; you can power through with
+    # Enter on anything you don't want to answer now.
+    if default:
+        hint = f" [{default}]"
+    elif required:
+        hint = f" {DIM('(needed)')}"
+    else:
+        hint = f" {DIM('(Enter to skip)')}"
     while True:
         try:
             raw = input(f"  {label}{hint}: ").strip()
@@ -823,7 +831,7 @@ def prompt(label: str, default: str | None = None, required: bool = False) -> st
             return default
         if not required:
             return ""
-        print(f"  {RED('Required.')}")
+        print(f"  {YELLOW('This one is needed — please enter a value.')}")
 
 def yes_no(label: str, default: bool = False) -> bool:
     hint = "Y/n" if default else "y/N"
@@ -1248,7 +1256,7 @@ def step_business_context(profile: str, step_num: int, total: int) -> None:
     if profile not in BUSINESS_CONTEXT_PROFILES:
         return
     step_header(step_num, total, "About your business",
-                "Deep, five questions. These shape every agent response you'll get.")
+                "Five questions. Press Enter to skip anything you'd rather come back to.")
     for q in BUSINESS_CONTEXT_QUESTIONS:
         ans = _ask_one(q)
         if ans:
@@ -1263,7 +1271,7 @@ def step_agent_questions(profile: str, step_num: int, total: int) -> None:
         return
     p = PROFILES[profile]
     step_header(step_num, total, f"Tune {p['name']} to how you operate",
-                f"{len(qs)} questions. Answers write to your repo .env.agents.")
+                f"{len(qs)} questions. Defaults are good — press Enter to accept.")
     for q in qs:
         ans = _ask_one(q)
         if ans:
