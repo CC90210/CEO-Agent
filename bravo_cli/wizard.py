@@ -1461,12 +1461,39 @@ def _activate_env_destination(target: Path) -> bool:
         sys.exit(1)
 
 
+def _clone_one_repo(url: str, target: Path, label: str) -> bool:
+    """Shallow-clone one repo. Idempotent — skips if already cloned.
+    Returns True on success (or if already present)."""
+    if target.exists() and (target / ".git").exists():
+        print(f"    {GREEN(OK)} {label}: already at {CYAN(str(target))}")
+        return True
+    if not shutil.which("git"):
+        print(f"    {RED('git missing — cannot clone ' + label)}")
+        return False
+    print(f"    {DIM(ARROW + ' cloning ' + label + '...')}")
+    try:
+        r = subprocess.run(["git", "clone", "--depth", "10", url, str(target)],
+                           capture_output=True, text=True, timeout=300)
+        if r.returncode == 0:
+            print(f"    {GREEN(OK)} {label} -> {CYAN(str(target))}")
+            return True
+        print(f"    {RED('FAIL')} {label}: {r.stderr.strip()[:160]}")
+        return False
+    except Exception as exc:  # noqa: BLE001
+        print(f"    {RED('ERROR')} {label}: {exc}")
+        return False
+
+
 def step_clone_agent_repo(profile: str, step_num: int, total: int) -> None:
     """Offer to clone the selected agent's own GitHub repo into ~/.
 
     The OASIS AI wizard is ONE entry point for all five agents. If someone
     picks Atlas, we fetch CFO-Agent; Maven -> CMO-Agent; etc. All five
     sibling repos are public on github.com/CC90210.
+
+    Bravo is special: it's the orchestrator. Bravo users often want
+    Atlas/Maven/Aura/Hermes also cloned for cross-agent workflows, so we
+    offer that as a batch at this step.
 
     On successful clone (or when an existing clone is detected), we re-root
     the wizard's ENV_PATH to the cloned repo so all subsequent key writes
@@ -1510,6 +1537,34 @@ def step_clone_agent_repo(profile: str, step_num: int, total: int) -> None:
     except Exception as exc:
         print(f"  {RED('Clone error:')} {exc}")
         print(f"  {YELLOW(WARN)} Continuing with launcher repo as config destination.")
+
+    # Bravo-only: offer to clone siblings too for full C-Suite orchestration.
+    # Gap-2 fix — without this, picking Bravo leaves Atlas/Maven/Aura/Hermes
+    # repos unclonedand cross-agent workflows silently fail later.
+    if profile == "bravo":
+        sibling_slugs = ["atlas", "maven", "aura", "hermes"]
+        missing = [s for s in sibling_slugs
+                   if not (Path(AGENT_REPOS[s]["dir"]).expanduser() / ".git").exists()]
+        if not missing:
+            return
+        print()
+        print(f"  {BOLD('Bravo orchestrates the whole C-Suite.')} "
+              f"{DIM(str(len(missing)) + ' sibling repo(s) missing locally:')}")
+        for s in missing:
+            sp = PROFILES[s]
+            print(f"    {sp['color'](sp['name']):18s} {DIM(AGENT_REPOS[s]['url'])}")
+        print()
+        if yes_no(f"Clone all {len(missing)} siblings too? (shallow, ~20 MB total)",
+                  default=True):
+            for s in missing:
+                info = AGENT_REPOS[s]
+                target_s = Path(info["dir"]).expanduser()
+                _clone_one_repo(info["url"], target_s, PROFILES[s]["name"])
+        else:
+            print(f"  {DIM('Skipped — clone any time with:')}")
+            for s in missing:
+                print(f"    {DIM('git clone --depth 10 ' + AGENT_REPOS[s]['url'] + ' ' + AGENT_REPOS[s]['dir'])}")
+
 
 def step_ai(profile: str, step_num: int, total: int) -> None:
     p = PROFILES[profile]

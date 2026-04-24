@@ -91,15 +91,45 @@ def check_prereqs() -> dict:
     def which(name: str) -> str | None:
         return shutil.which(name)
     return {
+        # Required — installer hard-fails without these.
         "python": which("python") or which("python3"),
         "node": which("node"),
         "npm": which("npm"),
         "git": which("git"),
+        # Optional — used by specific scripts; surface-level detection.
         "uv": which("uv"),
         "rg": which("rg"),
         "ffmpeg": which("ffmpeg"),
+        "gh": which("gh"),  # GitHub CLI — some scripts use it for repo ops
         "browser-harness": which("browser-harness"),
     }
+
+
+def install_mcp_config(repo_root: Path) -> tuple[bool, str]:
+    """Seed .claude/mcp.json from the committed template on fresh clones.
+
+    The real config is gitignored (it references user-local paths and loads
+    credentials through .cmd wrappers). The template (.claude/mcp.json.template)
+    ships in git and the installer substitutes ${REPO_ROOT} + ${USER_HOME}
+    placeholders.
+
+    Idempotent — if .claude/mcp.json already exists, we leave it alone.
+    """
+    target = repo_root / ".claude" / "mcp.json"
+    template = repo_root / ".claude" / "mcp.json.template"
+    if target.exists():
+        return True, "mcp.json already present — preserved"
+    if not template.exists():
+        return True, "no template — skipped"
+    try:
+        body = template.read_text(encoding="utf-8")
+        body = body.replace("${REPO_ROOT}", str(repo_root).replace("\\", "\\\\"))
+        body = body.replace("${USER_HOME}", str(Path.home()).replace("\\", "\\\\"))
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(body, encoding="utf-8")
+        return True, f"seeded from template → {target}"
+    except Exception as exc:  # noqa: BLE001
+        return False, f"seed failed: {exc}"
 
 
 def install_python_deps(repo_root: Path) -> tuple[bool, str]:
@@ -157,18 +187,22 @@ def run(args: argparse.Namespace) -> int:
     if getattr(args, "install_deps", False):
         py_ok, py_detail = install_python_deps(repo)
         node_ok, node_detail = install_node_deps(repo)
+        mcp_ok, mcp_detail = install_mcp_config(repo)
         payload = {
             "python_deps": {"ok": py_ok, "detail": py_detail},
             "node_deps":   {"ok": node_ok, "detail": node_detail},
+            "mcp_config":  {"ok": mcp_ok, "detail": mcp_detail},
         }
         if args.json:
             print(json.dumps(payload, indent=2))
         else:
             py_mark = "+" if py_ok else "!"
             node_mark = "+" if node_ok else "!"
+            mcp_mark = "+" if mcp_ok else "!"
             print(f"  [{py_mark}] python: {py_detail}")
             print(f"  [{node_mark}] node:   {node_detail}")
-        return 0 if (py_ok and node_ok) else 1
+            print(f"  [{mcp_mark}] mcp:    {mcp_detail}")
+        return 0 if (py_ok and node_ok and mcp_ok) else 1
 
     report: dict = {"home": str(home), "repo": str(repo), "actions": []}
 

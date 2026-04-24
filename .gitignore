@@ -11,6 +11,9 @@ references/Claude_Global_MCP.json
 references/Claude_Global_Settings.json
 .claude/mcp.json
 .vscode/mcp.json
+# ...but ship the safe template (no credentials) so the installer can
+# seed a fresh clone's mcp.json.
+!.claude/mcp.json.template
 
 # Runtime locks and session state
 .claude/scheduled_tasks.lock
