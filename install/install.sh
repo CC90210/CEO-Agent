@@ -115,34 +115,14 @@ else
 fi
 echo
 
-# Python package dependencies (requirements.txt)
-echo "==> Installing Python packages (anthropic, stripe, supabase, playwright, ...)"
+# Python + Node dependencies via the shared bootstrap helper.
+# Same code path as install.ps1 — single source of truth in bootstrap.py.
+echo "==> Installing Python + Node packages (pip + npm, both idempotent)"
 if [ "$DRY_RUN" -eq 1 ]; then
     echo "    ${C_DIM}(dry run — skipping)${C_RESET}"
-elif [ -f "$REPO_ROOT/requirements.txt" ]; then
-    if python3 -m pip install --quiet --disable-pip-version-check \
-            -r "$REPO_ROOT/requirements.txt"; then
-        echo "    ${C_GREEN}installed${C_RESET}"
-    else
-        echo "    ${C_YELLOW}WARN: pip install failed — some scripts may fail${C_RESET}"
-    fi
 else
-    echo "    ${C_DIM}(no requirements.txt — skipped)${C_RESET}"
-fi
-echo
-
-# Node.js package dependencies (package.json)
-echo "==> Installing Node packages (telegram-bot-api, supabase-js, remotion, ...)"
-if [ "$DRY_RUN" -eq 1 ]; then
-    echo "    ${C_DIM}(dry run — skipping)${C_RESET}"
-elif [ -f "$REPO_ROOT/package.json" ]; then
-    if (cd "$REPO_ROOT" && npm install --silent --no-audit --no-fund); then
-        echo "    ${C_GREEN}installed${C_RESET}"
-    else
-        echo "    ${C_YELLOW}WARN: npm install failed${C_RESET}"
-    fi
-else
-    echo "    ${C_DIM}(no package.json — skipped)${C_RESET}"
+    python3 "$REPO_ROOT/install/bootstrap.py" --repo "$REPO_ROOT" --install-deps \
+        || echo "    ${C_YELLOW}WARN: some packages failed to install${C_RESET}"
 fi
 echo
 

@@ -102,9 +102,73 @@ def check_prereqs() -> dict:
     }
 
 
+def install_python_deps(repo_root: Path) -> tuple[bool, str]:
+    """Run `pip install -r requirements.txt` if that file exists.
+
+    Idempotent — pip skips already-satisfied packages on its own, but
+    this helper short-circuits early when the file is absent. Returns
+    (ok, detail) so both shell installers can print consistent messaging.
+    """
+    req = repo_root / "requirements.txt"
+    if not req.exists():
+        return True, "no requirements.txt — skipped"
+    import subprocess
+    try:
+        r = subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--quiet",
+             "--disable-pip-version-check", "-r", str(req)],
+            timeout=900)
+        if r.returncode == 0:
+            return True, "installed (pip skips already-satisfied)"
+        return False, f"pip exit {r.returncode}"
+    except Exception as exc:  # noqa: BLE001
+        return False, f"pip error: {exc}"
+
+
+def install_node_deps(repo_root: Path) -> tuple[bool, str]:
+    """Run `npm install` at repo root if package.json exists.
+
+    Idempotent — npm checks node_modules and only installs missing
+    packages. Returns (ok, detail) for consistent shell output.
+    """
+    pkg = repo_root / "package.json"
+    if not pkg.exists():
+        return True, "no package.json — skipped"
+    import subprocess
+    try:
+        r = subprocess.run(
+            ["npm", "install", "--silent", "--no-audit", "--no-fund"],
+            cwd=str(repo_root), timeout=900,
+            shell=(os.name == "nt"))  # Windows needs shell for `npm.cmd`
+        if r.returncode == 0:
+            return True, "installed (npm skips already-installed)"
+        return False, f"npm exit {r.returncode}"
+    except Exception as exc:  # noqa: BLE001
+        return False, f"npm error: {exc}"
+
+
 def run(args: argparse.Namespace) -> int:
     home = Path(args.home).expanduser()
     repo = Path(args.repo).expanduser() if args.repo else REPO_ROOT
+
+    # --install-deps mode: short-circuit to dep install only.
+    # Both install.ps1 and install.sh call this one path — no duplication
+    # of the subprocess invocations in shell.
+    if getattr(args, "install_deps", False):
+        py_ok, py_detail = install_python_deps(repo)
+        node_ok, node_detail = install_node_deps(repo)
+        payload = {
+            "python_deps": {"ok": py_ok, "detail": py_detail},
+            "node_deps":   {"ok": node_ok, "detail": node_detail},
+        }
+        if args.json:
+            print(json.dumps(payload, indent=2))
+        else:
+            py_mark = "+" if py_ok else "!"
+            node_mark = "+" if node_ok else "!"
+            print(f"  [{py_mark}] python: {py_detail}")
+            print(f"  [{node_mark}] node:   {node_detail}")
+        return 0 if (py_ok and node_ok) else 1
 
     report: dict = {"home": str(home), "repo": str(repo), "actions": []}
 
@@ -175,6 +239,10 @@ def main() -> int:
                         help="Skip installing the bravo shim into ~/.bravo/bin")
     parser.add_argument("--check", action="store_true",
                         help="Check prereqs and exit without writing anything")
+    parser.add_argument("--install-deps", action="store_true",
+                        help="Install Python + Node package dependencies "
+                             "(pip install -r requirements.txt + npm install). "
+                             "Both idempotent; safe to re-run.")
     parser.add_argument("--json", action="store_true",
                         help="Emit JSON report")
     args = parser.parse_args()
