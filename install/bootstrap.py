@@ -132,6 +132,49 @@ def install_mcp_config(repo_root: Path) -> tuple[bool, str]:
         return False, f"seed failed: {exc}"
 
 
+def verify_requirements(repo_root: Path) -> tuple[bool, str]:
+    """Dry-run pip against requirements.txt from a fresh dep state.
+
+    The --ignore-installed flag makes pip resolve the whole tree as if
+    nothing were installed — that's what a client's fresh paste-install
+    actually hits. This is the process fix for the three hotfix cycles
+    where I shipped a pin change, CC's fresh install failed with a
+    conflict pip already knew about, and I only caught it from their
+    terminal output.
+
+    Returns (ok, detail). Call this before committing any requirements.txt
+    change. Run via `bravo doctor` or
+    `python install/bootstrap.py --verify-requirements`.
+    """
+    req = repo_root / "requirements.txt"
+    if not req.exists():
+        return True, "no requirements.txt"
+    import subprocess
+    try:
+        r = subprocess.run(
+            [sys.executable, "-m", "pip", "install",
+             "--dry-run", "--ignore-installed",
+             "--disable-pip-version-check", "-r", str(req)],
+            capture_output=True, text=True, timeout=300)
+        if r.returncode == 0:
+            # Count "Would install" packages for a quick sanity read.
+            would_install = 0
+            for line in r.stdout.splitlines():
+                if line.startswith("Would install"):
+                    would_install = len(line.replace("Would install", "").split())
+            return True, f"resolver clean ({would_install} packages resolve)"
+        # Extract the actual conflict line for the error detail.
+        err_line = "unknown conflict"
+        for line in (r.stderr or r.stdout).splitlines():
+            s = line.strip()
+            if s.startswith("ERROR:") or "conflicting dependencies" in s.lower():
+                err_line = s[:200]
+                break
+        return False, err_line
+    except Exception as exc:  # noqa: BLE001
+        return False, f"verify error: {exc}"
+
+
 def install_python_deps(repo_root: Path) -> tuple[bool, str]:
     """Run `pip install -r requirements.txt` if that file exists.
 
@@ -186,6 +229,14 @@ def install_node_deps(repo_root: Path) -> tuple[bool, str]:
 def run(args: argparse.Namespace) -> int:
     home = Path(args.home).expanduser()
     repo = Path(args.repo).expanduser() if args.repo else REPO_ROOT
+
+    # --verify-requirements mode: dry-run resolver, exit non-zero on conflict.
+    # Use before committing any requirements.txt pin change.
+    if getattr(args, "verify_requirements", False):
+        ok, detail = verify_requirements(repo)
+        mark = "+" if ok else "!"
+        print(f"  [{mark}] requirements.txt: {detail}")
+        return 0 if ok else 1
 
     # --install-deps mode: short-circuit to dep install only.
     # Both install.ps1 and install.sh call this one path — no duplication
@@ -283,6 +334,10 @@ def main() -> int:
                         help="Install Python + Node package dependencies "
                              "(pip install -r requirements.txt + npm install). "
                              "Both idempotent; safe to re-run.")
+    parser.add_argument("--verify-requirements", action="store_true",
+                        help="Pip dry-run the resolver (ignores existing installs) "
+                             "to catch conflicts BEFORE committing pin changes. "
+                             "Returns non-zero on conflict.")
     parser.add_argument("--json", action="store_true",
                         help="Emit JSON report")
     args = parser.parse_args()
