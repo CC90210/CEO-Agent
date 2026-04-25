@@ -935,8 +935,148 @@ def _capture_post_images(page, max_images: int = 3) -> list:
     return images
 
 
+_INTENT_KEYWORDS = {
+    "greeting": ("hey everyone", "hello everyone", "hi everyone", "hi all",
+                 "just joined", "new here", "new to the", "introduce myself",
+                 "introduction", "first post", "wanted to introduce", "i'm new"),
+    "win":      ("closed my first", "just closed", "got my first client",
+                 "signed my first", "signed a deal", "made my first",
+                 "celebrate", "milestone", "hit my first", "landed my first",
+                 "huge win", "big win", "we did it", "i did it"),
+    "struggle": ("struggling", "stuck", "frustrated", "burned out", "burnt out",
+                 "self doubt", "imposter", "feeling lost", "overwhelmed",
+                 "rough week", "ready to quit", "doubting myself"),
+}
+
+
+def _classify_post_intent(post_title: str, post_content: str) -> str:
+    """Return the conversational intent of a Skool post.
+
+    One of: greeting, win, struggle, question, share, announce.
+
+    The reply prompt branches on this — a "Hey everyone, just joined!"
+    post should NOT receive constructive criticism, and a "Closed my
+    first $5k client!" post should NOT be peppered with unsolicited
+    next-steps. The previous version baked critique into every reply,
+    which read as cold to people who were just saying hi or celebrating.
+
+    Strategy: cheap keyword fast-path for an initial guess, then a tiny
+    Haiku override when available (lets Haiku catch e.g. an intro that
+    doesn't say "new here" but reads as one). Default to "share" when
+    classification fails — that path still produces a useful reply.
+    """
+    text = (post_title + "\n" + post_content).lower()
+
+    fast_path = None
+    for label, kws in _INTENT_KEYWORDS.items():
+        if any(kw in text for kw in kws):
+            fast_path = label
+            break
+    if fast_path is None and "?" in (post_title + post_content):
+        fast_path = "question"
+
+    system = (
+        "Classify the intent of a Skool community post. Reply with EXACTLY ONE "
+        "word from this list: greeting, win, question, share, struggle, announce. "
+        "Definitions: greeting=introducing themselves or saying hi; win=celebrating "
+        "a result or milestone; question=explicit ask for advice/help/input; "
+        "share=posted work or progress for feedback or info; struggle=venting, "
+        "stuck, doubt, burnout, asking for support; announce=news/event/heads-up "
+        "with no ask. One word, no punctuation, no quotes."
+    )
+    user = f"Title: {post_title[:200]}\nContent: {post_content[:600]}"
+    if fast_path:
+        user += f"\n(prior guess: {fast_path} — override only if clearly wrong)"
+
+    try:
+        haiku_result = _call_claude(system, user, max_tokens=10, model="haiku")
+    except TypeError:
+        # _call_claude doesn't accept model kwarg — fall back to default model.
+        haiku_result = _call_claude(system, user, max_tokens=10)
+    except Exception:
+        haiku_result = None
+
+    if haiku_result:
+        word = haiku_result.strip().lower().split()[0] if haiku_result.strip() else ""
+        word = word.strip(".,!?\"'")
+        if word in {"greeting", "win", "question", "share", "struggle", "announce"}:
+            return word
+
+    return fast_path or "share"
+
+
+def _intent_rules(intent: str) -> str:
+    """Per-intent rule block injected into the system prompt."""
+    if intent == "greeting":
+        return (
+            "INTENT: GREETING / INTRODUCTION.\n"
+            "- This member said hi or introduced themselves. They did NOT ask for advice.\n"
+            "- Welcome them warmly. Use their first name. Be genuinely glad they're here.\n"
+            "- ONE warm acknowledgement, ONE short line of encouragement OR a friendly\n"
+            "  question about what brought them to the community.\n"
+            "- DO NOT critique. DO NOT suggest improvements. DO NOT teach. DO NOT add\n"
+            "  any 'constructive criticism' flag.\n"
+            "- 1-2 sentences total. Pure warmth, like a handshake at a meetup.\n"
+        )
+    if intent == "win":
+        return (
+            "INTENT: WIN / CELEBRATION.\n"
+            "- They're sharing a milestone. Celebrate FIRST, no unsolicited critique.\n"
+            "- Acknowledge the SPECIFIC thing they accomplished. Make them feel seen.\n"
+            "- Optional: ONE short forward-looking line (a question about what's next,\n"
+            "  or a single encouragement). No bullet lists.\n"
+            "- DO NOT add a 'constructive criticism' flag. They earned the win — let it land.\n"
+            "- 2-3 sentences, warm and specific.\n"
+        )
+    if intent == "struggle":
+        return (
+            "INTENT: STRUGGLE / VENT.\n"
+            "- They're stuck, frustrated, or doubting themselves. Empathy FIRST.\n"
+            "- Validate the feeling without minimizing it. You've been there.\n"
+            "- Then ONE practical, specific next step. Not a list, not vague advice.\n"
+            "- NO 'constructive criticism' flag — this isn't critique, it's support.\n"
+            "- 2-4 sentences. The first sentence MUST validate, not solve.\n"
+        )
+    if intent == "question":
+        return (
+            "INTENT: QUESTION.\n"
+            "- They asked something specific. ANSWER it directly.\n"
+            "- Give the most useful concrete answer you can in 2-3 sentences.\n"
+            "- If you have direct experience, mention it briefly.\n"
+            "- No 'great question', no preamble — just the answer.\n"
+            "- NO 'constructive criticism' flag — they want help, not feedback on the question.\n"
+        )
+    if intent == "announce":
+        return (
+            "INTENT: ANNOUNCEMENT / HEADS-UP.\n"
+            "- They're sharing news, an event, or a heads-up. NOT asking for input.\n"
+            "- Acknowledge briefly. Maybe one sentence of genuine interest or a question.\n"
+            "- DO NOT critique their announcement.\n"
+            "- 1-2 sentences.\n"
+        )
+    # Default: share (work / build / progress posted for community awareness)
+    return (
+        "INTENT: SHARE / WORK-FOR-FEEDBACK.\n"
+        "- They posted work, progress, code, a website, or a build.\n"
+        "- Acknowledge what they built FIRST — specific to what's actually in the post.\n"
+        "- Then, if you have one piece of useful critique, deliver it.\n"
+        "- WHEN giving critique: OPEN that part with a natural flag like\n"
+        "  'hey, here's some constructive criticism' or 'quick constructive note'.\n"
+        "  Don't drop critique without warning.\n"
+        "- If pure encouragement is the right call, give pure encouragement — no\n"
+        "  forced critique. Read the room.\n"
+        "- 2-4 sentences.\n"
+    )
+
+
 def generate_post_reply(post_title: str, post_content: str, author_name: str, images: list = None) -> str:
-    # Step 1: Research any specific topics mentioned in the post
+    # Step 0: classify the conversational intent so the reply tone matches
+    # the moment (greeting/win/struggle ≠ share-for-feedback). 2026-04-25
+    # rewrite — replaces the always-constructive prompt that read cold on
+    # intros and celebrations.
+    intent = _classify_post_intent(post_title, post_content)
+
+    # Step 1: research any specific topics mentioned in the post
     research_context = _research_post(post_title, post_content)
 
     system = (
@@ -945,22 +1085,17 @@ def generate_post_reply(post_title: str, post_content: str, author_name: str, im
         "CC runs OASIS AI Solutions. He builds AI agent systems for local businesses and has closed "
         "$30k+ deals. He's a real mentor who wants every member to succeed.\n\n"
         "PERSONALITY:\n"
-        "- You are CONSTRUCTIVE and PROGRESSIVE. You build people up while pushing them forward.\n"
-        "- If someone shares work (screenshots, code, websites), acknowledge what they built first, then suggest improvements.\n"
-        "- If someone is early stage or learning, meet them where they are. Encourage the effort, guide the direction.\n"
-        "- If someone posts something incomplete, ask clarifying questions instead of dismissing it.\n"
-        "- Give specific, actionable next steps. Not vague advice.\n"
-        "- You're direct but never condescending. You remember what it felt like to start.\n"
+        "- Match the moment. Some posts call for warmth, some for critique, some for\n"
+        "  empathy, some for a direct answer. Read the post, then respond accordingly.\n"
+        "- You build people up. You never punch down or talk past someone.\n"
+        "- If someone is early stage, meet them where they are. Encourage the effort,\n"
+        "  guide the direction.\n"
+        "- If someone posts something incomplete, ask a clarifying question instead\n"
+        "  of dismissing it.\n"
+        "- When you give actionable advice, be specific — not vague.\n"
+        "- Direct but never condescending. You remember what it felt like to start.\n"
         "- You genuinely care about each person's progress.\n\n"
-        "CONSTRUCTIVE CRITICISM FLAG (IMPORTANT):\n"
-        "- WHENEVER you give critique, suggestions for improvement, or point out what's missing or could be better,\n"
-        "  you MUST explicitly flag it. Open that part of the reply with a natural phrase like:\n"
-        "    \"hey, here's some constructive criticism\" or\n"
-        "    \"quick constructive note\" or\n"
-        "    \"one piece of constructive feedback\"\n"
-        "- This signals to the member that feedback is coming before you deliver it, so it lands well.\n"
-        "- If the reply is pure encouragement with no critique, no flag needed.\n"
-        "- If the reply mixes encouragement AND critique, put the flag right before the critique part.\n\n"
+        + _intent_rules(intent) + "\n"
         "IMAGE HANDLING:\n"
         "- If — and ONLY if — images are explicitly attached below, look at them and respond to the specific work shown (code, websites, dashboards, screenshots).\n"
         "- If no images are attached, respond to the text ONLY. Do NOT mention images, screenshots, attachments, or anything visual. Do NOT ask them to resend, repost, or share an image. Do NOT speculate that something was cut off.\n"
