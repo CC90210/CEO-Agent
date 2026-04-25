@@ -40,6 +40,18 @@ That single line:
 
 **Want the old behavior** (detect-only, print-the-command, do nothing)? Pass `--no-auto-install` (bash) or `-NoAutoInstall` (PowerShell), or set `OASIS_NO_AUTO_INSTALL=1` before running. **Skipping the consent prompt for CI / scripted installs:** pass `--auto-install` or set `OASIS_AUTO_INSTALL=1`.
 
+### Auto-update — the wizard pulls new commits on every launch
+
+Once installed, you don't need to remember to update. Three layers keep your install fresh:
+
+1. **Re-running the one-liner** (`irm | iex` or `curl | bash`) does a shallow-clone-safe `git fetch + reset --hard origin/<branch>` on the existing `~/bravo-repo`. Local edits are auto-stashed (recoverable via `git stash list`).
+2. **`bravo setup`** runs a self-update preflight before the wizard starts. It detects you're in a CC90210 agent repo, fetches origin, and if any new commits exist, prints the next-5 commit subjects, applies them, and re-execs the wizard with the new code in a fresh subprocess. Offline = silent no-op.
+3. **`bravo update`** is the explicit-update command — same hardened fetch + reset + `catalog_sync` + session ingest in one shot.
+
+To freeze a deployment on a specific commit (CI, demos, locked clients):
+- Set `BRAVO_SKIP_AUTO_UPDATE=1` to disable the wizard preflight only.
+- Or check out a tag: `git -C ~/bravo-repo checkout <tag>`. The preflight will see "detached HEAD" and skip.
+
 After install:
 
 ```bash
