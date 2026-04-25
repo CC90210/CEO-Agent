@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
   OASIS AI Agent Factory quickstart for Windows PowerShell.
 

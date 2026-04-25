@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
   Bravo one-command installer for Windows.
 
