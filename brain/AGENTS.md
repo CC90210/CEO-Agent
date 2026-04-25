@@ -232,8 +232,9 @@ Each agent operates under a permission level. See `skills/agent-permissions/SKIL
 
 | Level | Claims | Agents |
 |-------|--------|--------|
-| **minimal** | read | explorer, researcher, social-publisher, revenue-hunter |
-| **standard** | read, write, execute | writer, reviewer, content-creator, chief-of-staff, video-editor, git-ops, documenter |
+| **minimal** | read | explorer, researcher, revenue-hunter |
+| **standard** | read, write, execute | writer, reviewer, chief-of-staff, git-ops, documenter |
+| _(Maven sub-agents)_ | _delegated_ | content-creator, social-publisher, video-editor — live in `../CMO-Agent/agents/`, not local |
 | **elevated** | standard + spawn, memory | architect, debugger, workflow-builder, meta-agent, codex-agent |
 | **admin** | all | Bravo lead agent only |
 

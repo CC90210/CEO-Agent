@@ -89,6 +89,9 @@ tags: [reference, tools, routing]
 | Codex health check | `codex_health.py` | `[--json]` |
 | Onboarding diagnostics | `onboarding_diagnostics.py` | `[--json]` |
 | Browser Harness diagnostics | `browser_harness_doctor.py` | `[--json] [--strict]` |
+| **Set up agent on a fresh machine for a paying client** | `install/quickstart.{ps1,sh}` (one-line installer) + `bravo_cli/wizard.py` (interactive setup) | Windows: `irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.ps1 \| iex` · macOS/Linux: `curl -sSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.sh \| bash` · Override: `OASIS_AUTO_INSTALL=1` (skip consent), `OASIS_PROFILE=atlas` (skip picker) · Per-machine setup pattern doc: `skills/agent-runtime-packaging/SKILL.md` |
+| Email-safety self-check | `email_doctor.py` | `[--json]` — runs the 10-check multi-AI safety surface audit (gateway, killswitch, --dry-run flags, no-smtp-bypass, template render) |
+| Force ALL outbound to dry-run (multi-AI killswitch) | env var | `export BRAVO_FORCE_DRY_RUN=1` (POSIX) / `$env:BRAVO_FORCE_DRY_RUN='1'` (PowerShell). Forces every send through send_gateway to return status=dry_run regardless of caller flags. Use in any session where you don't fully trust the AI driving. |
 
 ### Backend / Codex Delegation
 | CC Says | Tool | Command |

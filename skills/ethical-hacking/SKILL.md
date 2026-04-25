@@ -256,6 +256,5 @@ Log progress in `memory/cybersecurity_learning.md` (create on first session).
 
 ## Obsidian Links
 - [[skills/security-protocol/SKILL]]
-- [[skills/security-reviewer/SKILL]] *(if exists as skill vs agent)*
-- [[.claude/agents/security-reviewer]]
+- [[.claude/agents/security-reviewer]] *(security-reviewer is an agent, not a skill — invoke via Task tool with subagent_type:"security-reviewer")*
 - [[brain/RISK_REGISTER]]
