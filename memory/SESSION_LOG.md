@@ -2,6 +2,10 @@
 tags: [daily]
 ---
 
+### 2026-04-25 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Two-track session: (1) reconnected ~100 Obsidian orphans (73 zero-inbound -> 0) via 4 new hub INDEX files + cascade wikilinks; (2) shipped V1.0 one-line installers for Atlas + Maven as thin profile-preselect shims into the unified Bravo wizard (--profile flag now passes through quickstart.sh/ps1). 3 repos green pushed: CEO-Agent fca59b6, CFO-Agent a8a4d4e, CMO-Agent f54aaae. Codex CLI 0.118.0 found stale (all model names rejected); Bravo executed inline.
+
 ### 2026-04-24 — Auto-sync
 **Agent:** BRAVO state_sync
 **Note:** Full-scope build review: verified Codex outreach fixes green, folded render-audit into wire_all_templates.py (--render-check), hardened install/bootstrap.py pip+npm log capture, killed 3 stuck wizard procs, cleared manifest drift, pushed 3 commits. Health 100/100.
