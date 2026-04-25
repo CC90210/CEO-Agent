@@ -74,12 +74,39 @@ echo "==> Checking prerequisites"
 need_ok=true
 has() { command -v "$1" >/dev/null 2>&1; }
 
+# python3 needs the same Apple-stub guard + version check as quickstart.sh.
+# Without this, `command -v python3` on a fresh Mac returns the
+# /usr/bin/python3 Xcode-CLT trampoline, install.sh marks it green, then
+# bootstrap.py hits the modal Xcode-install dialog and hangs.
+has_python3_310_plus() {
+    has python3 || return 1
+    if [ "$(uname -s 2>/dev/null)" = "Darwin" ] \
+       && [ "$(command -v python3)" = "/usr/bin/python3" ]; then
+        return 1
+    fi
+    local v
+    v="$(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null)" \
+        || return 1
+    case "$v" in
+        3.10|3.11|3.12|3.13|3.14|3.15) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 check_required() {
     local name="$1"
-    if has "$name"; then
-        printf '    %s[+] %s%s\n' "$C_GREEN" "$name" "$C_RESET"
+    local label="$name"
+    local ok_check
+    if [ "$name" = "python3" ]; then
+        ok_check="has_python3_310_plus"
+        label="python3 (>= 3.10)"
     else
-        printf '    %s[X] %s%s\n' "$C_RED" "$name" "$C_RESET"
+        ok_check="has $name"
+    fi
+    if eval "$ok_check"; then
+        printf '    %s[+] %s%s\n' "$C_GREEN" "$label" "$C_RESET"
+    else
+        printf '    %s[X] %s%s\n' "$C_RED" "$label" "$C_RESET"
         need_ok=false
     fi
 }
@@ -179,7 +206,21 @@ fi
 if [ "$SKIP_SMOKE" -eq 0 ]; then
     echo "==> Running self_audit"
     if [ "$DRY_RUN" -eq 0 ]; then
-        python3 "$REPO_ROOT/scripts/self_audit.py" 2>&1 | tail -5 || true
+        # Surface the audit's exit code instead of silently swallowing it.
+        # We don't FAIL the install on a non-zero (drift can be cosmetic
+        # and shouldn't block a fresh client setup), but the user must
+        # not get a false "all green" signal — they get a clear warning
+        # pointing at `bravo doctor` for the detail.
+        # set +e in this scope so we don't trip set -e (install.sh is
+        # not strict-set today, but staying defensive).
+        set +e
+        python3 "$REPO_ROOT/scripts/self_audit.py" 2>&1 | tail -5
+        audit_rc="${PIPESTATUS[0]}"
+        set -e
+        if [ "$audit_rc" != "0" ]; then
+            printf '    %s[!] self_audit exit %s — install still complete; run %sbravo doctor%s for details.%s\n' \
+                "$C_YELLOW" "$audit_rc" "$C_CYAN" "$C_YELLOW" "$C_RESET"
+        fi
     fi
     echo
 fi

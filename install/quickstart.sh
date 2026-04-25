@@ -152,22 +152,23 @@ ensure_homebrew() {
     command -v brew >/dev/null 2>&1
 }
 
-# Run a command, with sudo if needed and available. Returns 1 if neither
-# direct nor sudo execution is possible.
-run_pkg_install() {
-    local cmd="$*"
+# Run a privileged command as an argv array. No shell interpretation of
+# package-name strings — eliminates the `sudo bash -c "$cmd"` injection
+# pattern flagged in the 2026-04-25 security review. Each caller invokes
+# this once per package-manager command (apt-get update is a separate
+# call from apt-get install).
+run_pkg_install_argv() {
     if [ "$(id -u)" = "0" ]; then
-        eval "$cmd"
+        "$@"
         return $?
     fi
     if command -v sudo >/dev/null 2>&1; then
-        info "(this step needs sudo for the package manager)"
         sudo -v || return 1
-        sudo bash -c "$cmd"
+        sudo "$@"
         return $?
     fi
     fail "no sudo available — cannot install system packages"
-    info "as root: $cmd"
+    info "as root: $*"
     return 1
 }
 
@@ -191,28 +192,43 @@ install_missing() {
     done
     pkgs=("${uniq[@]}")
 
+    # Expand the multi-package strings ("python3 python3-pip python3-venv")
+    # into the flat argv list that argv-mode sudo expects.
+    local flat=()
+    for p in "${pkgs[@]}"; do
+        # shellcheck disable=SC2206
+        flat+=( $p )
+    done
+
     case "$os" in
         mac)
             ensure_homebrew || return 1
-            echo "==> Installing via Homebrew: ${pkgs[*]}"
+            echo "==> Installing via Homebrew: ${flat[*]}"
             brew update --quiet || true
-            brew install "${pkgs[@]}" || return 1
+            brew install "${flat[@]}" || return 1
             ;;
         linux-apt)
-            echo "==> Installing via apt-get: ${pkgs[*]}"
-            run_pkg_install "apt-get update -y && apt-get install -y ${pkgs[*]}" || return 1
+            echo "==> Installing via apt-get: ${flat[*]}"
+            info "(this step needs sudo for apt-get)"
+            run_pkg_install_argv apt-get update -y || return 1
+            run_pkg_install_argv apt-get install -y "${flat[@]}" || return 1
             ;;
         linux-dnf)
-            echo "==> Installing via dnf: ${pkgs[*]}"
-            run_pkg_install "dnf install -y ${pkgs[*]}" || return 1
+            echo "==> Installing via dnf: ${flat[*]}"
+            info "(this step needs sudo for dnf)"
+            run_pkg_install_argv dnf install -y "${flat[@]}" || return 1
             ;;
         linux-pacman)
-            echo "==> Installing via pacman: ${pkgs[*]}"
-            run_pkg_install "pacman -Sy --noconfirm ${pkgs[*]}" || return 1
+            echo "==> Installing via pacman: ${flat[*]}"
+            info "(this step needs sudo for pacman)"
+            # -Syu would auto-upgrade the entire system, which surprises users.
+            # -Sy + targeted install is what most distro guides recommend.
+            run_pkg_install_argv pacman -Sy --noconfirm "${flat[@]}" || return 1
             ;;
         linux-zypper)
-            echo "==> Installing via zypper: ${pkgs[*]}"
-            run_pkg_install "zypper install -y ${pkgs[*]}" || return 1
+            echo "==> Installing via zypper: ${flat[*]}"
+            info "(this step needs sudo for zypper)"
+            run_pkg_install_argv zypper install -y "${flat[@]}" || return 1
             ;;
         *)
             fail "no supported package manager detected on this system"
@@ -253,9 +269,34 @@ print_manual_hint() {
 }
 
 # ---- Prereqs ---------------------------------------------------------------
+# Special handling for python3: on a fresh macOS the only python3 on PATH is
+# the Apple stub at /usr/bin/python3, which prompts to install Xcode CLT
+# the first time you invoke it (a system-modal popup that blocks scripts).
+# We treat that as missing so brew installs python@3.12 cleanly. We also
+# require Python 3.10+ so older brew/system pythons don't squeak past.
+check_python3() {
+    command -v python3 >/dev/null 2>&1 || return 1
+    if [ "$(uname -s 2>/dev/null)" = "Darwin" ] \
+       && [ "$(command -v python3)" = "/usr/bin/python3" ]; then
+        return 1   # Apple stub — force a real install via brew
+    fi
+    # Resolved path is safe to invoke; check version.
+    local v
+    v="$(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null)" \
+        || return 1
+    case "$v" in
+        3.10|3.11|3.12|3.13|3.14|3.15) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 echo "==> Checking prerequisites"
 missing=()
 for tool in python3 git node npm; do
+    if [ "$tool" = "python3" ]; then
+        if check_python3; then ok "python3 (>= 3.10)"; else fail "python3"; missing+=("python3"); fi
+        continue
+    fi
     if command -v "$tool" >/dev/null 2>&1; then
         ok "$tool"
     else
@@ -290,8 +331,17 @@ if [ ${#missing[@]} -gt 0 ]; then
         if install_missing "$OS" "${missing[@]}"; then
             echo
             echo "==> Re-checking prerequisites after install"
+            # Mac brew installs python@3.12 to /opt/homebrew/bin (Apple
+            # Silicon) or /usr/local/bin (Intel). Refresh the shell hash
+            # so command -v sees the new binaries on the PATH that
+            # ensure_homebrew just sourced.
+            hash -r 2>/dev/null || true
             still_missing=()
             for tool in "${missing[@]}"; do
+                if [ "$tool" = "python3" ]; then
+                    if check_python3; then ok "python3 (>= 3.10)"; else fail "python3"; still_missing+=("python3"); fi
+                    continue
+                fi
                 if command -v "$tool" >/dev/null 2>&1; then
                     ok "$tool"
                 else
@@ -324,19 +374,41 @@ if [ ${#missing[@]} -gt 0 ]; then
 fi
 echo
 
-# ---- Clone or update -------------------------------------------------------
+# ---- Clone or update (atomic) ----------------------------------------------
+# Codex P2: a previous failed clone leaves a non-empty $REPO_DIR without
+# a .git/. Re-runs then crash with "destination path already exists".
+# Solution: clone into a sibling temp dir, swap it into place atomically.
 if [ -d "$REPO_DIR/.git" ]; then
     echo "==> Updating existing repo at $REPO_DIR"
     git -C "$REPO_DIR" pull --ff-only
-else
+elif [ -d "$REPO_DIR" ] && [ -z "$(ls -A "$REPO_DIR" 2>/dev/null || true)" ]; then
     echo "==> Cloning $REPO_URL into $REPO_DIR"
+    rmdir "$REPO_DIR" 2>/dev/null || true
     git clone --depth 10 "$REPO_URL" "$REPO_DIR"
+else
+    if [ -e "$REPO_DIR" ]; then
+        warn "$REPO_DIR exists but is not a clean git clone — repairing via atomic swap."
+        tmp_clone="$(mktemp -d "${REPO_DIR}.partial.XXXXXX" 2>/dev/null \
+                     || echo "${REPO_DIR}.partial.$$")"
+        rm -rf "$tmp_clone"
+        git clone --depth 10 "$REPO_URL" "$tmp_clone"
+        backup="${REPO_DIR}.broken.$(date +%s)"
+        mv "$REPO_DIR" "$backup"
+        mv "$tmp_clone" "$REPO_DIR"
+        info "old contents preserved at $backup (delete when ready)"
+    else
+        echo "==> Cloning $REPO_URL into $REPO_DIR"
+        git clone --depth 10 "$REPO_URL" "$REPO_DIR"
+    fi
 fi
 echo
 
 # ---- Lightweight local prep ------------------------------------------------
 echo "==> Preparing local Agent Factory"
-prep_log="${TMPDIR:-/tmp}/oasis-agent-factory-install.log"
+# Use mktemp for an unpredictable per-run path. Avoids the symlink TOCTOU
+# in /tmp (security review 2026-04-25, MEDIUM-3).
+prep_log="$(mktemp "${TMPDIR:-/tmp}/oasis-prep.XXXXXXXX.log" 2>/dev/null \
+            || echo "${TMPDIR:-/tmp}/oasis-prep.$$.$(date +%s).log")"
 if ! bash "$REPO_DIR/install/install.sh" --skip-path --skip-deps --skip-smoke >"$prep_log" 2>&1; then
     fail "prep failed"
     echo "    Log: $prep_log"
@@ -351,8 +423,17 @@ printf '%s=================================================%s\n' "$C_CYAN" "$C_R
 printf '%s Launching OASIS AI setup...%s\n' "$C_CYAN" "$C_RESET"
 printf '%s=================================================%s\n\n' "$C_CYAN" "$C_RESET"
 
+# Resolve python3 to its absolute path BEFORE prepending ~/.bravo/bin to
+# PATH, so a malicious shim placed there at any point cannot intercept us
+# (security review 2026-04-25, MEDIUM-5). Re-resolves a fresh path on
+# Mac when brew just installed Python 3.12 to /opt/homebrew.
+PY3="$(command -v python3 || true)"
+if [ -z "$PY3" ]; then
+    fail "python3 not found after install — open a new terminal and re-run"
+    exit 1
+fi
 export PATH="$HOME/.bravo/bin:$PATH"
-python3 "$REPO_DIR/bravo_cli/main.py" setup
+"$PY3" "$REPO_DIR/bravo_cli/main.py" setup
 
 echo
 printf '%s[+] Done.%s Next shells: add %s$HOME/.bravo/bin%s to PATH.\n' \

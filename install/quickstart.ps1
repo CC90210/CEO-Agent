@@ -72,6 +72,52 @@ function Test-Tool($name) {
     return [bool](Get-Command $name -ErrorAction SilentlyContinue)
 }
 
+# Find a real Python 3.10+ interpreter and return its path. Codex P1:
+#   - Get-Command python may return the Microsoft Store stub
+#     (C:\Users\<u>\AppData\Local\Microsoft\WindowsApps\python.exe) which
+#     opens the Store rather than running Python.
+#   - The default winget package puts python3.12 on PATH but not always
+#     a bare `python`.
+# Strategy: probe py -3.12 / py -3.11 / py -3.10 (the launcher), then
+# python3.12 / python3.11 / python3.10 / python3, then `python`. For
+# each, run --version and accept only 3.10+. Reject the Store stub by
+# checking the resolved path.
+function Resolve-Python310Plus {
+    $candidates = @(
+        @{ exe = 'py';         args = @('-3.12') },
+        @{ exe = 'py';         args = @('-3.11') },
+        @{ exe = 'py';         args = @('-3.10') },
+        @{ exe = 'python3.12'; args = @() },
+        @{ exe = 'python3.11'; args = @() },
+        @{ exe = 'python3.10'; args = @() },
+        @{ exe = 'python3';    args = @() },
+        @{ exe = 'python';     args = @() }
+    )
+    foreach ($c in $candidates) {
+        $cmd = Get-Command $c.exe -ErrorAction SilentlyContinue
+        if (-not $cmd) { continue }
+        # Reject the Microsoft Store stub explicitly.
+        if ($cmd.Source -and $cmd.Source -match 'WindowsApps\\python.*\.exe$') {
+            continue
+        }
+        try {
+            $args = $c.args + @('-c', 'import sys; print("%d.%d" % sys.version_info[:2])')
+            $ver  = (& $c.exe @args 2>$null).Trim()
+            if ($ver -match '^3\.(1[0-9]|[2-9][0-9])$') {
+                # Return both the executable and its launcher args so
+                # callers can invoke `& $exe @launcherArgs script ...`.
+                return [pscustomobject]@{
+                    Exe          = $c.exe
+                    LauncherArgs = $c.args
+                    Source       = $cmd.Source
+                    Version      = $ver
+                }
+            }
+        } catch {}
+    }
+    return $null
+}
+
 function Get-WingetId($tool) {
     switch ($tool) {
         'python' { return 'Python.Python.3.12' }
@@ -102,7 +148,18 @@ function Ask-YesNo($question, $defaultYes = $true) {
 Write-Host "==> Checking prerequisites" -ForegroundColor White
 $tools = @('python', 'node', 'npm', 'git')
 $missing = @()
+$pythonResolved = $null
 foreach ($tool in $tools) {
+    if ($tool -eq 'python') {
+        $pythonResolved = Resolve-Python310Plus
+        if ($pythonResolved) {
+            Write-Host "    [+] python ($($pythonResolved.Version) via $($pythonResolved.Exe))" -ForegroundColor Green
+        } else {
+            Write-Host "    [X] python (need 3.10+)" -ForegroundColor Red
+            $missing += $tool
+        }
+        continue
+    }
     if (Test-Tool $tool) {
         Write-Host "    [+] $tool" -ForegroundColor Green
     } else {
@@ -167,6 +224,16 @@ if ($missing.Count -gt 0) {
     Write-Host "==> Re-checking prerequisites after install" -ForegroundColor White
     $stillMissing = @()
     foreach ($tool in $missing) {
+        if ($tool -eq 'python') {
+            $pythonResolved = Resolve-Python310Plus
+            if ($pythonResolved) {
+                Write-Host "    [+] python ($($pythonResolved.Version) via $($pythonResolved.Exe))" -ForegroundColor Green
+            } else {
+                Write-Host "    [X] python" -ForegroundColor Red
+                $stillMissing += $tool
+            }
+            continue
+        }
         if (Test-Tool $tool) {
             Write-Host "    [+] $tool" -ForegroundColor Green
         } else {
@@ -184,10 +251,24 @@ if ($missing.Count -gt 0) {
 }
 Write-Host ""
 
-# Clone or update
+# Clone or update (atomic — Codex P2: a previous failed clone may leave
+# a partial directory without a .git/, which would crash the next run).
 if (Test-Path (Join-Path $RepoDir '.git')) {
     Write-Host "==> Updating existing repo at $RepoDir" -ForegroundColor White
     git -C $RepoDir pull --ff-only
+} elseif ((Test-Path $RepoDir) -and -not (Get-ChildItem -Force $RepoDir -ErrorAction SilentlyContinue)) {
+    Write-Host "==> Cloning $RepoUrl into $RepoDir (empty dir)" -ForegroundColor White
+    Remove-Item -Path $RepoDir -Force -ErrorAction SilentlyContinue
+    git clone --depth 10 $RepoUrl $RepoDir
+} elseif (Test-Path $RepoDir) {
+    Write-Host "==> $RepoDir exists but is not a clean git clone — repairing via atomic swap." -ForegroundColor Yellow
+    $tmpClone = "$RepoDir.partial.$([guid]::NewGuid().ToString('N').Substring(0,8))"
+    git clone --depth 10 $RepoUrl $tmpClone
+    if ($LASTEXITCODE -ne 0) { throw "clone into temp dir failed" }
+    $backup = "$RepoDir.broken.$([int][double]::Parse((Get-Date -UFormat %s)))"
+    Move-Item -Path $RepoDir -Destination $backup -Force
+    Move-Item -Path $tmpClone -Destination $RepoDir -Force
+    Write-Host "    old contents preserved at $backup (delete when ready)" -ForegroundColor DarkGray
 } else {
     Write-Host "==> Cloning $RepoUrl into $RepoDir" -ForegroundColor White
     git clone --depth 10 $RepoUrl $RepoDir
@@ -215,7 +296,17 @@ Write-Host " Launching OASIS AI setup..." -ForegroundColor Cyan
 Write-Host "=================================================" -ForegroundColor Cyan
 Write-Host ""
 
-python (Join-Path $RepoDir 'bravo_cli\main.py') setup
+# Use the resolved Python 3.10+ interpreter from the prereq check, not
+# whatever `python` happens to point at in the current PATH (could be a
+# Store stub or the wrong version). Resolve a fresh one if we somehow
+# lost the reference.
+if (-not $pythonResolved) { $pythonResolved = Resolve-Python310Plus }
+if (-not $pythonResolved) {
+    Write-Host "[X] No working Python 3.10+ found after install. Open a new shell and re-run." -ForegroundColor Red
+    exit 1
+}
+$wizardScript = Join-Path $RepoDir 'bravo_cli\main.py'
+& $pythonResolved.Exe @($pythonResolved.LauncherArgs) $wizardScript 'setup'
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
