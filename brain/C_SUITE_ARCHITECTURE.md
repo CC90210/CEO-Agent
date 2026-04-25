@@ -100,6 +100,8 @@ Browser Harness is for authenticated UI work and compounding domain skills. It n
 
 ### Schema Overview
 
+> Local pulse spec: [[data/pulse/README]] (Bravo's CEO-side write contract).
+
 Each agent maintains a pulse file that others read:
 
 | Pulse File | Writer | Location | Readers | Key Data |

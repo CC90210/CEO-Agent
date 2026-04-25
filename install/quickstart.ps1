@@ -27,7 +27,13 @@
 
 param(
     [switch]$AutoInstall,
-    [switch]$NoAutoInstall
+    [switch]$NoAutoInstall,
+    # Pre-select an agent profile and skip the picker. Used by per-agent
+    # quickstart shims (CFO-Agent, CMO-Agent, Aura, Hermes) so users land
+    # directly in their wizard. When piped through iex, positional flags
+    # are lost, so `$env:OASIS_PROFILE = 'atlas'` is the documented escape
+    # hatch — the shim sets it before invoking irm|iex.
+    [string]$Profile = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -42,6 +48,7 @@ if ($AutoInstall)   { $AutoInstallMode = 'yes' }
 if ($NoAutoInstall) { $AutoInstallMode = 'no' }
 if ($env:OASIS_AUTO_INSTALL    -in @('1','yes','true')) { $AutoInstallMode = 'yes' }
 if ($env:OASIS_NO_AUTO_INSTALL -in @('1','yes','true')) { $AutoInstallMode = 'no'  }
+if (-not $Profile -and $env:OASIS_PROFILE) { $Profile = $env:OASIS_PROFILE }
 
 # UTF-8 output where the terminal supports it
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
@@ -306,7 +313,11 @@ if (-not $pythonResolved) {
     exit 1
 }
 $wizardScript = Join-Path $RepoDir 'bravo_cli\main.py'
-& $pythonResolved.Exe @($pythonResolved.LauncherArgs) $wizardScript 'setup'
+if ($Profile) {
+    & $pythonResolved.Exe @($pythonResolved.LauncherArgs) $wizardScript 'setup' '--profile' $Profile
+} else {
+    & $pythonResolved.Exe @($pythonResolved.LauncherArgs) $wizardScript 'setup'
+}
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }

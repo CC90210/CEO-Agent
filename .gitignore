@@ -107,6 +107,8 @@ blobs/
 # =============================================
 memory/LEAD_TRACKER.csv
 memory/outreach_archive/
+# Hub file is allowlisted so the graph stays connected (no PII in INDEX.md)
+!memory/outreach_archive/INDEX.md
 
 # =============================================
 # PLAYWRIGHT MCP ARTIFACTS

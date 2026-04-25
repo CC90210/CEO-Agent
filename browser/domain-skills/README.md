@@ -6,19 +6,24 @@ Search these files before navigating a site with Browser Harness.
 
 ## Starter Library
 
-- `github.md`
-- `supabase.md`
-- `vercel.md`
-- `n8n.md`
-- `stripe-dashboard.md`
-- `google-workspace.md`
-- `linkedin.md`
-- `meta-ads.md`
-- `x-twitter.md`
-- `canva.md`
-- `home-assistant.md`
-- `browser-use-cloud.md`
-- `client-portal-template.md`
+- [[browser/domain-skills/github]]
+- [[browser/domain-skills/supabase]]
+- [[browser/domain-skills/vercel]]
+- [[browser/domain-skills/n8n]]
+- [[browser/domain-skills/stripe-dashboard]]
+- [[browser/domain-skills/google-workspace]]
+- [[browser/domain-skills/linkedin]]
+- [[browser/domain-skills/meta-ads]]
+- [[browser/domain-skills/x-twitter]]
+- [[browser/domain-skills/canva]]
+- [[browser/domain-skills/home-assistant]]
+- [[browser/domain-skills/browser-use-cloud]]
+- [[browser/domain-skills/client-portal-template]]
+
+## Obsidian Links
+- [[browser/README]] — browser layer overview
+- [[browser/SAFETY]] — fail-closed rules
+- [[browser/interaction-skills/INDEX]] — cross-site interaction primitives
 
 ## Rule
 
