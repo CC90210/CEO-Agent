@@ -5,7 +5,11 @@ tags: [capabilities, tools]
 # CAPABILITIES — Tool & Integration Registry
 
 > Complete inventory of what Bravo can do. Last updated: 2026-04-22.
-> **Totals: 187 skills · 33 workflows · 47 scripts · 17 agents (16 file-based + 6 native Claude Code) · 5 MCP servers + Codex (external)**
+> **Totals (live disk truth, 2026-04-25): 150 skills · 36 workflows · 78 scripts · 21 agents (14 file-based in `agents/` + 7 native Claude Code in `.claude/agents/`) · 9 MCP servers + Codex (external)**
+>
+> These counts are reported live by `python scripts/self_audit.py`. If
+> they drift, the audit will flag it. Trust the live numbers, not any
+> integer hardcoded in a satellite doc.
 >
 > **📦 For the shareable GitHub repo catalog (CC's "tool shed" for clients/prospects): see [[brain/TOOL_SHED]]**
 

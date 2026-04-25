@@ -31,8 +31,8 @@ Levels are cumulative — each includes all claims from the level below:
 
 | Level | Claims | Agents |
 |-------|--------|--------|
-| **minimal** | read | explorer, researcher, social-publisher, revenue-hunter |
-| **standard** | read, write, execute | writer, reviewer, content-creator, chief-of-staff, video-editor, git-ops, documenter |
+| **minimal** | read | explorer, researcher, revenue-hunter |
+| **standard** | read, write, execute | writer, reviewer, chief-of-staff, git-ops, documenter |
 | **elevated** | standard + spawn, memory | architect, debugger, workflow-builder, meta-agent |
 | **admin** | all claims | Bravo lead agent only |
 
@@ -45,9 +45,8 @@ Each agent's write access is limited to specific file patterns:
 | **writer** | `**/*.ts`, `**/*.tsx`, `**/*.js`, `**/*.py`, `**/*.css`, `**/*.json` | Code files only |
 | **reviewer** | `**/*` (read) + auto-fix on code files | Can read everything, write only for mechanical fixes |
 | **documenter** | `**/*.md`, `brain/**`, `memory/**`, `skills/**` | Markdown and intelligence files |
-| **content-creator** | `../CMO-Agent/content-studio/**`, `media/**`, `courses/**` | Content assets only |
-| **social-publisher** | (none — delegates to late_tool.py) | No direct file access needed |
 | **explorer** | (none — read-only by design) | Never writes, edits, or deletes |
+| _(Maven sub-agents:_ `content-creator`, `social-publisher`, `video-editor` _)_ | _Live in `../CMO-Agent/agents/` — delegate via Maven, not invoked locally_ | Maven owns content/posting/video pipelines |
 | **git-ops** | `.git/**`, staging area | Git operations only |
 | **architect** | `**/*.md` (plans, docs) | Designs only, never writes code directly |
 
