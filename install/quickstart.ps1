@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   OASIS AI Agent Factory quickstart for Windows PowerShell.
 
@@ -424,8 +424,13 @@ Write-Host ""
 # lost the reference.
 if (-not $pythonResolved) { $pythonResolved = Resolve-Python310Plus }
 if (-not $pythonResolved) {
-    Write-Host "[X] No working Python 3.10+ found after install. Open a new shell and re-run." -ForegroundColor Red
-    exit 1
+    Write-Host "[X] No working Python 3.10+ found at the wizard-launch step." -ForegroundColor Red
+    Write-Host "    Open a new PowerShell window so PATH refreshes, then run:" -ForegroundColor Yellow
+    Write-Host '      irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.ps1 | iex' -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "Press Enter to close this window..." -ForegroundColor DarkGray
+    try { Read-Host | Out-Null } catch {}
+    exit 0  # exit 0 so close-on-exit terminals don't slam shut on the user
 }
 $wizardScript = Join-Path $RepoDir 'bravo_cli\main.py'
 if ($Profile) {
