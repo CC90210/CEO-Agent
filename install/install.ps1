@@ -1,18 +1,15 @@
-<#
-.SYNOPSIS
-  Bravo one-command installer for Windows.
-
-.DESCRIPTION
-  Idempotent install. Safe to re-run. Never mutates .env.agents.
-  Creates ~/.bravo/ tree via runtime/profile_home, writes a bravo.cmd shim,
-  adds it to user PATH, and runs doctor.
-
-.EXAMPLE
-  powershell -ExecutionPolicy Bypass -File install/install.ps1
-
-.EXAMPLE
-  powershell -File install/install.ps1 -SkipPathUpdate
-#>
+# Bravo one-command installer for Windows.
+#
+# Idempotent install. Safe to re-run. Never mutates .env.agents.
+# Creates ~/.bravo/ tree via runtime/profile_home, writes a bravo.cmd shim,
+# adds it to user PATH, and runs doctor.
+#
+# Examples:
+#   powershell -ExecutionPolicy Bypass -File install/install.ps1
+#   powershell -File install/install.ps1 -SkipPathUpdate
+#
+# Uses only single-line # comments (no <# ... #> blocks) to be robust
+# against any prefix-corruption when sourced via irm | iex.
 
 [CmdletBinding()]
 param(
