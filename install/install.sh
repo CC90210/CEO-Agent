@@ -84,8 +84,11 @@ has_python3_310_plus() {
        && [ "$(command -v python3)" = "/usr/bin/python3" ]; then
         return 1
     fi
+    # Same probe form as quickstart.sh + the PowerShell Resolve-Python310Plus.
+    # No embedded double-quotes, no % formatting — survives any shell's
+    # argv handling identically.
     local v
-    v="$(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null)" \
+    v="$(python3 -c 'import sys; print(sys.version_info.major, sys.version_info.minor, sep=".")' 2>/dev/null)" \
         || return 1
     case "$v" in
         3.10|3.11|3.12|3.13|3.14|3.15) return 0 ;;

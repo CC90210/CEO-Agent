@@ -299,8 +299,13 @@ check_python3() {
         return 1   # Apple stub — force a real install via brew
     fi
     # Resolved path is safe to invoke; check version.
+    # Snippet uses sep='.' (no embedded double quotes, no % formatting)
+    # to be portable across shells. Same form lives in install.sh and
+    # the PowerShell Resolve-Python310Plus probe — harmonized after the
+    # 2026-04-25 PS argv-splatting bug where embedded " in '%d.%d' broke
+    # under PowerShell's argv-wrap-each-in-double-quotes behavior.
     local v
-    v="$(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null)" \
+    v="$(python3 -c 'import sys; print(sys.version_info.major, sys.version_info.minor, sep=".")' 2>/dev/null)" \
         || return 1
     case "$v" in
         3.10|3.11|3.12|3.13|3.14|3.15) return 0 ;;
