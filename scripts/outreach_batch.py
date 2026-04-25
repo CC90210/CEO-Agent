@@ -292,7 +292,7 @@ def run_batch(limit, env_vars):
     print(json.dumps({"ok": True, "output": msg, "drafted": drafted, "errors": errors}))
 
 
-def send_approved_draft(draft_path_str, env_vars):
+def send_approved_draft(draft_path_str, env_vars, dry_run=False):
     """Send an approved email draft. Called by Telegram bridge callback handler.
 
     Double-send guard: the Telegram callback button can fire twice if CC
@@ -363,6 +363,7 @@ def send_approved_draft(draft_path_str, env_vars):
             "draft_path": str(claimed_path),
             "company": company,
         },
+        dry_run=dry_run,
     )
 
     if gw.get("status") == "sent":
@@ -386,6 +387,22 @@ def send_approved_draft(draft_path_str, env_vars):
             "lead_id": lead_id,
             "to": lead_email,
             "interaction_id": gw.get("interaction_id"),
+        }))
+    elif gw.get("status") == "dry_run":
+        # Dry-run is a successful validation, not a failure. Restore the draft
+        # to its pre-claim path so the next real send can proceed, do NOT touch
+        # the lead's CRM status, and exit 0.
+        try:
+            claimed_path.rename(draft_path)
+        except OSError:
+            pass
+        print(json.dumps({
+            "ok": True,
+            "status": "dry_run",
+            "output": f"DRY RUN — would have sent to {lead_name} ({lead_email}). "
+                      "No email sent, no CRM update, draft restored.",
+            "lead_id": lead_id,
+            "to": lead_email,
         }))
     else:
         # Send blocked/suppressed/errored — return the draft so CC can retry.
@@ -433,12 +450,16 @@ def main():
     parser.add_argument("--limit", type=int, default=5, help="Max leads per batch (default: 5)")
     parser.add_argument("--send-draft", metavar="PATH", help="Send an approved draft email")
     parser.add_argument("--skip-draft", metavar="PATH", help="Skip a draft")
+    parser.add_argument("--dry-run", dest="dry_run", action="store_true",
+                        help="Validate the draft + run gateway gates but DO NOT send. "
+                             "Multi-AI safety: BRAVO_FORCE_DRY_RUN=1 forces this for all "
+                             "outbound paths regardless of this flag.")
     args = parser.parse_args()
 
     env_vars = load_env()
 
     if args.send_draft:
-        send_approved_draft(args.send_draft, env_vars)
+        send_approved_draft(args.send_draft, env_vars, dry_run=args.dry_run)
     elif args.skip_draft:
         skip_draft(args.skip_draft, env_vars)
     else:

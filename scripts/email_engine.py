@@ -215,11 +215,13 @@ def cmd_send(env_vars, args, output_json=False):
         body_html=getattr(args, "html", None),
         brand=getattr(args, "brand", "oasis"),
         intent=intent,
+        dry_run=getattr(args, "dry_run", False),
     )
 
     # Preserve the legacy return shape for any script that parses this output.
-    success = gw.get("status") == "sent"
-    status = "sent" if success else "failed"
+    # dry_run is a successful no-op — treat it as success for exit-code purposes.
+    success = gw.get("status") in {"sent", "dry_run"}
+    status = gw.get("status") if success else "failed"
     result = {
         "status": status,
         "to": args.to,
@@ -288,11 +290,12 @@ def cmd_send_template(env_vars, args, output_json=False):
             "template_id": args.template_id,
             "template_name": tmpl.get("name"),
         },
+        dry_run=getattr(args, "dry_run", False),
     )
 
-    success = gw.get("status") == "sent"
+    success = gw.get("status") in {"sent", "dry_run"}
     result_dict = {
-        "status": "sent" if success else "failed",
+        "status": gw.get("status") if success else "failed",
         "to": args.to,
         "subject": subject,
         "template_id": args.template_id,
@@ -598,6 +601,7 @@ def cmd_sequence_run(env_vars, args, output_json=False):
                     "sequence_id": args.sequence_id,
                     "step": i + 1,
                 },
+                dry_run=getattr(args, "dry_run", False),
             )
             success = gw.get("status") == "sent"
             error = None if success else gw.get("reason")
@@ -1141,6 +1145,11 @@ Examples:
     p_send.add_argument("--transactional", action="store_true",
                         help="Transactional intent — skip suppression list check "
                              "(CASL s.10(9) exemption). Use for confirmations only.")
+    p_send.add_argument("--dry-run", dest="dry_run", action="store_true",
+                        help="Validate inputs + run gates but DO NOT send. "
+                             "Returns gateway status='dry_run'. Multi-AI safety: "
+                             "set BRAVO_FORCE_DRY_RUN=1 to force this for all "
+                             "send paths, even from sub-callers that don't pass it.")
 
     # send-template
     p_st = subparsers.add_parser("send-template", help="Send a stored template")
@@ -1152,6 +1161,10 @@ Examples:
                       choices=["oasis", "kona_makana", "nostalgic"])
     p_st.add_argument("--transactional", action="store_true",
                       help="Transactional intent (welcome / confirmation / reminder).")
+    p_st.add_argument("--dry-run", dest="dry_run", action="store_true",
+                      help="Validate template + render + run gates but DO NOT "
+                           "send. Multi-AI safety: BRAVO_FORCE_DRY_RUN=1 forces "
+                           "this for all send paths.")
 
     # templates (sub-group)
     p_tmpl = subparsers.add_parser("templates", help="Manage email templates")
@@ -1188,6 +1201,9 @@ Examples:
     p_sr.add_argument("--lead-id", dest="lead_id", required=True, help="Lead UUID")
     p_sr.add_argument("--lead-email", dest="lead_email", default=None,
                       help="Lead email (bypasses leads table lookup)")
+    p_sr.add_argument("--dry-run", dest="dry_run", action="store_true",
+                      help="Run the sequence without actually sending step 0. "
+                           "Multi-AI safety: BRAVO_FORCE_DRY_RUN=1 forces this.")
 
     # log
     p_log = subparsers.add_parser("log", help="View email send log")
