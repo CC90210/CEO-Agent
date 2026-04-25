@@ -135,10 +135,13 @@ except ImportError:
 DEFAULT_COOLDOWNS: dict[str, int] = {
     "email": 72,        # 3 days between cold emails to the same lead
     "instagram": 48,    # 2 days between DMs
-    "linkedin": 72,     # 3 days
     "phone": 168,       # 7 days between calls
     "skool": 24,        # 1 day — community is higher frequency
     "telegram": 0,      # internal, no cooldown
+    # LinkedIn outreach removed 2026-04-25 — CC's directive: "no automation
+    # for LinkedIn." Drafting CC LinkedIn messages by hand is fine; the
+    # gateway will not auto-send them. send(channel="linkedin") now returns
+    # status=error, reason="unknown channel 'linkedin'" as the hard guard.
 }
 
 # Global daily outbound caps. Prevents any single day becoming a firehose
@@ -146,7 +149,6 @@ DEFAULT_COOLDOWNS: dict[str, int] = {
 DAILY_CAPS: dict[str, int] = {
     "email": 50,        # 50 outbound emails/day hard cap
     "instagram": 30,    # 30 DMs/day (IG is especially spam-sensitive)
-    "linkedin": 20,     # 20 connection requests / messages / day
     "phone": 15,        # 15 calls/day sanity bound
 }
 
@@ -155,7 +157,6 @@ DAILY_CAPS: dict[str, int] = {
 HOURLY_CAPS: dict[str, int] = {
     "email": 10,
     "instagram": 6,
-    "linkedin": 4,
     "phone": 3,
 }
 
@@ -168,7 +169,6 @@ KNOWN_AGENT_SOURCES: frozenset[str] = frozenset({
     "email_engine",
     "booking_engine",
     "instagram_engine",
-    "linkedin_cli",
     "skool_engine",
     "n8n_inbound",
     "manual_cc",
@@ -1438,9 +1438,9 @@ def send(
                 "daily_count": None}
 
     # Non-email channels are logged only — the real send happens in the
-    # channel-specific engine (instagram_engine, linkedin_cli, etc.). The
-    # gateway still enforces cooldown + cap BEFORE those engines act; they
-    # import can_act() directly.
+    # channel-specific engine (instagram_engine, etc.). The gateway still
+    # enforces cooldown + cap BEFORE those engines act; they import
+    # can_act() directly.
     effective_cooldown = (
         cooldown_hours
         if cooldown_hours is not None

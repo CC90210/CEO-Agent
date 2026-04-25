@@ -39,8 +39,9 @@ Score every prospect before outreach. Only pursue leads scoring 60+.
 ## Core Stack
 - **Lead Discovery**: OpenCLI for structured prospect research + Playwright for deep dives:
   - `opencli twitter search "HVAC owner" --json` — find prospects discussing pain points
-  - `opencli linkedin search "title:owner company:HVAC" --json` — B2B prospect lists
   - `opencli reddit search "small business automation" --json` — find business owners asking for help
+  - LinkedIn: research only (manual via browser). CC drafts LinkedIn messages by hand on
+    request — there is no LinkedIn outreach automation in this system by design.
   - `opencli explore <prospect-website>` — reverse-engineer their tech stack and gaps
   - Playwright for deep reading when OpenCLI adapters don't cover the target
 - **Outreach**: `python scripts/google_tool.py gmail send --to EMAIL --subject SUBJECT --body BODY`

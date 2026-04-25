@@ -1847,35 +1847,58 @@ def step_playwright_browsers(step_num: int, total: int) -> None:
         print(f"  {RED('Install error:')} {exc}")
 
 
+def _harness_post_install_checklist() -> None:
+    """Print the manual steps the user has to do AFTER install for harness
+    to be useful. The install puts the binary on PATH but harness can only
+    act on sites the user is ALREADY logged into in their dedicated Chrome
+    profile. Without these steps the install is dead weight."""
+    print()
+    print(f"  {BOLD('What you do next (one-time, ~5 minutes):')}")
+    print(f"    {CYAN('1.')} Run {CYAN('bravo browser setup')}")
+    print(f"       {DIM('Opens a dedicated Chrome window with remote-debug enabled.')}")
+    print(f"    {CYAN('2.')} In that Chrome window, log into the sites you want this agent to act on:")
+    print(f"       {DIM('Skool, Stripe dashboard, Supabase, Vercel, anywhere it needs to act AS YOU.')}")
+    print(f"    {CYAN('3.')} Leave that Chrome window running in the background.")
+    print(f"       {DIM('The agent attaches to it; if it closes, the agent loses access until re-opened.')}")
+    print(f"    {CYAN('4.')} Verify with {CYAN('bravo browser doctor')}.")
+    print()
+    print(f"  {DIM('You can do this later — `bravo browser setup` is safe to run anytime.')}")
+
+
 def step_browser_harness(step_num: int, total: int) -> None:
     """Detect + optionally install Browser Harness.
 
     Complementary to Playwright — Browser Harness attaches to the user's
-    LOGGED-IN Chrome/Edge for real-account actions (Skool posting, LinkedIn
-    DMs, Stripe dashboard reads, etc.). Playwright launches its own
-    throwaway browser; Browser Harness hijacks yours.
+    LOGGED-IN Chrome/Edge for real-account actions (Skool posting, Stripe
+    dashboard reads, etc.). Playwright launches its own throwaway browser;
+    Browser Harness drives yours.
 
     Pre-existing installs are detected and skipped. Fresh installs are
     offered as opt-in since they need one-time Chrome remote-debug approval
-    before they can attach.
+    AND a manual login pass before they can do anything useful.
     """
     step_header(step_num, total, "Browser Harness (optional)",
-                "Attaches to your logged-in Chrome/Edge for real-account actions.")
+                "Drives your real, logged-in Chrome/Edge — Skool, Stripe dashboard, etc.")
     harness_exe = shutil.which("browser-harness")
     local_exe = Path.home() / ".local" / "bin" / (
         "browser-harness.exe" if os.name == "nt" else "browser-harness")
     if harness_exe or local_exe.exists():
         found = harness_exe or str(local_exe)
         print(f"  {GREEN(OK)} Already installed at {CYAN(str(found))}")
-        print(f"  {DIM('Next: run')} {CYAN('bravo browser setup')} "
-              f"{DIM('for one-time Chrome remote-debug approval.')}")
+        _harness_post_install_checklist()
         return
-    print(f"  {DIM('Different from Playwright — hijacks your REAL browser session.')}")
-    print(f"  {DIM('Skool, LinkedIn, Stripe dashboard, etc. all need this.')}")
+
+    # Plain-English explanation of the trade-off, since most clients
+    # haven't seen this kind of tool before.
+    print(f"  {DIM('Different from Playwright — drives your REAL browser session, not a throwaway one.')}")
+    print(f"  {DIM('Use it when an action needs to happen UNDER YOUR LOGIN (Skool replies,')}")
+    print(f"  {DIM('Stripe dashboard pulls, anything a public scraper would get blocked from).')}")
+    print(f"  {DIM('Skip it if you only need APIs and clean public scraping — most workflows are fine without it.')}")
     print()
     if not yes_no("Install Browser Harness now?", default=False):
-        print(f"  {DIM('Skipped. Later:')} {link('https://github.com/browser-use/browser-use', 'github.com/browser-use/browser-use')}")
+        print(f"  {DIM('Skipped. Later:')} {CYAN('bravo browser setup')}")
         return
+
     # Preferred install path: uv tool (fast, isolated). Fall back to pip.
     if shutil.which("uv"):
         cmd = ["uv", "tool", "install", "browser-use"]
@@ -1887,8 +1910,7 @@ def step_browser_harness(step_num: int, total: int) -> None:
         r = subprocess.run(cmd, timeout=300)
         if r.returncode == 0:
             print(f"  {GREEN(OK)} Installed.")
-            print(f"  {DIM('Next: run')} {CYAN('bravo browser setup')} "
-                  f"{DIM('for one-time Chrome remote-debug approval.')}")
+            _harness_post_install_checklist()
         else:
             print(f"  {YELLOW(WARN)} Install exited {r.returncode}. "
                   f"See {link('https://github.com/browser-use/browser-use')}")
