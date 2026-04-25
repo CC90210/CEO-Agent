@@ -384,7 +384,7 @@ TODAY'S #1 PRIORITY
 | Full revenue dashboard | Weekly (Monday) | `/briefing` on Mondays | `ceo_dashboard.py revenue` |
 | Pipeline dashboard | Weekly | Every Monday | `ceo_dashboard.py pipeline` |
 | Full dashboard | Monthly | 1st of month | `ceo_dashboard.py full` |
-| Content dashboard | Weekly | Friday review | Manual from Late posts |
+| Content dashboard | Weekly | Friday review | Manual from Zernio (fmr. Late) posts |
 | Client health | Weekly | After Monday briefing | `client_health.py report` |
 
 ---

@@ -1,6 +1,6 @@
 ---
 name: chief-of-staff
-description: "Personal communication and mission chief of staff. Triages Gmail, Slack (via n8n), and Social (via Late). Classifies messages into 4 tiers, generates draft replies, and enforces post-action follow-through."
+description: "Personal communication and mission chief of staff. Triages Gmail, Slack (via n8n), and Social (via Zernio, formerly Late). Classifies messages into 4 tiers, generates draft replies, and enforces post-action follow-through."
 model: sonnet
 tools:
   - mcp__late

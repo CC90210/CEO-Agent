@@ -1,7 +1,7 @@
 ---
 name: mcp-operations
 description: Tool routing guide — CLI-first for credential services, MCP for stateless tools. Single source of truth for all agents.
-triggers: [tool routing, Late, n8n, Supabase, Stripe, MCP, tool failure]
+triggers: [tool routing, Zernio, Late, n8n, Supabase, Stripe, MCP, tool failure]
 tier: core
 dependencies: []
 ---
@@ -34,7 +34,7 @@ dependencies: []
 | Email / Calendar | `gws` CLI | `gws gmail users messages list`, `gws calendar events list` (REST-style syntax, use --params for filters) | "Check my email" |
 | Website-to-CLI | OpenCLI | `opencli explore <url>`, `opencli <platform> <cmd>` | "What's trending?" |
 
-**Why CLI-first:** MCP servers requiring credentials (Supabase, n8n, Stripe, Late) consistently fail due to env var passing issues on Windows, token expiry, and package auth changes. CLI tools read `.env.agents` directly — they never break.
+**Why CLI-first:** MCP servers requiring credentials (Supabase, n8n, Stripe, Zernio formerly Late) consistently fail due to env var passing issues on Windows, token expiry, and package auth changes. CLI tools read `.env.agents` directly — they never break.
 
 ---
 
@@ -108,9 +108,12 @@ dependencies: []
 
 All commands support `--json` flag for agent consumption.
 
-### Late (Social Media)
-**Script:** `python scripts/late_tool.py`
-**Credentials:** `LATE_API_KEY` from `.env.agents`
+### Zernio (formerly Late — Social Media)
+**Script:** `python scripts/late_tool.py` (filename keeps the historical
+`late_` prefix; the SaaS rebranded Late → Zernio in 2026-03)
+**Credentials:** `LATE_API_KEY` from `.env.agents` (env-var name unchanged
+for back-compat; same key, the Zernio API still accepts it)
+**API base:** `https://zernio.com/api/v1/` (old `getlate.dev` still works)
 **Connected:** 8 accounts (Facebook, Google Business, Instagram, LinkedIn, Threads, TikTok, Twitter, YouTube)
 
 | Command | Purpose |
@@ -173,7 +176,7 @@ Credential-dependent services use CLI tools that read `.env.agents` directly.
 
 ## ANTI-PATTERNS (NEVER DO THESE)
 
-1. **Never try broken MCPs.** Supabase, n8n, Stripe, and Late MCPs are removed. Use CLI tools.
+1. **Never try broken MCPs.** Supabase, n8n, Stripe, and Zernio (fmr. Late) MCPs are removed. Use CLI tools.
 2. **Never generate audit reports.** CC asks "how many workflows?" → answer is "47". One sentence.
 3. **Never dump brain/state files as output.** Boot sequence is internal context.
 4. **Never curl when a CLI tool exists.** CLI tools handle auth, error handling, and JSON output.

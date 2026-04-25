@@ -95,9 +95,9 @@ For future daemon mode (n8n → Telegram → CLI):
 
 ```yaml
 heartbeat_tasks:
-  - name: "Check Late MCP health"
+  - name: "Check Zernio (formerly Late) MCP health"
     interval: "6h"
-    condition: "Late MCP was patched (Pydantic issue)"
+    condition: "Zernio MCP was patched (Pydantic issue)"
     action: "Test posts_list call. If fails, alert CC."
 
   - name: "Review ACTIVE_TASKS staleness"

@@ -38,7 +38,7 @@ tags: [reference, tools, routing]
 | Generate AI images | `codex_image_gen.py` | `generate "<prompt>" --style branded` |
 | Skool community management | `skool_engine.py` | `daemon`, `scan-posts`, `engage-members` |
 | Instagram engagement (DMs/replies) | `instagram_engine.py` | `daemon`, `check-dms`, `auto-reply` |
-| LinkedIn outreach | `linkedin_cli.py` | `search`, `connect`, `message` |
+| LinkedIn — research a profile (read-only) | Browser Harness on CC's logged-in Chrome | n/a — there is no LinkedIn outreach automation by design. CC drafts LinkedIn messages by hand. |
 
 ### Sales & CRM
 | CC Says | Tool | Command |
@@ -162,7 +162,7 @@ Exceptions (accept after): `stripe_tool.py`, `n8n_tool.py`, `firecrawl_tool.py`,
 | `skool_engine.py` | Skool community automation | Daemon |
 | `skool_watchdog.py` | Skool monitoring | Daemon |
 | `instagram_engine.py` | Instagram DM/engagement | Daemon |
-| `linkedin_cli.py` | LinkedIn outreach | CLI tool |
+| _(LinkedIn outreach removed 2026-04-25)_ | research-only via Browser Harness — no automation by design | n/a |
 | **--- Infrastructure ---** | | |
 | `supabase_tool.py` | Database CRUD (3 projects) | CLI tool |
 | `n8n_tool.py` | Workflow automation | CLI tool |

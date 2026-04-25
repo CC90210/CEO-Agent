@@ -327,7 +327,7 @@ The following were added to the Business Operations Engines table above (already
 |--------|--------|---------|-------------|
 | **Skool Community** | `scripts/skool_engine.py` | Autonomous Skool community manager — post replies, DM welcome, member engagement | `daemon`, `run-cycle`, `scan-posts`, `scan-dms`, `engage-members` |
 | **Instagram** | `scripts/instagram_engine.py` | Instagram DM auto-reply, content scheduling, engagement | `daemon`, `check-dms`, `auto-reply`, `post` |
-| **LinkedIn** | `scripts/linkedin_cli.py` | LinkedIn profile search, connection management, outreach | `search`, `connect`, `message`, `profile` |
+| ~~LinkedIn~~ | _(removed 2026-04-25)_ | LinkedIn outreach automation was removed by design. CC drafts LinkedIn messages by hand. For LinkedIn profile **research only**, use Browser Harness under CC's logged-in session. | n/a |
 
 ## Lead Generation & Outreach Scripts
 
