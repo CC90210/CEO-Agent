@@ -26,7 +26,7 @@ irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.
 ```
 
 That single line:
-1. Checks for Python + Node + Git (prints the `winget` / `brew` / `apt` command if anything's missing)
+1. Checks for Python, Node, npm, Git — and **auto-installs anything missing** via the platform's standard package manager (Homebrew on macOS, winget on Windows, apt / dnf / pacman / zypper on Linux). One consent prompt up front; no manual brew/apt commands needed.
 2. Clones the repo to `~/bravo-repo`
 3. Creates your `~/.bravo/` home directory
 4. Puts a `bravo` command on your PATH
@@ -37,6 +37,8 @@ That single line:
    - Optional: Stripe, Supabase, n8n
 6. Saves setup answers to a local `.env.agents` file that is gitignored and locally excluded from commits
 7. Runs `bravo doctor` to confirm everything works
+
+**Want the old behavior** (detect-only, print-the-command, do nothing)? Pass `--no-auto-install` (bash) or `-NoAutoInstall` (PowerShell), or set `OASIS_NO_AUTO_INSTALL=1` before running. **Skipping the consent prompt for CI / scripted installs:** pass `--auto-install` or set `OASIS_AUTO_INSTALL=1`.
 
 After install:
 
