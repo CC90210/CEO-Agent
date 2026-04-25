@@ -1,29 +1,25 @@
-<#
-.SYNOPSIS
-  OASIS AI Agent Factory quickstart for Windows PowerShell.
-
-.DESCRIPTION
-  Usage (from a fresh PowerShell):
-    irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.ps1 | iex
-
-  What it does:
-    1. Detects missing prereqs (python, node, npm, git).
-    2. AUTO-INSTALLS them via winget (after one consent prompt).
-       Override with -NoAutoInstall (or $env:OASIS_NO_AUTO_INSTALL='1')
-       to keep the old "tell me what's missing" behavior.
-       Override with -AutoInstall (or $env:OASIS_AUTO_INSTALL='1') to
-       skip the consent prompt entirely (CI / scripted installs).
-    3. Clones CC90210/CEO-Agent into $HOME\bravo-repo (or updates it).
-    4. Prepares the local Agent Factory launcher (idempotent).
-    5. Launches `bravo setup` (the interactive wizard).
-
-  Never touches existing env files. Admin elevation is requested only if
-  winget itself requires it; most LTS installs don't.
-
-  When piped through iex (the typical case), positional flags get lost,
-  so use the env-var overrides if you need non-interactive behavior:
-    $env:OASIS_AUTO_INSTALL='1'; irm <url> | iex
-#>
+# OASIS AI Agent Factory quickstart for Windows PowerShell.
+#
+# Usage (from a fresh PowerShell):
+#   irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.ps1 | iex
+#
+# What it does:
+#   1. Detects missing prereqs (python, node, npm, git).
+#   2. Auto-installs them via winget after one consent prompt.
+#   3. Clones CEO-Agent into ~/bravo-repo (or updates it).
+#   4. Prepares the local Agent Factory launcher.
+#   5. Launches the interactive setup wizard.
+#
+# Overrides:
+#   $env:OASIS_AUTO_INSTALL    = '1'   # skip consent prompt (CI use)
+#   $env:OASIS_NO_AUTO_INSTALL = '1'   # keep old detect-only behavior
+#   $env:OASIS_PROFILE         = 'atlas' | 'maven' | etc  # skip picker
+#   $env:BRAVO_REPO_DIR        = 'C:\path\to\dir'         # clone target
+#
+# NOTE: this file uses ONLY single-line # comments. Multi-line <# ... #>
+# block comments can break under irm|iex if any byte (BOM, whitespace)
+# precedes the opener. Per-line # comments are robust against that
+# entire class of prefix-corruption bug.
 
 param(
     [switch]$AutoInstall,
