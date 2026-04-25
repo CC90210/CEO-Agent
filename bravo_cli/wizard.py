@@ -2000,9 +2000,102 @@ def step_finalize(profile: str, step_num: int, total: int) -> None:
             print(f"  {YELLOW('Setup finished, but `bravo doctor` reported exit ' + str(rc) + '.')}")
             print(f"  {DIM('Run')} {CYAN('bravo doctor')} {DIM('again for full output, or set BRAVO_SKIP_POST_DOCTOR=1 to bypass on next run.')}")
 
+# ── Self-update preflight ─────────────────────────────────────────────────────
+
+def _self_update_preflight() -> bool:
+    """Fast-forward REPO_ROOT to origin/<branch> before running the wizard.
+
+    CC's intent: "the wizard should auto-update when we make
+    improvements". The one-line installer pulls on re-run, but an
+    operator who only runs `bravo setup` from an old shell wouldn't
+    see new commits. This preflight fires on every wizard launch.
+
+    Returns True if the wizard should restart (new commits applied),
+    False to continue normally. Skipped when:
+      - BRAVO_SKIP_AUTO_UPDATE=1 in env
+      - REPO_ROOT is not a git working tree
+      - No `git` on PATH
+      - Network fetch fails (offline-tolerant)
+      - Working tree is dirty AND user declines stash
+    """
+    if os.environ.get("BRAVO_SKIP_AUTO_UPDATE") == "1":
+        return False
+    if not (REPO_ROOT / ".git").exists():
+        return False
+    if not shutil.which("git"):
+        return False
+
+    def _git(*args: str, capture: bool = True) -> tuple[int, str]:
+        try:
+            r = subprocess.run(
+                ["git", "-C", str(REPO_ROOT), *args],
+                capture_output=capture, text=True, timeout=30,
+                encoding="utf-8", errors="replace",
+            )
+            return r.returncode, (r.stdout or "") + (r.stderr or "")
+        except Exception as exc:  # noqa: BLE001
+            return 1, str(exc)
+
+    # Skip if origin doesn't look like a CC90210 agent repo — keeps us
+    # from auto-pulling on a fork or unrelated git working tree.
+    rc, remote = _git("config", "--get", "remote.origin.url")
+    if rc != 0 or "CC90210/" not in remote:
+        return False
+
+    rc, branch = _git("rev-parse", "--abbrev-ref", "HEAD")
+    branch = (branch.strip() or "main") if rc == 0 else "main"
+    if branch == "HEAD":  # detached
+        return False
+
+    rc, _ = _git("fetch", "--depth", "50", "origin", branch)
+    if rc != 0:
+        return False  # offline — proceed silently
+
+    rc, behind = _git("rev-list", "--count", f"HEAD..origin/{branch}")
+    try:
+        n_behind = int(behind.strip())
+    except ValueError:
+        return False
+    if n_behind == 0:
+        return False  # already up to date
+
+    print()
+    print(f"  {CYAN('Updates available:')} {n_behind} new commit(s) on origin/{branch}")
+    rc, log = _git("log", "--oneline", f"HEAD..origin/{branch}")
+    for line in (log or "").splitlines()[:5]:
+        print(f"    {DIM(line)}")
+
+    # Stash dirty changes so reset --hard doesn't lose work.
+    rc, dirty = _git("status", "--porcelain")
+    if dirty.strip():
+        print(f"  {YELLOW('Local changes detected — stashing before update.')}")
+        _git("stash", "push", "-u", "-m",
+             f"auto-stash by wizard {int(time.time())}")
+
+    rc, _ = _git("reset", "--hard", f"origin/{branch}")
+    if rc != 0:
+        print(f"  {YELLOW('Auto-update failed (reset --hard).')} Continuing with current code.")
+        return False
+
+    print(f"  {GREEN(OK)} Pulled {n_behind} commit(s). Restarting wizard with new code...")
+    print()
+    return True
+
+
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 def run_wizard(profile_override: str | None = None) -> int:
+    # Auto-pull updates before the wizard touches anything else.
+    # Restart in a fresh subprocess so the new wizard.py runs, not the
+    # old one already loaded into this Python process.
+    if _self_update_preflight():
+        env = os.environ.copy()
+        env["BRAVO_SKIP_AUTO_UPDATE"] = "1"  # prevent infinite loop
+        argv = [sys.executable, str(REPO_ROOT / "bravo_cli" / "main.py"), "setup"]
+        if profile_override:
+            argv += ["--profile", profile_override]
+        return subprocess.call(argv, env=env, cwd=str(REPO_ROOT))
+
     try:
         step_welcome()
         if profile_override and profile_override in PROFILES:
