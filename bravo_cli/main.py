@@ -924,12 +924,34 @@ def cmd_logs(args: argparse.Namespace) -> int:
 
 
 def cmd_update(_args: argparse.Namespace) -> int:
-    """Run git pull + catalog_sync + session_store ingest (safe, idempotent)."""
+    """Run shallow-clone-safe fetch + reset + catalog_sync + session_store ingest.
+
+    Harmonized 2026-04-25 with quickstart.{sh,ps1} and the wizard's
+    self-update preflight: depth-50 fetch + hard-reset to origin/<branch>
+    is robust against a depth-10 clone falling 11+ commits behind. The
+    previous `git pull --ff-only` form silently failed in that case.
+    """
     print(BOLD(CYAN("BRAVO UPDATE")))
     print()
-    print(f"{BOLD('1.')} git pull --ff-only")
-    r1 = _run(["git", "pull", "--ff-only"])
-    print(r1["stdout"] or r1["stderr"])
+
+    # 1. Resolve current branch (defaults to main if detached / unknown).
+    rb = _run(["git", "rev-parse", "--abbrev-ref", "HEAD"])
+    branch = (rb.get("stdout") or "").strip() or "main"
+    if branch == "HEAD":
+        branch = "main"
+
+    # 2. Stash any local changes so reset --hard doesn't lose work.
+    rd = _run(["git", "status", "--porcelain"])
+    if (rd.get("stdout") or "").strip():
+        print(f"{BOLD('1a.')} stashing local changes")
+        ts = int(dt.datetime.now().timestamp())
+        _run(["git", "stash", "push", "-u", "-m", f"auto-stash by bravo update {ts}"])
+    print(f"{BOLD('1.')} git fetch --depth 50 origin {branch}")
+    r1 = _run(["git", "fetch", "--depth", "50", "origin", branch])
+    print(r1.get("stdout") or r1.get("stderr") or "")
+    if r1.get("ok"):
+        rr = _run(["git", "reset", "--hard", f"origin/{branch}"])
+        print(rr.get("stdout") or rr.get("stderr") or "")
     print()
     print(f"{BOLD('2.')} catalog sync")
     r2 = _run([sys.executable, str(SCRIPTS_DIR / "catalog_sync.py")])
