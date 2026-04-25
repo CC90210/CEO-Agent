@@ -107,6 +107,23 @@ After Bravo's code review, optionally run:
 
 This gives a dual-AI review before shipping — Bravo catches implementation issues, Codex challenges design decisions.
 
+## Pre-Flight Check (MANDATORY before any delegation — added 2026-04-25)
+
+Run this in <2s before spawning a codex-agent. If it fails, STOP — upgrade the CLI first or execute inline. Do NOT burn 5 minutes per agent in a retry loop the way the 2026-04-25 Atlas + Maven session did.
+
+```bash
+codex --version 2>&1 | head -1
+# Expected: a version string. If "command not found" → install: npm i -g @openai/codex@latest
+# If version reported < the one on https://www.npmjs.com/package/@openai/codex → upgrade.
+```
+
+Symptoms of a stale CLI (all observed 2026-04-25 with @openai/codex@0.118.0):
+- Every model alias (gpt-5.5, gpt-5.4-codex, gpt-5.4-codex-mini, gpt-5-codex, gpt-5, spark, gpt-5.3-codex-spark) rejected by the gateway.
+- Codex companion drops into "rescue phase" repeatedly with no progress.
+- Total runtime climbs past 3 minutes with no file writes — that's the canary.
+
+Recovery: `npm i -g @openai/codex@latest && node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" status`. If still failing after upgrade, Bravo handles the task inline. Never retry the same prompt 3 times against the same broken CLI — see MISTAKES.md "Codex CLI Stale".
+
 ## Commands Quick Reference
 
 ```bash
