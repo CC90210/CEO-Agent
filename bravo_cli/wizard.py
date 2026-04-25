@@ -883,7 +883,34 @@ def _ensure_env_is_git_safe(path: Path) -> None:
 
 
 def _chmod_secret_file(path: Path) -> None:
+    """Tighten ACLs on a credential file so only the owner can read it.
+
+    POSIX: chmod 0o600.
+    Windows: icacls /inheritance:r + grant the current user Full Control.
+    Disabling inheritance removes any inherited ACEs from a parent
+    directory that might grant other Users group members read access.
+    """
     if os.name == "nt":
+        try:
+            import subprocess
+            user = os.environ.get("USERNAME") or os.environ.get("USER")
+            if not user:
+                return
+            # /inheritance:r removes all existing ACLs (including inherited
+            # ACEs from %USERPROFILE% which may include the Users group).
+            # /grant:r replaces (not appends) any ACE for the current user.
+            for argv in (
+                ["icacls", str(path), "/inheritance:r"],
+                ["icacls", str(path), "/grant:r", f"{user}:F"],
+            ):
+                subprocess.run(argv, capture_output=True, timeout=10,
+                               check=False)
+        except Exception:
+            # icacls is built-in on every supported Windows version; if it
+            # fails we silently fall back to default ACLs rather than
+            # blocking the wizard. The user's HOME usually inherits an
+            # owner-only ACL anyway.
+            pass
         return
     try:
         os.chmod(path, 0o600)
@@ -1869,6 +1896,15 @@ def step_browser_harness(step_num: int, total: int) -> None:
         print(f"  {RED('Install error:')} {exc}")
 
 
+# Carries the post-install `bravo doctor` exit code from step_finalize
+# back up to run_wizard, which propagates it to the CLI exit code so the
+# one-liner returns non-zero when verification fails. A 1-element list
+# (mutable holder) is used instead of a plain int because step_finalize
+# is called from inside run_wizard's local scope and we want the value
+# to survive whatever happens in the print/yes_no branches above it.
+_post_doctor_rc: list[int] = [0]
+
+
 def step_finalize(profile: str, step_num: int, total: int) -> None:
     step_header(step_num, total, "Finalize",
                 "Summary of saved credentials and next steps.")
@@ -1922,14 +1958,25 @@ def step_finalize(profile: str, step_num: int, total: int) -> None:
     # asks "want me to verify this worked?" is weaker than onboarding that
     # just verifies it. Users who need to skip (CI, container builds) can
     # set BRAVO_SKIP_POST_DOCTOR=1 before running the wizard.
+    # We capture the exit code (Codex P2, 2026-04-25): previously the
+    # wizard printed "Setup complete." even when doctor failed, which let
+    # broken installs pass silently. The exit code now propagates back
+    # through run_wizard → cmd_setup → main, so the one-liner returns
+    # non-zero if doctor isn't happy.
     if os.environ.get("BRAVO_SKIP_POST_DOCTOR") == "1":
         print(f"  {DIM('BRAVO_SKIP_POST_DOCTOR=1 — skipping post-install doctor.')}")
+        _post_doctor_rc[0] = 0
     else:
         print(f"  {BOLD('Running')} {CYAN('bravo doctor')} {BOLD('to verify everything...')}")
         print()
         bravo_cmd = REPO_ROOT / "bravo_cli" / "main.py"
-        subprocess.call([sys.executable, str(bravo_cmd), "doctor"],
-                        cwd=str(REPO_ROOT))
+        rc = subprocess.call([sys.executable, str(bravo_cmd), "doctor"],
+                             cwd=str(REPO_ROOT))
+        _post_doctor_rc[0] = rc
+        if rc != 0:
+            print()
+            print(f"  {YELLOW('Setup finished, but `bravo doctor` reported exit ' + str(rc) + '.')}")
+            print(f"  {DIM('Run')} {CYAN('bravo doctor')} {DIM('again for full output, or set BRAVO_SKIP_POST_DOCTOR=1 to bypass on next run.')}")
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
@@ -1977,7 +2024,9 @@ def run_wizard(profile_override: str | None = None) -> int:
         step += 1; step_playwright_browsers(step, total)
         step += 1; step_browser_harness(step, total)
         step += 1; step_finalize(profile, step, total)
-        return 0
+        # Propagate the post-install bravo-doctor exit code so a broken
+        # install can't show "Setup complete" + return 0 (Codex P2).
+        return _post_doctor_rc[0]
     except KeyboardInterrupt:
         print()
         print(f"  {YELLOW('Wizard aborted.')} Re-run {CYAN('bravo setup')} anytime.")

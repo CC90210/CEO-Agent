@@ -52,12 +52,25 @@ function Test-Tool {
 }
 
 function Step {
-    param([string]$Label, [scriptblock]$Action)
+    param(
+        [string]$Label,
+        [scriptblock]$Action,
+        # Steps marked optional log a [!] warning on failure but do not throw.
+        # Use sparingly — defaults to required so silent-success bugs can't
+        # ship (Codex 2026-04-25 P2: install.ps1 was printing "done" after
+        # every action without checking $LASTEXITCODE).
+        [switch]$Optional
+    )
     if ($Quiet) {
         if (-not $DryRun) {
+            $LASTEXITCODE = 0
             & $Action *> $null
             if ($LASTEXITCODE -ne 0) {
-                throw "$Label failed with exit code $LASTEXITCODE"
+                if ($Optional) {
+                    Write-Host "    [!] $Label exit $LASTEXITCODE (optional, continuing)" -ForegroundColor Yellow
+                } else {
+                    throw "$Label failed with exit code $LASTEXITCODE"
+                }
             }
         }
         return
@@ -67,7 +80,17 @@ function Step {
         Write-Host "    (dry run - skipping)" -ForegroundColor DarkGray
         return
     }
+    $LASTEXITCODE = 0
     & $Action
+    if ($LASTEXITCODE -ne 0) {
+        if ($Optional) {
+            Write-Host "    [!] exit $LASTEXITCODE (optional, continuing)" -ForegroundColor Yellow
+        } else {
+            throw "$Label failed with exit code $LASTEXITCODE"
+        }
+        Write-Host ""
+        return
+    }
     Write-Host "    done" -ForegroundColor Green
     Write-Host ""
 }

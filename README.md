@@ -1,6 +1,6 @@
 # CEO Agent — Bravo
 
-> **Bravo (CEO)** — strategy, clients, revenue, partnerships, vision. One third of a three-agent AI C-Suite running CC's business empire. Paired with **Atlas (CFO)** for finance + tax + wealth, and **Maven (CMO)** for brand + content + ads + funnels. Not a framework. Not a demo. A production system managing real revenue, real clients, and real automations across two machines, three AI interfaces, and 56 CLI tools.
+> **Bravo (CEO)** — strategy, clients, revenue, partnerships, vision. One third of a three-agent AI C-Suite running CC's business empire. Paired with **Atlas (CFO)** for finance + tax + wealth, and **Maven (CMO)** for brand + content + ads + funnels. Not a framework. Not a demo. A production system managing real revenue, real clients, and real automations across two machines, three AI interfaces, and 70+ CLI tools.
 
 Built by one person with AI. Running 24/7 since March 2026.
 
@@ -45,7 +45,7 @@ After install:
 ```bash
 bravo doctor            # full health check
 bravo status            # live operational summary
-bravo agent list        # see the 20 sub-agents
+bravo agent list        # see the registered sub-agents
 bravo sessions recent   # rewind past sessions
 ```
 
@@ -56,9 +56,9 @@ What you get after install:
 - `~/.bravo/` home directory (config, profiles, sessions, logs, skills, cache)
 - A populated `.env.template` (never reads or copies secrets)
 - A local `.env.agents` created by the wizard only when you enter credentials
-- 73 CLI tools discoverable via `bravo tools`
-- 148 skills discoverable via `bravo skills`
-- 20 sub-agents discoverable via `bravo agent list`
+- CLI tools (90+) discoverable via `bravo tools` — current count is reported live
+- Skills (150+) discoverable via `bravo skills` — current count is reported live
+- Sub-agents discoverable via `bravo agent list` — current count is reported live
 - Full-text search over session history via `bravo sessions search <query>`
 - Browser Harness integration with Chrome / Edge
 
@@ -68,7 +68,7 @@ What you get after install:
 bravo                    # Branded launch — status + quick help
 bravo doctor             # Full health check (100-point audit)
 bravo status             # One-screen operational summary
-bravo agent list         # See the 20 sub-agents available
+bravo agent list         # See the registered sub-agents
 bravo sessions recent    # Rewind recent work across all sessions
 ```
 
@@ -143,7 +143,7 @@ Business-Empire-Agent/
 |   |-- MISTAKES.md              # Root cause analysis
 |   +-- SELF_REFLECTIONS.md      # Structured failure analysis (Reflexion framework)
 |
-|-- skills/                      # 152 skills (progressive 3-tier loading)
+|-- skills/                      # 150+ skills (progressive 3-tier loading)
 |   |-- hyperthink/              # Maximum-depth multi-hypothesis reasoning protocol
 |   |-- sales-closing/           # LAER objection loop + 6 close techniques
 |   |-- ethical-hacking/         # Authorized pentest methodology + secure-by-default coding
