@@ -373,7 +373,25 @@ Write-Host ""
 # a partial directory without a .git/, which would crash the next run).
 if (Test-Path (Join-Path $RepoDir '.git')) {
     Write-Host "==> Updating existing repo at $RepoDir" -ForegroundColor White
-    git -C $RepoDir pull --ff-only
+    # Shallow-clone-safe update. A `git pull --ff-only` on a depth-10
+    # clone fails when upstream is 11+ commits ahead. Fetch with a
+    # deeper depth and hard-reset to origin so the user always lands on
+    # the latest main, even if their clone has diverged or fallen
+    # behind. Local edits are stashed first so nothing is lost.
+    $curBranch = (git -C $RepoDir rev-parse --abbrev-ref HEAD 2>$null)
+    if (-not $curBranch) { $curBranch = 'main' }
+    $dirty = (git -C $RepoDir status --porcelain 2>$null)
+    if ($dirty) {
+        Write-Host "    [!] local changes detected - stashing before update" -ForegroundColor Yellow
+        git -C $RepoDir stash push -u -m "auto-stash by quickstart $([int][double]::Parse((Get-Date -UFormat %s)))" 2>&1 | Out-Null
+    }
+    git -C $RepoDir fetch --depth 50 origin $curBranch 2>&1 | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        git -C $RepoDir reset --hard "origin/$curBranch" 2>&1 | Out-Null
+        Write-Host "    synced to origin/$curBranch" -ForegroundColor DarkGray
+    } else {
+        Write-Host "    [!] fetch failed (offline?) - using existing local commits" -ForegroundColor Yellow
+    }
 } elseif ((Test-Path $RepoDir) -and -not (Get-ChildItem -Force $RepoDir -ErrorAction SilentlyContinue)) {
     Write-Host "==> Cloning $RepoUrl into $RepoDir (empty dir)" -ForegroundColor White
     Remove-Item -Path $RepoDir -Force -ErrorAction SilentlyContinue

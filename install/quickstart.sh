@@ -403,7 +403,23 @@ echo
 # Solution: clone into a sibling temp dir, swap it into place atomically.
 if [ -d "$REPO_DIR/.git" ]; then
     echo "==> Updating existing repo at $REPO_DIR"
-    git -C "$REPO_DIR" pull --ff-only
+    # Shallow-clone-safe update: a `git pull --ff-only` on a 10-commit
+    # shallow clone fails when upstream has moved beyond that depth. We
+    # fetch with the same depth, then hard-reset to origin/main. If the
+    # working tree is dirty, surface that and stash before reset so
+    # nothing is lost. The previous-shipped form just `git pull --ff-only`
+    # would silently fail when CC's clone fell behind by 11+ commits.
+    cur_branch="$(git -C "$REPO_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)"
+    if [ -n "$(git -C "$REPO_DIR" status --porcelain 2>/dev/null)" ]; then
+        warn "local changes detected — stashing before update"
+        git -C "$REPO_DIR" stash push -u -m "auto-stash by quickstart $(date +%s)" >/dev/null 2>&1 || true
+    fi
+    if ! git -C "$REPO_DIR" fetch --depth 50 origin "$cur_branch" 2>/dev/null; then
+        warn "fetch failed (offline?) — using existing local commits"
+    else
+        git -C "$REPO_DIR" reset --hard "origin/$cur_branch" >/dev/null 2>&1 || true
+        info "synced to origin/$cur_branch"
+    fi
 elif [ -d "$REPO_DIR" ] && [ -z "$(ls -A "$REPO_DIR" 2>/dev/null || true)" ]; then
     echo "==> Cloning $REPO_URL into $REPO_DIR"
     rmdir "$REPO_DIR" 2>/dev/null || true
