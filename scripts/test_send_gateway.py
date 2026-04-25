@@ -686,6 +686,50 @@ class TestSendGateway(unittest.TestCase):
         self.assertIn("hourly_counts", stats)
         self.assertIn("email", stats["hourly_counts"])
 
+    def test_18b_force_dry_run_killswitch_short_circuits_all_gates(self):
+        """BRAVO_FORCE_DRY_RUN=1 must return status=dry_run BEFORE any gate
+        runs — even if the suppression list, cooldown ledger, daily cap,
+        and Supabase itself are unreachable. This is the multi-AI safety
+        contract: any environment where the killswitch is set cannot leak
+        a real send no matter which AI invokes which script.
+        """
+        # Pre-populate the cap so without the killswitch this would block.
+        # If the killswitch fires correctly, this data is never read.
+        cap = self.sg.DAILY_CAPS["email"]
+        now_iso = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+        for i in range(cap):
+            self.db.tables["lead_interactions"].rows.append({
+                "id": f"killsw-{i}", "lead_id": f"x-{i}", "channel": "email",
+                "type": "email_sent", "created_at": now_iso,
+            })
+
+        # Patch load_env() to inject the killswitch flag — mirrors a real
+        # operator setting BRAVO_FORCE_DRY_RUN=1 in their shell.
+        original_load_env = self.sg.load_env
+        def killswitch_env():
+            base = original_load_env() or {}
+            base["BRAVO_FORCE_DRY_RUN"] = "1"
+            return base
+
+        with mock.patch.object(self.sg, "load_env", side_effect=killswitch_env):
+            r = self.sg.send(
+                channel="email",
+                agent_source="test_harness",
+                to_email="jane@acme.example",
+                subject="should never send",
+                body_text="should never send",
+                # Intentionally pass dry_run=False — the killswitch must
+                # override the caller.
+                db=self.db,
+            )
+
+        self.assertEqual(r["status"], "dry_run",
+                         f"killswitch failed; got {r}")
+        self.assertIn("BRAVO_FORCE_DRY_RUN", r["reason"])
+        # No interaction should be logged because no gate ran.
+        self.assertEqual(len(self.db.tables["lead_interactions"].rows), cap,
+                         "killswitch must not write to the ledger")
+
     def test_19_daily_cap_threshold_triggers_telegram_alert(self):
         now = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
         threshold = int(self.sg.DAILY_CAPS["email"] * 0.8)

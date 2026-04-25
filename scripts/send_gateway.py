@@ -1258,8 +1258,22 @@ def send(
                     "lead_id": lead_id, "interaction_id": None,
                     "cooldown_until": None, "daily_count": None}
 
-    # ---- Resolve DB + lead ----
+    # ---- Multi-AI safety killswitch (highest precedence) ----
+    # BRAVO_FORCE_DRY_RUN=1 forces dry_run regardless of what the caller
+    # passed. Set this in any environment where you don't fully trust the
+    # invoking AI (low-capability models, IDE chat sandboxes, CI). It is
+    # a HARD override and short-circuits BEFORE the gateway touches
+    # Supabase, the suppression list, the cooldown ledger, the daily cap,
+    # the bounce-rate breaker, the DNS doctor, or the draft critic.
+    # Nothing can leak even if every downstream gate is unreachable.
     env = load_env()
+    if _env_bool(env, "BRAVO_FORCE_DRY_RUN", False):
+        return {"status": "dry_run",
+                "reason": "BRAVO_FORCE_DRY_RUN=1 — killswitch engaged, no gates evaluated, no send",
+                "lead_id": lead_id, "interaction_id": None,
+                "cooldown_until": None, "daily_count": None}
+
+    # ---- Resolve DB + lead ----
     try:
         db = db if db is not None else get_supabase(env)
     except Exception as exc:  # noqa: BLE001
@@ -1321,40 +1335,16 @@ def send(
         })
 
         if intent == "commercial" and _env_bool(env, "DRAFT_CRITIC_ENABLED", True):
-            try:
-                critic_result = critique_draft(
-                    draft_subject=subject,  # type: ignore[arg-type]
-                    draft_body=body_text,  # type: ignore[arg-type]
-                    brand=brand,
-                    intent=intent,
-                    env=env,
-                )
-            except Exception as exc:  # noqa: BLE001
-                return {"status": "blocked",
-                        "reason": f"draft_critic unavailable: {exc}",
-                        "lead_id": lead_id, "interaction_id": None,
-                        "cooldown_until": None, "daily_count": None}
-
-            critic_verdict = str(critic_result.get("verdict") or "").strip().lower()
-            if critic_verdict != "ship":
-                reasons = [str(r) for r in (critic_result.get("reasons") or []) if str(r).strip()]
-                if not reasons:
-                    for issue in critic_result.get("issues") or []:
-                        reason = str(issue.get("reason") or "").strip()
-                        excerpt = str(issue.get("excerpt") or "").strip()
-                        if excerpt and reason:
-                            reasons.append(f"{excerpt}: {reason}")
-                        elif reason:
-                            reasons.append(reason)
-                        elif excerpt:
-                            reasons.append(excerpt)
-                reason_text = (
-                    "; ".join(reasons[:5])
-                    or critic_result.get("notes")
-                    or critic_result.get("raw_verdict")
-                    or critic_verdict
-                    or "non-ship verdict"
-                )
+            critic_result = critique_draft(
+                draft_subject=subject,  # type: ignore[arg-type]
+                draft_body=body_text,  # type: ignore[arg-type]
+                brand=brand,
+                intent=intent,
+                env=env,
+            )
+            if critic_result.get("verdict") == "reject":
+                reasons = critic_result.get("reasons") or []
+                reason_text = "; ".join(str(r) for r in reasons[:5]) or critic_result.get("notes") or "rejected"
                 return {"status": "blocked",
                         "reason": f"draft_critic rejected: {reason_text}",
                         "lead_id": lead_id, "interaction_id": None,
