@@ -33,6 +33,14 @@ bravo agent doctor <name>
 
 Templates live in `templates/agent-scaffold/`. The default template produces the minimum viable agent: `AGENTS.md`, `CLAUDE.md`, `brain/SOUL.md`, `brain/STATE.md`, `memory/SESSION_LOG.md`, `memory/ACTIVE_TASKS.md`, `scripts/self_audit.py`, a `doctor` command, and a README.
 
+**Template files (read by `bravo agent create`):**
+- [[templates/agent-scaffold/README]] — generated agent's user-facing README
+- [[templates/agent-scaffold/AGENTS|AGENTS]] — universal entry point for all AI clients
+- [[templates/agent-scaffold/CLAUDE|CLAUDE]] — Claude Code instructions stub
+- [[templates/agent-scaffold/brain/SOUL|brain/SOUL]] · [[templates/agent-scaffold/brain/STATE|brain/STATE]] · [[templates/agent-scaffold/brain/USER|brain/USER]]
+- [[templates/agent-scaffold/memory/ACTIVE_TASKS|memory/ACTIVE_TASKS]] · [[templates/agent-scaffold/memory/SESSION_LOG|memory/SESSION_LOG]]
+- [[templates/agent-scaffold/skills/INDEX|skills/INDEX]]
+
 ## What a Forged Agent Gets on Day One
 
 | Layer | File(s) | Purpose |

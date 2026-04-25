@@ -16,6 +16,17 @@ browser/
   evidence/
 ```
 
+## Layer Hubs
+- [[browser/SAFETY]] — fail-closed rules for sends, deletes, money moves
+- [[browser/DOMAIN_SKILL_TEMPLATE]] — empty-state template for new site memory
+- [[browser/WINDOWS_PATCH]] — Windows-specific fixes for the harness
+- [[browser/domain-skills/README|domain-skills hub]] — site-specific browser memory
+- [[browser/interaction-skills/INDEX|interaction-skills hub]] — cross-site interaction primitives
+- [[browser/evidence/README|evidence hub]] — screenshots / network captures saved during runs
+
+## Obsidian Links
+- [[brain/STATE]] | [[brain/CAPABILITIES]] | [[skills/browser-harness/SKILL]] | [[skills/browser-automation/SKILL]] | [[skills/e2e-testing/SKILL]]
+
 ## Operating Model
 
 1. Diagnose the harness: `python scripts/browser_harness_doctor.py`.

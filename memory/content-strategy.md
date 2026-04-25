@@ -4,6 +4,8 @@ tags: [content, strategy, outreach]
 
 # Content Strategy & Outreach Intelligence
 
+> Source library: [[memory/content/scripts_v1]] · Deep research: [[memory/research/2026-04-06-deep-research-intelligence]] · Daily notes: [[memory/daily/INDEX]] · Outreach archive: [[memory/outreach_archive/INDEX]]
+
 ## CC's Content Bible (2026-03-07)
 
 ### 3 Daily Pillars (minimum 3 posts/day)

@@ -28,6 +28,8 @@ npm run dev
 # Open http://localhost:3100
 ```
 
+> Detailed env-var spec: [[apps/command-center/ENV_SETUP]]
+
 ## Deploy to Vercel
 
 The first time:

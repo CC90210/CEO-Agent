@@ -27,14 +27,32 @@ REPO_DIR="${BRAVO_REPO_DIR:-$HOME/bravo-repo}"
 
 # ---- Args / env -------------------------------------------------------------
 AUTO_INSTALL_MODE="prompt"   # prompt | yes | no
-for arg in "$@"; do
+PROFILE_OVERRIDE=""           # bravo|atlas|maven|aura|hermes|custom (skips picker)
+# `bash -s -- --profile atlas` is how the per-agent shims (CFO-Agent /
+# CMO-Agent / Aura / Hermes quickstarts) preselect the profile so the user
+# lands directly in their agent's wizard with no extra clicks.
+i=0
+args=("$@")
+while [ $i -lt ${#args[@]} ]; do
+    arg="${args[$i]}"
     case "$arg" in
         --auto-install)    AUTO_INSTALL_MODE="yes" ;;
         --no-auto-install) AUTO_INSTALL_MODE="no" ;;
+        --profile)
+            i=$((i+1))
+            PROFILE_OVERRIDE="${args[$i]:-}"
+            ;;
+        --profile=*)
+            PROFILE_OVERRIDE="${arg#--profile=}"
+            ;;
     esac
+    i=$((i+1))
 done
 case "${OASIS_AUTO_INSTALL:-}"    in 1|yes|true) AUTO_INSTALL_MODE="yes" ;; esac
 case "${OASIS_NO_AUTO_INSTALL:-}" in 1|yes|true) AUTO_INSTALL_MODE="no"  ;; esac
+if [ -z "$PROFILE_OVERRIDE" ] && [ -n "${OASIS_PROFILE:-}" ]; then
+    PROFILE_OVERRIDE="$OASIS_PROFILE"
+fi
 
 # ---- Colors ----------------------------------------------------------------
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
@@ -433,7 +451,11 @@ if [ -z "$PY3" ]; then
     exit 1
 fi
 export PATH="$HOME/.bravo/bin:$PATH"
-"$PY3" "$REPO_DIR/bravo_cli/main.py" setup
+if [ -n "$PROFILE_OVERRIDE" ]; then
+    "$PY3" "$REPO_DIR/bravo_cli/main.py" setup --profile "$PROFILE_OVERRIDE"
+else
+    "$PY3" "$REPO_DIR/bravo_cli/main.py" setup
+fi
 
 echo
 printf '%s[+] Done.%s Next shells: add %s$HOME/.bravo/bin%s to PATH.\n' \
