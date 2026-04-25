@@ -159,11 +159,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-04-24
+- **Date:** 2026-04-25
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Full-scope build review: verified Codex outreach fixes green, folded render-audit into wire_all_templates.py (--render-check), hardened install/bootstrap.py pip+npm log capture, killed 3 stuck wizard procs, cleared manifest drift, pushed 3 commits. Health 100/100.
+- **Result:** Two-track session: (1) reconnected ~100 Obsidian orphans (73 zero-inbound -> 0) via 4 new hub INDEX files + cascade wikilinks; (2) shipped V1.0 one-line installers for Atlas + Maven as thin profile-preselect shims into the unified Bravo wizard (--profile flag now passes through quickstart.sh/ps1). 3 repos green pushed: CEO-Agent fca59b6, CFO-Agent a8a4d4e, CMO-Agent f54aaae. Codex CLI 0.118.0 found stale (all model names rejected); Bravo executed inline.
 
-*Last updated: 2026-04-24*
+*Last updated: 2026-04-25*
 
 ## Manifest
 
