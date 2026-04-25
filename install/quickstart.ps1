@@ -79,50 +79,116 @@ function Test-Tool($name) {
     return [bool](Get-Command $name -ErrorAction SilentlyContinue)
 }
 
-# Find a real Python 3.10+ interpreter and return its path. Codex P1:
-#   - Get-Command python may return the Microsoft Store stub
-#     (C:\Users\<u>\AppData\Local\Microsoft\WindowsApps\python.exe) which
-#     opens the Store rather than running Python.
-#   - The default winget package puts python3.12 on PATH but not always
-#     a bare `python`.
-# Strategy: probe py -3.12 / py -3.11 / py -3.10 (the launcher), then
-# python3.12 / python3.11 / python3.10 / python3, then `python`. For
-# each, run --version and accept only 3.10+. Reject the Store stub by
-# checking the resolved path.
+# Find a real Python 3.10+ interpreter. Robust against:
+#   - Microsoft Store stub (~\AppData\Local\Microsoft\WindowsApps\python.exe)
+#     which opens the Store instead of running Python
+#   - winget user-scope installs that don't auto-update the current
+#     session's PATH (the install lands at %LOCALAPPDATA%\Programs\Python\
+#     PythonXY\python.exe but Get-Command python returns nothing yet)
+#   - PowerShell's $args automatic-variable shadowing (any function-local
+#     $args = ... clobbers the function's argv handling — we use $pyArgs)
+#
+# Strategy:
+#   1. Probe by name first: py -3.12 / -3.11 / -3.10, then python3.X /
+#      python3 / python. Reject the Store stub by Source path.
+#   2. If nothing on PATH, probe well-known absolute install locations
+#      directly. Returning an absolute path is fine — callers run it
+#      via `& $resolved.Exe`, no PATH lookup needed.
 function Resolve-Python310Plus {
-    $candidates = @(
+    $byName = @(
+        @{ exe = 'py';         args = @('-3.13') },
         @{ exe = 'py';         args = @('-3.12') },
         @{ exe = 'py';         args = @('-3.11') },
         @{ exe = 'py';         args = @('-3.10') },
+        @{ exe = 'python3.13'; args = @() },
         @{ exe = 'python3.12'; args = @() },
         @{ exe = 'python3.11'; args = @() },
         @{ exe = 'python3.10'; args = @() },
         @{ exe = 'python3';    args = @() },
         @{ exe = 'python';     args = @() }
     )
-    foreach ($c in $candidates) {
+
+    $tryProbe = {
+        param($exe, $launcherArgs, $sourcePath)
+        # IMPORTANT: the Python snippet must NOT contain double-quotes.
+        # PowerShell wraps each splatted arg in double quotes when invoking
+        # an external process, and embedded " inside an arg gets mangled
+        # before Python sees it (Python receives a syntax error and our
+        # caller marks Python missing on a working machine — exactly the
+        # bug paying clients hit on 2026-04-25). Use single quotes only,
+        # and use `sep` instead of % formatting so we never need %.
+        $pyArgs = @() + $launcherArgs + @('-c', "import sys; print(sys.version_info.major, sys.version_info.minor, sep='.')")
+        try {
+            $verRaw = & $exe @pyArgs 2>$null
+            if (-not $verRaw) { return $null }
+            $ver = ([string]$verRaw).Trim()
+            if ($ver -match '^3\.(1[0-9]|[2-9][0-9])$') {
+                return [pscustomobject]@{
+                    Exe          = $exe
+                    LauncherArgs = $launcherArgs
+                    Source       = $sourcePath
+                    Version      = $ver
+                }
+            }
+        } catch {}
+        return $null
+    }
+
+    foreach ($c in $byName) {
         $cmd = Get-Command $c.exe -ErrorAction SilentlyContinue
         if (-not $cmd) { continue }
         # Reject the Microsoft Store stub explicitly.
         if ($cmd.Source -and $cmd.Source -match 'WindowsApps\\python.*\.exe$') {
             continue
         }
-        try {
-            $args = $c.args + @('-c', 'import sys; print("%d.%d" % sys.version_info[:2])')
-            $ver  = (& $c.exe @args 2>$null).Trim()
-            if ($ver -match '^3\.(1[0-9]|[2-9][0-9])$') {
-                # Return both the executable and its launcher args so
-                # callers can invoke `& $exe @launcherArgs script ...`.
-                return [pscustomobject]@{
-                    Exe          = $c.exe
-                    LauncherArgs = $c.args
-                    Source       = $cmd.Source
-                    Version      = $ver
-                }
-            }
-        } catch {}
+        $hit = & $tryProbe $c.exe $c.args $cmd.Source
+        if ($hit) { return $hit }
     }
+
+    # ---- Absolute-path fallback ----
+    # winget user-scope installs land here; sometimes the registry PATH
+    # update hasn't propagated to the current session.
+    $absoluteCandidates = @()
+    foreach ($v in @('313','312','311','310')) {
+        $absoluteCandidates += "$env:LOCALAPPDATA\Programs\Python\Python$v\python.exe"
+        $absoluteCandidates += "$env:ProgramFiles\Python$v\python.exe"
+        $absoluteCandidates += "${env:ProgramFiles(x86)}\Python$v\python.exe"
+    }
+    # winget package store (paths look like
+    #   %LOCALAPPDATA%\Microsoft\WinGet\Packages\Python.Python.3.12_*\python.exe)
+    $wingetGlob = Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Packages\Python.Python.*\python.exe'
+    try {
+        $absoluteCandidates += @(
+            Get-ChildItem -Path $wingetGlob -ErrorAction SilentlyContinue |
+                Select-Object -ExpandProperty FullName
+        )
+    } catch {}
+
+    foreach ($p in $absoluteCandidates) {
+        if ($p -and (Test-Path $p)) {
+            $hit = & $tryProbe $p @() $p
+            if ($hit) { return $hit }
+        }
+    }
+
     return $null
+}
+
+# Force the current PowerShell session to pick up PATH changes that
+# winget / package installers wrote to the Machine or User registry hive
+# but didn't propagate to this process. Called BEFORE the first prereq
+# check (in case the user already installed Python in another window
+# and our process started with a stale env) and AFTER any winget call.
+function Sync-PathFromRegistry {
+    try {
+        $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+    } catch { $machinePath = '' }
+    try {
+        $userPath    = [Environment]::GetEnvironmentVariable('Path', 'User')
+    } catch { $userPath = '' }
+    if ($machinePath -or $userPath) {
+        $env:PATH = "$machinePath;$userPath"
+    }
 }
 
 function Get-WingetId($tool) {
@@ -150,6 +216,12 @@ function Ask-YesNo($question, $defaultYes = $true) {
     if ([string]::IsNullOrWhiteSpace($reply)) { return $defaultYes }
     return $reply -match '^[Yy]'
 }
+
+# Refresh PATH first — if the user installed Python in a previous window
+# (or via the FIRST attempt of this same script that died on the recheck),
+# the registry has the new entries but our process started with a stale
+# copy. Sync now so the prereq scan sees what's really installed.
+Sync-PathFromRegistry
 
 # Prereqs
 Write-Host "==> Checking prerequisites" -ForegroundColor White
@@ -183,9 +255,12 @@ if ($missing.Count -gt 0) {
     $hasWinget = Test-Tool 'winget'
     if (-not $hasWinget) {
         Write-Host "winget is not installed on this machine." -ForegroundColor Red
-        Write-Host "Install 'App Installer' from the Microsoft Store, then re-run." -ForegroundColor Yellow
+        Write-Host "Install 'App Installer' from the Microsoft Store, then re-run quickstart:" -ForegroundColor Yellow
         Write-Host "  https://apps.microsoft.com/detail/9NBLGGH4NNS1" -ForegroundColor DarkGray
-        exit 2
+        Write-Host ""
+        Write-Host "Press Enter to close this window..." -ForegroundColor DarkGray
+        try { Read-Host | Out-Null } catch {}
+        exit 0
     }
 
     # Compute distinct winget IDs (npm + node both map to OpenJS.NodeJS.LTS).
@@ -208,7 +283,10 @@ if ($missing.Count -gt 0) {
         foreach ($id in $wingetIds) {
             Write-Host "  winget install --id $id --silent --accept-source-agreements --accept-package-agreements" -ForegroundColor Yellow
         }
-        exit 2
+        Write-Host ""
+        Write-Host "Press Enter to close this window..." -ForegroundColor DarkGray
+        try { Read-Host | Out-Null } catch {}
+        exit 0
     }
 
     foreach ($id in $wingetIds) {
@@ -222,10 +300,12 @@ if ($missing.Count -gt 0) {
     }
 
     # winget installs typically don't refresh the current process PATH.
-    # Pull the latest System + User PATH so our re-check sees the new bins.
-    $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
-    $userPath    = [Environment]::GetEnvironmentVariable('Path', 'User')
-    $env:PATH    = "$machinePath;$userPath"
+    # Pull the latest registry env vars + the per-machine + per-user
+    # locations winget actually uses, then re-probe absolute install
+    # paths. The Resolve-Python310Plus + Sync-PathFromRegistry pair
+    # handles BOTH cases (PATH updated but process is stale; PATH
+    # genuinely not updated yet but binaries are on disk).
+    Sync-PathFromRegistry
 
     Write-Host ""
     Write-Host "==> Re-checking prerequisites after install" -ForegroundColor White
@@ -250,10 +330,45 @@ if ($missing.Count -gt 0) {
     }
 
     if ($stillMissing.Count -gt 0) {
+        # Self-heal path: the user installed everything, but PATH didn't
+        # propagate to the current process. Spawn a FRESH PowerShell that
+        # inherits the latest registry env, and re-run the quickstart
+        # there. This avoids the "exit 1 + Windows-Terminal closes the
+        # window because of close-on-exit" loop that paying clients hit.
         Write-Host ""
-        Write-Host "Still missing after install: $($stillMissing -join ', ')" -ForegroundColor Red
-        Write-Host "Open a new PowerShell window so PATH updates apply, then re-run." -ForegroundColor Yellow
-        exit 1
+        Write-Host "PATH didn't refresh in this window. Self-healing - opening a fresh shell..." -ForegroundColor Yellow
+        Write-Host "  (still missing: $($stillMissing -join ', '))" -ForegroundColor DarkGray
+        Write-Host ""
+
+        # Build the relaunch command. Set OASIS_AUTO_INSTALL=1 in the
+        # child process so the second pass doesn't re-prompt for consent
+        # (they already approved). Single-quoted on the OUTSIDE so we
+        # send the literal text into the spawned shell and PowerShell
+        # does not try to interpolate the env-var here.
+        $reinvoke = '$env:OASIS_AUTO_INSTALL=''1''; irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.ps1 | iex'
+
+        # Find a working PowerShell. Prefer pwsh (PS 7+), fall back to
+        # Windows PowerShell 5.1 which is universally present on Win10+.
+        $psExe = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
+        if (-not $psExe) { $psExe = (Get-Command powershell -ErrorAction SilentlyContinue).Source }
+        if (-not $psExe) { $psExe = "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" }
+
+        # -NoExit keeps the new window open if the wizard finishes/quits,
+        # so the user can read any final output instead of the window
+        # vanishing behind close-on-exit.
+        try {
+            Start-Process -FilePath $psExe -ArgumentList @('-NoExit', '-NoProfile', '-Command', $reinvoke) -ErrorAction Stop | Out-Null
+            Write-Host "  Fresh PowerShell window opened. The setup will continue there." -ForegroundColor Green
+            Write-Host "  You can close this window now." -ForegroundColor DarkGray
+            exit 0
+        } catch {
+            Write-Host "  Could not auto-launch a new window: $_" -ForegroundColor Red
+            Write-Host ""
+            Write-Host "Manual recovery (paste both lines into a NEW PowerShell window):" -ForegroundColor Yellow
+            Write-Host '  $env:OASIS_AUTO_INSTALL=''1''' -ForegroundColor Cyan
+            Write-Host '  irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.ps1 | iex' -ForegroundColor Cyan
+            exit 0  # exit 0 so close-on-exit terminals don't slam shut on the user
+        }
     }
 }
 Write-Host ""
