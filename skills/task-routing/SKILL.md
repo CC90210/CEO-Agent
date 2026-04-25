@@ -68,7 +68,7 @@ Scan the task for domain keywords to identify the primary domain:
 | **Debugging** | bug, error, broken, fix, crash, stack trace | debugger |
 | **Documentation** | docs, README, update memory, changelog | documenter |
 | **Git** | commit, branch, PR, merge, rebase | git-ops |
-| **Social** | post, schedule, Late, cross-post, publish | social-publisher |
+| **Social** | post, schedule, Zernio, Late, cross-post, publish | social-publisher |
 | **Skool** | lesson, course, classroom, community | writer (+ skool-automation skill) |
 | **Exploration** | find, where is, search, locate, navigate | explorer |
 

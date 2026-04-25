@@ -19,7 +19,7 @@ OpenCLI transforms websites into structured CLI commands via browser automation.
 ## When to Use
 
 - Need to interact with a website that has no API or broken API
-- Want to automate social media actions beyond what Late MCP supports
+- Want to automate social media actions beyond what Zernio (formerly Late) MCP supports
 - Need to discover a website's hidden API endpoints
 - Want to scrape structured data from JavaScript-heavy websites
 - Building a new platform integration and need to reverse-engineer the API first
@@ -39,7 +39,7 @@ OpenCLI transforms websites into structured CLI commands via browser automation.
 | **OpenCLI** | Websites (via browser) | Repeatable web interactions, API discovery, multi-platform commands |
 | **cli-anything** | Local software/APIs (via subprocess) | SDK wrappers, GUI apps, local tools |
 | **Playwright MCP** | Browser (direct control) | One-off browsing, testing, screenshots |
-| **Late MCP** | Social media (via API) | Posting, scheduling (8 platforms) |
+| **Zernio (fmr. Late) MCP** | Social media (via API) | Posting, scheduling (8 platforms) |
 
 ## Core Commands
 
@@ -195,8 +195,8 @@ These are complementary:
 
 When a website also has a local SDK, prefer cli-anything (more reliable, no browser needed).
 
-### With Late MCP
-Late handles posting and scheduling to 8 platforms. OpenCLI can handle **reading** from those same platforms (trending content, analytics, DMs) — filling the gap that Late's API doesn't cover.
+### With Zernio (formerly Late) MCP
+Zernio handles posting and scheduling to 8 platforms. OpenCLI can handle **reading** from those same platforms (trending content, analytics, DMs) — filling the gap that Zernio's API doesn't cover.
 
 ### With n8n
 OpenCLI commands can be triggered from n8n workflows via Execute Command nodes, enabling automated web data collection pipelines.

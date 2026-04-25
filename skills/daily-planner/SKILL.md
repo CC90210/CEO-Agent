@@ -56,7 +56,7 @@ CC said content is #1. Every day should have a content block:
   4. AI Education (demystifying AI for business owners)
   5. Music/DJ culture (authenticity, lifestyle)
 - Format: "Record a 60-second video about [topic]. Post to [platforms]."
-- Bravo handles: writing captions, scheduling via Late, repurposing across platforms
+- Bravo handles: writing captions, scheduling via Zernio (formerly Late), repurposing across platforms
 
 ### Step 3: Revenue Actions
 Priority order:
@@ -105,7 +105,7 @@ At end of day (or when CC says "wrapping up"):
 - Plan next week's priorities
 
 ### Wednesday (Content Day — Special)
-CC's batch upload day. CC uploads video/files, Bravo schedules 1 piece/day across all channels via Late.
+CC's batch upload day. CC uploads video/files, Bravo schedules 1 piece/day across all channels via Zernio (formerly Late).
 - Content block is 2-3 hours (filming, recording)
 - Bravo handles all post-production scheduling
 
@@ -125,7 +125,7 @@ CC's batch upload day. CC uploads video/files, Bravo schedules 1 piece/day acros
 
 - **CEO Briefing:** Daily planner is part of the /briefing output (Section 2)
 - **Content Engine:** `../CMO-Agent/scripts/content_engine.py` for calendar and scheduling
-- **Late Publisher:** `scripts/late_publisher.py` for distribution
+- **Zernio Publisher:** `scripts/late_publisher.py` for distribution (filename keeps the historical `late_` prefix; the SaaS rebranded to Zernio in 2026-03)
 - **Google Workspace:** `gws calendar events list` for calendar events (REST-style, use --params)
 - **Booking Engine:** `scripts/booking_engine.py` for scheduled calls
 
