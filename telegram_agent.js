@@ -276,6 +276,18 @@ const loadContext = (tier = 2) => {
     }
 
     // --- TIER 2: Standard context (feature work, operations) ---
+    // C-Suite snapshot — loaded at T1+ so Bravo always knows about Atlas + Maven
+    // even on simple "do you know about X?" queries. Previously this only
+    // appeared at T3 via APP_REGISTRY, so the bridge would say "I don't know
+    // about Maven" on a T2 query. Hardcoded summary keeps it in <300 chars.
+    chunks.push(`=== C-SUITE (CC's 4-agent team — always load) ===
+- BRAVO (CEO, you) — C:\\Users\\User\\Business-Empire-Agent — strategy, clients, revenue, cold outreach, Bennett/Skool, calendar
+- ATLAS (CFO) — C:\\Users\\User\\APPS\\CFO-Agent — tax, accounting, runway, research, portfolio advisory; writes cfo_pulse.json
+- MAVEN (CMO) — C:\\Users\\User\\CMO-Agent — paid ads (Meta+Google), social (Late/Zernio), Instagram, content pipeline, brand voice
+- AURA (Life/Home) — C:\\Users\\User\\AURA — smart home, habits, presence, life context
+Cross-agent messaging: ${PYTHON} scripts/agent_inbox.py post --from bravo --to <atlas|maven|aura> --subject "..." --body "..."
+Pulse files (read-only): data/pulse/ceo_pulse.json (yours), ../CMO-Agent/data/pulse/cmo_pulse.json (Maven), ../APPS/CFO-Agent/data/pulse/cfo_pulse.json (Atlas)`);
+
     const claude_md = readFileSafe('CLAUDE.md', tier === 3 ? 200 : 120);
     if (claude_md) chunks.push(`=== CLAUDE.md (project instructions) ===\n${claude_md}`);
 
@@ -294,7 +306,7 @@ const loadContext = (tier = 2) => {
     // Tool routing summary — includes new maintenance tools
     chunks.push(`=== Available CLI Tools ===
 - n8n: ${PYTHON} scripts/n8n_tool.py [list|get|execute|activate]
-- Late (social): ${PYTHON} scripts/late_tool.py [accounts|posts|create]
+- Social posting (Maven owns — cross-repo): ${PYTHON} ../CMO-Agent/scripts/late_tool.py [accounts|posts|create]
 - Supabase: ${PYTHON} scripts/supabase_tool.py [select|insert|sql]
 - Stripe: ${PYTHON} scripts/stripe_tool.py [balance|customers|invoices]
 - Email/Calendar: ${PYTHON} scripts/google_tool.py [gmail send|gmail list|calendar list|calendar create]
@@ -392,7 +404,9 @@ BUSINESS OPS (use these — NOT the browser):
 - Leads/CRM: ${PYTHON} scripts/lead_engine.py list | add "Name" --email x | followups | view <id>
 - Client Health: ${PYTHON} scripts/client_health.py report | alerts | score <name>
 - Content: ${PYTHON} ../CMO-Agent/scripts/content_engine.py calendar | create --platform x --pillar ceo_log --body "..." | due
-- Social: ${PYTHON} scripts/late_tool.py accounts | posts | create --text "..." --account <id>
+- Social (Maven cross-repo): ${PYTHON} ../CMO-Agent/scripts/late_tool.py accounts | posts | create --text "..." --account <id>
+- Instagram (Maven cross-repo): ${PYTHON} ../CMO-Agent/scripts/instagram_engine.py check-dms | auto-reply
+- Image gen (Maven cross-repo): ${PYTHON} ../CMO-Agent/scripts/codex_image_gen.py generate "<prompt>"
 - n8n: ${PYTHON} scripts/n8n_tool.py list | execute <id>
 - Database: ${PYTHON} scripts/supabase_tool.py select <table> --project bravo --limit 10
 - Financial: ${PYTHON} scripts/financial_model.py unit-economics | forecast | scenario --type base|bull|bear
