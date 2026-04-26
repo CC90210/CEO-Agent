@@ -96,6 +96,8 @@ try:
 except ImportError:
     ZoneInfo = None  # type: ignore
 
+from name_utils import safe_first_name, safe_full_name
+
 
 # ---- Env + DB (same pattern as every other engine) --------------------------
 
@@ -652,8 +654,14 @@ def _draft_body_for_decision(d: Decision, env: dict[str, str]) -> tuple[Optional
         return None, None
 
     md = d.metadata or {}
-    name = md.get("lead_name") or "there"
-    first_name = name.split()[0] if name and " " in name else name
+    # Block placeholder lead.name from leaking into the LLM prompt → email.
+    # See scripts/name_utils.py and the 2026-04-25 "Hi Contact," incident.
+    raw_name = md.get("lead_name")
+    name = safe_full_name(raw_name, fallback="there")
+    first_name = safe_first_name(
+        name.split()[0] if name and " " in name else name,
+        fallback="there",
+    )
     company = md.get("lead_company") or "your business"
     stage_hint = {
         "day2_followup": "Lead received one cold email 2 days ago, no reply yet. Follow up with one concrete new angle, not a repeat of the first pitch.",
