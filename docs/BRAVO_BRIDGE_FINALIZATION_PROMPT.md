@@ -18,30 +18,43 @@ Fix all three.
 
 ═══ KNOWN ISSUES ═══
 
-1. C-SUITE AWARENESS GAP: The bridge's `loadContext` function only loads
+1. C-SUITE AWARENESS GAP: The bridge's `loadContext` function only loaded
    `brain/APP_REGISTRY.md` and `brain/AGENTS.md` at Tier 3 (architecture
    queries). Simple identity questions like "do you know about Atlas and
-   Maven?" classify as T2, so the bridge has no Maven context loaded.
+   Maven?" classify as T2, so the bridge had no Maven context loaded.
 
-   FIX: Open `telegram_agent.js`, find `loadContext`. Insert a hardcoded
-   C-Suite snapshot BEFORE the T2 CLAUDE.md load. Use this exact block
-   (the Windows side already has it — sync-pull from the Windows
-   commit on origin/main once CC pushes):
+   FIX (already done on Windows in commit `d71520f`, REFACTORED in next
+   commit): The Windows bridge now has a `loadCSuiteSnapshot()` helper
+   that READS `brain/CROSS_AGENT_AWARENESS.md` at runtime — single
+   source of truth, no hardcoded path duplication. If you change a
+   path or domain in that one file, all 3 bridges (Bravo Win, Bravo
+   Mac, Atlas, future Maven) pick it up automatically.
 
-   ```
-   chunks.push(`=== C-SUITE (CC's 4-agent team — always load) ===
-   - BRAVO (CEO, you) — C:\\Users\\User\\Business-Empire-Agent — strategy, clients, revenue, cold outreach, primary retainer/Skool, calendar
-   - ATLAS (CFO) — C:\\Users\\User\\APPS\\CFO-Agent — tax, accounting, runway, research, portfolio advisory; writes cfo_pulse.json
-   - MAVEN (CMO) — C:\\Users\\User\\CMO-Agent — paid ads (Meta+Google), social (Late/Zernio), Instagram, content pipeline, brand voice
-   - AURA (Life/Home) — C:\\Users\\User\\AURA — smart home, habits, presence, life context
-   Cross-agent messaging: \${PYTHON} scripts/agent_inbox.py post --from bravo --to <atlas|maven|aura> --subject "..." --body "..."
-   Pulse files (read-only): data/pulse/ceo_pulse.json (yours), ../CMO-Agent/data/pulse/cmo_pulse.json (Maven), ../APPS/CFO-Agent/data/pulse/cfo_pulse.json (Atlas)`);
-   ```
+   The MacBook bridge needs the SAME refactor. Pull the latest
+   `telegram_agent.js` from origin/main once CC pushes — both helpers
+   (`loadCSuiteSnapshot` + the chunks.push call site) come down together.
+   Verify on Mac:
+     node --check telegram_agent.js  (must exit 0)
+     node -e "const fs=require('fs');const path=require('path');
+              const __dirname=process.cwd();
+              <paste loadCSuiteSnapshot definition>; console.log(loadCSuiteSnapshot());"
 
-   On the MacBook: replace `C:\\Users\\User\\` with `/Users/conaugh/` in
-   the snapshot since the Mac uses different paths. Also replace
-   `../APPS/CFO-Agent/` and `../CMO-Agent/` with the actual Mac paths
-   if the sibling repos live somewhere different on the MacBook.
+   The output should include the 4-agent table from
+   brain/CROSS_AGENT_AWARENESS.md. If it falls back to the hardcoded
+   snapshot, that means the file is missing on the Mac — fix that
+   first (git pull should bring it down).
+
+   On the MacBook, paths in `brain/CROSS_AGENT_AWARENESS.md` itself
+   are Windows-style (`C:\Users\User\...`). That's intentional — they're
+   canonical references, used as identifiers across all 3 agents. The
+   Mac bridge can use those identifiers verbatim; what matters
+   functionally is whether each agent's local sibling-repo paths
+   resolve. Verify the Mac has the 3 sibling repos at the equivalent
+   Mac locations (`/Users/conaugh/...`) and that the bridge's
+   subprocess calls use those Mac paths via env override or path
+   resolution. Do NOT edit `brain/CROSS_AGENT_AWARENESS.md` to swap
+   to Mac paths — that would corrupt the canonical doc for the
+   Windows side.
 
 2. STALE PATH REFERENCES: The bridge mentioned `scripts/late_tool.py` for
    social posting but that file was transferred to Maven on 2026-04-26
