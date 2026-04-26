@@ -29,6 +29,9 @@ const path = require('path');
 //         (replaces broken Python Quartz), smooth animated cursor, drag support,
 //         youtube-play atomic command, window/browser guard fixes, T0 max-turns 6,
 //         tier classifier 24/24 PASS (coding exclusions prevent false T0 routing).
+// V15.5: C-Suite awareness — loadCSuiteSnapshot() reads brain/CROSS_AGENT_AWARENESS.md
+//         at runtime so the bridge always knows about Bravo + Atlas + Maven + Aura
+//         (single source of truth, no hardcoded snapshot).
 // ============================================================
 
 // ---- PLATFORM DETECTION ----
@@ -215,7 +218,10 @@ const autoRegisterUser = (userId) => {
 // Static prompt for Gemini (Gemini reads brain files via MCP anyway)
 const buildGeminiPrompt = (chatId) => {
     const history = getHistoryBlock(chatId);
-    return `You are BRAVO, CC's AI assistant on Telegram. RULES: (1) Answer the question directly in 1-5 sentences. (2) Do NOT summarize recent work, session history, or system status unless explicitly asked. (3) Do NOT greet CC with a status update. (4) Do NOT say what you just fixed or built. (5) Just answer what was asked. (6) Use the CONVERSATION HISTORY below for context from prior messages.
+    const csuite = loadCSuiteSnapshot();
+    return `You are BRAVO (CEO agent), CC's AI assistant on Telegram. RULES: (1) Answer the question directly in 1-5 sentences. (2) Do NOT summarize recent work, session history, or system status unless explicitly asked. (3) Do NOT greet CC with a status update. (4) Do NOT say what you just fixed or built. (5) Just answer what was asked. (6) Use the CONVERSATION HISTORY below for context from prior messages. (7) You are ONE of FOUR agents — see C-SUITE table below. If CC asks about Atlas, Maven, or Aura, answer using that table.
+
+${csuite}
 ${history}
 CC's message:`;
 };
@@ -229,6 +235,30 @@ const readFileSafe = (relPath, maxLines = 0) => {
         }
         return content.trim();
     } catch (_) { return ''; }
+};
+
+// Reads brain/CROSS_AGENT_AWARENESS.md and returns the canonical 4-agent table.
+// Single source of truth: edit the .md, restart the bridge — no code change needed.
+const loadCSuiteSnapshot = () => {
+    const content = readFileSafe('brain/CROSS_AGENT_AWARENESS.md');
+    if (!content) {
+        return `=== C-SUITE AGENTS (fallback — brain/CROSS_AGENT_AWARENESS.md not found) ===
+| Agent | Scope | Lives At |
+|-------|-------|----------|
+| Bravo (CEO) | Business strategy, clients, revenue | C:\\Users\\User\\Business-Empire-Agent |
+| Atlas (CFO) | Money, tax, runway, research | C:\\Users\\User\\APPS\\CFO-Agent |
+| Maven (CMO) | Brand, content, ads, funnels | C:\\Users\\User\\CMO-Agent |
+| Aura (Life) | Apartment, habits, accountability | C:\\Users\\User\\AURA |`;
+    }
+    const lines = content.split('\n');
+    const startIdx = lines.findIndex(l => /^##\s+The 4 Agents at a Glance/i.test(l));
+    if (startIdx === -1) return '';
+    let endIdx = lines.length;
+    for (let i = startIdx + 1; i < lines.length; i++) {
+        if (/^##\s/.test(lines[i])) { endIdx = i; break; }
+    }
+    const section = lines.slice(startIdx, endIdx).join('\n').trim();
+    return `=== C-SUITE AGENTS (from brain/CROSS_AGENT_AWARENESS.md — canonical) ===\n${section}`;
 };
 
 // ---- CONTEXT TIER CLASSIFICATION (from Claude Code harness patterns) ----
@@ -381,7 +411,10 @@ const buildPrompt = (chatId, userText = '') => {
 
     // T0: Quick action — minimal prompt, use the RIGHT tool
     if (tier === 0) {
-        return `You are Bravo, CC's Lead Architect on his ${MACHINE_NAME}. Full CLI access. Be direct.
+        const csuite = loadCSuiteSnapshot();
+        return `You are Bravo (CEO agent), CC's Lead Architect on his ${MACHINE_NAME}. Full CLI access. Be direct.
+
+${csuite}
 
 BUSINESS OPS (use these — NOT the browser):
 - Email: ${PYTHON} scripts/google_tool.py gmail list | gmail read <id> | gmail send --to "..." --subject "..." --body "..."
@@ -427,10 +460,14 @@ CC says:`;
     }
 
     const context = loadContext(tier);
-    return `You are BRAVO V5.5, CC's Lead Architect and AI business manager, running via Telegram bridge.
+    const csuite = loadCSuiteSnapshot();
+    return `You are BRAVO V5.5 (CEO agent in the 4-agent C-Suite), CC's Lead Architect and AI business manager, running via Telegram bridge.
 You have full access to the Business-Empire-Agent project at ${__dirname}.
 Platform: ${IS_MAC ? 'macOS (darwin)' : 'Windows 11 (win32)'} — Machine: ${MACHINE_NAME}
 If CC asks "what machine are you on?" or "where are you running?", answer: "${MACHINE_NAME}" (${IS_MAC ? 'CC\'s MacBook' : 'CC\'s Windows Desktop PC — AMD Ryzen 5 5600GT, 16GB RAM, 1080p'}).
+If CC asks about Atlas, Maven, or Aura — they are your three sibling agents. Answer using the C-SUITE table below (paths, scope, pulse files). Atlas = CFO at C:\\Users\\User\\APPS\\CFO-Agent (NOT trading-agent). Maven = CMO at C:\\Users\\User\\CMO-Agent. Aura = Life at C:\\Users\\User\\AURA. For paid ads, social posts, content scheduling, brand work — that is Maven's domain (its late_tool, instagram_engine, content_engine live in CMO-Agent).
+
+${csuite}
 
 ${context}
 ${history}
