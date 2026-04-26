@@ -30,7 +30,8 @@ tags: [docs, index, hub]
 
 | Prompt | Target | Status | Purpose |
 |--------|--------|--------|---------|
-| [[docs/BRAVO_BRIDGE_FINALIZATION_PROMPT]] | Bravo (Mac + Windows) | **ACTIVE** | Sync C-Suite snapshot fix to MacBook bridge + verify Maven cross-repo paths |
+| [[docs/MACBOOK_SYNC_PROMPT]] | Bravo (MacBook) | **ACTIVE — paste FIRST** | Pull 12 unpushed commits + run all verification + restart bridge with new loadCSuiteSnapshot |
+| [[docs/BRAVO_BRIDGE_FINALIZATION_PROMPT]] | Bravo (Mac + Windows) | **ACTIVE** | Reference doc for the bridge fix (Mac side now mostly redundant after MACBOOK_SYNC_PROMPT lands) |
 | [[docs/MAVEN_BRIDGE_BUILD_PROMPT]] | Maven (CMO-Agent) | **ACTIVE** | Build Maven's Telegram bridge from scratch — 3rd chat in CC's phone trio (Bravo / Atlas / Maven) |
 | [[docs/ATLAS_BRIDGE_FINALIZATION_PROMPT]] | Atlas (CFO-Agent) | **ACTIVE** | Add C-Suite snapshot + ATLAS_FORCE_DRY_RUN killswitch + document cfo_pulse contract |
 
