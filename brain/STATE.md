@@ -159,11 +159,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-04-25
+- **Date:** 2026-04-26
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Two-track session: (1) reconnected ~100 Obsidian orphans (73 zero-inbound -> 0) via 4 new hub INDEX files + cascade wikilinks; (2) shipped V1.0 one-line installers for Atlas + Maven as thin profile-preselect shims into the unified Bravo wizard (--profile flag now passes through quickstart.sh/ps1). 3 repos green pushed: CEO-Agent fca59b6, CFO-Agent a8a4d4e, CMO-Agent f54aaae. Codex CLI 0.118.0 found stale (all model names rejected); Bravo executed inline.
+- **Result:** Full system audit: extracted name sanitizer to scripts/name_utils.py + applied to email_engine, outreach_engine, funnel_nurture, autonomous_agent. Fixed 2 real send_gateway safety bugs: critic gate now fail-closes on any non-ship verdict and on critic exceptions (was silently bypassing on escalate/revise). 88/88 tests pass. self_audit 100/100.
 
-*Last updated: 2026-04-25*
+*Last updated: 2026-04-26*
 
 ## Manifest
 

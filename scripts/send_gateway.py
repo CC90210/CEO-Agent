@@ -1335,16 +1335,33 @@ def send(
         })
 
         if intent == "commercial" and _env_bool(env, "DRAFT_CRITIC_ENABLED", True):
-            critic_result = critique_draft(
-                draft_subject=subject,  # type: ignore[arg-type]
-                draft_body=body_text,  # type: ignore[arg-type]
-                brand=brand,
-                intent=intent,
-                env=env,
-            )
-            if critic_result.get("verdict") == "reject":
+            # Fail-closed gate. The critic is the last automated check
+            # before a real send. Any non-`ship` verdict blocks, and any
+            # exception in the critic ALSO blocks — better to escalate
+            # to CC than to silently bypass the safety review when the
+            # gate itself is down.
+            try:
+                critic_result = critique_draft(
+                    draft_subject=subject,  # type: ignore[arg-type]
+                    draft_body=body_text,  # type: ignore[arg-type]
+                    brand=brand,
+                    intent=intent,
+                    env=env,
+                )
+            except Exception as critic_exc:  # noqa: BLE001
+                return {"status": "blocked",
+                        "reason": f"draft_critic unavailable: {critic_exc}",
+                        "lead_id": lead_id, "interaction_id": None,
+                        "cooldown_until": None, "daily_count": None}
+            verdict = critic_result.get("verdict")
+            if verdict != "ship":
                 reasons = critic_result.get("reasons") or []
-                reason_text = "; ".join(str(r) for r in reasons[:5]) or critic_result.get("notes") or "rejected"
+                reason_text = (
+                    "; ".join(str(r) for r in reasons[:5])
+                    or critic_result.get("notes")
+                    or verdict
+                    or "rejected"
+                )
                 return {"status": "blocked",
                         "reason": f"draft_critic rejected: {reason_text}",
                         "lead_id": lead_id, "interaction_id": None,

@@ -30,6 +30,8 @@ if env_path.exists():
 # timing logic + the HTML template bodies.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from name_utils import safe_first_name
+
 
 def get_supabase():
     url = os.environ.get("BRAVO_SUPABASE_URL", "")
@@ -168,7 +170,7 @@ def _cta_button(text: str, href: str = "") -> str:
 # --- Follow-up email templates ---
 
 def day2_email(name: str, interests: list, data: dict) -> tuple[str, str]:
-    first = name.split(" ")[0]
+    first = safe_first_name(name.split(" ")[0] if name else "", fallback="there")
 
     if "ai" in interests:
         subject = f"{first}, your AI audit is ready"
@@ -201,7 +203,7 @@ def day2_email(name: str, interests: list, data: dict) -> tuple[str, str]:
 
 
 def day5_email(name: str, interests: list, data: dict) -> tuple[str, str]:
-    first = name.split(" ")[0]
+    first = safe_first_name(name.split(" ")[0] if name else "", fallback="there")
 
     if "ai" in interests:
         subject = f"Last call, {first} — your AI audit expires soon"
