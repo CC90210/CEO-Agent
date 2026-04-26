@@ -22,19 +22,31 @@ existed. Yours likely has the same gap. Fix it.
    up in `brain/AGENTS.md` or `docs/` (not loaded by default), the
    bridge has the same gap Bravo did.
 
-   FIX: Add a hardcoded C-Suite snapshot to your bridge's prompt
-   builder. Load it on EVERY query, not just architecture-tier ones.
-   Snapshot text (under 350 chars, hardcoded — paths Windows-style for
-   parity with how other agents reference each other):
+   FIX: Do NOT hardcode the snapshot. Bravo refactored this on
+   2026-04-26 to read from a single source of truth at
+   `brain/CROSS_AGENT_AWARENESS.md` (canonical 4-agent table). Atlas
+   should follow the same pattern so path changes propagate
+   automatically across all 3 bridges.
 
-   ```
-   === C-SUITE (CC's 4-agent team — always load) ===
-   - BRAVO (CEO) — C:\Users\User\Business-Empire-Agent — strategy, clients, revenue, cold outreach
-   - ATLAS (CFO, you) — C:\Users\User\APPS\CFO-Agent — tax, runway, portfolio, research; you write cfo_pulse.json
-   - MAVEN (CMO) — C:\Users\User\CMO-Agent — paid ads, social, Instagram, content, brand (reads your cfo_pulse to gate spend)
-   - AURA (Life/Home) — C:\Users\User\AURA — smart home, habits, presence
-   Cross-agent messaging: python scripts/agent_inbox.py post --from atlas --to <bravo|maven|aura> ...
-   ```
+   Two implementation options:
+   (a) Copy `brain/CROSS_AGENT_AWARENESS.md` from Bravo's repo into
+       your own `brain/` dir; have your bridge read the local copy.
+       Pro: no cross-repo dependency at runtime. Con: must re-sync
+       periodically.
+   (b) Read Bravo's canonical copy at the sibling path:
+       `C:\Users\User\Business-Empire-Agent\brain\CROSS_AGENT_AWARENESS.md`
+       Pro: always fresh. Con: depends on Bravo's repo being there.
+
+   Recommendation: (a) with a daily sync. Implement a Python helper
+   `load_csuite_snapshot()` that reads your local copy, parses the
+   "## The 4 Agents at a Glance" markdown table, returns the snapshot
+   text; falls back to a minimal hardcoded snapshot if the file is
+   missing.
+
+   Reference implementation: Bravo's `telegram_agent.js` —
+   search for `loadCSuiteSnapshot` (Node version). Port it to Python
+   for `telegram_bridge.py`. Same regex pattern works:
+     match = re.search(r'## The 4 Agents at a Glance\s*\n([\s\S]*?)(?=\n## )', txt)
 
 2. STALE PATH IN OLD CONTEXT: Your repo's docs may still reference
    `C:\Users\User\APPS\trading-agent` (your old name before becoming

@@ -74,16 +74,29 @@ Step 3 — Maven-specific context loading (30 min)
     - `brain/ATTRIBUTION_MODEL.md`
     - `memory/PATTERNS.md`
 
-  Hardcoded C-Suite snapshot (always load at T1+ — kept under 350 chars):
+  C-Suite snapshot (always load at T1+) — DO NOT HARDCODE. Bravo
+  refactored this on 2026-04-26 to read from a single source of truth:
+  `brain/CROSS_AGENT_AWARENESS.md` (canonical 4-agent table). Maven's
+  bridge should follow the SAME pattern so a future path change
+  propagates to all 3 chats automatically.
 
-  ```
-  === C-SUITE (CC's 4-agent team — always load) ===
-  - BRAVO (CEO) — C:\\Users\\User\\Business-Empire-Agent — strategy, clients, revenue, cold outreach, Bennett/Skool, calendar
-  - ATLAS (CFO) — C:\\Users\\User\\APPS\\CFO-Agent — tax, runway, portfolio; writes cfo_pulse.json (you READ this to gate paid spend)
-  - MAVEN (CMO, you) — C:\\Users\\User\\CMO-Agent — paid ads, social, Instagram, content pipeline, brand
-  - AURA (Life/Home) — C:\\Users\\User\\AURA — smart home, habits, presence
-  Cross-agent messaging: ${PYTHON} scripts/agent_inbox.py post --from maven --to <bravo|atlas|aura> ...
-  ```
+  Two implementation options:
+  (a) Copy `brain/CROSS_AGENT_AWARENESS.md` from Bravo's repo into
+      your own brain/ dir, and have your bridge read your local copy.
+      Pro: zero cross-repo dependency at runtime. Con: must re-sync
+      when Bravo updates the canonical.
+  (b) Have your bridge read Bravo's copy directly via the sibling-
+      repo path: `../Business-Empire-Agent/brain/CROSS_AGENT_AWARENESS.md`.
+      Pro: always fresh. Con: depends on Bravo's repo being adjacent.
+
+  Recommendation: (a) with a daily sync. Less coupling, easier
+  reasoning. Implement the helper modeled on Bravo's
+  `loadCSuiteSnapshot()` — read your own brain/CROSS_AGENT_AWARENESS.md,
+  parse the "## The 4 Agents at a Glance" table, return it; fall back
+  to a minimal hardcoded snapshot if the file is missing.
+
+  Reference implementation in Bravo's `telegram_agent.js` —
+  search for `loadCSuiteSnapshot` to see the parser + fallback pattern.
 
 Step 4 — Maven-specific tool routing (45 min)
   Replace Bravo's tool list with Maven's. Your chat should do:

@@ -231,6 +231,35 @@ const readFileSafe = (relPath, maxLines = 0) => {
     } catch (_) { return ''; }
 };
 
+// C-Suite snapshot loader — single source of truth for the 4-agent fleet
+// awareness. Used by every Telegram bridge (Bravo here, Atlas's
+// telegram_bridge.py, Maven's telegram_agent.js when built) so a path or
+// domain change in brain/CROSS_AGENT_AWARENESS.md propagates to all 3
+// chats automatically. Falls back to a minimal inline snapshot if the
+// canonical file is unavailable (fresh checkout, sibling-repo missing).
+const loadCSuiteSnapshot = () => {
+    const HEADER = '=== C-SUITE (CC\'s 4-agent team — always load) ===';
+    const FOOTER = `\nCross-agent messaging: ${PYTHON} scripts/agent_inbox.py post --from bravo --to <atlas|maven|aura> --subject "..." --body "..."\nPulse files: data/pulse/ceo_pulse.json (yours), ../CMO-Agent/data/pulse/cmo_pulse.json (Maven), ../APPS/CFO-Agent/data/pulse/cfo_pulse.json (Atlas)`;
+
+    // Preferred path: parse the canonical 4-agent table from brain/CROSS_AGENT_AWARENESS.md.
+    const canon = readFileSafe('brain/CROSS_AGENT_AWARENESS.md');
+    if (canon) {
+        // Extract the table block ("## The 4 Agents at a Glance" → next heading).
+        const tableMatch = canon.match(/## The 4 Agents at a Glance\s*\n([\s\S]*?)(?=\n##\s)/);
+        if (tableMatch && tableMatch[1].trim()) {
+            return `${HEADER}\n${tableMatch[1].trim()}${FOOTER}`;
+        }
+    }
+
+    // Fallback: minimal hardcoded snapshot if the canonical file is missing.
+    // Kept short — first responsibility is correctness, second is brevity.
+    return `${HEADER}
+- BRAVO (CEO, you) — C:\\Users\\User\\Business-Empire-Agent — strategy, clients, revenue, cold outreach, Bennett/Skool, calendar
+- ATLAS (CFO) — C:\\Users\\User\\APPS\\CFO-Agent — tax, accounting, runway, research, portfolio advisory; writes cfo_pulse.json
+- MAVEN (CMO) — C:\\Users\\User\\CMO-Agent — paid ads (Meta+Google), social (Late/Zernio), Instagram, content pipeline, brand voice
+- AURA (Life/Home) — C:\\Users\\User\\AURA — smart home, habits, presence, life context${FOOTER}`;
+};
+
 // ---- CONTEXT TIER CLASSIFICATION (from Claude Code harness patterns) ----
 // Claude Code uses "simple mode" (184 tools → 3) for lightweight queries.
 // We mirror this: classify query → load only needed context.
@@ -276,17 +305,12 @@ const loadContext = (tier = 2) => {
     }
 
     // --- TIER 2: Standard context (feature work, operations) ---
-    // C-Suite snapshot — loaded at T1+ so Bravo always knows about Atlas + Maven
-    // even on simple "do you know about X?" queries. Previously this only
-    // appeared at T3 via APP_REGISTRY, so the bridge would say "I don't know
-    // about Maven" on a T2 query. Hardcoded summary keeps it in <300 chars.
-    chunks.push(`=== C-SUITE (CC's 4-agent team — always load) ===
-- BRAVO (CEO, you) — C:\\Users\\User\\Business-Empire-Agent — strategy, clients, revenue, cold outreach, Bennett/Skool, calendar
-- ATLAS (CFO) — C:\\Users\\User\\APPS\\CFO-Agent — tax, accounting, runway, research, portfolio advisory; writes cfo_pulse.json
-- MAVEN (CMO) — C:\\Users\\User\\CMO-Agent — paid ads (Meta+Google), social (Late/Zernio), Instagram, content pipeline, brand voice
-- AURA (Life/Home) — C:\\Users\\User\\AURA — smart home, habits, presence, life context
-Cross-agent messaging: ${PYTHON} scripts/agent_inbox.py post --from bravo --to <atlas|maven|aura> --subject "..." --body "..."
-Pulse files (read-only): data/pulse/ceo_pulse.json (yours), ../CMO-Agent/data/pulse/cmo_pulse.json (Maven), ../APPS/CFO-Agent/data/pulse/cfo_pulse.json (Atlas)`);
+    // C-Suite snapshot — loaded at every tier so Bravo always knows about
+    // Atlas + Maven + Aura. Reads brain/CROSS_AGENT_AWARENESS.md (single
+    // source of truth — same file Atlas + Maven bridges read). Falls back
+    // to a minimal hardcoded snapshot if the canonical file is unavailable
+    // (e.g. fresh checkout, file moved, parse error).
+    chunks.push(loadCSuiteSnapshot());
 
     const claude_md = readFileSafe('CLAUDE.md', tier === 3 ? 200 : 120);
     if (claude_md) chunks.push(`=== CLAUDE.md (project instructions) ===\n${claude_md}`);
