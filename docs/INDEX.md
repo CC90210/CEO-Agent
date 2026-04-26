@@ -12,6 +12,19 @@ tags: [docs, index, hub]
 - [[docs/[REDACTED]_ROI_Analysis]] — [REDACTED] prospect ROI analysis
 - [[docs/MOBILE_TERMINAL]] — Mobile terminal setup guide
 - [[docs/V6_ARCHITECTURE]] — V6.0 principal-architect design doc (pgvector + LISTEN/NOTIFY + Hetzner VPS)
+- [[docs/N8N_INBOUND_INTEGRATION]] — n8n inbound integration patterns
+- [[docs/AGENT_REPO_CROSS_ANALYSIS_2026-04-22]] — Cross-repo gap analysis (historical snapshot)
+
+## Cross-Agent Prompts (paste into sibling Claude Code sessions)
+
+| Prompt | Target | Status | Purpose |
+|--------|--------|--------|---------|
+| [[docs/MAVEN_FINALIZATION_PROMPT]] | Maven (CMO-Agent) | **ACTIVE 2026-04-26+** | V1.1→V1.2 finalization — close 4-script transfer integration debt + 6-lens deep audit |
+| [[docs/ATLAS_FINALIZATION_PROMPT]] | Atlas (CFO-Agent) | **ACTIVE 2026-04-26+** | V1.0 foundation build — 8 agents, math-grade test coverage, cfo_pulse contract, dispatch chokepoint |
+| [[docs/MAVEN_UPDATE_PROMPT]] | Maven (CMO-Agent) | ✅ COMPLETE (commit 067cde8) | V1.0→V1.1 — original frontmatter/skill-import/send_gateway upgrade |
+| [[docs/MAVEN_SYSTEM_MESSAGE]] | Maven (CMO-Agent) | ✅ COMPLETE (commit 067cde8) | Paste-wrapper for the V1.0→V1.1 upgrade |
+
+When in doubt: ACTIVE prompts are the ones to paste right now. COMPLETE prompts are historical reference — don't re-run them on agents that already shipped them.
 
 ## Workstation
 - [[docs/AI_WORKSTATION_ROADMAP]] — Full AI workstation upgrade plan

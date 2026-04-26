@@ -4,6 +4,10 @@ tags: [daily]
 
 ### 2026-04-26 — Auto-sync
 **Agent:** BRAVO state_sync
+**Note:** Two distinct cross-agent finalization prompts shipped: MAVEN_FINALIZATION_PROMPT.md (V1.1->V1.2, integration debt + 6-lens deep audit) and ATLAS_FINALIZATION_PROMPT.md (V1.0 foundation build — 8 agents, math-grade test coverage, cfo_pulse contract, dispatch chokepoint). Stale V1.0->V1.1 docs marked HISTORICAL. docs/INDEX.md now has a cross-agent prompts table with ACTIVE vs COMPLETE status.
+
+### 2026-04-26 — Auto-sync
+**Agent:** BRAVO state_sync
 **Note:** Full system audit: extracted name sanitizer to scripts/name_utils.py + applied to email_engine, outreach_engine, funnel_nurture, autonomous_agent. Fixed 2 real send_gateway safety bugs: critic gate now fail-closes on any non-ship verdict and on critic exceptions (was silently bypassing on escalate/revise). 88/88 tests pass. self_audit 100/100.
 
 ### 2026-04-25 — Auto-sync

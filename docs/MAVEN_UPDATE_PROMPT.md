@@ -1,6 +1,10 @@
-# Maven Update Prompt — Capability Parity + Frontmatter Fix + Send-Safety
+# Maven Update Prompt — V1.0 → V1.1 (HISTORICAL — COMPLETE)
 
-> **How to use:** Open Claude Code in `C:\Users\User\CMO-Agent`, paste the prompt below into the session, and let Maven execute it. This prompt is idempotent — if Maven already has a piece, it skips. Read-only against Bravo (`C:\Users\User\Business-Empire-Agent`); writes only inside CMO-Agent.
+> **STATUS: ✅ SHIPPED 2026-04-26 in CMO-Agent commit `067cde8`.** This was Maven's first structural-upgrade pass (frontmatter, send_gateway, RESPONSIBILITY_BOUNDARIES). Kept as historical reference.
+>
+> **For the next Maven pass, see [`MAVEN_FINALIZATION_PROMPT.md`](MAVEN_FINALIZATION_PROMPT.md)** — addresses the 4-script transfer integration debt + 6-lens deep audit.
+>
+> **How to use (historical):** Open Claude Code in `C:\Users\User\CMO-Agent`, paste the prompt below into the session, and let Maven execute it. This prompt is idempotent — if Maven already has a piece, it skips. Read-only against Bravo (`C:\Users\User\Business-Empire-Agent`); writes only inside CMO-Agent.
 
 ---
 

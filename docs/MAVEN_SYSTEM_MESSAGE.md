@@ -1,6 +1,10 @@
-# Maven System Message — Paste-Ready
+# Maven System Message — V1.0 → V1.1 (HISTORICAL — COMPLETE)
 
-> **How to use:** Open Claude Code in `C:\Users\User\CMO-Agent` (fresh session). Copy the entire block below — everything between the two `---` rules — and paste as Maven's first message. Maven takes control, audits itself, executes all 6 phases autonomously, and reports back.
+> **STATUS: ✅ SHIPPED 2026-04-26 in CMO-Agent commit `067cde8`.** This was the paste-wrapper for Maven's first structural-upgrade pass. Kept as historical reference.
+>
+> **For the next Maven pass, see [`MAVEN_FINALIZATION_PROMPT.md`](MAVEN_FINALIZATION_PROMPT.md)** — covers the 4-script transfer integration + 6-lens deep audit.
+>
+> **How to use (historical):** Open Claude Code in `C:\Users\User\CMO-Agent` (fresh session). Copy the entire block below — everything between the two `---` rules — and paste as Maven's first message. Maven takes control, audits itself, executes all 6 phases autonomously, and reports back.
 
 ---
 
