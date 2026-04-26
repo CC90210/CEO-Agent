@@ -1,13 +1,17 @@
-# Bravo Telegram Bridge Finalization (Mac + Windows)
+# Bravo Telegram Bridge Finalization (HISTORICAL — SUPERSEDED)
 
-> **STATUS: ACTIVE — paste into Bravo on the MacBook 2026-04-26+.**
+> **STATUS: ⚠️ SUPERSEDED 2026-04-26 by [`MACBOOK_SYNC_PROMPT.md`](MACBOOK_SYNC_PROMPT.md).**
 >
-> **Why:** A Telegram-bridge audit on 2026-04-26 found 3 real issues from CC's screenshot:
-> 1. Bravo said "Atlas is at `C:\Users\User\APPS\trading-agent`" — that path is stale (Atlas moved to `CFO-Agent` ~3 months ago)
-> 2. Bravo said "Maven I don't have in my context" — Maven is documented but only loads at T3 (architecture queries), not on simple identity questions
-> 3. Bridge tool list still pointed to `scripts/late_tool.py` which Bravo deleted on 2026-04-26 (transferred to Maven)
+> The MacBook sync prompt now does this work via `git pull` — Windows has the fix shipped, Mac picks it up automatically once it pulls. No need for a parallel hand-edit prompt. Use the sync prompt instead.
 >
-> **The Windows bridge has been partially fixed already in commit (current session):** stale `late_tool.py` references rewired to `../CMO-Agent/scripts/late_tool.py`, and a C-Suite snapshot (Bravo/Atlas/Maven/Aura with locations + domains) now loads at every tier ≥ T1. The Mac bridge needs the same treatment + a sync-pull from the Windows version.
+> Kept for reference only — the **diagnostic findings below** (3 real bugs from CC's 2026-04-26 04:08 AM screenshot) explain the *why* behind the bridge fix. Useful context if anyone needs to understand what was broken before the sync.
+>
+> **Original problem (now fixed in commits `d71520f` + `20fe66b`):**
+> 1. Bravo said "Atlas is at `C:\Users\User\APPS\trading-agent`" — stale path
+> 2. Bravo said "Maven I don't have in my context" — Maven only loaded at T3
+> 3. Bridge tool list still referenced `scripts/late_tool.py` which Bravo had deleted
+>
+> Don't paste this prompt. Use `MACBOOK_SYNC_PROMPT.md` instead.
 
 ---
 
