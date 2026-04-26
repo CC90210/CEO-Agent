@@ -371,43 +371,89 @@ Write-Host ""
 
 # Clone or update (atomic — Codex P2: a previous failed clone may leave
 # a partial directory without a .git/, which would crash the next run).
+# --- Invoke-Git helpers (hoisted) ---------------------------------------------
+# CRITICAL — PowerShell 5.1 + $ErrorActionPreference='Stop' bug:
+# native commands (git, npm, etc.) that write to STDERR get raised as
+# terminating NativeCommandError exceptions EVEN ON exit-code-0
+# success. `git fetch` writes "From https://..." progress to stderr.
+# `git clone` writes "Cloning into..." to stderr. Both are normal,
+# successful output — but under EAP=Stop they halt the entire script.
+# That bug is what hit CC at 20:05 today after the auto-update path
+# ran for the first time.
+#
+# The fix: every git invocation goes through Invoke-Git, which
+# temporarily switches EAP to Continue, runs the command, captures
+# stderr into Out-Null, returns $LASTEXITCODE. Never throws on success
+# stderr noise. Restores EAP in finally so the rest of the script keeps
+# its strict error handling for genuinely terminating errors elsewhere.
+function Invoke-Git {
+    param([string[]]$GitArgs)
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & git @GitArgs 2>&1 | Out-Null
+        return $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $prev
+    }
+}
+function Invoke-GitOut {
+    # Returns stdout (trimmed) for queries like rev-parse / status.
+    param([string[]]$GitArgs)
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $out = & git @GitArgs 2>$null
+        return ($out | Out-String).Trim()
+    } finally {
+        $ErrorActionPreference = $prev
+    }
+}
+
 if (Test-Path (Join-Path $RepoDir '.git')) {
     Write-Host "==> Updating existing repo at $RepoDir" -ForegroundColor White
     # Shallow-clone-safe update. A `git pull --ff-only` on a depth-10
     # clone fails when upstream is 11+ commits ahead. Fetch with a
     # deeper depth and hard-reset to origin so the user always lands on
-    # the latest main, even if their clone has diverged or fallen
-    # behind. Local edits are stashed first so nothing is lost.
-    $curBranch = (git -C $RepoDir rev-parse --abbrev-ref HEAD 2>$null)
-    if (-not $curBranch) { $curBranch = 'main' }
-    $dirty = (git -C $RepoDir status --porcelain 2>$null)
+    # the latest main. Local edits are stashed first so nothing is lost.
+
+    $curBranch = Invoke-GitOut @('-C', $RepoDir, 'rev-parse', '--abbrev-ref', 'HEAD')
+    if (-not $curBranch -or $curBranch -eq 'HEAD') { $curBranch = 'main' }
+    $dirty = Invoke-GitOut @('-C', $RepoDir, 'status', '--porcelain')
     if ($dirty) {
         Write-Host "    [!] local changes detected - stashing before update" -ForegroundColor Yellow
-        git -C $RepoDir stash push -u -m "auto-stash by quickstart $([int][double]::Parse((Get-Date -UFormat %s)))" 2>&1 | Out-Null
+        $epoch = [int][double]::Parse((Get-Date -UFormat %s))
+        Invoke-Git @('-C', $RepoDir, 'stash', 'push', '-u', '-m', "auto-stash by quickstart $epoch") | Out-Null
     }
-    git -C $RepoDir fetch --depth 50 origin $curBranch 2>&1 | Out-Null
-    if ($LASTEXITCODE -eq 0) {
-        git -C $RepoDir reset --hard "origin/$curBranch" 2>&1 | Out-Null
-        Write-Host "    synced to origin/$curBranch" -ForegroundColor DarkGray
+    $fetchRc = Invoke-Git @('-C', $RepoDir, 'fetch', '--depth', '50', 'origin', $curBranch)
+    if ($fetchRc -eq 0) {
+        $resetRc = Invoke-Git @('-C', $RepoDir, 'reset', '--hard', "origin/$curBranch")
+        if ($resetRc -eq 0) {
+            Write-Host "    synced to origin/$curBranch" -ForegroundColor DarkGray
+        } else {
+            Write-Host "    [!] reset failed - using existing local commits" -ForegroundColor Yellow
+        }
     } else {
         Write-Host "    [!] fetch failed (offline?) - using existing local commits" -ForegroundColor Yellow
     }
 } elseif ((Test-Path $RepoDir) -and -not (Get-ChildItem -Force $RepoDir -ErrorAction SilentlyContinue)) {
     Write-Host "==> Cloning $RepoUrl into $RepoDir (empty dir)" -ForegroundColor White
     Remove-Item -Path $RepoDir -Force -ErrorAction SilentlyContinue
-    git clone --depth 10 $RepoUrl $RepoDir
+    $cloneRc = Invoke-Git @('clone', '--depth', '10', $RepoUrl, $RepoDir)
+    if ($cloneRc -ne 0) { throw "git clone failed (exit $cloneRc)" }
 } elseif (Test-Path $RepoDir) {
     Write-Host "==> $RepoDir exists but is not a clean git clone — repairing via atomic swap." -ForegroundColor Yellow
     $tmpClone = "$RepoDir.partial.$([guid]::NewGuid().ToString('N').Substring(0,8))"
-    git clone --depth 10 $RepoUrl $tmpClone
-    if ($LASTEXITCODE -ne 0) { throw "clone into temp dir failed" }
+    $cloneRc = Invoke-Git @('clone', '--depth', '10', $RepoUrl, $tmpClone)
+    if ($cloneRc -ne 0) { throw "clone into temp dir failed (exit $cloneRc)" }
     $backup = "$RepoDir.broken.$([int][double]::Parse((Get-Date -UFormat %s)))"
     Move-Item -Path $RepoDir -Destination $backup -Force
     Move-Item -Path $tmpClone -Destination $RepoDir -Force
     Write-Host "    old contents preserved at $backup (delete when ready)" -ForegroundColor DarkGray
 } else {
     Write-Host "==> Cloning $RepoUrl into $RepoDir" -ForegroundColor White
-    git clone --depth 10 $RepoUrl $RepoDir
+    $cloneRc = Invoke-Git @('clone', '--depth', '10', $RepoUrl, $RepoDir)
+    if ($cloneRc -ne 0) { throw "git clone failed (exit $cloneRc)" }
 }
 Write-Host ""
 
