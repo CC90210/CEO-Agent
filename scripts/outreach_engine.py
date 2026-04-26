@@ -26,6 +26,8 @@ _SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
 
+from name_utils import safe_full_name
+
 
 # -- Credentials ---------------------------------------------------------------
 
@@ -266,9 +268,19 @@ def cmd_send(db, args, output_json):
         sys.exit(1)
 
     lead = lead_result.data[0]
-    lead_name = lead.get("name") or lead.get("first_name", "there")
+    # Block placeholder names ("Contact", "Owner", empty, etc.) from
+    # reaching the rendered salutation. See name_utils for the full
+    # placeholder set and the 2026-04-25 incident that motivated this.
+    raw_name = lead.get("name") or lead.get("first_name")
+    lead_name = safe_full_name(raw_name, fallback="there")
     lead_email = lead.get("email")
-    business_name = lead.get("company") or lead.get("business_name") or lead_name
+    # business_name fallback chain stays — but if every field is junk,
+    # avoid leaking "there" into "{business_name} - Save 10+ Hours/Week".
+    business_name = (
+        lead.get("company")
+        or lead.get("business_name")
+        or (raw_name if raw_name and raw_name.strip() else "your business")
+    )
     business_type = lead.get("business_type") or lead.get("industry") or "business"
 
     if not lead_email:

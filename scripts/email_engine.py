@@ -34,6 +34,8 @@ try:
 except ImportError:
     def notify(*a, **kw): return False
 
+from name_utils import sanitize_template_vars as _sanitize_template_vars
+
 # Physical send + CASL enforcement now lives inside send_gateway.py
 # (V5.6 chokepoint). cmd_send / cmd_send_template / cmd_sequence_run
 # all route through it. The legacy send_email_smtp() below is a
@@ -243,42 +245,6 @@ def cmd_send(env_vars, args, output_json=False):
         print(f"ERROR: send failed ({gw.get('status')}): {gw.get('reason')}",
               file=sys.stderr)
         sys.exit(1)
-
-
-_PLACEHOLDER_FIRST_NAMES = {
-    "", "contact", "owner", "manager", "owner/manager", "admin", "info",
-    "support", "sales", "team", "hello", "there", "office", "reception",
-    "customer", "client", "user", "guest", "n/a", "na", "none", "null",
-    "unknown", "no name", "noname", "first_name",
-}
-
-
-def _sanitize_template_vars(variables: dict) -> dict:
-    """Normalize template variables before render so placeholder/junk
-    values can never reach a real recipient.
-
-    Specifically: if `first_name` is empty or matches a known
-    placeholder (`Contact`, `Owner`, `there`, generic-inbox-style
-    tokens), substitute `team`. The rendered salutation becomes
-    `Hi team,` — appropriate for a generic inbox like info@ or
-    contact@ where no specific person is known.
-
-    Surfaced 2026-04-25: 9 real cold sends went out as `Hi Contact,`
-    because CSV-imported leads had `name="Contact"` placeholder strings
-    that earlier staging code propagated into the template render path
-    via `name.split()[0]`. CRM data has been cleaned, and this guard
-    ensures the same failure mode can never recur even if a future
-    caller passes junk explicitly.
-    """
-    out = dict(variables)
-    fn = (out.get("first_name") or "").strip()
-    if fn.lower() in _PLACEHOLDER_FIRST_NAMES:
-        out["first_name"] = "team"
-    # Same defense for other common rendered fields. company is
-    # business-critical for our templates ("Quick thought for {{company}}")
-    # so we DON'T silently rewrite it — a missing company is a real
-    # data bug worth surfacing, not papering over. Caller must fix it.
-    return out
 
 
 def cmd_send_template(env_vars, args, output_json=False):
