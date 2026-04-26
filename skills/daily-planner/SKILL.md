@@ -125,7 +125,7 @@ CC's batch upload day. CC uploads video/files, Bravo schedules 1 piece/day acros
 
 - **CEO Briefing:** Daily planner is part of the /briefing output (Section 2)
 - **Content Engine:** `../CMO-Agent/scripts/content_engine.py` for calendar and scheduling
-- **Zernio Publisher:** `scripts/late_publisher.py` for distribution (filename keeps the historical `late_` prefix; the SaaS rebranded to Zernio in 2026-03)
+- **Zernio Publisher:** `../CMO-Agent/scripts/late_publisher.py` (owned by Maven) for distribution (filename keeps the historical `late_` prefix; the SaaS rebranded to Zernio in 2026-03)
 - **Google Workspace:** `gws calendar events list` for calendar events (REST-style, use --params)
 - **Booking Engine:** `scripts/booking_engine.py` for scheduled calls
 

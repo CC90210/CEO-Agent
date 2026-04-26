@@ -145,7 +145,7 @@ The third-party platforms CC's empire runs on. Each has a CLI wrapper in `script
 | **Stripe** | `scripts/stripe_tool.py` | Payments, subscriptions, Connect accounts |
 | **Supabase** | `scripts/supabase_tool.py` | Postgres DB + auth + storage + edge functions |
 | **n8n** | `scripts/n8n_tool.py` | Workflow automation, Telegram routing, DM flows |
-| **Late/Zernio** | `scripts/late_tool.py` | Multi-platform social scheduling |
+| **Late/Zernio** | `../CMO-Agent/scripts/late_tool.py` (owned by Maven) | Multi-platform social scheduling |
 | **Google Workspace** | `scripts/google_tool.py` | Gmail, Sheets, Drive, Calendar |
 | **GitHub** | `gh` CLI (`/c/Program Files/GitHub CLI/gh.exe`) | Repos, PRs, issues, actions |
 | **Firecrawl** | MCP wrapper | Structured web scraping |

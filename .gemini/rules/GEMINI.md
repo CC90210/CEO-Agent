@@ -64,7 +64,7 @@ Your ONLY job is to answer CC's question. Use MCP tools. 1-5 sentences max for s
 | CC Asks About | CLI Tool | Example |
 |---|---|---|
 | n8n workflows, automations | `python scripts/n8n_tool.py` | `list`, `get <id>`, `execute <id>`, `activate <id>`, `deactivate <id>` |
-| Social posts, scheduling | `python scripts/late_tool.py` | `accounts`, `posts`, `create`, `cross-post` |
+| Social posts, scheduling | `python ../CMO-Agent/scripts/late_tool.py` (Maven) | `accounts`, `posts`, `create`, `cross-post` |
 | Query database, tables, SQL | `python scripts/supabase_tool.py` | `select <table>`, `insert`, `update`, `delete`, `sql "<query>"` |
 | Stripe payments, balance | `python scripts/stripe_tool.py` | `balance`, `customers`, `invoices`, `products`, `subscriptions` |
 | Website-to-CLI, web scraping, API discovery | **OpenCLI** | `opencli explore <url>`, `opencli list`, `opencli <platform> <cmd>` |
@@ -217,7 +217,7 @@ Never store app code in Business-Empire-Agent.
 | Tool | Script | Key Commands |
 |------|--------|-------------|
 | **n8n** | `scripts/n8n_tool.py` | `list`, `get <id>`, `execute <id>`, `activate <id>`, `deactivate <id>` |
-| **Late** | `scripts/late_tool.py` | `accounts`, `posts`, `create`, `cross-post` |
+| **Late** | `../CMO-Agent/scripts/late_tool.py` (owned by Maven) | `accounts`, `posts`, `create`, `cross-post` |
 | **Supabase** | `scripts/supabase_tool.py` | `select <table>`, `insert`, `update`, `delete`, `sql "<query>"` |
 | **Stripe** | `scripts/stripe_tool.py` | `balance`, `customers`, `invoices`, `products`, `subscriptions` |
 

@@ -28,7 +28,7 @@ dependencies: []
 | User Intent | CLI Tool | Command | Example |
 |---|---|---|---|
 | n8n workflows | `python scripts/n8n_tool.py` | `list`, `get <id>`, `execute <id>`, `activate/deactivate <id>` | "List my workflows" |
-| Social media posts | `python scripts/late_tool.py` | `accounts`, `posts`, `create --text "..." --account <id>`, `cross-post` | "Post this to X" |
+| Social media posts | `python ../CMO-Agent/scripts/late_tool.py` (Maven) | `accounts`, `posts`, `create --text "..." --account <id>`, `cross-post` | "Post this to X" |
 | Database queries | `python scripts/supabase_tool.py` | `select <table>`, `insert`, `update`, `delete`, `sql "..."` | "Show my tables" |
 | Payments / billing | `python scripts/stripe_tool.py` | `balance`, `customers`, `invoices`, `products`, `subscriptions` | "Check my Stripe balance" |
 | Email / Calendar | `gws` CLI | `gws gmail users messages list`, `gws calendar events list` (REST-style syntax, use --params for filters) | "Check my email" |
@@ -109,7 +109,7 @@ dependencies: []
 All commands support `--json` flag for agent consumption.
 
 ### Zernio (formerly Late — Social Media)
-**Script:** `python scripts/late_tool.py` (filename keeps the historical
+**Script:** `python ../CMO-Agent/scripts/late_tool.py` (Maven) (filename keeps the historical
 `late_` prefix; the SaaS rebranded Late → Zernio in 2026-03)
 **Credentials:** `LATE_API_KEY` from `.env.agents` (env-var name unchanged
 for back-compat; same key, the Zernio API still accepts it)

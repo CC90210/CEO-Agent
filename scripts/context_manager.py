@@ -505,12 +505,9 @@ CLI_CHECKS = {
         "script": "scripts/n8n_tool.py",
         "env_key": "N8N_API_KEY",
     },
-    "late_tool": {
-        "description": "Social media publishing (Zernio/Late)",
-        "check": "python_script",
-        "script": "scripts/late_tool.py",
-        "env_key": "LATE_API_KEY",
-    },
+    # late_tool moved to Maven (CMO-Agent) on 2026-04-26 — Bravo no longer
+    # owns social publishing. Use Maven's copy via cross-repo subprocess
+    # (see ceo_dashboard.py:_content_this_week for the read-only pattern).
     "supabase_tool": {
         "description": "Database access (Supabase)",
         "check": "python_script",

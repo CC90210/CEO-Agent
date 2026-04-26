@@ -46,7 +46,7 @@ tags: [sops, processes]
    - Threads: Max 500 chars
 5. Validate character count for EACH platform version
 6. Present to CC for approval
-7. Post via Zernio API (late_tool.py create or cross-post)
+7. Post via Zernio API (../CMO-Agent/scripts/late_tool.py create or cross-post)
 8. Log result in SESSION_LOG
 **Success Criteria:** Post published, no character limit rejections, CC approves content
 **Executions:** 2 | **Success Rate:** 50% (1st attempt failed on X char limit)

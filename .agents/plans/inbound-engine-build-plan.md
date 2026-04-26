@@ -29,11 +29,11 @@ Everything below is BUILT but **turned off or disconnected**:
 | Content calendar | `../CMO-Agent/scripts/content_engine.py` | ✅ 21 drafts sitting idle |
 | Content generator | `../CMO-Agent/scripts/content_generator.py` | ✅ Claude API powered |
 | Content repurposer | `../CMO-Agent/scripts/content_repurposer.py` | ✅ Cross-platform |
-| Late API (social posting) | `scripts/late_tool.py` | ✅ 8 accounts connected |
-| Late publisher | `scripts/late_publisher.py` | ⏸️ Built, auto-posting DISABLED |
+| Late API (social posting) | `../CMO-Agent/scripts/late_tool.py` (owned by Maven) | ✅ 8 accounts connected |
+| Late publisher | `../CMO-Agent/scripts/late_publisher.py` (owned by Maven) | ⏸️ Built, auto-posting DISABLED |
 | Scheduler daemon | `scripts/scheduler.py` | ✅ PM2, but content posting stubbed |
 | Content cron jobs | 12 jobs in Supabase `cron_jobs` | ⏸️ Seeded but content posting returns "disabled" |
-| Instagram DM engine | `scripts/instagram_engine.py` | ✅ Running |
+| Instagram DM engine | `../CMO-Agent/scripts/instagram_engine.py` (owned by Maven) | ✅ Running |
 | Skool community engine | `scripts/skool_engine.py` | ✅ Running (PID 59248) |
 
 ---
@@ -168,7 +168,7 @@ In `scripts/scheduler.py`, line 201-206, the `run_content_post` function is STUB
 def run_content_post(config: dict, env_vars: dict) -> str:
     """Content auto-posting disabled — awaiting CC review of content structure."""
     # TODO: Re-enable by restoring the line below once content strategy is approved by CC.
-    # return run_script("late_publisher.py", ["--json", "publish-due"], timeout=120)
+    # return run_script("../CMO-Agent/scripts/late_publisher.py", ["--json", "publish-due"], timeout=120)
     log("Content auto-posting disabled — awaiting CC review")
     return "Content auto-posting disabled — awaiting CC review"
 ```
@@ -178,12 +178,12 @@ def run_content_post(config: dict, env_vars: dict) -> str:
 ```python
 def run_content_post(config: dict, env_vars: dict) -> str:
     """Publish scheduled content via Late API."""
-    return run_script("late_publisher.py", ["--json", "publish-due"], timeout=120)
+    return run_script("../CMO-Agent/scripts/late_publisher.py", ["--json", "publish-due"], timeout=120)
 ```
 
-### 3B. Verify late_publisher.py works end-to-end
+### 3B. Verify ../CMO-Agent/scripts/late_publisher.py works end-to-end
 
-1. Check `scripts/late_publisher.py` exists and has a `publish-due` command
+1. Check `../CMO-Agent/scripts/late_publisher.py` (owned by Maven) exists and has a `publish-due` command
 2. Ensure it reads from `content_calendar` table where `status='scheduled'` and `scheduled_for <= now`
 3. Ensure it calls `late_tool.py create` to actually post
 4. Ensure it marks entries as `status='posted'` after successful publish
@@ -241,7 +241,7 @@ pm2 logs bravo-scheduler --lines 20
 
 ## Phase 4: Wire Instagram DM → CRM Bridge (15 min)
 
-### 4A. Update instagram_engine.py
+### 4A. Update ../CMO-Agent/scripts/instagram_engine.py
 
 When the Instagram engine detects a DM that expresses interest (keywords: "automation", "audit", "help", "business", "pricing", "services", "website"), it should:
 
@@ -424,8 +424,8 @@ Every week:
 | `APPS/cc-funnel/public/og-image.png` | New file (generate) | 1 |
 | `../CMO-Agent/scripts/content_generator.py` | Add CTA rotation to generation prompt | 2 |
 | `scripts/scheduler.py` (line ~201) | Un-stub `run_content_post` | 3 |
-| `scripts/late_publisher.py` | Verify/fix publish-due command | 3 |
-| `scripts/instagram_engine.py` | Add DM → CRM bridge | 4 |
+| `../CMO-Agent/scripts/late_publisher.py` (owned by Maven) | Verify/fix publish-due command | 3 |
+| `../CMO-Agent/scripts/instagram_engine.py` (owned by Maven) | Add DM → CRM bridge | 4 |
 | `scripts/funnel_nurture.py` | Add booking link to email templates | 5 |
 | `brain/STATE.md` | Update with new status | 6 |
 | `memory/ACTIVE_TASKS.md` | Update tasks | 6 |

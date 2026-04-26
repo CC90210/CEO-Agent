@@ -261,7 +261,7 @@ The matrix prevents role confusion. Without it, every task would default to the 
 | Memory | Persistent knowledge graph | `npx @modelcontextprotocol/server-memory` |
 | Sequential Thinking | Structured reasoning | `npx @modelcontextprotocol/server-sequential-thinking` |
 | n8n (CLI) | Workflow automation management | `python scripts/n8n_tool.py` |
-| Late (CLI) | Social media posting (8+ platforms) | `python scripts/late_tool.py` |
+| Late (CLI) | Social media posting (8+ platforms) | `python ../CMO-Agent/scripts/late_tool.py` (Maven) |
 | Supabase (CLI) | Database queries and migrations | `python scripts/supabase_tool.py` |
 | Stripe (CLI) | Payment and subscription data | `python scripts/stripe_tool.py` |
 
@@ -580,7 +580,7 @@ The Supabase `memories` table uses full-text search, not vector embeddings. Vect
 | `scripts/supabase_tool.py` | Supabase SDK CLI | Agent/CC |
 | `scripts/stripe_tool.py` | Stripe SDK CLI | Agent/CC |
 | `scripts/n8n_tool.py` | n8n REST API CLI | Agent/CC |
-| `scripts/late_tool.py` | Late social media CLI | Agent/CC |
+| `../CMO-Agent/scripts/late_tool.py` (owned by Maven) | Late social media CLI | Agent/CC |
 
 ---
 

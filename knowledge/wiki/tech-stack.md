@@ -55,7 +55,7 @@ tools because credential passing through MCP breaks frequently.
 | Supabase | `scripts/supabase_tool.py` | Supabase MCP |
 | Stripe | `scripts/stripe_tool.py` | Stripe MCP |
 | n8n | `scripts/n8n_tool.py` | n8n MCP |
-| Zernio (social) | `scripts/late_tool.py` | Late/Zernio MCP |
+| Zernio (social) | `../CMO-Agent/scripts/late_tool.py` (owned by Maven) | Late/Zernio MCP |
 | Google Workspace | `scripts/google_tool.py` | — |
 | Lead CRM | `scripts/lead_engine.py` | — |
 | Email | `scripts/email_engine.py` | — |
@@ -105,7 +105,7 @@ All scripts: support `--json` flag, read credentials from `.env.agents`, Supabas
 | Telegram bridge | telegram_agent.js | V11.0, 25 max turns, loads full brain context |
 | Email | Google Workspace | `google_tool.py`, SMTP fallback, oasisaisolutions@gmail.com |
 | Video production | FFmpeg 8.0.1 + Whisper + Remotion 4.0.436 | Word-level captions, 1080×1920 |
-| AI image gen | Codex image gen | `scripts/codex_image_gen.py` |
+| AI image gen | Codex image gen | `../CMO-Agent/scripts/codex_image_gen.py` (owned by Maven) |
 
 ## Content Pipeline Stack
 

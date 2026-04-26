@@ -92,7 +92,7 @@ If an MCP tool fails: "The [server] tool returned an error: [error]." — ONE se
 For n8n, Late/Zernio, Supabase, and Stripe — the Python CLI tools in `scripts/` are the PRIMARY integration method. There are no MCP servers for these services.
 
 - `scripts/n8n_tool.py` — n8n workflow management (list, get, execute, activate/deactivate)
-- `scripts/late_tool.py` — social media posting (accounts, posts, create, cross-post)
+- `../CMO-Agent/scripts/late_tool.py` (owned by Maven) — social media posting (accounts, posts, create, cross-post)
 - `scripts/supabase_tool.py` — database CRUD (select, insert, update, delete, sql)
 - `scripts/stripe_tool.py` — payments (balance, customers, invoices, products, subscriptions)
 
@@ -227,7 +227,7 @@ Never store app code in Business-Empire-Agent.
 | Tool | Capabilities | Command |
 |------|-------------|---------|
 | **n8n** | list, get, execute, activate/deactivate workflows | `python scripts/n8n_tool.py` |
-| **Late** | accounts, posts, create, cross-post, publish | `python scripts/late_tool.py` |
+| **Late** | accounts, posts, create, cross-post, publish | `python ../CMO-Agent/scripts/late_tool.py` (Maven) |
 | **Supabase** | select, insert, update, delete, sql, tables | `python scripts/supabase_tool.py` |
 | **Stripe** | balance, customers, invoices, products, subscriptions | `python scripts/stripe_tool.py` |
 

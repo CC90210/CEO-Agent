@@ -4,8 +4,10 @@ tags: [capabilities, tools]
 
 # CAPABILITIES — Tool & Integration Registry
 
-> Complete inventory of what Bravo can do. Last updated: 2026-04-22.
-> **Totals (live disk truth, 2026-04-25): 150 skills · 36 workflows · 78 scripts · 21 agents (14 file-based in `agents/` + 7 native Claude Code in `.claude/agents/`) · 9 MCP servers + Codex (external)**
+> Complete inventory of what Bravo can do. Last updated: 2026-04-26.
+> **Totals (live disk truth, 2026-04-26): 150 skills · 36 workflows · 66 scripts · 21 agents (14 file-based in `agents/` + 7 native Claude Code in `.claude/agents/`) · 9 MCP servers + Codex (external).**
+>
+> Marketing/social scripts (`late_tool.py`, `late_publisher.py`, `instagram_engine.py`, `codex_image_gen.py`) transferred to Maven on 2026-04-26 — they live at `../CMO-Agent/scripts/` now. Bravo subprocesses to Maven's `late_tool.py` only for read-only CEO-dashboard stats (see `ceo_dashboard.py:_content_this_week`).
 >
 > These counts are reported live by `python scripts/self_audit.py`. If
 > they drift, the audit will flag it. Trust the live numbers, not any
@@ -52,7 +54,7 @@ Workflows: `.agents/workflows/` (33 workflows: post, status, health, prime, cont
 - Purpose: Fast diagnostics, file system cleanup, automated audits, heartbeat monitoring, fallback execution
 - Interface: `gemini` command (global npm)
 - MCP Access (via `.gemini/settings.json`): Playwright, Context7, Memory, Sequential Thinking (4 active servers)
-- CLI Tools: `python scripts/supabase_tool.py`, `python scripts/stripe_tool.py`, `python scripts/n8n_tool.py`, `python scripts/late_tool.py`
+- CLI Tools: `python scripts/supabase_tool.py`, `python scripts/stripe_tool.py`, `python scripts/n8n_tool.py`, `python ../CMO-Agent/scripts/late_tool.py` (Maven)
 - Note: Config synced with `.vscode/mcp.json`. Credential-dependent services use CLI tools — not MCP.
 
 ## Supabase Projects
@@ -156,7 +158,7 @@ Browser Harness is installed as Bravo's direct Chrome/Edge control layer. It com
 
 | Tool | Script | Replaces MCP | Key Commands |
 |------|--------|-------------|-------------|
-| **Zernio (Late)** | `scripts/late_tool.py` | Late MCP (env var broken) | `accounts`, `profiles`, `posts`, `create`, `cross-post`, `publish`, `failed` |
+| **Zernio (Late)** | `../CMO-Agent/scripts/late_tool.py` (owned by Maven) | Late MCP (env var broken) | `accounts`, `profiles`, `posts`, `create`, `cross-post`, `publish`, `failed` |
 | **n8n** | `scripts/n8n_tool.py` | n8n-mcp (returns 0 results) | `list`, `search`, `get`, `execute`, `activate`, `deactivate`, `executions`, `stats` |
 | **Supabase** | `scripts/supabase_tool.py` | Supabase MCP (token expired) | `list-projects`, `list-tables`, `select`, `insert`, `update`, `delete`, `query` |
 | **Stripe** | `scripts/stripe_tool.py` | Stripe MCP (v0.3.1 proxy mode) | `balance`, `customers`, `products`, `invoices`, `subscriptions`, `charges` |
@@ -280,7 +282,7 @@ On-site RAG for source-grounded chat, podcast generation, and multi-format conte
 
 | Tool | Script | Purpose | Key Commands |
 |------|--------|---------|-------------|
-| **Codex Image Gen** | `scripts/codex_image_gen.py` | AI image generation via Codex (no extra API keys) | `generate "<prompt>" --style branded`, `styles` |
+| **Codex Image Gen** | `../CMO-Agent/scripts/codex_image_gen.py` (owned by Maven) | AI image generation via Codex (no extra API keys) | `generate "<prompt>" --style branded`, `styles` |
 | **autoDream** | `scripts/auto_dream.py` | Memory consolidation: Orient → Gather → Consolidate → Prune | `run [--dry-run]`, `status` |
 | **Memory Index** | `scripts/memory_index.py` | 3-layer memory architecture (index → topics → archives) | `build`, `search "<query>"`, `stats` |
 | **Codex Health** | `scripts/codex_health.py` | Full Codex integration health check (grade A-F) | `[--json]` |
@@ -330,7 +332,7 @@ The following were added to the Business Operations Engines table above (already
 | Engine | Script | Purpose | Key Commands |
 |--------|--------|---------|-------------|
 | **Skool Community** | `scripts/skool_engine.py` | Autonomous Skool community manager — post replies, DM welcome, member engagement | `daemon`, `run-cycle`, `scan-posts`, `scan-dms`, `engage-members` |
-| **Instagram** | `scripts/instagram_engine.py` | Instagram DM auto-reply, content scheduling, engagement | `daemon`, `check-dms`, `auto-reply`, `post` |
+| **Instagram** | `../CMO-Agent/scripts/instagram_engine.py` (owned by Maven) | Instagram DM auto-reply, content scheduling, engagement | `daemon`, `check-dms`, `auto-reply`, `post` |
 | ~~LinkedIn~~ | _(removed 2026-04-25)_ | LinkedIn outreach automation was removed by design. CC drafts LinkedIn messages by hand. For LinkedIn profile **research only**, use Browser Harness under CC's logged-in session. | n/a |
 
 ## Lead Generation & Outreach Scripts
@@ -362,7 +364,7 @@ The following were added to the Business Operations Engines table above (already
 |--------|---------|
 | `scripts/notify.py` | Cross-platform notifications (Telegram) with category filtering |
 | `scripts/scheduler.py` | Task scheduling system |
-| `scripts/late_publisher.py` | Late API publishing wrapper |
+| `../CMO-Agent/scripts/late_publisher.py` (owned by Maven) | Late API publishing wrapper |
 
 ## Agent Entry Points (V5.6 — 2026-04-20)
 
