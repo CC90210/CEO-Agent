@@ -67,30 +67,10 @@ def get_client(env_vars: dict[str, str]):
 # -- Seed definitions ----------------------------------------------------------
 
 SEED_JOBS: list[dict] = [
-    {
-        "name": "Morning Content Post",
-        "description": "Post morning quote_drop to all platforms",
-        "schedule": "0 9 * * *",
-        "action_type": "content_post",
-        "action_config": {"pillar": "quote_drop", "platforms": ["x", "threads", "instagram"]},
-        "is_active": True,
-    },
-    {
-        "name": "Afternoon Content Post",
-        "description": "Post ceo_log/educational to all platforms",
-        "schedule": "0 13 * * *",
-        "action_type": "content_post",
-        "action_config": {"pillar": "ceo_log", "platforms": ["x", "threads", "instagram"]},
-        "is_active": True,
-    },
-    {
-        "name": "Evening Content Post",
-        "description": "Post sobriety_log to all platforms",
-        "schedule": "0 19 * * *",
-        "action_type": "content_post",
-        "action_config": {"pillar": "sobriety_log", "platforms": ["x", "threads", "instagram"]},
-        "is_active": True,
-    },
+    # Marketing/social cron jobs (content_post × 3, content_planning,
+    # ig_research) were removed from this seed on 2026-04-26 when
+    # marketing/social ownership transferred to Maven (CMO-Agent).
+    # Maven seeds its own equivalents in CMO-Agent/scripts/cron_engine.py.
     {
         "name": "Lead Follow-up Check",
         "description": "Check for overdue follow-ups, send reminders",
@@ -145,22 +125,6 @@ SEED_JOBS: list[dict] = [
         "schedule": "0 9 1 * *",
         "action_type": "monthly_snapshot",
         "action_config": {"tables": ["revenue_events", "leads", "content_calendar"]},
-        "is_active": True,
-    },
-    {
-        "name": "Content Week Plan",
-        "description": "Generate next week's content plan (21 drafts)",
-        "schedule": "0 20 * * SUN",
-        "action_type": "content_planning",
-        "action_config": {"drafts_per_day": 3, "platforms": ["x"]},
-        "is_active": True,
-    },
-    {
-        "name": "Instagram Research",
-        "description": "Research prospects on Instagram via Playwright",
-        "schedule": "0 11 * * MON,WED,FRI",
-        "action_type": "ig_research",
-        "action_config": {"target_industries": ["hvac", "wellness", "real_estate"], "max_profiles": 10},
         "is_active": True,
     },
     {

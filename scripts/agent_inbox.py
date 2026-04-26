@@ -31,9 +31,7 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
-import time
 import uuid
 from pathlib import Path
 from datetime import datetime, timezone
@@ -46,36 +44,28 @@ READ_DIR = INBOX_ROOT / "read"
 VALID_PRIORITIES = {"low", "normal", "high", "urgent"}
 KNOWN_AGENTS = {"bravo", "atlas", "maven", "aura", "codex", "cc", "broadcast"}
 
-# Cross-repo routing. When this script posts `--to maven`, the message
-# must land in MAVEN's inbox dir, not the sender's, otherwise the
-# recipient never sees it. Each agent reads only its own local inbox;
-# the writer resolves the recipient's repo path and writes there.
-#
-# Override per-machine via env vars (e.g. on a different drive layout):
-#   BRAVO_REPO=/path/to/Business-Empire-Agent
-#   MAVEN_REPO=/path/to/CMO-Agent
-#   ATLAS_REPO=/path/to/CFO-Agent
-#   AURA_REPO=/path/to/Aura
-SIBLING_REPOS: dict[str, Path] = {
-    "bravo": Path(os.environ.get("BRAVO_REPO", r"C:\Users\User\Business-Empire-Agent")),
-    "maven": Path(os.environ.get("MAVEN_REPO", r"C:\Users\User\CMO-Agent")),
-    "atlas": Path(os.environ.get("ATLAS_REPO", r"C:\Users\User\APPS\CFO-Agent")),
-    "aura":  Path(os.environ.get("AURA_REPO",  r"C:\Users\User\AURA")),
-}
+# Cross-repo routing — when this script posts `--to maven`, the message
+# must land in MAVEN's inbox dir, not the sender's. Each agent reads
+# only its own local inbox; the writer resolves the recipient's repo
+# path and writes there. The path map lives in scripts/sibling_repos.py
+# (single source of truth across Bravo). Per-machine overrides via env
+# vars: BRAVO_REPO, MAVEN_REPO, ATLAS_REPO, AURA_REPO.
+from sibling_repos import repo_for as _repo_for
 
 
 def _inbox_path_for(recipient: str) -> Path:
     """Resolve the inbox directory for `recipient`.
 
-    - Known sibling agents → their repo's tmp/agent_inbox/inbox
-      (creates the dir tree if missing — first cross-post bootstraps
-      the sibling's inbox so the agent can read it on next boot).
+    - Known sibling agents whose repo exists → their repo's
+      tmp/agent_inbox/inbox (creates the dir tree if missing — first
+      cross-post bootstraps the sibling's inbox).
     - Anything else (including 'cc', 'codex', 'broadcast', sub-agent
-      names) → local inbox. 'broadcast' is read by every agent that
-      lists messages addressed to itself OR to broadcast.
+      names, OR a sibling whose repo isn't installed on this machine)
+      → local inbox. 'broadcast' is read by every agent that lists
+      messages addressed to itself OR to broadcast.
     """
-    repo = SIBLING_REPOS.get(recipient.lower())
-    if repo and repo.exists():
+    repo = _repo_for(recipient)
+    if repo is not None:
         target = repo / "tmp" / "agent_inbox" / "inbox"
         target.mkdir(parents=True, exist_ok=True)
         return target

@@ -17,7 +17,6 @@ import argparse
 import csv
 import datetime
 import json
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -232,12 +231,10 @@ def _pipeline_stats(leads: list[dict]) -> dict:
 
 def _content_this_week() -> dict[str, int]:
     """Count posts published this week by platform via Maven's late_tool.py."""
-    maven_root = Path(
-        os.environ.get("MAVEN_REPO", r"C:\Users\User\CMO-Agent")
-    )
-    script = maven_root / "scripts" / "late_tool.py"
-    if not script.exists():
-        # Maven not present on this machine — return empty rather than error.
+    from sibling_repos import script_in
+    script = script_in("maven", "scripts", "late_tool.py")
+    if script is None or not script.exists():
+        # Maven not installed on this machine — return empty rather than error.
         return {}
 
     try:
@@ -573,7 +570,7 @@ def _format_content() -> str:
         "-" * 42,
         f"{'TOTAL':<14} {total:>9}  {target:>6}",
         "",
-        "Source: python scripts/late_tool.py posts --status published",
+        "Source: python ../CMO-Agent/scripts/late_tool.py posts --status published (Maven)",
         "=" * 54,
     ]
     return "\n".join(lines)
