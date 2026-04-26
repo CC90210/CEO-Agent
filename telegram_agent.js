@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 // ============================================================
-// BRAVO TELEGRAM BRIDGE V15.4
+// BRAVO TELEGRAM BRIDGE V15.6
 //
 // V11.0: Full-Context Parity — loads CLAUDE.md, brain files, skills refs.
 // V12.0: Conversation Memory — stores last 15 messages per chat,
@@ -32,6 +32,9 @@ const path = require('path');
 // V15.5: C-Suite awareness — loadCSuiteSnapshot() reads brain/CROSS_AGENT_AWARENESS.md
 //         at runtime so the bridge always knows about Bravo + Atlas + Maven + Aura
 //         (single source of truth, no hardcoded snapshot).
+// V15.6: Sibling reachability — loadLocalSiblingPaths() probes the actual filesystem
+//         on boot and tells the LLM which sibling agents are reachable from THIS
+//         machine (Mac vs Windows). Closes the "I can't access Atlas" hallucination.
 // ============================================================
 
 // ---- PLATFORM DETECTION ----
@@ -112,7 +115,7 @@ const bot = new TelegramBot(TELEGRAM_TOKEN, {
     request: { timeout: 60000 }
 });
 
-log(`Bravo Telegram Bridge V15.4 (${IS_MAC ? 'macOS' : 'Windows'} - guarded autonomy) starting...`);
+log(`Bravo Telegram Bridge V15.6 (${IS_MAC ? 'macOS' : 'Windows'} - guarded autonomy) starting...`);
 
 // ---- CONVERSATION HISTORY ----
 // Stores last N message pairs (user + assistant) per chat.
@@ -219,9 +222,12 @@ const autoRegisterUser = (userId) => {
 const buildGeminiPrompt = (chatId) => {
     const history = getHistoryBlock(chatId);
     const csuite = loadCSuiteSnapshot();
-    return `You are BRAVO (CEO agent), CC's AI assistant on Telegram. RULES: (1) Answer the question directly in 1-5 sentences. (2) Do NOT summarize recent work, session history, or system status unless explicitly asked. (3) Do NOT greet CC with a status update. (4) Do NOT say what you just fixed or built. (5) Just answer what was asked. (6) Use the CONVERSATION HISTORY below for context from prior messages. (7) You are ONE of FOUR agents — see C-SUITE table below. If CC asks about Atlas, Maven, or Aura, answer using that table.
+    const reach = loadLocalSiblingPaths();
+    return `You are BRAVO (CEO agent), CC's AI assistant on Telegram. RULES: (1) Answer the question directly in 1-5 sentences. (2) Do NOT summarize recent work, session history, or system status unless explicitly asked. (3) Do NOT greet CC with a status update. (4) Do NOT say what you just fixed or built. (5) Just answer what was asked. (6) Use the CONVERSATION HISTORY below for context from prior messages. (7) You are ONE of FOUR agents — see C-SUITE table below. If CC asks about Atlas, Maven, or Aura, answer using that table AND the reachability block. If a sibling shows REACHABLE, you CAN read its files directly.
 
 ${csuite}
+
+${reach}
 ${history}
 CC's message:`;
 };
@@ -235,6 +241,44 @@ const readFileSafe = (relPath, maxLines = 0) => {
         }
         return content.trim();
     } catch (_) { return ''; }
+};
+
+// Probes the local filesystem for sibling agent repos and returns a reachability
+// block the LLM can use to answer "can you access Atlas/Maven/Aura?" honestly.
+// Each agent has multiple known-good locations across Mac/Windows; first hit wins.
+const SIBLING_CANDIDATES = IS_MAC ? {
+    Atlas: [
+        '/Users/conaugh/Desktop/CFO-Agent',
+        '/Users/conaugh/APPS/CFO-Agent',
+        '/Users/conaugh/CFO-Agent'
+    ],
+    Maven: [
+        '/Users/conaugh/CMO-Agent',
+        '/Users/conaugh/APPS/CMO-Agent'
+    ],
+    Aura: [
+        '/Users/conaugh/AURA',
+        '/Users/conaugh/Aura'
+    ]
+} : {
+    Atlas: ['C:\\Users\\User\\APPS\\CFO-Agent'],
+    Maven: ['C:\\Users\\User\\CMO-Agent'],
+    Aura: ['C:\\Users\\User\\AURA']
+};
+
+const loadLocalSiblingPaths = () => {
+    const lines = [];
+    for (const [agent, candidates] of Object.entries(SIBLING_CANDIDATES)) {
+        const found = candidates.find(p => { try { return fs.statSync(p).isDirectory(); } catch (_) { return false; } });
+        if (found) {
+            lines.push(`- ${agent}: REACHABLE on this ${MACHINE_NAME} at ${found}`);
+        } else {
+            lines.push(`- ${agent}: NOT cloned on this ${MACHINE_NAME} (no candidate path exists)`);
+        }
+    }
+    return `=== SIBLING AGENT REACHABILITY (this ${MACHINE_NAME}, runtime-detected) ===
+${lines.join('\n')}
+You CAN read/write these directories with normal Bash/Read/Edit tools. Do NOT tell CC you can't access an agent that shows REACHABLE above — you have full filesystem access to those paths.`;
 };
 
 // Reads brain/CROSS_AGENT_AWARENESS.md and returns the canonical 4-agent table.
@@ -412,9 +456,12 @@ const buildPrompt = (chatId, userText = '') => {
     // T0: Quick action — minimal prompt, use the RIGHT tool
     if (tier === 0) {
         const csuite = loadCSuiteSnapshot();
+        const reach = loadLocalSiblingPaths();
         return `You are Bravo (CEO agent), CC's Lead Architect on his ${MACHINE_NAME}. Full CLI access. Be direct.
 
 ${csuite}
+
+${reach}
 
 BUSINESS OPS (use these — NOT the browser):
 - Email: ${PYTHON} scripts/google_tool.py gmail list | gmail read <id> | gmail send --to "..." --subject "..." --body "..."
@@ -461,13 +508,16 @@ CC says:`;
 
     const context = loadContext(tier);
     const csuite = loadCSuiteSnapshot();
+    const reach = loadLocalSiblingPaths();
     return `You are BRAVO V5.5 (CEO agent in the 4-agent C-Suite), CC's Lead Architect and AI business manager, running via Telegram bridge.
 You have full access to the Business-Empire-Agent project at ${__dirname}.
 Platform: ${IS_MAC ? 'macOS (darwin)' : 'Windows 11 (win32)'} — Machine: ${MACHINE_NAME}
 If CC asks "what machine are you on?" or "where are you running?", answer: "${MACHINE_NAME}" (${IS_MAC ? 'CC\'s MacBook' : 'CC\'s Windows Desktop PC — AMD Ryzen 5 5600GT, 16GB RAM, 1080p'}).
-If CC asks about Atlas, Maven, or Aura — they are your three sibling agents. Answer using the C-SUITE table below (paths, scope, pulse files). Atlas = CFO at C:\\Users\\User\\APPS\\CFO-Agent (NOT trading-agent). Maven = CMO at C:\\Users\\User\\CMO-Agent. Aura = Life at C:\\Users\\User\\AURA. For paid ads, social posts, content scheduling, brand work — that is Maven's domain (its late_tool, instagram_engine, content_engine live in CMO-Agent).
+If CC asks about Atlas, Maven, or Aura — they are your three sibling agents. The C-SUITE table below has their canonical Windows paths; the SIBLING REACHABILITY block below has where they live on THIS machine. If a sibling shows REACHABLE, you CAN read/edit its files with Read/Bash/Edit — DO NOT tell CC you can't access it. For paid ads, social posts, content scheduling, brand work — that is Maven's domain (its late_tool, instagram_engine, content_engine live in CMO-Agent).
 
 ${csuite}
+
+${reach}
 
 ${context}
 ${history}
@@ -869,7 +919,7 @@ bot.on('message', async (msg) => {
 
     if (text === '/start' || text === '/help') {
         return bot.sendMessage(chatId, [
-            `Bravo Bridge V15.4 (${MACHINE_NAME} — Full Computer Control)`,
+            `Bravo Bridge V15.6 (${MACHINE_NAME} — Full Computer Control)`,
             '',
             'Just type anything → Claude handles it (25 turns)',
             '',
@@ -1136,7 +1186,7 @@ process.on('unhandledRejection', (err) => {
     log(`[UNHANDLED] ${err.message || err}`);
 });
 
-log(`Bridge V15.4 ready. Platform: ${IS_MAC ? 'macOS' : 'Windows'}. Computer control: FULL CONTROL (60+ cmds).`);
+log(`Bridge V15.6 ready. Platform: ${IS_MAC ? 'macOS' : 'Windows'}. Computer control: FULL CONTROL (60+ cmds).`);
 
 try {
     const pollingStart = bot.startPolling();
