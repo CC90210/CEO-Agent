@@ -4,6 +4,10 @@ tags: [daily]
 
 ### 2026-04-26 — Auto-sync
 **Agent:** BRAVO state_sync
+**Note:** Mac flags closed: remote URL retargeted to CC90210/CEO-Agent. Dependabot: merged 3 pip PRs (cryptography 46.0.7, requests 2.33.0, pillow 12.2.0), bumped uuid override 10 to 14 (alert 41), bumped postcss in command-center to 8.5.12 (alert 45). 4 transitive request SSRF audits remain (upstream-pinned in node-telegram-bot-api 0.67.0, no clean fix).
+
+### 2026-04-26 — Auto-sync
+**Agent:** BRAVO state_sync
 **Note:** MacBook synced from origin/main (b11a3fc..53d4d32, 92 commits). Bridge V15.5 wired with loadCSuiteSnapshot reading brain/CROSS_AGENT_AWARENESS.md at runtime. PM2 bravo-telegram restarted, polling active. 47/51 send_gateway tests pass (3 pre-existing failures + pyyaml env gap). Stash@{0} holds local Mac work (macos_control.py + mousetool + competing telegram_agent.js V15.5).
 
 ### 2026-04-25 — Auto-sync
