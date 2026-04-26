@@ -173,11 +173,15 @@ Read Bravo's at: C:\Users\User\Business-Empire-Agent\scripts\send_gateway.py
 The Maven gateway should enforce:
 
 A. NAME SANITIZATION — block placeholder names before render
-   Reuse Bravo's pattern. Either:
-   (i) import Bravo's at runtime: prepend Bravo's scripts dir to sys.path,
-       `from name_utils import safe_first_name, sanitize_template_vars`
-   (ii) OR copy `scripts/name_utils.py` into Maven verbatim. Either is fine;
-        (i) is DRY but couples to Bravo's repo path.
+   Copy `scripts/name_utils.py` from Bravo verbatim into Maven's scripts/
+   directory. Then `from name_utils import safe_first_name, sanitize_template_vars`
+   wherever Maven renders a recipient name.
+
+   We choose copy-verbatim over runtime cross-repo import because (1) it
+   keeps Maven independent of Bravo's filesystem layout, (2) the file is
+   ~80 lines and changes rarely, (3) repos may live on different machines
+   in the future. If the file ever changes in Bravo, both copies update —
+   that's a known minor maintenance cost.
 
 B. CASL COMPLIANCE — every commercial email needs:
    - Express or implied consent in `casl_consent` table
@@ -229,10 +233,25 @@ Write tests at `scripts/test_send_gateway.py`. Bravo's test file has 51 cases
 PHASE 4 — DELEGATION TOOLS — wire Maven into the multi-agent fabric (30 min)
 ═══════════════════════════════════════════════════════════════════════════════
 
-A. Create `scripts/agent_inbox.py` — copy from Bravo verbatim. The shared
-   inbox lives at `Business-Empire-Agent/tmp/agent_inbox/` (read-only) AND
-   `CMO-Agent/tmp/agent_inbox/` (Maven's outbox). Both Bravo and Maven post
-   to each other's directories.
+A. Create `scripts/agent_inbox.py` — copy from Bravo verbatim. The script
+   has built-in cross-repo routing via a `SIBLING_REPOS` map: posting
+   `--to bravo` from Maven writes directly into Bravo's
+   `Business-Empire-Agent/tmp/agent_inbox/inbox/`, and posting `--to maven`
+   from Bravo writes into Maven's `CMO-Agent/tmp/agent_inbox/inbox/`. Each
+   agent reads only its own local inbox; the writer resolves the recipient's
+   repo path. (This was wired in Bravo on 2026-04-26 — verify the version
+   you copy includes the `SIBLING_REPOS` dict and `_inbox_path_for()`
+   helper.)
+
+   Per-machine path overrides via env vars (set in `.env.agents`):
+   `BRAVO_REPO`, `MAVEN_REPO`, `ATLAS_REPO`, `AURA_REPO`. Defaults are the
+   Windows paths under `C:\Users\User\`.
+
+   Smoke-test after copy:
+     python scripts/agent_inbox.py --json post --from maven --to bravo \
+       --subject "smoke-test" --body "verify cross-repo routing" --priority low
+   The output must include `"_delivered_to": ".../Business-Empire-Agent/tmp/agent_inbox/inbox"`.
+   Then ask CC to confirm the message landed in Bravo's inbox.
 
 B. Create `scripts/codex_delegate.py` — wrapper to fire Codex tasks from
    Maven. Bravo's pattern lives at `~/.claude/codex-plugin/scripts/codex-companion.mjs`.
@@ -254,11 +273,30 @@ D. Create `scripts/self_audit.py` — Maven-flavored health check. Checks:
    Emit 0–100 score, JSON-output-flag-supported.
 
 E. Update `brain/AGENTS.md` — add a "Cross-Cutting Agents (from Bravo
-   parity)" section listing the 8 disciplines Maven now respects:
-   architect, debugger, documenter, explorer, workflow-builder
-   (already exist), plus reviewer, researcher, writer (these may need
-   to be created — derive from Bravo's `agents/<name>.md` patterns,
-   but write the Maven-flavored description).
+   parity)" section. Maven already has architect, debugger, documenter,
+   explorer, workflow-builder. Add THESE three NEW agents (do not
+   duplicate existing roles — `content-creator` is Maven's writer-
+   equivalent for ad copy, so the new `writer` is for non-ad
+   communications like memos, briefs, internal docs):
+
+   - reviewer.md — adversarial pre-ship reviewer for campaigns + creative
+     before launch. Source: `Business-Empire-Agent/agents/reviewer.md`.
+     Adapt: review focus shifts from "is this code safe to ship?" to
+     "is this campaign safe to launch? Does CASL pass? Does CFO budget
+     gate clear? Is creative free of slop?"
+
+   - researcher.md — deep market research, competitor ad-library scrapes,
+     audience trend analysis. Source: `Business-Empire-Agent/agents/researcher.md`.
+     Adapt: research targets are markets / competitors / platforms, not
+     codebases / libraries.
+
+   - writer.md — non-ad written communications: campaign briefs to CC,
+     post-mortem reports, memos to Bravo via agent_inbox, RFCs for new
+     marketing capabilities. Source: `Business-Empire-Agent/agents/writer.md`.
+     Distinct from `content-creator` which owns ad copy + headlines.
+
+   For all three, copy Bravo's frontmatter pattern (name/description/
+   model/tools) and rewrite the body in Maven-flavored prose.
 
 ═══════════════════════════════════════════════════════════════════════════════
 PHASE 5 — DIVISION-OF-RESPONSIBILITY DOC (15 min)
