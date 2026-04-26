@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 // ============================================================
-// BRAVO TELEGRAM BRIDGE V15.6
+// BRAVO TELEGRAM BRIDGE V15.7
 //
 // V11.0: Full-Context Parity — loads CLAUDE.md, brain files, skills refs.
 // V12.0: Conversation Memory — stores last 15 messages per chat,
@@ -32,9 +32,17 @@ const path = require('path');
 // V15.5: C-Suite awareness — loadCSuiteSnapshot() reads brain/CROSS_AGENT_AWARENESS.md
 //         at runtime so the bridge always knows about Bravo + Atlas + Maven + Aura
 //         (single source of truth, no hardcoded snapshot).
-// V15.6: Sibling reachability — loadLocalSiblingPaths() probes the actual filesystem
+// V15.7: Sibling reachability — loadLocalSiblingPaths() probes the actual filesystem
 //         on boot and tells the LLM which sibling agents are reachable from THIS
 //         machine (Mac vs Windows). Closes the "I can't access Atlas" hallucination.
+// V15.7: IDE parity — Claude spawn now inherits .claude/mcp.json (7 MCP servers),
+//         .claude/settings.local.json (PreToolUse + PostToolUse hooks, sub-agents,
+//         skills) via --setting-sources project,local + --mcp-config. CLAUDE.md
+//         loaded full (was 120-line truncated). Per-turn model selection via
+//         !opus/!sonnet/!haiku. /ship, /retro, /review, /plan slash commands.
+//         state_sync runs after every successful T1+ Claude task so SESSION_LOG.md
+//         and STATE.md stay current — closes the "Telegram work invisible to
+//         Atlas/Maven/Aura" gap. max-turns lifted 10 -> 25 for non-T0.
 // ============================================================
 
 // ---- PLATFORM DETECTION ----
@@ -115,7 +123,7 @@ const bot = new TelegramBot(TELEGRAM_TOKEN, {
     request: { timeout: 60000 }
 });
 
-log(`Bravo Telegram Bridge V15.6 (${IS_MAC ? 'macOS' : 'Windows'} - guarded autonomy) starting...`);
+log(`Bravo Telegram Bridge V15.7 (${IS_MAC ? 'macOS' : 'Windows'} - guarded autonomy) starting...`);
 
 // ---- CONVERSATION HISTORY ----
 // Stores last N message pairs (user + assistant) per chat.
@@ -350,7 +358,8 @@ const loadContext = (tier = 2) => {
     }
 
     // --- TIER 2: Standard context (feature work, operations) ---
-    const claude_md = readFileSafe('CLAUDE.md', tier === 3 ? 200 : 120);
+    // V15.7: load full CLAUDE.md (was truncated to 120 lines, missing rules 7-9 + Obsidian links)
+    const claude_md = readFileSafe('CLAUDE.md');
     if (claude_md) chunks.push(`=== CLAUDE.md (project instructions) ===\n${claude_md}`);
 
     const soul = readFileSafe('brain/SOUL.md', 40);
@@ -587,7 +596,14 @@ const killTree = (pid) => {
 };
 
 // ---- CLI EXECUTION ----
-const executeCli = (tool, userPrompt, chatId) => {
+// V15.7: Spawn now inherits IDE-level configuration so Telegram has parity with
+// running `claude` from the IDE: MCP servers (.claude/mcp.json), hooks
+// (.claude/settings.local.json), sub-agents (.claude/agents/), skills
+// (.claude/skills/ + skills/), and per-message model override (!opus, !sonnet, !haiku).
+const MCP_CONFIG_PATH = path.join(__dirname, '.claude', 'mcp.json');
+const HAS_MCP_CONFIG = fs.existsSync(MCP_CONFIG_PATH);
+
+const executeCli = (tool, userPrompt, chatId, modelOverride = null) => {
     return new Promise((resolve) => {
         const fullPrompt = tool === 'claude' ? `${buildPrompt(chatId, userPrompt)} ${userPrompt}` : `${buildGeminiPrompt(chatId)} ${userPrompt}`;
         const tier = classifyTier(userPrompt);
@@ -595,14 +611,22 @@ const executeCli = (tool, userPrompt, chatId) => {
         let cmd, args;
 
         if (tool === 'claude') {
-            const maxTurns = tier === 0 ? '6' : '10';
+            const maxTurns = tier === 0 ? '6' : '25';
             cmd = CLAUDE_EXE;
             args = [
                 '-p', fullPrompt,
                 '--permission-mode', 'acceptEdits',
                 '--output-format', 'text',
-                '--max-turns', maxTurns
+                '--max-turns', maxTurns,
+                '--setting-sources', 'project,local'  // loads .claude/settings.json + settings.local.json (hooks, agents, skills)
             ];
+            if (HAS_MCP_CONFIG) {
+                args.push('--mcp-config', MCP_CONFIG_PATH);  // 7 MCP servers: playwright, context7, memory, sequential-thinking, github, filesystem, firecrawl
+            }
+            if (modelOverride) {
+                args.push('--model', modelOverride);
+                log(`[MODEL] override: ${modelOverride}`);
+            }
         } else {
             const mcps = detectMcps(userPrompt);
             const mcpArgs = mcps.flatMap(m => ['--allowed-mcp-server-names', m]);
@@ -683,6 +707,16 @@ const executeCli = (tool, userPrompt, chatId) => {
                 '--units', String(units),
                 '--detail', userPrompt.substring(0, 80)
             ], { cwd: __dirname, windowsHide: true, timeout: 5000 }, () => {}); // fire-and-forget
+
+            // V15.7: state_sync after every successful Claude run — keeps SESSION_LOG.md
+            // and STATE.md fresh so other agents (Atlas, Maven, Aura) see Telegram-side
+            // work. Skip on T0 (computer control noise) and on errors.
+            if (tool === 'claude' && code === 0 && tier > 0) {
+                execFileTrack(PYTHON, [
+                    'scripts/state_sync.py',
+                    '--note', `telegram T${tier}: ${userPrompt.substring(0, 140)}`
+                ], { cwd: __dirname, windowsHide: true, timeout: 8000 }, () => {});
+            }
 
             const raw = (stdout.trim() || stderr.trim());
             if (!raw) {
@@ -919,7 +953,7 @@ bot.on('message', async (msg) => {
 
     if (text === '/start' || text === '/help') {
         return bot.sendMessage(chatId, [
-            `Bravo Bridge V15.6 (${MACHINE_NAME} — Full Computer Control)`,
+            `Bravo Bridge V15.7 (${MACHINE_NAME} — Full Computer Control)`,
             '',
             'Just type anything → Claude handles it (25 turns)',
             '',
@@ -936,11 +970,19 @@ bot.on('message', async (msg) => {
             '  Power: "Restart" / "Shutdown" (asks for confirmation)',
             '',
             '!gemini <query> → Gemini CLI (fallback)',
+            '!opus / !sonnet / !haiku <query> → choose model for this turn',
             '!sys is disabled; use natural-language computer control commands instead.',
             '',
             'Destructive actions require approval (inline buttons).',
             'Screenshots & files auto-sent back to this chat.',
             '',
+            'WORKFLOWS:',
+            '/ship [branch] — full release flow (skills/ship)',
+            '/retro [date] — session retrospective (skills/retro)',
+            '/review [file] — code review pre-commit (skills/code-review)',
+            '/plan <task> — plan-then-execute on a complex task',
+            '',
+            'OPS:',
             '/costs — today\'s operation cost summary',
             '/memhealth — memory system health grade',
             '/compact — SESSION_LOG compaction status',
@@ -952,6 +994,29 @@ bot.on('message', async (msg) => {
 
     if (text === '/whoami') {
         return bot.sendMessage(chatId, `User ID: ${userId}\nUsername: ${user}\nChat ID: ${chatId}`);
+    }
+
+    // V15.7: Workflow slash commands — passthroughs to skill-driven prompts
+    const WORKFLOW_COMMANDS = {
+        '/ship': (arg) => `Run the /ship workflow. Load skills/ship/SKILL.md and execute the full release flow${arg ? ` for branch: ${arg}` : ''}. Confirm before any destructive action.`,
+        '/retro': (arg) => `Run the /retro workflow. Load skills/retro/SKILL.md and produce a retrospective${arg ? ` for ${arg}` : ' for the current session'}. Output as structured markdown.`,
+        '/review': (arg) => `Run the /review workflow. Load skills/code-review/SKILL.md and review${arg ? ` ${arg}` : ' the pending changes on the current branch'}. Surface security and correctness issues.`,
+        '/plan': (arg) => `Enter plan mode for this task: ${arg || '(no task supplied — ask CC for details)'}. Use the writing-plans skill if available. Do NOT execute until CC approves the plan.`
+    };
+    const slashMatch = text.match(/^(\/(?:ship|retro|review|plan))(?:\s+(.+))?$/);
+    if (slashMatch && WORKFLOW_COMMANDS[slashMatch[1]]) {
+        const cmd = slashMatch[1];
+        const arg = (slashMatch[2] || '').trim();
+        const synthetic = WORKFLOW_COMMANDS[cmd](arg);
+        log(`[SLASH] ${cmd} -> synthetic prompt`);
+        addToHistory(chatId, 'user', `${cmd} ${arg}`.trim());
+        await bot.sendChatAction(chatId, 'typing');
+        await bot.sendMessage(chatId, `Running ${cmd}...`);
+        const result = await executeCli('claude', synthetic, chatId);
+        addToHistory(chatId, 'assistant', result || 'Done.');
+        const chunks = (result || 'Done.').match(/[\s\S]{1,4000}/g) || ['Done.'];
+        for (const c of chunks) await bot.sendMessage(chatId, c);
+        return;
     }
 
     if (text === '/clear') {
@@ -1002,17 +1067,26 @@ bot.on('message', async (msg) => {
         }
 
         // V9.0: Default to Claude (CC has Max plan), !gemini for fallback
+        // V15.7: !opus / !sonnet / !haiku select the model for this turn
         const isGemini = text.startsWith('!gemini');
-        const prompt = text.replace(/^!(claude|gemini|bravo)\s+/, '');
+        let modelOverride = null;
+        let workingText = text;
+        const modelMatch = workingText.match(/^!(opus|sonnet|haiku)\s+/i);
+        if (modelMatch) {
+            modelOverride = modelMatch[1].toLowerCase();
+            workingText = workingText.replace(/^!(opus|sonnet|haiku)\s+/i, '');
+        }
+        const prompt = workingText.replace(/^!(claude|gemini|bravo)\s+/, '');
         const tool = isGemini ? 'gemini' : 'claude';
 
         // Store user message in history
         addToHistory(chatId, 'user', prompt);
 
         await bot.sendChatAction(chatId, 'typing');
-        await bot.sendMessage(chatId, isGemini ? 'Gemini thinking...' : 'Claude thinking...');
+        const thinkingMsg = isGemini ? 'Gemini thinking...' : (modelOverride ? `Claude (${modelOverride}) thinking...` : 'Claude thinking...');
+        await bot.sendMessage(chatId, thinkingMsg);
 
-        const result = await executeCli(tool, prompt, chatId);
+        const result = await executeCli(tool, prompt, chatId, modelOverride);
         log(`[RESULT] ${tool} returned ${(result || '').length} chars`);
 
         // --- APPROVAL GATE: Check if Claude is requesting confirmation ---
@@ -1186,7 +1260,7 @@ process.on('unhandledRejection', (err) => {
     log(`[UNHANDLED] ${err.message || err}`);
 });
 
-log(`Bridge V15.6 ready. Platform: ${IS_MAC ? 'macOS' : 'Windows'}. Computer control: FULL CONTROL (60+ cmds).`);
+log(`Bridge V15.7 ready. Platform: ${IS_MAC ? 'macOS' : 'Windows'}. Computer control: FULL CONTROL (60+ cmds).`);
 
 try {
     const pollingStart = bot.startPolling();
