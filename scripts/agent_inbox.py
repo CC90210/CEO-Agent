@@ -46,6 +46,41 @@ READ_DIR = INBOX_ROOT / "read"
 VALID_PRIORITIES = {"low", "normal", "high", "urgent"}
 KNOWN_AGENTS = {"bravo", "atlas", "maven", "aura", "codex", "cc", "broadcast"}
 
+# Cross-repo routing. When this script posts `--to maven`, the message
+# must land in MAVEN's inbox dir, not the sender's, otherwise the
+# recipient never sees it. Each agent reads only its own local inbox;
+# the writer resolves the recipient's repo path and writes there.
+#
+# Override per-machine via env vars (e.g. on a different drive layout):
+#   BRAVO_REPO=/path/to/Business-Empire-Agent
+#   MAVEN_REPO=/path/to/CMO-Agent
+#   ATLAS_REPO=/path/to/CFO-Agent
+#   AURA_REPO=/path/to/Aura
+SIBLING_REPOS: dict[str, Path] = {
+    "bravo": Path(os.environ.get("BRAVO_REPO", r"C:\Users\User\Business-Empire-Agent")),
+    "maven": Path(os.environ.get("MAVEN_REPO", r"C:\Users\User\CMO-Agent")),
+    "atlas": Path(os.environ.get("ATLAS_REPO", r"C:\Users\User\APPS\CFO-Agent")),
+    "aura":  Path(os.environ.get("AURA_REPO",  r"C:\Users\User\AURA")),
+}
+
+
+def _inbox_path_for(recipient: str) -> Path:
+    """Resolve the inbox directory for `recipient`.
+
+    - Known sibling agents → their repo's tmp/agent_inbox/inbox
+      (creates the dir tree if missing — first cross-post bootstraps
+      the sibling's inbox so the agent can read it on next boot).
+    - Anything else (including 'cc', 'codex', 'broadcast', sub-agent
+      names) → local inbox. 'broadcast' is read by every agent that
+      lists messages addressed to itself OR to broadcast.
+    """
+    repo = SIBLING_REPOS.get(recipient.lower())
+    if repo and repo.exists():
+        target = repo / "tmp" / "agent_inbox" / "inbox"
+        target.mkdir(parents=True, exist_ok=True)
+        return target
+    return INBOX_DIR
+
 
 def ensure_dirs() -> None:
     INBOX_DIR.mkdir(parents=True, exist_ok=True)
@@ -86,7 +121,10 @@ def cmd_post(args: argparse.Namespace) -> dict:
     priority_prefix = {"urgent": "0", "high": "1", "normal": "2", "low": "3"}[args.priority]
     ts_slug = now.replace(":", "-").replace(".", "-")
     fname = f"{priority_prefix}_{ts_slug}_{args.to}_{msg_id}.json"
-    (INBOX_DIR / fname).write_text(json.dumps(msg, indent=2), encoding="utf-8")
+    # Cross-repo routing: write to recipient's inbox dir, not the sender's.
+    target_dir = _inbox_path_for(args.to)
+    (target_dir / fname).write_text(json.dumps(msg, indent=2), encoding="utf-8")
+    msg["_delivered_to"] = str(target_dir)
     return msg
 
 
