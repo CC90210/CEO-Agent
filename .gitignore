@@ -190,3 +190,5 @@ e2e-screenshots/
 *.crt
 *.cer
 *.der
+# Stray browser-download artifact — has shown up empty in the repo root
+download.html
