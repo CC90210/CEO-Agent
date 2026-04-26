@@ -245,6 +245,42 @@ def cmd_send(env_vars, args, output_json=False):
         sys.exit(1)
 
 
+_PLACEHOLDER_FIRST_NAMES = {
+    "", "contact", "owner", "manager", "owner/manager", "admin", "info",
+    "support", "sales", "team", "hello", "there", "office", "reception",
+    "customer", "client", "user", "guest", "n/a", "na", "none", "null",
+    "unknown", "no name", "noname", "first_name",
+}
+
+
+def _sanitize_template_vars(variables: dict) -> dict:
+    """Normalize template variables before render so placeholder/junk
+    values can never reach a real recipient.
+
+    Specifically: if `first_name` is empty or matches a known
+    placeholder (`Contact`, `Owner`, `there`, generic-inbox-style
+    tokens), substitute `team`. The rendered salutation becomes
+    `Hi team,` — appropriate for a generic inbox like info@ or
+    contact@ where no specific person is known.
+
+    Surfaced 2026-04-25: 9 real cold sends went out as `Hi Contact,`
+    because CSV-imported leads had `name="Contact"` placeholder strings
+    that earlier staging code propagated into the template render path
+    via `name.split()[0]`. CRM data has been cleaned, and this guard
+    ensures the same failure mode can never recur even if a future
+    caller passes junk explicitly.
+    """
+    out = dict(variables)
+    fn = (out.get("first_name") or "").strip()
+    if fn.lower() in _PLACEHOLDER_FIRST_NAMES:
+        out["first_name"] = "team"
+    # Same defense for other common rendered fields. company is
+    # business-critical for our templates ("Quick thought for {{company}}")
+    # so we DON'T silently rewrite it — a missing company is a real
+    # data bug worth surfacing, not papering over. Caller must fix it.
+    return out
+
+
 def cmd_send_template(env_vars, args, output_json=False):
     """Render a stored template and send via send_gateway.
 
@@ -266,6 +302,16 @@ def cmd_send_template(env_vars, args, output_json=False):
 
     tmpl = result.data[0]
     variables = json.loads(args.vars) if args.vars else {}
+    # Defensive sanitization — 2026-04-25 incident:
+    # CSV-imported leads had name="Contact" / "Owner" / "Info" / "there"
+    # as placeholder text. Earlier staging code did name.split()[0],
+    # which faithfully passed "Contact" into {{first_name}}. Templates
+    # rendered "Hi Contact," to 9 real prospects before CC noticed.
+    # Template + send paths worked exactly as designed; the data was
+    # garbage. The CRM has been scrubbed (placeholder names → empty),
+    # but we ALSO defend at render time so a future bad import or
+    # caller passing junk first_name can't repeat the failure.
+    variables = _sanitize_template_vars(variables)
     subject = render_template(tmpl["subject"], variables)
     body_html = render_template(tmpl.get("body_html") or "", variables) or None
     body_text_template = tmpl.get("body_text") or ""
@@ -559,6 +605,11 @@ def cmd_sequence_run(env_vars, args, output_json=False):
         template_name = step.get("template_name")
         delay_hours = step.get("delay_hours", 0)
         step_vars = {**lead_vars, **step.get("variables", {})}
+        # Same defensive sanitization as cmd_send_template — sequence
+        # runs pull lead vars from the leads table, where placeholder
+        # names ("Contact" / "Owner" / etc) historically slipped in via
+        # CSV bulk-import. Junk first_name -> "team" before render.
+        step_vars = _sanitize_template_vars(step_vars)
 
         # Fetch template by name
         try:
