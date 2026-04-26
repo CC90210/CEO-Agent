@@ -199,7 +199,7 @@ brew install python@3.12
 # FFmpeg (content pipeline needs this — auto-fallback to PATH, so just install)
 brew install ffmpeg
 
-# Node 20+ (for telegram-bot, MCP wrappers, n8n-mcp, late_tool.py subprocesses)
+# Node 20+ (for telegram-bot, MCP wrappers, n8n-mcp, ../CMO-Agent/scripts/late_tool.py subprocesses)
 brew install node@20
 
 # GitHub CLI (for gh commands in sync script)

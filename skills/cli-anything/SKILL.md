@@ -226,7 +226,7 @@ When deciding what to wrap next, prioritize:
 These follow the CLI-Anything pattern already:
 - `scripts/supabase_tool.py` — Supabase SDK wrapper (3 projects)
 - `scripts/stripe_tool.py` — Stripe API wrapper (balance, customers, invoices)
-- `scripts/late_tool.py` — Zernio (formerly Late) social-scheduling wrapper
+- `../CMO-Agent/scripts/late_tool.py` (owned by Maven) — Zernio (formerly Late) social-scheduling wrapper
 - `scripts/firecrawl_tool.py` — Firecrawl scrape/extract wrapper
 - `scripts/google_tool.py` — Google Workspace (gws CLI + SMTP fallback) wrapper
 - `../CMO-Agent/scripts/edit_content_v2.py` — FFmpeg + Whisper video pipeline (relocated to Maven 2026-04-04)

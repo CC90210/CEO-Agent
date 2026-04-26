@@ -60,7 +60,7 @@ Proactive retention actions:
 
 ### Step 1: Multi-Channel Fetch
 - Fetch unread emails via `python scripts/google_tool.py gmail list`.
-- Fetch social mentions/DMs via `python scripts/late_tool.py` or n8n triggers.
+- Fetch social mentions/DMs via `python ../CMO-Agent/scripts/late_tool.py` (Maven) or n8n triggers.
 - Fetch Slack/Discord signals via `python scripts/n8n_tool.py execute <triage-workflow-id>`.
 
 ### Step 2: Triage & Classify
@@ -171,7 +171,7 @@ Escalate to Bravo when:
 
 ## Prerequisites
 - `python scripts/google_tool.py` (Gmail send/search, Calendar ops) — authenticated via Google OAuth
-- `python scripts/late_tool.py` (social posting, account management)
+- `python ../CMO-Agent/scripts/late_tool.py` (Maven) (social posting, account management)
 - `python scripts/n8n_tool.py` (workflow execution for triage)
 - Access to memory/ directory
 

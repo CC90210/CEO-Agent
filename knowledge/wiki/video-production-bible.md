@@ -403,7 +403,7 @@ Remotion output must be `.mov` with ProRes 4444 codec for alpha channel preserva
 | `../CMO-Agent/scripts/content_pipeline.py` | Master 7-phase orchestrator | Active |
 | `../CMO-Agent/scripts/edit_content_v2.py` | Whisper + ASS captions + FFmpeg encode | Active |
 | `scripts/transcribe.py` | Standalone Whisper wrapper | Active |
-| `scripts/codex_image_gen.py` | AI image generation (Fal.ai + DALL-E) | Active |
+| `../CMO-Agent/scripts/codex_image_gen.py` (owned by Maven) | AI image generation (Fal.ai + DALL-E) | Active |
 | `../CMO-Agent/scripts/render_video.py` | Remotion rendering bridge | Active |
 | `../CMO-Agent/content-studio/src/compositions/OasisPromo.tsx` | OASIS brand composition | Active |
 | `../CMO-Agent/content-studio/src/compositions/QuoteDrop.tsx` | Daily quote drop format | Active |

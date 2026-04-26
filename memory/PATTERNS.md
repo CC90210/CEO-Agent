@@ -8,7 +8,7 @@ tags: [patterns, learning]
 EDIT → KILL (by StartTime) → CLEAN (__pycache__) → VERIFY DEAD (log timestamps) → RESTART
 
 ### [V] Zernio Posting
-Validate char limits → rewrite per platform → present to CC → post via late_tool.py
+Validate char limits → rewrite per platform → present to CC → post via ../CMO-Agent/scripts/late_tool.py
 
 ### [V] Query-First MCP — Question → tool → call → return real data. Never describe.
 

@@ -175,7 +175,7 @@ Claude Code only loads plugins, skills, MCP prefetch, and session hooks AFTER tr
 | Playwright MCP | Browser task detected | Spawns headless Chrome |
 | e2e-testing skill | `/e2e` or test command | Launches 3 sub-agents |
 | SPARC methodology | COMPLEX+ task routing | Full 5-phase process |
-| instagram_engine.py | Instagram task | 70KB script |
+| ../CMO-Agent/scripts/instagram_engine.py | Instagram task | 70KB script |
 | booking_engine.py | Booking task | 53KB script |
 
 ### Implementation

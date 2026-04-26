@@ -71,7 +71,7 @@ If answering from a page with:
 | "What's our net MRR right now?" | `wiki/revenue-model` | Specific number + breakdown |
 | "What's OASIS AI's ideal client?" | `wiki/ai-automation-agency` | ICP description |
 | "How does the Bennett rev share work?" | `wiki/revenue-model` | Deal structure |
-| "What tools does Bravo use for social?" | `wiki/tech-stack` | Zernio + late_tool.py |
+| "What tools does Bravo use for social?" | `wiki/tech-stack` | Zernio + ../CMO-Agent/scripts/late_tool.py |
 | "How do I handle an at-risk client?" | `wiki/client-playbook` | Health score + retention actions |
 
 ## Output

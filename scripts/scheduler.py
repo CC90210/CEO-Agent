@@ -143,9 +143,17 @@ def execute_job(job: dict, env_vars: dict[str, str]) -> str:
     log(f"EXECUTING: {job_name} (type={action_type})")
 
     try:
-        if action_type == "content_post":
-            return run_content_post(config, env_vars)
-        elif action_type == "lead_followup":
+        # Marketing-domain action types (content_post, ig_*, content_generate,
+        # content_repurpose, content_planning) were moved to Maven on 2026-04-26.
+        # If a legacy DB row still has one of those types, route it to a
+        # human-readable "moved" marker rather than failing silently.
+        MAVEN_DOMAIN_ACTIONS = {
+            "content_post", "ig_research", "ig_dm_check", "ig_auto_reply",
+            "content_generate", "content_repurpose", "content_planning",
+        }
+        if action_type in MAVEN_DOMAIN_ACTIONS:
+            return f"moved_to_maven: {action_type} is now owned by CMO-Agent"
+        if action_type == "lead_followup":
             return run_lead_followup(env_vars)
         elif action_type == "booking_reminder":
             return run_booking_reminder(env_vars)
@@ -159,23 +167,12 @@ def execute_job(job: dict, env_vars: dict[str, str]) -> str:
             return run_nurture_check(env_vars)
         elif action_type == "monthly_snapshot":
             return run_monthly_snapshot(env_vars)
-        elif action_type == "content_planning":
-            return run_content_planning(env_vars)
-        elif action_type in ("ig_research", "ig_dm_check", "ig_auto_reply"):
-            # All Instagram jobs consolidated into one check-dms call.
-            # Running multiple Playwright sessions on the same browser context
-            # causes race conditions and double-replies.
-            return run_ig_dm_check(env_vars)
         elif action_type == "email_inbox_check":
             return run_email_inbox_check(env_vars)
         elif action_type == "funnel_sync":
             return run_funnel_sync(env_vars)
         elif action_type == "funnel_fast_poll":
             return run_funnel_fast_poll(env_vars)
-        elif action_type == "content_generate":
-            return run_content_generate(env_vars)
-        elif action_type == "content_repurpose":
-            return run_content_repurpose(env_vars)
         elif action_type == "lead_outreach_batch":
             return run_lead_outreach_batch(env_vars)
         else:
@@ -211,10 +208,13 @@ def run_script(script_name: str, args: List[str], timeout: int = 120) -> str:
 
 
 # ── Job handlers ──────────────────────────────────────────────────────────────
-
-def run_content_post(config: dict, env_vars: dict) -> str:
-    """Publish scheduled content via Late API."""
-    return run_script("late_publisher.py", ["--json", "publish-due"], timeout=120)
+#
+# Marketing-domain handlers (run_content_post, run_ig_dm_check,
+# run_content_generate, run_content_repurpose, run_content_planning)
+# were removed on 2026-04-26 when content + social ownership transferred
+# to Maven (CMO-Agent). Maven owns its own scheduler for those jobs.
+# The dispatch above routes legacy DB rows with those action_types to a
+# "moved_to_maven" marker so they don't fail loudly during the cutover.
 
 
 def run_lead_outreach_batch(env_vars: dict) -> str:
@@ -378,32 +378,6 @@ def run_nurture_check(env_vars: dict) -> str:
 def run_monthly_snapshot(env_vars: dict) -> str:
     """Log monthly metrics snapshot."""
     return run_script("revenue_engine.py", ["--json", "mrr"])
-
-
-def run_content_planning(env_vars: dict) -> str:
-    """Generate next week's content plan, then auto-generate content and repurpose."""
-    # Step 1: Create 21 placeholder drafts
-    plan_result = run_script("content_engine.py", ["--json", "week-plan"])
-    # Step 2: Generate real content for all drafts via Claude API
-    gen_result = run_script("content_generator.py", ["--json", "generate-week"], timeout=300)
-    # Step 3: Repurpose X posts to all other platforms
-    rep_result = run_script("content_repurposer.py", ["--json", "repurpose-week", "--platforms", "linkedin,instagram,threads"], timeout=300)
-    return f"Plan: {plan_result[:150]} | Generate: {gen_result[:150]} | Repurpose: {rep_result[:150]}"
-
-
-def run_content_generate(env_vars: dict) -> str:
-    """Generate real content for draft placeholders via Claude API."""
-    return run_script("content_generator.py", ["--json", "generate-week"], timeout=300)
-
-
-def run_content_repurpose(env_vars: dict) -> str:
-    """Repurpose X posts to other platforms."""
-    return run_script("content_repurposer.py", ["--json", "repurpose-week", "--platforms", "linkedin,instagram,threads"], timeout=300)
-
-
-def run_ig_dm_check(env_vars: dict) -> str:
-    """Check Instagram DMs every 5 minutes via Playwright browser automation."""
-    return run_script("instagram_engine.py", ["--json", "check-dms"], timeout=90)
 
 
 def run_email_inbox_check(env_vars: dict) -> str:

@@ -114,7 +114,7 @@ fast_model = "claude-sonnet-4-6"                   # Daemons, quick tasks
 extraction_model = "claude-haiku-4-5-20251001"     # Mem0, low-cost high-volume
 ```
 
-Scripts that read these: skool_engine.py, instagram_engine.py, mem0_tool.py.
+Scripts that read these: skool_engine.py, ../CMO-Agent/scripts/instagram_engine.py, mem0_tool.py.
 All scripts fall back to hardcoded defaults if config is missing — zero breaking changes.
 Credentials stay in `.env.agents`. Model config stays in `.agents/config.toml`.
 

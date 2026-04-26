@@ -223,13 +223,21 @@ def _pipeline_stats(leads: list[dict]) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Content helpers (via late_tool.py subprocess)
+# Content helpers (read-only — calls Maven's late_tool.py via subprocess)
 # ---------------------------------------------------------------------------
+# Maven (CMO-Agent) owns social publishing as of 2026-04-26. Bravo's CEO
+# dashboard still needs the "X posts published this week" metric, so we
+# subprocess to Maven's copy of late_tool.py for read-only stats. Override
+# Maven's location with the MAVEN_REPO env var if your machine differs.
 
 def _content_this_week() -> dict[str, int]:
-    """Count posts published this week by platform using late_tool.py."""
-    script = PROJECT_ROOT / "scripts" / "late_tool.py"
+    """Count posts published this week by platform via Maven's late_tool.py."""
+    maven_root = Path(
+        os.environ.get("MAVEN_REPO", r"C:\Users\User\CMO-Agent")
+    )
+    script = maven_root / "scripts" / "late_tool.py"
     if not script.exists():
+        # Maven not present on this machine — return empty rather than error.
         return {}
 
     try:
