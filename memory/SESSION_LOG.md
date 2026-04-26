@@ -2,6 +2,10 @@
 tags: [daily]
 ---
 
+### 2026-04-26 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** MacBook synced from origin/main (b11a3fc..53d4d32, 92 commits). Bridge V15.5 wired with loadCSuiteSnapshot reading brain/CROSS_AGENT_AWARENESS.md at runtime. PM2 bravo-telegram restarted, polling active. 47/51 send_gateway tests pass (3 pre-existing failures + pyyaml env gap). Stash@{0} holds local Mac work (macos_control.py + mousetool + competing telegram_agent.js V15.5).
+
 ### 2026-04-25 — Auto-sync
 **Agent:** BRAVO state_sync
 **Note:** Two-track session: (1) reconnected ~100 Obsidian orphans (73 zero-inbound -> 0) via 4 new hub INDEX files + cascade wikilinks; (2) shipped V1.0 one-line installers for Atlas + Maven as thin profile-preselect shims into the unified Bravo wizard (--profile flag now passes through quickstart.sh/ps1). 3 repos green pushed: CEO-Agent fca59b6, CFO-Agent a8a4d4e, CMO-Agent f54aaae. Codex CLI 0.118.0 found stale (all model names rejected); Bravo executed inline.
