@@ -1,0 +1,102 @@
+{
+  "model": "sonnet",
+  "env": {
+    "MAX_THINKING_TOKENS": "16000",
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "50"
+  },
+  "alwaysThinkingEnabled": true,
+  "cleanupPeriodDays": 365,
+  "enableAllProjectMcpServers": false,
+  "permissions": {
+    "allow": [
+      "Read(**)",
+      "Edit(**)",
+      "Bash(npm run *)",
+      "Bash(npm install *)",
+      "Bash(npx *)",
+      "Bash(node *)",
+      "Bash(git *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(mkdir *)",
+      "Bash(cp *)",
+      "Bash(mv *)",
+      "Bash(cd *)",
+      "Bash(echo *)",
+      "Bash(curl *)",
+      "Bash(python *)",
+      "Bash(pip *)",
+      "Bash(grep *)",
+      "Bash(find *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)",
+      "Bash(sort *)",
+      "Bash(touch *)",
+      "Bash(pwd)",
+      "Bash(which *)",
+      "Bash(tree *)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:supabase.com)",
+      "WebFetch(domain:vercel.com)",
+      "WebFetch(domain:docs.*)",
+      "WebFetch(domain:*.anthropic.com)",
+      "WebFetch(domain:*.openai.com)",
+      "WebFetch(domain:*.n8n.io)",
+      "WebFetch(domain:*.stripe.com)",
+      "WebFetch(domain:npmjs.com)",
+      "MCP(*)"
+    ],
+    "deny": [
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.env)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Edit(~/.bashrc)",
+      "Edit(~/.zshrc)",
+      "Edit(~/.profile)",
+      "Bash(rm -rf *)",
+      "Bash(rm -r /)",
+      "Bash(sudo rm *)",
+      "Bash(DROP TABLE *)",
+      "Bash(DROP DATABASE *)",
+      "Bash(git push * main)",
+      "Bash(git push * master)",
+      "Bash(git push -f *)",
+      "Bash(format *)",
+      "Bash(del /s *)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"$TOOL_INPUT\" | grep -qE '(rm -rf|DROP TABLE|DROP DATABASE|format c:|del /s)' && echo 'BLOCKED: Destructive command detected.' && exit 1 || exit 0"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"$TOOL_INPUT\" | grep -qE 'git push.*(main|master)' && echo 'BLOCKED: Direct push to main/master not allowed. Create a PR.' && exit 1 || exit 0"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"$TOOL_INPUT\" | grep -qE '(sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{20,}|sbp_[a-zA-Z0-9]{20,})' && echo 'BLOCKED: Detected API key in command. Use environment variables.' && exit 1 || exit 0"
+          }
+        ]
+      }
+    ]
+  }
+}

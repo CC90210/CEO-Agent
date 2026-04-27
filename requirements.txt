@@ -1,0 +1,39 @@
+anthropic==0.85.0
+beautifulsoup4==4.14.3
+click==8.3.1
+cryptography==46.0.7
+firecrawl-py==4.22.0
+mem0ai==1.0.10
+numpy==2.4.2
+pillow==12.2.0
+playwright==1.58.0
+python-dateutil==2.9.0.post0
+python-dotenv==1.2.2
+requests-oauthlib==2.0.0
+requests==2.33.0
+stripe==14.4.0
+supabase-auth==2.28.2
+supabase-functions==2.28.2
+supabase==2.28.2
+
+# V6.0 — optional deps (activated only when migrations 014/015 applied + VPS
+# deploy is live). Comment out if you want a minimal local dev install.
+fastapi==0.118.0
+uvicorn[standard]==0.32.0
+python-multipart==0.0.26
+# openai: needs >=1.90.0 for mem0ai 1.0.10 compatibility. Upper bound on
+# 3.x as a safety net — the SDK has never had a major breaking change
+# in the 1.x → 2.x line for our usage (text-embedding-3-small, chat.completions),
+# so this range is safe.
+openai>=1.90.0,<3.0
+# pytest only needed for the CI deploy workflow
+pytest==9.0.3
+dnspython==2.7.0
+
+# openai-whisper is NOT listed here on purpose. It pulls in triton + torch
+# which frequently fail to install on Windows (needs CUDA / build tools).
+# If you need scripts/transcribe.py, install manually:
+#     pip install openai-whisper
+# On Windows with a CPU-only setup you may need:
+#     pip install torch --index-url https://download.pytorch.org/whl/cpu
+#     pip install openai-whisper

@@ -1,0 +1,63 @@
+{
+  "//": "MCP server config template — copied to .claude/mcp.json by the installer. Paths that reference the user's home should use ${USER_HOME} placeholders; the installer substitutes them for the current user at copy time. The .cmd wrapper scripts read tokens from .env.agents at runtime; no credentials live here.",
+  "mcpServers": {
+    "sequential-thinking": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ]
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--headless"
+      ]
+    },
+    "context7": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp@latest"
+      ]
+    },
+    "memory": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ]
+    },
+    "github": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "scripts\\github-mcp-wrapper.cmd"
+      ]
+    },
+    "firecrawl": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "scripts\\firecrawl-mcp-wrapper.cmd"
+      ]
+    },
+    "obsidian": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "scripts\\obsidian-mcp-wrapper.cmd"
+      ]
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "${REPO_ROOT}"
+      ]
+    }
+  }
+}

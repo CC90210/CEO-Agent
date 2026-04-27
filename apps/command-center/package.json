@@ -1,0 +1,27 @@
+{
+  "name": "bravo-command-center",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CC's agent command center — one URL that shows what every agent is doing, in real time.",
+  "scripts": {
+    "dev": "next dev --port 3100",
+    "build": "next build",
+    "start": "next start --port 3100",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "next": "^15.5.15",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.5.12",
+    "tailwindcss": "^3.4.14",
+    "typescript": "^5.6.3"
+  }
+}

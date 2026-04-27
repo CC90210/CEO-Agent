@@ -1,0 +1,143 @@
+﻿diff --git a/admin.py b/admin.py
+index cf86c79..b5bd291 100644
+--- a/admin.py
++++ b/admin.py
+@@ -1,0 +2 @@ import json
++import hashlib
+@@ -3,0 +5 @@ import socket
++import tempfile
+@@ -26 +28,3 @@ GH_RELEASES = "https://api.github.com/repos/browser-use/browser-harness/releases
+-VERSION_CACHE = Path("/tmp/bu-version-cache.json")
++TMP = Path(tempfile.gettempdir())
++USE_UNIX_SOCKET = hasattr(socket, "AF_UNIX") and os.name != "nt"
++VERSION_CACHE = TMP / "bu-version-cache.json"
+@@ -29,0 +34,5 @@ VERSION_CACHE_TTL = 24 * 3600
++def _port(name):
++    n = name or NAME
++    return 46000 + (int(hashlib.sha256(n.encode()).hexdigest()[:8], 16) % 10000)
++
++
+@@ -32 +41,3 @@ def _paths(name):
+-    return f"/tmp/bu-{n}.sock", f"/tmp/bu-{n}.pid"
++    if USE_UNIX_SOCKET:
++        return f"/tmp/bu-{n}.sock", f"/tmp/bu-{n}.pid"
++    return f"127.0.0.1:{_port(n)}", str(TMP / f"bu-{n}.pid")
+@@ -36 +47 @@ def _log_tail(name):
+-    p = f"/tmp/bu-{name or NAME}.log"
++    p = Path("/tmp") / f"bu-{name or NAME}.log" if USE_UNIX_SOCKET else TMP / f"bu-{name or NAME}.log"
+@@ -38 +49 @@ def _log_tail(name):
+-        return Path(p).read_text().strip().splitlines()[-1]
++        return p.read_text().strip().splitlines()[-1]
+@@ -45,4 +56,8 @@ def daemon_alive(name=None):
+-        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+-        s.settimeout(1)
+-        s.connect(_paths(name)[0])
+-        s.close()
++        if USE_UNIX_SOCKET:
++            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
++            s.settimeout(1)
++            s.connect(_paths(name)[0])
++            s.close()
++        else:
++            s = socket.create_connection(("127.0.0.1", _port(name)), timeout=1)
++            s.close()
+@@ -50 +65 @@ def daemon_alive(name=None):
+-    except (FileNotFoundError, ConnectionRefusedError, socket.timeout):
++    except (FileNotFoundError, ConnectionRefusedError, OSError, socket.timeout):
+@@ -77 +92,2 @@ def ensure_daemon(wait=60.0, name=None, env=None):
+-    raise RuntimeError(msg or f"daemon {name or NAME} didn't come up -- check /tmp/bu-{name or NAME}.log")
++    log_path = Path("/tmp") / f"bu-{name or NAME}.log" if USE_UNIX_SOCKET else TMP / f"bu-{name or NAME}.log"
++    raise RuntimeError(msg or f"daemon {name or NAME} didn't come up -- check {log_path}")
+@@ -104,3 +120,6 @@ def restart_daemon(name=None):
+-        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+-        s.settimeout(5)
+-        s.connect(sock)
++        if USE_UNIX_SOCKET:
++            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
++            s.settimeout(5)
++            s.connect(sock)
++        else:
++            s = socket.create_connection(("127.0.0.1", _port(name)), timeout=5)
+@@ -128 +147,2 @@ def restart_daemon(name=None):
+-    for f in (sock, pid_path):
++    cleanup = (sock, pid_path) if USE_UNIX_SOCKET else (pid_path,)
++    for f in cleanup:
+@@ -416,0 +437,11 @@ def _open_chrome_inspect():
++    if platform.system() == "Windows":
++        for exe in ("chrome.exe", "msedge.exe"):
++            try:
++                subprocess.run(
++                    ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", f"Start-Process {exe} '{url}'"],
++                    timeout=5,
++                    check=False,
++                )
++                return
++            except Exception:
++                pass
+diff --git a/daemon.py b/daemon.py
+index bf99d4d..f47b431 100644
+--- a/daemon.py
++++ b/daemon.py
+@@ -1,2 +1,2 @@
+-"""CDP WS holder + Unix socket relay. One daemon per BU_NAME."""
+-import asyncio, json, os, socket, sys, time, urllib.request
++"""CDP WS holder + socket relay. One daemon per BU_NAME."""
++import asyncio, hashlib, json, os, socket, sys, tempfile, time, urllib.request
+@@ -24,3 +24,6 @@ NAME = os.environ.get("BU_NAME", "default")
+-SOCK = f"/tmp/bu-{NAME}.sock"
+-LOG = f"/tmp/bu-{NAME}.log"
+-PID = f"/tmp/bu-{NAME}.pid"
++TMP = Path(tempfile.gettempdir())
++USE_UNIX_SOCKET = hasattr(socket, "AF_UNIX") and os.name != "nt"
++PORT = 46000 + (int(hashlib.sha256(NAME.encode()).hexdigest()[:8], 16) % 10000)
++SOCK = f"/tmp/bu-{NAME}.sock" if USE_UNIX_SOCKET else f"127.0.0.1:{PORT}"
++LOG = f"/tmp/bu-{NAME}.log" if USE_UNIX_SOCKET else str(TMP / f"bu-{NAME}.log")
++PID = f"/tmp/bu-{NAME}.pid" if USE_UNIX_SOCKET else str(TMP / f"bu-{NAME}.pid")
+@@ -195 +198 @@ async def serve(d):
+-    if os.path.exists(SOCK):
++    if USE_UNIX_SOCKET and os.path.exists(SOCK):
+@@ -215,2 +218,5 @@ async def serve(d):
+-    server = await asyncio.start_unix_server(handler, path=SOCK)
+-    os.chmod(SOCK, 0o600)
++    if USE_UNIX_SOCKET:
++        server = await asyncio.start_unix_server(handler, path=SOCK)
++        os.chmod(SOCK, 0o600)
++    else:
++        server = await asyncio.start_server(handler, host="127.0.0.1", port=PORT)
+@@ -230,3 +236,8 @@ def already_running():
+-        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM); s.settimeout(1)
+-        s.connect(SOCK); s.close(); return True
+-    except (FileNotFoundError, ConnectionRefusedError, socket.timeout):
++        if USE_UNIX_SOCKET:
++            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM); s.settimeout(1)
++            s.connect(SOCK); s.close()
++        else:
++            s = socket.create_connection(("127.0.0.1", PORT), timeout=1)
++            s.close()
++        return True
++    except (FileNotFoundError, ConnectionRefusedError, OSError, socket.timeout):
+diff --git a/helpers.py b/helpers.py
+index ffe5ad9..ced8adf 100644
+--- a/helpers.py
++++ b/helpers.py
+@@ -2 +2 @@
+-import base64, json, os, socket, time, urllib.request
++import base64, hashlib, json, os, socket, tempfile, time, urllib.request
+@@ -22 +22,3 @@ NAME = os.environ.get("BU_NAME", "default")
+-SOCK = f"/tmp/bu-{NAME}.sock"
++USE_UNIX_SOCKET = hasattr(socket, "AF_UNIX") and os.name != "nt"
++PORT = 46000 + (int(hashlib.sha256(NAME.encode()).hexdigest()[:8], 16) % 10000)
++SOCK = f"/tmp/bu-{NAME}.sock" if USE_UNIX_SOCKET else f"127.0.0.1:{PORT}"
+@@ -27,2 +29,5 @@ def _send(req):
+-    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+-    s.connect(SOCK)
++    if USE_UNIX_SOCKET:
++        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
++        s.connect(SOCK)
++    else:
++        s = socket.create_connection(("127.0.0.1", PORT), timeout=10)
+@@ -101 +106,3 @@ def scroll(x, y, dy=-300, dx=0):
+-def screenshot(path="/tmp/shot.png", full=False):
++def screenshot(path=None, full=False):
++    if path is None:
++        path = str(Path(tempfile.gettempdir()) / "shot.png")

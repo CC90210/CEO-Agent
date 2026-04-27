@@ -1,0 +1,690 @@
+"""
+Bravo Scheduler - Autonomous Business Operations Daemon
+
+This is the heartbeat of the business agent. It runs 24/7 via PM2 and
+executes cron jobs defined in Supabase on schedule.
+
+What it does every 60 seconds:
+  1. Checks which cron jobs are due (next_run_at <= now)
+  2. Executes the action for each due job
+  3. Updates last_run_at and schedules the next run
+
+Start: pm2 start scripts/scheduler.py --name bravo-scheduler --interpreter python
+Stop:  pm2 stop bravo-scheduler
+
+All credentials loaded from .env.agents (never hardcoded).
+"""
+
+import json
+import subprocess
+import sys
+import time
+import traceback
+from datetime import datetime, timezone, timedelta
+from pathlib import Path
+from typing import Optional, List
+
+# On Windows, suppress console window popups from subprocess calls
+CREATE_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
+
+# Notification system
+try:
+    from notify import notify, notify_error
+except ImportError:
+    def notify(*a, **kw): return False
+    def notify_error(*a, **kw): return False
+
+# ── Config ────────────────────────────────────────────────────────────────────
+
+CHECK_INTERVAL_SECONDS = 60  # How often to check for due jobs
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+SCRIPTS_DIR = PROJECT_ROOT / "scripts"
+PYTHON = sys.executable  # Use same Python that's running this script
+
+
+# ── Credential loading ────────────────────────────────────────────────────────
+
+def load_env() -> dict[str, str]:
+    env_path = PROJECT_ROOT / ".env.agents"
+    if not env_path.exists():
+        print(f"FATAL: {env_path} not found", flush=True)
+        sys.exit(1)
+    env_vars: dict[str, str] = {}
+    with open(env_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, _, value = line.partition("=")
+                env_vars[key.strip()] = value.strip()
+    return env_vars
+
+
+def get_client(env_vars: dict[str, str]):
+    from supabase import create_client
+    url = env_vars.get("BRAVO_SUPABASE_URL")
+    key = env_vars.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
+    if not url or not key:
+        print("FATAL: BRAVO_SUPABASE_URL or BRAVO_SUPABASE_SERVICE_ROLE_KEY missing", flush=True)
+        sys.exit(1)
+    return create_client(url, key)
+
+
+# ── Cron schedule parsing ─────────────────────────────────────────────────────
+
+def parse_cron_schedule(schedule: str) -> Optional[timedelta]:
+    """
+    Convert a cron schedule string to a timedelta for the next run interval.
+    Supports common patterns. Not a full cron parser - covers our 12 jobs.
+    """
+    parts = schedule.strip().split()
+    if len(parts) != 5:
+        return None
+
+    minute, hour, dom, month, dow = parts
+
+    # Every N minutes: */N * * * *
+    if minute.startswith("*/") and hour == "*" and dom == "*" and month == "*" and dow == "*":
+        try:
+            interval_min = int(minute[2:])
+            return timedelta(minutes=interval_min)
+        except ValueError:
+            pass
+
+    # Daily jobs: specific hour, * * *
+    if dom == "*" and month == "*" and dow == "*":
+        return timedelta(hours=24)
+
+    # Weekday jobs: * * MON-FRI or MON,WED,FRI
+    if dom == "*" and month == "*" and dow != "*":
+        dow_lower = dow.lower()
+        if "-" in dow_lower:
+            # MON-FRI = 5 days, so average interval ~24h (run daily on weekdays)
+            return timedelta(hours=24)
+        elif "," in dow_lower:
+            # MON,WED,FRI = 3 days per week, average ~56h
+            day_count = len(dow_lower.split(","))
+            return timedelta(hours=int(168 / day_count))
+        else:
+            # Single day per week (e.g., MON)
+            return timedelta(days=7)
+
+    # Monthly jobs: specific day of month
+    if dom != "*" and month == "*":
+        return timedelta(days=30)
+
+    return timedelta(hours=24)  # Fallback: daily
+
+
+def calculate_next_run(schedule: str) -> str:
+    """Calculate the next run time based on the cron schedule."""
+    interval = parse_cron_schedule(schedule)
+    if not interval:
+        interval = timedelta(hours=24)
+    next_time = datetime.now(timezone.utc) + interval
+    return next_time.isoformat()
+
+
+# ── Job execution ─────────────────────────────────────────────────────────────
+
+def execute_job(job: dict, env_vars: dict[str, str]) -> str:
+    """
+    Execute a cron job based on its action_type.
+    Returns a result string for logging.
+    """
+    action_type = job.get("action_type", "")
+    config = job.get("action_config") or {}
+    if isinstance(config, str):
+        try:
+            config = json.loads(config)
+        except json.JSONDecodeError:
+            config = {}
+
+    job_name = job.get("name", "unknown")
+    log(f"EXECUTING: {job_name} (type={action_type})")
+
+    try:
+        # Marketing-domain action types (content_post, ig_*, content_generate,
+        # content_repurpose, content_planning) were moved to Maven on 2026-04-26.
+        # If a legacy DB row still has one of those types, route it to a
+        # human-readable "moved" marker rather than failing silently.
+        MAVEN_DOMAIN_ACTIONS = {
+            "content_post", "ig_research", "ig_dm_check", "ig_auto_reply",
+            "content_generate", "content_repurpose", "content_planning",
+        }
+        if action_type in MAVEN_DOMAIN_ACTIONS:
+            return f"moved_to_maven: {action_type} is now owned by CMO-Agent"
+        if action_type == "lead_followup":
+            return run_lead_followup(env_vars)
+        elif action_type == "booking_reminder":
+            return run_booking_reminder(env_vars)
+        elif action_type == "stripe_sync":
+            return run_stripe_sync(env_vars)
+        elif action_type == "revenue_report":
+            return run_revenue_report(env_vars)
+        elif action_type == "pipeline_review":
+            return run_pipeline_review(env_vars)
+        elif action_type == "nurture_check":
+            return run_nurture_check(env_vars)
+        elif action_type == "monthly_snapshot":
+            return run_monthly_snapshot(env_vars)
+        elif action_type == "email_inbox_check":
+            return run_email_inbox_check(env_vars)
+        elif action_type == "funnel_sync":
+            return run_funnel_sync(env_vars)
+        elif action_type == "funnel_fast_poll":
+            return run_funnel_fast_poll(env_vars)
+        elif action_type == "lead_outreach_batch":
+            return run_lead_outreach_batch(env_vars)
+        else:
+            return f"unknown_action_type: {action_type}"
+    except Exception as exc:
+        error_msg = f"ERROR: {exc}"
+        log(error_msg)
+        return error_msg
+
+
+def run_script(script_name: str, args: List[str], timeout: int = 120) -> str:
+    """Run a Python script from the scripts/ directory and return its output."""
+    cmd = [PYTHON, str(SCRIPTS_DIR / script_name)] + args
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=timeout,
+        cwd=str(PROJECT_ROOT),
+        creationflags=CREATE_NO_WINDOW,
+    )
+    output = result.stdout.strip()
+    if result.returncode != 0:
+        error = result.stderr.strip()
+        return f"FAILED (exit {result.returncode}): {error[:2000]}"
+    # V2.1 2026-04-11: Increased from 500 to 8000 chars. The old 500 limit
+    # was truncating JSON arrays mid-object, causing downstream JSON parse
+    # failures in fail-closed handlers (specifically run_lead_followup which
+    # receives ~2200 chars of lead data). 8000 covers any realistic CRM
+    # response while still preventing runaway stdout from eating memory.
+    return output[:8000] if output else "ok"
+
+
+# ── Job handlers ──────────────────────────────────────────────────────────────
+#
+# Marketing-domain handlers (run_content_post, run_ig_dm_check,
+# run_content_generate, run_content_repurpose, run_content_planning)
+# were removed on 2026-04-26 when content + social ownership transferred
+# to Maven (CMO-Agent). Maven owns its own scheduler for those jobs.
+# The dispatch above routes legacy DB rows with those action_types to a
+# "moved_to_maven" marker so they don't fail loudly during the cutover.
+
+
+def run_lead_outreach_batch(env_vars: dict) -> str:
+    """Semi-auto outreach: pull new leads, draft emails, send to CC via Telegram for approval."""
+    return run_script("outreach_batch.py", ["--limit", "5"], timeout=120)
+
+
+def run_lead_followup(env_vars: dict) -> str:
+    """Check for leads needing follow-up and auto-score unscored leads.
+
+    V2.1 2026-04-11: Fail-closed. Removed blanket exception swallow.
+    Subprocess errors, non-JSON output, and parse failures all surface as
+    ERROR instead of being silenced. Matches the pattern of run_stripe_sync,
+    run_nurture_check, run_funnel_sync, run_funnel_fast_poll.
+    """
+    # Phase 1: fetch leads list
+    leads_result = run_script("lead_engine.py", ["--json", "list"])
+    if not leads_result or leads_result.startswith("FAILED"):
+        return f"ERROR: lead_followup list failed: {leads_result[:200] if leads_result else 'empty'}"
+
+    # JSON parse is required in --json mode. Non-JSON output means something broke.
+    stripped = leads_result.strip()
+    if not stripped.startswith(("[", "{")):
+        return f"ERROR: lead_followup list returned non-JSON: {stripped[:200]}"
+    try:
+        leads = json.loads(stripped)
+    except json.JSONDecodeError as exc:
+        return f"ERROR: lead_followup list JSON parse failed: {exc}"
+
+    # Phase 2: auto-score any unscored leads
+    scored = 0
+    score_errors = 0
+    for lead in (leads if isinstance(leads, list) else []):
+        if isinstance(lead, dict) and (lead.get("score") or 0) == 0 and lead.get("id"):
+            score_result = run_script("lead_engine.py", ["--json", "score", lead["id"]])
+            if not score_result or score_result.startswith("FAILED"):
+                score_errors += 1
+            else:
+                scored += 1
+
+    score_msg = f", scored {scored} lead(s)" if scored else ""
+    err_msg = f", {score_errors} score error(s)" if score_errors else ""
+
+    # Phase 3: fetch the followups list
+    followups = run_script("lead_engine.py", ["--json", "followups"])
+    if not followups or followups.startswith("FAILED"):
+        return f"ERROR: lead_followup followups failed: {followups[:200] if followups else 'empty'}{err_msg}"
+
+    # Non-JSON and non-routine output is still allowed (lead_engine followups
+    # emits a human-friendly string when there are no follow-ups to report).
+    # But we bubble up any score_errors as an ERROR so CC sees them.
+    if score_errors:
+        return f"ERROR: lead_followup: {followups[:150]}{score_msg}{err_msg}"
+
+    return followups + score_msg
+
+
+def run_booking_reminder(env_vars: dict) -> str:
+    """Check tomorrow's bookings and flag reminders."""
+    return run_script("booking_engine.py", ["--json", "remind"])
+
+
+def run_stripe_sync(env_vars: dict) -> str:
+    """Sync recent Stripe events into revenue_events table.
+
+    Fail-closed parsing: any parse failure, exit-code error, or top-level
+    `error` field is reported as ERROR so the alerting layer surfaces it.
+    Only a CLEAN JSON result with `inserted == 0 && errors == 0` is
+    classified as routine-silent.
+    """
+    result = run_script("revenue_engine.py", ["--json", "sync-stripe"])
+
+    # Fail-closed: non-JSON output or FAILED prefix means something broke
+    if not result or not result.strip().startswith("{"):
+        return f"ERROR: stripe sync returned non-JSON: {result[:200]}"
+    if result.startswith("FAILED"):
+        return f"ERROR: stripe sync {result[:300]}"
+
+    try:
+        data = json.loads(result)
+    except (json.JSONDecodeError, TypeError) as exc:
+        return f"ERROR: stripe sync JSON parse failed: {exc}"
+
+    # Top-level error field is a hard failure, not a routine result
+    if data.get("error"):
+        return f"ERROR: stripe sync {data['error']}"
+
+    inserted = int(data.get("inserted", 0) or 0)
+    errors = int(data.get("errors", 0) or 0)
+
+    if inserted == 0 and errors == 0:
+        return "stripe sync ok: 0 new events"  # routine -> silent
+
+    parts = []
+    if inserted:
+        parts.append(f"{inserted} new Stripe event(s)")
+    if errors:
+        parts.append(f"{errors} errors")
+    return "Stripe: " + ", ".join(parts)
+
+
+def run_revenue_report(env_vars: dict) -> str:
+    """Generate MRR dashboard summary."""
+    return run_script("revenue_engine.py", ["--json", "dashboard"])
+
+
+def run_pipeline_review(env_vars: dict) -> str:
+    """Generate pipeline summary."""
+    return run_script("lead_engine.py", ["--json", "pipeline"])
+
+
+def run_nurture_check(env_vars: dict) -> str:
+    """Run funnel lead nurture sequence (Day 2 + Day 5 follow-ups).
+
+    Fail-closed parsing: funnel_nurture.py fires its OWN rich Telegram digest
+    via notify() when day2_sent or day5_sent > 0, so this handler returns a
+    routine skip-phrase to prevent scheduler double-notify. Parse failures,
+    stderr output, or any errors field break the filter and surface ERROR.
+    """
+    funnel_result = run_script("funnel_nurture.py", ["--json", "run"])
+
+    # Fail-closed: non-JSON output means noise leaked to stdout or runtime error
+    if not funnel_result or not funnel_result.strip().startswith("{"):
+        # funnel_nurture prints human-readable status when not in --json mode,
+        # but in --json mode stdout should be pure JSON. Non-{ prefix = broken.
+        return f"ERROR: nurture returned non-JSON: {funnel_result[:200]}"
+    if funnel_result.startswith("FAILED"):
+        return f"ERROR: nurture {funnel_result[:300]}"
+
+    try:
+        data = json.loads(funnel_result)
+    except (json.JSONDecodeError, TypeError) as exc:
+        return f"ERROR: nurture JSON parse failed: {exc}"
+
+    day2 = len(data.get("day2_sent", []) or [])
+    day5 = len(data.get("day5_sent", []) or [])
+    errors_list = data.get("errors", []) or []
+    errors = len(errors_list)
+
+    # Zero-action runs = routine-silent. funnel_nurture's own digest handles
+    # the actionable case, so the scheduler wrap intentionally stays quiet
+    # here via the skip_phrases filter.
+    if day2 == 0 and day5 == 0 and errors == 0:
+        return "nurture run complete: no follow-ups due"  # routine -> silent
+
+    parts = []
+    if day2:
+        parts.append(f"{day2} Day-2 sent")
+    if day5:
+        parts.append(f"{day5} Day-5 sent")
+    if errors:
+        parts.append(f"{errors} errors: {errors_list[0][:100] if errors_list else ''}")
+    # Return "nurture-handled-by-digest" phrase so the scheduler wrap stays
+    # silent (funnel_nurture already sent the rich HTML digest). If errors
+    # exist, we DO want scheduler to surface them — ERROR breaks the filter.
+    if errors:
+        return "ERROR: nurture had failures: " + ", ".join(parts)
+    return "nurture-handled-by-digest: " + ", ".join(parts)  # routine -> silent
+
+
+def run_monthly_snapshot(env_vars: dict) -> str:
+    """Log monthly metrics snapshot."""
+    return run_script("revenue_engine.py", ["--json", "mrr"])
+
+
+def run_email_inbox_check(env_vars: dict) -> str:
+    """Check Gmail inbox for unread emails, notify CC, mark as read."""
+    return run_script("email_engine.py", ["--json", "check-inbox"], timeout=60)
+
+
+def run_funnel_sync(_env_vars: dict) -> str:
+    """Sync new funnel_leads from the last 24h into the CRM leads table.
+
+    Fail-closed: non-JSON output or top-level error becomes ERROR. In priority
+    (fast-poll) mode, funnel_sync.py fires its own consolidated Telegram digest,
+    so this handler returns a routine-silent phrase to prevent scheduler
+    double-notify. In daily mode, scheduler does the notification.
+    """
+    result = run_script("funnel_sync.py", ["run", "--json"], timeout=60)
+
+    if not result or not result.strip().startswith("{"):
+        return f"ERROR: funnel sync returned non-JSON: {result[:200]}"
+    if result.startswith("FAILED"):
+        return f"ERROR: funnel sync {result[:300]}"
+
+    try:
+        data = json.loads(result)
+    except (json.JSONDecodeError, TypeError) as exc:
+        return f"ERROR: funnel sync JSON parse failed: {exc}"
+
+    if data.get("error"):
+        return f"ERROR: funnel sync {data['error']}"
+
+    synced = data.get("synced", []) or []
+    errors = data.get("errors", []) or []
+
+    if not synced and not errors:
+        return "funnel sync: 0 new leads"  # routine -> silent
+
+    if errors:
+        return f"ERROR: funnel sync had {len(errors)} errors: {errors[0] if errors else ''}"
+
+    # synced > 0 and no errors: funnel_sync already fired per-lead notify()
+    # in non-priority mode (or consolidated digest in priority mode), so tell
+    # scheduler to stay silent via the skip-phrase filter.
+    return f"funnel-sync-handled: {len(synced)} new lead(s) synced"
+
+
+def run_funnel_fast_poll(_env_vars: dict) -> str:
+    """Fast-poll funnel_leads (last 2 minutes) for near-realtime CC alerts.
+
+    funnel_sync.py fast-poll mode fires a consolidated high-priority Telegram
+    digest when new leads land. This handler returns a routine-silent phrase
+    on empty runs so the scheduler doesn't spam CC every 60 seconds.
+    """
+    result = run_script("funnel_sync.py", ["fast-poll", "--json"], timeout=30)
+
+    if not result or not result.strip().startswith("{"):
+        return f"ERROR: fast-poll returned non-JSON: {result[:200]}"
+    if result.startswith("FAILED"):
+        return f"ERROR: fast-poll {result[:300]}"
+
+    try:
+        data = json.loads(result)
+    except (json.JSONDecodeError, TypeError) as exc:
+        return f"ERROR: fast-poll JSON parse failed: {exc}"
+
+    if data.get("error"):
+        return f"ERROR: fast-poll {data['error']}"
+
+    synced = data.get("synced", []) or []
+    errors = data.get("errors", []) or []
+
+    if not synced and not errors:
+        return "fast-poll: 0 new leads"  # routine -> silent
+
+    if errors:
+        return f"ERROR: fast-poll had {len(errors)} errors: {errors[0] if errors else ''}"
+
+    # funnel_sync fast-poll already sent the consolidated digest — stay silent.
+    return f"fast-poll-handled: {len(synced)} new lead(s) alerted"
+
+
+# ── Main loop ─────────────────────────────────────────────────────────────────
+
+def log(msg: str):
+    """Print with timestamp for PM2 logs."""
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{ts}] {msg}", flush=True)
+
+
+def check_and_run_due_jobs(client, env_vars: dict[str, str]):
+    """Core loop iteration: find due jobs and execute them."""
+    now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+    # Get all active jobs that are due
+    result = (
+        client.table("cron_jobs")
+        .select("*")
+        .eq("is_active", True)
+        .lte("next_run_at", now_iso)
+        .not_.is_("next_run_at", "null")
+        .order("next_run_at", desc=False)
+        .execute()
+    )
+    due_jobs = result.data or []
+
+    if not due_jobs:
+        return 0
+
+    log(f"Found {len(due_jobs)} due job(s)")
+
+    for job in due_jobs:
+        job_id = job["id"]
+        job_name = job.get("name", "unknown")
+
+        # Execute the job
+        result_msg = execute_job(job, env_vars)
+
+        # V2.1 2026-04-11: Retry-on-error logic.
+        # Old: next_run_at always advances to the normal schedule, so a daily
+        # 6am job that fails at 06:00:30 won't retry until 24h later.
+        # New: if the result is an ERROR, schedule a retry in 5 minutes instead
+        # of waiting for the full schedule. Max 5 consecutive retries before
+        # giving up and waiting for the next scheduled slot.
+        result_is_error = "ERROR" in result_msg or "FAILED" in result_msg
+        new_count = (job.get("run_count") or 0) + 1
+        fail_count = (job.get("fail_count") or 0) if hasattr(job, "get") else 0
+
+        if result_is_error:
+            fail_count += 1
+            if fail_count < 5:
+                # Retry in 5 minutes
+                retry_dt = datetime.now(timezone.utc) + timedelta(minutes=5)
+                next_run = retry_dt.isoformat()
+                log(f"  ERROR on {job_name}, retry scheduled in 5 min (attempt {fail_count}/5)")
+            else:
+                # Give up, wait for next regular schedule
+                next_run = calculate_next_run(job.get("schedule", ""))
+                log(f"  ERROR on {job_name}, 5 retries exhausted, waiting for next schedule")
+                fail_count = 0  # reset after giving up
+        else:
+            next_run = calculate_next_run(job.get("schedule", ""))
+            fail_count = 0  # successful run resets the counter
+
+        update_payload = {
+            "last_run_at": datetime.now(timezone.utc).isoformat(),
+            "run_count": new_count,
+            "next_run_at": next_run,
+            "last_result": result_msg[:500],
+        }
+        # Only set fail_count if the column exists (graceful — some deployments
+        # may not have the migration yet). Catch the error if column missing.
+        try:
+            client.table("cron_jobs").update({
+                **update_payload,
+                "fail_count": fail_count,
+            }).eq("id", job_id).execute()
+        except Exception:
+            # Fall back to update without fail_count (column doesn't exist)
+            client.table("cron_jobs").update(update_payload).eq("id", job_id).execute()
+
+        log(f"COMPLETED: {job_name} -> {result_msg[:200]}")
+
+        # Notify CC via Telegram (skip empty/routine results)
+        action_type = job.get("action_type", "")
+        category_map = {
+            "content_post": "content",
+            "lead_followup": "lead",
+            "booking_reminder": "booking",
+            "stripe_sync": "revenue",
+            "revenue_report": "revenue",
+            "pipeline_review": "lead",
+            "nurture_check": "email",
+            "monthly_snapshot": "revenue",
+            "content_planning": "content",
+            "ig_research": "instagram",
+            "ig_dm_check": "instagram",
+            "ig_auto_reply": "instagram",
+            "email_inbox_check": "email",
+            "funnel_sync": "lead",
+            "funnel_fast_poll": "lead",
+            "content_generate": "content",
+            "content_repurpose": "content",
+        }
+        cat = category_map.get(action_type, "system")
+
+        # ONLY notify CC when something ACTIONABLE happened.
+        # Zero-result checks (no new DMs, no new emails, no content due) = silence.
+        # CC said: "I don't need Telegram messages every 5 minutes saying there was nothing."
+        # V2.1 2026-04-11: Routine detection uses PREFIX matching, not substring.
+        # The old substring approach had a critical bug: 'ok' was matching inside
+        # 'booking', 'no new' matching 'no newsletter', etc. Every handler that
+        # returns its own routine-silent phrase now uses a canonical prefix.
+        # Error detection stays as substring match (intentional — ERROR/FAILED
+        # can appear inside a longer message and we still want to surface it).
+        routine_prefixes = (
+            # Engine-handled digests (engine already fired its own notify)
+            "stripe sync ok:",
+            "nurture run complete: no",
+            "nurture-handled-by-digest",
+            "funnel sync: 0 new",
+            "funnel-sync-handled",
+            "fast-poll: 0 new",
+            "fast-poll-handled",
+            # Generic empty-result signals
+            "no content due",
+            "no leads",
+            "no active",
+            "0 need nurture",
+            "no unread",
+            "0 unread",
+            "no drafts found",
+            "no posts to repurpose",
+            "no replies sent",
+            "0 auto-replies",
+            # run_script's default "ok" fallback for empty-stdout successful runs
+            # (guarded: must be EXACTLY "ok", not just contain it)
+        )
+        result_lower = result_msg.lower().strip()
+        is_routine = (
+            result_lower == "ok"
+            or result_lower == "[]"
+            or result_lower.startswith(routine_prefixes)
+            or '"unread_count": 0' in result_lower
+            or '"unread_count":0' in result_lower
+            or '"published": 0' in result_lower
+            or '"message": "no unread' in result_lower
+        )
+        is_error = "ERROR" in result_msg or "FAILED" in result_msg
+
+        if is_error:
+            notify_error(job_name, result_msg[:200])
+        elif not is_routine:
+            notify(f"{job_name}: {result_msg[:200]}", category=cat, silent=True)
+
+    return len(due_jobs)
+
+
+def initialize_next_run_times(client):
+    """Set next_run_at for any active jobs that don't have one yet."""
+    result = (
+        client.table("cron_jobs")
+        .select("*")
+        .eq("is_active", True)
+        .is_("next_run_at", "null")
+        .execute()
+    )
+    jobs = result.data or []
+    if not jobs:
+        return
+
+    log(f"Initializing next_run_at for {len(jobs)} job(s)")
+    for job in jobs:
+        next_run = calculate_next_run(job.get("schedule", ""))
+        client.table("cron_jobs").update({
+            "next_run_at": next_run,
+        }).eq("id", job["id"]).execute()
+        log(f"  {job['name']} -> next run: {next_run[:19]}")
+
+
+def main():
+    log("=" * 60)
+    log("BRAVO SCHEDULER v1.0 - Business Operations Daemon")
+    log("=" * 60)
+    log(f"Check interval: {CHECK_INTERVAL_SECONDS}s")
+    log(f"Python: {PYTHON}")
+    log(f"Project: {PROJECT_ROOT}")
+
+    env_vars = load_env()
+    client = get_client(env_vars)
+
+    # Initialize any jobs missing next_run_at
+    initialize_next_run_times(client)
+
+    log("Scheduler running. Checking for due jobs every 60 seconds...")
+    log("")
+
+    consecutive_errors = 0
+    cycles = 0
+    while True:
+        try:
+            jobs_run = check_and_run_due_jobs(client, env_vars)
+            if jobs_run > 0:
+                log(f"Cycle complete: {jobs_run} job(s) executed")
+            consecutive_errors = 0
+
+            # V2.1 2026-04-11: Every 5 cycles (~5 min), re-run next_run_at
+            # initialization to catch any jobs that were added dynamically
+            # via `cron_engine.py seed` or manual Supabase inserts while the
+            # scheduler was already running. This fixes the latent bug where
+            # new jobs with null next_run_at would be dead until next restart.
+            cycles += 1
+            if cycles % 5 == 0:
+                try:
+                    initialize_next_run_times(client)
+                except Exception as init_exc:
+                    log(f"  [warn] periodic init failed: {init_exc}")
+        except KeyboardInterrupt:
+            log("Shutdown requested. Goodbye.")
+            break
+        except Exception as exc:
+            consecutive_errors += 1
+            log(f"ERROR in check cycle: {exc}")
+            if consecutive_errors >= 5:
+                log("5 consecutive errors - sleeping 5 minutes before retry")
+                time.sleep(300)
+                consecutive_errors = 0
+            time.sleep(CHECK_INTERVAL_SECONDS)
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,100 @@
+<h2>📜 CLAUDE.md — Your AI's Instruction Manual</h2>
+<p></p>
+<p><strong>XP Reward: +100 XP</strong> | Running Total: 275 XP</p>
+<p><strong>Level: Builder (L1)</strong> — Configuring your AI employee for maximum output.</p>
+<p></p>
+<p>CLAUDE.md is the <strong>single most important file</strong> in any Claude Code project. It's a markdown file that lives in your project root and tells Claude Code <em>how to behave</em> in this specific project. Without it, Claude is a genius with amnesia. With it, Claude is YOUR genius with perfect context.</p>
+<p></p>
+<p>⚡ <strong>QUICK WIN:</strong> Think of CLAUDE.md like onboarding instructions for a new hire — except this hire has perfect memory, follows instructions exactly, and never calls in sick. The better your instructions, the better your employee.</p>
+<p></p>
+<h2>📋 What Goes in CLAUDE.md</h2>
+<p></p>
+<p>🏗️ <strong>Project Context</strong> — What is this project? What tech stack? What's the goal?</p>
+<p>📏 <strong>Rules & Constraints</strong> — "Never delete the database." "Always use TypeScript." "Test before committing."</p>
+<p>🔀 <strong>Tool Routing</strong> — "Use Supabase for database queries." "Use Playwright for web browsing."</p>
+<p>🎨 <strong>Style Preferences</strong> — "Use conventional commits." "Keep functions under 50 lines."</p>
+<p>🚫 <strong>Don'ts</strong> — "Don't create new files unless necessary." "Don't hardcode API keys."</p>
+<p></p>
+<p>💡 <strong>PRO TIP:</strong> Start with 10 lines. Add rules as you discover what Claude gets wrong. A 10-line CLAUDE.md that covers the essentials beats a 200-line novel that dilutes the important stuff. Think of it like a recipe — the best ones are concise.</p>
+<p></p>
+<h3>🧬 Starter Template</h3>
+<p></p>
+<p><code># Project Name</code></p>
+<p><code>## What</code></p>
+<p><code>- Project: [name and purpose]</code></p>
+<p><code>- Stack: [languages, frameworks, databases]</code></p>
+<p><code>- Deploy: [where it's hosted]</code></p>
+<p><code>## Rules</code></p>
+<p><code>1. Always write tests before code</code></p>
+<p><code>2. Use conventional commit messages</code></p>
+<p><code>3. Never hardcode secrets — use .env</code></p>
+<p><code>## Don'ts</code></p>
+<p><code>- Don't delete files without asking</code></p>
+<p><code>- Don't push to main directly</code></p>
+<p></p>
+<p>That's a complete, functional CLAUDE.md. Copy it, customize it, and your AI employee immediately understands your project.</p>
+<p></p>
+<h3>🔍 How Claude Reads It</h3>
+<p></p>
+<p>Claude Code automatically loads CLAUDE.md every conversation. It checks three levels:</p>
+<p>1️⃣ <strong>Project root</strong> — <code>~/your-project/CLAUDE.md</code> (always loaded first)</p>
+<p>2️⃣ <strong>Parent directories</strong> — <code>../CLAUDE.md</code> (inherited rules from above)</p>
+<p>3️⃣ <strong>User-level</strong> — <code>~/.claude/CLAUDE.md</code> (your global preferences)</p>
+<p></p>
+<p>This hierarchy means you can set global rules (like "always use TypeScript") at the user level, and project-specific rules (like "this project uses Python") at the project level. Project rules override global ones.</p>
+<p></p>
+<h3>📎 @Imports — Referencing Other Files</h3>
+<p></p>
+<p>Use <strong>@imports</strong> to reference other files: <code>@docs/api-reference.md</code> pulls content into context on demand. This keeps your CLAUDE.md lean while giving Claude access to detailed documentation.</p>
+<p></p>
+<p>Common @import patterns:</p>
+<p>• <code>@docs/api-reference.md</code> — API documentation</p>
+<p>• <code>@brain/STATE.md</code> — Current project state</p>
+<p>• <code>@skills/debugging/SKILL.md</code> — Load a skill on demand</p>
+<p></p>
+<p>💀 <strong>COMMON MISTAKE:</strong> Importing everything. Each @import adds to Claude's context window. Only import what's needed for the current project — not your entire documentation library.</p>
+<p></p>
+<h3>🏗️ Advanced CLAUDE.md Patterns</h3>
+<p></p>
+<p><strong>Decision Framework:</strong> Tell Claude how to make choices for you:</p>
+<p><code>## Decision Protocol</code></p>
+<p><code>- For simple tasks: just do it (Fix-First principle)</code></p>
+<p><code>- For moderate tasks: brief plan, then execute</code></p>
+<p><code>- For complex tasks: present options, wait for approval</code></p>
+<p></p>
+<p><strong>MCP Routing:</strong> Tell Claude which tools to use for what:</p>
+<p><code>## Tool Routing</code></p>
+<p><code>| Task | Tool |</code></p>
+<p><code>| Database queries | Supabase MCP |</code></p>
+<p><code>| Web browsing | Playwright MCP |</code></p>
+<p><code>| Social media | Late MCP |</code></p>
+<p></p>
+<p><strong>Security Rules:</strong> Non-negotiable constraints:</p>
+<p><code>## Security (CRITICAL)</code></p>
+<p><code>- NEVER hardcode API keys or passwords</code></p>
+<p><code>- All secrets in .env.agents (gitignored)</code></p>
+<p><code>- Validate all inputs at system boundaries</code></p>
+<p><code>- Confirm before any destructive operation</code></p>
+<p></p>
+<p>🧠 <strong>KEY TAKEAWAY:</strong> CLAUDE.md is the difference between an AI that needs hand-holding and one that operates autonomously on your behalf. The more precise your instructions, the less you need to supervise. Invest 15 minutes in a great CLAUDE.md — it pays dividends every single session.</p>
+<p></p>
+<hr>
+<p></p>
+<h2>🔥 CHALLENGE: Build Your AI Identity (+100 XP)</h2>
+<p></p>
+<p>1️⃣ Create a <code>CLAUDE.md</code> for a personal project (real or practice). Include: project context, tech stack, 3 rules, 2 don'ts, and 1 @import.</p>
+<p></p>
+<p>2️⃣ Start a Claude Code session in that project. Ask Claude: "What do you know about this project?" — verify it loaded your CLAUDE.md.</p>
+<p></p>
+<p>3️⃣ Give Claude a task that tests your rules. If you said "always use TypeScript," ask it to create a new file and check if it uses .ts.</p>
+<p></p>
+<p>🏆 <strong>BOSS LEVEL:</strong> Create a user-level CLAUDE.md at <code>~/.claude/CLAUDE.md</code> with your global preferences. Then create a project-level one that overrides one of those preferences. Verify the override works. (+50 bonus XP)</p>
+<p></p>
+<h3>✅ Level Up Gate</h3>
+<p>Before moving on, confirm:</p>
+<p>☐ You have a working CLAUDE.md in at least one project</p>
+<p>☐ You can explain the 3 levels Claude checks for instructions</p>
+<p>☐ You understand how @imports work and when to use them</p>
+<p>☐ You know how to set up tool routing and security rules</p>
+<p></p>
+<p>Share your CLAUDE.md in the community with <strong>#MyAIRules</strong> 📜</p>
