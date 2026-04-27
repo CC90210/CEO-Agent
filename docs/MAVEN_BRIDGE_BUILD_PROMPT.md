@@ -98,6 +98,18 @@ Step 3 — Maven-specific context loading (30 min)
   Reference implementation in Bravo's `telegram_agent.js` —
   search for `loadCSuiteSnapshot` to see the parser + fallback pattern.
 
+  CRITICAL — sibling-repo READS (added 2026-04-26): Bravo's bridge can
+  also READ files from Atlas + Maven + Aura repos directly via a
+  `SIBLING_REPOS` map + `readSiblingRepo(agent, relPath)` helper +
+  `loadSiblingPulses()` summarizer. This is what makes Bravo actually
+  KNOW Maven's current state, not just NAME Maven. Maven's bridge needs
+  the same — search Bravo's `telegram_agent.js` for `SIBLING_REPOS` and
+  port the 3 helpers verbatim (`readSiblingRepo`, `loadSiblingPulses`,
+  the SIBLING_REPOS env-overridable map). Wire `loadSiblingPulses()`
+  into your context loader at T1+ so Maven always sees Bravo's
+  ceo_pulse, Atlas's cfo_pulse (which gates your paid spend), and
+  Aura's pulse. Stale-pulse warnings (>24h) get a ⚠ flag.
+
 Step 4 — Maven-specific tool routing (45 min)
   Replace Bravo's tool list with Maven's. Your chat should do:
 
