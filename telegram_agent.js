@@ -589,7 +589,7 @@ const killTree = (pid) => {
 const MCP_CONFIG_PATH = path.join(__dirname, '.claude', 'mcp.json');
 const HAS_MCP_CONFIG = fs.existsSync(MCP_CONFIG_PATH);
 
-const executeCli = (tool, userPrompt, chatId, modelOverride = null) => {
+const executeCli = (tool, userPrompt, chatId, modelOverride = null, forceApiKey = false) => {
     return new Promise((resolve) => {
         const fullPrompt = tool === 'claude' ? `${buildPrompt(chatId, userPrompt)} ${userPrompt}` : `${buildGeminiPrompt(chatId)} ${userPrompt}`;
         const tier = classifyTier(userPrompt);
@@ -630,15 +630,34 @@ const executeCli = (tool, userPrompt, chatId, modelOverride = null) => {
 
         log(`[EXEC] ${tool}: "${userPrompt.substring(0, 80)}..."`);
 
+        // AUTH PRIORITY (V15.8 — 2026-04-27):
+        //   1st: Claude Code subscription OAuth token (free under CC's
+        //        plan, what `claude setup-token` registers)
+        //   2nd: ANTHROPIC_API_KEY (paid metered, fallback only)
+        // Claude CLI auto-prefers ANTHROPIC_API_KEY when set in env. We
+        // STRIP it from the spawn env so the OAuth path is used. The
+        // retry-on-quota block below adds it back if subscription is
+        // exhausted. CC's billing wins by default.
+        const useApiFallback = forceApiKey === true;  // set on retry
+        const spawnEnv = {
+            ...process.env,
+            CI: 'true',
+            NONINTERACTIVE: 'true',
+            PAGER: 'cat',
+            NO_COLOR: '1',
+            FORCE_COLOR: '0'
+        };
+        if (!useApiFallback && tool === 'claude') {
+            // Force subscription path — strip the API key so claude CLI
+            // falls through to the OAuth token from `claude setup-token`.
+            delete spawnEnv.ANTHROPIC_API_KEY;
+        }
+        if (useApiFallback) {
+            log(`[AUTH FALLBACK] using ANTHROPIC_API_KEY for this call (subscription quota or auth error)`);
+        }
+
         const child = spawn(cmd, args, {
-            env: {
-                ...process.env,
-                CI: 'true',
-                NONINTERACTIVE: 'true',
-                PAGER: 'cat',
-                NO_COLOR: '1',
-                FORCE_COLOR: '0'
-            },
+            env: spawnEnv,
             stdio: ['ignore', 'pipe', 'pipe'],
             shell: false,
             windowsHide: true,
@@ -710,10 +729,24 @@ const executeCli = (tool, userPrompt, chatId, modelOverride = null) => {
                 return;
             }
 
-            // Auth error detection — 401/OAuth expiry gets a clear message to CC
-            if (code !== 0 && /authentication_error|OAuth token has expired|401|Invalid API key|Please obtain a new token/i.test(raw)) {
-                log(`[AUTH ERROR] ${tool} returned auth failure — check ANTHROPIC_API_KEY in .env.agents`);
-                resolve('Auth error — check that ANTHROPIC_API_KEY is valid in .env.agents, then: pm2 restart bravo-telegram');
+            // Auth + quota detection (V15.8 — 2026-04-27):
+            // If subscription path failed because OAuth expired OR
+            // subscription quota hit, retry the SAME request with
+            // ANTHROPIC_API_KEY enabled (paid fallback). Only retry once
+            // and only if we haven't already tried the API key.
+            const looksLikeQuotaOrAuth = code !== 0 && /authentication_error|OAuth token has expired|401|Invalid API key|Please obtain a new token|usage limit|rate limit|quota exceeded|reached your.*limit|429/i.test(raw);
+            if (looksLikeQuotaOrAuth && tool === 'claude' && !forceApiKey) {
+                log(`[AUTH FALLBACK TRIGGERED] subscription failed, retrying with ANTHROPIC_API_KEY: ${raw.substring(0, 200)}`);
+                if (chatId) {
+                    bot.sendMessage(chatId, '⏱ Subscription quota or auth issue — retrying via API key billing...').catch(() => {});
+                }
+                executeCli(tool, userPrompt, chatId, modelOverride, true).then(resolve);
+                return;
+            }
+            // Already tried API key fallback — give CC a clear actionable message
+            if (looksLikeQuotaOrAuth && forceApiKey) {
+                log(`[AUTH HARD FAIL] both subscription and API key failed — check both`);
+                resolve('Auth hard-fail. Both Claude Code subscription AND ANTHROPIC_API_KEY rejected. Check `claude setup-token` (subscription OAuth) and ANTHROPIC_API_KEY in .env.agents, then: pm2 restart bravo-telegram');
                 return;
             }
 
@@ -1246,7 +1279,7 @@ process.on('unhandledRejection', (err) => {
     log(`[UNHANDLED] ${err.message || err}`);
 });
 
-log(`Bridge V15.7 ready. Platform: ${IS_MAC ? 'macOS' : 'Windows'}. Computer control: FULL CONTROL (60+ cmds).`);
+log(`Bridge V15.8 ready. Platform: ${IS_MAC ? 'macOS' : 'Windows'}. Computer control: FULL CONTROL (60+ cmds). Auth: subscription-first, API-key fallback.`);
 
 try {
     const pollingStart = bot.startPolling();
@@ -1260,13 +1293,34 @@ try {
     log(`[POLL] Failed to start polling: ${err.message || err}`);
 }
 
-// ---- STARTUP AUTH HEALTH CHECK ----
-// Tests ANTHROPIC_API_KEY directly on every boot. If it fails, Telegram alerts CC.
-// Runs 5s after start so polling settles first.
+// ---- STARTUP AUTH HEALTH CHECK (V15.8 — both paths) ----
+// Bravo prefers Claude Code subscription OAuth (free under CC's plan).
+// API key is fallback only. This boot check verifies BOTH paths so CC
+// knows the bridge has working auth in either mode before any user
+// query hits.
 setTimeout(() => {
+    // (1) Subscription path — does `claude` CLI have a registered token?
+    const claudeDir = path.join(process.env.HOME || process.env.USERPROFILE || '', '.claude');
+    const credCandidates = [
+        path.join(claudeDir, 'credentials.json'),
+        path.join(claudeDir, '.credentials.json'),
+    ];
+    const hasOAuth = credCandidates.some(p => { try { return fs.statSync(p).size > 0; } catch (_) { return false; } });
+    if (hasOAuth) {
+        log('[HEALTH] Claude Code subscription OAuth: present (primary auth path)');
+    } else {
+        log('[HEALTH] Claude Code subscription OAuth: NOT FOUND — run `claude setup-token`. Bridge will fall back to ANTHROPIC_API_KEY.');
+        if (ALLOWED_USERS.length > 0) {
+            bot.sendMessage(ALLOWED_USERS[0],
+                `⚠️ Bravo startup: Claude Code subscription token not found at ${claudeDir}.\nRun: claude setup-token\nFalling back to ANTHROPIC_API_KEY (paid metered) until fixed.`
+            ).catch(() => {});
+        }
+    }
+
+    // (2) API key fallback path — verify it works with a tiny ping
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
-        log('[HEALTH] ANTHROPIC_API_KEY missing — Claude requests will fail');
+        log('[HEALTH] ANTHROPIC_API_KEY missing — fallback path unavailable. If subscription quota hits, Bravo will hard-fail.');
         return;
     }
     const https = require('https');
@@ -1287,12 +1341,12 @@ setTimeout(() => {
         }
     }, (res) => {
         if (res.statusCode === 200) {
-            log('[HEALTH] Anthropic API key: OK');
+            log('[HEALTH] ANTHROPIC_API_KEY fallback path: OK');
         } else {
-            log(`[HEALTH] Anthropic API key FAILED (HTTP ${res.statusCode}) — check .env.agents`);
+            log(`[HEALTH] ANTHROPIC_API_KEY fallback path FAILED (HTTP ${res.statusCode}) — fallback unavailable, subscription is single point of failure`);
             if (ALLOWED_USERS.length > 0) {
                 bot.sendMessage(ALLOWED_USERS[0],
-                    `⚠️ Bravo startup: API key check failed (HTTP ${res.statusCode}).\nBravo will not respond until fixed. Update ANTHROPIC_API_KEY in .env.agents then: pm2 restart bravo-telegram`
+                    `⚠️ Bravo startup: API-key fallback FAILED (HTTP ${res.statusCode}).\nSubscription is now single-point-of-failure. Update ANTHROPIC_API_KEY in .env.agents and: pm2 restart bravo-telegram`
                 ).catch(() => {});
             }
         }
