@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# bravo — POSIX launcher. Add this directory to PATH.
+# Resolves the repo root relative to this file, then invokes bravo_cli.
+set -e
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="$(cd "$HERE/.." && pwd)"
+exec python3 "$REPO/bravo_cli/main.py" "$@"

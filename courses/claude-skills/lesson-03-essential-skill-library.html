@@ -1,0 +1,120 @@
+<h2>🧰 Essential Skill Library — Battle-Tested Workflows</h2>
+<p></p>
+<p><strong>XP Reward: +150 XP</strong> | Running Total: 350 XP</p>
+<p><strong>Level: Builder (L1)</strong> — Equipping your arsenal with proven workflows.</p>
+<p></p>
+<p>In the last lesson you built basic skills from scratch. Now we level up. These are <strong>production-grade skill patterns</strong> — the exact workflows used daily to ship real products. Each one encodes years of developer experience into a reusable template.</p>
+<p></p>
+<p>⚡ <strong>QUICK WIN:</strong> You don't need to memorize these. Save them as skill files and let Claude follow them automatically. Your job is to understand <em>when</em> to trigger each one.</p>
+<p></p>
+<h3>🐛 Systematic Debugging</h3>
+<p></p>
+<p>The #1 skill that separates amateurs from professionals. Random fix attempts waste time and create new bugs.</p>
+<p></p>
+<p><strong>The Iron Law:</strong> No fixes without root cause investigation first.</p>
+<p></p>
+<p><strong>The 4-Phase Protocol:</strong></p>
+<p>1️⃣ <strong>Investigate</strong> — Read the error message carefully. Reproduce consistently. Check recent changes. Trace the data flow backward from where it breaks.</p>
+<p>2️⃣ <strong>Analyze</strong> — Find working examples of similar code. Compare. What's different between working and broken?</p>
+<p>3️⃣ <strong>Hypothesize</strong> — "I think X is the root cause because Y." Test with the smallest possible change. One variable at a time.</p>
+<p>4️⃣ <strong>Fix</strong> — Write a failing test that reproduces the bug. Fix the root cause. Verify the test passes.</p>
+<p></p>
+<p>💀 <strong>COMMON MISTAKE:</strong> "Just try changing X and see if it works." This is guessing, not debugging. If you haven't traced the data flow, you're guessing. Stop. Go back to Phase 1.</p>
+<p></p>
+<p><strong>The 3-Strike Rule:</strong> If you've tried 3 different fixes and none worked, you're fixing the wrong thing. Step back and question the architecture — the problem is deeper than you think.</p>
+<p></p>
+<h3>🔍 Code Review (Fix-First)</h3>
+<p></p>
+<p>Every change gets reviewed before it ships. The Fix-First methodology: auto-fix everything mechanical, ask about everything that requires judgment.</p>
+<p></p>
+<p><strong>Auto-fix without asking:</strong></p>
+<p>• Dead code (unused functions, imports)</p>
+<p>• <code>console.log</code> left in production</p>
+<p>• Hardcoded <code>localhost</code> URLs</p>
+<p>• Unused variables and stale comments</p>
+<p>• Missing TypeScript types</p>
+<p></p>
+<p><strong>Always ask before touching:</strong></p>
+<p>• Security pattern choices (auth, encryption)</p>
+<p>• Architecture changes (new abstractions, file restructuring)</p>
+<p>• Business logic that seems wrong but might be intentional</p>
+<p>• Error handling strategy (fail-silent vs fail-loud)</p>
+<p></p>
+<p><strong>Severity levels:</strong></p>
+<p>🔴 <strong>CRITICAL</strong> — Data loss, secret exposure, auth bypass → Block. Fix immediately.</p>
+<p>🟠 <strong>HIGH</strong> — Security hole, missing error handling on payments → Block.</p>
+<p>🟡 <strong>MEDIUM</strong> — N+1 queries, type unsafety, missing loading states → Fix before merge.</p>
+<p>🟢 <strong>LOW</strong> — Style, naming, dead comments → Auto-fix or note.</p>
+<p></p>
+<p>💡 <strong>PRO TIP:</strong> Build a <code>/review</code> skill that runs this checklist automatically. Run it before every commit. The 2 minutes it takes prevents the 2 hours debugging a production issue.</p>
+<p></p>
+<h3>🧪 Test-Driven Development (TDD)</h3>
+<p></p>
+<p>Write the test first. Watch it fail. Write minimal code to pass. This is not optional — it's how professionals build reliable software.</p>
+<p></p>
+<p><strong>The TDD Cycle:</strong></p>
+<p>🔴 <strong>RED</strong> — Write a test that describes what SHOULD happen. Run it. Watch it fail.</p>
+<p>🟢 <strong>GREEN</strong> — Write the simplest code that makes the test pass. Nothing more.</p>
+<p>🔵 <strong>REFACTOR</strong> — Clean up while keeping tests green. Improve names, remove duplication.</p>
+<p></p>
+<p><strong>Why test-first matters:</strong></p>
+<p>• Tests written after code pass immediately — that proves nothing</p>
+<p>• Watching a test fail proves it actually tests the right thing</p>
+<p>• Test-first forces you to think about edge cases before writing code</p>
+<p>• You end up with a safety net that catches regressions forever</p>
+<p></p>
+<p><strong>Example — Bug Fix:</strong></p>
+<p><code>// RED: Write the test</code></p>
+<p><code>test('rejects empty email', () => {</code></p>
+<p><code>  const result = submitForm({ email: '' });</code></p>
+<p><code>  expect(result.error).toBe('Email required');</code></p>
+<p><code>});</code></p>
+<p><code>// Run → FAIL (no validation exists yet)</code></p>
+<p></p>
+<p><code>// GREEN: Minimal fix</code></p>
+<p><code>if (!data.email?.trim()) return { error: 'Email required' };</code></p>
+<p><code>// Run → PASS</code></p>
+<p></p>
+<p>💀 <strong>COMMON MISTAKE:</strong> "I'll write tests after to verify it works." Tests after = testing what you built, not what's required. You test what you remembered, not what you forgot. Test-first forces edge case discovery.</p>
+<p></p>
+<h3>📝 Smart Commits</h3>
+<p></p>
+<p>Conventional commit messages make your git history searchable and meaningful:</p>
+<p></p>
+<p><code>feat: add Stripe webhook handler for subscription events</code></p>
+<p><code>fix: prevent empty cart from reaching checkout</code></p>
+<p><code>refactor: extract email validation into shared util</code></p>
+<p><code>docs: update API endpoint documentation</code></p>
+<p><code>chore: upgrade Next.js from 14.1 to 14.2</code></p>
+<p></p>
+<p><strong>Rules:</strong></p>
+<p>• Subject line under 72 characters</p>
+<p>• Use imperative mood ("add feature" not "added feature")</p>
+<p>• Body explains WHY, not WHAT (the diff shows what)</p>
+<p>• Never commit <code>.env</code> files or secrets</p>
+<p>• Commit often — small commits are easier to review and revert</p>
+<p></p>
+<p>🧠 <strong>KEY TAKEAWAY:</strong> These four skills — debugging, code review, TDD, and smart commits — are the foundation of professional software delivery. Master these and everything else builds on top. They're not fancy, they're not exciting, but they're the difference between shipping reliably and shipping chaos.</p>
+<p></p>
+<hr>
+<p></p>
+<h2>🔥 CHALLENGE: Production Workflow (+150 XP)</h2>
+<p></p>
+<p>Build a small feature (a todo list, a form, a counter — anything) using the full professional workflow:</p>
+<p></p>
+<p>1️⃣ Write a failing test first (TDD)</p>
+<p>2️⃣ Implement the minimal code to pass</p>
+<p>3️⃣ Run <code>/review</code> on your changes</p>
+<p>4️⃣ Fix any issues the review finds</p>
+<p>5️⃣ Commit with a conventional message</p>
+<p></p>
+<p>🏆 <strong>BOSS LEVEL:</strong> Intentionally introduce a bug, then use the 4-Phase Debugging Protocol to find and fix it systematically. Document each phase. (+100 bonus XP)</p>
+<p></p>
+<h3>✅ Level Up Gate</h3>
+<p>Before moving on, confirm:</p>
+<p>☐ You can explain the 4 phases of systematic debugging</p>
+<p>☐ You know the difference between auto-fix and ask-first in code review</p>
+<p>☐ You've written at least one test-first (RED → GREEN → REFACTOR)</p>
+<p>☐ Your last 3 commits use conventional format</p>
+<p></p>
+<p>Post your TDD cycle screenshot in the community with <strong>#TDDChallenge</strong> 🧪</p>

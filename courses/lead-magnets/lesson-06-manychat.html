@@ -1,0 +1,330 @@
+<h2>🤖 ManyChat — Automated Lead Magnet Distribution on Instagram & Facebook</h2>
+<p></p>
+<p><strong>XP Reward: +250 XP</strong> | Running Total: 1,250 XP</p>
+<p><strong>Level: Integrator (L2)</strong> — Automating distribution at scale.</p>
+<p></p>
+<p><strong>Goal:</strong> Set up ManyChat to automatically deliver your lead magnets when someone comments on your posts or DMs you a keyword — turning every Instagram post into a lead generation machine.</p>
+<p></p>
+<p>This is the lesson where everything connects. You have a lead magnet. You have an opt-in page. Now you need a trigger — a way to make Instagram itself do the distribution work. ManyChat is that trigger. Someone comments "CHECKLIST" on your post and within seconds they have your lead magnet link in their DMs, their email is captured, and they are in your nurture sequence. No manual work. No delay. No dropped leads.</p>
+<p></p>
+<p>This is the highest-leverage lesson in the course because the gap between creators who get leads from Instagram and those who don't is almost always this one piece of infrastructure.</p>
+<p></p>
+<hr>
+<p></p>
+<h2>📱 Module 1: What ManyChat Is and Why It Matters</h2>
+<p></p>
+<p>ManyChat is a chatbot automation platform for Instagram, Facebook, and WhatsApp. It connects to your social accounts via the official Meta API and lets you build automated conversation flows triggered by comments, DMs, story replies, and ad clicks.</p>
+<p></p>
+<p>The core mechanism that matters for lead magnets is the comment-to-DM automation:</p>
+<p></p>
+<p>1. You post content with a CTA: "Comment <strong>CHECKLIST</strong> and I'll DM you the free resource"</p>
+<p>2. Someone comments that keyword on your post</p>
+<p>3. ManyChat detects the comment via the Instagram API in real time</p>
+<p>4. ManyChat auto-DMs them your lead magnet link — within seconds</p>
+<p>5. The comment stays on your post, which boosts it algorithmically</p>
+<p>6. You capture their email inside the DM conversation</p>
+<p></p>
+<p>Why this works at a platform level: Instagram's algorithm rewards posts with high comment volume and fast reply rates. When you run a comment-to-DM flow, your post gets both — lots of keyword comments and instant replies. Instagram reads that as an engaging post and distributes it further. Your lead magnet becomes a content amplifier, not just a capture tool.</p>
+<p></p>
+<h3>ManyChat vs. Building Your Own</h3>
+<p></p>
+<p>In the Python Engines course, <code>instagram_engine.py</code> replicates what ManyChat does using a persistent Playwright browser session — no $15/month fee, fully custom logic, direct Supabase integration. If you have already built that stack, you can use it instead. ManyChat is the right choice when you want the infrastructure running today, not in two days, and you are not yet managing more than 1,000 contacts per month.</p>
+<p></p>
+<p>The decision point: if you are below 1,000 contacts, use ManyChat free and move fast. Above 1,000 contacts and paying for Pro, evaluate whether <code>instagram_engine.py</code> is worth the build time. The capabilities are equivalent. The cost difference is your time vs. $15/month.</p>
+<p></p>
+<h3>Free vs. Pro Plan</h3>
+<p></p>
+<p>• <strong>Free:</strong> Up to 1,000 contacts, unlimited flows, Instagram and Facebook, basic broadcasts</p>
+<p>• <strong>Pro ($15/month):</strong> Unlimited contacts, A/B testing, email and SMS tools, advanced sequences, priority support, full analytics dashboard, remove ManyChat branding from messages</p>
+<p></p>
+<p>Start on Free. Upgrade to Pro when you hit 1,000 contacts or when you need the A/B testing and sequence features covered in Module 5.</p>
+<p></p>
+<p>💡 <strong>PRO TIP:</strong> The most important ManyChat feature — comment trigger + DM delivery + email capture — is fully available on the free plan. Do not let the pricing decision delay your setup. Build the flow today on Free and upgrade later when the volume justifies it.</p>
+<p></p>
+<hr>
+<p></p>
+<h2>⚙️ Module 2: Setting Up ManyChat</h2>
+<p></p>
+<p>Go to <code>manychat.com</code> and create an account. Use the same email you use for your business Meta account — it makes page and profile connections cleaner.</p>
+<p></p>
+<h3>Connect Your Accounts</h3>
+<p></p>
+<p><strong>Step 1: Connect your Facebook Page</strong></p>
+<p>ManyChat requires a Facebook Page connection even if you only plan to use Instagram automation. This is a Meta API requirement, not a ManyChat choice. Go to Settings → Connected Accounts → Connect Facebook. Authorize ManyChat to manage your page.</p>
+<p></p>
+<p><strong>Step 2: Connect your Instagram Business Account</strong></p>
+<p>Your Instagram account must be set to <em>Professional</em> (Creator or Business) and linked to the Facebook Page you just connected. Settings → Connected Accounts → Connect Instagram. Authorize DM management and comment access.</p>
+<p></p>
+<p>⚠️ <strong>WARNING:</strong> ManyChat does not work with personal Instagram accounts. If your account is still personal, go to Instagram → Settings → Account → Switch to Professional Account first. This is a 60-second change and does not affect your content or following.</p>
+<p></p>
+<h3>Dashboard Overview</h3>
+<p></p>
+<p>Once connected, you have four main sections:</p>
+<p></p>
+<p>• <strong>Automation</strong> — Your flows. This is where you spend 90% of your time.</p>
+<p>• <strong>Flows</strong> — Visual drag-and-drop builder for conversation paths.</p>
+<p>• <strong>Growth Tools</strong> — Landing pages, ref links, ad integrations, story mentions.</p>
+<p>• <strong>Live Chat</strong> — Inbox for conversations where automation handed off to a human.</p>
+<p></p>
+<h3>Key Settings to Configure Before Building</h3>
+<p></p>
+<p>Go to Settings → General before touching any flows:</p>
+<p></p>
+<p>• <strong>Timezone:</strong> Set to your timezone. Sequences fire based on this. Wrong timezone = emails and messages at 3AM.</p>
+<p>• <strong>Welcome Message:</strong> The first message anyone receives when they DM your account for the first time. Keep it short and direct. Example: "Hey! I'll get back to you shortly. If you're looking for [lead magnet topic], comment [KEYWORD] on my latest post."</p>
+<p>• <strong>Default Reply:</strong> What fires when someone sends a DM that matches no keyword trigger. Set this to something useful — a menu of your lead magnets, a booking link, or a simple "What can I help you with?" with button options.</p>
+<p></p>
+<p>⚡ <strong>QUICK WIN:</strong> Write your Default Reply before you build any flows. It takes 5 minutes and it means every DM that hits your account — even ones that don't trigger a specific flow — gets a useful, on-brand response instead of nothing.</p>
+<p></p>
+<hr>
+<p></p>
+<h2>💬 Module 3: The Comment-to-DM Flow (The Money Flow)</h2>
+<p></p>
+<p>This is the core automation. Every other module builds on top of this one. Build this first.</p>
+<p></p>
+<h3>Step-by-Step: Building the Flow</h3>
+<p></p>
+<p><strong>1. Create a new automation</strong></p>
+<p>Go to Automation → New Automation → Start from Scratch.</p>
+<p></p>
+<p><strong>2. Set the trigger: Instagram Comment</strong></p>
+<p>Click "Add Trigger" → Instagram → Comment on a Post. Choose whether to trigger on <em>any</em> post or a <em>specific</em> post. For a general lead magnet, use "Any Post" so every piece of content you create can trigger the flow. For a post-specific launch, choose "Specific Post" and select the post ID.</p>
+<p></p>
+<p><strong>3. Set the keyword</strong></p>
+<p>Under the trigger settings, choose "Contains Keywords" and add your keyword. Use a single, easy-to-remember word in all caps: <code>CHECKLIST</code>, <code>FREE</code>, <code>AI</code>, <code>GUIDE</code>, <code>TOOL</code>. One keyword per flow. Keep it short enough that people will actually type it in a comment.</p>
+<p></p>
+<p><strong>4. Build the DM message</strong></p>
+<p>Add a Message action after the trigger. This fires as a DM to the commenter. The message should:</p>
+<p>• Acknowledge the comment with their name: "Hey [First Name]!"</p>
+<p>• Deliver the link immediately — do not make them click through multiple messages first</p>
+<p>• Be under 160 characters so it reads like a text, not a form letter</p>
+<p></p>
+<p>Example:</p>
+<blockquote><p><code>Hey [First Name]! Here's your free AI Audit Checklist: [link]. Let me know if you have questions 👋</code></p></blockquote>
+<p></p>
+<p><strong>5. Add the email capture step</strong></p>
+<p>After the link delivery message, add a second Message with a Question action. Ask for their email:</p>
+<blockquote><p><code>Want me to also email it to you so you have it saved? Drop your email below and I'll send it over.</code></p></blockquote>
+<p>Set the question type to "Email" — ManyChat validates the format automatically and saves it to the contact's profile under the system field <code>email</code>. This is the single most important data point in the flow. An email address means you own the relationship. A DM contact means Meta owns it.</p>
+<p></p>
+<p><strong>6. Add a follow-up message (24 hours later)</strong></p>
+<p>After the email capture, add a Delay of 24 hours, then a Message:</p>
+<blockquote><p><code>Hey [First Name] — did you get a chance to go through the checklist? Happy to answer any questions or walk you through how to use it for your business.</code></p></blockquote>
+<p>This message has two functions: it filters for engaged leads (people who reply to it are warm), and it keeps the conversation alive inside the DM thread, which Instagram's algorithm tracks as relationship signal.</p>
+<p></p>
+<p><strong>7. Tag the lead</strong></p>
+<p>At the end of the flow, add a Tag action. Create a tag named after your lead magnet: <code>got-ai-checklist</code>, <code>got-roi-calculator</code>, etc. This lets you filter contacts by which lead magnet they downloaded and run targeted broadcasts later.</p>
+<p></p>
+<p><strong>8. Test the flow</strong></p>
+<p>ManyChat has a Test This Flow button. Use it. Then do a real test: comment your own keyword on one of your posts from a secondary account or ask a friend to comment. Confirm the DM arrives within 30 seconds, the link works, the email capture question fires, and the tag applies after email submission.</p>
+<p></p>
+<p>💀 <strong>COMMON MISTAKE:</strong> Building the flow but forgetting to turn it on. Every automation in ManyChat has a toggle in the top right — Active/Inactive. New flows default to Inactive. Turn it on before publishing your post or the keyword triggers nothing and you get zero leads from your launch.</p>
+<p></p>
+<p>💡 <strong>PRO TIP:</strong> ManyChat also has an option to send a <em>public reply</em> to the comment (in addition to the DM). Enable this and set it to something like "Sent to your DMs! ✅" — it shows other people scrolling the comments that the system is working, which increases the number of people who comment the keyword. Social proof in the comment section compounds your opt-in rate.</p>
+<p></p>
+<hr>
+<p></p>
+<h2>📸 Module 4: The Story Reply Flow</h2>
+<p></p>
+<p>Story replies are one of the most underused lead gen surfaces on Instagram. Before link stickers, creators relied on swipe-up. Link stickers now work for accounts of any size, but they have a problem: the viewer has to leave the story to visit the URL. Most people don't. The DM automation solves this.</p>
+<p></p>
+<h3>Setting Up the Story Reply Trigger</h3>
+<p></p>
+<p>Go to Automation → New Automation → Instagram Story Reply. This trigger fires when someone replies to any of your active stories.</p>
+<p></p>
+<p>Two setups:</p>
+<p></p>
+<p><strong>Option A — Generic reply handler:</strong> Anyone who replies to any story gets an automated response. Useful if you post stories consistently pointing to lead magnets. Set the message to acknowledge their reply and deliver the relevant resource based on what you last posted.</p>
+<p></p>
+<p><strong>Option B — Keyword-specific story reply:</strong> Only replies containing a specific word trigger the flow. Use this when your story has a CTA like "Reply GUIDE to get the resource." Cleaner targeting, higher intent from the lead.</p>
+<p></p>
+<p>The flow structure is identical to the comment-to-DM flow: acknowledgment → link delivery → email capture → tag. Copy your existing flow and change the trigger.</p>
+<p></p>
+<p>🧠 <strong>KEY TAKEAWAY:</strong> Instagram stories expire in 24 hours but the DM thread they create is permanent. A story reply that converts into an email address is worth more than a story view, a like, or even a link sticker click. Prioritize reply-based CTAs in your stories — "Reply [WORD] to get this" — over link stickers for any resource you want people to actually save and use.</p>
+<p></p>
+<hr>
+<p></p>
+<h2>🔧 Module 5: Advanced ManyChat Patterns</h2>
+<p></p>
+<p>Once you have the core comment-to-DM and story reply flows working, these patterns multiply the output.</p>
+<p></p>
+<h3>Multiple Keywords for Multiple Lead Magnets</h3>
+<p></p>
+<p>Create a separate flow for each lead magnet. Each flow has its own keyword trigger:</p>
+<p>• <code>CHECKLIST</code> → delivers the AI Audit Checklist</p>
+<p>• <code>ROI</code> → delivers the ROI Calculator</p>
+<p>• <code>TEMPLATE</code> → delivers the Proposal Template</p>
+<p></p>
+<p>Each flow applies a different tag so you can segment your audience by what they opted into. The person who downloaded the ROI Calculator is closer to buying than the person who downloaded the checklist — treat them differently.</p>
+<p></p>
+<h3>Conditional Logic — Deduplicate Your Contacts</h3>
+<p></p>
+<p>On the Pro plan, you can add Conditions to a flow. Use this to avoid sending the same lead magnet to someone twice:</p>
+<p></p>
+<p>After the keyword trigger, add a Condition: "Does contact have tag <code>got-ai-checklist</code>?"</p>
+<p>• YES → Send: "Hey [First Name]! Looks like you already have the checklist. Want to check out the ROI Calculator instead? Reply CALCULATOR."</p>
+<p>• NO → Run the normal delivery flow and apply the tag</p>
+<p></p>
+<p>This turns every contact into a multi-touch opportunity. Someone who already has your checklist gets upsold to the next resource in your stack. Each resource they engage with is another signal about where they are in their buyer journey.</p>
+<p></p>
+<h3>Sequences — Three to Five Day Drip</h3>
+<p></p>
+<p>After email capture, enroll the contact in a Sequence. A ManyChat sequence is a series of DMs sent on a delay — the Instagram equivalent of an email nurture flow.</p>
+<p></p>
+<p>A three-day sequence for an AI checklist lead magnet:</p>
+<p>• Day 0: Lead magnet delivery + email capture</p>
+<p>• Day 1: "Did you see tip #3 on the checklist? That one alone saved one of my clients 6 hours a week."</p>
+<p>• Day 3: "Most people who implement the checklist run into one roadblock at step 5. Want me to walk you through it? Takes 15 minutes." → Link to your booking page</p>
+<p></p>
+<p>The sequence ends in a direct conversion ask — a discovery call, a product purchase, or a next lead magnet. Do not run sequences indefinitely. Three to five messages maximum. After that, move them to your email list (which you captured in the flow) and run longer nurture there.</p>
+<p></p>
+<h3>Segmentation with Tags and Custom Fields</h3>
+<p></p>
+<p>Tags you should be using from day one:</p>
+<p>• <code>got-[lead-magnet-name]</code> — what they downloaded</p>
+<p>• <code>email-captured</code> — gave you their email</p>
+<p>• <code>no-email</code> — engaged but didn't provide email</p>
+<p>• <code>clicked-booking</code> — clicked your booking link (requires click tracking)</p>
+<p>• <code>warm-lead</code> — replied to follow-up message (applied manually or via keyword)</p>
+<p></p>
+<p>Custom fields let you store data beyond tags — their business name, the service they're interested in, their current revenue. Collect these inside the DM conversation using Question actions. Keep it to one question per interaction. Asking three questions in a single flow drops completion rates sharply.</p>
+<p></p>
+<h3>Connecting ManyChat to Your Email List</h3>
+<p></p>
+<p>ManyChat has native integrations with Mailchimp, ActiveCampaign, ConvertKit, and others under Integrations → Email. When a contact's email is captured in a ManyChat flow, it can be automatically added to a list or sequence in your email platform.</p>
+<p></p>
+<p>If your email platform is not natively supported: use Zapier or Make. The Zap is: ManyChat → New Contact with Email → Add Subscriber to [Email Platform]. Set it up once, it runs forever.</p>
+<p></p>
+<h3>Connecting ManyChat to Your CRM via Webhook</h3>
+<p></p>
+<p>For n8n users: ManyChat can fire a webhook when a contact reaches a specific step in a flow. Under Actions → Send to Webhook, paste your n8n webhook URL. The payload includes contact ID, name, email, tags, and custom fields. Your n8n workflow receives the payload and can create a row in Supabase, add a record to Notion, or trigger a Slack notification.</p>
+<p></p>
+<p>The practical setup:</p>
+<p>1. In n8n, create a new workflow with a Webhook trigger node — copy the URL</p>
+<p>2. In ManyChat, add a Send to Webhook action after the email capture step</p>
+<p>3. Paste the n8n URL into the webhook action</p>
+<p>4. In n8n, add a Supabase node downstream to write the lead to your <code>leads</code> table</p>
+<p></p>
+<p>Result: every ManyChat lead automatically appears in your lead engine, scored and staged, without any manual data entry.</p>
+<p></p>
+<p>💀 <strong>COMMON MISTAKE:</strong> Building sequences that are too long and too promotional. A five-message ManyChat sequence where messages 3 through 5 are pitch after pitch will get your DMs blocked. Instagram tracks DM response rates and blocking rates. Stick to value-first messages that earn the conversion ask at the end — not multiple asks spread across the sequence.</p>
+<p></p>
+<hr>
+<p></p>
+<h2>📣 Module 6: The Content Strategy That Drives ManyChat</h2>
+<p></p>
+<p>ManyChat is infrastructure. It does nothing if the content that drives keyword comments does not exist. This module is about what to post and how to write it so people actually comment.</p>
+<p></p>
+<h3>The CTA Formula</h3>
+<p></p>
+<p>Every piece of content that connects to ManyChat needs an explicit CTA. The formula is:</p>
+<blockquote><p><code>Comment [KEYWORD] and I'll DM you [specific thing they're getting] — free.</code></p></blockquote>
+<p></p>
+<p>Specific beats vague every time. Compare:</p>
+<p>• Vague: "Comment FREE for a resource"</p>
+<p>• Specific: "Comment AUDIT and I'll DM you the 12-point AI Readiness Checklist my clients use before signing"</p>
+<p></p>
+<p>The specific version tells them exactly what they're getting and hints at social proof (clients use it). That specificity is what converts a scroller into a commenter.</p>
+<p></p>
+<h3>Content Formats That Generate Keyword Comments</h3>
+<p></p>
+<p><strong>Carousel posts:</strong> The highest-performing format for keyword CTAs. Slides 1-8 deliver genuine value. Slide 9 is a dedicated CTA slide: single keyword in large text, one-line benefit, your brand. People who swipe through all 8 value slides are already warm — the final CTA slide converts them. Include the CTA in the caption as well.</p>
+<p></p>
+<p><strong>Reels:</strong> Mention the keyword and the lead magnet in your voiceover or on-screen text. Include it in the first comment (not just the caption — the first comment is visible before the "more" truncation on most mobile views). Keep the video under 30 seconds if the sole purpose is driving to the lead magnet.</p>
+<p></p>
+<p><strong>Static posts:</strong> Lower reach than carousels and Reels but good for warm audiences. Lead with a stat or bold claim, deliver the insight in the caption, close with the keyword CTA. Works well for niche topics where your existing followers are the right audience.</p>
+<p></p>
+<h3>The 3-Post Rotation</h3>
+<p></p>
+<p>Do not make every post a lead magnet pitch. The rotation that performs:</p>
+<p></p>
+<p><strong>Post 1 — Pure value:</strong> Teach something specific and actionable. No ask. Build trust and reach.</p>
+<p><strong>Post 2 — Behind the scenes:</strong> Show a client result, a tool in use, your actual process. Builds credibility. No ask.</p>
+<p><strong>Post 3 — Lead magnet CTA:</strong> The keyword post. You have earned it with the previous two posts.</p>
+<p></p>
+<p>Rotate through this cycle. Your content feed is not a billboard — it is a trust-building engine with one lead capture mechanism every three posts.</p>
+<p></p>
+<h3>Creating Urgency Without Being Salesy</h3>
+<p></p>
+<p>Avoid fake urgency ("only 24 hours left" on an evergreen digital resource). Use genuine scarcity instead:</p>
+<p></p>
+<p>• "I'm only doing personalized feedback on the first 20 checklists submitted — comment AUDIT to get yours in."</p>
+<p>• "Walking through this live in this week's free training — comment TRAINING to get the link before it fills."</p>
+<p>• "I updated the checklist for 2026 this week — if you downloaded the old version, comment UPDATE and I'll send you the new one."</p>
+<p></p>
+<p>Each of these is real, specific, and time-bound without manufacturing fake scarcity around an unlimited digital file.</p>
+<p></p>
+<p>💡 <strong>PRO TIP:</strong> Pin your best-performing ManyChat post. Not the one with the most likes — the one with the highest keyword comment rate. Go to ManyChat Analytics, find which flow has the most contacts entered, then pin that post to the top of your profile. New visitors to your profile see it first and enter your lead pipeline immediately.</p>
+<p></p>
+<hr>
+<p></p>
+<h2>📊 Module 7: ManyChat Analytics</h2>
+<p></p>
+<p>Analytics lives under Automations → select a flow → View Stats. The numbers that matter:</p>
+<p></p>
+<h3>Metrics to Track</h3>
+<p></p>
+<p><strong>Trigger rate:</strong> How many people who saw the post commented the keyword. You calculate this manually: keyword comments ÷ post reach. A good carousel post to a warm audience converts 5-15% of viewers into commenters. Below 3% means your CTA copy or the lead magnet's perceived value needs work.</p>
+<p></p>
+<p><strong>DM delivery rate:</strong> Of the people who triggered the flow, how many received the DM. Should be close to 100%. If it's significantly below that, you have a Meta permissions issue — re-check your Instagram connection settings.</p>
+<p></p>
+<p><strong>Link click rate:</strong> ManyChat's built-in link tracking shows you how many people clicked the lead magnet link in the DM. Good range: 40-65%. Below 30% usually means the message copy around the link is weak — the lead magnet name is not clear enough or the message feels automated. Above 65% means you are well-positioned and the lead magnet promise is landing.</p>
+<p></p>
+<p><strong>Email capture rate:</strong> Of the contacts who received the DM, how many provided their email. Good range: 25-45% on free plan flows. This rate is the most important number because email addresses are the durable asset — DM contacts belong to Meta, email addresses belong to you.</p>
+<p></p>
+<p><strong>Follow-up reply rate:</strong> How many contacts replied to your 24-hour follow-up message. This is your warm lead indicator. Anyone who replies to the follow-up is engaged and worth a manual outreach from your inbox.</p>
+<p></p>
+<h3>A/B Testing (Pro Plan)</h3>
+<p></p>
+<p>Run A/B tests on two variables at a time, maximum. The highest-impact tests:</p>
+<p></p>
+<p>• <strong>Keyword test:</strong> Does <code>AUDIT</code> outperform <code>CHECKLIST</code> as a trigger word? Test it across identical posts on different days.</p>
+<p>• <strong>Opening message test:</strong> Does first-name personalization ("Hey [First Name]!") outperform a more direct opener ("Here's your checklist:")?</p>
+<p>• <strong>Email ask timing:</strong> Does asking for email before delivering the link or after affect capture rate?</p>
+<p></p>
+<p>Run each test for a minimum of 100 contacts before drawing conclusions. Small sample sizes produce misleading results.</p>
+<p></p>
+<h3>When to Upgrade to Pro</h3>
+<p></p>
+<p>Upgrade when any of these are true:</p>
+<p>• You have hit 1,000 contacts on the free plan</p>
+<p>• You want to run A/B tests on your flows</p>
+<p>• You need sequences longer than what free allows</p>
+<p>• You are running separate lead magnets for multiple audience segments and need the advanced conditional logic</p>
+<p></p>
+<p>At 1,000 contacts with a reasonable email capture rate (~35%), you have approximately 350 email subscribers from this channel. If your lead magnet is converting any percentage of those into discovery calls, the $15/month Pro cost is covered multiple times over by a single client.</p>
+<p></p>
+<p>🧠 <strong>KEY TAKEAWAY:</strong> ManyChat analytics tell you where the funnel leaks. Low trigger rate = fix the content and CTA. Low link click rate = fix the DM message. Low email capture rate = fix the email ask framing. Low follow-up reply rate = fix the follow-up message or shorten the delay. Each number points to exactly one thing to improve. That specificity is what separates a system from a guess.</p>
+<p></p>
+<hr>
+<p></p>
+<h2>🔥 CHALLENGE: Launch Your ManyChat Flow (+250 XP)</h2>
+<p></p>
+<p>This challenge is sequential. Each step depends on the previous one being done.</p>
+<p></p>
+<p>1️⃣ <strong>Account setup:</strong> Create your ManyChat account at <code>manychat.com</code>. Connect your Facebook Page and Instagram Business account. Set your timezone and write a Default Reply message. Confirm both accounts show as "Connected" in Settings → Connected Accounts.</p>
+<p></p>
+<p>2️⃣ <strong>Build the comment-to-DM flow:</strong> Create one complete flow using the Module 3 structure. Choose a keyword for one of your existing lead magnets. Build the trigger, the DM delivery message, the email capture question, the 24-hour follow-up, and the tag. Do not skip any of these steps.</p>
+<p></p>
+<p>3️⃣ <strong>Test before publishing:</strong> Use ManyChat's Test This Flow feature. Then test it for real: post a test comment with your keyword on one of your own posts (or ask someone to), confirm the DM arrives within 60 seconds, confirm the email capture question fires, confirm the tag applies in your Contacts list.</p>
+<p></p>
+<p>4️⃣ <strong>Create the content that drives it:</strong> Write one Instagram post using the 3-post rotation framework. The post should be a carousel (minimum 5 slides) where slides 1-4 deliver value and slide 5 is the dedicated keyword CTA slide. Write the caption using the CTA formula: "Comment [KEYWORD] and I'll DM you [specific resource]." Do not post it until your flow is live and tested.</p>
+<p></p>
+<p>5️⃣ <strong>Activate the flow and publish the post:</strong> Toggle the flow to Active in ManyChat. Post the carousel. Monitor the Contacts section in ManyChat for the first 30 minutes to confirm new contacts are entering and the flow is triggering correctly.</p>
+<p></p>
+<p>6️⃣ <strong>Track for 7 days:</strong> Record daily: number of keyword comments, number of new ManyChat contacts, number of emails captured, number of follow-up replies. At the end of 7 days you have your baseline metrics. Everything you do after this is either working to improve these numbers or it isn't.</p>
+<p></p>
+<p>🏆 <strong>BOSS LEVEL:</strong> After running the flow for 7 days, look at your follow-up reply rate. For every contact who replied to your 24-hour follow-up, send a personal DM from your account — not automated, not templated, just a real reply that shows you read their message. Track how many of those personal replies convert into discovery call bookings within 14 days. Post your conversion rate in the community with <strong>#ManyChat7Day</strong> and the number of calls booked. The highest conversion rate gets featured. (+150 bonus XP)</p>
+<p></p>
+<h3>✅ Completion Checklist</h3>
+<p>Before claiming your Integrator badge, confirm all of these are done:</p>
+<p>☐ ManyChat account created and both accounts connected</p>
+<p>☐ Timezone set, Default Reply written and active</p>
+<p>☐ Comment-to-DM flow built with keyword trigger, DM message, email capture, follow-up, and tag</p>
+<p>☐ Flow tested end-to-end — DM received, email captured, tag applied</p>
+<p>☐ Flow toggled to Active before posting</p>
+<p>☐ One carousel post published with keyword CTA on the final slide and in the caption</p>
+<p>☐ 7-day tracking started — you know your trigger rate, link click rate, and email capture rate</p>
+<p>☐ You can explain what happens from the moment someone comments the keyword to the moment their email lands in your list — without looking at ManyChat</p>
+<p></p>
+<p>Post your ManyChat flow screenshot (Automation view, flow active) in the community with <strong>#ManyChat</strong> and the keyword you're running. Tag what lead magnet it's delivering.</p>

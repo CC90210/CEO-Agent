@@ -1,0 +1,132 @@
+# Bravo V6.0 — Production stack (VPS)
+# ────────────────────────────────────────────────────────────────────────
+# Usage on the VPS:
+#   cd /srv/bravo
+#   docker compose -f infra/docker-compose.yml --env-file .env.agents up -d
+#
+# Each service is a single daemon from scripts/. Containers restart on
+# failure; Caddy auto-renews TLS; pgbouncer pools connections to Supabase.
+#
+# Secrets: .env.agents (mode 600) is mounted via env_file — never baked
+# into the image. NEVER commit this file.
+# ────────────────────────────────────────────────────────────────────────
+
+name: bravo
+
+x-common: &bravo-base
+  build:
+    context: ..
+    dockerfile: infra/Dockerfile
+  env_file: ../.env.agents
+  restart: unless-stopped
+  volumes:
+    - ../tmp:/app/tmp
+    - ../logs:/app/logs
+    - ../data:/app/data
+  networks:
+    - bravo-net
+
+services:
+
+  # The reasoning loop — Bravo's 7-phase brain tick runs continuously.
+  bravo-core:
+    <<: *bravo-base
+    command: python scripts/autonomous_agent.py daemon
+    depends_on:
+      - pgbouncer
+    labels:
+      bravo.role: core
+
+  # Cron runner — replaces PM2 bravo-scheduler on CC's Mac.
+  bravo-scheduler:
+    <<: *bravo-base
+    command: python scheduler.py
+    depends_on:
+      - pgbouncer
+    labels:
+      bravo.role: scheduler
+
+  # Gmail inbox watcher + inbound classifier — polls every 5 min.
+  bravo-inbox:
+    <<: *bravo-base
+    command: python scripts/email_engine.py check-inbox --daemon --interval 300
+    depends_on:
+      - pgbouncer
+    labels:
+      bravo.role: inbox
+
+  # FastAPI receiver for N8N + Stripe + Telegram webhooks.
+  # scripts/ is not a Python package (no __init__.py by design — every script
+  # is independently runnable). uvicorn resolves webhook_listener:app by
+  # running from /app/scripts as the working directory.
+  bravo-webhook:
+    <<: *bravo-base
+    working_dir: /app/scripts
+    command: >
+      uvicorn webhook_listener:app
+      --host 0.0.0.0 --port 8000
+      --proxy-headers --forwarded-allow-ips='*'
+    expose:
+      - "8000"
+    depends_on:
+      - pgbouncer
+    labels:
+      bravo.role: webhook
+
+  # Event-bus maintenance: reap stuck rows + drain offline queue every 60s.
+  bravo-event-reaper:
+    <<: *bravo-base
+    command: >
+      sh -c "while true; do
+        python scripts/event_bus.py reap >> /app/logs/reaper.log 2>&1;
+        python scripts/event_bus.py drain >> /app/logs/reaper.log 2>&1;
+        sleep 60;
+      done"
+    depends_on:
+      - pgbouncer
+    labels:
+      bravo.role: maintenance
+
+  # PgBouncer — pool Supabase connections so 5 daemons don't hold 5 idle
+  # sessions each. Supabase enforces a connection cap at the project level.
+  pgbouncer:
+    image: edoburu/pgbouncer:1.23.1
+    restart: unless-stopped
+    env_file: ../.env.agents
+    environment:
+      # Values expected in .env.agents:
+      #   PGBOUNCER_DB_HOST=db.<ref>.supabase.co
+      #   PGBOUNCER_DB_NAME=postgres
+      #   PGBOUNCER_DB_USER=postgres
+      #   PGBOUNCER_DB_PASSWORD=<from Supabase>
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 50
+      DEFAULT_POOL_SIZE: 20
+    expose:
+      - "5432"
+    networks:
+      - bravo-net
+
+  # Caddy reverse proxy with automatic Let's Encrypt certificates.
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - bravo-webhook
+    networks:
+      - bravo-net
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  bravo-net:
+    driver: bridge

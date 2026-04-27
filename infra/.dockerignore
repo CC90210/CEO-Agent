@@ -1,0 +1,21 @@
+# Bravo V6.0 — Docker build-context excludes
+.git/
+.github/
+.claude/
+.agents/worktrees/
+.vscode/
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+tmp/
+logs/
+data/
+memory/ARCHIVES/
+courses/
+brain/worktrees/
+**/.DS_Store
+.env
+.env.*
