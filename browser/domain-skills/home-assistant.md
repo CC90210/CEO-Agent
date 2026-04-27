@@ -22,3 +22,8 @@
 ## Approval Gates
 
 Approval required before any action that changes physical devices, privacy state, network state, alarms, locks, cameras, or home access.
+
+## Related
+- [[browser/README]]
+- [[browser/SAFETY]]
+- [[skills/browser-harness/SKILL]]

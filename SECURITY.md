@@ -159,3 +159,8 @@ communication.
 
 Thank you for helping keep our agents safe for the businesses that
 depend on them.
+
+## Related
+- [[CLAUDE]]
+- [[brain/INDEX]]
+- [[brain/CAPABILITIES]]

@@ -35,3 +35,8 @@
 ## Approval Gates
 
 Approval required before merge, close, delete, rerun costly workflows, alter repo settings, alter collaborators, edit secrets, or publish releases.
+
+## Related
+- [[browser/README]]
+- [[browser/SAFETY]]
+- [[skills/browser-harness/SKILL]]

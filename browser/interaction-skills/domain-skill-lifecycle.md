@@ -34,3 +34,8 @@ browser/domain-skills/client-portal-template.md
 A useful domain skill lets the next agent save time without exposing private data.
 
 Do not include run narration, raw coordinates, secrets, cookies, tokens, or screenshots with sensitive data.
+
+## Related
+- [[browser/README]]
+- [[browser/interaction-skills/INDEX]]
+- [[skills/browser-automation/SKILL]]

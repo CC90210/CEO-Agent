@@ -229,3 +229,8 @@ Never store app code in Business-Empire-Agent.
 | **Google (GWS)** | `scripts/google_tool.py` | `gmail list`, `calendar events`, `drive list`, `sheets read <id>` |
 
 **First message: "Bravo online." — then answer the query.**
+
+## Related
+- [[CLAUDE]]
+- [[brain/INDEX]]
+- [[brain/CAPABILITIES]]

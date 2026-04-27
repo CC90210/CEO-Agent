@@ -78,3 +78,7 @@ Powerful does not mean reckless:
 - Raw shell passthrough should stay disabled in Telegram.
 - Production daemons should have single-instance locks.
 - Security events should be visible through `ai-operator security-events`.
+
+## Related
+- [[docs/INDEX]]
+- [[brain/CAPABILITIES]]

@@ -56,3 +56,7 @@ Copy this shape into `browser/domain-skills/<site>.md`.
 ## Notes
 
 Capture durable map knowledge only. Do not write secrets, cookies, raw coordinates, or run narration.
+
+## Related
+- [[browser/README]]
+- [[browser/SAFETY]]

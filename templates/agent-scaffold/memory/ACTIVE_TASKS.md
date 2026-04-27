@@ -18,3 +18,6 @@ updated: {{DATE}}
 
 ## Done
 - [x] Forged by Bravo Agent Forge on {{DATE}}.
+
+## Related
+- [[brain/INDEX]]

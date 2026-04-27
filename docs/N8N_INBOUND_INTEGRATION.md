@@ -137,3 +137,7 @@ You go from "N8N auto-replied something generic" to "hot reply was triaged, draf
 ---
 
 *Related: [database/012_inbound_rpc.sql](../database/012_inbound_rpc.sql) — the function itself. [skills/send-gateway/SKILL.md](../skills/send-gateway/SKILL.md) — the outbound counterpart.*
+
+## Related
+- [[docs/INDEX]]
+- [[brain/CAPABILITIES]]
