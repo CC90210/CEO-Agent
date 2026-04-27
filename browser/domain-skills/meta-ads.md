@@ -22,3 +22,8 @@
 ## Approval Gates
 
 Approval required before publish, pause, enable, budget edits, audience edits, creative edits, billing changes, or business manager permission changes.
+
+## Related
+- [[browser/README]]
+- [[browser/SAFETY]]
+- [[skills/browser-harness/SKILL]]

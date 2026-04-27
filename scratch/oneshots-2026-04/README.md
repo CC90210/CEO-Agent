@@ -12,3 +12,7 @@ reference and audit trail; never re-run, never imported by active code.
 Reusable utilities (`_audit_usage.py`, `_call_sheet_v2.py`, `_write_call_sheet.py`,
 `_reconcile_gmail_sent.py`) stay in `scripts/` because they're idempotent
 and intended to be re-run on new data.
+
+## Related
+- [[memory/INDEX]]
+- [[memory/ARCHIVES/README]]

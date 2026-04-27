@@ -33,3 +33,8 @@ After a click, type, upload, scroll, or navigation:
 2. Check page state.
 3. Confirm no modal, auth wall, validation error, or wrong account appeared.
 4. Continue only if state matches the task.
+
+## Related
+- [[browser/README]]
+- [[browser/interaction-skills/INDEX]]
+- [[skills/browser-automation/SKILL]]

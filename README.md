@@ -403,3 +403,8 @@ MIT
 ---
 
 *Built by one person with Claude Code, Gemini CLI, and the belief that AI should multiply human ambition, not replace it.*
+
+## Related
+- [[brain/INDEX]]
+- [[brain/TOOL_SHED]]
+- [[docs/INDEX]]

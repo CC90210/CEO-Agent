@@ -52,3 +52,8 @@ List every action that can affect client data, billing, users, outbound communic
 ## Evidence
 
 Safe evidence only. Do not commit private client data.
+
+## Related
+- [[browser/README]]
+- [[browser/SAFETY]]
+- [[skills/browser-harness/SKILL]]

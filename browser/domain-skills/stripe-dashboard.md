@@ -27,3 +27,8 @@
 ## Approval Gates
 
 Approval required before refunds, charges, cancellations, subscription edits, payment-link creation if it will be sent, payout/bank changes, or user access changes.
+
+## Related
+- [[browser/README]]
+- [[browser/SAFETY]]
+- [[skills/browser-harness/SKILL]]

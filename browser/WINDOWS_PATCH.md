@@ -42,3 +42,7 @@ Expected current result:
 ## Upgrade Note
 
 Because this is an editable install, `browser-harness --update -y` may refuse while the checkout is dirty. If upstream adds native Windows support later, compare before removing the local patch.
+
+## Related
+- [[browser/README]]
+- [[browser/SAFETY]]

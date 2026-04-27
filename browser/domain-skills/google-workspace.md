@@ -27,3 +27,8 @@
 ## Approval Gates
 
 Approval required before sending, sharing externally, deleting files, changing admin settings, changing security settings, or inviting users.
+
+## Related
+- [[browser/README]]
+- [[browser/SAFETY]]
+- [[skills/browser-harness/SKILL]]

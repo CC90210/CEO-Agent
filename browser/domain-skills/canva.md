@@ -22,3 +22,8 @@
 ## Approval Gates
 
 Approval required before sharing, publishing, deleting, exporting sensitive client work, changing brand kit, or inviting users.
+
+## Related
+- [[browser/README]]
+- [[browser/SAFETY]]
+- [[skills/browser-harness/SKILL]]

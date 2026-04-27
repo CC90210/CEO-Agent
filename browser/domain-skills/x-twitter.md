@@ -22,3 +22,8 @@
 ## Approval Gates
 
 Approval required before any public or private account action.
+
+## Related
+- [[browser/README]]
+- [[browser/SAFETY]]
+- [[skills/browser-harness/SKILL]]

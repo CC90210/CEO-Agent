@@ -213,3 +213,7 @@ fails, do not send. Fix the underlying issue first.
 
 You're a smart AI. Act like the email is going to a paying client at
 $2,500/month MRR — because it might be.
+
+## Related
+- [[skills/INDEX]]
+- [[brain/CAPABILITIES]]

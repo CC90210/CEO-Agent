@@ -38,3 +38,7 @@ Every page renders on Vercel's server runtime via React Server Components.
 The service role key never reaches the browser. If you add interactive
 features later, swap to per-request patterns using the anon key with RLS
 policies.
+
+## Related
+- [[apps/command-center/README]]
+- [[brain/APP_REGISTRY]]

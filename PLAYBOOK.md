@@ -279,3 +279,8 @@ Only the ones you might open directly. The rest you access through commands or c
 Bravo's job is to multiply your time. Every thing in this playbook should save you more minutes than it costs you to learn. If something here doesn't feel like a net positive, tell Bravo and we'll kill it. The goal is a system you use without thinking — not a system you spend time managing.
 
 *Last updated: 2026-04-20 (V5.6 — outbound chokepoint + reasoning loop live).*
+
+## Related
+- [[CLAUDE]]
+- [[brain/INDEX]]
+- [[brain/CAPABILITIES]]

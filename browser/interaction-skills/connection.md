@@ -40,3 +40,8 @@ wait_for_load()
 print(page_info())
 '@ | & (Get-Command browser-harness).Source
 ```
+
+## Related
+- [[browser/README]]
+- [[browser/interaction-skills/INDEX]]
+- [[skills/browser-automation/SKILL]]

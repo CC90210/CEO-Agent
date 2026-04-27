@@ -27,3 +27,8 @@ Prefer existing tools that log business activity:
 - `scripts/google_tool.py` for Google Workspace.
 
 Browser clicks should not bypass Bravo's logs.
+
+## Related
+- [[browser/README]]
+- [[browser/interaction-skills/INDEX]]
+- [[skills/browser-automation/SKILL]]

@@ -44,3 +44,7 @@ runtime/
 Runtime code should orchestrate existing scripts. It should not duplicate business logic that already works in `scripts/`.
 
 Critical rule: runtime messaging must preserve the V5.6 outbound chokepoint.
+
+## Related
+- [[brain/INDEX]]
+- [[skills/INDEX]]

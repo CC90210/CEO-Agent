@@ -98,3 +98,7 @@ Never let packaging work bypass Bravo's business safety:
 - Finance actions require approval.
 - Production setting changes require approval.
 - Destructive actions require approval.
+
+## Related
+- [[skills/INDEX]]
+- [[brain/CAPABILITIES]]
