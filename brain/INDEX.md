@@ -48,3 +48,12 @@ tags: [brain, index]
 - [[brain/CROSS_AGENT_AWARENESS]] — Pulse-file protocol for Bravo/Atlas/Maven/Aura sync
 - [[brain/AGENT_SELF_IMPROVEMENT_PROMPTS]] — Paste-into-IDE prompts to level up sibling agents
 - [[brain/TOOL_SHED]] — Curated shareable GitHub repo catalog (client-facing)
+
+## Sibling Hubs (other top-level dirs)
+- [[skills/INDEX]] — 150 skills (Bravo, GWS suite, persona, creative, ops)
+- [[memory/INDEX]] — Active state + decisions + archives
+- [[browser/README]] — Browser harness + domain skills + safety rules
+- [[docs/INDEX]] — Cross-agent prompts + workstation + V6 architecture
+- [[.agents/INDEX]] — Workflow + plan registry (Claude Code / Anti-Gravity / Gemini)
+- [[.claude/INDEX]] — Native subagents, skill overrides, Codex plugin
+- [[.gemini/INDEX]] — Gemini CLI workflows + rules
