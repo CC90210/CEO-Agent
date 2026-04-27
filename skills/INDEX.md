@@ -138,3 +138,37 @@ tags: [skills, index, hub]
 - [[skills/gws-shared/SKILL]] — `gws` CLI reference (auth, global flags, usage). All per-action + per-service hubs are wikilinked from there.
 - [[skills/google-workspace-recipes/SKILL]] — **Cookbook of 41 multi-step workflows** (Gmail + Drive + Calendar + Docs + Sheets + Tasks)
 - [[skills/email-safety/SKILL]] — universal dry-run kill-switch + multi-AI rulebook for any agent that may send mail
+
+### GWS — Gmail
+- [[skills/gws-gmail/SKILL]] — Gmail service hub
+- [[skills/gws-gmail-read/SKILL]] · [[skills/gws-gmail-send/SKILL]] · [[skills/gws-gmail-reply/SKILL]] · [[skills/gws-gmail-reply-all/SKILL]] · [[skills/gws-gmail-forward/SKILL]]
+- [[skills/gws-gmail-triage/SKILL]] · [[skills/gws-gmail-watch/SKILL]]
+
+### GWS — Calendar + Meet
+- [[skills/gws-calendar/SKILL]] · [[skills/gws-calendar-agenda/SKILL]] · [[skills/gws-calendar-insert/SKILL]] · [[skills/gws-meet/SKILL]]
+
+### GWS — Docs / Sheets / Slides / Forms
+- [[skills/gws-docs/SKILL]] · [[skills/gws-docs-write/SKILL]]
+- [[skills/gws-sheets/SKILL]] · [[skills/gws-sheets-read/SKILL]] · [[skills/gws-sheets-append/SKILL]]
+- [[skills/gws-slides/SKILL]] · [[skills/gws-forms/SKILL]]
+
+### GWS — Drive / Tasks / Keep / People / Chat / Classroom / Admin / Events
+- [[skills/gws-drive/SKILL]] · [[skills/gws-drive-upload/SKILL]]
+- [[skills/gws-tasks/SKILL]] · [[skills/gws-keep/SKILL]] · [[skills/gws-people/SKILL]]
+- [[skills/gws-chat/SKILL]] · [[skills/gws-chat-send/SKILL]]
+- [[skills/gws-classroom/SKILL]] · [[skills/gws-admin-reports/SKILL]]
+- [[skills/gws-events/SKILL]] · [[skills/gws-events-subscribe/SKILL]] · [[skills/gws-events-renew/SKILL]]
+
+### GWS — Workflows (composite)
+- [[skills/gws-workflow/SKILL]] — workflow hub
+- [[skills/gws-workflow-email-to-task/SKILL]] · [[skills/gws-workflow-file-announce/SKILL]] · [[skills/gws-workflow-meeting-prep/SKILL]] · [[skills/gws-workflow-standup-report/SKILL]] · [[skills/gws-workflow-weekly-digest/SKILL]]
+
+### GWS — Model Armor (PII / safety)
+- [[skills/gws-modelarmor/SKILL]] — Model Armor hub
+- [[skills/gws-modelarmor-create-template/SKILL]] · [[skills/gws-modelarmor-sanitize-prompt/SKILL]] · [[skills/gws-modelarmor-sanitize-response/SKILL]]
+
+## Standalone (not yet bucketed)
+- [[skills/ethical-hacking/SKILL]] — security testing playbook (CTF / authorized pentest only)
+- [[skills/knowledge-compilation/SKILL]] — Karpathy-style compile-into-weights pattern
+- [[skills/sales-closing/SKILL]] — close discipline (paired with [[skills/sales-methodology/SKILL]])
+- [[skills/self-improvement-protocol/SKILL]] — Rule 9 executable decision tree
