@@ -98,17 +98,24 @@ Step 3 — Maven-specific context loading (30 min)
   Reference implementation in Bravo's `telegram_agent.js` —
   search for `loadCSuiteSnapshot` to see the parser + fallback pattern.
 
-  CRITICAL — sibling-repo READS (added 2026-04-26): Bravo's bridge can
-  also READ files from Atlas + Maven + Aura repos directly via a
-  `SIBLING_REPOS` map + `readSiblingRepo(agent, relPath)` helper +
-  `loadSiblingPulses()` summarizer. This is what makes Bravo actually
-  KNOW Maven's current state, not just NAME Maven. Maven's bridge needs
-  the same — search Bravo's `telegram_agent.js` for `SIBLING_REPOS` and
-  port the 3 helpers verbatim (`readSiblingRepo`, `loadSiblingPulses`,
-  the SIBLING_REPOS env-overridable map). Wire `loadSiblingPulses()`
-  into your context loader at T1+ so Maven always sees Bravo's
-  ceo_pulse, Atlas's cfo_pulse (which gates your paid spend), and
-  Aura's pulse. Stale-pulse warnings (>24h) get a ⚠ flag.
+  CRITICAL — sibling-repo READS (added 2026-04-26): Bravo extracted the
+  cross-agent helpers into `scripts/c_suite_context.js` (Node module
+  with 30 unit tests at `scripts/test_c_suite_context.js`). Maven
+  should COPY that file verbatim into its own `scripts/` dir, then
+  require it from the bridge:
+
+    const cSuite = require('./scripts/c_suite_context.js');
+    const { SIBLING_REPOS, readSiblingRepo, loadCSuiteSnapshot,
+            loadSiblingPulses } = cSuite;
+
+  This gives Maven `loadSiblingPulses()` to inject at T1+ context
+  (so Maven always sees Bravo's ceo_pulse, Atlas's cfo_pulse —
+  which gates your paid spend — and Aura's pulse with stale flags).
+  And `readSiblingRepo('atlas', 'data/pulse/cfo_pulse.json')` is
+  exactly the call you'll make to gate paid campaign launches.
+
+  Also copy `scripts/test_c_suite_context.js` and run it — must
+  return 30/30 PASS before declaring the bridge wired.
 
 Step 4 — Maven-specific tool routing (45 min)
   Replace Bravo's tool list with Maven's. Your chat should do:
