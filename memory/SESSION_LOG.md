@@ -4,11 +4,11 @@ tags: [daily]
 
 ### 2026-04-26 — Auto-sync
 **Agent:** BRAVO state_sync
-**Note:** Two distinct cross-agent finalization prompts shipped: MAVEN_FINALIZATION_PROMPT.md (V1.1->V1.2, integration debt + 6-lens deep audit) and ATLAS_FINALIZATION_PROMPT.md (V1.0 foundation build — 8 agents, math-grade test coverage, cfo_pulse contract, dispatch chokepoint). Stale V1.0->V1.1 docs marked HISTORICAL. docs/INDEX.md now has a cross-agent prompts table with ACTIVE vs COMPLETE status.
+**Note:** Mac flags closed: remote URL retargeted to CC90210/CEO-Agent. Dependabot: merged 3 pip PRs (cryptography 46.0.7, requests 2.33.0, pillow 12.2.0), bumped uuid override 10 to 14 (alert 41), bumped postcss in command-center to 8.5.12 (alert 45). 4 transitive request SSRF audits remain (upstream-pinned in node-telegram-bot-api 0.67.0, no clean fix).
 
 ### 2026-04-26 — Auto-sync
 **Agent:** BRAVO state_sync
-**Note:** Full system audit: extracted name sanitizer to scripts/name_utils.py + applied to email_engine, outreach_engine, funnel_nurture, autonomous_agent. Fixed 2 real send_gateway safety bugs: critic gate now fail-closes on any non-ship verdict and on critic exceptions (was silently bypassing on escalate/revise). 88/88 tests pass. self_audit 100/100.
+**Note:** MacBook synced from origin/main (b11a3fc..53d4d32, 92 commits). Bridge V15.5 wired with loadCSuiteSnapshot reading brain/CROSS_AGENT_AWARENESS.md at runtime. PM2 bravo-telegram restarted, polling active. 47/51 send_gateway tests pass (3 pre-existing failures + pyyaml env gap). Stash@{0} holds local Mac work (macos_control.py + mousetool + competing telegram_agent.js V15.5).
 
 ### 2026-04-25 — Auto-sync
 **Agent:** BRAVO state_sync

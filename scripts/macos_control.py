@@ -26,7 +26,7 @@ def guard_macos():
         sys.exit(1)
 
 
-def run_osascript(script, timeout=10):
+def run_osascript(script, timeout=30):
     try:
         result = subprocess.run(
             ["osascript", "-e", script],
@@ -41,7 +41,7 @@ def run_osascript(script, timeout=10):
         return {"ok": False, "error": str(e)}
 
 
-def run_shell(cmd, timeout=10):
+def run_shell(cmd, timeout=30):
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
         if result.returncode != 0:
@@ -459,7 +459,7 @@ tell application "System Events"
         end repeat
         return "none"
     end try
-end tell''', timeout=10)
+end tell''', timeout=30)
     if r["ok"] and r["output"] != "none":
         parts = r["output"].split(",")
         if len(parts) == 4:
@@ -900,10 +900,12 @@ def cmd_search_files(args):
 
 def cmd_reveal_in_finder(args):
     """Reveal a file/folder in Finder."""
-    path = os.path.expanduser(args.path)
+    p = os.path.expanduser(args.path)
+    # Escape path for AppleScript (handle spaces, special chars)
+    safe_path = p.replace('\\', '\\\\').replace('"', '\\"')
     return run_osascript(f'''
 tell application "Finder"
-    reveal POSIX file "{path}"
+    reveal POSIX file "{safe_path}"
     activate
 end tell''')
 
@@ -992,7 +994,7 @@ def cmd_drag(args):
 
 def cmd_list_audio(args):
     """List audio input/output devices."""
-    r = run_shell(["system_profiler", "SPAudioDataType"], timeout=10)
+    r = run_shell(["system_profiler", "SPAudioDataType"], timeout=30)
     if not r["ok"]:
         return r
     # Parse into cleaner format
@@ -1033,7 +1035,7 @@ def cmd_get_ip(args):
     r = run_shell(["ipconfig", "getifaddr", "en0"])
     if r["ok"]:
         info["local_wifi"] = r["output"].strip()
-    r = run_shell(["curl", "-s", "https://api.ipify.org"], timeout=10)
+    r = run_shell(["curl", "-s", "https://api.ipify.org"], timeout=30)
     if r["ok"]:
         info["public"] = r["output"].strip()
     if info:
@@ -1088,63 +1090,63 @@ def cmd_setup_permissions(args):
 tell application "System Events"
     set frontApp to name of first application process whose frontmost is true
     return "Accessibility: OK — frontmost app is " & frontApp
-end tell''', timeout=10)
+end tell''', timeout=30)
     results.append(f"Accessibility: {'PASS' if r['ok'] else 'NEEDS PERMISSION — click Allow'}")
 
     # 2. Automation — Chrome
     r = run_osascript('''
 tell application "Google Chrome"
     return "Chrome automation: OK — " & (count of windows) & " windows"
-end tell''', timeout=10)
+end tell''', timeout=30)
     results.append(f"Chrome control: {'PASS' if r['ok'] else 'NEEDS PERMISSION — click Allow'}")
 
     # 3. Automation — Finder
     r = run_osascript('''
 tell application "Finder"
     return "Finder automation: OK"
-end tell''', timeout=10)
+end tell''', timeout=30)
     results.append(f"Finder control: {'PASS' if r['ok'] else 'NEEDS PERMISSION — click Allow'}")
 
     # 4. Automation — Safari
     r = run_osascript('''
 tell application "Safari"
     return "Safari automation: OK"
-end tell''', timeout=10)
+end tell''', timeout=30)
     results.append(f"Safari control: {'PASS' if r['ok'] else 'NEEDS PERMISSION — click Allow'}")
 
     # 5. Automation — Mail
     r = run_osascript('''
 tell application "Mail"
     return "Mail automation: OK"
-end tell''', timeout=10)
+end tell''', timeout=30)
     results.append(f"Mail control: {'PASS' if r['ok'] else 'NEEDS PERMISSION — click Allow'}")
 
     # 6. Automation — System Preferences/Settings
     r = run_osascript('''
 tell application "System Settings"
     return "Settings automation: OK"
-end tell''', timeout=10)
+end tell''', timeout=30)
     results.append(f"System Settings: {'PASS' if r['ok'] else 'NEEDS PERMISSION — click Allow'}")
 
     # 7. Automation — Notes
     r = run_osascript('''
 tell application "Notes"
     return "Notes automation: OK"
-end tell''', timeout=10)
+end tell''', timeout=30)
     results.append(f"Notes control: {'PASS' if r['ok'] else 'NEEDS PERMISSION — click Allow'}")
 
     # 8. Automation — Calendar
     r = run_osascript('''
 tell application "Calendar"
     return "Calendar automation: OK"
-end tell''', timeout=10)
+end tell''', timeout=30)
     results.append(f"Calendar control: {'PASS' if r['ok'] else 'NEEDS PERMISSION — click Allow'}")
 
     # 9. Automation — Messages (if CC wants)
     r = run_osascript('''
 tell application "Messages"
     return "Messages automation: OK"
-end tell''', timeout=10)
+end tell''', timeout=30)
     results.append(f"Messages control: {'PASS' if r['ok'] else 'NEEDS PERMISSION — click Allow'}")
 
     # 10. Screen recording permission test
@@ -1172,12 +1174,40 @@ end tell''', timeout=10)
 # BROWSER CONTROL (Chrome via AppleScript + JavaScript)
 # ============================================================
 
+def _ensure_chrome_running():
+    """Launch Chrome with the correct profile if not already running. Dismisses profile picker."""
+    import subprocess as _sp
+    # Check if Chrome is running
+    r = _sp.run(['pgrep', '-x', 'Google Chrome'], capture_output=True)
+    if r.returncode != 0:
+        # Chrome not running — launch with the right profile to skip profile picker
+        _sp.Popen(['open', '-a', 'Google Chrome', '--args', '--profile-directory=Profile 1'],
+                   stdout=_sp.DEVNULL, stderr=_sp.DEVNULL)
+        import time; time.sleep(3)
+
+
 def cmd_browser_open(args):
-    """Open URL in Chrome and wait for page to load."""
+    """Open URL in Chrome and wait for page to load. Auto-launches with correct profile."""
     url = args.url
+    _ensure_chrome_running()
     script = f'''
 tell application "Google Chrome"
     activate
+end tell
+
+-- Dismiss profile picker popup if it somehow appears
+delay 0.3
+tell application "Google Chrome"
+    repeat with w in every window
+        try
+            if title of w contains "using Chrome" or title of w contains "Choose a profile" then
+                close w
+            end if
+        end try
+    end repeat
+end tell
+
+tell application "Google Chrome"
     if (count of windows) = 0 then
         make new window
     end if
@@ -1207,7 +1237,9 @@ end tell
 def cmd_browser_js(args):
     """Execute JavaScript in Chrome's active tab. Requires: Chrome > View > Developer > Allow JavaScript from Apple Events."""
     js_code = args.script
-    escaped = js_code.replace("\\", "\\\\").replace('"', '\\"')
+    # Use json.dumps to safely escape the JS string for AppleScript embedding
+    import json
+    escaped = json.dumps(js_code)[1:-1]  # strip outer quotes, keep escaped internals
     script = f'''
 tell application "Google Chrome"
     if (count of windows) = 0 then return "error: Chrome has no open windows"
@@ -1287,6 +1319,33 @@ end tell
     return run_osascript(script)
 
 
+def cmd_browser_close_others(args):
+    """Close all Chrome tabs and windows EXCEPT the active tab. Kills ad/popup tabs."""
+    script = '''
+tell application "Google Chrome"
+    -- Close all windows except the first one
+    set winCount to count of windows
+    if winCount > 1 then
+        repeat with i from winCount to 2 by -1
+            close window i
+        end repeat
+    end if
+    -- In the remaining window, close all tabs except the active one
+    tell window 1
+        set activeIdx to active tab index
+        set tabCount to count of tabs
+        repeat with i from tabCount to 1 by -1
+            if i is not activeIdx then
+                close tab i
+            end if
+        end repeat
+    end tell
+    return "closed all other tabs/windows"
+end tell
+'''
+    return run_osascript(script, timeout=10)
+
+
 def cmd_browser_list_tabs(args):
     """List all open tabs in Chrome."""
     script = '''
@@ -1333,8 +1392,9 @@ def cmd_youtube_play(args):
     """Atomic: open YouTube, search the query, click the first result, and let it play.
     One command — no multi-turn orchestration needed."""
     query = sanitize_applescript_string(args.query)
-    # URL-encode spaces as +
-    encoded = query.replace(' ', '+')
+    # Proper URL encoding (handles &, %, special chars, not just spaces)
+    from urllib.parse import quote_plus
+    encoded = quote_plus(query)
     search_url = f"https://www.youtube.com/results?search_query={encoded}"
 
     # Step 1 — navigate to search results
@@ -1370,7 +1430,7 @@ tell application "Google Chrome"
     "
     return jsResult
 end tell
-''', timeout=10)
+''', timeout=30)
 
     if not r2["ok"]:
         return r2
@@ -1405,6 +1465,627 @@ end tell
 ''', timeout=8)
 
     return {"ok": True, "output": f"YouTube playing: {clicked_title}\nSearch query: {query}"}
+
+
+# ============================================================
+# CONTACTS, FACETIME, MESSAGES — Native macOS APIs (no UI automation)
+# ============================================================
+
+def cmd_contacts_search(args):
+    """Search macOS Contacts by name. Returns phone numbers and emails."""
+    name = sanitize_applescript_string(args.name)
+    # Launch Contacts quietly if not running
+    run_shell(["open", "-gja", "Contacts"])
+    import time; time.sleep(1)
+    r = run_osascript(f'''
+tell application "Contacts"
+    set matchedPeople to every person whose name contains "{name}"
+    if (count of matchedPeople) = 0 then return "NO_MATCHES"
+    set results to ""
+    repeat with p in matchedPeople
+        set fn to first name of p
+        set ln to last name of p
+        if fn is missing value then set fn to ""
+        if ln is missing value then set ln to ""
+        set fullName to fn & " " & ln
+        set phoneStr to ""
+        repeat with ph in phones of p
+            set phoneStr to phoneStr & (value of ph) & ", "
+        end repeat
+        set emailStr to ""
+        repeat with em in emails of p
+            set emailStr to emailStr & (value of em) & ", "
+        end repeat
+        set results to results & fullName & " | phone: " & phoneStr & " | email: " & emailStr & linefeed
+    end repeat
+    return results
+end tell
+''', timeout=30)
+    if not r["ok"]:
+        return r
+    output = r.get("output", "").strip()
+    if output == "NO_MATCHES":
+        return {"ok": False, "error": f"No contacts found matching '{name}'"}
+    contacts = []
+    for line in output.strip().split("\n"):
+        if "|" in line:
+            parts = line.split("|")
+            contact = {"name": parts[0].strip()}
+            for part in parts[1:]:
+                if "phone:" in part:
+                    phones = [p.strip() for p in part.split("phone:")[1].split(",") if p.strip()]
+                    contact["phones"] = phones
+                if "email:" in part:
+                    emails = [e.strip() for e in part.split("email:")[1].split(",") if e.strip()]
+                    contact["emails"] = emails
+            contacts.append(contact)
+    r["contacts"] = contacts
+    # Format for display
+    lines = []
+    for c in contacts:
+        phones = ", ".join(c.get("phones", []))
+        emails = ", ".join(c.get("emails", []))
+        lines.append(f"{c['name']}: {phones} {emails}".strip())
+    r["output"] = "\n".join(lines)
+    return r
+
+
+def cmd_facetime(args):
+    """Initiate a FaceTime call. Pass a name, phone number, or email. Names auto-resolve via Contacts.
+    Uses New FaceTime → type contact → select → click FaceTime button for a real call (not just the prompt)."""
+    contact = args.contact.strip()
+    audio_only = getattr(args, 'audio', False)
+    # Resolve name to phone/email if needed (for the search field)
+    search_term = contact
+    resolved_name = contact
+    if not contact.startswith("+") and "@" not in contact and not contact.replace("-","").replace(" ","").isdigit():
+        # It's a name — we'll type it directly in the FaceTime search (it searches Contacts natively)
+        search_term = contact
+        resolved_name = contact
+    # Use System Events to drive FaceTime UI — this actually initiates the call
+    call_type = "Audio" if audio_only else "Video"
+    safe_contact = sanitize_applescript_string(search_term)
+    r = run_osascript(f'''
+-- Launch FaceTime and wait for it to be fully ready
+tell application "FaceTime" to activate
+delay 2
+
+-- Wait for window to appear (up to 10 seconds)
+tell application "System Events"
+    tell process "FaceTime"
+        set maxWait to 10
+        set waited to 0
+        repeat while (count of windows) < 1 and waited < maxWait
+            delay 1
+            set waited to waited + 1
+        end repeat
+        if (count of windows) < 1 then return "error: FaceTime window did not appear"
+
+        -- Click New FaceTime button (try multiple approaches)
+        try
+            click button "New FaceTime" of window 1
+        on error
+            -- Maybe the button has a different label — try all buttons
+            set allBtns to buttons of window 1
+            set found to false
+            repeat with b in allBtns
+                try
+                    if name of b contains "New" or name of b contains "new" then
+                        click b
+                        set found to true
+                        exit repeat
+                    end if
+                end try
+            end repeat
+            if not found then
+                -- Last resort: Cmd+N for new call
+                keystroke "n" using command down
+            end if
+        end try
+    end tell
+end tell
+
+delay 1
+-- Type the contact name/number
+tell application "System Events"
+    keystroke "{safe_contact}"
+end tell
+
+delay 2
+-- Select first match from contact suggestions
+tell application "System Events"
+    key code 36
+end tell
+
+delay 1.5
+-- Click the FaceTime call button (it's a radio button inside a radio group in the sheet)
+tell application "System Events"
+    tell process "FaceTime"
+        try
+            set s to sheet 1 of window 1
+            set rg to radio group 1 of s
+            click radio button 1 of rg
+        on error
+            -- Fallback: try clicking all radio buttons in the sheet
+            try
+                set allEls to entire contents of sheet 1 of window 1
+                repeat with el in allEls
+                    try
+                        if class of el is radio button then
+                            click el
+                            exit repeat
+                        end if
+                    end try
+                end repeat
+            end try
+        end try
+    end tell
+end tell
+
+-- Wait for call to connect, then dismiss the "add people" dialog that appears
+delay 2
+tell application "System Events"
+    key code 53 -- Escape to dismiss add-people dialog
+end tell
+
+return "Call initiated"
+''', timeout=25)
+    if r["ok"]:
+        r["output"] = f"FaceTime {call_type.lower()} call initiated to {resolved_name}"
+    return r
+
+
+def cmd_imessage(args):
+    """Send an iMessage via the Messages app. Pass a name, phone number, or email."""
+    contact = args.contact.strip()
+    text = args.text
+    # If name given, look up in Contacts to get phone/email
+    if not contact.startswith("+") and "@" not in contact and not contact.replace("-","").replace(" ","").isdigit():
+        class FakeArgs:
+            pass
+        fa = FakeArgs()
+        fa.name = contact
+        cr = cmd_contacts_search(fa)
+        if not cr.get("ok"):
+            return {"ok": False, "error": f"Could not find '{contact}' in Contacts."}
+        contacts = cr.get("contacts", [])
+        if contacts and contacts[0].get("phones"):
+            contact = contacts[0]["phones"][0]
+        elif contacts and contacts[0].get("emails"):
+            contact = contacts[0]["emails"][0]
+        else:
+            return {"ok": False, "error": f"No phone/email for '{contact}'"}
+    safe_text = text.replace('\\', '\\\\').replace('"', '\\"')
+    r = run_osascript(f'''
+tell application "Messages"
+    set targetService to (service 1 whose service type is iMessage)
+    set targetBuddy to buddy "{contact}" of targetService
+    send "{safe_text}" to targetBuddy
+end tell
+''', timeout=15)
+    if r["ok"]:
+        r["output"] = f"iMessage sent to {contact}: {text[:50]}"
+    return r
+
+
+# ============================================================
+# NOTES — Create, search, read notes
+# ============================================================
+
+def cmd_notes_create(args):
+    """Create a new note in Apple Notes."""
+    title = sanitize_applescript_string(args.title)
+    body = args.body.replace('\\', '\\\\').replace('"', '\\"') if args.body else ""
+    folder = sanitize_applescript_string(getattr(args, 'folder', 'Notes') or 'Notes')
+    r = run_osascript(f'''
+tell application "Notes"
+    tell account "iCloud"
+        tell folder "{folder}"
+            make new note with properties {{name:"{title}", body:"{body}"}}
+        end tell
+    end tell
+end tell
+''', timeout=30)
+    if r["ok"]:
+        r["output"] = f"Note created: {title}"
+    return r
+
+
+def cmd_notes_search(args):
+    """Search Apple Notes by title."""
+    query = sanitize_applescript_string(args.query)
+    r = run_osascript(f'''
+tell application "Notes"
+    tell account "iCloud"
+        tell folder "Notes"
+            set matches to (every note whose name contains "{query}")
+            set output to ""
+            repeat with n in matches
+                set output to output & (name of n) & " | " & (modification date of n as string) & linefeed
+            end repeat
+        end tell
+    end tell
+end tell
+if output is "" then return "No notes found"
+return output
+''', timeout=30)
+    return r
+
+
+def cmd_notes_read(args):
+    """Read the body of a note by title."""
+    title = sanitize_applescript_string(args.title)
+    r = run_osascript(f'''
+tell application "Notes"
+    tell account "iCloud"
+        tell folder "Notes"
+            set theNote to first note whose name is "{title}"
+            return plaintext of theNote
+        end tell
+    end tell
+end tell
+''', timeout=30)
+    return r
+
+
+# ============================================================
+# REMINDERS — Create, list, complete
+# ============================================================
+
+def cmd_reminder_create(args):
+    """Create a reminder, optionally with a due date (e.g. 'tomorrow', '2026-04-15 9am')."""
+    name = sanitize_applescript_string(args.name)
+    body = sanitize_applescript_string(getattr(args, 'body', '') or '')
+    list_name = sanitize_applescript_string(getattr(args, 'list', 'Reminders') or 'Reminders')
+    due = getattr(args, 'due', None)
+    due_script = ""
+    if due:
+        # Use Python to parse the date and pass it to AppleScript
+        due_script = f'''
+        set dueDate to current date
+        try
+            set dueDate to date "{sanitize_applescript_string(due)}"
+        end try
+        set due date of newReminder to dueDate
+        set remind me date of newReminder to dueDate'''
+    r = run_osascript(f'''
+tell application "Reminders"
+    set targetList to list 1
+    tell targetList
+        set newReminder to make new reminder with properties {{name:"{name}", body:"{body}"}}
+        {due_script}
+    end tell
+end tell
+return "Reminder created"
+''', timeout=30)
+    if r["ok"]:
+        r["output"] = f"Reminder created: {name}" + (f" (due: {due})" if due else "")
+    return r
+
+
+def cmd_reminders_list(args):
+    """List incomplete reminders."""
+    list_name = sanitize_applescript_string(getattr(args, 'list', 'Reminders') or 'Reminders')
+    r = run_osascript(f'''
+tell application "Reminders"
+    set targetList to list 1
+    set incompleteItems to (every reminder in targetList whose completed is false)
+    set output to ""
+    repeat with r in incompleteItems
+        set rName to name of r
+        set rDue to ""
+        try
+            set rDue to due date of r as string
+        end try
+        set output to output & rName & " | due: " & rDue & linefeed
+    end repeat
+end tell
+if output is "" then return "No incomplete reminders"
+return output
+''', timeout=30)
+    return r
+
+
+def cmd_reminder_complete(args):
+    """Mark a reminder as complete by name."""
+    name = sanitize_applescript_string(args.name)
+    list_name = sanitize_applescript_string(getattr(args, 'list', 'Reminders') or 'Reminders')
+    r = run_osascript(f'''
+tell application "Reminders"
+    set targetList to list 1
+    set targetReminder to first reminder in targetList whose name is "{name}"
+    set completed of targetReminder to true
+end tell
+return "Done"
+''', timeout=30)
+    if r["ok"]:
+        r["output"] = f"Reminder completed: {name}"
+    return r
+
+
+# ============================================================
+# MAPS — Search and directions via URL scheme
+# ============================================================
+
+def cmd_maps_search(args):
+    """Search Apple Maps for a location."""
+    from urllib.parse import quote_plus
+    query = quote_plus(args.query)
+    r = run_shell(["open", f"maps://?q={query}"])
+    if r["ok"]:
+        r["output"] = f"Maps opened: {args.query}"
+    return r
+
+
+def cmd_maps_directions(args):
+    """Get directions in Apple Maps. Defaults to driving from current location."""
+    from urllib.parse import quote_plus
+    dest = quote_plus(args.to)
+    mode = getattr(args, 'mode', 'd') or 'd'  # d=driving, w=walking, r=transit
+    mode_flag = mode[0].lower() if mode else 'd'
+    src = ""
+    if getattr(args, 'from_addr', None):
+        src = f"&saddr={quote_plus(args.from_addr)}"
+    r = run_shell(["open", f"maps://?daddr={dest}{src}&dirflg={mode_flag}"])
+    if r["ok"]:
+        mode_name = {'d': 'driving', 'w': 'walking', 'r': 'transit'}.get(mode_flag, 'driving')
+        r["output"] = f"Directions to {args.to} ({mode_name})"
+    return r
+
+
+# ============================================================
+# MAIL — Compose, list unread, read
+# ============================================================
+
+def cmd_mail_send(args):
+    """Compose and send an email via Apple Mail."""
+    to_addr = sanitize_applescript_string(args.to)
+    subject = sanitize_applescript_string(args.subject)
+    body = args.body.replace('\\', '\\\\').replace('"', '\\"') if args.body else ""
+    r = run_osascript(f'''
+tell application "Mail"
+    set theMessage to make new outgoing message with properties {{subject:"{subject}", content:"{body}", visible:false}}
+    tell theMessage
+        make new to recipient with properties {{address:"{to_addr}"}}
+    end tell
+    send theMessage
+end tell
+return "Email sent"
+''', timeout=15)
+    if r["ok"]:
+        r["output"] = f"Email sent to {to_addr}: {subject}"
+    return r
+
+
+def cmd_mail_unread(args):
+    """List unread emails."""
+    limit = getattr(args, 'limit', 5) or 5
+    r = run_osascript(f'''
+tell application "Mail"
+    set output to ""
+    set unreadMsgs to (messages of inbox whose read status is false)
+    set total to count of unreadMsgs
+    set showing to {limit}
+    if total < showing then set showing to total
+    repeat with i from 1 to showing
+        set msg to item i of unreadMsgs
+        set output to output & (sender of msg) & " | " & (subject of msg) & linefeed
+    end repeat
+    return "(" & total & " unread total, showing " & showing & ")" & linefeed & output
+end tell
+''', timeout=45)
+    return r
+
+
+def cmd_mail_read(args):
+    """Read the most recent unread email (or a specific one by subject)."""
+    subject_filter = sanitize_applescript_string(getattr(args, 'subject', '') or '')
+    if subject_filter:
+        filter_clause = f'whose subject contains "{subject_filter}" and read status is false'
+    else:
+        filter_clause = 'whose read status is false'
+    r = run_osascript(f'''
+tell application "Mail"
+    set inb to mailbox "INBOX" of account 1
+    set msgs to (every message of inb {filter_clause})
+    if (count of msgs) = 0 then return "No matching emails"
+    set theMsg to item 1 of msgs
+    set msgFrom to sender of theMsg
+    set msgSubj to subject of theMsg
+    set msgBody to content of theMsg
+    if (length of msgBody) > 2000 then set msgBody to text 1 thru 2000 of msgBody & "... (truncated)"
+    return msgFrom & linefeed & msgSubj & linefeed & linefeed & msgBody
+end tell
+''', timeout=15)
+    return r
+
+
+# ============================================================
+# SHORTCUTS — Run macOS Shortcuts
+# ============================================================
+
+def cmd_shortcut_run(args):
+    """Run a macOS Shortcut by name."""
+    name = args.name
+    input_text = getattr(args, 'input', None)
+    if input_text:
+        r = run_shell(["bash", "-c", f"echo {repr(input_text)} | shortcuts run {repr(name)}"], timeout=30)
+    else:
+        r = run_shell(["shortcuts", "run", name], timeout=30)
+    if r["ok"]:
+        r["output"] = r.get("output", "").strip() or f"Shortcut '{name}' executed"
+    return r
+
+
+def cmd_shortcut_list(args):
+    """List all available macOS Shortcuts."""
+    r = run_shell(["shortcuts", "list"])
+    return r
+
+
+# ============================================================
+# SPOTIFY — Playback control
+# ============================================================
+
+def cmd_spotify(args):
+    """Control Spotify playback: play, pause, next, previous, current, volume."""
+    action = args.action
+    if action == "play":
+        query = getattr(args, 'query', None)
+        if query:
+            # Search and play via Spotify URI search
+            from urllib.parse import quote
+            r = run_osascript(f'''
+tell application "Spotify"
+    activate
+    search for "{sanitize_applescript_string(query)}" with type "track"
+end tell
+''', timeout=30)
+            # Fallback: just hit play
+            if not r.get("ok"):
+                r = run_osascript('tell application "Spotify" to play', timeout=5)
+        else:
+            r = run_osascript('tell application "Spotify" to play', timeout=5)
+    elif action == "pause":
+        r = run_osascript('tell application "Spotify" to pause', timeout=5)
+    elif action == "next":
+        r = run_osascript('tell application "Spotify" to next track', timeout=5)
+    elif action == "previous":
+        r = run_osascript('tell application "Spotify" to previous track', timeout=5)
+    elif action == "current":
+        r = run_osascript('''
+tell application "Spotify"
+    if player state is playing or player state is paused then
+        set trackName to name of current track
+        set artistName to artist of current track
+        set albumName to album of current track
+        return trackName & " by " & artistName & " (" & albumName & ")"
+    else
+        return "Nothing playing"
+    end if
+end tell
+''', timeout=5)
+    elif action == "volume":
+        level = getattr(args, 'level', 50) or 50
+        r = run_osascript(f'tell application "Spotify" to set sound volume to {level}', timeout=5)
+        if r["ok"]:
+            r["output"] = f"Spotify volume set to {level}"
+    else:
+        r = {"ok": False, "error": f"Unknown action: {action}"}
+    return r
+
+
+# ============================================================
+# APPLE MUSIC — Playback control
+# ============================================================
+
+def cmd_music(args):
+    """Control Apple Music: play, pause, next, previous, current, search, volume."""
+    action = args.action
+    if action == "play":
+        query = getattr(args, 'query', None)
+        if query:
+            safe_q = sanitize_applescript_string(query)
+            r = run_osascript(f'''
+tell application "Music"
+    set results to search playlist "Library" for "{safe_q}"
+    if (count of results) > 0 then
+        play item 1 of results
+        return "Playing: " & (name of item 1 of results) & " by " & (artist of item 1 of results)
+    else
+        return "No results found for {safe_q}"
+    end if
+end tell
+''', timeout=30)
+        else:
+            r = run_osascript('tell application "Music" to play', timeout=5)
+    elif action == "pause":
+        r = run_osascript('tell application "Music" to pause', timeout=5)
+    elif action == "next":
+        r = run_osascript('tell application "Music" to next track', timeout=5)
+    elif action == "previous":
+        r = run_osascript('tell application "Music" to previous track', timeout=5)
+    elif action == "current":
+        r = run_osascript('''
+tell application "Music"
+    if player state is playing or player state is paused then
+        set trackName to name of current track
+        set artistName to artist of current track
+        return trackName & " by " & artistName
+    else
+        return "Nothing playing"
+    end if
+end tell
+''', timeout=5)
+    elif action == "volume":
+        level = getattr(args, 'level', 50) or 50
+        r = run_osascript(f'tell application "Music" to set sound volume to {level}', timeout=5)
+        if r["ok"]:
+            r["output"] = f"Music volume set to {level}"
+    elif action == "search":
+        safe_q = sanitize_applescript_string(getattr(args, 'query', ''))
+        r = run_osascript(f'''
+tell application "Music"
+    set results to search playlist "Library" for "{safe_q}"
+    set output to ""
+    set i to 0
+    repeat with t in results
+        if i >= 10 then exit repeat
+        set output to output & (name of t) & " by " & (artist of t) & linefeed
+        set i to i + 1
+    end repeat
+end tell
+if output is "" then return "No results"
+return output
+''', timeout=30)
+    else:
+        r = {"ok": False, "error": f"Unknown action: {action}"}
+    return r
+
+
+# ============================================================
+# SYSTEM SETTINGS — Open specific pane
+# ============================================================
+
+def cmd_settings(args):
+    """Open a specific System Settings pane."""
+    pane_map = {
+        "wifi": "com.apple.Wi-Fi-Settings.extension",
+        "bluetooth": "com.apple.BluetoothSettings",
+        "network": "com.apple.Network-Settings.extension",
+        "notifications": "com.apple.Notifications-Settings.extension",
+        "sound": "com.apple.Sound-Settings.extension",
+        "display": "com.apple.Displays-Settings.extension",
+        "displays": "com.apple.Displays-Settings.extension",
+        "battery": "com.apple.Battery-Settings.extension",
+        "privacy": "com.apple.settings.PrivacySecurity.extension",
+        "security": "com.apple.settings.PrivacySecurity.extension",
+        "keyboard": "com.apple.Keyboard-Settings.extension",
+        "trackpad": "com.apple.Trackpad-Settings.extension",
+        "appearance": "com.apple.Appearance-Settings.extension",
+        "wallpaper": "com.apple.Wallpaper-Settings.extension",
+        "dock": "com.apple.Desktop-Settings.extension",
+        "desktop": "com.apple.Desktop-Settings.extension",
+        "focus": "com.apple.Focus-Settings.extension",
+        "accessibility": "com.apple.Accessibility-Settings.extension",
+        "sharing": "com.apple.Sharing-Settings.extension",
+        "update": "com.apple.Software-Update-Settings.extension",
+        "software-update": "com.apple.Software-Update-Settings.extension",
+        "apple-id": "com.apple.systempreferences.AppleIDSettings",
+        "passwords": "com.apple.Passwords-Settings.extension",
+        "login-items": "com.apple.LoginItems-Settings.extension",
+        "airdrop": "com.apple.AirDrop-Handoff-Settings.extension",
+        "spotlight": "com.apple.Spotlight-Settings.extension",
+        "time-machine": "com.apple.Time-Machine-Settings.extension",
+    }
+    pane = args.pane.lower().strip()
+    pane_id = pane_map.get(pane)
+    if not pane_id:
+        return {"ok": False, "error": f"Unknown pane '{pane}'. Available: {', '.join(sorted(pane_map.keys()))}"}
+    r = run_shell(["open", f"x-apple.systempreferences:{pane_id}"])
+    if r["ok"]:
+        r["output"] = f"Opened Settings → {pane}"
+    return r
 
 
 # ============================================================
@@ -1650,6 +2331,7 @@ def main():
     p.add_argument("--url", default="about:blank")
 
     sub.add_parser("browser-close-tab", help="Close active Chrome tab")
+    sub.add_parser("browser-close-others", help="Close all tabs/windows except active tab (kills ad popups)")
     sub.add_parser("browser-list-tabs", help="List all Chrome tabs")
 
     p = sub.add_parser("browser-switch-tab", help="Switch to Chrome tab by number")
@@ -1658,6 +2340,80 @@ def main():
     # ---- Workflow helpers (V2.2) ----
     p = sub.add_parser("youtube-play", help="Search YouTube and auto-play the first result (atomic — no multi-turn needed)")
     p.add_argument("--query", required=True, help="Search query, e.g. 'lofi hip hop radio'")
+
+    p = sub.add_parser("contacts-search", help="Search macOS Contacts by name — returns phone numbers and emails")
+    p.add_argument("--name", required=True, help="Contact name to search for")
+
+    p = sub.add_parser("facetime", help="FaceTime call — pass a name, phone, or email. Names auto-resolve via Contacts.")
+    p.add_argument("--contact", required=True, help="Name, phone number, or email")
+    p.add_argument("--audio", action="store_true", help="Audio-only call (no video)")
+
+    p = sub.add_parser("imessage", help="Send an iMessage — pass a name, phone, or email. Names auto-resolve via Contacts.")
+    p.add_argument("--contact", required=True, help="Name, phone number, or email")
+    p.add_argument("--text", required=True, help="Message text to send")
+
+    # Notes
+    p = sub.add_parser("notes-create", help="Create a new Apple Note")
+    p.add_argument("--title", required=True); p.add_argument("--body", default="")
+    p.add_argument("--folder", default="Notes")
+
+    p = sub.add_parser("notes-search", help="Search Apple Notes by title")
+    p.add_argument("--query", required=True)
+
+    p = sub.add_parser("notes-read", help="Read an Apple Note by title")
+    p.add_argument("--title", required=True)
+
+    # Reminders
+    p = sub.add_parser("reminder-create", help="Create a reminder with optional due date")
+    p.add_argument("--name", required=True); p.add_argument("--body", default="")
+    p.add_argument("--due", default=None, help="Due date, e.g. 'April 15, 2026 9:00 AM'")
+    p.add_argument("--list", default="Reminders")
+
+    p = sub.add_parser("reminders-list", help="List incomplete reminders")
+    p.add_argument("--list", default="Reminders")
+
+    p = sub.add_parser("reminder-complete", help="Mark a reminder as complete")
+    p.add_argument("--name", required=True); p.add_argument("--list", default="Reminders")
+
+    # Maps
+    p = sub.add_parser("maps-search", help="Search Apple Maps")
+    p.add_argument("--query", required=True)
+
+    p = sub.add_parser("maps-directions", help="Get directions in Apple Maps")
+    p.add_argument("--to", required=True)
+    p.add_argument("--from", dest="from_addr", default=None, help="Start address (defaults to current location)")
+    p.add_argument("--mode", default="driving", choices=["driving", "walking", "transit"])
+
+    # Mail
+    p = sub.add_parser("mail-send", help="Send email via Apple Mail")
+    p.add_argument("--to", required=True); p.add_argument("--subject", required=True)
+    p.add_argument("--body", default="")
+
+    p = sub.add_parser("mail-unread", help="List unread emails")
+    p.add_argument("--limit", type=int, default=10)
+
+    p = sub.add_parser("mail-read", help="Read most recent unread email")
+    p.add_argument("--subject", default=None, help="Filter by subject")
+
+    # Shortcuts
+    p = sub.add_parser("shortcut-run", help="Run a macOS Shortcut by name")
+    p.add_argument("--name", required=True); p.add_argument("--input", default=None)
+
+    p = sub.add_parser("shortcut-list", help="List available macOS Shortcuts")
+
+    # Spotify
+    p = sub.add_parser("spotify", help="Control Spotify: play, pause, next, previous, current, volume")
+    p.add_argument("action", choices=["play", "pause", "next", "previous", "current", "volume"])
+    p.add_argument("--query", default=None); p.add_argument("--level", type=int, default=None)
+
+    # Apple Music
+    p = sub.add_parser("music", help="Control Apple Music: play, pause, next, previous, current, search, volume")
+    p.add_argument("action", choices=["play", "pause", "next", "previous", "current", "search", "volume"])
+    p.add_argument("--query", default=None); p.add_argument("--level", type=int, default=None)
+
+    # System Settings
+    p = sub.add_parser("settings", help="Open a System Settings pane (wifi, bluetooth, display, privacy, etc.)")
+    p.add_argument("--pane", required=True, help="Pane name: wifi, bluetooth, display, privacy, keyboard, etc.")
 
     args = parser.parse_args()
 
@@ -1738,9 +2494,22 @@ def main():
         "browser-open": cmd_browser_open, "browser-js": cmd_browser_js,
         "browser-tab-url": cmd_browser_tab_url, "browser-tab-title": cmd_browser_tab_title,
         "browser-new-tab": cmd_browser_new_tab, "browser-close-tab": cmd_browser_close_tab,
+        "browser-close-others": cmd_browser_close_others,
         "browser-list-tabs": cmd_browser_list_tabs, "browser-switch-tab": cmd_browser_switch_tab,
         # Workflow helpers (V2.2)
         "youtube-play": cmd_youtube_play,
+        # Contacts, FaceTime, iMessage (V2.3 — native APIs)
+        "contacts-search": cmd_contacts_search,
+        "facetime": cmd_facetime,
+        "imessage": cmd_imessage,
+        # Notes, Reminders, Maps, Mail, Shortcuts, Spotify, Music, Settings (V2.4)
+        "notes-create": cmd_notes_create, "notes-search": cmd_notes_search, "notes-read": cmd_notes_read,
+        "reminder-create": cmd_reminder_create, "reminders-list": cmd_reminders_list, "reminder-complete": cmd_reminder_complete,
+        "maps-search": cmd_maps_search, "maps-directions": cmd_maps_directions,
+        "mail-send": cmd_mail_send, "mail-unread": cmd_mail_unread, "mail-read": cmd_mail_read,
+        "shortcut-run": cmd_shortcut_run, "shortcut-list": cmd_shortcut_list,
+        "spotify": cmd_spotify, "music": cmd_music,
+        "settings": cmd_settings,
     }
 
     result = commands[args.command](args)

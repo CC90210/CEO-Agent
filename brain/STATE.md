@@ -148,7 +148,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 - [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]] | [[memory/DECISIONS]] | [[memory/CLAUDE_HANDOVER]]
 - [[docs/V6_ARCHITECTURE]] | [[infra/README]]
 - [[memory/PATTERNS]] | [[memory/MISTAKES]] | [[memory/SELF_REFLECTIONS]]
-- [[../CMO-Agent/brain/CONTENT_BIBLE]] (Maven canonical) | [[memory/PROPOSED_CHANGES]]
+- [[memory/content-strategy]] | [[memory/PROPOSED_CHANGES]]
 - [[APPS_CONTEXT/INDEX]] | [[APPS_CONTEXT/GRITLY_CLAUDE]] | [[APPS_CONTEXT/IG_SETTER_PRO_CLAUDE]] | [[APPS_CONTEXT/SKOOL_COMMUNITY_CLAUDE]]
 - [[skills/skool-automation/SKILL]] | [[skills/codex-delegation/SKILL]] | [[../CMO-Agent/skills/elite-video-production/SKILL]]
 - [[skills/ethical-hacking/SKILL]] | [[skills/sales-closing/SKILL]]
@@ -161,7 +161,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-04-26
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Two distinct cross-agent finalization prompts shipped: MAVEN_FINALIZATION_PROMPT.md (V1.1->V1.2, integration debt + 6-lens deep audit) and ATLAS_FINALIZATION_PROMPT.md (V1.0 foundation build — 8 agents, math-grade test coverage, cfo_pulse contract, dispatch chokepoint). Stale V1.0->V1.1 docs marked HISTORICAL. docs/INDEX.md now has a cross-agent prompts table with ACTIVE vs COMPLETE status.
+- **Result:** Mac flags closed: remote URL retargeted to CC90210/CEO-Agent. Dependabot: merged 3 pip PRs (cryptography 46.0.7, requests 2.33.0, pillow 12.2.0), bumped uuid override 10 to 14 (alert 41), bumped postcss in command-center to 8.5.12 (alert 45). 4 transitive request SSRF audits remain (upstream-pinned in node-telegram-bot-api 0.67.0, no clean fix).
 
 *Last updated: 2026-04-26*
 

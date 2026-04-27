@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 // ============================================================
-// BRAVO TELEGRAM BRIDGE V15.4
+// BRAVO TELEGRAM BRIDGE V15.7
 //
 // V11.0: Full-Context Parity — loads CLAUDE.md, brain files, skills refs.
 // V12.0: Conversation Memory — stores last 15 messages per chat,
@@ -29,6 +29,20 @@ const path = require('path');
 //         (replaces broken Python Quartz), smooth animated cursor, drag support,
 //         youtube-play atomic command, window/browser guard fixes, T0 max-turns 6,
 //         tier classifier 24/24 PASS (coding exclusions prevent false T0 routing).
+// V15.5: C-Suite awareness — loadCSuiteSnapshot() reads brain/CROSS_AGENT_AWARENESS.md
+//         at runtime so the bridge always knows about Bravo + Atlas + Maven + Aura
+//         (single source of truth, no hardcoded snapshot).
+// V15.7: Sibling reachability — loadLocalSiblingPaths() probes the actual filesystem
+//         on boot and tells the LLM which sibling agents are reachable from THIS
+//         machine (Mac vs Windows). Closes the "I can't access Atlas" hallucination.
+// V15.7: IDE parity — Claude spawn now inherits .claude/mcp.json (7 MCP servers),
+//         .claude/settings.local.json (PreToolUse + PostToolUse hooks, sub-agents,
+//         skills) via --setting-sources project,local + --mcp-config. CLAUDE.md
+//         loaded full (was 120-line truncated). Per-turn model selection via
+//         !opus/!sonnet/!haiku. /ship, /retro, /review, /plan slash commands.
+//         state_sync runs after every successful T1+ Claude task so SESSION_LOG.md
+//         and STATE.md stay current — closes the "Telegram work invisible to
+//         Atlas/Maven/Aura" gap. max-turns lifted 10 -> 25 for non-T0.
 // ============================================================
 
 // ---- PLATFORM DETECTION ----
@@ -117,7 +131,7 @@ const bot = new TelegramBot(TELEGRAM_TOKEN, {
     request: { timeout: 60000 }
 });
 
-log(`Bravo Telegram Bridge V15.4 (${IS_MAC ? 'macOS' : 'Windows'} - guarded autonomy) starting...`);
+log(`Bravo Telegram Bridge V15.7 (${IS_MAC ? 'macOS' : 'Windows'} - guarded autonomy) starting...`);
 
 // ---- CONVERSATION HISTORY ----
 // Stores last N message pairs (user + assistant) per chat.
@@ -223,7 +237,13 @@ const autoRegisterUser = (userId) => {
 // Static prompt for Gemini (Gemini reads brain files via MCP anyway)
 const buildGeminiPrompt = (chatId) => {
     const history = getHistoryBlock(chatId);
-    return `You are BRAVO, CC's AI assistant on Telegram. RULES: (1) Answer the question directly in 1-5 sentences. (2) Do NOT summarize recent work, session history, or system status unless explicitly asked. (3) Do NOT greet CC with a status update. (4) Do NOT say what you just fixed or built. (5) Just answer what was asked. (6) Use the CONVERSATION HISTORY below for context from prior messages.
+    const csuite = loadCSuiteSnapshot();
+    const reach = loadLocalSiblingPaths();
+    return `You are BRAVO (CEO agent), CC's AI assistant on Telegram. RULES: (1) Answer the question directly in 1-5 sentences. (2) Do NOT summarize recent work, session history, or system status unless explicitly asked. (3) Do NOT greet CC with a status update. (4) Do NOT say what you just fixed or built. (5) Just answer what was asked. (6) Use the CONVERSATION HISTORY below for context from prior messages. (7) You are ONE of FOUR agents — see C-SUITE table below. If CC asks about Atlas, Maven, or Aura, answer using that table AND the reachability block. If a sibling shows REACHABLE, you CAN read its files directly.
+
+${csuite}
+
+${reach}
 ${history}
 CC's message:`;
 };
@@ -241,14 +261,59 @@ const readFileSafe = (relPath, maxLines = 0) => {
     } catch (_) { return ''; }
 };
 
-// readSiblingRepo + loadSiblingPulses are now in scripts/c_suite_context.js
-// (imported above). See module file for full implementation + tests.
-const loadSiblingPulses = () => cSuite.loadSiblingPulses();
+// === C-SUITE CROSS-AGENT HELPERS (merged Windows + Mac contributions 2026-04-26) ===
+//
+// The Windows side extracted the canonical-snapshot loader and the pulse
+// summarizer into scripts/c_suite_context.js (Node module with 30 unit
+// tests). The Mac side added a runtime filesystem reachability probe so
+// the bridge can honestly answer "can you access Atlas?" before trying.
+// Both are kept — they serve different questions:
+//   loadCSuiteSnapshot()      → "who are the 4 agents?" (canonical doc)
+//   loadSiblingPulses()       → "what is each agent doing right now?" (pulse JSON)
+//   loadLocalSiblingPaths()   → "can I actually reach them on this machine?" (fs probe)
 
-// loadCSuiteSnapshot lives in scripts/c_suite_context.js. This thin
-// wrapper passes Bravo's PYTHON path through so the embedded inbox-call
-// example in the snapshot footer renders with the correct interpreter.
+// Pulse summarizer + canonical snapshot — delegated to the shared module
+const loadSiblingPulses = () => cSuite.loadSiblingPulses();
 const loadCSuiteSnapshot = () => cSuite.loadCSuiteSnapshot({ python: PYTHON });
+
+// Probes the local filesystem for sibling agent repos and returns a
+// reachability block the LLM uses to answer "can you access Atlas/
+// Maven/Aura?" honestly. Each agent has multiple known-good locations
+// across Mac/Windows; first hit wins. (Added Mac-side V15.6.)
+const SIBLING_CANDIDATES = IS_MAC ? {
+    Atlas: [
+        '/Users/conaugh/Desktop/CFO-Agent',
+        '/Users/conaugh/APPS/CFO-Agent',
+        '/Users/conaugh/CFO-Agent'
+    ],
+    Maven: [
+        '/Users/conaugh/CMO-Agent',
+        '/Users/conaugh/APPS/CMO-Agent'
+    ],
+    Aura: [
+        '/Users/conaugh/AURA',
+        '/Users/conaugh/Aura'
+    ]
+} : {
+    Atlas: ['C:\\Users\\User\\APPS\\CFO-Agent'],
+    Maven: ['C:\\Users\\User\\CMO-Agent'],
+    Aura: ['C:\\Users\\User\\AURA']
+};
+
+const loadLocalSiblingPaths = () => {
+    const lines = [];
+    for (const [agent, candidates] of Object.entries(SIBLING_CANDIDATES)) {
+        const found = candidates.find(p => { try { return fs.statSync(p).isDirectory(); } catch (_) { return false; } });
+        if (found) {
+            lines.push(`- ${agent}: REACHABLE on this ${MACHINE_NAME} at ${found}`);
+        } else {
+            lines.push(`- ${agent}: NOT cloned on this ${MACHINE_NAME} (no candidate path exists)`);
+        }
+    }
+    return `=== SIBLING AGENT REACHABILITY (this ${MACHINE_NAME}, runtime-detected) ===
+${lines.join('\n')}
+You CAN read/write these directories with normal Bash/Read/Edit tools. Do NOT tell CC you can't access an agent that shows REACHABLE above — you have full filesystem access to those paths.`;
+};
 
 // ---- CONTEXT TIER CLASSIFICATION (from Claude Code harness patterns) ----
 // Claude Code uses "simple mode" (184 tools → 3) for lightweight queries.
@@ -295,21 +360,21 @@ const loadContext = (tier = 2) => {
     }
 
     // --- TIER 2: Standard context (feature work, operations) ---
-    // C-Suite snapshot — loaded at every tier so Bravo always knows about
-    // Atlas + Maven + Aura. Reads brain/CROSS_AGENT_AWARENESS.md (single
-    // source of truth — same file Atlas + Maven bridges read). Falls back
-    // to a minimal hardcoded snapshot if the canonical file is unavailable
-    // (e.g. fresh checkout, file moved, parse error).
+    // C-Suite snapshot — canonical 4-agent table from brain/CROSS_AGENT_AWARENESS.md.
     chunks.push(loadCSuiteSnapshot());
+
+    // Sibling reachability — runtime fs probe (Mac V15.6).
+    chunks.push(loadLocalSiblingPaths());
 
     // Sibling pulses — actually READ Maven/Atlas/Aura pulse JSON, parse
     // session_note + freshness, surface to Bravo. Without this, Bravo
     // could only NAME the siblings, never know their current state.
-    // Stale-pulse warnings (>24h) get a ⚠ flag so Bravo can tell CC
-    // "Atlas hasn't run in 3 days, you should open that chat."
+    // Stale-pulse warnings (>24h) get a ⚠ flag.
     chunks.push(loadSiblingPulses());
 
-    const claude_md = readFileSafe('CLAUDE.md', tier === 3 ? 200 : 120);
+    // V15.7: load full CLAUDE.md (no line truncation — rules 7-9 + Obsidian
+    // links were silently lost on every T2 spawn before this).
+    const claude_md = readFileSafe('CLAUDE.md');
     if (claude_md) chunks.push(`=== CLAUDE.md (project instructions) ===\n${claude_md}`);
 
     const soul = readFileSafe('brain/SOUL.md', 40);
@@ -423,7 +488,13 @@ const buildPrompt = (chatId, userText = '') => {
 
     // T0: Quick action — minimal prompt, use the RIGHT tool
     if (tier === 0) {
-        return `You are Bravo, CC's Lead Architect on his ${MACHINE_NAME}. Full CLI access. Be direct.
+        const csuite = loadCSuiteSnapshot();
+        const reach = loadLocalSiblingPaths();
+        return `You are Bravo (CEO agent), CC's Lead Architect on his ${MACHINE_NAME}. Full CLI access. Be direct.
+
+${csuite}
+
+${reach}
 
 BUSINESS OPS (use these — NOT the browser):
 - Email: ${PYTHON} scripts/google_tool.py gmail list | gmail read <id> | gmail send --to "..." --subject "..." --body "..."
@@ -471,10 +542,17 @@ CC says:`;
     }
 
     const context = loadContext(tier);
-    return `You are BRAVO V5.5, CC's Lead Architect and AI business manager, running via Telegram bridge.
+    const csuite = loadCSuiteSnapshot();
+    const reach = loadLocalSiblingPaths();
+    return `You are BRAVO V5.5 (CEO agent in the 4-agent C-Suite), CC's Lead Architect and AI business manager, running via Telegram bridge.
 You have full access to the Business-Empire-Agent project at ${__dirname}.
 Platform: ${IS_MAC ? 'macOS (darwin)' : 'Windows 11 (win32)'} — Machine: ${MACHINE_NAME}
 If CC asks "what machine are you on?" or "where are you running?", answer: "${MACHINE_NAME}" (${IS_MAC ? 'CC\'s MacBook' : 'CC\'s Windows Desktop PC — AMD Ryzen 5 5600GT, 16GB RAM, 1080p'}).
+If CC asks about Atlas, Maven, or Aura — they are your three sibling agents. The C-SUITE table below has their canonical Windows paths; the SIBLING REACHABILITY block below has where they live on THIS machine. If a sibling shows REACHABLE, you CAN read/edit its files with Read/Bash/Edit — DO NOT tell CC you can't access it. For paid ads, social posts, content scheduling, brand work — that is Maven's domain (its late_tool, instagram_engine, content_engine live in CMO-Agent).
+
+${csuite}
+
+${reach}
 
 ${context}
 ${history}
@@ -544,7 +622,14 @@ const killTree = (pid) => {
 };
 
 // ---- CLI EXECUTION ----
-const executeCli = (tool, userPrompt, chatId) => {
+// V15.7: Spawn now inherits IDE-level configuration so Telegram has parity with
+// running `claude` from the IDE: MCP servers (.claude/mcp.json), hooks
+// (.claude/settings.local.json), sub-agents (.claude/agents/), skills
+// (.claude/skills/ + skills/), and per-message model override (!opus, !sonnet, !haiku).
+const MCP_CONFIG_PATH = path.join(__dirname, '.claude', 'mcp.json');
+const HAS_MCP_CONFIG = fs.existsSync(MCP_CONFIG_PATH);
+
+const executeCli = (tool, userPrompt, chatId, modelOverride = null) => {
     return new Promise((resolve) => {
         const fullPrompt = tool === 'claude' ? `${buildPrompt(chatId, userPrompt)} ${userPrompt}` : `${buildGeminiPrompt(chatId)} ${userPrompt}`;
         const tier = classifyTier(userPrompt);
@@ -552,14 +637,22 @@ const executeCli = (tool, userPrompt, chatId) => {
         let cmd, args;
 
         if (tool === 'claude') {
-            const maxTurns = tier === 0 ? '6' : '10';
+            const maxTurns = tier === 0 ? '6' : '25';
             cmd = CLAUDE_EXE;
             args = [
                 '-p', fullPrompt,
                 '--permission-mode', 'acceptEdits',
                 '--output-format', 'text',
-                '--max-turns', maxTurns
+                '--max-turns', maxTurns,
+                '--setting-sources', 'project,local'  // loads .claude/settings.json + settings.local.json (hooks, agents, skills)
             ];
+            if (HAS_MCP_CONFIG) {
+                args.push('--mcp-config', MCP_CONFIG_PATH);  // 7 MCP servers: playwright, context7, memory, sequential-thinking, github, filesystem, firecrawl
+            }
+            if (modelOverride) {
+                args.push('--model', modelOverride);
+                log(`[MODEL] override: ${modelOverride}`);
+            }
         } else {
             const mcps = detectMcps(userPrompt);
             const mcpArgs = mcps.flatMap(m => ['--allowed-mcp-server-names', m]);
@@ -640,6 +733,16 @@ const executeCli = (tool, userPrompt, chatId) => {
                 '--units', String(units),
                 '--detail', userPrompt.substring(0, 80)
             ], { cwd: __dirname, windowsHide: true, timeout: 5000 }, () => {}); // fire-and-forget
+
+            // V15.7: state_sync after every successful Claude run — keeps SESSION_LOG.md
+            // and STATE.md fresh so other agents (Atlas, Maven, Aura) see Telegram-side
+            // work. Skip on T0 (computer control noise) and on errors.
+            if (tool === 'claude' && code === 0 && tier > 0) {
+                execFileTrack(PYTHON, [
+                    'scripts/state_sync.py',
+                    '--note', `telegram T${tier}: ${userPrompt.substring(0, 140)}`
+                ], { cwd: __dirname, windowsHide: true, timeout: 8000 }, () => {});
+            }
 
             const raw = (stdout.trim() || stderr.trim());
             if (!raw) {
@@ -876,7 +979,7 @@ bot.on('message', async (msg) => {
 
     if (text === '/start' || text === '/help') {
         return bot.sendMessage(chatId, [
-            `Bravo Bridge V15.4 (${MACHINE_NAME} — Full Computer Control)`,
+            `Bravo Bridge V15.7 (${MACHINE_NAME} — Full Computer Control)`,
             '',
             'Just type anything → Claude handles it (25 turns)',
             '',
@@ -893,11 +996,19 @@ bot.on('message', async (msg) => {
             '  Power: "Restart" / "Shutdown" (asks for confirmation)',
             '',
             '!gemini <query> → Gemini CLI (fallback)',
+            '!opus / !sonnet / !haiku <query> → choose model for this turn',
             '!sys is disabled; use natural-language computer control commands instead.',
             '',
             'Destructive actions require approval (inline buttons).',
             'Screenshots & files auto-sent back to this chat.',
             '',
+            'WORKFLOWS:',
+            '/ship [branch] — full release flow (skills/ship)',
+            '/retro [date] — session retrospective (skills/retro)',
+            '/review [file] — code review pre-commit (skills/code-review)',
+            '/plan <task> — plan-then-execute on a complex task',
+            '',
+            'OPS:',
             '/costs — today\'s operation cost summary',
             '/memhealth — memory system health grade',
             '/compact — SESSION_LOG compaction status',
@@ -909,6 +1020,29 @@ bot.on('message', async (msg) => {
 
     if (text === '/whoami') {
         return bot.sendMessage(chatId, `User ID: ${userId}\nUsername: ${user}\nChat ID: ${chatId}`);
+    }
+
+    // V15.7: Workflow slash commands — passthroughs to skill-driven prompts
+    const WORKFLOW_COMMANDS = {
+        '/ship': (arg) => `Run the /ship workflow. Load skills/ship/SKILL.md and execute the full release flow${arg ? ` for branch: ${arg}` : ''}. Confirm before any destructive action.`,
+        '/retro': (arg) => `Run the /retro workflow. Load skills/retro/SKILL.md and produce a retrospective${arg ? ` for ${arg}` : ' for the current session'}. Output as structured markdown.`,
+        '/review': (arg) => `Run the /review workflow. Load skills/code-review/SKILL.md and review${arg ? ` ${arg}` : ' the pending changes on the current branch'}. Surface security and correctness issues.`,
+        '/plan': (arg) => `Enter plan mode for this task: ${arg || '(no task supplied — ask CC for details)'}. Use the writing-plans skill if available. Do NOT execute until CC approves the plan.`
+    };
+    const slashMatch = text.match(/^(\/(?:ship|retro|review|plan))(?:\s+(.+))?$/);
+    if (slashMatch && WORKFLOW_COMMANDS[slashMatch[1]]) {
+        const cmd = slashMatch[1];
+        const arg = (slashMatch[2] || '').trim();
+        const synthetic = WORKFLOW_COMMANDS[cmd](arg);
+        log(`[SLASH] ${cmd} -> synthetic prompt`);
+        addToHistory(chatId, 'user', `${cmd} ${arg}`.trim());
+        await bot.sendChatAction(chatId, 'typing');
+        await bot.sendMessage(chatId, `Running ${cmd}...`);
+        const result = await executeCli('claude', synthetic, chatId);
+        addToHistory(chatId, 'assistant', result || 'Done.');
+        const chunks = (result || 'Done.').match(/[\s\S]{1,4000}/g) || ['Done.'];
+        for (const c of chunks) await bot.sendMessage(chatId, c);
+        return;
     }
 
     if (text === '/clear') {
@@ -959,17 +1093,26 @@ bot.on('message', async (msg) => {
         }
 
         // V9.0: Default to Claude (CC has Max plan), !gemini for fallback
+        // V15.7: !opus / !sonnet / !haiku select the model for this turn
         const isGemini = text.startsWith('!gemini');
-        const prompt = text.replace(/^!(claude|gemini|bravo)\s+/, '');
+        let modelOverride = null;
+        let workingText = text;
+        const modelMatch = workingText.match(/^!(opus|sonnet|haiku)\s+/i);
+        if (modelMatch) {
+            modelOverride = modelMatch[1].toLowerCase();
+            workingText = workingText.replace(/^!(opus|sonnet|haiku)\s+/i, '');
+        }
+        const prompt = workingText.replace(/^!(claude|gemini|bravo)\s+/, '');
         const tool = isGemini ? 'gemini' : 'claude';
 
         // Store user message in history
         addToHistory(chatId, 'user', prompt);
 
         await bot.sendChatAction(chatId, 'typing');
-        await bot.sendMessage(chatId, isGemini ? 'Gemini thinking...' : 'Claude thinking...');
+        const thinkingMsg = isGemini ? 'Gemini thinking...' : (modelOverride ? `Claude (${modelOverride}) thinking...` : 'Claude thinking...');
+        await bot.sendMessage(chatId, thinkingMsg);
 
-        const result = await executeCli(tool, prompt, chatId);
+        const result = await executeCli(tool, prompt, chatId, modelOverride);
         log(`[RESULT] ${tool} returned ${(result || '').length} chars`);
 
         // --- APPROVAL GATE: Check if Claude is requesting confirmation ---
@@ -1143,7 +1286,7 @@ process.on('unhandledRejection', (err) => {
     log(`[UNHANDLED] ${err.message || err}`);
 });
 
-log(`Bridge V15.4 ready. Platform: ${IS_MAC ? 'macOS' : 'Windows'}. Computer control: FULL CONTROL (60+ cmds).`);
+log(`Bridge V15.7 ready. Platform: ${IS_MAC ? 'macOS' : 'Windows'}. Computer control: FULL CONTROL (60+ cmds).`);
 
 try {
     const pollingStart = bot.startPolling();
