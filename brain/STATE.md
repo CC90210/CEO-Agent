@@ -148,7 +148,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 - [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]] | [[memory/DECISIONS]] | [[memory/CLAUDE_HANDOVER]]
 - [[docs/V6_ARCHITECTURE]] | [[infra/README]]
 - [[memory/PATTERNS]] | [[memory/MISTAKES]] | [[memory/SELF_REFLECTIONS]]
-- [[memory/content-strategy]] | [[memory/PROPOSED_CHANGES]]
+- [[../CMO-Agent/brain/CONTENT_BIBLE]] (Maven canonical) | [[memory/PROPOSED_CHANGES]]
 - [[APPS_CONTEXT/INDEX]] | [[APPS_CONTEXT/GRITLY_CLAUDE]] | [[APPS_CONTEXT/IG_SETTER_PRO_CLAUDE]] | [[APPS_CONTEXT/SKOOL_COMMUNITY_CLAUDE]]
 - [[skills/skool-automation/SKILL]] | [[skills/codex-delegation/SKILL]] | [[../CMO-Agent/skills/elite-video-production/SKILL]]
 - [[skills/ethical-hacking/SKILL]] | [[skills/sales-closing/SKILL]]

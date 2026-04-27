@@ -2,7 +2,7 @@
 tags: [brand, kona-makana, context]
 ---
 
-> [[brain/DASHBOARD]] | [[brain/USER]] | [[memory/content-strategy]]
+> [[brain/DASHBOARD]] | [[brain/USER]] | [[../CMO-Agent/brain/CONTENT_BIBLE]] (Maven canonical)
 
 # CC's Personal Brand — Content & Philosophy
 

@@ -33,7 +33,7 @@ aliases:
 - [[memory/ACTIVE_TASKS]] — Current task board
 - [[memory/SESSION_LOG]] — All agent activity (cross-AI)
 - `memory/LEAD_TRACKER.csv` — Pipeline (CSV)
-- [[memory/content-strategy]] — Content Bible + outreach
+- [[../CMO-Agent/brain/CONTENT_BIBLE]] (Maven canonical) — Content Bible + outreach
 
 ### Knowledge Base
 - [[memory/PATTERNS]] — Validated patterns

@@ -151,7 +151,7 @@ CC trigger words: "Remember/Don't forget" → save | "Stop doing X" → MISTAKES
 ### RULE 5.5: Content, Outreach & Sales Strategy
 
 When CC asks about content creation, posting strategy, cold outreach, or closing:
-- **Content Bible**: `memory/content-strategy.md` + `../CMO-Agent/skills/content-engine/SKILL.md` (voice calibration, hook templates, platform matrix, 7-day calendar, repurposing flow)
+- **Content Bible**: `../CMO-Agent/brain/CONTENT_BIBLE.md` (Maven canonical) + `../CMO-Agent/skills/content-engine/SKILL.md` (voice calibration, hook templates, platform matrix, 7-day calendar, repurposing flow)
 - **Video pipeline**: raw input → `content_pipeline.py process <video>` → word-level Whisper captions → Remotion → thumbnail → Zernio schedule across 6 platforms. Entry point, not a menu.
 - **Cold outreach**: Jeremy Miner NEPQ framework — pattern interrupts, never salesy, questions > pitching. "I'm not sure if..." framing. Lead with their problem, not our product. See `skills/sales-methodology/SKILL.md`.
 - **Closing**: LAER objection loop (Listen → Acknowledge → Explore → Respond) + 6 close techniques (assumptive / alternative / summary / scarcity / takeaway / question). Math-for-them framework over price defense. See `skills/sales-closing/SKILL.md`.

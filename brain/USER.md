@@ -86,4 +86,4 @@ Every action is fueled by the drive to build real wealth and a business empire f
 
 ## Obsidian Links
 - [[brain/SOUL]] | [[brain/STATE]] | [[brain/CEO_OPERATING_SYSTEM]]
-- [[memory/ACTIVE_TASKS]] | [[memory/content-strategy]] | [[brain/DASHBOARD]]
+- [[memory/ACTIVE_TASKS]] | [[../CMO-Agent/brain/CONTENT_BIBLE]] (Maven canonical) | [[brain/DASHBOARD]]
