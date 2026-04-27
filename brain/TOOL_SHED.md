@@ -181,7 +181,7 @@ Papers and repos whose *ideas* CC adopted into his brain architecture. Credit wh
 | **Structured failure analysis** | [Reflexion paper](https://arxiv.org/abs/2303.11366) | `brain/BRAIN_LOOP.md` Step 7 |
 | **Multi-hypothesis search** | [LATS paper](https://arxiv.org/abs/2310.04406) | `brain/BRAIN_LOOP.md` Step 4 (2-3 approaches, rank, backtrack) |
 | **Heartbeat / merge window** | OpenClaw pattern | `brain/HEARTBEAT.md` |
-| **NEPQ sales methodology** | [Jeremy Miner](https://www.7thlevelhq.com) | `memory/content-strategy.md` — outreach scripts |
+| **NEPQ sales methodology** | [Jeremy Miner](https://www.7thlevelhq.com) | `../CMO-Agent/brain/CONTENT_BIBLE.md` (Maven canonical) — outreach scripts |
 | **Plan/Execute/Prime/Commit workflow** | [Cole Medin (coleam00)](https://github.com/coleam00) | `.agents/commands/*.md` |
 | **CLI-Anything methodology** | [HKUDS/CLI-Anything](https://github.com/HKUDS/CLI-Anything) | `skills/cli-anything/SKILL.md` + `scripts/cli_templates/` |
 | **3-tier model routing** | [wshobson/agents](https://github.com/wshobson/agents) | Opus for critical, Sonnet for complex, Haiku for fast ops |
@@ -225,7 +225,7 @@ npm install -g @carlrannaberg/claudekit
 
 ## 🔗 Obsidian Links
 - [[brain/SOUL]] | [[brain/APP_REGISTRY]] | [[brain/CAPABILITIES]] | [[brain/QUICK_REFERENCE]]
-- [[memory/MEMORY]] | [[memory/content-strategy]]
+- [[memory/MEMORY]] | [[../CMO-Agent/brain/CONTENT_BIBLE]] (Maven canonical)
 
 ---
 

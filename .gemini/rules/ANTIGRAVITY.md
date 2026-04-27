@@ -120,7 +120,7 @@ Delegation: Complex features → planner. Architecture → architect. Code revie
 ### RULE 5.5: Content & Outreach Strategy
 
 When CC asks about content creation, posting strategy, or cold outreach:
-- **Content Bible**: 3 daily pillars (Sobriety Log, Quote Drop, CEO Log), hook bank, pacing rules. Reference file: `memory/content-strategy.md` (in Business-Empire-Agent).
+- **Content Bible**: 3 daily pillars (Sobriety Log, Quote Drop, CEO Log), hook bank, pacing rules. Reference file: `../CMO-Agent/brain/CONTENT_BIBLE.md` (Maven canonical) (in Business-Empire-Agent).
 - **Cold outreach**: Jeremy Miner NEPQ framework — pattern interrupts, never salesy, questions > pitching. Use "I'm not sure if..." framing. Lead with their problem, not our product.
 - **Platform limits**: X=280 | Threads=500 | IG=2200 | LinkedIn=3000 | TikTok=4000
 

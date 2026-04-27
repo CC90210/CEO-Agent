@@ -175,7 +175,7 @@ gws gmail +send --to prospect@hvacbiz.com --template "48h_followup"
 
 ## OBSIDIAN LINKS
 - [[brain/SOUL]] | [[brain/STATE]] | [[brain/USER]]
-- [[memory/content-strategy]] | [[APPS_CONTEXT/OASIS_AI_CLAUDE]]
+- [[../CMO-Agent/brain/CONTENT_BIBLE]] (Maven canonical) | [[APPS_CONTEXT/OASIS_AI_CLAUDE]]
 
 ---
 

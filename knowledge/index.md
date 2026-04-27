@@ -24,7 +24,7 @@ page_count: 6
 | [[knowledge/wiki/revenue-model]] | `revenue-model` | MRR breakdown, pricing, Bennett deal, rev share, $5K target | 0.92 | 2026-04-06 |
 | [[knowledge/wiki/tech-stack]] | `tech-stack` | Full technology inventory, all tools, MCPs, CLIs, scripts | 0.90 | 2026-04-06 |
 | [[knowledge/wiki/client-playbook]] | `client-playbook` | How to win clients, onboarding, retention, health scoring | 0.90 | 2026-04-06 |
-| [[knowledge/wiki/video-production-bible]] | `video-production-bible` | AI video stack, transcription, audio, captions, effects, Remotion, FFmpeg | 0.93 | 2026-04-06 |
+| [[../CMO-Agent/brain/VIDEO_PRODUCTION_BIBLE]] (Maven canonical) | `video-production-bible` | AI video stack, transcription, audio, captions, effects, Remotion, FFmpeg | 0.93 | 2026-04-06 |
 | [[knowledge/wiki/frontier-models]] | `frontier-models` | Claude Mythos, competitor benchmarks, Claude Code 2.0, Agent SDK, MCP evolution, AOS prep | 0.91 | 2026-04-08 |
 
 ## Topic Index (find-by-keyword)
@@ -41,9 +41,9 @@ page_count: 6
 | Client success, churn, retention | [[knowledge/wiki/client-playbook]] |
 | Onboarding, proposal, NEPQ | [[knowledge/wiki/client-playbook]] |
 | PropFlow, Nostalgic, brands | [[knowledge/wiki/ai-automation-agency]] |
-| Video, FFmpeg, Whisper, captions, Remotion | [[knowledge/wiki/video-production-bible]] |
-| B-roll, image generation, Fal.ai, scene detection | [[knowledge/wiki/video-production-bible]] |
-| Content pipeline, auto-editor, face tracking | [[knowledge/wiki/video-production-bible]] |
+| Video, FFmpeg, Whisper, captions, Remotion | [[../CMO-Agent/brain/VIDEO_PRODUCTION_BIBLE]] (Maven canonical) |
+| B-roll, image generation, Fal.ai, scene detection | [[../CMO-Agent/brain/VIDEO_PRODUCTION_BIBLE]] (Maven canonical) |
+| Content pipeline, auto-editor, face tracking | [[../CMO-Agent/brain/VIDEO_PRODUCTION_BIBLE]] (Maven canonical) |
 | Claude Mythos, Capybara, Glasswing, frontier | [[knowledge/wiki/frontier-models]] |
 | GPT-5.4, Gemini 3.1, Grok 4, benchmarks | [[knowledge/wiki/frontier-models]] |
 | Agent SDK, Remote Tasks, AutoMemory, MCP evolution | [[knowledge/wiki/frontier-models]] |
@@ -57,6 +57,6 @@ _No documents in queue. All raw sources compiled as of 2026-04-06._
 - [[knowledge/SCHEMA]] | [[knowledge/log]]
 - [[knowledge/wiki/ai-automation-agency]] | [[knowledge/wiki/revenue-model]]
 - [[knowledge/wiki/tech-stack]] | [[knowledge/wiki/client-playbook]]
-- [[knowledge/wiki/video-production-bible]]
+- [[../CMO-Agent/brain/VIDEO_PRODUCTION_BIBLE]] (Maven canonical)
 - [[knowledge/wiki/frontier-models]]
 - [[brain/CAPABILITIES]] | [[brain/STATE]]

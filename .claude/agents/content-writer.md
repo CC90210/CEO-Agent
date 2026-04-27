@@ -21,4 +21,4 @@ Platform optimization:
 - Instagram: Visual-first, 2200 char caption
 - TikTok: Pattern interrupt opener, 4000 chars max
 
-Always read memory/content-strategy.md and brain/USER.md for full context.
+Always read ../CMO-Agent/brain/CONTENT_BIBLE.md and brain/USER.md for full context.

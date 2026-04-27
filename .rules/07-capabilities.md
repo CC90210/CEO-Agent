@@ -10,7 +10,7 @@ description: Quick reference for available tools, skills, and workflows
 - **15 workflows** — In `.agents/workflows/`. Key: `/commit`, `/prime`, `/sync`, `/health`, `/post`, `/debug`, `/cli-anything`, `/evolve`
 - **Video pipeline** — `scripts/edit_content.py` (FFmpeg 8.0.1, Whisper, ElevenLabs, Remotion)
 - **SDK tools** — `python scripts/supabase_tool.py`, `python scripts/stripe_tool.py`
-- **Content strategy** — `memory/content-strategy.md` (3 daily pillars, NEPQ framework)
+- **Content strategy** — `../CMO-Agent/brain/CONTENT_BIBLE.md` (Maven canonical) (3 daily pillars, NEPQ framework)
 - **Plans** — `.agents/plans/` for implementation plans
 
 ## Obsidian Links

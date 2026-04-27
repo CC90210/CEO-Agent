@@ -6,6 +6,8 @@ tags: [client-facing, playbook, meeting, security, positioning, shareable]
 
 > Operational reference for CC in client/prospect conversations. Not social media content — this is what you actually say in a meeting, a pitch, or a discovery call. Shareable PDF/Gist when needed.
 >
+> **Companion docs:** [[memory/DISCOVERY_PLAYBOOK]] — NEPQ discovery questions for the Connect → Situation → Problem → Solution → Commitment phases.
+>
 > **Use cases:**
 > - Pre-meeting prep: skim Section 4 (Meeting Play-by-Play)
 > - Prospect asks "who are you?": Section 1 (CC's 30-Second Intro)
@@ -295,7 +297,7 @@ CC said: "We also predict small trends, but I want some material I can use."
 - [[brain/USER]] — your profile + mission
 - [[brain/SOUL]] — identity + values
 - [[brain/TOOL_SHED]] — repos + tools you can point clients to
-- [[memory/content-strategy]] — voice, hook bank, pacing rules
+- [[../CMO-Agent/brain/CONTENT_BIBLE]] (Maven canonical) — voice, hook bank, pacing rules
 - [[memory/feedback_objection_handling]] — pricing pushback playbook
 - [[memory/feedback_outreach_signature]] — email signature standard
 - [[memory/feedback_power_dynamics]] — never defer to prospects on scheduling/framing
