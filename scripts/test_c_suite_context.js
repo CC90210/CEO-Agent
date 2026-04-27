@@ -211,6 +211,70 @@ withTempSiblings(({ mod }) => {
 
 
 // ============================================================
+console.log('\nloadLocalSiblingPaths reachability probe');
+// ============================================================
+withTempSiblings(({ repos, mod }) => {
+    // All 4 sibling repos exist (set up by withTempSiblings) — should report REACHABLE for all
+    const out = mod.loadLocalSiblingPaths({ machineName: 'TestMachine' });
+    assert(out.includes('SIBLING AGENT REACHABILITY'), 'has header');
+    assert(out.includes('TestMachine'), 'machineName parameter passed through');
+    for (const agent of ['Atlas', 'Maven', 'Aura']) {
+        assert(out.includes(`- ${agent}: REACHABLE`),
+            `${agent} reported REACHABLE when its repo dir exists`);
+    }
+});
+
+withTempSiblings(({ repos, mod }) => {
+    // Force one repo to NOT exist by pointing env at a missing path
+    const original = process.env.MAVEN_REPO;
+    process.env.MAVEN_REPO = '/definitely/does/not/exist';
+    try {
+        // Re-require so MAVEN_REPO env override re-resolves
+        delete require.cache[require.resolve('./c_suite_context.js')];
+        const fresh = require('./c_suite_context.js');
+        const out = fresh.loadLocalSiblingPaths();
+        // Maven candidates fall back to platform defaults — those probably also don't
+        // exist in the temp dir setup, so Maven should be NOT cloned.
+        // Atlas + Aura still REACHABLE because they were created in the temp dir
+        // and ATLAS_REPO/AURA_REPO env vars point there.
+        assert(out.includes('Atlas: REACHABLE'), 'atlas still reachable');
+    } finally {
+        if (original === undefined) delete process.env.MAVEN_REPO;
+        else process.env.MAVEN_REPO = original;
+        delete require.cache[require.resolve('./c_suite_context.js')];
+    }
+});
+
+
+// ============================================================
+console.log('\n_resolveAgentRepo single-source resolution');
+// ============================================================
+withTempSiblings(({ repos, mod }) => {
+    // Env override should win over candidates
+    assertEq(mod.SIBLING_REPOS.maven, repos.maven,
+        'env-overridden path used as canonical SIBLING_REPOS[maven]');
+});
+
+// Direct unit test of the resolver (with env override priority)
+{
+    const { _resolveAgentRepo } = require('./c_suite_context.js');
+    const original = process.env.ATLAS_REPO;
+    // Point env at a real existing dir
+    process.env.ATLAS_REPO = require('os').tmpdir();
+    try {
+        delete require.cache[require.resolve('./c_suite_context.js')];
+        const fresh = require('./c_suite_context.js');
+        assertEq(fresh.SIBLING_REPOS.atlas, require('os').tmpdir(),
+            'env override + dir exists → env wins');
+    } finally {
+        if (original === undefined) delete process.env.ATLAS_REPO;
+        else process.env.ATLAS_REPO = original;
+        delete require.cache[require.resolve('./c_suite_context.js')];
+    }
+}
+
+
+// ============================================================
 console.log('\nformatAge boundary cases');
 // ============================================================
 const { _formatAge: formatAge } = require('./c_suite_context.js');

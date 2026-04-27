@@ -57,12 +57,13 @@ const LOG_FILE = path.join(__dirname, 'memory', 'telegram_bridge.log');
 const LOCK_FILE = path.join(__dirname, 'tmp', 'bravo_telegram.lock.json');
 
 // ---- C-SUITE CROSS-AGENT MODULE ----
-// Sibling-repo file access + pulse summarizer + canonical 4-agent snapshot.
-// Single source of truth shared with future Bravo CLI tooling and used as
-// reference implementation by Maven's bridge (Node) and Atlas's bridge
-// (Python port). Tests at scripts/test_c_suite_context.js (30 cases).
+// Sibling-repo file access + pulse summarizer + canonical 4-agent snapshot
+// + reachability probe. Single source of truth — the module owns the path
+// candidates, env-var resolution, and all 3 helpers. Tests at
+// scripts/test_c_suite_context.js. Reference implementation that Maven's
+// bridge (Node) mirrors verbatim and Atlas's (Python) ports.
 const cSuite = require('./scripts/c_suite_context.js');
-const { SIBLING_REPOS, readSiblingRepo } = cSuite;
+const { SIBLING_REPOS, SIBLING_CANDIDATES, readSiblingRepo } = cSuite;
 
 const log = (msg) => {
     const line = `[${new Date().toISOString()}] ${msg}\n`;
@@ -261,59 +262,18 @@ const readFileSafe = (relPath, maxLines = 0) => {
     } catch (_) { return ''; }
 };
 
-// === C-SUITE CROSS-AGENT HELPERS (merged Windows + Mac contributions 2026-04-26) ===
+// === C-SUITE CROSS-AGENT HELPERS — all delegated to the shared module ===
 //
-// The Windows side extracted the canonical-snapshot loader and the pulse
-// summarizer into scripts/c_suite_context.js (Node module with 30 unit
-// tests). The Mac side added a runtime filesystem reachability probe so
-// the bridge can honestly answer "can you access Atlas?" before trying.
-// Both are kept — they serve different questions:
-//   loadCSuiteSnapshot()      → "who are the 4 agents?" (canonical doc)
-//   loadSiblingPulses()       → "what is each agent doing right now?" (pulse JSON)
-//   loadLocalSiblingPaths()   → "can I actually reach them on this machine?" (fs probe)
+// Three helpers serve three different questions, all sharing the same
+// SIBLING_CANDIDATES map in c_suite_context.js (single source of truth —
+// edit candidates once, all probes pick it up):
+//   loadCSuiteSnapshot()    → "who are the 4 agents?" (canonical doc)
+//   loadSiblingPulses()     → "what is each agent doing right now?" (pulse JSON)
+//   loadLocalSiblingPaths() → "can I actually reach them on this machine?" (fs probe)
 
-// Pulse summarizer + canonical snapshot — delegated to the shared module
 const loadSiblingPulses = () => cSuite.loadSiblingPulses();
 const loadCSuiteSnapshot = () => cSuite.loadCSuiteSnapshot({ python: PYTHON });
-
-// Probes the local filesystem for sibling agent repos and returns a
-// reachability block the LLM uses to answer "can you access Atlas/
-// Maven/Aura?" honestly. Each agent has multiple known-good locations
-// across Mac/Windows; first hit wins. (Added Mac-side V15.6.)
-const SIBLING_CANDIDATES = IS_MAC ? {
-    Atlas: [
-        '/Users/conaugh/Desktop/CFO-Agent',
-        '/Users/conaugh/APPS/CFO-Agent',
-        '/Users/conaugh/CFO-Agent'
-    ],
-    Maven: [
-        '/Users/conaugh/CMO-Agent',
-        '/Users/conaugh/APPS/CMO-Agent'
-    ],
-    Aura: [
-        '/Users/conaugh/AURA',
-        '/Users/conaugh/Aura'
-    ]
-} : {
-    Atlas: ['C:\\Users\\User\\APPS\\CFO-Agent'],
-    Maven: ['C:\\Users\\User\\CMO-Agent'],
-    Aura: ['C:\\Users\\User\\AURA']
-};
-
-const loadLocalSiblingPaths = () => {
-    const lines = [];
-    for (const [agent, candidates] of Object.entries(SIBLING_CANDIDATES)) {
-        const found = candidates.find(p => { try { return fs.statSync(p).isDirectory(); } catch (_) { return false; } });
-        if (found) {
-            lines.push(`- ${agent}: REACHABLE on this ${MACHINE_NAME} at ${found}`);
-        } else {
-            lines.push(`- ${agent}: NOT cloned on this ${MACHINE_NAME} (no candidate path exists)`);
-        }
-    }
-    return `=== SIBLING AGENT REACHABILITY (this ${MACHINE_NAME}, runtime-detected) ===
-${lines.join('\n')}
-You CAN read/write these directories with normal Bash/Read/Edit tools. Do NOT tell CC you can't access an agent that shows REACHABLE above — you have full filesystem access to those paths.`;
-};
+const loadLocalSiblingPaths = () => cSuite.loadLocalSiblingPaths({ machineName: MACHINE_NAME });
 
 // ---- CONTEXT TIER CLASSIFICATION (from Claude Code harness patterns) ----
 // Claude Code uses "simple mode" (184 tools → 3) for lightweight queries.

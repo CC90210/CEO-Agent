@@ -7,12 +7,13 @@
 //   - reference implementation that Maven's bridge mirrors verbatim
 //
 // Public API:
-//   SIBLING_REPOS                       — env-overridable repo path map
+//   SIBLING_REPOS                       — env-overridable resolved-path map
+//   SIBLING_CANDIDATES                  — multi-path-per-agent fallback list
 //   readSiblingRepo(agent, rel, max?)   — read a file from a sibling repo
 //   readSelfRepo(rel, max?)             — read a file from Bravo's own repo
 //   loadCSuiteSnapshot(opts?)           — return the canonical 4-agent snapshot
-//   loadSiblingPulses(opts?)            — return a multi-line "current state"
-//                                         summary of Maven/Atlas/Aura pulses
+//   loadSiblingPulses(opts?)            — multi-line "current state" pulse summary
+//   loadLocalSiblingPaths()             — multi-line filesystem reachability probe
 //
 // Why a module: the bridge previously had these helpers inline with eval-
 // only tests. Extracting them to a require()-able module makes them unit-
@@ -22,23 +23,76 @@ const fs = require('fs');
 const path = require('path');
 
 const IS_MAC = process.platform === 'darwin';
+const MACHINE_NAME = IS_MAC ? 'MacBook' : 'Windows Desktop';
 
-// ---- SIBLING REPO PATHS ----
-// Resolution order: env var → platform default. Defaults assume CC's
-// canonical Windows layout; on Mac, $HOME-relative. If a sibling repo
-// doesn't exist on this machine, all readSiblingRepo() calls for that
-// agent return empty string — no crash.
+// ---- SIBLING REPO PATHS — single resolution system ----
+//
+// Two requirements:
+//   1. Env-var override per agent (BRAVO_REPO, MAVEN_REPO, ATLAS_REPO,
+//      AURA_REPO) so CC can point any agent anywhere per machine.
+//   2. Multi-path fallback so the same module works on Mac (where CC has
+//      tried CMO-Agent at multiple Desktop/APPS/$HOME locations) AND
+//      Windows (canonical paths) without per-machine code edits.
+//
+// Resolution order for SIBLING_REPOS[agent]:
+//   1. ${AGENT}_REPO env var if set and points to an existing dir
+//   2. First entry in SIBLING_CANDIDATES[agent] that exists on disk
+//   3. First entry in SIBLING_CANDIDATES[agent] regardless (even if absent
+//      — readSiblingRepo will return '' for missing files, no crash)
+//
+// Adding a new candidate path: append to SIBLING_CANDIDATES[agent]. Both
+// reachability probes and file reads pick it up automatically — no two-
+// place edits.
+
+const HOME = process.env.HOME || process.env.USERPROFILE || '';
+
+const SIBLING_CANDIDATES = IS_MAC ? {
+    bravo: [
+        path.join(HOME, 'Downloads', 'business-empire-agent'),
+        path.join(HOME, 'Business-Empire-Agent'),
+        path.resolve(__dirname, '..'),  // self if already inside Bravo
+    ],
+    atlas: [
+        path.join(HOME, 'Desktop', 'CFO-Agent'),
+        path.join(HOME, 'APPS', 'CFO-Agent'),
+        path.join(HOME, 'CFO-Agent'),
+    ],
+    maven: [
+        path.join(HOME, 'CMO-Agent'),
+        path.join(HOME, 'APPS', 'CMO-Agent'),
+    ],
+    aura: [
+        path.join(HOME, 'AURA'),
+        path.join(HOME, 'Aura'),
+    ],
+} : {
+    bravo: ['C:\\Users\\User\\Business-Empire-Agent'],
+    atlas: ['C:\\Users\\User\\APPS\\CFO-Agent'],
+    maven: ['C:\\Users\\User\\CMO-Agent'],
+    aura:  ['C:\\Users\\User\\AURA'],
+};
+
+// Resolve ONE repo's path: env var (if dir exists) → first candidate
+// that exists → first candidate (fallback). Never throws.
+function _resolveAgentRepo(agent) {
+    const envKey = agent.toUpperCase() + '_REPO';
+    const envValue = process.env[envKey];
+    if (envValue && _isDir(envValue)) return envValue;
+    const candidates = SIBLING_CANDIDATES[agent] || [];
+    const found = candidates.find(_isDir);
+    if (found) return found;
+    return candidates[0] || '';
+}
+
+function _isDir(p) {
+    try { return p && fs.statSync(p).isDirectory(); } catch (_) { return false; }
+}
+
 const SIBLING_REPOS = {
-    bravo: process.env.BRAVO_REPO || path.resolve(__dirname, '..'),
-    maven: process.env.MAVEN_REPO || (IS_MAC
-        ? path.join(process.env.HOME || '', 'CMO-Agent')
-        : 'C:\\Users\\User\\CMO-Agent'),
-    atlas: process.env.ATLAS_REPO || (IS_MAC
-        ? path.join(process.env.HOME || '', 'APPS', 'CFO-Agent')
-        : 'C:\\Users\\User\\APPS\\CFO-Agent'),
-    aura: process.env.AURA_REPO || (IS_MAC
-        ? path.join(process.env.HOME || '', 'AURA')
-        : 'C:\\Users\\User\\AURA'),
+    bravo: _resolveAgentRepo('bravo'),
+    maven: _resolveAgentRepo('maven'),
+    atlas: _resolveAgentRepo('atlas'),
+    aura:  _resolveAgentRepo('aura'),
 };
 
 // ---- FILE READERS ----
@@ -142,13 +196,42 @@ function loadSiblingPulses(opts = {}) {
     return lines.join('\n');
 }
 
+// ---- LOCAL SIBLING REACHABILITY PROBE ----
+
+// Returns a multi-line "REACHABLE / NOT cloned" block the LLM uses to
+// answer "can you access Atlas/Maven/Aura on this machine?" honestly.
+// Walks SIBLING_CANDIDATES (the same source SIBLING_REPOS resolves
+// from), so the answer is always consistent with where files would
+// actually be read from.
+function loadLocalSiblingPaths(opts = {}) {
+    const machineName = opts.machineName || MACHINE_NAME;
+    const lines = [];
+    for (const agent of ['atlas', 'maven', 'aura']) {
+        const candidates = SIBLING_CANDIDATES[agent] || [];
+        const found = candidates.find(_isDir);
+        const label = agent.charAt(0).toUpperCase() + agent.slice(1);
+        if (found) {
+            lines.push(`- ${label}: REACHABLE on this ${machineName} at ${found}`);
+        } else {
+            lines.push(`- ${label}: NOT cloned on this ${machineName} (candidates tried: ${candidates.join(', ') || 'none'})`);
+        }
+    }
+    return `=== SIBLING AGENT REACHABILITY (this ${machineName}, runtime-detected) ===
+${lines.join('\n')}
+You CAN read/write these directories with normal Bash/Read/Edit tools. Do NOT tell CC you can't access an agent that shows REACHABLE above — you have full filesystem access to those paths.`;
+}
+
 module.exports = {
     SIBLING_REPOS,
+    SIBLING_CANDIDATES,
     readSiblingRepo,
     readSelfRepo,
     loadCSuiteSnapshot,
     loadSiblingPulses,
+    loadLocalSiblingPaths,
     // Exported for unit tests only — not part of the stable public API.
     _formatAge: formatAge,
+    _isDir,
+    _resolveAgentRepo,
     _IS_MAC: IS_MAC,
 };
