@@ -103,9 +103,20 @@ const SIBLING_REPOS = {
 // under his plan via OAuth, paid metered via API key only when the
 // subscription is exhausted.
 //
-// The two helpers below are the shared canonical implementation of
-// that priority. Bravo's bridge uses them, future Bravo CLI tools can
+// The helpers below are the shared canonical implementation of that
+// priority. Bravo's bridge uses them, future Bravo CLI tools can
 // require() them, Atlas's Python bridge mirrors the same pattern.
+//
+// CROSS-LANGUAGE SYNC (CRITICAL):
+// This file MUST stay behaviorally identical to:
+//   APPS/CFO-Agent/cfo/claude_auth.py
+//     (Python port — used by Atlas's bridge + future Atlas CLI tools)
+//
+// If Anthropic changes the auth-failure or quota-error patterns, the
+// regex below MUST be updated in lockstep with that file's
+// _AUTH_FAIL_PATTERN. Same applies to the OAuth file path detection.
+// The two implementations diverge only in language idiom — Node vs
+// Python — never in behavior.
 
 // Build a child-process env that respects subscription-first auth.
 // Pass forceApiKey=true on the retry path to enable the paid fallback.
