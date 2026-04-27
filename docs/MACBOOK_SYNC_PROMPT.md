@@ -62,6 +62,14 @@ Don't ask permission for prescribed steps.
      at runtime. Replaces the previous hardcoded snapshot. Single
      source of truth — when path drifts, all 3 bridges pick it up.
 
+  7. SIBLING-REPO READS (NEW 2026-04-26) — telegram_agent.js now has
+     SIBLING_REPOS map + readSiblingRepo() + loadSiblingPulses()
+     helpers. Bridge can READ files from Maven, Atlas, Aura repos
+     directly (env-overridable: MAVEN_REPO, ATLAS_REPO, AURA_REPO).
+     loadSiblingPulses() injected into context at T1+ so Bravo always
+     knows what Maven and Atlas are currently doing — not just that
+     they exist. Stale-pulse warnings (>24h) get a ⚠ flag.
+
 ═══ EXECUTION ═══
 
 Step 1 — Stash any local changes (5 min)
@@ -122,8 +130,22 @@ Step 6 — Telegram smoke test (5 min)
        canonical reference is what's in brain/CROSS_AGENT_AWARENESS.md)
     4. "Post a tweet for me" → bridge should know to use Maven's
        late_tool cross-repo, not Bravo's (which no longer exists)
+    5. "What is Maven currently doing?" → bridge must answer with
+       Maven's actual session_note from cmo_pulse.json, not "I don't
+       know" (this verifies the new readSiblingRepo + loadSiblingPulses)
+    6. "Is Atlas's pulse fresh?" → must report cfo_pulse age in hours
+       and flag if >24h stale
 
-  All 4 must return correct answers before declaring done.
+  IMPORTANT for Mac: SIBLING_REPOS defaults assume Windows paths.
+  Set env overrides in PM2 ecosystem.config.js or .env so the Mac
+  bridge finds the sibling repos:
+    MAVEN_REPO=/Users/conaugh/CMO-Agent  (or wherever it lives)
+    ATLAS_REPO=/Users/conaugh/APPS/CFO-Agent
+    AURA_REPO=/Users/conaugh/AURA
+  Without these, the Mac bridge falls back to the Windows defaults
+  and readSiblingRepo will return empty for all 3 siblings.
+
+  All 6 must return correct answers before declaring done.
 
 Step 7 — State sync (5 min)
   python3 scripts/state_sync.py --note "MacBook synced from Windows

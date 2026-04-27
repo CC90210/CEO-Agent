@@ -48,6 +48,42 @@ existed. Yours likely has the same gap. Fix it.
    for `telegram_bridge.py`. Same regex pattern works:
      match = re.search(r'## The 4 Agents at a Glance\s*\n([\s\S]*?)(?=\n## )', txt)
 
+   CRITICAL — sibling-repo READS (added 2026-04-26): Bravo's bridge
+   doesn't just NAME the siblings — it READS Maven's `cmo_pulse.json`
+   and Bravo's `ceo_pulse.json` from the actual sibling repo paths
+   so it can answer "what's Maven doing right now?" with current data.
+   Atlas needs the same. In `telegram_bridge.py`, add:
+
+   ```python
+   import os
+   from pathlib import Path
+
+   SIBLING_REPOS = {
+       'atlas': Path(__file__).parent,  # self
+       'bravo': Path(os.environ.get('BRAVO_REPO', r'C:\Users\User\Business-Empire-Agent')),
+       'maven': Path(os.environ.get('MAVEN_REPO', r'C:\Users\User\CMO-Agent')),
+       'aura':  Path(os.environ.get('AURA_REPO',  r'C:\Users\User\AURA')),
+   }
+
+   def read_sibling_repo(agent: str, rel: str, max_lines: int = 0) -> str:
+       root = SIBLING_REPOS.get(agent)
+       if not root: return ''
+       try:
+           txt = (root / rel).read_text(encoding='utf-8', errors='replace')
+           if max_lines > 0:
+               txt = '\n'.join(txt.split('\n')[:max_lines])
+           return txt.strip()
+       except Exception:
+           return ''
+   ```
+
+   Then add `load_sibling_pulses()` modeled on Bravo's Node version —
+   reads bravo/ceo_pulse.json, maven/cmo_pulse.json, aura/aura_pulse.json,
+   parses session_note + updated_at, returns a summary block with stale
+   flags (>24h gets a ⚠). Wire into your context builder at every tier
+   so Atlas knows what Bravo and Maven are up to without spawning
+   subprocesses.
+
 2. STALE PATH IN OLD CONTEXT: Your repo's docs may still reference
    `C:\Users\User\APPS\trading-agent` (your old name before becoming
    the broader CFO-Agent). Search:

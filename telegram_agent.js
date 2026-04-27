@@ -42,6 +42,26 @@ const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const LOG_FILE = path.join(__dirname, 'memory', 'telegram_bridge.log');
 const LOCK_FILE = path.join(__dirname, 'tmp', 'bravo_telegram.lock.json');
 
+// ---- SIBLING REPOS (cross-agent file access) ----
+// Bravo's bridge must read sibling agents' pulse/state/active_tasks so it
+// can answer "what is Maven up to?" or "what's Atlas's current spend
+// approval?" without spawning a subprocess. Resolved from env vars so
+// CC can override per-machine; defaults are Windows-style on Win and
+// $HOME-relative on Mac. If the directory doesn't exist on disk, the
+// bridge gracefully returns empty content (no crash).
+const SIBLING_REPOS = {
+    bravo: __dirname,  // self
+    maven: process.env.MAVEN_REPO || (IS_MAC
+        ? path.join(process.env.HOME || '', 'CMO-Agent')
+        : 'C:\\Users\\User\\CMO-Agent'),
+    atlas: process.env.ATLAS_REPO || (IS_MAC
+        ? path.join(process.env.HOME || '', 'APPS', 'CFO-Agent')
+        : 'C:\\Users\\User\\APPS\\CFO-Agent'),
+    aura: process.env.AURA_REPO || (IS_MAC
+        ? path.join(process.env.HOME || '', 'AURA')
+        : 'C:\\Users\\User\\AURA'),
+};
+
 const log = (msg) => {
     const line = `[${new Date().toISOString()}] ${msg}\n`;
     console.log(line.trim());
@@ -220,7 +240,9 @@ ${history}
 CC's message:`;
 };
 
-// Reads a file safely, returns content or empty string
+// Reads a file safely, returns content or empty string. Path is relative
+// to Bravo's repo root (__dirname). For cross-repo reads, use
+// readSiblingRepo(agent, relPath) instead.
 const readFileSafe = (relPath, maxLines = 0) => {
     try {
         const content = fs.readFileSync(path.join(__dirname, relPath), 'utf8');
@@ -229,6 +251,65 @@ const readFileSafe = (relPath, maxLines = 0) => {
         }
         return content.trim();
     } catch (_) { return ''; }
+};
+
+// Reads a file from a sibling agent's repo. agent ∈ {maven, atlas, aura, bravo}.
+// Returns empty string if the sibling repo doesn't exist on this machine
+// (e.g. fresh checkout, Mac vs Windows path mismatch) — never throws.
+const readSiblingRepo = (agent, relPath, maxLines = 0) => {
+    const root = SIBLING_REPOS[agent];
+    if (!root) return '';
+    try {
+        const content = fs.readFileSync(path.join(root, relPath), 'utf8');
+        if (maxLines > 0) {
+            return content.split('\n').slice(0, maxLines).join('\n').trim();
+        }
+        return content.trim();
+    } catch (_) { return ''; }
+};
+
+// Pulse summarizer — reads each sibling's data/pulse/{agent}_pulse.json,
+// extracts session_note + updated_at + age, returns a multi-line summary
+// the context loader injects at T1+. This is what makes Bravo actually
+// know what Maven and Atlas are doing, not just that they exist.
+const loadSiblingPulses = () => {
+    const lines = ['=== SIBLING PULSES (current state of Maven/Atlas/Aura) ==='];
+    const now = Date.now();
+    const formatAge = (iso) => {
+        if (!iso) return 'unknown';
+        const ageMs = now - new Date(iso).getTime();
+        if (Number.isNaN(ageMs) || ageMs < 0) return 'unknown';
+        const hours = Math.floor(ageMs / 3_600_000);
+        if (hours < 1) return `${Math.floor(ageMs / 60_000)}m ago`;
+        if (hours < 24) return `${hours}h ago`;
+        return `${Math.floor(hours / 24)}d ago`;
+    };
+    const targets = [
+        ['maven', 'cmo_pulse.json', 'CMO'],
+        ['atlas', 'cfo_pulse.json', 'CFO'],
+        ['aura',  'aura_pulse.json', 'Life'],
+    ];
+    for (const [agent, file, role] of targets) {
+        const raw = readSiblingRepo(agent, `data/pulse/${file}`);
+        if (!raw) {
+            lines.push(`- ${agent.toUpperCase()} (${role}): pulse not reachable (sibling repo missing on this machine, or pulse never written)`);
+            continue;
+        }
+        try {
+            const pulse = JSON.parse(raw);
+            const note = (pulse.session_note || pulse.note || '').trim().slice(0, 200);
+            const age = formatAge(pulse.updated_at || pulse.timestamp);
+            const stale = (() => {
+                const t = new Date(pulse.updated_at || pulse.timestamp).getTime();
+                return Number.isNaN(t) || (now - t) > 24 * 3600_000;
+            })();
+            const flag = stale ? ' ⚠ STALE >24h' : '';
+            lines.push(`- ${agent.toUpperCase()} (${role}, ${age}${flag}): ${note || '(no session_note)'}`);
+        } catch (_) {
+            lines.push(`- ${agent.toUpperCase()} (${role}): pulse exists but failed to parse`);
+        }
+    }
+    return lines.join('\n');
 };
 
 // C-Suite snapshot loader — single source of truth for the 4-agent fleet
@@ -311,6 +392,13 @@ const loadContext = (tier = 2) => {
     // to a minimal hardcoded snapshot if the canonical file is unavailable
     // (e.g. fresh checkout, file moved, parse error).
     chunks.push(loadCSuiteSnapshot());
+
+    // Sibling pulses — actually READ Maven/Atlas/Aura pulse JSON, parse
+    // session_note + freshness, surface to Bravo. Without this, Bravo
+    // could only NAME the siblings, never know their current state.
+    // Stale-pulse warnings (>24h) get a ⚠ flag so Bravo can tell CC
+    // "Atlas hasn't run in 3 days, you should open that chat."
+    chunks.push(loadSiblingPulses());
 
     const claude_md = readFileSafe('CLAUDE.md', tier === 3 ? 200 : 120);
     if (claude_md) chunks.push(`=== CLAUDE.md (project instructions) ===\n${claude_md}`);
@@ -397,6 +485,15 @@ POWER COMMANDS (shutdown/restart/logout) require --confirm flag. Always ask the 
 
     const agents = readFileSafe('brain/AGENTS.md', 80);
     if (agents) chunks.push(`=== AGENTS.md (sub-agent registry) ===\n${agents}`);
+
+    // Sibling STATE.md reads — at T3, Bravo gets the actual current state
+    // of Maven and Atlas (not just their pulse summary). 30-line cap each
+    // keeps context budget under control.
+    const mavenState = readSiblingRepo('maven', 'brain/STATE.md', 30);
+    if (mavenState) chunks.push(`=== MAVEN brain/STATE.md (top 30 lines) ===\n${mavenState}`);
+
+    const atlasState = readSiblingRepo('atlas', 'brain/STATE.md', 30);
+    if (atlasState) chunks.push(`=== ATLAS brain/STATE.md (top 30 lines) ===\n${atlasState}`);
 
     const patterns = readFileSafe('memory/PATTERNS.md', 30);
     if (patterns) chunks.push(`=== PATTERNS.md ===\n${patterns}`);
