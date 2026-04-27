@@ -58,6 +58,7 @@ ORPHAN_ALLOWLIST = {
 class AuditResult:
     total_md_files: int = 0
     orphans: list[str] = field(default_factory=list)
+    leaves: list[str] = field(default_factory=list)
     broken_links: list[tuple[str, str]] = field(default_factory=list)
     skills_total: int = 0
     skills_missing_skill_md: list[str] = field(default_factory=list)
@@ -85,6 +86,46 @@ def collect_markdown_files() -> list[Path]:
 
 WIKI_LINK_RE = re.compile(r"\[\[([^\]|#]+)(?:\|[^\]]+)?\]\]")
 AT_IMPORT_RE = re.compile(r"@([a-zA-Z0-9_\-/.]+\.md)")
+
+
+def _find_leaves(md_files: list[Path], inbound: dict[str, set[str]]) -> list[str]:
+    """Files with degree <= 1 (1 inbound + 0 outbound, OR 0 inbound + 1 outbound).
+
+    Same allowlist as orphan detection — entry points and historical
+    archives are exempt. These show up as perimeter dots in Obsidian's
+    force-directed graph, indistinguishable from orphans visually. Flag
+    them so future drift surfaces in self_audit before the user notices.
+    """
+    leaves: list[str] = []
+    for f in md_files:
+        rel = str(f.relative_to(REPO_ROOT)).replace("\\", "/")
+        if rel in ORPHAN_ALLOWLIST:
+            continue
+        if any(part in ARCHIVE_PATH_PARTS for part in rel.split("/")):
+            continue
+        filename = rel.split("/")[-1]
+        # Inbound count (any of the three forms self_audit indexes)
+        in_count = (
+            len(inbound.get(rel, set()))
+            + len(inbound.get(filename, set()))
+            + len(inbound.get(rel.removesuffix(".md"), set()))
+        )
+        # Outbound count: count wiki-links that resolve to other md files
+        try:
+            text = f.read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            continue
+        out_count = 0
+        for m in WIKI_LINK_RE.findall(text):
+            target = m.strip()
+            if not target.endswith(".md"):
+                target = target + ".md"
+            # Only count if target is an indexed file (avoid phantom links)
+            if target in inbound or target.split("/")[-1] in inbound:
+                out_count += 1
+        if (in_count + out_count) <= 1:
+            leaves.append(rel)
+    return leaves
 
 
 def build_link_index(md_files: list[Path]) -> dict[str, set[str]]:
@@ -222,6 +263,14 @@ def run_audit() -> AuditResult:
         if not inbound.get(rel) and not inbound.get(filename) and not inbound.get(rel.removesuffix(".md")):
             result.orphans.append(rel)
 
+    # Leaf detection: files with degree <= 1 (one inbound, zero outbound)
+    # cluster on the perimeter of the Obsidian force-directed graph and
+    # look like orphans visually even though they have a link. Flag them
+    # so future drift gets caught early. Counted SEPARATELY from orphans
+    # — leaves don't reduce the health score (they're well-formed
+    # technically), they're just a UI quality signal.
+    result.leaves = _find_leaves(md_files, inbound)
+
     check_skills(result)
     check_scripts(result)
     check_mcp_sync(result)
@@ -248,6 +297,14 @@ def render_human(r: AuditResult) -> str:
             lines.append(f"    - {o}")
     else:
         lines.append("  ORPHANS: none OK")
+    if r.leaves:
+        lines.append(f"  LEAVES ({len(r.leaves)}) — degree <= 1, cluster on graph perimeter (not penalized, UI signal):")
+        for o in sorted(r.leaves)[:15]:
+            lines.append(f"    - {o}")
+        if len(r.leaves) > 15:
+            lines.append(f"    ... +{len(r.leaves) - 15} more")
+    else:
+        lines.append("  LEAVES: none OK (graph is dense)")
     lines.append("")
     if r.skills_missing_skill_md:
         lines.append(f"  SKILLS missing SKILL.md ({len(r.skills_missing_skill_md)}):")
