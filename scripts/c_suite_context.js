@@ -95,6 +95,64 @@ const SIBLING_REPOS = {
     aura:  _resolveAgentRepo('aura'),
 };
 
+// ---- CLAUDE CODE AUTH PRIORITY ----
+//
+// Claude Code CLI's auth resolution: ANTHROPIC_API_KEY in env wins when
+// set; otherwise it falls through to the OAuth token registered by
+// `claude setup-token`. CC's billing model is subscription-first: free
+// under his plan via OAuth, paid metered via API key only when the
+// subscription is exhausted.
+//
+// The two helpers below are the shared canonical implementation of
+// that priority. Bravo's bridge uses them, future Bravo CLI tools can
+// require() them, Atlas's Python bridge mirrors the same pattern.
+
+// Build a child-process env that respects subscription-first auth.
+// Pass forceApiKey=true on the retry path to enable the paid fallback.
+function buildClaudeSpawnEnv(opts = {}) {
+    const { forceApiKey = false, base = process.env, extras = {} } = opts;
+    const env = { ...base, ...extras };
+    if (!forceApiKey) {
+        // Strip the key so claude CLI uses the OAuth token (subscription).
+        delete env.ANTHROPIC_API_KEY;
+    }
+    return env;
+}
+
+// Detect "subscription failed, try API key" signals from claude CLI
+// stderr/stdout. Includes auth errors AND quota/rate-limit errors.
+const _AUTH_FAIL_PATTERN = /authentication_error|OAuth token has expired|401|Invalid API key|Please obtain a new token|usage limit|rate limit|quota exceeded|reached your.*limit|429/i;
+
+function isClaudeAuthOrQuotaFailure(rawOutput, exitCode) {
+    if (exitCode === 0) return false;
+    return _AUTH_FAIL_PATTERN.test(rawOutput || '');
+}
+
+// Check the local machine for the Claude Code subscription OAuth token
+// AND the API key fallback. Returns { hasOAuth, hasApiKey, oauthPath, notes }.
+// Used by startup health checks. The OAuth file lives at
+// ~/.claude/.credentials.json on Mac + Windows (verified 2026-04-27).
+function checkClaudeAuthPaths(opts = {}) {
+    const home = opts.home || process.env.HOME || process.env.USERPROFILE || '';
+    const claudeDir = path.join(home, '.claude');
+    // Real path is .credentials.json (leading dot). Keep the legacy
+    // candidate as a fallback in case the storage layout changes.
+    const candidates = [
+        path.join(claudeDir, '.credentials.json'),
+        path.join(claudeDir, 'credentials.json'),
+    ];
+    const oauthPath = candidates.find(p => {
+        try { return fs.statSync(p).size > 0; } catch (_) { return false; }
+    }) || null;
+    const apiKey = (opts.env || process.env).ANTHROPIC_API_KEY || '';
+    return {
+        hasOAuth: !!oauthPath,
+        oauthPath,
+        hasApiKey: !!apiKey,
+        claudeDir,
+    };
+}
+
 // ---- FILE READERS ----
 
 // Read a file from a sibling agent's repo. Returns trimmed content or
@@ -229,9 +287,14 @@ module.exports = {
     loadCSuiteSnapshot,
     loadSiblingPulses,
     loadLocalSiblingPaths,
+    // Claude auth priority (subscription-first, API-key fallback)
+    buildClaudeSpawnEnv,
+    isClaudeAuthOrQuotaFailure,
+    checkClaudeAuthPaths,
     // Exported for unit tests only — not part of the stable public API.
     _formatAge: formatAge,
     _isDir,
     _resolveAgentRepo,
+    _AUTH_FAIL_PATTERN,
     _IS_MAC: IS_MAC,
 };

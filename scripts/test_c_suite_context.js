@@ -275,6 +275,138 @@ withTempSiblings(({ repos, mod }) => {
 
 
 // ============================================================
+console.log('\nbuildClaudeSpawnEnv — subscription-first auth');
+// ============================================================
+{
+    const { buildClaudeSpawnEnv } = require('./c_suite_context.js');
+
+    // Default (forceApiKey=false): API key stripped from env
+    const stripped = buildClaudeSpawnEnv({
+        base: { ANTHROPIC_API_KEY: 'sk-ant-fake', PATH: '/usr/bin', FOO: 'bar' },
+    });
+    assert(!('ANTHROPIC_API_KEY' in stripped),
+        'default: ANTHROPIC_API_KEY removed from env');
+    assertEq(stripped.FOO, 'bar', 'default: other env vars preserved');
+    assertEq(stripped.PATH, '/usr/bin', 'default: PATH preserved');
+
+    // forceApiKey=true: API key kept (fallback path)
+    const withKey = buildClaudeSpawnEnv({
+        forceApiKey: true,
+        base: { ANTHROPIC_API_KEY: 'sk-ant-fake', PATH: '/usr/bin' },
+    });
+    assertEq(withKey.ANTHROPIC_API_KEY, 'sk-ant-fake',
+        'forceApiKey=true: API key preserved for fallback');
+
+    // extras override base
+    const merged = buildClaudeSpawnEnv({
+        base: { CI: 'false', PATH: '/usr/bin' },
+        extras: { CI: 'true', NONINTERACTIVE: 'true' },
+    });
+    assertEq(merged.CI, 'true', 'extras override base');
+    assertEq(merged.NONINTERACTIVE, 'true', 'extras added');
+    assertEq(merged.PATH, '/usr/bin', 'unrelated base keys preserved');
+
+    // No base → use process.env (smoke test, just don't crash)
+    const live = buildClaudeSpawnEnv();
+    assert(typeof live === 'object' && live !== null, 'no-args returns object');
+}
+
+
+// ============================================================
+console.log('\nisClaudeAuthOrQuotaFailure — pattern matching');
+// ============================================================
+{
+    const { isClaudeAuthOrQuotaFailure } = require('./c_suite_context.js');
+
+    // Exit 0: never a failure
+    assertEq(isClaudeAuthOrQuotaFailure('any output', 0), false,
+        'exit 0 is never auth failure');
+    assertEq(isClaudeAuthOrQuotaFailure('OAuth token has expired', 0), false,
+        'exit 0 with auth-error string still false');
+
+    // Auth failures
+    assertEq(isClaudeAuthOrQuotaFailure('authentication_error: bad token', 1), true,
+        'authentication_error matches');
+    assertEq(isClaudeAuthOrQuotaFailure('OAuth token has expired', 1), true,
+        'OAuth expired matches');
+    assertEq(isClaudeAuthOrQuotaFailure('HTTP 401 Unauthorized', 1), true,
+        '401 matches');
+    assertEq(isClaudeAuthOrQuotaFailure('Invalid API key provided', 1), true,
+        'Invalid API key matches');
+
+    // Quota failures
+    assertEq(isClaudeAuthOrQuotaFailure('You have hit usage limit for today', 1), true,
+        'usage limit matches');
+    assertEq(isClaudeAuthOrQuotaFailure('rate limit exceeded', 1), true,
+        'rate limit matches');
+    assertEq(isClaudeAuthOrQuotaFailure('quota exceeded for this account', 1), true,
+        'quota exceeded matches');
+    assertEq(isClaudeAuthOrQuotaFailure('429 too many requests', 1), true,
+        '429 matches');
+    assertEq(isClaudeAuthOrQuotaFailure('reached your weekly limit', 1), true,
+        'reached your limit matches');
+
+    // Unrelated errors don't match
+    assertEq(isClaudeAuthOrQuotaFailure('TypeError: foo is undefined', 1), false,
+        'unrelated error does not match');
+    assertEq(isClaudeAuthOrQuotaFailure('Network unreachable', 1), false,
+        'network error does not match');
+
+    // Empty/null
+    assertEq(isClaudeAuthOrQuotaFailure('', 1), false, 'empty string with non-zero exit');
+    assertEq(isClaudeAuthOrQuotaFailure(null, 1), false, 'null output');
+}
+
+
+// ============================================================
+console.log('\ncheckClaudeAuthPaths — subscription + API key detection');
+// ============================================================
+{
+    const { checkClaudeAuthPaths } = require('./c_suite_context.js');
+
+    // Use a temp dir as fake $HOME
+    const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'auth-test-'));
+    try {
+        // No .claude dir: hasOAuth=false
+        const noOAuth = checkClaudeAuthPaths({ home: fakeHome, env: {} });
+        assertEq(noOAuth.hasOAuth, false, 'no .claude dir → hasOAuth=false');
+        assertEq(noOAuth.oauthPath, null, 'no oauthPath');
+        assertEq(noOAuth.hasApiKey, false, 'no API key in env → hasApiKey=false');
+
+        // Add .credentials.json (the real path) with non-empty content
+        fs.mkdirSync(path.join(fakeHome, '.claude'), { recursive: true });
+        fs.writeFileSync(path.join(fakeHome, '.claude', '.credentials.json'),
+            '{"token":"xyz"}');
+        const withOAuth = checkClaudeAuthPaths({ home: fakeHome, env: {} });
+        assertEq(withOAuth.hasOAuth, true, '.credentials.json present → hasOAuth=true');
+        assert(withOAuth.oauthPath.endsWith('.credentials.json'),
+            'oauthPath points at the real file');
+
+        // Empty file: NOT counted as OAuth (size guard)
+        fs.writeFileSync(path.join(fakeHome, '.claude', '.credentials.json'), '');
+        const empty = checkClaudeAuthPaths({ home: fakeHome, env: {} });
+        assertEq(empty.hasOAuth, false, 'empty .credentials.json → hasOAuth=false');
+
+        // API key in env
+        const withKey = checkClaudeAuthPaths({
+            home: fakeHome,
+            env: { ANTHROPIC_API_KEY: 'sk-ant-test' },
+        });
+        assertEq(withKey.hasApiKey, true, 'API key in env → hasApiKey=true');
+
+        // Empty string API key still false
+        const blankKey = checkClaudeAuthPaths({
+            home: fakeHome,
+            env: { ANTHROPIC_API_KEY: '' },
+        });
+        assertEq(blankKey.hasApiKey, false, 'empty-string API key → hasApiKey=false');
+    } finally {
+        fs.rmSync(fakeHome, { recursive: true, force: true });
+    }
+}
+
+
+// ============================================================
 console.log('\nformatAge boundary cases');
 // ============================================================
 const { _formatAge: formatAge } = require('./c_suite_context.js');

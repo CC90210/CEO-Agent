@@ -63,7 +63,10 @@ const LOCK_FILE = path.join(__dirname, 'tmp', 'bravo_telegram.lock.json');
 // scripts/test_c_suite_context.js. Reference implementation that Maven's
 // bridge (Node) mirrors verbatim and Atlas's (Python) ports.
 const cSuite = require('./scripts/c_suite_context.js');
-const { SIBLING_REPOS, SIBLING_CANDIDATES, readSiblingRepo } = cSuite;
+const {
+    SIBLING_REPOS, SIBLING_CANDIDATES, readSiblingRepo,
+    buildClaudeSpawnEnv, isClaudeAuthOrQuotaFailure, checkClaudeAuthPaths,
+} = cSuite;
 
 const log = (msg) => {
     const line = `[${new Date().toISOString()}] ${msg}\n`;
@@ -630,29 +633,21 @@ const executeCli = (tool, userPrompt, chatId, modelOverride = null, forceApiKey 
 
         log(`[EXEC] ${tool}: "${userPrompt.substring(0, 80)}..."`);
 
-        // AUTH PRIORITY (V15.8 — 2026-04-27):
-        //   1st: Claude Code subscription OAuth token (free under CC's
-        //        plan, what `claude setup-token` registers)
-        //   2nd: ANTHROPIC_API_KEY (paid metered, fallback only)
-        // Claude CLI auto-prefers ANTHROPIC_API_KEY when set in env. We
-        // STRIP it from the spawn env so the OAuth path is used. The
-        // retry-on-quota block below adds it back if subscription is
-        // exhausted. CC's billing wins by default.
-        const useApiFallback = forceApiKey === true;  // set on retry
-        const spawnEnv = {
-            ...process.env,
-            CI: 'true',
-            NONINTERACTIVE: 'true',
-            PAGER: 'cat',
-            NO_COLOR: '1',
-            FORCE_COLOR: '0'
-        };
-        if (!useApiFallback && tool === 'claude') {
-            // Force subscription path — strip the API key so claude CLI
-            // falls through to the OAuth token from `claude setup-token`.
-            delete spawnEnv.ANTHROPIC_API_KEY;
-        }
-        if (useApiFallback) {
+        // AUTH PRIORITY (V15.8 — 2026-04-27): subscription-first, API-key
+        // fallback. Implementation in scripts/c_suite_context.js so the
+        // pattern is shared with future Bravo CLI tools and mirrored
+        // verbatim by Maven's bridge.
+        const spawnEnv = (tool === 'claude')
+            ? buildClaudeSpawnEnv({
+                forceApiKey,
+                extras: { CI: 'true', NONINTERACTIVE: 'true', PAGER: 'cat', NO_COLOR: '1', FORCE_COLOR: '0' },
+            })
+            : {
+                ...process.env,
+                CI: 'true', NONINTERACTIVE: 'true', PAGER: 'cat',
+                NO_COLOR: '1', FORCE_COLOR: '0',
+            };
+        if (forceApiKey) {
             log(`[AUTH FALLBACK] using ANTHROPIC_API_KEY for this call (subscription quota or auth error)`);
         }
 
@@ -729,12 +724,8 @@ const executeCli = (tool, userPrompt, chatId, modelOverride = null, forceApiKey 
                 return;
             }
 
-            // Auth + quota detection (V15.8 — 2026-04-27):
-            // If subscription path failed because OAuth expired OR
-            // subscription quota hit, retry the SAME request with
-            // ANTHROPIC_API_KEY enabled (paid fallback). Only retry once
-            // and only if we haven't already tried the API key.
-            const looksLikeQuotaOrAuth = code !== 0 && /authentication_error|OAuth token has expired|401|Invalid API key|Please obtain a new token|usage limit|rate limit|quota exceeded|reached your.*limit|429/i.test(raw);
+            // Auth + quota detection (V15.8): pattern lives in c_suite_context.
+            const looksLikeQuotaOrAuth = isClaudeAuthOrQuotaFailure(raw, code);
             if (looksLikeQuotaOrAuth && tool === 'claude' && !forceApiKey) {
                 log(`[AUTH FALLBACK TRIGGERED] subscription failed, retrying with ANTHROPIC_API_KEY: ${raw.substring(0, 200)}`);
                 if (chatId) {
@@ -1296,30 +1287,23 @@ try {
 // ---- STARTUP AUTH HEALTH CHECK (V15.8 — both paths) ----
 // Bravo prefers Claude Code subscription OAuth (free under CC's plan).
 // API key is fallback only. This boot check verifies BOTH paths so CC
-// knows the bridge has working auth in either mode before any user
-// query hits.
+// knows the bridge has working auth in either mode. Path-detection
+// + presence check live in scripts/c_suite_context.js for reuse.
 setTimeout(() => {
-    // (1) Subscription path — does `claude` CLI have a registered token?
-    const claudeDir = path.join(process.env.HOME || process.env.USERPROFILE || '', '.claude');
-    const credCandidates = [
-        path.join(claudeDir, 'credentials.json'),
-        path.join(claudeDir, '.credentials.json'),
-    ];
-    const hasOAuth = credCandidates.some(p => { try { return fs.statSync(p).size > 0; } catch (_) { return false; } });
-    if (hasOAuth) {
-        log('[HEALTH] Claude Code subscription OAuth: present (primary auth path)');
+    const auth = checkClaudeAuthPaths();
+    if (auth.hasOAuth) {
+        log(`[HEALTH] Claude Code subscription OAuth: present at ${auth.oauthPath} (primary auth path)`);
     } else {
         log('[HEALTH] Claude Code subscription OAuth: NOT FOUND — run `claude setup-token`. Bridge will fall back to ANTHROPIC_API_KEY.');
         if (ALLOWED_USERS.length > 0) {
             bot.sendMessage(ALLOWED_USERS[0],
-                `⚠️ Bravo startup: Claude Code subscription token not found at ${claudeDir}.\nRun: claude setup-token\nFalling back to ANTHROPIC_API_KEY (paid metered) until fixed.`
+                `⚠️ Bravo startup: Claude Code subscription token not found at ${auth.claudeDir}.\nRun: claude setup-token\nFalling back to ANTHROPIC_API_KEY (paid metered) until fixed.`
             ).catch(() => {});
         }
     }
 
-    // (2) API key fallback path — verify it works with a tiny ping
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
+    if (!auth.hasApiKey) {
         log('[HEALTH] ANTHROPIC_API_KEY missing — fallback path unavailable. If subscription quota hits, Bravo will hard-fail.');
         return;
     }
