@@ -45,3 +45,7 @@ bravo skills promote <name>
 bravo skills deprecate <name>
 bravo browser learn <site>
 ```
+
+## Related
+- [[brain/INDEX]]
+- [[skills/INDEX]]

@@ -19,3 +19,4 @@ Then add a row to this index.
 
 ## Related
 - [[../AGENTS]] · [[../CLAUDE]]
+- [[brain/INDEX]]

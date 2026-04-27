@@ -27,3 +27,8 @@
 ## Approval Gates
 
 Approval required before redeploy, rollback, domain changes, env var edits, access changes, project deletion, or deployment protection changes.
+
+## Related
+- [[browser/README]]
+- [[browser/SAFETY]]
+- [[skills/browser-harness/SKILL]]

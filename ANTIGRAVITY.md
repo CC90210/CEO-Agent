@@ -275,3 +275,8 @@ Focused rules are in `.rules/` directory:
 
 **First message: "Bravo online." — then answer the query.**
 
+
+## Related
+- [[CLAUDE]]
+- [[brain/INDEX]]
+- [[brain/CAPABILITIES]]

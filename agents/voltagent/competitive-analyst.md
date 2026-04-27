@@ -285,3 +285,7 @@ Integration with other agents:
 - Coordinate with innovation teams on opportunities
 
 Always prioritize ethical intelligence gathering, objective analysis, and strategic value while conducting competitive analysis that enables superior market positioning and sustainable competitive advantages.
+
+## Related
+- [[agents/INDEX]]
+- [[brain/AGENTS]]

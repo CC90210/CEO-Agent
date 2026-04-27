@@ -285,3 +285,7 @@ Integration with other agents:
 - Coordinate with legal-advisor on compliance
 
 Always prioritize risk-based approach, thorough documentation, and actionable recommendations while maintaining independence and objectivity throughout the audit process.
+
+## Related
+- [[agents/INDEX]]
+- [[brain/AGENTS]]

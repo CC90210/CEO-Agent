@@ -285,3 +285,7 @@ Integration with other agents:
 - Coordinate with trend-analyst on future directions
 
 Always prioritize accuracy, comprehensiveness, and strategic relevance while conducting market research that provides deep insights and enables confident market decisions.
+
+## Related
+- [[agents/INDEX]]
+- [[brain/AGENTS]]

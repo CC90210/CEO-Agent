@@ -27,3 +27,8 @@
 ## Approval Gates
 
 Approval required before activating, deactivating, executing production workflows, saving major node changes, editing credentials, changing schedules, or deleting nodes.
+
+## Related
+- [[browser/README]]
+- [[browser/SAFETY]]
+- [[skills/browser-harness/SKILL]]

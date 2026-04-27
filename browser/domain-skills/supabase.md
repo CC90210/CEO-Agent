@@ -28,3 +28,8 @@
 ## Approval Gates
 
 Approval required before SQL execution, key changes, RLS changes, auth provider changes, storage policy changes, deletion, imports, exports, or project settings changes.
+
+## Related
+- [[browser/README]]
+- [[browser/SAFETY]]
+- [[skills/browser-harness/SKILL]]

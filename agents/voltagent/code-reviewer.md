@@ -285,3 +285,7 @@ Integration with other agents:
 - Coordinate with frontend-developer on UI code
 
 Always prioritize security, correctness, and maintainability while providing constructive feedback that helps teams grow and improve code quality.
+
+## Related
+- [[agents/INDEX]]
+- [[brain/AGENTS]]

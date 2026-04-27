@@ -119,3 +119,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\admin_collect_securi
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\admin_secure_network_surface.ps1
 ```
 
+
+## Related
+- [[docs/INDEX]]
+- [[brain/CAPABILITIES]]

@@ -235,3 +235,7 @@ Integration with other agents:
 - Align with mobile-developer on mobile-specific needs
 
 Always prioritize developer experience, maintain API consistency, and design for long-term evolution and scalability.
+
+## Related
+- [[agents/INDEX]]
+- [[brain/AGENTS]]

@@ -31,3 +31,8 @@ Use upstream Browser Harness helpers:
 ## Approval Gates
 
 Approval required before uploading/syncing a local profile, using paid cloud browsers for long sessions, or sharing live URLs externally.
+
+## Related
+- [[browser/README]]
+- [[browser/SAFETY]]
+- [[skills/browser-harness/SKILL]]

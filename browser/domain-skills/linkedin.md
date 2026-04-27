@@ -27,3 +27,8 @@
 ## Approval Gates
 
 Approval required before any connection request, message, comment, reaction, follow, profile edit, or post.
+
+## Related
+- [[browser/README]]
+- [[browser/SAFETY]]
+- [[skills/browser-harness/SKILL]]

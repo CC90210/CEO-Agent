@@ -117,3 +117,7 @@ Have the store show or document:
 - NVIDIA RTX 5090 specs: https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5090/
 - ASUS TUF RTX 5070 Ti 16 GB specs: https://www.asus.com/us/motherboards-components/graphics-cards/tuf-gaming/tuf-rtx5070ti-16g-gaming/techspec/
 
+
+## Related
+- [[docs/INDEX]]
+- [[brain/CAPABILITIES]]
