@@ -62,13 +62,17 @@ Don't ask permission for prescribed steps.
      at runtime. Replaces the previous hardcoded snapshot. Single
      source of truth — when path drifts, all 3 bridges pick it up.
 
-  7. SIBLING-REPO READS (NEW 2026-04-26) — telegram_agent.js now has
-     SIBLING_REPOS map + readSiblingRepo() + loadSiblingPulses()
-     helpers. Bridge can READ files from Maven, Atlas, Aura repos
-     directly (env-overridable: MAVEN_REPO, ATLAS_REPO, AURA_REPO).
-     loadSiblingPulses() injected into context at T1+ so Bravo always
-     knows what Maven and Atlas are currently doing — not just that
-     they exist. Stale-pulse warnings (>24h) get a ⚠ flag.
+  7. SIBLING-REPO READS + MODULE EXTRACTION (NEW 2026-04-26) —
+     extracted to `scripts/c_suite_context.js` (Node module) with
+     30 unit tests at `scripts/test_c_suite_context.js`. Module
+     exports SIBLING_REPOS map + readSiblingRepo() +
+     loadSiblingPulses() + loadCSuiteSnapshot(). Bridge can READ
+     files from Maven, Atlas, Aura repos directly (env-overridable:
+     MAVEN_REPO, ATLAS_REPO, AURA_REPO). loadSiblingPulses() injected
+     into context at T2+ so Bravo always knows what Maven and Atlas
+     are currently doing — not just that they exist. Stale-pulse
+     warnings (>24h) get a ⚠ flag. Verify on Mac:
+       node scripts/test_c_suite_context.js   # must show 30/30 PASS
 
 ═══ EXECUTION ═══
 

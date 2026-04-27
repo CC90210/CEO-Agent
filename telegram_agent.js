@@ -42,25 +42,13 @@ const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const LOG_FILE = path.join(__dirname, 'memory', 'telegram_bridge.log');
 const LOCK_FILE = path.join(__dirname, 'tmp', 'bravo_telegram.lock.json');
 
-// ---- SIBLING REPOS (cross-agent file access) ----
-// Bravo's bridge must read sibling agents' pulse/state/active_tasks so it
-// can answer "what is Maven up to?" or "what's Atlas's current spend
-// approval?" without spawning a subprocess. Resolved from env vars so
-// CC can override per-machine; defaults are Windows-style on Win and
-// $HOME-relative on Mac. If the directory doesn't exist on disk, the
-// bridge gracefully returns empty content (no crash).
-const SIBLING_REPOS = {
-    bravo: __dirname,  // self
-    maven: process.env.MAVEN_REPO || (IS_MAC
-        ? path.join(process.env.HOME || '', 'CMO-Agent')
-        : 'C:\\Users\\User\\CMO-Agent'),
-    atlas: process.env.ATLAS_REPO || (IS_MAC
-        ? path.join(process.env.HOME || '', 'APPS', 'CFO-Agent')
-        : 'C:\\Users\\User\\APPS\\CFO-Agent'),
-    aura: process.env.AURA_REPO || (IS_MAC
-        ? path.join(process.env.HOME || '', 'AURA')
-        : 'C:\\Users\\User\\AURA'),
-};
+// ---- C-SUITE CROSS-AGENT MODULE ----
+// Sibling-repo file access + pulse summarizer + canonical 4-agent snapshot.
+// Single source of truth shared with future Bravo CLI tooling and used as
+// reference implementation by Maven's bridge (Node) and Atlas's bridge
+// (Python port). Tests at scripts/test_c_suite_context.js (30 cases).
+const cSuite = require('./scripts/c_suite_context.js');
+const { SIBLING_REPOS, readSiblingRepo } = cSuite;
 
 const log = (msg) => {
     const line = `[${new Date().toISOString()}] ${msg}\n`;
@@ -253,93 +241,14 @@ const readFileSafe = (relPath, maxLines = 0) => {
     } catch (_) { return ''; }
 };
 
-// Reads a file from a sibling agent's repo. agent ∈ {maven, atlas, aura, bravo}.
-// Returns empty string if the sibling repo doesn't exist on this machine
-// (e.g. fresh checkout, Mac vs Windows path mismatch) — never throws.
-const readSiblingRepo = (agent, relPath, maxLines = 0) => {
-    const root = SIBLING_REPOS[agent];
-    if (!root) return '';
-    try {
-        const content = fs.readFileSync(path.join(root, relPath), 'utf8');
-        if (maxLines > 0) {
-            return content.split('\n').slice(0, maxLines).join('\n').trim();
-        }
-        return content.trim();
-    } catch (_) { return ''; }
-};
+// readSiblingRepo + loadSiblingPulses are now in scripts/c_suite_context.js
+// (imported above). See module file for full implementation + tests.
+const loadSiblingPulses = () => cSuite.loadSiblingPulses();
 
-// Pulse summarizer — reads each sibling's data/pulse/{agent}_pulse.json,
-// extracts session_note + updated_at + age, returns a multi-line summary
-// the context loader injects at T1+. This is what makes Bravo actually
-// know what Maven and Atlas are doing, not just that they exist.
-const loadSiblingPulses = () => {
-    const lines = ['=== SIBLING PULSES (current state of Maven/Atlas/Aura) ==='];
-    const now = Date.now();
-    const formatAge = (iso) => {
-        if (!iso) return 'unknown';
-        const ageMs = now - new Date(iso).getTime();
-        if (Number.isNaN(ageMs) || ageMs < 0) return 'unknown';
-        const hours = Math.floor(ageMs / 3_600_000);
-        if (hours < 1) return `${Math.floor(ageMs / 60_000)}m ago`;
-        if (hours < 24) return `${hours}h ago`;
-        return `${Math.floor(hours / 24)}d ago`;
-    };
-    const targets = [
-        ['maven', 'cmo_pulse.json', 'CMO'],
-        ['atlas', 'cfo_pulse.json', 'CFO'],
-        ['aura',  'aura_pulse.json', 'Life'],
-    ];
-    for (const [agent, file, role] of targets) {
-        const raw = readSiblingRepo(agent, `data/pulse/${file}`);
-        if (!raw) {
-            lines.push(`- ${agent.toUpperCase()} (${role}): pulse not reachable (sibling repo missing on this machine, or pulse never written)`);
-            continue;
-        }
-        try {
-            const pulse = JSON.parse(raw);
-            const note = (pulse.session_note || pulse.note || '').trim().slice(0, 200);
-            const age = formatAge(pulse.updated_at || pulse.timestamp);
-            const stale = (() => {
-                const t = new Date(pulse.updated_at || pulse.timestamp).getTime();
-                return Number.isNaN(t) || (now - t) > 24 * 3600_000;
-            })();
-            const flag = stale ? ' ⚠ STALE >24h' : '';
-            lines.push(`- ${agent.toUpperCase()} (${role}, ${age}${flag}): ${note || '(no session_note)'}`);
-        } catch (_) {
-            lines.push(`- ${agent.toUpperCase()} (${role}): pulse exists but failed to parse`);
-        }
-    }
-    return lines.join('\n');
-};
-
-// C-Suite snapshot loader — single source of truth for the 4-agent fleet
-// awareness. Used by every Telegram bridge (Bravo here, Atlas's
-// telegram_bridge.py, Maven's telegram_agent.js when built) so a path or
-// domain change in brain/CROSS_AGENT_AWARENESS.md propagates to all 3
-// chats automatically. Falls back to a minimal inline snapshot if the
-// canonical file is unavailable (fresh checkout, sibling-repo missing).
-const loadCSuiteSnapshot = () => {
-    const HEADER = '=== C-SUITE (CC\'s 4-agent team — always load) ===';
-    const FOOTER = `\nCross-agent messaging: ${PYTHON} scripts/agent_inbox.py post --from bravo --to <atlas|maven|aura> --subject "..." --body "..."\nPulse files: data/pulse/ceo_pulse.json (yours), ../CMO-Agent/data/pulse/cmo_pulse.json (Maven), ../APPS/CFO-Agent/data/pulse/cfo_pulse.json (Atlas)`;
-
-    // Preferred path: parse the canonical 4-agent table from brain/CROSS_AGENT_AWARENESS.md.
-    const canon = readFileSafe('brain/CROSS_AGENT_AWARENESS.md');
-    if (canon) {
-        // Extract the table block ("## The 4 Agents at a Glance" → next heading).
-        const tableMatch = canon.match(/## The 4 Agents at a Glance\s*\n([\s\S]*?)(?=\n##\s)/);
-        if (tableMatch && tableMatch[1].trim()) {
-            return `${HEADER}\n${tableMatch[1].trim()}${FOOTER}`;
-        }
-    }
-
-    // Fallback: minimal hardcoded snapshot if the canonical file is missing.
-    // Kept short — first responsibility is correctness, second is brevity.
-    return `${HEADER}
-- BRAVO (CEO, you) — C:\\Users\\User\\Business-Empire-Agent — strategy, clients, revenue, cold outreach, Bennett/Skool, calendar
-- ATLAS (CFO) — C:\\Users\\User\\APPS\\CFO-Agent — tax, accounting, runway, research, portfolio advisory; writes cfo_pulse.json
-- MAVEN (CMO) — C:\\Users\\User\\CMO-Agent — paid ads (Meta+Google), social (Late/Zernio), Instagram, content pipeline, brand voice
-- AURA (Life/Home) — C:\\Users\\User\\AURA — smart home, habits, presence, life context${FOOTER}`;
-};
+// loadCSuiteSnapshot lives in scripts/c_suite_context.js. This thin
+// wrapper passes Bravo's PYTHON path through so the embedded inbox-call
+// example in the snapshot footer renders with the correct interpreter.
+const loadCSuiteSnapshot = () => cSuite.loadCSuiteSnapshot({ python: PYTHON });
 
 // ---- CONTEXT TIER CLASSIFICATION (from Claude Code harness patterns) ----
 // Claude Code uses "simple mode" (184 tools → 3) for lightweight queries.
