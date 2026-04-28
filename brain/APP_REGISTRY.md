@@ -38,7 +38,7 @@ When CC says "fix [app]", "update [app]", "build [feature] in [app]", "debug [ap
 | **Aura (Life/Home Agent)** | aura, smart home, apartment, life, habits, home agent | `C:\Users\User\AURA` | CC90210/Aura-Home-Agent | — | Claude Code agent, Raspberry Pi 5, Home Assistant, ESP32, voice agent | RPi5 hub |
 | **IG Setter Pro** | ig-setter, ig setter, dm automation, manychat | `C:\Users\User\APPS\ig-setter-pro` | CC90210/ig-setter-pro | Turso (ig-setter-cc90210) | Next.js 14, TypeScript, Turso/libSQL, n8n, Claude API, Tailwind | Vercel (ig-setter-pro.vercel.app) |
 | **Gritly** | gritly, field service, fsm, trades app | `C:\Users\User\APPS\gritly` | (pending) | Turso (libSQL) | Next.js 15, TypeScript, Drizzle ORM, Better Auth, Stripe, Framer Motion | Vercel (pending) |
-| **Hermes** | hermes, lowinger, emmanuel, commerce agent, pos agent | `C:\Users\User\APPS\hermes` | CC90210/hermes (private) | — | Python 3.12, Ollama, SQLite, FastAPI, Playwright | Local (client machine) |
+| **Hermes** | hermes, lowinger, emmanuel, commerce agent, pos agent, a2000, walgreens, edi, chargeback | `C:\Users\User\hermes` (canonical) + `C:\Users\User\APPS\hermes` (stale clone) | [CC90210/hermes](https://github.com/CC90210/hermes) (public) | — | Python 3.12, SQLite, FastAPI, Ollama OR Anthropic/OpenAI (DPA), pywinauto (A2000 desktop takeover), Playwright (web ERPs), reportlab (GS1-128 labels), pdfplumber/openpyxl (PO parsing) | Local (client machine) + GitHub Pages demo (cc90210.github.io/hermes) |
 
 
 ## App Context Files
