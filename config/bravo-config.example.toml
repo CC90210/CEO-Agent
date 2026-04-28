@@ -53,6 +53,14 @@ browser_allowed = true
 approval_required_for_physical_devices = true
 
 [agents.hermes]
-role = "client operations agent"
+role = "wholesale commerce + EDI compliance agent"
 browser_allowed = true
 approval_required_for_client_portals = true
+approval_required_for_pos_takeover = true
+# Supported A2000 integration modes (in escalating order of risk):
+#   mock       — in-memory fake (demos, CI)
+#   edi        — X12 850 to VAN/AS2 drop folder (no GUI driving)
+#   api        — vendor REST API (requires GCS API module)
+#   playwright — browser automation (web/Electron front ends only)
+#   desktop    — native Win32 takeover via pywinauto (the realistic A2000 path)
+supported_a2000_modes = ["mock", "edi", "api", "playwright", "desktop"]
