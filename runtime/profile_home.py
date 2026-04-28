@@ -84,10 +84,12 @@ PROFILES = {
                "browser_allowed": True,
                "repo_dir_name": "aura-repo",
                "approval_required_for_physical_devices": True},
-    "hermes": {"role": "Client operations agent",
+    "hermes": {"role": "Wholesale commerce + EDI compliance agent",
                "browser_allowed": True,
                "repo_dir_name": "hermes-repo",
-               "approval_required_for_client_portals": True},
+               "approval_required_for_client_portals": True,
+               "approval_required_for_pos_takeover": True,
+               "supports_a2000_modes": ("mock", "api", "edi", "playwright", "desktop")},
 }
 
 

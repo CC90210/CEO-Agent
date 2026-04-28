@@ -35,7 +35,7 @@ When someone asks you for a solution, send them here. **All repo names are click
 | "I run a daycare and need attendance tracking" | [CC90210/tiktik](https://github.com/CC90210/tiktik) |
 | "I need a lead capture funnel with payment" | [CC90210/cc-funnel](https://github.com/CC90210/cc-funnel) |
 | "I sell Shopify products and want AI ad videos" | [CC90210/shopify-ad-engine](https://github.com/CC90210/shopify-ad-engine) |
-| "I need a compliance/EDI/POS agent for wholesale" | CC90210/hermes (private — OASIS only — DM CC) |
+| "I need a compliance/EDI/POS agent for wholesale" | [CC90210/hermes](https://github.com/CC90210/hermes) (Hermes — public, OASIS-built) |
 | "I want an AI CFO watching my finances" | [CC90210/CFO-Agent](https://github.com/CC90210/CFO-Agent) (Atlas) |
 | "I want an AI marketer writing & shipping my content" | [CC90210/CMO-Agent](https://github.com/CC90210/CMO-Agent) (Maven) |
 | "I want an AI running my smart home" | [CC90210/Aura-Home-Agent](https://github.com/CC90210/Aura-Home-Agent) |
@@ -64,7 +64,7 @@ All production repos owned by CC. These are the "source code" CC can point clien
 | **On The Hill** | [CC90210/ON-THE-HILL](https://github.com/CC90210/ON-THE-HILL) | Vite, React 19 | Venue/restaurant site | Dev |
 | **Mindset Companion** | [CC90210/MINDSET-COMPANION-LUCID](https://github.com/CC90210/MINDSET-COMPANION-LUCID) | Next.js 16, React 19 | Mindset/journaling app | Dev |
 | **Lafreniere PM** | [CC90210/lafreniere-pm](https://github.com/CC90210/lafreniere-pm) | Next.js 16, Supabase, Stripe | Property management (Ty client) | Pre-launch |
-| **Hermes** | [CC90210/hermes](https://github.com/CC90210/hermes) (private) | Python 3.12, FastAPI, Ollama, SQLite, Playwright | EDI/POS compliance agent (Emmanuel — wholesale apparel) | v0.1.0 — demo ready |
+| **Hermes** | [CC90210/hermes](https://github.com/CC90210/hermes) | Python 3.12, FastAPI, SQLite, Ollama OR Anthropic/OpenAI (DPA), pywinauto (A2000 desktop), Playwright (web ERPs), reportlab (GS1-128 labels) | EDI/POS compliance + A2000 takeover for wholesale (Emmanuel Lowinger) | v0.2.0 — demo public at [cc90210.github.io/hermes](https://cc90210.github.io/hermes/) |
 
 ### Agent Triad (CC's AI Operating System)
 
@@ -315,7 +315,7 @@ Jeremy Miner NEPQ         https://www.7thlevelhq.com
 
 ## 🔒 Security Context (when sharing)
 
-- **These are ALL public repos** except CC90210/hermes (client-specific, private).
+- **These are ALL public repos.** (Hermes was made public 2026-04-27 to host the Emmanuel demo at https://cc90210.github.io/hermes/ — it has no client secrets in tree.)
 - **The Tool Shed doc itself is shareable** — no credentials, no business logic, no internal paths exposed.
 - **What's NOT in this doc (intentionally):** `.env.agents`, client databases, API keys, MRR figures, the `memory/` journals.
 - **When publishing as a Gist:** strip this "Security Context" section and the "Maintenance" section below — those are for CC, not external readers.
