@@ -1,7 +1,7 @@
 # OASIS AI Agent Factory quickstart for Windows PowerShell.
 #
 # Usage (from a fresh PowerShell):
-#   irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.ps1 | iex
+#   if (-not (Get-Command gh -EA SilentlyContinue)) { throw "GitHub CLI required: winget install GitHub.cli" }; gh auth status -h github.com *> $null; if ($LASTEXITCODE -ne 0) { gh auth login -h github.com }; $c=(gh api repos/CC90210/CEO-Agent/contents/install/quickstart.ps1 --jq .content) -join ''; iex ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($c)))
 #
 # What it does:
 #   1. Detects missing prereqs (python, node, npm, git).
@@ -34,7 +34,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$RepoUrl = 'https://github.com/CC90210/CEO-Agent.git'
+$RepoFullName = 'CC90210/CEO-Agent'
+$RepoUrl = "https://github.com/$RepoFullName.git"
+$QuickstartRawUrl = "https://raw.githubusercontent.com/$RepoFullName/main/install/quickstart.ps1"
+$QuickstartApiPath = "repos/$RepoFullName/contents/install/quickstart.ps1"
 $RepoDir = $env:BRAVO_REPO_DIR
 if (-not $RepoDir) { $RepoDir = Join-Path $env:USERPROFILE 'bravo-repo' }
 
@@ -73,6 +76,24 @@ Write-Host ""
 
 function Test-Tool($name) {
     return [bool](Get-Command $name -ErrorAction SilentlyContinue)
+}
+
+function Test-GhReady {
+    if (-not (Test-Tool 'gh')) { return $false }
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & gh auth status -h github.com *> $null
+        return ($LASTEXITCODE -eq 0)
+    } catch {
+        return $false
+    } finally {
+        $ErrorActionPreference = $prev
+    }
+}
+
+function Get-QuickstartReinvokeCommand {
+    return ('$env:OASIS_AUTO_INSTALL=''1''; if (Get-Command gh -ErrorAction SilentlyContinue) {{ gh auth status -h github.com *> $null; if ($LASTEXITCODE -eq 0) {{ $c=(gh api {0} --jq .content) -join [string]::Empty; iex ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($c))); exit $LASTEXITCODE }} }}; irm {1} | iex' -f $QuickstartApiPath, $QuickstartRawUrl)
 }
 
 # Find a real Python 3.10+ interpreter. Robust against:
@@ -341,7 +362,7 @@ if ($missing.Count -gt 0) {
         # (they already approved). Single-quoted on the OUTSIDE so we
         # send the literal text into the spawned shell and PowerShell
         # does not try to interpolate the env-var here.
-        $reinvoke = '$env:OASIS_AUTO_INSTALL=''1''; irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.ps1 | iex'
+        $reinvoke = Get-QuickstartReinvokeCommand
 
         # Find a working PowerShell. Prefer pwsh (PS 7+), fall back to
         # Windows PowerShell 5.1 which is universally present on Win10+.
@@ -362,7 +383,7 @@ if ($missing.Count -gt 0) {
             Write-Host ""
             Write-Host "Manual recovery (paste both lines into a NEW PowerShell window):" -ForegroundColor Yellow
             Write-Host '  $env:OASIS_AUTO_INSTALL=''1''' -ForegroundColor Cyan
-            Write-Host '  irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.ps1 | iex' -ForegroundColor Cyan
+            Write-Host "  $reinvoke" -ForegroundColor Cyan
             exit 0  # exit 0 so close-on-exit terminals don't slam shut on the user
         }
     }
@@ -410,6 +431,46 @@ function Invoke-GitOut {
     }
 }
 
+function Invoke-GhAuthSetupGit {
+    if (-not (Test-GhReady)) { return $false }
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & gh auth setup-git -h github.com *> $null
+        return ($LASTEXITCODE -eq 0)
+    } catch {
+        return $false
+    } finally {
+        $ErrorActionPreference = $prev
+    }
+}
+
+function Invoke-GitFetchWithAuthRetry {
+    param([string]$TargetDir, [string]$Branch)
+    $rc = Invoke-Git @('-C', $TargetDir, 'fetch', '--depth', '50', 'origin', $Branch)
+    if ($rc -eq 0) { return 0 }
+    if (Invoke-GhAuthSetupGit) {
+        return Invoke-Git @('-C', $TargetDir, 'fetch', '--depth', '50', 'origin', $Branch)
+    }
+    return $rc
+}
+
+function Invoke-RepoClone {
+    param([string]$TargetDir)
+    if (Test-GhReady) {
+        $prev = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            & gh repo clone $RepoFullName $TargetDir -- --depth 10 2>&1 | Out-Null
+            if ($LASTEXITCODE -eq 0) { return 0 }
+        } finally {
+            $ErrorActionPreference = $prev
+        }
+        Invoke-GhAuthSetupGit | Out-Null
+    }
+    return Invoke-Git @('clone', '--depth', '10', $RepoUrl, $TargetDir)
+}
+
 if (Test-Path (Join-Path $RepoDir '.git')) {
     Write-Host "==> Updating existing repo at $RepoDir" -ForegroundColor White
     # Shallow-clone-safe update. A `git pull --ff-only` on a depth-10
@@ -425,7 +486,7 @@ if (Test-Path (Join-Path $RepoDir '.git')) {
         $epoch = [int][double]::Parse((Get-Date -UFormat %s))
         Invoke-Git @('-C', $RepoDir, 'stash', 'push', '-u', '-m', "auto-stash by quickstart $epoch") | Out-Null
     }
-    $fetchRc = Invoke-Git @('-C', $RepoDir, 'fetch', '--depth', '50', 'origin', $curBranch)
+    $fetchRc = Invoke-GitFetchWithAuthRetry -TargetDir $RepoDir -Branch $curBranch
     if ($fetchRc -eq 0) {
         $resetRc = Invoke-Git @('-C', $RepoDir, 'reset', '--hard', "origin/$curBranch")
         if ($resetRc -eq 0) {
@@ -439,12 +500,12 @@ if (Test-Path (Join-Path $RepoDir '.git')) {
 } elseif ((Test-Path $RepoDir) -and -not (Get-ChildItem -Force $RepoDir -ErrorAction SilentlyContinue)) {
     Write-Host "==> Cloning $RepoUrl into $RepoDir (empty dir)" -ForegroundColor White
     Remove-Item -Path $RepoDir -Force -ErrorAction SilentlyContinue
-    $cloneRc = Invoke-Git @('clone', '--depth', '10', $RepoUrl, $RepoDir)
+    $cloneRc = Invoke-RepoClone -TargetDir $RepoDir
     if ($cloneRc -ne 0) { throw "git clone failed (exit $cloneRc)" }
 } elseif (Test-Path $RepoDir) {
-    Write-Host "==> $RepoDir exists but is not a clean git clone — repairing via atomic swap." -ForegroundColor Yellow
+    Write-Host "==> $RepoDir exists but is not a clean git clone - repairing via atomic swap." -ForegroundColor Yellow
     $tmpClone = "$RepoDir.partial.$([guid]::NewGuid().ToString('N').Substring(0,8))"
-    $cloneRc = Invoke-Git @('clone', '--depth', '10', $RepoUrl, $tmpClone)
+    $cloneRc = Invoke-RepoClone -TargetDir $tmpClone
     if ($cloneRc -ne 0) { throw "clone into temp dir failed (exit $cloneRc)" }
     $backup = "$RepoDir.broken.$([int][double]::Parse((Get-Date -UFormat %s)))"
     Move-Item -Path $RepoDir -Destination $backup -Force
@@ -452,7 +513,7 @@ if (Test-Path (Join-Path $RepoDir '.git')) {
     Write-Host "    old contents preserved at $backup (delete when ready)" -ForegroundColor DarkGray
 } else {
     Write-Host "==> Cloning $RepoUrl into $RepoDir" -ForegroundColor White
-    $cloneRc = Invoke-Git @('clone', '--depth', '10', $RepoUrl, $RepoDir)
+    $cloneRc = Invoke-RepoClone -TargetDir $RepoDir
     if ($cloneRc -ne 0) { throw "git clone failed (exit $cloneRc)" }
 }
 Write-Host ""
@@ -486,7 +547,7 @@ if (-not $pythonResolved) { $pythonResolved = Resolve-Python310Plus }
 if (-not $pythonResolved) {
     Write-Host "[X] No working Python 3.10+ found at the wizard-launch step." -ForegroundColor Red
     Write-Host "    Open a new PowerShell window so PATH refreshes, then run:" -ForegroundColor Yellow
-    Write-Host '      irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.ps1 | iex' -ForegroundColor Cyan
+    Write-Host "      $(Get-QuickstartReinvokeCommand)" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "Press Enter to close this window..." -ForegroundColor DarkGray
     try { Read-Host | Out-Null } catch {}

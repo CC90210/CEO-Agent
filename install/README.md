@@ -7,6 +7,15 @@ separate step that can write credentials to a local, gitignored `.env.agents`.
 
 ## Windows
 
+For this private repo, fetch quickstart scripts through authenticated `gh api`
+instead of unauthenticated `raw.githubusercontent.com` URLs.
+
+```powershell
+if (-not (Get-Command gh -EA SilentlyContinue)) { throw "GitHub CLI required: winget install GitHub.cli" }; gh auth status -h github.com *> $null; if ($LASTEXITCODE -ne 0) { gh auth login -h github.com }; $c=(gh api repos/CC90210/CEO-Agent/contents/install/quickstart.ps1 --jq .content) -join ''; iex ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($c)))
+```
+
+Local checkout:
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File install/install.ps1
 ```
@@ -17,6 +26,14 @@ Options:
 - `-Quiet` — suppress the banner
 
 ## macOS / Linux / WSL
+
+Private repo quickstart:
+
+```bash
+command -v gh >/dev/null || { echo "GitHub CLI required: https://cli.github.com"; exit 1; }; gh auth status -h github.com >/dev/null 2>&1 || gh auth login -h github.com; gh api repos/CC90210/CEO-Agent/contents/install/quickstart.sh --jq .content | tr -d '\n' | { base64 -d 2>/dev/null || base64 -D; } | bash
+```
+
+Local checkout:
 
 ```bash
 bash install/install.sh
