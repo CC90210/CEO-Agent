@@ -2,7 +2,7 @@
 # OASIS AI setup — one-line installer for macOS / Linux / WSL.
 #
 # Usage (from a fresh shell):
-#   curl -sSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.sh | bash
+#   command -v gh >/dev/null || { echo "GitHub CLI required: https://cli.github.com"; exit 1; }; gh auth status -h github.com >/dev/null 2>&1 || gh auth login -h github.com; gh api repos/CC90210/CEO-Agent/contents/install/quickstart.sh --jq .content | tr -d '\n' | { base64 -d 2>/dev/null || base64 -D; } | bash
 #
 # What this does:
 #   1. Detects missing prerequisites (python3, git, node, npm).
@@ -22,7 +22,8 @@
 
 set -euo pipefail
 
-REPO_URL="https://github.com/CC90210/CEO-Agent.git"
+REPO_FULL_NAME="CC90210/CEO-Agent"
+REPO_URL="https://github.com/$REPO_FULL_NAME.git"
 REPO_DIR="${BRAVO_REPO_DIR:-$HOME/bravo-repo}"
 
 # ---- Args / env -------------------------------------------------------------
@@ -89,6 +90,35 @@ ok()    { printf '    %s[+] %s%s\n' "$C_GREEN"  "$1" "$C_RESET"; }
 fail()  { printf '    %s[X] %s%s\n' "$C_RED"    "$1" "$C_RESET"; }
 warn()  { printf '    %s[!] %s%s\n' "$C_YELLOW" "$1" "$C_RESET"; }
 info()  { printf '    %s%s%s\n'      "$C_DIM"   "$1" "$C_RESET"; }
+
+gh_ready() {
+    command -v gh >/dev/null 2>&1 && gh auth status -h github.com >/dev/null 2>&1
+}
+
+setup_gh_git_auth() {
+    if gh_ready; then
+        gh auth setup-git -h github.com >/dev/null 2>&1 || true
+    fi
+}
+
+fetch_repo_branch() {
+    local dir="$1" branch="$2"
+    git -C "$dir" fetch --depth 50 origin "$branch" 2>/dev/null && return 0
+    setup_gh_git_auth
+    git -C "$dir" fetch --depth 50 origin "$branch" 2>/dev/null
+}
+
+clone_repo() {
+    local dest="$1"
+    if gh_ready; then
+        gh repo clone "$REPO_FULL_NAME" "$dest" -- --depth 10 && return 0
+        setup_gh_git_auth
+    fi
+    git clone --depth 10 "$REPO_URL" "$dest" && return 0
+    fail "clone failed"
+    info "If this repo is private, run: gh auth login -h github.com"
+    return 1
+}
 
 # Stdin may be the curl pipe (non-tty) when run as
 # `curl ... | bash`. Read consent from /dev/tty so the user can answer.
@@ -414,7 +444,7 @@ if [ -d "$REPO_DIR/.git" ]; then
         warn "local changes detected — stashing before update"
         git -C "$REPO_DIR" stash push -u -m "auto-stash by quickstart $(date +%s)" >/dev/null 2>&1 || true
     fi
-    if ! git -C "$REPO_DIR" fetch --depth 50 origin "$cur_branch" 2>/dev/null; then
+    if ! fetch_repo_branch "$REPO_DIR" "$cur_branch"; then
         warn "fetch failed (offline?) — using existing local commits"
     else
         git -C "$REPO_DIR" reset --hard "origin/$cur_branch" >/dev/null 2>&1 || true
@@ -423,21 +453,21 @@ if [ -d "$REPO_DIR/.git" ]; then
 elif [ -d "$REPO_DIR" ] && [ -z "$(ls -A "$REPO_DIR" 2>/dev/null || true)" ]; then
     echo "==> Cloning $REPO_URL into $REPO_DIR"
     rmdir "$REPO_DIR" 2>/dev/null || true
-    git clone --depth 10 "$REPO_URL" "$REPO_DIR"
+    clone_repo "$REPO_DIR"
 else
     if [ -e "$REPO_DIR" ]; then
         warn "$REPO_DIR exists but is not a clean git clone — repairing via atomic swap."
         tmp_clone="$(mktemp -d "${REPO_DIR}.partial.XXXXXX" 2>/dev/null \
                      || echo "${REPO_DIR}.partial.$$")"
         rm -rf "$tmp_clone"
-        git clone --depth 10 "$REPO_URL" "$tmp_clone"
+        clone_repo "$tmp_clone"
         backup="${REPO_DIR}.broken.$(date +%s)"
         mv "$REPO_DIR" "$backup"
         mv "$tmp_clone" "$REPO_DIR"
         info "old contents preserved at $backup (delete when ready)"
     else
         echo "==> Cloning $REPO_URL into $REPO_DIR"
-        git clone --depth 10 "$REPO_URL" "$REPO_DIR"
+        clone_repo "$REPO_DIR"
     fi
 fi
 echo
