@@ -15,14 +15,25 @@ See [`brain/C_SUITE_ARCHITECTURE.md`](brain/C_SUITE_ARCHITECTURE.md) for the gov
 
 ## Quick Install (One Line)
 
+This repo is private. GitHub intentionally returns `404 Not Found` for
+unauthenticated `raw.githubusercontent.com` requests to private repos, even
+when the file exists. These install commands use the authenticated GitHub CLI
+path instead.
+
+One-time prerequisite if this terminal has not authenticated with GitHub yet:
+
+```bash
+gh auth login -h github.com
+```
+
 **macOS / Linux / WSL:**
 ```bash
-curl -sSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.sh | bash
+command -v gh >/dev/null || { echo "GitHub CLI required: https://cli.github.com"; exit 1; }; gh auth status -h github.com >/dev/null 2>&1 || gh auth login -h github.com; gh api repos/CC90210/CEO-Agent/contents/install/quickstart.sh --jq .content | tr -d '\n' | { base64 -d 2>/dev/null || base64 -D; } | bash
 ```
 
 **Windows (PowerShell):**
 ```powershell
-irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.ps1 | iex
+if (-not (Get-Command gh -EA SilentlyContinue)) { throw "GitHub CLI required: winget install GitHub.cli" }; gh auth status -h github.com *> $null; if ($LASTEXITCODE -ne 0) { gh auth login -h github.com }; $c=(gh api repos/CC90210/CEO-Agent/contents/install/quickstart.ps1 --jq .content) -join ''; iex ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($c)))
 ```
 
 That single line:
@@ -44,7 +55,7 @@ That single line:
 
 Once installed, you don't need to remember to update. Three layers keep your install fresh:
 
-1. **Re-running the one-liner** (`irm | iex` or `curl | bash`) does a shallow-clone-safe `git fetch + reset --hard origin/<branch>` on the existing `~/bravo-repo`. Local edits are auto-stashed (recoverable via `git stash list`).
+1. **Re-running the one-liner** (`gh api ... | bash` or the PowerShell equivalent) does a shallow-clone-safe `git fetch + reset --hard origin/<branch>` on the existing `~/bravo-repo`. Local edits are auto-stashed (recoverable via `git stash list`).
 2. **`bravo setup`** runs a self-update preflight before the wizard starts. It detects you're in a CC90210 agent repo, fetches origin, and if any new commits exist, prints the next-5 commit subjects, applies them, and re-execs the wizard with the new code in a fresh subprocess. Offline = silent no-op.
 3. **`bravo update`** is the explicit-update command — same hardened fetch + reset + `catalog_sync` + session ingest in one shot.
 
@@ -336,8 +347,8 @@ CLI-first architecture: services requiring API credentials use Python CLI tools 
 
 ```bash
 # Clone
-git clone https://github.com/CC90210/CEO-Agent.git
-cd business-empire-agent
+gh repo clone CC90210/CEO-Agent
+cd CEO-Agent
 
 # Set up credentials (see brain/CREDENTIALS_SCAFFOLD.md for the full list)
 cp brain/CREDENTIALS_SCAFFOLD.md .env.agents  # Use as reference, fill in real values
