@@ -249,6 +249,69 @@ def install_python_deps(repo_root: Path) -> tuple[bool, str]:
     )
 
 
+def create_command_center_account(
+    repo_root: Path,
+    email: str,
+    full_name: str,
+    brand: str = "OASIS AI",
+    mrr_target: float = 5000.0,
+    primary_agent: str = "bravo",
+) -> tuple[bool, str]:
+    """Create or update the operator's OASIS Command Center profile.
+
+    Wraps scripts/seed_profile.py so the install wizard (or any post-install
+    flow) can register the operator with the Command Center in one call.
+    Idempotent — re-runs update an existing row instead of duplicating.
+
+    primary_agent is reserved for a future seed_profile.py flag that lets
+    clients pick which agent (bravo/atlas/maven/aura/hermes) is their default.
+    """
+    seed_script = repo_root / "scripts" / "seed_profile.py"
+    if not seed_script.exists():
+        return False, f"seed_profile.py missing at {seed_script}"
+
+    # Validate inputs minimally — let seed_profile.py do the real work
+    if not email or "@" not in email:
+        return False, "email is required and must look like an email"
+    if not full_name or not full_name.strip():
+        return False, "full_name is required"
+    if not primary_agent:
+        primary_agent = "bravo"
+
+    import subprocess
+    cmd = [
+        sys.executable,
+        str(seed_script),
+        "--email", email,
+        "--full-name", full_name,
+        "--brand", brand,
+        "--mrr-target", str(mrr_target),
+        "--no-plan",      # wizard creates the account; plans are operator-driven
+        "--json",
+    ]
+    try:
+        r = subprocess.run(
+            cmd,
+            cwd=str(repo_root),
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if r.returncode != 0:
+            err = (r.stderr or r.stdout or "").strip().splitlines()
+            first = err[0] if err else f"exit {r.returncode}"
+            return False, f"seed failed: {first[:200]}"
+        try:
+            payload = json.loads(r.stdout.strip().splitlines()[-1])
+            return True, f"account created: profile_id={payload.get('profile_id', '?')}"
+        except Exception:
+            return True, "account created"
+    except subprocess.TimeoutExpired:
+        return False, "seed timed out (Supabase unreachable?)"
+    except Exception as exc:  # noqa: BLE001
+        return False, f"seed error: {exc}"
+
+
 def install_node_deps(repo_root: Path) -> tuple[bool, str]:
     """Run `npm install` at repo root if package.json exists."""
     pkg = repo_root / "package.json"
@@ -275,6 +338,30 @@ def run(args: argparse.Namespace) -> int:
         ok, detail = verify_requirements(repo)
         mark = "+" if ok else "!"
         print(f"  [{mark}] requirements.txt: {detail}")
+        return 0 if ok else 1
+
+    # --create-command-center-account mode: wizard hook to register the
+    # operator with the OASIS AI Agent Command Center. Calls seed_profile.py
+    # under the hood. Idempotent — safe to re-run.
+    if getattr(args, "create_command_center_account", False):
+        if not args.email or not args.full_name:
+            print("ERROR: --email and --full-name are required for --create-command-center-account",
+                  file=sys.stderr)
+            return 2
+        ok, detail = create_command_center_account(
+            repo,
+            email=args.email,
+            full_name=args.full_name,
+            brand=args.brand or "OASIS AI",
+            mrr_target=args.mrr_target,
+            primary_agent=args.primary_agent or "bravo",
+        )
+        payload = {"command_center_account": {"ok": ok, "detail": detail}}
+        if args.json:
+            print(json.dumps(payload, indent=2))
+        else:
+            mark = "+" if ok else "!"
+            print(f"  [{mark}] command-center: {detail}")
         return 0 if ok else 1
 
     # --install-deps mode: short-circuit to dep install only.
@@ -377,6 +464,20 @@ def main() -> int:
                         help="Pip dry-run the resolver (ignores existing installs) "
                              "to catch conflicts BEFORE committing pin changes. "
                              "Returns non-zero on conflict.")
+    parser.add_argument("--create-command-center-account", action="store_true",
+                        help="Register the operator with the OASIS AI Agent "
+                             "Command Center (idempotent). Requires --email "
+                             "and --full-name.")
+    parser.add_argument("--email", default=None,
+                        help="Operator email (used by --create-command-center-account)")
+    parser.add_argument("--full-name", default=None,
+                        help="Operator full name")
+    parser.add_argument("--brand", default=None,
+                        help="Brand name (defaults to OASIS AI)")
+    parser.add_argument("--mrr-target", type=float, default=5000.0,
+                        help="MRR target in USD (default: 5000)")
+    parser.add_argument("--primary-agent", default="bravo",
+                        help="Primary agent name (default: bravo)")
     parser.add_argument("--json", action="store_true",
                         help="Emit JSON report")
     args = parser.parse_args()
