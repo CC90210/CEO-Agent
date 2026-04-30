@@ -4,6 +4,28 @@ Three things you need to do **once**, in order. ~10 minutes total. After this, e
 
 ---
 
+## What's actually shipped (vs. what's nominally "merged")
+
+The honest version: **two Vercel projects still exist** under the hood —
+`oasisai-platform` (Vite marketing site) and `agent-dashboard` (Next.js
+Command Center). Different stacks, different bundlers, different Vercel
+deploys.
+
+What I did ship is a **transparent proxy**: `oasisai.work/app/*` → the
+Command Center URL, via a Vercel rewrite in the platform repo. From your
+perspective and your clients' perspective, it's one product at one URL —
+`oasisai.work` for marketing, `oasisai.work/app` for the dashboard. Both
+share the same Supabase project, so cookies set on `oasisai.work` are
+visible to both sides.
+
+A *real* one-Vercel-project merge (single deployment, one build pipeline)
+would require either porting the marketing site to Next.js or porting the
+dashboard to Vite — that's a 4-8 hour refactor. The proxy gets you 95% of
+the user-facing benefit at zero refactor risk. Future session if you want
+to consolidate.
+
+---
+
 ## 1. Set Supabase Auth Site URL + Redirect URLs (3 min)
 
 ### Where
@@ -59,27 +81,39 @@ Done. "Sign in with Google" on the login page now works.
 
 ## 3. Reset your password (1 min) — fixes the broken link from earlier
 
-The page that the reset email linked to didn't exist when you clicked it (just shipped now: `/auth/reset-password`). Try again:
+The page that the reset email linked to didn't exist when you clicked it
+(just shipped now: `/auth/reset-password`). The flow:
 
 1. Go to [https://oasisai.work/app/forgot-password](https://oasisai.work/app/forgot-password)
 2. Enter `conaugh@oasisai.work`
-3. Click the link in your inbox — it now lands on a real form
+3. Click the link in your inbox — now lands on a working form at
+   `/auth/reset-password` (Step 1's Site URL config makes it route there)
 4. Set your password
 5. You're signed in
 
-OR — once Step 2 is done — just click "Sign in with Google" and skip the password entirely.
+OR — once Step 2 is done — just click "Sign in with Google" and skip the
+password entirely.
+
+**One important note**: the reset form depends on Supabase's recovery token
+arriving via the URL fragment. If Step 1 (Site URL) isn't completed, the
+old reset emails will still send you to a non-existent URL. Do Step 1
+*before* requesting a new reset email.
 
 ---
 
-## Where the merge stands
+## SSO — does signing in on `oasisai.work` automatically sign me in on `/app`?
 
-- **`oasisai.work`** → marketing site (existing, unchanged)
-- **`oasisai.work/app`** → OASIS Command Center (the agent dashboard) via Vercel rewrite
-- **`oasisai.work/app/login`** → sign in
-- **`oasisai.work/app/signup`** → create a new account (for clients)
-- Both deployments share the same Supabase Auth project, so a session on one is a session on the other (same auth domain via the rewrite).
+**Probable yes, but not verified.** Both sides share:
+- The same Supabase project (`phctllmtsogkovoilwos`)
+- The same domain (`oasisai.work`) — because of the rewrite, the dashboard's
+  cookies are scoped to `oasisai.work`, the same domain the marketing site
+  uses
 
-The dashboard's direct URL `agent-dashboard-cc90210.vercel.app` still works as a backup, but `oasisai.work/app` is canonical now.
+In theory, signing into one signs you into the other. To verify:
+1. Sign into `oasisai.work` (marketing site auth flow)
+2. Visit `oasisai.work/app/` directly — should NOT redirect you to /login
+3. If it does, the marketing site's auth helpers and the Command Center's
+   `@supabase/ssr` aren't reading the same cookie. Fix in next session.
 
 ---
 
@@ -99,4 +133,6 @@ scp .env.agents root@<vps-ip>:/opt/oasis/.env.agents   # from your laptop
 cd /opt/oasis/infra/inbound-poller && docker compose up -d --build
 ```
 
-Within 5 minutes Settings → Integrations should show **n8n_inbound: healthy** with a fresh `last_ping_at` from the VPS, and you can shut down your local laptop without losing inbound classification.
+Within 5 minutes Settings → Integrations should show **n8n_inbound: healthy**
+with a fresh `last_ping_at` from the VPS, and you can shut down your local
+laptop without losing inbound classification.
