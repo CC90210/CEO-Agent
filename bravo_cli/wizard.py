@@ -2,7 +2,7 @@
 
 Walks a new user through:
   1. Profile picker (Bravo / Atlas / Maven / Aura / Hermes / Custom)
-  2. AI provider keys (Anthropic required; OpenAI + Google AI optional)
+  2. AI provider keys (required providers depend on the selected profile)
   3. Chat bridges (Telegram, Discord, Slack, WhatsApp/Twilio)
   4. Domain integrations (per profile: finance / marketing / home / client)
   5. Final summary + optional `bravo doctor` run
@@ -285,10 +285,10 @@ PROFILES: dict[str, dict] = {
         "color": BRIGHT_BLUE,  # differentiated from Bravo's cyan
         "role": "Wholesale commerce + EDI compliance agent",
         "tagline": "PO → POS → invoice · ASN · chargeback prevention · A2000 takeover",
-        "required": ["anthropic"],
+        "required": [],
         "ai": ["anthropic", "openai"],  # cloud LLM for PO parsing — DPA-bound, no-storage
-        "chat": ["telegram", "discord", "slack", "whatsapp"],
-        "business": ["stripe", "supabase"],
+        "chat": ["telegram"],
+        "business": [],
         "extra": [],
     },
     "custom": {
@@ -305,7 +305,7 @@ PROFILES: dict[str, dict] = {
     },
 }
 
-# ── Per-agent GitHub repos (all public on CC90210) ────────────────────────────
+# ── Per-agent GitHub repos ────────────────────────────────────────────────────
 
 AGENT_REPOS: dict[str, dict] = {
     "bravo":  {"url": "https://github.com/CC90210/CEO-Agent.git",        "dir": "~/bravo-repo"},
@@ -415,7 +415,7 @@ PROFILE_QUESTIONS: dict[str, list[dict]] = {
         {"key": "HERMES_APPROVAL_FOR_REFUNDS", "prompt": "Require approval before issuing refunds?",
          "type": "yesno", "default": True},
         {"key": "HERMES_PO_PARSER", "prompt": "PO parser backend (cloud is DPA-bound and no-storage; ollama is fully local)",
-         "type": "choice", "choices": ["cloud-anthropic", "cloud-openai", "ollama-local", "auto"], "default": "auto"},
+         "type": "choice", "choices": ["ollama-local", "auto", "cloud-anthropic", "cloud-openai"], "default": "ollama-local"},
     ],
     "custom": [
         {"key": "CUSTOM_AGENT_NAME", "prompt": "Name for your new agent",
@@ -518,7 +518,7 @@ INTEGRATIONS: dict[str, dict] = {
     "anthropic": {
         "env_key": "ANTHROPIC_API_KEY",
         "label": "Anthropic (Claude)",
-        "tagline": "Primary reasoning engine — required",
+        "tagline": "Primary reasoning engine",
         "url": "https://console.anthropic.com/settings/keys",
         "format": "sk-ant-api03-...",
         "secret": True,
@@ -1757,8 +1757,17 @@ def step_clone_agent_repo(profile: str, step_num: int, total: int) -> None:
 
 def step_ai(profile: str, step_num: int, total: int) -> None:
     p = PROFILES[profile]
-    step_header(step_num, total, "AI providers",
-                "Anthropic is required. Others are backup options.")
+    required_names = [
+        INTEGRATIONS[slug]["label"]
+        for slug in p["ai"]
+        if slug in p["required"]
+    ]
+    subtitle = (
+        f"{', '.join(required_names)} required. Others are backup options."
+        if required_names
+        else "Optional cloud providers. Skip these for local-first installs."
+    )
+    step_header(step_num, total, "AI providers", subtitle)
     for slug in p["ai"]:
         required = slug in p["required"]
         integration_step(slug, required=required)
@@ -1978,6 +1987,16 @@ def step_finalize(profile: str, step_num: int, total: int) -> None:
     print(f"    {CYAN('bravo sessions recent')} {DIM('— rewind past sessions')}")
     if read_env("TELEGRAM_BOT_TOKEN"):
         print(f"    {CYAN('bravo run telegram_agent')}  {DIM('— start the Telegram bridge')}")
+    if profile == "hermes":
+        hermes_root = Path(AGENT_REPOS["hermes"]["dir"]).expanduser()
+        print()
+        print(f"  {BOLD('Hermes local bootstrap:')}")
+        if os.name == "nt":
+            print(f"    {CYAN('cd ' + str(hermes_root))}")
+            print(f"    {CYAN('powershell -ExecutionPolicy Bypass -File install.ps1')}")
+        else:
+            print(f"    {CYAN('cd ' + str(hermes_root))}")
+            print(f"    {CYAN('bash install.sh')}")
     if profile == "custom":
         print()
         print(f"  {YELLOW('Custom profile selected.')}  Forge the new agent with:")
