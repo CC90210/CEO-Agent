@@ -145,6 +145,7 @@ Delegation: Complex features → planner. Architecture → architect. Code revie
 When CC asks about content creation, posting strategy, or cold outreach:
 - **Content Bible**: 3 daily pillars (Sobriety Log, Quote Drop, CEO Log), hook bank, pacing rules. See `../CMO-Agent/brain/CONTENT_BIBLE.md` (Maven canonical) (in Claude Code auto-memory).
 - **Cold outreach**: Jeremy Miner NEPQ framework — pattern interrupts, never salesy, questions > pitching. Use "I'm not sure if..." framing. Lead with their problem, not our product.
+- **Outreach send command** (one path, all AIs): see [skills/outreach-send/SKILL.md](skills/outreach-send/SKILL.md). Always use `email_engine.py send-template --template-id <uuid> --to <email> --lead-id <uuid> --vars '{...}'`. Region auto-injected for geo-rapport. Raw `send --body` blocked by Gate 1b.
 - **Platform limits**: X=280 | Threads=500 | IG=2200 | LinkedIn=3000 | TikTok=4000
 
 ### RULE 4.6: AI Slop Detection

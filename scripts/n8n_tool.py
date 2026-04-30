@@ -199,7 +199,7 @@ def cmd_get(client, args):
                 for conn_list in conns:
                     for conn in conn_list if isinstance(conn_list, list) else [conn_list]:
                         if isinstance(conn, dict):
-                            print(f"    {source} → {conn.get('node', '?')}")
+                            print(f"    {source} -> {conn.get('node', '?')}")
 
 
 def cmd_create(client, args):
@@ -396,6 +396,9 @@ def cmd_credentials(client, args):
 
 
 def main():
+    # Force UTF-8 output on Windows to prevent cp1252 encoding crashes
+    if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     env = load_env()
 
     api_url = env.get("N8N_API_URL")

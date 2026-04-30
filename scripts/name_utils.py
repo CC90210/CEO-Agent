@@ -33,6 +33,29 @@ PLACEHOLDER_FIRST_NAMES: frozenset[str] = frozenset({
     "unknown", "no name", "noname", "first_name", "name",
 })
 
+# Honorifics that must be stripped BEFORE the first-name check. "Dr. Micah"
+# should resolve to "Micah", not be flagged as placeholder. Trailing dot
+# optional. Compared lowercase.
+HONORIFICS: frozenset[str] = frozenset({
+    "dr", "dr.", "mr", "mr.", "mrs", "mrs.", "ms", "ms.",
+    "prof", "prof.", "professor", "rev", "rev.", "fr", "fr.",
+    "sir", "madam", "lord", "lady",
+})
+
+
+def strip_honorifics(name: str) -> str:
+    """Drop leading honorifics from a name. 'Dr. Micah Smith' -> 'Micah Smith'.
+
+    Whitespace-tolerant. Returns name unchanged if no honorific found.
+    Idempotent.
+    """
+    if not name:
+        return name
+    parts = name.strip().split()
+    while parts and parts[0].lower() in HONORIFICS:
+        parts.pop(0)
+    return " ".join(parts) if parts else ""
+
 
 def _is_placeholder(value: str) -> bool:
     """True if `value` (already lower+stripped) is a known placeholder
@@ -61,7 +84,7 @@ def safe_first_name(value, fallback: str = "team") -> str:
         return fallback
     if not isinstance(value, str):
         return fallback
-    stripped = value.strip()
+    stripped = strip_honorifics(value.strip())
     if not stripped:
         return fallback
     if _is_placeholder(stripped.lower()):

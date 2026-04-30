@@ -253,7 +253,7 @@ def run_batch(limit, env_vars):
     if not leads:
         print(json.dumps({
             "ok": True,
-            "output": "No new leads to draft. Run scrape_maps_emails.py to find more or lower score threshold.",
+            "output": "No new leads to draft. Run scrape_firecrawl_leads.py to find more or lower score threshold.",
             "drafted": 0
         }))
         return

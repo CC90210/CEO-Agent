@@ -230,6 +230,7 @@ def update_templates(db: Any, wanted: dict[str, dict[str, Any]], dry_run: bool) 
 SAMPLE_RENDER_VARS = {
     "first_name": "Alex",
     "company": "Northern HVAC",
+    "region": "the Collingwood area",
 }
 
 

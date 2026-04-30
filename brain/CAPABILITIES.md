@@ -5,7 +5,7 @@ tags: [capabilities, tools]
 # CAPABILITIES — Tool & Integration Registry
 
 > Complete inventory of what Bravo can do. Last updated: 2026-04-26.
-> **Totals (live disk truth, 2026-04-26): 150 skills · 36 workflows · 66 scripts · 21 agents (14 file-based in `agents/` + 7 native Claude Code in `.claude/agents/`) · 9 MCP servers + Codex (external).**
+> **Totals (live disk truth, 2026-04-27): 151 skills · 36 workflows · 68 scripts · 21 agents (14 file-based in `agents/` + 7 native Claude Code in `.claude/agents/`) · 9 MCP servers + Codex (external).**
 >
 > Marketing/social scripts (`late_tool.py`, `late_publisher.py`, `instagram_engine.py`, `codex_image_gen.py`) transferred to Maven on 2026-04-26 — they live at `../CMO-Agent/scripts/` now. Bravo subprocesses to Maven's `late_tool.py` only for read-only CEO-dashboard stats (see `ceo_dashboard.py:_content_this_week`).
 >
@@ -198,8 +198,12 @@ Browser Harness is installed as Bravo's direct Chrome/Edge control layer. It com
 | Engine | Script | Purpose | Key Commands |
 |--------|--------|---------|-------------|
 | **Lead CRM** | `scripts/lead_engine.py` | Full pipeline management, scoring, interactions | `list`, `add`, `view`, `update`, `score`, `interact`, `followups`, `pipeline`, `search`, `funnel` |
-| **Email** | `scripts/email_engine.py` | Free Gmail SMTP sending, templates, nurture sequences | `send`, `send-template`, `templates list/create`, `sequence list/create/run`, `log`, `stats` |
+| **Email** | `scripts/email_engine.py` | Free Gmail SMTP sending, templates, nurture sequences. Cold outreach uses `send-template` (Gate 1b refuses raw text-only OASIS commercial sends). | `send`, `send-template`, `templates list/create`, `sequence list/create/run`, `log`, `stats` |
+| **Region Inference** | `scripts/region_inference.py` | Lead → regional phrase ("the Toronto area" / "the Collingwood area" / "Central Ontario"). Auto-injected into outreach templates as `{{region}}` for geo-rapport. | `python scripts/region_inference.py '{"company":"X","phone":"..."}'` |
 | **Template Wiring** | `scripts/wire_all_templates.py` | Canonical OASIS template sync + verification. Enforces website link + Google Calendar CTA in `email_templates`. | `--verify-only --json` / `--dry-run` |
+| **Outreach send (canonical SOP)** | [skills/outreach-send/SKILL.md](../skills/outreach-send/SKILL.md) | One-command cold/follow-up email path for all AIs (Claude Code, OpenCode, Codex, Gemini, Antigravity). Auto geo-rapport. | See skill doc. |
+| **Outreach eligibility filter** | `scripts/outreach_eligible.py` | Picks leads ready to email. Encodes 3-day → 1-week → 2-week cadence + auto-dormant after 3 unanswered touches. | `--limit 20`, `--mark-dormant`, `--json` |
+| **Lead scrape (preferred)** | `scripts/scrape_firecrawl_leads.py` | Firecrawl-based search + structured extract. Pulls owner first name + email + phone from business websites. Inserts to Supabase. | `--target 50 --cities "X,Y" --niches "A,B"` |
 | **Booking** | `scripts/booking_engine.py` | Self-hosted Cal.com replacement, slot management | `slots open/open-week/list/close`, `book`, `cancel`, `available`, `remind`, `complete` |
 | **Content** | `../CMO-Agent/scripts/content_engine.py` | Content calendar, templates, multi-platform posting | `calendar`, `create`, `create-multi`, `templates list/create/render`, `due`, `week-plan`, `stats` |
 | **Revenue** | `scripts/revenue_engine.py` | MRR tracking, Stripe sync, forecasting | `mrr`, `dashboard`, `sync-stripe`, `log-revenue`, `history`, `forecast`, `clients`, `goal` |
@@ -339,7 +343,6 @@ The following were added to the Business Operations Engines table above (already
 
 | Script | Purpose | Status |
 |--------|---------|--------|
-| `scripts/scrape_maps_emails.py` | Google Maps business data + email extraction | Active |
 | `../CMO-Agent/scripts/content_repurposer.py` | Transform content across platforms via Claude API | Active |
 | `scripts/funnel_sync.py` | Sync funnels to GoHighLevel | Active |
 | `scripts/funnel_nurture.py` | Nurture sequence automation | Active |
@@ -403,7 +406,7 @@ Scripts that enforce Bravo's coherence, autonomy, and self-correction. Run in-pr
 | `scripts/inbound_classifier.py` | The inbound chokepoint companion to `send_gateway`. Classifies every inbound email/DM into unified `lead_interactions` ledger so no engine re-contacts a replied lead. | Called by engines; `--classify <payload>` |
 | `scripts/autonomous_agent.py` | The always-on reasoning loop. Wakes on schedule or Telegram poke, consults pulse files, picks highest-leverage action, executes, logs. | `python scripts/autonomous_agent.py --once` or daemon mode |
 | `scripts/state_sync.py` | Canonicalizes session state at end of every session. **NON-NEGOTIABLE** per Rule 4. | `python scripts/state_sync.py --note "<1-sentence summary>"` |
-| `scripts/register_skill.py` | Internal admin: adds a new skill directory + SKILL.md frontmatter + INDEX link. | `python scripts/register_skill.py <name> <category>` |
+| `scripts/register_skill.py` | Runtime skill catalog: create/register/sync-all all `SKILL.md` folders into Supabase `skills_registry`, synthesize triggers/tier/owner/risk/source hashes, route a plain-English task to the right skills, and audit drift. | `python scripts/register_skill.py sync-all --deactivate-missing --json` · `python scripts/register_skill.py route "<task>" --json` · `python scripts/register_skill.py audit --json` |
 | `scripts/build_maven_env.py` | One-time setup: seeds Maven's `.env.agents` from Bravo's shared infra credentials. | Run once per Maven bootstrap |
 | `scripts/agent_inbox.py` | **Async agent-to-agent messaging** (mcp_agent_mail pattern). Bravo/Atlas/Maven/Aura/Codex post structured messages to `tmp/agent_inbox/`, orchestrator picks up at checkpoints. Closes the synchronous-delegation gap. | `post --from <agent> --to <agent> --subject ... --body ...`, `list --to bravo`, `read <msg_id>`, `reply --in-reply-to <msg_id>` |
 | `scripts/md_to_gdoc.py` | Markdown → styled Google Doc export. Wraps `google_tool.py docs create` with inline CSS for tables, code, blockquotes. | `python scripts/md_to_gdoc.py brain/TOOL_SHED.md [--title "..."] [--folder <drive-id>] [--json]` |
@@ -502,38 +505,20 @@ markdown wiki pages. Deterministic retrieval via `knowledge/index.md` — no emb
 | /ingest | On-demand | Compile raw document into knowledge wiki |
 | /query-knowledge | On-demand | Sourced answer from compiled knowledge wiki |
 
-## Skills (175 total — 82 core + 42 GWS + 41 recipes + 10 personas)
+## Skills (151 active — Supabase-routed runtime catalog)
 
-> **Note:** All skills use the Claude Agent Skills 2.0 structure. They are stored in `skills/[skill-name]/SKILL.md` format. The descriptions inside the frontmatter define their activation triggers.
+> **Note:** All skills use the Claude Agent Skills 2.0 structure. They are stored in `skills/[skill-name]/SKILL.md` format. Supabase `skills_registry` is the runtime cache: `register_skill.py sync-all` syncs trigger/tier/owner/risk/source-hash metadata, and `register_skill.py route "<task>"` picks the right skills to load.
 
-### Core Skills (82)
+### Runtime Shape
 
-| Category | Skills |
-|----------|--------|
-| **Agent Intelligence** | heartbeat, self-healing, memory-management, semantic-memory, growth-engine, sop-breakdown, sequential-reasoning, mcp-operations, task-routing, anti-drift, agent-permissions, hooks-automation, background-workers, context-optimization, agent-teams |
-| **Methodology** | sparc-methodology |
-| **Development** | systematic-debugging, test-driven-development, verification-before-completion, executing-plans, writing-plans, finishing-a-development-branch, using-git-worktrees, code-review, receiving-code-review, requesting-code-review, ship, subagent-driven-development, dispatching-parallel-agents |
-| **Browser & Testing** | browser-automation, e2e-testing, webapp-testing |
-| **Content & Outreach** | content-engine, writing-skills, doc-coauthoring, internal-comms, brand-guidelines, brainstorming, linkedin-outreach, market-research, investor-materials, strategic-compact, retro, notebooklm, ceo-briefing, daily-planner |
-| **CEO Operating System** | strategic-planning, competitive-intelligence, financial-modeling, client-success, proposal-generation, team-management, meeting-automation, project-management, ceo-dashboard, investor-communications, knowledge-management, scaling-playbook |
-| **Automation** | n8n-mcp-integration, n8n-patterns, supabase-patterns, ai-integration, skool-automation |
-| **Creative** | frontend-design, canvas-design, algorithmic-art, theme-factory, web-artifacts-builder, slack-gif-creator |
-| **Files** | pdf, docx, pptx, xlsx |
-| **Security** | security-protocol, using-superpowers |
-| **CLI & Integration** | cli-anything, opencli |
-| **Web Scraping** | web-scraping |
-| **Knowledge** | knowledge-compilation |
-| **Meta** | skill-creator, mcp-builder, using-superpowers |
-| **Revenue & Sales** | lead-management, email-marketing, funnel-management, revenue-operations, booking-management |
+| Dimension | Current distribution |
+|----------|----------------------|
+| **Tier** | 14 core · 45 standard · 92 specialized |
+| **Owner agent** | Bravo 125 · Codex 15 · Maven 8 · Aura 2 · Atlas 1 |
+| **Largest categories** | Google 44 · Development 12 · Memory 11 · Operations 11 · Orchestration 10 · Persona 9 · Browser 7 · Revenue 7 |
+| **Risk metadata** | 118 normal · 22 sensitive · 11 approval-gated |
 
-### Google Workspace Skills (42)
-`gws-*` — Gmail (8 variants), Calendar, Sheets, Drive, Docs, Chat, Events, Workflow (5 variants), Classroom, Forms, Tasks, Meet, Keep, People, Slides, ModelArmor. Activated by `gws` CLI commands.
-
-### Recipe Skills (41)
-`recipe-*` — Pre-built multi-step automations: create-event-from-sheet, send-team-announcement, label-and-archive-emails, schedule-meeting-followup, and 37 more cross-service workflows.
-
-### Persona Skills (10)
-`persona-*` — Specialized communication voices: sales-ops, event-coordinator, exec-assistant, and 7 more role-specific personas for contextual output.
+Full human index: [[skills/INDEX]]. Runtime selection: `python scripts/register_skill.py route "<task>" --json`.
 
 ## External Services (No MCP)
 
@@ -629,7 +614,7 @@ These are registered in Claude Code's native skill system with proper frontmatte
 
 <!-- MANIFEST:BEGIN -->
 _Auto-generated by `scripts/catalog_sync.py` — do not edit this block manually._
-_Last synced: 2026-04-24T22:32:45.830255+00:00_
+_Last synced: 2026-04-28T03:54:27.303057+00:00_
 
 | Type | Count |
 |---|---:|
@@ -637,18 +622,18 @@ _Last synced: 2026-04-24T22:32:45.830255+00:00_
 | PowerShell scripts | 9 |
 | Shell scripts | 4 |
 | **Total scripts** | **82** |
-| Skills | 149 (7 destructive) |
+| Skills | 151 (7 destructive) |
 | Agents | 20 |
 | Workflows | 35 |
 
 **Scripts by category:**
 
-- Other: 28
-- Data & Memory: 15
+- Other: 29
+- Data & Memory: 16
 - System: 9
-- Communication: 8
-- Content: 8
+- Communication: 9
 - Governance: 5
+- Content: 5
 - Browser & Web: 4
 - Finance: 4
 - Google: 1

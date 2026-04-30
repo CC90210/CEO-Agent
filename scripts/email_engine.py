@@ -278,6 +278,24 @@ def cmd_send_template(env_vars, args, output_json=False):
     # but we ALSO defend at render time so a future bad import or
     # caller passing junk first_name can't repeat the failure.
     variables = _sanitize_template_vars(variables)
+    # 2026-04-27: auto-inject {{region}} from the lead row if the caller
+    # didn't pass one. Templates use this to say "as a fellow local
+    # business owner in {{region}}" — geo-rapport without the AI having
+    # to think about it. Caller can still override by passing region in
+    # --vars; auto-inject only fills the gap.
+    if "region" not in variables and getattr(args, "lead_id", None):
+        try:
+            from region_inference import infer_region
+            lead_row = (db.table("leads")
+                        .select("company,name,notes,phone")
+                        .eq("id", args.lead_id)
+                        .execute())
+            if lead_row.data:
+                variables["region"] = infer_region(lead_row.data[0])
+        except Exception as exc:  # noqa: BLE001
+            print(f"[email_engine] region auto-inject failed (using "
+                  f"'your area'): {exc}", file=sys.stderr)
+    variables.setdefault("region", "your area")
     subject = render_template(tmpl["subject"], variables)
     body_html = render_template(tmpl.get("body_html") or "", variables) or None
     body_text_template = tmpl.get("body_text") or ""
@@ -576,6 +594,14 @@ def cmd_sequence_run(env_vars, args, output_json=False):
         # names ("Contact" / "Owner" / etc) historically slipped in via
         # CSV bulk-import. Junk first_name -> "team" before render.
         step_vars = _sanitize_template_vars(step_vars)
+        # 2026-04-27: auto-inject {{region}} from lead data for geo-rapport.
+        if "region" not in step_vars and "lead" in dir():
+            try:
+                from region_inference import infer_region
+                step_vars["region"] = infer_region(lead)  # type: ignore[name-defined]
+            except Exception:  # noqa: BLE001
+                pass
+        step_vars.setdefault("region", "your area")
 
         # Fetch template by name
         try:

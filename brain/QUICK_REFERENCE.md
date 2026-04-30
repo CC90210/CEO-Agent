@@ -47,7 +47,8 @@ tags: [reference, tools, routing]
 | Client health / churn risk | `client_health.py` | `report`, `score <client>`, `alerts`, `trends` |
 | Generate proposal / SOW | `proposal_generator.py` | `generate`, `list-templates`, `export` |
 | Competitive analysis / battlecards | `competitive_intel.py` | `add`, `battlecard`, `report`, `matrix` |
-| Scrape leads from Google Maps | `scrape_maps_emails.py` | Maps business data + email extraction |
+| Scrape leads (Firecrawl, canonical) | `scrape_firecrawl_leads.py` | `--target N --cities "X,Y" --niches "A,B"` |
+| Pick leads ready to email | `outreach_eligible.py` | `--limit 20`, `--mark-dormant`, `--json` |
 
 ### Revenue & Finance
 | CC Says | Tool | Command |
@@ -75,6 +76,8 @@ tags: [reference, tools, routing]
 | Persistent knowledge graph | Memory MCP | `search_nodes`, `create_entities` |
 | Obsidian vault graph queries | Knowledge Graph MCP | `kg_search`, `kg_central`, `kg_paths`, `kg_communities` |
 | Semantic memory (fuzzy search) | `mem0_tool.py` | `add`, `search`, `list`, `stats` |
+| Pick which skills to load | `register_skill.py` | `route "<plain-English task>" --json` (Supabase-backed runtime catalog: triggers, tier, owner, risk) |
+| Sync/audit all skills | `register_skill.py` | `sync-all --deactivate-missing --json`; `audit --json` |
 | Compile doc into knowledge wiki | `/ingest` workflow | `knowledge/` directory |
 | Query compiled knowledge | `/query-knowledge` workflow | Sourced answers from wiki |
 
@@ -127,7 +130,7 @@ When multiple tools could handle a request, use this precedence:
 ## `--json` Flag Convention
 
 Most tools accept `--json` BEFORE the subcommand: `python scripts/tool.py --json subcommand`
-Exceptions (accept after): `stripe_tool.py`, `n8n_tool.py`, `firecrawl_tool.py`, `revenue_engine.py`, `ceo_dashboard.py`
+Exceptions (accept after too): `register_skill.py`, `stripe_tool.py`, `n8n_tool.py`, `firecrawl_tool.py`, `revenue_engine.py`, `ceo_dashboard.py`
 
 ## All CLI Tools (47 — prefix: `python scripts/`)
 
@@ -144,7 +147,8 @@ Exceptions (accept after): `stripe_tool.py`, `n8n_tool.py`, `firecrawl_tool.py`,
 | `proposal_generator.py` | Proposals / SOWs | CLI tool |
 | `competitive_intel.py` | Competitor tracking, battlecards | CLI tool |
 | `outreach_engine.py` | Outreach campaign automation | CLI tool |
-| `scrape_maps_emails.py` | Google Maps lead scraping | Script (no --help) |
+| `scrape_firecrawl_leads.py` | Firecrawl lead scraping (canonical) | CLI tool |
+| `outreach_eligible.py` | Pick leads ready to email + cadence enforcement | CLI tool |
 | **--- Revenue & Finance ---** | | |
 | `revenue_engine.py` | MRR tracking, Stripe sync | CLI tool |
 | `stripe_tool.py` | Payments, invoices, subscriptions | CLI tool |
