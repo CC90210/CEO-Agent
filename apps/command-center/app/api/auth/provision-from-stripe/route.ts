@@ -70,9 +70,14 @@ export async function POST(req: NextRequest) {
 
   const db = getServiceSupabase();
 
-  // 3. Find or create auth user
-  // List once + filter — admin-list-users doesn't support email filter directly in v2
+  // 3. Find or create auth user. Two creation paths:
+  //    - send_welcome_email=true (default, real Stripe purchase): inviteUserByEmail
+  //      creates the user AND emails a "set your password" link in one step.
+  //    - send_welcome_email=false (smoke tests / silent provisioning):
+  //      createUser with a random password, no email sent.
+  const sendWelcome = body.send_welcome_email !== false;
   let authUserId: string | null = null;
+  let isNewUser = false;
   try {
     const list = await db.auth.admin.listUsers();
     const existing = list.data?.users?.find(
@@ -80,18 +85,32 @@ export async function POST(req: NextRequest) {
     );
     if (existing) {
       authUserId = existing.id;
+    } else if (sendWelcome) {
+      const redirectTo =
+        (process.env.PUBLIC_APP_URL?.replace(/\/$/, "") || "https://oasisai.work/app") +
+        "/auth/reset-password";
+      const invited = await db.auth.admin.inviteUserByEmail(email, {
+        redirectTo,
+        data: { full_name: fullName, brand, source: "stripe" },
+      });
+      if (invited.error || !invited.data?.user) {
+        return bad(500, `auth invite failed: ${invited.error?.message || "unknown"}`);
+      }
+      authUserId = invited.data.user.id;
+      isNewUser = true;
     } else {
       const tempPwd = randomBytes(24).toString("base64url");
       const created = await db.auth.admin.createUser({
         email,
         password: tempPwd,
         email_confirm: true,
-        user_metadata: { full_name: fullName, brand, source: "stripe" },
+        user_metadata: { full_name: fullName, brand, source: "stripe-silent" },
       });
       if (created.error || !created.data?.user) {
         return bad(500, `auth user create failed: ${created.error?.message || "unknown"}`);
       }
       authUserId = created.data.user.id;
+      isNewUser = true;
     }
   } catch (e: unknown) {
     return bad(500, `auth admin error: ${e instanceof Error ? e.message : "unknown"}`);
@@ -152,31 +171,14 @@ export async function POST(req: NextRequest) {
     await db.from("tenants").update(tenantUpdate).eq("id", tenantId);
   }
 
-  // 6. Send welcome / set-password email (Supabase password recovery)
-  const sendWelcome = body.send_welcome_email !== false;
-  let welcomeSent = false;
-  if (sendWelcome) {
-    try {
-      // generateLink with type 'recovery' = "set your password" UX, identical email body to forgot-password
-      const link = await db.auth.admin.generateLink({
-        type: "recovery",
-        email,
-        options: {
-          redirectTo:
-            process.env.PUBLIC_APP_URL?.replace(/\/$/, "") + "/auth/reset-password" ||
-            "https://oasisai.work/app/auth/reset-password",
-        },
-      });
-      if (link.error) throw link.error;
-      welcomeSent = true;
-    } catch (e: unknown) {
-      // Don't fail the bridge for email hiccups — the customer can self-serve via /forgot-password
-      console.error(
-        "[provision-from-stripe] welcome email failed:",
-        e instanceof Error ? e.message : "unknown"
-      );
-    }
-  }
+  // 6. Welcome email status:
+  //    - send_welcome_email=true + new user: inviteUserByEmail emailed the
+  //      welcome + set-password link as part of step 3 above.
+  //    - send_welcome_email=false: no email regardless.
+  //    - Existing users: no email — they already have credentials and are
+  //      just gaining a new tenant entitlement. The Stripe receipt covers
+  //      the "you bought it" message.
+  const welcomeSent = isNewUser && sendWelcome;
 
   return NextResponse.json({
     ok: true,
@@ -184,6 +186,7 @@ export async function POST(req: NextRequest) {
     profile_id: profileId,
     tenant_id: tenantId,
     welcome_sent: welcomeSent,
+    is_new_user: isNewUser,
   });
 }
 
