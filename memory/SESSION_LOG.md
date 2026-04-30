@@ -2,6 +2,10 @@
 tags: [daily]
 ---
 
+### 2026-04-30 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Pushed setup/outreach/registry updates to GitHub main. Confirmed private setup wizard fix already live at 09d8402; new commit ee408ad hardens outreach routing and skill registry. Validation: scan_secrets clean, send_gateway tests 56/56, wizard tests 16/16, py_compile passed, outreach skill validate/route passed, outreach eligibility query passed. Left local .obsidian/core-plugins.json unstaged as local settings.
+
 ### 2026-04-29 — Auto-sync
 **Agent:** BRAVO state_sync
 **Note:** Prepared Maven handoff/system message for Apr 29 after-gym content session. Context: coaching call no-show became 30-min GitHub walkthrough recording; Skool replay post needed; Jonathan/Basque agreed to book and got calendar text; Alejandro declined/no-showed and should not be chased; AI Masters no-showed; CC plans food/store/gym by 6:30 then wants low-friction content tonight.
