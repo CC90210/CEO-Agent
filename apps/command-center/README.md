@@ -9,72 +9,84 @@ setup wizard.
 > operator's dashboard renders their own brand pulled from `user_profiles.brand`.
 
 Read-only for v1. Server-side Supabase queries (service role key stays on
-the server). Built with Next.js 14 + Tailwind + shadcn-style components,
-no third-party auth libraries, no client-side state management.
+the server). Built with Next.js 15 + React 19 + Tailwind + recharts + lucide-react.
+No third-party auth libraries, no client-side state management.
 
-## What it shows
+## Pages
 
-- **`/`** — today's counters + channel caps + recent decisions + recent inbound + pipeline
-- **`/decisions`** — the full reasoning-loop decision tape with confidence + alternatives
-- **`/inbound`** — every classified reply with intent/priority/sentiment
-- **`/outbound`** — every send through the gateway with brand + cooldown
-- **`/leads`** — CRM pipeline by stage
-- **`/agents`** — Bravo/Codex/Atlas/Maven/Aura/Hermes status + cross-agent event bus (filtered to whichever agents the operator profile has enabled)
-- **`/today`** — daily ops: live MRR + primary lead + hour-by-hour schedule + manifesto
-- **`/playbook`** — sales script + objection handlers + deal architecture + daily drills
-- **`/pipeline`** — merged Leads + Outbound + Inbound funnel
-- **`/settings`** — profile, integrations health, agent wiring
-- **`/integrations`** — green/red dot status for every connected service
+| Path | What it shows |
+|---|---|
+| `/` (Today) | Live MRR + primary lead + day schedule + manifesto |
+| `/pipeline` | Merged Leads + Outbound + Inbound funnel |
+| `/playbook` | Sales script + objection handlers + deal arch + daily drills |
+| `/playbook/cold-call` | Cold Call Script V1 (5 stages, NEPQ) |
+| `/playbook/objections` | 8 objection handlers |
+| `/playbook/deals` | 3 client offers + 2 partner tiers |
+| `/playbook/drills` | Mirror Run · Objection Volley · Recording Review |
+| `/reasoning` | Decision tape with confidence + alternatives |
+| `/agents` | Multi-agent status + event bus (filtered to enabled agents) |
+| `/analytics` | MRR trajectory + funnel + lead sources |
+| `/integrations` | Health dots for every connected service |
+| `/settings` | Profile · integrations · agent wiring |
+| `/api/inbound/n8n` | POST endpoint — n8n workflow posts classified emails here |
 
 ## Local dev
 
 ```bash
 cd apps/command-center
 npm install
-cp .env.local.example .env.local
-# Fill in BRAVO_SUPABASE_URL + BRAVO_SUPABASE_SERVICE_ROLE_KEY (copy from .env.agents)
+# Set BRAVO_SUPABASE_URL + BRAVO_SUPABASE_SERVICE_ROLE_KEY + OPERATOR_EMAIL
+# (.env.local in this folder, or pull from .env.agents at repo root)
 npm run dev
 # Open http://localhost:3100
 ```
 
-> Detailed env-var spec: [[apps/command-center/ENV_SETUP]]
+## Deploy to Vercel — one command
 
-## Deploy to Vercel
-
-The first time:
-
-```bash
-cd apps/command-center
-npm i -g vercel          # if not already installed
-vercel login             # opens browser, authenticate to your Vercel account
-vercel link              # link this folder to a new Vercel project (suggested name: bravo-dashboard)
-```
-
-Then set the two environment variables in the Vercel project:
-
-- `BRAVO_SUPABASE_URL` — same value as in `.env.agents`
-- `BRAVO_SUPABASE_SERVICE_ROLE_KEY` — same value as in `.env.agents`
-
-(In the Vercel dashboard: Settings → Environment Variables → add both.)
-
-Then deploy:
+The repo's `.env.agents` already has `VERCEL_TOKEN` and Supabase credentials.
+The deploy script handles everything: link, env vars, deploy, verify.
 
 ```bash
-vercel --prod
+python scripts/deploy_command_center.py
 ```
 
-Vercel prints a URL. Bookmark it. Every time you push to the linked branch,
-Vercel rebuilds and redeploys automatically.
+What that does (idempotent — safe to re-run):
+1. Links `apps/command-center/` to the Vercel project `cc90210/agent-dashboard`
+2. Syncs production env vars from `.env.agents`:
+   - `BRAVO_SUPABASE_URL`
+   - `BRAVO_SUPABASE_SERVICE_ROLE_KEY`
+   - `OPERATOR_EMAIL` (defaults to `konamak@icloud.com`)
+3. Runs `vercel deploy --prod`
+4. Curls the live URL to confirm it's reachable (200 or 401-SSO-gate)
+
+Aliased URL: `https://agent-dashboard-cc90210.vercel.app`
+
+### Variants
+
+```bash
+# Just sync env vars, skip the build (fast iteration after editing .env.agents)
+python scripts/deploy_command_center.py --env-only
+
+# Just link the local folder to Vercel (first-time setup on a new machine)
+python scripts/deploy_command_center.py --link-only
+
+# Skip the post-deploy curl verification
+python scripts/deploy_command_center.py --no-verify
+```
+
+## Auto-deploy on `git push`
+
+The Vercel project's GitHub integration may or may not be wired — check
+**Vercel → agent-dashboard → Settings → Git**. If it shows the repo
+connected to `main`, every push auto-deploys. If not, use the script above.
+
+The script is the source of truth either way; auto-deploy is a convenience.
 
 ## ISR — how fresh is the data?
 
-Every page has `export const revalidate = 20` (20 seconds). First visit
-hits Supabase; every visit in the next 20 seconds serves cached HTML; after
-that, Vercel regenerates in the background on next request. Free plan
-absorbs this without sweat.
-
-To force a full refresh: `vercel redeploy --prod` or hit the URL with
-`?nocache=<random>` (cache-busting is a cheap trick, not a guarantee).
+Every page exports `dynamic = "force-dynamic"`, so every request hits Supabase
+on the server. (We can switch to `revalidate = 20` later if Supabase egress
+becomes a cost.)
 
 ## Why service role on the server (and why it's safe)
 
@@ -82,39 +94,40 @@ Every page is a React Server Component. Supabase queries run on Vercel's
 serverless runtime; the service role key never touches the browser. The
 client bundle contains zero Supabase credentials.
 
-If you ever add interactive features (forms, approval buttons), switch to
-a per-request pattern: client calls a Next.js Route Handler, the handler
-validates the request, then does the Supabase work server-side.
+The `/api/inbound/n8n` route handler is a plain Node route (not edge) because
+it uses Node's `crypto` for the SHA-256 secret hashing.
 
 ## Extending the dashboard
 
-- **Add a page**: drop a new folder under `app/` with a `page.tsx`
-- **Add a query**: extend `lib/queries.ts`; it's the single entry point
-- **Add a component**: drop it in `components/`; import with `@/components/...`
+- **Add a page**: drop a folder under `app/` with `page.tsx` (or `route.ts` for an API)
+- **Add a query**: extend `lib/queries.ts` — single source for all reads
+- **Add a component**: drop it in `components/`, import with `@/components/...`
+- **Add an agent**: edit `lib/agents.ts` (single registry feeds `/agents` + `/settings`)
 - **Change the palette**: `tailwind.config.ts` has the OASIS-brand colors
-
-## Known limitations (by design, for v1)
-
-- **Read-only**. No approve/skip/reassign buttons yet. Those are in the
-  reasoning-loop + Telegram paths (already interactive).
-- **No auth**. Anyone with the URL sees the data. If you care, add a
-  password in a Route Handler middleware — 10 lines. Plan B: use Vercel's
-  password-protect feature (paid).
-- **No custom SQL in the UI**. If you want ad-hoc analytics, add a new
-  entry in `lib/queries.ts`.
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `app/layout.tsx` | Root layout + Nav + footer |
+| `app/layout.tsx` | Root layout + Sidebar + footer |
 | `app/page.tsx` | Today — the home dashboard |
-| `app/{decisions,inbound,outbound,leads,agents}/page.tsx` | Per-section pages |
-| `components/Nav.tsx` | Top nav bar |
-| `components/Card.tsx` | Card / Stat / EmptyState primitives |
+| `app/<route>/page.tsx` | Every other page |
+| `app/api/inbound/n8n/route.ts` | n8n inbound webhook |
+| `components/Sidebar.tsx` | Left-rail nav |
+| `components/Card.tsx` | Card / Stat / EmptyState / PageHeader / Tag |
+| `components/IntegrationDot.tsx` | Green/red status dot for integrations |
+| `components/charts/*.tsx` | recharts MRR + custom funnel + custom gauges |
 | `lib/supabase.ts` | Supabase client factory + shared types |
-| `lib/queries.ts` | Every query the dashboard makes, in one file |
+| `lib/queries.ts` | Every query the dashboard makes |
+| `lib/agents.ts` | Single agent registry (feeds `/agents` + `/settings`) |
 | `lib/fmt.ts` | Time + status-color formatters |
 | `tailwind.config.ts` | Theme (OASIS dark + gold) |
-| `next.config.js` | Next.js config |
-| `package.json` | Deps: next, react, @supabase/supabase-js |
+
+## Related backend
+
+- **Migration**: `database/017_user_profiles.sql` — `user_profiles`, `daily_plans`, `n8n_webhook_secrets`, `integrations_health`, RPCs
+- **Profile seeder**: `python scripts/seed_profile.py` — seeds operator + today's plan
+- **n8n bridge**: `python scripts/n8n_webhook_secret.py issue --profile-email <email>` — issue secrets
+- **n8n setup**: `docs/N8N_INBOUND_WEBHOOK.md` — copy-paste guide
+- **Bridge smoke test**: `python scripts/test_n8n_inbound_rpc.py` — 8-step end-to-end verify
+- **Setup wizard hook**: `python install/bootstrap.py --create-command-center-account --email X --full-name Y`
