@@ -1,0 +1,27 @@
+# Hetzner VPS — single-service compose for the OASIS inbound poller.
+# Reads .env (gitignored) for credentials. Restarts on crash.
+version: "3.9"
+
+services:
+  inbound-poller:
+    build:
+      context: ../..
+      dockerfile: infra/inbound-poller/Dockerfile
+    image: oasis/inbound-poller:latest
+    container_name: oasis-inbound-poller
+    restart: unless-stopped
+    env_file:
+      - ../../.env.agents
+    environment:
+      - PYTHONUNBUFFERED=1
+      - OPERATOR_EMAIL=conaugh@oasisai.work
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; assert os.environ.get('GMAIL_USER')"]
+      interval: 5m
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"

@@ -2,6 +2,10 @@
 tags: [daily]
 ---
 
+### 2026-04-30 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** OASIS AI Agent Command Center V1 shipped. Multi-agent rebrand, profile system (user_profiles + daily_plans + integrations_health + n8n_webhook_secrets via migration 017), full UI rebuild (sidebar nav, 9 pages, recharts charts, framer-motion), POST /api/inbound/n8n route handler with sha256 auth, scripts/n8n_webhook_secret.py for issue/list/revoke, scripts/seed_profile.py idempotent operator+plan seeder, install/bootstrap.py wired for --create-command-center-account, docs/N8N_INBOUND_WEBHOOK.md 5-min copy-paste fix. Build clean (14 routes, 102kB shared), CC's profile seeded with Jonathan as primary lead. Pushed to main bf9af7f, Vercel auto-deploying. CC manual followups: (1) run database/017_user_profiles_grants.sql in Supabase SQL editor, (2) set OPERATOR_EMAIL=konamak@icloud.com in Vercel env, (3) issue n8n webhook secret + paste into workflow.
+
 ### 2026-04-30 — Daily operating plan + sales script V1 + deal architecture V1 shipped
 **Agent:** BRAVO (Claude Opus 4.7, hyperthink)
 **Trigger:** CC — "build me a memorizable cold call script + restructure deals + plan today 10:30am-EOD"

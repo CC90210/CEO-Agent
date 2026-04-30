@@ -1,24 +1,27 @@
 import { Card, PageHeader, Tag, EmptyState } from "@/components/Card";
 import { PipelineFunnel } from "@/components/charts/PipelineFunnel";
 import { ChannelGauge } from "@/components/charts/ChannelGauge";
-import { timeAgo, truncate, statusColor } from "@/lib/fmt";
+import { timeAgo, truncate } from "@/lib/fmt";
 import {
   recentLeads,
   pipelineBreakdown,
   recentOutbound,
   recentInbound,
   channelUtilization,
+  getActiveProfile,
 } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
 export default async function PipelinePage() {
+  const profile = await getActiveProfile();
+  const tenantId = profile?.tenant_id || "";
   const [leads, pipeline, outbound, inbound, caps] = await Promise.all([
-    recentLeads(40),
-    pipelineBreakdown(),
-    recentOutbound(20),
-    recentInbound(20),
-    channelUtilization(),
+    recentLeads(tenantId, 40),
+    pipelineBreakdown(tenantId),
+    recentOutbound(tenantId, 20),
+    recentInbound(tenantId, 20),
+    channelUtilization(tenantId),
   ]);
 
   return (
@@ -28,7 +31,6 @@ export default async function PipelinePage() {
         subtitle={`${pipeline.total} leads · outbound + inbound + leads, in one view`}
       />
 
-      {/* Funnel + caps */}
       <section className="grid lg:grid-cols-2 gap-6">
         <Card title="Funnel" subtitle="By stage">
           <PipelineFunnel stages={pipeline.stages} />
@@ -42,7 +44,6 @@ export default async function PipelinePage() {
         </Card>
       </section>
 
-      {/* Recent leads */}
       <Card
         title="Recent leads"
         subtitle={`${leads.length} most recent of ${pipeline.total}`}
@@ -93,18 +94,14 @@ export default async function PipelinePage() {
                     <td className="px-5 py-3 text-fg font-mono text-sm">
                       {l.score ?? "—"}
                     </td>
-                    <td className="px-5 py-3 text-fg text-sm">
-                      {truncate(l.name, 28)}
-                    </td>
+                    <td className="px-5 py-3 text-fg text-sm">{truncate(l.name, 28)}</td>
                     <td className="px-5 py-3 text-fg-muted text-sm">
                       {truncate(l.company, 28)}
                     </td>
                     <td className="px-5 py-3 text-fg-muted font-mono text-xs">
                       {truncate(l.email, 32)}
                     </td>
-                    <td className="px-5 py-3 text-fg-dim text-xs">
-                      {l.source || "—"}
-                    </td>
+                    <td className="px-5 py-3 text-fg-dim text-xs">{l.source || "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -113,7 +110,6 @@ export default async function PipelinePage() {
         )}
       </Card>
 
-      {/* Outbound + Inbound side-by-side */}
       <section className="grid lg:grid-cols-2 gap-6">
         <Card title="Recent outbound" subtitle={`${outbound.length} most recent`}>
           {outbound.length === 0 ? (
@@ -130,8 +126,8 @@ export default async function PipelinePage() {
                         {truncate(o.subject || "(no subject)", 70)}
                       </div>
                       <div className="text-xs text-fg-dim mt-0.5">
-                        {(meta.brand as string) || "—"} ·{" "}
-                        {o.agent_source || "—"} · {timeAgo(o.created_at)}
+                        {(meta.brand as string) || "—"} · {o.agent_source || "—"} ·{" "}
+                        {timeAgo(o.created_at)}
                       </div>
                     </div>
                   </li>
@@ -143,9 +139,7 @@ export default async function PipelinePage() {
 
         <Card title="Recent inbound" subtitle={`${inbound.length} most recent`}>
           {inbound.length === 0 ? (
-            <EmptyState
-              message="No inbound. Wire n8n via Settings → Integrations."
-            />
+            <EmptyState message="No inbound. Wire n8n via Settings → Integrations." />
           ) : (
             <ul className="divide-y divide-bg-border">
               {inbound.map((i) => {
@@ -169,8 +163,7 @@ export default async function PipelinePage() {
                         {truncate(i.subject, 70)}
                       </div>
                       <div className="text-xs text-fg-dim mt-0.5">
-                        {(meta.from_identity as string) || "—"} ·{" "}
-                        {timeAgo(i.created_at)}
+                        {(meta.from_identity as string) || "—"} · {timeAgo(i.created_at)}
                       </div>
                     </div>
                   </li>
