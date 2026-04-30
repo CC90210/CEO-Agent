@@ -17,7 +17,8 @@
     "next": "^15.5.15",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "recharts": "^2.13.3"
+    "recharts": "^2.13.3",
+    "stripe": "^22.1.0"
   },
   "devDependencies": {
     "@types/node": "^22",
