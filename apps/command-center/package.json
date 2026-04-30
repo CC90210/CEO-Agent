@@ -1,19 +1,23 @@
 {
-  "name": "bravo-command-center",
-  "version": "0.1.0",
+  "name": "oasis-command-center",
+  "version": "1.0.0",
   "private": true,
-  "description": "CC's agent command center — one URL that shows what every agent is doing, in real time.",
+  "description": "OASIS AI Agent Command Center — the operating system for AI agents. Multi-agent, profile-driven, real-time.",
   "scripts": {
     "dev": "next dev --port 3100",
     "build": "next build",
     "start": "next start --port 3100",
-    "lint": "next lint"
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
+    "framer-motion": "^11.11.17",
+    "lucide-react": "^0.460.0",
     "next": "^15.5.15",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "recharts": "^2.13.3"
   },
   "devDependencies": {
     "@types/node": "^22",
