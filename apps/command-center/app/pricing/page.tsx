@@ -16,6 +16,9 @@ export default function PricingPage() {
     <MarketingShell>
       <section className="px-6 pt-20 pb-12">
         <div className="mx-auto max-w-3xl text-center">
+          <div className="inline-block bg-bg-elev border border-bg-border rounded-full px-3 py-1 text-[10px] uppercase tracking-wider font-bold text-fg-muted mb-4">
+            Preview · Buy at <a href="https://oasisai.work/pricing" className="text-accent hover:underline">oasisai.work/pricing</a>
+          </div>
           <div className="text-xs uppercase tracking-[0.18em] font-bold text-accent mb-3">
             Pricing
           </div>
@@ -75,8 +78,8 @@ export default function PricingPage() {
                 ))}
               </ul>
 
-              <Link
-                href={`/checkout?bundle=${b.id}`}
+              <a
+                href={`https://oasisai.work/pricing#${b.id}`}
                 className={`mt-7 group flex items-center justify-center gap-2 rounded-md px-5 py-3 font-bold transition-all ${
                   b.popular
                     ? "bg-accent text-bg hover:bg-accent-muted"
@@ -88,7 +91,7 @@ export default function PricingPage() {
                   size={16}
                   className="group-hover:translate-x-1 transition-transform"
                 />
-              </Link>
+              </a>
             </div>
           ))}
         </div>
