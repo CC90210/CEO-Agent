@@ -2,6 +2,11 @@
 """deploy_command_center.py — one-shot production deploy for the OASIS AI
 Agent Command Center.
 
+Note: Supabase Management API calls from Python urllib MUST set a real
+User-Agent header — Cloudflare (in front of api.supabase.com) returns
+403 error code 1010 for the default 'Python-urllib/3.x' UA. Use
+SUPABASE_API_HEADERS below for any direct Management API calls.
+
 What it does (idempotent — safe to re-run):
   1. Loads VERCEL_TOKEN from .env.agents
   2. Ensures apps/command-center/ is linked to the cc90210/agent-dashboard
