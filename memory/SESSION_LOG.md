@@ -4,6 +4,10 @@ tags: [daily]
 
 ### 2026-04-30 — Auto-sync
 **Agent:** BRAVO state_sync
+**Note:** Hardened Hermes client onboarding: pushed Hermes env-loader/local-first/install updates at 0579688 and BEA public/Hermes setup wizard docs at 4f88acb. Browser harness remains installed but attach-pending until Chrome remote-debugging is approved by the user.
+
+### 2026-04-30 — Auto-sync
+**Agent:** BRAVO state_sync
 **Note:** Pushed setup/outreach/registry updates to GitHub main. Confirmed private setup wizard fix already live at 09d8402; new commit ee408ad hardens outreach routing and skill registry. Validation: scan_secrets clean, send_gateway tests 56/56, wizard tests 16/16, py_compile passed, outreach skill validate/route passed, outreach eligibility query passed. Left local .obsidian/core-plugins.json unstaged as local settings.
 
 ### 2026-04-29 — Auto-sync

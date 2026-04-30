@@ -161,7 +161,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-04-30
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Pushed setup/outreach/registry updates to GitHub main. Confirmed private setup wizard fix already live at 09d8402; new commit ee408ad hardens outreach routing and skill registry. Validation: scan_secrets clean, send_gateway tests 56/56, wizard tests 16/16, py_compile passed, outreach skill validate/route passed, outreach eligibility query passed. Left local .obsidian/core-plugins.json unstaged as local settings.
+- **Result:** Hardened Hermes client onboarding: pushed Hermes env-loader/local-first/install updates at 0579688 and BEA public/Hermes setup wizard docs at 4f88acb. Browser harness remains installed but attach-pending until Chrome remote-debugging is approved by the user.
 
 *Last updated: 2026-04-30*
 
