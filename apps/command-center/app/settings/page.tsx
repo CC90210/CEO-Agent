@@ -1,7 +1,7 @@
 import { Card, PageHeader, Tag, EmptyState } from "@/components/Card";
 import { IntegrationDot } from "@/components/IntegrationDot";
 import { getActiveProfile, integrationsHealth } from "@/lib/queries";
-import { ExternalLink, Copy } from "lucide-react";
+import { AGENT_REGISTRY, ALL_AGENT_KEYS } from "@/lib/agents";
 
 export const dynamic = "force-dynamic";
 
@@ -98,11 +98,12 @@ export default async function SettingsPage() {
         subtitle="Which agents are wired to this Command Center"
       >
         <ul className="grid sm:grid-cols-2 gap-3">
-          {AGENTS.map((a) => {
-            const enabled = profile?.agents_enabled.includes(a.key) || false;
+          {ALL_AGENT_KEYS.map((key) => {
+            const a = AGENT_REGISTRY[key];
+            const enabled = profile?.agents_enabled.includes(key) || false;
             return (
               <li
-                key={a.key}
+                key={key}
                 className={`p-4 rounded-lg border flex items-start gap-3 transition-all ${
                   enabled
                     ? "bg-bg-elev border-bg-border"
@@ -118,10 +119,10 @@ export default async function SettingsPage() {
                 />
                 <div className="flex-1">
                   <div className="text-fg font-bold uppercase tracking-wider text-xs">
-                    {a.key}
+                    {key}
                   </div>
                   <div className="text-fg text-sm mt-1">{a.role}</div>
-                  <div className="text mt-1 text-xs text-fg-dim font-mono">
+                  <div className="mt-1 text-xs text-fg-dim font-mono">
                     {a.location}
                   </div>
                 </div>
@@ -154,12 +155,3 @@ function Field({
     </div>
   );
 }
-
-const AGENTS = [
-  { key: "bravo", role: "Lead architect · CEO ops · content voice", location: "this repo" },
-  { key: "codex", role: "Backend executor · deep debugging · adversarial review", location: "Codex companion" },
-  { key: "atlas", role: "CFO · finance · tax · trading · budget", location: "C:\\Users\\User\\APPS\\CFO-Agent" },
-  { key: "maven", role: "CMO · content · paid ads · funnels", location: "C:\\Users\\User\\CMO-Agent" },
-  { key: "aura", role: "Life · home · habits · voice", location: "C:\\Users\\User\\AURA" },
-  { key: "hermes", role: "Commerce agent · POS · EDI · chargebacks", location: "C:\\Users\\User\\hermes" },
-];
