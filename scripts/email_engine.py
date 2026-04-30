@@ -22,6 +22,7 @@ import email
 import email.header
 import imaplib
 import json
+import os
 import re
 import sys
 from datetime import datetime, timezone
@@ -1028,6 +1029,24 @@ def cmd_check_inbox(env_vars, args, output_json=False):
             except Exception as rpc_err:
                 # Don't block the inbox flow on ledger errors — email_log still captures.
                 print(f"[email_inbox] ledger write warning: {rpc_err}", file=sys.stderr)
+
+            # V1.0 — bump the OASIS Command Center integrations_health row so
+            # the dashboard's green dot lights up. Profile is resolved by the
+            # OPERATOR_EMAIL env var (or falls back to the canonical operator).
+            # Best-effort: if ping fails, inbound flow continues unaffected.
+            try:
+                operator_email = os.environ.get("OPERATOR_EMAIL", "conaugh@oasisai.work")
+                profile_lookup = db.table("user_profiles").select("id").eq("email", operator_email).limit(1).execute()
+                if profile_lookup.data:
+                    db.rpc("ping_integration", {
+                        "p_profile_id": profile_lookup.data[0]["id"],
+                        "p_service": "n8n_inbound",
+                        "p_status": "healthy",
+                        "p_error": None,
+                        "p_metadata": {"source": "email_engine.check_inbox"},
+                    }).execute()
+            except Exception:
+                pass  # Health pings are best-effort; never block the inbound pipeline
 
             # ---- AUTO-SUPPRESS on "STOP" / unsubscribe intent -------------------
             # When the classifier flags intent=unsubscribe OR the subject/body
