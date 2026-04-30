@@ -13,12 +13,19 @@ export async function GET(req: NextRequest) {
   const { searchParams, origin } = req.nextUrl;
   const code = searchParams.get("code");
   const next = searchParams.get("next") || "/";
+  const flow = searchParams.get("type") || searchParams.get("flow"); // 'recovery' for password reset
+  const reset = searchParams.get("reset") === "1";
 
   if (!code) return NextResponse.redirect(`${origin}/login?err=missing_code`);
 
   const url = process.env.BRAVO_SUPABASE_URL!;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  const res = NextResponse.redirect(`${origin}${next}`);
+
+  // Password-recovery flow lands on /auth/reset-password where the user types
+  // a new password. Everything else lands on `next` (default: /).
+  const landing =
+    flow === "recovery" || reset ? "/auth/reset-password" : next;
+  const res = NextResponse.redirect(`${origin}${landing}`);
 
   const supa = createServerClient(url, anon, {
     cookies: {

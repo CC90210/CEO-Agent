@@ -13,8 +13,10 @@ const PUBLIC_PATH_PREFIXES = [
   "/signup",
   "/forgot-password",
   "/auth/callback",
+  "/auth/reset-password",
   "/api/inbound",
   "/api/auth",
+  "/api/cron",
   "/_next",
   "/favicon",
 ];
