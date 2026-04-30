@@ -1,6 +1,6 @@
 ---
 name: agent-runtime-packaging
-description: Build and maintain product-grade agent infrastructure: onboarding diagnostics, runtime home, packaging, skill lifecycle, tool manifests, and agent scaffolds.
+description: "Build and maintain product-grade agent infrastructure: onboarding diagnostics, runtime home, packaging, skill lifecycle, tool manifests, and agent scaffolds."
 ---
 
 # Agent Runtime Packaging

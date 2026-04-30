@@ -2,14 +2,16 @@
 
 ## Overview
 
-Skills consume context window tokens. Loading all 55 skills at session start would burn most of the context budget before work begins. Progressive loading ensures only relevant content is in context.
+Skills consume context window tokens. Loading all 151 skills at session start would burn most of the context budget before work begins. Progressive loading ensures only relevant content is in context.
+
+As of 2026-04-28, `skills_registry` in Supabase is the runtime catalog. `scripts/register_skill.py sync-all --deactivate-missing --json` syncs every `skills/*/SKILL.md` into the database with triggers, tier, owner agent, risk level, dependencies, and a source hash. `scripts/register_skill.py route "<task>" --json` is the fastest way for any AI interface to decide which skills to load.
 
 ## Three-Tier Loading
 
-### Tier 1: Frontmatter (Always Available)
-Every skill has YAML frontmatter with name, description, and trigger keywords. This metadata is lightweight (~50 tokens per skill) and can be scanned without loading the full skill.
+### Tier 1: Runtime Metadata (Always Available)
+Every skill has YAML frontmatter with name, description, and trigger keywords. Supabase stores that metadata plus inferred routing fields, so agents can route by trigger/category/owner/risk without loading the full skill.
 
-When the Brain Loop reaches Step 2 (RECALL), scan skill frontmatter to identify relevant skills for the current task. Only load Tier 2 for matched skills.
+When the Brain Loop reaches Step 2 (RECALL), call `python scripts/register_skill.py route "<task>" --json` to identify relevant skills. Only load Tier 2 for matched skills.
 
 Example frontmatter:
 ```yaml
@@ -62,30 +64,30 @@ Tier classification:
 
 ## Trigger Keyword Reference
 
-All 55 skills now have `triggers:` in their YAML frontmatter. The frontmatter IS the authoritative trigger source -- no separate table needed.
+All 151 skills are synced to Supabase with trigger metadata. The folder frontmatter remains the source of truth; `skills_registry` is the runtime cache used for fast routing and drift detection.
 
-To scan triggers, read the frontmatter of each skill:
+To scan triggers manually, read the frontmatter of each skill:
 ```
 skills/[skill-name]/SKILL.md → triggers: [keyword1, keyword2, ...]
 ```
 
-**Core skills (8)** — always pre-warmed: systematic-debugging, memory-management, self-healing, mcp-operations, security-protocol, using-superpowers, heartbeat, growth-engine
+**Current runtime state:** 151 active skills, 14 core, 45 standard, 92 specialized, 0 invalid; one inactive legacy row (`content-creation`) remains in Supabase for history.
 
-**Standard skills (22)** — loaded on trigger match: browser-automation, code-review, content-engine, dispatching-parallel-agents, e2e-testing, executing-plans, finishing-a-development-branch, frontend-design, n8n-patterns, receiving-code-review, requesting-code-review, sequential-reasoning, ship, sop-breakdown, subagent-driven-development, supabase-patterns, test-driven-development, using-git-worktrees, verification-before-completion, webapp-testing, writing-plans, brainstorming
+**Core examples** — always pre-warmed or route-boosted: task-routing, send-gateway, email-safety, systematic-debugging, memory-management, self-healing, security-protocol, verification-before-completion, context-optimization, codex-delegation, agent-permissions, anti-drift.
 
-**Specialized skills (25)** — loaded only on explicit trigger: ai-integration, algorithmic-art, brand-guidelines, canvas-design, cli-anything, doc-coauthoring, docx, internal-comms, investor-materials, linkedin-outreach, market-research, mcp-builder, n8n-mcp-integration, notebooklm, pdf, pptx, retro, skill-creator, skool-automation, slack-gif-creator, strategic-compact, theme-factory, web-artifacts-builder, writing-skills, xlsx
+Use `route` for the live list instead of maintaining static trigger tables here.
 
 ## Integration with Brain Loop Step 2 (RECALL)
 
 During RECALL, the agent should:
 
 1. Identify task type from CC's request (1-2 words: "bug fix", "new feature", "content post")
-2. Match task type against `triggers:` keywords in skill frontmatter
+2. Match task type with `python scripts/register_skill.py route "<task>" --json`
 3. Load matched skills' Tier 2 content (SKILL.md body)
 4. Load their declared dependencies if any
 5. Proceed with execution using loaded skills as methodology guides
 
-This replaces the previous pattern of loading all skills speculatively. The frontmatter triggers cover 100% of skills with zero ambiguity.
+This replaces the previous pattern of loading all skills speculatively. Supabase routing metadata covers 100% of active skills and remains drift-checked against the folder library.
 
 ## Obsidian Links
 - [[skills/SKILL_LOADING]] | [[skills/INDEX]]

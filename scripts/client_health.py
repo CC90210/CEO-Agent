@@ -592,7 +592,7 @@ def cmd_trends(db_client, args: argparse.Namespace) -> int:
         first_score = snaps[0]["score"]
         last_score  = snaps[-1]["score"]
         delta       = last_score - first_score
-        arrow       = "↑" if delta > 0 else ("↓" if delta < 0 else "→")
+        arrow       = "^" if delta > 0 else ("v" if delta < 0 else "-")
         tier        = snaps[-1]["tier"]
 
         line = (

@@ -31,6 +31,27 @@ from typing import Optional
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SUPPRESSIONS_CSV = PROJECT_ROOT / "data" / "email_suppressions.csv"
 
+# RFC 2606 reserved + common placeholder/sample domains that should never
+# receive a real send. Firecrawl + manual lead imports occasionally pull
+# these from page templates / dummy mailto links. Gate-level rejection so
+# every send path (email_engine, outreach_batch, autonomous_agent, etc.)
+# is protected, not just the scraper.
+RESERVED_EMAIL_DOMAINS: frozenset[str] = frozenset({
+    "example.com", "example.org", "example.net",
+    "test.com", "test.org", "invalid", "localhost",
+    "domain.com", "yourdomain.com", "yoursite.com", "email.com",
+    "sentry.io", "wixpress.com", "squarespace.com", "wordpress.com",
+})
+
+
+def is_reserved_domain(email: str) -> bool:
+    """True if `email` is on a reserved/test/placeholder domain that
+    should never receive a real send."""
+    if not email or "@" not in email:
+        return False
+    _, _, domain = email.rpartition("@")
+    return domain.lower().strip() in RESERVED_EMAIL_DOMAINS
+
 # Physical mailing address required by CASL s. 6(2)(b).
 # Set via .env.agents; fall back to a public OASIS AI address.
 DEFAULT_BUSINESS_ADDRESS = "OASIS AI Solutions, Collingwood, ON, Canada"
@@ -110,18 +131,16 @@ def build_casl_footer(
     business_address = business_address or os.environ.get("CASL_BUSINESS_ADDRESS", DEFAULT_BUSINESS_ADDRESS)
     sender_name = sender_name or os.environ.get("CASL_SENDER_NAME", DEFAULT_SENDER_NAME)
 
-    # 2026-04-20: dropped the https://oasisai.work/unsubscribe link from the
-    # footer — that page didn't exist and CC confirmed it was a dead end.
-    # Reply-STOP is the primary mechanism now; email_engine.check-inbox
-    # auto-suppresses any lead whose inbound classifier flags intent=unsubscribe.
-    # Reply-STOP is CASL-compliant as long as the opt-out is processed within
-    # 10 business days — the auto-suppression handler does this in seconds.
+    # 2026-04-27: dropped the visible "reply STOP" line at CC's direction —
+    # the spammy phrasing was hurting deliverability and brand perception on
+    # cold B2B outreach. Opt-out still works via the List-Unsubscribe header
+    # (Gmail/Outlook native one-click button → unsubscribe@oasisai.work →
+    # email_engine.check-inbox auto-suppresses). Visible footer retains
+    # sender name, business name, and physical address per CASL s. 6(2)(a-b).
     footer = (
         "\n\n---\n"
         f"{sender_name} — {business_name}\n"
         f"{business_address}\n"
-        "To opt out, just reply STOP and you will be removed from the list "
-        "within 24 hours (usually within the hour).\n"
     )
     return footer
 
@@ -144,9 +163,7 @@ def build_casl_footer_html(
         '<hr style="margin-top:24px;border:none;border-top:1px solid #ddd"/>'
         '<div style="font-size:11px;color:#888;font-family:sans-serif;line-height:1.5">'
         f'{escape(sender_name)} — {escape(business_name)}<br/>'
-        f'{escape(business_address)}<br/>'
-        'To opt out, just reply <strong>STOP</strong> and you will be removed '
-        'from the list within 24 hours (usually within the hour).'
+        f'{escape(business_address)}'
         '</div>'
     )
 

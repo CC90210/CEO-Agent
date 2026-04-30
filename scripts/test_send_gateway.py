@@ -300,6 +300,23 @@ class TestSendGateway(unittest.TestCase):
         )
         self._critic_patcher.start()
         self.addCleanup(self._critic_patcher.stop)
+        # 2026-04-27: Gate 1b requires body_html for OASIS commercial sends.
+        # Most legacy tests passed body_text only — wrap sg.send so any test
+        # call missing body_html on a default oasis/commercial send gets a
+        # placeholder injected. Tests that intentionally exercise the missing-
+        # html path can pass body_html=None explicitly via the wrapper.
+        _orig_send = self.sg.send
+        def _send_with_default_html(**kwargs):
+            no_html_override = kwargs.pop("_no_html_for_test", False)
+            brand = kwargs.get("brand", "oasis")
+            intent = kwargs.get("intent", "commercial")
+            html = kwargs.get("body_html")
+            if (kwargs.get("channel") == "email" and brand == "oasis"
+                    and intent == "commercial" and not html
+                    and not no_html_override):
+                kwargs["body_html"] = "<p>" + (kwargs.get("body_text") or "") + "</p>"
+            return _orig_send(**kwargs)
+        self.sg.send = _send_with_default_html
         # Seed one lead so resolve_lead_id has something to find
         self.db.tables["leads"].rows.append({
             "id": "lead-001",
@@ -400,7 +417,15 @@ class TestSendGateway(unittest.TestCase):
 
     # 5. Daily cap enforced
     def test_05_daily_cap_blocks(self):
-        now = datetime.now(timezone.utc) - timedelta(hours=2)
+        # Patch the gateway's now() to a fixed time well into the day so:
+        #   1. seeded rows are inside today's day-start window (daily count fires)
+        #   2. seeded rows are outside the last 1h window (hourly cap doesn't fire first)
+        # Without this patch the test is flaky in the 0-1am UTC window where
+        # no valid time slot satisfies both conditions.
+        fixed_now = datetime.now(timezone.utc).replace(
+            hour=12, minute=0, second=0, microsecond=0
+        )
+        seeded_at = fixed_now - timedelta(hours=2)  # inside day, outside last 1h
         cap = self.sg.DAILY_CAPS["email"]
         for i in range(cap):
             self.db.tables["lead_interactions"].rows.append({
@@ -408,8 +433,18 @@ class TestSendGateway(unittest.TestCase):
                 "lead_id": f"other-{i}",
                 "channel": "email",
                 "type": "email_sent",
-                "created_at": now.isoformat(),
+                "created_at": seeded_at.isoformat(),
             })
+
+        class _FakeDatetime(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return fixed_now if tz else fixed_now.replace(tzinfo=None)
+        self._datetime_patcher = mock.patch.object(
+            self.sg, "datetime", _FakeDatetime
+        )
+        self._datetime_patcher.start()
+        self.addCleanup(self._datetime_patcher.stop)
         with self._patch_smtp_ok(), self._patch_suppress(False), mock.patch.object(self.sg, "_telegram_notify", return_value=False):
             r = self.sg.send(
                 channel="email",
@@ -455,6 +490,83 @@ class TestSendGateway(unittest.TestCase):
         self.assertEqual(r["status"], "dry_run")
         self.assertEqual(len(self.db.tables["lead_interactions"].rows), 0)
         self.assertEqual(len(self.db.tables["email_log"].rows), 0)
+
+    # 6b. Gate 1b: OASIS commercial sends require body_html
+    def test_06b_oasis_commercial_requires_html(self):
+        with self._patch_smtp_ok(), self._patch_suppress(False):
+            r = self.sg.send(
+                channel="email",
+                agent_source="test_harness",
+                to_email="jane@acme.example",
+                subject="hi",
+                body_text="plain text only",
+                body_html=None,
+                _no_html_for_test=True,
+                db=self.db,
+            )
+        self.assertEqual(r["status"], "blocked")
+        self.assertIn("body_html", r["reason"])
+        # Nothing logged because gate fired before SMTP
+        self.assertEqual(len(self.db.tables["lead_interactions"].rows), 0)
+
+    # 6c. Transactional intent is exempt — booking confirmations may be plain text
+    def test_06c_transactional_text_only_passes_gate(self):
+        with self._patch_smtp_ok(), self._patch_suppress(False):
+            r = self.sg.send(
+                channel="email",
+                agent_source="test_harness",
+                to_email="jane@acme.example",
+                subject="Your call is confirmed",
+                body_text="See you Thursday.",
+                body_html=None,
+                intent="transactional",
+                _no_html_for_test=True,
+                db=self.db,
+            )
+        self.assertEqual(r["status"], "sent", r)
+
+    # 6d. Non-OASIS brand is exempt — kona_makana / nostalgic may be plain text
+    def test_06d_non_oasis_text_only_passes_gate(self):
+        with self._patch_smtp_ok(), self._patch_suppress(False):
+            r = self.sg.send(
+                channel="email",
+                agent_source="test_harness",
+                to_email="jane@acme.example",
+                subject="hi",
+                body_text="from kona",
+                body_html=None,
+                brand="kona_makana",
+                _no_html_for_test=True,
+                db=self.db,
+            )
+        self.assertEqual(r["status"], "sent", r)
+
+    # 6e. Gate 1a: reserved/placeholder domain blocked at the gateway
+    def test_06e_reserved_domain_blocked(self):
+        with self._patch_smtp_ok(), self._patch_suppress(False):
+            r = self.sg.send(
+                channel="email",
+                agent_source="test_harness",
+                to_email="info@example.com",
+                subject="hi",
+                body_text="hello",
+                db=self.db,
+            )
+        self.assertEqual(r["status"], "blocked")
+        self.assertIn("reserved", r["reason"].lower())
+        self.assertEqual(len(self.db.tables["lead_interactions"].rows), 0)
+
+    def test_06f_test_domain_blocked(self):
+        with self._patch_smtp_ok(), self._patch_suppress(False):
+            r = self.sg.send(
+                channel="email",
+                agent_source="test_harness",
+                to_email="contact@test.com",
+                subject="hi",
+                body_text="hello",
+                db=self.db,
+            )
+        self.assertEqual(r["status"], "blocked")
 
     # 7. Missing required email fields rejected
     def test_07_missing_email_fields_error(self):
@@ -731,7 +843,13 @@ class TestSendGateway(unittest.TestCase):
                          "killswitch must not write to the ledger")
 
     def test_19_daily_cap_threshold_triggers_telegram_alert(self):
-        now = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+        # Same fix as test_05 — patch gateway's now() to a fixed mid-day
+        # time so seeded rows fall inside today's day window but outside
+        # the last 1h hourly window.
+        fixed_now = datetime.now(timezone.utc).replace(
+            hour=12, minute=0, second=0, microsecond=0
+        )
+        seeded_at = (fixed_now - timedelta(hours=2)).isoformat()
         threshold = int(self.sg.DAILY_CAPS["email"] * 0.8)
         for i in range(threshold):
             self.db.tables["lead_interactions"].rows.append({
@@ -739,8 +857,16 @@ class TestSendGateway(unittest.TestCase):
                 "lead_id": f"lead-{i}",
                 "channel": "email",
                 "type": "email_sent",
-                "created_at": now,
+                "created_at": seeded_at,
             })
+
+        class _FakeDatetime(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return fixed_now if tz else fixed_now.replace(tzinfo=None)
+        patcher = mock.patch.object(self.sg, "datetime", _FakeDatetime)
+        patcher.start()
+        self.addCleanup(patcher.stop)
         with mock.patch.object(self.sg, "_telegram_notify", return_value=True) as notify_mock:
             self.sg.can_act(
                 lead_id="lead-001",
@@ -749,6 +875,110 @@ class TestSendGateway(unittest.TestCase):
                 db=self.db,
             )
         self.assertTrue(notify_mock.called)
+
+
+class TestNameUtils(unittest.TestCase):
+    """Honorific stripping + placeholder detection (no DB, no API)."""
+
+    def setUp(self):
+        import importlib, sys
+        for m in [m for m in list(sys.modules) if m.startswith("name_utils")]:
+            del sys.modules[m]
+        import name_utils
+        importlib.reload(name_utils)
+        self.nu = name_utils
+
+    def test_01_strip_dr_prefix(self):
+        self.assertEqual(self.nu.strip_honorifics("Dr. Micah Smith"), "Micah Smith")
+        self.assertEqual(self.nu.strip_honorifics("dr. micah"), "micah")
+        self.assertEqual(self.nu.strip_honorifics("Dr Micah"), "Micah")
+
+    def test_02_strip_other_honorifics(self):
+        for prefix in ["Mr.", "Mrs.", "Ms.", "Prof.", "Rev.", "Sir"]:
+            self.assertEqual(
+                self.nu.strip_honorifics(f"{prefix} Jane"), "Jane",
+                f"failed to strip {prefix}",
+            )
+
+    def test_03_no_honorific_unchanged(self):
+        self.assertEqual(self.nu.strip_honorifics("Micah Smith"), "Micah Smith")
+        self.assertEqual(self.nu.strip_honorifics("Bev"), "Bev")
+
+    def test_04_empty_safe(self):
+        self.assertEqual(self.nu.strip_honorifics(""), "")
+        self.assertEqual(self.nu.strip_honorifics("   "), "")
+        self.assertEqual(self.nu.strip_honorifics("Dr."), "")  # honorific only
+
+    def test_05_safe_first_name_strips_honorifics(self):
+        # safe_first_name should now treat "Dr. Micah" as "Dr. Micah" -> "Micah"
+        self.assertEqual(self.nu.safe_first_name("Dr. Micah"), "Micah")
+        self.assertEqual(self.nu.safe_first_name("Dr."), "team")  # all-honorific -> fallback
+        self.assertEqual(self.nu.safe_first_name("Mrs. Jane Doe"), "Jane Doe")
+
+
+class TestRegionInference(unittest.TestCase):
+    """Deterministic tests for region_inference (no DB, no API)."""
+
+    def setUp(self):
+        import importlib, sys
+        for m in [m for m in list(sys.modules) if m.startswith("region_inference")]:
+            del sys.modules[m]
+        import region_inference
+        importlib.reload(region_inference)
+        self.ri = region_inference
+
+    def test_01_city_in_company_wins(self):
+        self.assertEqual(
+            self.ri.infer_region({"company": "Collingwood Charters"}),
+            "the Collingwood area",
+        )
+        self.assertEqual(
+            self.ri.infer_region({"company": "Hamilton Roofing"}),
+            "the Hamilton area",
+        )
+
+    def test_02_phone_area_code_fallback(self):
+        # 416 → Toronto
+        self.assertEqual(
+            self.ri.infer_region({"company": "Acme Co", "phone": "(416) 555-1212"}),
+            "the Toronto area",
+        )
+        # 905 → GTA
+        self.assertEqual(
+            self.ri.infer_region({"company": "Acme Co", "phone": "905-555-1212"}),
+            "the Greater Toronto area",
+        )
+        # 705 → Central Ontario
+        self.assertEqual(
+            self.ri.infer_region({"company": "Acme Co", "phone": "(705) 443-1124"}),
+            "Central Ontario",
+        )
+
+    def test_03_default_fallback_when_unknown(self):
+        self.assertEqual(self.ri.infer_region({}), "your area")
+        self.assertEqual(
+            self.ri.infer_region({"company": "Acme Co"}),
+            "your area",
+        )
+
+    def test_04_phone_with_country_code(self):
+        # 1-prefixed phone still resolves
+        self.assertEqual(
+            self.ri.infer_region({"company": "Acme", "phone": "1-416-555-1212"}),
+            "the Toronto area",
+        )
+
+    def test_05_city_beats_phone(self):
+        # Even if phone is non-Ontario, a known city in company wins
+        self.assertEqual(
+            self.ri.infer_region({"company": "Toronto Plumbing", "phone": "(555) 555-5555"}),
+            "the Toronto area",
+        )
+
+    def test_06_none_lead_safe(self):
+        # Defensive: empty / None / missing fields shouldn't crash
+        self.assertEqual(self.ri.infer_region(None), "your area")  # type: ignore[arg-type]
+        self.assertEqual(self.ri.infer_region({"company": None, "phone": None}), "your area")
 
 
 class TestInboundClassifier(unittest.TestCase):
@@ -828,11 +1058,21 @@ class TestDraftCritic(unittest.TestCase):
         self.dc = draft_critic
 
     def test_01_catches_classic_slop(self):
-        body = "Hi Jane,\n\nI hope this email finds you well. I wanted to reach out about..."
+        # 2026-04-27: "wanted to reach out" was demoted from auto-flag —
+        # CC wants brief personal-sounding cold opens to ship. Assert that
+        # truly-bad phrases still flag and that "wanted to reach out" no
+        # longer does.
+        body = ("Hi Jane,\n\nI hope this email finds you well. I wanted to "
+                "reach out about how we can leverage your synergies to "
+                "circle back...")
         hits = self.dc.find_slop(body)
         excerpts = [h["excerpt"].lower() for h in hits]
         self.assertTrue(any("finds you well" in e for e in excerpts))
-        self.assertTrue(any("wanted to reach out" in e for e in excerpts))
+        self.assertTrue(any("leverage" in e for e in excerpts))
+        self.assertTrue(any("synerg" in e for e in excerpts))
+        self.assertTrue(any("circle back" in e for e in excerpts))
+        self.assertFalse(any("wanted to reach out" in e for e in excerpts),
+                         "wanted-to-reach-out should no longer auto-flag")
 
     def test_02_clean_draft_has_zero_hits(self):
         body = ("Hey Jane — saw you're taking 5 days to send HVAC quotes. "

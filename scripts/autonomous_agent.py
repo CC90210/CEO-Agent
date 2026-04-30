@@ -1015,7 +1015,7 @@ def _cmd_decisions(args) -> int:
               f"status={r.get('outcome_status') or '-'}")
         td = r.get("target_description") or ""
         if td:
-            print(f"      → {td[:100]}")
+            print(f"      -> {td[:100]}")
     print(f"\n  {len(rows)} decision(s).")
     return 0
 
