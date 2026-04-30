@@ -1,8 +1,12 @@
-# Bravo Command Center
+# OASIS AI · Agent Command Center
 
-The one URL you bookmark on your phone that shows what every agent in CC's
-empire is doing — outbound, inbound, decisions, pipeline, agent family,
-live event bus tape.
+The operating system for your AI agents. One URL that shows what every agent
+in your empire is doing — outbound, inbound, decisions, pipeline, agent family,
+live event bus tape. Multi-tenant, profile-driven, sellable to clients via the
+setup wizard.
+
+> Branded "OASIS AI" by default; the brand string is profile-driven, so each
+> operator's dashboard renders their own brand pulled from `user_profiles.brand`.
 
 Read-only for v1. Server-side Supabase queries (service role key stays on
 the server). Built with Next.js 14 + Tailwind + shadcn-style components,
@@ -15,7 +19,12 @@ no third-party auth libraries, no client-side state management.
 - **`/inbound`** — every classified reply with intent/priority/sentiment
 - **`/outbound`** — every send through the gateway with brand + cooldown
 - **`/leads`** — CRM pipeline by stage
-- **`/agents`** — Bravo/Codex/Atlas/Maven/Aura status + cross-agent event bus
+- **`/agents`** — Bravo/Codex/Atlas/Maven/Aura/Hermes status + cross-agent event bus (filtered to whichever agents the operator profile has enabled)
+- **`/today`** — daily ops: live MRR + primary lead + hour-by-hour schedule + manifesto
+- **`/playbook`** — sales script + objection handlers + deal architecture + daily drills
+- **`/pipeline`** — merged Leads + Outbound + Inbound funnel
+- **`/settings`** — profile, integrations health, agent wiring
+- **`/integrations`** — green/red dot status for every connected service
 
 ## Local dev
 
