@@ -55,7 +55,7 @@ What that does (idempotent — safe to re-run):
 2. Syncs production env vars from `.env.agents`:
    - `BRAVO_SUPABASE_URL`
    - `BRAVO_SUPABASE_SERVICE_ROLE_KEY`
-   - `OPERATOR_EMAIL` (defaults to `konamak@icloud.com`)
+   - `OPERATOR_EMAIL` (defaults to `conaugh@oasisai.work`)
 3. Runs `vercel deploy --prod`
 4. Curls the live URL to confirm it's reachable (200 or 401-SSO-gate)
 

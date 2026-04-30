@@ -6,7 +6,7 @@ What it does (idempotent — safe to re-run):
   1. Loads VERCEL_TOKEN from .env.agents
   2. Ensures apps/command-center/ is linked to the cc90210/agent-dashboard
      Vercel project (writes .vercel/project.json if missing)
-  3. Syncs production env vars from .env.agents → Vercel
+  3. Syncs production env vars from .env.agents -> Vercel
        BRAVO_SUPABASE_URL, BRAVO_SUPABASE_SERVICE_ROLE_KEY, OPERATOR_EMAIL
   4. Runs `vercel deploy --prod`
   5. Curls the aliased URL to verify it's reachable (expects 200 or 401-SSO)
@@ -42,7 +42,7 @@ REQUIRED_ENV_KEYS = [
     "BRAVO_SUPABASE_SERVICE_ROLE_KEY",
 ]
 EXTRA_ENV_KEYS = {
-    "OPERATOR_EMAIL": "konamak@icloud.com",
+    "OPERATOR_EMAIL": "conaugh@oasisai.work",
 }
 
 GREEN = "\033[32m"
@@ -171,7 +171,7 @@ def deploy(token: str) -> str | None:
             tail = line.split("Aliased:")[1].strip()
             if tail.startswith("https://"):
                 url = tail.split()[0]
-    ok(f"deployed → {url or PROD_URL}")
+    ok(f"deployed -> {url or PROD_URL}")
     return url or PROD_URL
 
 
