@@ -13,19 +13,17 @@ export async function GET(req: NextRequest) {
   const { searchParams, origin } = req.nextUrl;
   const code = searchParams.get("code");
   const next = searchParams.get("next") || "/";
-  const flow = searchParams.get("type") || searchParams.get("flow"); // 'recovery' for password reset
-  const reset = searchParams.get("reset") === "1";
 
+  // NOTE: Supabase password-recovery emails redirect users straight to the
+  // forgot-password redirectTo (set to /auth/reset-password) with the token
+  // in the URL fragment — they do NOT pass through this callback. So we only
+  // handle OAuth + email-confirm code exchange here.
   if (!code) return NextResponse.redirect(`${origin}/login?err=missing_code`);
 
   const url = process.env.BRAVO_SUPABASE_URL!;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-  // Password-recovery flow lands on /auth/reset-password where the user types
-  // a new password. Everything else lands on `next` (default: /).
-  const landing =
-    flow === "recovery" || reset ? "/auth/reset-password" : next;
-  const res = NextResponse.redirect(`${origin}${landing}`);
+  const res = NextResponse.redirect(`${origin}${next}`);
 
   const supa = createServerClient(url, anon, {
     cookies: {
