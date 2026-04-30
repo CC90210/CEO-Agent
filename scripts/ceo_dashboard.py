@@ -302,10 +302,10 @@ def _mrr_from_memory() -> float:
 
 def _trend_arrow(current: float, previous: float) -> str:
     if current > previous * 1.01:
-        return "↑"
+        return "^"
     if current < previous * 0.99:
-        return "↓"
-    return "→"
+        return "v"
+    return "-"
 
 
 def _progress_bar(pct: float, width: int = 10) -> str:
@@ -324,13 +324,25 @@ def _build_north_star(env: dict, as_json: bool) -> dict:
     # --- MRR ---
     stripe_mrr = 0.0
     stripe_available = stripe_key != ""
-    if stripe_available:
-        stripe_mrr = _stripe_mrr(stripe_key)
+    net_mrr = 0.0
+    mrr_source = "fallback"
+    try:
+        from revenue_engine import calculate_mrr, get_supabase  # type: ignore
 
-    # Manual / retainer MRR (Bennett flat + base + rev share)
-    # These come from STATE.md / known values when Stripe won't have them
-    manual_mrr = _mrr_from_memory() if stripe_mrr < 100 else 0.0
-    net_mrr = stripe_mrr if stripe_mrr > 100 else manual_mrr
+        db = get_supabase(env)
+        mrr_data = calculate_mrr(env, db)
+        stripe_mrr = float(mrr_data.get("stripe_mrr") or 0.0)
+        stripe_available = bool(mrr_data.get("stripe_available"))
+        net_mrr = float(mrr_data.get("total_mrr") or 0.0)
+        mrr_source = "revenue_engine"
+    except Exception:
+        # Fallback only: keep the briefing usable if Supabase/Stripe are down,
+        # but revenue_engine remains the source of truth when available.
+        if stripe_available:
+            stripe_mrr = _stripe_mrr(stripe_key)
+        manual_mrr = _mrr_from_memory() if stripe_mrr < 100 else 0.0
+        net_mrr = stripe_mrr if stripe_mrr > 100 else manual_mrr
+        mrr_source = "stripe" if stripe_mrr > 100 else "memory"
 
     # --- Pipeline ---
     leads = _read_lead_tracker()
@@ -373,7 +385,7 @@ def _build_north_star(env: dict, as_json: bool) -> dict:
             "target": MRR_GOAL_USD,
             "pct": mrr_pct,
             "days_to_target": days_left,
-            "source": "stripe" if stripe_mrr > 100 else "memory",
+            "source": mrr_source,
         },
         "pipeline": {
             "total_value": pipeline["total_pipeline"],

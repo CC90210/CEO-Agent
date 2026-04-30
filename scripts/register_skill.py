@@ -7,10 +7,12 @@ insert into the skills_registry Supabase table, and hope nothing drifted.
 Forgetting step 2 was the most common failure — skills existed in the
 folder but weren't discoverable.
 
-This module fixes that. Five subcommands:
+This module fixes that. Six subcommands:
 
   create    — scaffold a brand-new skill folder with templates
   register  — wire an existing skill into skills_registry + doc index
+  sync-all  — idempotently upsert every folder skill into skills_registry
+  route     — rank active skills for a plain-English task
   list      — print all skills from the registry
   audit     — find drift: skills in folder not in registry, etc.
   validate  — deep structural check on one skill
@@ -22,6 +24,12 @@ USAGE
 
     # Wire it up (idempotent)
     python scripts/register_skill.py register my-new-skill
+
+    # Runtime-sync the whole library
+    python scripts/register_skill.py sync-all --deactivate-missing --json
+
+    # Ask the runtime catalog which skills to load
+    python scripts/register_skill.py route "send follow-up emails to warm leads" --json
 
     # See what's registered
     python scripts/register_skill.py list --json
@@ -35,8 +43,9 @@ USAGE
 DESIGN
 ------
 1. The `skills/` folder is the source of truth for WHAT exists.
-2. The Supabase `skills_registry` table (migration 001) is runtime truth:
-   which skills are active, usage counts, last used.
+2. The Supabase `skills_registry` table is runtime truth: which skills are
+   active, how they are activated, which agent owns them, usage counts, last
+   used, and drift hashes. Migration 016 adds the orchestration metadata.
 3. brain/CAPABILITIES.md is a human-readable doc index. This tool does NOT
    auto-edit CAPABILITIES.md — that's fragile. Instead `register` prints
    the exact one-line row for CC to paste in, and `audit` reports drift.
@@ -51,6 +60,7 @@ fail-closed on Supabase errors, zero hardcoded credentials.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -62,6 +72,160 @@ from typing import Any, Optional
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SKILLS_DIR = PROJECT_ROOT / "skills"
 CAPABILITIES_FILE = PROJECT_ROOT / "brain" / "CAPABILITIES.md"
+SKILLS_INDEX_FILE = PROJECT_ROOT / "skills" / "INDEX.md"
+
+CORE_SKILLS = {
+    "task-routing",
+    "send-gateway",
+    "email-safety",
+    "systematic-debugging",
+    "memory-management",
+    "self-healing",
+    "security-protocol",
+    "verification-before-completion",
+    "context-optimization",
+    "state-sync",
+    "codex-delegation",
+    "agent-permissions",
+    "anti-drift",
+}
+
+STANDARD_SKILLS = {
+    "code-review",
+    "test-driven-development",
+    "ship",
+    "executing-plans",
+    "writing-plans",
+    "supabase-patterns",
+    "n8n-patterns",
+    "python-daemon-automation",
+    "browser-harness",
+    "browser-automation",
+    "web-scraping",
+    "lead-management",
+    "outreach-send",
+    "sales-closing",
+    "sales-methodology",
+    "client-success",
+    "proposal-generation",
+    "ceo-dashboard",
+    "ceo-briefing",
+    "daily-planner",
+}
+
+CATEGORY_TRIGGERS = {
+    "orchestration": ["route task", "delegate", "agent", "multi-agent"],
+    "development": ["code", "bug", "test", "review", "ship"],
+    "database": ["database", "supabase", "migration", "sql", "schema"],
+    "communication": ["email", "message", "reply", "outbound"],
+    "sales": ["lead", "prospect", "follow up", "close", "outreach"],
+    "revenue": ["mrr", "stripe", "invoice", "revenue", "pricing"],
+    "content": ["content", "post", "copy", "caption", "brand"],
+    "browser": ["browser", "website", "playwright", "scrape", "click"],
+    "memory": ["memory", "knowledge", "context", "recall"],
+    "security": ["security", "credential", "risk", "approval"],
+    "google": ["gmail", "calendar", "drive", "sheets", "docs", "google"],
+    "persona": ["persona", "voice", "role"],
+    "creative": ["design", "visual", "theme", "artifact"],
+    "documents": ["pdf", "docx", "pptx", "xlsx", "document"],
+    "operations": ["ops", "project", "meeting", "workflow", "process"],
+}
+
+CATEGORY_PREFIXES = [
+    ("gws-", "google"),
+    ("persona-", "persona"),
+    ("browser-", "browser"),
+    ("web", "browser"),
+    ("n8n", "automation"),
+    ("mcp", "integration"),
+]
+
+CATEGORY_OVERRIDES = {
+    "agent-runtime-packaging": "orchestration",
+    "algorithmic-art": "creative",
+    "booking-management": "sales",
+    "canvas-design": "creative",
+    "client-success": "operations",
+    "code-review": "development",
+    "doc-coauthoring": "documents",
+    "docx": "documents",
+    "e2e-testing": "development",
+    "email-safety": "communication",
+    "ethical-hacking": "security",
+    "frontend-design": "creative",
+    "internal-comms": "communication",
+    "pdf": "documents",
+    "pptx": "documents",
+    "proposal-generation": "sales",
+    "python-daemon-automation": "development",
+    "revenue-operations": "revenue",
+    "send-gateway": "communication",
+    "skool-automation": "content",
+    "slack-gif-creator": "creative",
+    "sop-breakdown": "operations",
+    "strategic-planning": "operations",
+    "team-management": "operations",
+    "telegram-demo-workflows": "content",
+    "test-driven-development": "development",
+    "verification-before-completion": "development",
+    "writing-plans": "operations",
+    "writing-skills": "meta",
+    "xlsx": "documents",
+}
+
+CATEGORY_KEYWORDS = [
+    ("supabase", "database"),
+    ("database", "database"),
+    ("migration", "database"),
+    ("gmail", "google"),
+    ("google", "google"),
+    ("outreach", "sales"),
+    ("sales", "sales"),
+    ("lead", "sales"),
+    ("proposal", "sales"),
+    ("booking", "sales"),
+    ("revenue", "revenue"),
+    ("stripe", "revenue"),
+    ("financial", "revenue"),
+    ("content", "content"),
+    ("brand", "content"),
+    ("linkedin", "content"),
+    ("skool", "content"),
+    ("video", "content"),
+    ("browser", "browser"),
+    ("scraping", "browser"),
+    ("test", "development"),
+    ("debug", "development"),
+    ("review", "development"),
+    ("ship", "development"),
+    ("git", "development"),
+    ("security", "security"),
+    ("ethical-hacking", "security"),
+    ("memory", "memory"),
+    ("knowledge", "memory"),
+    ("agent", "orchestration"),
+    ("routing", "orchestration"),
+    ("drift", "orchestration"),
+    ("planning", "operations"),
+    ("project", "operations"),
+    ("meeting", "operations"),
+    ("risk", "operations"),
+    ("pdf", "documents"),
+    ("docx", "documents"),
+    ("pptx", "documents"),
+    ("xlsx", "documents"),
+    ("canvas", "creative"),
+    ("design", "creative"),
+    ("theme", "creative"),
+]
+
+ALLOWED_TIERS = {"core", "standard", "specialized", "dormant"}
+TIER_ALIASES = {
+    "advanced": "specialized",
+    "full": "specialized",
+    "special": "specialized",
+    "strategic": "specialized",
+}
 
 # Windows default cp1252 can't encode checkmarks / bullets / em-dashes —
 # force UTF-8 on stdout/stderr so our plain-English output works everywhere.
@@ -143,12 +307,225 @@ def parse_spec_yaml(path: Path) -> dict:
     return data
 
 
+# ---- Metadata synthesis -----------------------------------------------------
+
+def _as_list(value: Any) -> list[str]:
+    """Normalize frontmatter/spec values into a clean list of strings."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        raw = [value]
+    elif isinstance(value, (list, tuple, set)):
+        raw = list(value)
+    else:
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in raw:
+        if item is None:
+            continue
+        text = str(item).strip()
+        if not text:
+            continue
+        key = text.lower()
+        if key not in seen:
+            out.append(text)
+            seen.add(key)
+    return out
+
+
+def _limit_list(values: list[str], limit: int = 32) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        v = re.sub(r"\s+", " ", str(value).strip())
+        if not v:
+            continue
+        key = v.lower()
+        if key in seen:
+            continue
+        out.append(v)
+        seen.add(key)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _skill_body_links(body: str, current_name: str) -> list[str]:
+    """Extract skill-to-skill links from markdown body for composability."""
+    links: list[str] = []
+    patterns = [
+        r"skills/([a-z0-9-]+)/SKILL",
+        r"\[\[skills/([a-z0-9-]+)/SKILL",
+    ]
+    for pattern in patterns:
+        for match in re.findall(pattern, body, flags=re.IGNORECASE):
+            name = match.lower()
+            if name != current_name:
+                links.append(name)
+    return _limit_list(links, limit=24)
+
+
+def _source_hash(skill_dir: Path) -> str:
+    h = hashlib.sha256()
+    for filename in ("SKILL.md", "spec.yaml"):
+        p = skill_dir / filename
+        if p.exists():
+            h.update(filename.encode("utf-8"))
+            h.update(p.read_bytes())
+    return h.hexdigest()
+
+
+def infer_category(name: str, fm: dict, spec: dict) -> str:
+    if name in CATEGORY_OVERRIDES:
+        return CATEGORY_OVERRIDES[name]
+    explicit = (spec.get("category") or fm.get("category") or "").strip().lower()
+    if explicit:
+        return explicit
+    for prefix, category in CATEGORY_PREFIXES:
+        if name.startswith(prefix):
+            return category
+    haystack = f"{name} {fm.get('description') or ''}".lower()
+    for keyword, category in CATEGORY_KEYWORDS:
+        if re.search(rf"\b{re.escape(keyword)}\b", haystack):
+            return category
+    return "general"
+
+
+def infer_owner_agent(name: str, category: str, fm: dict, spec: dict) -> str:
+    explicit = (spec.get("owner_agent") or fm.get("owner_agent") or "").strip().lower()
+    if explicit in VALID_OWNERS:
+        return explicit
+    if category in {"content", "creative"} or name in {
+        "brand-guidelines", "content-engine", "frontend-design", "linkedin-outreach",
+        "persona-content-creator", "telegram-demo-workflows",
+    }:
+        return "maven"
+    if category == "revenue" and name in {"financial-modeling", "investor-materials"}:
+        return "atlas"
+    if category in {"database", "development"} or name in {
+        "codex-delegation", "systematic-debugging", "code-review",
+        "test-driven-development", "supabase-patterns", "python-daemon-automation",
+        "e2e-testing", "webapp-testing",
+    }:
+        return "codex"
+    if name in {"computer-control", "daily-planner"}:
+        return "aura"
+    return "bravo"
+
+
+def infer_tier(name: str, category: str, fm: dict, spec: dict) -> str:
+    explicit = (spec.get("tier") or fm.get("tier") or "").strip().lower()
+    if explicit:
+        return explicit if explicit in ALLOWED_TIERS else TIER_ALIASES.get(explicit, "specialized")
+    if name in CORE_SKILLS:
+        return "core"
+    if name in STANDARD_SKILLS or category in {
+        "database", "development", "operations", "orchestration", "sales",
+    }:
+        return "standard"
+    return "specialized"
+
+
+def infer_risk(name: str, category: str, fm: dict, spec: dict, body: str) -> tuple[str, bool]:
+    explicit = (spec.get("risk_level") or fm.get("risk_level") or "").strip().lower()
+    tags = {t.lower() for t in _as_list(fm.get("tags")) + _as_list(spec.get("tags"))}
+    text = f"{name} {category} {' '.join(tags)} {body[:2000]}".lower()
+    requires_approval = bool(spec.get("requires_approval") or fm.get("requires_approval"))
+    if explicit:
+        return explicit, requires_approval or explicit in {"approval", "destructive"}
+    if "destructive" in tags:
+        return "destructive", True
+    if re.search(r"\b(rm\s+-rf|drop\s+table|truncate\s+table|force[- ]push)\b", text):
+        return "sensitive", requires_approval
+    if category in {"communication", "sales"} or name in {
+        "send-gateway", "outreach-send", "email-safety", "gws-gmail-send",
+        "gws-chat-send", "booking-management",
+    }:
+        return "approval", True
+    if category in {"security", "database"} or "credential" in text or "production" in text:
+        return "sensitive", requires_approval
+    return "normal", requires_approval
+
+
+def synthesize_triggers(name: str, category: str, fm: dict, spec: dict) -> list[str]:
+    description = str(fm.get("description") or "")
+    values = []
+    values.extend(_as_list(fm.get("triggers")))
+    values.extend(_as_list(spec.get("triggers")))
+    values.extend(_as_list(spec.get("when_to_use")))
+    values.append(name)
+    values.append(name.replace("-", " "))
+    values.extend(part for part in name.split("-") if len(part) > 2)
+    values.extend(CATEGORY_TRIGGERS.get(category, []))
+    # Pull short "Use when:" hints out of one-line descriptions.
+    for match in re.findall(r"use when(?:ever)?:?\s*([^.;]+)", description, flags=re.IGNORECASE):
+        values.append(match.strip())
+    return _limit_list(values, limit=32)
+
+
+def build_skill_row(name: str, report: dict, now: str) -> dict[str, Any]:
+    fm = report["frontmatter"]
+    spec = report["spec"]
+    skill_dir = SKILLS_DIR / name
+    _, body = parse_skill_md(skill_dir / "SKILL.md")
+    category = infer_category(name, fm, spec)
+    owner_agent = infer_owner_agent(name, category, fm, spec)
+    tier = infer_tier(name, category, fm, spec)
+    risk_level, requires_approval = infer_risk(name, category, fm, spec, body)
+    tags = _limit_list(_as_list(fm.get("tags")) + _as_list(spec.get("tags")), limit=24)
+    dependencies = _limit_list(
+        _as_list(fm.get("dependencies"))
+        + _as_list(spec.get("dependencies"))
+        + _skill_body_links(body, name),
+        limit=24,
+    )
+    when_to_use = _limit_list(
+        _as_list(spec.get("when_to_use")) + _as_list(fm.get("when_to_use")),
+        limit=24,
+    )
+    cli_entry = spec.get("cli_entry")
+    if not cli_entry and (skill_dir / "run.py").exists():
+        cli_entry = f"python skills/{name}/run.py"
+
+    return {
+        "skill_name": fm.get("name") or name,
+        "skill_path": str(skill_dir.relative_to(PROJECT_ROOT)).replace("\\", "/"),
+        "description": fm.get("description"),
+        "category": category,
+        "dependencies": dependencies,
+        "is_active": True,
+        "updated_at": now,
+        "triggers": synthesize_triggers(name, category, fm, spec),
+        "tags": tags,
+        "tier": tier,
+        "owner_agent": owner_agent,
+        "when_to_use": when_to_use,
+        "inputs": spec.get("inputs") or {},
+        "outputs": spec.get("outputs") or {},
+        "preconditions": _as_list(spec.get("preconditions")),
+        "side_effects": _as_list(spec.get("side_effects")),
+        "cli_entry": cli_entry,
+        "risk_level": risk_level,
+        "requires_approval": requires_approval,
+        "source_hash": _source_hash(skill_dir),
+        "frontmatter": fm,
+        "spec": spec,
+        "orchestration_notes": (
+            f"tier={tier}; owner={owner_agent}; risk={risk_level}; "
+            f"category={category}"
+        ),
+    }
+
+
 # ---- Structural validation --------------------------------------------------
 
 VALID_CATEGORIES = {
     "revenue", "content", "infrastructure", "operations", "sales",
     "communication", "automation", "memory", "security", "compliance",
-    "integration", "analytics", "meta", "general",
+    "integration", "analytics", "meta", "general", "admin", "browser",
+    "business", "code", "database", "development", "documents", "google",
+    "orchestration", "persona", "creative",
 }
 VALID_OWNERS = {"bravo", "codex", "atlas", "maven", "aura"}
 
@@ -491,18 +868,8 @@ def cmd_register(args) -> int:
             print(f"  [{i['severity']}] {i['message']}", file=sys.stderr)
         return 1
 
-    fm = report["frontmatter"]
-    spec = report["spec"]
     now = datetime.now(timezone.utc).isoformat()
-
-    row = {
-        "skill_name": fm.get("name") or name,
-        "skill_path": str((SKILLS_DIR / name).relative_to(PROJECT_ROOT)).replace("\\", "/"),
-        "description": fm.get("description"),
-        "category": spec.get("category"),
-        "is_active": True,
-        "updated_at": now,
-    }
+    row = build_skill_row(name, report, now)
     existing_id: Optional[str] = None
     try:
         db = get_supabase()
@@ -555,13 +922,245 @@ def cmd_register(args) -> int:
     return 0
 
 
+# ---- Sync all ---------------------------------------------------------------
+
+def _folder_skill_names() -> list[str]:
+    if not SKILLS_DIR.exists():
+        return []
+    return sorted(
+        entry.name
+        for entry in SKILLS_DIR.iterdir()
+        if entry.is_dir() and (entry / "SKILL.md").exists()
+    )
+
+
+def cmd_sync_all(args) -> int:
+    """Upsert every valid folder skill into skills_registry.
+
+    This is the production path for turning the markdown skill library into a
+    runtime orchestration catalog. It is idempotent and preserves usage counts
+    by not writing usage_count/success_count on existing rows.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    rows: list[dict[str, Any]] = []
+    invalid: list[dict[str, Any]] = []
+
+    for name in _folder_skill_names():
+        report = validate_skill(name)
+        if not report["valid"]:
+            invalid.append({"name": name, "issues": report["issues"]})
+            continue
+        rows.append(build_skill_row(name, report, now))
+
+    if invalid and not args.skip_invalid:
+        result = {
+            "status": "blocked",
+            "reason": "invalid skills present",
+            "invalid": invalid,
+            "valid_rows": len(rows),
+        }
+        if args.output_json:
+            print(json.dumps(result, indent=2, default=str))
+        else:
+            print("ERROR: sync blocked because invalid skills exist.", file=sys.stderr)
+            for item in invalid:
+                print(f"  {item['name']}", file=sys.stderr)
+                for issue in item["issues"]:
+                    print(f"    [{issue['severity']}] {issue['message']}", file=sys.stderr)
+        return 1
+
+    try:
+        db = get_supabase()
+        before_rows = (db.table("skills_registry")
+                       .select("skill_name,is_active")
+                       .limit(1000).execute().data) or []
+        before_names = {r["skill_name"] for r in before_rows}
+        result = db.table("skills_registry").upsert(
+            rows,
+            on_conflict="skill_name",
+        ).execute()
+
+        deactivated: list[str] = []
+        if args.deactivate_missing:
+            folder_names = {r["skill_name"] for r in rows}
+            missing = sorted(before_names - folder_names)
+            for skill_name in missing:
+                update_row = {
+                    "is_active": False,
+                    "updated_at": now,
+                }
+                # Migration 016 columns may not exist in older installs; if
+                # they do, this gives old rows a clear retired state.
+                update_row["tier"] = "dormant"
+                update_row["risk_level"] = "normal"
+                update_row["orchestration_notes"] = "No matching folder skill; deactivated by sync-all."
+                db.table("skills_registry").update(update_row).eq(
+                    "skill_name", skill_name,
+                ).execute()
+                deactivated.append(skill_name)
+    except Exception as exc:  # noqa: BLE001
+        print(f"ERROR: skills_registry sync failed: {exc}", file=sys.stderr)
+        return 1
+
+    inserted_or_updated = len(result.data or rows)
+    summary = {
+        "status": "synced",
+        "folder_skills": len(_folder_skill_names()),
+        "upserted": inserted_or_updated,
+        "invalid_skipped": len(invalid),
+        "deactivated_missing": deactivated,
+        "owners": {},
+        "tiers": {},
+        "categories": {},
+    }
+    for row in rows:
+        summary["owners"][row["owner_agent"]] = summary["owners"].get(row["owner_agent"], 0) + 1
+        summary["tiers"][row["tier"]] = summary["tiers"].get(row["tier"], 0) + 1
+        summary["categories"][row["category"]] = summary["categories"].get(row["category"], 0) + 1
+
+    if args.output_json:
+        print(json.dumps(summary, indent=2, default=str))
+    else:
+        print(f"Synced {inserted_or_updated} skills into skills_registry.")
+        print(f"  Folder skills: {summary['folder_skills']}")
+        print(f"  Invalid skipped: {summary['invalid_skipped']}")
+        print(f"  Deactivated missing rows: {len(deactivated)}")
+        print(f"  Tiers: {summary['tiers']}")
+        print(f"  Owners: {summary['owners']}")
+    return 0
+
+
+# ---- Route ------------------------------------------------------------------
+
+STOP_WORDS = {
+    "a", "an", "and", "are", "as", "at", "be", "by", "can", "do", "for",
+    "from", "have", "i", "in", "is", "it", "me", "my", "of", "on", "or",
+    "our", "the", "this", "to", "we", "with", "you",
+}
+
+
+def _tokens(text: str) -> set[str]:
+    return {
+        token
+        for token in re.findall(r"[a-z0-9][a-z0-9-]{2,}", text.lower())
+        if token not in STOP_WORDS
+    }
+
+
+def _score_route(query: str, row: dict[str, Any]) -> tuple[int, list[str]]:
+    q = query.lower()
+    q_tokens = _tokens(query)
+    score = 0
+    reasons: list[str] = []
+
+    name = (row.get("skill_name") or "").lower()
+    name_text = name.replace("-", " ")
+    if name and (name in q or name_text in q):
+        score += 12
+        reasons.append("name match")
+
+    category = (row.get("category") or "").lower()
+    if category and category in q_tokens:
+        score += 5
+        reasons.append(f"category:{category}")
+
+    tier = (row.get("tier") or "").lower()
+    if tier == "core":
+        score += 1
+
+    triggers = row.get("triggers") or []
+    for trigger in triggers:
+        t = str(trigger).lower().strip()
+        if not t:
+            continue
+        if t in q:
+            score += 10
+            reasons.append(f"trigger:{trigger}")
+            continue
+        overlap = q_tokens & _tokens(t)
+        if overlap:
+            score += min(6, 2 * len(overlap))
+            reasons.append(f"trigger overlap:{','.join(sorted(overlap))}")
+
+    desc = str(row.get("description") or "")
+    desc_overlap = q_tokens & _tokens(desc)
+    if desc_overlap:
+        score += min(6, len(desc_overlap))
+        reasons.append(f"description overlap:{','.join(sorted(desc_overlap)[:5])}")
+
+    return score, _limit_list(reasons, limit=6)
+
+
+def cmd_route(args) -> int:
+    try:
+        db = get_supabase()
+        rows = (db.table("skills_registry")
+                .select("skill_name,skill_path,description,category,tier,owner_agent,risk_level,requires_approval,triggers,is_active")
+                .eq("is_active", True)
+                .limit(1000).execute().data) or []
+    except Exception as exc:  # noqa: BLE001
+        print(f"ERROR: skills_registry route read failed: {exc}", file=sys.stderr)
+        return 1
+
+    ranked: list[dict[str, Any]] = []
+    for row in rows:
+        score, reasons = _score_route(args.query, row)
+        if score <= 0:
+            continue
+        ranked.append({
+            "score": score,
+            "skill_name": row.get("skill_name"),
+            "skill_path": row.get("skill_path"),
+            "category": row.get("category"),
+            "tier": row.get("tier"),
+            "owner_agent": row.get("owner_agent"),
+            "risk_level": row.get("risk_level"),
+            "requires_approval": row.get("requires_approval"),
+            "reasons": reasons,
+            "description": row.get("description"),
+        })
+
+    ranked.sort(
+        key=lambda r: (
+            r["score"],
+            1 if r.get("tier") == "core" else 0,
+            r.get("skill_name") or "",
+        ),
+        reverse=True,
+    )
+    ranked = ranked[:args.limit]
+
+    result = {
+        "query": args.query,
+        "matches": ranked,
+        "count": len(ranked),
+    }
+    if args.output_json:
+        print(json.dumps(result, indent=2, default=str))
+    else:
+        if not ranked:
+            print("No skill matches found.")
+            return 0
+        print(f"Top skill matches for: {args.query}\n")
+        for r in ranked:
+            approval = " approval" if r.get("requires_approval") else ""
+            print(
+                f"  {r['score']:>2}  {r['skill_name']:28} "
+                f"{r.get('tier')}/{r.get('category')} "
+                f"owner={r.get('owner_agent')} risk={r.get('risk_level')}{approval}"
+            )
+            if r.get("reasons"):
+                print(f"      {', '.join(r['reasons'])}")
+    return 0
+
+
 # ---- List -------------------------------------------------------------------
 
 def cmd_list(args) -> int:
     try:
         db = get_supabase()
         rows = (db.table("skills_registry")
-                .select("skill_name,description,category,usage_count,last_used,is_active")
+                .select("skill_name,description,category,tier,owner_agent,risk_level,usage_count,last_used,is_active")
                 .order("skill_name", desc=False)
                 .limit(1000).execute().data) or []
     except Exception as exc:  # noqa: BLE001
@@ -579,7 +1178,10 @@ def cmd_list(args) -> int:
         active = "✓" if r.get("is_active") else "✗"
         last = (r.get("last_used") or "")[:10] or "—"
         print(f"  {active}  {r['skill_name']:30}  "
-              f"{(r.get('category') or '—'):15}  "
+              f"{(r.get('category') or '—'):14}  "
+              f"{(r.get('tier') or '—'):11}  "
+              f"{(r.get('owner_agent') or '—'):6}  "
+              f"{(r.get('risk_level') or '—'):11}  "
               f"used={r.get('usage_count') or 0:>4}  "
               f"last={last}")
     return 0
@@ -610,37 +1212,53 @@ def cmd_audit(args) -> int:
     except Exception as exc:  # noqa: BLE001
         print(f"WARNING: skills_registry read failed: {exc}", file=sys.stderr)
 
-    # 3. Scan CAPABILITIES.md for mentions
-    capabilities_mentions: set[str] = set()
-    if CAPABILITIES_FILE.exists():
-        cap_text = CAPABILITIES_FILE.read_text(encoding="utf-8")
-        for name in folder_skills.keys():
-            # Any mention of skills/<name> or the skill name in backticks
-            if f"skills/{name}" in cap_text or f"`{name}`" in cap_text:
-                capabilities_mentions.add(name)
+    # 3. Scan human-facing docs for mentions
+    doc_mentions: set[str] = set()
+    doc_text = ""
+    for doc in (CAPABILITIES_FILE, SKILLS_INDEX_FILE):
+        if doc.exists():
+            doc_text += "\n" + doc.read_text(encoding="utf-8")
+    for name in folder_skills.keys():
+        # Any mention of skills/<name>, Obsidian link, or the skill name in backticks
+        if (
+            f"skills/{name}" in doc_text
+            or f"[[skills/{name}/SKILL" in doc_text
+            or f"`{name}`" in doc_text
+        ):
+            doc_mentions.add(name)
 
     # 4. Compute drift
     folder_names = set(folder_skills.keys())
     registry_names = set(registry_skills.keys())
 
     in_folder_not_registered = sorted(folder_names - registry_names)
-    in_registry_folder_missing = sorted(registry_names - folder_names)
-    in_folder_not_in_docs = sorted(folder_names - capabilities_mentions)
+    in_registry_folder_missing = sorted(
+        name for name in (registry_names - folder_names)
+        if registry_skills.get(name, {}).get("is_active")
+    )
+    inactive_registry_folder_missing = sorted(
+        name for name in (registry_names - folder_names)
+        if not registry_skills.get(name, {}).get("is_active")
+    )
+    in_folder_not_in_docs = sorted(folder_names - doc_mentions)
     invalid_skills = [name for name, r in folder_skills.items() if not r["valid"]]
 
     report = {
         "summary": {
             "total_in_folder": len(folder_skills),
             "total_in_registry": len(registry_skills),
-            "total_in_capabilities_md": len(capabilities_mentions),
+            "total_in_docs": len(doc_mentions),
+            "total_in_capabilities_md": len(doc_mentions),
             "invalid": len(invalid_skills),
             "in_folder_not_registered": len(in_folder_not_registered),
             "in_registry_folder_missing": len(in_registry_folder_missing),
+            "inactive_registry_folder_missing": len(inactive_registry_folder_missing),
             "in_folder_not_in_docs": len(in_folder_not_in_docs),
         },
         "invalid_skills": invalid_skills,
         "in_folder_not_registered": in_folder_not_registered,
         "in_registry_folder_missing": in_registry_folder_missing,
+        "inactive_registry_folder_missing": inactive_registry_folder_missing,
         "in_folder_not_in_docs": in_folder_not_in_docs,
     }
     if args.output_json:
@@ -652,7 +1270,7 @@ def cmd_audit(args) -> int:
     print("-" * 60)
     print(f"  Folder:          {s['total_in_folder']} skills with SKILL.md")
     print(f"  Registry:        {s['total_in_registry']} rows in skills_registry")
-    print(f"  CAPABILITIES.md: {s['total_in_capabilities_md']} mentioned")
+    print(f"  Docs indexed:     {s['total_in_docs']} mentioned")
     print()
     if invalid_skills:
         print(f"  ✗ INVALID STRUCTURE ({len(invalid_skills)}):")
@@ -727,25 +1345,54 @@ def main() -> None:
     pc.add_argument("--runnable", action="store_true",
                      help="Include run.py + test.py scaffolds")
     pc.add_argument("--force", action="store_true", help="Overwrite existing folder")
+    pc.add_argument("--json", dest="output_json", action="store_true",
+                    default=argparse.SUPPRESS)
 
     pr = sub.add_parser("register",
                          help="Wire an existing skill into skills_registry + docs")
     pr.add_argument("name")
+    pr.add_argument("--json", dest="output_json", action="store_true",
+                    default=argparse.SUPPRESS)
 
-    sub.add_parser("list", help="List all skills in the registry")
+    ps = sub.add_parser("sync-all",
+                         help="Upsert every folder skill into skills_registry")
+    ps.add_argument("--deactivate-missing", action="store_true",
+                    help="Mark registry rows inactive when their folder is gone")
+    ps.add_argument("--skip-invalid", action="store_true",
+                    help="Sync valid skills even if invalid skills exist")
+    ps.add_argument("--json", dest="output_json", action="store_true",
+                    default=argparse.SUPPRESS)
+
+    proute = sub.add_parser("route",
+                            help="Rank active skills for a plain-English task")
+    proute.add_argument("query", help="Task or user request to match")
+    proute.add_argument("--limit", type=int, default=8)
+    proute.add_argument("--json", dest="output_json", action="store_true",
+                        default=argparse.SUPPRESS)
+
+    pl = sub.add_parser("list", help="List all skills in the registry")
+    pl.add_argument("--json", dest="output_json", action="store_true",
+                    default=argparse.SUPPRESS)
 
     pa = sub.add_parser("audit",
                          help="Report drift between folder, registry, and CAPABILITIES.md")
-    pa  # no extra args
+    pa.add_argument("--json", dest="output_json", action="store_true",
+                    default=argparse.SUPPRESS)
 
     pv = sub.add_parser("validate", help="Deep-check one skill's structure")
     pv.add_argument("name")
+    pv.add_argument("--json", dest="output_json", action="store_true",
+                    default=argparse.SUPPRESS)
 
     args = p.parse_args()
     if args.command == "create":
         sys.exit(cmd_create(args))
     elif args.command == "register":
         sys.exit(cmd_register(args))
+    elif args.command == "sync-all":
+        sys.exit(cmd_sync_all(args))
+    elif args.command == "route":
+        sys.exit(cmd_route(args))
     elif args.command == "list":
         sys.exit(cmd_list(args))
     elif args.command == "audit":

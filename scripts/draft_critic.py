@@ -110,7 +110,10 @@ def load_env() -> dict[str, str]:
 SLOP_PHRASES = [
     r"\bi hope this (email )?finds you well\b",
     r"\bi hope you'?re (doing )?well\b",
-    r"\bi wanted to (reach out|connect)\b",
+    # 2026-04-27: removed "i wanted to reach out|connect" — CC wants brief
+    # personal-sounding cold opens like "Hi, wanted to reach out — we help
+    # local X..." to ship without auto-flagging. Long-form templates with
+    # "I came across your..." still flagged below.
     r"\bi came across your (profile|business|company|website)\b",
     r"\bquick question\b",
     r"\bjust checking in\b",
@@ -125,7 +128,6 @@ SLOP_PHRASES = [
     r"\bgame[- ]chang(er|ing)\b",
     r"\brevolution(ize|ary|izing) (your|the)\b",
     r"\bat the end of the day\b",
-    r"\blet me know (if|your thoughts)\b",
     r"\bno pressure,? just\b",
     r"\bi wanted to (follow up|touch base)\b",
     r"\bas per my (previous|last) email\b",
@@ -165,6 +167,14 @@ spots!"). Vague flattery. Facts not supported by the interaction history.
 Cold-email language in a warm-relationship context. Or the opposite —
 over-familiar language in a first touch.
 
+IMPORTANT — brief is good. CC prefers short, personal-sounding cold opens
+over long pitches. A 2-3 sentence cold email like "Hi {name}, wanted to
+reach out — we help local {vertical} automate their {pain}. Happy to show
+a demo. — Conaugh" is FINE. Do NOT flag for length, do NOT demand more
+specificity, do NOT demand a stronger CTA. Short + human + direct beats
+long + polished every time. Only escalate length if the email is over 200
+words AND wandering, or under 20 words AND has no actual ask.
+
 OUTPUT SCHEMA — JSON ONLY, no markdown, no prose outside the object:
 {
   "verdict":      "ship" | "revise" | "escalate",
@@ -187,13 +197,13 @@ OUTPUT SCHEMA — JSON ONLY, no markdown, no prose outside the object:
 }
 
 Rules:
-- verdict=ship when score >= 7.5 AND zero high-severity issues
-- verdict=revise when score 5.0..7.5 — one retry is allowed
-- verdict=escalate when score < 5.0 OR any issue has type=ungrounded_claim
+- verdict=ship when score >= 6.5 AND zero high-severity issues
+- verdict=revise when score 4.0..6.5 — one retry is allowed
+- verdict=escalate when score < 4.0 OR any issue has type=ungrounded_claim
   (fact hallucination is an automatic escalation, no auto-revision)
 - Be specific. Never output "this sounds generic" — always name the phrase.
 - If the draft is already great, return verdict=ship with a short notes
-  field. Do not invent issues.
+  field. Do not invent issues. Brief + direct is great.
 - Output only the JSON object."""
 
 

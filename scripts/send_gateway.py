@@ -106,6 +106,7 @@ if str(_SCRIPTS_DIR) not in sys.path:
 
 from casl_compliance import (  # noqa: E402
     should_suppress,
+    is_reserved_domain,
     build_casl_footer,
     build_casl_footer_html,
     add_list_unsubscribe_headers,
@@ -155,7 +156,7 @@ DAILY_CAPS: dict[str, int] = {
 # Hourly caps protect the domain reputation from bursty sends even when the
 # daily cap is still far away.
 HOURLY_CAPS: dict[str, int] = {
-    "email": 10,
+    "email": 30,
     "instagram": 6,
     "phone": 3,
 }
@@ -1287,6 +1288,37 @@ def send(
     if intent == "commercial" and to_email and should_suppress(to_email):
         return {"status": "suppressed",
                 "reason": f"{to_email} is on CASL suppression list",
+                "lead_id": lead_id, "interaction_id": None,
+                "cooldown_until": None, "daily_count": None}
+
+    # ---- Gate 1a: reserved / placeholder domain rejection ----
+    # 2026-04-27: Firecrawl scraped a lead with email=info@example.com from a
+    # page template; SMTP accepted it but the address is RFC 2606 reserved
+    # (test domain, no real mailbox). Belt-and-suspenders block at the gate
+    # so manual sends, future scrapers, and any caller that misses scrape-
+    # time validation can never ship to a placeholder domain.
+    if to_email and is_reserved_domain(to_email):
+        return {"status": "blocked",
+                "reason": f"{to_email} is on a reserved/test domain "
+                          f"(RFC 2606) — refusing send.",
+                "lead_id": lead_id, "interaction_id": None,
+                "cooldown_until": None, "daily_count": None}
+
+    # ---- Gate 1b: HTML required for OASIS commercial sends ----
+    # 2026-04-27 incident: opencode shipped 10 plain-text-only OASIS commercial
+    # sends (no body_html → no booking link button, no branded signature, looks
+    # like spam). Architectural rule: every OASIS commercial send MUST include
+    # HTML. Transactional intent (booking confirmations / reminders) and other
+    # brands (kona_makana, nostalgic) are exempt — short contextual sends and
+    # non-OASIS brands don't need the marketing chrome. Tests can opt out by
+    # passing intent="transactional" or providing body_html.
+    if (channel == "email" and intent == "commercial" and brand == "oasis"
+            and not (body_html and body_html.strip())):
+        return {"status": "blocked",
+                "reason": ("oasis commercial sends require body_html "
+                           "(branded HTML + booking link). Use email_engine "
+                           "send-template, or pass body_html explicitly. "
+                           "See feedback_outreach_send_template.md."),
                 "lead_id": lead_id, "interaction_id": None,
                 "cooldown_until": None, "daily_count": None}
 

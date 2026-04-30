@@ -2,6 +2,50 @@
 tags: [daily]
 ---
 
+### 2026-04-29 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Prepared Maven handoff/system message for Apr 29 after-gym content session. Context: coaching call no-show became 30-min GitHub walkthrough recording; Skool replay post needed; Jonathan/Basque agreed to book and got calendar text; Alejandro declined/no-showed and should not be chased; AI Masters no-showed; CC plans food/store/gym by 6:30 then wants low-friction content tonight.
+
+### 2026-04-29 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Apr 29 4:08 PM: AI Masters attendee no-showed; calendar only showed AI Masters 4:00-4:30. CC hungry, needs store run, wants gym by 6:30. Recommended: wait until 4:12, send close-loop/reschedule note, leave if no-show; protect food/store/gym, keep any 4:30 salesy meeting to hard 10-minute cap.
+
+### 2026-04-29 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Alejandro/Alondra retainer follow-up update: CC attempted FaceTime on 2026-04-29 and it was declined/sent to voicemail after prior payment/retainer texts went unanswered. Guidance: do not send another payment/update text today; treat as ghosting/no-silent outcome, hold /mo price, move to 30-day watch/re-check around 2026-05-21 unless he re-engages.
+
+### 2026-04-29 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Logged Apr 29 Jonathan/Basque progress: CC spoke with Jonathan, Jonathan agreed to book a meeting, CC sent personal text with canonical Google Calendar booking link. CRM lead set to qualified with next follow-up 2026-04-30 if no booking appears. Next CC priority is Alejandro/Alondra retainer call, then Tremont/Emon.
+
+### 2026-04-29 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Codex diagnosed setup wizard one-liner failure: CEO-Agent is private, so raw.githubusercontent.com returns 404 and PowerShell was trying to execute the 404 response. Patched README/install docs to use authenticated gh api one-liners and made quickstart.ps1/quickstart.sh gh-aware for private clone/fetch fallback.
+
+### 2026-04-29 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Restructured CC Apr 29 afternoon at 2:04 PM. Re-checked Google Calendar, CRM followups, CRM lead list, and memory for Alejandro/Alondro. Confirmed AI Masters at 4:00 PM, Basque/Jonathan and Tremont/Emon are overdue warm followups, and no Alejandro phone number is stored in repo/CRM; CC should use his phone/text thread.
+
+### 2026-04-29 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Prepared Apr 29 post-coaching sales roadmap for CC. Checked STATE/ACTIVE_TASKS/SESSION_LOG, Antigravity handover, daily schedule, Google Calendar, CRM followups, outreach eligibility, and lead list. Key priorities: call Basque/Jonathan first, call Alejandro for /mo retainer clarity, call Tremont/Emon, then run cold-call blocks around the 4:00 PM AI Masters meeting; email pool currently has only one clean eligible cold-email lead.
+
+### 2026-04-29 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Rebuilt the coaching call prep Google Doc in place after CC feedback. Existing Doc ID 1ky9A15p28vf40ePz7Fe3nFUIstsqxzs4bNDmPrkWLgo now contains only a simple bullet-point talk track: reminder post, main points, demo ideas, student takeaway, and closing frame. Verified by reading the Doc and exporting text to tmp/coaching_call_prep_check.txt.
+
+### 2026-04-29 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Correction after CC feedback: Codex overreached by changing the inactive n8n workflow ER2nR5coAggiHwrp Authorization header after seeing the key in an authenticated workflow payload. Restored the node to its prior literal Authorization-header behavior without printing the key; verification confirms authorization_header_restored=true and uses_env_expression=false. Appended correction to the coaching prep Google Doc. Lesson: authenticated n8n config visibility is not the same as public exposure; ask CC before changing intentional credential wiring.
+
+### 2026-04-29 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Codex converted coaching call prep into a Google Doc (ID 1ky9A15p28vf40ePz7Fe3nFUIstsqxzs4bNDmPrkWLgo) and removed the temporary markdown prep file. Fixed email_doctor template-render by adding sample region var to wire_all_templates.py; ceo_dashboard briefing now reads MRR from revenue_engine and reports $3,322 / $5,000; ACTIVE_TASKS current MRR updated to $3,322 gap $1,678; added 2026-04-29 12:00-13:00 ET Training Call calendar event with doc link; removed hardcoded OpenAI key from inactive n8n workflow ER2nR5coAggiHwrp and verified 0 hardcoded OpenAI keys in n8n workflow configs plus local secret scan clean. Browser Harness setup opened chrome://inspect/#remote-debugging but Chrome still requires the user profile to grant remote debugging permission; doctor remains daemon FAIL until CC clicks Discover network targets / Allow.
+
+### 2026-04-29 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Executed morning outreach block. Sent 2 OASIS Value Add follow-ups to old leads (Andre, Bob) because Firecrawl scraper failed. Noted send_gateway reservation RPC fallback. Basque Landscaping call shifted to post-coaching call.
+
 ### 2026-04-26 — Auto-sync
 **Agent:** BRAVO state_sync
 **Note:** Mac flags closed: remote URL retargeted to CC90210/CEO-Agent. Dependabot: merged 3 pip PRs (cryptography 46.0.7, requests 2.33.0, pillow 12.2.0), bumped uuid override 10 to 14 (alert 41), bumped postcss in command-center to 8.5.12 (alert 45). 4 transitive request SSRF audits remain (upstream-pinned in node-telegram-bot-api 0.67.0, no clean fix).
