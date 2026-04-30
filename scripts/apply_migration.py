@@ -29,8 +29,6 @@ import json
 import os
 import re
 import sys
-import urllib.error
-import urllib.request
 from pathlib import Path
 
 
@@ -151,36 +149,29 @@ def run_query_via_rpc(
 
 
 def run_query_via_management_api(
-    token: str,
+    _token: str,                  # unused — kept for backwards-compat callers
     project_ref: str,
     sql: str,
-    timeout: int = 60,
+    _timeout: int = 60,           # unused — supabase_admin uses its own default
 ) -> tuple[bool, str]:
-    """POST the SQL to the Management API. Returns (ok, body)."""
-    url = f"https://api.supabase.com/v1/projects/{project_ref}/database/query"
-    data = json.dumps({"query": sql}).encode("utf-8")
-    # Cloudflare in front of api.supabase.com blocks stock urllib user-agents
-    # (error 1010). Send a realistic UA to get past the edge check.
-    req = urllib.request.Request(
-        url,
-        data=data,
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-            "User-Agent": "bravo-agent/5.6 (+https://oasisai.work)",
-            "Accept": "application/json",
-        },
-        method="POST",
-    )
+    """POST the SQL to the Management API via the shared supabase_admin client.
+
+    The shared client (scripts/supabase_admin.py) bakes in the right
+    Cloudflare-friendly User-Agent + auth headers + error handling. This
+    function used to inline its own urllib call with those headers; that
+    duplicate logic was extracted 2026-04-30 after a misdiagnosed
+    Cloudflare 1010 incident. See memory/MISTAKES.md.
+    """
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            body = resp.read().decode("utf-8", errors="replace")
-            return True, body
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", errors="replace") if e.fp else str(e)
-        return False, f"HTTP {e.code}: {body}"
-    except urllib.error.URLError as e:
-        return False, f"URL error: {e}"
+        from supabase_admin import api_post
+
+        result = api_post(
+            f"/v1/projects/{project_ref}/database/query",
+            {"query": sql},
+        )
+        return True, json.dumps(result)
+    except RuntimeError as e:
+        return False, str(e)
     except Exception as e:  # noqa: BLE001
         return False, f"Unexpected error: {e}"
 
