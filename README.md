@@ -15,10 +15,31 @@ See [`brain/C_SUITE_ARCHITECTURE.md`](brain/C_SUITE_ARCHITECTURE.md) for the gov
 
 ## Quick Install (One Line)
 
-This repo is private. GitHub intentionally returns `404 Not Found` for
-unauthenticated `raw.githubusercontent.com` requests to private repos, even
-when the file exists. These install commands use the authenticated GitHub CLI
-path instead.
+If this repo is public, the zero-friction installer works without GitHub CLI:
+
+**macOS / Linux / WSL:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.sh | bash
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.ps1 | iex
+```
+
+For a Hermes client install, preselect the Hermes profile:
+
+```bash
+OASIS_PROFILE=hermes bash -c "$(curl -fsSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.sh)"
+```
+
+```powershell
+$env:OASIS_PROFILE='hermes'; irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.ps1 | iex
+```
+
+If this repo is private, GitHub intentionally returns `404 Not Found` for
+unauthenticated `raw.githubusercontent.com` requests, even when the file
+exists. Use the authenticated GitHub CLI path instead.
 
 One-time prerequisite if this terminal has not authenticated with GitHub yet:
 

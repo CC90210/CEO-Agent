@@ -7,8 +7,19 @@ separate step that can write credentials to a local, gitignored `.env.agents`.
 
 ## Windows
 
-For this private repo, fetch quickstart scripts through authenticated `gh api`
-instead of unauthenticated `raw.githubusercontent.com` URLs.
+Public repo quickstart:
+
+```powershell
+irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.ps1 | iex
+```
+
+Hermes client setup when the repo is public:
+
+```powershell
+$env:OASIS_PROFILE='hermes'; irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.ps1 | iex
+```
+
+Private repo quickstart:
 
 ```powershell
 if (-not (Get-Command gh -EA SilentlyContinue)) { throw "GitHub CLI required: winget install GitHub.cli" }; gh auth status -h github.com *> $null; if ($LASTEXITCODE -ne 0) { gh auth login -h github.com }; $c=(gh api repos/CC90210/CEO-Agent/contents/install/quickstart.ps1 --jq .content) -join ''; iex ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($c)))
@@ -26,6 +37,18 @@ Options:
 - `-Quiet` — suppress the banner
 
 ## macOS / Linux / WSL
+
+Public repo quickstart:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.sh | bash
+```
+
+Hermes client setup when the repo is public:
+
+```bash
+OASIS_PROFILE=hermes bash -c "$(curl -fsSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.sh)"
+```
 
 Private repo quickstart:
 
