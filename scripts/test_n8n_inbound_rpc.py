@@ -15,7 +15,7 @@ Run after each migration / route change to prove the bridge actually works.
 
 Env: BRAVO_SUPABASE_URL + BRAVO_SUPABASE_SERVICE_ROLE_KEY
 Usage:
-    python scripts/test_n8n_inbound_rpc.py [--profile-email konamak@icloud.com]
+    python scripts/test_n8n_inbound_rpc.py [--profile-email conaugh@oasisai.work]
 
 Exits 0 on full pass, non-zero on first failure.
 """
@@ -75,7 +75,7 @@ def sha256(s: str) -> str:
 
 def main() -> int:
     p = argparse.ArgumentParser(description="Smoke-test the n8n inbound bridge")
-    p.add_argument("--profile-email", default="konamak@icloud.com")
+    p.add_argument("--profile-email", default="conaugh@oasisai.work")
     p.add_argument("--keep-secret", action="store_true", help="Don't revoke the test secret at the end")
     args = p.parse_args()
 

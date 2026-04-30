@@ -28,7 +28,7 @@ import {
  */
 export async function getActiveProfile(): Promise<UserProfile | null> {
   const db = getSupabase();
-  const email = process.env.OPERATOR_EMAIL || "konamak@icloud.com";
+  const email = process.env.OPERATOR_EMAIL || "conaugh@oasisai.work";
   const r = await db
     .from("user_profiles")
     .select("*")

@@ -28,7 +28,7 @@ import argparse
 import json
 import os
 import sys
-from datetime import date, datetime, timezone
+from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -46,7 +46,7 @@ except ImportError:
 
 
 CC_DEFAULTS = {
-    "email": "konamak@icloud.com",
+    "email": "conaugh@oasisai.work",
     "full_name": "Conaugh McKenna",
     "display_name": "CC",
     "brand": "OASIS AI",
@@ -252,7 +252,6 @@ def seed_integration_baseline(client: "Client", profile_id: str) -> None:
         ("browser_harness", "degraded", "Chrome remote-debugging not yet attached"),
         ("n8n_inbound", "unconfigured", "Webhook secret not yet issued or n8n workflow not pointing here"),
     ]
-    now = datetime.now(timezone.utc).isoformat()
     for service, status, err in services:
         client.rpc(
             "ping_integration",
