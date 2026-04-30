@@ -1,36 +1,18 @@
 /**
- * Supabase client factory for the OASIS AI Agent Command Center.
+ * Shared types — what the dashboard reads from Supabase.
  *
- * Server-side service role for v1 (every page is a React Server Component).
- * When client interactions land, switch to per-request anon-key with RLS.
+ * Clients live in:
+ *   - lib/supabase-server.ts  — server-side service-role + authed clients
+ *   - lib/supabase-browser.ts — browser anon client (auth flows)
  *
- * Env vars (set in Vercel → Settings → Environment Variables):
- *   BRAVO_SUPABASE_URL                — the Bravo project URL
- *   BRAVO_SUPABASE_SERVICE_ROLE_KEY   — server-side only, never expose
+ * Re-exports getSupabase for backward compatibility with older callers; new
+ * code should call getServiceSupabase from lib/supabase-server.ts directly.
  */
 
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-
-let _cached: SupabaseClient | null = null;
-
-export function getSupabase(): SupabaseClient {
-  if (_cached) return _cached;
-  const url = process.env.BRAVO_SUPABASE_URL;
-  const key = process.env.BRAVO_SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
-    throw new Error(
-      "OASIS Command Center misconfigured: BRAVO_SUPABASE_URL and " +
-        "BRAVO_SUPABASE_SERVICE_ROLE_KEY must be set. See apps/command-center/README.md."
-    );
-  }
-  _cached = createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  return _cached;
-}
+export { getServiceSupabase as getSupabase } from "./supabase-server";
 
 // ============================================================================
-// Shared types — what the dashboard reads from Supabase
+// Types
 // ============================================================================
 
 export type LeadInteraction = {
@@ -44,6 +26,7 @@ export type LeadInteraction = {
   cooldown_until: string | null;
   metadata: Record<string, unknown> | null;
   created_at: string;
+  tenant_id?: string | null;
 };
 
 export type AgentDecision = {
@@ -79,6 +62,7 @@ export type Lead = {
   next_followup_at: string | null;
   created_at: string;
   updated_at: string;
+  tenant_id?: string | null;
 };
 
 export type AgentEvent = {
@@ -105,6 +89,7 @@ export type AgentStateSnapshot = {
 export type UserProfile = {
   id: string;
   auth_user_id: string | null;
+  tenant_id: string | null;
   email: string;
   full_name: string;
   display_name: string | null;
@@ -118,6 +103,8 @@ export type UserProfile = {
   manifesto: string | null;
   primary_script_version: string;
   deal_architecture_version: string;
+  preferred_language: string;
+  prospect_focus: string[];
   custom_fields: Record<string, unknown>;
   created_at: string;
   updated_at: string;
@@ -126,6 +113,7 @@ export type UserProfile = {
 export type DailyPlan = {
   id: string;
   profile_id: string;
+  tenant_id?: string | null;
   plan_date: string;
   mission: string | null;
   primary_lead_id: string | null;
@@ -137,7 +125,8 @@ export type DailyPlan = {
     time_label: string;
     title: string;
     body: string;
-    intensity?: "intense" | "normal" | "break";
+    intensity?: "intense" | "normal" | "break" | "carryover";
+    completed?: boolean;
   }>;
   actual_calls: number | null;
   actual_bookings: number | null;
@@ -149,10 +138,45 @@ export type DailyPlan = {
 export type IntegrationHealth = {
   id: string;
   profile_id: string | null;
+  tenant_id?: string | null;
   service: string;
   status: "healthy" | "degraded" | "down" | "unconfigured";
   last_ping_at: string | null;
   last_error: string | null;
   metadata: Record<string, unknown>;
+  updated_at: string;
+};
+
+export type Tenant = {
+  id: string;
+  slug: string;
+  name: string;
+  plan_tier: string;
+  purchase_status: "pending" | "active" | "suspended";
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  primary_brand_color: string | null;
+  custom_fields: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PlanTemplate = {
+  id: string;
+  tenant_id: string;
+  profile_id: string;
+  kind: "weekday" | "weekend";
+  mission: string | null;
+  target_calls: number;
+  target_emails: number;
+  target_bookings: number;
+  schedule: Array<{
+    time_label: string;
+    title: string;
+    body: string;
+    intensity?: "intense" | "normal" | "break" | "carryover";
+  }>;
+  enabled: boolean;
+  created_at: string;
   updated_at: string;
 };

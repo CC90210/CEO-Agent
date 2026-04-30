@@ -2,7 +2,7 @@ import { Card, Stat, EmptyState, PageHeader, Tag } from "@/components/Card";
 import { MRRProgressChart } from "@/components/charts/MRRProgressChart";
 import { PipelineFunnel } from "@/components/charts/PipelineFunnel";
 import { ChannelGauge } from "@/components/charts/ChannelGauge";
-import { timeAgo, truncate, statusColor } from "@/lib/fmt";
+import { timeAgo, truncate } from "@/lib/fmt";
 import {
   todayCounts,
   pipelineBreakdown,
@@ -22,42 +22,34 @@ export default async function TodayPage() {
   if (!profile) {
     return (
       <div>
-        <PageHeader
-          title="Today"
-          subtitle="No operator profile found."
-        />
+        <PageHeader title="Today" subtitle="No operator profile found." />
         <Card title="Set up your profile">
-          <EmptyState
-            message="Run the OASIS AI setup wizard to create your operator profile, or seed it manually with `python scripts/seed_profile.py`."
-          />
+          <EmptyState message="Create your account at /signup, or run python scripts/seed_profile.py to seed CC's profile." />
         </Card>
       </div>
     );
   }
 
+  const tenantId = profile.tenant_id || "";
   const [counts, pipeline, caps, mrr, history, plan, inbound] = await Promise.all([
-    todayCounts(),
-    pipelineBreakdown(),
-    channelUtilization(),
+    todayCounts(tenantId),
+    pipelineBreakdown(tenantId),
+    channelUtilization(tenantId),
     mrrSnapshot(),
     mrrHistory(30),
     getTodayPlan(profile.id),
-    recentInbound(5),
+    recentInbound(tenantId, 5),
   ]);
 
   const primaryLead = plan?.primary_lead_id
     ? await getLeadById(plan.primary_lead_id)
     : null;
 
-  const targetDate = profile.mrr_target_date
-    ? new Date(profile.mrr_target_date)
-    : null;
+  const targetDate = profile.mrr_target_date ? new Date(profile.mrr_target_date) : null;
   const daysToTarget = targetDate
     ? Math.max(
         0,
-        Math.round(
-          (targetDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-        )
+        Math.round((targetDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
       )
     : null;
   const gap = Math.max(0, mrr.target - mrr.current);
@@ -68,15 +60,16 @@ export default async function TodayPage() {
     month: "long",
     day: "numeric",
   });
+  const isWeekend = [0, 6].includes(today.getDay());
 
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Today"
-        subtitle={`${todayLabel} · ${profile.brand} · ${plan?.mission || "No mission set for today."}`}
+        subtitle={`${todayLabel} · ${profile.brand} · ${plan?.mission || (isWeekend ? "Weekend mode" : "No mission set yet — edit your weekday template in Settings.")}`}
+        action={<Tag tone={isWeekend ? "info" : "accent"}>{isWeekend ? "weekend" : "weekday"}</Tag>}
       />
 
-      {/* Hero stat band — MRR + key counters */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Stat
           label="Net MRR"
@@ -101,14 +94,11 @@ export default async function TodayPage() {
         />
       </section>
 
-      {/* Two-col: MRR chart + Primary Lead */}
       <section className="grid lg:grid-cols-3 gap-6">
         <Card
           title="MRR · 30-day trajectory"
           subtitle={`Target ${targetDate?.toISOString().slice(0, 10) || "—"}`}
-          action={
-            history[0]?.synthetic ? <Tag tone="warm">projected</Tag> : null
-          }
+          action={history[0]?.synthetic ? <Tag tone="warm">projected</Tag> : null}
         >
           <MRRProgressChart data={history} target={mrr.target} />
         </Card>
@@ -132,12 +122,8 @@ export default async function TodayPage() {
                     score {primaryLead.score ?? "—"}
                   </span>
                 </div>
-                <div className="text-fg font-semibold mt-2">
-                  {primaryLead.name}
-                </div>
-                <div className="text-fg-muted text-sm">
-                  {primaryLead.company}
-                </div>
+                <div className="text-fg font-semibold mt-2">{primaryLead.name}</div>
+                <div className="text-fg-muted text-sm">{primaryLead.company}</div>
                 {primaryLead.phone && (
                   <div className="text-xs text-fg-dim font-mono mt-1">
                     {primaryLead.phone}
@@ -156,19 +142,11 @@ export default async function TodayPage() {
         </Card>
       </section>
 
-      {/* Pipeline + channel caps */}
       <section className="grid lg:grid-cols-2 gap-6">
-        <Card
-          title="Pipeline"
-          subtitle={`${pipeline.total} leads across all stages`}
-        >
+        <Card title="Pipeline" subtitle={`${pipeline.total} leads across all stages`}>
           <PipelineFunnel stages={pipeline.stages} />
         </Card>
-
-        <Card
-          title="Channel caps"
-          subtitle="Send gateway enforces these"
-        >
+        <Card title="Channel caps" subtitle="Send gateway enforces these">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {caps.map((c) => (
               <ChannelGauge key={c.channel} {...c} />
@@ -177,8 +155,7 @@ export default async function TodayPage() {
         </Card>
       </section>
 
-      {/* Today's schedule */}
-      {plan?.schedule && plan.schedule.length > 0 && (
+      {plan?.schedule && plan.schedule.length > 0 ? (
         <Card title="The day" subtitle={`${plan.schedule.length} blocks scheduled`}>
           <ul className="divide-y divide-bg-border">
             {plan.schedule.map((slot, i) => (
@@ -193,11 +170,10 @@ export default async function TodayPage() {
                 </div>
                 <div>
                   <div className="text-fg font-semibold flex items-center gap-2">
-                    {slot.intensity === "intense" && (
-                      <span className="text-accent">▲</span>
-                    )}
-                    {slot.intensity === "break" && (
-                      <span className="text-fg-dim">○</span>
+                    {slot.intensity === "intense" && <span className="text-accent">▲</span>}
+                    {slot.intensity === "break" && <span className="text-fg-dim">○</span>}
+                    {slot.intensity === "carryover" && (
+                      <Tag tone="warm">carried from yesterday</Tag>
                     )}
                     {slot.title}
                   </div>
@@ -209,9 +185,14 @@ export default async function TodayPage() {
             ))}
           </ul>
         </Card>
+      ) : (
+        <Card title="The day" subtitle="No template set up yet">
+          <EmptyState
+            message={`No ${isWeekend ? "weekend" : "weekday"} schedule. Build one in Settings → Plan Templates and it'll auto-fill from now on.`}
+          />
+        </Card>
       )}
 
-      {/* Recent inbound + manifesto */}
       <section className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <Card title="Recent inbound" subtitle={`${inbound.length} latest`}>
@@ -255,7 +236,10 @@ export default async function TodayPage() {
         </div>
 
         {profile.manifesto && (
-          <Card title="Direction" subtitle="Read this when you don't feel like making the next call">
+          <Card
+            title="Direction"
+            subtitle="Read this when you don't feel like making the next call"
+          >
             <div className="prose-manifesto text-sm">
               {profile.manifesto.split("\n\n").slice(0, 6).map((para, i) => (
                 <p key={i}>{para}</p>

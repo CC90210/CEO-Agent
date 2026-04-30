@@ -5,17 +5,18 @@ import {
   mrrSnapshot,
   mrrHistory,
   pipelineBreakdown,
-  todayCounts,
+  getActiveProfile,
 } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
 export default async function AnalyticsPage() {
-  const [mrr, history, pipeline, counts] = await Promise.all([
+  const profile = await getActiveProfile();
+  const tenantId = profile?.tenant_id || "";
+  const [mrr, history, pipeline] = await Promise.all([
     mrrSnapshot(),
     mrrHistory(60),
-    pipelineBreakdown(),
-    todayCounts(),
+    pipelineBreakdown(tenantId),
   ]);
 
   const totalLeads = pipeline.total;
@@ -25,10 +26,7 @@ export default async function AnalyticsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <PageHeader
-        title="Analytics"
-        subtitle="The numbers that matter, charted."
-      />
+      <PageHeader title="Analytics" subtitle="The numbers that matter, charted." />
 
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Stat label="Net MRR" value={`$${Math.round(mrr.current).toLocaleString()}`} accent />

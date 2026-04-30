@@ -1,45 +1,65 @@
 /**
  * All Supabase queries the OASIS AI Agent Command Center makes.
  *
- * Every function is profile-aware where it makes sense. Errors degrade to
- * empty results so a DB hiccup never renders a blank page.
+ * Tenant-aware: every query resolves the active operator profile from the
+ * authenticated session (or falls back to the OPERATOR_EMAIL env for
+ * legacy / non-auth contexts), then scopes reads to that tenant_id.
+ *
+ * Service-role for now (server-side reads); RLS policies live in the DB
+ * for when client-side reads are added.
  */
 
 import {
-  getSupabase,
-  type LeadInteraction,
-  type AgentDecision,
-  type Lead,
-  type AgentEvent,
-  type AgentStateSnapshot,
-  type UserProfile,
-  type DailyPlan,
-  type IntegrationHealth,
+  getServiceSupabase,
+  getSessionUser,
+} from "./supabase-server";
+import type {
+  LeadInteraction,
+  AgentDecision,
+  Lead,
+  AgentEvent,
+  AgentStateSnapshot,
+  UserProfile,
+  DailyPlan,
+  IntegrationHealth,
+  Tenant,
+  PlanTemplate,
 } from "./supabase";
 
 // ============================================================================
-// Profile + Plan
+// Profile + Tenant
 // ============================================================================
 
-/** Resolve the active operator profile.
- *
- * For v1 we use a single OPERATOR_EMAIL env var to pick the row. When auth
- * lands, this becomes "from session.user.id".
- */
 export async function getActiveProfile(): Promise<UserProfile | null> {
-  const db = getSupabase();
-  const email = process.env.OPERATOR_EMAIL || "conaugh@oasisai.work";
-  const r = await db
-    .from("user_profiles")
-    .select("*")
-    .eq("email", email)
-    .maybeSingle();
+  const db = getServiceSupabase();
+  const user = await getSessionUser();
+
+  // Prefer authed user; fall back to OPERATOR_EMAIL (CC's legacy single-tenant default)
+  if (user?.id) {
+    const r = await db.from("user_profiles").select("*").eq("auth_user_id", user.id).maybeSingle();
+    if (r.data) return r.data as UserProfile;
+    // Auth user exists but no profile yet — try by email (post-migration link case)
+    if (user.email) {
+      const e = await db.from("user_profiles").select("*").eq("email", user.email).maybeSingle();
+      if (e.data) return e.data as UserProfile;
+    }
+  }
+
+  const fallbackEmail = process.env.OPERATOR_EMAIL || "conaugh@oasisai.work";
+  const r = await db.from("user_profiles").select("*").eq("email", fallbackEmail).maybeSingle();
   if (r.error || !r.data) return null;
   return r.data as UserProfile;
 }
 
+export async function getTenant(tenantId: string): Promise<Tenant | null> {
+  const db = getServiceSupabase();
+  const r = await db.from("tenants").select("*").eq("id", tenantId).maybeSingle();
+  if (r.error || !r.data) return null;
+  return r.data as Tenant;
+}
+
 export async function getTodayPlan(profileId: string): Promise<DailyPlan | null> {
-  const db = getSupabase();
+  const db = getServiceSupabase();
   const today = new Date().toISOString().slice(0, 10);
   const r = await db
     .from("daily_plans")
@@ -51,35 +71,46 @@ export async function getTodayPlan(profileId: string): Promise<DailyPlan | null>
   return r.data as DailyPlan;
 }
 
+export async function getPlanTemplates(profileId: string): Promise<PlanTemplate[]> {
+  const db = getServiceSupabase();
+  const r = await db
+    .from("plan_templates")
+    .select("*")
+    .eq("profile_id", profileId)
+    .order("kind");
+  return (r.data as PlanTemplate[]) || [];
+}
+
 export async function getLeadById(leadId: string): Promise<Lead | null> {
-  const db = getSupabase();
+  const db = getServiceSupabase();
   const r = await db.from("leads").select("*").eq("id", leadId).maybeSingle();
   if (r.error || !r.data) return null;
   return r.data as Lead;
 }
 
 // ============================================================================
-// Today's high-level counters
+// Today's high-level counters (tenant-scoped)
 // ============================================================================
 
-export async function todayCounts() {
-  const db = getSupabase();
-  const now = new Date();
+export async function todayCounts(tenantId: string) {
+  const db = getServiceSupabase();
   const dayStart = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate()
+    new Date().getFullYear(),
+    new Date().getMonth(),
+    new Date().getDate()
   ).toISOString();
 
   const [outbound, inbound, decisions, hot] = await Promise.all([
     db
       .from("lead_interactions")
       .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
       .in("type", ["email_sent", "dm_sent", "linkedin_sent", "call_made"])
       .gte("created_at", dayStart),
     db
       .from("lead_interactions")
       .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
       .in("type", ["email_received", "email_reply", "dm_received"])
       .gte("created_at", dayStart),
     db
@@ -103,26 +134,18 @@ export async function todayCounts() {
 }
 
 // ============================================================================
-// Pipeline
+// Pipeline (tenant-scoped)
 // ============================================================================
 
-export async function pipelineBreakdown() {
-  const db = getSupabase();
-  const r = await db.from("leads").select("status,score,source");
+export async function pipelineBreakdown(tenantId: string) {
+  const db = getServiceSupabase();
+  const r = await db.from("leads").select("status,score,source").eq("tenant_id", tenantId);
   if (r.error || !r.data) return { stages: {}, total: 0, sources: {} };
   const stages: Record<string, number> = {
-    new: 0,
-    contacted: 0,
-    qualified: 0,
-    proposal: 0,
-    won: 0,
-    lost: 0,
+    new: 0, contacted: 0, qualified: 0, proposal: 0, won: 0, lost: 0,
   };
   const sources: Record<string, number> = {};
-  for (const row of r.data as Array<{
-    status: string | null;
-    source: string | null;
-  }>) {
+  for (const row of r.data as Array<{ status: string | null; source: string | null }>) {
     const s = (row.status as string) || "new";
     stages[s] = (stages[s] || 0) + 1;
     const src = row.source || "unknown";
@@ -131,12 +154,8 @@ export async function pipelineBreakdown() {
   return { stages, total: r.data.length, sources };
 }
 
-// ============================================================================
-// Recent activity
-// ============================================================================
-
 export async function recentDecisions(limit = 20): Promise<AgentDecision[]> {
-  const db = getSupabase();
+  const db = getServiceSupabase();
   const r = await db
     .from("agent_decisions")
     .select("*")
@@ -145,40 +164,43 @@ export async function recentDecisions(limit = 20): Promise<AgentDecision[]> {
   return (r.data as AgentDecision[]) || [];
 }
 
-export async function recentInbound(limit = 20): Promise<LeadInteraction[]> {
-  const db = getSupabase();
+export async function recentInbound(tenantId: string, limit = 20): Promise<LeadInteraction[]> {
+  const db = getServiceSupabase();
   const r = await db
     .from("lead_interactions")
     .select("*")
+    .eq("tenant_id", tenantId)
     .in("type", ["email_received", "email_reply", "dm_received"])
     .order("created_at", { ascending: false })
     .limit(limit);
   return (r.data as LeadInteraction[]) || [];
 }
 
-export async function recentOutbound(limit = 20): Promise<LeadInteraction[]> {
-  const db = getSupabase();
+export async function recentOutbound(tenantId: string, limit = 20): Promise<LeadInteraction[]> {
+  const db = getServiceSupabase();
   const r = await db
     .from("lead_interactions")
     .select("*")
+    .eq("tenant_id", tenantId)
     .in("type", ["email_sent", "dm_sent", "linkedin_sent", "call_made"])
     .order("created_at", { ascending: false })
     .limit(limit);
   return (r.data as LeadInteraction[]) || [];
 }
 
-export async function recentLeads(limit = 30): Promise<Lead[]> {
-  const db = getSupabase();
+export async function recentLeads(tenantId: string, limit = 30): Promise<Lead[]> {
+  const db = getServiceSupabase();
   const r = await db
     .from("leads")
     .select("*")
+    .eq("tenant_id", tenantId)
     .order("updated_at", { ascending: false })
     .limit(limit);
   return (r.data as Lead[]) || [];
 }
 
 export async function agentStates(): Promise<AgentStateSnapshot[]> {
-  const db = getSupabase();
+  const db = getServiceSupabase();
   const r = await db
     .from("agent_state_snapshot")
     .select("*")
@@ -187,7 +209,7 @@ export async function agentStates(): Promise<AgentStateSnapshot[]> {
 }
 
 export async function recentEvents(limit = 25): Promise<AgentEvent[]> {
-  const db = getSupabase();
+  const db = getServiceSupabase();
   const r = await db
     .from("agent_events")
     .select("*")
@@ -197,7 +219,7 @@ export async function recentEvents(limit = 25): Promise<AgentEvent[]> {
 }
 
 // ============================================================================
-// Channel caps
+// Channel caps (tenant-scoped)
 // ============================================================================
 
 const DAILY_CAPS: Record<string, number> = {
@@ -207,13 +229,14 @@ const DAILY_CAPS: Record<string, number> = {
   phone: 15,
 };
 
-export async function channelUtilization() {
-  const db = getSupabase();
+export async function channelUtilization(tenantId: string) {
+  const db = getServiceSupabase();
   const dayStart = new Date();
   dayStart.setHours(0, 0, 0, 0);
   const rows = await db
     .from("lead_interactions")
     .select("channel")
+    .eq("tenant_id", tenantId)
     .gte("created_at", dayStart.toISOString());
   const counts: Record<string, number> = {};
   for (const row of rows.data || []) {
@@ -229,21 +252,19 @@ export async function channelUtilization() {
 }
 
 // ============================================================================
-// Integrations health
+// Integrations health (tenant-scoped)
 // ============================================================================
 
 export async function integrationsHealth(
-  profileId: string | null
+  tenantId: string | null
 ): Promise<IntegrationHealth[]> {
-  const db = getSupabase();
+  const db = getServiceSupabase();
   const q = db
     .from("integrations_health")
     .select("*")
     .order("service", { ascending: true });
-  const r = profileId ? await q.eq("profile_id", profileId) : await q;
+  const r = tenantId ? await q.eq("tenant_id", tenantId) : await q;
 
-  // Build the canonical list of services we expect — any missing rows
-  // surface as 'unconfigured' so the Settings page shows the gaps.
   const expected = [
     "supabase",
     "stripe",
@@ -252,13 +273,16 @@ export async function integrationsHealth(
     "telegram",
     "browser_harness",
   ];
-  const existing = new Map((r.data as IntegrationHealth[] | null)?.map((row) => [row.service, row]) || []);
+  const existing = new Map(
+    (r.data as IntegrationHealth[] | null)?.map((row) => [row.service, row]) || []
+  );
   return expected.map((service) => {
     const found = existing.get(service);
     if (found) return found;
     return {
       id: `placeholder-${service}`,
-      profile_id: profileId,
+      profile_id: null,
+      tenant_id: tenantId,
       service,
       status: "unconfigured" as const,
       last_ping_at: null,
@@ -270,14 +294,10 @@ export async function integrationsHealth(
 }
 
 // ============================================================================
-// MRR — pulls from a manual_mrr table + Stripe (we just read the cached value)
+// MRR
 // ============================================================================
 
-export async function mrrSnapshot(): Promise<{
-  current: number;
-  target: number;
-  pct: number;
-}> {
+export async function mrrSnapshot(): Promise<{ current: number; target: number; pct: number }> {
   const profile = await getActiveProfile();
   if (!profile) return { current: 0, target: 5000, pct: 0 };
   const target = Number(profile.mrr_target_usd) || 5000;
@@ -291,13 +311,7 @@ export async function mrrSnapshot(): Promise<{
 
 /**
  * MRR history is **NOT REAL DATA** yet — there is no `mrr_history` table.
- * We project a synthetic gentle-growth curve backwards from today's MRR
- * purely so the chart isn't a flat line on day 1. When the real history
- * table lands (planned: scheduler logs daily MRR snapshot to mrr_history),
- * swap this implementation for a genuine SELECT.
- *
- * The synthesis is marked `synthetic: true` per row so any consumer can
- * detect and label it.
+ * Returns synthetic trajectory tagged synthetic: true.
  */
 export async function mrrHistory(days = 30): Promise<
   Array<{ date: string; mrr: number; synthetic: boolean }>
