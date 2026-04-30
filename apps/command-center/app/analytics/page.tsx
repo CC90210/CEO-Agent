@@ -37,7 +37,14 @@ export default async function AnalyticsPage() {
         <Stat label="Lost" value={lost} />
       </section>
 
-      <Card title="MRR · 60 days" subtitle={`Target $${mrr.target.toLocaleString()}`}>
+      <Card
+        title="MRR · 60 days"
+        subtitle={
+          history[0]?.synthetic
+            ? `Target $${mrr.target.toLocaleString()} · projected (no history table yet)`
+            : `Target $${mrr.target.toLocaleString()}`
+        }
+      >
         <MRRProgressChart data={history} target={mrr.target} />
       </Card>
 

@@ -106,6 +106,9 @@ export default async function TodayPage() {
         <Card
           title="MRR · 30-day trajectory"
           subtitle={`Target ${targetDate?.toISOString().slice(0, 10) || "—"}`}
+          action={
+            history[0]?.synthetic ? <Tag tone="warm">projected</Tag> : null
+          }
         >
           <MRRProgressChart data={history} target={mrr.target} />
         </Card>

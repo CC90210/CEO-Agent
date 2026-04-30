@@ -1,35 +1,9 @@
 import { Card, PageHeader, EmptyState, Tag } from "@/components/Card";
 import { timeAgo, truncate } from "@/lib/fmt";
 import { agentStates, recentEvents, getActiveProfile } from "@/lib/queries";
+import { ALL_AGENT_KEYS, getAgentInfo } from "@/lib/agents";
 
 export const dynamic = "force-dynamic";
-
-const AGENT_DESCRIPTIONS: Record<string, { role: string; location: string }> = {
-  bravo: {
-    role: "Lead architect · business ops · content voice",
-    location: "this repo",
-  },
-  codex: {
-    role: "Backend executor · deep debugging · adversarial review",
-    location: "Codex companion",
-  },
-  atlas: {
-    role: "CFO · finance · tax · trading · budget",
-    location: "C:\\Users\\User\\APPS\\CFO-Agent",
-  },
-  maven: {
-    role: "CMO · content production · paid ads · funnels",
-    location: "C:\\Users\\User\\CMO-Agent",
-  },
-  aura: {
-    role: "Life · home · habits · voice",
-    location: "C:\\Users\\User\\AURA",
-  },
-  hermes: {
-    role: "Commerce agent · POS · EDI · chargebacks",
-    location: "C:\\Users\\User\\hermes",
-  },
-};
 
 export default async function AgentsPage() {
   const [states, events, profile] = await Promise.all([
@@ -39,14 +13,11 @@ export default async function AgentsPage() {
   ]);
 
   // Show all agents the operator has enabled, fallback to all known agents
-  const enabled = profile?.agents_enabled || Object.keys(AGENT_DESCRIPTIONS);
+  const enabled = profile?.agents_enabled || ALL_AGENT_KEYS;
   const byName = new Map(states.map((s) => [s.agent_name, s]));
   const rows = enabled.map((name) => ({
     name,
-    info: AGENT_DESCRIPTIONS[name] || {
-      role: "Custom agent",
-      location: "—",
-    },
+    info: getAgentInfo(name),
     state: byName.get(name) || null,
   }));
 
