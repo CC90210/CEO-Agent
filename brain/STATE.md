@@ -159,11 +159,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-04-29
+- **Date:** 2026-04-30
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Prepared Maven handoff/system message for Apr 29 after-gym content session. Context: coaching call no-show became 30-min GitHub walkthrough recording; Skool replay post needed; Jonathan/Basque agreed to book and got calendar text; Alejandro declined/no-showed and should not be chased; AI Masters no-showed; CC plans food/store/gym by 6:30 then wants low-friction content tonight.
+- **Result:** Pushed setup/outreach/registry updates to GitHub main. Confirmed private setup wizard fix already live at 09d8402; new commit ee408ad hardens outreach routing and skill registry. Validation: scan_secrets clean, send_gateway tests 56/56, wizard tests 16/16, py_compile passed, outreach skill validate/route passed, outreach eligibility query passed. Left local .obsidian/core-plugins.json unstaged as local settings.
 
-*Last updated: 2026-04-29*
+*Last updated: 2026-04-30*
 
 ## Manifest
 
