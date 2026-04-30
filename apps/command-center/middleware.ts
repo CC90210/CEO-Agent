@@ -15,7 +15,7 @@ const PUBLIC_PATH_PREFIXES = [
   "/auth/callback",
   "/auth/reset-password",
   "/api/inbound",
-  "/api/auth",
+  "/api/auth",       // covers /api/auth/provision-from-stripe (bridge), signout, provision
   "/api/cron",
   "/_next",
   "/favicon",
