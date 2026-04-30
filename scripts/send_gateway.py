@@ -1183,20 +1183,34 @@ def _send_email_smtp(
     gmail_user = env.get("GMAIL_USER") or env.get("GMAIL_ADDRESS", "")
     gmail_pass = env.get("GMAIL_APP_PASSWORD", "")
     if not gmail_user or not gmail_pass:
+        _ping_health("gmail", status="unconfigured", error="GMAIL_USER/GMAIL_APP_PASSWORD missing")
         return False, "GMAIL_USER/GMAIL_APP_PASSWORD missing in .env.agents"
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as smtp:
             smtp.login(gmail_user, gmail_pass)
             smtp.sendmail(gmail_user, to_email, mime.as_string())
+        _ping_health("gmail", status="healthy", metadata={"source": "send_gateway.smtp_send"})
         return True, None
     except smtplib.SMTPAuthenticationError:
+        _ping_health("gmail", status="down", error="SMTP authentication failed")
         return False, "SMTP authentication failed — rotate GMAIL_APP_PASSWORD"
     except smtplib.SMTPRecipientsRefused:
+        # Recipient refused is a per-message issue, not a service health issue — don't degrade gmail
         return False, f"recipient refused by server: {to_email}"
     except smtplib.SMTPException as e:
+        _ping_health("gmail", status="degraded", error=f"SMTP error: {e}")
         return False, f"SMTP error: {e}"
     except Exception as e:  # noqa: BLE001
         return False, f"unexpected send error: {e}"
+
+
+def _ping_health(service: str, *, status: str = "healthy", error: Optional[str] = None, metadata: Optional[dict] = None) -> None:
+    """Best-effort ping to integrations_health. Never raises."""
+    try:
+        from integration_health import ping
+        ping(service, status=status, error=error, metadata=metadata or {})
+    except Exception:
+        pass  # Health pings must never break the send path
 
 
 # ---- Public API -------------------------------------------------------------

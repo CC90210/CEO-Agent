@@ -213,12 +213,26 @@ def cmd_list_accounts(env_vars, args):
 
 def cmd_balance(client, args):
     """Get current Stripe balance."""
-    bal = client.get("balance")
-    print("Stripe Account Balance:\n")
-    for b in bal.get("available", []):
-        print(f"  Available: {format_amount(b['amount'], b['currency'])}")
-    for b in bal.get("pending", []):
-        print(f"  Pending:   {format_amount(b['amount'], b['currency'])}")
+    try:
+        bal = client.get("balance")
+        print("Stripe Account Balance:\n")
+        for b in bal.get("available", []):
+            print(f"  Available: {format_amount(b['amount'], b['currency'])}")
+        for b in bal.get("pending", []):
+            print(f"  Pending:   {format_amount(b['amount'], b['currency'])}")
+        # Best-effort health ping for the OASIS Command Center
+        try:
+            from integration_health import ping
+            ping("stripe", status="healthy", metadata={"source": "stripe_tool.cmd_balance"})
+        except Exception:
+            pass
+    except Exception as e:
+        try:
+            from integration_health import ping
+            ping("stripe", status="degraded", error=str(e)[:200])
+        except Exception:
+            pass
+        raise
 
 
 def cmd_customers(client, args):
