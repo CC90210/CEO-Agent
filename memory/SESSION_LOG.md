@@ -2,7 +2,23 @@
 tags: [daily]
 ---
 
-### 2026-04-30 — Auto-sync
+### 2026-04-30 — Daily operating plan + sales script V1 + deal architecture V1 shipped
+**Agent:** BRAVO (Claude Opus 4.7, hyperthink)
+**Trigger:** CC — "build me a memorizable cold call script + restructure deals + plan today 10:30am-EOD"
+
+**Shipped:**
+- `tmp/today_2026-04-30.html` — single-page operating plan: stats bar, Jonathan play, 5-stage cold call script, 8 objection handlers, deal architecture, partner tiers, hour-by-hour schedule, manifesto, daily drills.
+- `brain/DEAL_ARCHITECTURE.md` — V1.0 canonical deal framework. 3 client offers (One-Off Automation w/ 14-day free pilot, Custom Software Build w/ 50/50 deposit, C-Suite Consulting). 2 partner tiers (50% strategic, 10% network referrer). Replaces old "implementation + retainer pitched cold" model.
+- `skills/sales-closing/COLD_CALL_SCRIPT_V1.md` — canonical NEPQ cold-call script paired with DEAL_ARCHITECTURE. 5 stages, ~3 min total, 8 objection handlers, 3 daily drill protocol.
+- `memory/poems/sub_agents_collective_intelligence.md` — CC's Apr 30 manifesto saved as content/sales-narrative anchor.
+
+**Today's targets:** 27 cold calls, Jonathan Hutton phone close, 10 follow-up emails via send_gateway, 3 strategic-partner outreaches, 1 video shipped to Maven pipeline.
+
+**Key strategic shift:** old deal flow was friction-up-front (implementation fee + retainer pitched cold) — converted poorly. New flow transfers risk to OASIS (free pilot, 14-day proof, then pay). Strategic partners get 50% rev share for co-selling; casual referrers 10%/finder's fee. This is the model going forward — every cold call this week tests Offer 1.
+
+**Jonathan Hutton (Basque Landscaping) status:** 2 follow-up texts already sent post-Tuesday call; today's move is a phone call (1:30pm), not a third text. Voicemail script ready. If still silent by Friday EOD → 30-day dormant watch, do not chase.
+
+
 **Agent:** BRAVO state_sync
 **Note:** Hardened Hermes client onboarding: pushed Hermes env-loader/local-first/install updates at 0579688 and BEA public/Hermes setup wizard docs at 4f88acb. Browser harness remains installed but attach-pending until Chrome remote-debugging is approved by the user.
 
