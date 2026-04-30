@@ -289,22 +289,30 @@ export async function mrrSnapshot(): Promise<{
   };
 }
 
+/**
+ * MRR history is **NOT REAL DATA** yet — there is no `mrr_history` table.
+ * We project a synthetic gentle-growth curve backwards from today's MRR
+ * purely so the chart isn't a flat line on day 1. When the real history
+ * table lands (planned: scheduler logs daily MRR snapshot to mrr_history),
+ * swap this implementation for a genuine SELECT.
+ *
+ * The synthesis is marked `synthetic: true` per row so any consumer can
+ * detect and label it.
+ */
 export async function mrrHistory(days = 30): Promise<
-  Array<{ date: string; mrr: number }>
+  Array<{ date: string; mrr: number; synthetic: boolean }>
 > {
-  // We don't store a history table yet — synthesize a flat-line series from
-  // current MRR so charts render. When mrr_history exists, swap this out.
   const profile = await getActiveProfile();
   const current = Number(profile?.mrr_current_usd) || 0;
-  const out: Array<{ date: string; mrr: number }> = [];
+  const out: Array<{ date: string; mrr: number; synthetic: boolean }> = [];
   const today = new Date();
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     out.push({
       date: d.toISOString().slice(5, 10),
-      // Slight variance so the line isn't dead-flat — proportional to days from today
       mrr: Math.round(current - i * (current * 0.005)),
+      synthetic: true,
     });
   }
   return out;
