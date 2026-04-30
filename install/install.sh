@@ -163,6 +163,31 @@ if [ "$SKIP_DEPS" -eq 0 ]; then
     echo
 fi
 
+# OASIS Command Center signup
+if [ "${SKIP_SIGNUP:-0}" -eq 0 ] && [ -t 0 ]; then
+    echo "==> OASIS AI Agent Command Center signup"
+    echo "    Create your operator account at https://agent-dashboard-cc90210.vercel.app"
+    echo "    (skip with SKIP_SIGNUP=1 to do this later via the dashboard)"
+    echo
+    read -r -p "    Email address: " CC_EMAIL
+    read -r -p "    Full name: " CC_NAME
+    read -r -p "    Brand / company name [OASIS AI]: " CC_BRAND
+    CC_BRAND="${CC_BRAND:-OASIS AI}"
+    if [ "$DRY_RUN" -eq 1 ]; then
+        echo "    ${C_DIM}(dry run — skipping)${C_RESET}"
+    elif [ -n "$CC_EMAIL" ] && [ -n "$CC_NAME" ]; then
+        python3 "$REPO_ROOT/install/bootstrap.py" \
+            --create-command-center-account \
+            --email "$CC_EMAIL" \
+            --full-name "$CC_NAME" \
+            --brand "$CC_BRAND" \
+            || echo "    ${C_YELLOW}WARN: signup failed — finish at https://agent-dashboard-cc90210.vercel.app/signup${C_RESET}"
+    else
+        echo "    ${C_DIM}skipped (email or name empty)${C_RESET}"
+    fi
+    echo
+fi
+
 # Verify shim
 echo "==> Verifying bravo shim at $BIN_DIR/bravo"
 if [ "$DRY_RUN" -eq 1 ]; then
