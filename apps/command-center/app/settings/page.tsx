@@ -167,7 +167,8 @@ function TemplateCard({
         </>
       ) : (
         <div className="text-fg-muted text-sm">
-          No {kind} template. Create one with{" "}
+          No {kind} template yet. Inline editor coming next session — for now, an admin
+          can seed defaults via{" "}
           <code className="text-accent font-mono text-xs">
             python scripts/seed_plan_template.py --kind {kind}
           </code>

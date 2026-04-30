@@ -85,13 +85,16 @@ def main() -> int:
 
     # ─────────────────────────────────────────────────────────────────
     step(1, "Resolve profile")
-    profile_r = client.table("user_profiles").select("*").eq("email", args.profile_email).limit(1).execute()
+    profile_r = client.table("user_profiles").select("id, email, tenant_id").eq("email", args.profile_email).limit(1).execute()
     if not profile_r.data:
         fail(f"no user_profile for {args.profile_email}")
         return 1
     profile = profile_r.data[0]
     profile_id = profile["id"]
-    ok(f"profile_id={profile_id}")
+    if not profile.get("tenant_id"):
+        fail("profile has no tenant_id — run migration 018 + 019 first")
+        return 1
+    ok(f"profile_id={profile_id} tenant_id={profile['tenant_id']}")
 
     # ─────────────────────────────────────────────────────────────────
     step(2, "Issue a fresh test secret")
@@ -145,7 +148,13 @@ def main() -> int:
     if lead.get("source") != "n8n_inbound":
         fail(f"lead.source expected 'n8n_inbound', got {lead.get('source')!r}")
         return 1
-    ok(f"lead.id={lead['id']} status={lead.get('status')} score={lead.get('score')}")
+    if not lead.get("tenant_id"):
+        fail("lead.tenant_id is NULL — multi-tenant write path is broken")
+        return 1
+    if lead.get("tenant_id") != profile.get("tenant_id"):
+        fail(f"lead.tenant_id={lead.get('tenant_id')} doesn't match profile.tenant_id={profile.get('tenant_id')}")
+        return 1
+    ok(f"lead.id={lead['id']} status={lead.get('status')} score={lead.get('score')} tenant_id=ok")
 
     # ─────────────────────────────────────────────────────────────────
     step(5, "Verify lead_interactions row + classification")
