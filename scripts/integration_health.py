@@ -11,6 +11,10 @@ Usage from any script:
     ping("gmail", status="healthy")
     ping("stripe", status="degraded", error="balance API timed out", metadata={"latency_ms": 4200})
 
+Tenant safety:
+- Calls the ping_integration RPC which resolves tenant_id server-side from
+  the profile row. Workers don't need to know their tenant_id.
+
 Best-effort by design:
 - Never raises. Failures are logged to stderr and swallowed.
 - Resolves the operator profile by OPERATOR_EMAIL env var; falls back to the

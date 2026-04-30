@@ -4,12 +4,7 @@
  * Clients live in:
  *   - lib/supabase-server.ts  — server-side service-role + authed clients
  *   - lib/supabase-browser.ts — browser anon client (auth flows)
- *
- * Re-exports getSupabase for backward compatibility with older callers; new
- * code should call getServiceSupabase from lib/supabase-server.ts directly.
  */
-
-export { getServiceSupabase as getSupabase } from "./supabase-server";
 
 // ============================================================================
 // Types

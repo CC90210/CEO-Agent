@@ -27,7 +27,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "crypto";
-import { getSupabase } from "@/lib/supabase";
+import { getServiceSupabase } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs"; // service role + sha256 → Node, not edge
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
 
   // 3. Hash secret + call RPC (the RPC re-validates the hash against the table)
   const secretHash = sha256(rawSecret);
-  const db = getSupabase();
+  const db = getServiceSupabase();
   const r = await db.rpc("record_inbound_from_n8n_v2", {
     p_profile_id: profileId,
     p_secret_hash: secretHash,

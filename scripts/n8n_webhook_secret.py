@@ -53,7 +53,13 @@ def sha256(s: str) -> str:
 
 
 def find_profile(client: "Client", email: str) -> dict | None:
-    r = client.table("user_profiles").select("*").eq("email", email).limit(1).execute()
+    r = (
+        client.table("user_profiles")
+        .select("id, email, full_name, brand, tenant_id")
+        .eq("email", email)
+        .limit(1)
+        .execute()
+    )
     return r.data[0] if r.data else None
 
 
@@ -71,6 +77,7 @@ def cmd_issue(args: argparse.Namespace) -> int:
         .insert(
             {
                 "profile_id": profile["id"],
+                "tenant_id": profile.get("tenant_id"),
                 "secret_hash": h,
                 "label": args.label or "OASIS Inbound Qualifier",
             }
