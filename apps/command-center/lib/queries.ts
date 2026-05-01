@@ -26,7 +26,7 @@ import type {
   PlanTemplate,
 } from "./supabase";
 import { KNOWN_INTEGRATIONS } from "./integrations-registry";
-import { operatorDateKey } from "./dates";
+import { operatorDateKey, operatorDayStartIso } from "./dates";
 
 // ============================================================================
 // Profile + Tenant
@@ -96,11 +96,9 @@ export async function getLeadById(leadId: string): Promise<Lead | null> {
 
 export async function todayCounts(tenantId: string) {
   const db = getServiceSupabase();
-  const dayStart = new Date(
-    new Date().getFullYear(),
-    new Date().getMonth(),
-    new Date().getDate()
-  ).toISOString();
+  // Operator-TZ midnight (not server-local) — without this, Toronto users
+  // hitting Vercel UTC after 8pm see TOMORROW's counts instead of today's.
+  const dayStart = operatorDayStartIso();
 
   const [outbound, inbound, decisions, hot] = await Promise.all([
     db
@@ -239,13 +237,13 @@ const DAILY_CAPS: Record<string, number> = {
 
 export async function channelUtilization(tenantId: string) {
   const db = getServiceSupabase();
-  const dayStart = new Date();
-  dayStart.setHours(0, 0, 0, 0);
+  // Operator-TZ midnight — see todayCounts() for the bug this fixes.
+  const dayStart = operatorDayStartIso();
   const rows = await db
     .from("lead_interactions")
     .select("channel")
     .eq("tenant_id", tenantId)
-    .gte("created_at", dayStart.toISOString());
+    .gte("created_at", dayStart);
   const counts: Record<string, number> = {};
   for (const row of rows.data || []) {
     const c = (row as { channel: string }).channel;
