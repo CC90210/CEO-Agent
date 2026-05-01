@@ -17,7 +17,10 @@
     "ai:upgrade-plan": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ai_operator.ps1 upgrade-plan",
     "browser:doctor": "python scripts/browser_harness_doctor.py",
     "browser:setup": "powershell -NoProfile -Command \"& (Get-Command browser-harness).Source --setup\"",
-    "onboarding:doctor": "python scripts/onboarding_diagnostics.py"
+    "onboarding:doctor": "python scripts/onboarding_diagnostics.py",
+    "gateway": "node gateway/index.js",
+    "gateway:bg": "node gateway/index.js >> gateway/gateway.log 2>&1",
+    "gateway:admin": "python scripts/gateway_admin.py"
   },
   "repository": {
     "type": "git",
@@ -38,6 +41,8 @@
     "@remotion/renderer": "^4.0.431",
     "@supabase/supabase-js": "^2.98.0",
     "dotenv": "^17.3.1",
+    "@slack/bolt": "^3.22.0",
+    "discord.js": "^14.16.0",
     "node-telegram-bot-api": "^0.67.0",
     "nodemailer": "^8.0.1",
     "playwright": "^1.58.2",

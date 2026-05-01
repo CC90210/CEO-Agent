@@ -5,6 +5,7 @@
 .env.*
 *.env
 !.env.agents.template
+!.env.example
 
 # MCP config files that contain API keys
 references/Claude_Global_MCP.json
@@ -26,6 +27,42 @@ data/pulse/ceo_pulse.json
 data/pulse/*.json
 !data/pulse/README.md
 
+# =============================================
+# PRIVATE OPERATOR DATA (PII / CLIENT NAMES / DEAL TERMS)
+# Public repo ships TEMPLATE versions; live files stay local-only.
+# =============================================
+brain/USER.md
+memory/SESSION_LOG.md
+memory/ACTIVE_TASKS.md
+memory/MISTAKES.md
+memory/PATTERNS.md
+memory/DECISIONS.md
+memory/ARCHIVES/
+memory/archive/
+memory/auto/
+memory/feedback_*.md
+memory/project_*.md
+memory/reference_*.md
+memory/zernio_rebrand.md
+memory/atlas_cfo_upgrade.md
+memory/codex_integration.md
+memory/content-strategy.md
+memory/content_pipeline_vision.md
+memory/singlekey_research.md
+APPS_CONTEXT/
+brain/USER_PROFILE.md
+brain/CLIENT_*.md
+data/snapshots/
+data/exports/
+tmp/
+*.pt
+*.pth
+
+# Ship sanitized templates instead
+!brain/USER.template.md
+!memory/SESSION_LOG.template.md
+!memory/ACTIVE_TASKS.template.md
+
 # Credential files (extra defense)
 *credentials*.json
 *credentials*.yaml
@@ -46,6 +83,8 @@ secrets/
 node_modules/
 __pycache__/
 *.pyc
+*.pt
+*.pth
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
