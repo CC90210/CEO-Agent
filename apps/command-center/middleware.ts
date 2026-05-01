@@ -14,14 +14,9 @@ const PUBLIC_PATH_PREFIXES = [
   "/forgot-password",
   "/auth/callback",
   "/auth/reset-password",
-  "/welcome",        // bonus marketing pages reachable at the dashboard URL
-  "/pricing",
-  "/about",
-  "/contact",
-  "/legal",
-  "/api/contact",    // public contact form handler
-  "/api/inbound",
-  "/api/auth",       // bridge + provision + signout (Bearer-auth gated inside the route)
+  "/api/inbound",     // n8n inbound webhook (Bearer-auth gated inside the route)
+  "/api/auth/signout",
+  "/api/auth/provision",
   "/api/cron",
   "/_next",
   "/favicon",
