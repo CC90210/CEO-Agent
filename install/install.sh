@@ -176,11 +176,20 @@ if [ "${SKIP_SIGNUP:-0}" -eq 0 ] && [ -t 0 ]; then
     if [ "$DRY_RUN" -eq 1 ]; then
         echo "    ${C_DIM}(dry run — skipping)${C_RESET}"
     elif [ -n "$CC_EMAIL" ] && [ -n "$CC_NAME" ]; then
+        echo "    Sign in option:"
+        echo "      [1] Email + password (we'll send an invite email)"
+        echo "      [2] Continue with Google (no email; sign in via Google on first visit)"
+        read -r -p "    Choose [1/2]: " CC_AUTH_CHOICE
+        OAUTH_FLAG=""
+        if [ "$CC_AUTH_CHOICE" = "2" ]; then
+            OAUTH_FLAG="--prefer-oauth"
+        fi
         python3 "$REPO_ROOT/install/bootstrap.py" \
             --create-command-center-account \
             --email "$CC_EMAIL" \
             --full-name "$CC_NAME" \
             --brand "$CC_BRAND" \
+            $OAUTH_FLAG \
             || echo "    ${C_YELLOW}WARN: signup failed — finish at https://agent-dashboard-cc90210.vercel.app/signup${C_RESET}"
     else
         echo "    ${C_DIM}skipped (email or name empty)${C_RESET}"

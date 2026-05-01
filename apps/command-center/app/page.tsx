@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { Card, Stat, EmptyState, PageHeader, Tag } from "@/components/Card";
 import { MRRProgressChart } from "@/components/charts/MRRProgressChart";
 import { PipelineFunnel } from "@/components/charts/PipelineFunnel";
 import { ChannelGauge } from "@/components/charts/ChannelGauge";
+import { TodayBlockToggle } from "@/components/TodayBlockToggle";
 import { timeAgo, truncate } from "@/lib/fmt";
 import {
   todayCounts,
@@ -156,20 +158,24 @@ export default async function TodayPage() {
       </section>
 
       {plan?.schedule && plan.schedule.length > 0 ? (
-        <Card title="The day" subtitle={`${plan.schedule.length} blocks scheduled`}>
+        <Card
+          title="The day"
+          subtitle={`${plan.schedule.filter((s) => s.completed).length} / ${plan.schedule.length} done`}
+        >
           <ul className="divide-y divide-bg-border">
             {plan.schedule.map((slot, i) => (
               <li
                 key={i}
-                className={`grid grid-cols-[7rem_1fr] gap-5 py-3.5 ${
+                className={`grid grid-cols-[1.75rem_7rem_1fr] gap-3 py-3.5 ${
                   slot.intensity === "break" ? "opacity-70" : ""
-                }`}
+                } ${slot.completed ? "opacity-60" : ""}`}
               >
+                <TodayBlockToggle index={i} initial={!!slot.completed} schedule={plan.schedule} />
                 <div className="text-accent text-xs font-bold tracking-wider self-start mt-0.5">
                   {slot.time_label}
                 </div>
                 <div>
-                  <div className="text-fg font-semibold flex items-center gap-2">
+                  <div className={`text-fg font-semibold flex items-center gap-2 ${slot.completed ? "line-through text-fg-muted" : ""}`}>
                     {slot.intensity === "intense" && <span className="text-accent">▲</span>}
                     {slot.intensity === "break" && <span className="text-fg-dim">○</span>}
                     {slot.intensity === "carryover" && (
@@ -186,9 +192,20 @@ export default async function TodayPage() {
           </ul>
         </Card>
       ) : (
-        <Card title="The day" subtitle="No template set up yet">
+        <Card
+          title="The day"
+          subtitle={`No ${isWeekend ? "weekend" : "weekday"} template yet`}
+          action={
+            <Link
+              href="/settings"
+              className="btn-primary inline-flex items-center gap-1.5 !text-xs !py-1.5"
+            >
+              Set up in Settings
+            </Link>
+          }
+        >
           <EmptyState
-            message={`No ${isWeekend ? "weekend" : "weekday"} schedule. Build one in Settings → Plan Templates and it'll auto-fill from now on.`}
+            message={`No ${isWeekend ? "weekend" : "weekday"} schedule. Open Settings → ${isWeekend ? "Weekend" : "Weekday"} Template, click "Load defaults" + Save, and today's plan auto-fills.`}
           />
         </Card>
       )}

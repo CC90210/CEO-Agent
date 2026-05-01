@@ -1,8 +1,8 @@
 import type { Config } from "tailwindcss";
 
-// OASIS AI Agent Command Center — premium dark theme.
-// Charcoal black + gold accent. Matches outreach email templates so what
-// recipients see and what operators see share one design language.
+// OASIS AI Agent Command Center — premium dark theme with OASIS BLUE accent.
+// Brand pivot 2026-04-30: gold #e8c547 -> OASIS blue #3b82f6 (with deeper
+// #2563eb for muted variants). Status semantics unchanged.
 const config: Config = {
   content: [
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
@@ -27,10 +27,10 @@ const config: Config = {
           faint: "#3a3d44",
         },
         accent: {
-          DEFAULT: "#e8c547",
-          muted: "#b89a3a",
-          soft: "rgba(232, 197, 71, 0.12)",
-          glow: "rgba(232, 197, 71, 0.35)",
+          DEFAULT: "#3b82f6",        // OASIS blue
+          muted: "#2563eb",          // deeper blue
+          soft: "rgba(59, 130, 246, 0.12)",
+          glow: "rgba(59, 130, 246, 0.35)",
         },
         status: {
           hot: "#ef4444",
@@ -76,7 +76,7 @@ const config: Config = {
         },
       },
       boxShadow: {
-        glow: "0 0 24px rgba(232, 197, 71, 0.18)",
+        glow: "0 0 24px rgba(59, 130, 246, 0.22)",
         card: "0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.6)",
         elev: "0 8px 24px rgba(0, 0, 0, 0.5)",
       },
