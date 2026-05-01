@@ -2,19 +2,21 @@ import Link from "next/link";
 import { Card, Stat, EmptyState, PageHeader, Tag } from "@/components/Card";
 import { MRRProgressChart } from "@/components/charts/MRRProgressChart";
 import { PipelineFunnel } from "@/components/charts/PipelineFunnel";
-import { ChannelGauge } from "@/components/charts/ChannelGauge";
 import { TodayBlockToggle } from "@/components/TodayBlockToggle";
 import { timeAgo, truncate } from "@/lib/fmt";
 import {
   todayCounts,
   pipelineBreakdown,
-  channelUtilization,
   getActiveProfile,
   getTodayPlan,
   getLeadById,
   mrrSnapshot,
   mrrHistory,
   recentInbound,
+  topClientConcentration,
+  outreachReplyRate,
+  activePipeline,
+  topOpenLead,
 } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -26,33 +28,34 @@ export default async function TodayPage() {
       <div>
         <PageHeader title="Today" subtitle="No operator profile found." />
         <Card title="Set up your profile">
-          <EmptyState message="Create your account at /signup, or run python scripts/seed_profile.py to seed CC's profile." />
+          <EmptyState message="Sign in to load your profile." />
         </Card>
       </div>
     );
   }
 
   const tenantId = profile.tenant_id || "";
-  const [counts, pipeline, caps, mrr, history, plan, inbound] = await Promise.all([
-    todayCounts(tenantId),
-    pipelineBreakdown(tenantId),
-    channelUtilization(tenantId),
-    mrrSnapshot(),
-    mrrHistory(30),
-    getTodayPlan(profile.id),
-    recentInbound(tenantId, 5),
-  ]);
+  const [counts, pipeline, mrr, history, plan, inbound, concentration, replyRate, activePipe, topLead] =
+    await Promise.all([
+      todayCounts(tenantId),
+      pipelineBreakdown(tenantId),
+      mrrSnapshot(),
+      mrrHistory(30),
+      getTodayPlan(profile.id),
+      recentInbound(tenantId, 5),
+      topClientConcentration(tenantId),
+      outreachReplyRate(tenantId, 7),
+      activePipeline(tenantId),
+      topOpenLead(tenantId),
+    ]);
 
   const primaryLead = plan?.primary_lead_id
     ? await getLeadById(plan.primary_lead_id)
-    : null;
+    : topLead; // auto-promote highest-score open lead if no plan-level pin
 
   const targetDate = profile.mrr_target_date ? new Date(profile.mrr_target_date) : null;
   const daysToTarget = targetDate
-    ? Math.max(
-        0,
-        Math.round((targetDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-      )
+    ? Math.max(0, Math.round((targetDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
     : null;
   const gap = Math.max(0, mrr.target - mrr.current);
 
@@ -68,31 +71,70 @@ export default async function TodayPage() {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Today"
-        subtitle={`${todayLabel} · ${profile.brand} · ${plan?.mission || (isWeekend ? "Weekend mode" : "No mission set yet — edit your weekday template in Settings.")}`}
+        subtitle={`${todayLabel} · ${profile.brand} · ${plan?.mission || (isWeekend ? "Weekend mode" : "Set a mission for today in Settings → Plan Templates")}`}
         action={<Tag tone={isWeekend ? "info" : "accent"}>{isWeekend ? "weekend" : "weekday"}</Tag>}
       />
 
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* Hero band — 6 metrics that actually matter */}
+      <section className="grid grid-cols-2 lg:grid-cols-6 gap-4">
         <Stat
           label="Net MRR"
           value={`$${Math.round(mrr.current).toLocaleString()}`}
           accent
-          hint={`${mrr.pct.toFixed(1)}% to $${Math.round(mrr.target).toLocaleString()}`}
+          hint={`${mrr.pct.toFixed(1)}% of $${Math.round(mrr.target).toLocaleString()}`}
         />
         <Stat
           label="Gap to goal"
           value={`$${Math.round(gap).toLocaleString()}`}
-          hint={daysToTarget !== null ? `${daysToTarget} days left` : "—"}
+          hint={daysToTarget !== null ? `${daysToTarget}d to deadline` : ""}
         />
         <Stat
-          label="Calls today"
+          label="Days left"
+          value={daysToTarget !== null ? `${daysToTarget}` : "—"}
+          hint={targetDate ? `until ${targetDate.toISOString().slice(5, 10)}` : ""}
+        />
+        <Stat
+          label="Outreach today"
           value={`${counts.outbound}`}
-          hint={plan?.target_calls ? `target ${plan.target_calls}` : ""}
+          hint={plan?.target_calls ? `target ${plan.target_calls}` : "no target set"}
         />
         <Stat
           label="Hot inbound"
           value={`${counts.hot}`}
           hint={counts.hot > 0 ? "Check Pipeline" : "Quiet"}
+        />
+        <Stat
+          label="Top client share"
+          value={concentration.pct_of_mrr > 0 ? `${concentration.pct_of_mrr.toFixed(0)}%` : "—"}
+          hint={
+            concentration.is_at_risk
+              ? `⚠ ${truncate(concentration.client_name, 18)}`
+              : truncate(concentration.client_name, 22)
+          }
+        />
+      </section>
+
+      {/* Secondary band — pipeline health */}
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Stat
+          label="Active pipeline"
+          value={activePipe.total_active}
+          hint={`${activePipe.qualified} qualified · ${activePipe.proposal} proposal`}
+        />
+        <Stat
+          label="Reply rate (7d)"
+          value={replyRate.sends > 0 ? `${replyRate.rate_pct.toFixed(1)}%` : "—"}
+          hint={`${replyRate.replies} replies / ${replyRate.sends} sent`}
+        />
+        <Stat
+          label="Decisions today"
+          value={counts.decisions}
+          hint={counts.decisions > 0 ? "agent ticks" : "quiet"}
+        />
+        <Stat
+          label="Pipeline (all)"
+          value={pipeline.total}
+          hint={`${pipeline.stages.qualified || 0} qualified · ${pipeline.stages.won || 0} won`}
         />
       </section>
 
@@ -109,8 +151,8 @@ export default async function TodayPage() {
           title="Primary lead"
           subtitle={
             primaryLead
-              ? `Today's #1 — ${primaryLead.company || primaryLead.name}`
-              : "No primary lead set"
+              ? `Top open · ${primaryLead.company || primaryLead.name}`
+              : "No active lead"
           }
         >
           {primaryLead ? (
@@ -139,21 +181,8 @@ export default async function TodayPage() {
               )}
             </div>
           ) : (
-            <EmptyState message="No primary lead pinned for today." />
+            <EmptyState message="No active lead in the pipeline." />
           )}
-        </Card>
-      </section>
-
-      <section className="grid lg:grid-cols-2 gap-6">
-        <Card title="Pipeline" subtitle={`${pipeline.total} leads across all stages`}>
-          <PipelineFunnel stages={pipeline.stages} />
-        </Card>
-        <Card title="Channel caps" subtitle="Send gateway enforces these">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {caps.map((c) => (
-              <ChannelGauge key={c.channel} {...c} />
-            ))}
-          </div>
         </Card>
       </section>
 
@@ -175,7 +204,9 @@ export default async function TodayPage() {
                   {slot.time_label}
                 </div>
                 <div>
-                  <div className={`text-fg font-semibold flex items-center gap-2 ${slot.completed ? "line-through text-fg-muted" : ""}`}>
+                  <div
+                    className={`text-fg font-semibold flex items-center gap-2 ${slot.completed ? "line-through text-fg-muted" : ""}`}
+                  >
                     {slot.intensity === "intense" && <span className="text-accent">▲</span>}
                     {slot.intensity === "break" && <span className="text-fg-dim">○</span>}
                     {slot.intensity === "carryover" && (
@@ -183,9 +214,7 @@ export default async function TodayPage() {
                     )}
                     {slot.title}
                   </div>
-                  <div className="text-fg-muted text-sm mt-1 leading-relaxed">
-                    {slot.body}
-                  </div>
+                  <div className="text-fg-muted text-sm mt-1 leading-relaxed">{slot.body}</div>
                 </div>
               </li>
             ))}
@@ -205,7 +234,7 @@ export default async function TodayPage() {
           }
         >
           <EmptyState
-            message={`No ${isWeekend ? "weekend" : "weekday"} schedule. Open Settings → ${isWeekend ? "Weekend" : "Weekday"} Template, click "Load defaults" + Save, and today's plan auto-fills.`}
+            message={`Open Settings → ${isWeekend ? "Weekend" : "Weekday"} Template, click "Load defaults" + Save, and today's plan auto-fills.`}
           />
         </Card>
       )}
@@ -234,13 +263,9 @@ export default async function TodayPage() {
                         >
                           {(cls.intent as string) || "unclassified"}
                         </Tag>
-                        <span className="text-xs text-fg-dim">
-                          {timeAgo(i.created_at)}
-                        </span>
+                        <span className="text-xs text-fg-dim">{timeAgo(i.created_at)}</span>
                       </div>
-                      <div className="text-fg mt-1.5 text-sm">
-                        {truncate(i.subject, 80)}
-                      </div>
+                      <div className="text-fg mt-1.5 text-sm">{truncate(i.subject, 80)}</div>
                       <div className="text-xs text-fg-dim mt-0.5 font-mono">
                         {(meta.from_identity as string) || "—"}
                       </div>
@@ -253,10 +278,7 @@ export default async function TodayPage() {
         </div>
 
         {profile.manifesto && (
-          <Card
-            title="Direction"
-            subtitle="Read this when you don't feel like making the next call"
-          >
+          <Card title="Direction" subtitle="Read this when you don't feel like making the next call">
             <div className="prose-manifesto text-sm">
               {profile.manifesto.split("\n\n").slice(0, 6).map((para, i) => (
                 <p key={i}>{para}</p>
