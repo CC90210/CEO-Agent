@@ -18,13 +18,10 @@
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { getServiceSupabase } from "@/lib/supabase-server";
+import { bad } from "@/lib/api-helpers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function bad(status: number, error: string) {
-  return NextResponse.json({ ok: false, error }, { status });
-}
 
 export async function POST(req: NextRequest) {
   const auth = req.headers.get("authorization") || "";

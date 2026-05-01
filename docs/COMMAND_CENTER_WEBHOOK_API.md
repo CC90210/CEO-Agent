@@ -50,14 +50,11 @@ Update an existing lead (status change, score change, notes).
 ### POST /api/webhook/agent-event *(planned)*
 Publish an event to the agent_events bus (lights up the Agents tab).
 
-## Realtime updates on the dashboard
+## How dashboard updates work today
 
-The Command Center subscribes to Supabase Realtime channels for:
-- `lead_interactions` — new inbound/outbound shows in Pipeline within ~1s
-- `agent_state_snapshot` — agent ticks update the Agents tab live
-- `integrations_health` — service status dots flip in real time
+Pages are server-rendered on every request (`force-dynamic`) — they hit Supabase fresh on each navigation/refresh. **There is no websocket subscription yet.** A row written via the webhook above shows up the next time the operator loads or refreshes the relevant page (Pipeline, Agents, Integrations).
 
-Clients don't need to do anything to trigger these — write to the table via the webhook above and the dashboard updates itself.
+Realtime websocket subscription via Supabase's broadcast channel is **planned** for `lead_interactions`, `agent_state_snapshot`, and `integrations_health`. Until then, the dashboard is "fast-polling on navigation" rather than push-live.
 
 ## Rate limits
 

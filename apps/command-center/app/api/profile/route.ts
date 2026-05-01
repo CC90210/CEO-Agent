@@ -1,12 +1,10 @@
 /**
  * GET /api/profile     — return the authed operator's profile
  * PATCH /api/profile   — update editable fields on the authed operator's profile
- *
- * Auth: signed-in Supabase session. RLS does the heavy lifting; the route
- * just wires the patch to user_profiles WHERE auth_user_id = auth.uid().
  */
 import { NextResponse, type NextRequest } from "next/server";
-import { getAuthedSupabase, getServiceSupabase, getSessionUser } from "@/lib/supabase-server";
+import { getServiceSupabase, getSessionUser } from "@/lib/supabase-server";
+import { bad } from "@/lib/api-helpers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,10 +22,6 @@ const EDITABLE = new Set([
   "preferred_language",
   "prospect_focus",
 ]);
-
-function bad(status: number, error: string) {
-  return NextResponse.json({ ok: false, error }, { status });
-}
 
 export async function GET() {
   const user = await getSessionUser();
