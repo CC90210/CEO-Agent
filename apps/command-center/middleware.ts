@@ -14,10 +14,11 @@ const PUBLIC_PATH_PREFIXES = [
   "/forgot-password",
   "/auth/callback",
   "/auth/reset-password",
-  "/api/inbound",     // n8n inbound webhook (Bearer-auth gated inside the route)
+  "/api/inbound",          // n8n inbound webhook (Bearer-auth gated inside the route)
   "/api/auth/signout",
-  "/api/auth/provision",
+  "/api/auth/provision",   // legacy + setup-wizard provision (Bearer-auth gated inside)
   "/api/cron",
+  "/api/webhook",          // public webhooks for clients (HMAC/Bearer gated inside)
   "/_next",
   "/favicon",
 ];

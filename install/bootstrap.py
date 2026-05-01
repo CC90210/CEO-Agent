@@ -250,33 +250,102 @@ def install_python_deps(repo_root: Path) -> tuple[bool, str]:
 
 
 def create_command_center_account(
+    repo_root: Path,                  # noqa: ARG001 — kept for caller compat
+    email: str,
+    full_name: str,
+    brand: str = "OASIS AI",
+    mrr_target: float = 5000.0,       # noqa: ARG001 — operator edits in dashboard
+    primary_agent: str = "bravo",     # noqa: ARG001 — operator edits in dashboard
+    *,
+    prefer_oauth: bool = False,
+    api_url: str | None = None,
+    api_secret: str | None = None,
+) -> tuple[bool, str]:
+    """Create the operator's OASIS Command Center account via the live API.
+
+    POSTs to /api/auth/provision-cli on the Command Center deployment. The
+    endpoint creates a Supabase Auth user, fires an invite email (or skips
+    it if prefer_oauth=True), and provisions a tenant + profile via the
+    signup_tenant RPC. Idempotent — re-running for an existing email is a no-op.
+
+    Args:
+      email, full_name, brand: operator details
+      prefer_oauth: if True, no invite email is sent — the operator signs in
+        with Google instead
+      api_url: override the default https://agent-dashboard-cc90210.vercel.app
+      api_secret: Bearer token for the endpoint. If unset, reads CLI_SIGNUP_SECRET
+        from the env. Get this from the project owner.
+    """
+    if not email or "@" not in email:
+        return False, "email is required and must look like an email"
+    if not full_name or not full_name.strip():
+        return False, "full_name is required"
+
+    base = (api_url or os.environ.get("OASIS_COMMAND_CENTER_URL")
+            or "https://agent-dashboard-cc90210.vercel.app").rstrip("/")
+    secret = api_secret or os.environ.get("CLI_SIGNUP_SECRET")
+    if not secret:
+        return False, "CLI_SIGNUP_SECRET not set — ask CC for the wizard signup token"
+
+    import urllib.request
+    import urllib.error
+    body = json.dumps({
+        "email": email,
+        "full_name": full_name,
+        "brand": brand,
+        "prefer_oauth": prefer_oauth,
+    }).encode()
+    req = urllib.request.Request(
+        f"{base}/api/auth/provision-cli",
+        data=body, method="POST",
+        headers={
+            "Authorization": f"Bearer {secret}",
+            "Content-Type": "application/json",
+            "User-Agent": "oasis-setup-wizard/1.0",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            payload = json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        try:
+            err = json.loads(e.read()).get("error", "unknown")
+        except Exception:  # noqa: BLE001
+            err = f"HTTP {e.code}"
+        return False, f"signup failed: {err}"
+    except Exception as e:  # noqa: BLE001
+        return False, f"signup network error: {e}"
+
+    if not payload.get("ok"):
+        return False, f"signup rejected: {payload.get('error', 'unknown')}"
+
+    sign_in = payload.get("sign_in_url", base + "/login")
+    if payload.get("welcome_sent"):
+        return True, f"account created — invite email sent. Sign in: {sign_in}"
+    if payload.get("is_new_user"):
+        return True, f"account created. Sign in with Google at: {sign_in}"
+    return True, f"account already existed; sign in at: {sign_in}"
+
+
+def _legacy_create_command_center_account_via_seed(
     repo_root: Path,
     email: str,
     full_name: str,
     brand: str = "OASIS AI",
     mrr_target: float = 5000.0,
-    primary_agent: str = "bravo",
 ) -> tuple[bool, str]:
-    """Create or update the operator's OASIS Command Center profile.
-
-    Wraps scripts/seed_profile.py so the install wizard (or any post-install
-    flow) can register the operator with the Command Center in one call.
-    Idempotent — re-runs update an existing row instead of duplicating.
-
-    primary_agent is reserved for a future seed_profile.py flag that lets
-    clients pick which agent (bravo/atlas/maven/aura/hermes) is their default.
-    """
+    """LEGACY: invokes scripts/seed_profile.py directly (requires service-role
+    key on the local machine). Kept for development; production wizards must
+    use the create_command_center_account API path which only needs the
+    public Bearer token."""
     seed_script = repo_root / "scripts" / "seed_profile.py"
     if not seed_script.exists():
         return False, f"seed_profile.py missing at {seed_script}"
 
-    # Validate inputs minimally — let seed_profile.py do the real work
     if not email or "@" not in email:
         return False, "email is required and must look like an email"
     if not full_name or not full_name.strip():
         return False, "full_name is required"
-    if not primary_agent:
-        primary_agent = "bravo"
 
     import subprocess
     cmd = [
@@ -286,7 +355,7 @@ def create_command_center_account(
         "--full-name", full_name,
         "--brand", brand,
         "--mrr-target", str(mrr_target),
-        "--no-plan",      # wizard creates the account; plans are operator-driven
+        "--no-plan",
         "--json",
     ]
     try:
@@ -340,9 +409,8 @@ def run(args: argparse.Namespace) -> int:
         print(f"  [{mark}] requirements.txt: {detail}")
         return 0 if ok else 1
 
-    # --create-command-center-account mode: wizard hook to register the
-    # operator with the OASIS AI Agent Command Center. Calls seed_profile.py
-    # under the hood. Idempotent — safe to re-run.
+    # --create-command-center-account mode: wizard hook. POSTs to the
+    # Command Center's /api/auth/provision-cli endpoint. Idempotent.
     if getattr(args, "create_command_center_account", False):
         if not args.email or not args.full_name:
             print("ERROR: --email and --full-name are required for --create-command-center-account",
@@ -355,6 +423,7 @@ def run(args: argparse.Namespace) -> int:
             brand=args.brand or "OASIS AI",
             mrr_target=args.mrr_target,
             primary_agent=args.primary_agent or "bravo",
+            prefer_oauth=getattr(args, "prefer_oauth", False),
         )
         payload = {"command_center_account": {"ok": ok, "detail": detail}}
         if args.json:
@@ -467,7 +536,10 @@ def main() -> int:
     parser.add_argument("--create-command-center-account", action="store_true",
                         help="Register the operator with the OASIS AI Agent "
                              "Command Center (idempotent). Requires --email "
-                             "and --full-name.")
+                             "and --full-name. Uses /api/auth/provision-cli.")
+    parser.add_argument("--prefer-oauth", action="store_true",
+                        help="Don't send an invite email; operator will sign in "
+                             "with Google instead.")
     parser.add_argument("--email", default=None,
                         help="Operator email (used by --create-command-center-account)")
     parser.add_argument("--full-name", default=None,
