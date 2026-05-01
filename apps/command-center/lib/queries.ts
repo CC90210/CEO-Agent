@@ -25,6 +25,8 @@ import type {
   Tenant,
   PlanTemplate,
 } from "./supabase";
+import { KNOWN_INTEGRATIONS } from "./integrations-registry";
+import { operatorDateKey } from "./dates";
 
 // ============================================================================
 // Profile + Tenant
@@ -60,7 +62,7 @@ export async function getTenant(tenantId: string): Promise<Tenant | null> {
 
 export async function getTodayPlan(profileId: string): Promise<DailyPlan | null> {
   const db = getServiceSupabase();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = operatorDateKey();
   const r = await db
     .from("daily_plans")
     .select("*")
@@ -271,14 +273,7 @@ export async function integrationsHealth(
     .order("service", { ascending: true });
   const r = tenantId ? await q.eq("tenant_id", tenantId) : await q;
 
-  const expected = [
-    "supabase",
-    "stripe",
-    "gmail",
-    "n8n_inbound",
-    "telegram",
-    "browser_harness",
-  ];
+  const expected = KNOWN_INTEGRATIONS.map((integration) => integration.service);
   const existing = new Map(
     (r.data as IntegrationHealth[] | null)?.map((row) => [row.service, row]) || []
   );

@@ -1,7 +1,7 @@
 /**
  * Auth middleware — gates every page behind a Supabase session.
  *
- * Public routes: /login, /signup, /forgot-password, /auth/callback, /api/inbound/*
+ * Public routes: auth pages, public webhooks, install scripts, brand assets.
  * Everything else redirects to /login when there's no session.
  */
 
@@ -23,8 +23,20 @@ const PUBLIC_PATH_PREFIXES = [
   "/favicon",
 ];
 
+// Public static-asset extensions. Anything served from /public with one of
+// these suffixes is allowed without auth — install scripts (curl|bash) and
+// brand assets MUST be reachable anonymously.
+const PUBLIC_FILE_EXTENSIONS = [
+  ".sh", ".ps1",                              // install one-liners
+  ".svg", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico",  // images
+  ".txt", ".webmanifest", ".xml", ".json",    // robots / manifests
+  ".woff", ".woff2", ".ttf",                  // fonts
+];
+
 function isPublic(pathname: string): boolean {
-  return PUBLIC_PATH_PREFIXES.some((p) => pathname.startsWith(p));
+  if (PUBLIC_PATH_PREFIXES.some((p) => pathname.startsWith(p))) return true;
+  const lower = pathname.toLowerCase();
+  return PUBLIC_FILE_EXTENSIONS.some((ext) => lower.endsWith(ext));
 }
 
 export async function middleware(req: NextRequest) {
@@ -34,7 +46,9 @@ export async function middleware(req: NextRequest) {
   if (isPublic(pathname)) return NextResponse.next();
 
   const url = process.env.BRAVO_SUPABASE_URL;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const anon =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.BRAVO_SUPABASE_ANON_KEY;
   // If env not configured (preview/local), let it through — page-level guards still run
   if (!url || !anon) return NextResponse.next();
 

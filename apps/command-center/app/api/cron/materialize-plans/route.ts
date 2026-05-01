@@ -9,6 +9,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { getServiceSupabase } from "@/lib/supabase-server";
+import { operatorDateKey } from "@/lib/dates";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,9 +36,7 @@ export async function GET(req: NextRequest) {
 
   const seen = new Set<string>();
   const results: Array<{ profile_id: string; plan_id: string | null; error?: string }> = [];
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const targetDate = tomorrow.toISOString().slice(0, 10);
+  const targetDate = operatorDateKey(new Date(), 1);
 
   for (const row of profiles.data || []) {
     const pid = (row as { profile_id: string }).profile_id;

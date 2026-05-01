@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { getServiceSupabase } from "@/lib/supabase-server";
 import { bad, profileForUser } from "@/lib/api-helpers";
+import { operatorDateKey } from "@/lib/dates";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,7 +14,7 @@ export const dynamic = "force-dynamic";
 export async function POST() {
   const profile = await profileForUser();
   if (!profile) return bad(401, "unauthorized");
-  const today = new Date().toISOString().slice(0, 10);
+  const today = operatorDateKey();
   const db = getServiceSupabase();
   const r = await db.rpc("materialize_today_plan", {
     p_profile_id: profile.id,

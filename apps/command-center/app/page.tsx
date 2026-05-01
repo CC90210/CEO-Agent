@@ -3,7 +3,13 @@ import { Card, Stat, EmptyState, PageHeader, Tag } from "@/components/Card";
 import { MRRProgressChart } from "@/components/charts/MRRProgressChart";
 import { PipelineFunnel } from "@/components/charts/PipelineFunnel";
 import { TodayBlockToggle } from "@/components/TodayBlockToggle";
-import { timeAgo, truncate } from "@/lib/fmt";
+import { LiveClock } from "@/components/LiveClock";
+import { timeAgo, truncate, formatTimeRange } from "@/lib/fmt";
+import {
+  formatOperatorDate,
+  operatorDateKey,
+  operatorIsWeekend,
+} from "@/lib/dates";
 import {
   todayCounts,
   pipelineBreakdown,
@@ -59,19 +65,28 @@ export default async function TodayPage() {
     : null;
   const gap = Math.max(0, mrr.target - mrr.current);
 
-  const today = new Date();
-  const todayLabel = today.toLocaleDateString(undefined, {
+  const todayKey = operatorDateKey();
+  const todayLabel = formatOperatorDate({
     weekday: "long",
     month: "long",
     day: "numeric",
   });
-  const isWeekend = [0, 6].includes(today.getDay());
+  const isWeekend = operatorIsWeekend();
+  const missionLine =
+    plan?.mission ||
+    (isWeekend
+      ? "Weekend mode"
+      : "Set a mission for today in Settings → Plan Templates");
 
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Today"
-        subtitle={`${todayLabel} · ${profile.brand} · ${plan?.mission || (isWeekend ? "Weekend mode" : "Set a mission for today in Settings → Plan Templates")}`}
+        subtitle={
+          <>
+            <LiveClock initialDateKey={todayKey} /> · {profile.brand} · {missionLine}
+          </>
+        }
         action={<Tag tone={isWeekend ? "info" : "accent"}>{isWeekend ? "weekend" : "weekday"}</Tag>}
       />
 
@@ -201,7 +216,7 @@ export default async function TodayPage() {
               >
                 <TodayBlockToggle index={i} initial={!!slot.completed} schedule={plan.schedule} />
                 <div className="text-accent text-xs font-bold tracking-wider self-start mt-0.5">
-                  {slot.time_label}
+                  {formatTimeRange(slot.time_label)}
                 </div>
                 <div>
                   <div

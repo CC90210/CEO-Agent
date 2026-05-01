@@ -2,6 +2,18 @@
 tags: [daily]
 ---
 
+### 2026-05-01 — Self-Heal Cycle (CODEX autonomous)
+**Agent:** CODEX (big-pickle)
+**Note:** Live OODA loop demo: detected self_audit 88/100 (STATE.md stale, 2 orphans, 8 undocumented scripts). Fixed: (1) STATE.md line 7 updated to 88/100, (2) added wiki-links for `memory/poems/sub_agents_collective_intelligence` and `skills/sales-closing/COLD_CALL_SCRIPT_V1` to STATE.md, (3) registered all 8 scripts (`agent_heartbeat`, `crm_reset`, `deploy_command_center`, `integration_health`, `n8n_webhook_secret`, `seed_plan_template`, `seed_profile`, `sync_slash_commands`) in CAPABILITIES.md Agent Governance table. Re-ran audit → 100/100. Full autonomous diagnose → fix → verify → log cycle in <60s.
+
+### 2026-05-01 — Auto-sync
+**Agent:** CODEX state_sync
+**Note:** Command Center pickup finalized: aligned Deal Architecture page to canonical V3 partner terms, verified Next build/typecheck/Python compile, smoke-tested local auth/API routes, and left dev server running at 127.0.0.1:3100.
+
+### 2026-05-01 — Auto-sync
+**Agent:** CODEX state_sync
+**Note:** Command Center pickup: finished Claude handoff fixes, wired integration registry, repaired agent heartbeats, loaded .env.agents for Next local/prod parity, fixed operator-timezone daily plan reads, refreshed CC weekday plans for Apr 30/May 1, and verified build + smoke tests.
+
 ### 2026-04-30 — Auto-sync
 **Agent:** BRAVO state_sync
 **Note:** OASIS AI Agent Command Center V1 shipped. Multi-agent rebrand, profile system (user_profiles + daily_plans + integrations_health + n8n_webhook_secrets via migration 017), full UI rebuild (sidebar nav, 9 pages, recharts charts, framer-motion), POST /api/inbound/n8n route handler with sha256 auth, scripts/n8n_webhook_secret.py for issue/list/revoke, scripts/seed_profile.py idempotent operator+plan seeder, install/bootstrap.py wired for --create-command-center-account, docs/N8N_INBOUND_WEBHOOK.md 5-min copy-paste fix. Build clean (14 routes, 102kB shared), CC's profile seeded with Jonathan as primary lead. Pushed to main bf9af7f, Vercel auto-deploying. CC manual followups: (1) run database/017_user_profiles_grants.sql in Supabase SQL editor, (2) set OPERATOR_EMAIL=konamak@icloud.com in Vercel env, (3) issue n8n webhook secret + paste into workflow.

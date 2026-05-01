@@ -35,10 +35,12 @@ export function getServiceSupabase(): SupabaseClient {
 /** Authed Supabase — RLS enforced via the user's session. */
 export async function getAuthedSupabase() {
   const url = process.env.BRAVO_SUPABASE_URL;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const anon =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.BRAVO_SUPABASE_ANON_KEY;
   if (!url || !anon) {
     throw new Error(
-      "Authed Supabase misconfigured: BRAVO_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY required."
+      "Authed Supabase misconfigured: BRAVO_SUPABASE_URL + anon key required."
     );
   }
   const cookieStore = await cookies();

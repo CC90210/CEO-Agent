@@ -8,13 +8,13 @@ export function Card({
   noPadding = false,
 }: {
   title?: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   children: ReactNode;
   action?: ReactNode;
   noPadding?: boolean;
 }) {
   return (
-    <section className="rounded-xl border border-bg-border bg-bg-panel shadow-card">
+    <section className="rounded-xl border border-bg-border bg-bg-panel shadow-card card-glow transition-all">
       {(title || subtitle || action) && (
         <header className="flex items-start justify-between gap-4 border-b border-bg-border px-5 py-3.5">
           <div>
@@ -24,7 +24,7 @@ export function Card({
               </h2>
             )}
             {subtitle && (
-              <p className="text-xs text-fg-muted mt-1">{subtitle}</p>
+              <div className="text-xs text-fg-muted mt-1">{subtitle}</div>
             )}
           </div>
           {action}
@@ -47,13 +47,13 @@ export function Stat({
   value: string | number;
   hint?: string;
   accent?: boolean;
-  delta?: number; // positive = good (green), negative = bad (red)
+  delta?: number;
   deltaLabel?: string;
 }) {
   const deltaPositive = typeof delta === "number" && delta > 0;
   const deltaNegative = typeof delta === "number" && delta < 0;
   return (
-    <div className="rounded-xl border border-bg-border bg-bg-panel p-5 shadow-card transition-all hover:border-bg-hover hover:bg-bg-raised/50">
+    <div className="rounded-xl border border-bg-border bg-bg-panel p-5 shadow-card scan-line transition-all hover:border-accent/40 hover:shadow-ironman group">
       <div className="flex items-center justify-between">
         <div className="text-[10px] uppercase tracking-[0.14em] font-bold text-fg-muted">
           {label}
@@ -75,8 +75,8 @@ export function Stat({
         )}
       </div>
       <div
-        className={`mt-2 text-3xl font-bold tracking-tight ${
-          accent ? "text-accent" : "text-fg"
+        className={`mt-2 text-3xl font-bold tracking-tight tabular-nums ${
+          accent ? "text-accent drop-shadow-[0_0_8px_rgba(59,130,246,0.35)]" : "text-fg"
         }`}
       >
         {value}
@@ -107,15 +107,18 @@ export function PageHeader({
   action,
 }: {
   title: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   action?: ReactNode;
 }) {
   return (
     <header className="mb-6 flex items-start justify-between gap-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-fg">{title}</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-fg flex items-center gap-3">
+          {title}
+          <span className="h-px w-10 bg-gradient-to-r from-accent to-transparent" aria-hidden />
+        </h1>
         {subtitle && (
-          <p className="text-sm text-fg-muted mt-1.5">{subtitle}</p>
+          <div className="text-sm text-fg-muted mt-1.5">{subtitle}</div>
         )}
       </div>
       {action && <div>{action}</div>}
@@ -132,7 +135,7 @@ export function Tag({
 }) {
   const tones: Record<string, string> = {
     neutral: "bg-bg-elev text-fg-muted border-bg-border",
-    accent: "bg-accent-soft text-accent border-accent-muted/30",
+    accent: "bg-accent-soft text-accent border-accent/30",
     hot: "bg-status-hot/10 text-status-hot border-status-hot/30",
     warm: "bg-status-warm/10 text-status-warm border-status-warm/30",
     engaged: "bg-status-engaged/10 text-status-engaged border-status-engaged/30",

@@ -47,15 +47,18 @@ def now_iso():
     return datetime.now(timezone.utc).isoformat()
 
 
-def get_agent_label() -> str:
+def get_agent_label(agent_name: str = "bravo") -> str:
     """Return the agent label for heartbeat entries.
 
     Reads from .agents/config.toml if present, else CLAUDE_MODEL env var,
     else a neutral fallback. Never hardcodes a model version.
     """
+    normalized = (agent_name or "bravo").lower().strip()
     label_override = os.environ.get("BRAVO_AGENT_LABEL")
     if label_override:
         return label_override
+    if normalized != "bravo":
+        return f"{normalized.upper()} via state_sync"
     config_path = PROJECT_ROOT / ".agents" / "config.toml"
     if config_path.exists():
         try:
@@ -72,14 +75,14 @@ def get_agent_label() -> str:
     return "BRAVO via Claude Code"
 
 
-def update_state_heartbeat(note: str):
+def update_state_heartbeat(note: str, agent_name: str = "bravo"):
     """Update the Last Heartbeat section in STATE.md."""
     content = STATE_FILE.read_text(encoding="utf-8")
 
     new_heartbeat = (
         f"## Last Heartbeat\n\n"
         f"- **Date:** {now_str()}\n"
-        f"- **Agent:** {get_agent_label()}\n"
+        f"- **Agent:** {get_agent_label(agent_name)}\n"
         f"- **Result:** {note}\n\n"
         f"*Last updated: {now_str()}*"
     )
@@ -96,7 +99,7 @@ def update_state_heartbeat(note: str):
     return True
 
 
-def append_session_log(note: str) -> str:
+def append_session_log(note: str, agent_name: str = "bravo") -> str:
     """Append a compact entry to SESSION_LOG.md.
 
     Dedupe guard: if the most recent Auto-sync entry (same day, same note)
@@ -105,9 +108,10 @@ def append_session_log(note: str) -> str:
     from cron or parallel sessions with the same note.
     """
     today = now_str()
+    agent_label = (agent_name or "bravo").upper()
     entry = (
         f"\n### {today} — Auto-sync\n"
-        f"**Agent:** BRAVO state_sync\n"
+        f"**Agent:** {agent_label} state_sync\n"
         f"**Note:** {note}\n"
     )
     content = SESSION_LOG.read_text(encoding="utf-8")
@@ -148,15 +152,22 @@ def main():
     parser.add_argument("--note", "-n", default="", help="Observation to sync across all memory layers")
     parser.add_argument("--heartbeat", action="store_true", help="Just refresh the STATE.md heartbeat timestamp")
     parser.add_argument("--mem0", action="store_true", help="Also write to semantic memory (mem0)")
+    parser.add_argument(
+        "--agent",
+        default=os.environ.get("STATE_SYNC_AGENT", "bravo"),
+        choices=["bravo", "atlas", "maven", "hermes", "codex", "aura"],
+        help="Agent to mark live in agent_state_snapshot (default: bravo)",
+    )
     args = parser.parse_args()
 
     note = args.note.strip() if args.note else "Session sync."
+    agent_name = args.agent.lower().strip()
 
     results = {}
 
     # 1. STATE.md heartbeat
     try:
-        update_state_heartbeat(note)
+        update_state_heartbeat(note, agent_name)
         results["STATE.md"] = "✅"
     except Exception as e:
         results["STATE.md"] = f"❌ {e}"
@@ -164,7 +175,7 @@ def main():
     # 2. SESSION_LOG.md (skip for --heartbeat only)
     if not args.heartbeat:
         try:
-            action = append_session_log(note)
+            action = append_session_log(note, agent_name)
             results["SESSION_LOG.md"] = "✅ (deduped)" if action == "deduped" else "✅"
         except Exception as e:
             results["SESSION_LOG.md"] = f"❌ {e}"
@@ -176,6 +187,15 @@ def main():
             results["mem0"] = "✅" if ok else "⚠️ mem0 write failed"
         except Exception as e:
             results["mem0"] = f"❌ {e}"
+
+    # 4. Agent heartbeat - keeps the Command Center's Agents tab live.
+    #    Best-effort: never blocks the sync if the heartbeat write fails.
+    try:
+        from agent_heartbeat import heartbeat
+        ok = heartbeat(agent_name, working_memory={"last_note": note[:200]})
+        results["heartbeat"] = "✅" if ok else "⚠️ heartbeat skipped"
+    except Exception as e:
+        results["heartbeat"] = f"❌ {e}"
 
     summary = " | ".join(f"{k}: {v}" for k, v in results.items())
     print(f"[state_sync] {summary}")

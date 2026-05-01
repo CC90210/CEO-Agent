@@ -57,12 +57,17 @@ export default function LoginPage() {
     <div className="min-h-screen bg-bg flex items-center justify-center px-6">
       <div className="w-full max-w-md">
         <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-md bg-gradient-to-br from-accent to-accent-muted flex items-center justify-center text-bg font-black shadow-glow">
-              O
-            </div>
-            <div className="text-fg font-bold tracking-tight">OASIS AI</div>
-          </div>
+          <Link href="/" className="inline-flex items-center gap-3 mb-4 group">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/oasis-logo.svg"
+              alt="OASIS AI"
+              width={44}
+              height={44}
+              className="rounded-md shadow-glow ring-1 ring-accent/30 group-hover:ring-accent/60 transition-all"
+            />
+            <div className="text-fg font-bold tracking-tight text-lg">OASIS AI</div>
+          </Link>
           <h1 className="text-2xl font-bold text-fg">Sign in to Command Center</h1>
           <p className="text-fg-muted text-sm mt-2">
             The operating system for your AI agents.
