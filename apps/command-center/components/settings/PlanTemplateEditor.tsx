@@ -102,9 +102,17 @@ export function PlanTemplateEditor({
         setErr(body.error || `error ${r.status}`);
         return;
       }
-      // Re-materialize today's plan if it matches this template's day type
-      const todayDow = new Date().getDay();
-      const isWeekend = todayDow === 0 || todayDow === 6;
+      // Re-materialize today's plan if it matches this template's day type.
+      // Use operator-TZ day-of-week so a Toronto user editing the template
+      // late at night doesn't trigger a weekend re-materialize because the
+      // server (or browser) thinks it's already Saturday in UTC.
+      const TZ =
+        process.env.NEXT_PUBLIC_OPERATOR_TIMEZONE || "America/Toronto";
+      const operatorWeekday = new Intl.DateTimeFormat("en-US", {
+        timeZone: TZ,
+        weekday: "short",
+      }).format(new Date());
+      const isWeekend = operatorWeekday === "Sat" || operatorWeekday === "Sun";
       const matchesToday = (kind === "weekend" && isWeekend) || (kind === "weekday" && !isWeekend);
       if (matchesToday) {
         await fetch("/api/daily-plan/materialize", { method: "POST" }).catch(() => {});

@@ -111,4 +111,68 @@ export function operatorDate(
   );
 }
 
+/**
+ * ISO timestamp of the operator-TZ midnight that "today" started at.
+ * Use this for queries like `gte("created_at", dayStart)` — it gives
+ * counters that match the operator's wall-clock day, not the server's.
+ *
+ * The previous server-local `new Date().setHours(0,0,0,0)` was wrong by
+ * up to ±24h on UTC servers (e.g. Vercel) for Toronto operators after
+ * 8pm local — Today tiles like "Outreach today" silently rolled over to
+ * tomorrow's counts.
+ */
+export function operatorDayStartIso(
+  date: Date = new Date(),
+  dayOffset: number = 0,
+  timeZone: string = DEFAULT_TIME_ZONE
+): string {
+  // Build the operator-TZ midnight for `date + dayOffset` and convert it
+  // back to a real UTC instant. We bracket the candidate UTC midnight by
+  // ±12h and snap by walking ±1h until the operator-TZ wall-clock hour
+  // hits 0 — robust against any TZ offset, including the half-hour and
+  // 45-min ones (India, Nepal). Pure JS, no external deps.
+  const p = operatorParts(date, timeZone);
+  const targetYmd = (() => {
+    const d = new Date(Date.UTC(p.year, p.month - 1, p.day));
+    d.setUTCDate(d.getUTCDate() + dayOffset);
+    return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() };
+  })();
+  // Start from a UTC instant that's almost certainly the right ballpark:
+  // operator midnight ≈ UTC noon of the target ymd minus 12h. Then
+  // search ±15h in 30-minute steps and pick the one whose operator parts
+  // are exactly midnight on targetYmd.
+  const seedUtcMs = Date.UTC(targetYmd.year, targetYmd.month - 1, targetYmd.day, 12, 0, 0);
+  for (let offsetMin = -15 * 60; offsetMin <= 15 * 60; offsetMin += 15) {
+    const candidate = new Date(seedUtcMs + offsetMin * 60_000);
+    const cp = operatorParts(candidate, timeZone);
+    if (
+      cp.year === targetYmd.year &&
+      cp.month === targetYmd.month &&
+      cp.day === targetYmd.day &&
+      cp.hour === 0 &&
+      cp.minute === 0
+    ) {
+      return candidate.toISOString();
+    }
+  }
+  // Fallback (should never hit): server-local midnight, with a marker so
+  // tests/observability surfaces the failure.
+  const fb = new Date(targetYmd.year, targetYmd.month - 1, targetYmd.day);
+  return fb.toISOString();
+}
+
+/**
+ * Operator-TZ day-of-week as a JS Date.getDay()-compatible integer
+ * (0 = Sunday, 6 = Saturday). Use instead of `new Date().getDay()` when
+ * you need "what day is it for the operator", not "what day is it on
+ * this server".
+ */
+export function operatorDayOfWeek(
+  date: Date = new Date(),
+  timeZone: string = DEFAULT_TIME_ZONE
+): number {
+  const wd = operatorParts(date, timeZone).weekday;
+  return { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[wd] ?? 0;
+}
+
 export const OPERATOR_TIME_ZONE = DEFAULT_TIME_ZONE;
