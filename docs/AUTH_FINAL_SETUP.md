@@ -1,138 +1,57 @@
-# OASIS Command Center — Final Auth Setup
+# OASIS Command Center — Auth Setup
 
-Three things you need to do **once**, in order. ~10 minutes total. After this, everything works.
+> **Architecture note (2026-04-30 PM):** the OASIS Command Center and the
+> OASIS AI marketing/portal site (`oasisai.work`) are two **separate products**.
+> Different repos, different Vercel projects, different Supabase projects.
+> No cross-system bridge. The Command Center has its own auth at its own URL.
 
----
+## Where things are
 
-## What's actually shipped (vs. what's nominally "merged")
+| | OASIS AI Platform | Agent Command Center |
+|---|---|---|
+| URL | https://oasisai.work | https://agent-dashboard-cc90210.vercel.app |
+| Repo | `CC90210/oasis-ai-platform` | `CC90210/CEO-Agent` (subfolder `apps/command-center`) |
+| Vercel project | `oasis-ai-platform` | `agent-dashboard` |
+| Supabase | `oasis-ai-platform` (separate DB) | `bravo` (`phctllmtsogkovoilwos`) |
+| Purpose | Marketing + checkout + client portal for one-off N8N automations | Multi-tenant agent operations dashboard |
 
-The honest version: **two Vercel projects still exist** under the hood —
-`oasisai-platform` (Vite marketing site) and `agent-dashboard` (Next.js
-Command Center). Different stacks, different bundlers, different Vercel
-deploys.
+## Sign in to the Command Center
 
-What I did ship is a **transparent proxy**: `oasisai.work/app/*` → the
-Command Center URL, via a Vercel rewrite in the platform repo. From your
-perspective and your clients' perspective, it's one product at one URL —
-`oasisai.work` for marketing, `oasisai.work/app` for the dashboard. Both
-share the same Supabase project, so cookies set on `oasisai.work` are
-visible to both sides.
+Go to: https://agent-dashboard-cc90210.vercel.app/login
 
-A *real* one-Vercel-project merge (single deployment, one build pipeline)
-would require either porting the marketing site to Next.js or porting the
-dashboard to Vite — that's a 4-8 hour refactor. The proxy gets you 95% of
-the user-facing benefit at zero refactor risk. Future session if you want
-to consolidate.
+You have three options to authenticate:
 
----
+### Option 1 — Continue with Google (instant, no password needed)
+Click **Continue with Google** → consent → you land on the Today dashboard.
 
-## 1. Set Supabase Auth Site URL + Redirect URLs (3 min)
+### Option 2 — Email + password (if you've set one)
+Enter `conaugh@oasisai.work` + your password → Sign in.
 
-### Where
-[Supabase Dashboard → bravo project → Authentication → URL Configuration](https://supabase.com/dashboard/project/phctllmtsogkovoilwos/auth/url-configuration)
-
-### What to set
-
-**Site URL** (one field):
-```
-https://oasisai.work/app
-```
-
-**Redirect URLs** (paste all of these into the "Redirect URLs" allow-list, one per line):
-```
-https://oasisai.work/app/**
-https://agent-dashboard-cc90210.vercel.app/**
-http://localhost:3100/**
-```
-
-Click **Save**.
-
-### Why
-- The Site URL is what Supabase uses as the base for password-reset emails. Pointing it at `oasisai.work/app` means the link in your inbox sends you to the merged URL.
-- The redirect allow-list is Supabase's safety check — it refuses to send you back to a URL that isn't on the list.
-
----
-
-## 2. Enable Google OAuth (4 min)
-
-### Step A — Get a Google OAuth client
-
-1. Open [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials)
-2. **Create Credentials** → **OAuth client ID** → **Web application**
-3. Name it `OASIS Command Center`
-4. Under **Authorized redirect URIs** add this **exactly**:
-   ```
-   https://phctllmtsogkovoilwos.supabase.co/auth/v1/callback
-   ```
-5. Click **Create**
-6. Copy the **Client ID** and **Client secret** that appear
-
-### Step B — Paste into Supabase
-
-1. Open [Supabase Dashboard → Authentication → Providers](https://supabase.com/dashboard/project/phctllmtsogkovoilwos/auth/providers)
-2. Find **Google**, click to expand
-3. Toggle **Enable Sign in with Google** to ON
-4. Paste **Client ID (for OAuth)** and **Client Secret (for OAuth)**
-5. Click **Save**
-
-Done. "Sign in with Google" on the login page now works.
-
----
-
-## 3. Reset your password (1 min) — fixes the broken link from earlier
-
-The page that the reset email linked to didn't exist when you clicked it
-(just shipped now: `/auth/reset-password`). The flow:
-
-1. Go to [https://oasisai.work/app/forgot-password](https://oasisai.work/app/forgot-password)
+### Option 3 — First time? Set a password
+1. Visit https://agent-dashboard-cc90210.vercel.app/forgot-password
 2. Enter `conaugh@oasisai.work`
-3. Click the link in your inbox — now lands on a working form at
-   `/auth/reset-password` (Step 1's Site URL config makes it route there)
-4. Set your password
-5. You're signed in
+3. Click the link Supabase emails you
+4. You land on `/auth/reset-password` → set a password
+5. Sign in normally
 
-OR — once Step 2 is done — just click "Sign in with Google" and skip the
-password entirely.
+## Supabase Auth config (already set, do not change unless you know why)
 
-**One important note**: the reset form depends on Supabase's recovery token
-arriving via the URL fragment. If Step 1 (Site URL) isn't completed, the
-old reset emails will still send you to a non-existent URL. Do Step 1
-*before* requesting a new reset email.
+- **Site URL:** `https://agent-dashboard-cc90210.vercel.app`
+- **Redirect URLs allow-list:**
+  - `https://agent-dashboard-cc90210.vercel.app/**`
+  - `http://localhost:3100/**`
+- **Providers enabled:** email/password + Google OAuth (Client ID + Secret in Supabase dashboard)
 
----
-
-## SSO — does signing in on `oasisai.work` automatically sign me in on `/app`?
-
-**Probable yes, but not verified.** Both sides share:
-- The same Supabase project (`phctllmtsogkovoilwos`)
-- The same domain (`oasisai.work`) — because of the rewrite, the dashboard's
-  cookies are scoped to `oasisai.work`, the same domain the marketing site
-  uses
-
-In theory, signing into one signs you into the other. To verify:
-1. Sign into `oasisai.work` (marketing site auth flow)
-2. Visit `oasisai.work/app/` directly — should NOT redirect you to /login
-3. If it does, the marketing site's auth helpers and the Command Center's
-   `@supabase/ssr` aren't reading the same cookie. Fix in next session.
-
----
-
-## VPS provisioning (whenever you're ready, ~15 min)
-
-Per `infra/inbound-poller/README.md`. The TL;DR:
-
+If you ever need to change these via API:
 ```bash
-# On your laptop:
-hcloud server create --name oasis-inbound-poller --type cx22 --image debian-12 --ssh-key your-key --location nbg1
-
-# SSH in:
-ssh root@<vps-ip>
-apt update && apt install -y docker.io docker-compose-plugin git
-git clone https://github.com/CC90210/CEO-Agent.git /opt/oasis
-scp .env.agents root@<vps-ip>:/opt/oasis/.env.agents   # from your laptop
-cd /opt/oasis/infra/inbound-poller && docker compose up -d --build
+python scripts/supabase_admin.py get /v1/projects/phctllmtsogkovoilwos/config/auth
+python scripts/supabase_admin.py patch /v1/projects/phctllmtsogkovoilwos/config/auth --body '{"site_url":"..."}'
 ```
 
-Within 5 minutes Settings → Integrations should show **n8n_inbound: healthy**
-with a fresh `last_ping_at` from the VPS, and you can shut down your local
-laptop without losing inbound classification.
+## DNS / domain ops
+
+If `oasisai.work` (the marketing site) ever needs domain re-verification on Vercel:
+```bash
+python scripts/cloudflare_admin.py sync-vercel-txt --domain oasisai.work --vercel-project oasis-ai-platform
+```
+Reads what Vercel expects, updates Cloudflare DNS, triggers verify. Built after the 2026-04-30 incident; see `memory/MISTAKES.md` for the full story.
