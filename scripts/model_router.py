@@ -172,15 +172,32 @@ def _local_models(timeout: int = 4) -> list[str]:
         return ["ollama/*"]
 
 
-def list_providers() -> list[dict[str, Any]]:
-    """Return providers whose auth env vars are present."""
+def list_providers(include_unavailable: bool = True) -> list[dict[str, Any]]:
+    """Return all registered providers with availability flag.
+
+    `available` is True when the provider's auth env var is present (and, for
+    `local`, when the Ollama endpoint responds). When `include_unavailable` is
+    False, only providers with credentials present are returned.
+    """
     load_env()
     rows: list[dict[str, Any]] = []
     for provider, spec in PROVIDER_SPECS.items():
-        if not os.environ.get(spec["env_var"]):
+        env_present = bool(os.environ.get(spec["env_var"]))
+        if provider == "local":
+            local_models = _local_models()
+            available = env_present and bool(local_models) and local_models != ["ollama/*"]
+            models = local_models or list(spec["models"])
+        else:
+            available = env_present
+            models = list(spec["models"])
+        if not available and not include_unavailable:
             continue
-        models = _local_models() if provider == "local" else list(spec["models"])
-        rows.append({"provider": provider, "env_var": spec["env_var"], "models": models, "available": True})
+        rows.append({
+            "provider": provider,
+            "env_var": spec["env_var"],
+            "models": models,
+            "available": available,
+        })
     return rows
 
 

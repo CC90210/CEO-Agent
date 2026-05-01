@@ -330,7 +330,7 @@ def cmd_top(args: argparse.Namespace) -> int:
     rows = rows[: args.n]
 
     if args.output_json:
-        print(json.dumps(rows, indent=2, default=str))
+        print(json.dumps({"skills": rows, "count": len(rows)}, indent=2, default=str))
         return 0
 
     print(f"Top {len(rows)} auto-generated skills by success count:\n")

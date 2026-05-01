@@ -568,12 +568,17 @@ def validate_skill(name: str) -> dict:
     if not fm.get("name"):
         report["valid"] = False
         report["issues"].append({"severity": "error", "message": "frontmatter missing 'name'"})
-    elif fm.get("name") != name:
-        report["valid"] = False
-        report["issues"].append({
-            "severity": "error",
-            "message": f"frontmatter name '{fm.get('name')}' does not match folder '{name}'",
-        })
+    else:
+        fm_name = fm.get("name")
+        # Accept either full path match (for top-level skills) or basename match
+        # (for nested skills like auto-generated/<slug> where frontmatter holds the slug).
+        basename = name.rsplit("/", 1)[-1] if "/" in name else name
+        if fm_name != name and fm_name != basename:
+            report["valid"] = False
+            report["issues"].append({
+                "severity": "error",
+                "message": f"frontmatter name '{fm_name}' does not match folder '{name}' (or basename '{basename}')",
+            })
     if not fm.get("description"):
         report["valid"] = False
         report["issues"].append({"severity": "error", "message": "frontmatter missing 'description'"})
@@ -870,6 +875,10 @@ def cmd_register(args) -> int:
 
     now = datetime.now(timezone.utc).isoformat()
     row = build_skill_row(name, report, now)
+    # PyYAML parses ISO datetime strings in frontmatter into datetime objects.
+    # Supabase/postgrest serializes via json.dumps which rejects datetime — coerce
+    # the entire row to JSON-safe primitives before the upsert.
+    row = json.loads(json.dumps(row, default=str))
     existing_id: Optional[str] = None
     try:
         db = get_supabase()
@@ -1273,7 +1282,7 @@ def cmd_audit(args) -> int:
     print(f"  Docs indexed:     {s['total_in_docs']} mentioned")
     print()
     if invalid_skills:
-        print(f"  ✗ INVALID STRUCTURE ({len(invalid_skills)}):")
+        print(f"  X INVALID STRUCTURE ({len(invalid_skills)}):")
         for n in invalid_skills:
             r = folder_skills[n]
             for issue in r["issues"]:
@@ -1287,7 +1296,7 @@ def cmd_audit(args) -> int:
             print(f"      ... and {len(in_folder_not_registered)-20} more")
         print(f"    Fix: python scripts/register_skill.py register <name>")
     if in_registry_folder_missing:
-        print(f"\n  ✗ IN REGISTRY, FOLDER MISSING ({len(in_registry_folder_missing)}):")
+        print(f"\n  X IN REGISTRY, FOLDER MISSING ({len(in_registry_folder_missing)}):")
         for n in in_registry_folder_missing:
             print(f"      {n}")
         print(f"    Fix: either restore the folder or deactivate the registry row.")
