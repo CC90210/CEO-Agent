@@ -28,12 +28,20 @@ export async function POST(req: NextRequest) {
   const expected = process.env.CLI_SIGNUP_SECRET;
   if (!expected || auth !== `Bearer ${expected}`) return bad(401, "unauthorized");
 
-  let body: { email?: string; full_name?: string; brand?: string; prefer_oauth?: boolean };
+  let body: {
+    email?: string;
+    full_name?: string;
+    brand?: string;
+    prefer_oauth?: boolean;
+    agent?: string;
+  };
   try { body = await req.json(); } catch { return bad(400, "invalid JSON"); }
   const email = (body.email || "").trim().toLowerCase();
   if (!email || !email.includes("@")) return bad(400, "valid email required");
   const fullName = body.full_name?.trim() || email.split("@")[0];
   const brand = body.brand?.trim() || "OASIS AI";
+  const agentToAdd = (body.agent || "").trim().toLowerCase();
+  const VALID_AGENTS = new Set(["bravo", "atlas", "maven", "aura", "hermes", "codex"]);
 
   const db = getServiceSupabase();
 
@@ -107,6 +115,27 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // 7. If --agent <slug> was passed, ensure that agent is in the profile's
+  //    agents_enabled array. Lets the wizard idempotently extend an existing
+  //    operator's enabled agents when they install a second agent.
+  let agent_added = false;
+  if (agentToAdd && VALID_AGENTS.has(agentToAdd)) {
+    const cur = await db
+      .from("user_profiles")
+      .select("agents_enabled")
+      .eq("id", profileId)
+      .maybeSingle();
+    const enabled = new Set<string>(cur.data?.agents_enabled || ["bravo"]);
+    if (!enabled.has(agentToAdd)) {
+      enabled.add(agentToAdd);
+      await db
+        .from("user_profiles")
+        .update({ agents_enabled: Array.from(enabled) })
+        .eq("id", profileId);
+      agent_added = true;
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     auth_user_id: authUserId,
@@ -114,6 +143,8 @@ export async function POST(req: NextRequest) {
     tenant_id: tenantId,
     is_new_user: isNewUser,
     welcome_sent: welcomeSent,
+    agent_added,
+    requested_agent: agentToAdd || null,
     sign_in_url: (process.env.PUBLIC_APP_URL || "https://agent-dashboard-cc90210.vercel.app") + "/login",
   });
 }

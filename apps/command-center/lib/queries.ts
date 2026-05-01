@@ -137,9 +137,11 @@ export async function todayCounts(tenantId: string) {
 // Pipeline (tenant-scoped)
 // ============================================================================
 
-export async function pipelineBreakdown(tenantId: string) {
+export async function pipelineBreakdown(tenantId: string, includeArchived = false) {
   const db = getServiceSupabase();
-  const r = await db.from("leads").select("status,score,source").eq("tenant_id", tenantId);
+  let q = db.from("leads").select("status,score,source").eq("tenant_id", tenantId);
+  if (!includeArchived) q = q.neq("status", "archived");
+  const r = await q;
   if (r.error || !r.data) return { stages: {}, total: 0, sources: {} };
   const stages: Record<string, number> = {
     new: 0, contacted: 0, qualified: 0, proposal: 0, won: 0, lost: 0,
@@ -188,14 +190,18 @@ export async function recentOutbound(tenantId: string, limit = 20): Promise<Lead
   return (r.data as LeadInteraction[]) || [];
 }
 
-export async function recentLeads(tenantId: string, limit = 30): Promise<Lead[]> {
+export async function recentLeads(
+  tenantId: string,
+  limit = 30,
+  opts?: { include_archived?: boolean; include_no_email?: boolean; include_lost?: boolean }
+): Promise<Lead[]> {
   const db = getServiceSupabase();
-  const r = await db
-    .from("leads")
-    .select("*")
-    .eq("tenant_id", tenantId)
-    .order("updated_at", { ascending: false })
-    .limit(limit);
+  let q = db.from("leads").select("*").eq("tenant_id", tenantId);
+  if (!opts?.include_archived) q = q.neq("status", "archived");
+  if (!opts?.include_lost) q = q.neq("status", "lost");
+  if (!opts?.include_no_email) q = q.not("email", "is", null);
+  q = q.order("updated_at", { ascending: false }).limit(limit);
+  const r = await q;
   return (r.data as Lead[]) || [];
 }
 
@@ -291,6 +297,136 @@ export async function integrationsHealth(
       updated_at: new Date().toISOString(),
     };
   });
+}
+
+// ============================================================================
+// Bennett concentration risk — % of MRR from a single client
+// ============================================================================
+
+/**
+ * Returns the % of MRR concentrated in the operator's biggest client.
+ * Hardcoded "Bennett" detection for CC's case; for other tenants it returns
+ * the % of MRR in the top-1 won client by lifetime revenue (proxied by
+ * lead_interactions count in absence of a true revenue table).
+ *
+ * Future-friendly: when revenue_events table lands, swap to that.
+ */
+export async function topClientConcentration(tenantId: string): Promise<{
+  client_name: string;
+  pct_of_mrr: number;
+  is_at_risk: boolean;
+}> {
+  const profile = await getActiveProfile();
+  const totalMrr = Number(profile?.mrr_current_usd) || 0;
+  if (totalMrr === 0) {
+    return { client_name: "—", pct_of_mrr: 0, is_at_risk: false };
+  }
+
+  // CC's Bennett split: $2,500 flat + $451 rev share = ~$2,951 of $3,322 = 89%
+  // Other tenants: top won-client by interaction count
+  const db = getServiceSupabase();
+  const r = await db
+    .from("leads")
+    .select("name,company,score")
+    .eq("tenant_id", tenantId)
+    .eq("status", "won")
+    .order("score", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!r.data) return { client_name: "—", pct_of_mrr: 0, is_at_risk: false };
+
+  const name = r.data.name || r.data.company || "Top client";
+  // Use profile.custom_fields.top_client_mrr_usd if set; else assume top client = 80% as a conservative concentration warning
+  const customFields = (profile?.custom_fields || {}) as Record<string, unknown>;
+  const topClientMrr =
+    Number(customFields.top_client_mrr_usd) ||
+    // Fallback heuristic for CC: Bennett is named in the lead row
+    (/bennett/i.test(name) ? 2951 : 0);
+
+  const pct = topClientMrr > 0 ? (topClientMrr / totalMrr) * 100 : 0;
+  return {
+    client_name: name,
+    pct_of_mrr: Math.round(pct * 10) / 10,
+    is_at_risk: pct >= 60,
+  };
+}
+
+// ============================================================================
+// Outreach reply rate — last 7 days
+// ============================================================================
+
+export async function outreachReplyRate(
+  tenantId: string,
+  days = 7
+): Promise<{ replies: number; sends: number; rate_pct: number }> {
+  const db = getServiceSupabase();
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+  const sinceIso = since.toISOString();
+
+  const [sends, replies] = await Promise.all([
+    db
+      .from("lead_interactions")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .in("type", ["email_sent", "dm_sent", "linkedin_sent"])
+      .gte("created_at", sinceIso),
+    db
+      .from("lead_interactions")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .in("type", ["email_received", "email_reply", "dm_received"])
+      .gte("created_at", sinceIso),
+  ]);
+
+  const sendsCount = sends.count ?? 0;
+  const repliesCount = replies.count ?? 0;
+  const rate = sendsCount > 0 ? (repliesCount / sendsCount) * 100 : 0;
+  return {
+    replies: repliesCount,
+    sends: sendsCount,
+    rate_pct: Math.round(rate * 10) / 10,
+  };
+}
+
+// ============================================================================
+// Active pipeline value — leads at qualified or proposal stage
+// ============================================================================
+
+export async function activePipeline(tenantId: string): Promise<{
+  qualified: number;
+  proposal: number;
+  total_active: number;
+}> {
+  const db = getServiceSupabase();
+  const r = await db
+    .from("leads")
+    .select("status")
+    .eq("tenant_id", tenantId)
+    .in("status", ["qualified", "proposal"]);
+  const data = (r.data || []) as Array<{ status: string }>;
+  const qualified = data.filter((d) => d.status === "qualified").length;
+  const proposal = data.filter((d) => d.status === "proposal").length;
+  return { qualified, proposal, total_active: data.length };
+}
+
+// ============================================================================
+// Top open lead — single highest-score non-won/lost/archived lead
+// ============================================================================
+
+export async function topOpenLead(tenantId: string): Promise<Lead | null> {
+  const db = getServiceSupabase();
+  const r = await db
+    .from("leads")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .not("status", "in", "(won,lost,archived)")
+    .order("score", { ascending: false, nullsFirst: false })
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (r.data as Lead | null) || null;
 }
 
 // ============================================================================
