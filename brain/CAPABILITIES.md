@@ -117,6 +117,31 @@ Claude Code native parallel subagents. Enabled via `CLAUDE_CODE_EXPERIMENTAL_AGE
 
 **Skill:** `skills/agent-teams/SKILL.md` — when to use, communication patterns, Windows limitations, anti-patterns.
 
+## V6.0 Multi-Provider Routing & DL Stack (2026-05-01)
+
+V6.0 ships the multi-provider model router, autonomous skill synthesis, 3-layer memory consolidation, multi-platform messaging gateway, and a deep-learning skeleton stack. Every script below is `--help` clean and `--json` capable.
+
+| Script | Purpose | Example |
+|--------|---------|---------|
+| `model_router.py` | Multi-provider LLM routing (Claude, OpenAI, OpenRouter, Groq, DeepSeek, local). Reads `brain/MODEL_CONFIG.md`. | `python scripts/model_router.py list-providers --json` |
+| `skill_synthesizer.py` | Extracts successful patterns from `agent_decisions`, generates SKILL.md, validates, registers. | `python scripts/skill_synthesizer.py synthesize --decision-id <id>` |
+| `skill_metrics.py` | Tracks per-skill `metrics.json`. Promotes `[NEW]` → `[VALIDATED]` after 3 successful uses. | `python scripts/skill_metrics.py report --json` |
+| `memory_consolidation.py` | 3-layer memory: `WORKING.md` → `memories_episodic` / `memories_semantic`. Nightly cron. | `python scripts/memory_consolidation.py status --json` |
+| `gnn_skill_router.py` | Graph neural net over Obsidian vault. Predicts next-skill-to-load from task embedding. | `python scripts/gnn_skill_router.py predict --task "draft outreach"` |
+| `rlhf_outreach.py` | RLHF/DPO skeleton trained on `lead_interactions` approve/reject signals. | `python scripts/rlhf_outreach.py build-dataset` |
+| `neural_memory.py` | Neural Turing Machine with content + location addressing. Differentiable memory layer. | `python scripts/neural_memory.py read --query "..."` |
+| `maml_onboard.py` | Model-agnostic meta-learning for rapid client onboarding (<10 examples → adapted policy). | `python scripts/maml_onboard.py adapt --client-id X` |
+| `tft_forecast.py` | Temporal Fusion Transformer over Stripe + n8n + sentiment for MRR forecast P10/P50/P90. | `python scripts/tft_forecast.py forecast --horizon 30` |
+| `neuro_symbolic_gate.py` | Datalog-style compliance rules (CASL, cooldown, caps, DNS) layered over draft critic. | `python scripts/neuro_symbolic_gate.py rules --json` |
+| `gateway_admin.py` | Admin CLI for the multi-platform gateway (Telegram + Discord + Slack adapters). | `python scripts/gateway_admin.py status --json` |
+| `setup_wizard.py` | Interactive client onboarding — collects credentials, validates, writes env, smoke-tests. | `python scripts/setup_wizard.py` |
+
+**Config:** `brain/MODEL_CONFIG.md` (per-agent provider/model + fallbacks).
+**Container skill:** `skills/auto-generated/SKILL.md` (parent for runtime-synthesized skills).
+**Working memory:** `memory/WORKING.md` (cleared nightly by consolidation).
+**Gateway entry:** `gateway/index.js` (HTTP control on `localhost:7773`).
+**Public install:** `install.sh` / `install.ps1` (one-line install for non-technical clients).
+
 ## CLI-Anything (Universal CLI Generation)
 
 Generate agent-native CLI wrappers for any software, API, or service. When MCPs break, CLIs still work.

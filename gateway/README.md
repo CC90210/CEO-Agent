@@ -1,0 +1,113 @@
+---
+tags: [gateway, telegram, discord, slack, messaging, agents]
+---
+
+# Multi-Platform Messaging Gateway
+
+Routes messages from Telegram, Discord, and Slack to the correct AI agent
+(Bravo / Atlas / Maven / Aura) based on keyword routing rules from `brain/AGENTS.md`.
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    gateway/index.js (entry)                     │
+│                                                                 │
+│  ┌─────────────┐  ┌─────────────┐  ┌──────────────┐           │
+│  │  Telegram   │  │   Discord   │  │    Slack     │  adapters  │
+│  │  Adapter    │  │   Adapter   │  │   Adapter    │           │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬───────┘           │
+│         │                │                │                    │
+│         └────────────────┼────────────────┘                    │
+│                          ▼                                      │
+│              ┌───────────────────────┐                         │
+│              │   GatewayDispatcher   │  gateway/core/          │
+│              │  route(msg, platform, │  dispatcher.js          │
+│              │         sender)       │                         │
+│              └───────────┬───────────┘                         │
+│                          │                                      │
+│          ┌───────────────┼──────────────────┐                  │
+│          ▼               ▼                  ▼                  │
+│       bravo           atlas / maven       aura                 │
+│   (default/CEO)      (finance/CMO)    (smart home)             │
+│                                                                 │
+│  HTTP control: localhost:7773                                   │
+│  Heartbeat: gateway/health.json (every 30s)                    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Environment Variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `TELEGRAM_BOT_TOKEN` | For Telegram | BotFather token |
+| `DISCORD_TOKEN` | For Discord | Bot token from Discord Developer Portal |
+| `SLACK_BOT_TOKEN` | For Slack | `xoxb-` token from Slack App config |
+| `SLACK_APP_TOKEN` | For Slack Socket Mode | `xapp-` token |
+| `SLACK_SIGNING_SECRET` | For Slack HTTP mode | Signing secret (alternative to app token) |
+| `GATEWAY_CONTROL_PORT` | Optional | Admin HTTP port (default: 7773) |
+| `TELEGRAM_ALLOWED_USERS` | Optional | Comma-separated Telegram user IDs |
+
+All credentials must live in `.env.agents` — never hardcode.
+
+## Starting the Gateway
+
+```bash
+# Direct (foreground — useful for testing)
+node gateway/index.js
+
+# Via gateway_admin.py
+python scripts/gateway_admin.py start
+
+# Via PM2 (recommended for production)
+pm2 start gateway/index.js --name bravo-gateway
+```
+
+## Admin CLI
+
+```bash
+# Status
+python scripts/gateway_admin.py status
+python scripts/gateway_admin.py status --json
+
+# List adapters
+python scripts/gateway_admin.py list-adapters
+
+# Send a test message
+python scripts/gateway_admin.py send --platform telegram --to <chat_id> --message "hello"
+
+# Test control server
+python scripts/gateway_admin.py test-connection
+
+# Stop
+python scripts/gateway_admin.py stop
+```
+
+## How to Add a New Adapter
+
+1. **Create** `gateway/adapters/<platform>.js` — copy `slack.js` as a template.
+2. **Implement** the four interface methods: `start()`, `stop()`, `sendMessage(id, text)`, `onMessage(handler)`.
+3. **Instantiate** the adapter in `gateway/index.js` and push it to `adapterRegistry`.
+4. **Add** the `PLATFORM_TOKEN` env var to `.env.agents`.
+5. **Register** the new env var in the table above.
+
+## Telegram Backward Compatibility
+
+`gateway/adapters/telegram.js` wraps the full `telegram_agent.js` V15.8 logic
+as a class. Every command is preserved verbatim:
+- All `/` slash commands (`/start`, `/help`, `/ship`, `/retro`, `/review`, `/plan`, `/costs`, `/memhealth`, `/compact`, `/stale`, `/clear`, `/whoami`)
+- Model selection (`!opus`, `!sonnet`, `!haiku`)
+- Gemini fallback (`!gemini`)
+- Voice transcription
+- File relay (screenshots, videos, documents)
+- Approval gate (inline keyboard buttons)
+- Outreach batch buttons
+- Rate limiting and security firewall
+- Conversation history persistence
+
+`telegram_agent.js` is kept as a backup. The gateway is the active path.
+
+## Obsidian Links
+- [[brain/AGENTS]] — routing rules source
+- [[brain/CAPABILITIES]] — full tool inventory
+- [[memory/SESSION_LOG]] — session history
