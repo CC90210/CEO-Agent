@@ -1,15 +1,28 @@
-# CEO Agent — Bravo
+# Bravo — Autonomous AI Business Agent
 
-> **Bravo (CEO)** — strategy, clients, revenue, partnerships, vision. One third of a three-agent AI C-Suite running CC's business empire. Paired with **Atlas (CFO)** for finance + tax + wealth, and **Maven (CMO)** for brand + content + ads + funnels. Not a framework. Not a demo. A production system managing real revenue, real clients, and real automations across two machines, three AI interfaces, and 70+ CLI tools.
+> An autonomous AI operations system that runs a real business. Strategy, clients, revenue, community, outreach, and self-improvement — all automated. Not a framework. Not a demo. A production system with real revenue, real clients, and 70+ CLI tools running 24/7.
 
-Built by one person with AI. Running 24/7 since March 2026.
+**macOS / Linux / WSL — one line:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install.sh | bash
+```
 
-**The C-Suite:**
-- 🏛️ **Bravo (CEO)** — this repo: [CC90210/CEO-Agent](https://github.com/CC90210/CEO-Agent)
-- 💰 **Atlas (CFO)** — [CC90210/CFO-Agent](https://github.com/CC90210/CFO-Agent)
-- 🎨 **Maven (CMO)** — [CC90210/CMO-Agent](https://github.com/CC90210/CMO-Agent)
+**Windows (PowerShell) — one line:**
+```powershell
+irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install.ps1 | iex
+```
 
-See [`brain/C_SUITE_ARCHITECTURE.md`](brain/C_SUITE_ARCHITECTURE.md) for the governance, pulse protocol, and decision rights matrix.
+Five minutes from zero to a running Bravo instance with your credentials. [Watch the 5-minute setup walkthrough](#) *(video coming soon)*
+
+---
+
+## What Is It?
+
+Bravo is an autonomous AI CEO agent. It handles lead capture, email nurture sequences, community management, revenue tracking, content scheduling, and operational briefings — all without manual intervention. Built by one person using Claude Code, Gemini CLI, and 56 Python scripts. Running continuously since March 2026.
+
+Part of the OASIS AI C-Suite: **Bravo (CEO)** pairs with **Atlas (CFO)** for finance and tax, and **Maven (CMO)** for brand, content, and ads.
+
+See [`brain/CAPABILITIES.md`](brain/CAPABILITIES.md) for the full architecture and tool inventory.
 
 ---
 

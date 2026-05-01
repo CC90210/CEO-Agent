@@ -4,6 +4,14 @@ tags: [daily]
 
 ### 2026-05-01 — Auto-sync
 **Agent:** BRAVO state_sync
+**Note:** V6.0 ship: multi-provider router + autonomous skill synth + 3-layer memory + multi-platform gateway + DL stack + public installer. Health 88->90.
+
+### 2026-05-01 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** Public-repo installer: install.sh, install.ps1, setup_wizard.py, .env.example, CONTRIBUTING.md, .github/ISSUE_TEMPLATE/, docs/INSTALL.md, README hero section added
+
+### 2026-05-01 — Auto-sync
+**Agent:** BRAVO state_sync
 **Note:** UI finalization: TZ-correct dates via Intl.DateTimeFormat (kills 'Friday May 1' midnight bug), AM/PM schedule formatter, OASIS logo wired across sidebar+login+signup+reset, brandable Command-Center install URLs (/install.sh, /install.ps1) that survive repo-visibility flips. CEO-Agent flipped PUBLIC by CC — install chain works for all 3 C-Suite agents with zero prereqs. README + install/README reordered to lead with simple public path. Self-improvement: logged TZ round-trip bug + install-UX-on-private-repo patterns to MISTAKES.md. Build clean, pushed b1a5f40 to origin/main. N8N inbound: Python email_engine.py check-inbox (5-min IMAP poll) is canonical RPC path; N8N Supabase node remains optional dual-path.
 
 ### 2026-05-01 — Self-Heal Cycle (CODEX autonomous)

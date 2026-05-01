@@ -1,0 +1,59 @@
+% compliance.dl — Datalog-style compliance rules for outbound email verification
+%
+% Format: rule_name(Args) :- condition1, condition2, ...
+%
+% Lines starting with % are comments.
+% Each rule block is separated by a blank line and starts with a %% header
+% that includes the human-readable description used by `explain`.
+%
+% Rules are evaluated by the pure-Python evaluator in neuro_symbolic_gate.py.
+% The clingo ASP solver is used when available (pip install clingo) for
+% full recursive Datalog; the Python fallback handles the exact rules here.
+
+%% CASL_UNSUBSCRIBE
+%% Description: Every commercial email must include an unsubscribe link.
+%% Violation: Missing unsubscribe mechanism required by CASL s.11.
+%% Fix: Append "Unsubscribe: <link>" or "To opt out, reply STOP" to the body.
+casl_unsubscribe_ok(Draft) :- has_unsubscribe_link(Draft).
+
+%% CASL_PHYSICAL_ADDRESS
+%% Description: Sender must include a physical mailing address (CASL s.6(2)(c)).
+%% Violation: No physical address found in email body or signature.
+%% Fix: Add your registered business address to the email footer.
+casl_address_ok(Draft) :- has_physical_address(Draft).
+
+%% COOLDOWN
+%% Description: Minimum 24-hour gap between messages to the same recipient.
+%% Violation: Last message to this recipient was sent less than 24 hours ago.
+%% Fix: Schedule for tomorrow or later.
+cooldown_ok(Lead) :- last_sent_hours_ago(Lead, H), H >= 24.
+
+%% DAILY_DOMAIN_CAP
+%% Description: Maximum 50 outbound emails per domain per calendar day.
+%% Violation: Today's send count for this domain already meets or exceeds 50.
+%% Fix: Pause sends to this domain until tomorrow.
+daily_domain_cap_ok(Lead) :- domain_sends_today(Lead, N), N < 50.
+
+%% DNS_REPUTATION
+%% Description: Sender IP DNS reputation score must be > 70 (out of 100).
+%% Violation: Reputation score at or below threshold — high spam risk.
+%% Fix: Warm the sending IP or switch to a higher-reputation relay.
+dns_reputation_ok(SenderIP) :- dns_reputation_score(SenderIP, S), S > 70.
+
+%% HOURLY_CAP
+%% Description: Maximum hourly outbound volume must not exceed HOURLY_CAP env var.
+%% Violation: Current-hour send count meets or exceeds the configured cap.
+%% Fix: Wait until the next hour or raise HOURLY_CAP if intentional.
+hourly_cap_ok :- sends_this_hour(N), hourly_cap(Cap), N < Cap.
+
+%% SUBJECT_LENGTH
+%% Description: Subject line must be between 5 and 90 characters inclusive.
+%% Violation: Subject is too short (likely blank) or too long (gets truncated/spam-flagged).
+%% Fix: Rewrite subject to 5–90 characters.
+subject_length_ok(Draft) :- subject_length(Draft, L), L >= 5, L =< 90.
+
+%% NO_ALL_CAPS_SUBJECT
+%% Description: Subject line must not be ALL-CAPS.
+%% Violation: All-caps subjects trigger spam filters and look aggressive.
+%% Fix: Use sentence-case or title-case for the subject line.
+no_all_caps_subject_ok(Draft) :- not subject_all_caps(Draft).
