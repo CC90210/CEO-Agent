@@ -309,12 +309,14 @@ def call(messages: list[dict], agent: str | None = None, model: str | None = Non
         import anthropic  # type: ignore
 
         system_prompt, chat = _messages_to_text(messages)
-        resp = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"]).messages.create(
-            model=chosen_model,
-            max_tokens=max_tokens,
-            system=system_prompt or None,
-            messages=chat,
-        )
+        kwargs: dict[str, Any] = {
+            "model": chosen_model,
+            "max_tokens": max_tokens,
+            "messages": chat,
+        }
+        if system_prompt:
+            kwargs["system"] = system_prompt
+        resp = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"]).messages.create(**kwargs)
         text = "".join(block.text for block in resp.content if hasattr(block, "text")).strip()
         tokens_in = int(getattr(resp.usage, "input_tokens", 0) or 0)
         tokens_out = int(getattr(resp.usage, "output_tokens", 0) or 0)
@@ -410,6 +412,13 @@ def main() -> None:
     p_route.add_argument("--agent", required=True)
     p_route.add_argument("--task-type", default=None)
 
+    p_call = sub.add_parser("call", parents=[json_parent], help="Send a real prompt and return the model's reply")
+    p_call.add_argument("--agent", default="bravo")
+    p_call.add_argument("--model", default=None, help="Override resolved model")
+    p_call.add_argument("--system", default=None, help="System prompt (optional)")
+    p_call.add_argument("--message", required=True, help="User message")
+    p_call.add_argument("--max-tokens", type=int, default=512)
+
     args = parser.parse_args()
     if args.command == "list-providers":
         _print(list_providers(), args.output_json or True)
@@ -429,6 +438,12 @@ def main() -> None:
         _print(_read_config(), args.output_json or True)
     elif args.command == "route":
         _print(resolve(args.agent, args.task_type), args.output_json or True)
+    elif args.command == "call":
+        msgs: list[dict] = []
+        if args.system:
+            msgs.append({"role": "system", "content": args.system})
+        msgs.append({"role": "user", "content": args.message})
+        _print(call(messages=msgs, agent=args.agent, model=args.model, max_tokens=args.max_tokens), args.output_json or True)
     else:
         parser.print_help()
         sys.exit(1)

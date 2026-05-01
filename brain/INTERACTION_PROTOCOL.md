@@ -392,6 +392,6 @@ If any of these questions can't be answered, the protocol has a gap that needs f
 
 ## Obsidian Links
 - [[brain/SOUL]] | [[brain/BRAIN_LOOP]] | [[brain/STATE]]
-- [[brain/CHANGELOG]] | [[brain/GROWTH]] | [[brain/CAPABILITIES]]
+- [[brain/CHANGELOG]] | [[brain/GROWTH]] | [[brain/CAPABILITIES]] | [[brain/MODEL_CONFIG]]
 - [[memory/SESSION_LOG]] | [[memory/SELF_REFLECTIONS]] | [[memory/PROPOSED_CHANGES]]
-- [[memory/MISTAKES]] | [[memory/PATTERNS]] | [[memory/SOP_LIBRARY]]
+- [[memory/MISTAKES]] | [[memory/PATTERNS]] | [[memory/SOP_LIBRARY]] | [[memory/WORKING]]

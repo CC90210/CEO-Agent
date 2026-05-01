@@ -650,7 +650,12 @@ These are registered in Claude Code's native skill system with proper frontmatte
 
 ## Obsidian Links
 - [[brain/AGENTS]] | [[brain/STATE]] | [[brain/APP_REGISTRY]]
+- [[brain/MODEL_CONFIG]] — V6.0 per-agent provider/model routing config
+- [[brain/USER.template]] — public-clone operator profile template
+- [[memory/WORKING]] — V6.0 ephemeral working memory (consolidated nightly)
+- [[memory/ACTIVE_TASKS.template]] | [[memory/SESSION_LOG.template]]
 - [[skills/mcp-operations/SKILL]] | [[skills/browser-automation/SKILL]]
+- [[skills/auto-generated/SKILL]] — V6.0 runtime-synthesized skill container
 
 ## Manifest
 
