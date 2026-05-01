@@ -177,7 +177,7 @@ def scan_decisions(
         db.table("agent_decisions")
         .select(
             "id,tick_id,decision_type,confidence,chosen_action,"
-            "reasoning,target_description,outcome_status,metadata,created_at"
+            "reasoning,target_description,outcome_status,created_at"
         )
         .gte("confidence", confidence_threshold)
         .eq("executed", True)
@@ -324,7 +324,6 @@ def extract_procedure(
         f"Outcome: {row.get('outcome_status')}\n"
         f"Target: {row.get('target_description')}\n"
         f"Reasoning: {row.get('reasoning') or '(none)'}\n"
-        f"Metadata: {json.dumps(row.get('metadata') or {}, default=str)[:800]}\n"
     )
 
     api_key = get_anthropic_key(e)

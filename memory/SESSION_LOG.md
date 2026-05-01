@@ -4,6 +4,10 @@ tags: [daily]
 
 ### 2026-05-01 — Auto-sync
 **Agent:** BRAVO state_sync
+**Note:** V6.0.1: bug fixes from functional smoke. skill_synthesizer schema, model_router system-arg, added call subcommand. Health stays 100/100.
+
+### 2026-05-01 — Auto-sync
+**Agent:** BRAVO state_sync
 **Note:** V6.0 ship: multi-provider router + autonomous skill synth + 3-layer memory + multi-platform gateway + DL stack + public installer. Health 88->90.
 
 ### 2026-05-01 — Auto-sync

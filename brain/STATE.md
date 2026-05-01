@@ -146,7 +146,9 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 - [[brain/APP_REGISTRY]] | [[brain/CEO_OPERATING_SYSTEM]] | [[brain/OKRs]] | [[brain/CLIENT_READY]]
 - [[brain/BRAIN_LOOP]] | [[brain/GROWTH]] | [[brain/CHANGELOG]]
 - [[brain/RISK_REGISTER]] | [[brain/INTERACTION_PROTOCOL]] | [[brain/ORCHESTRATION]]
+- [[brain/MODEL_CONFIG]] (V6.0 multi-provider routing) | [[brain/USER.template]] (public-clone profile template)
 - [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]] | [[memory/DECISIONS]] | [[memory/CLAUDE_HANDOVER]]
+- [[memory/WORKING]] (V6.0 ephemeral working memory) | [[memory/ACTIVE_TASKS.template]] | [[memory/SESSION_LOG.template]]
 - [[docs/V6_ARCHITECTURE]] | [[infra/README]]
 - [[memory/PATTERNS]] | [[memory/MISTAKES]] | [[memory/SELF_REFLECTIONS]]
 - [[memory/content-strategy]] | [[memory/PROPOSED_CHANGES]]
@@ -163,7 +165,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-05-01
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** V6.0 ship: multi-provider router + autonomous skill synth + 3-layer memory + multi-platform gateway + DL stack + public installer. Health 88->90.
+- **Result:** V6.0.1: bug fixes from functional smoke. skill_synthesizer schema, model_router system-arg, added call subcommand. Health stays 100/100.
 
 *Last updated: 2026-05-01*
 
