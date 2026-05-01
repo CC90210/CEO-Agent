@@ -1,5 +1,28 @@
 /** Time + text formatting helpers shared across pages. */
 
+/**
+ * Convert a 24h time range like "08:00 — 09:00" or "17:00 onwards" into
+ * 12h with AM/PM, preserving the rest of the label.
+ *
+ *   "08:00 — 09:00"   -> "8:00 AM – 9:00 AM"
+ *   "12:30 — 13:00"   -> "12:30 PM – 1:00 PM"
+ *   "17:00 onwards"   -> "5:00 PM onwards"
+ *   "00:30"           -> "12:30 AM"
+ */
+export function formatTimeRange(label: string | null | undefined): string {
+  if (!label) return "";
+  // Normalize em-dash variants to en-dash for visual consistency.
+  const normalized = label.replace(/\s+[—–-]\s+/g, " – ");
+  return normalized.replace(/(\d{1,2}):(\d{2})/g, (match, h: string, m: string) => {
+    const hh = parseInt(h, 10);
+    if (Number.isNaN(hh) || hh < 0 || hh > 23) return match;
+    const mm = m;
+    const period = hh >= 12 ? "PM" : "AM";
+    const displayH = hh === 0 ? 12 : hh > 12 ? hh - 12 : hh;
+    return `${displayH}:${mm} ${period}`;
+  });
+}
+
 export function timeAgo(iso: string | null | undefined): string {
   if (!iso) return "—";
   const then = new Date(iso).getTime();

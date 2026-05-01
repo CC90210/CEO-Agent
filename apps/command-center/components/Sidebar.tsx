@@ -50,20 +50,34 @@ export function Sidebar({
 
   return (
     <aside className="fixed left-0 top-0 bottom-0 w-60 border-r border-bg-border bg-bg-panel flex flex-col z-20">
-      <div className="px-5 py-5 border-b border-bg-border">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-md bg-gradient-to-br from-accent to-accent-muted flex items-center justify-center text-bg font-black text-sm shadow-glow">
-            O
+      {/* Brand block */}
+      <div className="px-5 py-5 border-b border-bg-border relative">
+        <Link href="/" className="flex items-center gap-2.5 group">
+          <div className="relative">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/oasis-logo.svg"
+              alt="OASIS AI"
+              width={36}
+              height={36}
+              className="rounded-md shadow-glow ring-1 ring-accent/30 group-hover:ring-accent/60 transition-all"
+            />
+            <div className="absolute -inset-0.5 rounded-md bg-accent/20 blur opacity-50 -z-10" />
           </div>
           <div className="leading-tight">
-            <div className="text-fg font-bold text-sm tracking-tight">{brand}</div>
+            <div className="text-fg font-bold text-sm tracking-tight">
+              {brand}
+            </div>
             <div className="text-fg-dim text-[10px] uppercase tracking-[0.18em] font-semibold">
               Agent Command Center
             </div>
           </div>
-        </div>
+        </Link>
+        {/* Animated thin accent line under brand */}
+        <div className="absolute bottom-0 left-0 right-0 top-glow" />
       </div>
 
+      {/* Nav */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto">
         <NavGroup label="Operations">
           {opsItems.map((item) => (
@@ -77,6 +91,7 @@ export function Sidebar({
         </NavGroup>
       </nav>
 
+      {/* Operator */}
       <div className="border-t border-bg-border px-4 py-3 space-y-2">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-full bg-bg-elev border border-bg-border flex items-center justify-center text-fg-muted text-xs font-bold">
@@ -93,7 +108,7 @@ export function Sidebar({
         </div>
         <div className="flex items-center justify-between text-[10px] uppercase tracking-wider">
           <span className="text-fg-dim">
-            <span className="text-accent">●</span> {primaryAgent}
+            <span className="text-status-engaged animate-pulse-slow">●</span> {primaryAgent}
           </span>
           <form action="/api/auth/signout" method="post">
             <button
@@ -128,12 +143,16 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
     <li>
       <Link
         href={item.href}
-        className={`group flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors ${
+        prefetch={true}  // Next.js prefetches on viewport — instant nav
+        className={`group flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-all relative ${
           active
-            ? "bg-accent-soft text-accent"
+            ? "bg-accent-soft text-accent shadow-[inset_0_0_0_1px_rgba(59,130,246,0.25)]"
             : "text-fg-muted hover:bg-bg-hover hover:text-fg"
         }`}
       >
+        {active && (
+          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-accent rounded-r-full shadow-glow" />
+        )}
         <Icon
           size={16}
           className={active ? "text-accent" : "text-fg-dim group-hover:text-fg-muted"}

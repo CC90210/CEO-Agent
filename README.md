@@ -15,19 +15,35 @@ See [`brain/C_SUITE_ARCHITECTURE.md`](brain/C_SUITE_ARCHITECTURE.md) for the gov
 
 ## Quick Install (One Line)
 
-If this repo is public, the zero-friction installer works without GitHub CLI:
+Zero-friction. No GitHub CLI required. Works for any client, anywhere.
+
+The **brandable, visibility-proof install URLs** are hosted on the Command
+Center itself (`agent-dashboard-cc90210.vercel.app/install.{sh,ps1}`) and
+will always work even if the underlying GitHub repo flips visibility:
 
 **macOS / Linux / WSL:**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.sh | bash
+curl -fsSL https://agent-dashboard-cc90210.vercel.app/install.sh | bash
 ```
 
 **Windows (PowerShell):**
 ```powershell
+irm https://agent-dashboard-cc90210.vercel.app/install.ps1 | iex
+```
+
+Direct-from-GitHub equivalents (also valid):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.sh | bash
+```
+
+```powershell
 irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.ps1 | iex
 ```
 
-For a Hermes client install, preselect the Hermes profile:
+### Profile preselect (Hermes / Atlas / Maven / Aura / custom)
+
+Set `OASIS_PROFILE` to skip the picker and land directly in your agent:
 
 ```bash
 OASIS_PROFILE=hermes bash -c "$(curl -fsSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.sh)"
@@ -37,24 +53,22 @@ OASIS_PROFILE=hermes bash -c "$(curl -fsSL https://raw.githubusercontent.com/CC9
 $env:OASIS_PROFILE='hermes'; irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.ps1 | iex
 ```
 
-If this repo is private, GitHub intentionally returns `404 Not Found` for
-unauthenticated `raw.githubusercontent.com` requests, even when the file
-exists. Use the authenticated GitHub CLI path instead.
+### Bulletproof installer — survives a private-repo flip
 
-One-time prerequisite if this terminal has not authenticated with GitHub yet:
-
-```bash
-gh auth login -h github.com
-```
+Use this if you want the install to *also* succeed when CEO-Agent is
+temporarily private. It tries the public URL first, then auto-bridges to
+`gh api` if the public URL returns 404 (will prompt `gh auth login` once
+if needed). For ordinary public-repo installs, prefer the simple
+one-liners above — they need no prerequisites.
 
 **macOS / Linux / WSL:**
 ```bash
-command -v gh >/dev/null || { echo "GitHub CLI required: https://cli.github.com"; exit 1; }; gh auth status -h github.com >/dev/null 2>&1 || gh auth login -h github.com; gh api repos/CC90210/CEO-Agent/contents/install/quickstart.sh --jq .content | tr -d '\n' | { base64 -d 2>/dev/null || base64 -D; } | bash
+bash -c "$(REPO=CC90210/CEO-Agent FILE=install/quickstart.sh; curl -fsSL https://raw.githubusercontent.com/$REPO/main/$FILE 2>/dev/null || { command -v gh >/dev/null || { echo 'GitHub CLI required: https://cli.github.com' >&2; exit 1; }; gh auth status -h github.com >/dev/null 2>&1 || gh auth login -h github.com; gh api repos/$REPO/contents/$FILE --jq .content | tr -d '\n' | { base64 -d 2>/dev/null || base64 -D; }; })"
 ```
 
 **Windows (PowerShell):**
 ```powershell
-if (-not (Get-Command gh -EA SilentlyContinue)) { throw "GitHub CLI required: winget install GitHub.cli" }; gh auth status -h github.com *> $null; if ($LASTEXITCODE -ne 0) { gh auth login -h github.com }; $c=(gh api repos/CC90210/CEO-Agent/contents/install/quickstart.ps1 --jq .content) -join ''; iex ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($c)))
+$repo='CC90210/CEO-Agent'; $file='install/quickstart.ps1'; try { $sc=(irm "https://raw.githubusercontent.com/$repo/main/$file" -EA Stop) } catch { if (-not (Get-Command gh -EA SilentlyContinue)) { throw "GitHub CLI required: winget install GitHub.cli" }; gh auth status -h github.com *> $null; if ($LASTEXITCODE -ne 0) { gh auth login -h github.com }; $sc=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(((gh api repos/$repo/contents/$file --jq .content) -join ''))) }; iex $sc
 ```
 
 That single line:

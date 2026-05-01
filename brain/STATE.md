@@ -4,7 +4,7 @@ tags: [state, ephemeral]
 
 # STATE — Current Operational State
 
-> Updated 2026-04-21 | **V5.7 — SELF-AWARE BRAIN + OBSIDIAN FUSION + TOOL SHED.** Self-audit tool live (`scripts/self_audit.py`) — runs in <2s, emits 0-100 health score across orphans, skill frontmatter, script registration, MCP sync. **Current score: 100/100.** Obsidian MCP wired (9 servers synced across 3 configs), giving Bravo direct read/write access to the Obsidian vault. Tool Shed catalog (`brain/TOOL_SHED.md`) created as client-shareable GitHub repo inventory. PERSONALITY.md written — Bravo now has a defined voice, opinions, and growth edges separate from SOUL. Claudekit hooks active (file-guard, create-checkpoint, self-review). 5 VoltAgent subagent personas dropped in (security-auditor, code-reviewer, competitive-analyst, market-researcher, api-designer). 4 legacy handoff files deleted, 9 valuable orphans reconnected, 7 governance scripts registered in CAPABILITIES. Previous V5.6 foundation intact: unified interaction ledger, send_gateway chokepoint, context_builder, inbound_classifier, draft_critic, autonomous_agent reasoning loop. 147 skills, 62 scripts, 34 workflows.
+> Updated 2026-04-21 | **V5.7 — SELF-AWARE BRAIN + OBSIDIAN FUSION + TOOL SHED.** Self-audit tool live (`scripts/self_audit.py`) — runs in <2s, emits 0-100 health score across orphans, skill frontmatter, script registration, MCP sync. **Current score: 88/100 (self_audit 2026-05-01).** Obsidian MCP wired (9 servers synced across 3 configs), giving Bravo direct read/write access to the Obsidian vault. Tool Shed catalog (`brain/TOOL_SHED.md`) created as client-shareable GitHub repo inventory. PERSONALITY.md written — Bravo now has a defined voice, opinions, and growth edges separate from SOUL. Claudekit hooks active (file-guard, create-checkpoint, self-review). 5 VoltAgent subagent personas dropped in (security-auditor, code-reviewer, competitive-analyst, market-researcher, api-designer). 4 legacy handoff files deleted, 9 valuable orphans reconnected, 7 governance scripts registered in CAPABILITIES. Previous V5.6 foundation intact: unified interaction ledger, send_gateway chokepoint, context_builder, inbound_classifier, draft_critic, autonomous_agent reasoning loop. 147 skills, 62 scripts, 34 workflows.
 
 ## Operational Status
 
@@ -150,6 +150,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 - [[docs/V6_ARCHITECTURE]] | [[infra/README]]
 - [[memory/PATTERNS]] | [[memory/MISTAKES]] | [[memory/SELF_REFLECTIONS]]
 - [[memory/content-strategy]] | [[memory/PROPOSED_CHANGES]]
+- [[memory/poems/sub_agents_collective_intelligence]] | [[skills/sales-closing/COLD_CALL_SCRIPT_V1]]
 - [[APPS_CONTEXT/INDEX]] | [[APPS_CONTEXT/GRITLY_CLAUDE]] | [[APPS_CONTEXT/IG_SETTER_PRO_CLAUDE]] | [[APPS_CONTEXT/SKOOL_COMMUNITY_CLAUDE]]
 - [[skills/skool-automation/SKILL]] | [[skills/codex-delegation/SKILL]] | [[../CMO-Agent/skills/elite-video-production/SKILL]]
 - [[skills/ethical-hacking/SKILL]] | [[skills/sales-closing/SKILL]]
@@ -160,11 +161,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-04-30
-- **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** OASIS AI Agent Command Center V1 shipped. Multi-agent rebrand, profile system (user_profiles + daily_plans + integrations_health + n8n_webhook_secrets via migration 017), full UI rebuild (sidebar nav, 9 pages, recharts charts, framer-motion), POST /api/inbound/n8n route handler with sha256 auth, scripts/n8n_webhook_secret.py for issue/list/revoke, scripts/seed_profile.py idempotent operator+plan seeder, install/bootstrap.py wired for --create-command-center-account, docs/N8N_INBOUND_WEBHOOK.md 5-min copy-paste fix. Build clean (14 routes, 102kB shared), CC's profile seeded with Jonathan as primary lead. Pushed to main bf9af7f, Vercel auto-deploying. CC manual followups: (1) run database/017_user_profiles_grants.sql in Supabase SQL editor, (2) set OPERATOR_EMAIL=konamak@icloud.com in Vercel env, (3) issue n8n webhook secret + paste into workflow.
+- **Date:** 2026-05-01
+- **Agent:** CODEX via state_sync
+- **Result:** Command Center pickup finalized: aligned Deal Architecture page to canonical V3 partner terms, verified Next build/typecheck/Python compile, smoke-tested local auth/API routes, and left dev server running at 127.0.0.1:3100.
 
-*Last updated: 2026-04-30*
+*Last updated: 2026-05-01*
 
 ## Manifest
 

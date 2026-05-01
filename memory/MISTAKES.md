@@ -4,6 +4,26 @@ tags: [mistakes, prevention]
 # MISTAKES LOG
 > [[brain/BRAIN_LOOP]] | [[memory/PATTERNS]] | [[memory/SELF_REFLECTIONS]]
 
+### Date Bug: Today Page Showed "Friday May 1" at 11:52pm Apr 30 EDT (2026-05-01)
+**Failure:** `apps/command-center/lib/dates.ts` did `new Date(date.toLocaleString("en-US", { timeZone }))` — the locale string is TZ-naive, and `new Date()` re-parses it in the *runtime* timezone. On Vercel (UTC), at 11:52pm EDT Apr 30 (= 03:52 UTC May 1) the dashboard rendered "Friday, May 1" instead of "Thursday, April 30". Compounded by `today.toLocaleDateString(undefined, ...)` using the runtime TZ instead of the operator TZ. CC saw a wrong date on the hero subtitle and the schedule mission line.
+**Why it slipped:** the implementation *looked* TZ-aware ("America/Toronto" is right there in the code), but the round-trip through a TZ-naive string silently dropped the offset. Local dev (Toronto host) hides this completely — the bug only fires on UTC servers around the day-boundary.
+**Prevention:**
+1. NEVER do `new Date(stringFromToLocaleString(...))` — the round-trip drops timezone.
+2. For ALL operator-timezone display, use `Intl.DateTimeFormat("en-US", { timeZone, ...opts }).format(date)` directly.
+3. For arithmetic across day-boundaries, use `operatorParts(date, tz)` in `apps/command-center/lib/dates.ts` which returns `{year, month, day, weekday, hour}` from `Intl.DateTimeFormat.formatToParts`.
+4. Added `<LiveClock>` component that re-checks the date key every 30s and triggers `router.refresh()` at midnight, so even a long-open tab updates without a manual reload.
+**Tag:** `tz-bug`, `silent-failure`, `local-vs-prod-divergence`.
+
+### Setup Wizard 404: Public irm One-Liner on a Private Repo (2026-04-29 → resolved 2026-05-01 by flipping CEO-Agent to PUBLIC)
+**Failure:** README led with `irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.ps1 | iex`. CEO-Agent was PRIVATE. GitHub returns `404 Not Found` for unauthenticated `raw.githubusercontent.com` requests on private repos by design. PowerShell tries to `iex` the 404 response → cryptic error. CC hit it twice in one terminal session. Codex patched docs to *add* a gh-aware path on Apr 29, but the broken path was still listed FIRST, so clients copy-pasted the failing one.
+**Resolution:** CC flipped CEO-Agent to PUBLIC on 2026-05-01 to match CFO-Agent + CMO-Agent. Sister repos in the C-Suite are now consistent — clients install with a single `irm | iex` line, no prereqs, no `gh`.
+**Prevention going forward:**
+1. Whenever a one-liner depends on repo visibility, check visibility (`gh repo view --json visibility`) when writing the docs.
+2. Documented one-liners must work for the CURRENT visibility — public path goes first when the repo is public, gh path goes first when it's private.
+3. README + `install/README.md` now have a "Bulletproof installer" section with an auto-fallback one-liner that handles the visibility flip in either direction. Future-proofing for if the repo ever flips back private.
+4. Whole C-Suite pattern: any new agent in the family (Atlas, Maven, Aura, Hermes) MUST be public from day one so client install never breaks.
+**Tag:** `install-ux`, `repo-visibility`, `docs-led-with-broken-path`.
+
 ### Built a Cross-System Bridge CC Didn't Want (2026-04-30, REVERTED)
 **Failure:** Across multiple sessions I conflated CC's two products — the OASIS AI marketing/portal site (`oasisai.work`, sells one-off N8N automations) and the OASIS AI Agent Command Center (`agent-dashboard-cc90210.vercel.app`, multi-tenant ops dashboard) — and built bridges between them: a Stripe-webhook → tenant-provisioning endpoint, marketing pages inside the dashboard project, a Vercel rewrite proxying `oasisai.work/app/*`, shared Supabase Site URL, etc. CC had to step in and explicitly say: *"I've messed up completely. You need to completely reverse all of the changes. OASIS AI's client portal is for one-off N8N automations, and the agent dashboard is a completely separate tool. They need to be completely separate."* All of it ripped out. **Root cause:** I kept hearing "merge" or "share auth" and ran with it; CC kept clarifying and I kept overshooting. **Prevention:** before any cross-system code (bridge endpoint, shared cookie domain, shared DB row, rewrite proxying another origin), STATE the assumption explicitly: *"Building a bridge between Product A and Product B such that X event in A triggers Y in B. Confirm?"* and wait for explicit confirm. Two Vercel projects + two Supabase projects + two repos is the **intentional** architecture, not a thing to consolidate. Tag: `scope-creep`, `cross-system-bridge`, `wrong-mental-model`.
 
