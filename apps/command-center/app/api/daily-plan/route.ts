@@ -5,6 +5,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServiceSupabase } from "@/lib/supabase-server";
 import { bad, profileForUser } from "@/lib/api-helpers";
+import { operatorDateKey } from "@/lib/dates";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,7 +34,7 @@ export async function PATCH(req: NextRequest) {
 
   if (Object.keys(update).length === 0) return bad(400, "no editable fields");
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = operatorDateKey();
   const db = getServiceSupabase();
   const r = await db
     .from("daily_plans")

@@ -26,6 +26,13 @@ tags: [capabilities, tools]
 | **Sequential Thinking** | Structured multi-step reasoning | sequentialthinking |
 | **Knowledge Graph** | Obsidian vault as graph — PageRank, communities, semantic search, path-finding | kg_search, kg_node, kg_central, kg_bridges, kg_paths, kg_communities, kg_index |
 
+### OpenCode (big-pickle — Bravo, same identity)
+- **Identity:** Full **Bravo** — CC's Lead Architect. Same persona, voice, capabilities as Claude-powered Bravo.
+- **Access:** Full read/write to all 151 skills in `skills/`, all 68 Python CLI tools in `scripts/`, all brain/ and memory/ files, all subagent definitions.
+- **Entry Point:** `AGENTS.md` (shared with Codex/Cursor/Windsurf). Identity routing at lines 13-15.
+- **MCP Servers:** Same 9 servers as Claude Code (Playwright, Context7, Memory, Sequential Thinking, GitHub, Firecrawl, Obsidian, Filesystem, Knowledge Graph) when available via OpenCode.
+- **Tool routing:** Same CLI-first rules — `scripts/send_gateway.py`, `scripts/supabase_tool.py`, `scripts/stripe_tool.py`, `scripts/google_tool.py`, `scripts/n8n_tool.py`.
+
 ### Anti-Gravity IDE (Native Local Agent — Multi-Model)
 
 Models: Gemini 3.1 Pro High/Low, Gemini 3 Flash, Claude Sonnet/Opus 4.6, GPT-OSS 120B Medium
@@ -410,6 +417,14 @@ Scripts that enforce Bravo's coherence, autonomy, and self-correction. Run in-pr
 | `scripts/state_sync.py` | Canonicalizes session state at end of every session. **NON-NEGOTIABLE** per Rule 4. | `python scripts/state_sync.py --note "<1-sentence summary>"` |
 | `scripts/register_skill.py` | Runtime skill catalog: create/register/sync-all all `SKILL.md` folders into Supabase `skills_registry`, synthesize triggers/tier/owner/risk/source hashes, route a plain-English task to the right skills, and audit drift. | `python scripts/register_skill.py sync-all --deactivate-missing --json` · `python scripts/register_skill.py route "<task>" --json` · `python scripts/register_skill.py audit --json` |
 | `scripts/build_maven_env.py` | One-time setup: seeds Maven's `.env.agents` from Bravo's shared infra credentials. | Run once per Maven bootstrap |
+| `scripts/agent_heartbeat.py` | Write heartbeat to `agent_state_snapshot` so Command Center detects live agents within 15 min. | `python scripts/agent_heartbeat.py --agent bravo` |
+| `scripts/crm_reset.py` | Archive cold/dead leads from bravo Supabase CRM. CC directive: remove noise, keep warm leads only. | `python scripts/crm_reset.py --dry-run` |
+| `scripts/deploy_command_center.py` | One-shot production deploy for OASIS AI Agent Command Center. Sets real User-Agent for Supabase Management API. | `python scripts/deploy_command_center.py` |
+| `scripts/integration_health.py` | Bump `integrations_health` row from any background worker. Supports Command Center Settings → Integrations page. | `python scripts/integration_health.py --integration stripe --status ok` |
+| `scripts/n8n_webhook_secret.py` | Manage shared secrets for OASIS Command Center inbound webhook (n8n workflow 1cGIN32alM8sf8OV). Issue/list/revoke. | `python scripts/n8n_webhook_secret.py issue`, `--list`, `--revoke <id>` |
+| `scripts/seed_plan_template.py` | Seed (or update) weekday/weekend plan templates for an operator in the Command Center. | `python scripts/seed_plan_template.py --operator cc --type weekday` |
+| `scripts/seed_profile.py` | Seed (or update) OASIS Command Center operator profile. Idempotent, defaults to CC's profile. | `python scripts/seed_profile.py`, `--email <email>` |
+| `scripts/sync_slash_commands.py` | Drift-detect dashboard slash-command catalog against actual `.agents/workflows/` on disk. Detect-only, not auto-fix. | `python scripts/sync_slash_commands.py` |
 | `scripts/agent_inbox.py` | **Async agent-to-agent messaging** (mcp_agent_mail pattern). Bravo/Atlas/Maven/Aura/Codex post structured messages to `tmp/agent_inbox/`, orchestrator picks up at checkpoints. Closes the synchronous-delegation gap. | `post --from <agent> --to <agent> --subject ... --body ...`, `list --to bravo`, `read <msg_id>`, `reply --in-reply-to <msg_id>` |
 | `scripts/md_to_gdoc.py` | Markdown → styled Google Doc export. Wraps `google_tool.py docs create` with inline CSS for tables, code, blockquotes. | `python scripts/md_to_gdoc.py brain/TOOL_SHED.md [--title "..."] [--folder <drive-id>] [--json]` |
 | `scripts/name_utils.py` | **Render-path name sanitizer.** Single source of truth for blocking placeholder lead names ("Contact", "Owner", "info", empty, etc.) before they reach a real recipient. Imported by `email_engine`, `outreach_engine`, `funnel_nurture`, `autonomous_agent`. Tests: `scripts/test_name_utils.py` (21 cases). Motivated by the 2026-04-25 "Hi Contact," incident. | `from name_utils import safe_first_name, safe_full_name, sanitize_template_vars` |

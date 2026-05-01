@@ -7,22 +7,22 @@ separate step that can write credentials to a local, gitignored `.env.agents`.
 
 ## Windows
 
-Public repo quickstart:
+Standard install (CEO-Agent is public — no prereqs):
 
 ```powershell
 irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.ps1 | iex
 ```
 
-Hermes client setup when the repo is public:
+Hermes profile preselect:
 
 ```powershell
 $env:OASIS_PROFILE='hermes'; irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.ps1 | iex
 ```
 
-Private repo quickstart:
+Bulletproof installer (survives a private-repo flip via gh auto-fallback):
 
 ```powershell
-if (-not (Get-Command gh -EA SilentlyContinue)) { throw "GitHub CLI required: winget install GitHub.cli" }; gh auth status -h github.com *> $null; if ($LASTEXITCODE -ne 0) { gh auth login -h github.com }; $c=(gh api repos/CC90210/CEO-Agent/contents/install/quickstart.ps1 --jq .content) -join ''; iex ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($c)))
+$repo='CC90210/CEO-Agent'; $file='install/quickstart.ps1'; try { $sc=(irm "https://raw.githubusercontent.com/$repo/main/$file" -EA Stop) } catch { if (-not (Get-Command gh -EA SilentlyContinue)) { throw "GitHub CLI required: winget install GitHub.cli" }; gh auth status -h github.com *> $null; if ($LASTEXITCODE -ne 0) { gh auth login -h github.com }; $sc=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String(((gh api repos/$repo/contents/$file --jq .content) -join ''))) }; iex $sc
 ```
 
 Local checkout:
@@ -38,22 +38,22 @@ Options:
 
 ## macOS / Linux / WSL
 
-Public repo quickstart:
+Standard install (CEO-Agent is public — no prereqs):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.sh | bash
 ```
 
-Hermes client setup when the repo is public:
+Hermes profile preselect:
 
 ```bash
 OASIS_PROFILE=hermes bash -c "$(curl -fsSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.sh)"
 ```
 
-Private repo quickstart:
+Bulletproof installer (survives a private-repo flip via gh auto-fallback):
 
 ```bash
-command -v gh >/dev/null || { echo "GitHub CLI required: https://cli.github.com"; exit 1; }; gh auth status -h github.com >/dev/null 2>&1 || gh auth login -h github.com; gh api repos/CC90210/CEO-Agent/contents/install/quickstart.sh --jq .content | tr -d '\n' | { base64 -d 2>/dev/null || base64 -D; } | bash
+bash -c "$(REPO=CC90210/CEO-Agent FILE=install/quickstart.sh; curl -fsSL https://raw.githubusercontent.com/$REPO/main/$FILE 2>/dev/null || { command -v gh >/dev/null || { echo 'GitHub CLI required: https://cli.github.com' >&2; exit 1; }; gh auth status -h github.com >/dev/null 2>&1 || gh auth login -h github.com; gh api repos/$REPO/contents/$FILE --jq .content | tr -d '\n' | { base64 -d 2>/dev/null || base64 -D; }; })"
 ```
 
 Local checkout:

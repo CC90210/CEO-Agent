@@ -79,6 +79,7 @@ const config: Config = {
         glow: "0 0 24px rgba(59, 130, 246, 0.22)",
         card: "0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.6)",
         elev: "0 8px 24px rgba(0, 0, 0, 0.5)",
+        ironman: "0 0 0 1px rgba(59,130,246,0.25), 0 16px 40px -12px rgba(59,130,246,0.25)",
       },
     },
   },

@@ -1,0 +1,17 @@
+<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="OASIS AI">
+  <defs>
+    <linearGradient id="oasis-grad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <radialGradient id="oasis-glow" cx="20" cy="20" r="20" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#60a5fa" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="40" height="40" rx="8" fill="url(#oasis-grad)"/>
+  <circle cx="20" cy="20" r="18" fill="url(#oasis-glow)"/>
+  <path d="M13 20 a7 7 0 1 0 14 0 a7 7 0 1 0 -14 0 Z M16 20 a4 4 0 1 1 8 0 a4 4 0 1 1 -8 0 Z"
+        fill="#ffffff" fill-rule="evenodd"/>
+  <circle cx="30" cy="11" r="2" fill="#ffffff" opacity="0.95"/>
+</svg>
