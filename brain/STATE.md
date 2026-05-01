@@ -162,8 +162,8 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 ## Last Heartbeat
 
 - **Date:** 2026-05-01
-- **Agent:** CODEX via state_sync
-- **Result:** Command Center pickup finalized: aligned Deal Architecture page to canonical V3 partner terms, verified Next build/typecheck/Python compile, smoke-tested local auth/API routes, and left dev server running at 127.0.0.1:3100.
+- **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
+- **Result:** UI finalization: TZ-correct dates via Intl.DateTimeFormat (kills 'Friday May 1' midnight bug), AM/PM schedule formatter, OASIS logo wired across sidebar+login+signup+reset, brandable Command-Center install URLs (/install.sh, /install.ps1) that survive repo-visibility flips. CEO-Agent flipped PUBLIC by CC — install chain works for all 3 C-Suite agents with zero prereqs. README + install/README reordered to lead with simple public path. Self-improvement: logged TZ round-trip bug + install-UX-on-private-repo patterns to MISTAKES.md. Build clean, pushed b1a5f40 to origin/main. N8N inbound: Python email_engine.py check-inbox (5-min IMAP poll) is canonical RPC path; N8N Supabase node remains optional dual-path.
 
 *Last updated: 2026-05-01*
 
