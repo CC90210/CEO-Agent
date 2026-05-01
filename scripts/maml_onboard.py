@@ -398,19 +398,19 @@ def _cmd_build_tasks(args: argparse.Namespace) -> int:
     if args.json:
         print(json.dumps(result, indent=2))
     else:
-        print(f"Built {len(tasks)} tasks from {source} → {TASKS_FILE}")
+        print(f"Built {len(tasks)} tasks from {source} -> {TASKS_FILE}")
     return 0
 
 
 def _cmd_train(args: argparse.Namespace) -> int:
-    print(f"Meta-training MAML — epochs={args.epochs}, inner_steps={args.inner_steps}")
+    print(f"Meta-training MAML - epochs={args.epochs}, inner_steps={args.inner_steps}")
     result = meta_train(epochs=args.epochs, inner_steps=args.inner_steps)
     result["checkpoint"] = str(META_CKPT)
     if args.json:
         print(json.dumps(result, indent=2))
     else:
         print(f"Meta-training complete. Backend={result['backend']}, "
-              f"final_loss={result['final_loss']}, saved → {META_CKPT}")
+              f"final_loss={result['final_loss']}, saved -> {META_CKPT}")
     return 0
 
 
@@ -421,7 +421,7 @@ def _cmd_adapt(args: argparse.Namespace) -> int:
         if args.json:
             print(json.dumps(result, indent=2))
         else:
-            print(f"Adapted for client {args.client_id} → {path}")
+            print(f"Adapted for client {args.client_id} -> {path}")
         return 0
     except (RuntimeError, ValueError) as exc:
         err = {"status": "error", "message": str(exc)}
