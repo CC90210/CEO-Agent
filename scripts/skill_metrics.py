@@ -308,7 +308,10 @@ def cmd_promote(args: argparse.Namespace) -> int:
 def cmd_top(args: argparse.Namespace) -> int:
     names = _all_auto_skill_names()
     if not names:
-        print("No auto-generated skills found.")
+        if args.output_json:
+            print(json.dumps({"skills": [], "count": 0}, indent=2))
+        else:
+            print("No auto-generated skills found.")
         return 0
 
     rows: list[dict[str, Any]] = []

@@ -27,7 +27,7 @@ DESIGN
    concatenated with the previous read-vector from memory.  Small enough to
    run on CPU in <50 ms per step.
 
-2. Memory matrix: M ∈ R^{128 × 64}.  128 cells, 64-wide representation.
+2. Memory matrix: M ∈ R^{128 x 64}.  128 cells, 64-wide representation.
    Persisted as a named tensor inside the checkpoint alongside model weights.
 
 3. Addressing: content-based cosine similarity + sharpening (softmax with
@@ -136,11 +136,11 @@ def _build_model() -> "torch.nn.Module":  # type: ignore[name-defined]
             self.controller = nn.LSTMCell(controller_input, hidden_size)
 
             # Head output sizes
-            # Each head emits: key(W), beta(1), gate(1), shift(2*shift_range+1),
-            #                  gamma(1), erase(W), add(W)
-            head_dim = memory_width + 1 + 1 + (2 * shift_range + 1) + 1
-            read_head_dim = head_dim - memory_width - memory_width  # no erase/add
-            write_head_dim = head_dim + memory_width + memory_width  # +erase +add
+            # Read head emits: key(W) + beta(1) + gate(1) + shift(2*shift_range+1) + gamma(1)
+            # Write head emits the same plus erase(W) + add(W)
+            base_head_dim = memory_width + 1 + 1 + (2 * shift_range + 1) + 1
+            read_head_dim = base_head_dim
+            write_head_dim = base_head_dim + memory_width + memory_width
 
             self.read_head = nn.Linear(hidden_size, read_head_dim)
             self.write_head = nn.Linear(hidden_size, write_head_dim)
@@ -388,8 +388,8 @@ def _cmd_init(args: argparse.Namespace) -> int:
     if args.json:
         print(json.dumps(result, indent=2))
     else:
-        print(f"NTM initialized → {MODEL_PATH}")
-        print(f"  Memory: {MEMORY_CELLS} cells × {MEMORY_WIDTH} wide")
+        print(f"NTM initialized -> {MODEL_PATH}")
+        print(f"  Memory: {MEMORY_CELLS} cells x {MEMORY_WIDTH} wide")
     return 0
 
 
@@ -426,7 +426,7 @@ def _cmd_train(args: argparse.Namespace) -> int:
     seq_len = 10
     bit_width = MEMORY_WIDTH
     losses = []
-    print(f"Training NTM on '{args.task}' task for {args.epochs} epochs …")
+    print(f"Training NTM on '{args.task}' task for {args.epochs} epochs ...")
     for epoch in range(args.epochs):
         seq = torch.randint(0, 2, (seq_len, 1, bit_width)).float()
         state = _init_state(model)
@@ -483,7 +483,7 @@ def _cmd_inspect(args: argparse.Namespace) -> int:
     if args.json:
         print(json.dumps(result, indent=2))
     else:
-        print(f"Memory stats ({MEMORY_CELLS}×{MEMORY_WIDTH})")
+        print(f"Memory stats ({MEMORY_CELLS}x{MEMORY_WIDTH})")
         for k, v in result.items():
             print(f"  {k}: {v}")
     return 0

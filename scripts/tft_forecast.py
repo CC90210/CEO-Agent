@@ -401,7 +401,7 @@ def _cmd_build_dataset(args: argparse.Namespace) -> int:
     if args.json:
         print(json.dumps(result, indent=2))
     else:
-        print(f"Dataset built: {result['rows']} rows from {result['source']} → {result['path']}")
+        print(f"Dataset built: {result['rows']} rows from {result['source']} -> {result['path']}")
     return 0
 
 
@@ -413,7 +413,7 @@ def _cmd_train(args: argparse.Namespace) -> int:
             print(json.dumps(result, indent=2))
         else:
             print(f"Training complete. Backend={result['backend']}, "
-                  f"final_loss={result['final_loss']} → {result['checkpoint']}")
+                  f"final_loss={result['final_loss']} -> {result['checkpoint']}")
         return 0
     except RuntimeError as exc:
         err = {"status": "error", "message": str(exc)}
@@ -438,7 +438,7 @@ def _cmd_forecast(args: argparse.Namespace) -> int:
             ):
                 print(f"  {d}  P10=${lo:.0f}  P50=${mid:.0f}  P90=${hi:.0f}")
             if len(result["dates"]) > 7:
-                print(f"  … ({len(result['dates']) - 7} more days)")
+                print(f"  ... ({len(result['dates']) - 7} more days)")
         return 0
     except RuntimeError as exc:
         err = {"status": "error", "message": str(exc)}
