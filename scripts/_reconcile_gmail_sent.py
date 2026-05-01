@@ -162,7 +162,7 @@ def reconcile(days: int, dry_run: bool, output_json: bool) -> int:
           file=sys.stderr)
     sends = imap_scan_sent(env, days=days)
     by_email = dedupe_most_recent(sends)
-    print(f"[reconcile] Gmail Sent: {len(sends)} messages → "
+    print(f"[reconcile] Gmail Sent: {len(sends)} messages -> "
           f"{len(by_email)} unique recipient emails",
           file=sys.stderr)
 
@@ -279,7 +279,7 @@ def reconcile(days: int, dry_run: bool, output_json: bool) -> int:
         print(json.dumps(result, indent=2, default=str))
     else:
         print(f"\n[reconcile] DONE")
-        print(f"  flipped new → contacted:  {flipped}")
+        print(f"  flipped new -> contacted:  {flipped}")
         print(f"  backfilled interactions:  {backfilled}")
         print(f"  orphan recipients (not in CRM, for manual review): {len(emailed_no_crm_record)}")
     return 0

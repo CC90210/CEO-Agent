@@ -1034,21 +1034,24 @@ def main() -> None:
     p.add_argument("--json", dest="output_json", action="store_true")
     sub = p.add_subparsers(dest="command")
 
-    pt = sub.add_parser("tick", help="Run one cycle of the brain loop")
+    json_parent = argparse.ArgumentParser(add_help=False)
+    json_parent.add_argument("--json", dest="output_json", action="store_true")
+
+    pt = sub.add_parser("tick", parents=[json_parent], help="Run one cycle of the brain loop")
     pt.add_argument("--shadow", action="store_true",
                      help="Write decisions to shadow_decisions instead of executing.")
     pt.add_argument("--dry-run", dest="dry_run", action="store_true",
                      help="Print decisions only; no DB writes, no sends.")
 
-    pd = sub.add_parser("daemon", help="Run ticks in a loop forever")
+    pd = sub.add_parser("daemon", parents=[json_parent], help="Run ticks in a loop forever")
     pd.add_argument("--interval", type=int, default=900,
                      help="Seconds between ticks (default: 900 = 15 min)")
     pd.add_argument("--shadow", action="store_true")
     pd.add_argument("--dry-run", dest="dry_run", action="store_true")
 
-    sub.add_parser("status", help="Show last-tick state snapshot")
+    sub.add_parser("status", parents=[json_parent], help="Show last-tick state snapshot")
 
-    pdd = sub.add_parser("decisions", help="Show recent decisions")
+    pdd = sub.add_parser("decisions", parents=[json_parent], help="Show recent decisions")
     pdd.add_argument("--tick-id", dest="tick_id", default=None)
     pdd.add_argument("--today", action="store_true")
     pdd.add_argument("--limit", type=int, default=50)

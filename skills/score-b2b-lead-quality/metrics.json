@@ -1,0 +1,9 @@
+{
+  "success_count": 3,
+  "fail_count": 0,
+  "total_tokens": 1200,
+  "avg_tokens": 400,
+  "last_used_at": "2026-05-01T23:16:00.748091+00:00",
+  "validation_score": 95,
+  "status": "[PROMOTED]"
+}

@@ -661,9 +661,16 @@ def main() -> None:
     ps = sub.add_parser("status", help="Show item counts across all memory layers")
     ps.add_argument("--json", dest="output_json", action="store_true", default=argparse.SUPPRESS)
 
+    pdry = sub.add_parser("dry-run", help="Alias for `run --dry-run` — simulate consolidation")
+    pdry.add_argument("--json", dest="output_json", action="store_true", default=argparse.SUPPRESS)
+
     args = p.parse_args()
     if not getattr(args, "output_json", False):
         args.output_json = p.parse_known_args()[0].output_json
+
+    if args.command == "dry-run":
+        args.command = "run"
+        args.dry_run = True
 
     dispatch = {
         "run": cmd_run,
