@@ -1,28 +1,13 @@
 /**
- * POST /api/daily-plan/materialize   — re-run the materialize_today_plan RPC for the authed user
- * PATCH /api/daily-plan              — update today's plan (mission, primary lead play, schedule completion)
+ * PATCH /api/daily-plan — update today's plan (mission, primary lead play,
+ * schedule completion flags, retro fields).
  */
 import { NextResponse, type NextRequest } from "next/server";
-import { getServiceSupabase, getSessionUser } from "@/lib/supabase-server";
+import { getServiceSupabase } from "@/lib/supabase-server";
+import { bad, profileForUser } from "@/lib/api-helpers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function bad(status: number, error: string) {
-  return NextResponse.json({ ok: false, error }, { status });
-}
-
-async function profileForUser() {
-  const user = await getSessionUser();
-  if (!user) return null;
-  const db = getServiceSupabase();
-  const r = await db
-    .from("user_profiles")
-    .select("id, tenant_id")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
-  return r.data || null;
-}
 
 export async function PATCH(req: NextRequest) {
   const profile = await profileForUser();

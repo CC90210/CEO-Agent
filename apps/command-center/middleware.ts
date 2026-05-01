@@ -54,6 +54,15 @@ export async function middleware(req: NextRequest) {
 
   const { data, error } = await supa.auth.getUser();
   if (error || !data.user) {
+    // For /api/* requests return 401 JSON so client fetch() sees a real
+    // error (not an HTML redirect that breaks .json()). For pages,
+    // redirect to /login.
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json(
+        { ok: false, error: "unauthorized" },
+        { status: 401 }
+      );
+    }
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(loginUrl);
