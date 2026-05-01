@@ -389,6 +389,8 @@ Four entry files at the repo root — one per AI tooling surface. Every agent th
 | Gateway | `scripts/send_gateway.py` | Single chokepoint. CASL + cooldown + daily cap + multi-brand + logging. 17 tests green. |
 | Context | `scripts/context_builder.py` | `get_entity_context()` — relationship stage, sentiment, prior interactions. Input for persona-aware LLM drafts. |
 | Migrations | `scripts/apply_migration.py` | Applies `database/*.sql` via Supabase Management API. |
+| Supabase Mgmt API | `scripts/supabase_admin.py` | Shared client for Supabase Management API (auth provider config, etc.). Handles Cloudflare-friendly UA. CLI: `python scripts/supabase_admin.py get /v1/projects/<ref>/config/auth` · `enable-google-oauth --project-ref X --client-id Y --client-secret Z`. |
+| Cloudflare DNS | `scripts/cloudflare_admin.py` | Shared client for Cloudflare DNS. CLI: `list-zone --domain X` · `upsert-txt --domain X --name _vercel --value Y` · `sync-vercel-txt --domain X --vercel-project Y` (recovers a Vercel domain that needs new TXT verification). Built after the 2026-04-30 oasisai.work outage. |
 | Ledger | `lead_interactions` table (+ migration 003: `cooldown_until`, `agent_source`, `metadata`) | Unified cross-engine action log. |
 | CASL | `scripts/casl_compliance.py` | Suppression + footer + RFC 2369/8058 headers. Composed by the gateway. |
 | Templates | `scripts/wire_all_templates.py` | Keeps OASIS Welcome / Value Add / CTA congruent across sessions. Verifies `https://oasisai.work` + `https://calendar.app.google/tpfvJYBGircnGu8G8`. |
