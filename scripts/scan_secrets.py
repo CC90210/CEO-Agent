@@ -287,9 +287,9 @@ def _format_findings(result: dict) -> int:
         scope = (f"{result.get('files_scanned', 0)} files"
                  if mode == "tree"
                  else f"{result.get('commits_scanned', 0)} commits")
-        print(f"✓  clean — scanned {scope} in {result['repo']}")
+        print(f"OK  clean - scanned {scope} in {result['repo']}")
         return 0
-    print(f"✗  {len(findings)} finding(s) in {result['repo']}  ({mode})")
+    print(f"FAIL  {len(findings)} finding(s) in {result['repo']}  ({mode})")
     print()
     for f in findings:
         if mode == "tree":

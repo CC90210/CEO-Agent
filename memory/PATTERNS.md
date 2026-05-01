@@ -25,3 +25,8 @@ Validate char limits → rewrite per platform → present to CC → post via ../
 ## Anti-Patterns
 MCP failure → report+STOP | PowerShell → `Out-File -Encoding utf8` | Rewrite per platform | Context7 before coding | `grep -rn` before deleting
 *Last updated: 2026-04-03*
+
+### [V] Auto-generated skill promoted: `score-b2b-lead-quality` (2026-05-01)
+- **Successes:** 3, **Rate:** 100.0%
+- **Source:** `skills/auto-generated/score-b2b-lead-quality/` -> `skills/score-b2b-lead-quality/`
+- **Pattern:** Skill synthesizer extracted this pattern from agent_decisions and it passed 3 tracked uses with high success rate.
