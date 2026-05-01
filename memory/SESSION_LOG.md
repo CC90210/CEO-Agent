@@ -2,6 +2,10 @@
 tags: [daily]
 ---
 
+### 2026-05-01 — Auto-sync
+**Agent:** BRAVO state_sync
+**Note:** UI finalization: TZ-correct dates via Intl.DateTimeFormat (kills 'Friday May 1' midnight bug), AM/PM schedule formatter, OASIS logo wired across sidebar+login+signup+reset, brandable Command-Center install URLs (/install.sh, /install.ps1) that survive repo-visibility flips. CEO-Agent flipped PUBLIC by CC — install chain works for all 3 C-Suite agents with zero prereqs. README + install/README reordered to lead with simple public path. Self-improvement: logged TZ round-trip bug + install-UX-on-private-repo patterns to MISTAKES.md. Build clean, pushed b1a5f40 to origin/main. N8N inbound: Python email_engine.py check-inbox (5-min IMAP poll) is canonical RPC path; N8N Supabase node remains optional dual-path.
+
 ### 2026-05-01 — Self-Heal Cycle (CODEX autonomous)
 **Agent:** CODEX (big-pickle)
 **Note:** Live OODA loop demo: detected self_audit 88/100 (STATE.md stale, 2 orphans, 8 undocumented scripts). Fixed: (1) STATE.md line 7 updated to 88/100, (2) added wiki-links for `memory/poems/sub_agents_collective_intelligence` and `skills/sales-closing/COLD_CALL_SCRIPT_V1` to STATE.md, (3) registered all 8 scripts (`agent_heartbeat`, `crm_reset`, `deploy_command_center`, `integration_health`, `n8n_webhook_secret`, `seed_plan_template`, `seed_profile`, `sync_slash_commands`) in CAPABILITIES.md Agent Governance table. Re-ran audit → 100/100. Full autonomous diagnose → fix → verify → log cycle in <60s.
