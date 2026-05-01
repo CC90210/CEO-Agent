@@ -336,15 +336,14 @@ export async function topClientConcentration(tenantId: string): Promise<{
 
   if (!r.data) return { client_name: "—", pct_of_mrr: 0, is_at_risk: false };
 
-  const name = r.data.name || r.data.company || "Top client";
-  // Use profile.custom_fields.top_client_mrr_usd if set; else assume top client = 80% as a conservative concentration warning
+  // Read from profile.custom_fields.top_client_mrr_usd. Operators set this
+  // in Settings or via scripts/seed_profile.py. No magic numbers.
   const customFields = (profile?.custom_fields || {}) as Record<string, unknown>;
-  const topClientMrr =
-    Number(customFields.top_client_mrr_usd) ||
-    // Fallback heuristic for CC: Bennett is named in the lead row
-    (/bennett/i.test(name) ? 2951 : 0);
+  const configuredName = (customFields.top_client_name as string) || null;
+  const configuredMrr = Number(customFields.top_client_mrr_usd) || 0;
 
-  const pct = topClientMrr > 0 ? (topClientMrr / totalMrr) * 100 : 0;
+  const name = configuredName || r.data.name || r.data.company || "Top client";
+  const pct = configuredMrr > 0 ? (configuredMrr / totalMrr) * 100 : 0;
   return {
     client_name: name,
     pct_of_mrr: Math.round(pct * 10) / 10,
