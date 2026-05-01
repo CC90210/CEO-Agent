@@ -289,11 +289,14 @@ def create_command_center_account(
 
     import urllib.request
     import urllib.error
+    # primary_agent doubles as the "which agent are we installing" hint —
+    # the API will idempotently add it to the operator's agents_enabled.
     body = json.dumps({
         "email": email,
         "full_name": full_name,
         "brand": brand,
         "prefer_oauth": prefer_oauth,
+        "agent": primary_agent,
     }).encode()
     req = urllib.request.Request(
         f"{base}/api/auth/provision-cli",
@@ -320,11 +323,21 @@ def create_command_center_account(
         return False, f"signup rejected: {payload.get('error', 'unknown')}"
 
     sign_in = payload.get("sign_in_url", base + "/login")
+    agent_added = payload.get("agent_added")
+    requested_agent = payload.get("requested_agent")
+
     if payload.get("welcome_sent"):
-        return True, f"account created — invite email sent. Sign in: {sign_in}"
-    if payload.get("is_new_user"):
-        return True, f"account created. Sign in with Google at: {sign_in}"
-    return True, f"account already existed; sign in at: {sign_in}"
+        msg = f"account created — invite email sent. Sign in: {sign_in}"
+    elif payload.get("is_new_user"):
+        msg = f"account created. Sign in with Google at: {sign_in}"
+    else:
+        msg = f"existing account detected; sign in at: {sign_in}"
+
+    if requested_agent and agent_added:
+        msg += f" · {requested_agent} added to your enabled agents"
+    elif requested_agent and not agent_added:
+        msg += f" · {requested_agent} already enabled"
+    return True, msg
 
 
 def _legacy_create_command_center_account_via_seed(
