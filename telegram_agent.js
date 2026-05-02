@@ -158,9 +158,10 @@ function bridgeLock(action) {
                 timeout: 5000,
                 // CRITICAL on Windows: without windowsHide, every spawnSync pops
                 // a console window. Heartbeats fire every 15s × 3 bridges → 12
-                // flashing terminals per minute. windowsHide:true makes the
-                // child process attach to the parent's console silently.
-                windowsHide: true,
+                // flashing terminals per minute. Match the existing exec()
+                // pattern in this file (lines ~1115-1136) which uses
+                // `windowsHide: IS_WIN` — a no-op on macOS, suppression on Windows.
+                windowsHide: IS_WIN,
                 shell: false,
             }
         );
