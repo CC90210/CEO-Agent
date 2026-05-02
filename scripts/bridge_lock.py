@@ -142,24 +142,27 @@ def acquire(agent: str, stale_after: int = DEFAULT_STALE_SECONDS) -> bool:
 
 
 def heartbeat(agent: str) -> bool:
-    """Refresh our last_heartbeat. Only succeeds if we still own the lock."""
+    """Refresh our last_heartbeat. Same-host always succeeds — different Python
+    invocations on the same machine each have their own pid, but they're all
+    serving the same bridge. Only fail if a DIFFERENT host took over the lock.
+    """
     existing = _read_lock(agent)
     if not existing:
         # Lock vanished — recreate (race-safe; another startup will see fresh).
         return acquire(agent)
-    if existing.get("host") != HOSTNAME or existing.get("pid") != PID:
-        return False  # someone else owns it now
+    if existing.get("host") != HOSTNAME:
+        return False  # different host owns it now — we lost the race
     existing["last_heartbeat"] = _now()
     _write_lock_atomic(agent, existing)
     return True
 
 
 def release(agent: str) -> bool:
-    """Delete the lockfile if it's ours. No-op if it isn't."""
+    """Delete the lockfile if same host owns it. Different host = no-op."""
     existing = _read_lock(agent)
     if not existing:
         return True
-    if existing.get("host") == HOSTNAME and existing.get("pid") == PID:
+    if existing.get("host") == HOSTNAME:
         try:
             _lock_path(agent).unlink()
         except FileNotFoundError:
