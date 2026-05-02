@@ -137,6 +137,7 @@ V6.0 ships the multi-provider model router, autonomous skill synthesis, 3-layer 
 | `setup_wizard.py` | Interactive client onboarding — collects credentials, validates, writes env, smoke-tests. | `python scripts/setup_wizard.py` |
 | `personalize.py` | Renders `brain/USER.md` + memory templates from `brain/operator.profile.json`. Idempotent. **V6.1** | `python scripts/personalize.py apply --json` |
 | `scaffold.py` | Token-replaces operator identifiers across the codebase at fork-time. Refuses to run on the original operator's repo by design. **V6.1** | `python scripts/scaffold.py --apply --backup` |
+| `system_cleanup.py` | Find + delete redundant install clones, pip/npm caches, old `tmp/` files, `__pycache__` trees, scaffold backups. Active repo preserved by safety guard. **V6.1.1** | `python scripts/system_cleanup.py --apply` |
 
 **Config:** `brain/MODEL_CONFIG.md` (per-agent provider/model + fallbacks).
 **Operator profile:** `brain/operator.profile.json` (gitignored — schema in `operator.profile.example.json`). Single source of truth for identity/brand/voice.
