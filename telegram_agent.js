@@ -153,7 +153,16 @@ function bridgeLock(action) {
     try {
         const r = require('child_process').spawnSync(
             BRIDGE_PYTHON, [BRIDGE_LOCK_SCRIPT, action, '--agent', BRIDGE_LOCK_AGENT, '--json'],
-            { encoding: 'utf-8', timeout: 5000 }
+            {
+                encoding: 'utf-8',
+                timeout: 5000,
+                // CRITICAL on Windows: without windowsHide, every spawnSync pops
+                // a console window. Heartbeats fire every 15s × 3 bridges → 12
+                // flashing terminals per minute. windowsHide:true makes the
+                // child process attach to the parent's console silently.
+                windowsHide: true,
+                shell: false,
+            }
         );
         // r.status === null when spawn itself failed — don't block startup.
         if (r.status === null) {
