@@ -40,6 +40,22 @@ USAGE
     python scripts/register.py workflow <name>  [options]
     python scripts/register.py list              # show every registered capability
     python scripts/register.py validate <name>   # re-run validation on existing
+
+RELATED — `scripts/register_skill.py` (legacy)
+----------------------------------------------
+The older `register_skill.py` writes a row to the Supabase `skills_registry`
+table and remains the right tool when an existing skill needs to be resynced
+to the database (e.g., after editing its frontmatter). Use cases split as:
+
+  scripts/register.py        — CREATE a new skill/script/agent/workflow on disk
+                               with proper frontmatter + auto-graph rebuild.
+  scripts/register_skill.py  — SYNC an existing skill folder to Supabase
+                               (sync-one, sync-all, audit, validate).
+
+`register.py skill` does NOT call `register_skill.py register` automatically
+— Supabase write is opt-in. After scaffolding, run
+`python scripts/register_skill.py register <name>` if you want the
+skills_registry row.
 """
 from __future__ import annotations
 
@@ -74,14 +90,21 @@ def _parse_csv(value: Optional[str]) -> list[str]:
     return [x.strip() for x in value.split(",") if x.strip()]
 
 
-def _agent_name() -> str:
-    claude_md = PROJECT_ROOT / "CLAUDE.md"
-    if claude_md.exists():
-        head = claude_md.read_text(encoding="utf-8", errors="ignore")[:500].lower()
-        for n in ("bravo", "atlas", "maven", "aura", "hermes"):
-            if n in head:
-                return n
-    return PROJECT_ROOT.name.lower()
+# Reuse the canonical detector from build_capability_graph.py instead of
+# duplicating the logic. Falls back to a local equivalent if the import
+# path isn't available (e.g., running this script in a partial checkout).
+try:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+    from build_capability_graph import _agent_name  # type: ignore
+except Exception:  # noqa: BLE001
+    def _agent_name() -> str:
+        claude_md = PROJECT_ROOT / "CLAUDE.md"
+        if claude_md.exists():
+            head = claude_md.read_text(encoding="utf-8", errors="ignore")[:500].lower()
+            for n in ("bravo", "atlas", "maven", "aura", "hermes"):
+                if n in head:
+                    return n
+        return PROJECT_ROOT.name.lower()
 
 
 # ── Skill creation ──────────────────────────────────────────────────────────
@@ -282,7 +305,7 @@ def _post_create(meta: list[str]) -> int:
     return 0
 
 
-def cmd_list(args) -> int:
+def cmd_list(_args) -> int:
     """List every registered capability via the graph."""
     cmd = [sys.executable, str(SCRIPTS_DIR / "capability_query.py"), "stats", "--json"]
     r = subprocess.run(cmd, capture_output=True, text=True)
