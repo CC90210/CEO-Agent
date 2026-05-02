@@ -63,6 +63,10 @@ tmp/
 !memory/SESSION_LOG.template.md
 !memory/ACTIVE_TASKS.template.md
 
+# Operator profile — personalized via setup wizard, never pushed
+brain/operator.profile.json
+!brain/operator.profile.example.json
+
 # Credential files (extra defense)
 *credentials*.json
 *credentials*.yaml
