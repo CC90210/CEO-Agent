@@ -127,6 +127,38 @@ if (!TELEGRAM_TOKEN) {
 acquireInstanceLock();
 process.on('exit', releaseInstanceLock);
 
+// ── Multi-machine arbitration via scripts/bridge_lock.py ────────────────────
+// Prevents the Mac and Windows bridges from both polling the same Telegram
+// token at once (which used to cause 409 conflicts that left bridges silently
+// dormant). Whichever machine writes a fresh heartbeat owns the bridge; the
+// other exits and PM2 backs off until the owner stops heartbeating.
+const BRIDGE_LOCK_AGENT = 'bravo';
+const BRIDGE_LOCK_SCRIPT = path.join(__dirname, 'scripts', 'bridge_lock.py');
+function bridgeLock(action) {
+    try {
+        const r = require('child_process').spawnSync(
+            PYTHON, [BRIDGE_LOCK_SCRIPT, action, '--agent', BRIDGE_LOCK_AGENT, '--json'],
+            { encoding: 'utf-8', timeout: 5000 }
+        );
+        return { ok: r.status === 0, status: r.status, stdout: (r.stdout || '').trim() };
+    } catch (e) {
+        return { ok: false, status: -1, error: String(e).slice(0, 200) };
+    }
+}
+const lockAcquire = bridgeLock('acquire');
+if (!lockAcquire.ok) {
+    log(`[BRIDGE-LOCK] CONFLICT — another machine owns Bravo's bridge: ${lockAcquire.stdout || lockAcquire.error}`);
+    log(`[BRIDGE-LOCK] Exiting with code 1 so PM2 backs off and retries when the other machine releases.`);
+    process.exit(1);
+}
+log(`[BRIDGE-LOCK] Acquired (${BRIDGE_LOCK_AGENT}) — this machine now owns Bravo's Telegram bridge.`);
+// Heartbeat every 15s so other machines see this lock as fresh.
+setInterval(() => bridgeLock('heartbeat'), 15000);
+// Release lock cleanly on shutdown.
+process.on('exit', () => bridgeLock('release'));
+process.on('SIGINT',  () => { bridgeLock('release'); process.exit(0); });
+process.on('SIGTERM', () => { bridgeLock('release'); process.exit(0); });
+
 const bot = new TelegramBot(TELEGRAM_TOKEN, {
     polling: {
         autoStart: false,
