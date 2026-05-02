@@ -35,7 +35,20 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 BRAVO_WORKFLOWS = ROOT / ".agents" / "workflows"
-MAVEN_WORKFLOWS = Path("C:/Users/User/CMO-Agent/.agents/workflows")
+# Maven repo: use sibling_repos.py if available, else fall back to common
+# locations that work on both Mac and Windows.
+def _maven_workflows() -> Path:
+    for candidate in (
+        Path.home() / "CMO-Agent" / ".agents" / "workflows",
+        Path.home() / "Documents" / "CMO-Agent" / ".agents" / "workflows",
+        Path("/Users/User/CMO-Agent/.agents/workflows"),
+        Path("C:/Users/User/CMO-Agent/.agents/workflows"),
+    ):
+        if candidate.exists():
+            return candidate
+    # Last resort: assume sibling of ROOT
+    return ROOT.parent / "CMO-Agent" / ".agents" / "workflows"
+MAVEN_WORKFLOWS = _maven_workflows()
 CATALOG = ROOT / "apps" / "command-center" / "lib" / "slash-commands.ts"
 
 
