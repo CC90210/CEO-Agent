@@ -123,3 +123,11 @@ Working MCPs: Playwright, Context7, Memory, Sequential Thinking, Knowledge Graph
 ## Obsidian Links
 - [[brain/SOUL]] | [[brain/STATE]] | [[brain/USER]] | [[brain/APP_REGISTRY]]
 - [[brain/AGENTS]] | [[brain/CAPABILITIES]] | [[brain/QUICK_REFERENCE]]
+
+## Capability Graph (V6.6)
+
+`brain/CAPABILITY_GRAPH.json` is the canonical machine-readable registry of every skill, script, agent, MCP server, and workflow in this repo. Three scripts maintain it:
+
+- `scripts/build_capability_graph.py` — auto-discovers capabilities from frontmatter + docstrings + MCP configs. Run after adding any new file in skills/, scripts/, agents/, or .agents/workflows/.
+- `scripts/capability_query.py` — runtime resolver. `resolve "send outreach email"` returns top-N matching skills by trigger overlap. Use this at decision time instead of grepping markdown.
+- `scripts/register.py` — one-command "add new capability" wizard. `register.py skill <name> --description "..." --triggers "..."` scaffolds the file with proper frontmatter, rebuilds the graph, runs self_audit, prints next-steps. Ends the 6-step add-a-skill ritual.
