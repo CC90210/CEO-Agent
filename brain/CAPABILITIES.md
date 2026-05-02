@@ -171,6 +171,31 @@ Transform any website into structured CLI commands via browser automation. Compl
 - **Plugin system:** `opencli plugin install github:user/repo` — extend without code changes
 - **Relationship:** cli-anything wraps local software → OpenCLI wraps websites. Use Playwright MCP for one-off browsing, OpenCLI for repeatable web commands.
 
+## Computer Control — Unified Dispatcher (V6.2)
+
+`scripts/computer_control.py` is the single entry point for full-machine automation. It picks the right backend based on platform + intent, so agents don't need to know whether to call macos_control, windows_control, Playwright, Browser Harness, Hermes A2000, or Anthropic Computer Use.
+
+**Backends it routes to (no replacement, just dispatch):**
+
+| Intent | Backend | Why |
+|---|---|---|
+| `cc.open("Chrome")` / `cc.click(x,y)` / `cc.type(...)` | `scripts/macos_control.py` (mac) or `scripts/windows_control.py` (windows) | Native desktop primitives — 60+ commands each |
+| `cc.click_text("Submit")` (vision-driven, no coordinates) | Anthropic Computer Use Tool API | LLM sees screen, picks coordinates |
+| `cc.browser.scrape(url)` | Playwright MCP | Stateless, ephemeral, no login |
+| `cc.browser.do_as_me(intent)` | Browser Harness via CDP :9222 | YOUR logged-in Chrome with persistent session |
+| `cc.desktop_erp.run_recipe(...)` | Hermes `adapters/a2000_desktop.py` | pywinauto + JSON recipe for legacy Windows ERPs (A2000) |
+
+**CLI:** `python scripts/computer_control.py info` — shows which backends are available on this machine. Then `open / click / click-text / type / keystroke / screenshot / scroll / window {list,focus,frontmost} / browser {scrape,do-as-me}`.
+
+### Playwright vs Browser Harness — they are complementary, not duplicates
+
+This is a common point of confusion. They serve **different jobs**:
+
+- **Playwright (MCP)** — stateless, ephemeral browser. New context per call, no login persistence. Best for: scraping public pages, signup-flow testing as anonymous user, headless CI checks. Spins up fresh Chromium/Firefox/WebKit on demand.
+- **Browser Harness** — attaches to your **actual logged-in Chrome** via CDP port 9222. Persistent cookies, real session, your real LinkedIn/Skool/Bennett-platform login. Best for: running tasks AS YOU while you sleep (DM replies, community posts, member-list pulls). Houses `browser/domain-skills/` — recorded recipes for sites you actually use.
+
+**Rule of thumb:** if the task could be done by anyone (scrape, test, fetch) → Playwright. If the task has to be done as you (logged in, your account, your reputation) → Browser Harness. The dispatcher in `computer_control.py browser` exposes this choice via `scrape` vs `do-as-me`.
+
 ## Browser Harness (Direct Browser Control + Domain Skills)
 
 Browser Harness is installed as Bravo's direct Chrome/Edge control layer. It complements Playwright MCP, Firecrawl, and OpenCLI by attaching to a real logged-in browser and turning site-specific discoveries into durable domain skills.
