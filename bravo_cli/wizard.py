@@ -2007,6 +2007,44 @@ def step_finalize(profile: str, step_num: int, total: int) -> None:
           f"{DIM('Made by OASIS AI ·')} {link(OASIS_URL, 'oasisai.work')}")
     hr("═", 64)
     print()
+    # Run scripts/personalize.py to materialize brain/USER.md +
+    # memory/ACTIVE_TASKS.md + memory/SESSION_LOG.md from the wizard's
+    # answers. This is what makes a fresh clone become *this operator's*
+    # agent — without it, the wizard saves credentials but the agent has
+    # no idea who it's working for.
+    personalize_script = REPO_ROOT / "scripts" / "personalize.py"
+    scaffold_script = REPO_ROOT / "scripts" / "scaffold.py"
+    if personalize_script.exists() and profile == "bravo":
+        print(f"  {BOLD('Personalizing identity files...')}")
+        rc = subprocess.call([sys.executable, str(personalize_script), "apply", "--force"],
+                             cwd=str(REPO_ROOT))
+        if rc == 0:
+            print(f"  {GREEN(OK)} brain/USER.md + memory/ACTIVE_TASKS.md + memory/SESSION_LOG.md rendered.")
+        else:
+            print(f"  {YELLOW('personalize.py apply returned ' + str(rc) + ' — re-run manually after fixing.')}")
+
+        # Detect: is this a fresh fork (someone other than CC) or CC's
+        # original repo? Only run scaffold (token-replace CC identifiers
+        # across the whole codebase) on a fork.
+        if scaffold_script.exists():
+            new_operator = (read_env("USER_PREFERRED_NAME") or "").strip().upper() != "CC" \
+                           and (read_env("USER_FULL_NAME") or "").strip().lower() != "conaugh mckenna"
+            if new_operator:
+                print()
+                print(f"  {BOLD('Detected new operator')} — will replace CC's identifiers across "
+                      f"the codebase with yours.")
+                run_scaffold = yes_no("Run scaffold now? (recommended for fresh clones)", default=True)
+                if run_scaffold:
+                    rc = subprocess.call([sys.executable, str(scaffold_script),
+                                          "--apply", "--backup"], cwd=str(REPO_ROOT))
+                    if rc == 0:
+                        print(f"  {GREEN(OK)} Codebase scaffolded for {read_env('USER_PREFERRED_NAME') or 'you'}.")
+                    else:
+                        print(f"  {YELLOW('scaffold.py exited ' + str(rc) + ' — re-run manually if needed.')}")
+                else:
+                    print(f"  {DIM('Skipped. Run later: python scripts/scaffold.py --apply --backup')}")
+        print()
+
     # Auto-run bravo doctor — no prompt. OpenClaw parity: onboarding that
     # asks "want me to verify this worked?" is weaker than onboarding that
     # just verifies it. Users who need to skip (CI, container builds) can

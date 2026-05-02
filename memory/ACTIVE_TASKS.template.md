@@ -1,38 +1,31 @@
 ---
-tags: [tasks, active, template]
-description: Current high-priority tasks. Live version is gitignored.
+tags: [tasks, active]
 ---
+# ACTIVE TASKS — {{ preferred_name }}
 
-# ACTIVE TASKS (TEMPLATE)
+> Generated from template by `scripts/personalize.py`. Bravo maintains this file.
+> Live version is gitignored.
 
-> Copy to `memory/ACTIVE_TASKS.md` and let Bravo maintain it.
-> Live version is gitignored — your deal pipeline stays local.
+## North Star: {{ north_star }}
 
-## Target: [Your North Star metric and deadline]
-
-- **Current:** [where you are]
-- **Gap:** [the delta]
-- **Risk:** [the #1 thing that could derail the goal]
+- **Industry:** {{ industry }} · **Primary metric:** {{ primary_metric }}
+- **Voice:** {{ voice }}
 
 ## High-Priority Tasks
 
-### [Task title]
-- **Owner:** [Bravo / You / partner]
-- **Status:** [in-progress / blocked / scheduled]
-- **Next action:** [the very next concrete step]
-- **Why it matters:** [one sentence]
+<!-- Bravo populates this section as tasks land -->
 
 ## Operator Manual Actions Required
 
-- [ ] [Things only the operator can do — calls to make, decisions to approve]
+- [ ] <!-- things only {{ preferred_name }} can do -->
 
 ## This Week
 
-- [ ] [Tasks scoped to current week]
+- [ ] <!-- weekly scope -->
 
 ## Backlog
 
-- [Tasks queued for later — not urgent]
+<!-- Tasks queued for later -->
 
 ## Obsidian Links
-- [[brain/STATE]] | [[memory/SESSION_LOG]] | [[brain/DASHBOARD]]
+- [[brain/STATE]] | [[memory/SESSION_LOG]] | [[brain/USER]] | [[brain/DASHBOARD]]
