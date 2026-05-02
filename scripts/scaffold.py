@@ -60,26 +60,10 @@ from typing import Any, Optional
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PROFILE_PATH = PROJECT_ROOT / "brain" / "operator.profile.json"
 
-# CC's identifiers — the strings we will hunt for and replace.
-# Listed in priority order: longest-match-first to avoid partial collisions
-# (e.g., replace "OASIS AI Solutions" before "OASIS AI").
-CC_IDENTITY: dict[str, str] = {
-    "Conaugh McKenna": "full_name",
-    "Kona Makana": "personal_brand",
-    "OASIS AI Solutions": "primary_brand",
-    "OASIS AI": "primary_brand",
-    "conaugh@oasisai.work": "primary_email",
-    "oasisai.work": "website_domain",          # hostname only, no scheme
-    "https://calendar.app.google/tpfvJYBGircnGu8G8": "booking_link",
-    "Collingwood, Ontario, Canada": "location",
-    "Collingwood, Ontario": "location",
-    "Collingwood": "location_city",
-    "$5,000 USD Net MRR by 2026-05-15": "north_star",
-    "$5,000 USD Net MRR by May 15, 2026": "north_star",
-    # CC and Conaugh by themselves are too risky for token-replace
-    # (cc-funnel, ccBy in code, etc.) — handled by case-sensitive
-    # word-boundary regex separately if the operator opts in.
-}
+# Note on identifiers: the literal strings we hunt for live inline in
+# build_replacement_map() below — single source of truth, no separate
+# constant table to drift out of sync. "CC" / "Conaugh" alone aren't
+# replaced (too risky — would hit cc-funnel, ccBy, etc.).
 
 # Non-gitignored extensions we'll touch. Keep tight to avoid blowing up
 # binary or generated files.
