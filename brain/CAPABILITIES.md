@@ -4,8 +4,8 @@ tags: [capabilities, tools]
 
 # CAPABILITIES — Tool & Integration Registry
 
-> Complete inventory of what Bravo can do. Last updated: 2026-04-26.
-> **Totals (live disk truth, 2026-04-27): 151 skills · 36 workflows · 68 scripts · 21 agents (14 file-based in `agents/` + 7 native Claude Code in `.claude/agents/`) · 9 MCP servers + Codex (external).**
+> Complete inventory of what Bravo can do. Last updated: 2026-05-01 (V6.1).
+> **Totals (live disk truth, 2026-05-01 V6.1): 153 skills · 36 workflows · 93 scripts · 21 agents (14 file-based in `agents/` + 7 native Claude Code in `.claude/agents/`) · 9 MCP servers + Codex (external). V6.1 adds the scaffolding mechanism (operator.profile.json + personalize.py + scaffold.py) — repo now ships as a true scaffold for new operators.**
 >
 > Marketing/social scripts (`late_tool.py`, `late_publisher.py`, `instagram_engine.py`, `codex_image_gen.py`) transferred to Maven on 2026-04-26 — they live at `../CMO-Agent/scripts/` now. Bravo subprocesses to Maven's `late_tool.py` only for read-only CEO-dashboard stats (see `ceo_dashboard.py:_content_this_week`).
 >
@@ -135,12 +135,16 @@ V6.0 ships the multi-provider model router, autonomous skill synthesis, 3-layer 
 | `neuro_symbolic_gate.py` | Datalog-style compliance rules (CASL, cooldown, caps, DNS) layered over draft critic. | `python scripts/neuro_symbolic_gate.py rules --json` |
 | `gateway_admin.py` | Admin CLI for the multi-platform gateway (Telegram + Discord + Slack adapters). | `python scripts/gateway_admin.py status --json` |
 | `setup_wizard.py` | Interactive client onboarding — collects credentials, validates, writes env, smoke-tests. | `python scripts/setup_wizard.py` |
+| `personalize.py` | Renders `brain/USER.md` + memory templates from `brain/operator.profile.json`. Idempotent. **V6.1** | `python scripts/personalize.py apply --json` |
+| `scaffold.py` | Token-replaces operator identifiers across the codebase at fork-time. Refuses to run on the original operator's repo by design. **V6.1** | `python scripts/scaffold.py --apply --backup` |
 
 **Config:** `brain/MODEL_CONFIG.md` (per-agent provider/model + fallbacks).
+**Operator profile:** `brain/operator.profile.json` (gitignored — schema in `operator.profile.example.json`). Single source of truth for identity/brand/voice.
 **Container skill:** `skills/auto-generated/SKILL.md` (parent for runtime-synthesized skills).
 **Working memory:** `memory/WORKING.md` (cleared nightly by consolidation).
 **Gateway entry:** `gateway/index.js` (HTTP control on `localhost:7773`).
 **Public install:** `install.sh` / `install.ps1` (one-line install for non-technical clients).
+**Fork mechanism (V6.1):** wizard → `personalize.py apply --force` → (if new operator) `scaffold.py --apply --backup` → `bravo doctor`. Turns a fresh clone into the new operator's personal agent.
 
 ## CLI-Anything (Universal CLI Generation)
 
