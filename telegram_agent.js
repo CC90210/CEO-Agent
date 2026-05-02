@@ -1268,13 +1268,23 @@ let pollingDormant = false;
 bot.on('polling_error', (e) => {
     pollErrorCount++;
     const msg = e.message || String(e);
-    // 409 Conflict = another bot instance is polling (dual-machine scenario)
+    // 409 Conflict = another bot instance is polling (dual-machine, leftover dev
+    // process, etc.). Old behavior: stop polling, go "dormant" and wait for PM2
+    // to restart — but PM2 saw "online" and never restarted, so the bridge
+    // silently stopped responding to messages for days. Fixed: stop polling,
+    // sleep 30s (let the conflicting process release the token), then exit
+    // non-zero so PM2's autorestart picks us back up clean.
     if (msg.includes('409') || msg.includes('Conflict')) {
         if (!pollingDormant) {
             pollingDormant = true;
-            log('[POLL] 409 conflict: another bot instance owns this Telegram token. Entering dormant mode until PM2 restarts this process.');
+            log('[POLL] 409 conflict: another bot instance owns this Telegram token. ' +
+                'Stopping polling and exiting in 30s so PM2 can restart cleanly.');
         }
         bot.stopPolling().catch(() => {});
+        setTimeout(() => {
+            log('[POLL] 30s elapsed after 409, exiting with code 1 to trigger PM2 restart.');
+            process.exit(1);
+        }, 30000);
         return;
     }
     // Log first error, then only every 50th to avoid filling logs
