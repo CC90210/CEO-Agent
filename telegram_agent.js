@@ -674,7 +674,9 @@ const executeCli = (tool, userPrompt, chatId, modelOverride = null, forceApiKey 
             if (chatId) {
                 const elapsed = Math.round((Date.now() - startTime) / 1000);
                 bot.sendChatAction(chatId, 'typing').catch(() => {});
-                if (elapsed >= 120 && elapsed % 120 === 0) {
+                // First heartbeat at 45s (used to be 120s — way too long for short
+                // questions, made the bridge feel unresponsive). Then every 60s.
+                if (elapsed === 45 || (elapsed >= 60 && elapsed % 60 === 0)) {
                     bot.sendMessage(chatId, `Still working... (${elapsed}s)`).catch(() => {});
                 }
             }
@@ -1004,6 +1006,16 @@ bot.on('message', async (msg) => {
 
     if (text === '/whoami') {
         return bot.sendMessage(chatId, `User ID: ${userId}\nUsername: ${user}\nChat ID: ${chatId}`);
+    }
+
+    // /ping — fast bridge-only health check. Doesn't touch Claude / Gemini.
+    // If you get "pong" back, the bridge process is alive and your auth/rate-
+    // limit/Telegram-token chain is working. If pong is silent, the bridge
+    // isn't running (check PM2 status) or your bot token is wrong.
+    if (text === '/ping') {
+        const uptime = Math.round(process.uptime());
+        return bot.sendMessage(chatId,
+            `pong — Bravo bridge alive (uptime ${uptime}s, ${MACHINE_NAME})`);
     }
 
     // V15.7: Workflow slash commands — passthroughs to skill-driven prompts
