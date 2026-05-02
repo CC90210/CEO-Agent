@@ -247,11 +247,14 @@ def cmd_doctor(_args: argparse.Namespace) -> int:
     print()
 
     # 2. Required structure
+    # Files that MUST be in the public repo (shipped as templates or always-public):
     print(BOLD("2. Required Files"))
     required_files = [
         "CLAUDE.md", "GEMINI.md", "ANTIGRAVITY.md", "AGENTS.md",
-        "brain/STATE.md", "brain/SOUL.md", "brain/USER.md",
-        "memory/SESSION_LOG.md", "memory/ACTIVE_TASKS.md",
+        "brain/STATE.md", "brain/SOUL.md",
+        "brain/USER.template.md",                # template ships publicly
+        "memory/SESSION_LOG.template.md",        # template ships publicly
+        "memory/ACTIVE_TASKS.template.md",       # template ships publicly
         "skills/browser-harness/SKILL.md",
         "browser/SAFETY.md",
         ".env.agents",
@@ -262,6 +265,19 @@ def cmd_doctor(_args: argparse.Namespace) -> int:
         print(f"  {mark} {relpath}")
         if not exists:
             all_ok = False
+    # Per-operator files: rendered from templates by scripts/personalize.py.
+    # On a fresh clone these are absent until the wizard runs — that's expected,
+    # not a failure. Only flag if the operator profile says we're personalized
+    # AND the rendered files are missing (real desync).
+    profile_json = REPO_ROOT / "brain" / "operator.profile.json"
+    if profile_json.exists():
+        for relpath in ("brain/USER.md", "memory/SESSION_LOG.md", "memory/ACTIVE_TASKS.md"):
+            exists = (REPO_ROOT / relpath).exists()
+            mark = GREEN(OK) if exists else YELLOW(WARN)
+            note = "personalized" if exists else "run `python scripts/personalize.py apply --force` to render"
+            print(f"  {mark} {relpath:38s} {DIM(note)}")
+    else:
+        print(f"  {YELLOW(WARN)} operator.profile.json missing — run `python scripts/setup_wizard.py` to personalize")
     print()
 
     # 3. Self-audit
@@ -308,8 +324,55 @@ def cmd_doctor(_args: argparse.Namespace) -> int:
         print(f"  {DIM('browser_harness_doctor.py not found — skipping')}")
     print()
 
-    # 5. Env file
-    print(BOLD("5. Environment"))
+    # 5. V6 Superintelligence Stack
+    print(BOLD("5. V6 Stack Health"))
+    v6_scripts = [
+        ("scripts/model_router.py",        "list-providers"),
+        ("scripts/skill_synthesizer.py",   "scan --since 7d"),
+        ("scripts/skill_metrics.py",       "report"),
+        ("scripts/memory_consolidation.py", "status"),
+        ("scripts/personalize.py",         "check"),
+        ("scripts/scaffold.py",            None),  # has no subcommand, --help only
+        ("scripts/system_cleanup.py",      None),
+        ("scripts/computer_control.py",    "info"),
+        ("scripts/neuro_symbolic_gate.py", "rules"),
+        ("scripts/gnn_skill_router.py",    None),
+        ("scripts/rlhf_outreach.py",       None),
+        ("scripts/neural_memory.py",       None),
+        ("scripts/maml_onboard.py",        None),
+        ("scripts/tft_forecast.py",        None),
+    ]
+    v6_pass = 0
+    for relpath, subcmd in v6_scripts:
+        path = REPO_ROOT / relpath
+        if not path.exists():
+            print(f"  {RED(FAIL)} {relpath}  {DIM('missing')}")
+            all_ok = False
+            continue
+        # --help is enough proof the script imports cleanly + parses args
+        args = [sys.executable, str(path), "--help"]
+        check = _run(args)
+        if check["ok"]:
+            v6_pass += 1
+            print(f"  {GREEN(OK)} {relpath}")
+        else:
+            err = (check.get("stderr") or check.get("stdout") or "").strip()[:80]
+            print(f"  {YELLOW(WARN)} {relpath}  {DIM(err)}")
+    print(f"  {DIM(f'{v6_pass}/{len(v6_scripts)} V6 scripts loadable')}")
+    # Quick provider check — proves model_router can resolve at least Claude
+    mr = _run([sys.executable, str(SCRIPTS_DIR / "model_router.py"), "list-providers", "--json"])
+    if mr["ok"]:
+        try:
+            providers = json.loads(mr["stdout"])
+            available = [p["provider"] for p in providers if p.get("available")]
+            print(f"  {GREEN(OK) if available else YELLOW(WARN)} Available LLM providers: "
+                  f"{DIM(', '.join(available) if available else 'none — set ANTHROPIC_API_KEY')}")
+        except Exception:  # noqa: BLE001
+            pass
+    print()
+
+    # 6. Env file
+    print(BOLD("6. Environment"))
     if ENV_FILE.exists():
         env_text = ENV_FILE.read_text(encoding="utf-8", errors="ignore")
         keys_present = [

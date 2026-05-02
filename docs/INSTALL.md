@@ -222,6 +222,40 @@ python bravo_cli/main.py setup --noninteractive
 
 ---
 
+## Auto-Update Behavior
+
+GitHub does **not** push updates to existing clones automatically. There are three paths to receive new commits:
+
+1. **Re-run the wizard** (recommended). The wizard calls `_self_update_preflight()` on every launch — it fetches origin, fast-forwards your branch if you have no local changes, and re-runs itself with the new code. Skip with `BRAVO_SKIP_AUTO_UPDATE=1` if you want to lock to the commit you have.
+
+   ```bash
+   python scripts/setup_wizard.py     # auto-pulls latest before running
+   ```
+
+2. **Re-run the install one-liner.** It detects the existing clone and offers `[u]pgrade` / `[o]verwrite` / `[c]ancel`. Pick `u` for a clean fast-forward.
+
+   ```bash
+   irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install.ps1 | iex
+   ```
+
+3. **Manual git pull.**
+
+   ```bash
+   cd C:\Users\User\Business-Empire-Agent      # or wherever your clone lives
+   git fetch origin && git reset --hard origin/main
+   .\.venv\Scripts\python.exe -m pip install -r requirements.txt   # if deps changed
+   ```
+
+Idle clones stay at whatever commit they had — they don't poll GitHub. Pin to a release with `BRAVO_VERSION=v6.5.0 install.ps1` if you ever want frozen behavior.
+
+After any update, `bravo doctor` validates the full system: required files, self-audit health score, V6 stack (14 scripts loadable), MCP sync, available LLM providers, browser harness status, env-file completeness. One command, one screen, full picture.
+
+```bash
+bravo doctor
+```
+
+---
+
 ## Maintenance — `scripts/system_cleanup.py`
 
 After multiple installs/upgrades, redundant clones (`~/.bravo`, `~/.oasis/wizard`, `~/.oasis/<slug>`) and pip/npm caches accumulate. Run a dry-run audit any time to see reclaimable space:
