@@ -1,63 +1,49 @@
 #!/usr/bin/env bash
-# OASIS AI — Multi-Agent Installer (macOS / Linux / WSL)
-# Version: 6.2.0
+# OASIS AI — One-Line Installer (macOS / Linux / WSL)
+# Version: 6.3.0
+#
+# This is a thin bootstrap. It clones the OASIS wizard, installs deps,
+# then HANDS OFF to the real wizard (bravo_cli) which has the full UX:
+# big figlet agent picker, identity questions, and per-agent repo cloning.
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install.sh | bash
-#
-#   # Skip the picker:
-#   OASIS_PROFILE=atlas bash -c "$(curl -fsSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install.sh)"
-#
-#   # Override install directory (default: ~/.oasis):
-#   OASIS_HOME=/opt/oasis bash -c "$(curl -fsSL ...)"
 #
 # License: MIT — Copyright (c) 2026 OASIS AI Solutions
 
 set -euo pipefail
 
 OASIS_HOME="${OASIS_HOME:-$HOME/.oasis}"
-SCRIPT_VERSION="6.2.0"
+WIZARD_HOME="${OASIS_HOME}/wizard"
+WIZARD_REPO="${WIZARD_HOME}/repo"
+WIZARD_VENV="${WIZARD_HOME}/venv"
+BOOTSTRAP_REPO="https://github.com/CC90210/CEO-Agent.git"
+BOOTSTRAP_BRANCH="main"
+SCRIPT_VERSION="6.3.0"
 
-# ── Agent registry ───────────────────────────────────────────────────────────
-# slug | name | role | repo | branch | tagline
-read -r -d '' AGENT_REGISTRY <<'EOF' || true
-bravo|Bravo|CEO|https://github.com/CC90210/CEO-Agent.git|main|Autonomous CEO — strategy, clients, revenue, outreach
-atlas|Atlas|CFO|https://github.com/CC90210/CFO-Agent.git|master|Autonomous CFO — tax, treasury, FIRE, trading
-maven|Maven|CMO|https://github.com/CC90210/CMO-Agent.git|main|Autonomous CMO — content, ads, brand, video pipeline
-aura|Aura|Lifestyle|https://github.com/CC90210/Aura-Home-Agent.git|main|Lifestyle agent — home, habits, smart-home, voice
-hermes|Hermes|Commerce|https://github.com/CC90210/hermes.git|main|Commerce agent — POS, EDI, chargebacks, fulfillment
-EOF
-
-# ── Flags ────────────────────────────────────────────────────────────────────
 MODE="install"
 SKIP_WIZARD=0
 AUTO_INSTALL_MODE="prompt"
-PROFILE_FROM_FLAG=""
 
 for arg in "$@"; do
     case "$arg" in
-        --upgrade)          MODE="upgrade" ;;
-        --uninstall)        MODE="uninstall" ;;
-        --skip-wizard)      SKIP_WIZARD=1 ;;
-        --auto-install)     AUTO_INSTALL_MODE="yes" ;;
-        --no-auto-install)  AUTO_INSTALL_MODE="no" ;;
-        --profile=*)        PROFILE_FROM_FLAG="${arg#--profile=}" ;;
-        -h|--help)
-            grep '^#' "$0" | sed 's/^# \{0,1\}//'
-            exit 0
-            ;;
+        --upgrade)         MODE="upgrade" ;;
+        --uninstall)       MODE="uninstall" ;;
+        --skip-wizard)     SKIP_WIZARD=1 ;;
+        --auto-install|-y) AUTO_INSTALL_MODE="yes" ;;
+        --no-auto-install) AUTO_INSTALL_MODE="no" ;;
+        -h|--help) grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     esac
 done
 
 case "${OASIS_AUTO_INSTALL:-}"    in 1|yes|true) AUTO_INSTALL_MODE="yes" ;; esac
 case "${OASIS_NO_AUTO_INSTALL:-}" in 1|yes|true) AUTO_INSTALL_MODE="no"  ;; esac
 
-# ── Colors ───────────────────────────────────────────────────────────────────
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
     C_CYAN=$'\033[1;36m'; C_GREEN=$'\033[1;32m'; C_RED=$'\033[1;31m'
-    C_DIM=$'\033[2m'; C_YELLOW=$'\033[1;33m'; C_BOLD=$'\033[1m'; C_WHITE=$'\033[1;37m'; C_RESET=$'\033[0m'
+    C_DIM=$'\033[2m'; C_YELLOW=$'\033[1;33m'; C_WHITE=$'\033[1;37m'; C_RESET=$'\033[0m'
 else
-    C_CYAN=''; C_GREEN=''; C_RED=''; C_DIM=''; C_YELLOW=''; C_BOLD=''; C_WHITE=''; C_RESET=''
+    C_CYAN=''; C_GREEN=''; C_RED=''; C_DIM=''; C_YELLOW=''; C_WHITE=''; C_RESET=''
 fi
 
 ok()   { printf '  %s[+]%s  %s\n'   "$C_GREEN"  "$C_RESET" "$1"; }
@@ -65,6 +51,17 @@ fail() { printf '  %s[x]%s  %s\n'   "$C_RED"    "$C_RESET" "$1"; }
 warn() { printf '  %s[!]%s  %s\n'   "$C_YELLOW" "$C_RESET" "$1"; }
 info() { printf '  %s%s%s\n'        "$C_DIM"    "$1" "$C_RESET"; }
 step() { printf '\n%s──  %s%s\n'    "$C_CYAN"   "$1" "$C_RESET"; }
+
+ask_yn() {
+    local q="$1"; local def="${2:-y}"
+    if [ "$AUTO_INSTALL_MODE" = "yes" ]; then return 0; fi
+    if [ "$AUTO_INSTALL_MODE" = "no" ];  then return 1; fi
+    local hint='[Y/n]'; [ "$def" = "n" ] && hint='[y/N]'
+    printf '  %s %s ' "$q" "$hint"
+    local reply=""; read -r reply </dev/tty 2>/dev/null || reply=""
+    if [ -z "$reply" ]; then [ "$def" = "y" ] && return 0 || return 1; fi
+    [[ "$reply" =~ ^[Yy] ]] && return 0 || return 1
+}
 
 # ── OASIS banner ─────────────────────────────────────────────────────────────
 printf '%s\n' "$C_CYAN"
@@ -78,68 +75,20 @@ cat <<'BANNER'
 BANNER
 printf '%s' "$C_RESET"
 printf '\n  %sAutonomous AI C-Suite  ·  oasisai.work%s\n' "$C_WHITE" "$C_RESET"
-printf '  %sinstaller v%s%s\n\n' "$C_DIM" "$SCRIPT_VERSION" "$C_RESET"
+printf '  %sbootstrap v%s%s\n\n' "$C_DIM" "$SCRIPT_VERSION" "$C_RESET"
+printf '  %sAfter dependencies install, the wizard will let you pick:%s\n' "$C_WHITE" "$C_RESET"
+printf '    %sBravo (CEO)  ·  Atlas (CFO)  ·  Maven (CMO)  ·  Aura  ·  Hermes%s\n\n' "$C_DIM" "$C_RESET"
 
-# ── Agent picker ─────────────────────────────────────────────────────────────
-SELECTED=""
-if [ -n "$PROFILE_FROM_FLAG" ]; then SELECTED="$(echo "$PROFILE_FROM_FLAG" | tr '[:upper:]' '[:lower:]')"; fi
-if [ -z "$SELECTED" ] && [ -n "${OASIS_PROFILE:-}" ]; then SELECTED="$(echo "$OASIS_PROFILE" | tr '[:upper:]' '[:lower:]')"; fi
-
-# Validate selection if provided
-if [ -n "$SELECTED" ]; then
-    if ! echo "$AGENT_REGISTRY" | awk -F'|' -v s="$SELECTED" '$1==s{found=1} END{exit !found}'; then
-        warn "Unknown profile '$SELECTED' — choose from picker."
-        SELECTED=""
-    fi
-fi
-
-if [ -z "$SELECTED" ]; then
-    printf '  %sChoose an agent:%s\n\n' "$C_WHITE" "$C_RESET"
-    i=1
-    SLUGS=()
-    while IFS='|' read -r slug name role repo branch tagline; do
-        [ -z "$slug" ] && continue
-        printf '    %s%d.%s  %s%s%s  (%s)  %s%s%s\n' \
-            "$C_DIM" "$i" "$C_RESET" \
-            "$C_CYAN" "$name" "$C_RESET" \
-            "$role" \
-            "$C_DIM" "$tagline" "$C_RESET"
-        SLUGS+=("$slug")
-        i=$((i+1))
-    done <<< "$AGENT_REGISTRY"
-    printf '\n'
-    while [ -z "$SELECTED" ]; do
-        printf '  Pick an agent (1-%d): ' "${#SLUGS[@]}"
-        read -r reply </dev/tty || reply=""
-        if [[ "$reply" =~ ^[0-9]+$ ]] && [ "$reply" -ge 1 ] && [ "$reply" -le "${#SLUGS[@]}" ]; then
-            SELECTED="${SLUGS[$((reply-1))]}"
-        else
-            printf '  %sEnter a number 1-%d%s\n' "$C_RED" "${#SLUGS[@]}" "$C_RESET"
-        fi
-    done
-fi
-
-# Resolve agent metadata
-AGENT_LINE="$(echo "$AGENT_REGISTRY" | awk -F'|' -v s="$SELECTED" '$1==s')"
-AGENT_NAME="$(echo "$AGENT_LINE" | cut -d'|' -f2)"
-AGENT_ROLE="$(echo "$AGENT_LINE" | cut -d'|' -f3)"
-REPO_URL="$(echo "$AGENT_LINE" | cut -d'|' -f4)"
-BRANCH="$(echo "$AGENT_LINE" | cut -d'|' -f5)"
-
-AGENT_HOME="${OASIS_HOME}/${SELECTED}"
-AGENT_REPO="${AGENT_HOME}/repo"
-AGENT_VENV="${AGENT_HOME}/venv"
-
-printf '\n  %sInstalling: %s%s%s (%s)%s\n' "$C_WHITE" "$C_CYAN" "$AGENT_NAME" "$C_RESET" "$AGENT_ROLE" "$C_RESET"
+ask_yn "Continue with installation?" y || { warn "Aborted."; exit 0; }
 
 # ── Uninstall ────────────────────────────────────────────────────────────────
 if [ "$MODE" = "uninstall" ]; then
-    step "Uninstall $AGENT_NAME"
-    if [ ! -d "$AGENT_HOME" ]; then warn "Nothing to uninstall at $AGENT_HOME"; exit 0; fi
-    warn "This will remove $AGENT_HOME"
-    printf "  Continue? [y/N] "
-    read -r reply </dev/tty || reply=""
-    case "$reply" in [Yy]*) rm -rf "$AGENT_HOME"; ok "Uninstalled $AGENT_NAME";; *) info "Aborted";; esac
+    step "Uninstall OASIS"
+    [ ! -d "$OASIS_HOME" ] && { warn "Nothing at $OASIS_HOME"; exit 0; }
+    warn "This will remove $OASIS_HOME (every installed agent)."
+    ask_yn "Continue?" n || { info "Aborted"; exit 0; }
+    rm -rf "$OASIS_HOME"
+    ok "Uninstalled."
     exit 0
 fi
 
@@ -155,7 +104,7 @@ for cmd in python3.13 python3.12 python3.11 python3.10 python3 python; do
 done
 [ -z "$PYTHON_CMD" ] && { fail "python (need 3.10+)"; MISSING+=("python"); }
 for tool in node npm git; do
-    if command -v "$tool" >/dev/null 2>&1; then ok "$tool"; else fail "$tool"; MISSING+=("$tool"); fi
+    command -v "$tool" >/dev/null 2>&1 && ok "$tool" || { fail "$tool"; MISSING+=("$tool"); }
 done
 
 if [ ${#MISSING[@]} -gt 0 ]; then
@@ -167,102 +116,102 @@ if [ ${#MISSING[@]} -gt 0 ]; then
     exit 2
 fi
 
-# ── Clone / upgrade ──────────────────────────────────────────────────────────
-step "$(echo "$MODE" | sed 's/^./\U&/') $AGENT_NAME"
-mkdir -p "$AGENT_HOME"
+# ── Clone wizard repo ────────────────────────────────────────────────────────
+step "Fetching OASIS wizard"
+mkdir -p "$WIZARD_HOME"
 
-if [ "$MODE" = "upgrade" ] && [ -d "$AGENT_REPO/.git" ]; then
-    git -C "$AGENT_REPO" fetch --depth 50 origin "$BRANCH" >/dev/null 2>&1 || warn "Fetch failed"
-    git -C "$AGENT_REPO" reset --hard "origin/$BRANCH" >/dev/null 2>&1
-    ok "$AGENT_NAME updated"
-elif [ -d "$AGENT_REPO/.git" ]; then
-    warn "Existing $AGENT_NAME install at $AGENT_REPO"
-    printf "  [u]pgrade  [o]verwrite  [c]ancel  (default: cancel): "
-    read -r reply </dev/tty || reply=""
+if [ -d "$WIZARD_REPO/.git" ] && [ "$MODE" != "upgrade" ]; then
+    warn "Wizard already at $WIZARD_REPO"
+    printf "  [u]pgrade  [r]un wizard now  [c]ancel  (default: run): "
+    reply=""; read -r reply </dev/tty 2>/dev/null || reply=""
     case "$reply" in
-        [Uu]*) git -C "$AGENT_REPO" fetch --depth 50 origin "$BRANCH" >/dev/null 2>&1
-               git -C "$AGENT_REPO" reset --hard "origin/$BRANCH" >/dev/null 2>&1
-               ok "Upgraded" ;;
-        [Oo]*) rm -rf "$AGENT_REPO"
-               git clone --depth 10 --branch "$BRANCH" "$REPO_URL" "$AGENT_REPO" >/dev/null 2>&1 || { fail "clone failed"; exit 1; }
-               ok "Cloned fresh" ;;
-        *)     info "Cancelled. Re-run with --upgrade to update in place."; exit 0 ;;
+        [Uu]*) git -C "$WIZARD_REPO" fetch --depth 50 origin "$BOOTSTRAP_BRANCH" >/dev/null 2>&1
+               git -C "$WIZARD_REPO" reset --hard "origin/$BOOTSTRAP_BRANCH" >/dev/null 2>&1
+               ok "Updated" ;;
+        [Cc]*) info "Cancelled"; exit 0 ;;
+        *)     info "Skipping clone — using existing wizard." ;;
     esac
+elif [ "$MODE" = "upgrade" ] && [ -d "$WIZARD_REPO/.git" ]; then
+    git -C "$WIZARD_REPO" fetch --depth 50 origin "$BOOTSTRAP_BRANCH" >/dev/null 2>&1
+    git -C "$WIZARD_REPO" reset --hard "origin/$BOOTSTRAP_BRANCH" >/dev/null 2>&1
+    ok "Wizard updated"
 else
-    info "Cloning $REPO_URL ($BRANCH) -> $AGENT_REPO"
-    git clone --depth 10 --branch "$BRANCH" "$REPO_URL" "$AGENT_REPO" >/dev/null 2>&1 || { fail "git clone failed"; exit 1; }
+    [ -d "$WIZARD_REPO" ] && rm -rf "$WIZARD_REPO"
+    info "Cloning $BOOTSTRAP_REPO -> $WIZARD_REPO (about 5 seconds)"
+    git clone --depth 10 --branch "$BOOTSTRAP_BRANCH" "$BOOTSTRAP_REPO" "$WIZARD_REPO" >/dev/null 2>&1 || { fail "clone failed"; exit 1; }
     ok "Cloned"
 fi
 
 # ── Python venv + deps ───────────────────────────────────────────────────────
-step "Installing Python dependencies"
-cd "$AGENT_REPO"
-if [ ! -x "$AGENT_VENV/bin/python" ]; then
-    info "Creating virtualenv at $AGENT_VENV"
-    "$PYTHON_CMD" -m venv "$AGENT_VENV"
+VENV_PY="$WIZARD_VENV/bin/python"
+if [ -x "$VENV_PY" ]; then
+    step "Python virtualenv (already present, reusing)"
+    ok "venv at $WIZARD_VENV"
+else
+    step "Python virtualenv"
+    info "Creating virtualenv at $WIZARD_VENV (about 15-30 seconds)..."
+    ask_yn "Continue?" y || { warn "Aborted."; exit 0; }
+    cd "$WIZARD_REPO"
+    "$PYTHON_CMD" -m venv "$WIZARD_VENV"
+    [ ! -x "$VENV_PY" ] && { fail "venv creation failed"; exit 1; }
+    ok "venv created"
 fi
-VENV_PY="$AGENT_VENV/bin/python"
-if [ -f "requirements.txt" ]; then
-    "$VENV_PY" -m pip install --quiet --upgrade pip 2>/dev/null
-    "$VENV_PY" -m pip install --quiet -r requirements.txt 2>/dev/null && ok "Python deps installed" || { fail "pip install failed"; exit 1; }
-else warn "requirements.txt not found - skipping"; fi
+
+if [ -f "$WIZARD_REPO/requirements.txt" ]; then
+    step "Python dependencies"
+    info "pip install -r requirements.txt — this can take 2-4 minutes."
+    info "(SHOWING progress so you know it's not frozen.)"
+    ask_yn "Continue?" y || { warn "Aborted."; exit 0; }
+    printf '\n'
+    "$VENV_PY" -m pip install --upgrade pip 2>&1 | sed 's/^/       /'
+    "$VENV_PY" -m pip install -r "$WIZARD_REPO/requirements.txt" 2>&1 | sed 's/^/       /'
+    [ "${PIPESTATUS[0]:-0}" -eq 0 ] && ok "Python deps installed" || { fail "pip install failed"; exit 1; }
+fi
 
 # ── Node deps ────────────────────────────────────────────────────────────────
-step "Installing Node.js dependencies"
-if [ -f "package.json" ]; then
-    npm install --silent 2>/dev/null && ok "Node deps installed" || { fail "npm install failed"; exit 1; }
-else warn "package.json not found - skipping"; fi
+if [ -f "$WIZARD_REPO/package.json" ]; then
+    step "Node.js dependencies"
+    info "npm install — this can take 1-3 minutes."
+    if ask_yn "Continue?" y; then
+        printf '\n'
+        npm install --prefix "$WIZARD_REPO" 2>&1 | sed 's/^/       /' || warn "npm install had issues — wizard may still work"
+        ok "Node deps installed"
+    else
+        warn "Skipped npm install"
+    fi
+fi
 
 # ── PATH shim ────────────────────────────────────────────────────────────────
-step "Adding $SELECTED to PATH"
-BIN_DIR="$AGENT_HOME/bin"
+step "Adding 'oasis' command to PATH"
+BIN_DIR="$OASIS_HOME/bin"
 mkdir -p "$BIN_DIR"
+WIZARD_ENTRY="$WIZARD_REPO/bravo_cli/main.py"
 
-CLI_PATH=""
-for cand in "$AGENT_REPO/${SELECTED}_cli/main.py" "$AGENT_REPO/bravo_cli/main.py" "$AGENT_REPO/scripts/setup_wizard.py"; do
-    if [ -f "$cand" ]; then CLI_PATH="$cand"; break; fi
-done
-[ -z "$CLI_PATH" ] && CLI_PATH="$AGENT_REPO/scripts/setup_wizard.py"
-
-cat > "$BIN_DIR/$SELECTED" <<EOF
+cat > "$BIN_DIR/oasis" <<EOF
 #!/usr/bin/env bash
-exec "$VENV_PY" "$CLI_PATH" "\$@"
+exec "$VENV_PY" "$WIZARD_ENTRY" "\$@"
 EOF
-chmod +x "$BIN_DIR/$SELECTED"
-ok "Wrote $BIN_DIR/$SELECTED"
+chmod +x "$BIN_DIR/oasis"
 
-# Add to user shell rc
+# Backwards-compat 'bravo' alias
+ln -sf "$BIN_DIR/oasis" "$BIN_DIR/bravo" 2>/dev/null || cp "$BIN_DIR/oasis" "$BIN_DIR/bravo"
+chmod +x "$BIN_DIR/bravo"
+
+ok "Wrote $BIN_DIR/oasis (and 'bravo' alias)"
+
 RC_FILE=""
-[ -n "${BASH_VERSION:-}" ] && RC_FILE="$HOME/.bashrc"
-[ -n "${ZSH_VERSION:-}" ] || [ -f "$HOME/.zshrc" ] && RC_FILE="$HOME/.zshrc"
+[ -f "$HOME/.zshrc" ] && RC_FILE="$HOME/.zshrc"
+[ -z "$RC_FILE" ] && [ -f "$HOME/.bashrc" ] && RC_FILE="$HOME/.bashrc"
 if [ -n "$RC_FILE" ] && ! grep -q "$BIN_DIR" "$RC_FILE" 2>/dev/null; then
     echo "export PATH=\"$BIN_DIR:\$PATH\"" >> "$RC_FILE"
     info "Added $BIN_DIR to PATH in $RC_FILE (open a new terminal)"
 fi
 
-# ── Setup wizard ─────────────────────────────────────────────────────────────
+# ── Hand off to the wizard ───────────────────────────────────────────────────
 if [ "$SKIP_WIZARD" -eq 0 ]; then
-    step "$AGENT_NAME setup wizard"
-    if [ -f "$CLI_PATH" ]; then
-        # bravo_cli/main.py needs 'setup' subcommand; setup_wizard.py runs directly
-        if [[ "$CLI_PATH" == *_cli/main.py ]]; then
-            "$VENV_PY" "$CLI_PATH" setup
-        else
-            "$VENV_PY" "$CLI_PATH"
-        fi
-    else
-        warn "Wizard not found - cd $AGENT_REPO && python scripts/setup_wizard.py"
-    fi
+    printf '\n%s============================================%s\n' "$C_GREEN" "$C_RESET"
+    printf '  %sBootstrap complete. Launching wizard...%s\n' "$C_WHITE" "$C_RESET"
+    printf '%s============================================%s\n\n' "$C_GREEN" "$C_RESET"
+    cd "$WIZARD_REPO"
+    "$VENV_PY" "$WIZARD_ENTRY" setup
 fi
-
-# ── Done ─────────────────────────────────────────────────────────────────────
-printf '\n%s============================================%s\n' "$C_GREEN" "$C_RESET"
-printf '  %s%s is alive.%s\n' "$C_WHITE" "$AGENT_NAME" "$C_RESET"
-printf '%s============================================%s\n\n' "$C_GREEN" "$C_RESET"
-printf '  Open a new terminal, then:\n'
-printf '    %s%s doctor%s    -- health check\n' "$C_CYAN" "$SELECTED" "$C_RESET"
-printf '    %s%s status%s    -- live summary\n' "$C_CYAN" "$SELECTED" "$C_RESET"
-printf '    %s%s setup%s     -- re-run wizard\n\n' "$C_CYAN" "$SELECTED" "$C_RESET"
-printf '  Install another agent:\n'
-printf '    %scurl -fsSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install.sh | bash%s\n\n' "$C_DIM" "$C_RESET"
-printf '  Support: https://oasisai.work\n\n'
