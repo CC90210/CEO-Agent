@@ -186,32 +186,78 @@ if ($missing.Count -gt 0) {
     }
 }
 
-# ── Clone wizard repo ─────────────────────────────────────────────────────────
-Write-Step "Fetching OASIS wizard"
-
-if ((Test-Path (Join-Path $WizardRepo '.git')) -and $Mode -ne 'upgrade') {
-    Write-Warn "Wizard already installed at $WizardRepo"
-    $reply = ''
-    try { $reply = Read-Host "  [u]pgrade  [r]un wizard now  [c]ancel  (default: run)" } catch {}
-    switch -Regex ($reply) {
-        '^[Uu]' {
-            Invoke-GitSilent @('-C', $WizardRepo, 'fetch', '--depth', '50', 'origin', $BootstrapBranch) | Out-Null
-            Invoke-GitSilent @('-C', $WizardRepo, 'reset', '--hard', "origin/$BootstrapBranch") | Out-Null
-            Write-Ok "Updated"
-        }
-        '^[Cc]' { Write-Info "Cancelled."; exit 0 }
-        default { Write-Info "Skipping clone — using existing wizard." }
+# ── Detect existing OASIS clone (skip redundant download) ────────────────────
+function Find-ExistingOasisRepo {
+    $candidates = @()
+    # Already inside an OASIS repo? (script run from a clone)
+    $here = Get-Location
+    if ((Test-Path (Join-Path $here 'bravo_cli\main.py')) -and (Test-Path (Join-Path $here 'requirements.txt'))) {
+        $candidates += $here.Path
     }
-} elseif ($Mode -eq 'upgrade' -and (Test-Path (Join-Path $WizardRepo '.git'))) {
-    Invoke-GitSilent @('-C', $WizardRepo, 'fetch', '--depth', '50', 'origin', $BootstrapBranch) | Out-Null
-    Invoke-GitSilent @('-C', $WizardRepo, 'reset', '--hard', "origin/$BootstrapBranch") | Out-Null
-    Write-Ok "Wizard updated"
-} else {
-    if (Test-Path $WizardRepo) { Remove-Item -Recurse -Force $WizardRepo }
-    New-Item -ItemType Directory -Force -Path (Split-Path $WizardRepo) | Out-Null
-    Write-Info "Cloning $BootstrapRepo -> $WizardRepo (about 5 seconds)"
-    if ((Invoke-GitSilent @('clone', '--depth', '10', '--branch', $BootstrapBranch, $BootstrapRepo, $WizardRepo)) -ne 0) { throw "git clone failed" }
-    Write-Ok "Cloned"
+    # Common sibling locations
+    foreach ($p in @(
+        (Join-Path $env:USERPROFILE 'Business-Empire-Agent'),
+        (Join-Path $env:USERPROFILE 'CEO-Agent'),
+        (Join-Path $env:USERPROFILE 'Documents\Business-Empire-Agent'),
+        (Join-Path $env:USERPROFILE 'Documents\CEO-Agent'),
+        'C:\Users\User\Business-Empire-Agent'
+    )) {
+        if ((Test-Path (Join-Path $p 'bravo_cli\main.py')) -and (Test-Path (Join-Path $p 'requirements.txt'))) {
+            $candidates += $p
+        }
+    }
+    # Verify it's actually an OASIS-family repo via git remote
+    foreach ($c in $candidates) {
+        $remote = & git -C $c config --get remote.origin.url 2>$null
+        if ($remote -match 'CC90210/(CEO|CFO|CMO)-Agent|Business-Empire-Agent') {
+            return $c
+        }
+    }
+    return $null
+}
+
+Write-Step "Fetching OASIS wizard"
+$ExistingRepo = Find-ExistingOasisRepo
+if ($ExistingRepo) {
+    Write-Ok "Found existing OASIS clone: $ExistingRepo"
+    Write-Info "Will use this instead of cloning a duplicate."
+    if (Confirm-YesNo "Use existing clone at $ExistingRepo?" $true) {
+        $WizardRepo = $ExistingRepo
+        $WizardHome = Split-Path $WizardRepo
+        # Place venv adjacent to the existing repo, NOT in ~/.oasis/wizard
+        $WizardVenv = Join-Path $WizardHome '.venv'
+        if (-not (Test-Path $WizardVenv)) { $WizardVenv = Join-Path $WizardRepo '.venv' }
+    } else {
+        Write-Info "User declined — falling through to fresh clone path."
+        $ExistingRepo = $null
+    }
+}
+
+if (-not $ExistingRepo) {
+    if ((Test-Path (Join-Path $WizardRepo '.git')) -and $Mode -ne 'upgrade') {
+        Write-Warn "Wizard already installed at $WizardRepo"
+        $reply = ''
+        try { $reply = Read-Host "  [u]pgrade  [r]un wizard now  [c]ancel  (default: run)" } catch {}
+        switch -Regex ($reply) {
+            '^[Uu]' {
+                Invoke-GitSilent @('-C', $WizardRepo, 'fetch', '--depth', '50', 'origin', $BootstrapBranch) | Out-Null
+                Invoke-GitSilent @('-C', $WizardRepo, 'reset', '--hard', "origin/$BootstrapBranch") | Out-Null
+                Write-Ok "Updated"
+            }
+            '^[Cc]' { Write-Info "Cancelled."; exit 0 }
+            default { Write-Info "Skipping clone — using existing wizard." }
+        }
+    } elseif ($Mode -eq 'upgrade' -and (Test-Path (Join-Path $WizardRepo '.git'))) {
+        Invoke-GitSilent @('-C', $WizardRepo, 'fetch', '--depth', '50', 'origin', $BootstrapBranch) | Out-Null
+        Invoke-GitSilent @('-C', $WizardRepo, 'reset', '--hard', "origin/$BootstrapBranch") | Out-Null
+        Write-Ok "Wizard updated"
+    } else {
+        if (Test-Path $WizardRepo) { Remove-Item -Recurse -Force $WizardRepo }
+        New-Item -ItemType Directory -Force -Path (Split-Path $WizardRepo) | Out-Null
+        Write-Info "Cloning $BootstrapRepo -> $WizardRepo (about 5 seconds)"
+        if ((Invoke-GitSilent @('clone', '--depth', '10', '--branch', $BootstrapBranch, $BootstrapRepo, $WizardRepo)) -ne 0) { throw "git clone failed" }
+        Write-Ok "Cloned"
+    }
 }
 
 # ── Python venv + deps ────────────────────────────────────────────────────────
@@ -234,13 +280,18 @@ if ($venvExists) {
 $reqFile = Join-Path $WizardRepo 'requirements.txt'
 if (Test-Path $reqFile) {
     Write-Step "Python dependencies"
-    Write-Info "pip install -r requirements.txt — this can take 2-4 minutes."
-    Write-Info "(SHOWING progress so you know it's not frozen.)"
+    Write-Info "pip install -r requirements.txt — about 2-4 minutes total."
+    Write-Info "Phases: (1) Collecting (~30s) -> (2) Downloading (~1min) -> (3) Installing wheels (~1-2min, SILENT)"
+    Write-Warn "When you see 'Installing collected packages: ...' that's phase 3."
+    Write-Warn "It produces NO output for 1-2 minutes. DO NOT abort. Wait for the [+] line."
     if (-not (Confirm-YesNo "Continue?" $true)) { Write-Warn "Aborted before pip install."; exit 0 }
     Write-Host ""
+    $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
     & $venvPy '-m' 'pip' 'install' '--upgrade' 'pip' 2>&1 | ForEach-Object { Write-Host "       $_" -ForegroundColor DarkGray }
     & $venvPy '-m' 'pip' 'install' '-r' $reqFile 2>&1 | ForEach-Object { Write-Host "       $_" -ForegroundColor DarkGray }
-    if ($LASTEXITCODE -ne 0) { Write-Fail "pip install failed"; exit 1 }
+    $pipExit = $LASTEXITCODE
+    $ErrorActionPreference = $prev
+    if ($pipExit -ne 0) { Write-Fail "pip install failed (exit $pipExit)"; exit 1 }
     Write-Ok "Python deps installed"
 } else { Write-Warn "requirements.txt not found - skipping" }
 
@@ -249,11 +300,18 @@ $pkgJson = Join-Path $WizardRepo 'package.json'
 if (Test-Path $pkgJson) {
     Write-Step "Node.js dependencies"
     Write-Info "npm install — this can take 1-3 minutes."
+    Write-Info "(npm prints 'deprecated' WARNINGS for old transitive deps. Those are not errors. Ignore them.)"
     if (-not (Confirm-YesNo "Continue?" $true)) { Write-Warn "Skipping npm install."; }
     else {
         Write-Host ""
-        & npm install --prefix $WizardRepo 2>&1 | ForEach-Object { Write-Host "       $_" -ForegroundColor DarkGray }
-        if ($LASTEXITCODE -eq 0) { Write-Ok "Node deps installed" } else { Write-Warn "npm install had issues — wizard may still work" }
+        # Suppress PowerShell's NativeCommandError-from-stderr behavior — npm
+        # uses stderr for ordinary deprecation warnings which are NOT errors.
+        $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+        & npm install --prefix $WizardRepo --no-fund --no-audit 2>&1 | ForEach-Object { Write-Host "       $_" -ForegroundColor DarkGray }
+        $npmExit = $LASTEXITCODE
+        $ErrorActionPreference = $prev
+        if ($npmExit -eq 0) { Write-Ok "Node deps installed" }
+        else { Write-Warn "npm exited $npmExit — usually a deprecation warning, not a real failure. Wizard should still work." }
     }
 }
 

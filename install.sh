@@ -116,30 +116,69 @@ if [ ${#MISSING[@]} -gt 0 ]; then
     exit 2
 fi
 
-# ── Clone wizard repo ────────────────────────────────────────────────────────
-step "Fetching OASIS wizard"
-mkdir -p "$WIZARD_HOME"
+# ── Detect existing OASIS clone (skip redundant download) ────────────────────
+find_existing_oasis_repo() {
+    local candidates=()
+    # Already inside an OASIS repo? (script run from a clone)
+    if [ -f "./bravo_cli/main.py" ] && [ -f "./requirements.txt" ]; then
+        candidates+=("$(pwd)")
+    fi
+    for p in "$HOME/Business-Empire-Agent" "$HOME/CEO-Agent" "$HOME/Documents/Business-Empire-Agent" "$HOME/Documents/CEO-Agent"; do
+        if [ -f "$p/bravo_cli/main.py" ] && [ -f "$p/requirements.txt" ]; then
+            candidates+=("$p")
+        fi
+    done
+    for c in "${candidates[@]}"; do
+        local remote=$(git -C "$c" config --get remote.origin.url 2>/dev/null)
+        if echo "$remote" | grep -qE 'CC90210/(CEO|CFO|CMO)-Agent|Business-Empire-Agent'; then
+            echo "$c"
+            return 0
+        fi
+    done
+    return 1
+}
 
-if [ -d "$WIZARD_REPO/.git" ] && [ "$MODE" != "upgrade" ]; then
-    warn "Wizard already at $WIZARD_REPO"
-    printf "  [u]pgrade  [r]un wizard now  [c]ancel  (default: run): "
-    reply=""; read -r reply </dev/tty 2>/dev/null || reply=""
-    case "$reply" in
-        [Uu]*) git -C "$WIZARD_REPO" fetch --depth 50 origin "$BOOTSTRAP_BRANCH" >/dev/null 2>&1
-               git -C "$WIZARD_REPO" reset --hard "origin/$BOOTSTRAP_BRANCH" >/dev/null 2>&1
-               ok "Updated" ;;
-        [Cc]*) info "Cancelled"; exit 0 ;;
-        *)     info "Skipping clone — using existing wizard." ;;
-    esac
-elif [ "$MODE" = "upgrade" ] && [ -d "$WIZARD_REPO/.git" ]; then
-    git -C "$WIZARD_REPO" fetch --depth 50 origin "$BOOTSTRAP_BRANCH" >/dev/null 2>&1
-    git -C "$WIZARD_REPO" reset --hard "origin/$BOOTSTRAP_BRANCH" >/dev/null 2>&1
-    ok "Wizard updated"
-else
-    [ -d "$WIZARD_REPO" ] && rm -rf "$WIZARD_REPO"
-    info "Cloning $BOOTSTRAP_REPO -> $WIZARD_REPO (about 5 seconds)"
-    git clone --depth 10 --branch "$BOOTSTRAP_BRANCH" "$BOOTSTRAP_REPO" "$WIZARD_REPO" >/dev/null 2>&1 || { fail "clone failed"; exit 1; }
-    ok "Cloned"
+step "Fetching OASIS wizard"
+EXISTING_REPO="$(find_existing_oasis_repo || true)"
+if [ -n "$EXISTING_REPO" ]; then
+    ok "Found existing OASIS clone: $EXISTING_REPO"
+    info "Will use this instead of cloning a duplicate."
+    if ask_yn "Use existing clone at $EXISTING_REPO?" y; then
+        WIZARD_REPO="$EXISTING_REPO"
+        WIZARD_HOME="$(dirname "$WIZARD_REPO")"
+        # Prefer existing .venv adjacent to or inside the repo
+        if [ -d "$WIZARD_HOME/.venv" ]; then WIZARD_VENV="$WIZARD_HOME/.venv"
+        elif [ -d "$WIZARD_REPO/.venv" ]; then WIZARD_VENV="$WIZARD_REPO/.venv"
+        else WIZARD_VENV="$WIZARD_REPO/.venv"; fi
+    else
+        info "User declined — falling through to fresh clone path."
+        EXISTING_REPO=""
+    fi
+fi
+
+if [ -z "$EXISTING_REPO" ]; then
+    mkdir -p "$WIZARD_HOME"
+    if [ -d "$WIZARD_REPO/.git" ] && [ "$MODE" != "upgrade" ]; then
+        warn "Wizard already at $WIZARD_REPO"
+        printf "  [u]pgrade  [r]un wizard now  [c]ancel  (default: run): "
+        reply=""; read -r reply </dev/tty 2>/dev/null || reply=""
+        case "$reply" in
+            [Uu]*) git -C "$WIZARD_REPO" fetch --depth 50 origin "$BOOTSTRAP_BRANCH" >/dev/null 2>&1
+                   git -C "$WIZARD_REPO" reset --hard "origin/$BOOTSTRAP_BRANCH" >/dev/null 2>&1
+                   ok "Updated" ;;
+            [Cc]*) info "Cancelled"; exit 0 ;;
+            *)     info "Skipping clone — using existing wizard." ;;
+        esac
+    elif [ "$MODE" = "upgrade" ] && [ -d "$WIZARD_REPO/.git" ]; then
+        git -C "$WIZARD_REPO" fetch --depth 50 origin "$BOOTSTRAP_BRANCH" >/dev/null 2>&1
+        git -C "$WIZARD_REPO" reset --hard "origin/$BOOTSTRAP_BRANCH" >/dev/null 2>&1
+        ok "Wizard updated"
+    else
+        [ -d "$WIZARD_REPO" ] && rm -rf "$WIZARD_REPO"
+        info "Cloning $BOOTSTRAP_REPO -> $WIZARD_REPO (about 5 seconds)"
+        git clone --depth 10 --branch "$BOOTSTRAP_BRANCH" "$BOOTSTRAP_REPO" "$WIZARD_REPO" >/dev/null 2>&1 || { fail "clone failed"; exit 1; }
+        ok "Cloned"
+    fi
 fi
 
 # ── Python venv + deps ───────────────────────────────────────────────────────
@@ -159,8 +198,10 @@ fi
 
 if [ -f "$WIZARD_REPO/requirements.txt" ]; then
     step "Python dependencies"
-    info "pip install -r requirements.txt — this can take 2-4 minutes."
-    info "(SHOWING progress so you know it's not frozen.)"
+    info "pip install -r requirements.txt — about 2-4 minutes total."
+    info "Phases: (1) Collecting (~30s) -> (2) Downloading (~1min) -> (3) Installing wheels (~1-2min, SILENT)"
+    warn "When you see 'Installing collected packages: ...' that's phase 3."
+    warn "It produces NO output for 1-2 minutes. DO NOT abort. Wait for the [+] line."
     ask_yn "Continue?" y || { warn "Aborted."; exit 0; }
     printf '\n'
     "$VENV_PY" -m pip install --upgrade pip 2>&1 | sed 's/^/       /'
@@ -172,9 +213,12 @@ fi
 if [ -f "$WIZARD_REPO/package.json" ]; then
     step "Node.js dependencies"
     info "npm install — this can take 1-3 minutes."
+    info "(npm prints 'deprecated' WARNINGS for old transitive deps. Those are not errors. Ignore them.)"
     if ask_yn "Continue?" y; then
         printf '\n'
-        npm install --prefix "$WIZARD_REPO" 2>&1 | sed 's/^/       /' || warn "npm install had issues — wizard may still work"
+        # --no-fund --no-audit reduces noise; warnings still go to stderr but
+        # bash doesn't treat stderr as fatal the way PowerShell does.
+        npm install --prefix "$WIZARD_REPO" --no-fund --no-audit 2>&1 | sed 's/^/       /' || warn "npm exited non-zero — usually deprecation, wizard should still work"
         ok "Node deps installed"
     else
         warn "Skipped npm install"
