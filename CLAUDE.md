@@ -89,6 +89,10 @@ CC trigger words: "Remember/Don't forget" → save | "Stop doing X" → MISTAKES
 
 Hooks in `.claude/settings.local.json`: Edit/Write blocks `.env*` files. Bash blocks `rm -rf /`, force-push to main, `DROP TABLE`, `TRUNCATE TABLE`. PostToolUse audit-logs git/npm/vercel ops to `tmp/hook_audit.log`. SessionStart/End manage Codex companion lifecycle.
 
+## Multi-Machine Bridge Arbitration (V6.5)
+
+`scripts/bridge_lock.py` is the shared multi-machine arbiter for Telegram (and future Discord/Slack) bridges. Lockfile at `~/.oasis/bridge_locks/<agent>.json` holds host+pid+heartbeat. Each bridge calls `acquire` at startup (exits 1 if another host has fresh heartbeat <60s old; PM2 backs off + retries), `heartbeat` every 15s, `release` on shutdown. CLI: `python scripts/bridge_lock.py {acquire|heartbeat|release|status} --agent bravo --json`. Replaces the old "go dormant on 409" path that left bridges silently broken for days.
+
 ## Sub-Agent Orchestration
 
 17 agents + Codex executor — full registry and decision matrix: @brain/AGENTS.md. Task routing, anti-drift, SPARC, permissions, background workers: see `skills/[skill]/SKILL.md` on demand.
