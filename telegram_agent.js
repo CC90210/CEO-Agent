@@ -1093,7 +1093,13 @@ bot.on('message', async (msg) => {
         addToHistory(chatId, 'user', prompt);
 
         await bot.sendChatAction(chatId, 'typing');
-        const thinkingMsg = isGemini ? 'Gemini thinking...' : (modelOverride ? `Claude (${modelOverride}) thinking...` : 'Claude thinking...');
+        // Always brand as the agent the user is talking to — never "Claude" or
+        // "Gemini". The user is talking to Bravo; the underlying model is an
+        // implementation detail. Model override stays visible in parens because
+        // CC explicitly asks for !opus / !sonnet / !haiku and wants confirmation.
+        const thinkingMsg = isGemini
+          ? 'Bravo thinking... (Gemini fallback)'
+          : (modelOverride ? `Bravo (${modelOverride}) thinking...` : 'Bravo thinking...');
         await bot.sendMessage(chatId, thinkingMsg);
 
         const result = await executeCli(tool, prompt, chatId, modelOverride);
