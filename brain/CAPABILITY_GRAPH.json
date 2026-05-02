@@ -1,0 +1,5106 @@
+{
+  "schema_version": "1.0",
+  "agent": "bravo",
+  "generated_at": "2026-05-02T05:37:03.504782+00:00",
+  "totals": {
+    "skills": 153,
+    "scripts": 99,
+    "agents": 20,
+    "mcp_servers": 9,
+    "workflows": 36,
+    "nodes_total": 317,
+    "edges_total": 43,
+    "drift_count": 115
+  },
+  "nodes": [
+    {
+      "id": "skill:agent-forge",
+      "kind": "skill",
+      "name": "agent-forge",
+      "path": "skills/agent-forge/SKILL.md",
+      "description": "Use when CC asks to create a new agent, scaffold a new agent repo, or clone Bravo's architecture for a new domain (client agent, sibling agent, specialized agent). Generates a new AI-agent repo from templates, wires it into C_SUITE_ARCHITECTURE.md and brain/APP_REGISTRY.md, prese",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:agent-inbox",
+      "kind": "skill",
+      "name": "agent-inbox",
+      "path": "skills/agent-inbox/SKILL.md",
+      "description": "Async agent-to-agent messaging protocol. Use when Bravo, Atlas, Maven, Aura, or Codex needs to pass a structured message to another agent without blocking the orchestrator. Replaces synchronous-only delegation with a checkpoint-based pickup pattern. CLI backed by scripts/agent_in",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "agent inbox",
+        "inter-agent message",
+        "async delegation",
+        "agent notification",
+        "cross-agent handoff"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:agent-permissions",
+      "kind": "skill",
+      "name": "agent-permissions",
+      "path": "skills/agent-permissions/SKILL.md",
+      "description": ">",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "security",
+        "orchestration",
+        "agents"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:agent-runtime-packaging",
+      "kind": "skill",
+      "name": "agent-runtime-packaging",
+      "path": "skills/agent-runtime-packaging/SKILL.md",
+      "description": "Build and maintain product-grade agent infrastructure: onboarding diagnostics, runtime home, packaging, skill lifecycle, tool manifests, and agent scaffolds.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:agent-teams",
+      "kind": "skill",
+      "name": "agent-teams",
+      "path": "skills/agent-teams/SKILL.md",
+      "description": "Spawn and coordinate Claude Code Agent Teams (experimental) \u2014 parallel subagents for complex multi-domain tasks",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "skill",
+        "orchestration",
+        "agent-teams"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:ai-integration",
+      "kind": "skill",
+      "name": "ai-integration",
+      "path": "skills/ai-integration/SKILL.md",
+      "description": "Use this skill whenever the user mentions AI integration, LLM usage, prompting, adding AI to a workflow, or configuring AI models. This covers all patterns, best practices, and node configurations for AI.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "AI integration",
+        "LLM",
+        "prompting",
+        "AI model",
+        "AI workflow",
+        "embedding",
+        "vector"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:algorithmic-art",
+      "kind": "skill",
+      "name": "algorithmic-art",
+      "path": "skills/algorithmic-art/SKILL.md",
+      "description": "Creating algorithmic art using p5.js with seeded randomness and interactive parameter exploration. Use this when users request creating art using code, generative art, algorithmic art, flow fields, or particle systems. Create original algorithmic art rather than copying existing ",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "algorithmic art",
+        "generative art",
+        "p5.js",
+        "flow field",
+        "particle system",
+        "creative coding"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:anti-drift",
+      "kind": "skill",
+      "name": "anti-drift",
+      "path": "skills/anti-drift/SKILL.md",
+      "description": ">",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "orchestration",
+        "quality",
+        "agents"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:auto-generated",
+      "kind": "skill",
+      "name": "auto-generated",
+      "path": "skills/auto-generated/SKILL.md",
+      "description": "Container for skills synthesized at runtime by skill_synthesizer.py. Each child directory is a [NEW] skill with its own SKILL.md + metrics.json. Promoted to skills/<slug>/ after 3 successful uses (skill_metrics.py promote).",
+      "tier": "meta",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:background-workers",
+      "kind": "skill",
+      "name": "background-workers",
+      "path": "skills/background-workers/SKILL.md",
+      "description": ">",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "automation",
+        "workers",
+        "system-health"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:booking-management",
+      "kind": "skill",
+      "name": "booking-management",
+      "path": "skills/booking-management/SKILL.md",
+      "description": "Manage discovery call scheduling using booking_engine.py \u2014 a self-hosted Cal.com replacement backed by Supabase. Covers opening slots, booking leads, sending reminders, and completing meetings.",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "booking",
+        "calendar",
+        "schedule",
+        "discovery call",
+        "slot",
+        "reminder",
+        "appointment",
+        "meeting"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:brainstorming",
+      "kind": "skill",
+      "name": "brainstorming",
+      "path": "skills/brainstorming/SKILL.md",
+      "description": "You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation.",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "brainstorm",
+        "ideate",
+        "explore",
+        "creative work",
+        "new feature",
+        "design",
+        "requirements"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:browser-automation",
+      "kind": "skill",
+      "name": "browser-automation",
+      "path": "skills/browser-automation/SKILL.md",
+      "description": "Comprehensive reference for browser automation using Playwright MCP. Use for web research, testing, scraping, form filling, screenshots, and any browser-based interaction. This is the primary browser tool for all Claude Code and Gemini CLI operations.",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "playwright",
+        "browser",
+        "navigate",
+        "screenshot",
+        "click",
+        "snapshot",
+        "web research",
+        "scrape"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:browser-harness",
+      "kind": "skill",
+      "name": "browser-harness",
+      "path": "skills/browser-harness/SKILL.md",
+      "description": "Use Browser Harness for direct Chrome/Edge browser control, browser diagnostics, and durable domain-skill learning while preserving Bravo's business safety gates.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:canvas-design",
+      "kind": "skill",
+      "name": "canvas-design",
+      "path": "skills/canvas-design/SKILL.md",
+      "description": "Create beautiful visual art in .png and .pdf documents using design philosophy. You should use this skill when the user asks to create a poster, piece of art, design, or other static piece. Create original visual designs, never copying existing artists' work to avoid copyright vi",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "poster",
+        "visual art",
+        "design",
+        "canvas",
+        "PNG",
+        "PDF",
+        "static design"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:ceo-briefing",
+      "kind": "skill",
+      "name": "ceo-briefing",
+      "path": "skills/ceo-briefing/SKILL.md",
+      "description": "Executive morning briefing \u2014 revenue, pipeline, clients, Atlas financial snapshot, blocked items, and today's #1 priority",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "skill",
+        "ceo",
+        "revenue",
+        "briefing"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:ceo-dashboard",
+      "kind": "skill",
+      "name": "ceo-dashboard",
+      "path": "skills/ceo-dashboard/SKILL.md",
+      "description": "Unified KPI framework \u2014 North Star metrics, revenue dashboard, pipeline dashboard, operations dashboard, content dashboard, client health dashboard, and the weekly CEO digest template. Powers the /briefing command output format.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "skill",
+        "ceo",
+        "dashboard",
+        "kpi",
+        "revenue",
+        "pipeline"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:cli-anything",
+      "kind": "skill",
+      "name": "cli-anything",
+      "path": "skills/cli-anything/SKILL.md",
+      "description": "Generate agent-native CLI wrappers for any software, API, or service. Use when MCP servers are unreliable or when a tool needs a CLI interface for agent automation.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "CLI",
+        "wrapper",
+        "SDK",
+        "subprocess",
+        "CLI-anything",
+        "agent-native CLI"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:client-success",
+      "kind": "skill",
+      "name": "client-success",
+      "path": "skills/client-success/SKILL.md",
+      "description": "Client health scoring, churn prediction, retention playbooks, NPS framework, and expansion signals. Keeps OASIS AI clients healthy, growing, and referring.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "skill",
+        "client-success",
+        "retention"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:code-review",
+      "kind": "skill",
+      "name": "code-review",
+      "path": "skills/code-review/SKILL.md",
+      "description": "Pre-landing code review for TypeScript/Next.js/Supabase/Stripe/Vercel projects. Use before any merge to main. Auto-fixes mechanical issues; asks about judgment calls. Catches security holes, AI slop, and stack-specific gotchas.",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "review",
+        "PR",
+        "quality",
+        "security audit",
+        "checklist",
+        "pre-landing",
+        "code review"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:codex-delegation",
+      "kind": "skill",
+      "name": "codex-delegation",
+      "path": "skills/codex-delegation/SKILL.md",
+      "description": "Intelligent routing between Bravo and Codex \u2014 decides when to delegate tasks to Codex vs handle internally",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "skill"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:computer-control",
+      "kind": "skill",
+      "name": "computer-control",
+      "path": "skills/computer-control/SKILL.md",
+      "description": "Full desktop autonomy via Telegram \u2014 60+ commands for app control, windows, browser, files, mouse, audio, power. Routes to macOS AppleScript or Windows PowerShell based on platform. Triggered by natural-language intent (\"open Chrome\", \"take a screenshot\", \"lock my computer\").",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "skill"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:context-optimization",
+      "kind": "skill",
+      "name": "context-optimization",
+      "path": "skills/context-optimization/SKILL.md",
+      "description": "Tiered context loading, transcript compaction, cost tracking, and memory aging \u2014 inspired by Claude Code's internal harness architecture.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "skill",
+        "performance",
+        "context"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:crisis-response",
+      "kind": "skill",
+      "name": "crisis-response",
+      "path": "skills/crisis-response/SKILL.md",
+      "description": "Structured crisis response protocols for business emergencies \u2014 P0 through P3 classification, pre-built response plans, and communication templates",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "skill",
+        "crisis",
+        "response",
+        "ceo"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:daily-planner",
+      "kind": "skill",
+      "name": "daily-planner",
+      "path": "skills/daily-planner/SKILL.md",
+      "description": "Structured daily plan for CC \u2014 content creation priorities, scheduled tasks, and revenue-moving actions. Generated each morning.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "skill",
+        "ceo",
+        "planning",
+        "daily"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:dispatching-parallel-agents",
+      "kind": "skill",
+      "name": "dispatching-parallel-agents",
+      "path": "skills/dispatching-parallel-agents/SKILL.md",
+      "description": "Use when facing 2+ independent tasks that can be worked on without shared state or sequential dependencies",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "parallel",
+        "concurrent",
+        "independent tasks",
+        "multi-agent",
+        "batch",
+        "dispatch"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:doc-coauthoring",
+      "kind": "skill",
+      "name": "doc-coauthoring",
+      "path": "skills/doc-coauthoring/SKILL.md",
+      "description": "Guide users through a structured workflow for co-authoring documentation. Use when user wants to write documentation, proposals, technical specs, decision docs, or similar structured content. This workflow helps users efficiently transfer context, refine content through iteration",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "documentation",
+        "proposal",
+        "technical spec",
+        "decision doc",
+        "co-author",
+        "writing docs"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:docx",
+      "kind": "skill",
+      "name": "docx",
+      "path": "skills/docx/SKILL.md",
+      "description": "Use this skill whenever the user wants to create, read, edit, or manipulate Word documents (.docx files). Triggers include: any mention of 'Word doc', 'word document', '.docx', or requests to produce professional documents with formatting like tables of contents, headings, page n",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "Word",
+        "docx",
+        "Word document",
+        "report",
+        "memo",
+        "letter",
+        "template"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:e2e-testing",
+      "kind": "skill",
+      "name": "e2e-testing",
+      "path": "skills/e2e-testing/SKILL.md",
+      "description": "Comprehensive end-to-end application testing using Playwright MCP. Launches parallel sub-agents to research the codebase, then systematically tests every user journey with screenshots, database validation, and bug hunting. Run after implementation to validate before commit.",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "end-to-end",
+        "E2E",
+        "user journey",
+        "integration test",
+        "full test",
+        "playwright test"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:email-safety",
+      "kind": "skill",
+      "name": "email-safety",
+      "path": "skills/email-safety/SKILL.md",
+      "description": "Mandatory contract for sending email/outreach from any AI (Claude, Gemini, Antigravity, Codex). Read this before invoking any send command. Disable-model-invocation false \u2014 ANY model that sends mail must read this first.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:ethical-hacking",
+      "kind": "skill",
+      "name": "ethical-hacking",
+      "path": "skills/ethical-hacking/SKILL.md",
+      "description": "Authorized offensive security \u2014 reconnaissance, vulnerability assessment, and web/network pentest methodology for CC's own infrastructure, authorized client engagements, and legal bug bounty programs. Defensive intent only. Never operates without written authorization.",
+      "tier": "strategic",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "pentest",
+        "penetration test",
+        "ethical hacking",
+        "vulnerability assessment",
+        "security audit",
+        "bug bounty",
+        "offensive security",
+        "recon",
+        "osint",
+        "red team"
+      ],
+      "tags": [
+        "security",
+        "offensive",
+        "authorized",
+        "compliance"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:executing-plans",
+      "kind": "skill",
+      "name": "executing-plans",
+      "path": "skills/executing-plans/SKILL.md",
+      "description": "Use when you have a written implementation plan to execute in a separate session with review checkpoints",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "execute plan",
+        "run plan",
+        "implement plan",
+        "batch execution"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:financial-modeling",
+      "kind": "skill",
+      "name": "financial-modeling",
+      "path": "skills/financial-modeling/SKILL.md",
+      "description": "Unit economics, SaaS metrics, cohort analysis, scenario modeling, cash flow forecasting, and CC-specific financial calculations for OASIS AI",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "skill",
+        "finance",
+        "modeling",
+        "unit-economics",
+        "saas-metrics"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:finishing-a-development-branch",
+      "kind": "skill",
+      "name": "finishing-a-development-branch",
+      "path": "skills/finishing-a-development-branch/SKILL.md",
+      "description": "Use when implementation is complete, all tests pass, and you need to decide how to integrate the work - guides completion of development work by presenting structured options for merge, PR, or cleanup",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "finish branch",
+        "merge",
+        "PR",
+        "integrate",
+        "complete development",
+        "ship branch"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:frontend-design",
+      "kind": "skill",
+      "name": "frontend-design",
+      "path": "skills/frontend-design/SKILL.md",
+      "description": "Create distinctive, production-grade frontend interfaces with high design quality. Use this skill when the user asks to build web components, pages, artifacts, posters, or applications (examples include websites, landing pages, dashboards, React components, HTML/CSS layouts, or w",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "UI",
+        "design",
+        "Tailwind",
+        "component",
+        "responsive",
+        "landing page",
+        "dashboard",
+        "frontend"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:google-workspace-recipes",
+      "kind": "skill",
+      "name": "google-workspace-recipes",
+      "path": "skills/google-workspace-recipes/SKILL.md",
+      "description": "Cookbook of multi-step Google Workspace workflows (Gmail + Drive + Calendar + Docs + Sheets + Tasks).",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "skills",
+        "google-workspace",
+        "recipes",
+        "cookbook"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-admin-reports",
+      "kind": "skill",
+      "name": "gws-admin-reports",
+      "path": "skills/gws-admin-reports/SKILL.md",
+      "description": "Google Workspace Admin SDK: Audit logs and usage reports.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-calendar",
+      "kind": "skill",
+      "name": "gws-calendar",
+      "path": "skills/gws-calendar/SKILL.md",
+      "description": "Google Calendar: Manage calendars and events.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-calendar-agenda",
+      "kind": "skill",
+      "name": "gws-calendar-agenda",
+      "path": "skills/gws-calendar-agenda/SKILL.md",
+      "description": "Google Calendar: Show upcoming events across all calendars.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-calendar-insert",
+      "kind": "skill",
+      "name": "gws-calendar-insert",
+      "path": "skills/gws-calendar-insert/SKILL.md",
+      "description": "Google Calendar: Create a new event.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-chat",
+      "kind": "skill",
+      "name": "gws-chat",
+      "path": "skills/gws-chat/SKILL.md",
+      "description": "Google Chat: Manage Chat spaces and messages.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-chat-send",
+      "kind": "skill",
+      "name": "gws-chat-send",
+      "path": "skills/gws-chat-send/SKILL.md",
+      "description": "Google Chat: Send a message to a space.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-classroom",
+      "kind": "skill",
+      "name": "gws-classroom",
+      "path": "skills/gws-classroom/SKILL.md",
+      "description": "Google Classroom: Manage classes, rosters, and coursework.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-docs",
+      "kind": "skill",
+      "name": "gws-docs",
+      "path": "skills/gws-docs/SKILL.md",
+      "description": "Read and write Google Docs.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-docs-write",
+      "kind": "skill",
+      "name": "gws-docs-write",
+      "path": "skills/gws-docs-write/SKILL.md",
+      "description": "Google Docs: Append text to a document.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-drive",
+      "kind": "skill",
+      "name": "gws-drive",
+      "path": "skills/gws-drive/SKILL.md",
+      "description": "Google Drive: Manage files, folders, and shared drives.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-drive-upload",
+      "kind": "skill",
+      "name": "gws-drive-upload",
+      "path": "skills/gws-drive-upload/SKILL.md",
+      "description": "Google Drive: Upload a file with automatic metadata.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-events",
+      "kind": "skill",
+      "name": "gws-events",
+      "path": "skills/gws-events/SKILL.md",
+      "description": "Subscribe to Google Workspace events.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-events-renew",
+      "kind": "skill",
+      "name": "gws-events-renew",
+      "path": "skills/gws-events-renew/SKILL.md",
+      "description": "Google Workspace Events: Renew/reactivate Workspace Events subscriptions.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-events-subscribe",
+      "kind": "skill",
+      "name": "gws-events-subscribe",
+      "path": "skills/gws-events-subscribe/SKILL.md",
+      "description": "Google Workspace Events: Subscribe to Workspace events and stream them as NDJSON.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-forms",
+      "kind": "skill",
+      "name": "gws-forms",
+      "path": "skills/gws-forms/SKILL.md",
+      "description": "Read and write Google Forms.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-gmail",
+      "kind": "skill",
+      "name": "gws-gmail",
+      "path": "skills/gws-gmail/SKILL.md",
+      "description": "Gmail: Send, read, and manage email.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-gmail-forward",
+      "kind": "skill",
+      "name": "gws-gmail-forward",
+      "path": "skills/gws-gmail-forward/SKILL.md",
+      "description": "Gmail: Forward a message to new recipients.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-gmail-read",
+      "kind": "skill",
+      "name": "gws-gmail-read",
+      "path": "skills/gws-gmail-read/SKILL.md",
+      "description": "Gmail: Read a message and extract its body or headers.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-gmail-reply",
+      "kind": "skill",
+      "name": "gws-gmail-reply",
+      "path": "skills/gws-gmail-reply/SKILL.md",
+      "description": "Gmail: Reply to a message (handles threading automatically).",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-gmail-reply-all",
+      "kind": "skill",
+      "name": "gws-gmail-reply-all",
+      "path": "skills/gws-gmail-reply-all/SKILL.md",
+      "description": "Gmail: Reply-all to a message (handles threading automatically).",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-gmail-send",
+      "kind": "skill",
+      "name": "gws-gmail-send",
+      "path": "skills/gws-gmail-send/SKILL.md",
+      "description": "Gmail: Send an email.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-gmail-triage",
+      "kind": "skill",
+      "name": "gws-gmail-triage",
+      "path": "skills/gws-gmail-triage/SKILL.md",
+      "description": "Gmail: Show unread inbox summary (sender, subject, date).",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-gmail-watch",
+      "kind": "skill",
+      "name": "gws-gmail-watch",
+      "path": "skills/gws-gmail-watch/SKILL.md",
+      "description": "Gmail: Watch for new emails and stream them as NDJSON.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-keep",
+      "kind": "skill",
+      "name": "gws-keep",
+      "path": "skills/gws-keep/SKILL.md",
+      "description": "Manage Google Keep notes.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-meet",
+      "kind": "skill",
+      "name": "gws-meet",
+      "path": "skills/gws-meet/SKILL.md",
+      "description": "Manage Google Meet conferences.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-modelarmor",
+      "kind": "skill",
+      "name": "gws-modelarmor",
+      "path": "skills/gws-modelarmor/SKILL.md",
+      "description": "Google Model Armor: Filter user-generated content for safety.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-modelarmor-create-template",
+      "kind": "skill",
+      "name": "gws-modelarmor-create-template",
+      "path": "skills/gws-modelarmor-create-template/SKILL.md",
+      "description": "Google Model Armor: Create a new Model Armor template.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-modelarmor-sanitize-prompt",
+      "kind": "skill",
+      "name": "gws-modelarmor-sanitize-prompt",
+      "path": "skills/gws-modelarmor-sanitize-prompt/SKILL.md",
+      "description": "Google Model Armor: Sanitize a user prompt through a Model Armor template.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-modelarmor-sanitize-response",
+      "kind": "skill",
+      "name": "gws-modelarmor-sanitize-response",
+      "path": "skills/gws-modelarmor-sanitize-response/SKILL.md",
+      "description": "Google Model Armor: Sanitize a model response through a Model Armor template.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-people",
+      "kind": "skill",
+      "name": "gws-people",
+      "path": "skills/gws-people/SKILL.md",
+      "description": "Google People: Manage contacts and profiles.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-shared",
+      "kind": "skill",
+      "name": "gws-shared",
+      "path": "skills/gws-shared/SKILL.md",
+      "description": "gws CLI: Shared patterns for authentication, global flags, and output formatting.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-sheets",
+      "kind": "skill",
+      "name": "gws-sheets",
+      "path": "skills/gws-sheets/SKILL.md",
+      "description": "Google Sheets: Read and write spreadsheets.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-sheets-append",
+      "kind": "skill",
+      "name": "gws-sheets-append",
+      "path": "skills/gws-sheets-append/SKILL.md",
+      "description": "Google Sheets: Append a row to a spreadsheet.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-sheets-read",
+      "kind": "skill",
+      "name": "gws-sheets-read",
+      "path": "skills/gws-sheets-read/SKILL.md",
+      "description": "Google Sheets: Read values from a spreadsheet.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-slides",
+      "kind": "skill",
+      "name": "gws-slides",
+      "path": "skills/gws-slides/SKILL.md",
+      "description": "Google Slides: Read and write presentations.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-tasks",
+      "kind": "skill",
+      "name": "gws-tasks",
+      "path": "skills/gws-tasks/SKILL.md",
+      "description": "Google Tasks: Manage task lists and tasks.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-workflow",
+      "kind": "skill",
+      "name": "gws-workflow",
+      "path": "skills/gws-workflow/SKILL.md",
+      "description": "Google Workflow: Cross-service productivity workflows.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-workflow-email-to-task",
+      "kind": "skill",
+      "name": "gws-workflow-email-to-task",
+      "path": "skills/gws-workflow-email-to-task/SKILL.md",
+      "description": "Google Workflow: Convert a Gmail message into a Google Tasks entry.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-workflow-file-announce",
+      "kind": "skill",
+      "name": "gws-workflow-file-announce",
+      "path": "skills/gws-workflow-file-announce/SKILL.md",
+      "description": "Google Workflow: Announce a Drive file in a Chat space.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-workflow-meeting-prep",
+      "kind": "skill",
+      "name": "gws-workflow-meeting-prep",
+      "path": "skills/gws-workflow-meeting-prep/SKILL.md",
+      "description": "Google Workflow: Prepare for your next meeting: agenda, attendees, and linked docs.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-workflow-standup-report",
+      "kind": "skill",
+      "name": "gws-workflow-standup-report",
+      "path": "skills/gws-workflow-standup-report/SKILL.md",
+      "description": "Google Workflow: Today's meetings + open tasks as a standup summary.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:gws-workflow-weekly-digest",
+      "kind": "skill",
+      "name": "gws-workflow-weekly-digest",
+      "path": "skills/gws-workflow-weekly-digest/SKILL.md",
+      "description": "Google Workflow: Weekly summary: this week's meetings + unread email count.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:heartbeat",
+      "kind": "skill",
+      "name": "heartbeat",
+      "path": "skills/heartbeat/SKILL.md",
+      "description": "Proactive autonomous monitoring and session management. Runs at session start and end. Checks memory consistency, infrastructure health, pending tasks, and workspace cleanliness. Enables Bravo to act without prompting.",
+      "tier": "core",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "heartbeat",
+        "health check",
+        "session start",
+        "monitoring",
+        "proactive",
+        "autonomous"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:hooks-automation",
+      "kind": "skill",
+      "name": "hooks-automation",
+      "path": "skills/hooks-automation/SKILL.md",
+      "description": ">",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "automation",
+        "hooks",
+        "orchestration"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:hyperthink",
+      "kind": "skill",
+      "name": "hyperthink",
+      "path": "skills/hyperthink/SKILL.md",
+      "description": "Maximum-depth reasoning protocol. Wraps Claude Code's native ultrathink (31,999 thinking tokens) with a structured multi-hypothesis framework. Fires on architectural decisions, multi-root-cause debugging, or expensive-to-reverse choices.",
+      "tier": "strategic",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "hyperthink",
+        "ultrathink",
+        "think harder",
+        "think super hard",
+        "think intensely",
+        "think really hard",
+        "architectural decision",
+        "irreversible choice"
+      ],
+      "tags": [
+        "reasoning",
+        "protocol",
+        "top-tier"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:internal-comms",
+      "kind": "skill",
+      "name": "internal-comms",
+      "path": "skills/internal-comms/SKILL.md",
+      "description": "A set of resources to help me write all kinds of internal communications, using the formats that my company likes to use. Claude should use this skill whenever asked to write some sort of internal communications (status reports, leadership updates, 3P updates, company newsletters",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "internal communication",
+        "status report",
+        "newsletter",
+        "FAQ",
+        "incident report",
+        "update"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:investor-communications",
+      "kind": "skill",
+      "name": "investor-communications",
+      "path": "skills/investor-communications/SKILL.md",
+      "description": "Use this skill whenever the user mentions investor updates, stakeholder reports, advisory board management, pitch communications, valuations, or partnership/JV frameworks. Distinct from investor-materials (which covers pitch deck assets); this skill covers the ongoing communicati",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "investor update",
+        "stakeholder update",
+        "advisory board",
+        "valuation",
+        "partnership",
+        "JV",
+        "revenue share",
+        "monthly update",
+        "investor email"
+      ],
+      "tags": [
+        "skill",
+        "investor",
+        "communications"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:investor-materials",
+      "kind": "skill",
+      "name": "investor-materials",
+      "path": "skills/investor-materials/SKILL.md",
+      "description": "Use this skill whenever the user mentions creating investor material, pitch decks, executive summaries, funding, or communicating with investors. Contains templates, structure, and tone.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "investor",
+        "pitch deck",
+        "executive summary",
+        "funding",
+        "raise",
+        "investor materials"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:knowledge-compilation",
+      "kind": "skill",
+      "name": "knowledge-compilation",
+      "path": "skills/knowledge-compilation/SKILL.md",
+      "description": "Use this skill to ingest raw documents into the compiled wiki, query the knowledge base for sourced answers, or lint the wiki for broken links and stale facts. Implements Karpathy-style LLM knowledge compilation \u2014 no RAG, deterministic retrieval via structured wiki pages.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "ingest",
+        "query knowledge",
+        "lint knowledge",
+        "compile knowledge",
+        "knowledge base",
+        "wiki",
+        "raw document",
+        "karpathy"
+      ],
+      "tags": [
+        "skill",
+        "knowledge",
+        "compilation",
+        "wiki",
+        "ingest"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:knowledge-graph",
+      "kind": "skill",
+      "name": "knowledge-graph",
+      "path": "skills/knowledge-graph/SKILL.md",
+      "description": "Query the Obsidian vault as a live knowledge graph \u2014 PageRank, community detection, semantic search, path-finding, and vault writes via MCP.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "skill",
+        "mcp",
+        "knowledge",
+        "obsidian",
+        "graph",
+        "search"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:knowledge-management",
+      "kind": "skill",
+      "name": "knowledge-management",
+      "path": "skills/knowledge-management/SKILL.md",
+      "description": "Use this skill whenever the user wants to capture, organize, retrieve, or maintain business intelligence. Covers PARA implementation, information capture protocols, progressive summarization, retrieval frameworks, freshness scoring, template library management, and weekly mainten",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "knowledge management",
+        "second brain",
+        "PARA",
+        "capture notes",
+        "organize information",
+        "template library",
+        "information retrieval",
+        "knowledge base",
+        "weekly maintenance"
+      ],
+      "tags": [
+        "skill",
+        "knowledge",
+        "management"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:market-research",
+      "kind": "skill",
+      "name": "market-research",
+      "path": "skills/market-research/SKILL.md",
+      "description": "Use this skill whenever the user asks to conduct market research, competitor analysis, customer discovery, pricing analysis, or demographics research. Essential for any strategic planning or new product launch.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "market research",
+        "competitor analysis",
+        "customer discovery",
+        "pricing analysis",
+        "demographics"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:mcp-builder",
+      "kind": "skill",
+      "name": "mcp-builder",
+      "path": "skills/mcp-builder/SKILL.md",
+      "description": "Guide for creating high-quality MCP (Model Context Protocol) servers that enable LLMs to interact with external services through well-designed tools. Use when building MCP servers to integrate external APIs or services, whether in Python (FastMCP) or Node/TypeScript (MCP SDK).",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "MCP server",
+        "build MCP",
+        "FastMCP",
+        "MCP SDK",
+        "Model Context Protocol"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:mcp-operations",
+      "kind": "skill",
+      "name": "mcp-operations",
+      "path": "skills/mcp-operations/SKILL.md",
+      "description": "Tool routing guide \u2014 CLI-first for credential services, MCP for stateless tools. Single source of truth for all agents.",
+      "tier": "core",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "tool routing",
+        "Zernio",
+        "Late",
+        "n8n",
+        "Supabase",
+        "Stripe",
+        "MCP",
+        "tool failure"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:meeting-automation",
+      "kind": "skill",
+      "name": "meeting-automation",
+      "path": "skills/meeting-automation/SKILL.md",
+      "description": "Pre-meeting briefs, meeting type templates, post-meeting capture protocol, follow-up cadence, and calendar intelligence. Turns every meeting into a documented, actionable event.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "skill",
+        "meetings",
+        "automation",
+        "follow-up",
+        "calendar"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:memory-compression",
+      "kind": "skill",
+      "name": "memory-compression",
+      "path": "skills/memory-compression/SKILL.md",
+      "description": "claude-mem plugin \u2014 automatic cross-session memory compression and injection via SQLite + semantic search. Captures tool usage, compresses observations, and injects relevant context at session start.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "skill",
+        "memory",
+        "plugin",
+        "claude-mem"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:memory-management",
+      "kind": "skill",
+      "name": "memory-management",
+      "path": "skills/memory-management/SKILL.md",
+      "description": "MemoryBox system for preventing bloat, scoring confidence, compressing archives, and maintaining memory hygiene. Ensures cross-session intelligence without context window overflow.",
+      "tier": "core",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "memory",
+        "bloat",
+        "archive",
+        "compress",
+        "session log",
+        "confidence",
+        "MemoryBox"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:n8n-mcp-integration",
+      "kind": "skill",
+      "name": "n8n-mcp-integration",
+      "path": "skills/n8n-mcp-integration/SKILL.md",
+      "description": "Utilize the n8n-mcp community package (REST API) to list, search, execute, and manage n8n workflows.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "n8n MCP",
+        "n8n API",
+        "workflow list",
+        "workflow execute",
+        "n8n REST"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:n8n-patterns",
+      "kind": "skill",
+      "name": "n8n-patterns",
+      "path": "skills/n8n-patterns/SKILL.md",
+      "description": "Use this skill whenever the user wants to build an N8N workflow, mentions n8n, automation, webhook intake, AI processing pipelines, or anything related to n8n node configurations. Essential for any n8n automation.",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "n8n",
+        "workflow",
+        "automation",
+        "trigger",
+        "node",
+        "webhook",
+        "n8n build"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:notebooklm",
+      "kind": "skill",
+      "name": "notebooklm",
+      "path": "skills/notebooklm/SKILL.md",
+      "description": "Use this skill whenever the user mentions NotebookLM, Google Notebook LM, ingesting documents for study, generating audio podcasts from docs, or knowledge management via NotebookLM.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "NotebookLM",
+        "Google Notebook",
+        "audio podcast",
+        "document study",
+        "knowledge management"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:opencli",
+      "kind": "skill",
+      "name": "opencli",
+      "path": "skills/opencli/SKILL.md",
+      "description": "Turn any website into a CLI command via browser automation. Use for web scraping, social media automation, API discovery, and platform integration without building custom scrapers.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "opencli",
+        "website CLI",
+        "web automation",
+        "API discovery",
+        "browser CLI",
+        "explore website",
+        "synthesize adapter"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:outreach-send",
+      "kind": "skill",
+      "name": "outreach-send",
+      "path": "skills/outreach-send/SKILL.md",
+      "description": "Send OASIS cold/follow-up outreach emails with branded HTML, booking link, geo-rapport, and full deliverability protection. Use whenever CC says \"send outreach\", \"email these leads\", \"follow up with X\", or any first/second-touch sales email to a lead in the CRM. Works identically",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:pdf",
+      "kind": "skill",
+      "name": "pdf",
+      "path": "skills/pdf/SKILL.md",
+      "description": "Use this skill whenever the user wants to do anything with PDF files. This includes reading or extracting text/tables from PDFs, combining or merging multiple PDFs into one, splitting PDFs apart, rotating pages, adding watermarks, creating new PDFs, filling PDF forms, encrypting/",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "PDF",
+        "merge PDF",
+        "split PDF",
+        "read PDF",
+        "OCR",
+        "watermark",
+        "PDF form"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:persona-customer-support",
+      "kind": "skill",
+      "name": "persona-customer-support",
+      "path": "skills/persona-customer-support/SKILL.md",
+      "description": "Manage customer support \u2014 track tickets, respond, escalate issues.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:persona-event-coordinator",
+      "kind": "skill",
+      "name": "persona-event-coordinator",
+      "path": "skills/persona-event-coordinator/SKILL.md",
+      "description": "Plan and manage events \u2014 scheduling, invitations, and logistics.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:persona-exec-assistant",
+      "kind": "skill",
+      "name": "persona-exec-assistant",
+      "path": "skills/persona-exec-assistant/SKILL.md",
+      "description": "Manage an executive's schedule, inbox, and communications.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:persona-hr-coordinator",
+      "kind": "skill",
+      "name": "persona-hr-coordinator",
+      "path": "skills/persona-hr-coordinator/SKILL.md",
+      "description": "Handle HR workflows \u2014 onboarding, announcements, and employee comms.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:persona-it-admin",
+      "kind": "skill",
+      "name": "persona-it-admin",
+      "path": "skills/persona-it-admin/SKILL.md",
+      "description": "Administer IT \u2014 monitor security and configure Workspace.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:persona-project-manager",
+      "kind": "skill",
+      "name": "persona-project-manager",
+      "path": "skills/persona-project-manager/SKILL.md",
+      "description": "Coordinate projects \u2014 track tasks, schedule meetings, and share docs.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:persona-researcher",
+      "kind": "skill",
+      "name": "persona-researcher",
+      "path": "skills/persona-researcher/SKILL.md",
+      "description": "Organize research \u2014 manage references, notes, and collaboration.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:persona-sales-ops",
+      "kind": "skill",
+      "name": "persona-sales-ops",
+      "path": "skills/persona-sales-ops/SKILL.md",
+      "description": "Manage sales workflows \u2014 track deals, schedule calls, client comms.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:persona-team-lead",
+      "kind": "skill",
+      "name": "persona-team-lead",
+      "path": "skills/persona-team-lead/SKILL.md",
+      "description": "Lead a team \u2014 run standups, coordinate tasks, and communicate.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:pptx",
+      "kind": "skill",
+      "name": "pptx",
+      "path": "skills/pptx/SKILL.md",
+      "description": "Use this skill any time a .pptx file is involved in any way \u2014 as input, output, or both. This includes: creating slide decks, pitch decks, or presentations; reading, parsing, or extracting text from any .pptx file (even if the extracted content will be used elsewhere, like in an ",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "PowerPoint",
+        "pptx",
+        "slides",
+        "presentation",
+        "deck",
+        "pitch deck",
+        "speaker notes"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:project-management",
+      "kind": "skill",
+      "name": "project-management",
+      "path": "skills/project-management/SKILL.md",
+      "description": "Lightweight project management for OASIS client engagements. Project definition, 5-phase structure, milestone tracking, status reporting, scope management, multi-project dashboard, and retrospective template.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "skill",
+        "project-management",
+        "clients",
+        "oasis",
+        "delivery"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:proposal-generation",
+      "kind": "skill",
+      "name": "proposal-generation",
+      "path": "skills/proposal-generation/SKILL.md",
+      "description": "Generate proposals, SOWs, and NDAs for OASIS AI Solutions. Covers discovery proposals, retainer proposals, and project-based SOWs with Good/Better/Best pricing tiers. Uses proposal_generator.py.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "skill",
+        "proposal-generation",
+        "sales",
+        "client"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:python-daemon-automation",
+      "kind": "skill",
+      "name": "python-daemon-automation",
+      "path": "skills/python-daemon-automation/SKILL.md",
+      "description": "Build, deploy, and manage Python background daemons on Windows \u2014 includes 5-step redeploy protocol, watchdog patterns, zombie process detection, and kill switches",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "skill",
+        "automation",
+        "python",
+        "daemon",
+        "windows"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:receiving-code-review",
+      "kind": "skill",
+      "name": "receiving-code-review",
+      "path": "skills/receiving-code-review/SKILL.md",
+      "description": "Use when receiving code review feedback, before implementing suggestions, especially if feedback seems unclear or technically questionable - requires technical rigor and verification, not performative agreement or blind implementation",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "feedback",
+        "review feedback",
+        "code review response",
+        "suggestion",
+        "requested changes"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:requesting-code-review",
+      "kind": "skill",
+      "name": "requesting-code-review",
+      "path": "skills/requesting-code-review/SKILL.md",
+      "description": "Use when completing tasks, implementing major features, or before merging to verify work meets requirements",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "request review",
+        "verify work",
+        "pre-merge check",
+        "self-review"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:retro",
+      "kind": "skill",
+      "name": "retro",
+      "path": "skills/retro/SKILL.md",
+      "description": "Weekly retrospective analysis. Use when CC says \"/retro\", \"weekly retro\", \"how did we do this week\", or \"what shipped this week\". Analyzes all agent activity, rates 4 operational dimensions, and generates specific improvement actions.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "retro",
+        "retrospective",
+        "weekly retro",
+        "what shipped",
+        "how did we do"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:revenue-operations",
+      "kind": "skill",
+      "name": "revenue-operations",
+      "path": "skills/revenue-operations/SKILL.md",
+      "description": "Track MRR, log revenue events, run forecasts, and monitor progress toward the $5,000 USD Net MRR goal using revenue_engine.py. Combines Stripe subscription data with manual entries in Supabase.",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "revenue",
+        "MRR",
+        "forecast",
+        "Stripe",
+        "income",
+        "goal",
+        "monthly",
+        "clients",
+        "financial"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:risk-management",
+      "kind": "skill",
+      "name": "risk-management",
+      "path": "skills/risk-management/SKILL.md",
+      "description": "Business risk identification, assessment, monitoring, and mitigation for CC's empire \u2014 revenue concentration, operational, financial, reputation, legal, and technology risk",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "skill",
+        "risk",
+        "management",
+        "ceo"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:sales-closing",
+      "kind": "skill",
+      "name": "sales-closing",
+      "path": "skills/sales-closing/SKILL.md",
+      "description": "Tactical closing, objection handling, and negotiation for OASIS AI retainer deals and coaching clients. Extends sales-methodology (NEPQ) into the final 20% of the deal cycle where money actually moves.",
+      "tier": "strategic",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "close the deal",
+        "closing",
+        "objection",
+        "negotiate",
+        "final offer",
+        "contract",
+        "proposal follow-up",
+        "objection handling",
+        "close techniques"
+      ],
+      "tags": [
+        "sales",
+        "closing",
+        "negotiation",
+        "revenue"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:sales-methodology",
+      "kind": "skill",
+      "name": "sales-methodology",
+      "path": "skills/sales-methodology/SKILL.md",
+      "description": "NEPQ-based sales framework for OASIS AI Solutions \u2014 discovery calls, situation/problem/solution/consequence questions, objection handling, closing, and sales metrics",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "skill",
+        "sales",
+        "methodology",
+        "nepq"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:scaling-playbook",
+      "kind": "skill",
+      "name": "scaling-playbook",
+      "path": "skills/scaling-playbook/SKILL.md",
+      "description": "Use this skill whenever the user asks about growing the team, hiring decisions, productizing services, pricing evolution, operations scaling, or planning the path from solo to agency. Contains revenue-based scaling triggers, first hire frameworks, productization pathways, and CC'",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "scale",
+        "hire",
+        "first hire",
+        "team",
+        "productize",
+        "agency",
+        "grow",
+        "pricing strategy",
+        "operations",
+        "delegation",
+        "leverage"
+      ],
+      "tags": [
+        "skill",
+        "scaling",
+        "growth"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:score-b2b-lead-quality",
+      "kind": "skill",
+      "name": "score-b2b-lead-quality",
+      "path": "skills/score-b2b-lead-quality/SKILL.md",
+      "description": "Evaluate inbound B2B SaaS leads using weighted signal analysis to prioritize routing and outreach strategy.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "evaluate lead quality",
+        "should we reach out to this prospect",
+        "rate this inbound lead",
+        "what's the lead score"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:security-protocol",
+      "kind": "skill",
+      "name": "security-protocol",
+      "path": "skills/security-protocol/SKILL.md",
+      "description": "Secrets and authentication management. Ensures API keys, tokens, and credentials are NEVER exposed in plain text. Use when handling any credential, API key, or sensitive configuration.",
+      "tier": "core",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "secret",
+        "credential",
+        "API key",
+        "exposed",
+        "rotation",
+        "security",
+        "token",
+        "password",
+        "leak",
+        "gitguardian"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:self-healing",
+      "kind": "skill",
+      "name": "self-healing",
+      "path": "skills/self-healing/SKILL.md",
+      "description": "Multi-dimensional autonomous recovery and health maintenance. Triggers on errors, session boundaries, and infrastructure issues. Covers memory healing, context healing, skill healing, infrastructure healing, and relationship healing.",
+      "tier": "core",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "heal",
+        "broken config",
+        "drift",
+        "inconsistent",
+        "stale",
+        "self-heal",
+        "recovery"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:self-improvement-protocol",
+      "kind": "skill",
+      "name": "self-improvement-protocol",
+      "path": "skills/self-improvement-protocol/SKILL.md",
+      "description": "The 4-protocol loop every C-Suite agent runs to stay sharp: self-heal (detect+fix broken state), self-optimize (track+tune own performance), self-develop (fill capability gaps), self-improve (learn from outcomes). Installs in Bravo / Atlas / Maven / Aura with per-agent scoping.",
+      "tier": "full",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "self-heal",
+        "self-optimize",
+        "self-develop",
+        "self-improve",
+        "retrospective",
+        "reflexion",
+        "review-self",
+        "heal",
+        "optimize",
+        "evolve"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:semantic-memory",
+      "kind": "skill",
+      "name": "semantic-memory",
+      "path": "skills/semantic-memory/SKILL.md",
+      "description": "Use this skill when storing or retrieving preferences, facts, or context that should be searchable by meaning rather than exact keyword. Activates when CC says \"remember that\", \"what do I prefer\", or any query requiring fuzzy recall across sessions.",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "remember",
+        "recall",
+        "preferences",
+        "semantic search",
+        "mem0",
+        "memory search",
+        "what does CC prefer",
+        "cross-session context"
+      ],
+      "tags": [
+        "skill",
+        "memory",
+        "semantic",
+        "mem0",
+        "vector",
+        "embeddings"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:send-gateway",
+      "kind": "skill",
+      "name": "send-gateway",
+      "path": "skills/send-gateway/SKILL.md",
+      "description": "The single outbound chokepoint for every autonomous action Bravo performs on behalf of CC. Enforces CASL compliance, cooldown windows, daily caps, and cross-engine idempotency architecturally \u2014 callers cannot bypass it.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:sequential-reasoning",
+      "kind": "skill",
+      "name": "sequential-reasoning",
+      "path": "skills/sequential-reasoning/SKILL.md",
+      "description": "Enhanced multi-step reasoning protocol for complex problems. Combines Sequential Thinking MCP with structured analysis frameworks. Use for architecture decisions, root cause analysis, strategic planning, and multi-variable optimization.",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "complex reasoning",
+        "multi-step analysis",
+        "architecture decision",
+        "strategic planning"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:ship",
+      "kind": "skill",
+      "name": "ship",
+      "path": "skills/ship/SKILL.md",
+      "description": "Full deployment pipeline for any app in the registry. Use when CC says \"ship it\", \"deploy\", \"push this live\", or \"/ship\". Handles sync, tests, code review, changelog, PR, and post-ship verification in sequence.",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "ship",
+        "deploy",
+        "push live",
+        "release",
+        "go live",
+        "ship it"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:skill-creator",
+      "kind": "skill",
+      "name": "skill-creator",
+      "path": "skills/skill-creator/SKILL.md",
+      "description": "Create new skills, modify and improve existing skills, and measure skill performance. Use when users want to create a skill from scratch, update or optimize an existing skill, run evals to test a skill, benchmark skill performance with variance analysis, or optimize a skill's des",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "create skill",
+        "new skill",
+        "modify skill",
+        "skill eval",
+        "skill performance"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:skool-automation",
+      "kind": "skill",
+      "name": "skool-automation",
+      "path": "skills/skool-automation/SKILL.md",
+      "description": "Manage Skool community content (lessons, about page, courses) using Playwright MCP browser automation",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "Skool",
+        "lesson",
+        "classroom",
+        "community",
+        "Tiptap",
+        "course",
+        "Skool edit"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:slack-gif-creator",
+      "kind": "skill",
+      "name": "slack-gif-creator",
+      "path": "skills/slack-gif-creator/SKILL.md",
+      "description": "Knowledge and utilities for creating animated GIFs optimized for Slack. Provides constraints, validation tools, and animation concepts. Use when users request animated GIFs for Slack like \"make me a GIF of X doing Y for Slack.\"",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "GIF",
+        "Slack GIF",
+        "animated GIF",
+        "animation"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:sop-breakdown",
+      "kind": "skill",
+      "name": "sop-breakdown",
+      "path": "skills/sop-breakdown/SKILL.md",
+      "description": "Automatically creates, refines, and executes Standard Operating Procedures. Triggers when a process is repeated 3+ times or when CC requests an SOP. Extracts steps from observed behavior, tracks success rates, and evolves SOPs over time.",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "SOP",
+        "standard operating procedure",
+        "process",
+        "repeated task",
+        "workflow template"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:sparc-methodology",
+      "kind": "skill",
+      "name": "sparc-methodology",
+      "path": "skills/sparc-methodology/SKILL.md",
+      "description": ">",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "development",
+        "planning",
+        "methodology"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:strategic-compact",
+      "kind": "skill",
+      "name": "strategic-compact",
+      "path": "skills/strategic-compact/SKILL.md",
+      "description": "Use this skill whenever the user asks about the strategic compact, setting goals, defining business strategy, OKRs, company operating principles, or top-level mission planning.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "strategic compact",
+        "goals",
+        "business strategy",
+        "OKR",
+        "mission planning",
+        "operating principles"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:strategic-planning",
+      "kind": "skill",
+      "name": "strategic-planning",
+      "path": "skills/strategic-planning/SKILL.md",
+      "description": "CEO-level strategic planning framework \u2014 OKRs, annual strategy, scenario modeling, decision frameworks, QBR and weekly review templates",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "skill",
+        "strategy",
+        "planning",
+        "okr",
+        "ceo"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:subagent-driven-development",
+      "kind": "skill",
+      "name": "subagent-driven-development",
+      "path": "skills/subagent-driven-development/SKILL.md",
+      "description": "Use when executing implementation plans with independent tasks in the current session",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "subagent",
+        "sub-agent",
+        "fresh subagent",
+        "task delegation",
+        "subagent execution"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:supabase-patterns",
+      "kind": "skill",
+      "name": "supabase-patterns",
+      "path": "skills/supabase-patterns/SKILL.md",
+      "description": "Use this skill whenever the user asks about Supabase, database design, postgres, creating tables, writing SQL, RLS policies, performing database CRUD, or backend data patterns.",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "Supabase",
+        "SQL",
+        "migration",
+        "RLS",
+        "schema",
+        "database",
+        "postgres",
+        "CRUD"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:systematic-debugging",
+      "kind": "skill",
+      "name": "systematic-debugging",
+      "path": "skills/systematic-debugging/SKILL.md",
+      "description": "Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes",
+      "tier": "core",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "bug",
+        "error",
+        "failure",
+        "crash",
+        "broken",
+        "not working",
+        "debug",
+        "stack trace"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:task-routing",
+      "kind": "skill",
+      "name": "task-routing",
+      "path": "skills/task-routing/SKILL.md",
+      "description": ">",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "orchestration",
+        "routing",
+        "agents"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:team-management",
+      "kind": "skill",
+      "name": "team-management",
+      "path": "skills/team-management/SKILL.md",
+      "description": "Hiring framework, contractor onboarding, 1:1 templates, performance reviews, delegation (RACI), capacity planning, communication protocols, and offboarding. Scales CC from solo to small team without losing operational quality.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "skill",
+        "team",
+        "management",
+        "hiring"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:telegram-demo-workflows",
+      "kind": "skill",
+      "name": "telegram-demo-workflows",
+      "path": "skills/telegram-demo-workflows/SKILL.md",
+      "description": "5 verified, rehearsed Telegram \u2192 MacBook demo workflows for filming content. Each is designed to work 100% of the time, look visually impressive on camera, and be completable in under 60 seconds. Use these when filming \"AI takes over my computer\" content.",
+      "tier": "full",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "demo",
+        "film",
+        "content",
+        "record",
+        "show",
+        "camera",
+        "telegram controls",
+        "computer control demo"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:test-driven-development",
+      "kind": "skill",
+      "name": "test-driven-development",
+      "path": "skills/test-driven-development/SKILL.md",
+      "description": "Use when implementing any feature or bugfix, before writing implementation code",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "test",
+        "TDD",
+        "failing test",
+        "unit test",
+        "red green",
+        "test first"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:theme-factory",
+      "kind": "skill",
+      "name": "theme-factory",
+      "path": "skills/theme-factory/SKILL.md",
+      "description": "Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTML landing pages, etc. There are 10 pre-set themes with colors/fonts that you can apply to any artifact that has been creating, or can generate a new theme on-the-fly.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "theme",
+        "styling",
+        "brand colors",
+        "fonts",
+        "visual format",
+        "artifact styling"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:using-git-worktrees",
+      "kind": "skill",
+      "name": "using-git-worktrees",
+      "path": "skills/using-git-worktrees/SKILL.md",
+      "description": "Use when starting feature work that needs isolation from current workspace or before executing implementation plans - creates isolated git worktrees with smart directory selection and safety verification",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "worktree",
+        "git worktree",
+        "isolation",
+        "feature branch",
+        "workspace"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:using-superpowers",
+      "kind": "skill",
+      "name": "using-superpowers",
+      "path": "skills/using-superpowers/SKILL.md",
+      "description": "Use when starting any conversation - establishes how to find and use skills, requiring Skill tool invocation before ANY response including clarifying questions",
+      "tier": "core",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "skill",
+        "superpowers",
+        "find skill",
+        "use skill",
+        "skill invocation"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:verification-before-completion",
+      "kind": "skill",
+      "name": "verification-before-completion",
+      "path": "skills/verification-before-completion/SKILL.md",
+      "description": "Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - requires running verification commands and confirming output before making any success claims; evidence before assertions always",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "verify",
+        "complete",
+        "done",
+        "passing",
+        "evidence",
+        "before commit",
+        "before PR"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:verticals",
+      "kind": "skill",
+      "name": "verticals",
+      "path": "skills/verticals/SKILL.md",
+      "description": "Namespace for vertical-specific playbooks (agency, coaching, creator, ecommerce, local-service, saas). Load the matching sub-skill when CC onboards a client in a given vertical \u2014 each one will ship lead-gen, pricing, and delivery SOPs tailored to that vertical's economics.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:web-artifacts-builder",
+      "kind": "skill",
+      "name": "web-artifacts-builder",
+      "path": "skills/web-artifacts-builder/SKILL.md",
+      "description": "Suite of tools for creating elaborate, multi-component claude.ai HTML artifacts using modern frontend web technologies (React, Tailwind CSS, shadcn/ui). Use for complex artifacts requiring state management, routing, or shadcn/ui components - not for simple single-file HTML/JSX ar",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "web artifact",
+        "React artifact",
+        "HTML artifact",
+        "multi-component",
+        "shadcn",
+        "complex artifact"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:web-scraping",
+      "kind": "skill",
+      "name": "web-scraping",
+      "path": "skills/web-scraping/SKILL.md",
+      "description": "Web scraping and structured data extraction. Activate when CC needs to pull content from competitor sites, extract pricing/contacts/listings, harvest data for research, scrape pages that don't have an API, or operate a site under CC's logged-in account.",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [],
+      "tags": [
+        "skill",
+        "scraping",
+        "data-extraction",
+        "research",
+        "browser-harness"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:webapp-testing",
+      "kind": "skill",
+      "name": "webapp-testing",
+      "path": "skills/webapp-testing/SKILL.md",
+      "description": "Toolkit for interacting with and testing local web applications using Playwright. Supports verifying frontend functionality, debugging UI behavior, capturing browser screenshots, and viewing browser logs.",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "webapp test",
+        "local app test",
+        "frontend test",
+        "browser test",
+        "UI test"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:writing-plans",
+      "kind": "skill",
+      "name": "writing-plans",
+      "path": "skills/writing-plans/SKILL.md",
+      "description": "Use when you have a spec or requirements for a multi-step task, before touching code",
+      "tier": "standard",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "plan",
+        "implementation plan",
+        "feature plan",
+        "spec",
+        "requirements"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:writing-skills",
+      "kind": "skill",
+      "name": "writing-skills",
+      "path": "skills/writing-skills/SKILL.md",
+      "description": "Use when creating new skills, editing existing skills, or verifying skills work before deployment",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "write skill",
+        "create skill",
+        "skill authoring",
+        "skill format"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:xlsx",
+      "kind": "skill",
+      "name": "xlsx",
+      "path": "skills/xlsx/SKILL.md",
+      "description": "Use this skill any time a spreadsheet file is the primary input or output. This means any task where the user wants to: open, read, edit, or fix an existing .xlsx, .xlsm, .csv, or .tsv file (e.g., adding columns, computing formulas, formatting, charting, cleaning messy data); cre",
+      "tier": "specialized",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "spreadsheet",
+        "xlsx",
+        "Excel",
+        "CSV",
+        "TSV",
+        "tabular data",
+        "chart"
+      ],
+      "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "script:agent_heartbeat",
+      "kind": "script",
+      "name": "agent_heartbeat",
+      "path": "scripts/agent_heartbeat.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:agent_inbox",
+      "kind": "script",
+      "name": "agent_inbox",
+      "path": "scripts/agent_inbox.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:apply_migration",
+      "kind": "script",
+      "name": "apply_migration",
+      "path": "scripts/apply_migration.py",
+      "description": "Apply SQL migration files to the Bravo Supabase project.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:auto_dream",
+      "kind": "script",
+      "name": "auto_dream",
+      "path": "scripts/auto_dream.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:autonomous_agent",
+      "kind": "script",
+      "name": "autonomous_agent",
+      "path": "scripts/autonomous_agent.py",
+      "description": "Autonomous Agent \u2014 the always-on reasoning loop.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:booking_engine",
+      "kind": "script",
+      "name": "booking_engine",
+      "path": "scripts/booking_engine.py",
+      "description": "Booking Engine - Self-hosted scheduling system replacing Cal.com. Zero paid services. Backed by Supabase (bravo project). All credentials loaded from .env.agents (never hardcoded).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:bridge_lock",
+      "kind": "script",
+      "name": "bridge_lock",
+      "path": "scripts/bridge_lock.py",
+      "description": "Bridge Lock \u2014 multi-machine arbitration for Telegram (and future Discord/Slack) bridges.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:browse_and_capture",
+      "kind": "script",
+      "name": "browse_and_capture",
+      "path": "scripts/browse_and_capture.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:browser_connect",
+      "kind": "script",
+      "name": "browser_connect",
+      "path": "scripts/browser_connect.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:browser_harness_doctor",
+      "kind": "script",
+      "name": "browser_harness_doctor",
+      "path": "scripts/browser_harness_doctor.py",
+      "description": "Browser Harness diagnostics for Bravo.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:build_capability_graph",
+      "kind": "script",
+      "name": "build_capability_graph",
+      "path": "scripts/build_capability_graph.py",
+      "description": "Build Capability Graph \u2014 auto-discover every skill, script, agent, MCP server, workflow, and integration in this repo and emit a single machine-readable graph at brain/CAPABILITY_GRAPH.json.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:build_maven_env",
+      "kind": "script",
+      "name": "build_maven_env",
+      "path": "scripts/build_maven_env.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:capability_query",
+      "kind": "script",
+      "name": "capability_query",
+      "path": "scripts/capability_query.py",
+      "description": "Capability Query \u2014 runtime tool-tree resolver for agents.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:casl_compliance",
+      "kind": "script",
+      "name": "casl_compliance",
+      "path": "scripts/casl_compliance.py",
+      "description": "CASL compliance helpers for all outgoing cold email.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:catalog_sync",
+      "kind": "script",
+      "name": "catalog_sync",
+      "path": "scripts/catalog_sync.py",
+      "description": "Catalog sync \u2014 regenerate scripts/skills/agents counts from filesystem truth.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:ceo_dashboard",
+      "kind": "script",
+      "name": "ceo_dashboard",
+      "path": "scripts/ceo_dashboard.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:client_health",
+      "kind": "script",
+      "name": "client_health",
+      "path": "scripts/client_health.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:cloudflare_admin",
+      "kind": "script",
+      "name": "cloudflare_admin",
+      "path": "scripts/cloudflare_admin.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:codex_health",
+      "kind": "script",
+      "name": "codex_health",
+      "path": "scripts/codex_health.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:competitive_intel",
+      "kind": "script",
+      "name": "competitive_intel",
+      "path": "scripts/competitive_intel.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:computer_control",
+      "kind": "script",
+      "name": "computer_control",
+      "path": "scripts/computer_control.py",
+      "description": "Computer Control \u2014 unified dispatcher for full-machine automation.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:context_builder",
+      "kind": "script",
+      "name": "context_builder",
+      "path": "scripts/context_builder.py",
+      "description": "Context Builder \u2014 assembles the full conversational + relational context for any lead/contact so LLM-drafted outbound communication can finally speak with social awareness.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:context_manager",
+      "kind": "script",
+      "name": "context_manager",
+      "path": "scripts/context_manager.py",
+      "description": "Context Manager \u2014 SESSION_LOG compaction, tiered context loading, and MCP/CLI health checks.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:cost_tracker",
+      "kind": "script",
+      "name": "cost_tracker",
+      "path": "scripts/cost_tracker.py",
+      "description": "Cost Tracker \u2014 Per-Operation Label:Units Tracking for Business-Empire-Agent Follows the Claude Code internal cost tracking pattern: label:units per operation. Covers all CLI tools (supabase, stripe, n8n, late, playwright) and MCP calls. No external dependencies \u2014 stdlib only (sql",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:crm_reset",
+      "kind": "script",
+      "name": "crm_reset",
+      "path": "scripts/crm_reset.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:cron_engine",
+      "kind": "script",
+      "name": "cron_engine",
+      "path": "scripts/cron_engine.py",
+      "description": "Cron Engine - Business Automation Job Manager Defines and tracks all automated business workflows. Not a cron runner itself - n8n handles scheduling. This is the source of truth for what should be automated, seeded into Supabase so n8n and agents share a single registry.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:deploy_command_center",
+      "kind": "script",
+      "name": "deploy_command_center",
+      "path": "scripts/deploy_command_center.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:dns_reputation",
+      "kind": "script",
+      "name": "dns_reputation",
+      "path": "scripts/dns_reputation.py",
+      "description": "DNS reputation checks for the outbound sender domain.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:draft_critic",
+      "kind": "script",
+      "name": "draft_critic",
+      "path": "scripts/draft_critic.py",
+      "description": "Draft Critic \u2014 the adversarial second-opinion reviewer that runs on every Claude-drafted outbound before it reaches send_gateway.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:email_doctor",
+      "kind": "script",
+      "name": "email_doctor",
+      "path": "scripts/email_doctor.py",
+      "description": "Email-safety diagnostic \u2014 verifies the multi-AI safety surface is intact.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:email_engine",
+      "kind": "script",
+      "name": "email_engine",
+      "path": "scripts/email_engine.py",
+      "description": "Email Engine - Free send and nurture sequence engine. Zero paid services. Gmail SMTP (500/day free) + Supabase for tracking. All credentials loaded from .env.agents (never hardcoded).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:event_bus",
+      "kind": "script",
+      "name": "event_bus",
+      "path": "scripts/event_bus.py",
+      "description": "Bravo V6.0 \u2014 Event Bus (publisher + subscriber)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:financial_model",
+      "kind": "script",
+      "name": "financial_model",
+      "path": "scripts/financial_model.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:firecrawl_tool",
+      "kind": "script",
+      "name": "firecrawl_tool",
+      "path": "scripts/firecrawl_tool.py",
+      "description": "Firecrawl CLI Tool -- Web Scraping & Structured Extraction Fallback to the Firecrawl MCP server. Reads FIRECRAWL_API_KEY from .env.agents. All credentials loaded from .env.agents (never hardcoded).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:funnel_nurture",
+      "kind": "script",
+      "name": "funnel_nurture",
+      "path": "scripts/funnel_nurture.py",
+      "description": "Funnel Lead Nurture Engine Sends automated follow-up emails to funnel leads at Day 2 and Day 5. Called daily by scheduler.py. Notifies CC via Telegram with a digest.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:funnel_sync",
+      "kind": "script",
+      "name": "funnel_sync",
+      "path": "scripts/funnel_sync.py",
+      "description": "Funnel Lead Sync \u2014 CRM Bridge Reads funnel_leads and syncs any that don't already exist in the leads table. Idempotent: keyed on email address.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:gateway_admin",
+      "kind": "script",
+      "name": "gateway_admin",
+      "path": "scripts/gateway_admin.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:generate_covers",
+      "kind": "script",
+      "name": "generate_covers",
+      "path": "scripts/generate_covers.py",
+      "description": "Generate branded cover images for Agency Accelerants Skool courses. Each cover: 1460x752px, dark theme, course title + icon/accent.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:gnn_skill_router",
+      "kind": "script",
+      "name": "gnn_skill_router",
+      "path": "scripts/gnn_skill_router.py",
+      "description": "GNN Skill Router -- graph-based next-skill prediction over the Obsidian vault.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:google_tool",
+      "kind": "script",
+      "name": "google_tool",
+      "path": "scripts/google_tool.py",
+      "description": "Google Workspace CLI \u2014 Calendar, Gmail, Drive, Docs, Sheets Wraps gws CLI with auto-token-refresh and fallback to direct API. All credentials loaded from .env.agents (never hardcoded).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:inbound_classifier",
+      "kind": "script",
+      "name": "inbound_classifier",
+      "path": "scripts/inbound_classifier.py",
+      "description": "Inbound Classifier \u2014 the second half of V5.6's chokepoint.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:integration_health",
+      "kind": "script",
+      "name": "integration_health",
+      "path": "scripts/integration_health.py",
+      "description": "integration_health.py \u2014 shared utility for bumping the OASIS Command Center integrations_health row from any background worker.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:lead_engine",
+      "kind": "script",
+      "name": "lead_engine",
+      "path": "scripts/lead_engine.py",
+      "description": "Lead Engine - OASIS AI CRM CLI Zero-paid-service lead management backed by Supabase (project: bravo). Replaces ManyChat, HubSpot, and every other CRM CC doesn't need to pay for.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:macos_control",
+      "kind": "script",
+      "name": "macos_control",
+      "path": "scripts/macos_control.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:maml_onboard",
+      "kind": "script",
+      "name": "maml_onboard",
+      "path": "scripts/maml_onboard.py",
+      "description": "MAML Onboard \u2014 Model-Agnostic Meta-Learning for rapid client onboarding.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:md_to_gdoc",
+      "kind": "script",
+      "name": "md_to_gdoc",
+      "path": "scripts/md_to_gdoc.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:mem0_tool",
+      "kind": "script",
+      "name": "mem0_tool",
+      "path": "scripts/mem0_tool.py",
+      "description": "mem0ai Integration \u2014 Semantic Memory for Bravo V5.5 Persistent, auto-deduplicating semantic memory stored locally via Qdrant (embedded). Uses fastembed (thenlper/gte-large, 1024-dim) for local embeddings \u2014 no OpenAI key needed. Uses Claude Haiku as the LLM for memory extraction. ",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:memory_aging",
+      "kind": "script",
+      "name": "memory_aging",
+      "path": "scripts/memory_aging.py",
+      "description": "Memory Aging \u2014 Confidence Decay and Health Scanner Implements the exponential decay model defined in brain/BRAIN_LOOP.md.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:memory_chunker",
+      "kind": "script",
+      "name": "memory_chunker",
+      "path": "scripts/memory_chunker.py",
+      "description": "Bravo V6.0 \u2014 Memory Chunker",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:memory_consolidation",
+      "kind": "script",
+      "name": "memory_consolidation",
+      "path": "scripts/memory_consolidation.py",
+      "description": "Memory Consolidation \u2014 3-layer memory pipeline.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:memory_index",
+      "kind": "script",
+      "name": "memory_index",
+      "path": "scripts/memory_index.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:memory_ingest",
+      "kind": "script",
+      "name": "memory_ingest",
+      "path": "scripts/memory_ingest.py",
+      "description": "Bravo V6.0 \u2014 Memory Ingest",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:memory_query",
+      "kind": "script",
+      "name": "memory_query",
+      "path": "scripts/memory_query.py",
+      "description": "Bravo V6.0 \u2014 Memory Query (retrieval)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:model_router",
+      "kind": "script",
+      "name": "model_router",
+      "path": "scripts/model_router.py",
+      "description": "Model Router -- unified provider registry, routing, and call surface.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:music_control",
+      "kind": "script",
+      "name": "music_control",
+      "path": "scripts/music_control.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:n8n_tool",
+      "kind": "script",
+      "name": "n8n_tool",
+      "path": "scripts/n8n_tool.py",
+      "description": "n8n CLI Tool \u2014 Full Workflow Management via REST API Replaces the broken n8n MCP management tools with direct API access. All credentials loaded from .env.agents (never hardcoded).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:n8n_webhook_secret",
+      "kind": "script",
+      "name": "n8n_webhook_secret",
+      "path": "scripts/n8n_webhook_secret.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:name_utils",
+      "kind": "script",
+      "name": "name_utils",
+      "path": "scripts/name_utils.py",
+      "description": "Shared name-sanitization for any path that interpolates a lead's first or full name into outbound copy (email body, calendar invite, DM, SMS).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:neural_memory",
+      "kind": "script",
+      "name": "neural_memory",
+      "path": "scripts/neural_memory.py",
+      "description": "Neural Memory \u2014 differentiable memory store backed by a Neural Turing Machine.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:neuro_symbolic_gate",
+      "kind": "script",
+      "name": "neuro_symbolic_gate",
+      "path": "scripts/neuro_symbolic_gate.py",
+      "description": "Neuro-Symbolic Compliance Gate \u2014 rule-based + neural outbound email verifier.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:notebooklm_tool",
+      "kind": "script",
+      "name": "notebooklm_tool",
+      "path": "scripts/notebooklm_tool.py",
+      "description": "NotebookLM CLI \u2014 Wrapper for notebooklm-py (v0.3.3) Provides notebook management, source ingestion, chat, and artifact generation. Auth: Browser-based (storage_state.json in ~/.notebooklm/). Run `notebooklm login` once.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:notify",
+      "kind": "script",
+      "name": "notify",
+      "path": "scripts/notify.py",
+      "description": "Bravo Notification System - Telegram alerts for CC.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:onboarding_diagnostics",
+      "kind": "script",
+      "name": "onboarding_diagnostics",
+      "path": "scripts/onboarding_diagnostics.py",
+      "description": "Bravo onboarding diagnostics.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:outreach_batch",
+      "kind": "script",
+      "name": "outreach_batch",
+      "path": "scripts/outreach_batch.py",
+      "description": "Outreach Batch \u2014 Semi-Auto Lead Outreach Engine Pulls uncontacted leads from CRM, drafts personalized cold emails via Claude Haiku, sends each to CC in Telegram with Approve/Skip inline buttons.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:outreach_eligible",
+      "kind": "script",
+      "name": "outreach_eligible",
+      "path": "scripts/outreach_eligible.py",
+      "description": "Pick leads eligible for the next outreach send.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:outreach_engine",
+      "kind": "script",
+      "name": "outreach_engine",
+      "path": "scripts/outreach_engine.py",
+      "description": "Outreach Engine - Personalized email outreach with Google Meet + .ics invite. Zero n8n dependency. Gmail SMTP directly. Supabase for logging and history. All credentials loaded from .env.agents (never hardcoded).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:personalize",
+      "kind": "script",
+      "name": "personalize",
+      "path": "scripts/personalize.py",
+      "description": "Personalize \u2014 render operator-specific files from the wizard's answers.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:pii_scrubber",
+      "kind": "script",
+      "name": "pii_scrubber",
+      "path": "scripts/pii_scrubber.py",
+      "description": "Bravo V6.0 \u2014 PII Scrubber",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:proposal_generator",
+      "kind": "script",
+      "name": "proposal_generator",
+      "path": "scripts/proposal_generator.py",
+      "description": "Proposal Generator \u2014 OASIS AI Solutions Generates markdown proposals from templates, saved to proposals/ directory. Follows the structure defined in skills/proposal-generation/SKILL.md.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:region_inference",
+      "kind": "script",
+      "name": "region_inference",
+      "path": "scripts/region_inference.py",
+      "description": "Region inference for outreach emails.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:register",
+      "kind": "script",
+      "name": "register",
+      "path": "scripts/register.py",
+      "description": "Register \u2014 one-command \"add a new skill or tool\" wizard.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:register_skill",
+      "kind": "script",
+      "name": "register_skill",
+      "path": "scripts/register_skill.py",
+      "description": "Register Skill \u2014 the skill-onboarding tool.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:revenue_engine",
+      "kind": "script",
+      "name": "revenue_engine",
+      "path": "scripts/revenue_engine.py",
+      "description": "Revenue Engine - OASIS Business Operations CLI Combines Stripe subscription data with Supabase manual tracking. All credentials loaded from .env.agents (never hardcoded).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:rlhf_outreach",
+      "kind": "script",
+      "name": "rlhf_outreach",
+      "path": "scripts/rlhf_outreach.py",
+      "description": "RLHF Outreach -- dataset builder, DPO training skeleton, and fast draft scorer.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:scaffold",
+      "kind": "script",
+      "name": "scaffold",
+      "path": "scripts/scaffold.py",
+      "description": "Scaffold \u2014 turn a fresh clone of Business-Empire-Agent into a new operator's personal agent by token-replacing CC's identifiers across non-gitignored files.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:scan_secrets",
+      "kind": "script",
+      "name": "scan_secrets",
+      "path": "scripts/scan_secrets.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:scheduler",
+      "kind": "script",
+      "name": "scheduler",
+      "path": "scripts/scheduler.py",
+      "description": "Bravo Scheduler - Autonomous Business Operations Daemon",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:scrape_firecrawl_leads",
+      "kind": "script",
+      "name": "scrape_firecrawl_leads",
+      "path": "scripts/scrape_firecrawl_leads.py",
+      "description": "Lead scraper using Firecrawl API (replaces slow Playwright + Google Maps flow).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:seed_plan_template",
+      "kind": "script",
+      "name": "seed_plan_template",
+      "path": "scripts/seed_plan_template.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:seed_profile",
+      "kind": "script",
+      "name": "seed_profile",
+      "path": "scripts/seed_profile.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:self_audit",
+      "kind": "script",
+      "name": "self_audit",
+      "path": "scripts/self_audit.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:send_gateway",
+      "kind": "script",
+      "name": "send_gateway",
+      "path": "scripts/send_gateway.py",
+      "description": "Send Gateway \u2014 the single outbound chokepoint for every autonomous action Bravo performs on behalf of CC's empire.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:setup_wizard",
+      "kind": "script",
+      "name": "setup_wizard",
+      "path": "scripts/setup_wizard.py",
+      "description": "setup_wizard.py \u2014 Bravo credential setup wizard (thin entry-point shim).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:sibling_repos",
+      "kind": "script",
+      "name": "sibling_repos",
+      "path": "scripts/sibling_repos.py",
+      "description": "Shared sibling-agent repo path resolver.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:skill_metrics",
+      "kind": "script",
+      "name": "skill_metrics",
+      "path": "scripts/skill_metrics.py",
+      "description": "Skill Metrics \u2014 usage tracking and promotion for auto-generated skills.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:skill_synthesizer",
+      "kind": "script",
+      "name": "skill_synthesizer",
+      "path": "scripts/skill_synthesizer.py",
+      "description": "Skill Synthesizer \u2014 autonomous skill extraction pipeline.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:skool_engine",
+      "kind": "script",
+      "name": "skool_engine",
+      "path": "scripts/skool_engine.py",
+      "description": "Skool Community Engine V2.1 \u2014 Autonomous community management via Playwright.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:skool_watchdog",
+      "kind": "script",
+      "name": "skool_watchdog",
+      "path": "scripts/skool_watchdog.py",
+      "description": "Skool Engine Watchdog \u2014 reliable single-instance daemon management on Windows.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:state_sync",
+      "kind": "script",
+      "name": "state_sync",
+      "path": "scripts/state_sync.py",
+      "description": "State Sync \u2014 Single-Write Protocol for Fragmented Memory Syncs a key observation/update across all 3 active memory layers simultaneously:   1. brain/STATE.md  \u2014 heartbeat timestamp + last result   2. memory/SESSION_LOG.md \u2014 append session entry   3. scripts/mem0_tool.py  \u2014 semant",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:stripe_tool",
+      "kind": "script",
+      "name": "stripe_tool",
+      "path": "scripts/stripe_tool.py",
+      "description": "Stripe SDK Integration \u2014 Universal Multi-Account Agent Tool Uses the Stripe Organization API key with Stripe-Context header for seamless access to all 3 brand accounts with ONE key. All credentials loaded from .env.agents (never hardcoded).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:supabase_admin",
+      "kind": "script",
+      "name": "supabase_admin",
+      "path": "scripts/supabase_admin.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:supabase_tool",
+      "kind": "script",
+      "name": "supabase_tool",
+      "path": "scripts/supabase_tool.py",
+      "description": "Supabase SDK Integration \u2014 Universal Agent Tool Replaces the broken Supabase MCP server with direct Python SDK access. All credentials loaded from .env.agents (never hardcoded).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:sync_slash_commands",
+      "kind": "script",
+      "name": "sync_slash_commands",
+      "path": "scripts/sync_slash_commands.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:system_cleanup",
+      "kind": "script",
+      "name": "system_cleanup",
+      "path": "scripts/system_cleanup.py",
+      "description": "System Cleanup \u2014 find and remove redundant artifacts left by repeated installs.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:tft_forecast",
+      "kind": "script",
+      "name": "tft_forecast",
+      "path": "scripts/tft_forecast.py",
+      "description": "TFT Forecast \u2014 Temporal Fusion Transformer for MRR forecasting.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:transcribe",
+      "kind": "script",
+      "name": "transcribe",
+      "path": "scripts/transcribe.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:webhook_listener",
+      "kind": "script",
+      "name": "webhook_listener",
+      "path": "scripts/webhook_listener.py",
+      "description": "Bravo V6.0 \u2014 Webhook Listener (FastAPI)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:windows_control",
+      "kind": "script",
+      "name": "windows_control",
+      "path": "scripts/windows_control.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:wire_all_templates",
+      "kind": "script",
+      "name": "wire_all_templates",
+      "path": "scripts/wire_all_templates.py",
+      "description": "Wire OASIS outreach templates in the Bravo Supabase project.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "agent:architect",
+      "kind": "agent",
+      "name": "architect",
+      "path": "agents/architect.md",
+      "description": "Use ONLY for major architecture decisions, system design, database schema design, and complex multi-service planning. Not for simple tasks.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:chief-of-staff",
+      "kind": "agent",
+      "name": "chief-of-staff",
+      "path": "agents/chief-of-staff.md",
+      "description": "Personal communication and mission chief of staff. Triages Gmail, Slack (via n8n), and Social (via Zernio, formerly Late). Classifies messages into 4 tiers, generates draft replies, and enforces post-action follow-through.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:codex-agent",
+      "kind": "agent",
+      "name": "Codex Agent",
+      "path": "agents/codex-agent.md",
+      "description": "OpenAI Codex delegation agent \u2014 handles backend-heavy tasks, debugging, code reviews, and parallel implementation via the Codex CLI runtime",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:debugger",
+      "kind": "agent",
+      "name": "debugger",
+      "path": "agents/debugger.md",
+      "description": "MUST BE USED for debugging, error investigation, and bug fixing.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:documenter",
+      "kind": "agent",
+      "name": "documenter",
+      "path": "agents/documenter.md",
+      "description": "MUST BE USED for documentation, READMEs, session logs, technical writing, and memory file updates.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:explorer",
+      "kind": "agent",
+      "name": "explorer",
+      "path": "agents/explorer.md",
+      "description": "MUST BE USED for file search, codebase navigation, and code analysis. READ-ONLY \u2014 never edits files.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:git-ops",
+      "kind": "agent",
+      "name": "git-ops",
+      "path": "agents/git-ops.md",
+      "description": "MUST BE USED for git operations, branch management, commits, and PR creation.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:meta-agent",
+      "kind": "agent",
+      "name": "meta-agent",
+      "path": "agents/meta-agent.md",
+      "description": "Generate specialized subagent definitions from natural language descriptions. Use when CC describes a new capability that doesn't map to any existing subagent.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:researcher",
+      "kind": "agent",
+      "name": "researcher",
+      "path": "agents/researcher.md",
+      "description": "MUST BE USED for competitive analysis, market research, trend identification, and web research.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:revenue-hunter",
+      "kind": "agent",
+      "name": "revenue-hunter",
+      "path": "agents/revenue-hunter.md",
+      "description": "ELITE REVENUE AGENT. Uses Google Calendar, Gmail, and Playwright to identify and secure business deals.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:reviewer",
+      "kind": "agent",
+      "name": "reviewer",
+      "path": "agents/reviewer.md",
+      "description": "MUST BE USED for code review, security audit, and quality assurance.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:workflow-builder",
+      "kind": "agent",
+      "name": "workflow-builder",
+      "path": "agents/workflow-builder.md",
+      "description": "MUST BE USED for n8n workflow creation, automation JSON generation, and workflow debugging.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:writer",
+      "kind": "agent",
+      "name": "writer",
+      "path": "agents/writer.md",
+      "description": "MUST BE USED for code writing, feature implementation, and file creation.",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:architect",
+      "kind": "agent",
+      "name": "architect",
+      "path": ".claude/agents/architect.md",
+      "description": "System design, database schema, API design, architecture decisions",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:code-reviewer",
+      "kind": "agent",
+      "name": "code-reviewer",
+      "path": ".claude/agents/code-reviewer.md",
+      "description": "Two-pass code review \u2014 structural analysis then adversarial challenge",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:content-writer",
+      "kind": "agent",
+      "name": "content-writer",
+      "path": ".claude/agents/content-writer.md",
+      "description": "Creates platform-optimized content in CC's authentic voice",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:debugger",
+      "kind": "agent",
+      "name": "debugger",
+      "path": ".claude/agents/debugger.md",
+      "description": "Root-cause-first debugging with 5 Whys and bisect strategies",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:researcher",
+      "kind": "agent",
+      "name": "researcher",
+      "path": ".claude/agents/researcher.md",
+      "description": "Multi-source research agent \u2014 web, docs, codebase analysis",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:security-reviewer",
+      "kind": "agent",
+      "name": "security-reviewer",
+      "path": ".claude/agents/security-reviewer.md",
+      "description": "Reviews code for security vulnerabilities, OWASP top 10, credential exposure",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "agent:validator",
+      "kind": "agent",
+      "name": "validator",
+      "path": ".claude/agents/validator.md",
+      "description": "MUST BE USED after any multi-agent orchestration, parallel sub-agent spawn, or Codex task that modified files. Read-only Haiku validator that scores agent output against original success criteria, catches silent failures and hallucinated claims, prevents Bravo from surfacing degr",
+      "owner": "bravo",
+      "tier": "specialized",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "mcp:sequential-thinking",
+      "kind": "mcp",
+      "name": "sequential-thinking",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:playwright",
+      "kind": "mcp",
+      "name": "playwright",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:context7",
+      "kind": "mcp",
+      "name": "context7",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:memory",
+      "kind": "mcp",
+      "name": "memory",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:github",
+      "kind": "mcp",
+      "name": "github",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:firecrawl",
+      "kind": "mcp",
+      "name": "firecrawl",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:obsidian",
+      "kind": "mcp",
+      "name": "obsidian",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:filesystem",
+      "kind": "mcp",
+      "name": "filesystem",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:knowledge-graph",
+      "kind": "mcp",
+      "name": "knowledge-graph",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "workflow:browser-harness",
+      "kind": "workflow",
+      "name": "browser-harness",
+      "path": ".agents/workflows/browser-harness.md",
+      "description": "Use Browser Harness for direct authenticated browser control, diagnostics, and domain-skill learning with Bravo safety gates.",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:ceo-briefing",
+      "kind": "workflow",
+      "name": "CEO Briefing",
+      "path": ".agents/workflows/ceo-briefing.md",
+      "description": "Morning CEO digest \u2014 5 North Star metrics, today's meetings, top priorities, client alerts, and the single most important action for the day.",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:cli-anything",
+      "kind": "workflow",
+      "name": "cli-anything",
+      "path": ".agents/workflows/cli-anything.md",
+      "description": "Generate a CLI wrapper for any software, API, or service using the CLI-Anything methodology",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:client-health-report",
+      "kind": "workflow",
+      "name": "Client Health Report",
+      "path": ".agents/workflows/client-health-report.md",
+      "description": "Run full client health scoring, surface at-risk clients, draft retention actions, and log a health snapshot to memory.",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:client-onboard",
+      "kind": "workflow",
+      "name": "client-onboard",
+      "path": ".agents/workflows/client-onboard.md",
+      "description": "Onboard a new OASIS AI client, generate NDAs/Invoices natively, create a Stripe link, and send the onboarding email.",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:close-review",
+      "kind": "workflow",
+      "name": "close-review",
+      "path": ".agents/workflows/close-review.md",
+      "description": "Analyze a sales call transcript against NEPQ + LAER + sales-closing frameworks. Scores the call, flags missed closes, and writes the lesson back into memory so the sales-closing skill compounds over real reps.",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:commit",
+      "kind": "workflow",
+      "name": "commit",
+      "path": ".agents/workflows/commit.md",
+      "description": "Smart git commit with conventional format and staged file analysis",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:competitive-report",
+      "kind": "workflow",
+      "name": "Competitive Report",
+      "path": ".agents/workflows/competitive-report.md",
+      "description": "Monthly competitive landscape scan \u2014 pricing changes, new features, review themes, battlecard updates",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:content",
+      "kind": "workflow",
+      "name": "content",
+      "path": ".agents/workflows/content.md",
+      "description": "Create platform-optimized content using CC's brand voice and 5 pillars",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:create-prd",
+      "kind": "workflow",
+      "name": "create-prd",
+      "path": ".agents/workflows/create-prd.md",
+      "description": "Generate a Product Requirements Document for client projects",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:debug",
+      "kind": "workflow",
+      "name": "debug",
+      "path": ".agents/workflows/debug.md",
+      "description": "Debug a problem systematically \u2014 reproduce, diagnose, fix, verify",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:evolve",
+      "kind": "workflow",
+      "name": "evolve",
+      "path": ".agents/workflows/evolve.md",
+      "description": "Extract patterns from recent sessions and promote them to skills, SOPs, or CLAUDE.md rules",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:generate-proposal",
+      "kind": "workflow",
+      "name": "Generate Proposal",
+      "path": ".agents/workflows/generate-proposal.md",
+      "description": "Gather client context, select proposal type and tier, generate the proposal file, and prepare the follow-up cadence.",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:health",
+      "kind": "workflow",
+      "name": "health",
+      "path": ".agents/workflows/health.md",
+      "description": "Full system health diagnostic \u2014 test all MCP servers, check configs, verify file integrity",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:hyperthink",
+      "kind": "workflow",
+      "name": "hyperthink",
+      "path": ".agents/workflows/hyperthink.md",
+      "description": "Fire the Hyperthink maximum-depth reasoning protocol \u2014 structured 7-phase loop for architectural, irreversible, or multi-hypothesis problems.",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:INDEX",
+      "kind": "workflow",
+      "name": "INDEX",
+      "path": ".agents/workflows/INDEX.md",
+      "description": "# Workflows Index \u2014 35 Automated Pipelines\n\n> Workflow files define slash-command triggers and step-by-step execution plans.\n> [[brain/CAPABILITIES]] | [[brain/AGENTS]] | [[brain/CEO_OPERATING_SYSTEM]",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:ingest",
+      "kind": "workflow",
+      "name": "Ingest",
+      "path": ".agents/workflows/ingest.md",
+      "description": "# Ingest Workflow \u2014 Raw Document to Compiled Wiki\n\nCompile a raw source document into the structured knowledge wiki.\nFull protocol: [[skills/knowledge-compilation/SKILL]]\n\n## When to Run\n\n- CC shares",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:investor-update",
+      "kind": "workflow",
+      "name": "Investor Update",
+      "path": ".agents/workflows/investor-update.md",
+      "description": "# Investor Update Workflow\n\nGenerate and draft a monthly investor update email using live data from Stripe, Supabase, and the financial model.\n\n## When to Run\n\n- Manually via `/investor-update` comman",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:knowledge-maintenance",
+      "kind": "workflow",
+      "name": "Knowledge Maintenance",
+      "path": ".agents/workflows/knowledge-maintenance.md",
+      "description": "# Weekly Knowledge Maintenance Workflow\n\nKeep the intelligence system clean, fresh, and useful. Stale knowledge compounds into bad decisions. This workflow runs every Sunday to prevent that.\n\n## When",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:meeting-prep",
+      "kind": "workflow",
+      "name": "Meeting Prep",
+      "path": ".agents/workflows/meeting-prep.md",
+      "description": "Generate pre-meeting briefs for upcoming calls, capture post-meeting decisions and action items, and draft follow-up emails.",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:n8n",
+      "kind": "workflow",
+      "name": "n8n",
+      "path": ".agents/workflows/n8n.md",
+      "description": "Search, inspect, and manage n8n workflows via MCP",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:onboard-team-member",
+      "kind": "workflow",
+      "name": "Onboard Team Member",
+      "path": ".agents/workflows/onboard-team-member.md",
+      "description": "Full contractor onboarding workflow \u2014 legal, access, context, and first-30-days schedule.",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:opencli",
+      "kind": "workflow",
+      "name": "opencli",
+      "path": ".agents/workflows/opencli.md",
+      "description": "Explore websites and create CLI adapters using OpenCLI",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:post",
+      "kind": "workflow",
+      "name": "post",
+      "path": ".agents/workflows/post.md",
+      "description": "Publish a social media post to one or multiple platforms via Late API",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:prime",
+      "kind": "workflow",
+      "name": "prime",
+      "path": ".agents/workflows/prime.md",
+      "description": "Load full project context \u2014 brain, memory, capabilities, and current state",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:qbr",
+      "kind": "workflow",
+      "name": "Quarterly Business Review",
+      "path": ".agents/workflows/qbr.md",
+      "description": "Grade this quarter's OKRs, compile a QBR report, and draft next quarter's OKRs for CC's approval",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:query-knowledge",
+      "kind": "workflow",
+      "name": "Query Knowledge",
+      "path": ".agents/workflows/query-knowledge.md",
+      "description": "# Query Knowledge Workflow \u2014 Sourced Answers from the Wiki\n\nRetrieve deterministic, sourced answers from the compiled knowledge wiki.\nFull protocol: [[skills/knowledge-compilation/SKILL]]\n\n## When to",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:research",
+      "kind": "workflow",
+      "name": "research",
+      "path": ".agents/workflows/research.md",
+      "description": "Research a topic using Playwright browser and Context7 docs",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:retro",
+      "kind": "workflow",
+      "name": "retro",
+      "path": ".agents/workflows/retro.md",
+      "description": "Weekly retrospective \u2014 analyze commits, scores, patterns, and improvement actions",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:review",
+      "kind": "workflow",
+      "name": "review",
+      "path": ".agents/workflows/review.md",
+      "description": "Run pre-landing code review with Fix-First methodology",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:ship",
+      "kind": "workflow",
+      "name": "ship",
+      "path": ".agents/workflows/ship.md",
+      "description": "Full shipping pipeline \u2014 test, review, changelog, PR, deploy verification",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:skool-edit",
+      "kind": "workflow",
+      "name": "skool-edit",
+      "path": ".agents/workflows/skool-edit.md",
+      "description": "Edit a single Skool lesson or the About page using Playwright browser automation",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:skool-push",
+      "kind": "workflow",
+      "name": "skool-push",
+      "path": ".agents/workflows/skool-push.md",
+      "description": "Batch push content to multiple Skool lessons from local content files",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:status",
+      "kind": "workflow",
+      "name": "status",
+      "path": ".agents/workflows/status.md",
+      "description": "Check project status \u2014 revenue, tasks, MCP health, and system state",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:strategic-review",
+      "kind": "workflow",
+      "name": "Strategic Review",
+      "path": ".agents/workflows/strategic-review.md",
+      "description": "Comprehensive 90-day business review \u2014 financial performance, pipeline health, competitive position, OKR progress, and strategic recommendations",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:sync",
+      "kind": "workflow",
+      "name": "sync",
+      "path": ".agents/workflows/sync.md",
+      "description": "End-of-session sync \u2014 update state, tasks, and session log",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    }
+  ],
+  "edges": [
+    {
+      "from": "skill:agent-forge",
+      "to": "script:self_audit",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:agent-inbox",
+      "to": "script:agent_inbox",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:agent-runtime-packaging",
+      "to": "script:browser_harness_doctor",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:agent-runtime-packaging",
+      "to": "script:onboarding_diagnostics",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:agent-runtime-packaging",
+      "to": "skill:browser-harness",
+      "kind": "requires"
+    },
+    {
+      "from": "skill:auto-generated",
+      "to": "script:skill_metrics",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:auto-generated",
+      "to": "script:skill_synthesizer",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:booking-management",
+      "to": "script:booking_engine",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:browser-harness",
+      "to": "script:browser_harness_doctor",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:ceo-briefing",
+      "to": "script:lead_engine",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:ceo-briefing",
+      "to": "script:revenue_engine",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:ceo-briefing",
+      "to": "script:stripe_tool",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:ceo-dashboard",
+      "to": "script:ceo_dashboard",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:ceo-dashboard",
+      "to": "script:client_health",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:ceo-dashboard",
+      "to": "script:stripe_tool",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:ceo-dashboard",
+      "to": "skill:client-success",
+      "kind": "requires"
+    },
+    {
+      "from": "skill:client-success",
+      "to": "script:client_health",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:computer-control",
+      "to": "script:macos_control",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:context-optimization",
+      "to": "script:context_manager",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:email-safety",
+      "to": "script:email_engine",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:email-safety",
+      "to": "script:outreach_batch",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:email-safety",
+      "to": "script:outreach_engine",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:email-safety",
+      "to": "script:send_gateway",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:financial-modeling",
+      "to": "script:financial_model",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:financial-modeling",
+      "to": "skill:ceo-briefing",
+      "kind": "requires"
+    },
+    {
+      "from": "skill:financial-modeling",
+      "to": "skill:strategic-planning",
+      "kind": "requires"
+    },
+    {
+      "from": "skill:google-workspace-recipes",
+      "to": "skill:gws-shared",
+      "kind": "requires"
+    },
+    {
+      "from": "skill:hooks-automation",
+      "to": "skill:agent-permissions",
+      "kind": "requires"
+    },
+    {
+      "from": "skill:hooks-automation",
+      "to": "skill:task-routing",
+      "kind": "requires"
+    },
+    {
+      "from": "skill:mcp-operations",
+      "to": "script:n8n_tool",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:mcp-operations",
+      "to": "script:stripe_tool",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:mcp-operations",
+      "to": "script:supabase_tool",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:notebooklm",
+      "to": "script:notebooklm_tool",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:outreach-send",
+      "to": "script:email_engine",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:proposal-generation",
+      "to": "script:proposal_generator",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:revenue-operations",
+      "to": "script:revenue_engine",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:score-b2b-lead-quality",
+      "to": "script:skill_metrics",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:security-protocol",
+      "to": "script:scan_secrets",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:semantic-memory",
+      "to": "script:mem0_tool",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:send-gateway",
+      "to": "script:send_gateway",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:ship",
+      "to": "skill:code-review",
+      "kind": "requires"
+    },
+    {
+      "from": "skill:strategic-planning",
+      "to": "skill:ceo-briefing",
+      "kind": "requires"
+    },
+    {
+      "from": "skill:strategic-planning",
+      "to": "skill:financial-modeling",
+      "kind": "requires"
+    }
+  ],
+  "drift": [
+    {
+      "node": "skill:agent-forge",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:agent-permissions",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:agent-runtime-packaging",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:agent-teams",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:anti-drift",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:auto-generated",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:background-workers",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:browser-harness",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:ceo-briefing",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:ceo-dashboard",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:client-success",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:codex-delegation",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:computer-control",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:context-optimization",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:crisis-response",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:daily-planner",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:email-safety",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:financial-modeling",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:google-workspace-recipes",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-admin-reports",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-calendar",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-calendar-agenda",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-calendar-insert",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-chat",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-chat-send",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-classroom",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-docs",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-docs-write",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-drive",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-drive-upload",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-events",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-events-renew",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-events-subscribe",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-forms",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-gmail",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-gmail-forward",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-gmail-read",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-gmail-reply",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-gmail-reply-all",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-gmail-send",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-gmail-triage",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-gmail-watch",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-keep",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-meet",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-modelarmor",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-modelarmor-create-template",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-modelarmor-sanitize-prompt",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-modelarmor-sanitize-response",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-people",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-shared",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-sheets",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-sheets-append",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-sheets-read",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-slides",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-tasks",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-workflow",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-workflow-email-to-task",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-workflow-file-announce",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-workflow-meeting-prep",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-workflow-standup-report",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:gws-workflow-weekly-digest",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:hooks-automation",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:knowledge-graph",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:meeting-automation",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:memory-compression",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:outreach-send",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:persona-customer-support",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:persona-event-coordinator",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:persona-exec-assistant",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:persona-hr-coordinator",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:persona-it-admin",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:persona-project-manager",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:persona-researcher",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:persona-sales-ops",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:persona-team-lead",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:project-management",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:proposal-generation",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:python-daemon-automation",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:risk-management",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:sales-methodology",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:send-gateway",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:sparc-methodology",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:strategic-planning",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:task-routing",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:team-management",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:verticals",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "skill:web-scraping",
+      "issue": "skill has no triggers \u2014 agent can't route to it"
+    },
+    {
+      "node": "script:agent_heartbeat",
+      "issue": "script missing module docstring"
+    },
+    {
+      "node": "script:agent_inbox",
+      "issue": "script missing module docstring"
+    },
+    {
+      "node": "script:auto_dream",
+      "issue": "script missing module docstring"
+    },
+    {
+      "node": "script:browse_and_capture",
+      "issue": "script missing module docstring"
+    },
+    {
+      "node": "script:browser_connect",
+      "issue": "script missing module docstring"
+    },
+    {
+      "node": "script:build_maven_env",
+      "issue": "script missing module docstring"
+    },
+    {
+      "node": "script:ceo_dashboard",
+      "issue": "script missing module docstring"
+    },
+    {
+      "node": "script:client_health",
+      "issue": "script missing module docstring"
+    },
+    {
+      "node": "script:cloudflare_admin",
+      "issue": "script missing module docstring"
+    },
+    {
+      "node": "script:codex_health",
+      "issue": "script missing module docstring"
+    },
+    {
+      "node": "script:competitive_intel",
+      "issue": "script missing module docstring"
+    },
+    {
+      "node": "script:crm_reset",
+      "issue": "script missing module docstring"
+    },
+    {
+      "node": "script:deploy_command_center",
+      "issue": "script missing module docstring"
+    },
+    {
+      "node": "script:financial_model",
+      "issue": "script missing module docstring"
+    },
+    {
+      "node": "script:gateway_admin",
+      "issue": "script missing module docstring"
+    },
+    {
+      "node": "script:macos_control",
+      "issue": "script missing module docstring"
+    },
+    {
+      "node": "script:md_to_gdoc",
+      "issue": "script missing module docstring"
+    },
+    {
+      "node": "script:memory_index",
+      "issue": "script missing module docstring"
+    },
+    {
+      "node": "script:music_control",
+      "issue": "script missing module docstring"
+    },
+    {
+      "node": "script:n8n_webhook_secret",
+      "issue": "script missing module docstring"
+    },
+    {
+      "node": "script:scan_secrets",
+      "issue": "script missing module docstring"
+    },
+    {
+      "node": "script:seed_plan_template",
+      "issue": "script missing module docstring"
+    },
+    {
+      "node": "script:seed_profile",
+      "issue": "script missing module docstring"
+    },
+    {
+      "node": "script:self_audit",
+      "issue": "script missing module docstring"
+    },
+    {
+      "node": "script:supabase_admin",
+      "issue": "script missing module docstring"
+    },
+    {
+      "node": "script:sync_slash_commands",
+      "issue": "script missing module docstring"
+    },
+    {
+      "node": "script:transcribe",
+      "issue": "script missing module docstring"
+    },
+    {
+      "node": "script:windows_control",
+      "issue": "script missing module docstring"
+    }
+  ]
+}
