@@ -134,15 +134,34 @@ process.on('exit', releaseInstanceLock);
 // other exits and PM2 backs off until the owner stops heartbeating.
 const BRIDGE_LOCK_AGENT = 'bravo';
 const BRIDGE_LOCK_SCRIPT = path.join(__dirname, 'scripts', 'bridge_lock.py');
+function _resolveBridgePython() {
+    // Project venv first, then system. Same fallback Maven uses.
+    const candidates = IS_MAC
+        ? [path.join(__dirname, '.venv', 'bin', 'python'), 'python3', 'python']
+        : [path.join(__dirname, '.venv', 'Scripts', 'python.exe'), 'python', 'python3'];
+    for (const c of candidates) {
+        if (c.includes('/') || c.includes('\\')) {
+            try { if (fs.existsSync(c)) return c; } catch (_) {}
+        } else {
+            return c;
+        }
+    }
+    return 'python';
+}
+const BRIDGE_PYTHON = _resolveBridgePython();
 function bridgeLock(action) {
     try {
         const r = require('child_process').spawnSync(
-            PYTHON, [BRIDGE_LOCK_SCRIPT, action, '--agent', BRIDGE_LOCK_AGENT, '--json'],
+            BRIDGE_PYTHON, [BRIDGE_LOCK_SCRIPT, action, '--agent', BRIDGE_LOCK_AGENT, '--json'],
             { encoding: 'utf-8', timeout: 5000 }
         );
+        // r.status === null when spawn itself failed — don't block startup.
+        if (r.status === null) {
+            return { ok: true, status: -1, stdout: '', warn: `python not found (${BRIDGE_PYTHON}); skipping multi-machine arbitration` };
+        }
         return { ok: r.status === 0, status: r.status, stdout: (r.stdout || '').trim() };
     } catch (e) {
-        return { ok: false, status: -1, error: String(e).slice(0, 200) };
+        return { ok: true, status: -1, stdout: '', warn: String(e).slice(0, 200) };
     }
 }
 const lockAcquire = bridgeLock('acquire');
@@ -150,6 +169,9 @@ if (!lockAcquire.ok) {
     log(`[BRIDGE-LOCK] CONFLICT — another machine owns Bravo's bridge: ${lockAcquire.stdout || lockAcquire.error}`);
     log(`[BRIDGE-LOCK] Exiting with code 1 so PM2 backs off and retries when the other machine releases.`);
     process.exit(1);
+}
+if (lockAcquire.warn) {
+    log(`[BRIDGE-LOCK] WARN: ${lockAcquire.warn}`);
 }
 log(`[BRIDGE-LOCK] Acquired (${BRIDGE_LOCK_AGENT}) — this machine now owns Bravo's Telegram bridge.`);
 // Heartbeat every 15s so other machines see this lock as fresh.
