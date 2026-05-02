@@ -201,13 +201,19 @@ def check_scripts(result: AuditResult) -> None:
 
 
 def check_mcp_sync(result: AuditResult) -> None:
-    configs = {
+    """Sync rule: project-level configs (.claude/mcp.json + .vscode/mcp.json)
+    must agree exactly. The user-level ~/.gemini/settings.json is shared
+    across every project on the machine, so it's allowed to be a SUPERSET
+    of the project's required servers — extras don't count as drift."""
+    project_configs = {
         ".claude/mcp.json": REPO_ROOT / ".claude" / "mcp.json",
         ".vscode/mcp.json": REPO_ROOT / ".vscode" / "mcp.json",
-        "~/.gemini/settings.json": Path.home() / ".gemini" / "settings.json",
     }
-    server_sets: dict[str, set[str]] = {}
-    for label, path in configs.items():
+    user_config_label = "~/.gemini/settings.json"
+    user_config_path = Path.home() / ".gemini" / "settings.json"
+
+    project_sets: dict[str, set[str]] = {}
+    for label, path in project_configs.items():
         if not path.exists():
             result.warnings.append(f"MCP config missing: {label}")
             result.mcp_configs_in_sync = False
@@ -218,11 +224,11 @@ def check_mcp_sync(result: AuditResult) -> None:
             result.warnings.append(f"MCP config unreadable: {label} ({e})")
             result.mcp_configs_in_sync = False
             continue
-        servers = data.get("mcpServers") or data.get("servers") or {}
-        server_sets[label] = set(servers.keys())
-    if server_sets:
-        ref = next(iter(server_sets.values()))
-        for label, s in server_sets.items():
+        project_sets[label] = set((data.get("mcpServers") or data.get("servers") or {}).keys())
+
+    if project_sets:
+        ref = next(iter(project_sets.values()))
+        for label, s in project_sets.items():
             if s != ref:
                 result.mcp_configs_in_sync = False
                 missing = ref - s
@@ -231,6 +237,21 @@ def check_mcp_sync(result: AuditResult) -> None:
                     f"MCP drift in {label}: missing={sorted(missing)} extra={sorted(extra)}"
                 )
         result.mcp_servers = sorted(ref)
+
+        # User-level gemini settings: must be SUPERSET, not exact match.
+        # Extras don't count as drift — they're for other projects on the machine.
+        if user_config_path.exists():
+            try:
+                udata = json.loads(user_config_path.read_text(encoding="utf-8"))
+                user_servers = set((udata.get("mcpServers") or udata.get("servers") or {}).keys())
+                missing_in_user = ref - user_servers
+                if missing_in_user:
+                    result.mcp_configs_in_sync = False
+                    result.warnings.append(
+                        f"MCP missing from {user_config_label}: {sorted(missing_in_user)}"
+                    )
+            except Exception as e:
+                result.warnings.append(f"MCP config unreadable: {user_config_label} ({e})")
 
 
 def compute_health_score(r: AuditResult) -> int:
