@@ -67,6 +67,7 @@ class AuditResult:
     scripts_undocumented: list[str] = field(default_factory=list)
     mcp_configs_in_sync: bool = True
     mcp_servers: list[str] = field(default_factory=list)
+    capability_drift_count: int = 0
     health_score: int = 0
     warnings: list[str] = field(default_factory=list)
 
@@ -263,6 +264,11 @@ def compute_health_score(r: AuditResult) -> int:
     score -= min(len(r.scripts_undocumented), 10)  # cap undocumented at 10
     if not r.mcp_configs_in_sync:
         score -= 10
+    # Capability graph drift: each unwired skill/script costs 0.05 points,
+    # capped at 5. Means 100 drift items = -5 (visible), but legacy repos
+    # with hundreds aren't crushed. The cap forces the count to surface in
+    # warnings; growth in drift becomes the leading indicator, not the level.
+    score -= min(int(r.capability_drift_count * 0.05), 5)
     return max(0, score)
 
 
@@ -296,8 +302,41 @@ def run_audit() -> AuditResult:
     check_scripts(result)
     check_mcp_sync(result)
     check_personalization(result)
+    check_capability_graph(result)
     result.health_score = compute_health_score(result)
     return result
+
+
+def check_capability_graph(r: AuditResult) -> None:
+    """Warn when brain/CAPABILITY_GRAPH.json shows drift (skills missing
+    triggers/descriptions, scripts missing docstrings). Capped penalty so a
+    repo with many legacy unwired skills still ships, but the count is
+    visible and growth in drift is surfaced.
+    """
+    graph_path = REPO_ROOT / "brain" / "CAPABILITY_GRAPH.json"
+    if not graph_path.exists():
+        r.warnings.append(
+            "brain/CAPABILITY_GRAPH.json missing — run `python scripts/build_capability_graph.py` "
+            "to generate the canonical capability registry."
+        )
+        return
+    try:
+        graph = json.loads(graph_path.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001
+        r.warnings.append(f"CAPABILITY_GRAPH.json unreadable: {exc}")
+        return
+    drift = graph.get("drift") or []
+    if drift:
+        # Cap the penalty contribution. We don't want a repo with 100 legacy
+        # unwired skills to score 0/100 on drift alone — the existing
+        # orphan/script penalties already cover related concerns. Drift
+        # surfaces the next-pass cleanup target without blocking ship.
+        r.capability_drift_count = len(drift)
+        r.warnings.append(
+            f"capability graph: {len(drift)} drift item(s) "
+            f"(skills missing triggers/descriptions, scripts missing docstrings). "
+            f"Run `python scripts/capability_query.py drift` to see them."
+        )
 
 
 def check_personalization(r: AuditResult) -> None:
