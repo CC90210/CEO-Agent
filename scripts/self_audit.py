@@ -274,8 +274,25 @@ def run_audit() -> AuditResult:
     check_skills(result)
     check_scripts(result)
     check_mcp_sync(result)
+    check_personalization(result)
     result.health_score = compute_health_score(result)
     return result
+
+
+def check_personalization(r: AuditResult) -> None:
+    """Warn (don't fail) when operator.profile.json is missing.
+
+    A fresh clone hasn't run the wizard yet. The agent works without a
+    profile but can't be personalized — surface that as a warning so the
+    operator knows to run `python scripts/setup_wizard.py`.
+    """
+    profile_path = REPO_ROOT / "brain" / "operator.profile.json"
+    if not profile_path.exists():
+        r.warnings.append(
+            "operator.profile.json missing — run `python scripts/setup_wizard.py` "
+            "to personalize this clone (or `python scripts/personalize.py seed` "
+            "to seed a manual profile)."
+        )
 
 
 def render_human(r: AuditResult) -> str:

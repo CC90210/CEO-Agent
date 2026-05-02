@@ -29,7 +29,17 @@ What it does in order:
 4. Installs Python deps (`requirements.txt`) and Node deps (`package.json`)
 5. Writes a `bravo` shim to `~/.bravo/bin/` and adds it to your PATH
 6. Launches the interactive setup wizard to collect your credentials
-7. Prints a success banner with your first commands
+7. **Personalizes the agent for you:** wizard answers populate `brain/operator.profile.json`, `scripts/personalize.py` renders `brain/USER.md` + memory templates, `scripts/scaffold.py` token-replaces the original operator's identifiers (name, brand, website, north star) across the codebase with yours
+8. Prints a success banner with your first commands
+
+### What "personalize" and "scaffold" do
+
+The repo ships as one operator's working copy. Two scripts turn it into yours:
+
+- **`scripts/personalize.py apply`** — reads `brain/operator.profile.json` (built by the wizard) and renders `brain/USER.md`, `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md` from the matching `*.template.md` files. Idempotent. Skips files that already exist unless you pass `--force`. Run any time after changing your profile.
+- **`scripts/scaffold.py --apply --backup`** — token-replaces the original operator's identifiers (full name, preferred name, personal brand, primary brand, website, email, booking link, north star, location) across all tracked files. **Refuses to run on the original operator's repo by design** — pass `--allow-cc-repo` to override. `--backup` snapshots every changed file to `.scaffold-backup/<timestamp>/` first.
+
+Re-running `scripts/setup_wizard.py` later updates your profile and re-renders templates. Manual edits to `brain/USER.md` are preserved unless you pass `--force`.
 
 After install, open a **new terminal** so the PATH update takes effect, then run:
 ```bash

@@ -1,0 +1,21 @@
+{
+  "_comment": "Example operator profile. Copy to operator.profile.json and edit, OR run `python scripts/setup_wizard.py` to generate it interactively. The live operator.profile.json is gitignored.",
+  "full_name": "Your Full Name",
+  "preferred_name": "What the agent should call you",
+  "personal_brand": "Your personal brand (DJ name, creator handle, etc.) or blank",
+  "primary_brand": "Your business / company name",
+  "role": "Founder / Operator / etc.",
+  "location": "City, Country",
+  "primary_email": "you@yourdomain.com",
+  "website": "https://yourdomain.com",
+  "booking_link": "https://calendar.app.google/your-link or Calendly",
+  "north_star": "Your one metric + deadline (e.g., $10K MRR by 2027-Q1)",
+  "industry": "agency | saas | ecommerce | services | content-creator | consulting | finance | other",
+  "primary_metric": "MRR | ARR | Users | Revenue | etc.",
+  "daily_work": "What you actually do day-to-day, in one sentence.",
+  "off_limits": "Hard rules the agent must never violate (e.g., no autonomous sends, no .env edits, no pushes to main).",
+  "voice": "Adjectives + samples + anti-patterns describing how you sound.",
+  "timezone": "America/Toronto | Europe/London | etc.",
+  "working_hours": "09:00-18:00",
+  "philosophy": "Your operating mantra (optional)"
+}
