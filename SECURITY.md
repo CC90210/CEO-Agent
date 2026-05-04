@@ -115,6 +115,17 @@ days, pull `main` before reporting — the issue may already be fixed.
 - All shell commands and git operations are audit-logged to
   `tmp/hook_audit.log`.
 
+### Known dependency exceptions
+
+- `node-telegram-bot-api` currently pulls an unpatched transitive
+  `request` dependency. Dependabot tracks this as a moderate SSRF risk.
+  The repo does not pass arbitrary user-supplied URLs into that library;
+  it is used only for Telegram Bot API calls with the configured bot
+  token. Downgrading swaps the vulnerable chain rather than removing it.
+  Remediation path: replace `node-telegram-bot-api` with a minimal
+  first-party Telegram HTTP client or a maintained library before
+  exposing any user-controlled Telegram fetch/proxy behavior.
+
 ## Scope for this Agent (Bravo / CEO)
 
 Bravo has the broadest permissions of any agent in the C-Suite. By design
