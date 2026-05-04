@@ -165,7 +165,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-05-04
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Codex closed the remaining fleet shipping blockers: added scripts/cron_dispatcher.py for allowlisted script-backed cron execution, wired setup doctor to check it, built Maven scripts/content_backlog_audit.py, corrected cron action_config for Atlas pulse auto + Maven token --notify + Maven backlog audit, disabled broken Atlas wealth refresh until a real finance snapshot CLI exists, executed Atlas pulse and Maven backlog jobs successfully, refreshed Maven pulse. fleet_health now shows Bravo/Atlas/Maven pulses all FRESH; cron is 11 active / 19 total.
+- **Result:** Codex remediated GitHub runtime-state exposure on 2026-05-04: removed live brain/USER.md, personal/USER.md, memory/ACTIVE_TASKS.md, memory/SESSION_LOG.md, and data/pulse/*.json from Git tracking in Maven, Atlas, AURA, and Hermes while preserving local files; added/updated .gitignore rules plus safe template/README files; pushed commits CMO 3bb2958, CFO 2ec2533, AURA 08b1c7c, Hermes 654b548. Current default branches no longer track those live runtime files. History purge/force-push remains optional and requires explicit approval.
 
 *Last updated: 2026-05-04*
 
