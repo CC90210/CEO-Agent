@@ -1,10 +1,14 @@
 ---
 tags: [memory, persistent]
+last_updated: 2026-03-26
+freshness_threshold_days: 90
 ---
 # LONG-TERM MEMORY — High-Confidence Persistent Facts
 
-> Only facts with confidence >= 0.8 belong here. Reviewed quarterly. Decayed facts get demoted or removed.
-
+> Only facts with confidence >= 0.8 belong here. Reviewed quarterly (90-day threshold — this file is meant to be slow-moving).
+>
+> ⚠️ **Per-entry freshness still applies.** Each entry has its own date — `memory_aging.py` decays confidence per-entry by category (business 0.02/day, technical 0.015/day, architectural 0.005/day). Even within this file, an entry > 90 days without re-verification is suspect. Run `python scripts/memory_aging.py stale --days 30` before quoting business facts.
+>
 > [[brain/BRAIN_LOOP]] | [[memory/PATTERNS]] | [[brain/STATE]]
 
 ## Architecture Facts

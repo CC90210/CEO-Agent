@@ -13,8 +13,8 @@ tags: [state, ephemeral]
 | **Version** | V5.6 | Outbound Chokepoint + Reasoning Loop Era (2026-04-20) |
 | **Position**| ACTIVE | Community Manager for Bennett's Agency Accelerator + Lead Gen Funnel Operator |
 | **Confidence** | 0.97 | Core automations production-grade. Telegram V15.4 live. Scheduler fixed. Semi-auto outreach deploying. Bennett concentration risk unresolved. |
-| **Focus Area** | **DIVERSIFY REVENUE + CONTENT-FIRST FUNNEL** | #1 risk: 93% revenue in Bennett. Semi-auto outreach loop (daily scrape → score → Telegram approve) is the primary lever. CC creates content, Bravo runs pipeline. |
-| **Energy** | MAXIMUM | Scheduler live on Mac. Telegram V15.4 full computer control. Elite video pipeline deployed. Outreach loop in build. |
+| **Focus Area** | **RESET AND DIVERSIFY REVENUE** | CC is doing a physical/mental reset (quitting weed). Focus is on daily minimums: content creation and cold outreach volume. Target is still $5k MRR by May 15. |
+| **Energy** | RECOVERING | CC reported being in a bad state recently. Reset protocol initiated. Baseline execution only. |
 | **Memory Health** | GOOD | Files current. Knowledge wiki seeded. mem0 live. Fragmentation acknowledged — single-write sync in progress. |
 
 ## Skool Automation Status (2026-04-04)
@@ -163,11 +163,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-05-02
+- **Date:** 2026-05-04
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Propagated V6 superintelligence stack to Maven (CMO-Agent): 12 scripts + compliance.dl + skills/auto-generated/ — all smoke tests pass
+- **Result:** Codex finalized fleet orchestration and shipping blockers on 2026-05-04: refreshed Bravo ceo_pulse via scripts/pulse_publish.py (MRR 3322, gap 1678), updated setup/doctor checks for AGENT_ORCHESTRATION + ENV_KEYS_TEMPLATE + fleet_health + pulse_publish, validated Bravo self_audit 95/100 + doctor healthy + wizard tests 16/16, verified Maven pulse_publish valid and token watchdog surfacing 4 missing creds, Atlas pulse_publish valid, Hermes pytest 218 passed/1 skipped. Preparing multi-repo commits/pushes for CEO-Agent, CMO-Agent, CFO-Agent, AURA, and Hermes.
 
-*Last updated: 2026-05-02*
+*Last updated: 2026-05-04*
 
 ## Manifest
 

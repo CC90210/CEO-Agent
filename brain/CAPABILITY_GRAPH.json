@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
   "agent": "bravo",
-  "generated_at": "2026-05-02T05:37:03.504782+00:00",
+  "generated_at": "2026-05-04T03:19:33.801579+00:00",
   "totals": {
     "skills": 153,
-    "scripts": 99,
+    "scripts": 101,
     "agents": 20,
     "mcp_servers": 9,
     "workflows": 36,
-    "nodes_total": 317,
-    "edges_total": 43,
+    "nodes_total": 319,
+    "edges_total": 44,
     "drift_count": 115
   },
   "nodes": [
@@ -1645,16 +1645,20 @@
       "kind": "skill",
       "name": "n8n-mcp-integration",
       "path": "skills/n8n-mcp-integration/SKILL.md",
-      "description": "Utilize the n8n-mcp community package (REST API) to list, search, execute, and manage n8n workflows.",
-      "tier": "specialized",
+      "description": "Build, validate, and deploy n8n workflows through the n8n-mcp server using the TypeScript-SDK code-first flow. Replaces hand-rolled JSON. Use whenever an automation, workflow, webhook intake, scheduled job, or integration pipeline needs to ship.",
+      "tier": "standard",
       "owner": "bravo",
       "risk": "low",
       "triggers": [
+        "n8n",
         "n8n MCP",
-        "n8n API",
-        "workflow list",
-        "workflow execute",
-        "n8n REST"
+        "build workflow",
+        "automation",
+        "webhook intake",
+        "scheduled job",
+        "n8n SDK",
+        "create_workflow_from_code",
+        "validate_workflow"
       ],
       "tags": [],
       "status": "[VALIDATED]",
@@ -1665,18 +1669,19 @@
       "kind": "skill",
       "name": "n8n-patterns",
       "path": "skills/n8n-patterns/SKILL.md",
-      "description": "Use this skill whenever the user wants to build an N8N workflow, mentions n8n, automation, webhook intake, AI processing pipelines, or anything related to n8n node configurations. Essential for any n8n automation.",
+      "description": "Design-pattern reference for n8n workflows \u2014 error handling, idempotency, retry shape, common pipeline templates. Pairs with n8n-mcp-integration (which handles HOW to build via SDK). This skill answers WHAT shape a workflow should take.",
       "tier": "standard",
       "owner": "bravo",
       "risk": "low",
       "triggers": [
-        "n8n",
-        "workflow",
-        "automation",
-        "trigger",
-        "node",
-        "webhook",
-        "n8n build"
+        "n8n pattern",
+        "workflow design",
+        "webhook intake",
+        "AI pipeline",
+        "error handling pattern",
+        "retry pattern",
+        "idempotency",
+        "scheduled monitoring"
       ],
       "tags": [],
       "status": "[VALIDATED]",
@@ -3169,6 +3174,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:fleet_health",
+      "kind": "script",
+      "name": "fleet_health",
+      "path": "scripts/fleet_health.py",
+      "description": "fleet_health.py \u2014 Cross-agent health rollup.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:funnel_nurture",
       "kind": "script",
       "name": "funnel_nurture",
@@ -3514,6 +3529,16 @@
       "name": "proposal_generator",
       "path": "scripts/proposal_generator.py",
       "description": "Proposal Generator \u2014 OASIS AI Solutions Generates markdown proposals from templates, saved to proposals/ directory. Follows the structure defined in skills/proposal-generation/SKILL.md.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:pulse_publish",
+      "kind": "script",
+      "name": "pulse_publish",
+      "path": "scripts/pulse_publish.py",
+      "description": "pulse_publish.py \u2014 Atomic, schema-validated writer for Bravo's ceo_pulse.json.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -3933,7 +3958,7 @@
       "kind": "agent",
       "name": "workflow-builder",
       "path": "agents/workflow-builder.md",
-      "description": "MUST BE USED for n8n workflow creation, automation JSON generation, and workflow debugging.",
+      "description": "MUST BE USED for n8n workflow creation, automation building, and workflow debugging. Uses the n8n-mcp SDK code-first flow.",
       "owner": "bravo",
       "tier": "specialized",
       "discovery": "auto-frontmatter"
@@ -4583,6 +4608,11 @@
     {
       "from": "skill:mcp-operations",
       "to": "script:supabase_tool",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:n8n-mcp-integration",
+      "to": "script:n8n_tool",
       "kind": "uses"
     },
     {
