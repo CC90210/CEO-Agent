@@ -76,6 +76,17 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'cd \"$CLAUDE_PROJECT_DIR\" 2>/dev/null && STALE=$(python scripts/memory_aging.py stale --days 7 --json 2>/dev/null | python -c \"import sys,json; d=json.load(sys.stdin); print(d.get(\\\"stale_count\\\",0))\" 2>/dev/null); if [ \"$STALE\" -gt 0 ] 2>/dev/null; then echo \"[STALENESS REPORT] $STALE memory entries are >7d old. Files with stale Last-updated: ACTIVE_TASKS.md, LONG_TERM.md, MISTAKES.md, PATTERNS.md (verify before quoting). Run: python scripts/memory_aging.py stale --days 7\"; fi'"
+          }
+        ]
+      }
     ]
   }
 }

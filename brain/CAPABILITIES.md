@@ -221,7 +221,8 @@ Browser Harness is installed as Bravo's direct Chrome/Edge control layer. It com
 | Tool | Script | Replaces MCP | Key Commands |
 |------|--------|-------------|-------------|
 | **Zernio (Late)** | `../CMO-Agent/scripts/late_tool.py` (owned by Maven) | Late MCP (env var broken) | `accounts`, `profiles`, `posts`, `create`, `cross-post`, `publish`, `failed` |
-| **n8n** | `scripts/n8n_tool.py` | n8n-mcp (returns 0 results) | `list`, `search`, `get`, `execute`, `activate`, `deactivate`, `executions`, `stats` |
+| **n8n (read/exec)** | `scripts/n8n_tool.py` | Always-works fallback | `list`, `search`, `get`, `execute`, `activate`, `deactivate`, `executions`, `stats` |
+| **n8n (build/modify)** | n8n-mcp SDK flow | — | `get_sdk_reference`, `search_nodes`, `get_node_types`, `validate_workflow`, `create_workflow_from_code`, `update_workflow`, `archive_workflow`. Build canonical path — see `skills/n8n-mcp-integration` |
 | **Supabase** | `scripts/supabase_tool.py` | Supabase MCP (token expired) | `list-projects`, `list-tables`, `select`, `insert`, `update`, `delete`, `query` |
 | **Stripe** | `scripts/stripe_tool.py` | Stripe MCP (v0.3.1 proxy mode) | `balance`, `customers`, `products`, `invoices`, `subscriptions`, `charges` |
 | **Firecrawl** | `scripts/firecrawl_tool.py` | Firecrawl MCP (fallback) | `scrape`, `crawl`, `search`, `extract`, `map` |
@@ -476,6 +477,8 @@ Scripts that enforce Bravo's coherence, autonomy, and self-correction. Run in-pr
 | `scripts/crm_reset.py` | Archive cold/dead leads from bravo Supabase CRM. CC directive: remove noise, keep warm leads only. | `python scripts/crm_reset.py --dry-run` |
 | `scripts/deploy_command_center.py` | One-shot production deploy for OASIS AI Agent Command Center. Sets real User-Agent for Supabase Management API. | `python scripts/deploy_command_center.py` |
 | `scripts/integration_health.py` | Bump `integrations_health` row from any background worker. Supports Command Center Settings → Integrations page. | `python scripts/integration_health.py --integration stripe --status ok` |
+| `scripts/fleet_health.py` | Cross-agent health rollup: pulse freshness (Bravo/Atlas/Maven), inbox unread per agent, cron job state, bridge lock status, memory staleness summary. | `python scripts/fleet_health.py`, `--json`, `--agent <name>` |
+| `scripts/pulse_publish.py` | Atomic, schema-validated writer for Bravo's ceo_pulse.json. Only blessed path to update the file (direct edits forbidden per AGENT_ORCHESTRATION.md). | `python scripts/pulse_publish.py refresh --net-mrr <X> --priority "<...>"`, `validate`, `status` |
 | `scripts/n8n_webhook_secret.py` | Manage shared secrets for OASIS Command Center inbound webhook (n8n workflow 1cGIN32alM8sf8OV). Issue/list/revoke. | `python scripts/n8n_webhook_secret.py issue`, `--list`, `--revoke <id>` |
 | `scripts/seed_plan_template.py` | Seed (or update) weekday/weekend plan templates for an operator in the Command Center. | `python scripts/seed_plan_template.py --operator cc --type weekday` |
 | `scripts/seed_profile.py` | Seed (or update) OASIS Command Center operator profile. Idempotent, defaults to CC's profile. | `python scripts/seed_profile.py`, `--email <email>` |

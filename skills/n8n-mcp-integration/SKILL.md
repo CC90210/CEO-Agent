@@ -1,53 +1,144 @@
 ---
 name: n8n-mcp-integration
-description: Utilize the n8n-mcp community package (REST API) to list, search, execute, and manage n8n workflows.
-triggers: [n8n MCP, n8n API, workflow list, workflow execute, n8n REST]
-tier: specialized
-dependencies: [mcp-operations]
+description: Build, validate, and deploy n8n workflows through the n8n-mcp server using the TypeScript-SDK code-first flow. Replaces hand-rolled JSON. Use whenever an automation, workflow, webhook intake, scheduled job, or integration pipeline needs to ship.
+triggers: [n8n, n8n MCP, build workflow, automation, webhook intake, scheduled job, n8n SDK, create_workflow_from_code, validate_workflow]
+tier: standard
+dependencies: [n8n-patterns]
+disable-model-invocation: false
 ---
 
-# Instructions
+# n8n MCP — Code-First SDK Flow (V6.7)
 
-You have access to an `n8n-mcp` server integrated via the community `n8n-mcp` npm package using n8n's REST API. This gives full access to ALL workflows (not just MCP-trigger workflows).
+> The n8n-mcp server (community package, REST-API-backed) exposes a TypeScript-style SDK. You write workflow code, the MCP validates it, then `create_workflow_from_code` ships it directly to the n8n instance. No more hand-rolling JSON, no more guessing parameter names, no more drift between docs and runtime.
 
-## MCP Connection
+## When to use this skill vs `scripts/n8n_tool.py`
+
+| Task | Tool |
+|------|------|
+| **Build / update a workflow** | This skill (n8n-mcp SDK flow) |
+| **List, search, inspect existing workflows** | This skill (`search_workflows`, `get_workflow_details`) |
+| **Execute a workflow with inputs** | This skill (`execute_workflow`) |
+| **Quick CLI-only ops in a script (cron, agent_inbox, etc.)** | `scripts/n8n_tool.py` |
+| **Bulk listing or JSON dump for piping** | `scripts/n8n_tool.py` (returns `--json`) |
+
+**Default: build and modify through MCP. Read and execute through either.** CLI exists as the always-works fallback per CLAUDE.md Rule 2.
+
+## Connection
 
 - **MCP Server Name:** `n8n-mcp`
-- **Package:** `n8n-mcp` (npm, community)
-- **Transport:** stdio (via `cmd /c "set N8N_API_URL=...&& set N8N_API_KEY=...&& npx -y n8n-mcp"`)
+- **Package:** `n8n-mcp` (community npm)
 - **Instance URL:** `https://n8n.srv993801.hstgr.cloud`
-- **Auth:** REST API key (JWT with `public-api` audience) set via `N8N_API_KEY` env var
-- **Credential source:** `.env.agents` → `N8N_API_KEY`
+- **Auth:** REST API key set via `N8N_API_KEY` (sourced from `.env.agents`)
+- **Backed by:** n8n REST API — covers ALL workflows, not just MCP-trigger ones
 
-## Available MCP Tools
+## Templates First (always check before building)
 
-| Tool | Purpose | When to Use |
-|------|---------|-------------|
-| `search_workflows` | List/search all workflows | "List my workflows", "Find workflow X", "Show active workflows" |
-| `get_workflow_details` | Get full workflow config (nodes, triggers, connections) | Before executing, for debugging, for understanding a workflow |
-| `execute_workflow` | Run a workflow by ID | "Run the email automation", "Execute workflow X" |
+The community package ships with ~2,350 community templates indexed for search. **Before building from scratch**, run:
 
-## Tool Usage Patterns
-
-### List All Workflows
 ```
-search_workflows(limit=200)
+search_templates(query="<intent>")     # e.g. "lead enrichment", "stripe webhook"
+get_template(templateId="<id>")        # full template definition
 ```
 
-### Search by Name
+If a template covers ~70%+ of the brief, fork it via `create_workflow_from_code` (after pulling it through the SDK) and modify. The template gives you a known-valid starting point — fewer validation cycles, fewer hallucinated parameters. Reach for this BEFORE the build flow below.
+
+## The SDK Flow (canonical, in order)
+
+When no template fits, this is the only blessed path. **Skipping a step produces invalid workflows.**
+
 ```
-search_workflows(query="email")
+1. get_sdk_reference        → Learn current SDK syntax + design rules
+2. search_nodes             → Find the right nodes (Gmail, Schedule Trigger, etc.)
+3. (optional) get_suggested_nodes → Curated picks for technique categories
+4. get_node_types           → Get EXACT TypeScript parameter definitions for each node
+5. write workflow code      → Use SDK patterns + exact param names from step 4
+6. validate_workflow        → Iterate until valid (loop, don't ship invalid)
+7. create_workflow_from_code → Deploy with a 1-2 sentence description
+   OR update_workflow       → Modify existing workflow by ID
 ```
 
-### Execute a Workflow
-Always call `get_workflow_details` first to understand input schema:
+### Step 1 — Read the SDK reference (always first)
+
 ```
-get_workflow_details(workflowId="1cGIN32alM8sf8OV")
-# Then:
-execute_workflow(workflowId="1cGIN32alM8sf8OV", inputs={...})
+get_sdk_reference()
+# Or with sections:
+get_sdk_reference(sections=["guidelines", "design"])
 ```
 
-## Active Workflows (as of 2026-03-02)
+This returns the current SDK conventions. **n8n updates this — don't cache it in your head.**
+
+### Step 2 — Discover nodes by intent
+
+```
+search_nodes(queries=["gmail send", "schedule trigger", "supabase insert"])
+search_nodes(queries=["set", "if", "merge", "code"])  # utility nodes
+```
+
+Note the **discriminators** (resource / operation / mode) returned in results — you need these for step 4.
+
+### Step 3 — Get exact parameter definitions
+
+**Mandatory.** Guessing parameter names creates invalid workflows.
+
+```
+get_node_types(nodeIds=["n8n-nodes-base.gmail", "n8n-nodes-base.scheduleTrigger", ...])
+```
+
+Pass EVERY node ID you plan to use, including discriminators from search results.
+
+### Step 4 — Write the workflow code
+
+Use the patterns from `get_sdk_reference` (step 1) and the exact parameter shapes from `get_node_types` (step 3). Cover the design guidelines section — it documents idempotency, error handling, and connection rules.
+
+### Step 5 — Validate, loop until clean
+
+```
+validate_workflow(code=<your code>)
+```
+
+Returns errors with line/parameter-level detail. **Fix → re-validate → repeat.** Do not call `create_workflow_from_code` with anything other than a clean validation result.
+
+### Step 6 — Deploy
+
+```
+create_workflow_from_code(
+  code=<validated code>,
+  description="<1-2 sentences — what does this workflow do, what triggers it>"
+)
+```
+
+For updates:
+```
+update_workflow(workflowId="<id>", code=<validated code>)
+```
+
+To pause:
+```
+unpublish_workflow(workflowId="<id>")
+```
+
+To remove:
+```
+archive_workflow(workflowId="<id>")
+```
+
+## Read & Execute Operations (no SDK needed)
+
+These don't require the build flow — call them directly:
+
+| Tool | Use |
+|------|-----|
+| `search_workflows(query, limit=200)` | List or search workflows |
+| `get_workflow_details(workflowId)` | Full config: nodes, triggers, connections |
+| `execute_workflow(workflowId, inputs)` | Run a workflow with input payload |
+| `get_execution(executionId)` | Inspect a past run |
+| `prepare_test_pin_data(workflowId)` | Generate pinned test data for a node |
+| `test_workflow(code)` | Dry-run validated code without persisting |
+| `search_templates(query)` | Search ~2,350 community templates by intent |
+| `get_template(templateId)` | Pull a full template — fork it instead of building blank |
+| `validate_node(...)` | Validate a single node config in isolation (faster than full validate) |
+
+## Active Workflows (refresh via `search_workflows` — this list ages fast)
 
 | ID | Name | Status |
 |----|------|--------|
@@ -63,29 +154,34 @@ execute_workflow(workflowId="1cGIN32alM8sf8OV", inputs={...})
 | iRkiltEX9JMsg2BQ | Oasis Voice Agent | Active |
 | wfAZrrZ6j744QPcr-dGXk | GrapeVine Cottage Automations | Active |
 
-**Total: 44 workflows (11 active, 33 inactive)**
-
 ## Operating Principles
 
-1. **Read before executing**: Always call `get_workflow_details` before `execute_workflow`.
-2. **Error handling**: Every workflow should have error handling nodes. Check before building new ones.
-3. **Webhook triggers**: Use webhook triggers for integrations.
-4. **Document changes**: Log workflow modifications in `memory/SESSION_LOG.md`.
-5. **Never hallucinate**: Don't guess node names or structures — read the actual workflow first.
+1. **Read before executing.** `get_workflow_details` before `execute_workflow`.
+2. **Validate before deploying.** Never call `create_workflow_from_code` on un-validated code.
+3. **One workflow per concern.** Don't bundle unrelated logic — orchestration belongs in a parent workflow.
+4. **Sticky note on start.** Purpose, trigger, expected behavior, owner.
+5. **Error handling is non-negotiable.** Every workflow has an Error Trigger path. See `n8n-patterns` for the exact shape.
+6. **Idempotency on writes.** Check event/record IDs before inserts. Webhook retries are a fact of life.
+7. **Credentials by name, never by value.** Reference n8n credential names; never paste keys.
+8. **Document on deploy.** Append to `APPS_CONTEXT/OASIS_WORKFLOWS.md`. Log a 1-line note in `memory/SESSION_LOG.md`.
 
-## Fallback: Direct REST API
+## Failure Recovery
 
-If the MCP server lacks a capability, use curl with the API key:
-```bash
-curl -H "X-N8N-API-KEY: $N8N_API_KEY" "https://n8n.srv993801.hstgr.cloud/api/v1/workflows"
-```
+| Failure | Action |
+|---------|--------|
+| `validate_workflow` rejects code 3+ times | Re-read `get_sdk_reference`. The SDK shape probably changed. |
+| `get_node_types` returns nothing for a node | Re-run `search_nodes` with broader query — node ID was wrong. |
+| MCP server unreachable | Fall back to `scripts/n8n_tool.py` for read/exec. Building blocked until MCP returns. |
+| `create_workflow_from_code` succeeds but workflow won't activate | Open in n8n UI, check trigger node config. Often a missing credential binding. |
 
-Key REST endpoints:
-- `GET /api/v1/workflows` — List all workflows
-- `GET /api/v1/workflows/{id}` — Get workflow details
-- `POST /api/v1/workflows/{id}/activate` — Activate a workflow
-- `POST /api/v1/workflows/{id}/deactivate` — Deactivate a workflow
-- `GET /api/v1/executions` — List recent executions
+## What this replaces
+
+- ❌ Hand-rolling JSON in `workflows/<name>.json` and importing through the UI (drift-prone, breaks on n8n version changes)
+- ❌ Guessing node parameter names from memory (the #1 cause of invalid workflows)
+- ❌ The "build JSON blob, push to git, hope" flow
+
+The SDK flow is the n8n team's official answer to those failure modes. Use it.
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/n8n-patterns]] | [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[agents/workflow-builder]] | [[memory/SESSION_LOG]]

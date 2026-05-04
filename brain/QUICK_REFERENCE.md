@@ -62,11 +62,14 @@ tags: [reference, tools, routing]
 | CC Says | Tool | Command |
 |---------|------|---------|
 | Supabase query / CRUD | `supabase_tool.py` | `select <table> --project bravo`, `insert`, `update`, `query` |
-| n8n workflows | `n8n_tool.py` | `list`, `search`, `execute <id>`, `stats` |
+| n8n workflows (read/exec) | `n8n_tool.py` | `list`, `search`, `execute <id>`, `stats` |
+| n8n workflows (build/modify) | n8n-mcp SDK flow | `get_sdk_reference` → `search_nodes` → `get_node_types` → `validate_workflow` → `create_workflow_from_code`. See `skills/n8n-mcp-integration` |
 | Web scraping (data extraction) | `firecrawl_tool.py` | `scrape <url>`, `search <query>`, `crawl`, `extract` |
 | Web automation (clicks, forms) | Playwright MCP | `browser_navigate`, `browser_click`, `browser_type` |
 | Real logged-in browser control + reusable site memory | Browser Harness | `python scripts/browser_harness_doctor.py`; setup: `& (Get-Command browser-harness).Source --setup`; workflow: `/.agents/workflows/browser-harness.md` |
 | Cron jobs / scheduled tasks | `cron_engine.py` | `list`, `add`, `run`, `due`, `seed` |
+| Cross-agent health rollup (pulses + inboxes + cron + bridges + memory staleness) | `fleet_health.py` | `python scripts/fleet_health.py [--json] [--agent <name>]` |
+| Refresh Bravo's ceo_pulse (atomic, schema-validated) | `pulse_publish.py` | `python scripts/pulse_publish.py refresh --net-mrr 3322 --priority "..."`, `validate`, `status` |
 | Funnel sync (GoHighLevel) | `funnel_sync.py` | Sync funnels to GHL |
 
 ### Knowledge & Memory

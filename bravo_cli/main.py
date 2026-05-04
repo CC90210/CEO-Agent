@@ -251,10 +251,11 @@ def cmd_doctor(_args: argparse.Namespace) -> int:
     print(BOLD("2. Required Files"))
     required_files = [
         "CLAUDE.md", "GEMINI.md", "ANTIGRAVITY.md", "AGENTS.md",
-        "brain/STATE.md", "brain/SOUL.md",
+        "brain/STATE.md", "brain/SOUL.md", "brain/AGENT_ORCHESTRATION.md",
         "brain/USER.template.md",                # template ships publicly
         "memory/SESSION_LOG.template.md",        # template ships publicly
         "memory/ACTIVE_TASKS.template.md",       # template ships publicly
+        "docs/ENV_KEYS_TEMPLATE.md",
         "skills/browser-harness/SKILL.md",
         "browser/SAFETY.md",
         ".env.agents",
@@ -333,6 +334,8 @@ def cmd_doctor(_args: argparse.Namespace) -> int:
         ("scripts/memory_consolidation.py", "status"),
         ("scripts/personalize.py",         "check"),
         ("scripts/scaffold.py",            None),  # has no subcommand, --help only
+        ("scripts/fleet_health.py",        None),
+        ("scripts/pulse_publish.py",       None),
         ("scripts/system_cleanup.py",      None),
         ("scripts/computer_control.py",    "info"),
         ("scripts/neuro_symbolic_gate.py", "rules"),
@@ -637,13 +640,18 @@ def cmd_setup(args: argparse.Namespace) -> int:
         if env_example.exists():
             print(f"  {DIM('Copy .env.agents.example to .env.agents and fill in your keys')}")
         else:
-            print(f"  {DIM('Create .env.agents with your API keys (see brain/QUICK_REFERENCE.md)')}")
+            print(f"  {DIM('Create .env.agents with your API keys (see docs/ENV_KEYS_TEMPLATE.md)')}")
     print()
 
     # Step 5: Brain structure
     steps_total += 1
     print(f"{BOLD('Step 5:')} Brain structure")
-    critical = ["brain/STATE.md", "brain/SOUL.md", "memory/SESSION_LOG.md"]
+    critical = [
+        "brain/STATE.md",
+        "brain/SOUL.md",
+        "brain/AGENT_ORCHESTRATION.md",
+        "memory/SESSION_LOG.md",
+    ]
     all_brain_ok = all((REPO_ROOT / p).exists() for p in critical)
     if all_brain_ok:
         print(f"  {GREEN('✓')} Core brain files present")
