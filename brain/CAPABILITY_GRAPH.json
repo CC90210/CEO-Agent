@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0",
   "agent": "bravo",
-  "generated_at": "2026-05-04T03:19:33.801579+00:00",
+  "generated_at": "2026-05-04T03:28:50.566045+00:00",
   "totals": {
     "skills": 153,
-    "scripts": 101,
+    "scripts": 102,
     "agents": 20,
     "mcp_servers": 9,
     "workflows": 36,
-    "nodes_total": 319,
+    "nodes_total": 320,
     "edges_total": 44,
     "drift_count": 115
   },
@@ -3082,6 +3082,16 @@
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-filename"
+    },
+    {
+      "id": "script:cron_dispatcher",
+      "kind": "script",
+      "name": "cron_dispatcher",
+      "path": "scripts/cron_dispatcher.py",
+      "description": "cron_dispatcher.py \u2014 Execute allowlisted script-backed cron jobs.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:cron_engine",
