@@ -68,6 +68,7 @@ tags: [reference, tools, routing]
 | Web automation (clicks, forms) | Playwright MCP | `browser_navigate`, `browser_click`, `browser_type` |
 | Real logged-in browser control + reusable site memory | Browser Harness | `python scripts/browser_harness_doctor.py`; setup: `& (Get-Command browser-harness).Source --setup`; workflow: `/.agents/workflows/browser-harness.md` |
 | Cron jobs / scheduled tasks | `cron_engine.py` | `list`, `add`, `run`, `due`, `seed` |
+| Execute allowlisted script-backed cron jobs | `cron_dispatcher.py` | `python scripts/cron_dispatcher.py due --execute`, `run <job_id>`, `--dry-run` |
 | Cross-agent health rollup (pulses + inboxes + cron + bridges + memory staleness) | `fleet_health.py` | `python scripts/fleet_health.py [--json] [--agent <name>]` |
 | Refresh Bravo's ceo_pulse (atomic, schema-validated) | `pulse_publish.py` | `python scripts/pulse_publish.py refresh --net-mrr 3322 --priority "..."`, `validate`, `status` |
 | Funnel sync (GoHighLevel) | `funnel_sync.py` | Sync funnels to GHL |
