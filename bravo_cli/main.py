@@ -335,6 +335,7 @@ def cmd_doctor(_args: argparse.Namespace) -> int:
         ("scripts/personalize.py",         "check"),
         ("scripts/scaffold.py",            None),  # has no subcommand, --help only
         ("scripts/fleet_health.py",        None),
+        ("scripts/cron_dispatcher.py",     None),
         ("scripts/pulse_publish.py",       None),
         ("scripts/system_cleanup.py",      None),
         ("scripts/computer_control.py",    "info"),

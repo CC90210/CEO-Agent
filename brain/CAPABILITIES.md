@@ -272,7 +272,7 @@ Browser Harness is installed as Bravo's direct Chrome/Edge control layer. It com
 | **Revenue** | `scripts/revenue_engine.py` | MRR tracking, Stripe sync, forecasting | `mrr`, `dashboard`, `sync-stripe`, `log-revenue`, `history`, `forecast`, `clients`, `goal` |
 | **Competitive Intel** | `scripts/competitive_intel.py` | Competitor profiles, battlecards, landscape reports | `add`, `list`, `view`, `update`, `battlecard`, `report`, `matrix`, `delete` |
 | **Financial Model** | `scripts/financial_model.py` | Unit economics, scenario modeling, concentration risk | `unit-economics`, `forecast`, `scenario`, `concentration`, `runway` |
-| **Cron** | `scripts/cron_engine.py` | Automated job scheduling, 12 seeded business workflows | `list`, `add`, `toggle`, `run`, `due`, `seed` |
+| **Cron** | `scripts/cron_engine.py` + `scripts/cron_dispatcher.py` | Automated job registry plus allowlisted script-backed execution for Atlas/Maven jobs | `cron_engine.py list/add/toggle/due/seed`; `cron_dispatcher.py due --execute`, `run <job_id>` |
 
 All engines: `--json` flag for agent consumption, credentials from `.env.agents`, Supabase backend.
 
@@ -478,6 +478,7 @@ Scripts that enforce Bravo's coherence, autonomy, and self-correction. Run in-pr
 | `scripts/deploy_command_center.py` | One-shot production deploy for OASIS AI Agent Command Center. Sets real User-Agent for Supabase Management API. | `python scripts/deploy_command_center.py` |
 | `scripts/integration_health.py` | Bump `integrations_health` row from any background worker. Supports Command Center Settings → Integrations page. | `python scripts/integration_health.py --integration stripe --status ok` |
 | `scripts/fleet_health.py` | Cross-agent health rollup: pulse freshness (Bravo/Atlas/Maven), inbox unread per agent, cron job state, bridge lock status, memory staleness summary. | `python scripts/fleet_health.py`, `--json`, `--agent <name>` |
+| `scripts/cron_dispatcher.py` | Executes allowlisted script-backed cron jobs from the shared registry (Atlas pulse publish, Maven token check, Maven backlog audit) and writes run status back to Supabase. | `python scripts/cron_dispatcher.py due --execute`, `run <job_id>`, `--dry-run` |
 | `scripts/pulse_publish.py` | Atomic, schema-validated writer for Bravo's ceo_pulse.json. Only blessed path to update the file (direct edits forbidden per AGENT_ORCHESTRATION.md). | `python scripts/pulse_publish.py refresh --net-mrr <X> --priority "<...>"`, `validate`, `status` |
 | `scripts/n8n_webhook_secret.py` | Manage shared secrets for OASIS Command Center inbound webhook (n8n workflow 1cGIN32alM8sf8OV). Issue/list/revoke. | `python scripts/n8n_webhook_secret.py issue`, `--list`, `--revoke <id>` |
 | `scripts/seed_plan_template.py` | Seed (or update) weekday/weekend plan templates for an operator in the Command Center. | `python scripts/seed_plan_template.py --operator cc --type weekday` |
