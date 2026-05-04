@@ -43,6 +43,7 @@ When someone asks you for a solution, send them here. **All repo names are click
 | "I need to scan my code for security issues before shipping" | [carlrannaberg/claudekit](https://github.com/carlrannaberg/claudekit) |
 | "I want to query my Obsidian vault with AI" | [cyanheads/obsidian-mcp-server](https://github.com/cyanheads/obsidian-mcp-server) |
 | "I need a Postgres performance-tuning MCP" | [crystaldba/postgres-mcp](https://github.com/crystaldba/postgres-mcp) |
+| "I just inherited a codebase and need an instant architecture map" | [safishamsi/graphify](https://github.com/safishamsi/graphify) |
 
 ---
 
@@ -129,6 +130,7 @@ The curated lists, plugins, and toolkits that make Claude Code 10x more useful.
 |-----|------|-----------|--------|
 | **Obsidian MCP** | [cyanheads/obsidian-mcp-server](https://github.com/cyanheads/obsidian-mcp-server) | 459 ⭐ — Closes the loop between Bravo's actions and CC's Obsidian vault. 8 tools: read/write notes, regex search, frontmatter/tag management. | Requires Obsidian Local REST API plugin + 1 MCP.json entry |
 | **Postgres MCP Pro** | [crystaldba/postgres-mcp](https://github.com/crystaldba/postgres-mcp) | 2.6K ⭐ — Index tuning, query plan explain, `pg_stat_statements` analysis. Read-only mode for prod. Huge for client DB work. | 1 MCP.json entry + connection string |
+| **Graphify** | [safishamsi/graphify](https://github.com/safishamsi/graphify) | 41.9K ⭐ — Tree-sitter knowledge graph builder for codebases. Outputs Obsidian vault, Neo4j cypher, GraphML. Surfaces "god nodes" + cross-module connections. **NOT for Bravo** (CAPABILITY_GRAPH.json + smart_explore + Obsidian graph already cover this). **PILOT on next client app onboarding** (Hermes, OASIS Platform, PropFlow) — generates an instant architecture map for handoff. | 5 min `/graphify` per app |
 | **Official GitHub MCP** | [github/github-mcp-server](https://github.com/github/github-mcp-server) | 29.1K ⭐ — Official GitHub MCP. 19 tool categories, OAuth scope filtering. Optional: `gh` CLI already covers this. | Optional — current `gh` setup works fine |
 
 ### Dead/Broken
@@ -196,6 +198,7 @@ Not noise — these move the needle.
 2. **[cyanheads/obsidian-mcp-server](https://github.com/cyanheads/obsidian-mcp-server)** — Bravo writes to/queries the Obsidian vault directly. Massive leverage given CC's Obsidian graph is the second brain. **Effort: 30 min (requires Obsidian Local REST API plugin). Value: compounding.**
 3. **[VoltAgent subagent personas](https://github.com/VoltAgent/awesome-claude-code-subagents)** — Cherry-pick `security-auditor`, `competitive-analyst`, `market-researcher` for drop-in delegation. **Effort: 5 min per persona. Value: immediate.**
 4. **[Postgres MCP Pro](https://github.com/crystaldba/postgres-mcp)** — Add when taking on clients with their own Postgres (not Supabase). Index tuning + query plan analysis. **Effort: 1 hr per client. Value: billable expertise.**
+5. **[Graphify](https://github.com/safishamsi/graphify)** — Run `/graphify` on a client app at onboarding to generate an instant codebase map (god nodes, cross-module connections, Obsidian export). Skip on Bravo itself — already covered by CAPABILITY_GRAPH + smart_explore. **Effort: 5 min per client app. Value: faster client codebase comprehension + visual deliverable.**
 
 ---
 
@@ -287,6 +290,7 @@ Firecrawl MCP           https://github.com/firecrawl/firecrawl-mcp-server
 GitHub MCP (official)   https://github.com/github/github-mcp-server
 Obsidian MCP (cyanheads) https://github.com/cyanheads/obsidian-mcp-server
 Postgres MCP Pro        https://github.com/crystaldba/postgres-mcp
+Graphify (codebase KG)  https://github.com/safishamsi/graphify
 Memory MCP              https://github.com/modelcontextprotocol/servers
 Sequential Thinking MCP https://github.com/modelcontextprotocol/servers
 n8n MCP (community)     https://github.com/czlonkowski/n8n-mcp
@@ -328,4 +332,5 @@ Jeremy Miner NEPQ         https://www.7thlevelhq.com
 - **Update trigger:** Any new repo clone, MCP install, or major integration. Log the entry here BEFORE committing the install.
 - **Publish protocol:** When CC is ready to share publicly — copy Sections 1-7 + Plain-Text Export into a GitHub Gist, strip internal commentary, link from oasisai.work, email signature, Skool.
 - **Last full audit:** 2026-04-21
+- **2026-05-03:** Added Graphify (Section 3 + Section 7 + Use-Case Router + Plain-Text Export). Pilot trigger: next client app onboarding (Hermes/OASIS Platform/PropFlow). Skipped Caveman (client-comm voice protection) and CodeBurn (subscription plans, premature until metered API client deploys).
 - **Companion docs:** [[brain/CLIENT_PLAYBOOK]] (meeting + security material) · [[brain/BENCHMARK]] (sentience + capability score)

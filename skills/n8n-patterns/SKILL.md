@@ -1,12 +1,14 @@
 ---
 name: n8n-patterns
-description: Use this skill whenever the user wants to build an N8N workflow, mentions n8n, automation, webhook intake, AI processing pipelines, or anything related to n8n node configurations. Essential for any n8n automation.
-triggers: [n8n, workflow, automation, trigger, node, webhook, n8n build]
+description: Design-pattern reference for n8n workflows — error handling, idempotency, retry shape, common pipeline templates. Pairs with n8n-mcp-integration (which handles HOW to build via SDK). This skill answers WHAT shape a workflow should take.
+triggers: [n8n pattern, workflow design, webhook intake, AI pipeline, error handling pattern, retry pattern, idempotency, scheduled monitoring]
 tier: standard
-dependencies: []
+dependencies: [n8n-mcp-integration]
 ---
 
-# N8N Workflow Engineering — Skill Reference
+# N8N Workflow Engineering — Design Patterns
+
+> **For HOW to build:** see `skills/n8n-mcp-integration` — code-first SDK flow (`get_sdk_reference` → `search_nodes` → `get_node_types` → `validate_workflow` → `create_workflow_from_code`). This skill is the design-pattern companion: error shapes, retry templates, idempotency, common pipelines.
 
 ## Workflow Design Principles
 
@@ -83,40 +85,29 @@ Use for: Customer support across web chat, SMS, email, WhatsApp.
 - Include the workflow name, node that failed, and error message in notifications
 - Log errors to a Supabase `error_log` table for trending
 
-## Workflow JSON Structure Reference
-```json
-{
-  "name": "Workflow Name",
-  "nodes": [
-    {
-      "parameters": {},
-      "id": "unique-uuid",
-      "name": "Descriptive Node Name",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2,
-      "position": [250, 300]
-    }
-  ],
-  "connections": {
-    "Node Name": {
-      "main": `{"node": "Next Node", "type": "main", "index": 0}`
-    }
-  },
-  "settings": {
-    "executionOrder": "v1"
-  }
-}
+## Workflow Code Structure (SDK, not JSON)
+
+**Don't hand-roll JSON.** The n8n-mcp SDK exposes a TypeScript-style code builder. Get the current syntax from:
+
+```
+get_sdk_reference()
+get_sdk_reference(sections=["guidelines", "design"])
 ```
 
+Always pull exact parameter shapes from `get_node_types(nodeIds=[...])` before writing code — node parameter shapes change between n8n versions, and guessing is the #1 cause of invalid workflows. Validate with `validate_workflow(code=...)` until clean, then deploy with `create_workflow_from_code(code=..., description=...)`.
+
+If you find yourself building JSON by hand, stop and re-read [[skills/n8n-mcp-integration]].
+
 ## Testing Checklist
-- [ ] Trigger fires correctly
+- [ ] `validate_workflow` returns clean (no errors, no warnings you can't justify)
+- [ ] Trigger fires correctly (use `prepare_test_pin_data` for pinned-input dry runs)
 - [ ] Each node processes expected data format
-- [ ] Error paths trigger on actual errors
+- [ ] Error paths trigger on actual errors (force a failure, verify notification fires)
 - [ ] Retry logic works (test with temporary failure)
 - [ ] Output matches expected format
-- [ ] No hardcoded credentials
+- [ ] No hardcoded credentials — every secret references an n8n credential name
 - [ ] Monitoring/alerting is in place
-- [ ] Workflow is documented with sticky notes
+- [ ] Workflow has a Start sticky note: purpose, trigger, owner
 
 ## Obsidian Links
-- [[brain/CAPABILITIES]] | [[skills/INDEX]] | [[brain/DASHBOARD]]
+- [[skills/n8n-mcp-integration]] | [[brain/CAPABILITIES]] | [[skills/INDEX]] | [[brain/DASHBOARD]]

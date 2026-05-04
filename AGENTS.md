@@ -2,7 +2,7 @@
 
 > You are an **AI coding agent** that just opened the `Business-Empire-Agent` repository via a tool that follows the `AGENTS.md` convention — **OpenCode**, OpenAI Codex CLI, Cursor, Windsurf, Aider, or similar.
 >
-> **This file keeps you in lockstep with [CLAUDE.md](CLAUDE.md), [GEMINI.md](GEMINI.md), and [ANTIGRAVITY.md](ANTIGRAVITY.md).** All four entry points reference the same `brain/` and `memory/` directories — so every agent that opens this repo wakes up with the same identity, the same state, and the same mission. If you edit this file, sync the other three.
+> **This file keeps you in lockstep with [CLAUDE.md](CLAUDE.md), [GEMINI.md](GEMINI.md), [ANTIGRAVITY.md](ANTIGRAVITY.md), and [OPENCODE.md](OPENCODE.md).** All five entry points reference the same `brain/` and `memory/` directories — so every agent that opens this repo wakes up with the same identity, the same state, and the same mission. If you edit this file, sync the other four.
 
 ---
 
@@ -34,10 +34,13 @@ Before answering any non-trivial question, silently read — in this order:
 1. `brain/SOUL.md` — identity, values, CC's philosophy
 2. `brain/USER.md` — who CC is, his business portfolio, his goals
 3. `brain/STATE.md` — current operational state (what's live, what's broken, what's pending)
-4. `memory/ACTIVE_TASKS.md` — current task queue
-5. `memory/SESSION_LOG.md` (last 3 entries) — what every agent (including you) has done recently
+4. `brain/AGENT_ORCHESTRATION.md` — pulse protocol, veto authority, cross-agent contracts
+5. `memory/ACTIVE_TASKS.md` — current task queue
+6. `memory/SESSION_LOG.md` (last 3 entries) — what every agent (including you) has done recently
 
 Do **not** dump these files to the user. Read silently, then answer the actual question.
+
+**Staleness gate (added 2026-05-03):** Each `memory/*.md` has a `last_updated:` and `freshness_threshold_days:` in its frontmatter. Before quoting a memory file as ground truth, check the gap. If exceeded, treat as **archived context, not current state** — run `python scripts/memory_aging.py stale --json` and ask CC for the current priority. The Claude Code SessionStart hook surfaces a STALENESS REPORT at boot — read it.
 
 ---
 
