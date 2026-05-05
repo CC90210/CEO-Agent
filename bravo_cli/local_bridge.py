@@ -1,0 +1,383 @@
+#!/usr/bin/env python3
+"""
+bravo_cli/local_bridge.py — local-machine pinger for the OASIS dashboard.
+
+Detects what's installed on the operator's machine (FFmpeg, Whisper, Playwright,
+Chrome harness, the agent CLIs) and pings /api/bridge/ping every 60s with a
+status report. The dashboard's Integrations page then reflects real local
+state instead of guessing.
+
+Authenticates with the bridge token issued by the setup-wizard at
+/api/auth/pair. Token lives at ~/.oasis/bridge_token (chmod 600).
+
+Lifecycle:
+  bravo bridge start   — backgrounds this script, writes ~/.oasis/bridge.pid
+  bravo bridge stop    — kills the PID, removes the file
+  bravo bridge status  — reports running / not running + last successful ping
+
+This is a simple loop, not a system service. The trade-off: no auto-start on
+reboot, but no admin-elevation pain during install. `bravo bridge start` is
+all the operator ever runs.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import platform
+import shutil
+import socket
+import subprocess
+import sys
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+import urllib.request
+import urllib.error
+
+
+HOME = Path.home()
+OASIS_DIR = HOME / ".oasis"
+TOKEN_PATH = OASIS_DIR / "bridge_token"
+PID_PATH = OASIS_DIR / "bridge.pid"
+LOG_PATH = OASIS_DIR / "bridge.log"
+LAST_PING_PATH = OASIS_DIR / "bridge.last_ping"
+
+DEFAULT_DASHBOARD = "https://agent-dashboard-cc90210.vercel.app"
+PING_INTERVAL_SEC = 60
+
+
+# --------------------------------------------------------------------------
+# Detection — each function returns a dict the API records as
+#   { status, metadata?, last_error? } per service slug.
+# --------------------------------------------------------------------------
+
+def _which_version(cmd: str, args: list[str], timeout: int = 5) -> tuple[bool, str]:
+    """Run `cmd args` and return (success, first-line-of-output)."""
+    bin_path = shutil.which(cmd)
+    if not bin_path:
+        return False, ""
+    try:
+        out = subprocess.check_output([bin_path, *args], timeout=timeout,
+                                      stderr=subprocess.STDOUT)
+        return True, out.decode("utf-8", errors="ignore").strip().splitlines()[0]
+    except Exception as e:
+        return False, str(e)
+
+
+def detect_ffmpeg() -> dict:
+    ok, line = _which_version("ffmpeg", ["-version"])
+    if ok:
+        return {"status": "healthy", "metadata": {"version": line, "path": shutil.which("ffmpeg")}}
+    return {"status": "unconfigured", "last_error": "ffmpeg not on PATH"}
+
+
+def detect_whisper() -> dict:
+    ok, _ = _which_version("whisper", ["--help"])
+    if ok:
+        return {"status": "healthy", "metadata": {"path": shutil.which("whisper")}}
+    return {"status": "unconfigured", "last_error": "whisper CLI not on PATH"}
+
+
+def detect_browser_harness() -> dict:
+    """Chrome present + (optionally) the harness CDP port reachable."""
+    chrome = (
+        shutil.which("chrome")
+        or shutil.which("google-chrome")
+        or shutil.which("Google Chrome")
+        or _windows_chrome_path()
+    )
+    if not chrome:
+        return {"status": "unconfigured", "last_error": "Chrome not detected"}
+    cdp_alive = _port_open("127.0.0.1", 9222, timeout=0.5)
+    return {
+        "status": "healthy" if cdp_alive else "degraded",
+        "metadata": {"chrome": chrome, "cdp_9222": cdp_alive},
+        "last_error": None if cdp_alive else "Chrome installed but CDP port 9222 not open (browser-harness not running)",
+    }
+
+
+def detect_playwright() -> dict:
+    ok, _ = _which_version("playwright", ["--version"])
+    if ok:
+        return {"status": "healthy", "metadata": {"path": shutil.which("playwright")}}
+    # npx playwright is also valid
+    ok2, line = _which_version("npx", ["playwright", "--version"])
+    if ok2:
+        return {"status": "healthy", "metadata": {"via": "npx", "version": line}}
+    return {"status": "unconfigured", "last_error": "playwright not detected via PATH or npx"}
+
+
+def detect_node() -> dict:
+    ok, line = _which_version("node", ["--version"])
+    if ok:
+        return {"status": "healthy", "metadata": {"version": line.strip()}}
+    return {"status": "unconfigured"}
+
+
+def detect_python() -> dict:
+    return {
+        "status": "healthy",
+        "metadata": {"version": platform.python_version(), "executable": sys.executable},
+    }
+
+
+def detect_repo_clones() -> dict[str, dict]:
+    """Bravo / Atlas / Maven / Aura / Hermes — repo present on disk."""
+    home = HOME
+    candidates = {
+        "bravo_repo": [home / "Business-Empire-Agent"],
+        "atlas_repo": [home / "APPS" / "CFO-Agent"],
+        "maven_repo": [home / "CMO-Agent"],
+        "aura_repo": [home / "AURA"],
+        "hermes_repo": [home / "hermes"],
+    }
+    out: dict[str, dict] = {}
+    for slug, paths in candidates.items():
+        present = next((p for p in paths if p.exists()), None)
+        if present:
+            out[slug] = {"status": "healthy", "metadata": {"path": str(present)}}
+        else:
+            out[slug] = {"status": "unconfigured"}
+    return out
+
+
+def collect_services() -> dict[str, dict]:
+    services: dict[str, dict] = {
+        "ffmpeg": detect_ffmpeg(),
+        "whisper": detect_whisper(),
+        "browser_harness": detect_browser_harness(),
+        "playwright": detect_playwright(),
+    }
+    services.update(detect_repo_clones())
+    return services
+
+
+# --------------------------------------------------------------------------
+# Network helpers
+# --------------------------------------------------------------------------
+
+def _port_open(host: str, port: int, timeout: float = 0.5) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except Exception:
+        return False
+
+
+def _windows_chrome_path() -> str | None:
+    if os.name != "nt":
+        return None
+    candidates = [
+        Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "Google/Chrome/Application/chrome.exe",
+        Path(os.environ.get("ProgramFiles(x86)", "C:/Program Files (x86)")) / "Google/Chrome/Application/chrome.exe",
+        Path(os.environ.get("LOCALAPPDATA", "")) / "Google/Chrome/Application/chrome.exe",
+    ]
+    for c in candidates:
+        if c.exists():
+            return str(c)
+    return None
+
+
+# --------------------------------------------------------------------------
+# Ping loop
+# --------------------------------------------------------------------------
+
+def _read_token() -> str | None:
+    if not TOKEN_PATH.exists():
+        return None
+    try:
+        return TOKEN_PATH.read_text(encoding="utf-8").strip()
+    except Exception:
+        return None
+
+
+def _dashboard_url() -> str:
+    # Honor BRAVO_DASHBOARD_URL if set in the env, else default
+    return os.environ.get("BRAVO_DASHBOARD_URL", DEFAULT_DASHBOARD).rstrip("/")
+
+
+def _post_ping(token: str, services: dict[str, dict]) -> tuple[bool, str]:
+    url = f"{_dashboard_url()}/api/bridge/ping"
+    body = json.dumps({"services": services}).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        method="POST",
+        data=body,
+        headers={
+            "content-type": "application/json",
+            "authorization": f"Bearer {token}",
+            "user-agent": f"oasis-bridge/1.0 ({platform.system()})",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            return True, f"HTTP {r.status}"
+    except urllib.error.HTTPError as e:
+        return False, f"HTTP {e.code} {e.reason}"
+    except Exception as e:
+        return False, str(e)
+
+
+def _log(msg: str) -> None:
+    OASIS_DIR.mkdir(parents=True, exist_ok=True)
+    line = f"[{datetime.now(timezone.utc).isoformat()}] {msg}\n"
+    try:
+        with LOG_PATH.open("a", encoding="utf-8") as fh:
+            fh.write(line)
+    except Exception:
+        pass
+
+
+def run_loop() -> int:
+    token = _read_token()
+    if not token:
+        _log(f"ABORT: no bridge token at {TOKEN_PATH}")
+        print(f"No bridge token at {TOKEN_PATH}. Run the setup wizard first.", file=sys.stderr)
+        return 2
+    OASIS_DIR.mkdir(parents=True, exist_ok=True)
+    PID_PATH.write_text(str(os.getpid()), encoding="utf-8")
+    _log(f"START pid={os.getpid()} dashboard={_dashboard_url()}")
+    try:
+        while True:
+            services = collect_services()
+            ok, info = _post_ping(token, services)
+            if ok:
+                LAST_PING_PATH.write_text(
+                    datetime.now(timezone.utc).isoformat(), encoding="utf-8"
+                )
+                _log(f"OK ping recorded {len(services)} services {info}")
+            else:
+                _log(f"FAIL {info}")
+            time.sleep(PING_INTERVAL_SEC)
+    except KeyboardInterrupt:
+        _log("STOP via SIGINT")
+        return 0
+    finally:
+        try:
+            PID_PATH.unlink()
+        except FileNotFoundError:
+            pass
+
+
+# --------------------------------------------------------------------------
+# CLI commands (called by bravo_cli/main.py)
+# --------------------------------------------------------------------------
+
+def cmd_start(_args) -> int:
+    if PID_PATH.exists():
+        try:
+            pid = int(PID_PATH.read_text(encoding="utf-8").strip())
+            if _pid_alive(pid):
+                print(f"Bridge already running (pid {pid}).")
+                return 0
+        except Exception:
+            pass
+    OASIS_DIR.mkdir(parents=True, exist_ok=True)
+    # Background spawn — detached, output to ~/.oasis/bridge.log
+    creation_flags = 0
+    if os.name == "nt":
+        creation_flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP  # type: ignore
+    log_fh = LOG_PATH.open("a", encoding="utf-8")
+    proc = subprocess.Popen(
+        [sys.executable, str(Path(__file__).resolve()), "_loop"],
+        stdout=log_fh, stderr=log_fh,
+        stdin=subprocess.DEVNULL,
+        close_fds=True,
+        start_new_session=(os.name != "nt"),
+        creationflags=creation_flags,
+    )
+    PID_PATH.write_text(str(proc.pid), encoding="utf-8")
+    print(f"Bridge started (pid {proc.pid}). Logs: {LOG_PATH}")
+    return 0
+
+
+def cmd_stop(_args) -> int:
+    if not PID_PATH.exists():
+        print("Bridge not running.")
+        return 0
+    try:
+        pid = int(PID_PATH.read_text(encoding="utf-8").strip())
+    except Exception:
+        PID_PATH.unlink(missing_ok=True)
+        print("Stale PID file removed.")
+        return 0
+    if not _pid_alive(pid):
+        PID_PATH.unlink(missing_ok=True)
+        print(f"Process {pid} not alive — cleaned up.")
+        return 0
+    try:
+        if os.name == "nt":
+            subprocess.run(["taskkill", "/F", "/PID", str(pid)], check=False)
+        else:
+            os.kill(pid, 15)
+        PID_PATH.unlink(missing_ok=True)
+        print(f"Bridge stopped (pid {pid}).")
+        return 0
+    except Exception as e:
+        print(f"Failed to stop pid {pid}: {e}", file=sys.stderr)
+        return 1
+
+
+def cmd_status(_args) -> int:
+    running = False
+    pid: int | None = None
+    if PID_PATH.exists():
+        try:
+            pid = int(PID_PATH.read_text(encoding="utf-8").strip())
+            running = _pid_alive(pid)
+        except Exception:
+            running = False
+    last_ping = None
+    if LAST_PING_PATH.exists():
+        try:
+            last_ping = LAST_PING_PATH.read_text(encoding="utf-8").strip()
+        except Exception:
+            pass
+    print("oasis local bridge")
+    print(f"  running   : {'yes' if running else 'no'}" + (f" (pid {pid})" if pid else ""))
+    print(f"  token     : {'on file' if TOKEN_PATH.exists() else 'MISSING — run setup wizard'}")
+    print(f"  last ping : {last_ping or 'never'}")
+    print(f"  log       : {LOG_PATH}")
+    return 0 if running else 1
+
+
+def _pid_alive(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        if os.name == "nt":
+            out = subprocess.check_output(
+                ["tasklist", "/FI", f"PID eq {pid}"],
+                stderr=subprocess.DEVNULL,
+            ).decode("utf-8", errors="ignore")
+            return str(pid) in out
+        os.kill(pid, 0)
+        return True
+    except Exception:
+        return False
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(prog="bravo-bridge", description=__doc__)
+    sub = ap.add_subparsers(dest="cmd")
+    sub.add_parser("start", help="Background the bridge daemon")
+    sub.add_parser("stop", help="Stop the bridge daemon")
+    sub.add_parser("status", help="Show bridge status")
+    sub.add_parser("_loop", help="(internal) run the ping loop in foreground")
+    args = ap.parse_args(argv)
+    if args.cmd == "start":
+        return cmd_start(args)
+    if args.cmd == "stop":
+        return cmd_stop(args)
+    if args.cmd == "status":
+        return cmd_status(args)
+    if args.cmd == "_loop":
+        return run_loop()
+    ap.print_help()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

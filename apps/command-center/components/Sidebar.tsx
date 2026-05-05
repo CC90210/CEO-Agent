@@ -39,12 +39,14 @@ export function Sidebar({
   operatorEmail,
   primaryAgent = "bravo",
   primaryAgentLive = false,
+  bridgeOnline = false,
 }: {
   brand?: string;
   operatorName?: string;
   operatorEmail?: string;
   primaryAgent?: string;
   primaryAgentLive?: boolean;
+  bridgeOnline?: boolean;
 }) {
   const pathname = usePathname();
   const opsItems = ITEMS.filter((i) => i.group === "ops");
@@ -125,6 +127,18 @@ export function Sidebar({
               <span>Sign out</span>
             </button>
           </form>
+        </div>
+        <div
+          className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-fg-dim"
+          title={bridgeOnline
+            ? "Local bridge daemon pinged within last 5 min"
+            : "Local bridge offline — run `bravo bridge start`"}
+        >
+          <span className={bridgeOnline ? "text-accent animate-pulse-slow" : "text-fg-faint"}>◆</span>
+          <span>local bridge</span>
+          <span className={bridgeOnline ? "text-accent" : "text-fg-faint"}>
+            {bridgeOnline ? "online" : "offline"}
+          </span>
         </div>
       </div>
     </aside>

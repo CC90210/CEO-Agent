@@ -18,6 +18,8 @@ const PUBLIC_PATH_PREFIXES = [
   "/api/inbound",          // n8n inbound webhook (Bearer-auth gated inside the route)
   "/api/auth/signout",
   "/api/auth/provision",   // legacy + setup-wizard provision (Bearer-auth gated inside)
+  "/api/auth/pair",        // setup-wizard pairing (Bearer-auth gated inside)
+  "/api/bridge",           // local-bridge daemon heartbeat (Bearer token gated inside)
   "/api/cron",
   "/api/webhook",          // public webhooks for clients (HMAC/Bearer gated inside)
   "/_next",
