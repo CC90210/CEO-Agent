@@ -185,7 +185,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
             {cfg
               ? `${cfg.provider} · ${cfg.model}`
               : isAdmin
-                ? "platform default (admin)"
+                ? "admin · platform key (local CLI pairing in Phase 2)"
                 : configsLoaded
                   ? "not configured"
                   : "loading…"}
