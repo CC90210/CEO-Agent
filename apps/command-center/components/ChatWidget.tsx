@@ -166,9 +166,12 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
   }
 
   return (
-    <div className="flex flex-col h-[640px] chat-aurora">
+    <div className={`chat-container agent-${agent} flex flex-col h-[640px]`}>
+      {/* Aurora wash inside the bordered container */}
+      <div className="chat-aurora absolute inset-0 pointer-events-none" />
+
       {/* Header — agent picker + model badge */}
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-bg-border relative z-10">
+      <div className="flex items-center gap-3 px-5 py-4 relative z-10">
         <select
           value={agent}
           onChange={(e) => setAgent(e.target.value)}
@@ -213,6 +216,9 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
           <Cog className="w-4 h-4" />
         </Link>
       </div>
+
+      {/* Animated rail beneath the header */}
+      <div className="chat-rail" />
 
       {/* Transcript */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-5 space-y-4 chat-scroll relative z-10">

@@ -9,6 +9,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 const PUBLIC_PATH_PREFIXES = [
+  "/welcome",              // public marketing landing
   "/login",
   "/signup",
   "/forgot-password",
@@ -22,6 +23,8 @@ const PUBLIC_PATH_PREFIXES = [
   "/_next",
   "/favicon",
 ];
+
+const MARKETING_REDIRECT_TARGET = "/welcome"; // unauthed home goes here, not login
 
 // Public static-asset extensions. Anything served from /public with one of
 // these suffixes is allowed without auth — install scripts (curl|bash) and
@@ -42,17 +45,24 @@ function isPublic(pathname: string): boolean {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // Pass pathname through as a header so the root layout can decide whether
+  // to render the dashboard shell vs full-bleed (marketing/auth) chrome.
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-pathname", pathname);
+
   // Always allow public paths
-  if (isPublic(pathname)) return NextResponse.next();
+  if (isPublic(pathname)) {
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  }
 
   const url = process.env.BRAVO_SUPABASE_URL;
   const anon =
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
     process.env.BRAVO_SUPABASE_ANON_KEY;
   // If env not configured (preview/local), let it through — page-level guards still run
-  if (!url || !anon) return NextResponse.next();
+  if (!url || !anon) return NextResponse.next({ request: { headers: requestHeaders } });
 
-  const res = NextResponse.next();
+  const res = NextResponse.next({ request: { headers: requestHeaders } });
   const supa = createServerClient(url, anon, {
     cookies: {
       getAll() {
@@ -76,6 +86,11 @@ export async function middleware(req: NextRequest) {
         { ok: false, error: "unauthorized" },
         { status: 401 }
       );
+    }
+    // For the home page, send unauthed visitors to the marketing landing.
+    // For deep links into the app, send them to login with a return path.
+    if (pathname === "/" || pathname === "") {
+      return NextResponse.redirect(new URL(MARKETING_REDIRECT_TARGET, req.url));
     }
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("next", pathname);
