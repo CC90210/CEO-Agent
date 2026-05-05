@@ -15,17 +15,21 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Auth pages render their own full-screen layouts; skip the sidebar shell.
+  // Auth + marketing pages render their own full-screen layouts; skip the
+  // sidebar shell. The pathname is set as a header by middleware.ts.
   const hdrs = await headers();
   const pathname = hdrs.get("x-pathname") || hdrs.get("x-invoke-path") || "";
-  const isAuthRoute =
+  const isFullBleed =
+    pathname.startsWith("/welcome") ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/signup") ||
     pathname.startsWith("/forgot-password") ||
-    pathname.startsWith("/auth/callback");
+    pathname.startsWith("/auth/callback") ||
+    pathname.startsWith("/auth/reset-password") ||
+    pathname.startsWith("/onboarding");
 
   let profile = null;
-  if (!isAuthRoute) {
+  if (!isFullBleed) {
     try {
       profile = await getActiveProfile();
     } catch {
@@ -36,7 +40,7 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <body className="grain">
-        {isAuthRoute ? (
+        {isFullBleed ? (
           children
         ) : (
           <>

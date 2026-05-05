@@ -1,0 +1,341 @@
+"use client";
+
+/**
+ * 3-step onboarding wizard:
+ *   1. Pick a provider (OpenRouter recommended) and paste a key
+ *   2. Pick the primary agent
+ *   3. (Optional) pair a local machine for file-system access — Phase 2
+ *
+ * Final action posts the agent_model_config row for ALL chat-eligible agents
+ * with the chosen provider+model+key, then redirects to /agents.
+ */
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+  ArrowRight, ExternalLink, KeyRound, Cpu, Cog, Check, Sparkles, Eye, EyeOff,
+  Loader2, AlertCircle, ShieldCheck, Monitor,
+} from "lucide-react";
+
+const PROVIDERS = [
+  {
+    value: "openrouter",
+    label: "OpenRouter",
+    tagline: "One key, every model — recommended",
+    badge: "★ recommended",
+    signup: "https://openrouter.ai/sign-up",
+    apiKey: "https://openrouter.ai/keys",
+    models: [
+      { id: "anthropic/claude-sonnet-4", label: "Claude Sonnet 4 (balanced)" },
+      { id: "anthropic/claude-opus-4", label: "Claude Opus 4 (heavy reasoning)" },
+      { id: "openai/gpt-5.4", label: "GPT-5.4" },
+      { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+    ],
+    placeholder: "sk-or-v1-...",
+  },
+  {
+    value: "anthropic",
+    label: "Anthropic Direct",
+    tagline: "Claude only — best if you already have an Anthropic account",
+    signup: "https://console.anthropic.com/signup",
+    apiKey: "https://console.anthropic.com/settings/keys",
+    models: [
+      { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6 (balanced)" },
+      { id: "claude-opus-4-7", label: "Claude Opus 4.7 (heavy reasoning)" },
+      { id: "claude-haiku-4-5", label: "Claude Haiku 4.5 (fast)" },
+    ],
+    placeholder: "sk-ant-...",
+  },
+  {
+    value: "openai",
+    label: "OpenAI Direct",
+    tagline: "GPT-5.x + Codex — pay-as-you-go via OpenAI",
+    signup: "https://platform.openai.com/signup",
+    apiKey: "https://platform.openai.com/api-keys",
+    models: [
+      { id: "gpt-5.4", label: "GPT-5.4" },
+      { id: "gpt-5.4-mini", label: "GPT-5.4 mini (cheap)" },
+    ],
+    placeholder: "sk-proj-...",
+  },
+  {
+    value: "google",
+    label: "Google Gemini",
+    tagline: "Free tier available via AI Studio",
+    signup: "https://aistudio.google.com/",
+    apiKey: "https://aistudio.google.com/apikey",
+    models: [
+      { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+      { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash (fast)" },
+    ],
+    placeholder: "AIza...",
+  },
+];
+
+const AGENTS = [
+  { key: "bravo", label: "Bravo", role: "Lead architect · ops · voice", color: "text-accent" },
+  { key: "maven", label: "Maven", role: "CMO · content · ads · funnels", color: "text-pink-400" },
+  { key: "atlas", label: "Atlas", role: "CFO · finance · tax · trading", color: "text-emerald-400" },
+  { key: "aura", label: "Aura", role: "Life · home · habits · voice", color: "text-purple-400" },
+  { key: "hermes", label: "Hermes", role: "Commerce · POS · EDI", color: "text-amber-400" },
+];
+
+type Props = { userEmail: string };
+
+export function OnboardingFlow({ userEmail }: Props) {
+  const router = useRouter();
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [providerKey, setProviderKey] = useState("openrouter");
+  const [model, setModel] = useState("anthropic/claude-sonnet-4");
+  const [apiKey, setApiKey] = useState("");
+  const [showKey, setShowKey] = useState(false);
+  const [primaryAgent, setPrimaryAgent] = useState("bravo");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const provider = PROVIDERS.find((p) => p.value === providerKey)!;
+
+  function pickProvider(value: string) {
+    setProviderKey(value);
+    const next = PROVIDERS.find((p) => p.value === value)!;
+    setModel(next.models[0].id);
+  }
+
+  async function finish() {
+    setError(null);
+    if (!apiKey.trim()) {
+      setError("Paste your API key to continue, or skip to the dashboard.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      // Configure every chat-eligible agent with the same provider/model/key.
+      // The user can override per-agent later in Settings.
+      const targets = AGENTS.map((a) => a.key);
+      const results = await Promise.all(
+        targets.map((agent_key) =>
+          fetch("/api/agent-config", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              agent_key,
+              provider: providerKey,
+              model,
+              api_key: apiKey.trim(),
+              enabled: true,
+            }),
+          }).then((r) => r.json())
+        )
+      );
+      const failed = results.find((r) => !r.ok);
+      if (failed) {
+        setError(failed.error || "save_failed");
+        setSubmitting(false);
+        return;
+      }
+      // Persist primary agent on the profile
+      await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ primary_agent: primaryAgent }),
+      }).catch(() => null);
+      router.push("/agents");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "request_failed");
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Step indicator */}
+      <div className="flex items-center gap-2">
+        {[1, 2, 3].map((n) => (
+          <div key={n} className="flex items-center gap-2">
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+              step >= n
+                ? "bg-accent text-bg-deep shadow-[0_0_12px_-2px_rgba(0,212,255,0.6)]"
+                : "bg-bg-elev text-fg-dim border border-bg-border"
+            }`}>
+              {step > n ? <Check className="w-3.5 h-3.5" /> : n}
+            </div>
+            {n < 3 && <div className={`h-px w-12 ${step > n ? "bg-accent" : "bg-bg-border"}`} />}
+          </div>
+        ))}
+      </div>
+
+      {/* Step 1 — Provider + key */}
+      {step === 1 && (
+        <Card title="Pick how to power your agents" icon={<Cpu className="w-4 h-4" />}>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {PROVIDERS.map((p) => (
+              <button
+                key={p.value}
+                type="button"
+                onClick={() => pickProvider(p.value)}
+                className={`text-left rounded-lg border p-3.5 transition-all ${
+                  providerKey === p.value
+                    ? "border-accent bg-accent/10 shadow-[0_0_16px_-6px_rgba(0,212,255,0.5)]"
+                    : "border-bg-border bg-bg-elev hover:border-accent/40"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="text-sm font-bold text-fg">{p.label}</div>
+                  {p.badge && (
+                    <span className="provider-chip recommended !py-0.5 !px-1.5 !text-[10px]">
+                      <Sparkles className="w-2.5 h-2.5" /> {p.badge.replace("★ ", "")}
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-fg-muted">{p.tagline}</div>
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-5 grid sm:grid-cols-[1fr_2fr] gap-3">
+            <label className="space-y-1.5">
+              <span className="label">Model</span>
+              <select value={model} onChange={(e) => setModel(e.target.value)} className="select">
+                {provider.models.map((m) => (
+                  <option key={m.id} value={m.id}>{m.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1.5">
+              <span className="label flex items-center justify-between">
+                <span>API key</span>
+                <span className="flex items-center gap-2 text-fg-dim normal-case tracking-normal text-[11px] font-normal">
+                  <a href={provider.signup} target="_blank" rel="noopener noreferrer"
+                     className="text-accent hover:text-accent-bright inline-flex items-center gap-1">
+                    Sign up <ExternalLink className="w-3 h-3" />
+                  </a>
+                  <a href={provider.apiKey} target="_blank" rel="noopener noreferrer"
+                     className="text-accent hover:text-accent-bright inline-flex items-center gap-1">
+                    Get key <ExternalLink className="w-3 h-3" />
+                  </a>
+                </span>
+              </span>
+              <div className="flex gap-2">
+                <input
+                  type={showKey ? "text" : "password"}
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder={provider.placeholder}
+                  className="input font-mono"
+                />
+                <button type="button" onClick={() => setShowKey((s) => !s)} className="btn-secondary !p-2">
+                  {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </label>
+          </div>
+
+          <div className="mt-5 flex items-center justify-between">
+            <div className="text-xs text-fg-dim flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-status-engaged" />
+              Encrypted with AES-256-GCM before storage. Never returned to the browser.
+            </div>
+            <button onClick={() => setStep(2)} className="btn-send">
+              Continue <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </Card>
+      )}
+
+      {/* Step 2 — Primary agent */}
+      {step === 2 && (
+        <Card title="Pick your primary agent" icon={<Cog className="w-4 h-4" />}>
+          <p className="text-sm text-fg-muted mb-4">
+            The primary agent is who you talk to first. You can chat with all of them — switch in the dropdown anytime.
+          </p>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {AGENTS.map((a) => (
+              <button
+                key={a.key}
+                type="button"
+                onClick={() => setPrimaryAgent(a.key)}
+                className={`text-left rounded-lg border p-3.5 transition-all ${
+                  primaryAgent === a.key
+                    ? "border-accent bg-accent/10 shadow-[0_0_16px_-6px_rgba(0,212,255,0.5)]"
+                    : "border-bg-border bg-bg-elev hover:border-accent/40"
+                }`}
+              >
+                <div className={`text-xs font-bold uppercase tracking-[0.14em] ${a.color} mb-1`}>
+                  {a.label}
+                </div>
+                <div className="text-xs text-fg-muted">{a.role}</div>
+              </button>
+            ))}
+          </div>
+          <div className="mt-5 flex items-center justify-between">
+            <button onClick={() => setStep(1)} className="btn-secondary text-sm">
+              Back
+            </button>
+            <button onClick={() => setStep(3)} className="btn-send">
+              Continue <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </Card>
+      )}
+
+      {/* Step 3 — Optional local pairing */}
+      {step === 3 && (
+        <Card title="Pair your machine — optional" icon={<Monitor className="w-4 h-4" />}>
+          <p className="text-sm text-fg-muted mb-4">
+            For full file-system access (so the agent can read and edit code on your computer), install the OASIS bridge daemon and pair it with your dashboard. <strong className="text-fg">Skip this for now</strong> — chat works fine without it, and you can pair later from Settings.
+          </p>
+          <div className="rounded-lg border border-bg-border bg-bg-elev p-4 space-y-3">
+            <div className="flex items-center gap-2 text-xs text-fg-muted">
+              <span className="agent-pill-dot" />
+              Phase 2 — local bridge daemon
+            </div>
+            <div className="text-xs text-fg-dim">
+              The bridge runs as a small daemon on your laptop or workstation. It exposes only a localhost WebSocket the dashboard pairs with. No cloud upload of your files; pair-time only, opt-in writes, full audit log. Coming next sprint.
+            </div>
+          </div>
+
+          {error && (
+            <div className="mt-4 flex items-start gap-2 rounded-md border border-status-warm/40 bg-status-warm/10 p-3 text-sm text-status-warm">
+              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <div className="font-mono break-all">{error}</div>
+            </div>
+          )}
+
+          <div className="mt-5 flex items-center justify-between">
+            <button onClick={() => setStep(2)} className="btn-secondary text-sm" disabled={submitting}>
+              Back
+            </button>
+            <div className="flex gap-2">
+              <Link href="/" className="btn-secondary text-sm">
+                Skip + go to dashboard
+              </Link>
+              <button onClick={finish} disabled={submitting} className="btn-send">
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                {submitting ? "Saving…" : "Finish setup"}
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-4 text-[11px] text-fg-dim">
+            Signed in as <span className="text-fg-muted font-mono">{userEmail}</span>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function Card({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl border border-bg-border bg-bg-elev/60 backdrop-blur-xl p-6 shadow-[0_8px_40px_-12px_rgba(0,212,255,0.15)]">
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-7 h-7 rounded-lg bg-accent/15 border border-accent/30 flex items-center justify-center text-accent">
+          {icon}
+        </div>
+        <h2 className="text-base font-bold text-fg">{title}</h2>
+      </div>
+      {children}
+    </div>
+  );
+}
