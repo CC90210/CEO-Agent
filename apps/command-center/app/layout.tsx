@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import "./globals.css";
 import { Sidebar } from "@/components/Sidebar";
 import { getActiveProfile } from "@/lib/queries";
+import { getServiceSupabase } from "@/lib/supabase-server";
 
 export const metadata: Metadata = {
   title: "OASIS AI · Agent Command Center",
@@ -29,9 +30,23 @@ export default async function RootLayout({
     pathname.startsWith("/onboarding");
 
   let profile = null;
+  let primaryAgentLive = false;
   if (!isFullBleed) {
     try {
       profile = await getActiveProfile();
+      const agent = profile?.primary_agent || "bravo";
+      // "Live" = the agent's snapshot ticked in the last 15 min, same threshold
+      // /agents page uses. Falsy by default if the lookup fails — better to
+      // show "no signal" than fake "active".
+      const db = getServiceSupabase();
+      const { data: snap } = await db
+        .from("agent_state_snapshot")
+        .select("last_tick_at")
+        .eq("agent_name", agent)
+        .maybeSingle();
+      if (snap?.last_tick_at) {
+        primaryAgentLive = Date.now() - new Date(snap.last_tick_at).getTime() < 15 * 60 * 1000;
+      }
     } catch {
       // Misconfigured env — render shell anyway
     }
@@ -49,6 +64,7 @@ export default async function RootLayout({
               operatorName={profile?.display_name || profile?.full_name || "Operator"}
               operatorEmail={profile?.email}
               primaryAgent={profile?.primary_agent || "bravo"}
+              primaryAgentLive={primaryAgentLive}
             />
             <main className="ml-60 min-h-screen relative z-10">
               <div className="mx-auto max-w-7xl px-8 py-8">{children}</div>
