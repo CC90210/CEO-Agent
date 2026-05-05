@@ -1,0 +1,262 @@
+/**
+ * POST /api/chat
+ *
+ * Streaming chat endpoint for the dashboard widget. Streams SSE deltas back
+ * to the browser while persisting the full turn to chat_messages on completion.
+ *
+ * Auth: requires logged-in Supabase user. Resolves their tenant_id, looks up
+ * agent_model_config for (tenant_id, agent_key), decrypts the API key, and
+ * proxies the call to the chosen provider.
+ *
+ * Request body:
+ *   {
+ *     agent_key: "bravo" | "maven" | "atlas" | "aura" | "hermes",
+ *     session_id?: uuid,                  // omit to start a new session
+ *     messages: [{ role, content }, ...]  // client maintains rolling history
+ *   }
+ *
+ * Response: text/event-stream with frames:
+ *   event: session   data: { session_id }
+ *   event: delta     data: { text }
+ *   event: usage     data: { input_tokens, output_tokens }
+ *   event: done      data: {}
+ *   event: error     data: { message }
+ */
+
+import { NextRequest } from "next/server";
+import { getAuthedSupabase, getServiceSupabase, getSessionUser } from "@/lib/supabase-server";
+import {
+  streamChat,
+  type ChatMessage,
+  type Provider,
+} from "@/lib/providers";
+import { getPersona, chatAgentKeys } from "@/lib/agent-personas";
+import { decryptField } from "@/lib/field-encryption";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+export const maxDuration = 300; // 5 min — enough for long Sonnet/Opus runs
+
+type IncomingPayload = {
+  agent_key?: string;
+  session_id?: string | null;
+  messages?: ChatMessage[];
+};
+
+export async function POST(req: NextRequest) {
+  const user = await getSessionUser();
+  if (!user) return jsonError(401, "unauthorized");
+
+  let payload: IncomingPayload;
+  try {
+    payload = (await req.json()) as IncomingPayload;
+  } catch {
+    return jsonError(400, "invalid_json");
+  }
+
+  const agentKey = (payload.agent_key || "").toLowerCase();
+  if (!chatAgentKeys().includes(agentKey)) {
+    return jsonError(400, `invalid_agent:${agentKey}`);
+  }
+  const messages = Array.isArray(payload.messages) ? payload.messages : [];
+  const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
+  if (!lastUserMsg) return jsonError(400, "no_user_message");
+
+  const authed = await getAuthedSupabase();
+  const { data: profile } = await authed
+    .from("user_profiles")
+    .select("tenant_id")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+  if (!profile?.tenant_id) return jsonError(403, "no_tenant");
+  const tenantId = profile.tenant_id as string;
+
+  // ---- Resolve agent_model_config + decrypt key ---------------------------
+  const service = getServiceSupabase();
+  const { data: cfg } = await service
+    .from("agent_model_config")
+    .select("provider, model, encrypted_api_key, system_prompt_override, enabled")
+    .eq("tenant_id", tenantId)
+    .eq("agent_key", agentKey)
+    .maybeSingle();
+
+  if (!cfg) return jsonError(412, "agent_not_configured");
+  if (!cfg.enabled) return jsonError(403, "agent_disabled");
+
+  const provider = cfg.provider as Provider;
+  const model = cfg.model as string;
+  if (!cfg.encrypted_api_key) return jsonError(412, "no_api_key");
+  let apiKey = "";
+  try {
+    apiKey = decryptField(cfg.encrypted_api_key as string);
+  } catch (err) {
+    return jsonError(500, err instanceof Error ? err.message : "key_decrypt_failed");
+  }
+
+  // ---- Open or create chat_sessions row -----------------------------------
+  let sessionId = payload.session_id || null;
+  if (!sessionId) {
+    const { data: created, error: createErr } = await service
+      .from("chat_sessions")
+      .insert({
+        tenant_id: tenantId,
+        user_id: user.id,
+        agent_key: agentKey,
+        provider,
+        model,
+        title: lastUserMsg.content.slice(0, 80),
+      })
+      .select("id")
+      .single();
+    if (createErr || !created) return jsonError(500, "session_create_failed");
+    sessionId = created.id as string;
+  }
+
+  // ---- Persist incoming user message --------------------------------------
+  await service.from("chat_messages").insert({
+    session_id: sessionId,
+    tenant_id: tenantId,
+    role: "user",
+    content: lastUserMsg.content,
+  });
+
+  const persona = getPersona(agentKey, cfg.system_prompt_override);
+  const startedAt = Date.now();
+
+  // ---- Stream response back as SSE ----------------------------------------
+  const encoder = new TextEncoder();
+  let assistantText = "";
+  let usageIn = 0;
+  let usageOut = 0;
+  let streamError: string | null = null;
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (event: string, data: unknown) => {
+        controller.enqueue(
+          encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+        );
+      };
+      send("session", { session_id: sessionId });
+
+      try {
+        for await (const ev of streamChat({
+          provider,
+          model,
+          apiKey,
+          system: persona,
+          messages,
+        })) {
+          if (ev.type === "delta") {
+            assistantText += ev.text;
+            send("delta", { text: ev.text });
+          } else if (ev.type === "done") {
+            usageIn = ev.inputTokens;
+            usageOut = ev.outputTokens;
+            send("usage", { input_tokens: ev.inputTokens, output_tokens: ev.outputTokens });
+          } else if (ev.type === "error") {
+            streamError = ev.message;
+            send("error", { message: ev.message });
+          }
+        }
+      } catch (err) {
+        streamError = err instanceof Error ? err.message : "stream_failed";
+        send("error", { message: streamError });
+      }
+      send("done", {});
+      controller.close();
+
+      // ---- Persist assistant turn ----------------------------------------
+      const latencyMs = Date.now() - startedAt;
+      await service.from("chat_messages").insert({
+        session_id: sessionId,
+        tenant_id: tenantId,
+        role: "assistant",
+        content: assistantText,
+        input_tokens: usageIn,
+        output_tokens: usageOut,
+        latency_ms: latencyMs,
+        error: streamError,
+      });
+      const cost = estimateCostUsd(provider, model, usageIn, usageOut);
+      await service
+        .from("chat_sessions")
+        .update({
+          total_input_tokens: usageIn,
+          total_output_tokens: usageOut,
+          estimated_cost_usd: cost,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", sessionId);
+      await service
+        .from("agent_model_config")
+        .update({ last_used_at: new Date().toISOString() })
+        .eq("tenant_id", tenantId)
+        .eq("agent_key", agentKey);
+    },
+  });
+
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      "content-type": "text/event-stream; charset=utf-8",
+      "cache-control": "no-store",
+      connection: "keep-alive",
+      "x-accel-buffering": "no",
+    },
+  });
+}
+
+/* ============================================================================
+ * Cost estimation (rough — published per-1M-token pricing as of 2026-05).
+ * Wrong is fine; we just want a directional number on the dashboard.
+ * ============================================================================ */
+function estimateCostUsd(
+  provider: Provider,
+  model: string,
+  inTok: number,
+  outTok: number
+): number {
+  const m = model.toLowerCase();
+  let inP = 0;
+  let outP = 0;
+  if (provider === "anthropic") {
+    if (m.includes("opus")) {
+      inP = 15;
+      outP = 75;
+    } else if (m.includes("sonnet")) {
+      inP = 3;
+      outP = 15;
+    } else {
+      inP = 1;
+      outP = 5;
+    }
+  } else if (provider === "openai") {
+    if (m.includes("mini")) {
+      inP = 0.25;
+      outP = 2;
+    } else if (m.includes("codex")) {
+      inP = 3;
+      outP = 12;
+    } else {
+      inP = 2.5;
+      outP = 10;
+    }
+  } else if (provider === "google") {
+    if (m.includes("flash")) {
+      inP = 0.3;
+      outP = 1.2;
+    } else {
+      inP = 1.25;
+      outP = 5;
+    }
+  }
+  return ((inTok * inP) + (outTok * outP)) / 1_000_000;
+}
+
+function jsonError(status: number, message: string) {
+  return new Response(JSON.stringify({ ok: false, error: message }), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
