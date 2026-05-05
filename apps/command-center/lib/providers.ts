@@ -12,7 +12,7 @@
 export type ChatRole = "system" | "user" | "assistant";
 export type ChatMessage = { role: ChatRole; content: string };
 
-export type Provider = "anthropic" | "openai" | "google";
+export type Provider = "openrouter" | "anthropic" | "openai" | "google";
 
 export type ChatRequest = {
   provider: Provider;
@@ -30,6 +30,15 @@ export type StreamEvent =
 
 /** Default models per provider — what the picker offers. */
 export const PROVIDER_MODELS: Record<Provider, string[]> = {
+  openrouter: [
+    "anthropic/claude-opus-4",
+    "anthropic/claude-sonnet-4",
+    "openai/gpt-5.4",
+    "openai/gpt-5.4-mini",
+    "google/gemini-2.5-pro",
+    "google/gemini-2.5-flash",
+    "meta-llama/llama-3.3-70b-instruct",
+  ],
   anthropic: [
     "claude-opus-4-7",
     "claude-sonnet-4-6",
@@ -40,9 +49,34 @@ export const PROVIDER_MODELS: Record<Provider, string[]> = {
 };
 
 export const PROVIDER_LABEL: Record<Provider, string> = {
+  openrouter: "OpenRouter (recommended)",
   anthropic: "Anthropic (Claude)",
   openai: "OpenAI",
   google: "Google (Gemini)",
+};
+
+/** Where each provider's signup + API key page lives. */
+export const PROVIDER_LINKS: Record<Provider, { signup: string; apiKey: string; docs?: string }> = {
+  openrouter: {
+    signup: "https://openrouter.ai/sign-up",
+    apiKey: "https://openrouter.ai/keys",
+    docs: "https://openrouter.ai/docs/quick-start",
+  },
+  anthropic: {
+    signup: "https://console.anthropic.com/signup",
+    apiKey: "https://console.anthropic.com/settings/keys",
+    docs: "https://docs.anthropic.com/en/api/getting-started",
+  },
+  openai: {
+    signup: "https://platform.openai.com/signup",
+    apiKey: "https://platform.openai.com/api-keys",
+    docs: "https://platform.openai.com/docs/quickstart",
+  },
+  google: {
+    signup: "https://aistudio.google.com/",
+    apiKey: "https://aistudio.google.com/apikey",
+    docs: "https://ai.google.dev/gemini-api/docs",
+  },
 };
 
 /* ============================================================================
@@ -58,6 +92,9 @@ export async function* streamChat(req: ChatRequest): AsyncGenerator<StreamEvent>
     return;
   }
   switch (req.provider) {
+    case "openrouter":
+      yield* streamOpenRouter(req);
+      return;
     case "anthropic":
       yield* streamAnthropic(req);
       return;
@@ -70,6 +107,52 @@ export async function* streamChat(req: ChatRequest): AsyncGenerator<StreamEvent>
     default:
       yield { type: "error", message: `unknown_provider:${req.provider}` };
   }
+}
+
+/* ============================================================================
+ * OpenRouter — OpenAI-compatible /api/v1/chat/completions
+ * One key, hundreds of models. Recommended onboarding path.
+ * ============================================================================ */
+async function* streamOpenRouter(req: ChatRequest): AsyncGenerator<StreamEvent> {
+  const messages: Array<{ role: ChatRole; content: string }> = [];
+  if (req.system) messages.push({ role: "system", content: req.system });
+  messages.push(...req.messages);
+
+  const body = {
+    model: req.model,
+    messages,
+    stream: true,
+    max_tokens: req.maxTokens ?? 4096,
+  };
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${req.apiKey}`,
+      "HTTP-Referer": "https://oasisai.work",
+      "X-Title": "OASIS Agent Command Center",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok || !res.body) {
+    yield { type: "error", message: `openrouter_${res.status}:${await safeText(res)}` };
+    return;
+  }
+  let inputTokens = 0;
+  let outputTokens = 0;
+  for await (const event of parseSSE(res.body)) {
+    const data = event.data;
+    if (!data || data === "[DONE]") continue;
+    if (typeof data === "string") continue;
+    const choice = data.choices?.[0];
+    const delta = choice?.delta?.content;
+    if (typeof delta === "string" && delta.length) yield { type: "delta", text: delta };
+    if (data.usage) {
+      inputTokens = data.usage.prompt_tokens ?? inputTokens;
+      outputTokens = data.usage.completion_tokens ?? outputTokens;
+    }
+  }
+  yield { type: "done", inputTokens, outputTokens };
 }
 
 /* ============================================================================

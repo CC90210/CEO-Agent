@@ -4,14 +4,29 @@ import { timeAgo, truncate } from "@/lib/fmt";
 import { agentStates, recentEvents, getActiveProfile, integrationsHealth } from "@/lib/queries";
 import { ALL_AGENT_KEYS, getAgentInfo } from "@/lib/agents";
 import { chatAgentKeys } from "@/lib/agent-personas";
+import { getSessionUser } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
+
+function isOperatorEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  const e = email.trim().toLowerCase();
+  const operator = (process.env.OPERATOR_EMAIL || "").trim().toLowerCase();
+  if (operator && e === operator) return true;
+  const admins = (process.env.ADMIN_EMAILS || "")
+    .split(",")
+    .map((x) => x.trim().toLowerCase())
+    .filter(Boolean);
+  return admins.includes(e);
+}
 
 // An agent is "live" if its state_snapshot ticked in the last 15 minutes
 const FRESHNESS_MS = 15 * 60 * 1000;
 
 export default async function AgentsPage() {
   const profile = await getActiveProfile();
+  const user = await getSessionUser();
+  const isAdmin = isOperatorEmail(user?.email);
   const [states, events, integrations] = await Promise.all([
     agentStates(),
     recentEvents(25),
@@ -52,8 +67,8 @@ export default async function AgentsPage() {
         }
       />
 
-      <Card title="Chat" subtitle="Talk to any agent in your family — bring your own API key per agent in Settings." noPadding>
-        <ChatWidget agentKeys={chatAgentKeys()} defaultAgent={profile?.primary_agent || "bravo"} />
+      <Card title="Chat" subtitle={isAdmin ? "Admin mode — chatting with the platform-default key. Switch agent in the dropdown." : "Talk to any agent in your family — set up your provider + key in Settings → Agents."} noPadding>
+        <ChatWidget agentKeys={chatAgentKeys()} defaultAgent={profile?.primary_agent || "bravo"} isAdmin={isAdmin} />
       </Card>
 
       <Card title="Agent family" subtitle={`Primary: ${profile?.primary_agent || "—"}`}>
