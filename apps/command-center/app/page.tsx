@@ -116,13 +116,12 @@ export default async function TodayPage() {
         <Stat
           label="MRR added (7d)"
           value={(() => {
-            // Diff between today's MRR and the value 7 days ago in the history
             const last = history[history.length - 1]?.mrr ?? mrr.current;
             const wkAgo = history[history.length - 8]?.mrr ?? last;
             const delta = Math.round(last - wkAgo);
             return delta >= 0 ? `+$${delta.toLocaleString()}` : `-$${Math.abs(delta).toLocaleString()}`;
           })()}
-          hint={history[0]?.synthetic ? "projected" : "actual delta"}
+          hint={history[0]?.synthetic ? "projected (no real history yet)" : "real delta"}
         />
         <Stat
           label="Top client share"
