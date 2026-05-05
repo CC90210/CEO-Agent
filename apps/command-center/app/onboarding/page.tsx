@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowRight, Sparkles, ExternalLink, KeyRound, Cpu, Cog, Check } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { getSessionUser } from "@/lib/supabase-server";
 import { OnboardingFlow } from "@/components/landing/OnboardingFlow";
 
