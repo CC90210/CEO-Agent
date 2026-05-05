@@ -214,3 +214,173 @@ main > div {
 .card-glow:hover {
   box-shadow: 0 0 0 1px rgba(59,130,246,0.25), 0 16px 40px -12px rgba(59,130,246,0.25);
 }
+
+/* ============================================================================
+ * Chat widget — futuristic surfaces
+ * ============================================================================ */
+
+/* Aurora gradient header strip on the chat card */
+.chat-aurora {
+  position: relative;
+  background:
+    radial-gradient(1200px 200px at 20% -50%, rgba(59,130,246,0.18), transparent 60%),
+    radial-gradient(900px 200px at 80% 120%, rgba(0,212,255,0.12), transparent 60%),
+    linear-gradient(180deg, rgba(59,130,246,0.04) 0%, transparent 100%);
+}
+.chat-aurora::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, #3b82f6, #00d4ff, #3b82f6, transparent);
+  background-size: 200% 100%;
+  animation: shimmer 4s linear infinite;
+  opacity: 0.6;
+}
+
+/* Chat bubble — assistant (LHS) */
+.bubble-assistant {
+  background: linear-gradient(180deg, rgba(22,27,37,0.92) 0%, rgba(16,20,29,0.92) 100%);
+  border: 1px solid rgba(59,130,246,0.22);
+  box-shadow:
+    0 0 0 1px rgba(59,130,246,0.08) inset,
+    0 8px 24px -10px rgba(59,130,246,0.18);
+  backdrop-filter: blur(12px);
+}
+.bubble-assistant.streaming {
+  border-color: rgba(0,212,255,0.45);
+  box-shadow:
+    0 0 0 1px rgba(0,212,255,0.18) inset,
+    0 0 24px -4px rgba(0,212,255,0.35),
+    0 8px 24px -10px rgba(0,212,255,0.3);
+  animation: pulse-cyan 2.4s ease-in-out infinite;
+}
+@keyframes pulse-cyan {
+  0%, 100% { box-shadow:
+    0 0 0 1px rgba(0,212,255,0.18) inset,
+    0 0 24px -4px rgba(0,212,255,0.35),
+    0 8px 24px -10px rgba(0,212,255,0.3);
+  }
+  50% { box-shadow:
+    0 0 0 1px rgba(0,212,255,0.32) inset,
+    0 0 36px -2px rgba(0,212,255,0.55),
+    0 8px 24px -10px rgba(0,212,255,0.45);
+  }
+}
+
+/* Chat bubble — user (RHS) */
+.bubble-user {
+  background: linear-gradient(135deg, rgba(59,130,246,0.16) 0%, rgba(29,78,216,0.18) 100%);
+  border: 1px solid rgba(59,130,246,0.42);
+  box-shadow: 0 6px 18px -8px rgba(59,130,246,0.4);
+}
+
+/* Typing dots */
+.typing-dots {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px 0;
+}
+.typing-dots span {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #00d4ff;
+  animation: typing-bounce 1.4s infinite ease-in-out;
+  box-shadow: 0 0 8px rgba(0,212,255,0.6);
+}
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typing-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+/* Send-button gradient + glow */
+.btn-send {
+  background: linear-gradient(135deg, #3b82f6 0%, #00d4ff 100%);
+  color: #02060f;
+  font-weight: 700;
+  padding: 0.6rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: filter 0.15s, transform 0.05s, box-shadow 0.2s;
+  box-shadow: 0 0 0 1px rgba(0,212,255,0.3), 0 8px 24px -6px rgba(0,212,255,0.5);
+}
+.btn-send:hover { filter: brightness(1.1); }
+.btn-send:active { transform: translateY(1px); }
+.btn-send:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(0.5); }
+
+/* Agent pill in the chat header */
+.agent-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(59,130,246,0.1);
+  border: 1px solid rgba(59,130,246,0.3);
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #00d4ff;
+}
+.agent-pill .agent-pill-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #00d4ff;
+  box-shadow: 0 0 8px rgba(0,212,255,0.8);
+  animation: pulse-soft 2s ease-in-out infinite;
+}
+@keyframes pulse-soft {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* Message-area mask — fades top so scrolling content blends into header */
+.chat-scroll {
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 24px, #000 calc(100% - 4px), transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 24px, #000 calc(100% - 4px), transparent 100%);
+}
+
+/* Inline code in assistant bubbles */
+.bubble-assistant code {
+  background: rgba(0,212,255,0.1);
+  border: 1px solid rgba(0,212,255,0.2);
+  padding: 0.125rem 0.4rem;
+  border-radius: 0.25rem;
+  font-size: 0.85em;
+  color: #00d4ff;
+}
+.bubble-assistant pre {
+  background: #0a0e16;
+  border: 1px solid rgba(59,130,246,0.2);
+  border-radius: 0.5rem;
+  padding: 0.75rem 0.875rem;
+  margin: 0.5rem 0;
+  overflow-x: auto;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+}
+.bubble-assistant pre code {
+  background: transparent; border: none; padding: 0;
+  color: #f5f7fa;
+}
+
+/* Provider chip (in setup form) */
+.provider-chip {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.3rem 0.6rem; border-radius: 999px;
+  background: rgba(59,130,246,0.08);
+  border: 1px solid rgba(59,130,246,0.25);
+  font-size: 0.6875rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: #9ba3b1;
+}
+.provider-chip.recommended {
+  background: linear-gradient(135deg, rgba(0,212,255,0.16), rgba(59,130,246,0.16));
+  border-color: rgba(0,212,255,0.4);
+  color: #00d4ff;
+}

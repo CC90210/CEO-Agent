@@ -80,17 +80,41 @@ export async function POST(req: NextRequest) {
     .eq("agent_key", agentKey)
     .maybeSingle();
 
-  if (!cfg) return jsonError(412, "agent_not_configured");
-  if (!cfg.enabled) return jsonError(403, "agent_disabled");
-
-  const provider = cfg.provider as Provider;
-  const model = cfg.model as string;
-  if (!cfg.encrypted_api_key) return jsonError(412, "no_api_key");
+  // Admin/operator fallback: when CC (or another admin) chats and has no
+  // per-agent config row, fall back to a platform-supplied API key from env.
+  // Clients must always BYO key — the fallback is gated by email match.
+  const isOperator = isAdminEmail(user.email || "");
+  let provider: Provider;
+  let model: string;
   let apiKey = "";
-  try {
-    apiKey = decryptField(cfg.encrypted_api_key as string);
-  } catch (err) {
-    return jsonError(500, err instanceof Error ? err.message : "key_decrypt_failed");
+  let cfgOverride: string | null = null;
+
+  if (cfg) {
+    if (!cfg.enabled) return jsonError(403, "agent_disabled");
+    provider = cfg.provider as Provider;
+    model = cfg.model as string;
+    cfgOverride = cfg.system_prompt_override || null;
+    if (!cfg.encrypted_api_key) {
+      // Row exists but key wasn't set — try operator fallback before failing
+      const fallback = isOperator ? operatorFallback() : null;
+      if (!fallback) return jsonError(412, "no_api_key");
+      provider = fallback.provider;
+      model = fallback.model;
+      apiKey = fallback.apiKey;
+    } else {
+      try {
+        apiKey = decryptField(cfg.encrypted_api_key as string);
+      } catch (err) {
+        return jsonError(500, err instanceof Error ? err.message : "key_decrypt_failed");
+      }
+    }
+  } else {
+    // No config row at all
+    const fallback = isOperator ? operatorFallback() : null;
+    if (!fallback) return jsonError(412, "agent_not_configured");
+    provider = fallback.provider;
+    model = fallback.model;
+    apiKey = fallback.apiKey;
   }
 
   // ---- Open or create chat_sessions row -----------------------------------
@@ -120,7 +144,7 @@ export async function POST(req: NextRequest) {
     content: lastUserMsg.content,
   });
 
-  const persona = getPersona(agentKey, cfg.system_prompt_override);
+  const persona = getPersona(agentKey, cfgOverride);
   const startedAt = Date.now();
 
   // ---- Stream response back as SSE ----------------------------------------
@@ -259,4 +283,39 @@ function jsonError(status: number, message: string) {
     status,
     headers: { "content-type": "application/json" },
   });
+}
+
+/* ============================================================================
+ * Admin/operator helpers — platform-default keys for the operator tenant only.
+ * Env vars (set on Vercel for the home tenant only — never for client deploys):
+ *   OPERATOR_EMAIL, ADMIN_EMAILS (comma-separated)
+ *   PLATFORM_DEFAULT_OPENROUTER_API_KEY (preferred — covers all models)
+ *   PLATFORM_DEFAULT_ANTHROPIC_API_KEY
+ *   PLATFORM_DEFAULT_OPENAI_API_KEY
+ *   PLATFORM_DEFAULT_GOOGLE_API_KEY
+ * ============================================================================ */
+function isAdminEmail(email: string): boolean {
+  const e = email.trim().toLowerCase();
+  if (!e) return false;
+  const operator = (process.env.OPERATOR_EMAIL || "").trim().toLowerCase();
+  if (operator && e === operator) return true;
+  const admins = (process.env.ADMIN_EMAILS || "")
+    .split(",")
+    .map((x) => x.trim().toLowerCase())
+    .filter(Boolean);
+  return admins.includes(e);
+}
+
+function operatorFallback():
+  | { provider: Provider; model: string; apiKey: string }
+  | null {
+  const or = process.env.PLATFORM_DEFAULT_OPENROUTER_API_KEY;
+  if (or) return { provider: "openrouter", model: "anthropic/claude-sonnet-4", apiKey: or };
+  const ant = process.env.PLATFORM_DEFAULT_ANTHROPIC_API_KEY;
+  if (ant) return { provider: "anthropic", model: "claude-sonnet-4-6", apiKey: ant };
+  const oai = process.env.PLATFORM_DEFAULT_OPENAI_API_KEY;
+  if (oai) return { provider: "openai", model: "gpt-5.4", apiKey: oai };
+  const goo = process.env.PLATFORM_DEFAULT_GOOGLE_API_KEY;
+  if (goo) return { provider: "google", model: "gemini-2.5-pro", apiKey: goo };
+  return null;
 }
