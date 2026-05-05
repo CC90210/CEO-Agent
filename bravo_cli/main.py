@@ -1145,7 +1145,18 @@ Security:
     sec_p.add_argument("action", nargs="?", default="list",
                        choices=["list", "audit"])
 
+    # bridge start | stop | status — local-machine pinger to the dashboard
+    br_p = sub.add_parser("bridge",
+                          help="Local bridge daemon — pings install state to your dashboard")
+    br_p.add_argument("action", nargs="?", default="status",
+                      choices=["start", "stop", "status"])
+
     return parser
+
+
+def cmd_bridge(args: argparse.Namespace) -> int:
+    from . import local_bridge as lb
+    return lb.main([args.action or "status"])
 
 
 COMMAND_MAP = {
@@ -1166,6 +1177,7 @@ COMMAND_MAP = {
     "logs": cmd_logs,
     "update": cmd_update,
     "secrets": cmd_secrets,
+    "bridge": cmd_bridge,
 }
 
 

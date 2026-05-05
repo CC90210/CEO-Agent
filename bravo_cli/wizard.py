@@ -1948,6 +1948,131 @@ def step_browser_harness(step_num: int, total: int) -> None:
 _post_doctor_rc: list[int] = [0]
 
 
+def step_dashboard_pair(profile: str, step_num: int, total: int) -> None:
+    """
+    Hand off the wizard's answers to the OASIS dashboard:
+      1. Read personalization fields from the env we just wrote
+      2. POST to /api/auth/pair (Bearer secret) with profile data + machine info
+      3. Persist the returned bridge token to ~/.oasis/bridge_token
+      4. Print the dashboard URL — operator's data is already seeded when they click
+
+    Skipped automatically when BRAVO_DASHBOARD_URL or CLI_SIGNUP_SECRET
+    aren't set (offline / dev installs).
+    """
+    import platform as _platform
+    import socket as _socket
+    import json as _json
+    import urllib.request as _ureq
+    import urllib.error as _uerr
+
+    step_header(step_num, total, "Dashboard pairing",
+                "Hand your setup off to the cloud Command Center.")
+
+    dashboard_url = (
+        os.environ.get("BRAVO_DASHBOARD_URL")
+        or read_env("BRAVO_DASHBOARD_URL")
+        or "https://agent-dashboard-cc90210.vercel.app"
+    ).rstrip("/")
+    secret = os.environ.get("CLI_SIGNUP_SECRET") or read_env("CLI_SIGNUP_SECRET")
+
+    email = read_env("USER_EMAIL") or read_env("USER_PRIMARY_EMAIL") or ""
+    if not email:
+        print(f"  {YELLOW('No email on file — skipping dashboard pairing.')}")
+        print(f"  {DIM('Re-run the wizard or pair manually from /onboarding.')}")
+        return
+    if not secret:
+        print(f"  {YELLOW('CLI_SIGNUP_SECRET not configured — pairing skipped.')}")
+        print(f"  {DIM('Set it in .env.agents to enable cloud handoff.')}")
+        return
+
+    # Compose the personalization payload from the wizard's saved env
+    def _opt_int(k: str) -> int | None:
+        v = read_env(k)
+        try:
+            return int(float(v)) if v else None
+        except Exception:
+            return None
+
+    profile_payload: dict = {}
+    pn = read_env("USER_FULL_NAME") or ""
+    if pn:
+        profile_payload["full_name"] = pn
+    dn = read_env("USER_PREFERRED_NAME") or ""
+    if dn:
+        profile_payload["display_name"] = dn
+    brand = read_env("BRAND") or read_env("USER_BRAND") or ""
+    if brand:
+        profile_payload["brand"] = brand
+    profile_payload["primary_agent"] = profile  # bravo / atlas / maven / aura / hermes
+    mrr_target = _opt_int("MRR_TARGET_USD")
+    if mrr_target is not None:
+        profile_payload["mrr_target_usd"] = mrr_target
+    mrr_current = _opt_int("MRR_CURRENT_USD")
+    if mrr_current is not None:
+        profile_payload["mrr_current_usd"] = mrr_current
+    target_date = read_env("MRR_TARGET_DATE") or ""
+    if target_date:
+        profile_payload["mrr_target_date"] = target_date
+    manifesto = read_env("USER_MANIFESTO") or ""
+    if manifesto:
+        profile_payload["manifesto"] = manifesto
+
+    body = {
+        "email": email,
+        "profile": profile_payload,
+        "machine": {
+            "label": f"{_platform.system()} · {_socket.gethostname()}",
+            "fingerprint": f"{_platform.system()}|{_platform.machine()}|{_socket.gethostname()}",
+        },
+    }
+    req = _ureq.Request(
+        f"{dashboard_url}/api/auth/pair",
+        method="POST",
+        data=_json.dumps(body).encode("utf-8"),
+        headers={
+            "content-type": "application/json",
+            "authorization": f"Bearer {secret}",
+        },
+    )
+    try:
+        with _ureq.urlopen(req, timeout=15) as r:
+            payload = _json.loads(r.read().decode("utf-8"))
+    except _uerr.HTTPError as e:
+        print(f"  {YELLOW('Dashboard pair returned ' + str(e.code) + ' — skipping.')}")
+        try:
+            print(f"  {DIM(e.read().decode('utf-8')[:200])}")
+        except Exception:
+            pass
+        return
+    except Exception as e:
+        print(f"  {YELLOW('Could not reach dashboard — skipping.')}  {DIM(str(e))}")
+        return
+
+    if not payload.get("ok"):
+        print(f"  {YELLOW('Dashboard rejected pair: ' + str(payload.get('error', 'unknown')))}")
+        return
+
+    # Persist the bridge token (chmod 600 on POSIX)
+    bridge_token = (payload.get("bridge") or {}).get("token", "")
+    if bridge_token:
+        oasis_dir = Path.home() / ".oasis"
+        oasis_dir.mkdir(parents=True, exist_ok=True)
+        token_path = oasis_dir / "bridge_token"
+        token_path.write_text(bridge_token, encoding="utf-8")
+        if os.name != "nt":
+            try:
+                os.chmod(token_path, 0o600)
+            except Exception:
+                pass
+        print(f"  {GREEN(OK)} Bridge token saved to {CYAN(str(token_path))}")
+    redirect = (payload.get("bridge") or {}).get("dashboard_url", dashboard_url + "/")
+    print(f"  {GREEN(OK)} Dashboard pairing recorded.")
+    print()
+    print(f"  {BOLD('Open your dashboard:')}  {link(redirect, redirect)}")
+    print(f"  {BOLD('Then start the bridge:')} {CYAN('bravo bridge start')}")
+    print()
+
+
 def step_finalize(profile: str, step_num: int, total: int) -> None:
     step_header(step_num, total, "Finalize",
                 "Summary of saved credentials and next steps.")
@@ -2187,6 +2312,7 @@ def run_wizard(profile_override: str | None = None) -> int:
         if p["business"]:                                  total += 1
         if p["extra"]:                                     total += 1
         total += 2                                         # playwright + harness
+        total += 1                                         # dashboard pairing
 
         step = 0
 
@@ -2207,6 +2333,8 @@ def run_wizard(profile_override: str | None = None) -> int:
         # Binary deps — both idempotent (skip if already installed).
         step += 1; step_playwright_browsers(step, total)
         step += 1; step_browser_harness(step, total)
+        # Cloud handoff — wizard answers → dashboard, mint local-bridge token
+        step += 1; step_dashboard_pair(profile, step, total)
         step += 1; step_finalize(profile, step, total)
         # Propagate the post-install bravo-doctor exit code so a broken
         # install can't show "Setup complete" + return 0 (Codex P2).
