@@ -441,6 +441,39 @@ export async function mrrSnapshot(): Promise<{ current: number; target: number; 
  * MRR history is **NOT REAL DATA** yet — there is no `mrr_history` table.
  * Returns synthetic trajectory tagged synthetic: true.
  */
+
+/**
+ * Which AI provider services have credentials on file for this tenant?
+ *
+ * Returns a Set of integration-registry service slugs (anthropic, openai_codex,
+ * google_ai, openrouter) for any agent_model_config row with an encrypted key
+ * and enabled=true. The /integrations and /settings pages use this to mark
+ * provider cards as "Connected" instead of "Not connected" when a key exists
+ * but no successful API call has been pinged yet.
+ */
+const PROVIDER_TO_SERVICE: Record<string, string> = {
+  anthropic: "anthropic",
+  openai: "openai_codex",
+  google: "google_ai",
+  openrouter: "openrouter",
+};
+
+export async function aiServicesWithKey(tenantId: string | null): Promise<Set<string>> {
+  const out = new Set<string>();
+  if (!tenantId) return out;
+  const db = getServiceSupabase();
+  const { data } = await db
+    .from("agent_model_config")
+    .select("provider, encrypted_api_key, enabled")
+    .eq("tenant_id", tenantId);
+  for (const row of (data || []) as Array<{ provider: string; encrypted_api_key: string | null; enabled: boolean }>) {
+    if (!row.encrypted_api_key || !row.enabled) continue;
+    const svc = PROVIDER_TO_SERVICE[row.provider];
+    if (svc) out.add(svc);
+  }
+  return out;
+}
+
 export async function mrrHistory(days = 30): Promise<
   Array<{ date: string; mrr: number; synthetic: boolean }>
 > {

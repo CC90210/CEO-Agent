@@ -1,7 +1,6 @@
 import { Card, PageHeader, Tag } from "@/components/Card";
 import { IntegrationDot } from "@/components/IntegrationDot";
-import { getActiveProfile, integrationsHealth } from "@/lib/queries";
-import { getServiceSupabase } from "@/lib/supabase-server";
+import { getActiveProfile, integrationsHealth, aiServicesWithKey } from "@/lib/queries";
 import {
   INTEGRATION_CATEGORIES,
   KNOWN_INTEGRATIONS,
@@ -11,35 +10,10 @@ import type { IntegrationHealth } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
-// Map an AI provider name (anthropic / openai / google / openrouter) to the
-// service slug in the integrations registry, so we can mark the row as
-// "Configured" when the tenant has a key on file in agent_model_config.
-const PROVIDER_TO_SERVICE: Record<string, string> = {
-  anthropic: "anthropic",
-  openai: "openai_codex",
-  google: "google_ai",
-  openrouter: "openrouter",
-};
-
 export default async function IntegrationsPage() {
   const profile = await getActiveProfile();
   const dbRows = await integrationsHealth(profile?.tenant_id || null);
-
-  // Look up which AI providers have a key on file for this tenant — this
-  // makes the integration cards reflect real credentials, not just pings.
-  const aiServicesWithKey = new Set<string>();
-  if (profile?.tenant_id) {
-    const db = getServiceSupabase();
-    const { data } = await db
-      .from("agent_model_config")
-      .select("provider, encrypted_api_key, enabled")
-      .eq("tenant_id", profile.tenant_id);
-    for (const row of data || []) {
-      if (!row.encrypted_api_key || !row.enabled) continue;
-      const svc = PROVIDER_TO_SERVICE[row.provider];
-      if (svc) aiServicesWithKey.add(svc);
-    }
-  }
+  const connectedAiSet = await aiServicesWithKey(profile?.tenant_id || null);
 
   // Merge: every registry service shows up; if no DB ping row exists, render
   // as `unconfigured` so the user sees the Connect CTA.
@@ -99,7 +73,7 @@ export default async function IntegrationsPage() {
                 <IntegrationDot
                   key={h.service}
                   health={h}
-                  connection={{ hasCredentials: aiServicesWithKey.has(h.service) }}
+                  connection={{ hasCredentials: connectedAiSet.has(h.service) }}
                 />
               ))}
             </div>
