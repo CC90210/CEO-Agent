@@ -1,62 +1,94 @@
 /**
  * Canonical list of integrations the OASIS Command Center cares about.
  *
- * Sourced from the actual codebase: scripts/*_tool.py, .claude/mcp.json,
- * .vscode/mcp.json, brain/CAPABILITIES.md. Only includes integrations where
- * real code in this repo touches them. Don't fabricate.
+ * Each row carries:
+ *   - connection_kind: HOW the user connects this thing
+ *       api_key       — paste a key, we encrypt + store it
+ *       oauth         — sign in with the provider, we get tokens
+ *       local_install — installed on the operator's machine, the local
+ *                       bridge daemon pings to confirm presence
+ *       built_in      — bundled as a skill in the cloned repo (no setup)
+ *       account_only  — needs a logged-in account but no key (Skool, etc.)
+ *   - signup_url + api_key_url for the kinds that need them
+ *   - setup_complexity: trivial | simple | moderate | advanced
  *
- * The Integrations page reads this list, fetches the latest ping from
- * integrations_health, and renders an actionable card per service:
- *   - signup_url:  where the user creates an account
- *   - api_key_url: where they retrieve / manage their key once signed up
- *   - setup_doc_url: optional walk-through link
- *   - setup_complexity: how much elbow-grease the setup needs
- *
- * If you add a new integration, populate ALL fields — the Connect CTA
- * directly links the user to their signup or API page.
+ * The dashboard renders state per-row from integrations_health (live pings)
+ * + agent_model_config (key on file). Adding a new integration: add the row
+ * here, ensure the right ping path exists, done.
  */
 
-export type IntegrationCategory = "core" | "comms" | "finance" | "content" | "social" | "data" | "ai" | "infra";
+export type IntegrationCategory =
+  | "core"
+  | "comms"
+  | "finance"
+  | "content"
+  | "social"
+  | "data"
+  | "ai"
+  | "infra";
+
 export type SetupComplexity = "trivial" | "simple" | "moderate" | "advanced";
+export type ConnectionKind =
+  | "api_key"
+  | "oauth"
+  | "local_install"
+  | "built_in"
+  | "account_only";
 
 export type IntegrationDef = {
-  service: string;            // matches integrations_health.service value
+  service: string;
   label: string;
   category: IntegrationCategory;
   description: string;
-  signup_url: string;         // where to create an account
-  api_key_url: string;        // where to manage credentials post-signup
-  setup_doc_url?: string;     // optional first-run walkthrough
+  connection_kind: ConnectionKind;
+  signup_url?: string;
+  api_key_url?: string;
+  setup_doc_url?: string;
   setup_complexity: SetupComplexity;
+  /** Which agent(s) actually use this integration. */
+  used_by?: ("bravo" | "atlas" | "maven" | "aura" | "hermes")[];
 };
 
 export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
   // ── Core infra ─────────────────────────────────────────────────
   {
-    service: "supabase", label: "Supabase", category: "core",
-    description: "Postgres + auth + RLS for tenant data",
+    service: "supabase",
+    label: "Supabase",
+    category: "core",
+    description: "Postgres + auth + RLS for your tenant data",
+    connection_kind: "api_key",
     signup_url: "https://supabase.com/dashboard/sign-up",
     api_key_url: "https://supabase.com/dashboard/account/tokens",
     setup_doc_url: "https://supabase.com/docs/guides/getting-started",
     setup_complexity: "moderate",
+    used_by: ["bravo"],
   },
   {
-    service: "vercel", label: "Vercel", category: "core",
-    description: "Dashboard hosting + n8n bridge",
+    service: "vercel",
+    label: "Vercel",
+    category: "core",
+    description: "Dashboard hosting",
+    connection_kind: "account_only",
     signup_url: "https://vercel.com/signup",
     api_key_url: "https://vercel.com/account/tokens",
     setup_complexity: "trivial",
   },
   {
-    service: "cloudflare", label: "Cloudflare", category: "core",
+    service: "cloudflare",
+    label: "Cloudflare",
+    category: "core",
     description: "DNS + edge caching",
+    connection_kind: "api_key",
     signup_url: "https://dash.cloudflare.com/sign-up",
     api_key_url: "https://dash.cloudflare.com/profile/api-tokens",
     setup_complexity: "moderate",
   },
   {
-    service: "hostinger", label: "Hostinger", category: "core",
-    description: "n8n workflow host (24/7)",
+    service: "hostinger",
+    label: "Hostinger",
+    category: "core",
+    description: "n8n workflow host",
+    connection_kind: "api_key",
     signup_url: "https://www.hostinger.com/",
     api_key_url: "https://hpanel.hostinger.com/profile/api",
     setup_complexity: "moderate",
@@ -64,247 +96,338 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
 
   // ── Comms ──────────────────────────────────────────────────────
   {
-    service: "gmail", label: "Gmail SMTP", category: "comms",
+    service: "gmail",
+    label: "Gmail",
+    category: "comms",
     description: "Outbound email + inbox polling",
+    connection_kind: "oauth",
     signup_url: "https://accounts.google.com/signup",
     api_key_url: "https://myaccount.google.com/apppasswords",
     setup_doc_url: "https://support.google.com/mail/answer/185833",
     setup_complexity: "simple",
+    used_by: ["bravo", "maven"],
   },
   {
-    service: "telegram", label: "Telegram Bridge", category: "comms",
-    description: "Mobile control + notifications via BotFather",
+    service: "telegram",
+    label: "Telegram Bridge",
+    category: "comms",
+    description: "Mobile notifications via BotFather",
+    connection_kind: "api_key",
     signup_url: "https://telegram.org/",
     api_key_url: "https://t.me/BotFather",
     setup_doc_url: "https://core.telegram.org/bots/tutorial",
     setup_complexity: "simple",
-  },
-  {
-    service: "skool", label: "Skool", category: "comms",
-    description: "Community engine + post replies",
-    signup_url: "https://www.skool.com/",
-    api_key_url: "https://www.skool.com/settings",
-    setup_complexity: "simple",
+    used_by: ["bravo"],
   },
 
   // ── Finance ────────────────────────────────────────────────────
   {
-    service: "stripe", label: "Stripe", category: "finance",
+    service: "stripe",
+    label: "Stripe",
+    category: "finance",
     description: "Payments, invoices, subscriptions",
+    connection_kind: "api_key",
     signup_url: "https://dashboard.stripe.com/register",
     api_key_url: "https://dashboard.stripe.com/apikeys",
     setup_doc_url: "https://stripe.com/docs/keys",
     setup_complexity: "simple",
+    used_by: ["bravo", "atlas"],
+  },
+  {
+    service: "kraken",
+    label: "Kraken",
+    category: "finance",
+    description: "Crypto trading API — Atlas trade engine",
+    connection_kind: "api_key",
+    signup_url: "https://www.kraken.com/sign-up",
+    api_key_url: "https://www.kraken.com/u/security/api",
+    setup_doc_url: "https://docs.kraken.com/api/",
+    setup_complexity: "moderate",
+    used_by: ["atlas"],
+  },
+  {
+    service: "wise",
+    label: "Wise",
+    category: "finance",
+    description: "Multi-currency banking + transfers",
+    connection_kind: "api_key",
+    signup_url: "https://wise.com/register",
+    api_key_url: "https://wise.com/your-account/integrations-and-tools/api-tokens",
+    setup_doc_url: "https://docs.wise.com/api-docs",
+    setup_complexity: "moderate",
+    used_by: ["atlas"],
+  },
+  {
+    service: "interactive_brokers",
+    label: "Interactive Brokers",
+    category: "finance",
+    description: "Equities + options — Atlas portfolio",
+    connection_kind: "api_key",
+    signup_url: "https://www.interactivebrokers.com/en/index.php?f=46385",
+    api_key_url: "https://www.interactivebrokers.com/portal/?loginType=1#/AccountSettings/ConfigureApi",
+    setup_doc_url: "https://interactivebrokers.github.io/tws-api/introduction.html",
+    setup_complexity: "advanced",
+    used_by: ["atlas"],
   },
 
   // ── Content / video ────────────────────────────────────────────
   {
-    service: "late", label: "Late (Zernio)", category: "content",
+    service: "late",
+    label: "Zernio (Late)",
+    category: "content",
     description: "Multi-platform social scheduler",
+    connection_kind: "api_key",
     signup_url: "https://zernio.com/signup",
     api_key_url: "https://zernio.com/dashboard/api",
     setup_complexity: "simple",
+    used_by: ["maven"],
   },
   {
-    service: "remotion", label: "Remotion", category: "content",
-    description: "Programmatic video pipeline",
-    signup_url: "https://www.remotion.dev/",
-    api_key_url: "https://www.remotion.dev/license",
-    setup_complexity: "advanced",
+    service: "remotion",
+    label: "Remotion",
+    category: "content",
+    description: "Programmatic video rendering — bundled in Maven",
+    connection_kind: "built_in",
+    setup_complexity: "trivial",
+    used_by: ["maven"],
   },
   {
-    service: "ffmpeg", label: "FFmpeg", category: "content",
-    description: "Video edit pipeline + captions (no account needed)",
+    service: "ffmpeg",
+    label: "FFmpeg",
+    category: "content",
+    description: "Video / audio processing — local install",
+    connection_kind: "local_install",
     signup_url: "https://ffmpeg.org/download.html",
-    api_key_url: "https://ffmpeg.org/download.html",
-    setup_complexity: "moderate",
+    setup_doc_url: "https://ffmpeg.org/download.html",
+    setup_complexity: "simple",
+    used_by: ["maven"],
   },
   {
-    service: "elevenlabs", label: "ElevenLabs", category: "content",
+    service: "elevenlabs",
+    label: "ElevenLabs",
+    category: "content",
     description: "Voiceover generation",
+    connection_kind: "api_key",
     signup_url: "https://elevenlabs.io/sign-up",
     api_key_url: "https://elevenlabs.io/app/settings/api-keys",
     setup_complexity: "trivial",
+    used_by: ["maven"],
   },
   {
-    service: "whisper", label: "Whisper", category: "content",
-    description: "Audio → caption transcription (uses OpenAI key)",
-    signup_url: "https://platform.openai.com/signup",
-    api_key_url: "https://platform.openai.com/api-keys",
-    setup_complexity: "trivial",
+    service: "whisper",
+    label: "Whisper",
+    category: "content",
+    description: "Audio → caption transcription (local CLI)",
+    connection_kind: "local_install",
+    signup_url: "https://github.com/openai/whisper#setup",
+    setup_doc_url: "https://github.com/openai/whisper",
+    setup_complexity: "moderate",
+    used_by: ["maven"],
   },
 
-  // ── Social platforms (via Late) ────────────────────────────────
+  // ── Social platforms (auth handled by Zernio when set) ─────────
   {
-    service: "linkedin", label: "LinkedIn", category: "social",
-    description: "Brand publishing via Late",
+    service: "linkedin",
+    label: "LinkedIn",
+    category: "social",
+    description: "Brand publishing — auth via Zernio",
+    connection_kind: "oauth",
     signup_url: "https://www.linkedin.com/signup",
-    api_key_url: "https://www.linkedin.com/developers/apps",
-    setup_complexity: "moderate",
+    api_key_url: "https://zernio.com/accounts",
+    setup_complexity: "simple",
+    used_by: ["maven"],
   },
   {
-    service: "instagram", label: "Instagram", category: "social",
-    description: "Reels + posts via Late",
+    service: "instagram",
+    label: "Instagram",
+    category: "social",
+    description: "Reels + posts — auth via Zernio",
+    connection_kind: "oauth",
     signup_url: "https://www.instagram.com/accounts/emailsignup/",
-    api_key_url: "https://developers.facebook.com/apps/",
-    setup_complexity: "moderate",
+    api_key_url: "https://zernio.com/accounts",
+    setup_complexity: "simple",
+    used_by: ["maven"],
   },
   {
-    service: "tiktok", label: "TikTok", category: "social",
-    description: "Vertical video via Late",
+    service: "tiktok",
+    label: "TikTok",
+    category: "social",
+    description: "Vertical video — auth via Zernio",
+    connection_kind: "oauth",
     signup_url: "https://www.tiktok.com/signup",
-    api_key_url: "https://developers.tiktok.com/apps",
-    setup_complexity: "moderate",
+    api_key_url: "https://zernio.com/accounts",
+    setup_complexity: "simple",
+    used_by: ["maven"],
   },
   {
-    service: "youtube", label: "YouTube", category: "social",
-    description: "Long-form + shorts via Late",
+    service: "youtube",
+    label: "YouTube",
+    category: "social",
+    description: "Long-form + shorts — auth via Zernio",
+    connection_kind: "oauth",
     signup_url: "https://accounts.google.com/signup",
-    api_key_url: "https://console.cloud.google.com/apis/credentials",
-    setup_complexity: "moderate",
+    api_key_url: "https://zernio.com/accounts",
+    setup_complexity: "simple",
+    used_by: ["maven"],
   },
   {
-    service: "twitter", label: "X / Twitter", category: "social",
-    description: "Threads + posts via Late",
+    service: "twitter",
+    label: "X / Twitter",
+    category: "social",
+    description: "Threads + posts — auth via Zernio",
+    connection_kind: "oauth",
     signup_url: "https://twitter.com/signup",
-    api_key_url: "https://developer.twitter.com/en/portal/dashboard",
-    setup_complexity: "moderate",
-  },
-  {
-    service: "reddit", label: "Reddit", category: "social",
-    description: "Cross-posting via Late",
-    signup_url: "https://www.reddit.com/register/",
-    api_key_url: "https://www.reddit.com/prefs/apps",
-    setup_complexity: "moderate",
+    api_key_url: "https://zernio.com/accounts",
+    setup_complexity: "simple",
+    used_by: ["maven"],
   },
 
   // ── Data / automation ──────────────────────────────────────────
   {
-    service: "n8n_inbound", label: "n8n Inbound", category: "data",
-    description: "Email classifier pipeline",
+    service: "n8n_inbound",
+    label: "n8n Inbound",
+    category: "data",
+    description: "Email classifier pipeline (self-hosted on Hostinger)",
+    connection_kind: "api_key",
     signup_url: "https://n8n.io/cloud/",
     api_key_url: "https://docs.n8n.io/api/authentication/",
     setup_complexity: "advanced",
+    used_by: ["bravo"],
   },
   {
-    service: "firecrawl", label: "Firecrawl", category: "data",
+    service: "firecrawl",
+    label: "Firecrawl",
+    category: "data",
     description: "Web scrape + structured extraction",
+    connection_kind: "api_key",
     signup_url: "https://www.firecrawl.dev/signup",
     api_key_url: "https://www.firecrawl.dev/app/api-keys",
     setup_complexity: "trivial",
+    used_by: ["bravo", "maven"],
   },
   {
-    service: "playwright", label: "Playwright", category: "data",
-    description: "Browser automation (no account needed)",
-    signup_url: "https://playwright.dev/",
-    api_key_url: "https://playwright.dev/docs/intro",
-    setup_complexity: "moderate",
+    service: "playwright",
+    label: "Playwright",
+    category: "data",
+    description: "Browser automation — bundled skill",
+    connection_kind: "built_in",
+    setup_complexity: "trivial",
+    used_by: ["bravo", "maven"],
   },
   {
-    service: "browser_harness", label: "Browser Harness", category: "data",
-    description: "Logged-in Chrome via CDP",
+    service: "browser_harness",
+    label: "Browser Harness",
+    category: "data",
+    description: "Logged-in Chrome via CDP (your installed browser)",
+    connection_kind: "local_install",
     signup_url: "https://www.google.com/chrome/",
-    api_key_url: "https://www.google.com/chrome/",
-    setup_complexity: "advanced",
-  },
-  {
-    service: "knowledge_graph", label: "Knowledge Graph", category: "data",
-    description: "MCP — Obsidian vault graph queries",
-    signup_url: "https://obsidian.md/",
-    api_key_url: "https://obsidian.md/",
-    setup_complexity: "advanced",
-  },
-  {
-    service: "mem0", label: "mem0", category: "data",
-    description: "Semantic memory store",
-    signup_url: "https://mem0.ai/sign-up",
-    api_key_url: "https://app.mem0.ai/dashboard/api-keys",
-    setup_complexity: "simple",
+    setup_complexity: "moderate",
+    used_by: ["bravo"],
   },
 
   // ── AI providers ───────────────────────────────────────────────
   {
-    service: "openrouter", label: "OpenRouter", category: "ai",
+    service: "openrouter",
+    label: "OpenRouter",
+    category: "ai",
     description: "★ One key, every model — recommended for chat",
+    connection_kind: "api_key",
     signup_url: "https://openrouter.ai/sign-up",
     api_key_url: "https://openrouter.ai/keys",
     setup_doc_url: "https://openrouter.ai/docs/quick-start",
     setup_complexity: "trivial",
+    used_by: ["bravo", "atlas", "maven", "aura", "hermes"],
   },
   {
-    service: "anthropic", label: "Anthropic Claude", category: "ai",
-    description: "Reasoning + drafting (Opus / Sonnet / Haiku)",
+    service: "anthropic",
+    label: "Anthropic Claude",
+    category: "ai",
+    description: "Direct Claude API — Opus / Sonnet / Haiku",
+    connection_kind: "api_key",
     signup_url: "https://console.anthropic.com/signup",
     api_key_url: "https://console.anthropic.com/settings/keys",
     setup_doc_url: "https://docs.anthropic.com/en/api/getting-started",
     setup_complexity: "trivial",
+    used_by: ["bravo"],
   },
   {
-    service: "openai_codex", label: "OpenAI", category: "ai",
+    service: "openai_codex",
+    label: "OpenAI",
+    category: "ai",
     description: "GPT-5.x + Codex models",
+    connection_kind: "api_key",
     signup_url: "https://platform.openai.com/signup",
     api_key_url: "https://platform.openai.com/api-keys",
     setup_doc_url: "https://platform.openai.com/docs/quickstart",
     setup_complexity: "trivial",
+    used_by: ["bravo"],
   },
   {
-    service: "google_ai", label: "Google Gemini", category: "ai",
+    service: "google_ai",
+    label: "Google Gemini",
+    category: "ai",
     description: "Gemini 2.5 Pro / Flash via AI Studio",
+    connection_kind: "api_key",
     signup_url: "https://aistudio.google.com/",
     api_key_url: "https://aistudio.google.com/apikey",
     setup_complexity: "trivial",
+    used_by: ["bravo"],
   },
 
-  // ── Google Workspace ───────────────────────────────────────────
+  // ── Google Workspace (OAuth) ───────────────────────────────────
   {
-    service: "google_drive", label: "Google Drive", category: "infra",
+    service: "google_drive",
+    label: "Google Drive",
+    category: "infra",
     description: "Docs + assets storage",
+    connection_kind: "oauth",
     signup_url: "https://workspace.google.com/signup",
     api_key_url: "https://console.cloud.google.com/apis/credentials",
     setup_complexity: "moderate",
+    used_by: ["bravo", "maven"],
   },
   {
-    service: "google_calendar", label: "Google Calendar", category: "infra",
+    service: "google_calendar",
+    label: "Google Calendar",
+    category: "infra",
     description: "Booking + meeting prep",
+    connection_kind: "oauth",
     signup_url: "https://workspace.google.com/signup",
     api_key_url: "https://console.cloud.google.com/apis/credentials",
     setup_complexity: "moderate",
+    used_by: ["bravo", "aura"],
   },
   {
-    service: "google_docs", label: "Google Docs", category: "infra",
+    service: "google_docs",
+    label: "Google Docs",
+    category: "infra",
     description: "Coaching prep + proposals",
+    connection_kind: "oauth",
     signup_url: "https://workspace.google.com/signup",
     api_key_url: "https://console.cloud.google.com/apis/credentials",
     setup_complexity: "moderate",
-  },
-
-  // ── Auxiliary ──────────────────────────────────────────────────
-  {
-    service: "context7", label: "Context7", category: "ai",
-    description: "MCP — current library docs",
-    signup_url: "https://context7.com/",
-    api_key_url: "https://context7.com/dashboard",
-    setup_complexity: "simple",
-  },
-  {
-    service: "supabase_mcp", label: "Supabase MCP", category: "data",
-    description: "Direct SQL + migrations from Claude Code",
-    signup_url: "https://supabase.com/dashboard/sign-up",
-    api_key_url: "https://supabase.com/dashboard/account/tokens",
-    setup_complexity: "moderate",
+    used_by: ["bravo"],
   },
 ];
 
 export const INTEGRATION_CATEGORIES: { key: IntegrationCategory; label: string }[] = [
-  { key: "ai",      label: "AI Providers" },
-  { key: "core",    label: "Core" },
-  { key: "comms",   label: "Comms" },
+  { key: "ai", label: "AI Providers" },
+  { key: "core", label: "Core" },
+  { key: "comms", label: "Comms" },
   { key: "finance", label: "Finance" },
   { key: "content", label: "Content" },
-  { key: "social",  label: "Social" },
-  { key: "data",    label: "Data + Automation" },
-  { key: "infra",   label: "Infra" },
+  { key: "social", label: "Social" },
+  { key: "data", label: "Data + Automation" },
+  { key: "infra", label: "Infra" },
 ];
+
+export const CONNECTION_KIND_LABEL: Record<ConnectionKind, string> = {
+  api_key: "API key",
+  oauth: "OAuth",
+  local_install: "Local install",
+  built_in: "Built-in",
+  account_only: "Account",
+};
 
 export function categorize(integration: { service: string }): IntegrationDef | null {
   return KNOWN_INTEGRATIONS.find((i) => i.service === integration.service) || null;

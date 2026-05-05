@@ -78,7 +78,11 @@ export default async function AgentsPage() {
             </div>
           </div>
         </header>
-        <ChatWidget agentKeys={chatAgentKeys()} defaultAgent={profile?.primary_agent || "bravo"} isAdmin={isAdmin} />
+        <ChatWidget
+          agentKeys={chatAgentKeys().filter((k) => enabled.includes(k))}
+          defaultAgent={profile?.primary_agent || "bravo"}
+          isAdmin={isAdmin}
+        />
       </section>
 
       <Card title="Agent family" subtitle={`Primary: ${profile?.primary_agent || "—"}`}>

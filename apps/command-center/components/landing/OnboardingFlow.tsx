@@ -109,7 +109,9 @@ export function OnboardingFlow({ userEmail }: Props) {
     setSubmitting(true);
     try {
       // Configure every chat-eligible agent with the same provider/model/key.
-      // The user can override per-agent later in Settings.
+      // Onboarding always seeds all 5; the operator can toggle agents_enabled
+      // in Settings to disable any (e.g. Hermes) and they drop out of the
+      // chat picker — see app/agents/page.tsx + app/settings/page.tsx.
       const targets = AGENTS.map((a) => a.key);
       const results = await Promise.all(
         targets.map((agent_key) =>

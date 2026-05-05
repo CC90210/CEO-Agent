@@ -109,14 +109,20 @@ export default async function TodayPage() {
           hint={targetDate ? `until ${targetDate.toISOString().slice(5, 10)}` : ""}
         />
         <Stat
-          label="Outreach today"
-          value={`${counts.outbound}`}
-          hint={plan?.target_calls ? `target ${plan.target_calls}` : "no target set"}
+          label="Replies (7d)"
+          value={`${replyRate.replies}`}
+          hint={replyRate.replies > 0 ? "Inbound waiting on you" : "No replies this week"}
         />
         <Stat
-          label="Hot inbound"
-          value={`${counts.hot}`}
-          hint={counts.hot > 0 ? "Check Pipeline" : "Quiet"}
+          label="MRR added (7d)"
+          value={(() => {
+            // Diff between today's MRR and the value 7 days ago in the history
+            const last = history[history.length - 1]?.mrr ?? mrr.current;
+            const wkAgo = history[history.length - 8]?.mrr ?? last;
+            const delta = Math.round(last - wkAgo);
+            return delta >= 0 ? `+$${delta.toLocaleString()}` : `-$${Math.abs(delta).toLocaleString()}`;
+          })()}
+          hint={history[0]?.synthetic ? "projected" : "actual delta"}
         />
         <Stat
           label="Top client share"
@@ -256,9 +262,28 @@ export default async function TodayPage() {
 
       <section className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <Card title="Recent inbound" subtitle={`${inbound.length} latest`}>
+          <Card
+            title="Recent inbound"
+            subtitle={
+              inbound.length > 0
+                ? `${inbound.length} latest · most recent ${timeAgo(inbound[0].created_at)}`
+                : "n8n inbound bridge — see diagnostic if stale"
+            }
+            action={
+              <Link
+                href="/integrations"
+                className="text-xs text-fg-muted hover:text-accent transition-colors"
+              >
+                {inbound.length === 0 || (inbound[0] && Date.now() - new Date(inbound[0].created_at).getTime() > 7 * 24 * 60 * 60 * 1000)
+                  ? "Check n8n →"
+                  : null}
+              </Link>
+            }
+          >
             {inbound.length === 0 ? (
-              <EmptyState message="No inbound yet today." />
+              <EmptyState
+                message="No inbound rows yet. If you've received emails recently, the n8n 'OASIS Inbound Qualifier' workflow on Hostinger may be down. Run scripts/n8n_inbound_doctor.py to diagnose."
+              />
             ) : (
               <ul className="divide-y divide-bg-border">
                 {inbound.map((i) => {
