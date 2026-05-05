@@ -17,11 +17,6 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
     role: "Lead architect · business ops · content voice",
     location: "this repo",
   },
-  codex: {
-    key: "codex",
-    role: "Backend executor · deep debugging · adversarial review",
-    location: "Codex companion",
-  },
   atlas: {
     key: "atlas",
     role: "CFO · finance · tax · trading · budget",
