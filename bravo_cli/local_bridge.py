@@ -37,6 +37,14 @@ import urllib.request
 import urllib.error
 
 
+try:
+    from ._constants import dashboard_url as _resolve_dashboard_url
+except ImportError:  # script-mode invocation (python local_bridge.py _loop)
+    _here = Path(__file__).resolve().parent
+    if str(_here) not in sys.path:
+        sys.path.insert(0, str(_here))
+    from _constants import dashboard_url as _resolve_dashboard_url  # type: ignore
+
 HOME = Path.home()
 OASIS_DIR = HOME / ".oasis"
 TOKEN_PATH = OASIS_DIR / "bridge_token"
@@ -44,7 +52,6 @@ PID_PATH = OASIS_DIR / "bridge.pid"
 LOG_PATH = OASIS_DIR / "bridge.log"
 LAST_PING_PATH = OASIS_DIR / "bridge.last_ping"
 
-DEFAULT_DASHBOARD = "https://agent-dashboard-cc90210.vercel.app"
 PING_INTERVAL_SEC = 60
 
 
@@ -194,8 +201,12 @@ def _read_token() -> str | None:
 
 
 def _dashboard_url() -> str:
-    # Honor BRAVO_DASHBOARD_URL if set in the env, else default
-    return os.environ.get("BRAVO_DASHBOARD_URL", DEFAULT_DASHBOARD).rstrip("/")
+    return _resolve_dashboard_url()
+
+
+class BridgeAuthError(Exception):
+    """Raised when the dashboard rejects our token (401/403). Daemon should
+    exit so the operator can re-pair via the wizard, not spin forever."""
 
 
 def _post_ping(token: str, services: dict[str, dict]) -> tuple[bool, str]:
@@ -215,6 +226,8 @@ def _post_ping(token: str, services: dict[str, dict]) -> tuple[bool, str]:
         with urllib.request.urlopen(req, timeout=15) as r:
             return True, f"HTTP {r.status}"
     except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            raise BridgeAuthError(f"HTTP {e.code} {e.reason}") from e
         return False, f"HTTP {e.code} {e.reason}"
     except Exception as e:
         return False, str(e)
@@ -242,7 +255,12 @@ def run_loop() -> int:
     try:
         while True:
             services = collect_services()
-            ok, info = _post_ping(token, services)
+            try:
+                ok, info = _post_ping(token, services)
+            except BridgeAuthError as e:
+                _log(f"AUTH FAIL {e} — token rejected, exiting. "
+                     f"Re-pair with `bravo setup` then `bravo bridge start`.")
+                return 3
             if ok:
                 LAST_PING_PATH.write_text(
                     datetime.now(timezone.utc).isoformat(), encoding="utf-8"
