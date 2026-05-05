@@ -1,7 +1,9 @@
 import { Card, PageHeader, EmptyState, Tag } from "@/components/Card";
+import ChatWidget from "@/components/ChatWidget";
 import { timeAgo, truncate } from "@/lib/fmt";
 import { agentStates, recentEvents, getActiveProfile, integrationsHealth } from "@/lib/queries";
 import { ALL_AGENT_KEYS, getAgentInfo } from "@/lib/agents";
+import { chatAgentKeys } from "@/lib/agent-personas";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +51,10 @@ export default async function AgentsPage() {
           </Tag>
         }
       />
+
+      <Card title="Chat" subtitle="Talk to any agent in your family — bring your own API key per agent in Settings." noPadding>
+        <ChatWidget agentKeys={chatAgentKeys()} defaultAgent={profile?.primary_agent || "bravo"} />
+      </Card>
 
       <Card title="Agent family" subtitle={`Primary: ${profile?.primary_agent || "—"}`}>
         <ul className="grid md:grid-cols-2 gap-4">

@@ -9,6 +9,8 @@ import {
 import { ChangePasswordForm } from "@/components/ChangePasswordForm";
 import { ProfileEditor } from "@/components/settings/ProfileEditor";
 import { PlanTemplateEditor } from "@/components/settings/PlanTemplateEditor";
+import { AgentConfigEditor } from "@/components/settings/AgentConfigEditor";
+import { chatAgentKeys } from "@/lib/agent-personas";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +48,13 @@ export default async function SettingsPage() {
 
           <Card title="Password" subtitle="Change your sign-in password">
             <ChangePasswordForm />
+          </Card>
+
+          <Card
+            title="Agents"
+            subtitle="Each agent runs on its own provider + model + API key. Bring your own key — keys are encrypted at rest and never returned to the browser."
+          >
+            <AgentConfigEditor agentKeys={chatAgentKeys()} />
           </Card>
 
           <Card

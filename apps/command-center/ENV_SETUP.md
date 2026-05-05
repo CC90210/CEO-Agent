@@ -9,6 +9,7 @@ in Vercel's project settings.
 |---|---|---|
 | `BRAVO_SUPABASE_URL` | `https://<project-ref>.supabase.co` | Copy from `.env.agents` in the repo root |
 | `BRAVO_SUPABASE_SERVICE_ROLE_KEY` | the service role JWT | Copy from `.env.agents` in the repo root |
+| `BRAVO_FIELD_ENCRYPTION_KEY` | random 32+ byte string | `python -c "import secrets; print(secrets.token_urlsafe(48))"` — used by `/api/agent-config` to pgp_sym_encrypt per-tenant API keys at rest. Rotating this orphans every stored key, so set once and treat like a master secret. |
 
 ## Local setup
 
