@@ -74,7 +74,17 @@ export function getPersona(agentKey: string, override?: string | null): string {
   return AGENT_PERSONAS[agentKey] || `You are ${agentKey.toUpperCase()}, an AI agent.`;
 }
 
+/**
+ * Which agents the chat widget exposes.
+ *
+ * Distinct from ALL_AGENT_KEYS: a tenant may have agents in their family
+ * that aren't conversational targets (utility agents, sub-agents, deputies).
+ * Today this is just the registry minus delegation tools — Codex is already
+ * absent from AGENT_REGISTRY but we keep the explicit filter so re-adding
+ * Codex (or another delegation-only agent) doesn't accidentally drop it
+ * into the chat picker.
+ */
 export function chatAgentKeys(): string[] {
-  // Phase 1: don't expose Codex (it's a sub-agent of Bravo, not a peer).
-  return ALL_AGENT_KEYS.filter((k) => k !== "codex");
+  const NON_CHAT = new Set(["codex"]);
+  return ALL_AGENT_KEYS.filter((k) => !NON_CHAT.has(k));
 }
