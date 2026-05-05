@@ -5,8 +5,8 @@ import {
   integrationsHealth,
   getTenant,
   getPlanTemplates,
+  aiServicesWithKey,
 } from "@/lib/queries";
-import { getServiceSupabase } from "@/lib/supabase-server";
 import { ChangePasswordForm } from "@/components/ChangePasswordForm";
 import { ProfileEditor } from "@/components/settings/ProfileEditor";
 import { PlanTemplateEditor } from "@/components/settings/PlanTemplateEditor";
@@ -15,13 +15,6 @@ import { chatAgentKeys } from "@/lib/agent-personas";
 
 export const dynamic = "force-dynamic";
 
-const PROVIDER_TO_SERVICE: Record<string, string> = {
-  anthropic: "anthropic",
-  openai: "openai_codex",
-  google: "google_ai",
-  openrouter: "openrouter",
-};
-
 export default async function SettingsPage() {
   const profile = await getActiveProfile();
   const integrations = await integrationsHealth(profile?.tenant_id || null);
@@ -29,22 +22,7 @@ export default async function SettingsPage() {
   const templates = profile ? await getPlanTemplates(profile.id) : [];
   const weekday = templates.find((t) => t.kind === "weekday") || null;
   const weekend = templates.find((t) => t.kind === "weekend") || null;
-
-  // Same enrichment as /integrations — mark AI providers connected when a
-  // key is on file for this tenant.
-  const aiServicesWithKey = new Set<string>();
-  if (profile?.tenant_id) {
-    const db = getServiceSupabase();
-    const { data } = await db
-      .from("agent_model_config")
-      .select("provider, encrypted_api_key, enabled")
-      .eq("tenant_id", profile.tenant_id);
-    for (const row of data || []) {
-      if (!row.encrypted_api_key || !row.enabled) continue;
-      const svc = PROVIDER_TO_SERVICE[row.provider];
-      if (svc) aiServicesWithKey.add(svc);
-    }
-  }
+  const connectedAiSet = await aiServicesWithKey(profile?.tenant_id || null);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -105,7 +83,7 @@ export default async function SettingsPage() {
                 <IntegrationDot
                   key={h.service}
                   health={h}
-                  connection={{ hasCredentials: aiServicesWithKey.has(h.service) }}
+                  connection={{ hasCredentials: connectedAiSet.has(h.service) }}
                 />
               ))}
             </div>
