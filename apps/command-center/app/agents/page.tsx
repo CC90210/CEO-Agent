@@ -67,9 +67,19 @@ export default async function AgentsPage() {
         }
       />
 
-      <Card title="Chat" subtitle={isAdmin ? "Admin mode — chatting with the platform-default key. Switch agent in the dropdown." : "Talk to any agent in your family — set up your provider + key in Settings → Agents."} noPadding>
+      <section className="space-y-2">
+        <header className="flex items-end justify-between flex-wrap gap-2">
+          <div>
+            <h2 className="text-xs font-bold uppercase tracking-[0.14em] text-fg">Chat</h2>
+            <div className="text-xs text-fg-muted mt-1">
+              {isAdmin
+                ? "Admin mode — chatting with the platform-default key. Switch agent in the dropdown."
+                : "Talk to any agent in your family — set up your provider + key in Settings → Agents."}
+            </div>
+          </div>
+        </header>
         <ChatWidget agentKeys={chatAgentKeys()} defaultAgent={profile?.primary_agent || "bravo"} isAdmin={isAdmin} />
-      </Card>
+      </section>
 
       <Card title="Agent family" subtitle={`Primary: ${profile?.primary_agent || "—"}`}>
         <ul className="grid md:grid-cols-2 gap-4">

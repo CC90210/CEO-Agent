@@ -51,7 +51,7 @@ export default function SignupPage() {
         }
       }
 
-      router.push("/?welcome=1");
+      router.push("/onboarding");
       router.refresh();
     } catch (ex: unknown) {
       setErr(ex instanceof Error ? ex.message : "Sign up failed");
