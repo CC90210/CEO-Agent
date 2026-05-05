@@ -48,7 +48,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createHash, randomBytes } from "crypto";
 import { getServiceSupabase } from "@/lib/supabase-server";
-import { bad } from "@/lib/api-helpers";
+import { bad, checkBearerSecret } from "@/lib/api-helpers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -91,16 +91,10 @@ function sha256(input: string): string {
   return createHash("sha256").update(input, "utf8").digest("hex");
 }
 
-function checkBearer(req: NextRequest): boolean {
-  const expected = process.env.CLI_SIGNUP_SECRET;
-  if (!expected) return false;
-  const auth = req.headers.get("authorization") || "";
-  if (!auth.toLowerCase().startsWith("bearer ")) return false;
-  return auth.slice(7).trim() === expected;
-}
-
 export async function POST(req: NextRequest) {
-  if (!checkBearer(req)) return bad(401, "missing or invalid Bearer secret");
+  if (!checkBearerSecret(req, "CLI_SIGNUP_SECRET")) {
+    return bad(401, "missing or invalid Bearer secret");
+  }
 
   let body: Body;
   try {
