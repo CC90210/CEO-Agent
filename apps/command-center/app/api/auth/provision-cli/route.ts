@@ -18,15 +18,13 @@
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { getServiceSupabase } from "@/lib/supabase-server";
-import { bad } from "@/lib/api-helpers";
+import { bad, checkBearerSecret } from "@/lib/api-helpers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const auth = req.headers.get("authorization") || "";
-  const expected = process.env.CLI_SIGNUP_SECRET;
-  if (!expected || auth !== `Bearer ${expected}`) return bad(401, "unauthorized");
+  if (!checkBearerSecret(req, "CLI_SIGNUP_SECRET")) return bad(401, "unauthorized");
 
   let body: {
     email?: string;
