@@ -15,6 +15,7 @@
 
 import { useEffect, useState } from "react";
 import { Save, Eye, EyeOff, Check, AlertCircle, ExternalLink, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import { getAgentInfo } from "@/lib/agents";
 
 type ProviderOption = {
   value: string;
@@ -95,14 +96,6 @@ type RowState = {
 
 type Props = {
   agentKeys: string[];
-};
-
-const AGENT_TAGLINES: Record<string, string> = {
-  bravo: "Lead architect · business ops · content voice",
-  maven: "CMO · content production · paid ads · funnels",
-  atlas: "CFO · finance · tax · trading · budget",
-  aura: "Life · home · habits · voice",
-  hermes: "Commerce · POS · EDI · chargebacks",
 };
 
 export function AgentConfigEditor({ agentKeys }: Props) {
@@ -227,7 +220,7 @@ export function AgentConfigEditor({ agentKeys }: Props) {
                   {key}
                 </div>
                 <div className="text-xs text-fg-muted">
-                  {AGENT_TAGLINES[key] || "Custom agent"}
+                  {getAgentInfo(key).role}
                 </div>
               </div>
               <div className="flex items-center gap-3">

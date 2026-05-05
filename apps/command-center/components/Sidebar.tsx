@@ -38,11 +38,13 @@ export function Sidebar({
   operatorName,
   operatorEmail,
   primaryAgent = "bravo",
+  primaryAgentLive = false,
 }: {
   brand?: string;
   operatorName?: string;
   operatorEmail?: string;
   primaryAgent?: string;
+  primaryAgentLive?: boolean;
 }) {
   const pathname = usePathname();
   const opsItems = ITEMS.filter((i) => i.group === "ops");
@@ -107,8 +109,12 @@ export function Sidebar({
           </div>
         </div>
         <div className="flex items-center justify-between text-[10px] uppercase tracking-wider">
-          <span className="text-fg-dim">
-            <span className="text-status-engaged animate-pulse-slow">●</span> {primaryAgent}
+          <span className="text-fg-dim flex items-center gap-1.5" title={primaryAgentLive ? `${primaryAgent} ticked in the last 15 min` : `${primaryAgent} hasn't ticked recently`}>
+            <span className={primaryAgentLive ? "text-status-engaged animate-pulse-slow" : "text-fg-faint"}>●</span>
+            <span>{primaryAgent}</span>
+            <span className={primaryAgentLive ? "text-status-engaged" : "text-fg-faint"}>
+              {primaryAgentLive ? "live" : "idle"}
+            </span>
           </span>
           <form action="/api/auth/signout" method="post">
             <button

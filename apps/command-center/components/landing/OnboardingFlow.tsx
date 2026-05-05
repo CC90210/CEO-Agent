@@ -14,9 +14,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowRight, ExternalLink, KeyRound, Cpu, Cog, Check, Sparkles, Eye, EyeOff,
+  ArrowRight, ExternalLink, Cpu, Cog, Check, Sparkles, Eye, EyeOff,
   Loader2, AlertCircle, ShieldCheck, Monitor,
 } from "lucide-react";
+import { ALL_AGENT_KEYS, getAgentInfo } from "@/lib/agents";
 
 const PROVIDERS = [
   {
@@ -73,13 +74,10 @@ const PROVIDERS = [
   },
 ];
 
-const AGENTS = [
-  { key: "bravo", label: "Bravo", role: "Lead architect · ops · voice", color: "text-accent" },
-  { key: "maven", label: "Maven", role: "CMO · content · ads · funnels", color: "text-pink-400" },
-  { key: "atlas", label: "Atlas", role: "CFO · finance · tax · trading", color: "text-emerald-400" },
-  { key: "aura", label: "Aura", role: "Life · home · habits · voice", color: "text-purple-400" },
-  { key: "hermes", label: "Hermes", role: "Commerce · POS · EDI", color: "text-amber-400" },
-];
+const AGENTS = ALL_AGENT_KEYS.map((k) => {
+  const info = getAgentInfo(k);
+  return { key: info.key, label: info.label, role: info.tagline, color: info.textClass };
+});
 
 type Props = { userEmail: string };
 

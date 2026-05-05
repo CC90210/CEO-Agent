@@ -14,6 +14,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Send, AlertCircle, Settings as Cog, Loader2, Sparkles, RefreshCw } from "lucide-react";
 import Link from "next/link";
+import { getAgentInfo } from "@/lib/agents";
 
 type Role = "user" | "assistant" | "system";
 type Msg = { role: Role; content: string };
@@ -30,14 +31,6 @@ type Props = {
   defaultAgent?: string;
   /** When true (operator/admin), the widget never blocks on missing config — chat is allowed via platform fallback. */
   isAdmin?: boolean;
-};
-
-const AGENT_TAGLINES: Record<string, string> = {
-  bravo: "Lead architect · ops · voice",
-  maven: "CMO · content · ads · funnels",
-  atlas: "CFO · finance · tax · trading",
-  aura: "Life · home · habits · voice",
-  hermes: "Commerce · POS · EDI",
 };
 
 export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) {
@@ -186,7 +179,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
         </select>
         <div className="flex-1 min-w-0">
           <div className="text-xs text-fg-muted truncate">
-            {AGENT_TAGLINES[agent] || "Custom agent"}
+            {getAgentInfo(agent).tagline}
           </div>
           <div className="text-xs text-fg-dim font-mono truncate">
             {cfg
