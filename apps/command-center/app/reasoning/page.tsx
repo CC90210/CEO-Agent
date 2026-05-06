@@ -1,13 +1,13 @@
 import { Card, PageHeader, EmptyState, Tag } from "@/components/Card";
 import { timeAgo, truncate, statusColor } from "@/lib/fmt";
 import { recentDecisions, getActiveProfile } from "@/lib/queries";
+import { safe } from "@/lib/api-helpers";
 import { CommandPalette } from "@/components/reasoning/CommandPalette";
 import { commandsForAgents } from "@/lib/slash-commands";
 
 export const dynamic = "force-dynamic";
 
 export default async function ReasoningPage() {
-  const safe = async <T,>(p: Promise<T>, fallback: T): Promise<T> => p.catch(() => fallback);
   const [profile, decisions] = await Promise.all([
     safe(getActiveProfile(), null),
     safe(recentDecisions(20), []),

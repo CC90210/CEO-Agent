@@ -7,6 +7,7 @@ import {
   getPlanTemplates,
   aiServicesWithKey,
 } from "@/lib/queries";
+import { safe } from "@/lib/api-helpers";
 import { ChangePasswordForm } from "@/components/ChangePasswordForm";
 import { ProfileEditor } from "@/components/settings/ProfileEditor";
 import { PlanTemplateEditor } from "@/components/settings/PlanTemplateEditor";
@@ -17,7 +18,6 @@ import { chatAgentKeys } from "@/lib/agent-personas";
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const safe = async <T,>(p: Promise<T>, fallback: T): Promise<T> => p.catch(() => fallback);
   const profile = await safe(getActiveProfile(), null);
   const [integrations, tenant, templates, connectedAiSet] = await Promise.all([
     safe(integrationsHealth(profile?.tenant_id || null), []),

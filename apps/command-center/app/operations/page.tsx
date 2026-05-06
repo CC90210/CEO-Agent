@@ -13,6 +13,7 @@
 
 import { Card, PageHeader, Tag, EmptyState } from "@/components/Card";
 import { getActiveProfile, recentEvents } from "@/lib/queries";
+import { safe } from "@/lib/api-helpers";
 import { getServiceSupabase } from "@/lib/supabase-server";
 import { ALL_AGENT_KEYS, getAgentInfo } from "@/lib/agents";
 import { timeAgo, truncate } from "@/lib/fmt";
@@ -39,41 +40,37 @@ type BridgePair = {
 };
 
 export default async function OperationsPage() {
-  const profile = await getActiveProfile();
+  const profile = await safe(getActiveProfile(), null);
+  const db = getServiceSupabase();
 
-  // Agents (worker state)
-  let snaps: AgentSnap[] = [];
-  try {
-    const db = getServiceSupabase();
-    const { data } = await db
-      .from("agent_state_snapshot")
-      .select("agent_name, tick_count, last_tick_at, last_tick_id, health_status")
-      .order("last_tick_at", { ascending: false });
-    snaps = (data as AgentSnap[]) || [];
-  } catch {
-    snaps = [];
-  }
+  const [snaps, pairings, events] = await Promise.all([
+    safe(
+      (async () => {
+        const r = await db
+          .from("agent_state_snapshot")
+          .select("agent_name, tick_count, last_tick_at, last_tick_id, health_status")
+          .order("last_tick_at", { ascending: false });
+        return (r.data as AgentSnap[]) || [];
+      })(),
+      [] as AgentSnap[]
+    ),
+    profile?.tenant_id
+      ? safe(
+          (async () => {
+            const r = await db
+              .from("bridge_pairings")
+              .select("id, label, machine_fingerprint, last_seen_at, created_at")
+              .eq("tenant_id", profile.tenant_id)
+              .is("revoked_at", null)
+              .order("last_seen_at", { ascending: false });
+            return (r.data as BridgePair[]) || [];
+          })(),
+          [] as BridgePair[]
+        )
+      : Promise.resolve([] as BridgePair[]),
+    safe(recentEvents(30), []),
+  ]);
   const snapByName = new Map(snaps.map((s) => [s.agent_name, s] as const));
-
-  // Local bridges (cron-host visibility)
-  let pairings: BridgePair[] = [];
-  if (profile?.tenant_id) {
-    try {
-      const db = getServiceSupabase();
-      const { data } = await db
-        .from("bridge_pairings")
-        .select("id, label, machine_fingerprint, last_seen_at, created_at")
-        .eq("tenant_id", profile.tenant_id)
-        .is("revoked_at", null)
-        .order("last_seen_at", { ascending: false });
-      pairings = (data as BridgePair[]) || [];
-    } catch {
-      pairings = [];
-    }
-  }
-
-  // Recent events (the activity tape — proxy for cron-fires + agent-ticks)
-  const events = await recentEvents(30).catch(() => []);
 
   const enabled = profile?.agents_enabled || ALL_AGENT_KEYS;
   const now = Date.now();
