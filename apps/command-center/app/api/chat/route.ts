@@ -145,7 +145,12 @@ export async function POST(req: NextRequest) {
   } else {
     // No config row at all
     const fallback = isOperator ? operatorFallback() : null;
-    if (!fallback) return jsonError(412, "agent_not_configured");
+    if (!fallback) {
+      return jsonError(
+        412,
+        isOperator ? "admin_no_platform_key" : "agent_not_configured"
+      );
+    }
     provider = fallback.provider;
     model = fallback.model;
     apiKey = fallback.apiKey;

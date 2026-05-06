@@ -1145,11 +1145,11 @@ Security:
     sec_p.add_argument("action", nargs="?", default="list",
                        choices=["list", "audit"])
 
-    # bridge start | stop | status — local-machine pinger to the dashboard
+    # bridge start | stop | status | seed-keys — local-machine pinger + key relay
     br_p = sub.add_parser("bridge",
                           help="Local bridge daemon — pings install state to your dashboard")
     br_p.add_argument("action", nargs="?", default="status",
-                      choices=["start", "stop", "status"])
+                      choices=["start", "stop", "status", "seed-keys"])
 
     return parser
 

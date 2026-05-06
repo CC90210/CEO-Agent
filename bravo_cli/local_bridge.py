@@ -440,6 +440,138 @@ def cmd_stop(_args) -> int:
         return 1
 
 
+def cmd_seed_keys(_args) -> int:
+    """One-shot: read .env.agents, push provider keys to /api/auth/pair so
+    every chat-eligible agent gets a working agent_model_config row.
+
+    This is what makes admin chat "just work" without the operator pasting
+    keys into /settings → Agents. The dashboard ALWAYS encrypts at rest
+    (AES-256-GCM via BRAVO_FIELD_ENCRYPTION_KEY); the wire payload is over
+    HTTPS and gated by CLI_SIGNUP_SECRET.
+    """
+    keys = _read_env_keys()
+    if not keys:
+        print("No .env.agents found. Run from your bravo install dir.", file=sys.stderr)
+        return 2
+
+    # Resolve the secrets we need to call the dashboard
+    env_map = _read_env_map_for_seed()
+    secret = env_map.get("CLI_SIGNUP_SECRET", "")
+    email = (
+        env_map.get("USER_EMAIL")
+        or env_map.get("OPERATOR_EMAIL")
+        or env_map.get("USER_PRIMARY_EMAIL")
+        or ""
+    )
+    if not secret:
+        print("CLI_SIGNUP_SECRET missing from .env.agents — cannot authenticate to dashboard.", file=sys.stderr)
+        return 2
+    if not email:
+        print("USER_EMAIL / OPERATOR_EMAIL missing from .env.agents.", file=sys.stderr)
+        return 2
+
+    # Map env names to provider slugs the API recognizes
+    PROVIDER_KEYS = {
+        "openrouter": ["OPENROUTER_API_KEY"],
+        "anthropic": ["ANTHROPIC_API_KEY"],
+        "openai": ["OPENAI_API_KEY"],
+        "google": ["GOOGLE_AI_API_KEY", "GEMINI_API_KEY"],
+    }
+    api_keys: dict[str, str] = {}
+    for provider, candidates in PROVIDER_KEYS.items():
+        for env_name in candidates:
+            v = env_map.get(env_name, "").strip()
+            if v:
+                api_keys[provider] = v
+                break
+
+    if not api_keys:
+        print(
+            "No provider keys found in .env.agents. Add at least one of: "
+            "OPENROUTER_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_AI_API_KEY.",
+            file=sys.stderr,
+        )
+        return 2
+
+    body = json.dumps({
+        "email": email,
+        "profile": {},
+        "machine": {
+            "label": f"{platform.system()} · {socket.gethostname()}",
+            "fingerprint": f"{platform.system()}|{platform.machine()}|{socket.gethostname()}",
+        },
+        "api_keys": api_keys,
+    }).encode("utf-8")
+    url = f"{_dashboard_url()}/api/auth/pair"
+    req = urllib.request.Request(
+        url,
+        method="POST",
+        data=body,
+        headers={
+            "content-type": "application/json",
+            "authorization": f"Bearer {secret}",
+            "user-agent": f"oasis-bridge/1.0 ({platform.system()})",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            payload = json.loads(r.read().decode("utf-8") or "{}")
+    except urllib.error.HTTPError as e:
+        try:
+            err_body = e.read().decode("utf-8")
+        except Exception:
+            err_body = ""
+        print(f"Dashboard returned {e.code}: {err_body}", file=sys.stderr)
+        return 1
+    except Exception as e:
+        print(f"Could not reach dashboard: {e}", file=sys.stderr)
+        return 1
+
+    if not payload.get("ok"):
+        print(f"Dashboard rejected: {payload.get('error', 'unknown')}", file=sys.stderr)
+        return 1
+
+    # Persist the new bridge token (this also re-pairs)
+    bridge_token = (payload.get("bridge") or {}).get("token", "")
+    if bridge_token:
+        OASIS_DIR.mkdir(parents=True, exist_ok=True)
+        TOKEN_PATH.write_text(bridge_token, encoding="utf-8")
+        if os.name != "nt":
+            try:
+                os.chmod(TOKEN_PATH, 0o600)
+            except Exception:
+                pass
+
+    seeded = payload.get("seeded") or {}
+    print(f"OK — seeded {seeded.get('agents', 0)} agent(s) using provider {seeded.get('provider', '?')}.")
+    print(f"Providers detected locally: {', '.join(api_keys.keys())}")
+    print(f"Open https://agent-dashboard-cc90210.vercel.app/agents and start chatting.")
+    return 0
+
+
+def _read_env_map_for_seed() -> dict[str, str]:
+    """Same scan as _read_env_keys but returns name→value (for seed-keys
+    only — never log or transmit values besides the explicit api_keys path).
+    """
+    out: dict[str, str] = {}
+    for path in _env_file_paths():
+        if not path.exists():
+            continue
+        try:
+            for raw in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+                line = raw.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                k = k.strip()
+                v = v.strip().strip('"').strip("'")
+                if k and k not in out:
+                    out[k] = v
+        except Exception:
+            continue
+    return out
+
+
 def cmd_status(_args) -> int:
     running = False
     pid: int | None = None
@@ -485,6 +617,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("start", help="Background the bridge daemon")
     sub.add_parser("stop", help="Stop the bridge daemon")
     sub.add_parser("status", help="Show bridge status")
+    sub.add_parser("seed-keys",
+                   help="Push local .env.agents API keys to the dashboard so admin chat works")
     sub.add_parser("_loop", help="(internal) run the ping loop in foreground")
     args = ap.parse_args(argv)
     if args.cmd == "start":
@@ -493,6 +627,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_stop(args)
     if args.cmd == "status":
         return cmd_status(args)
+    if args.cmd == "seed-keys":
+        return cmd_seed_keys(args)
     if args.cmd == "_loop":
         return run_loop()
     ap.print_help()
