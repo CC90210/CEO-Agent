@@ -11,6 +11,23 @@ export function bad(status: number, error: string) {
 }
 
 /**
+ * Promise-with-fallback. Wrap any reader so a single thrown query can't
+ * 500 a server-rendered page. Used in /today, /pipeline, /analytics,
+ * /reasoning, /integrations, /settings — every dynamic page that does a
+ * Promise.all over Supabase readers. Pattern was open-coded inline in 6
+ * files until it landed here.
+ *
+ * Usage: const value = await safe(maybeThrowingPromise(), defaultValue);
+ */
+export async function safe<T>(p: Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await p;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
  * Verify a "Bearer <secret>" header against an env-provided shared secret.
  * Used by /api/auth/provision-cli, /api/auth/pair, and any other CLI-only
  * route where the caller is the wizard / installer, not a logged-in user.

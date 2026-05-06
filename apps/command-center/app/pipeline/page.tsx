@@ -9,6 +9,7 @@ import {
   recentInbound,
   getActiveProfile,
 } from "@/lib/queries";
+import { safe } from "@/lib/api-helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -20,9 +21,8 @@ export default async function PipelinePage({
   const params = await searchParams;
   const includeAll = params.show === "all";
 
-  const profile = await getActiveProfile().catch(() => null);
+  const profile = await safe(getActiveProfile(), null);
   const tenantId = profile?.tenant_id || "";
-  const safe = async <T,>(p: Promise<T>, fallback: T): Promise<T> => p.catch(() => fallback);
   const [leads, pipeline, outbound, inbound] = await Promise.all([
     safe(
       recentLeads(tenantId, 80, {
