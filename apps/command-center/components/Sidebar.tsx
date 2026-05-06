@@ -12,6 +12,7 @@ import {
   Plug,
   Settings,
   LogOut,
+  Activity,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -28,6 +29,7 @@ const ITEMS: NavItem[] = [
   { href: "/reasoning", label: "Reasoning", icon: Brain, group: "ops" },
   { href: "/playbook", label: "Playbook", icon: BookOpen, group: "ops" },
   { href: "/agents", label: "Agents", icon: Bot, group: "system" },
+  { href: "/operations", label: "Operations", icon: Activity, group: "system" },
   { href: "/analytics", label: "Analytics", icon: BarChart3, group: "system" },
   { href: "/integrations", label: "Integrations", icon: Plug, group: "system" },
   { href: "/settings", label: "Settings", icon: Settings, group: "system" },

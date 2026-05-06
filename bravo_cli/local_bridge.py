@@ -150,14 +150,116 @@ def detect_repo_clones() -> dict[str, dict]:
     return out
 
 
+# Map env-var names to the integrations_registry service slug they prove up
+# on. Detection is presence-only — we never read the actual value, never
+# transmit it. Keys live on the operator's machine; the dashboard just
+# learns "Anthropic key is on file locally" so it can flip the green dot.
+ENV_TO_SERVICE: dict[str, str] = {
+    "ANTHROPIC_API_KEY": "anthropic",
+    "OPENAI_API_KEY": "openai_codex",
+    "GOOGLE_AI_API_KEY": "google_ai",
+    "GEMINI_API_KEY": "google_ai",
+    "OPENROUTER_API_KEY": "openrouter",
+    "STRIPE_SECRET_KEY": "stripe",
+    "STRIPE_API_KEY": "stripe",
+    "BRAVO_SUPABASE_SERVICE_ROLE_KEY": "supabase",
+    "SUPABASE_SERVICE_ROLE_KEY": "supabase",
+    "VERCEL_TOKEN": "vercel",
+    "CLOUDFLARE_API_TOKEN": "cloudflare",
+    "HOSTINGER_API_TOKEN": "hostinger",
+    "TELEGRAM_BOT_TOKEN": "telegram",
+    "FIRECRAWL_API_KEY": "firecrawl",
+    "ELEVENLABS_API_KEY": "elevenlabs",
+    "LATE_API_KEY": "late",
+    "ZERNIO_API_KEY": "late",
+    "N8N_API_KEY": "n8n_inbound",
+    "KRAKEN_API_KEY": "kraken",
+    "WISE_API_TOKEN": "wise",
+    "IBKR_API_TOKEN": "interactive_brokers",
+}
+
+# Locations to scan for the operator's env file. We read it ONCE per ping,
+# parse only the keys (never the values), and emit a service ping for each.
+def _env_file_paths() -> list[Path]:
+    here = Path.cwd()
+    return [
+        here / ".env.agents",
+        here / ".env",
+        HOME / ".bravo" / ".env.agents",
+        HOME / "Business-Empire-Agent" / ".env.agents",
+    ]
+
+
+def _read_env_keys() -> set[str]:
+    """Return the set of env-var NAMES present in any env file we can find.
+    Never returns values — this set is safe to log. Empty set if no file.
+    """
+    out: set[str] = set()
+    for path in _env_file_paths():
+        if not path.exists():
+            continue
+        try:
+            for raw in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+                line = raw.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key = line.split("=", 1)[0].strip()
+                if key:
+                    out.add(key)
+        except Exception:
+            continue
+    return out
+
+
+def detect_local_credentials() -> dict[str, dict]:
+    """Walk the env file(s), emit a healthy ping for every service whose key
+    is on disk. Operator-only signal — the bridge token is tenant-scoped, so
+    these pings only ever land on the operator's tenant. Clients still BYO
+    via /settings → Agents.
+    """
+    keys = _read_env_keys()
+    out: dict[str, dict] = {}
+    for env_var, service in ENV_TO_SERVICE.items():
+        if env_var in keys and service not in out:
+            out[service] = {
+                "status": "healthy",
+                "metadata": {
+                    "via": "local_install",
+                    "source_env_var": env_var,
+                },
+            }
+    return out
+
+
+def detect_claude_code_cli() -> dict:
+    """Claude Code CLI presence — used by the operator chat path to spawn
+    the operator's subscription instead of charging an API key."""
+    ok, line = _which_version("claude", ["--version"])
+    if ok:
+        return {"status": "healthy", "metadata": {"path": shutil.which("claude"), "version": line}}
+    return {"status": "unconfigured", "last_error": "claude CLI not on PATH"}
+
+
+def detect_codex_cli() -> dict:
+    ok, line = _which_version("codex", ["--version"])
+    if ok:
+        return {"status": "healthy", "metadata": {"path": shutil.which("codex"), "version": line}}
+    return {"status": "unconfigured"}
+
+
 def collect_services() -> dict[str, dict]:
     services: dict[str, dict] = {
         "ffmpeg": detect_ffmpeg(),
         "whisper": detect_whisper(),
         "browser_harness": detect_browser_harness(),
         "playwright": detect_playwright(),
+        "claude_code_cli": detect_claude_code_cli(),
+        "codex_cli": detect_codex_cli(),
     }
     services.update(detect_repo_clones())
+    # Credentials on disk — flips integration cards green for the operator
+    # without them ever pasting a key into the dashboard.
+    services.update(detect_local_credentials())
     return services
 
 

@@ -11,6 +11,7 @@ import { ChangePasswordForm } from "@/components/ChangePasswordForm";
 import { ProfileEditor } from "@/components/settings/ProfileEditor";
 import { PlanTemplateEditor } from "@/components/settings/PlanTemplateEditor";
 import { AgentConfigEditor } from "@/components/settings/AgentConfigEditor";
+import { DevicesEditor } from "@/components/settings/DevicesEditor";
 import { chatAgentKeys } from "@/lib/agent-personas";
 
 export const dynamic = "force-dynamic";
@@ -50,6 +51,13 @@ export default async function SettingsPage() {
 
           <Card title="Password" subtitle="Change your sign-in password">
             <ChangePasswordForm />
+          </Card>
+
+          <Card
+            title="Devices"
+            subtitle="Local installs paired to this dashboard. Each runs `bravo bridge start` and pings every 60s with what's installed on that machine."
+          >
+            <DevicesEditor />
           </Card>
 
           <Card
