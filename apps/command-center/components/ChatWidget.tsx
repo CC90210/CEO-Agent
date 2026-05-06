@@ -280,10 +280,18 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
       {bridgeOnline === false && (
         <div className="px-5 py-2.5 bg-status-warm/10 border-b border-status-warm/30 text-xs text-status-warm flex items-start gap-2 relative z-10">
           <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-          <div className="flex-1 leading-relaxed">
-            <span className="font-bold">Cloud mode.</span> Agent doesn&apos;t have access to your local file structure right now. For full repo context (read brain/, skills/, memory/, propose code edits), open a terminal in your install dir and run:
-            <code className="block mt-1.5 px-2 py-1 bg-bg-deep rounded text-accent font-mono">bravo bridge serve</code>
-            <span className="text-fg-dim text-[11px]">Refresh this page once it&apos;s running. Header turns cyan.</span>
+          <div className="flex-1 leading-relaxed space-y-1.5">
+            <div>
+              <span className="font-bold">Cloud mode.</span> Agent doesn&apos;t have access to your local file structure right now. For full repo context (read brain/, skills/, memory/, propose code edits), open a terminal in your install dir and run:
+            </div>
+            <code className="block px-2 py-1 bg-bg-deep rounded text-accent font-mono">bravo bridge serve</code>
+            <div className="text-fg-dim text-[11px]">
+              Refresh this page once it&apos;s running. Header turns cyan.
+              {" "}If your browser asks <em>&quot;Allow this site to access local network?&quot;</em> click <strong>Allow</strong> — that&apos;s Chrome&apos;s Private Network Access check, not a privacy issue. The dashboard never reads anything outside the agent&apos;s repo (path-allowlisted in the bridge).
+            </div>
+            <div className="text-fg-dim text-[11px]">
+              Auto-start the bridge on every login: <code className="text-accent">bravo bridge install</code> (Windows scheduled task / macOS launchd / Linux systemd).
+            </div>
           </div>
         </div>
       )}

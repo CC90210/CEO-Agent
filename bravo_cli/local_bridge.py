@@ -600,6 +600,149 @@ def _pid_alive(pid: int) -> bool:
         return False
 
 
+def cmd_install(_args) -> int:
+    """Register the bridge to auto-start at user login.
+
+    Windows: schtasks + a "ONLOGON" trigger running `python -m
+    bravo_cli.local_bridge serve` as the current user — no admin needed.
+    macOS:   ~/Library/LaunchAgents/work.oasisai.bravo-bridge.plist with
+             RunAtLoad=true.
+    Linux:   ~/.config/systemd/user/bravo-bridge.service + `systemctl
+             --user enable --now`.
+
+    Idempotent: re-running updates the existing entry.
+    """
+    py = sys.executable
+    label = "OASIS Bravo Bridge"
+
+    if os.name == "nt":
+        task_name = "OASIS-Bravo-Bridge"
+        # /SC ONLOGON — runs at the current user's login.
+        # /F — force overwrite if task exists.
+        # /RL LIMITED — runs as user, no admin elevation.
+        cmd = [
+            "schtasks", "/Create",
+            "/TN", task_name,
+            "/SC", "ONLOGON",
+            "/RL", "LIMITED",
+            "/F",
+            "/TR", f'"{py}" -m bravo_cli.local_bridge serve',
+        ]
+        try:
+            r = subprocess.run(cmd, check=False, capture_output=True, text=True)
+            if r.returncode != 0:
+                print(f"schtasks failed: {r.stderr.strip() or r.stdout.strip()}", file=sys.stderr)
+                return 1
+            print(f"OK — registered Windows scheduled task '{task_name}'.")
+            print(f"     Will auto-start the bridge each time you log in.")
+            print(f"     Run now: schtasks /Run /TN {task_name}")
+            print(f"     Remove:  bravo bridge uninstall")
+            return 0
+        except FileNotFoundError:
+            print("schtasks.exe not found — Windows-only command. "
+                  "Are you on Windows?", file=sys.stderr)
+            return 1
+
+    if sys.platform == "darwin":
+        plist_dir = Path.home() / "Library" / "LaunchAgents"
+        plist_dir.mkdir(parents=True, exist_ok=True)
+        plist_path = plist_dir / "work.oasisai.bravo-bridge.plist"
+        plist_path.write_text(f"""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key><string>work.oasisai.bravo-bridge</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{py}</string>
+        <string>-m</string>
+        <string>bravo_cli.local_bridge</string>
+        <string>serve</string>
+    </array>
+    <key>RunAtLoad</key><true/>
+    <key>KeepAlive</key><true/>
+    <key>StandardOutPath</key><string>{LOG_PATH}</string>
+    <key>StandardErrorPath</key><string>{LOG_PATH}</string>
+</dict>
+</plist>
+""", encoding="utf-8")
+        try:
+            subprocess.run(["launchctl", "load", "-w", str(plist_path)],
+                           check=False, capture_output=True)
+        except FileNotFoundError:
+            pass
+        print(f"OK — installed launchd plist at {plist_path}.")
+        print(f"     Will auto-start the bridge each time you log in.")
+        print(f"     Status: launchctl list | grep bravo-bridge")
+        print(f"     Remove: bravo bridge uninstall")
+        return 0
+
+    # Linux — assume systemd user
+    unit_dir = Path.home() / ".config" / "systemd" / "user"
+    unit_dir.mkdir(parents=True, exist_ok=True)
+    unit_path = unit_dir / "bravo-bridge.service"
+    unit_path.write_text(f"""[Unit]
+Description={label}
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart={py} -m bravo_cli.local_bridge serve
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+""", encoding="utf-8")
+    try:
+        subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)
+        subprocess.run(["systemctl", "--user", "enable", "--now", "bravo-bridge.service"],
+                       check=False, capture_output=True)
+    except FileNotFoundError:
+        print("systemctl not found — install manually:", file=sys.stderr)
+        print(f"  systemctl --user enable --now bravo-bridge.service", file=sys.stderr)
+        return 1
+    print(f"OK — installed systemd user unit at {unit_path}.")
+    print(f"     Status: systemctl --user status bravo-bridge")
+    print(f"     Remove: bravo bridge uninstall")
+    return 0
+
+
+def cmd_uninstall(_args) -> int:
+    """Reverse of cmd_install."""
+    if os.name == "nt":
+        task_name = "OASIS-Bravo-Bridge"
+        r = subprocess.run(
+            ["schtasks", "/Delete", "/TN", task_name, "/F"],
+            check=False, capture_output=True, text=True,
+        )
+        if r.returncode == 0:
+            print(f"OK — removed Windows scheduled task '{task_name}'.")
+        else:
+            print(r.stderr.strip() or r.stdout.strip())
+        return r.returncode
+    if sys.platform == "darwin":
+        plist_path = Path.home() / "Library" / "LaunchAgents" / "work.oasisai.bravo-bridge.plist"
+        try:
+            subprocess.run(["launchctl", "unload", str(plist_path)],
+                           check=False, capture_output=True)
+        except FileNotFoundError:
+            pass
+        plist_path.unlink(missing_ok=True)
+        print(f"OK — removed launchd plist.")
+        return 0
+    # Linux
+    try:
+        subprocess.run(["systemctl", "--user", "disable", "--now", "bravo-bridge.service"],
+                       check=False, capture_output=True)
+    except FileNotFoundError:
+        pass
+    unit_path = Path.home() / ".config" / "systemd" / "user" / "bravo-bridge.service"
+    unit_path.unlink(missing_ok=True)
+    print(f"OK — removed systemd user unit.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="bravo-bridge", description=__doc__)
     sub = ap.add_subparsers(dest="cmd")
@@ -610,6 +753,10 @@ def main(argv: list[str] | None = None) -> int:
                    help="Push local .env.agents API keys to the dashboard so admin chat works")
     sub.add_parser("serve",
                    help="Run the local chat HTTP server on localhost:9100 — dashboard chat connects here")
+    sub.add_parser("install",
+                   help="Auto-start the bridge at login (Win schtasks / mac launchd / Linux systemd)")
+    sub.add_parser("uninstall",
+                   help="Reverse `install` — removes the OS auto-start entry")
     sub.add_parser("_loop", help="(internal) run the ping loop in foreground")
     args = ap.parse_args(argv)
     if args.cmd == "start":
@@ -623,6 +770,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "serve":
         from . import bridge_chat_server
         return bridge_chat_server.serve_forever()
+    if args.cmd == "install":
+        return cmd_install(args)
+    if args.cmd == "uninstall":
+        return cmd_uninstall(args)
     if args.cmd == "_loop":
         return run_loop()
     ap.print_help()

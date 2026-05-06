@@ -1149,7 +1149,7 @@ Security:
     br_p = sub.add_parser("bridge",
                           help="Local bridge daemon — pings install state to your dashboard")
     br_p.add_argument("action", nargs="?", default="status",
-                      choices=["start", "stop", "status", "seed-keys", "serve"])
+                      choices=["start", "stop", "status", "seed-keys", "serve", "install", "uninstall"])
 
     return parser
 
