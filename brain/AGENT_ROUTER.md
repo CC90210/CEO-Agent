@@ -1,0 +1,115 @@
+---
+name: AGENT ROUTER
+description: The chat agent's routing-by-intent table. Loaded after CLAUDE.md as the second-stage boot file. Tells the agent which deeper file to read for each kind of operator request.
+mutability: SEMI-MUTABLE
+tags: [brain, router, rag-entry, agent-only]
+last_updated: 2026-05-06
+---
+
+# AGENT ROUTER — How to Decide What to Read
+
+> Loaded by the chat agent after `CLAUDE.md`. Everything else is lazy-loaded
+> via `read_file` based on what the operator asks for.
+> Stay under ~250 lines so it always fits in the boot prompt.
+
+---
+
+## How to use this file (instructions to YOU, the agent)
+
+Every operator turn, do this in order:
+
+1. **Read the message.** Identify intent — one of: build, debug, look up, decide, mutate state, schedule, draft, route to sibling agent.
+2. **Match against the tables below.** Each row tells you which file(s) to `read_file(path)` for context, in priority order.
+3. **Read only what the intent needs.** Token budget is real. Never bulk-load.
+4. **Execute yourself if you have the tool.** Apply migrations, push code, write to Supabase, call APIs. Do NOT tell the operator to run commands. See `brain/EXECUTION_RULES.md`.
+5. **Confirm what you did in chat.** State the change, the source, the next-action queued.
+
+---
+
+## Operator-specific facts
+
+The operator's profile (name, brand, north-star MRR target, manifesto) lives in `brain/USER.md`. **Read it once on the first operator turn** of a session — it's small and high-value. After that, trust your prompt unless the operator says something changed.
+
+The operator also has a profile row in Supabase `user_profiles` keyed by `auth_user_id`. Use `python scripts/supabase_tool.py select user_profiles --eq '{"id":"<id>"}'` if you need the live values (mrr_current_usd, mrr_target_usd, primary_agent, agents_enabled).
+
+## Where you run
+
+On the operator's machine via `bravo bridge serve`. You have full read access to this repo's tree, scoped by `under_root()` to prevent path traversal. Sibling agents live in:
+
+- **Atlas** (CFO) at `~/APPS/CFO-Agent`
+- **Maven** (CMO) at `~/CMO-Agent`
+- **Aura** (life) at `~/AURA`
+- **Hermes** (commerce) at `~/hermes`
+
+When the operator switches you in the chat picker, the bridge `cd`s to that repo and the new agent's `CLAUDE.md` becomes your boot file.
+
+---
+
+## Intent → which file to READ
+
+| If the operator asks about... | Read first | Then if needed |
+|---|---|---|
+| Identity / voice / who you are | (already in your prompt) | `brain/SOUL.md` |
+| Operator's profile | `brain/USER.md` | — |
+| What CLI tools you have | `brain/CAPABILITIES.md` | `brain/QUICK_REFERENCE.md` |
+| Which sub-agent owns a task | `brain/AGENTS.md` | `brain/AGENT_ORCHESTRATION.md` |
+| Today's plan / current focus | `memory/ACTIVE_TASKS.md` | `brain/STATE.md` |
+| Recent context / what just happened | `memory/SESSION_LOG.md` | `memory/DECISIONS.md` |
+| Past mistakes to avoid | `memory/MISTAKES.md` | — |
+| Validated patterns to reuse | `memory/PATTERNS.md` | — |
+| Send an email or DM | `skills/outreach-send/SKILL.md` | `brain/QUICK_REFERENCE.md` |
+| What's deployed / live | `brain/STATE.md` | `brain/CHANGELOG.md` |
+| Pricing / offers / deal shape | `brain/DEAL_ARCHITECTURE.md` | `brain/CLIENT_PLAYBOOK.md` |
+| OKRs / strategy | `brain/OKRs.md` | `brain/CEO_OPERATING_SYSTEM.md` |
+| Risk / what could go wrong | `brain/RISK_REGISTER.md` | — |
+| When to use which skill | `brain/WHEN_TO_USE_SKILLS.md` | `skills/<name>/SKILL.md` |
+| Specific intent verb | `brain/INTENTS.md` | — |
+| What you may write / mutate | `brain/EXECUTION_RULES.md` | — |
+| App-specific work (PropFlow, OASIS, etc.) | `brain/APP_REGISTRY.md` | `APPS_CONTEXT/<app>_CLAUDE.md` |
+| Code review / pre-ship | `skills/code-review/SKILL.md` | `skills/ship/SKILL.md` |
+| Debugging | `skills/systematic-debugging/SKILL.md` | `memory/MISTAKES.md` |
+| Cron / background workers | `skills/background-workers/SKILL.md` | `apps/command-center/vercel.json` |
+| Dashboard structure | `apps/command-center/lib/agent-roots.ts` | the relevant `apps/command-center/app/<route>/page.tsx` |
+
+---
+
+## Intent → which TOOL to call (when you should act, not just read)
+
+| Operator wants... | Run | Consult first |
+|---|---|---|
+| Apply a SQL migration | `python scripts/apply_migration.py <path>` | `database/` for next migration number |
+| Read/write Supabase | `python scripts/supabase_tool.py <select\|insert\|update\|upsert\|delete>` | `brain/CAPABILITIES.md` |
+| Send an email | `python scripts/send_gateway.py send …` | `skills/outreach-send/SKILL.md` |
+| Schedule a social post | `python scripts/late_tool.py create …` | (consider delegating to Maven) |
+| Search the web | `python scripts/firecrawl_tool.py search "…"` | — |
+| Get current MRR / pipeline | `python scripts/revenue_engine.py mrr --json` | `brain/STATE.md` |
+| Push to Vercel | `git push` (Vercel auto-deploys) | nothing — verify with `npx vercel ls` |
+| Set a Vercel env var | `npx vercel env add NAME production --value="…"` | `apps/command-center/ENV_SETUP.md` |
+| Update operator dashboard data | emit `<dashboard-action type="…">{…}</dashboard-action>` | `apps/command-center/lib/agent-actions.ts` |
+| Generic one-off | `python scripts/<script>.py [args]` | `brain/QUICK_REFERENCE.md` |
+
+---
+
+## Sibling-agent delegation (when work is in their lane)
+
+| Agent | Repo | Hand off when |
+|---|---|---|
+| **Atlas** (CFO) | `~/APPS/CFO-Agent` | Capital, tax, trades, FIRE, cash-flow, broker reconcile |
+| **Maven** (CMO) | `~/CMO-Agent` | Content production, paid ads, brand voice, funnels, video pipeline |
+| **Aura** (life) | `~/AURA` | Smart home, habits, sleep, voice, daily routines |
+| **Hermes** (commerce) | `~/hermes` | PO → POS → invoice, EDI, chargebacks, Walgreens vendor flow |
+
+When the operator switches agents in the chat picker, the bridge `cd`s to that repo and the new agent's `CLAUDE.md` becomes the entry. You don't reach into their files — they reach into theirs.
+
+---
+
+## How to keep this router fresh
+
+When a new high-traffic file or capability lands and the agent reaches for it repeatedly:
+
+1. Add a row to the right table.
+2. Keep descriptions to one line. Bodies live in their own files.
+3. Bump `last_updated:`.
+4. Remove obsolete rows.
+
+If the table grows past ~250 lines, split intents into `brain/INTENTS.md` and keep this as the highest-frequency entries only.

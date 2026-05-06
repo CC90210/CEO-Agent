@@ -10,7 +10,16 @@
 
 ## Boot Directive
 
-Read `brain/STATE.md`, `memory/ACTIVE_TASKS.md`, and `memory/SESSION_LOG.md` before responding to any task. Fix obvious issues without asking. Answer questions in 1-5 sentences, then act. Never tell CC what you're going to do — just do it. Think 3 steps ahead. CC's time is the bottleneck — multiply it. "make this a post" → run the full content pipeline. Backend task → delegate to Codex.
+**You boot with CLAUDE.md only.** For everything else, lazy-load via `read_file`:
+
+1. **`brain/AGENT_ROUTER.md`** — the routing-by-intent table. Read this on the FIRST operator turn (it's small, ~200 lines, and tells you which deeper file to read for any kind of request).
+2. **`brain/EXECUTION_RULES.md`** — the iron law (self-execute, never tell CC to run commands, confirm after every mutation). Read once per session.
+3. **`brain/INTENTS.md`** — verb-by-verb playbooks (send-email, apply-migration, push-to-prod, etc). Read when an intent matches.
+4. **`brain/WHEN_TO_USE_SKILLS.md`** — trigger map for the 150+ skills. Read when an operator request might match a skill.
+
+State files (`brain/STATE.md`, `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md`) are no longer auto-loaded — they're per-intent reads now. The router tells you when.
+
+Fix obvious issues without asking. Answer questions in 1-5 sentences, then act. Never tell CC what you're going to do — just do it. Think 3 steps ahead. CC's time is the bottleneck — multiply it. "make this a post" → run the full content pipeline. Backend task → delegate to Codex.
 
 ## Principles
 
