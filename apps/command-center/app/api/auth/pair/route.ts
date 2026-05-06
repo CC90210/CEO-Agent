@@ -49,9 +49,23 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createHash, randomBytes } from "crypto";
 import { getServiceSupabase } from "@/lib/supabase-server";
 import { bad, checkBearerSecret } from "@/lib/api-helpers";
+import { encryptField } from "@/lib/field-encryption";
+import { chatAgentKeys } from "@/lib/agent-personas";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const VALID_PROVIDERS = new Set(["anthropic", "openai", "google", "openrouter"]);
+const PROVIDER_DEFAULT_MODEL: Record<string, string> = {
+  openrouter: "anthropic/claude-sonnet-4",
+  anthropic: "claude-sonnet-4-6",
+  openai: "gpt-5.4",
+  google: "gemini-2.5-pro",
+};
+
+// Pick the best provider when the wizard sent multiple keys — operators
+// usually want OpenRouter as default since one key covers all models.
+const PROVIDER_PREFERENCE = ["openrouter", "anthropic", "openai", "google"];
 
 type Body = {
   email?: string;
@@ -72,6 +86,17 @@ type Body = {
     label?: string;
     fingerprint?: string;
   };
+  /**
+   * Optional: API keys the wizard / bridge collected from the operator's
+   * local .env.agents. Each provided key gets encrypted server-side and
+   * upserted into agent_model_config for EVERY chat-eligible agent, so the
+   * operator's chat works immediately without paste-and-encrypt.
+   *
+   * The first key found (in PROVIDER_PREFERENCE order) becomes the default
+   * provider for all agents. Operator can override per-agent later in
+   * /settings → Agents.
+   */
+  api_keys?: Record<string, string>;
 };
 
 const PROFILE_FIELDS = new Set([
@@ -151,10 +176,53 @@ export async function POST(req: NextRequest) {
     if (r.error) return bad(500, `profile update failed: ${r.error.message}`);
   }
 
-  // ---- 2. Mint a bridge_pairings row --------------------------------------
   if (!profileRow.tenant_id) {
     return bad(412, "profile has no tenant_id — provision step incomplete");
   }
+
+  // ---- 1.5. Seed agent_model_config from local API keys -------------------
+  // The bridge / wizard ships the operator's .env.agents key values (already
+  // on their machine) so admin chat works without paste-and-encrypt.
+  let seededAgents = 0;
+  let seededProvider: string | null = null;
+  if (body.api_keys && Object.keys(body.api_keys).length > 0) {
+    // Pick the preferred provider that was supplied
+    const supplied = Object.keys(body.api_keys).filter(
+      (p) => VALID_PROVIDERS.has(p) && (body.api_keys?.[p] || "").trim().length > 0
+    );
+    const chosen = PROVIDER_PREFERENCE.find((p) => supplied.includes(p));
+    if (chosen) {
+      const plaintext = (body.api_keys[chosen] || "").trim();
+      let encrypted: string;
+      try {
+        encrypted = encryptField(plaintext);
+      } catch (e) {
+        return bad(500, `encrypt_failed: ${e instanceof Error ? e.message : "unknown"}`);
+      }
+      const model = PROVIDER_DEFAULT_MODEL[chosen];
+      // Upsert one row per chat-eligible agent. ON CONFLICT (tenant_id,
+      // agent_key) — preserves any per-agent override the operator set
+      // earlier by overwriting only when the key is newer.
+      const rows = chatAgentKeys().map((agent_key) => ({
+        tenant_id: profileRow!.tenant_id,
+        agent_key,
+        provider: chosen,
+        model,
+        encrypted_api_key: encrypted,
+        enabled: true,
+      }));
+      const seedRes = await db
+        .from("agent_model_config")
+        .upsert(rows, { onConflict: "tenant_id,agent_key" });
+      if (seedRes.error) {
+        return bad(500, `seed_failed: ${seedRes.error.message}`);
+      }
+      seededAgents = rows.length;
+      seededProvider = chosen;
+    }
+  }
+
+  // ---- 2. Mint a bridge_pairings row --------------------------------------
   const tokenPlain = `oab_${randomBytes(32).toString("hex")}`;
   const tokenHash = sha256(tokenPlain);
 
@@ -188,6 +256,10 @@ export async function POST(req: NextRequest) {
       pairing_id: ins.data.id,
       token: tokenPlain,
       dashboard_url: baseUrl.replace(/\/$/, "") + "/",
+    },
+    seeded: {
+      agents: seededAgents,
+      provider: seededProvider,
     },
   });
 }

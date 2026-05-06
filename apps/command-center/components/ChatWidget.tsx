@@ -229,7 +229,32 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
         {error && (
           <div className="flex items-start gap-2 rounded-lg border border-status-warm/40 bg-status-warm/10 p-3 text-sm text-status-warm">
             <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-            <div className="font-mono break-all">{error}</div>
+            <div className="space-y-1 min-w-0">
+              <div className="font-mono break-all">{error}</div>
+              {error === "admin_no_platform_key" && (
+                <div className="text-xs text-fg-muted font-sans">
+                  Admin chat needs a platform key. Two ways: (1) run{" "}
+                  <code className="bg-bg-elev px-1 py-0.5 rounded text-accent">bravo bridge seed-keys</code>{" "}
+                  on your machine to push your local Anthropic / OpenAI / OpenRouter key into the dashboard, or (2) add{" "}
+                  <code className="bg-bg-elev px-1 py-0.5 rounded text-accent">PLATFORM_DEFAULT_OPENROUTER_API_KEY</code>{" "}
+                  in Vercel env vars.
+                </div>
+              )}
+              {error === "agent_not_configured" && (
+                <div className="text-xs text-fg-muted font-sans">
+                  This agent needs a provider + key. Open{" "}
+                  <Link href="/settings#agents" className="text-accent underline">
+                    Settings → Agents
+                  </Link>{" "}
+                  to configure it.
+                </div>
+              )}
+              {error === "rate_limited" && (
+                <div className="text-xs text-fg-muted font-sans">
+                  Too many messages too fast. Wait ~15 seconds and try again.
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
