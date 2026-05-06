@@ -190,11 +190,16 @@ def _env_file_paths() -> list[Path]:
     ]
 
 
-def _read_env_keys() -> set[str]:
-    """Return the set of env-var NAMES present in any env file we can find.
-    Never returns values — this set is safe to log. Empty set if no file.
+def _read_env_map() -> dict[str, str]:
+    """Walk every plausible env-file path, return name->value map.
+
+    Caller's responsibility to use values carefully — the names alone
+    are safe to log; values must NEVER be logged or transmitted outside
+    the explicit seed-keys flow.
+
+    Empty dict if no file exists. Idempotent on re-runs.
     """
-    out: set[str] = set()
+    out: dict[str, str] = {}
     for path in _env_file_paths():
         if not path.exists():
             continue
@@ -203,12 +208,19 @@ def _read_env_keys() -> set[str]:
                 line = raw.strip()
                 if not line or line.startswith("#") or "=" not in line:
                     continue
-                key = line.split("=", 1)[0].strip()
-                if key:
-                    out.add(key)
+                k, v = line.split("=", 1)
+                k = k.strip()
+                v = v.strip().strip('"').strip("'")
+                if k and k not in out:
+                    out[k] = v
         except Exception:
             continue
     return out
+
+
+def _read_env_keys() -> set[str]:
+    """Just the names — safe to log. Built on top of _read_env_map()."""
+    return set(_read_env_map().keys())
 
 
 def detect_local_credentials() -> dict[str, dict]:
@@ -455,7 +467,7 @@ def cmd_seed_keys(_args) -> int:
         return 2
 
     # Resolve the secrets we need to call the dashboard
-    env_map = _read_env_map_for_seed()
+    env_map = _read_env_map()
     secret = env_map.get("CLI_SIGNUP_SECRET", "")
     email = (
         env_map.get("USER_EMAIL")
@@ -547,29 +559,6 @@ def cmd_seed_keys(_args) -> int:
     print(f"Providers detected locally: {', '.join(api_keys.keys())}")
     print(f"Open https://agent-dashboard-cc90210.vercel.app/agents and start chatting.")
     return 0
-
-
-def _read_env_map_for_seed() -> dict[str, str]:
-    """Same scan as _read_env_keys but returns name→value (for seed-keys
-    only — never log or transmit values besides the explicit api_keys path).
-    """
-    out: dict[str, str] = {}
-    for path in _env_file_paths():
-        if not path.exists():
-            continue
-        try:
-            for raw in path.read_text(encoding="utf-8", errors="ignore").splitlines():
-                line = raw.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                k, v = line.split("=", 1)
-                k = k.strip()
-                v = v.strip().strip('"').strip("'")
-                if k and k not in out:
-                    out[k] = v
-        except Exception:
-            continue
-    return out
 
 
 def cmd_status(_args) -> int:
