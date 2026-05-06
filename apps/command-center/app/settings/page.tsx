@@ -17,13 +17,16 @@ import { chatAgentKeys } from "@/lib/agent-personas";
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const profile = await getActiveProfile();
-  const integrations = await integrationsHealth(profile?.tenant_id || null);
-  const tenant = profile?.tenant_id ? await getTenant(profile.tenant_id) : null;
-  const templates = profile ? await getPlanTemplates(profile.id) : [];
+  const safe = async <T,>(p: Promise<T>, fallback: T): Promise<T> => p.catch(() => fallback);
+  const profile = await safe(getActiveProfile(), null);
+  const [integrations, tenant, templates, connectedAiSet] = await Promise.all([
+    safe(integrationsHealth(profile?.tenant_id || null), []),
+    profile?.tenant_id ? safe(getTenant(profile.tenant_id), null) : Promise.resolve(null),
+    profile ? safe(getPlanTemplates(profile.id), []) : Promise.resolve([]),
+    safe(aiServicesWithKey(profile?.tenant_id || null), new Set<string>()),
+  ]);
   const weekday = templates.find((t) => t.kind === "weekday") || null;
   const weekend = templates.find((t) => t.kind === "weekend") || null;
-  const connectedAiSet = await aiServicesWithKey(profile?.tenant_id || null);
 
   return (
     <div className="space-y-6 animate-fade-in">

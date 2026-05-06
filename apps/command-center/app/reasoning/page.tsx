@@ -7,9 +7,10 @@ import { commandsForAgents } from "@/lib/slash-commands";
 export const dynamic = "force-dynamic";
 
 export default async function ReasoningPage() {
+  const safe = async <T,>(p: Promise<T>, fallback: T): Promise<T> => p.catch(() => fallback);
   const [profile, decisions] = await Promise.all([
-    getActiveProfile(),
-    recentDecisions(20),
+    safe(getActiveProfile(), null),
+    safe(recentDecisions(20), []),
   ]);
 
   const enabled = profile?.agents_enabled || ["bravo"];
