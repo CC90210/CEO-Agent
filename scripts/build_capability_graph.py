@@ -83,6 +83,7 @@ CAPABILITIES.md. The graph IS the registry.
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import re
 import sys
@@ -141,16 +142,23 @@ def _read_frontmatter(path: Path) -> tuple[dict[str, Any], str]:
 
 
 def _python_docstring(path: Path) -> str:
-    """Extract the module-level docstring's first paragraph."""
+    """Extract the module-level docstring's first paragraph.
+
+    Uses ``ast.get_docstring`` so shebangs (``#!/usr/bin/env python3``) and
+    encoding declarations (``# -*- coding: utf-8 -*-``) before the docstring
+    do not falsely trigger the missing-docstring drift signal.
+    """
     try:
         text = path.read_text(encoding="utf-8", errors="ignore")
     except Exception:  # noqa: BLE001
         return ""
-    m = re.match(r'^\s*("""|\'\'\')(.*?)\1', text, re.DOTALL)
-    if not m:
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
         return ""
-    doc = m.group(2).strip()
-    # First paragraph
+    doc = ast.get_docstring(tree) or ""
+    if not doc:
+        return ""
     return doc.split("\n\n", 1)[0].strip().replace("\n", " ")[:280]
 
 

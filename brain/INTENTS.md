@@ -88,6 +88,72 @@ Allowed action types: `update_profile`, `toggle_agent_enabled`, `set_primary_age
 
 ---
 
+## "Audit the system" / "health check"
+
+1. Run `python scripts/self_audit.py --json`. Health score < 90 → drift to investigate. Health score < 70 → STOP and surface to CC before any new work.
+2. Drill into specific drift items: `python scripts/capability_query.py drift`.
+3. Check freshness: `python scripts/memory_aging.py stale --days 7 --json` for memory. `python scripts/fleet_health.py --json` for cross-agent rollup.
+4. If self_audit flags MCP config drift: `mcp_configs_in_sync: false` → reconcile `.claude/mcp.json` ↔ `.vscode/mcp.json` ↔ `~/.gemini/settings.json`. Credentials live ONLY in `.env.agents`.
+5. Confirm in chat: health score, top 3 issues, recommended fix order, whether you can fix them yourself or need CC approval.
+
+---
+
+## "Clean up the repo" / "delete junk"
+
+1. Default to dry-run: `python scripts/system_cleanup.py` (no `--apply` flag = report only). Read the output before doing anything.
+2. The script preserves the active repo via a safety guard (V6.1.1). It targets pip/npm caches, redundant install clones, old `tmp/` files, `__pycache__` trees, scaffold backups.
+3. If the report includes anything outside its allowlist, STOP and surface to CC. Don't manually `rm -rf` to "help."
+4. Apply with `python scripts/system_cleanup.py --apply` ONLY after CC confirms.
+5. After apply: `git status` to confirm only intended deletions, then re-run `self_audit.py` to verify health didn't regress.
+
+---
+
+## "What's the current date / day-of-week / time?"
+
+1. Compute. Never quote from prompt context, system reminders, or memory.
+   - Date: `python -c "from datetime import date; print(date.today().isoformat())"`
+   - Day name: `python -c "from datetime import date; print(date.today().strftime('%A'))"`
+   - Days remaining to a deadline: `python -c "from datetime import date; print((date(YYYY,M,D)-date.today()).days)"`
+2. State the result directly. Day-of-week hallucination is a 3-time logged repeat offense — treat this rule as load-bearing, not optional.
+3. For "what's the current status?": run `read_file("brain/STATE.md")` AND verify its `last_updated` against today via `memory_aging.py stale --days 7 --json`. If stale, say so and ask CC for current state.
+
+---
+
+## "Create a new skill / agent / workflow"
+
+1. Read `skills/agent-forge/SKILL.md` for the canonical creation flow.
+2. Check overlap first: `python scripts/register_skill.py route "<the task this skill would handle>" --json`. If the resolver already returns a high-confidence match, **enhance the existing skill** instead of creating a new one. Overlap > 50% = enhance, not create.
+3. For a new skill: `python scripts/register_skill.py create <skill-slug>` scaffolds `skills/<slug>/SKILL.md` with proper frontmatter (name, description, triggers, owner, tier, risk).
+4. For a new sub-agent: drop the file in `agents/<name>.md` (canonical Bravo persona, full Decision Autonomy / Quality Gates / Anti-Patterns sections) OR `.claude/agents/<name>.md` (Claude Code native one-shot spawn). Read `brain/ORCHESTRATION.md` "Layer Selection Matrix" before deciding which.
+5. For a new workflow: drop `.agents/workflows/<verb>.md`. The trigger is `/<verb>` in chat.
+6. After creating any of the above: `python scripts/register_skill.py sync-all --deactivate-missing --json` to refresh the runtime catalog. Then `python scripts/build_capability_graph.py` to update the graph.
+7. Update `brain/WHEN_TO_USE_SKILLS.md` (skills only — add a row to the right section with trigger phrase + don't-use-when guard).
+
+---
+
+## "Diagnose why you made a mistake"
+
+1. Read `memory/MISTAKES.md` to see whether this exact failure mode is already logged. If yes, the prevention is already there — apply it.
+2. If new: write a new entry at the top of MISTAKES.md with these exact subsections:
+   - **Failure:** (1-2 sentences — what went wrong, observably)
+   - **Why it slipped:** (root cause, not a symptom — keep asking "but why?" until you hit something a person can change)
+   - **Prevention:** (1-N concrete rules; ideally one is a *system rail* like a hook, lint check, or test, not just "I will remember")
+   - **Tag:** (semantic tag like `cold-outreach-blocker`, `tz-bug`, `repeat-offense`)
+3. If the prevention requires a code change (lint hook, regression test, schema migration), do that change in the same turn — don't leave it as an aspirational rule.
+4. If the mistake is the third+ instance of the same pattern, escalate: it's a structural issue, not a discipline issue. Add a router entry, EXECUTION_RULES rule, or hook to make it mechanically impossible.
+5. See `brain/BRAIN_LOOP.md` Reflexion section for the full multi-step protocol when the failure was costly.
+
+---
+
+## "Check whether memories are stale"
+
+1. Run `python scripts/memory_aging.py stale --days 7 --json`. Output is a per-line breakdown: file, line number, days since last referenced date, the title.
+2. Cross-check frontmatter: each `memory/*.md` should have `last_updated:` and `freshness_threshold_days:`. If a file is missing either, that's drift — patch the frontmatter.
+3. For body-level staleness (a fresh-stamped file with a stale sentence inside, e.g. an outdated Sprint roadmap inside a fresh ACTIVE_TASKS): treat the sentence as archived, not the file. Move it to `memory/ARCHIVES/<YYYY-MM-topic>.md` with a header explaining when and why it was archived.
+4. NEVER quote a stale memory as current truth. NEVER silently "refresh" the timestamp without verifying the body is actually current — that just moves the lie forward.
+
+---
+
 ## How to extend this file
 
 Add new sections when an intent recurs. Sections are first-person playbooks, not reference docs — write them as if instructing the agent on its first day. Keep each section under ~15 lines so it's cheap to load.

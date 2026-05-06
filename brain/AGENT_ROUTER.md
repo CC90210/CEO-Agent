@@ -34,12 +34,19 @@ The operator also has a profile row in Supabase `user_profiles` keyed by `auth_u
 
 ## Where you run
 
-On the operator's machine via `bravo bridge serve`. You have full read access to this repo's tree, scoped by `under_root()` to prevent path traversal. Sibling agents live in:
+On the operator's machine via `bravo bridge serve`. You have full read access to this repo's tree, scoped by `under_root()` to prevent path traversal.
+
+**Peer agents (the C-Suite + life — the canonical 4):**
 
 - **Atlas** (CFO) at `~/APPS/CFO-Agent`
 - **Maven** (CMO) at `~/CMO-Agent`
-- **Aura** (life) at `~/AURA`
-- **Hermes** (commerce) at `~/hermes`
+- **Aura** (life / home) at `~/AURA`
+
+These three are the peer agents per [brain/C_SUITE_ARCHITECTURE.md](C_SUITE_ARCHITECTURE.md). Each owns its own `brain/`, `memory/`, and `data/pulse/<agent>_pulse.json`. You read theirs, never write.
+
+**Client commerce product (NOT a peer):**
+
+- **Hermes** at `~/hermes` — CC's commerce-agent product (Greek god of commerce, fits the family naming). It's a deliverable for clients (e.g. Emmanuel Lowinger), not a sibling C-Suite agent. Treat it like any other app in `brain/APP_REGISTRY.md`: `cd` into the repo before making changes, log the work in `memory/SESSION_LOG.md`. Don't read/write Hermes files when working business ops in this repo.
 
 When the operator switches you in the chat picker, the bridge `cd`s to that repo and the new agent's `CLAUDE.md` becomes your boot file.
 
@@ -70,6 +77,13 @@ When the operator switches you in the chat picker, the bridge `cd`s to that repo
 | Debugging | `skills/systematic-debugging/SKILL.md` | `memory/MISTAKES.md` |
 | Cron / background workers | `skills/background-workers/SKILL.md` | `apps/command-center/vercel.json` |
 | Dashboard structure | `apps/command-center/lib/agent-roots.ts` | the relevant `apps/command-center/app/<route>/page.tsx` |
+| **Audit the system / health check** | (run `python scripts/self_audit.py`) | `brain/ORCHESTRATION.md` |
+| **Clean up the repo / delete junk** | (run `python scripts/system_cleanup.py` — dry-run by default) | `brain/EXECUTION_RULES.md` Rule 9 |
+| **Current date / day-of-week / time** | (run the date snippet in `brain/EXECUTION_RULES.md` Rule 11 — never quote from prompt) | `brain/STATE.md` |
+| **Create a new skill / agent / workflow** | `skills/agent-forge/SKILL.md` | `skills/<name>/SKILL.md` after `python scripts/register_skill.py create` |
+| **Diagnose why you made a mistake** | `memory/MISTAKES.md` | `brain/BRAIN_LOOP.md` (Reflexion section) |
+| **Check whether memories are stale** | (run `python scripts/memory_aging.py stale --days 7 --json`) | `brain/EXECUTION_RULES.md` Rule 11 |
+| **Update memory** | `brain/EXECUTION_RULES.md` Rule 0 | (write to `memory/<file>.md`, then `python scripts/state_sync.py --note "<summary>"`) |
 
 ---
 
@@ -97,9 +111,10 @@ When the operator switches you in the chat picker, the bridge `cd`s to that repo
 | **Atlas** (CFO) | `~/APPS/CFO-Agent` | Capital, tax, trades, FIRE, cash-flow, broker reconcile |
 | **Maven** (CMO) | `~/CMO-Agent` | Content production, paid ads, brand voice, funnels, video pipeline |
 | **Aura** (life) | `~/AURA` | Smart home, habits, sleep, voice, daily routines |
-| **Hermes** (commerce) | `~/hermes` | PO → POS → invoice, EDI, chargebacks, Walgreens vendor flow |
 
 When the operator switches agents in the chat picker, the bridge `cd`s to that repo and the new agent's `CLAUDE.md` becomes the entry. You don't reach into their files — they reach into theirs.
+
+**Hermes is not a sibling.** It's CC's commerce-agent product (a deliverable for clients like Emmanuel Lowinger). Treat it like any other entry in `brain/APP_REGISTRY.md`: `cd` into `~/hermes` to make changes, log in `memory/SESSION_LOG.md`. Don't delegate business-ops work to Hermes.
 
 ---
 
