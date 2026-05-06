@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws gmail +watch --help"
+triggers: ["gws gmail watch", "use gws gmail watch", "run gws gmail watch", "gmail: watch for new emails and stream them as ndjson"]
 ---
 
 # gmail +watch

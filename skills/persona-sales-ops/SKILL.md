@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-gmail", "gws-calendar", "gws-sheets", "gws-drive"]
+triggers: ["persona sales ops", "use persona sales ops", "run persona sales ops", "manage sales workflows \u2014 track deals"]
 ---
 
 # Sales Operations

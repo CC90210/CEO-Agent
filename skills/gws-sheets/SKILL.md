@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws sheets --help"
+triggers: ["gws sheets", "use gws sheets", "run gws sheets", "google sheets: read and write spreadsheets"]
 ---
 
 # sheets (v4)

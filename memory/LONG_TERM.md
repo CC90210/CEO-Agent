@@ -39,7 +39,7 @@ freshness_threshold_days: 90
 | primary retainer relationship is friend-based, no formal contract. $2,500/mo flat + 15% rev share on Skool community MRR. He outsources a lot of work to CC. | 0.95 | CC stated 2026-03-26 | 2026-03-26 |
 | primary retainer coaching referral: 2 companies (tugboat + real estate) want coaching on AI/automation systems. $5,000 each, 16 sessions total, 1hr/session. $10K upfront cash opportunity. | 0.95 | CC stated 2026-03-26 | 2026-03-26 |
 | Adon is 50-50 partner on PropFlow only. CC owns 100% of OASIS AI. Adon's role: networking, connections, marketing. Technically 3-4 months behind CC. | 0.95 | CC stated 2026-03-26 | 2026-03-26 |
-| CC's #1 priority is CONTENT CREATION for personal brand (Kona Makana) to build inbound funnel. Content → leads → sales. | 0.95 | CC stated 2026-03-26 | 2026-03-26 |
+| CC's #1 priority is CONTENT CREATION for personal brand (Conaugh McKenna) to build inbound funnel. Content → leads → sales. | 0.95 | CC stated 2026-03-26 | 2026-03-26 |
 | CC's role: content creation, marketing, sales, face-to-face. Everything else = Bravo handles autonomously. | 0.95 | CC stated 2026-03-26 | 2026-03-26 |
 | Monthly overhead: ~$184 USD (Claude $140, Supabase $25, Hostinger/n8n $14, ElevenLabs ~$5 maybe cancelled) | 0.90 | CC stated 2026-03-26 | 2026-03-26 |
 | [REDACTED] and Vortex leads are effectively dead. CC wants to start fresh with inbound funnel approach. | 0.85 | CC stated 2026-03-26 | 2026-03-26 |

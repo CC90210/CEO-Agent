@@ -9,6 +9,7 @@ metadata:
     domain: "productivity"
     requires:
       bins: ["gws"]
+triggers: ["google workspace recipes", "use google workspace recipes", "run google workspace recipes"]
 ---
 
 # Google Workspace Recipes — Cookbook

@@ -6,6 +6,7 @@ description: >
   system health without manual intervention. Use when: configuring workers, debugging
   worker failures, adding new automated tasks. Skip when: workers are running correctly.
 tags: [automation, workers, system-health]
+triggers: ["background workers", "use background workers", "run background workers"]
 ---
 
 # Background Workers — Automated System Maintenance

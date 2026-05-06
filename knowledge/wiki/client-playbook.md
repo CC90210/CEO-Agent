@@ -22,7 +22,7 @@ genuine trust. Speed and quality are not in conflict when the system is right.
 ## Stage 1 — Lead Generation
 
 **Primary source (priority 1):** Inbound via CC content and CC Funnel.
-- CC creates video/content on personal brand (Kona Makana)
+- CC creates video/content on personal brand (Conaugh McKenna)
 - Content drives to CC Funnel (`cc-funnel.vercel.app`)
 - Funnel captures lead → Supabase → Telegram notification to CC → booking CTA
 

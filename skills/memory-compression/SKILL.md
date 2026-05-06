@@ -2,6 +2,7 @@
 name: memory-compression
 description: claude-mem plugin — automatic cross-session memory compression and injection via SQLite + semantic search. Captures tool usage, compresses observations, and injects relevant context at session start.
 tags: [skill, memory, plugin, claude-mem]
+triggers: ["memory compression", "use memory compression", "run memory compression"]
 ---
 
 # Memory Compression (claude-mem)

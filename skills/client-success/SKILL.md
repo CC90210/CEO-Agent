@@ -2,6 +2,7 @@
 name: client-success
 description: Client health scoring, churn prediction, retention playbooks, NPS framework, and expansion signals. Keeps OASIS AI clients healthy, growing, and referring.
 tags: [skill, client-success, retention]
+triggers: ["client success", "use client success", "run client success", "client health scoring"]
 ---
 
 # Client Success — Health Scoring and Retention System

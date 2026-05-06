@@ -70,7 +70,7 @@ aliases:
 - [[APPS_CONTEXT/OASIS_AI_CLAUDE]] — OASIS AI Solutions
 - [[APPS_CONTEXT/PROPFLOW_CLAUDE]] — PropFlow
 - [[APPS_CONTEXT/NOSTALGIC_REQUESTS_CLAUDE]] — Nostalgic Requests
-- [[APPS_CONTEXT/CONTENT_BRAND_CLAUDE]] — Kona Makana
+- [[APPS_CONTEXT/CONTENT_BRAND_CLAUDE]] — Conaugh McKenna
 
 ### Resources
 - [[proposals/README]] — Generated proposals directory

@@ -2,6 +2,7 @@
 name: send-gateway
 description: The single outbound chokepoint for every autonomous action Bravo performs on behalf of CC. Enforces CASL compliance, cooldown windows, daily caps, and cross-engine idempotency architecturally — callers cannot bypass it.
 disable-model-invocation: true
+triggers: ["send gateway", "use send gateway", "run send gateway"]
 ---
 
 # Send Gateway — the only outbound path
@@ -40,7 +41,7 @@ result = send(
     subject="Quick question about your HVAC scheduling",
     body_text="Hi Jane, ...",
     body_html=None,                          # optional
-    brand="oasis",                           # oasis | kona_makana | nostalgic
+    brand="oasis",                           # oasis | conaugh_mckenna | nostalgic
     intent="commercial",                     # commercial | transactional | internal
     cooldown_hours=None,                     # None = DEFAULT_COOLDOWNS[channel]
     metadata={"campaign": "hvac-q2-2026"},   # free-form dict persisted in ledger
@@ -84,7 +85,7 @@ The `brand` keyword selects CASL footer sender name + business name + address. A
 | Brand | Business name | Sender | Use for |
 |---|---|---|---|
 | `oasis` (default) | OASIS AI Solutions | Conaugh McKenna | Agency outreach, client comms |
-| `kona_makana` | Kona Makana | CC (Kona Makana) | Personal brand, content, DJ inquiries |
+| `conaugh_mckenna` | Conaugh McKenna | CC (Conaugh McKenna) | Personal brand, content, DJ inquiries |
 | `nostalgic` | Nostalgic Requests | Conaugh McKenna | Nostalgic Requests product mail |
 
 ## Cooldown defaults

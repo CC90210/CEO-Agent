@@ -32,7 +32,7 @@ From any engine::
         body_html="<p>Hi Jane ...</p>",
         lead_id="<uuid>",               # if known; auto-resolved if omitted + email given
         agent_source="outreach_engine",  # who is calling
-        brand="oasis",                   # 'oasis' | 'kona_makana' | 'nostalgic'
+        brand="oasis",                   # 'oasis' | 'conaugh_mckenna' | 'nostalgic'
         intent="commercial",             # 'commercial' | 'transactional' | 'internal'
         cooldown_hours=None,             # None -> DEFAULT_COOLDOWNS[channel]
         dry_run=False,
@@ -60,7 +60,7 @@ DESIGN DECISIONS
 2. Architectural idempotency. The cooldown check happens INSIDE send(),
    reading from lead_interactions. Callers cannot forget to check because
    there is no separate check-then-act API.
-3. Multi-brand by construction. brand="oasis"|"kona_makana"|"nostalgic" lets
+3. Multi-brand by construction. brand="oasis"|"conaugh_mckenna"|"nostalgic" lets
    CC's six business brands share this path while still speaking in their
    own voices. Brand identity flows into CASL footer sender_name + business_name.
 4. Transactional exemption. intent="transactional" skips the suppression
@@ -193,11 +193,11 @@ BRAND_IDENTITY: dict[str, dict[str, str]] = {
         "business_address": "OASIS AI Solutions, Collingwood, ON, Canada",
         "from_display": "Conaugh McKenna — OASIS AI",
     },
-    "kona_makana": {
-        "business_name": "Kona Makana",
-        "sender_name": "CC (Kona Makana)",
-        "business_address": "Kona Makana, Collingwood, ON, Canada",
-        "from_display": "Kona Makana",
+    "conaugh_mckenna": {
+        "business_name": "Conaugh McKenna",
+        "sender_name": "CC (Conaugh McKenna)",
+        "business_address": "Conaugh McKenna, Collingwood, ON, Canada",
+        "from_display": "Conaugh McKenna",
     },
     "nostalgic": {
         "business_name": "Nostalgic Requests",
@@ -1323,7 +1323,7 @@ def send(
     # sends (no body_html → no booking link button, no branded signature, looks
     # like spam). Architectural rule: every OASIS commercial send MUST include
     # HTML. Transactional intent (booking confirmations / reminders) and other
-    # brands (kona_makana, nostalgic) are exempt — short contextual sends and
+    # brands (conaugh_mckenna, nostalgic) are exempt — short contextual sends and
     # non-OASIS brands don't need the marketing chrome. Tests can opt out by
     # passing intent="transactional" or providing body_html.
     if (channel == "email" and intent == "commercial" and brand == "oasis"

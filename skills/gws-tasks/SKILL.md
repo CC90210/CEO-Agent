@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws tasks --help"
+triggers: ["gws tasks", "use gws tasks", "run gws tasks", "google tasks: manage task lists and tasks"]
 ---
 
 # tasks (v1)

@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws modelarmor +sanitize-prompt --help"
+triggers: ["gws modelarmor sanitize prompt", "use gws modelarmor sanitize prompt", "run gws modelarmor sanitize prompt"]
 ---
 
 # modelarmor +sanitize-prompt

@@ -6,6 +6,7 @@ description: >
   and session lifecycle management. Use when: configuring hooks, debugging hook failures,
   adding new automation triggers. Skip when: hooks are already working correctly.
 tags: [automation, hooks, orchestration]
+triggers: ["hooks automation", "use hooks automation", "run hooks automation"]
 ---
 
 # Hooks Automation — Intelligent Operation Lifecycle

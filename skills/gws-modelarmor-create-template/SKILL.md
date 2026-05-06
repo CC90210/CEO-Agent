@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws modelarmor +create-template --help"
+triggers: ["gws modelarmor create template", "use gws modelarmor create template", "run gws modelarmor create template", "google model armor: create a new model armor template"]
 ---
 
 # modelarmor +create-template

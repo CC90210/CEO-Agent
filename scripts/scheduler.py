@@ -175,6 +175,8 @@ def execute_job(job: dict, env_vars: dict[str, str]) -> str:
             return run_funnel_fast_poll(env_vars)
         elif action_type == "lead_outreach_batch":
             return run_lead_outreach_batch(env_vars)
+        elif action_type == "agent_self_improvement":
+            return run_agent_self_improvement(env_vars)
         else:
             return f"unknown_action_type: {action_type}"
     except Exception as exc:
@@ -316,14 +318,104 @@ def run_stripe_sync(env_vars: dict) -> str:
     return "Stripe: " + ", ".join(parts)
 
 
+def _send_digest(msg: str, category: str, skip_phrase: str) -> str:
+    """Send a multi-line digest via notify() and return a skip-phrase.
+
+    The scheduler wrapper at the bottom of run_due_jobs() truncates
+    result_msg to 200 chars. Multi-line digests have to bypass it by
+    notifying directly, then returning a routine-prefix string registered
+    in routine_prefixes so the wrapper stays quiet.
+    """
+    notify(msg, category=category, silent=False)
+    return skip_phrase
+
+
 def run_revenue_report(env_vars: dict) -> str:
-    """Generate MRR dashboard summary."""
-    return run_script("revenue_engine.py", ["--json", "dashboard"])
+    """Generate MRR dashboard summary as a clean Telegram message."""
+    raw = run_script("revenue_engine.py", ["--json", "dashboard"])
+    if not raw or not raw.strip().startswith("{"):
+        return f"ERROR: revenue dashboard returned non-JSON: {raw[:200]}"
+    try:
+        d = json.loads(raw)
+    except (json.JSONDecodeError, TypeError) as exc:
+        return f"ERROR: revenue dashboard JSON parse failed: {exc}"
+
+    mrr = d.get("mrr", 0)
+    goal = d.get("mrr_goal", 5000)
+    pct = d.get("mrr_pct", 0)
+    gap = d.get("gap", 0)
+    clients_needed = d.get("clients_needed", 0)
+    pipeline = d.get("pipeline", 0)
+    leads = d.get("leads", 0)
+    conv = d.get("conversion_rate", 0)
+    last = d.get("last_payment") or {}
+
+    bar_len = 10
+    filled = int(round(min(pct, 100) / 100 * bar_len))
+    bar = "█" * filled + "░" * (bar_len - filled)
+
+    lines = [
+        "📊 Weekly MRR Report",
+        "",
+        f"MRR: ${mrr:,.0f} / ${goal:,.0f}  ({pct:.1f}%)",
+        f"{bar}",
+        f"Gap to goal: ${gap:,.0f}  →  {clients_needed} client(s) needed",
+        "",
+        f"Pipeline value: ${pipeline:,.0f}",
+        f"Active leads: {leads}",
+        f"Conversion: {conv:.1f}%",
+    ]
+    if last:
+        lines.append(f"Last payment: ${last.get('amount', 0):,.0f} from {last.get('client', '?')} on {last.get('date', '?')}")
+    return _send_digest("\n".join(lines), "revenue", "revenue-report-handled-by-digest")
+
+
+def run_agent_self_improvement(env_vars: dict) -> str:
+    """Run cross-agent self-improvement sweep (Bravo + Atlas + Maven).
+
+    Delegates to scripts/agent_self_improvement.py for the full digest, then
+    sends it via notify() directly (wrapper truncates at 200 chars).
+    """
+    out = run_script("agent_self_improvement.py", ["run"])
+    if not out or not out.strip():
+        return "ERROR: agent_self_improvement returned empty output"
+    return _send_digest(out.strip(), "system", "self-improvement-handled-by-digest")
 
 
 def run_pipeline_review(env_vars: dict) -> str:
-    """Generate pipeline summary."""
-    return run_script("lead_engine.py", ["--json", "pipeline"])
+    """Generate pipeline summary as a clean Telegram message."""
+    raw = run_script("lead_engine.py", ["--json", "pipeline"])
+    if not raw or not raw.strip().startswith("{"):
+        return f"ERROR: pipeline review returned non-JSON: {raw[:200]}"
+    try:
+        d = json.loads(raw)
+    except (json.JSONDecodeError, TypeError) as exc:
+        return f"ERROR: pipeline review JSON parse failed: {exc}"
+
+    stage_order = ["new", "contacted", "qualified", "proposal", "won", "lost"]
+    stage_emoji = {
+        "new": "🆕",
+        "contacted": "📨",
+        "qualified": "🎯",
+        "proposal": "📝",
+        "won": "✅",
+        "lost": "❌",
+    }
+    total = sum((d.get(s, {}) or {}).get("count", 0) for s in stage_order)
+
+    lines = ["🎯 Weekly Pipeline Review", ""]
+    for stage in stage_order:
+        info = d.get(stage, {}) or {}
+        count = info.get("count", 0)
+        score = info.get("avg_score")
+        score_txt = f" · avg score {score:.0f}" if score is not None else ""
+        lines.append(f"{stage_emoji[stage]} {stage.capitalize():<10} {count}{score_txt}")
+    lines.append("")
+    lines.append(f"Total in pipeline: {total}")
+    qualified = (d.get("qualified", {}) or {}).get("count", 0)
+    if qualified:
+        lines.append(f"Action: {qualified} qualified lead(s) ready to close — surface them today.")
+    return _send_digest("\n".join(lines), "lead", "pipeline-review-handled-by-digest")
 
 
 def run_nurture_check(env_vars: dict) -> str:
@@ -559,6 +651,7 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
             "funnel_fast_poll": "lead",
             "content_generate": "content",
             "content_repurpose": "content",
+            "agent_self_improvement": "system",
         }
         cat = category_map.get(action_type, "system")
 
@@ -580,6 +673,9 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
             "funnel-sync-handled",
             "fast-poll: 0 new",
             "fast-poll-handled",
+            "revenue-report-handled-by-digest",
+            "pipeline-review-handled-by-digest",
+            "self-improvement-handled-by-digest",
             # Generic empty-result signals
             "no content due",
             "no leads",

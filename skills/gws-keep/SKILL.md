@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws keep --help"
+triggers: ["gws keep", "use gws keep", "run gws keep", "manage google keep notes"]
 ---
 
 # keep (v1)

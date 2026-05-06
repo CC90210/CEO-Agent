@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws calendar --help"
+triggers: ["gws calendar", "use gws calendar", "run gws calendar", "google calendar: manage calendars and events"]
 ---
 
 # calendar (v3)

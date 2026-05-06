@@ -12,6 +12,7 @@ tags: [docs, index, hub]
 - [[docs/[REDACTED]_ROI_Analysis]] — [REDACTED] prospect ROI analysis
 - [[docs/MOBILE_TERMINAL]] — Mobile terminal setup guide
 - [[docs/V6_ARCHITECTURE]] — V6.0 principal-architect design doc (pgvector + LISTEN/NOTIFY + Hetzner VPS)
+- [[docs/AGENT_RUNNER_DESIGN]] — Agent runner backend design for the Command Center chat widget
 - [[docs/N8N_INBOUND_INTEGRATION]] — n8n inbound integration patterns
 - [[docs/AGENT_REPO_CROSS_ANALYSIS_2026-04-22]] — Cross-repo gap analysis (historical snapshot)
 

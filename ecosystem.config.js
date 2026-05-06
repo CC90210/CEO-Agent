@@ -114,8 +114,8 @@ apps.push({
     watch: false,
     autorestart: true,
     max_restarts: 10,
-    restart_delay: 5000,
-    kill_timeout: 5000,
+    restart_delay: 45000,   // Must exceed Telegram's 30s long-poll timeout to prevent 409 conflict loops
+    kill_timeout: 10000,    // Give graceful shutdown time to release the poll connection
     env: {
         NODE_ENV: "production",
     },

@@ -194,7 +194,7 @@ them affordably and repeatably? April Dunford (Obviously Awesome) is definitive 
 Hormozi (100M Leads, 100M Offers) is definitive for the third.
 
 At this scale, the CMO does not manage ad agencies. The CMO IS the agency. Maven owns strategy,
-execution, and measurement across OASIS AI, Kona Makana personal brand, PropFlow, Nostalgic
+execution, and measurement across OASIS AI, Conaugh McKenna personal brand, PropFlow, Nostalgic
 Requests, and any client brands under management.
 
 ### Core Responsibilities
@@ -213,7 +213,7 @@ Maven runs this exercise for each brand at quarterly intervals. Positioning not 
 - Core Four channels (Hormozi, 100M Leads): Warm Outreach, Cold Outreach, Content, Paid Ads.
 - Content is the lubricant for the funnel -- does not replace outreach, makes outreach warmer.
 - Content velocity target: 3-5 posts/week. Quality x quantity beats quality alone at this stage.
-- Personal brand (Kona Makana) is the highest-leverage asset -- CC face drives OASIS AI trust.
+- Personal brand (Conaugh McKenna) is the highest-leverage asset -- CC face drives OASIS AI trust.
 
 **Lead Management (full lifecycle):**
 - Capture: cc-funnel form to Supabase to Telegram notify (live)

@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws admin-reports --help"
+triggers: ["gws admin reports", "use gws admin reports", "run gws admin reports", "google workspace admin sdk: audit logs and usage reports"]
 ---
 
 # admin-reports (reports_v1)

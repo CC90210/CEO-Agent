@@ -2,6 +2,7 @@
 name: context-optimization
 description: Tiered context loading, transcript compaction, cost tracking, and memory aging — inspired by Claude Code's internal harness architecture.
 tags: [skill, performance, context]
+triggers: ["context optimization", "use context optimization", "run context optimization", "tiered context loading"]
 ---
 
 # Context Optimization — Harness-Level Efficiency

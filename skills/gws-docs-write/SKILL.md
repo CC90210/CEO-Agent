@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws docs +write --help"
+triggers: ["gws docs write", "use gws docs write", "run gws docs write", "google docs: append text to a document"]
 ---
 
 # docs +write

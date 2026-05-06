@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws workflow +file-announce --help"
+triggers: ["gws workflow file announce", "use gws workflow file announce", "run gws workflow file announce", "google workflow: announce a drive file in a chat space"]
 ---
 
 # workflow +file-announce

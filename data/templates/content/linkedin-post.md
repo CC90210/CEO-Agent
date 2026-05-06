@@ -1,7 +1,7 @@
 ---
 name: LinkedIn Post Templates
 type: content
-use_case: LinkedIn posts for CC's personal brand (Kona Makana / OASIS AI)
+use_case: LinkedIn posts for CC's personal brand (Conaugh McKenna / OASIS AI)
 variables: [hook, story, insight, cta]
 tags: [template, content, linkedin]
 ---

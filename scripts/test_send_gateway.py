@@ -525,7 +525,7 @@ class TestSendGateway(unittest.TestCase):
             )
         self.assertEqual(r["status"], "sent", r)
 
-    # 6d. Non-OASIS brand is exempt — kona_makana / nostalgic may be plain text
+    # 6d. Non-OASIS brand is exempt — conaugh_mckenna / nostalgic may be plain text
     def test_06d_non_oasis_text_only_passes_gate(self):
         with self._patch_smtp_ok(), self._patch_suppress(False):
             r = self.sg.send(
@@ -535,7 +535,7 @@ class TestSendGateway(unittest.TestCase):
                 subject="hi",
                 body_text="from kona",
                 body_html=None,
-                brand="kona_makana",
+                brand="conaugh_mckenna",
                 _no_html_for_test=True,
                 db=self.db,
             )
@@ -625,21 +625,21 @@ class TestSendGateway(unittest.TestCase):
     # 11. Brand identity selects the right CASL sender block
     def test_11_brand_identity(self):
         with self._patch_smtp_ok(), self._patch_suppress(False):
-            # Kona Makana brand should flow a different sender name
+            # Conaugh McKenna brand should flow a different sender name
             r = self.sg.send(
                 channel="email",
                 agent_source="test_harness",
                 to_email="jane@acme.example",
                 subject="personal brand",
                 body_text="hi",
-                brand="kona_makana",
+                brand="conaugh_mckenna",
                 db=self.db,
             )
         self.assertEqual(r["status"], "sent")
         # Verify metadata carried the brand
         ix = self.db.tables["lead_interactions"].rows[-1]
         meta = ix.get("metadata") or {}
-        self.assertEqual(meta.get("brand"), "kona_makana")
+        self.assertEqual(meta.get("brand"), "conaugh_mckenna")
 
     # 12. Lead auto-creation when email is new
     def test_12_auto_create_lead(self):
