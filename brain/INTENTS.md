@@ -91,3 +91,7 @@ Allowed action types: `update_profile`, `toggle_agent_enabled`, `set_primary_age
 ## How to extend this file
 
 Add new sections when an intent recurs. Sections are first-person playbooks, not reference docs — write them as if instructing the agent on its first day. Keep each section under ~15 lines so it's cheap to load.
+
+## Obsidian Links
+- [[brain/AGENT_ROUTER]] | [[brain/WHEN_TO_USE_SKILLS]] | [[brain/EXECUTION_RULES]]
+- [[skills/outreach-send/SKILL]] | [[skills/code-review/SKILL]] | [[skills/ship/SKILL]]
