@@ -2,8 +2,9 @@
 name: Cold Call Script V1
 description: Canonical memorize-grade NEPQ cold call script for OASIS AI. Five stages, under 3 minutes, AI-services-tailored, paired with the new 14-day free pilot deal architecture.
 type: sales-asset
-version: 1.0
+version: 1.1
 date_created: 2026-04-30
+last_updated: 2026-05-06
 author: CC + Bravo
 ---
 
@@ -86,6 +87,93 @@ If running over 4 minutes → cut Stage 3 talking. Prospect should be 65%+ of th
 
 ---
 
+## Secondary Disarm — When They Double Down on "We're Good"
+
+> Trigger: you ran the primary NEPQ diffuse ("Out of curiosity, is it that AI feels too early, or you've tried something before…") and they bounced it: **"No, we're not interested. We're good."** They're locked. Pushing harder = dead call. The move is to drop the rope, validate, and isolate ONE specific operational gap they almost certainly have.
+
+### Strategy: Agree, Validate, Isolate the Gap
+
+**Three beats — run in sequence, do not skip:**
+
+1. **AGREE** — fully release the pressure. *"Totally fair — sounds like you've got it dialed."*
+2. **VALIDATE** — credit them for being a serious operator. *"Honestly, the [HVAC / plumbing / landscaping] guys I talk to who say that usually do have most of it covered."*
+3. **ISOLATE** — fire one surgical, granular question. NOT a sales question. A curiosity question that surfaces a specific hole. *"The one place I keep finding gaps even in the tightest shops is [scenario]. At your shop — [granular question]?"*
+
+The granular question is the entire weapon. It must be so specific they can't deflect with "we have a system." They either know the answer (proves they've thought about it — open them up) or they pause (proves the gap exists — they sell themselves).
+
+### Granular Disarm Questions — Home Services Bank
+
+Pick ONE based on what you've heard so far. Never fire more than two before pivoting or exiting.
+
+**After-hours & emergency routing**
+- "Does your current system route 2 AM emergency calls directly to the on-call tech's mobile, or do they hit voicemail and get checked in the morning?"
+- "When a furnace dies Saturday at 6 PM — walk me through the path from the customer's phone call to a tech showing up. How many handoffs in that chain?"
+- "On a stat holiday weekend, who's monitoring the inbound line — a person, an answering service, or your voicemail?"
+
+**Speed-to-lead (the 5-minute rule)**
+- "A website form fills at 7:43 PM on a Friday. Who responds, and how fast does it actually go out? Industry data says under 5 minutes converts 21× more than 30+, I'm always curious where shops actually land."
+- "When your front desk is already on a call and a second call hits, does it route to a backup line or dump to voicemail?"
+- "Roughly what percentage of your inbound calls during business hours get picked up live versus going to voicemail? Most shops I see are at 70–75%, which means 1 in 4 is leaking."
+
+**Quote / estimate follow-up**
+- "After a $5,000+ quote goes out, what's the follow-up cadence — day 2, day 5, day 14? Or does it depend on which estimator wrote it?"
+- "Do you know your quote-to-close rate by tech, or is it tracked at all?"
+- "If a customer says 'let me think about it' on a quote, who owns the follow-up — the estimator, your office manager, or does it just sit?"
+
+**Booking friction**
+- "Can a customer book a non-emergency tune-up at 11 PM without speaking to a human, or do they have to leave a message and wait till morning?"
+- "On a Sunday, if someone Googles you and wants to book Tuesday — do they self-serve, or are you relying on Monday morning callbacks?"
+
+**Reviews & reputation**
+- "After a job closes today — who's actually asking for the Google review? The tech in the truck, an automated text, or your office manager when she remembers?"
+- "Roughly how many Google reviews do you have vs. your top local competitor? That gap's usually the #1 unfair advantage in this market."
+
+**Customer comms / dispatch**
+- "When a tech is running 25 minutes late, who calls the customer — the tech from the truck, dispatch, or does it just slip?"
+- "If a customer texts 'can we reschedule?' to your main line at 2 PM, how long before that lands in front of the right person?"
+- "Do customers get an automatic 'tech is 15 minutes out' text, or is that hope-based?"
+
+**Recurring revenue / re-engagement**
+- "Your customers from 18–24 months ago who got a full install — is anyone reaching out about a tune-up, or are they sitting cold in the database?"
+- "Maintenance plan members — are tune-up reminders automated, or does someone manually pull a list each month?"
+- "Filter changes, AC tune-up anniversaries, water heater age — is any of that on a trigger, or is it whoever-remembers?"
+
+**Pricing & estimator consistency**
+- "Two of your techs roll up to the same panel-replacement job — do they both quote within $200 of each other, or is it a coin flip?"
+- "When an estimator is on vacation, does someone else pick up their open quotes, or do those leads cool off for a week?"
+
+### The Pivot After They Engage
+
+The moment they pause, "hmm," or admit a gap — pivot fast, do NOT linger:
+
+> "Look — even if it's just that one thing, that's exactly the kind of fix I close in 14 days at zero cost to you. We don't need to talk a deal today. Genuinely just 15 minutes to walk through what that one fix looks like — no pitch, no commitment. Worth it?"
+
+Then jump straight to **Stage 5 — The Close** (binary slot offer).
+
+### The Graceful Exit (when disarm fails)
+
+If they answer two granular questions cleanly with "yeah, we have that covered" — STOP. Do not fire a third. Exit on respect:
+
+> "Honest answer — sounds like you genuinely do have it dialed. I appreciate the straight talk, [Name]. Mind if I check back in 6 months in case anything shifts? And if you ever know an operator in your network who's drowning in the admin side, I'd owe you one for the intro."
+
+**Why exit:** a clean exit on a real "no" builds reputation in their network. Pushing past a real "no" burns it. The referral ask at the end converts ~8% of dead calls into a warm intro.
+
+### Mechanics — Why This Works
+
+- **AGREE kills the fight reflex.** Once you stop pushing, their guard drops. They were braced for a counter-pitch; you handed them a release.
+- **VALIDATE flips the frame.** Now you're a peer comparing notes, not a vendor pitching.
+- **ISOLATE makes "we're good" structurally impossible to repeat.** "We're good" is a category answer. A granular question demands a specific answer — they can't generalize their way out.
+- **The questions are NOT yes/no.** They're operational. The prospect has to think about their own ops, and the second they're thinking, they're engaged again.
+
+### Hard Rules
+
+1. **Max two granular questions before pivot or exit.** Three is an interrogation, and you lose them.
+2. **Never argue with their answer.** If they say "yeah we have that covered" — you say "Smart," and either move to the next category or exit. Never "are you sure?" That's a tell.
+3. **Pick the question that fits what you already heard.** If they said "we have a great office manager" → fire after-hours or speed-to-lead. If they said "we use ServiceTitan" → fire reviews or re-engagement (ServiceTitan doesn't solve those by default).
+4. **Tone stays curious, never gotcha.** The energy is "I find this interesting" not "I caught you." If they smell a trap, you're done.
+
+---
+
 ## Drill Protocol (Daily)
 
 1. **Mirror Run** — 5 min, morning. Stand. Run full script aloud.
@@ -101,6 +189,7 @@ Daily for 90 days. Most people quit at week 3 because early data is bad. Data tu
 | Version | Date | Change | Author |
 |---------|------|--------|--------|
 | 1.0 | 2026-04-30 | Initial canonical script — paired with DEAL_ARCHITECTURE V1.0 | CC + Bravo |
+| 1.1 | 2026-05-06 | Added Secondary Disarm section — Agree/Validate/Isolate framework + 20+ granular home-services questions for the "we're good" double-down. Triggered by live cold-call block where prospects bounced the primary NEPQ diffuse. | CC + Bravo |
 
 After 3 weeks of real call data, capture lessons → V1.1 with refined objection responses and the strongest opener variants observed.
 
