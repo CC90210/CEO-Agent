@@ -33,6 +33,7 @@ import {
 import { getPersona, chatAgentKeys } from "@/lib/agent-personas";
 import { decryptField } from "@/lib/field-encryption";
 import { composeDashboardContext } from "@/lib/agent-context";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -78,6 +79,32 @@ export async function POST(req: NextRequest) {
   const profile = profileRes.data as { tenant_id: string | null } | null;
   if (!profile?.tenant_id) return jsonError(403, "no_tenant");
   const tenantId = profile.tenant_id as string;
+
+  // Per-tenant token bucket: 30 turns burst, refill at 1/turn-per-15s
+  // (= 4/min steady state). Protects the platform key on operator-fallback;
+  // client tenants paying their own provider hit this too but the cap is
+  // generous — a real human can't sustain 4 messages/min anyway.
+  const limit = rateLimit({
+    key: `chat:${tenantId}`,
+    capacity: 30,
+    refillPerSec: 1 / 15,
+  });
+  if (!limit.allowed) {
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        error: "rate_limited",
+        retry_in_sec: limit.resetIn,
+      }),
+      {
+        status: 429,
+        headers: {
+          "content-type": "application/json",
+          "retry-after": String(limit.resetIn),
+        },
+      }
+    );
+  }
 
   // ---- Resolve agent_model_config + decrypt key ---------------------------
   const { data: cfg } = await service

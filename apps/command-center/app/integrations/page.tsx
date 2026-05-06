@@ -11,9 +11,12 @@ import type { IntegrationHealth } from "@/lib/supabase";
 export const dynamic = "force-dynamic";
 
 export default async function IntegrationsPage() {
-  const profile = await getActiveProfile();
-  const dbRows = await integrationsHealth(profile?.tenant_id || null);
-  const connectedAiSet = await aiServicesWithKey(profile?.tenant_id || null);
+  const safe = async <T,>(p: Promise<T>, fallback: T): Promise<T> => p.catch(() => fallback);
+  const profile = await safe(getActiveProfile(), null);
+  const [dbRows, connectedAiSet] = await Promise.all([
+    safe(integrationsHealth(profile?.tenant_id || null), []),
+    safe(aiServicesWithKey(profile?.tenant_id || null), new Set<string>()),
+  ]);
 
   // Merge: every registry service shows up; if no DB ping row exists, render
   // as `unconfigured` so the user sees the Connect CTA.
