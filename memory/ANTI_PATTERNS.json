@@ -1,0 +1,14 @@
+[
+  {
+    "pattern": "python(?:\\.exe)?\\s+-c\\s+[\"'].*(lead_engine|email_engine)",
+    "message": "Don't roll an ad-hoc lead/email filter via inline `python -c`. Use scripts/outreach_batch.py — extend it with --include-archived/--min-score flags if needed. (MISTAKES.md 2026-05-04: Sent to Known-Bad Lead — Notes-Field Filter Gap)",
+    "tag": "ad-hoc-lead-filter",
+    "block": false
+  },
+  {
+    "pattern": "email_engine\\.py\\s+(--json\\s+)?send\\s+.*--body.*--html",
+    "message": "Sending hand-crafted HTML body via raw `send` bypasses the canonical OASIS template path and the geo-rapport feature. Use `send-template` with one of the 3 OASIS template UUIDs. (MISTAKES.md 2026-05-04: Draft Critic vs. OASIS Templates)",
+    "tag": "template-bypass",
+    "block": false
+  }
+]

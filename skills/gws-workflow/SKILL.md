@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws workflow --help"
+triggers: ["gws workflow", "use gws workflow", "run gws workflow", "google workflow: cross-service productivity workflows"]
 ---
 
 # workflow (v1)

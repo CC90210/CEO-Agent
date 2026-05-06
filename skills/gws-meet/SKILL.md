@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws meet --help"
+triggers: ["gws meet", "use gws meet", "run gws meet", "manage google meet conferences"]
 ---
 
 # meet (v2)

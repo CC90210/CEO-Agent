@@ -6,6 +6,7 @@ description: >
   need. Use when: spawning agents, multi-agent tasks, security-sensitive operations.
   Skip when: single-agent inline work, trivial tasks.
 tags: [security, orchestration, agents]
+triggers: ["agent permissions", "use agent permissions", "run agent permissions"]
 ---
 
 # Agent Permissions — Claims-Based Access Control

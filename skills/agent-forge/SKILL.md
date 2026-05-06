@@ -1,6 +1,7 @@
 ---
 name: agent-forge
 description: Use when CC asks to create a new agent, scaffold a new agent repo, or clone Bravo's architecture for a new domain (client agent, sibling agent, specialized agent). Generates a new AI-agent repo from templates, wires it into C_SUITE_ARCHITECTURE.md and brain/APP_REGISTRY.md, preserves the V5.6 outbound chokepoint, and gives the new agent a doctor command on day one.
+triggers: ["agent forge", "use agent forge", "run agent forge", "use when cc asks to create a new agent"]
 ---
 
 # Agent Forge

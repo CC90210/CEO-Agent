@@ -9,6 +9,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws gmail +reply-all --help"
+triggers: ["gws gmail reply all", "use gws gmail reply all", "run gws gmail reply all"]
 ---
 
 # gmail +reply-all

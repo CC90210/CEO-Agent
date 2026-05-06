@@ -48,7 +48,7 @@ For client deployments (deploying Hermes / a sibling agent for someone else), co
 | Variable | Brand |
 |----------|-------|
 | `STRIPE_API_KEY` | OASIS AI primary (`sk_live_...`) |
-| `STRIPE_API_KEY_KONA` | Kona Makana brand |
+| `STRIPE_API_KEY_KONA` | Conaugh McKenna brand |
 | `STRIPE_API_KEY_NOSTALGIC` | Nostalgic Requests brand |
 
 ## Google Workspace

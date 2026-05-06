@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws gmail +forward --help"
+triggers: ["gws gmail forward", "use gws gmail forward", "run gws gmail forward", "gmail: forward a message to new recipients"]
 ---
 
 # gmail +forward

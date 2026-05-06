@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws chat --help"
+triggers: ["gws chat", "use gws chat", "run gws chat", "google chat: manage chat spaces and messages"]
 ---
 
 # chat (v1)

@@ -7,6 +7,7 @@ metadata:
     category: "productivity"
     requires:
       bins: ["gws"]
+triggers: ["gws shared", "use gws shared", "run gws shared", "gws cli: shared patterns for authentication"]
 ---
 
 # gws — Shared Reference

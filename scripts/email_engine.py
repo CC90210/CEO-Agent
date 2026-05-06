@@ -1191,7 +1191,7 @@ Examples:
     p_send.add_argument("--html", dest="html", default=None, help="HTML body (optional)")
     p_send.add_argument("--lead-id", dest="lead_id", default=None, help="Lead UUID for log association")
     p_send.add_argument("--brand", default="oasis",
-                        choices=["oasis", "kona_makana", "nostalgic"],
+                        choices=["oasis", "conaugh_mckenna", "nostalgic"],
                         help="Brand identity (drives CASL footer sender + address)")
     p_send.add_argument("--transactional", action="store_true",
                         help="Transactional intent — skip suppression list check "
@@ -1209,7 +1209,7 @@ Examples:
     p_st.add_argument("--vars", default=None, help='Variable substitution JSON: \'{"first_name": "John"}\'')
     p_st.add_argument("--lead-id", dest="lead_id", default=None, help="Lead UUID for log association")
     p_st.add_argument("--brand", default="oasis",
-                      choices=["oasis", "kona_makana", "nostalgic"])
+                      choices=["oasis", "conaugh_mckenna", "nostalgic"])
     p_st.add_argument("--transactional", action="store_true",
                       help="Transactional intent (welcome / confirmation / reminder).")
     p_st.add_argument("--dry-run", dest="dry_run", action="store_true",

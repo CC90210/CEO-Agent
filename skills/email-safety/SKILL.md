@@ -2,6 +2,7 @@
 name: email-safety
 description: Mandatory contract for sending email/outreach from any AI (Claude, Gemini, Antigravity, Codex). Read this before invoking any send command. Disable-model-invocation false — ANY model that sends mail must read this first.
 disable-model-invocation: false
+triggers: ["email safety", "use email safety", "run email safety"]
 ---
 
 # Email Safety — One Rulebook for Every AI
@@ -115,7 +116,7 @@ always one of these:
 4. **AI-slop content** — body reads like a chatbot apologized for itself.
    *Mitigation:* the draft critic blocks slop patterns + uses a Haiku
    adversarial review.
-5. **Wrong brand** — sent as `oasis` when it should have been `kona_makana`.
+5. **Wrong brand** — sent as `oasis` when it should have been `conaugh_mckenna`.
    *Mitigation:* `--brand` flag is required and validated against
    `BRAND_IDENTITY` keys.
 

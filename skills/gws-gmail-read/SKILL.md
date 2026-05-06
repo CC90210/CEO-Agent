@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws gmail +read --help"
+triggers: ["gws gmail read", "use gws gmail read", "run gws gmail read", "gmail: read a message and extract its body or headers"]
 ---
 
 # gmail +read

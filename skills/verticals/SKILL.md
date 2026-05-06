@@ -1,6 +1,7 @@
 ---
 name: verticals
 description: Namespace for vertical-specific playbooks (agency, coaching, creator, ecommerce, local-service, saas). Load the matching sub-skill when CC onboards a client in a given vertical — each one will ship lead-gen, pricing, and delivery SOPs tailored to that vertical's economics.
+triggers: ["verticals", "use verticals", "run verticals", "namespace for vertical-specific playbooks (agency"]
 ---
 
 # Verticals — Playbook Namespace

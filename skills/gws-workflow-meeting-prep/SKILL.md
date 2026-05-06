@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws workflow +meeting-prep --help"
+triggers: ["gws workflow meeting prep", "use gws workflow meeting prep", "run gws workflow meeting prep", "google workflow: prepare for your next meeting: agenda"]
 ---
 
 # workflow +meeting-prep

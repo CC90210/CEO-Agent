@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-gmail", "gws-calendar", "gws-drive", "gws-chat"]
+triggers: ["persona hr coordinator", "use persona hr coordinator", "run persona hr coordinator", "handle hr workflows \u2014 onboarding"]
 ---
 
 # HR Coordinator

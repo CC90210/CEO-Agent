@@ -7,6 +7,7 @@ description: >
   architectural changes, system redesign, unclear requirements. Skip when: simple bug fixes,
   documentation updates, configuration changes, single-file edits.
 tags: [development, planning, methodology]
+triggers: ["sparc methodology", "use sparc methodology", "run sparc methodology"]
 ---
 
 # SPARC Methodology — Structured Development Phases

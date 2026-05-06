@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-calendar", "gws-gmail", "gws-chat", "gws-drive", "gws-sheets"]
+triggers: ["persona team lead", "use persona team lead", "run persona team lead", "lead a team \u2014 run standups"]
 ---
 
 # Team Lead

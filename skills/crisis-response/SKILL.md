@@ -2,6 +2,7 @@
 name: crisis-response
 description: Structured crisis response protocols for business emergencies — P0 through P3 classification, pre-built response plans, and communication templates
 tags: [skill, crisis, response, ceo]
+triggers: ["crisis response", "use crisis response", "run crisis response"]
 ---
 
 # Crisis Response — Emergency Protocols

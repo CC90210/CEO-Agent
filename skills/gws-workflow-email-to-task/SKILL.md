@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws workflow +email-to-task --help"
+triggers: ["gws workflow email to task", "use gws workflow email to task", "run gws workflow email to task"]
 ---
 
 # workflow +email-to-task

@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws gmail --help"
+triggers: ["gws gmail", "use gws gmail", "run gws gmail", "gmail: send"]
 ---
 
 # gmail (v1)

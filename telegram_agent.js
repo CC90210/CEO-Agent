@@ -186,10 +186,12 @@ if (lockAcquire.warn) {
 log(`[BRIDGE-LOCK] Acquired (${BRIDGE_LOCK_AGENT}) — this machine now owns Bravo's Telegram bridge.`);
 // Heartbeat every 15s so other machines see this lock as fresh.
 setInterval(() => bridgeLock('heartbeat'), 15000);
-// Release lock cleanly on shutdown.
+// Release lock cleanly on shutdown — handled by the shutdown() function
+// at line ~1313 which stops polling FIRST, then exits. Do NOT register
+// separate SIGINT/SIGTERM handlers here that call process.exit(0) directly —
+// that bypasses stopPolling() and leaves stale long-poll connections on
+// Telegram's servers for 30s, which causes 409 Conflict on PM2 restart.
 process.on('exit', () => bridgeLock('release'));
-process.on('SIGINT',  () => { bridgeLock('release'); process.exit(0); });
-process.on('SIGTERM', () => { bridgeLock('release'); process.exit(0); });
 
 const bot = new TelegramBot(TELEGRAM_TOKEN, {
     polling: {
@@ -1318,37 +1320,92 @@ const shutdown = async (sig) => {
     try {
         await bot.stopPolling();
     } catch (_) {}
+    // Release the bridge lock so other machines can acquire immediately
+    try { bridgeLock('release'); } catch (_) {}
     // Give Telegram 2s to release the long-poll connection
     setTimeout(() => process.exit(0), 2000);
 };
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
-// ---- CRASH RECOVERY ----
+// ---- CRASH RECOVERY + 409 CIRCUIT BREAKER ----
 // Suppress polling errors (network drops, sleep/wake cycles)
 // node-telegram-bot-api auto-retries polling — just log, don't crash
 let pollErrorCount = 0;
 let pollingDormant = false;
+
+// --- 409 Circuit Breaker (V15.11) ---
+// Tracks consecutive 409 errors across PM2 restarts via a persistent file.
+// If another machine (e.g. Mac) is holding the Telegram bot token, the bridge
+// would otherwise crash-loop forever (409 → exit 1 → PM2 restart → 409...).
+// After 3 consecutive 409 failures, exit with code 0 (tells PM2 to STOP
+// restarting) and log a clear message. CC must resolve the conflict manually.
+const CONFLICT_COUNTER_FILE = path.join(__dirname, 'tmp', 'bravo_409_count.json');
+const MAX_409_RETRIES = 3;
+
+const read409Counter = () => {
+    try {
+        if (fs.existsSync(CONFLICT_COUNTER_FILE)) {
+            const data = JSON.parse(fs.readFileSync(CONFLICT_COUNTER_FILE, 'utf8'));
+            // Reset if last 409 was more than 10 minutes ago (conflict resolved)
+            if (data.last_409 && (Date.now() - new Date(data.last_409).getTime()) > 10 * 60 * 1000) {
+                return 0;
+            }
+            return data.count || 0;
+        }
+    } catch (_) {}
+    return 0;
+};
+
+const write409Counter = (count) => {
+    try {
+        ensureTmpDir();
+        fs.writeFileSync(CONFLICT_COUNTER_FILE, JSON.stringify({
+            count, last_409: new Date().toISOString(),
+            note: 'Consecutive 409 Conflict errors. Another bot instance is polling this token.'
+        }, null, 2));
+    } catch (_) {}
+};
+
+const clear409Counter = () => {
+    try { if (fs.existsSync(CONFLICT_COUNTER_FILE)) fs.unlinkSync(CONFLICT_COUNTER_FILE); } catch (_) {}
+};
+
+// Clear the counter on successful startup (we got past the initial poll)
+setTimeout(() => {
+    if (!pollingDormant) clear409Counter();
+}, 60000); // If still alive after 60s, the poll is working
+
 bot.on('polling_error', (e) => {
     pollErrorCount++;
     const msg = e.message || String(e);
-    // 409 Conflict = another bot instance is polling (dual-machine, leftover dev
-    // process, etc.). Old behavior: stop polling, go "dormant" and wait for PM2
-    // to restart — but PM2 saw "online" and never restarted, so the bridge
-    // silently stopped responding to messages for days. Fixed: stop polling,
-    // sleep 30s (let the conflicting process release the token), then exit
-    // non-zero so PM2's autorestart picks us back up clean.
+
+    // 409 Conflict = another bot instance is polling the same token.
     if (msg.includes('409') || msg.includes('Conflict')) {
         if (!pollingDormant) {
             pollingDormant = true;
-            log('[POLL] 409 conflict: another bot instance owns this Telegram token. ' +
-                'Stopping polling and exiting in 30s so PM2 can restart cleanly.');
+            const consecutiveCount = read409Counter() + 1;
+            write409Counter(consecutiveCount);
+
+            if (consecutiveCount >= MAX_409_RETRIES) {
+                // CIRCUIT BREAKER: Stop retrying. Exit 0 so PM2 does NOT restart.
+                log(`[POLL] 409 CIRCUIT BREAKER (${consecutiveCount}/${MAX_409_RETRIES}): ` +
+                    'Another bot instance has been holding this Telegram token across ' +
+                    `${consecutiveCount} consecutive restarts. Exiting with code 0 to STOP ` +
+                    'PM2 autorestart. Resolution: stop the other instance (likely the Mac), ' +
+                    'then run: npx pm2 restart bravo-telegram');
+                bot.stopPolling().catch(() => {});
+                setTimeout(() => process.exit(0), 3000); // exit 0 = PM2 won't restart
+            } else {
+                log(`[POLL] 409 conflict (attempt ${consecutiveCount}/${MAX_409_RETRIES}): ` +
+                    'another bot instance owns this Telegram token. Exiting in 5s for PM2 retry.');
+                bot.stopPolling().catch(() => {});
+                setTimeout(() => {
+                    log('[POLL] Exiting with code 1 to trigger PM2 restart.');
+                    process.exit(1);
+                }, 5000); // 5s (was 30s) — PM2 restart_delay handles the cooldown
+            }
         }
-        bot.stopPolling().catch(() => {});
-        setTimeout(() => {
-            log('[POLL] 30s elapsed after 409, exiting with code 1 to trigger PM2 restart.');
-            process.exit(1);
-        }, 30000);
         return;
     }
     // Log first error, then only every 50th to avoid filling logs

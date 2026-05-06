@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws slides --help"
+triggers: ["gws slides", "use gws slides", "run gws slides", "google slides: read and write presentations"]
 ---
 
 # slides (v1)

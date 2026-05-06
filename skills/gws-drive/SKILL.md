@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws drive --help"
+triggers: ["gws drive", "use gws drive", "run gws drive", "google drive: manage files"]
 ---
 
 # drive (v3)

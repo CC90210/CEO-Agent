@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws events +renew --help"
+triggers: ["gws events renew", "use gws events renew", "run gws events renew"]
 ---
 
 # events +renew

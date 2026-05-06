@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws events +subscribe --help"
+triggers: ["gws events subscribe", "use gws events subscribe", "run gws events subscribe"]
 ---
 
 # events +subscribe
