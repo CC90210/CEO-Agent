@@ -60,7 +60,14 @@ except ImportError:
 
 PORT = int(os.environ.get("BRAVO_BRIDGE_PORT", "9100"))
 ANTHROPIC_API = "https://api.anthropic.com/v1/messages"
-DEFAULT_MODEL = os.environ.get("BRAVO_CHAT_MODEL", "claude-sonnet-4-6")
+# OpenRouter exposes an Anthropic-compatible /v1/messages endpoint — same
+# wire format (content_block_delta, tool_use blocks, etc.). Using that means
+# one streaming loop covers both providers; only the URL + auth header swap.
+OPENROUTER_MESSAGES_API = "https://openrouter.ai/api/v1/messages"
+DEFAULT_ANTHROPIC_MODEL = os.environ.get("BRAVO_CHAT_MODEL", "claude-sonnet-4-6")
+DEFAULT_OPENROUTER_MODEL = os.environ.get(
+    "BRAVO_CHAT_OPENROUTER_MODEL", "anthropic/claude-sonnet-4"
+)
 MAX_TURNS = 8                  # safety cap — read_file tool calls per chat turn
 MAX_FILE_BYTES = 200_000       # don't blow context with megabyte files
 ALLOWED_ORIGINS = [
@@ -69,10 +76,13 @@ ALLOWED_ORIGINS = [
 ]
 
 
-def _read_anthropic_key() -> str:
-    """Operator's Anthropic key. Same env-file scan the bridge already uses."""
-    if "ANTHROPIC_API_KEY" in os.environ:
-        return os.environ["ANTHROPIC_API_KEY"]
+def _read_env_value(name: str) -> str:
+    """Look up a single env var name, then fall back to scanning the
+    operator's local secrets file. Never returns the value to a caller other
+    than the chat path (which uses it solely for outbound API auth).
+    """
+    if name in os.environ:
+        return os.environ[name]
     home = Path.home()
     candidates = [
         Path.cwd() / ".env.agents",
@@ -88,11 +98,29 @@ def _read_anthropic_key() -> str:
                 if not line or line.startswith("#") or "=" not in line:
                     continue
                 k, v = line.split("=", 1)
-                if k.strip() == "ANTHROPIC_API_KEY":
+                if k.strip() == name:
                     return v.strip().strip('"').strip("'")
         except Exception:
             continue
     return ""
+
+
+def _resolve_provider() -> tuple[str, str, str]:
+    """Pick the chat backend.
+
+    Preference: OpenRouter > Anthropic. OpenRouter is cheaper, single-key,
+    and what we recommend in onboarding.
+
+    Returns (provider, api_key, model). If neither key is present, returns
+    ("none", "", "") and the chat handler 412s with a clear hint.
+    """
+    or_key = _read_env_value("OPENROUTER_API_KEY")
+    if or_key:
+        return ("openrouter", or_key, DEFAULT_OPENROUTER_MODEL)
+    anth = _read_env_value("ANTHROPIC_API_KEY")
+    if anth:
+        return ("anthropic", anth, DEFAULT_ANTHROPIC_MODEL)
+    return ("none", "", "")
 
 
 READ_FILE_TOOL = {
@@ -145,26 +173,50 @@ Boundaries:
 """
 
 
-def _call_anthropic(api_key: str, system: str, messages: list[dict], stream: bool = True):
-    """One call to Anthropic. Returns the raw urllib response (caller streams)."""
+def _call_provider(
+    provider: str,
+    api_key: str,
+    model: str,
+    system: str,
+    messages: list[dict],
+    stream: bool = True,
+):
+    """One streaming call. Provider toggles URL + auth header; the body
+    shape is the same Anthropic /v1/messages contract either way (OpenRouter
+    exposes a compatible passthrough), so the SSE consumer downstream is
+    provider-agnostic.
+    """
     body = {
-        "model": DEFAULT_MODEL,
+        "model": model,
         "max_tokens": 4096,
         "system": system,
         "tools": [READ_FILE_TOOL],
         "messages": messages,
         "stream": stream,
     }
-    req = urllib.request.Request(
-        ANTHROPIC_API,
-        method="POST",
-        data=json.dumps(body).encode("utf-8"),
-        headers={
+    if provider == "openrouter":
+        url = OPENROUTER_MESSAGES_API
+        headers = {
+            "content-type": "application/json",
+            "authorization": f"Bearer {api_key}",
+            "HTTP-Referer": "https://agent-dashboard-cc90210.vercel.app",
+            "X-Title": "OASIS Agent Command Center",
+            "anthropic-version": "2023-06-01",
+            "accept": "text/event-stream",
+        }
+    else:  # anthropic
+        url = ANTHROPIC_API
+        headers = {
             "content-type": "application/json",
             "x-api-key": api_key,
             "anthropic-version": "2023-06-01",
             "accept": "text/event-stream",
-        },
+        }
+    req = urllib.request.Request(
+        url,
+        method="POST",
+        data=json.dumps(body).encode("utf-8"),
+        headers=headers,
     )
     return urllib.request.urlopen(req, timeout=120)
 
@@ -233,12 +285,16 @@ class _ChatHandler(BaseHTTPRequestHandler):
             })
             return
 
-        api_key = _read_anthropic_key()
-        if not api_key:
+        provider, api_key, model = _resolve_provider()
+        if provider == "none" or not api_key:
             self._json(412, {
                 "ok": False,
-                "error": "no_anthropic_key",
-                "hint": "Set ANTHROPIC_API_KEY in the operator's local .env.agents.",
+                "error": "no_provider_key",
+                "hint": (
+                    "No OPENROUTER_API_KEY or ANTHROPIC_API_KEY found in env "
+                    "or operator's local secrets file. Add either one to "
+                    "enable local chat."
+                ),
             })
             return
 
@@ -256,7 +312,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
             self.wfile.flush()
 
         try:
-            self._run_chat(agent, root, entry, api_key, messages, emit)
+            self._run_chat(agent, root, entry, provider, api_key, model, messages, emit)
         except Exception as e:
             try:
                 emit("error", {"message": f"chat_loop_failed: {e}"})
@@ -269,21 +325,30 @@ class _ChatHandler(BaseHTTPRequestHandler):
         agent: str,
         root: Path,
         entry: Path,
+        provider: str,
         api_key: str,
+        model: str,
         messages: list[dict],
         emit,
     ) -> None:
         system = _system_prompt_for(agent, root, entry)
-        # Anthropic message thread — converts client {role, content} to API shape
+        # Anthropic-shape message thread (works for both providers since
+        # OpenRouter exposes the same /v1/messages contract).
         thread: list[dict] = [
             {"role": m["role"], "content": m["content"]}
             for m in messages
             if m.get("role") in ("user", "assistant")
         ]
-        emit("info", {"agent": agent, "root": str(root), "entry": str(entry.relative_to(root))})
+        emit("info", {
+            "agent": agent,
+            "root": str(root),
+            "entry": str(entry.relative_to(root)),
+            "provider": provider,
+            "model": model,
+        })
 
         for turn in range(MAX_TURNS):
-            resp = _call_anthropic(api_key, system, thread, stream=True)
+            resp = _call_provider(provider, api_key, model, system, thread, stream=True)
             assistant_blocks: list[dict] = []   # reconstructed from stream
             current_block: dict | None = None
             current_input_buf = ""              # for tool_use partial JSON
