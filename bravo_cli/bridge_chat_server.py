@@ -33,6 +33,8 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
+import subprocess
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -188,8 +190,9 @@ SCRIPT_ALLOWLIST: dict[str, dict] = {
                          "help": "Update Supabase rows. Args: table --eq JSON --data JSON --project bravo"},
     "agent_inbox_post": {"path": "scripts/agent_inbox.py", "subcmd": "post", "mutating": True,
                           "help": "Post a message to a sibling agent's inbox. Args: --to atlas|maven|aura|hermes --priority low|normal|high --body '...'"},
-    "late_create": {"path": "scripts/late_tool.py", "subcmd": "create", "mutating": True,
-                     "help": "Schedule a social post via Zernio. Args: --text '...' --account <id> --when ISO"},
+    # NOTE: late_tool.py / Zernio social-post scheduling is referenced in
+    # brain/CAPABILITIES.md but the CLI script does not exist in this repo
+    # yet. Re-add `late_create` to the allowlist once the script lands.
 }
 
 RUN_SCRIPT_TOOL = {
@@ -597,9 +600,6 @@ class _ChatHandler(BaseHTTPRequestHandler):
         require confirm=True. Cwd is the agent root; path-allowlisted to
         scripts/* inside that root (no path traversal).
         """
-        import subprocess
-        import shlex
-
         if not script_key:
             return "missing 'script' key", True
         spec = SCRIPT_ALLOWLIST.get(script_key)
