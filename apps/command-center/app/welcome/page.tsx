@@ -67,8 +67,8 @@ export default async function WelcomePage() {
             Chat with Bravo, Maven, Atlas, Aura, or Hermes from a single dashboard. Bring your own API key — Claude, GPT, Gemini, OpenRouter — and switch models per agent. Pipeline, analytics, integrations, and live event bus included.
           </p>
           <div className="mt-9 flex flex-wrap items-center gap-3">
-            <Link href="/signup" className="btn-send !px-5 !py-3 text-sm">
-              Start free <ArrowRight className="w-4 h-4" />
+            <Link href="/configure" className="btn-send !px-5 !py-3 text-sm">
+              Configure your own agent <ArrowRight className="w-4 h-4" />
             </Link>
             <Link href="/login" className="btn-secondary !px-5 !py-3 text-sm">
               Sign in

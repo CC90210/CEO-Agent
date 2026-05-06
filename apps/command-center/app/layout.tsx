@@ -22,6 +22,7 @@ export default async function RootLayout({
   const pathname = hdrs.get("x-pathname") || hdrs.get("x-invoke-path") || "";
   const isFullBleed =
     pathname.startsWith("/welcome") ||
+    pathname.startsWith("/configure") ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/signup") ||
     pathname.startsWith("/forgot-password") ||
