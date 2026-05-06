@@ -42,6 +42,9 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
   const [streaming, setStreaming] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [actions, setActions] = useState<
+    Array<{ ok: boolean; type: string; summary?: string; error?: string }>
+  >([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -63,6 +66,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
     setMessages([]);
     setSessionId(null);
     setError(null);
+    setActions([]);
   }, [agent]);
 
   const cfg = useMemo(() => configs.find((c) => c.agent_key === agent) || null, [configs, agent]);
@@ -73,6 +77,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
     setMessages([]);
     setSessionId(null);
     setError(null);
+    setActions([]);
   }
 
   async function send() {
@@ -136,6 +141,16 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
               }
               return next;
             });
+          } else if (event === "action") {
+            setActions((prev) => [
+              ...prev,
+              {
+                ok: !!parsed.ok,
+                type: String(parsed.type || "?"),
+                summary: parsed.summary,
+                error: parsed.error,
+              },
+            ]);
           } else if (event === "error") {
             setError(parsed.message || "stream_error");
           }
@@ -222,10 +237,30 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
           <Bubble
             key={i}
             role={m.role}
-            content={m.content}
+            content={stripActionMarkers(m.content)}
             streaming={streaming && i === messages.length - 1 && m.role === "assistant"}
           />
         ))}
+        {actions.length > 0 && (
+          <div className="space-y-1.5">
+            {actions.map((a, i) => (
+              <div
+                key={i}
+                className={`flex items-start gap-2 rounded-md border px-3 py-2 text-xs font-mono ${
+                  a.ok
+                    ? "border-status-engaged/40 bg-status-engaged/10 text-status-engaged"
+                    : "border-status-warm/40 bg-status-warm/10 text-status-warm"
+                }`}
+              >
+                <span className="font-bold uppercase tracking-wider text-[10px] mt-0.5">
+                  {a.ok ? "applied" : "rejected"}
+                </span>
+                <span className="text-fg-muted">{a.type}</span>
+                <span className="font-sans">{a.summary || a.error || "(no detail)"}</span>
+              </div>
+            ))}
+          </div>
+        )}
         {error && (
           <div className="flex items-start gap-2 rounded-lg border border-status-warm/40 bg-status-warm/10 p-3 text-sm text-status-warm">
             <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
@@ -425,6 +460,19 @@ function renderInline(text: string): React.ReactNode {
     }
     return <span key={i}>{part}</span>;
   });
+}
+
+/**
+ * Strip <dashboard-action ...> markers from the displayed text. The agent
+ * emits these so the server can apply mutations; users don't want to see
+ * the raw JSON tags in the bubble. The applied/rejected pills below the
+ * transcript are the human-facing surface for these.
+ */
+function stripActionMarkers(text: string): string {
+  return text
+    .replace(/<dashboard-action\s+type=["'][a-z_]+["']\s*>[\s\S]*?<\/dashboard-action>/gi, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 async function safeReadJson(r: Response): Promise<any> {

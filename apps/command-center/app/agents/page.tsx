@@ -4,7 +4,9 @@ import { timeAgo, truncate } from "@/lib/fmt";
 import { agentStates, recentEvents, getActiveProfile, integrationsHealth } from "@/lib/queries";
 import { ALL_AGENT_KEYS, getAgentInfo } from "@/lib/agents";
 import { chatAgentKeys } from "@/lib/agent-personas";
+import { catalogFor } from "@/lib/agent-catalog";
 import { getSessionUser } from "@/lib/supabase-server";
+import { Clock, Cog, Workflow } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -138,6 +140,65 @@ export default async function AgentsPage() {
         </ul>
       </Card>
 
+      <Card
+        title="Capabilities"
+        subtitle="What each enabled agent owns — cron jobs, backend processes, workflows. Tenant-aware: disabled agents drop out."
+      >
+        <div className="space-y-5">
+          {enabled.map((key) => {
+            const info = getAgentInfo(key);
+            const cat = catalogFor(key);
+            const total = cat.crons.length + cat.processes.length + cat.workflows.length;
+            if (total === 0) return null;
+            return (
+              <div
+                key={key}
+                className="rounded-lg border border-bg-border bg-bg-elev p-4 space-y-3"
+              >
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`font-bold uppercase tracking-[0.14em] text-sm ${info.textClass}`}>
+                    {info.label}
+                  </span>
+                  <span className="text-xs text-fg-muted">{info.tagline}</span>
+                  <span className="ml-auto text-[10px] uppercase tracking-wider text-fg-dim">
+                    {total} entr{total === 1 ? "y" : "ies"}
+                  </span>
+                </div>
+                <div className="grid sm:grid-cols-3 gap-3">
+                  <CatalogColumn
+                    title="Crons"
+                    icon={<Clock className="w-3.5 h-3.5" />}
+                    entries={cat.crons.map((c) => ({
+                      name: c.name,
+                      meta: c.schedule || c.location,
+                      desc: c.description,
+                    }))}
+                  />
+                  <CatalogColumn
+                    title="Processes"
+                    icon={<Cog className="w-3.5 h-3.5" />}
+                    entries={cat.processes.map((p) => ({
+                      name: p.name,
+                      meta: p.location,
+                      desc: p.description,
+                    }))}
+                  />
+                  <CatalogColumn
+                    title="Workflows"
+                    icon={<Workflow className="w-3.5 h-3.5" />}
+                    entries={cat.workflows.map((w) => ({
+                      name: w.name,
+                      meta: w.location,
+                      desc: w.description,
+                    }))}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
       <Card title="Event bus" subtitle="Cross-agent coordination, most recent first">
         {events.length === 0 ? (
           <EmptyState message="No events yet. Events publish when the reasoning loop ticks or n8n inbound fires." />
@@ -173,6 +234,43 @@ export default async function AgentsPage() {
           </ul>
         )}
       </Card>
+    </div>
+  );
+}
+
+function CatalogColumn({
+  title,
+  icon,
+  entries,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  entries: Array<{ name: string; meta: string; desc: string }>;
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-fg-muted mb-2">
+        {icon}
+        {title}
+        <span className="text-fg-dim font-mono normal-case tracking-normal">
+          ({entries.length})
+        </span>
+      </div>
+      {entries.length === 0 ? (
+        <div className="text-[11px] text-fg-faint italic">none</div>
+      ) : (
+        <ul className="space-y-1.5">
+          {entries.map((e) => (
+            <li key={e.name} className="text-xs leading-snug">
+              <div className="flex items-baseline gap-1.5 flex-wrap">
+                <span className="text-fg font-medium font-mono">{e.name}</span>
+                <span className="text-[10px] text-fg-dim font-mono">· {e.meta}</span>
+              </div>
+              <div className="text-[11px] text-fg-muted">{e.desc}</div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
