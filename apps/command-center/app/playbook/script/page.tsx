@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ShieldAlert } from "lucide-react";
 import {
   STAGE_1_PATTERN_INTERRUPT,
   STAGE_4_PIVOT,
@@ -12,6 +12,8 @@ import {
   TRACK_DESCRIPTIONS,
   OBJECTIONS,
   TRACKS,
+  SECONDARY_DISARM,
+  DISARM_QUESTIONS,
   type ProspectTrack,
 } from "@/lib/playbook";
 
@@ -145,6 +147,9 @@ export default function ScriptPage() {
         </table>
       </div>
 
+      {/* Secondary Disarm — when they double down */}
+      <SecondaryDisarmSection track={track} />
+
       <div className="bg-bg-panel border border-bg-border rounded-xl p-5">
         <h3 className="text-xs uppercase tracking-[0.14em] font-bold text-accent mb-2">
           The drill
@@ -205,6 +210,147 @@ function Stage({
       )}
       <div className="mt-3 text-xs text-fg-dim italic">
         <span className="text-fg-muted font-semibold not-italic">Why →</span> {why}
+      </div>
+    </div>
+  );
+}
+
+function SecondaryDisarmSection({ track }: { track: ProspectTrack }) {
+  const categories = DISARM_QUESTIONS[track] ?? [];
+
+  return (
+    <div className="bg-bg-panel border border-bg-border rounded-xl">
+      <header className="border-b border-bg-border px-5 py-3.5 flex items-start gap-3">
+        <ShieldAlert size={18} className="text-status-hot mt-0.5 shrink-0" />
+        <div className="flex-1">
+          <h2 className="text-xs font-bold uppercase tracking-[0.14em] text-status-hot">
+            Secondary Disarm — when they double down
+          </h2>
+          <p className="text-xs text-fg-muted mt-1">
+            Trigger:{" "}
+            <span className="text-status-hot italic">
+              &quot;{SECONDARY_DISARM.trigger}&quot;
+            </span>{" "}
+            — the primary diffuse already failed. Strategy:{" "}
+            <span className="text-fg font-semibold">
+              {SECONDARY_DISARM.strategyName}
+            </span>
+            .
+          </p>
+          <p className="text-xs text-fg-dim mt-1.5 italic">
+            {SECONDARY_DISARM.strategyTagline}
+          </p>
+        </div>
+      </header>
+
+      {/* The 3 beats */}
+      <div className="p-5 space-y-4 border-b border-bg-border">
+        {SECONDARY_DISARM.beats.map((b) => (
+          <div key={b.num} className="border-l-2 border-status-hot pl-5">
+            <div className="flex items-baseline gap-3 mb-2">
+              <span className="text-status-hot text-[10px] font-bold tracking-[0.2em] uppercase">
+                Beat {b.num}
+              </span>
+              <span className="text-fg font-bold text-base">{b.label}</span>
+            </div>
+            <div className="text-fg-muted text-sm italic mb-2">{b.purpose}</div>
+            <blockquote className="bg-accent-soft border-l-2 border-accent rounded-r-md px-4 py-2.5 text-fg text-sm leading-relaxed">
+              {b.example}
+            </blockquote>
+            <div className="mt-2 text-xs text-fg-dim italic">
+              <span className="text-fg-muted font-semibold not-italic">Why →</span>{" "}
+              {b.why}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Granular question bank */}
+      <div className="p-5 border-b border-bg-border">
+        <div className="flex items-baseline justify-between mb-3">
+          <h3 className="text-xs uppercase tracking-[0.14em] font-bold text-accent">
+            Granular question bank — {TRACK_LABELS[track]}
+          </h3>
+          <span className="text-[10px] uppercase tracking-[0.14em] text-fg-dim">
+            Pick ONE per call
+          </span>
+        </div>
+
+        {categories.length === 0 ? (
+          <div className="text-sm text-fg-dim italic bg-bg-elev border border-dashed border-bg-border rounded-md px-4 py-3">
+            Bank tailored to {TRACK_LABELS[track]} not built yet. Use the
+            universal frame above and isolate one specific operational gap based
+            on what they&apos;ve already shared. Switch to{" "}
+            <span className="text-fg">Service Trades</span> to see the full
+            granular bank.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {categories.map((cat) => (
+              <div key={cat.domain}>
+                <div className="text-[11px] uppercase tracking-[0.12em] font-bold text-fg mb-2">
+                  {cat.domain}
+                </div>
+                <ul className="space-y-1.5">
+                  {cat.questions.map((q, i) => (
+                    <li
+                      key={i}
+                      className="bg-bg-elev border-l-2 border-accent rounded-r-md px-4 py-2 text-fg text-sm leading-relaxed"
+                    >
+                      {q}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Pivot + Exit */}
+      <div className="p-5 grid md:grid-cols-2 gap-4 border-b border-bg-border">
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.12em] font-bold text-accent mb-2">
+            {SECONDARY_DISARM.pivot.label}
+          </div>
+          <blockquote className="bg-accent-soft border-l-2 border-accent rounded-r-md px-4 py-3 text-fg text-sm leading-relaxed">
+            {SECONDARY_DISARM.pivot.line}
+          </blockquote>
+          <div className="mt-2 text-xs text-fg-dim italic">
+            {SECONDARY_DISARM.pivot.note}
+          </div>
+        </div>
+        <div>
+          <div className="text-[11px] uppercase tracking-[0.12em] font-bold text-fg-muted mb-2">
+            {SECONDARY_DISARM.exit.label}
+          </div>
+          <blockquote className="bg-bg-elev border-l-2 border-bg-border rounded-r-md px-4 py-3 text-fg text-sm leading-relaxed">
+            {SECONDARY_DISARM.exit.line}
+          </blockquote>
+          <div className="mt-2 text-xs text-fg-dim italic">
+            {SECONDARY_DISARM.exit.note}
+          </div>
+        </div>
+      </div>
+
+      {/* Hard rules */}
+      <div className="p-5">
+        <div className="text-[11px] uppercase tracking-[0.12em] font-bold text-status-hot mb-3">
+          Hard rules
+        </div>
+        <ul className="space-y-2">
+          {SECONDARY_DISARM.hardRules.map((rule, i) => (
+            <li
+              key={i}
+              className="flex gap-3 text-sm text-fg leading-relaxed"
+            >
+              <span className="text-status-hot font-bold shrink-0">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <span>{rule}</span>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );

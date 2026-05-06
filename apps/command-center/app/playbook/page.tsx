@@ -8,10 +8,10 @@ const SECTIONS = [
   {
     href: "/playbook/script",
     title: "Cold Call Script + Objections",
-    subtitle: "5 stages - 4 prospect tracks - 10 objection handlers",
+    subtitle: "5 stages - 4 tracks - 10 objections - secondary disarm",
     icon: Phone,
     body:
-      "One memorize-grade page. Pattern interrupt, reason, diagnose, pivot, close. Pick your prospect track at the top and run the right language live.",
+      "One memorize-grade page. Pattern interrupt, reason, diagnose, pivot, close. Pick your prospect track at the top and run the right language live. Includes the Agree/Validate/Isolate disarm for when prospects double down on 'we're good'.",
   },
   {
     href: "/playbook/deals",
