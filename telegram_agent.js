@@ -1381,16 +1381,49 @@ try {
 // API key is fallback only. This boot check verifies BOTH paths so CC
 // knows the bridge has working auth in either mode. Path-detection
 // + presence check live in scripts/c_suite_context.js for reuse.
+//
+// V15.9 (2026-05-06): cooldown guard — every startup-warning kind only
+// fires once per WARNING_COOLDOWN_MS. PM2 was crash-looping the bridge
+// and spamming the same "OAuth not found" message every 60s. State file
+// at tmp/telegram_warnings.json records last-fire ms per message kind.
+const WARNING_COOLDOWN_MS = 6 * 60 * 60 * 1000; // 6 hours
+const WARNING_STATE_FILE = require('path').join(__dirname, 'tmp', 'telegram_warnings.json');
+
+function readWarningState() {
+    try {
+        return JSON.parse(require('fs').readFileSync(WARNING_STATE_FILE, 'utf8'));
+    } catch {
+        return {};
+    }
+}
+
+function shouldFireWarning(kind) {
+    const state = readWarningState();
+    const last = state[kind] || 0;
+    return Date.now() - last >= WARNING_COOLDOWN_MS;
+}
+
+function markWarningFired(kind) {
+    try {
+        require('fs').mkdirSync(require('path').dirname(WARNING_STATE_FILE), { recursive: true });
+        const state = readWarningState();
+        state[kind] = Date.now();
+        require('fs').writeFileSync(WARNING_STATE_FILE, JSON.stringify(state, null, 2), 'utf8');
+    } catch (e) {
+        log(`[HEALTH] could not persist warning state: ${e.message}`);
+    }
+}
+
 setTimeout(() => {
     const auth = checkClaudeAuthPaths();
     if (auth.hasOAuth) {
         log(`[HEALTH] Claude Code subscription OAuth: present at ${auth.oauthPath} (primary auth path)`);
     } else {
         log('[HEALTH] Claude Code subscription OAuth: NOT FOUND — run `claude setup-token`. Bridge will fall back to ANTHROPIC_API_KEY.');
-        if (ALLOWED_USERS.length > 0) {
+        if (ALLOWED_USERS.length > 0 && shouldFireWarning('oauth_missing')) {
             bot.sendMessage(ALLOWED_USERS[0],
-                `⚠️ Bravo startup: Claude Code subscription token not found at ${auth.claudeDir}.\nRun: claude setup-token\nFalling back to ANTHROPIC_API_KEY (paid metered) until fixed.`
-            ).catch(() => {});
+                `⚠️ Bravo startup: Claude Code subscription token not found at ${auth.claudeDir}.\nRun: claude setup-token\nFalling back to ANTHROPIC_API_KEY (paid metered) until fixed.\n\n(This warning is rate-limited to once per 6h.)`
+            ).then(() => markWarningFired('oauth_missing')).catch(() => {});
         }
     }
 
@@ -1420,10 +1453,10 @@ setTimeout(() => {
             log('[HEALTH] ANTHROPIC_API_KEY fallback path: OK');
         } else {
             log(`[HEALTH] ANTHROPIC_API_KEY fallback path FAILED (HTTP ${res.statusCode}) — fallback unavailable, subscription is single point of failure`);
-            if (ALLOWED_USERS.length > 0) {
+            if (ALLOWED_USERS.length > 0 && shouldFireWarning(`api_key_fail_${res.statusCode}`)) {
                 bot.sendMessage(ALLOWED_USERS[0],
-                    `⚠️ Bravo startup: API-key fallback FAILED (HTTP ${res.statusCode}).\nSubscription is now single-point-of-failure. Update ANTHROPIC_API_KEY in .env.agents and: pm2 restart bravo-telegram`
-                ).catch(() => {});
+                    `⚠️ Bravo startup: API-key fallback FAILED (HTTP ${res.statusCode}).\nSubscription is now single-point-of-failure. Update ANTHROPIC_API_KEY in .env.agents and: pm2 restart bravo-telegram\n\n(This warning is rate-limited to once per 6h.)`
+                ).then(() => markWarningFired(`api_key_fail_${res.statusCode}`)).catch(() => {});
             }
         }
     });
