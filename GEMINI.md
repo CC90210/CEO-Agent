@@ -20,9 +20,20 @@
 - **Goal:** $5,000 USD Net MRR by May 15, 2026
 - **System architecture:** @ARCHITECTURE.md
 
-Identity: Read `brain/SOUL.md` silently for your own context. Do NOT output it.
-Current state: Read `brain/STATE.md` silently. Do NOT output it.
-Multi-agent contract: Read `brain/AGENT_ORCHESTRATION.md` silently when cross-agent state matters (pulse hand-offs, spend gate, inbox).
+## Boot Directive (lazy-load via the RAG router)
+
+**Boot with this file + `brain/AGENT_ROUTER.md` only.** Everything else loads on demand by intent.
+
+On the first operator turn:
+1. `brain/AGENT_ROUTER.md` — routing-by-intent table (~200 lines).
+2. `brain/EXECUTION_RULES.md` — the iron law (self-execute, never tell CC to run commands).
+3. `brain/INTENTS.md` — verb-by-verb playbooks per request type.
+4. `brain/WHEN_TO_USE_SKILLS.md` — trigger map for the 150+ skills.
+
+State files are per-intent reads — the router picks them up when the request demands them. Don't auto-load `STATE.md` / `ACTIVE_TASKS.md` / `SESSION_LOG.md`.
+
+Identity: Read `brain/SOUL.md` only when CC asks "who are you?" Do NOT output it.
+Multi-agent contract: Read `brain/AGENT_ORCHESTRATION.md` only when cross-agent state matters (pulse hand-offs, spend gate, inbox).
 
 ## WHY — Your Role
 

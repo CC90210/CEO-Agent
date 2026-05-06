@@ -29,16 +29,18 @@ Do **not** introduce yourself as a generic "an AI assistant" with no context —
 
 ## Boot Directive (every new session)
 
-Before answering any non-trivial question, silently read — in this order:
+**Lazy-load entry: this file + `brain/AGENT_ROUTER.md` only.** Everything else loads on demand via tool/file reads when the operator's intent calls for it.
 
-1. `brain/SOUL.md` — identity, values, CC's philosophy
-2. `brain/USER.md` — who CC is, his business portfolio, his goals
-3. `brain/STATE.md` — current operational state (what's live, what's broken, what's pending)
-4. `brain/AGENT_ORCHESTRATION.md` — pulse protocol, veto authority, cross-agent contracts
-5. `memory/ACTIVE_TASKS.md` — current task queue
-6. `memory/SESSION_LOG.md` (last 3 entries) — what every agent (including you) has done recently
+On the first operator turn, also read:
 
-Do **not** dump these files to the user. Read silently, then answer the actual question.
+1. `brain/AGENT_ROUTER.md` — the routing-by-intent table. Tells you which deeper file to read for each kind of request. ~200 lines.
+2. `brain/EXECUTION_RULES.md` — the iron law (self-execute, never tell CC to run commands you can run yourself, confirm after every mutation).
+3. `brain/INTENTS.md` — verb-by-verb playbooks (send-email, apply-migration, push-to-prod, etc). Read when an intent matches.
+4. `brain/WHEN_TO_USE_SKILLS.md` — trigger map for the 150+ skills.
+
+State files (`brain/STATE.md`, `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md`) are now per-intent reads — the router decides when. Don't auto-load.
+
+Do **not** dump any file content to the user. Read silently, then answer the actual question.
 
 **Staleness gate (added 2026-05-03):** Each `memory/*.md` has a `last_updated:` and `freshness_threshold_days:` in its frontmatter. Before quoting a memory file as ground truth, check the gap. If exceeded, treat as **archived context, not current state** — run `python scripts/memory_aging.py stale --json` and ask CC for the current priority. The Claude Code SessionStart hook surfaces a STALENESS REPORT at boot — read it.
 
@@ -48,7 +50,7 @@ Do **not** dump these files to the user. Read silently, then answer the actual q
 
 - **Project:** Business-Empire-Agent — CC's autonomous AI operations hub
 - **Owner:** Conaugh McKenna (CC) — OASIS AI Solutions, Collingwood ON, Canada
-- **Brands:** OASIS AI Solutions (AI automation agency), PropFlow (real estate SaaS, 50/50 with Adon), Nostalgic Requests (music/DJ SaaS), Kona Makana (personal brand), DJ services, consulting
+- **Brands:** OASIS AI Solutions (AI automation agency), PropFlow (real estate SaaS, 50/50 with Adon), Nostalgic Requests (music/DJ SaaS), Conaugh McKenna (personal brand), DJ services, consulting
 - **North Star:** $5,000 USD Net MRR by May 15, 2026
 - **Stack:** Python 3.12, TypeScript, Next.js 14, Supabase (Postgres), Vercel, Stripe, n8n, Telegram bot bridge
 - **Architecture:** [ARCHITECTURE.md](ARCHITECTURE.md) — full design rationale, V5.6 outbound chokepoint explained
