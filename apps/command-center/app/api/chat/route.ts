@@ -34,6 +34,7 @@ import { getPersona, chatAgentKeys } from "@/lib/agent-personas";
 import { decryptField } from "@/lib/field-encryption";
 import { composeDashboardContext } from "@/lib/agent-context";
 import { rateLimit } from "@/lib/rate-limit";
+import { extractActionMarkers, runAction } from "@/lib/agent-actions";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -231,6 +232,25 @@ export async function POST(req: NextRequest) {
         streamError = err instanceof Error ? err.message : "stream_failed";
         send("error", { message: streamError });
       }
+
+      // ---- Dashboard mutation markers ------------------------------------
+      // The model emits <dashboard-action type="..." > JSON </dashboard-action>
+      // when the operator asks for a change. Parse, validate, apply, surface.
+      try {
+        const specs = extractActionMarkers(assistantText);
+        for (const spec of specs) {
+          const r = await runAction(spec, { tenantId, authUserId: user.id });
+          send("action", r);
+        }
+      } catch (err) {
+        // A failing action handler must not break the stream close
+        send("action", {
+          ok: false,
+          type: "?",
+          error: err instanceof Error ? err.message : "actions_failed",
+        });
+      }
+
       send("done", {});
       controller.close();
 
