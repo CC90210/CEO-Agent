@@ -65,7 +65,7 @@ All credentials in `.env.agents`. NEVER hardcode secrets. See @skills/security-p
 
 ### RULE 4: Cross-file sync
 
-Changing ANY config/entry point → update ALL files that reference it: MCP configs (`.claude/mcp.json`, `.vscode/mcp.json`, `~/.gemini/settings.json`), entry points (`CLAUDE.md`, `GEMINI.md`, `ANTIGRAVITY.md`, `AGENTS.md`, `telegram_agent.js`), docs (`brain/CAPABILITIES.md`, `brain/AGENTS.md`).
+Changing ANY config/entry point → update ALL files that reference it: MCP configs (`.claude/mcp.json`, `.vscode/mcp.json`, `~/.gemini/settings.json`), entry points (`CLAUDE.md`, `GEMINI.md`, `ANTIGRAVITY.md`, `AGENTS.md`, `OPENCODE.md`, `telegram_agent.js`, `bravo_cli/bridge_chat_server.py:_system_prompt_for`), RAG-router files (`brain/AGENT_ROUTER.md`, `brain/INTENTS.md`, `brain/WHEN_TO_USE_SKILLS.md`, `brain/EXECUTION_RULES.md`), docs (`brain/CAPABILITIES.md`, `brain/AGENTS.md`).
 
 ### RULE 5: Verification
 

@@ -1,16 +1,16 @@
 {
   "schema_version": "1.0",
   "agent": "bravo",
-  "generated_at": "2026-05-04T03:28:50.566045+00:00",
+  "generated_at": "2026-05-06T05:12:34.089766+00:00",
   "totals": {
     "skills": 153,
-    "scripts": 102,
+    "scripts": 108,
     "agents": 20,
     "mcp_servers": 9,
     "workflows": 36,
-    "nodes_total": 320,
+    "nodes_total": 326,
     "edges_total": 44,
-    "drift_count": 115
+    "drift_count": 29
   },
   "nodes": [
     {
@@ -22,7 +22,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "agent forge",
+        "use agent forge",
+        "run agent forge",
+        "use when cc asks to create a new agent"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -56,7 +61,11 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "agent permissions",
+        "use agent permissions",
+        "run agent permissions"
+      ],
       "tags": [
         "security",
         "orchestration",
@@ -74,7 +83,11 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "agent runtime packaging",
+        "use agent runtime packaging",
+        "run agent runtime packaging"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -88,7 +101,11 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "agent teams",
+        "use agent teams",
+        "run agent teams"
+      ],
       "tags": [
         "skill",
         "orchestration",
@@ -149,7 +166,11 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "anti drift",
+        "use anti drift",
+        "run anti drift"
+      ],
       "tags": [
         "orchestration",
         "quality",
@@ -181,7 +202,11 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "background workers",
+        "use background workers",
+        "run background workers"
+      ],
       "tags": [
         "automation",
         "workers",
@@ -267,7 +292,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "browser harness",
+        "use browser harness",
+        "run browser harness",
+        "use browser harness for direct chrome/edge browser control"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -303,7 +333,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "ceo briefing",
+        "use ceo briefing",
+        "run ceo briefing",
+        "executive morning briefing \\u2014 revenue"
+      ],
       "tags": [
         "skill",
         "ceo",
@@ -322,7 +357,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "ceo dashboard",
+        "use ceo dashboard",
+        "run ceo dashboard",
+        "unified kpi framework \\u2014 north star metrics"
+      ],
       "tags": [
         "skill",
         "ceo",
@@ -364,7 +404,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "client success",
+        "use client success",
+        "run client success",
+        "client health scoring"
+      ],
       "tags": [
         "skill",
         "client-success",
@@ -404,7 +449,11 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "codex delegation",
+        "use codex delegation",
+        "run codex delegation"
+      ],
       "tags": [
         "skill"
       ],
@@ -420,7 +469,11 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "computer control",
+        "use computer control",
+        "run computer control"
+      ],
       "tags": [
         "skill"
       ],
@@ -436,7 +489,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "context optimization",
+        "use context optimization",
+        "run context optimization",
+        "tiered context loading"
+      ],
       "tags": [
         "skill",
         "performance",
@@ -454,7 +512,11 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "crisis response",
+        "use crisis response",
+        "run crisis response"
+      ],
       "tags": [
         "skill",
         "crisis",
@@ -473,7 +535,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "daily planner",
+        "use daily planner",
+        "run daily planner",
+        "structured daily plan for cc \\u2014 content creation priorities"
+      ],
       "tags": [
         "skill",
         "ceo",
@@ -577,7 +644,11 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "email safety",
+        "use email safety",
+        "run email safety"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -640,7 +711,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "financial modeling",
+        "use financial modeling",
+        "run financial modeling",
+        "unit economics"
+      ],
       "tags": [
         "skill",
         "finance",
@@ -704,7 +780,11 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "google workspace recipes",
+        "use google workspace recipes",
+        "run google workspace recipes"
+      ],
       "tags": [
         "skills",
         "google-workspace",
@@ -723,7 +803,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws admin reports",
+        "use gws admin reports",
+        "run gws admin reports",
+        "google workspace admin sdk: audit logs and usage reports"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -737,7 +822,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws calendar",
+        "use gws calendar",
+        "run gws calendar",
+        "google calendar: manage calendars and events"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -751,7 +841,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws calendar agenda",
+        "use gws calendar agenda",
+        "run gws calendar agenda",
+        "google calendar: show upcoming events across all calendars"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -765,7 +860,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws calendar insert",
+        "use gws calendar insert",
+        "run gws calendar insert",
+        "google calendar: create a new event"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -779,7 +879,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws chat",
+        "use gws chat",
+        "run gws chat",
+        "google chat: manage chat spaces and messages"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -793,7 +898,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws chat send",
+        "use gws chat send",
+        "run gws chat send",
+        "google chat: send a message to a space"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -807,7 +917,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws classroom",
+        "use gws classroom",
+        "run gws classroom",
+        "google classroom: manage classes"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -821,7 +936,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws docs",
+        "use gws docs",
+        "run gws docs",
+        "read and write google docs"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -835,7 +955,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws docs write",
+        "use gws docs write",
+        "run gws docs write",
+        "google docs: append text to a document"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -849,7 +974,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws drive",
+        "use gws drive",
+        "run gws drive",
+        "google drive: manage files"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -863,7 +993,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws drive upload",
+        "use gws drive upload",
+        "run gws drive upload",
+        "google drive: upload a file with automatic metadata"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -877,7 +1012,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws events",
+        "use gws events",
+        "run gws events",
+        "subscribe to google workspace events"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -891,7 +1031,11 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws events renew",
+        "use gws events renew",
+        "run gws events renew"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -905,7 +1049,11 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws events subscribe",
+        "use gws events subscribe",
+        "run gws events subscribe"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -919,7 +1067,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws forms",
+        "use gws forms",
+        "run gws forms",
+        "read and write google forms"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -933,7 +1086,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws gmail",
+        "use gws gmail",
+        "run gws gmail",
+        "gmail: send"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -947,7 +1105,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws gmail forward",
+        "use gws gmail forward",
+        "run gws gmail forward",
+        "gmail: forward a message to new recipients"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -961,7 +1124,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws gmail read",
+        "use gws gmail read",
+        "run gws gmail read",
+        "gmail: read a message and extract its body or headers"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -975,7 +1143,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws gmail reply",
+        "use gws gmail reply",
+        "run gws gmail reply",
+        "gmail: reply to a message (handles threading automatically)"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -989,7 +1162,11 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws gmail reply all",
+        "use gws gmail reply all",
+        "run gws gmail reply all"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1003,7 +1180,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws gmail send",
+        "use gws gmail send",
+        "run gws gmail send",
+        "gmail: send an email"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1017,7 +1199,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws gmail triage",
+        "use gws gmail triage",
+        "run gws gmail triage",
+        "gmail: show unread inbox summary (sender"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1031,7 +1218,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws gmail watch",
+        "use gws gmail watch",
+        "run gws gmail watch",
+        "gmail: watch for new emails and stream them as ndjson"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1045,7 +1237,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws keep",
+        "use gws keep",
+        "run gws keep",
+        "manage google keep notes"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1059,7 +1256,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws meet",
+        "use gws meet",
+        "run gws meet",
+        "manage google meet conferences"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1073,7 +1275,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws modelarmor",
+        "use gws modelarmor",
+        "run gws modelarmor",
+        "google model armor: filter user-generated content for safety"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1087,7 +1294,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws modelarmor create template",
+        "use gws modelarmor create template",
+        "run gws modelarmor create template",
+        "google model armor: create a new model armor template"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1101,7 +1313,11 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws modelarmor sanitize prompt",
+        "use gws modelarmor sanitize prompt",
+        "run gws modelarmor sanitize prompt"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1115,7 +1331,11 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws modelarmor sanitize response",
+        "use gws modelarmor sanitize response",
+        "run gws modelarmor sanitize response"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1129,7 +1349,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws people",
+        "use gws people",
+        "run gws people",
+        "google people: manage contacts and profiles"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1143,7 +1368,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws shared",
+        "use gws shared",
+        "run gws shared",
+        "gws cli: shared patterns for authentication"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1157,7 +1387,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws sheets",
+        "use gws sheets",
+        "run gws sheets",
+        "google sheets: read and write spreadsheets"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1171,7 +1406,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws sheets append",
+        "use gws sheets append",
+        "run gws sheets append",
+        "google sheets: append a row to a spreadsheet"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1185,7 +1425,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws sheets read",
+        "use gws sheets read",
+        "run gws sheets read",
+        "google sheets: read values from a spreadsheet"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1199,7 +1444,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws slides",
+        "use gws slides",
+        "run gws slides",
+        "google slides: read and write presentations"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1213,7 +1463,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws tasks",
+        "use gws tasks",
+        "run gws tasks",
+        "google tasks: manage task lists and tasks"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1227,7 +1482,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws workflow",
+        "use gws workflow",
+        "run gws workflow",
+        "google workflow: cross-service productivity workflows"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1241,7 +1501,11 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws workflow email to task",
+        "use gws workflow email to task",
+        "run gws workflow email to task"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1255,7 +1519,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws workflow file announce",
+        "use gws workflow file announce",
+        "run gws workflow file announce",
+        "google workflow: announce a drive file in a chat space"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1269,7 +1538,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws workflow meeting prep",
+        "use gws workflow meeting prep",
+        "run gws workflow meeting prep",
+        "google workflow: prepare for your next meeting: agenda"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1283,7 +1557,11 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws workflow standup report",
+        "use gws workflow standup report",
+        "run gws workflow standup report"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1297,7 +1575,11 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "gws workflow weekly digest",
+        "use gws workflow weekly digest",
+        "run gws workflow weekly digest"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1332,7 +1614,11 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "hooks automation",
+        "use hooks automation",
+        "run hooks automation"
+      ],
       "tags": [
         "automation",
         "hooks",
@@ -1476,7 +1762,11 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "knowledge graph",
+        "use knowledge graph",
+        "run knowledge graph"
+      ],
       "tags": [
         "skill",
         "mcp",
@@ -1588,7 +1878,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "meeting automation",
+        "use meeting automation",
+        "run meeting automation",
+        "pre-meeting briefs"
+      ],
       "tags": [
         "skill",
         "meetings",
@@ -1608,7 +1903,11 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "memory compression",
+        "use memory compression",
+        "run memory compression"
+      ],
       "tags": [
         "skill",
         "memory",
@@ -1738,7 +2037,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "outreach send",
+        "use outreach send",
+        "run outreach send",
+        "send oasis cold/follow-up outreach emails with branded html"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1774,7 +2078,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "persona customer support",
+        "use persona customer support",
+        "run persona customer support",
+        "manage customer support \\u2014 track tickets"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1788,7 +2097,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "persona event coordinator",
+        "use persona event coordinator",
+        "run persona event coordinator",
+        "plan and manage events \\u2014 scheduling"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1802,7 +2116,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "persona exec assistant",
+        "use persona exec assistant",
+        "run persona exec assistant",
+        "manage an executive's schedule"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1816,7 +2135,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "persona hr coordinator",
+        "use persona hr coordinator",
+        "run persona hr coordinator",
+        "handle hr workflows \\u2014 onboarding"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1830,7 +2154,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "persona it admin",
+        "use persona it admin",
+        "run persona it admin",
+        "administer it \\u2014 monitor security and configure workspace"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1844,7 +2173,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "persona project manager",
+        "use persona project manager",
+        "run persona project manager",
+        "coordinate projects \\u2014 track tasks"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1858,7 +2192,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "persona researcher",
+        "use persona researcher",
+        "run persona researcher",
+        "organize research \\u2014 manage references"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1872,7 +2211,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "persona sales ops",
+        "use persona sales ops",
+        "run persona sales ops",
+        "manage sales workflows \\u2014 track deals"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1886,7 +2230,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "persona team lead",
+        "use persona team lead",
+        "run persona team lead",
+        "lead a team \\u2014 run standups"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -1922,7 +2271,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "project management",
+        "use project management",
+        "run project management",
+        "lightweight project management for oasis client engagements"
+      ],
       "tags": [
         "skill",
         "project-management",
@@ -1942,7 +2296,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "proposal generation",
+        "use proposal generation",
+        "run proposal generation",
+        "generate proposals"
+      ],
       "tags": [
         "skill",
         "proposal-generation",
@@ -1961,7 +2320,11 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "python daemon automation",
+        "use python daemon automation",
+        "run python daemon automation"
+      ],
       "tags": [
         "skill",
         "automation",
@@ -2064,7 +2427,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "risk management",
+        "use risk management",
+        "run risk management",
+        "business risk identification"
+      ],
       "tags": [
         "skill",
         "risk",
@@ -2112,7 +2480,11 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "sales methodology",
+        "use sales methodology",
+        "run sales methodology"
+      ],
       "tags": [
         "skill",
         "sales",
@@ -2282,7 +2654,11 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "send gateway",
+        "use send gateway",
+        "run send gateway"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -2417,7 +2793,11 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "sparc methodology",
+        "use sparc methodology",
+        "run sparc methodology"
+      ],
       "tags": [
         "development",
         "planning",
@@ -2456,7 +2836,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "strategic planning",
+        "use strategic planning",
+        "run strategic planning",
+        "ceo-level strategic planning framework \\u2014 okrs"
+      ],
       "tags": [
         "skill",
         "strategy",
@@ -2542,7 +2927,11 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "task routing",
+        "use task routing",
+        "run task routing"
+      ],
       "tags": [
         "orchestration",
         "routing",
@@ -2560,7 +2949,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "team management",
+        "use team management",
+        "run team management",
+        "hiring framework"
+      ],
       "tags": [
         "skill",
         "team",
@@ -2706,7 +3100,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "verticals",
+        "use verticals",
+        "run verticals",
+        "namespace for vertical-specific playbooks (agency"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -2741,7 +3140,12 @@
       "tier": "specialized",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "web scraping",
+        "use web scraping",
+        "run web scraping",
+        "web scraping and structured data extraction"
+      ],
       "tags": [
         "skill",
         "scraping",
@@ -2852,6 +3256,26 @@
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-filename"
+    },
+    {
+      "id": "script:agent_self_improvement",
+      "kind": "script",
+      "name": "agent_self_improvement",
+      "path": "scripts/agent_self_improvement.py",
+      "description": "Cross-agent self-improvement sweep for Bravo, Atlas, and Maven.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:anti_pattern_hook",
+      "kind": "script",
+      "name": "anti_pattern_hook",
+      "path": "scripts/anti_pattern_hook.py",
+      "description": "PreToolUse hook \u2014 scans the about-to-execute Bash command against a list of regex anti-patterns derived from logged mistakes. Pure regex, zero LLM cost, fires per-tool-use in <50ms.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:apply_migration",
@@ -2998,10 +3422,10 @@
       "kind": "script",
       "name": "client_health",
       "path": "scripts/client_health.py",
-      "description": "(no docstring)",
+      "description": "Client health \u2014 provides load env.",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:cloudflare_admin",
@@ -3064,11 +3488,31 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:cost_audit",
+      "kind": "script",
+      "name": "cost_audit",
+      "path": "scripts/cost_audit.py",
+      "description": "Cron cost audit \u2014 for each active cron job, traces its handler chain through scheduler.py and the scripts it invokes, reports whether any link in the chain hits an Anthropic LLM.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:cost_tracker",
       "kind": "script",
       "name": "cost_tracker",
       "path": "scripts/cost_tracker.py",
       "description": "Cost Tracker \u2014 Per-Operation Label:Units Tracking for Business-Empire-Agent Follows the Claude Code internal cost tracking pattern: label:units per operation. Covers all CLI tools (supabase, stripe, n8n, late, playwright) and MCP calls. No external dependencies \u2014 stdlib only (sql",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:critic_template_check",
+      "kind": "script",
+      "name": "critic_template_check",
+      "path": "scripts/critic_template_check.py",
+      "description": "Regression test: every OASIS email template rendered against a synthetic lead must pass draft_critic. Prevents critic-vs-template drift (the 2026-05-04 mistake where 67% of cold sends were blocked by critic on template-native phrases like 'Only good things from now on').",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -3129,6 +3573,16 @@
       "name": "draft_critic",
       "path": "scripts/draft_critic.py",
       "description": "Draft Critic \u2014 the adversarial second-opinion reviewer that runs on every Claude-drafted outbound before it reaches send_gateway.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:drift_autofix",
+      "kind": "script",
+      "name": "drift_autofix",
+      "path": "scripts/drift_autofix.py",
+      "description": "Deterministic drift auto-fix \u2014 adds missing `triggers:` to skills and module docstrings to scripts WITHOUT calling any LLM. Zero API cost.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -3398,6 +3852,16 @@
       "kind": "script",
       "name": "music_control",
       "path": "scripts/music_control.py",
+      "description": "(no docstring)",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-filename"
+    },
+    {
+      "id": "script:n8n_inbound_doctor",
+      "kind": "script",
+      "name": "n8n_inbound_doctor",
+      "path": "scripts/n8n_inbound_doctor.py",
       "description": "(no docstring)",
       "tier": "tool",
       "owner": "bravo",
@@ -4683,351 +5147,7 @@
   ],
   "drift": [
     {
-      "node": "skill:agent-forge",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:agent-permissions",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:agent-runtime-packaging",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:agent-teams",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:anti-drift",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
       "node": "skill:auto-generated",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:background-workers",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:browser-harness",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:ceo-briefing",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:ceo-dashboard",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:client-success",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:codex-delegation",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:computer-control",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:context-optimization",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:crisis-response",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:daily-planner",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:email-safety",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:financial-modeling",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:google-workspace-recipes",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-admin-reports",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-calendar",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-calendar-agenda",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-calendar-insert",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-chat",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-chat-send",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-classroom",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-docs",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-docs-write",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-drive",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-drive-upload",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-events",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-events-renew",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-events-subscribe",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-forms",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-gmail",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-gmail-forward",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-gmail-read",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-gmail-reply",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-gmail-reply-all",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-gmail-send",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-gmail-triage",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-gmail-watch",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-keep",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-meet",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-modelarmor",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-modelarmor-create-template",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-modelarmor-sanitize-prompt",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-modelarmor-sanitize-response",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-people",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-shared",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-sheets",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-sheets-append",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-sheets-read",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-slides",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-tasks",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-workflow",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-workflow-email-to-task",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-workflow-file-announce",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-workflow-meeting-prep",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-workflow-standup-report",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:gws-workflow-weekly-digest",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:hooks-automation",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:knowledge-graph",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:meeting-automation",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:memory-compression",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:outreach-send",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:persona-customer-support",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:persona-event-coordinator",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:persona-exec-assistant",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:persona-hr-coordinator",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:persona-it-admin",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:persona-project-manager",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:persona-researcher",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:persona-sales-ops",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:persona-team-lead",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:project-management",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:proposal-generation",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:python-daemon-automation",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:risk-management",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:sales-methodology",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:send-gateway",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:sparc-methodology",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:strategic-planning",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:task-routing",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:team-management",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:verticals",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "skill:web-scraping",
       "issue": "skill has no triggers \u2014 agent can't route to it"
     },
     {
@@ -5056,10 +5176,6 @@
     },
     {
       "node": "script:ceo_dashboard",
-      "issue": "script missing module docstring"
-    },
-    {
-      "node": "script:client_health",
       "issue": "script missing module docstring"
     },
     {
@@ -5104,6 +5220,10 @@
     },
     {
       "node": "script:music_control",
+      "issue": "script missing module docstring"
+    },
+    {
+      "node": "script:n8n_inbound_doctor",
       "issue": "script missing module docstring"
     },
     {

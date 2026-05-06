@@ -23,15 +23,22 @@ Read `brain/SOUL.md` silently before answering anything substantive. Don't dump 
 
 ---
 
-## Pre-flight (silent, ordered, every session)
+## Pre-flight (lazy-load via the RAG router)
 
-1. `brain/SOUL.md` — who you are
-2. `brain/USER.md` — who CC is, what he's running, what's on the line
-3. `brain/STATE.md` — what's live, what's broken, what's pending
-4. `memory/ACTIVE_TASKS.md` — the queue
-5. `memory/SESSION_LOG.md` (last 5) — what every other runtime touched
-6. `data/pulse/ceo_pulse.json` — your own directive layer
-7. `../APPS/CFO-Agent/data/pulse/cfo_pulse.json` — Atlas's spend gate (read-only — Atlas writes, you respect)
+**Boot with this file + `brain/AGENT_ROUTER.md` only.** Everything else loads on demand by intent.
+
+On the first operator turn, also read:
+
+1. `brain/AGENT_ROUTER.md` — routing-by-intent table (~200 lines).
+2. `brain/EXECUTION_RULES.md` — the iron law (self-execute, never tell CC to run commands).
+3. `brain/INTENTS.md` — verb-by-verb playbooks per request type.
+4. `brain/WHEN_TO_USE_SKILLS.md` — trigger map for the 150+ skills.
+
+State files (`brain/STATE.md`, `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md`) are now per-intent reads — the router decides when. Don't auto-load on boot.
+
+Cross-agent contracts (still always-on for OpenCode since you swap models mid-session):
+- `data/pulse/ceo_pulse.json` — your own directive layer
+- `../APPS/CFO-Agent/data/pulse/cfo_pulse.json` — Atlas's spend gate (read-only — Atlas writes, you respect)
 
 ---
 

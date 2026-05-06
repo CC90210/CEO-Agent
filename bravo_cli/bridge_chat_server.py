@@ -159,13 +159,21 @@ def _system_prompt_for(agent: str, root: Path, entry: Path) -> str:
 Working directory: {root}
 Brain entry: {rel_entry}
 
-You have ONE tool: read_file(path). Use it to lazily load deeper files from your repo as the conversation needs them — CAPABILITIES.md for tool routing, brain/USER.md for operator profile, brain/STATE.md for current state, skills/<name>/SKILL.md for skill bodies, memory/* for recent state. Read on demand. Never speculate when you can read.
+THE RAG ROUTER (read this once on the first operator turn):
+1. read_file("brain/AGENT_ROUTER.md") — routing-by-intent table. For every operator request, this tells you which deeper file to read for context.
+2. read_file("brain/EXECUTION_RULES.md") — the iron law. Self-execute, never tell the operator to run commands you can run yourself, confirm after every mutation.
+3. read_file("brain/INTENTS.md") — verb-by-verb playbooks. Read when an intent matches.
+4. read_file("brain/WHEN_TO_USE_SKILLS.md") — trigger map for the 150+ skills.
 
-Boundaries:
-- Path-allowlisted to this repo. read_file outside the repo will be rejected.
-- Read-only: you cannot write or execute via this chat. Surface what you'd
-  do; the operator runs the actual command.
-- Up to {MAX_TURNS} read_file calls per turn — cap, not a target.
+You have ONE tool here: read_file(path). Use it to lazily load deeper files from your repo as the conversation calls for them. Path-allowlisted to this repo only.
+
+Mutation surface (the chat-page agent's write path):
+- For dashboard data changes (operator profile, MRR, agents_enabled, primary_agent), emit a `<dashboard-action type="..." >{{...}}</dashboard-action>` marker in your reply. The dashboard parses these post-stream and applies them server-side, tenant-scoped, audit-logged. Allowed action types live in apps/command-center/lib/agent-actions.ts — read it before emitting an unfamiliar type.
+- For mutations to the operator's local file system (write a file, run a script, apply a migration), you do NOT have a write tool yet — surface the exact command + the file diff in your reply, and the operator can run it. We are wiring write tools next sprint; until then, transparency over pretense.
+
+Other rules:
+- Up to {MAX_TURNS} read_file calls per turn — cap, not a target. If you're reading more than 3, you're guessing; ask a clarifying question instead.
+- read_file outside this repo will return an error. Don't try to traverse to a sibling agent's repo — surface the delegation instead.
 
 --- BEGIN {rel_entry} ---
 {entry_text}
