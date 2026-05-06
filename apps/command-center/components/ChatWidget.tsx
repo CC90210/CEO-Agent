@@ -12,9 +12,10 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Send, AlertCircle, Settings as Cog, Loader2, Sparkles, RefreshCw } from "lucide-react";
+import { Send, AlertCircle, Settings as Cog, Loader2, Sparkles, RefreshCw, Cpu } from "lucide-react";
 import Link from "next/link";
 import { getAgentInfo } from "@/lib/agents";
+import { BRIDGE_CHAT_BASE } from "@/lib/agent-roots";
 
 type Role = "user" | "assistant" | "system";
 type Msg = { role: Role; content: string };
@@ -45,6 +46,8 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
   const [actions, setActions] = useState<
     Array<{ ok: boolean; type: string; summary?: string; error?: string }>
   >([]);
+  const [bridgeOnline, setBridgeOnline] = useState<boolean | null>(null);
+  const [toolReads, setToolReads] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -58,6 +61,30 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
       .finally(() => setConfigsLoaded(true));
   }, []);
 
+  // Probe the local bridge on mount + every 30s. When the operator runs
+  // `bravo bridge serve`, this flips true and chat starts targeting their
+  // machine instead of /api/chat (full repo access, operator's API key).
+  useEffect(() => {
+    let alive = true;
+    const probe = async () => {
+      try {
+        const ctl = new AbortController();
+        const t = setTimeout(() => ctl.abort(), 1500);
+        const r = await fetch(`${BRIDGE_CHAT_BASE}/health`, { signal: ctl.signal });
+        clearTimeout(t);
+        if (alive) setBridgeOnline(r.ok);
+      } catch {
+        if (alive) setBridgeOnline(false);
+      }
+    };
+    probe();
+    const id = setInterval(probe, 30_000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, []);
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, streaming]);
@@ -67,17 +94,22 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
     setSessionId(null);
     setError(null);
     setActions([]);
+    setToolReads([]);
   }, [agent]);
 
   const cfg = useMemo(() => configs.find((c) => c.agent_key === agent) || null, [configs, agent]);
   const hasOwnKey = cfg?.has_key && cfg?.enabled;
-  const ready = configsLoaded && (hasOwnKey || isAdmin);
+  // Bridge online → chat works regardless of cloud config (operator's local
+  // ANTHROPIC_API_KEY drives it). Otherwise the cloud config / admin
+  // fallback decides.
+  const ready = bridgeOnline === true || (configsLoaded && (hasOwnKey || isAdmin));
 
   function reset() {
     setMessages([]);
     setSessionId(null);
     setError(null);
     setActions([]);
+    setToolReads([]);
   }
 
   async function send() {
@@ -91,14 +123,19 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
     setStreaming(true);
 
     try {
-      const res = await fetch("/api/chat", {
+      // Routing decision:
+      //   bridge online → POST localhost:9100/chat (full repo + read_file
+      //                   tool, operator's API key, never leaves machine)
+      //   bridge offline → POST /api/chat (Vercel relay, BYO encrypted key)
+      const useBridge = bridgeOnline === true;
+      const url = useBridge ? `${BRIDGE_CHAT_BASE}/chat` : "/api/chat";
+      const body = useBridge
+        ? { agent, messages: newMessages }
+        : { agent_key: agent, session_id: sessionId, messages: newMessages };
+      const res = await fetch(url, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          agent_key: agent,
-          session_id: sessionId,
-          messages: newMessages,
-        }),
+        body: JSON.stringify(body),
       });
       if (!res.ok || !res.body) {
         const errBody = await safeReadJson(res);
@@ -151,6 +188,8 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
                 error: parsed.error,
               },
             ]);
+          } else if (event === "tool" && parsed.name === "read_file") {
+            setToolReads((prev) => [...prev, String(parsed.path || "")]);
           } else if (event === "error") {
             setError(parsed.message || "stream_error");
           }
@@ -197,13 +236,20 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
             {getAgentInfo(agent).tagline}
           </div>
           <div className="text-xs text-fg-dim font-mono truncate">
-            {cfg
-              ? `${cfg.provider} · ${cfg.model}`
-              : isAdmin
-                ? "admin · platform key"
-                : configsLoaded
-                  ? "not configured"
-                  : "loading…"}
+            {bridgeOnline === true ? (
+              <span className="text-accent">
+                <Cpu className="w-3 h-3 inline-block mr-1 -mt-0.5" />
+                local bridge · full repo access
+              </span>
+            ) : cfg ? (
+              `${cfg.provider} · ${cfg.model}`
+            ) : isAdmin ? (
+              "admin · platform key"
+            ) : configsLoaded ? (
+              "not configured"
+            ) : (
+              "loading…"
+            )}
           </div>
         </div>
         {messages.length > 0 && (
@@ -241,6 +287,19 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
             streaming={streaming && i === messages.length - 1 && m.role === "assistant"}
           />
         ))}
+        {toolReads.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {toolReads.map((p, i) => (
+              <span
+                key={i}
+                className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-accent/10 border border-accent/20 text-accent"
+                title="Agent read this file from its repo"
+              >
+                read · {p}
+              </span>
+            ))}
+          </div>
+        )}
         {actions.length > 0 && (
           <div className="space-y-1.5">
             {actions.map((a, i) => (
