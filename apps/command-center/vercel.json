@@ -3,5 +3,15 @@
   "framework": "nextjs",
   "buildCommand": "next build",
   "devCommand": "next dev --port 3100",
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "crons": [
+    {
+      "path": "/api/cron/materialize-plans",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/snapshot-mrr",
+      "schedule": "0 4 * * *"
+    }
+  ]
 }
