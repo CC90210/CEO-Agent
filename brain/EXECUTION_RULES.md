@@ -108,3 +108,7 @@ For each: confirm intent in chat, get a yes, THEN execute.
 ## 10. THE OPERATOR IS THE SOURCE OF TRUTH
 
 If the operator and a brain file disagree, **the operator wins.** Update the brain file to match what they just said, in the same turn. The brain is a snapshot; the operator is live.
+
+## Obsidian Links
+- [[brain/AGENT_ROUTER]] | [[brain/INTENTS]] | [[brain/WHEN_TO_USE_SKILLS]]
+- [[brain/SOUL]] | [[memory/MISTAKES]]
