@@ -41,22 +41,31 @@ export default async function TodayPage() {
   }
 
   const tenantId = profile.tenant_id || "";
+
+  // Same hardening pattern as layout.tsx — each query gets a default value
+  // so one failing reader (e.g. a brand-new tenant with no leads, an RLS
+  // edge case, a Supabase blip) can never 500 the whole Today page.
+  // This is the bug class that took down the dashboard when Hermes was
+  // toggled — never again.
+  const safe = async <T,>(p: Promise<T>, fallback: T): Promise<T> =>
+    p.catch(() => fallback);
+
   const [counts, pipeline, mrr, history, plan, inbound, concentration, replyRate, activePipe, topLead] =
     await Promise.all([
-      todayCounts(tenantId),
-      pipelineBreakdown(tenantId),
-      mrrSnapshot(),
-      mrrHistory(30),
-      getTodayPlan(profile.id),
-      recentInbound(tenantId, 5),
-      topClientConcentration(tenantId),
-      outreachReplyRate(tenantId, 7),
-      activePipeline(tenantId),
-      topOpenLead(tenantId),
+      safe(todayCounts(tenantId), { outbound: 0, inbound: 0, decisions: 0, hot: 0 }),
+      safe(pipelineBreakdown(tenantId), { stages: {} as Record<string, number>, total: 0, sources: {} as Record<string, number> }),
+      safe(mrrSnapshot(), { current: 0, target: 5000, pct: 0 }),
+      safe(mrrHistory(30), [] as Array<{ date: string; mrr: number; synthetic: boolean }>),
+      safe(getTodayPlan(profile.id), null),
+      safe(recentInbound(tenantId, 5), []),
+      safe(topClientConcentration(tenantId), { client_name: "—", pct_of_mrr: 0, is_at_risk: false }),
+      safe(outreachReplyRate(tenantId, 7), { sends: 0, replies: 0, rate_pct: 0 }),
+      safe(activePipeline(tenantId), { total_active: 0, qualified: 0, proposal: 0 }),
+      safe(topOpenLead(tenantId), null),
     ]);
 
   const primaryLead = plan?.primary_lead_id
-    ? await getLeadById(plan.primary_lead_id)
+    ? await safe(getLeadById(plan.primary_lead_id), null)
     : topLead; // auto-promote highest-score open lead if no plan-level pin
 
   const targetDate = profile.mrr_target_date ? new Date(profile.mrr_target_date) : null;
