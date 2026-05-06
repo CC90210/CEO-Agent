@@ -999,21 +999,17 @@ CC's message:`;
         }
     }
 
-    // ---- PRIVATE: STARTUP HEALTH CHECK (preserved) ----
-    // V15.9 (2026-05-06): cooldown guard so PM2 crash-loops don't spam.
-    // Same state file + threshold as telegram_agent.js so both bridges
-    // share the same "we already told you" memory.
+    // ---- PRIVATE: STARTUP HEALTH CHECK ----
+    // V15.10 (2026-05-06): TELEGRAM SENDS REMOVED. PM2 crash-loops were
+    // spamming the operator with the same "OAuth not found" message every
+    // minute. Auth-state diagnostics stay in the log; nothing goes to
+    // Telegram from this code path.
 
     _startupHealthCheck() {
         setTimeout(() => {
             const auth = checkClaudeAuthPaths();
             if (!auth.hasOAuth) {
-                log('[HEALTH] Claude OAuth not found — run `claude setup-token`.');
-                if (this._allowedUsers.length > 0 && this._bot && this._shouldFireWarning('oauth_missing')) {
-                    this._bot.sendMessage(this._allowedUsers[0],
-                        `Bravo startup: Claude OAuth not found. Run: claude setup-token (rate-limited to once per 6h)`
-                    ).then(() => this._markWarningFired('oauth_missing')).catch(() => {});
-                }
+                log('[HEALTH] Claude OAuth not found — run `claude setup-token`. (Telegram notification suppressed.)');
             } else {
                 log(`[HEALTH] Claude OAuth present at ${auth.oauthPath}`);
             }
@@ -1021,26 +1017,6 @@ CC's message:`;
                 log('[HEALTH] ANTHROPIC_API_KEY missing — fallback unavailable.');
             }
         }, 5000);
-    }
-
-    _warningStateFile() {
-        return require('path').join(__dirname, '..', '..', 'tmp', 'telegram_warnings.json');
-    }
-    _readWarningState() {
-        try { return JSON.parse(require('fs').readFileSync(this._warningStateFile(), 'utf8')); }
-        catch { return {}; }
-    }
-    _shouldFireWarning(kind) {
-        const COOLDOWN = 6 * 60 * 60 * 1000;
-        return Date.now() - (this._readWarningState()[kind] || 0) >= COOLDOWN;
-    }
-    _markWarningFired(kind) {
-        try {
-            const fs = require('fs'); const path = require('path');
-            fs.mkdirSync(path.dirname(this._warningStateFile()), { recursive: true });
-            const state = this._readWarningState(); state[kind] = Date.now();
-            fs.writeFileSync(this._warningStateFile(), JSON.stringify(state, null, 2), 'utf8');
-        } catch (e) { log(`[HEALTH] could not persist warning state: ${e.message}`); }
     }
 }
 
