@@ -1539,7 +1539,35 @@ def _confirm_profile(slug: str) -> None:
 # ── Dynamic questions + repo clone steps ──────────────────────────────────────
 
 def _ask_one(q: dict) -> str:
-    """Ask a single question from a PROFILE_QUESTIONS / BUSINESS_CONTEXT entry."""
+    """Ask a single question from a PROFILE_QUESTIONS / BUSINESS_CONTEXT entry.
+
+    Env-var override: if the question's `key` is already set in the
+    environment (e.g. via the /configure pre-signup flow exporting
+    OASIS_OPERATOR_NAME → USER_FULL_NAME), skip the prompt and return
+    that value. Falls through to interactive prompt otherwise.
+
+    Aliases below map the public-facing OASIS_* env names (set by
+    /configure's generated install one-liner) onto the wizard's internal
+    question keys.
+    """
+    OASIS_ALIASES = {
+        "USER_FULL_NAME": "OASIS_OPERATOR_NAME",
+        "USER_PREFERRED_NAME": "OASIS_OPERATOR_NICKNAME",
+        "USER_BUSINESS_NAME": "OASIS_BRAND",
+        "BRAVO_PRIMARY_BRAND": "OASIS_BRAND",
+        "BRAVO_NORTH_STAR_METRIC": "OASIS_NORTH_STAR",
+        "USER_PRIMARY_METRIC": "OASIS_NORTH_STAR",
+    }
+    key = q.get("key", "")
+    pre = os.environ.get(key, "").strip()
+    if not pre and key in OASIS_ALIASES:
+        pre = os.environ.get(OASIS_ALIASES[key], "").strip()
+    if pre:
+        # Use the pre-set value directly. Echo so the operator sees what
+        # got skipped — matches the rest of the wizard's chatty UX.
+        print(f"  {GREEN(OK)} {q['prompt']}: {CYAN(pre)} {DIM('(from env)')}")
+        return pre
+
     qtype = q.get("type", "text")
     label = q["prompt"]
     default = q.get("default")
