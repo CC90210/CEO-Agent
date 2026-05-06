@@ -6,9 +6,7 @@ owner: bravo
 risk: low
 status: '[VALIDATED]'
 disable-model-invocation: true
-triggers:
-  - synthesize
-  - new auto-generated skill
+triggers: [synthesize, new auto-generated skill]
 ---
 
 # Auto-Generated Skills Container

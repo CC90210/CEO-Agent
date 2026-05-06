@@ -109,6 +109,28 @@ For each: confirm intent in chat, get a yes, THEN execute.
 
 If the operator and a brain file disagree, **the operator wins.** Update the brain file to match what they just said, in the same turn. The brain is a snapshot; the operator is live.
 
+---
+
+## 11. FRESHNESS GATE — COMPUTE OR READ, NEVER INFER
+
+Before quoting **any** of the following, compute or read live. Never infer from memory, prompt context, or training data.
+
+| Class | What to do |
+|---|---|
+| Today's day-of-week (Monday, Tuesday…) | `python -c "from datetime import date; print(date.today().strftime('%A'))"` |
+| Today's date | `python -c "from datetime import date; print(date.today().isoformat())"` |
+| Days remaining to a deadline | `python -c "from datetime import date; print((date(YYYY,M,D)-date.today()).days)"` |
+| Current MRR / revenue | `python scripts/revenue_engine.py mrr --json` |
+| Current pipeline state | `python scripts/lead_engine.py pipeline --json` |
+| Active tasks | `read_file("memory/ACTIVE_TASKS.md")` AND verify its `last_updated` against today |
+| Recent activity | `read_file("memory/SESSION_LOG.md")` |
+| Live deployment / system health | `git status` + `python scripts/self_audit.py --json` + (when relevant) `npx vercel ls` |
+| Memory freshness | `python scripts/memory_aging.py stale --days 7 --json` |
+
+**Why this rule exists:** day-of-week hallucination has been logged as a 3-time repeat offense (2026-04-04, 2026-05-03, 2026-05-04). Each time the system reminder gave the date but NOT the day name, the agent inferred a day, said it confidently, and was wrong. The fix is mechanical: never type a day name without computing it first.
+
+**Same rule applies to memory files.** Frontmatter `last_updated:` values can be fresh while the body has stale items. Read both. If a body sentence references a date more than 7 days back and the frontmatter is fresh, treat that line as stale and ask the operator before acting on it.
+
 ## Obsidian Links
 - [[brain/AGENT_ROUTER]] | [[brain/INTENTS]] | [[brain/WHEN_TO_USE_SKILLS]]
 - [[brain/SOUL]] | [[memory/MISTAKES]]

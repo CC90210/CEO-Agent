@@ -39,9 +39,9 @@ For COMPLEX+ tasks, use SPARC methodology (`skills/sparc-methodology/SKILL.md`).
 | Market research, documentation lookup | **Researcher** | `/research`, unknown APIs |
 | Website-to-CLI, platform data, API discovery | **Researcher** | `/opencli`, `opencli explore`, `opencli <platform>` |
 | Authenticated web app control, screenshots, domain-skill learning | **Browser Harness + owning agent** | `skills/browser-harness`, `.agents/workflows/browser-harness`, owner gates below |
-| Content creation, brand voice | **Content Creator** | `/content`, marketing tasks |
-| Social media publishing | **Social Publisher** | `/post`, cross-posting |
-| Video/audio production | **Video Editor** | `/content` (media pipeline) |
+| Content creation, brand voice | **Maven (CMO)** | route to `~/CMO-Agent` — content-creator persona lives there |
+| Social media publishing | **Maven (CMO)** | route to `~/CMO-Agent` — social-publisher persona lives there |
+| Video/audio production | **Maven (CMO)** | route to `~/CMO-Agent` — video-editor persona lives there |
 | Debugging, error resolution | **Debugger** | `/debug`, build failures |
 | Git operations, PR management | **Git Ops** | `/commit`, branch management |
 | Communication, outreach, follow-ups | **Chief of Staff** | Client emails, lead responses |
