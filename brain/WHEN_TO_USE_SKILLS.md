@@ -117,3 +117,7 @@ When `skills/<new-name>/SKILL.md` lands and is meant to be invoked from chat:
 1. Add a row to the right section. Trigger phrase, skill slug, "don't use when".
 2. Bump `last_updated:`.
 3. Don't grow this file past ~250 lines. If a section bloats, split into a domain-specific index file and link from here.
+
+## Obsidian Links
+- [[brain/AGENT_ROUTER]] | [[brain/INTENTS]] | [[brain/EXECUTION_RULES]]
+- [[skills/INDEX]] | [[brain/CAPABILITIES]]
