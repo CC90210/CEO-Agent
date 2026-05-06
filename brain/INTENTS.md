@@ -14,12 +14,15 @@ last_updated: 2026-05-06
 
 ## "Send an email to <X>"
 
+In chat (bridge mode), this runs through the `run_script` tool with `confirm:true` gating for the actual send. NEVER tell the operator to type the python command.
+
 1. Read `skills/outreach-send/SKILL.md` for the canonical send path.
-2. Confirm the recipient is in `lead_engine` already, or create with `python scripts/lead_engine.py add …`.
-3. Compose the draft. Voice rules in `brain/SOUL.md` if you don't already have them in prompt.
-4. Run `python scripts/send_gateway.py can-act --lead-id <id> --channel email` first. The gateway enforces 8 gates (CASL, cooldown, daily/hourly cap, domain cap, reputation, draft critic, bounce circuit, reservation guard). If it returns a block reason, surface that — don't bypass.
-5. If `can-act` is green, `python scripts/send_gateway.py send --channel email --agent-source bravo --to … --subject … --body …`.
-6. Confirm in chat: who, what, gate verdict, message id returned by gateway.
+2. Confirm the recipient exists: call `run_script` with `lead_engine_list` (args like `--status all --limit 50`) and find them. If missing, ASK before creating — `lead_engine_add` is a mutating action that needs `confirm:true` and same-turn operator approval.
+3. Compose the draft inline in chat. Voice rules from `brain/SOUL.md` if not already in your prompt.
+4. **Pre-flight:** call `run_script` with `send_gateway_can_act` (args: `--lead-id <id> --channel email`). The gateway enforces 8 gates (CASL, cooldown, daily/hourly cap, domain cap, reputation, draft critic, bounce circuit, reservation guard). If a gate blocks, surface the reason — do NOT bypass.
+5. **Operator confirmation:** show the draft + gate verdict in chat. ASK for explicit approval ("send it" / "yes" / "ship"). Do NOT auto-send.
+6. **Send:** after explicit approval in the same turn, call `run_script` with `send_gateway_send` (args: `--channel email --agent-source bravo --to ... --subject "..." --body "..."`) AND `confirm: true`. Without `confirm:true` the bridge returns `confirm_required` — that's the safety net, don't try to bypass it.
+7. Confirm in chat: recipient, subject, gate verdict, message id from the gateway's stdout.
 
 ---
 
