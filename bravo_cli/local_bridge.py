@@ -608,6 +608,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("status", help="Show bridge status")
     sub.add_parser("seed-keys",
                    help="Push local .env.agents API keys to the dashboard so admin chat works")
+    sub.add_parser("serve",
+                   help="Run the local chat HTTP server on localhost:9100 — dashboard chat connects here")
     sub.add_parser("_loop", help="(internal) run the ping loop in foreground")
     args = ap.parse_args(argv)
     if args.cmd == "start":
@@ -618,6 +620,9 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_status(args)
     if args.cmd == "seed-keys":
         return cmd_seed_keys(args)
+    if args.cmd == "serve":
+        from . import bridge_chat_server
+        return bridge_chat_server.serve_forever()
     if args.cmd == "_loop":
         return run_loop()
     ap.print_help()
