@@ -274,6 +274,20 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
       {/* Animated rail beneath the header */}
       <div className="chat-rail" />
 
+      {/* Bridge-state banner — only when chat is in cloud mode and missing
+          the local repo context. Mirrors the path CC asked for: he should
+          never wonder "why doesn't this agent know my files." */}
+      {bridgeOnline === false && (
+        <div className="px-5 py-2.5 bg-status-warm/10 border-b border-status-warm/30 text-xs text-status-warm flex items-start gap-2 relative z-10">
+          <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+          <div className="flex-1 leading-relaxed">
+            <span className="font-bold">Cloud mode.</span> Agent doesn&apos;t have access to your local file structure right now. For full repo context (read brain/, skills/, memory/, propose code edits), open a terminal in your install dir and run:
+            <code className="block mt-1.5 px-2 py-1 bg-bg-deep rounded text-accent font-mono">bravo bridge serve</code>
+            <span className="text-fg-dim text-[11px]">Refresh this page once it&apos;s running. Header turns cyan.</span>
+          </div>
+        </div>
+      )}
+
       {/* Transcript */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-5 space-y-4 chat-scroll relative z-10">
         {!messages.length && !error && (

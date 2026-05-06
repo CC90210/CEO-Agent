@@ -185,11 +185,16 @@ export async function POST(req: NextRequest) {
   });
 
   const personaBase = getPersona(agentKey, cfgOverride);
+  // Cloud-mode disclosure — this is the path that runs when the local
+  // bridge isn't serving. The agent has DASHBOARD STATE (operator's MRR,
+  // pipeline, today's plan, etc) but NO file-system access. Be honest
+  // about it; don't infer a repo you can't read.
+  const cloudModeNotice = `\n\n---\nRUNTIME: CLOUD MODE\nYou are running through the dashboard's /api/chat path on Vercel, not the operator's local bridge. You have the DASHBOARD STATE block below (real Supabase data — MRR, pipeline, recent inbound, today's plan, integrations health). You do NOT have access to the operator's local file system, brain/* files, skills/* bodies, or any repo content.\n\nIf the operator asks about local files, code structure, or anything that requires reading the repo:\n- Be explicit: say you're in cloud mode without file access.\n- Tell them: "Run \`bravo bridge serve\` on your machine. The chat will then route to localhost with full repo access — you'll see the header turn cyan."\n- Do NOT infer file contents. Do NOT speculate about brain/ structure. Do NOT pretend to have read SOUL.md or any other file.\n\nWhat you CAN do in cloud mode:\n- Answer using the DASHBOARD STATE block.\n- Mutate dashboard data via <dashboard-action> markers (see below).\n- Strategy, drafting, brainstorming, advice — anything that doesn't need file reads.\n---`;
   // Inject live dashboard state — MRR, pipeline, recent inbound, today's
   // plan, integrations health — so the agent answers from real data instead
   // of asking the operator for things it can already see.
   const dashboardCtx = await composeDashboardContext({ tenantId, agentKey }).catch(() => "");
-  const persona = dashboardCtx ? `${personaBase}\n\n${dashboardCtx}` : personaBase;
+  const persona = `${personaBase}${cloudModeNotice}${dashboardCtx ? `\n\n${dashboardCtx}` : ""}`;
   const startedAt = Date.now();
 
   // ---- Stream response back as SSE ----------------------------------------
