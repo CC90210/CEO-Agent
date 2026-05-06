@@ -33,36 +33,59 @@ export default async function RootLayout({
   let primaryAgentLive = false;
   let bridgeOnline = false;
   if (!isFullBleed) {
+    // Each side-channel query is wrapped independently — one failure
+    // (Hermes snapshot row missing, bridge_pairings table absent in dev,
+    // RLS blocking a service-role call, etc.) must NOT take down the
+    // whole layout. Failure mode prior to this hardening: any throw
+    // here blanked the dashboard with a 500.
     try {
       profile = await getActiveProfile();
-      const agent = profile?.primary_agent || "bravo";
-      // "Live" = the agent's snapshot ticked in the last 15 min.
-      const db = getServiceSupabase();
-      const { data: snap } = await db
-        .from("agent_state_snapshot")
-        .select("last_tick_at")
-        .eq("agent_name", agent)
-        .maybeSingle();
-      if (snap?.last_tick_at) {
-        primaryAgentLive = Date.now() - new Date(snap.last_tick_at).getTime() < 15 * 60 * 1000;
-      }
-      // Local bridge online = any non-revoked pairing for this tenant pinged
-      // in the last 5 min (bridge daemon heartbeats every 60s).
-      if (profile?.tenant_id) {
-        const { data: pair } = await db
-          .from("bridge_pairings")
-          .select("last_seen_at")
-          .eq("tenant_id", profile.tenant_id)
-          .is("revoked_at", null)
-          .order("last_seen_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (pair?.last_seen_at) {
-          bridgeOnline = Date.now() - new Date(pair.last_seen_at).getTime() < 5 * 60 * 1000;
-        }
-      }
     } catch {
-      // Misconfigured env — render shell anyway
+      profile = null;
+    }
+    const agent = profile?.primary_agent || "bravo";
+    const tenantId = profile?.tenant_id || null;
+
+    // Run agent-state + bridge lookups in parallel, isolated.
+    const [snapRes, pairRes] = await Promise.all([
+      (async () => {
+        try {
+          const db = getServiceSupabase();
+          return await db
+            .from("agent_state_snapshot")
+            .select("last_tick_at")
+            .eq("agent_name", agent)
+            .maybeSingle();
+        } catch {
+          return { data: null };
+        }
+      })(),
+      (async () => {
+        if (!tenantId) return { data: null };
+        try {
+          const db = getServiceSupabase();
+          return await db
+            .from("bridge_pairings")
+            .select("last_seen_at")
+            .eq("tenant_id", tenantId)
+            .is("revoked_at", null)
+            .order("last_seen_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        } catch {
+          return { data: null };
+        }
+      })(),
+    ]);
+    const snap = snapRes.data as { last_tick_at?: string | null } | null;
+    if (snap?.last_tick_at) {
+      primaryAgentLive =
+        Date.now() - new Date(snap.last_tick_at).getTime() < 15 * 60 * 1000;
+    }
+    const pair = pairRes.data as { last_seen_at?: string | null } | null;
+    if (pair?.last_seen_at) {
+      bridgeOnline =
+        Date.now() - new Date(pair.last_seen_at).getTime() < 5 * 60 * 1000;
     }
   }
 

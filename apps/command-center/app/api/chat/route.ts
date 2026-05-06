@@ -32,6 +32,7 @@ import {
 } from "@/lib/providers";
 import { getPersona, chatAgentKeys } from "@/lib/agent-personas";
 import { decryptField } from "@/lib/field-encryption";
+import { composeDashboardContext } from "@/lib/agent-context";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -62,17 +63,23 @@ export async function POST(req: NextRequest) {
   const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
   if (!lastUserMsg) return jsonError(400, "no_user_message");
 
-  const authed = await getAuthedSupabase();
-  const { data: profile } = await authed
+  // Resolve tenant_id via service role (faster + RLS-bypass; the auth
+  // check at the top of the handler is what gates access). Same trip as
+  // the agent_model_config lookup → 1 round-trip for "who are you + what
+  // model do you want" instead of 2.
+  const service = getServiceSupabase();
+  const profileQuery = service
     .from("user_profiles")
     .select("tenant_id")
     .eq("auth_user_id", user.id)
     .maybeSingle();
+
+  const profileRes = await profileQuery;
+  const profile = profileRes.data as { tenant_id: string | null } | null;
   if (!profile?.tenant_id) return jsonError(403, "no_tenant");
   const tenantId = profile.tenant_id as string;
 
   // ---- Resolve agent_model_config + decrypt key ---------------------------
-  const service = getServiceSupabase();
   const { data: cfg } = await service
     .from("agent_model_config")
     .select("provider, model, encrypted_api_key, system_prompt_override, enabled")
@@ -144,7 +151,12 @@ export async function POST(req: NextRequest) {
     content: lastUserMsg.content,
   });
 
-  const persona = getPersona(agentKey, cfgOverride);
+  const personaBase = getPersona(agentKey, cfgOverride);
+  // Inject live dashboard state — MRR, pipeline, recent inbound, today's
+  // plan, integrations health — so the agent answers from real data instead
+  // of asking the operator for things it can already see.
+  const dashboardCtx = await composeDashboardContext({ tenantId, agentKey }).catch(() => "");
+  const persona = dashboardCtx ? `${personaBase}\n\n${dashboardCtx}` : personaBase;
   const startedAt = Date.now();
 
   // ---- Stream response back as SSE ----------------------------------------

@@ -479,6 +479,52 @@ export async function mrrHistory(days = 30): Promise<
 > {
   const profile = await getActiveProfile();
   const current = Number(profile?.mrr_current_usd) || 0;
+  const tenantId = profile?.tenant_id || null;
+
+  // Try real snapshots first (migration 021). If we have at least 2 days
+  // of data, use it as-is — synthetic flag false. Anything missing in the
+  // window gets back-filled with the most-recent known value (so the chart
+  // doesn't drop to zero on days the cron hadn't run yet).
+  let real: Array<{ snapshot_date: string; mrr_usd: number }> = [];
+  if (tenantId) {
+    try {
+      const db = getServiceSupabase();
+      const since = new Date();
+      since.setDate(since.getDate() - days + 1);
+      const { data } = await db
+        .from("mrr_snapshots")
+        .select("snapshot_date, mrr_usd")
+        .eq("tenant_id", tenantId)
+        .gte("snapshot_date", since.toISOString().slice(0, 10))
+        .order("snapshot_date", { ascending: true });
+      real = ((data as Array<{ snapshot_date: string; mrr_usd: string | number }>) || [])
+        .map((r) => ({ snapshot_date: r.snapshot_date, mrr_usd: Number(r.mrr_usd) }));
+    } catch {
+      real = [];
+    }
+  }
+
+  if (real.length >= 2) {
+    const byDate = new Map(real.map((r) => [r.snapshot_date, r.mrr_usd] as const));
+    const out: Array<{ date: string; mrr: number; synthetic: boolean }> = [];
+    let lastKnown = real[0].mrr_usd;
+    const today = new Date();
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const iso = d.toISOString().slice(0, 10);
+      const v = byDate.get(iso);
+      if (v != null) lastKnown = v;
+      out.push({
+        date: iso.slice(5, 10),
+        mrr: Math.round(lastKnown),
+        synthetic: false,
+      });
+    }
+    return out;
+  }
+
+  // Fallback: synthetic decline curve, tagged so the UI can label it.
   const out: Array<{ date: string; mrr: number; synthetic: boolean }> = [];
   const today = new Date();
   for (let i = days - 1; i >= 0; i--) {
