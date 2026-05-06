@@ -7,13 +7,13 @@ import {
   pipelineBreakdown,
   getActiveProfile,
 } from "@/lib/queries";
+import { safe } from "@/lib/api-helpers";
 
 export const dynamic = "force-dynamic";
 
 export default async function AnalyticsPage() {
-  const profile = await getActiveProfile().catch(() => null);
+  const profile = await safe(getActiveProfile(), null);
   const tenantId = profile?.tenant_id || "";
-  const safe = async <T,>(p: Promise<T>, fallback: T): Promise<T> => p.catch(() => fallback);
   const [mrr, history, pipeline] = await Promise.all([
     safe(mrrSnapshot(), { current: 0, target: 5000, pct: 0 }),
     safe(mrrHistory(60), [] as Array<{ date: string; mrr: number; synthetic: boolean }>),

@@ -1,6 +1,7 @@
 import { Card, PageHeader, Tag } from "@/components/Card";
 import { IntegrationDot } from "@/components/IntegrationDot";
 import { getActiveProfile, integrationsHealth, aiServicesWithKey } from "@/lib/queries";
+import { safe } from "@/lib/api-helpers";
 import {
   INTEGRATION_CATEGORIES,
   KNOWN_INTEGRATIONS,
@@ -11,7 +12,6 @@ import type { IntegrationHealth } from "@/lib/supabase";
 export const dynamic = "force-dynamic";
 
 export default async function IntegrationsPage() {
-  const safe = async <T,>(p: Promise<T>, fallback: T): Promise<T> => p.catch(() => fallback);
   const profile = await safe(getActiveProfile(), null);
   const [dbRows, connectedAiSet] = await Promise.all([
     safe(integrationsHealth(profile?.tenant_id || null), []),

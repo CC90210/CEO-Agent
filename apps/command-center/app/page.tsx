@@ -24,6 +24,7 @@ import {
   activePipeline,
   topOpenLead,
 } from "@/lib/queries";
+import { safe } from "@/lib/api-helpers";
 
 export const dynamic = "force-dynamic";
 
@@ -42,14 +43,9 @@ export default async function TodayPage() {
 
   const tenantId = profile.tenant_id || "";
 
-  // Same hardening pattern as layout.tsx — each query gets a default value
-  // so one failing reader (e.g. a brand-new tenant with no leads, an RLS
-  // edge case, a Supabase blip) can never 500 the whole Today page.
-  // This is the bug class that took down the dashboard when Hermes was
-  // toggled — never again.
-  const safe = async <T,>(p: Promise<T>, fallback: T): Promise<T> =>
-    p.catch(() => fallback);
-
+  // safe(p, fallback) imported from @/lib/api-helpers — used across every
+  // dynamic page so one bad reader can't 500 the whole render. This is
+  // the Hermes-toggle bug class.
   const [counts, pipeline, mrr, history, plan, inbound, concentration, replyRate, activePipe, topLead] =
     await Promise.all([
       safe(todayCounts(tenantId), { outbound: 0, inbound: 0, decisions: 0, hot: 0 }),
