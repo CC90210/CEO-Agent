@@ -73,7 +73,7 @@ export default async function OperationsPage() {
   }
 
   // Recent events (the activity tape — proxy for cron-fires + agent-ticks)
-  const events = await recentEvents(50).catch(() => []);
+  const events = await recentEvents(30).catch(() => []);
 
   const enabled = profile?.agents_enabled || ALL_AGENT_KEYS;
   const now = Date.now();
@@ -165,13 +165,13 @@ export default async function OperationsPage() {
 
       <Card
         title="Activity tape"
-        subtitle="50 most-recent events across the agent family — cron fires, reasoning loops, inbound classifications."
+        subtitle="30 most-recent events across the agent family — cron fires, reasoning loops, inbound classifications."
       >
         {events.length === 0 ? (
           <EmptyState message="No events yet. Events publish when an agent's reasoning loop ticks or an inbound webhook fires." />
         ) : (
           <ul className="divide-y divide-bg-border">
-            {events.slice(0, 30).map((e) => (
+            {events.map((e) => (
               <li key={e.id} className="py-2.5">
                 <div className="flex items-center justify-between gap-3">
                   <Tag tone="accent">{e.event_type}</Tag>
