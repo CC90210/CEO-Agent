@@ -146,6 +146,86 @@ READ_FILE_TOOL = {
 }
 
 
+# Allowlist: scripts the chat agent may invoke. Each entry maps a friendly
+# name → (relative_path_from_agent_root, mutating?). Mutating scripts require
+# `confirm: true` in the tool input — the operator should have asked for it
+# in the same chat turn.
+#
+# Add new entries here as new safe-to-call scripts ship. Anything off-list
+# returns "script_not_allowlisted" with the current allowlist in the error
+# message so the agent learns what's available.
+SCRIPT_ALLOWLIST: dict[str, dict] = {
+    # --- read-only / safe ---
+    "supabase_select": {"path": "scripts/supabase_tool.py", "subcmd": "select", "mutating": False,
+                         "help": "Query a Supabase table. Args: table, --eq JSON, --limit, --project."},
+    "supabase_list_tables": {"path": "scripts/supabase_tool.py", "subcmd": "list-tables", "mutating": False,
+                              "help": "List Supabase tables. Args: --project bravo"},
+    "revenue_engine_mrr": {"path": "scripts/revenue_engine.py", "subcmd": "mrr", "mutating": False,
+                            "help": "Show current Net MRR + breakdown. Use --json for structured output."},
+    "ceo_dashboard": {"path": "scripts/ceo_dashboard.py", "subcmd": "briefing", "mutating": False,
+                       "help": "Daily CEO briefing — MRR, pipeline, today's plan, hot inbound."},
+    "lead_engine_list": {"path": "scripts/lead_engine.py", "subcmd": "list", "mutating": False,
+                          "help": "List leads. Args: --status qualified|new|won|lost, --limit N, --json"},
+    "lead_engine_score": {"path": "scripts/lead_engine.py", "subcmd": "score", "mutating": False,
+                           "help": "Re-score a lead. Args: --lead-id <uuid>"},
+    "send_gateway_can_act": {"path": "scripts/send_gateway.py", "subcmd": "can-act", "mutating": False,
+                              "help": "Pre-flight check before any send. Args: --lead-id <id> --channel email|dm"},
+    "send_gateway_status": {"path": "scripts/send_gateway.py", "subcmd": "status", "mutating": False,
+                             "help": "Show send-gateway state — recent sends, open cooldowns, daily caps."},
+    "firecrawl_search": {"path": "scripts/firecrawl_tool.py", "subcmd": "search", "mutating": False,
+                          "help": "Web search via Firecrawl. Args: 'query string'"},
+    "agent_inbox_list": {"path": "scripts/agent_inbox.py", "subcmd": "list", "mutating": False,
+                          "help": "List inbox messages for an agent. Args: --to bravo|atlas|maven|aura|hermes"},
+
+    # --- mutating (require confirm: true) ---
+    "send_gateway_send": {"path": "scripts/send_gateway.py", "subcmd": "send", "mutating": True,
+                           "help": "Send an email/DM through the 8-gate safety pipeline. Args: --channel email --to … --subject … --body … --agent-source bravo. CASL/cooldown/cap/reputation gates enforced; send_gateway will refuse if blocked."},
+    "lead_engine_add": {"path": "scripts/lead_engine.py", "subcmd": "add", "mutating": True,
+                         "help": "Add a lead. Args: --name --email --company --source --score --notes"},
+    "supabase_insert": {"path": "scripts/supabase_tool.py", "subcmd": "insert", "mutating": True,
+                         "help": "Insert a Supabase row. Args: table --data JSON --project bravo"},
+    "supabase_update": {"path": "scripts/supabase_tool.py", "subcmd": "update", "mutating": True,
+                         "help": "Update Supabase rows. Args: table --eq JSON --data JSON --project bravo"},
+    "agent_inbox_post": {"path": "scripts/agent_inbox.py", "subcmd": "post", "mutating": True,
+                          "help": "Post a message to a sibling agent's inbox. Args: --to atlas|maven|aura|hermes --priority low|normal|high --body '...'"},
+    "late_create": {"path": "scripts/late_tool.py", "subcmd": "create", "mutating": True,
+                     "help": "Schedule a social post via Zernio. Args: --text '...' --account <id> --when ISO"},
+}
+
+RUN_SCRIPT_TOOL = {
+    "name": "run_script",
+    "description": (
+        "Run an allowlisted script in the agent's repo and return its stdout. "
+        "Use this to ACT on the operator's request — query the database, "
+        "score a lead, send an email, post to an agent inbox, schedule a "
+        "social post, etc. Mutating scripts require confirm:true in the "
+        "input — only set that when the operator explicitly asked you to "
+        "perform the action in the SAME chat turn. Read-only scripts run "
+        "freely. Output is captured (stdout/stderr) up to 100KB; runs cap "
+        "at 60s. Allowlist: " + ", ".join(sorted(SCRIPT_ALLOWLIST.keys()))
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "script": {
+                "type": "string",
+                "description": "Allowlist key (e.g. 'send_gateway_send', 'supabase_select', 'revenue_engine_mrr').",
+            },
+            "args": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Extra command-line arguments to pass after the subcommand. Example for supabase_select: ['user_profiles', '--limit', '5', '--project', 'bravo']",
+            },
+            "confirm": {
+                "type": "boolean",
+                "description": "Required true for mutating scripts. Set only when the operator asked for the action in this turn.",
+            },
+        },
+        "required": ["script"],
+    },
+}
+
+
 def _system_prompt_for(agent: str, root: Path, entry: Path) -> str:
     """Compose the system prompt: brain entry + lazy-load instructions."""
     try:
@@ -165,15 +245,22 @@ THE RAG ROUTER (read this once on the first operator turn):
 3. read_file("brain/INTENTS.md") — verb-by-verb playbooks. Read when an intent matches.
 4. read_file("brain/WHEN_TO_USE_SKILLS.md") — trigger map for the 150+ skills.
 
-You have ONE tool here: read_file(path). Use it to lazily load deeper files from your repo as the conversation calls for them. Path-allowlisted to this repo only.
+You have TWO tools here:
 
-Mutation surface (the chat-page agent's write path):
-- For dashboard data changes (operator profile, MRR, agents_enabled, primary_agent), emit a `<dashboard-action type="..." >{{...}}</dashboard-action>` marker in your reply. The dashboard parses these post-stream and applies them server-side, tenant-scoped, audit-logged. Allowed action types live in apps/command-center/lib/agent-actions.ts — read it before emitting an unfamiliar type.
-- For mutations to the operator's local file system (write a file, run a script, apply a migration), you do NOT have a write tool yet — surface the exact command + the file diff in your reply, and the operator can run it. We are wiring write tools next sprint; until then, transparency over pretense.
+1. `read_file(path)` — load deeper files lazily as the conversation calls for them. Path-allowlisted to this repo only.
+
+2. `run_script(script, args?, confirm?)` — execute an allowlisted CLI script in this repo and return its stdout. This is your ACT path — query Supabase, score a lead, send an email, post to an inbox, etc. The full allowlist + mutating flag is in the tool's input schema (you'll see it). Rules:
+   - **Read-only scripts run freely** (supabase_select, revenue_engine_mrr, ceo_dashboard, lead_engine_list, send_gateway_can_act, firecrawl_search, agent_inbox_list, etc.) — call them whenever you need live data instead of speculating.
+   - **Mutating scripts require `confirm: true` in the input** AND the operator must have asked for the action in THIS turn. If they didn't, set confirm=false (or omit) so the script bounces back with `confirm_required` — surface that to the operator and wait for their go.
+   - send_gateway_send specifically routes through 8 safety gates (CASL, cooldown, daily/hourly cap, domain cap, reputation, draft critic, bounce circuit, reservation guard). If a gate blocks, the response shows the reason; don't bypass.
+
+Mutation surface beyond scripts:
+- For DASHBOARD data changes (operator profile, MRR, agents_enabled, primary_agent), emit a `<dashboard-action type="..." >{{...}}</dashboard-action>` marker in your reply. The dashboard parses these post-stream and applies them server-side, tenant-scoped, audit-logged. Allowed action types live in apps/command-center/lib/agent-actions.ts.
 
 Other rules:
-- Up to {MAX_TURNS} read_file calls per turn — cap, not a target. If you're reading more than 3, you're guessing; ask a clarifying question instead.
-- read_file outside this repo will return an error. Don't try to traverse to a sibling agent's repo — surface the delegation instead.
+- Up to {MAX_TURNS} tool calls per turn (any combination of read_file + run_script). If you're using more than 3, you're guessing — ask a clarifying question instead.
+- read_file / run_script outside this repo will be rejected. Don't try to traverse to a sibling agent's repo — delegate via agent_inbox_post (mutating, requires confirm) instead.
+- After ANY mutation, confirm in chat: WHAT changed, WHERE (table/file/inbox), WHAT'S NEXT (refresh/cron-tick/etc).
 
 --- BEGIN {rel_entry} ---
 {entry_text}
@@ -198,7 +285,7 @@ def _call_provider(
         "model": model,
         "max_tokens": 4096,
         "system": system,
-        "tools": [READ_FILE_TOOL],
+        "tools": [READ_FILE_TOOL, RUN_SCRIPT_TOOL],
         "messages": messages,
         "stream": stream,
     }
@@ -434,23 +521,45 @@ class _ChatHandler(BaseHTTPRequestHandler):
             # Run each tool, append tool_result(s)
             tool_results: list[dict] = []
             for use in tool_uses:
-                if use.get("name") != "read_file":
+                tool_name = use.get("name")
+                tool_input = use.get("input", {}) or {}
+                if tool_name == "read_file":
+                    rel_path = str(tool_input.get("path", "")).strip()
+                    emit("tool", {"name": "read_file", "path": rel_path})
+                    content, is_error = self._safe_read(root, rel_path)
                     tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": use.get("id"),
-                        "content": "unknown_tool",
+                        "content": content,
+                        "is_error": is_error,
+                    })
+                elif tool_name == "run_script":
+                    script_key = str(tool_input.get("script", "")).strip()
+                    args = tool_input.get("args") or []
+                    if not isinstance(args, list):
+                        args = []
+                    args = [str(a) for a in args]
+                    confirm = bool(tool_input.get("confirm", False))
+                    emit("tool", {
+                        "name": "run_script",
+                        "script": script_key,
+                        "args": args,
+                        "confirm": confirm,
+                    })
+                    content, is_error = self._safe_run_script(root, script_key, args, confirm)
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": use.get("id"),
+                        "content": content,
+                        "is_error": is_error,
+                    })
+                else:
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": use.get("id"),
+                        "content": f"unknown_tool: {tool_name}",
                         "is_error": True,
                     })
-                    continue
-                rel_path = str(use.get("input", {}).get("path", "")).strip()
-                emit("tool", {"name": "read_file", "path": rel_path})
-                content, is_error = self._safe_read(root, rel_path)
-                tool_results.append({
-                    "type": "tool_result",
-                    "tool_use_id": use.get("id"),
-                    "content": content,
-                    "is_error": is_error,
-                })
             thread.append({"role": "user", "content": tool_results})
             # Loop continues — model gets the file body, decides next move.
 
@@ -476,6 +585,73 @@ class _ChatHandler(BaseHTTPRequestHandler):
             return data.decode("utf-8"), False
         except Exception:
             return data.decode("utf-8", errors="replace"), False
+
+    def _safe_run_script(
+        self,
+        root: Path,
+        script_key: str,
+        extra_args: list,
+        confirm: bool,
+    ) -> tuple[str, bool]:
+        """Execute an allowlisted script, capture output. Mutating scripts
+        require confirm=True. Cwd is the agent root; path-allowlisted to
+        scripts/* inside that root (no path traversal).
+        """
+        import subprocess
+        import shlex
+
+        if not script_key:
+            return "missing 'script' key", True
+        spec = SCRIPT_ALLOWLIST.get(script_key)
+        if not spec:
+            allowed = ", ".join(sorted(SCRIPT_ALLOWLIST.keys()))
+            return (
+                f"script_not_allowlisted: '{script_key}' is not in the allowlist.\n"
+                f"Allowed: {allowed}\n"
+                f"To add a new script: edit SCRIPT_ALLOWLIST in bridge_chat_server.py."
+            ), True
+        if spec.get("mutating") and not confirm:
+            return (
+                f"confirm_required: '{script_key}' is a mutating script. "
+                f"Re-call with confirm:true ONLY if the operator asked for the "
+                f"action in this chat turn. Help: {spec.get('help', '')}"
+            ), True
+
+        rel_script = spec["path"]
+        full_path = (root / rel_script).resolve()
+        if not under_root(root, full_path) or not full_path.is_file():
+            return f"script_missing: {rel_script} not found in agent root", True
+
+        # Build the command — Python interpreter + script + subcmd + extra args
+        cmd: list = [sys.executable, str(full_path)]
+        subcmd = spec.get("subcmd")
+        if subcmd:
+            cmd.append(subcmd)
+        cmd.extend(extra_args)
+
+        try:
+            r = subprocess.run(
+                cmd,
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+                timeout=60,
+                shell=False,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            return f"timeout: '{script_key}' exceeded 60s", True
+        except Exception as e:
+            return f"spawn_failed: {e}", True
+
+        out = (r.stdout or "")[-100_000:]   # cap returned bytes
+        err = (r.stderr or "")[-10_000:]
+        cmd_display = " ".join(shlex.quote(c) for c in cmd)
+        body = f"$ {cmd_display}\n[exit {r.returncode}]\n--- stdout ---\n{out}"
+        if err.strip():
+            body += f"\n--- stderr ---\n{err}"
+        # Treat non-zero exit as is_error so the model sees + handles failure
+        return body, r.returncode != 0
 
     def _json(self, status: int, body: dict) -> None:
         raw = json.dumps(body).encode("utf-8")
