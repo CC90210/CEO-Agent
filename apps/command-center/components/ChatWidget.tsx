@@ -48,6 +48,9 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
   >([]);
   const [bridgeOnline, setBridgeOnline] = useState<boolean | null>(null);
   const [toolReads, setToolReads] = useState<string[]>([]);
+  const [toolRuns, setToolRuns] = useState<
+    Array<{ script: string; args: string[]; confirm: boolean }>
+  >([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -95,6 +98,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
     setError(null);
     setActions([]);
     setToolReads([]);
+    setToolRuns([]);
   }, [agent]);
 
   const cfg = useMemo(() => configs.find((c) => c.agent_key === agent) || null, [configs, agent]);
@@ -110,6 +114,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
     setError(null);
     setActions([]);
     setToolReads([]);
+    setToolRuns([]);
   }
 
   async function send() {
@@ -190,6 +195,15 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
             ]);
           } else if (event === "tool" && parsed.name === "read_file") {
             setToolReads((prev) => [...prev, String(parsed.path || "")]);
+          } else if (event === "tool" && parsed.name === "run_script") {
+            setToolRuns((prev) => [
+              ...prev,
+              {
+                script: String(parsed.script || ""),
+                args: Array.isArray(parsed.args) ? parsed.args.map(String) : [],
+                confirm: !!parsed.confirm,
+              },
+            ]);
           } else if (event === "error") {
             setError(parsed.message || "stream_error");
           }
@@ -318,6 +332,28 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
                 title="Agent read this file from its repo"
               >
                 read · {p}
+              </span>
+            ))}
+          </div>
+        )}
+        {toolRuns.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {toolRuns.map((r, i) => (
+              <span
+                key={i}
+                className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
+                  r.confirm
+                    ? "bg-status-engaged/15 border border-status-engaged/30 text-status-engaged"
+                    : "bg-status-warm/10 border border-status-warm/30 text-status-warm"
+                }`}
+                title={
+                  r.confirm
+                    ? "Agent ran this allowlisted script"
+                    : "Agent attempted a mutating script without confirm — bounced for safety"
+                }
+              >
+                {r.confirm ? "ran" : "blocked"} · {r.script}
+                {r.args.length > 0 ? ` ${r.args.slice(0, 4).join(" ")}${r.args.length > 4 ? "…" : ""}` : ""}
               </span>
             ))}
           </div>
