@@ -154,7 +154,7 @@ def _python_docstring(path: Path) -> str:
         return ""
     try:
         tree = ast.parse(text)
-    except SyntaxError:
+    except (SyntaxError, ValueError):  # ValueError: source contains null bytes
         return ""
     doc = ast.get_docstring(tree) or ""
     if not doc:
