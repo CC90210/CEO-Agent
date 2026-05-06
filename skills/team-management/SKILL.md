@@ -2,6 +2,7 @@
 name: team-management
 description: Hiring framework, contractor onboarding, 1:1 templates, performance reviews, delegation (RACI), capacity planning, communication protocols, and offboarding. Scales CC from solo to small team without losing operational quality.
 tags: [skill, team, management, hiring]
+triggers: ["team management", "use team management", "run team management", "hiring framework"]
 ---
 
 # Team Management — Solo to Small Team Framework

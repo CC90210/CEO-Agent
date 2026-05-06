@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws sheets +append --help"
+triggers: ["gws sheets append", "use gws sheets append", "run gws sheets append", "google sheets: append a row to a spreadsheet"]
 ---
 
 # sheets +append

@@ -2,6 +2,7 @@
 name: risk-management
 description: Business risk identification, assessment, monitoring, and mitigation for CC's empire — revenue concentration, operational, financial, reputation, legal, and technology risk
 tags: [skill, risk, management, ceo]
+triggers: ["risk management", "use risk management", "run risk management", "business risk identification"]
 ---
 
 # Risk Management — Business Continuity & Threat Monitoring

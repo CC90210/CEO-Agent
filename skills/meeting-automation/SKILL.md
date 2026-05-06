@@ -2,6 +2,7 @@
 name: meeting-automation
 description: Pre-meeting briefs, meeting type templates, post-meeting capture protocol, follow-up cadence, and calendar intelligence. Turns every meeting into a documented, actionable event.
 tags: [skill, meetings, automation, follow-up, calendar]
+triggers: ["meeting automation", "use meeting automation", "run meeting automation", "pre-meeting briefs"]
 ---
 
 # Meeting Automation — Prep, Capture, Follow-Up System

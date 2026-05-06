@@ -599,7 +599,7 @@ def main() -> None:
                      choices=["cold", "contacted", "warm", "engaged",
                               "dormant", "active_client", "lost"])
     pc.add_argument("--brand", default="oasis",
-                     choices=["oasis", "kona_makana", "nostalgic"])
+                     choices=["oasis", "conaugh_mckenna", "nostalgic"])
     pc.add_argument("--intent", default="commercial",
                      choices=["commercial", "transactional", "internal"])
     pc.add_argument("--recipient", default=None)
@@ -613,7 +613,7 @@ def main() -> None:
                      choices=["cold", "contacted", "warm", "engaged",
                               "dormant", "active_client", "lost"])
     pr.add_argument("--brand", default="oasis",
-                     choices=["oasis", "kona_makana", "nostalgic"])
+                     choices=["oasis", "conaugh_mckenna", "nostalgic"])
     pr.add_argument("--intent", default="commercial",
                      choices=["commercial", "transactional", "internal"])
     pr.add_argument("--max-revisions", dest="max_revisions", type=int, default=1)

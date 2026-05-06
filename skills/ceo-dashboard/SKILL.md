@@ -2,6 +2,7 @@
 name: ceo-dashboard
 description: Unified KPI framework — North Star metrics, revenue dashboard, pipeline dashboard, operations dashboard, content dashboard, client health dashboard, and the weekly CEO digest template. Powers the /briefing command output format.
 tags: [skill, ceo, dashboard, kpi, revenue, pipeline]
+triggers: ["ceo dashboard", "use ceo dashboard", "run ceo dashboard", "unified kpi framework \u2014 north star metrics"]
 ---
 
 # CEO Dashboard — Unified KPI Framework

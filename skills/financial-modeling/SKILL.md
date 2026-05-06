@@ -2,6 +2,7 @@
 name: financial-modeling
 description: Unit economics, SaaS metrics, cohort analysis, scenario modeling, cash flow forecasting, and CC-specific financial calculations for OASIS AI
 tags: [skill, finance, modeling, unit-economics, saas-metrics]
+triggers: ["financial modeling", "use financial modeling", "run financial modeling", "unit economics"]
 ---
 
 # Financial Modeling

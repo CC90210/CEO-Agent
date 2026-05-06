@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws classroom --help"
+triggers: ["gws classroom", "use gws classroom", "run gws classroom", "google classroom: manage classes"]
 ---
 
 # classroom (v1)

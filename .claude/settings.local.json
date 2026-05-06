@@ -51,6 +51,10 @@
           {
             "type": "command",
             "command": "bash -c 'CMD=$(echo $CLAUDE_TOOL_INPUT | python3 -c \"import sys,json; print(json.load(sys.stdin).get(\\\"command\\\",\\\"\\\"))\" 2>/dev/null); if echo \"$CMD\" | grep -qiE \"(rm\\s+-rf\\s+(/|~|/\\*|\\.git)$|git\\s+push.*--force.*(main|master)|DROP\\s+TABLE|TRUNCATE\\s+TABLE)\"; then echo \"{\\\"decision\\\":\\\"block\\\",\\\"reason\\\":\\\"BLOCKED: Destructive operation detected. Ask CC for confirmation first.\\\"}\"; exit 0; fi; echo \"{\\\"decision\\\":\\\"allow\\\"}\"'"
+          },
+          {
+            "type": "command",
+            "command": "bash -c 'cd \"$CLAUDE_PROJECT_DIR\" 2>/dev/null && echo \"$CLAUDE_TOOL_INPUT\" | python scripts/anti_pattern_hook.py 2>/dev/null || echo \"{\\\"decision\\\":\\\"allow\\\"}\"'"
           }
         ]
       }

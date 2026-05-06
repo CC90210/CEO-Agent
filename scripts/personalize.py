@@ -34,7 +34,7 @@ The canonical profile lives at `brain/operator.profile.json`:
     {
       "full_name":       "Conaugh McKenna",
       "preferred_name":  "CC",
-      "personal_brand":  "Kona Makana",
+      "personal_brand":  "Conaugh McKenna",
       "primary_brand":   "OASIS AI Solutions",
       "role":            "Founder",
       "location":        "Collingwood, Ontario",

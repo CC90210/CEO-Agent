@@ -2,6 +2,7 @@
 name: daily-planner
 description: Structured daily plan for CC — content creation priorities, scheduled tasks, and revenue-moving actions. Generated each morning.
 tags: [skill, ceo, planning, daily]
+triggers: ["daily planner", "use daily planner", "run daily planner", "structured daily plan for cc \u2014 content creation priorities"]
 ---
 
 # Daily Planner — CC's Morning Operating System

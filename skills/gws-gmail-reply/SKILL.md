@@ -9,6 +9,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws gmail +reply --help"
+triggers: ["gws gmail reply", "use gws gmail reply", "run gws gmail reply", "gmail: reply to a message (handles threading automatically)"]
 ---
 
 # gmail +reply

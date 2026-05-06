@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-gmail", "gws-sheets", "gws-chat", "gws-calendar"]
+triggers: ["persona customer support", "use persona customer support", "run persona customer support", "manage customer support \u2014 track tickets"]
 ---
 
 # Customer Support Agent

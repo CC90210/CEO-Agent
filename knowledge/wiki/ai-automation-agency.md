@@ -71,7 +71,7 @@ Lock-in comes from results and relationship, not paperwork.
 | **OASIS AI Solutions** | Agency | Active — primary revenue driver |
 | **PropFlow** | Real estate SaaS (50-50 with Adon) | Production-ready, seeking beta users |
 | **Nostalgic Requests** | DJ/event music request SaaS | Live, Stripe Connect active |
-| **Kona Makana** | Personal brand (CC's DJ/consulting identity) | Content-first, inbound funnel |
+| **Conaugh McKenna** | Personal brand (CC's DJ/consulting identity) | Content-first, inbound funnel |
 
 ## Differentiation
 

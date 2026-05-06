@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-drive", "gws-sheets", "gws-calendar", "gws-gmail", "gws-chat"]
+triggers: ["persona project manager", "use persona project manager", "run persona project manager", "coordinate projects \u2014 track tasks"]
 ---
 
 # Project Manager

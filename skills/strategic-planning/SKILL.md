@@ -2,6 +2,7 @@
 name: strategic-planning
 description: CEO-level strategic planning framework — OKRs, annual strategy, scenario modeling, decision frameworks, QBR and weekly review templates
 tags: [skill, strategy, planning, okr, ceo]
+triggers: ["strategic planning", "use strategic planning", "run strategic planning", "ceo-level strategic planning framework \u2014 okrs"]
 ---
 
 # Strategic Planning

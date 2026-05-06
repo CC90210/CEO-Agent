@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws people --help"
+triggers: ["gws people", "use gws people", "run gws people", "google people: manage contacts and profiles"]
 ---
 
 # people (v1)

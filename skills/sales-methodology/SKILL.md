@@ -2,6 +2,7 @@
 name: sales-methodology
 description: NEPQ-based sales framework for OASIS AI Solutions — discovery calls, situation/problem/solution/consequence questions, objection handling, closing, and sales metrics
 tags: [skill, sales, methodology, nepq]
+triggers: ["sales methodology", "use sales methodology", "run sales methodology"]
 ---
 
 # Sales Methodology — NEPQ Framework for OASIS AI

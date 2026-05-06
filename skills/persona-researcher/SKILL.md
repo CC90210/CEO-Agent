@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
       skills: ["gws-drive", "gws-docs", "gws-sheets", "gws-gmail"]
+triggers: ["persona researcher", "use persona researcher", "run persona researcher", "organize research \u2014 manage references"]
 ---
 
 # Researcher

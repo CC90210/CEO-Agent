@@ -6,6 +6,7 @@ description: >
   re-alignment before work continues. Use when: multi-agent tasks, complex implementations,
   long-running sessions. Skip when: trivial single-step tasks, pure research.
 tags: [orchestration, quality, agents]
+triggers: ["anti drift", "use anti drift", "run anti drift"]
 ---
 
 # Anti-Drift — Agent Alignment & Divergence Prevention

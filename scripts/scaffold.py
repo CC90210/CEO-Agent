@@ -12,7 +12,7 @@ across the codebase using values from `brain/operator.profile.json`.
 What gets replaced:
   - Full name        ("Conaugh McKenna")
   - Preferred name   ("CC")
-  - Personal brand   ("Kona Makana")
+  - Personal brand   ("Conaugh McKenna")
   - Primary brand    ("OASIS AI Solutions", "OASIS AI")
   - Website domain   ("oasisai.work")
   - Primary email    ("conaugh@oasisai.work")
@@ -135,7 +135,7 @@ def build_replacement_map(profile: dict[str, Any]) -> dict[str, str]:
               if website else "")
     return {
         "Conaugh McKenna": full_name,
-        "Kona Makana": personal_brand,
+        "Conaugh McKenna": personal_brand,
         "OASIS AI Solutions": primary_brand,
         "OASIS AI": primary_brand,
         "conaugh@oasisai.work": primary_email or f"contact@{domain}" if domain else "operator@example.com",

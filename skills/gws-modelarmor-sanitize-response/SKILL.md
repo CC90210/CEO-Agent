@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws modelarmor +sanitize-response --help"
+triggers: ["gws modelarmor sanitize response", "use gws modelarmor sanitize response", "run gws modelarmor sanitize response"]
 ---
 
 # modelarmor +sanitize-response

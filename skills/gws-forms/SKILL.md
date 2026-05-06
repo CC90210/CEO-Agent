@@ -8,6 +8,7 @@ metadata:
     requires:
       bins: ["gws"]
     cliHelp: "gws forms --help"
+triggers: ["gws forms", "use gws forms", "run gws forms", "read and write google forms"]
 ---
 
 # forms (v1)
