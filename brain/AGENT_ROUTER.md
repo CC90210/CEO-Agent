@@ -89,18 +89,29 @@ When the operator switches you in the chat picker, the bridge `cd`s to that repo
 
 ## Intent → which TOOL to call (when you should act, not just read)
 
-| Operator wants... | Run | Consult first |
+**In the dashboard chat (bridge mode), you have a `run_script` tool.** Allowlisted scripts execute with their stdout returned to you. Mutating scripts require `confirm: true` AND the operator must have asked for the action in the same turn. Off-list scripts fall back to surfacing the command for the operator to run.
+
+| Operator wants... | run_script key (or how to act) | Consult first |
 |---|---|---|
-| Apply a SQL migration | `python scripts/apply_migration.py <path>` | `database/` for next migration number |
-| Read/write Supabase | `python scripts/supabase_tool.py <select\|insert\|update\|upsert\|delete>` | `brain/CAPABILITIES.md` |
-| Send an email | `python scripts/send_gateway.py send …` | `skills/outreach-send/SKILL.md` |
-| Schedule a social post | `python scripts/late_tool.py create …` | (consider delegating to Maven) |
-| Search the web | `python scripts/firecrawl_tool.py search "…"` | — |
-| Get current MRR / pipeline | `python scripts/revenue_engine.py mrr --json` | `brain/STATE.md` |
-| Push to Vercel | `git push` (Vercel auto-deploys) | nothing — verify with `npx vercel ls` |
-| Set a Vercel env var | `npx vercel env add NAME production --value="…"` | `apps/command-center/ENV_SETUP.md` |
-| Update operator dashboard data | emit `<dashboard-action type="…">{…}</dashboard-action>` | `apps/command-center/lib/agent-actions.ts` |
-| Generic one-off | `python scripts/<script>.py [args]` | `brain/QUICK_REFERENCE.md` |
+| Get current MRR | `revenue_engine_mrr` | `brain/STATE.md` |
+| CEO daily briefing | `ceo_dashboard` | — |
+| Read a Supabase table | `supabase_select` (args: table, --eq, --limit) | `brain/CAPABILITIES.md` |
+| Write to Supabase | `supabase_insert` / `supabase_update` (mutating; needs `confirm: true`) | `brain/CAPABILITIES.md` |
+| List leads | `lead_engine_list` (args: --status, --limit) | `brain/STATE.md` |
+| Score a lead | `lead_engine_score` (args: --lead-id) | — |
+| Add a lead | `lead_engine_add` (mutating; needs `confirm: true`) | `skills/outreach-send/SKILL.md` |
+| Pre-flight a send | `send_gateway_can_act` (args: --lead-id, --channel) | `skills/outreach-send/SKILL.md` |
+| Send an email | `send_gateway_send` (mutating; needs `confirm: true`; passes 8 safety gates) | `skills/outreach-send/SKILL.md` |
+| Send-gateway state | `send_gateway_status` | — |
+| Search the web | `firecrawl_search` (args: "query") | — |
+| Read sibling-agent inbox | `agent_inbox_list` (args: --to bravo|atlas|maven|aura|hermes) | — |
+| Post to sibling agent | `agent_inbox_post` (mutating; needs `confirm: true`) | `brain/AGENTS.md` |
+| Update operator dashboard data | emit `<dashboard-action type="…">{…}</dashboard-action>` marker (separate path; not run_script) | `apps/command-center/lib/agent-actions.ts` |
+| Apply a SQL migration | (off run_script allowlist; surface `python scripts/apply_migration.py <path>` for operator approval) | `database/` for next migration number |
+| Push to Vercel | (off allowlist; `git push` auto-deploys; verify with `npx vercel ls`) | — |
+| Set a Vercel env var | (off allowlist; surface `npx vercel env add NAME production`) | `apps/command-center/ENV_SETUP.md` |
+
+To add a new script to the allowlist: edit `SCRIPT_ALLOWLIST` in `bravo_cli/bridge_chat_server.py`. Format: friendly key → `{path, subcmd, mutating, help}`. Run-only scripts run freely; mutating require `confirm: true` from the operator.
 
 ---
 
