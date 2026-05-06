@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "agent": "bravo",
-  "generated_at": "2026-05-06T05:12:34.089766+00:00",
+  "generated_at": "2026-05-06T17:28:47.308600+00:00",
   "totals": {
     "skills": 153,
     "scripts": 108,
@@ -10,7 +10,7 @@
     "workflows": 36,
     "nodes_total": 326,
     "edges_total": 44,
-    "drift_count": 29
+    "drift_count": 0
   },
   "nodes": [
     {
@@ -188,7 +188,10 @@
       "tier": "meta",
       "owner": "bravo",
       "risk": "low",
-      "triggers": [],
+      "triggers": [
+        "synthesize",
+        "new auto-generated skill"
+      ],
       "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
@@ -3242,20 +3245,20 @@
       "kind": "script",
       "name": "agent_heartbeat",
       "path": "scripts/agent_heartbeat.py",
-      "description": "(no docstring)",
+      "description": "agent_heartbeat.py \u2014 write a heartbeat to agent_state_snapshot.",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:agent_inbox",
       "kind": "script",
       "name": "agent_inbox",
       "path": "scripts/agent_inbox.py",
-      "description": "(no docstring)",
+      "description": "agent_inbox \u2014 Async agent-to-agent messaging (mcp_agent_mail-inspired pattern).",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:agent_self_improvement",
@@ -3292,10 +3295,10 @@
       "kind": "script",
       "name": "auto_dream",
       "path": "scripts/auto_dream.py",
-      "description": "(no docstring)",
+      "description": "autoDream \u2014 Memory Consolidation Engine (Inspired by Claude Code internals)",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:autonomous_agent",
@@ -3332,20 +3335,20 @@
       "kind": "script",
       "name": "browse_and_capture",
       "path": "scripts/browse_and_capture.py",
-      "description": "(no docstring)",
+      "description": "Browse & Capture \u2014 Opens URL in CC's real Chrome and captures a screenshot. ONE command, ONE result. No turns wasted.",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:browser_connect",
       "kind": "script",
       "name": "browser_connect",
       "path": "scripts/browser_connect.py",
-      "description": "(no docstring)",
+      "description": "Connect Browser Harness to Chrome with the OASIS business profile.",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:browser_harness_doctor",
@@ -3372,10 +3375,10 @@
       "kind": "script",
       "name": "build_maven_env",
       "path": "scripts/build_maven_env.py",
-      "description": "(no docstring)",
+      "description": "Generate Maven's clean .env.agents: - Copy shared-infra keys from Bravo - Drop SunBiz-specific keys (those stay in SunBiz-Marketing repo) - Add empty placeholders for Maven-specific OASIS/PropFlow/Nostalgic ad creds",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:capability_query",
@@ -3412,10 +3415,10 @@
       "kind": "script",
       "name": "ceo_dashboard",
       "path": "scripts/ceo_dashboard.py",
-      "description": "(no docstring)",
+      "description": "CEO Dashboard \u2014 Unified KPI Aggregator Aggregates revenue, pipeline, content, and client health into a single digest. All credentials loaded from .env.agents (never hardcoded).",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:client_health",
@@ -3432,30 +3435,30 @@
       "kind": "script",
       "name": "cloudflare_admin",
       "path": "scripts/cloudflare_admin.py",
-      "description": "(no docstring)",
+      "description": "cloudflare_admin.py \u2014 Cloudflare DNS helper for OASIS domains.",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:codex_health",
       "kind": "script",
       "name": "codex_health",
       "path": "scripts/codex_health.py",
-      "description": "(no docstring)",
+      "description": "Codex Health Check \u2014 Verify Codex integration is fully operational. Usage: python scripts/codex_health.py [--json] [--fix]",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:competitive_intel",
       "kind": "script",
       "name": "competitive_intel",
       "path": "scripts/competitive_intel.py",
-      "description": "(no docstring)",
+      "description": "Competitive Intelligence Engine \u2014 CEO Dashboard Component",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:computer_control",
@@ -3522,10 +3525,10 @@
       "kind": "script",
       "name": "crm_reset",
       "path": "scripts/crm_reset.py",
-      "description": "(no docstring)",
+      "description": "crm_reset.py \u2014 archive cold/dead leads from the bravo Supabase CRM.",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:cron_dispatcher",
@@ -3552,10 +3555,10 @@
       "kind": "script",
       "name": "deploy_command_center",
       "path": "scripts/deploy_command_center.py",
-      "description": "(no docstring)",
+      "description": "deploy_command_center.py \u2014 one-shot production deploy for the OASIS AI Agent Command Center.",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:dns_reputation",
@@ -3622,10 +3625,10 @@
       "kind": "script",
       "name": "financial_model",
       "path": "scripts/financial_model.py",
-      "description": "(no docstring)",
+      "description": "Financial Modeling Engine \u2014 CEO Dashboard Component",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:firecrawl_tool",
@@ -3672,10 +3675,10 @@
       "kind": "script",
       "name": "gateway_admin",
       "path": "scripts/gateway_admin.py",
-      "description": "(no docstring)",
+      "description": "gateway_admin.py \u2014 CLI admin tool for the multi-platform messaging gateway.",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:generate_covers",
@@ -3742,10 +3745,10 @@
       "kind": "script",
       "name": "macos_control",
       "path": "scripts/macos_control.py",
-      "description": "(no docstring)",
+      "description": "macOS Computer Control V2.1 \u2014 Full desktop automation for agent-driven control. 60+ commands covering apps, windows, browser, files, processes, input, system, network, power. Uses osascript (built-in macOS). No external dependencies \u2014 stdlib only.",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:maml_onboard",
@@ -3762,10 +3765,10 @@
       "kind": "script",
       "name": "md_to_gdoc",
       "path": "scripts/md_to_gdoc.py",
-      "description": "(no docstring)",
+      "description": "md_to_gdoc \u2014 Export a markdown file to Google Docs with branded styling.",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:mem0_tool",
@@ -3812,10 +3815,10 @@
       "kind": "script",
       "name": "memory_index",
       "path": "scripts/memory_index.py",
-      "description": "(no docstring)",
+      "description": "3-Layer Memory Index \u2014 Claude Code's Memory Architecture Pattern",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:memory_ingest",
@@ -3852,20 +3855,20 @@
       "kind": "script",
       "name": "music_control",
       "path": "scripts/music_control.py",
-      "description": "(no docstring)",
+      "description": "SoundCloud Music Control \u2014 Atomic browser-based music commands. Cross-platform: macOS (AppleScript) + Windows (Chrome DevTools Protocol).",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:n8n_inbound_doctor",
       "kind": "script",
       "name": "n8n_inbound_doctor",
       "path": "scripts/n8n_inbound_doctor.py",
-      "description": "(no docstring)",
+      "description": "n8n_inbound_doctor.py \u2014 diagnose why \"Recent Inbound\" is stale on the dashboard.",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:n8n_tool",
@@ -3882,10 +3885,10 @@
       "kind": "script",
       "name": "n8n_webhook_secret",
       "path": "scripts/n8n_webhook_secret.py",
-      "description": "(no docstring)",
+      "description": "n8n_webhook_secret.py \u2014 manage shared secrets for the OASIS Command Center inbound webhook.",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:name_utils",
@@ -4082,10 +4085,10 @@
       "kind": "script",
       "name": "scan_secrets",
       "path": "scripts/scan_secrets.py",
-      "description": "(no docstring)",
+      "description": "Secret scanner \u2014 hunt for leaked credentials before they hit GitHub.",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:scheduler",
@@ -4112,30 +4115,30 @@
       "kind": "script",
       "name": "seed_plan_template",
       "path": "scripts/seed_plan_template.py",
-      "description": "(no docstring)",
+      "description": "seed_plan_template.py \u2014 seed (or update) plan templates for an operator.",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:seed_profile",
       "kind": "script",
       "name": "seed_profile",
       "path": "scripts/seed_profile.py",
-      "description": "(no docstring)",
+      "description": "seed_profile.py \u2014 seed (or update) the OASIS Command Center operator profile.",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:self_audit",
       "kind": "script",
       "name": "self_audit",
       "path": "scripts/self_audit.py",
-      "description": "(no docstring)",
+      "description": "Self-Audit \u2014 Bravo's automated health check.",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:send_gateway",
@@ -4232,10 +4235,10 @@
       "kind": "script",
       "name": "supabase_admin",
       "path": "scripts/supabase_admin.py",
-      "description": "(no docstring)",
+      "description": "supabase_admin.py \u2014 Supabase Management API helpers from Python.",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:supabase_tool",
@@ -4252,10 +4255,10 @@
       "kind": "script",
       "name": "sync_slash_commands",
       "path": "scripts/sync_slash_commands.py",
-      "description": "(no docstring)",
+      "description": "sync_slash_commands.py \u2014 drift-detect the dashboard slash-command catalog against the actual `.agents/workflows/` directories on disk.",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:system_cleanup",
@@ -4282,10 +4285,10 @@
       "kind": "script",
       "name": "transcribe",
       "path": "scripts/transcribe.py",
-      "description": "(no docstring)",
+      "description": "Voice Note Transcriber \u2014 converts audio to text using OpenAI Whisper (local). Used by the Telegram bridge to process voice messages.",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:webhook_listener",
@@ -4302,10 +4305,10 @@
       "kind": "script",
       "name": "windows_control",
       "path": "scripts/windows_control.py",
-      "description": "(no docstring)",
+      "description": "Windows Computer Control V2.1 \u2014 Full desktop automation for agent-driven control. 60+ commands covering apps, windows, browser, files, processes, input, system, network, power. Uses pyautogui, pywin32, PowerShell, and Python stdlib.",
       "tier": "tool",
       "owner": "bravo",
-      "discovery": "auto-filename"
+      "discovery": "auto-docstring"
     },
     {
       "id": "script:wire_all_templates",
@@ -5145,122 +5148,5 @@
       "kind": "requires"
     }
   ],
-  "drift": [
-    {
-      "node": "skill:auto-generated",
-      "issue": "skill has no triggers \u2014 agent can't route to it"
-    },
-    {
-      "node": "script:agent_heartbeat",
-      "issue": "script missing module docstring"
-    },
-    {
-      "node": "script:agent_inbox",
-      "issue": "script missing module docstring"
-    },
-    {
-      "node": "script:auto_dream",
-      "issue": "script missing module docstring"
-    },
-    {
-      "node": "script:browse_and_capture",
-      "issue": "script missing module docstring"
-    },
-    {
-      "node": "script:browser_connect",
-      "issue": "script missing module docstring"
-    },
-    {
-      "node": "script:build_maven_env",
-      "issue": "script missing module docstring"
-    },
-    {
-      "node": "script:ceo_dashboard",
-      "issue": "script missing module docstring"
-    },
-    {
-      "node": "script:cloudflare_admin",
-      "issue": "script missing module docstring"
-    },
-    {
-      "node": "script:codex_health",
-      "issue": "script missing module docstring"
-    },
-    {
-      "node": "script:competitive_intel",
-      "issue": "script missing module docstring"
-    },
-    {
-      "node": "script:crm_reset",
-      "issue": "script missing module docstring"
-    },
-    {
-      "node": "script:deploy_command_center",
-      "issue": "script missing module docstring"
-    },
-    {
-      "node": "script:financial_model",
-      "issue": "script missing module docstring"
-    },
-    {
-      "node": "script:gateway_admin",
-      "issue": "script missing module docstring"
-    },
-    {
-      "node": "script:macos_control",
-      "issue": "script missing module docstring"
-    },
-    {
-      "node": "script:md_to_gdoc",
-      "issue": "script missing module docstring"
-    },
-    {
-      "node": "script:memory_index",
-      "issue": "script missing module docstring"
-    },
-    {
-      "node": "script:music_control",
-      "issue": "script missing module docstring"
-    },
-    {
-      "node": "script:n8n_inbound_doctor",
-      "issue": "script missing module docstring"
-    },
-    {
-      "node": "script:n8n_webhook_secret",
-      "issue": "script missing module docstring"
-    },
-    {
-      "node": "script:scan_secrets",
-      "issue": "script missing module docstring"
-    },
-    {
-      "node": "script:seed_plan_template",
-      "issue": "script missing module docstring"
-    },
-    {
-      "node": "script:seed_profile",
-      "issue": "script missing module docstring"
-    },
-    {
-      "node": "script:self_audit",
-      "issue": "script missing module docstring"
-    },
-    {
-      "node": "script:supabase_admin",
-      "issue": "script missing module docstring"
-    },
-    {
-      "node": "script:sync_slash_commands",
-      "issue": "script missing module docstring"
-    },
-    {
-      "node": "script:transcribe",
-      "issue": "script missing module docstring"
-    },
-    {
-      "node": "script:windows_control",
-      "issue": "script missing module docstring"
-    }
-  ]
+  "drift": []
 }

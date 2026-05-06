@@ -4,13 +4,17 @@ tags: [state, ephemeral]
 
 # STATE — Current Operational State
 
-> Updated 2026-05-01 | **V6.1 — SCAFFOLDING MECHANISM + V6.0.3 7-PHASE POLISH + V6.0 FOUNDATION.** Self-audit health: **100/100**. V6.1 adds the fork mechanism: `brain/operator.profile.json` (gitignored single source of truth), `scripts/personalize.py` (renders `brain/USER.md` + memory templates from `*.template.md` with `{{ field }}` placeholders, skip-on-exists), `scripts/scaffold.py` (token-replaces operator identifiers across 165/886 tracked files at fork-time, refuses to run on the original operator's repo by design, --backup snapshots first). Wizard wired in `step_finalize`: always runs personalize, prompts for scaffold on new operators. First-run guard in `self_audit.check_personalization()` warns when profile missing. CC's working copy preserved via the safety guard + already-gitignored personal files. V6.0 base intact: Shipped this session via 4 parallel sub-agents + Codex: (1) `scripts/model_router.py` — multi-provider LLM routing across Claude/OpenAI/OpenRouter/Groq/DeepSeek/local with `brain/MODEL_CONFIG.md` per-agent config; (2) `scripts/skill_synthesizer.py` + `scripts/skill_metrics.py` + `skills/auto-generated/` — Hermes-style autonomous skill synthesis with [NEW]→[VALIDATED] lifecycle promotion at 3 successful uses; (3) `scripts/memory_consolidation.py` + `memory/WORKING.md` — 3-layer memory (working → episodic → semantic) with nightly Haiku-scored importance routing; (4) `gateway/` — multi-platform messaging gateway (Telegram + Discord + Slack adapters via shared `dispatcher.js`, HTTP control on `:7773`); (5) DL stack — `scripts/gnn_skill_router.py` (Obsidian-graph GNN), `scripts/rlhf_outreach.py` (DPO on lead_interactions), `scripts/neural_memory.py` (NTM), `scripts/maml_onboard.py` (MAML for client adaptation), `scripts/tft_forecast.py` (TFT MRR forecasting), `scripts/neuro_symbolic_gate.py` (Datalog compliance over draft critic); (6) Public-repo installer — `install.sh` / `install.ps1` one-line install, `scripts/setup_wizard.py`, `.env.example`, `CONTRIBUTING.md`, `docs/INSTALL.md`, GitHub issue templates, MIT LICENSE; (7) PII protection — `.gitignore` now guards `brain/USER.md`, `memory/SESSION_LOG.md`, `memory/ACTIVE_TASKS.md`, `memory/ARCHIVES/`, `APPS_CONTEXT/`; sanitized `*.template.md` versions ship publicly. Previous V5.7 foundation intact: self_audit, send_gateway hardened, draft_critic, autonomous_agent reasoning loop, Obsidian MCP. **152 skills, 91 scripts, 36 workflows.**
+> Updated 2026-05-06 | **V6.1 — SCAFFOLDING MECHANISM live on top of V6.0.3 polish + V6.0 foundation.** Self-audit health: 97/100 (`python scripts/self_audit.py`). Counts are auto-emitted by self_audit and the MANIFEST block at the bottom of this file — do NOT hardcode them in the header.
+>
+> **What V6.1 adds (fork mechanism):** `brain/operator.profile.json` (gitignored single source of truth), `scripts/personalize.py` (renders `brain/USER.md` + memory templates from `*.template.md` placeholders, skip-on-exists), `scripts/scaffold.py` (token-replaces operator identifiers across tracked files at fork-time, refuses to run on the original operator's repo, `--backup` snapshots first). Wizard `step_finalize` always runs personalize; prompts for scaffold on new operators. `self_audit.check_personalization()` warns when profile missing. CC's working copy is preserved via the safety guard + gitignored personal files.
+>
+> **V6.0 base (intact):** multi-provider model router (Claude/OpenAI/OpenRouter/Groq/DeepSeek/local), autonomous skill synthesizer with `[NEW]→[VALIDATED]` lifecycle, 3-layer memory (working → episodic → semantic) with nightly Haiku-scored consolidation, multi-platform messaging gateway (Telegram + Discord + Slack), DL stack (GNN skill router, RLHF/DPO outreach, NTM, MAML, TFT MRR forecast, neuro-symbolic compliance gate), public-repo installer (`install.sh` / `install.ps1`), PII protection in `.gitignore`. **V5.7 foundation:** self_audit, send_gateway hardened (CASL + cooldown + caps + draft critic + DNS doctor), autonomous reasoning loop, Obsidian MCP.
 
 ## Operational Status
 
 | Dimension | Level | Notes |
 |-----------|-------|-------|
-| **Version** | V5.6 | Outbound Chokepoint + Reasoning Loop Era (2026-04-20) |
+| **Version** | V6.1 | Scaffolding mechanism on top of V6.0 multi-provider + DL stack + V5.6 outbound chokepoint |
 | **Position**| ACTIVE | Community Manager for Bennett's Agency Accelerator + Lead Gen Funnel Operator |
 | **Confidence** | 0.97 | Core automations production-grade. Telegram V15.4 live. Scheduler fixed. Semi-auto outreach deploying. Bennett concentration risk unresolved. |
 | **Focus Area** | **RESET AND DIVERSIFY REVENUE** | CC is doing a physical/mental reset (quitting weed). Focus is on daily minimums: content creation and cold outreach volume. Target is still $5k MRR by May 15. |
@@ -109,15 +113,19 @@ tags: [state, ephemeral]
 - Skill: `skills/knowledge-compilation/SKILL.md`
 - Workflows: `/ingest`, `/query-knowledge`, `/lint-knowledge`
 
-## Capability Counts (2026-04-11, verified via find)
+## Capability Counts (live — auto-emitted by self_audit + MANIFEST)
 
-- **Skills:** 152 (verified `find skills -name SKILL.md | wc -l`)
-- **Agents:** 17 (all upgraded to V5.5+ standard)
-- **Workflows:** 35 (.agents/workflows/, includes close-review)
-- **Scripts:** 56 Python engines in scripts/
+> **Do NOT hardcode counts here.** They drift the moment a script lands. Read live:
+>
+> - `python scripts/self_audit.py --json | jq '{skills_total, scripts_total, mcp_servers, health_score}'`
+> - MANIFEST block at the bottom of this file (synced by `scripts/catalog_sync.py`)
+> - `python scripts/capability_query.py drift` for graph drift items
+
+Stable structural facts (change rarely, audit on edit):
+
 - **Supabase tables:** 28 (14 agent + 14 business ops)
-- **MCP servers:** 8 working + 4 replaced by CLI + claude-mem plugin
-- **Hooks:** 4 active safety/audit hooks
+- **MCP servers:** 9 active in Claude Code config (verified via `mcp_configs_in_sync` in self_audit)
+- **Hooks:** 4 active safety/audit hooks in `.claude/settings.local.json`
 - **Cross-machine sync:** Windows (CCPC, 192.168.2.133) production + Mac (Conaughs-MacBook-Air, 192.168.2.196) cold-standby via `ssh cc-mac`
 - **PM2 state:** Windows runs bravo-scheduler + telegram-bot (standalone) + skool daemon (standalone). Mac has bravo-telegram registered but stopped.
 
@@ -171,11 +179,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-05-05
+- **Date:** 2026-05-06
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Codex designed the Agent Runner backend for the Command Center chat widget, added docs/AGENT_RUNNER_DESIGN.md, scaffolded apps/agent-runner/, and authored database/020_agent_runner.sql; note overlap with local 020_chat_widget_and_pairings.sql before apply.
+- **Result:** Finalization audit pass: Rule 11 freshness gate added, AGENT_ROUTER + INTENTS extended with 6 intents, Hermes role disambiguated, GEMINI/ANTIGRAVITY identity matrices synced with AGENTS.md, capability graph drift cleared (28 docstring false positives + auto-generated triggers), STATE/CAPABILITIES counts de-hardcoded, ACTIVE_TASKS sprint roadmap archived, LONG_TERM.md re-validated, SESSION_LOG April entries archived. self_audit 100/100, drift 0, memory health F→C.
 
-*Last updated: 2026-05-05*
+*Last updated: 2026-05-06*
 
 ## Manifest
 

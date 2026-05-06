@@ -4,14 +4,13 @@ tags: [capabilities, tools]
 
 # CAPABILITIES — Tool & Integration Registry
 
-> Complete inventory of what Bravo can do. Last updated: 2026-05-01 (V6.1).
-> **Totals (live disk truth, 2026-05-01 V6.1): 153 skills · 36 workflows · 93 scripts · 21 agents (14 file-based in `agents/` + 7 native Claude Code in `.claude/agents/`) · 9 MCP servers + Codex (external). V6.1 adds the scaffolding mechanism (operator.profile.json + personalize.py + scaffold.py) — repo now ships as a true scaffold for new operators.**
+> Complete inventory of what Bravo can do. Last reviewed: 2026-05-06 (V6.1 era).
+>
+> **Counts are live — read them, do not quote them.** Hardcoding counts in this header is a known regression vector. The MANIFEST block at the bottom of this file is auto-synced by `scripts/catalog_sync.py`. For absolute live truth: `python scripts/self_audit.py --json`.
 >
 > Marketing/social scripts (`late_tool.py`, `late_publisher.py`, `instagram_engine.py`, `codex_image_gen.py`) transferred to Maven on 2026-04-26 — they live at `../CMO-Agent/scripts/` now. Bravo subprocesses to Maven's `late_tool.py` only for read-only CEO-dashboard stats (see `ceo_dashboard.py:_content_this_week`).
 >
-> These counts are reported live by `python scripts/self_audit.py`. If
-> they drift, the audit will flag it. Trust the live numbers, not any
-> integer hardcoded in a satellite doc.
+> **V6.1 scaffolding mechanism** is live: the repo now ships as a true scaffold for new operators (`operator.profile.json` + `personalize.py` + `scaffold.py`). See the V6.0/V6.1 scripts table below.
 >
 > **📦 For the shareable GitHub repo catalog (CC's "tool shed" for clients/prospects): see [[brain/TOOL_SHED]]**
 
@@ -488,6 +487,8 @@ Scripts that enforce Bravo's coherence, autonomy, and self-correction. Run in-pr
 | `scripts/md_to_gdoc.py` | Markdown → styled Google Doc export. Wraps `google_tool.py docs create` with inline CSS for tables, code, blockquotes. | `python scripts/md_to_gdoc.py brain/TOOL_SHED.md [--title "..."] [--folder <drive-id>] [--json]` |
 | `scripts/name_utils.py` | **Render-path name sanitizer.** Single source of truth for blocking placeholder lead names ("Contact", "Owner", "info", empty, etc.) before they reach a real recipient. Imported by `email_engine`, `outreach_engine`, `funnel_nurture`, `autonomous_agent`. Tests: `scripts/test_name_utils.py` (21 cases). Motivated by the 2026-04-25 "Hi Contact," incident. | `from name_utils import safe_first_name, safe_full_name, sanitize_template_vars` |
 | `scripts/sibling_repos.py` | **Cross-repo path resolver.** Single source of truth for sibling-agent locations (Bravo/Maven/Atlas/Aura). Used by `agent_inbox.py` (cross-repo posting) and `ceo_dashboard.py` (subprocess to Maven's late_tool for content stats). Per-machine override via `BRAVO_REPO`/`MAVEN_REPO`/`ATLAS_REPO`/`AURA_REPO` env vars. | `from sibling_repos import repo_for, script_in` |
+| `scripts/critic_template_check.py` | **Regression test for OASIS templates vs `draft_critic`.** Renders every OASIS email template against a synthetic lead and runs the critic at the live gateway threshold (6.5). Exits 1 if any template fails. Run before merging any template OR critic config change. Originated from the 2026-05-04 template-drift mistake. | `python scripts/critic_template_check.py [--json]` |
+| `scripts/n8n_inbound_doctor.py` | **Diagnostic for the OASIS Inbound Qualifier (Bravo Aware) n8n workflow.** Verifies workflow `1cGIN32alM8sf8OV` is active, the Supabase `record_inbound_from_n8n` RPC exists and accepts payloads, and the email_engine IMAP poll path can write to `lead_interactions`. Use when inbound classification appears broken. | `python scripts/n8n_inbound_doctor.py [--json]` |
 
 ## Business Ops Database Schema (14 tables — Supabase Bravo)
 
