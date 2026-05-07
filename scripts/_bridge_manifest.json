@@ -1,0 +1,2038 @@
+{
+  "version": 1,
+  "generated_at_iso": "2026-05-07T04:57:39.504386+00:00",
+  "script_count": 77,
+  "entry_count": 290,
+  "entries": [
+    {
+      "key": "agent_heartbeat",
+      "path": "scripts/agent_heartbeat.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "agent_heartbeat.py \u2014 write a heartbeat to agent_state_snapshot."
+    },
+    {
+      "key": "agent_inbox_post",
+      "path": "scripts/agent_inbox.py",
+      "subcmd": "post",
+      "mutating": true,
+      "help": "agent_inbox \u2014 Async agent-to-agent messaging (mcp_agent_mail-inspired pattern). \u2014 subcommand: post"
+    },
+    {
+      "key": "agent_inbox_list",
+      "path": "scripts/agent_inbox.py",
+      "subcmd": "list",
+      "mutating": false,
+      "help": "agent_inbox \u2014 Async agent-to-agent messaging (mcp_agent_mail-inspired pattern). \u2014 subcommand: list"
+    },
+    {
+      "key": "agent_inbox_read",
+      "path": "scripts/agent_inbox.py",
+      "subcmd": "read",
+      "mutating": false,
+      "help": "agent_inbox \u2014 Async agent-to-agent messaging (mcp_agent_mail-inspired pattern). \u2014 subcommand: read"
+    },
+    {
+      "key": "agent_inbox_reply",
+      "path": "scripts/agent_inbox.py",
+      "subcmd": "reply",
+      "mutating": false,
+      "help": "agent_inbox \u2014 Async agent-to-agent messaging (mcp_agent_mail-inspired pattern). \u2014 subcommand: reply"
+    },
+    {
+      "key": "agent_self_improvement_run",
+      "path": "scripts/agent_self_improvement.py",
+      "subcmd": "run",
+      "mutating": true,
+      "help": "Cross-agent self-improvement sweep for Bravo, Atlas, and Maven. \u2014 subcommand: run"
+    },
+    {
+      "key": "apply_migration",
+      "path": "scripts/apply_migration.py",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Apply SQL migration files to the Bravo Supabase project."
+    },
+    {
+      "key": "audit_mcp_secrets",
+      "path": "scripts/audit_mcp_secrets.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Audit MCP config files for plaintext live secrets."
+    },
+    {
+      "key": "autonomous_agent_tick",
+      "path": "scripts/autonomous_agent.py",
+      "subcmd": "tick",
+      "mutating": false,
+      "help": "Autonomous Agent \u2014 the always-on reasoning loop. \u2014 subcommand: tick"
+    },
+    {
+      "key": "autonomous_agent_daemon",
+      "path": "scripts/autonomous_agent.py",
+      "subcmd": "daemon",
+      "mutating": false,
+      "help": "Autonomous Agent \u2014 the always-on reasoning loop. \u2014 subcommand: daemon"
+    },
+    {
+      "key": "autonomous_agent_status",
+      "path": "scripts/autonomous_agent.py",
+      "subcmd": "status",
+      "mutating": false,
+      "help": "Autonomous Agent \u2014 the always-on reasoning loop. \u2014 subcommand: status"
+    },
+    {
+      "key": "autonomous_agent_decisions",
+      "path": "scripts/autonomous_agent.py",
+      "subcmd": "decisions",
+      "mutating": false,
+      "help": "Autonomous Agent \u2014 the always-on reasoning loop. \u2014 subcommand: decisions"
+    },
+    {
+      "key": "booking_engine_slots",
+      "path": "scripts/booking_engine.py",
+      "subcmd": "slots",
+      "mutating": false,
+      "help": "Booking Engine - Self-hosted scheduling system replacing Cal.com. \u2014 subcommand: slots"
+    },
+    {
+      "key": "booking_engine_open",
+      "path": "scripts/booking_engine.py",
+      "subcmd": "open",
+      "mutating": true,
+      "help": "Booking Engine - Self-hosted scheduling system replacing Cal.com. \u2014 subcommand: open"
+    },
+    {
+      "key": "booking_engine_open_week",
+      "path": "scripts/booking_engine.py",
+      "subcmd": "open-week",
+      "mutating": true,
+      "help": "Booking Engine - Self-hosted scheduling system replacing Cal.com. \u2014 subcommand: open-week"
+    },
+    {
+      "key": "booking_engine_list",
+      "path": "scripts/booking_engine.py",
+      "subcmd": "list",
+      "mutating": false,
+      "help": "Booking Engine - Self-hosted scheduling system replacing Cal.com. \u2014 subcommand: list"
+    },
+    {
+      "key": "booking_engine_close",
+      "path": "scripts/booking_engine.py",
+      "subcmd": "close",
+      "mutating": true,
+      "help": "Booking Engine - Self-hosted scheduling system replacing Cal.com. \u2014 subcommand: close"
+    },
+    {
+      "key": "booking_engine_book",
+      "path": "scripts/booking_engine.py",
+      "subcmd": "book",
+      "mutating": true,
+      "help": "Booking Engine - Self-hosted scheduling system replacing Cal.com. \u2014 subcommand: book"
+    },
+    {
+      "key": "booking_engine_cancel",
+      "path": "scripts/booking_engine.py",
+      "subcmd": "cancel",
+      "mutating": true,
+      "help": "Booking Engine - Self-hosted scheduling system replacing Cal.com. \u2014 subcommand: cancel"
+    },
+    {
+      "key": "booking_engine_view",
+      "path": "scripts/booking_engine.py",
+      "subcmd": "view",
+      "mutating": false,
+      "help": "Booking Engine - Self-hosted scheduling system replacing Cal.com. \u2014 subcommand: view"
+    },
+    {
+      "key": "booking_engine_available",
+      "path": "scripts/booking_engine.py",
+      "subcmd": "available",
+      "mutating": false,
+      "help": "Booking Engine - Self-hosted scheduling system replacing Cal.com. \u2014 subcommand: available"
+    },
+    {
+      "key": "booking_engine_remind",
+      "path": "scripts/booking_engine.py",
+      "subcmd": "remind",
+      "mutating": false,
+      "help": "Booking Engine - Self-hosted scheduling system replacing Cal.com. \u2014 subcommand: remind"
+    },
+    {
+      "key": "booking_engine_complete",
+      "path": "scripts/booking_engine.py",
+      "subcmd": "complete",
+      "mutating": true,
+      "help": "Booking Engine - Self-hosted scheduling system replacing Cal.com. \u2014 subcommand: complete"
+    },
+    {
+      "key": "booking_engine_auto_book",
+      "path": "scripts/booking_engine.py",
+      "subcmd": "auto-book",
+      "mutating": true,
+      "help": "Booking Engine - Self-hosted scheduling system replacing Cal.com. \u2014 subcommand: auto-book"
+    },
+    {
+      "key": "booking_engine_generate_link",
+      "path": "scripts/booking_engine.py",
+      "subcmd": "generate-link",
+      "mutating": false,
+      "help": "Booking Engine - Self-hosted scheduling system replacing Cal.com. \u2014 subcommand: generate-link"
+    },
+    {
+      "key": "booking_engine_send_reminders",
+      "path": "scripts/booking_engine.py",
+      "subcmd": "send-reminders",
+      "mutating": true,
+      "help": "Booking Engine - Self-hosted scheduling system replacing Cal.com. \u2014 subcommand: send-reminders"
+    },
+    {
+      "key": "bridge_lock_acquire",
+      "path": "scripts/bridge_lock.py",
+      "subcmd": "acquire",
+      "mutating": false,
+      "help": "Bridge Lock \u2014 multi-machine arbitration for Telegram (and future Discord/Slack) \u2014 subcommand: acquire"
+    },
+    {
+      "key": "bridge_lock_heartbeat",
+      "path": "scripts/bridge_lock.py",
+      "subcmd": "heartbeat",
+      "mutating": false,
+      "help": "Bridge Lock \u2014 multi-machine arbitration for Telegram (and future Discord/Slack) \u2014 subcommand: heartbeat"
+    },
+    {
+      "key": "bridge_lock_release",
+      "path": "scripts/bridge_lock.py",
+      "subcmd": "release",
+      "mutating": false,
+      "help": "Bridge Lock \u2014 multi-machine arbitration for Telegram (and future Discord/Slack) \u2014 subcommand: release"
+    },
+    {
+      "key": "bridge_lock_status",
+      "path": "scripts/bridge_lock.py",
+      "subcmd": "status",
+      "mutating": false,
+      "help": "Bridge Lock \u2014 multi-machine arbitration for Telegram (and future Discord/Slack) \u2014 subcommand: status"
+    },
+    {
+      "key": "browse_and_capture",
+      "path": "scripts/browse_and_capture.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Browse & Capture \u2014 Opens URL in CC's real Chrome and captures a screenshot."
+    },
+    {
+      "key": "browser_connect",
+      "path": "scripts/browser_connect.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Connect Browser Harness to Chrome with the OASIS business profile."
+    },
+    {
+      "key": "catalog_sync",
+      "path": "scripts/catalog_sync.py",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Catalog sync \u2014 regenerate scripts/skills/agents counts from filesystem truth."
+    },
+    {
+      "key": "ceo_dashboard",
+      "path": "scripts/ceo_dashboard.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "CEO Dashboard \u2014 Unified KPI Aggregator"
+    },
+    {
+      "key": "client_health_report",
+      "path": "scripts/client_health.py",
+      "subcmd": "report",
+      "mutating": false,
+      "help": "Client health \u2014 provides load env. \u2014 subcommand: report"
+    },
+    {
+      "key": "client_health_score",
+      "path": "scripts/client_health.py",
+      "subcmd": "score",
+      "mutating": false,
+      "help": "Client health \u2014 provides load env. \u2014 subcommand: score"
+    },
+    {
+      "key": "client_health_alerts",
+      "path": "scripts/client_health.py",
+      "subcmd": "alerts",
+      "mutating": false,
+      "help": "Client health \u2014 provides load env. \u2014 subcommand: alerts"
+    },
+    {
+      "key": "client_health_trends",
+      "path": "scripts/client_health.py",
+      "subcmd": "trends",
+      "mutating": false,
+      "help": "Client health \u2014 provides load env. \u2014 subcommand: trends"
+    },
+    {
+      "key": "cloudflare_admin_list_zone",
+      "path": "scripts/cloudflare_admin.py",
+      "subcmd": "list-zone",
+      "mutating": false,
+      "help": "cloudflare_admin.py \u2014 Cloudflare DNS helper for OASIS domains. \u2014 subcommand: list-zone"
+    },
+    {
+      "key": "cloudflare_admin_upsert_txt",
+      "path": "scripts/cloudflare_admin.py",
+      "subcmd": "upsert-txt",
+      "mutating": false,
+      "help": "cloudflare_admin.py \u2014 Cloudflare DNS helper for OASIS domains. \u2014 subcommand: upsert-txt"
+    },
+    {
+      "key": "cloudflare_admin_sync_vercel_txt",
+      "path": "scripts/cloudflare_admin.py",
+      "subcmd": "sync-vercel-txt",
+      "mutating": true,
+      "help": "cloudflare_admin.py \u2014 Cloudflare DNS helper for OASIS domains. \u2014 subcommand: sync-vercel-txt"
+    },
+    {
+      "key": "competitive_intel_add",
+      "path": "scripts/competitive_intel.py",
+      "subcmd": "add",
+      "mutating": true,
+      "help": "Competitive Intelligence Engine \u2014 CEO Dashboard Component \u2014 subcommand: add"
+    },
+    {
+      "key": "competitive_intel_list",
+      "path": "scripts/competitive_intel.py",
+      "subcmd": "list",
+      "mutating": false,
+      "help": "Competitive Intelligence Engine \u2014 CEO Dashboard Component \u2014 subcommand: list"
+    },
+    {
+      "key": "competitive_intel_view",
+      "path": "scripts/competitive_intel.py",
+      "subcmd": "view",
+      "mutating": false,
+      "help": "Competitive Intelligence Engine \u2014 CEO Dashboard Component \u2014 subcommand: view"
+    },
+    {
+      "key": "competitive_intel_update",
+      "path": "scripts/competitive_intel.py",
+      "subcmd": "update",
+      "mutating": true,
+      "help": "Competitive Intelligence Engine \u2014 CEO Dashboard Component \u2014 subcommand: update"
+    },
+    {
+      "key": "competitive_intel_battlecard",
+      "path": "scripts/competitive_intel.py",
+      "subcmd": "battlecard",
+      "mutating": false,
+      "help": "Competitive Intelligence Engine \u2014 CEO Dashboard Component \u2014 subcommand: battlecard"
+    },
+    {
+      "key": "competitive_intel_report",
+      "path": "scripts/competitive_intel.py",
+      "subcmd": "report",
+      "mutating": false,
+      "help": "Competitive Intelligence Engine \u2014 CEO Dashboard Component \u2014 subcommand: report"
+    },
+    {
+      "key": "competitive_intel_matrix",
+      "path": "scripts/competitive_intel.py",
+      "subcmd": "matrix",
+      "mutating": false,
+      "help": "Competitive Intelligence Engine \u2014 CEO Dashboard Component \u2014 subcommand: matrix"
+    },
+    {
+      "key": "competitive_intel_delete",
+      "path": "scripts/competitive_intel.py",
+      "subcmd": "delete",
+      "mutating": true,
+      "help": "Competitive Intelligence Engine \u2014 CEO Dashboard Component \u2014 subcommand: delete"
+    },
+    {
+      "key": "context_builder_show",
+      "path": "scripts/context_builder.py",
+      "subcmd": "show",
+      "mutating": false,
+      "help": "Context Builder \u2014 assembles the full conversational + relational context \u2014 subcommand: show"
+    },
+    {
+      "key": "context_builder_relationship_map",
+      "path": "scripts/context_builder.py",
+      "subcmd": "relationship-map",
+      "mutating": false,
+      "help": "Context Builder \u2014 assembles the full conversational + relational context \u2014 subcommand: relationship-map"
+    },
+    {
+      "key": "cost_audit",
+      "path": "scripts/cost_audit.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Cron cost audit \u2014 for each active cron job, traces its handler chain"
+    },
+    {
+      "key": "cost_tracker_log",
+      "path": "scripts/cost_tracker.py",
+      "subcmd": "log",
+      "mutating": false,
+      "help": "Cost Tracker \u2014 Per-Operation Label:Units Tracking for Business-Empire-Agent \u2014 subcommand: log"
+    },
+    {
+      "key": "cost_tracker_summary",
+      "path": "scripts/cost_tracker.py",
+      "subcmd": "summary",
+      "mutating": false,
+      "help": "Cost Tracker \u2014 Per-Operation Label:Units Tracking for Business-Empire-Agent \u2014 subcommand: summary"
+    },
+    {
+      "key": "cost_tracker_session",
+      "path": "scripts/cost_tracker.py",
+      "subcmd": "session",
+      "mutating": false,
+      "help": "Cost Tracker \u2014 Per-Operation Label:Units Tracking for Business-Empire-Agent \u2014 subcommand: session"
+    },
+    {
+      "key": "cost_tracker_budget",
+      "path": "scripts/cost_tracker.py",
+      "subcmd": "budget",
+      "mutating": false,
+      "help": "Cost Tracker \u2014 Per-Operation Label:Units Tracking for Business-Empire-Agent \u2014 subcommand: budget"
+    },
+    {
+      "key": "critic_template_check",
+      "path": "scripts/critic_template_check.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Regression test: every OASIS email template rendered against a synthetic"
+    },
+    {
+      "key": "crm_reset",
+      "path": "scripts/crm_reset.py",
+      "subcmd": null,
+      "mutating": true,
+      "help": "crm_reset.py \u2014 archive cold/dead leads from the bravo Supabase CRM."
+    },
+    {
+      "key": "cron_dispatcher_run",
+      "path": "scripts/cron_dispatcher.py",
+      "subcmd": "run",
+      "mutating": true,
+      "help": "cron_dispatcher.py \u2014 Execute allowlisted script-backed cron jobs. \u2014 subcommand: run"
+    },
+    {
+      "key": "cron_dispatcher_due",
+      "path": "scripts/cron_dispatcher.py",
+      "subcmd": "due",
+      "mutating": false,
+      "help": "cron_dispatcher.py \u2014 Execute allowlisted script-backed cron jobs. \u2014 subcommand: due"
+    },
+    {
+      "key": "cron_engine_list",
+      "path": "scripts/cron_engine.py",
+      "subcmd": "list",
+      "mutating": false,
+      "help": "Cron Engine - Business Automation Job Manager \u2014 subcommand: list"
+    },
+    {
+      "key": "cron_engine_add",
+      "path": "scripts/cron_engine.py",
+      "subcmd": "add",
+      "mutating": true,
+      "help": "Cron Engine - Business Automation Job Manager \u2014 subcommand: add"
+    },
+    {
+      "key": "cron_engine_toggle",
+      "path": "scripts/cron_engine.py",
+      "subcmd": "toggle",
+      "mutating": false,
+      "help": "Cron Engine - Business Automation Job Manager \u2014 subcommand: toggle"
+    },
+    {
+      "key": "cron_engine_run",
+      "path": "scripts/cron_engine.py",
+      "subcmd": "run",
+      "mutating": true,
+      "help": "Cron Engine - Business Automation Job Manager \u2014 subcommand: run"
+    },
+    {
+      "key": "cron_engine_due",
+      "path": "scripts/cron_engine.py",
+      "subcmd": "due",
+      "mutating": false,
+      "help": "Cron Engine - Business Automation Job Manager \u2014 subcommand: due"
+    },
+    {
+      "key": "cron_engine_seed",
+      "path": "scripts/cron_engine.py",
+      "subcmd": "seed",
+      "mutating": true,
+      "help": "Cron Engine - Business Automation Job Manager \u2014 subcommand: seed"
+    },
+    {
+      "key": "deploy_command_center",
+      "path": "scripts/deploy_command_center.py",
+      "subcmd": null,
+      "mutating": true,
+      "help": "deploy_command_center.py \u2014 one-shot production deploy for the OASIS AI"
+    },
+    {
+      "key": "dns_reputation",
+      "path": "scripts/dns_reputation.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "DNS reputation checks for the outbound sender domain."
+    },
+    {
+      "key": "draft_critic_critique",
+      "path": "scripts/draft_critic.py",
+      "subcmd": "critique",
+      "mutating": false,
+      "help": "Draft Critic \u2014 the adversarial second-opinion reviewer that runs on every \u2014 subcommand: critique"
+    },
+    {
+      "key": "draft_critic_revise",
+      "path": "scripts/draft_critic.py",
+      "subcmd": "revise",
+      "mutating": false,
+      "help": "Draft Critic \u2014 the adversarial second-opinion reviewer that runs on every \u2014 subcommand: revise"
+    },
+    {
+      "key": "drift_autofix",
+      "path": "scripts/drift_autofix.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Deterministic drift auto-fix \u2014 adds missing `triggers:` to skills and"
+    },
+    {
+      "key": "email_doctor",
+      "path": "scripts/email_doctor.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Email-safety diagnostic \u2014 verifies the multi-AI safety surface is intact."
+    },
+    {
+      "key": "email_engine_send",
+      "path": "scripts/email_engine.py",
+      "subcmd": "send",
+      "mutating": true,
+      "help": "Email Engine - Free send and nurture sequence engine. \u2014 subcommand: send"
+    },
+    {
+      "key": "email_engine_send_template",
+      "path": "scripts/email_engine.py",
+      "subcmd": "send-template",
+      "mutating": true,
+      "help": "Email Engine - Free send and nurture sequence engine. \u2014 subcommand: send-template"
+    },
+    {
+      "key": "email_engine_templates",
+      "path": "scripts/email_engine.py",
+      "subcmd": "templates",
+      "mutating": false,
+      "help": "Email Engine - Free send and nurture sequence engine. \u2014 subcommand: templates"
+    },
+    {
+      "key": "email_engine_list",
+      "path": "scripts/email_engine.py",
+      "subcmd": "list",
+      "mutating": false,
+      "help": "Email Engine - Free send and nurture sequence engine. \u2014 subcommand: list"
+    },
+    {
+      "key": "email_engine_create",
+      "path": "scripts/email_engine.py",
+      "subcmd": "create",
+      "mutating": true,
+      "help": "Email Engine - Free send and nurture sequence engine. \u2014 subcommand: create"
+    },
+    {
+      "key": "email_engine_view",
+      "path": "scripts/email_engine.py",
+      "subcmd": "view",
+      "mutating": false,
+      "help": "Email Engine - Free send and nurture sequence engine. \u2014 subcommand: view"
+    },
+    {
+      "key": "email_engine_sequence",
+      "path": "scripts/email_engine.py",
+      "subcmd": "sequence",
+      "mutating": false,
+      "help": "Email Engine - Free send and nurture sequence engine. \u2014 subcommand: sequence"
+    },
+    {
+      "key": "email_engine_run",
+      "path": "scripts/email_engine.py",
+      "subcmd": "run",
+      "mutating": true,
+      "help": "Email Engine - Free send and nurture sequence engine. \u2014 subcommand: run"
+    },
+    {
+      "key": "email_engine_log",
+      "path": "scripts/email_engine.py",
+      "subcmd": "log",
+      "mutating": false,
+      "help": "Email Engine - Free send and nurture sequence engine. \u2014 subcommand: log"
+    },
+    {
+      "key": "email_engine_stats",
+      "path": "scripts/email_engine.py",
+      "subcmd": "stats",
+      "mutating": false,
+      "help": "Email Engine - Free send and nurture sequence engine. \u2014 subcommand: stats"
+    },
+    {
+      "key": "email_engine_check_inbox",
+      "path": "scripts/email_engine.py",
+      "subcmd": "check-inbox",
+      "mutating": false,
+      "help": "Email Engine - Free send and nurture sequence engine. \u2014 subcommand: check-inbox"
+    },
+    {
+      "key": "event_bus_publish",
+      "path": "scripts/event_bus.py",
+      "subcmd": "publish",
+      "mutating": true,
+      "help": "Bravo V6.0 \u2014 Event Bus (publisher + subscriber) \u2014 subcommand: publish"
+    },
+    {
+      "key": "event_bus_stats",
+      "path": "scripts/event_bus.py",
+      "subcmd": "stats",
+      "mutating": false,
+      "help": "Bravo V6.0 \u2014 Event Bus (publisher + subscriber) \u2014 subcommand: stats"
+    },
+    {
+      "key": "event_bus_reap",
+      "path": "scripts/event_bus.py",
+      "subcmd": "reap",
+      "mutating": false,
+      "help": "Bravo V6.0 \u2014 Event Bus (publisher + subscriber) \u2014 subcommand: reap"
+    },
+    {
+      "key": "event_bus_drain",
+      "path": "scripts/event_bus.py",
+      "subcmd": "drain",
+      "mutating": false,
+      "help": "Bravo V6.0 \u2014 Event Bus (publisher + subscriber) \u2014 subcommand: drain"
+    },
+    {
+      "key": "event_bus_tail",
+      "path": "scripts/event_bus.py",
+      "subcmd": "tail",
+      "mutating": false,
+      "help": "Bravo V6.0 \u2014 Event Bus (publisher + subscriber) \u2014 subcommand: tail"
+    },
+    {
+      "key": "financial_model_unit_economics",
+      "path": "scripts/financial_model.py",
+      "subcmd": "unit-economics",
+      "mutating": false,
+      "help": "Financial Modeling Engine \u2014 CEO Dashboard Component \u2014 subcommand: unit-economics"
+    },
+    {
+      "key": "financial_model_forecast",
+      "path": "scripts/financial_model.py",
+      "subcmd": "forecast",
+      "mutating": false,
+      "help": "Financial Modeling Engine \u2014 CEO Dashboard Component \u2014 subcommand: forecast"
+    },
+    {
+      "key": "financial_model_scenario",
+      "path": "scripts/financial_model.py",
+      "subcmd": "scenario",
+      "mutating": false,
+      "help": "Financial Modeling Engine \u2014 CEO Dashboard Component \u2014 subcommand: scenario"
+    },
+    {
+      "key": "financial_model_concentration",
+      "path": "scripts/financial_model.py",
+      "subcmd": "concentration",
+      "mutating": false,
+      "help": "Financial Modeling Engine \u2014 CEO Dashboard Component \u2014 subcommand: concentration"
+    },
+    {
+      "key": "financial_model_runway",
+      "path": "scripts/financial_model.py",
+      "subcmd": "runway",
+      "mutating": false,
+      "help": "Financial Modeling Engine \u2014 CEO Dashboard Component \u2014 subcommand: runway"
+    },
+    {
+      "key": "firecrawl_tool_scrape",
+      "path": "scripts/firecrawl_tool.py",
+      "subcmd": "scrape",
+      "mutating": false,
+      "help": "Firecrawl CLI Tool -- Web Scraping & Structured Extraction \u2014 subcommand: scrape"
+    },
+    {
+      "key": "firecrawl_tool_crawl",
+      "path": "scripts/firecrawl_tool.py",
+      "subcmd": "crawl",
+      "mutating": false,
+      "help": "Firecrawl CLI Tool -- Web Scraping & Structured Extraction \u2014 subcommand: crawl"
+    },
+    {
+      "key": "firecrawl_tool_search",
+      "path": "scripts/firecrawl_tool.py",
+      "subcmd": "search",
+      "mutating": false,
+      "help": "Firecrawl CLI Tool -- Web Scraping & Structured Extraction \u2014 subcommand: search"
+    },
+    {
+      "key": "firecrawl_tool_extract",
+      "path": "scripts/firecrawl_tool.py",
+      "subcmd": "extract",
+      "mutating": false,
+      "help": "Firecrawl CLI Tool -- Web Scraping & Structured Extraction \u2014 subcommand: extract"
+    },
+    {
+      "key": "firecrawl_tool_map",
+      "path": "scripts/firecrawl_tool.py",
+      "subcmd": "map",
+      "mutating": false,
+      "help": "Firecrawl CLI Tool -- Web Scraping & Structured Extraction \u2014 subcommand: map"
+    },
+    {
+      "key": "fleet_health",
+      "path": "scripts/fleet_health.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "fleet_health.py \u2014 Cross-agent health rollup."
+    },
+    {
+      "key": "funnel_nurture",
+      "path": "scripts/funnel_nurture.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Funnel Lead Nurture Engine"
+    },
+    {
+      "key": "funnel_sync",
+      "path": "scripts/funnel_sync.py",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Funnel Lead Sync \u2014 CRM Bridge"
+    },
+    {
+      "key": "gateway_admin_start",
+      "path": "scripts/gateway_admin.py",
+      "subcmd": "start",
+      "mutating": false,
+      "help": "gateway_admin.py \u2014 CLI admin tool for the multi-platform messaging gateway. \u2014 subcommand: start"
+    },
+    {
+      "key": "gateway_admin_stop",
+      "path": "scripts/gateway_admin.py",
+      "subcmd": "stop",
+      "mutating": false,
+      "help": "gateway_admin.py \u2014 CLI admin tool for the multi-platform messaging gateway. \u2014 subcommand: stop"
+    },
+    {
+      "key": "gateway_admin_status",
+      "path": "scripts/gateway_admin.py",
+      "subcmd": "status",
+      "mutating": false,
+      "help": "gateway_admin.py \u2014 CLI admin tool for the multi-platform messaging gateway. \u2014 subcommand: status"
+    },
+    {
+      "key": "gateway_admin_send",
+      "path": "scripts/gateway_admin.py",
+      "subcmd": "send",
+      "mutating": true,
+      "help": "gateway_admin.py \u2014 CLI admin tool for the multi-platform messaging gateway. \u2014 subcommand: send"
+    },
+    {
+      "key": "gateway_admin_test_connection",
+      "path": "scripts/gateway_admin.py",
+      "subcmd": "test-connection",
+      "mutating": false,
+      "help": "gateway_admin.py \u2014 CLI admin tool for the multi-platform messaging gateway. \u2014 subcommand: test-connection"
+    },
+    {
+      "key": "gateway_admin_list_adapters",
+      "path": "scripts/gateway_admin.py",
+      "subcmd": "list-adapters",
+      "mutating": false,
+      "help": "gateway_admin.py \u2014 CLI admin tool for the multi-platform messaging gateway. \u2014 subcommand: list-adapters"
+    },
+    {
+      "key": "gnn_skill_router_export_graph",
+      "path": "scripts/gnn_skill_router.py",
+      "subcmd": "export-graph",
+      "mutating": false,
+      "help": "GNN Skill Router -- graph-based next-skill prediction over the Obsidian vault. \u2014 subcommand: export-graph"
+    },
+    {
+      "key": "gnn_skill_router_train",
+      "path": "scripts/gnn_skill_router.py",
+      "subcmd": "train",
+      "mutating": false,
+      "help": "GNN Skill Router -- graph-based next-skill prediction over the Obsidian vault. \u2014 subcommand: train"
+    },
+    {
+      "key": "gnn_skill_router_predict",
+      "path": "scripts/gnn_skill_router.py",
+      "subcmd": "predict",
+      "mutating": false,
+      "help": "GNN Skill Router -- graph-based next-skill prediction over the Obsidian vault. \u2014 subcommand: predict"
+    },
+    {
+      "key": "gnn_skill_router_evaluate",
+      "path": "scripts/gnn_skill_router.py",
+      "subcmd": "evaluate",
+      "mutating": false,
+      "help": "GNN Skill Router -- graph-based next-skill prediction over the Obsidian vault. \u2014 subcommand: evaluate"
+    },
+    {
+      "key": "google_tool_calendar",
+      "path": "scripts/google_tool.py",
+      "subcmd": "calendar",
+      "mutating": false,
+      "help": "Google Workspace CLI \u2014 Calendar, Gmail, Drive, Docs, Sheets \u2014 subcommand: calendar"
+    },
+    {
+      "key": "google_tool_list",
+      "path": "scripts/google_tool.py",
+      "subcmd": "list",
+      "mutating": false,
+      "help": "Google Workspace CLI \u2014 Calendar, Gmail, Drive, Docs, Sheets \u2014 subcommand: list"
+    },
+    {
+      "key": "google_tool_create",
+      "path": "scripts/google_tool.py",
+      "subcmd": "create",
+      "mutating": true,
+      "help": "Google Workspace CLI \u2014 Calendar, Gmail, Drive, Docs, Sheets \u2014 subcommand: create"
+    },
+    {
+      "key": "google_tool_delete",
+      "path": "scripts/google_tool.py",
+      "subcmd": "delete",
+      "mutating": true,
+      "help": "Google Workspace CLI \u2014 Calendar, Gmail, Drive, Docs, Sheets \u2014 subcommand: delete"
+    },
+    {
+      "key": "google_tool_gmail",
+      "path": "scripts/google_tool.py",
+      "subcmd": "gmail",
+      "mutating": false,
+      "help": "Google Workspace CLI \u2014 Calendar, Gmail, Drive, Docs, Sheets \u2014 subcommand: gmail"
+    },
+    {
+      "key": "google_tool_send",
+      "path": "scripts/google_tool.py",
+      "subcmd": "send",
+      "mutating": true,
+      "help": "Google Workspace CLI \u2014 Calendar, Gmail, Drive, Docs, Sheets \u2014 subcommand: send"
+    },
+    {
+      "key": "google_tool_read",
+      "path": "scripts/google_tool.py",
+      "subcmd": "read",
+      "mutating": false,
+      "help": "Google Workspace CLI \u2014 Calendar, Gmail, Drive, Docs, Sheets \u2014 subcommand: read"
+    },
+    {
+      "key": "google_tool_drive",
+      "path": "scripts/google_tool.py",
+      "subcmd": "drive",
+      "mutating": false,
+      "help": "Google Workspace CLI \u2014 Calendar, Gmail, Drive, Docs, Sheets \u2014 subcommand: drive"
+    },
+    {
+      "key": "google_tool_upload",
+      "path": "scripts/google_tool.py",
+      "subcmd": "upload",
+      "mutating": false,
+      "help": "Google Workspace CLI \u2014 Calendar, Gmail, Drive, Docs, Sheets \u2014 subcommand: upload"
+    },
+    {
+      "key": "google_tool_download",
+      "path": "scripts/google_tool.py",
+      "subcmd": "download",
+      "mutating": false,
+      "help": "Google Workspace CLI \u2014 Calendar, Gmail, Drive, Docs, Sheets \u2014 subcommand: download"
+    },
+    {
+      "key": "google_tool_info",
+      "path": "scripts/google_tool.py",
+      "subcmd": "info",
+      "mutating": false,
+      "help": "Google Workspace CLI \u2014 Calendar, Gmail, Drive, Docs, Sheets \u2014 subcommand: info"
+    },
+    {
+      "key": "google_tool_share",
+      "path": "scripts/google_tool.py",
+      "subcmd": "share",
+      "mutating": false,
+      "help": "Google Workspace CLI \u2014 Calendar, Gmail, Drive, Docs, Sheets \u2014 subcommand: share"
+    },
+    {
+      "key": "google_tool_docs",
+      "path": "scripts/google_tool.py",
+      "subcmd": "docs",
+      "mutating": false,
+      "help": "Google Workspace CLI \u2014 Calendar, Gmail, Drive, Docs, Sheets \u2014 subcommand: docs"
+    },
+    {
+      "key": "google_tool_append",
+      "path": "scripts/google_tool.py",
+      "subcmd": "append",
+      "mutating": false,
+      "help": "Google Workspace CLI \u2014 Calendar, Gmail, Drive, Docs, Sheets \u2014 subcommand: append"
+    },
+    {
+      "key": "google_tool_export",
+      "path": "scripts/google_tool.py",
+      "subcmd": "export",
+      "mutating": false,
+      "help": "Google Workspace CLI \u2014 Calendar, Gmail, Drive, Docs, Sheets \u2014 subcommand: export"
+    },
+    {
+      "key": "google_tool_sheets",
+      "path": "scripts/google_tool.py",
+      "subcmd": "sheets",
+      "mutating": false,
+      "help": "Google Workspace CLI \u2014 Calendar, Gmail, Drive, Docs, Sheets \u2014 subcommand: sheets"
+    },
+    {
+      "key": "google_tool_write",
+      "path": "scripts/google_tool.py",
+      "subcmd": "write",
+      "mutating": false,
+      "help": "Google Workspace CLI \u2014 Calendar, Gmail, Drive, Docs, Sheets \u2014 subcommand: write"
+    },
+    {
+      "key": "google_tool_slides",
+      "path": "scripts/google_tool.py",
+      "subcmd": "slides",
+      "mutating": false,
+      "help": "Google Workspace CLI \u2014 Calendar, Gmail, Drive, Docs, Sheets \u2014 subcommand: slides"
+    },
+    {
+      "key": "google_tool_tasks",
+      "path": "scripts/google_tool.py",
+      "subcmd": "tasks",
+      "mutating": false,
+      "help": "Google Workspace CLI \u2014 Calendar, Gmail, Drive, Docs, Sheets \u2014 subcommand: tasks"
+    },
+    {
+      "key": "google_tool_add",
+      "path": "scripts/google_tool.py",
+      "subcmd": "add",
+      "mutating": true,
+      "help": "Google Workspace CLI \u2014 Calendar, Gmail, Drive, Docs, Sheets \u2014 subcommand: add"
+    },
+    {
+      "key": "google_tool_complete",
+      "path": "scripts/google_tool.py",
+      "subcmd": "complete",
+      "mutating": true,
+      "help": "Google Workspace CLI \u2014 Calendar, Gmail, Drive, Docs, Sheets \u2014 subcommand: complete"
+    },
+    {
+      "key": "google_tool_test",
+      "path": "scripts/google_tool.py",
+      "subcmd": "test",
+      "mutating": false,
+      "help": "Google Workspace CLI \u2014 Calendar, Gmail, Drive, Docs, Sheets \u2014 subcommand: test"
+    },
+    {
+      "key": "inbound_classifier_classify",
+      "path": "scripts/inbound_classifier.py",
+      "subcmd": "classify",
+      "mutating": false,
+      "help": "Inbound Classifier \u2014 the second half of V5.6's chokepoint. \u2014 subcommand: classify"
+    },
+    {
+      "key": "inbound_classifier_stats",
+      "path": "scripts/inbound_classifier.py",
+      "subcmd": "stats",
+      "mutating": false,
+      "help": "Inbound Classifier \u2014 the second half of V5.6's chokepoint. \u2014 subcommand: stats"
+    },
+    {
+      "key": "lead_engine_list",
+      "path": "scripts/lead_engine.py",
+      "subcmd": "list",
+      "mutating": false,
+      "help": "Lead Engine - OASIS AI CRM CLI \u2014 subcommand: list"
+    },
+    {
+      "key": "lead_engine_add",
+      "path": "scripts/lead_engine.py",
+      "subcmd": "add",
+      "mutating": true,
+      "help": "Lead Engine - OASIS AI CRM CLI \u2014 subcommand: add"
+    },
+    {
+      "key": "lead_engine_view",
+      "path": "scripts/lead_engine.py",
+      "subcmd": "view",
+      "mutating": false,
+      "help": "Lead Engine - OASIS AI CRM CLI \u2014 subcommand: view"
+    },
+    {
+      "key": "lead_engine_update",
+      "path": "scripts/lead_engine.py",
+      "subcmd": "update",
+      "mutating": true,
+      "help": "Lead Engine - OASIS AI CRM CLI \u2014 subcommand: update"
+    },
+    {
+      "key": "lead_engine_score",
+      "path": "scripts/lead_engine.py",
+      "subcmd": "score",
+      "mutating": false,
+      "help": "Lead Engine - OASIS AI CRM CLI \u2014 subcommand: score"
+    },
+    {
+      "key": "lead_engine_interact",
+      "path": "scripts/lead_engine.py",
+      "subcmd": "interact",
+      "mutating": false,
+      "help": "Lead Engine - OASIS AI CRM CLI \u2014 subcommand: interact"
+    },
+    {
+      "key": "lead_engine_followups",
+      "path": "scripts/lead_engine.py",
+      "subcmd": "followups",
+      "mutating": false,
+      "help": "Lead Engine - OASIS AI CRM CLI \u2014 subcommand: followups"
+    },
+    {
+      "key": "lead_engine_pipeline",
+      "path": "scripts/lead_engine.py",
+      "subcmd": "pipeline",
+      "mutating": false,
+      "help": "Lead Engine - OASIS AI CRM CLI \u2014 subcommand: pipeline"
+    },
+    {
+      "key": "lead_engine_search",
+      "path": "scripts/lead_engine.py",
+      "subcmd": "search",
+      "mutating": false,
+      "help": "Lead Engine - OASIS AI CRM CLI \u2014 subcommand: search"
+    },
+    {
+      "key": "lead_engine_bulk_import",
+      "path": "scripts/lead_engine.py",
+      "subcmd": "bulk-import",
+      "mutating": false,
+      "help": "Lead Engine - OASIS AI CRM CLI \u2014 subcommand: bulk-import"
+    },
+    {
+      "key": "lead_engine_funnel",
+      "path": "scripts/lead_engine.py",
+      "subcmd": "funnel",
+      "mutating": false,
+      "help": "Lead Engine - OASIS AI CRM CLI \u2014 subcommand: funnel"
+    },
+    {
+      "key": "maml_onboard_build_tasks",
+      "path": "scripts/maml_onboard.py",
+      "subcmd": "build-tasks",
+      "mutating": false,
+      "help": "MAML Onboard \u2014 Model-Agnostic Meta-Learning for rapid client onboarding. \u2014 subcommand: build-tasks"
+    },
+    {
+      "key": "maml_onboard_train",
+      "path": "scripts/maml_onboard.py",
+      "subcmd": "train",
+      "mutating": false,
+      "help": "MAML Onboard \u2014 Model-Agnostic Meta-Learning for rapid client onboarding. \u2014 subcommand: train"
+    },
+    {
+      "key": "maml_onboard_adapt",
+      "path": "scripts/maml_onboard.py",
+      "subcmd": "adapt",
+      "mutating": false,
+      "help": "MAML Onboard \u2014 Model-Agnostic Meta-Learning for rapid client onboarding. \u2014 subcommand: adapt"
+    },
+    {
+      "key": "maml_onboard_predict",
+      "path": "scripts/maml_onboard.py",
+      "subcmd": "predict",
+      "mutating": false,
+      "help": "MAML Onboard \u2014 Model-Agnostic Meta-Learning for rapid client onboarding. \u2014 subcommand: predict"
+    },
+    {
+      "key": "maml_onboard_evaluate",
+      "path": "scripts/maml_onboard.py",
+      "subcmd": "evaluate",
+      "mutating": false,
+      "help": "MAML Onboard \u2014 Model-Agnostic Meta-Learning for rapid client onboarding. \u2014 subcommand: evaluate"
+    },
+    {
+      "key": "md_to_gdoc",
+      "path": "scripts/md_to_gdoc.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "md_to_gdoc \u2014 Export a markdown file to Google Docs with branded styling."
+    },
+    {
+      "key": "mem0_tool_search",
+      "path": "scripts/mem0_tool.py",
+      "subcmd": "search",
+      "mutating": false,
+      "help": "mem0ai Integration \u2014 Semantic Memory for Bravo V5.5 \u2014 subcommand: search"
+    },
+    {
+      "key": "mem0_tool_stats",
+      "path": "scripts/mem0_tool.py",
+      "subcmd": "stats",
+      "mutating": false,
+      "help": "mem0ai Integration \u2014 Semantic Memory for Bravo V5.5 \u2014 subcommand: stats"
+    },
+    {
+      "key": "mem0_tool_add",
+      "path": "scripts/mem0_tool.py",
+      "subcmd": "add",
+      "mutating": true,
+      "help": "mem0ai Integration \u2014 Semantic Memory for Bravo V5.5 \u2014 subcommand: add"
+    },
+    {
+      "key": "mem0_tool_list",
+      "path": "scripts/mem0_tool.py",
+      "subcmd": "list",
+      "mutating": false,
+      "help": "mem0ai Integration \u2014 Semantic Memory for Bravo V5.5 \u2014 subcommand: list"
+    },
+    {
+      "key": "mem0_tool_get",
+      "path": "scripts/mem0_tool.py",
+      "subcmd": "get",
+      "mutating": false,
+      "help": "mem0ai Integration \u2014 Semantic Memory for Bravo V5.5 \u2014 subcommand: get"
+    },
+    {
+      "key": "mem0_tool_delete",
+      "path": "scripts/mem0_tool.py",
+      "subcmd": "delete",
+      "mutating": true,
+      "help": "mem0ai Integration \u2014 Semantic Memory for Bravo V5.5 \u2014 subcommand: delete"
+    },
+    {
+      "key": "mem0_tool_history",
+      "path": "scripts/mem0_tool.py",
+      "subcmd": "history",
+      "mutating": false,
+      "help": "mem0ai Integration \u2014 Semantic Memory for Bravo V5.5 \u2014 subcommand: history"
+    },
+    {
+      "key": "memory_chunker",
+      "path": "scripts/memory_chunker.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Bravo V6.0 \u2014 Memory Chunker"
+    },
+    {
+      "key": "memory_consolidation_run",
+      "path": "scripts/memory_consolidation.py",
+      "subcmd": "run",
+      "mutating": true,
+      "help": "Memory Consolidation \u2014 3-layer memory pipeline. \u2014 subcommand: run"
+    },
+    {
+      "key": "memory_consolidation_decay",
+      "path": "scripts/memory_consolidation.py",
+      "subcmd": "decay",
+      "mutating": false,
+      "help": "Memory Consolidation \u2014 3-layer memory pipeline. \u2014 subcommand: decay"
+    },
+    {
+      "key": "memory_consolidation_sync_mem0",
+      "path": "scripts/memory_consolidation.py",
+      "subcmd": "sync-mem0",
+      "mutating": true,
+      "help": "Memory Consolidation \u2014 3-layer memory pipeline. \u2014 subcommand: sync-mem0"
+    },
+    {
+      "key": "memory_consolidation_status",
+      "path": "scripts/memory_consolidation.py",
+      "subcmd": "status",
+      "mutating": false,
+      "help": "Memory Consolidation \u2014 3-layer memory pipeline. \u2014 subcommand: status"
+    },
+    {
+      "key": "memory_consolidation_dry_run",
+      "path": "scripts/memory_consolidation.py",
+      "subcmd": "dry-run",
+      "mutating": true,
+      "help": "Memory Consolidation \u2014 3-layer memory pipeline. \u2014 subcommand: dry-run"
+    },
+    {
+      "key": "memory_ingest",
+      "path": "scripts/memory_ingest.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Bravo V6.0 \u2014 Memory Ingest"
+    },
+    {
+      "key": "memory_query",
+      "path": "scripts/memory_query.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Bravo V6.0 \u2014 Memory Query (retrieval)"
+    },
+    {
+      "key": "model_router_list_providers",
+      "path": "scripts/model_router.py",
+      "subcmd": "list-providers",
+      "mutating": false,
+      "help": "Model Router -- unified provider registry, routing, and call surface. \u2014 subcommand: list-providers"
+    },
+    {
+      "key": "model_router_test",
+      "path": "scripts/model_router.py",
+      "subcmd": "test",
+      "mutating": false,
+      "help": "Model Router -- unified provider registry, routing, and call surface. \u2014 subcommand: test"
+    },
+    {
+      "key": "model_router_switch",
+      "path": "scripts/model_router.py",
+      "subcmd": "switch",
+      "mutating": false,
+      "help": "Model Router -- unified provider registry, routing, and call surface. \u2014 subcommand: switch"
+    },
+    {
+      "key": "model_router_show_config",
+      "path": "scripts/model_router.py",
+      "subcmd": "show-config",
+      "mutating": false,
+      "help": "Model Router -- unified provider registry, routing, and call surface. \u2014 subcommand: show-config"
+    },
+    {
+      "key": "model_router_route",
+      "path": "scripts/model_router.py",
+      "subcmd": "route",
+      "mutating": false,
+      "help": "Model Router -- unified provider registry, routing, and call surface. \u2014 subcommand: route"
+    },
+    {
+      "key": "model_router_call",
+      "path": "scripts/model_router.py",
+      "subcmd": "call",
+      "mutating": false,
+      "help": "Model Router -- unified provider registry, routing, and call surface. \u2014 subcommand: call"
+    },
+    {
+      "key": "n8n_tool_list",
+      "path": "scripts/n8n_tool.py",
+      "subcmd": "list",
+      "mutating": false,
+      "help": "n8n CLI Tool \u2014 Full Workflow Management via REST API \u2014 subcommand: list"
+    },
+    {
+      "key": "n8n_tool_get",
+      "path": "scripts/n8n_tool.py",
+      "subcmd": "get",
+      "mutating": false,
+      "help": "n8n CLI Tool \u2014 Full Workflow Management via REST API \u2014 subcommand: get"
+    },
+    {
+      "key": "n8n_tool_create",
+      "path": "scripts/n8n_tool.py",
+      "subcmd": "create",
+      "mutating": true,
+      "help": "n8n CLI Tool \u2014 Full Workflow Management via REST API \u2014 subcommand: create"
+    },
+    {
+      "key": "n8n_tool_update",
+      "path": "scripts/n8n_tool.py",
+      "subcmd": "update",
+      "mutating": true,
+      "help": "n8n CLI Tool \u2014 Full Workflow Management via REST API \u2014 subcommand: update"
+    },
+    {
+      "key": "n8n_tool_activate",
+      "path": "scripts/n8n_tool.py",
+      "subcmd": "activate",
+      "mutating": false,
+      "help": "n8n CLI Tool \u2014 Full Workflow Management via REST API \u2014 subcommand: activate"
+    },
+    {
+      "key": "n8n_tool_deactivate",
+      "path": "scripts/n8n_tool.py",
+      "subcmd": "deactivate",
+      "mutating": false,
+      "help": "n8n CLI Tool \u2014 Full Workflow Management via REST API \u2014 subcommand: deactivate"
+    },
+    {
+      "key": "n8n_tool_delete",
+      "path": "scripts/n8n_tool.py",
+      "subcmd": "delete",
+      "mutating": true,
+      "help": "n8n CLI Tool \u2014 Full Workflow Management via REST API \u2014 subcommand: delete"
+    },
+    {
+      "key": "n8n_tool_execute",
+      "path": "scripts/n8n_tool.py",
+      "subcmd": "execute",
+      "mutating": true,
+      "help": "n8n CLI Tool \u2014 Full Workflow Management via REST API \u2014 subcommand: execute"
+    },
+    {
+      "key": "n8n_tool_executions",
+      "path": "scripts/n8n_tool.py",
+      "subcmd": "executions",
+      "mutating": false,
+      "help": "n8n CLI Tool \u2014 Full Workflow Management via REST API \u2014 subcommand: executions"
+    },
+    {
+      "key": "n8n_tool_export",
+      "path": "scripts/n8n_tool.py",
+      "subcmd": "export",
+      "mutating": false,
+      "help": "n8n CLI Tool \u2014 Full Workflow Management via REST API \u2014 subcommand: export"
+    },
+    {
+      "key": "n8n_tool_import",
+      "path": "scripts/n8n_tool.py",
+      "subcmd": "import",
+      "mutating": false,
+      "help": "n8n CLI Tool \u2014 Full Workflow Management via REST API \u2014 subcommand: import"
+    },
+    {
+      "key": "n8n_tool_credentials",
+      "path": "scripts/n8n_tool.py",
+      "subcmd": "credentials",
+      "mutating": false,
+      "help": "n8n CLI Tool \u2014 Full Workflow Management via REST API \u2014 subcommand: credentials"
+    },
+    {
+      "key": "n8n_webhook_secret_issue",
+      "path": "scripts/n8n_webhook_secret.py",
+      "subcmd": "issue",
+      "mutating": false,
+      "help": "n8n_webhook_secret.py \u2014 manage shared secrets for the OASIS Command Center \u2014 subcommand: issue"
+    },
+    {
+      "key": "n8n_webhook_secret_list",
+      "path": "scripts/n8n_webhook_secret.py",
+      "subcmd": "list",
+      "mutating": false,
+      "help": "n8n_webhook_secret.py \u2014 manage shared secrets for the OASIS Command Center \u2014 subcommand: list"
+    },
+    {
+      "key": "n8n_webhook_secret_revoke",
+      "path": "scripts/n8n_webhook_secret.py",
+      "subcmd": "revoke",
+      "mutating": true,
+      "help": "n8n_webhook_secret.py \u2014 manage shared secrets for the OASIS Command Center \u2014 subcommand: revoke"
+    },
+    {
+      "key": "neural_memory_init",
+      "path": "scripts/neural_memory.py",
+      "subcmd": "init",
+      "mutating": false,
+      "help": "Neural Memory \u2014 differentiable memory store backed by a Neural Turing Machine. \u2014 subcommand: init"
+    },
+    {
+      "key": "neural_memory_read",
+      "path": "scripts/neural_memory.py",
+      "subcmd": "read",
+      "mutating": false,
+      "help": "Neural Memory \u2014 differentiable memory store backed by a Neural Turing Machine. \u2014 subcommand: read"
+    },
+    {
+      "key": "neural_memory_write",
+      "path": "scripts/neural_memory.py",
+      "subcmd": "write",
+      "mutating": false,
+      "help": "Neural Memory \u2014 differentiable memory store backed by a Neural Turing Machine. \u2014 subcommand: write"
+    },
+    {
+      "key": "neural_memory_train",
+      "path": "scripts/neural_memory.py",
+      "subcmd": "train",
+      "mutating": false,
+      "help": "Neural Memory \u2014 differentiable memory store backed by a Neural Turing Machine. \u2014 subcommand: train"
+    },
+    {
+      "key": "neural_memory_inspect",
+      "path": "scripts/neural_memory.py",
+      "subcmd": "inspect",
+      "mutating": false,
+      "help": "Neural Memory \u2014 differentiable memory store backed by a Neural Turing Machine. \u2014 subcommand: inspect"
+    },
+    {
+      "key": "neuro_symbolic_gate_rules",
+      "path": "scripts/neuro_symbolic_gate.py",
+      "subcmd": "rules",
+      "mutating": false,
+      "help": "Neuro-Symbolic Compliance Gate \u2014 rule-based + neural outbound email verifier. \u2014 subcommand: rules"
+    },
+    {
+      "key": "neuro_symbolic_gate_verify",
+      "path": "scripts/neuro_symbolic_gate.py",
+      "subcmd": "verify",
+      "mutating": false,
+      "help": "Neuro-Symbolic Compliance Gate \u2014 rule-based + neural outbound email verifier. \u2014 subcommand: verify"
+    },
+    {
+      "key": "neuro_symbolic_gate_explain",
+      "path": "scripts/neuro_symbolic_gate.py",
+      "subcmd": "explain",
+      "mutating": false,
+      "help": "Neuro-Symbolic Compliance Gate \u2014 rule-based + neural outbound email verifier. \u2014 subcommand: explain"
+    },
+    {
+      "key": "neuro_symbolic_gate_add_rule",
+      "path": "scripts/neuro_symbolic_gate.py",
+      "subcmd": "add-rule",
+      "mutating": true,
+      "help": "Neuro-Symbolic Compliance Gate \u2014 rule-based + neural outbound email verifier. \u2014 subcommand: add-rule"
+    },
+    {
+      "key": "neuro_symbolic_gate_trace",
+      "path": "scripts/neuro_symbolic_gate.py",
+      "subcmd": "trace",
+      "mutating": false,
+      "help": "Neuro-Symbolic Compliance Gate \u2014 rule-based + neural outbound email verifier. \u2014 subcommand: trace"
+    },
+    {
+      "key": "onboarding_diagnostics",
+      "path": "scripts/onboarding_diagnostics.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Bravo onboarding diagnostics."
+    },
+    {
+      "key": "outreach_batch",
+      "path": "scripts/outreach_batch.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Outreach Batch \u2014 Semi-Auto Lead Outreach Engine"
+    },
+    {
+      "key": "outreach_eligible",
+      "path": "scripts/outreach_eligible.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Pick leads eligible for the next outreach send."
+    },
+    {
+      "key": "outreach_engine_send",
+      "path": "scripts/outreach_engine.py",
+      "subcmd": "send",
+      "mutating": true,
+      "help": "Outreach Engine - Personalized email outreach with Google Meet + .ics invite. \u2014 subcommand: send"
+    },
+    {
+      "key": "outreach_engine_list",
+      "path": "scripts/outreach_engine.py",
+      "subcmd": "list",
+      "mutating": false,
+      "help": "Outreach Engine - Personalized email outreach with Google Meet + .ics invite. \u2014 subcommand: list"
+    },
+    {
+      "key": "outreach_engine_stats",
+      "path": "scripts/outreach_engine.py",
+      "subcmd": "stats",
+      "mutating": false,
+      "help": "Outreach Engine - Personalized email outreach with Google Meet + .ics invite. \u2014 subcommand: stats"
+    },
+    {
+      "key": "pii_scrubber_scrub",
+      "path": "scripts/pii_scrubber.py",
+      "subcmd": "scrub",
+      "mutating": false,
+      "help": "Bravo V6.0 \u2014 PII Scrubber \u2014 subcommand: scrub"
+    },
+    {
+      "key": "pii_scrubber_unscrub",
+      "path": "scripts/pii_scrubber.py",
+      "subcmd": "unscrub",
+      "mutating": false,
+      "help": "Bravo V6.0 \u2014 PII Scrubber \u2014 subcommand: unscrub"
+    },
+    {
+      "key": "pii_scrubber_audit",
+      "path": "scripts/pii_scrubber.py",
+      "subcmd": "audit",
+      "mutating": false,
+      "help": "Bravo V6.0 \u2014 PII Scrubber \u2014 subcommand: audit"
+    },
+    {
+      "key": "proposal_generator_create",
+      "path": "scripts/proposal_generator.py",
+      "subcmd": "create",
+      "mutating": true,
+      "help": "Proposal Generator \u2014 OASIS AI Solutions \u2014 subcommand: create"
+    },
+    {
+      "key": "proposal_generator_list",
+      "path": "scripts/proposal_generator.py",
+      "subcmd": "list",
+      "mutating": false,
+      "help": "Proposal Generator \u2014 OASIS AI Solutions \u2014 subcommand: list"
+    },
+    {
+      "key": "proposal_generator_templates",
+      "path": "scripts/proposal_generator.py",
+      "subcmd": "templates",
+      "mutating": false,
+      "help": "Proposal Generator \u2014 OASIS AI Solutions \u2014 subcommand: templates"
+    },
+    {
+      "key": "pulse_publish_refresh",
+      "path": "scripts/pulse_publish.py",
+      "subcmd": "refresh",
+      "mutating": true,
+      "help": "pulse_publish.py \u2014 Atomic, schema-validated writer for Bravo's ceo_pulse.json. \u2014 subcommand: refresh"
+    },
+    {
+      "key": "pulse_publish_validate",
+      "path": "scripts/pulse_publish.py",
+      "subcmd": "validate",
+      "mutating": false,
+      "help": "pulse_publish.py \u2014 Atomic, schema-validated writer for Bravo's ceo_pulse.json. \u2014 subcommand: validate"
+    },
+    {
+      "key": "pulse_publish_status",
+      "path": "scripts/pulse_publish.py",
+      "subcmd": "status",
+      "mutating": false,
+      "help": "pulse_publish.py \u2014 Atomic, schema-validated writer for Bravo's ceo_pulse.json. \u2014 subcommand: status"
+    },
+    {
+      "key": "revenue_engine_mrr",
+      "path": "scripts/revenue_engine.py",
+      "subcmd": "mrr",
+      "mutating": false,
+      "help": "Revenue Engine - OASIS Business Operations CLI \u2014 subcommand: mrr"
+    },
+    {
+      "key": "revenue_engine_dashboard",
+      "path": "scripts/revenue_engine.py",
+      "subcmd": "dashboard",
+      "mutating": false,
+      "help": "Revenue Engine - OASIS Business Operations CLI \u2014 subcommand: dashboard"
+    },
+    {
+      "key": "revenue_engine_sync_stripe",
+      "path": "scripts/revenue_engine.py",
+      "subcmd": "sync-stripe",
+      "mutating": true,
+      "help": "Revenue Engine - OASIS Business Operations CLI \u2014 subcommand: sync-stripe"
+    },
+    {
+      "key": "revenue_engine_log_revenue",
+      "path": "scripts/revenue_engine.py",
+      "subcmd": "log-revenue",
+      "mutating": false,
+      "help": "Revenue Engine - OASIS Business Operations CLI \u2014 subcommand: log-revenue"
+    },
+    {
+      "key": "revenue_engine_log_month",
+      "path": "scripts/revenue_engine.py",
+      "subcmd": "log-month",
+      "mutating": false,
+      "help": "Revenue Engine - OASIS Business Operations CLI \u2014 subcommand: log-month"
+    },
+    {
+      "key": "revenue_engine_history",
+      "path": "scripts/revenue_engine.py",
+      "subcmd": "history",
+      "mutating": false,
+      "help": "Revenue Engine - OASIS Business Operations CLI \u2014 subcommand: history"
+    },
+    {
+      "key": "revenue_engine_forecast",
+      "path": "scripts/revenue_engine.py",
+      "subcmd": "forecast",
+      "mutating": false,
+      "help": "Revenue Engine - OASIS Business Operations CLI \u2014 subcommand: forecast"
+    },
+    {
+      "key": "revenue_engine_clients",
+      "path": "scripts/revenue_engine.py",
+      "subcmd": "clients",
+      "mutating": false,
+      "help": "Revenue Engine - OASIS Business Operations CLI \u2014 subcommand: clients"
+    },
+    {
+      "key": "revenue_engine_goal",
+      "path": "scripts/revenue_engine.py",
+      "subcmd": "goal",
+      "mutating": false,
+      "help": "Revenue Engine - OASIS Business Operations CLI \u2014 subcommand: goal"
+    },
+    {
+      "key": "rlhf_outreach_build_dataset",
+      "path": "scripts/rlhf_outreach.py",
+      "subcmd": "build-dataset",
+      "mutating": false,
+      "help": "RLHF Outreach -- dataset builder, DPO training skeleton, and fast draft scorer. \u2014 subcommand: build-dataset"
+    },
+    {
+      "key": "rlhf_outreach_train",
+      "path": "scripts/rlhf_outreach.py",
+      "subcmd": "train",
+      "mutating": false,
+      "help": "RLHF Outreach -- dataset builder, DPO training skeleton, and fast draft scorer. \u2014 subcommand: train"
+    },
+    {
+      "key": "rlhf_outreach_score",
+      "path": "scripts/rlhf_outreach.py",
+      "subcmd": "score",
+      "mutating": false,
+      "help": "RLHF Outreach -- dataset builder, DPO training skeleton, and fast draft scorer. \u2014 subcommand: score"
+    },
+    {
+      "key": "rlhf_outreach_evaluate",
+      "path": "scripts/rlhf_outreach.py",
+      "subcmd": "evaluate",
+      "mutating": false,
+      "help": "RLHF Outreach -- dataset builder, DPO training skeleton, and fast draft scorer. \u2014 subcommand: evaluate"
+    },
+    {
+      "key": "scan_secrets",
+      "path": "scripts/scan_secrets.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Secret scanner \u2014 hunt for leaked credentials before they hit GitHub."
+    },
+    {
+      "key": "scrape_firecrawl_leads",
+      "path": "scripts/scrape_firecrawl_leads.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Lead scraper using Firecrawl API (replaces slow Playwright + Google Maps flow)."
+    },
+    {
+      "key": "seed_plan_template",
+      "path": "scripts/seed_plan_template.py",
+      "subcmd": null,
+      "mutating": true,
+      "help": "seed_plan_template.py \u2014 seed (or update) plan templates for an operator."
+    },
+    {
+      "key": "seed_profile",
+      "path": "scripts/seed_profile.py",
+      "subcmd": null,
+      "mutating": true,
+      "help": "seed_profile.py \u2014 seed (or update) the OASIS Command Center operator profile."
+    },
+    {
+      "key": "send_gateway_send",
+      "path": "scripts/send_gateway.py",
+      "subcmd": "send",
+      "mutating": true,
+      "help": "Send Gateway \u2014 the single outbound chokepoint for every autonomous action \u2014 subcommand: send"
+    },
+    {
+      "key": "send_gateway_can_act",
+      "path": "scripts/send_gateway.py",
+      "subcmd": "can-act",
+      "mutating": false,
+      "help": "Send Gateway \u2014 the single outbound chokepoint for every autonomous action \u2014 subcommand: can-act"
+    },
+    {
+      "key": "send_gateway_history",
+      "path": "scripts/send_gateway.py",
+      "subcmd": "history",
+      "mutating": false,
+      "help": "Send Gateway \u2014 the single outbound chokepoint for every autonomous action \u2014 subcommand: history"
+    },
+    {
+      "key": "send_gateway_stats",
+      "path": "scripts/send_gateway.py",
+      "subcmd": "stats",
+      "mutating": false,
+      "help": "Send Gateway \u2014 the single outbound chokepoint for every autonomous action \u2014 subcommand: stats"
+    },
+    {
+      "key": "send_gateway_doctor",
+      "path": "scripts/send_gateway.py",
+      "subcmd": "doctor",
+      "mutating": false,
+      "help": "Send Gateway \u2014 the single outbound chokepoint for every autonomous action \u2014 subcommand: doctor"
+    },
+    {
+      "key": "skill_metrics_track",
+      "path": "scripts/skill_metrics.py",
+      "subcmd": "track",
+      "mutating": false,
+      "help": "Skill Metrics \u2014 usage tracking and promotion for auto-generated skills. \u2014 subcommand: track"
+    },
+    {
+      "key": "skill_metrics_promote",
+      "path": "scripts/skill_metrics.py",
+      "subcmd": "promote",
+      "mutating": false,
+      "help": "Skill Metrics \u2014 usage tracking and promotion for auto-generated skills. \u2014 subcommand: promote"
+    },
+    {
+      "key": "skill_metrics_top",
+      "path": "scripts/skill_metrics.py",
+      "subcmd": "top",
+      "mutating": false,
+      "help": "Skill Metrics \u2014 usage tracking and promotion for auto-generated skills. \u2014 subcommand: top"
+    },
+    {
+      "key": "skill_metrics_report",
+      "path": "scripts/skill_metrics.py",
+      "subcmd": "report",
+      "mutating": false,
+      "help": "Skill Metrics \u2014 usage tracking and promotion for auto-generated skills. \u2014 subcommand: report"
+    },
+    {
+      "key": "skill_synthesizer_scan",
+      "path": "scripts/skill_synthesizer.py",
+      "subcmd": "scan",
+      "mutating": false,
+      "help": "Skill Synthesizer \u2014 autonomous skill extraction pipeline. \u2014 subcommand: scan"
+    },
+    {
+      "key": "skill_synthesizer_extract",
+      "path": "scripts/skill_synthesizer.py",
+      "subcmd": "extract",
+      "mutating": false,
+      "help": "Skill Synthesizer \u2014 autonomous skill extraction pipeline. \u2014 subcommand: extract"
+    },
+    {
+      "key": "skill_synthesizer_generate",
+      "path": "scripts/skill_synthesizer.py",
+      "subcmd": "generate",
+      "mutating": false,
+      "help": "Skill Synthesizer \u2014 autonomous skill extraction pipeline. \u2014 subcommand: generate"
+    },
+    {
+      "key": "skill_synthesizer_register",
+      "path": "scripts/skill_synthesizer.py",
+      "subcmd": "register",
+      "mutating": false,
+      "help": "Skill Synthesizer \u2014 autonomous skill extraction pipeline. \u2014 subcommand: register"
+    },
+    {
+      "key": "skill_synthesizer_validate",
+      "path": "scripts/skill_synthesizer.py",
+      "subcmd": "validate",
+      "mutating": false,
+      "help": "Skill Synthesizer \u2014 autonomous skill extraction pipeline. \u2014 subcommand: validate"
+    },
+    {
+      "key": "skill_synthesizer_synthesize",
+      "path": "scripts/skill_synthesizer.py",
+      "subcmd": "synthesize",
+      "mutating": false,
+      "help": "Skill Synthesizer \u2014 autonomous skill extraction pipeline. \u2014 subcommand: synthesize"
+    },
+    {
+      "key": "skool_engine_login",
+      "path": "scripts/skool_engine.py",
+      "subcmd": "login",
+      "mutating": false,
+      "help": "Skool Community Engine V2.1 \u2014 Autonomous community management via Playwright. \u2014 subcommand: login"
+    },
+    {
+      "key": "skool_engine_scan_posts",
+      "path": "scripts/skool_engine.py",
+      "subcmd": "scan-posts",
+      "mutating": false,
+      "help": "Skool Community Engine V2.1 \u2014 Autonomous community management via Playwright. \u2014 subcommand: scan-posts"
+    },
+    {
+      "key": "skool_engine_scan_dms",
+      "path": "scripts/skool_engine.py",
+      "subcmd": "scan-dms",
+      "mutating": false,
+      "help": "Skool Community Engine V2.1 \u2014 Autonomous community management via Playwright. \u2014 subcommand: scan-dms"
+    },
+    {
+      "key": "skool_engine_auto",
+      "path": "scripts/skool_engine.py",
+      "subcmd": "auto",
+      "mutating": false,
+      "help": "Skool Community Engine V2.1 \u2014 Autonomous community management via Playwright. \u2014 subcommand: auto"
+    },
+    {
+      "key": "skool_engine_status",
+      "path": "scripts/skool_engine.py",
+      "subcmd": "status",
+      "mutating": false,
+      "help": "Skool Community Engine V2.1 \u2014 Autonomous community management via Playwright. \u2014 subcommand: status"
+    },
+    {
+      "key": "skool_engine_metrics",
+      "path": "scripts/skool_engine.py",
+      "subcmd": "metrics",
+      "mutating": false,
+      "help": "Skool Community Engine V2.1 \u2014 Autonomous community management via Playwright. \u2014 subcommand: metrics"
+    },
+    {
+      "key": "skool_engine_daemon",
+      "path": "scripts/skool_engine.py",
+      "subcmd": "daemon",
+      "mutating": false,
+      "help": "Skool Community Engine V2.1 \u2014 Autonomous community management via Playwright. \u2014 subcommand: daemon"
+    },
+    {
+      "key": "stripe_tool_list_accounts",
+      "path": "scripts/stripe_tool.py",
+      "subcmd": "list-accounts",
+      "mutating": false,
+      "help": "Stripe SDK Integration \u2014 Universal Multi-Account Agent Tool \u2014 subcommand: list-accounts"
+    },
+    {
+      "key": "stripe_tool_balance",
+      "path": "scripts/stripe_tool.py",
+      "subcmd": "balance",
+      "mutating": false,
+      "help": "Stripe SDK Integration \u2014 Universal Multi-Account Agent Tool \u2014 subcommand: balance"
+    },
+    {
+      "key": "stripe_tool_customers",
+      "path": "scripts/stripe_tool.py",
+      "subcmd": "customers",
+      "mutating": false,
+      "help": "Stripe SDK Integration \u2014 Universal Multi-Account Agent Tool \u2014 subcommand: customers"
+    },
+    {
+      "key": "stripe_tool_products",
+      "path": "scripts/stripe_tool.py",
+      "subcmd": "products",
+      "mutating": false,
+      "help": "Stripe SDK Integration \u2014 Universal Multi-Account Agent Tool \u2014 subcommand: products"
+    },
+    {
+      "key": "stripe_tool_prices",
+      "path": "scripts/stripe_tool.py",
+      "subcmd": "prices",
+      "mutating": false,
+      "help": "Stripe SDK Integration \u2014 Universal Multi-Account Agent Tool \u2014 subcommand: prices"
+    },
+    {
+      "key": "stripe_tool_invoices",
+      "path": "scripts/stripe_tool.py",
+      "subcmd": "invoices",
+      "mutating": false,
+      "help": "Stripe SDK Integration \u2014 Universal Multi-Account Agent Tool \u2014 subcommand: invoices"
+    },
+    {
+      "key": "stripe_tool_subscriptions",
+      "path": "scripts/stripe_tool.py",
+      "subcmd": "subscriptions",
+      "mutating": false,
+      "help": "Stripe SDK Integration \u2014 Universal Multi-Account Agent Tool \u2014 subcommand: subscriptions"
+    },
+    {
+      "key": "stripe_tool_charges",
+      "path": "scripts/stripe_tool.py",
+      "subcmd": "charges",
+      "mutating": false,
+      "help": "Stripe SDK Integration \u2014 Universal Multi-Account Agent Tool \u2014 subcommand: charges"
+    },
+    {
+      "key": "stripe_tool_payment_links",
+      "path": "scripts/stripe_tool.py",
+      "subcmd": "payment-links",
+      "mutating": false,
+      "help": "Stripe SDK Integration \u2014 Universal Multi-Account Agent Tool \u2014 subcommand: payment-links"
+    },
+    {
+      "key": "stripe_tool_create_payment_link",
+      "path": "scripts/stripe_tool.py",
+      "subcmd": "create-payment-link",
+      "mutating": true,
+      "help": "Stripe SDK Integration \u2014 Universal Multi-Account Agent Tool \u2014 subcommand: create-payment-link"
+    },
+    {
+      "key": "stripe_tool_create_price",
+      "path": "scripts/stripe_tool.py",
+      "subcmd": "create-price",
+      "mutating": true,
+      "help": "Stripe SDK Integration \u2014 Universal Multi-Account Agent Tool \u2014 subcommand: create-price"
+    },
+    {
+      "key": "stripe_tool_quick_link",
+      "path": "scripts/stripe_tool.py",
+      "subcmd": "quick-link",
+      "mutating": false,
+      "help": "Stripe SDK Integration \u2014 Universal Multi-Account Agent Tool \u2014 subcommand: quick-link"
+    },
+    {
+      "key": "stripe_tool_create_customer",
+      "path": "scripts/stripe_tool.py",
+      "subcmd": "create-customer",
+      "mutating": true,
+      "help": "Stripe SDK Integration \u2014 Universal Multi-Account Agent Tool \u2014 subcommand: create-customer"
+    },
+    {
+      "key": "stripe_tool_create_invoice",
+      "path": "scripts/stripe_tool.py",
+      "subcmd": "create-invoice",
+      "mutating": true,
+      "help": "Stripe SDK Integration \u2014 Universal Multi-Account Agent Tool \u2014 subcommand: create-invoice"
+    },
+    {
+      "key": "stripe_tool_refund",
+      "path": "scripts/stripe_tool.py",
+      "subcmd": "refund",
+      "mutating": false,
+      "help": "Stripe SDK Integration \u2014 Universal Multi-Account Agent Tool \u2014 subcommand: refund"
+    },
+    {
+      "key": "stripe_tool_events",
+      "path": "scripts/stripe_tool.py",
+      "subcmd": "events",
+      "mutating": false,
+      "help": "Stripe SDK Integration \u2014 Universal Multi-Account Agent Tool \u2014 subcommand: events"
+    },
+    {
+      "key": "supabase_admin_get",
+      "path": "scripts/supabase_admin.py",
+      "subcmd": "get",
+      "mutating": false,
+      "help": "supabase_admin.py \u2014 Supabase Management API helpers from Python. \u2014 subcommand: get"
+    },
+    {
+      "key": "supabase_admin_patch",
+      "path": "scripts/supabase_admin.py",
+      "subcmd": "patch",
+      "mutating": false,
+      "help": "supabase_admin.py \u2014 Supabase Management API helpers from Python. \u2014 subcommand: patch"
+    },
+    {
+      "key": "supabase_admin_enable_google_oauth",
+      "path": "scripts/supabase_admin.py",
+      "subcmd": "enable-google-oauth",
+      "mutating": true,
+      "help": "supabase_admin.py \u2014 Supabase Management API helpers from Python. \u2014 subcommand: enable-google-oauth"
+    },
+    {
+      "key": "supabase_tool_list_projects",
+      "path": "scripts/supabase_tool.py",
+      "subcmd": "list-projects",
+      "mutating": false,
+      "help": "Supabase SDK Integration \u2014 Universal Agent Tool \u2014 subcommand: list-projects"
+    },
+    {
+      "key": "supabase_tool_list_tables",
+      "path": "scripts/supabase_tool.py",
+      "subcmd": "list-tables",
+      "mutating": false,
+      "help": "Supabase SDK Integration \u2014 Universal Agent Tool \u2014 subcommand: list-tables"
+    },
+    {
+      "key": "supabase_tool_query",
+      "path": "scripts/supabase_tool.py",
+      "subcmd": "query",
+      "mutating": false,
+      "help": "Supabase SDK Integration \u2014 Universal Agent Tool \u2014 subcommand: query"
+    },
+    {
+      "key": "supabase_tool_select",
+      "path": "scripts/supabase_tool.py",
+      "subcmd": "select",
+      "mutating": false,
+      "help": "Supabase SDK Integration \u2014 Universal Agent Tool \u2014 subcommand: select"
+    },
+    {
+      "key": "supabase_tool_insert",
+      "path": "scripts/supabase_tool.py",
+      "subcmd": "insert",
+      "mutating": true,
+      "help": "Supabase SDK Integration \u2014 Universal Agent Tool \u2014 subcommand: insert"
+    },
+    {
+      "key": "supabase_tool_update",
+      "path": "scripts/supabase_tool.py",
+      "subcmd": "update",
+      "mutating": true,
+      "help": "Supabase SDK Integration \u2014 Universal Agent Tool \u2014 subcommand: update"
+    },
+    {
+      "key": "supabase_tool_delete",
+      "path": "scripts/supabase_tool.py",
+      "subcmd": "delete",
+      "mutating": true,
+      "help": "Supabase SDK Integration \u2014 Universal Agent Tool \u2014 subcommand: delete"
+    },
+    {
+      "key": "supabase_tool_upsert",
+      "path": "scripts/supabase_tool.py",
+      "subcmd": "upsert",
+      "mutating": false,
+      "help": "Supabase SDK Integration \u2014 Universal Agent Tool \u2014 subcommand: upsert"
+    },
+    {
+      "key": "supabase_tool_rpc",
+      "path": "scripts/supabase_tool.py",
+      "subcmd": "rpc",
+      "mutating": false,
+      "help": "Supabase SDK Integration \u2014 Universal Agent Tool \u2014 subcommand: rpc"
+    },
+    {
+      "key": "sync_slash_commands",
+      "path": "scripts/sync_slash_commands.py",
+      "subcmd": null,
+      "mutating": true,
+      "help": "sync_slash_commands.py \u2014 drift-detect the dashboard slash-command catalog"
+    },
+    {
+      "key": "test_n8n_inbound_rpc",
+      "path": "scripts/test_n8n_inbound_rpc.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "test_n8n_inbound_rpc.py \u2014 end-to-end smoke test for the n8n inbound bridge."
+    },
+    {
+      "key": "test_send_gateway",
+      "path": "scripts/test_send_gateway.py",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Tests for the V5.6 + reasoning-loop stack."
+    },
+    {
+      "key": "tft_forecast_build_dataset",
+      "path": "scripts/tft_forecast.py",
+      "subcmd": "build-dataset",
+      "mutating": false,
+      "help": "TFT Forecast \u2014 Temporal Fusion Transformer for MRR forecasting. \u2014 subcommand: build-dataset"
+    },
+    {
+      "key": "tft_forecast_train",
+      "path": "scripts/tft_forecast.py",
+      "subcmd": "train",
+      "mutating": false,
+      "help": "TFT Forecast \u2014 Temporal Fusion Transformer for MRR forecasting. \u2014 subcommand: train"
+    },
+    {
+      "key": "tft_forecast_forecast",
+      "path": "scripts/tft_forecast.py",
+      "subcmd": "forecast",
+      "mutating": false,
+      "help": "TFT Forecast \u2014 Temporal Fusion Transformer for MRR forecasting. \u2014 subcommand: forecast"
+    },
+    {
+      "key": "tft_forecast_backtest",
+      "path": "scripts/tft_forecast.py",
+      "subcmd": "backtest",
+      "mutating": false,
+      "help": "TFT Forecast \u2014 Temporal Fusion Transformer for MRR forecasting. \u2014 subcommand: backtest"
+    },
+    {
+      "key": "tft_forecast_feature_importance",
+      "path": "scripts/tft_forecast.py",
+      "subcmd": "feature-importance",
+      "mutating": false,
+      "help": "TFT Forecast \u2014 Temporal Fusion Transformer for MRR forecasting. \u2014 subcommand: feature-importance"
+    },
+    {
+      "key": "transcribe",
+      "path": "scripts/transcribe.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Voice Note Transcriber \u2014 converts audio to text using OpenAI Whisper (local)."
+    },
+    {
+      "key": "wire_all_templates",
+      "path": "scripts/wire_all_templates.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Wire OASIS outreach templates in the Bravo Supabase project."
+    }
+  ]
+}
