@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-07T05:41:28.567999+00:00",
-  "script_count": 78,
-  "entry_count": 291,
+  "generated_at_iso": "2026-05-07T19:36:10.941410+00:00",
+  "script_count": 79,
+  "entry_count": 292,
   "entries": [
     {
       "key": "agent_heartbeat",
@@ -1500,7 +1500,7 @@
       "path": "scripts/reap_orphan_mcps.py",
       "subcmd": null,
       "mutating": false,
-      "help": "Reap orphan MCP server processes whose parent chain is dead."
+      "help": "Reap duplicate MCP server processes from leaked editor sessions."
     },
     {
       "key": "revenue_engine_mrr",
@@ -1977,6 +1977,13 @@
       "subcmd": null,
       "mutating": true,
       "help": "sync_slash_commands.py \u2014 drift-detect the dashboard slash-command catalog"
+    },
+    {
+      "key": "system_health_check",
+      "path": "scripts/system_health_check.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "System health check \u2014 Bravo's self-sustaining maintenance loop."
     },
     {
       "key": "test_n8n_inbound_rpc",
