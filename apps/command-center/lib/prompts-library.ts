@@ -1,12 +1,12 @@
 /**
  * Prompts Library — canonical prompts for the operator to fire at any agent.
  *
- * Three classes of prompt:
- *   1. CLIENT — what to say when setting up a new client / SSH'ing into
- *      their machine / onboarding their environment.
- *   2. SYSTEM — what to say to optimize, reset, or change the agent's
- *      behavior. Includes the operator-override syntax.
- *   3. OPS — what to say for the operator's own daily moves.
+ * Two distinct audiences, per CC's spec:
+ *   - operator  — personal to OASIS AI's setup. References Bennett, Adon,
+ *                 $5K MRR target, NEPQ, content pillars. Don't ship to clients.
+ *   - client    — generic, runs on a client's machine when CC has SSH'd in
+ *                 or is walking them through onboarding.
+ *   - shared    — works either context.
  *
  * The override syntax (CC's spec): every "this is not a regular user
  * message" command starts with `[OVERRIDE]` followed by a context line.
@@ -21,14 +21,18 @@ export type PromptAgent = "bravo" | "atlas" | "maven" | "aura" | "hermes";
 export type PromptCategory =
   | "client_setup"
   | "client_optimization"
+  | "client_handoff"
   | "system_override"
   | "system_health"
   | "ops_daily"
   | "ops_review";
 
+export type PromptAudience = "operator" | "client" | "shared";
+
 export type PromptEntry = {
   id: string;
   category: PromptCategory;
+  audience: PromptAudience;
   agent: PromptAgent;
   title: string;
   description: string;
@@ -47,13 +51,17 @@ export const PROMPT_CATEGORIES: Record<PromptCategory, { label: string; descript
     label: "Client optimization",
     description: "Tune an existing client's deployment — voice, tools, daily flow.",
   },
+  client_handoff: {
+    label: "Client handoff",
+    description: "Day 1 prompts the client can run themselves once you walk away.",
+  },
   system_override: {
     label: "System overrides",
     description: "Force the agent into a specific mode. All start with [OVERRIDE] so the agent knows this isn't a normal message.",
   },
   system_health: {
     label: "System health",
-    description: "Diagnose, repair, refactor your own stack.",
+    description: "Diagnose, repair, refactor your stack.",
   },
   ops_daily: {
     label: "Daily ops",
@@ -70,6 +78,7 @@ export const PROMPTS_LIBRARY: PromptEntry[] = [
   {
     id: "client-fresh-machine-bootstrap",
     category: "client_setup",
+    audience: "client",
     agent: "bravo",
     title: "Bootstrap a fresh client machine",
     description:
@@ -82,10 +91,11 @@ export const PROMPTS_LIBRARY: PromptEntry[] = [
   {
     id: "client-personalize-identity",
     category: "client_setup",
+    audience: "client",
     agent: "bravo",
     title: "Personalize the agent identity",
     description:
-      "Replace CC's identity in brain/USER.md + memory/* + .env.agents with the new client's. Run after they paste their wizard answers.",
+      "Replace CC's identity in brain/USER.md + memory/* + the operator secrets file with the new client's. Run after they paste their wizard answers.",
     foundational: true,
     tags: ["onboarding", "identity"],
     prompt:
@@ -94,17 +104,19 @@ export const PROMPTS_LIBRARY: PromptEntry[] = [
   {
     id: "client-wire-integrations",
     category: "client_setup",
+    audience: "client",
     agent: "bravo",
     title: "Wire the client's integrations",
     description:
       "Walk through every integration in the registry. For each, ask the client what they have a key for and paste it via the bridge.",
     tags: ["onboarding", "keys"],
     prompt:
-      "Walk this client through wiring every integration in their stack. Read lib/integrations-registry.ts, then for each api_key integration ask which they have available right now. For ones they have, prompt them to paste the key (we save via the local bridge to .env.agents). For ones they don't, tell them which to prioritize and why. Skip OAuth ones for now.",
+      "Walk this client through wiring every integration in their stack. Read lib/integrations-registry.ts, then for each api_key integration ask which they have available right now. For ones they have, prompt them to paste the key (we save via the local bridge to the operator secrets file). For ones they don't, tell them which to prioritize and why. Skip OAuth ones for now.",
   },
   {
     id: "client-discover-existing-stack",
     category: "client_setup",
+    audience: "client",
     agent: "bravo",
     title: "Discover what's already running",
     description:
@@ -116,6 +128,7 @@ export const PROMPTS_LIBRARY: PromptEntry[] = [
   {
     id: "client-set-north-star",
     category: "client_setup",
+    audience: "client",
     agent: "bravo",
     title: "Set the client's north-star goal",
     description:
@@ -124,11 +137,48 @@ export const PROMPTS_LIBRARY: PromptEntry[] = [
     prompt:
       "I want to set this client's north-star goal. Ask me: what metric, what target, by when, and what's the current baseline. Then update brain/USER.md with the goal, draft a 30-day path-to, and tell me which agent owns each leg of it (Bravo for ops, Atlas for money, Maven for content/funnel).",
   },
+  {
+    id: "client-scaffold-templates",
+    category: "client_setup",
+    audience: "client",
+    agent: "bravo",
+    title: "Scaffold their day-1 templates",
+    description:
+      "Set up the operator's weekday + weekend plan templates with their actual schedule, not CC's defaults.",
+    tags: ["onboarding", "templates"],
+    prompt:
+      "Set up this client's plan templates. Ask me their typical weekday rhythm (wake, deep work, meetings, content, ops, wind-down) and weekend pattern. Write to plan_templates table for both kinds, then materialize today's plan. Show me the schedule before saving so I can edit.",
+  },
+  {
+    id: "client-cron-scope",
+    category: "client_setup",
+    audience: "client",
+    agent: "bravo",
+    title: "Scope cron jobs to this client",
+    description:
+      "Most crons in the default repo are CC-specific. Audit, recommend which to enable / disable for this client.",
+    tags: ["onboarding", "crons"],
+    prompt:
+      "Audit every cron in vercel.json and .agents/workflows/ for this client. For each, tell me: does it apply to their business model? Should we enable, disable, or change frequency? Don't disable anything yet — just give me the recommendation list.",
+  },
+  {
+    id: "client-mcp-setup",
+    category: "client_setup",
+    audience: "client",
+    agent: "bravo",
+    title: "Connect their MCP servers",
+    description:
+      "Each client may want their own MCP servers (Slack, Notion, custom). Walk them through configuring .claude/mcp.json.",
+    tags: ["onboarding", "mcp"],
+    prompt:
+      "Walk this client through setting up their MCP servers. Ask which they want (Slack, Notion, GitHub, custom). For each, generate the .claude/mcp.json entry, walk them through the auth step, then verify the server connects via Claude Code. Skip ones they don't need.",
+  },
 
   // ── CLIENT OPTIMIZATION ─────────────────────────────────────────
   {
     id: "client-voice-tune",
     category: "client_optimization",
+    audience: "client",
     agent: "bravo",
     title: "Tune the agent's voice",
     description:
@@ -140,6 +190,7 @@ export const PROMPTS_LIBRARY: PromptEntry[] = [
   {
     id: "client-prune-skills",
     category: "client_optimization",
+    audience: "client",
     agent: "bravo",
     title: "Prune skills that don't apply",
     description:
@@ -151,6 +202,7 @@ export const PROMPTS_LIBRARY: PromptEntry[] = [
   {
     id: "client-tighten-cron-schedule",
     category: "client_optimization",
+    audience: "client",
     agent: "bravo",
     title: "Tighten the cron schedule",
     description:
@@ -159,11 +211,77 @@ export const PROMPTS_LIBRARY: PromptEntry[] = [
     prompt:
       "This client's cron schedule is probably over-tuned for someone running CC's volume. Audit every cron in vercel.json + .agents/workflows/ and recommend a leaner schedule based on their actual lead volume + team size. Be specific about which to disable, which to drop in frequency, which to keep.",
   },
+  {
+    id: "client-revenue-baseline",
+    category: "client_optimization",
+    audience: "client",
+    agent: "atlas",
+    title: "Establish revenue baseline",
+    description:
+      "First-time financial snapshot for the client. P&L, runway, where the cash is, what's exposed.",
+    tags: ["finance", "onboarding"],
+    prompt:
+      "First-time financial snapshot for this client. Pull whatever you can from their Stripe / bank exports / receipts. Net MRR, monthly burn, runway, top revenue source, top cost. Flag any concentration risk (one client > 40%) or unclaimed deductibles. Save the snapshot to brain/CFO_BASELINE.md.",
+  },
+  {
+    id: "client-content-pillars",
+    category: "client_optimization",
+    audience: "client",
+    agent: "maven",
+    title: "Define content pillars",
+    description:
+      "3-5 themes every post for this client should belong to. Build the matrix.",
+    tags: ["content", "brand"],
+    prompt:
+      "Define 3-5 content pillars for this client. Each pillar: what it's about, who it serves, why it lands with their audience, target cadence per platform. Render as a matrix. Anchor against their north-star goal.",
+  },
+
+  // ── CLIENT HANDOFF (day-1 self-serve) ──────────────────────────
+  {
+    id: "client-handoff-first-chat",
+    category: "client_handoff",
+    audience: "client",
+    agent: "bravo",
+    title: "First conversation: orient yourself",
+    description:
+      "What the client runs first when they sit down on day 1 alone with the dashboard.",
+    foundational: true,
+    tags: ["handoff", "day-one"],
+    prompt:
+      "Walk me through what you can do for me. Pull my goal from brain/USER.md, list the integrations that are connected vs missing, and give me 3 specific things I can ask you today that would move me toward my goal.",
+  },
+  {
+    id: "client-handoff-how-to-correct",
+    category: "client_handoff",
+    audience: "client",
+    agent: "bravo",
+    title: "Teach me how to correct you",
+    description:
+      "Show the client how to use [OVERRIDE] when the agent does something they don't want.",
+    foundational: true,
+    tags: ["handoff", "feedback"],
+    prompt:
+      "Teach me how to course-correct you. Walk me through the [OVERRIDE] syntax with 3 example scenarios: (1) the voice was off, (2) you sent something I didn't want sent, (3) I want you to pause autonomous activity for the day. Show me the exact syntax for each.",
+  },
+  {
+    id: "client-handoff-daily-rhythm",
+    category: "client_handoff",
+    audience: "client",
+    agent: "bravo",
+    title: "Set my daily rhythm",
+    description:
+      "Customize the Today page templates to the client's actual day, not CC's defaults.",
+    foundational: true,
+    tags: ["handoff", "templates"],
+    prompt:
+      "Help me customize my Today page. My typical workday looks like: <I'll describe>. Build the weekday + weekend templates around that, save them, and materialize today's plan from the new template.",
+  },
 
   // ── SYSTEM OVERRIDES ────────────────────────────────────────────
   {
     id: "override-correction",
     category: "system_override",
+    audience: "shared",
     agent: "bravo",
     title: "Correct the agent's behavior",
     description:
@@ -176,6 +294,7 @@ export const PROMPTS_LIBRARY: PromptEntry[] = [
   {
     id: "override-pause-cron",
     category: "system_override",
+    audience: "shared",
     agent: "bravo",
     title: "Pause an autonomous loop",
     description:
@@ -188,6 +307,7 @@ export const PROMPTS_LIBRARY: PromptEntry[] = [
   {
     id: "override-voice-shift",
     category: "system_override",
+    audience: "shared",
     agent: "bravo",
     title: "Shift voice for one task",
     description:
@@ -199,6 +319,7 @@ export const PROMPTS_LIBRARY: PromptEntry[] = [
   {
     id: "override-do-not-send",
     category: "system_override",
+    audience: "shared",
     agent: "bravo",
     title: "Draft only — never send",
     description:
@@ -211,6 +332,7 @@ export const PROMPTS_LIBRARY: PromptEntry[] = [
   {
     id: "override-private-mode",
     category: "system_override",
+    audience: "shared",
     agent: "bravo",
     title: "Private mode — no logging",
     description:
@@ -224,6 +346,7 @@ export const PROMPTS_LIBRARY: PromptEntry[] = [
   {
     id: "health-full-diagnostic",
     category: "system_health",
+    audience: "shared",
     agent: "bravo",
     title: "Full system health diagnostic",
     description:
@@ -231,11 +354,12 @@ export const PROMPTS_LIBRARY: PromptEntry[] = [
     foundational: true,
     tags: ["health", "diagnostic"],
     prompt:
-      "Run a full system health diagnostic. Test every MCP server, check the integrity of brain/, memory/, skills/, and scripts/. Verify all credentials in .env.agents are still valid. Auto-fix mechanical issues (broken imports, dead links, stale counts). Give me a clear pass/fail per subsystem at the end.",
+      "Run a full system health diagnostic. Test every MCP server, check the integrity of brain/, memory/, skills/, and scripts/. Verify all credentials are still valid. Auto-fix mechanical issues (broken imports, dead links, stale counts). Give me a clear pass/fail per subsystem at the end.",
   },
   {
     id: "health-self-audit",
     category: "system_health",
+    audience: "shared",
     agent: "bravo",
     title: "Self-audit drift",
     description:
@@ -247,19 +371,33 @@ export const PROMPTS_LIBRARY: PromptEntry[] = [
   {
     id: "health-bridge-status",
     category: "system_health",
+    audience: "shared",
     agent: "bravo",
     title: "Bridge + dashboard status",
     description:
       "Verify the local bridge is paired, heartbeating, and the dashboard sees it as online.",
     tags: ["health", "bridge"],
     prompt:
-      "Check the bridge status: is the local chat server running on :9100, is it paired with the dashboard (~/.oasis/bridge_token exists), is the dashboard's /devices showing it as online, and is the heartbeat thread firing every 60s? If anything's off, tell me which to fix first.",
+      "Check the bridge status: is the local chat server running on :9100, is it paired with the dashboard, is /devices showing it as online, and is the heartbeat thread firing every 60s? If anything's off, tell me which to fix first.",
+  },
+  {
+    id: "health-metric-audit",
+    category: "system_health",
+    audience: "shared",
+    agent: "bravo",
+    title: "Audit every dashboard metric",
+    description:
+      "Walk every number on every page, verify it's real or flag it as facade.",
+    tags: ["health", "audit", "transparency"],
+    prompt:
+      "Walk through every metric on the Today, Pipeline, Operations, Agents, and Reasoning pages. For each: trace it to the backing query + table, verify the data is real (not a hardcoded placeholder), flag anything stale or fake. Update brain/METRIC_AUDIT.md with your findings.",
   },
 
   // ── OPS DAILY ───────────────────────────────────────────────────
   {
     id: "ops-morning-briefing",
     category: "ops_daily",
+    audience: "operator",
     agent: "bravo",
     title: "Morning briefing",
     description:
@@ -272,6 +410,7 @@ export const PROMPTS_LIBRARY: PromptEntry[] = [
   {
     id: "ops-pre-sales-block",
     category: "ops_daily",
+    audience: "operator",
     agent: "bravo",
     title: "Pre-sales-block prep",
     description:
@@ -283,6 +422,7 @@ export const PROMPTS_LIBRARY: PromptEntry[] = [
   {
     id: "ops-pre-content-block",
     category: "ops_daily",
+    audience: "operator",
     agent: "maven",
     title: "Pre-content-block prep",
     description:
@@ -294,6 +434,7 @@ export const PROMPTS_LIBRARY: PromptEntry[] = [
   {
     id: "ops-decision-prep",
     category: "ops_daily",
+    audience: "operator",
     agent: "atlas",
     title: "Pre-decision-prep",
     description:
@@ -302,11 +443,24 @@ export const PROMPTS_LIBRARY: PromptEntry[] = [
     prompt:
       "I'm about to commit to <decision>. Run the financial math: cost (real + opportunity), expected return, payback period, and how it shifts my $5K MRR trajectory. Tell me yes/no/wait with one reason.",
   },
+  {
+    id: "ops-inbox-triage",
+    category: "ops_daily",
+    audience: "shared",
+    agent: "bravo",
+    title: "Inbox triage",
+    description:
+      "Sort the inbound: respond now, schedule, archive, ignore.",
+    tags: ["daily", "comms"],
+    prompt:
+      "Triage my inbox. For each unread email or DM in the last 24h, classify: respond now (high signal), schedule for later (defer with date), archive (no action needed), or ignore (noise). For respond-now, draft my reply. Don't send anything — draft only.",
+  },
 
   // ── OPS REVIEW ──────────────────────────────────────────────────
   {
     id: "ops-end-of-day",
     category: "ops_review",
+    audience: "shared",
     agent: "bravo",
     title: "End-of-day reflection",
     description:
@@ -319,6 +473,7 @@ export const PROMPTS_LIBRARY: PromptEntry[] = [
   {
     id: "ops-weekly-retro",
     category: "ops_review",
+    audience: "operator",
     agent: "bravo",
     title: "Weekly retro",
     description:
@@ -330,6 +485,7 @@ export const PROMPTS_LIBRARY: PromptEntry[] = [
   {
     id: "ops-quarterly-review",
     category: "ops_review",
+    audience: "shared",
     agent: "bravo",
     title: "Quarterly review",
     description:
@@ -342,4 +498,10 @@ export const PROMPTS_LIBRARY: PromptEntry[] = [
 
 export function promptsByCategory(category: PromptCategory): PromptEntry[] {
   return PROMPTS_LIBRARY.filter((p) => p.category === category);
+}
+
+export function promptsByAudience(audience: PromptAudience): PromptEntry[] {
+  return PROMPTS_LIBRARY.filter(
+    (p) => p.audience === audience || p.audience === "shared"
+  );
 }
