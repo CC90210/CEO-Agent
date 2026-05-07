@@ -565,6 +565,23 @@ class _ChatHandler(BaseHTTPRequestHandler):
                     rel_path = str(tool_input.get("path", "")).strip()
                     emit("tool", {"name": "read_file", "path": rel_path})
                     content, is_error = self._safe_read(root, rel_path)
+                    # Surface the body to the dashboard so the operator can
+                    # expand the read pill inline. Cap at 12KB — the SSE
+                    # channel isn't sized for full files, and the UI panel
+                    # scrolls anyway. Errors (path outside root, file
+                    # missing, etc.) ship through too so the operator sees
+                    # *why* the agent's attempt didn't work.
+                    body_preview = content if isinstance(content, str) else str(content)
+                    truncated = len(body_preview) > 12_288
+                    if truncated:
+                        body_preview = body_preview[:12_288] + "\n… [truncated]"
+                    emit("tool_result", {
+                        "name": "read_file",
+                        "path": rel_path,
+                        "body": body_preview,
+                        "truncated": truncated,
+                        "error": bool(is_error),
+                    })
                     tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": use.get("id"),
@@ -585,6 +602,18 @@ class _ChatHandler(BaseHTTPRequestHandler):
                         "confirm": confirm,
                     })
                     content, is_error = self._safe_run_script(root, script_key, args, confirm)
+                    output_preview = content if isinstance(content, str) else str(content)
+                    truncated = len(output_preview) > 12_288
+                    if truncated:
+                        output_preview = output_preview[:12_288] + "\n… [truncated]"
+                    emit("tool_result", {
+                        "name": "run_script",
+                        "script": script_key,
+                        "args": args,
+                        "output": output_preview,
+                        "truncated": truncated,
+                        "error": bool(is_error),
+                    })
                     tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": use.get("id"),
