@@ -127,16 +127,21 @@ export default async function PipelinePage({
               {outbound.map((o) => {
                 const meta = (o.metadata || {}) as Record<string, unknown>;
                 return (
-                  <li key={o.id} className="py-3 flex items-start gap-3">
-                    <Tag tone="info">{o.channel}</Tag>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-fg text-sm truncate">
-                        {truncate(o.subject || "(no subject)", 70)}
+                  <li key={o.id} className="py-1">
+                    <Link
+                      href={`/interactions/${o.id}`}
+                      className="flex items-start gap-3 py-2 px-2 -mx-2 rounded-md hover:bg-bg-elev transition-colors"
+                    >
+                      <Tag tone="info">{o.channel}</Tag>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-fg text-sm truncate">
+                          {truncate(o.subject || "(no subject)", 70)}
+                        </div>
+                        <div className="text-xs text-fg-dim mt-0.5">
+                          {(meta.brand as string) || "—"} · {o.agent_source || "—"} · {timeAgo(o.created_at)}
+                        </div>
                       </div>
-                      <div className="text-xs text-fg-dim mt-0.5">
-                        {(meta.brand as string) || "—"} · {o.agent_source || "—"} · {timeAgo(o.created_at)}
-                      </div>
-                    </div>
+                    </Link>
                   </li>
                 );
               })}
@@ -152,25 +157,34 @@ export default async function PipelinePage({
               {inbound.map((i) => {
                 const meta = (i.metadata || {}) as Record<string, unknown>;
                 const cls = (meta.classification || {}) as Record<string, unknown>;
+                const intent = (cls.intent as string) || "—";
+                const summary = (cls.summary as string) || "";
+                const tone =
+                  intent === "hot_lead" || intent === "frustrated"
+                    ? "hot"
+                    : intent === "sales" || intent === "business_opportunity" || intent === "partnership" || intent === "booking"
+                      ? "engaged"
+                      : intent === "strategic" || intent === "pricing_question"
+                        ? "accent"
+                        : intent === "ambiguous" || intent === "security"
+                          ? "warm"
+                          : "neutral";
                 return (
-                  <li key={i.id} className="py-3 flex items-start gap-3">
-                    <Tag
-                      tone={
-                        (cls.intent as string) === "booking"
-                          ? "engaged"
-                          : (cls.intent as string) === "objection"
-                            ? "hot"
-                            : "neutral"
-                      }
+                  <li key={i.id} className="py-1">
+                    <Link
+                      href={`/interactions/${i.id}`}
+                      className="flex items-start gap-3 py-2 px-2 -mx-2 rounded-md hover:bg-bg-elev transition-colors"
                     >
-                      {(cls.intent as string) || "—"}
-                    </Tag>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-fg text-sm truncate">{truncate(i.subject, 70)}</div>
-                      <div className="text-xs text-fg-dim mt-0.5">
-                        {(meta.from_identity as string) || "—"} · {timeAgo(i.created_at)}
+                      <Tag tone={tone}>{intent}</Tag>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-fg text-sm truncate">{truncate(i.subject, 70)}</div>
+                        <div className="text-xs text-fg-dim mt-0.5 truncate">
+                          {summary
+                            ? truncate(summary, 100)
+                            : `${(meta.from_identity as string) || "—"} · ${timeAgo(i.created_at)}`}
+                        </div>
                       </div>
-                    </div>
+                    </Link>
                   </li>
                 );
               })}
