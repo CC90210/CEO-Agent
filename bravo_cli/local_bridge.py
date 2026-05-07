@@ -600,48 +600,103 @@ def _pid_alive(pid: int) -> bool:
         return False
 
 
+def _resolve_pythonw() -> str:
+    """Return a windowless Python interpreter path. On Windows, prefer
+    pythonw.exe over python.exe so the bridge runs without a console
+    popping up at login. Falls back to sys.executable elsewhere.
+    """
+    py = sys.executable
+    if os.name == "nt":
+        cand = py.replace("python.exe", "pythonw.exe")
+        if Path(cand).exists():
+            return cand
+    return py
+
+
+def _install_windows_startup_folder(py: str) -> tuple[bool, str]:
+    """Fallback for Windows when schtasks denies access. Drops a .cmd
+    in the user's Startup folder. Always works — no admin / interactive
+    session required. Returns (ok, message).
+    """
+    appdata = os.environ.get("APPDATA")
+    if not appdata:
+        return False, "APPDATA env var missing — can't locate Startup folder"
+    startup = Path(appdata) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
+    if not startup.is_dir():
+        return False, f"Startup folder not found at {startup}"
+    cwd = Path.cwd().resolve()
+    cmd_path = startup / "OASIS-Bravo-Bridge.cmd"
+    cmd_path.write_text(
+        "@echo off\r\n"
+        "REM OASIS Bravo Bridge — chat HTTP server on localhost:9100.\r\n"
+        "REM Auto-installed by `bravo bridge install`.\r\n"
+        f"cd /d \"{cwd}\"\r\n"
+        f"start /min \"\" \"{py}\" -m bravo_cli.bridge_chat_server\r\n",
+        encoding="utf-8",
+    )
+    return True, str(cmd_path)
+
+
 def cmd_install(_args) -> int:
     """Register the bridge to auto-start at user login.
 
-    Windows: schtasks + a "ONLOGON" trigger running `python -m
-    bravo_cli.local_bridge serve` as the current user — no admin needed.
+    Windows: schtasks ONLOGON first; falls back to dropping a .cmd in
+             the Startup folder when schtasks denies (common in non-
+             interactive subprocesses, restricted-user accounts, or
+             group-policy-locked machines).
     macOS:   ~/Library/LaunchAgents/work.oasisai.bravo-bridge.plist with
              RunAtLoad=true.
     Linux:   ~/.config/systemd/user/bravo-bridge.service + `systemctl
-             --user enable --now`.
+             --user enable --now`. Falls back to ~/.config/autostart/
+             *.desktop when systemd-user isn't available (containers,
+             non-systemd distros).
 
-    Idempotent: re-running updates the existing entry.
+    Idempotent: re-running updates the existing entry. Reports which
+    install path was taken so the operator knows what to expect.
     """
-    py = sys.executable
+    py_runner = _resolve_pythonw()
     label = "OASIS Bravo Bridge"
 
     if os.name == "nt":
         task_name = "OASIS-Bravo-Bridge"
-        # /SC ONLOGON — runs at the current user's login.
+        # First try schtasks — runs as user at login, no admin needed.
         # /F — force overwrite if task exists.
-        # /RL LIMITED — runs as user, no admin elevation.
+        # /RL LIMITED — runs as user, no elevation.
+        # /TR uses bridge_chat_server directly (the chat HTTP server) so
+        # the auto-start matches what the dashboard expects on :9100.
         cmd = [
             "schtasks", "/Create",
             "/TN", task_name,
             "/SC", "ONLOGON",
             "/RL", "LIMITED",
             "/F",
-            "/TR", f'"{py}" -m bravo_cli.local_bridge serve',
+            "/TR", f'"{py_runner}" -m bravo_cli.bridge_chat_server',
         ]
+        schtasks_err: str | None = None
         try:
             r = subprocess.run(cmd, check=False, capture_output=True, text=True)
-            if r.returncode != 0:
-                print(f"schtasks failed: {r.stderr.strip() or r.stdout.strip()}", file=sys.stderr)
-                return 1
-            print(f"OK — registered Windows scheduled task '{task_name}'.")
+            if r.returncode == 0:
+                print(f"OK — registered Windows scheduled task '{task_name}'.")
+                print(f"     Path: schtasks ONLOGON")
+                print(f"     Run now: schtasks /Run /TN {task_name}")
+                print(f"     Remove:  bravo bridge uninstall")
+                return 0
+            schtasks_err = (r.stderr.strip() or r.stdout.strip() or "unknown error").splitlines()[0]
+        except FileNotFoundError:
+            schtasks_err = "schtasks.exe not on PATH"
+        # Fallback — Startup folder drop. Works without elevation or an
+        # interactive session token.
+        ok, msg = _install_windows_startup_folder(py_runner)
+        if ok:
+            print(f"NOTE — schtasks declined ({schtasks_err}); used Startup-folder fallback.")
+            print(f"OK — installed launcher at {msg}.")
+            print(f"     Path: Windows Startup folder (works without elevation)")
             print(f"     Will auto-start the bridge each time you log in.")
-            print(f"     Run now: schtasks /Run /TN {task_name}")
             print(f"     Remove:  bravo bridge uninstall")
             return 0
-        except FileNotFoundError:
-            print("schtasks.exe not found — Windows-only command. "
-                  "Are you on Windows?", file=sys.stderr)
-            return 1
+        print(f"FAIL — schtasks: {schtasks_err}", file=sys.stderr)
+        print(f"FAIL — Startup-folder fallback: {msg}", file=sys.stderr)
+        return 1
 
     if sys.platform == "darwin":
         plist_dir = Path.home() / "Library" / "LaunchAgents"
@@ -709,18 +764,35 @@ WantedBy=default.target
 
 
 def cmd_uninstall(_args) -> int:
-    """Reverse of cmd_install."""
+    """Reverse of cmd_install. Cleans up BOTH paths on Windows since
+    cmd_install may have used either schtasks OR the Startup-folder
+    fallback — we don't track which one, so try both."""
     if os.name == "nt":
         task_name = "OASIS-Bravo-Bridge"
-        r = subprocess.run(
-            ["schtasks", "/Delete", "/TN", task_name, "/F"],
-            check=False, capture_output=True, text=True,
-        )
-        if r.returncode == 0:
-            print(f"OK — removed Windows scheduled task '{task_name}'.")
-        else:
-            print(r.stderr.strip() or r.stdout.strip())
-        return r.returncode
+        removed_any = False
+        # Try schtasks
+        try:
+            r = subprocess.run(
+                ["schtasks", "/Delete", "/TN", task_name, "/F"],
+                check=False, capture_output=True, text=True,
+            )
+            if r.returncode == 0:
+                print(f"OK — removed Windows scheduled task '{task_name}'.")
+                removed_any = True
+        except FileNotFoundError:
+            pass
+        # Try Startup-folder launcher
+        appdata = os.environ.get("APPDATA")
+        if appdata:
+            cmd_path = (Path(appdata) / "Microsoft" / "Windows" / "Start Menu"
+                        / "Programs" / "Startup" / "OASIS-Bravo-Bridge.cmd")
+            if cmd_path.exists():
+                cmd_path.unlink()
+                print(f"OK — removed Startup-folder launcher at {cmd_path}.")
+                removed_any = True
+        if not removed_any:
+            print("Nothing to remove — bridge was not installed via either path.")
+        return 0
     if sys.platform == "darwin":
         plist_path = Path.home() / "Library" / "LaunchAgents" / "work.oasisai.bravo-bridge.plist"
         try:
