@@ -116,18 +116,52 @@ function sha256(input: string): string {
   return createHash("sha256").update(input, "utf8").digest("hex");
 }
 
+/**
+ * Alternate auth path: HMAC headers (x-oasis-profile-id + x-oasis-secret).
+ * Used by the chat server's self-pair-on-boot — operators don't have
+ * CLI_SIGNUP_SECRET in their local env, but they DO have the per-profile
+ * HMAC secret (issued by `n8n_webhook_secret.py issue --save-env` and used
+ * for the outbound write-through path). One credential, two purposes.
+ *
+ * Returns the email associated with the verified profile so the rest of
+ * the route can flow without an explicit body.email.
+ */
+async function _hmacAuthEmail(req: NextRequest): Promise<{ email: string; profileId: string } | null> {
+  const profileId = req.headers.get("x-oasis-profile-id");
+  const rawSecret = req.headers.get("x-oasis-secret");
+  if (!profileId || !rawSecret) return null;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(profileId)) return null;
+  const secretHash = sha256(rawSecret);
+  const db = getServiceSupabase();
+  const r = await db
+    .from("n8n_webhook_secrets")
+    .select("profile_id, revoked_at")
+    .eq("profile_id", profileId)
+    .eq("secret_hash", secretHash)
+    .is("revoked_at", null)
+    .maybeSingle();
+  if (r.error || !r.data) return null;
+  const pf = await db.from("user_profiles").select("email").eq("id", profileId).maybeSingle();
+  if (!pf.data?.email) return null;
+  return { email: String(pf.data.email).toLowerCase(), profileId };
+}
+
 export async function POST(req: NextRequest) {
-  if (!checkBearerSecret(req, "CLI_SIGNUP_SECRET")) {
-    return bad(401, "missing or invalid Bearer secret");
+  // Two valid auth modes:
+  //   1. CLI_SIGNUP_SECRET bearer (interactive wizard path)
+  //   2. HMAC headers (chat-server self-pair path)
+  const hmacAuth = await _hmacAuthEmail(req);
+  if (!hmacAuth && !checkBearerSecret(req, "CLI_SIGNUP_SECRET")) {
+    return bad(401, "missing or invalid Bearer secret (or HMAC headers)");
   }
 
   let body: Body;
   try {
     body = (await req.json()) as Body;
   } catch {
-    return bad(400, "body must be JSON");
+    body = {};
   }
-  const email = (body.email || "").trim().toLowerCase();
+  const email = (body.email || hmacAuth?.email || "").trim().toLowerCase();
   if (!email) return bad(400, "email required");
 
   const db = getServiceSupabase();

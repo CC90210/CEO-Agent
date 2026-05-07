@@ -81,8 +81,28 @@ export function DevicesEditor() {
   }
   if (devices.length === 0) {
     return (
-      <div className="text-fg-muted text-sm">
-        No devices paired yet. Run <code className="bg-bg-elev px-1.5 py-0.5 rounded text-accent text-xs">bravo bridge start</code> on a machine after the setup wizard to pair it.
+      <div className="space-y-3">
+        <div className="text-fg-muted text-sm">
+          No devices paired yet. Each machine you pair gets its own row + green dot once the bridge boots.
+        </div>
+        <div className="rounded-lg border border-accent/20 bg-accent/5 p-3 space-y-2">
+          <div className="text-[11px] uppercase tracking-wider font-bold text-accent">
+            Connect a machine — one paste per OS
+          </div>
+          <div className="space-y-1.5 text-xs text-fg-muted">
+            <div>
+              <span className="font-bold text-fg">Windows (PowerShell):</span>{" "}
+              <code className="bg-bg-deep px-1.5 py-0.5 rounded text-accent">irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.ps1 | iex</code>
+            </div>
+            <div>
+              <span className="font-bold text-fg">macOS / Linux / WSL:</span>{" "}
+              <code className="bg-bg-deep px-1.5 py-0.5 rounded text-accent">curl -fsSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.sh | bash</code>
+            </div>
+            <div className="text-[11px] text-fg-dim pt-1">
+              Each machine self-pairs against the dashboard on first boot — no copy-paste of tokens. Re-run the same one-liner to add another machine. Each gets its own row here.
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

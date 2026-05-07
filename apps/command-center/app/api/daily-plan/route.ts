@@ -21,6 +21,7 @@ export async function PATCH(req: NextRequest) {
     actual_calls?: number;
     actual_bookings?: number;
     retro_notes?: string;
+    finalized_at?: string | null;
   };
   try { body = await req.json(); } catch { return bad(400, "invalid JSON"); }
 
@@ -31,6 +32,7 @@ export async function PATCH(req: NextRequest) {
   if (body.actual_calls !== undefined) update.actual_calls = body.actual_calls;
   if (body.actual_bookings !== undefined) update.actual_bookings = body.actual_bookings;
   if (body.retro_notes !== undefined) update.retro_notes = body.retro_notes;
+  if (body.finalized_at !== undefined) update.finalized_at = body.finalized_at;
 
   if (Object.keys(update).length === 0) return bad(400, "no editable fields");
 
