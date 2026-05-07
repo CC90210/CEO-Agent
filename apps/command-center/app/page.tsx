@@ -3,6 +3,7 @@ import { Card, Stat, EmptyState, PageHeader, Tag } from "@/components/Card";
 import { MRRProgressChart } from "@/components/charts/MRRProgressChart";
 import { PipelineFunnel } from "@/components/charts/PipelineFunnel";
 import { TodayBlockToggle } from "@/components/TodayBlockToggle";
+import { TodayBlockEditableField } from "@/components/TodayBlockEditableField";
 import { LiveClock } from "@/components/LiveClock";
 import { timeAgo, truncate, formatTimeRange } from "@/lib/fmt";
 import {
@@ -24,6 +25,7 @@ import {
   activePipeline,
   topOpenLead,
 } from "@/lib/queries";
+import { computeStreak } from "@/lib/streak";
 import { safe } from "@/lib/api-helpers";
 
 export const dynamic = "force-dynamic";
@@ -46,7 +48,7 @@ export default async function TodayPage() {
   // safe(p, fallback) imported from @/lib/api-helpers — used across every
   // dynamic page so one bad reader can't 500 the whole render. This is
   // the Hermes-toggle bug class.
-  const [counts, pipeline, mrr, history, plan, inbound, concentration, replyRate, activePipe, topLead] =
+  const [counts, pipeline, mrr, history, plan, inbound, concentration, replyRate, activePipe, topLead, streak] =
     await Promise.all([
       safe(todayCounts(tenantId), { outbound: 0, inbound: 0, decisions: 0, hot: 0 }),
       safe(pipelineBreakdown(tenantId), { stages: {} as Record<string, number>, total: 0, sources: {} as Record<string, number> }),
@@ -58,6 +60,7 @@ export default async function TodayPage() {
       safe(outreachReplyRate(tenantId, 7), { sends: 0, replies: 0, rate_pct: 0 }),
       safe(activePipeline(tenantId), { total_active: 0, qualified: 0, proposal: 0 }),
       safe(topOpenLead(tenantId), null),
+      safe(computeStreak(profile.id, 7), { streak: 0, missed: 0, daysWithPlan: 0, byDay: [] }),
     ]);
 
   const primaryLead = plan?.primary_lead_id
@@ -215,34 +218,70 @@ export default async function TodayPage() {
         <Card
           title="The day"
           subtitle={`${plan.schedule.filter((s) => s.completed).length} / ${plan.schedule.length} done`}
+          action={
+            streak.daysWithPlan > 0 ? (
+              streak.streak > 0 ? (
+                <Tag tone="engaged">{`🔥 ${streak.streak}-day streak`}</Tag>
+              ) : streak.missed > 0 ? (
+                <Tag tone="warm">{`${streak.missed} missed day${streak.missed === 1 ? "" : "s"} this week`}</Tag>
+              ) : null
+            ) : null
+          }
         >
           <ul className="divide-y divide-bg-border">
-            {plan.schedule.map((slot, i) => (
-              <li
-                key={i}
-                className={`grid grid-cols-[1.75rem_7rem_1fr] gap-3 py-3.5 ${
-                  slot.intensity === "break" ? "opacity-70" : ""
-                } ${slot.completed ? "opacity-60" : ""}`}
-              >
-                <TodayBlockToggle index={i} initial={!!slot.completed} schedule={plan.schedule} />
-                <div className="text-accent text-xs font-bold tracking-wider self-start mt-0.5">
-                  {formatTimeRange(slot.time_label)}
-                </div>
-                <div>
-                  <div
-                    className={`text-fg font-semibold flex items-center gap-2 ${slot.completed ? "line-through text-fg-muted" : ""}`}
-                  >
-                    {slot.intensity === "intense" && <span className="text-accent">▲</span>}
-                    {slot.intensity === "break" && <span className="text-fg-dim">○</span>}
-                    {slot.intensity === "carryover" && (
-                      <Tag tone="warm">carried from yesterday</Tag>
-                    )}
-                    {slot.title}
+            {plan.schedule.map((slot, i) => {
+              const completedAt = (slot as Record<string, unknown>).completed_at as string | null | undefined;
+              const carriedFromDate = (slot as Record<string, unknown>).carried_from_date as string | undefined;
+              return (
+                <li
+                  key={i}
+                  className={`grid grid-cols-[1.75rem_7rem_1fr] gap-3 py-3.5 ${
+                    slot.intensity === "break" ? "opacity-70" : ""
+                  } ${slot.completed ? "opacity-60" : ""}`}
+                >
+                  <TodayBlockToggle index={i} initial={!!slot.completed} schedule={plan.schedule} />
+                  <div className="text-accent text-xs font-bold tracking-wider self-start mt-0.5">
+                    {formatTimeRange(slot.time_label)}
                   </div>
-                  <div className="text-fg-muted text-sm mt-1 leading-relaxed">{slot.body}</div>
-                </div>
-              </li>
-            ))}
+                  <div>
+                    <div
+                      className={`text-fg font-semibold flex items-center gap-2 ${slot.completed ? "line-through text-fg-muted" : ""}`}
+                    >
+                      {slot.intensity === "intense" && <span className="text-accent">▲</span>}
+                      {slot.intensity === "break" && <span className="text-fg-dim">○</span>}
+                      {slot.intensity === "carryover" && (
+                        <Tag tone="warm">
+                          {carriedFromDate
+                            ? `carried from ${carriedFromDate}`
+                            : "carried from yesterday"}
+                        </Tag>
+                      )}
+                      <TodayBlockEditableField
+                        index={i}
+                        field="title"
+                        initial={slot.title || ""}
+                        schedule={plan.schedule}
+                        className="flex-1"
+                      />
+                    </div>
+                    <div className="text-fg-muted text-sm mt-1 leading-relaxed">
+                      <TodayBlockEditableField
+                        index={i}
+                        field="body"
+                        initial={slot.body || ""}
+                        schedule={plan.schedule}
+                        multiline
+                      />
+                    </div>
+                    {slot.completed && completedAt && (
+                      <div className="text-[10px] text-status-engaged font-mono mt-1.5">
+                        ✓ {new Date(completedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                      </div>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </Card>
       ) : (

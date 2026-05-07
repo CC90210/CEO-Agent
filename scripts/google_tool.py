@@ -73,6 +73,43 @@ def load_env():
 GWS_PATH = os.environ.get("GWS_PATH", r"C:\Users\User\AppData\Roaming\npm\gws.cmd")
 
 
+_PINGED_GWS_SERVICES: set[str] = set()
+
+
+def _ping_gws_service(args_list: list, ok: bool) -> None:
+    """Bump integrations_health for the GWS subsystem touched. Once-per-process
+    per service to keep the trip cost negligible (the dashboard's green dot
+    only needs ~one ping per session). Called from run_gws on every call.
+
+    Maps the gws CLI's first arg to the integrations_health 'service'
+    column: gmail → google_gmail, calendar → google_calendar, etc.
+    """
+    if not args_list:
+        return
+    first = str(args_list[0]).lower()
+    service_map = {
+        "gmail": "google_gmail",
+        "calendar": "google_calendar",
+        "drive": "google_drive",
+        "docs": "google_docs",
+        "sheets": "google_sheets",
+        "slides": "google_slides",
+        "tasks": "google_tasks",
+    }
+    service = service_map.get(first)
+    if not service:
+        return
+    if ok and service in _PINGED_GWS_SERVICES:
+        return
+    try:
+        from integration_health import ping  # type: ignore
+        ping(service, status="healthy" if ok else "degraded")
+        if ok:
+            _PINGED_GWS_SERVICES.add(service)
+    except Exception:
+        pass  # best-effort — never break the caller
+
+
 def run_gws(args_list, timeout=30):
     """Run a gws CLI command and return parsed JSON output."""
     cmd = [GWS_PATH] + args_list
@@ -88,7 +125,9 @@ def run_gws(args_list, timeout=30):
             # Check for auth errors
             if "expired" in error_text.lower() or "401" in error_text:
                 return None, "AUTH_EXPIRED"
+            _ping_gws_service(args_list, ok=False)
             return None, error_text
+        _ping_gws_service(args_list, ok=True)
         try:
             return json.loads(output), None
         except json.JSONDecodeError:

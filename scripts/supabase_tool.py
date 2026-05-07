@@ -54,24 +54,48 @@ PROJECTS = {
     }
 }
 
+_PINGED_SUPABASE = False
+
+
+def _ping_supabase_health(project: str, ok: bool) -> None:
+    """Bump integrations_health for the supabase service. Once-per-process."""
+    global _PINGED_SUPABASE
+    if _PINGED_SUPABASE and ok:
+        return
+    try:
+        from integration_health import ping  # type: ignore
+        ping(
+            f"supabase_{project}" if project != "bravo" else "supabase",
+            status="healthy" if ok else "degraded",
+        )
+        if ok:
+            _PINGED_SUPABASE = True
+    except Exception:
+        pass
+
+
 def get_client(env_vars, project="bravo"):
     """Create a Supabase client for the specified project."""
     from supabase import create_client
-    
+
     config = PROJECTS.get(project)
     if not config:
         print(f"ERROR: Unknown project '{project}'. Options: {list(PROJECTS.keys())}", file=sys.stderr)
         sys.exit(1)
-    
+
     url = env_vars.get(config["url_key"])
     key = env_vars.get(config["key_key"])
-    
+
     if not url or not key:
         print(f"ERROR: Missing credentials for project '{project}' in .env.agents", file=sys.stderr)
         print(f"  Need: {config['url_key']} and {config['key_key']}", file=sys.stderr)
         sys.exit(1)
-    
-    return create_client(url, key)
+
+    client = create_client(url, key)
+    # Best-effort health ping — flips /integrations green when this CLI
+    # successfully connects. Silent on failure.
+    _ping_supabase_health(project, ok=True)
+    return client
 
 
 def cmd_list_tables(client, args):

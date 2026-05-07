@@ -47,6 +47,10 @@ export type IntegrationDef = {
   setup_complexity: SetupComplexity;
   /** Which agent(s) actually use this integration. */
   used_by?: ("bravo" | "atlas" | "maven" | "aura" | "hermes")[];
+  /** For api_key kind: which env var the key-paste modal writes to in
+   *  .env.agents. If omitted, modal won't appear and the user falls back
+   *  to the manual signup_url + api_key_url affordance. */
+  env_key?: string;
 };
 
 export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
@@ -132,6 +136,7 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     setup_doc_url: "https://stripe.com/docs/keys",
     setup_complexity: "simple",
     used_by: ["bravo", "atlas"],
+    env_key: "STRIPE_API_KEY",
   },
   {
     service: "kraken",
@@ -181,6 +186,7 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     api_key_url: "https://zernio.com/dashboard/api",
     setup_complexity: "simple",
     used_by: ["maven"],
+    env_key: "LATE_API_KEY",
   },
   {
     service: "remotion",
@@ -212,6 +218,7 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     api_key_url: "https://elevenlabs.io/app/settings/api-keys",
     setup_complexity: "trivial",
     used_by: ["maven"],
+    env_key: "ELEVENLABS_API_KEY",
   },
   {
     service: "whisper",
@@ -304,6 +311,7 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     api_key_url: "https://www.firecrawl.dev/app/api-keys",
     setup_complexity: "trivial",
     used_by: ["bravo", "maven"],
+    env_key: "FIRECRAWL_API_KEY",
   },
   {
     service: "playwright",
@@ -337,6 +345,7 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     setup_doc_url: "https://openrouter.ai/docs/quick-start",
     setup_complexity: "trivial",
     used_by: ["bravo", "atlas", "maven", "aura", "hermes"],
+    env_key: "OPENROUTER_API_KEY",
   },
   {
     service: "anthropic",
@@ -348,6 +357,7 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     api_key_url: "https://console.anthropic.com/settings/keys",
     setup_doc_url: "https://docs.anthropic.com/en/api/getting-started",
     setup_complexity: "trivial",
+    env_key: "ANTHROPIC_API_KEY",
     used_by: ["bravo"],
   },
   {
@@ -361,6 +371,7 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     setup_doc_url: "https://platform.openai.com/docs/quickstart",
     setup_complexity: "trivial",
     used_by: ["bravo"],
+    env_key: "OPENAI_API_KEY",
   },
   {
     service: "google_ai",
