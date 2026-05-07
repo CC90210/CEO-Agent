@@ -77,7 +77,14 @@ export default async function ReasoningPage({
         </Card>
       )}
 
-      <Card title="Decision tape" subtitle={`${decisions.length} most recent autonomous-loop decisions`}>
+      <Card
+        title="Agent decisions"
+        subtitle={
+          decisions.length > 0
+            ? `Each row is a choice your agent made on its own — last ${decisions.length} cycles. Confidence + outcome shown so you can see whether the autonomous loop is making good calls.`
+            : "Once your agents start cycling autonomously, every decision they make (lead scoring, send vs. skip, prioritize vs. defer) shows up here with confidence + outcome."
+        }
+      >
         {decisions.length === 0 ? (
           <EmptyState message="No decisions yet. The reasoning loop hasn't run today — try `python scripts/autonomous_agent.py tick` from your Bravo terminal." />
         ) : (
