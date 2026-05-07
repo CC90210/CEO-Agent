@@ -122,10 +122,12 @@ export type DailyPlan = {
     body: string;
     intensity?: "intense" | "normal" | "break" | "carryover";
     completed?: boolean;
+    completed_at?: string | null;
   }>;
   actual_calls: number | null;
   actual_bookings: number | null;
   retro_notes: string | null;
+  finalized_at: string | null;
   created_at: string;
   updated_at: string;
 };

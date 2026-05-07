@@ -979,11 +979,182 @@ def _iter_sse_lines(resp):
             return
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Dashboard pairing + heartbeat (in-process, no separate `_loop` daemon)
+# ──────────────────────────────────────────────────────────────────────────────
+# The /devices section of the dashboard reads bridge_pairings.last_seen_at to
+# decide whether a machine is online. Previously only the legacy `_loop` ping
+# helper wrote there — but cmd_install registers bridge_chat_server as the
+# auto-start, not _loop. So the bridge would run forever without the
+# dashboard ever seeing it. Fix: chat server self-pairs on first boot via the
+# HMAC secret already in .env.agents (issued by n8n_webhook_secret.py
+# --save-env), then starts a daemon thread that pings /api/bridge/ping every
+# 60s with the bearer token.
+
+_HEARTBEAT_INTERVAL_S = 60.0
+_PAIR_TIMEOUT_S = 8.0
+_OASIS_DIR = Path.home() / ".oasis"
+_BRIDGE_TOKEN_PATH = _OASIS_DIR / "bridge_token"
+
+
+def _machine_fingerprint() -> str:
+    """Stable per-machine identifier for the bridge_pairings row.
+    Operator can connect multiple machines (Windows + Mac + Linux);
+    each gets its own row keyed on this fingerprint.
+    """
+    import hashlib
+    import platform
+    parts = [
+        platform.node() or "unknown-host",
+        platform.system() or "unknown-os",
+        platform.machine() or "unknown-arch",
+    ]
+    seed = "|".join(parts)
+    return hashlib.sha256(seed.encode("utf-8")).hexdigest()[:32]
+
+
+def _machine_label() -> str:
+    import platform
+    host = platform.node() or "machine"
+    os_name = {"Darwin": "Mac", "Windows": "Windows", "Linux": "Linux"}.get(
+        platform.system(), platform.system() or "Machine"
+    )
+    return f"{host} ({os_name})"
+
+
+def _self_pair_if_needed() -> str | None:
+    """Acquire a bridge_token. If ~/.oasis/bridge_token exists, return it.
+    Otherwise POST to /api/auth/pair with HMAC headers (x-oasis-profile-id
+    + x-oasis-secret), persist the returned token, return it. Returns None
+    if pairing isn't possible (no HMAC creds, network down, etc.) — caller
+    will skip heartbeats and the chat server still serves /chat fine.
+    """
+    try:
+        if _BRIDGE_TOKEN_PATH.is_file():
+            existing = _BRIDGE_TOKEN_PATH.read_text(encoding="utf-8").strip()
+            if existing:
+                return existing
+    except Exception:
+        pass
+
+    profile_id = _read_env_value("OASIS_PROFILE_ID").strip()
+    hmac_secret = _read_env_value("OASIS_OUTBOUND_HMAC_SECRET").strip()
+    dashboard_url = (
+        _read_env_value("OASIS_DASHBOARD_URL")
+        or "https://agent-dashboard-cc90210.vercel.app"
+    ).rstrip("/")
+    if not profile_id or not hmac_secret:
+        print(
+            "[bridge] no OASIS_PROFILE_ID / OASIS_OUTBOUND_HMAC_SECRET — "
+            "skipping self-pair (run `python scripts/n8n_webhook_secret.py "
+            "issue --profile-email <you> --save-env` to enable).",
+            file=sys.stderr,
+        )
+        return None
+
+    payload = {
+        "machine": {
+            "label": _machine_label(),
+            "fingerprint": _machine_fingerprint(),
+        },
+    }
+    body = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(
+        f"{dashboard_url}/api/auth/pair",
+        method="POST",
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "x-oasis-profile-id": profile_id,
+            "x-oasis-secret": hmac_secret,
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=_PAIR_TIMEOUT_S) as resp:
+            data = json.loads(resp.read().decode("utf-8") or "{}")
+    except Exception as exc:
+        print(f"[bridge] self-pair failed: {exc}", file=sys.stderr)
+        return None
+
+    token = (data.get("bridge") or {}).get("token")
+    if not token:
+        print(f"[bridge] pair response missing token: {data}", file=sys.stderr)
+        return None
+
+    try:
+        _OASIS_DIR.mkdir(parents=True, exist_ok=True)
+        _BRIDGE_TOKEN_PATH.write_text(token, encoding="utf-8")
+        if os.name != "nt":
+            try:
+                os.chmod(_BRIDGE_TOKEN_PATH, 0o600)
+            except Exception:
+                pass
+    except Exception as exc:
+        print(f"[bridge] couldn't persist bridge_token: {exc}", file=sys.stderr)
+
+    print(f"[bridge] paired with dashboard as {_machine_label()}", file=sys.stderr)
+    return token
+
+
+def _heartbeat_once(token: str) -> bool:
+    dashboard_url = (
+        _read_env_value("OASIS_DASHBOARD_URL")
+        or "https://agent-dashboard-cc90210.vercel.app"
+    ).rstrip("/")
+    body = json.dumps({"services": {}}).encode("utf-8")
+    req = urllib.request.Request(
+        f"{dashboard_url}/api/bridge/ping",
+        method="POST",
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=_PAIR_TIMEOUT_S) as resp:
+            return resp.status == 200
+    except urllib.error.HTTPError as exc:
+        if exc.code in (401, 403):
+            # Token revoked or rotated — drop it so next loop self-pairs again.
+            try:
+                _BRIDGE_TOKEN_PATH.unlink(missing_ok=True)
+            except Exception:
+                pass
+        return False
+    except Exception:
+        return False
+
+
+def _heartbeat_loop() -> None:
+    """Daemon thread. Pings /api/bridge/ping every 60s so the dashboard's
+    /devices and Today header show the machine as online. Re-pairs if the
+    token gets nixed (e.g. operator revokes it from /settings)."""
+    while True:
+        token = _self_pair_if_needed()
+        if token:
+            ok = _heartbeat_once(token)
+            if not ok:
+                # Could be transient — try again next interval. If the token
+                # was wiped above, _self_pair_if_needed will mint a fresh one.
+                pass
+        time.sleep(_HEARTBEAT_INTERVAL_S)
+
+
+def _start_heartbeat_thread() -> None:
+    import threading
+    t = threading.Thread(target=_heartbeat_loop, name="bridge-heartbeat", daemon=True)
+    t.start()
+
+
 def serve_forever() -> int:
     """Entry point for `bravo bridge serve`."""
     httpd = ThreadingHTTPServer(("127.0.0.1", PORT), _ChatHandler)
     print(f"oasis-bridge-chat listening on http://127.0.0.1:{PORT}")
     print(f"  agents resolvable: {sum(1 for v in all_resolved().values() if v['root'])}/5")
+    if os.environ.get("OASIS_BRIDGE_NO_HEARTBEAT") != "1":
+        _start_heartbeat_thread()
+        print("  heartbeat: every 60s -> /api/bridge/ping")
     print("  Ctrl+C to stop.")
     try:
         httpd.serve_forever()

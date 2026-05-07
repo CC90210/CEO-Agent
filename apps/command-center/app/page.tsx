@@ -4,6 +4,7 @@ import { MRRProgressChart } from "@/components/charts/MRRProgressChart";
 import { PipelineFunnel } from "@/components/charts/PipelineFunnel";
 import { TodayBlockToggle } from "@/components/TodayBlockToggle";
 import { TodayBlockEditableField } from "@/components/TodayBlockEditableField";
+import { FinalizeDayButton } from "@/components/FinalizeDayButton";
 import { LiveClock } from "@/components/LiveClock";
 import { timeAgo, truncate, formatTimeRange } from "@/lib/fmt";
 import {
@@ -215,75 +216,127 @@ export default async function TodayPage() {
       </section>
 
       {plan?.schedule && plan.schedule.length > 0 ? (
-        <Card
-          title="The day"
-          subtitle={`${plan.schedule.filter((s) => s.completed).length} / ${plan.schedule.length} done`}
-          action={
-            streak.daysWithPlan > 0 ? (
-              streak.streak > 0 ? (
-                <Tag tone="engaged">{`🔥 ${streak.streak}-day streak`}</Tag>
-              ) : streak.missed > 0 ? (
-                <Tag tone="warm">{`${streak.missed} missed day${streak.missed === 1 ? "" : "s"} this week`}</Tag>
-              ) : null
-            ) : null
-          }
-        >
-          <ul className="divide-y divide-bg-border">
-            {plan.schedule.map((slot, i) => {
-              const completedAt = (slot as Record<string, unknown>).completed_at as string | null | undefined;
-              const carriedFromDate = (slot as Record<string, unknown>).carried_from_date as string | undefined;
-              return (
-                <li
-                  key={i}
-                  className={`grid grid-cols-[1.75rem_7rem_1fr] gap-3 py-3.5 ${
-                    slot.intensity === "break" ? "opacity-70" : ""
-                  } ${slot.completed ? "opacity-60" : ""}`}
-                >
-                  <TodayBlockToggle index={i} initial={!!slot.completed} schedule={plan.schedule} />
-                  <div className="text-accent text-xs font-bold tracking-wider self-start mt-0.5">
-                    {formatTimeRange(slot.time_label)}
-                  </div>
-                  <div>
-                    <div
-                      className={`text-fg font-semibold flex items-center gap-2 ${slot.completed ? "line-through text-fg-muted" : ""}`}
-                    >
-                      {slot.intensity === "intense" && <span className="text-accent">▲</span>}
-                      {slot.intensity === "break" && <span className="text-fg-dim">○</span>}
-                      {slot.intensity === "carryover" && (
-                        <Tag tone="warm">
-                          {carriedFromDate
-                            ? `carried from ${carriedFromDate}`
-                            : "carried from yesterday"}
-                        </Tag>
-                      )}
-                      <TodayBlockEditableField
-                        index={i}
-                        field="title"
-                        initial={slot.title || ""}
-                        schedule={plan.schedule}
-                        className="flex-1"
-                      />
-                    </div>
-                    <div className="text-fg-muted text-sm mt-1 leading-relaxed">
-                      <TodayBlockEditableField
-                        index={i}
-                        field="body"
-                        initial={slot.body || ""}
-                        schedule={plan.schedule}
-                        multiline
-                      />
-                    </div>
-                    {slot.completed && completedAt && (
-                      <div className="text-[10px] text-status-engaged font-mono mt-1.5">
-                        ✓ {new Date(completedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
-                      </div>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </Card>
+        (() => {
+          const remaining = plan.schedule.filter((s) => !s.completed);
+          const completed = plan.schedule.filter((s) => s.completed);
+          const allDone = remaining.length === 0 && plan.schedule.length > 0;
+          const finalizedAt = (plan as Record<string, unknown>).finalized_at as
+            | string
+            | null
+            | undefined;
+          return (
+            <Card
+              title="The day"
+              subtitle={`${completed.length} / ${plan.schedule.length} done`}
+              action={
+                streak.daysWithPlan > 0 ? (
+                  streak.streak > 0 ? (
+                    <Tag tone="engaged">{`🔥 ${streak.streak}-day streak`}</Tag>
+                  ) : streak.missed > 0 ? (
+                    <Tag tone="warm">{`${streak.missed} missed day${streak.missed === 1 ? "" : "s"} this week`}</Tag>
+                  ) : null
+                ) : null
+              }
+            >
+              {remaining.length === 0 && !finalizedAt ? (
+                <div className="rounded-lg border border-status-engaged/30 bg-status-engaged/5 p-4 text-sm text-status-engaged text-center">
+                  Every item checked. Hit <strong>Finalize day</strong> below to wrap.
+                </div>
+              ) : (
+                <ul className="divide-y divide-bg-border">
+                  {remaining.map((slot) => {
+                    const i = plan.schedule.indexOf(slot);
+                    return (
+                      <li
+                        key={i}
+                        className={`grid grid-cols-[1.75rem_7rem_1fr] gap-3 py-3.5 ${
+                          slot.intensity === "break" ? "opacity-70" : ""
+                        }`}
+                      >
+                        <TodayBlockToggle index={i} initial={false} schedule={plan.schedule} />
+                        <div className="text-accent text-xs font-bold tracking-wider self-start mt-0.5">
+                          {formatTimeRange(slot.time_label)}
+                        </div>
+                        <div>
+                          <div className="text-fg font-semibold flex items-center gap-2">
+                            {slot.intensity === "intense" && <span className="text-accent">▲</span>}
+                            {slot.intensity === "break" && <span className="text-fg-dim">○</span>}
+                            <TodayBlockEditableField
+                              index={i}
+                              field="title"
+                              initial={slot.title || ""}
+                              schedule={plan.schedule}
+                              className="flex-1"
+                            />
+                          </div>
+                          <div className="text-fg-muted text-sm mt-1 leading-relaxed">
+                            <TodayBlockEditableField
+                              index={i}
+                              field="body"
+                              initial={slot.body || ""}
+                              schedule={plan.schedule}
+                              multiline
+                            />
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+
+              {/* Completed today — collapsible, click-only-when-needed */}
+              {completed.length > 0 && (
+                <details className="mt-4 group">
+                  <summary className="cursor-pointer text-xs text-fg-muted hover:text-accent inline-flex items-center gap-1 select-none">
+                    <span className="group-open:rotate-90 transition-transform inline-block">›</span>
+                    {completed.length} completed today
+                  </summary>
+                  <ul className="mt-2 divide-y divide-bg-border opacity-60">
+                    {completed.map((slot) => {
+                      const i = plan.schedule.indexOf(slot);
+                      const completedAt = (slot as Record<string, unknown>).completed_at as
+                        | string
+                        | null
+                        | undefined;
+                      return (
+                        <li
+                          key={i}
+                          className="grid grid-cols-[1.75rem_7rem_1fr] gap-3 py-2"
+                        >
+                          <TodayBlockToggle index={i} initial={true} schedule={plan.schedule} />
+                          <div className="text-fg-dim text-xs font-mono self-start mt-0.5">
+                            {formatTimeRange(slot.time_label)}
+                          </div>
+                          <div>
+                            <div className="text-fg-muted text-sm line-through">{slot.title}</div>
+                            {completedAt && (
+                              <div className="text-[10px] text-status-engaged font-mono mt-0.5">
+                                ✓ {new Date(completedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                              </div>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </details>
+              )}
+
+              {/* Finalize day — operator's nightly checkpoint */}
+              <div className="mt-5 pt-4 border-t border-bg-border flex items-center justify-between gap-3 flex-wrap">
+                <div className="text-xs text-fg-muted">
+                  {finalizedAt
+                    ? `Day finalized at ${new Date(finalizedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}. Tomorrow rebuilds fresh from your template.`
+                    : allDone
+                      ? "Every item checked off — you can finalize the day."
+                      : `${remaining.length} item${remaining.length === 1 ? "" : "s"} left to finalize the day.`}
+                </div>
+                <FinalizeDayButton disabled={!allDone || !!finalizedAt} planId={plan.id || null} />
+              </div>
+            </Card>
+          );
+        })()
       ) : (
         <Card
           title="The day"

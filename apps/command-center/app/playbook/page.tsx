@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Card, PageHeader, Tag } from "@/components/Card";
-import { Phone, Layers, Repeat } from "lucide-react";
+import { Phone, Layers, Repeat, FileStack, MessageSquare } from "lucide-react";
 
 export const dynamic = "force-static";
 
@@ -29,6 +29,22 @@ const SECTIONS = [
     body:
       "Mirror Run, Objection Volley, Recording Review, KPI Log, Weekly Retro. The boring discipline that turns cold calling into muscle memory.",
   },
+  {
+    href: "/playbook/business",
+    title: "Business Documentation",
+    subtitle: "CEO + CFO + CMO + Ops + Legal — every doc a real company needs",
+    icon: FileStack,
+    body:
+      "The full hub of business documentation. Manifesto, OKRs, P&L, runway, brand bible, content pillars, MSA template, onboarding SOP, incident runbook. Each pillar owned by the right AI exec — click any doc to ask them to draft or refresh it.",
+  },
+  {
+    href: "/playbook/prompts",
+    title: "Prompts Library",
+    subtitle: "Saved prompts that move the system — client setup, overrides, daily ops",
+    icon: MessageSquare,
+    body:
+      "Reusable prompts for every recurring move. Client onboarding prompts, system overrides ([OVERRIDE] syntax), pre-sales-block prep, end-of-day reflections. Foundational ones are hard-coded, mutable ones can grow as you find new patterns. Click any prompt to drop it straight into chat.",
+  },
 ];
 
 export default function PlaybookIndex() {
@@ -40,7 +56,7 @@ export default function PlaybookIndex() {
         action={<Tag tone="accent">v3 - canonical</Tag>}
       />
 
-      <div className="grid md:grid-cols-3 gap-5">
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
         {SECTIONS.map((section) => {
           const Icon = section.icon;
           return (
