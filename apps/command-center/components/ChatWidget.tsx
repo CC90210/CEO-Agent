@@ -26,6 +26,7 @@ import {
   Clipboard,
 } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { getAgentInfo } from "@/lib/agents";
 import { BRIDGE_CHAT_BASE } from "@/lib/agent-roots";
 
@@ -89,7 +90,20 @@ type Props = {
 };
 
 export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) {
-  const [agent, setAgent] = useState<string>(defaultAgent || agentKeys[0] || "bravo");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  // URL params let /reasoning Quick Actions deep-link a prompt + agent
+  // straight into the composer. Read once on mount, then strip from URL
+  // so a refresh doesn't re-fire the prompt.
+  const urlAgent = searchParams?.get("agent");
+  const urlPrompt = searchParams?.get("prompt");
+  const urlAutosend = searchParams?.get("autosend") === "1";
+
+  const initialAgent = urlAgent && agentKeys.includes(urlAgent)
+    ? urlAgent
+    : (defaultAgent || agentKeys[0] || "bravo");
+  const [agent, setAgent] = useState<string>(initialAgent);
   const [configs, setConfigs] = useState<AgentConfig[]>([]);
   const [configsLoaded, setConfigsLoaded] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -101,6 +115,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
     Array<{ ok: boolean; type: string; summary?: string; error?: string }>
   >([]);
   const [bridgeOnline, setBridgeOnline] = useState<boolean | null>(null);
+  const [usage, setUsage] = useState<{ usage: number; limit: number | null } | null>(null);
   const [toolReads, setToolReads] = useState<Array<{ path: string; body?: string }>>([]);
   const [toolRuns, setToolRuns] = useState<
     Array<{
@@ -127,6 +142,59 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
       .catch(() => null)
       .finally(() => setConfigsLoaded(true));
   }, []);
+
+  // Hydrate composer from /reasoning Quick Action deep-links. Once.
+  // Then strip params so a refresh doesn't re-trigger.
+  const [hydratedFromUrl, setHydratedFromUrl] = useState(false);
+  useEffect(() => {
+    if (hydratedFromUrl || !urlPrompt) return;
+    setInput(urlPrompt);
+    setHydratedFromUrl(true);
+    // Remove the params from the URL without a full nav so the composer
+    // text remains visible to the operator.
+    if (pathname) {
+      const fresh = new URLSearchParams(searchParams?.toString() || "");
+      fresh.delete("prompt");
+      fresh.delete("agent");
+      fresh.delete("autosend");
+      const qs = fresh.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    }
+    // Auto-send only if explicitly requested — default is to let the
+    // operator review + edit before firing.
+    if (urlAutosend) {
+      setTimeout(() => {
+        // send() is defined later — trigger via the form submit affordance
+        const f = document.querySelector("form[data-chat-composer]") as HTMLFormElement | null;
+        f?.requestSubmit();
+      }, 200);
+    } else {
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  }, [hydratedFromUrl, urlPrompt, urlAutosend, pathname, searchParams, router]);
+
+  // OpenRouter usage pill — only fetches when the agent's provider is
+  // openrouter (or unknown but admin-fallback is openrouter). Anthropic /
+  // OpenAI / Google don't expose this cleanly, so the pill stays hidden.
+  useEffect(() => {
+    if (!configsLoaded) return;
+    const cfg = configs.find((c) => c.agent_key === agent);
+    const isOpenRouter = !cfg || cfg.provider === "openrouter";
+    if (!isOpenRouter) {
+      setUsage(null);
+      return;
+    }
+    fetch(`/api/usage?agent=${encodeURIComponent(agent)}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!j || !j.ok || !j.supported) {
+          setUsage(null);
+          return;
+        }
+        setUsage({ usage: Number(j.usage) || 0, limit: j.limit === null ? null : Number(j.limit) });
+      })
+      .catch(() => setUsage(null));
+  }, [agent, configs, configsLoaded]);
 
   // Probe the local bridge on mount + every 30s. When the operator runs
   // `bravo bridge serve`, this flips true and chat starts targeting their
@@ -415,6 +483,15 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
             )}
           </div>
         </div>
+        {usage && (
+          <span
+            className="text-[10px] font-mono text-fg-dim border border-bg-border bg-bg-elev rounded-full px-2 py-0.5 hidden sm:inline-flex items-center gap-1"
+            title={`OpenRouter usage this period${usage.limit ? ` (limit $${usage.limit.toFixed(2)})` : ""}`}
+          >
+            ${usage.usage.toFixed(2)}
+            {usage.limit !== null ? ` / $${usage.limit.toFixed(2)}` : ""}
+          </span>
+        )}
         {messages.length > 0 && (
           <button
             type="button"
@@ -592,6 +669,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
 
       {/* Composer */}
       <form
+        data-chat-composer
         onSubmit={(e) => {
           e.preventDefault();
           send();

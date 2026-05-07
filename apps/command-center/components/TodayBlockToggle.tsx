@@ -26,7 +26,15 @@ export function TodayBlockToggle({
     setDone(next);
     setBusy(true);
     try {
-      const updated = schedule.map((b, i) => (i === index ? { ...b, completed: next } : b));
+      // Stamp completed_at ISO when toggling on, null when toggling off,
+      // so the streak computer + the "✓ done · 9:42 AM" pill have a
+      // real timestamp instead of inferring from updated_at.
+      const completedAt = next ? new Date().toISOString() : null;
+      const updated = schedule.map((b, i) =>
+        i === index
+          ? { ...b, completed: next, completed_at: completedAt }
+          : b
+      );
       const r = await fetch("/api/daily-plan", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },

@@ -70,6 +70,7 @@ def post_outbound_log(
     agent_source: str = "send_gateway",
     sent_at: Optional[str] = None,
     metadata: Optional[dict[str, Any]] = None,
+    existing_interaction_id: Optional[str] = None,
 ) -> tuple[bool, Optional[str], Optional[str]]:
     """POST a send-confirmation to /api/outbound/log.
 
@@ -98,6 +99,10 @@ def post_outbound_log(
         payload["sent_at"] = sent_at
     if metadata:
         payload["metadata"] = metadata
+    if existing_interaction_id:
+        # Dedup signal — RPC will UPDATE this row's tenant_id + publish
+        # agent_events, but won't INSERT a duplicate lead_interactions row.
+        payload["existing_interaction_id"] = existing_interaction_id
 
     url = f"{base_url}/api/outbound/log"
     body_bytes = json.dumps(payload).encode("utf-8")

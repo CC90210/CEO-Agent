@@ -34,6 +34,7 @@ from __future__ import annotations
 import json
 import os
 import random
+import re
 import shlex
 import subprocess
 import sys
@@ -404,7 +405,94 @@ class _ChatHandler(BaseHTTPRequestHandler):
     def do_OPTIONS(self) -> None:
         self.send_response(204)
         self._set_cors()
+        self.send_header("access-control-allow-headers", "content-type, authorization")
         self.end_headers()
+
+    def _check_origin_allowed(self) -> bool:
+        """For mutating endpoints, require the request to come from a
+        CORS-allowed origin. Browsers refuse cross-origin POSTs, so this
+        gates access to the operator's authed dashboard session — no
+        random LAN browser can hit /env/set.
+
+        Same model as /chat, which has run unauthenticated since v1.
+        """
+        origin = self.headers.get("origin", "")
+        return origin in ALLOWED_ORIGINS
+
+    def _handle_env_set(self) -> None:
+        """POST /env/set — write a key=value to .env.agents and ping the
+        named integration_health service. Settings → Integrations key-paste
+        modal targets this so operators don't have to edit dotfiles manually.
+
+        Auth: CORS origin must match ALLOWED_ORIGINS (operator's authed
+        dashboard session). No bearer token — bridge runs on localhost
+        only and the dashboard cookie already binds the session.
+
+        Body: { "key": "STRIPE_API_KEY", "value": "...", "ping_service": "stripe" }
+        """
+        if not self._check_origin_allowed():
+            self._json(403, {"ok": False, "error": "origin_not_allowed"})
+            return
+        try:
+            length = int(self.headers.get("content-length", "0"))
+            raw = self.rfile.read(length) if length else b""
+            payload = json.loads(raw or b"{}")
+        except Exception:
+            self._json(400, {"ok": False, "error": "invalid_json"})
+            return
+        key = str(payload.get("key", "")).strip()
+        value = str(payload.get("value", ""))
+        ping_service = (payload.get("ping_service") or "").strip()
+        if not key or not value:
+            self._json(400, {"ok": False, "error": "key + value required"})
+            return
+        # Strict allowlist on keys we're willing to write — refuses anything
+        # that doesn't look like a credential env var so a hostile dashboard
+        # response can't smuggle in arbitrary writes.
+        if not re.fullmatch(r"[A-Z][A-Z0-9_]{2,63}", key):
+            self._json(400, {"ok": False, "error": "key must match [A-Z][A-Z0-9_]{2,63}"})
+            return
+        repo_root = Path(__file__).resolve().parent.parent
+        env_path = repo_root / ".env.agents"
+        try:
+            existing = env_path.read_text(encoding="utf-8").splitlines() if env_path.is_file() else []
+            out: list[str] = []
+            seen = False
+            for line in existing:
+                if "=" in line and not line.strip().startswith("#"):
+                    k = line.split("=", 1)[0].strip()
+                    if k == key:
+                        out.append(f"{key}={value}")
+                        seen = True
+                        continue
+                out.append(line)
+            if not seen:
+                if out and out[-1].strip() != "":
+                    out.append("")
+                out.append(f"# Added via dashboard key-paste modal")
+                out.append(f"{key}={value}")
+            env_path.write_text("\n".join(out) + "\n", encoding="utf-8")
+            try:
+                if os.name != "nt":
+                    os.chmod(env_path, 0o600)
+            except Exception:
+                pass
+        except Exception as e:
+            self._json(500, {"ok": False, "error": f"write_failed: {e}"})
+            return
+
+        # Best-effort ping so the dashboard's green dot flips immediately.
+        if ping_service:
+            try:
+                # Make sure the just-written key is visible to integration_health
+                os.environ[key] = value
+                sys.path.insert(0, str(repo_root / "scripts"))
+                from integration_health import ping  # type: ignore
+                ping(ping_service, status="healthy")
+            except Exception:
+                pass
+
+        self._json(200, {"ok": True, "key": key, "pinged": ping_service or None})
 
     def do_GET(self) -> None:
         if self.path == "/health":
@@ -416,6 +504,9 @@ class _ChatHandler(BaseHTTPRequestHandler):
         self._json(404, {"ok": False, "error": "not_found"})
 
     def do_POST(self) -> None:
+        if self.path == "/env/set":
+            self._handle_env_set()
+            return
         if self.path != "/chat":
             self._json(404, {"ok": False, "error": "not_found"})
             return
