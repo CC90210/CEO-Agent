@@ -313,6 +313,12 @@ Other rules:
 _RETRYABLE_HTTP_CODES = {408, 425, 429, 500, 502, 503, 504, 522, 524}
 _PROVIDER_RETRY_ATTEMPTS = 3
 _PROVIDER_RETRY_BASE_MS = 2000  # 2s, 4s, 8s with ±20% jitter
+# [DEPRECATED — REMOVE AFTER 2026-05-14]: the retry constants above + the
+# _call_provider / _run_chat methods below + READ_FILE_TOOL / RUN_SCRIPT_TOOL
+# / LIST_TOOLS_TOOL definitions are only reachable when the operator sets
+# OASIS_CHAT_LEGACY=1. Default chat path is _run_chat_via_claude (Claude
+# Code subprocess). Retire one week post chunk H ship date once the new
+# path proves stable in production.
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -951,6 +957,11 @@ class _ChatHandler(BaseHTTPRequestHandler):
             emit("error", {"message": f"claude_stream_failed: {e}"})
             emit("done", {})
 
+    # [DEPRECATED — REMOVE AFTER 2026-05-14] Legacy raw /v1/messages path.
+    # Reachable only via OASIS_CHAT_LEGACY=1. Default chat path is
+    # _run_chat_via_claude above. Cut this whole method + _call_provider
+    # + READ_FILE_TOOL/RUN_SCRIPT_TOOL/LIST_TOOLS_TOOL after the new path
+    # proves stable for one week.
     def _run_chat(
         self,
         agent: str,

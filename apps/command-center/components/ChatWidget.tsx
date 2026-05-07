@@ -173,8 +173,12 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
       elapsed_s?: number;
     }>
   >([]);
-  // Kept for legacy chat path (OASIS_CHAT_LEGACY=1) so the read/run
-  // pills still render via their dedicated path.
+  // [DEPRECATED — REMOVE AFTER 2026-05-14] toolReads + toolRuns + their
+  // ToolReadList / ToolRunList renderers below are only used when the
+  // bridge runs in OASIS_CHAT_LEGACY=1 mode (raw_name absent on tool
+  // events). Default Claude Code subprocess path uses the unified
+  // toolCalls list above. Cut both pieces of state + their renderers
+  // after the new path proves stable for one week.
   const [toolReads, setToolReads] = useState<Array<{ path: string; body?: string }>>([]);
   const [toolRuns, setToolRuns] = useState<
     Array<{
