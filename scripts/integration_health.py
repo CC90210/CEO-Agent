@@ -25,7 +25,36 @@ from __future__ import annotations
 
 import os
 import sys
+from pathlib import Path
 from typing import Any
+
+
+def _env_fallback(name: str) -> str | None:
+    """When os.environ doesn't have the value, scan .env.agents directly.
+    Several CLI tools (stripe_tool, supabase_tool, email_engine) read
+    .env.agents into a dict but don't push to os.environ — meaning their
+    later ping() call would silently fail. Reading the file ourselves
+    closes the gap so callers don't need to remember to export.
+    """
+    candidates = [
+        Path.cwd() / ".env.agents",
+        Path(__file__).resolve().parent.parent / ".env.agents",
+        Path.home() / "Business-Empire-Agent" / ".env.agents",
+    ]
+    for p in candidates:
+        if not p.is_file():
+            continue
+        try:
+            for raw in p.read_text(encoding="utf-8", errors="ignore").splitlines():
+                line = raw.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, _, v = line.partition("=")
+                if k.strip() == name:
+                    return v.strip().strip('"').strip("'")
+        except Exception:
+            continue
+    return None
 
 # Single source of truth for the canonical operator email
 DEFAULT_OPERATOR_EMAIL = "conaugh@oasisai.work"
@@ -73,8 +102,11 @@ def ping(
         metadata = {}
 
     if client is None:
-        url = os.environ.get("BRAVO_SUPABASE_URL")
-        key = os.environ.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
+        url = os.environ.get("BRAVO_SUPABASE_URL") or _env_fallback("BRAVO_SUPABASE_URL")
+        key = (
+            os.environ.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
+            or _env_fallback("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
+        )
         if not url or not key:
             return False  # Tests / unconfigured environments — silently skip
         try:
