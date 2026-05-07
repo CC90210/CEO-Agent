@@ -57,18 +57,25 @@ PROJECTS = {
 _PINGED_SUPABASE = False
 
 
-def _ping_supabase_health(project: str, ok: bool) -> None:
-    """Bump integrations_health for the supabase service. Once-per-process."""
+def _ping_supabase_health(client, project: str, ok: bool) -> None:
+    """Bump integrations_health for the supabase service. Once-per-process.
+
+    Pass the live `client` so integration_health doesn't have to construct
+    its own from os.environ — supabase_tool.load_env() returns a dict
+    without pushing values to os.environ, so ping() would fail to find
+    BRAVO_SUPABASE_URL otherwise.
+    """
     global _PINGED_SUPABASE
     if _PINGED_SUPABASE and ok:
         return
     try:
         from integration_health import ping  # type: ignore
-        ping(
+        ok_call = ping(
             f"supabase_{project}" if project != "bravo" else "supabase",
             status="healthy" if ok else "degraded",
+            client=client,
         )
-        if ok:
+        if ok and ok_call:
             _PINGED_SUPABASE = True
     except Exception:
         pass
@@ -93,8 +100,10 @@ def get_client(env_vars, project="bravo"):
 
     client = create_client(url, key)
     # Best-effort health ping — flips /integrations green when this CLI
-    # successfully connects. Silent on failure.
-    _ping_supabase_health(project, ok=True)
+    # successfully connects. Silent on failure. Pass client so the ping
+    # helper doesn't try to construct one from os.environ (load_env
+    # returns a dict but doesn't push to os.environ).
+    _ping_supabase_health(client, project, ok=True)
     return client
 
 
