@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Card, PageHeader, Tag } from "@/components/Card";
-import { Phone, Layers, Repeat, FileStack, MessageSquare } from "lucide-react";
+import { Phone, Layers, Repeat, FileStack, MessageSquare, Rocket } from "lucide-react";
 
 export const dynamic = "force-static";
 
@@ -40,10 +40,18 @@ const SECTIONS = [
   {
     href: "/playbook/prompts",
     title: "Prompts Library",
-    subtitle: "Saved prompts that move the system — client setup, overrides, daily ops",
+    subtitle: "Saved prompts that move the system — operator + client deployment toolkit",
     icon: MessageSquare,
     body:
-      "Reusable prompts for every recurring move. Client onboarding prompts, system overrides ([OVERRIDE] syntax), pre-sales-block prep, end-of-day reflections. Foundational ones are hard-coded, mutable ones can grow as you find new patterns. Click any prompt to drop it straight into chat.",
+      "Reusable prompts for every recurring move. Two audiences: yours (daily ops, system health, [OVERRIDE] syntax) and the client deployment toolkit (setup, voice tune, integration audit, handoff). Foundational prompts are hard-coded; mutable ones can grow as you find new patterns. Click any prompt to drop it straight into chat.",
+  },
+  {
+    href: "/playbook/client-deploy",
+    title: "Client Deployment Runbook",
+    subtitle: "Six phases · ~60 minutes · the canonical onboarding playbook",
+    icon: Rocket,
+    body:
+      "Your step-by-step runbook for spinning up a fresh client. Pre-flight → bootstrap → personalize → integrations → scope → handoff. Each step has a chat-fire prompt that runs the move automatically. Use this for every new client — same arc, different tenant.",
   },
 ];
 
