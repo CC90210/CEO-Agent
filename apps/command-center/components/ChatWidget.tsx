@@ -103,7 +103,13 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
   const [bridgeOnline, setBridgeOnline] = useState<boolean | null>(null);
   const [toolReads, setToolReads] = useState<Array<{ path: string; body?: string }>>([]);
   const [toolRuns, setToolRuns] = useState<
-    Array<{ script: string; args: string[]; confirm: boolean; output?: string }>
+    Array<{
+      script: string;
+      args: string[];
+      confirm: boolean;
+      output?: string;
+      elapsed_s?: number;
+    }>
   >([]);
   const [awayFromBottom, setAwayFromBottom] = useState(false);
   const [expandedReads, setExpandedReads] = useState<Set<number>>(new Set());
@@ -319,7 +325,28 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
               const next = [...prev];
               for (let i = next.length - 1; i >= 0; i--) {
                 if (next[i].script === String(parsed.script || "") && next[i].output === undefined) {
-                  next[i] = { ...next[i], output: typeof parsed.output === "string" ? parsed.output : undefined };
+                  next[i] = {
+                    ...next[i],
+                    output: typeof parsed.output === "string" ? parsed.output : undefined,
+                    elapsed_s: undefined,
+                  };
+                  break;
+                }
+              }
+              return next;
+            });
+          } else if (event === "tool_progress" && parsed.name === "run_script") {
+            // Bridge ticks every 10s while a long script runs. Surface the
+            // elapsed time on the matching pill so the operator knows it's
+            // still working (a 90s ceo_dashboard otherwise feels broken).
+            setToolRuns((prev) => {
+              const next = [...prev];
+              for (let i = next.length - 1; i >= 0; i--) {
+                if (next[i].script === String(parsed.script || "") && next[i].output === undefined) {
+                  next[i] = {
+                    ...next[i],
+                    elapsed_s: Number(parsed.elapsed_s) || 0,
+                  };
                   break;
                 }
               }
@@ -514,8 +541,17 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
         {error && (
           <div className="flex items-start gap-2 rounded-lg border border-status-warm/40 bg-status-warm/10 p-3 text-sm text-status-warm">
             <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-            <div className="space-y-1 min-w-0">
-              <div className="font-mono break-all">{error}</div>
+            <div className="space-y-1 min-w-0 flex-1">
+              {error.startsWith("provider_temporarily_unavailable") ? (
+                <>
+                  <div className="font-bold">Provider had a hiccup.</div>
+                  <div className="text-xs text-fg-muted font-sans">
+                    The chat retried 3 times and the upstream LLM is still unhappy. Usually clears in a minute. Try again, or switch model in <Link href="/settings#agents" className="text-accent underline">Settings</Link>.
+                  </div>
+                </>
+              ) : (
+                <div className="font-mono break-all">{error}</div>
+              )}
               {error === "admin_no_platform_key" && (
                 <div className="text-xs text-fg-muted font-sans">
                   Admin chat needs a platform key. Two ways: (1) run{" "}
@@ -794,7 +830,13 @@ function ToolRunList({
   expanded,
   onToggle,
 }: {
-  entries: Array<{ script: string; args: string[]; confirm: boolean; output?: string }>;
+  entries: Array<{
+    script: string;
+    args: string[];
+    confirm: boolean;
+    output?: string;
+    elapsed_s?: number;
+  }>;
   expanded: Set<number>;
   onToggle: (i: number) => void;
 }) {
@@ -803,9 +845,12 @@ function ToolRunList({
       {entries.map((r, i) => {
         const isOpen = expanded.has(i);
         const canExpand = !!r.output;
-        const tone = r.confirm
-          ? "bg-status-engaged/15 border-status-engaged/30 text-status-engaged"
-          : "bg-status-warm/10 border-status-warm/30 text-status-warm";
+        const isRunning = !r.output && (r.elapsed_s ?? 0) > 0;
+        const tone = isRunning
+          ? "bg-accent/10 border-accent/30 text-accent animate-pulse-slow"
+          : r.confirm
+            ? "bg-status-engaged/15 border-status-engaged/30 text-status-engaged"
+            : "bg-status-warm/10 border-status-warm/30 text-status-warm";
         return (
           <div key={i} className="text-[11px]">
             <button
@@ -816,14 +861,17 @@ function ToolRunList({
                 canExpand ? "hover:opacity-90 cursor-pointer" : "cursor-default"
               }`}
               title={
-                r.confirm
-                  ? "Agent ran this allowlisted script"
-                  : "Agent attempted a mutating script without confirm — bounced for safety"
+                isRunning
+                  ? `Script still running… (${r.elapsed_s}s elapsed)`
+                  : r.confirm
+                    ? "Agent ran this allowlisted script"
+                    : "Agent attempted a mutating script without confirm — bounced for safety"
               }
             >
               {canExpand && <ChevronRight className={`w-3 h-3 transition-transform ${isOpen ? "rotate-90" : ""}`} />}
-              {r.confirm ? "ran" : "blocked"} · {r.script}
+              {isRunning ? "running" : r.confirm ? "ran" : "blocked"} · {r.script}
               {r.args.length > 0 ? ` ${r.args.slice(0, 4).join(" ")}${r.args.length > 4 ? "…" : ""}` : ""}
+              {isRunning ? ` · ${r.elapsed_s}s` : ""}
             </button>
             {isOpen && r.output && (
               <pre className="mt-1.5 max-h-64 overflow-auto rounded-md border border-bg-border bg-bg-deep/60 p-2 text-[10px] font-mono text-fg-muted whitespace-pre-wrap">

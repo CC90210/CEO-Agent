@@ -39,9 +39,15 @@ type BridgePair = {
   created_at: string;
 };
 
-export default async function OperationsPage() {
+export default async function OperationsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ showOlder?: string }>;
+}) {
   const profile = await safe(getActiveProfile(), null);
   const db = getServiceSupabase();
+  const sp = (await searchParams) || {};
+  const showOlder = sp.showOlder === "1";
 
   const [snaps, pairings, events] = await Promise.all([
     safe(
@@ -68,7 +74,13 @@ export default async function OperationsPage() {
           [] as BridgePair[]
         )
       : Promise.resolve([] as BridgePair[]),
-    safe(recentEvents(30), []),
+    safe(
+      recentEvents(showOlder ? 100 : 30, {
+        sinceDays: showOlder ? 0 : 7,
+        tenantId: profile?.tenant_id || null,
+      }),
+      []
+    ),
   ]);
   const snapByName = new Map(snaps.map((s) => [s.agent_name, s] as const));
 
@@ -87,7 +99,10 @@ export default async function OperationsPage() {
         }
       />
 
-      <Card title="Agent workers" subtitle={`Tick = the agent's autonomous reasoning loop ran. Fresh = within the last 15 min.`}>
+      <Card
+        title="Agent workers"
+        subtitle="Each agent runs an autonomous reasoning loop on its own machine. A green dot means it cycled within the last 15 min."
+      >
         <div className="grid sm:grid-cols-2 gap-3">
           {enabled.map((key) => {
             const info = getAgentInfo(key);
@@ -109,14 +124,17 @@ export default async function OperationsPage() {
                       {key}
                     </span>
                   </div>
-                  <span className="text-xs text-fg-dim font-mono">
-                    {snap?.last_tick_at ? `tick ${snap.tick_count ?? 0}` : "no ticks yet"}
+                  <span
+                    className="text-xs text-fg-dim font-mono"
+                    title="One cycle = one autonomous reasoning loop (the agent woke up, decided what to fire, logged it). Higher count = more activity since the worker started."
+                  >
+                    {snap?.last_tick_at ? `${snap.tick_count ?? 0} cycle${snap.tick_count === 1 ? "" : "s"}` : "no activity yet"}
                   </span>
                 </div>
                 <div className="text-xs text-fg-muted mt-1.5">{info.tagline}</div>
                 <div className="text-[10px] text-fg-dim mt-2 font-mono">
                   {snap?.last_tick_at
-                    ? `last tick ${timeAgo(snap.last_tick_at)}${snap.last_tick_id ? ` · ${truncate(snap.last_tick_id, 12)}` : ""}`
+                    ? `last cycle ${timeAgo(snap.last_tick_at)}${snap.last_tick_id ? ` · ${truncate(snap.last_tick_id, 12)}` : ""}`
                     : "worker not running on any paired machine"}
                 </div>
               </div>
@@ -162,10 +180,28 @@ export default async function OperationsPage() {
 
       <Card
         title="Activity tape"
-        subtitle="30 most-recent events across the agent family — cron fires, reasoning loops, inbound classifications."
+        subtitle={
+          showOlder
+            ? `All events (last 100) — cron fires, reasoning loops, outbound sends, inbound classifications.`
+            : `Events from the last 7 days — cron fires, reasoning loops, outbound sends, inbound classifications.`
+        }
+        action={
+          <a
+            href={showOlder ? "?" : "?showOlder=1"}
+            className="text-xs text-fg-dim hover:text-accent transition-colors"
+          >
+            {showOlder ? "← back to last 7 days" : "show older →"}
+          </a>
+        }
       >
         {events.length === 0 ? (
-          <EmptyState message="No events yet. Events publish when an agent's reasoning loop ticks or an inbound webhook fires." />
+          <EmptyState
+            message={
+              showOlder
+                ? "No events ever recorded. The event bus only writes when crons fire or inbound webhooks land."
+                : "No events in the last 7 days. Try 'show older' to see archived activity."
+            }
+          />
         ) : (
           <ul className="divide-y divide-bg-border">
             {events.map((e) => (

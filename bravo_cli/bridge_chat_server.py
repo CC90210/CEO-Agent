@@ -33,12 +33,14 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import shlex
 import subprocess
 import sys
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 import urllib.request
 import urllib.error
 
@@ -306,6 +308,11 @@ Other rules:
 """
 
 
+_RETRYABLE_HTTP_CODES = {408, 425, 429, 500, 502, 503, 504, 522, 524}
+_PROVIDER_RETRY_ATTEMPTS = 3
+_PROVIDER_RETRY_BASE_MS = 2000  # 2s, 4s, 8s with ±20% jitter
+
+
 def _call_provider(
     provider: str,
     api_key: str,
@@ -318,6 +325,12 @@ def _call_provider(
     shape is the same Anthropic /v1/messages contract either way (OpenRouter
     exposes a compatible passthrough), so the SSE consumer downstream is
     provider-agnostic.
+
+    Wraps urlopen in jittered exponential backoff for retryable HTTP codes
+    (408, 429, 5xx). A single 503 from the provider used to surface as a
+    raw "chat_loop_failed" to the operator with no second chance — now we
+    retry up to 3 times before giving up. Non-retryable codes (400, 401,
+    403, 404) raise immediately.
     """
     body = {
         "model": model,
@@ -345,13 +358,35 @@ def _call_provider(
             "anthropic-version": "2023-06-01",
             "accept": "text/event-stream",
         }
-    req = urllib.request.Request(
-        url,
-        method="POST",
-        data=json.dumps(body).encode("utf-8"),
-        headers=headers,
-    )
-    return urllib.request.urlopen(req, timeout=120)
+    body_bytes = json.dumps(body).encode("utf-8")
+
+    last_exc: Exception | None = None
+    for attempt in range(_PROVIDER_RETRY_ATTEMPTS):
+        req = urllib.request.Request(url, method="POST", data=body_bytes, headers=headers)
+        try:
+            return urllib.request.urlopen(req, timeout=120)
+        except urllib.error.HTTPError as e:
+            last_exc = e
+            if e.code not in _RETRYABLE_HTTP_CODES:
+                raise
+            if attempt == _PROVIDER_RETRY_ATTEMPTS - 1:
+                raise
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            # DNS hiccups, connection resets, transient network blips —
+            # all worth a retry.
+            last_exc = e
+            if attempt == _PROVIDER_RETRY_ATTEMPTS - 1:
+                raise
+
+        delay_ms = _PROVIDER_RETRY_BASE_MS * (2 ** attempt)
+        # ±20% jitter so concurrent retries don't synchronize
+        jitter = random.uniform(-0.2, 0.2) * delay_ms
+        time.sleep(max(0, (delay_ms + jitter) / 1000))
+
+    # Loop should always either return or raise; this is belt-and-suspenders.
+    if last_exc:
+        raise last_exc
+    raise RuntimeError("provider_call_failed_with_no_exception")
 
 
 class _ChatHandler(BaseHTTPRequestHandler):
@@ -446,6 +481,27 @@ class _ChatHandler(BaseHTTPRequestHandler):
 
         try:
             self._run_chat(agent, root, entry, provider, api_key, model, messages, emit)
+        except urllib.error.HTTPError as e:
+            # Translate raw HTTP errors into a friendlier surface for the
+            # operator. Provider blips that survived the retry loop in
+            # _call_provider land here. We've already retried 3 times, so
+            # this is a real outage — not just a transient hiccup.
+            try:
+                if e.code in _RETRYABLE_HTTP_CODES:
+                    emit("error", {
+                        "message": "provider_temporarily_unavailable",
+                        "detail": f"{provider} returned HTTP {e.code} after {_PROVIDER_RETRY_ATTEMPTS} retries. Try again in a minute.",
+                        "retryable": True,
+                    })
+                else:
+                    emit("error", {
+                        "message": f"provider_error_{e.code}",
+                        "detail": f"{provider} rejected the request with HTTP {e.code}. Check your API key + model in Settings.",
+                        "retryable": False,
+                    })
+                emit("done", {})
+            except Exception:
+                pass
         except Exception as e:
             try:
                 emit("error", {"message": f"chat_loop_failed: {e}"})
@@ -601,7 +657,20 @@ class _ChatHandler(BaseHTTPRequestHandler):
                         "args": args,
                         "confirm": confirm,
                     })
-                    content, is_error = self._safe_run_script(root, script_key, args, confirm)
+
+                    def _progress(elapsed_s: int, _key: str = script_key) -> None:
+                        # ChatWidget reads tool_progress and surfaces
+                        # "still running… (Ns)" so a 90s ceo_dashboard call
+                        # doesn't feel broken.
+                        emit("tool_progress", {
+                            "name": "run_script",
+                            "script": _key,
+                            "elapsed_s": elapsed_s,
+                        })
+
+                    content, is_error = self._safe_run_script(
+                        root, script_key, args, confirm, progress_cb=_progress,
+                    )
                     output_preview = content if isinstance(content, str) else str(content)
                     truncated = len(output_preview) > 12_288
                     if truncated:
@@ -696,10 +765,22 @@ class _ChatHandler(BaseHTTPRequestHandler):
         script_key: str,
         extra_args: list,
         confirm: bool,
+        progress_cb: "Callable[[int], None] | None" = None,
     ) -> tuple[str, bool]:
         """Execute an allowlisted script, capture output. Mutating scripts
         require confirm=True. Cwd is the agent root; path-allowlisted to
         scripts/* inside that root (no path traversal).
+
+        Timeouts:
+            - read-only scripts: 180s (status / dashboard / lookup paths
+              legitimately take a while when they aggregate Supabase queries).
+            - mutating scripts: 60s (anything writing should be fast; a
+              minute-long mutation usually means runaway behavior, kill it).
+
+        Progress: if `progress_cb` is provided, it is invoked every ~10s
+        with the elapsed seconds while the subprocess is still running.
+        The chat surface uses this to show "still running… (Ns)" so a 90s
+        ceo_dashboard call doesn't feel broken.
         """
         if not script_key:
             return "missing 'script' key", True
@@ -723,36 +804,66 @@ class _ChatHandler(BaseHTTPRequestHandler):
         if not under_root(root, full_path) or not full_path.is_file():
             return f"script_missing: {rel_script} not found in agent root", True
 
-        # Build the command — Python interpreter + script + subcmd + extra args
         cmd: list = [sys.executable, str(full_path)]
         subcmd = spec.get("subcmd")
         if subcmd:
             cmd.append(subcmd)
         cmd.extend(extra_args)
 
+        timeout_s = 60 if spec.get("mutating") else 180
+
         try:
-            r = subprocess.run(
+            proc = subprocess.Popen(
                 cmd,
                 cwd=str(root),
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True,
-                timeout=60,
                 shell=False,
-                check=False,
             )
-        except subprocess.TimeoutExpired:
-            return f"timeout: '{script_key}' exceeded 60s", True
         except Exception as e:
             return f"spawn_failed: {e}", True
 
-        out = (r.stdout or "")[-100_000:]   # cap returned bytes
-        err = (r.stderr or "")[-10_000:]
+        start = time.monotonic()
+        next_progress_at = start + 10.0
+        try:
+            while True:
+                try:
+                    out, err = proc.communicate(timeout=1.0)
+                    break  # process exited
+                except subprocess.TimeoutExpired:
+                    elapsed = time.monotonic() - start
+                    if elapsed >= timeout_s:
+                        proc.kill()
+                        try:
+                            proc.communicate(timeout=2.0)
+                        except Exception:
+                            pass
+                        return (
+                            f"timeout: '{script_key}' exceeded {timeout_s}s "
+                            f"(read-only cap is 180s, mutating cap is 60s)"
+                        ), True
+                    if progress_cb is not None and time.monotonic() >= next_progress_at:
+                        try:
+                            progress_cb(int(elapsed))
+                        except Exception:
+                            pass  # progress emit is best-effort
+                        next_progress_at += 10.0
+        except Exception as e:
+            try:
+                proc.kill()
+            except Exception:
+                pass
+            return f"run_failed: {e}", True
+
+        rc = proc.returncode if proc.returncode is not None else -1
+        out = (out or "")[-100_000:]
+        err = (err or "")[-10_000:]
         cmd_display = " ".join(shlex.quote(c) for c in cmd)
-        body = f"$ {cmd_display}\n[exit {r.returncode}]\n--- stdout ---\n{out}"
+        body = f"$ {cmd_display}\n[exit {rc}]\n--- stdout ---\n{out}"
         if err.strip():
             body += f"\n--- stderr ---\n{err}"
-        # Treat non-zero exit as is_error so the model sees + handles failure
-        return body, r.returncode != 0
+        return body, rc != 0
 
     def _json(self, status: int, body: dict) -> None:
         raw = json.dumps(body).encode("utf-8")
