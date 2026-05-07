@@ -42,8 +42,10 @@ MANIFEST_PATH = SCRIPTS_DIR / "_bridge_manifest.json"
 
 # Files we never expose: meta-tooling, internal helpers, this builder itself.
 BLOCKLIST = {
-    "build_bridge_manifest.py",   # this file
-    "build_capability_graph.py",  # internal infra
+    "build_bridge_manifest.py",       # this file
+    "check_bridge_manifest.py",       # drift-guard, sibling tool
+    "test_build_bridge_manifest.py",  # tests, not a chat tool
+    "build_capability_graph.py",      # internal infra
     "capability_query.py",
     "register.py",
     "register_skill.py",
