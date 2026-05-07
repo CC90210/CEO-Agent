@@ -220,7 +220,10 @@ export async function recentEvents(
 ): Promise<AgentEvent[]> {
   const db = getServiceSupabase();
   let q = db.from("agent_events").select("*");
-  if (opts?.tenantId) q = q.eq("tenant_id", opts.tenantId);
+  // agent_events does NOT carry a tenant_id column today (audit confirmed
+  // 2026-05-07). Tenant scoping happens via the publisher_agent + payload
+  // shape rather than a column. The opts.tenantId param is accepted for
+  // API consistency but not applied as a filter — would error otherwise.
   // Default: 7-day freshness window. The Operations Activity Tape used to
   // show 16d-old workshop noise because nothing capped the window. Caller
   // can pass sinceDays:0 to disable.
