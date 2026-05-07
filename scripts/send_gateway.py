@@ -747,6 +747,7 @@ def _writethrough_outbound_log(
     channel: str,
     agent_source: str,
     metadata: Optional[dict[str, Any]],
+    existing_interaction_id: Optional[str] = None,
 ) -> None:
     """Best-effort POST to /api/outbound/log so the dashboard sees the send +
     the Operations Activity Tape gets an outbound.sent event. Skips silently
@@ -755,6 +756,11 @@ def _writethrough_outbound_log(
     Only fires for confirmed sends (`*_sent` action types). Blocked / queued
     / dry_run land here as no-ops because we don't want to pollute the tape
     with non-sends.
+
+    `existing_interaction_id` dedupes against the local insert: the RPC
+    stamps tenant + publishes agent_events but does NOT insert a second
+    lead_interactions row. Always pass this when called from log_action /
+    finalize_reserved_action — they already wrote the row.
     """
     if not action_type.endswith("_sent"):
         return
@@ -775,6 +781,7 @@ def _writethrough_outbound_log(
         channel=channel,
         agent_source=agent_source,
         metadata=metadata or {},
+        existing_interaction_id=existing_interaction_id,
     )
     if not ok and err and err != "missing_env":
         print(f"[send_gateway] outbound write-back failed: {err}", file=sys.stderr)
@@ -1009,7 +1016,9 @@ def finalize_reserved_action(
     if action_type.endswith("_sent"):
         _touch_lead_last_contact(db, lead_id, action_type)
 
-    # Dashboard write-through (same as log_action). Best-effort.
+    # Dashboard write-through (same as log_action). Pass interaction_id
+    # so the RPC dedupes — finalize_reserved_action just updated the
+    # existing reservation row, no need for the RPC to insert another.
     _writethrough_outbound_log(
         lead_id=lead_id,
         to_email=to_email,
@@ -1019,6 +1028,7 @@ def finalize_reserved_action(
         channel=channel,
         agent_source=agent_source,
         metadata=metadata,
+        existing_interaction_id=interaction_id,
     )
     return interaction_id
 
@@ -1114,7 +1124,8 @@ def log_action(
 
     # Dashboard write-through: publish outbound.sent to agent_events so the
     # Operations Activity Tape lights up. Best-effort; no-ops if env vars
-    # aren't configured (operator hasn't issued an HMAC secret yet).
+    # aren't configured. Pass interaction_id so the RPC dedupes against
+    # the local insert above (no duplicate Pipeline rows).
     _writethrough_outbound_log(
         lead_id=lead_id,
         to_email=to_email,
@@ -1124,6 +1135,7 @@ def log_action(
         channel=channel,
         agent_source=agent_source,
         metadata=metadata,
+        existing_interaction_id=interaction_id,
     )
 
     return interaction_id

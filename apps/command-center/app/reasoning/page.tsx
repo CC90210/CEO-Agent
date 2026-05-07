@@ -1,39 +1,81 @@
+import Link from "next/link";
 import { Card, PageHeader, EmptyState, Tag } from "@/components/Card";
 import { timeAgo, truncate, statusColor } from "@/lib/fmt";
 import { recentDecisions, getActiveProfile } from "@/lib/queries";
 import { safe } from "@/lib/api-helpers";
 import { CommandPalette } from "@/components/reasoning/CommandPalette";
+import { QuickActionsGrid } from "@/components/reasoning/QuickActionsGrid";
 import { commandsForAgents } from "@/lib/slash-commands";
+import { quickActionsFor } from "@/lib/quick-actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function ReasoningPage() {
+export default async function ReasoningPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ dev?: string }>;
+}) {
+  const sp = (await searchParams) || {};
+  const devMode = sp.dev === "1";
+
   const [profile, decisions] = await Promise.all([
     safe(getActiveProfile(), null),
     safe(recentDecisions(20), []),
   ]);
 
   const enabled = profile?.agents_enabled || ["bravo"];
+  const quickActions = quickActionsFor(enabled);
   const commands = commandsForAgents(enabled);
 
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Reasoning"
-        subtitle="Slash commands across your enabled agents + the autonomous decision tape."
-        action={<Tag tone="accent">{commands.length} commands · {enabled.length} agents</Tag>}
+        subtitle={
+          devMode
+            ? "Developer view — full slash-command palette + autonomous decision tape."
+            : "Click an action to send it straight to chat. The agent runs it for you — no terminal, no setup."
+        }
+        action={
+          <Tag tone="accent">
+            {devMode ? `${commands.length} commands · ${enabled.length} agents` : `${quickActions.length} actions · ${enabled.length} agents`}
+          </Tag>
+        }
       />
 
-      <Card
-        title="Agent command palette"
-        subtitle="Click a command to see the exact terminal invocation. Auto-populated from your enabled agents."
-      >
-        {commands.length === 0 ? (
-          <EmptyState message="No agents enabled. Toggle agents in Settings → Agents." />
-        ) : (
-          <CommandPalette commands={commands} enabledAgents={enabled} />
-        )}
-      </Card>
+      {devMode ? (
+        <Card
+          title="Developer command palette"
+          subtitle="Click a command to see the exact terminal invocation. Auto-populated from your enabled agents."
+          action={
+            <Link href="/reasoning" className="text-xs text-fg-muted hover:text-accent transition-colors">
+              ← back to quick actions
+            </Link>
+          }
+        >
+          {commands.length === 0 ? (
+            <EmptyState message="No agents enabled. Toggle agents in Settings → Agents." />
+          ) : (
+            <CommandPalette commands={commands} enabledAgents={enabled} />
+          )}
+        </Card>
+      ) : (
+        <Card
+          title="Quick actions"
+          subtitle="Each one drops a prompt into chat with the right agent already selected. Hit Enter to send."
+          action={
+            <Link href="/reasoning?dev=1" className="text-xs text-fg-dim hover:text-accent transition-colors">
+              developer view →
+            </Link>
+          }
+        >
+          {quickActions.length === 0 ? (
+            <EmptyState message="No agents enabled. Toggle agents in Settings → Agents." />
+          ) : (
+            <QuickActionsGrid actions={quickActions} />
+          )}
+        </Card>
+      )}
 
       <Card title="Decision tape" subtitle={`${decisions.length} most recent autonomous-loop decisions`}>
         {decisions.length === 0 ? (
@@ -46,7 +88,7 @@ export default async function ReasoningPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1.5">
                       <Tag tone="accent">{d.decision_type}</Tag>
-                      <span className="text-xs text-fg-dim font-mono">tick {truncate(d.tick_id, 12)}</span>
+                      <span className="text-xs text-fg-dim font-mono">cycle {truncate(d.tick_id, 12)}</span>
                     </div>
                     <div className="text-fg font-medium text-sm">
                       {d.target_description || "(no target description)"}

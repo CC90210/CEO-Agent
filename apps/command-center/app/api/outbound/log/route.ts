@@ -50,6 +50,11 @@ type IncomingPayload = {
   agent_source?: string;
   sent_at?: string;
   metadata?: Record<string, unknown>;
+  /** When the caller (send_gateway) already inserted the row locally, pass
+   *  its id so the RPC dedupes — stamps tenant, publishes agent_events,
+   *  but does NOT insert a second lead_interactions row. Future SaaS
+   *  clients without local Supabase access omit this. */
+  existing_interaction_id?: string;
 };
 
 function sha256(input: string): string {
@@ -84,6 +89,9 @@ export async function POST(req: NextRequest) {
   if (body.lead_id && !UUID_RE.test(body.lead_id)) {
     return bad(400, "lead_id is not a valid UUID");
   }
+  if (body.existing_interaction_id && !UUID_RE.test(body.existing_interaction_id)) {
+    return bad(400, "existing_interaction_id is not a valid UUID");
+  }
 
   const secretHash = sha256(rawSecret);
   const db = getServiceSupabase();
@@ -99,6 +107,7 @@ export async function POST(req: NextRequest) {
     p_agent_source: body.agent_source || "send_gateway",
     p_sent_at: body.sent_at || new Date().toISOString(),
     p_metadata: body.metadata || {},
+    p_existing_interaction_id: body.existing_interaction_id || null,
   });
 
   if (r.error) {

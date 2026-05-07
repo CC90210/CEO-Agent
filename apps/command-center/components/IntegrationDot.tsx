@@ -1,7 +1,11 @@
+"use client";
+
+import { useState } from "react";
 import { timeAgo } from "@/lib/fmt";
 import type { IntegrationHealth } from "@/lib/supabase";
 import { categorize, CONNECTION_KIND_LABEL, type ConnectionKind } from "@/lib/integrations-registry";
 import { ExternalLink, KeyRound, Sparkles, Download, Plug, Package, UserCircle, Check } from "lucide-react";
+import { KeyPasteModal } from "@/components/integrations/KeyPasteModal";
 
 const COMPLEXITY_LABEL: Record<string, { label: string; tone: string }> = {
   trivial: { label: "easy setup", tone: "text-status-engaged" },
@@ -31,10 +35,13 @@ export type IntegrationConnection = {
 export function IntegrationDot({
   health,
   connection,
+  bridgeToken,
 }: {
   health: IntegrationHealth;
   connection?: IntegrationConnection;
+  bridgeToken?: string | null;
 }) {
+  const [modalOpen, setModalOpen] = useState(false);
   const def = categorize(health);
   const label = def?.label || health.service;
   const description = def?.description;
@@ -125,9 +132,18 @@ export function IntegrationDot({
         </a>
       ) : null;
     }
-    // api_key
+    // api_key — show in-place modal connect when env_key is mapped
     return (
       <>
+        {def?.env_key && (
+          <button
+            type="button"
+            onClick={() => setModalOpen(true)}
+            className="text-xs text-accent hover:text-accent-bright inline-flex items-center gap-1 transition-colors font-bold"
+          >
+            <KeyRound className="w-3 h-3" /> {hasCreds ? "Update key" : "Connect"}
+          </button>
+        )}
         {signupUrl && (
           <a
             href={signupUrl}
@@ -138,7 +154,7 @@ export function IntegrationDot({
             <ExternalLink className="w-3 h-3" /> Sign up
           </a>
         )}
-        {apiKeyUrl && apiKeyUrl !== signupUrl && (
+        {!def?.env_key && apiKeyUrl && apiKeyUrl !== signupUrl && (
           <a
             href={apiKeyUrl}
             target="_blank"
@@ -211,6 +227,17 @@ export function IntegrationDot({
             </a>
           )}
         </div>
+      )}
+      {def?.env_key && (
+        <KeyPasteModal
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          service={health.service}
+          serviceLabel={label}
+          envKey={def.env_key}
+          apiKeyUrl={apiKeyUrl}
+          bridgeToken={bridgeToken}
+        />
       )}
     </div>
   );
