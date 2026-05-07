@@ -232,8 +232,36 @@ def cmd_create(client, args):
     print(f"\n  Note: Workflow created as INACTIVE. Use 'activate {result.get('id')}' to enable.")
 
 
+def _slim_for_update(wf: dict) -> dict:
+    """Strip GET-only fields + slim `settings` so `update` accepts the
+    output of `export`/`get`. Discovered via 400 responses on n8n self-hosted
+    1.x: PUT only accepts {name, nodes, connections, settings, staticData}
+    at the top level, and `settings` only accepts a known subset of keys.
+    """
+    top_allowed = {"name", "nodes", "connections", "settings", "staticData"}
+    settings_allowed = {
+        "executionOrder", "saveManualExecutions", "saveExecutionProgress",
+        "saveDataErrorExecution", "saveDataSuccessExecution", "callerPolicy",
+        "errorWorkflow", "timezone",
+    }
+    out = {k: v for k, v in wf.items() if k in top_allowed}
+    raw_settings = out.get("settings") or {}
+    out["settings"] = {k: v for k, v in raw_settings.items() if k in settings_allowed}
+    if not out["settings"]:
+        out["settings"] = {"executionOrder": "v1"}
+    return out
+
+
 def cmd_update(client, args):
-    """Update a workflow."""
+    """Update a workflow.
+
+    n8n's PUT /workflows/:id schema is strict — it rejects fields like `id`,
+    `active`, `createdAt`, `updatedAt`, `versionId`, `tags`, etc. that come
+    back from a GET/export. It also rejects unknown keys in `settings`.
+    Without normalization, every export-roundtrip fails with HTTP 400
+    "additional properties not allowed". We slim the payload here so callers
+    can pass the raw output of `export` straight back in.
+    """
     try:
         update_data = json.loads(args.data)
     except json.JSONDecodeError:
@@ -246,6 +274,7 @@ def cmd_update(client, args):
             print(f"ERROR: '{args.data}' is not valid JSON or file path", file=sys.stderr)
             sys.exit(1)
 
+    update_data = _slim_for_update(update_data)
     result = client.update_workflow(args.workflow_id, update_data)
 
     if args.output_json:
