@@ -11,7 +11,7 @@
  * one-liner runs `bravo setup` with their answers pre-baked.
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -20,7 +20,19 @@ import {
   Sparkles,
   Cpu,
   ExternalLink,
+  ChevronDown,
 } from "lucide-react";
+
+type OS = "windows" | "macos" | "linux" | "unknown";
+
+function _detectOS(): OS {
+  if (typeof navigator === "undefined") return "unknown";
+  const ua = navigator.userAgent.toLowerCase();
+  if (ua.includes("win")) return "windows";
+  if (ua.includes("mac")) return "macos";
+  if (ua.includes("linux") || ua.includes("x11")) return "linux";
+  return "unknown";
+}
 
 const AGENTS = [
   {
@@ -82,6 +94,12 @@ export function ConfigureFlow() {
     north_star: "",
   });
   const [copied, setCopied] = useState(false);
+  const [os, setOs] = useState<OS>("unknown");
+  const [showAllPlatforms, setShowAllPlatforms] = useState(false);
+
+  useEffect(() => {
+    setOs(_detectOS());
+  }, []);
 
   const agent = AGENTS.find((a) => a.key === agentKey)!;
 
@@ -216,8 +234,38 @@ curl -fsSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install.sh |
             Open a terminal on your computer and paste one of these. The installer clones the <code className="text-accent">{agent.repo}</code> repo, runs the setup wizard with your answers pre-filled, and starts the local bridge so the dashboard connects automatically.
           </p>
 
-          <CodeBlock label="Windows · PowerShell" code={psInstall} onCopy={copy} copied={copied} />
-          <CodeBlock label="macOS / Linux / WSL · bash" code={bashInstall} onCopy={copy} copied={copied} />
+          {os !== "unknown" ? (
+            <>
+              <div className="text-[11px] uppercase tracking-wider font-bold text-fg-muted mb-1.5">
+                Detected: <span className="text-accent">{os === "windows" ? "Windows" : os === "macos" ? "macOS" : "Linux"}</span> — paste this in your terminal
+              </div>
+              <CodeBlock
+                label={os === "windows" ? "Windows · PowerShell" : os === "macos" ? "macOS · Terminal" : "Linux · bash"}
+                code={os === "windows" ? psInstall : bashInstall}
+                onCopy={copy}
+                copied={copied}
+              />
+              <button
+                type="button"
+                onClick={() => setShowAllPlatforms((v) => !v)}
+                className="text-xs text-fg-dim hover:text-accent transition-colors inline-flex items-center gap-1 mb-3"
+              >
+                <ChevronDown className={`w-3 h-3 transition-transform ${showAllPlatforms ? "rotate-180" : ""}`} />
+                {showAllPlatforms ? "Hide" : "Show"} other platforms
+              </button>
+              {showAllPlatforms && (
+                <div className="rounded-md border border-bg-border bg-bg-deep/50 p-3 mb-4">
+                  {os !== "windows" && <CodeBlock label="Windows · PowerShell" code={psInstall} onCopy={copy} copied={copied} />}
+                  {os === "windows" && <CodeBlock label="macOS / Linux / WSL · bash" code={bashInstall} onCopy={copy} copied={copied} />}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <CodeBlock label="Windows · PowerShell" code={psInstall} onCopy={copy} copied={copied} />
+              <CodeBlock label="macOS / Linux / WSL · bash" code={bashInstall} onCopy={copy} copied={copied} />
+            </>
+          )}
 
           <div className="rounded-lg border border-accent/30 bg-accent/5 p-4 mt-5">
             <h3 className="text-sm font-bold text-fg mb-1.5 flex items-center gap-2">

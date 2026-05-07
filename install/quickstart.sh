@@ -504,8 +504,24 @@ fi
 export PATH="$HOME/.bravo/bin:$PATH"
 if [ -n "$PROFILE_OVERRIDE" ]; then
     "$PY3" "$REPO_DIR/bravo_cli/main.py" setup --profile "$PROFILE_OVERRIDE"
+    wizard_rc=$?
 else
     "$PY3" "$REPO_DIR/bravo_cli/main.py" setup
+    wizard_rc=$?
+fi
+
+# Open the dashboard the moment the wizard exits cleanly. The bridge spawn
+# inside step_finalize is already running, so the chat header turns cyan
+# ("local bridge · full repo access") within ~2s of the page loading.
+# Skip in non-interactive shells (CI, container builds) and on wizard
+# failure (broken install — landing on the dashboard would just confuse).
+if [ "$wizard_rc" = "0" ] && [ -t 1 ] && [ "${OASIS_SKIP_BROWSER_OPEN:-0}" != "1" ]; then
+    DASH_URL="${OASIS_DASHBOARD_URL:-https://agent-dashboard-cc90210.vercel.app}/agents"
+    case "$(uname -s 2>/dev/null)" in
+        Darwin)            open "$DASH_URL" >/dev/null 2>&1 || true ;;
+        Linux)             xdg-open "$DASH_URL" >/dev/null 2>&1 || true ;;
+        MINGW*|MSYS*|CYGWIN*) start "" "$DASH_URL" >/dev/null 2>&1 || true ;;
+    esac
 fi
 
 echo
