@@ -74,6 +74,49 @@ function _suggestionsFor(agent: string): string[] {
     "Read brain/STATE.md",
   ];
 }
+
+/**
+ * Map a tool SSE event to a display label + detail. Handles every Claude
+ * Code tool kind plus the legacy bridge tools. Keep this small — the pill
+ * UI just needs a 1-2 word verb + a one-line detail.
+ */
+function _toolLabel(parsed: Record<string, unknown>): string {
+  const n = String(parsed.name || "tool");
+  switch (n) {
+    case "read_file": return "read";
+    case "edit_file": return "edit";
+    case "write_file": return "write";
+    case "run_script": return "bash";
+    case "glob": return "glob";
+    case "grep": return "grep";
+    case "web_fetch": return "fetch";
+    case "mcp_call":
+      return `${parsed.server ?? "mcp"}`;
+    default:
+      return String(parsed.raw_name ?? n);
+  }
+}
+
+function _toolDetail(parsed: Record<string, unknown>): string {
+  const n = String(parsed.name || "tool");
+  switch (n) {
+    case "read_file":
+    case "edit_file":
+    case "write_file":
+      return String(parsed.path || "");
+    case "run_script": {
+      const args = Array.isArray(parsed.args) ? (parsed.args as unknown[]).join(" ") : "";
+      return String(parsed.script || "") + (args ? ` ${args}` : "");
+    }
+    case "glob": return String(parsed.pattern || "");
+    case "grep": return String(parsed.pattern || "");
+    case "web_fetch": return String(parsed.url || "");
+    case "mcp_call":
+      return String(parsed.tool || parsed.summary || "");
+    default:
+      return String(parsed.summary || "");
+  }
+}
 type AgentConfig = {
   agent_key: string;
   provider: string;
@@ -116,6 +159,22 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
   >([]);
   const [bridgeOnline, setBridgeOnline] = useState<boolean | null>(null);
   const [usage, setUsage] = useState<{ usage: number; limit: number | null } | null>(null);
+  // Generic tool-call pills — covers every Claude Code tool (Read, Edit,
+  // Write, Bash, Glob, Grep, WebFetch, MCP servers) plus the legacy
+  // bridge tools (read_file, run_script). Correlated by tool_use_id.
+  const [toolCalls, setToolCalls] = useState<
+    Array<{
+      id: string;
+      kind: string;
+      label: string;
+      detail?: string;
+      output?: string;
+      error?: boolean;
+      elapsed_s?: number;
+    }>
+  >([]);
+  // Kept for legacy chat path (OASIS_CHAT_LEGACY=1) so the read/run
+  // pills still render via their dedicated path.
   const [toolReads, setToolReads] = useState<Array<{ path: string; body?: string }>>([]);
   const [toolRuns, setToolRuns] = useState<
     Array<{
@@ -232,6 +291,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
     setActions([]);
     setToolReads([]);
     setToolRuns([]);
+    setToolCalls([]);
     setExpandedReads(new Set());
     setExpandedRuns(new Set());
     setThinking(false);
@@ -264,6 +324,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
     setActions([]);
     setToolReads([]);
     setToolRuns([]);
+    setToolCalls([]);
     setExpandedReads(new Set());
     setExpandedRuns(new Set());
     setThinking(false);
@@ -354,55 +415,96 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
                 error: parsed.error,
               },
             ]);
-          } else if (event === "tool" && parsed.name === "read_file") {
+          } else if (event === "tool") {
             setThinking(true);
-            setToolReads((prev) => [
-              ...prev,
-              {
-                path: String(parsed.path || ""),
-                body: typeof parsed.body === "string" ? parsed.body : undefined,
-              },
-            ]);
-          } else if (event === "tool" && parsed.name === "run_script") {
-            setThinking(true);
-            setToolRuns((prev) => [
-              ...prev,
-              {
-                script: String(parsed.script || ""),
-                args: Array.isArray(parsed.args) ? parsed.args.map(String) : [],
-                confirm: !!parsed.confirm,
-                output: typeof parsed.output === "string" ? parsed.output : undefined,
-              },
-            ]);
-          } else if (event === "tool_result" && parsed.name === "read_file") {
-            // Backfill body onto the most recent matching read pill so the
-            // operator can expand it inline. Path-match keeps multi-read
-            // turns correlated.
-            setToolReads((prev) => {
-              const next = [...prev];
-              for (let i = next.length - 1; i >= 0; i--) {
-                if (next[i].path === String(parsed.path || "") && next[i].body === undefined) {
-                  next[i] = { ...next[i], body: typeof parsed.body === "string" ? parsed.body : undefined };
-                  break;
-                }
-              }
-              return next;
-            });
-          } else if (event === "tool_result" && parsed.name === "run_script") {
-            setToolRuns((prev) => {
-              const next = [...prev];
-              for (let i = next.length - 1; i >= 0; i--) {
-                if (next[i].script === String(parsed.script || "") && next[i].output === undefined) {
-                  next[i] = {
-                    ...next[i],
+            const toolName = String(parsed.name || "tool");
+            const toolUseId = String(parsed.tool_use_id || "");
+            const isClaudePath = !!parsed.raw_name;
+            if (isClaudePath) {
+              // Claude Code subprocess path — unified pill list.
+              const entryId = toolUseId || `${toolName}-${Date.now()}-${Math.random()}`;
+              setToolCalls((prev) => [
+                ...prev,
+                {
+                  id: entryId,
+                  kind: toolName,
+                  label: _toolLabel(parsed),
+                  detail: _toolDetail(parsed),
+                },
+              ]);
+            } else {
+              // Legacy bridge path — split read/run lists (kept for
+              // OASIS_CHAT_LEGACY=1 rollback support).
+              if (toolName === "read_file") {
+                setToolReads((prev) => [
+                  ...prev,
+                  {
+                    path: String(parsed.path || ""),
+                    body: typeof parsed.body === "string" ? parsed.body : undefined,
+                  },
+                ]);
+              } else if (toolName === "run_script") {
+                setToolRuns((prev) => [
+                  ...prev,
+                  {
+                    script: String(parsed.script || ""),
+                    args: Array.isArray(parsed.args) ? parsed.args.map(String) : [],
+                    confirm: !!parsed.confirm,
                     output: typeof parsed.output === "string" ? parsed.output : undefined,
-                    elapsed_s: undefined,
-                  };
-                  break;
-                }
+                  },
+                ]);
               }
-              return next;
-            });
+            }
+          } else if (event === "tool_result") {
+            const toolUseId = String(parsed.tool_use_id || "");
+            const body =
+              typeof parsed.body === "string"
+                ? parsed.body
+                : typeof parsed.output === "string"
+                  ? parsed.output
+                  : undefined;
+            // Match by tool_use_id first (Claude Code), then by name+ordinal
+            // for legacy path.
+            if (toolUseId) {
+              setToolCalls((prev) => {
+                const next = [...prev];
+                for (let i = next.length - 1; i >= 0; i--) {
+                  if (next[i].id === toolUseId) {
+                    next[i] = {
+                      ...next[i],
+                      output: body,
+                      error: !!parsed.error,
+                      elapsed_s: undefined,
+                    };
+                    break;
+                  }
+                }
+                return next;
+              });
+            }
+            if (parsed.name === "read_file") {
+              setToolReads((prev) => {
+                const next = [...prev];
+                for (let i = next.length - 1; i >= 0; i--) {
+                  if (next[i].path === String(parsed.path || "") && next[i].body === undefined) {
+                    next[i] = { ...next[i], body };
+                    break;
+                  }
+                }
+                return next;
+              });
+            } else if (parsed.name === "run_script") {
+              setToolRuns((prev) => {
+                const next = [...prev];
+                for (let i = next.length - 1; i >= 0; i--) {
+                  if (next[i].script === String(parsed.script || "") && next[i].output === undefined) {
+                    next[i] = { ...next[i], output: body, elapsed_s: undefined };
+                    break;
+                  }
+                }
+                return next;
+              });
+            }
           } else if (event === "tool_progress" && parsed.name === "run_script") {
             // Bridge ticks every 10s while a long script runs. Surface the
             // elapsed time on the matching pill so the operator knows it's
@@ -594,6 +696,9 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
               });
             }}
           />
+        )}
+        {toolCalls.length > 0 && (
+          <ToolCallList entries={toolCalls} />
         )}
         {actions.length > 0 && (
           <div className="space-y-1.5">
@@ -954,6 +1059,77 @@ function ToolRunList({
             {isOpen && r.output && (
               <pre className="mt-1.5 max-h-64 overflow-auto rounded-md border border-bg-border bg-bg-deep/60 p-2 text-[10px] font-mono text-fg-muted whitespace-pre-wrap">
                 <code>{r.output}</code>
+              </pre>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Unified pill list for the Claude Code subprocess path. Each entry is
+ * one tool invocation (Read, Edit, Write, Bash, Glob, Grep, WebFetch,
+ * MCP server call, etc). Output streams in via tool_result correlated
+ * by tool_use_id. Click to expand the body inline.
+ */
+function ToolCallList({
+  entries,
+}: {
+  entries: Array<{
+    id: string;
+    kind: string;
+    label: string;
+    detail?: string;
+    output?: string;
+    error?: boolean;
+  }>;
+}) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  function toggle(id: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+  const tone = (e: { error?: boolean; output?: string }) =>
+    e.error
+      ? "bg-status-warm/10 border-status-warm/30 text-status-warm"
+      : e.output
+        ? "bg-accent/10 border-accent/30 text-accent"
+        : "bg-bg-elev/40 border-bg-border text-fg-muted animate-pulse-slow";
+  return (
+    <div className="space-y-1.5">
+      {entries.map((e) => {
+        const isOpen = expanded.has(e.id);
+        const canExpand = !!e.output;
+        return (
+          <div key={e.id} className="text-[11px]">
+            <button
+              type="button"
+              disabled={!canExpand}
+              onClick={() => canExpand && toggle(e.id)}
+              className={`inline-flex items-center gap-1 font-mono px-2 py-0.5 rounded-full border ${tone(e)} ${
+                canExpand ? "hover:opacity-90 cursor-pointer" : "cursor-default"
+              }`}
+              title={e.error ? "tool returned an error" : canExpand ? "click to expand output" : "running…"}
+            >
+              {canExpand && (
+                <ChevronRight
+                  className={`w-3 h-3 transition-transform ${isOpen ? "rotate-90" : ""}`}
+                />
+              )}
+              <span className="font-bold">{e.label}</span>
+              {e.detail && (
+                <span className="text-fg-dim truncate max-w-[28ch]">· {e.detail}</span>
+              )}
+            </button>
+            {isOpen && e.output && (
+              <pre className="mt-1.5 max-h-64 overflow-auto rounded-md border border-bg-border bg-bg-deep/60 p-2 text-[10px] font-mono text-fg-muted whitespace-pre-wrap">
+                <code>{e.output}</code>
               </pre>
             )}
           </div>
