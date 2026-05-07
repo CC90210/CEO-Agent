@@ -7,7 +7,13 @@
  *
  * No SDK deps — straight fetch against each vendor's REST API. Keeps the
  * Vercel bundle small and avoids version drift.
+ *
+ * Provider 5xx / 429 errors auto-retry via fetchWithRetry (3 attempts,
+ * 2s/4s/8s with jitter) so a single Anthropic/OpenRouter blip doesn't
+ * kill the chat. Once we have an open stream we don't retry mid-stream.
  */
+
+import { fetchWithRetry } from "./retry";
 
 export type ChatRole = "system" | "user" | "assistant";
 export type ChatMessage = { role: ChatRole; content: string };
@@ -124,7 +130,7 @@ async function* streamOpenRouter(req: ChatRequest): AsyncGenerator<StreamEvent> 
     stream: true,
     max_tokens: req.maxTokens ?? 4096,
   };
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+  const res = await fetchWithRetry("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -135,7 +141,14 @@ async function* streamOpenRouter(req: ChatRequest): AsyncGenerator<StreamEvent> 
     body: JSON.stringify(body),
   });
   if (!res.ok || !res.body) {
-    yield { type: "error", message: `openrouter_${res.status}:${await safeText(res)}` };
+    const detail = await safeText(res);
+    yield {
+      type: "error",
+      message:
+        res.status >= 500 || res.status === 429
+          ? `provider_temporarily_unavailable:openrouter_${res.status}`
+          : `openrouter_${res.status}:${detail}`,
+    };
     return;
   }
   let inputTokens = 0;
@@ -168,7 +181,7 @@ async function* streamAnthropic(req: ChatRequest): AsyncGenerator<StreamEvent> {
       .filter((m) => m.role !== "system")
       .map((m) => ({ role: m.role, content: m.content })),
   };
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await fetchWithRetry("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -178,7 +191,14 @@ async function* streamAnthropic(req: ChatRequest): AsyncGenerator<StreamEvent> {
     body: JSON.stringify(body),
   });
   if (!res.ok || !res.body) {
-    yield { type: "error", message: `anthropic_${res.status}:${await safeText(res)}` };
+    const detail = await safeText(res);
+    yield {
+      type: "error",
+      message:
+        res.status >= 500 || res.status === 429
+          ? `provider_temporarily_unavailable:anthropic_${res.status}`
+          : `anthropic_${res.status}:${detail}`,
+    };
     return;
   }
   let inputTokens = 0;
@@ -215,7 +235,7 @@ async function* streamOpenAI(req: ChatRequest): AsyncGenerator<StreamEvent> {
     stream_options: { include_usage: true },
     max_completion_tokens: req.maxTokens ?? 4096,
   };
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+  const res = await fetchWithRetry("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -224,7 +244,14 @@ async function* streamOpenAI(req: ChatRequest): AsyncGenerator<StreamEvent> {
     body: JSON.stringify(body),
   });
   if (!res.ok || !res.body) {
-    yield { type: "error", message: `openai_${res.status}:${await safeText(res)}` };
+    const detail = await safeText(res);
+    yield {
+      type: "error",
+      message:
+        res.status >= 500 || res.status === 429
+          ? `provider_temporarily_unavailable:openai_${res.status}`
+          : `openai_${res.status}:${detail}`,
+    };
     return;
   }
   let inputTokens = 0;
@@ -263,13 +290,20 @@ async function* streamGoogle(req: ChatRequest): AsyncGenerator<StreamEvent> {
   if (req.system) {
     body.systemInstruction = { role: "user", parts: [{ text: req.system }] };
   }
-  const res = await fetch(url, {
+  const res = await fetchWithRetry(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
   if (!res.ok || !res.body) {
-    yield { type: "error", message: `google_${res.status}:${await safeText(res)}` };
+    const detail = await safeText(res);
+    yield {
+      type: "error",
+      message:
+        res.status >= 500 || res.status === 429
+          ? `provider_temporarily_unavailable:google_${res.status}`
+          : `google_${res.status}:${detail}`,
+    };
     return;
   }
   let inputTokens = 0;

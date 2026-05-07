@@ -720,6 +720,66 @@ def _touch_lead_last_contact(db: Any, lead_id: Optional[str], action_type: str) 
             print(f"[send_gateway] leads.last_contacted_at update warning: {exc}", file=sys.stderr)
 
 
+def _resolve_tenant_for_lead(db: Any, lead_id: Optional[str]) -> Optional[str]:
+    """Look up the tenant for a lead so the new lead_interactions row carries
+    tenant_id. Without this, the dashboard's tenant-filtered Pipeline +
+    Operations Activity Tape miss every recent send (they fall back to older
+    backfill rows that still have tenant_id stamped). Returns None on miss
+    so callers can write tenant-less rows as a degraded fallback."""
+    if not lead_id:
+        return None
+    try:
+        r = db.table("leads").select("tenant_id").eq("id", lead_id).limit(1).execute()
+        if r.data and r.data[0].get("tenant_id"):
+            return str(r.data[0]["tenant_id"])
+    except Exception as exc:  # noqa: BLE001
+        print(f"[send_gateway] tenant lookup warning: {exc}", file=sys.stderr)
+    return None
+
+
+def _writethrough_outbound_log(
+    *,
+    lead_id: Optional[str],
+    to_email: Optional[str],
+    subject: Optional[str],
+    content_preview: Optional[str],
+    action_type: str,
+    channel: str,
+    agent_source: str,
+    metadata: Optional[dict[str, Any]],
+) -> None:
+    """Best-effort POST to /api/outbound/log so the dashboard sees the send +
+    the Operations Activity Tape gets an outbound.sent event. Skips silently
+    when env vars aren't configured. Never raises — caller is the send loop.
+
+    Only fires for confirmed sends (`*_sent` action types). Blocked / queued
+    / dry_run land here as no-ops because we don't want to pollute the tape
+    with non-sends.
+    """
+    if not action_type.endswith("_sent"):
+        return
+    if not to_email:
+        return
+    try:
+        # Lazy import — avoids circular costs if the module is unused
+        from _outbound_log_post import post_outbound_log  # type: ignore
+    except Exception as exc:  # noqa: BLE001
+        print(f"[send_gateway] outbound write-back import warning: {exc}", file=sys.stderr)
+        return
+    ok, _interaction_id, err = post_outbound_log(
+        to_email=to_email,
+        subject=subject or "",
+        body_preview=content_preview or "",
+        lead_id=lead_id,
+        status="sent",
+        channel=channel,
+        agent_source=agent_source,
+        metadata=metadata or {},
+    )
+    if not ok and err and err != "missing_env":
+        print(f"[send_gateway] outbound write-back failed: {err}", file=sys.stderr)
+
+
 def _update_interaction_row(db: Any, interaction_id: str, payload: dict[str, Any]) -> bool:
     try:
         db.table("lead_interactions").update(payload).eq("id", interaction_id).execute()
@@ -922,6 +982,13 @@ def finalize_reserved_action(
         "agent_source": agent_source,
         "metadata": final_metadata,
     }
+    # Stamp tenant_id on the reservation row at finalize time so the dashboard
+    # sees the completed send. Reservations are created tenant-less (the
+    # pre-send code path doesn't have a lead lookup); finalize is the right
+    # spot to attach tenant.
+    tenant_id = _resolve_tenant_for_lead(db, lead_id)
+    if tenant_id:
+        payload["tenant_id"] = tenant_id
     if action_type.endswith("_sent") and cooldown_hours and cooldown_hours > 0:
         payload["cooldown_until"] = (now + timedelta(hours=cooldown_hours)).isoformat()
     else:
@@ -941,6 +1008,18 @@ def finalize_reserved_action(
         )
     if action_type.endswith("_sent"):
         _touch_lead_last_contact(db, lead_id, action_type)
+
+    # Dashboard write-through (same as log_action). Best-effort.
+    _writethrough_outbound_log(
+        lead_id=lead_id,
+        to_email=to_email,
+        subject=subject,
+        content_preview=content_preview,
+        action_type=action_type,
+        channel=channel,
+        agent_source=agent_source,
+        metadata=metadata,
+    )
     return interaction_id
 
 def log_action(
@@ -987,6 +1066,15 @@ def log_action(
     if cooldown_until:
         row["cooldown_until"] = cooldown_until
 
+    # Stamp tenant_id from the lead so the dashboard's tenant-filtered
+    # Pipeline + Operations queries see this row. Without this, recent
+    # sends are invisible (pre-fix: rows landed with tenant_id=NULL,
+    # so the UI fell back to older tenant-tagged backfill rows that
+    # made "Recent Outbound" appear stale).
+    tenant_id = _resolve_tenant_for_lead(db, lead_id)
+    if tenant_id:
+        row["tenant_id"] = tenant_id
+
     interaction_id: Optional[str] = None
     try:
         res = db.table("lead_interactions").insert(row).execute()
@@ -1023,6 +1111,20 @@ def log_action(
 
     # Update leads.last_contacted_at so the CRM view stays fresh.
     _touch_lead_last_contact(db, lead_id, action_type)
+
+    # Dashboard write-through: publish outbound.sent to agent_events so the
+    # Operations Activity Tape lights up. Best-effort; no-ops if env vars
+    # aren't configured (operator hasn't issued an HMAC secret yet).
+    _writethrough_outbound_log(
+        lead_id=lead_id,
+        to_email=to_email,
+        subject=subject,
+        content_preview=content_preview,
+        action_type=action_type,
+        channel=channel,
+        agent_source=agent_source,
+        metadata=metadata,
+    )
 
     return interaction_id
 

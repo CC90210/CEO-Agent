@@ -214,13 +214,23 @@ export async function agentStates(): Promise<AgentStateSnapshot[]> {
   return (r.data as AgentStateSnapshot[]) || [];
 }
 
-export async function recentEvents(limit = 25): Promise<AgentEvent[]> {
+export async function recentEvents(
+  limit = 25,
+  opts?: { sinceDays?: number; tenantId?: string | null }
+): Promise<AgentEvent[]> {
   const db = getServiceSupabase();
-  const r = await db
-    .from("agent_events")
-    .select("*")
-    .order("published_at", { ascending: false })
-    .limit(limit);
+  let q = db.from("agent_events").select("*");
+  if (opts?.tenantId) q = q.eq("tenant_id", opts.tenantId);
+  // Default: 7-day freshness window. The Operations Activity Tape used to
+  // show 16d-old workshop noise because nothing capped the window. Caller
+  // can pass sinceDays:0 to disable.
+  const sinceDays = opts?.sinceDays ?? 7;
+  if (sinceDays > 0) {
+    const since = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000).toISOString();
+    q = q.gte("published_at", since);
+  }
+  q = q.order("published_at", { ascending: false }).limit(limit);
+  const r = await q;
   return (r.data as AgentEvent[]) || [];
 }
 
