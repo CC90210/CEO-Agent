@@ -300,6 +300,31 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
                 output: typeof parsed.output === "string" ? parsed.output : undefined,
               },
             ]);
+          } else if (event === "tool_result" && parsed.name === "read_file") {
+            // Backfill body onto the most recent matching read pill so the
+            // operator can expand it inline. Path-match keeps multi-read
+            // turns correlated.
+            setToolReads((prev) => {
+              const next = [...prev];
+              for (let i = next.length - 1; i >= 0; i--) {
+                if (next[i].path === String(parsed.path || "") && next[i].body === undefined) {
+                  next[i] = { ...next[i], body: typeof parsed.body === "string" ? parsed.body : undefined };
+                  break;
+                }
+              }
+              return next;
+            });
+          } else if (event === "tool_result" && parsed.name === "run_script") {
+            setToolRuns((prev) => {
+              const next = [...prev];
+              for (let i = next.length - 1; i >= 0; i--) {
+                if (next[i].script === String(parsed.script || "") && next[i].output === undefined) {
+                  next[i] = { ...next[i], output: typeof parsed.output === "string" ? parsed.output : undefined };
+                  break;
+                }
+              }
+              return next;
+            });
           } else if (event === "error") {
             setError(parsed.message || "stream_error");
           }
