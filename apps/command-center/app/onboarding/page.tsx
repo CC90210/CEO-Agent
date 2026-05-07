@@ -1,14 +1,43 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Sparkles } from "lucide-react";
-import { getSessionUser } from "@/lib/supabase-server";
+import { getSessionUser, getServiceSupabase } from "@/lib/supabase-server";
 import { OnboardingFlow } from "@/components/landing/OnboardingFlow";
+import { PairingStatus } from "@/components/landing/PairingStatus";
 
 export const dynamic = "force-dynamic";
+
+const FRESH_MS = 5 * 60 * 1000;
+
+async function _initialPaired(authUserId: string): Promise<boolean> {
+  try {
+    const db = getServiceSupabase();
+    const { data: profile } = await db
+      .from("user_profiles")
+      .select("tenant_id")
+      .eq("auth_user_id", authUserId)
+      .maybeSingle();
+    const tenantId = (profile?.tenant_id as string | null) || null;
+    if (!tenantId) return false;
+    const { data } = await db
+      .from("bridge_pairings")
+      .select("last_seen_at, revoked_at")
+      .eq("tenant_id", tenantId)
+      .is("revoked_at", null)
+      .order("last_seen_at", { ascending: false })
+      .limit(1);
+    const last = data?.[0]?.last_seen_at as string | null | undefined;
+    if (!last) return false;
+    return Date.now() - new Date(last).getTime() < FRESH_MS;
+  } catch {
+    return false;
+  }
+}
 
 export default async function OnboardingPage() {
   const user = await getSessionUser().catch(() => null);
   if (!user) redirect("/login?next=/onboarding");
+  const initialPaired = await _initialPaired(user.id);
 
   return (
     <main className="min-h-screen bg-bg-deep relative overflow-hidden">
@@ -45,6 +74,10 @@ export default async function OnboardingPage() {
           <p className="mt-3 text-fg-muted">
             Pick how to power your agents, paste a key, optionally pair your machine for file access. Each step is optional — you can change everything later in Settings.
           </p>
+        </div>
+
+        <div className="mb-6">
+          <PairingStatus initialPaired={initialPaired} />
         </div>
 
         <OnboardingFlow userEmail={user.email || ""} />

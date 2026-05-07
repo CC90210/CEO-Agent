@@ -563,6 +563,15 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
+# Open the dashboard the moment the wizard exits cleanly. step_finalize
+# already spawned the bridge on :9100, so the chat header turns cyan
+# ("local bridge - full repo access") within ~2s of the page loading.
+# Skip with $env:OASIS_SKIP_BROWSER_OPEN = '1' for CI / silent installs.
+if ($env:OASIS_SKIP_BROWSER_OPEN -ne '1') {
+    $dashUrl = if ($env:OASIS_DASHBOARD_URL) { $env:OASIS_DASHBOARD_URL } else { 'https://agent-dashboard-cc90210.vercel.app' }
+    try { Start-Process "$dashUrl/agents" | Out-Null } catch { }
+}
+
 Write-Host ""
 Write-Host "[+] Done." -ForegroundColor Green
 Write-Host "   Open a new PowerShell window to pick up the PATH change."

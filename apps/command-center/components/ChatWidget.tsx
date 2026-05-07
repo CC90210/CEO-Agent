@@ -11,14 +11,68 @@
  * Phase 2: paired local bridge unlocks file tree + actual Claude Code spawning.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Send, AlertCircle, Settings as Cog, Loader2, Sparkles, RefreshCw, Cpu } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Send,
+  AlertCircle,
+  Settings as Cog,
+  Loader2,
+  Sparkles,
+  RefreshCw,
+  Cpu,
+  ArrowDown,
+  Check,
+  ChevronRight,
+  Clipboard,
+} from "lucide-react";
 import Link from "next/link";
 import { getAgentInfo } from "@/lib/agents";
 import { BRIDGE_CHAT_BASE } from "@/lib/agent-roots";
 
 type Role = "user" | "assistant" | "system";
-type Msg = { role: Role; content: string };
+type Msg = { role: Role; content: string; at: number };
+
+const AGENT_SUGGESTIONS: Record<string, string[]> = {
+  bravo: [
+    "Show me my MRR + this week's revenue movement",
+    "Which leads are qualified and ready to close?",
+    "Send a check-in to Jonathan",
+    "Run the daily briefing",
+  ],
+  atlas: [
+    "Summarize this week's net worth + cash position",
+    "Show me what's owing on tax this quarter",
+    "Run a FIRE projection with current inputs",
+    "Any red-flag transactions in the last 7 days?",
+  ],
+  maven: [
+    "Draft 3 hooks for tomorrow's content drop",
+    "What's working in our latest ads?",
+    "Build a funnel audit on the booking page",
+    "Plan this week's content calendar",
+  ],
+  aura: [
+    "Run the morning briefing",
+    "Summarize last night's sleep + recovery",
+    "Draft this week's habit audit",
+    "What's on the calendar today?",
+  ],
+  hermes: [
+    "Status of open POs + chargebacks",
+    "Draft the EDI 856 for the latest shipment",
+    "Show me yesterday's A2000 sync log",
+    "Any commerce alerts I need to handle?",
+  ],
+};
+
+function _suggestionsFor(agent: string): string[] {
+  return AGENT_SUGGESTIONS[agent] || [
+    "What can you do?",
+    "Run the daily briefing",
+    "Show me what changed in the last 24 hours",
+    "Read brain/STATE.md",
+  ];
+}
 type AgentConfig = {
   agent_key: string;
   provider: string;
@@ -47,10 +101,14 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
     Array<{ ok: boolean; type: string; summary?: string; error?: string }>
   >([]);
   const [bridgeOnline, setBridgeOnline] = useState<boolean | null>(null);
-  const [toolReads, setToolReads] = useState<string[]>([]);
+  const [toolReads, setToolReads] = useState<Array<{ path: string; body?: string }>>([]);
   const [toolRuns, setToolRuns] = useState<
-    Array<{ script: string; args: string[]; confirm: boolean }>
+    Array<{ script: string; args: string[]; confirm: boolean; output?: string }>
   >([]);
+  const [awayFromBottom, setAwayFromBottom] = useState(false);
+  const [expandedReads, setExpandedReads] = useState<Set<number>>(new Set());
+  const [expandedRuns, setExpandedRuns] = useState<Set<number>>(new Set());
+  const [thinking, setThinking] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -89,8 +147,9 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
   }, []);
 
   useEffect(() => {
+    if (awayFromBottom) return;
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, streaming]);
+  }, [messages, streaming, awayFromBottom]);
 
   useEffect(() => {
     setMessages([]);
@@ -99,7 +158,23 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
     setActions([]);
     setToolReads([]);
     setToolRuns([]);
+    setExpandedReads(new Set());
+    setExpandedRuns(new Set());
+    setThinking(false);
+    setAwayFromBottom(false);
   }, [agent]);
+
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    setAwayFromBottom(distanceFromBottom > 80);
+  }, []);
+
+  function jumpToLatest() {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    setAwayFromBottom(false);
+  }
 
   const cfg = useMemo(() => configs.find((c) => c.agent_key === agent) || null, [configs, agent]);
   const hasOwnKey = cfg?.has_key && cfg?.enabled;
@@ -115,17 +190,28 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
     setActions([]);
     setToolReads([]);
     setToolRuns([]);
+    setExpandedReads(new Set());
+    setExpandedRuns(new Set());
+    setThinking(false);
+    setAwayFromBottom(false);
+  }
+
+  function applySuggestion(text: string) {
+    setInput(text);
+    setTimeout(() => inputRef.current?.focus(), 50);
   }
 
   async function send() {
     const text = input.trim();
     if (!text || streaming) return;
     setError(null);
-    const newMessages: Msg[] = [...messages, { role: "user", content: text }];
+    const now = Date.now();
+    const newMessages: Msg[] = [...messages, { role: "user", content: text, at: now }];
     setMessages(newMessages);
     setInput("");
-    setMessages((m) => [...m, { role: "assistant", content: "" }]);
+    setMessages((m) => [...m, { role: "assistant", content: "", at: Date.now() }]);
     setStreaming(true);
+    setThinking(true);
 
     try {
       // Routing decision:
@@ -175,6 +261,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
           }
           if (event === "session" && parsed.session_id) setSessionId(parsed.session_id);
           else if (event === "delta" && typeof parsed.text === "string") {
+            setThinking(false);
             setMessages((m) => {
               const next = [...m];
               const last = next[next.length - 1];
@@ -194,14 +281,23 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
               },
             ]);
           } else if (event === "tool" && parsed.name === "read_file") {
-            setToolReads((prev) => [...prev, String(parsed.path || "")]);
+            setThinking(true);
+            setToolReads((prev) => [
+              ...prev,
+              {
+                path: String(parsed.path || ""),
+                body: typeof parsed.body === "string" ? parsed.body : undefined,
+              },
+            ]);
           } else if (event === "tool" && parsed.name === "run_script") {
+            setThinking(true);
             setToolRuns((prev) => [
               ...prev,
               {
                 script: String(parsed.script || ""),
                 args: Array.isArray(parsed.args) ? parsed.args.map(String) : [],
                 confirm: !!parsed.confirm,
+                output: typeof parsed.output === "string" ? parsed.output : undefined,
               },
             ]);
           } else if (event === "error") {
@@ -214,6 +310,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
       setMessages((m) => m.slice(0, -1));
     } finally {
       setStreaming(false);
+      setThinking(false);
       // Auto-focus the input so power-users can keep typing
       setTimeout(() => inputRef.current?.focus(), 50);
     }
@@ -311,52 +408,63 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
       )}
 
       {/* Transcript */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-5 space-y-4 chat-scroll relative z-10">
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto px-5 py-5 space-y-4 chat-scroll relative z-10"
+      >
         {!messages.length && !error && (
-          <EmptyTranscript ready={!!ready} agent={agent} configsLoaded={configsLoaded} isAdmin={!!isAdmin} />
+          <EmptyTranscript
+            ready={!!ready}
+            agent={agent}
+            configsLoaded={configsLoaded}
+            isAdmin={!!isAdmin}
+            onSuggestion={applySuggestion}
+          />
         )}
         {messages.map((m, i) => (
           <Bubble
             key={i}
             role={m.role}
+            agent={agent}
             content={stripActionMarkers(m.content)}
+            at={m.at}
             streaming={streaming && i === messages.length - 1 && m.role === "assistant"}
           />
         ))}
-        {toolReads.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {toolReads.map((p, i) => (
-              <span
-                key={i}
-                className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-accent/10 border border-accent/20 text-accent"
-                title="Agent read this file from its repo"
-              >
-                read · {p}
-              </span>
-            ))}
+        {thinking && streaming && (
+          <div className="flex items-center gap-2 text-fg-dim text-xs ml-9">
+            <span className="typing-dots"><span /><span /><span /></span>
+            <span>thinking…</span>
           </div>
         )}
+        {toolReads.length > 0 && (
+          <ToolReadList
+            entries={toolReads}
+            expanded={expandedReads}
+            onToggle={(i) => {
+              setExpandedReads((prev) => {
+                const next = new Set(prev);
+                if (next.has(i)) next.delete(i);
+                else next.add(i);
+                return next;
+              });
+            }}
+          />
+        )}
         {toolRuns.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {toolRuns.map((r, i) => (
-              <span
-                key={i}
-                className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
-                  r.confirm
-                    ? "bg-status-engaged/15 border border-status-engaged/30 text-status-engaged"
-                    : "bg-status-warm/10 border border-status-warm/30 text-status-warm"
-                }`}
-                title={
-                  r.confirm
-                    ? "Agent ran this allowlisted script"
-                    : "Agent attempted a mutating script without confirm — bounced for safety"
-                }
-              >
-                {r.confirm ? "ran" : "blocked"} · {r.script}
-                {r.args.length > 0 ? ` ${r.args.slice(0, 4).join(" ")}${r.args.length > 4 ? "…" : ""}` : ""}
-              </span>
-            ))}
-          </div>
+          <ToolRunList
+            entries={toolRuns}
+            expanded={expandedRuns}
+            onToggle={(i) => {
+              setExpandedRuns((prev) => {
+                const next = new Set(prev);
+                if (next.has(i)) next.delete(i);
+                else next.add(i);
+                return next;
+              });
+            }}
+          />
         )}
         {actions.length > 0 && (
           <div className="space-y-1.5">
@@ -411,6 +519,16 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
         )}
       </div>
 
+      {awayFromBottom && (
+        <button
+          type="button"
+          onClick={jumpToLatest}
+          className="absolute right-6 bottom-24 z-20 rounded-full border border-accent/40 bg-bg-panel/90 backdrop-blur px-3 py-1.5 text-[11px] font-mono text-accent hover:bg-accent/10 transition-colors flex items-center gap-1 shadow-[0_4px_16px_-4px_rgba(0,212,255,0.4)]"
+        >
+          <ArrowDown className="w-3 h-3" /> jump to latest
+        </button>
+      )}
+
       {/* Composer */}
       <form
         onSubmit={(e) => {
@@ -448,11 +566,13 @@ function EmptyTranscript({
   agent,
   configsLoaded,
   isAdmin,
+  onSuggestion,
 }: {
   ready: boolean;
   agent: string;
   configsLoaded: boolean;
   isAdmin: boolean;
+  onSuggestion: (text: string) => void;
 }) {
   if (!configsLoaded) {
     return (
@@ -488,46 +608,217 @@ function EmptyTranscript({
       </div>
     );
   }
+  const suggestions = _suggestionsFor(agent);
   return (
-    <div className="rounded-lg border border-bg-border bg-bg-elev/50 p-5 text-sm space-y-2">
-      <div className="text-accent font-bold uppercase tracking-[0.14em] text-xs flex items-center gap-2">
-        <span className="agent-pill-dot" />
-        Ready
+    <div className="space-y-4">
+      <div className="rounded-lg border border-bg-border bg-bg-elev/50 p-5 text-sm space-y-2">
+        <div className="text-accent font-bold uppercase tracking-[0.14em] text-xs flex items-center gap-2">
+          <span className="agent-pill-dot" />
+          Ready
+        </div>
+        <p className="text-fg-muted">
+          {isAdmin
+            ? `Talking to ${agent.toUpperCase()} via the platform default key.`
+            : `${agent.toUpperCase()} is configured and ready.`} Ask anything — strategy, drafting, debugging, ops.
+        </p>
       </div>
-      <p className="text-fg-muted">
-        {isAdmin
-          ? `Talking to ${agent.toUpperCase()} via the platform default key.`
-          : `${agent.toUpperCase()} is configured and ready.`} Ask anything — strategy, drafting, debugging, ops.
-      </p>
+      <div>
+        <div className="text-[10px] uppercase tracking-wider font-bold text-fg-muted mb-2">
+          Try one of these
+        </div>
+        <div className="grid sm:grid-cols-2 gap-2">
+          {suggestions.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => onSuggestion(s)}
+              className="text-left rounded-lg border border-bg-border bg-bg-elev/40 hover:border-accent/40 hover:bg-accent/5 transition-all px-3 py-2.5 text-xs text-fg leading-snug"
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
 
 function Bubble({
   role,
+  agent,
   content,
+  at,
   streaming,
 }: {
   role: Role;
+  agent: string;
   content: string;
+  at: number;
   streaming: boolean;
 }) {
   const isUser = role === "user";
+  const [copied, setCopied] = useState(false);
+
+  function handleCopy() {
+    if (typeof navigator === "undefined" || !navigator.clipboard) return;
+    navigator.clipboard.writeText(content).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }
+
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-      <div
-        className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-          isUser ? "bubble-user" : `bubble-assistant ${streaming ? "streaming" : ""}`
-        }`}
-      >
-        {content ? (
-          <FormattedContent content={content} />
-        ) : streaming ? (
-          <div className="typing-dots"><span /><span /><span /></div>
-        ) : null}
+    <div className={`group flex items-start gap-2 ${isUser ? "justify-end" : "justify-start"}`}>
+      {!isUser && <AgentAvatar agent={agent} />}
+      <div className={`max-w-[88%] flex flex-col gap-1 ${isUser ? "items-end" : "items-start"}`}>
+        <div
+          className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+            isUser ? "bubble-user" : `bubble-assistant ${streaming ? "streaming" : ""}`
+          }`}
+        >
+          {content ? (
+            <FormattedContent content={content} />
+          ) : streaming ? (
+            <div className="typing-dots"><span /><span /><span /></div>
+          ) : null}
+        </div>
+        <div className="flex items-center gap-2 px-1 opacity-0 group-hover:opacity-100 transition-opacity text-[10px] text-fg-dim">
+          <span className="font-mono">{_relTime(at)}</span>
+          {!isUser && content && (
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="hover:text-accent transition-colors inline-flex items-center gap-0.5"
+              title="Copy reply"
+            >
+              {copied ? <Check className="w-3 h-3 text-status-engaged" /> : <Clipboard className="w-3 h-3" />}
+              {copied ? "copied" : "copy"}
+            </button>
+          )}
+        </div>
       </div>
+      {isUser && <UserAvatar />}
     </div>
   );
+}
+
+function AgentAvatar({ agent }: { agent: string }) {
+  const initial = agent.slice(0, 1).toUpperCase();
+  const info = getAgentInfo(agent);
+  return (
+    <div
+      className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black tracking-tight border bg-bg-elev/80 ${info.textClass}`}
+      style={{ borderColor: "currentColor" }}
+      title={agent.toUpperCase()}
+    >
+      {initial}
+    </div>
+  );
+}
+
+function UserAvatar() {
+  return (
+    <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black tracking-tight border border-bg-border bg-bg-elev/80 text-fg-muted">
+      You
+    </div>
+  );
+}
+
+function ToolReadList({
+  entries,
+  expanded,
+  onToggle,
+}: {
+  entries: Array<{ path: string; body?: string }>;
+  expanded: Set<number>;
+  onToggle: (i: number) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      {entries.map((p, i) => {
+        const isOpen = expanded.has(i);
+        const canExpand = !!p.body;
+        return (
+          <div key={i} className="text-[11px]">
+            <button
+              type="button"
+              disabled={!canExpand}
+              onClick={() => canExpand && onToggle(i)}
+              className={`inline-flex items-center gap-1 font-mono px-2 py-0.5 rounded-full bg-accent/10 border border-accent/20 text-accent ${
+                canExpand ? "hover:bg-accent/20 cursor-pointer" : "cursor-default"
+              }`}
+              title={canExpand ? "Click to expand file body" : "Agent read this file"}
+            >
+              {canExpand && <ChevronRight className={`w-3 h-3 transition-transform ${isOpen ? "rotate-90" : ""}`} />}
+              read · {p.path}
+            </button>
+            {isOpen && p.body && (
+              <pre className="mt-1.5 max-h-64 overflow-auto rounded-md border border-accent/20 bg-bg-deep/60 p-2 text-[10px] font-mono text-fg-muted whitespace-pre-wrap">
+                <code>{p.body}</code>
+              </pre>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ToolRunList({
+  entries,
+  expanded,
+  onToggle,
+}: {
+  entries: Array<{ script: string; args: string[]; confirm: boolean; output?: string }>;
+  expanded: Set<number>;
+  onToggle: (i: number) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      {entries.map((r, i) => {
+        const isOpen = expanded.has(i);
+        const canExpand = !!r.output;
+        const tone = r.confirm
+          ? "bg-status-engaged/15 border-status-engaged/30 text-status-engaged"
+          : "bg-status-warm/10 border-status-warm/30 text-status-warm";
+        return (
+          <div key={i} className="text-[11px]">
+            <button
+              type="button"
+              disabled={!canExpand}
+              onClick={() => canExpand && onToggle(i)}
+              className={`inline-flex items-center gap-1 font-mono px-2 py-0.5 rounded-full border ${tone} ${
+                canExpand ? "hover:opacity-90 cursor-pointer" : "cursor-default"
+              }`}
+              title={
+                r.confirm
+                  ? "Agent ran this allowlisted script"
+                  : "Agent attempted a mutating script without confirm — bounced for safety"
+              }
+            >
+              {canExpand && <ChevronRight className={`w-3 h-3 transition-transform ${isOpen ? "rotate-90" : ""}`} />}
+              {r.confirm ? "ran" : "blocked"} · {r.script}
+              {r.args.length > 0 ? ` ${r.args.slice(0, 4).join(" ")}${r.args.length > 4 ? "…" : ""}` : ""}
+            </button>
+            {isOpen && r.output && (
+              <pre className="mt-1.5 max-h-64 overflow-auto rounded-md border border-bg-border bg-bg-deep/60 p-2 text-[10px] font-mono text-fg-muted whitespace-pre-wrap">
+                <code>{r.output}</code>
+              </pre>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function _relTime(at: number): string {
+  if (!at) return "";
+  const diff = Date.now() - at;
+  if (diff < 10_000) return "just now";
+  if (diff < 60_000) return `${Math.floor(diff / 1000)}s ago`;
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  return `${Math.floor(diff / 3_600_000)}h ago`;
 }
 
 /**
