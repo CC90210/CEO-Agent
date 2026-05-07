@@ -293,26 +293,43 @@ export default async function TodayPage() {
                 {inbound.map((i) => {
                   const meta = (i.metadata || {}) as Record<string, unknown>;
                   const cls = (meta.classification || {}) as Record<string, unknown>;
+                  const intent = (cls.intent as string) || "unclassified";
+                  const summary = (cls.summary as string) || "";
+                  const action = (cls.agent_action as string) || "";
+                  const tone =
+                    intent === "hot_lead" || intent === "frustrated"
+                      ? "hot"
+                      : intent === "sales" || intent === "business_opportunity" || intent === "partnership" || intent === "booking"
+                        ? "engaged"
+                        : intent === "strategic" || intent === "pricing_question"
+                          ? "accent"
+                          : intent === "ambiguous" || intent === "security"
+                            ? "warm"
+                            : "neutral";
                   return (
                     <li key={i.id} className="py-3">
-                      <div className="flex items-center gap-2">
-                        <Tag
-                          tone={
-                            (cls.intent as string) === "booking"
-                              ? "engaged"
-                              : (cls.intent as string) === "objection"
-                                ? "hot"
-                                : "neutral"
-                          }
-                        >
-                          {(cls.intent as string) || "unclassified"}
-                        </Tag>
-                        <span className="text-xs text-fg-dim">{timeAgo(i.created_at)}</span>
-                      </div>
-                      <div className="text-fg mt-1.5 text-sm">{truncate(i.subject, 80)}</div>
-                      <div className="text-xs text-fg-dim mt-0.5 font-mono">
-                        {(meta.from_identity as string) || "—"}
-                      </div>
+                      <Link
+                        href={`/interactions/${i.id}`}
+                        className="block -mx-2 px-2 py-1 rounded-md hover:bg-bg-elev transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Tag tone={tone}>{intent}</Tag>
+                          {action && action !== "silent_skip" && (
+                            <span className="text-[10px] uppercase tracking-wider font-bold text-fg-dim">
+                              {action.replace("_", " ")}
+                            </span>
+                          )}
+                          <span className="text-xs text-fg-dim ml-auto">{timeAgo(i.created_at)}</span>
+                        </div>
+                        <div className="text-fg mt-1.5 text-sm">{truncate(i.subject, 80)}</div>
+                        {summary ? (
+                          <div className="text-xs text-fg-muted mt-1 leading-relaxed">{truncate(summary, 140)}</div>
+                        ) : (
+                          <div className="text-xs text-fg-dim mt-0.5 font-mono">
+                            {(meta.from_identity as string) || "—"}
+                          </div>
+                        )}
+                      </Link>
                     </li>
                   );
                 })}
