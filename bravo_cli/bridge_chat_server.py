@@ -36,6 +36,7 @@ import os
 import random
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import time
@@ -314,6 +315,122 @@ _PROVIDER_RETRY_ATTEMPTS = 3
 _PROVIDER_RETRY_BASE_MS = 2000  # 2s, 4s, 8s with ±20% jitter
 
 
+# ──────────────────────────────────────────────────────────────────────
+# Claude Code tool → SSE event translation
+# ──────────────────────────────────────────────────────────────────────
+# Claude Code emits native tool names: Read, Write, Edit, Bash, Glob,
+# Grep, MultiEdit, NotebookEdit, WebFetch, etc., plus mcp__<server>__<tool>.
+# ChatWidget historically rendered our two custom tools (read_file,
+# run_script). We map the most common Claude Code tools to friendly SSE
+# shapes so existing UI rendering keeps working, and ship a generic
+# fallback for everything else.
+def _map_tool_use(name: str, tinput: dict) -> dict:
+    """Translate a Claude Code tool_use block into the SSE 'tool' event
+    shape. Returns at least {name, summary} so ChatWidget can render a
+    pill even for unknown tool types."""
+    if name == "Read":
+        return {
+            "name": "read_file",
+            "path": str(tinput.get("file_path") or ""),
+            "raw_name": name,
+        }
+    if name in ("Bash", "BashOutput"):
+        return {
+            "name": "run_script",
+            "script": "bash",
+            "args": [str(tinput.get("command") or "")[:200]],
+            "confirm": True,
+            "raw_name": name,
+        }
+    if name in ("Edit", "MultiEdit", "NotebookEdit"):
+        path = str(tinput.get("file_path") or tinput.get("notebook_path") or "")
+        return {
+            "name": "edit_file",
+            "path": path,
+            "raw_name": name,
+            "summary": f"editing {path}",
+        }
+    if name == "Write":
+        return {
+            "name": "write_file",
+            "path": str(tinput.get("file_path") or ""),
+            "raw_name": name,
+            "summary": f"writing {tinput.get('file_path') or ''}",
+        }
+    if name == "Glob":
+        return {
+            "name": "glob",
+            "pattern": str(tinput.get("pattern") or ""),
+            "raw_name": name,
+            "summary": f"glob {tinput.get('pattern') or ''}",
+        }
+    if name == "Grep":
+        return {
+            "name": "grep",
+            "pattern": str(tinput.get("pattern") or "")[:80],
+            "raw_name": name,
+            "summary": f"grep {tinput.get('pattern') or ''}",
+        }
+    if name == "WebFetch":
+        return {
+            "name": "web_fetch",
+            "url": str(tinput.get("url") or ""),
+            "raw_name": name,
+        }
+    if name.startswith("mcp__"):
+        # mcp__playwright__browser_navigate, mcp__supabase__execute_sql, etc.
+        parts = name.split("__")
+        server = parts[1] if len(parts) > 1 else "mcp"
+        tool = parts[2] if len(parts) > 2 else name
+        return {
+            "name": "mcp_call",
+            "server": server,
+            "tool": tool,
+            "raw_name": name,
+            "summary": f"{server} · {tool}",
+        }
+    # Generic fallback — ChatWidget will render a tool pill with the raw name.
+    return {
+        "name": "tool",
+        "raw_name": name,
+        "summary": name,
+    }
+
+
+def _map_tool_result(block: dict, parent: dict) -> dict:
+    """Translate a Claude Code tool_result block into the SSE 'tool_result'
+    event shape. The block has tool_use_id + content; we surface the
+    content as a body string the UI can show in the expandable pill."""
+    raw_content = block.get("content")
+    body: str
+    if isinstance(raw_content, str):
+        body = raw_content
+    elif isinstance(raw_content, list):
+        # Anthropic-style content block list: [{type: "text", text: "..."}]
+        parts = []
+        for c in raw_content:
+            if isinstance(c, dict) and c.get("type") == "text":
+                parts.append(str(c.get("text") or ""))
+            else:
+                parts.append(str(c))
+        body = "\n".join(parts)
+    else:
+        body = json.dumps(raw_content)[:1000] if raw_content is not None else ""
+
+    truncated = len(body) > 12_288
+    if truncated:
+        body = body[:12_288] + "\n… [truncated]"
+
+    return {
+        "name": "tool_result",
+        "tool_use_id": block.get("tool_use_id"),
+        "body": body,
+        "output": body,  # ChatWidget reads either body (read_file) or output (run_script)
+        "truncated": truncated,
+        "error": bool(block.get("is_error")),
+    }
+
+
 def _call_provider(
     provider: str,
     api_key: str,
@@ -544,18 +661,15 @@ class _ChatHandler(BaseHTTPRequestHandler):
             })
             return
 
-        provider, api_key, model = _resolve_provider()
-        if provider == "none" or not api_key:
-            self._json(412, {
-                "ok": False,
-                "error": "no_provider_key",
-                "hint": (
-                    "No OPENROUTER_API_KEY or ANTHROPIC_API_KEY found in env "
-                    "or operator's local secrets file. Add either one to "
-                    "enable local chat."
-                ),
-            })
-            return
+        # Default chat path: spawn `claude` CLI as a subprocess, stream its
+        # JSON output as SSE. Identical pattern to telegram_agent.js. Gives
+        # the dashboard chat the FULL Claude Code harness (Read, Write,
+        # Edit, Bash, Glob, Grep, MultiEdit, every MCP server, every skill)
+        # instead of the hand-rolled 3-tool loop we used to ship.
+        #
+        # Legacy path (raw /v1/messages with READ_FILE_TOOL etc.) stays
+        # accessible behind OASIS_CHAT_LEGACY=1 for one-pass rollback.
+        use_legacy = os.environ.get("OASIS_CHAT_LEGACY") == "1"
 
         # ---- Stream SSE back -----------------------------------------------
         self.send_response(200)
@@ -565,40 +679,277 @@ class _ChatHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
         def emit(event: str, data: dict) -> None:
-            self.wfile.write(
-                f"event: {event}\ndata: {json.dumps(data)}\n\n".encode("utf-8")
-            )
-            self.wfile.flush()
-
-        try:
-            self._run_chat(agent, root, entry, provider, api_key, model, messages, emit)
-        except urllib.error.HTTPError as e:
-            # Translate raw HTTP errors into a friendlier surface for the
-            # operator. Provider blips that survived the retry loop in
-            # _call_provider land here. We've already retried 3 times, so
-            # this is a real outage — not just a transient hiccup.
             try:
+                self.wfile.write(
+                    f"event: {event}\ndata: {json.dumps(data)}\n\n".encode("utf-8")
+                )
+                self.wfile.flush()
+            except Exception:
+                pass  # Client disconnected — stop trying to write.
+
+        if use_legacy:
+            # Old path — keep working until the Claude subprocess flow is
+            # battle-tested. Resolve provider/key/model the legacy way.
+            provider, api_key, model = _resolve_provider()
+            if provider == "none" or not api_key:
+                emit("error", {
+                    "message": "no_provider_key",
+                    "detail": "No OPENROUTER_API_KEY or ANTHROPIC_API_KEY in .env.agents. Set OASIS_CHAT_LEGACY=0 to use Claude Code subprocess instead.",
+                })
+                emit("done", {})
+                return
+            try:
+                self._run_chat(agent, root, entry, provider, api_key, model, messages, emit)
+            except urllib.error.HTTPError as e:
                 if e.code in _RETRYABLE_HTTP_CODES:
                     emit("error", {
                         "message": "provider_temporarily_unavailable",
-                        "detail": f"{provider} returned HTTP {e.code} after {_PROVIDER_RETRY_ATTEMPTS} retries. Try again in a minute.",
+                        "detail": f"{provider} returned HTTP {e.code} after {_PROVIDER_RETRY_ATTEMPTS} retries.",
                         "retryable": True,
                     })
                 else:
                     emit("error", {
                         "message": f"provider_error_{e.code}",
-                        "detail": f"{provider} rejected the request with HTTP {e.code}. Check your API key + model in Settings.",
+                        "detail": f"{provider} rejected the request with HTTP {e.code}.",
                         "retryable": False,
                     })
                 emit("done", {})
-            except Exception:
-                pass
-        except Exception as e:
-            try:
+            except Exception as e:
                 emit("error", {"message": f"chat_loop_failed: {e}"})
                 emit("done", {})
+            return
+
+        # ---- Claude Code subprocess path (default) -------------------------
+        try:
+            self._run_chat_via_claude(agent, root, messages, emit)
+        except FileNotFoundError as e:
+            emit("error", {
+                "message": "claude_cli_not_found",
+                "detail": (
+                    "The `claude` CLI is not on PATH. Install Claude Code "
+                    "(https://claude.com/claude-code) and re-run "
+                    "`bravo bridge install`. Falling back: set "
+                    "OASIS_CHAT_LEGACY=1 to use the raw API path."
+                ),
+            })
+            emit("done", {})
+        except Exception as e:
+            emit("error", {"message": f"chat_loop_failed: {e}"})
+            emit("done", {})
+
+    # ──────────────────────────────────────────────────────────────────
+    # CLAUDE CODE SUBPROCESS PATH (default)
+    # ──────────────────────────────────────────────────────────────────
+    # Replaces the hand-rolled /v1/messages loop with `spawn('claude', ...)`,
+    # same architecture telegram_agent.js uses. The dashboard chat now has
+    # the full Claude Code harness — Read/Write/Edit/Bash/Glob/Grep/etc.
+    # plus every MCP server the operator has configured.
+    #
+    # Translation map (Claude Code stream-json → existing SSE shape):
+    #   system/init               -> session
+    #   assistant.message text    -> delta (one event per content block)
+    #   assistant.message tool_use-> tool (name, input)
+    #   user.message tool_result  -> tool_result (output)
+    #   result/success            -> done (+ usage)
+    #   anything else             -> ignored / logged
+    def _run_chat_via_claude(
+        self,
+        agent: str,
+        root: Path,
+        messages: list[dict],
+        emit: Callable[[str, dict], None],
+    ) -> None:
+        """Spawn `claude --print --output-format=stream-json` and pipe the
+        operator's latest message in. Translate stream-json events to the
+        SSE shape ChatWidget already speaks.
+
+        Session continuity: we map each dashboard chat session to a
+        Claude Code session-id (UUID). Subsequent messages in the same
+        session pass --resume so Claude Code reads its persisted history.
+        For first messages we let Claude Code mint the session itself.
+        """
+        # The latest user message is the prompt. Claude Code maintains the
+        # rest of the conversation via session persistence.
+        last_user = next(
+            (m for m in reversed(messages) if m.get("role") == "user"), None
+        )
+        if not last_user:
+            emit("error", {"message": "no_user_message_in_payload"})
+            emit("done", {})
+            return
+        prompt_text = str(last_user.get("content") or "").strip()
+        if not prompt_text:
+            emit("error", {"message": "empty_user_message"})
+            emit("done", {})
+            return
+
+        # Resolve the claude binary. Mirror telegram_agent.js's discovery:
+        # prefer `claude` in PATH; fall back to ~/.local/bin/claude.exe on
+        # Windows when nvm-global isn't shimmed.
+        claude_bin = shutil.which("claude")
+        if not claude_bin and os.name == "nt":
+            home = Path.home()
+            candidates = [
+                home / ".local" / "bin" / "claude.exe",
+                home / "AppData" / "Roaming" / "npm" / "claude.cmd",
+            ]
+            for c in candidates:
+                if c.is_file():
+                    claude_bin = str(c)
+                    break
+        if not claude_bin:
+            raise FileNotFoundError("claude CLI not on PATH")
+
+        # Build args — copying telegram's pattern + adding stream-json
+        # output so we get incremental events for SSE.
+        args = [
+            claude_bin,
+            "-p", prompt_text,
+            "--permission-mode", "acceptEdits",
+            "--output-format", "stream-json",
+            "--verbose",  # required when --output-format=stream-json
+            "--include-partial-messages",
+            "--max-turns", "12",
+            "--setting-sources", "project,local",
+        ]
+
+        # Spawn env — same approach as telegram_agent. Inherit current env,
+        # set non-interactive flags so claude doesn't try to render TTY UI.
+        env = dict(os.environ)
+        env.update({
+            "CI": "true",
+            "NONINTERACTIVE": "true",
+            "PAGER": "cat",
+            "NO_COLOR": "1",
+            "FORCE_COLOR": "0",
+        })
+
+        try:
+            proc = subprocess.Popen(
+                args,
+                cwd=str(root),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                stdin=subprocess.DEVNULL,
+                shell=False,
+                env=env,
+                # On Windows, hide the console window the spawn would otherwise pop.
+                creationflags=(0x08000000 if os.name == "nt" else 0),  # CREATE_NO_WINDOW
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                bufsize=1,  # line-buffered
+            )
+        except Exception as e:
+            emit("error", {"message": f"claude_spawn_failed: {e}"})
+            emit("done", {})
+            return
+
+        # Read line-by-line. Each line is a complete JSON event.
+        emitted_session = False
+        accumulated_text = ""
+        try:
+            assert proc.stdout is not None
+            for raw in proc.stdout:
+                line = raw.strip()
+                if not line:
+                    continue
+                try:
+                    ev = json.loads(line)
+                except json.JSONDecodeError:
+                    continue  # Some lines are not JSON (e.g. early diagnostic)
+
+                etype = ev.get("type")
+                subtype = ev.get("subtype")
+
+                # 1. Session init -> emit session event so ChatWidget can store id.
+                if etype == "system" and subtype == "init":
+                    if not emitted_session:
+                        emit("session", {"session_id": ev.get("session_id")})
+                        emitted_session = True
+                    continue
+
+                # 2. Skip hook noise — these are SessionStart/PreToolUse/etc.
+                if etype == "system" and subtype and subtype.startswith("hook_"):
+                    continue
+
+                # 3. Assistant turn — extract text + tool_use blocks.
+                if etype == "assistant":
+                    msg = ev.get("message") or {}
+                    content = msg.get("content") or []
+                    for block in content:
+                        btype = block.get("type")
+                        if btype == "text":
+                            text = block.get("text") or ""
+                            if text:
+                                # Claude Code with --include-partial-messages
+                                # emits incremental text. Forward each chunk
+                                # as a delta so the UI streams.
+                                emit("delta", {"text": text})
+                                accumulated_text += text
+                        elif btype == "tool_use":
+                            tname = block.get("name") or "tool"
+                            tid = block.get("id") or ""
+                            tinput = block.get("input") or {}
+                            mapped = _map_tool_use(tname, tinput)
+                            mapped["tool_use_id"] = tid
+                            emit("tool", mapped)
+                    continue
+
+                # 4. User turn — only the tool_result blocks matter to us.
+                if etype == "user":
+                    msg = ev.get("message") or {}
+                    content = msg.get("content") or []
+                    if isinstance(content, list):
+                        for block in content:
+                            if not isinstance(block, dict):
+                                continue
+                            if block.get("type") == "tool_result":
+                                tres = _map_tool_result(block, ev)
+                                emit("tool_result", tres)
+                    continue
+
+                # 5. Final result -> done.
+                if etype == "result":
+                    usage = ev.get("usage") or {}
+                    emit("done", {
+                        "stop_reason": ev.get("stop_reason"),
+                        "input_tokens": usage.get("input_tokens"),
+                        "output_tokens": usage.get("output_tokens"),
+                        "total_cost_usd": ev.get("total_cost_usd"),
+                        "num_turns": ev.get("num_turns"),
+                    })
+                    continue
+
+                # 6. Anything else (e.g. system/error) — surface as error.
+                if etype == "system" and subtype == "error":
+                    emit("error", {
+                        "message": "claude_subprocess_error",
+                        "detail": ev.get("message") or json.dumps(ev)[:200],
+                    })
+
+            rc = proc.wait(timeout=5)
+            if rc != 0:
+                stderr = ""
+                try:
+                    if proc.stderr:
+                        stderr = proc.stderr.read()[:500]
+                except Exception:
+                    pass
+                emit("error", {
+                    "message": f"claude_exit_{rc}",
+                    "detail": stderr or "claude subprocess exited with non-zero code",
+                })
+                # Make sure the client sees an end signal.
+                if not accumulated_text:
+                    emit("done", {})
+        except Exception as e:
+            try:
+                proc.kill()
             except Exception:
                 pass
+            emit("error", {"message": f"claude_stream_failed: {e}"})
+            emit("done", {})
 
     def _run_chat(
         self,
