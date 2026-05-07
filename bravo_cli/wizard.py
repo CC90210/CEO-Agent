@@ -2198,6 +2198,49 @@ def step_finalize(profile: str, step_num: int, total: int) -> None:
                     print(f"  {DIM('Skipped. Run later: python scripts/scaffold.py --apply --backup')}")
         print()
 
+    # Bridge: auto-register at-login + spawn now. Removes the trailing
+    # "two more commands left" tax — by the time the wizard exits, the
+    # bridge is already running and the dashboard URL is hot. Idempotent:
+    # cmd_install overwrites prior registration; the spawn no-ops if
+    # something already holds :9100. Skipped for non-bravo profiles
+    # (only Bravo's dashboard expects a localhost bridge today).
+    if profile == "bravo" and os.environ.get("BRAVO_SKIP_BRIDGE_AUTOSTART") != "1":
+        try:
+            from . import local_bridge as _lb  # type: ignore
+            print(f"  {BOLD('Bringing up the local bridge...')}")
+            rc = _lb.cmd_install(None)
+            if rc == 0:
+                print(f"  {GREEN(OK)} Bridge auto-start registered for next login.")
+            else:
+                print(f"  {YELLOW('Bridge auto-start install returned ' + str(rc) + ' — re-run')} {CYAN('bravo bridge install')} {YELLOW('manually.')}")
+            # Spawn the chat HTTP server in background so the dashboard URL
+            # is usable RIGHT NOW. We don't reuse cmd_start (that one runs
+            # the heartbeat _loop, a different process). Detached so the
+            # wizard exits cleanly; logs go to ~/.oasis/bridge.log.
+            log_path = Path.home() / ".oasis" / "bridge.log"
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            py_runner = _lb._resolve_pythonw() if hasattr(_lb, "_resolve_pythonw") else sys.executable
+            creation_flags = 0
+            if os.name == "nt":
+                creation_flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP  # type: ignore[attr-defined]
+            log_fh = log_path.open("a", encoding="utf-8")
+            subprocess.Popen(
+                [py_runner, "-m", "bravo_cli.bridge_chat_server"],
+                stdout=log_fh, stderr=log_fh, stdin=subprocess.DEVNULL,
+                close_fds=True,
+                start_new_session=(os.name != "nt"),
+                creationflags=creation_flags,
+                cwd=str(REPO_ROOT),
+            )
+            print(f"  {GREEN(OK)} Chat HTTP server spawned on {CYAN('http://localhost:9100')}.")
+            dashboard_url = read_env("OASIS_DASHBOARD_URL") or "https://agent-dashboard-cc90210.vercel.app"
+            print()
+            print(f"  {BOLD('Open this now →')}  {link(dashboard_url + '/agents', dashboard_url + '/agents')}")
+            print(f"  {DIM('Header turns cyan ('+'\"local bridge · full repo access\"'+') once the spawn finishes booting (~2s).')}")
+            print()
+        except Exception as exc:  # noqa: BLE001
+            print(f"  {YELLOW('Bridge auto-start failed: ' + str(exc) + ' — run')} {CYAN('bravo bridge install && bravo bridge start')} {YELLOW('manually.')}")
+
     # Auto-run bravo doctor — no prompt. OpenClaw parity: onboarding that
     # asks "want me to verify this worked?" is weaker than onboarding that
     # just verifies it. Users who need to skip (CI, container builds) can

@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-07T05:05:31.788111+00:00",
-  "script_count": 77,
-  "entry_count": 290,
+  "generated_at_iso": "2026-05-07T05:41:28.567999+00:00",
+  "script_count": 78,
+  "entry_count": 291,
   "entries": [
     {
       "key": "agent_heartbeat",
@@ -1494,6 +1494,13 @@
       "subcmd": "status",
       "mutating": false,
       "help": "pulse_publish.py \u2014 Atomic, schema-validated writer for Bravo's ceo_pulse.json. \u2014 subcommand: status"
+    },
+    {
+      "key": "reap_orphan_mcps",
+      "path": "scripts/reap_orphan_mcps.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Reap orphan MCP server processes whose parent chain is dead."
     },
     {
       "key": "revenue_engine_mrr",

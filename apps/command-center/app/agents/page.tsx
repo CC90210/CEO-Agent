@@ -5,6 +5,7 @@ import { agentStates, recentEvents, getActiveProfile, integrationsHealth } from 
 import { ALL_AGENT_KEYS, getAgentInfo } from "@/lib/agents";
 import { chatAgentKeys } from "@/lib/agent-personas";
 import { catalogFor } from "@/lib/agent-catalog";
+import { getAgentStats } from "@/lib/agent-stats";
 import { getSessionUser } from "@/lib/supabase-server";
 import { Clock, Cog, Workflow } from "lucide-react";
 
@@ -29,10 +30,11 @@ export default async function AgentsPage() {
   const profile = await getActiveProfile();
   const user = await getSessionUser();
   const isAdmin = isOperatorEmail(user?.email);
-  const [states, events, integrations] = await Promise.all([
+  const [states, events, integrations, stats] = await Promise.all([
     agentStates(),
     recentEvents(25),
     integrationsHealth(profile?.tenant_id || null),
+    getAgentStats(profile?.primary_agent || "bravo"),
   ]);
 
   const enabled = profile?.agents_enabled || ALL_AGENT_KEYS;
@@ -145,6 +147,24 @@ export default async function AgentsPage() {
         subtitle="What each enabled agent owns — cron jobs, backend processes, workflows. Tenant-aware: disabled agents drop out."
       >
         <div className="space-y-5">
+          <div className="rounded-lg border border-bg-border bg-bg p-3">
+            <div className="text-[10px] uppercase tracking-wider font-bold text-fg-muted mb-2">
+              Live repo stats — auto-counted from the filesystem + bridge manifest
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 text-xs">
+              <StatPill label="Skills" value={stats.skills} />
+              <StatPill label="Scripts" value={stats.scripts} />
+              <StatPill label="Chat tools" value={stats.chat_tools} />
+              <StatPill label="Brain files" value={stats.brain_files} />
+              <StatPill label="Memory" value={stats.memory_files} />
+              <StatPill label="Workflows" value={stats.workflows} />
+              <StatPill label="Sub-agents" value={stats.sub_agents} />
+            </div>
+            <div className="text-[11px] text-fg-dim mt-2">
+              Per-agent blocks below show curated highlights. Add a script in <span className="font-mono">scripts/</span> + run{" "}
+              <span className="font-mono">build_bridge_manifest.py</span> → counts update on next refresh.
+            </div>
+          </div>
           {enabled.map((key) => {
             const info = getAgentInfo(key);
             const cat = catalogFor(key);
@@ -161,7 +181,7 @@ export default async function AgentsPage() {
                   </span>
                   <span className="text-xs text-fg-muted">{info.tagline}</span>
                   <span className="ml-auto text-[10px] uppercase tracking-wider text-fg-dim">
-                    {total} entr{total === 1 ? "y" : "ies"}
+                    {total} highlighted
                   </span>
                 </div>
                 <div className="grid sm:grid-cols-3 gap-3">
@@ -234,6 +254,15 @@ export default async function AgentsPage() {
           </ul>
         )}
       </Card>
+    </div>
+  );
+}
+
+function StatPill({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-md border border-bg-border bg-bg-elev px-2.5 py-1.5">
+      <div className="text-fg font-mono text-sm font-semibold">{value}</div>
+      <div className="text-[10px] uppercase tracking-wider text-fg-muted">{label}</div>
     </div>
   );
 }
