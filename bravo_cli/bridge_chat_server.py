@@ -156,68 +156,65 @@ READ_FILE_TOOL = {
 # Add new entries here as new safe-to-call scripts ship. Anything off-list
 # returns "script_not_allowlisted" with the current allowlist in the error
 # message so the agent learns what's available.
-SCRIPT_ALLOWLIST: dict[str, dict] = {
-    # --- read-only / safe ---
-    "supabase_select": {"path": "scripts/supabase_tool.py", "subcmd": "select", "mutating": False,
-                         "help": "Query a Supabase table. Args: table, --eq JSON, --limit, --project."},
-    "supabase_list_tables": {"path": "scripts/supabase_tool.py", "subcmd": "list-tables", "mutating": False,
-                              "help": "List Supabase tables. Args: --project bravo"},
-    "revenue_engine_mrr": {"path": "scripts/revenue_engine.py", "subcmd": "mrr", "mutating": False,
-                            "help": "Show current Net MRR + breakdown. Use --json for structured output."},
-    "ceo_dashboard": {"path": "scripts/ceo_dashboard.py", "subcmd": "briefing", "mutating": False,
-                       "help": "Daily CEO briefing — MRR, pipeline, today's plan, hot inbound."},
-    "lead_engine_list": {"path": "scripts/lead_engine.py", "subcmd": "list", "mutating": False,
-                          "help": "List leads. Args: --status qualified|new|won|lost, --limit N, --json"},
-    "lead_engine_score": {"path": "scripts/lead_engine.py", "subcmd": "score", "mutating": False,
-                           "help": "Re-score a lead. Args: --lead-id <uuid>"},
-    "send_gateway_can_act": {"path": "scripts/send_gateway.py", "subcmd": "can-act", "mutating": False,
-                              "help": "Pre-flight check before any send. Args: --lead-id <id> --channel email|dm"},
-    "send_gateway_status": {"path": "scripts/send_gateway.py", "subcmd": "status", "mutating": False,
-                             "help": "Show send-gateway state — recent sends, open cooldowns, daily caps."},
-    "firecrawl_search": {"path": "scripts/firecrawl_tool.py", "subcmd": "search", "mutating": False,
-                          "help": "Web search via Firecrawl. Args: 'query string'"},
-    "agent_inbox_list": {"path": "scripts/agent_inbox.py", "subcmd": "list", "mutating": False,
-                          "help": "List inbox messages for an agent. Args: --to bravo|atlas|maven|aura|hermes"},
+def _load_script_manifest() -> dict[str, dict]:
+    """Load scripts/_bridge_manifest.json into a dict keyed by entry key.
+    Falls back to a small static set if the manifest is missing so the
+    bridge still boots in environments where build_bridge_manifest.py
+    hasn't been run.
+    """
+    candidates = [
+        Path(__file__).resolve().parent.parent / "scripts" / "_bridge_manifest.json",
+        Path.cwd() / "scripts" / "_bridge_manifest.json",
+    ]
+    for path in candidates:
+        if path.is_file():
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+                entries = data.get("entries", [])
+                manifest = {e["key"]: e for e in entries if "key" in e}
+                if manifest:
+                    return manifest
+            except Exception as exc:
+                print(f"[bridge] manifest load failed: {exc}", file=sys.stderr)
+    # Static fallback — keeps the bridge usable without a manifest.
+    print("[bridge] no _bridge_manifest.json found; using static fallback", file=sys.stderr)
+    return {
+        "supabase_select": {"path": "scripts/supabase_tool.py", "subcmd": "select", "mutating": False,
+                             "help": "Query a Supabase table."},
+        "lead_engine_list": {"path": "scripts/lead_engine.py", "subcmd": "list", "mutating": False,
+                              "help": "List leads."},
+        "revenue_engine_mrr": {"path": "scripts/revenue_engine.py", "subcmd": "mrr", "mutating": False,
+                                "help": "Current Net MRR."},
+        "send_gateway_send": {"path": "scripts/send_gateway.py", "subcmd": "send", "mutating": True,
+                               "help": "Send via the 8-gate safety pipeline."},
+    }
 
-    # --- mutating (require confirm: true) ---
-    "send_gateway_send": {"path": "scripts/send_gateway.py", "subcmd": "send", "mutating": True,
-                           "help": "Send an email/DM through the 8-gate safety pipeline. Args: --channel email --to … --subject … --body … --agent-source bravo. CASL/cooldown/cap/reputation gates enforced; send_gateway will refuse if blocked."},
-    "lead_engine_add": {"path": "scripts/lead_engine.py", "subcmd": "add", "mutating": True,
-                         "help": "Add a lead. Args: --name --email --company --source --score --notes"},
-    "supabase_insert": {"path": "scripts/supabase_tool.py", "subcmd": "insert", "mutating": True,
-                         "help": "Insert a Supabase row. Args: table --data JSON --project bravo"},
-    "supabase_update": {"path": "scripts/supabase_tool.py", "subcmd": "update", "mutating": True,
-                         "help": "Update Supabase rows. Args: table --eq JSON --data JSON --project bravo"},
-    "agent_inbox_post": {"path": "scripts/agent_inbox.py", "subcmd": "post", "mutating": True,
-                          "help": "Post a message to a sibling agent's inbox. Args: --to atlas|maven|aura|hermes --priority low|normal|high --body '...'"},
-    # NOTE: late_tool.py / Zernio social-post scheduling is referenced in
-    # brain/CAPABILITIES.md but the CLI script does not exist in this repo
-    # yet. Re-add `late_create` to the allowlist once the script lands.
-}
+
+SCRIPT_ALLOWLIST: dict[str, dict] = _load_script_manifest()
 
 RUN_SCRIPT_TOOL = {
     "name": "run_script",
     "description": (
-        "Run an allowlisted script in the agent's repo and return its stdout. "
-        "Use this to ACT on the operator's request — query the database, "
-        "score a lead, send an email, post to an agent inbox, schedule a "
-        "social post, etc. Mutating scripts require confirm:true in the "
-        "input — only set that when the operator explicitly asked you to "
-        "perform the action in the SAME chat turn. Read-only scripts run "
-        "freely. Output is captured (stdout/stderr) up to 100KB; runs cap "
-        "at 60s. Allowlist: " + ", ".join(sorted(SCRIPT_ALLOWLIST.keys()))
+        f"Run an allowlisted script in the agent's repo and return its "
+        f"stdout. Use this to ACT on the operator's request — query the "
+        f"database, score a lead, send an email, post to an agent inbox, "
+        f"etc. Mutating scripts require confirm:true; only set that when "
+        f"the operator explicitly asked for the action in this turn. "
+        f"Read-only scripts run freely. Output captured up to 100KB; "
+        f"60s timeout. The full allowlist has {len(SCRIPT_ALLOWLIST)} "
+        f"scripts — call list_tools first if you don't know the exact key."
     ),
     "input_schema": {
         "type": "object",
         "properties": {
             "script": {
                 "type": "string",
-                "description": "Allowlist key (e.g. 'send_gateway_send', 'supabase_select', 'revenue_engine_mrr').",
+                "description": "Allowlist key (e.g. 'send_gateway_send', 'supabase_select', 'revenue_engine_mrr'). Call list_tools to discover available keys.",
             },
             "args": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "Extra command-line arguments to pass after the subcommand. Example for supabase_select: ['user_profiles', '--limit', '5', '--project', 'bravo']",
+                "description": "Extra CLI args after the subcommand. Example for supabase_select: ['user_profiles', '--limit', '5', '--project', 'bravo']",
             },
             "confirm": {
                 "type": "boolean",
@@ -225,6 +222,36 @@ RUN_SCRIPT_TOOL = {
             },
         },
         "required": ["script"],
+    },
+}
+
+
+LIST_TOOLS_TOOL = {
+    "name": "list_tools",
+    "description": (
+        "Discover what scripts are available for run_script. Returns a "
+        "filtered list of {key, path, subcmd, mutating, help} entries. "
+        "Use this when the operator's intent doesn't match a key you "
+        "already know — pass `query` to filter by substring (matches "
+        "key, path, or help text). Without args, returns the first 30 "
+        "entries grouped by script."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "Substring to filter by (matches key/path/help). Examples: 'lead', 'stripe', 'send', 'mrr'.",
+            },
+            "mutating_only": {
+                "type": "boolean",
+                "description": "If true, only return mutating (confirm-required) scripts. If false, only read-only. Omit for both.",
+            },
+            "limit": {
+                "type": "number",
+                "description": "Max entries to return. Default 50.",
+            },
+        },
     },
 }
 
@@ -248,14 +275,22 @@ THE RAG ROUTER (read this once on the first operator turn):
 3. read_file("brain/INTENTS.md") — verb-by-verb playbooks. Read when an intent matches.
 4. read_file("brain/WHEN_TO_USE_SKILLS.md") — trigger map for the 150+ skills.
 
-You have TWO tools here:
+You have THREE tools here:
 
 1. `read_file(path)` — load deeper files lazily as the conversation calls for them. Path-allowlisted to this repo only.
 
-2. `run_script(script, args?, confirm?)` — execute an allowlisted CLI script in this repo and return its stdout. This is your ACT path — query Supabase, score a lead, send an email, post to an inbox, etc. The full allowlist + mutating flag is in the tool's input schema (you'll see it). Rules:
-   - **Read-only scripts run freely** (supabase_select, revenue_engine_mrr, ceo_dashboard, lead_engine_list, send_gateway_can_act, firecrawl_search, agent_inbox_list, etc.) — call them whenever you need live data instead of speculating.
-   - **Mutating scripts require `confirm: true` in the input** AND the operator must have asked for the action in THIS turn. If they didn't, set confirm=false (or omit) so the script bounces back with `confirm_required` — surface that to the operator and wait for their go.
+2. `list_tools(query?, mutating_only?, limit?)` — discover what scripts are available before calling run_script. The allowlist is auto-generated from scripts/ (~290 entries across 77 scripts), so memorizing keys is hopeless. When the operator's intent doesn't match a key you already know, call this FIRST with a substring query (e.g. `query: "lead"`, `query: "stripe"`, `query: "send"`). Returns matching entries with their path + help text + mutating flag. Use the returned `key` as the input to run_script.
+
+3. `run_script(script, args?, confirm?)` — execute an allowlisted CLI script and return its stdout. This is your ACT path — query Supabase, score a lead, send an email, post to an inbox, etc. Rules:
+   - **Read-only scripts run freely.** Call them whenever you need live data instead of speculating.
+   - **Mutating scripts require `confirm: true`** AND the operator must have asked for the action in THIS turn. If they didn't, omit confirm so the script bounces back with `confirm_required` — surface that and wait.
    - send_gateway_send specifically routes through 8 safety gates (CASL, cooldown, daily/hourly cap, domain cap, reputation, draft critic, bounce circuit, reservation guard). If a gate blocks, the response shows the reason; don't bypass.
+
+Discovery pattern when the operator asks for something you don't have a key for:
+   1. `list_tools(query: "<topic>")` to find candidates
+   2. Pick the right key from the returned entries
+   3. `run_script(script: <key>, args: [...], confirm: true|false)`
+   4. Surface the result + confirmation in chat
 
 Mutation surface beyond scripts:
 - For DASHBOARD data changes (operator profile, MRR, agents_enabled, primary_agent), emit a `<dashboard-action type="..." >{{...}}</dashboard-action>` marker in your reply. The dashboard parses these post-stream and applies them server-side, tenant-scoped, audit-logged. Allowed action types live in apps/command-center/lib/agent-actions.ts.
@@ -288,7 +323,7 @@ def _call_provider(
         "model": model,
         "max_tokens": 4096,
         "system": system,
-        "tools": [READ_FILE_TOOL, RUN_SCRIPT_TOOL],
+        "tools": [READ_FILE_TOOL, RUN_SCRIPT_TOOL, LIST_TOOLS_TOOL],
         "messages": messages,
         "stream": stream,
     }
@@ -555,6 +590,43 @@ class _ChatHandler(BaseHTTPRequestHandler):
                         "tool_use_id": use.get("id"),
                         "content": content,
                         "is_error": is_error,
+                    })
+                elif tool_name == "list_tools":
+                    query = str(tool_input.get("query", "")).lower().strip()
+                    mutating_only = tool_input.get("mutating_only")
+                    try:
+                        limit = max(1, min(200, int(tool_input.get("limit") or 50)))
+                    except Exception:
+                        limit = 50
+                    emit("tool", {"name": "list_tools", "query": query, "mutating_only": mutating_only})
+                    matches = []
+                    for key, spec in SCRIPT_ALLOWLIST.items():
+                        if mutating_only is True and not spec.get("mutating"):
+                            continue
+                        if mutating_only is False and spec.get("mutating"):
+                            continue
+                        if query:
+                            hay = f"{key} {spec.get('path', '')} {spec.get('help', '')}".lower()
+                            if query not in hay:
+                                continue
+                        matches.append({
+                            "key": key,
+                            "path": spec.get("path"),
+                            "subcmd": spec.get("subcmd"),
+                            "mutating": bool(spec.get("mutating")),
+                            "help": spec.get("help", ""),
+                        })
+                    matches.sort(key=lambda m: (m["path"] or "", m["key"]))
+                    body = {
+                        "total_matches": len(matches),
+                        "showing": min(limit, len(matches)),
+                        "entries": matches[:limit],
+                    }
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": use.get("id"),
+                        "content": json.dumps(body, indent=2),
+                        "is_error": False,
                     })
                 else:
                     tool_results.append({
