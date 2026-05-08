@@ -71,6 +71,13 @@ const AGENTS = [
     color: "text-amber-400",
   },
   {
+    key: "life-preservation",
+    label: "Lumen",
+    role: "Memory keeper — captures voice, stories, and presence of loved ones for surviving family",
+    repo: "life-preservation",
+    color: "text-amber-200",
+  },
+  {
     key: "custom",
     label: "Custom",
     role: "Build your own from a Bravo fork — wizard scaffolds the new role",

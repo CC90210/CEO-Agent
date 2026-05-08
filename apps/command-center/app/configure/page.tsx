@@ -77,13 +77,33 @@ export default async function ConfigurePage() {
         <div className="mt-10 rounded-xl border border-bg-border bg-bg-elev/50 p-5 text-sm">
           <div className="flex items-center gap-2 mb-3">
             <ShieldCheck className="w-4 h-4 text-accent" />
-            <h2 className="font-bold text-fg">How this works</h2>
+            <h2 className="font-bold text-fg">How this works · security model</h2>
           </div>
-          <ol className="space-y-2 text-fg-muted text-[13px] leading-relaxed list-decimal list-inside">
-            <li><strong className="text-fg">Local-first.</strong> Everything runs on your machine. Your API keys, your data, your file structure — never leave the device.</li>
-            <li><strong className="text-fg">Bring your own model.</strong> OpenRouter (one key, every model) is the easy path. Direct Anthropic / OpenAI / Gemini also supported.</li>
-            <li><strong className="text-fg">Dashboard talks to your bridge.</strong> The dashboard you see at <code className="text-accent">agent-dashboard-cc90210.vercel.app</code> connects directly to a small daemon on your machine over <code className="text-accent">localhost:9100</code>. No tunnel, no rented compute — chat happens on your hardware.</li>
-            <li><strong className="text-fg">Open the loop with payment</strong> only if you want a managed deploy or premium support — <a href="https://oasisai.work" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">oasisai.work</a> handles checkout via Stripe.</li>
+          <ol className="space-y-2.5 text-fg-muted text-[13px] leading-relaxed list-decimal list-inside">
+            <li>
+              <strong className="text-fg">Local-first.</strong> Everything runs on your machine. Your API keys, files, and data live in <code className="text-accent">~/.bravo</code> + the agent&apos;s repo folder — they never leave your device. Our cloud only sees your tenant settings (encrypted at rest with a per-tenant key) and chat metadata.
+            </li>
+            <li>
+              <strong className="text-fg">Bring your own model.</strong> OpenRouter (one key, every model) is the easy path. Direct Anthropic / OpenAI / Gemini also supported. Your key sits in <code className="text-accent">.env.agents</code> on your machine, gitignored, and is read at runtime when the bridge calls the model.
+            </li>
+            <li>
+              <strong className="text-fg">localhost:9100 is YOUR machine&apos;s loopback.</strong> Not a shared network, not someone else&apos;s computer. The bridge daemon binds to <code className="text-accent">127.0.0.1:9100</code> only — kernel-level, the OS will refuse any connection from outside your machine. When the dashboard fetches <code className="text-accent">http://localhost:9100/chat</code>, that request never leaves your computer.
+            </li>
+            <li>
+              <strong className="text-fg">Browser-side gate.</strong> Chrome blocks HTTPS pages from accessing local-network endpoints by default (Private Network Access). You&apos;ll see a one-time prompt the first time the dashboard tries to talk to your bridge — clicking <em>Allow</em> creates a per-origin permission. The only origins that can fetch your bridge are the dashboards in the bridge&apos;s CORS allowlist (today: <code className="text-accent">agent-dashboard-cc90210.vercel.app</code> + your own localhost dev server).
+            </li>
+            <li>
+              <strong className="text-fg">Path-allowlisted file reads.</strong> The bridge can only read files under the agent&apos;s repo root. Any path that escapes (<code>..</code>, absolute paths outside the repo, OS-level paths like <code>/etc</code> or <code>C:\Windows</code>) is rejected before <code>fs.read</code> runs.
+            </li>
+            <li>
+              <strong className="text-fg">HMAC-paired heartbeat.</strong> The bridge identifies itself to the dashboard with a per-machine bearer token issued during pairing (HMAC-bound to your tenant + machine fingerprint, stored in <code className="text-accent">~/.oasis/bridge_token</code>). You can revoke any paired machine from <code className="text-accent">/devices</code> — the bridge sees a 403 on its next ping and self-stops within 60s.
+            </li>
+            <li>
+              <strong className="text-fg">No third-party data sharing.</strong> Your file contents, agent prompts, and chat transcripts route browser → localhost direct. The model provider you chose (Anthropic / OpenRouter / etc.) sees the prompt + tool calls because that&apos;s how the model runs — but only through your key, billed to your account. We do not proxy your traffic through our servers.
+            </li>
+            <li>
+              <strong className="text-fg">Open the loop with payment</strong> only if you want a managed deploy or premium support — <a href="https://oasisai.work" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">oasisai.work</a> handles checkout via Stripe.
+            </li>
           </ol>
         </div>
       </section>
