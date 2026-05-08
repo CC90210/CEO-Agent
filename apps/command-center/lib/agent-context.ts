@@ -24,8 +24,29 @@ function fmtPct(n: number): string {
 /**
  * Returns a short, plain-text block ready to append to the persona.
  * Empty string on any failure — the agent still works without it.
+ *
+ * Backwards-compatible: callers that just want the text still get it
+ * via the default return. The detailed shape via composeDashboardContextV2
+ * exposes the inbox message IDs the chat route needs to mark read after
+ * the stream completes successfully.
  */
 export async function composeDashboardContext(ctx: ToolContext): Promise<string> {
+  const r = await composeDashboardContextV2(ctx);
+  return r.text;
+}
+
+/**
+ * Detailed context-build result. The chat route uses `injectedInboxIds`
+ * to mark those inbox messages read AFTER the assistant's response is
+ * persisted — so a successful chat closes the inbox loop, but a failed
+ * stream / disconnect leaves messages unread for the next attempt.
+ */
+export type DashboardContextResult = {
+  text: string;
+  injectedInboxIds: string[];
+};
+
+export async function composeDashboardContextV2(ctx: ToolContext): Promise<DashboardContextResult> {
   const [mrrR, pipeR, inboundR, planR, integR] = await Promise.all([
     runTool("mrr_today", {}, ctx),
     runTool("pipeline_summary", {}, ctx),
@@ -129,6 +150,13 @@ export async function composeDashboardContext(ctx: ToolContext): Promise<string>
   // agent surfaces those messages at the top of its next chat session
   // and handles them before answering anything else. This is the
   // mechanism the /inbox page documents under "The closed loop."
+  //
+  // Mark-read happens in the chat route AFTER the assistant's response
+  // is persisted — see app/api/chat/route.ts. We collect the message
+  // IDs here and return them; the route stamps read_at on success.
+  // Stream-failed / disconnected sessions leave messages unread so the
+  // next attempt re-surfaces them.
+  const injectedInboxIds: string[] = [];
   try {
     const inboxAll = await listUnreadDb(ctx.tenantId, ctx.agentKey);
     const inbox = inboxAll.slice(0, 5);
@@ -144,9 +172,10 @@ export async function composeDashboardContext(ctx: ToolContext): Promise<string>
         const pri = m.priority && m.priority !== "normal" ? `[${m.priority.toUpperCase()}] ` : "";
         lines.push(`- ${pri}from ${from}: ${subj}`);
         if (body) lines.push(`    ${body}${(m.body || "").length > 240 ? "…" : ""}`);
+        injectedInboxIds.push(m.id);
       }
       lines.push(
-        `(After acting, mark each message read via the inbox table. The operator does not see these — they're between agents.)`
+        `(These messages are auto-marked read once you respond. They came from the operator or a sibling agent.)`
       );
     }
   } catch {
@@ -154,5 +183,5 @@ export async function composeDashboardContext(ctx: ToolContext): Promise<string>
   }
 
   lines.push("---");
-  return lines.join("\n");
+  return { text: lines.join("\n"), injectedInboxIds };
 }
