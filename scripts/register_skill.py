@@ -488,13 +488,23 @@ def build_skill_row(name: str, report: dict, now: str) -> dict[str, Any]:
     if not cli_entry and (skill_dir / "run.py").exists():
         cli_entry = f"python skills/{name}/run.py"
 
+    # Frontmatter `archived: <date>` deactivates a skill at the registry level
+    # without deleting the file (per the EVOLVE-not-DELETE principle). The
+    # `superseded_by:` field is informational — surfaced via orchestration_notes
+    # so the operator sees the redirect target.
+    # PyYAML parses bare ISO dates as datetime.date objects which json.dumps
+    # rejects later in sync-all; coerce to string at read-time.
+    raw_archived = fm.get("archived") or spec.get("archived")
+    archived = str(raw_archived) if raw_archived else None
+    is_active = not bool(archived)
+
     return {
         "skill_name": fm.get("name") or name,
         "skill_path": str(skill_dir.relative_to(PROJECT_ROOT)).replace("\\", "/"),
         "description": fm.get("description"),
         "category": category,
         "dependencies": dependencies,
-        "is_active": True,
+        "is_active": is_active,
         "updated_at": now,
         "triggers": synthesize_triggers(name, category, fm, spec),
         "tags": tags,
@@ -514,6 +524,9 @@ def build_skill_row(name: str, report: dict, now: str) -> dict[str, Any]:
         "orchestration_notes": (
             f"tier={tier}; owner={owner_agent}; risk={risk_level}; "
             f"category={category}"
+            + (f"; archived={archived}" if archived else "")
+            + (f"; superseded_by={fm.get('superseded_by')}"
+               if fm.get("superseded_by") else "")
         ),
     }
 
@@ -1023,6 +1036,10 @@ def cmd_sync_all(args) -> int:
                        .select("skill_name,is_active")
                        .limit(1000).execute().data) or []
         before_names = {r["skill_name"] for r in before_rows}
+        # PyYAML parses ISO dates in frontmatter as datetime.date; postgrest
+        # rejects those. Same fix as cmd_register: round-trip through json
+        # with default=str to coerce all date/datetime objects to strings.
+        rows = json.loads(json.dumps(rows, default=str))
         result = db.table("skills_registry").upsert(
             rows,
             on_conflict="skill_name",
