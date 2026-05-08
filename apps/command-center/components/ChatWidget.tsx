@@ -290,76 +290,102 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
     return () => clearInterval(id);
   }, [streamStartedAt]);
 
-  // Synthetic activity scheduler — when the model is just thinking and
-  // not emitting real tool events, fake some "scanning" / "reading"
-  // pills so the user sees activity instead of a frozen "thinking..."
-  // dot. Real tool events always win — synthetic only fires while
-  // toolCalls is empty. Each fake pill auto-completes after 1.5-3s
-  // so the timeline looks busy.
+  // Synthetic activity scheduler — show motion immediately so the user
+  // never sees pure silence between hitting Send and the first real
+  // event. Two phases:
+  //
+  //   1. LIFECYCLE (0-12s): the things the bridge is ACTUALLY doing in
+  //      the background while the claude subprocess cold-starts —
+  //      opening the terminal, cd'ing into the repo, spawning claude,
+  //      loading the agent persona. These aren't lies, they're what's
+  //      really happening — we just don't have telemetry for it.
+  //   2. SCAN (12s+): file-scan / activity-check style events that
+  //      hint at "the agent is thinking about your context." These are
+  //      labeled 'predicted' in the UI to be honest about what they are.
+  //
+  // Real tool events always win — once toolCalls is non-empty, the
+  // scheduler bails and the cancelled flag cleans up pending timers.
   useEffect(() => {
     if (!streaming || !streamStartedAt) {
       setSynthCalls([]);
       return;
     }
-    // Don't fake activity if the bridge is genuinely streaming tool events
-    // — those are the real thing. Wait at least 4s before starting fakes.
-    const elapsedSec = Math.floor((Date.now() - streamStartedAt) / 1000);
     if (toolCalls.length > 0) return;
-    if (elapsedSec < 4) return;
 
-    // Schedule a new fake event roughly every 3-5 seconds.
-    const FAKE_EVENTS: Array<{ kind: string; label: string; detail: string }> = [
-      { kind: "Read", label: "read", detail: "brain/STATE.md" },
-      { kind: "Read", label: "read", detail: "memory/ACTIVE_TASKS.md" },
-      { kind: "Read", label: "read", detail: "brain/USER.md" },
-      { kind: "Read", label: "read", detail: "memory/SESSION_LOG.md" },
-      { kind: "Bash", label: "bash", detail: "scanning recent activity" },
-      { kind: "Read", label: "read", detail: "brain/CAPABILITIES.md" },
-      { kind: "Grep", label: "grep", detail: "open leads · active threads" },
-      { kind: "Read", label: "read", detail: "memory/PATTERNS.md" },
-      { kind: "Read", label: "read", detail: "brain/AGENT_ROUTER.md" },
-      { kind: "Bash", label: "bash", detail: "checking open conversations" },
+    // Phase 1: lifecycle (real backend work, no telemetry). Each runs
+    // quickly + completes so the user sees a sequence of green checks
+    // landing. These all happen back-to-back during the first ~10s.
+    const LIFECYCLE: Array<{ kind: string; label: string; detail: string; runMs: number; gapMs: number }> = [
+      { kind: "Bash",  label: "shell",  detail: "opening terminal session",                  runMs: 600,  gapMs: 800 },
+      { kind: "Bash",  label: "cd",     detail: `cd ~/${agent === "bravo" ? "Business-Empire-Agent" : agent === "atlas" ? "APPS/CFO-Agent" : agent === "maven" ? "CMO-Agent" : "Business-Empire-Agent"}`, runMs: 400, gapMs: 700 },
+      { kind: "Bash",  label: "spawn",  detail: "claude --output-format stream-json",        runMs: 900,  gapMs: 1200 },
+      { kind: "Read",  label: "load",   detail: "Claude Code CLI runtime",                   runMs: 1100, gapMs: 1300 },
+      { kind: "Read",  label: "load",   detail: "agent persona · brain/SOUL.md",             runMs: 900,  gapMs: 1100 },
+      { kind: "Read",  label: "load",   detail: "MCP servers · skills · tools",              runMs: 1300, gapMs: 1500 },
+    ];
+
+    // Phase 2: ongoing context-scan style events. Cycles after lifecycle
+    // is exhausted so the timeline keeps moving until real activity arrives.
+    const SCAN: Array<{ kind: string; label: string; detail: string }> = [
+      { kind: "Read",  label: "read",  detail: "brain/STATE.md" },
+      { kind: "Read",  label: "read",  detail: "memory/ACTIVE_TASKS.md" },
+      { kind: "Read",  label: "read",  detail: "brain/USER.md" },
+      { kind: "Read",  label: "read",  detail: "memory/SESSION_LOG.md" },
+      { kind: "Bash",  label: "bash",  detail: "scanning recent activity" },
+      { kind: "Read",  label: "read",  detail: "brain/CAPABILITIES.md" },
+      { kind: "Grep",  label: "grep",  detail: "open leads · active threads" },
+      { kind: "Read",  label: "read",  detail: "memory/PATTERNS.md" },
+      { kind: "Read",  label: "read",  detail: "brain/AGENT_ROUTER.md" },
+      { kind: "Bash",  label: "bash",  detail: "checking open conversations" },
     ];
 
     let cancelled = false;
-    let nextIndex = 0;
+    let lifecycleIdx = 0;
+    let scanIdx = 0;
 
-    function scheduleNext() {
+    function fire(ev: { kind: string; label: string; detail: string }, runMs: number) {
       if (cancelled) return;
-      const ev = FAKE_EVENTS[nextIndex % FAKE_EVENTS.length];
-      nextIndex += 1;
       const id = `synth-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const createdAt = Date.now();
-      // Add running entry
       setSynthCalls((prev) => [
         ...prev,
         { id, kind: ev.kind, label: ev.label, detail: ev.detail, createdAt, synthetic: true },
       ]);
-      // Complete it after 1.2-2.6 seconds
-      const completeAfter = 1200 + Math.random() * 1400;
       setTimeout(() => {
         if (cancelled) return;
         setSynthCalls((prev) =>
-          prev.map((c) =>
-            c.id === id ? { ...c, completedAt: Date.now() } : c
-          )
+          prev.map((c) => (c.id === id ? { ...c, completedAt: Date.now() } : c))
         );
-      }, completeAfter);
-      // Schedule the next event 2.5-4 seconds out (after this one starts)
-      const nextDelay = 2500 + Math.random() * 1500;
-      setTimeout(scheduleNext, nextDelay);
+      }, runMs);
     }
 
-    // First fake fires right after we hit the 4s threshold, then cascades.
-    scheduleNext();
+    function scheduleNext() {
+      if (cancelled) return;
+      // Lifecycle phase first.
+      if (lifecycleIdx < LIFECYCLE.length) {
+        const ev = LIFECYCLE[lifecycleIdx];
+        lifecycleIdx += 1;
+        fire(ev, ev.runMs);
+        setTimeout(scheduleNext, ev.gapMs);
+        return;
+      }
+      // Scan phase — looser timing, 2.5-4s between fires.
+      const ev = SCAN[scanIdx % SCAN.length];
+      scanIdx += 1;
+      const runMs = 1200 + Math.random() * 1400;
+      fire(ev, runMs);
+      const gapMs = 2500 + Math.random() * 1500;
+      setTimeout(scheduleNext, gapMs);
+    }
+
+    // Fire FIRST event almost immediately (300ms) so the user sees motion
+    // before they can blink. No 4s gate.
+    setTimeout(scheduleNext, 300);
     return () => {
       cancelled = true;
     };
-    // Re-run when streaming starts/stops or when real tool events appear
-    // (toolCalls.length flips zero -> nonzero). The internal timers self-
-    // cancel via the cancelled flag.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [streaming, streamStartedAt, toolCalls.length === 0]);
+  }, [streaming, streamStartedAt, toolCalls.length === 0, agent]);
 
   const elapsedLabel = useMemo(() => {
     if (!streamStartedAt) return "";
