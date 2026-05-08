@@ -66,16 +66,18 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     setup_doc_url: "https://supabase.com/docs/guides/getting-started",
     setup_complexity: "moderate",
     used_by: ["bravo"],
+    env_key: "SUPABASE_ACCESS_TOKEN",
   },
   {
     service: "vercel",
     label: "Vercel",
     category: "core",
     description: "Dashboard hosting",
-    connection_kind: "account_only",
+    connection_kind: "api_key",
     signup_url: "https://vercel.com/signup",
     api_key_url: "https://vercel.com/account/tokens",
     setup_complexity: "trivial",
+    env_key: "VERCEL_TOKEN",
   },
   {
     service: "cloudflare",
@@ -86,6 +88,7 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     signup_url: "https://dash.cloudflare.com/sign-up",
     api_key_url: "https://dash.cloudflare.com/profile/api-tokens",
     setup_complexity: "moderate",
+    env_key: "CLOUDFLARE_API_TOKEN",
   },
   {
     service: "hostinger",
@@ -96,6 +99,19 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     signup_url: "https://www.hostinger.com/",
     api_key_url: "https://hpanel.hostinger.com/profile/api",
     setup_complexity: "moderate",
+    env_key: "HOSTINGER_API_KEY",
+  },
+  {
+    service: "github",
+    label: "GitHub",
+    category: "core",
+    description: "Source control + auto-deploy via Vercel",
+    connection_kind: "api_key",
+    signup_url: "https://github.com/signup",
+    api_key_url: "https://github.com/settings/tokens",
+    setup_complexity: "simple",
+    used_by: ["bravo"],
+    env_key: "GITHUB_TOKEN",
   },
 
   // ── Comms ──────────────────────────────────────────────────────
@@ -122,6 +138,7 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     setup_doc_url: "https://core.telegram.org/bots/tutorial",
     setup_complexity: "simple",
     used_by: ["bravo"],
+    env_key: "TELEGRAM_BOT_TOKEN",
   },
 
   // ── Finance ────────────────────────────────────────────────────
@@ -300,6 +317,29 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     api_key_url: "https://docs.n8n.io/api/authentication/",
     setup_complexity: "advanced",
     used_by: ["bravo"],
+    env_key: "N8N_API_KEY",
+  },
+  {
+    service: "turso",
+    label: "Turso",
+    category: "data",
+    description: "Edge SQLite for IG Setter Pro + Gritly",
+    connection_kind: "api_key",
+    signup_url: "https://app.turso.tech/",
+    api_key_url: "https://app.turso.tech/account/tokens",
+    setup_complexity: "simple",
+    env_key: "TURSO_AUTH_TOKEN",
+  },
+  {
+    service: "notion",
+    label: "Notion",
+    category: "data",
+    description: "Knowledge base + project tracking",
+    connection_kind: "api_key",
+    signup_url: "https://www.notion.so/signup",
+    api_key_url: "https://www.notion.so/profile/integrations",
+    setup_complexity: "simple",
+    env_key: "NOTION_API_KEY",
   },
   {
     service: "firecrawl",
@@ -383,6 +423,7 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     api_key_url: "https://aistudio.google.com/apikey",
     setup_complexity: "trivial",
     used_by: ["bravo"],
+    env_key: "GEMINI_API_KEY",
   },
 
   // ── Google Workspace (OAuth) ───────────────────────────────────
