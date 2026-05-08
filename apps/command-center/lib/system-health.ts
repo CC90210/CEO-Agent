@@ -100,32 +100,58 @@ async function _inboxUnread(): Promise<number> {
   }
 }
 
+const SAFE_ZERO: SystemHealth = {
+  staleAgents: 0,
+  staleAgentNames: [],
+  bridgeOffline: false,
+  bridgeLastSeenMs: null,
+  integrationsDown: 0,
+  memoryStale: 0,
+  inboxUnread: 0,
+  totalIssues: 0,
+};
+
 export async function getSystemHealth(opts: {
   tenantId: string | null;
   enabledAgents: string[];
 }): Promise<SystemHealth> {
-  const [agentInfo, bridge, integrationsDown, memoryRows, inboxUnread] = await Promise.all([
-    _staleAgents(opts.enabledAgents),
-    _bridgeStatus(opts.tenantId),
-    _integrationsDown(opts.tenantId),
-    getMemoryFreshness(),
-    _inboxUnread(),
-  ]);
-  const memoryStale = staleCount(memoryRows);
-  const totalIssues =
-    agentInfo.count +
-    (bridge.offline ? 1 : 0) +
-    integrationsDown +
-    memoryStale +
-    (inboxUnread > 0 ? 1 : 0);
-  return {
-    staleAgents: agentInfo.count,
-    staleAgentNames: agentInfo.names,
-    bridgeOffline: bridge.offline,
-    bridgeLastSeenMs: bridge.lastSeenMs,
-    integrationsDown,
-    memoryStale,
-    inboxUnread,
-    totalIssues,
-  };
+  // Top-level guard — every internal helper already has its own try/catch,
+  // but if a Promise.all somehow rejects (or a helper throws synchronously
+  // before becoming a Promise), we still must return a valid shape. The
+  // dashboard's / page treats this as best-effort signal — never blocking.
+  try {
+    const enabledAgents = Array.isArray(opts.enabledAgents) ? opts.enabledAgents : [];
+    const tenantId = typeof opts.tenantId === "string" && opts.tenantId.length > 0 ? opts.tenantId : null;
+    const results = await Promise.allSettled([
+      _staleAgents(enabledAgents),
+      _bridgeStatus(tenantId),
+      _integrationsDown(tenantId),
+      getMemoryFreshness(),
+      _inboxUnread(),
+    ]);
+    const agentInfo = results[0].status === "fulfilled" ? results[0].value : { count: 0, names: [] };
+    const bridge = results[1].status === "fulfilled" ? results[1].value : { offline: false, lastSeenMs: null };
+    const integrationsDown = results[2].status === "fulfilled" ? results[2].value : 0;
+    const memoryRows = results[3].status === "fulfilled" ? results[3].value : [];
+    const inboxUnread = results[4].status === "fulfilled" ? results[4].value : 0;
+    const memoryStale = staleCount(memoryRows);
+    const totalIssues =
+      agentInfo.count +
+      (bridge.offline ? 1 : 0) +
+      integrationsDown +
+      memoryStale +
+      (inboxUnread > 0 ? 1 : 0);
+    return {
+      staleAgents: agentInfo.count,
+      staleAgentNames: agentInfo.names,
+      bridgeOffline: bridge.offline,
+      bridgeLastSeenMs: bridge.lastSeenMs,
+      integrationsDown,
+      memoryStale,
+      inboxUnread,
+      totalIssues,
+    };
+  } catch {
+    return { ...SAFE_ZERO };
+  }
 }
