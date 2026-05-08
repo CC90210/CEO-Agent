@@ -83,6 +83,15 @@ ALLOWED_ORIGINS = [
 ]
 
 
+def _env_files() -> list[Path]:
+    home = Path.home()
+    return [
+        Path.cwd() / ".env.agents",
+        home / "Business-Empire-Agent" / ".env.agents",
+        home / ".bravo" / ".env.agents",
+    ]
+
+
 def _read_env_value(name: str) -> str:
     """Look up a single env var name, then fall back to scanning the
     operator's local secrets file. Never returns the value to a caller other
@@ -90,13 +99,7 @@ def _read_env_value(name: str) -> str:
     """
     if name in os.environ:
         return os.environ[name]
-    home = Path.home()
-    candidates = [
-        Path.cwd() / ".env.agents",
-        home / "Business-Empire-Agent" / ".env.agents",
-        home / ".bravo" / ".env.agents",
-    ]
-    for p in candidates:
+    for p in _env_files():
         if not p.exists():
             continue
         try:
@@ -110,6 +113,94 @@ def _read_env_value(name: str) -> str:
         except Exception:
             continue
     return ""
+
+
+# ---------------------------------------------------------------------------
+# Secret redaction
+# ---------------------------------------------------------------------------
+# Any text headed for ~/.oasis/bridge.log or for the SSE error 'detail' field
+# is funnelled through `_redact_secrets()` first. The risk: claude subprocess
+# can print env values in error messages (an MCP server failing to load with
+# the env var echoed in its error, an API auth failure echoing the bearer
+# token, etc). bridge.log is on disk forever; SSE 'detail' is persisted to
+# chat_messages.error in Supabase. Both are sensitive surfaces.
+#
+# Strategy: on each stderr drain, snapshot all key=value pairs from the
+# operator's .env.agents files, sort by value-length DESC (so a long key
+# can't be partially scrubbed by a substring of another), replace each
+# occurrence with [REDACTED:NAME]. Cached for 60s with mtime invalidation
+# so editing .env.agents picks up new secrets without restart.
+
+_REDACT_CACHE: dict = {"loaded_at": 0.0, "mtimes": {}, "pairs": []}
+_REDACT_TTL_S = 60
+# Don't try to redact values shorter than this — false positives explode
+# (a 3-char "key" could match common substrings everywhere).
+_MIN_REDACTABLE_LEN = 12
+
+
+def _load_redactable_secrets() -> list[tuple[str, str]]:
+    """Return [(env_name, value), ...] sorted by value length DESC. Reads
+    every .env.agents we know about and the live process env (process env
+    only for keys that look credential-shaped to avoid scrubbing PATH etc).
+    """
+    now = time.time()
+    files = [p for p in _env_files() if p.is_file()]
+    current_mtimes = {str(p): p.stat().st_mtime for p in files}
+    if (
+        _REDACT_CACHE["pairs"]
+        and now - _REDACT_CACHE["loaded_at"] < _REDACT_TTL_S
+        and current_mtimes == _REDACT_CACHE["mtimes"]
+    ):
+        return _REDACT_CACHE["pairs"]
+
+    pairs: dict[str, str] = {}
+    for p in files:
+        try:
+            for raw in p.read_text(encoding="utf-8", errors="ignore").splitlines():
+                line = raw.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                k = k.strip()
+                v = v.strip().strip('"').strip("'")
+                if not k or not v or len(v) < _MIN_REDACTABLE_LEN:
+                    continue
+                if not re.fullmatch(r"[A-Z][A-Z0-9_]{2,63}", k):
+                    continue
+                pairs[k] = v
+        except Exception:
+            continue
+
+    # Also pull credential-shaped values from live os.environ — covers
+    # anything injected at bridge boot but missing from .env.agents.
+    cred_pat = re.compile(r"(KEY|TOKEN|SECRET|PASSWORD|API|DSN|WEBHOOK)$")
+    for k, v in os.environ.items():
+        if not isinstance(v, str) or len(v) < _MIN_REDACTABLE_LEN:
+            continue
+        if not re.fullmatch(r"[A-Z][A-Z0-9_]{2,63}", k):
+            continue
+        if cred_pat.search(k):
+            pairs.setdefault(k, v)
+
+    sorted_pairs = sorted(pairs.items(), key=lambda kv: -len(kv[1]))
+    _REDACT_CACHE["pairs"] = sorted_pairs
+    _REDACT_CACHE["loaded_at"] = now
+    _REDACT_CACHE["mtimes"] = current_mtimes
+    return sorted_pairs
+
+
+def _redact_secrets(text: str) -> str:
+    if not text:
+        return text
+    try:
+        pairs = _load_redactable_secrets()
+    except Exception:
+        return text
+    out = text
+    for name, value in pairs:
+        if value and value in out:
+            out = out.replace(value, f"[REDACTED:{name}]")
+    return out
 
 
 def _resolve_provider() -> tuple[str, str, str]:
@@ -731,7 +822,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
                     })
                 emit("done", {})
             except Exception as e:
-                emit("error", {"message": f"chat_loop_failed: {e}"})
+                emit("error", {"message": _redact_secrets(f"chat_loop_failed: {e}")})
                 emit("done", {})
             return
 
@@ -750,7 +841,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
             })
             emit("done", {})
         except Exception as e:
-            emit("error", {"message": f"chat_loop_failed: {e}"})
+            emit("error", {"message": _redact_secrets(f"chat_loop_failed: {e}")})
             emit("done", {})
 
     # ──────────────────────────────────────────────────────────────────
@@ -876,7 +967,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
                 bufsize=1,  # line-buffered
             )
         except Exception as e:
-            emit("error", {"message": f"claude_spawn_failed: {e}"})
+            emit("error", {"message": _redact_secrets(f"claude_spawn_failed: {e}")})
             emit("done", {})
             return
 
@@ -905,9 +996,14 @@ class _ChatHandler(BaseHTTPRequestHandler):
                 with stderr_log_path.open("a", encoding="utf-8", errors="replace") as logf:
                     logf.write(f"\n\n=== {time.strftime('%Y-%m-%d %H:%M:%S')} agent={agent} pid={proc.pid} ===\n")
                     for line in proc.stderr:
-                        stderr_chunks.append(line)
+                        # Redact known secrets BEFORE both in-memory append
+                        # AND disk log write — bridge.log lives on disk
+                        # indefinitely; stderr_chunks gets sent over SSE
+                        # and persisted to chat_messages.error.
+                        safe = _redact_secrets(line)
+                        stderr_chunks.append(safe)
                         try:
-                            logf.write(line)
+                            logf.write(safe)
                             logf.flush()
                         except Exception:
                             pass
@@ -995,9 +1091,10 @@ class _ChatHandler(BaseHTTPRequestHandler):
 
                 # 6. Anything else (e.g. system/error) — surface as error.
                 if etype == "system" and subtype == "error":
+                    raw_detail = ev.get("message") or json.dumps(ev)[:200]
                     emit("error", {
                         "message": "claude_subprocess_error",
-                        "detail": ev.get("message") or json.dumps(ev)[:200],
+                        "detail": _redact_secrets(str(raw_detail)),
                     })
 
             rc = proc.wait(timeout=5)
@@ -1041,7 +1138,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
             stderr_thread.join(timeout=1)
             stderr_full = "".join(stderr_chunks).strip()
             emit("error", {
-                "message": f"claude_stream_failed: {e}",
+                "message": _redact_secrets(f"claude_stream_failed: {e}"),
                 "detail": stderr_full[:2000] if stderr_full else None,
                 "log_path": str(stderr_log_path),
             })
