@@ -1,5 +1,7 @@
 ---
 name: persona-customer-support
+archived: 2026-05-07
+superseded_by: memory/PERSONAS.md
 version: 1.0.0
 description: "Manage customer support — track tickets, respond, escalate issues."
 metadata:

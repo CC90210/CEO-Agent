@@ -1,5 +1,7 @@
 ---
 name: persona-researcher
+archived: 2026-05-07
+superseded_by: memory/PERSONAS.md
 version: 1.0.0
 description: "Organize research — manage references, notes, and collaboration."
 metadata:

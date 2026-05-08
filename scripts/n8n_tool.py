@@ -220,16 +220,59 @@ def cmd_create(client, args):
             sys.exit(1)
 
     result = client.create_workflow(workflow_data)
+    workflow_id = result.get("id")
+
+    # Post-create verification — read it back, compare node count, surface
+    # webhook URLs. Per brain/ORCHESTRATION.md verification contract for n8n
+    # ("activate without error + test run with pinned data") this is the
+    # cheap half: confirm the create actually round-trips. Activation +
+    # pinned-data test stays operator-driven.
+    verify_report = None
+    if workflow_id and getattr(args, "verify", False):
+        try:
+            roundtrip = client.get_workflow(workflow_id)
+            verify_report = {
+                "ok": True,
+                "node_count_sent": len(workflow_data.get("nodes", [])),
+                "node_count_stored": len(roundtrip.get("nodes", [])),
+                "active": roundtrip.get("active", False),
+                "webhook_urls": [
+                    n.get("webhookId") or n.get("name")
+                    for n in roundtrip.get("nodes", [])
+                    if n.get("type", "").endswith("webhook")
+                ],
+            }
+            verify_report["matches"] = (
+                verify_report["node_count_sent"]
+                == verify_report["node_count_stored"]
+            )
+        except Exception as exc:  # noqa: BLE001
+            verify_report = {"ok": False, "error": str(exc)[:200]}
 
     if args.output_json:
-        print(json.dumps(result, indent=2))
+        out = dict(result)
+        if verify_report is not None:
+            out["_verify"] = verify_report
+        print(json.dumps(out, indent=2))
         return
 
     print(f"\n  Workflow created successfully!")
-    print(f"  ID:   {result.get('id')}")
+    print(f"  ID:   {workflow_id}")
     print(f"  Name: {result.get('name')}")
     print(f"  Nodes: {len(result.get('nodes', []))}")
-    print(f"\n  Note: Workflow created as INACTIVE. Use 'activate {result.get('id')}' to enable.")
+    if verify_report is not None:
+        if verify_report.get("ok"):
+            match = "✓" if verify_report["matches"] else "✗"
+            print(f"\n  Verify: {match} stored={verify_report['node_count_stored']} "
+                  f"sent={verify_report['node_count_sent']} "
+                  f"active={verify_report['active']}")
+            if verify_report["webhook_urls"]:
+                print(f"  Webhooks: {verify_report['webhook_urls']}")
+        else:
+            print(f"\n  Verify: failed — {verify_report.get('error')}")
+    print(f"\n  Note: Workflow created as INACTIVE. Use 'activate {workflow_id}' to enable.")
+    print(f"  Verification contract: per brain/ORCHESTRATION.md, run "
+          f"'n8n_tool.py execute {workflow_id} --data <pinned>' before activating.")
 
 
 def _slim_for_update(wf: dict) -> dict:
@@ -459,6 +502,10 @@ def main():
     # create
     p_create = subparsers.add_parser("create", parents=[parent], help="Create workflow from JSON")
     p_create.add_argument("source", help="JSON file path or JSON string")
+    p_create.add_argument("--verify", action="store_true",
+                          help="After create, read the workflow back and compare "
+                               "node count + surface webhook URLs (cheap half of "
+                               "the brain/ORCHESTRATION.md n8n verification contract)")
 
     # update
     p_update = subparsers.add_parser("update", parents=[parent], help="Update workflow")
