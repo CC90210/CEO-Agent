@@ -233,7 +233,18 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
   // is nothing happening, fake it. We need to show the user that the
   // agents are working in the background."
   const [synthCalls, setSynthCalls] = useState<
-    Array<{ id: string; kind: string; label: string; detail: string; createdAt: number; completedAt?: number }>
+    Array<{
+      id: string;
+      kind: string;
+      label: string;
+      detail: string;
+      createdAt: number;
+      completedAt?: number;
+      // Mark synthetic so the renderer can dim them visually + add a
+      // "predicted activity" tooltip. Prevents users from mistaking
+      // these for real file reads / bash runs.
+      synthetic: true;
+    }>
   >([]);
   // Fullscreen mode — uses the browser Fullscreen API on the chat
   // element itself (same pattern as Claude / ChatGPT). The chat fills
@@ -322,7 +333,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
       // Add running entry
       setSynthCalls((prev) => [
         ...prev,
-        { id, kind: ev.kind, label: ev.label, detail: ev.detail, createdAt },
+        { id, kind: ev.kind, label: ev.label, detail: ev.detail, createdAt, synthetic: true },
       ]);
       // Complete it after 1.2-2.6 seconds
       const completeAfter = 1200 + Math.random() * 1400;
@@ -1544,6 +1555,10 @@ function ToolTimelineList({
     error?: boolean;
     createdAt: number;
     completedAt?: number;
+    /** True for predicted/fake activity rendered while the agent is in
+     *  pure model-thinking time. Renders dimmer with a clarifying tooltip
+     *  so users don't mistake it for a real file read. */
+    synthetic?: boolean;
   }>;
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -1605,8 +1620,14 @@ function ToolTimelineList({
                 ? "text-fg-dim opacity-60"
                 : "text-fg-muted";
         const dur = _formatDuration(e.createdAt, e.completedAt);
+        // Synthetic entries dim further + get a clarifying tooltip so
+        // users don't mistake predicted activity for a real file read.
+        const synthClass = e.synthetic ? "opacity-50 italic" : "";
+        const titleText = e.synthetic
+          ? `Predicted activity (the agent is thinking — this is what it would typically look at). ${e.detail || e.label}`
+          : e.detail || e.label;
         return (
-          <div key={e.id} className="text-[11px]">
+          <div key={e.id} className={`text-[11px] ${synthClass}`}>
             <button
               type="button"
               disabled={!canExpand}
@@ -1614,7 +1635,7 @@ function ToolTimelineList({
               className={`w-full flex items-start gap-2 px-1.5 py-1 rounded ${
                 canExpand ? "hover:bg-bg-elev/40 cursor-pointer" : "cursor-default"
               } ${tone}`}
-              title={e.detail || e.label}
+              title={titleText}
             >
               <span className="flex items-center gap-1.5 mt-0.5 flex-shrink-0">
                 {statusIcon}
@@ -1627,6 +1648,11 @@ function ToolTimelineList({
                 {e.detail && (
                   <span className="text-fg-dim font-mono truncate">
                     {e.detail}
+                  </span>
+                )}
+                {e.synthetic && (
+                  <span className="text-[9px] uppercase tracking-wider text-fg-dim/60 flex-shrink-0">
+                    · predicted
                   </span>
                 )}
               </span>
