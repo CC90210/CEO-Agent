@@ -32,6 +32,8 @@ import {
   X as XIcon,
   Brain,
   Database,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
@@ -218,6 +220,18 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
   const [expandedReads, setExpandedReads] = useState<Set<number>>(new Set());
   const [expandedRuns, setExpandedRuns] = useState<Set<number>>(new Set());
   const [thinking, setThinking] = useState(false);
+  // Fullscreen toggle — when true, the chat container is fixed inset-3
+  // over the whole viewport so CC can read long Bravo responses without
+  // squinting at a 640px box. Esc and the toggle button both close it.
+  const [fullscreen, setFullscreen] = useState(false);
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") setFullscreen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fullscreen]);
   // A0c: status phase + elapsed-time counter so CC sees "starting Atlas in
   // CFO-Agent…" → "thinking… (0:12)" instead of a static "thinking…" during
   // the first 30s of a Claude Code subprocess cold start.
@@ -627,7 +641,13 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
   }
 
   return (
-    <div className={`chat-container agent-${agent} flex flex-col h-[640px]`}>
+    <div
+      className={`chat-container agent-${agent} flex flex-col ${
+        fullscreen
+          ? "fixed inset-3 z-50 h-[calc(100vh-1.5rem)] shadow-2xl"
+          : "h-[640px]"
+      }`}
+    >
       {/* Aurora wash inside the bordered container */}
       <div className="chat-aurora absolute inset-0 pointer-events-none" />
 
@@ -692,6 +712,18 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
             <RefreshCw className="w-4 h-4" />
           </button>
         )}
+        <button
+          type="button"
+          onClick={() => setFullscreen((f) => !f)}
+          className="text-fg-dim hover:text-accent transition-colors p-1"
+          title={fullscreen ? "Exit fullscreen (Esc)" : "Open chat fullscreen"}
+        >
+          {fullscreen ? (
+            <Minimize2 className="w-4 h-4" />
+          ) : (
+            <Maximize2 className="w-4 h-4" />
+          )}
+        </button>
         <Link
           href="/settings#agents"
           className="text-fg-dim hover:text-accent transition-colors p-1"
@@ -1360,13 +1392,17 @@ function ToolTimelineList({
     });
   }
   // Detect supersedes — when Claude retries the SAME kind+detail and the
-  // retry succeeds, earlier failed attempts are recovery noise, not real
-  // failures. Demote them visually so CC isn't alarmed when the agent is
-  // actually working.
-  const succeededKeys = new Set<string>();
+  // retry succeeds AFTER the failure, the earlier failed entry is recovery
+  // noise, not a real failure. We require the success to come strictly
+  // later in time (createdAt > failedCreatedAt) so a successful read
+  // followed by a real failed read is NOT mis-flagged as recovered.
+  const successesByKey = new Map<string, number[]>();
   for (const e of entries) {
     if (!e.error && e.completedAt) {
-      succeededKeys.add(`${e.kind}::${e.detail || ""}`);
+      const key = `${e.kind}::${e.detail || ""}`;
+      const list = successesByKey.get(key) ?? [];
+      list.push(e.createdAt);
+      successesByKey.set(key, list);
     }
   }
   return (
@@ -1375,7 +1411,10 @@ function ToolTimelineList({
         const isOpen = expanded.has(e.id);
         const isRunning = !e.completedAt && !e.error;
         const canExpand = !!e.output || !!e.detail;
-        const wasRetried = e.error && succeededKeys.has(`${e.kind}::${e.detail || ""}`);
+        // Only treat this error as "retried" if a same-key success
+        // arrived strictly after this entry's createdAt.
+        const successTimes = successesByKey.get(`${e.kind}::${e.detail || ""}`) ?? [];
+        const wasRetried = !!e.error && successTimes.some((t) => t > e.createdAt);
         const status = e.error
           ? wasRetried
             ? "retried"
