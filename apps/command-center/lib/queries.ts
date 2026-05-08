@@ -237,6 +237,26 @@ export async function recentEvents(
   return (r.data as AgentEvent[]) || [];
 }
 
+/**
+ * A6: Recent dashboard-action mutations for the /runs page. Filters
+ * agent_events to event_type='dashboard_action' published by this tenant
+ * (correlation_id == tenant_id, see lib/action-log.ts).
+ */
+export async function recentActions(
+  tenantId: string,
+  limit = 100
+): Promise<AgentEvent[]> {
+  const db = getServiceSupabase();
+  const r = await db
+    .from("agent_events")
+    .select("*")
+    .eq("event_type", "dashboard_action")
+    .eq("correlation_id", tenantId)
+    .order("published_at", { ascending: false })
+    .limit(limit);
+  return (r.data as AgentEvent[]) || [];
+}
+
 // ============================================================================
 // Channel caps (tenant-scoped)
 // ============================================================================

@@ -35,6 +35,7 @@ import { decryptField } from "@/lib/field-encryption";
 import { composeDashboardContext } from "@/lib/agent-context";
 import { rateLimit } from "@/lib/rate-limit";
 import { extractActionMarkers, runAction } from "@/lib/agent-actions";
+import { logAction } from "@/lib/action-log";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -246,6 +247,16 @@ export async function POST(req: NextRequest) {
         for (const spec of specs) {
           const r = await runAction(spec, { tenantId, authUserId: user.id });
           send("action", r);
+          // A6: audit log to agent_events. Best-effort; never throws.
+          await logAction({
+            agent_key: agentKey,
+            tenant_id: tenantId,
+            user_id: user.id,
+            type: r.type,
+            ok: r.ok,
+            summary: r.ok ? r.summary : undefined,
+            error: !r.ok ? r.error : undefined,
+          });
         }
       } catch (err) {
         // A failing action handler must not break the stream close
