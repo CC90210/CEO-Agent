@@ -70,14 +70,17 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
     colorRgb: "251, 191, 36",
     textClass: "text-amber-400",
   },
+  // Registry key stays "life-preservation" so filesystem paths
+  // (~/life-preservation, tmp/agent_inbox routing, sibling_repos, etc.)
+  // remain stable. Only the human-facing label changed to "Lumen".
   "life-preservation": {
     key: "life-preservation",
-    label: "Life Preservation",
-    role: "Memory keeper · embodies loved ones · cherish their voice",
+    label: "Lumen",
+    role: "Memory keeper · holds the voice and presence of loved ones",
     tagline: "Memory · voice · legacy",
     location: "C:\\Users\\User\\life-preservation",
-    colorRgb: "248, 180, 217", // soft rose — warmth, memory
-    textClass: "text-rose-300",
+    colorRgb: "248, 213, 145", // soft amber — like a small light
+    textClass: "text-amber-200",
   },
   // Backend delegation executor — powers custom agents, not a standalone
   // persona. family:false hides it from the AGENT FAMILY card on /agents.
