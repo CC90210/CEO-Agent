@@ -383,6 +383,32 @@ main > div {
   color: #f5f7fa;
 }
 
+/* Markdown rendering inside assistant bubbles. Source: lib/markdown.mdToHtml.
+   Same renderer the export uses, so the chat looks like the downloaded doc. */
+.markdown-bubble > * + * { margin-top: 0.625rem; }
+.markdown-bubble h1 { font-size: 1.18em; font-weight: 700; line-height: 1.3; }
+.markdown-bubble h2 { font-size: 1.08em; font-weight: 700; line-height: 1.3; }
+.markdown-bubble h3 { font-size: 1.0em;  font-weight: 700; line-height: 1.3; }
+.markdown-bubble p  { line-height: 1.55; }
+.markdown-bubble ul, .markdown-bubble ol { padding-left: 1.25rem; line-height: 1.55; }
+.markdown-bubble ul { list-style: disc; }
+.markdown-bubble ol { list-style: decimal; }
+.markdown-bubble li + li { margin-top: 0.2rem; }
+.markdown-bubble strong { color: #fff; font-weight: 700; }
+.markdown-bubble em     { font-style: italic; }
+.markdown-bubble blockquote {
+  border-left: 2px solid rgba(0,212,255,0.45);
+  padding-left: 0.75rem;
+  color: rgba(245,247,250,0.80);
+  font-style: italic;
+}
+.markdown-bubble a {
+  color: #00d4ff;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.markdown-bubble a:hover { color: #fff; }
+
 /* Per-agent color tokens — used by chat header + bubble accents */
 .agent-bravo { --agent-color: 0, 212, 255; --agent-color-deep: 59, 130, 246; }
 .agent-maven { --agent-color: 244, 114, 182; --agent-color-deep: 219, 39, 119; }

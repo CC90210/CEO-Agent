@@ -38,11 +38,13 @@ export default async function AnalyticsPage() {
 
       <Card
         title="MRR · 60 days"
-        subtitle={
-          history[0]?.synthetic
-            ? `Target $${mrr.target.toLocaleString()} · projected (no history table yet)`
-            : `Target $${mrr.target.toLocaleString()}`
-        }
+        subtitle={(() => {
+          const realDays = history.filter((h) => !h.synthetic).length;
+          const target = `Target $${mrr.target.toLocaleString()}`;
+          if (realDays === 0) return `${target} · projected (no snapshot history)`;
+          if (realDays < 14) return `${target} · ${realDays} day${realDays === 1 ? "" : "s"} of real data, rest back-filled — cron snapshots build up daily`;
+          return target;
+        })()}
       >
         <MRRProgressChart data={history} target={mrr.target} />
       </Card>

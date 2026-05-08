@@ -22,6 +22,9 @@
 
 import { useState } from "react";
 import { Download, Check, FileText, FileCode, Printer } from "lucide-react";
+// Single canonical markdown renderer — same logic the chat bubble uses,
+// so what the operator sees in the chat equals what they download.
+import { mdToHtml, escapeHtml } from "@/lib/markdown";
 
 const PRINT_STYLES = `
   @media print {
@@ -56,115 +59,6 @@ const PRINT_STYLES = `
     .header-meta { font-size: 0.85em; color: #666; border-bottom: 1px solid #eee; padding-bottom: 0.5em; margin-bottom: 1em; }
   }
 `;
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-/**
- * Tiny markdown → HTML renderer. We don't pull in a full lib because
- * react-markdown is already in the bundle for the chat bubble — using
- * the same renderer here would mean SSR-ing React inside a click
- * handler, which is awkward. This covers the markdown the model
- * actually emits: headings, bold, italic, code (inline + fenced),
- * lists, blockquotes, links, paragraphs.
- *
- * SECURITY: the input may contain anything the model emitted (which
- * includes anything a tool result fed it, which can include user input).
- * The ENTIRE input is escaped first, then markdown patterns are applied
- * on the escaped string. Markdown syntax characters survive escaping
- * (#, *, -, `, [, ], _) so the patterns still match; any embedded HTML
- * is rendered as literal text. Link hrefs are then filtered against
- * dangerous URL schemes (javascript:, data:, vbscript:, file:).
- *
- * Why this matters: the rendered HTML is written into a hidden iframe
- * via document.write() and then printed. The iframe is same-origin to
- * the parent, so an XSS payload could exfiltrate cookies / session.
- * Don't remove the escape step. Don't switch to dangerouslySetInnerHTML
- * without re-running this analysis.
- */
-function _safeHref(raw: string): string {
-  // After escapeHtml, raw is already HTML-encoded. Decode just enough to
-  // sanity-check the scheme.
-  const decoded = raw.replace(/&amp;/g, "&");
-  if (/^\s*(javascript|data|vbscript|file):/i.test(decoded)) return "#";
-  return raw;
-}
-
-function mdToHtml(md: string): string {
-  // 1) Escape the WHOLE input upfront. Markdown syntax chars (`*-#[]>`
-  //    etc) are preserved; HTML-injection chars are neutralized.
-  let body = escapeHtml(md);
-
-  // 2) Pull out fenced code blocks BEFORE other patterns so backticks
-  //    inside them don't trigger inline-code matching. After escapeHtml
-  //    the original ``` is still ```, and the contents are already
-  //    escaped — so we don't double-escape.
-  const codeBlocks: string[] = [];
-  body = body.replace(/```(\w*)\n([\s\S]*?)```/g, (_m, lang, code) => {
-    const safeLang = String(lang || "text").replace(/[^a-z0-9_-]/gi, "");
-    codeBlocks.push(`<pre><code class="language-${safeLang}">${code}</code></pre>`);
-    return ` CODEBLOCK${codeBlocks.length - 1} `;
-  });
-
-  // 3) Block-level patterns. Blockquote `>` got escaped to `&gt;`.
-  body = body.replace(/^### (.+)$/gm, "<h3>$1</h3>");
-  body = body.replace(/^## (.+)$/gm, "<h2>$1</h2>");
-  body = body.replace(/^# (.+)$/gm, "<h1>$1</h1>");
-  body = body.replace(/^&gt; (.+)$/gm, "<blockquote>$1</blockquote>");
-
-  // 4) Lists (very light: contiguous - or 1. lines).
-  body = body.replace(/(?:^|\n)((?:- .+(?:\n|$))+)/g, (_m, block: string) => {
-    const items = block
-      .trim()
-      .split(/\n/)
-      .map((l) => l.replace(/^- /, "").trim())
-      .map((l) => `<li>${l}</li>`)
-      .join("");
-    return `\n<ul>${items}</ul>`;
-  });
-  body = body.replace(/(?:^|\n)((?:\d+\. .+(?:\n|$))+)/g, (_m, block: string) => {
-    const items = block
-      .trim()
-      .split(/\n/)
-      .map((l) => l.replace(/^\d+\. /, "").trim())
-      .map((l) => `<li>${l}</li>`)
-      .join("");
-    return `\n<ol>${items}</ol>`;
-  });
-
-  // 5) Inline patterns. The capture groups are already HTML-escaped, so
-  //    we can wrap them directly without re-escaping.
-  body = body.replace(/`([^`\n]+)`/g, "<code>$1</code>");
-  body = body.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
-  body = body.replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "<em>$1</em>");
-  // Links: \[text\](url) — both groups are already escaped. Filter the
-  // href against javascript: / data: / vbscript: / file: schemes.
-  body = body.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, text: string, url: string) => {
-    return `<a href="${_safeHref(url)}">${text}</a>`;
-  });
-
-  // 6) Paragraphs: split on double newlines, wrap remaining text lines.
-  body = body
-    .split(/\n{2,}/)
-    .map((chunk) => {
-      const trimmed = chunk.trim();
-      if (!trimmed) return "";
-      if (/^<(h\d|ul|ol|pre|blockquote)/.test(trimmed)) return trimmed;
-      return `<p>${trimmed.replace(/\n/g, "<br/>")}</p>`;
-    })
-    .join("\n");
-
-  // 7) Restore code blocks.
-  body = body.replace(/ CODEBLOCK(\d+) /g, (_m, idx) => codeBlocks[Number(idx)]);
-
-  return body;
-}
 
 function buildHtmlDoc(content: string, agent: string): string {
   const renderedAt = new Date().toLocaleString();

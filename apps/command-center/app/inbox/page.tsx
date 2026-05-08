@@ -53,26 +53,32 @@ export default async function InboxPage() {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Agent Inbox"
-        subtitle="Where your agents hand off work to each other."
+        subtitle="Log of agent-to-agent handoffs. You probably don't need this page in day-to-day use."
       />
 
-      <Card title="What this is">
+      <Card title="The honest answer to 'what is this?'">
         <div className="space-y-4 text-sm text-fg-muted leading-relaxed">
           <p>
-            Your agents work on different parts of the business — Bravo runs
-            ops and architecture, Atlas handles cashflow and tax, Maven
-            ships content and ads, Aura runs your home and habits, Lumen
-            keeps voice and presence of loved ones, Codex executes backend
-            code. They don&apos;t share a brain. The inbox is how they leave
-            each other notes so they can work in parallel without you
-            relaying every message.
+            <span className="text-fg font-medium">You don&apos;t use the inbox page directly. The chat does.</span>{" "}
+            When you chat any agent, their unread inbox messages get
+            auto-injected into the conversation context — they see and
+            handle the message before answering you. So this page is just
+            a logbook of what&apos;s already flowing between your agents.
           </p>
           <p>
-            <span className="text-fg font-medium">Why it matters:</span>{" "}
-            without it, every cross-agent handoff has to go through you.
-            With it, Bravo can finish a sales draft and ping Atlas for a
-            tax review, then keep moving. You don&apos;t notice the message
-            unless you want to.
+            <span className="text-fg font-medium">When the inbox actually matters:</span>{" "}
+            agents post here when they finish a task and need a sibling to
+            pick up. Bravo wraps a sales draft → posts to Atlas: &ldquo;tax
+            review please.&rdquo; Atlas spots a cashflow issue → posts to Bravo:
+            &ldquo;hold the new hire offer.&rdquo; You see the trail here; the
+            recipient sees and acts on it the next time you chat them.
+          </p>
+          <p className="text-fg-dim">
+            <span className="text-fg font-medium">When to look here directly:</span>{" "}
+            (1) you want a record of agent-to-agent decisions, (2) you want
+            to leave an agent a non-urgent note for next time it runs
+            (admin composer below), (3) something feels off and you want
+            to see what an agent saw.
           </p>
         </div>
       </Card>
@@ -161,12 +167,19 @@ export default async function InboxPage() {
         <AgentInboxList unread={unread} read={read} />
       </Card>
       {isAdmin && (
-        <Card
-          title="Post a message"
-          subtitle="You usually don't post here — agents do. Use this to leave a specific agent a note for the next time it runs."
-        >
-          <AgentInboxComposer />
-        </Card>
+        <details className="rounded-lg border border-bg-border bg-bg-elev/40">
+          <summary className="cursor-pointer px-5 py-4 text-sm font-bold uppercase tracking-[0.14em] text-fg-muted hover:text-fg">
+            Post a message (admin · expand)
+          </summary>
+          <div className="px-5 pb-5">
+            <p className="text-xs text-fg-dim mb-3">
+              You usually don&apos;t need this — chat the agent directly
+              instead. Use this only for a non-urgent note that should
+              wait until the next time that agent runs.
+            </p>
+            <AgentInboxComposer />
+          </div>
+        </details>
       )}
     </div>
   );
