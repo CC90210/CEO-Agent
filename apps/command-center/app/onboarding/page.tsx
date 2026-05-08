@@ -58,9 +58,10 @@ export default async function OnboardingPage() {
             <div className="text-[10px] uppercase tracking-[0.18em] text-fg-dim">Setup</div>
           </div>
         </Link>
-        <Link href="/" className="text-xs text-fg-muted hover:text-fg transition-colors">
-          Skip for now →
-        </Link>
+        {/* No "Skip" link — the middleware enforces completion. The form
+            itself can be filled with placeholder values if the user just
+            wants to move past it. */}
+        <span className="text-xs text-fg-dim">Setup required</span>
       </header>
 
       <section className="relative z-10 mx-auto max-w-3xl px-6 py-8 pb-20">

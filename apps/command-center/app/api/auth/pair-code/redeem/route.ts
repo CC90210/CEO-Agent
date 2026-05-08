@@ -67,6 +67,32 @@ export async function POST(req: NextRequest) {
     return bad(404, "code expired");
   }
 
+  // ATOMICALLY CLAIM THE CODE FIRST.
+  //
+  // The natural ordering "insert pairing → mark code consumed" is RACE-y:
+  // two concurrent requests with the same code both see consumed_at=null,
+  // both insert pairings, then only one consume succeeds. Result: a
+  // single code mints two valid pairings.
+  //
+  // Fix: run the consume UPDATE first with `WHERE id = ? AND consumed_at
+  // IS NULL` and `.select()` it — the database will only return the row
+  // if the predicate held at update time. If returns 0 rows, another
+  // request beat us; abort with 410 BEFORE creating any pairing. This is
+  // PostgreSQL's standard "atomic claim" idiom.
+  const claimRes = await db
+    .from("bridge_pair_codes")
+    .update({ consumed_at: new Date().toISOString() })
+    .eq("id", row.id)
+    .is("consumed_at", null)
+    .select("id");
+  if (claimRes.error) {
+    return bad(500, `claim_failed: ${claimRes.error.message}`);
+  }
+  if (!claimRes.data || claimRes.data.length === 0) {
+    // Lost the race — someone else just consumed this code.
+    return bad(410, "code already redeemed");
+  }
+
   // Mint the bridge pairing — same shape as /api/auth/pair so the CLI's
   // existing token storage logic in `bravo setup` works unchanged.
   const tokenPlain = `oab_${randomBytes(32).toString("hex")}`;
@@ -89,23 +115,22 @@ export async function POST(req: NextRequest) {
     .select("id")
     .single();
   if (ins.error || !ins.data) {
-    return bad(500, `pair_insert_failed: ${ins.error?.message || "unknown"}`);
+    // The code is already marked consumed but the pairing failed. That
+    // means this code is now permanently dead — not ideal, but the
+    // alternative (rolling back the consume) opens the door to the race
+    // we just closed. Far better to make the operator generate a fresh
+    // code than to risk double-claim.
+    return bad(500, `pair_insert_failed_after_claim: ${ins.error?.message || "unknown"}`);
   }
 
-  // Mark code consumed. If this update fails AFTER the pairing was
-  // created, the pairing is still valid — but the code stays redeemable
-  // until expiry. That's a worse failure mode than a duplicate pairing,
-  // so we treat the consume step as best-effort and log via the response.
-  let consumedOk = true;
-  const consumeRes = await db
+  // Annotate the consumed code with the pairing id for audit trail.
+  // Best-effort — the code is already consumed, so this update can fail
+  // without affecting correctness.
+  await db
     .from("bridge_pair_codes")
-    .update({
-      consumed_at: new Date().toISOString(),
-      consumed_by_pairing_id: ins.data.id,
-    })
-    .eq("id", row.id)
-    .is("consumed_at", null);
-  if (consumeRes.error) consumedOk = false;
+    .update({ consumed_by_pairing_id: ins.data.id })
+    .eq("id", row.id);
+  const consumedOk = true;
 
   // Find the user's profile id for parity with /api/auth/pair response shape
   const profile = await db
