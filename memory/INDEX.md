@@ -9,11 +9,13 @@ tags: [memory, hub, index]
 > Parent: [[brain/INDEX]] · Companion: [[brain/STATE]] (current ephemeral state)
 
 ## Active state (updated every session)
-- [[brain/STATE]] — current operational pulse (canonical lives in brain/, not memory/)
-- [[memory/ACTIVE_TASKS]] — current task queue with owners + ETAs
+- [[brain/STATE]] — stable identity / North Star / capability architecture (30-day threshold)
+- [[memory/OPERATIONAL_STATE]] — ephemeral infra status, known issues, last-heartbeat (7-day threshold; split from STATE.md 2026-05-07)
+- [[memory/ACTIVE_TASKS]] — current task queue with owners + ETAs (7-day threshold)
 - [[memory/SESSION_LOG]] — chronological log of every session (compacted via context_manager)
 - [[memory/MEMORY_INDEX]] — older memory-system index pointer
 - [[memory/LONG_TERM]] — durable cross-session memory snapshots
+- [[memory/PERSONAS]] — role-flavored GWS workflow aliases (consolidated from archived persona-* skills, 2026-05-07)
 
 ## Decision + learning records
 - [[memory/DECISIONS]] — architectural and product decisions with rationale

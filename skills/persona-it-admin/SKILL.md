@@ -1,5 +1,7 @@
 ---
 name: persona-it-admin
+archived: 2026-05-07
+superseded_by: memory/PERSONAS.md
 version: 1.0.0
 description: "Administer IT — monitor security and configure Workspace."
 metadata:

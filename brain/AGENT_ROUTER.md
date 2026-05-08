@@ -65,7 +65,7 @@ When the operator switches you in the chat picker, the bridge `cd`s to that repo
 | Past mistakes to avoid | `memory/MISTAKES.md` | — |
 | Validated patterns to reuse | `memory/PATTERNS.md` | — |
 | Send an email or DM | `skills/outreach-send/SKILL.md` | `brain/QUICK_REFERENCE.md` |
-| What's deployed / live | `brain/STATE.md` | `brain/CHANGELOG.md` |
+| What's deployed / live | `memory/OPERATIONAL_STATE.md` (7d threshold) | `brain/STATE.md` (stable arch), `brain/CHANGELOG.md` |
 | Pricing / offers / deal shape | `brain/DEAL_ARCHITECTURE.md` | `brain/CLIENT_PLAYBOOK.md` |
 | OKRs / strategy | `brain/OKRs.md` | `brain/CEO_OPERATING_SYSTEM.md` |
 | Risk / what could go wrong | `brain/RISK_REGISTER.md` | — |

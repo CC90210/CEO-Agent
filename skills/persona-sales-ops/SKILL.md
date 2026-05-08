@@ -1,5 +1,7 @@
 ---
 name: persona-sales-ops
+archived: 2026-05-07
+superseded_by: memory/PERSONAS.md
 version: 1.0.0
 description: "Manage sales workflows — track deals, schedule calls, client comms."
 metadata:

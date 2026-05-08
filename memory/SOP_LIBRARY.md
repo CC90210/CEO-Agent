@@ -1,5 +1,7 @@
 ---
 tags: [sops, processes]
+last_updated: 2026-05-07
+freshness_threshold_days: 180
 ---
 # SOP LIBRARY — Standard Operating Procedures (V5.5 Enhanced)
 

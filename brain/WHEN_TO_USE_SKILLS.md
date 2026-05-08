@@ -11,6 +11,8 @@ last_updated: 2026-05-06
 > The catalog has 150+ entries. Loading every `SKILL.md` body costs 100k+ tokens.
 > This index is the cheap router: trigger phrase → skill name → when NOT to use.
 > Read the skill's own `SKILL.md` body only after deciding it's the right one.
+>
+> ⚠ **This is a router, not an inventory.** Only the highest-traffic skills appear here. The full set lives in `skills/INDEX.md` (~150 entries) and `brain/CAPABILITY_GRAPH.json` (machine-readable). If you can't find a trigger here, run `python scripts/register_skill.py route "<task>" --json` — the resolver scores all skills against your intent, so a hidden skill with a high-confidence match will surface even when it's not in this file.
 
 ---
 

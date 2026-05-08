@@ -65,6 +65,27 @@ BLOCKED_PATTERNS = [
     re.compile(r"\bDISABLE\s+ROW\s+LEVEL\s+SECURITY\b", re.IGNORECASE),
 ]
 
+# RLS-touching patterns — not blocked, but warn loudly. RLS misconfiguration is
+# a top-tier silent failure: the migration applies cleanly, but the resulting
+# policy lets the wrong rows through (or none at all). The verification contract
+# in brain/ORCHESTRATION.md says: "test query as anon user AND as authed user".
+# This script can't run that test for you — but it can refuse to apply blindly.
+RLS_TOUCHING_PATTERNS = [
+    re.compile(r"\bCREATE\s+POLICY\b", re.IGNORECASE),
+    re.compile(r"\bENABLE\s+ROW\s+LEVEL\s+SECURITY\b", re.IGNORECASE),
+    re.compile(r"\bFORCE\s+ROW\s+LEVEL\s+SECURITY\b", re.IGNORECASE),
+]
+
+
+def check_rls_touching(sql: str) -> list[str]:
+    """Return a list of RLS-touching pattern names found (ignoring comments)."""
+    stripped = strip_sql_comments(sql)
+    hits = []
+    for pat in RLS_TOUCHING_PATTERNS:
+        if pat.search(stripped):
+            hits.append(pat.pattern)
+    return hits
+
 
 def load_env() -> dict[str, str]:
     env_path = PROJECT_ROOT / ".env.agents"
@@ -203,6 +224,14 @@ def main() -> None:
         action="store_true",
         help="Skip the exec_sql RPC path and go straight to the Management API",
     )
+    parser.add_argument(
+        "--allow-rls",
+        action="store_true",
+        help="Acknowledge that this migration touches RLS (CREATE POLICY / "
+             "ENABLE ROW LEVEL SECURITY). Required when RLS_TOUCHING_PATTERNS "
+             "match. Confirms the operator has tested the policy as anon AND "
+             "authed user per brain/ORCHESTRATION.md verification contract.",
+    )
     args = parser.parse_args()
 
     mig_path = Path(args.migration_file).resolve()
@@ -225,6 +254,32 @@ def main() -> None:
             file=sys.stderr,
         )
         sys.exit(2)
+
+    # RLS-touching gate — apply only if operator passes --allow-rls.
+    # Per brain/ORCHESTRATION.md verification contract, the operator should
+    # have tested the policy as anon AND authed user before applying.
+    rls_hits = check_rls_touching(sql)
+    if rls_hits and not args.allow_rls and not args.dry_run:
+        print(
+            f"ABORTED: migration touches Row Level Security: {rls_hits}",
+            file=sys.stderr,
+        )
+        print(
+            "RLS policies have a high silent-failure rate. Before applying, "
+            "verify the policy with anon + authed test queries (see "
+            "brain/ORCHESTRATION.md Per-Domain Verification Contracts). "
+            "Then re-run with --allow-rls to confirm.",
+            file=sys.stderr,
+        )
+        sys.exit(3)
+    if rls_hits and args.dry_run:
+        print(f"[dry-run] WARNING: this migration touches RLS: {rls_hits}",
+              file=sys.stderr)
+        print(
+            "[dry-run] On real apply you'll need --allow-rls. "
+            "Test as anon + authed user first.",
+            file=sys.stderr,
+        )
 
     env = load_env()
     token = env.get("SUPABASE_ACCESS_TOKEN") or os.environ.get("SUPABASE_ACCESS_TOKEN")

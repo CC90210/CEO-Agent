@@ -124,16 +124,11 @@ tags: [skills, index, hub]
 - [[skills/algorithmic-art/SKILL]] — Generative art
 - [[skills/slack-gif-creator/SKILL]] — GIF creation
 
-## Personas
-- [[skills/persona-exec-assistant/SKILL]] — Executive assistant mode
-- [[skills/persona-sales-ops/SKILL]] — Sales operations mode
-- [[skills/persona-researcher/SKILL]] — Research mode
-- [[skills/persona-project-manager/SKILL]] — PM mode
-- [[skills/persona-customer-support/SKILL]] — Support mode
-- [[skills/persona-event-coordinator/SKILL]] — Event planning mode
-- [[skills/persona-hr-coordinator/SKILL]] — HR mode
-- [[skills/persona-it-admin/SKILL]] — IT admin mode
-- [[skills/persona-team-lead/SKILL]] — Team lead mode
+## Personas (archived 2026-05-07)
+
+The 9 `persona-*/SKILL.md` files were thin GWS-workflow wrappers — role-flavored aliases that never added executable capability. Archived per Architecture Certification finding C9. The role-to-stack mappings now live in `memory/PERSONAS.md`. Use the GWS workflows directly (`gws workflow +standup-report`, `+meeting-prep`, etc.) — see [[skills/gws-workflow/SKILL]].
+
+- See [[memory/PERSONAS]] for the consolidated role-to-GWS-stack reference.
 
 ## Google Workspace
 - [[skills/gws-shared/SKILL]] — `gws` CLI reference (auth, global flags, usage). All per-action + per-service hubs are wikilinked from there.

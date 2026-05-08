@@ -1,5 +1,7 @@
 ---
 name: persona-team-lead
+archived: 2026-05-07
+superseded_by: memory/PERSONAS.md
 version: 1.0.0
 description: "Lead a team — run standups, coordinate tasks, and communicate."
 metadata:

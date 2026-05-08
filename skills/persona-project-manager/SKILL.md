@@ -1,5 +1,7 @@
 ---
 name: persona-project-manager
+archived: 2026-05-07
+superseded_by: memory/PERSONAS.md
 version: 1.0.0
 description: "Coordinate projects — track tasks, schedule meetings, and share docs."
 metadata:

@@ -1,5 +1,7 @@
 ---
 tags: [reflections, growth]
+last_updated: 2026-05-07
+freshness_threshold_days: 90
 ---
 # SELF-REFLECTIONS — Agent Self-Assessment Log
 
