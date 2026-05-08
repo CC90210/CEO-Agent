@@ -193,8 +193,32 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
   const [expandedReads, setExpandedReads] = useState<Set<number>>(new Set());
   const [expandedRuns, setExpandedRuns] = useState<Set<number>>(new Set());
   const [thinking, setThinking] = useState(false);
+  // A0c: status phase + elapsed-time counter so CC sees "starting Atlas in
+  // CFO-Agent…" → "thinking… (0:12)" instead of a static "thinking…" during
+  // the first 30s of a Claude Code subprocess cold start.
+  const [statusPhase, setStatusPhase] = useState<"spawning" | "thinking" | "tool" | null>(null);
+  const [statusDetail, setStatusDetail] = useState<string>("");
+  const [streamStartedAt, setStreamStartedAt] = useState<number | null>(null);
+  const [elapsedTick, setElapsedTick] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Tick elapsed time every second while a request is mid-flight.
+  useEffect(() => {
+    if (!streamStartedAt) return;
+    const id = setInterval(() => setElapsedTick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [streamStartedAt]);
+
+  const elapsedLabel = useMemo(() => {
+    if (!streamStartedAt) return "";
+    // elapsedTick is referenced so this memo recomputes every second.
+    void elapsedTick;
+    const s = Math.max(0, Math.floor((Date.now() - streamStartedAt) / 1000));
+    const mm = Math.floor(s / 60);
+    const ss = String(s % 60).padStart(2, "0");
+    return `${mm}:${ss}`;
+  }, [streamStartedAt, elapsedTick]);
 
   useEffect(() => {
     fetch("/api/agent-config")
@@ -351,6 +375,9 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
     setMessages((m) => [...m, { role: "assistant", content: "", at: Date.now() }]);
     setStreaming(true);
     setThinking(true);
+    setStreamStartedAt(Date.now());
+    setStatusPhase(bridgeOnline === true ? "spawning" : "thinking");
+    setStatusDetail("");
 
     try {
       // Routing decision:
@@ -399,8 +426,24 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
             continue;
           }
           if (event === "session" && parsed.session_id) setSessionId(parsed.session_id);
+          else if (event === "agent_status") {
+            // A0c: bridge synthesizes "spawning" before claude is up, then
+            // "thinking" once the subprocess is alive. Pure UX signal.
+            const phase = String(parsed.phase || "");
+            if (phase === "spawning" || phase === "thinking" || phase === "tool") {
+              setStatusPhase(phase as "spawning" | "thinking" | "tool");
+              if (phase === "spawning" && parsed.cwd) {
+                const cwd = String(parsed.cwd);
+                const last = cwd.split(/[\\/]/).filter(Boolean).pop() || cwd;
+                setStatusDetail(last);
+              } else {
+                setStatusDetail("");
+              }
+            }
+          }
           else if (event === "delta" && typeof parsed.text === "string") {
             setThinking(false);
+            setStatusPhase(null);
             setMessages((m) => {
               const next = [...m];
               const last = next[next.length - 1];
@@ -421,6 +464,8 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
             ]);
           } else if (event === "tool") {
             setThinking(true);
+            setStatusPhase("tool");
+            setStatusDetail(_toolLabel(parsed));
             const toolName = String(parsed.name || "tool");
             const toolUseId = String(parsed.tool_use_id || "");
             const isClaudePath = !!parsed.raw_name;
@@ -537,6 +582,10 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
     } finally {
       setStreaming(false);
       setThinking(false);
+      setStatusPhase(null);
+      setStatusDetail("");
+      setStreamStartedAt(null);
+      setElapsedTick(0);
       // Auto-focus the input so power-users can keep typing
       setTimeout(() => inputRef.current?.focus(), 50);
     }
@@ -574,14 +623,21 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
           </div>
           <div className="text-xs text-fg-dim font-mono truncate">
             {bridgeOnline === true ? (
-              <span className="text-accent">
+              <span
+                className="text-accent"
+                title="Local bridge spawns the Claude Code CLI on your machine using your Claude subscription — your saved provider keys are not used in this mode."
+              >
                 <Cpu className="w-3 h-3 inline-block mr-1 -mt-0.5" />
-                local bridge · full repo access
+                local bridge · Claude Code CLI · full repo access
               </span>
             ) : cfg ? (
-              `${cfg.provider} · ${cfg.model}`
+              <span title={`Cloud mode — using your saved ${cfg.provider} key for ${cfg.model}.`}>
+                {`${cfg.provider} · ${cfg.model} · your key`}
+              </span>
             ) : isAdmin ? (
-              "admin · platform key"
+              <span title="Cloud mode, no per-agent key saved — falling back to the platform-default key (admin only).">
+                admin · platform-default key
+              </span>
             ) : configsLoaded ? (
               "not configured"
             ) : (
@@ -670,7 +726,16 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
         {thinking && streaming && (
           <div className="flex items-center gap-2 text-fg-dim text-xs ml-9">
             <span className="typing-dots"><span /><span /><span /></span>
-            <span>thinking…</span>
+            <span>
+              {statusPhase === "spawning"
+                ? `starting ${agent.toLowerCase()}${statusDetail ? ` in ${statusDetail}` : ""}…`
+                : statusPhase === "tool"
+                  ? `running ${statusDetail || "tool"}…`
+                  : "thinking…"}
+              {elapsedLabel && (
+                <span className="ml-1.5 font-mono text-fg-dim/70">({elapsedLabel})</span>
+              )}
+            </span>
           </div>
         )}
         {toolReads.length > 0 && (
