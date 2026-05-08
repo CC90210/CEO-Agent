@@ -661,7 +661,13 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
               return next;
             });
           } else if (event === "error") {
-            setError(parsed.message || "stream_error");
+            // Surface the stderr detail when the bridge supplies one
+            // (e.g., claude_exit_1 with the actual claude error message)
+            // so the operator can see WHY the subprocess crashed instead
+            // of just a cryptic exit code.
+            const msg = String(parsed.message || "stream_error");
+            const detail = parsed.detail ? String(parsed.detail).slice(0, 600) : "";
+            setError(detail ? `${msg}\n\n${detail}` : msg);
           }
         }
       }
@@ -983,7 +989,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
                   </div>
                 </>
               ) : (
-                <div className="font-mono break-all">{error}</div>
+                <div className="font-mono break-words whitespace-pre-wrap text-[11px] leading-relaxed">{error}</div>
               )}
               {error === "admin_no_platform_key" && (
                 <div className="text-xs text-fg-muted font-sans">
