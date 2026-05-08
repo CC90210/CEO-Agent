@@ -46,6 +46,7 @@ export function Sidebar({
   primaryAgent = "bravo",
   primaryAgentLive = false,
   bridgeOnline = false,
+  inboxUnread = 0,
 }: {
   brand?: string;
   operatorName?: string;
@@ -53,6 +54,7 @@ export function Sidebar({
   primaryAgent?: string;
   primaryAgentLive?: boolean;
   bridgeOnline?: boolean;
+  inboxUnread?: number;
 }) {
   const pathname = usePathname();
   const opsItems = ITEMS.filter((i) => i.group === "ops");
@@ -96,7 +98,12 @@ export function Sidebar({
         </NavGroup>
         <NavGroup label="System">
           {systemItems.map((item) => (
-            <NavLink key={item.href} item={item} pathname={pathname} />
+            <NavLink
+              key={item.href}
+              item={item}
+              pathname={pathname}
+              badgeCount={item.href === "/inbox" ? inboxUnread : 0}
+            />
           ))}
         </NavGroup>
       </nav>
@@ -162,7 +169,15 @@ function NavGroup({ label, children }: { label: string; children: React.ReactNod
   );
 }
 
-function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
+function NavLink({
+  item,
+  pathname,
+  badgeCount = 0,
+}: {
+  item: NavItem;
+  pathname: string;
+  badgeCount?: number;
+}) {
   const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
   const Icon = item.icon;
   return (
@@ -184,7 +199,15 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
           className={active ? "text-accent" : "text-fg-dim group-hover:text-fg-muted"}
           strokeWidth={2}
         />
-        <span className="font-medium">{item.label}</span>
+        <span className="font-medium flex-1">{item.label}</span>
+        {badgeCount > 0 && (
+          <span
+            className="ml-auto px-1.5 py-0.5 rounded-full bg-accent text-bg-deep text-[10px] font-bold leading-none min-w-[16px] text-center"
+            title={`${badgeCount} unread`}
+          >
+            {badgeCount > 99 ? "99+" : badgeCount}
+          </span>
+        )}
       </Link>
     </li>
   );

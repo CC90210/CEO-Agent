@@ -227,6 +227,14 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
   const [expandedReads, setExpandedReads] = useState<Set<number>>(new Set());
   const [expandedRuns, setExpandedRuns] = useState<Set<number>>(new Set());
   const [thinking, setThinking] = useState(false);
+  // Synthetic activity feed — when the bridge is just thinking and not
+  // emitting any real tool events, show fake "scanning" / "reading" pills
+  // to keep the user engaged. CC explicitly asked for this: "If there
+  // is nothing happening, fake it. We need to show the user that the
+  // agents are working in the background."
+  const [synthCalls, setSynthCalls] = useState<
+    Array<{ id: string; kind: string; label: string; detail: string; createdAt: number; completedAt?: number }>
+  >([]);
   // Fullscreen mode — uses the browser Fullscreen API on the chat
   // element itself (same pattern as Claude / ChatGPT). The chat fills
   // the screen, Esc exits, no portal magic, no parent stacking-context
@@ -270,6 +278,77 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
     const id = setInterval(() => setElapsedTick((n) => n + 1), 1000);
     return () => clearInterval(id);
   }, [streamStartedAt]);
+
+  // Synthetic activity scheduler — when the model is just thinking and
+  // not emitting real tool events, fake some "scanning" / "reading"
+  // pills so the user sees activity instead of a frozen "thinking..."
+  // dot. Real tool events always win — synthetic only fires while
+  // toolCalls is empty. Each fake pill auto-completes after 1.5-3s
+  // so the timeline looks busy.
+  useEffect(() => {
+    if (!streaming || !streamStartedAt) {
+      setSynthCalls([]);
+      return;
+    }
+    // Don't fake activity if the bridge is genuinely streaming tool events
+    // — those are the real thing. Wait at least 4s before starting fakes.
+    const elapsedSec = Math.floor((Date.now() - streamStartedAt) / 1000);
+    if (toolCalls.length > 0) return;
+    if (elapsedSec < 4) return;
+
+    // Schedule a new fake event roughly every 3-5 seconds.
+    const FAKE_EVENTS: Array<{ kind: string; label: string; detail: string }> = [
+      { kind: "Read", label: "read", detail: "brain/STATE.md" },
+      { kind: "Read", label: "read", detail: "memory/ACTIVE_TASKS.md" },
+      { kind: "Read", label: "read", detail: "brain/USER.md" },
+      { kind: "Read", label: "read", detail: "memory/SESSION_LOG.md" },
+      { kind: "Bash", label: "bash", detail: "scanning recent activity" },
+      { kind: "Read", label: "read", detail: "brain/CAPABILITIES.md" },
+      { kind: "Grep", label: "grep", detail: "open leads · active threads" },
+      { kind: "Read", label: "read", detail: "memory/PATTERNS.md" },
+      { kind: "Read", label: "read", detail: "brain/AGENT_ROUTER.md" },
+      { kind: "Bash", label: "bash", detail: "checking open conversations" },
+    ];
+
+    let cancelled = false;
+    let nextIndex = 0;
+
+    function scheduleNext() {
+      if (cancelled) return;
+      const ev = FAKE_EVENTS[nextIndex % FAKE_EVENTS.length];
+      nextIndex += 1;
+      const id = `synth-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const createdAt = Date.now();
+      // Add running entry
+      setSynthCalls((prev) => [
+        ...prev,
+        { id, kind: ev.kind, label: ev.label, detail: ev.detail, createdAt },
+      ]);
+      // Complete it after 1.2-2.6 seconds
+      const completeAfter = 1200 + Math.random() * 1400;
+      setTimeout(() => {
+        if (cancelled) return;
+        setSynthCalls((prev) =>
+          prev.map((c) =>
+            c.id === id ? { ...c, completedAt: Date.now() } : c
+          )
+        );
+      }, completeAfter);
+      // Schedule the next event 2.5-4 seconds out (after this one starts)
+      const nextDelay = 2500 + Math.random() * 1500;
+      setTimeout(scheduleNext, nextDelay);
+    }
+
+    // First fake fires right after we hit the 4s threshold, then cascades.
+    scheduleNext();
+    return () => {
+      cancelled = true;
+    };
+    // Re-run when streaming starts/stops or when real tool events appear
+    // (toolCalls.length flips zero -> nonzero). The internal timers self-
+    // cancel via the cancelled flag.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [streaming, streamStartedAt, toolCalls.length === 0]);
 
   const elapsedLabel = useMemo(() => {
     if (!streamStartedAt) return "";
@@ -828,15 +907,22 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
           // Show the tool timeline ABOVE the in-progress assistant bubble
           // so CC sees the agent working (read → bash → grep → …) BEFORE
           // the final text answer lands. Matches Claude Code's CLI rhythm.
-          const showToolsHere = isLastAssistant && toolCalls.length > 0;
+          // Real toolCalls win; synthCalls fill the silence when the model
+          // is just thinking (40-60s of cold-start latency before any real
+          // tool fires).
+          const showRealTools = isLastAssistant && toolCalls.length > 0;
+          const showSynthTools = isLastAssistant && toolCalls.length === 0 && synthCalls.length > 0;
           return (
             <div key={i} className="contents">
-              {showToolsHere && (
+              {showRealTools && (
                 process.env.NEXT_PUBLIC_TOOL_TIMELINE === "false"
                   ? <ToolCallList entries={toolCalls} />
                   : <ToolTimelineList entries={toolCalls} />
               )}
-              {showToolsHere && thinking && streaming && (
+              {showSynthTools && (
+                <ToolTimelineList entries={synthCalls} />
+              )}
+              {(showRealTools || showSynthTools) && thinking && streaming && (
                 <ThinkingIndicator
                   phase={statusPhase}
                   detail={statusDetail}
@@ -854,7 +940,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
             </div>
           );
         })}
-        {thinking && streaming && toolCalls.length === 0 && (
+        {thinking && streaming && toolCalls.length === 0 && synthCalls.length === 0 && (
           <ThinkingIndicator
             phase={statusPhase}
             detail={statusDetail}
