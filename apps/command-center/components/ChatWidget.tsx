@@ -184,6 +184,13 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
   >([]);
   const [bridgeOnline, setBridgeOnline] = useState<boolean | null>(null);
   const [usage, setUsage] = useState<{ usage: number; limit: number | null } | null>(null);
+  // Cloud-tool results — only fire on the cloud /api/chat path. Each
+  // entry is one execution of a <cloud-tool> marker the agent emitted
+  // (e.g., lookup_lead_by_name → matched leads). Rendered as inline
+  // pills so the operator sees what the cloud agent looked up.
+  const [cloudResults, setCloudResults] = useState<
+    Array<{ uid: string; ok: boolean; name: string; summary?: string; error?: string; data?: unknown }>
+  >([]);
   // Generic tool-call pills — covers every Claude Code tool (Read, Edit,
   // Write, Bash, Glob, Grep, WebFetch, MCP servers) plus the legacy
   // bridge tools (read_file, run_script). Correlated by tool_use_id.
@@ -220,17 +227,49 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
   const [expandedReads, setExpandedReads] = useState<Set<number>>(new Set());
   const [expandedRuns, setExpandedRuns] = useState<Set<number>>(new Set());
   const [thinking, setThinking] = useState(false);
-  // Fullscreen toggle — when true, the chat container is fixed inset-3
-  // over the whole viewport so CC can read long Bravo responses without
-  // squinting at a 640px box. Esc and the toggle button both close it.
+  // Fullscreen mode — covers entire viewport (sidebar hidden), and
+  // requests the browser Fullscreen API so even the browser chrome
+  // disappears when the user wants total focus. Esc exits both.
   const [fullscreen, setFullscreen] = useState(false);
+  // Pin a class on <body> so the layout's sidebar can hide itself with
+  // a CSS rule — no prop drilling through the layout/sidebar tree.
   useEffect(() => {
-    if (!fullscreen) return;
+    if (typeof document === "undefined") return;
+    const cls = "chat-fullscreen-active";
+    if (fullscreen) {
+      document.body.classList.add(cls);
+      // Best-effort browser-native fullscreen — falls through if the
+      // user denies the prompt or the browser blocks it.
+      const root = document.documentElement;
+      if (root.requestFullscreen && !document.fullscreenElement) {
+        root.requestFullscreen().catch(() => null);
+      }
+    } else {
+      document.body.classList.remove(cls);
+      if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => null);
+      }
+    }
+    return () => {
+      document.body.classList.remove(cls);
+    };
+  }, [fullscreen]);
+  // Esc to exit + sync our state with the browser's fullscreen exit
+  // (user can hit Esc to leave browser fullscreen — keep our flag in sync).
+  useEffect(() => {
+    if (typeof document === "undefined") return;
     const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === "Escape") setFullscreen(false);
+      if (ev.key === "Escape" && fullscreen) setFullscreen(false);
+    };
+    const onFsChange = () => {
+      if (!document.fullscreenElement && fullscreen) setFullscreen(false);
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("fullscreenchange", onFsChange);
+    };
   }, [fullscreen]);
   // A0c: status phase + elapsed-time counter so CC sees "starting Atlas in
   // CFO-Agent…" → "thinking… (0:12)" instead of a static "thinking…" during
@@ -356,6 +395,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
     setSessionId(null);
     setError(null);
     setActions([]);
+    setCloudResults([]);
     setToolReads([]);
     setToolRuns([]);
     setToolCalls([]);
@@ -389,6 +429,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
     setSessionId(null);
     setError(null);
     setActions([]);
+    setCloudResults([]);
     setToolReads([]);
     setToolRuns([]);
     setToolCalls([]);
@@ -426,7 +467,15 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
       const useBridge = bridgeOnline === true;
       const url = useBridge ? `${BRIDGE_CHAT_BASE}/chat` : "/api/chat";
       const body = useBridge
-        ? { agent, messages: newMessages }
+        ? {
+            agent,
+            messages: newMessages,
+            // Pass the Claude Code session id so the bridge can use
+            // --resume on subsequent turns. First turn omits it; bridge
+            // mints a fresh session and emits its id back via the
+            // 'session' SSE event.
+            session_id: sessionId,
+          }
         : { agent_key: agent, session_id: sessionId, messages: newMessages };
       const res = await fetch(url, {
         method: "POST",
@@ -491,6 +540,21 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
               }
               return next;
             });
+          } else if (event === "cloud_tool_result") {
+            // Cloud-only path — agent emitted a <cloud-tool> marker that
+            // the route executed against the tenant's data. Surface result
+            // inline so the operator sees what the agent looked up.
+            setCloudResults((prev) => [
+              ...prev,
+              {
+                uid: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                ok: !!parsed.ok,
+                name: String(parsed.name || "?"),
+                summary: parsed.summary,
+                error: parsed.error,
+                data: parsed.data,
+              },
+            ]);
           } else if (event === "action") {
             setActions((prev) => [
               ...prev,
@@ -644,7 +708,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
     <div
       className={`chat-container agent-${agent} flex flex-col ${
         fullscreen
-          ? "fixed inset-3 z-50 h-[calc(100vh-1.5rem)] shadow-2xl"
+          ? "fixed inset-0 z-[100] h-screen w-screen rounded-none shadow-2xl"
           : "h-[640px]"
       }`}
     >
@@ -839,6 +903,34 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
               });
             }}
           />
+        )}
+        {cloudResults.length > 0 && (
+          <div className="ml-9 space-y-1.5 border-l border-bg-border pl-3 mt-1">
+            {cloudResults.map((r) => (
+              <div
+                key={r.uid}
+                className={`flex items-start gap-2 rounded-md border px-3 py-2 text-xs font-mono ${
+                  r.ok
+                    ? "border-accent/40 bg-accent/5 text-accent"
+                    : "border-status-warm/40 bg-status-warm/10 text-status-warm"
+                }`}
+                title={r.ok ? "cloud tool ran successfully" : "cloud tool failed"}
+              >
+                <Database className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <span className="font-bold uppercase tracking-wider text-[10px]">
+                      {r.ok ? "looked up" : "lookup failed"}
+                    </span>
+                    <span className="text-fg-muted">{r.name}</span>
+                  </div>
+                  <div className="font-sans mt-0.5 text-fg break-words">
+                    {r.summary || r.error || "(no summary)"}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
         {actions.length > 0 && (
           <div className="space-y-1.5">
@@ -1511,6 +1603,35 @@ function ToolTimelineList({
  * message (before the first tool fires). Single component to keep the
  * status copy in one place.
  */
+/**
+ * Narration ticker — when no real tool events are firing (e.g., the
+ * cloud /api/chat path is just thinking, or the bridge is between
+ * tool calls), the UI used to go silent for 30+ seconds. This cycles
+ * through plausible activity descriptions based on elapsed seconds so
+ * CC sees motion and isn't left wondering if the chat hung.
+ *
+ * The phases are intentionally generic — they describe what an LLM is
+ * actually doing under the hood (loading context, reasoning, drafting)
+ * rather than promising specific tool calls that may not happen.
+ */
+const NARRATION_PHASES: Array<{ at: number; label: string }> = [
+  { at: 0, label: "thinking" },
+  { at: 6, label: "loading context" },
+  { at: 12, label: "considering tools" },
+  { at: 20, label: "reasoning through this" },
+  { at: 30, label: "drafting response" },
+  { at: 45, label: "almost there" },
+  { at: 60, label: "still working — long task" },
+];
+
+function _narrationFor(elapsedSec: number): string {
+  let label = NARRATION_PHASES[0].label;
+  for (const p of NARRATION_PHASES) {
+    if (elapsedSec >= p.at) label = p.label;
+  }
+  return label;
+}
+
 function ThinkingIndicator({
   phase,
   detail,
@@ -1522,12 +1643,19 @@ function ThinkingIndicator({
   agent: string;
   elapsed: string;
 }) {
+  // Convert "M:SS" elapsed back to seconds for narration phase lookup.
+  const elapsedSec = (() => {
+    const m = elapsed.match(/^(\d+):(\d+)$/);
+    if (!m) return 0;
+    return Number(m[1]) * 60 + Number(m[2]);
+  })();
+  const narration = _narrationFor(elapsedSec);
   const label =
     phase === "spawning"
       ? `starting ${agent.toLowerCase()}${detail ? ` in ${detail}` : ""}…`
       : phase === "tool"
         ? `running ${detail || "tool"}…`
-        : "thinking…";
+        : `${narration}…`;
   return (
     <div className="flex items-center gap-2 text-fg-dim text-xs ml-9">
       <span className="typing-dots"><span /><span /><span /></span>
@@ -1608,6 +1736,9 @@ function renderInline(text: string): React.ReactNode {
 function stripActionMarkers(text: string): string {
   return text
     .replace(/<dashboard-action\s+type=["'][a-z_]+["']\s*>[\s\S]*?<\/dashboard-action>/gi, "")
+    // Cloud-tool markers are also stripped from display — results render
+    // as separate inline pills (cloud_tool_result SSE events).
+    .replace(/<cloud-tool\s+name=["'][a-z0-9_]+["']\s*>[\s\S]*?<\/cloud-tool>/gi, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
