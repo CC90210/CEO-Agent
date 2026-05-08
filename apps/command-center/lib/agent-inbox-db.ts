@@ -14,13 +14,11 @@
 
 import { getServiceSupabase } from "./supabase-server";
 import { randomBytes } from "node:crypto";
+import { VALID_PRIORITIES, KNOWN_AGENTS, type Priority } from "./agent-inbox-types";
 
-export const VALID_PRIORITIES = ["low", "normal", "high", "urgent"] as const;
-export type Priority = (typeof VALID_PRIORITIES)[number];
-
-export const KNOWN_AGENTS = [
-  "bravo", "atlas", "maven", "aura", "life-preservation", "codex", "cc", "broadcast",
-] as const;
+// Re-export so existing call sites importing from this file keep working.
+export { VALID_PRIORITIES, KNOWN_AGENTS };
+export type { Priority };
 
 export type DbInboxMessage = {
   id: string;
