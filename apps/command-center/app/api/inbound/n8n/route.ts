@@ -72,6 +72,21 @@ export async function POST(req: NextRequest) {
     return bad(400, "from_email and subject are required");
   }
 
+  // 2.5. Junk-sender filter — reject the obvious non-leads BEFORE the RPC
+  // creates a lead row. Transactional senders (noreply@kraken, billing@stripe,
+  // notifications@github, etc.) and test/example domains were polluting the
+  // pipeline. The filter is conservative — anything ambiguous still gets
+  // through and creates a lead.
+  const junk = isJunkSender(body.from_email, body.subject);
+  if (junk) {
+    return NextResponse.json({
+      ok: true,
+      filtered: true,
+      reason: junk,
+      interaction_id: null,
+    });
+  }
+
   // 3. Hash secret + call RPC (the RPC re-validates the hash against the table)
   const secretHash = sha256(rawSecret);
   const db = getServiceSupabase();
@@ -103,4 +118,75 @@ export async function POST(req: NextRequest) {
 // Reject other methods
 export async function GET() {
   return bad(405, "POST only");
+}
+
+/**
+ * Identify obvious non-leads so we don't pollute the pipeline. Returns a
+ * short reason string when the email should be filtered, or null when it
+ * should pass through to lead creation.
+ *
+ * Conservative on purpose — only blocks the patterns that are clearly NOT
+ * humans pitching us. Anything ambiguous (real-looking address, real
+ * subject) still becomes a lead so we don't lose real outreach.
+ */
+function isJunkSender(fromEmail: string, subject: string): string | null {
+  const e = (fromEmail || "").toLowerCase().trim();
+  const s = (subject || "").toLowerCase().trim();
+  if (!e || !e.includes("@")) return "invalid_email";
+
+  const local = e.split("@")[0];
+  const domain = e.split("@")[1] || "";
+
+  // 1. No-reply / transactional local-parts. These are NEVER leads.
+  const NOREPLY_LOCALPARTS = [
+    "noreply", "no-reply", "donotreply", "do-not-reply",
+    "notifications", "notification", "alerts", "alert",
+    "billing", "receipts", "receipt", "invoices", "invoice",
+    "support", "help", "hello", "info", "contact", "mailer",
+    "mailer-daemon", "postmaster", "bounces", "bounce",
+    "newsletter", "news", "updates", "team", "system",
+    "auto", "automated", "bot", "noreply-",
+  ];
+  for (const p of NOREPLY_LOCALPARTS) {
+    if (local === p || local.startsWith(`${p}-`) || local.startsWith(`${p}_`) || local.startsWith(`${p}@`)) {
+      return `noreply_localpart:${p}`;
+    }
+  }
+
+  // 2. Test / example domains. Never real leads.
+  const TEST_DOMAINS = ["example.com", "example.org", "test.com", "test.test", "localhost", "invalid"];
+  if (TEST_DOMAINS.includes(domain)) return `test_domain:${domain}`;
+  if (local === "test" || local === "example" || local.startsWith("test+")) return "test_localpart";
+
+  // 3. Known transactional senders. These send INVOICE / RECEIPT / etc., not
+  // sales inquiries. Add to this list as new false positives appear.
+  const TRANSACTIONAL_DOMAINS = [
+    "kraken.com", "stripe.com", "github.com", "vercel.com", "cloudflare.com",
+    "supabase.io", "supabase.com", "openrouter.ai", "anthropic.com", "openai.com",
+    "google.com", "googlemail.com", "amazon.com", "aws.amazon.com",
+    "linear.app", "notion.so", "slack.com", "discord.com", "intercom.com",
+    "mailchimp.com", "sendgrid.net", "postmark.com",
+  ];
+  if (TRANSACTIONAL_DOMAINS.includes(domain)) return `transactional_domain:${domain}`;
+
+  // 4. Subject patterns that mark it as transactional rather than a lead.
+  const TRANSACTIONAL_SUBJECTS = [
+    /^(your )?receipt/i,
+    /^invoice (#|ref|number)/i,
+    /^withdrawal /i,
+    /^payment /i,
+    /^you added/i,
+    /^security alert/i,
+    /^login from a new/i,
+    /^verify your /i,
+    /^confirm your /i,
+    /^your order /i,
+    /^shipped:/i,
+    /unsubscribe/i,
+  ];
+  for (const re of TRANSACTIONAL_SUBJECTS) {
+    if (re.test(s)) return `transactional_subject`;
+  }
+
+  return null;
 }
