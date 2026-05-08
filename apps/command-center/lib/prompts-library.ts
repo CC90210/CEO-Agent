@@ -494,6 +494,47 @@ export const PROMPTS_LIBRARY: PromptEntry[] = [
     prompt:
       "Quarterly review. Big-picture only — are we still on the right product, the right market, the right pricing? What's working that we should double down on. What's not working that we should kill. What's missing that we need to ship. Update brain/STATE.md with the new direction if anything changes.",
   },
+
+  // ── INBOX HANDOFFS ─────────────────────────────────────────────
+  // Triggers that ask one agent to post a structured handoff to
+  // another via tmp/agent_inbox/ + Supabase agent_messages. These
+  // are how CC moves work between agents without copy-pasting.
+  {
+    id: "ops-inbox-handoff-bravo-to-atlas",
+    category: "ops_daily",
+    audience: "operator",
+    agent: "bravo",
+    title: "Hand off to Atlas (CFO)",
+    description:
+      "Tell Bravo to draft a handoff for Atlas — tax/cashflow/budget review. Posts to inbox so Atlas picks it up next run.",
+    tags: ["inbox", "handoff", "atlas"],
+    prompt:
+      "I need Atlas to review something. Take what we just discussed, write a clear, specific handoff (priority + needs-reply), and post it to the agent inbox addressed to atlas. Keep the body to 5–8 lines, concrete asks only. Confirm the message id back to me.",
+  },
+  {
+    id: "ops-inbox-handoff-bravo-to-maven",
+    category: "ops_daily",
+    audience: "operator",
+    agent: "bravo",
+    title: "Hand off to Maven (CMO)",
+    description:
+      "Tell Bravo to draft a handoff for Maven — content, ads, funnels. Posts to inbox so Maven picks it up next run.",
+    tags: ["inbox", "handoff", "maven"],
+    prompt:
+      "I need Maven to take this on. Summarize the brief in 5–8 lines, set priority, mark needs-reply if you want a back-and-forth, and post it to the agent inbox addressed to maven. Confirm the message id back to me.",
+  },
+  {
+    id: "ops-inbox-check",
+    category: "ops_daily",
+    audience: "shared",
+    agent: "bravo",
+    title: "Check the inbox",
+    description:
+      "Read all unread messages, summarize what each one needs, and recommend which to action first.",
+    tags: ["inbox", "review"],
+    prompt:
+      "Read every unread message in the agent inbox. For each: who sent it, what they need, the priority. Then rank them by what'll move the business most. End with a one-line recommendation on what I should action first.",
+  },
 ];
 
 export function promptsByCategory(category: PromptCategory): PromptEntry[] {
