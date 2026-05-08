@@ -39,6 +39,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -890,7 +891,6 @@ class _ChatHandler(BaseHTTPRequestHandler):
         # because stderr was already drained / EOF-closed. We also tee
         # to ~/.oasis/bridge.log so CC can inspect the full session
         # output even if SSE truncated it.
-        import threading
         stderr_chunks: list[str] = []
         stderr_log_path = Path.home() / ".oasis" / "bridge.log"
         try:
