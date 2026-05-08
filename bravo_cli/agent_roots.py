@@ -43,6 +43,10 @@ DEFAULTS: dict[str, list[Path]] = {
         HOME / "hermes",
         HOME / "APPS" / "hermes",
     ],
+    "life-preservation": [
+        HOME / "life-preservation",
+        HOME / "APPS" / "life-preservation",
+    ],
 }
 
 # Brain entry file — first one found wins. CLAUDE.md is the convention; SOUL.md

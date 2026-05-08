@@ -229,7 +229,7 @@ export function AgentInboxComposer({ defaultFrom = "cc" }: { defaultFrom?: strin
             onChange={(e) => setTo(e.target.value)}
             className="bg-bg-elev border border-bg-border rounded px-2 py-1.5 text-fg"
           >
-            {["bravo", "atlas", "maven", "aura", "codex", "broadcast"].map((a) => (
+            {["bravo", "atlas", "maven", "aura", "life-preservation", "codex", "broadcast"].map((a) => (
               <option key={a} value={a}>
                 {a}
               </option>
