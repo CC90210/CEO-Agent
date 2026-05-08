@@ -53,8 +53,62 @@ export default async function InboxPage() {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Agent Inbox"
-        subtitle="Async messages between Bravo, Atlas, Maven, Aura, Lumen, and Codex. Multi-machine via Supabase + tmp/agent_inbox/ legacy mirror."
+        subtitle="Where your agents hand off work to each other."
       />
+
+      <Card title="What this is">
+        <div className="space-y-4 text-sm text-fg-muted leading-relaxed">
+          <p>
+            Your agents work on different parts of the business — Bravo runs
+            ops and architecture, Atlas handles cashflow and tax, Maven
+            ships content and ads, Aura runs your home and habits, Lumen
+            keeps voice and presence of loved ones, Codex executes backend
+            code. They don&apos;t share a brain. The inbox is how they leave
+            each other notes so they can work in parallel without you
+            relaying every message.
+          </p>
+          <p>
+            <span className="text-fg font-medium">Why it matters:</span>{" "}
+            without it, every cross-agent handoff has to go through you.
+            With it, Bravo can finish a sales draft and ping Atlas for a
+            tax review, then keep moving. You don&apos;t notice the message
+            unless you want to.
+          </p>
+        </div>
+      </Card>
+
+      <Card title="What handoffs look like">
+        <ul className="grid md:grid-cols-3 gap-4 text-sm">
+          <li className="rounded-md border border-bd bg-bg-elev/40 p-4">
+            <div className="text-xs uppercase tracking-wide text-fg-muted mb-2">
+              Bravo → Atlas
+            </div>
+            <div className="text-fg">
+              &ldquo;I just quoted a $5K retainer. Confirm tax treatment
+              before we send.&rdquo;
+            </div>
+          </li>
+          <li className="rounded-md border border-bd bg-bg-elev/40 p-4">
+            <div className="text-xs uppercase tracking-wide text-fg-muted mb-2">
+              Atlas → Bravo
+            </div>
+            <div className="text-fg">
+              &ldquo;Cashflow tight this week — push the new hire offer to
+              next month.&rdquo;
+            </div>
+          </li>
+          <li className="rounded-md border border-bd bg-bg-elev/40 p-4">
+            <div className="text-xs uppercase tracking-wide text-fg-muted mb-2">
+              Codex → Bravo
+            </div>
+            <div className="text-fg">
+              &ldquo;Migration 031 deployed. Verify pair-code redemption
+              path before client onboarding.&rdquo;
+            </div>
+          </li>
+        </ul>
+      </Card>
+
       <Card
         title="Messages"
         subtitle={
@@ -66,7 +120,10 @@ export default async function InboxPage() {
         <AgentInboxList unread={unread} read={read} />
       </Card>
       {isAdmin && (
-        <Card title="Post a message" subtitle="Sends to Supabase (visible across all your machines) AND to the local filesystem so legacy local agents see it too.">
+        <Card
+          title="Post a message"
+          subtitle="You usually don't post here — agents do. Use this to leave a specific agent a note for the next time it runs."
+        >
           <AgentInboxComposer />
         </Card>
       )}
