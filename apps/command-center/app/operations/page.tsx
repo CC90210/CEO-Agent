@@ -15,7 +15,7 @@ import { Card, PageHeader, Tag, EmptyState } from "@/components/Card";
 import { getActiveProfile, recentEvents } from "@/lib/queries";
 import { safe } from "@/lib/api-helpers";
 import { getServiceSupabase } from "@/lib/supabase-server";
-import { ALL_AGENT_KEYS, getAgentInfo } from "@/lib/agents";
+import { ALL_AGENT_KEYS, FAMILY_AGENT_KEYS, getAgentInfo } from "@/lib/agents";
 import { timeAgo, truncate } from "@/lib/fmt";
 
 export const dynamic = "force-dynamic";
@@ -84,7 +84,18 @@ export default async function OperationsPage({
   ]);
   const snapByName = new Map(snaps.map((s) => [s.agent_name, s] as const));
 
-  const enabled = profile?.agents_enabled || ALL_AGENT_KEYS;
+  // Show only family personas in the AGENT WORKERS card. Codex is a
+  // backend executor, not a standalone agent — see lib/agents.ts.
+  // Hermes / Lumen / others outside profile.agents_enabled still show
+  // (just idle) so CC sees the full family, not a partial view.
+  const familySet = new Set(FAMILY_AGENT_KEYS);
+  const enabledRaw = profile?.agents_enabled || ALL_AGENT_KEYS;
+  const enabled = Array.from(
+    new Set([
+      ...enabledRaw.filter((k) => familySet.has(k)),
+      ...FAMILY_AGENT_KEYS,
+    ])
+  );
   const now = Date.now();
 
   return (

@@ -1490,12 +1490,64 @@ def _self_pair_if_needed() -> str | None:
     return token
 
 
+# env_key → service_slug mapping. Mirrors apps/command-center/lib/
+# integrations-registry.ts so the bridge can report which api_key
+# integrations are CONFIGURED on the operator's machine (key present
+# in .env.agents) without waiting for an actual ping. CC's mental
+# model: 'API key in .env.agents = integration complete.'
+_ENV_KEY_TO_SERVICE = {
+    "STRIPE_API_KEY": "stripe",
+    "STRIPE_SECRET_KEY": "stripe",
+    "LATE_API_KEY": "late",
+    "FIRECRAWL_API_KEY": "firecrawl",
+    "ELEVENLABS_API_KEY": "elevenlabs",
+    "OPENROUTER_API_KEY": "openrouter",
+    "ANTHROPIC_API_KEY": "anthropic",
+    "OPENAI_API_KEY": "openai_codex",
+    "GEMINI_API_KEY": "google_ai",
+    "GOOGLE_AI_API_KEY": "google_ai",
+    "VERCEL_TOKEN": "vercel",
+    "CLOUDFLARE_API_TOKEN": "cloudflare",
+    "GITHUB_TOKEN": "github",
+    "GITHUB_PERSONAL_ACCESS_TOKEN": "github",
+    "N8N_API_KEY": "n8n_inbound",
+    "TURSO_AUTH_TOKEN": "turso",
+    "NOTION_API_KEY": "notion",
+    "SUPABASE_ACCESS_TOKEN": "supabase",
+    "TELEGRAM_BOT_TOKEN": "telegram",
+    "BRAVO_SUPABASE_URL": "supabase",
+    "HOSTINGER_API_KEY": "hostinger",
+}
+
+
+def _services_from_env_keys() -> dict[str, dict]:
+    """Scan known env_keys present in the operator's environment / .env.agents
+    and report each as 'healthy' on the dashboard. CC's mental model: a key
+    present means the integration is configured. Real per-call pings still
+    overwrite this with degraded/down if the service actually fails.
+    """
+    services: dict[str, dict] = {}
+    seen_services: set[str] = set()
+    for env_key, service in _ENV_KEY_TO_SERVICE.items():
+        if service in seen_services:
+            continue
+        val = _read_env_value(env_key)
+        if val and val.strip():
+            services[service] = {
+                "status": "healthy",
+                "metadata": {"via": "env_key_present", "env_key": env_key},
+            }
+            seen_services.add(service)
+    return services
+
+
 def _heartbeat_once(token: str) -> bool:
     dashboard_url = (
         _read_env_value("OASIS_DASHBOARD_URL")
         or "https://agent-dashboard-cc90210.vercel.app"
     ).rstrip("/")
-    body = json.dumps({"services": {}}).encode("utf-8")
+    services = _services_from_env_keys()
+    body = json.dumps({"services": services}).encode("utf-8")
     req = urllib.request.Request(
         f"{dashboard_url}/api/bridge/ping",
         method="POST",
