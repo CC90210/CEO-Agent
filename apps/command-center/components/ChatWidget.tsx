@@ -676,8 +676,17 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
             // so the operator can see WHY the subprocess crashed instead
             // of just a cryptic exit code.
             const msg = String(parsed.message || "stream_error");
-            const detail = parsed.detail ? String(parsed.detail).slice(0, 600) : "";
+            const rawDetail = parsed.detail ? String(parsed.detail) : "";
+            const detail = rawDetail.slice(0, 1500);
             setError(detail ? `${msg}\n\n${detail}` : msg);
+            // Auto-clear sessionId on subprocess crashes so the next
+            // Send doesn't pass --resume <stale-id> to claude. The user
+            // gets a clean retry without having to click refresh.
+            // claude_exit_*, claude_spawn_failed, and claude_stream_failed
+            // all qualify.
+            if (msg.startsWith("claude_") || msg.includes("session not found")) {
+              setSessionId(null);
+            }
           }
         }
       }

@@ -883,6 +883,40 @@ class _ChatHandler(BaseHTTPRequestHandler):
         # can swap the elapsed-time counter from "starting…" to "thinking…".
         emit("agent_status", {"phase": "thinking"})
 
+        # Continuously drain stderr in a thread so on a non-zero exit we
+        # have the FULL claude error message, not just whatever happens
+        # to be in the pipe at exit time. The previous code did a lazy
+        # `proc.stderr.read()` after wait() which could miss everything
+        # because stderr was already drained / EOF-closed. We also tee
+        # to ~/.oasis/bridge.log so CC can inspect the full session
+        # output even if SSE truncated it.
+        import threading
+        stderr_chunks: list[str] = []
+        stderr_log_path = Path.home() / ".oasis" / "bridge.log"
+        try:
+            stderr_log_path.parent.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
+
+        def _drain_stderr() -> None:
+            try:
+                if proc.stderr is None:
+                    return
+                with stderr_log_path.open("a", encoding="utf-8", errors="replace") as logf:
+                    logf.write(f"\n\n=== {time.strftime('%Y-%m-%d %H:%M:%S')} agent={agent} pid={proc.pid} ===\n")
+                    for line in proc.stderr:
+                        stderr_chunks.append(line)
+                        try:
+                            logf.write(line)
+                            logf.flush()
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
+        stderr_thread = threading.Thread(target=_drain_stderr, daemon=True, name="bridge-stderr-drain")
+        stderr_thread.start()
+
         # Read line-by-line. Each line is a complete JSON event.
         emitted_session = False
         accumulated_text = ""
@@ -968,15 +1002,33 @@ class _ChatHandler(BaseHTTPRequestHandler):
 
             rc = proc.wait(timeout=5)
             if rc != 0:
-                stderr = ""
-                try:
-                    if proc.stderr:
-                        stderr = proc.stderr.read()[:500]
-                except Exception:
-                    pass
+                # Wait briefly for the stderr drainer to finish reading
+                # whatever's still in the pipe — claude may have written
+                # error context AFTER exiting.
+                stderr_thread.join(timeout=2)
+                stderr_full = "".join(stderr_chunks).strip()
+                # Heuristic: detect stale --resume session id and tell the
+                # user clearly. claude prints something like "Session
+                # not found" or "Could not find session" when the resume
+                # id is missing from its session storage.
+                detail = stderr_full or "claude subprocess exited with non-zero code"
+                if resume_session_id and (
+                    "session not found" in stderr_full.lower()
+                    or "could not find session" in stderr_full.lower()
+                    or "no such session" in stderr_full.lower()
+                ):
+                    detail = (
+                        f"Stale session id ({resume_session_id[:8]}…). "
+                        "The dashboard had a session id from a previous "
+                        "chat that claude no longer recognizes. Click "
+                        "the refresh icon in the chat header to start a "
+                        "fresh session and try again.\n\n--- claude stderr ---\n"
+                        + stderr_full
+                    )
                 emit("error", {
                     "message": f"claude_exit_{rc}",
-                    "detail": stderr or "claude subprocess exited with non-zero code",
+                    "detail": detail[:2000],  # bumped from 500 - users want to see the actual error
+                    "log_path": str(stderr_log_path),
                 })
                 # Make sure the client sees an end signal.
                 if not accumulated_text:
@@ -986,7 +1038,13 @@ class _ChatHandler(BaseHTTPRequestHandler):
                 proc.kill()
             except Exception:
                 pass
-            emit("error", {"message": f"claude_stream_failed: {e}"})
+            stderr_thread.join(timeout=1)
+            stderr_full = "".join(stderr_chunks).strip()
+            emit("error", {
+                "message": f"claude_stream_failed: {e}",
+                "detail": stderr_full[:2000] if stderr_full else None,
+                "log_path": str(stderr_log_path),
+            })
             emit("done", {})
 
     # [DEPRECATED — REMOVE AFTER 2026-05-14] Legacy raw /v1/messages path.
