@@ -755,19 +755,12 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
                   : <ToolTimelineList entries={toolCalls} />
               )}
               {showToolsHere && thinking && streaming && (
-                <div className="flex items-center gap-2 text-fg-dim text-xs ml-9">
-                  <span className="typing-dots"><span /><span /><span /></span>
-                  <span>
-                    {statusPhase === "spawning"
-                      ? `starting ${agent.toLowerCase()}${statusDetail ? ` in ${statusDetail}` : ""}…`
-                      : statusPhase === "tool"
-                        ? `running ${statusDetail || "tool"}…`
-                        : "thinking…"}
-                    {elapsedLabel && (
-                      <span className="ml-1.5 font-mono text-fg-dim/70">({elapsedLabel})</span>
-                    )}
-                  </span>
-                </div>
+                <ThinkingIndicator
+                  phase={statusPhase}
+                  detail={statusDetail}
+                  agent={agent}
+                  elapsed={elapsedLabel}
+                />
               )}
               <Bubble
                 role={m.role}
@@ -780,19 +773,12 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
           );
         })}
         {thinking && streaming && toolCalls.length === 0 && (
-          <div className="flex items-center gap-2 text-fg-dim text-xs ml-9">
-            <span className="typing-dots"><span /><span /><span /></span>
-            <span>
-              {statusPhase === "spawning"
-                ? `starting ${agent.toLowerCase()}${statusDetail ? ` in ${statusDetail}` : ""}…`
-                : statusPhase === "tool"
-                  ? `running ${statusDetail || "tool"}…`
-                  : "thinking…"}
-              {elapsedLabel && (
-                <span className="ml-1.5 font-mono text-fg-dim/70">({elapsedLabel})</span>
-              )}
-            </span>
-          </div>
+          <ThinkingIndicator
+            phase={statusPhase}
+            detail={statusDetail}
+            agent={agent}
+            elapsed={elapsedLabel}
+          />
         )}
         {toolReads.length > 0 && (
           <ToolReadList
@@ -1455,6 +1441,42 @@ function ToolTimelineList({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * Pulsing dots + status copy with elapsed time. Used both above the in-
+ * progress assistant bubble (when tools are streaming) and below the user
+ * message (before the first tool fires). Single component to keep the
+ * status copy in one place.
+ */
+function ThinkingIndicator({
+  phase,
+  detail,
+  agent,
+  elapsed,
+}: {
+  phase: "spawning" | "thinking" | "tool" | null;
+  detail: string;
+  agent: string;
+  elapsed: string;
+}) {
+  const label =
+    phase === "spawning"
+      ? `starting ${agent.toLowerCase()}${detail ? ` in ${detail}` : ""}…`
+      : phase === "tool"
+        ? `running ${detail || "tool"}…`
+        : "thinking…";
+  return (
+    <div className="flex items-center gap-2 text-fg-dim text-xs ml-9">
+      <span className="typing-dots"><span /><span /><span /></span>
+      <span>
+        {label}
+        {elapsed && (
+          <span className="ml-1.5 font-mono text-fg-dim/70">({elapsed})</span>
+        )}
+      </span>
     </div>
   );
 }
