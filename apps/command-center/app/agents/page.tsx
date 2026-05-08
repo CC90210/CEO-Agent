@@ -110,7 +110,7 @@ export default async function AgentsPage() {
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
                   <div
-                    className={`w-2 h-2 rounded-full ${
+                    className={`w-2 h-2 rounded-full flex-shrink-0 ${
                       r.live
                         ? "bg-status-engaged shadow-[0_0_6px_rgba(16,185,129,0.6)] animate-pulse-slow"
                         : r.lastSignalAt
@@ -118,8 +118,8 @@ export default async function AgentsPage() {
                           : "bg-fg-faint"
                     }`}
                   />
-                  <span className="text-accent font-bold uppercase tracking-[0.14em] text-sm">
-                    {r.name}
+                  <span className={`font-bold uppercase tracking-[0.14em] text-sm ${r.info.textClass || "text-accent"}`}>
+                    {r.info.label}
                   </span>
                 </div>
                 {r.live ? (
@@ -134,20 +134,27 @@ export default async function AgentsPage() {
                   <span className="text-xs text-fg-dim">never seen</span>
                 )}
               </div>
-              <div className="text-sm text-fg mt-2.5">{r.info.role}</div>
-              <div className="text-xs text-fg-dim mt-1.5 font-mono">{r.info.location}</div>
-              {r.lastSignalAt && (
-                <div className="text-xs text-fg-muted mt-3 pt-3 border-t border-bg-border">
-                  Last signal {timeAgo(r.lastSignalAt)}
-                  {r.state?.last_tick_id && (
-                    <>
-                      {" "}
-                      ·{" "}
-                      <span className="font-mono">{truncate(r.state.last_tick_id, 12)}</span>
-                    </>
-                  )}
+              <div className="text-xs text-fg-muted mt-2">{r.info.role}</div>
+              {r.info.description && (
+                <p className="text-sm text-fg mt-3 leading-relaxed">
+                  {r.info.description}
+                </p>
+              )}
+              {r.info.askMeAbout && (
+                <div className="text-[11px] text-fg-muted mt-3 italic leading-relaxed">
+                  <span className="text-fg-dim not-italic uppercase tracking-wider text-[9px] font-bold">Ask me about: </span>
+                  {r.info.askMeAbout}
                 </div>
               )}
+              <div className="text-[10px] text-fg-dim mt-3 font-mono pt-2 border-t border-bg-border">
+                {r.info.location}
+                {r.lastSignalAt && (
+                  <>
+                    {" · "}
+                    Last signal {timeAgo(r.lastSignalAt)}
+                  </>
+                )}
+              </div>
             </li>
           ))}
         </ul>

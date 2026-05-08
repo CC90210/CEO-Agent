@@ -28,6 +28,7 @@ import {
 } from "@/lib/queries";
 import { computeStreak } from "@/lib/streak";
 import { safe } from "@/lib/api-helpers";
+import { GoalCountdownCard } from "@/components/GoalCountdownCard";
 
 export const dynamic = "force-dynamic";
 
@@ -97,6 +98,13 @@ export default async function TodayPage() {
           </>
         }
         action={<Tag tone={isWeekend ? "info" : "accent"}>{isWeekend ? "weekend" : "weekday"}</Tag>}
+      />
+
+      <GoalCountdownCard
+        current={mrr.current}
+        target={mrr.target}
+        daysLeft={daysToTarget}
+        targetDate={targetDate ? targetDate.toISOString().slice(0, 10) : null}
       />
 
       {/* Hero band — 6 metrics that actually matter */}
