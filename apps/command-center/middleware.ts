@@ -100,6 +100,34 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  // Onboarding gate: if the user signed up but never finished the wizard
+  // (closed the tab between /signup and /onboarding's "Finish" button),
+  // force-route them back to /onboarding for any non-API page request.
+  // /onboarding itself, /api/*, and the public path set are exempt so the
+  // wizard's own writes (PATCH /api/profile, POST /api/agent-config) don't
+  // get bounced. Failures here fall through silently — a broken middleware
+  // gate is worse than a missed redirect.
+  if (
+    !pathname.startsWith("/api/") &&
+    pathname !== "/onboarding" &&
+    !pathname.startsWith("/onboarding/")
+  ) {
+    try {
+      const { data: profile } = await supa
+        .from("user_profiles")
+        .select("onboarding_completed_at")
+        .eq("auth_user_id", data.user.id)
+        .maybeSingle();
+      if (profile && profile.onboarding_completed_at == null) {
+        return NextResponse.redirect(new URL("/onboarding", req.url));
+      }
+    } catch {
+      // If the profile query fails (transient DB), let the page render —
+      // page-level guards still run and the worst case is the user sees
+      // an empty dashboard instead of being trapped on /onboarding.
+    }
+  }
+
   return res;
 }
 

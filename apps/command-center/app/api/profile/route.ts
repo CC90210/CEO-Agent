@@ -21,6 +21,11 @@ const EDITABLE = new Set([
   "agents_enabled",
   "preferred_language",
   "prospect_focus",
+  // Set by the OnboardingFlow's "Finish" button. Middleware uses this to
+  // decide whether to force-route a signed-in user back to /onboarding.
+  // The user can only set this on themselves; the only side effect of a
+  // forged value is letting them skip the wizard, which is non-critical.
+  "onboarding_completed_at",
 ]);
 
 export async function GET() {
