@@ -103,15 +103,35 @@ export async function middleware(req: NextRequest) {
   // Onboarding gate: if the user signed up but never finished the wizard
   // (closed the tab between /signup and /onboarding's "Finish" button),
   // force-route them back to /onboarding for any non-API page request.
-  // /onboarding itself, /api/*, and the public path set are exempt so the
-  // wizard's own writes (PATCH /api/profile, POST /api/agent-config) don't
-  // get bounced. Failures here fall through silently — a broken middleware
-  // gate is worse than a missed redirect.
-  if (
+  //
+  // Performance: a per-request DB query through the user-JWT supa client
+  // adds ~30-80ms to every page load. Optimization: cache the "onboarded"
+  // decision in an HttpOnly cookie. First page load after sign-in still
+  // hits DB; every subsequent load is cookie-only. If the user clears
+  // cookies, the next page hits DB and re-sets the cookie.
+  //
+  // The cookie value is non-sensitive — it's purely a UX redirect gate.
+  // A spoofed cookie just lets the user bypass /onboarding (no security
+  // impact). HttpOnly + SameSite=Lax keeps casual JS / cross-site reads
+  // out, even though there's no real secret to protect here.
+  //
+  // Exempted paths:
+  //   - /onboarding itself (and sub-paths) — the wizard's destination
+  //   - /api/* — the wizard's own writes (PATCH /api/profile etc) must
+  //     not get bounced
+  //   - public path set (handled above by isPublic)
+  //
+  // Failures fall through silently: a broken gate is worse than a missed
+  // redirect.
+  const ONBOARDED_COOKIE = "oasis_onboarded";
+  const onboardedHint = req.cookies.get(ONBOARDED_COOKIE)?.value;
+  const checkOnboarding =
     !pathname.startsWith("/api/") &&
     pathname !== "/onboarding" &&
-    !pathname.startsWith("/onboarding/")
-  ) {
+    !pathname.startsWith("/onboarding/") &&
+    onboardedHint !== "1";
+
+  if (checkOnboarding) {
     try {
       const { data: profile } = await supa
         .from("user_profiles")
@@ -120,6 +140,19 @@ export async function middleware(req: NextRequest) {
         .maybeSingle();
       if (profile && profile.onboarding_completed_at == null) {
         return NextResponse.redirect(new URL("/onboarding", req.url));
+      }
+      if (profile && profile.onboarding_completed_at) {
+        // Cache the decision so subsequent page loads skip the DB query.
+        // 30-day TTL is plenty — the only thing that invalidates it is
+        // the user explicitly resetting their profile, which would also
+        // require them to re-onboard. Path=/ so every route sees it.
+        res.cookies.set(ONBOARDED_COOKIE, "1", {
+          httpOnly: true,
+          sameSite: "lax",
+          secure: true,
+          maxAge: 60 * 60 * 24 * 30,
+          path: "/",
+        });
       }
     } catch {
       // If the profile query fails (transient DB), let the page render —
