@@ -24,6 +24,14 @@ import {
   Check,
   ChevronRight,
   Clipboard,
+  FileText,
+  Pencil,
+  Terminal,
+  Search,
+  Globe,
+  X as XIcon,
+  Brain,
+  Database,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
@@ -171,6 +179,8 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
       output?: string;
       error?: boolean;
       elapsed_s?: number;
+      createdAt: number;
+      completedAt?: number;
     }>
   >([]);
   // [DEPRECATED — REMOVE AFTER 2026-05-14] toolReads + toolRuns + their
@@ -479,6 +489,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
                   kind: toolName,
                   label: _toolLabel(parsed),
                   detail: _toolDetail(parsed),
+                  createdAt: Date.now(),
                 },
               ]);
             } else {
@@ -524,6 +535,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
                       output: body,
                       error: !!parsed.error,
                       elapsed_s: undefined,
+                      completedAt: Date.now(),
                     };
                     break;
                   }
@@ -767,7 +779,9 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
           />
         )}
         {toolCalls.length > 0 && (
-          <ToolCallList entries={toolCalls} />
+          process.env.NEXT_PUBLIC_TOOL_TIMELINE === "false"
+            ? <ToolCallList entries={toolCalls} />
+            : <ToolTimelineList entries={toolCalls} />
         )}
         {actions.length > 0 && (
           <div className="space-y-1.5">
@@ -1200,6 +1214,165 @@ function ToolCallList({
               <pre className="mt-1.5 max-h-64 overflow-auto rounded-md border border-bg-border bg-bg-deep/60 p-2 text-[10px] font-mono text-fg-muted whitespace-pre-wrap">
                 <code>{e.output}</code>
               </pre>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * A0b: Claude-Code-style tool timeline. Each tool call is a row with status
+ * icon, kind glyph, label, full args, and (when complete) duration + output
+ * preview. Replaces the cramped pill display so CC can actually see what
+ * the agent is doing while it works.
+ */
+function _toolIcon(kind: string): React.ReactNode {
+  const sz = "w-3.5 h-3.5";
+  switch (kind) {
+    case "read_file":
+    case "Read":
+      return <FileText className={sz} />;
+    case "edit_file":
+    case "write_file":
+    case "Edit":
+    case "Write":
+    case "MultiEdit":
+      return <Pencil className={sz} />;
+    case "run_script":
+    case "Bash":
+      return <Terminal className={sz} />;
+    case "glob":
+    case "Glob":
+    case "grep":
+    case "Grep":
+      return <Search className={sz} />;
+    case "web_fetch":
+    case "WebFetch":
+    case "WebSearch":
+      return <Globe className={sz} />;
+    case "mcp_call":
+      return <Database className={sz} />;
+    default:
+      if (kind.startsWith("mcp__")) {
+        if (kind.includes("sequential-thinking") || kind.includes("memory")) return <Brain className={sz} />;
+        return <Database className={sz} />;
+      }
+      return <Cpu className={sz} />;
+  }
+}
+
+function _formatDuration(createdAt: number, completedAt?: number): string {
+  if (!completedAt) return "";
+  const ms = completedAt - createdAt;
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+  const s = Math.floor(ms / 1000);
+  return `${Math.floor(s / 60)}m${s % 60}s`;
+}
+
+function ToolTimelineList({
+  entries,
+}: {
+  entries: Array<{
+    id: string;
+    kind: string;
+    label: string;
+    detail?: string;
+    output?: string;
+    error?: boolean;
+    createdAt: number;
+    completedAt?: number;
+  }>;
+}) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  function toggle(id: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+  return (
+    <div className="ml-9 space-y-1 border-l border-bg-border pl-3 mt-1">
+      {entries.map((e) => {
+        const isOpen = expanded.has(e.id);
+        const isRunning = !e.completedAt && !e.error;
+        const canExpand = !!e.output || !!e.detail;
+        const status = e.error ? "error" : e.completedAt ? "done" : "running";
+        const statusIcon =
+          status === "running" ? (
+            <Loader2 className="w-3 h-3 animate-spin text-accent" />
+          ) : status === "error" ? (
+            <XIcon className="w-3 h-3 text-status-warm" />
+          ) : (
+            <Check className="w-3 h-3 text-status-engaged" />
+          );
+        const tone =
+          status === "error"
+            ? "text-status-warm"
+            : status === "running"
+              ? "text-accent"
+              : "text-fg-muted";
+        const dur = _formatDuration(e.createdAt, e.completedAt);
+        return (
+          <div key={e.id} className="text-[11px]">
+            <button
+              type="button"
+              disabled={!canExpand}
+              onClick={() => canExpand && toggle(e.id)}
+              className={`w-full flex items-start gap-2 px-1.5 py-1 rounded ${
+                canExpand ? "hover:bg-bg-elev/40 cursor-pointer" : "cursor-default"
+              } ${tone}`}
+              title={e.detail || e.label}
+            >
+              <span className="flex items-center gap-1.5 mt-0.5 flex-shrink-0">
+                {statusIcon}
+                <span className="text-fg-dim">{_toolIcon(e.kind)}</span>
+              </span>
+              <span className="flex-1 min-w-0 flex items-baseline gap-1.5 text-left">
+                <span className="font-mono font-bold uppercase tracking-wider text-[10px]">
+                  {e.label}
+                </span>
+                {e.detail && (
+                  <span className="text-fg-dim font-mono truncate">
+                    {e.detail}
+                  </span>
+                )}
+              </span>
+              {dur && (
+                <span className="text-fg-dim font-mono text-[10px] flex-shrink-0 ml-1">
+                  {dur}
+                </span>
+              )}
+              {canExpand && (
+                <ChevronRight
+                  className={`w-3 h-3 transition-transform mt-0.5 flex-shrink-0 ${
+                    isOpen ? "rotate-90" : ""
+                  } text-fg-dim`}
+                />
+              )}
+              {isRunning && !canExpand && (
+                <span className="text-fg-dim font-mono text-[10px] flex-shrink-0 ml-1">
+                  …
+                </span>
+              )}
+            </button>
+            {isOpen && (
+              <div className="ml-7 mt-1 mb-1 space-y-1.5">
+                {e.detail && (
+                  <div className="text-[10px] font-mono text-fg-muted break-all px-2 py-1 rounded border border-bg-border bg-bg-deep/40">
+                    {e.detail}
+                  </div>
+                )}
+                {e.output && (
+                  <pre className="max-h-64 overflow-auto rounded-md border border-bg-border bg-bg-deep/60 p-2 text-[10px] font-mono text-fg-muted whitespace-pre-wrap">
+                    <code>{e.output}</code>
+                  </pre>
+                )}
+              </div>
             )}
           </div>
         );
