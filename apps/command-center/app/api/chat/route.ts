@@ -42,6 +42,7 @@ import {
   runCloudTool,
   stripCloudToolMarkers,
 } from "@/lib/cloud-tools";
+import { redactAll } from "@/lib/secret-redaction";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -241,12 +242,16 @@ export async function POST(req: NextRequest) {
             usageOut = ev.outputTokens;
             send("usage", { input_tokens: ev.inputTokens, output_tokens: ev.outputTokens });
           } else if (ev.type === "error") {
-            streamError = ev.message;
-            send("error", { message: ev.message });
+            // Redact any operator/platform credential values before
+            // emitting over SSE or persisting — provider error bodies
+            // can echo headers / URLs that contain the API key.
+            streamError = redactAll(ev.message);
+            send("error", { message: streamError });
           }
         }
       } catch (err) {
-        streamError = err instanceof Error ? err.message : "stream_failed";
+        const raw = err instanceof Error ? err.message : "stream_failed";
+        streamError = redactAll(raw);
         send("error", { message: streamError });
       }
 
@@ -301,12 +306,15 @@ export async function POST(req: NextRequest) {
       controller.close();
 
       // ---- Persist assistant turn ----------------------------------------
+      // Redact any credential values before writing to Supabase. The model
+      // could echo a key it saw in tool output; redaction at persist time
+      // means the chat_messages table never holds raw secrets.
       const latencyMs = Date.now() - startedAt;
       await service.from("chat_messages").insert({
         session_id: sessionId,
         tenant_id: tenantId,
         role: "assistant",
-        content: assistantText,
+        content: redactAll(assistantText),
         input_tokens: usageIn,
         output_tokens: usageOut,
         latency_ms: latencyMs,
