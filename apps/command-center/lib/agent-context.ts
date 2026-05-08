@@ -22,24 +22,14 @@ function fmtPct(n: number): string {
 }
 
 /**
- * Returns a short, plain-text block ready to append to the persona.
- * Empty string on any failure — the agent still works without it.
- *
- * Backwards-compatible: callers that just want the text still get it
- * via the default return. The detailed shape via composeDashboardContextV2
- * exposes the inbox message IDs the chat route needs to mark read after
- * the stream completes successfully.
- */
-export async function composeDashboardContext(ctx: ToolContext): Promise<string> {
-  const r = await composeDashboardContextV2(ctx);
-  return r.text;
-}
-
-/**
  * Detailed context-build result. The chat route uses `injectedInboxIds`
  * to mark those inbox messages read AFTER the assistant's response is
  * persisted — so a successful chat closes the inbox loop, but a failed
  * stream / disconnect leaves messages unread for the next attempt.
+ *
+ * Sole entry point. The earlier `composeDashboardContext` returning a
+ * plain string was a transitional wrapper kept for one commit cycle;
+ * removed once every caller switched to the IDs-aware shape.
  */
 export type DashboardContextResult = {
   text: string;

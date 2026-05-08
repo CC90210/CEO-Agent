@@ -224,9 +224,13 @@ export async function recentEvents(
   // 2026-05-07). Tenant scoping happens via the publisher_agent + payload
   // shape rather than a column. The opts.tenantId param is accepted for
   // API consistency but not applied as a filter — would error otherwise.
-  // Default: 7-day freshness window. The Operations Activity Tape used to
-  // show 16d-old workshop noise because nothing capped the window. Caller
-  // can pass sinceDays:0 to disable.
+  //
+  // Default: 7-day freshness window. The activity-tape pages (/operations,
+  // /agents) explicitly pass sinceDays:0 to show "most recent N regardless
+  // of age" — they were rendering empty when the event bus was quiet for a
+  // week even though the table had history. The 7-day default is kept here
+  // to protect any future caller that wants a real "fresh activity only"
+  // window without thinking about it.
   const sinceDays = opts?.sinceDays ?? 7;
   if (sinceDays > 0) {
     const since = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000).toISOString();
