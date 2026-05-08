@@ -10,12 +10,37 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
+import { homedir } from "node:os";
 
 const REPO_ROOT = process.env.BRAVO_REPO_ROOT || path.resolve(process.cwd(), "..", "..");
 
 export const INBOX_ROOT = path.join(REPO_ROOT, "tmp", "agent_inbox");
 export const INBOX_DIR = path.join(INBOX_ROOT, "inbox");
 export const READ_DIR = path.join(INBOX_ROOT, "read");
+
+// Cross-repo routing — mirror scripts/sibling_repos.py so messages posted
+// to a sibling land in their repo's inbox dir, not Bravo's. Anything not
+// listed (cc, codex, broadcast, unknown) stays local.
+const HOME = homedir();
+const SIBLING_REPOS: Record<string, string> = {
+  bravo: process.env.BRAVO_REPO || path.join(HOME, "Business-Empire-Agent"),
+  maven: process.env.MAVEN_REPO || path.join(HOME, "CMO-Agent"),
+  atlas: process.env.ATLAS_REPO || path.join(HOME, "APPS", "CFO-Agent"),
+  aura: process.env.AURA_REPO || path.join(HOME, "AURA"),
+};
+
+async function _inboxPathForRecipient(recipient: string): Promise<string> {
+  const repo = SIBLING_REPOS[recipient.toLowerCase()];
+  if (!repo) return INBOX_DIR;
+  try {
+    await fs.access(repo);
+  } catch {
+    return INBOX_DIR; // sibling not installed on this machine — keep local
+  }
+  const target = path.join(repo, "tmp", "agent_inbox", "inbox");
+  await fs.mkdir(target, { recursive: true });
+  return target;
+}
 
 export const VALID_PRIORITIES = ["low", "normal", "high", "urgent"] as const;
 export type Priority = (typeof VALID_PRIORITIES)[number];
@@ -152,11 +177,11 @@ export async function postMessage(opts: {
   msg._filename = fname;
 
   try {
-    await fs.mkdir(INBOX_DIR, { recursive: true });
+    const targetDir = await _inboxPathForRecipient(msg.to);
     const persistShape = { ...msg } as Record<string, unknown>;
     delete persistShape._filename;
     delete persistShape._read;
-    await fs.writeFile(path.join(INBOX_DIR, fname), JSON.stringify(persistShape, null, 2), "utf-8");
+    await fs.writeFile(path.join(targetDir, fname), JSON.stringify(persistShape, null, 2), "utf-8");
     return { ok: true, message: msg };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "write_failed" };
