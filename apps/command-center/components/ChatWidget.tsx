@@ -163,7 +163,16 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actions, setActions] = useState<
-    Array<{ ok: boolean; type: string; summary?: string; error?: string }>
+    Array<{
+      ok: boolean;
+      type: string;
+      summary?: string;
+      error?: string;
+      // A4: verification UI — uid for dismiss target, dismissed flips to
+      // true once CC clicks "got it" so the pill collapses.
+      uid: string;
+      dismissed?: boolean;
+    }>
   >([]);
   const [bridgeOnline, setBridgeOnline] = useState<boolean | null>(null);
   const [usage, setUsage] = useState<{ usage: number; limit: number | null } | null>(null);
@@ -470,6 +479,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
                 type: String(parsed.type || "?"),
                 summary: parsed.summary,
                 error: parsed.error,
+                uid: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
               },
             ]);
           } else if (event === "tool") {
@@ -785,22 +795,61 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
         )}
         {actions.length > 0 && (
           <div className="space-y-1.5">
-            {actions.map((a, i) => (
-              <div
-                key={i}
-                className={`flex items-start gap-2 rounded-md border px-3 py-2 text-xs font-mono ${
-                  a.ok
-                    ? "border-status-engaged/40 bg-status-engaged/10 text-status-engaged"
-                    : "border-status-warm/40 bg-status-warm/10 text-status-warm"
-                }`}
-              >
-                <span className="font-bold uppercase tracking-wider text-[10px] mt-0.5">
-                  {a.ok ? "applied" : "rejected"}
-                </span>
-                <span className="text-fg-muted">{a.type}</span>
-                <span className="font-sans">{a.summary || a.error || "(no detail)"}</span>
-              </div>
-            ))}
+            {actions.filter((a) => !a.dismissed).map((a) => {
+              const verifyOn = process.env.NEXT_PUBLIC_VERIFY_ACTIONS !== "false";
+              const needsAck = verifyOn && a.ok; // mutating + applied -> needs ack
+              return (
+                <div
+                  key={a.uid}
+                  className={`flex items-start gap-2 rounded-md border px-3 py-2 text-xs font-mono ${
+                    a.ok
+                      ? needsAck
+                        ? "border-accent/40 bg-accent/10 text-accent"
+                        : "border-status-engaged/40 bg-status-engaged/10 text-status-engaged"
+                      : "border-status-warm/40 bg-status-warm/10 text-status-warm"
+                  }`}
+                >
+                  <Check className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${a.ok ? "" : "hidden"}`} />
+                  <AlertCircle className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${a.ok ? "hidden" : ""}`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2 flex-wrap">
+                      <span className="font-bold uppercase tracking-wider text-[10px]">
+                        {a.ok ? (needsAck ? "applied — verify" : "applied") : "rejected"}
+                      </span>
+                      <span className="text-fg-muted">{a.type}</span>
+                    </div>
+                    <div className="font-sans mt-0.5 text-fg break-words">
+                      {a.summary || a.error || "(no detail)"}
+                    </div>
+                  </div>
+                  {needsAck && (
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <Link
+                        href="/runs"
+                        className="text-[10px] uppercase tracking-wider underline decoration-accent/40 hover:decoration-accent"
+                        title="See full mutation history"
+                      >
+                        history
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setActions((prev) =>
+                            prev.map((x) =>
+                              x.uid === a.uid ? { ...x, dismissed: true } : x
+                            )
+                          )
+                        }
+                        className="px-2 py-0.5 rounded border border-accent/40 hover:bg-accent/20 text-[10px] uppercase tracking-wider"
+                        title="Acknowledge — dismiss this verification pill"
+                      >
+                        got it
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
         {error && (
