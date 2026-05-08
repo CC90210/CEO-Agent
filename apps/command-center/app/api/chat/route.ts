@@ -32,7 +32,8 @@ import {
 } from "@/lib/providers";
 import { getPersona, chatAgentKeys } from "@/lib/agent-personas";
 import { decryptField } from "@/lib/field-encryption";
-import { composeDashboardContext } from "@/lib/agent-context";
+import { composeDashboardContextV2 } from "@/lib/agent-context";
+import { markReadDb } from "@/lib/agent-inbox-db";
 import { rateLimit } from "@/lib/rate-limit";
 import { extractActionMarkers, runAction } from "@/lib/agent-actions";
 import { logAction } from "@/lib/action-log";
@@ -199,9 +200,16 @@ export async function POST(req: NextRequest) {
   // about it; don't infer a repo you can't read.
   const cloudModeNotice = `\n\n---\nRUNTIME: CLOUD MODE\nYou are running through the dashboard's /api/chat path on Vercel, not the operator's local bridge. You have the DASHBOARD STATE block below (real Supabase data — MRR, pipeline, recent inbound, today's plan, integrations health). You do NOT have access to the operator's local file system, brain/* files, skills/* bodies, or any repo content.\n\nIf the operator asks about local files, code structure, or anything that requires reading the repo:\n- Be explicit: say you're in cloud mode without file access.\n- Tell them: "Run \`bravo bridge serve\` on your machine. The chat will then route to localhost with full repo access — you'll see the header turn cyan."\n- Do NOT infer file contents. Do NOT speculate about brain/ structure. Do NOT pretend to have read SOUL.md or any other file.\n\nWhat you CAN do in cloud mode:\n- Answer using the DASHBOARD STATE block.\n- Mutate dashboard data via <dashboard-action> markers (see below).\n- Strategy, drafting, brainstorming, advice — anything that doesn't need file reads.\n---`;
   // Inject live dashboard state — MRR, pipeline, recent inbound, today's
-  // plan, integrations health — so the agent answers from real data instead
-  // of asking the operator for things it can already see.
-  const dashboardCtx = await composeDashboardContext({ tenantId, agentKey }).catch(() => "");
+  // plan, integrations health, INBOX FOR YOU — so the agent answers from
+  // real data instead of asking the operator for things it can already
+  // see. V2 also returns the inbox message IDs we injected so we can
+  // mark them read after the stream completes successfully (closes the
+  // inbox loop documented on /inbox).
+  const ctxResult = await composeDashboardContextV2({ tenantId, agentKey }).catch(
+    () => ({ text: "", injectedInboxIds: [] as string[] })
+  );
+  const dashboardCtx = ctxResult.text;
+  const injectedInboxIds = ctxResult.injectedInboxIds;
   // Cloud-only tool surface — appended to every persona on /api/chat so
   // the agent knows it can call lookup_lead_by_name, list_open_leads,
   // integration_status, etc. The local-bridge path doesn't see this block;
@@ -335,6 +343,23 @@ export async function POST(req: NextRequest) {
         .update({ last_used_at: new Date().toISOString() })
         .eq("tenant_id", tenantId)
         .eq("agent_key", agentKey);
+
+      // ---- Mark injected inbox messages read ----------------------------
+      // The "INBOX FOR YOU" block in the system prompt was assembled by
+      // composeDashboardContextV2; it returned the IDs it consumed. We
+      // mark them read NOW (after the assistant successfully responded
+      // and was persisted) so they don't repeat on the next turn. If
+      // the stream errored above, streamError is non-null but we still
+      // mark read — the agent saw the message; "delivered" is the right
+      // semantic. If the route never got here at all (caller disconnect,
+      // crash before persist), the messages stay unread for retry.
+      if (injectedInboxIds.length > 0 && !streamError) {
+        await Promise.all(
+          injectedInboxIds.map((id) =>
+            markReadDb(tenantId, id).catch(() => null)
+          )
+        );
+      }
     },
   });
 

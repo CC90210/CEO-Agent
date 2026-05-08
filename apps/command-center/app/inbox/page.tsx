@@ -87,24 +87,33 @@ export default async function InboxPage() {
               this machine.
             </li>
             <li>
-              The recipient agent reads its inbox at the start of every
-              session — Bravo runs <span className="font-mono">scripts/agent_inbox.py list --to bravo</span> on
-              boot. Your message lands at the top of its context for that
-              session, before it answers anything else.
+              <span className="text-fg font-medium">Cloud-mode chat:</span> the next
+              time you chat the recipient agent through the dashboard, your
+              unread messages are auto-injected into its system prompt
+              under <span className="font-mono">INBOX FOR YOU</span>. The agent
+              addresses them BEFORE answering whatever else you asked.
+              Once it responds, those messages are auto-marked read.
             </li>
             <li>
-              When the agent processes the message it can either reply
-              (post back to your inbox addressed to <span className="font-mono">cc</span>) or
-              archive it. Either way the file moves to <span className="font-mono">tmp/agent_inbox/read/</span> and
-              the row gets <span className="font-mono">read_at</span> stamped in Supabase.
+              <span className="text-fg font-medium">Local-bridge / CLI:</span> Bravo
+              runs <span className="font-mono">scripts/agent_inbox.py list --to bravo</span> on
+              session start (per CLAUDE.md). Same effect — messages come up
+              before normal work, the agent processes and archives.
+            </li>
+            <li>
+              Either way: agents that reply post back to your inbox
+              addressed to <span className="font-mono">cc</span>; processed
+              messages move to <span className="font-mono">tmp/agent_inbox/read/</span>
+              and get <span className="font-mono">read_at</span> stamped in
+              Supabase.
             </li>
           </ol>
           <p className="text-fg-dim">
-            <span className="text-fg font-medium">Not real-time.</span> A message
-            you post here doesn&apos;t interrupt anything — it waits until the
-            next time that agent runs. Use it for non-urgent handoffs and
-            background tasks. For something you need <em>now</em>, just chat
-            the agent directly.
+            <span className="text-fg font-medium">Not real-time.</span> Posting
+            here doesn&apos;t interrupt anything — it waits until the next
+            chat or session start with that agent. Use it for non-urgent
+            handoffs and background tasks. For something you need <em>now</em>,
+            chat the agent directly.
           </p>
         </div>
       </Card>
