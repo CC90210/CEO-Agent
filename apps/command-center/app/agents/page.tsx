@@ -2,7 +2,7 @@ import { Card, PageHeader, EmptyState, Tag } from "@/components/Card";
 import ChatWidget from "@/components/ChatWidget";
 import { timeAgo, truncate } from "@/lib/fmt";
 import { agentStates, recentEvents, getActiveProfile, integrationsHealth } from "@/lib/queries";
-import { ALL_AGENT_KEYS, getAgentInfo } from "@/lib/agents";
+import { ALL_AGENT_KEYS, FAMILY_AGENT_KEYS, getAgentInfo } from "@/lib/agents";
 import { chatAgentKeys } from "@/lib/agent-personas";
 import { catalogFor } from "@/lib/agent-catalog";
 import { getAgentStats } from "@/lib/agent-stats";
@@ -37,7 +37,18 @@ export default async function AgentsPage() {
     getAgentStats(profile?.primary_agent || "bravo"),
   ]);
 
-  const enabled = profile?.agents_enabled || ALL_AGENT_KEYS;
+  const enabledRaw = profile?.agents_enabled || ALL_AGENT_KEYS;
+  // AGENT FAMILY card shows only personas (excludes backend executors like
+  // Codex). Falls back to FAMILY_AGENT_KEYS when the profile is missing or
+  // hasn't been updated to include life-preservation yet.
+  const familySet = new Set(FAMILY_AGENT_KEYS);
+  const enabled = enabledRaw.filter((k) => familySet.has(k));
+  // Make sure every registered family agent shows up even if the profile
+  // hasn't been updated to enable it yet — CC sees them as idle, not
+  // missing entirely.
+  for (const k of FAMILY_AGENT_KEYS) {
+    if (!enabled.includes(k)) enabled.push(k);
+  }
   const byName = new Map(states.map((s) => [s.agent_name, s]));
   const integrationByName = new Map(integrations.map((i) => [i.service, i]));
 
@@ -143,26 +154,15 @@ export default async function AgentsPage() {
       </Card>
 
       <Card
-        title="Capabilities"
-        subtitle="What each enabled agent owns — cron jobs, backend processes, workflows. Tenant-aware: disabled agents drop out."
+        title="What each agent does for you"
+        subtitle="The autonomous workers running on your behalf. They handle the operational grind so you can stay on closing deals, shipping content, and the high-leverage moves only you can make."
       >
         <div className="space-y-5">
-          <div className="rounded-lg border border-bg-border bg-bg p-3">
-            <div className="text-[10px] uppercase tracking-wider font-bold text-fg-muted mb-2">
-              Live repo stats — auto-counted from the filesystem + bridge manifest
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 text-xs">
-              <StatPill label="Skills" value={stats.skills} />
-              <StatPill label="Scripts" value={stats.scripts} />
-              <StatPill label="Chat tools" value={stats.chat_tools} />
-              <StatPill label="Brain files" value={stats.brain_files} />
-              <StatPill label="Memory" value={stats.memory_files} />
-              <StatPill label="Workflows" value={stats.workflows} />
-              <StatPill label="Sub-agents" value={stats.sub_agents} />
-            </div>
-            <div className="text-[11px] text-fg-dim mt-2">
-              Per-agent blocks below show curated highlights. Add a script in <span className="font-mono">scripts/</span> + run{" "}
-              <span className="font-mono">build_bridge_manifest.py</span> → counts update on next refresh.
+          <div className="rounded-lg border border-bg-border bg-bg p-4 text-sm text-fg-muted leading-relaxed">
+            <div className="text-fg font-medium mb-1">How to read this</div>
+            Each agent has three kinds of jobs running for you: <span className="text-fg">scheduled tasks</span> (run on a clock), <span className="text-fg">always-on processes</span> (running locally on your machine), and <span className="text-fg">workflows</span> (event-triggered, cross-system).
+            <div className="mt-2 text-fg-dim text-[11px]">
+              Repo stats: {stats.skills} skills · {stats.scripts} scripts · {stats.chat_tools} callable tools · {stats.brain_files} brain files · {stats.workflows} workflows
             </div>
           </div>
           {enabled.map((key) => {
@@ -258,15 +258,6 @@ export default async function AgentsPage() {
   );
 }
 
-function StatPill({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-md border border-bg-border bg-bg-elev px-2.5 py-1.5">
-      <div className="text-fg font-mono text-sm font-semibold">{value}</div>
-      <div className="text-[10px] uppercase tracking-wider text-fg-muted">{label}</div>
-    </div>
-  );
-}
-
 function CatalogColumn({
   title,
   icon,
@@ -288,18 +279,69 @@ function CatalogColumn({
       {entries.length === 0 ? (
         <div className="text-[11px] text-fg-faint italic">none</div>
       ) : (
-        <ul className="space-y-1.5">
+        <ul className="space-y-2.5">
           {entries.map((e) => (
             <li key={e.name} className="text-xs leading-snug">
               <div className="flex items-baseline gap-1.5 flex-wrap">
-                <span className="text-fg font-medium font-mono">{e.name}</span>
-                <span className="text-[10px] text-fg-dim font-mono">· {e.meta}</span>
+                <span className="text-fg font-medium">{prettifyEntryName(e.name)}</span>
+                <span className="text-[10px] text-fg-dim">· {prettifyMeta(e.meta)}</span>
               </div>
-              <div className="text-[11px] text-fg-muted">{e.desc}</div>
+              <div className="text-[11px] text-fg-muted mt-0.5">{e.desc}</div>
             </li>
           ))}
         </ul>
       )}
     </div>
   );
+}
+
+/**
+ * Make engineering-style entry names readable. "lead_engine" → "Lead engine",
+ * "snapshot-mrr" → "Snapshot MRR", "n8n inbound qualifier" → unchanged.
+ * Keeps acronyms uppercase (MRR, EDI, POS, CRM, KPI, AI, CMO, CFO, CEO).
+ */
+function prettifyEntryName(raw: string): string {
+  const ACRONYMS = new Set(["mrr", "edi", "pos", "crm", "kpi", "ai", "cmo", "cfo", "ceo", "n8n", "po", "rsvp", "fire"]);
+  const cleaned = raw.replace(/[_-]+/g, " ").trim();
+  return cleaned
+    .split(/\s+/)
+    .map((w, i) => {
+      const lower = w.toLowerCase();
+      if (ACRONYMS.has(lower)) return lower.toUpperCase();
+      if (i === 0) return lower.charAt(0).toUpperCase() + lower.slice(1);
+      return lower;
+    })
+    .join(" ");
+}
+
+/**
+ * Cron strings → plain English. "0 3 * * *" → "Daily at 3:00 AM UTC".
+ * Locations stay as-is (vercel/local/n8n/supabase) since CC understands those
+ * after seeing them once.
+ */
+function prettifyMeta(meta: string): string {
+  if (!meta) return "";
+  // Cron format: minute hour dom month dow
+  const cronMatch = meta.match(/^(\d+|\*)\s+(\d+|\*)\s+(\*)\s+(\*)\s+(\*)$/);
+  if (cronMatch) {
+    const [, min, hour] = cronMatch;
+    if (min === "*" && hour === "*") return "every minute";
+    if (min !== "*" && hour !== "*") {
+      const h = Number(hour);
+      const m = Number(min);
+      const ampm = h < 12 ? "AM" : "PM";
+      const h12 = h === 0 ? 12 : h <= 12 ? h : h - 12;
+      const mm = m.toString().padStart(2, "0");
+      return `daily at ${h12}:${mm} ${ampm} UTC`;
+    }
+    if (min !== "*" && hour === "*") return `every hour at :${min.padStart(2, "0")}`;
+    if (min === "*" && hour !== "*") return `every minute during the ${hour}:00 UTC hour`;
+  }
+  // Step pattern: "*/15 * * * *" → "every 15 minutes"
+  const stepMin = meta.match(/^\*\/(\d+)\s+\*\s+\*\s+\*\s+\*$/);
+  if (stepMin) return `every ${stepMin[1]} minutes`;
+  // Step hour: "0 */4 * * *" → "every 4 hours"
+  const stepHour = meta.match(/^(\d+)\s+\*\/(\d+)\s+\*\s+\*\s+\*$/);
+  if (stepHour) return `every ${stepHour[2]} hours at :${stepHour[1].padStart(2, "0")}`;
+  return meta;
 }

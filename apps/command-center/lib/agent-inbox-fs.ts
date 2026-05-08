@@ -27,6 +27,8 @@ const SIBLING_REPOS: Record<string, string> = {
   maven: process.env.MAVEN_REPO || path.join(HOME, "CMO-Agent"),
   atlas: process.env.ATLAS_REPO || path.join(HOME, "APPS", "CFO-Agent"),
   aura: process.env.AURA_REPO || path.join(HOME, "AURA"),
+  "life-preservation":
+    process.env.LIFE_PRESERVATION_REPO || path.join(HOME, "life-preservation"),
 };
 
 async function _inboxPathForRecipient(recipient: string): Promise<string> {
@@ -45,7 +47,7 @@ async function _inboxPathForRecipient(recipient: string): Promise<string> {
 export const VALID_PRIORITIES = ["low", "normal", "high", "urgent"] as const;
 export type Priority = (typeof VALID_PRIORITIES)[number];
 
-export const KNOWN_AGENTS = ["bravo", "atlas", "maven", "aura", "codex", "cc", "broadcast"] as const;
+export const KNOWN_AGENTS = ["bravo", "atlas", "maven", "aura", "life-preservation", "codex", "cc", "broadcast"] as const;
 
 export type InboxMessage = {
   message_id: string;

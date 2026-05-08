@@ -15,6 +15,13 @@ export type AgentInfo = {
   colorRgb: string;
   /** Tailwind text-* class for inline labels. */
   textClass: string;
+  /**
+   * True for the C-suite agents shown on /agents AGENT FAMILY card.
+   * False for backend executors (Codex) that power agents but aren't
+   * standalone "personas" CC interacts with directly. Defaults true
+   * when the field is absent so the registry stays backward-compatible.
+   */
+  family?: boolean;
 };
 
 export const AGENT_REGISTRY: Record<string, AgentInfo> = {
@@ -63,9 +70,39 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
     colorRgb: "251, 191, 36",
     textClass: "text-amber-400",
   },
+  "life-preservation": {
+    key: "life-preservation",
+    label: "Life Preservation",
+    role: "Memory keeper · embodies loved ones · cherish their voice",
+    tagline: "Memory · voice · legacy",
+    location: "C:\\Users\\User\\life-preservation",
+    colorRgb: "248, 180, 217", // soft rose — warmth, memory
+    textClass: "text-rose-300",
+  },
+  // Backend delegation executor — powers custom agents, not a standalone
+  // persona. family:false hides it from the AGENT FAMILY card on /agents.
+  codex: {
+    key: "codex",
+    label: "Codex",
+    role: "Backend executor · powers custom agents · not standalone",
+    tagline: "Backend · delegation",
+    location: "OpenAI Codex",
+    colorRgb: "148, 163, 184",
+    textClass: "text-slate-400",
+    family: false,
+  },
 };
 
 export const ALL_AGENT_KEYS = Object.keys(AGENT_REGISTRY);
+
+/**
+ * Subset of ALL_AGENT_KEYS that should appear on the /agents AGENT FAMILY
+ * card. Excludes backend executors (Codex) — they power agents but aren't
+ * the personas CC interacts with directly.
+ */
+export const FAMILY_AGENT_KEYS = ALL_AGENT_KEYS.filter(
+  (k) => AGENT_REGISTRY[k].family !== false
+);
 
 export function getAgentInfo(key: string): AgentInfo {
   return (
