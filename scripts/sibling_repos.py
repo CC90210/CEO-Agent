@@ -27,6 +27,9 @@ SIBLING_REPOS: dict[str, Path] = {
     "maven": Path(os.environ.get("MAVEN_REPO", r"C:\Users\User\CMO-Agent")),
     "atlas": Path(os.environ.get("ATLAS_REPO", r"C:\Users\User\APPS\CFO-Agent")),
     "aura":  Path(os.environ.get("AURA_REPO",  r"C:\Users\User\AURA")),
+    "life-preservation": Path(
+        os.environ.get("LIFE_PRESERVATION_REPO", r"C:\Users\User\life-preservation")
+    ),
 }
 
 

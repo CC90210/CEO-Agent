@@ -130,6 +130,17 @@ export const AGENT_CATALOG: Record<string, AgentCatalog> = {
       { name: "chargeback_dispute", kind: "workflow", description: "Auto-builds dispute packet from audit log.", location: "local" },
     ],
   },
+  "life-preservation": {
+    crons: [],
+    processes: [
+      { name: "interview_coach", kind: "process", description: "Suggests questions that surface the meaningful, not the obvious.", location: "local" },
+      { name: "voice_capture", kind: "process", description: "Coaches the family on what to record, when, in what conditions.", location: "local" },
+      { name: "memory_organizer", kind: "process", description: "Turns hours of audio + scattered notes into a coherent narrative.", location: "local" },
+    ],
+    workflows: [
+      { name: "persona_session", kind: "workflow", description: "Private conversational access for surviving loved ones — family-gated.", location: "local" },
+    ],
+  },
 };
 
 export function catalogFor(agentKey: string): AgentCatalog {

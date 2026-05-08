@@ -72,6 +72,12 @@ const AGENT_SUGGESTIONS: Record<string, string[]> = {
     "Show me yesterday's A2000 sync log",
     "Any commerce alerts I need to handle?",
   ],
+  "life-preservation": [
+    "Help me plan an interview session with Grandma",
+    "What questions surface the small details, not the obvious ones?",
+    "Show me what we've captured so far",
+    "What's missing from her story?",
+  ],
 };
 
 function _suggestionsFor(agent: string): string[] {
@@ -735,17 +741,45 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
             onSuggestion={applySuggestion}
           />
         )}
-        {messages.map((m, i) => (
-          <Bubble
-            key={i}
-            role={m.role}
-            agent={agent}
-            content={stripActionMarkers(m.content)}
-            at={m.at}
-            streaming={streaming && i === messages.length - 1 && m.role === "assistant"}
-          />
-        ))}
-        {thinking && streaming && (
+        {messages.map((m, i) => {
+          const isLastAssistant = i === messages.length - 1 && m.role === "assistant";
+          // Show the tool timeline ABOVE the in-progress assistant bubble
+          // so CC sees the agent working (read → bash → grep → …) BEFORE
+          // the final text answer lands. Matches Claude Code's CLI rhythm.
+          const showToolsHere = isLastAssistant && toolCalls.length > 0;
+          return (
+            <div key={i} className="contents">
+              {showToolsHere && (
+                process.env.NEXT_PUBLIC_TOOL_TIMELINE === "false"
+                  ? <ToolCallList entries={toolCalls} />
+                  : <ToolTimelineList entries={toolCalls} />
+              )}
+              {showToolsHere && thinking && streaming && (
+                <div className="flex items-center gap-2 text-fg-dim text-xs ml-9">
+                  <span className="typing-dots"><span /><span /><span /></span>
+                  <span>
+                    {statusPhase === "spawning"
+                      ? `starting ${agent.toLowerCase()}${statusDetail ? ` in ${statusDetail}` : ""}…`
+                      : statusPhase === "tool"
+                        ? `running ${statusDetail || "tool"}…`
+                        : "thinking…"}
+                    {elapsedLabel && (
+                      <span className="ml-1.5 font-mono text-fg-dim/70">({elapsedLabel})</span>
+                    )}
+                  </span>
+                </div>
+              )}
+              <Bubble
+                role={m.role}
+                agent={agent}
+                content={stripActionMarkers(m.content)}
+                at={m.at}
+                streaming={streaming && isLastAssistant}
+              />
+            </div>
+          );
+        })}
+        {thinking && streaming && toolCalls.length === 0 && (
           <div className="flex items-center gap-2 text-fg-dim text-xs ml-9">
             <span className="typing-dots"><span /><span /><span /></span>
             <span>
@@ -787,11 +821,6 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
               });
             }}
           />
-        )}
-        {toolCalls.length > 0 && (
-          process.env.NEXT_PUBLIC_TOOL_TIMELINE === "false"
-            ? <ToolCallList entries={toolCalls} />
-            : <ToolTimelineList entries={toolCalls} />
         )}
         {actions.length > 0 && (
           <div className="space-y-1.5">
