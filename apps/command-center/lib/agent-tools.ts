@@ -173,7 +173,7 @@ const HANDLERS: Record<string, ToolHandler> = {
       .maybeSingle();
     if (!profile) return { schedule: [], note: "no profile in tenant" };
     const { data: plan } = await db
-      .from("daily_plan")
+      .from("daily_plans")
       .select("mission, schedule, primary_lead_id, primary_lead_play")
       .eq("profile_id", profile.id)
       .eq("plan_date", today)
