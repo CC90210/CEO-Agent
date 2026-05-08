@@ -163,16 +163,22 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     env_key: "STRIPE_API_KEY",
   },
   {
+    // Atlas's CCXT-based trade engine reads EXCHANGE_API_KEY +
+    // EXCHANGE_SECRET (set in CFO-Agent/.env). Kraken is the default
+    // exchange — DEFAULT_EXCHANGE=kraken in Atlas's env. Mapping the
+    // env_key here lets the dashboard light up green when CC has
+    // configured CCXT regardless of which exchange they pointed it at.
     service: "kraken",
-    label: "Kraken",
+    label: "Kraken (CCXT)",
     category: "finance",
-    description: "Crypto trading API — Atlas trade engine",
+    description: "Crypto trading via CCXT — Atlas trade engine (configures any CCXT-supported exchange)",
     connection_kind: "api_key",
     signup_url: "https://www.kraken.com/sign-up",
     api_key_url: "https://www.kraken.com/u/security/api",
     setup_doc_url: "https://docs.kraken.com/api/",
     setup_complexity: "moderate",
     used_by: ["atlas"],
+    env_key: "EXCHANGE_API_KEY",
   },
   {
     service: "wise",
@@ -185,26 +191,100 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     setup_doc_url: "https://docs.wise.com/api-docs",
     setup_complexity: "moderate",
     used_by: ["atlas"],
+    env_key: "WISE_API_TOKEN",
   },
   {
+    // IBKR uses TWS desktop with a local socket — no API key paste flow.
+    // Connection kind reflects the actual mechanism so the dashboard
+    // doesn't ask for a key that doesn't exist.
     service: "interactive_brokers",
     label: "Interactive Brokers",
     category: "finance",
-    description: "Equities + options — Atlas portfolio",
-    connection_kind: "api_key",
+    description: "Equities + options via TWS desktop (local socket — no API key)",
+    connection_kind: "local_install",
     signup_url: "https://www.interactivebrokers.com/en/index.php?f=46385",
-    api_key_url: "https://www.interactivebrokers.com/portal/?loginType=1#/AccountSettings/ConfigureApi",
     setup_doc_url: "https://interactivebrokers.github.io/tws-api/introduction.html",
     setup_complexity: "advanced",
     used_by: ["atlas"],
   },
+  {
+    // Forex broker — Atlas reads OANDA_TOKEN.
+    service: "oanda",
+    label: "OANDA",
+    category: "finance",
+    description: "Forex broker — Atlas FX strategies",
+    connection_kind: "api_key",
+    signup_url: "https://www.oanda.com/forex-trading/",
+    api_key_url: "https://www.oanda.com/account/tpa/personal_token",
+    setup_complexity: "moderate",
+    used_by: ["atlas"],
+    env_key: "OANDA_TOKEN",
+  },
+  {
+    // Atlas market-data feeds. None of these are required for trading;
+    // they power research signals + reports. Each lights up only when
+    // the matching key is present.
+    service: "alpha_vantage",
+    label: "Alpha Vantage",
+    category: "finance",
+    description: "Equity + FX market data",
+    connection_kind: "api_key",
+    signup_url: "https://www.alphavantage.co/support/#api-key",
+    api_key_url: "https://www.alphavantage.co/support/#api-key",
+    setup_complexity: "trivial",
+    used_by: ["atlas"],
+    env_key: "ALPHA_VANTAGE_KEY",
+  },
+  {
+    service: "finnhub",
+    label: "Finnhub",
+    category: "finance",
+    description: "Real-time quotes + earnings + news",
+    connection_kind: "api_key",
+    signup_url: "https://finnhub.io/register",
+    api_key_url: "https://finnhub.io/dashboard",
+    setup_complexity: "trivial",
+    used_by: ["atlas"],
+    env_key: "FINNHUB_KEY",
+  },
+  {
+    service: "fmp",
+    label: "Financial Modeling Prep",
+    category: "finance",
+    description: "Fundamentals + ratios + macro",
+    connection_kind: "api_key",
+    signup_url: "https://site.financialmodelingprep.com/developer",
+    api_key_url: "https://site.financialmodelingprep.com/developer/docs/dashboard",
+    setup_complexity: "trivial",
+    used_by: ["atlas"],
+    env_key: "FMP_KEY",
+  },
+  {
+    service: "newsapi",
+    label: "NewsAPI",
+    category: "finance",
+    description: "News headlines for sentiment + signals",
+    connection_kind: "api_key",
+    signup_url: "https://newsapi.org/register",
+    api_key_url: "https://newsapi.org/account",
+    setup_complexity: "trivial",
+    used_by: ["atlas"],
+    env_key: "NEWSAPI_KEY",
+  },
 
   // ── Content / video ────────────────────────────────────────────
   {
+    // SINGLE social connector — one Zernio (Late) key handles LinkedIn,
+    // Instagram, TikTok, YouTube, X/Twitter, Facebook, Threads. The
+    // dashboard previously listed each platform as its own row with
+    // "auth via Zernio" but that was misleading: there is no per-
+    // platform setup step beyond pasting this one key. Operators who
+    // care about specific platforms toggle them inside Zernio's UI.
     service: "late",
     label: "Zernio (Late)",
-    category: "content",
-    description: "Multi-platform social scheduler",
+    category: "social",
+    description:
+      "All-in-one social scheduler — one key publishes to LinkedIn, Instagram, TikTok, YouTube, X/Twitter, Facebook, Threads, Pinterest. Set platform-specific OAuth inside Zernio.",
     connection_kind: "api_key",
     signup_url: "https://zernio.com/signup",
     api_key_url: "https://zernio.com/dashboard/api",
@@ -256,62 +336,10 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     used_by: ["maven"],
   },
 
-  // ── Social platforms (auth handled by Zernio when set) ─────────
-  {
-    service: "linkedin",
-    label: "LinkedIn",
-    category: "social",
-    description: "Brand publishing — auth via Zernio",
-    connection_kind: "oauth",
-    signup_url: "https://www.linkedin.com/signup",
-    api_key_url: "https://zernio.com/accounts",
-    setup_complexity: "simple",
-    used_by: ["maven"],
-  },
-  {
-    service: "instagram",
-    label: "Instagram",
-    category: "social",
-    description: "Reels + posts — auth via Zernio",
-    connection_kind: "oauth",
-    signup_url: "https://www.instagram.com/accounts/emailsignup/",
-    api_key_url: "https://zernio.com/accounts",
-    setup_complexity: "simple",
-    used_by: ["maven"],
-  },
-  {
-    service: "tiktok",
-    label: "TikTok",
-    category: "social",
-    description: "Vertical video — auth via Zernio",
-    connection_kind: "oauth",
-    signup_url: "https://www.tiktok.com/signup",
-    api_key_url: "https://zernio.com/accounts",
-    setup_complexity: "simple",
-    used_by: ["maven"],
-  },
-  {
-    service: "youtube",
-    label: "YouTube",
-    category: "social",
-    description: "Long-form + shorts — auth via Zernio",
-    connection_kind: "oauth",
-    signup_url: "https://accounts.google.com/signup",
-    api_key_url: "https://zernio.com/accounts",
-    setup_complexity: "simple",
-    used_by: ["maven"],
-  },
-  {
-    service: "twitter",
-    label: "X / Twitter",
-    category: "social",
-    description: "Threads + posts — auth via Zernio",
-    connection_kind: "oauth",
-    signup_url: "https://twitter.com/signup",
-    api_key_url: "https://zernio.com/accounts",
-    setup_complexity: "simple",
-    used_by: ["maven"],
-  },
+  // (Per-platform social rows — LinkedIn, Instagram, TikTok, YouTube,
+  // X/Twitter — were collapsed into the single Zernio entry above.
+  // Per-platform OAuth happens inside Zernio's UI, not here. Reduces
+  // 5 cards to 1 and matches the actual setup flow.)
 
   // ── Data / automation ──────────────────────────────────────────
   {
@@ -347,6 +375,18 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     api_key_url: "https://www.notion.so/profile/integrations",
     setup_complexity: "simple",
     env_key: "NOTION_API_KEY",
+  },
+  {
+    service: "obsidian",
+    label: "Obsidian",
+    category: "data",
+    description: "Local-first vault — graph + backlinks for brain/ files",
+    connection_kind: "api_key",
+    signup_url: "https://obsidian.md/",
+    api_key_url: "https://github.com/coddingtonbear/obsidian-local-rest-api",
+    setup_complexity: "moderate",
+    used_by: ["bravo"],
+    env_key: "OBSIDIAN_API_KEY",
   },
   {
     service: "firecrawl",
