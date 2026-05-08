@@ -13,6 +13,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ToolTimelineList } from "@/components/chat/ToolTimelineList";
+import { MessageDownloadMenu } from "@/components/chat/MessageDownloadMenu";
 import { useSynthCalls } from "@/lib/use-synth-calls";
 import {
   Send,
@@ -1194,6 +1195,10 @@ function Bubble({
     });
   }
 
+  // Show export controls only on completed assistant messages — mid-stream
+  // partial markdown would download as a half-doc, which is just confusing.
+  const showExports = !isUser && !streaming && content.trim().length > 0;
+
   return (
     <div className={`group flex items-start gap-2 ${isUser ? "justify-end" : "justify-start"}`}>
       {!isUser && <AgentAvatar agent={agent} />}
@@ -1222,6 +1227,7 @@ function Bubble({
               {copied ? "copied" : "copy"}
             </button>
           )}
+          {showExports && <MessageDownloadMenu content={content} agent={agent} />}
         </div>
       </div>
       {isUser && <UserAvatar />}
