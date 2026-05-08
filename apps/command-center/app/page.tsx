@@ -28,9 +28,6 @@ import {
 } from "@/lib/queries";
 import { computeStreak } from "@/lib/streak";
 import { safe } from "@/lib/api-helpers";
-import { getSystemHealth } from "@/lib/system-health";
-import { SystemHealthBanner } from "@/components/SystemHealthBanner";
-import { ALL_AGENT_KEYS } from "@/lib/agents";
 
 export const dynamic = "force-dynamic";
 
@@ -71,21 +68,6 @@ export default async function TodayPage() {
     ? await safe(getLeadById(plan.primary_lead_id), null)
     : topLead; // auto-promote highest-score open lead if no plan-level pin
 
-  const enabledAgents = profile.agents_enabled || ALL_AGENT_KEYS;
-  const health = await safe(
-    getSystemHealth({ tenantId, enabledAgents }),
-    {
-      staleAgents: 0,
-      staleAgentNames: [] as string[],
-      bridgeOffline: false,
-      bridgeLastSeenMs: null,
-      integrationsDown: 0,
-      memoryStale: 0,
-      inboxUnread: 0,
-      totalIssues: 0,
-    }
-  );
-
   const targetDate = profile.mrr_target_date ? new Date(profile.mrr_target_date) : null;
   const daysToTarget = targetDate
     ? Math.max(0, Math.round((targetDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
@@ -116,8 +98,6 @@ export default async function TodayPage() {
         }
         action={<Tag tone={isWeekend ? "info" : "accent"}>{isWeekend ? "weekend" : "weekday"}</Tag>}
       />
-
-      <SystemHealthBanner health={health} />
 
       {/* Hero band — 6 metrics that actually matter */}
       <section className="grid grid-cols-2 lg:grid-cols-6 gap-4">
