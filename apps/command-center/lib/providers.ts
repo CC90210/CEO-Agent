@@ -274,10 +274,15 @@ async function* streamOpenAI(req: ChatRequest): AsyncGenerator<StreamEvent> {
  * Google Gemini — :streamGenerateContent SSE
  * ============================================================================ */
 async function* streamGoogle(req: ChatRequest): AsyncGenerator<StreamEvent> {
+  // Pass the API key in the `x-goog-api-key` header instead of the URL
+  // query string. Google supports both, but URL params can leak via
+  // server logs, error response bodies that echo the request URL, and
+  // any error stack trace that quotes the URL. Header-based auth keeps
+  // the credential out of those surfaces.
   const url =
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
       req.model
-    )}:streamGenerateContent?alt=sse&key=${encodeURIComponent(req.apiKey)}`;
+    )}:streamGenerateContent?alt=sse`;
 
   const contents = req.messages.map((m) => ({
     role: m.role === "assistant" ? "model" : "user",
@@ -292,7 +297,10 @@ async function* streamGoogle(req: ChatRequest): AsyncGenerator<StreamEvent> {
   }
   const res = await fetchWithRetry(url, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      "x-goog-api-key": req.apiKey,
+    },
     body: JSON.stringify(body),
   });
   if (!res.ok || !res.body) {
