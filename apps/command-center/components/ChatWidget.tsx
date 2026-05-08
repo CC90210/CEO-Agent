@@ -24,6 +24,14 @@ import {
   Check,
   ChevronRight,
   Clipboard,
+  FileText,
+  Pencil,
+  Terminal,
+  Search,
+  Globe,
+  X as XIcon,
+  Brain,
+  Database,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
@@ -155,7 +163,16 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actions, setActions] = useState<
-    Array<{ ok: boolean; type: string; summary?: string; error?: string }>
+    Array<{
+      ok: boolean;
+      type: string;
+      summary?: string;
+      error?: string;
+      // A4: verification UI — uid for dismiss target, dismissed flips to
+      // true once CC clicks "got it" so the pill collapses.
+      uid: string;
+      dismissed?: boolean;
+    }>
   >([]);
   const [bridgeOnline, setBridgeOnline] = useState<boolean | null>(null);
   const [usage, setUsage] = useState<{ usage: number; limit: number | null } | null>(null);
@@ -171,6 +188,8 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
       output?: string;
       error?: boolean;
       elapsed_s?: number;
+      createdAt: number;
+      completedAt?: number;
     }>
   >([]);
   // [DEPRECATED — REMOVE AFTER 2026-05-14] toolReads + toolRuns + their
@@ -193,8 +212,32 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
   const [expandedReads, setExpandedReads] = useState<Set<number>>(new Set());
   const [expandedRuns, setExpandedRuns] = useState<Set<number>>(new Set());
   const [thinking, setThinking] = useState(false);
+  // A0c: status phase + elapsed-time counter so CC sees "starting Atlas in
+  // CFO-Agent…" → "thinking… (0:12)" instead of a static "thinking…" during
+  // the first 30s of a Claude Code subprocess cold start.
+  const [statusPhase, setStatusPhase] = useState<"spawning" | "thinking" | "tool" | null>(null);
+  const [statusDetail, setStatusDetail] = useState<string>("");
+  const [streamStartedAt, setStreamStartedAt] = useState<number | null>(null);
+  const [elapsedTick, setElapsedTick] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Tick elapsed time every second while a request is mid-flight.
+  useEffect(() => {
+    if (!streamStartedAt) return;
+    const id = setInterval(() => setElapsedTick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [streamStartedAt]);
+
+  const elapsedLabel = useMemo(() => {
+    if (!streamStartedAt) return "";
+    // elapsedTick is referenced so this memo recomputes every second.
+    void elapsedTick;
+    const s = Math.max(0, Math.floor((Date.now() - streamStartedAt) / 1000));
+    const mm = Math.floor(s / 60);
+    const ss = String(s % 60).padStart(2, "0");
+    return `${mm}:${ss}`;
+  }, [streamStartedAt, elapsedTick]);
 
   useEffect(() => {
     fetch("/api/agent-config")
@@ -351,6 +394,9 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
     setMessages((m) => [...m, { role: "assistant", content: "", at: Date.now() }]);
     setStreaming(true);
     setThinking(true);
+    setStreamStartedAt(Date.now());
+    setStatusPhase(bridgeOnline === true ? "spawning" : "thinking");
+    setStatusDetail("");
 
     try {
       // Routing decision:
@@ -399,8 +445,24 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
             continue;
           }
           if (event === "session" && parsed.session_id) setSessionId(parsed.session_id);
+          else if (event === "agent_status") {
+            // A0c: bridge synthesizes "spawning" before claude is up, then
+            // "thinking" once the subprocess is alive. Pure UX signal.
+            const phase = String(parsed.phase || "");
+            if (phase === "spawning" || phase === "thinking" || phase === "tool") {
+              setStatusPhase(phase as "spawning" | "thinking" | "tool");
+              if (phase === "spawning" && parsed.cwd) {
+                const cwd = String(parsed.cwd);
+                const last = cwd.split(/[\\/]/).filter(Boolean).pop() || cwd;
+                setStatusDetail(last);
+              } else {
+                setStatusDetail("");
+              }
+            }
+          }
           else if (event === "delta" && typeof parsed.text === "string") {
             setThinking(false);
+            setStatusPhase(null);
             setMessages((m) => {
               const next = [...m];
               const last = next[next.length - 1];
@@ -417,10 +479,13 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
                 type: String(parsed.type || "?"),
                 summary: parsed.summary,
                 error: parsed.error,
+                uid: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
               },
             ]);
           } else if (event === "tool") {
             setThinking(true);
+            setStatusPhase("tool");
+            setStatusDetail(_toolLabel(parsed));
             const toolName = String(parsed.name || "tool");
             const toolUseId = String(parsed.tool_use_id || "");
             const isClaudePath = !!parsed.raw_name;
@@ -434,6 +499,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
                   kind: toolName,
                   label: _toolLabel(parsed),
                   detail: _toolDetail(parsed),
+                  createdAt: Date.now(),
                 },
               ]);
             } else {
@@ -479,6 +545,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
                       output: body,
                       error: !!parsed.error,
                       elapsed_s: undefined,
+                      completedAt: Date.now(),
                     };
                     break;
                   }
@@ -537,6 +604,10 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
     } finally {
       setStreaming(false);
       setThinking(false);
+      setStatusPhase(null);
+      setStatusDetail("");
+      setStreamStartedAt(null);
+      setElapsedTick(0);
       // Auto-focus the input so power-users can keep typing
       setTimeout(() => inputRef.current?.focus(), 50);
     }
@@ -574,14 +645,21 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
           </div>
           <div className="text-xs text-fg-dim font-mono truncate">
             {bridgeOnline === true ? (
-              <span className="text-accent">
+              <span
+                className="text-accent"
+                title="Local bridge spawns the Claude Code CLI on your machine using your Claude subscription — your saved provider keys are not used in this mode."
+              >
                 <Cpu className="w-3 h-3 inline-block mr-1 -mt-0.5" />
-                local bridge · full repo access
+                local bridge · Claude Code CLI · full repo access
               </span>
             ) : cfg ? (
-              `${cfg.provider} · ${cfg.model}`
+              <span title={`Cloud mode — using your saved ${cfg.provider} key for ${cfg.model}.`}>
+                {`${cfg.provider} · ${cfg.model} · your key`}
+              </span>
             ) : isAdmin ? (
-              "admin · platform key"
+              <span title="Cloud mode, no per-agent key saved — falling back to the platform-default key (admin only).">
+                admin · platform-default key
+              </span>
             ) : configsLoaded ? (
               "not configured"
             ) : (
@@ -670,7 +748,16 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
         {thinking && streaming && (
           <div className="flex items-center gap-2 text-fg-dim text-xs ml-9">
             <span className="typing-dots"><span /><span /><span /></span>
-            <span>thinking…</span>
+            <span>
+              {statusPhase === "spawning"
+                ? `starting ${agent.toLowerCase()}${statusDetail ? ` in ${statusDetail}` : ""}…`
+                : statusPhase === "tool"
+                  ? `running ${statusDetail || "tool"}…`
+                  : "thinking…"}
+              {elapsedLabel && (
+                <span className="ml-1.5 font-mono text-fg-dim/70">({elapsedLabel})</span>
+              )}
+            </span>
           </div>
         )}
         {toolReads.length > 0 && (
@@ -702,26 +789,67 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
           />
         )}
         {toolCalls.length > 0 && (
-          <ToolCallList entries={toolCalls} />
+          process.env.NEXT_PUBLIC_TOOL_TIMELINE === "false"
+            ? <ToolCallList entries={toolCalls} />
+            : <ToolTimelineList entries={toolCalls} />
         )}
         {actions.length > 0 && (
           <div className="space-y-1.5">
-            {actions.map((a, i) => (
-              <div
-                key={i}
-                className={`flex items-start gap-2 rounded-md border px-3 py-2 text-xs font-mono ${
-                  a.ok
-                    ? "border-status-engaged/40 bg-status-engaged/10 text-status-engaged"
-                    : "border-status-warm/40 bg-status-warm/10 text-status-warm"
-                }`}
-              >
-                <span className="font-bold uppercase tracking-wider text-[10px] mt-0.5">
-                  {a.ok ? "applied" : "rejected"}
-                </span>
-                <span className="text-fg-muted">{a.type}</span>
-                <span className="font-sans">{a.summary || a.error || "(no detail)"}</span>
-              </div>
-            ))}
+            {actions.filter((a) => !a.dismissed).map((a) => {
+              const verifyOn = process.env.NEXT_PUBLIC_VERIFY_ACTIONS !== "false";
+              const needsAck = verifyOn && a.ok; // mutating + applied -> needs ack
+              return (
+                <div
+                  key={a.uid}
+                  className={`flex items-start gap-2 rounded-md border px-3 py-2 text-xs font-mono ${
+                    a.ok
+                      ? needsAck
+                        ? "border-accent/40 bg-accent/10 text-accent"
+                        : "border-status-engaged/40 bg-status-engaged/10 text-status-engaged"
+                      : "border-status-warm/40 bg-status-warm/10 text-status-warm"
+                  }`}
+                >
+                  <Check className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${a.ok ? "" : "hidden"}`} />
+                  <AlertCircle className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${a.ok ? "hidden" : ""}`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2 flex-wrap">
+                      <span className="font-bold uppercase tracking-wider text-[10px]">
+                        {a.ok ? (needsAck ? "applied — verify" : "applied") : "rejected"}
+                      </span>
+                      <span className="text-fg-muted">{a.type}</span>
+                    </div>
+                    <div className="font-sans mt-0.5 text-fg break-words">
+                      {a.summary || a.error || "(no detail)"}
+                    </div>
+                  </div>
+                  {needsAck && (
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <Link
+                        href="/runs"
+                        className="text-[10px] uppercase tracking-wider underline decoration-accent/40 hover:decoration-accent"
+                        title="See full mutation history"
+                      >
+                        history
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setActions((prev) =>
+                            prev.map((x) =>
+                              x.uid === a.uid ? { ...x, dismissed: true } : x
+                            )
+                          )
+                        }
+                        className="px-2 py-0.5 rounded border border-accent/40 hover:bg-accent/20 text-[10px] uppercase tracking-wider"
+                        title="Acknowledge — dismiss this verification pill"
+                      >
+                        got it
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
         {error && (
@@ -1135,6 +1263,165 @@ function ToolCallList({
               <pre className="mt-1.5 max-h-64 overflow-auto rounded-md border border-bg-border bg-bg-deep/60 p-2 text-[10px] font-mono text-fg-muted whitespace-pre-wrap">
                 <code>{e.output}</code>
               </pre>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * A0b: Claude-Code-style tool timeline. Each tool call is a row with status
+ * icon, kind glyph, label, full args, and (when complete) duration + output
+ * preview. Replaces the cramped pill display so CC can actually see what
+ * the agent is doing while it works.
+ */
+function _toolIcon(kind: string): React.ReactNode {
+  const sz = "w-3.5 h-3.5";
+  switch (kind) {
+    case "read_file":
+    case "Read":
+      return <FileText className={sz} />;
+    case "edit_file":
+    case "write_file":
+    case "Edit":
+    case "Write":
+    case "MultiEdit":
+      return <Pencil className={sz} />;
+    case "run_script":
+    case "Bash":
+      return <Terminal className={sz} />;
+    case "glob":
+    case "Glob":
+    case "grep":
+    case "Grep":
+      return <Search className={sz} />;
+    case "web_fetch":
+    case "WebFetch":
+    case "WebSearch":
+      return <Globe className={sz} />;
+    case "mcp_call":
+      return <Database className={sz} />;
+    default:
+      if (kind.startsWith("mcp__")) {
+        if (kind.includes("sequential-thinking") || kind.includes("memory")) return <Brain className={sz} />;
+        return <Database className={sz} />;
+      }
+      return <Cpu className={sz} />;
+  }
+}
+
+function _formatDuration(createdAt: number, completedAt?: number): string {
+  if (!completedAt) return "";
+  const ms = completedAt - createdAt;
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+  const s = Math.floor(ms / 1000);
+  return `${Math.floor(s / 60)}m${s % 60}s`;
+}
+
+function ToolTimelineList({
+  entries,
+}: {
+  entries: Array<{
+    id: string;
+    kind: string;
+    label: string;
+    detail?: string;
+    output?: string;
+    error?: boolean;
+    createdAt: number;
+    completedAt?: number;
+  }>;
+}) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  function toggle(id: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+  return (
+    <div className="ml-9 space-y-1 border-l border-bg-border pl-3 mt-1">
+      {entries.map((e) => {
+        const isOpen = expanded.has(e.id);
+        const isRunning = !e.completedAt && !e.error;
+        const canExpand = !!e.output || !!e.detail;
+        const status = e.error ? "error" : e.completedAt ? "done" : "running";
+        const statusIcon =
+          status === "running" ? (
+            <Loader2 className="w-3 h-3 animate-spin text-accent" />
+          ) : status === "error" ? (
+            <XIcon className="w-3 h-3 text-status-warm" />
+          ) : (
+            <Check className="w-3 h-3 text-status-engaged" />
+          );
+        const tone =
+          status === "error"
+            ? "text-status-warm"
+            : status === "running"
+              ? "text-accent"
+              : "text-fg-muted";
+        const dur = _formatDuration(e.createdAt, e.completedAt);
+        return (
+          <div key={e.id} className="text-[11px]">
+            <button
+              type="button"
+              disabled={!canExpand}
+              onClick={() => canExpand && toggle(e.id)}
+              className={`w-full flex items-start gap-2 px-1.5 py-1 rounded ${
+                canExpand ? "hover:bg-bg-elev/40 cursor-pointer" : "cursor-default"
+              } ${tone}`}
+              title={e.detail || e.label}
+            >
+              <span className="flex items-center gap-1.5 mt-0.5 flex-shrink-0">
+                {statusIcon}
+                <span className="text-fg-dim">{_toolIcon(e.kind)}</span>
+              </span>
+              <span className="flex-1 min-w-0 flex items-baseline gap-1.5 text-left">
+                <span className="font-mono font-bold uppercase tracking-wider text-[10px]">
+                  {e.label}
+                </span>
+                {e.detail && (
+                  <span className="text-fg-dim font-mono truncate">
+                    {e.detail}
+                  </span>
+                )}
+              </span>
+              {dur && (
+                <span className="text-fg-dim font-mono text-[10px] flex-shrink-0 ml-1">
+                  {dur}
+                </span>
+              )}
+              {canExpand && (
+                <ChevronRight
+                  className={`w-3 h-3 transition-transform mt-0.5 flex-shrink-0 ${
+                    isOpen ? "rotate-90" : ""
+                  } text-fg-dim`}
+                />
+              )}
+              {isRunning && !canExpand && (
+                <span className="text-fg-dim font-mono text-[10px] flex-shrink-0 ml-1">
+                  …
+                </span>
+              )}
+            </button>
+            {isOpen && (
+              <div className="ml-7 mt-1 mb-1 space-y-1.5">
+                {e.detail && (
+                  <div className="text-[10px] font-mono text-fg-muted break-all px-2 py-1 rounded border border-bg-border bg-bg-deep/40">
+                    {e.detail}
+                  </div>
+                )}
+                {e.output && (
+                  <pre className="max-h-64 overflow-auto rounded-md border border-bg-border bg-bg-deep/60 p-2 text-[10px] font-mono text-fg-muted whitespace-pre-wrap">
+                    <code>{e.output}</code>
+                  </pre>
+                )}
+              </div>
             )}
           </div>
         );
