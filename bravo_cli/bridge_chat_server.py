@@ -1522,22 +1522,56 @@ _ENV_KEY_TO_SERVICE_FALLBACK = {
     "HOSTINGER_API_KEY": "hostinger",
 }
 
-# Live cache populated by _fetch_registry. Stale-after = 5 min;
-# heartbeat refreshes opportunistically so a registry change in the
-# dashboard propagates within ~5 minutes without a bridge restart.
+# Three-layer registry cache:
+#   1. In-memory cache (5min TTL) — heartbeat hot path, no I/O.
+#   2. Disk cache (~/.oasis/registry.json) — survives bridge restart;
+#      reload-on-startup means the bridge is functional even when the
+#      dashboard is briefly unreachable at boot.
+#   3. Hardcoded fallback — emergency last-resort if dashboard has
+#      NEVER been reached + no disk cache exists (fresh install,
+#      offline first run).
+# This makes the canonical source (lib/integrations-registry.ts) the
+# real single source of truth in steady state.
 _REGISTRY_CACHE: dict = {"map": None, "fetched_at": 0.0}
 _REGISTRY_TTL_S = 300
+_REGISTRY_CACHE_FILE = Path.home() / ".oasis" / "registry.json"
+
+
+def _load_disk_registry() -> dict | None:
+    try:
+        if _REGISTRY_CACHE_FILE.is_file():
+            data = json.loads(_REGISTRY_CACHE_FILE.read_text(encoding="utf-8"))
+            m = data.get("map")
+            if isinstance(m, dict) and m:
+                return m
+    except Exception:
+        return None
+    return None
+
+
+def _save_disk_registry(m: dict) -> None:
+    try:
+        _REGISTRY_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _REGISTRY_CACHE_FILE.write_text(
+            json.dumps({"map": m, "saved_at": time.time()}, indent=2),
+            encoding="utf-8",
+        )
+    except Exception:
+        pass  # Disk cache is best-effort; in-memory still works.
 
 
 def _fetch_registry_map() -> dict:
-    """Pull the env_key -> service map from the dashboard. Falls back to
-    the hardcoded _ENV_KEY_TO_SERVICE_FALLBACK if the dashboard is
-    unreachable. Cached for 5 minutes so heartbeats don't add latency.
+    """Pull the env_key -> service map from the dashboard with three-layer
+    fallback (in-memory cache -> disk cache -> hardcoded). The in-memory
+    cache is hot-path; disk cache survives restarts; hardcoded only fires
+    on fresh install with no network.
     """
     now = time.time()
     cached = _REGISTRY_CACHE.get("map")
     if cached and now - _REGISTRY_CACHE["fetched_at"] < _REGISTRY_TTL_S:
         return cached
+
+    # Try the dashboard.
     dashboard_url = (
         _read_env_value("OASIS_DASHBOARD_URL")
         or "https://agent-dashboard-cc90210.vercel.app"
@@ -1559,10 +1593,19 @@ def _fetch_registry_map() -> dict:
         if m:
             _REGISTRY_CACHE["map"] = m
             _REGISTRY_CACHE["fetched_at"] = now
+            _save_disk_registry(m)
             return m
     except Exception:
         pass
-    # Fallback: hardcoded map. Last resort.
+
+    # Dashboard unreachable. Try disk cache.
+    disk = _load_disk_registry()
+    if disk:
+        # Don't bump the in-memory fetched_at — we want to retry the
+        # dashboard sooner than the full TTL window.
+        return disk
+
+    # Last resort: hardcoded fallback. Fresh install, offline.
     return _ENV_KEY_TO_SERVICE_FALLBACK
 
 

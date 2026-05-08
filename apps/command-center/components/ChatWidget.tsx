@@ -12,6 +12,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ToolTimelineList } from "@/components/chat/ToolTimelineList";
+import { useSynthCalls } from "@/lib/use-synth-calls";
 import {
   Send,
   AlertCircle,
@@ -227,25 +229,6 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
   const [expandedReads, setExpandedReads] = useState<Set<number>>(new Set());
   const [expandedRuns, setExpandedRuns] = useState<Set<number>>(new Set());
   const [thinking, setThinking] = useState(false);
-  // Synthetic activity feed — when the bridge is just thinking and not
-  // emitting any real tool events, show fake "scanning" / "reading" pills
-  // to keep the user engaged. CC explicitly asked for this: "If there
-  // is nothing happening, fake it. We need to show the user that the
-  // agents are working in the background."
-  const [synthCalls, setSynthCalls] = useState<
-    Array<{
-      id: string;
-      kind: string;
-      label: string;
-      detail: string;
-      createdAt: number;
-      completedAt?: number;
-      // Mark synthetic so the renderer can dim them visually + add a
-      // "predicted activity" tooltip. Prevents users from mistaking
-      // these for real file reads / bash runs.
-      synthetic: true;
-    }>
-  >([]);
   // Fullscreen mode — uses the browser Fullscreen API on the chat
   // element itself (same pattern as Claude / ChatGPT). The chat fills
   // the screen, Esc exits, no portal magic, no parent stacking-context
@@ -290,102 +273,17 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
     return () => clearInterval(id);
   }, [streamStartedAt]);
 
-  // Synthetic activity scheduler — show motion immediately so the user
-  // never sees pure silence between hitting Send and the first real
-  // event. Two phases:
-  //
-  //   1. LIFECYCLE (0-12s): the things the bridge is ACTUALLY doing in
-  //      the background while the claude subprocess cold-starts —
-  //      opening the terminal, cd'ing into the repo, spawning claude,
-  //      loading the agent persona. These aren't lies, they're what's
-  //      really happening — we just don't have telemetry for it.
-  //   2. SCAN (12s+): file-scan / activity-check style events that
-  //      hint at "the agent is thinking about your context." These are
-  //      labeled 'predicted' in the UI to be honest about what they are.
-  //
-  // Real tool events always win — once toolCalls is non-empty, the
-  // scheduler bails and the cancelled flag cleans up pending timers.
-  useEffect(() => {
-    if (!streaming || !streamStartedAt) {
-      setSynthCalls([]);
-      return;
-    }
-    if (toolCalls.length > 0) return;
-
-    // Phase 1: lifecycle (real backend work, no telemetry). Each runs
-    // quickly + completes so the user sees a sequence of green checks
-    // landing. These all happen back-to-back during the first ~10s.
-    const LIFECYCLE: Array<{ kind: string; label: string; detail: string; runMs: number; gapMs: number }> = [
-      { kind: "Bash",  label: "shell",  detail: "opening terminal session",                  runMs: 600,  gapMs: 800 },
-      { kind: "Bash",  label: "cd",     detail: `cd ~/${agent === "bravo" ? "Business-Empire-Agent" : agent === "atlas" ? "APPS/CFO-Agent" : agent === "maven" ? "CMO-Agent" : "Business-Empire-Agent"}`, runMs: 400, gapMs: 700 },
-      { kind: "Bash",  label: "spawn",  detail: "claude --output-format stream-json",        runMs: 900,  gapMs: 1200 },
-      { kind: "Read",  label: "load",   detail: "Claude Code CLI runtime",                   runMs: 1100, gapMs: 1300 },
-      { kind: "Read",  label: "load",   detail: "agent persona · brain/SOUL.md",             runMs: 900,  gapMs: 1100 },
-      { kind: "Read",  label: "load",   detail: "MCP servers · skills · tools",              runMs: 1300, gapMs: 1500 },
-    ];
-
-    // Phase 2: ongoing context-scan style events. Cycles after lifecycle
-    // is exhausted so the timeline keeps moving until real activity arrives.
-    const SCAN: Array<{ kind: string; label: string; detail: string }> = [
-      { kind: "Read",  label: "read",  detail: "brain/STATE.md" },
-      { kind: "Read",  label: "read",  detail: "memory/ACTIVE_TASKS.md" },
-      { kind: "Read",  label: "read",  detail: "brain/USER.md" },
-      { kind: "Read",  label: "read",  detail: "memory/SESSION_LOG.md" },
-      { kind: "Bash",  label: "bash",  detail: "scanning recent activity" },
-      { kind: "Read",  label: "read",  detail: "brain/CAPABILITIES.md" },
-      { kind: "Grep",  label: "grep",  detail: "open leads · active threads" },
-      { kind: "Read",  label: "read",  detail: "memory/PATTERNS.md" },
-      { kind: "Read",  label: "read",  detail: "brain/AGENT_ROUTER.md" },
-      { kind: "Bash",  label: "bash",  detail: "checking open conversations" },
-    ];
-
-    let cancelled = false;
-    let lifecycleIdx = 0;
-    let scanIdx = 0;
-
-    function fire(ev: { kind: string; label: string; detail: string }, runMs: number) {
-      if (cancelled) return;
-      const id = `synth-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      const createdAt = Date.now();
-      setSynthCalls((prev) => [
-        ...prev,
-        { id, kind: ev.kind, label: ev.label, detail: ev.detail, createdAt, synthetic: true },
-      ]);
-      setTimeout(() => {
-        if (cancelled) return;
-        setSynthCalls((prev) =>
-          prev.map((c) => (c.id === id ? { ...c, completedAt: Date.now() } : c))
-        );
-      }, runMs);
-    }
-
-    function scheduleNext() {
-      if (cancelled) return;
-      // Lifecycle phase first.
-      if (lifecycleIdx < LIFECYCLE.length) {
-        const ev = LIFECYCLE[lifecycleIdx];
-        lifecycleIdx += 1;
-        fire(ev, ev.runMs);
-        setTimeout(scheduleNext, ev.gapMs);
-        return;
-      }
-      // Scan phase — looser timing, 2.5-4s between fires.
-      const ev = SCAN[scanIdx % SCAN.length];
-      scanIdx += 1;
-      const runMs = 1200 + Math.random() * 1400;
-      fire(ev, runMs);
-      const gapMs = 2500 + Math.random() * 1500;
-      setTimeout(scheduleNext, gapMs);
-    }
-
-    // Fire FIRST event almost immediately (300ms) so the user sees motion
-    // before they can blink. No 4s gate.
-    setTimeout(scheduleNext, 300);
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [streaming, streamStartedAt, toolCalls.length === 0, agent]);
+  // Synthetic activity feed via the extracted useSynthCalls hook. Shows
+  // motion (terminal opening, cd, claude spawn, file scans) during the
+  // 0-30s cold-start window when no real tool events fire yet. Real
+  // tool events always win — the hook bails the moment toolCalls is
+  // non-empty. See lib/use-synth-calls.ts.
+  const synthCalls = useSynthCalls({
+    streaming,
+    streamStartedAt,
+    hasRealTools: toolCalls.length > 0,
+    agent,
+  });
 
   const elapsedLabel = useMemo(() => {
     if (!streamStartedAt) return "";
@@ -1519,207 +1417,6 @@ function ToolCallList({
   );
 }
 
-/**
- * A0b: Claude-Code-style tool timeline. Each tool call is a row with status
- * icon, kind glyph, label, full args, and (when complete) duration + output
- * preview. Replaces the cramped pill display so CC can actually see what
- * the agent is doing while it works.
- */
-function _toolIcon(kind: string): React.ReactNode {
-  const sz = "w-3.5 h-3.5";
-  switch (kind) {
-    case "read_file":
-    case "Read":
-      return <FileText className={sz} />;
-    case "edit_file":
-    case "write_file":
-    case "Edit":
-    case "Write":
-    case "MultiEdit":
-      return <Pencil className={sz} />;
-    case "run_script":
-    case "Bash":
-      return <Terminal className={sz} />;
-    case "glob":
-    case "Glob":
-    case "grep":
-    case "Grep":
-      return <Search className={sz} />;
-    case "web_fetch":
-    case "WebFetch":
-    case "WebSearch":
-      return <Globe className={sz} />;
-    case "mcp_call":
-      return <Database className={sz} />;
-    default:
-      if (kind.startsWith("mcp__")) {
-        if (kind.includes("sequential-thinking") || kind.includes("memory")) return <Brain className={sz} />;
-        return <Database className={sz} />;
-      }
-      return <Cpu className={sz} />;
-  }
-}
-
-function _formatDuration(createdAt: number, completedAt?: number): string {
-  if (!completedAt) return "";
-  const ms = completedAt - createdAt;
-  if (ms < 1000) return `${ms}ms`;
-  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
-  const s = Math.floor(ms / 1000);
-  return `${Math.floor(s / 60)}m${s % 60}s`;
-}
-
-function ToolTimelineList({
-  entries,
-}: {
-  entries: Array<{
-    id: string;
-    kind: string;
-    label: string;
-    detail?: string;
-    output?: string;
-    error?: boolean;
-    createdAt: number;
-    completedAt?: number;
-    /** True for predicted/fake activity rendered while the agent is in
-     *  pure model-thinking time. Renders dimmer with a clarifying tooltip
-     *  so users don't mistake it for a real file read. */
-    synthetic?: boolean;
-  }>;
-}) {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  function toggle(id: string) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-  // Detect supersedes — when Claude retries the SAME kind+detail and the
-  // retry succeeds AFTER the failure, the earlier failed entry is recovery
-  // noise, not a real failure. We require the success to come strictly
-  // later in time (createdAt > failedCreatedAt) so a successful read
-  // followed by a real failed read is NOT mis-flagged as recovered.
-  const successesByKey = new Map<string, number[]>();
-  for (const e of entries) {
-    if (!e.error && e.completedAt) {
-      const key = `${e.kind}::${e.detail || ""}`;
-      const list = successesByKey.get(key) ?? [];
-      list.push(e.createdAt);
-      successesByKey.set(key, list);
-    }
-  }
-  return (
-    <div className="ml-9 space-y-1 border-l border-bg-border pl-3 mt-1">
-      {entries.map((e) => {
-        const isOpen = expanded.has(e.id);
-        const isRunning = !e.completedAt && !e.error;
-        const canExpand = !!e.output || !!e.detail;
-        // Only treat this error as "retried" if a same-key success
-        // arrived strictly after this entry's createdAt.
-        const successTimes = successesByKey.get(`${e.kind}::${e.detail || ""}`) ?? [];
-        const wasRetried = !!e.error && successTimes.some((t) => t > e.createdAt);
-        const status = e.error
-          ? wasRetried
-            ? "retried"
-            : "error"
-          : e.completedAt
-            ? "done"
-            : "running";
-        const statusIcon =
-          status === "running" ? (
-            <Loader2 className="w-3 h-3 animate-spin text-accent" />
-          ) : status === "error" ? (
-            <XIcon className="w-3 h-3 text-status-warm" />
-          ) : status === "retried" ? (
-            <RefreshCw className="w-3 h-3 text-fg-dim" />
-          ) : (
-            <Check className="w-3 h-3 text-status-engaged" />
-          );
-        const tone =
-          status === "error"
-            ? "text-status-warm"
-            : status === "running"
-              ? "text-accent"
-              : status === "retried"
-                ? "text-fg-dim opacity-60"
-                : "text-fg-muted";
-        const dur = _formatDuration(e.createdAt, e.completedAt);
-        // Synthetic entries dim further + get a clarifying tooltip so
-        // users don't mistake predicted activity for a real file read.
-        const synthClass = e.synthetic ? "opacity-50 italic" : "";
-        const titleText = e.synthetic
-          ? `Predicted activity (the agent is thinking — this is what it would typically look at). ${e.detail || e.label}`
-          : e.detail || e.label;
-        return (
-          <div key={e.id} className={`text-[11px] ${synthClass}`}>
-            <button
-              type="button"
-              disabled={!canExpand}
-              onClick={() => canExpand && toggle(e.id)}
-              className={`w-full flex items-start gap-2 px-1.5 py-1 rounded ${
-                canExpand ? "hover:bg-bg-elev/40 cursor-pointer" : "cursor-default"
-              } ${tone}`}
-              title={titleText}
-            >
-              <span className="flex items-center gap-1.5 mt-0.5 flex-shrink-0">
-                {statusIcon}
-                <span className="text-fg-dim">{_toolIcon(e.kind)}</span>
-              </span>
-              <span className="flex-1 min-w-0 flex items-baseline gap-1.5 text-left">
-                <span className="font-mono font-bold uppercase tracking-wider text-[10px]">
-                  {e.label}
-                </span>
-                {e.detail && (
-                  <span className="text-fg-dim font-mono truncate">
-                    {e.detail}
-                  </span>
-                )}
-                {e.synthetic && (
-                  <span className="text-[9px] uppercase tracking-wider text-fg-dim/60 flex-shrink-0">
-                    · predicted
-                  </span>
-                )}
-              </span>
-              {dur && (
-                <span className="text-fg-dim font-mono text-[10px] flex-shrink-0 ml-1">
-                  {dur}
-                </span>
-              )}
-              {canExpand && (
-                <ChevronRight
-                  className={`w-3 h-3 transition-transform mt-0.5 flex-shrink-0 ${
-                    isOpen ? "rotate-90" : ""
-                  } text-fg-dim`}
-                />
-              )}
-              {isRunning && !canExpand && (
-                <span className="text-fg-dim font-mono text-[10px] flex-shrink-0 ml-1">
-                  …
-                </span>
-              )}
-            </button>
-            {isOpen && (
-              <div className="ml-7 mt-1 mb-1 space-y-1.5">
-                {e.detail && (
-                  <div className="text-[10px] font-mono text-fg-muted break-all px-2 py-1 rounded border border-bg-border bg-bg-deep/40">
-                    {e.detail}
-                  </div>
-                )}
-                {e.output && (
-                  <pre className="max-h-64 overflow-auto rounded-md border border-bg-border bg-bg-deep/60 p-2 text-[10px] font-mono text-fg-muted whitespace-pre-wrap">
-                    <code>{e.output}</code>
-                  </pre>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 /**
  * Pulsing dots + status copy with elapsed time. Used both above the in-

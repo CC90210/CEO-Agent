@@ -11,6 +11,12 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
 import { homedir } from "node:os";
+import { VALID_PRIORITIES, KNOWN_AGENTS, type Priority } from "./agent-inbox-types";
+
+// Re-export shared types so existing call sites that import from this
+// file keep compiling without churn.
+export { VALID_PRIORITIES, KNOWN_AGENTS };
+export type { Priority };
 
 const REPO_ROOT = process.env.BRAVO_REPO_ROOT || path.resolve(process.cwd(), "..", "..");
 
@@ -44,10 +50,9 @@ async function _inboxPathForRecipient(recipient: string): Promise<string> {
   return target;
 }
 
-export const VALID_PRIORITIES = ["low", "normal", "high", "urgent"] as const;
-export type Priority = (typeof VALID_PRIORITIES)[number];
-
-export const KNOWN_AGENTS = ["bravo", "atlas", "maven", "aura", "life-preservation", "codex", "cc", "broadcast"] as const;
+// VALID_PRIORITIES, KNOWN_AGENTS, and Priority moved to
+// lib/agent-inbox-types.ts and re-exported above. See that file
+// for the canonical source.
 
 export type InboxMessage = {
   message_id: string;
