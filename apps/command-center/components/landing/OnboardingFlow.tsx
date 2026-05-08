@@ -136,11 +136,16 @@ export function OnboardingFlow({ userEmail }: Props) {
         setSubmitting(false);
         return;
       }
-      // Persist primary agent on the profile
+      // Persist primary agent + mark onboarding complete so the
+      // middleware stops force-routing the user back here on every
+      // signed-in page load.
       await fetch("/api/profile", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ primary_agent: primaryAgent }),
+        body: JSON.stringify({
+          primary_agent: primaryAgent,
+          onboarding_completed_at: new Date().toISOString(),
+        }),
       }).catch(() => null);
       router.push("/agents");
     } catch (e) {
