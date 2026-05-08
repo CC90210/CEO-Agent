@@ -94,6 +94,26 @@ git diff origin/main...HEAD
 
 ---
 
+## Phase 4.5: Validator Gate
+
+Spawn the Validator subagent (`subagent_type: validator`, defined in `.claude/agents/validator.md`) with:
+
+- **GOAL** — the one-sentence ship objective
+- **SUCCESS CRITERIA** — code review passed; build green; no secrets staged; the specific feature works end-to-end
+- **DECLARED SCOPE** — file paths from `git diff origin/main...HEAD --stat`
+- **Result Schema input** — the code-review report from Phase 4 (findings, severity counts, auto-fixed list, confidence)
+
+The Validator returns `validation_score` (0-100) and `verdict` (APPROVE / WARN / REJECT).
+
+**Gate:**
+- `verdict: REJECT` (score < 70) → STOP. Do not push. Re-run the failing review step. Surface the validator's `failure_reasons` to CC.
+- `verdict: WARN` (70-84) → Surface caveats to CC ("validation score 76 because: …"). Wait for explicit go-ahead before push.
+- `verdict: APPROVE` (≥85) → Continue.
+
+This gate exists because code-review finds problems; the Validator confirms the fixes actually landed and didn't introduce new ones. Closes Anthropic's "Observability-Evaluation Gap" (per `brain/ORCHESTRATION.md` §Validator Pattern).
+
+---
+
 ## Phase 5: Changelog Entry
 
 Generate a human-readable entry for `CHANGELOG.md` (or create it if absent):

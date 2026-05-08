@@ -69,6 +69,7 @@ For COMPLEX+ tasks, use SPARC methodology (`skills/sparc-methodology/SKILL.md`).
 | Second-opinion code review | **Codex Agent** | `/codex:review`, `/codex:adversarial-review` |
 | Deep debugging, root-cause analysis | **Codex Agent** | `/codex:rescue investigate [bug]` |
 | Pre-ship design challenge | **Codex Agent** | `/codex:adversarial-review --background` |
+| Post-execution gate / silent-failure detection | **Validator** (`.claude/agents/validator.md`) | After every parallel sub-agent spawn, every Codex file-modifying task, every risk-3 or blast_radius-3 op, before `/ship` and `/commit`. Read-only Haiku; returns APPROVE/WARN/REJECT. See [[brain/ORCHESTRATION#Validator Pattern]]. |
 
 ## Subagent Definitions
 
