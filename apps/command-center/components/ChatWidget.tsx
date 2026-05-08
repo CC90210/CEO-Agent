@@ -12,6 +12,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Send,
   AlertCircle,
@@ -704,11 +705,17 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
     }
   }
 
-  return (
+  // Portal-render when fullscreen so the chat container escapes EVERY
+  // ancestor stacking context (main has `relative z-10`, page sections
+  // create their own contexts, and CSS `isolation: isolate` on
+  // .chat-container traps z-index without it). Rendering to document.body
+  // is the only way to guarantee the chat covers the entire viewport with
+  // no peek-through from the page header above.
+  const chatBody = (
     <div
       className={`chat-container agent-${agent} flex flex-col ${
         fullscreen
-          ? "fixed inset-0 z-[100] h-screen w-screen rounded-none shadow-2xl"
+          ? "fixed inset-0 z-[1000] h-screen w-screen rounded-none shadow-2xl"
           : "h-[640px]"
       }`}
     >
@@ -1074,6 +1081,15 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
       </form>
     </div>
   );
+
+  // Render via portal when fullscreen so the chat escapes ALL ancestor
+  // stacking contexts and covers the whole viewport with nothing
+  // peeking through. Inline render in normal mode keeps the chat in
+  // the page flow.
+  if (fullscreen && typeof document !== "undefined") {
+    return createPortal(chatBody, document.body);
+  }
+  return chatBody;
 }
 
 function EmptyTranscript({
