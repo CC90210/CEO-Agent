@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ToolTimelineList } from "@/components/chat/ToolTimelineList";
 import { MessageDownloadMenu } from "@/components/chat/MessageDownloadMenu";
+import { mdToHtml } from "@/lib/markdown";
 import { useSynthCalls } from "@/lib/use-synth-calls";
 import {
   Send,
@@ -1515,48 +1516,29 @@ function _relTime(at: number): string {
  * code. Anything more advanced is intentionally deferred (no link rewriting,
  * no XSS surface). Plaintext + code + line breaks.
  */
+/**
+ * FormattedContent — renders the assistant's markdown using the SAME
+ * renderer as the export pipeline (lib/markdown.ts). What you see in
+ * the chat bubble is what you get when you click Download → MD/HTML/PDF.
+ *
+ * Security: lib/markdown.mdToHtml escapes the entire input before
+ * applying any markdown patterns, then filters link hrefs against
+ * dangerous URL schemes. The output is safe to render via
+ * dangerouslySetInnerHTML — no path lets raw HTML through. See the
+ * security comment in lib/markdown.ts before changing.
+ *
+ * Previously the chat bubble only handled fenced code blocks + inline
+ * code, displaying `**bold**` / `# heading` as literal text. CC's
+ * download was richer than the chat — confusing UX. They now match.
+ */
 function FormattedContent({ content }: { content: string }) {
-  const segments = splitFences(content);
+  const html = mdToHtml(content);
   return (
-    <>
-      {segments.map((seg, i) =>
-        seg.type === "code" ? (
-          <pre key={i}>
-            <code>{seg.text}</code>
-          </pre>
-        ) : (
-          <span key={i} className="whitespace-pre-wrap">
-            {renderInline(seg.text)}
-          </span>
-        )
-      )}
-    </>
+    <div
+      className="markdown-bubble whitespace-normal"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
   );
-}
-
-function splitFences(text: string): Array<{ type: "text" | "code"; text: string }> {
-  const out: Array<{ type: "text" | "code"; text: string }> = [];
-  const re = /```[\w-]*\n?([\s\S]*?)```/g;
-  let last = 0;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(text))) {
-    if (m.index > last) out.push({ type: "text", text: text.slice(last, m.index) });
-    out.push({ type: "code", text: m[1].replace(/\n$/, "") });
-    last = m.index + m[0].length;
-  }
-  if (last < text.length) out.push({ type: "text", text: text.slice(last) });
-  return out.length ? out : [{ type: "text", text }];
-}
-
-function renderInline(text: string): React.ReactNode {
-  // Inline code: `xyz`
-  const parts = text.split(/(`[^`\n]+`)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith("`") && part.endsWith("`")) {
-      return <code key={i}>{part.slice(1, -1)}</code>;
-    }
-    return <span key={i}>{part}</span>;
-  });
 }
 
 /**

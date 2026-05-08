@@ -74,9 +74,14 @@ export default async function OperationsPage({
           [] as BridgePair[]
         )
       : Promise.resolve([] as BridgePair[]),
+    // Activity tape default: most recent 30 events regardless of age.
+    // The previous "last 7 days only" default left the tape empty when
+    // crons / inbound traffic had been quiet for a week — looked broken
+    // even though the table had history. The "show older" link expands
+    // to 100 events. CC explicitly asked for the tape to be functional.
     safe(
       recentEvents(showOlder ? 100 : 30, {
-        sinceDays: showOlder ? 0 : 7,
+        sinceDays: 0,
         tenantId: profile?.tenant_id || null,
       }),
       []
@@ -194,24 +199,20 @@ export default async function OperationsPage({
         subtitle={
           showOlder
             ? `All events (last 100) — cron fires, reasoning loops, outbound sends, inbound classifications.`
-            : `Events from the last 7 days — cron fires, reasoning loops, outbound sends, inbound classifications.`
+            : `Most recent ${events.length} events — cron fires, reasoning loops, outbound sends, inbound classifications.`
         }
         action={
           <a
             href={showOlder ? "?" : "?showOlder=1"}
             className="text-xs text-fg-dim hover:text-accent transition-colors"
           >
-            {showOlder ? "← back to last 7 days" : "show older →"}
+            {showOlder ? "← back to recent 30" : "show 100 →"}
           </a>
         }
       >
         {events.length === 0 ? (
           <EmptyState
-            message={
-              showOlder
-                ? "No events ever recorded. The event bus only writes when crons fire or inbound webhooks land."
-                : "No events in the last 7 days. Try 'show older' to see archived activity."
-            }
+            message="No events recorded yet. The event bus writes when crons fire (MRR snapshot, plan materialize), inbound webhooks land (n8n classifies email), or agents emit dashboard-action mutations."
           />
         ) : (
           <ul className="divide-y divide-bg-border">

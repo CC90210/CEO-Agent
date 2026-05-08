@@ -1851,12 +1851,105 @@ def _services_from_env_keys() -> dict[str, dict]:
     return services
 
 
+def _services_from_local_installs() -> dict[str, dict]:
+    """Probe local-install integrations (ffmpeg, whisper, IBKR TWS,
+    browser_harness, playwright) and report healthy/down based on whether
+    the underlying binary or service is present. Without this, services
+    with connection_kind="local_install" never light up green even when
+    the operator has them installed — there's no env_key for the bridge
+    to scan against.
+    """
+    out: dict[str, dict] = {}
+
+    # ffmpeg — `ffmpeg -version` exits 0 if installed.
+    try:
+        rc = subprocess.run(
+            ["ffmpeg", "-version"],
+            capture_output=True, text=True, timeout=4,
+        )
+        if rc.returncode == 0:
+            ver = rc.stdout.split("\n", 1)[0][:80]
+            out["ffmpeg"] = {"status": "healthy", "metadata": {"via": "local_probe", "version": ver}}
+    except Exception:
+        pass
+
+    # whisper — Python module check; fall back to CLI.
+    if "whisper" not in out:
+        try:
+            rc = subprocess.run(
+                [sys.executable, "-c", "import whisper; print(whisper.__file__)"],
+                capture_output=True, text=True, timeout=6,
+            )
+            if rc.returncode == 0 and rc.stdout.strip():
+                out["whisper"] = {"status": "healthy", "metadata": {"via": "local_probe", "import": "ok"}}
+        except Exception:
+            pass
+    if "whisper" not in out:
+        try:
+            rc = subprocess.run(
+                ["whisper", "--help"], capture_output=True, text=True, timeout=4,
+            )
+            if rc.returncode == 0:
+                out["whisper"] = {"status": "healthy", "metadata": {"via": "local_probe", "cli": "ok"}}
+        except Exception:
+            pass
+
+    # Interactive Brokers — TWS desktop opens a socket on 7497 (paper)
+    # or 7496 (live). If either is reachable on localhost, IBKR is up.
+    try:
+        import socket as _socket
+        for port in (7497, 7496):
+            with _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM) as s:
+                s.settimeout(0.5)
+                if s.connect_ex(("127.0.0.1", port)) == 0:
+                    out["interactive_brokers"] = {
+                        "status": "healthy",
+                        "metadata": {"via": "local_probe", "port": port},
+                    }
+                    break
+    except Exception:
+        pass
+
+    # Browser Harness — checks if Chrome/Edge launched with --remote-debugging-port
+    # is reachable. Default ports: 9222 (Chrome), 9223 (Edge).
+    try:
+        import socket as _socket
+        for port in (9222, 9223):
+            with _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM) as s:
+                s.settimeout(0.3)
+                if s.connect_ex(("127.0.0.1", port)) == 0:
+                    out["browser_harness"] = {
+                        "status": "healthy",
+                        "metadata": {"via": "local_probe", "cdp_port": port},
+                    }
+                    break
+    except Exception:
+        pass
+
+    # Playwright — `npx playwright --version` is heavy; just check the
+    # `playwright` binary on PATH.
+    try:
+        rc = subprocess.run(
+            ["playwright", "--version"], capture_output=True, text=True, timeout=4,
+        )
+        if rc.returncode == 0:
+            out["playwright"] = {"status": "healthy", "metadata": {"via": "local_probe", "version": rc.stdout.strip()[:40]}}
+    except Exception:
+        pass
+
+    return out
+
+
 def _heartbeat_once(token: str) -> bool:
     dashboard_url = (
         _read_env_value("OASIS_DASHBOARD_URL")
         or "https://agent-dashboard-cc90210.vercel.app"
     ).rstrip("/")
+    # env-key-present services + locally-installed services. Both
+    # contribute to /integrations green dots; together they cover the
+    # full set of integrations the bridge can vouch for.
     services = _services_from_env_keys()
+    services.update(_services_from_local_installs())
     body = json.dumps({"services": services}).encode("utf-8")
     req = urllib.request.Request(
         f"{dashboard_url}/api/bridge/ping",
