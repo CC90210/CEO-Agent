@@ -116,16 +116,23 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
 
   // ── Comms ──────────────────────────────────────────────────────
   {
-    service: "gmail",
-    label: "Gmail",
+    // Single Google Workspace entry — Gmail + Calendar + Drive + Docs +
+    // Meet all run through `python scripts/google_tool.py` using one
+    // App Password (GMAIL_APP_PASSWORD). The dashboard previously had
+    // separate google_drive/google_calendar/google_docs OAuth rows
+    // which were misleading: there's no per-service OAuth, just one
+    // App Password granting full Workspace access via the CLI tool.
+    service: "gws",
+    label: "Google Workspace",
     category: "comms",
-    description: "Outbound email + inbox polling",
-    connection_kind: "oauth",
-    signup_url: "https://accounts.google.com/signup",
+    description: "Gmail + Calendar + Drive + Docs + Meet (single App Password — google_tool.py)",
+    connection_kind: "api_key",
+    signup_url: "https://workspace.google.com/signup",
     api_key_url: "https://myaccount.google.com/apppasswords",
     setup_doc_url: "https://support.google.com/mail/answer/185833",
     setup_complexity: "simple",
-    used_by: ["bravo", "maven"],
+    used_by: ["bravo", "maven", "aura"],
+    env_key: "GMAIL_APP_PASSWORD",
   },
   {
     service: "telegram",
@@ -426,40 +433,10 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     env_key: "GEMINI_API_KEY",
   },
 
-  // ── Google Workspace (OAuth) ───────────────────────────────────
-  {
-    service: "google_drive",
-    label: "Google Drive",
-    category: "infra",
-    description: "Docs + assets storage",
-    connection_kind: "oauth",
-    signup_url: "https://workspace.google.com/signup",
-    api_key_url: "https://console.cloud.google.com/apis/credentials",
-    setup_complexity: "moderate",
-    used_by: ["bravo", "maven"],
-  },
-  {
-    service: "google_calendar",
-    label: "Google Calendar",
-    category: "infra",
-    description: "Booking + meeting prep",
-    connection_kind: "oauth",
-    signup_url: "https://workspace.google.com/signup",
-    api_key_url: "https://console.cloud.google.com/apis/credentials",
-    setup_complexity: "moderate",
-    used_by: ["bravo", "aura"],
-  },
-  {
-    service: "google_docs",
-    label: "Google Docs",
-    category: "infra",
-    description: "Coaching prep + proposals",
-    connection_kind: "oauth",
-    signup_url: "https://workspace.google.com/signup",
-    api_key_url: "https://console.cloud.google.com/apis/credentials",
-    setup_complexity: "moderate",
-    used_by: ["bravo"],
-  },
+  // (Google Drive / Calendar / Docs were previously listed as separate
+  // OAuth integrations. Reality: they're all accessed through ONE App
+  // Password via scripts/google_tool.py — there's no per-service auth.
+  // Collapsed into the single `gws` entry under "Comms" above.)
 ];
 
 export const INTEGRATION_CATEGORIES: { key: IntegrationCategory; label: string }[] = [
