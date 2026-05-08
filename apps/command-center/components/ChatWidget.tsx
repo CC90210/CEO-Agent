@@ -26,13 +26,9 @@ import {
   Check,
   ChevronRight,
   Clipboard,
-  FileText,
-  Pencil,
-  Terminal,
-  Search,
-  Globe,
-  X as XIcon,
-  Brain,
+  // FileText / Pencil / Terminal / Search / Globe / X / Brain moved to
+  // components/chat/ToolTimelineList.tsx along with the timeline that
+  // used them. Database stays — used by the cloud-tool result pill below.
   Database,
   Maximize2,
   Minimize2,
