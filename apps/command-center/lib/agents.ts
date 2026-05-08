@@ -22,6 +22,17 @@ export type AgentInfo = {
    * when the field is absent so the registry stays backward-compatible.
    */
   family?: boolean;
+  /**
+   * Plain-English "what they do for you" — 2-3 sentences. Renders on
+   * the /agents card so the family reads as personalities with concrete
+   * value, not job titles. Operator-facing, not in any system prompt.
+   */
+  description?: string;
+  /**
+   * One-line "ask me about" hook to encourage the operator to actually
+   * use the agent. Surfaces in the family card under the description.
+   */
+  askMeAbout?: string;
 };
 
 export const AGENT_REGISTRY: Record<string, AgentInfo> = {
@@ -33,6 +44,9 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
     location: "this repo",
     colorRgb: "0, 212, 255",
     textClass: "text-accent",
+    description:
+      "Your CEO operating system. Bravo runs the day — ranks the leads worth calling first, drafts your outbound, finalizes today's plan, runs the daily briefing, and keeps the whole agent family rowing in the same direction.",
+    askMeAbout: "Run the daily briefing · Draft a follow-up to Jonathan · What's blocking $5K?",
   },
   atlas: {
     key: "atlas",
@@ -42,6 +56,9 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
     location: "C:\\Users\\User\\APPS\\CFO-Agent",
     colorRgb: "52, 211, 153",
     textClass: "text-emerald-400",
+    description:
+      "Your CFO. Atlas guards capital first, minimizes tax second, compounds gains third. Real net-worth tracking, FIRE projections, jurisdiction-aware tax strategy, and a 12-strategy trading engine — all opinionated, all data-driven, all on your side.",
+    askMeAbout: "Show this week's net worth · What's owing on tax this quarter · Run a FIRE projection",
   },
   maven: {
     key: "maven",
@@ -51,6 +68,9 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
     location: "C:\\Users\\User\\CMO-Agent",
     colorRgb: "244, 114, 182",
     textClass: "text-pink-400",
+    description:
+      "Your CMO. Maven turns one piece of raw video into the week's content calendar across every platform, audits funnels for leaks, optimizes ad spend by ROAS, and protects brand voice — no AI slop, no purple gradients, no generic 'Unlock the power of...' copy.",
+    askMeAbout: "Draft 3 hooks for tomorrow · Audit the booking page · What's working in the latest ads?",
   },
   aura: {
     key: "aura",
@@ -60,6 +80,9 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
     location: "C:\\Users\\User\\AURA",
     colorRgb: "192, 132, 252",
     textClass: "text-purple-400",
+    description:
+      "Your life surface. Aura runs the morning briefing, syncs sleep + recovery, surfaces small wins instead of lectures, and quietly handles the smart-home + habits layer so rest, movement, and presence stay non-negotiable infrastructure.",
+    askMeAbout: "Run the morning briefing · Last night's sleep + recovery · Habit audit for this week",
   },
   hermes: {
     key: "hermes",
@@ -69,6 +92,9 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
     location: "C:\\Users\\User\\hermes",
     colorRgb: "251, 191, 36",
     textClass: "text-amber-400",
+    description:
+      "Your commerce ops agent. Hermes drives the PO → POS → invoice loop for wholesale distributors — A2000 desktop takeover, web ERPs, GS1-128 labels, EDI 856/810/940/820, chargeback prevention. Local-first, audit-everything, fail-stopped.",
+    askMeAbout: "Status of open POs · Draft EDI 856 for the latest shipment · Yesterday's A2000 sync log",
   },
   // Registry key stays "life-preservation" so filesystem paths
   // (~/life-preservation, tmp/agent_inbox routing, sibling_repos, etc.)
@@ -81,6 +107,9 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
     location: "C:\\Users\\User\\life-preservation",
     colorRgb: "248, 213, 145", // soft amber — like a small light
     textClass: "text-amber-200",
+    description:
+      "A small steady light. Lumen captures the voice, stories, and presence of someone you love before they pass — guided interviews that surface meaningful detail, voice-clone coaching, memory organization. Family-led, family-gated, never extracted.",
+    askMeAbout: "Plan an interview session · What questions surface the small details · What's missing from her story?",
   },
   // Backend delegation executor — powers custom agents, not a standalone
   // persona. family:false hides it from the AGENT FAMILY card on /agents.
