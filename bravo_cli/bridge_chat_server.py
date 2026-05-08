@@ -1490,12 +1490,15 @@ def _self_pair_if_needed() -> str | None:
     return token
 
 
-# env_key → service_slug mapping. Mirrors apps/command-center/lib/
-# integrations-registry.ts so the bridge can report which api_key
-# integrations are CONFIGURED on the operator's machine (key present
-# in .env.agents) without waiting for an actual ping. CC's mental
-# model: 'API key in .env.agents = integration complete.'
-_ENV_KEY_TO_SERVICE = {
+# env_key → service_slug fallback mapping. The CANONICAL source is
+# apps/command-center/lib/integrations-registry.ts — exposed via
+# GET /api/integrations/registry so the bridge can fetch it at runtime.
+# This dict is the cache the bridge uses when the dashboard is
+# unreachable (offline / startup race). Adding a NEW api_key
+# integration: register it in lib/integrations-registry.ts (the source
+# of truth); update this fallback map only if you want it to work on
+# a fully-offline bridge.
+_ENV_KEY_TO_SERVICE_FALLBACK = {
     "STRIPE_API_KEY": "stripe",
     "STRIPE_SECRET_KEY": "stripe",
     "LATE_API_KEY": "late",
@@ -1519,16 +1522,62 @@ _ENV_KEY_TO_SERVICE = {
     "HOSTINGER_API_KEY": "hostinger",
 }
 
+# Live cache populated by _fetch_registry. Stale-after = 5 min;
+# heartbeat refreshes opportunistically so a registry change in the
+# dashboard propagates within ~5 minutes without a bridge restart.
+_REGISTRY_CACHE: dict = {"map": None, "fetched_at": 0.0}
+_REGISTRY_TTL_S = 300
+
+
+def _fetch_registry_map() -> dict:
+    """Pull the env_key -> service map from the dashboard. Falls back to
+    the hardcoded _ENV_KEY_TO_SERVICE_FALLBACK if the dashboard is
+    unreachable. Cached for 5 minutes so heartbeats don't add latency.
+    """
+    now = time.time()
+    cached = _REGISTRY_CACHE.get("map")
+    if cached and now - _REGISTRY_CACHE["fetched_at"] < _REGISTRY_TTL_S:
+        return cached
+    dashboard_url = (
+        _read_env_value("OASIS_DASHBOARD_URL")
+        or "https://agent-dashboard-cc90210.vercel.app"
+    ).rstrip("/")
+    try:
+        req = urllib.request.Request(
+            f"{dashboard_url}/api/integrations/registry",
+            headers={"accept": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        entries = data.get("entries", [])
+        m = {}
+        for e in entries:
+            env_key = e.get("env_key")
+            service = e.get("service")
+            if env_key and service:
+                m[env_key] = service
+        if m:
+            _REGISTRY_CACHE["map"] = m
+            _REGISTRY_CACHE["fetched_at"] = now
+            return m
+    except Exception:
+        pass
+    # Fallback: hardcoded map. Last resort.
+    return _ENV_KEY_TO_SERVICE_FALLBACK
+
 
 def _services_from_env_keys() -> dict[str, dict]:
     """Scan known env_keys present in the operator's environment / .env.agents
     and report each as 'healthy' on the dashboard. CC's mental model: a key
     present means the integration is configured. Real per-call pings still
     overwrite this with degraded/down if the service actually fails.
+    Pulls the env_key -> service map from the dashboard (canonical source);
+    falls back to a hardcoded copy if the dashboard is unreachable.
     """
     services: dict[str, dict] = {}
     seen_services: set[str] = set()
-    for env_key, service in _ENV_KEY_TO_SERVICE.items():
+    registry = _fetch_registry_map()
+    for env_key, service in registry.items():
         if service in seen_services:
             continue
         val = _read_env_value(env_key)

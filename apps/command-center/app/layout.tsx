@@ -4,6 +4,7 @@ import "./globals.css";
 import { Sidebar } from "@/components/Sidebar";
 import { getActiveProfile } from "@/lib/queries";
 import { getServiceSupabase } from "@/lib/supabase-server";
+import { unreadCountDb } from "@/lib/agent-inbox-db";
 
 export const metadata: Metadata = {
   title: "OASIS AI · Agent Command Center",
@@ -33,6 +34,7 @@ export default async function RootLayout({
   let profile = null;
   let primaryAgentLive = false;
   let bridgeOnline = false;
+  let inboxUnread = 0;
   if (!isFullBleed) {
     // Each side-channel query is wrapped independently — one failure
     // (Hermes snapshot row missing, bridge_pairings table absent in dev,
@@ -88,6 +90,13 @@ export default async function RootLayout({
       bridgeOnline =
         Date.now() - new Date(pair.last_seen_at).getTime() < 5 * 60 * 1000;
     }
+    if (tenantId) {
+      try {
+        inboxUnread = await unreadCountDb(tenantId);
+      } catch {
+        inboxUnread = 0;
+      }
+    }
   }
 
   return (
@@ -104,6 +113,7 @@ export default async function RootLayout({
               primaryAgent={profile?.primary_agent || "bravo"}
               primaryAgentLive={primaryAgentLive}
               bridgeOnline={bridgeOnline}
+              inboxUnread={inboxUnread}
             />
             <main className="ml-60 min-h-screen relative z-10">
               <div className="mx-auto max-w-7xl px-8 py-8">{children}</div>
