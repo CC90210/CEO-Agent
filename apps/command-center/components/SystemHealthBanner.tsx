@@ -15,7 +15,18 @@ export function SystemHealthBanner({
   health: SystemHealth;
   showAllClear?: boolean;
 }) {
-  if (health.totalIssues === 0) {
+  // Defensive — never throw on a malformed health prop. The page already
+  // wraps the data fetch in safe(), but a bad shape here must still render
+  // null instead of bubbling to the route's error boundary.
+  if (!health || typeof health !== "object") return null;
+  const totalIssues = Number.isFinite(health.totalIssues) ? health.totalIssues : 0;
+  const staleAgents = Number.isFinite(health.staleAgents) ? health.staleAgents : 0;
+  const staleAgentNames = Array.isArray(health.staleAgentNames) ? health.staleAgentNames : [];
+  const integrationsDown = Number.isFinite(health.integrationsDown) ? health.integrationsDown : 0;
+  const memoryStale = Number.isFinite(health.memoryStale) ? health.memoryStale : 0;
+  const inboxUnread = Number.isFinite(health.inboxUnread) ? health.inboxUnread : 0;
+  const bridgeOffline = !!health.bridgeOffline;
+  if (totalIssues === 0) {
     if (!showAllClear) return null;
     return (
       <div className="rounded-lg border border-status-engaged/30 bg-status-engaged/5 px-4 py-2.5 text-xs text-status-engaged flex items-center gap-2">
@@ -26,30 +37,30 @@ export function SystemHealthBanner({
   }
 
   const items: Array<{ label: string; href?: string }> = [];
-  if (health.staleAgents > 0) {
+  if (staleAgents > 0) {
     items.push({
-      label: `${health.staleAgents} agent${health.staleAgents > 1 ? "s" : ""} stale (${health.staleAgentNames.join(", ")})`,
+      label: `${staleAgents} agent${staleAgents > 1 ? "s" : ""} stale${staleAgentNames.length ? ` (${staleAgentNames.join(", ")})` : ""}`,
       href: "/agents",
     });
   }
-  if (health.bridgeOffline) {
+  if (bridgeOffline) {
     items.push({ label: "local bridge offline", href: "/operations" });
   }
-  if (health.integrationsDown > 0) {
+  if (integrationsDown > 0) {
     items.push({
-      label: `${health.integrationsDown} integration${health.integrationsDown > 1 ? "s" : ""} down`,
+      label: `${integrationsDown} integration${integrationsDown > 1 ? "s" : ""} down`,
       href: "/integrations",
     });
   }
-  if (health.memoryStale > 0) {
+  if (memoryStale > 0) {
     items.push({
-      label: `${health.memoryStale} memory file${health.memoryStale > 1 ? "s" : ""} stale`,
+      label: `${memoryStale} memory file${memoryStale > 1 ? "s" : ""} stale`,
       href: "/agents",
     });
   }
-  if (health.inboxUnread > 0) {
+  if (inboxUnread > 0) {
     items.push({
-      label: `${health.inboxUnread} inbox message${health.inboxUnread > 1 ? "s" : ""}`,
+      label: `${inboxUnread} inbox message${inboxUnread > 1 ? "s" : ""}`,
       href: "/inbox",
     });
   }
@@ -62,7 +73,7 @@ export function SystemHealthBanner({
       <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
         <div className="font-bold uppercase tracking-wider mb-1 text-[10px]">
-          System health · {health.totalIssues} issue{health.totalIssues > 1 ? "s" : ""}
+          System health · {totalIssues} issue{totalIssues > 1 ? "s" : ""}
         </div>
         <ul className="flex flex-wrap gap-x-4 gap-y-1 text-fg">
           {items.map((it, i) =>

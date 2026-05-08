@@ -9,6 +9,7 @@ import { getAgentStats } from "@/lib/agent-stats";
 import { getMemoryFreshness } from "@/lib/memory-freshness";
 import { MemoryFreshnessCard } from "@/components/MemoryFreshnessCard";
 import { getSessionUser } from "@/lib/supabase-server";
+import { safe } from "@/lib/api-helpers";
 import { Clock, Cog, Workflow } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +38,7 @@ export default async function AgentsPage() {
     recentEvents(25),
     integrationsHealth(profile?.tenant_id || null),
     getAgentStats(profile?.primary_agent || "bravo"),
-    getMemoryFreshness(),
+    safe(getMemoryFreshness(), [] as Awaited<ReturnType<typeof getMemoryFreshness>>),
   ]);
 
   const enabled = profile?.agents_enabled || ALL_AGENT_KEYS;
