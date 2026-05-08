@@ -9,8 +9,9 @@
  */
 
 import { NextResponse, type NextRequest } from "next/server";
-import { getSessionUser } from "@/lib/supabase-server";
+import { getServiceSupabase, getSessionUser } from "@/lib/supabase-server";
 import { postMessage, type Priority, KNOWN_AGENTS } from "@/lib/agent-inbox-fs";
+import { postMessageDb } from "@/lib/agent-inbox-db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,17 +56,58 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: `unknown_recipient:${to}` }, { status: 400 });
   }
 
-  const result = await postMessage({
-    from,
-    to,
-    subject: String(body.subject || "").slice(0, 200),
-    body: String(body.body || "").slice(0, 8000),
-    priority: body.priority,
-    requires_response: !!body.requires_response,
-    in_reply_to: body.in_reply_to || null,
-  });
-  if (!result.ok) {
-    return NextResponse.json(result, { status: 400 });
+  // Resolve tenant_id for the Supabase write.
+  const service = getServiceSupabase();
+  const profileRes = await service
+    .from("user_profiles")
+    .select("tenant_id")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+  const tenantId = (profileRes.data as { tenant_id: string | null } | null)?.tenant_id;
+
+  const subject = String(body.subject || "").slice(0, 200);
+  const bodyText = String(body.body || "").slice(0, 8000);
+  const priority = body.priority;
+  const requires = !!body.requires_response;
+  const inReply = body.in_reply_to || null;
+
+  // Write to Supabase first (source of truth) and to filesystem in parallel
+  // (so local agents that only know how to read tmp/agent_inbox/ keep
+  // working). Either path failing logs but does not fail the request.
+  const [dbResult, fsResult] = await Promise.all([
+    tenantId
+      ? postMessageDb({
+          tenantId,
+          from,
+          to,
+          subject,
+          body: bodyText,
+          priority,
+          requires_response: requires,
+          in_reply_to: inReply,
+        })
+      : Promise.resolve({ ok: false, error: "no_tenant" } as const),
+    postMessage({
+      from,
+      to,
+      subject,
+      body: bodyText,
+      priority,
+      requires_response: requires,
+      in_reply_to: inReply,
+    }),
+  ]);
+
+  if (!dbResult.ok && !fsResult.ok) {
+    return NextResponse.json(
+      { ok: false, error: dbResult.error || fsResult.error || "post_failed" },
+      { status: 400 }
+    );
   }
-  return NextResponse.json(result);
+  // Prefer DB shape when available so the response carries the canonical id.
+  return NextResponse.json({
+    ok: true,
+    db: dbResult.ok ? dbResult.message : null,
+    fs: fsResult.ok ? fsResult.message : null,
+  });
 }
