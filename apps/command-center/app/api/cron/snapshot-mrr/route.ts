@@ -18,16 +18,14 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { getServiceSupabase } from "@/lib/supabase-server";
+import { checkCronAuth } from "@/lib/cron-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const auth = req.headers.get("authorization") || "";
-  const expected = process.env.CRON_SECRET;
-  if (!expected || auth !== `Bearer ${expected}`) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  const denied = checkCronAuth(req);
+  if (denied) return denied;
 
   const db = getServiceSupabase();
   const today = new Date().toISOString().slice(0, 10);
