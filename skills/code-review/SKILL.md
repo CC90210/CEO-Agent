@@ -239,5 +239,22 @@ After completing the review, output this exact structure:
 - See `skills/requesting-code-review/SKILL.md` for sub-agent dispatch pattern
 - See `skills/receiving-code-review/SKILL.md` for how to handle feedback
 
+## Post-Review Validator Gate
+
+After producing the report above and before declaring the review "done", spawn the Validator subagent (`subagent_type: validator`, defined in `.claude/agents/validator.md`) with:
+
+- **GOAL** — "Validate the pre-landing code-review findings before merge."
+- **SUCCESS CRITERIA** — every CRITICAL/HIGH item the report claims is auto-fixed actually shows the fix in the working tree; every flagged file path exists; every remaining issue references a real file:line.
+- **DECLARED SCOPE** — the file paths covered by the review (from `git diff origin/main...HEAD --stat`).
+- **Result Schema input** — pass the structured report (CRITICAL/HIGH/MEDIUM/LOW counts, auto-fixed list, confidence_score, files_reviewed).
+
+The Validator returns `validation_score` (0-100) and `verdict`:
+
+- `REJECT` (<70) → re-run the review on the failing scope; do NOT surface the report to CC as final.
+- `WARN` (70-84) → surface with caveats ("validation score 76 because: …").
+- `APPROVE` (≥85) → report is trustworthy, hand off to ship/commit.
+
+This gate is mandatory when the code-review was spawned as a parallel sub-agent (per `brain/ORCHESTRATION.md` §Validator Pattern). It is optional but recommended on inline reviews — fast, read-only, and catches hallucinated "auto-fixed" claims.
+
 ## Obsidian Links
 - [[skills/INDEX]] | [[brain/CAPABILITIES]]
