@@ -13,22 +13,20 @@ body {
   color: #f5f7fa;
 }
 
-/* Chat fullscreen mode — hide everything except the chat. ChatWidget
-   pins this class on <body> when toggled; layout sidebar + footer
-   collapse out of view, chat container fills the viewport. */
-body.chat-fullscreen-active aside,
-body.chat-fullscreen-active footer {
-  display: none !important;
-}
-body.chat-fullscreen-active main {
-  margin-left: 0 !important;
-}
-body.chat-fullscreen-active main > div {
+/* Chat fullscreen — uses the browser Fullscreen API on the chat
+   container itself (same as Claude / ChatGPT). The :fullscreen
+   pseudo-class fires when element.requestFullscreen() is active.
+   We strip the rounded corners + shadow and force full viewport. */
+.chat-container:fullscreen {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  height: 100vh !important;
+  width: 100vw !important;
   max-width: none !important;
-  padding: 0 !important;
+  background: rgb(7, 10, 16) !important;
 }
-body.chat-fullscreen-active {
-  overflow: hidden;
+.chat-container:fullscreen::before {
+  display: none;
 }
 
 body {
