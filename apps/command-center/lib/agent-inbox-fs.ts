@@ -150,6 +150,12 @@ export async function postMessage(opts: {
   priority?: Priority;
   requires_response?: boolean;
   in_reply_to?: string | null;
+  /**
+   * Optional pre-generated message_id so the route can pass the SAME id
+   * to the Supabase writer and this filesystem writer in dual-write mode.
+   * Lets the /inbox page dedupe rows from both sources by message_id.
+   */
+  messageId?: string;
 }): Promise<{ ok: boolean; message?: InboxMessage; error?: string }> {
   if (!opts.body || !opts.body.trim()) return { ok: false, error: "body_required" };
   if (!opts.subject || !opts.subject.trim()) return { ok: false, error: "subject_required" };
@@ -157,7 +163,7 @@ export async function postMessage(opts: {
   const priority: Priority = opts.priority || "normal";
   if (!VALID_PRIORITIES.includes(priority)) return { ok: false, error: "invalid_priority" };
 
-  const msgId = randomBytes(6).toString("hex");
+  const msgId = opts.messageId || randomBytes(6).toString("hex");
   const now = new Date().toISOString();
   const msg: InboxMessage = {
     message_id: msgId,
