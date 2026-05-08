@@ -77,6 +77,38 @@ export default async function InboxPage() {
         </div>
       </Card>
 
+      <Card title="The closed loop — what happens when you post">
+        <div className="space-y-3 text-sm text-fg-muted leading-relaxed">
+          <ol className="list-decimal pl-5 space-y-2">
+            <li>
+              You hit <span className="font-mono text-fg">Post message</span> →
+              the message is written to Supabase (visible across all your
+              machines) and to <span className="font-mono">tmp/agent_inbox/inbox/</span> on
+              this machine.
+            </li>
+            <li>
+              The recipient agent reads its inbox at the start of every
+              session — Bravo runs <span className="font-mono">scripts/agent_inbox.py list --to bravo</span> on
+              boot. Your message lands at the top of its context for that
+              session, before it answers anything else.
+            </li>
+            <li>
+              When the agent processes the message it can either reply
+              (post back to your inbox addressed to <span className="font-mono">cc</span>) or
+              archive it. Either way the file moves to <span className="font-mono">tmp/agent_inbox/read/</span> and
+              the row gets <span className="font-mono">read_at</span> stamped in Supabase.
+            </li>
+          </ol>
+          <p className="text-fg-dim">
+            <span className="text-fg font-medium">Not real-time.</span> A message
+            you post here doesn&apos;t interrupt anything — it waits until the
+            next time that agent runs. Use it for non-urgent handoffs and
+            background tasks. For something you need <em>now</em>, just chat
+            the agent directly.
+          </p>
+        </div>
+      </Card>
+
       <Card title="What handoffs look like">
         <ul className="grid md:grid-cols-3 gap-4 text-sm">
           <li className="rounded-md border border-bd bg-bg-elev/40 p-4">

@@ -86,8 +86,8 @@ export default async function AgentsPage() {
             <h2 className="text-xs font-bold uppercase tracking-[0.14em] text-fg">Chat</h2>
             <div className="text-xs text-fg-muted mt-1">
               {isAdmin
-                ? "Chat any agent in your family. Local bridge → Claude Code CLI on your machine (full repo access). Cloud mode → your saved key, falls back to platform default."
-                : "Talk to any agent in your family — set up your provider + key in Settings → Agents."}
+                ? "Chat any agent. Two paths: (1) Local bridge — spawns the Claude Code CLI on your machine using your Claude subscription, full file/script access. (2) Cloud mode — uses the API key you saved per agent (OpenRouter / Anthropic / OpenAI / Gemini) to power the chat without a Claude subscription. Same persona either way; the bridge path can also write files. Clients run cloud mode by default."
+                : "Talk to any agent in your family — set up your provider + key in Settings → Agents. The key powers the chat (no Claude Code subscription needed)."}
             </div>
           </div>
         </header>

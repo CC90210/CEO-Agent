@@ -84,12 +84,42 @@ ALLOWED_ORIGINS = [
 
 
 def _env_files() -> list[Path]:
+    """Every env file the bridge searches when resolving a credential.
+    Each agent owns its own keys (Bravo: .env.agents in the BEA repo;
+    Atlas: .env in CFO-Agent; Maven: .env.agents in CMO-Agent; Aura:
+    .env in AURA). The dashboard's /integrations page reflects ALL of
+    these so the operator sees green dots regardless of which agent
+    owns the underlying key. This is the architectural fix for "I have
+    the key but no green dot" — earlier the bridge only scanned its
+    own repo and missed Atlas's WISE_API_TOKEN, the CCXT exchange keys,
+    OANDA_TOKEN, etc.
+    """
     home = Path.home()
-    return [
+    candidates = [
+        # Bravo (this repo)
         Path.cwd() / ".env.agents",
         home / "Business-Empire-Agent" / ".env.agents",
         home / ".bravo" / ".env.agents",
+        # Atlas (CFO)
+        home / "APPS" / "CFO-Agent" / ".env",
+        home / "APPS" / "CFO-Agent" / ".env.agents",
+        # Maven (CMO)
+        home / "CMO-Agent" / ".env.agents",
+        home / "CMO-Agent" / ".env",
+        # Aura (life/home)
+        home / "AURA" / ".env",
+        home / "AURA" / ".env.agents",
     ]
+    # Resolve duplicates while preserving order
+    seen: set[str] = set()
+    out: list[Path] = []
+    for p in candidates:
+        s = str(p).lower()
+        if s in seen:
+            continue
+        seen.add(s)
+        out.append(p)
+    return out
 
 
 def _read_env_value(name: str) -> str:
@@ -1654,31 +1684,49 @@ def _self_pair_if_needed() -> str | None:
 # of truth); update this fallback map only if you want it to work on
 # a fully-offline bridge.
 _ENV_KEY_TO_SERVICE_FALLBACK = {
+    # Core / hosting
+    "VERCEL_TOKEN": "vercel",
+    "CLOUDFLARE_API_TOKEN": "cloudflare",
+    "Cloudflare_token": "cloudflare",   # CC uses this casing — keep as alias
+    "GITHUB_TOKEN": "github",
+    "GITHUB_PERSONAL_ACCESS_TOKEN": "github",
+    "HOSTINGER_API_KEY": "hostinger",
+    "SUPABASE_ACCESS_TOKEN": "supabase",
+    "BRAVO_SUPABASE_URL": "supabase",
+    # Comms — single GMAIL_APP_PASSWORD covers the entire Google
+    # Workspace surface via scripts/google_tool.py.
+    "GMAIL_APP_PASSWORD": "gws",
+    "TELEGRAM_BOT_TOKEN": "telegram",
+    # Finance / trading (Atlas reads these from CFO-Agent/.env — the
+    # bridge now scans sibling agent repos, see _env_files()).
     "STRIPE_API_KEY": "stripe",
     "STRIPE_SECRET_KEY": "stripe",
+    "EXCHANGE_API_KEY": "kraken",       # CCXT-style — DEFAULT_EXCHANGE picks the venue
+    "WISE_API_TOKEN": "wise",
+    "OANDA_TOKEN": "oanda",
+    "ALPHA_VANTAGE_KEY": "alpha_vantage",
+    "FINNHUB_KEY": "finnhub",
+    "FMP_KEY": "fmp",
+    "NEWSAPI_KEY": "newsapi",
+    # Content + scheduling
     "LATE_API_KEY": "late",
-    "FIRECRAWL_API_KEY": "firecrawl",
     "ELEVENLABS_API_KEY": "elevenlabs",
+    # Data + automation
+    "N8N_API_KEY": "n8n_inbound",
+    "TURSO_AUTH_TOKEN": "turso",
+    "TURSO_API_KEY": "turso",            # CC uses TURSO_API_KEY in .env.agents
+    "NOTION_API_KEY": "notion",
+    "OBSIDIAN_API_KEY": "obsidian",
+    "FIRECRAWL_API_KEY": "firecrawl",
+    # AI providers — these power CLOUD-MODE chat for clients who don't
+    # have a Claude Code subscription. Bravo's local bridge invokes
+    # `claude` CLI directly; the cloud path falls back to whichever of
+    # these keys the operator has saved.
     "OPENROUTER_API_KEY": "openrouter",
     "ANTHROPIC_API_KEY": "anthropic",
     "OPENAI_API_KEY": "openai_codex",
     "GEMINI_API_KEY": "google_ai",
     "GOOGLE_AI_API_KEY": "google_ai",
-    "VERCEL_TOKEN": "vercel",
-    "CLOUDFLARE_API_TOKEN": "cloudflare",
-    "GITHUB_TOKEN": "github",
-    "GITHUB_PERSONAL_ACCESS_TOKEN": "github",
-    "N8N_API_KEY": "n8n_inbound",
-    "TURSO_AUTH_TOKEN": "turso",
-    "NOTION_API_KEY": "notion",
-    "SUPABASE_ACCESS_TOKEN": "supabase",
-    "TELEGRAM_BOT_TOKEN": "telegram",
-    "BRAVO_SUPABASE_URL": "supabase",
-    "HOSTINGER_API_KEY": "hostinger",
-    # Google Workspace — single App Password covers Gmail, Calendar,
-    # Drive, Docs, Meet via scripts/google_tool.py. Matches the unified
-    # `gws` registry entry that replaced the per-service OAuth rows.
-    "GMAIL_APP_PASSWORD": "gws",
 }
 
 # Three-layer registry cache:
@@ -1730,11 +1778,19 @@ def _fetch_registry_map() -> dict:
     if cached and now - _REGISTRY_CACHE["fetched_at"] < _REGISTRY_TTL_S:
         return cached
 
-    # Try the dashboard.
+    # Build the union of (dashboard registry) ∪ (hardcoded fallback). The
+    # dashboard exposes ONE canonical env_key per service, but operators
+    # commonly use aliases (GITHUB_TOKEN vs GITHUB_PERSONAL_ACCESS_TOKEN,
+    # CLOUDFLARE_API_TOKEN vs Cloudflare_token, TURSO_AUTH_TOKEN vs
+    # TURSO_API_KEY, etc.). The fallback dict carries those aliases so
+    # the integrations page lights up regardless of which spelling the
+    # operator's .env.agents uses. Conflicts: dashboard wins (canonical
+    # source); fallback only contributes alias keys not already mapped.
     dashboard_url = (
         _read_env_value("OASIS_DASHBOARD_URL")
         or "https://agent-dashboard-cc90210.vercel.app"
     ).rstrip("/")
+    dash_map: dict = {}
     try:
         req = urllib.request.Request(
             f"{dashboard_url}/api/integrations/registry",
@@ -1742,27 +1798,30 @@ def _fetch_registry_map() -> dict:
         )
         with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read().decode("utf-8"))
-        entries = data.get("entries", [])
-        m = {}
-        for e in entries:
+        for e in data.get("entries", []):
             env_key = e.get("env_key")
             service = e.get("service")
             if env_key and service:
-                m[env_key] = service
-        if m:
-            _REGISTRY_CACHE["map"] = m
-            _REGISTRY_CACHE["fetched_at"] = now
-            _save_disk_registry(m)
-            return m
+                dash_map[env_key] = service
     except Exception:
-        pass
+        dash_map = {}
+
+    if dash_map:
+        merged: dict = dict(_ENV_KEY_TO_SERVICE_FALLBACK)
+        merged.update(dash_map)  # dashboard wins on collision
+        _REGISTRY_CACHE["map"] = merged
+        _REGISTRY_CACHE["fetched_at"] = now
+        _save_disk_registry(merged)
+        return merged
 
     # Dashboard unreachable. Try disk cache.
     disk = _load_disk_registry()
     if disk:
-        # Don't bump the in-memory fetched_at — we want to retry the
-        # dashboard sooner than the full TTL window.
-        return disk
+        # Layer the static fallback under the disk cache so newly added
+        # aliases are honored even when the dashboard is down.
+        merged = dict(_ENV_KEY_TO_SERVICE_FALLBACK)
+        merged.update(disk)
+        return merged
 
     # Last resort: hardcoded fallback. Fresh install, offline.
     return _ENV_KEY_TO_SERVICE_FALLBACK
