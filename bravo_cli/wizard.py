@@ -1976,6 +1976,96 @@ def step_browser_harness(step_num: int, total: int) -> None:
 _post_doctor_rc: list[int] = [0]
 
 
+def _try_pair_code_flow(dashboard_url: str) -> bool:
+    """Pair-code path: the operator generated a 9-char code from
+    /settings → Devices → Generate code, and pastes it here. We POST to
+    /api/auth/pair-code/redeem; the response shape matches the legacy
+    /api/auth/pair endpoint so the rest of the bridge bootstrap works
+    unchanged.
+
+    Returns True if pairing succeeded (or the operator explicitly chose
+    this path and got an error worth surfacing). Returns False if the
+    operator declined — falls through to the legacy CLI_SIGNUP_SECRET
+    path.
+    """
+    import platform as _platform
+    import socket as _socket
+    import json as _json
+    import re as _re
+    import urllib.request as _ureq
+    import urllib.error as _uerr
+
+    print(f"  {BOLD('Pair code')}: 9-character code from your dashboard")
+    print(f"  {DIM('(Open your dashboard → Settings → Devices → Generate pair code.')}")
+    print(f"  {DIM(' Paste the XXX-XXX-XXX code here. Leave blank to skip.)')}")
+    code_raw = prompt("  Pair code", required=False).strip().upper()
+    if not code_raw:
+        return False  # operator skipped — fall through to legacy path
+
+    if not _re.fullmatch(r"[A-Z0-9]{3}-[A-Z0-9]{3}-[A-Z0-9]{3}", code_raw):
+        print(f"  {YELLOW('That code shape is invalid (expected XXX-XXX-XXX).')}")
+        print(f"  {DIM('Falling back to legacy pairing.')}")
+        return False
+
+    body = {
+        "code": code_raw,
+        "machine": {
+            "label": f"{_platform.system()} · {_socket.gethostname()}",
+            "fingerprint": f"{_platform.system()}|{_platform.machine()}|{_socket.gethostname()}",
+        },
+    }
+    req = _ureq.Request(
+        f"{dashboard_url}/api/auth/pair-code/redeem",
+        method="POST",
+        data=_json.dumps(body).encode("utf-8"),
+        headers={"content-type": "application/json"},
+    )
+    try:
+        with _ureq.urlopen(req, timeout=15) as r:
+            payload = _json.loads(r.read().decode("utf-8"))
+    except _uerr.HTTPError as e:
+        # 410 = consumed, 404 = expired/unknown — both "use a fresh code"
+        msg = ""
+        try:
+            msg = e.read().decode("utf-8")[:200]
+        except Exception:
+            pass
+        if e.code in (404, 410):
+            print(f"  {YELLOW('Code rejected: ' + str(e.code) + ' — generate a fresh one.')}")
+        else:
+            print(f"  {YELLOW('Pair-code redeem returned ' + str(e.code))}")
+            if msg:
+                print(f"  {DIM(msg)}")
+        return True  # operator tried this path; don't silently fall through
+    except Exception as e:
+        print(f"  {YELLOW('Could not reach dashboard — skipping.')}  {DIM(str(e))}")
+        return True
+
+    if not payload.get("ok"):
+        print(f"  {YELLOW('Dashboard rejected pair: ' + str(payload.get('error', 'unknown')))}")
+        return True
+
+    bridge_token = (payload.get("bridge") or {}).get("token", "")
+    if bridge_token:
+        oasis_dir = Path.home() / ".oasis"
+        oasis_dir.mkdir(parents=True, exist_ok=True)
+        token_path = oasis_dir / "bridge_token"
+        token_path.write_text(bridge_token, encoding="utf-8")
+        if os.name != "nt":
+            try:
+                os.chmod(token_path, 0o600)
+            except Exception:
+                pass
+        print(f"  {GREEN(OK)} Bridge token saved to {CYAN(str(token_path))}")
+    redirect = (payload.get("bridge") or {}).get("dashboard_url", dashboard_url + "/")
+    print(f"  {GREEN(OK)} Paired with code — dashboard handoff complete.")
+    print()
+    print(f"  {BOLD('Open your dashboard:')}  {link(redirect, redirect)}")
+    print(f"  {BOLD('Then start the bridge:')} {CYAN('bravo bridge start')}")
+    print()
+    return True
+
+
 def step_dashboard_pair(profile: str, step_num: int, total: int) -> None:
     """
     Hand off the wizard's answers to the OASIS dashboard:
@@ -2004,13 +2094,20 @@ def step_dashboard_pair(profile: str, step_num: int, total: int) -> None:
     secret = os.environ.get("CLI_SIGNUP_SECRET") or read_env("CLI_SIGNUP_SECRET")
 
     email = read_env("USER_EMAIL") or read_env("USER_PRIMARY_EMAIL") or ""
+    # New path (preferred for client onboarding): the operator has a one-time
+    # pair code from /settings → Devices → Generate code on their dashboard.
+    # No CLI_SIGNUP_SECRET needed; the code itself authenticates the redeem.
+    if _try_pair_code_flow(dashboard_url):
+        return
+
     if not email:
         print(f"  {YELLOW('No email on file — skipping dashboard pairing.')}")
         print(f"  {DIM('Re-run the wizard or pair manually from /onboarding.')}")
         return
     if not secret:
         print(f"  {YELLOW('CLI_SIGNUP_SECRET not configured — pairing skipped.')}")
-        print(f"  {DIM('Set it in .env.agents to enable cloud handoff.')}")
+        print(f"  {DIM('Set it in .env.agents to enable cloud handoff,')}")
+        print(f"  {DIM('or paste a pair code from /settings → Devices.')}")
         return
 
     # Compose the personalization payload from the wizard's saved env
