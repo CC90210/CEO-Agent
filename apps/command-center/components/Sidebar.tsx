@@ -13,6 +13,8 @@ import {
   Settings,
   LogOut,
   Activity,
+  Inbox,
+  History,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -29,6 +31,8 @@ const ITEMS: NavItem[] = [
   { href: "/reasoning", label: "Reasoning", icon: Brain, group: "ops" },
   { href: "/playbook", label: "Playbook", icon: BookOpen, group: "ops" },
   { href: "/agents", label: "Agents", icon: Bot, group: "system" },
+  { href: "/inbox", label: "Inbox", icon: Inbox, group: "system" },
+  { href: "/runs", label: "Runs", icon: History, group: "system" },
   { href: "/operations", label: "Operations", icon: Activity, group: "system" },
   { href: "/analytics", label: "Analytics", icon: BarChart3, group: "system" },
   { href: "/integrations", label: "Integrations", icon: Plug, group: "system" },
