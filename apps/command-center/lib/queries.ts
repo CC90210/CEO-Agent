@@ -547,11 +547,16 @@ export async function mrrHistory(days = 30): Promise<
       d.setDate(d.getDate() - i);
       const iso = d.toISOString().slice(0, 10);
       const v = byDate.get(iso);
-      if (v != null) lastKnown = v;
+      const hasReal = v != null;
+      if (hasReal) lastKnown = v;
+      // Tag back-filled days as synthetic so the chart can style them
+      // distinctly. Without this every point reads as "real data" and
+      // the operator thinks the cron has been running for 60 days when
+      // only 3 days of snapshots actually exist.
       out.push({
         date: iso.slice(5, 10),
         mrr: Math.round(lastKnown),
-        synthetic: false,
+        synthetic: !hasReal,
       });
     }
     return out;
