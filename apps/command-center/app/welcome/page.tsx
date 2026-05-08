@@ -150,7 +150,7 @@ export default async function WelcomePage() {
 
       {/* Footer */}
       <footer className="relative z-10 mx-auto max-w-7xl px-6 sm:px-10 py-8 border-t border-bg-border flex flex-wrap items-center justify-between gap-3 text-xs text-fg-dim">
-        <span>© {new Date().getFullYear()} OASIS AI · Conaugh McKenna · Collingwood ON</span>
+        <span>© {new Date().getFullYear()} OASIS AI · Conaugh McKenna · International</span>
         <div className="flex items-center gap-5">
           <a href="https://oasisai.work" target="_blank" rel="noopener noreferrer" className="hover:text-fg transition-colors">
             oasisai.work
