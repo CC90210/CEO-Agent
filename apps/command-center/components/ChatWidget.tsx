@@ -1359,18 +1359,37 @@ function ToolTimelineList({
       return next;
     });
   }
+  // Detect supersedes — when Claude retries the SAME kind+detail and the
+  // retry succeeds, earlier failed attempts are recovery noise, not real
+  // failures. Demote them visually so CC isn't alarmed when the agent is
+  // actually working.
+  const succeededKeys = new Set<string>();
+  for (const e of entries) {
+    if (!e.error && e.completedAt) {
+      succeededKeys.add(`${e.kind}::${e.detail || ""}`);
+    }
+  }
   return (
     <div className="ml-9 space-y-1 border-l border-bg-border pl-3 mt-1">
       {entries.map((e) => {
         const isOpen = expanded.has(e.id);
         const isRunning = !e.completedAt && !e.error;
         const canExpand = !!e.output || !!e.detail;
-        const status = e.error ? "error" : e.completedAt ? "done" : "running";
+        const wasRetried = e.error && succeededKeys.has(`${e.kind}::${e.detail || ""}`);
+        const status = e.error
+          ? wasRetried
+            ? "retried"
+            : "error"
+          : e.completedAt
+            ? "done"
+            : "running";
         const statusIcon =
           status === "running" ? (
             <Loader2 className="w-3 h-3 animate-spin text-accent" />
           ) : status === "error" ? (
             <XIcon className="w-3 h-3 text-status-warm" />
+          ) : status === "retried" ? (
+            <RefreshCw className="w-3 h-3 text-fg-dim" />
           ) : (
             <Check className="w-3 h-3 text-status-engaged" />
           );
@@ -1379,7 +1398,9 @@ function ToolTimelineList({
             ? "text-status-warm"
             : status === "running"
               ? "text-accent"
-              : "text-fg-muted";
+              : status === "retried"
+                ? "text-fg-dim opacity-60"
+                : "text-fg-muted";
         const dur = _formatDuration(e.createdAt, e.completedAt);
         return (
           <div key={e.id} className="text-[11px]">

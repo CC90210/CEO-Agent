@@ -17,7 +17,7 @@ import {
   ArrowRight, ExternalLink, Cpu, Cog, Check, Sparkles, Eye, EyeOff,
   Loader2, AlertCircle, ShieldCheck, Monitor,
 } from "lucide-react";
-import { ALL_AGENT_KEYS, getAgentInfo } from "@/lib/agents";
+import { FAMILY_AGENT_KEYS, getAgentInfo } from "@/lib/agents";
 
 const PROVIDERS = [
   {
@@ -74,7 +74,9 @@ const PROVIDERS = [
   },
 ];
 
-const AGENTS = ALL_AGENT_KEYS.map((k) => {
+// Onboarding shows the C-suite personas (Bravo / Atlas / Maven / Aura / Hermes / Life Preservation).
+// Codex is excluded because it is a backend executor, not a standalone persona — see lib/agents.ts.
+const AGENTS = FAMILY_AGENT_KEYS.map((k) => {
   const info = getAgentInfo(k);
   return { key: info.key, label: info.label, role: info.tagline, color: info.textClass };
 });
