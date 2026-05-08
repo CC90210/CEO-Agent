@@ -55,6 +55,19 @@ export async function POST() {
     return bad(412, "no tenant for this user");
   }
 
+  // Revoke any unconsumed prior codes from this user before minting a
+  // fresh one. Without this, every "Generate code" click leaves the old
+  // code valid until natural expiry (15 min) and grows the active-code
+  // lookup set unboundedly. Spec is "one live code per user at a time"
+  // — clicking Generate is the explicit-revoke action for the previous.
+  // Codes that have already been consumed are NOT touched (they're audit
+  // trail of past pairings).
+  await db
+    .from("bridge_pair_codes")
+    .delete()
+    .eq("auth_user_id", user.id)
+    .is("consumed_at", null);
+
   // Try a few times in case of unique-constraint collision (≈1 in 10^13).
   let code = "";
   let expiresAt = "";
