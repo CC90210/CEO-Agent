@@ -77,7 +77,7 @@ export default async function AgentsPage() {
             <h2 className="text-xs font-bold uppercase tracking-[0.14em] text-fg">Chat</h2>
             <div className="text-xs text-fg-muted mt-1">
               {isAdmin
-                ? "Admin mode — chatting with the platform-default key. Switch agent in the dropdown."
+                ? "Chat any agent in your family. Local bridge → Claude Code CLI on your machine (full repo access). Cloud mode → your saved key, falls back to platform default."
                 : "Talk to any agent in your family — set up your provider + key in Settings → Agents."}
             </div>
           </div>
