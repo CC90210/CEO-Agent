@@ -646,6 +646,15 @@ class _ChatHandler(BaseHTTPRequestHandler):
         if not isinstance(messages, list) or not messages:
             self._json(400, {"ok": False, "error": "no_messages"})
             return
+        # Optional Claude Code session id — when present we pass --resume
+        # so the agent skips the cold context-load on subsequent turns.
+        # First turn omits it; we mint a fresh session below and the
+        # dashboard captures the new id from the 'session' SSE event.
+        resume_session_id = payload.get("session_id")
+        if isinstance(resume_session_id, str) and resume_session_id.strip():
+            resume_session_id = resume_session_id.strip()
+        else:
+            resume_session_id = None
 
         root = resolve_root(agent)
         if not root:
@@ -727,7 +736,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
 
         # ---- Claude Code subprocess path (default) -------------------------
         try:
-            self._run_chat_via_claude(agent, root, messages, emit)
+            self._run_chat_via_claude(agent, root, messages, emit, resume_session_id)
         except FileNotFoundError as e:
             emit("error", {
                 "message": "claude_cli_not_found",
@@ -764,6 +773,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
         root: Path,
         messages: list[dict],
         emit: Callable[[str, dict], None],
+        resume_session_id: str | None = None,
     ) -> None:
         """Spawn `claude --print --output-format=stream-json` and pipe the
         operator's latest message in. Translate stream-json events to the
@@ -822,6 +832,12 @@ class _ChatHandler(BaseHTTPRequestHandler):
             "--max-turns", "12",
             "--setting-sources", "project,local",
         ]
+        # Latency win: if the dashboard provided a session_id from a prior
+        # turn, pass --resume so claude skips cold context-load. First turn
+        # mints a new session (claude assigns the id and we surface it via
+        # the 'session' SSE event below).
+        if resume_session_id:
+            args.extend(["--resume", resume_session_id])
 
         # Spawn env — same approach as telegram_agent. Inherit current env,
         # set non-interactive flags so claude doesn't try to render TTY UI.

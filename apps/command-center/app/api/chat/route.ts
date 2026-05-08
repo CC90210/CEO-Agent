@@ -36,6 +36,12 @@ import { composeDashboardContext } from "@/lib/agent-context";
 import { rateLimit } from "@/lib/rate-limit";
 import { extractActionMarkers, runAction } from "@/lib/agent-actions";
 import { logAction } from "@/lib/action-log";
+import {
+  cloudToolsPromptBlock,
+  extractCloudToolMarkers,
+  runCloudTool,
+  stripCloudToolMarkers,
+} from "@/lib/cloud-tools";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -195,7 +201,12 @@ export async function POST(req: NextRequest) {
   // plan, integrations health — so the agent answers from real data instead
   // of asking the operator for things it can already see.
   const dashboardCtx = await composeDashboardContext({ tenantId, agentKey }).catch(() => "");
-  const persona = `${personaBase}${cloudModeNotice}${dashboardCtx ? `\n\n${dashboardCtx}` : ""}`;
+  // Cloud-only tool surface — appended to every persona on /api/chat so
+  // the agent knows it can call lookup_lead_by_name, list_open_leads,
+  // integration_status, etc. The local-bridge path doesn't see this block;
+  // it has the full Claude Code harness already.
+  const cloudTools = cloudToolsPromptBlock();
+  const persona = `${personaBase}${cloudModeNotice}${cloudTools}${dashboardCtx ? `\n\n${dashboardCtx}` : ""}`;
   const startedAt = Date.now();
 
   // ---- Stream response back as SSE ----------------------------------------
@@ -237,6 +248,25 @@ export async function POST(req: NextRequest) {
       } catch (err) {
         streamError = err instanceof Error ? err.message : "stream_failed";
         send("error", { message: streamError });
+      }
+
+      // ---- Cloud tool markers --------------------------------------------
+      // <cloud-tool name="..."> JSON </cloud-tool> — read-only / safe tools
+      // exposed only on the cloud /api/chat path. Local bridge has Claude
+      // Code's full harness; cloud path needs this curated set so the agent
+      // can still look up leads, check integrations, etc.
+      try {
+        const toolSpecs = extractCloudToolMarkers(assistantText);
+        for (const spec of toolSpecs) {
+          const r = await runCloudTool(spec, { tenantId, userId: user.id });
+          send("cloud_tool_result", r);
+        }
+      } catch (err) {
+        send("cloud_tool_result", {
+          ok: false,
+          name: "?",
+          error: err instanceof Error ? err.message : "cloud_tool_runner_failed",
+        });
       }
 
       // ---- Dashboard mutation markers ------------------------------------

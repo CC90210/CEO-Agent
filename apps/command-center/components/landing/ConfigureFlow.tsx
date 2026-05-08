@@ -22,6 +22,7 @@ import {
   ExternalLink,
   ChevronDown,
 } from "lucide-react";
+import { AGENT_QUESTIONS, answersToEnvLines, type Question } from "@/lib/agent-questionnaire";
 
 type OS = "windows" | "macos" | "linux" | "unknown";
 
@@ -86,20 +87,12 @@ const AGENTS = [
   },
 ];
 
-type Personalization = {
-  full_name: string;
-  brand: string;
-  north_star: string;
-};
-
 export function ConfigureFlow() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [agentKey, setAgentKey] = useState<string>("bravo");
-  const [p, setP] = useState<Personalization>({
-    full_name: "",
-    brand: "",
-    north_star: "",
-  });
+  // Per-agent answers — keyed by question.key (the env-var suffix).
+  // Switching agents resets answers since each agent has its own schema.
+  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [copied, setCopied] = useState(false);
   const [os, setOs] = useState<OS>("unknown");
   const [showAllPlatforms, setShowAllPlatforms] = useState(false);
@@ -108,20 +101,46 @@ export function ConfigureFlow() {
     setOs(_detectOS());
   }, []);
 
-  const agent = AGENTS.find((a) => a.key === agentKey)!;
+  // Reset answers when the agent changes — each agent has its own schema.
+  useEffect(() => {
+    setAnswers({});
+  }, [agentKey]);
 
-  const psInstall = `# Windows (PowerShell, run as your user — no admin needed)
-$env:OASIS_PROFILE="${agentKey}"
-$env:OASIS_OPERATOR_NAME="${p.full_name || 'Your Name'}"
-$env:OASIS_BRAND="${p.brand || 'Your Brand'}"
-$env:OASIS_NORTH_STAR="${p.north_star || 'Your goal'}"
-irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install.ps1 | iex`;
-  const bashInstall = `# macOS / Linux / WSL
-export OASIS_PROFILE="${agentKey}"
-export OASIS_OPERATOR_NAME="${p.full_name || 'Your Name'}"
-export OASIS_BRAND="${p.brand || 'Your Brand'}"
-export OASIS_NORTH_STAR="${p.north_star || 'Your goal'}"
-curl -fsSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install.sh | bash`;
+  const agent = AGENTS.find((a) => a.key === agentKey)!;
+  const questions: Question[] = AGENT_QUESTIONS[agentKey] || AGENT_QUESTIONS.custom;
+
+  // The OASIS_PROFILE env var carries the agent slug so the post-install
+  // wizard knows which agent + which schema to load. All other answers
+  // get baked as OASIS_<KEY>=<VALUE> via answersToEnvLines.
+  const profileLine = (kind: "powershell" | "bash") =>
+    kind === "powershell"
+      ? `$env:OASIS_PROFILE="${agentKey}"`
+      : `export OASIS_PROFILE="${agentKey}"`;
+
+  const psInstall = [
+    "# Windows (PowerShell, run as your user — no admin needed)",
+    profileLine("powershell"),
+    answersToEnvLines(answers, "powershell"),
+    "irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install.ps1 | iex",
+  ]
+    .filter((s) => s && s.length > 0)
+    .join("\n");
+  const bashInstall = [
+    "# macOS / Linux / WSL",
+    profileLine("bash"),
+    answersToEnvLines(answers, "bash"),
+    "curl -fsSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install.sh | bash",
+  ]
+    .filter((s) => s && s.length > 0)
+    .join("\n");
+
+  // Validation — block the Generate-install button until all required
+  // questions have answers. Otherwise the install command bakes empty
+  // env vars and the wizard can't pre-fill the profile correctly.
+  const missingRequired = questions
+    .filter((q) => q.required)
+    .filter((q) => !(answers[q.key] && answers[q.key].trim().length > 0));
+  const canAdvance = missingRequired.length === 0;
 
   function copy(text: string) {
     if (typeof navigator === "undefined" || !navigator.clipboard) return;
@@ -182,52 +201,36 @@ curl -fsSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install.sh |
         </Card>
       )}
 
-      {/* Step 2 — personalize */}
+      {/* Step 2 — personalize (dynamic per-agent questionnaire) */}
       {step === 2 && (
-        <Card title="Personalize" icon={<Sparkles className="w-4 h-4" />}>
+        <Card title={`Personalize ${agent.label}`} icon={<Sparkles className="w-4 h-4" />}>
           <p className="text-sm text-fg-muted mb-4">
-            These get baked into the install command and pre-fill the setup wizard. You can edit any of them later in your dashboard.
+            These answers are tailored to <strong className="text-fg">{agent.label}</strong> — they get baked into the install command and pre-fill the setup wizard. You can edit any of them later in your dashboard.
           </p>
-          <div className="space-y-3">
-            <label className="block">
-              <span className="label">Your name</span>
-              <input
-                className="input"
-                value={p.full_name}
-                onChange={(e) => setP({ ...p, full_name: e.target.value })}
-                placeholder="Jane Doe"
+          <div className="space-y-4">
+            {questions.map((q) => (
+              <QuestionField
+                key={q.key}
+                question={q}
+                value={answers[q.key] || ""}
+                onChange={(v) => setAnswers({ ...answers, [q.key]: v })}
               />
-            </label>
-            <label className="block">
-              <span className="label">Brand or company</span>
-              <input
-                className="input"
-                value={p.brand}
-                onChange={(e) => setP({ ...p, brand: e.target.value })}
-                placeholder="Acme AI"
-              />
-            </label>
-            <label className="block">
-              <span className="label">Your north-star goal</span>
-              <input
-                className="input"
-                value={p.north_star}
-                onChange={(e) => setP({ ...p, north_star: e.target.value })}
-                placeholder={
-                  agentKey === "atlas"
-                    ? "Hit $1M net worth by 30"
-                    : agentKey === "maven"
-                      ? "10K qualified leads / quarter"
-                      : "$10K MRR by year-end"
-                }
-              />
-            </label>
+            ))}
           </div>
+          {!canAdvance && (
+            <div className="mt-4 text-[11px] text-status-warm">
+              {missingRequired.length} required question{missingRequired.length === 1 ? "" : "s"} left: {missingRequired.map((q) => q.label).join(", ")}.
+            </div>
+          )}
           <div className="mt-5 flex items-center justify-between">
             <button onClick={() => setStep(1)} className="btn-secondary text-sm">
               Back
             </button>
-            <button onClick={() => setStep(3)} className="btn-send">
+            <button
+              onClick={() => canAdvance && setStep(3)}
+              disabled={!canAdvance}
+              className={`btn-send ${!canAdvance ? "opacity-50 cursor-not-allowed" : ""}`}
+            >
               Generate install <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -341,6 +344,66 @@ function Card({
       </div>
       {children}
     </div>
+  );
+}
+
+function QuestionField({
+  question,
+  value,
+  onChange,
+}: {
+  question: Question;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const id = `q-${question.key}`;
+  return (
+    <label htmlFor={id} className="block">
+      <span className="label flex items-center gap-1.5">
+        {question.label}
+        {question.required && (
+          <span className="text-status-warm text-[10px]" aria-label="required">*</span>
+        )}
+      </span>
+      {question.type === "select" && question.options ? (
+        <select
+          id={id}
+          className="input"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        >
+          <option value="">— pick one —</option>
+          {question.options.map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+        </select>
+      ) : question.type === "textarea" ? (
+        <textarea
+          id={id}
+          className="input min-h-[88px] font-mono text-xs"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={question.placeholder}
+          rows={4}
+        />
+      ) : (
+        <input
+          id={id}
+          className="input"
+          type={question.type === "number" ? "number" : "text"}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={question.placeholder}
+        />
+      )}
+      {question.help && (
+        <span className="block text-[11px] text-fg-dim mt-1 leading-relaxed">
+          {question.help}
+        </span>
+      )}
+    </label>
   );
 }
 
