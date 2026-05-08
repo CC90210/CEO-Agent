@@ -11,6 +11,7 @@
  */
 
 import { runTool, type ToolContext } from "./agent-tools";
+import { listUnreadDb } from "./agent-inbox-db";
 
 function fmtUSD(n: number): string {
   return `$${Math.round(n).toLocaleString()}`;
@@ -121,6 +122,35 @@ export async function composeDashboardContext(ctx: ToolContext): Promise<string>
     if (i.healthy && i.healthy.length > 0) {
       lines.push(`- Healthy integrations: ${i.healthy.length} (${i.healthy.slice(0, 6).join(", ")}${i.healthy.length > 6 ? ", ..." : ""})`);
     }
+  }
+
+  // Inbox messages addressed to THIS agent — closes the inbox loop. When
+  // the operator (or a sibling agent) posts to the inbox, the receiving
+  // agent surfaces those messages at the top of its next chat session
+  // and handles them before answering anything else. This is the
+  // mechanism the /inbox page documents under "The closed loop."
+  try {
+    const inboxAll = await listUnreadDb(ctx.tenantId, ctx.agentKey);
+    const inbox = inboxAll.slice(0, 5);
+    if (inbox.length > 0) {
+      lines.push("");
+      lines.push(
+        `INBOX FOR YOU (${inbox.length} unread message${inbox.length === 1 ? "" : "s"} — read and act on these BEFORE answering the operator's current question if relevant):`
+      );
+      for (const m of inbox) {
+        const from = m.from_agent || "operator";
+        const subj = (m.subject || "(no subject)").slice(0, 80);
+        const body = (m.body || "").slice(0, 240).replace(/\s+/g, " ").trim();
+        const pri = m.priority && m.priority !== "normal" ? `[${m.priority.toUpperCase()}] ` : "";
+        lines.push(`- ${pri}from ${from}: ${subj}`);
+        if (body) lines.push(`    ${body}${(m.body || "").length > 240 ? "…" : ""}`);
+      }
+      lines.push(
+        `(After acting, mark each message read via the inbox table. The operator does not see these — they're between agents.)`
+      );
+    }
+  } catch {
+    // Inbox is best-effort; don't break the chat if Supabase hiccups.
   }
 
   lines.push("---");
