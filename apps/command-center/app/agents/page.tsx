@@ -37,18 +37,16 @@ export default async function AgentsPage() {
     getAgentStats(profile?.primary_agent || "bravo"),
   ]);
 
-  const enabledRaw = profile?.agents_enabled || ALL_AGENT_KEYS;
   // AGENT FAMILY card shows only personas (excludes backend executors like
-  // Codex). Falls back to FAMILY_AGENT_KEYS when the profile is missing or
-  // hasn't been updated to include life-preservation yet.
+  // Codex). The `agents_enabled` column on user_profiles is the single source
+  // of truth — toggling an agent off in /settings must remove it everywhere.
+  // Only fall back to the full family set when the profile has no enabled
+  // list at all (legacy / brand-new tenants).
   const familySet = new Set(FAMILY_AGENT_KEYS);
-  const enabled = enabledRaw.filter((k) => familySet.has(k));
-  // Make sure every registered family agent shows up even if the profile
-  // hasn't been updated to enable it yet — CC sees them as idle, not
-  // missing entirely.
-  for (const k of FAMILY_AGENT_KEYS) {
-    if (!enabled.includes(k)) enabled.push(k);
-  }
+  const enabledList = profile?.agents_enabled?.length
+    ? profile.agents_enabled
+    : FAMILY_AGENT_KEYS;
+  const enabled = enabledList.filter((k) => familySet.has(k));
   const byName = new Map(states.map((s) => [s.agent_name, s]));
   const integrationByName = new Map(integrations.map((i) => [i.service, i]));
 
