@@ -8,7 +8,7 @@ helper that does it.
 
 Usage from any script:
     from integration_health import ping
-    ping("gmail", status="healthy")
+    ping("gws", status="healthy")  # Google Workspace (covers Gmail/Calendar/Drive/Docs)
     ping("stripe", status="degraded", error="balance API timed out", metadata={"latency_ms": 4200})
 
 Tenant safety:
