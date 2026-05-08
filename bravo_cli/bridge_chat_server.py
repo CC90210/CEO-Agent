@@ -1675,6 +1675,10 @@ _ENV_KEY_TO_SERVICE_FALLBACK = {
     "TELEGRAM_BOT_TOKEN": "telegram",
     "BRAVO_SUPABASE_URL": "supabase",
     "HOSTINGER_API_KEY": "hostinger",
+    # Google Workspace — single App Password covers Gmail, Calendar,
+    # Drive, Docs, Meet via scripts/google_tool.py. Matches the unified
+    # `gws` registry entry that replaced the per-service OAuth rows.
+    "GMAIL_APP_PASSWORD": "gws",
 }
 
 # Three-layer registry cache:
