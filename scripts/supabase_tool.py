@@ -237,9 +237,28 @@ def cmd_select(client, args):
     print(f"\n--- {len(result.data)} rows returned ---")
 
 
+def _preview_match(client, table: str, match_filter: dict, limit: int = 10):
+    """For update/delete dry-run: read the rows that match the filter and print them."""
+    try:
+        q = client.table(table).select("*")
+        for k, v in match_filter.items():
+            q = q.eq(k, v)
+        rows = q.limit(limit).execute().data
+    except Exception as exc:
+        print(f"[dry-run] match preview failed: {exc}")
+        return
+    print(f"[dry-run] {len(rows)} row(s) match the filter (showing up to {limit}):")
+    print(json.dumps(rows, indent=2, default=str))
+
+
 def cmd_insert(client, args):
     """Insert a row into a table."""
     data = json.loads(args.data)
+    if getattr(args, "dry_run", False):
+        print(f"[dry-run] INSERT NOT executed. Would insert into '{args.table}':")
+        print(json.dumps(data, indent=2, default=str))
+        print("\nRe-run without --dry-run to apply.")
+        return
     result = client.table(args.table).insert(data).execute()
     print(json.dumps(result.data, indent=2, default=str))
     print(f"\n--- Inserted {len(result.data)} row(s) ---")
@@ -249,11 +268,19 @@ def cmd_update(client, args):
     """Update rows in a table."""
     data = json.loads(args.data)
     match_filter = json.loads(args.match)
-    
+
+    if getattr(args, "dry_run", False):
+        print(f"[dry-run] UPDATE NOT executed. Would set on '{args.table}':")
+        print(json.dumps(data, indent=2, default=str))
+        print(f"\nMatching: {json.dumps(match_filter, default=str)}")
+        _preview_match(client, args.table, match_filter)
+        print("\nRe-run without --dry-run to apply.")
+        return
+
     query = client.table(args.table).update(data)
     for k, v in match_filter.items():
         query = query.eq(k, v)
-    
+
     result = query.execute()
     print(json.dumps(result.data, indent=2, default=str))
     print(f"\n--- Updated {len(result.data)} row(s) ---")
@@ -262,11 +289,18 @@ def cmd_update(client, args):
 def cmd_delete(client, args):
     """Delete rows from a table."""
     match_filter = json.loads(args.match)
-    
+
+    if getattr(args, "dry_run", False):
+        print(f"[dry-run] DELETE NOT executed on '{args.table}'.")
+        print(f"Matching: {json.dumps(match_filter, default=str)}")
+        _preview_match(client, args.table, match_filter)
+        print("\nRe-run without --dry-run to apply.")
+        return
+
     query = client.table(args.table).delete()
     for k, v in match_filter.items():
         query = query.eq(k, v)
-    
+
     result = query.execute()
     print(json.dumps(result.data, indent=2, default=str))
     print(f"\n--- Deleted {len(result.data)} row(s) ---")
@@ -275,6 +309,11 @@ def cmd_delete(client, args):
 def cmd_upsert(client, args):
     """Upsert (insert or update) a row into a table."""
     data = json.loads(args.data)
+    if getattr(args, "dry_run", False):
+        print(f"[dry-run] UPSERT NOT executed. Would upsert into '{args.table}':")
+        print(json.dumps(data, indent=2, default=str))
+        print("\nRe-run without --dry-run to apply.")
+        return
     result = client.table(args.table).upsert(data).execute()
     print(json.dumps(result.data, indent=2, default=str))
     print(f"\n--- Upserted {len(result.data)} row(s) ---")
@@ -349,22 +388,30 @@ Examples:
     p_insert = subparsers.add_parser("insert", parents=[parent_parser], help="Insert a row")
     p_insert.add_argument("table", help="Table name")
     p_insert.add_argument("data", help="JSON data to insert")
+    p_insert.add_argument("--dry-run", action="store_true",
+                          help="Print the would-be insert without executing it")
     
     # update
     p_update = subparsers.add_parser("update", parents=[parent_parser], help="Update rows")
     p_update.add_argument("table", help="Table name")
     p_update.add_argument("data", help="JSON data to set")
     p_update.add_argument("--match", required=True, help="Match filter as JSON")
+    p_update.add_argument("--dry-run", action="store_true",
+                          help="Print matching rows + intended set without applying")
     
     # delete
     p_delete = subparsers.add_parser("delete", parents=[parent_parser], help="Delete rows")
     p_delete.add_argument("table", help="Table name")
     p_delete.add_argument("--match", required=True, help="Match filter as JSON")
+    p_delete.add_argument("--dry-run", action="store_true",
+                          help="Print matching rows that would be deleted without deleting")
     
     # upsert
     p_upsert = subparsers.add_parser("upsert", parents=[parent_parser], help="Upsert a row")
     p_upsert.add_argument("table", help="Table name")
     p_upsert.add_argument("data", help="JSON data to upsert")
+    p_upsert.add_argument("--dry-run", action="store_true",
+                          help="Print the would-be upsert without executing it")
     
     # rpc
     p_rpc = subparsers.add_parser("rpc", parents=[parent_parser], help="Call an RPC/Edge Function")

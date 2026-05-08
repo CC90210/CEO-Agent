@@ -863,6 +863,32 @@ def cmd_create(args) -> int:
 
 # ---- Register ---------------------------------------------------------------
 
+def _script_refs_in_skill(name: str) -> list[dict]:
+    """Scan a skill's SKILL.md body for `scripts/<x>.py` references and check
+    each exists on disk. Returns list of {ref, exists} dicts.
+
+    Catches the case where a new SKILL.md confidently references a backing
+    script that was never written (or got renamed). Per the Architecture
+    Certification verification contract: a skill claiming a script must
+    actually have that script on disk.
+    """
+    skill_md = SKILLS_DIR / name / "SKILL.md"
+    if not skill_md.exists():
+        return []
+    body = skill_md.read_text(encoding="utf-8", errors="replace")
+    # Match `scripts/<slug>.py` with optional path-y prefix; slug is alnum + _ + -
+    refs = re.findall(r"scripts/([A-Za-z0-9_\-]+\.py)", body)
+    seen = []
+    out = []
+    for ref in refs:
+        if ref in seen:
+            continue
+        seen.append(ref)
+        exists = (PROJECT_ROOT / "scripts" / ref).exists()
+        out.append({"ref": f"scripts/{ref}", "exists": exists})
+    return out
+
+
 def cmd_register(args) -> int:
     name = args.name.strip()
     report = validate_skill(name)
@@ -871,6 +897,19 @@ def cmd_register(args) -> int:
               file=sys.stderr)
         for i in report["issues"]:
             print(f"  [{i['severity']}] {i['message']}", file=sys.stderr)
+        return 1
+
+    # Smoke check — every script the skill claims to use must exist on disk.
+    script_refs = _script_refs_in_skill(name)
+    missing_refs = [r for r in script_refs if not r["exists"]]
+    if missing_refs and not getattr(args, "skip_script_check", False):
+        print(f"ERROR: skill '{name}' references scripts that don't exist:",
+              file=sys.stderr)
+        for r in missing_refs:
+            print(f"  • {r['ref']}", file=sys.stderr)
+        print("\nFix the references in SKILL.md, write the missing script(s), "
+              "or pass --skip-script-check if these are intentional placeholders.",
+              file=sys.stderr)
         return 1
 
     now = datetime.now(timezone.utc).isoformat()
@@ -1360,6 +1399,9 @@ def main() -> None:
     pr = sub.add_parser("register",
                          help="Wire an existing skill into skills_registry + docs")
     pr.add_argument("name")
+    pr.add_argument("--skip-script-check", action="store_true",
+                    help="Skip the smoke check that every scripts/<x>.py reference "
+                         "in the SKILL.md body actually exists on disk")
     pr.add_argument("--json", dest="output_json", action="store_true",
                     default=argparse.SUPPRESS)
 

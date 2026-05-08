@@ -455,7 +455,28 @@ def cmd_refund(client, args):
     params = {"charge": args.charge_id}
     if args.amount:
         params["amount"] = str(args.amount)
-    
+
+    if getattr(args, "dry_run", False):
+        # Read the charge so the operator sees what would actually be refunded.
+        try:
+            ch = client.get(f"charges/{args.charge_id}")
+        except Exception as exc:
+            print(f"[dry-run] charges/{args.charge_id} lookup failed: {exc}")
+            ch = {}
+        amount_to_refund = args.amount if args.amount else ch.get("amount", 0)
+        currency = ch.get("currency", "usd")
+        print("[dry-run] Refund NOT issued. Would POST /refunds with:")
+        print(f"  charge:   {args.charge_id}")
+        print(f"  amount:   {amount_to_refund} ({format_amount(amount_to_refund, currency)})")
+        if ch:
+            print("  Charge under inspection:")
+            print(f"    customer:  {ch.get('customer', '?')}")
+            print(f"    captured:  {ch.get('amount_captured', ch.get('amount', '?'))}")
+            print(f"    refunded:  {ch.get('amount_refunded', 0)}")
+            print(f"    livemode:  {ch.get('livemode', '?')}")
+        print("Re-run without --dry-run to issue the refund.")
+        return
+
     result = client.post("refunds", params)
     print(f"Refund created!")
     print(f"  ID:     {result['id']}")
@@ -593,6 +614,8 @@ To add an account: STRIPE_PROPFLOW_ACCT_ID=acct_xxx in .env.agents
     p_refund = subparsers.add_parser("refund", parents=[parent_parser], help="Refund a charge")
     p_refund.add_argument("charge_id", help="Charge ID to refund")
     p_refund.add_argument("--amount", type=int, help="Partial refund amount in cents")
+    p_refund.add_argument("--dry-run", action="store_true",
+                          help="Preview the charge + would-be refund without issuing it")
     
     # events
     p_events = subparsers.add_parser("events", parents=[parent_parser], help="List recent events")

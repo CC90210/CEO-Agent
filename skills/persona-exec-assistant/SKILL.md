@@ -1,5 +1,7 @@
 ---
 name: persona-exec-assistant
+archived: 2026-05-07
+superseded_by: memory/PERSONAS.md
 version: 1.0.0
 description: "Manage an executive's schedule, inbox, and communications."
 metadata:
