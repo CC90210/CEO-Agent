@@ -9,6 +9,7 @@
  */
 
 import { NextResponse, type NextRequest } from "next/server";
+import { randomBytes } from "node:crypto";
 import { getServiceSupabase, getSessionUser } from "@/lib/supabase-server";
 import { postMessage, type Priority, KNOWN_AGENTS } from "@/lib/agent-inbox-fs";
 import { postMessageDb } from "@/lib/agent-inbox-db";
@@ -71,6 +72,12 @@ export async function POST(req: NextRequest) {
   const requires = !!body.requires_response;
   const inReply = body.in_reply_to || null;
 
+  // Generate ONE message_id and pass it to both writers so the /inbox
+  // page can dedupe rows from the two sources by message_id. Without
+  // this, each writer would generate its own random id and the same
+  // posted message would render twice on /inbox.
+  const sharedMessageId = randomBytes(6).toString("hex");
+
   // Write to Supabase first (source of truth) and to filesystem in parallel
   // (so local agents that only know how to read tmp/agent_inbox/ keep
   // working). Either path failing logs but does not fail the request.
@@ -85,6 +92,7 @@ export async function POST(req: NextRequest) {
           priority,
           requires_response: requires,
           in_reply_to: inReply,
+          messageId: sharedMessageId,
         })
       : Promise.resolve({ ok: false, error: "no_tenant" } as const),
     postMessage({
@@ -95,6 +103,7 @@ export async function POST(req: NextRequest) {
       priority,
       requires_response: requires,
       in_reply_to: inReply,
+      messageId: sharedMessageId,
     }),
   ]);
 

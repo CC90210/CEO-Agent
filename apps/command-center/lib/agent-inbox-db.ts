@@ -118,6 +118,12 @@ export async function postMessageDb(opts: {
   priority?: Priority;
   requires_response?: boolean;
   in_reply_to?: string | null;
+  /**
+   * Optional pre-generated message_id. When the route does dual-write
+   * (Supabase + filesystem), it passes the SAME id to both writers so the
+   * /inbox page can dedupe rows from the two sources by message_id.
+   */
+  messageId?: string;
 }): Promise<{ ok: boolean; message?: DbInboxMessage; error?: string }> {
   if (!opts.body || !opts.body.trim()) return { ok: false, error: "body_required" };
   if (!opts.from.trim() || !opts.to.trim()) return { ok: false, error: "agent_required" };
@@ -125,7 +131,7 @@ export async function postMessageDb(opts: {
   if (!VALID_PRIORITIES.includes(priority)) return { ok: false, error: "invalid_priority" };
 
   const db = getServiceSupabase();
-  const messageId = randomBytes(6).toString("hex");
+  const messageId = opts.messageId || randomBytes(6).toString("hex");
   const row = {
     message_id: messageId,
     tenant_id: opts.tenantId,
