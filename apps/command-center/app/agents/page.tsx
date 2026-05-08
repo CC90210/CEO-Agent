@@ -32,7 +32,10 @@ export default async function AgentsPage() {
   const isAdmin = isOperatorEmail(user?.email);
   const [states, events, integrations, stats] = await Promise.all([
     agentStates(),
-    recentEvents(25),
+    // sinceDays: 0 — same fix as /operations. Default 7-day window left
+    // the Event Bus card looking empty when crons / inbound traffic had
+    // been quiet for a week, even though the table had history.
+    recentEvents(25, { sinceDays: 0 }),
     integrationsHealth(profile?.tenant_id || null),
     getAgentStats(profile?.primary_agent || "bravo"),
   ]);
