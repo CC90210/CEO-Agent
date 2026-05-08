@@ -811,7 +811,11 @@ class _ChatHandler(BaseHTTPRequestHandler):
         args = [
             claude_bin,
             "-p", prompt_text,
-            "--permission-mode", "acceptEdits",
+            # bypassPermissions auto-approves MCP tool calls in addition to
+            # edits. acceptEdits prompts for MCP tools, which hangs forever
+            # because stdin is DEVNULL. Bridge runs as the operator in the
+            # operator's repos, so the trust boundary already permits this.
+            "--permission-mode", "bypassPermissions",
             "--output-format", "stream-json",
             "--verbose",  # required when --output-format=stream-json
             "--include-partial-messages",
@@ -828,6 +832,14 @@ class _ChatHandler(BaseHTTPRequestHandler):
             "PAGER": "cat",
             "NO_COLOR": "1",
             "FORCE_COLOR": "0",
+        })
+
+        # Synthetic status pre-spawn so the dashboard can show "starting Atlas
+        # in CFO-Agent…" instantly, before claude's cold start (~10-30s).
+        emit("agent_status", {
+            "phase": "spawning",
+            "agent": agent,
+            "cwd": str(root),
         })
 
         try:
@@ -850,6 +862,10 @@ class _ChatHandler(BaseHTTPRequestHandler):
             emit("error", {"message": f"claude_spawn_failed: {e}"})
             emit("done", {})
             return
+
+        # Subprocess is alive — flip from "spawning" to "thinking" so the UI
+        # can swap the elapsed-time counter from "starting…" to "thinking…".
+        emit("agent_status", {"phase": "thinking"})
 
         # Read line-by-line. Each line is a complete JSON event.
         emitted_session = False
