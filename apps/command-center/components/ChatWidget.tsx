@@ -12,7 +12,6 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import {
   Send,
   AlertCircle,
@@ -228,50 +227,33 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
   const [expandedReads, setExpandedReads] = useState<Set<number>>(new Set());
   const [expandedRuns, setExpandedRuns] = useState<Set<number>>(new Set());
   const [thinking, setThinking] = useState(false);
-  // Fullscreen mode — covers entire viewport (sidebar hidden), and
-  // requests the browser Fullscreen API so even the browser chrome
-  // disappears when the user wants total focus. Esc exits both.
-  const [fullscreen, setFullscreen] = useState(false);
-  // Pin a class on <body> so the layout's sidebar can hide itself with
-  // a CSS rule — no prop drilling through the layout/sidebar tree.
-  useEffect(() => {
+  // Fullscreen mode — uses the browser Fullscreen API on the chat
+  // element itself (same pattern as Claude / ChatGPT). The chat fills
+  // the screen, Esc exits, no portal magic, no parent stacking-context
+  // wrestling. We only track an `isFullscreen` flag so the maximize/
+  // minimize icon swaps correctly.
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  function toggleFullscreen() {
     if (typeof document === "undefined") return;
-    const cls = "chat-fullscreen-active";
-    if (fullscreen) {
-      document.body.classList.add(cls);
-      // Best-effort browser-native fullscreen — falls through if the
-      // user denies the prompt or the browser blocks it.
-      const root = document.documentElement;
-      if (root.requestFullscreen && !document.fullscreenElement) {
-        root.requestFullscreen().catch(() => null);
-      }
-    } else {
-      document.body.classList.remove(cls);
-      if (document.fullscreenElement && document.exitFullscreen) {
-        document.exitFullscreen().catch(() => null);
-      }
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => null);
+    } else if (chatContainerRef.current?.requestFullscreen) {
+      chatContainerRef.current.requestFullscreen().catch(() => null);
     }
-    return () => {
-      document.body.classList.remove(cls);
-    };
-  }, [fullscreen]);
-  // Esc to exit + sync our state with the browser's fullscreen exit
-  // (user can hit Esc to leave browser fullscreen — keep our flag in sync).
+  }
+
+  // Track the browser's fullscreen state so our icon stays in sync
+  // when the user hits Esc (the browser exits fullscreen on its own).
   useEffect(() => {
     if (typeof document === "undefined") return;
-    const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === "Escape" && fullscreen) setFullscreen(false);
-    };
     const onFsChange = () => {
-      if (!document.fullscreenElement && fullscreen) setFullscreen(false);
+      setIsFullscreen(document.fullscreenElement === chatContainerRef.current);
     };
-    window.addEventListener("keydown", onKey);
     document.addEventListener("fullscreenchange", onFsChange);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.removeEventListener("fullscreenchange", onFsChange);
-    };
-  }, [fullscreen]);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
   // A0c: status phase + elapsed-time counter so CC sees "starting Atlas in
   // CFO-Agent…" → "thinking… (0:12)" instead of a static "thinking…" during
   // the first 30s of a Claude Code subprocess cold start.
@@ -705,19 +687,10 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
     }
   }
 
-  // Portal-render when fullscreen so the chat container escapes EVERY
-  // ancestor stacking context (main has `relative z-10`, page sections
-  // create their own contexts, and CSS `isolation: isolate` on
-  // .chat-container traps z-index without it). Rendering to document.body
-  // is the only way to guarantee the chat covers the entire viewport with
-  // no peek-through from the page header above.
-  const chatBody = (
+  return (
     <div
-      className={`chat-container agent-${agent} flex flex-col ${
-        fullscreen
-          ? "fixed inset-0 z-[1000] h-screen w-screen rounded-none shadow-2xl"
-          : "h-[640px]"
-      }`}
+      ref={chatContainerRef}
+      className={`chat-container agent-${agent} flex flex-col h-[640px]`}
     >
       {/* Aurora wash inside the bordered container */}
       <div className="chat-aurora absolute inset-0 pointer-events-none" />
@@ -785,11 +758,11 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
         )}
         <button
           type="button"
-          onClick={() => setFullscreen((f) => !f)}
+          onClick={toggleFullscreen}
           className="text-fg-dim hover:text-accent transition-colors p-1"
-          title={fullscreen ? "Exit fullscreen (Esc)" : "Open chat fullscreen"}
+          title={isFullscreen ? "Exit fullscreen (Esc)" : "Open chat fullscreen"}
         >
-          {fullscreen ? (
+          {isFullscreen ? (
             <Minimize2 className="w-4 h-4" />
           ) : (
             <Maximize2 className="w-4 h-4" />
@@ -1081,15 +1054,6 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
       </form>
     </div>
   );
-
-  // Render via portal when fullscreen so the chat escapes ALL ancestor
-  // stacking contexts and covers the whole viewport with nothing
-  // peeking through. Inline render in normal mode keeps the chat in
-  // the page flow.
-  if (fullscreen && typeof document !== "undefined") {
-    return createPortal(chatBody, document.body);
-  }
-  return chatBody;
 }
 
 function EmptyTranscript({
