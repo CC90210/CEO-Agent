@@ -292,10 +292,60 @@ export default function ClientDeployPage() {
         action={<Tag tone="accent">{PHASES.length} phases · {totalSteps} steps · ~60 min</Tag>}
       />
 
-      <Card title="What this is" subtitle="Read this once before your first deploy.">
+      <Card
+        title="Two ways to deploy a client"
+        subtitle="Pick the model first. Everything below assumes Path A (full bridge). Path B (cloud-only) is documented here and built out as cloud tools ship."
+      >
+        <div className="text-sm text-fg-muted leading-relaxed space-y-4">
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="rounded-lg border border-accent/40 bg-accent/5 p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <Tag tone="accent">Path A · Full bridge</Tag>
+                <span className="text-[10px] uppercase tracking-wider text-fg-muted">power users · teams · OASIS internal</span>
+              </div>
+              <div className="text-fg font-medium">Install on their machine. Local Claude Code CLI. Full repo access.</div>
+              <ul className="text-xs space-y-1 list-disc pl-4 text-fg-muted">
+                <li>Bridge daemon runs on the client&apos;s machine. Files, scripts, MCPs all live local.</li>
+                <li>Client supplies their own Claude / OpenRouter / Anthropic key. Never routes through our servers.</li>
+                <li>Same capability surface CC has: read brain/, run scripts, send_gateway, every skill.</li>
+                <li>Requires admin rights, Python 3.10+, Node 20+, Git. Heavier kickoff (~60 min).</li>
+              </ul>
+              <div className="text-[11px] text-fg-dim pt-1">
+                <strong className="text-fg">Use when:</strong> client is technical, runs their own ops infra, wants full control, or you&apos;re onboarding an OASIS partner who&apos;ll build on top.
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-bg-border bg-bg p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <Tag tone="info">Path B · Cloud only</Tag>
+                <span className="text-[10px] uppercase tracking-wider text-fg-muted">most clients · &quot;easy mode&quot;</span>
+              </div>
+              <div className="text-fg font-medium">No install. Sign up, connect integrations via OAuth. Agent runs in our cloud against their data.</div>
+              <ul className="text-xs space-y-1 list-disc pl-4 text-fg-muted">
+                <li>Setup wizard collects API key + integration permissions only. No local files.</li>
+                <li>Client connects Gmail / Calendar / Stripe via OAuth (we don&apos;t store credentials — we store the OAuth refresh token, scoped to their tenant).</li>
+                <li>Agent runs through <code className="text-accent">/api/chat</code> using cloud-tools (send_email, query_stripe, post_lead, etc.) instead of local file reads.</li>
+                <li>Setup is 10-15 minutes. Browser only. Works for any client regardless of OS or technical level.</li>
+              </ul>
+              <div className="text-[11px] text-fg-dim pt-1">
+                <strong className="text-fg">Use when:</strong> client is a local service business, doesn&apos;t want to install anything, just wants the outcomes (qualified leads, automated outreach, MRR tracking, content queue).
+              </div>
+              <div className="text-[11px] text-status-warm pt-1">
+                <strong>Status:</strong> the cloud-tools layer (send_email, query_stripe, etc.) is being built out. Until it ships, Path B chat answers strategy/drafting questions but cannot execute. The full Path B onboarding wizard is Tier B work — flagged as the next major build.
+              </div>
+            </div>
+          </div>
+
+          <div className="text-xs text-fg-dim leading-relaxed pt-2 border-t border-bg-border">
+            <strong className="text-fg">On the &quot;what powers the model&quot; question:</strong> Path A uses the operator&apos;s Claude Code CLI subscription (best capability surface — pre-baked Read/Edit/Bash/Glob/Grep/MCP tooling). Path B uses any Anthropic-compatible API key (Anthropic / OpenRouter / OpenAI / Google) — same model intelligence, but the tool surface is whatever we wire into <code className="text-accent">/api/chat</code>. They&apos;re not equivalent today: API-key path needs each tool built explicitly, CLI path inherits the whole Claude Code harness for free. We can replicate any individual capability on the cloud side, but it&apos;s case-by-case engineering.
+          </div>
+        </div>
+      </Card>
+
+      <Card title="What this is (Path A)" subtitle="Read this once before your first full-bridge deploy.">
         <div className="text-sm text-fg-muted leading-relaxed space-y-2">
           <p>
-            Every client follows the same six-phase arc: <strong className="text-fg">pre-flight → bootstrap → personalize → wire integrations → scope + tune → handoff</strong>. Each phase has 3-5 concrete steps, and most steps link to a chat prompt that the agent runs for you (so you&apos;re not retyping the same instruction every time).
+            Every <em>Path A</em> client follows the same six-phase arc: <strong className="text-fg">pre-flight → bootstrap → personalize → wire integrations → scope + tune → handoff</strong>. Each phase has 3-5 concrete steps, and most steps link to a chat prompt that the agent runs for you (so you&apos;re not retyping the same instruction every time).
           </p>
           <p>
             The dashboard you&apos;re on right now is the same dashboard the client will have on day 2 — just with their identity, their integrations, their voice. The bridge architecture means their machine is fully self-contained: their API keys, their data, their files. Nothing routes through our servers.
