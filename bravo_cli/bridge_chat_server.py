@@ -795,9 +795,172 @@ class _ChatHandler(BaseHTTPRequestHandler):
             return
         self._json(404, {"ok": False, "error": "not_found"})
 
+    def _handle_local_chat(self) -> None:
+        """POST /local-chat — stream a chat completion from the operator's
+        local Ollama / LM Studio / any OpenAI-compatible local server, back
+        to the dashboard widget as SSE.
+
+        Body: {
+          model:    str,                    # ollama tag, e.g. "llama3.3:70b"
+          messages: [{role, content}],      # OpenAI-compatible thread
+          system:   str (optional),
+          base_url: str (optional)          # default http://localhost:11434/v1
+        }
+
+        Auth: same CORS-origin gate as /chat — the request must come from
+        the operator's signed-in dashboard tab. Bearer-token auth would
+        require pulling state from the dashboard; the localhost-only
+        listener + dashboard-cookie origin is the trust boundary that's
+        already established for /chat.
+
+        Streams SSE events identical in shape to /chat:
+            event: delta   data: {"text": "..."}
+            event: done    data: {"input_tokens": N, "output_tokens": N}
+            event: error   data: {"message": "...", "detail": "..."}
+        """
+        if not self._check_origin_allowed():
+            self._json(403, {"ok": False, "error": "origin_not_allowed"})
+            return
+        try:
+            length = int(self.headers.get("content-length", "0"))
+            raw = self.rfile.read(length) if length else b""
+            payload = json.loads(raw or b"{}")
+        except Exception:
+            self._json(400, {"ok": False, "error": "invalid_json"})
+            return
+
+        model = str(payload.get("model", "")).strip()
+        messages = payload.get("messages") or []
+        system_prompt = str(payload.get("system", "") or "")
+        # base_url precedence: payload (dashboard tells us) → .env.agents
+        # operator-set OLLAMA_BASE_URL / LM_STUDIO_BASE_URL → default Ollama.
+        # The dashboard usually omits base_url since the encrypted URL stored
+        # in agent_model_config never decrypts on the client side; the bridge
+        # owns the operator's local config so it picks the right endpoint.
+        base_url = str(payload.get("base_url", "") or "").rstrip("/")
+        if not base_url:
+            base_url = (
+                _read_env_value("OLLAMA_BASE_URL").rstrip("/")
+                or _read_env_value("LM_STUDIO_BASE_URL").rstrip("/")
+                or "http://localhost:11434/v1"
+            )
+        if not model or not isinstance(messages, list) or not messages:
+            self._json(400, {"ok": False, "error": "model + messages required"})
+            return
+
+        # Compose OpenAI-compatible body. Both Ollama and LM Studio honor
+        # this shape on /v1/chat/completions.
+        body_messages: list[dict] = []
+        if system_prompt:
+            body_messages.append({"role": "system", "content": system_prompt})
+        for m in messages:
+            if not isinstance(m, dict):
+                continue
+            role = m.get("role")
+            content = m.get("content")
+            if role in ("system", "user", "assistant") and isinstance(content, str):
+                body_messages.append({"role": role, "content": content})
+        body = {
+            "model": model,
+            "messages": body_messages,
+            "stream": True,
+            "stream_options": {"include_usage": True},
+            "max_tokens": int(payload.get("max_tokens") or 4096),
+        }
+
+        # ---- Stream SSE back -----------------------------------------------
+        self.send_response(200)
+        self.send_header("content-type", "text/event-stream; charset=utf-8")
+        self.send_header("cache-control", "no-store")
+        self._set_cors()
+        self.end_headers()
+
+        def emit(event: str, data: dict) -> None:
+            try:
+                self.wfile.write(
+                    f"event: {event}\ndata: {json.dumps(data)}\n\n".encode("utf-8")
+                )
+                self.wfile.flush()
+            except Exception:
+                pass  # Client disconnected.
+
+        # POST to the local Ollama / LM Studio endpoint with stream=True.
+        # urllib doesn't expose chunked-read SSE well, so we use a raw
+        # socket-level read loop. Both servers respond as one HTTP keep-alive
+        # connection with `data: …\n\n` SSE events.
+        try:
+            req = urllib.request.Request(
+                f"{base_url}/chat/completions",
+                method="POST",
+                data=json.dumps(body).encode("utf-8"),
+                headers={"content-type": "application/json", "accept": "text/event-stream"},
+            )
+            with urllib.request.urlopen(req, timeout=600) as resp:
+                input_tokens = 0
+                output_tokens = 0
+                # Read line-by-line. SSE event format: "data: {...}\n\n".
+                buf = b""
+                while True:
+                    chunk = resp.read1(4096) if hasattr(resp, "read1") else resp.read(4096)
+                    if not chunk:
+                        break
+                    buf += chunk
+                    while b"\n" in buf:
+                        line, _, buf = buf.partition(b"\n")
+                        text = line.decode("utf-8", errors="replace").strip()
+                        if not text:
+                            continue
+                        if text.startswith(":"):
+                            continue  # heartbeat / comment
+                        if text.startswith("data:"):
+                            data_str = text[5:].strip()
+                            if data_str == "[DONE]":
+                                continue
+                            try:
+                                ev = json.loads(data_str)
+                            except json.JSONDecodeError:
+                                continue
+                            choice = (ev.get("choices") or [{}])[0]
+                            delta = (choice.get("delta") or {}).get("content")
+                            if isinstance(delta, str) and delta:
+                                emit("delta", {"text": delta})
+                            usage = ev.get("usage") or {}
+                            if usage.get("prompt_tokens") is not None:
+                                input_tokens = int(usage.get("prompt_tokens") or 0)
+                            if usage.get("completion_tokens") is not None:
+                                output_tokens = int(usage.get("completion_tokens") or 0)
+            emit("done", {"input_tokens": input_tokens, "output_tokens": output_tokens})
+        except urllib.error.URLError as e:
+            # Most common: the operator hasn't started Ollama, or gave a
+            # wrong base_url. Surface the underlying reason.
+            reason = getattr(e, "reason", str(e))
+            emit("error", {
+                "message": "local_model_unreachable",
+                "detail": (
+                    f"Could not connect to {base_url}/chat/completions: {reason}. "
+                    "Is Ollama running? `ollama serve`. "
+                    "Or LM Studio's local server enabled? Settings → Developer → Start Server."
+                ),
+            })
+            emit("done", {"input_tokens": 0, "output_tokens": 0})
+        except Exception as e:
+            emit("error", {
+                "message": _redact_secrets(f"local_chat_failed: {e}"),
+                "detail": None,
+            })
+            emit("done", {"input_tokens": 0, "output_tokens": 0})
+
+
     def do_POST(self) -> None:
         if self.path == "/env/set":
             self._handle_env_set()
+            return
+        if self.path == "/local-chat":
+            # New Ollama / LM Studio proxy. The dashboard's /api/chat path
+            # can't reach the operator's localhost from Vercel's edge — the
+            # bridge runs on the operator's machine, so it CAN. ChatWidget
+            # detects provider=='ollama' + bridge online and routes here.
+            self._handle_local_chat()
             return
         if self.path != "/chat":
             self._json(404, {"ok": False, "error": "not_found"})
