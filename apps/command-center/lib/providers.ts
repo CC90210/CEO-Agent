@@ -109,6 +109,131 @@ export const PROVIDER_LINKS: Record<Provider, { signup: string; apiKey: string; 
 };
 
 /* ============================================================================
+ * PROVIDER_REGISTRY — single source of truth for provider metadata.
+ *
+ * Replaces the duplicate PROVIDERS arrays that used to live independently in
+ * components/landing/OnboardingFlow.tsx and components/settings/AgentConfigEditor.tsx.
+ * Both surfaces now `import { PROVIDER_REGISTRY } from "@/lib/providers"` and
+ * derive their pickers from this list. Add a provider once, both surfaces
+ * pick it up.
+ *
+ * Per-surface presentation (pretty model labels, taglines, badges) lives
+ * here too — separate fields for each surface so the registry stays the
+ * canonical source even when the wording differs slightly.
+ * ============================================================================ */
+export type ProviderRegistryEntry = {
+  value: Provider;
+  /** Short label used in pickers (Onboarding's tile, AgentConfigEditor's <select>). */
+  label: string;
+  /** One-line summary for Onboarding (under the tile). */
+  tagline: string;
+  /** Longer prose for AgentConfigEditor (under the dropdown). */
+  hint: string;
+  /** Sign-up + API key URLs (sourced from PROVIDER_LINKS). */
+  signup: string;
+  apiKey: string;
+  /** Optional doc URL — surfaced in the AgentConfigEditor "Get API key" button. */
+  docs?: string;
+  /** Picker models, with optional pretty labels for OnboardingFlow. */
+  models: Array<{ id: string; label: string }>;
+  /** Onboarding placeholder for the API-key input. */
+  placeholder: string;
+  /** Star tile in Onboarding ("★ recommended"). */
+  badge?: string;
+  /** True for OpenRouter — surfaces the "recommended" flag in AgentConfigEditor. */
+  recommended?: boolean;
+};
+
+export const PROVIDER_REGISTRY: ProviderRegistryEntry[] = [
+  {
+    value: "openrouter",
+    label: "OpenRouter",
+    tagline: "One key, every model — recommended",
+    hint: "One key, every model. Easiest path — pay-as-you-go, no per-provider setup.",
+    signup: PROVIDER_LINKS.openrouter.signup,
+    apiKey: PROVIDER_LINKS.openrouter.apiKey,
+    docs: PROVIDER_LINKS.openrouter.docs,
+    models: [
+      { id: "anthropic/claude-sonnet-4", label: "Claude Sonnet 4 (balanced)" },
+      { id: "anthropic/claude-opus-4", label: "Claude Opus 4 (heavy reasoning)" },
+      { id: "openai/gpt-5.4", label: "GPT-5.4" },
+      { id: "openai/gpt-5.4-mini", label: "GPT-5.4 mini (cheap)" },
+      { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+      { id: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash (fast)" },
+      { id: "meta-llama/llama-3.3-70b-instruct", label: "Llama 3.3 70B" },
+    ],
+    placeholder: "sk-or-v1-...",
+    badge: "★ recommended",
+    recommended: true,
+  },
+  {
+    value: "anthropic",
+    label: "Anthropic Direct",
+    tagline: "Claude only — best if you already have an Anthropic account",
+    hint: "Direct to Claude. Best for Anthropic-only deployments.",
+    signup: PROVIDER_LINKS.anthropic.signup,
+    apiKey: PROVIDER_LINKS.anthropic.apiKey,
+    docs: PROVIDER_LINKS.anthropic.docs,
+    models: [
+      { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6 (balanced)" },
+      { id: "claude-opus-4-7", label: "Claude Opus 4.7 (heavy reasoning)" },
+      { id: "claude-haiku-4-5", label: "Claude Haiku 4.5 (fast)" },
+    ],
+    placeholder: "sk-ant-...",
+  },
+  {
+    value: "openai",
+    label: "OpenAI Direct",
+    tagline: "GPT-5.x + Codex — pay-as-you-go via OpenAI",
+    hint: "Direct to OpenAI. Use for GPT-5 + Codex.",
+    signup: PROVIDER_LINKS.openai.signup,
+    apiKey: PROVIDER_LINKS.openai.apiKey,
+    docs: PROVIDER_LINKS.openai.docs,
+    models: [
+      { id: "gpt-5.4", label: "GPT-5.4" },
+      { id: "gpt-5.4-mini", label: "GPT-5.4 mini (cheap)" },
+      { id: "gpt-5.2", label: "GPT-5.2" },
+      { id: "gpt-5.3-codex", label: "GPT-5.3 Codex" },
+    ],
+    placeholder: "sk-proj-...",
+  },
+  {
+    value: "google",
+    label: "Google Gemini",
+    tagline: "Free tier available via AI Studio",
+    hint: "Direct to Gemini via AI Studio. Free tier available.",
+    signup: PROVIDER_LINKS.google.signup,
+    apiKey: PROVIDER_LINKS.google.apiKey,
+    docs: PROVIDER_LINKS.google.docs,
+    models: [
+      { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+      { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash (fast)" },
+    ],
+    placeholder: "AIza...",
+  },
+  {
+    value: "ollama",
+    label: "Local model (Ollama / LM Studio)",
+    tagline:
+      "Zero per-call cost · full data residency · pair with the local bridge for best results",
+    hint:
+      "Runs on your machine. Paste your local endpoint URL in the key field (http://localhost:11434/v1 for Ollama, :1234/v1 for LM Studio). Pair with the local bridge for best results.",
+    signup: PROVIDER_LINKS.ollama.signup,
+    apiKey: PROVIDER_LINKS.ollama.apiKey,
+    docs: PROVIDER_LINKS.ollama.docs,
+    models: [
+      { id: "llama3.3:70b", label: "Llama 3.3 70B (best — needs 48GB+ GPU)" },
+      { id: "llama3.3", label: "Llama 3.3 (default tag)" },
+      { id: "qwen2.5:72b", label: "Qwen 2.5 72B (strong reasoning)" },
+      { id: "qwen2.5-coder:32b", label: "Qwen 2.5 Coder 32B (code-focused)" },
+      { id: "mistral", label: "Mistral 7B (light, fast)" },
+      { id: "deepseek-r1:70b", label: "DeepSeek R1 70B (reasoning model)" },
+    ],
+    placeholder: "http://localhost:11434/v1  (or LM Studio: http://localhost:1234/v1)",
+  },
+];
+
+/* ============================================================================
  * Public entry point — async generator that yields StreamEvents.
  * ============================================================================ */
 export async function* streamChat(req: ChatRequest): AsyncGenerator<StreamEvent> {

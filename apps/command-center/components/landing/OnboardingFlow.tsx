@@ -18,90 +18,13 @@ import {
   Loader2, AlertCircle, ShieldCheck, Monitor,
 } from "lucide-react";
 import { FAMILY_AGENT_KEYS, getAgentInfo } from "@/lib/agents";
+import { PROVIDER_REGISTRY } from "@/lib/providers";
 
-const PROVIDERS = [
-  {
-    value: "openrouter",
-    label: "OpenRouter",
-    tagline: "One key, every model — recommended",
-    badge: "★ recommended",
-    signup: "https://openrouter.ai/sign-up",
-    apiKey: "https://openrouter.ai/keys",
-    models: [
-      { id: "anthropic/claude-sonnet-4", label: "Claude Sonnet 4 (balanced)" },
-      { id: "anthropic/claude-opus-4", label: "Claude Opus 4 (heavy reasoning)" },
-      { id: "openai/gpt-5.4", label: "GPT-5.4" },
-      { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-    ],
-    placeholder: "sk-or-v1-...",
-  },
-  {
-    value: "anthropic",
-    label: "Anthropic Direct",
-    tagline: "Claude only — best if you already have an Anthropic account",
-    signup: "https://console.anthropic.com/signup",
-    apiKey: "https://console.anthropic.com/settings/keys",
-    models: [
-      { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6 (balanced)" },
-      { id: "claude-opus-4-7", label: "Claude Opus 4.7 (heavy reasoning)" },
-      { id: "claude-haiku-4-5", label: "Claude Haiku 4.5 (fast)" },
-    ],
-    placeholder: "sk-ant-...",
-  },
-  {
-    value: "openai",
-    label: "OpenAI Direct",
-    tagline: "GPT-5.x + Codex — pay-as-you-go via OpenAI",
-    signup: "https://platform.openai.com/signup",
-    apiKey: "https://platform.openai.com/api-keys",
-    models: [
-      { id: "gpt-5.4", label: "GPT-5.4" },
-      { id: "gpt-5.4-mini", label: "GPT-5.4 mini (cheap)" },
-    ],
-    placeholder: "sk-proj-...",
-  },
-  {
-    value: "google",
-    label: "Google Gemini",
-    tagline: "Free tier available via AI Studio",
-    signup: "https://aistudio.google.com/",
-    apiKey: "https://aistudio.google.com/apikey",
-    models: [
-      { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-      { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash (fast)" },
-    ],
-    placeholder: "AIza...",
-  },
-  {
-    // Local model — runs entirely on the operator's machine via Ollama
-    // or LM Studio. Zero per-call cost after the model download. The
-    // "key" field stores the local server URL.
-    //
-    // Caveat: the cloud dashboard can't reach localhost on the operator's
-    // machine. So this path is fully usable only when (a) the dashboard
-    // is running locally on the same machine as Ollama, OR (b) the
-    // operator runs the local-bridge daemon (preferred — bridge proxies
-    // chat through their machine and can talk to localhost:11434), OR
-    // (c) Ollama is exposed via an ngrok / Cloudflare tunnel. The UI
-    // copy makes this explicit so the operator picks with eyes open.
-    value: "ollama",
-    label: "Local model (Ollama / LM Studio)",
-    tagline:
-      "Zero per-call cost · full data residency · pair with the local bridge for best results",
-    signup: "https://ollama.com/download",
-    apiKey: "https://ollama.com/library",
-    models: [
-      { id: "llama3.3:70b", label: "Llama 3.3 70B (best — needs 48GB+ GPU)" },
-      { id: "llama3.3", label: "Llama 3.3 (default tag)" },
-      { id: "qwen2.5:72b", label: "Qwen 2.5 72B (strong reasoning)" },
-      { id: "qwen2.5-coder:32b", label: "Qwen 2.5 Coder 32B (code-focused)" },
-      { id: "mistral", label: "Mistral 7B (light, fast)" },
-      { id: "deepseek-r1:70b", label: "DeepSeek R1 70B (reasoning model)" },
-    ],
-    // The "API key" field is repurposed as the endpoint URL for local models.
-    placeholder: "http://localhost:11434/v1  (or LM Studio: http://localhost:1234/v1)",
-  },
-];
+// Single source of truth for the provider picker — see lib/providers.ts.
+// Add a provider once there, both Onboarding and AgentConfigEditor pick
+// it up. Earlier this list was duplicated here AND in AgentConfigEditor;
+// the duplicates drifted (one had ollama, one didn't) until consolidation.
+const PROVIDERS = PROVIDER_REGISTRY;
 
 // Onboarding shows the C-suite personas (Bravo / Atlas / Maven / Aura / Hermes / Life Preservation).
 // Codex is excluded because it is a backend executor, not a standalone persona — see lib/agents.ts.
