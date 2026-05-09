@@ -1,5 +1,6 @@
+import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Bot, Cpu, Zap, ShieldCheck, Sparkles, Globe2 } from "lucide-react";
+import { ArrowRight, Bot, Cpu, Zap, ShieldCheck, Sparkles, Globe2, Monitor, Plug } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/supabase-server";
 
@@ -29,8 +30,15 @@ export default async function WelcomePage() {
       {/* Top nav */}
       <header className="relative z-10 mx-auto max-w-7xl px-6 sm:px-10 py-6 flex items-center justify-between">
         <Link href="/welcome" className="flex items-center gap-2.5 group">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br from-accent to-cyan-400 shadow-[0_0_20px_-2px_rgba(0,212,255,0.6)] group-hover:shadow-[0_0_28px_-2px_rgba(0,212,255,0.8)] transition-shadow">
-            <span className="text-bg-deep font-black text-sm">O</span>
+          <div className="w-9 h-9 rounded-lg overflow-hidden ring-1 ring-accent/40 shadow-[0_0_20px_-2px_rgba(0,212,255,0.6)] group-hover:shadow-[0_0_28px_-2px_rgba(0,212,255,0.8)] transition-shadow">
+            <Image
+              src="/oasis-logo.jpg"
+              alt="OASIS AI"
+              width={36}
+              height={36}
+              className="w-full h-full object-cover"
+              priority
+            />
           </div>
           <div className="leading-none">
             <div className="font-black text-fg tracking-tight">OASIS AI</div>
@@ -64,11 +72,11 @@ export default async function WelcomePage() {
             </span>
           </h1>
           <p className="mt-6 text-lg sm:text-xl text-fg-muted leading-relaxed max-w-2xl">
-            Chat with Bravo, Maven, Atlas, Aura, or Hermes from a single dashboard. Bring your own API key — Claude, GPT, Gemini, OpenRouter — and switch models per agent. Pipeline, analytics, integrations, and live event bus included.
+            A C-suite of AI agents wired into your business — Bravo, Maven, Atlas, Aura, Hermes — running with full read/write access to your machine, your files, your stack. Chat any of them from one dashboard. They post handoffs to each other, execute scripts, draft documents, and ship work while you sleep.
           </p>
           <div className="mt-9 flex flex-wrap items-center gap-3">
             <Link href="/configure" className="btn-send !px-5 !py-3 text-sm">
-              Configure your own agent <ArrowRight className="w-4 h-4" />
+              See if we&apos;re a fit <ArrowRight className="w-4 h-4" />
             </Link>
             <Link href="/login" className="btn-secondary !px-5 !py-3 text-sm">
               Sign in
@@ -79,10 +87,10 @@ export default async function WelcomePage() {
             </a>
           </div>
           <div className="mt-7 flex flex-wrap gap-x-6 gap-y-2 text-xs text-fg-dim">
-            <span>✓ No credit card</span>
-            <span>✓ Bring your own keys</span>
-            <span>✓ Open source ready</span>
+            <span>✓ Local-first — your machine, your files</span>
             <span>✓ Multi-tenant secure</span>
+            <span>✓ 30+ integrations included</span>
+            <span>✓ Founder-led — pricing on application</span>
           </div>
         </div>
       </section>
@@ -91,34 +99,34 @@ export default async function WelcomePage() {
       <section className="relative z-10 mx-auto max-w-7xl px-6 sm:px-10 pb-24">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <FeatureCard
+            icon={<Monitor className="w-5 h-5" />}
+            title="Runs on your machine"
+            body="A small bridge daemon spawns Claude Code locally with full file-system access. Your agents read your repos, edit your files, run your scripts — same trust boundary as you. Cloud-only mode is also available for clients without a Claude subscription."
+          />
+          <FeatureCard
             icon={<Bot className="w-5 h-5" />}
             title="One chat, every agent"
-            body="Switch between Bravo, Maven, Atlas, Aura, Hermes mid-conversation. Each runs its own provider + model, configured by you."
+            body="Switch between Bravo (architect), Atlas (CFO), Maven (CMO), Aura (life/home), Hermes (commerce) mid-conversation. They share an inbox so handoffs happen without you relaying every message."
+          />
+          <FeatureCard
+            icon={<Plug className="w-5 h-5" />}
+            title="30+ integrations included"
+            body="Stripe, Supabase, Vercel, Cloudflare, GitHub, Notion, Google Workspace, Telegram, Zernio, Wise, Kraken, and more. Paste an API key once — the dashboard shows green/red status for every service the agents need."
           />
           <FeatureCard
             icon={<Cpu className="w-5 h-5" />}
-            title="Bring your own model"
-            body="OpenRouter for one-key access to every model, or wire Anthropic / OpenAI / Gemini directly. Per-agent overrides supported."
-          />
-          <FeatureCard
-            icon={<Zap className="w-5 h-5" />}
-            title="Real-time streaming"
-            body="Token-by-token responses. Live event bus tape. Zero placeholders — every dot pulses on actual activity."
+            title="Pick the brain you trust"
+            body="Local mode uses your Claude Code subscription. Cloud mode uses an API key you save (OpenRouter, Anthropic, OpenAI, Gemini) — same agent personas, no Claude subscription required."
           />
           <FeatureCard
             icon={<ShieldCheck className="w-5 h-5" />}
-            title="Encrypted at rest"
-            body="API keys encrypted with AES-256-GCM before they touch the database. Your tenant data is RLS-isolated end-to-end."
+            title="Encrypted, isolated, redacted"
+            body="API keys encrypted at rest with AES-256-GCM. RLS-isolated per tenant. Bridge log + chat persistence redacts known credentials before write — defense-in-depth across every storage surface."
           />
           <FeatureCard
             icon={<Sparkles className="w-5 h-5" />}
-            title="Pipeline + analytics built-in"
-            body="Outbound and inbound funnel, lead sources, MRR trajectory, integrations health — wired to real Postgres, not screenshots."
-          />
-          <FeatureCard
-            icon={<Globe2 className="w-5 h-5" />}
-            title="Connect everything"
-            body="24+ integrations from one settings page. Click any service, sign up, paste your key — instantly wired into the stack."
+            title="Real numbers, real activity"
+            body="Pipeline, MRR trajectory, integrations health, live event tape — wired to actual Postgres, not screenshots. What the dashboard shows is what your tenant has."
           />
         </div>
       </section>
@@ -130,18 +138,18 @@ export default async function WelcomePage() {
                style={{ background: "radial-gradient(800px 200px at 50% 0%, rgba(0,212,255,0.4), transparent)" }} />
           <div className="relative">
             <h2 className="text-2xl sm:text-3xl font-black text-fg leading-tight">
-              Spin up your command center in under five minutes.
+              Built for operators, not tinkerers.
             </h2>
             <p className="mt-3 text-fg-muted">
-              Sign up, paste an OpenRouter key, pick your primary agent. Add a local pairing later for full file-system access — totally optional.
+              OASIS AI is a paid, founder-led service. We deploy your command center, install the bridge on your machine, wire your integrations, and tune your agents&apos; voice to your business. You stay focused on the high-leverage moves only you can make; the agents handle the rest.
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <Link href="/signup" className="btn-send !px-5 !py-3 text-sm">
-                Create your account <ArrowRight className="w-4 h-4" />
+              <Link href="/configure" className="btn-send !px-5 !py-3 text-sm">
+                Apply for a deployment <ArrowRight className="w-4 h-4" />
               </Link>
-              <a href="https://openrouter.ai/sign-up" target="_blank" rel="noopener noreferrer"
+              <a href="https://oasisai.work/contact" target="_blank" rel="noopener noreferrer"
                  className="btn-secondary !px-5 !py-3 text-sm">
-                Get an OpenRouter key
+                Talk to Conaugh
               </a>
             </div>
           </div>
