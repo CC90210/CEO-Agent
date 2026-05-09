@@ -147,32 +147,79 @@ def refresh_gws_auth():
     return False
 
 
-def gmail_send_smtp(to, subject, body, ics_content=None):
-    """Send email via SMTP as fallback when gws CLI auth fails."""
+def gmail_send_smtp(to, subject, body, ics_content=None, *, branded=False, cta_label=None, cta_url=None):
+    """Send email via SMTP as fallback when gws CLI auth fails.
+
+    branded=True wraps `body` in the OASIS AI branded HTML shell from
+    scripts/email_template.py and sends multipart/alternative (HTML +
+    plaintext fallback). branded=False sends plaintext only — same
+    behavior as before.
+
+    cta_label + cta_url (only honored when branded=True) renders a
+    primary-button CTA below the message body.
+    """
     gmail_user = os.environ.get("GMAIL_USER", "conaugh@oasisai.work")
     gmail_pass = os.environ.get("GMAIL_APP_PASSWORD")
     if not gmail_pass:
         return None, "GMAIL_APP_PASSWORD not set in .env.agents"
 
-    msg = MIMEMultipart("mixed")
-    msg["From"] = f"Conaugh McKenna <{gmail_user}>"
+    from_display = (
+        os.environ.get("BRAVO_FROM_DISPLAY")
+        or os.environ.get("USER_FULL_NAME")
+        or "Conaugh McKenna"
+    )
+
+    if branded:
+        # Lazy-import so the rest of google_tool.py keeps working when
+        # email_template.py is missing (e.g., during a partial deploy).
+        try:
+            sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+            from email_template import render_branded_html, render_branded_plaintext
+            html_body = render_branded_html(
+                body, subject=subject, cta_label=cta_label, cta_url=cta_url,
+                show_booking=True,
+            )
+            plain_body = render_branded_plaintext(body)
+        except Exception as e:
+            return None, f"branded_template_failed: {e}"
+
+        # multipart/alternative — clients pick HTML if they support it,
+        # plaintext otherwise. Wrap in mixed only if we're attaching an
+        # ICS calendar invite below.
+        alt = MIMEMultipart("alternative")
+        alt.attach(MIMEText(plain_body, "plain", "utf-8"))
+        alt.attach(MIMEText(html_body, "html", "utf-8"))
+        if ics_content:
+            msg = MIMEMultipart("mixed")
+            msg.attach(alt)
+            ics_part = MIMEBase("text", "calendar", method="REQUEST")
+            ics_part.set_payload(ics_content)
+            encoders.encode_base64(ics_part)
+            ics_part.add_header("Content-Disposition", "attachment", filename="invite.ics")
+            msg.attach(ics_part)
+        else:
+            msg = alt
+    else:
+        # Plain-text only — preserved for backwards compatibility.
+        msg = MIMEMultipart("mixed")
+        msg.attach(MIMEText(body, "plain"))
+        if ics_content:
+            ics_part = MIMEBase("text", "calendar", method="REQUEST")
+            ics_part.set_payload(ics_content)
+            encoders.encode_base64(ics_part)
+            ics_part.add_header("Content-Disposition", "attachment", filename="invite.ics")
+            msg.attach(ics_part)
+
+    msg["From"] = f"{from_display} <{gmail_user}>"
     msg["To"] = to
     msg["Subject"] = subject
-    msg.attach(MIMEText(body, "plain"))
-
-    if ics_content:
-        ics_part = MIMEBase("text", "calendar", method="REQUEST")
-        ics_part.set_payload(ics_content)
-        encoders.encode_base64(ics_part)
-        ics_part.add_header("Content-Disposition", "attachment", filename="invite.ics")
-        msg.attach(ics_part)
 
     try:
         server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
         server.login(gmail_user, gmail_pass)
         server.sendmail(gmail_user, to, msg.as_string())
         server.quit()
-        return {"status": "sent", "method": "smtp", "to": to}, None
+        return {"status": "sent", "method": "smtp", "to": to, "branded": bool(branded)}, None
     except Exception as e:
         return None, str(e)
 
@@ -290,29 +337,51 @@ def calendar_delete(args):
 # ── Gmail Commands ─────────────────────────────────────────────────
 
 def gmail_send(args):
-    """Send an email. Uses gws CLI first, falls back to SMTP."""
-    # Try gws CLI first
-    message_body = {
-        "raw": _encode_email(args.to, args.subject, args.body)
-    }
-    data, err = run_gws([
-        "gmail", "users", "messages", "send",
-        "--params", json.dumps({"userId": "me"}),
-        "--json", json.dumps(message_body)
-    ])
+    """Send an email. Uses gws CLI first, falls back to SMTP.
 
-    if err == "AUTH_EXPIRED" or err:
-        # Fallback to SMTP
-        print("gws CLI unavailable, using SMTP fallback...", file=sys.stderr)
-        data, smtp_err = gmail_send_smtp(args.to, args.subject, args.body)
+    `--branded` (default ON) wraps the body in the OASIS AI branded
+    HTML shell from scripts/email_template.py. `--plain` opts out for
+    the rare case the operator wants a stripped-down message (e.g.
+    automated verification mails).
+    """
+    # When branded, the SMTP path renders HTML — gws CLI's `raw` field
+    # would need to be MIME-encoded with the HTML body too. Easier:
+    # always go SMTP for branded sends; gws CLI for plain.
+    use_branded = getattr(args, "branded", True) and not getattr(args, "plain", False)
+    cta_label = getattr(args, "cta_label", None)
+    cta_url = getattr(args, "cta_url", None)
+
+    if use_branded:
+        data, smtp_err = gmail_send_smtp(
+            args.to, args.subject, args.body,
+            branded=True, cta_label=cta_label, cta_url=cta_url,
+        )
         if smtp_err:
             print(f"ERROR: {smtp_err}", file=sys.stderr)
             sys.exit(1)
+    else:
+        # Plain-text path: try gws first (preserves From: identity from
+        # the operator's OAuth grant), fall back to SMTP.
+        message_body = {
+            "raw": _encode_email(args.to, args.subject, args.body)
+        }
+        data, err = run_gws([
+            "gmail", "users", "messages", "send",
+            "--params", json.dumps({"userId": "me"}),
+            "--json", json.dumps(message_body)
+        ])
+        if err == "AUTH_EXPIRED" or err:
+            print("gws CLI unavailable, using SMTP fallback...", file=sys.stderr)
+            data, smtp_err = gmail_send_smtp(args.to, args.subject, args.body)
+            if smtp_err:
+                print(f"ERROR: {smtp_err}", file=sys.stderr)
+                sys.exit(1)
 
     if args.json_output:
         print(json.dumps(data, indent=2))
     else:
-        print(f"Email sent to {args.to}")
+        suffix = " (branded)" if use_branded else ""
+        print(f"Email sent to {args.to}{suffix}")
 
 
 def gmail_list(args):
@@ -1205,6 +1274,18 @@ def main():
     gmail_s.add_argument("--subject", required=True)
     gmail_s.add_argument("--body", required=True)
     gmail_s.add_argument("--json", dest="json_output", action="store_true")
+    # Branded HTML shell (OASIS AI template) is the default — agents send
+    # client-facing email under the operator's identity, so the brand should
+    # be there automatically. --plain opts out for the rare case the operator
+    # wants a stripped-down send (verification mails, internal-only relays).
+    gmail_s.add_argument("--branded", action="store_true", default=True,
+                         help="Wrap body in OASIS AI branded HTML shell (default)")
+    gmail_s.add_argument("--plain", action="store_true",
+                         help="Send plain-text only (overrides --branded)")
+    gmail_s.add_argument("--cta-label", dest="cta_label", default=None,
+                         help="Optional CTA button text (requires --cta-url)")
+    gmail_s.add_argument("--cta-url", dest="cta_url", default=None,
+                         help="Optional CTA button URL (requires --cta-label)")
 
     gmail_l = gmail_sub.add_parser("list", help="List messages")
     gmail_l.add_argument("--max", type=int, default=10)

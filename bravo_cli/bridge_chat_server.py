@@ -525,6 +525,43 @@ def _map_tool_use(name: str, tinput: dict) -> dict:
     }
 
 
+_MSYS_NOISE_PATTERNS = [
+    # Git Bash / MSYS startup noise that lands in every subprocess's stderr
+    # when claude spawns `bash -c …` on Windows. None of it is the actual
+    # tool output — it's profile.d / fstab / mtab cleanup that's irrelevant
+    # to the operator and pollutes both the chat UI and the agent's
+    # context tokens. CC reported confusion seeing /etc/hosts permission
+    # errors after a clean email send.
+    re.compile(r"^'[A-Z]:\\WINDOWS\\[^']+'\s*->\s*'/etc/[^']+'\s*$"),
+    re.compile(r"^ln:\s*failed to create symbolic link\s+'/etc/mtab'.*$"),
+    re.compile(r"^/usr/bin/cp:\s*cannot create regular file\s+'/etc/[^']+':\s*Permission denied\s*$"),
+    re.compile(r"^rm:\s*cannot remove\s+'/etc/post-install/[^']+':\s*Permission denied\s*$"),
+    re.compile(r"^\s*0\s*\[main\]\s+\S+\s+\d+\s+(child_copy|dofork|fork:).*$"),
+    re.compile(r"^/usr/bin/bash:\s*fork:\s*(retry:\s*)?Resource temporarily unavailable\s*$"),
+]
+
+
+def _strip_msys_noise(text: str) -> str:
+    """Remove well-known Git-Bash-on-Windows startup noise from a tool
+    output body. Conservative: only strips lines that exactly match one
+    of the known noise patterns, leaves everything else alone (including
+    blank lines that follow). If the resulting body is empty after
+    stripping, return the original — never erase a tool's actual output.
+    """
+    if not text or "\\WINDOWS\\" not in text and "/etc/" not in text and "[main]" not in text:
+        # Fast path: nothing in the body matches any of the noise
+        # signatures, skip the per-line walk entirely.
+        return text
+    lines = text.splitlines()
+    kept: list[str] = []
+    for line in lines:
+        if any(pat.match(line) for pat in _MSYS_NOISE_PATTERNS):
+            continue
+        kept.append(line)
+    cleaned = "\n".join(kept)
+    return cleaned if cleaned.strip() else text
+
+
 def _map_tool_result(block: dict, parent: dict) -> dict:
     """Translate a Claude Code tool_result block into the SSE 'tool_result'
     event shape. The block has tool_use_id + content; we surface the
@@ -544,6 +581,10 @@ def _map_tool_result(block: dict, parent: dict) -> dict:
         body = "\n".join(parts)
     else:
         body = json.dumps(raw_content)[:1000] if raw_content is not None else ""
+
+    # Strip Git Bash on Windows startup noise BEFORE redaction or
+    # truncation — irrelevant to the operator, eats context budget.
+    body = _strip_msys_noise(body)
 
     truncated = len(body) > 12_288
     if truncated:
