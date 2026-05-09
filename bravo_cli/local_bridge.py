@@ -614,9 +614,16 @@ def _resolve_pythonw() -> str:
 
 
 def _install_windows_startup_folder(py: str) -> tuple[bool, str]:
-    """Fallback for Windows when schtasks denies access. Drops a .cmd
-    in the user's Startup folder. Always works — no admin / interactive
-    session required. Returns (ok, message).
+    """Fallback for Windows when schtasks denies access. Drops a .vbs
+    in the user's Startup folder. .vbs is run via wscript.exe with no
+    visible window — `.cmd` files would pop a brief cmd.exe console
+    on every login (CC reported this; user-visible regression). The
+    .vbs version uses `WshShell.Run("cmd /c ...", 0, False)` which
+    hides the console entirely.
+    Always works — no admin / interactive session required. Idempotent:
+    overwrites any prior .vbs AND removes a stale .cmd from older
+    installs so we don't end up with duplicate startup entries.
+    Returns (ok, message).
     """
     appdata = os.environ.get("APPDATA")
     if not appdata:
@@ -625,16 +632,32 @@ def _install_windows_startup_folder(py: str) -> tuple[bool, str]:
     if not startup.is_dir():
         return False, f"Startup folder not found at {startup}"
     cwd = Path.cwd().resolve()
-    cmd_path = startup / "OASIS-Bravo-Bridge.cmd"
-    cmd_path.write_text(
-        "@echo off\r\n"
-        "REM OASIS Bravo Bridge — chat HTTP server on localhost:9100.\r\n"
-        "REM Auto-installed by `bravo bridge install`.\r\n"
-        f"cd /d \"{cwd}\"\r\n"
-        f"start /min \"\" \"{py}\" -m bravo_cli.bridge_chat_server\r\n",
+
+    # Remove the legacy .cmd if a previous install left one — otherwise
+    # both fire at login and the user sees the popup we're trying to
+    # eliminate.
+    legacy_cmd = startup / "OASIS-Bravo-Bridge.cmd"
+    if legacy_cmd.is_file():
+        try:
+            legacy_cmd.unlink()
+        except Exception:
+            pass
+
+    # VBS launcher — same hidden-console pattern as start-bravo.vbs and
+    # atlas_paper_trade.vbs already in CC's Startup folder. Quotes
+    # inside the cmd string are doubled per VBS string-escape rules.
+    cwd_q = str(cwd).replace('"', '""')
+    py_q = str(py).replace('"', '""')
+    vbs_path = startup / "OASIS-Bravo-Bridge.vbs"
+    vbs_path.write_text(
+        "' OASIS Bravo Bridge - Silent auto-start on Windows login\r\n"
+        "' Replaces OASIS-Bravo-Bridge.cmd (which popped a console window)\r\n"
+        "' Auto-installed by `bravo bridge install`.\r\n"
+        "Set WshShell = CreateObject(\"WScript.Shell\")\r\n"
+        f'WshShell.Run "cmd /c cd /d ""{cwd_q}"" && ""{py_q}"" -m bravo_cli.bridge_chat_server", 0, False\r\n',
         encoding="utf-8",
     )
-    return True, str(cmd_path)
+    return True, str(vbs_path)
 
 
 def cmd_install(_args) -> int:
