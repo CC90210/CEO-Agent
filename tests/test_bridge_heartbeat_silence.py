@@ -1,24 +1,25 @@
-"""Lock the popup fix: every subprocess.run / subprocess.Popen in
-bridge_chat_server.py must pass creationflags=_WINDOWLESS_FLAGS so the
-Windows-side bridge heartbeat doesn't pop a system32 cmd.exe every 60s
-when it probes for `playwright`, `whisper`, `ffmpeg`.
+"""Lock the popup fix: every subprocess.run / subprocess.Popen in the
+bravo_cli package must pass creationflags so the Windows-side bridge
+doesn't pop a system32 cmd.exe at any of its periodic ticks.
 
-This is a TEXT-LEVEL test against the source — there's no way to spawn
-the bridge in pytest, so we assert the contract that every subprocess
-call site has the right flag.
+This is a TEXT-LEVEL test — there's no way to spawn the bridge in
+pytest. We assert the contract that every subprocess call site has the
+right flag, AND that .cmd-shim probes also pass startupinfo (because
+CREATE_NO_WINDOW alone is not enough for the cmd.exe wrapper).
 """
 
 import re
 from pathlib import Path
 
-SRC = Path(__file__).resolve().parent.parent / "bravo_cli" / "bridge_chat_server.py"
+PKG = Path(__file__).resolve().parent.parent / "bravo_cli"
+COVERED_FILES = ["bridge_chat_server.py", "warm_claude_pool.py", "local_bridge.py"]
 
 
-def _all_subprocess_calls() -> list[tuple[int, str, str]]:
+def _all_subprocess_calls(path: Path) -> list[tuple[int, str, str]]:
     """Return (line_number, kind, full_block) for every subprocess.run /
     subprocess.Popen / subprocess.call in the file. Walks parens to capture
     the entire multi-line call."""
-    text = SRC.read_text(encoding="utf-8")
+    text = path.read_text(encoding="utf-8")
     out: list[tuple[int, str, str]] = []
     for m in re.finditer(r"subprocess\.(Popen|run|call|check_output|check_call)\(", text):
         kind = m.group(1)
@@ -36,17 +37,20 @@ def _all_subprocess_calls() -> list[tuple[int, str, str]]:
     return out
 
 
-def test_every_subprocess_passes_windowless_flags():
-    """No popup may slip in. Every subprocess call must reference
-    _WINDOWLESS_FLAGS — either directly or via a helper that wraps it."""
+def test_every_subprocess_in_bravo_cli_passes_windowless_flags():
+    """No popup may slip in across the three popup-prone bravo_cli modules.
+    Every subprocess call must reference WINDOWLESS_FLAGS / creation_flags
+    — either via the helper import or via a creationflags= kwarg."""
     leaks: list[str] = []
-    for line, kind, block in _all_subprocess_calls():
-        if "_WINDOWLESS_FLAGS" not in block and "creationflags" not in block:
-            leaks.append(f"line {line} subprocess.{kind} missing creationflags")
+    for fname in COVERED_FILES:
+        path = PKG / fname
+        for line, kind, block in _all_subprocess_calls(path):
+            if "WINDOWLESS_FLAGS" not in block and "creationflags" not in block:
+                leaks.append(f"{fname}:{line} subprocess.{kind} missing creationflags")
     assert not leaks, (
-        "bridge_chat_server.py has unprotected subprocess calls — these "
-        "will pop cmd.exe windows on Windows when their target is a .cmd "
-        "shim:\n  " + "\n  ".join(leaks)
+        "bravo_cli has unprotected subprocess calls — these will pop "
+        "cmd.exe windows on Windows when their target is a .cmd shim:\n  "
+        + "\n  ".join(leaks)
     )
 
 
@@ -55,16 +59,24 @@ def test_cmd_resolving_probes_use_startupinfo():
     CREATE_NO_WINDOW alone is not enough — the cmd.exe wrapper still flashes
     unless STARTUPINFO + SW_HIDE is also passed. Verify the heartbeat probes
     use both."""
-    text = SRC.read_text(encoding="utf-8")
-    # The four heartbeat probes should each be in a code block that
-    # references both flags. Cheap proof: every line that calls
-    # subprocess.run on a known .cmd-shim binary must have a startupinfo.
+    text = (PKG / "bridge_chat_server.py").read_text(encoding="utf-8")
     cmd_shim_probes = ("\"playwright\"", "\"whisper\"")
     for probe in cmd_shim_probes:
-        # Find the call site
         for m in re.finditer(r"subprocess\.run\([^)]*" + re.escape(probe), text):
             window = text[m.start():m.start() + 600]
             assert "startupinfo=" in window, (
                 f"probe {probe} at offset {m.start()} missing startupinfo "
                 f"— cmd.exe wrapper will still flash"
             )
+
+
+def test_helper_module_exists_and_exports_both_names():
+    """The shared helper must exist and expose both names. Catches an
+    accidental rename that breaks the three call sites in lockstep."""
+    helper = PKG / "_subprocess_helpers.py"
+    assert helper.is_file(), "bravo_cli/_subprocess_helpers.py must exist"
+    text = helper.read_text(encoding="utf-8")
+    assert "WINDOWLESS_FLAGS" in text, "helper must export WINDOWLESS_FLAGS"
+    assert "def windowless_startupinfo" in text, (
+        "helper must export windowless_startupinfo() for .cmd-shim callers"
+    )
