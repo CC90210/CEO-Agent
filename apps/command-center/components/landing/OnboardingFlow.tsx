@@ -72,6 +72,35 @@ const PROVIDERS = [
     ],
     placeholder: "AIza...",
   },
+  {
+    // Local model — runs entirely on the operator's machine via Ollama
+    // or LM Studio. Zero per-call cost after the model download. The
+    // "key" field stores the local server URL.
+    //
+    // Caveat: the cloud dashboard can't reach localhost on the operator's
+    // machine. So this path is fully usable only when (a) the dashboard
+    // is running locally on the same machine as Ollama, OR (b) the
+    // operator runs the local-bridge daemon (preferred — bridge proxies
+    // chat through their machine and can talk to localhost:11434), OR
+    // (c) Ollama is exposed via an ngrok / Cloudflare tunnel. The UI
+    // copy makes this explicit so the operator picks with eyes open.
+    value: "ollama",
+    label: "Local model (Ollama / LM Studio)",
+    tagline:
+      "Zero per-call cost · full data residency · pair with the local bridge for best results",
+    signup: "https://ollama.com/download",
+    apiKey: "https://ollama.com/library",
+    models: [
+      { id: "llama3.3:70b", label: "Llama 3.3 70B (best — needs 48GB+ GPU)" },
+      { id: "llama3.3", label: "Llama 3.3 (default tag)" },
+      { id: "qwen2.5:72b", label: "Qwen 2.5 72B (strong reasoning)" },
+      { id: "qwen2.5-coder:32b", label: "Qwen 2.5 Coder 32B (code-focused)" },
+      { id: "mistral", label: "Mistral 7B (light, fast)" },
+      { id: "deepseek-r1:70b", label: "DeepSeek R1 70B (reasoning model)" },
+    ],
+    // The "API key" field is repurposed as the endpoint URL for local models.
+    placeholder: "http://localhost:11434/v1  (or LM Studio: http://localhost:1234/v1)",
+  },
 ];
 
 // Onboarding shows the C-suite personas (Bravo / Atlas / Maven / Aura / Hermes / Life Preservation).

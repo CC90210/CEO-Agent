@@ -60,7 +60,7 @@ const PHASES: Phase[] = [
       {
         title: "Ask which AI provider they want",
         detail:
-          "Default recommendation: Anthropic direct (one key, full Claude Code experience). Alternative: OpenRouter (cheaper, more model variety). They need to have a key OR be ready to sign up at console.anthropic.com / openrouter.ai during phase 04.",
+          "Three real options. (1) Anthropic direct — one key, full Claude Code CLI experience, ~$20-50/mo for moderate use. Default recommendation. (2) OpenRouter — one key covers every model, cheaper, more variety. (3) Local model via Ollama or LM Studio — zero per-call cost after the model download, runs entirely on their machine, no data leaves. Trade-off: smaller models (Llama 3.3 70B at the top end with a beefy GPU) are noticeably less capable than Claude Sonnet for agentic work. Good fit for clients with strict data-residency requirements or large-volume use cases. Pre-collect their preference so phase 04 is paste-only, not a Q&A.",
       },
       {
         title: "Capture identity + business basics",

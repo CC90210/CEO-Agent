@@ -235,10 +235,17 @@ export async function POST(req: NextRequest) {
       send("session", { session_id: sessionId });
 
       try {
+        // Ollama / LM Studio: the "API key" field stores the local
+        // endpoint URL (operators paste e.g. http://localhost:11434/v1
+        // during onboarding because there's no real key). Pass it as
+        // baseUrl, leave apiKey blank — streamOllama defaults to the
+        // standard Ollama port if baseUrl is empty.
+        const isOllama = provider === "ollama";
         for await (const ev of streamChat({
           provider,
           model,
-          apiKey,
+          apiKey: isOllama ? "" : apiKey,
+          baseUrl: isOllama ? apiKey : undefined,
           system: persona,
           messages,
         })) {
