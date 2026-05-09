@@ -390,6 +390,22 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
     };
   }, []);
 
+  // Pre-warm the bridge's claude process for the active agent as soon
+  // as we know the bridge is online. The operator's first turn skips
+  // cold-start (5-30s) entirely — claude is already booted, MCP servers
+  // already loaded, brain files already parsed by the time they hit
+  // Send. Re-fires on agent switch so each newly-selected agent gets
+  // its own warm process. Fire-and-forget; if the bridge is offline
+  // or pre-warm fails the chat falls back to cold-spawn naturally.
+  useEffect(() => {
+    if (bridgeOnline !== true) return;
+    void fetch(`${BRIDGE_CHAT_BASE}/prewarm`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ agent, tab_id: tabId }),
+    }).catch(() => null);
+  }, [bridgeOnline, agent, tabId]);
+
   useEffect(() => {
     if (awayFromBottom) return;
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
