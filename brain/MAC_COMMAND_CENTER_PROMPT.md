@@ -2,6 +2,13 @@
 tags: [mac, sync, antigravity, paste-ready, command-center, bridge]
 purpose: One self-contained prompt CC pastes into Antigravity on the MacBook to connect the Mac to the Agent Command Center. Mac becomes a paired bridge — operator can chat with agents from the dashboard with Mac-side file access — without stepping on the Windows production daemons.
 last_updated: 2026-05-09
+verified: |
+  Stress-tested end-to-end on 2026-05-09 against commit dd0044f+. Battery:
+  T1 idempotent install · T2 KeepAlive respawn · T3 token wipe + re-pair ·
+  T4 stale-token (401) recovery · T5 network failure modes (DNS / timeout /
+  503) · T6 100-concurrent /warm-status · T7 reboot proxy · T8 stale-PID +
+  port-collision. 8/8 passed. Two cmd_install bugs (py-undef + missing
+  WorkingDirectory) fixed in 894585b; Linux parity in this commit.
 ---
 
 # MAC AGENT COMMAND CENTER — Antigravity Setup Prompt
@@ -92,12 +99,17 @@ STEP 5 — Install macOS dependencies for the bridge probes.
   already present.
 
 STEP 6 — Pair the Mac with the dashboard.
-  This is a one-time handshake. Run:
-    .venv/bin/python -m bravo_cli.bridge_chat_server &
+  This is a one-time handshake. PYTHONUNBUFFERED=1 makes the [bridge]
+  log line appear immediately rather than after stdio flush — without
+  it, the prior version of this prompt looked like a pair failure when
+  it was actually just buffering. Run:
+    PYTHONUNBUFFERED=1 .venv/bin/python -m bravo_cli.bridge_chat_server \
+        > /tmp/bravo_pair.log 2>&1 &
     sleep 8
-    cat ~/.oasis/bridge_token  # should print a JWT-looking string
+    cat ~/.oasis/bridge_token  # should print a 60+ char token
+    cat /tmp/bravo_pair.log    # should show "[bridge] paired with..."
   If ~/.oasis/bridge_token exists with content, pairing succeeded.
-  If not, look at ~/.oasis/bridge.log for [bridge] messages — likely
+  If not, look at /tmp/bravo_pair.log for [bridge] messages — likely
   causes:
     - "no OASIS_PROFILE_ID / OASIS_OUTBOUND_HMAC_SECRET" → STEP 4 missed
     - "self-pair failed: ... 401" → HMAC secret doesn't match dashboard
@@ -110,9 +122,16 @@ STEP 7 — Install launchd auto-start so the bridge survives reboot/login.
   Verify:
     launchctl list | grep bravo-bridge
     cat ~/Library/LaunchAgents/work.oasisai.bravo-bridge.plist
-  Should report "OK — installed launchd plist at ...".
+  Should report "OK — installed launchd plist at ...". The plist must
+  contain <key>WorkingDirectory</key> pointing at the repo root — without
+  it launchd starts with cwd=/ and `python -m bravo_cli.local_bridge`
+  hits ModuleNotFoundError. (Was a real bug on first ship; fixed in
+  commit 894585b.)
   Note: this auto-start runs `bravo bridge serve` (chat-server on :9100),
   NOT the heartbeat-only `_loop` daemon — exactly what we want on Mac.
+  Re-running `bridge install` is idempotent — it unloads the prior plist
+  before installing the new one, so you can re-run it after pulling
+  changes without manual launchctl unload.
 
 STEP 8 — Confirm chat-server is responsive.
   curl -s http://127.0.0.1:9100/warm-status
@@ -130,12 +149,18 @@ STEP 9 — Verify both machines are visible in the dashboard.
   If only one shows, the heartbeat hasn't fired yet — wait 60s and refresh.
 
 STEP 10 — Daemon-leak check (mandatory).
-  ps aux | grep -E "(scheduler\.py|skool_engine|telegram_agent\.js)" | \
-    grep -v grep
-  pm2 list 2>/dev/null | grep bravo
+  Anchored to the Bravo repo path so Maven's CMO-Agent telegram bot
+  (which lives at ~/CMO-Agent/telegram_agent.js and runs by design)
+  doesn't trigger a false positive:
+    REPO=$(git -C "$(pwd)" rev-parse --show-toplevel)
+    ps aux | grep -E "$REPO/(scripts/scheduler\.py|skool_engine|telegram_agent\.js)|local_bridge\.py.*_loop" | \
+      grep -v grep
+  And pm2 — but treat 'stopped' entries as benign (a registration that
+  isn't actively running can't cause duplicate output):
+    pm2 list 2>/dev/null | awk '/bravo-/ && $0 !~ /stopped/ && $0 !~ /errored/'
   Both should produce ZERO output. If either does, STOP — those are
-  state-mutating daemons that must NEVER run on Mac. Report the full
-  output, do not kill anything yourself.
+  state-mutating daemons that must NEVER ACTIVELY RUN on Mac. Report
+  the full output, do not kill anything yourself.
 
 STEP 11 — Report back in this exact format:
 
