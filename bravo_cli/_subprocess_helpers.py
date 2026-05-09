@@ -32,7 +32,9 @@ from __future__ import annotations
 
 import os
 import subprocess
-from typing import Optional
+import sys
+from pathlib import Path
+from typing import Optional, Union
 
 # 0x08000000 == CREATE_NO_WINDOW on Windows. Hides the conhost flicker
 # direct-exe spawns would otherwise create.
@@ -49,3 +51,19 @@ def windowless_startupinfo() -> Optional["subprocess.STARTUPINFO"]:
     si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
     si.wShowWindow = subprocess.SW_HIDE
     return si
+
+
+def prefer_pythonw(python_path: Union[str, Path]) -> Path:
+    """Given a python.exe path, return the pythonw.exe sibling if it exists
+    (Windows). On non-Windows or if pythonw.exe isn't present, return the
+    input unchanged.
+
+    Used wherever a Python subprocess will be long-lived and must NOT carry
+    a console subsystem — pythonw.exe is the gold-standard fix because it
+    physically cannot allocate a console window. Callers retain control
+    over WHICH python to start from (sys.executable vs venv vs custom)."""
+    p = Path(python_path)
+    if sys.platform != "win32":
+        return p
+    cand = p.with_name(p.name.replace("python.exe", "pythonw.exe"))
+    return cand if cand.exists() else p

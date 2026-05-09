@@ -33,23 +33,31 @@ CREATE_NO_WINDOW = 0x08000000
 
 
 def _resolve_daemon_python() -> Path | None:
-    """Prefer pythonw.exe over python.exe so the spawned daemon has NO
-    console subsystem at all — bulletproof against ConPTY quirks that
-    occasionally leak a visible terminal even with CREATE_NO_WINDOW.
-    Falls through to python.exe if pythonw isn't present (rare; broken
-    venv install). On non-Windows the distinction doesn't exist so just
-    use whatever Python is running this watchdog."""
+    """Pick the right python for spawning the long-lived skool_engine
+    daemon. Always prefers pythonw.exe (no console subsystem) on Windows
+    via the shared `prefer_pythonw` primitive.
+
+    Resolution order on Windows:
+      1. .venv/Scripts/pythonw.exe   ← venv has playwright + supabase-py
+      2. .venv/Scripts/python.exe    ← venv exists but pythonw missing
+                                       (still gets CREATE_NO_WINDOW + SW_HIDE
+                                       belt-and-suspenders in start_daemon)
+      3. pythonw sibling of sys.executable (running interpreter)
+      4. sys.executable itself       ← last resort
+    On non-Windows: just .venv or running interpreter — no console concerns.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from _subprocess_helpers import prefer_pythonw  # noqa: E402
+
     if sys.platform == "win32":
-        if VENV_PYTHONW.exists():
-            return VENV_PYTHONW
         if VENV_PYTHON.exists():
-            return VENV_PYTHON
-        # Fall back: derive pythonw from the running interpreter
+            # prefer_pythonw promotes python.exe → pythonw.exe if available;
+            # falls back to python.exe (which we then suppress with the
+            # triple-flag in start_daemon).
+            return prefer_pythonw(VENV_PYTHON)
+        # No venv → derive from running interpreter
         running = Path(sys.executable)
-        cand = running.with_name(running.name.replace("python.exe", "pythonw.exe"))
-        if cand.exists():
-            return cand
-        return running if running.exists() else None
+        return prefer_pythonw(running) if running.exists() else None
     # Unix
     return VENV_PYTHON if VENV_PYTHON.exists() else Path(sys.executable)
 
