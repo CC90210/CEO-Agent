@@ -455,23 +455,46 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
     setStatusDetail("");
 
     try {
-      // Routing decision:
-      //   bridge online → POST localhost:9100/chat (full repo + read_file
-      //                   tool, operator's API key, never leaves machine)
-      //   bridge offline → POST /api/chat (Vercel relay, BYO encrypted key)
+      // Routing decision (three paths):
+      //   1. bridge online + agent provider == "ollama"
+      //         → POST localhost:9100/local-chat (bridge proxies to the
+      //           operator's local Ollama / LM Studio at the URL stored
+      //           in the agent's "API key" field). Cloud server never
+      //           touches the local model — solves the localhost:11434
+      //           reachability problem entirely.
+      //   2. bridge online + any other provider
+      //         → POST localhost:9100/chat (Claude Code subprocess, full
+      //           repo + read_file tool, operator's Claude subscription)
+      //   3. bridge offline
+      //         → POST /api/chat (Vercel relay, BYO encrypted key — for
+      //           ollama this fails because Vercel can't see localhost,
+      //           so the dashboard surfaces the reachability caveat)
+      const isOllama = cfg?.provider === "ollama";
       const useBridge = bridgeOnline === true;
-      const url = useBridge ? `${BRIDGE_CHAT_BASE}/chat` : "/api/chat";
-      const body = useBridge
+      const useLocalChat = useBridge && isOllama;
+      const url = useLocalChat
+        ? `${BRIDGE_CHAT_BASE}/local-chat`
+        : useBridge
+          ? `${BRIDGE_CHAT_BASE}/chat`
+          : "/api/chat";
+      const body = useLocalChat
         ? {
-            agent,
+            // Bridge `/local-chat` payload: model + messages. The bridge
+            // resolves base_url from its own .env.agents (OLLAMA_BASE_URL
+            // / LM_STUDIO_BASE_URL) since the operator's saved URL is
+            // encrypted in Supabase and the dashboard never has it
+            // unencrypted on the client side. System prompt is built
+            // by the bridge from agent_roots like the Claude Code path.
+            model: cfg?.model || "llama3.3",
             messages: newMessages,
-            // Pass the Claude Code session id so the bridge can use
-            // --resume on subsequent turns. First turn omits it; bridge
-            // mints a fresh session and emits its id back via the
-            // 'session' SSE event.
-            session_id: sessionId,
           }
-        : { agent_key: agent, session_id: sessionId, messages: newMessages };
+        : useBridge
+          ? {
+              agent,
+              messages: newMessages,
+              session_id: sessionId,
+            }
+          : { agent_key: agent, session_id: sessionId, messages: newMessages };
       const res = await fetch(url, {
         method: "POST",
         headers: { "content-type": "application/json" },
