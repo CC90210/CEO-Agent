@@ -29,6 +29,14 @@ LOG_FILE = LOG_DIR / "system_health.log"
 
 PYTHON = sys.executable
 
+# On Windows, suppress console window popups from subprocess calls.
+# Without this, a scheduled-task run of system_health_check.py would
+# pop a brief cmd.exe / conhost flicker each time it shells out to a
+# sibling python script (reap_orphan_mcps, self_audit, audit_mcp_secrets).
+# Sibling scripts already pass this flag via scheduler.run_script — we
+# need it here for the standalone task-scheduler invocation path.
+CREATE_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
+
 KEEP_MCPS_PER_SIGNATURE = 4
 TEMP_AGE_DAYS = 14
 
@@ -45,6 +53,7 @@ def _run(cmd: list, timeout: int = 60) -> dict:
         r = subprocess.run(
             cmd, capture_output=True, text=True, timeout=timeout,
             encoding="utf-8", errors="replace",
+            creationflags=CREATE_NO_WINDOW,
         )
         return {"ok": r.returncode == 0, "stdout": r.stdout, "stderr": r.stderr, "code": r.returncode}
     except subprocess.TimeoutExpired:
