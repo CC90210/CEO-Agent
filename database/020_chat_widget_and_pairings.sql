@@ -24,10 +24,10 @@ BEGIN;
 CREATE TABLE IF NOT EXISTS public.agent_model_config (
     id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id       uuid NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
-    agent_key       text NOT NULL,                                -- bravo | maven | atlas | aura | hermes
-    provider        text NOT NULL,                                -- anthropic | openai | google
-    model           text NOT NULL,                                -- e.g. "claude-opus-4-7" / "gpt-5.4" / "gemini-2.5-pro"
-    encrypted_api_key text,                                       -- iv:tag:ciphertext (base64), encrypted Node-side
+    agent_key       text NOT NULL,                                -- bravo | maven | atlas | aura | hermes | lumen
+    provider        text NOT NULL,                                -- openrouter | anthropic | openai | google | ollama
+    model           text NOT NULL,                                -- e.g. "claude-opus-4-7" / "gpt-5.4" / "gemini-2.5-pro" / "llama3.3:70b"
+    encrypted_api_key text,                                       -- iv:tag:ciphertext (base64), encrypted Node-side. For provider="ollama" this stores the local endpoint URL instead of an API key (e.g. "http://localhost:11434/v1")
     system_prompt_override text,                                  -- optional per-tenant overlay; nullable
     enabled         boolean NOT NULL DEFAULT true,
     last_used_at    timestamptz,
