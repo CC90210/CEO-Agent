@@ -261,6 +261,44 @@ def render_branded_html(
     )
 
 
+def render_branded_html_fragment(
+    html_fragment: str,
+    *,
+    subject: Optional[str] = None,
+    cta_label: Optional[str] = None,
+    cta_url: Optional[str] = None,
+    show_booking: bool = False,
+) -> str:
+    """Wrap an existing HTML fragment (e.g. a stored template's
+    formatted body content like `<p>Hi {{name}}</p>`) in the OASIS
+    branded shell. Identical chrome to `render_branded_html` —
+    same logo / starfield / signature — but the body is treated as
+    pre-rendered HTML rather than escape-and-newline-to-br.
+
+    Use this when:
+      - You have HTML the operator authored intentionally (templates,
+        WYSIWYG editor output) and want to add the OASIS shell around it.
+
+    Don't use this when:
+      - The fragment is actually a complete <!doctype>/<html> document
+        (the caller's responsibility to detect; send_gateway does this
+        upstream).
+      - The body is plain text — use `render_branded_html` instead.
+    """
+    # We render via the existing function but then swap the body cell.
+    # That keeps both paths sharing the exact same chrome and means
+    # any future change to the shell only needs to touch one place.
+    placeholder = "__OASIS_BODY_FRAGMENT__"
+    base = render_branded_html(
+        placeholder,
+        subject=subject,
+        cta_label=cta_label,
+        cta_url=cta_url,
+        show_booking=show_booking,
+    )
+    return base.replace(placeholder, html_fragment)
+
+
 def render_branded_plaintext(body: str) -> str:
     """The plaintext alternative shipped alongside the HTML. Mirrors the
     structure so HTML-stripped clients see the same message + signature.
