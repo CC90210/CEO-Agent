@@ -33,18 +33,46 @@ export default async function RunsPage() {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Runs"
-        subtitle="Every dashboard mutation an agent has applied. Captures dashboard-action markers from /api/chat."
+        subtitle="Audit log of every change an agent makes to your dashboard data."
       />
+
+      <Card title="What lands here">
+        <div className="space-y-3 text-sm text-fg-muted leading-relaxed">
+          <p>
+            When you chat an agent and it changes something — your MRR target,
+            a lead&apos;s status, a profile field, a plan-template entry — it
+            emits a <span className="font-mono text-fg">&lt;dashboard-action&gt;</span>{" "}
+            marker that the chat route applies to your tenant&apos;s data.
+            Every one of those mutations gets logged here, success or failure,
+            with the agent that did it and when.
+          </p>
+          <p>
+            <span className="text-fg font-medium">Local bridge vs cloud — both flow through here.</span>{" "}
+            The bridge spawns Claude Code on your machine, but the model&apos;s
+            response (with action markers) still comes back through{" "}
+            <span className="font-mono text-fg">/api/chat</span> on the
+            dashboard so the markers can be parsed and applied. Cloud mode
+            uses the same path. Two execution surfaces, one audit trail.
+          </p>
+          <p className="text-fg-dim">
+            <span className="text-fg font-medium">When to look here:</span>{" "}
+            something unexpected changed — a value you didn&apos;t expect to
+            move, a stage transition that surprised you. The Runs log shows
+            who did it, what the change was, and whether it succeeded.
+          </p>
+        </div>
+      </Card>
+
       <Card
         title="Recent agent actions"
         subtitle={
           events.length === 0
-            ? "No mutations yet. Ask an agent to update something."
+            ? "Empty so far — ask an agent to update something to see it here."
             : `Last ${events.length} mutations across all agents.`
         }
       >
         {events.length === 0 ? (
-          <EmptyState message="No agent mutations recorded yet." />
+          <EmptyState message="No agent mutations recorded yet. Try chatting Bravo: &quot;set my MRR target to $7000&quot; — that change will land here." />
         ) : (
           <ul className="divide-y divide-bg-border">
             {events.map((ev) => {
