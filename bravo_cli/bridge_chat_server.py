@@ -963,9 +963,41 @@ class _ChatHandler(BaseHTTPRequestHandler):
             emit("done", {"input_tokens": 0, "output_tokens": 0})
 
 
+    def _handle_chat_reset(self) -> None:
+        """POST /chat-reset — operator clicked the 🔄 in the chat UI to
+        start a fresh session. Kill the warm process for the
+        (agent, session_id) so the operator's RAM isn't pinned for
+        15 min waiting on the reaper. Same-origin gated like /env/set;
+        body just needs {agent, session_id}.
+        """
+        if not self._check_origin_allowed():
+            self._json(403, {"ok": False, "error": "origin_not_allowed"})
+            return
+        try:
+            length = int(self.headers.get("content-length", "0"))
+            raw = self.rfile.read(length) if length else b""
+            payload = json.loads(raw or b"{}")
+        except Exception:
+            self._json(400, {"ok": False, "error": "invalid_json"})
+            return
+        agent = str(payload.get("agent", "")).strip().lower()
+        session_id = str(payload.get("session_id", "")).strip()
+        if not agent or not session_id:
+            self._json(400, {"ok": False, "error": "agent + session_id required"})
+            return
+        try:
+            from warm_claude_pool import kill_for_session as _wp_kill  # type: ignore
+            _wp_kill(f"{agent}:{session_id}")
+            self._json(200, {"ok": True})
+        except Exception as e:
+            self._json(500, {"ok": False, "error": str(e)})
+
     def do_POST(self) -> None:
         if self.path == "/env/set":
             self._handle_env_set()
+            return
+        if self.path == "/chat-reset":
+            self._handle_chat_reset()
             return
         if self.path == "/local-chat":
             # New Ollama / LM Studio proxy. The dashboard's /api/chat path
