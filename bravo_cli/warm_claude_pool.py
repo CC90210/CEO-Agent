@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import json
 import os
+import queue
 import shutil
 import subprocess
 import sys
@@ -195,6 +196,31 @@ class WarmClaudeProcess:
             bufsize=1,
         )
 
+        # Background thread pumps stdout into a queue. Lets send_turn()
+        # use queue.get(timeout=...) instead of blocking on readline().
+        # Without this, a wedged claude (MCP stall, missing result event)
+        # would hang send_turn for the FULL max_seconds and pin the
+        # per-process lock — every other turn waiting on this process
+        # would block too.
+        self._stdout_q: queue.Queue = queue.Queue()
+        self._stdout_eof = False
+
+        def _pump():
+            try:
+                assert self.proc.stdout is not None
+                for raw in self.proc.stdout:
+                    self._stdout_q.put(raw)
+            except Exception:
+                pass
+            finally:
+                self._stdout_eof = True
+                self._stdout_q.put(None)  # sentinel
+
+        self._pump_thread = threading.Thread(
+            target=_pump, daemon=True, name=f"warm-pump-{agent}"
+        )
+        self._pump_thread.start()
+
     def is_alive(self) -> bool:
         return self.proc.poll() is None
 
@@ -255,15 +281,32 @@ class WarmClaudeProcess:
                     # Just mark consumed and read the response.
                     self._first_prompt_consumed = True
 
-                # Read events until we see the result event for this turn.
+                # Read events from the pump thread's queue with a
+                # short per-line timeout. Total deadline still bounds
+                # the turn at max_seconds. If the pump goes silent
+                # for more than `inactivity_window` seconds without a
+                # result, we declare the stream wedged and bail —
+                # frees the lock so other turns don't pile up behind
+                # a hung claude.
                 deadline = time.time() + max_seconds
-                assert self.proc.stdout is not None
+                inactivity_window = 90  # seconds with no event = wedged
+                last_event_at = time.time()
                 while True:
-                    if time.time() > deadline:
+                    now = time.time()
+                    if now > deadline:
                         return False
-                    raw = self.proc.stdout.readline()
-                    if not raw:
-                        # EOF — process exited.
+                    if (now - last_event_at) > inactivity_window:
+                        # Stream went silent — claude is stuck. Bail
+                        # so the per-process lock releases for other
+                        # turns; caller treats this as send_turn_failed
+                        # and kills the warm process.
+                        return False
+                    try:
+                        raw = self._stdout_q.get(timeout=1.0)
+                    except queue.Empty:
+                        continue
+                    if raw is None:
+                        # Pump signaled EOF — process exited.
                         return False
                     line = raw.strip()
                     if not line:
@@ -272,6 +315,8 @@ class WarmClaudeProcess:
                         ev = json.loads(line)
                     except json.JSONDecodeError:
                         continue
+                    last_event_at = time.time()
+
                     # Capture session_id from system/init for future --resume.
                     if (
                         ev.get("type") == "system"
