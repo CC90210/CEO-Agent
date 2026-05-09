@@ -16,81 +16,13 @@
 import { useEffect, useState } from "react";
 import { Save, Eye, EyeOff, Check, AlertCircle, ExternalLink, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
 import { getAgentInfo } from "@/lib/agents";
+import { PROVIDER_REGISTRY } from "@/lib/providers";
 
-type ProviderOption = {
-  value: string;
-  label: string;
-  models: string[];
-  signup: string;
-  apiKey: string;
-  recommended?: boolean;
-  hint: string;
-};
-
-const PROVIDER_OPTIONS: ProviderOption[] = [
-  {
-    value: "openrouter",
-    label: "OpenRouter",
-    models: [
-      "anthropic/claude-opus-4",
-      "anthropic/claude-sonnet-4",
-      "openai/gpt-5.4",
-      "openai/gpt-5.4-mini",
-      "google/gemini-2.5-pro",
-      "google/gemini-2.5-flash",
-      "meta-llama/llama-3.3-70b-instruct",
-    ],
-    signup: "https://openrouter.ai/sign-up",
-    apiKey: "https://openrouter.ai/keys",
-    recommended: true,
-    hint: "One key, every model. Easiest path — pay-as-you-go, no per-provider setup.",
-  },
-  {
-    value: "anthropic",
-    label: "Anthropic (Claude)",
-    models: ["claude-opus-4-7", "claude-sonnet-4-6", "claude-haiku-4-5"],
-    signup: "https://console.anthropic.com/signup",
-    apiKey: "https://console.anthropic.com/settings/keys",
-    hint: "Direct to Claude. Best for Anthropic-only deployments.",
-  },
-  {
-    value: "openai",
-    label: "OpenAI",
-    models: ["gpt-5.4", "gpt-5.4-mini", "gpt-5.2", "gpt-5.3-codex"],
-    signup: "https://platform.openai.com/signup",
-    apiKey: "https://platform.openai.com/api-keys",
-    hint: "Direct to OpenAI. Use for GPT-5 + Codex.",
-  },
-  {
-    value: "google",
-    label: "Google (Gemini)",
-    models: ["gemini-2.5-pro", "gemini-2.5-flash"],
-    signup: "https://aistudio.google.com/",
-    apiKey: "https://aistudio.google.com/apikey",
-    hint: "Direct to Gemini via AI Studio. Free tier available.",
-  },
-  {
-    // Local model — same code path as the OnboardingFlow option. The
-    // "API key" field stores the local endpoint URL (Ollama default
-    // http://localhost:11434/v1, LM Studio :1234/v1). Cloud dashboard
-    // can't reach localhost on a remote operator's machine — pair with
-    // the local-bridge daemon for full coverage. See lib/providers.ts
-    // streamOllama() for the wire format (OpenAI-compatible).
-    value: "ollama",
-    label: "Local model (Ollama / LM Studio)",
-    models: [
-      "llama3.3:70b",
-      "llama3.3",
-      "qwen2.5:72b",
-      "qwen2.5-coder:32b",
-      "mistral",
-      "deepseek-r1:70b",
-    ],
-    signup: "https://ollama.com/download",
-    apiKey: "https://ollama.com/library",
-    hint: "Runs on your machine. Paste your local endpoint URL in the key field (http://localhost:11434/v1 for Ollama, :1234/v1 for LM Studio). Pair with the local bridge for best results.",
-  },
-];
+// Settings/Agents picker derives from the same single-source registry as
+// Onboarding. Each entry already carries `models`, `hint`, `recommended`,
+// signup/apiKey/docs links — same shape this component consumes. See
+// lib/providers.ts for the canonical definition.
+const PROVIDER_OPTIONS = PROVIDER_REGISTRY;
 
 type AgentConfig = {
   agent_key: string;
@@ -270,7 +202,7 @@ export function AgentConfigEditor({ agentKeys }: Props) {
                 <button
                   key={p.value}
                   type="button"
-                  onClick={() => patchRow(key, { provider: p.value, model: p.models[0] })}
+                  onClick={() => patchRow(key, { provider: p.value, model: p.models[0]?.id || "" })}
                   className={`provider-chip ${
                     row.provider === p.value
                       ? p.recommended
@@ -316,8 +248,8 @@ export function AgentConfigEditor({ agentKeys }: Props) {
                   className="select"
                 >
                   {provOpt.models.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
+                    <option key={m.id} value={m.id}>
+                      {m.label}
                     </option>
                   ))}
                 </select>
