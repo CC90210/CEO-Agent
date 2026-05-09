@@ -2,7 +2,8 @@
   "machine": "windows",
   "hostname": "CCPC",
   "started_at": "2026-04-12T02:19:15.653990+00:00",
-  "last_heartbeat": "2026-04-12T02:42:00.131676+00:00",
-  "current_task": "Mac cleanup complete + SSH control established + daemon exclusivity locked in",
-  "commit_at_start": "f7ddfd1"
+  "last_heartbeat": "2026-05-09T22:59:56.283949+00:00",
+  "current_task": "released",
+  "commit_at_start": "f7ddfd1",
+  "released_at": "2026-05-09T22:59:56.283949+00:00"
 }
