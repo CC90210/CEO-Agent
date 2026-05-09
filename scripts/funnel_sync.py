@@ -35,6 +35,9 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 PYTHON = sys.executable
 
+sys.path.insert(0, str(SCRIPTS_DIR))
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
+
 
 def load_env() -> dict[str, str]:
     env_path = PROJECT_ROOT / ".env.agents"
@@ -113,7 +116,7 @@ def send_welcome_email(client, env_vars: dict[str, str], lead_email: str, lead_n
             encoding="utf-8",
             timeout=30,
             cwd=str(PROJECT_ROOT),
-            creationflags=0x08000000 if sys.platform == "win32" else 0,
+            creationflags=WINDOWLESS_FLAGS,
         )
         if proc.returncode != 0:
             return f"email_failed: {proc.stderr.strip()[:200]}"
