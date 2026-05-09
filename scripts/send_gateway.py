@@ -1548,6 +1548,26 @@ def send(
                     "lead_id": lead_id, "interaction_id": None,
                     "cooldown_until": None, "daily_count": None}
 
+        # If the caller didn't supply HTML, auto-wrap in the OASIS branded
+        # shell so outreach has the same brand as one-off sends from the
+        # chat. Skipped for intent="internal" (verification mails) and
+        # whenever body_html is already explicitly provided. Single source
+        # of truth for the template lives in scripts/email_template.py.
+        if body_html is None and intent != "internal":
+            try:
+                _here = os.path.dirname(os.path.abspath(__file__))
+                if _here not in sys.path:
+                    sys.path.insert(0, _here)
+                from email_template import render_branded_html  # type: ignore
+                body_html = render_branded_html(
+                    body_text or "",
+                    subject=subject,
+                    show_booking=False,  # CASL footer already covers contact
+                )
+            except Exception:
+                # Template missing or borked — fall back to plaintext only.
+                body_html = None
+
         mime = _build_email_mime(
             gmail_address=gmail_user,
             brand=brand_cfg,
