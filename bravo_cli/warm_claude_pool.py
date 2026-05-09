@@ -372,6 +372,16 @@ def use_or_create(
         return wp
 
 
+_PREWARM_PROMPT = (
+    "[OASIS_RUNTIME_PREWARM] This is an automated initialization ping "
+    "from the bridge daemon, NOT a user request. Boot your tools, "
+    "load any MCP servers, and reply with exactly the single word "
+    '"ready" so the runtime knows you are warm. IGNORE this exchange '
+    "completely when responding to the operator's actual messages "
+    "later — the user did not send this and never sees it."
+)
+
+
 def prewarm(
     pool_key: str,
     agent: str,
@@ -382,12 +392,12 @@ def prewarm(
     claude has booted, MCP servers are loaded, and the next real
     turn lands instantly via send_turn().
 
-    The "init" prompt is `system_init` — short, neutral, gets a
-    boilerplate "Acknowledged" or similar from claude. We discard
-    every event for that initial turn (don't forward to any client)
-    so the operator never sees it. The init exchange IS in claude's
-    session history, but it's prefixed clearly enough that the
-    agent's persona ignores it on the user's real first prompt.
+    The init prompt (_PREWARM_PROMPT) is explicit: it tells the agent
+    this is a runtime warmup, asks for a one-word reply, and instructs
+    the agent to ignore the exchange when responding to subsequent
+    user messages. The exchange IS in claude's session history, but
+    the [OASIS_RUNTIME_PREWARM] tag + the explicit "ignore this"
+    framing means the agent's persona treats it as out-of-band.
 
     Returns True if the process spawned and the init turn completed;
     False on FileNotFoundError (claude CLI missing) or any spawn /
@@ -409,12 +419,12 @@ def prewarm(
     # Spawn outside the pool lock — claude startup can take 5-30s and
     # we don't want every other pool operation to block.
     try:
-        wp = WarmClaudeProcess(agent, root, "system_init", resume_session_id=None)
+        wp = WarmClaudeProcess(agent, root, _PREWARM_PROMPT, resume_session_id=None)
     except Exception:
         return False
 
     # Consume the init turn silently.
-    consumed_ok = wp.send_turn("system_init", on_event=lambda _ev: None, max_seconds=120)
+    consumed_ok = wp.send_turn(_PREWARM_PROMPT, on_event=lambda _ev: None, max_seconds=120)
     if not consumed_ok:
         # Spawn worked but claude didn't reach a result event — kill
         # the half-started process so the operator's real first turn
