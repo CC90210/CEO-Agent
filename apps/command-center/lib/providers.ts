@@ -38,76 +38,6 @@ export type StreamEvent =
   | { type: "done"; inputTokens: number; outputTokens: number }
   | { type: "error"; message: string };
 
-/** Default models per provider — what the picker offers. */
-export const PROVIDER_MODELS: Record<Provider, string[]> = {
-  openrouter: [
-    "anthropic/claude-opus-4",
-    "anthropic/claude-sonnet-4",
-    "openai/gpt-5.4",
-    "openai/gpt-5.4-mini",
-    "google/gemini-2.5-pro",
-    "google/gemini-2.5-flash",
-    "meta-llama/llama-3.3-70b-instruct",
-  ],
-  anthropic: [
-    "claude-opus-4-7",
-    "claude-sonnet-4-6",
-    "claude-haiku-4-5",
-  ],
-  openai: ["gpt-5.4", "gpt-5.4-mini", "gpt-5.2", "gpt-5.3-codex"],
-  google: ["gemini-2.5-pro", "gemini-2.5-flash"],
-  // Local-first via Ollama or LM Studio — `model` is whatever the operator
-  // pulled (`ollama pull llama3.3:70b` etc). The picker shows common names;
-  // the per-agent config lets the operator type any tag they have locally.
-  ollama: [
-    "llama3.3:70b",
-    "llama3.3",
-    "qwen2.5:72b",
-    "qwen2.5-coder:32b",
-    "mistral",
-    "deepseek-r1:70b",
-  ],
-};
-
-export const PROVIDER_LABEL: Record<Provider, string> = {
-  openrouter: "OpenRouter (recommended)",
-  anthropic: "Anthropic (Claude)",
-  openai: "OpenAI",
-  google: "Google (Gemini)",
-  ollama: "Local model (Ollama / LM Studio)",
-};
-
-/** Where each provider's signup + API key page lives. */
-export const PROVIDER_LINKS: Record<Provider, { signup: string; apiKey: string; docs?: string }> = {
-  openrouter: {
-    signup: "https://openrouter.ai/sign-up",
-    apiKey: "https://openrouter.ai/keys",
-    docs: "https://openrouter.ai/docs/quick-start",
-  },
-  anthropic: {
-    signup: "https://console.anthropic.com/signup",
-    apiKey: "https://console.anthropic.com/settings/keys",
-    docs: "https://docs.anthropic.com/en/api/getting-started",
-  },
-  openai: {
-    signup: "https://platform.openai.com/signup",
-    apiKey: "https://platform.openai.com/api-keys",
-    docs: "https://platform.openai.com/docs/quickstart",
-  },
-  google: {
-    signup: "https://aistudio.google.com/",
-    apiKey: "https://aistudio.google.com/apikey",
-    docs: "https://ai.google.dev/gemini-api/docs",
-  },
-  ollama: {
-    // No "signup" — the operator runs Ollama on their own machine.
-    // The signup link points to the install docs as a stand-in.
-    signup: "https://ollama.com/download",
-    apiKey: "https://ollama.com/library",
-    docs: "https://github.com/ollama/ollama/blob/main/docs/api.md",
-  },
-};
-
 /* ============================================================================
  * PROVIDER_REGISTRY — single source of truth for provider metadata.
  *
@@ -150,9 +80,9 @@ export const PROVIDER_REGISTRY: ProviderRegistryEntry[] = [
     label: "OpenRouter",
     tagline: "One key, every model — recommended",
     hint: "One key, every model. Easiest path — pay-as-you-go, no per-provider setup.",
-    signup: PROVIDER_LINKS.openrouter.signup,
-    apiKey: PROVIDER_LINKS.openrouter.apiKey,
-    docs: PROVIDER_LINKS.openrouter.docs,
+    signup: "https://openrouter.ai/sign-up",
+    apiKey: "https://openrouter.ai/keys",
+    docs: "https://openrouter.ai/docs/quick-start",
     models: [
       { id: "anthropic/claude-sonnet-4", label: "Claude Sonnet 4 (balanced)" },
       { id: "anthropic/claude-opus-4", label: "Claude Opus 4 (heavy reasoning)" },
@@ -171,9 +101,9 @@ export const PROVIDER_REGISTRY: ProviderRegistryEntry[] = [
     label: "Anthropic Direct",
     tagline: "Claude only — best if you already have an Anthropic account",
     hint: "Direct to Claude. Best for Anthropic-only deployments.",
-    signup: PROVIDER_LINKS.anthropic.signup,
-    apiKey: PROVIDER_LINKS.anthropic.apiKey,
-    docs: PROVIDER_LINKS.anthropic.docs,
+    signup: "https://console.anthropic.com/signup",
+    apiKey: "https://console.anthropic.com/settings/keys",
+    docs: "https://docs.anthropic.com/en/api/getting-started",
     models: [
       { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6 (balanced)" },
       { id: "claude-opus-4-7", label: "Claude Opus 4.7 (heavy reasoning)" },
@@ -186,9 +116,9 @@ export const PROVIDER_REGISTRY: ProviderRegistryEntry[] = [
     label: "OpenAI Direct",
     tagline: "GPT-5.x + Codex — pay-as-you-go via OpenAI",
     hint: "Direct to OpenAI. Use for GPT-5 + Codex.",
-    signup: PROVIDER_LINKS.openai.signup,
-    apiKey: PROVIDER_LINKS.openai.apiKey,
-    docs: PROVIDER_LINKS.openai.docs,
+    signup: "https://platform.openai.com/signup",
+    apiKey: "https://platform.openai.com/api-keys",
+    docs: "https://platform.openai.com/docs/quickstart",
     models: [
       { id: "gpt-5.4", label: "GPT-5.4" },
       { id: "gpt-5.4-mini", label: "GPT-5.4 mini (cheap)" },
@@ -202,9 +132,9 @@ export const PROVIDER_REGISTRY: ProviderRegistryEntry[] = [
     label: "Google Gemini",
     tagline: "Free tier available via AI Studio",
     hint: "Direct to Gemini via AI Studio. Free tier available.",
-    signup: PROVIDER_LINKS.google.signup,
-    apiKey: PROVIDER_LINKS.google.apiKey,
-    docs: PROVIDER_LINKS.google.docs,
+    signup: "https://aistudio.google.com/",
+    apiKey: "https://aistudio.google.com/apikey",
+    docs: "https://ai.google.dev/gemini-api/docs",
     models: [
       { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
       { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash (fast)" },
@@ -218,9 +148,11 @@ export const PROVIDER_REGISTRY: ProviderRegistryEntry[] = [
       "Zero per-call cost · full data residency · pair with the local bridge for best results",
     hint:
       "Runs on your machine. Paste your local endpoint URL in the key field (http://localhost:11434/v1 for Ollama, :1234/v1 for LM Studio). Pair with the local bridge for best results.",
-    signup: PROVIDER_LINKS.ollama.signup,
-    apiKey: PROVIDER_LINKS.ollama.apiKey,
-    docs: PROVIDER_LINKS.ollama.docs,
+    // No "signup" — the operator runs Ollama on their own machine.
+    // The signup link points to the install docs as a stand-in.
+    signup: "https://ollama.com/download",
+    apiKey: "https://ollama.com/library",
+    docs: "https://github.com/ollama/ollama/blob/main/docs/api.md",
     models: [
       { id: "llama3.3:70b", label: "Llama 3.3 70B (best — needs 48GB+ GPU)" },
       { id: "llama3.3", label: "Llama 3.3 (default tag)" },
@@ -232,6 +164,37 @@ export const PROVIDER_REGISTRY: ProviderRegistryEntry[] = [
     placeholder: "http://localhost:11434/v1  (or LM Studio: http://localhost:1234/v1)",
   },
 ];
+
+/* ============================================================================
+ * Derived exports — keep the legacy lookup-shapes alive for callers that
+ * already import them. Each is a Map-flavored projection of PROVIDER_REGISTRY,
+ * computed once at module load. Adding a new provider to the registry above
+ * automatically extends all three.
+ * ============================================================================ */
+
+/** Provider → list of model IDs (used by /api/agent-config validation). */
+export const PROVIDER_MODELS: Record<Provider, string[]> = Object.fromEntries(
+  PROVIDER_REGISTRY.map((p) => [p.value, p.models.map((m) => m.id)])
+) as Record<Provider, string[]>;
+
+/** Provider → human-readable label (used in chat header copy). */
+export const PROVIDER_LABEL: Record<Provider, string> = Object.fromEntries(
+  PROVIDER_REGISTRY.map((p) => [p.value, p.label])
+) as Record<Provider, string>;
+
+/** Provider → signup + API key + docs URLs. */
+export const PROVIDER_LINKS: Record<Provider, { signup: string; apiKey: string; docs?: string }> =
+  Object.fromEntries(
+    PROVIDER_REGISTRY.map((p) => [
+      p.value,
+      { signup: p.signup, apiKey: p.apiKey, docs: p.docs },
+    ])
+  ) as Record<Provider, { signup: string; apiKey: string; docs?: string }>;
+
+/** Lookup helper — `getProvider("anthropic")` returns the registry entry. */
+export function getProvider(value: Provider): ProviderRegistryEntry | null {
+  return PROVIDER_REGISTRY.find((p) => p.value === value) || null;
+}
 
 /* ============================================================================
  * Public entry point — async generator that yields StreamEvents.
