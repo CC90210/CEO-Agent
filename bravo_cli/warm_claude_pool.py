@@ -50,6 +50,8 @@ import time
 from pathlib import Path
 from typing import Callable, Optional
 
+from ._subprocess_helpers import WINDOWLESS_FLAGS
+
 
 _POOL_LOCK = threading.RLock()
 _WARM_POOL: dict[str, "WarmClaudeProcess"] = {}
@@ -189,7 +191,7 @@ class WarmClaudeProcess:
             stderr=subprocess.PIPE,
             shell=False,
             env=env,
-            creationflags=(0x08000000 if os.name == "nt" else 0),
+            creationflags=WINDOWLESS_FLAGS,
             text=True,
             encoding="utf-8",
             errors="replace",
