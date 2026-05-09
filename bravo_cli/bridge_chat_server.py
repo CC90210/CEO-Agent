@@ -40,6 +40,27 @@ import shutil
 import subprocess
 import sys
 import threading
+
+# Windows console-suppression. CREATE_NO_WINDOW alone is enough for
+# direct-exe spawns (claude.exe, python.exe). For .cmd / .bat resolution
+# (e.g. `playwright.cmd`, `whisper.cmd`), the helper below also passes
+# STARTUPINFO with SW_HIDE — matching the skool_watchdog gold-standard
+# pattern. Without SW_HIDE, the cmd.exe wrapper renders a brief visible
+# system32 console window even though CREATE_NO_WINDOW is set on the
+# top-level call. This is the bug CC reported on 2026-05-09.
+_WINDOWLESS_FLAGS = 0x08000000 if os.name == "nt" else 0
+
+
+def _windowless_startupinfo():
+    """Return a STARTUPINFO that hides console windows on Windows.
+    None on non-Windows. Use for any subprocess that might resolve to a
+    .cmd / .bat shim (npm-installed binaries on Windows do this)."""
+    if os.name != "nt":
+        return None
+    si = subprocess.STARTUPINFO()
+    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    si.wShowWindow = subprocess.SW_HIDE
+    return si
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -2018,6 +2039,8 @@ class _ChatHandler(BaseHTTPRequestHandler):
                 stderr=subprocess.PIPE,
                 text=True,
                 shell=False,
+                creationflags=_WINDOWLESS_FLAGS,
+                startupinfo=_windowless_startupinfo(),
             )
         except Exception as e:
             return f"spawn_failed: {e}", True
@@ -2394,6 +2417,8 @@ def _services_from_local_installs() -> dict[str, dict]:
         rc = subprocess.run(
             ["ffmpeg", "-version"],
             capture_output=True, text=True, timeout=4,
+            creationflags=_WINDOWLESS_FLAGS,
+            startupinfo=_windowless_startupinfo(),
         )
         if rc.returncode == 0:
             ver = rc.stdout.split("\n", 1)[0][:80]
@@ -2407,6 +2432,8 @@ def _services_from_local_installs() -> dict[str, dict]:
             rc = subprocess.run(
                 [sys.executable, "-c", "import whisper; print(whisper.__file__)"],
                 capture_output=True, text=True, timeout=6,
+                creationflags=_WINDOWLESS_FLAGS,
+                startupinfo=_windowless_startupinfo(),
             )
             if rc.returncode == 0 and rc.stdout.strip():
                 out["whisper"] = {"status": "healthy", "metadata": {"via": "local_probe", "import": "ok"}}
@@ -2416,6 +2443,8 @@ def _services_from_local_installs() -> dict[str, dict]:
         try:
             rc = subprocess.run(
                 ["whisper", "--help"], capture_output=True, text=True, timeout=4,
+                creationflags=_WINDOWLESS_FLAGS,
+                startupinfo=_windowless_startupinfo(),
             )
             if rc.returncode == 0:
                 out["whisper"] = {"status": "healthy", "metadata": {"via": "local_probe", "cli": "ok"}}
@@ -2455,10 +2484,16 @@ def _services_from_local_installs() -> dict[str, dict]:
         pass
 
     # Playwright — `npx playwright --version` is heavy; just check the
-    # `playwright` binary on PATH.
+    # `playwright` binary on PATH. CRITICAL: on Windows `playwright`
+    # resolves to `playwright.cmd` which requires cmd.exe to execute
+    # — without STARTUPINFO+SW_HIDE the operator sees a system32 cmd
+    # window flash every 60s when the heartbeat fires. That was the
+    # 2026-05-09 popup CC reported.
     try:
         rc = subprocess.run(
             ["playwright", "--version"], capture_output=True, text=True, timeout=4,
+            creationflags=_WINDOWLESS_FLAGS,
+            startupinfo=_windowless_startupinfo(),
         )
         if rc.returncode == 0:
             out["playwright"] = {"status": "healthy", "metadata": {"via": "local_probe", "version": rc.stdout.strip()[:40]}}
