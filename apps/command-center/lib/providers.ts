@@ -18,7 +18,7 @@ import { fetchWithRetry } from "./retry";
 export type ChatRole = "system" | "user" | "assistant";
 export type ChatMessage = { role: ChatRole; content: string };
 
-export type Provider = "openrouter" | "anthropic" | "openai" | "google";
+export type Provider = "openrouter" | "anthropic" | "openai" | "google" | "ollama";
 
 export type ChatRequest = {
   provider: Provider;
@@ -27,6 +27,10 @@ export type ChatRequest = {
   system?: string;
   messages: ChatMessage[];
   maxTokens?: number;
+  /** Override base URL — required for `ollama` (where the operator's local
+   *  endpoint isn't on the public internet) and useful for self-hosted
+   *  OpenAI-compatible endpoints (LM Studio, vLLM, llama.cpp server). */
+  baseUrl?: string;
 };
 
 export type StreamEvent =
@@ -52,6 +56,17 @@ export const PROVIDER_MODELS: Record<Provider, string[]> = {
   ],
   openai: ["gpt-5.4", "gpt-5.4-mini", "gpt-5.2", "gpt-5.3-codex"],
   google: ["gemini-2.5-pro", "gemini-2.5-flash"],
+  // Local-first via Ollama or LM Studio — `model` is whatever the operator
+  // pulled (`ollama pull llama3.3:70b` etc). The picker shows common names;
+  // the per-agent config lets the operator type any tag they have locally.
+  ollama: [
+    "llama3.3:70b",
+    "llama3.3",
+    "qwen2.5:72b",
+    "qwen2.5-coder:32b",
+    "mistral",
+    "deepseek-r1:70b",
+  ],
 };
 
 export const PROVIDER_LABEL: Record<Provider, string> = {
@@ -59,6 +74,7 @@ export const PROVIDER_LABEL: Record<Provider, string> = {
   anthropic: "Anthropic (Claude)",
   openai: "OpenAI",
   google: "Google (Gemini)",
+  ollama: "Local model (Ollama / LM Studio)",
 };
 
 /** Where each provider's signup + API key page lives. */
@@ -83,13 +99,22 @@ export const PROVIDER_LINKS: Record<Provider, { signup: string; apiKey: string; 
     apiKey: "https://aistudio.google.com/apikey",
     docs: "https://ai.google.dev/gemini-api/docs",
   },
+  ollama: {
+    // No "signup" — the operator runs Ollama on their own machine.
+    // The signup link points to the install docs as a stand-in.
+    signup: "https://ollama.com/download",
+    apiKey: "https://ollama.com/library",
+    docs: "https://github.com/ollama/ollama/blob/main/docs/api.md",
+  },
 };
 
 /* ============================================================================
  * Public entry point — async generator that yields StreamEvents.
  * ============================================================================ */
 export async function* streamChat(req: ChatRequest): AsyncGenerator<StreamEvent> {
-  if (!req.apiKey) {
+  // Ollama / LM Studio run locally without auth — empty key is fine.
+  // Every other provider needs a key.
+  if (!req.apiKey && req.provider !== "ollama") {
     yield { type: "error", message: "missing_api_key" };
     return;
   }
@@ -110,9 +135,83 @@ export async function* streamChat(req: ChatRequest): AsyncGenerator<StreamEvent>
     case "google":
       yield* streamGoogle(req);
       return;
+    case "ollama":
+      yield* streamOllama(req);
+      return;
     default:
       yield { type: "error", message: `unknown_provider:${req.provider}` };
   }
+}
+
+/* ============================================================================
+ * Ollama / LM Studio / any OpenAI-compatible local endpoint.
+ *
+ * baseUrl points at the operator's local model server. Defaults to the
+ * standard Ollama address (http://localhost:11434/v1). LM Studio's default
+ * (http://localhost:1234/v1) and any other OpenAI-compatible local server
+ * works by passing `baseUrl` in the agent_model_config row.
+ *
+ * This path runs in the dashboard server. For client-installed local
+ * models, the dashboard cannot reach the operator's machine directly —
+ * the bridge proxies the call (or, for cloud-only clients, this provider
+ * isn't usable). Documented in the playbook + onboarding.
+ *
+ * Wire format is OpenAI-compatible (Ollama and LM Studio both expose
+ * /v1/chat/completions). Same code path as streamOpenAI minus the bearer
+ * auth (Ollama doesn't require one for local installs).
+ * ============================================================================ */
+async function* streamOllama(req: ChatRequest): AsyncGenerator<StreamEvent> {
+  const base = (req.baseUrl || "http://localhost:11434/v1").replace(/\/+$/, "");
+  const messages: Array<{ role: ChatRole; content: string }> = [];
+  if (req.system) messages.push({ role: "system", content: req.system });
+  messages.push(...req.messages);
+
+  const body = {
+    model: req.model,
+    messages,
+    stream: true,
+    stream_options: { include_usage: true },
+    max_tokens: req.maxTokens ?? 4096,
+  };
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  // LM Studio honors a Bearer key when configured; Ollama ignores it.
+  // Pass through whatever the operator stored (often "ollama" or
+  // a user-set token) for compatibility.
+  if (req.apiKey && req.apiKey !== "ollama") {
+    headers.authorization = `Bearer ${req.apiKey}`;
+  }
+
+  const res = await fetchWithRetry(`${base}/chat/completions`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
+  if (!res.ok || !res.body) {
+    const detail = await safeText(res);
+    yield {
+      type: "error",
+      message:
+        res.status >= 500 || res.status === 429
+          ? `local_model_temporarily_unavailable:${res.status}`
+          : `ollama_${res.status}:${detail}`,
+    };
+    return;
+  }
+  let inputTokens = 0;
+  let outputTokens = 0;
+  for await (const event of parseSSE(res.body)) {
+    const data = event.data;
+    if (!data || data === "[DONE]") continue;
+    if (typeof data === "string") continue;
+    const choice = data.choices?.[0];
+    const delta = choice?.delta?.content;
+    if (typeof delta === "string" && delta.length) yield { type: "delta", text: delta };
+    if (data.usage) {
+      inputTokens = data.usage.prompt_tokens ?? inputTokens;
+      outputTokens = data.usage.completion_tokens ?? outputTokens;
+    }
+  }
+  yield { type: "done", inputTokens, outputTokens };
 }
 
 /* ============================================================================

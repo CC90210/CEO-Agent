@@ -107,7 +107,7 @@ export default async function WelcomePage() {
           <FeatureCard
             icon={<Cpu className="w-5 h-5" />}
             title="Pick the brain you trust"
-            body="Local mode uses your Claude Code subscription. Cloud mode uses an API key you save (OpenRouter, Anthropic, OpenAI, Gemini) — same agent personas, no Claude subscription required."
+            body="Three real options. (1) Claude Code subscription — the bridge spawns it locally with full tool access. (2) API key — OpenRouter / Anthropic / OpenAI / Gemini, same personas without a Claude subscription. (3) Local model — Ollama or LM Studio for zero per-call cost and full data residency."
           />
           <FeatureCard
             icon={<ShieldCheck className="w-5 h-5" />}
