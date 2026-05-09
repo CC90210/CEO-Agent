@@ -536,8 +536,14 @@ _MSYS_NOISE_PATTERNS = [
     re.compile(r"^ln:\s*failed to create symbolic link\s+'/etc/mtab'.*$"),
     re.compile(r"^/usr/bin/cp:\s*cannot create regular file\s+'/etc/[^']+':\s*Permission denied\s*$"),
     re.compile(r"^rm:\s*cannot remove\s+'/etc/post-install/[^']+':\s*Permission denied\s*$"),
-    re.compile(r"^\s*0\s*\[main\]\s+\S+\s+\d+\s+(child_copy|dofork|fork:).*$"),
+    # Cygheap warnings: actual format is `      0 [main] bash (15740) child_copy: cygheap…`
+    # Pid is wrapped in parens, not bare digits — earlier pattern missed every line.
+    re.compile(r"^\s*\d+\s*\[main\]\s+\S+\s+\(\d+\)\s+(child_copy|dofork|fork:).*$"),
     re.compile(r"^/usr/bin/bash:\s*fork:\s*(retry:\s*)?Resource temporarily unavailable\s*$"),
+    # Sometimes a stray newline-after-/etc-prefix shows up when the parent
+    # process buffers oddly; catch lines that are clearly fragments of the
+    # symlink-output above (just the tail half).
+    re.compile(r"^[a-z_-]+'\s*->\s*'/etc/[^']+'\s*$"),
 ]
 
 
