@@ -963,6 +963,55 @@ class _ChatHandler(BaseHTTPRequestHandler):
             emit("done", {"input_tokens": 0, "output_tokens": 0})
 
 
+    def _handle_prewarm(self) -> None:
+        """POST /prewarm — speculatively boot a warm claude process for
+        an agent so the operator's first real turn skips cold-start.
+
+        Body: {agent, tab_id}. CORS-gated like /env/set.
+
+        Returns immediately with {ok:true, started:true|false}. The
+        actual claude boot happens in a background thread (5-30s).
+        Subsequent /chat calls with the same tab_id reuse the warm
+        process — no cold-start, no MCP boot, instant first turn.
+        """
+        if not self._check_origin_allowed():
+            self._json(403, {"ok": False, "error": "origin_not_allowed"})
+            return
+        try:
+            length = int(self.headers.get("content-length", "0"))
+            raw = self.rfile.read(length) if length else b""
+            payload = json.loads(raw or b"{}")
+        except Exception:
+            self._json(400, {"ok": False, "error": "invalid_json"})
+            return
+        agent = str(payload.get("agent", "")).strip().lower()
+        tab_id = str(payload.get("tab_id", "")).strip()
+        if not agent or not tab_id:
+            self._json(400, {"ok": False, "error": "agent + tab_id required"})
+            return
+        root = resolve_root(agent)
+        if not root:
+            self._json(412, {"ok": False, "error": "agent_not_paired_locally", "agent": agent})
+            return
+        try:
+            from warm_claude_pool import prewarm as _wp_prewarm  # type: ignore
+        except Exception as e:
+            self._json(500, {"ok": False, "error": f"prewarm_unavailable: {e}"})
+            return
+        # Fire-and-forget — return immediately to the dashboard, do
+        # the actual spawn in a background thread. The operator's
+        # next /chat call will block on the warm process if it's not
+        # ready yet (the per-process lock serializes), but they get
+        # the partially-booted claude faster than a fresh cold-spawn.
+        pool_key = f"{agent}:{tab_id}"
+        threading.Thread(
+            target=_wp_prewarm,
+            args=(pool_key, agent, root),
+            daemon=True,
+            name=f"prewarm-{agent}",
+        ).start()
+        self._json(200, {"ok": True, "started": True, "pool_key": pool_key})
+
     def _handle_chat_reset(self) -> None:
         """POST /chat-reset — operator clicked the 🔄 in the chat UI to
         start a fresh session. Kill the warm process for the
@@ -1002,6 +1051,9 @@ class _ChatHandler(BaseHTTPRequestHandler):
             return
         if self.path == "/chat-reset":
             self._handle_chat_reset()
+            return
+        if self.path == "/prewarm":
+            self._handle_prewarm()
             return
         if self.path == "/local-chat":
             # New Ollama / LM Studio proxy. The dashboard's /api/chat path
