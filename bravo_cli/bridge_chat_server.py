@@ -1093,6 +1093,15 @@ class _ChatHandler(BaseHTTPRequestHandler):
         # Read line-by-line. Each line is a complete JSON event.
         emitted_session = False
         accumulated_text = ""
+        # Track when the most recent emit was a tool_use, so the next
+        # text delta gets a paragraph break prepended. CC reported chat
+        # showing "I'll send the email now.Email sent..." mashed
+        # together with no separator — Claude Code emits a text block
+        # before the tool_use ("I'll do X") and a separate text block
+        # after the tool_result ("Done — result"), and the bridge was
+        # concatenating them without a newline. Inserting `\n\n`
+        # creates a real paragraph break in the rendered markdown.
+        last_emitted_was_tool = False
         try:
             assert proc.stdout is not None
             for raw in proc.stdout:
@@ -1130,8 +1139,25 @@ class _ChatHandler(BaseHTTPRequestHandler):
                                 # Claude Code with --include-partial-messages
                                 # emits incremental text. Forward each chunk
                                 # as a delta so the UI streams.
+                                #
+                                # Paragraph fix: when the previous emit was
+                                # a tool_use AND this text doesn't already
+                                # start with a newline, prepend `\n\n`. This
+                                # turns the single concatenated bubble into
+                                # two paragraphs ("I'll send the email." /
+                                # "Email sent — subject X.") matching the
+                                # logical phases of the response.
+                                if (
+                                    last_emitted_was_tool
+                                    and accumulated_text
+                                    and not text.startswith("\n")
+                                    and not accumulated_text.endswith("\n")
+                                ):
+                                    emit("delta", {"text": "\n\n"})
+                                    accumulated_text += "\n\n"
                                 emit("delta", {"text": text})
                                 accumulated_text += text
+                                last_emitted_was_tool = False
                         elif btype == "tool_use":
                             tname = block.get("name") or "tool"
                             tid = block.get("id") or ""
@@ -1139,6 +1165,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
                             mapped = _map_tool_use(tname, tinput)
                             mapped["tool_use_id"] = tid
                             emit("tool", mapped)
+                            last_emitted_was_tool = True
                     continue
 
                 # 4. User turn — only the tool_result blocks matter to us.
