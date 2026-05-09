@@ -102,6 +102,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 - [[brain/APP_REGISTRY]] | [[brain/CEO_OPERATING_SYSTEM]] | [[brain/OKRs]] | [[brain/CLIENT_READY]]
 - [[brain/BRAIN_LOOP]] | [[brain/GROWTH]] | [[brain/CHANGELOG]]
 - [[brain/RISK_REGISTER]] | [[brain/INTERACTION_PROTOCOL]] | [[brain/ORCHESTRATION]]
+- [[brain/METRIC_AUDIT]] — every dashboard metric traced to its source (real vs placeholder)
 - [[brain/MODEL_CONFIG]] (V6.0 multi-provider routing) | [[brain/USER.template]] (public-clone profile template)
 - [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]] | [[memory/DECISIONS]] | [[memory/CLAUDE_HANDOVER]]
 - [[memory/WORKING]] (V6.0 ephemeral working memory) | [[memory/ACTIVE_TASKS.template]] | [[memory/SESSION_LOG.template]]

@@ -551,7 +551,8 @@ Atlas — V5.7 upgrade cycle. Bravo leapfrogged you today. Level up.
 4. brain/TOOL_SHED.md — shareable GitHub/tool catalog.
 5. Claudekit hooks — file-guard blocks .env* access, create-checkpoint
    auto-stashes git, self-review fires on every Stop.
-6. Obsidian MCP wrapper — scripts/obsidian-mcp-wrapper.cmd.
+6. Obsidian MCP shim — scripts/mcp_shims/obsidian.js (was a `.cmd`
+   wrapper pre-2026-05-09; the Node shim avoids cmd.exe popups).
 
 ## Your V5.7 tasks (in order)
 
@@ -669,7 +670,7 @@ Specifically track:
 Copy Bravo's TOOL_SHED.md layout exactly.
 
 ### 5. Wire your own Obsidian MCP
-Mirror scripts/obsidian-mcp-wrapper.cmd in your repo. Needs
+Mirror scripts/mcp_shims/obsidian.js in your repo. Needs
 OBSIDIAN_API_KEY in your .env.agents. Add to all your MCP configs.
 
 ### 6. Report back
