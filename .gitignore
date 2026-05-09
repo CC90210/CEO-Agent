@@ -107,6 +107,7 @@ desktop.ini
 .gemini/antigravity/
 .claude/worktrees/
 .claude/settings.local.json
+.claude/settings.local.json.disabled
 
 # =============================================
 # VECTOR STORES (binary, machine-local)

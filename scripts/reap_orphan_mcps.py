@@ -19,6 +19,8 @@ import json
 import subprocess
 import sys
 
+CREATE_NO_WINDOW = 0x08000000
+
 MCP_SIGNATURES = (
     "context7-mcp",
     "server-memory",
@@ -39,9 +41,14 @@ MCP_SIGNATURES = (
 
 def _powershell_json(ps_script: str, timeout: int = 30) -> list:
     """Run a PowerShell command that emits JSON, return list of dicts."""
+    si = subprocess.STARTUPINFO()
+    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    si.wShowWindow = subprocess.SW_HIDE
     r = subprocess.run(
         ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_script],
         capture_output=True, text=True, timeout=timeout,
+        creationflags=CREATE_NO_WINDOW,
+        startupinfo=si,
     )
     if r.returncode != 0:
         sys.stderr.write(f"PowerShell query failed: {r.stderr}\n")
@@ -105,10 +112,15 @@ def classify_mcps(mcps: list[dict], keep_n: int = 2) -> dict:
 def kill_pid(pid: int) -> tuple[bool, str]:
     """Terminate a process by PID. Returns (success, message)."""
     try:
+        si = subprocess.STARTUPINFO()
+        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        si.wShowWindow = subprocess.SW_HIDE
         # taskkill is the most reliable Windows option
         result = subprocess.run(
             ["taskkill", "/F", "/PID", str(pid)],
             capture_output=True, text=True, timeout=10,
+            creationflags=CREATE_NO_WINDOW,
+            startupinfo=si,
         )
         if result.returncode == 0:
             return True, "terminated"

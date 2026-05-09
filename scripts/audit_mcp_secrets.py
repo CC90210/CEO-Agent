@@ -44,7 +44,7 @@ LIVE_SECRET_PATTERNS = [
     ('openai-api-key',         re.compile(r'sk-proj-[A-Za-z0-9_-]{20,}')),
     ('supabase-access-token',  re.compile(r'sbp_[a-f0-9]{40}')),
     ('jwt-bearer',             re.compile(r'eyJhbGciOiJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{40,}\.[A-Za-z0-9_-]{20,}')),
-    ('late-api-key',           re.compile(r'(?<![A-Za-z0-9])sk_42[a-z0-9]{40,}')),
+    ('late-api-key',           re.compile(r'(?<![A-Za-z0-9])sk_[a-f0-9]{60,}')),
     ('github-pat',             re.compile(r'gh[pousr]_[A-Za-z0-9]{36,}')),
     ('aws-access-key',         re.compile(r'AKIA[0-9A-Z]{16}')),
 ]
@@ -110,9 +110,11 @@ def main(argv: Iterable[str]) -> int:
     print()
     print('Remediation:')
     print('  1. Move the literal secret to .env.agents under a named key.')
-    print('  2. Replace the inline value in the config with a wrapper script')
-    print('     pattern: cmd /c <full-path>\\scripts\\<service>-mcp-wrapper.cmd')
-    print('     (see scripts/github-mcp-wrapper.cmd for the canonical pattern).')
+    print('  2. Replace the inline value in the config with a Node.js shim:')
+    print('     "command": "node", "args": ["scripts\\\\mcp_shims\\\\<service>.js"]')
+    print('     (see scripts/mcp_shims/github.js for the canonical pattern;')
+    print('      the shim loads .env.agents via dotenv and spawns the MCP')
+    print('      binary directly with windowsHide:true — no conhost flash.)')
     print('  3. Rotate the leaked credential at the issuer.')
     return 1
 
