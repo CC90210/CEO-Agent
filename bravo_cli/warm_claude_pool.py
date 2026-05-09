@@ -372,6 +372,61 @@ def use_or_create(
         return wp
 
 
+def prewarm(
+    pool_key: str,
+    agent: str,
+    root: Path,
+) -> bool:
+    """Speculatively spawn a warm process and silently consume the
+    initialization turn. After this returns, the pool entry exists,
+    claude has booted, MCP servers are loaded, and the next real
+    turn lands instantly via send_turn().
+
+    The "init" prompt is `system_init` — short, neutral, gets a
+    boilerplate "Acknowledged" or similar from claude. We discard
+    every event for that initial turn (don't forward to any client)
+    so the operator never sees it. The init exchange IS in claude's
+    session history, but it's prefixed clearly enough that the
+    agent's persona ignores it on the user's real first prompt.
+
+    Returns True if the process spawned and the init turn completed;
+    False on FileNotFoundError (claude CLI missing) or any spawn /
+    stream error. Best-effort — if pre-warm fails, the user's real
+    first turn falls through to cold-spawn as before.
+    """
+    _start_reaper_once()
+
+    with _POOL_LOCK:
+        existing = _WARM_POOL.get(pool_key)
+        if existing and existing.is_alive():
+            # Already warm — nothing to do.
+            return True
+        if existing:
+            existing.kill(reason="prewarm_replacing_dead")
+            _WARM_POOL.pop(pool_key, None)
+        _evict_oldest_if_full()
+
+    # Spawn outside the pool lock — claude startup can take 5-30s and
+    # we don't want every other pool operation to block.
+    try:
+        wp = WarmClaudeProcess(agent, root, "system_init", resume_session_id=None)
+    except Exception:
+        return False
+
+    # Consume the init turn silently.
+    consumed_ok = wp.send_turn("system_init", on_event=lambda _ev: None, max_seconds=120)
+    if not consumed_ok:
+        # Spawn worked but claude didn't reach a result event — kill
+        # the half-started process so the operator's real first turn
+        # gets a fresh cold-spawn instead of inheriting a wedged one.
+        wp.kill(reason="prewarm_no_result")
+        return False
+
+    with _POOL_LOCK:
+        _WARM_POOL[pool_key] = wp
+    return True
+
+
 def kill_for_session(pool_key: str) -> None:
     """Explicit kill — used by /chat reset / sign-out flows."""
     with _POOL_LOCK:
