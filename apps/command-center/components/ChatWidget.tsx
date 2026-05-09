@@ -257,7 +257,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
   // A0c: status phase + elapsed-time counter so CC sees "starting Atlas in
   // CFO-Agent…" → "thinking… (0:12)" instead of a static "thinking…" during
   // the first 30s of a Claude Code subprocess cold start.
-  const [statusPhase, setStatusPhase] = useState<"spawning" | "thinking" | "tool" | null>(null);
+  const [statusPhase, setStatusPhase] = useState<"spawning" | "thinking" | "tool" | "warm_resume" | null>(null);
   const [statusDetail, setStatusDetail] = useState<string>("");
   const [streamStartedAt, setStreamStartedAt] = useState<number | null>(null);
   const [elapsedTick, setElapsedTick] = useState(0);
@@ -420,6 +420,18 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
   const ready = bridgeOnline === true || (configsLoaded && (hasOwnKey || isAdmin));
 
   function reset() {
+    // Best-effort: tell the bridge to kill the warm claude subprocess
+    // for the session we're abandoning. Without this, the orphaned
+    // process pins ~50-200MB of RAM until the 15-min idle reaper
+    // catches up. Fire-and-forget; bridge offline / 404 is fine since
+    // the reaper is the safety net.
+    if (bridgeOnline === true && sessionId) {
+      void fetch(`${BRIDGE_CHAT_BASE}/chat-reset`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ agent, session_id: sessionId }),
+      }).catch(() => null);
+    }
     setMessages([]);
     setSessionId(null);
     setError(null);
@@ -533,11 +545,15 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
           }
           if (event === "session" && parsed.session_id) setSessionId(parsed.session_id);
           else if (event === "agent_status") {
-            // A0c: bridge synthesizes "spawning" before claude is up, then
-            // "thinking" once the subprocess is alive. Pure UX signal.
+            // Phases the bridge emits:
+            //   "spawning"    — before claude subprocess is up (cold path)
+            //   "thinking"    — subprocess alive, model reasoning
+            //   "tool"        — currently running a tool
+            //   "warm_resume" — warm-pool path: persistent process took
+            //                   the turn; cold-start was skipped entirely
             const phase = String(parsed.phase || "");
-            if (phase === "spawning" || phase === "thinking" || phase === "tool") {
-              setStatusPhase(phase as "spawning" | "thinking" | "tool");
+            if (phase === "spawning" || phase === "thinking" || phase === "tool" || phase === "warm_resume") {
+              setStatusPhase(phase as "spawning" | "thinking" | "tool" | "warm_resume");
               if (phase === "spawning" && parsed.cwd) {
                 const cwd = String(parsed.cwd);
                 const last = cwd.split(/[\\/]/).filter(Boolean).pop() || cwd;
@@ -1494,7 +1510,7 @@ function ThinkingIndicator({
   agent,
   elapsed,
 }: {
-  phase: "spawning" | "thinking" | "tool" | null;
+  phase: "spawning" | "thinking" | "tool" | "warm_resume" | null;
   detail: string;
   agent: string;
   elapsed: string;
@@ -1509,9 +1525,11 @@ function ThinkingIndicator({
   const label =
     phase === "spawning"
       ? `starting ${agent.toLowerCase()}${detail ? ` in ${detail}` : ""}…`
-      : phase === "tool"
-        ? `running ${detail || "tool"}…`
-        : `${narration}…`;
+      : phase === "warm_resume"
+        ? `${agent.toLowerCase()} resuming (warm)…`
+        : phase === "tool"
+          ? `running ${detail || "tool"}…`
+          : `${narration}…`;
   return (
     <div className="flex items-center gap-2 text-fg-dim text-xs ml-9">
       <span className="typing-dots"><span /><span /><span /></span>
