@@ -17,6 +17,7 @@ import {
   History,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { OasisLogo } from "@/components/brand/OasisLogo";
 
 type NavItem = {
   href: string;
@@ -66,15 +67,8 @@ export function Sidebar({
       <div className="px-5 py-5 border-b border-bg-border relative">
         <Link href="/" className="flex items-center gap-2.5 group">
           <div className="relative">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/oasis-logo.svg"
-              alt="OASIS AI"
-              width={36}
-              height={36}
-              className="rounded-md shadow-glow ring-1 ring-accent/30 group-hover:ring-accent/60 transition-all"
-            />
-            <div className="absolute -inset-0.5 rounded-md bg-accent/20 blur opacity-50 -z-10" />
+            <OasisLogo size={36} className="group-hover:ring-accent/70 transition-all" />
+            <div className="absolute -inset-0.5 rounded-lg bg-accent/20 blur opacity-50 -z-10" />
           </div>
           <div className="leading-tight">
             <div className="text-fg font-bold text-sm tracking-tight">

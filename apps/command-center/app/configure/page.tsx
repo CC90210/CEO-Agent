@@ -15,6 +15,7 @@ import { redirect } from "next/navigation";
 import { ArrowRight, Sparkles, ShieldCheck } from "lucide-react";
 import { getSessionUser } from "@/lib/supabase-server";
 import { ConfigureFlow } from "@/components/landing/ConfigureFlow";
+import { OasisLogo } from "@/components/brand/OasisLogo";
 
 export const dynamic = "force-dynamic";
 
@@ -36,9 +37,7 @@ export default async function ConfigurePage() {
 
       <header className="relative z-10 mx-auto max-w-5xl px-6 py-5 flex items-center justify-between">
         <Link href="/welcome" className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br from-accent to-cyan-400 shadow-[0_0_20px_-2px_rgba(0,212,255,0.6)]">
-            <span className="text-bg-deep font-black text-sm">O</span>
-          </div>
+          <OasisLogo size={32} priority />
           <div className="leading-none">
             <div className="font-black text-fg tracking-tight text-sm">OASIS AI</div>
             <div className="text-[10px] uppercase tracking-[0.18em] text-fg-dim">Configure</div>
