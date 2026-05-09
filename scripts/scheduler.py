@@ -24,8 +24,11 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Optional, List
 
-# On Windows, suppress console window popups from subprocess calls
-CREATE_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
+# Shared Windows console-suppression flag — see scripts/_subprocess_helpers.
+# The constant lived in this file (and 5 others) before consolidation;
+# re-exported under the old name so existing imports keep working.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _subprocess_helpers import WINDOWLESS_FLAGS as CREATE_NO_WINDOW  # noqa: E402
 
 # Notification system
 try:
