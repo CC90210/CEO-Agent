@@ -69,6 +69,27 @@ const PROVIDER_OPTIONS: ProviderOption[] = [
     apiKey: "https://aistudio.google.com/apikey",
     hint: "Direct to Gemini via AI Studio. Free tier available.",
   },
+  {
+    // Local model — same code path as the OnboardingFlow option. The
+    // "API key" field stores the local endpoint URL (Ollama default
+    // http://localhost:11434/v1, LM Studio :1234/v1). Cloud dashboard
+    // can't reach localhost on a remote operator's machine — pair with
+    // the local-bridge daemon for full coverage. See lib/providers.ts
+    // streamOllama() for the wire format (OpenAI-compatible).
+    value: "ollama",
+    label: "Local model (Ollama / LM Studio)",
+    models: [
+      "llama3.3:70b",
+      "llama3.3",
+      "qwen2.5:72b",
+      "qwen2.5-coder:32b",
+      "mistral",
+      "deepseek-r1:70b",
+    ],
+    signup: "https://ollama.com/download",
+    apiKey: "https://ollama.com/library",
+    hint: "Runs on your machine. Paste your local endpoint URL in the key field (http://localhost:11434/v1 for Ollama, :1234/v1 for LM Studio). Pair with the local bridge for best results.",
+  },
 ];
 
 type AgentConfig = {
@@ -303,22 +324,24 @@ export function AgentConfigEditor({ agentKeys }: Props) {
               </label>
               <label className="text-xs text-fg-muted space-y-1">
                 <span className="label">
-                  API key{" "}
+                  {row.provider === "ollama" ? "Endpoint URL" : "API key"}{" "}
                   <span className="text-fg-dim normal-case tracking-normal font-normal">
                     {cfg?.has_key ? "(leave blank to keep existing)" : "(required)"}
                   </span>
                 </span>
                 <div className="flex gap-2">
                   <input
-                    type={row.showKey ? "text" : "password"}
+                    type={row.showKey || row.provider === "ollama" ? "text" : "password"}
                     value={row.apiKey}
                     onChange={(e) => patchRow(key, { apiKey: e.target.value })}
                     placeholder={
                       cfg?.has_key
                         ? "•••••••••••••••"
-                        : isOpenRouter
-                          ? "sk-or-v1-..."
-                          : "your provider key"
+                        : row.provider === "ollama"
+                          ? "http://localhost:11434/v1"
+                          : isOpenRouter
+                            ? "sk-or-v1-..."
+                            : "your provider key"
                     }
                     className="input font-mono"
                   />
