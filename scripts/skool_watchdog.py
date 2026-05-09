@@ -27,8 +27,31 @@ HEARTBEAT_FILE = ROOT / "tmp" / "skool_daemon.heartbeat"
 LOCK_FILE = ROOT / "tmp" / "skool_daemon.lock"
 LOG_FILE = ROOT / "tmp" / "logs" / "watchdog.log"
 VENV_PYTHON = ROOT / ".venv" / "Scripts" / "python.exe"
+VENV_PYTHONW = ROOT / ".venv" / "Scripts" / "pythonw.exe"
 ENGINE_SCRIPT = ROOT / "scripts" / "skool_engine.py"
 CREATE_NO_WINDOW = 0x08000000
+
+
+def _resolve_daemon_python() -> Path | None:
+    """Prefer pythonw.exe over python.exe so the spawned daemon has NO
+    console subsystem at all — bulletproof against ConPTY quirks that
+    occasionally leak a visible terminal even with CREATE_NO_WINDOW.
+    Falls through to python.exe if pythonw isn't present (rare; broken
+    venv install). On non-Windows the distinction doesn't exist so just
+    use whatever Python is running this watchdog."""
+    if sys.platform == "win32":
+        if VENV_PYTHONW.exists():
+            return VENV_PYTHONW
+        if VENV_PYTHON.exists():
+            return VENV_PYTHON
+        # Fall back: derive pythonw from the running interpreter
+        running = Path(sys.executable)
+        cand = running.with_name(running.name.replace("python.exe", "pythonw.exe"))
+        if cand.exists():
+            return cand
+        return running if running.exists() else None
+    # Unix
+    return VENV_PYTHON if VENV_PYTHON.exists() else Path(sys.executable)
 
 # Heartbeat older than this = daemon is dead
 HEARTBEAT_MAX_AGE = timedelta(minutes=10)
@@ -103,20 +126,24 @@ def kill_stale_daemons():
         "  $_.CommandLine -like '*skool_engine*' -and "
         "  $_.ConvertToDateTime($_.CreationDate) -lt $cutoff "
         "} | ForEach-Object { "
-        "  $pid = $_.ProcessId; "
+        "  $procPid = $_.ProcessId; "
         "  $start = $_.ConvertToDateTime($_.CreationDate); "
         "  $result = $_.Terminate(); "
-        "  Write-Output \\\"KILLED:$pid:$start:$($result.ReturnValue)\\\" "
+        "  Write-Output (\\\"KILLED:\\\" + $procPid + \\\":\\\" + $start + \\\":\\\" + $result.ReturnValue) "
         "}"
     )
 
     try:
+        si = subprocess.STARTUPINFO()
+        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        si.wShowWindow = subprocess.SW_HIDE
         result = subprocess.run(
             ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_script],
             capture_output=True,
             text=True,
             timeout=15,
             creationflags=CREATE_NO_WINDOW,
+            startupinfo=si,
         )
         for line in result.stdout.strip().splitlines():
             if line.startswith("KILLED:"):
@@ -153,25 +180,41 @@ def clean_bytecache():
 
 
 def start_daemon():
-    """Start a single skool_engine daemon — no popup window."""
+    """Start a single skool_engine daemon — no popup window.
+
+    Triple-flag suppression on Windows:
+      1. pythonw.exe (no console subsystem)        — primary
+      2. CREATE_NO_WINDOW                          — backstop
+      3. STARTUPINFO + SW_HIDE                     — belt-and-suspenders
+    All three together = bulletproof. Earlier versions used (1) opt-in
+    plus (2); CC reported a persistent terminal leaking on Windows 11
+    with ConPTY. (3) plugs that gap.
+    """
     PID_FILE.unlink(missing_ok=True)
     HEARTBEAT_FILE.unlink(missing_ok=True)
 
-    # Prefer venv python; fall back to sys.executable so CI/bare-Python envs work
-    python_exe = VENV_PYTHON if VENV_PYTHON.exists() else Path(sys.executable)
-    if not python_exe.exists():
+    python_exe = _resolve_daemon_python()
+    if not python_exe or not python_exe.exists():
         log(f"ERROR: python executable not found at {python_exe}")
         return
 
     log_path = ROOT / "tmp" / "logs" / "skool_daemon_live.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
+    startupinfo = None
+    if sys.platform == "win32":
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = subprocess.SW_HIDE
+
     proc = subprocess.Popen(
         [str(python_exe), str(ENGINE_SCRIPT), "daemon", "--interval", "5"],
         cwd=str(ROOT),
         creationflags=CREATE_NO_WINDOW,
+        startupinfo=startupinfo,
         stdout=open(log_path, "a"),
         stderr=subprocess.STDOUT,
+        stdin=subprocess.DEVNULL,
     )
 
     # Record start time in PID file so future watchdog runs can detect age
@@ -217,9 +260,13 @@ def force_restart_if_requested():
     daemon_pid = get_daemon_pid()
     if daemon_pid:
         try:
+            si = subprocess.STARTUPINFO()
+            si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            si.wShowWindow = subprocess.SW_HIDE
             subprocess.run(
                 ["taskkill", "/F", "/PID", str(daemon_pid)],
                 capture_output=True, timeout=10, creationflags=CREATE_NO_WINDOW,
+                startupinfo=si,
             )
             log(f"Force-killed daemon PID {daemon_pid}")
         except Exception as exc:
