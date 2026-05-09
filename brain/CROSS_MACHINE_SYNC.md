@@ -199,6 +199,7 @@ This is future work — the protocol supports it, the implementation is ~60 line
 
 ## Obsidian Links
 - [[brain/MAC_SYNC_PROMPT]]
+- [[brain/MAC_COMMAND_CENTER_PROMPT]] — paste-ready prompt for adding the Mac as a second paired bridge to the Agent Command Center
 - [[brain/CREDENTIALS_SCAFFOLD]]
 - [[memory/SESSION_LOG]]
 - [[memory/ACTIVE_TASKS]]
