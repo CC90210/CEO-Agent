@@ -896,6 +896,10 @@ def cmd_install(_args) -> int:
         plist_dir = Path.home() / "Library" / "LaunchAgents"
         plist_dir.mkdir(parents=True, exist_ok=True)
         plist_path = plist_dir / "work.oasisai.bravo-bridge.plist"
+        # WorkingDirectory: launchd starts the process with cwd=/, so
+        # `python -m bravo_cli.local_bridge` can't find the package
+        # unless we pin cwd to the repo root captured at install time.
+        cwd = str(Path.cwd().resolve())
         plist_path.write_text(f"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -903,11 +907,12 @@ def cmd_install(_args) -> int:
     <key>Label</key><string>work.oasisai.bravo-bridge</string>
     <key>ProgramArguments</key>
     <array>
-        <string>{py}</string>
+        <string>{py_runner}</string>
         <string>-m</string>
         <string>bravo_cli.local_bridge</string>
         <string>serve</string>
     </array>
+    <key>WorkingDirectory</key><string>{cwd}</string>
     <key>RunAtLoad</key><true/>
     <key>KeepAlive</key><true/>
     <key>StandardOutPath</key><string>{LOG_PATH}</string>
@@ -915,6 +920,12 @@ def cmd_install(_args) -> int:
 </dict>
 </plist>
 """, encoding="utf-8")
+        try:
+            subprocess.run(["launchctl", "unload", str(plist_path)],
+                           check=False, capture_output=True,
+                           creationflags=WINDOWLESS_FLAGS)
+        except FileNotFoundError:
+            pass
         try:
             subprocess.run(["launchctl", "load", "-w", str(plist_path)],
                            check=False, capture_output=True,
@@ -937,7 +948,7 @@ After=network-online.target
 
 [Service]
 Type=simple
-ExecStart={py} -m bravo_cli.local_bridge serve
+ExecStart={py_runner} -m bravo_cli.local_bridge serve
 Restart=on-failure
 RestartSec=5
 
