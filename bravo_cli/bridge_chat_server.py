@@ -981,13 +981,17 @@ class _ChatHandler(BaseHTTPRequestHandler):
             self._json(400, {"ok": False, "error": "invalid_json"})
             return
         agent = str(payload.get("agent", "")).strip().lower()
+        # Pool was keyed by session_id pre-tab-keying; now keyed by tab_id.
+        # Accept either: kill the entry that matches.
+        tab_id = str(payload.get("tab_id", "")).strip()
         session_id = str(payload.get("session_id", "")).strip()
-        if not agent or not session_id:
-            self._json(400, {"ok": False, "error": "agent + session_id required"})
+        kill_token = tab_id or session_id
+        if not agent or not kill_token:
+            self._json(400, {"ok": False, "error": "agent + tab_id or session_id required"})
             return
         try:
             from warm_claude_pool import kill_for_session as _wp_kill  # type: ignore
-            _wp_kill(f"{agent}:{session_id}")
+            _wp_kill(f"{agent}:{kill_token}")
             self._json(200, {"ok": True})
         except Exception as e:
             self._json(500, {"ok": False, "error": str(e)})
@@ -1031,6 +1035,20 @@ class _ChatHandler(BaseHTTPRequestHandler):
             resume_session_id = resume_session_id.strip()
         else:
             resume_session_id = None
+        # Tab-keyed warm pool. The dashboard's ChatWidget mints a
+        # `tab_id` UUID at component-mount and sends it on every chat
+        # request. Pool is keyed by `agent:tab_id` instead of
+        # `agent:session_id` — solves the chicken/egg problem where
+        # session_id only exists AFTER turn 1, so turn 1 + 2 used to
+        # pay back-to-back cold-starts. With tab_id (stable from the
+        # operator's first character typed), turn 1 spawns into the
+        # pool and every turn after is warm.
+        # Falls back to session_id if tab_id absent (older clients).
+        tab_id = payload.get("tab_id")
+        if isinstance(tab_id, str) and tab_id.strip():
+            tab_id = tab_id.strip()
+        else:
+            tab_id = resume_session_id  # legacy fallback
 
         root = resolve_root(agent)
         if not root:
@@ -1118,10 +1136,10 @@ class _ChatHandler(BaseHTTPRequestHandler):
         # closed, parse error, opt-out via OASIS_NO_WARM_POOL=1).
         warm_disabled = os.environ.get("OASIS_NO_WARM_POOL") == "1"
         warm_path_succeeded = False
-        if not warm_disabled:
+        if not warm_disabled and tab_id:
             try:
                 warm_path_succeeded = self._run_chat_via_warm_pool(
-                    agent, root, messages, emit, resume_session_id
+                    agent, root, messages, emit, resume_session_id, tab_id
                 )
             except Exception as e:
                 # Warm path crashed — log to stderr, fall through to cold.
@@ -1161,29 +1179,30 @@ class _ChatHandler(BaseHTTPRequestHandler):
         messages: list[dict],
         emit: Callable[[str, dict], None],
         resume_session_id: str | None,
+        tab_id: str,
     ) -> bool:
         """Drive a chat turn via a persistent claude subprocess from the
         warm pool. Returns True on success (streamed clean to the client),
         False to signal "fall back to fresh spawn."
 
+        Tab-keyed: pool entries are keyed by (agent, tab_id) — stable
+        from the moment the dashboard's ChatWidget mounts. So turn 1
+        spawns into the pool too, and every turn after reuses the
+        same persistent process. Closes the gap that made turn 2 still
+        cold-start.
+
         Why we sometimes return False without erroring:
-          - First turn (no resume_session_id) — pool has nothing to reuse,
-            cold spawn is unavoidable. Return False so the cold path runs.
+          - last_user message empty — defensive; cold path will surface.
+          - claude CLI missing — propagate to cold path's user-facing
+            error message.
           - Process died / stdin closed — the warm process is dead; cold
-            spawn the recovery. Return False.
-          - Parse error in the stream-json output — defensive bail; cold
-            path will surface the underlying error to the user.
+            spawn the recovery.
 
         Why we sometimes return True after an error:
-          - The error is a normal stream-end (operator closed the chat,
-            claude exited cleanly). We've already streamed the partial
-            response; the cold path would just spawn a redundant process.
+          - The warm path emitted partial output and the stream wedged.
+            Cold path would spawn a redundant process; better to close
+            the SSE stream and let the user retry.
         """
-        # First turn → no warm process to reuse. Let cold path handle it
-        # (and the warm pool will pick it up on turn 2+).
-        if not resume_session_id:
-            return False
-
         last_user = next(
             (m for m in reversed(messages) if m.get("role") == "user"), None
         )
@@ -1193,10 +1212,11 @@ class _ChatHandler(BaseHTTPRequestHandler):
         if not prompt_text:
             return False
 
-        # Pool key: agent + session_id. Different sessions get different
-        # processes so context doesn't leak across conversations. Tenant
-        # isolation comes from the bridge running per-machine.
-        pool_key = f"{agent}:{resume_session_id}"
+        # Pool key: agent + tab_id (stable for the chat widget's lifetime).
+        # Different tabs get different processes so concurrent operators
+        # don't share context. Tenant isolation comes from the bridge
+        # running per-machine.
+        pool_key = f"{agent}:{tab_id}"
 
         # Pre-stream status so the dashboard knows we're using the warm
         # path (debugging signal — operators have asked "why is this

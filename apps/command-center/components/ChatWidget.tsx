@@ -169,6 +169,16 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  // Tab-stable identifier for the warm-process pool. Minted ONCE per
+  // ChatWidget mount; persists across agent switches and turns. The
+  // bridge keys its warm pool by `agent:tab_id` so even turn 1 (before
+  // claude has minted a session_id) lands in the pool. See
+  // bravo_cli/warm_claude_pool.py for the architecture.
+  const [tabId] = useState(() =>
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `tab-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+  );
   const [error, setError] = useState<string | null>(null);
   const [actions, setActions] = useState<
     Array<{
@@ -425,11 +435,13 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
     // process pins ~50-200MB of RAM until the 15-min idle reaper
     // catches up. Fire-and-forget; bridge offline / 404 is fine since
     // the reaper is the safety net.
-    if (bridgeOnline === true && sessionId) {
+    if (bridgeOnline === true) {
       void fetch(`${BRIDGE_CHAT_BASE}/chat-reset`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ agent, session_id: sessionId }),
+        // tab_id is the canonical pool key; session_id sent for legacy
+        // fallback path on older bridge builds.
+        body: JSON.stringify({ agent, tab_id: tabId, session_id: sessionId }),
       }).catch(() => null);
     }
     setMessages([]);
@@ -505,6 +517,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
               agent,
               messages: newMessages,
               session_id: sessionId,
+              tab_id: tabId,  // warm pool key — stable across the widget's lifetime
             }
           : { agent_key: agent, session_id: sessionId, messages: newMessages };
       const res = await fetch(url, {
