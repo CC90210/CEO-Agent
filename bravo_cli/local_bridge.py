@@ -938,16 +938,21 @@ def cmd_install(_args) -> int:
         print(f"     Remove: bravo bridge uninstall")
         return 0
 
-    # Linux — assume systemd user
+    # Linux — assume systemd user. WorkingDirectory pinned at install
+    # time so `python -m bravo_cli.local_bridge` resolves the package
+    # (same fix as the macOS plist; without it systemd starts with cwd=/
+    # and hits ModuleNotFoundError).
     unit_dir = Path.home() / ".config" / "systemd" / "user"
     unit_dir.mkdir(parents=True, exist_ok=True)
     unit_path = unit_dir / "bravo-bridge.service"
+    cwd = str(Path.cwd().resolve())
     unit_path.write_text(f"""[Unit]
 Description={label}
 After=network-online.target
 
 [Service]
 Type=simple
+WorkingDirectory={cwd}
 ExecStart={py_runner} -m bravo_cli.local_bridge serve
 Restart=on-failure
 RestartSec=5
