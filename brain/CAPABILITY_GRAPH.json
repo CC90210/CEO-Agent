@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0",
   "agent": "bravo",
-  "generated_at": "2026-05-06T17:34:52.824449+00:00",
+  "generated_at": "2026-05-07T06:04:05.858037+00:00",
   "totals": {
     "skills": 153,
-    "scripts": 108,
+    "scripts": 113,
     "agents": 20,
     "mcp_servers": 9,
     "workflows": 36,
-    "nodes_total": 326,
+    "nodes_total": 331,
     "edges_total": 44,
     "drift_count": 0
   },
@@ -3291,6 +3291,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:audit_mcp_secrets",
+      "kind": "script",
+      "name": "audit_mcp_secrets",
+      "path": "scripts/audit_mcp_secrets.py",
+      "description": "Audit MCP config files for plaintext live secrets.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:auto_dream",
       "kind": "script",
       "name": "auto_dream",
@@ -3361,6 +3371,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:build_bridge_manifest",
+      "kind": "script",
+      "name": "build_bridge_manifest",
+      "path": "scripts/build_bridge_manifest.py",
+      "description": "build_bridge_manifest.py \u2014 walk scripts/, generate the chat-bridge manifest.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:build_capability_graph",
       "kind": "script",
       "name": "build_capability_graph",
@@ -3416,6 +3436,16 @@
       "name": "ceo_dashboard",
       "path": "scripts/ceo_dashboard.py",
       "description": "CEO Dashboard \u2014 Unified KPI Aggregator Aggregates revenue, pipeline, content, and client health into a single digest. All credentials loaded from .env.agents (never hardcoded).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:check_bridge_manifest",
+      "kind": "script",
+      "name": "check_bridge_manifest",
+      "path": "scripts/check_bridge_manifest.py",
+      "description": "check_bridge_manifest.py \u2014 drift guard for scripts/_bridge_manifest.json.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -4021,6 +4051,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:reap_orphan_mcps",
+      "kind": "script",
+      "name": "reap_orphan_mcps",
+      "path": "scripts/reap_orphan_mcps.py",
+      "description": "Reap orphan MCP server processes whose parent chain is dead.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:region_inference",
       "kind": "script",
       "name": "region_inference",
@@ -4266,6 +4306,16 @@
       "name": "system_cleanup",
       "path": "scripts/system_cleanup.py",
       "description": "System Cleanup \u2014 find and remove redundant artifacts left by repeated installs.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:system_health_check",
+      "kind": "script",
+      "name": "system_health_check",
+      "path": "scripts/system_health_check.py",
+      "description": "System health check \u2014 Bravo's self-sustaining maintenance loop.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"

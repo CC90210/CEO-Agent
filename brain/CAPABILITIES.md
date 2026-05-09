@@ -137,6 +137,10 @@ V6.0 ships the multi-provider model router, autonomous skill synthesis, 3-layer 
 | `personalize.py` | Renders `brain/USER.md` + memory templates from `brain/operator.profile.json`. Idempotent. **V6.1** | `python scripts/personalize.py apply --json` |
 | `scaffold.py` | Token-replaces operator identifiers across the codebase at fork-time. Refuses to run on the original operator's repo by design. **V6.1** | `python scripts/scaffold.py --apply --backup` |
 | `system_cleanup.py` | Find + delete redundant install clones, pip/npm caches, old `tmp/` files, `__pycache__` trees, scaffold backups. Active repo preserved by safety guard. **V6.1.1** | `python scripts/system_cleanup.py --apply` |
+| `reap_orphan_mcps.py` | Kill duplicate/leaked MCP server processes (multi-editor host pattern leaves orphans). Keeps N most recent per signature. **V6.6** | `python scripts/reap_orphan_mcps.py --keep 4 --apply` |
+| `system_health_check.py` | Self-sustaining maintenance pass: reap orphan MCPs, clean Temp >14d, run `self_audit.py` + `audit_mcp_secrets.py`, post inbox alerts on degradation. Scheduled via `BravoSystemHealth` task at login (5 min delay) + every 30 min. **V6.6** | `python scripts/system_health_check.py` |
+| `build_bridge_manifest.py` | Generate the bridge manifest from `bridge_lock.py` arbitration data. | `python scripts/build_bridge_manifest.py` |
+| `check_bridge_manifest.py` | Validate the bridge manifest is consistent with current PM2 + lockfile state. | `python scripts/check_bridge_manifest.py` |
 
 **Config:** `brain/MODEL_CONFIG.md` (per-agent provider/model + fallbacks).
 **Operator profile:** `brain/operator.profile.json` (gitignored — schema in `operator.profile.example.json`). Single source of truth for identity/brand/voice.
