@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from cron_engine import _next_run_approx, fmt_date, get_client, load_env
+from _subprocess_helpers import WINDOWLESS_FLAGS
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 KNOWN_ROOTS = [
@@ -117,12 +118,6 @@ def execute_job(client, job: dict[str, Any], dry_run: bool = False) -> dict[str,
     env = os.environ.copy()
     env.update(load_env())
     timeout = int((job.get("action_config") or {}).get("timeout_seconds", 300))
-    # On Windows, suppress the conhost flicker each cron job would
-    # otherwise emit. cron_dispatcher is invoked by Task Scheduler /
-    # PM2 / n8n, all of which have a console attached at some point
-    # in the chain — without this flag the operator sees a brief
-    # cmd.exe pop on every tick.
-    creationflags = 0x08000000 if sys.platform == "win32" else 0
     proc = subprocess.run(
         cmd,
         cwd=str(cwd),
@@ -130,7 +125,7 @@ def execute_job(client, job: dict[str, Any], dry_run: bool = False) -> dict[str,
         text=True,
         capture_output=True,
         timeout=timeout,
-        creationflags=creationflags,
+        creationflags=WINDOWLESS_FLAGS,
     )
     output = (proc.stdout or "").strip()
     error = (proc.stderr or "").strip()
