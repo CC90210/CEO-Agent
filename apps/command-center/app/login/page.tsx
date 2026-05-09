@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getBrowserSupabase } from "@/lib/supabase-browser";
+import { OasisLogo } from "@/components/brand/OasisLogo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -58,14 +59,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-10">
           <Link href="/" className="inline-flex items-center gap-3 mb-4 group">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/oasis-logo.svg"
-              alt="OASIS AI"
-              width={44}
-              height={44}
-              className="rounded-md shadow-glow ring-1 ring-accent/30 group-hover:ring-accent/60 transition-all"
-            />
+            <OasisLogo size={44} priority className="group-hover:ring-accent/70 transition-all" />
             <div className="text-fg font-bold tracking-tight text-lg">OASIS AI</div>
           </Link>
           <h1 className="text-2xl font-bold text-fg">Sign in to Command Center</h1>

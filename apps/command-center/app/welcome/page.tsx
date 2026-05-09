@@ -1,8 +1,8 @@
-import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Bot, Cpu, Zap, ShieldCheck, Sparkles, Globe2, Monitor, Plug } from "lucide-react";
+import { ArrowRight, Bot, Cpu, ShieldCheck, Sparkles, Globe2, Monitor, Plug } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/supabase-server";
+import { OasisLogo } from "@/components/brand/OasisLogo";
 
 export const dynamic = "force-dynamic";
 
@@ -30,16 +30,7 @@ export default async function WelcomePage() {
       {/* Top nav */}
       <header className="relative z-10 mx-auto max-w-7xl px-6 sm:px-10 py-6 flex items-center justify-between">
         <Link href="/welcome" className="flex items-center gap-2.5 group">
-          <div className="w-9 h-9 rounded-lg overflow-hidden ring-1 ring-accent/40 shadow-[0_0_20px_-2px_rgba(0,212,255,0.6)] group-hover:shadow-[0_0_28px_-2px_rgba(0,212,255,0.8)] transition-shadow">
-            <Image
-              src="/oasis-logo.jpg"
-              alt="OASIS AI"
-              width={36}
-              height={36}
-              className="w-full h-full object-cover"
-              priority
-            />
-          </div>
+          <OasisLogo size={36} priority className="group-hover:shadow-[0_0_28px_-2px_rgba(0,212,255,0.8)] transition-shadow" />
           <div className="leading-none">
             <div className="font-black text-fg tracking-tight">OASIS AI</div>
             <div className="text-[10px] uppercase tracking-[0.18em] text-fg-dim">Agent Command Center</div>

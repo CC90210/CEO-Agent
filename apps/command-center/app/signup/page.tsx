@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getBrowserSupabase } from "@/lib/supabase-browser";
+import { OasisLogo } from "@/components/brand/OasisLogo";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -84,14 +85,7 @@ export default function SignupPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-3 mb-4">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/oasis-logo.svg"
-              alt="OASIS AI"
-              width={44}
-              height={44}
-              className="rounded-md shadow-glow ring-1 ring-accent/30"
-            />
+            <OasisLogo size={44} priority />
             <div className="text-fg font-bold tracking-tight text-lg">OASIS AI</div>
           </div>
           <h1 className="text-2xl font-bold text-fg">Create your Command Center</h1>
