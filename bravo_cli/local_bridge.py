@@ -771,16 +771,16 @@ def _pid_alive(pid: int) -> bool:
 
 
 def _resolve_pythonw() -> str:
-    """Return a windowless Python interpreter path. On Windows, prefer
-    pythonw.exe over python.exe so the bridge runs without a console
-    popping up at login. Falls back to sys.executable elsewhere.
-    """
-    py = sys.executable
-    if os.name == "nt":
-        cand = py.replace("python.exe", "pythonw.exe")
-        if Path(cand).exists():
-            return cand
-    return py
+    """Return a windowless Python interpreter path. Wraps the shared
+    `prefer_pythonw` primitive so this caller and skool_watchdog stay in
+    lockstep — one source of truth for the python→pythonw resolution.
+    Returns a string for backward-compat with existing callers (wizard,
+    schtasks, plist, .vbs)."""
+    try:
+        from ._subprocess_helpers import prefer_pythonw
+    except ImportError:  # script-mode invocation
+        from _subprocess_helpers import prefer_pythonw  # type: ignore
+    return str(prefer_pythonw(sys.executable))
 
 
 def _install_windows_startup_folder(py: str) -> tuple[bool, str]:
