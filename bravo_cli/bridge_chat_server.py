@@ -41,26 +41,11 @@ import subprocess
 import sys
 import threading
 
-# Windows console-suppression. CREATE_NO_WINDOW alone is enough for
-# direct-exe spawns (claude.exe, python.exe). For .cmd / .bat resolution
-# (e.g. `playwright.cmd`, `whisper.cmd`), the helper below also passes
-# STARTUPINFO with SW_HIDE — matching the skool_watchdog gold-standard
-# pattern. Without SW_HIDE, the cmd.exe wrapper renders a brief visible
-# system32 console window even though CREATE_NO_WINDOW is set on the
-# top-level call. This is the bug CC reported on 2026-05-09.
-_WINDOWLESS_FLAGS = 0x08000000 if os.name == "nt" else 0
-
-
-def _windowless_startupinfo():
-    """Return a STARTUPINFO that hides console windows on Windows.
-    None on non-Windows. Use for any subprocess that might resolve to a
-    .cmd / .bat shim (npm-installed binaries on Windows do this)."""
-    if os.name != "nt":
-        return None
-    si = subprocess.STARTUPINFO()
-    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-    si.wShowWindow = subprocess.SW_HIDE
-    return si
+# Windows console-suppression — see bravo_cli/_subprocess_helpers.
+from ._subprocess_helpers import (
+    WINDOWLESS_FLAGS as _WINDOWLESS_FLAGS,
+    windowless_startupinfo as _windowless_startupinfo,
+)
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
