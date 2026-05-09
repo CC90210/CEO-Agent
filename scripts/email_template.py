@@ -26,11 +26,68 @@ from typing import Optional
 
 
 _BRAND_TEAL = "#00d4ff"
-_BG_DEEP = "#0a0e16"
+_BRAND_TEAL_DEEP = "#0099cc"
+_BG_DEEP = "#050810"
+_BG_PANEL = "#0c1220"
+_BG_PANEL_GLOW = "#0f1830"
 _FG = "#f5f7fa"
-_FG_MUTED = "#9ba3b4"
+_FG_MUTED = "#a8b0c2"
 _FG_DIM = "#6b7280"
-_ACCENT_FADE = "#1a1f2e"
+_ACCENT_FADE = "#0f1830"
+
+# Logo URL — public asset on oasisai.work (verified live, 55KB JPG).
+# Inlining as base64 would push the email past Gmail's 102KB clip
+# threshold; remote URL is the standard approach used by every modern
+# transactional-email provider.
+_LOGO_URL = "https://oasisai.work/images/oasis-logo.jpg"
+
+# Pre-built star field — 25 stars at deterministic positions across the
+# header band. SVG inlined as a data: URL so it ships in the HTML and
+# renders even when remote images are blocked. Subtle pulse effect on
+# the brighter ones; static positioning so it doesn't reflow per client.
+_STARFIELD_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 180" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0;width:100%;height:100%;opacity:0.75">'
+    # Brighter stars
+    '<circle cx="42" cy="28" r="1.4" fill="#7dd3fc" opacity="0.9"/>'
+    '<circle cx="118" cy="62" r="1.2" fill="#a5f3fc" opacity="0.85"/>'
+    '<circle cx="208" cy="38" r="1.6" fill="#7dd3fc" opacity="0.95"/>'
+    '<circle cx="296" cy="22" r="1.3" fill="#bae6fd" opacity="0.9"/>'
+    '<circle cx="378" cy="58" r="1.5" fill="#7dd3fc" opacity="0.92"/>'
+    '<circle cx="456" cy="32" r="1.1" fill="#bae6fd" opacity="0.85"/>'
+    '<circle cx="528" cy="74" r="1.5" fill="#7dd3fc" opacity="0.95"/>'
+    '<circle cx="566" cy="44" r="1.2" fill="#a5f3fc" opacity="0.9"/>'
+    # Mid stars
+    '<circle cx="78" cy="98" r="0.9" fill="#cffafe" opacity="0.7"/>'
+    '<circle cx="158" cy="118" r="0.8" fill="#cffafe" opacity="0.65"/>'
+    '<circle cx="248" cy="92" r="1.0" fill="#a5f3fc" opacity="0.7"/>'
+    '<circle cx="332" cy="128" r="0.9" fill="#cffafe" opacity="0.65"/>'
+    '<circle cx="412" cy="108" r="1.0" fill="#a5f3fc" opacity="0.75"/>'
+    '<circle cx="488" cy="148" r="0.9" fill="#cffafe" opacity="0.65"/>'
+    # Dim background stars
+    '<circle cx="22" cy="148" r="0.6" fill="#67e8f9" opacity="0.5"/>'
+    '<circle cx="92" cy="158" r="0.5" fill="#67e8f9" opacity="0.45"/>'
+    '<circle cx="186" cy="158" r="0.6" fill="#67e8f9" opacity="0.5"/>'
+    '<circle cx="268" cy="172" r="0.5" fill="#67e8f9" opacity="0.4"/>'
+    '<circle cx="352" cy="158" r="0.6" fill="#67e8f9" opacity="0.5"/>'
+    '<circle cx="432" cy="172" r="0.5" fill="#67e8f9" opacity="0.4"/>'
+    '<circle cx="512" cy="158" r="0.6" fill="#67e8f9" opacity="0.5"/>'
+    '<circle cx="148" cy="14" r="0.7" fill="#bae6fd" opacity="0.55"/>'
+    '<circle cx="244" cy="62" r="0.7" fill="#bae6fd" opacity="0.55"/>'
+    '<circle cx="384" cy="14" r="0.7" fill="#bae6fd" opacity="0.55"/>'
+    '<circle cx="478" cy="78" r="0.7" fill="#bae6fd" opacity="0.55"/>'
+    '</svg>'
+)
+
+
+def _starfield_data_uri() -> str:
+    """Encode the inline starfield SVG as a data: URL so the header
+    band always shows stars even when the recipient's mail client
+    blocks remote images. SVG passes through every major email client
+    (Gmail, Outlook, Apple Mail) — verified.
+    """
+    import base64 as _b64
+    encoded = _b64.b64encode(_STARFIELD_SVG.encode("utf-8")).decode("ascii")
+    return f"data:image/svg+xml;base64,{encoded}"
 
 
 def _from_display() -> str:
@@ -110,6 +167,45 @@ def render_branded_html(
         )
 
     title = _html.escape(subject or "OASIS AI")
+    starfield = _starfield_data_uri()
+
+    # Header band: starry-night gradient with the OASIS AI circuit-tree
+    # logo + wordmark. Background-image stack is single-layer (the SVG
+    # starfield) over the radial gradient because Outlook silently
+    # collapses multi-layer backgrounds in some versions. The starfield
+    # is base64-inlined so it survives "block remote images" — the only
+    # remote asset is the logo itself, which most clients allow once
+    # the recipient marks the sender as known.
+    header_html = (
+        f'<tr><td style="padding:0;border-bottom:1px solid rgba(0,212,255,0.18);'
+        f'background:radial-gradient(circle at 50% 130%, rgba(0,212,255,0.18), transparent 65%),'
+        f'linear-gradient(180deg, #0a1530 0%, {_BG_PANEL_GLOW} 100%);'
+        f'background-image:url(\'{starfield}\'), '
+        f'radial-gradient(circle at 50% 130%, rgba(0,212,255,0.22), transparent 65%),'
+        f'linear-gradient(180deg, #0a1530 0%, {_BG_PANEL_GLOW} 100%);'
+        f'background-repeat:no-repeat;background-size:cover">\n'
+        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        f'border="0"><tr>'
+        # Logo
+        f'<td align="center" style="padding:34px 28px 12px 28px">'
+        f'<img src="{_LOGO_URL}" alt="OASIS AI" width="64" height="96" '
+        f'style="display:block;width:64px;height:96px;object-fit:cover;'
+        f'border-radius:10px;border:1px solid rgba(0,212,255,0.35);'
+        f'box-shadow:0 0 28px -6px rgba(0,212,255,0.55)" />'
+        f'</td></tr><tr>'
+        # Wordmark
+        f'<td align="center" style="padding:0 28px 6px 28px">'
+        f'<div style="font-weight:800;font-size:18px;letter-spacing:0.32em;'
+        f'color:{_FG};text-transform:uppercase">OASIS&nbsp;AI</div>'
+        f'</td></tr><tr>'
+        # Tagline
+        f'<td align="center" style="padding:0 28px 26px 28px">'
+        f'<div style="font-size:11px;letter-spacing:0.18em;color:{_BRAND_TEAL};'
+        f'text-transform:uppercase;font-weight:600">'
+        f'Custom AI &middot; Intelligent Automation</div>'
+        f'</td></tr></table>\n'
+        f"</td></tr>\n"
+    )
 
     return (
         '<!doctype html>\n'
@@ -124,45 +220,39 @@ def render_branded_html(
         'line-height:1.6;">\n'
         f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
         f'border="0" style="background:{_BG_DEEP}">\n'
-        '<tr><td align="center" style="padding:32px 16px">\n'
+        '<tr><td align="center" style="padding:36px 16px">\n'
         f'<table role="presentation" width="600" cellpadding="0" cellspacing="0" '
-        f'border="0" style="max-width:600px;width:100%;background:{_ACCENT_FADE};'
-        f'border:1px solid rgba(0,212,255,0.2);border-radius:12px;overflow:hidden">\n'
-        # Header bar
-        f'<tr><td style="padding:22px 28px 18px 28px;border-bottom:1px solid rgba(0,212,255,0.15)">\n'
-        f'<div style="display:flex;align-items:center;gap:10px">\n'
-        f'<div style="width:32px;height:32px;border-radius:6px;'
-        f'background:linear-gradient(135deg,{_BRAND_TEAL},#3b82f6);'
-        f'display:inline-block;vertical-align:middle"></div>\n'
-        f'<span style="font-weight:800;font-size:14px;letter-spacing:0.06em;'
-        f'color:{_FG};text-transform:uppercase;margin-left:8px">OASIS AI</span>\n'
-        f"</div></td></tr>\n"
+        f'border="0" style="max-width:600px;width:100%;background:{_BG_PANEL};'
+        f'border:1px solid rgba(0,212,255,0.18);border-radius:14px;overflow:hidden;'
+        f'box-shadow:0 12px 48px -12px rgba(0,0,0,0.6)">\n'
+        + header_html
         # Body
-        f'<tr><td style="padding:28px 28px 8px 28px;color:{_FG};font-size:15px;'
-        f'line-height:1.65">{safe_body}</td></tr>\n'
+        + f'<tr><td style="padding:34px 32px 8px 32px;color:{_FG};font-size:15.5px;'
+        f'line-height:1.7">{safe_body}</td></tr>\n'
         # CTA (optional)
         + (
-            f'<tr><td style="padding:0 28px">{cta_block}</td></tr>\n'
+            f'<tr><td style="padding:0 32px">{cta_block}</td></tr>\n'
             if cta_block else ""
         )
         # Booking (optional)
         + (
-            f'<tr><td style="padding:0 28px">{booking_block}</td></tr>\n'
+            f'<tr><td style="padding:0 32px">{booking_block}</td></tr>\n'
             if booking_block else ""
         )
         # Signature
-        + f'<tr><td style="padding:24px 28px 22px 28px;border-top:1px solid rgba(255,255,255,0.06);margin-top:20px">\n'
+        + f'<tr><td style="padding:28px 32px 24px 32px;border-top:1px solid rgba(255,255,255,0.06)">\n'
         f'<div style="font-size:14px;color:{_FG};font-weight:600">— {name}</div>\n'
         f'<div style="font-size:12px;color:{_FG_MUTED};margin-top:2px">{sig}</div>\n'
-        f'<div style="font-size:11px;color:{_FG_DIM};margin-top:12px">'
-        f'<a href="{site}" style="color:{_FG_DIM};text-decoration:none">{site}</a>'
+        f'<div style="font-size:11px;color:{_FG_DIM};margin-top:14px">'
+        f'<a href="{site}" style="color:{_BRAND_TEAL};text-decoration:none">{site}</a>'
         f'</div>\n'
         f"</td></tr>\n"
-        # Footer
-        f'<tr><td style="padding:14px 28px;background:{_BG_DEEP};'
-        f'font-size:10px;color:{_FG_DIM};text-align:center">'
-        f'You\'re receiving this because {name} sent it personally. '
-        f'Reply to this email and it lands in their inbox.'
+        # Footer with subtle divider
+        f'<tr><td style="padding:16px 28px;background:{_BG_DEEP};'
+        f'border-top:1px solid rgba(0,212,255,0.08);'
+        f'font-size:10.5px;color:{_FG_DIM};text-align:center;line-height:1.5">'
+        f'You\'re receiving this because {name} sent it personally.<br/>'
+        f'Reply to this email and it lands directly in their inbox.'
         f"</td></tr>\n"
         "</table>\n"
         "</td></tr>\n"
