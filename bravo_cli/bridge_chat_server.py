@@ -539,9 +539,12 @@ _MSYS_NOISE_PATTERNS = [
     re.compile(r"^ln:\s*failed to create symbolic link\s+'/etc/mtab'.*$"),
     re.compile(r"^/usr/bin/cp:\s*cannot create regular file\s+'/etc/[^']+':\s*Permission denied\s*$"),
     re.compile(r"^rm:\s*cannot remove\s+'/etc/post-install/[^']+':\s*Permission denied\s*$"),
-    # Cygheap warnings: actual format is `      0 [main] bash (15740) child_copy: cygheap…`
-    # Pid is wrapped in parens, not bare digits — earlier pattern missed every line.
-    re.compile(r"^\s*\d+\s*\[main\]\s+\S+\s+\(\d+\)\s+(child_copy|dofork|fork:).*$"),
+    # Cygheap / fork warnings. Two formats observed in CC's logs:
+    #   "      0 [main] bash (15740) child_copy: cygheap…"   ← cygheap, parens
+    #   "      0 [main] bash 189488 dofork: child -1 - forked…"  ← dofork, bare digits
+    # The earlier "(\d+)" pattern only caught parens — dofork lines slipped
+    # through to the chat UI. Accept both forms.
+    re.compile(r"^\s*\d+\s*\[main\]\s+\S+\s+(?:\(\d+\)|\d+)\s+(child_copy|dofork|fork:).*$"),
     re.compile(r"^/usr/bin/bash:\s*fork:\s*(retry:\s*)?Resource temporarily unavailable\s*$"),
     # Sometimes a stray newline-after-/etc-prefix shows up when the parent
     # process buffers oddly; catch lines that are clearly fragments of the
@@ -2521,6 +2524,9 @@ def _start_heartbeat_thread() -> None:
     t.start()
 
 
+_CHAT_PID_PATH = _OASIS_DIR / "bridge_chat.pid"
+
+
 def serve_forever() -> int:
     """Entry point for `bravo bridge serve`."""
     httpd = ThreadingHTTPServer(("127.0.0.1", PORT), _ChatHandler)
@@ -2530,12 +2536,24 @@ def serve_forever() -> int:
         _start_heartbeat_thread()
         print("  heartbeat: every 60s -> /api/bridge/ping")
     print("  Ctrl+C to stop.")
+    # Write PID so `bravo bridge restart` can find and kill us. Without
+    # this, restart has to scan tasklist for the python command line —
+    # works but slower and fragile when multiple python processes exist.
+    try:
+        _OASIS_DIR.mkdir(parents=True, exist_ok=True)
+        _CHAT_PID_PATH.write_text(str(os.getpid()), encoding="utf-8")
+    except Exception:
+        pass
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
         print("\nshutting down")
     finally:
         httpd.server_close()
+        try:
+            _CHAT_PID_PATH.unlink(missing_ok=True)
+        except Exception:
+            pass
     return 0
 
 

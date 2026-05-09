@@ -394,9 +394,12 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
   // as we know the bridge is online. The operator's first turn skips
   // cold-start (5-30s) entirely — claude is already booted, MCP servers
   // already loaded, brain files already parsed by the time they hit
-  // Send. Re-fires on agent switch so each newly-selected agent gets
-  // its own warm process. Fire-and-forget; if the bridge is offline
-  // or pre-warm fails the chat falls back to cold-spawn naturally.
+  // Send. Re-fires on:
+  //   - agent switch — each agent gets its own warm process
+  //   - reset (🔄)   — bumping `prewarmEpoch` re-triggers the effect
+  // Fire-and-forget; if the bridge is offline or pre-warm fails the
+  // chat falls back to cold-spawn naturally.
+  const [prewarmEpoch, setPrewarmEpoch] = useState(0);
   useEffect(() => {
     if (bridgeOnline !== true) return;
     void fetch(`${BRIDGE_CHAT_BASE}/prewarm`, {
@@ -404,7 +407,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ agent, tab_id: tabId }),
     }).catch(() => null);
-  }, [bridgeOnline, agent, tabId]);
+  }, [bridgeOnline, agent, tabId, prewarmEpoch]);
 
   useEffect(() => {
     if (awayFromBottom) return;
@@ -459,6 +462,10 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
         // fallback path on older bridge builds.
         body: JSON.stringify({ agent, tab_id: tabId, session_id: sessionId }),
       }).catch(() => null);
+      // Bump the prewarm epoch so the prewarm effect re-fires and
+      // spawns a fresh warm process for the next chat. Without this,
+      // the first message after reset would cold-spawn (~5-30s).
+      setPrewarmEpoch((e) => e + 1);
     }
     setMessages([]);
     setSessionId(null);

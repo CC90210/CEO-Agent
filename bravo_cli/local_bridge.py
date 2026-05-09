@@ -452,6 +452,160 @@ def cmd_stop(_args) -> int:
         return 1
 
 
+def _chat_pid_path() -> Path:
+    return OASIS_DIR / "bridge_chat.pid"
+
+
+def _kill_chat_server() -> tuple[bool, str]:
+    """Stop the running chat server (`bravo bridge serve`).
+
+    Strategy:
+      1. Read ~/.oasis/bridge_chat.pid (written by serve_forever) and
+         taskkill / SIGTERM that PID.
+      2. Fallback: scan running processes for a command line containing
+         `bridge_chat_server` and kill matches. Catches the case where
+         the .vbs from Startup spawned a chat server before the PID
+         tracking shipped.
+    Returns (anything_killed, message).
+    """
+    killed: list[int] = []
+    pid_path = _chat_pid_path()
+    if pid_path.exists():
+        try:
+            pid = int(pid_path.read_text(encoding="utf-8").strip())
+            if _pid_alive(pid):
+                if os.name == "nt":
+                    subprocess.run(["taskkill", "/F", "/PID", str(pid)],
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                   check=False)
+                else:
+                    os.kill(pid, 15)
+                killed.append(pid)
+        except Exception:
+            pass
+        try:
+            pid_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+    # Fallback scan — older bridges had no PID file, and the .vbs in
+    # Startup may have launched a chat server we don't yet track.
+    try:
+        if os.name == "nt":
+            out = subprocess.check_output(
+                ["wmic", "process", "where",
+                 "name='python.exe' or name='pythonw.exe'",
+                 "get", "ProcessId,CommandLine", "/format:list"],
+                stderr=subprocess.DEVNULL, timeout=10,
+            ).decode("utf-8", errors="ignore")
+            current_pid = -1
+            current_cmd = ""
+            for line in out.splitlines():
+                line = line.strip()
+                if line.startswith("CommandLine="):
+                    current_cmd = line[len("CommandLine="):]
+                elif line.startswith("ProcessId="):
+                    try:
+                        current_pid = int(line[len("ProcessId="):])
+                    except Exception:
+                        current_pid = -1
+                    if current_pid > 0 and "bridge_chat_server" in current_cmd and current_pid not in killed:
+                        subprocess.run(["taskkill", "/F", "/PID", str(current_pid)],
+                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                       check=False)
+                        killed.append(current_pid)
+                    current_pid = -1
+                    current_cmd = ""
+        else:
+            out = subprocess.check_output(["ps", "-eo", "pid,args"],
+                                          stderr=subprocess.DEVNULL, timeout=10).decode("utf-8", errors="ignore")
+            for line in out.splitlines()[1:]:
+                parts = line.strip().split(None, 1)
+                if len(parts) != 2:
+                    continue
+                try:
+                    pid = int(parts[0])
+                except Exception:
+                    continue
+                if "bridge_chat_server" in parts[1] and pid not in killed:
+                    try:
+                        os.kill(pid, 15)
+                        killed.append(pid)
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+
+    if not killed:
+        return False, "no chat-server process found"
+    return True, f"killed chat-server pid(s) {killed}"
+
+
+def _spawn_chat_server() -> tuple[bool, str]:
+    """Background-spawn `bravo bridge serve` with no console window.
+    Returns (ok, message-with-pid-or-error).
+    """
+    py = _resolve_pythonw()
+    creation_flags = 0
+    startupinfo = None
+    if os.name == "nt":
+        # DETACHED_PROCESS so it survives this shell, CREATE_NO_WINDOW so
+        # no console flickers. Both flags together = no terminal anywhere
+        # at any point — the popup CC reported is impossible from this path.
+        creation_flags = (
+            subprocess.DETACHED_PROCESS  # type: ignore[attr-defined]
+            | subprocess.CREATE_NEW_PROCESS_GROUP  # type: ignore[attr-defined]
+            | 0x08000000  # CREATE_NO_WINDOW
+        )
+    OASIS_DIR.mkdir(parents=True, exist_ok=True)
+    log_fh = LOG_PATH.open("a", encoding="utf-8")
+    try:
+        proc = subprocess.Popen(
+            [py, "-m", "bravo_cli.bridge_chat_server"],
+            cwd=str(Path.cwd().resolve()),
+            stdout=log_fh, stderr=log_fh,
+            stdin=subprocess.DEVNULL,
+            close_fds=True,
+            start_new_session=(os.name != "nt"),
+            creationflags=creation_flags,
+            startupinfo=startupinfo,
+        )
+        return True, f"chat-server started (pid {proc.pid}). Logs: {LOG_PATH}"
+    except Exception as e:
+        return False, f"failed to start chat-server: {e}"
+
+
+def cmd_restart(_args) -> int:
+    """Stop both bridge daemons (heartbeat + chat-server), wait for ports
+    to free, then start both again. The single command CC needs after
+    code changes — replaces the old "kill the python.exe in Task Manager"
+    ritual."""
+    print("restarting oasis bridge…")
+
+    # 1. Stop heartbeat (uses existing cmd_stop logic).
+    if PID_PATH.exists():
+        cmd_stop(_args)
+
+    # 2. Stop chat-server.
+    ok, msg = _kill_chat_server()
+    print(f"  chat-server: {msg}")
+
+    # 3. Brief settle so the OS releases :9100 before we rebind.
+    if ok:
+        time.sleep(1.0)
+
+    # 4. Start heartbeat (background pinger).
+    rc = cmd_start(_args)
+    if rc != 0:
+        print("  heartbeat: failed to start", file=sys.stderr)
+        return rc
+
+    # 5. Start chat-server (HTTP on :9100).
+    ok2, msg2 = _spawn_chat_server()
+    print(f"  {msg2}")
+    return 0 if ok2 else 1
+
+
 def cmd_seed_keys(_args) -> int:
     """One-shot: read .env.agents, push provider keys to /api/auth/pair so
     every chat-eligible agent gets a working agent_model_config row.
@@ -843,6 +997,7 @@ def main(argv: list[str] | None = None) -> int:
     sub = ap.add_subparsers(dest="cmd")
     sub.add_parser("start", help="Background the bridge daemon")
     sub.add_parser("stop", help="Stop the bridge daemon")
+    sub.add_parser("restart", help="Stop + start both heartbeat and chat-server")
     sub.add_parser("status", help="Show bridge status")
     sub.add_parser("seed-keys",
                    help="Push local .env.agents API keys to the dashboard so admin chat works")
@@ -858,6 +1013,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_start(args)
     if args.cmd == "stop":
         return cmd_stop(args)
+    if args.cmd == "restart":
+        return cmd_restart(args)
     if args.cmd == "status":
         return cmd_status(args)
     if args.cmd == "seed-keys":

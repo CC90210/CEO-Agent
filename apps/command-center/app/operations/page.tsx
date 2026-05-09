@@ -17,6 +17,7 @@ import { safe } from "@/lib/api-helpers";
 import { getServiceSupabase } from "@/lib/supabase-server";
 import { ALL_AGENT_KEYS, FAMILY_AGENT_KEYS, getAgentInfo } from "@/lib/agents";
 import { timeAgo, truncate } from "@/lib/fmt";
+import { WarmPoolPanel } from "@/components/WarmPoolPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -192,6 +193,13 @@ export default async function OperationsPage({
             })}
           </ul>
         )}
+      </Card>
+
+      <Card
+        title="Warm process pool"
+        subtitle="Live state of the bridge's persistent claude processes. Each entry skips the cold-start (5–30s) on its next chat turn. Only visible when the local bridge is online."
+      >
+        <WarmPoolPanel />
       </Card>
 
       <Card
