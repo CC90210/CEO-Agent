@@ -13,13 +13,24 @@ created: 2026-04-11
 
 1. **Boot with `git pull`, end with `git push`.** Every Claude Code session on either machine opens with a pull and closes with a commit + push. No exceptions. If you skip the pull, you're guaranteed to fight the other machine eventually.
 
-2. **Only ONE machine runs production daemons. That's WINDOWS. Mac runs NOTHING.**
+2. **Only ONE machine runs state-mutating daemons. That's WINDOWS. Mac runs only the operator-side chat-server.**
 
-   - ❌ Mac must NOT run `scheduler.py`
-   - ❌ Mac must NOT run `skool_engine.py daemon`
-   - ❌ Mac must NOT run `telegram_agent.js`
-   - ❌ Mac must NOT have ANY PM2 processes under the `bravo-*` namespace
-   - ❌ Mac must NOT run any cron worker that touches Supabase `cron_jobs`
+   ❌ Mac must NOT run any of these (they mutate shared state — running two = corruption):
+   - `scheduler.py` (Supabase `cron_jobs` table)
+   - `skool_engine.py daemon` (Skool browser session lock)
+   - `telegram_agent.js` (single Telegram poll connection)
+   - any PM2 processes under the `bravo-*` namespace
+   - `local_bridge.py _loop` (heartbeat ping daemon — single bridge per machine is fine, but redundant heartbeats waste rows)
+
+   ✅ Mac IS allowed to run (operator-side, no shared state):
+   - `bravo bridge serve` (the chat-server on `localhost:9100`) — each machine
+     pairs independently via `_machine_fingerprint`, the `bridge_pairings`
+     table holds N rows per profile by design. When CC opens the dashboard
+     from the Mac, the chat widget connects to the Mac's local chat-server
+     and gets file-system access to the Mac's clone. When CC opens from
+     Windows, same thing on the Windows clone. Both can be paired and online
+     simultaneously — no conflict.
+   - `bravo bridge install` to set up launchd auto-start on login.
 
    **Skool daemon specifically:** Windows-exclusive. The Chromium profile at
    `tmp/skool-browser/` holds CC's Skool auth session, and an OS-level file
