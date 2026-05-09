@@ -118,7 +118,7 @@ The curated lists, plugins, and toolkits that make Claude Code 10x more useful.
 | **sequential-thinking** | Extended reasoning chains | `@modelcontextprotocol/server-sequential-thinking` |
 | **knowledge-graph** | Obsidian vault graph traversal | Custom TS MCP |
 | **filesystem** | Sandboxed file access | Official MCP |
-| **github** | GitHub ops (wrapper injects token) | `github-mcp-wrapper.cmd` |
+| **github** | GitHub ops (shim injects token) | `scripts/mcp_shims/github.js` |
 | **firecrawl** | Structured web scraping | Firecrawl API wrapper |
 | **supabase** | DB queries, migrations, edge fns | Official Supabase MCP |
 | **late/zernio** | Social media scheduling | Late API wrapper |

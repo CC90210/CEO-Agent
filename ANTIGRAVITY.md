@@ -261,8 +261,8 @@ Never store app code in Business-Empire-Agent.
 | **Context7** | resolve-library-id, query-docs | npx direct |
 | **Memory** | search_nodes, create_entities, open_nodes | npx direct |
 | **Sequential Thinking** | sequentialthinking | npx direct |
-| **GitHub** | PR/issue/repo management | wrapper: `scripts/github-mcp-wrapper.cmd` |
-| **Firecrawl** | scrape, search, crawl, extract | wrapper: `scripts/firecrawl-mcp-wrapper.cmd` |
+| **GitHub** | PR/issue/repo management | shim: `scripts/mcp_shims/github.js` |
+| **Firecrawl** | scrape, search, crawl, extract | shim: `scripts/mcp_shims/firecrawl.js` |
 | **Filesystem** | read/write across BEA + APPS + .claude | npx direct |
 | **Knowledge Graph** | Obsidian vault queries: kg_search, kg_central, kg_paths, kg_communities | tsx @ `C:\Users\User\tools\knowledge-graph\src\mcp\index.ts` |
 
