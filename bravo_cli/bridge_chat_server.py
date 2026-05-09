@@ -54,6 +54,7 @@ try:
         all_resolved,
         under_root,
     )
+    from .warm_claude_pool import use_or_create as _warm_use_or_create, pool_status as _warm_pool_status
 except ImportError:
     _here = Path(__file__).resolve().parent
     if str(_here) not in sys.path:
@@ -64,6 +65,8 @@ except ImportError:
         all_resolved,
         under_root,
     )
+    from warm_claude_pool import use_or_create as _warm_use_or_create  # type: ignore
+    from warm_claude_pool import pool_status as _warm_pool_status  # type: ignore
 
 PORT = int(os.environ.get("BRAVO_BRIDGE_PORT", "9100"))
 ANTHROPIC_API = "https://api.anthropic.com/v1/messages"
@@ -793,6 +796,15 @@ class _ChatHandler(BaseHTTPRequestHandler):
         if self.path == "/agents":
             self._json(200, {"ok": True, "agents": all_resolved()})
             return
+        if self.path == "/warm-status":
+            # Diagnostic for the warm-process pool. Returns process count,
+            # idle ages, busy flags. Useful when an operator reports
+            # "this turn was slow" — confirms whether warm hit or miss.
+            try:
+                self._json(200, {"ok": True, **_warm_pool_status()})
+            except Exception as e:
+                self._json(500, {"ok": False, "error": str(e)})
+            return
         self._json(404, {"ok": False, "error": "not_found"})
 
     def _handle_local_chat(self) -> None:
@@ -1067,6 +1079,29 @@ class _ChatHandler(BaseHTTPRequestHandler):
             return
 
         # ---- Claude Code subprocess path (default) -------------------------
+        # Try the warm-process pool first — second-and-later turns on the
+        # same session reuse a long-running claude process and skip the
+        # 5-30s cold-start (CLI init + MCP boot + brain reads). Falls back
+        # to fresh spawn if anything goes wrong (process died, stdin
+        # closed, parse error, opt-out via OASIS_NO_WARM_POOL=1).
+        warm_disabled = os.environ.get("OASIS_NO_WARM_POOL") == "1"
+        warm_path_succeeded = False
+        if not warm_disabled:
+            try:
+                warm_path_succeeded = self._run_chat_via_warm_pool(
+                    agent, root, messages, emit, resume_session_id
+                )
+            except Exception as e:
+                # Warm path crashed — log to stderr, fall through to cold.
+                print(f"[bridge] warm pool error, falling back: {e}", file=sys.stderr)
+                warm_path_succeeded = False
+
+        if warm_path_succeeded:
+            return  # Streamed via warm path; nothing else to do.
+
+        # Fallback: fresh-spawn-per-turn (the original path, preserved
+        # verbatim). This runs whenever the warm pool can't serve the
+        # request — first-turn cold-start, recovered crash, opt-out.
         try:
             self._run_chat_via_claude(agent, root, messages, emit, resume_session_id)
         except FileNotFoundError as e:
@@ -1083,6 +1118,155 @@ class _ChatHandler(BaseHTTPRequestHandler):
         except Exception as e:
             emit("error", {"message": _redact_secrets(f"chat_loop_failed: {e}")})
             emit("done", {})
+
+    # ──────────────────────────────────────────────────────────────────
+    # WARM POOL PATH — reuse a persistent claude process per session
+    # ──────────────────────────────────────────────────────────────────
+    def _run_chat_via_warm_pool(
+        self,
+        agent: str,
+        root: Path,
+        messages: list[dict],
+        emit: Callable[[str, dict], None],
+        resume_session_id: str | None,
+    ) -> bool:
+        """Drive a chat turn via a persistent claude subprocess from the
+        warm pool. Returns True on success (streamed clean to the client),
+        False to signal "fall back to fresh spawn."
+
+        Why we sometimes return False without erroring:
+          - First turn (no resume_session_id) — pool has nothing to reuse,
+            cold spawn is unavoidable. Return False so the cold path runs.
+          - Process died / stdin closed — the warm process is dead; cold
+            spawn the recovery. Return False.
+          - Parse error in the stream-json output — defensive bail; cold
+            path will surface the underlying error to the user.
+
+        Why we sometimes return True after an error:
+          - The error is a normal stream-end (operator closed the chat,
+            claude exited cleanly). We've already streamed the partial
+            response; the cold path would just spawn a redundant process.
+        """
+        # First turn → no warm process to reuse. Let cold path handle it
+        # (and the warm pool will pick it up on turn 2+).
+        if not resume_session_id:
+            return False
+
+        last_user = next(
+            (m for m in reversed(messages) if m.get("role") == "user"), None
+        )
+        if not last_user:
+            return False
+        prompt_text = str(last_user.get("content") or "").strip()
+        if not prompt_text:
+            return False
+
+        # Pool key: agent + session_id. Different sessions get different
+        # processes so context doesn't leak across conversations. Tenant
+        # isolation comes from the bridge running per-machine.
+        pool_key = f"{agent}:{resume_session_id}"
+
+        # Pre-stream status so the dashboard knows we're using the warm
+        # path (debugging signal — operators have asked "why is this
+        # turn faster than the last one").
+        emit("agent_status", {"phase": "warm_resume", "agent": agent})
+
+        try:
+            wp = _warm_use_or_create(
+                pool_key=pool_key,
+                agent=agent,
+                root=root,
+                prompt_text=prompt_text,
+                resume_session_id=resume_session_id,
+            )
+        except FileNotFoundError:
+            # claude CLI missing — propagate to cold path, which has
+            # the user-facing error message already.
+            return False
+        except Exception as e:
+            print(f"[bridge] warm spawn failed: {e}", file=sys.stderr)
+            return False
+
+        if not wp.is_alive():
+            # Process died between use_or_create() check and now (race).
+            # Drop it from pool by killing explicitly; cold path retries.
+            wp.kill(reason="dead_at_send")
+            return False
+
+        # Bridge between warm-pool stream-json events and the SSE shape
+        # ChatWidget expects. Same translation as _run_chat_via_claude.
+        emitted_session = False
+
+        def on_event(ev: dict) -> None:
+            nonlocal emitted_session
+            etype = ev.get("type")
+            subtype = ev.get("subtype")
+
+            if etype == "system" and subtype == "init":
+                if not emitted_session:
+                    emit("session", {"session_id": ev.get("session_id")})
+                    emitted_session = True
+                return
+            if etype == "system" and subtype and subtype.startswith("hook_"):
+                return
+            if etype == "assistant":
+                msg = ev.get("message") or {}
+                content = msg.get("content") or []
+                for block in content:
+                    btype = block.get("type")
+                    if btype == "text":
+                        text = block.get("text") or ""
+                        if text:
+                            emit("delta", {"text": text})
+                    elif btype == "tool_use":
+                        tname = block.get("name") or "tool"
+                        tid = block.get("id") or ""
+                        tinput = block.get("input") or {}
+                        mapped = _map_tool_use(tname, tinput)
+                        mapped["tool_use_id"] = tid
+                        emit("tool", mapped)
+                return
+            if etype == "user":
+                msg = ev.get("message") or {}
+                content = msg.get("content") or []
+                if isinstance(content, list):
+                    for block in content:
+                        if not isinstance(block, dict):
+                            continue
+                        if block.get("type") == "tool_result":
+                            tres = _map_tool_result(block, ev)
+                            emit("tool_result", tres)
+                return
+            if etype == "result":
+                usage = ev.get("usage") or {}
+                emit("done", {
+                    "stop_reason": ev.get("stop_reason"),
+                    "input_tokens": usage.get("input_tokens"),
+                    "output_tokens": usage.get("output_tokens"),
+                    "total_cost_usd": ev.get("total_cost_usd"),
+                    "num_turns": ev.get("num_turns"),
+                    "warm": True,  # debugging — confirms warm path served this turn
+                })
+                return
+            if etype == "system" and subtype == "error":
+                raw_detail = ev.get("message") or json.dumps(ev)[:200]
+                emit("error", {
+                    "message": "claude_subprocess_error",
+                    "detail": _redact_secrets(str(raw_detail)),
+                })
+
+        ok = wp.send_turn(prompt_text, on_event, max_seconds=300)
+        if not ok:
+            # send_turn returned False — process died mid-turn or stream
+            # ended without a result event. The warm process is now in an
+            # undefined state; kill it so the next turn gets a fresh one.
+            wp.kill(reason="send_turn_failed")
+            # Don't fall back to cold spawn here — we may have already
+            # emitted partial output. Just close the stream cleanly.
+            emit("done", {"warm_aborted": True})
+            return True
+        return True
+
 
     # ──────────────────────────────────────────────────────────────────
     # CLAUDE CODE SUBPROCESS PATH (default)
