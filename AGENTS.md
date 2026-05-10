@@ -233,6 +233,25 @@ Audit logs: `state/{secret_guard,exec_guard,state_guard,secret_access}.log` (jso
 
 ---
 
-*Last synced with CLAUDE.md / GEMINI.md / ANTIGRAVITY.md / OPENCODE.md: 2026-05-10 (V6.0 transactional state + FTS5 retrieval + guards).*
+*Last synced with CLAUDE.md / GEMINI.md / ANTIGRAVITY.md / OPENCODE.md: 2026-05-10 (V6 Apex — Optimization Phase closed).*
 
 **Phase 2 (productized deployment, 2026-05-10):** turnkey local + cloud deployment via `infra/docker-compose.{local,cloud}.yml`. Wizard adds `step_environment` + `step_v6_init` (boots state DB, FTS5 index, scoped env files `.env.agents.{core,webhook,dashboard}`). Command Center adds `/system-health` and `/playbook/onboarding`. Cloud → `enforce` for all guards; local → `shadow` mode. Full registry: brain/CAPABILITIES.md "V6.0 Phase 2 — Productized Deployment".
+
+## V6 Apex (2026-05-10 — V6 Optimization Phase closed)
+
+The four pillars above ship the local-side state + retrieval + guards. **V6 Ascension** (BUILDs 1–5) wired the cross-agent substrate; **V6 Apex** (Phases 1–3) made it operator-facing.
+
+- **Cross-agent event bus (Ascension BUILD 3):** Postgres `agent_events` substrate with raw psycopg LISTEN/NOTIFY for sub-100ms wake-up + `claim_events()` (`FOR UPDATE SKIP LOCKED`) for atomic dequeue. Producers: `state_manager.append_session_log` → `BRAVO_SESSION_LOG_APPENDED`, `pulse_publish.cmd_refresh` → `BRAVO_PULSE_REFRESHED`, `bridge_chat_server._v6_log_chat_interaction` → `BRAVO_CHAT_INTERACTION`, `send_gateway._emit_outbound_sent` → `BRAVO_OUTBOUND_SENT`. Idempotency via unique `idempotency_key` index; offline fallback to `tmp/events_offline.jsonl`. Substrate spec: `brain/EVENT_BUS_CONTRACT.md`.
+- **Hybrid semantic memory (Ascension BUILD 2):** FTS5 lexical (BM25) + LanceDB cosine (fastembed ONNX MiniLM-L6-v2, 384-dim, no PyTorch dep) fused via Reciprocal Rank Fusion (k=60). Same `memory_retriever.py query "..."` entry point — the hybrid is transparent. LanceDB store: `state/memory_index.lance/`.
+- **Dashboard-driven override approvals (Apex Phase 2):** when `exec_guard` blocks, `state_manager.create_override_request` mirrors to Supabase `exec_overrides` (migration 035). The `/overrides` page on the Vercel command center renders Approve/Deny buttons; server action hashes `OASIS_OUTBOUND_HMAC_SECRET` → `record_exec_override_decision_v1` RPC (validates against `n8n_webhook_secrets`). `scripts/exec_override_consumer.py loop` runs on CC's machine, applies the decision to local SQLite via `state_manager.approve_override_request`, which HMAC-signs with `EMPIRE_OVERRIDE_HMAC_KEY`. CLI path (`exec_override.py approve <req-id>`) still works in parallel; both paths converge.
+- **Cross-agent event feed (Apex Phase 3):** `scripts/event_router.py loop` is a cursor-based, lossless on-host tail (`state/event_router.cursor` + `state/event_router.log`). The dashboard `/feed` page is the cloud-side view of the same stream; a 5-second `router.refresh()` client island keeps it live without websocket dependencies. Single-machine — multi-host arbitration is `bridge_lock.py`'s contract.
+- **State-health fallback (Apex Phase 1):** `apps/command-center/app/api/state-health/route.ts` is two-tier: state-api passthrough preferred (local + Cloud Compose), Supabase mirror fallback on Vercel where `state-api:8500` is not routable. Response carries `source: "state-api" | "supabase-mirror"`; the header tags the path so operators see which side served the payload.
+
+Daemons that should run 24/7 on CC's machine (see PLAYBOOK.md for full ops):
+```bash
+pm2 start scripts/event_router.py            --name event-router      --interpreter python -- loop --interval 3
+pm2 start scripts/exec_override_consumer.py  --name override-consumer --interpreter python -- loop --interval 5
+pm2 save
+```
+
+V6 Apex closes the V6 Optimization Phase. Architecture work is complete; next epic is business execution ($5K Net MRR by May 15).
