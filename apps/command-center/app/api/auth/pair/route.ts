@@ -256,25 +256,67 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ---- 2. Mint a bridge_pairings row --------------------------------------
+  // ---- 2. Mint or rotate a bridge_pairings row ----------------------------
+  // Idempotent by (tenant_id, machine_fingerprint). Without this, every
+  // restart of `bravo bridge serve` (whenever ~/.oasis/bridge_token is
+  // missing — wizard re-run, file deleted, etc.) minted a NEW row instead
+  // of reusing the existing one. CC saw four Mac rows for the same
+  // fingerprint after a few setup attempts; this prevents that going
+  // forward. Rotates the token (never returns the old one) so the new
+  // bridge daemon gets a fresh secret.
   const tokenPlain = `oab_${randomBytes(32).toString("hex")}`;
   const tokenHash = sha256(tokenPlain);
 
   const machine = body.machine || {};
-  const ins = await db
-    .from("bridge_pairings")
-    .insert({
-      tenant_id: profileRow.tenant_id,
-      user_id: profileRow.auth_user_id || null,
-      label: machine.label || "Local install",
-      bridge_token_hash: tokenHash,
-      machine_fingerprint: machine.fingerprint || null,
-      last_seen_at: new Date().toISOString(),
-    })
-    .select("id")
-    .single();
-  if (ins.error || !ins.data) {
-    return bad(500, `pair insert failed: ${ins.error?.message || "unknown"}`);
+  const fingerprint = (machine.fingerprint as string | undefined) || null;
+  const label = (machine.label as string | undefined) || "Local install";
+  const nowIso = new Date().toISOString();
+
+  let pairingId: string | null = null;
+
+  if (fingerprint) {
+    const existing = await db
+      .from("bridge_pairings")
+      .select("id")
+      .eq("tenant_id", profileRow.tenant_id)
+      .eq("machine_fingerprint", fingerprint)
+      .is("revoked_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (existing.data) {
+      pairingId = existing.data.id;
+      const upd = await db
+        .from("bridge_pairings")
+        .update({
+          bridge_token_hash: tokenHash,
+          last_seen_at: nowIso,
+          label,
+        })
+        .eq("id", pairingId);
+      if (upd.error) {
+        return bad(500, `pair rotate failed: ${upd.error.message}`);
+      }
+    }
+  }
+
+  if (!pairingId) {
+    const ins = await db
+      .from("bridge_pairings")
+      .insert({
+        tenant_id: profileRow.tenant_id,
+        user_id: profileRow.auth_user_id || null,
+        label,
+        bridge_token_hash: tokenHash,
+        machine_fingerprint: fingerprint,
+        last_seen_at: nowIso,
+      })
+      .select("id")
+      .single();
+    if (ins.error || !ins.data) {
+      return bad(500, `pair insert failed: ${ins.error?.message || "unknown"}`);
+    }
+    pairingId = ins.data.id;
   }
 
   const baseUrl =
@@ -287,7 +329,7 @@ export async function POST(req: NextRequest) {
     profile_id: profileRow.id,
     auth_user_id: profileRow.auth_user_id,
     bridge: {
-      pairing_id: ins.data.id,
+      pairing_id: pairingId,
       token: tokenPlain,
       dashboard_url: baseUrl.replace(/\/$/, "") + "/",
     },
