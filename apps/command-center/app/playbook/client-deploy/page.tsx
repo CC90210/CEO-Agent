@@ -91,7 +91,7 @@ const PHASES: Phase[] = [
       {
         title: "Watch for the auto-pair confirmation",
         detail:
-          "When the wizard finishes, it spawns the bridge + heartbeats to /api/bridge/ping. The /devices section should show their machine within 30 seconds. If it doesn't, run the bridge-status diagnostic prompt.",
+          "When the wizard finishes, it spawns the bridge + heartbeats to /api/bridge/ping. The /devices section should show their machine within 30 seconds. The pair endpoint is now idempotent by machine_fingerprint (migration 030 + commit d0e15e0): re-runs ROTATE the token on the existing row instead of creating duplicates. Old rows show up as 'revoked' if anything legacy needed cleanup.",
         promptId: "health-bridge-status",
       },
       {
@@ -99,6 +99,18 @@ const PHASES: Phase[] = [
         detail:
           "Run the bootstrap-fresh-machine prompt. It walks every script, flags anything missing, and tells you exactly what to fix before moving on.",
         promptId: "client-fresh-machine-bootstrap",
+      },
+      {
+        title: "Verify zero terminal popups",
+        detail:
+          "Modern Windows clients should see ZERO console flash on bridge spawn or heartbeat. Triple-flag suppression: pythonw.exe (no console subsystem) + CREATE_NO_WINDOW + STARTUPINFO/SW_HIDE for .cmd shims. If the client reports a recurring popup, run the popup-audit prompt — same diagnostic CC ran on 2026-05-09 to find the four leaked Bash polling loops.",
+        promptId: "client-popup-audit",
+      },
+      {
+        title: "Show them the restart command",
+        detail:
+          "`bravo bridge restart` (commit 35716f4) stops both the heartbeat daemon AND the chat-server, waits for :9100 to free, then re-spawns both. Single command. Replaces the old 'kill python.exe in Task Manager' ritual after code changes.",
+        promptId: "client-bridge-restart",
       },
     ],
   },
@@ -164,7 +176,7 @@ const PHASES: Phase[] = [
       {
         title: "Connect MCP servers (optional)",
         detail:
-          "If the client has Slack, Notion, GitHub, or custom MCP tooling they want available in chat, walk through setting them up. The mcp-setup prompt generates .claude/mcp.json entries.",
+          "If the client has Slack, Notion, GitHub, or custom MCP tooling they want available in chat, walk through setting them up. The mcp-setup prompt generates .claude/mcp.json entries. NOTE: as of 2026-05-09 (commit 15a5f89), credential-bearing MCP servers use Node shims at scripts/mcp_shims/<name>.js (NOT the older .cmd wrapper pattern). Each shim loads .env.agents via dotenv and spawns with windowsHide:true — no cmd.exe flash.",
         promptId: "client-mcp-setup",
       },
     ],
@@ -230,9 +242,15 @@ const PHASES: Phase[] = [
         promptId: "client-handoff-daily-rhythm",
       },
       {
+        title: "Pair their second machine (optional)",
+        detail:
+          "If the client has a desktop AND a laptop, both can pair to the same dashboard tenant — one machine acts as production (cron daemons stay there), the other adds a chat-server only. The shared dashboard auto-detects which bridge is local. CC's setup uses Windows-as-production + Mac-as-secondary; either direction works. See brain/MULTI_MACHINE_PAIRING_PROMPT.md for the paste-ready agent prompt.",
+        promptId: "client-second-machine-pair",
+      },
+      {
         title: "Set support expectations",
         detail:
-          "Tell them: (1) override syntax for corrections, (2) Settings page for integrations, (3) /metric-audit if they suspect a number is wrong, (4) you for anything else. Send them a recap email + the dashboard URL.",
+          "Tell them: (1) override syntax for corrections, (2) Settings page for integrations, (3) /metric-audit if they suspect a number is wrong, (4) `bravo bridge restart` for any 'chat feels stuck' issue, (5) you for anything else. Send them a recap email + the dashboard URL.",
       },
     ],
   },
@@ -353,6 +371,26 @@ export default function ClientDeployPage() {
           <p>
             <strong className="text-fg">Anti-patterns to avoid:</strong> don&apos;t skip personalize (their content will sound like CC). Don&apos;t skip cron tightening (you&apos;ll wake them up at 3am with notifications meant for someone running 10x their volume). Don&apos;t skip the override-syntax demo in handoff (they&apos;ll come back to you for every correction instead of fixing it themselves).
           </p>
+        </div>
+      </Card>
+
+      <Card title="What's running under the hood" subtitle="The machinery you can answer client questions about without grepping the source.">
+        <div className="text-sm text-fg-muted leading-relaxed space-y-3">
+          <div>
+            <strong className="text-fg">The bridge daemon</strong> — runs as <code className="text-accent">pythonw.exe -m bravo_cli.bridge_chat_server</code> on Windows / <code className="text-accent">python -m ...</code> via launchd on Mac. PID at <code className="text-accent">~/.oasis/bridge_chat.pid</code>. Listens on <code className="text-accent">127.0.0.1:9100</code>. Restart with <code className="text-accent">bravo bridge restart</code> (one command, kills both daemons + restarts both, waits for port to free).
+          </div>
+          <div>
+            <strong className="text-fg">The warm process pool</strong> — keeps a hot Claude Code subprocess per chat tab. Max 8 processes, idle reaper at 15min. Skips the 5-30s cold-start on turn 2+. Live state visible at <code className="text-accent">/operations</code> &gt; Warm Process Pool, or <code className="text-accent">curl localhost:9100/warm-status</code>.
+          </div>
+          <div>
+            <strong className="text-fg">The heartbeat</strong> — fires every 60s from the chat-server. Probes ffmpeg / whisper / playwright on the client&apos;s machine, posts the results to <code className="text-accent">/api/bridge/ping</code>. The dashboard&apos;s /integrations page reflects what&apos;s actually installed locally. All probes pass <code className="text-accent">creationflags=CREATE_NO_WINDOW + STARTUPINFO/SW_HIDE</code> — zero terminal popups even though <code className="text-accent">playwright.cmd</code> requires cmd.exe (commit 59d773c).
+          </div>
+          <div>
+            <strong className="text-fg">The pair token</strong> — minted on first <code className="text-accent">bravo bridge serve</code>. Stored at <code className="text-accent">~/.oasis/bridge_token</code> (chmod 600 on Unix). SHA-256 hashed in the <code className="text-accent">bridge_pairings</code> table. Idempotent by <code className="text-accent">(tenant_id, machine_fingerprint)</code> via partial unique index — re-pairing rotates the token instead of creating duplicates.
+          </div>
+          <div>
+            <strong className="text-fg">MCP servers</strong> — credential-bearing ones (Supabase, GitHub, n8n, Late, Firecrawl, Obsidian) use <code className="text-accent">scripts/mcp_shims/&lt;name&gt;.js</code> Node shims. Each loads <code className="text-accent">.env.agents</code> via dotenv, spawns with <code className="text-accent">windowsHide:true</code>. No plaintext secrets in any MCP config.
+          </div>
         </div>
       </Card>
 
