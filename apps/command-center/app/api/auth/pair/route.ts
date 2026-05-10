@@ -46,9 +46,9 @@
  */
 
 import { NextResponse, type NextRequest } from "next/server";
-import { createHash, randomBytes, timingSafeEqual } from "crypto";
+import { randomBytes, timingSafeEqual } from "crypto";
 import { getServiceSupabase } from "@/lib/supabase-server";
-import { bad, checkBearerSecret } from "@/lib/api-helpers";
+import { bad, checkBearerSecret, sha256 } from "@/lib/api-helpers";
 import { encryptField } from "@/lib/field-encryption";
 import { chatAgentKeys } from "@/lib/agent-personas";
 
@@ -111,10 +111,6 @@ const PROFILE_FIELDS = new Set([
   "manifesto",
   "prospect_focus",
 ]);
-
-function sha256(input: string): string {
-  return createHash("sha256").update(input, "utf8").digest("hex");
-}
 
 /**
  * Alternate auth path: HMAC headers (x-oasis-profile-id + x-oasis-secret).

@@ -26,8 +26,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createHash } from "crypto";
 import { getServiceSupabase } from "@/lib/supabase-server";
+import { bad, sha256 } from "@/lib/api-helpers";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs"; // service role + sha256 → Node, not edge
@@ -40,13 +40,7 @@ type IncomingPayload = {
   received_at?: string;
 };
 
-function sha256(input: string): string {
-  return createHash("sha256").update(input, "utf8").digest("hex");
-}
-
-function bad(status: number, error: string) {
-  return NextResponse.json({ ok: false, error }, { status });
-}
+// sha256 + bad imported from @/lib/api-helpers (consolidated 2026-05-09).
 
 export async function POST(req: NextRequest) {
   // 1. Auth headers

@@ -23,9 +23,8 @@
  */
 
 import { NextResponse, type NextRequest } from "next/server";
-import { createHash } from "crypto";
 import { getServiceSupabase } from "@/lib/supabase-server";
-import { bad } from "@/lib/api-helpers";
+import { bad, sha256 } from "@/lib/api-helpers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,10 +34,6 @@ type ServiceReport = {
   metadata?: Record<string, unknown>;
   last_error?: string;
 };
-
-function sha256(input: string): string {
-  return createHash("sha256").update(input, "utf8").digest("hex");
-}
 
 export async function POST(req: NextRequest) {
   const auth = req.headers.get("authorization") || "";

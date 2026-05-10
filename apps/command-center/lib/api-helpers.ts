@@ -4,10 +4,25 @@
  */
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { createHash } from "crypto";
 import { getServiceSupabase, getSessionUser } from "./supabase-server";
 
 export function bad(status: number, error: string) {
   return NextResponse.json({ ok: false, error }, { status });
+}
+
+/**
+ * SHA-256 of a UTF-8 string, hex-encoded. Used to hash bridge tokens
+ * + HMAC secrets before storage / lookup. Five routes (auth/pair,
+ * auth/pair-code/redeem, bridge/ping, inbound/n8n, outbound/log) were
+ * each defining this same 3-line helper inline; consolidated
+ * 2026-05-09 so future security tweaks (switching to BLAKE3,
+ * normalizing input, etc.) happen in one place.
+ *
+ * Usage: const tokenHash = sha256(tokenPlain);
+ */
+export function sha256(input: string): string {
+  return createHash("sha256").update(input, "utf8").digest("hex");
 }
 
 /**
