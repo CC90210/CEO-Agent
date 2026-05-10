@@ -141,6 +141,7 @@ V6.0 ships the multi-provider model router, autonomous skill synthesis, 3-layer 
 | `system_health_check.py` | Self-sustaining maintenance pass: reap orphan MCPs, clean Temp >14d, run `self_audit.py` + `audit_mcp_secrets.py`, post inbox alerts on degradation. Scheduled via `BravoSystemHealth` task at login (5 min delay) + every 30 min. **V6.6** | `python scripts/system_health_check.py` |
 | `build_bridge_manifest.py` | Generate the bridge manifest from `bridge_lock.py` arbitration data. | `python scripts/build_bridge_manifest.py` |
 | `check_bridge_manifest.py` | Validate the bridge manifest is consistent with current PM2 + lockfile state. | `python scripts/check_bridge_manifest.py` |
+| `update_readme_stats.py` | Walks disk, regenerates README.md count fields (skills/scripts/sub-agents/workflows/MCP servers) from real state. `--check` mode used by self_audit so the README never lies about itself. **V6.7** | `python scripts/update_readme_stats.py --apply` |
 
 **Config:** `brain/MODEL_CONFIG.md` (per-agent provider/model + fallbacks).
 **Operator profile:** `brain/operator.profile.json` (gitignored — schema in `operator.profile.example.json`). Single source of truth for identity/brand/voice.

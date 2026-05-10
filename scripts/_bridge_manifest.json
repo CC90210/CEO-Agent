@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-07T20:25:02.424150+00:00",
-  "script_count": 79,
-  "entry_count": 292,
+  "generated_at_iso": "2026-05-10T03:01:48.023980+00:00",
+  "script_count": 80,
+  "entry_count": 293,
   "entries": [
     {
       "key": "agent_heartbeat",
@@ -2040,6 +2040,13 @@
       "subcmd": null,
       "mutating": false,
       "help": "Voice Note Transcriber \u2014 converts audio to text using OpenAI Whisper (local)."
+    },
+    {
+      "key": "update_readme_stats",
+      "path": "scripts/update_readme_stats.py",
+      "subcmd": null,
+      "mutating": true,
+      "help": "update_readme_stats.py \u2014 keep README.md (and any other doc) honest about"
     },
     {
       "key": "wire_all_templates",
