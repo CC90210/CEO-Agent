@@ -6,8 +6,29 @@ import { ALL_AGENT_KEYS, FAMILY_AGENT_KEYS, getAgentInfo } from "@/lib/agents";
 import { chatAgentKeys } from "@/lib/agent-personas";
 import { catalogFor } from "@/lib/agent-catalog";
 import { getAgentStats } from "@/lib/agent-stats";
-import { getSessionUser } from "@/lib/supabase-server";
-import { Clock, Cog, Workflow } from "lucide-react";
+import { getServiceSupabase, getSessionUser } from "@/lib/supabase-server";
+import { Clock, Cog, Download, Workflow } from "lucide-react";
+import Link from "next/link";
+
+// Returns true if the tenant has zero non-revoked bridge pairings —
+// used to gate the "install bridge" banner above the chat. Suppresses
+// for operators who have ever paired (don't nag people who deliberately
+// turned the bridge off).
+async function _tenantHasNoBridge(tenantId: string | null): Promise<boolean> {
+  if (!tenantId) return true;
+  try {
+    const db = getServiceSupabase();
+    const { data } = await db
+      .from("bridge_pairings")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .is("revoked_at", null)
+      .limit(1);
+    return !data || data.length === 0;
+  } catch {
+    return false; // failed to check — don't show banner on transient DB error
+  }
+}
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +51,7 @@ export default async function AgentsPage() {
   const profile = await getActiveProfile();
   const user = await getSessionUser();
   const isAdmin = isOperatorEmail(user?.email);
-  const [states, events, integrations, stats] = await Promise.all([
+  const [states, events, integrations, stats, noBridge] = await Promise.all([
     agentStates(),
     // sinceDays: 0 — same fix as /operations. Default 7-day window left
     // the Event Bus card looking empty when crons / inbound traffic had
@@ -38,6 +59,7 @@ export default async function AgentsPage() {
     recentEvents(25, { sinceDays: 0 }),
     integrationsHealth(profile?.tenant_id || null),
     getAgentStats(profile?.primary_agent || "bravo"),
+    _tenantHasNoBridge(profile?.tenant_id || null),
   ]);
 
   // AGENT FAMILY card shows only personas (excludes backend executors like
@@ -94,6 +116,21 @@ export default async function AgentsPage() {
             </div>
           </div>
         </header>
+        {noBridge && (
+          <div className="rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 flex items-center justify-between gap-3 flex-wrap">
+            <div className="text-xs text-fg-muted">
+              <span className="font-bold text-fg">Chat is running in cloud mode.</span>{" "}
+              Install the Claude Code CLI bridge to power chat with your local subscription + file access.
+            </div>
+            <Link
+              href="/settings#devices"
+              className="btn-primary inline-flex items-center gap-1.5 text-xs shrink-0"
+            >
+              <Download className="w-3 h-3" />
+              Install bridge
+            </Link>
+          </div>
+        )}
         <ChatWidget
           agentKeys={chatAgentKeys().filter((k) => enabled.includes(k))}
           defaultAgent={profile?.primary_agent || "bravo"}
