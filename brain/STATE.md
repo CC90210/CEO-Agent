@@ -4,9 +4,16 @@ tags: [state, ephemeral]
 
 # STATE — Current Operational State
 
-> Updated 2026-05-06 | **V6.1 — SCAFFOLDING MECHANISM live on top of V6.0.3 polish + V6.0 foundation.** Self-audit health: 97/100 (`python scripts/self_audit.py`). Counts are auto-emitted by self_audit and the MANIFEST block at the bottom of this file — do NOT hardcode them in the header.
+> Updated 2026-05-10 | **V6 OPTIMIZATION PROJECT — 100% COMPLETE.** Apex Phases 1-3 shipped. V6.1 scaffolding mechanism + V6.0.3 polish + V6.0 foundation all intact. Self-audit health: 97/100 (`python scripts/self_audit.py`). Counts are auto-emitted by self_audit and the MANIFEST block at the bottom of this file — do NOT hardcode them in the header.
 >
-> **What V6.1 adds (fork mechanism):** `brain/operator.profile.json` (gitignored single source of truth), `scripts/personalize.py` (renders `brain/USER.md` + memory templates from `*.template.md` placeholders, skip-on-exists), `scripts/scaffold.py` (token-replaces operator identifiers across tracked files at fork-time, refuses to run on the original operator's repo, `--backup` snapshots first). Wizard `step_finalize` always runs personalize; prompts for scaffold on new operators. `self_audit.check_personalization()` warns when profile missing. CC's working copy is preserved via the safety guard + gitignored personal files.
+> **V6 Apex (2026-05-10 — closes the V6 architecture epic):**
+>   - **Phase 1** — `/api/state-health` two-tier read path: state-api passthrough preferred, Supabase mirror fallback for Vercel. The page renders a `via state-api` / `via supabase-mirror` tag so operators see which side served the payload.
+>   - **Phase 2** — Dashboard-driven override approvals. `state_manager.create_override_request` mirrors to Supabase `exec_overrides` (migration 035). `/overrides` page + server action signs with OASIS_OUTBOUND_HMAC_SECRET → `record_exec_override_decision_v1` RPC. `scripts/exec_override_consumer.py loop` applies the decision to local SQLite + HMAC-signs via EMPIRE_OVERRIDE_HMAC_KEY. The at-runtime auth gate stays on CC's machine.
+>   - **Phase 3** — Cross-agent event feed. `scripts/event_router.py loop` is a cursor-based, lossless observability tail; `state/event_router.log` carries the on-host audit projection. `/feed` page is the cloud-side view of the same `agent_events` stream with 5s `router.refresh()` (no websockets).
+>
+> Bravo is officially out of the architecture phase. The next epic is business execution: $5K Net MRR by May 15.
+>
+> **What V6.1 added (fork mechanism, intact):** `brain/operator.profile.json` (gitignored single source of truth), `scripts/personalize.py` (renders `brain/USER.md` + memory templates from `*.template.md` placeholders, skip-on-exists), `scripts/scaffold.py` (token-replaces operator identifiers across tracked files at fork-time, refuses to run on the original operator's repo, `--backup` snapshots first). Wizard `step_finalize` always runs personalize; prompts for scaffold on new operators. `self_audit.check_personalization()` warns when profile missing. CC's working copy is preserved via the safety guard + gitignored personal files.
 >
 > **V6.0 base (intact):** multi-provider model router (Claude/OpenAI/OpenRouter/Groq/DeepSeek/local), autonomous skill synthesizer with `[NEW]→[VALIDATED]` lifecycle, 3-layer memory (working → episodic → semantic) with nightly Haiku-scored consolidation, multi-platform messaging gateway (Telegram + Discord + Slack), DL stack (GNN skill router, RLHF/DPO outreach, NTM, MAML, TFT MRR forecast, neuro-symbolic compliance gate), public-repo installer (`install.sh` / `install.ps1`), PII protection in `.gitignore`. **V5.7 foundation:** self_audit, send_gateway hardened (CASL + cooldown + caps + draft critic + DNS doctor), autonomous reasoning loop, Obsidian MCP.
 
@@ -14,7 +21,7 @@ tags: [state, ephemeral]
 
 | Dimension | Level | Notes |
 |-----------|-------|-------|
-| **Version** | V6.1 | Scaffolding mechanism on top of V6.0 multi-provider + DL stack + V5.6 outbound chokepoint |
+| **Version** | V6 Apex (P1+P2+P3) | V6 Optimization Project 100% complete (2026-05-10). Architecture phase closed. |
 | **Position**| ACTIVE | Community Manager for primary retainer client + Lead Gen Funnel Operator |
 | **Confidence** | 0.97 | Core automations production-grade. Telegram V15.4 live. Scheduler fixed. Semi-auto outreach deploying. Top-client concentration risk unresolved. |
 | **Focus Area** | **RESET AND DIVERSIFY REVENUE** | CC is doing a physical/mental reset (quitting weed). Focus is on daily minimums: content creation and cold outreach volume. Target is still $5k MRR by May 15. |
@@ -121,9 +128,8 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 ## Last Heartbeat
 
 - **Date:** 2026-05-10
-- **Agent:** BRAVO via state_manager.py (tick 17)
-- **Status:** idle
-- **Result:** V6 Ascension complete. All 5 BUILDs (1-5) live on origin/main. 180-test combined regression green. Hybrid retrieval (FTS5+LanceDB+RRF) + send_gateway event-bus producer + all docs synced.
+- **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
+- **Result:** V6 Apex Phase 2+3 shipped (commit 8b00a50): dashboard-driven override approvals + cross-agent event feed. V6 Optimization Project 100% complete.
 
 *Last updated: 2026-05-10*
 
