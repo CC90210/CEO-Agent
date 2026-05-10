@@ -159,8 +159,30 @@ def publish(
         return {"status": "published", "id": inserted_id, "reason": ""}
     except Exception as exc:
         msg = str(exc)
-        # Idempotency conflict is a feature, not a failure.
-        if "idempotency" in msg.lower() or "duplicate" in msg.lower() or "unique" in msg.lower():
+        msg_lower = msg.lower()
+        # Real idempotency conflict (unique-index hit) — feature, not failure.
+        # Distinguished from PGRST204 by the presence of 'PGRST204' / 'schema cache'.
+        if ("PGRST204" in msg or "schema cache" in msg_lower):
+            # Migration 015's columns aren't in PostgREST's schema yet. Strip them
+            # and retry with the migration-006 base shape so the publish still
+            # lands. Idempotency degrades to last-writer-wins for now.
+            # Strip every migration-015 addition. Base shape (migration 006)
+            # is: id, event_type, publisher_agent, target_agent, severity,
+            # payload, correlation_id, published_at.
+            stripped = {k: v for k, v in row.items()
+                        if k not in {"source_agent", "idempotency_key", "status",
+                                     "expires_at", "processed_at", "processed_by",
+                                     "retry_count", "last_error", "visibility_until"}}
+            try:
+                res = client.table("agent_events").insert(stripped).execute()
+                inserted_id = res.data[0]["id"] if res.data else stripped["id"]
+                return {"status": "published", "id": inserted_id,
+                        "reason": "schema-cache lag; published without idempotency_key"}
+            except Exception as exc2:
+                _append_offline(row)
+                return {"status": "offline", "id": None,
+                        "reason": f"queued to offline (PGRST204 retry failed): {exc2}"}
+        if ("idempotency" in msg_lower or "duplicate" in msg_lower or "unique" in msg_lower):
             return {"status": "duplicate", "id": None, "reason": "idempotency_key already published"}
         _append_offline(row)
         return {"status": "offline", "id": None, "reason": f"queued to offline: {msg}"}
@@ -171,29 +193,133 @@ def publish(
 HandlerFn = Callable[[dict[str, Any]], Awaitable[bool]]
 
 
-async def subscribe(
+def _get_pg_dsn(env: Optional[dict[str, str]] = None) -> Optional[str]:
+    """Compose a direct-Postgres DSN for LISTEN/NOTIFY.
+
+    Supabase pgbouncer (port 6543) is transaction-pooled and does NOT
+    support LISTEN — it bounces session-scoped state on every transaction.
+    For LISTEN we connect to the session-pool port (5432) on the same host.
+
+    Returns None if env vars are absent — caller falls back to polling.
+    """
+    env = env or _load_env()
+    host = env.get("PGBOUNCER_DB_HOST") or env.get("BRAVO_PG_HOST")
+    user = env.get("PGBOUNCER_DB_USER") or env.get("BRAVO_PG_USER") or "postgres"
+    password = env.get("PGBOUNCER_DB_PASSWORD") or env.get("BRAVO_PG_PASSWORD")
+    dbname = env.get("PGBOUNCER_DB_NAME") or env.get("BRAVO_PG_DBNAME") or "postgres"
+    if not host or not password:
+        return None
+    # urllib-quote the password (Supabase passwords often contain @/:/etc.)
+    from urllib.parse import quote
+    return f"postgresql://{quote(user)}:{quote(password)}@{host}:5432/{dbname}?sslmode=require"
+
+
+async def _consume_claimed_rows(client, agent: str, rows: list, handlers: dict[str, "HandlerFn"]) -> None:
+    """Shared dispatch logic — runs the handler for each claimed row, acks/fails."""
+    for event in rows:
+        handler = handlers.get(event.get("event_type", ""))
+        if not handler:
+            try:
+                client.rpc("ack_event", {"p_event_id": event["id"], "p_agent": agent}).execute()
+            except Exception:
+                pass
+            continue
+        try:
+            ok = await handler(event)
+            if ok:
+                client.rpc("ack_event", {"p_event_id": event["id"], "p_agent": agent}).execute()
+            else:
+                client.rpc("fail_event", {
+                    "p_event_id": event["id"], "p_agent": agent,
+                    "p_error": "handler returned False",
+                }).execute()
+        except Exception as exc:
+            try:
+                client.rpc("fail_event", {
+                    "p_event_id": event["id"], "p_agent": agent,
+                    "p_error": str(exc)[:500],
+                }).execute()
+            except Exception:
+                pass
+
+
+async def _subscribe_via_listen(
     agent: str,
-    handlers: dict[str, HandlerFn],
+    handlers: dict[str, "HandlerFn"],
     *,
-    poll_interval_seconds: float = 5.0,
-    batch_size: int = 10,
-    visibility_seconds: int = 30,
-    db: Any = None,
+    batch_size: int,
+    visibility_seconds: int,
+    client,
+    dsn: str,
 ) -> None:
-    """
-    Long-running consumer loop. Claims pending events targeted at `agent`
-    (or broadcast), runs the matching handler, acks/fails appropriately.
+    """LISTEN/NOTIFY consumer. Wakes on pg_notify; otherwise idle.
 
-    `handlers` maps event_type → async handler. Handler returns True=ack,
-    False=retry, raises=fail-with-error.
-
-    Implementation note: we do not use Postgres native LISTEN here because
-    the supabase-py client doesn't expose it. Instead we poll claim_events()
-    which is O(1) via the target_pending partial index. When load grows
-    past ~1000 events/day this can be swapped for asyncpg LISTEN/NOTIFY
-    without changing the public contract.
+    Race-free: every wake-up calls `claim_events()` which uses
+    `FOR UPDATE SKIP LOCKED`, so multiple subscribers on the same agent
+    name never claim the same row. The trigger emits per-INSERT, so a
+    single notification is enough to drain the queue.
     """
-    client = db or _get_supabase()
+    import psycopg2  # type: ignore
+    import psycopg2.extensions  # type: ignore
+
+    conn = psycopg2.connect(dsn)
+    conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
+    cur = conn.cursor()
+    # Channel names from migration 015's trigger: target_agent OR 'broadcast'
+    cur.execute(f"LISTEN {psycopg2.extensions.AsIs(agent)}; LISTEN broadcast;")
+
+    loop = asyncio.get_running_loop()
+    notify_event = asyncio.Event()
+    loop.add_reader(conn.fileno(), notify_event.set)
+
+    try:
+        # Drain anything already pending at startup BEFORE blocking on notify.
+        rpc = client.rpc("claim_events",
+                         {"p_agent": agent, "p_max": batch_size,
+                          "p_visibility_seconds": visibility_seconds}).execute()
+        if rpc.data:
+            await _consume_claimed_rows(client, agent, rpc.data, handlers)
+
+        while True:
+            await notify_event.wait()
+            notify_event.clear()
+            conn.poll()
+            # Drop the queued notifies (we don't need their payloads — claim_events
+            # is the source of truth for what to dequeue).
+            del conn.notifies[:]
+            try:
+                rpc = client.rpc("claim_events",
+                                 {"p_agent": agent, "p_max": batch_size,
+                                  "p_visibility_seconds": visibility_seconds}).execute()
+                rows = rpc.data or []
+            except Exception as exc:
+                print(f"[event_bus] claim_events failed during LISTEN: {exc}", file=sys.stderr)
+                continue
+            if rows:
+                await _consume_claimed_rows(client, agent, rows, handlers)
+    finally:
+        try:
+            loop.remove_reader(conn.fileno())
+        except Exception:
+            pass
+        try:
+            cur.close()
+            conn.close()
+        except Exception:
+            pass
+
+
+async def _subscribe_via_polling(
+    agent: str,
+    handlers: dict[str, "HandlerFn"],
+    *,
+    poll_interval_seconds: float,
+    batch_size: int,
+    visibility_seconds: int,
+    client,
+) -> None:
+    """Original polling consumer. Used as fallback when the LISTEN connection
+    isn't available (no PGBOUNCER_DB_PASSWORD in env, no psycopg2, etc.)."""
     while True:
         try:
             rpc = client.rpc(
@@ -202,41 +328,66 @@ async def subscribe(
             ).execute()
             rows = rpc.data or []
         except Exception as exc:
-            print(f"[event_bus] claim_events failed: {exc}", file=sys.stderr)
+            print(f"[event_bus] claim_events failed (poll): {exc}", file=sys.stderr)
             await asyncio.sleep(poll_interval_seconds)
             continue
-
         if not rows:
             await asyncio.sleep(poll_interval_seconds)
             continue
+        await _consume_claimed_rows(client, agent, rows, handlers)
 
-        for event in rows:
-            handler = handlers.get(event.get("event_type", ""))
-            if not handler:
-                try:
-                    client.rpc("ack_event", {"p_event_id": event["id"], "p_agent": agent}).execute()
-                except Exception:
-                    pass
-                continue
+
+async def subscribe(
+    agent: str,
+    handlers: dict[str, HandlerFn],
+    *,
+    poll_interval_seconds: float = 5.0,
+    batch_size: int = 10,
+    visibility_seconds: int = 30,
+    db: Any = None,
+    force_polling: bool = False,
+) -> None:
+    """
+    Long-running consumer loop. Claims pending events targeted at `agent`
+    (or broadcast), runs the matching handler, acks/fails appropriately.
+
+    `handlers` maps event_type → async handler. Handler returns True=ack,
+    False=retry, raises=fail-with-error.
+
+    V6 BUILD 3 — primary path is raw psycopg2 LISTEN/NOTIFY (low-latency,
+    no WebSocket, no Supabase Realtime quotas). Race-free because
+    `claim_events()` uses `FOR UPDATE SKIP LOCKED` regardless of which
+    transport delivers the wake-up.
+
+    Fallback: if `PGBOUNCER_DB_PASSWORD` isn't in env, or psycopg2 isn't
+    importable, or the LISTEN connection fails to open, the function
+    silently degrades to the original 5-second polling loop.
+    """
+    client = db or _get_supabase()
+    if not force_polling:
+        dsn = _get_pg_dsn()
+        if dsn:
             try:
-                ok = await handler(event)
-                if ok:
-                    client.rpc("ack_event", {"p_event_id": event["id"], "p_agent": agent}).execute()
-                else:
-                    client.rpc("fail_event", {
-                        "p_event_id": event["id"],
-                        "p_agent": agent,
-                        "p_error": "handler returned False",
-                    }).execute()
-            except Exception as exc:
-                try:
-                    client.rpc("fail_event", {
-                        "p_event_id": event["id"],
-                        "p_agent": agent,
-                        "p_error": str(exc)[:500],
-                    }).execute()
-                except Exception:
-                    pass
+                await _subscribe_via_listen(
+                    agent, handlers,
+                    batch_size=batch_size,
+                    visibility_seconds=visibility_seconds,
+                    client=client,
+                    dsn=dsn,
+                )
+                return  # only reached if listen path exits cleanly
+            except (ImportError, Exception) as exc:
+                # ImportError → psycopg2 missing; Exception → connect/LISTEN failed.
+                # Fall through to polling. Production logs the downgrade once.
+                print(f"[event_bus] LISTEN unavailable, falling back to polling: {exc}",
+                      file=sys.stderr)
+    await _subscribe_via_polling(
+        agent, handlers,
+        poll_interval_seconds=poll_interval_seconds,
+        batch_size=batch_size,
+        visibility_seconds=visibility_seconds,
+        client=client,
+    )
 
 
 # ---- Maintenance helpers ----------------------------------------------------

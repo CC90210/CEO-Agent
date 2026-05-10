@@ -751,6 +751,24 @@ def _v6_log_chat_interaction(agent: str, kind: str, last_user_msg: str) -> None:
     except Exception:
         pass
 
+    # V6 BUILD 3 — emit a `BRAVO_CHAT_INTERACTION` event to the cross-agent
+    # bus so subscribers wake on dashboard chat without polling. In-process
+    # call (Supabase client is already loaded for other bridge ops). Note
+    # that state_manager.append_session_log also emits BRAVO_SESSION_LOG_APPENDED
+    # via its own path; this is the chat-specific signal subscribers can
+    # filter on without parsing every session_log row.
+    try:
+        sys.path.insert(0, str(_V6_REPO_ROOT / "scripts"))
+        from event_bus import publish as _bus_publish  # type: ignore[import-not-found]  # noqa: WPS433
+        _bus_publish(
+            "BRAVO_CHAT_INTERACTION",
+            {"agent": safe_agent, "kind": kind, "preview": (last_user_msg or "")[:160]},
+            source="bravo",
+            target=None,  # broadcast
+        )
+    except Exception:
+        pass
+
 
 def _v6_last_user_text(messages: list) -> str:
     """Pull the most recent user-role message from a chat thread."""
