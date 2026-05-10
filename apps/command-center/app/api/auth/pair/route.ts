@@ -257,13 +257,19 @@ export async function POST(req: NextRequest) {
   }
 
   // ---- 2. Mint or rotate a bridge_pairings row ----------------------------
-  // Idempotent by (tenant_id, machine_fingerprint). Without this, every
-  // restart of `bravo bridge serve` (whenever ~/.oasis/bridge_token is
-  // missing — wizard re-run, file deleted, etc.) minted a NEW row instead
-  // of reusing the existing one. CC saw four Mac rows for the same
-  // fingerprint after a few setup attempts; this prevents that going
-  // forward. Rotates the token (never returns the old one) so the new
-  // bridge daemon gets a fresh secret.
+  // Idempotent by (tenant_id, machine_fingerprint). The DB enforces the
+  // invariant via the partial unique index from migration 030
+  // (idx_bridge_pairings_unique_live_machine, WHERE revoked_at IS NULL).
+  // Without this, every restart of `bravo bridge serve` minted a NEW row
+  // — CC saw four Mac rows for the same fingerprint after setup attempts.
+  //
+  // Strategy: try INSERT first. On unique-constraint violation (Postgres
+  // code 23505), the partial index caught a duplicate live row — switch
+  // to UPDATE keyed by (tenant_id, machine_fingerprint, revoked_at IS NULL)
+  // to rotate the token on the existing row. This is race-safe (DB-level
+  // atomic) AND clean (intent reads as "create a pairing"). PostgREST's
+  // .upsert(onConflict:) can't target partial indexes, so we manage the
+  // conflict path explicitly.
   const tokenPlain = `oab_${randomBytes(32).toString("hex")}`;
   const tokenHash = sha256(tokenPlain);
 
@@ -272,51 +278,41 @@ export async function POST(req: NextRequest) {
   const label = (machine.label as string | undefined) || "Local install";
   const nowIso = new Date().toISOString();
 
-  let pairingId: string | null = null;
+  const row = {
+    tenant_id: profileRow.tenant_id,
+    user_id: profileRow.auth_user_id || null,
+    label,
+    bridge_token_hash: tokenHash,
+    machine_fingerprint: fingerprint,
+    last_seen_at: nowIso,
+  };
 
-  if (fingerprint) {
-    const existing = await db
+  let pairingId: string | null = null;
+  const ins = await db.from("bridge_pairings").insert(row).select("id").single();
+
+  if (!ins.error && ins.data) {
+    pairingId = ins.data.id;
+  } else if (ins.error?.code === "23505" && fingerprint) {
+    // Partial unique index fired — a live pairing already exists for this
+    // (tenant, machine). Rotate the token + label on the existing row.
+    const upd = await db
       .from("bridge_pairings")
-      .select("id")
+      .update({
+        bridge_token_hash: tokenHash,
+        last_seen_at: nowIso,
+        label,
+      })
       .eq("tenant_id", profileRow.tenant_id)
       .eq("machine_fingerprint", fingerprint)
       .is("revoked_at", null)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (existing.data) {
-      pairingId = existing.data.id;
-      const upd = await db
-        .from("bridge_pairings")
-        .update({
-          bridge_token_hash: tokenHash,
-          last_seen_at: nowIso,
-          label,
-        })
-        .eq("id", pairingId);
-      if (upd.error) {
-        return bad(500, `pair rotate failed: ${upd.error.message}`);
-      }
-    }
-  }
-
-  if (!pairingId) {
-    const ins = await db
-      .from("bridge_pairings")
-      .insert({
-        tenant_id: profileRow.tenant_id,
-        user_id: profileRow.auth_user_id || null,
-        label,
-        bridge_token_hash: tokenHash,
-        machine_fingerprint: fingerprint,
-        last_seen_at: nowIso,
-      })
       .select("id")
       .single();
-    if (ins.error || !ins.data) {
-      return bad(500, `pair insert failed: ${ins.error?.message || "unknown"}`);
+    if (upd.error || !upd.data) {
+      return bad(500, `pair rotate failed: ${upd.error?.message || "unknown"}`);
     }
-    pairingId = ins.data.id;
+    pairingId = upd.data.id;
+  } else {
+    return bad(500, `pair insert failed: ${ins.error?.message || "unknown"}`);
   }
 
   const baseUrl =
