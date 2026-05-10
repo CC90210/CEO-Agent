@@ -23,7 +23,7 @@ All operations go through `python scripts/revenue_engine.py`. Append `--json` to
 | Current MRR snapshot | `revenue_engine.py mrr` |
 | Full dashboard | `revenue_engine.py dashboard` |
 | Sync from Stripe | `revenue_engine.py sync-stripe` |
-| Log a manual payment | `revenue_engine.py log-revenue --type payment --amount 500 --source manual --client "primary retainer" --notes "March retainer"` |
+| Log a manual payment | `revenue_engine.py log-revenue --type payment --amount 500 --source manual --client "<client name>" --notes "March retainer"` |
 | Log month summary | `revenue_engine.py log-month --month 2026-03 --mrr 2691 --new-clients 0 --churned 0 --pipeline 5000 --leads 50` |
 | View history | `revenue_engine.py history --months 6` |
 | 90-day forecast | `revenue_engine.py forecast` |
@@ -37,7 +37,7 @@ All operations go through `python scripts/revenue_engine.py`. Append `--json` to
 MRR = sum of all active monthly recurring revenue, normalized to monthly.
 
 - **Stripe subscriptions:** Pulled automatically via `sync-stripe`. Interval-normalized (annual plans divided by 12).
-- **Manual retainers:** Logged via `log-revenue --type retainer`. Example: primary retainer Community Manager at $2,500/mo.
+- **Manual retainers:** Logged via `log-revenue --type retainer`. Example: a community-management retainer at $2,500/mo.
 - **One-off projects:** Logged via `log-revenue --type payment`. These count toward gross revenue but not MRR.
 - **Net MRR:** Gross MRR minus churn. Churn is logged when a client is marked inactive.
 

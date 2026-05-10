@@ -15,12 +15,12 @@ Audit run 2026-05-07. Tenant: `ef8d389e-3f15-43f2-ae00-3660f69a1452` (CC's). Pro
 
 | Metric | Source | Verdict | Notes |
 |---|---|---|---|
-| **Net MRR** | `mrrSnapshot()` → `mrr_snapshots` table latest row | ⚠️ **Operator-supplied, not Stripe-computed** | Latest snapshot: $3,322 / $5,000 target. Source column = `"profile"` — meaning the value is read from `user_profiles.mrr_current_usd` and snapshotted nightly. CC manually edited that field. No Stripe-driven auto-computation today. To make real: add a writer that pulls Stripe + primary retainer rev share + adds to mrr_current_usd before the snapshot. |
+| **Net MRR** | `mrrSnapshot()` → `mrr_snapshots` table latest row | ⚠️ **Operator-supplied, not Stripe-computed** | Latest snapshot: $3,322 / $5,000 target. Source column = `"profile"` — meaning the value is read from `user_profiles.mrr_current_usd` and snapshotted nightly. CC manually edited that field. No Stripe-driven auto-computation today. To make real: add a writer that pulls Stripe + retainer rev shares + adds to mrr_current_usd before the snapshot. |
 | **Gap to goal** | computed from MRR + `profile.mrr_target_usd` | ✅ Real | Math is correct; relies on the MRR value being trustworthy. |
 | **Days left** | computed from `profile.mrr_target_date` | ✅ Real | `mrr_target_date` = 2026-05-30. |
 | **Replies (7d)** | `outreachReplyRate(tenantId, 7)` | ✅ Real | 14 lead_interactions in 7d, 1 inbound, 13 outbound. Reply rate ≈ 7.7%. |
 | **MRR added (7d)** | `mrrHistory(30)` last - 8th-last | ✅ Real | Computed from snapshot rows. |
-| **Top client share** | `topClientConcentration()` → `profile.custom_fields.top_client_mrr_usd` | ⚠️ **Operator-supplied** | $2,951 primary retainer (89%). Hand-set in user_profiles.custom_fields. Not auto-derived from any client-revenue source. |
+| **Top client share** | `topClientConcentration()` → `profile.custom_fields.top_client_mrr_usd` | ⚠️ **Operator-supplied** | $2,951 (89%) for the primary retainer. Hand-set in user_profiles.custom_fields. Not auto-derived from any client-revenue source. |
 | **Active pipeline** | `activePipeline(tenantId)` | ✅ Real | 5 active leads (216 archived in May 2026 cleanup). |
 | **Reply rate (7d)** | `outreachReplyRate()` | ✅ Real | 1/13 = 7.7%. |
 | **Decisions today** | `todayCounts(tenantId).decisions` | ⚠️ Empty | The agent_decisions table only has 2 rows ever (2026-05-01). Autonomous loops haven't been firing. Always returns 0 for today. |
@@ -34,7 +34,7 @@ Audit run 2026-05-07. Tenant: `ef8d389e-3f15-43f2-ae00-3660f69a1452` (CC's). Pro
 | Metric | Source | Verdict | Notes |
 |---|---|---|---|
 | **Recent Outbound** | `recentOutbound(tenantId)` → `lead_interactions` filtered by `type IN (email_sent, dm_sent, ...)` + tenant_id | ✅ **Verified chunk A1** | tenant_id backfilled. Migrations 022-024 applied. 13 fresh sends in 7d. |
-| **Active leads** | `recentLeads()` | ✅ Real | 5 visible (primary retainer, Jonathan Hutton, Bev Drexler, 2 new). |
+| **Active leads** | `recentLeads()` | ✅ Real | 5 visible. |
 
 ---
 
@@ -139,7 +139,7 @@ All sub-pages are static content — not "metrics" per se, just curated docs / d
 
 **Action items to make every metric truly real:**
 
-1. **Stripe → MRR auto-pipeline:** nightly cron pulls Stripe customers + primary retainer rev share + writes to `user_profiles.mrr_current_usd` + appends to `mrr_snapshots`. Removes the manual edit dependency.
+1. **Stripe → MRR auto-pipeline:** nightly cron pulls Stripe customers + retainer rev shares + writes to `user_profiles.mrr_current_usd` + appends to `mrr_snapshots`. Removes the manual edit dependency.
 
 2. **Top-client auto-derivation:** another nightly cron computes top customer share from active subscriptions, writes to `custom_fields.top_client_mrr_usd`. Removes manual edit.
 

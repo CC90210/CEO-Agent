@@ -141,7 +141,7 @@ Each pack = a folder under `skills/verticals/<vertical>/` installed on buyer opt
 CC's 4-agent setup becomes the flagship reference customer. In marketing:
 - "This is the same system running my agency, OASIS AI, which hit $5K MRR using these exact agents."
 - Public commit history on GitHub = proof it's real.
-- CC's content ("here's how I used Bravo to close primary retainer") = organic marketing for the product.
+- CC's content ("here's how I used Bravo to close my biggest client") = organic marketing for the product.
 
 CC's personal layer (brands/clients profiles, SunBiz history, etc.) stays in his own fork, private.
 

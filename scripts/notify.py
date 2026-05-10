@@ -8,7 +8,7 @@ immediately on his phone without decoding anything.
 Usage:
     from notify import notify
     notify("New lead: John from Acme HVAC just submitted the funnel form", category="lead")
-    notify("Stripe: $800 payment received from primary retainer Agency", category="revenue")
+    notify("Stripe: $800 payment received from a retainer client", category="revenue")
 
 Categories: lead, email, booking, content, revenue, outreach, instagram, system, skool-escalation
 
@@ -119,7 +119,7 @@ def notify(message: str, category: str = "system", silent: bool = False, force: 
 
     # V3 2026-04-12: Clean human-readable format.
     # Old: "[REVENUE] Stripe Revenue Sync: Stripe sync complete.\n  Inserted: 0 new event(s)\n  Skipped: 4 duplicate(s)\n-- 17:34"
-    # New: "Revenue\n$800 payment from primary retainer Agency\n\n12:34 PM"
+    # New: "Revenue\n$800 payment from a retainer client\n\n12:34 PM"
     prefix = CATEGORY_PREFIX.get(category, "Bravo")
     timestamp = datetime.now().strftime("%#I:%M %p")  # 12-hour format, no leading zero
     full_message = f"{prefix}\n{message}\n\n{timestamp}"

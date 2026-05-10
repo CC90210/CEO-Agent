@@ -14,7 +14,7 @@ Usage:
     python scripts/financial_model.py scenario --type bull
     python scripts/financial_model.py scenario --type bear
     python scripts/financial_model.py concentration
-    python scripts/financial_model.py concentration --clients '{"primary retainer": 2791, "Other": 191}'
+    python scripts/financial_model.py concentration --clients '{"Top Client": 2791, "Other": 191}'
     python scripts/financial_model.py runway
     python scripts/financial_model.py runway --cash 15000 --expenses 184
     python scripts/financial_model.py --json <any subcommand>
@@ -43,7 +43,7 @@ TARGET_DATE = "2026-05-15"
 
 # Default client revenue split for concentration analysis
 DEFAULT_CLIENT_REVENUE = {
-    "primary retainer": 2791.0,
+    "Primary retainer": 2791.0,
     "Base (other)": 191.0,
 }
 
@@ -140,7 +140,7 @@ SCENARIOS = {
         "monthly_churn_rate": 0.05,
         "expansion_pct": 0.0,
         "probability": 0.15,
-        "description": "No new clients, primary retainer retention but no growth, 5% monthly churn kicks in.",
+        "description": "No new clients, primary retainer holds but no growth, 5% monthly churn kicks in.",
     },
     "base": {
         "label": "Base (realistic)",
@@ -382,7 +382,7 @@ def cmd_concentration(args: argparse.Namespace) -> dict:
             client_revenue = json.loads(args.clients)
             client_revenue = {k: float(v) for k, v in client_revenue.items()}
         except (json.JSONDecodeError, ValueError):
-            return {"error": "Invalid JSON for --clients. Use: '{\"primary retainer\": 2791, \"Other\": 191}'"}
+            return {"error": "Invalid JSON for --clients. Use: '{\"Top Client\": 2791, \"Other\": 191}'"}
     else:
         client_revenue = DEFAULT_CLIENT_REVENUE
 
@@ -451,9 +451,9 @@ def cmd_runway(args: argparse.Namespace) -> dict:
     runway = calc_runway(cash, burn)
     runway_str = f"{runway:.0f} months" if not math.isinf(runway) else "inf (profitable)"
 
-    # Worst-case: what if primary retainer churns?
-    primary_retainer_revenue = DEFAULT_CLIENT_REVENUE.get("primary retainer", 2791.0)
-    post_churn_mrr = max(mrr - primary_retainer_revenue, 0)
+    # Worst-case: what if the primary retainer churns?
+    primary_revenue = DEFAULT_CLIENT_REVENUE.get("Primary retainer", 2791.0)
+    post_churn_mrr = max(mrr - primary_revenue, 0)
     post_churn_net = post_churn_mrr - expenses
     post_churn_burn = -post_churn_net if post_churn_net < 0 else 0
     post_churn_runway = calc_runway(cash, post_churn_burn)

@@ -21,7 +21,7 @@ What gets replaced:
   - Location         ("Collingwood, Ontario")
 
 What stays as-is (historical context the new operator inherits):
-  - Past client names (primary retainer, Adon, Alejandro, etc.) — agent's experience
+  - Past client + partner names — agent's experience
   - Specific past dates / events
   - Code-level repo names that are public on GitHub
 
@@ -155,10 +155,13 @@ def build_replacement_map(profile: dict[str, Any]) -> dict[str, str]:
     # Default: scrub all (most clients run only Bravo). Set
     # profile.preserve_side_projects=true to keep references.
     scrub_side_projects = not profile.get("preserve_side_projects", False)
-    # Past-client names: preserved by default per scaffold docstring.
-    # Set profile.scrub_history=true to strip references — useful when
-    # client wants a fully clean slate.
-    scrub_history = bool(profile.get("scrub_history", False))
+    # `scrub_history` flag is preserved as a no-op for now. The original
+    # version enumerated specific past-client/partner names — that framing
+    # wrongly elevated those names to "tracked entities worth scrubbing."
+    # They're just client names like any other. Keeping the flag so
+    # existing operator.profile.json entries don't error on unknown keys;
+    # the actual enumeration is gone.
+    _ = bool(profile.get("scrub_history", False))  # reserved
 
     out: dict[str, str] = {
         # --- 1. Identity ----------------------------------------------------
@@ -203,16 +206,15 @@ def build_replacement_map(profile: dict[str, Any]) -> dict[str, str]:
             # alone.
         })
 
-    # --- 4. Past clients — preserved by default --------------------------
-    # CC's docstring: "Past client names (primary retainer, Adon, Alejandro, etc.)
-    # — agent's experience". Stays unless explicitly opted-out.
-    if scrub_history:
-        out.update({
-            "primary retainer": "<past-client>",
-            "Adon": "<past-partner>",
-            "Alejandro": "<past-client>",
-            "Alejandro Andrade": "<past-client>",
-        })
+    # --- 4. Past-client names ------------------------------------------
+    # Intentionally NOT enumerated. A prior version of this map listed
+    # specific past-client/partner names by name, which (a) elevated them
+    # to "tracked entities worth special-casing" when they're just client
+    # names like any other and (b) baked CC's specific client roster into
+    # the scaffold's source code. If a fresh client install needs to
+    # scrub their own past-client names, they can add per-name entries
+    # via profile.extra_replacements (loaded in scan_and_replace) — this
+    # scaffold doesn't pretend to know which names are "important."
 
     return out
 

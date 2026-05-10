@@ -11,7 +11,7 @@ tags: [brain, risk, register]
 
 | ID | Risk | Category | Probability | Impact | Severity | Mitigation | Owner | Last Reviewed |
 |----|------|----------|------------|--------|----------|------------|-------|---------------|
-| R-001 | primary retainer churns (94% revenue) | Revenue | LOW | CRITICAL | CRITICAL | Diversify to 8-10 clients, max 40% concentration. See primary retainer Contingency in risk-management skill. | CC + Bravo | 2026-03-28 |
+| R-001 | Primary retainer churns (94% revenue) | Revenue | LOW | CRITICAL | CRITICAL | Diversify to 8-10 clients, max 40% concentration. See Top-Client Contingency in risk-management skill. | CC + Bravo | 2026-03-28 |
 | R-002 | CC is single point of failure | Operational | MEDIUM | CRITICAL | CRITICAL | SOPs for all delivery, VA hire at $5K MRR, dead man's switch protocol | CC | 2026-03-28 |
 | R-003 | No formal contracts with some clients | Legal | MEDIUM | HIGH | HIGH | Standardize all engagements with contracts via proposal-generation skill | CC | 2026-03-28 |
 | R-004 | Security breach (API keys, client data) | Technology | LOW | HIGH | HIGH | .env.agents security, hooks, RLS, quarterly security audit | Bravo | 2026-03-28 |
@@ -30,7 +30,7 @@ tags: [brain, risk, register]
 
 ## Review Protocol
 
-- **Weekly:** Check R-001 (primary retainer) and R-010 (scope creep) — these have highest probability
+- **Weekly:** Check R-001 (top-retainer churn) and R-010 (scope creep) — these have highest probability
 - **Monthly:** Check R-003 (contracts), R-005 (pricing), R-007 (IP)
 - **Quarterly:** Full register review as part of QBR
 

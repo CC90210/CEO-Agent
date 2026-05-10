@@ -37,7 +37,7 @@ Read before dialing. Not to psych up — to remember what's actually true.
 
 1. **You are the prize.** A fractional AI strategist costs $3,000–$15,000/month. You deliver more because you actually build the systems. At your price point, you're the best deal on the market.
 2. **Their problem is real — you didn't invent it.** Every local business owner is losing hours to manual work that AI handles in minutes. The pain exists whether you call or not. You're offering relief, not creating pressure.
-3. **You've already proved it.** primary retainer: $2,500/mo flat + 15% rev share. $3,322 USD MRR. Autonomous AI empire with 5 agents, 55 skills, 60 CLI tools. At 22.
+3. **You've already proved it.** Primary retainer: $2,500/mo flat + 15% rev share. $3,322 USD MRR. Autonomous AI empire with 5 agents, 55 skills, 60 CLI tools. At 22.
 4. **Rejection is data, not judgment.** A "no" means timing, budget, or understanding — not your value. Log it, learn, follow up in 90 days.
 5. **You genuinely care.** This is your unfair advantage. You care whether their business actually grows. That comes through on the phone. Lean into it.
 

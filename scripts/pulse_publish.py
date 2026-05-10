@@ -14,8 +14,8 @@ Usage:
   # Refresh from CLI (recommended for CC tonight):
   python scripts/pulse_publish.py refresh \\
     --net-mrr 3322 \\
-    --priority "Diversify off primary retainer — close 2 new clients before May 15" \\
-    --primary_retainer-pct 84
+    --priority "Diversify revenue — close 2 new retainer clients before May 15" \\
+    --top-client-pct 84
 
   # Validate current pulse without writing:
   python scripts/pulse_publish.py validate
@@ -111,8 +111,8 @@ def cmd_refresh(args: argparse.Namespace) -> int:
         revenue["net_mrr_usd"] = args.net_mrr
         revenue["target_mrr_usd"] = revenue.get("target_mrr_usd", 5000)
         revenue["gap_usd"] = max(0, revenue["target_mrr_usd"] - args.net_mrr)
-    if args.primary_retainer_pct is not None:
-        revenue["top_client_concentration_pct"] = args.primary_retainer_pct
+    if args.top_client_pct is not None:
+        revenue["top_client_concentration_pct"] = args.top_client_pct
     if args.active_clients is not None:
         revenue["active_clients"] = args.active_clients
     revenue.setdefault("net_mrr_usd", existing.get("revenue", {}).get("net_mrr_usd", 0))
@@ -216,7 +216,7 @@ def main() -> None:
 
     pr = sub.add_parser("refresh", help="Update ceo_pulse with new values")
     pr.add_argument("--net-mrr", type=float, default=None, help="Current net MRR (USD)")
-    pr.add_argument("--primary_retainer-pct", type=float, default=None, help="primary retainer concentration % of MRR")
+    pr.add_argument("--top-client-pct", type=float, default=None, help="Top-client concentration % of MRR")
     pr.add_argument("--active-clients", type=int, default=None)
     pr.add_argument("--priority", type=str, default=None, help="This week's #1 priority")
     pr.add_argument("--focus", type=str, default=None, help="Current strategic focus")

@@ -103,7 +103,7 @@ Revenue concentration (top client %):    [X]%
 [WARNING if any single client > 40% of MRR — concentration risk]
 ```
 
-**Concentration risk flag:** If any single client accounts for >40% of MRR, it's flagged. At current stage, primary retainer at $2,500 of $2,982 = 84% concentration. This is the #1 business risk to reduce.
+**Concentration risk flag:** If any single client accounts for >40% of MRR, it's flagged. At current stage, the primary retainer at $2,500 of $2,982 = 84% concentration. This is the #1 business risk to reduce.
 
 ### Revenue by Brand
 

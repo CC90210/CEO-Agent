@@ -36,7 +36,7 @@ created: 2026-04-12
 - Coffee, snack, step outside. Reset.
 
 ### 9:45 AM - DEEP WORK BLOCK 2: CLIENT DELIVERY (90 min)
-- Work on active client projects (OASIS retainers, primary retainer community).
+- Work on active client projects (OASIS retainers, primary community).
 - Build features, fix bugs, deliver value to paying clients.
 - If no active clients yet: work on the CC Funnel, Gritly, or OASIS platform.
 
