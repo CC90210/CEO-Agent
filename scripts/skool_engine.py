@@ -63,6 +63,30 @@ SKOOL_DISABLED = False  # Kill switch — set True to stop everything
 DM_DISABLED = True
 # ========================================
 
+# Community moderators / owners — the agent never auto-replies to their own
+# posts or comments. Match is case-insensitive substring. Add the community
+# owner's full name + first name + any handle they use. Configurable via
+# env var SKOOL_COMMUNITY_MODERATORS (comma-separated, overrides default).
+#
+# Why config-driven: hardcoding a specific person's name elevates them in the
+# codebase. The skool automation is the artifact; WHICH community owner gets
+# skipped is operator-config, not source code.
+SKOOL_COMMUNITY_MODERATORS = [
+    "conaugh", "cc",  # CC always skipped (operator)
+] + [
+    s.strip().lower() for s in (os.environ.get("SKOOL_COMMUNITY_MODERATORS") or "").split(",")
+    if s.strip()
+]
+
+
+def _is_moderator(author: str) -> bool:
+    """Case-insensitive check: is this author one of the configured
+    community moderators (CC + community owner)? Used to skip self-replies."""
+    a = (author or "").strip().lower()
+    if not a:
+        return False
+    return any(m and m in a for m in SKOOL_COMMUNITY_MODERATORS)
+
 COMMUNITY_FEED_URL = COMMUNITY_URL
 MAX_REPLIES_PER_CYCLE = 5   # Max post replies per scan
 MAX_DM_REPLIES_PER_CYCLE = 0  # DMs disabled — was 5
@@ -1193,8 +1217,7 @@ def _needs_coach_attention(title: str, content: str, author: str = "") -> tuple[
     costs one Telegram ping; a false negative costs trust with the community.
     """
     # Never escalate moderators' own posts/comments to themselves.
-    author_lower = (author or "").lower()
-    if "conaugh" in author_lower or author_lower == "cc" or "primary_retainer" in author_lower:
+    if _is_moderator(author):
         return False, ""
 
     text = f"{title} {content}".lower()
@@ -1232,12 +1255,16 @@ def _escalate_to_cc(post_url: str, author: str, snippet: str, reason: str, kind:
 def _extract_comments_on_post(page) -> list:
     """Extract the comment list on the currently loaded post page.
 
-    Returns a list of dicts: [{idx, author, content, is_cc, is_primary_retainer}, ...]
-    Resilient to selector drift — tries multiple strategies. Degrades to empty list
-    on failure (never raises).
+    Returns a list of dicts: [{idx, author, content, is_cc, is_moderator}, ...]
+    where is_moderator is True if the author matches any configured community
+    moderator (see SKOOL_COMMUNITY_MODERATORS). Resilient to selector drift —
+    tries multiple strategies. Degrades to empty list on failure (never raises).
     """
+    # Build the moderator-name list as JS-safe lowercase strings, passed
+    # via page.evaluate's argument so the JS doesn't carry hardcoded names.
+    moderator_names_js = [m for m in SKOOL_COMMUNITY_MODERATORS if m]
     try:
-        comments = page.evaluate(r"""() => {
+        comments = page.evaluate(r"""(modNames) => {
             // Try multiple comment wrapper selector patterns (Skool changes these periodically)
             const selectors = [
                 '[class*="CommentItem"]',
@@ -1303,10 +1330,11 @@ def _extract_comments_on_post(page) -> list:
                     || authorTrimmed === 'conaugh mckenna'
                     || authorTrimmed.startsWith('conaugh ')
                 );
-                const isprimary retainer = (
-                    authorTrimmed === 'primary_retainer'
-                    || authorTrimmed === 'primary_retainer spooner'
-                    || authorTrimmed.startsWith('primary_retainer ')
+                // Match against the configured moderator names (passed in
+                // from Python via SKOOL_COMMUNITY_MODERATORS — case-insensitive
+                // substring match, same semantics as the Python helper).
+                const isModerator = modNames.some(m =>
+                    m && authorTrimmed.includes(m)
                 );
 
                 results.push({
@@ -1314,11 +1342,11 @@ def _extract_comments_on_post(page) -> list:
                     author: author,
                     content: content.substring(0, 500),
                     is_cc: isCC,
-                    is_primary_retainer: isprimary retainer,
+                    is_moderator: isModerator,
                 });
             }
             return results;
-        }""")
+        }""", moderator_names_js)
         return comments or []
     except Exception as e:
         log.warning(f"Failed to extract comments: {e}")
@@ -1568,8 +1596,10 @@ def _process_post_comments(
         content = c.get("content", "")
         idx = c.get("idx", 0)
 
-        # Never reply to CC, primary retainer, or empty comments
-        if c.get("is_cc") or c.get("is_primary_retainer"):
+        # Never reply to a community moderator (CC, community owner) or
+        # empty comments. is_moderator is computed by the JS side based on
+        # the SKOOL_COMMUNITY_MODERATORS list.
+        if c.get("is_cc") or c.get("is_moderator"):
             continue
         if not content or not author:
             continue
@@ -1761,8 +1791,7 @@ def cmd_scan_posts(args, page=None, ctx=None):
                 continue
 
             author = post.get("author", "")
-            author_lower = author.lower().strip()
-            if "conaugh" in author_lower or author_lower == "cc" or "primary_retainer" in author_lower:
+            if _is_moderator(author):
                 replied[slug] = {"author": author, "skipped": "own_post", "ts": _now()}
                 results["skipped"] += 1
                 continue
@@ -2764,30 +2793,39 @@ def cmd_metrics(args, page=None, ctx=None):
         if metrics.get("mrr"):
             skool_mrr = metrics["mrr"]
             rev_share = round(skool_mrr * 0.15, 2)
-            total_primary_retainer = 2500 + rev_share
+            # Community-management retainer = $2,500 flat + 15% of community MRR.
+            # Both numbers are operator-config in nature, but the math doesn't
+            # change per-community. revenue_events row is keyed by client_name
+            # below — matched on a stable identifier the operator set in
+            # SKOOL_REVENUE_CLIENT_NAME (defaults to "Community Management
+            # Retainer" so a fresh fork has something to match against).
+            retainer_client_name = os.environ.get(
+                "SKOOL_REVENUE_CLIENT_NAME", "Community Management Retainer"
+            )
+            total_retainer = 2500 + rev_share
             members = metrics.get("members", "?")
             engagement = metrics.get("engagement", "?")
             retention = metrics.get("retention", "?")
 
             # Update Supabase
-            update_note = (f"primary retainer: $2500 flat + 15% of ${skool_mrr} Skool MRR (${rev_share}). "
+            update_note = (f"{retainer_client_name}: $2500 flat + 15% of ${skool_mrr} Skool MRR (${rev_share}). "
                           f"{members} members, {engagement}% engagement, {retention}% retention. "
                           f"Auto-updated {datetime.now().strftime('%Y-%m-%d %H:%M')}.")
 
             try:
                 result = subprocess.run(
                     [sys.executable, "scripts/supabase_tool.py", "update", "revenue_events",
-                     json.dumps({"amount_usd": total_primary_retainer, "metadata": json.dumps({"notes": update_note})}),
+                     json.dumps({"amount_usd": total_retainer, "metadata": json.dumps({"notes": update_note})}),
                      "--project", "bravo",
-                     "--match", json.dumps({"client_name": "primary retainer Agency Accelerator", "type": "subscription_start"})],
+                     "--match", json.dumps({"client_name": retainer_client_name, "type": "subscription_start"})],
                     capture_output=True, text=True, timeout=15,
                     creationflags=0x08000000 if sys.platform == "win32" else 0,
                     cwd=str(PROJECT_ROOT)
                 )
                 if "Updated 1 row" in result.stdout:
-                    safe_print(f"Revenue updated: primary retainer → ${total_primary_retainer}/mo")
+                    safe_print(f"Revenue updated: {retainer_client_name} → ${total_retainer}/mo")
                     metrics["revenue_updated"] = True
-                    metrics["total_primary_retainer"] = total_primary_retainer
+                    metrics["total_retainer"] = total_retainer
                 else:
                     safe_print(f"Revenue update issue: {result.stdout[:200]}")
             except Exception as e:

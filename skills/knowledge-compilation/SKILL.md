@@ -199,7 +199,7 @@ Append the lint report to `knowledge/log.md` as a lint entry.
 
 | File type | Pattern | Example |
 |-----------|---------|---------|
-| Raw source | `raw/YYYY-MM-DD-[slug].md` | `raw/2026-04-06-primary_retainer-call-notes.md` |
+| Raw source | `raw/YYYY-MM-DD-[slug].md` | `raw/2026-04-06-client-call-notes.md` |
 | Wiki page | `wiki/[slug].md` | `wiki/client-playbook.md` |
 | Slug format | lowercase, hyphenated, no dates | `ai-automation-agency` |
 

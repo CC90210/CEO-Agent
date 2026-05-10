@@ -8,16 +8,19 @@ interactions are preserved so we can resurrect anyone if needed.
 
 KEEP rules (any one match keeps a lead):
   - status = 'won' (paying clients)
-  - primary retainer (name OR company contains 'primary_retainer' OR 'agency-accelerance')
-  - Jonathan Hutton / Basque Landscaping (name='Jonathan Hutton' OR company ILIKE '%basque%')
-  - Alejandro Andrade / Alondra (name ILIKE '%alejandro%' OR '%alondra%' OR '%andrade%')
-  - Tremont (name ILIKE '%tremont%')
+  - Match against the configurable KEEP_NAME_PATTERNS / KEEP_COMPANY_PATTERNS
+    lists below. Lowercase substring match against `name` / `company`.
 
 Everything else: archived. NO 14-day grace window — true cold noise must go.
 
 Default mode: dry-run (prints would-be archives).
 --apply: commit changes.
 --json: machine-readable summary.
+
+Operator config: override the keep-lists via env vars
+(comma-separated, lowercase substrings):
+  CRM_KEEP_NAMES=foo,bar,baz
+  CRM_KEEP_COMPANIES=acme,widget-co
 
 Usage:
   python scripts/crm_reset.py                  # dry-run
@@ -49,24 +52,27 @@ except ImportError:
 
 ARCHIVE_TAG = "auto_archived_2026-04-30"
 
-# Patterns that match warm leads / clients. Any match = keep.
-# Lowercase comparisons throughout.
-KEEP_NAME_PATTERNS = [
-    "primary_retainer",
-    "spooner",        # the prior client
-    "jonathan hutton",
-    "alejandro",
-    "alondra",
-    "andrade",
-    "tremont",
+# Patterns that match warm leads / clients we want to PRESERVE during a CRM
+# reset. Any match (substring, case-insensitive) keeps the lead from being
+# archived. Lists are operator-configurable via env vars CRM_KEEP_NAMES /
+# CRM_KEEP_COMPANIES (comma-separated). Defaults reflect CC's actual
+# warm-lead state at the time of the reset playbook (2026-04-30); future
+# operators override via env vars rather than editing source.
+def _split_csv_env(name: str) -> list[str]:
+    raw = os.environ.get(name) or ""
+    return [s.strip().lower() for s in raw.split(",") if s.strip()]
+
+
+_DEFAULT_KEEP_NAMES = [
+    "primary_retainer", "spooner", "jonathan hutton", "alejandro",
+    "alondra", "andrade", "tremont",
+]
+_DEFAULT_KEEP_COMPANIES = [
+    "primary_retainer", "agency-accelerance", "agency accelerance", "basque",
 ]
 
-KEEP_COMPANY_PATTERNS = [
-    "primary_retainer",
-    "agency-accelerance",
-    "agency accelerance",
-    "basque",        # Basque Landscaping
-]
+KEEP_NAME_PATTERNS = _split_csv_env("CRM_KEEP_NAMES") or _DEFAULT_KEEP_NAMES
+KEEP_COMPANY_PATTERNS = _split_csv_env("CRM_KEEP_COMPANIES") or _DEFAULT_KEEP_COMPANIES
 
 
 def matches_keep(lead: dict) -> tuple[bool, str]:

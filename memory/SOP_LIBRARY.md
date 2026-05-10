@@ -180,7 +180,7 @@ freshness_threshold_days: 180
    - Deliverable status (on-time, overdue, upcoming)
    - Any negative signals (complaints, slow responses, scope changes)
 3. Score each client: HEALTHY (all good), AT-RISK (1+ flag), CRITICAL (2+ flags or revenue >70%)
-4. For AT-RISK/CRITICAL: generate specific action (e.g., "Send check-in email to primary retainer")
+4. For AT-RISK/CRITICAL: generate specific action (e.g., "Send check-in email to the top retainer")
 5. Report to CC: client list with scores and recommended actions
 **Success Criteria:** No client goes unmonitored for more than 7 days
 **Executions:** 0 | **Success Rate:** N/A
