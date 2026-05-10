@@ -26,11 +26,21 @@
 - **Goal:** $5,000 USD Net MRR by May 15, 2026
 - **System architecture:** @ARCHITECTURE.md
 
+## Triage (FIRST step every operator turn — before any tool call)
+
+Classify CC's message before doing anything else. Most messages don't need the boot directive below.
+
+- **Conversational / vibe** ("wsp", "yo", "hi", "thanks", an emoji) → respond in 1 line. **Zero file reads. Zero tool calls.**
+- **Quick Q answerable from current context** → answer directly. Read a file ONLY if you'd otherwise have to guess.
+- **Operational request** (build, fix, send, deploy, debug, route, "show me", anything action-shaped) → THEN consult the Boot Directive below.
+
+Default to the lighter path. Over-eager file-reads on a casual message waste seconds and CC's patience.
+
 ## Boot Directive (lazy-load via the RAG router)
 
-**Boot with this file + `brain/AGENT_ROUTER.md` only.** Everything else loads on demand by intent.
+**Boot with this file only.** Everything below loads on demand — only when Triage above says the message demands it.
 
-On the first operator turn:
+When the message is OPERATIONAL:
 1. `brain/AGENT_ROUTER.md` — routing-by-intent table (~200 lines).
 2. `brain/EXECUTION_RULES.md` — the iron law (self-execute, never tell CC to run commands).
 3. `brain/INTENTS.md` — verb-by-verb playbooks per request type.
