@@ -1995,17 +1995,30 @@ def _try_pair_code_flow(dashboard_url: str) -> bool:
     import urllib.request as _ureq
     import urllib.error as _uerr
 
-    print(f"  {BOLD('Pair code')}: 9-character code from your dashboard")
-    print(f"  {DIM('(Open your dashboard → Settings → Devices → Generate pair code.')}")
-    print(f"  {DIM(' Paste the XXX-XXX-XXX code here. Leave blank to skip.)')}")
-    code_raw = prompt("  Pair code", required=False).strip().upper()
-    if not code_raw:
-        return False  # operator skipped — fall through to legacy path
+    # Env-var path: when the install one-liner sets BRAVO_PAIR_CODE
+    # (the dashboard's Install button does this — see DevicesEditor +
+    # InstallBridgeModal in apps/command-center/), skip the manual paste
+    # prompt entirely. The operator already clicked the button, so we
+    # can go straight to redeem. Falls back to interactive prompt on
+    # any failure (so existing CLI flow still works).
+    env_code = (os.environ.get("BRAVO_PAIR_CODE") or "").strip().upper()
+    if env_code and _re.fullmatch(r"[A-Z0-9]{3}-[A-Z0-9]{3}-[A-Z0-9]{3}", env_code):
+        print(f"  {DIM('Using pair code from BRAVO_PAIR_CODE env: ' + env_code)}")
+        code_raw = env_code
+    else:
+        if env_code:
+            print(f"  {YELLOW('BRAVO_PAIR_CODE was set but invalid shape — ignoring.')}")
+        print(f"  {BOLD('Pair code')}: 9-character code from your dashboard")
+        print(f"  {DIM('(Open your dashboard → Settings → Devices → Install Claude Code CLI bridge.')}")
+        print(f"  {DIM(' Paste the XXX-XXX-XXX code here. Leave blank to skip.)')}")
+        code_raw = prompt("  Pair code", required=False).strip().upper()
+        if not code_raw:
+            return False  # operator skipped — fall through to legacy path
 
-    if not _re.fullmatch(r"[A-Z0-9]{3}-[A-Z0-9]{3}-[A-Z0-9]{3}", code_raw):
-        print(f"  {YELLOW('That code shape is invalid (expected XXX-XXX-XXX).')}")
-        print(f"  {DIM('Falling back to legacy pairing.')}")
-        return False
+        if not _re.fullmatch(r"[A-Z0-9]{3}-[A-Z0-9]{3}-[A-Z0-9]{3}", code_raw):
+            print(f"  {YELLOW('That code shape is invalid (expected XXX-XXX-XXX).')}")
+            print(f"  {DIM('Falling back to legacy pairing.')}")
+            return False
 
     body = {
         "code": code_raw,

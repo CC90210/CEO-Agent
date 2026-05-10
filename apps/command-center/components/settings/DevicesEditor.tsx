@@ -10,7 +10,8 @@
  */
 
 import { useEffect, useState } from "react";
-import { Loader2, Trash2, Check, AlertCircle, Monitor, RefreshCw, Plus, Copy, Clock } from "lucide-react";
+import { Loader2, Trash2, Check, AlertCircle, Monitor, RefreshCw, Plus, Copy, Clock, Download } from "lucide-react";
+import { InstallBridgeModal } from "./InstallBridgeModal";
 
 type Device = {
   id: string;
@@ -114,6 +115,10 @@ export function DevicesEditor() {
   const [error, setError] = useState<string | null>(null);
   const [pairCode, setPairCode] = useState<PairCode | null>(null);
   const [generating, setGenerating] = useState(false);
+  // Install-flow modal — promoted in 2026-05-10 from a buried <details>
+  // toggle to a primary CTA. Mints its own pair-code internally and
+  // polls until the bridge is online.
+  const [installerOpen, setInstallerOpen] = useState(false);
 
   async function load() {
     try {
@@ -211,41 +216,33 @@ export function DevicesEditor() {
         )}
         <div className="text-fg-muted text-sm">
           No devices paired yet. Pair your first machine to give your agents
-          read/write access to its file system.
+          read/write access to its file system and your local Claude Code subscription.
         </div>
         {pairCode ? (
           <PairCodeBlock code={pairCode} onClear={() => setPairCode(null)} />
         ) : (
-          <button
-            type="button"
-            onClick={generatePairCode}
-            disabled={generating}
-            className="btn-primary inline-flex items-center gap-2"
-          >
-            {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-            Generate pair code
-          </button>
-        )}
-        <details className="text-xs text-fg-dim mt-2">
-          <summary className="cursor-pointer hover:text-fg-muted">
-            How it works (and the curl/PowerShell alternative)
-          </summary>
-          <div className="mt-2 space-y-2 pl-3">
-            <p className="text-fg-muted">
-              On the new machine, install the CLI and run{" "}
-              <code className="text-accent">bravo setup</code>. When it asks for a pair code,
-              paste the one above. Single-use; expires in 15 minutes.
-            </p>
-            <p className="text-fg-muted">
-              <span className="font-bold text-fg">Windows (PowerShell):</span>{" "}
-              <code className="text-accent">irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.ps1 | iex</code>
-            </p>
-            <p className="text-fg-muted">
-              <span className="font-bold text-fg">macOS / Linux / WSL:</span>{" "}
-              <code className="text-accent">curl -fsSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install/quickstart.sh | bash</code>
-            </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setInstallerOpen(true)}
+              className="btn-primary inline-flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Install Claude Code CLI bridge on this machine
+            </button>
+            <button
+              type="button"
+              onClick={generatePairCode}
+              disabled={generating}
+              className="btn-secondary inline-flex items-center gap-2"
+              title="For pairing a different machine — generates a code you paste during `bravo setup`"
+            >
+              {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+              Generate code (pair another machine)
+            </button>
           </div>
-        </details>
+        )}
+        {installerOpen && <InstallBridgeModal onClose={() => { setInstallerOpen(false); load(); }} />}
       </div>
     );
   }
@@ -266,22 +263,34 @@ export function DevicesEditor() {
         </div>
         <div className="flex items-center gap-2">
           {!pairCode && (
-            <button
-              type="button"
-              onClick={generatePairCode}
-              disabled={generating}
-              className="btn-secondary text-xs inline-flex items-center gap-1"
-              title="Generate a one-time pair code for a new device"
-            >
-              {generating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-              Add device
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setInstallerOpen(true)}
+                className="btn-primary text-xs inline-flex items-center gap-1"
+                title="Install the bridge on this machine via guided one-liner"
+              >
+                <Download className="w-3 h-3" />
+                Install on this machine
+              </button>
+              <button
+                type="button"
+                onClick={generatePairCode}
+                disabled={generating}
+                className="btn-secondary text-xs inline-flex items-center gap-1"
+                title="Generate a one-time pair code for a different machine"
+              >
+                {generating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                Add another
+              </button>
+            </>
           )}
           <button onClick={load} className="text-fg-dim hover:text-accent text-xs inline-flex items-center gap-1" title="Refresh">
             <RefreshCw className="w-3 h-3" /> refresh
           </button>
         </div>
       </div>
+      {installerOpen && <InstallBridgeModal onClose={() => { setInstallerOpen(false); load(); }} />}
       {pairCode && (
         <PairCodeBlock code={pairCode} onClear={() => setPairCode(null)} />
       )}

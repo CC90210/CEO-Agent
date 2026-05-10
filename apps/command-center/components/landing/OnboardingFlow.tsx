@@ -15,10 +15,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowRight, ExternalLink, Cpu, Cog, Check, Sparkles, Eye, EyeOff,
-  Loader2, AlertCircle, ShieldCheck, Monitor,
+  Loader2, AlertCircle, ShieldCheck, Monitor, Download,
 } from "lucide-react";
 import { FAMILY_AGENT_KEYS, getAgentInfo } from "@/lib/agents";
 import { PROVIDER_REGISTRY } from "@/lib/providers";
+import { InstallBridgeModal } from "@/components/settings/InstallBridgeModal";
 
 // Single source of truth for the provider picker — see lib/providers.ts.
 // Add a provider once there, both Onboarding and AgentConfigEditor pick
@@ -45,6 +46,11 @@ export function OnboardingFlow({ userEmail }: Props) {
   const [primaryAgent, setPrimaryAgent] = useState("bravo");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Step 3 install-bridge modal toggle (added 2026-05-10). Wires the
+  // same one-click installer flow surfaced in Settings → Devices so
+  // first-time operators can pair their machine without leaving the
+  // onboarding tab.
+  const [installerOpen, setInstallerOpen] = useState(false);
 
   const provider = PROVIDERS.find((p) => p.value === providerKey)!;
 
@@ -240,19 +246,28 @@ export function OnboardingFlow({ userEmail }: Props) {
 
       {/* Step 3 — Optional local pairing */}
       {step === 3 && (
-        <Card title="Pair your machine — optional" icon={<Monitor className="w-4 h-4" />}>
+        <Card title="Connect your Claude Code CLI — optional" icon={<Monitor className="w-4 h-4" />}>
           <p className="text-sm text-fg-muted mb-4">
-            For full file-system access (so the agent can read and edit code on your computer), install the OASIS bridge daemon and pair it with your dashboard. <strong className="text-fg">Skip this for now</strong> — chat works fine without it, and you can pair later from Settings.
+            For full file-system access AND to power your chat with your local Claude Code subscription instead of the API key you just pasted, install the OASIS bridge on this machine. <strong className="text-fg">Skip if you'd rather use cloud mode</strong> — chat works fine either way, and you can install later from Settings → Devices.
           </p>
           <div className="rounded-lg border border-bg-border bg-bg-elev p-4 space-y-3">
             <div className="flex items-center gap-2 text-xs text-fg-muted">
               <span className="agent-pill-dot" />
-              Phase 2 — local bridge daemon
+              One-click installer — bridge pairs to your dashboard automatically
             </div>
             <div className="text-xs text-fg-dim">
-              The bridge runs as a small daemon on your laptop or workstation. It exposes only a localhost WebSocket the dashboard pairs with. No cloud upload of your files; pair-time only, opt-in writes, full audit log. Coming next sprint.
+              Mints a single-use pair-code, hands you a one-liner for your terminal, and watches for the bridge to come online. The bridge runs as a small daemon on this machine; pair-time only, opt-in writes, full audit log.
             </div>
+            <button
+              type="button"
+              onClick={() => setInstallerOpen(true)}
+              className="btn-primary inline-flex items-center gap-2 text-sm"
+            >
+              <Download className="w-4 h-4" />
+              Install Claude Code CLI bridge on this machine
+            </button>
           </div>
+          {installerOpen && <InstallBridgeModal onClose={() => setInstallerOpen(false)} />}
 
           {error && (
             <div className="mt-4 flex items-start gap-2 rounded-md border border-status-warm/40 bg-status-warm/10 p-3 text-sm text-status-warm">
