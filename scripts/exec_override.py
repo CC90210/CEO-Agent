@@ -2,12 +2,22 @@
 
 The agent never holds a token. When `exec_guard.py` blocks a command, it
 auto-creates an `override_request` row and prints the request_id. The
-operator runs:
+operator has TWO paths to authorize:
 
-    python scripts/exec_override.py approve req-<id>
+    1. CLI (this script, TTY-gated):
+         python scripts/exec_override.py approve req-<id>
 
-…to authorize. The agent's next attempt at the SAME command goes through.
-Single-use, HMAC-signed at-rest, command-hash-bound, TTL-capped.
+    2. Dashboard (V6 Apex Phase 2, 2026-05-10):
+         Open the /overrides page on the Vercel command center, click
+         Approve. `scripts/exec_override_consumer.py loop` (run on CC's
+         machine under PM2) polls the Supabase mirror every ~5s and
+         applies the dashboard's decision to local SQLite the same way
+         this CLI does. The HMAC signing of the SQLite row stays local
+         either way — Vercel only records intent.
+
+Either path produces the same result: the agent's next attempt at the SAME
+command goes through. Single-use, HMAC-signed at-rest, command-hash-bound,
+TTL-capped.
 
 CLI:
   list                                 # last 24h of requests
