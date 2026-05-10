@@ -6,15 +6,17 @@ export function Card({
   children,
   action,
   noPadding = false,
+  id,
 }: {
   title?: string;
   subtitle?: ReactNode;
   children: ReactNode;
   action?: ReactNode;
   noPadding?: boolean;
+  id?: string;
 }) {
   return (
-    <section className="rounded-xl border border-bg-border bg-bg-panel shadow-card card-glow transition-all">
+    <section id={id} className="rounded-xl border border-bg-border bg-bg-panel shadow-card card-glow transition-all">
       {(title || subtitle || action) && (
         <header className="flex items-start justify-between gap-4 border-b border-bg-border px-5 py-3.5">
           <div>
