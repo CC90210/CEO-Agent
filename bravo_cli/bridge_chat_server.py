@@ -759,7 +759,9 @@ def _v6_log_chat_interaction(agent: str, kind: str, last_user_msg: str) -> None:
     # filter on without parsing every session_log row.
     try:
         sys.path.insert(0, str(_V6_REPO_ROOT / "scripts"))
-        from event_bus import publish as _bus_publish  # type: ignore[import-not-found]  # noqa: WPS433
+        # Lazy import: event_bus pulls the heavyweight supabase client; we
+        # only pay that cost on the actual chat-interaction hot path.
+        from event_bus import publish as _bus_publish  # type: ignore[import-not-found]
         _bus_publish(
             "BRAVO_CHAT_INTERACTION",
             {"agent": safe_agent, "kind": kind, "preview": (last_user_msg or "")[:160]},

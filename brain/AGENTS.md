@@ -241,6 +241,8 @@ When a sibling agent (Atlas, Maven, Aura, Hermes) reads from this repo, the V6.0
 
 **Adoption sequence:** Bravo is V6.0 first. Atlas, Maven, Aura, Hermes adopt V6.0 in their own repos when their operators are ready — this contract works whether they're on V5.5 or V6.0.
 
+**Push-mode coordination (BUILD 3, 2026-05-10):** sibling agents can subscribe to Bravo's events via the shared Supabase `agent_events` table — see `brain/EVENT_BUS_CONTRACT.md` for the canonical event-type registry and the subscribe contract. Bravo currently emits `BRAVO_SESSION_LOG_APPENDED`, `BRAVO_PULSE_REFRESHED`, `BRAVO_CHAT_INTERACTION`. Reserved sibling-emitted types (when those agents adopt V6.0): `MAVEN_POST_COMPLETE`, `ATLAS_BUDGET_LOCKED` / `ATLAS_BUDGET_RELEASED`, `AURA_PRESENCE_HOME` / `AURA_PRESENCE_AWAY`, `HERMES_INVOICE_SHIPPED`. Pulse files remain the snapshot-of-truth; the bus carries change notifications between snapshots.
+
 ## Shared Browser Harness Layer
 
 Browser Harness is a shared capability, not a new sovereign agent. Bravo owns the repo-level installation, diagnostics, safety rules, and `browser/domain-skills/` seed library. Each agent may use the layer only inside its domain:

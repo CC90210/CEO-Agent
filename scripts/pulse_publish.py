@@ -201,7 +201,9 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     # pulse refresh instead of polling. Best-effort; never breaks the publish.
     try:
         sys.path.insert(0, str(REPO_ROOT / "scripts"))
-        from event_bus import publish as _bus_publish  # noqa: WPS433
+        # Lazy import: event_bus pulls the heavyweight supabase client; the
+        # refresh path is the only place pulse_publish needs it.
+        from event_bus import publish as _bus_publish  # type: ignore[import-not-found]
         _bus_publish(
             "BRAVO_PULSE_REFRESHED",
             {

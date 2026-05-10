@@ -72,27 +72,32 @@ asyncio.run(subscribe(
 
 Handler returns: `True` → `ack_event`; `False` → `fail_event` (re-queues); raises → `fail_event` with the exception message recorded. After 3 retries (default), the row moves to `dead` status and requires operator intervention via `reap_stuck()`.
 
-## Prerequisites (current operational state)
+## Prerequisites (current operational state, 2026-05-10 late-night update)
 
-Two prereqs must be true for FULL LISTEN/NOTIFY operation. Both are addressable by the operator without code changes.
+### ✅ Prerequisite 2 — RESOLVED: Migration 015 applied
 
-### Prerequisite 1: `PGBOUNCER_DB_PASSWORD` in `.env.agents`
+Initial BUILD 3 ship discovered migration 015 was NEVER applied to the live DB (Postgres `42703 column does not exist`, not just a PostgREST cache miss). The `claim_events`, `ack_event`, `fail_event`, `reap_stuck_events` RPCs and the `notify_agent_event` trigger were all missing.
+
+**Applied 2026-05-10 ~21:30 UTC** via `python scripts/apply_migration.py tmp/015_event_bus_no_backfill.sql` — a backfill-stripped variant of migration 015 (the backfill UPDATE was deliberately removed so apply_migration's "no broad UPDATE" guardrail accepts it; backfill is operationally optional since `source_agent` defaults to `'unknown'`).
+
+End-to-end smoke verified: publish writes with migration-015 columns; claim_events dequeues correctly (pending → processing via FOR UPDATE SKIP LOCKED); ack_event returns True; idempotency_key unique index enforces dedup (second publish with same key returns `duplicate`).
+
+**The PGRST204 fallback path in `publish()` is now DEFENSIVE DEAD CODE** — it still exists as a safety net in case the schema is ever reverted or a future migration breaks the cache. The expected execution path no longer touches it.
+
+**Tiny optional cleanup:** if you want the 8 pre-existing dev rows backfilled, run via Supabase Dashboard SQL editor:
+```sql
+UPDATE agent_events
+SET    source_agent = publisher_agent
+WHERE  source_agent = 'unknown' AND publisher_agent IS NOT NULL;
+```
+
+### ⏳ Prerequisite 1 — pending: `PGBOUNCER_DB_PASSWORD` in agent env file
 
 The LISTEN connection bypasses pgbouncer (transaction pooling drops session state) and connects directly to `db.<ref>.supabase.co:5432`. Requires the Supabase project's Postgres password.
 
-**Current state (2026-05-10):** `PGBOUNCER_DB_HOST` is set; `PGBOUNCER_DB_PASSWORD` is NOT. `subscribe()` silently degrades to 5-second polling. No functional impact on `publish()`.
+**Current state (2026-05-10):** `PGBOUNCER_DB_HOST` is set; `PGBOUNCER_DB_PASSWORD` is NOT. `subscribe()` silently degrades to 5-second polling — which **fully works now** that claim_events RPC exists; just higher latency than LISTEN.
 
-**To enable:** add `PGBOUNCER_DB_PASSWORD=<password>` to `.env.agents`. The password is the "Database password" shown in Supabase Settings → Database → Connection string (the part after `postgres:` and before `@`). After the next `subscribe()` invocation, the LISTEN path activates automatically — no code change.
-
-### Prerequisite 2: Migration 015 columns in PostgREST schema cache
-
-Migration 015 adds `source_agent`, `idempotency_key`, `status`, `retry_count`, `processed_at`, `processed_by`, `last_error`, `visibility_until` to `agent_events`. As of 2026-05-10, PostgREST returns `PGRST204` for these columns — they're either not yet applied to the live DB, or the schema cache hasn't refreshed.
-
-**Current state:** `publish()` is resilient (auto-strips the migration-015 columns and retries with the migration-006 base shape). Events still land successfully; idempotency_key degrades to last-writer-wins instead of unique-index dedup. The audit `reason` field explicitly notes `"schema-cache lag; published without idempotency_key"` when the fallback fires.
-
-**To verify migration state:** run `python scripts/apply_migration.py database/015_v6_event_bus_extensions.sql` (idempotent — `ADD COLUMN IF NOT EXISTS` is safe to re-apply). If columns were present but PostgREST cached the pre-015 schema, the post-apply trigger will reload it. If columns were genuinely missing, the migration creates them.
-
-**Once both prereqs land:** strip the PGRST204 fallback path from `publish()` and remove the "schema-cache lag" reason string.
+**To enable LISTEN's sub-100ms wake-up:** add `PGBOUNCER_DB_PASSWORD=<password>` to the agent env file. The password is the "Database password" shown in Supabase Settings → Database → Connection string (the part after `postgres:` and before `@`). After the next `subscribe()` invocation, the LISTEN path activates automatically — no code change.
 
 ## Reliability properties
 

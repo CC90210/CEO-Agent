@@ -69,6 +69,8 @@ Bravo is the first agent on V6.0. The cross-agent contract is unchanged: pulses 
 
 3. **When you adopt V6.0 in your own repo:** read `brain/CAPABILITIES.md` "V6.0 Architecture" + "V6.0 Phase 2 — Productized Deployment" sections in this Bravo repo. The patterns (single-writer SQLite/WAL, FTS5 retrieval, three guards, scoped env files) port directly. The cross-agent inbox + pulse contract stays identical.
 
+4. **Push-mode coordination (V6 BUILD 3, 2026-05-10):** the Supabase `agent_events` table is now the canonical low-latency broadcast layer. Producers call `scripts/event_bus.publish(event_type, payload, source, target)` — INSERT fires a `pg_notify` trigger; subscribers running `await event_bus.subscribe(agent, handlers={...})` wake on the notification and atomically dequeue via `claim_events()` (uses `FOR UPDATE SKIP LOCKED` — multiple workers of the same agent never claim the same row). Standard event-type registry: `brain/EVENT_BUS_CONTRACT.md`. Bravo emits `BRAVO_SESSION_LOG_APPENDED`, `BRAVO_PULSE_REFRESHED`, `BRAVO_CHAT_INTERACTION` today; siblings can subscribe to any of them. Pulse files remain the canonical "current state" snapshot — the bus broadcasts changes; the file is the authoritative read.
+
 ## Shared Supabase as the Deep Record
 
 Pulses are the "what's happening now" layer. Supabase (`phctllmtsogkovoilwos`) is the "what happened over time" layer.

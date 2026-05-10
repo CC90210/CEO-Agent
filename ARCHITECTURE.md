@@ -5,9 +5,9 @@
 
 ## V6.0 — Transactional State, Retrieval-Driven Context, Hook-Fenced Execution (2026-05-10)
 
-V6.0 is the substrate underneath every other system in this document. V5.6 (outbound chokepoint) and earlier sections still describe what the agent *does*; V6.0 describes how it *holds state*, *recalls memory*, and *protects itself* from its own LLM-generated mistakes.
+V6.0 is the substrate underneath every other system in this document. V5.6 (outbound chokepoint) and earlier sections still describe what the agent *does*; V6.0 describes how it *holds state*, *recalls memory*, *coordinates with siblings*, and *protects itself* from its own LLM-generated mistakes.
 
-Four pillars, all gated by `EMPIRE_V6_MODE` (`off` → V5.5 behavior unchanged · `shadow` → dual-write to flat files AND DB for the soak period · `on` → DB authoritative, markdown becomes auto-generated mirror).
+Five pillars, all gated by `EMPIRE_V6_MODE` (`off` → V5.5 behavior unchanged · `shadow` → dual-write to flat files AND DB for the soak period · `on` → DB authoritative, markdown becomes auto-generated mirror).
 
 ### Pillar 1 — Transactional state (`scripts/state_manager.py` + `state/empire_state.db`)
 
@@ -36,6 +36,27 @@ Three Claude Code `PreToolUse` hooks wired in `.claude/settings.local.json`:
 - **`state_guard.py`** — denies Edit on auto-generated mirrors AND denies Bash commands that mutate them (redirects `>`/`>>`, `tee`, `cp`/`mv`/`rsync`, `sed -i`, `dd of=`, `python -c open(…, 'w')`). Anchored on the FULL relative path (`memory/SESSION_LOG.md`), not just basename, so a homonym like `backups/SESSION_LOG.md` correctly passes.
 
 Each guard has three modes via env var (`enforce` / `report` / `off`). Default safe-mode for fresh installs: `secret_guard=enforce`, `exec_guard=report` (soak), `state_guard=off` (until `EMPIRE_V6_MODE=on` cutover). Cloud installs flip all three to `enforce` by default. Every block writes a JSONL audit row to `state/{guard}.log`. The full bypass surface is locked behind a 109-test regression suite at `tests/test_hook_regression.py` — including all three Codex Critical bypasses and five self-review follow-ups.
+
+### Pillar 5 — Cross-agent event bus (`scripts/event_bus.py` + Supabase `agent_events`)
+
+V5.x cross-agent coordination ran through three flat JSON files (`ceo_pulse.json`, `cfo_pulse.json`, `cmo_pulse.json`) that every agent polled. Race-prone, latency-bound, no push semantics. V6.0 layers a Postgres-backed durable pub/sub on top.
+
+**Substrate:** `agent_events` table + migration 015 extensions (`source_agent`, `idempotency_key`, `status`, `retry_count`, `processed_at`, `processed_by`, `last_error`, `visibility_until`) + `notify_agent_event` trigger that emits `pg_notify(target_agent OR 'broadcast', payload)` on every INSERT + four RPC functions: `claim_events()` (atomic dequeue with `FOR UPDATE SKIP LOCKED`), `ack_event()`, `fail_event()` (3-retry budget then `dead`), `reap_stuck_events()` (visibility-timeout recovery).
+
+**Publisher API:** `event_bus.publish(event_type, payload, source, target, idempotency_key, correlation_id)`. Idempotent — passing the same key twice is a silent no-op (unique partial index on `idempotency_key WHERE NOT NULL`). Offline-durable — if Supabase is unreachable, appends to `tmp/events_offline.jsonl` for `drain_offline_queue()` to replay.
+
+**Subscriber API:** `await event_bus.subscribe(agent, handlers={event_type: async_callback})`. Primary path is raw `psycopg2` LISTEN/NOTIFY against `db.<ref>.supabase.co:5432` — wakes on `pg_notify`, then `claim_events()` atomically dequeues. Fallback path is 5-second polling of `claim_events()` when the direct-DB DSN isn't available (e.g., `PGBOUNCER_DB_PASSWORD` not in env). Same public contract regardless of which transport delivers the wake-up; race-free either way because `claim_events()` does the `FOR UPDATE SKIP LOCKED` work.
+
+**Producers wired in BUILD 3 (3 of 4):**
+
+- `state_manager.append_session_log` → `BRAVO_SESSION_LOG_APPENDED` on every successful insert
+- `pulse_publish.cmd_refresh` → `BRAVO_PULSE_REFRESHED` after `_atomic_write`
+- `bridge_chat_server._v6_log_chat_interaction` → `BRAVO_CHAT_INTERACTION` per dashboard chat turn
+- `send_gateway` (deferred) → `BRAVO_OUTBOUND_SENT` (slated for a sober daylight session — surgical edits to the V5.6 outbound chokepoint warrant the full regression suite + a `--dry-run` smoke)
+
+**Why pg_notify and not Supabase Realtime WebSocket:** lower latency, no WebSocket overhead, doesn't count against the Supabase Realtime quota, works from any backend Python daemon (no SDK dependency). The trade-off — needing the Postgres password rather than just the project anon key — is paid once at install time.
+
+**Canonical event-type registry:** [brain/EVENT_BUS_CONTRACT.md](brain/EVENT_BUS_CONTRACT.md). Adding a new event type requires updating that file before merging.
 
 ### Pillar 4 — Secret isolation (`scripts/lib/secret_loader.py` + scoped env fan-out)
 
