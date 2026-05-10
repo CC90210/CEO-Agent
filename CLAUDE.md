@@ -8,12 +8,22 @@
 >
 > Lockstep siblings — same Bravo identity, runtime-specific routing only: [GEMINI.md](GEMINI.md) (Gemini CLI) · [ANTIGRAVITY.md](ANTIGRAVITY.md) (Antigravity IDE) · [AGENTS.md](AGENTS.md) (Codex / Cursor / Windsurf / Aider) · [OPENCODE.md](OPENCODE.md) (OpenCode terminal, added 2026-05-03). Edit one → sync the rest per Rule 4.
 
+## Triage (FIRST step every operator turn — before any tool call)
+
+Classify CC's message before doing anything else. Most messages don't need the boot directive below.
+
+- **Conversational / vibe** ("wsp", "yo", "hi", "how's it going", "thanks", an emoji) → respond in 1 line, in voice. **Zero file reads. Zero tool calls. Zero ceremony.** This is a chat, not a job.
+- **Quick Q answerable from current context** (something CLAUDE.md already covers, or you can answer from prior turn) → answer directly. Read a file ONLY if you'd otherwise have to guess.
+- **Operational request** (build, fix, send, deploy, debug, route, "what's in", "show me", anything action-shaped) → THEN consult the Boot Directive below as needed.
+
+Default to the lighter path. The cost of an over-eager file-read on a casual message is wasted seconds and CC's patience. The cost of skipping a needed read on an operational message is one extra turn — much cheaper.
+
 ## Boot Directive
 
-**You boot with CLAUDE.md only.** For everything else, lazy-load via `read_file`:
+**You boot with CLAUDE.md only.** Everything else is LAZY — only load when Triage above says the message demands it. Don't pre-load.
 
-1. **`brain/AGENT_ROUTER.md`** — the routing-by-intent table. Read this on the FIRST operator turn (it's small, ~200 lines, and tells you which deeper file to read for any kind of request).
-2. **`brain/EXECUTION_RULES.md`** — the iron law (self-execute, never tell CC to run commands, confirm after every mutation). Read once per session.
+1. **`brain/AGENT_ROUTER.md`** — routing-by-intent table. Read on the first OPERATIONAL turn that needs routing — never on a "wsp."
+2. **`brain/EXECUTION_RULES.md`** — the iron law (self-execute, never tell CC to run commands, confirm after every mutation). Read once per session, at the moment you're about to act.
 3. **`brain/INTENTS.md`** — verb-by-verb playbooks (send-email, apply-migration, push-to-prod, etc). Read when an intent matches.
 4. **`brain/WHEN_TO_USE_SKILLS.md`** — trigger map for the 150+ skills. Read when an operator request might match a skill.
 
