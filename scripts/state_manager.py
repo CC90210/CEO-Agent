@@ -232,12 +232,40 @@ def append_session_log(note: str, agent: str = "bravo",
                     (_now_iso(), agent, sid, note,
                      json.dumps(artifacts) if artifacts else None),
                 )
-                return "inserted"
+                result = "inserted"
             except sqlite3.IntegrityError:
-                return "deduped"
+                result = "deduped"
     finally:
         if own:
             conn.close()
+    # V6 BUILD 3 — emit a cross-agent event on every NEW session_log row.
+    # Best-effort: failures never propagate. Skipped on dedup since the
+    # event would also be a duplicate.
+    if result == "inserted":
+        _emit_cross_agent_event(
+            "BRAVO_SESSION_LOG_APPENDED",
+            {"agent": agent, "session_id": sid, "note": note[:200]},
+            target=None,  # broadcast — Atlas/Maven/Aura all may want this
+            correlation_id=sid,
+        )
+    return result
+
+
+def _emit_cross_agent_event(event_type: str, payload: dict,
+                            target: str | None = None,
+                            correlation_id: str | None = None) -> None:
+    """Best-effort wrapper around event_bus.publish — never raises.
+
+    Lazy-imported because event_bus pulls in the supabase client which is
+    a heavyweight dep that some scripts running in headless CI shouldn't pay.
+    """
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from event_bus import publish as _bus_publish  # noqa: WPS433
+        _bus_publish(event_type, payload, source="bravo",
+                     target=target, correlation_id=correlation_id)
+    except Exception:  # noqa: BLE001
+        pass  # publish() already absorbs all errors; this catches import failures
 
 
 def upsert_task(bucket: str, title: str, owner: str = "bravo",
