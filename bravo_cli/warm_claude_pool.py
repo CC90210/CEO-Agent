@@ -156,13 +156,20 @@ class WarmClaudeProcess:
         if not claude_bin:
             raise FileNotFoundError("claude CLI not on PATH")
 
-        # `-p` is required for --print mode. We pass the FIRST prompt as the
-        # arg; subsequent prompts arrive via stdin in stream-json format.
-        # --input-format stream-json keeps stdin open so the process awaits
-        # more prompts after emitting the first response.
+        # CRITICAL: do NOT pass `-p first_prompt` here. With
+        # `--input-format stream-json` claude IGNORES the -p arg and
+        # blocks waiting for the first user message on stdin. Pre-fix
+        # behaviour: warm spawn would emit hook events then sit
+        # silently forever — every turn looked like the agent never
+        # responded to "yo wsp." Instead we send EVERY prompt
+        # (including the first) via stdin in send_turn() — same
+        # codepath, no special-case for the first turn.
+        # See scratch/test_warm_pool.py for the smoking-gun test.
+        # --output-format stream-json puts claude in non-interactive
+        # JSON mode (no TUI). --input-format stream-json keeps stdin
+        # open across turns.
         args = [
             claude_bin,
-            "-p", first_prompt,
             "--permission-mode", "bypassPermissions",
             "--input-format", "stream-json",
             "--output-format", "stream-json",
@@ -259,29 +266,26 @@ class WarmClaudeProcess:
             self.last_used_at = time.time()
 
             try:
-                if self._first_prompt_consumed:
-                    # New turn: write user message to stdin in stream-json format.
-                    # Claude Code expects:
-                    #   {"type": "user", "message": {"role": "user",
-                    #     "content": [{"type": "text", "text": "..."}]}}
-                    if not self.proc.stdin or self.proc.stdin.closed:
-                        return False
-                    try:
-                        msg = {
-                            "type": "user",
-                            "message": {
-                                "role": "user",
-                                "content": [{"type": "text", "text": prompt_text}],
-                            },
-                        }
-                        self.proc.stdin.write(json.dumps(msg) + "\n")
-                        self.proc.stdin.flush()
-                    except (BrokenPipeError, OSError):
-                        return False
-                else:
-                    # First turn — prompt was already passed to claude via -p.
-                    # Just mark consumed and read the response.
-                    self._first_prompt_consumed = True
+                # Write user message to stdin in stream-json format on
+                # EVERY turn (including the first — see __init__ note
+                # about why -p was removed). Claude Code expects:
+                #   {"type": "user", "message": {"role": "user",
+                #     "content": [{"type": "text", "text": "..."}]}}
+                if not self.proc.stdin or self.proc.stdin.closed:
+                    return False
+                try:
+                    msg = {
+                        "type": "user",
+                        "message": {
+                            "role": "user",
+                            "content": [{"type": "text", "text": prompt_text}],
+                        },
+                    }
+                    self.proc.stdin.write(json.dumps(msg) + "\n")
+                    self.proc.stdin.flush()
+                except (BrokenPipeError, OSError):
+                    return False
+                self._first_prompt_consumed = True
 
                 # Read events from the pump thread's queue with a
                 # short per-line timeout. Total deadline still bounds

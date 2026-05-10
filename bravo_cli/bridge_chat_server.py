@@ -1553,6 +1553,35 @@ class _ChatHandler(BaseHTTPRequestHandler):
         # Read line-by-line. Each line is a complete JSON event.
         emitted_session = False
         accumulated_text = ""
+        # Track whether we've already sent the terminal `done` event so
+        # we never double-emit AND never leave the SSE stream open
+        # without one. Closes the chat-hang bug from 2026-05-10: claude
+        # could exit cleanly (rc=0) after a short reply without ever
+        # emitting a `result` event, leaving the dashboard reader loop
+        # waiting indefinitely. Now every exit path checks this flag.
+        emitted_done = False
+        # Last-event wall-clock for the watchdog thread below. Reset on
+        # every event we receive from claude's stdout; if it goes stale
+        # for >WATCHDOG_TIMEOUT_SEC we kill the proc so the SSE stream
+        # can close. Protects against pure-stdin hangs (e.g. claude
+        # waiting for an MCP tool that never returns). Wrapped in a
+        # list so the closure below can observe live updates from the
+        # event loop without needing `nonlocal`.
+        last_event_at = [time.time()]
+        WATCHDOG_TIMEOUT_SEC = 90
+        watchdog_stop = threading.Event()
+
+        def _watchdog() -> None:
+            while not watchdog_stop.wait(5):
+                if time.time() - last_event_at[0] > WATCHDOG_TIMEOUT_SEC:
+                    try:
+                        proc.kill()
+                    except Exception:
+                        pass
+                    return
+
+        watchdog_thread = threading.Thread(target=_watchdog, daemon=True, name="bridge-watchdog")
+        watchdog_thread.start()
         # Track when the most recent emit was a tool_use, so the next
         # text delta gets a paragraph break prepended. CC reported chat
         # showing "I'll send the email now.Email sent..." mashed
@@ -1565,6 +1594,10 @@ class _ChatHandler(BaseHTTPRequestHandler):
         try:
             assert proc.stdout is not None
             for raw in proc.stdout:
+                # Reset watchdog on EVERY readline — including ones we
+                # skip below — so a noisy hook stream doesn't trip the
+                # timeout. Only true silence does.
+                last_event_at[0] = time.time()
                 line = raw.strip()
                 if not line:
                     continue
@@ -1651,6 +1684,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
                         "total_cost_usd": ev.get("total_cost_usd"),
                         "num_turns": ev.get("num_turns"),
                     })
+                    emitted_done = True
                     continue
 
                 # 6. Anything else (e.g. system/error) — surface as error.
@@ -1662,6 +1696,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
                     })
 
             rc = proc.wait(timeout=5)
+            watchdog_stop.set()  # stream's done; stop the timeout timer
             if rc != 0:
                 # Wait briefly for the stderr drainer to finish reading
                 # whatever's still in the pipe — claude may have written
@@ -1691,10 +1726,23 @@ class _ChatHandler(BaseHTTPRequestHandler):
                     "detail": detail[:2000],  # bumped from 500 - users want to see the actual error
                     "log_path": str(stderr_log_path),
                 })
-                # Make sure the client sees an end signal.
-                if not accumulated_text:
-                    emit("done", {})
+            # Always emit a terminal `done` if the loop didn't already.
+            # Covers two real failure modes seen 2026-05-10:
+            #   (1) clean exit (rc=0) where claude flushed assistant text
+            #       blocks but never emitted a `result` event — the SSE
+            #       stream was being left open with no terminal signal,
+            #       so the dashboard reader hung forever
+            #   (2) error exit (rc!=0) — the pre-fix only emitted done
+            #       when accumulated_text was empty; if claude emitted
+            #       partial text then crashed, no done was sent
+            if not emitted_done:
+                emit("done", {
+                    "stop_reason": "ok" if rc == 0 else f"claude_exit_{rc}",
+                    "num_turns": 0,
+                })
+                emitted_done = True
         except Exception as e:
+            watchdog_stop.set()
             try:
                 proc.kill()
             except Exception:
@@ -1706,7 +1754,9 @@ class _ChatHandler(BaseHTTPRequestHandler):
                 "detail": stderr_full[:2000] if stderr_full else None,
                 "log_path": str(stderr_log_path),
             })
-            emit("done", {})
+            if not emitted_done:
+                emit("done", {})
+                emitted_done = True
 
     # [DEPRECATED — REMOVE AFTER 2026-05-14] Legacy raw /v1/messages path.
     # Reachable only via OASIS_CHAT_LEGACY=1. Default chat path is
