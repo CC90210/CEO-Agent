@@ -22,6 +22,12 @@ references/Claude_Global_Settings.json
 .claude/projects/
 .claude/todos/
 
+# V6.0 transactional state — local SQLite, audit logs, secret-access ledger
+# (Migrations are checked in; everything else is local-only.)
+state/*
+!state/migrations/
+!state/migrations/*.sql
+
 # Live financial / pulse state (exact MRR figures, client revenue)
 data/pulse/ceo_pulse.json
 data/pulse/*.json

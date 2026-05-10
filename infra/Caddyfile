@@ -73,3 +73,56 @@
 http://{$OPS_DOMAIN:ops.oasisai.work} {
     redir https://{host}{uri} permanent
 }
+
+# ── Command Center (V6.0) ────────────────────────────────────────────────
+# Public TLS-terminated entry point for the Next.js dashboard.
+# Basic auth gates everything; Supabase Auth runs inside the app for the
+# tenant model. Belt + suspenders.
+#
+# Required env vars (setup_wizard step_v6_init writes these):
+#   DASHBOARD_DOMAIN     e.g. dashboard.client.example.com
+#   DASHBOARD_USER       basic-auth username
+#   DASHBOARD_BCRYPT     output of `caddy hash-password --plaintext '<pw>'`
+{$DASHBOARD_DOMAIN:dashboard.oasisai.work} {
+    encode zstd gzip
+    log {
+        output file /data/logs/dashboard-access.log {
+            roll_size 10mb
+            roll_keep 10
+        }
+    }
+
+    # `handle` blocks are mutually exclusive — at most one matches per
+    # request, so the basicauth inside the second block does NOT leak
+    # to the first. This is the correct Caddy idiom for "auth on
+    # everything except X". (A top-level `basicauth /*` would apply
+    # to the carve-out too, which was the bug fixed 2026-05-10.)
+    @health path /api/health
+
+    handle @health {
+        reverse_proxy command-center:3000
+    }
+
+    handle {
+        basicauth {
+            {$DASHBOARD_USER} {$DASHBOARD_BCRYPT}
+        }
+        reverse_proxy command-center:3000 {
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "no-referrer"
+        Permissions-Policy "geolocation=(), microphone=(), camera=()"
+    }
+}
+
+http://{$DASHBOARD_DOMAIN:dashboard.oasisai.work} {
+    redir https://{host}{uri} permanent
+}

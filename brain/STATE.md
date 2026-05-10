@@ -120,9 +120,12 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-> Moved to `memory/OPERATIONAL_STATE.md` (last-heartbeat is ephemeral — 7-day freshness gate).
+- **Date:** 2026-05-10
+- **Agent:** BRAVO via state_manager.py (tick 14)
+- **Status:** working
+- **Result:** self-review sanity #3
 
-*Last updated: 2026-05-07*
+*Last updated: 2026-05-10*
 
 ## Manifest
 

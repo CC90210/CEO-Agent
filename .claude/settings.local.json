@@ -11,6 +11,36 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "python scripts/secret_guard.py" },
+          { "type": "command", "command": "python scripts/exec_guard.py" }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          { "type": "command", "command": "python scripts/secret_guard.py" }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          { "type": "command", "command": "python scripts/secret_guard.py" },
+          { "type": "command", "command": "python scripts/state_guard.py" }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          { "type": "command", "command": "python scripts/retriever_postedit.py" }
+        ]
+      }
     ]
   }
 }

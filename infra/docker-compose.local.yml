@@ -1,0 +1,112 @@
+# Bravo V6.0 — LOCAL deployment (single-developer / client laptop)
+# ────────────────────────────────────────────────────────────────────────
+# Usage:
+#   cd <repo-root>
+#   docker compose -f infra/docker-compose.local.yml --env-file .env.agents up -d
+#   docker compose -f infra/docker-compose.local.yml logs -f bravo-core
+#
+# Hardening (over the prod compose):
+#   - read_only: true              → immutable container rootfs
+#   - cap_drop: [ALL]              → no Linux capabilities
+#   - no-new-privileges: true      → setuid/setgid blocked
+#   - tmpfs: /tmp                  → ephemeral scratch
+#   - 127.0.0.1-only port binding  → no public ingress
+#   - memory/brain/skills mounted READ-ONLY → LLM cannot rewrite its own context
+#   - state/, tmp/, logs/ are the ONLY writable host paths (V6.0 contract)
+#
+# What this stack does NOT include (vs docker-compose.yml prod stack):
+#   - pgbouncer (laptop hits Supabase directly; no need to pool 5 daemons)
+#   - Caddy + Let's Encrypt (no public ingress on a laptop)
+#   - bravo-event-reaper, bravo-inbox, bravo-scheduler (run on demand, not as
+#     daemons; Phase 2 scope is the V6.0 sandbox + dashboard only)
+# ────────────────────────────────────────────────────────────────────────
+
+name: bravo-local
+
+x-base: &bravo-base
+  build:
+    context: ..
+    dockerfile: infra/Dockerfile
+  env_file: ../.env.agents
+  environment:
+    EMPIRE_V6_MODE: "${EMPIRE_V6_MODE:-shadow}"
+    EMPIRE_HOOK_SECRET_GUARD: "${EMPIRE_HOOK_SECRET_GUARD:-enforce}"
+    EMPIRE_HOOK_EXEC_GUARD:   "${EMPIRE_HOOK_EXEC_GUARD:-report}"
+    EMPIRE_HOOK_STATE_GUARD:  "${EMPIRE_HOOK_STATE_GUARD:-off}"
+    EMPIRE_DEPLOY_TARGET: "local"
+  read_only: true
+  tmpfs:
+    - /tmp
+    - /home/bravo/.cache
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  restart: unless-stopped
+  networks:
+    - bravo-net
+
+services:
+
+  # The reasoning loop — Bravo's autonomous tick + V6.0 transactional state.
+  bravo-core:
+    <<: *bravo-base
+    command: python scripts/autonomous_agent.py daemon
+    volumes:
+      - ../state:/app/state:rw          # SQLite DBs + audit logs persist
+      - ../tmp:/app/tmp:rw              # scratch + V6.0 sandbox
+      - ../logs:/app/logs:rw
+      - ../memory:/app/memory:ro        # source of truth lives on host
+      - ../brain:/app/brain:ro
+      - ../skills:/app/skills:ro
+      - ../scripts:/app/scripts:ro      # CLI tools — never mutated by agent
+      - ../bravo_cli:/app/bravo_cli:ro
+    labels:
+      bravo.role: core
+      bravo.profile: local
+
+  # Local FastAPI receiver — webhooks, dashboard bridge, state-api endpoint.
+  # Bound to 127.0.0.1 ONLY. No public ingress on a laptop.
+  bravo-webhook:
+    <<: *bravo-base
+    command: >
+      uvicorn webhook_listener:app
+      --host 0.0.0.0 --port 8000
+      --proxy-headers
+    working_dir: /app/scripts
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ../state:/app/state:rw
+      - ../tmp:/app/tmp:rw
+      - ../logs:/app/logs:rw
+      - ../memory:/app/memory:ro
+      - ../brain:/app/brain:ro
+      - ../skills:/app/skills:ro
+      - ../scripts:/app/scripts:ro
+      - ../bravo_cli:/app/bravo_cli:ro
+    labels:
+      bravo.role: webhook
+      bravo.profile: local
+
+  # Read-only state API for the local Command Center to consume.
+  # Wraps state_manager.status() + tails state/*.log. No write capability.
+  state-api:
+    <<: *bravo-base
+    command: >
+      uvicorn state_api:app
+      --host 0.0.0.0 --port 8500
+    working_dir: /app/scripts
+    ports:
+      - "127.0.0.1:8500:8500"
+    volumes:
+      - ../state:/app/state:ro          # READ-ONLY — this service must not write
+      - ../scripts:/app/scripts:ro
+      - ../bravo_cli:/app/bravo_cli:ro
+    labels:
+      bravo.role: state-api
+      bravo.profile: local
+
+networks:
+  bravo-net:
+    driver: bridge

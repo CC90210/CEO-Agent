@@ -68,15 +68,11 @@ Draft the message and present to CC for review and send.
 
 ### Step 5: Log Health Snapshot
 
-Append to `memory/SESSION_LOG.md`:
+Log to the V6.0 state DB (auto-mirrors to `memory/SESSION_LOG.md`):
 
-```
-### [YYYY-MM-DD] — Client Health Report
-Portfolio MRR: $[X]
-Average Health Score: [X]/100
-Clients by tier: [X] GREEN, [X] YELLOW, [X] ORANGE, [X] RED
-At-risk revenue: $[X]
-Actions taken: [brief list]
+```bash
+python scripts/state_manager.py log --agent bravo \
+  --note "Client Health Report — portfolio \$[MRR], avg score [X]/100, tiers G[X]/Y[X]/O[X]/R[X], at-risk \$[X]; actions: [brief list]"
 ```
 
 If Supabase is available, also insert a row into `client_health_snapshots` for each client:

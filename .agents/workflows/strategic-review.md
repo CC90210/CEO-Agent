@@ -164,10 +164,10 @@ Gross Margin: X% | Net/mo: $X,XXX | HHI: X.XX
 # Append summary to SESSION_LOG.md
 ```
 
-Append to `memory/SESSION_LOG.md`:
-```
-### [DATE] — Strategic Review
-Ran Q[X] strategic review. MRR: $X,XXX ([X]% of target). Top risk: [risk]. Top priority: [priority].
+Log to the V6.0 state DB (auto-mirrors to `memory/SESSION_LOG.md`):
+```bash
+python scripts/state_manager.py log --agent bravo \
+  --note "Q[X] strategic review — MRR \$X,XXX ([X]% of target), top risk: [risk], top priority: [priority]"
 ```
 
 ---

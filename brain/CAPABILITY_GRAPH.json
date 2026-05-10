@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0",
   "agent": "bravo",
-  "generated_at": "2026-05-07T06:04:05.858037+00:00",
+  "generated_at": "2026-05-10T04:00:02.327373+00:00",
   "totals": {
     "skills": 153,
-    "scripts": 113,
+    "scripts": 115,
     "agents": 20,
     "mcp_servers": 9,
     "workflows": 36,
-    "nodes_total": 331,
+    "nodes_total": 333,
     "edges_total": 44,
     "drift_count": 0
   },
@@ -3641,6 +3641,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:email_template",
+      "kind": "script",
+      "name": "email_template",
+      "path": "scripts/email_template.py",
+      "description": "email_template.py \u2014 single canonical OASIS AI branded HTML email.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:event_bus",
       "kind": "script",
       "name": "event_bus",
@@ -4055,7 +4065,7 @@
       "kind": "script",
       "name": "reap_orphan_mcps",
       "path": "scripts/reap_orphan_mcps.py",
-      "description": "Reap orphan MCP server processes whose parent chain is dead.",
+      "description": "Reap duplicate MCP server processes from leaked editor sessions.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -4336,6 +4346,16 @@
       "name": "transcribe",
       "path": "scripts/transcribe.py",
       "description": "Voice Note Transcriber \u2014 converts audio to text using OpenAI Whisper (local). Used by the Telegram bridge to process voice messages.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:update_readme_stats",
+      "kind": "script",
+      "name": "update_readme_stats",
+      "path": "scripts/update_readme_stats.py",
+      "description": "update_readme_stats.py \u2014 keep README.md (and any other doc) honest about what's actually in this repo.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
