@@ -29,9 +29,9 @@ freshness_threshold_days: 14
 | `pulse_publish.cmd_refresh` | `BRAVO_PULSE_REFRESHED` | after `_atomic_write` succeeds | `{updated_at, net_mrr_usd, gap_usd, v6_mode}` |
 | `bridge_chat_server._v6_log_chat_interaction` | `BRAVO_CHAT_INTERACTION` | every successful POST to `/chat` or `/local-chat` | `{agent, kind ('cloud-chat'\|'local-chat'), preview (≤160 chars)}` |
 | `webhook_listener` | `inbound.classified` (legacy) | inbound classification, via the existing `bus_publish` import | `{lead_id, intent, …}` |
-| `send_gateway` (DEFERRED to next session) | `BRAVO_OUTBOUND_SENT` | after a successful `send()` returns `status='sent'` | `{lead_id, channel, interaction_id, intent}` |
+| `send_gateway` | `BRAVO_OUTBOUND_SENT` | after a successful `send()` returns `status='sent'` (BOTH email + non-email paths; idempotency-keyed on `interaction_id`) | `{lead_id, channel, interaction_id, intent, brand}` |
 
-**Why send_gateway is deferred:** it's the outbound communication chokepoint (V5.6 headline) — surgical edits at midnight risk the entire outbound path. Wire it deliberately in a sober session, with the regression suite green and a manual smoke against `--dry-run`. Tracked in `memory/ACTIVE_TASKS.md` for the next session.
+**Wired 2026-05-11 (V6 Ascension Step 1):** `_emit_outbound_sent()` helper at module scope; called before each of the two `status='sent'` returns in `send()`. Best-effort + lazy import — never raises, never mutates the V5.6 chokepoint return shape. Dry-run + reserved-domain blocks short-circuit BEFORE the emit; verified via smoke (zero events on `dry_run`; 67/67 send_gateway regression tests green).
 
 ## Standard event-type registry (locked schemas)
 
