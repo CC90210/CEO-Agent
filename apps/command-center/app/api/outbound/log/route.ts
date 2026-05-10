@@ -34,8 +34,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createHash } from "crypto";
 import { getServiceSupabase } from "@/lib/supabase-server";
+import { bad, sha256 } from "@/lib/api-helpers";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -57,13 +57,7 @@ type IncomingPayload = {
   existing_interaction_id?: string;
 };
 
-function sha256(input: string): string {
-  return createHash("sha256").update(input, "utf8").digest("hex");
-}
-
-function bad(status: number, error: string) {
-  return NextResponse.json({ ok: false, error }, { status });
-}
+// sha256 + bad imported from @/lib/api-helpers (consolidated 2026-05-09).
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

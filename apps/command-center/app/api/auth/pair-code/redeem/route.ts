@@ -27,16 +27,12 @@
  */
 
 import { NextResponse, type NextRequest } from "next/server";
-import { createHash, randomBytes } from "crypto";
+import { randomBytes } from "crypto";
 import { getServiceSupabase } from "@/lib/supabase-server";
-import { bad } from "@/lib/api-helpers";
+import { bad, sha256 } from "@/lib/api-helpers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function sha256(input: string): string {
-  return createHash("sha256").update(input, "utf8").digest("hex");
-}
 
 function isValidCodeShape(s: unknown): s is string {
   return typeof s === "string" && /^[A-Z0-9]{3}-[A-Z0-9]{3}-[A-Z0-9]{3}$/.test(s);
