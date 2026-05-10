@@ -272,6 +272,25 @@ def compute_health_score(r: AuditResult) -> int:
     return max(0, score)
 
 
+def _check_readme_stats(r: AuditResult) -> None:
+    """Verify README.md stat counts (skills/scripts/sub-agents/workflows/MCPs)
+    match what's actually on disk. Stale README = warning. The system should
+    never lie about its own size. Logic delegates to update_readme_stats.py
+    so there's a single source of truth for what 'stale' means."""
+    try:
+        sys.path.insert(0, str(REPO_ROOT / "scripts"))
+        import update_readme_stats as urs  # type: ignore
+        stats = urs.collect_stats()
+        changed, _diff = urs.rewrite_readme(stats, dry_run=True)
+        if changed:
+            r.warnings.append(
+                "README.md stats are stale. Run "
+                "`python scripts/update_readme_stats.py --apply` to refresh."
+            )
+    except Exception as exc:  # noqa: BLE001
+        r.warnings.append(f"README stats check failed: {exc}")
+
+
 def run_audit() -> AuditResult:
     result = AuditResult()
     md_files = collect_markdown_files()
@@ -303,6 +322,7 @@ def run_audit() -> AuditResult:
     check_mcp_sync(result)
     check_personalization(result)
     check_capability_graph(result)
+    _check_readme_stats(result)
     result.health_score = compute_health_score(result)
     return result
 

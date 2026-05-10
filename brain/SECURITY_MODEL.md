@@ -198,16 +198,27 @@ the platform's):
 
 ---
 
-## 6. Audit trail
+## 6. Audit trail + rate limiting
 
-- **`audit_log` table** (verify schema in `database/`) — every security-
-  sensitive write SHOULD insert a row. Tier C4 (deferred this PR) is to
-  audit which routes already do this and add the inserts where missing.
-  Currently verified: pair-code mint, pair-code redeem, key rotation
-  (manual via wizard).
-- **`agent_events` table** — every cron fire / agent reasoning loop /
-  outbound send writes a structured event. Visible in the dashboard
-  Activity Tape (`/operations`). Tenant-scoped via RLS.
+- **`pair_attempts` table** (migration 031, shipped) — every call to
+  `/api/auth/pair` writes a row with `(profile_id, outcome, attempted_at,
+  ip)`. Outcome vocabulary: `ok | invalid_hmac | invalid_bearer |
+  rate_limited | missing_headers`. Service-role only; not exposed to
+  tenant users. Used both for the rate-limit gate (below) and as a
+  forensic trail for "who tried to pair when from where."
+- **Rate limit on `/api/auth/pair`** — if a `profile_id` accumulates ≥10
+  failed attempts in any 60-second window (counting only `invalid_hmac`,
+  `invalid_bearer`, `missing_headers` — successes don't push toward the
+  limit), the route returns `429 rate_limited` and records the
+  outcome. Window is intentionally short so a typo doesn't lock out a
+  legitimate operator for long; threshold is intentionally low because
+  the only legitimate caller (the bridge daemon) hits the endpoint once
+  per re-pair.
+- **`audit_log` table** — broader cross-route audit logging is on the
+  roadmap. For now, security-sensitive events that don't touch the pair
+  endpoint write to: bridge_pairings (revoked_at on revoke), agent_events
+  (every cron fire / agent reasoning loop / outbound send — tenant-scoped
+  via RLS, visible at /operations Activity Tape).
 - **Bridge log:** `~/.oasis/bridge.log` (operator's machine). Captures
   every heartbeat result, every chat-server start/stop, every pair
   attempt. Local only — never transmitted.

@@ -112,6 +112,72 @@ const PROFILE_FIELDS = new Set([
   "prospect_focus",
 ]);
 
+// ---------------------------------------------------------------------------
+// Rate-limiting + audit log for pair attempts
+// ---------------------------------------------------------------------------
+// Backed by public.pair_attempts (migration 031). Window: 60 seconds.
+// Threshold: 10 failures. Above that, return 429 + record outcome=
+// 'rate_limited' so attacks are visible in the table even when the
+// route short-circuits.
+const PAIR_RATE_WINDOW_SECONDS = 60;
+const PAIR_RATE_MAX_FAILURES = 10;
+
+type PairOutcome =
+  | "ok"
+  | "invalid_hmac"
+  | "invalid_bearer"
+  | "rate_limited"
+  | "missing_headers";
+
+function _clientIp(req: NextRequest): string | null {
+  // Vercel sets x-forwarded-for; first entry is the original client.
+  const xff = req.headers.get("x-forwarded-for");
+  if (xff) {
+    const first = xff.split(",")[0]?.trim();
+    if (first) return first;
+  }
+  return req.headers.get("x-real-ip") || null;
+}
+
+async function _recordPairAttempt(
+  profileId: string,
+  outcome: PairOutcome,
+  ip: string | null,
+): Promise<void> {
+  try {
+    const db = getServiceSupabase();
+    await db.from("pair_attempts").insert({
+      profile_id: profileId,
+      outcome,
+      ip,
+    });
+  } catch {
+    // Logging the attempt is best-effort; never break the request flow if
+    // the insert fails (rate-limit gate still works on what's already there).
+  }
+}
+
+async function _isRateLimited(profileId: string): Promise<boolean> {
+  if (!profileId) return false;
+  try {
+    const db = getServiceSupabase();
+    const since = new Date(Date.now() - PAIR_RATE_WINDOW_SECONDS * 1000).toISOString();
+    // Count failures only — successful pairs don't push toward the limit.
+    // The supabase-js typing for count is a bit awkward; do a select with
+    // count='exact' + head=true to avoid pulling row data.
+    const r = await db
+      .from("pair_attempts")
+      .select("id", { count: "exact", head: true })
+      .eq("profile_id", profileId)
+      .in("outcome", ["invalid_hmac", "invalid_bearer", "missing_headers"])
+      .gte("attempted_at", since);
+    if (r.error) return false;  // fail-open if the check itself errors
+    return (r.count ?? 0) >= PAIR_RATE_MAX_FAILURES;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Alternate auth path: HMAC headers (x-oasis-profile-id + x-oasis-secret).
  * Used by the chat server's self-pair-on-boot — operators don't have
@@ -171,8 +237,30 @@ export async function POST(req: NextRequest) {
   // Two valid auth modes:
   //   1. CLI_SIGNUP_SECRET bearer (interactive wizard path)
   //   2. HMAC headers (chat-server self-pair path)
+  //
+  // Rate-limit: if the same profile_id has hit > PAIR_RATE_MAX_FAILURES in
+  // the last PAIR_RATE_WINDOW_SECONDS with INVALID auth, return 429 + log
+  // the rate_limited outcome. Successful pairs don't accumulate. Window is
+  // intentionally short (60s / 10 fails) so a legitimate operator hitting
+  // a typo doesn't get locked out for long.
+  const ip = _clientIp(req);
+  const headerProfileId = req.headers.get("x-oasis-profile-id") || "";
+
+  if (headerProfileId && (await _isRateLimited(headerProfileId))) {
+    await _recordPairAttempt(headerProfileId, "rate_limited", ip);
+    return bad(429, "rate_limited: too many failed pair attempts; back off and retry");
+  }
+
   const hmacAuth = await _hmacAuthEmail(req);
   if (!hmacAuth && !checkBearerSecret(req, "CLI_SIGNUP_SECRET")) {
+    // Log the failure with the right outcome based on which path was tried.
+    // headerProfileId may be empty when neither header was sent at all.
+    const outcome: PairOutcome = !headerProfileId
+      ? "invalid_bearer"
+      : hmacAuth === null
+        ? "invalid_hmac"
+        : "invalid_bearer";
+    await _recordPairAttempt(headerProfileId || "no-profile", outcome, ip);
     return bad(401, "missing or invalid Bearer secret (or HMAC headers)");
   }
 
@@ -339,6 +427,11 @@ export async function POST(req: NextRequest) {
   const baseUrl =
     process.env.BRAVO_DASHBOARD_URL ||
     "https://agent-dashboard-cc90210.vercel.app";
+
+  // Log the successful pair attempt. Uses the resolved profile_id (which
+  // is canonical — operator may have hit either the bearer or HMAC path,
+  // both of which resolve to the same profileRow.id).
+  await _recordPairAttempt(profileRow.id, "ok", ip);
 
   return NextResponse.json({
     ok: true,
