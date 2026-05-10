@@ -126,6 +126,20 @@ python scripts/event_bus.py reap
 python scripts/event_bus.py drain
 ```
 
+## Router observability (Apex Phase 3, 2026-05-10)
+
+`scripts/event_router.py` is the on-host observability tail on top of the substrate. It polls `agent_events` with a cursor file (`state/event_router.cursor`), projects each row to a uniform shape (`{id, event_type, source_agent, target_agent, severity, published_at, status, preview}`), and appends to `state/event_router.log` (jsonl). Run-modes:
+
+```bash
+python scripts/event_router.py once               # one tick + exit
+python scripts/event_router.py loop --interval 3  # daemon mode
+python scripts/event_router.py tail --count 20    # last N lines of the log
+```
+
+The router is **read-only and lossless** — it doesn't claim_events / ack_event (that's the per-agent consumer path). Its cursor advances by `max(created_at)` so a crash + restart resumes without re-emitting. Single-machine deployment expected; running two routers on different hosts would double-emit side-effects.
+
+The dashboard's `/feed` page is the cloud-side view of the same stream — both read from `agent_events`. The router is the local audit tail; the feed is the operator's UI.
+
 ## Relationship to other V6 systems
 
 - **State DB (`state/empire_state.db`)** — local-only; the event bus is its cross-agent broadcast layer. State DB writes (`append_session_log`, `heartbeat`) auto-emit corresponding events.

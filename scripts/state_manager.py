@@ -303,6 +303,27 @@ def upsert_task(bucket: str, title: str, owner: str = "bravo",
             conn.close()
 
 
+def _mirror_override_row(row: dict, *, kind: str) -> None:
+    """Best-effort push of a SQLite override_request row to the Supabase
+    mirror so the dashboard can see it. kind ∈ {"pending","status"}.
+
+    Lazy import so we don't pay the cost when the Supabase env isn't set
+    (CI / fresh laptop). Never raises — the local DB is the source of truth;
+    if Supabase mirroring fails the operator can still use exec_override.py.
+    """
+    try:
+        from lib.exec_override_mirror import mirror_pending, mirror_status
+    except Exception:
+        return
+    try:
+        if kind == "pending":
+            mirror_pending(row)
+        else:
+            mirror_status(row)
+    except Exception:
+        return
+
+
 def create_override_request(command: str, layer: str, reason: str | None = None,
                             caller_pid: int | None = None, ttl_sec: int = 300,
                             conn: sqlite3.Connection | None = None) -> dict:
@@ -350,10 +371,12 @@ def create_override_request(command: str, layer: str, reason: str | None = None,
                 "FROM override_request WHERE id = ?",
                 (req_id,),
             ).fetchone()
-            return dict(row)
+            result = dict(row)
     finally:
         if own:
             conn.close()
+    _mirror_override_row(result, kind="pending")
+    return result
 
 
 def approve_override_request(request_id: str, approved_by: str = "cc",
@@ -389,18 +412,21 @@ def approve_override_request(request_id: str, approved_by: str = "cc",
                 "WHERE id=?",
                 (now_iso, approved_by, approved_reason, sig, request_id),
             )
-            return dict(conn.execute(
+            result = dict(conn.execute(
                 "SELECT * FROM override_request WHERE id=?", (request_id,),
             ).fetchone())
     finally:
         if own:
             conn.close()
+    _mirror_override_row(result, kind="status")
+    return result
 
 
 def deny_override_request(request_id: str, reason: str | None = None,
                           conn: sqlite3.Connection | None = None) -> bool:
     own = conn is None
     conn = conn or connect()
+    rowcount = 0
     try:
         with transaction(conn, actor="cc", op="deny_override_request"):
             cur = conn.execute(
@@ -409,10 +435,20 @@ def deny_override_request(request_id: str, reason: str | None = None,
                 "WHERE id=? AND status='pending'",
                 (reason, request_id),
             )
-            return cur.rowcount > 0
+            rowcount = cur.rowcount
+            if rowcount > 0:
+                denied_row = conn.execute(
+                    "SELECT * FROM override_request WHERE id=?", (request_id,),
+                ).fetchone()
+                denied_dict = dict(denied_row) if denied_row else None
+            else:
+                denied_dict = None
     finally:
         if own:
             conn.close()
+    if denied_dict is not None:
+        _mirror_override_row(denied_dict, kind="status")
+    return rowcount > 0
 
 
 def find_fresh_approval(command: str,
@@ -449,6 +485,8 @@ def consume_override_request(request_id: str,
     'approved' state (single-use guarantee — second caller gets False)."""
     own = conn is None
     conn = conn or connect()
+    consumed_row: dict | None = None
+    rowcount = 0
     try:
         with transaction(conn, actor="exec_guard", op="consume_override_request"):
             now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -458,10 +496,18 @@ def consume_override_request(request_id: str,
                 "WHERE id=? AND status='approved'",
                 (now_iso, request_id),
             )
-            return cur.rowcount > 0
+            rowcount = cur.rowcount
+            if rowcount > 0:
+                consumed = conn.execute(
+                    "SELECT * FROM override_request WHERE id=?", (request_id,),
+                ).fetchone()
+                consumed_row = dict(consumed) if consumed else None
     finally:
         if own:
             conn.close()
+    if consumed_row is not None:
+        _mirror_override_row(consumed_row, kind="status")
+    return rowcount > 0
 
 
 def list_override_requests(status: str | None = None, limit: int = 50,
