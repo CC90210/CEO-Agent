@@ -64,24 +64,60 @@ DM_DISABLED = True
 # ========================================
 
 # Community moderators / owners — the agent never auto-replies to their own
-# posts or comments. Match is case-insensitive substring. Add the community
-# owner's full name + first name + any handle they use. Configurable via
-# env var SKOOL_COMMUNITY_MODERATORS (comma-separated, overrides default).
+# posts or comments. Match is case-insensitive substring. Three load sources,
+# in priority order:
+#   1. SKOOL_COMMUNITY_MODERATORS env var (comma-separated overrides everything)
+#   2. brain/operator.profile.json `community_moderators` list (gitignored,
+#      machine-local — the canonical operator-config file)
+#   3. The operator's own preferred_name from operator.profile.json (always
+#      added — operators always skip themselves)
 #
-# Why config-driven: hardcoding a specific person's name elevates them in the
-# codebase. The skool automation is the artifact; WHICH community owner gets
-# skipped is operator-config, not source code.
-SKOOL_COMMUNITY_MODERATORS = [
-    "conaugh", "cc",  # CC always skipped (operator)
-] + [
-    s.strip().lower() for s in (os.environ.get("SKOOL_COMMUNITY_MODERATORS") or "").split(",")
-    if s.strip()
-]
+# Why this load chain: hardcoding a specific person's name elevates them in
+# the codebase AND makes the script CC-specific. The skool automation is the
+# product artifact; WHICH community owner gets skipped is per-operator config.
+def _load_skool_moderators() -> list[str]:
+    """Build the moderator-name list from env + operator.profile.json. Pure
+    string-substring matches, lowercased, deduped. Never returns empty (always
+    includes the operator's own name) so a self-reply can't slip through."""
+    out: list[str] = []
+    # Source 1: env var (highest priority)
+    env_raw = os.environ.get("SKOOL_COMMUNITY_MODERATORS") or ""
+    out.extend(s.strip().lower() for s in env_raw.split(",") if s.strip())
+    # Source 2 + 3: operator.profile.json
+    try:
+        prof_path = PROJECT_ROOT / "brain" / "operator.profile.json"
+        if prof_path.is_file():
+            prof = json.loads(prof_path.read_text(encoding="utf-8"))
+            # community_moderators: explicit list of community-owner aliases
+            for v in (prof.get("community_moderators") or []):
+                v = str(v or "").strip().lower()
+                if v:
+                    out.append(v)
+            # preferred_name + full_name: always skip the operator's own posts
+            for k in ("preferred_name", "full_name"):
+                v = str(prof.get(k) or "").strip().lower()
+                if v:
+                    out.append(v)
+    except Exception:
+        pass
+    # Always include "cc" as a safety net for the standard operator alias.
+    out.append("cc")
+    # Dedupe while preserving order
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for m in out:
+        if m and m not in seen:
+            seen.add(m)
+            deduped.append(m)
+    return deduped
+
+
+SKOOL_COMMUNITY_MODERATORS = _load_skool_moderators()
 
 
 def _is_moderator(author: str) -> bool:
-    """Case-insensitive check: is this author one of the configured
-    community moderators (CC + community owner)? Used to skip self-replies."""
+    """Case-insensitive substring check: does this author match any configured
+    community moderator? Used to skip self-replies + community-owner replies."""
     a = (author or "").strip().lower()
     if not a:
         return False
