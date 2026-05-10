@@ -377,7 +377,7 @@ Tool design insight: Anthropic created a tool-testing agent that "attempts to us
 
 **WHAT:** Uses LLMs to extract entities and relationships from text, builds a knowledge graph, performs hierarchical clustering (Leiden technique), generates community summaries bottom-up. Substantial improvement over vector-only RAG for complex reasoning. Now available as open-source Python library.
 
-**WHY IT MATTERS:** Could be applied to our client data, business context, and research notes. Would enable questions like "What connects Bennett's community growth to our revenue targets?" that require multi-hop reasoning.
+**WHY IT MATTERS:** Could be applied to our client data, business context, and research notes. Would enable questions like "What connects the primary retainer's community growth to our revenue targets?" that require multi-hop reasoning.
 
 **APPLICABILITY:** **MEDIUM** (valuable but complex to implement)
 

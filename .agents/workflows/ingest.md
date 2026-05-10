@@ -24,7 +24,7 @@ Full protocol: [[skills/knowledge-compilation/SKILL]]
 ### Step 1 — Receive and save the raw source
 
 If CC provided inline text:
-1. Determine a slug: lowercase, hyphenated, descriptive (e.g., `bennett-may-call-notes`)
+1. Determine a slug: lowercase, hyphenated, descriptive (e.g., `client-may-call-notes`)
 2. Save to `knowledge/raw/YYYY-MM-DD-[slug].md` with the raw content verbatim
 3. Confirm: "Saved to `knowledge/raw/[filename]`"
 

@@ -11,9 +11,9 @@ This directory stores proposals generated for OASIS AI Solutions clients and par
 `YYYY-MM-DD_client-name_type.md`
 
 Examples:
-- `2026-03-28_bennett-hvac_retainer.md`
+- `2026-03-28_acme-hvac_retainer.md`
 - `2026-04-01_smith-wellness_project.md`
-- `2026-04-15_acme-corp_consulting.md`
+- `2026-04-15_widget-corp_consulting.md`
 
 ## Proposal Types
 

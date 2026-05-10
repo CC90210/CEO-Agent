@@ -45,7 +45,7 @@ tags: [memory, hub, index]
 - [[memory/ARCHIVES/README]] — what lives in archives + how to read it
 - [[scratch/oneshots-2026-04/README]] — 2026-04 one-shot scripts archive (post_call_update, tremont, warm-revival batch)
 - [[memory/ARCHIVES/sessions-2026-02]] · [[memory/ARCHIVES/sessions-2026-03]] · [[memory/ARCHIVES/sessions-2026-04]]
-- [[memory/ARCHIVES/PROPOSAL_FOR_BENNETT_V3]] — historical Bennett proposal
+<!-- (untracked 2026-05-09) historical primary-retainer proposal — preserved locally in memory/ARCHIVES/ (gitignored) -->
 - [[memory/ARCHIVES/WHATSAPP_BRIDGE_SOP]] — retired WhatsApp bridge SOP
 - [[memory/ARCHIVES/lead_system/README]] — early lead-system reference dump
 - [[memory/ARCHIVES/references-setup/Claude_Setup_Guide]]

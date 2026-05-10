@@ -53,13 +53,12 @@ tags: [memory, index]
 - **RISK_REGISTER.md** (39L) -- Active business risks with mitigation plans
 - **APP_REGISTRY.md** (59L) -- 12 apps with local paths, GitHub repos, stacks
 
-## Archives (Layer 3 -- grep only)
+## Archives (Layer 3 -- grep only, gitignored)
 
-- `ARCHIVES/PROPOSAL_FOR_BENNETT_V3.md`
-- `ARCHIVES/README.md`
-- `ARCHIVES/sessions-2026-02.md`
-- `ARCHIVES/sessions-2026-03.md`
-- `ARCHIVES/sessions-2026-04.md`
+- `ARCHIVES/` is gitignored — historical files (proposals, retired SOPs, old
+  session logs, reference setup snapshots) live there for local grep but
+  aren't committed. Anything that needs to be preserved across machines
+  belongs in LONG_TERM.md, not in archives.
 - `ARCHIVES/WHATSAPP_BRIDGE_SOP.md`
 
 *Index built: 2026-04-03*
