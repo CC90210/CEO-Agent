@@ -250,8 +250,10 @@ Browser Harness is installed as Bravo's direct Chrome/Edge control layer. It com
 | **Safe Error** | `scripts/lib/safe_error.py` | Credential-pattern scrubber for tracebacks before any LLM-visible surface. | `from lib.safe_error import scrub, scrub_traceback` |
 | **State DB** | `state/empire_state.db` | SQLite/WAL. Tables: `agent_state`, `session_log` (UNIQUE(session_id, note)), `active_task`, `state_transaction` (audit). | — |
 | **Index DB** | `state/memory_index.db` | SQLite FTS5. Separate file so retrieval reads never block state writes. | — |
-| **Migrations** | `state/migrations/{001_init,002_memory_index}.sql` | Idempotent; auto-applied on first connect. Tracked in git; everything else under `state/` is gitignored. | — |
+| **Migrations** | `state/migrations/{001_init,002_memory_index,003_override_requests}.sql` | Idempotent; auto-applied on first connect. Tracked in git; everything else under `state/` is gitignored. | — |
 | **Audit logs (jsonl)** | `state/{exec_guard,secret_guard,state_guard,secret_access,state_manager}.log` | Local, gitignored. Reviewed weekly during 14-day soak before flipping `EMPIRE_HOOK_*=enforce`. | `tail -f state/exec_guard.log` |
+| **Exec Override** | `scripts/exec_override.py` + `scripts/lib/override_crypto.py` | BUILD 4 operator-approval flow. `exec_guard` block auto-creates a pending `override_request` row; operator approves by id from their terminal; single-use HMAC-signed approval bound to `sha256(command)`. | `list [--pending]`, `approve <id>`, `deny <id>`, `status <id>`, `cleanup` |
+| **Event Bus** | `scripts/event_bus.py` + Supabase `agent_events` table | BUILD 3 cross-agent pub/sub. Raw psycopg `LISTEN/NOTIFY` with 5-second polling fallback; `claim_events()` RPC uses `FOR UPDATE SKIP LOCKED` for race-free dequeue. Migration 015 + producer wiring (3/4: `state_manager.append_session_log`, `pulse_publish.cmd_refresh`, `bridge_chat_server`). Send-gateway wiring deferred. | `publish --type X --payload '...'`, `tail --agent bravo`, `stats`, `reap`, `drain` |
 
 **Hook chain:** Bash → secret_guard → exec_guard. Read → secret_guard. Edit/Write → secret_guard → state_guard. Each guard exits 0/2 and writes to its own JSONL audit log. Default modes are safe (`report`/`off`) — flip to `enforce` after soak.
 

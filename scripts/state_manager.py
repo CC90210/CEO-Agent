@@ -261,7 +261,9 @@ def _emit_cross_agent_event(event_type: str, payload: dict,
     """
     try:
         sys.path.insert(0, str(Path(__file__).resolve().parent))
-        from event_bus import publish as _bus_publish  # noqa: WPS433
+        # Lazy import: event_bus pulls the heavyweight supabase client and
+        # is not needed by callers who only want state-DB operations.
+        from event_bus import publish as _bus_publish  # type: ignore[import-not-found]
         _bus_publish(event_type, payload, source="bravo",
                      target=target, correlation_id=correlation_id)
     except Exception:  # noqa: BLE001
