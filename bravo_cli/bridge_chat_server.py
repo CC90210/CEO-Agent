@@ -731,22 +731,28 @@ def _v6_log_chat_interaction(agent: str, kind: str, last_user_msg: str) -> None:
     note = f"[bridge:{kind}] {(last_user_msg or '').strip()[:160]}"
     safe_agent = (agent or "bravo").lower().strip() or "bravo"
 
-    kwargs: dict = {
-        "stdout": subprocess.DEVNULL,
-        "stderr": subprocess.DEVNULL,
-        "stdin": subprocess.DEVNULL,
-        "cwd": str(_V6_REPO_ROOT),
-    }
+    # Single Popen call so the static popup-fix test
+    # (`tests/test_bridge_heartbeat_silence.py`) sees the `creationflags=`
+    # token at THIS call site (it text-scans rather than ast-walks, so
+    # kwargs unpacking hides it). On non-Windows the creationflags=0
+    # composite is a no-op; start_new_session does the detach instead.
     if os.name == "nt":
         DETACHED_PROCESS = 0x00000008
-        kwargs["creationflags"] = DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+        _detach_flags = (DETACHED_PROCESS
+                         | subprocess.CREATE_NEW_PROCESS_GROUP
+                         | _WINDOWLESS_FLAGS)
     else:
-        kwargs["start_new_session"] = True
+        _detach_flags = 0
     try:
         subprocess.Popen(
             [sys.executable, str(_V6_STATE_MANAGER),
              "log", "--note", note, "--agent", safe_agent],
-            **kwargs,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            cwd=str(_V6_REPO_ROOT),
+            creationflags=_detach_flags,
+            start_new_session=(os.name != "nt"),
         )
     except Exception:
         pass

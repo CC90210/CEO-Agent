@@ -17,15 +17,40 @@ Markdown stays readable. After every commit, `state_manager.export_markdown()` r
 
 The CLI surface (`heartbeat`, `log`, `task add/close/list`, `export`, `status`, `import-from-files`) is what every other script calls. `state_sync.py` is now a thin dispatcher that routes to either the V5.5 flat-file path or `state_manager` based on `EMPIRE_V6_MODE` — no caller has to know which era they're running in.
 
-### Pillar 2 — FTS5 retrieval (`scripts/memory_retriever.py` + `state/memory_index.db`)
+### Pillar 2 — Hybrid retrieval: FTS5 (lexical) + LanceDB/ONNX (semantic) (`scripts/memory_retriever.py`)
 
-A second SQLite database holds an FTS5 virtual table over `memory/`, `skills/`, `brain/`, and the five entry-point markdown files (CLAUDE.md / AGENTS.md / GEMINI.md / ANTIGRAVITY.md / OPENCODE.md). Files are split into ~400-token chunks anchored on H2/H3 headings; each chunk carries `source`, `kind`, `heading`, `body`, `tags` columns plus a `chunk_meta` row recording `line_start`/`line_end` so every hit returns a clickable file:line ref.
+Two indexes, one query surface, one merge function.
 
-Queries default to FTS5 implicit-AND with an OR fallback if zero rows match. Output is capped at ~1500 tokens per query (5 hits × ~300 tokens each) — a 99.8% reduction vs the V5.5 "load all of MISTAKES.md and PATTERNS.md and SESSION_LOG.md" pattern. Median query latency: 8.6 ms across 224 sources / 2,800+ chunks.
+**Lexical leg — `state/memory_index.db`** (SQLite FTS5). Virtual table over `memory/`, `skills/`, `brain/`, and the five entry-point markdown files (CLAUDE.md / AGENTS.md / GEMINI.md / ANTIGRAVITY.md / OPENCODE.md). Files split into ~400-token chunks on H2/H3 boundaries; each chunk gets `source`, `kind`, `heading`, `body`, `tags` columns + a `chunk_meta` row recording `line_start`/`line_end`/`chunk_idx` so every hit returns a clickable file:line ref. Queries default to FTS5 implicit-AND with OR fallback. BM25 ranking. ~9 ms median latency.
 
-The index is kept warm by a `PostToolUse` hook (`scripts/retriever_postedit.py`) that fires `memory_retriever.py update` in the background after every Edit/Write inside the indexed scopes. The retriever's `update` is incremental (hashes each source; reindex only on hash mismatch) so the cost is negligible.
+**Semantic leg — `state/memory_lance/` (V6 BUILD 2, 2026-05-11).** A LanceDB vector store holding the same 2,800+ chunks alongside L2-normalized 384-dim embeddings produced by `fastembed` running the ONNX-quantized `sentence-transformers/all-MiniLM-L6-v2` model. **No PyTorch** — `fastembed` ships ONNX Runtime directly (~80 MB total install). Cosine ANN search via LanceDB's IVF index. Lazy-loaded: a caller that asks for `--lexical-only` never pays the model-load cost.
 
-`brain/AGENT_ROUTER.md` directs every operator request to query the retriever BEFORE attempting whole-file Read. Self-improvement workflows (`/evolve`, `/retro`) were rewritten to consume FTS5 snippets instead of parsing entire memory files.
+**Hybrid merge — Reciprocal Rank Fusion (RRF).** For a query, run both legs independently → take top N from each → compute `score(d) = Σ over rankers r: 1 / (k + rank_r(d))` for each unique chunk, with `k = 60` (standard). Top-K by aggregate RRF score wins. Why rank fusion and not raw-score normalization: BM25 and cosine live on different scales — combining them numerically requires per-corpus tuning that drifts. RRF is parameter-light and provably robust against scale mismatches. The merger sorts (score DESC, chunk-key ASC) so input ordering can't change output.
+
+**CLI surface:**
+```bash
+python scripts/memory_retriever.py query "price objections"                    # hybrid (default)
+python scripts/memory_retriever.py query "..." --lexical-only                  # FTS5 only
+python scripts/memory_retriever.py query "..." --semantic-only                 # LanceDB only
+python scripts/memory_retriever.py query "..." --explain                       # show lex_rank, sem_rank, rrf_score per hit
+python scripts/memory_retriever.py query "..." --kind {skill,memory,brain,entry}
+python scripts/memory_retriever.py build [--force] [--lexical-only]            # full reindex (lexical-only skips embedding pass)
+python scripts/memory_retriever.py update                                      # incremental (hash-skipped)
+python scripts/memory_retriever.py status                                      # both legs + LanceDB row count
+```
+
+**Concrete payoff (measured 2026-05-11):** the query `price objections` returns:
+- **Lexical-only:** top-1 = `skills/web-scraping/SKILL.md` (false positive on the word "pricing" in JSON-schema examples).
+- **Semantic-only:** top-1 = `skills/sales-methodology/SKILL.md:209` (an actual objection-handling playbook, `cost resistance` framing — no lexical overlap with the query).
+- **Hybrid (RRF):** top-1 = `skills/sales-closing/SKILL.md:93` ("Real meaning: unspoken objection") — found at rank 5 lexical, rank 3 semantic, fused to rank 1.
+
+**Token impact:** a Tier 2 standard load that used to inject ~104K tokens now resolves to ≤1500 tokens of targeted snippets — preserved from BUILD 1. The hybrid upgrade adds conceptual recall without enlarging the output budget.
+
+**Index freshness:** a `PostToolUse` hook (`scripts/retriever_postedit.py`) runs `memory_retriever.py update` in the background after every Edit/Write inside the indexed scopes. Update is incremental — files unchanged since their hash was last recorded are skipped (zero re-embed cost on no-op edits).
+
+**Architectural rule (unchanged from BUILD 1):** queries hit the retriever first; whole-file reads are an escalation, not a default. `brain/AGENT_ROUTER.md` directs every operator request through this path. Self-improvement workflows (`/evolve`, `/retro`) consume snippets, not whole files.
+
+**Behavior locked by `tests/test_retrieval_hybrid.py`** (22 tests): mode-plumbing structural shape, 10 parametrized paraphrase pairs proving semantic surfaces unique chunks lexical can't reach, RRF math symmetry + dual-appearance preference, kind-filter respected across all three modes, token-budget enforcement, empty-query guard, dual-engine status reporting.
 
 ### Pillar 3 — Hook-fenced execution (`scripts/{exec,secret,state}_guard.py`)
 
