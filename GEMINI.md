@@ -47,6 +47,8 @@ When the message is OPERATIONAL:
 
 State files are per-intent reads — the router picks them up when the request demands them. Don't auto-load `STATE.md` / `ACTIVE_TASKS.md` / `SESSION_LOG.md`.
 
+**HARD RULE — no `@`-imports in this file.** `@filename` auto-loads the referenced file recursively into the system prompt on every spawn. Reference paths as bare strings (write `brain/SOUL.md`, never the AT-prefixed form). If you want a file always-available, you're wrong — add it to Triage as a conditional read.
+
 Identity: Read `brain/SOUL.md` only when CC asks "who are you?" Do NOT output it.
 Multi-agent contract: Read `brain/AGENT_ORCHESTRATION.md` only when cross-agent state matters (pulse hand-offs, spend gate, inbox).
 

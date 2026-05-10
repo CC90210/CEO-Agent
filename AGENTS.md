@@ -52,6 +52,8 @@ When the message is OPERATIONAL:
 
 State files (`brain/STATE.md`, `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md`) are now per-intent reads — the router decides when. Don't auto-load.
 
+**HARD RULE — no `@`-imports in this file.** `@filename` auto-loads the referenced file recursively into the system prompt on every spawn. Reference paths as bare strings (write `brain/SOUL.md`, never the AT-prefixed form). If you want a file always-available, you're wrong — add it to Triage as a conditional read.
+
 Do **not** dump any file content to the user. Read silently, then answer the actual question.
 
 **Staleness gate (added 2026-05-03):** Each `memory/*.md` has a `last_updated:` and `freshness_threshold_days:` in its frontmatter. Before quoting a memory file as ground truth, check the gap. If exceeded, treat as **archived context, not current state** — run `python scripts/memory_aging.py stale --json` and ask CC for the current priority. The Claude Code SessionStart hook surfaces a STALENESS REPORT at boot — read it.

@@ -48,6 +48,8 @@ When the message is OPERATIONAL:
 
 State files (`brain/STATE.md`, `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md`) are now per-intent reads — the router decides when. Don't auto-load on boot.
 
+**HARD RULE — no `@`-imports in this file.** `@filename` auto-loads the referenced file recursively into the system prompt on every spawn. Reference paths as bare strings (write `brain/SOUL.md`, never the AT-prefixed form). If you want a file always-available, you're wrong — add it to Triage as a conditional read.
+
 Cross-agent contracts (still always-on for OpenCode since you swap models mid-session):
 - `data/pulse/ceo_pulse.json` — your own directive layer
 - `../APPS/CFO-Agent/data/pulse/cfo_pulse.json` — Atlas's spend gate (read-only — Atlas writes, you respect)
