@@ -144,6 +144,73 @@ Organized by the question, not the tool. The tool names are in italics so you ca
 
 ---
 
+## V6 Apex background daemons — what must be running 24/7
+
+After V6 Apex (2026-05-10) shipped, two new daemons need to be alive on your machine for the cross-agent + dashboard-override flows to work. Both are tiny — they poll Supabase every few seconds and apply work to local SQLite. PM2 keeps them up across reboots.
+
+| Daemon | What it does | Without it |
+|---|---|---|
+| **event-router** | Reads every new `agent_events` row, projects it to `state/event_router.log`. Powers the `/feed` page on the Vercel dashboard. | Dashboard feed shows stale data. No on-host event-bus audit log. |
+| **override-consumer** | Polls Supabase for dashboard Approve/Deny clicks on blocked commands. Applies them locally with HMAC. | Dashboard `/overrides` page can record decisions but the agent never sees them — you'd have to fall back to CLI `python scripts/exec_override.py approve <req-id>` (TTY-only). |
+
+### One-time setup
+
+Run these once. They register the daemons with PM2 and persist across reboot:
+
+```bash
+cd /c/Users/User/Business-Empire-Agent
+
+pm2 start scripts/event_router.py \
+  --name event-router \
+  --interpreter python \
+  -- loop --interval 3
+
+pm2 start scripts/exec_override_consumer.py \
+  --name override-consumer \
+  --interpreter python \
+  -- loop --interval 5
+
+pm2 save                # persist the process list to disk
+# If PM2 startup isn't already registered for boot:
+pm2 startup             # follow the printed instructions (one elevated command)
+```
+
+### Day-to-day operations
+
+```bash
+pm2 status              # list all PM2 processes; both should show "online"
+pm2 logs event-router         --lines 50
+pm2 logs override-consumer    --lines 50
+pm2 restart event-router      # after editing scripts/event_router.py
+pm2 restart override-consumer # after editing scripts/exec_override_consumer.py
+pm2 stop  event-router        # temporary halt; pm2 start brings it back
+pm2 delete event-router       # remove from PM2 entirely (rarely needed)
+```
+
+### Sanity checks
+
+If something feels off:
+
+```bash
+# event-router heartbeat — last line of the log should be recent (<5s)
+python scripts/event_router.py tail --count 5
+
+# override-consumer — apply any pending dashboard intent in one shot
+python scripts/exec_override_consumer.py once --verbose
+
+# Are the daemons actually polling? Check PM2 uptime + restart count
+pm2 status
+```
+
+If `pm2 status` shows either daemon `errored` or stuck restarting:
+
+```bash
+pm2 logs <name> --lines 100   # find the stack trace
+pm2 restart <name>            # often a transient Supabase blip; this is enough
+```
+
+Both daemons are designed to fail open — if Supabase is unreachable, they log and retry; they never crash the local state DB.
+
 ## When things feel stuck — troubleshooting
 
 Three things that will happen and how to unstick each.
