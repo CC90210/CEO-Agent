@@ -59,6 +59,16 @@ Every agent MUST update its OWN pulse with:
 | `blockers` | Array of things waiting on another agent or on CC |
 | Domain-specific fields | Each agent's own schema — see individual pulse files |
 
+## V6.0 Substrate (added 2026-05-10 — Bravo first)
+
+Bravo is the first agent on V6.0. The cross-agent contract is unchanged: pulses still drive sibling awareness, Supabase is still the deep record. V6.0 adds two optional enrichments siblings can pick up when ready:
+
+1. **Bravo's pulse now carries a `v6` block** — `state_db` row counts, `fts5` index size, `hook_modes` (enforce/report/off), and `mode` (off/shadow/on). Sibling agents reading `ceo_pulse.json` can use `pulse.v6.state_db.last_heartbeat` for sub-second liveness instead of the day-precision markdown frontmatter. JSON additive — old siblings ignore the field.
+
+2. **Mandatory reads still hit `memory/SESSION_LOG.md` and `brain/STATE.md`** — same paths as V5.5. In V6.0 those files are auto-generated mirrors of `state/empire_state.db`, so reads return canonical DB data. No code change required on the sibling side.
+
+3. **When you adopt V6.0 in your own repo:** read `brain/CAPABILITIES.md` "V6.0 Architecture" + "V6.0 Phase 2 — Productized Deployment" sections in this Bravo repo. The patterns (single-writer SQLite/WAL, FTS5 retrieval, three guards, scoped env files) port directly. The cross-agent inbox + pulse contract stays identical.
+
 ## Shared Supabase as the Deep Record
 
 Pulses are the "what's happening now" layer. Supabase (`phctllmtsogkovoilwos`) is the "what happened over time" layer.
