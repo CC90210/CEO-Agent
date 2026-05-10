@@ -33,6 +33,7 @@ type StateHealthResponse = {
   ts?: string;
   v6_mode?: string;
   deploy_target?: string;
+  source?: "state-api" | "supabase-mirror";
   state_db?: {
     exists: boolean;
     size_kb?: number;
@@ -114,8 +115,23 @@ export default async function SystemHealthPage() {
         title="System Health & Guardrails"
         subtitle={`V6.0 transactional state, FTS5 retrieval, and the three hook guards. ${
           data.deploy_target ? `Target: ${data.deploy_target}.` : ""
-        } ${data.v6_mode ? `Mode: ${data.v6_mode}.` : ""}`}
-        action={modeBadge(data.v6_mode || "off")}
+        } ${data.v6_mode ? `Mode: ${data.v6_mode}.` : ""} ${
+          data.source === "supabase-mirror"
+            ? "Source: Supabase mirror (state-api not reachable from this deploy)."
+            : data.source === "state-api"
+              ? "Source: state-api (canonical)."
+              : ""
+        }`}
+        action={
+          <div className="flex items-center gap-2">
+            {data.source && (
+              <Tag tone={data.source === "state-api" ? "accent" : "warm"}>
+                {data.source === "state-api" ? "via state-api" : "via supabase-mirror"}
+              </Tag>
+            )}
+            {modeBadge(data.v6_mode || "off")}
+          </div>
+        }
       />
 
       {!data.available && (
