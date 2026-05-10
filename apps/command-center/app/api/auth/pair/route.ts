@@ -46,7 +46,7 @@
  */
 
 import { NextResponse, type NextRequest } from "next/server";
-import { createHash, randomBytes } from "crypto";
+import { createHash, randomBytes, timingSafeEqual } from "crypto";
 import { getServiceSupabase } from "@/lib/supabase-server";
 import { bad, checkBearerSecret } from "@/lib/api-helpers";
 import { encryptField } from "@/lib/field-encryption";
@@ -133,14 +133,39 @@ async function _hmacAuthEmail(req: NextRequest): Promise<{ email: string; profil
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(profileId)) return null;
   const secretHash = sha256(rawSecret);
   const db = getServiceSupabase();
+  // Pull ALL non-revoked rows for this profile, then compare each hash
+  // in Node via timingSafeEqual. Doing the comparison in SQL via
+  // .eq("secret_hash", secretHash) is byte-wise but not constant-time
+  // at the SQL/index layer — Node-side compare eliminates the
+  // (theoretical) timing side-channel from the DB indexer. See
+  // brain/SECURITY_MODEL.md §4 for the threat model rationale.
+  //
+  // Why fetch ALL rows + iterate (not maybeSingle):
+  // operators may have multiple issued secrets per profile during
+  // rotation (issue new before revoking old to avoid downtime).
+  // Original code worked because SQL .eq filtered uniquely by hash,
+  // but for Node-side compare we have to enumerate and match any
+  // live secret. Iteration is over secrets-per-profile (small N,
+  // typically 1-3), runs in <1ms.
   const r = await db
     .from("n8n_webhook_secrets")
-    .select("profile_id, revoked_at")
+    .select("secret_hash")
     .eq("profile_id", profileId)
-    .eq("secret_hash", secretHash)
-    .is("revoked_at", null)
-    .maybeSingle();
-  if (r.error || !r.data) return null;
+    .is("revoked_at", null);
+  if (r.error || !r.data || r.data.length === 0) return null;
+  const provided = Buffer.from(secretHash, "hex");
+  let matched = false;
+  for (const row of r.data) {
+    if (!row.secret_hash) continue;
+    const stored = Buffer.from(row.secret_hash, "hex");
+    if (stored.length !== provided.length) continue;
+    // timingSafeEqual on a CT-comparable buffer pair. Don't short-circuit
+    // out of the loop on first match — keeps total work bounded by the
+    // number of issued secrets, not by which one matched, so the
+    // attacker can't time which secret-id was the live one.
+    if (timingSafeEqual(stored, provided)) matched = true;
+  }
+  if (!matched) return null;
   const pf = await db.from("user_profiles").select("email").eq("id", profileId).maybeSingle();
   if (!pf.data?.email) return null;
   return { email: String(pf.data.email).toLowerCase(), profileId };
