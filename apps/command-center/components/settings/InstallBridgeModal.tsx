@@ -37,8 +37,16 @@ function detectOS(): OS {
 }
 
 function oneLinerFor(os: OS, code: string): string {
+  // PowerShell: $env:VAR is session-scoped, inherited by `iex`'d
+  // commands and any child processes. Works.
   const winShell = `$env:BRAVO_PAIR_CODE="${code}"; irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install.ps1 | iex`;
-  const nixShell = `BRAVO_PAIR_CODE=${code} curl -fsSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install.sh | bash`;
+  // Bash: env-var prefix on `curl` would scope the var to curl ONLY
+  // — the bash subshell after the pipe wouldn't inherit it. Putting
+  // the prefix on the `bash` side makes it the env for the shell
+  // that runs the install script + the wizard subprocess. Verified
+  // 2026-05-10 self-review: the wrong shape would silently lose the
+  // pair-code and drop back to the manual-paste prompt.
+  const nixShell = `curl -fsSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install.sh | BRAVO_PAIR_CODE=${code} bash`;
   return os === "windows" ? winShell : nixShell;
 }
 
