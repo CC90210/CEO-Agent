@@ -32,7 +32,7 @@ import sqlite3
 import sys
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterable, Iterator, Sequence
 
@@ -40,6 +40,17 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 STATE_DIR = PROJECT_ROOT / "state"
 DB_PATH = STATE_DIR / "empire_state.db"
 MIGRATIONS_DIR = STATE_DIR / "migrations"
+
+# Make `lib.*` importable from inside this module's helpers without each
+# function re-running sys.path manipulation. lib/ has no circular deps on
+# state_manager — safe to import at module load.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.override_crypto import (  # noqa: E402
+    command_hash as _cmd_hash,
+    make_request_id as _make_request_id,
+    sign_approval as _sign_approval,
+    verify_approval as _verify_approval,
+)
 
 STATE_MD = PROJECT_ROOT / "brain" / "STATE.md"
 SESSION_LOG_MD = PROJECT_ROOT / "memory" / "SESSION_LOG.md"
@@ -257,6 +268,208 @@ def upsert_task(bucket: str, title: str, owner: str = "bravo",
                 (now, now, bucket, owner, title, status, priority),
             )
             return cur.lastrowid
+    finally:
+        if own:
+            conn.close()
+
+
+def create_override_request(command: str, layer: str, reason: str | None = None,
+                            caller_pid: int | None = None, ttl_sec: int = 300,
+                            conn: sqlite3.Connection | None = None) -> dict:
+    """Insert a pending override_request row when exec_guard blocks.
+
+    Returns the inserted row as a dict (id, command_hash, expires_at, ...).
+    Idempotent: if an unexpired pending/approved request for the same
+    command_hash already exists, return that one instead of creating a new
+    row — prevents duplicate request spam when the agent retries quickly.
+    """
+    cmd_hash = _cmd_hash(command)
+    own = conn is None
+    conn = conn or connect()
+    try:
+        with transaction(conn, actor="exec_guard", op="create_override_request"):
+            now = datetime.now(timezone.utc)
+            expires = now + timedelta(seconds=max(60, min(ttl_sec, 3600)))
+            now_iso = now.isoformat(timespec="seconds")
+            expires_iso = expires.isoformat(timespec="seconds")
+
+            existing = conn.execute(
+                "SELECT id, ts, expires_at, command, command_hash, layer, reason, "
+                "       status, approved_at, approved_by, consumed_at, hmac_sig "
+                "FROM override_request "
+                "WHERE command_hash = ? AND status IN ('pending','approved') "
+                "  AND expires_at > ? "
+                "ORDER BY ts DESC LIMIT 1",
+                (cmd_hash, now_iso),
+            ).fetchone()
+            if existing:
+                return dict(existing)
+
+            req_id = _make_request_id()
+            conn.execute(
+                "INSERT INTO override_request "
+                "(id, ts, expires_at, command, command_hash, layer, reason, "
+                " caller_pid, status) "
+                "VALUES (?,?,?,?,?,?,?,?,?)",
+                (req_id, now_iso, expires_iso, command[:2000], cmd_hash,
+                 layer, reason, caller_pid, "pending"),
+            )
+            row = conn.execute(
+                "SELECT id, ts, expires_at, command, command_hash, layer, reason, "
+                "       status, approved_at, approved_by, consumed_at, hmac_sig "
+                "FROM override_request WHERE id = ?",
+                (req_id,),
+            ).fetchone()
+            return dict(row)
+    finally:
+        if own:
+            conn.close()
+
+
+def approve_override_request(request_id: str, approved_by: str = "cc",
+                             approved_reason: str | None = None,
+                             conn: sqlite3.Connection | None = None) -> dict:
+    """Mark a pending request as approved + HMAC-sign the row.
+
+    Raises ValueError if the request is missing, expired, already consumed,
+    or already in a terminal state.
+    """
+    own = conn is None
+    conn = conn or connect()
+    try:
+        with transaction(conn, actor=approved_by, op="approve_override_request"):
+            row = conn.execute(
+                "SELECT id, expires_at, command_hash, status FROM override_request WHERE id=?",
+                (request_id,),
+            ).fetchone()
+            if not row:
+                raise ValueError(f"override request not found: {request_id}")
+            now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            if row["expires_at"] <= now_iso:
+                conn.execute("UPDATE override_request SET status='expired' WHERE id=?",
+                             (request_id,))
+                raise ValueError(f"override request expired at {row['expires_at']}")
+            if row["status"] in ("consumed", "denied", "expired"):
+                raise ValueError(f"override request status is '{row['status']}', cannot approve")
+            sig = _sign_approval(row["id"], row["command_hash"], row["expires_at"])
+            conn.execute(
+                "UPDATE override_request "
+                "SET status='approved', approved_at=?, approved_by=?, "
+                "    approved_reason=?, hmac_sig=? "
+                "WHERE id=?",
+                (now_iso, approved_by, approved_reason, sig, request_id),
+            )
+            return dict(conn.execute(
+                "SELECT * FROM override_request WHERE id=?", (request_id,),
+            ).fetchone())
+    finally:
+        if own:
+            conn.close()
+
+
+def deny_override_request(request_id: str, reason: str | None = None,
+                          conn: sqlite3.Connection | None = None) -> bool:
+    own = conn is None
+    conn = conn or connect()
+    try:
+        with transaction(conn, actor="cc", op="deny_override_request"):
+            cur = conn.execute(
+                "UPDATE override_request "
+                "SET status='denied', approved_reason=? "
+                "WHERE id=? AND status='pending'",
+                (reason, request_id),
+            )
+            return cur.rowcount > 0
+    finally:
+        if own:
+            conn.close()
+
+
+def find_fresh_approval(command: str,
+                        conn: sqlite3.Connection | None = None) -> dict | None:
+    """Return an approved+unconsumed+unexpired+HMAC-valid row for this exact
+    command, or None. Called by exec_guard on every block-eligible command.
+    """
+    cmd_hash = _cmd_hash(command)
+    own = conn is None
+    conn = conn or connect(read_only=True)
+    try:
+        now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        row = conn.execute(
+            "SELECT id, command_hash, expires_at, hmac_sig, status "
+            "FROM override_request "
+            "WHERE command_hash=? AND status='approved' AND expires_at > ? "
+            "ORDER BY approved_at DESC LIMIT 1",
+            (cmd_hash, now_iso),
+        ).fetchone()
+        if not row:
+            return None
+        if not _verify_approval(row["id"], row["command_hash"],
+                                row["expires_at"], row["hmac_sig"]):
+            return None
+        return dict(row)
+    finally:
+        if own:
+            conn.close()
+
+
+def consume_override_request(request_id: str,
+                             conn: sqlite3.Connection | None = None) -> bool:
+    """Atomically mark an approval consumed. Returns True iff the row was in
+    'approved' state (single-use guarantee — second caller gets False)."""
+    own = conn is None
+    conn = conn or connect()
+    try:
+        with transaction(conn, actor="exec_guard", op="consume_override_request"):
+            now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            cur = conn.execute(
+                "UPDATE override_request "
+                "SET status='consumed', consumed_at=? "
+                "WHERE id=? AND status='approved'",
+                (now_iso, request_id),
+            )
+            return cur.rowcount > 0
+    finally:
+        if own:
+            conn.close()
+
+
+def list_override_requests(status: str | None = None, limit: int = 50,
+                           since_hours: int = 24,
+                           conn: sqlite3.Connection | None = None) -> list[dict]:
+    own = conn is None
+    conn = conn or connect(read_only=True)
+    try:
+        cutoff = (datetime.now(timezone.utc) -
+                  timedelta(hours=since_hours)).isoformat(timespec="seconds")
+        sql = ("SELECT id, ts, expires_at, command, layer, status, "
+               "       approved_at, approved_by, consumed_at "
+               "FROM override_request WHERE ts >= ?")
+        params: list = [cutoff]
+        if status:
+            sql += " AND status = ?"
+            params.append(status)
+        sql += " ORDER BY ts DESC LIMIT ?"
+        params.append(limit)
+        return [dict(r) for r in conn.execute(sql, params).fetchall()]
+    finally:
+        if own:
+            conn.close()
+
+
+def cleanup_override_requests(older_than_days: int = 7,
+                              conn: sqlite3.Connection | None = None) -> int:
+    own = conn is None
+    conn = conn or connect()
+    try:
+        with transaction(conn, actor="cron", op="cleanup_override_requests"):
+            cutoff = (datetime.now(timezone.utc) -
+                      timedelta(days=older_than_days)).isoformat(timespec="seconds")
+            cur = conn.execute(
+                "DELETE FROM override_request WHERE ts < ?",
+                (cutoff,),
+            )
+            return cur.rowcount
     finally:
         if own:
             conn.close()

@@ -1,7 +1,85 @@
-# ARCHITECTURE — Business-Empire-Agent V5.6
+# ARCHITECTURE — Business-Empire-Agent V6.0
 
 > This document explains the engineering design of Bravo — not just what it is, but why every decision was made this way.
 > Written for engineers who need to understand the system deeply enough to extend, debug, or rebuild any part of it.
+
+## V6.0 — Transactional State, Retrieval-Driven Context, Hook-Fenced Execution (2026-05-10)
+
+V6.0 is the substrate underneath every other system in this document. V5.6 (outbound chokepoint) and earlier sections still describe what the agent *does*; V6.0 describes how it *holds state*, *recalls memory*, and *protects itself* from its own LLM-generated mistakes.
+
+Four pillars, all gated by `EMPIRE_V6_MODE` (`off` → V5.5 behavior unchanged · `shadow` → dual-write to flat files AND DB for the soak period · `on` → DB authoritative, markdown becomes auto-generated mirror).
+
+### Pillar 1 — Transactional state (`scripts/state_manager.py` + `state/empire_state.db`)
+
+SQLite in WAL mode is the new source of truth for `agent_state`, `session_log`, `active_task`, and a full `state_transaction` audit trail. **One writer proxy** (`state_manager.py`) wraps every mutation in `BEGIN IMMEDIATE … COMMIT` with a 5-second `busy_timeout`. Five concurrent processes can append to `session_log` simultaneously and the UNIQUE(`session_id`, `note`) constraint gives atomic dedup — replacing the V5.5 race-prone "regex-find-and-replace into markdown" path that lost writes under load.
+
+Markdown stays readable. After every commit, `state_manager.export_markdown()` regenerates `brain/STATE.md` (heartbeat block) and `memory/SESSION_LOG.md` (entries section between AUTO-GENERATED-BEGIN/END markers) from the DB. The operator opens the same files and sees the same data — but the bytes flow DB → markdown, not the other way around. `python scripts/state_manager.py export --check` exits non-zero if the mirrors drift, gating commits.
+
+The CLI surface (`heartbeat`, `log`, `task add/close/list`, `export`, `status`, `import-from-files`) is what every other script calls. `state_sync.py` is now a thin dispatcher that routes to either the V5.5 flat-file path or `state_manager` based on `EMPIRE_V6_MODE` — no caller has to know which era they're running in.
+
+### Pillar 2 — FTS5 retrieval (`scripts/memory_retriever.py` + `state/memory_index.db`)
+
+A second SQLite database holds an FTS5 virtual table over `memory/`, `skills/`, `brain/`, and the five entry-point markdown files (CLAUDE.md / AGENTS.md / GEMINI.md / ANTIGRAVITY.md / OPENCODE.md). Files are split into ~400-token chunks anchored on H2/H3 headings; each chunk carries `source`, `kind`, `heading`, `body`, `tags` columns plus a `chunk_meta` row recording `line_start`/`line_end` so every hit returns a clickable file:line ref.
+
+Queries default to FTS5 implicit-AND with an OR fallback if zero rows match. Output is capped at ~1500 tokens per query (5 hits × ~300 tokens each) — a 99.8% reduction vs the V5.5 "load all of MISTAKES.md and PATTERNS.md and SESSION_LOG.md" pattern. Median query latency: 8.6 ms across 224 sources / 2,800+ chunks.
+
+The index is kept warm by a `PostToolUse` hook (`scripts/retriever_postedit.py`) that fires `memory_retriever.py update` in the background after every Edit/Write inside the indexed scopes. The retriever's `update` is incremental (hashes each source; reindex only on hash mismatch) so the cost is negligible.
+
+`brain/AGENT_ROUTER.md` directs every operator request to query the retriever BEFORE attempting whole-file Read. Self-improvement workflows (`/evolve`, `/retro`) were rewritten to consume FTS5 snippets instead of parsing entire memory files.
+
+### Pillar 3 — Hook-fenced execution (`scripts/{exec,secret,state}_guard.py`)
+
+Three Claude Code `PreToolUse` hooks wired in `.claude/settings.local.json`:
+
+- **`secret_guard.py`** — denies Read on `.env*`, `*.pem`, `*.key`, `credentials.json`, `secrets/`. Denies Bash commands that exfiltrate them via `cat`/`grep`/`sed`/`awk`/`cp`/`mv`/`python -c`/redirects/heredocs. Path regex covers all `.env.agents.*` fan-out files (`core`, `webhook`, `dashboard`, future variants) — `*` quantifier on the suffix group, not `?`.
+- **`exec_guard.py`** — layered policy gate. Layer 1: hard-blocklist regex (DROP, TRUNCATE, ALTER DROP COLUMN, DELETE-no-WHERE, `rm -rf /` outside tmp, force-push to main, `git reset --hard <ref>`, `git clean -fdx`, fork bombs, `dd-to-disk`, `xargs rm`, bare `rm -rf` followed by pipe/EOL). Layer 2: SQL AST validation via `sqlglot` for any command containing `psql`/`sqlite3`/`supabase_tool execute-sql`. Layer 3: irreversible-op allowlist (`git push`, `vercel --prod`, `stripe charge/refund`, `supabase apply_migration`, `n8n publish_workflow`) — logged but not blocked in Phase 1. Layer 4: read-only CLI fast-path that **disables itself if the command contains `&&`, `||`, `;`, `|`, backticks, `$()`, `<()`, or `>()`** — Codex caught the chained-command leak.
+- **`state_guard.py`** — denies Edit on auto-generated mirrors AND denies Bash commands that mutate them (redirects `>`/`>>`, `tee`, `cp`/`mv`/`rsync`, `sed -i`, `dd of=`, `python -c open(…, 'w')`). Anchored on the FULL relative path (`memory/SESSION_LOG.md`), not just basename, so a homonym like `backups/SESSION_LOG.md` correctly passes.
+
+Each guard has three modes via env var (`enforce` / `report` / `off`). Default safe-mode for fresh installs: `secret_guard=enforce`, `exec_guard=report` (soak), `state_guard=off` (until `EMPIRE_V6_MODE=on` cutover). Cloud installs flip all three to `enforce` by default. Every block writes a JSONL audit row to `state/{guard}.log`. The full bypass surface is locked behind a 109-test regression suite at `tests/test_hook_regression.py` — including all three Codex Critical bypasses and five self-review follow-ups.
+
+### Pillar 4 — Secret isolation (`scripts/lib/secret_loader.py` + scoped env fan-out)
+
+`.env.agents` is no longer LLM-readable. The hook layer (above) blocks every direct read; the in-process loader (`scripts/lib/secret_loader.py`) is the only path scripts use to access credentials. The loader:
+
+- Parses `.env.agents` once per process and caches in module scope.
+- Refuses to load if invoked from `tmp/` (LLM-written one-off scripts) or from an interactive Python shell (`PYTHONINSPECT` / `python -i`).
+- Logs every access to `state/secret_access.log` with `{ts, caller_path, keys_accessed}` so we can audit which scripts touched which keys.
+- Exposes `load_env(required=[…])` which raises on missing required keys and `get(key, default)` for ad-hoc access.
+
+The setup wizard (`bravo_cli/wizard.py:step_v6_init`) fans out the master `.env.agents` into three per-service scoped files at install time:
+
+| File | Keys included | Used by |
+|------|---------------|---------|
+| `.env.agents.core` | All keys | `bravo-core` daemon (autonomous loop) |
+| `.env.agents.webhook` | Stripe webhook + Supabase + Telegram + EMPIRE_* (no Anthropic, no service-role) | `bravo-webhook` (FastAPI) |
+| `.env.agents.dashboard` | Public Supabase anon key + STATE_API_URL only (zero secrets) | `command-center` Next.js |
+
+Defense in depth: a single-service RCE in `bravo-webhook` cannot exfiltrate the full credential set because `bravo-webhook`'s container only has `.env.agents.webhook` mounted — the master file is never copied into any container layer (`.dockerignore` excludes it; `env_file:` in compose injects ONLY the scoped variables).
+
+### Surrounding infrastructure
+
+- **`infra/docker-compose.local.yml`** — laptop sandbox: `read_only: true`, `cap_drop: [ALL]`, `no-new-privileges`, 127.0.0.1-only port binding, `memory/`/`brain/`/`skills/` mounted read-only, only `state/`, `tmp/`, `logs/` writable.
+- **`infra/docker-compose.cloud.yml`** — `include:`s the prod stack (5 daemons + pgbouncer + Caddy) and adds `command-center` (Next.js standalone) + `state-api` (read-only FastAPI).
+- **`infra/Dockerfile.commandcenter`** — Next.js 15 multi-stage build, non-root UID 10001, `output: 'standalone'`, `/api/health` healthcheck.
+- **`infra/Caddyfile`** — TLS-terminated dashboard endpoint with basic auth + `/api/health` carve-out for probes.
+- **Setup wizard (`bravo_cli/wizard.py`)** — `step_environment` detects local vs cloud; `step_v6_init` writes hook-mode defaults, bootstraps both DBs, builds the FTS5 index, fans out scoped env files, and optionally runs `docker compose build`.
+- **Command Center modules** — `apps/command-center/app/system-health/page.tsx` (DB stats + agent ticks + 3 guard cards live), `app/playbook/onboarding/page.tsx` (markdown SOPs from `docs/playbooks/`).
+
+### Cross-agent contract under V6.0
+
+Sibling agents (Atlas, Maven, Aura, Hermes) read Bravo's state through the same paths as V5.5 — `memory/SESSION_LOG.md`, `brain/STATE.md`, `data/pulse/ceo_pulse.json` — because in V6.0 those files are auto-generated mirrors. The contract surface is unchanged. What's NEW: `ceo_pulse.json` carries an additive `v6` block (mode, hook_modes, state_db stats, fts5 stats) that V6.0-aware siblings can use for sub-second liveness checks; V5.5-era siblings ignore it (JSON additive). Hard-rule still holds: Bravo NEVER writes to a sibling repo, siblings NEVER write to this one.
+
+### Why this layer exists
+
+V5.5 worked. V6.0 was built because three failure modes had already manifested or were imminent:
+
+1. **Race-prone flat files** — concurrent `state_sync.py` invocations from cron + a manual run overwrote each other's heartbeat blocks. Postgres `pg_try_advisory_xact_lock` protected sends ([send_gateway.py:840](scripts/send_gateway.py#L840)) but local state had no protection.
+2. **Whole-file context bloat** — Tier 2 loads pulled ~104K tokens just to answer "what did we do last week?". The agent regularly burned 4-5× the context it needed before producing the first useful sentence.
+3. **Live secret leak** — the 2026-05-06 plaintext-Stripe-key incident in `%APPDATA%\Antigravity\User\mcp.json` proved the LLM-readable secret surface was a live exploit path, not a theoretical one.
+
+V6.0 closes all three with single-machine SQLite WAL, FTS5 chunk retrieval, and the hook-fenced execution layer. Multi-machine sync (Litestream / rqlite) is deliberately out of scope until 4+ agents run on different hosts; current load is single-machine.
+
+---
 
 ## V5.6 — Outbound Communication Chokepoint (2026-04-20)
 
@@ -213,6 +291,18 @@ activation_score = (recency × 0.3) + (frequency × 0.4) + (confidence × 0.3)
 Frequency is weighted highest (0.4) because frequently-used patterns are the ones most likely to be relevant again. Recency (0.3) captures temporal relevance. Confidence (0.3) ensures unreliable memories aren't surfaced at high priority.
 
 This scoring means a highly-validated pattern used regularly is surfaced faster than a recent but speculative observation. The Supabase `skill_activation` table tracks access counts per pattern and SOP, feeding these weights.
+
+### V6.0 Retrieval Layer (replaces whole-file context loads)
+
+The five-tier model above describes WHERE memories live. The V6.0 retrieval layer changes HOW they enter context.
+
+Instead of `Read memory/MISTAKES.md` (157 lines, ~6KB) on every recall, the agent runs `python scripts/memory_retriever.py query "stripe refund"` and gets back ranked snippets with file:line refs in <10ms. The FTS5 index (`state/memory_index.db`) covers `memory/`, `skills/`, `brain/`, and the five entry-point markdown files — 224 sources / 2,800+ chunks at the time of writing.
+
+**Token impact:** a Tier 2 standard load that used to inject ~104K tokens now resolves to ≤1500 tokens of targeted snippets. The agent reads the FULL file only when the snippet's heading suggests context outside the chunk window matters.
+
+**Index freshness:** a `PostToolUse` hook runs `memory_retriever.py update` after every Edit/Write inside the indexed scopes. Update is incremental — files unchanged since their hash was last recorded are skipped.
+
+**Architectural rule (mirrors the V5.5 dual-write rule):** queries hit the FTS5 index first; whole-file reads are an escalation, not a default. `brain/AGENT_ROUTER.md` directs every operator request through this path. See the V6.0 Pillar 2 section above for the full retrieval contract.
 
 ---
 
@@ -430,6 +520,82 @@ If an exposed credential is detected anywhere:
 5. Verify zero instances remain before resuming
 
 The response is fast and deterministic. No judgment calls, no "maybe it's fine."
+
+### V6.0 Hook-Fenced Execution Layer
+
+Single-secrets-file plus RLS plus rotation discipline is the legacy stack. V6.0 adds three Claude Code `PreToolUse` hooks that run BEFORE any tool call reaches its destination — the LLM cannot route around them.
+
+| Tool matcher | Hooks (in order) | What gets blocked |
+|--------------|------------------|-------------------|
+| `Bash` | `secret_guard` → `exec_guard` | Secret exfiltration commands; destructive SQL/shell; chained-command bypasses; force-push to main |
+| `Read` | `secret_guard` | Read of `.env*`, `*.pem`, `*.key`, `credentials.json`, `secrets/` |
+| `Edit` / `Write` / `MultiEdit` / `NotebookEdit` | `secret_guard` → `state_guard` | Edit on secret files; edit on auto-generated state mirrors |
+
+Each guard is gated by an env var (`EMPIRE_HOOK_{SECRET,EXEC,STATE}_GUARD` ∈ `enforce` / `report` / `off`). Default safe-mode for fresh installs: secret=`enforce` (lowest false-positive risk), exec=`report` (14-day soak), state=`off` (until V6.0 cutover). Cloud installs flip all three to `enforce`. Every block writes a JSONL audit row to `state/{guard}.log`.
+
+Hook commands are anchored to `${CLAUDE_PROJECT_DIR}` so they resolve correctly no matter what directory Bash is operating in — a `cd` mid-session can never break the hooks.
+
+**The threat model:** the LLM itself, not a remote attacker. Prompt injection forces the LLM to attempt destructive or exfiltration ops; the hooks catch them before the tool layer fires. The V5.5 protocol said "agents shouldn't read .env.agents." V6.0 says "agents CAN'T."
+
+### Secret Loader (CLI-tool-only credential access)
+
+Scripts that need credentials no longer parse `.env.agents` themselves. They import `from lib.secret_loader import load_env`. The loader:
+
+- Reads `.env.agents` once per process and caches in module scope.
+- **Refuses to load** if the calling script lives in `tmp/` (LLM-written one-off scripts can't harvest secrets).
+- **Refuses to load** if `PYTHONINSPECT=1` is set or the process is interactive (`python -i`).
+- Logs every access to `state/secret_access.log` with `{ts, caller_path, keys_accessed}` for audit.
+
+The CLI tool wrappers (`stripe_tool.py`, `supabase_tool.py`, `google_tool.py`, `n8n_tool.py`, `late_tool.py`, etc.) are the only path the agent uses to touch credentials. They load via the secret_loader, make their API call, and return ONLY a sanitized JSON payload — never the raw key, never an `Authorization` header, never a refresh token. Errors run through `lib/safe_error.scrub_traceback()` before display.
+
+### Scoped Env Fan-Out (Defense in Depth)
+
+The setup wizard generates three per-service env files at install time, each containing only the keys that service needs:
+
+- `.env.agents.core` — every key (Bravo's autonomous loop needs the full set)
+- `.env.agents.webhook` — Stripe webhook secret + Supabase + Telegram + EMPIRE_* (no Anthropic, no service-role)
+- `.env.agents.dashboard` — public Supabase anon key + STATE_API_URL only (zero secrets)
+
+Docker Compose mounts the per-service file via `env_file:`. A single-service RCE in `bravo-webhook` cannot exfiltrate Anthropic or service-role keys because they're not in that container's environment. The master `.env.agents` is excluded from `.dockerignore` and never copied into any container layer.
+
+### Regression Suite (`tests/test_hook_regression.py` + `tests/test_exec_override.py`)
+
+Every known bypass is locked behind a pytest case — 121 tests across two files:
+- **`test_hook_regression.py`** (109): per-vector behavior of `secret_guard` / `exec_guard` / `state_guard` including all three Codex Critical findings (scoped-env fan-out leak, shell-redirect bypass, chained-command leak past the read-only fast-path) and five self-review follow-ups.
+- **`test_exec_override.py`** (12): full lifecycle of the operator-approval override flow — auto-request creation, approve→retry, single-use enforcement, hash-binding, expiry, non-TTY refusal, secret_guard / state_guard exemption, HMAC tamper rejection, idempotent dedup, deny-then-block, CLI `list`.
+
+New Codex findings become CODEX-tagged vectors in the per-vector file.
+
+### Operator-Approval Override Flow (BUILD 4, 2026-05-10)
+
+Regex/AST guards eventually false-positive on a legitimate command. Without an escape hatch, the agent gets stuck and the operator has to flip `EMPIRE_HOOK_EXEC_GUARD=off` — too coarse, opens the entire fence. BUILD 4 introduces a surgical, human-in-the-loop alternative.
+
+**Flow (request → approve → consume):**
+
+1. `exec_guard` blocks a command.
+2. Hook auto-creates `override_request` row in `state/empire_state.db` (status: `pending`, TTL: 5 min, idempotent on `command_hash`). The `request_id` is included in stderr alongside the block reason.
+3. Operator from an interactive terminal: `python scripts/exec_override.py approve req-7fed684e [--reason "..."]`. Helper validates the parent is a TTY (refuses LLM-spawned subprocesses), HMAC-signs the row, marks `status='approved'`.
+4. Agent retries the SAME command. `exec_guard` calls `state_manager.find_fresh_approval(cmd)` → finds the approved+signed row → atomically consumes it (`status='consumed'`, `consumed_at=now`) → allows the call.
+5. Subsequent attempts at the same command create a new request — single-use is the contract.
+
+**Five hard rules** (built into the validator, not just policy):
+
+| Rule | Mechanism |
+|------|-----------|
+| Single-use | `consume_override_request()` updates only when `status='approved'`; second caller gets False |
+| Hash-bound | `sha256(command)` is the lookup key; different commands cannot share an approval |
+| Time-limited | Default 5 min TTL, max 1 hour; expired rows are skipped at lookup |
+| HMAC-signed at rest | Sig over `id\|hash\|expires_at`; tampering invalidates — defends against DB-level forgery if the guards ever leak |
+| TTY-only approval | `is_tty_caller()` heuristic (stdin, `CLAUDE_HOOK_FIRED`, `EMPIRE_OVERRIDE_FORCE_TTY` bypass for CI); LLM in a Bash tool call cannot approve its own request |
+
+**Override applies to `exec_guard` only.** Approving a command that `secret_guard` or `state_guard` would block has zero effect — those guards never consult the override table. Credentials stay LLM-unreadable; auto-generated state mirrors stay protected. Tested explicitly (`test_exec_override.test_07/test_08`).
+
+**Audit trail:**
+- Every block emits a row to `state/exec_guard.log` with the new `override_request_id` for cross-reference.
+- Every successful override use emits `decision: "allowed-via-override"` with the `request_id`.
+- Every approval / denial is a `state_transaction` row in `empire_state.db`.
+
+**See also:** `skills/exec-override/SKILL.md` (operator workflow), `state/migrations/003_override_requests.sql` (schema), `scripts/lib/override_crypto.py` (HMAC + TTY detection + lazy key bootstrap).
 
 ---
 

@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-10T07:39:41.445941+00:00",
-  "script_count": 82,
-  "entry_count": 306,
+  "generated_at_iso": "2026-05-10T08:25:36.898150+00:00",
+  "script_count": 83,
+  "entry_count": 311,
   "entries": [
     {
       "key": "agent_heartbeat",
@@ -619,6 +619,41 @@
       "subcmd": "tail",
       "mutating": false,
       "help": "Bravo V6.0 \u2014 Event Bus (publisher + subscriber) \u2014 subcommand: tail"
+    },
+    {
+      "key": "exec_override_list",
+      "path": "scripts/exec_override.py",
+      "subcmd": "list",
+      "mutating": false,
+      "help": "V6 BUILD 4 \u2014 operator-approval CLI for the override flow. \u2014 subcommand: list"
+    },
+    {
+      "key": "exec_override_approve",
+      "path": "scripts/exec_override.py",
+      "subcmd": "approve",
+      "mutating": true,
+      "help": "V6 BUILD 4 \u2014 operator-approval CLI for the override flow. \u2014 subcommand: approve"
+    },
+    {
+      "key": "exec_override_deny",
+      "path": "scripts/exec_override.py",
+      "subcmd": "deny",
+      "mutating": false,
+      "help": "V6 BUILD 4 \u2014 operator-approval CLI for the override flow. \u2014 subcommand: deny"
+    },
+    {
+      "key": "exec_override_status",
+      "path": "scripts/exec_override.py",
+      "subcmd": "status",
+      "mutating": false,
+      "help": "V6 BUILD 4 \u2014 operator-approval CLI for the override flow. \u2014 subcommand: status"
+    },
+    {
+      "key": "exec_override_cleanup",
+      "path": "scripts/exec_override.py",
+      "subcmd": "cleanup",
+      "mutating": false,
+      "help": "V6 BUILD 4 \u2014 operator-approval CLI for the override flow. \u2014 subcommand: cleanup"
     },
     {
       "key": "financial_model_unit_economics",
