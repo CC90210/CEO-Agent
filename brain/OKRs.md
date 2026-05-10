@@ -9,13 +9,13 @@ tags: [brain, okrs, strategy, quarterly]
 
 ## Objective 1: Hit $5,000 USD Net MRR and Diversify Revenue
 
-**Why:** Current 94% concentration on primary retainer is an existential risk. Hitting $5K MRR with diversification proves the business model works beyond one client.
+**Why:** Current 94% concentration on a single retainer client is an existential risk. Hitting $5K MRR with diversification proves the business model works beyond one client.
 
 | # | Key Result | Target | Current | Confidence | Status |
 |---|-----------|--------|---------|------------|--------|
 | 1.1 | Net MRR reaches $5,000 USD | $5,000 | $2,982 | 60% | IN PROGRESS |
 | 1.2 | Close 4+ new OASIS retainer clients | 4 clients | 0 | 40% | NOT STARTED |
-| 1.3 | No single client exceeds 60% of revenue | <60% | 94% (primary retainer) | 30% | NOT STARTED |
+| 1.3 | No single client exceeds 60% of revenue | <60% | 94% (top retainer) | 30% | NOT STARTED |
 | 1.4 | Pipeline has 15+ qualified leads | 15 leads | TBD | 50% | IN PROGRESS |
 
 **Weekly Check-In Questions:**

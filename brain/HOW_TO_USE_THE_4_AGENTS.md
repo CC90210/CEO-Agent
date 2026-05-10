@@ -181,7 +181,7 @@ CC → Bravo: "/briefing"
 Bravo reads all 3 sibling pulses
 Bravo synthesizes: MRR, runway, active campaigns, #1 priority
 Bravo surfaces: "Maven needs spend approval from Atlas, runway is tight, 
-                primary retainer payment posted, #1 priority today = Lafreniere demo at 3pm"
+                primary-retainer payment posted, #1 priority today = Lafreniere demo at 3pm"
 Aura (parallel): "Good morning. You slept 7.2hr. Gym streak 4 days. 
                   CC's creative-studio mode auto-enables at 9am per schedule."
 ```

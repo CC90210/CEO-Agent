@@ -195,7 +195,7 @@ Transform any website into structured CLI commands via browser automation. Compl
 This is a common point of confusion. They serve **different jobs**:
 
 - **Playwright (MCP)** — stateless, ephemeral browser. New context per call, no login persistence. Best for: scraping public pages, signup-flow testing as anonymous user, headless CI checks. Spins up fresh Chromium/Firefox/WebKit on demand.
-- **Browser Harness** — attaches to your **actual logged-in Chrome** via CDP port 9222. Persistent cookies, real session, your real LinkedIn/Skool/primary retainer-platform login. Best for: running tasks AS YOU while you sleep (DM replies, community posts, member-list pulls). Houses `browser/domain-skills/` — recorded recipes for sites you actually use.
+- **Browser Harness** — attaches to your **actual logged-in Chrome** via CDP port 9222. Persistent cookies, real session, your real LinkedIn / Skool / community-platform login. Best for: running tasks AS YOU while you sleep (DM replies, community posts, member-list pulls). Houses `browser/domain-skills/` — recorded recipes for sites you actually use.
 
 **Rule of thumb:** if the task could be done by anyone (scrape, test, fetch) → Playwright. If the task has to be done as you (logged in, your account, your reputation) → Browser Harness. The dispatcher in `computer_control.py browser` exposes this choice via `scrape` vs `do-as-me`.
 

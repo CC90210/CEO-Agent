@@ -16,7 +16,7 @@ purpose: The single honest checklist that gates whether Bravo's operating system
 | Domain | Score | Evidence |
 |---|---|---|
 | **Proof of self-use** | **2/10** | Bravo is built. Skool daemon runs. But the content engine has never shipped a daily video. The sales-closing skill has never reviewed a real call transcript. The CRM has 4 leads total. |
-| **Revenue proof** | **3/10** | $3,322 MRR exists, but $2,951 of it is primary retainer (one friend referral, not a cold-closed retainer). System has not generated a net-new OASIS retainer independently. |
+| **Revenue proof** | **3/10** | $3,322 MRR exists, but $2,951 of it is the primary retainer (one friend referral, not a cold-closed retainer). System has not generated a net-new OASIS retainer independently. |
 | **Deliverable clarity** | **4/10** | Skills exist. Workflows exist. But the "what does a client get on day 1" doc does not. No onboarding flow. No demo env. No client-facing dashboard. |
 | **Sanitization** | **1/10** | Brain/SOUL.md is literally CC's identity. USER.md is CC's personal profile. Content-strategy.md is CC's voice. Entire system is CC-specific — cloning = 60+ files of search-and-replace. |
 | **Credential scaffolding** | **3/10** | `.env.agents` exists but is single-tenant. No per-client key namespacing. No secrets rotation protocol. No tenant isolation in Supabase. |
@@ -24,7 +24,7 @@ purpose: The single honest checklist that gates whether Bravo's operating system
 | **Pricing model** | **2/10** | "Some kind of retainer" is not a pricing model. No SKUs. No tiers. No delivery SLA. No what's-included vs what's-extra. |
 | **Support story** | **0/10** | If a client's Bravo breaks at 2am, who fixes it? There is no answer. |
 | **Legal / contract** | **0/10** | No client contract template. No DPA. No terms. No liability cap. No CASL compliance per client. |
-| **Testimonial readiness** | **0/10** | Zero testimonials from having used Bravo to generate client revenue (primary retainer testimonial is coaching partnership, different product). |
+| **Testimonial readiness** | **0/10** | Zero testimonials from having used Bravo to generate client revenue (the existing testimonial from the primary retainer is for a coaching partnership, different product). |
 
 **Overall: 15/100.** This is not a ready-to-clone product. It is a working prototype CC uses on himself — barely.
 
@@ -46,8 +46,8 @@ The current CRM state is: 1 new, 2 dead (March 19 — over 3 weeks stale), 1 won
 ### 4. $29 is killing $29,000
 Zernio free plan hit 20 posts/month on April 4. CC pays $140/mo for Claude Pro but not $29 for Zernio. The content engine cannot distribute what Zernio won't schedule. That $29 is blocking the single highest-leverage inbound funnel. It's not frugality — it's friction in the wrong place.
 
-### 5. primary retainer is 93% of revenue
-This is catastrophic concentration risk. If primary retainer goes cold next month, CC drops to $822 MRR — less than rent in most Canadian cities. The "4 retainers by April 30" stretch target is not ambitious, it's **survival**.
+### 5. The primary retainer is 93% of revenue
+This is catastrophic concentration risk. If the primary retainer goes cold next month, CC drops to $822 MRR — less than rent in most Canadian cities. The "4 retainers by April 30" stretch target is not ambitious, it's **survival**.
 
 ### 6. Cloning for clients is the wrong next move
 CC's instinct is to productize Bravo for clients. That's the CEO brain kicking in early. But the right sequence is:

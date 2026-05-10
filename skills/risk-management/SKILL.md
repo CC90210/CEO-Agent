@@ -99,10 +99,10 @@ Identify, assess, and mitigate risks before they become crises. A CEO who only r
 - Security breach detected → halt operations, secure credentials
 - Payment failure (Stripe) → alert CC, prepare manual invoice
 - Legal notice received → document everything, recommend counsel
-- primary retainer churn signal → activate retention playbook immediately
+- Primary retainer churn signal → activate retention playbook immediately
 
 ### Tier 4: BUSINESS CONTINUITY (Existential risk)
-- primary retainer churns (94% revenue loss) → Execute diversification emergency plan:
+- Primary retainer churns (94% revenue loss) → Execute diversification emergency plan:
   1. Activate all pipeline leads immediately
   2. Reduce expenses to minimum ($184/mo overhead)
   3. Launch aggressive outreach campaign (50 prospects/week)
@@ -114,9 +114,9 @@ Identify, assess, and mitigate risks before they become crises. A CEO who only r
   3. Contact list for emergency handoff to Adon
   4. 90-day runway at minimum burn
 
-## primary retainer Churn Contingency (Detailed)
+## Top-Client Churn Contingency (Detailed)
 
-Since primary retainer represents 94% of revenue, this scenario gets its own playbook:
+Since the primary retainer represents 94% of revenue, this scenario gets its own playbook:
 
 **Early Warning Signs:**
 - Response time increasing (>48 hours)
@@ -125,14 +125,14 @@ Since primary retainer represents 94% of revenue, this scenario gets its own pla
 - Skipped or shortened check-in calls
 - Payment delays (even 1-2 days is a signal at this concentration)
 
-**If primary retainer Shows Warning Signs:**
+**If the Primary Retainer Shows Warning Signs:**
 1. Immediate proactive value demonstration — send metrics summary, ROI proof
 2. Schedule in-person or video call (not email — too easy to ignore)
 3. Ask directly: "Is there anything about the engagement that's not working?"
 4. Prepare 3 response plays: (A) Adjust scope/pricing, (B) Add value, (C) Lock in with longer commitment
 5. Simultaneously accelerate pipeline — close 2-3 new clients within 30 days
 
-**If primary retainer Churns:**
+**If the Primary Retainer Churns:**
 1. Immediate: Cut non-essential expenses, preserve 3-month runway
 2. Week 1: Contact all warm leads, launch 25+ cold outreach emails
 3. Week 2: Offer reduced-rate "onboarding special" to fast-track new clients

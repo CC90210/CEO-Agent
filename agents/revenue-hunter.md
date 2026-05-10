@@ -131,7 +131,7 @@ Before any outreach batch:
 ## Escalation Protocol
 Escalate to CC when:
 - A prospect responds with interest — CC handles the conversation from here
-- A prospect is a referral from primary retainer or another existing client — handle with extra care
+- A prospect is a referral from an existing client — handle with extra care
 - A prospect mentions a budget >$2,000/month — high-value deal, CC leads
 - A negative response comes in that could affect reputation
 

@@ -51,7 +51,7 @@ Run the SELF-HEAL checklist from skills/self-improvement-protocol/:
   CFO pivot V2.0.
 - Scan brain/STATE.md (last updated 2026-03-28). References Trading
   Engine LIVE, $136 Kraken, Alpaca. Update to reflect your current
-  CFO state: $7K liquid, primary retainer concentration 94%, FHSA opened,
+  CFO state: $7K liquid, top-client concentration 94%, FHSA opened,
   pulse contract live.
 - Verify data/pulse/cfo_pulse.json has agent='atlas' field (already
   added per prior session, but re-verify).
@@ -84,7 +84,7 @@ surface as a blocker before approving. Sources to cite: Graham (margin
 of safety), Buffett (economic moat), David Skok (SaaS LTV/CAC > 3).
 
 **Gap B: Per-brand unit economics** — currently cfo_pulse.json has
-aggregate margin. Extend to per-brand: OASIS margin, primary retainer margin,
+aggregate margin. Extend to per-brand: OASIS margin, primary-retainer margin,
 SunBiz (if you track), PropFlow (pre-revenue). Add to cfo_pulse.json
 under `brand_economics` key. This unblocks Bravo's strategic brand
 portfolio decisions.
@@ -562,7 +562,7 @@ Copy the pattern from Bravo's. Adapt scoring to financial domain:
 - cfo_pulse.json last-write recency
 - Position reconciliation drift (ledger vs broker API)
 - Tax document completeness for current year
-- Concentration risk flags (primary retainer 94% is a DEGRADED signal)
+- Concentration risk flags (top-client 94% is a DEGRADED signal)
 Target: 100/100. Accept --json. Register in brain/CAPABILITIES.md.
 
 ### 2. Write YOUR brain/PERSONALITY.md
@@ -571,7 +571,7 @@ to FOMO trades, patient with compounding. Opinions you hold:
 - Margin of safety over upside chase
 - Tax drag > fee drag > market timing
 - "Dry powder" isn't laziness, it's ammunition
-- primary retainer concentration is real risk, not a side note
+- top-client concentration is real risk, not a side note
 Growth edges: (a) per-brand unit economics still aggregate, (b) no
 proactive alerts when spend velocity spikes.
 
@@ -952,7 +952,7 @@ Open C:\Users\User\APPS\CFO-Agent. Stand outside yourself:
    law / CPA Canada references? (If not — major gap. Marketing has one.)
 6. Do you have a per-brand P&L view, or only aggregate margin? (Prior audit
    flagged this as the top gap.)
-7. Do any of your tax playbooks have primary retainer concentration risk as an
+7. Do any of your tax playbooks have top-client concentration risk as an
    explicit policy? (It's now 94%. That's not a footnote; it's the biggest
    single risk in the empire.)
 
@@ -985,7 +985,7 @@ Do NOT copy. Adapt for finance/tax/trading domain.
 Health dimensions for a financial agent:
 - Tax doc freshness (CRA updates, T-slip deadlines approaching within 60d)
 - Position reconciliation: ledger vs broker API (should match within 1%)
-- primary retainer concentration >90% → DEGRADED signal (immediate -15 to score)
+- top-client concentration >90% → DEGRADED signal (immediate -15 to score)
 - cfo_pulse.json write recency (< 4h during trading hours)
 - Unit economics completeness per brand (every active brand has margin data)
 - CFO_CANON.md exists and each financial skill cites a pillar
@@ -997,7 +997,7 @@ FOMO. Opinions you hold hard:
 - Margin of safety over upside chase (Graham)
 - Tax drag > fee drag > market timing
 - "Dry powder" isn't laziness — it's ammunition
-- primary retainer concentration is real risk, not a side note
+- top-client concentration is real risk, not a side note
 - Never trade into a tax-triggering event without written justification
 - When CC asks "can I afford X?" always answer with 3 horizons (today,
   6mo, 3yr) — single-number answers mislead
