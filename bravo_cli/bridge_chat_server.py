@@ -60,7 +60,7 @@ try:
         all_resolved,
         under_root,
     )
-    from .warm_claude_pool import use_or_create as _warm_use_or_create, pool_status as _warm_pool_status
+    from .warm_claude_pool import use_or_create as _warm_use_or_create, pool_status as _warm_pool_status, chat_lean_args as _warm_chat_lean_args
 except ImportError:
     _here = Path(__file__).resolve().parent
     if str(_here) not in sys.path:
@@ -73,6 +73,7 @@ except ImportError:
     )
     from warm_claude_pool import use_or_create as _warm_use_or_create  # type: ignore
     from warm_claude_pool import pool_status as _warm_pool_status  # type: ignore
+    from warm_claude_pool import chat_lean_args as _warm_chat_lean_args  # type: ignore
 
 PORT = int(os.environ.get("BRAVO_BRIDGE_PORT", "9100"))
 ANTHROPIC_API = "https://api.anthropic.com/v1/messages"
@@ -1461,6 +1462,10 @@ class _ChatHandler(BaseHTTPRequestHandler):
             "--max-turns", "12",
             "--setting-sources", "project,local",
         ]
+        # Boot-context strip — see warm_claude_pool.chat_lean_args() for
+        # the measured 87% drop in cache_creation_input_tokens (50k → 6.6k).
+        # Splice before --resume so resume args (if any) come last.
+        args.extend(_warm_chat_lean_args())
         # Latency win: if the dashboard provided a session_id from a prior
         # turn, pass --resume so claude skips cold context-load. First turn
         # mints a new session (claude assigns the id and we surface it via

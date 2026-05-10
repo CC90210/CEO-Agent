@@ -65,6 +65,59 @@ _POOL_IDLE_TIMEOUT_S = int(os.environ.get("BRAVO_WARM_IDLE_S", str(15 * 60)))
 _REAPER_STARTED = False
 
 
+# ─────────────────────────────────────────────────────────────────────
+# Chat-lean spawn args — strip MCP servers + slash commands from the
+# system prompt for the chat path. Measured 2026-05-10:
+#
+#   Default boot (all MCPs + skills):     ~50,000 cache_creation tokens
+#   With --strict-mcp-config (empty):     ~28,940 cache_creation tokens
+#   + --disable-slash-commands:           ~6,662 cache_creation tokens (87% drop)
+#
+# Why it's safe: the chat agent uses the built-in Read/Edit/Write/Bash/
+# Glob/Grep tools. Bash is the universal escape hatch — anything an MCP
+# does can also be invoked via `python scripts/<tool>.py`. Skills are
+# valuable but the agent can still read individual SKILL.md files via
+# Read on demand; what gets stripped is the auto-list of all skills in
+# the system prompt.
+#
+# Override knobs (env vars):
+#   OASIS_CHAT_FULL_BOOT=1       — restore the heavy default boot
+#                                  (full MCPs + slash commands enabled)
+#   OASIS_CHAT_MCP_CONFIG=<path> — point at a non-empty MCP config to
+#                                  selectively keep some MCPs (e.g.
+#                                  `~/.oasis/chat-mcp.json` with just
+#                                  supabase + playwright)
+# ─────────────────────────────────────────────────────────────────────
+CHAT_MCP_CONFIG_PATH = Path.home() / ".oasis" / "chat-mcp.json"
+
+
+def _ensure_chat_mcp_config() -> None:
+    """Write the empty MCP config if it doesn't exist. Idempotent."""
+    try:
+        CHAT_MCP_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        if not CHAT_MCP_CONFIG_PATH.exists():
+            CHAT_MCP_CONFIG_PATH.write_text('{"mcpServers": {}}', encoding="utf-8")
+    except Exception:
+        # Permissions issue / read-only home / etc — non-fatal. The
+        # spawn will still work, just without --mcp-config injection.
+        pass
+
+
+def chat_lean_args() -> list[str]:
+    """Returns the args slice that strips MCPs + slash commands. Empty
+    list when OASIS_CHAT_FULL_BOOT=1. Both warm + cold paths splice
+    this into their spawn args."""
+    if os.environ.get("OASIS_CHAT_FULL_BOOT") == "1":
+        return []
+    _ensure_chat_mcp_config()
+    mcp_path = os.environ.get("OASIS_CHAT_MCP_CONFIG") or str(CHAT_MCP_CONFIG_PATH)
+    out: list[str] = []
+    if Path(mcp_path).is_file():
+        out.extend(["--mcp-config", mcp_path, "--strict-mcp-config"])
+    out.append("--disable-slash-commands")
+    return out
+
+
 def _resolve_claude_bin() -> Optional[str]:
     bin_path = shutil.which("claude")
     if bin_path:
@@ -178,6 +231,10 @@ class WarmClaudeProcess:
             "--max-turns", "12",
             "--setting-sources", "project,local",
         ]
+        # Boot-context strip — see chat_lean_args() docstring for the
+        # measured 87% drop in cache_creation_input_tokens. Splice
+        # before --resume so resume args (if any) come last.
+        args.extend(chat_lean_args())
         if resume_session_id:
             args.extend(["--resume", resume_session_id])
 
