@@ -302,8 +302,8 @@ def fetch_clients(db_client) -> list[dict]:
     return [
         {
             "id": "demo-001",
-            "name": "Bennett Community (Demo)",
-            "company": "Bennett Community",
+            "name": "Demo Community Client",
+            "company": "Demo Community",
             "status": "client",
             "monthly_value": 2500,
             "payment_days_late": 0,

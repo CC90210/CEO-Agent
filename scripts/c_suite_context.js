@@ -206,7 +206,7 @@ function loadCSuiteSnapshot(opts = {}) {
     }
 
     return `${HEADER}
-- BRAVO (CEO) — C:\\Users\\User\\Business-Empire-Agent — strategy, clients, revenue, cold outreach, Bennett/Skool, calendar
+- BRAVO (CEO) — C:\\Users\\User\\Business-Empire-Agent — strategy, clients, revenue, cold outreach, community, calendar
 - ATLAS (CFO) — C:\\Users\\User\\APPS\\CFO-Agent — tax, accounting, runway, research, portfolio advisory; writes cfo_pulse.json
 - MAVEN (CMO) — C:\\Users\\User\\CMO-Agent — paid ads (Meta+Google), social (Late/Zernio), Instagram, content pipeline, brand voice
 - AURA (Life/Home) — C:\\Users\\User\\AURA — smart home, habits, presence, life context${FOOTER}`;

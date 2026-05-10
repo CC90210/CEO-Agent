@@ -115,7 +115,7 @@ const DRILLS: Drill[] = [
     chat: {
       agent: "atlas",
       prompt:
-        "Today's MRR delta + how we got it. Source breakdown: Stripe one-offs, recurring, Bennett rev share, Skool growth. If positive, name what to scale tomorrow. If flat or negative, name the one revenue lever I should pull. Be specific to my $5K target by May 15.",
+        "Today's MRR delta + how we got it. Source breakdown: Stripe one-offs, recurring retainers, rev shares, community growth. If positive, name what to scale tomorrow. If flat or negative, name the one revenue lever I should pull. Be specific to my $5K target by May 15.",
     },
     link: { href: "/", label: "Today" },
     icon: TrendingUp,

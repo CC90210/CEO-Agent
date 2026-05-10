@@ -1,13 +1,13 @@
 ---
-tags: [knowledge, wiki, revenue, mrr, pricing, bennett]
+tags: [knowledge, wiki, revenue, mrr, pricing, retainer]
 sources: [brain/STATE.md, brain/USER.md]
-last_updated: 2026-04-06
+last_updated: 2026-05-09
 confidence: 0.92
 ---
 
 # Revenue Model — MRR Breakdown and Path to $5K
 
-> Full picture of how revenue works today, the Bennett relationship, and what's needed to hit $5K MRR.
+> Full picture of how revenue works today, the primary retainer relationship, and what's needed to hit $5K MRR.
 > [[knowledge/index]] | [[knowledge/wiki/ai-automation-agency]] | [[knowledge/wiki/client-playbook]]
 
 ## North Star
@@ -23,22 +23,23 @@ Pace required: ~1 new client per week for 6 weeks.
 
 | Revenue Stream | Amount (USD/mo) | Type | Notes |
 |----------------|-----------------|------|-------|
-| OASIS base retainers | $191 | Recurring | Existing non-Bennett clients |
-| Bennett flat fee | $2,500 | Recurring | Agency Accelerator community management |
-| Bennett rev share | $291 | Recurring (variable) | 15% of $1,940 Skool community MRR |
+| OASIS base retainers | $191 | Recurring | Existing small retainers (non-primary) |
+| Primary retainer flat fee | $2,500 | Recurring | Community-management deliverable |
+| Primary retainer rev share | $291 | Recurring (variable) | 15% of $1,940 community MRR |
 | **Total Net MRR** | **$2,982** | — | — |
 
-**Additional one-time:** $3,000 USD upfront (coaching referral — 2 companies Bennett referred)
+**Additional one-time:** $3,000 USD upfront (coaching referral — 2 companies referred via the primary client)
 
-## The Bennett Relationship
+## The Primary Retainer
 
-Bennett runs an Agency Accelerator program via Skool. CC manages the community.
+The largest current revenue stream is a community-management retainer — CC manages a
+paid community on behalf of the client.
 
 **Structure:**
 - $2,500/mo flat fee — paid regardless of community size
-- 15% revenue share on Skool community MRR — scales as community grows
+- 15% revenue share on community MRR — scales as the community grows
 - No formal contract — friend-based relationship
-- Bennett referred 2 coaching clients at $10K upfront each
+- Client has referred 2 coaching prospects at $10K upfront each
 
 **Community metrics (as of 2026-04-04):**
 - 158 members total
@@ -52,7 +53,7 @@ As community grows, rev share grows proportionally.
 At $5,000 community MRR → $750/mo rev share.
 At $10,000 community MRR → $1,500/mo rev share.
 
-**Critical risk:** Bennett represents 93% of total MRR. If Bennett churns, revenue drops to
+**Critical risk:** the primary retainer is ~93% of total MRR. If they churn, revenue drops to
 $191/mo immediately. Diversification is the #1 strategic priority.
 
 ## OASIS AI Retainer Pricing
@@ -78,7 +79,7 @@ net margin approaches 96%.
 | All Starter ($400/mo) | ~5 clients | ~5 weeks |
 | All Growth ($500/mo) | ~4 clients | ~4 weeks |
 | Mix of Starter + Growth | ~4–5 clients | ~4–5 weeks |
-| Bennett rev share growth alone | Community needs ~$22K MRR | Not fast enough |
+| Rev share growth alone | Community needs ~$22K MRR | Not fast enough |
 
 **Recommended path:** Close 4–5 OASIS retainer clients between now and May 15, 2026.
 Inbound funnel (CC Funnel + content) is the primary lead source.
@@ -88,8 +89,8 @@ Cold outreach (NEPQ-style) as secondary source.
 
 | Risk | Mitigation |
 |------|-----------|
-| Bennett loss → -93% MRR | Close 4+ OASIS clients before May 15 |
-| Community growth stalls | CC content drives new Bennett signups |
+| Primary retainer loss → -93% MRR | Close 4+ OASIS clients before May 15 |
+| Community growth stalls | CC content drives new community signups |
 | No-contract churn | Deliver exceptional value each month; relationship-based retention |
 
 ## Historical MRR Trajectory
@@ -102,7 +103,7 @@ Cold outreach (NEPQ-style) as secondary source.
 
 ## Sources
 - `brain/STATE.md` — current MRR, gap analysis, risk flags
-- `brain/USER.md` — CC's financial reality, Bennett context, pricing model
+- `brain/USER.md` — CC's financial reality, primary retainer context, pricing model
 
 ## Obsidian Links
 - [[knowledge/index]] | [[knowledge/wiki/ai-automation-agency]] | [[knowledge/wiki/client-playbook]]

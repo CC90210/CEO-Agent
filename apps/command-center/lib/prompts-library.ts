@@ -2,8 +2,9 @@
  * Prompts Library — canonical prompts for the operator to fire at any agent.
  *
  * Two distinct audiences, per CC's spec:
- *   - operator  — personal to OASIS AI's setup. References Bennett, Adon,
- *                 $5K MRR target, NEPQ, content pillars. Don't ship to clients.
+ *   - operator  — personal to OASIS AI's setup. References specific clients,
+ *                 partners, MRR target, NEPQ, content pillars. Don't ship to
+ *                 clients.
  *   - client    — generic, runs on a client's machine when CC has SSH'd in
  *                 or is walking them through onboarding.
  *   - shared    — works either context.

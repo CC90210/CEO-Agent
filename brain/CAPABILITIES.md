@@ -195,7 +195,7 @@ Transform any website into structured CLI commands via browser automation. Compl
 This is a common point of confusion. They serve **different jobs**:
 
 - **Playwright (MCP)** — stateless, ephemeral browser. New context per call, no login persistence. Best for: scraping public pages, signup-flow testing as anonymous user, headless CI checks. Spins up fresh Chromium/Firefox/WebKit on demand.
-- **Browser Harness** — attaches to your **actual logged-in Chrome** via CDP port 9222. Persistent cookies, real session, your real LinkedIn/Skool/Bennett-platform login. Best for: running tasks AS YOU while you sleep (DM replies, community posts, member-list pulls). Houses `browser/domain-skills/` — recorded recipes for sites you actually use.
+- **Browser Harness** — attaches to your **actual logged-in Chrome** via CDP port 9222. Persistent cookies, real session, your real LinkedIn / Skool / community-platform login. Best for: running tasks AS YOU while you sleep (DM replies, community posts, member-list pulls). Houses `browser/domain-skills/` — recorded recipes for sites you actually use.
 
 **Rule of thumb:** if the task could be done by anyone (scrape, test, fetch) → Playwright. If the task has to be done as you (logged in, your account, your reputation) → Browser Harness. The dispatcher in `computer_control.py browser` exposes this choice via `scrape` vs `do-as-me`.
 
@@ -545,7 +545,7 @@ markdown wiki pages. Deterministic retrieval via `knowledge/index.md` — no emb
 
 **Seeded wiki pages (2026-04-06):**
 - `knowledge/wiki/ai-automation-agency.md` — OASIS AI positioning, ICP, services, pitch
-- `knowledge/wiki/revenue-model.md` — MRR breakdown, Bennett deal, $5K gap analysis
+- `knowledge/wiki/revenue-model.md` — MRR breakdown, primary retainer deal, $5K gap analysis
 - `knowledge/wiki/tech-stack.md` — Full technology inventory, all tools and integrations
 - `knowledge/wiki/client-playbook.md` — Client lifecycle, NEPQ, health scoring, retention
 

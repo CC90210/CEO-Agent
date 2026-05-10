@@ -226,12 +226,12 @@ Define this before you need it. At minimum:
 This is the concrete roadmap from current state to empire, specific to CC's situation.
 
 ### NOW — March 2026 (~$2,982 USD MRR)
-**Current constraint:** Revenue concentration (Bennett = 84% of MRR) and pipeline insufficiency
+**Current constraint:** Revenue concentration (primary retainer = 84% of MRR) and pipeline insufficiency
 
 **Immediate actions:**
 - Close 4-5 new OASIS AI clients at $1,500-$2,500/month to reach $5K MRR
 - Build the inbound content engine (1 post/day on X and LinkedIn) — the single highest-ROI activity
-- Document Bennett's delivery process as an SOP so it can eventually be delegated
+- Document the primary retainer's delivery process as an SOP so it can eventually be delegated
 - Systematize client onboarding so new clients start faster
 
 **What NOT to do at this stage:** Hire, build new products, or optimize for scale before the revenue base is stable.

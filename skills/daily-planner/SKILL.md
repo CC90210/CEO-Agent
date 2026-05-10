@@ -61,7 +61,7 @@ CC said content is #1. Every day should have a content block:
 
 ### Step 3: Revenue Actions
 Priority order:
-1. **Coaching sessions** — If Bennett coaching deal is active, prep/deliver sessions
+1. **Coaching sessions** — If a coaching deal is active, prep/deliver sessions
 2. **Invoices/payments** — Anything due or overdue
 3. **Warm lead follow-up** — Anyone who responded but hasn't been closed
 4. **New outreach** — Only if pipeline is empty and content engine is running

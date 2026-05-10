@@ -26,7 +26,7 @@ PARA (Projects, Areas, Resources, Archives) is the organizing structure for all 
 A project has a deadline and a finish line. When there is no finish line, it is an Area, not a Project.
 
 **What belongs here:**
-- Active client engagements (e.g., "OASIS AI — Bennett onboarding")
+- Active client engagements (e.g., "OASIS AI — Acme HVAC onboarding")
 - Active product launches (e.g., "PropFlow — beta launch March 2026")
 - Active campaigns (e.g., "Q1 outreach campaign — 50 prospects")
 - Active proposals in progress

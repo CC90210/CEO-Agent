@@ -233,7 +233,7 @@ For each planning cycle, define three scenarios before committing resources.
 
 ### CC-Specific Scenarios (Q2 2026)
 
-**Scenario: Bennett churns**
+**Scenario: primary retainer churns**
 - Probability: 10% (friend relationship, no contract risk is low)
 - Revenue impact: -$2,791/mo (drop from $2,982 to $191)
 - Timeline: MRR collapses to $191 immediately

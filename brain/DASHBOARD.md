@@ -11,7 +11,7 @@ aliases:
 
 > **North Star:** $5,000 USD Net MRR by May 15, 2026
 > **Current MRR:** ~$2,871 USD (Stripe $180 + Manual $2,691) | **Gap:** ~$2,129
-> **Risk:** 94% revenue from Bennett — diversification is critical
+> **Risk:** 94% revenue from primary retainer — diversification is critical
 
 ---
 

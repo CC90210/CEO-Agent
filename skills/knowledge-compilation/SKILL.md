@@ -123,7 +123,7 @@ answers. An honest "not compiled yet" is better than a confident wrong answer.
 | "What's OASIS AI's ICP?" | `wiki/ai-automation-agency` |
 | "What stack does PropFlow use?" | `wiki/tech-stack` |
 | "How do we handle at-risk clients?" | `wiki/client-playbook` |
-| "What's the Bennett rev share deal?" | `wiki/revenue-model` |
+| "What's the primary retainer rev share deal?" | `wiki/revenue-model` |
 
 ---
 

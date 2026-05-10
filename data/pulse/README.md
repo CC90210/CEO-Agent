@@ -18,7 +18,7 @@
   "mrr_usd": 2982,
   "mrr_growth_30d_pct": null,
   "clients_active": 3,
-  "clients_top": [{"name": "Bennett", "share_pct": 94}],
+  "clients_top": [{"name": "Top retainer client", "share_pct": 94}],
   "pipeline_qualified_usd": 0,
   "committed_spend_next_30d_cad": 0,
   "next_launch_or_campaign": null,
@@ -63,14 +63,14 @@ Bravo's first `ceo_pulse.json` has not been written yet. Until it exists, Atlas 
   "mrr_growth_30d_pct": null,
   "clients_active": 3,
   "clients_top": [
-    {"name": "Bennett", "share_pct": 94},
+    {"name": "Primary retainer", "share_pct": 94},
     {"name": "Stripe Client A", "share_pct": 3},
     {"name": "Stripe Client B", "share_pct": 3}
   ],
   "pipeline_qualified_usd": 0,
   "committed_spend_next_30d_cad": 0,
   "next_launch_or_campaign": null,
-  "blocker_cfo_needs_to_know": "Bennett concentration at 94% — need 2-3 non-Bennett clients before Montreal move"
+  "blocker_cfo_needs_to_know": "Top-client concentration at 94% — need 2-3 additional retainer clients before Montreal move"
 }
 ```
 

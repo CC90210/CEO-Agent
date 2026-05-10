@@ -14,7 +14,7 @@ Usage:
     python scripts/financial_model.py scenario --type bull
     python scripts/financial_model.py scenario --type bear
     python scripts/financial_model.py concentration
-    python scripts/financial_model.py concentration --clients '{"Bennett": 2791, "Other": 191}'
+    python scripts/financial_model.py concentration --clients '{"Top Client": 2791, "Other": 191}'
     python scripts/financial_model.py runway
     python scripts/financial_model.py runway --cash 15000 --expenses 184
     python scripts/financial_model.py --json <any subcommand>
@@ -33,7 +33,7 @@ from datetime import datetime, timezone
 
 DEFAULT_MRR = 2982.0
 DEFAULT_OVERHEAD = 184.0
-DEFAULT_CLIENTS = 2          # Bennett + base
+DEFAULT_CLIENTS = 2          # primary retainer + base
 DEFAULT_CHURN_RATE = 0.01    # ~1%/mo (no churn to date, using conservative floor)
 DEFAULT_GROSS_MARGIN = 0.94  # 94%
 DEFAULT_CAC = 250.0          # opportunity cost estimate (no paid ads)
@@ -43,7 +43,7 @@ TARGET_DATE = "2026-05-15"
 
 # Default client revenue split for concentration analysis
 DEFAULT_CLIENT_REVENUE = {
-    "Bennett": 2791.0,
+    "Primary retainer": 2791.0,
     "Base (other)": 191.0,
 }
 
@@ -140,7 +140,7 @@ SCENARIOS = {
         "monthly_churn_rate": 0.05,
         "expansion_pct": 0.0,
         "probability": 0.15,
-        "description": "No new clients, Bennett retention but no growth, 5% monthly churn kicks in.",
+        "description": "No new clients, primary retainer holds but no growth, 5% monthly churn kicks in.",
     },
     "base": {
         "label": "Base (realistic)",
@@ -149,7 +149,7 @@ SCENARIOS = {
         "monthly_churn_rate": 0.02,
         "expansion_pct": 0.02,
         "probability": 0.60,
-        "description": "1 new client/month at $1K, low churn, modest expansion from Bennett.",
+        "description": "1 new client/month at $1K, low churn, modest expansion from primary retainer.",
     },
     "bull": {
         "label": "Bull (optimistic)",
@@ -382,7 +382,7 @@ def cmd_concentration(args: argparse.Namespace) -> dict:
             client_revenue = json.loads(args.clients)
             client_revenue = {k: float(v) for k, v in client_revenue.items()}
         except (json.JSONDecodeError, ValueError):
-            return {"error": "Invalid JSON for --clients. Use: '{\"Bennett\": 2791, \"Other\": 191}'"}
+            return {"error": "Invalid JSON for --clients. Use: '{\"Top Client\": 2791, \"Other\": 191}'"}
     else:
         client_revenue = DEFAULT_CLIENT_REVENUE
 
@@ -451,9 +451,9 @@ def cmd_runway(args: argparse.Namespace) -> dict:
     runway = calc_runway(cash, burn)
     runway_str = f"{runway:.0f} months" if not math.isinf(runway) else "inf (profitable)"
 
-    # Worst-case: what if Bennett churns?
-    bennett_revenue = DEFAULT_CLIENT_REVENUE.get("Bennett", 2791.0)
-    post_churn_mrr = max(mrr - bennett_revenue, 0)
+    # Worst-case: what if the primary retainer churns?
+    primary_revenue = DEFAULT_CLIENT_REVENUE.get("Primary retainer", 2791.0)
+    post_churn_mrr = max(mrr - primary_revenue, 0)
     post_churn_net = post_churn_mrr - expenses
     post_churn_burn = -post_churn_net if post_churn_net < 0 else 0
     post_churn_runway = calc_runway(cash, post_churn_burn)
@@ -468,7 +468,7 @@ def cmd_runway(args: argparse.Namespace) -> dict:
         "runway_months": round(runway, 1) if not math.isinf(runway) else "inf",
         "runway_str": runway_str,
         "worst_case": {
-            "scenario": "Bennett churns",
+            "scenario": "primary retainer churns",
             "remaining_mrr": round(post_churn_mrr, 2),
             "monthly_net": round(post_churn_net, 2),
             "runway_months": round(post_churn_runway, 1) if not math.isinf(post_churn_runway) else "inf",
@@ -486,7 +486,7 @@ def cmd_runway(args: argparse.Namespace) -> dict:
         print(f"  Monthly net:       ${net:,.0f} ({'PROFITABLE' if net >= 0 else 'BURNING'})")
         print(f"  Runway:            {runway_str}")
         print()
-        print("  WORST CASE: Bennett churns today")
+        print("  WORST CASE: primary retainer churns today")
         print(f"    Remaining MRR:   ${post_churn_mrr:,.0f}")
         print(f"    Monthly net:     ${post_churn_net:,.0f}")
         print(f"    Runway:          {post_churn_str}")

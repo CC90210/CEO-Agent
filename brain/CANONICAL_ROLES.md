@@ -35,9 +35,9 @@ CC is in wartime. Every action must close the 1,678 USD gap or protect existing 
 - ICP definition and ownership. Wickman (Traction): the marketing strategy component of Vision --
   who exactly is the ideal client and why. At this scale: HVAC, wellness, and local service
   businesses that value AI automation and pay 800-1,000 USD/mo. Any drift from ICP is a CEO-level correction.
-- Revenue diversification -- Bennett 93% concentration risk is a CEO risk (see brain/RISK_REGISTER.md);
+- Revenue diversification -- the 93% top-client concentration risk is a CEO risk (see brain/RISK_REGISTER.md);
   only the CEO decides when and how to diversify
-- Partnership decisions (Bennett structure, PropFlow with Adon, any future revenue-share arrangements)
+- Partnership decisions (top-retainer structure, PropFlow with Adon, any future revenue-share arrangements)
 - Hiring and delegation -- who is the next person needed? is a CEO question. How much does it cost? is Atlas.
 
 **Operational (daily/weekly):**
@@ -63,8 +63,8 @@ Collins flywheel: each win (client, referral, testimonial) builds momentum; CEO 
 **The E-Myth (Gerber):** Stop being a technician masquerading as a CEO. Build systems that serve
 clients. Never defend margin in conversation -- do the math for the prospect.
 
-**Revenue Diversification (HBR):** No client should exceed 15-20% of revenue. Bennett at 93% is
-a critical risk. Two new clients at 800 USD/mo transforms the risk profile.
+**Revenue Diversification (HBR):** No client should exceed 15-20% of revenue. The current
+top-client at 93% is a critical risk. Two new clients at 800 USD/mo transforms the risk profile.
 
 **Christensen (Innovator Dilemma):** Too many strategic bets = none succeed. Keep 1-2 active bets max.
 
@@ -94,7 +94,7 @@ a critical risk. Two new clients at 800 USD/mo transforms the risk profile.
 
 1. **Technician trap** (Gerber, The E-Myth): spending 80% of time delivering work instead of building
    the system that delivers work. Automation-first for every repeatable task.
-2. **Revenue concentration blindness**: treating Bennett as stable revenue instead of single-point-of-failure.
+2. **Revenue concentration blindness**: treating the top retainer as stable revenue instead of single-point-of-failure.
 3. **ICP drift**: saying yes to any paying client regardless of fit, degrading delivery quality.
 4. **No weekly cadence**: running the business reactively. Wickman Level 10 meetings prevent this.
 5. **Avoiding the hard conversation**: Horowitz is explicit -- the biggest CEO failure is cowardice.
@@ -110,7 +110,7 @@ a critical risk. Two new clients at 800 USD/mo transforms the risk profile.
 The CFO job at sub-1M ARR is: know where every dollar is, protect against sudden death,
 and make sure the government takes only what it must. Benjamin Graham (The Intelligent Investor)
 and Warren Buffett both ground financial discipline in one principle: margin of safety. This means
-Atlas always has an answer to: how many months of runway do we have? And: worst case if Bennett leaves?
+Atlas always has an answer to: how many months of runway do we have? And: worst case if the primary retainer leaves?
 
 ### Core Responsibilities
 
@@ -175,7 +175,7 @@ Atlas always has an answer to: how many months of runway do we have? And: worst 
 | Liquid cash (CAD) | >= 3 months burn |
 | Runway | >= 6 months preferred |
 | Tax reserve | 25-30% of net income set aside quarterly |
-| Revenue concentration risk | Bennett % of total (currently 93% -- CRITICAL) |
+| Revenue concentration risk | Top-client % of total (currently 93% -- CRITICAL) |
 | LTV/CAC by channel | >= 3:1 |
 | Gross margin | >= 70% (AI-augmented services target) |
 | TFSA utilization | 100% of annual room used |

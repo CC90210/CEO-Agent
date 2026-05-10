@@ -330,14 +330,15 @@ export async function integrationsHealth(
 }
 
 // ============================================================================
-// Bennett concentration risk — % of MRR from a single client
+// Top-client concentration risk — % of MRR from a single client
 // ============================================================================
 
 /**
  * Returns the % of MRR concentrated in the operator's biggest client.
- * Hardcoded "Bennett" detection for CC's case; for other tenants it returns
- * the % of MRR in the top-1 won client by lifetime revenue (proxied by
- * lead_interactions count in absence of a true revenue table).
+ * Reads `profile.custom_fields.top_client_name` + `top_client_mrr_usd`
+ * (operators set these in Settings or via scripts/seed_profile.py); for
+ * other tenants without those fields, falls back to the top-1 won client
+ * by score from the leads table.
  *
  * Future-friendly: when revenue_events table lands, swap to that.
  */
@@ -352,8 +353,8 @@ export async function topClientConcentration(tenantId: string): Promise<{
     return { client_name: "—", pct_of_mrr: 0, is_at_risk: false };
   }
 
-  // CC's Bennett split: $2,500 flat + $451 rev share = ~$2,951 of $3,322 = 89%
-  // Other tenants: top won-client by interaction count
+  // For tenants without top_client_* in custom_fields, fall back to the
+  // top-scoring won lead. Operator-configured fields take precedence.
   const db = getServiceSupabase();
   const r = await db
     .from("leads")

@@ -93,7 +93,7 @@ Churned MRR:    Revenue lost from customers who cancelled
 
 Example (CC, March 2026):
 - New MRR: $0 (no new clients)
-- Expansion MRR: +$291 (Bennett rev share grew)
+- Expansion MRR: +$291 (primary retainer rev share grew)
 - Contraction MRR: $0
 - Churned MRR: $0
 - Net MRR: +$291 → $2,982
@@ -129,7 +129,7 @@ NRR > 100% → existing customers are growing faster than they're churning (expa
 NRR = 100% → flat from existing base
 NRR < 100% → churning out faster than expanding
 
-CC's NRR (March 2026): ~110% (Bennett rev share growing)
+CC's NRR (March 2026): ~110% (primary retainer rev share growing)
 ```
 
 ### SaaS Quick Ratio
@@ -251,12 +251,12 @@ HHI 0.2-0.5  → Moderately concentrated — manageable
 HHI < 0.2    → Diversified — healthy
 
 CC current (March 2026):
-  Bennett: $2,791 / $2,982 = 93.6%
+  Primary retainer: $2,791 / $2,982 = 93.6%
   Base (other): $191 / $2,982 = 6.4%
   HHI = (0.936)² + (0.064)² = 0.876 + 0.004 = 0.880
 
 Interpretation: CRITICAL concentration risk.
-One bad call with Bennett = 94% revenue collapse.
+One bad call with the primary retainer = 94% revenue collapse.
 Target by Q3 2026: HHI < 0.5 (add 3+ clients with no single client >40%)
 ```
 
@@ -272,8 +272,8 @@ Target by Q3 2026: HHI < 0.5 (add 3+ clients with no single client >40%)
 ### Revenue (Inflows)
 | Source | Monthly | Notes |
 |--------|---------|-------|
-| Bennett retainer | $2,500 | Flat, invoiced 1st of month |
-| Bennett rev share | ~$291 | 15% × ~$1,940 community MRR |
+| Primary retainer | $2,500 | Flat, invoiced 1st of month |
+| Primary retainer rev share | ~$291 | 15% × ~$1,940 community MRR |
 | Base retainers | $191 | Other clients |
 | One-time projects | $0 | Add when confirmed |
 | **Total Inflows** | **~$2,982** | |
@@ -301,16 +301,16 @@ Target by Q3 2026: HHI < 0.5 (add 3+ clients with no single client >40%)
 
 **Project work:** Recognized on completion of agreed milestones. If multi-month, recognize proportionally.
 
-**RevShare (Bennett):** Recognized monthly based on actual community MRR reported. Volatile — model conservatively.
+**RevShare (primary retainer):** Recognized monthly based on actual community MRR reported. Volatile — model conservatively.
 
 ### Emergency Fund Sizing
 
 ```
 3-month emergency fund = 3 × Monthly Expenses = 3 × $184 = $552 (trivial for CC)
 
-Better emergency metric: Bennett churn buffer
-If Bennett churns tomorrow, how many months until we need to cut costs?
-Cash reserve ÷ Monthly expenses after Bennett churn = $X ÷ $184 = X months
+Better emergency metric: primary-retainer churn buffer
+If primary-retainer churns tomorrow, how many months until we need to cut costs?
+Cash reserve ÷ Monthly expenses after primary-retainer churn = $X ÷ $184 = X months
 
 Build pipeline NOW such that HHI < 0.5 before needing the emergency fund.
 ```
@@ -342,9 +342,9 @@ Current state as of Q1 2026. Update after each `/briefing` run.
 
 ### Key Financial Risks
 
-1. **Client concentration** (HHI 0.88): Bennett is 94% of revenue. No contract. Mitigate by closing 2-3 new clients this quarter.
+1. **Client concentration** (HHI 0.88): the primary retainer is 94% of revenue. No contract. Mitigate by closing 2-3 new clients this quarter.
 2. **No diversification**: All OASIS, no PropFlow or Nostalgic revenue yet. Mitigate with PropFlow MVP launch.
-3. **RevShare volatility**: Bennett's 15% rev share fluctuates with community size. Don't plan expansion from this source.
+3. **RevShare volatility**: the primary retainer's 15% rev share fluctuates with community size. Don't plan expansion from this source.
 
 ### Financial Priorities (Q2 2026)
 
@@ -492,7 +492,7 @@ Month 6: Bear $X | Base $X | Bull $X
 Expected Value (weighted avg) = (Bear × P) + (Base × P) + (Bull × P)
 
 Trigger to shift scenarios:
-  → Bear: [specific event, e.g., "Bennett churns or 0 new clients in April"]
+  → Bear: [specific event, e.g., "primary-retainer churns or 0 new clients in April"]
   → Bull: [specific event, e.g., "2 new clients close in April"]
 ```
 
@@ -517,8 +517,8 @@ Update this monthly. It is the single most important number for a solo operator.
 
 | Source | Month 1 | Month 2 | Month 3 | Notes |
 |--------|---------|---------|---------|-------|
-| Bennett retainer | $2,500 | $2,500 | $2,500 | Flat |
-| Bennett rev share | $451 | $480 | $510 | Growing 6.5%/mo |
+| Primary retainer | $2,500 | $2,500 | $2,500 | Flat |
+| Primary retainer rev share | $451 | $480 | $510 | Growing 6.5%/mo |
 | Other retainers | $191 | $191 | $191 | Stable |
 | New clients | $0 | $500 | $1,000 | 1 new/mo Base |
 | **Total inflows** | **$3,142** | **$3,671** | **$4,201** | |
@@ -541,9 +541,9 @@ Update this monthly. It is the single most important number for a solo operator.
 | Month 2 | $3,487 | $X + $3,487 |
 | Month 3 | $4,017 | $X + $4,017 |
 
-### Runway if Bennett churns tomorrow
-  Monthly expenses without Bennett: $184
-  Monthly revenue without Bennett: ~$191 (other retainers)
+### Runway if primary-retainer churns tomorrow
+  Monthly expenses without primary retainer: $184
+  Monthly revenue without primary retainer: ~$191 (other retainers)
   Net monthly: +$7 (barely cash-flow positive — no buffer)
   Runway: Indefinite on expenses, but zero growth buffer
   → This is why HHI reduction is the #1 financial priority
@@ -601,7 +601,7 @@ Quality Score = (Contracted MRR × 1.0) + (Handshake MRR × 0.7) + (Rev Share MR
 0.65–0.85 → Medium quality (mix of contracted and informal)
 < 0.65 → Low quality (mostly informal — high churn risk)
 
-CC current: ~0.64 (Bennett informal + rev share dominant)
+CC current: ~0.64 (primary-retainer informal + rev share dominant)
 Target: 0.75+ by adding formal contracts to existing clients
 ```
 

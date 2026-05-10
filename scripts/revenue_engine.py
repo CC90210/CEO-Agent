@@ -7,7 +7,7 @@ Usage:
   python scripts/revenue_engine.py mrr
   python scripts/revenue_engine.py dashboard
   python scripts/revenue_engine.py sync-stripe
-  python scripts/revenue_engine.py log-revenue --type payment --amount 500 --source manual --client "Bennett" --notes "March retainer"
+  python scripts/revenue_engine.py log-revenue --type payment --amount 500 --source manual --client "<client name>" --notes "March retainer"
   python scripts/revenue_engine.py log-month --month 2026-03 --mrr 2691 --new-clients 0 --churned 0 --pipeline 5000 --leads 50
   python scripts/revenue_engine.py history [--months 6]
   python scripts/revenue_engine.py forecast
@@ -801,7 +801,7 @@ Examples:
   %(prog)s mrr
   %(prog)s dashboard
   %(prog)s sync-stripe
-  %(prog)s log-revenue --type payment --amount 500 --source manual --client "Bennett" --notes "March retainer"
+  %(prog)s log-revenue --type payment --amount 500 --source manual --client "<client name>" --notes "March retainer"
   %(prog)s log-month --month 2026-03 --mrr 2691 --new-clients 0 --churned 0 --pipeline 5000 --leads 50
   %(prog)s history --months 6
   %(prog)s forecast

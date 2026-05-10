@@ -21,7 +21,7 @@ page_count: 6
 | Page | Slug | Topics Covered | Confidence | Last Updated |
 |------|------|----------------|------------|--------------|
 | [[knowledge/wiki/ai-automation-agency]] | `ai-automation-agency` | OASIS AI positioning, service tiers, ICP, differentiation, pitch | 0.92 | 2026-04-06 |
-| [[knowledge/wiki/revenue-model]] | `revenue-model` | MRR breakdown, pricing, Bennett deal, rev share, $5K target | 0.92 | 2026-04-06 |
+| [[knowledge/wiki/revenue-model]] | `revenue-model` | MRR breakdown, pricing, primary retainer deal, rev share, $5K target | 0.92 | 2026-04-06 |
 | [[knowledge/wiki/tech-stack]] | `tech-stack` | Full technology inventory, all tools, MCPs, CLIs, scripts | 0.90 | 2026-04-06 |
 | [[knowledge/wiki/client-playbook]] | `client-playbook` | How to win clients, onboarding, retention, health scoring | 0.90 | 2026-04-06 |
 | [[../CMO-Agent/brain/VIDEO_PRODUCTION_BIBLE]] (Maven canonical) | `video-production-bible` | AI video stack, transcription, audio, captions, effects, Remotion, FFmpeg | 0.93 | 2026-04-06 |
@@ -32,7 +32,7 @@ page_count: 6
 | Keyword | Relevant Pages |
 |---------|---------------|
 | MRR, revenue, pricing | [[knowledge/wiki/revenue-model]] |
-| Bennett, rev share, coaching | [[knowledge/wiki/revenue-model]] |
+| primary retainer, rev share, coaching | [[knowledge/wiki/revenue-model]] |
 | OASIS AI, agency, services | [[knowledge/wiki/ai-automation-agency]] |
 | ICP, ideal client, target market | [[knowledge/wiki/ai-automation-agency]] |
 | Next.js, Supabase, Stripe, stack | [[knowledge/wiki/tech-stack]] |

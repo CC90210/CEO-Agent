@@ -83,7 +83,7 @@ export const BUSINESS_DOCS: BusinessDoc[] = [
     description: "Revenue by source, costs by category, net. Pulled from Stripe + bank.",
     status: "drafted",
     draft_prompt:
-      "Pull this month's P&L snapshot. Revenue by source (Stripe one-offs, recurring, Bennett rev share, base, other). Costs by category (tools, contractors, ads, hosting). Net. Compare to last month + the 3-month trend. Flag anything weird.",
+      "Pull this month's P&L snapshot. Revenue by source (Stripe one-offs, recurring retainers, rev shares, community subs, base, other). Costs by category (tools, contractors, ads, hosting). Net. Compare to last month + the 3-month trend. Flag anything weird.",
   },
   {
     id: "cfo-runway",

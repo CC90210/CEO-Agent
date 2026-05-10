@@ -49,7 +49,7 @@ Detailed business context for primary brands:
 - Nostalgic Requests: @APPS_CONTEXT/NOSTALGIC_REQUESTS_CLAUDE.md
 - Gritly: @APPS_CONTEXT/GRITLY_CLAUDE.md
 - IG Setter Pro: @APPS_CONTEXT/IG_SETTER_PRO_CLAUDE.md
-- Skool Community (Agency Accelerance / Bennett): @APPS_CONTEXT/SKOOL_COMMUNITY_CLAUDE.md
+- Skool Community (primary community-management retainer): @APPS_CONTEXT/SKOOL_COMMUNITY_CLAUDE.md
 
 ## Session Logging Pattern
 

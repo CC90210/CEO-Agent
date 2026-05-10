@@ -24,7 +24,7 @@ Scaffolding only. No playbooks written yet. Each vertical will get its own `SKIL
 ## Verticals in scope
 
 - `agency/` — Agencies selling AI automation, content ops, fractional CMO
-- `coaching/` — Coaches, course-creators, transformation businesses (Bennett, Agency Accelerance)
+- `coaching/` — Coaches, course-creators, transformation businesses
 - `creator/` — Personal brands monetizing content, community, products
 - `ecommerce/` — Shopify + DTC brands (connects to `APPS/shopify-ad-engine`)
 - `local-service/` — HVAC, landscaping, home services, trades (connects to Gritly)

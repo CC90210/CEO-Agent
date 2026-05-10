@@ -15,8 +15,8 @@ tags: [state, ephemeral]
 | Dimension | Level | Notes |
 |-----------|-------|-------|
 | **Version** | V6.1 | Scaffolding mechanism on top of V6.0 multi-provider + DL stack + V5.6 outbound chokepoint |
-| **Position**| ACTIVE | Community Manager for Bennett's Agency Accelerator + Lead Gen Funnel Operator |
-| **Confidence** | 0.97 | Core automations production-grade. Telegram V15.4 live. Scheduler fixed. Semi-auto outreach deploying. Bennett concentration risk unresolved. |
+| **Position**| ACTIVE | Community Manager for primary retainer client + Lead Gen Funnel Operator |
+| **Confidence** | 0.97 | Core automations production-grade. Telegram V15.4 live. Scheduler fixed. Semi-auto outreach deploying. Top-client concentration risk unresolved. |
 | **Focus Area** | **RESET AND DIVERSIFY REVENUE** | CC is doing a physical/mental reset (quitting weed). Focus is on daily minimums: content creation and cold outreach volume. Target is still $5k MRR by May 15. |
 | **Energy** | RECOVERING | CC reported being in a bad state recently. Reset protocol initiated. Baseline execution only. |
 | **Memory Health** | GOOD | Files current. Knowledge wiki seeded. mem0 live. Fragmentation acknowledged — single-write sync in progress. |
@@ -29,11 +29,11 @@ tags: [state, ephemeral]
 
 > Previous goal ($1,000 USD Net MRR by March 31, 2026) — **ACHIEVED** at $2,691 USD (+169% surplus).
 
-1. **Revenue:** ~$3,322 USD/mo Net MRR ($180 Stripe + $191 base + $2,500 Bennett flat + $451 Bennett 15% rev share on $3,007 Skool MRR).
+1. **Revenue:** ~$3,322 USD/mo Net MRR ($180 Stripe + $191 base + $2,500 primary-retainer flat + $451 primary-retainer 15% rev share on $3,007 community MRR).
 2. **Gap:** ~$1,678 USD/mo (~2 new OASIS clients at $800-1,000/mo, or 4 at $400-500/mo).
 3. **Pace:** ~1 new client/week for 5 weeks to hit target by May 15.
-4. **Strategy:** Semi-auto outreach loop (daily batch) + CC Funnel inbound. Diversify beyond Bennett.
-5. **Risk:** Bennett loss = drop to ~$822/mo. Diversification is the #1 operational priority.
+4. **Strategy:** Semi-auto outreach loop (daily batch) + CC Funnel inbound. Diversify beyond the primary retainer.
+5. **Risk:** Primary-retainer loss = drop to ~$822/mo. Diversification is the #1 operational priority.
 
 ## Active Infrastructure
 
@@ -85,7 +85,7 @@ Stable structural facts (change rarely, audit on edit):
 Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 - **Gritly** — Field Service Management SaaS. Next.js 15, Drizzle, Turso, Stripe, Better Auth. Foundation built (auth+onboarding+dashboard+marketing site). Context: [[APPS_CONTEXT/GRITLY_CLAUDE]]
 - **IG Setter Pro** — Instagram DM automation (ManyChat replacement). Next.js 14, Turso, n8n, Claude API. Live at `ig-setter-pro.vercel.app`. Context: [[APPS_CONTEXT/IG_SETTER_PRO_CLAUDE]]
-- **Agency Accelerance (Skool)** — Bennett Spooner coaching partnership. CC = Head Coach, $2,500/mo + 15% rev share. Contract formalized 2026-04-10. Context: [[APPS_CONTEXT/SKOOL_COMMUNITY_CLAUDE]]
+- **Primary community-management retainer** — community partnership. CC = Head Coach, $2,500/mo + 15% rev share. Contract formalized 2026-04-10. Context: [[APPS_CONTEXT/SKOOL_COMMUNITY_CLAUDE]]
 
 ## Agent Runner Backend (2026-05-05)
 
