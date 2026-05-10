@@ -30,6 +30,16 @@ openai>=1.90.0,<3.0
 pytest==9.0.3
 dnspython==2.7.0
 
+# V6 BUILD 2 (2026-05-11) — hybrid retrieval (FTS5 + semantic).
+# The retriever degrades to FTS5-only when these are absent, so they're
+# soft-required: a fresh install without them works, just without the
+# semantic leg. fastembed ships ONNX Runtime directly — NO PyTorch dep
+# (sentence-transformers was explicitly rejected for that reason).
+# Total disk footprint: ~80 MB model + ~50 MB libs.
+fastembed==0.8.0
+lancedb==0.30.2
+pyarrow==24.0.0
+
 # openai-whisper is NOT listed here on purpose. It pulls in triton + torch
 # which frequently fail to install on Windows (needs CUDA / build tools).
 # If you need scripts/transcribe.py, install manually:
