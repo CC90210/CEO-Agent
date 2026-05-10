@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Card, PageHeader, Tag } from "@/components/Card";
-import { Phone, Layers, Repeat, FileStack, MessageSquare, Rocket } from "lucide-react";
+import { Phone, Layers, Repeat, FileStack, MessageSquare, Rocket, Network, ShieldCheck } from "lucide-react";
 
 export const dynamic = "force-static";
 
@@ -52,6 +52,22 @@ const SECTIONS = [
     icon: Rocket,
     body:
       "Your step-by-step runbook for spinning up a fresh client. Pre-flight → bootstrap → personalize → integrations → scope → handoff. Each step has a chat-fire prompt that runs the move automatically. Use this for every new client — same arc, different tenant.",
+  },
+  {
+    href: "/playbook/client-deploy",
+    title: "Multi-Machine Setup",
+    subtitle: "Pair desktop + laptop · production daemons stay singular · chat-server per machine",
+    icon: Network,
+    body:
+      "Clients with multiple machines (desktop + laptop) pair both bridges to the same dashboard tenant. The dashboard auto-detects which bridge is local. Hard rule: only ONE machine runs scheduler / skool / telegram daemons (state mutators). Every other machine runs ONLY the chat-server. The pair endpoint is idempotent by machine_fingerprint, so re-running rotates tokens instead of creating duplicates. See brain/MULTI_MACHINE_PAIRING_PROMPT.md for the paste-ready Antigravity prompt.",
+  },
+  {
+    href: "/playbook/security",
+    title: "Security Model",
+    subtitle: "Multi-tenant RLS · AES-256-GCM at rest · SHA-256 bridge tokens · HMAC self-pair",
+    icon: ShieldCheck,
+    body:
+      "How tenant isolation, encryption, and bridge authentication actually work. Every tenant-scoped table is RLS-protected at the Postgres layer. Provider API keys encrypted at rest with AES-256-GCM (scrypt KDF, deploy-wide BRAVO_FIELD_ENCRYPTION_KEY). Bridge tokens are SHA-256 hashed before storage. Self-pair from the daemon uses HMAC headers verified server-side. Migration 030 enforces one live pairing per (tenant, machine_fingerprint) at the DB layer. Read brain/SECURITY_MODEL.md for the full architecture.",
   },
 ];
 
