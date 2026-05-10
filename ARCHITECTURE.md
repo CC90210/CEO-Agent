@@ -110,6 +110,7 @@ Defense in depth: a single-service RCE in `bravo-webhook` cannot exfiltrate the 
 - **`infra/Caddyfile`** — TLS-terminated dashboard endpoint with basic auth + `/api/health` carve-out for probes.
 - **Setup wizard (`bravo_cli/wizard.py`)** — `step_environment` detects local vs cloud; `step_v6_init` writes hook-mode defaults, bootstraps both DBs, builds the FTS5 index, fans out scoped env files, and optionally runs `docker compose build`.
 - **Command Center modules** — `apps/command-center/app/system-health/page.tsx` (DB stats + agent ticks + 3 guard cards live), `app/playbook/onboarding/page.tsx` (markdown SOPs from `docs/playbooks/`).
+- **Two-tier `/api/state-health` read path (2026-05-10)** — `apps/command-center/app/api/state-health/route.ts` tries `state-api:8500/status` first; on Vercel where that hostname is not routable, it falls back to a Supabase mirror that synthesizes the same `StateHealthResponse` shape from `agent_state_snapshot` + `agent_events` + `session_logs` via `getServiceSupabase()`. The response carries `source: "state-api" | "supabase-mirror"` so operators can see which path served the payload (rendered as a tag in the page header). Local-only fields (FTS5 stats, jsonl guard tails) are omitted in the fallback — the page already renders those sections conditionally.
 
 ### Cross-agent contract under V6.0
 
