@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-10T21:53:56.776819+00:00",
-  "script_count": 83,
-  "entry_count": 311,
+  "generated_at_iso": "2026-05-10T22:36:57.968194+00:00",
+  "script_count": 85,
+  "entry_count": 316,
   "entries": [
     {
       "key": "agent_heartbeat",
@@ -621,6 +621,27 @@
       "help": "Bravo V6.0 \u2014 Event Bus (publisher + subscriber) \u2014 subcommand: tail"
     },
     {
+      "key": "event_router_once",
+      "path": "scripts/event_router.py",
+      "subcmd": "once",
+      "mutating": false,
+      "help": "V6 Apex Phase 3 \u2014 cross-agent event-bus router daemon. \u2014 subcommand: once"
+    },
+    {
+      "key": "event_router_loop",
+      "path": "scripts/event_router.py",
+      "subcmd": "loop",
+      "mutating": false,
+      "help": "V6 Apex Phase 3 \u2014 cross-agent event-bus router daemon. \u2014 subcommand: loop"
+    },
+    {
+      "key": "event_router_tail",
+      "path": "scripts/event_router.py",
+      "subcmd": "tail",
+      "mutating": false,
+      "help": "V6 Apex Phase 3 \u2014 cross-agent event-bus router daemon. \u2014 subcommand: tail"
+    },
+    {
       "key": "exec_override_list",
       "path": "scripts/exec_override.py",
       "subcmd": "list",
@@ -654,6 +675,20 @@
       "subcmd": "cleanup",
       "mutating": false,
       "help": "V6 BUILD 4 \u2014 operator-approval CLI for the override flow. \u2014 subcommand: cleanup"
+    },
+    {
+      "key": "exec_override_consumer_once",
+      "path": "scripts/exec_override_consumer.py",
+      "subcmd": "once",
+      "mutating": false,
+      "help": "V6 Apex Phase 2 \u2014 local consumer for dashboard-driven override decisions. \u2014 subcommand: once"
+    },
+    {
+      "key": "exec_override_consumer_loop",
+      "path": "scripts/exec_override_consumer.py",
+      "subcmd": "loop",
+      "mutating": false,
+      "help": "V6 Apex Phase 2 \u2014 local consumer for dashboard-driven override decisions. \u2014 subcommand: loop"
     },
     {
       "key": "financial_model_unit_economics",

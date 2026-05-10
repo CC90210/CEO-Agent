@@ -16,6 +16,8 @@ import {
   Inbox,
   History,
   ShieldCheck,
+  ShieldAlert,
+  Radio,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { OasisLogo } from "@/components/brand/OasisLogo";
@@ -37,6 +39,8 @@ const ITEMS: NavItem[] = [
   { href: "/runs", label: "Runs", icon: History, group: "system" },
   { href: "/operations", label: "Operations", icon: Activity, group: "system" },
   { href: "/system-health", label: "System Health", icon: ShieldCheck, group: "system" },
+  { href: "/overrides", label: "Overrides", icon: ShieldAlert, group: "system" },
+  { href: "/feed", label: "Event Feed", icon: Radio, group: "system" },
   { href: "/analytics", label: "Analytics", icon: BarChart3, group: "system" },
   { href: "/integrations", label: "Integrations", icon: Plug, group: "system" },
   { href: "/settings", label: "Settings", icon: Settings, group: "system" },
