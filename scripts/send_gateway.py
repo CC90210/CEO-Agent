@@ -1549,7 +1549,7 @@ def send(
                     "cooldown_until": None, "daily_count": None}
 
         # Wrap in the OASIS branded shell so EVERY outbound surface
-        # ships the same brand. Three cases:
+        # ships the same brand — INCLUDING internal sends. Three cases:
         #   1. body_html is None  →  wrap body_text in the shell
         #   2. body_html is a CONTENT FRAGMENT (no <!doctype>, no
         #      <html>) → it's a stored template's inner content;
@@ -1557,48 +1557,57 @@ def send(
         #      inherit the brand without rewriting every row.
         #   3. body_html is a COMPLETE DOCUMENT (<!doctype> / <html>)
         #      → respect the caller's choice and don't double-wrap.
-        # Always skipped for intent="internal" (verification mails).
+        #
+        # Internal vs commercial vs transactional only differ in CASL
+        # footer (line 1233) + suppression checks (line 1416), NOT in
+        # branding. The earlier `if intent != "internal"` guard here was
+        # a real bug: a Gemini-Flash-driven test send on 2026-05-10
+        # passed intent="internal" (reasonable LLM interpretation of
+        # "test email") and arrived as bare plaintext, breaking CC's
+        # "every surface ships the brand" invariant. Removed the guard.
+        # If a future caller genuinely needs unbranded output, they
+        # should pass body_html as a complete document (case 3 above).
         # Single source of truth: scripts/email_template.py.
-        if intent != "internal":
-            _is_full_doc = bool(
-                body_html
-                and (
-                    "<!doctype" in body_html.lower()[:40]
-                    or "<html" in body_html.lower()[:200]
-                )
+        _is_full_doc = bool(
+            body_html
+            and (
+                "<!doctype" in body_html.lower()[:40]
+                or "<html" in body_html.lower()[:200]
             )
-            if not _is_full_doc:
-                try:
-                    _here = os.path.dirname(os.path.abspath(__file__))
-                    if _here not in sys.path:
-                        sys.path.insert(0, _here)
-                    from email_template import (  # type: ignore
-                        render_branded_html,
-                        render_branded_html_fragment,
+        )
+        if not _is_full_doc:
+            try:
+                _here = os.path.dirname(os.path.abspath(__file__))
+                if _here not in sys.path:
+                    sys.path.insert(0, _here)
+                from email_template import (  # type: ignore
+                    render_branded_html,
+                    render_branded_html_fragment,
+                )
+                if body_html:
+                    # Templates pass formatted HTML content (e.g.
+                    # `<p>Hi {{name}}</p>`). Wrap that fragment in
+                    # the shell so the body retains its formatting
+                    # but inherits the OASIS chrome.
+                    body_html = render_branded_html_fragment(
+                        body_html,
+                        subject=subject,
+                        show_booking=False,
                     )
-                    if body_html:
-                        # Templates pass formatted HTML content (e.g.
-                        # `<p>Hi {{name}}</p>`). Wrap that fragment in
-                        # the shell so the body retains its formatting
-                        # but inherits the OASIS chrome.
-                        body_html = render_branded_html_fragment(
-                            body_html,
-                            subject=subject,
-                            show_booking=False,
-                        )
-                    else:
-                        # Plaintext-only path (cold outreach, agent
-                        # one-off sends): wrap the text body.
-                        body_html = render_branded_html(
-                            body_text or "",
-                            subject=subject,
-                            show_booking=False,
-                        )
-                except Exception:
-                    # Template missing or borked — keep whatever the
-                    # caller passed (plaintext if None, original HTML
-                    # if they supplied one).
-                    pass
+                else:
+                    # Plaintext-only path (cold outreach, agent
+                    # one-off sends, internal verification mails):
+                    # wrap the text body so it ships branded.
+                    body_html = render_branded_html(
+                        body_text or "",
+                        subject=subject,
+                        show_booking=False,
+                    )
+            except Exception:
+                # Template missing or borked — keep whatever the
+                # caller passed (plaintext if None, original HTML
+                # if they supplied one).
+                pass
 
         mime = _build_email_mime(
             gmail_address=gmail_user,
