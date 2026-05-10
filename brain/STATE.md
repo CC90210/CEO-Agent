@@ -121,9 +121,9 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 ## Last Heartbeat
 
 - **Date:** 2026-05-10
-- **Agent:** BRAVO via state_manager.py (tick 16)
+- **Agent:** BRAVO via state_manager.py (tick 17)
 - **Status:** idle
-- **Result:** Pre-sleep handoff 2026-05-10: BUILDs 1+3+4 shipped (commits 9fca7e2..1d699d9). BUILD 2 (semantic memory via fastembed/ONNX) is FIRST priority next session. BUILD 3 prereqs in ACTIVE_TASKS.
+- **Result:** V6 Ascension complete. All 5 BUILDs (1-5) live on origin/main. 180-test combined regression green. Hybrid retrieval (FTS5+LanceDB+RRF) + send_gateway event-bus producer + all docs synced.
 
 *Last updated: 2026-05-10*
 
