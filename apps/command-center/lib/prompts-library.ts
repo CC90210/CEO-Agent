@@ -171,7 +171,20 @@ export const PROMPTS_LIBRARY: PromptEntry[] = [
       "Each client may want their own MCP servers (Slack, Notion, custom). Walk them through configuring .claude/mcp.json.",
     tags: ["onboarding", "mcp"],
     prompt:
-      "Walk this client through setting up their MCP servers. Ask which they want (Slack, Notion, GitHub, custom). For each, generate the .claude/mcp.json entry, walk them through the auth step, then verify the server connects via Claude Code. Skip ones they don't need.",
+      "Walk this client through setting up their MCP servers. Ask which they want (Slack, Notion, GitHub, custom). For each, generate the .claude/mcp.json entry, walk them through the auth step, then verify the server connects via Claude Code. Skip ones they don't need. NOTE: credential-bearing MCPs (Supabase, GitHub, n8n, Late, Firecrawl, Obsidian) MUST use the scripts/mcp_shims/<name>.js Node-shim pattern (not .cmd wrappers) — the shim loads .env.agents via dotenv and passes windowsHide:true so no cmd.exe flashes on spawn. See scripts/mcp_shims/supabase.js for the canonical pattern when adding a new one.",
+  },
+  {
+    id: "client-second-machine-pair",
+    category: "client_setup",
+    audience: "client",
+    agent: "bravo",
+    title: "Pair a second machine to the same dashboard",
+    description:
+      "Walk a desktop+laptop client through pairing both machines. One stays as production (cron daemons), the other is chat-server only. Foundational — uses the fingerprint-idempotent pair endpoint.",
+    foundational: true,
+    tags: ["onboarding", "multi-machine", "pair"],
+    prompt:
+      "Pair this second machine to the same dashboard tenant as the existing one. Read brain/MULTI_MACHINE_PAIRING_PROMPT.md (was MAC_COMMAND_CENTER_PROMPT pre-2026-05-09) for the canonical 12-step playbook. Hard constraint: only ONE machine runs scheduler.py / skool_engine.py daemon / telegram_agent.js — those are state-mutating singletons. The second machine runs ONLY `bravo bridge serve` (the operator-side chat-server). Both bridges paired = both chat-servers visible on /devices. The pair endpoint is idempotent by machine_fingerprint (commit d0e15e0 + migration 030) so re-running is safe. Verify: dashboard /operations shows 2 paired machines, both online, no duplicates.",
   },
 
   // ── CLIENT OPTIMIZATION ─────────────────────────────────────────
@@ -391,6 +404,32 @@ export const PROMPTS_LIBRARY: PromptEntry[] = [
     tags: ["health", "audit", "transparency"],
     prompt:
       "Walk through every metric on the Today, Pipeline, Operations, Agents, and Reasoning pages. For each: trace it to the backing query + table, verify the data is real (not a hardcoded placeholder), flag anything stale or fake. Update brain/METRIC_AUDIT.md with your findings.",
+  },
+  {
+    id: "client-bridge-restart",
+    category: "system_health",
+    audience: "shared",
+    agent: "bravo",
+    title: "Restart the bridge cleanly",
+    description:
+      "One command. Stops both the heartbeat daemon AND the chat-server, waits for :9100 to free, restarts both. Foundational.",
+    foundational: true,
+    tags: ["bridge", "restart", "operator"],
+    prompt:
+      "Run `bravo bridge restart` to cleanly cycle both the heartbeat daemon and the chat-server. After it completes, verify with `curl -s http://127.0.0.1:9100/warm-status` — expect `{\"ok\": true, ...}`. If port :9100 doesn't free in time, the restart waits and retries. This is the canonical 'chat feels stuck' move — replaces the old 'kill python.exe in Task Manager' ritual.",
+  },
+  {
+    id: "client-popup-audit",
+    category: "system_health",
+    audience: "shared",
+    agent: "bravo",
+    title: "Audit recurring terminal popups",
+    description:
+      "If a terminal window keeps popping up, run this. Enumerates orphan polling loops, missing CREATE_NO_WINDOW flags, scheduled-task state. Foundational.",
+    foundational: true,
+    tags: ["health", "popup", "diagnostic"],
+    prompt:
+      "A terminal window keeps popping up on the operator's screen. Diagnose the source using the same playbook CC ran on 2026-05-09: (1) start a silent watcher script that logs every NEW cmd.exe / conhost / wscript spawn with parent + grandparent for 5 min; (2) bucket the captured spawns by parent process — common culprits are leaked Bash background loops (`until` polling), the bridge heartbeat probing for `playwright.cmd` without STARTUPINFO+SW_HIDE, the BravoSystemHealth scheduled task firing reap_orphan_mcps, and claude.exe spawning MCP servers via `cmd /c npx`; (3) for each culprit, recommend one of: kill the orphan loop (background bash with `KillShell`), patch the subprocess call to add `creationflags=WINDOWLESS_FLAGS` from `_subprocess_helpers` AND `startupinfo=windowless_startupinfo()` for .cmd shims, or switch from python.exe to pythonw.exe for any long-lived daemon. Reference: commits 64ae7b6 (helper consolidation) + 59d773c (heartbeat fix) + 871d71a (skool daemon fix). Report findings + ship the fixes.",
   },
 
   // ── OPS DAILY ───────────────────────────────────────────────────
