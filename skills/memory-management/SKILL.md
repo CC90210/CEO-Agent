@@ -1,7 +1,7 @@
 ---
 name: memory-management
-description: MemoryBox system for preventing bloat, scoring confidence, compressing archives, and maintaining memory hygiene. Ensures cross-session intelligence without context window overflow.
-triggers: [memory, bloat, archive, compress, session log, confidence, MemoryBox]
+description: MemoryBox system for preventing bloat, scoring confidence, compressing archives, and maintaining memory hygiene. Plus the V6 hybrid retrieval surface (FTS5 lexical + LanceDB/ONNX semantic + RRF) that replaces whole-file Reads. Ensures cross-session intelligence without context window overflow.
+triggers: [memory, bloat, archive, compress, session log, confidence, MemoryBox, retrieval, hybrid search, semantic, embedding, RRF, fastembed, LanceDB]
 tier: core
 dependencies: []
 ---
@@ -10,7 +10,58 @@ dependencies: []
 
 ## Overview
 
-Memory is Bravo's most critical asset. Without active management, memory files grow until they bloat the context window, cause hallucinations, or crash sessions. MemoryBox prevents this.
+Memory is Bravo's most critical asset. Without active management, memory files grow until they bloat the context window, cause hallucinations, or crash sessions. MemoryBox prevents this — and V6 BUILD 2 ships a hybrid retrieval surface (`scripts/memory_retriever.py`) that lets the agent pull the EXACT chunk it needs without loading the whole tier.
+
+## V6 Hybrid Retrieval (the default path for "recall something")
+
+**Do NOT `Read memory/MISTAKES.md` to find a past lesson.** Run:
+
+```bash
+python scripts/memory_retriever.py query "price objections" --explain
+```
+
+This returns ≤5 ranked snippets with file:line refs in under 10ms. Each snippet carries the H2/H3 heading so the surrounding context is preserved. Only escalate to whole-file `Read` if the snippet's heading suggests context outside the chunk window matters.
+
+### How it works (in one paragraph)
+
+Two indexes are built and kept in sync: an FTS5 BM25 lexical index (`state/memory_index.db`) and a LanceDB vector store (`state/memory_lance/`) with L2-normalized 384-dim embeddings from `fastembed`'s ONNX MiniLM-L6-v2 model. Every query runs both legs independently, then merges by Reciprocal Rank Fusion (RRF) with `k=60`: a chunk's score is the sum of `1/(60+rank)` across each ranking it appears in. The top-K by RRF wins. The lexical leg catches the keyword case; the semantic leg catches the conceptual case ("price objections" finds "cost resistance"). Hybrid catches both.
+
+### CLI reference
+
+```bash
+# Default — hybrid retrieval
+python scripts/memory_retriever.py query "..."
+
+# Mode flags (mutually exclusive)
+python scripts/memory_retriever.py query "..." --lexical-only    # FTS5 only (V6 BUILD 1 behavior)
+python scripts/memory_retriever.py query "..." --semantic-only   # LanceDB cosine only
+
+# Result introspection
+python scripts/memory_retriever.py query "..." --explain         # show lex_rank, sem_rank, rrf_score
+python scripts/memory_retriever.py query "..." --kind {skill,memory,brain,entry}
+python scripts/memory_retriever.py query "..." --json --limit 10
+
+# Index management
+python scripts/memory_retriever.py build [--force] [--lexical-only]
+python scripts/memory_retriever.py update                        # incremental (hash-skipped)
+python scripts/memory_retriever.py status                        # both legs' health
+```
+
+### When to pick which mode
+
+| Mode | When |
+|------|------|
+| **hybrid** (default) | Always, unless you have a specific reason not to. RRF catches both keyword and concept. |
+| **lexical-only** | Searching for an exact identifier (`SUPABASE_SERVICE_ROLE_KEY`, `req-7fed684e`, `BUILD 4-G`). Tokens, not concepts. |
+| **semantic-only** | Exploring a fuzzy topic where you know the concept but not the vocabulary the corpus uses. Rare — hybrid does this better. |
+| **--explain** | Debugging "why did this rank where it did?" Surfaces lex_rank + sem_rank + rrf_score per hit. |
+
+### Operational rules
+
+- **The PostToolUse hook keeps the index warm.** Every Edit/Write inside `memory/`, `skills/`, `brain/`, or the five entry-point markdown files fires `memory_retriever.py update` in the background. Update is incremental (source-hash gated) so no-op edits cost nothing.
+- **Full rebuild after a corpus drift** (file deletions, mass renames, scope changes): `python scripts/memory_retriever.py build --force`. Takes ~60 seconds end-to-end for the current corpus (226 sources / 2,857 chunks / 2,857 embeddings).
+- **The semantic leg is OPTIONAL on a fresh checkout.** If `fastembed`/`lancedb` aren't installed, build runs FTS5-only and query degrades to `--lexical-only` automatically. No code change required to add semantic later.
+- **Token output cap remains 1500 tokens per query** — the hybrid upgrade adds recall, not output volume.
 
 ## Five-Gate Knowledge Filter
 
