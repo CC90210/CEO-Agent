@@ -196,6 +196,25 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     print(f"  net_mrr_usd:    ${revenue['net_mrr_usd']:,}")
     print(f"  gap_usd:        ${revenue['gap_usd']:,}")
     print(f"  priority:       {strategy['top_priority_this_week']}")
+
+    # V6 BUILD 3 — emit a cross-agent event so Atlas/Maven/Aura wake on
+    # pulse refresh instead of polling. Best-effort; never breaks the publish.
+    try:
+        sys.path.insert(0, str(REPO_ROOT / "scripts"))
+        from event_bus import publish as _bus_publish  # noqa: WPS433
+        _bus_publish(
+            "BRAVO_PULSE_REFRESHED",
+            {
+                "updated_at": payload["updated_at"],
+                "net_mrr_usd": revenue.get("net_mrr_usd"),
+                "gap_usd": revenue.get("gap_usd"),
+                "v6_mode": (payload.get("v6") or {}).get("mode", "off"),
+            },
+            source="bravo",
+            target=None,  # broadcast
+        )
+    except Exception:  # noqa: BLE001
+        pass
     return 0
 
 
