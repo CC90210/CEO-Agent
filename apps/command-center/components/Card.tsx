@@ -7,6 +7,7 @@ export function Card({
   action,
   noPadding = false,
   id,
+  className,
 }: {
   title?: string;
   subtitle?: ReactNode;
@@ -14,9 +15,16 @@ export function Card({
   action?: ReactNode;
   noPadding?: boolean;
   id?: string;
+  className?: string;
 }) {
+  // Layout classes from the caller append to the Card's own chrome — they
+  // don't replace it. Same idiom as the `id` prop added in commit 44474f9.
+  const sectionClass = [
+    "rounded-xl border border-bg-border bg-bg-panel shadow-card card-glow transition-all",
+    className || "",
+  ].filter(Boolean).join(" ");
   return (
-    <section id={id} className="rounded-xl border border-bg-border bg-bg-panel shadow-card card-glow transition-all">
+    <section id={id} className={sectionClass}>
       {(title || subtitle || action) && (
         <header className="flex items-start justify-between gap-4 border-b border-bg-border px-5 py-3.5">
           <div>

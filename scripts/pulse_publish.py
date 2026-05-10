@@ -96,6 +96,51 @@ def _atomic_write(path: Path, data: dict[str, Any]) -> None:
     os.replace(tmp, path)
 
 
+def _v6_telemetry() -> dict[str, Any]:
+    """Best-effort snapshot of Bravo's V6.0 surface for cross-agent visibility.
+
+    Stamped into ceo_pulse.json so Atlas / Maven / Aura / Hermes can tell at
+    a glance whether Bravo is on V5.5 or V6.0 and how healthy the new
+    substrate is. Read-only — never raises. Unknown to V5.5-era siblings;
+    they ignore it (JSON additive).
+    """
+    out: dict[str, Any] = {
+        "mode": os.environ.get("EMPIRE_V6_MODE", "off").lower(),
+        "hook_modes": {
+            "secret_guard": os.environ.get("EMPIRE_HOOK_SECRET_GUARD", "report").lower(),
+            "exec_guard":   os.environ.get("EMPIRE_HOOK_EXEC_GUARD",   "report").lower(),
+            "state_guard":  os.environ.get("EMPIRE_HOOK_STATE_GUARD",  "off").lower(),
+        },
+    }
+    try:
+        sys.path.insert(0, str(REPO_ROOT / "scripts"))
+        import state_manager as _sm  # type: ignore
+        s = _sm.status()
+        if s.get("exists"):
+            out["state_db"] = {
+                "session_log_count":  s.get("session_log_count", 0),
+                "transaction_count":  s.get("transaction_count", 0),
+                "size_kb":            s.get("size_kb"),
+                "last_heartbeat":     (s.get("agents") or [{}])[0].get("last_heartbeat"),
+            }
+        else:
+            out["state_db"] = {"exists": False}
+    except Exception:
+        out["state_db"] = {"unreachable": True}
+    try:
+        import memory_retriever as _mr  # type: ignore
+        r = _mr.status()
+        out["fts5"] = {
+            "sources":      r.get("sources"),
+            "chunks":       r.get("chunks"),
+            "last_indexed": r.get("last_indexed"),
+            "size_kb":      r.get("size_kb"),
+        }
+    except Exception:
+        out["fts5"] = {"unreachable": True}
+    return out
+
+
 def cmd_refresh(args: argparse.Namespace) -> int:
     existing = _read_pulse() or {}
     payload = dict(existing)
@@ -105,6 +150,9 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     payload["status"] = args.status or existing.get("status", "ACTIVE")
     if args.session_note:
         payload["session_note"] = args.session_note
+    # V6.0 telemetry stamp — siblings that read ceo_pulse.json see Bravo's
+    # state DB / FTS5 / hook modes alongside the revenue & strategy fields.
+    payload["v6"] = _v6_telemetry()
 
     revenue = dict(existing.get("revenue", {}))
     if args.net_mrr is not None:

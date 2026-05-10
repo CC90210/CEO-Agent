@@ -213,6 +213,34 @@ Per STATE.md "Content Studio | MOVED TO MAVEN", the `content-creator`, `social-p
 - **Key files:** `brain/SOUL.md` (identity), `brain/CAPABILITIES.md` (tool inventory), `brain/STATE.md` (campaign status)
 - **Receives from Bravo (migration):** content-engine, email-marketing, funnel-management, brand-guidelines, growth-engine, competitive-intelligence, elite-video-production, lead-management, linkedin-outreach, persona-content-creator skills + ../CMO-Agent/content-studio/
 
+## V6.0 Cross-Agent Contract (added 2026-05-10)
+
+When a sibling agent (Atlas, Maven, Aura, Hermes) reads from this repo, the V6.0 substrate changes nothing about WHERE to read — but adds new fields they can use if they want.
+
+**Sibling read paths — UNCHANGED:**
+
+| What sibling wants | Path (still valid in V6.0) | Notes |
+|--------------------|-----------------------------|-------|
+| Bravo's recent activity | `memory/SESSION_LOG.md` | Auto-generated mirror of `state/empire_state.db` when `EMPIRE_V6_MODE=on`. Same path, fresher data. |
+| Bravo's operational state | `brain/STATE.md` | Heartbeat block auto-generated; rest is human-curated. |
+| Bravo's tasks | `memory/ACTIVE_TASKS.md` | Still human-curated (DB tracks programmatic tasks separately). |
+| Bravo's pulse snapshot | `data/pulse/ceo_pulse.json` | **Now includes a `v6` block** — see `data/pulse/README.md` for schema. |
+
+**New `v6` field in `ceo_pulse.json`** stamps every publish with:
+- `mode` (`off` / `shadow` / `on`)
+- `hook_modes.{secret_guard,exec_guard,state_guard}` (`enforce` / `report` / `off`)
+- `state_db.{session_log_count,transaction_count,size_kb,last_heartbeat}`
+- `fts5.{sources,chunks,last_indexed,size_kb}`
+
+**What sibling agents should do:**
+- **V5.5-era siblings:** ignore the `v6` field (JSON additive — no breaking change). Read the existing fields as before.
+- **V6.0-aware siblings:** prefer `pulse.v6.state_db.last_heartbeat` for Bravo liveness checks (sub-second precision; the markdown frontmatter is rounded to the day). When `pulse.v6.mode == "on"`, Bravo's flat-file mirrors are auto-generated, so DON'T attempt to write to them — write to the cross-agent inbox instead (`scripts/agent_inbox.py`).
+- **All siblings:** still use `data/pulse/cfo_pulse.json` etc. for THEIR pulse handoff back. Bravo reads sibling pulses unchanged.
+
+**Hard rule (unchanged from V5.5):** Bravo NEVER writes to a sibling repo. Siblings NEVER write to Business-Empire-Agent. Cross-agent state moves only through pulse files + agent_inbox.
+
+**Adoption sequence:** Bravo is V6.0 first. Atlas, Maven, Aura, Hermes adopt V6.0 in their own repos when their operators are ready — this contract works whether they're on V5.5 or V6.0.
+
 ## Shared Browser Harness Layer
 
 Browser Harness is a shared capability, not a new sovereign agent. Bravo owns the repo-level installation, diagnostics, safety rules, and `browser/domain-skills/` seed library. Each agent may use the layer only inside its domain:
