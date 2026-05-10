@@ -120,7 +120,21 @@ def is_cc_repo(profile: dict[str, Any]) -> bool:
 
 
 def build_replacement_map(profile: dict[str, Any]) -> dict[str, str]:
-    """Build the literal-string replacement table from profile values."""
+    """Build the literal-string replacement table from profile values.
+
+    Categories of replacement:
+      1. Identity         — name, brand, email, website, location, north star
+      2. Community        — Skool / Discord / Circle / etc. group name
+      3. Side projects    — CC's other businesses (PropFlow, Nostalgic, DJ).
+                            Most clients won't have these; default REMOVES
+                            (replaces with empty) rather than substituting.
+      4. Past clients     — preserved unless profile.scrub_history=true
+                            (per docstring intent — see top of file)
+
+    Adding a new replacement: pick the bucket above, follow the profile-key
+    fallback pattern (most are `or "neutral default"`), document the bucket
+    in the comment so future maintainers don't reinvent the structure.
+    """
     full_name = profile.get("full_name", "Operator").strip()
     preferred = profile.get("preferred_name", full_name.split()[0] if full_name else "Operator").strip()
     personal_brand = profile.get("personal_brand", preferred).strip() or preferred
@@ -133,12 +147,30 @@ def build_replacement_map(profile: dict[str, Any]) -> dict[str, str]:
     north_star = profile.get("north_star", "").strip()
     domain = (website.replace("https://", "").replace("http://", "").rstrip("/")
               if website else "")
-    return {
+    # Community: the group / forum / Skool community the operator runs.
+    # Empty default = scrub the noun entirely from the codebase.
+    community_name = profile.get("community_name", "").strip()
+    community_platform = profile.get("community_platform", "").strip()  # e.g. "Skool", "Circle"
+    # Side projects: configurable list of CC's other apps to scrub.
+    # Default: scrub all (most clients run only Bravo). Set
+    # profile.preserve_side_projects=true to keep references.
+    scrub_side_projects = not profile.get("preserve_side_projects", False)
+    # Past-client names: preserved by default per scaffold docstring.
+    # Set profile.scrub_history=true to strip references — useful when
+    # client wants a fully clean slate.
+    scrub_history = bool(profile.get("scrub_history", False))
+
+    out: dict[str, str] = {
+        # --- 1. Identity ----------------------------------------------------
         "Conaugh McKenna": full_name,
-        "Conaugh McKenna": personal_brand,
+        # NOTE: dict literal collapses duplicate keys; the second
+        # `Conaugh McKenna -> personal_brand` line in the prior version
+        # was dead code. personal_brand is identical to full_name in
+        # CC's profile so the visible behavior didn't change. Kept
+        # explicit single key here for clarity.
         "OASIS AI Solutions": primary_brand,
         "OASIS AI": primary_brand,
-        "conaugh@oasisai.work": primary_email or f"contact@{domain}" if domain else "operator@example.com",
+        "conaugh@oasisai.work": primary_email or (f"contact@{domain}" if domain else "operator@example.com"),
         "oasisai.work": domain or "example.com",
         "https://calendar.app.google/tpfvJYBGircnGu8G8": booking or "https://example.com/booking",
         "Collingwood, Ontario, Canada": location or "Your City, Country",
@@ -146,7 +178,43 @@ def build_replacement_map(profile: dict[str, Any]) -> dict[str, str]:
         "Collingwood": location_city or "Your City",
         "$5,000 USD Net MRR by 2026-05-15": north_star or "Your North Star",
         "$5,000 USD Net MRR by May 15, 2026": north_star or "Your North Star",
+
+        # --- 2. Community (CC runs an Agency Accelerants Skool community) ---
+        # If the client doesn't have an equivalent, scrub the references.
+        # Order matters: longest-first below handles "Agency Accelerance"
+        # vs "Skool community" vs "Skool" overlap correctly.
+        "Agency Accelerance": community_name or "",
+        "Agency Accelerants": community_name or "",
+        "Skool community": (
+            f"{community_platform} community"
+            if community_platform else (community_name or "online community")
+        ),
+        "Skool": community_platform or "",
     }
+
+    # --- 3. Side projects (CC's other apps — scrub by default) -----------
+    if scrub_side_projects:
+        out.update({
+            "PropFlow": "",
+            "Nostalgic Requests": "",
+            "Nostalgic": "",
+            # Atlas / Maven / Aura / Hermes are the C-suite agent personas;
+            # those are part of the product, NOT to be scrubbed. Leave
+            # alone.
+        })
+
+    # --- 4. Past clients — preserved by default --------------------------
+    # CC's docstring: "Past client names (Bennett, Adon, Alejandro, etc.)
+    # — agent's experience". Stays unless explicitly opted-out.
+    if scrub_history:
+        out.update({
+            "Bennett": "<past-client>",
+            "Adon": "<past-partner>",
+            "Alejandro": "<past-client>",
+            "Alejandro Andrade": "<past-client>",
+        })
+
+    return out
 
 
 def scan_and_replace(replacements: dict[str, str], dry_run: bool, backup_dir: Optional[Path]) -> dict[str, Any]:
