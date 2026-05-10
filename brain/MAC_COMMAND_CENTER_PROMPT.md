@@ -1,225 +1,55 @@
 ---
-tags: [mac, sync, antigravity, paste-ready, command-center, bridge]
-purpose: One self-contained prompt CC pastes into Antigravity on the MacBook to connect the Mac to the Agent Command Center. Mac becomes a paired bridge — operator can chat with agents from the dashboard with Mac-side file access — without stepping on the Windows production daemons.
+tags: [mac, sync, antigravity, deprecated-pointer]
+purpose: Backward-compat pointer. The Mac-specific prompt has been generalized to support N machines (Mac + Linux + Windows-as-secondary). Body moved to brain/MULTI_MACHINE_PAIRING_PROMPT.md.
 last_updated: 2026-05-09
-verified: |
-  Stress-tested end-to-end on 2026-05-09 against commit dd0044f+. Battery:
-  T1 idempotent install · T2 KeepAlive respawn · T3 token wipe + re-pair ·
-  T4 stale-token (401) recovery · T5 network failure modes (DNS / timeout /
-  503) · T6 100-concurrent /warm-status · T7 reboot proxy · T8 stale-PID +
-  port-collision. 8/8 passed. Two cmd_install bugs (py-undef + missing
-  WorkingDirectory) fixed in 894585b; Linux parity in this commit.
+superseded_by: brain/MULTI_MACHINE_PAIRING_PROMPT.md
 ---
 
-# MAC AGENT COMMAND CENTER — Antigravity Setup Prompt
+# MAC COMMAND CENTER — Moved
 
-> Paste the block below into Antigravity (or Claude Code) on CC's MacBook.
-> The agent there will: pull latest, install macOS dependencies, set up
-> the local bridge chat-server, pair the Mac with the dashboard, and verify
-> end-to-end. Mac will NOT run scheduler/skool/telegram daemons (Windows
-> exclusive — see [[brain/CROSS_MACHINE_SYNC]]).
+> **The Mac-specific prompt has been generalized.** It used to live here
+> as a Mac-only paste-ready setup; the same pattern now applies to
+> macOS, Linux, and Windows-as-secondary machines.
 
-## Prerequisites (CC does once, by hand)
+## What changed (2026-05-09)
 
-1. Repo cloned at `~/APPS/Business-Empire-Agent` (or `~/Downloads/business-empire-agent` — both paths are tolerated).
-2. `.env.agents` already populated — copy from Windows OR run the wizard. The two **mandatory keys for pairing** are:
-   - `OASIS_PROFILE_ID` (same as Windows)
-   - `OASIS_OUTBOUND_HMAC_SECRET` (same as Windows)
-   Without these, the Mac chat-server runs but can't pair with the dashboard.
-3. Homebrew installed (`/opt/homebrew/bin/brew` — Apple Silicon, or `/usr/local/bin/brew` — Intel).
-4. Python 3.12 available (`brew install python@3.12` if missing).
+The 12-step pairing playbook didn't actually have anything Mac-specific
+once we looked at it — `bravo bridge install` already supports launchd
+(macOS), systemd user units (Linux), and schtasks/Startup-folder
+(Windows). The Mac-only framing was just historical.
 
-## The Prompt — Paste This
+The generalized version:
+- **`brain/MULTI_MACHINE_PAIRING_PROMPT.md`** — paste-ready prompt
+  with OS-detection in STEP 0 and per-OS branches in STEPS 5/7/8/10
+  for the install / verify steps. Same 12-step structure CC's Mac
+  side already verified.
 
-```
-You are Claude Code (or Antigravity) on CC's MacBook. Goal: connect this
-Mac to the Agent Command Center as a SECOND paired bridge alongside the
-Windows production box. Each machine pairs independently — both can be
-online; they don't conflict. After this completes, CC will see two
-machines in /devices on the dashboard, and chat from the Mac will have
-access to this machine's local file structure.
+## What still lives here
 
-Hard constraints (non-negotiable, see brain/CROSS_MACHINE_SYNC.md):
-- Mac must NOT start scheduler.py, skool_engine.py daemon, telegram_agent.js,
-  or local_bridge.py _loop. Those are Windows-exclusive — running them on
-  Mac corrupts shared state (Supabase cron_jobs, Skool browser session,
-  Telegram long-poll). If `pm2 list` shows ANY `bravo-*` process, stop
-  and report — don't kill it without my OK.
-- Mac IS allowed to run `bravo bridge serve` (the chat-server on :9100).
-  This is the ONLY bridge daemon allowed on Mac.
-- Do NOT push code or modify .env.agents without my OK.
-- Do NOT run npm install / pip install of new packages without my OK.
+This file is preserved as a **thin pointer for backward compatibility**.
+Existing bookmarks / Obsidian links to `MAC_COMMAND_CENTER_PROMPT`
+won't break — they just land here, see this notice, and follow the
+link.
 
-STEP 1 — Sync repo.
-  cd to the repo (try ~/APPS/Business-Empire-Agent first, then
-  ~/Downloads/business-empire-agent — whichever exists).
-  Run: bash scripts/sync-from-github.sh
-  If that script doesn't exist yet, fall back to:
-    git fetch origin main && git pull --ff-only origin main
-  Report: current commit hash + how many commits pulled.
+## Why we kept the file
 
-STEP 2 — Read the canonical rules.
-  Read these in full so you understand the multi-machine model:
-    brain/CROSS_MACHINE_SYNC.md
-    brain/MAC_COMMAND_CENTER_PROMPT.md (this file — for context)
-  Confirm you understand: Mac runs ONLY the chat-server, nothing else.
+CC's saved Antigravity prompts may reference this filename. Deleting
+it would silently break those references; keeping a 30-line pointer
+costs nothing and preserves the audit trail (the verified field below
+documents the Mac-side stress test that originally proved out the
+generalized pattern).
 
-STEP 3 — Verify Python venv.
-  ls .venv/bin/python  # should exist
-  If missing: python3.12 -m venv .venv && source .venv/bin/activate && \
-              pip install -e .
-  If exists, just verify: .venv/bin/python --version  (should be 3.11+)
+## Original Mac-side verification (preserved for record)
 
-STEP 4 — Verify .env.agents has the two mandatory pairing keys.
-  Run this audit (does NOT print secret values, just presence):
-    .venv/bin/python -c "
-    from pathlib import Path
-    needed = ['OASIS_PROFILE_ID', 'OASIS_OUTBOUND_HMAC_SECRET']
-    env = {}
-    for line in Path('.env.agents').read_text().splitlines():
-        line = line.strip()
-        if line and not line.startswith('#') and '=' in line:
-            k = line.split('=', 1)[0].strip()
-            v = line.split('=', 1)[1].strip()
-            env[k] = bool(v)
-    for k in needed:
-        print(f'  {k}: {\"PRESENT\" if env.get(k) else \"MISSING\"}')"
-  If either is MISSING, STOP. Report back to CC — Windows side has them
-  and CC needs to copy/paste them into the Mac's .env.agents.
-
-STEP 5 — Install macOS dependencies for the bridge probes.
-  The bridge heartbeat probes for ffmpeg/whisper/playwright every 60s.
-  Missing tools = "down" status in /integrations on the dashboard. Each
-  is opt-in — install whichever apply:
-    brew install ffmpeg                     # for video pipeline
-    .venv/bin/pip install openai-whisper    # for voice transcription
-    .venv/bin/pip install playwright && \
-    .venv/bin/playwright install chromium   # for browser automation
-  If any are already installed, skip. Report which were installed vs
-  already present.
-
-STEP 6 — Pair the Mac with the dashboard.
-  This is a one-time handshake. PYTHONUNBUFFERED=1 makes the [bridge]
-  log line appear immediately rather than after stdio flush — without
-  it, the prior version of this prompt looked like a pair failure when
-  it was actually just buffering. Run:
-    PYTHONUNBUFFERED=1 .venv/bin/python -m bravo_cli.bridge_chat_server \
-        > /tmp/bravo_pair.log 2>&1 &
-    sleep 8
-    cat ~/.oasis/bridge_token  # should print a 60+ char token
-    cat /tmp/bravo_pair.log    # should show "[bridge] paired with..."
-  If ~/.oasis/bridge_token exists with content, pairing succeeded.
-  If not, look at /tmp/bravo_pair.log for [bridge] messages — likely
-  causes:
-    - "no OASIS_PROFILE_ID / OASIS_OUTBOUND_HMAC_SECRET" → STEP 4 missed
-    - "self-pair failed: ... 401" → HMAC secret doesn't match dashboard
-    - "self-pair failed: ... timeout" → dashboard unreachable / network
-  Kill the foreground server after pairing succeeds:
-    kill %1   # or: pkill -f bridge_chat_server
-
-STEP 7 — Install launchd auto-start so the bridge survives reboot/login.
-  .venv/bin/python -m bravo_cli bridge install
-  Verify:
-    launchctl list | grep bravo-bridge
-    cat ~/Library/LaunchAgents/work.oasisai.bravo-bridge.plist
-  Should report "OK — installed launchd plist at ...". The plist must
-  contain <key>WorkingDirectory</key> pointing at the repo root — without
-  it launchd starts with cwd=/ and `python -m bravo_cli.local_bridge`
-  hits ModuleNotFoundError. (Was a real bug on first ship; fixed in
-  commit 894585b.)
-  Note: this auto-start runs `bravo bridge serve` (chat-server on :9100),
-  NOT the heartbeat-only `_loop` daemon — exactly what we want on Mac.
-  Re-running `bridge install` is idempotent — it unloads the prior plist
-  before installing the new one, so you can re-run it after pulling
-  changes without manual launchctl unload.
-
-STEP 8 — Confirm chat-server is responsive.
-  curl -s http://127.0.0.1:9100/warm-status
-  Expect: {"ok": true, "size": 0, "max_size": 8, "idle_timeout_s": 900,
-           "processes": []}
-  If you get connection refused, the launchd plist hasn't kicked in yet.
-  Run: launchctl load -w ~/Library/LaunchAgents/work.oasisai.bravo-bridge.plist
-  Then retry the curl.
-
-STEP 9 — Verify both machines are visible in the dashboard.
-  Open https://agent-dashboard-cc90210.vercel.app/operations in a browser
-  on the Mac. You should see TWO entries under "Paired machines":
-    - The Windows host (existing)
-    - This Mac (newly paired, label like "MacBook (Conaughs-MacBook-Air)")
-  If only one shows, the heartbeat hasn't fired yet — wait 60s and refresh.
-
-STEP 10 — Daemon-leak check (mandatory).
-  Anchored to the Bravo repo path so Maven's CMO-Agent telegram bot
-  (which lives at ~/CMO-Agent/telegram_agent.js and runs by design)
-  doesn't trigger a false positive:
-    REPO=$(git -C "$(pwd)" rev-parse --show-toplevel)
-    ps aux | grep -E "$REPO/(scripts/scheduler\.py|skool_engine|telegram_agent\.js)|local_bridge\.py.*_loop" | \
-      grep -v grep
-  And pm2 — but treat 'stopped' entries as benign (a registration that
-  isn't actively running can't cause duplicate output):
-    pm2 list 2>/dev/null | awk '/bravo-/ && $0 !~ /stopped/ && $0 !~ /errored/'
-  Both should produce ZERO output. If either does, STOP — those are
-  state-mutating daemons that must NEVER ACTIVELY RUN on Mac. Report
-  the full output, do not kill anything yourself.
-
-STEP 11 — Report back in this exact format:
-
-  ## Sync
-  - commit: <hash> (pulled <N> commits)
-  - venv: present / created / repaired
-
-  ## Pairing
-  - .env.agents OASIS_PROFILE_ID: PRESENT / MISSING
-  - .env.agents OASIS_OUTBOUND_HMAC_SECRET: PRESENT / MISSING
-  - bridge_token at ~/.oasis/bridge_token: PRESENT (paired) / MISSING (failed)
-  - dashboard /devices shows this Mac: YES / NO
-
-  ## Auto-start
-  - launchctl: bravo-bridge LOADED / NOT LOADED
-  - chat-server on :9100: RESPONDING (warm-status OK) / DOWN
-
-  ## Optional integrations
-  - ffmpeg: installed / skipped
-  - whisper: installed / skipped
-  - playwright: installed / skipped
-
-  ## Daemon-leak check
-  - scheduler / skool / telegram on Mac: NONE (clean) / FOUND <details>
-  - pm2 bravo-* on Mac: NONE (clean) / FOUND <details>
-
-  ## Ready-to-work status
-  <one sentence: "Mac is fully paired with Command Center and ready" — or
-   what's still blocking>
-
-STEP 12 — Session end.
-  bash scripts/bravo-session-end.sh "mac command-center pairing complete"
-  This commits SESSION_LOG.md + HANDOFF.md and pushes. Windows will see
-  it on next session-start.
-```
-
----
-
-## After the Mac Reports Back
-
-Expected outcome: 11/11 green. The Mac shows up as a second paired bridge
-in `/devices`, the chat widget on the dashboard now offers a `localhost:9100`
-chat path when CC opens it from the Mac, and Windows continues running the
-production daemons untouched.
-
-If anything is yellow/red:
-- **Pairing failed (401)** → HMAC secret mismatch. Copy `OASIS_OUTBOUND_HMAC_SECRET` from Windows `.env.agents` to Mac `.env.agents` and re-run STEP 6.
-- **Dashboard doesn't show Mac in /devices** → heartbeat hasn't fired yet (60s interval). Wait, refresh.
-- **Daemon leak found** → STOP, paste the output back to me on Windows. Likely a stale PM2 entry from the 2026-04-11 incident — I'll triage from Windows side.
-- **launchd not loading** → check that `OnDemand=false` is set; sometimes macOS Security & Privacy needs to grant permission to the plist.
-
-## What This Setup Gives CC
-
-- **Two paired bridges visible** in the dashboard `/operations` and `/devices` pages.
-- **Chat with file access from the Mac** — when CC opens the dashboard on the Mac, the chat widget detects `localhost:9100` and gets full Mac file-system access for that session. Same thing on Windows. Each machine sees its own files.
-- **No daemon conflicts** — scheduler / skool / telegram still Windows-only, untouched. The Mac chat-server is operator-driven (only fires when CC sends a message), not on a timer.
-- **Survives reboot** — launchd starts the chat-server on every login.
+Stress-tested end-to-end on 2026-05-09 against commit dd0044f+. Battery:
+T1 idempotent install · T2 KeepAlive respawn · T3 token wipe + re-pair ·
+T4 stale-token (401) recovery · T5 network failure modes (DNS / timeout /
+503) · T6 100-concurrent /warm-status · T7 reboot proxy · T8 stale-PID +
+port-collision. 8/8 passed. Two cmd_install bugs (py-undef + missing
+WorkingDirectory) fixed in 894585b; Linux parity confirmed via the
+shared `bravo bridge install` code path.
 
 ## Obsidian Links
-- [[brain/CROSS_MACHINE_SYNC]] (the rules — daemons stay Windows, chat-server allowed on Mac)
-- [[brain/MAC_ANTIGRAVITY_PROMPT]] (general Mac sync — pairs with this Command Center prompt)
-- [[brain/MAC_SYNC_PROMPT]] (env audit + Mac-specific overrides like GWS_PATH)
+- [[brain/MULTI_MACHINE_PAIRING_PROMPT]] (canonical — paste this)
+- [[brain/CROSS_MACHINE_SYNC]] (the rules)
+- [[brain/SECURITY_MODEL]] (how pairing actually works under the hood)
