@@ -682,6 +682,48 @@ def can_act(
 
 # ---- Logging ----------------------------------------------------------------
 
+def _emit_outbound_sent(lead_id: Optional[str], channel: str,
+                        interaction_id: Optional[str], intent: str,
+                        brand: Optional[str] = None) -> None:
+    """V6 BUILD 3 — broadcast a successful send to the cross-agent event bus.
+
+    Fire-and-forget. Wrapped in try/except so a bus outage NEVER affects the
+    return value of send(). Lazy-imports event_bus to avoid forcing the
+    supabase client load on every send_gateway import (it's heavyweight,
+    and some callers — like tests with mocked db — don't want it).
+
+    Idempotency: keyed on interaction_id so a retry of the same send (which
+    shouldn't happen given the reservation gate, but defense in depth) is
+    a no-op at the bus level.
+    """
+    if not interaction_id:
+        return  # no canonical id → no idempotency anchor → skip
+    try:
+        # Lazy import: event_bus pulls supabase client; defer until we
+        # actually have a sent message to broadcast.
+        from event_bus import publish as _bus_publish  # type: ignore[import-not-found]
+        _bus_publish(
+            "BRAVO_OUTBOUND_SENT",
+            {
+                "lead_id": lead_id,
+                "channel": channel,
+                "interaction_id": interaction_id,
+                "intent": intent,
+                "brand": brand,
+            },
+            source="bravo",
+            target=None,  # broadcast — Atlas (CFO spend gates), Maven (CMO
+                           # attribution), Aura (life-context awareness) may
+                           # all care about outbound activity
+            correlation_id=interaction_id,
+            idempotency_key=f"outbound_sent:{interaction_id}",
+        )
+    except Exception:
+        # send_gateway is the V5.6 outbound chokepoint — the bus emit is
+        # strictly best-effort and MUST NOT alter the gateway's contract.
+        pass
+
+
 def _mirror_email_log(
     db: Any,
     *,
@@ -1666,6 +1708,10 @@ def send(
             metadata=full_metadata,
             to_email=to_email,
         )
+        # V6 BUILD 3 — broadcast to the cross-agent event bus AFTER the
+        # send + log have both succeeded. Never blocks; never raises; never
+        # mutates the gateway's return value.
+        _emit_outbound_sent(lead_id, channel, interaction_id, intent, brand)
         return {"status": "sent",
                 "reason": "ok",
                 "lead_id": lead_id,
@@ -1698,6 +1744,13 @@ def send(
         metadata=full_metadata,
         to_email=to_email,
     )
+    # V6 BUILD 3 — broadcast to the cross-agent event bus AFTER the
+    # log has succeeded. The non-email channel path logs only; the
+    # physical send happens in the channel-specific engine. Emitting
+    # here is still correct because the contract guarantees the log
+    # happened — downstream subscribers care that send_gateway approved
+    # the action, not which engine eventually delivered it.
+    _emit_outbound_sent(lead_id, channel, interaction_id, intent, brand)
     return {"status": "sent",
             "reason": "non-email channel: logged only, engine performs physical send",
             "lead_id": lead_id,
