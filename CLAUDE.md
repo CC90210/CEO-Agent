@@ -29,6 +29,8 @@ Default to the lighter path. The cost of an over-eager file-read on a casual mes
 
 State files (`brain/STATE.md`, `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md`) are no longer auto-loaded — they're per-intent reads now. The router tells you when.
 
+**HARD RULE — no `@`-imports in this file or any sibling entry point.** Every `@filename` syntax in CLAUDE.md / GEMINI.md / ANTIGRAVITY.md / AGENTS.md / OPENCODE.md auto-loads the referenced file (recursively, up to 5 hops) into the system prompt on EVERY cold spawn. Pre-fix this used to inflate boot context to ~51k tokens (1,924 lines across 10 files) for "yo wsp." Reference paths as bare strings (write `brain/SOUL.md`, never the AT-prefixed form) — the agent reads them on demand per Triage. If you find yourself wanting to add an `@`-import, you're wrong. Stop. Add a Read instruction to the Triage matrix instead.
+
 Fix obvious issues without asking. Answer questions in 1-5 sentences, then act. Never tell CC what you're going to do — just do it. Think 3 steps ahead. CC's time is the bottleneck — multiply it. "make this a post" → run the full content pipeline. Backend task → delegate to Codex.
 
 ## Principles
@@ -43,7 +45,7 @@ Fix obvious issues without asking. Answer questions in 1-5 sentences, then act. 
 
 - **Project:** Business-Empire-Agent — autonomous AI operations hub
 - **Stack:** TypeScript, Next.js 14, Supabase (PostgreSQL), Vercel, Stripe, n8n. Platform: Windows 11, bash.
-- Identity and values: @brain/SOUL.md | CC's profile: @brain/USER.md | App routing: @brain/APP_REGISTRY.md
+- Identity and values: brain/SOUL.md | CC's profile: brain/USER.md | App routing: brain/APP_REGISTRY.md
 
 ## WHY — Purpose
 
@@ -67,11 +69,11 @@ Answer using MCP tools. Do NOT dump file contents. Keep answers to 1-5 sentences
 
 ### RULE 2: Tool routing (CLI-first — NEVER ask CC to authenticate anything)
 
-47 CLI tools in `scripts/` are the PRIMARY execution layer — they read `.env.agents` and never break. MCPs are SECONDARY (Playwright, Context7, Memory, Sequential Thinking, Knowledge Graph only — stateless). Browser Harness is the direct logged-in browser layer; diagnose with `python scripts/browser_harness_doctor.py`, setup with `npm run browser:setup`, and obey @browser/SAFETY.md. **NEVER use claude.ai MCP connectors.** Full routing: @brain/QUICK_REFERENCE.md. Governance: @brain/ORCHESTRATION.md.
+47 CLI tools in `scripts/` are the PRIMARY execution layer — they read `.env.agents` and never break. MCPs are SECONDARY (Playwright, Context7, Memory, Sequential Thinking, Knowledge Graph only — stateless). Browser Harness is the direct logged-in browser layer; diagnose with `python scripts/browser_harness_doctor.py`, setup with `npm run browser:setup`, and obey browser/SAFETY.md. **NEVER use claude.ai MCP connectors.** Full routing: brain/QUICK_REFERENCE.md. Governance: brain/ORCHESTRATION.md.
 
 ### RULE 3: CREDENTIALS AND SECURITY (CRITICAL)
 
-All credentials in `.env.agents`. NEVER hardcode secrets. See @skills/security-protocol/SKILL.md. Validate all inputs at system boundaries. Enforce RLS on Supabase. Sandbox risky scripts in `tmp/`.
+All credentials in `.env.agents`. NEVER hardcode secrets. See skills/security-protocol/SKILL.md. Validate all inputs at system boundaries. Enforce RLS on Supabase. Sandbox risky scripts in `tmp/`.
 
 ### RULE 4: Cross-file sync
 
@@ -87,7 +89,7 @@ Every new markdown file needs YAML frontmatter with `tags:`, ``wiki-links`` to a
 
 ### RULE 7: App Registry Routing
 
-CC mentions an app → load @brain/APP_REGISTRY.md → `cd` to LOCAL PATH → make ALL changes THERE → commit from THERE → log 1-2 sentences in `memory/SESSION_LOG.md`. Business-Empire-Agent is for agent intelligence only.
+CC mentions an app → load brain/APP_REGISTRY.md → `cd` to LOCAL PATH → make ALL changes THERE → commit from THERE → log 1-2 sentences in `memory/SESSION_LOG.md`. Business-Empire-Agent is for agent intelligence only.
 
 ### RULE 8: Codex Dual-AI Delegation (PROACTIVE)
 
@@ -96,7 +98,7 @@ Auto-delegate to Codex (no CC approval): backend implementation, deep debugging 
 export CLAUDE_PLUGIN_ROOT="/c/Users/User/.claude/codex-plugin"
 node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" task --write "<context + task>"
 ```
-Always inject stack/file/constraint context. Present Codex output verbatim. Failure: retry with more context → switch model → Bravo takes over. See @skills/codex-delegation/SKILL.md.
+Always inject stack/file/constraint context. Present Codex output verbatim. Failure: retry with more context → switch model → Bravo takes over. See skills/codex-delegation/SKILL.md.
 
 ### RULE 9: Continuous Self-Improvement (AUTOMATIC — Every Interaction)
 
@@ -118,11 +120,11 @@ Hooks in `.claude/settings.local.json`: Edit/Write blocks `.env*` files. Bash bl
 
 ## Sub-Agent Orchestration
 
-17 agents + Codex executor — full registry and decision matrix: @brain/AGENTS.md. Master multi-agent contract (pulse protocol, veto authority, agent inbox, headless mode): @brain/AGENT_ORCHESTRATION.md. Task routing, anti-drift, SPARC, permissions, background workers: see `skills/[skill]/SKILL.md` on demand.
+17 agents + Codex executor — full registry and decision matrix: brain/AGENTS.md. Master multi-agent contract (pulse protocol, veto authority, agent inbox, headless mode): brain/AGENT_ORCHESTRATION.md. Task routing, anti-drift, SPARC, permissions, background workers: see `skills/[skill]/SKILL.md` on demand.
 
 ## Skills (on-demand — load SKILL.md when needed, not at boot)
 
-Pattern: `skills/[skill-name]/SKILL.md`. Key skills: `outreach-send` (canonical OASIS cold/follow-up email path — auto-loads on outreach intent), `systematic-debugging`, `self-healing`, `test-driven-development`, `browser-harness`, `browser-automation`, `e2e-testing`, `agent-runtime-packaging`, `writing-plans`, `executing-plans`, `skool-automation`, `code-review`, `ship`, `retro`, `task-routing`, `anti-drift`, `sparc-methodology`, `agent-permissions`, `hooks-automation`, `background-workers`, `context-optimization`, `codex-delegation`, `security-protocol`, `memory-management`, `mcp-operations`, `sop-breakdown`. Full workflow commands: @brain/QUICK_REFERENCE.md.
+Pattern: `skills/[skill-name]/SKILL.md`. Key skills: `outreach-send` (canonical OASIS cold/follow-up email path — auto-loads on outreach intent), `systematic-debugging`, `self-healing`, `test-driven-development`, `browser-harness`, `browser-automation`, `e2e-testing`, `agent-runtime-packaging`, `writing-plans`, `executing-plans`, `skool-automation`, `code-review`, `ship`, `retro`, `task-routing`, `anti-drift`, `sparc-methodology`, `agent-permissions`, `hooks-automation`, `background-workers`, `context-optimization`, `codex-delegation`, `security-protocol`, `memory-management`, `mcp-operations`, `sop-breakdown`. Full workflow commands: brain/QUICK_REFERENCE.md.
 
 ## AI Slop Detection — STOP and redo if you catch any of these
 
@@ -137,11 +139,11 @@ Pattern: `skills/[skill-name]/SKILL.md`. Key skills: `outreach-send` (canonical 
 
 ## Session Protocol
 
-On start: run `python scripts/agent_inbox.py list --to bravo` — surface any urgent/high messages from Codex/Atlas/Maven/Aura before new work. During: self-improvement runs continuously (Rule 9). MODERATE+ tasks: generate 2-3 hypotheses, rank, execute best. See `brain/BRAIN_LOOP.md`. After any parallel sub-agent spawn or Codex file-modifying task: spawn `validator` via Task tool before surfacing to CC (closes Observability-Evaluation Gap — see @brain/ORCHESTRATION.md §Validator). Before ending: **run `python scripts/state_sync.py --note "[1-sentence summary]"` — NON-NEGOTIABLE.** Then update `ACTIVE_TASKS.md` → Reflexion if tasks failed → `git commit -m "bravo: sync — session YYYY-MM-DD"` → say "Memory synced."
+On start: run `python scripts/agent_inbox.py list --to bravo` — surface any urgent/high messages from Codex/Atlas/Maven/Aura before new work. During: self-improvement runs continuously (Rule 9). MODERATE+ tasks: generate 2-3 hypotheses, rank, execute best. See `brain/BRAIN_LOOP.md`. After any parallel sub-agent spawn or Codex file-modifying task: spawn `validator` via Task tool before surfacing to CC (closes Observability-Evaluation Gap — see brain/ORCHESTRATION.md §Validator). Before ending: **run `python scripts/state_sync.py --note "[1-sentence summary]"` — NON-NEGOTIABLE.** Then update `ACTIVE_TASKS.md` → Reflexion if tasks failed → `git commit -m "bravo: sync — session YYYY-MM-DD"` → say "Memory synced."
 
 ## MCP vs CLI Status
 
-Working MCPs: Playwright, Context7, Memory, Sequential Thinking, Knowledge Graph. Replaced by CLI: n8n (`n8n_tool.py`), Zernio/Late (`late_tool.py`), Supabase (`supabase_tool.py`), Stripe (`stripe_tool.py`), GWS (`google_tool.py`). Browser Harness handles real logged-in Chrome/Edge workflows when Playwright MCP is too generic. No MCP: GitHub (use `git`). Full routing: @brain/QUICK_REFERENCE.md.
+Working MCPs: Playwright, Context7, Memory, Sequential Thinking, Knowledge Graph. Replaced by CLI: n8n (`n8n_tool.py`), Zernio/Late (`late_tool.py`), Supabase (`supabase_tool.py`), Stripe (`stripe_tool.py`), GWS (`google_tool.py`). Browser Harness handles real logged-in Chrome/Edge workflows when Playwright MCP is too generic. No MCP: GitHub (use `git`). Full routing: brain/QUICK_REFERENCE.md.
 
 ## Obsidian Links
 - [[brain/SOUL]] | [[brain/STATE]] | [[brain/USER]] | [[brain/APP_REGISTRY]]
