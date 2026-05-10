@@ -175,11 +175,11 @@ After CC approves the OKR draft:
 1. Write approved OKRs to `memory/ACTIVE_TASKS.md` under a new section
 2. Update `brain/STATE.md` with new quarterly focus
 3. Archive this QBR report to `memory/ARCHIVES/qbr-YYYY-Q[X].md`
-4. Append to `memory/SESSION_LOG.md`:
+4. Log the QBR completion to the V6.0 state DB (auto-mirrors to `memory/SESSION_LOG.md`):
 
-```
-### [DATE] — Q[X] QBR Complete
-OKR score: X.X/1.0. Top win: [win]. Key miss: [miss]. Q[X+1] OKRs set and approved.
+```bash
+python scripts/state_manager.py log --agent bravo \
+  --note "Q[X] QBR complete — OKR score X.X/1.0, top win: [win], key miss: [miss], Q[X+1] OKRs approved"
 ```
 
 ---

@@ -32,13 +32,15 @@ One command. Five minutes. The wizard asks who you are, you paste a few API keys
 ## What it actually does
 
 - **Autonomous reasoning loop** — 7-phase brain (orient → recall → assess → plan → verify → execute → reflect) running on a tick. Decides what to do next without being asked.
+- **V6.0 Transactional State Engine** — Concurrent multi-agent safety via a SQLite/WAL engine, replacing legacy flat-file locks.
+- **Semantic Memory Retrieval** — FTS5 full-text search indexing to load specific context chunks instead of entire files, drastically reducing token bloat.
+- **Adversarial Security Hooks** — Deeply-tested AST and regex hooks (`exec_guard`, `secret_guard`, `state_guard`) that protect the host OS and environment variables against LLM hallucination and breakout attempts.
+- **Sandboxed Docker Environments** — Turnkey `docker-compose` stacks for both `local` (read-only rootfs) and `cloud` (Nginx/Caddy + SSL) B2B client deployments.
 - **Multi-provider routing** — Claude, OpenAI, OpenRouter, Groq, DeepSeek, local Ollama. Per-agent model config with fallbacks. Switch providers without touching code.
 - **Self-learning skills** — successful patterns get extracted into reusable `SKILL.md` files. After 3 successful uses they promote into the main skill tree automatically.
-- **Three-layer memory** — working scratchpad → episodic events → semantic facts, with nightly importance-scored consolidation backed by pgvector + mem0.
 - **Send chokepoint** — every outbound email passes 8 hardcoded gates: CASL compliance, cooldowns, daily/hourly caps, domain caps, DNS reputation, draft critic, bounce circuit breaker, reservation guard.
 - **Multi-platform messaging** — one gateway, multiple adapters: Telegram (live), Discord, Slack. Single dispatcher routes inbound to the right C-Suite agent.
-- **Multi-machine pairing** — same dashboard, multiple bridges. Desktop runs production daemons; laptop adds a chat-server. Pair endpoint is fingerprint-idempotent so re-installs don't duplicate rows.
-- **Forks for any operator** — clone the repo, run the wizard, and the codebase rewrites itself for you. Your name, your brand, your north star, your voice.
+- **Forks for any operator** — clone the repo, run the setup wizard, and the codebase rewrites itself and fans out scoped secrets for your specific deployment.
 
 ---
 

@@ -36,6 +36,11 @@ const nextConfig = {
   // daemon's cookie store) during 'Collecting build traces', failing builds
   // with EBUSY. App is fully self-contained anyway.
   outputFileTracingRoot: path.join(__dirname),
+  // V6.0 Docker deployment — produce .next/standalone with a self-contained
+  // server.js + trimmed node_modules. Required by infra/Dockerfile.commandcenter.
+  // No effect on Vercel (Vercel uses its own builder; this just enables an
+  // additional output directory).
+  output: "standalone",
 };
 
 module.exports = nextConfig;

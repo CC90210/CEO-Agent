@@ -695,6 +695,80 @@ def _call_provider(
     raise RuntimeError("provider_call_failed_with_no_exception")
 
 
+# ── V6.0: log every chat interaction to state/empire_state.db ──────────────
+#
+# Each chat that flows through the bridge is an interaction worth a session_log
+# entry. Without this, V6.0's "every action goes through state_manager" contract
+# has a hole the size of every dashboard chat — and the System Health page's
+# session_log_count never moves while the operator is actively chatting.
+#
+# Best-effort + fire-and-forget. State logging never blocks or breaks chat.
+
+_V6_REPO_ROOT = Path(__file__).resolve().parents[1]
+_V6_STATE_MANAGER = _V6_REPO_ROOT / "scripts" / "state_manager.py"
+
+
+def _v6_log_chat_interaction(agent: str, kind: str, last_user_msg: str) -> None:
+    """Best-effort session_log insert for a chat interaction.
+
+    `kind` distinguishes endpoints: 'cloud-chat' (/chat → Anthropic/OpenRouter),
+    'local-chat' (/local-chat → Ollama / LM Studio).
+
+    Skipped when EMPIRE_V6_MODE=off (V5.5 behavior preserved). Otherwise
+    spawns a detached `state_manager.py log` so the bridge process never
+    waits — chat latency is unchanged.
+
+    Agent validation is delegated to state_manager.append_session_log,
+    which silently falls back to "bravo" on unknown agents. No reason to
+    duplicate the canonical agent allowlist here.
+    """
+    mode = os.environ.get("EMPIRE_V6_MODE", "off").lower()
+    if mode == "off":
+        return
+    if not _V6_STATE_MANAGER.exists():
+        return
+
+    note = f"[bridge:{kind}] {(last_user_msg or '').strip()[:160]}"
+    safe_agent = (agent or "bravo").lower().strip() or "bravo"
+
+    kwargs: dict = {
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+        "stdin": subprocess.DEVNULL,
+        "cwd": str(_V6_REPO_ROOT),
+    }
+    if os.name == "nt":
+        DETACHED_PROCESS = 0x00000008
+        kwargs["creationflags"] = DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+    else:
+        kwargs["start_new_session"] = True
+    try:
+        subprocess.Popen(
+            [sys.executable, str(_V6_STATE_MANAGER),
+             "log", "--note", note, "--agent", safe_agent],
+            **kwargs,
+        )
+    except Exception:
+        pass
+
+
+def _v6_last_user_text(messages: list) -> str:
+    """Pull the most recent user-role message from a chat thread."""
+    if not isinstance(messages, list):
+        return ""
+    for m in reversed(messages):
+        if isinstance(m, dict) and m.get("role") == "user":
+            content = m.get("content")
+            if isinstance(content, str):
+                return content
+            if isinstance(content, list):
+                # Anthropic content blocks: [{type:'text', text:'...'}, ...]
+                texts = [b.get("text", "") for b in content
+                         if isinstance(b, dict) and b.get("type") == "text"]
+                return " ".join(t for t in texts if t)
+    return ""
+
+
 class _ChatHandler(BaseHTTPRequestHandler):
     # Quiet the default request logger
     def log_message(self, fmt: str, *args: Any) -> None:
@@ -869,6 +943,10 @@ class _ChatHandler(BaseHTTPRequestHandler):
         if not model or not isinstance(messages, list) or not messages:
             self._json(400, {"ok": False, "error": "model + messages required"})
             return
+
+        # V6.0: log the interaction. Local chat doesn't carry an agent id —
+        # always attribute to bravo (the local-bridge owner).
+        _v6_log_chat_interaction("bravo", "local-chat", _v6_last_user_text(messages))
 
         # Compose OpenAI-compatible body. Both Ollama and LM Studio honor
         # this shape on /v1/chat/completions.
@@ -1088,6 +1166,11 @@ class _ChatHandler(BaseHTTPRequestHandler):
         if not isinstance(messages, list) or not messages:
             self._json(400, {"ok": False, "error": "no_messages"})
             return
+
+        # V6.0: log this interaction to state/empire_state.db so the System
+        # Health page sees dashboard chat activity. Best-effort, fire-and-forget.
+        _v6_log_chat_interaction(agent, "cloud-chat", _v6_last_user_text(messages))
+
         # Optional Claude Code session id — when present we pass --resume
         # so the agent skips the cold context-load on subsequent turns.
         # First turn omits it; we mint a fresh session below and the

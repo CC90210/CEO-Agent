@@ -1,18 +1,22 @@
 """
-State Sync — Single-Write Protocol for Fragmented Memory
-Syncs a key observation/update across all 3 active memory layers simultaneously:
-  1. brain/STATE.md  — heartbeat timestamp + last result
-  2. memory/SESSION_LOG.md — append session entry
-  3. scripts/mem0_tool.py  — semantic memory (add observation)
+State Sync — Single-Write Protocol for Fragmented Memory.
 
-Usage:
+Behavior is gated by `EMPIRE_V6_MODE` (env var, falls back to .env.agents):
+  - off    (default) → V5.5 path only: flat-file writes to STATE.md + SESSION_LOG.md.
+  - shadow           → V5.5 path runs first, then state_manager.py mirrors the same
+                       write into state/empire_state.db (best-effort, never fails the sync).
+                       Use for the V6.0 soak period to prove DB parity with no risk.
+  - on               → DB is source of truth: state_manager.py writes the row,
+                       export_markdown() regenerates the markdown mirrors.
+                       The V5.5 flat-file path is skipped entirely.
+
+Usage (CLI surface preserved across modes):
   python scripts/state_sync.py --note "Semi-auto outreach: 3 leads sent to Telegram"
   python scripts/state_sync.py --heartbeat          # Just refresh timestamp
-  python scripts/state_sync.py --status "✅ LIVE"   # Update tool status in STATE
   python scripts/state_sync.py --note "..." --mem0  # Also write to semantic memory
+  python scripts/state_sync.py --note "..." --mode shadow  # Override env var ad-hoc
 
-This is the MANDATORY end-of-session sync. Run it after every meaningful change.
-One command → three memory layers updated. No more fragmentation.
+This is the MANDATORY end-of-session sync.
 """
 
 import argparse
@@ -26,6 +30,25 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 STATE_FILE = PROJECT_ROOT / "brain" / "STATE.md"
 SESSION_LOG = PROJECT_ROOT / "memory" / "SESSION_LOG.md"
+
+
+def _resolve_v6_mode(cli_override: str | None) -> str:
+    """Pick the V6 mode from --mode > env > .env.agents > 'off'."""
+    if cli_override:
+        return cli_override.lower()
+    env = os.environ.get("EMPIRE_V6_MODE")
+    if env:
+        return env.lower()
+    env_file = PROJECT_ROOT / ".env.agents"
+    if env_file.exists():
+        try:
+            for line in env_file.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if line.startswith("EMPIRE_V6_MODE="):
+                    return line.split("=", 1)[1].strip().strip('"').strip("'").lower() or "off"
+        except OSError:
+            pass
+    return "off"
 
 # Force UTF-8 stdout/stderr on Windows so emoji status glyphs (✅ ❌ ⚠️)
 # don't crash the "MANDATORY end-of-session sync" with UnicodeEncodeError
@@ -147,6 +170,31 @@ def sync_mem0(note: str):
 
 # ── Main ───────────────────────────────────────────────────────────────────────
 
+def _v6_write(mode: str, note: str, agent_name: str, results: dict, heartbeat_only: bool) -> None:
+    """Mirror the sync into state/empire_state.db. Best-effort; never raises."""
+    if mode == "off":
+        return
+    try:
+        sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+        from state_manager import (
+            heartbeat as sm_heartbeat,
+            append_session_log as sm_append,
+            export_markdown as sm_export,
+        )
+    except Exception as e:  # noqa: BLE001
+        results["state_manager"] = f"⚠️ import failed: {e}"
+        return
+    try:
+        sm_heartbeat(agent=agent_name, status="working", focus=note)
+        if not heartbeat_only:
+            sm_append(note=note, agent=agent_name)
+        if mode == "on":
+            sm_export()
+        results["state_manager"] = f"✅ ({mode})"
+    except Exception as e:  # noqa: BLE001
+        results["state_manager"] = f"⚠️ {e}"
+
+
 def main():
     parser = argparse.ArgumentParser(description="State sync — single write to all memory layers")
     parser.add_argument("--note", "-n", default="", help="Observation to sync across all memory layers")
@@ -158,29 +206,38 @@ def main():
         choices=["bravo", "atlas", "maven", "hermes", "codex", "aura"],
         help="Agent to mark live in agent_state_snapshot (default: bravo)",
     )
+    parser.add_argument(
+        "--mode",
+        default=None,
+        choices=["off", "shadow", "on"],
+        help="Override EMPIRE_V6_MODE for this invocation",
+    )
     args = parser.parse_args()
 
     note = args.note.strip() if args.note else "Session sync."
     agent_name = args.agent.lower().strip()
+    v6_mode = _resolve_v6_mode(args.mode)
 
-    results = {}
+    results = {"v6_mode": v6_mode}
 
-    # 1. STATE.md heartbeat
-    try:
-        update_state_heartbeat(note, agent_name)
-        results["STATE.md"] = "✅"
-    except Exception as e:
-        results["STATE.md"] = f"❌ {e}"
-
-    # 2. SESSION_LOG.md (skip for --heartbeat only)
-    if not args.heartbeat:
+    # V5.5 flat-file path runs in 'off' and 'shadow' modes only.
+    if v6_mode in ("off", "shadow"):
         try:
-            action = append_session_log(note, agent_name)
-            results["SESSION_LOG.md"] = "✅ (deduped)" if action == "deduped" else "✅"
+            update_state_heartbeat(note, agent_name)
+            results["STATE.md"] = "✅"
         except Exception as e:
-            results["SESSION_LOG.md"] = f"❌ {e}"
+            results["STATE.md"] = f"❌ {e}"
 
-    # 3. mem0 semantic memory (opt-in via --mem0)
+        if not args.heartbeat:
+            try:
+                action = append_session_log(note, agent_name)
+                results["SESSION_LOG.md"] = "✅ (deduped)" if action == "deduped" else "✅"
+            except Exception as e:
+                results["SESSION_LOG.md"] = f"❌ {e}"
+
+    # V6.0 DB path runs in 'shadow' and 'on' modes.
+    _v6_write(v6_mode, note, agent_name, results, args.heartbeat)
+
     if args.mem0:
         try:
             ok = sync_mem0(note)
@@ -188,14 +245,17 @@ def main():
         except Exception as e:
             results["mem0"] = f"❌ {e}"
 
-    # 4. Agent heartbeat - keeps the Command Center's Agents tab live.
-    #    Best-effort: never blocks the sync if the heartbeat write fails.
-    try:
-        from agent_heartbeat import heartbeat
-        ok = heartbeat(agent_name, working_memory={"last_note": note[:200]})
-        results["heartbeat"] = "✅" if ok else "⚠️ heartbeat skipped"
-    except Exception as e:
-        results["heartbeat"] = f"❌ {e}"
+    # Supabase agent_state_snapshot mirror.
+    # In shadow/on modes, state_manager.heartbeat() already pushed it as part
+    # of its single-writer contract. Only fire the standalone path in 'off'
+    # mode where state_manager wasn't called.
+    if v6_mode == "off":
+        try:
+            from agent_heartbeat import heartbeat
+            ok = heartbeat(agent_name, working_memory={"last_note": note[:200]})
+            results["heartbeat"] = "✅" if ok else "⚠️ heartbeat skipped"
+        except Exception as e:
+            results["heartbeat"] = f"❌ {e}"
 
     summary = " | ".join(f"{k}: {v}" for k, v in results.items())
     print(f"[state_sync] {summary}")

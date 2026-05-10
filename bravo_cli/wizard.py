@@ -1976,6 +1976,224 @@ def step_browser_harness(step_num: int, total: int) -> None:
 _post_doctor_rc: list[int] = [0]
 
 
+# ── V6.0 deployment + sandbox steps ───────────────────────────────────────────
+
+V6_SCOPED_ENV_FILES = {
+    # service → list of env keys it needs. Anything not in the list is
+    # withheld from that service's container — defense in depth against
+    # one-service-RCE pulling every credential.
+    "core": None,  # bravo-core gets everything; it's the autonomous loop
+    "webhook": [
+        "BRAVO_SUPABASE_URL", "BRAVO_SUPABASE_ANON_KEY",
+        "STRIPE_WEBHOOK_SECRET", "WEBHOOK_HMAC_KEY",
+        "N8N_WEBHOOK_TOKEN", "TELEGRAM_BOT_TOKEN",
+        "EMPIRE_V6_MODE", "EMPIRE_HOOK_SECRET_GUARD", "EMPIRE_HOOK_EXEC_GUARD",
+        "EMPIRE_HOOK_STATE_GUARD", "EMPIRE_DEPLOY_TARGET",
+    ],
+    "dashboard": [
+        # Public Supabase only — no service-role, no Stripe secret, no Anthropic.
+        "BRAVO_SUPABASE_URL", "BRAVO_SUPABASE_ANON_KEY",
+        "NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+        "STATE_API_URL", "DASHBOARD_DOMAIN",
+        "EMPIRE_DEPLOY_TARGET",
+    ],
+}
+
+
+def _detect_deploy_target() -> str:
+    """Best-effort local-vs-cloud detection. Operator gets the final say."""
+    if os.environ.get("EMPIRE_DEPLOY_TARGET"):
+        return os.environ["EMPIRE_DEPLOY_TARGET"].lower()
+    # Cloud signals: SSH session, no display, /sys/devices/virtual/dmi indicators
+    if os.environ.get("SSH_CONNECTION"):
+        return "cloud"
+    if os.name == "posix" and not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
+        # No GUI on a Linux box → likely a VPS
+        if Path("/.dockerenv").exists() or Path("/run/.containerenv").exists():
+            return "cloud"
+    return "local"
+
+
+def _docker_available() -> tuple[bool, str]:
+    """Return (available, message). Doesn't fail the wizard if Docker is missing."""
+    if not shutil.which("docker"):
+        return (False, "docker CLI not on PATH")
+    try:
+        r = subprocess.run(
+            ["docker", "info", "--format", "{{.ServerVersion}}"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if r.returncode == 0 and r.stdout.strip():
+            return (True, f"docker {r.stdout.strip()}")
+        return (False, "docker daemon not responding (start Docker Desktop?)")
+    except (subprocess.TimeoutExpired, OSError) as e:
+        return (False, f"docker probe failed: {e}")
+
+
+def _read_master_env() -> dict[str, str]:
+    """Parse the master .env.agents into a dict (in-memory, never echoed)."""
+    out: dict[str, str] = {}
+    if not ENV_PATH.exists():
+        return out
+    for raw in ENV_PATH.read_text(encoding="utf-8", errors="ignore").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, _, v = line.partition("=")
+        out[k.strip()] = v.strip().strip('"').strip("'")
+    return out
+
+
+def _write_scoped_env_file(path: Path, allowed_keys: list[str] | None,
+                           master: dict[str, str]) -> int:
+    """Write a per-service .env.agents.<service> file. Returns key count.
+
+    `allowed_keys=None` means "every key the master has" (used by bravo-core).
+    """
+    if allowed_keys is None:
+        keys = sorted(master.keys())
+    else:
+        keys = [k for k in allowed_keys if k in master]
+
+    lines = [
+        f"# {path.name} — scoped env, written by `bravo setup`.",
+        "# Per-service subset of the master .env.agents.",
+        "# Keys NOT listed here are deliberately withheld from this service",
+        "# so a one-service compromise cannot exfiltrate the full credential set.",
+        "",
+    ]
+    for k in keys:
+        v = master[k]
+        if v and ("\n" in v or " " in v or v != v.strip()):
+            v = '"' + v.replace('"', '\\"') + '"'
+        lines.append(f"{k}={v}")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    _chmod_secret_file(path)
+    return len(keys)
+
+
+def _fan_out_scoped_env_files() -> dict[str, int]:
+    """Generate .env.agents.{core,webhook,dashboard} from the master file."""
+    master = _read_master_env()
+    if not master:
+        return {}
+    counts: dict[str, int] = {}
+    for service, allowed in V6_SCOPED_ENV_FILES.items():
+        target = REPO_ROOT / f".env.agents.{service}"
+        counts[service] = _write_scoped_env_file(target, allowed, master)
+    return counts
+
+
+def step_environment(step_num: int, total: int) -> None:
+    """Detect local-vs-cloud deploy target so downstream steps can adapt."""
+    step_header(step_num, total, "Deployment target",
+                "Local laptop sandbox or always-on cloud VPS?")
+    detected = _detect_deploy_target()
+    print(f"  {DIM('Auto-detected:')} {CYAN(detected)}")
+    print()
+    print(f"  {BOLD('Where will this agent run day-to-day?')}")
+    print(f"    {CYAN('1)')} Local — laptop / desktop, single operator")
+    print(f"    {CYAN('2)')} Cloud — VPS / always-on, dashboard accessed remotely")
+    print()
+    default = "1" if detected == "local" else "2"
+    try:
+        choice = input(f"  Choose [1/2] (default {default}): ").strip() or default
+    except (EOFError, KeyboardInterrupt):
+        choice = default
+    target = "local" if choice == "1" else "cloud"
+    write_env("EMPIRE_DEPLOY_TARGET", target)
+    print(f"  {GREEN(OK)} Target: {CYAN(target)}")
+    print()
+
+
+def step_v6_init(profile: str, step_num: int, total: int) -> None:
+    """Bootstrap V6.0: write hook defaults, init state DB, build retrieval index, fan out env."""
+    step_header(step_num, total, "V6.0 sandbox initialization",
+                "Boot the SQLite state DB, FTS5 index, and hook guards.")
+
+    target = (read_env("EMPIRE_DEPLOY_TARGET") or "local").lower()
+
+    # Hook mode defaults — safe-by-default for soak, enforce in cloud.
+    if target == "cloud":
+        v6_mode = "on"
+        secret_mode = "enforce"
+        exec_mode = "enforce"
+        state_mode = "enforce"
+    else:
+        v6_mode = "shadow"
+        secret_mode = "enforce"   # secrets always enforced — lowest false-positive risk
+        exec_mode = "report"      # soak the regex 14 days before flipping
+        state_mode = "off"        # off until cutover
+
+    write_env("EMPIRE_V6_MODE", v6_mode)
+    write_env("EMPIRE_HOOK_SECRET_GUARD", secret_mode)
+    write_env("EMPIRE_HOOK_EXEC_GUARD", exec_mode)
+    write_env("EMPIRE_HOOK_STATE_GUARD", state_mode)
+    print(f"  {GREEN(OK)} V6.0 mode: {CYAN(v6_mode)}")
+    print(f"  {GREEN(OK)} Hooks: secret={CYAN(secret_mode)} exec={CYAN(exec_mode)} state={CYAN(state_mode)}")
+
+    # Bootstrap the DBs.
+    sm_script = REPO_ROOT / "scripts" / "state_manager.py"
+    if sm_script.exists():
+        print(f"  {DIM('Initializing')} {CYAN('state/empire_state.db')}{DIM('...')}")
+        rc = subprocess.call([sys.executable, str(sm_script), "heartbeat",
+                              "--agent", profile if profile in {"bravo","atlas","maven","hermes","aura","codex"} else "bravo",
+                              "--status", "setup",
+                              "--focus", "V6.0 wizard bootstrap"],
+                             cwd=str(REPO_ROOT),
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if rc == 0:
+            print(f"  {GREEN(OK)} State DB initialized.")
+        else:
+            print(f"  {YELLOW('state_manager.py heartbeat exited ' + str(rc) + ' — re-run after fixing.')}")
+
+        # Idempotent — UNIQUE(session_id, note) handles dedup.
+        subprocess.call([sys.executable, str(sm_script), "import-from-files"],
+                        cwd=str(REPO_ROOT),
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.call([sys.executable, str(sm_script), "export"],
+                        cwd=str(REPO_ROOT),
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    mr_script = REPO_ROOT / "scripts" / "memory_retriever.py"
+    if mr_script.exists():
+        print(f"  {DIM('Building FTS5 retrieval index (')}{CYAN('state/memory_index.db')}{DIM(')...')}")
+        rc = subprocess.call([sys.executable, str(mr_script), "build"],
+                             cwd=str(REPO_ROOT),
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if rc == 0:
+            print(f"  {GREEN(OK)} Memory retriever ready.")
+        else:
+            print(f"  {YELLOW('memory_retriever.py build exited ' + str(rc) + '.')}")
+
+    # Scoped env file fan-out — defense in depth.
+    counts = _fan_out_scoped_env_files()
+    if counts:
+        per = ", ".join(f"{svc}={n}" for svc, n in counts.items())
+        print(f"  {GREEN(OK)} Scoped env files written: {CYAN(per)} keys")
+
+    # Optional Docker build prompt.
+    docker_ok, docker_msg = _docker_available()
+    if docker_ok:
+        compose_file = "docker-compose.cloud.yml" if target == "cloud" else "docker-compose.local.yml"
+        print()
+        print(f"  {DIM('Detected:')} {GREEN(docker_msg)}")
+        if yes_no(f"Build the V6.0 sandbox image now? (uses {compose_file})", default=False):
+            print(f"  {DIM('Running')} {CYAN(f'docker compose -f infra/{compose_file} build')}{DIM(' (3-5 minutes on first run)...')}")
+            rc = subprocess.call(
+                ["docker", "compose", "-f", f"infra/{compose_file}", "build"],
+                cwd=str(REPO_ROOT),
+            )
+            if rc == 0:
+                print(f"  {GREEN(OK)} Sandbox image built. Start with: {CYAN(f'docker compose -f infra/{compose_file} up -d')}")
+            else:
+                print(f"  {YELLOW('docker compose build exited ' + str(rc) + ' — re-run manually.')}")
+    else:
+        print(f"  {DIM('Docker not available right now (')}{docker_msg}{DIM('). Install Docker Desktop later, then run:')}")
+        print(f"    {CYAN('docker compose -f infra/docker-compose.local.yml up -d --build')}")
+    print()
+
+
 def _try_pair_code_flow(dashboard_url: str) -> bool:
     """Pair-code path: the operator generated a 9-char code from
     /settings → Devices → Generate code, and pastes it here. We POST to
@@ -2484,6 +2702,7 @@ def run_wizard(profile_override: str | None = None) -> int:
         # Numbered steps start AFTER the profile pick (picker is unnumbered).
         # Compute the total from what actually applies to the chosen profile.
         total = 1  # finalize always runs
+        total += 1                                         # V6.0 environment detection
         if AGENT_REPOS.get(profile):                       total += 1  # clone
         total += 1                                         # user identity
         if profile in BUSINESS_CONTEXT_PROFILES:           total += 1  # business ctx
@@ -2494,8 +2713,12 @@ def run_wizard(profile_override: str | None = None) -> int:
         if p["extra"]:                                     total += 1
         total += 2                                         # playwright + harness
         total += 1                                         # dashboard pairing
+        total += 1                                         # V6.0 sandbox init
 
         step = 0
+
+        # V6.0: detect deploy target FIRST so downstream steps can adapt.
+        step += 1; step_environment(step, total)
 
         if AGENT_REPOS.get(profile):
             step += 1; step_clone_agent_repo(profile, step, total)
@@ -2516,6 +2739,10 @@ def run_wizard(profile_override: str | None = None) -> int:
         step += 1; step_browser_harness(step, total)
         # Cloud handoff — wizard answers → dashboard, mint local-bridge token
         step += 1; step_dashboard_pair(profile, step, total)
+        # V6.0 sandbox: write hook defaults, boot state DB, build FTS5 index,
+        # fan out scoped env files, optional docker build. Runs RIGHT BEFORE
+        # finalize so the post-install `bravo doctor` sees a healthy V6.0 stack.
+        step += 1; step_v6_init(profile, step, total)
         step += 1; step_finalize(profile, step, total)
         # Propagate the post-install bravo-doctor exit code so a broken
         # install can't show "Setup complete" + return 0 (Codex P2).

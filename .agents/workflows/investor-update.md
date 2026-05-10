@@ -83,11 +83,10 @@ Output the draft email with:
 Wait for CC's review and approval before sending.
 
 ### Step 8 — Log to Session Log
-After CC approves and sends:
-```
-Append to memory/SESSION_LOG.md:
-### [DATE] — Monthly Investor Update Sent
-MRR: $X,XXX | Pipeline: $X,XXX | Recipients: [N advisors/investors]
+After CC approves and sends, log to the V6.0 state DB (auto-mirrors to `memory/SESSION_LOG.md`):
+```bash
+python scripts/state_manager.py log --agent bravo \
+  --note "Monthly investor update sent — MRR \$X,XXX, pipeline \$X,XXX, [N] recipients"
 ```
 
 ## Output

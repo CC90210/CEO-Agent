@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-10T03:01:48.023980+00:00",
-  "script_count": 80,
-  "entry_count": 293,
+  "generated_at_iso": "2026-05-10T07:18:30.031801+00:00",
+  "script_count": 82,
+  "entry_count": 306,
   "entries": [
     {
       "key": "agent_heartbeat",
@@ -1174,6 +1174,34 @@
       "help": "Bravo V6.0 \u2014 Memory Query (retrieval)"
     },
     {
+      "key": "memory_retriever_build",
+      "path": "scripts/memory_retriever.py",
+      "subcmd": "build",
+      "mutating": false,
+      "help": "V6.0 FTS5 retrieval over memory/, skills/, brain/. \u2014 subcommand: build"
+    },
+    {
+      "key": "memory_retriever_update",
+      "path": "scripts/memory_retriever.py",
+      "subcmd": "update",
+      "mutating": true,
+      "help": "V6.0 FTS5 retrieval over memory/, skills/, brain/. \u2014 subcommand: update"
+    },
+    {
+      "key": "memory_retriever_query",
+      "path": "scripts/memory_retriever.py",
+      "subcmd": "query",
+      "mutating": false,
+      "help": "V6.0 FTS5 retrieval over memory/, skills/, brain/. \u2014 subcommand: query"
+    },
+    {
+      "key": "memory_retriever_status",
+      "path": "scripts/memory_retriever.py",
+      "subcmd": "status",
+      "mutating": false,
+      "help": "V6.0 FTS5 retrieval over memory/, skills/, brain/. \u2014 subcommand: status"
+    },
+    {
       "key": "model_router_list_providers",
       "path": "scripts/model_router.py",
       "subcmd": "list-providers",
@@ -1774,6 +1802,69 @@
       "subcmd": "daemon",
       "mutating": false,
       "help": "Skool Community Engine V2.1 \u2014 Autonomous community management via Playwright. \u2014 subcommand: daemon"
+    },
+    {
+      "key": "state_manager_heartbeat",
+      "path": "scripts/state_manager.py",
+      "subcmd": "heartbeat",
+      "mutating": false,
+      "help": "V6.0 transactional state manager \u2014 single writer for `state/empire_state.db`. \u2014 subcommand: heartbeat"
+    },
+    {
+      "key": "state_manager_log",
+      "path": "scripts/state_manager.py",
+      "subcmd": "log",
+      "mutating": false,
+      "help": "V6.0 transactional state manager \u2014 single writer for `state/empire_state.db`. \u2014 subcommand: log"
+    },
+    {
+      "key": "state_manager_task",
+      "path": "scripts/state_manager.py",
+      "subcmd": "task",
+      "mutating": false,
+      "help": "V6.0 transactional state manager \u2014 single writer for `state/empire_state.db`. \u2014 subcommand: task"
+    },
+    {
+      "key": "state_manager_add",
+      "path": "scripts/state_manager.py",
+      "subcmd": "add",
+      "mutating": true,
+      "help": "V6.0 transactional state manager \u2014 single writer for `state/empire_state.db`. \u2014 subcommand: add"
+    },
+    {
+      "key": "state_manager_close",
+      "path": "scripts/state_manager.py",
+      "subcmd": "close",
+      "mutating": true,
+      "help": "V6.0 transactional state manager \u2014 single writer for `state/empire_state.db`. \u2014 subcommand: close"
+    },
+    {
+      "key": "state_manager_list",
+      "path": "scripts/state_manager.py",
+      "subcmd": "list",
+      "mutating": false,
+      "help": "V6.0 transactional state manager \u2014 single writer for `state/empire_state.db`. \u2014 subcommand: list"
+    },
+    {
+      "key": "state_manager_export",
+      "path": "scripts/state_manager.py",
+      "subcmd": "export",
+      "mutating": false,
+      "help": "V6.0 transactional state manager \u2014 single writer for `state/empire_state.db`. \u2014 subcommand: export"
+    },
+    {
+      "key": "state_manager_import_from_files",
+      "path": "scripts/state_manager.py",
+      "subcmd": "import-from-files",
+      "mutating": false,
+      "help": "V6.0 transactional state manager \u2014 single writer for `state/empire_state.db`. \u2014 subcommand: import-from-files"
+    },
+    {
+      "key": "state_manager_status",
+      "path": "scripts/state_manager.py",
+      "subcmd": "status",
+      "mutating": false,
+      "help": "V6.0 transactional state manager \u2014 single writer for `state/empire_state.db`. \u2014 subcommand: status"
     },
     {
       "key": "stripe_tool_list_accounts",

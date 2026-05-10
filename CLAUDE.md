@@ -1,4 +1,4 @@
-# CLAUDE CODE — BRAVO V5.5
+# CLAUDE CODE — BRAVO V6.0
 
 <!-- SYSTEM_PROMPT_STATIC_BOUNDARY: Content above this line is stable across sessions and benefits from prompt caching. Content below changes per session. Move frequently-changing content (STATE, tasks, dates) below the dynamic boundary at the end of this file. -->
 
@@ -57,11 +57,15 @@ Build CC's empire through AI automation. North star: **$5,000 USD Net MRR by May
 
 T1 Minimal (status/lookup): `STATE.md` + `ACTIVE_TASKS.md` only. T2 Standard (build/fix/debug): T1 + `AGENTS.md` + `CAPABILITIES.md` + `SESSION_LOG.md`. T3 Full (architecture/redesign): everything in `brain/` + `memory/`. **Default to T2.** Classify: `python scripts/context_manager.py tier "<query>"`. Maintenance tools: `python scripts/auto_dream.py run`, `memory_index.py build`, `memory_aging.py scan`, `context_manager.py compact`. Config: `.agents/config.toml`.
 
+**V6.0 retrieval first (preferred over whole-file Read):** For any operational request that needs prior context ("have we hit this before?", "what's the SOP for X?", "did Codex log anything?"), query the FTS5 index first: `python scripts/memory_retriever.py query "<question>"` → ranked snippets with file:line refs in <100ms. Only `Read` the full file if the snippet is insufficient. This replaces the ~104K-token Tier 2 loads with ~1.5K-token targeted hits.
+
 ### RULE 0: CONTINUOUS STATE SYNC + STALENESS GATE (CRITICAL — NON-NEGOTIABLE)
 
-CC uses 3 AI agents interchangeably (Claude, Gemini, Antigravity). After EVERY action, update `brain/STATE.md`, `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md` if state changed. When CC asks about recent activity: READ the files first — never answer from memory alone.
+CC uses 3 AI agents interchangeably (Claude, Gemini, Antigravity). After EVERY action, run `python scripts/state_sync.py --note "<summary>"` — it dispatches based on `EMPIRE_V6_MODE` (off/shadow/on) so behavior is unified across V5.5 and V6.0. When CC asks about recent activity: READ the files first or run `python scripts/state_manager.py status` — never answer from memory alone.
 
 **Staleness gate (added 2026-05-03):** Before quoting any `memory/*.md` or `brain/STATE.md` claim as ground truth, check its `last_updated:` frontmatter (or "Last updated:" line). If > 7 days old, treat as **archived context, not current state** — run `python scripts/memory_aging.py stale --days 7` and ask CC for the current priority rather than inferring from a stale file. The SessionStart hook surfaces a STALENESS REPORT at boot — read it. Trusting a 2-week-old task file as current state is the failure mode this rule exists to prevent.
+
+**V6.0 — DB is source of truth in `on` mode:** `state/empire_state.db` (SQLite/WAL) holds heartbeats, session_log entries, and active_task rows. `memory/SESSION_LOG.md` is auto-generated between AUTO-GENERATED-BEGIN/END markers — DO NOT hand-edit between those markers (state_guard hook will block in enforce mode). Programmatic writes go through `python scripts/state_manager.py {log,heartbeat,task}`.
 
 ### RULE 1: Answer first, then work
 
@@ -75,6 +79,8 @@ Answer using MCP tools. Do NOT dump file contents. Keep answers to 1-5 sentences
 
 All credentials in `.env.agents`. NEVER hardcode secrets. See skills/security-protocol/SKILL.md. Validate all inputs at system boundaries. Enforce RLS on Supabase. Sandbox risky scripts in `tmp/`.
 
+**V6.0 — `.env.agents` is NOT LLM-readable.** `scripts/secret_guard.py` blocks Read on `.env*`, `*.pem`, `*.key`, `credentials.json`, and Bash commands that would `cat`/`grep`/`sed` them. To use a credential, call a CLI wrapper (`python scripts/<service>_tool.py <verb> --json`) — wrappers load via `scripts/lib/secret_loader.py` and return only sanitized JSON. If you see a credential in your context window, even partial, STOP and tell CC the guard is misconfigured. Do not echo, summarize, or "for clarity" repeat it.
+
 ### RULE 4: Cross-file sync
 
 Changing ANY config/entry point → update ALL files that reference it: MCP configs (`.claude/mcp.json`, `.vscode/mcp.json`, `~/.gemini/settings.json`, **`%APPDATA%\Antigravity\User\mcp.json`** — the IDE-native user MCP config, outside this repo, easy to forget; was the source of the 2026-05-06 plaintext-Stripe-key leak), entry points (`CLAUDE.md`, `GEMINI.md`, `ANTIGRAVITY.md`, `AGENTS.md`, `OPENCODE.md`, `telegram_agent.js`, `bravo_cli/bridge_chat_server.py:_system_prompt_for`), RAG-router files (`brain/AGENT_ROUTER.md`, `brain/INTENTS.md`, `brain/WHEN_TO_USE_SKILLS.md`, `brain/EXECUTION_RULES.md`), docs (`brain/CAPABILITIES.md`, `brain/AGENTS.md`). **Authoritative MCP-config registry:** `scripts/audit_mcp_secrets.py` `MCP_CONFIG_PATHS` — if a config path isn't listed there, it isn't being audited. Add new MCP entry points there before shipping.
@@ -82,6 +88,8 @@ Changing ANY config/entry point → update ALL files that reference it: MCP conf
 ### RULE 5: Verification
 
 Always verify — run tests, check Supabase, use `git status`. If you can't verify it, don't ship it.
+
+**V6.0 — exec_guard is law.** Every Bash command runs through `scripts/exec_guard.py`. Hard blocks: `DROP TABLE`, `TRUNCATE`, `DELETE FROM` without `WHERE`, `ALTER … DROP COLUMN`, `rm -rf /` outside tmp, `git push --force` to main, `git reset --hard <ref>`, `git clean -fdx`, fork bombs, `dd` to disks. If a command is blocked, fix the underlying intent and re-issue a safer form — DO NOT bypass with eval, base64, or `--no-verify`. Bypass attempts are logged to `state/exec_guard.log` and reviewed.
 
 ### RULE 6: Obsidian Vault Sync
 
@@ -110,9 +118,32 @@ TASK COMPLETE → Failure/correction? → memory/MISTAKES.md (root cause + preve
 ```
 CC trigger words: "Remember/Don't forget" → save | "Stop doing X" → MISTAKES.md | "That worked" → PATTERNS.md `[V]` | "We decided..." → DECISIONS.md | Frustration → MISTAKES.md. **The iron law: CC never teaches the same lesson twice.**
 
-## Safety & Hooks
+## Safety & Hooks (V6.0)
 
-Hooks in `.claude/settings.local.json`: Edit/Write blocks `.env*` files. Bash blocks `rm -rf /`, force-push to main, `DROP TABLE`, `TRUNCATE TABLE`. PostToolUse audit-logs git/npm/vercel ops to `tmp/hook_audit.log`. SessionStart/End manage Codex companion lifecycle.
+PreToolUse hooks in `.claude/settings.local.json`:
+- **Bash** → `secret_guard.py` then `exec_guard.py` (chained — both must pass)
+- **Read** → `secret_guard.py`
+- **Edit/Write/MultiEdit/NotebookEdit** → `secret_guard.py` then `state_guard.py`
+
+Each guard has three modes via env var (default in parens):
+- `EMPIRE_HOOK_SECRET_GUARD` (report) — flip to `enforce` to hard-block secret leaks
+- `EMPIRE_HOOK_EXEC_GUARD` (report) — flip to `enforce` once 14-day soak shows zero false positives
+- `EMPIRE_HOOK_STATE_GUARD` (off) — flip to `enforce` after V6.0 cutover (`EMPIRE_V6_MODE=on`)
+
+All guards write JSONL audit logs to `state/{guard}.log`. SessionStart still runs `audit_mcp_secrets.py --quiet` (11 MCP config paths scanned).
+
+## V6.0 Architecture (transactional, retrieval-driven, fenced)
+
+Four pillars added 2026-05-10. All gated by `EMPIRE_V6_MODE` env var (off/shadow/on).
+
+- **State** — `state/empire_state.db` (SQLite/WAL) is the new source of truth for heartbeats, session_log, active_task. Single writer proxy: `scripts/state_manager.py`. `state_sync.py` dispatches transparently. Markdown mirrors auto-regenerate via `state_manager.py export`.
+- **Retrieval** — `scripts/memory_retriever.py` (FTS5) indexes 219 memory/skills/brain files into 2,700+ chunks. Query in <10ms; returns ≤1500-token snippet sets with file:line refs. Replaces whole-file context loads. Index DB: `state/memory_index.db` (separate from state DB so reads never block writes).
+- **Sandbox** — `scripts/exec_guard.py` is the AST/regex policy gate on every Bash invocation; `scripts/state_guard.py` blocks edits on auto-generated mirror files.
+- **Secrets** — `scripts/secret_guard.py` denies Read/Bash access to `.env.agents` and friends. `scripts/lib/secret_loader.py` is the canonical in-process loader for CLI wrappers (refuses to load from `tmp/`, refuses interactive shells, audit-logs every access to `state/secret_access.log`).
+
+Soak/rollback: `EMPIRE_V6_MODE=off` (default) is V5.5; `shadow` dual-writes to flat files AND DB; `on` makes DB authoritative. Drift check: `python scripts/state_manager.py export --check` (exits 1 on drift).
+
+**Phase 2 (productized deployment, 2026-05-10):** turnkey local + cloud via `infra/docker-compose.{local,cloud}.yml`. Setup wizard adds `step_environment` + `step_v6_init` (boots state DB, builds FTS5 index, fans out scoped env files `.env.agents.{core,webhook,dashboard}`). Command Center adds `/system-health` (reads `state-api` FastAPI, shows guard modes + DB stats) and `/playbook/onboarding` (renders `docs/playbooks/*.md` for non-technical clients). Cloud target enables `enforce` for all three guards by default; local target runs `shadow` with `secret_guard=enforce, exec_guard=report, state_guard=off`. Full registry: brain/CAPABILITIES.md "V6.0 Phase 2 — Productized Deployment".
 
 ## Multi-Machine Bridge Arbitration (V6.5)
 

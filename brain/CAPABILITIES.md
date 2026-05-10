@@ -234,6 +234,64 @@ Browser Harness is installed as Bravo's direct Chrome/Edge control layer. It com
 | **Browser Connect** | `scripts/browser_connect.py` | Attach to the running CDP browser and run scripted actions | `[--url URL] [--eval SNIPPET]` |
 | **Onboarding Diagnostics** | `scripts/onboarding_diagnostics.py` | Productized setup readiness check | `[--json]` |
 
+## V6.0 Architecture (2026-05-10 — transactional state + retrieval + guards)
+
+> Live behind `EMPIRE_V6_MODE` (off/shadow/on). See [CLAUDE.md](../CLAUDE.md) "V6.0 Architecture" for the canonical spec.
+
+| Component | Path | Purpose | CLI |
+|-----------|------|---------|-----|
+| **State Manager** | `scripts/state_manager.py` | Single-writer SQLite/WAL proxy for `state/empire_state.db` (heartbeats, session_log, active_task) — also mirrors heartbeat to Supabase | `heartbeat`, `log`, `task {add,close,list}`, `export [--check]`, `import-from-files`, `status` |
+| **Memory Retriever** | `scripts/memory_retriever.py` | FTS5 (BM25) retrieval over memory/skills/brain + 5 entry-point markdown files. ~9ms median query latency. | `build [--force]`, `update`, `query "..." [--kind {memory,skill,brain,entry}] [--limit N] [--json]`, `status` |
+| **Exec Guard** | `scripts/exec_guard.py` | PreToolUse Bash hook. Hard blocks on DROP, DELETE-without-WHERE, ALTER DROP COLUMN, rm -rf / outside tmp, force-push to main, git reset --hard <ref>, fork bombs, dd-to-disk. AST-validates SQL via sqlglot. Read-only CLI verbs fast-path. | env: `EMPIRE_HOOK_EXEC_GUARD={enforce,report,off}` |
+| **Secret Guard** | `scripts/secret_guard.py` | PreToolUse Read/Bash/Edit hook. Blocks Read on `.env*`/`*.pem`/`*.key`/`credentials.json`. Blocks `cat`/`grep`/`sed`/`awk` on those paths. | env: `EMPIRE_HOOK_SECRET_GUARD={enforce,report,off}` |
+| **State Guard** | `scripts/state_guard.py` | PreToolUse Edit hook on auto-generated mirrors (`memory/SESSION_LOG.md` between markers). Pushes you to `state_manager.py` instead. | env: `EMPIRE_HOOK_STATE_GUARD={enforce,report,off}` |
+| **Retriever Post-Edit** | `scripts/retriever_postedit.py` | PostToolUse hook — fires `memory_retriever.py update` (detached) when an indexed file is written, keeping the FTS5 index warm. | auto |
+| **Secret Loader** | `scripts/lib/secret_loader.py` | Canonical in-process loader for `.env.agents`. Refuses tmp/ callers + interactive shells. Audits every load to `state/secret_access.log`. | `from lib.secret_loader import load_env` |
+| **Safe Error** | `scripts/lib/safe_error.py` | Credential-pattern scrubber for tracebacks before any LLM-visible surface. | `from lib.safe_error import scrub, scrub_traceback` |
+| **State DB** | `state/empire_state.db` | SQLite/WAL. Tables: `agent_state`, `session_log` (UNIQUE(session_id, note)), `active_task`, `state_transaction` (audit). | — |
+| **Index DB** | `state/memory_index.db` | SQLite FTS5. Separate file so retrieval reads never block state writes. | — |
+| **Migrations** | `state/migrations/{001_init,002_memory_index}.sql` | Idempotent; auto-applied on first connect. Tracked in git; everything else under `state/` is gitignored. | — |
+| **Audit logs (jsonl)** | `state/{exec_guard,secret_guard,state_guard,secret_access,state_manager}.log` | Local, gitignored. Reviewed weekly during 14-day soak before flipping `EMPIRE_HOOK_*=enforce`. | `tail -f state/exec_guard.log` |
+
+**Hook chain:** Bash → secret_guard → exec_guard. Read → secret_guard. Edit/Write → secret_guard → state_guard. Each guard exits 0/2 and writes to its own JSONL audit log. Default modes are safe (`report`/`off`) — flip to `enforce` after soak.
+
+**Drift check:** `python scripts/state_manager.py export --check` exits 1 if mirror markdown is out of sync with the DB. Run before commits in `EMPIRE_V6_MODE=on`.
+
+### V6.0 Phase 2 — Productized Deployment (2026-05-10)
+
+Turnkey deployment for B2B clients. Two compose targets, scoped secrets, dashboard health module, operator-facing playbooks.
+
+| Component | Path | Purpose |
+|-----------|------|---------|
+| **Local compose** | `infra/docker-compose.local.yml` | Single-developer / client laptop. Read-only rootfs, `cap_drop:[ALL]`, `no-new-privileges`, 127.0.0.1-only ports. memory/brain/skills mounted read-only. Only `state/`, `tmp/`, `logs/` are writable. |
+| **Cloud compose** | `infra/docker-compose.cloud.yml` | Always-on VPS. `include:`s the prod stack (5 daemons + pgbouncer + Caddy) and adds `command-center` (Next.js) + `state-api` (read-only FastAPI). Requires Compose ≥ 2.20. |
+| **Command Center image** | `infra/Dockerfile.commandcenter` | Next.js 15 multi-stage build. Non-root UID 10001, `output: 'standalone'`, healthcheck via `/api/health`. |
+| **Caddy dashboard route** | `infra/Caddyfile` | TLS-terminated dashboard endpoint with basic auth. `/api/health` carved out for probes. |
+| **State API** | `scripts/state_api.py` | Read-only FastAPI service. Wraps `state_manager.status()` + tails guard logs. Mounted with `state/` read-only — physically cannot write to the DB. Endpoints: `/health`, `/status`, `/guards`, `/retrieval`. |
+| **System Health page** | `apps/command-center/app/system-health/page.tsx` | Server component → `/api/state-health` → state-api. Shows DB stats, agent ticks, all three guard modes + 24h block counts. |
+| **Operator Playbook page** | `apps/command-center/app/playbook/onboarding/page.tsx` | `react-markdown` renders `docs/playbooks/*.md`. Updated by editing markdown, not code. |
+| **Playbook docs** | `docs/playbooks/{01-getting-started,02-safe-interaction,03-when-to-call-cc,04-pause-and-rollback}.md` | Four operator SOPs. Plain-English contract for non-technical clients. |
+| **Wizard V6.0 steps** | `bravo_cli/wizard.py:step_environment`, `step_v6_init` | `step_environment` detects local vs cloud. `step_v6_init` writes EMPIRE_V6_MODE + EMPIRE_HOOK_* defaults, bootstraps `state/empire_state.db`, builds the FTS5 index, fans out scoped env files, optionally runs `docker compose build`. |
+| **Scoped env files** | `.env.agents.{core,webhook,dashboard}` | Generated by `_fan_out_scoped_env_files()`. Each container gets only the keys it needs — defense in depth against single-service RCE exfiltrating the full credential set. `core` gets everything; `webhook` only Stripe webhook + Supabase + Telegram; `dashboard` only public Supabase + state-api URL. |
+| **Install Docker probe** | `install.sh` / `install.ps1` | Friendly probe — heads-up if Docker isn't installed/running, never aborts the install. Wizard + CLI tools work without Docker; only the sandbox needs it. |
+
+**Bring-up (local):**
+```
+git clone https://github.com/CC90210/CEO-Agent.git && cd CEO-Agent
+bash install.sh                # installs deps, probes Docker
+oasis setup                    # wizard adds EMPIRE_V6_MODE=shadow + scoped env files
+docker compose -f infra/docker-compose.local.yml up -d --build
+open http://127.0.0.1:3100/system-health
+```
+
+**Bring-up (cloud, on the VPS):**
+```
+git clone … && cd CEO-Agent && bash install.sh
+EMPIRE_DEPLOY_TARGET=cloud oasis setup    # wizard sets EMPIRE_V6_MODE=on + enforce
+docker compose -f infra/docker-compose.cloud.yml up -d --build
+# Caddy auto-provisions Let's Encrypt for $DASHBOARD_DOMAIN + $OPS_DOMAIN
+```
+
 ## V6.0 Scaffolds (2026-04-22 — not yet active; migrations 014/015 not applied)
 
 > V6.0 is scaffolded but NOT activated. `docs/V6_ARCHITECTURE.md` is the design doc. Activation gated on CC sign-off on the 4 open questions.
