@@ -148,10 +148,10 @@ For any lost deals, note which competitor won and why. Update the relevant battl
 
 ## Step 9: Log and Report
 
-Append to `memory/SESSION_LOG.md`:
-```
-### [DATE] — Monthly Competitive Report
-Reviewed [N] competitors. Changes: [list key changes]. Battlecards updated: [Y/N]. Key finding: [1 sentence].
+Log to the V6.0 state DB (auto-mirrors to `memory/SESSION_LOG.md`):
+```bash
+python scripts/state_manager.py log --agent bravo \
+  --note "Monthly Competitive Report — reviewed [N] competitors, changes: [list], battlecards: [Y/N], key finding: [1 sentence]"
 ```
 
 Present summary to CC:

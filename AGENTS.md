@@ -215,4 +215,24 @@ C-Suite coordination via `data/pulse/*.json` (poll-based) and `agent_events` tab
 
 ---
 
-*Last synced with CLAUDE.md / GEMINI.md / ANTIGRAVITY.md: 2026-04-20 (V5.6 outbound chokepoint era).*
+## V6.0 Architecture (synced 2026-05-10 — see CLAUDE.md for canonical version)
+
+Four pillars added 2026-05-10. All gated by `EMPIRE_V6_MODE` env var (off/shadow/on).
+
+- **State** — `state/empire_state.db` (SQLite/WAL) is the source of truth for heartbeats, session_log, active_task. Single writer: `python scripts/state_manager.py {heartbeat,log,task,export,status}`. `state_sync.py` dispatches based on `EMPIRE_V6_MODE`. Markdown mirrors auto-regenerate via `state_manager.py export`. Do NOT hand-edit `memory/SESSION_LOG.md` between AUTO-GENERATED-BEGIN/END markers.
+- **Retrieval** — `python scripts/memory_retriever.py query "<question>"` returns ranked snippets with file:line refs from 2,700+ chunks across memory/skills/brain in <10ms. Use this BEFORE whole-file Read for "have we hit this before?" / "what's the SOP for X?" queries.
+- **Sandbox** — `scripts/exec_guard.py` blocks destructive Bash patterns (DROP, DELETE-without-WHERE, ALTER DROP COLUMN, rm -rf /, force-push to main, git reset --hard <ref>, fork bombs). `scripts/state_guard.py` blocks edits on auto-generated state mirror files.
+- **Secrets** — `.env.agents` is NOT LLM-readable. `scripts/secret_guard.py` blocks Read on `.env*`/`*.pem`/`*.key`/`credentials.json` and Bash commands that exfiltrate them. Use CLI wrappers (`python scripts/<service>_tool.py <verb> --json`) — they load via `scripts/lib/secret_loader.py` and return only sanitized JSON.
+
+Hook modes (env vars in `.env.agents`):
+- `EMPIRE_HOOK_SECRET_GUARD` (default `report`) → flip to `enforce` for hard-block.
+- `EMPIRE_HOOK_EXEC_GUARD` (default `report`) → flip to `enforce` after 14-day false-positive soak.
+- `EMPIRE_HOOK_STATE_GUARD` (default `off`) → flip to `enforce` after `EMPIRE_V6_MODE=on` cutover.
+
+Audit logs: `state/{secret_guard,exec_guard,state_guard,secret_access}.log` (jsonl). Drift check: `python scripts/state_manager.py export --check` exits 1 if mirrors are stale.
+
+---
+
+*Last synced with CLAUDE.md / GEMINI.md / ANTIGRAVITY.md / OPENCODE.md: 2026-05-10 (V6.0 transactional state + FTS5 retrieval + guards).*
+
+**Phase 2 (productized deployment, 2026-05-10):** turnkey local + cloud deployment via `infra/docker-compose.{local,cloud}.yml`. Wizard adds `step_environment` + `step_v6_init` (boots state DB, FTS5 index, scoped env files `.env.agents.{core,webhook,dashboard}`). Command Center adds `/system-health` and `/playbook/onboarding`. Cloud → `enforce` for all guards; local → `shadow` mode. Full registry: brain/CAPABILITIES.md "V6.0 Phase 2 — Productized Deployment".

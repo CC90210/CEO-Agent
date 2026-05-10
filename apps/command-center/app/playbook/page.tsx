@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Card, PageHeader, Tag } from "@/components/Card";
-import { Phone, Layers, Repeat, FileStack, MessageSquare, Rocket, Network, ShieldCheck } from "lucide-react";
+import { Phone, Layers, Repeat, FileStack, MessageSquare, Rocket, Network, ShieldCheck, BookOpen } from "lucide-react";
 
 export const dynamic = "force-static";
 
@@ -60,6 +60,14 @@ const SECTIONS = [
     icon: Network,
     body:
       "Clients with multiple machines (desktop + laptop) pair both bridges to the same dashboard tenant. The dashboard auto-detects which bridge is local. Hard rule: only ONE machine runs scheduler / skool / telegram daemons (state mutators). Every other machine runs ONLY the chat-server. The pair endpoint is idempotent by machine_fingerprint, so re-running rotates tokens instead of creating duplicates. See brain/MULTI_MACHINE_PAIRING_PROMPT.md for the paste-ready Antigravity prompt.",
+  },
+  {
+    href: "/playbook/onboarding",
+    title: "Operator Onboarding (V6.0)",
+    subtitle: "What your agent does · Safe asks · Escalation triggers · Pause + rollback",
+    icon: BookOpen,
+    body:
+      "Four short SOPs for new operators. Render markdown directly from docs/playbooks/ so non-technical clients can read the agent's contract in the dashboard without opening the repo. Update the markdown, redeploy, and every operator sees the new SOP next refresh.",
   },
   {
     href: "/playbook/security",

@@ -124,7 +124,13 @@ Log: "[N] templates updated based on recent use"
 
 ### Step 10 — Maintenance Summary
 
-Append to `memory/SESSION_LOG.md`:
+Log to the V6.0 state DB (auto-mirrors to `memory/SESSION_LOG.md`):
+```bash
+python scripts/state_manager.py log --agent bravo \
+  --note "Weekly Knowledge Maintenance — patterns: [N→VALIDATED], mistakes: [N themes / N SOPs], LONG_TERM: [N audited], tasks: [N cleaned], wiki-links: [N fixed]"
+```
+
+(Legacy markdown shape — superseded by the state_manager call above; kept here as a structured field reference for the operator composing the --note string.)
 ```
 ### [DATE] — Weekly Knowledge Maintenance
 - SESSION_LOG: [compressed N entries / no compression needed]

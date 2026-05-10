@@ -225,6 +225,27 @@ if [ -f "$WIZARD_REPO/package.json" ]; then
     fi
 fi
 
+# ── Docker check (V6.0) ──────────────────────────────────────────────────────
+# Docker is REQUIRED for the V6.0 sandboxed sandbox + Command Center, but it's
+# NOT a hard dependency for the wizard or the headless CLI scripts. So we
+# probe and emit a friendly heads-up rather than aborting.
+step "Docker (V6.0 sandbox)"
+if command -v docker >/dev/null 2>&1; then
+    if docker info >/dev/null 2>&1; then
+        DOCKER_VER=$(docker --version 2>/dev/null | head -1 || echo "docker")
+        ok "$DOCKER_VER (daemon running)"
+    else
+        warn "docker CLI found but daemon not responding"
+        info "Start Docker Desktop, then run later:"
+        info "  docker compose -f infra/docker-compose.local.yml up -d --build"
+    fi
+else
+    warn "docker not installed — V6.0 sandbox / Command Center will not run"
+    info "Install Docker Desktop:  https://www.docker.com/products/docker-desktop"
+    info "After install, run:      docker compose -f infra/docker-compose.local.yml up -d --build"
+    info "(Wizard + CLI tools work without Docker; only the sandbox needs it.)"
+fi
+
 # ── PATH shim ────────────────────────────────────────────────────────────────
 step "Adding 'oasis' command to PATH"
 BIN_DIR="$OASIS_HOME/bin"

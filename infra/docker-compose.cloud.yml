@@ -1,0 +1,105 @@
+# Bravo V6.0 — CLOUD deployment (always-on VPS)
+# ────────────────────────────────────────────────────────────────────────
+# Extends the production stack (docker-compose.yml) with:
+#   - Public TLS endpoint via Caddy + Let's Encrypt (already in the prod stack)
+#   - Dashboard service (Next.js Command Center) behind basic auth
+#   - Read-only state-api for the dashboard's System Health module
+#
+# Requires Docker Compose ≥ 2.20 for `include:` syntax (Sep 2023+).
+# All major cloud images (Ubuntu 22.04+, Debian 12+) ship a compatible version.
+#
+# Usage on the VPS:
+#   cd /srv/bravo
+#   docker compose -f infra/docker-compose.cloud.yml --env-file .env.agents up -d
+#
+# Required env vars (set by setup_wizard step_v6_init for cloud target):
+#   DASHBOARD_DOMAIN     e.g. dashboard.client.example.com
+#   DASHBOARD_USER       basic-auth username
+#   DASHBOARD_BCRYPT     bcrypt hash (Caddy generates: caddy hash-password)
+#   OPS_DOMAIN           e.g. ops.client.example.com (webhook ingress)
+#   CADDY_ACME_EMAIL     for Let's Encrypt cert renewal notices
+# ────────────────────────────────────────────────────────────────────────
+
+name: bravo-cloud
+
+include:
+  - docker-compose.yml          # Inherits 5 daemons + pgbouncer + caddy
+
+x-cloud-base: &cloud-base
+  env_file: ../.env.agents
+  environment:
+    EMPIRE_V6_MODE: "${EMPIRE_V6_MODE:-on}"
+    EMPIRE_HOOK_SECRET_GUARD: "${EMPIRE_HOOK_SECRET_GUARD:-enforce}"
+    EMPIRE_HOOK_EXEC_GUARD:   "${EMPIRE_HOOK_EXEC_GUARD:-enforce}"
+    EMPIRE_HOOK_STATE_GUARD:  "${EMPIRE_HOOK_STATE_GUARD:-enforce}"
+    EMPIRE_DEPLOY_TARGET: "cloud"
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  restart: unless-stopped
+  networks:
+    - bravo-net
+
+services:
+
+  # Next.js Command Center — public TLS via Caddy.
+  command-center:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.commandcenter
+    env_file: ../.env.agents
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_SUPABASE_URL: "${BRAVO_SUPABASE_URL}"
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "${BRAVO_SUPABASE_ANON_KEY}"
+      STATE_API_URL: "http://state-api:8500"
+    expose:
+      - "3000"
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/.next/cache
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    depends_on:
+      - state-api
+      - pgbouncer
+    networks:
+      - bravo-net
+    labels:
+      bravo.role: command-center
+      bravo.profile: cloud
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # Read-only state API — internal-only (Caddy network).
+  # Reads state/empire_state.db + tails state/*.log for the dashboard.
+  state-api:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    <<: *cloud-base
+    command: >
+      uvicorn state_api:app
+      --host 0.0.0.0 --port 8500
+    working_dir: /app/scripts
+    expose:
+      - "8500"
+    volumes:
+      - ../state:/app/state:ro          # READ-ONLY mount
+      - ../scripts:/app/scripts:ro
+      - ../bravo_cli:/app/bravo_cli:ro
+    labels:
+      bravo.role: state-api
+      bravo.profile: cloud
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://127.0.0.1:8500/health"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

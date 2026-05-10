@@ -369,7 +369,13 @@ const classifyTier = (text) => {
     return 2;
 };
 
-// Loads project context for Claude — tier-aware loading
+// Loads project context for Claude — tier-aware loading.
+// V6.0 note: STATE.md / SESSION_LOG.md / ACTIVE_TASKS.md are still read as
+// flat files here, but in EMPIRE_V6_MODE=on those are auto-generated
+// mirrors of state/empire_state.db (see scripts/state_manager.py export).
+// So these reads remain canonical — the DB drives the markdown, not the
+// other way around. No need for a separate state-api HTTP fetch on the
+// Telegram side; the bridge fetches the same data via the same files.
 // T1 (~2000 chars): STATE + ACTIVE_TASKS only — for status checks
 // T2 (~5000 chars): T1 + CLAUDE.md + SOUL + USER + SESSION_LOG + tools
 // T3 (~8000 chars): T2 + APP_REGISTRY + AGENTS + full CLAUDE.md
@@ -776,13 +782,17 @@ const executeCli = (tool, userPrompt, chatId, modelOverride = null, forceApiKey 
                 '--detail', userPrompt.substring(0, 80)
             ], { cwd: __dirname, windowsHide: true, timeout: 5000 }, () => {}); // fire-and-forget
 
-            // V15.7: state_sync after every successful Claude run — keeps SESSION_LOG.md
-            // and STATE.md fresh so other agents (Atlas, Maven, Aura) see Telegram-side
-            // work. Skip on T0 (computer control noise) and on errors.
-            if (tool === 'claude' && code === 0 && tier > 0) {
+            // V6.0: state_sync after every successful Claude OR Codex tier-1+ run.
+            // state_sync.py routes through state_manager.py when EMPIRE_V6_MODE
+            // is shadow/on, so this single subprocess writes to both the legacy
+            // markdown mirrors AND state/empire_state.db. T0 (computer control)
+            // is still skipped — it's noise, not a session-level event. Codex
+            // was previously excluded; closing that gap here so Telegram-side
+            // backend work shows up in the System Health page alongside Bravo's.
+            if (code === 0 && tier > 0 && (tool === 'claude' || tool === 'codex')) {
                 execFileTrack(PYTHON, [
                     'scripts/state_sync.py',
-                    '--note', `telegram T${tier}: ${userPrompt.substring(0, 140)}`
+                    '--note', `telegram T${tier} (${tool}): ${userPrompt.substring(0, 140)}`
                 ], { cwd: __dirname, windowsHide: true, timeout: 8000 }, () => {});
             }
 

@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import typography from "@tailwindcss/typography";
 
 // OASIS AI Agent Command Center — premium dark theme with OASIS BLUE accent.
 // Brand pivot 2026-04-30: gold #e8c547 -> OASIS blue #3b82f6 (with deeper
@@ -83,7 +84,7 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [typography],
 };
 
 export default config;

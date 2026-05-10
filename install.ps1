@@ -315,6 +315,33 @@ if (Test-Path $pkgJson) {
     }
 }
 
+# ── Docker check (V6.0) ──────────────────────────────────────────────────────
+# Docker is REQUIRED for the V6.0 sandbox + Command Center, but NOT for the
+# wizard or headless CLI scripts. Probe and warn; never abort.
+Write-Step "Docker (V6.0 sandbox)"
+if (Test-Tool 'docker') {
+    $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    try {
+        & docker info 2>&1 | Out-Null
+        $dockerExit = $LASTEXITCODE
+    } catch { $dockerExit = 1 }
+    finally { $ErrorActionPreference = $prev }
+
+    if ($dockerExit -eq 0) {
+        $dockerVer = (& docker --version 2>$null | Out-String).Trim()
+        Write-Ok "$dockerVer (daemon running)"
+    } else {
+        Write-Warn "docker CLI found but daemon not responding"
+        Write-Info "Start Docker Desktop, then run later:"
+        Write-Info "  docker compose -f infra/docker-compose.local.yml up -d --build"
+    }
+} else {
+    Write-Warn "docker not installed - V6.0 sandbox / Command Center will not run"
+    Write-Info "Install Docker Desktop:  https://www.docker.com/products/docker-desktop"
+    Write-Info "After install, run:      docker compose -f infra/docker-compose.local.yml up -d --build"
+    Write-Info "(Wizard + CLI tools work without Docker; only the sandbox needs it.)"
+}
+
 # ── PATH shim ─────────────────────────────────────────────────────────────────
 Write-Step "Adding 'oasis' command to PATH"
 $binDir = Join-Path $OasisHome 'bin'

@@ -23,12 +23,10 @@ Use `/sync` before ending any session — this is **mandatory** per session prot
    - Mark completed tasks as done
    - Add any new tasks discovered during the session
 
-4. Append to `memory/SESSION_LOG.md`:
-   ```
-   ## [date] — Session via [agent]
-   - [bullet list of what was done]
-   - [any issues encountered]
-   - [next steps]
+4. Log the session summary to the V6.0 state DB (auto-mirrors to `memory/SESSION_LOG.md`):
+   ```bash
+   python scripts/state_manager.py log --agent <agent> \
+     --note "Session via <agent> — [what was done]; issues: [if any]; next: [next steps]"
    ```
 
 5. If any mistakes were made, log to `memory/MISTAKES.md` with root cause and prevention.
