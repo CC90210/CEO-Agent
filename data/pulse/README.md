@@ -22,11 +22,33 @@
   "pipeline_qualified_usd": 0,
   "committed_spend_next_30d_cad": 0,
   "next_launch_or_campaign": null,
-  "blocker_cfo_needs_to_know": null
+  "blocker_cfo_needs_to_know": null,
+  "v6": {
+    "mode": "off | shadow | on",
+    "hook_modes": {
+      "secret_guard": "enforce | report | off",
+      "exec_guard":   "enforce | report | off",
+      "state_guard":  "enforce | report | off"
+    },
+    "state_db": {
+      "session_log_count": 70,
+      "transaction_count": 38,
+      "size_kb": 112.0,
+      "last_heartbeat": "ISO-8601"
+    },
+    "fts5": {
+      "sources": 224,
+      "chunks": 2828,
+      "last_indexed": "ISO-8601",
+      "size_kb": 7156.0
+    }
+  }
 }
 ```
 
 **Freshness:** Update on every significant revenue / pipeline / spend change. Atlas treats anything >7 days old as stale.
+
+**V6.0 telemetry block (added 2026-05-10):** auto-populated by `scripts/pulse_publish.py refresh` on every publish. Sibling agents that don't recognize V6.0 fields ignore them (JSON additive contract). When Atlas / Maven / Aura / Hermes upgrade, they can use the `v6.mode` field to decide whether Bravo's `memory/SESSION_LOG.md` is canonical (V5.5 mode) or auto-generated (V6.0 mode), and the `state_db.last_heartbeat` for liveness checks instead of the markdown frontmatter.
 
 ---
 
