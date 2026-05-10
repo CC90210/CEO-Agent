@@ -30,6 +30,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { randomBytes } from "crypto";
 import { getServiceSupabase } from "@/lib/supabase-server";
 import { bad, sha256 } from "@/lib/api-helpers";
+import {
+  clientIp,
+  isRateLimited,
+  recordPairAttempt,
+} from "@/lib/pair-rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,14 +44,31 @@ function isValidCodeShape(s: unknown): s is string {
 }
 
 export async function POST(req: NextRequest) {
+  // Rate limit keyed on client IP. Pair-codes are 6 chars in XXX-XXX-XXX
+  // form (10^9 search space, narrowed by single-use + 15-min TTL). Without
+  // rate-limiting an attacker could enumerate from one IP. With it: 10
+  // failed redeems per minute per IP, then 429. See pair_attempts CHECK
+  // constraint for the full outcome vocabulary.
+  const ip = clientIp(req);
+  const rateKey = `redeem:${ip || "unknown"}`;
+
+  if (await isRateLimited(rateKey)) {
+    await recordPairAttempt(rateKey, "rate_limited", ip);
+    return bad(429, "rate_limited: too many failed pair-code redemptions; back off and retry");
+  }
+
   let body: { code?: unknown; machine?: { label?: unknown; fingerprint?: unknown } };
   try {
     body = await req.json();
   } catch {
+    await recordPairAttempt(rateKey, "code_invalid_shape", ip);
     return bad(400, "invalid JSON");
   }
   const code = typeof body.code === "string" ? body.code.trim().toUpperCase() : "";
-  if (!isValidCodeShape(code)) return bad(400, "invalid code shape (expect XXX-XXX-XXX)");
+  if (!isValidCodeShape(code)) {
+    await recordPairAttempt(rateKey, "code_invalid_shape", ip);
+    return bad(400, "invalid code shape (expect XXX-XXX-XXX)");
+  }
 
   // Single-DB-side transaction via the redeem_pair_code RPC (migration 033).
   // Closes Codex's adversarial-review finding #1: the previous JS-side
@@ -77,12 +99,19 @@ export async function POST(req: NextRequest) {
     // body 'PCODE_NOT_FOUND' / 'PCODE_CONSUMED' / 'PCODE_EXPIRED' so we
     // match on the message text (Supabase JS surfaces it as `message`).
     const msg = String(rpcError.message || "");
-    if (msg.includes("PCODE_NOT_FOUND") || msg.includes("PCODE_EXPIRED")) {
+    if (msg.includes("PCODE_NOT_FOUND")) {
+      await recordPairAttempt(rateKey, "code_not_found", ip);
+      return bad(404, "code not found or expired");
+    }
+    if (msg.includes("PCODE_EXPIRED")) {
+      await recordPairAttempt(rateKey, "code_expired", ip);
       return bad(404, "code not found or expired");
     }
     if (msg.includes("PCODE_CONSUMED")) {
+      await recordPairAttempt(rateKey, "code_consumed", ip);
       return bad(410, "code already redeemed");
     }
+    await recordPairAttempt(rateKey, "code_redeem_failed", ip);
     return bad(500, `redeem_failed: ${msg}`);
   }
 
@@ -97,12 +126,21 @@ export async function POST(req: NextRequest) {
         })
       : null;
   if (!row) {
+    await recordPairAttempt(rateKey, "code_redeem_failed", ip);
     return bad(500, "redeem_returned_empty");
   }
 
   const baseUrl =
     process.env.BRAVO_DASHBOARD_URL ||
     "https://agent-dashboard-cc90210.vercel.app";
+
+  // Log the successful redeem against the IP-keyed rate-limit row AND a
+  // second row keyed on the resolved profile_id, so the pair endpoint's
+  // rate-limit (which keys on profile_id) sees the success too.
+  await recordPairAttempt(rateKey, "ok", ip);
+  if (row.profile_id) {
+    await recordPairAttempt(row.profile_id, "ok", ip);
+  }
 
   return NextResponse.json({
     ok: true,
