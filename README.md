@@ -60,7 +60,7 @@ The one-liner does eight things:
 4. Drops a `bravo` shim onto your PATH
 5. Launches the **setup wizard** — asks who you are, what you sell, what you're optimizing for, and which APIs you have keys for
 6. Renders your personal `brain/USER.md` from your answers (`scripts/personalize.py`)
-7. **Rewrites the codebase to match you** — replaces the original operator's identity tokens across 165+ files (`scripts/scaffold.py --apply --backup`)
+7. **Rewrites the codebase to match you** — replaces the original operator's identity tokens across every reference in tracked files (`scripts/scaffold.py --apply --backup` — 200+ files in the current repo, runs ~5 seconds)
 8. Runs `bravo doctor` to verify everything works
 
 After it finishes, your machine has your own personalized CEO agent. Not a fork of someone else's working copy — yours.

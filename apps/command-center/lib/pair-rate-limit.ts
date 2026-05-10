@@ -78,9 +78,36 @@ export function clientIp(req: NextRequest): string | null {
 }
 
 /**
+ * Probabilistic GC: on ~1% of writes, prune rows older than 24h. No cron
+ * required, table stays bounded over time, write amplification is
+ * negligible (1 extra DELETE per 100 INSERTs). Self-sufficient — the
+ * table maintains itself. Gating value chosen so a low-traffic deployment
+ * still GCs eventually (one event per ~100 attempts; at 10 attempts/day
+ * = ~10 days between sweeps, plenty for a 24h retention window).
+ */
+const GC_PROBABILITY = 0.01;
+const GC_RETENTION_HOURS = 24;
+
+async function _maybeRunGc(db: ReturnType<typeof getServiceSupabase>): Promise<void> {
+  if (Math.random() >= GC_PROBABILITY) return;
+  try {
+    const cutoff = new Date(
+      Date.now() - GC_RETENTION_HOURS * 3600 * 1000,
+    ).toISOString();
+    await db.from("pair_attempts").delete().lt("attempted_at", cutoff);
+  } catch {
+    // Swallow — GC is best-effort. Table growth is the only consequence
+    // and it's bounded by traffic volume.
+  }
+}
+
+/**
  * Insert one row into public.pair_attempts. Best-effort: never throws,
  * never breaks the request flow even if the insert fails. Logging is
  * defense in depth, not gating logic.
+ *
+ * Side effect: ~1% of calls also prune rows older than 24h via
+ * _maybeRunGc, so the table stays bounded without external cron.
  */
 export async function recordPairAttempt(
   rateKey: string,
@@ -94,6 +121,9 @@ export async function recordPairAttempt(
       outcome,
       ip,
     });
+    // Fire-and-forget GC — never await directly so a slow DELETE doesn't
+    // delay the response. Errors are swallowed inside _maybeRunGc.
+    void _maybeRunGc(db);
   } catch {
     // intentional swallow — see docstring
   }
