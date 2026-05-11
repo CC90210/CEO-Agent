@@ -24,6 +24,7 @@ const PUBLIC_PATH_PREFIXES = [
   "/api/integrations/registry",  // canonical service+env_key list — used by the bridge to decide what to ping; non-sensitive (names only, no values), 5min Cache-Control
   "/api/exec-override",    // external caller fallback for override approvals (HMAC auth inside)
   "/api/outbound/log",     // outbound logging from local backend (HMAC auth inside)
+  "/api/event-feed",       // OASIS Town poller reads recent agent_events (read-only, no secrets in payloads). Option B "public for proof-of-life" per 2026-05-10 directive; HMAC hardening deferred.
 
   "/api/cron",
   "/api/webhook",          // public webhooks for clients (HMAC/Bearer gated inside)
