@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-10T22:36:57.968194+00:00",
-  "script_count": 85,
-  "entry_count": 316,
+  "generated_at_iso": "2026-05-11T04:24:54.087086+00:00",
+  "script_count": 87,
+  "entry_count": 320,
   "entries": [
     {
       "key": "agent_heartbeat",
@@ -1489,6 +1489,13 @@
       "help": "Neuro-Symbolic Compliance Gate \u2014 rule-based + neural outbound email verifier. \u2014 subcommand: trace"
     },
     {
+      "key": "oasis_embed_server",
+      "path": "scripts/oasis_embed_server.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "OASIS Town V6 Apex Phase 3 \u2014 embedding + retrieval bridge for the agent sim."
+    },
+    {
       "key": "onboarding_diagnostics",
       "path": "scripts/onboarding_diagnostics.py",
       "subcmd": null,
@@ -1592,6 +1599,27 @@
       "subcmd": "status",
       "mutating": false,
       "help": "pulse_publish.py \u2014 Atomic, schema-validated writer for Bravo's ceo_pulse.json. \u2014 subcommand: status"
+    },
+    {
+      "key": "quest_publisher_publish",
+      "path": "scripts/quest_publisher.py",
+      "subcmd": "publish",
+      "mutating": true,
+      "help": "Publish memory/ACTIVE_TASKS.md tasks to the Supabase `oasis_quests` table. \u2014 subcommand: publish"
+    },
+    {
+      "key": "quest_publisher_dry_run",
+      "path": "scripts/quest_publisher.py",
+      "subcmd": "dry-run",
+      "mutating": true,
+      "help": "Publish memory/ACTIVE_TASKS.md tasks to the Supabase `oasis_quests` table. \u2014 subcommand: dry-run"
+    },
+    {
+      "key": "quest_publisher_loop",
+      "path": "scripts/quest_publisher.py",
+      "subcmd": "loop",
+      "mutating": false,
+      "help": "Publish memory/ACTIVE_TASKS.md tasks to the Supabase `oasis_quests` table. \u2014 subcommand: loop"
     },
     {
       "key": "reap_orphan_mcps",

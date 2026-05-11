@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { getActiveProfile } from "@/lib/queries";
 import { getServiceSupabase } from "@/lib/supabase-server";
 import { unreadCountDb } from "@/lib/agent-inbox-db";
+import { safe } from "@/lib/api-helpers";
 
 export const metadata: Metadata = {
   title: "OASIS AI · Agent Command Center",
@@ -40,62 +41,61 @@ export default async function RootLayout({
     // (Hermes snapshot row missing, bridge_pairings table absent in dev,
     // RLS blocking a service-role call, etc.) must NOT take down the
     // whole layout. Failure mode prior to this hardening: any throw
-    // here blanked the dashboard with a 500.
-    try {
-      profile = await getActiveProfile();
-    } catch {
-      profile = null;
-    }
+    // here blanked the dashboard with a 500. Each catch logs via safe()
+    // so a stuck sidebar indicator is searchable in Vercel logs instead
+    // of silently rendering as "offline".
+    profile = await safe("layout.profile", getActiveProfile(), null);
     const agent = profile?.primary_agent || "bravo";
     const tenantId = profile?.tenant_id || null;
 
     // Run agent-state + bridge lookups in parallel, isolated.
+    const emptySnap: { data: { last_tick_at?: string | null } | null } = { data: null };
+    const emptyPair: { data: { last_seen_at?: string | null } | null } = { data: null };
     const [snapRes, pairRes] = await Promise.all([
-      (async () => {
-        try {
+      safe(
+        "layout.agent_state_snapshot",
+        (async () => {
           const db = getServiceSupabase();
-          return await db
+          const r = await db
             .from("agent_state_snapshot")
             .select("last_tick_at")
             .eq("agent_name", agent)
             .maybeSingle();
-        } catch {
-          return { data: null };
-        }
-      })(),
-      (async () => {
-        if (!tenantId) return { data: null };
-        try {
-          const db = getServiceSupabase();
-          return await db
-            .from("bridge_pairings")
-            .select("last_seen_at")
-            .eq("tenant_id", tenantId)
-            .is("revoked_at", null)
-            .order("last_seen_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-        } catch {
-          return { data: null };
-        }
-      })(),
+          return { data: r.data as { last_tick_at?: string | null } | null };
+        })(),
+        emptySnap
+      ),
+      tenantId
+        ? safe(
+            "layout.bridge_pairings",
+            (async () => {
+              const db = getServiceSupabase();
+              const r = await db
+                .from("bridge_pairings")
+                .select("last_seen_at")
+                .eq("tenant_id", tenantId)
+                .is("revoked_at", null)
+                .order("last_seen_at", { ascending: false })
+                .limit(1)
+                .maybeSingle();
+              return { data: r.data as { last_seen_at?: string | null } | null };
+            })(),
+            emptyPair
+          )
+        : Promise.resolve(emptyPair),
     ]);
-    const snap = snapRes.data as { last_tick_at?: string | null } | null;
+    const snap = snapRes.data;
     if (snap?.last_tick_at) {
       primaryAgentLive =
         Date.now() - new Date(snap.last_tick_at).getTime() < 15 * 60 * 1000;
     }
-    const pair = pairRes.data as { last_seen_at?: string | null } | null;
+    const pair = pairRes.data;
     if (pair?.last_seen_at) {
       bridgeOnline =
         Date.now() - new Date(pair.last_seen_at).getTime() < 5 * 60 * 1000;
     }
     if (tenantId) {
-      try {
-        inboxUnread = await unreadCountDb(tenantId);
-      } catch {
-        inboxUnread = 0;
-      }
+      inboxUnread = await safe("layout.inbox_unread", unreadCountDb(tenantId), 0);
     }
   }
 

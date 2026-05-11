@@ -2,10 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { beginInflight } from "@/lib/today-inflight";
 
 /**
  * Inline checkbox to mark a Today schedule block as completed. Optimistic
- * UI: flips locally, fires the PATCH, reverts on error.
+ * UI: flips locally, fires the PATCH, reverts on error. Registers with the
+ * today-inflight counter so FinalizeDayButton refuses to fire while a
+ * toggle PATCH is still in transit (race-vs-streak avoidance).
  */
 export function TodayBlockToggle({
   index,
@@ -25,6 +28,7 @@ export function TodayBlockToggle({
     const next = !done;
     setDone(next);
     setBusy(true);
+    const releaseInflight = beginInflight();
     try {
       // Stamp completed_at ISO when toggling on, null when toggling off,
       // so the streak computer + the "✓ done · 9:42 AM" pill have a
@@ -48,6 +52,7 @@ export function TodayBlockToggle({
     } catch {
       setDone(!next);
     } finally {
+      releaseInflight();
       setBusy(false);
     }
   }

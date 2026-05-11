@@ -45,13 +45,14 @@ export default async function OperationsPage({
 }: {
   searchParams?: Promise<{ showOlder?: string }>;
 }) {
-  const profile = await safe(getActiveProfile(), null);
+  const profile = await safe("operations.profile", getActiveProfile(), null);
   const db = getServiceSupabase();
   const sp = (await searchParams) || {};
   const showOlder = sp.showOlder === "1";
 
   const [snaps, pairings, events] = await Promise.all([
     safe(
+      "operations.agent_state_snapshot",
       (async () => {
         const r = await db
           .from("agent_state_snapshot")
@@ -63,6 +64,7 @@ export default async function OperationsPage({
     ),
     profile?.tenant_id
       ? safe(
+          "operations.bridge_pairings",
           (async () => {
             const r = await db
               .from("bridge_pairings")
@@ -81,6 +83,7 @@ export default async function OperationsPage({
     // even though the table had history. The "show older" link expands
     // to 100 events. CC explicitly asked for the tape to be functional.
     safe(
+      "operations.recent_events",
       recentEvents(showOlder ? 100 : 30, {
         sinceDays: 0,
         tenantId: profile?.tenant_id || null,

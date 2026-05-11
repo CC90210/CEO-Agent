@@ -18,12 +18,12 @@ import { chatAgentKeys } from "@/lib/agent-personas";
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const profile = await safe(getActiveProfile(), null);
+  const profile = await safe("settings.profile", getActiveProfile(), null);
   const [integrations, tenant, templates, connectedAiSet] = await Promise.all([
-    safe(integrationsHealth(profile?.tenant_id || null), []),
-    profile?.tenant_id ? safe(getTenant(profile.tenant_id), null) : Promise.resolve(null),
-    profile ? safe(getPlanTemplates(profile.id), []) : Promise.resolve([]),
-    safe(aiServicesWithKey(profile?.tenant_id || null), new Set<string>()),
+    safe("settings.integrations_health", integrationsHealth(profile?.tenant_id || null), []),
+    profile?.tenant_id ? safe("settings.tenant", getTenant(profile.tenant_id), null) : Promise.resolve(null),
+    profile ? safe("settings.plan_templates", getPlanTemplates(profile.id), []) : Promise.resolve([]),
+    safe("settings.ai_keys", aiServicesWithKey(profile?.tenant_id || null), new Set<string>()),
   ]);
   const weekday = templates.find((t) => t.kind === "weekday") || null;
   const weekend = templates.find((t) => t.kind === "weekend") || null;

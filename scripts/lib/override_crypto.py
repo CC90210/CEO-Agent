@@ -9,6 +9,34 @@ Lazy key bootstrap: if `EMPIRE_OVERRIDE_HMAC_KEY` is missing from
 `.env.agents` on first use, generate a 64-hex-char key and append it.
 This makes the override flow zero-config — the wizard doesn't have to
 ship a key; first use mints one.
+
+================================================================================
+TWO HMAC SECRETS — DELIBERATE, NOT A LEAK
+================================================================================
+The override flow uses two distinct HMAC secrets at two different layers.
+They have similar names and similar shapes; they are NOT the same secret.
+
+  EMPIRE_OVERRIDE_HMAC_KEY  (this file)
+    - LOCAL ONLY. Lives in .env.agents on CC's machine, never on Vercel.
+    - Signs the at-rest "approval" row inside state/empire_state.db (SQLite).
+    - state_manager.approve_override_request() calls sign_approval() here
+      so a malicious agent with DB write access still can't forge approvals.
+
+  OASIS_OUTBOUND_HMAC_SECRET  (set on Vercel + on local consumer)
+    - CLOUD-AWARE. Set as a Vercel env var AND as a row in
+      n8n_webhook_secrets so the Supabase RPC can verify.
+    - Authenticates the dashboard → Supabase RPC call
+      (record_exec_override_decision_v1) — see
+      apps/command-center/app/overrides/page.tsx::decisionAction.
+
+They are layered: OASIS_OUTBOUND_HMAC_SECRET protects "did the dashboard
+operator click Approve" (cloud trust). EMPIRE_OVERRIDE_HMAC_KEY protects
+"did exec_guard's at-runtime allow-list get tampered with on-host" (local
+trust). Compromise of one does NOT yield the other.
+
+If you find yourself unifying these two — STOP. The split is what keeps
+Vercel from ever being able to forge a local SQLite approval.
+================================================================================
 """
 
 from __future__ import annotations
