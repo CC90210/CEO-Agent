@@ -126,4 +126,7 @@ If you want help installing or customizing it for your business: [open an issue]
 
 [MIT licensed](LICENSE) · [Issues](https://github.com/CC90210/CEO-Agent/issues) · [Install help](.github/ISSUE_TEMPLATE/install_help.md) · [Security model](brain/SECURITY_MODEL.md) · [Contributing](CONTRIBUTING.md)
 
+## Obsidian
+- [[CONTRIBUTING]] · [[CLAUDE]] · [[brain/SOUL]] · [[brain/CAPABILITIES]] · [[docs/INDEX]] · [[docs/INSTALL]]
+
 > "Only good things from now on."

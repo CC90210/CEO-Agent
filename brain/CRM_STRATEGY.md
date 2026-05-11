@@ -10,7 +10,7 @@ To maintain system integrity and focus on high-conversion leads, we distinguish 
 *   **Purpose:** Cold outreach, lead discovery, and "testing the waters."
 *   **Target:** Mass-scraped or web-searched leads with minimal initial context.
 *   **Success Metric:** Response rate and qualification.
-*   **Process:** Leads are added here first to "play ball." We use automated outreach sequences via [[skills/outreach-send/SKILL]] (`email_engine.py send-template`) to gauge interest. Eligibility + cadence is managed by `scripts/outreach_eligible.py`. Auto-flagged drafts go through the [[scripts/draft_critic|draft critic]] before SMTP.
+*   **Process:** Leads are added here first to "play ball." We use automated outreach sequences via [[skills/outreach-send/SKILL]] (`email_engine.py send-template`) to gauge interest. Eligibility + cadence is managed by `scripts/outreach_eligible.py`. Auto-flagged drafts go through `scripts/draft_critic.py` before SMTP.
 
 ## 2. Legit CRM (Tier 2)
 *   **Purpose:** High-leverage management of actual paying customers and highly qualified opportunities.
@@ -27,5 +27,5 @@ To maintain system integrity and focus on high-conversion leads, we distinguish 
 - [[brain/CAPABILITIES]] — outreach + CRM tooling registry
 - [[brain/USER]] — operator profile (whose CRM this is)
 - [[skills/outreach-send/SKILL]] — canonical Tier 1 send path
-- [[memory/content-strategy]] — Tier 1 inbound funnel that feeds these leads
 - [[brain/OKRs]] — Q2 2026 revenue OKRs that drive both tiers
+- Content/inbound funnel that feeds Tier 1 leads → see `../CMO-Agent/brain/CONTENT_BIBLE.md` (Maven canonical)
