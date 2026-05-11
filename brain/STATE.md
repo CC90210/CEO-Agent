@@ -106,7 +106,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 > Connected notes for graph navigation
 
 - [[brain/SOUL]] | [[brain/USER]] | [[brain/AGENTS]] | [[brain/CAPABILITIES]] | [[brain/QUICK_REFERENCE]]
-- [[brain/APP_REGISTRY]] | [[brain/CEO_OPERATING_SYSTEM]] | [[brain/OKRs]] | [[brain/CLIENT_READY]]
+- [[brain/APP_REGISTRY]] | [[brain/CEO_OPERATING_SYSTEM]] | [[brain/OKRs]] | [[brain/CLIENT_READY]] | [[brain/CRM_STRATEGY]]
 - [[brain/BRAIN_LOOP]] | [[brain/GROWTH]] | [[brain/CHANGELOG]]
 - [[brain/RISK_REGISTER]] | [[brain/INTERACTION_PROTOCOL]] | [[brain/ORCHESTRATION]]
 - [[brain/METRIC_AUDIT]] — every dashboard metric traced to its source (real vs placeholder)
@@ -129,7 +129,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-05-11
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** V6 Coherence Gate (RULE 12) added across all 5 entry points + canonical EXECUTION_RULES.md. Lead cleanup: 3 dupes deleted (Rob, Paul, Kyle), Paul company normalized, PlumbEX+Tempcom name set to placeholder so no-contact leads are held out. Popup fix: maven-telegram crash loop killed (4,492 restarts), windowsHide added to PM2 ecosystem.
+- **Result:** Maven Telegram bridge restored. 5-day-old stale bridge_lock released, fresh PM2 start, no 409 recurrence at 30s+ mark. All 4 PM2 procs online: atlas-telegram (4d), bravo-scheduler (81m), bravo-telegram (80m), maven-telegram (30s).
 
 *Last updated: 2026-05-11*
 
