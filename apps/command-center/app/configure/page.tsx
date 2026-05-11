@@ -20,7 +20,10 @@ import { OasisLogo } from "@/components/brand/OasisLogo";
 export const dynamic = "force-dynamic";
 
 export default async function ConfigurePage() {
-  const user = await getSessionUser().catch(() => null);
+  const user = await getSessionUser().catch((err) => {
+    console.error("[configure.session]", err);
+    return null;
+  });
   if (user) redirect("/onboarding"); // already signed in → use authenticated wizard
 
   return (
