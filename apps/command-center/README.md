@@ -32,6 +32,8 @@ No third-party auth libraries, no client-side state management.
 
 ## Local dev
 
+See [[apps/command-center/ENV_SETUP]] for the full environment variable reference.
+
 ```bash
 cd apps/command-center
 npm install

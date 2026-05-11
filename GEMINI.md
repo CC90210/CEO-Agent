@@ -276,7 +276,7 @@ Never store app code in Business-Empire-Agent.
 When running on OpenCode with big-pickle, identify as: "I'm Bravo, CC's Lead Architect — running through OpenCode this time. What do you need?"
 
 ## Related
-- [[CLAUDE]]
+- [[CLAUDE]] · [[ANTIGRAVITY]] · [[AGENTS]] · [[OPENCODE]]
 - [[brain/INDEX]]
 - [[brain/CAPABILITIES]]
 

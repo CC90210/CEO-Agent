@@ -113,7 +113,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 - [[brain/MODEL_CONFIG]] (V6.0 multi-provider routing) | [[brain/USER.template]] (public-clone profile template)
 - [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]] | [[memory/DECISIONS]] | [[memory/CLAUDE_HANDOVER]]
 - [[memory/WORKING]] (V6.0 ephemeral working memory) | [[memory/ACTIVE_TASKS.template]] | [[memory/SESSION_LOG.template]]
-- [[docs/V6_ARCHITECTURE]] | [[infra/README]]
+- [[docs/V6_ARCHITECTURE]] | [[infra/README]] | [[brain/EVENT_BUS_CONTRACT]]
 - [[memory/PATTERNS]] | [[memory/MISTAKES]] | [[memory/SELF_REFLECTIONS]]
 - [[memory/content-strategy]] | [[memory/PROPOSED_CHANGES]]
 - [[memory/poems/sub_agents_collective_intelligence]] | [[skills/sales-closing/COLD_CALL_SCRIPT_V1]]
