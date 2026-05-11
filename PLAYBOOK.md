@@ -146,12 +146,13 @@ Organized by the question, not the tool. The tool names are in italics so you ca
 
 ## V6 Apex background daemons — what must be running 24/7
 
-After V6 Apex (2026-05-10) shipped, two new daemons need to be alive on your machine for the cross-agent + dashboard-override flows to work. Both are tiny — they poll Supabase every few seconds and apply work to local SQLite. PM2 keeps them up across reboots.
+After V6 Apex (2026-05-10) + OASIS Town Phase 3 (2026-05-11) shipped, three daemons need to be alive on your machine. PM2 keeps them up across reboots.
 
 | Daemon | What it does | Without it |
 |---|---|---|
 | **event-router** | Reads every new `agent_events` row, projects it to `state/event_router.log`. Powers the `/feed` page on the Vercel dashboard. | Dashboard feed shows stale data. No on-host event-bus audit log. |
 | **override-consumer** | Polls Supabase for dashboard Approve/Deny clicks on blocked commands. Applies them locally with HMAC. | Dashboard `/overrides` page can record decisions but the agent never sees them — you'd have to fall back to CLI `python scripts/exec_override.py approve <req-id>` (TTY-only). |
+| **oasis-embed** | FastAPI on `localhost:8767` that exposes Bravo's FTS5+LanceDB retrieval to the OASIS Town Convex backend. Provides `/embed` (384-dim fastembed MiniLM) and `/query` (hybrid RRF retrieval over `memory/`, `skills/`, `brain/`). | OASIS Town's agent memory falls back to zero-vector stubs — agents still talk but lose live empire-state context (no more "Archive has three validated cases in memory/X.md" style references). |
 
 ### One-time setup
 
@@ -169,6 +170,10 @@ pm2 start scripts/exec_override_consumer.py \
   --name override-consumer \
   --interpreter python \
   -- loop --interval 5
+
+pm2 start scripts/oasis_embed_server.py \
+  --name oasis-embed \
+  --interpreter python
 
 pm2 save                # persist the process list to disk
 # If PM2 startup isn't already registered for boot:
