@@ -3,7 +3,7 @@ beautifulsoup4==4.14.3
 click==8.3.1
 cryptography==46.0.7
 firecrawl-py==4.22.0
-mem0ai==1.0.10
+mem0ai==2.0.0b2
 numpy==2.4.2
 pillow==12.2.0
 playwright==1.58.0
@@ -20,8 +20,8 @@ supabase==2.28.2
 # deploy is live). Comment out if you want a minimal local dev install.
 fastapi==0.118.0
 uvicorn[standard]==0.32.0
-python-multipart==0.0.26
-# openai: needs >=1.90.0 for mem0ai 1.0.10 compatibility. Upper bound on
+python-multipart==0.0.27
+# openai: needs >=1.90.0 for mem0ai 2.0.0b2 compatibility. Upper bound on
 # 3.x as a safety net — the SDK has never had a major breaking change
 # in the 1.x → 2.x line for our usage (text-embedding-3-small, chat.completions),
 # so this range is safe.
