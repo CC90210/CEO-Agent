@@ -129,7 +129,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-05-11
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Completed final V6 lockdown sweep with Claude Code: mitigated 5 silent-failure bugs, committed V6 untracked files (quests API, migration 036), pushed to origin/main. Architecture is bulletproof and we are fully shifted to revenue execution for Monday.
+- **Result:** V6 Coherence Gate (RULE 12) added across all 5 entry points + canonical EXECUTION_RULES.md. Lead cleanup: 3 dupes deleted (Rob, Paul, Kyle), Paul company normalized, PlumbEX+Tempcom name set to placeholder so no-contact leads are held out. Popup fix: maven-telegram crash loop killed (4,492 restarts), windowsHide added to PM2 ecosystem.
 
 *Last updated: 2026-05-11*
 

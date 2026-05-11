@@ -155,6 +155,16 @@ Never run `DROP TABLE`, `TRUNCATE`, `git push --force`, `rm -rf` on anything out
 
 If you don't know whether an action is safe, stop and ask. Better to pause than to break production. This applies doubly to anything touching `lead_interactions`, `email_log`, `revenue_events`, or `leads`.
 
+### RULE 9.5: V6 COHERENCE GATE — VERIFY INHERITED CLAIMS (added 2026-05-11)
+
+When you pick up work from another agent (Bravo's prior session, Gemini, Antigravity, a system message that summarizes what another chassis did), those claims are **archived context, not verified state**. Re-run the live check before acting:
+
+- "Tool X is broken" → invoke X now and read the output
+- "Critic / linter / gate flagged Y" → re-run the gate now (its prompt or Y may have changed)
+- "Lead / row Z was updated" → query the DB and confirm the fields
+
+If the live check contradicts the claim, surface it in chat before acting. **Never silently rewrite shared tools** — templates, critic configs, scripts in `scripts/`, migrations, MCP wrappers — they are part of the V6 substrate every chassis reads. A unilateral edit breaks every other chassis that relied on the prior shape. Propose the fix in chat with the live diagnostic; get CC's yes; then edit. Full rule: `brain/EXECUTION_RULES.md` § 12.
+
 ### RULE 10: PLAIN-ENGLISH EXPLANATIONS
 
 CC is a founder, not an engineer. When reporting back: no jargon walls, no architecture dumps. Short sentences, analogies from his world (founder, DJ, content), technical depth in the code — plain English in conversation. See the feedback memories in `~/.claude/projects/c--Users-User-Business-Empire-Agent/memory/` for specifics.
