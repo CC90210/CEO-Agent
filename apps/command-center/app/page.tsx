@@ -47,26 +47,27 @@ export default async function TodayPage() {
 
   const tenantId = profile.tenant_id || "";
 
-  // safe(p, fallback) imported from @/lib/api-helpers — used across every
-  // dynamic page so one bad reader can't 500 the whole render. This is
-  // the Hermes-toggle bug class.
+  // safe(label, p, fallback) imported from @/lib/api-helpers — used across
+  // every dynamic page so one bad reader can't 500 the whole render. The
+  // label tags failures in Vercel logs ([safe:today.counts] ...) so a
+  // silently-empty Stat is debuggable. This is the Hermes-toggle bug class.
   const [counts, pipeline, mrr, history, plan, inbound, concentration, replyRate, activePipe, topLead, streak] =
     await Promise.all([
-      safe(todayCounts(tenantId), { outbound: 0, inbound: 0, decisions: 0, hot: 0 }),
-      safe(pipelineBreakdown(tenantId), { stages: {} as Record<string, number>, total: 0, sources: {} as Record<string, number> }),
-      safe(mrrSnapshot(), { current: 0, target: 5000, pct: 0 }),
-      safe(mrrHistory(30), [] as Array<{ date: string; mrr: number; synthetic: boolean }>),
-      safe(getTodayPlan(profile.id), null),
-      safe(recentInbound(tenantId, 5), []),
-      safe(topClientConcentration(tenantId), { client_name: "—", pct_of_mrr: 0, is_at_risk: false }),
-      safe(outreachReplyRate(tenantId, 7), { sends: 0, replies: 0, rate_pct: 0 }),
-      safe(activePipeline(tenantId), { total_active: 0, qualified: 0, proposal: 0 }),
-      safe(topOpenLead(tenantId), null),
-      safe(computeStreak(profile.id, 7), { streak: 0, missed: 0, daysWithPlan: 0, byDay: [] }),
+      safe("today.counts", todayCounts(tenantId), { outbound: 0, inbound: 0, decisions: 0, hot: 0 }),
+      safe("today.pipeline_breakdown", pipelineBreakdown(tenantId), { stages: {} as Record<string, number>, total: 0, sources: {} as Record<string, number> }),
+      safe("today.mrr_snapshot", mrrSnapshot(), { current: 0, target: 5000, pct: 0 }),
+      safe("today.mrr_history", mrrHistory(30), [] as Array<{ date: string; mrr: number; synthetic: boolean }>),
+      safe("today.plan", getTodayPlan(profile.id), null),
+      safe("today.recent_inbound", recentInbound(tenantId, 5), []),
+      safe("today.top_client_concentration", topClientConcentration(tenantId), { client_name: "—", pct_of_mrr: 0, is_at_risk: false }),
+      safe("today.outreach_reply_rate", outreachReplyRate(tenantId, 7), { sends: 0, replies: 0, rate_pct: 0 }),
+      safe("today.active_pipeline", activePipeline(tenantId), { total_active: 0, qualified: 0, proposal: 0 }),
+      safe("today.top_open_lead", topOpenLead(tenantId), null),
+      safe("today.streak", computeStreak(profile.id, 7), { streak: 0, missed: 0, daysWithPlan: 0, byDay: [] }),
     ]);
 
   const primaryLead = plan?.primary_lead_id
-    ? await safe(getLeadById(plan.primary_lead_id), null)
+    ? await safe("today.primary_lead", getLeadById(plan.primary_lead_id), null)
     : topLead; // auto-promote highest-score open lead if no plan-level pin
 
   const targetDate = profile.mrr_target_date ? new Date(profile.mrr_target_date) : null;

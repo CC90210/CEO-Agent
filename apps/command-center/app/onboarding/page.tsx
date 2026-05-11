@@ -30,7 +30,8 @@ async function _initialPaired(authUserId: string): Promise<boolean> {
     const last = data?.[0]?.last_seen_at as string | null | undefined;
     if (!last) return false;
     return Date.now() - new Date(last).getTime() < FRESH_MS;
-  } catch {
+  } catch (err) {
+    console.error("[onboarding.initial_paired]", err);
     return false;
   }
 }

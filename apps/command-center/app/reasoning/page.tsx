@@ -19,8 +19,8 @@ export default async function ReasoningPage({
   const devMode = sp.dev === "1";
 
   const [profile, decisions] = await Promise.all([
-    safe(getActiveProfile(), null),
-    safe(recentDecisions(20), []),
+    safe("reasoning.profile", getActiveProfile(), null),
+    safe("reasoning.recent_decisions", recentDecisions(20), []),
   ]);
 
   const enabled = profile?.agents_enabled || ["bravo"];
