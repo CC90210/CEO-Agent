@@ -29,15 +29,20 @@ export function sha256(input: string): string {
  * Promise-with-fallback. Wrap any reader so a single thrown query can't
  * 500 a server-rendered page. Used in /today, /pipeline, /analytics,
  * /reasoning, /integrations, /settings — every dynamic page that does a
- * Promise.all over Supabase readers. Pattern was open-coded inline in 6
- * files until it landed here.
+ * Promise.all over Supabase readers.
  *
- * Usage: const value = await safe(maybeThrowingPromise(), defaultValue);
+ * The `label` is required: it surfaces in Vercel function logs as
+ * `[safe:<label>] <error>` so failed readers are searchable instead of
+ * silently rendering zeros. Use dotted scope-y names like "today.counts",
+ * "pipeline.breakdown", "operations.events".
+ *
+ * Usage: const value = await safe("today.counts", readerPromise(), defaultValue);
  */
-export async function safe<T>(p: Promise<T>, fallback: T): Promise<T> {
+export async function safe<T>(label: string, p: Promise<T>, fallback: T): Promise<T> {
   try {
     return await p;
-  } catch {
+  } catch (err) {
+    console.error(`[safe:${label}]`, err);
     return fallback;
   }
 }

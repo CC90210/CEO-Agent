@@ -8,14 +8,31 @@
  * with OASIS_OUTBOUND_HMAC_SECRET hashed server-side. The local
  * exec_override_consumer daemon picks up the decision and applies it to
  * SQLite via state_manager.approve_override_request / deny_override_request.
+ *
+ * ─── HMAC secrets used in this flow (two of them, deliberately) ─────────
+ * OASIS_OUTBOUND_HMAC_SECRET (this file, line 90):
+ *   Cloud-side. Set as Vercel env var + matched in Supabase
+ *   n8n_webhook_secrets. Authenticates THIS server action's call to
+ *   record_exec_override_decision_v1. The hash is what the RPC compares.
+ *
+ * EMPIRE_OVERRIDE_HMAC_KEY (scripts/lib/override_crypto.py):
+ *   Local-only. Never set on Vercel. Signs the at-rest approval row in
+ *   state/empire_state.db (SQLite) on CC's machine so the local
+ *   exec_guard can verify "yes, this approval is real" before letting a
+ *   blocked command through.
+ *
+ * Two layers, two secrets — compromise of one does not yield the other.
+ * If you find yourself unifying them, STOP and read override_crypto.py.
+ * ────────────────────────────────────────────────────────────────────────
  */
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { createHash } from "crypto";
-import { ShieldAlert, CheckCircle2, XCircle, Activity } from "lucide-react";
+import { ShieldAlert, Activity } from "lucide-react";
 import { Card, PageHeader, Tag } from "@/components/Card";
 import { getServiceSupabase, getSessionUser } from "@/lib/supabase-server";
+import { OverrideDecisionForms } from "./OverrideDecisionForms";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -264,37 +281,7 @@ function OverrideRow({ row, interactive }: { row: Row; interactive: boolean }) {
         </code>
 
         {interactive && (
-          <div className="flex items-center gap-3 pt-1">
-            <form action={decisionAction} className="contents">
-              <input type="hidden" name="request_id" value={row.request_id} />
-              <input type="hidden" name="decision" value="approve" />
-              <input
-                type="text"
-                name="reason"
-                placeholder="optional reason"
-                maxLength={500}
-                className="flex-1 text-xs px-3 py-1.5 rounded border border-bg-border bg-bg-elev text-fg placeholder:text-fg-faint focus:outline-none focus:border-accent"
-              />
-              <button
-                type="submit"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-status-engaged/40 bg-status-engaged/10 text-status-engaged text-xs font-bold uppercase tracking-wider hover:bg-status-engaged/20"
-              >
-                <CheckCircle2 size={14} />
-                Approve
-              </button>
-            </form>
-            <form action={decisionAction}>
-              <input type="hidden" name="request_id" value={row.request_id} />
-              <input type="hidden" name="decision" value="deny" />
-              <button
-                type="submit"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-status-hot/40 bg-status-hot/10 text-status-hot text-xs font-bold uppercase tracking-wider hover:bg-status-hot/20"
-              >
-                <XCircle size={14} />
-                Deny
-              </button>
-            </form>
-          </div>
+          <OverrideDecisionForms requestId={row.request_id} action={decisionAction} />
         )}
 
         {!interactive && row.dashboard_decision && (

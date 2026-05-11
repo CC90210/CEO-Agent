@@ -21,10 +21,11 @@ export default async function PipelinePage({
   const params = await searchParams;
   const includeAll = params.show === "all";
 
-  const profile = await safe(getActiveProfile(), null);
+  const profile = await safe("pipeline.profile", getActiveProfile(), null);
   const tenantId = profile?.tenant_id || "";
   const [leads, pipeline, outbound, inbound] = await Promise.all([
     safe(
+      "pipeline.recent_leads",
       recentLeads(tenantId, 80, {
         include_archived: includeAll,
         include_no_email: includeAll,
@@ -32,9 +33,9 @@ export default async function PipelinePage({
       }),
       []
     ),
-    safe(pipelineBreakdown(tenantId, includeAll), { stages: {} as Record<string, number>, total: 0, sources: {} as Record<string, number> }),
-    safe(recentOutbound(tenantId, 20), []),
-    safe(recentInbound(tenantId, 20), []),
+    safe("pipeline.breakdown", pipelineBreakdown(tenantId, includeAll), { stages: {} as Record<string, number>, total: 0, sources: {} as Record<string, number> }),
+    safe("pipeline.recent_outbound", recentOutbound(tenantId, 20), []),
+    safe("pipeline.recent_inbound", recentInbound(tenantId, 20), []),
   ]);
 
   return (

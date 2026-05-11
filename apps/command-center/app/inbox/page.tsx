@@ -23,7 +23,7 @@ function isOperatorEmail(email: string | null | undefined): boolean {
 export default async function InboxPage() {
   const user = await getSessionUser();
   const isAdmin = isOperatorEmail(user?.email);
-  const profile = await safe(getActiveProfile(), null);
+  const profile = await safe("inbox.profile", getActiveProfile(), null);
   const tenantId = profile?.tenant_id || "";
 
   // Pull from BOTH sources: Supabase (multi-machine, source of truth)
@@ -31,10 +31,10 @@ export default async function InboxPage() {
   // that exists in both surfaces only once. Supabase wins on conflict
   // since it's the canonical store going forward.
   const [dbUnread, dbRead, fsUnread, fsRead] = await Promise.all([
-    tenantId ? safe(listUnreadDb(tenantId), []) : Promise.resolve([]),
-    tenantId ? safe(listReadDb(tenantId, undefined, 50), []) : Promise.resolve([]),
-    safe(listUnread(), []),
-    safe(listRead(50), []),
+    tenantId ? safe("inbox.db_unread", listUnreadDb(tenantId), []) : Promise.resolve([]),
+    tenantId ? safe("inbox.db_read", listReadDb(tenantId, undefined, 50), []) : Promise.resolve([]),
+    safe("inbox.fs_unread", listUnread(), []),
+    safe("inbox.fs_read", listRead(50), []),
   ]);
 
   const dbUnreadShaped = dbUnread.map(dbToUiShape);

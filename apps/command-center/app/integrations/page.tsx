@@ -12,10 +12,10 @@ import type { IntegrationHealth } from "@/lib/supabase";
 export const dynamic = "force-dynamic";
 
 export default async function IntegrationsPage() {
-  const profile = await safe(getActiveProfile(), null);
+  const profile = await safe("integrations.profile", getActiveProfile(), null);
   const [dbRows, connectedAiSet] = await Promise.all([
-    safe(integrationsHealth(profile?.tenant_id || null), []),
-    safe(aiServicesWithKey(profile?.tenant_id || null), new Set<string>()),
+    safe("integrations.health", integrationsHealth(profile?.tenant_id || null), []),
+    safe("integrations.ai_keys", aiServicesWithKey(profile?.tenant_id || null), new Set<string>()),
   ]);
 
   // Merge: every registry service shows up; if no DB ping row exists, render

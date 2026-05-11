@@ -25,8 +25,12 @@ async function _tenantHasNoBridge(tenantId: string | null): Promise<boolean> {
       .is("revoked_at", null)
       .limit(1);
     return !data || data.length === 0;
-  } catch {
-    return false; // failed to check — don't show banner on transient DB error
+  } catch (err) {
+    // Failed to check — don't show banner on transient DB error. Logged
+    // so a persistently-broken bridge_pairings query is surfaced in Vercel
+    // logs instead of silently suppressing the onboarding nudge.
+    console.error("[agents.tenant_has_no_bridge]", err);
+    return false;
   }
 }
 

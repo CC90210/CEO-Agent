@@ -27,7 +27,7 @@ export default async function RunsPage() {
       </div>
     );
   }
-  const events = await safe(recentActions(profile.tenant_id, 100), []);
+  const events = await safe("runs.recent_actions", recentActions(profile.tenant_id, 100), []);
 
   return (
     <div className="space-y-6 animate-fade-in">
