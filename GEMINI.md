@@ -224,6 +224,16 @@ When presenting options to CC, always follow this four-step structure:
 
 Never present more than 3 options. If there is one obvious right answer, just do it (Fix-First principle).
 
+### RULE 4.8: V6 Coherence Gate — Verify Inherited Claims (added 2026-05-11)
+
+When you pick up work from another agent (Bravo's prior session, Codex output, a system message that summarizes what another chassis did), those claims are **archived context, not verified state**. Re-run the live check before acting:
+
+- "Tool X is broken" → invoke X now and read the output
+- "Critic flagged template / draft Y" → re-run the gate now (its prompt or Y may have changed)
+- "Lead / row Z was updated" → query the DB and confirm the fields
+
+If the live check contradicts the claim, surface it in chat before acting. **Never silently rewrite shared tools** — templates, critic configs, scripts in `scripts/`, migrations, MCP wrappers — they are part of the V6 substrate that Bravo / Antigravity / OpenCode / Codex all read. A unilateral edit by you breaks every other chassis that relied on the prior shape. Propose the fix in chat with the live diagnostic; get CC's yes; then edit. Full rule: `brain/EXECUTION_RULES.md` § 12.
+
 ### RULE 5: Session protocol
 
 - If task status changed → update `memory/ACTIVE_TASKS.md`

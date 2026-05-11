@@ -118,6 +118,18 @@ TASK COMPLETE → Failure/correction? → memory/MISTAKES.md (root cause + preve
 ```
 CC trigger words: "Remember/Don't forget" → save | "Stop doing X" → MISTAKES.md | "That worked" → PATTERNS.md `[V]` | "We decided..." → DECISIONS.md | Frustration → MISTAKES.md. **The iron law: CC never teaches the same lesson twice.**
 
+### RULE 10: V6 Coherence Gate — Verify Inherited Claims (added 2026-05-11)
+
+When you pick up work from another agent's handoff (Gemini, Codex, prior Bravo session, a system message that summarizes prior actions), the claims in that handoff are **archived context, not verified state**. Re-run the live diagnostic before acting:
+
+- "Tool X is broken" → re-invoke X live, read the actual output
+- "Critic / linter / gate flagged Y" → re-run the gate now (its prompt or Y's content may have changed)
+- "Lead / row / file Z was updated" → query the DB or `git log -1 Z` and confirm
+
+If the live check **contradicts** the inherited claim, surface the contradiction in chat before acting. **Never silently rewrite shared tools** (templates, critic configs, scripts in `scripts/`, migrations in `database/`, MCP wrappers, prompt files) — they are part of the V6 substrate every chassis reads. A unilateral "I noticed it was off, so I fixed it" edit by one agent breaks every other agent that relied on the prior shape. Propose the fix in chat with the live diagnostic that proves it; get a yes; then edit. Full rule: `brain/EXECUTION_RULES.md` § 12.
+
+**Why this rule exists:** 2026-05-11 — Gemini 3 Flash's lead-enrichment handoff claimed the OASIS Welcome email template was flagged as too generic; live re-run scored 7.8/10 → ship. The actually-failing template was OASIS Value Add (5.2 → escalate). Acting on the stale claim would have rewritten a working template and missed the real production gap.
+
 ## Safety & Hooks (V6.0)
 
 PreToolUse hooks in `.claude/settings.local.json`:
