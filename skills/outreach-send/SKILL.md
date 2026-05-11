@@ -9,6 +9,8 @@ triggers: ["outreach send", "use outreach send", "run outreach send", "send oasi
 > Single source of truth for sending OASIS outreach emails. Every AI in CC's empire (Claude Code, OpenCode, Codex, Gemini, Antigravity) reads this file and uses the same command.
 >
 > **Do not draft and send raw text.** The system will refuse — see "Why this exists" at the bottom.
+>
+> Related: [[brain/CRM_STRATEGY]] · [[prompts/RUN_OUTREACH]] (full operator runbook)
 
 ---
 

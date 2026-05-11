@@ -10,10 +10,18 @@ Bravo is an autonomous AI business operations system. The architecture is modula
 
 Read the system overview:
 
-- `brain/SOUL.md` — identity and values
-- `brain/CAPABILITIES.md` — full tool inventory
-- `brain/ORCHESTRATION.md` — routing governance and delegation rules
-- `CLAUDE.md` — the 9 rules that govern all agent behavior
+- [[brain/SOUL]] — identity and values
+- [[brain/CAPABILITIES]] — full tool inventory
+- [[brain/ORCHESTRATION]] — routing governance and delegation rules
+- [[CLAUDE]] — the rules that govern all agent behavior
+
+## Reporting issues
+
+Use the GitHub issue templates rather than free-form bug reports — they keep the right context together:
+
+- [[.github/ISSUE_TEMPLATE/bug_report]] — for unexpected behavior
+- [[.github/ISSUE_TEMPLATE/feature_request]] — for proposing new capabilities
+- [[.github/ISSUE_TEMPLATE/install_help]] — for setup/installation problems
 
 Fork the repo, clone locally, and run the installer:
 
