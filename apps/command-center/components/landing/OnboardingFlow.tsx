@@ -96,17 +96,25 @@ export function OnboardingFlow({ userEmail }: Props) {
       }
       // Persist primary agent + mark onboarding complete so the
       // middleware stops force-routing the user back here on every
-      // signed-in page load.
-      await fetch("/api/profile", {
+      // signed-in page load. If this fails, the user gets stuck in an
+      // onboarding loop on next page load — throw so the outer catch
+      // surfaces it instead of swallowing it silently.
+      const profileRes = await fetch("/api/profile", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           primary_agent: primaryAgent,
           onboarding_completed_at: new Date().toISOString(),
         }),
-      }).catch(() => null);
+      });
+      if (!profileRes.ok) {
+        const body = await profileRes.json().catch(() => ({}));
+        console.error("[onboarding_flow.profile_patch]", `status=${profileRes.status}`, body);
+        throw new Error(`Could not save onboarding choices (status ${profileRes.status}). Try again.`);
+      }
       router.push("/agents");
     } catch (e) {
+      console.error("[onboarding_flow.submit]", e);
       setError(e instanceof Error ? e.message : "request_failed");
       setSubmitting(false);
     }

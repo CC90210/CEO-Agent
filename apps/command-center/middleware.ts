@@ -25,6 +25,7 @@ const PUBLIC_PATH_PREFIXES = [
   "/api/exec-override",    // external caller fallback for override approvals (HMAC auth inside)
   "/api/outbound/log",     // outbound logging from local backend (HMAC auth inside)
   "/api/event-feed",       // OASIS Town poller reads recent agent_events (read-only, no secrets in payloads). Option B "public for proof-of-life" per 2026-05-10 directive; HMAC hardening deferred.
+  "/api/quests",           // OASIS Town Quest Log polls ACTIVE_TASKS.md mirror. Read-only, public for Phase 5 proof-of-life.
 
   "/api/cron",
   "/api/webhook",          // public webhooks for clients (HMAC/Bearer gated inside)

@@ -37,7 +37,10 @@ async function _initialPaired(authUserId: string): Promise<boolean> {
 }
 
 export default async function OnboardingPage() {
-  const user = await getSessionUser().catch(() => null);
+  const user = await getSessionUser().catch((err) => {
+    console.error("[onboarding.session]", err);
+    return null;
+  });
   if (!user) redirect("/login?next=/onboarding");
   const initialPaired = await _initialPaired(user.id);
 

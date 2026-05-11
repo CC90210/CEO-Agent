@@ -53,6 +53,7 @@ type Props = {
 
 export function AgentConfigEditor({ agentKeys }: Props) {
   const [configs, setConfigs] = useState<Record<string, AgentConfig>>({});
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [rows, setRows] = useState<Record<string, RowState>>(() =>
     Object.fromEntries(
       agentKeys.map((k) => [
@@ -75,9 +76,17 @@ export function AgentConfigEditor({ agentKeys }: Props) {
 
   useEffect(() => {
     fetch("/api/agent-config")
-      .then((r) => r.json())
-      .then((j) => {
-        if (!j.ok) return;
+      .then(async (r) => {
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || !j.ok) {
+          // Surface the failure to the operator — otherwise the rows stay at
+          // their hardcoded defaults (openrouter / claude-sonnet-4) and the
+          // operator may "save" over their actual stored config.
+          const msg = j.error || `status ${r.status}`;
+          console.error("[agent_config_editor.load]", msg);
+          setLoadError(msg);
+          return;
+        }
         const map: Record<string, AgentConfig> = {};
         for (const c of j.configs as AgentConfig[]) map[c.agent_key] = c;
         setConfigs(map);
@@ -97,7 +106,10 @@ export function AgentConfigEditor({ agentKeys }: Props) {
           return next;
         });
       })
-      .catch(() => null);
+      .catch((err) => {
+        console.error("[agent_config_editor.load]", err);
+        setLoadError(err instanceof Error ? err.message : "network error");
+      });
   }, [agentKeys]);
 
   function patchRow(key: string, patch: Partial<RowState>) {
@@ -156,6 +168,21 @@ export function AgentConfigEditor({ agentKeys }: Props) {
 
   return (
     <div id="agents" className="space-y-4">
+      {loadError && (
+        <div className="rounded-xl border border-status-hot/40 bg-status-hot/10 p-4 flex items-start gap-3">
+          <AlertCircle size={18} className="text-status-hot shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <div className="font-bold text-fg">Could not load your saved agent config</div>
+            <p className="text-fg-muted mt-1">
+              Showing default values. <span className="font-mono text-xs">{loadError}</span>
+            </p>
+            <p className="text-fg-muted mt-1">
+              Refresh the page before saving — otherwise you may overwrite stored
+              providers/models with defaults.
+            </p>
+          </div>
+        </div>
+      )}
       {agentKeys.map((key) => {
         const row = rows[key];
         const cfg = configs[key];
