@@ -49,7 +49,7 @@ Fix obvious issues without asking. Answer questions in 1-5 sentences, then act. 
 
 ## WHY — Purpose
 
-Build CC's empire through AI automation. North star: **$5,000 USD Net MRR by May 15, 2026.**
+Build CC's empire through AI automation. North star: **$5,000 USD Net MRR by May 30, 2026.**
 
 ## HOW — Rules
 
@@ -162,7 +162,7 @@ pm2 start scripts/exec_override_consumer.py  --name override-consumer --interpre
 pm2 save
 ```
 
-V6 Apex closes the V6 Optimization Phase. Architecture work is complete; next epic is business execution ($5K Net MRR by May 15).
+V6 Apex closes the V6 Optimization Phase. Architecture work is complete; next epic is business execution ($5K Net MRR by May 30).
 
 ## Multi-Machine Bridge Arbitration (V6.5)
 

@@ -11,7 +11,7 @@ tags: [state, ephemeral]
 >   - **Phase 2** — Dashboard-driven override approvals. `state_manager.create_override_request` mirrors to Supabase `exec_overrides` (migration 035). `/overrides` page + server action signs with OASIS_OUTBOUND_HMAC_SECRET → `record_exec_override_decision_v1` RPC. `scripts/exec_override_consumer.py loop` applies the decision to local SQLite + HMAC-signs via EMPIRE_OVERRIDE_HMAC_KEY. The at-runtime auth gate stays on CC's machine.
 >   - **Phase 3** — Cross-agent event feed. `scripts/event_router.py loop` is a cursor-based, lossless observability tail; `state/event_router.log` carries the on-host audit projection. `/feed` page is the cloud-side view of the same `agent_events` stream with 5s `router.refresh()` (no websockets).
 >
-> Bravo is officially out of the architecture phase. The next epic is business execution: $5K Net MRR by May 15.
+> Bravo is officially out of the architecture phase. The next epic is business execution: $5K Net MRR by May 30.
 >
 > **What V6.1 added (fork mechanism, intact):** `brain/operator.profile.json` (gitignored single source of truth), `scripts/personalize.py` (renders `brain/USER.md` + memory templates from `*.template.md` placeholders, skip-on-exists), `scripts/scaffold.py` (token-replaces operator identifiers across tracked files at fork-time, refuses to run on the original operator's repo, `--backup` snapshots first). Wizard `step_finalize` always runs personalize; prompts for scaffold on new operators. `self_audit.check_personalization()` warns when profile missing. CC's working copy is preserved via the safety guard + gitignored personal files.
 >
@@ -24,7 +24,7 @@ tags: [state, ephemeral]
 | **Version** | V6 Apex (P1+P2+P3) | V6 Optimization Project 100% complete (2026-05-10). Architecture phase closed. |
 | **Position**| ACTIVE | Community Manager for primary retainer client + Lead Gen Funnel Operator |
 | **Confidence** | 0.97 | Core automations production-grade. Telegram V15.4 live. Scheduler fixed. Semi-auto outreach deploying. Top-client concentration risk unresolved. |
-| **Focus Area** | **RESET AND DIVERSIFY REVENUE** | CC is doing a physical/mental reset (quitting weed). Focus is on daily minimums: content creation and cold outreach volume. Target is still $5k MRR by May 15. |
+| **Focus Area** | **RESET AND DIVERSIFY REVENUE** | CC is doing a physical/mental reset (quitting weed). Focus is on daily minimums: content creation and cold outreach volume. Target is still $5k MRR by May 30. |
 | **Energy** | RECOVERING | CC reported being in a bad state recently. Reset protocol initiated. Baseline execution only. |
 | **Memory Health** | GOOD | Files current. Knowledge wiki seeded. mem0 live. Fragmentation acknowledged — single-write sync in progress. |
 
@@ -32,13 +32,13 @@ tags: [state, ephemeral]
 
 ---
 
-## North Star: $5,000 USD Net MRR by May 15, 2026
+## North Star: $5,000 USD Net MRR by May 30, 2026
 
 > Previous goal ($1,000 USD Net MRR by March 31, 2026) — **ACHIEVED** at $2,691 USD (+169% surplus).
 
 1. **Revenue:** ~$3,322 USD/mo Net MRR ($180 Stripe + $191 base + $2,500 primary-retainer flat + $451 primary-retainer 15% rev share on $3,007 community MRR).
 2. **Gap:** ~$1,678 USD/mo (~2 new OASIS clients at $800-1,000/mo, or 4 at $400-500/mo).
-3. **Pace:** ~1 new client/week for 5 weeks to hit target by May 15.
+3. **Pace:** ~1 new client/week for 5 weeks to hit target by May 30.
 4. **Strategy:** Semi-auto outreach loop (daily batch) + CC Funnel inbound. Diversify beyond the primary retainer.
 5. **Risk:** Primary-retainer loss = drop to ~$822/mo. Diversification is the #1 operational priority.
 
@@ -127,11 +127,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-05-10
+- **Date:** 2026-05-11
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** V6 Optimization Project 100% finished. Antigravity shipped 07d8615 (middleware HMAC public list — closes the last consistency gap). Architecture phase officially closed. Next epic: $5K Net MRR by May 15.
+- **Result:** Completed final V6 lockdown sweep with Claude Code: mitigated 5 silent-failure bugs, committed V6 untracked files (quests API, migration 036), pushed to origin/main. Architecture is bulletproof and we are fully shifted to revenue execution for Monday.
 
-*Last updated: 2026-05-10*
+*Last updated: 2026-05-11*
 
 ## Manifest
 
