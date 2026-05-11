@@ -115,7 +115,22 @@ export function PlanTemplateEditor({
       const isWeekend = operatorWeekday === "Sat" || operatorWeekday === "Sun";
       const matchesToday = (kind === "weekend" && isWeekend) || (kind === "weekday" && !isWeekend);
       if (matchesToday) {
-        await fetch("/api/daily-plan/materialize", { method: "POST" }).catch(() => {});
+        try {
+          const mr = await fetch("/api/daily-plan/materialize", { method: "POST" });
+          if (!mr.ok) {
+            // Template saved, but today's plan didn't re-materialize. Tell the
+            // operator instead of silently leaving the old plan rendered.
+            console.error("[plan_template.rematerialize]", `status=${mr.status}`);
+            setMsg(`Saved. (Re-materialize returned ${mr.status} — refresh to apply.)`);
+            router.refresh();
+            return;
+          }
+        } catch (err) {
+          console.error("[plan_template.rematerialize]", err);
+          setMsg("Saved. (Re-materialize failed — refresh to apply.)");
+          router.refresh();
+          return;
+        }
       }
       setMsg("Saved.");
       router.refresh();

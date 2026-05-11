@@ -305,11 +305,21 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
 
   useEffect(() => {
     fetch("/api/agent-config")
-      .then((r) => r.json())
-      .then((j) => {
-        if (j.ok) setConfigs(j.configs as AgentConfig[]);
+      .then(async (r) => {
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || !j.ok) {
+          // Log so a stuck "not configured" state in the chat composer is
+          // searchable in Vercel logs / browser console. The composer still
+          // renders — just with whatever configs were last hydrated (none on
+          // first mount) — so the operator can retry the page.
+          console.error("[chat_widget.agent_config]", j?.error || `status ${r.status}`);
+          return;
+        }
+        setConfigs(j.configs as AgentConfig[]);
       })
-      .catch(() => null)
+      .catch((err) => {
+        console.error("[chat_widget.agent_config]", err);
+      })
       .finally(() => setConfigsLoaded(true));
   }, []);
 
