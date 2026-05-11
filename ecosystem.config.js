@@ -86,6 +86,7 @@ if (IS_WIN) {
         autorestart: true,
         max_restarts: 10,
         restart_delay: 30000,
+        windowsHide: true,
         env: {
             PYTHONIOENCODING: "utf-8",
             PYTHONUNBUFFERED: "1",
@@ -116,6 +117,7 @@ apps.push({
     max_restarts: 10,
     restart_delay: 45000,   // Must exceed Telegram's 30s long-poll timeout to prevent 409 conflict loops
     kill_timeout: 10000,    // Give graceful shutdown time to release the poll connection
+    windowsHide: true,
     env: {
         NODE_ENV: "production",
     },

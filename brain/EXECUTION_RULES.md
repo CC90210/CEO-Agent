@@ -131,6 +131,31 @@ Before quoting **any** of the following, compute or read live. Never infer from 
 
 **Same rule applies to memory files.** Frontmatter `last_updated:` values can be fresh while the body has stale items. Read both. If a body sentence references a date more than 7 days back and the frontmatter is fresh, treat that line as stale and ask the operator before acting on it.
 
+---
+
+## 12. VERIFY INHERITED CLAIMS BEFORE ACTING (V6 COHERENCE GATE — added 2026-05-11)
+
+When you pick up work from another agent's handoff — a system message summarizing what Gemini / Codex / Atlas / a prior Bravo session did, a memory snapshot, a teammate's commit message — those claims are **archived context, not verified state**. Treat them the way Rule 11 treats stale memory files.
+
+Before you act on any inherited claim, re-run the live check:
+
+| Claim shape | Verify by |
+|---|---|
+| "Tool X is broken / failing / off" | Re-invoke Tool X live and read the actual output |
+| "Critic / linter / gate flagged Y" | Re-run the gate on Y now — the gate's prompt, threshold, or Y's content may have changed |
+| "Lead / row / record Z was updated" | Query the DB for Z and read the fields |
+| "File W was changed" | `git log -1 W` + read the file |
+| "Workflow / job V is failing" | Trigger V (or read its last execution) and confirm the error |
+| "Template / config / script T was edited" | Diff T against the prior commit |
+
+If the live check **contradicts** the inherited claim, surface the contradiction in chat before acting. Do NOT silently "fix" the discrepancy by editing shared tools — templates, critic configs, scripts, migrations, MCP wrappers, prompt files, anything in `scripts/` or `database/migrations/` is part of the V6 substrate that every chassis reads. A unilateral edit by one agent breaks every other agent that relies on the prior shape.
+
+**Cross-cutting corollary — never silently rewrite shared tools.** If you believe a shared tool is wrong, propose the fix in chat with the live diagnostic that proves it. Get a yes, then edit. Unauthorized "I noticed this was off, so I fixed it" edits create silent drift that another chassis will then act on. The empire's value is coherence across chassis; that coherence is the rule.
+
+**Why this rule exists:** 2026-05-11 — Gemini 3 Flash's lead-enrichment handoff claimed the OASIS Welcome email template was flagged as too generic by the draft critic and recommended a rewrite. Live re-run of the critic returned `score=7.8 → ship` with zero issues; the actually-failing template was OASIS Value Add at `score=5.2 → escalate`. Acting on the stale claim would have rewritten a working template, missed the real production gap (the attempt-1 follow-up was bouncing to escalation), and created template drift across the cadence. This is the failure mode this rule blocks at the next agent.
+
+The general shape: agent-A acts on stale state → agent-B inherits the broken result → coherence collapses → operator re-teaches the same lesson to every chassis. Verify at agent-B and the cycle stops.
+
 ## Obsidian Links
 - [[brain/AGENT_ROUTER]] | [[brain/INTENTS]] | [[brain/WHEN_TO_USE_SKILLS]]
 - [[brain/SOUL]] | [[memory/MISTAKES]]
