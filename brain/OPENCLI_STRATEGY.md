@@ -5,7 +5,7 @@ tags: [strategy, opencli, lead-gen]
 # OpenCLI Strategic Integration
 
 > **Inventory:** OpenCLI v1.1.1 — 46 platforms, 244 built-in commands + 6 external CLIs
-> **Scope:** Map each relevant adapter to CC's business north star ($5,000 USD Net MRR by May 15, 2026)
+> **Scope:** Map each relevant adapter to CC's business north star ($5,000 USD Net MRR by May 30, 2026)
 > **Format:** Platforms organized by impact tier + specific use cases + command examples
 
 ---

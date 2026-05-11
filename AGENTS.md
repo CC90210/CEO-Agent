@@ -65,7 +65,7 @@ Do **not** dump any file content to the user. Read silently, then answer the act
 - **Project:** Business-Empire-Agent — CC's autonomous AI operations hub
 - **Owner:** Conaugh McKenna (CC) — OASIS AI Solutions, Collingwood ON, Canada
 - **Brands:** OASIS AI Solutions (AI automation agency), PropFlow (real estate SaaS, 50/50 with Adon), Nostalgic Requests (music/DJ SaaS), Conaugh McKenna (personal brand), DJ services, consulting
-- **North Star:** $5,000 USD Net MRR by May 15, 2026
+- **North Star:** $5,000 USD Net MRR by May 30, 2026
 - **Stack:** Python 3.12, TypeScript, Next.js 14, Supabase (Postgres), Vercel, Stripe, n8n, Telegram bot bridge
 - **Architecture:** [ARCHITECTURE.md](ARCHITECTURE.md) — full design rationale, V5.6 outbound chokepoint explained
 
@@ -254,4 +254,4 @@ pm2 start scripts/exec_override_consumer.py  --name override-consumer --interpre
 pm2 save
 ```
 
-V6 Apex closes the V6 Optimization Phase. Architecture work is complete; next epic is business execution ($5K Net MRR by May 15).
+V6 Apex closes the V6 Optimization Phase. Architecture work is complete; next epic is business execution ($5K Net MRR by May 30).
