@@ -120,3 +120,11 @@ When encountering a bug:
 
 ## Obsidian Links
 - [[skills/systematic-debugging/SKILL]] | [[skills/INDEX]]
+
+
+## Related (graph)
+
+- [[skills/systematic-debugging/SKILL]]
+- [[skills/systematic-debugging/condition-based-waiting]]
+- [[skills/systematic-debugging/defense-in-depth]]
+- [[skills/systematic-debugging/root-cause-tracing]]

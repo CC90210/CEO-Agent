@@ -31,3 +31,9 @@ user-invocable: true
 6. Present draft to CC for approval. Iterate if needed.
 
 7. Once approved, run `/post` to publish.
+
+## Related
+
+- [[.claude/skills/INDEX]]
+- [[.claude/skills/codex-adversarial-review]]
+- [[.claude/skills/codex-cancel]]

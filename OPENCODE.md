@@ -163,3 +163,11 @@ pm2 save
 ```
 
 V6 Apex closes the V6 Optimization Phase. Architecture work is complete; next epic is business execution ($5K Net MRR by May 30).
+
+
+## Related (graph)
+
+- [[README]]
+- [[AGENTS]]
+- [[ANTIGRAVITY]]
+- [[ARCHITECTURE]]

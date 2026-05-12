@@ -131,10 +131,11 @@ except ImportError:
 
 # ---- Canonical constants ----------------------------------------------------
 
-# Cooldown windows per channel. Conservative by default — CC is a 22yo founder
-# still building reputation; better to under-send than to look spammy.
+# Cooldown windows per channel (hours). Set to 0 to disable per-lead cooldown.
+# CC's directive 2026-05-11: "We should be able to send emails whenever we want."
+# Daily + hourly caps still protect domain reputation.
 DEFAULT_COOLDOWNS: dict[str, int] = {
-    "email": 72,        # 3 days between cold emails to the same lead
+    "email": 0,         # no per-lead cooldown — daily/hourly caps are the guard
     "instagram": 48,    # 2 days between DMs
     "phone": 168,       # 7 days between calls
     "skool": 24,        # 1 day — community is higher frequency
@@ -587,7 +588,12 @@ def can_act(
         if rows and last:
             result["last_action_at"] = last.get("created_at")
             cu_raw = last.get("cooldown_until")
-            if cu_raw:
+            effective_window = (
+                cooldown_hours
+                if cooldown_hours is not None
+                else DEFAULT_COOLDOWNS.get(channel, 0)
+            )
+            if cu_raw and effective_window > 0:
                 try:
                     cu = datetime.fromisoformat(cu_raw.replace("Z", "+00:00"))
                     result["cooldown_until"] = cu.isoformat()
@@ -1492,8 +1498,8 @@ def send(
                 "lead_id": lead_id, "interaction_id": None,
                 "cooldown_until": None, "daily_count": None}
 
-    # ---- Gate 2 + 3: cooldown + daily cap (skipped for internal intent) ----
-    if intent != "internal":
+    # ---- Gate 2 + 3: cooldown + daily cap (skipped for internal/transactional) ----
+    if intent not in {"internal", "transactional"}:
         check = can_act(
             lead_id=lead_id,
             channel=channel,

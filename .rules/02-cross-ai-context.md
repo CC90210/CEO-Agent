@@ -41,3 +41,11 @@ Update ALL THREE files immediately:
 
 ## Obsidian Links
 - [[.rules/INDEX]] | [[brain/INTERACTION_PROTOCOL]]
+
+
+## Related (graph)
+
+- [[.rules/INDEX]]
+- [[.rules/01-identity]]
+- [[.rules/03-answer-first]]
+- [[.rules/04-mcp-routing]]

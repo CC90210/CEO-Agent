@@ -123,3 +123,17 @@ Three things are physically impossible to wipe by accident:
 3. **Supabase data** — lives in the cloud, not in this repo. Burning the local working tree doesn't touch your CRM or pipeline rows.
 
 Everything else is reproducible. That's the design.
+
+## Related
+
+- [[docs/playbooks/INDEX]]
+- [[docs/playbooks/01-getting-started]]
+- [[docs/playbooks/02-safe-interaction]]
+
+
+## Related (graph)
+
+- [[docs/playbooks/INDEX]]
+- [[docs/playbooks/01-getting-started]]
+- [[docs/playbooks/02-safe-interaction]]
+- [[docs/playbooks/03-when-to-call-cc]]

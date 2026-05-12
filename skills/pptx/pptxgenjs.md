@@ -421,3 +421,9 @@ titleSlide.addText("My Title", { placeholder: "title" });
 
 ## Obsidian Links
 - [[skills/pptx/SKILL]] | [[skills/INDEX]]
+
+
+## Related (graph)
+
+- [[skills/pptx/SKILL]]
+- [[skills/pptx/editing]]

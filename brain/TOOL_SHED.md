@@ -334,3 +334,9 @@ Jeremy Miner NEPQ         https://www.7thlevelhq.com
 - **Last full audit:** 2026-04-21
 - **2026-05-03:** Added Graphify (Section 3 + Section 7 + Use-Case Router + Plain-Text Export). Pilot trigger: next client app onboarding (Hermes/OASIS Platform/PropFlow). Skipped Caveman (client-comm voice protection) and CodeBurn (subscription plans, premature until metered API client deploys).
 - **Companion docs:** [[brain/CLIENT_PLAYBOOK]] (meeting + security material) · [[brain/BENCHMARK]] (sentience + capability score)
+
+## Related
+
+- [[brain/INDEX]]
+- [[brain/AGENT_GAP_AUDIT]]
+- [[brain/AGENT_INDEX]]

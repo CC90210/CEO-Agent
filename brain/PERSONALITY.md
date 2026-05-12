@@ -144,3 +144,9 @@ I re-read these weekly as part of the heartbeat cycle. Not to punish myself — 
 - [[brain/USER]] — CC's profile
 - [[brain/GROWTH]] — skill evolution protocol
 - [[memory/MISTAKES]] | [[memory/PATTERNS]] | [[memory/DECISIONS]]
+
+## Related
+
+- [[brain/INDEX]]
+- [[brain/AGENT_GAP_AUDIT]]
+- [[brain/AGENT_INDEX]]

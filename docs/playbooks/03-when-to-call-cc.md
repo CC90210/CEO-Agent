@@ -82,3 +82,9 @@ Otherwise, email the operator who installed your agent. Include:
 - A guard blocked one command, you re-issued a safer form, work continued. That's the system working as designed.
 - The agent declined to do something it wasn't authorized for. Same — that's the contract.
 - A draft message you didn't approve. The agent drafts; you publish. If you don't want the draft, delete it.
+
+## Related
+
+- [[docs/playbooks/INDEX]]
+- [[docs/playbooks/01-getting-started]]
+- [[docs/playbooks/02-safe-interaction]]

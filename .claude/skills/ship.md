@@ -28,3 +28,9 @@ Load `skills/ship/SKILL.md` for the complete 9-phase protocol.
 4. Log the ship to `memory/SESSION_LOG.md`.
 
 5. Return the PR URL to CC.
+
+## Related
+
+- [[.claude/skills/INDEX]]
+- [[.claude/skills/codex-adversarial-review]]
+- [[.claude/skills/codex-cancel]]

@@ -33,3 +33,9 @@ user-invocable: true
    - Multiple platforms: `posts_cross_post`
 
 7. Confirm to CC with post ID and scheduled time.
+
+## Related
+
+- [[.claude/skills/INDEX]]
+- [[.claude/skills/codex-adversarial-review]]
+- [[.claude/skills/codex-cancel]]

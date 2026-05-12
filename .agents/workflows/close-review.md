@@ -131,3 +131,11 @@ Bravo: [reads transcript, produces full analysis, logs pattern, proposes a
 - [[memory/PATTERNS]]
 - [[memory/PATTERNS]]
 - [[brain/USER]]
+
+
+## Related (graph)
+
+- [[.agents/workflows/INDEX]]
+- [[.agents/workflows/browser-harness]]
+- [[.agents/workflows/ceo-briefing]]
+- [[.agents/workflows/cli-anything]]

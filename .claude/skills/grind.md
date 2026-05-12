@@ -45,3 +45,9 @@ Output a compact summary:
 - Don't touch .env files or .obsidian/
 - Commit everything at the end with `bravo: grind — [summary]`
 - Update SESSION_LOG.md with what was done
+
+## Related
+
+- [[.claude/skills/INDEX]]
+- [[.claude/skills/codex-adversarial-review]]
+- [[.claude/skills/codex-cancel]]

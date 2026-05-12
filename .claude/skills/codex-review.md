@@ -38,3 +38,9 @@ Run with `Bash(run_in_background: true)`:
 node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" review "$ARGUMENTS"
 ```
 Tell user: "Codex review started in the background. Check `/codex:status` for progress."
+
+## Related
+
+- [[.claude/skills/INDEX]]
+- [[.claude/skills/codex-adversarial-review]]
+- [[.claude/skills/codex-cancel]]

@@ -123,3 +123,11 @@ All four layers were necessary. During testing, each layer caught bugs the other
 
 ## Obsidian Links
 - [[skills/systematic-debugging/SKILL]] | [[skills/INDEX]]
+
+
+## Related (graph)
+
+- [[skills/systematic-debugging/SKILL]]
+- [[skills/systematic-debugging/condition-based-waiting]]
+- [[skills/systematic-debugging/CREATION-LOG]]
+- [[skills/systematic-debugging/root-cause-tracing]]

@@ -54,3 +54,9 @@ You can see each guard's mode (`enforce` / `report` / `off`) on the System Healt
 ## The contract
 
 The agent will do real work for you. You will not babysit every action. In exchange, the agent will not perform money movement, production deploys, or destructive SQL without your explicit approval. The guards keep the agent honest. The dashboard keeps you informed. That's the whole deal.
+
+## Related
+
+- [[docs/playbooks/INDEX]]
+- [[docs/playbooks/01-getting-started]]
+- [[docs/playbooks/03-when-to-call-cc]]

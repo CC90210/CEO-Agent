@@ -148,3 +148,9 @@ Do not invent failure modes that are not supported by the examples.
 Before finalizing, make sure the revised prompt resolves the cited failure modes without adding contradictory instructions.
 </verification_loop>
 ```
+
+## Related
+
+- [[.claude/plugins/codex/skills/gpt-5-4-prompting/references/INDEX]]
+- [[.claude/plugins/codex/skills/gpt-5-4-prompting/references/codex-prompt-antipatterns]]
+- [[.claude/plugins/codex/skills/gpt-5-4-prompting/references/prompt-blocks]]

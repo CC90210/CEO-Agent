@@ -41,3 +41,9 @@ What does "done" look like? List 2-4 concrete, testable outcomes.
 ## Additional context
 
 Links, screenshots, examples from other systems, anything that helps.
+
+## Related
+
+- [[.github/ISSUE_TEMPLATE/INDEX]]
+- [[.github/ISSUE_TEMPLATE/bug_report]]
+- [[.github/ISSUE_TEMPLATE/install_help]]

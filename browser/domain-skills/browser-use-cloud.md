@@ -36,3 +36,11 @@ Approval required before uploading/syncing a local profile, using paid cloud bro
 - [[browser/README]]
 - [[browser/SAFETY]]
 - [[skills/browser-harness/SKILL]]
+
+
+## Related (graph)
+
+- [[browser/domain-skills/README]]
+- [[browser/domain-skills/canva]]
+- [[browser/domain-skills/client-portal-template]]
+- [[browser/domain-skills/github]]

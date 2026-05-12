@@ -36,3 +36,9 @@ The `send_gateway.py` CASL and cooldown limits worked perfectly, preventing 22 e
 
 ***
 **Final Note to Claude:** The business is shifting from manual, low-leverage tasks to high-intensity, automated outreach. The infrastructure must be bulletproof. Do not allow stale context to cause another 404 link disaster. Execute the diagnostic immediately.
+
+## Related
+
+- [[memory/INDEX]]
+- [[memory/ACTIVE_TASKS]]
+- [[memory/ACTIVE_TASKS.template]]

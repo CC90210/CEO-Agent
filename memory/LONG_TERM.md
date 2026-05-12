@@ -75,3 +75,9 @@ freshness_threshold_days: 90
 - "Gemini CLI entry point: GEMINI.md (V5.4)" — now V5.5+ identity matrix synced with AGENTS.md.
 
 *Last updated: 2026-05-06*
+
+## Related
+
+- [[memory/INDEX]]
+- [[memory/ACTIVE_TASKS]]
+- [[memory/ACTIVE_TASKS.template]]

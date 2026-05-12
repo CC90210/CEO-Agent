@@ -47,3 +47,9 @@ Operating rules:
 - Leave `--resume` and `--fresh` in the forwarded request. The subagent handles that routing when it builds the `task` command.
 - If the helper reports that Codex is missing or unauthenticated, stop and tell the user to run `/codex:setup`.
 - If the user did not supply a request, ask what Codex should investigate or fix.
+
+## Related
+
+- [[.claude/plugins/codex/commands/INDEX]]
+- [[.claude/plugins/codex/commands/adversarial-review]]
+- [[.claude/plugins/codex/commands/cancel]]

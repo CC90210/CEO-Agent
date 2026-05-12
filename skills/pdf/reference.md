@@ -612,3 +612,9 @@ def extract_text_with_ocr(pdf_path):
 - **pdfjs-dist**: Apache License
 ## Obsidian Links
 - [[skills/pdf/SKILL]] | [[skills/INDEX]]
+
+
+## Related (graph)
+
+- [[skills/pdf/SKILL]]
+- [[skills/pdf/forms]]

@@ -32,3 +32,11 @@ Browser clicks should not bypass Bravo's logs.
 - [[browser/README]]
 - [[browser/interaction-skills/INDEX]]
 - [[skills/browser-automation/SKILL]]
+
+
+## Related (graph)
+
+- [[browser/interaction-skills/INDEX]]
+- [[browser/interaction-skills/connection]]
+- [[browser/interaction-skills/domain-skill-lifecycle]]
+- [[browser/interaction-skills/evidence]]

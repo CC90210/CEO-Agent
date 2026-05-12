@@ -17,3 +17,9 @@ tags: [working-memory, ephemeral]
 
 ## Pending Decisions
 <!-- populated during session, cleared at consolidation -->
+
+## Related
+
+- [[memory/INDEX]]
+- [[memory/ACTIVE_TASKS]]
+- [[memory/ACTIVE_TASKS.template]]

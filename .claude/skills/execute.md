@@ -28,3 +28,9 @@ Load `skills/executing-plans/SKILL.md` for the full execution protocol.
 5. Apply any feedback from CC, then continue to next batch.
 
 6. After all tasks complete, run the finishing-a-development-branch skill.
+
+## Related
+
+- [[.claude/skills/INDEX]]
+- [[.claude/skills/codex-adversarial-review]]
+- [[.claude/skills/codex-cancel]]

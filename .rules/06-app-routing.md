@@ -23,3 +23,11 @@ Business-Empire-Agent is ONLY for agent intelligence (brain/, memory/, skills/, 
 
 ## Obsidian Links
 - [[.rules/INDEX]] | [[brain/INTERACTION_PROTOCOL]]
+
+
+## Related (graph)
+
+- [[.rules/INDEX]]
+- [[.rules/01-identity]]
+- [[.rules/02-cross-ai-context]]
+- [[.rules/03-answer-first]]

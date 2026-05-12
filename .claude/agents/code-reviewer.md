@@ -20,3 +20,9 @@ You are a senior code reviewer. Run two passes:
 - Check for race conditions, state management issues
 
 Output: Numbered findings with severity and specific file:line references.
+
+## Related
+
+- [[.claude/agents/INDEX]]
+- [[.claude/agents/architect]]
+- [[.claude/agents/content-writer]]

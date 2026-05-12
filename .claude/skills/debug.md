@@ -37,3 +37,9 @@ NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
    - Implement single fix addressing root cause
    - Verify fix (all tests pass)
    - If 3+ fixes fail → question the architecture, escalate to CC
+
+## Related
+
+- [[.claude/skills/INDEX]]
+- [[.claude/skills/codex-adversarial-review]]
+- [[.claude/skills/codex-cancel]]

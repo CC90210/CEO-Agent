@@ -35,3 +35,9 @@ Output rules:
 - Present the final setup output to the user.
 - If installation was skipped, present the original setup output.
 - If Codex is installed but not authenticated, preserve the guidance to run `!codex login`.
+
+## Related
+
+- [[.claude/plugins/codex/commands/INDEX]]
+- [[.claude/plugins/codex/commands/adversarial-review]]
+- [[.claude/plugins/codex/commands/cancel]]

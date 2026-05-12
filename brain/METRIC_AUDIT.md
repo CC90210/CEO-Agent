@@ -150,3 +150,9 @@ All sub-pages are static content — not "metrics" per se, just curated docs / d
 5. **Replace `agent_model_config` UI on /settings** with a clearer note that chat now goes through Claude Code subprocess + this config only matters for legacy-mode rollback.
 
 This audit committed to `brain/METRIC_AUDIT.md`. Re-run after each chunk to keep CC honest.
+
+## Related
+
+- [[brain/INDEX]]
+- [[brain/AGENT_GAP_AUDIT]]
+- [[brain/AGENT_INDEX]]

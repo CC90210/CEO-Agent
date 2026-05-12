@@ -15,3 +15,9 @@ If the user did not pass a job ID:
 If the user did pass a job ID:
 - Present the full command output to the user.
 - Do not summarize or condense it.
+
+## Related
+
+- [[.claude/plugins/codex/commands/INDEX]]
+- [[.claude/plugins/codex/commands/adversarial-review]]
+- [[.claude/plugins/codex/commands/cancel]]
