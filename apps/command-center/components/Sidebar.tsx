@@ -12,17 +12,20 @@ import {
   Brain,
   ChevronRight,
   Code2,
+  Crown,
   DollarSign,
   FileCode2,
   FileText,
   GitBranch,
   HandCoins,
+  Heart,
   History,
   Inbox,
   Landmark,
   LayoutDashboard,
   LogOut,
   Mail,
+  Megaphone,
   MessageSquare,
   Plug,
   Radio,
@@ -30,6 +33,9 @@ import {
   Settings,
   ShieldAlert,
   ShieldCheck,
+  ShoppingBag,
+  Sparkles,
+  SunMedium,
   Upload,
   Users,
   UsersRound,
@@ -52,11 +58,13 @@ const NAV_ICONS: Record<NavIconKey, LucideIcon> = {
   FileText,
   GitBranch,
   HandCoins,
+  Heart,
   History,
   Inbox,
   Landmark,
   LayoutDashboard,
   Mail,
+  Megaphone,
   MessageSquare,
   Plug,
   Radio,
@@ -64,6 +72,8 @@ const NAV_ICONS: Record<NavIconKey, LucideIcon> = {
   Settings,
   ShieldAlert,
   ShieldCheck,
+  ShoppingBag,
+  Sparkles,
   Upload,
   Users,
   UsersRound,
@@ -71,6 +81,7 @@ const NAV_ICONS: Record<NavIconKey, LucideIcon> = {
 
 export function Sidebar({
   brand = "OASIS AI",
+  logo = "oasis",
   subtitle = "Agent Command Center",
   items,
   badges,
@@ -84,6 +95,7 @@ export function Sidebar({
   demoLabel = "Client demo",
 }: {
   brand?: string;
+  logo?: "oasis" | "sunbiz" | "suga";
   subtitle?: string;
   /** Nav items to render. Defaults to CC's empire nav for backwards compat. */
   items?: NavItem[];
@@ -124,10 +136,7 @@ export function Sidebar({
       {/* Brand block */}
       <div className="px-5 py-5 border-b border-bg-border relative">
         <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="relative">
-            <OasisLogo size={36} className="group-hover:ring-accent/70 transition-all" />
-            <div className="absolute -inset-0.5 rounded-lg bg-accent/20 blur opacity-50 -z-10" />
-          </div>
+          <BrandMark logo={logo} />
           <div className="leading-tight">
             <div className="text-fg font-bold text-sm tracking-tight">
               {brand}
@@ -219,6 +228,31 @@ export function Sidebar({
         </div>
       </div>
     </aside>
+  );
+}
+
+function BrandMark({ logo }: { logo: "oasis" | "sunbiz" | "suga" }) {
+  if (logo === "sunbiz") {
+    return (
+      <div className="relative w-9 h-9 rounded-xl border border-amber-300/40 bg-gradient-to-br from-amber-300/25 via-orange-500/15 to-bg-elev flex items-center justify-center text-amber-200 shadow-[0_0_28px_-6px_rgba(251,191,36,0.7)]">
+        <SunMedium size={20} strokeWidth={2.2} />
+        <div className="absolute -inset-1 rounded-xl bg-amber-300/20 blur opacity-60 -z-10" />
+      </div>
+    );
+  }
+  if (logo === "suga") {
+    return (
+      <div className="relative w-9 h-9 rounded-xl border border-pink-400/40 bg-gradient-to-br from-pink-400/25 via-fuchsia-500/15 to-bg-elev flex items-center justify-center text-pink-200 shadow-[0_0_28px_-6px_rgba(236,72,153,0.7)]">
+        <Crown size={20} strokeWidth={2.2} />
+        <div className="absolute -inset-1 rounded-xl bg-pink-400/20 blur opacity-60 -z-10" />
+      </div>
+    );
+  }
+  return (
+    <div className="relative">
+      <OasisLogo size={36} className="group-hover:ring-accent/70 transition-all" />
+      <div className="absolute -inset-0.5 rounded-lg bg-accent/20 blur opacity-50 -z-10" />
+    </div>
   );
 }
 

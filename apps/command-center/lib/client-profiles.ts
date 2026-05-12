@@ -1,4 +1,4 @@
-import { CC_NAV, SUN_NAV, type NavItem } from "./nav-config";
+import { CC_NAV, SUN_NAV, SUGA_NAV, type NavItem } from "./nav-config";
 import type { Tenant } from "./supabase";
 
 export const DEMO_CLIENT_PROFILE_COOKIE = "oasis_demo_client_profile";
@@ -22,9 +22,11 @@ export type ClientSmsTransport = {
 export type ClientCommandCenterProfile = {
   id: string;
   brand: string;
+  logo: "oasis" | "sunbiz" | "suga";
   subtitle: string;
   footerLabel: string;
   footerTagline: string;
+  agentLabel: string;
   primaryAgent: string;
   dataBackend: ClientDataBackend;
   deploymentMode: ClientDeploymentMode;
@@ -35,9 +37,11 @@ export type ClientCommandCenterProfile = {
 const DEFAULT_PROFILE: ClientCommandCenterProfile = {
   id: "default",
   brand: "OASIS AI",
+  logo: "oasis",
   subtitle: "Agent Command Center",
   footerLabel: "OASIS AI · Agent Command Center · v1.0",
   footerTagline: '"Only good things from now on."',
+  agentLabel: "Bravo",
   primaryAgent: "bravo",
   dataBackend: "supabase",
   deploymentMode: "shared",
@@ -47,9 +51,11 @@ const DEFAULT_PROFILE: ClientCommandCenterProfile = {
 const SUN_PROFILE: ClientCommandCenterProfile = {
   id: "sun",
   brand: "Sun Biz Funding",
+  logo: "sunbiz",
   subtitle: "Operations Command",
   footerLabel: "Sun Biz Funding · Operations Command · v1.0",
   footerTagline: "Funded deals over noise.",
+  agentLabel: "Solara",
   primaryAgent: "sunbiz",
   // Operator correction (2026-05-11): client data belongs in Turso,
   // even while the shared dashboard shell still lives inside the empire app.
@@ -69,9 +75,26 @@ const SUN_PROFILE: ClientCommandCenterProfile = {
   },
 };
 
+const SUGA_PROFILE: ClientCommandCenterProfile = {
+  id: "suga",
+  brand: "Suga Sean O'Malley",
+  logo: "suga",
+  subtitle: "Brand Command",
+  footerLabel: "Suga · Brand Command · v0.1",
+  footerTagline: "Fans first. Always.",
+  agentLabel: "Suga",
+  primaryAgent: "suga_sean",
+  // Brand + fan data is PII-adjacent — Turso local file by default. Cloud
+  // override via EMPIRE_DATA_BACKEND=supabase_cloud at runtime if needed.
+  dataBackend: "turso",
+  deploymentMode: "dedicated",
+  nav: SUGA_NAV,
+};
+
 const CLIENT_PROFILES: Record<string, ClientCommandCenterProfile> = {
   default: DEFAULT_PROFILE,
   sun: SUN_PROFILE,
+  suga: SUGA_PROFILE,
 };
 
 function _readTenantProfileSlug(
@@ -129,6 +152,14 @@ export function getClientProfileSlugForBrand(
     (compact.includes("sun") && compact.includes("funding"))
   ) {
     return "sun";
+  }
+  if (
+    compact.includes("suga sean") ||
+    compact.includes("sugasean") ||
+    compact.includes("o malley") ||
+    compact.includes("omalley")
+  ) {
+    return "suga";
   }
   return null;
 }
