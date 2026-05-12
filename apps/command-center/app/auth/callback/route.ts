@@ -16,6 +16,8 @@ export async function GET(req: NextRequest) {
   const { searchParams, origin } = req.nextUrl;
   const code = searchParams.get("code");
   const next = searchParams.get("next") || "/";
+  const brandHint = searchParams.get("brand")?.trim() || "";
+  const fullNameHint = searchParams.get("full_name")?.trim() || "";
 
   // NOTE: Supabase password-recovery emails redirect users straight to the
   // forgot-password redirectTo (set to /auth/reset-password) with the token
@@ -69,10 +71,11 @@ export async function GET(req: NextRequest) {
         auth_user_id: data.user.id,
         email: data.user.email,
         full_name:
+          fullNameHint ||
           (data.user.user_metadata?.full_name as string) ||
           (data.user.user_metadata?.name as string) ||
           (data.user.email?.split("@")[0] ?? "User"),
-        brand: (data.user.user_metadata?.brand as string) || "OASIS AI",
+        brand: brandHint || (data.user.user_metadata?.brand as string) || "OASIS AI",
       }),
     });
     // Idempotent — already-provisioned returns ok too
