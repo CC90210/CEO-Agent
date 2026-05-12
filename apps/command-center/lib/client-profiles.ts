@@ -116,3 +116,19 @@ export function getClientCommandCenterProfileById(
   if (!id) return DEFAULT_PROFILE;
   return CLIENT_PROFILES[id.trim().toLowerCase()] || DEFAULT_PROFILE;
 }
+
+export function getClientProfileSlugForBrand(
+  brand: string | null | undefined,
+  email?: string | null
+): string | null {
+  const text = `${brand || ""} ${email || ""}`.toLowerCase();
+  const compact = text.replace(/[^a-z0-9]+/g, " ").trim();
+  if (
+    compact.includes("sun biz") ||
+    compact.includes("sunbiz") ||
+    (compact.includes("sun") && compact.includes("funding"))
+  ) {
+    return "sun";
+  }
+  return null;
+}

@@ -12,7 +12,7 @@ type SendResult = {
   error?: string | null;
 };
 
-export function SmsSendForm() {
+export function SmsSendForm({ disabledReason }: { disabledReason?: string }) {
   const [to, setTo] = useState("");
   const [body, setBody] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -88,12 +88,18 @@ export function SmsSendForm() {
 
       <button
         type="submit"
-        disabled={submitting || !to || !body}
+        disabled={!!disabledReason || submitting || !to || !body}
         className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-accent text-bg-deep rounded-md text-sm font-bold hover:bg-accent/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <Send size={14} />
         {submitting ? "Sending..." : "Send SMS"}
       </button>
+
+      {disabledReason && (
+        <div className="px-3 py-2 rounded-md text-xs bg-accent-soft border border-accent/30 text-fg-muted">
+          {disabledReason}
+        </div>
+      )}
 
       {result && (
         <div

@@ -10,6 +10,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { getServiceSupabase } from "@/lib/supabase-server";
+import { applyClientProvisioningProfile } from "@/lib/client-provisioning";
 
 export const runtime = "nodejs";
 
@@ -37,11 +38,20 @@ export async function POST(req: NextRequest) {
     .eq("auth_user_id", auth_user_id)
     .maybeSingle();
   if (existing.data) {
+    const client = await applyClientProvisioningProfile({
+      db,
+      tenantId: existing.data.tenant_id,
+      profileId: existing.data.id,
+      brand,
+      email,
+    });
     return NextResponse.json({
       ok: true,
       already_provisioned: true,
       tenant_id: existing.data.tenant_id,
       profile_id: existing.data.id,
+      client_profile_slug: client.clientProfileSlug,
+      primary_agent: client.primaryAgent,
     });
   }
 
@@ -53,11 +63,20 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
   if (byEmail.data) {
     await db.from("user_profiles").update({ auth_user_id }).eq("id", byEmail.data.id);
+    const client = await applyClientProvisioningProfile({
+      db,
+      tenantId: byEmail.data.tenant_id,
+      profileId: byEmail.data.id,
+      brand,
+      email,
+    });
     return NextResponse.json({
       ok: true,
       already_provisioned: true,
       tenant_id: byEmail.data.tenant_id,
       profile_id: byEmail.data.id,
+      client_profile_slug: client.clientProfileSlug,
+      primary_agent: client.primaryAgent,
     });
   }
 
@@ -76,5 +95,17 @@ export async function POST(req: NextRequest) {
   }
 
   const out = r.data as { tenant_id: string; profile_id: string; slug: string };
-  return NextResponse.json({ ok: true, ...out });
+  const client = await applyClientProvisioningProfile({
+    db,
+    tenantId: out.tenant_id,
+    profileId: out.profile_id,
+    brand,
+    email,
+  });
+  return NextResponse.json({
+    ok: true,
+    ...out,
+    client_profile_slug: client.clientProfileSlug,
+    primary_agent: client.primaryAgent,
+  });
 }

@@ -129,7 +129,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-05-12
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Hotfixed Command Center production crash digest 986327799: nav profiles now pass serializable icon keys to the client Sidebar instead of Lucide component functions. Typecheck and production build pass.
+- **Result:** Finalized Sun Biz client separation/demo path: Sun-branded signups tag tenant command_center_profile_slug=sun, sunbiz is a valid agent key, /demo/sun launches safe demo mode with sample Sun data and disabled live SMS until hosted backend is connected.
 
 *Last updated: 2026-05-12*
 
