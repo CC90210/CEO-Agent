@@ -2,6 +2,8 @@ import { Card, PageHeader, EmptyState, Tag } from "@/components/Card";
 import { getActiveProfile, getSmsHistory } from "@/lib/queries";
 import { safe } from "@/lib/api-helpers";
 import { SmsSendForm } from "@/components/sms/SmsSendForm";
+import { cookies } from "next/headers";
+import { DEMO_CLIENT_PROFILE_COOKIE } from "@/lib/client-profiles";
 
 export const dynamic = "force-dynamic";
 
@@ -12,8 +14,10 @@ function fmtTime(iso: string | null | undefined): string {
 }
 
 export default async function SmsPage() {
+  const demoProfile = (await cookies()).get(DEMO_CLIENT_PROFILE_COOKIE)?.value || null;
+  const demoMode = demoProfile === "sun";
   const profile = await safe("sms.profile", getActiveProfile(), null);
-  const tenantId = profile?.tenant_id || "";
+  const tenantId = demoMode ? "" : profile?.tenant_id || "";
   const history = tenantId
     ? await safe("sms.history", getSmsHistory(tenantId, 50), [])
     : [];
