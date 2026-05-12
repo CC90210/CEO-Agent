@@ -33,3 +33,9 @@ user-invocable: true
 7. Present to CC for review. Offer execution options:
    - **Subagent-Driven** (this session) — fresh subagent per task
    - **Parallel Session** (separate) — batch execution with checkpoints
+
+## Related
+
+- [[.claude/skills/INDEX]]
+- [[.claude/skills/codex-adversarial-review]]
+- [[.claude/skills/codex-cancel]]

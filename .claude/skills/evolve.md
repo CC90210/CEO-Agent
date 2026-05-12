@@ -31,3 +31,9 @@ user-invocable: true
    - No evidence → keep probationary or retire
 
 5. Report what was evolved, promoted, or retired.
+
+## Related
+
+- [[.claude/skills/INDEX]]
+- [[.claude/skills/codex-adversarial-review]]
+- [[.claude/skills/codex-cancel]]

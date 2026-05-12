@@ -115,3 +115,9 @@ This is a **concrete technical differentiator** that separates OASIS from agenci
 - [[brain/GROWTH]] | [[brain/CHANGELOG]]
 - [[memory/MISTAKES]] | [[memory/PATTERNS]] | [[memory/DECISIONS]]
 - [[scripts/self_audit]] — structural health companion tool
+
+## Related
+
+- [[brain/INDEX]]
+- [[brain/AGENT_GAP_AUDIT]]
+- [[brain/AGENT_INDEX]]

@@ -19,3 +19,9 @@ Output format:
 **Sources:** [list with URLs]
 **Summary:** [2-3 sentences]
 **Applicability:** [how this applies to our system]
+
+## Related
+
+- [[.claude/agents/INDEX]]
+- [[.claude/agents/architect]]
+- [[.claude/agents/code-reviewer]]

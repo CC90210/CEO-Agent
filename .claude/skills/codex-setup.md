@@ -26,3 +26,9 @@ Then rerun setup.
 If Codex is installed but not authenticated, tell user to run: `codex login`
 
 Supports: `--enable-review-gate` / `--disable-review-gate`
+
+## Related
+
+- [[.claude/skills/INDEX]]
+- [[.claude/skills/codex-adversarial-review]]
+- [[.claude/skills/codex-cancel]]

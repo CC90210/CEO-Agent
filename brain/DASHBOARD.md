@@ -158,3 +158,9 @@ SORT file.mtime DESC
 - [[memory/MEMORY_INDEX]] — 3-layer memory architecture
 - [[ARCHITECTURE]] — System engineering design
 - [[README]] — Project overview
+
+## Related
+
+- [[brain/INDEX]]
+- [[brain/AGENT_GAP_AUDIT]]
+- [[brain/AGENT_INDEX]]

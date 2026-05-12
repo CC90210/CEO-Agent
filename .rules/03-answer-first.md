@@ -19,3 +19,11 @@ If an MCP tool fails: report the error in ONE sentence, stop, suggest checking `
 
 ## Obsidian Links
 - [[.rules/INDEX]] | [[brain/INTERACTION_PROTOCOL]]
+
+
+## Related (graph)
+
+- [[.rules/INDEX]]
+- [[.rules/01-identity]]
+- [[.rules/02-cross-ai-context]]
+- [[.rules/04-mcp-routing]]

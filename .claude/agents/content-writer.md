@@ -22,3 +22,9 @@ Platform optimization:
 - TikTok: Pattern interrupt opener, 4000 chars max
 
 Always read ../CMO-Agent/brain/CONTENT_BIBLE.md and brain/USER.md for full context.
+
+## Related
+
+- [[.claude/agents/INDEX]]
+- [[.claude/agents/architect]]
+- [[.claude/agents/code-reviewer]]

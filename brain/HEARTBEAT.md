@@ -125,3 +125,11 @@ When n8n webhook triggers are configured, heartbeat can run on a schedule:
 ## Obsidian Links
 - [[brain/STATE]] | [[brain/CAPABILITIES]] | [[brain/AGENTS]]
 - [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]]
+
+
+## Related (graph)
+
+- [[brain/INDEX]]
+- [[brain/AGENT_GAP_AUDIT]]
+- [[brain/AGENT_INDEX]]
+- [[brain/AGENT_ORCHESTRATION]]

@@ -22,3 +22,9 @@ Architectural principles:
 - n8n for workflow automation
 - CLI tools over MCP servers for reliability
 - Obsidian vault for knowledge management
+
+## Related
+
+- [[.claude/agents/INDEX]]
+- [[.claude/agents/code-reviewer]]
+- [[.claude/agents/content-writer]]

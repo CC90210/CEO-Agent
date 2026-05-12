@@ -404,3 +404,9 @@ When the heartbeat (Step 6: Growth Check) detects:
 *SOPs that are no longer relevant. Kept for reference.*
 
 (None yet)
+
+## Related
+
+- [[memory/INDEX]]
+- [[memory/ACTIVE_TASKS]]
+- [[memory/ACTIVE_TASKS.template]]

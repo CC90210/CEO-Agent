@@ -301,3 +301,9 @@ CC said: "We also predict small trends, but I want some material I can use."
 - [[memory/feedback_objection_handling]] — pricing pushback playbook
 - [[memory/feedback_outreach_signature]] — email signature standard
 - [[memory/feedback_power_dynamics]] — never defer to prospects on scheduling/framing
+
+## Related
+
+- [[brain/INDEX]]
+- [[brain/AGENT_GAP_AUDIT]]
+- [[brain/AGENT_INDEX]]

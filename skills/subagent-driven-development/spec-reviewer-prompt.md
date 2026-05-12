@@ -62,3 +62,10 @@ Task tool (general-purpose):
 
 ## Obsidian Links
 - [[skills/subagent-driven-development/SKILL]] | [[skills/INDEX]]
+
+
+## Related (graph)
+
+- [[skills/subagent-driven-development/SKILL]]
+- [[skills/subagent-driven-development/code-quality-reviewer-prompt]]
+- [[skills/subagent-driven-development/implementer-prompt]]

@@ -385,3 +385,10 @@ From applying TDD to TDD skill itself (2025-10-03):
 
 ## Obsidian Links
 - [[skills/writing-skills/SKILL]] | [[skills/INDEX]]
+
+
+## Related (graph)
+
+- [[skills/writing-skills/SKILL]]
+- [[skills/writing-skills/anthropic-best-practices]]
+- [[skills/writing-skills/persuasion-principles]]

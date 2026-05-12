@@ -206,3 +206,9 @@ Handled automatically by unpack/pack. But the Edit tool converts smart quotes to
 
 ## Obsidian Links
 - [[skills/pptx/SKILL]] | [[skills/INDEX]]
+
+
+## Related (graph)
+
+- [[skills/pptx/SKILL]]
+- [[skills/pptx/pptxgenjs]]

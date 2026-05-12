@@ -38,3 +38,9 @@ node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" task --write $ARGUMENTS
 Tell user: "Codex rescue task started in the background. Check `/codex:status` for progress."
 
 Return Codex output verbatim. Do not paraphrase or add commentary.
+
+## Related
+
+- [[.claude/skills/INDEX]]
+- [[.claude/skills/codex-adversarial-review]]
+- [[.claude/skills/codex-cancel]]

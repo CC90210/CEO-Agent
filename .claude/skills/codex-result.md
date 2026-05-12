@@ -15,3 +15,9 @@ node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" result $ARGUMENTS
 ```
 
 Present the FULL command output. Preserve all details: verdict, summary, findings, file paths, line numbers, next steps. Do not summarize.
+
+## Related
+
+- [[.claude/skills/INDEX]]
+- [[.claude/skills/codex-adversarial-review]]
+- [[.claude/skills/codex-cancel]]

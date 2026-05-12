@@ -290,3 +290,9 @@ cd C:\Users\User\CMO-Agent
 **Diagnostic command:** `python scripts/test_csuite_pulse_flow.py` should return 16/16 PASS.
 **Architecture reference:** `brain/C_SUITE_ARCHITECTURE.md`
 **Cross-agent awareness:** `brain/CROSS_AGENT_AWARENESS.md`
+
+## Related
+
+- [[brain/INDEX]]
+- [[brain/AGENT_GAP_AUDIT]]
+- [[brain/AGENT_INDEX]]

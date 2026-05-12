@@ -356,3 +356,11 @@ Bravo's job is to multiply your time. Every thing in this playbook should save y
 - [[CLAUDE]]
 - [[brain/INDEX]]
 - [[brain/CAPABILITIES]]
+
+
+## Related (graph)
+
+- [[README]]
+- [[AGENTS]]
+- [[ANTIGRAVITY]]
+- [[ARCHITECTURE]]

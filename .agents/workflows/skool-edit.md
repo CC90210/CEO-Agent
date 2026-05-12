@@ -67,3 +67,11 @@ The About page has a hard 1000-character limit. Always check the counter after i
 
 ## Obsidian Links
 - [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]
+
+
+## Related (graph)
+
+- [[.agents/workflows/INDEX]]
+- [[.agents/workflows/browser-harness]]
+- [[.agents/workflows/ceo-briefing]]
+- [[.agents/workflows/cli-anything]]

@@ -53,3 +53,13 @@ tags: [memory, hub, index]
 
 ## NOTE on auto-memory (separate from this directory)
 Some files referenced in chat history (e.g., `feedback_system_philosophy.md`, `project_alejandro_andrade.md`, `project_v6_architecture.md`, `codex_integration.md`, `zernio_rebrand.md`, `atlas_cfo_upgrade.md`, `singlekey_research.md`, `content_pipeline_vision.md`) live in Claude Code's **auto-memory store** at `~/.claude/projects/c--Users-User-Business-Empire-Agent/memory/` — NOT in this vault. They're outside Obsidian's reach by design (per-conversation persistence). See system-prompt auto-memory section for the pointer pattern.
+
+## Files in this directory
+
+- [[memory/ACTIVE_TASKS.template]]
+- [[memory/HANDOFF]]
+- [[memory/SESSION_LOG.template]]
+- [[memory/WORKING]]
+
+## Related leaves
+- [[memory/poems/sub_agents_collective_intelligence]]

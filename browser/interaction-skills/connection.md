@@ -45,3 +45,11 @@ print(page_info())
 - [[browser/README]]
 - [[browser/interaction-skills/INDEX]]
 - [[skills/browser-automation/SKILL]]
+
+
+## Related (graph)
+
+- [[browser/interaction-skills/INDEX]]
+- [[browser/interaction-skills/approval-gates]]
+- [[browser/interaction-skills/domain-skill-lifecycle]]
+- [[browser/interaction-skills/evidence]]

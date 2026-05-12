@@ -55,3 +55,9 @@ bravo doctor output here
 ## Additional context
 
 Anything else — screenshots, log files, what you tried before opening this issue.
+
+## Related
+
+- [[.github/ISSUE_TEMPLATE/INDEX]]
+- [[.github/ISSUE_TEMPLATE/feature_request]]
+- [[.github/ISSUE_TEMPLATE/install_help]]

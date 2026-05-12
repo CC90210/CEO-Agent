@@ -138,3 +138,17 @@ Each secret has its own ID + last-used timestamp + use count, so you can tell th
 5. Returns `{ok: true, interaction_id}` so n8n can log the success.
 
 The raw secret never lives anywhere on the server — only the SHA-256 hash. If the database leaks, the secrets are still safe.
+
+## Related
+
+- [[docs/INDEX]]
+- [[docs/AGENT_REPO_CROSS_ANALYSIS_2026-04-22]]
+- [[docs/AGENT_RUNNER_DESIGN]]
+
+
+## Related (graph)
+
+- [[docs/INDEX]]
+- [[docs/AGENT_REPO_CROSS_ANALYSIS_2026-04-22]]
+- [[docs/AGENT_RUNNER_DESIGN]]
+- [[docs/AI_WORKSTATION_ROADMAP]]

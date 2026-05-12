@@ -23,3 +23,9 @@ agents:
     model: claude-sonnet-4-6
     fallbacks: *id001
 task_types: {}
+
+## Related
+
+- [[brain/INDEX]]
+- [[brain/AGENT_GAP_AUDIT]]
+- [[brain/AGENT_INDEX]]

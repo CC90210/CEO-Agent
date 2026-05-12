@@ -499,3 +499,9 @@ Bravo's advantage is deeper: it already knows CC, the companies, the operating m
 - one memory/search layer that compounds
 
 That is the path to making Bravo, Atlas, Maven, Aura, and Hermes feel less like separate builds and more like an AI operating system CC can keep expanding.
+
+## Related
+
+- [[docs/INDEX]]
+- [[docs/AGENT_RUNNER_DESIGN]]
+- [[docs/AI_WORKSTATION_ROADMAP]]

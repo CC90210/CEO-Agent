@@ -39,3 +39,9 @@ user-invocable: true
 7. Show `git log --oneline -3` to confirm.
 
 Do NOT push unless CC explicitly asks.
+
+## Related
+
+- [[.claude/skills/INDEX]]
+- [[.claude/skills/codex-adversarial-review]]
+- [[.claude/skills/codex-cancel]]

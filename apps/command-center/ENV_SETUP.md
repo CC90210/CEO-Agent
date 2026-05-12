@@ -43,3 +43,8 @@ policies.
 ## Related
 - [[apps/command-center/README]]
 - [[brain/APP_REGISTRY]]
+
+
+## Related (graph)
+
+- [[apps/command-center/README]]

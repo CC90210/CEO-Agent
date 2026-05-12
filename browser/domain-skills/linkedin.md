@@ -32,3 +32,11 @@ Approval required before any connection request, message, comment, reaction, fol
 - [[browser/README]]
 - [[browser/SAFETY]]
 - [[skills/browser-harness/SKILL]]
+
+
+## Related (graph)
+
+- [[browser/domain-skills/README]]
+- [[browser/domain-skills/browser-use-cloud]]
+- [[browser/domain-skills/canva]]
+- [[browser/domain-skills/client-portal-template]]

@@ -165,3 +165,11 @@ Add a row to the win/loss log mentally: proposal type, tier, loss reason. This f
 
 ## Obsidian Links
 - [[.agents/workflows/INDEX]] | [[brain/CAPABILITIES]]
+
+
+## Related (graph)
+
+- [[.agents/workflows/INDEX]]
+- [[.agents/workflows/browser-harness]]
+- [[.agents/workflows/ceo-briefing]]
+- [[.agents/workflows/cli-anything]]

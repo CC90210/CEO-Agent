@@ -153,3 +153,11 @@ See `skills/team-management/SKILL.md` for:
 
 ## Obsidian Links
 - [[skills/team-management/SKILL]] | [[memory/ACTIVE_TASKS]] | [[brain/STATE]]
+
+
+## Related (graph)
+
+- [[.agents/workflows/INDEX]]
+- [[.agents/workflows/browser-harness]]
+- [[.agents/workflows/ceo-briefing]]
+- [[.agents/workflows/cli-anything]]

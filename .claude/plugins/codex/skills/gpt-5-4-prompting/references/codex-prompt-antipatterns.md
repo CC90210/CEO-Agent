@@ -98,3 +98,9 @@ Ground every claim in the provided context or tool outputs.
 If a point is an inference, label it clearly.
 </grounding_rules>
 ```
+
+## Related
+
+- [[.claude/plugins/codex/skills/gpt-5-4-prompting/references/INDEX]]
+- [[.claude/plugins/codex/skills/gpt-5-4-prompting/references/codex-prompt-recipes]]
+- [[.claude/plugins/codex/skills/gpt-5-4-prompting/references/prompt-blocks]]

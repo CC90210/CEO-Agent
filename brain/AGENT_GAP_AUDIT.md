@@ -3,14 +3,14 @@ tags: [audit, agents, gaps, completeness]
 wiki-links: [[brain/CAPABILITIES]] [[brain/AGENTS]] [[brain/C_SUITE_ARCHITECTURE]]
 ---
 
-# AGENT GAP AUDIT — Deep Capability Analysis (2026-04-18)
+# AGENT GAP AUDIT  Deep Capability Analysis (2026-04-18)
 
 Audit of CC's 4-agent system: Bravo (CEO), Atlas (CFO), Maven (CMO), Aura (Life/Home).
 Completeness baseline: What a real-world CEO/CFO/CMO/Life-Agent needs to operate independently.
 
 ---
 
-## BRAVO (CEO) — Business-Empire-Agent
+## BRAVO (CEO)  Business-Empire-Agent
 
 Current State: 142 skills, 33 workflows, 47+ scripts, 16 file-based agents
 
@@ -34,7 +34,7 @@ Bravo is 9/10 complete.
 
 ---
 
-## ATLAS (CFO) — CFO-Agent
+## ATLAS (CFO)  CFO-Agent
 
 Current State: 16 skills, financial planning, tax strategy, stock research
 
@@ -57,7 +57,7 @@ Atlas is 8.5/10 complete.
 
 ---
 
-## MAVEN (CMO) — CMO-Agent
+## MAVEN (CMO)  CMO-Agent
 
 Current State: 11 workflows, competitive intel, lead management, campaigns
 
@@ -84,7 +84,7 @@ Maven is 7.5/10 complete.
 
 ---
 
-## AURA (Life/Home) — AURA
+## AURA (Life/Home)  AURA
 
 Current State: 3 skills, Home Assistant MCP, voice agent, dashboard
 
@@ -141,3 +141,9 @@ Audit high confidence. Gaps are real, fixes feasible (1-2 scripts each).
 ---
 
 Obsidian Links: [[brain/CAPABILITIES]] [[brain/AGENTS]] [[brain/C_SUITE_ARCHITECTURE]]
+
+## Related
+
+- [[brain/INDEX]]
+- [[brain/AGENT_INDEX]]
+- [[brain/AGENT_ORCHESTRATION]]

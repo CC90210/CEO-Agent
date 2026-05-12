@@ -188,3 +188,10 @@ When designing a skill, ask:
 
 ## Obsidian Links
 - [[skills/writing-skills/SKILL]] | [[skills/INDEX]]
+
+
+## Related (graph)
+
+- [[skills/writing-skills/SKILL]]
+- [[skills/writing-skills/anthropic-best-practices]]
+- [[skills/writing-skills/testing-skills-with-subagents]]

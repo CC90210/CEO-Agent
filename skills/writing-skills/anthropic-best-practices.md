@@ -1151,3 +1151,10 @@ Before sharing a Skill, verify:
 
 ## Obsidian Links
 - [[skills/writing-skills/SKILL]] | [[skills/INDEX]]
+
+
+## Related (graph)
+
+- [[skills/writing-skills/SKILL]]
+- [[skills/writing-skills/persuasion-principles]]
+- [[skills/writing-skills/testing-skills-with-subagents]]
