@@ -291,6 +291,30 @@ PROFILES: dict[str, dict] = {
         "business": [],
         "extra": [],
     },
+    "sunbiz": {
+        "name": "Solara",
+        "icon": "☀" if _UNICODE else "S",
+        "color": YELLOW,
+        "role": "Sun Biz funding · loan ops + lifecycle SMS",
+        "tagline": "Leads · renewals · SMS · funded deals",
+        "required": ["anthropic"],
+        "ai": ["anthropic", "openai"],
+        "chat": ["telegram"],
+        "business": ["stripe", "supabase", "twilio", "n8n"],
+        "extra": ["turso"],
+    },
+    "suga_sean": {
+        "name": "Suga",
+        "icon": "♛" if _UNICODE else "K",
+        "color": MAGENTA,
+        "role": "Suga Sean O'Malley · fan ops + brand agent",
+        "tagline": "Fans · merch · social · sponsorship",
+        "required": ["anthropic"],
+        "ai": ["anthropic", "openai"],
+        "chat": ["telegram", "discord"],
+        "business": ["stripe"],
+        "extra": ["late_zernio", "x_twitter"],
+    },
     "custom": {
         "name": "Custom",
         "icon": "+" if not _UNICODE else "◇",
@@ -1989,6 +2013,7 @@ V6_SCOPED_ENV_FILES = {
         "N8N_WEBHOOK_TOKEN", "TELEGRAM_BOT_TOKEN",
         "EMPIRE_V6_MODE", "EMPIRE_HOOK_SECRET_GUARD", "EMPIRE_HOOK_EXEC_GUARD",
         "EMPIRE_HOOK_STATE_GUARD", "EMPIRE_DEPLOY_TARGET",
+        "EMPIRE_DATA_BACKEND", "BRIDGE_PAIRING_TOKEN",
     ],
     "dashboard": [
         # Public Supabase only — no service-role, no Stripe secret, no Anthropic.
@@ -1996,6 +2021,8 @@ V6_SCOPED_ENV_FILES = {
         "NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY",
         "STATE_API_URL", "DASHBOARD_DOMAIN",
         "EMPIRE_DEPLOY_TARGET",
+        # Data sovereignty: Turso reads when the tenant opts for local libSQL
+        "EMPIRE_DATA_BACKEND", "TURSO_DB_PATH", "TURSO_DB_URL", "TURSO_AUTH_TOKEN",
     ],
 }
 

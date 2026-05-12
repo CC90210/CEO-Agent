@@ -38,7 +38,11 @@ export type NavIconKey =
   | "Landmark"
   | "FileCode2"
   | "UsersRound"
-  | "Code2";
+  | "Code2"
+  | "Megaphone"
+  | "ShoppingBag"
+  | "Heart"
+  | "Sparkles";
 
 /**
  * NavItem - one entry in the sidebar.
@@ -81,6 +85,7 @@ export const CC_NAV: NavItem[] = [
  */
 export const SUN_NAV: NavItem[] = [
   { group: "Operations", href: "/", label: "Dashboard", icon: "LayoutDashboard" },
+  { group: "Operations", href: "/agent", label: "Solara", icon: "Bot" },
   { group: "Pipeline", href: "/leads", label: "Leads", icon: "Users" },
   { group: "Pipeline", href: "/contacts", label: "Contacts", icon: "BookUser" },
   { group: "Pipeline", href: "/applications", label: "Applications", icon: "FileText", badgeKey: "applications" },
@@ -94,6 +99,32 @@ export const SUN_NAV: NavItem[] = [
   { group: "Outreach", href: "/email-blast", label: "Email Blast", icon: "Mail" },
   { group: "Network", href: "/lenders", label: "Lenders", icon: "Landmark" },
   { group: "Network", href: "/templates", label: "Templates", icon: "FileCode2" },
+  { group: "System", href: "/team", label: "Team", icon: "UsersRound" },
+  { group: "System", href: "/embed", label: "Embed", icon: "Code2" },
+  { group: "System", href: "/settings", label: "Settings", icon: "Settings" },
+];
+
+/**
+ * Suga Sean O'Malley nav — fan-ops + brand sidebar (Phase 1 scaffold).
+ *
+ * Placeholder routes that mostly point to /agent or generic stubs until the
+ * Suga Sean agent ships its own pages. Mirrors SUN_NAV's structure so the
+ * sidebar UX stays consistent across client agents.
+ */
+export const SUGA_NAV: NavItem[] = [
+  { group: "Operations", href: "/", label: "Dashboard", icon: "LayoutDashboard" },
+  { group: "Operations", href: "/agent", label: "Suga", icon: "Bot" },
+  { group: "Fans", href: "/inbox", label: "Inbox", icon: "Inbox", badgeKey: "inbox" },
+  { group: "Fans", href: "/subscribers", label: "Subscribers", icon: "Users" },
+  { group: "Fans", href: "/segments", label: "Segments", icon: "Sparkles" },
+  { group: "Brand", href: "/posts", label: "Posts", icon: "Megaphone" },
+  { group: "Brand", href: "/drafts", label: "Drafts", icon: "FileText" },
+  { group: "Brand", href: "/queue", label: "Queue", icon: "RefreshCcw" },
+  { group: "Commerce", href: "/merch", label: "Merch", icon: "ShoppingBag" },
+  { group: "Commerce", href: "/orders", label: "Orders", icon: "BadgeDollarSign" },
+  { group: "Commerce", href: "/affiliates", label: "Affiliates", icon: "Heart" },
+  { group: "Sponsorship", href: "/sponsorship", label: "Pipeline", icon: "HandCoins" },
+  { group: "Sponsorship", href: "/contracts", label: "Contracts", icon: "FileCode2" },
   { group: "System", href: "/team", label: "Team", icon: "UsersRound" },
   { group: "System", href: "/embed", label: "Embed", icon: "Code2" },
   { group: "System", href: "/settings", label: "Settings", icon: "Settings" },

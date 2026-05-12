@@ -74,6 +74,18 @@ const AGENT_SUGGESTIONS: Record<string, string[]> = {
     "Show me yesterday's A2000 sync log",
     "Any commerce alerts I need to handle?",
   ],
+  sunbiz: [
+    "What funding leads need action today?",
+    "Which renewals should we chase first?",
+    "Draft a compliant SMS follow-up for a hot lead",
+    "Which deals need lender assignment?",
+  ],
+  suga_sean: [
+    "Draft a reply pack for the top 10 hot fan DMs",
+    "What merch drop converted best last week?",
+    "Which sponsorship leads are warm right now?",
+    "Show me this week's social pipeline",
+  ],
   "life-preservation": [
     "Help me plan an interview session with Grandma",
     "What questions surface the small details, not the obvious ones?",
