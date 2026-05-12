@@ -1,6 +1,6 @@
 ---
 tags: [v6, event-bus, cross-agent, contract]
-last_updated: 2026-05-10
+last_updated: 2026-05-11
 freshness_threshold_days: 14
 ---
 
@@ -25,7 +25,7 @@ freshness_threshold_days: 14
 
 | Producer | Event type | Where fired | Payload shape |
 |----------|------------|-------------|---------------|
-| `state_manager.append_session_log` | `BRAVO_SESSION_LOG_APPENDED` | every successful insert (skipped on dedup) | `{agent, session_id, note (≤200 chars)}` |
+| `state_manager.append_session_log` | `<AGENT>_SESSION_LOG_APPENDED` | every successful insert (skipped on dedup) — event type templated on writing agent so SUNBIZ writes emit `SUNBIZ_SESSION_LOG_APPENDED` | `{agent, session_id, note (≤200 chars)}` |
 | `pulse_publish.cmd_refresh` | `BRAVO_PULSE_REFRESHED` | after `_atomic_write` succeeds | `{updated_at, net_mrr_usd, gap_usd, v6_mode}` |
 | `bridge_chat_server._v6_log_chat_interaction` | `BRAVO_CHAT_INTERACTION` | every successful POST to `/chat` or `/local-chat` | `{agent, kind ('cloud-chat'\|'local-chat'), preview (≤160 chars)}` |
 | `webhook_listener` | `inbound.classified` (legacy) | inbound classification, via the existing `bus_publish` import | `{lead_id, intent, …}` |
@@ -47,6 +47,15 @@ All producers tag events with these exact `event_type` strings. Subscribers filt
 | `ATLAS_BUDGET_LOCKED` / `ATLAS_BUDGET_RELEASED` (sibling-emitted, reserved) | atlas | (broadcast) | warn / info | `period`, `amount_cad`, `reason` | spend gate state changed |
 | `AURA_PRESENCE_HOME` / `AURA_PRESENCE_AWAY` (sibling-emitted, reserved) | aura | (broadcast) | info | `since`, `prev_state` | operator presence changed |
 | `HERMES_INVOICE_SHIPPED` (sibling-emitted, reserved) | hermes | (broadcast) | info | `client`, `invoice_id`, `amount_usd` | a Hermes-managed invoice cleared |
+| `SUNBIZ_SESSION_LOG_APPENDED` | sunbiz | (broadcast) | info | `agent`, `session_id`, `note` | Sun Biz Agent appended a session-log line |
+| `SUNBIZ_LEAD_SOURCED` | sunbiz | (broadcast) | info | `lead_id`, `source`, `tenant_id` | a new funding lead landed (JotForm, import, manual) |
+| `SUNBIZ_SMS_SENT` | sunbiz | (broadcast) | info | `send_id`, `provider`, `to_hash`, `status` | outbound SMS hit provider (Twilio/Telnyx/Plivo); `to_hash` is sha256 trimmed to 16 chars — never store raw phone in event payload |
+| `SUNBIZ_APPLICATION_SUBMITTED` | sunbiz | (broadcast) | info | `application_id`, `merchant_name`, `requested_amount_usd` | merchant submitted a funding application |
+| `SUNBIZ_OFFER_PRESENTED` | sunbiz | (broadcast) | info | `offer_id`, `application_id`, `lender_id`, `amount_usd`, `factor_rate` | lender returned an offer, surfaced to processor |
+| `SUNBIZ_DEAL_FUNDED` | sunbiz | (broadcast) | info | `deal_id`, `amount_usd`, `lender_id`, `commission_usd` | funds wired to merchant — kicks renewal scheduling |
+| `SUNBIZ_RENEWAL_DUE` | sunbiz | (broadcast) | warn | `deal_id`, `due_date`, `est_commission_usd` | renewal_scanner job flagged a deal in the upcoming 30-day window |
+| `SUNBIZ_COMMISSION_BOOKED` | sunbiz | (broadcast) | info | `commission_id`, `deal_id`, `agent_user_id`, `amount_usd` | commission row written (deal funded or renewal closed) |
+| `SUNBIZ_EMAIL_BLAST_DISPATCHED` | sunbiz | (broadcast) | info | `campaign_id`, `recipient_count`, `template_slug` | bulk email send started (per-recipient delivery events still per provider) |
 
 ## Subscriber contract
 
