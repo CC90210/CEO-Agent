@@ -25,9 +25,6 @@ One command. A few minutes. The wizard asks who you are, helps you connect your 
 | **Bravo** | CEO | Strategy, clients, outreach, revenue, daily ops |
 | **[Atlas](https://github.com/CC90210/CFO-Agent)** | CFO | Tax, finance, treasury, FIRE planning, trading |
 | **[Maven](https://github.com/CC90210/CMO-Agent)** | CMO | Content, brand, ads, social, video pipeline |
-| **[Aura](https://github.com/CC90210/Aura-Home-Agent)** | Lifestyle | Home, habits, smart-home, voice |
-| **[Hermes](https://github.com/CC90210/hermes)** | Commerce | Wholesale PO→POS→invoice, EDI, A2000 takeover |
-| **Lumen** | Memory keeper | Voice + story capture for loved ones |
 
 **V6.2 — Client products** (separate, paid offerings):
 
@@ -71,7 +68,7 @@ The one-liner does nine things:
 2. Bootstraps the wizard into `~/.oasis/wizard/repo` and reuses that clone on future installs
 3. Builds a Python venv at `~/.oasis/wizard/venv` and installs deps
 4. Drops both `oasis` and `bravo` shims onto your PATH via `~/.oasis/bin`
-5. Launches the **setup wizard** — asks who you are, what you sell, what you're optimizing for, and which APIs you have keys for. **Pick your profile** (CEO Bravo / CFO Atlas / CMO Maven / Lifestyle Aura / Commerce Hermes / **client products Solara (SunBiz) · Suga**)
+5. Launches the **setup wizard** — asks who you are, what you sell, what you're optimizing for, and which APIs you have keys for. **Pick your profile** (CEO Bravo / CFO Atlas / CMO Maven / **client products Solara (SunBiz) · Suga**)
 6. Renders your personal `brain/USER.md` from your answers (`scripts/personalize.py`)
 7. **Data sovereignty prompt** — choose **Local libSQL** (PII never leaves the machine; recommended for client products like Solara/Suga) or **Cloud Supabase** (managed multi-tenant). Writes `EMPIRE_DATA_BACKEND` + `TURSO_DB_PATH`. The dashboard's [`lib/db.ts:getDbBackend()`](apps/command-center/lib/db.ts) reads this at request time and routes hot reads via [`lib/turso-queries.ts`](apps/command-center/lib/turso-queries.ts)
 8. **Browser-driven dashboard pairing** — wizard opens your dashboard flow, waits for sign-in, and pairs the machine without making you juggle raw bearer tokens
