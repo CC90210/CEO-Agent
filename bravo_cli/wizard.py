@@ -2133,6 +2133,79 @@ def step_environment(step_num: int, total: int) -> None:
     print()
 
 
+def step_data_sovereignty(profile: str, step_num: int, total: int) -> None:
+    """
+    Where does this tenant's BUSINESS DATA live? Two choices:
+
+      1) Local Machine (Recommended)
+         libSQL file at ~/.bravo/<profile>.db. Loan files, deal records,
+         fan DMs, merch orders — never leave the operator's machine. OASIS
+         operators read pulse/state via the bridge but cannot see client
+         data. PII-heavy industries (funding, healthcare, legal) should
+         pick this.
+
+      2) Cloud (OASIS-hosted Supabase)
+         Multi-tenant Supabase, RLS-isolated, OASIS-managed backups. Choose
+         this if the operator wants zero-machine-management and is OK with
+         their tenant data living in a managed cloud DB.
+
+    Writes:
+      EMPIRE_DATA_BACKEND = turso_local | supabase_cloud
+      (turso_local) TURSO_DB_PATH, TURSO_AUTH_TOKEN
+
+    The dashboard's lib/db.ts:getDbBackend() reads EMPIRE_DATA_BACKEND at
+    request time, dispatches reads accordingly via lib/turso-queries.ts.
+    """
+    import secrets as _secrets
+
+    step_header(step_num, total, "Data sovereignty",
+                "Where should this tenant's client data live?")
+
+    # Default to Local for PII-heavy client agents; Cloud for empire profiles
+    pii_heavy = profile in ("sunbiz", "suga_sean")
+    default = "1" if pii_heavy else "2"
+
+    print(f"  {BOLD('Where should client data live?')}")
+    print(f"    {CYAN('1)')} Local Machine (Recommended) — libSQL file on this device. "
+          f"PII never leaves the Mac/PC.")
+    print(f"    {CYAN('2)')} Cloud — OASIS-hosted Supabase, multi-tenant, RLS-isolated.")
+    if pii_heavy:
+        print(f"  {DIM('PII-heavy profile — Local is the default. Press Enter to accept.')}")
+    print()
+    try:
+        choice = input(f"  Choose [1/2] (default {default}): ").strip() or default
+    except (EOFError, KeyboardInterrupt):
+        choice = default
+
+    if choice == "1":
+        backend = "turso_local"
+        # Resolve a local libSQL file path. Honor env override for ops; default
+        # to ~/.bravo/<profile>.db so each profile gets its own physical file.
+        db_path_env = os.environ.get("TURSO_DB_PATH") or read_env("TURSO_DB_PATH")
+        if db_path_env:
+            db_path = db_path_env
+        else:
+            bravo_dir = Path.home() / ".bravo"
+            bravo_dir.mkdir(parents=True, exist_ok=True)
+            db_path = str(bravo_dir / f"{profile}.db")
+        write_env("EMPIRE_DATA_BACKEND", backend)
+        write_env("TURSO_DB_PATH", db_path)
+        # Auth token is unused for local file mode but write a generated one
+        # so a later switch to hosted Turso has a value to rotate from.
+        if not (read_env("TURSO_AUTH_TOKEN") or os.environ.get("TURSO_AUTH_TOKEN")):
+            write_env("TURSO_AUTH_TOKEN", _secrets.token_hex(32))
+        print(f"  {GREEN(OK)} Backend: {CYAN('Local libSQL')}")
+        print(f"  {GREEN(OK)} DB path: {CYAN(db_path)}")
+        print(f"  {DIM('Bootstrap the schema before first read:')} "
+              f"{CYAN('bravo db init --backend=turso')}")
+    else:
+        backend = "supabase_cloud"
+        write_env("EMPIRE_DATA_BACKEND", backend)
+        print(f"  {GREEN(OK)} Backend: {CYAN('OASIS Supabase Cloud')}")
+        print(f"  {DIM('Reads route to BRAVO_SUPABASE_URL — your existing tenant.')}")
+    print()
+
+
 def step_v6_init(profile: str, step_num: int, total: int) -> None:
     """Bootstrap V6.0: write hook defaults, init state DB, build retrieval index, fan out env."""
     step_header(step_num, total, "V6.0 sandbox initialization",
@@ -2253,9 +2326,25 @@ def _try_pair_code_flow(dashboard_url: str) -> bool:
     else:
         if env_code:
             print(f"  {YELLOW('BRAVO_PAIR_CODE was set but invalid shape — ignoring.')}")
+        # Premium UX: auto-open the operator's default browser to the Devices
+        # page so they're one click from "Install Claude Code CLI bridge" →
+        # 9-char code → paste back here. The dashboard's middleware bounces
+        # unauthed visits to /login?next=/settings, so the sign-in step
+        # happens inline in the browser.
+        devices_url = f"{dashboard_url}/settings/devices"
+        if os.environ.get("BRAVO_NO_BROWSER") != "1":
+            try:
+                import webbrowser as _wb
+                _wb.open(devices_url, new=2)
+                print(f"  {GREEN(OK)} Opened {CYAN(devices_url)} in your browser.")
+            except Exception as exc:
+                print(f"  {DIM('Could not auto-open browser:')} {exc}")
+                print(f"  {DIM('Open manually:')} {CYAN(devices_url)}")
+        else:
+            print(f"  {DIM('Open manually:')} {CYAN(devices_url)}")
         print(f"  {BOLD('Pair code')}: 9-character code from your dashboard")
-        print(f"  {DIM('(Open your dashboard → Settings → Devices → Install Claude Code CLI bridge.')}")
-        print(f"  {DIM(' Paste the XXX-XXX-XXX code here. Leave blank to skip.)')}")
+        print(f"  {DIM('Click \"Install Claude Code CLI bridge\" in Devices, then paste here.')}")
+        print(f"  {DIM('Leave blank to skip and use the legacy bearer path.')}")
         code_raw = prompt("  Pair code", required=False).strip().upper()
         if not code_raw:
             return False  # operator skipped — fall through to legacy path
@@ -2739,6 +2828,7 @@ def run_wizard(profile_override: str | None = None) -> int:
         if p["business"]:                                  total += 1
         if p["extra"]:                                     total += 1
         total += 2                                         # playwright + harness
+        total += 1                                         # data sovereignty
         total += 1                                         # dashboard pairing
         total += 1                                         # V6.0 sandbox init
 
@@ -2764,6 +2854,10 @@ def run_wizard(profile_override: str | None = None) -> int:
         # Binary deps — both idempotent (skip if already installed).
         step += 1; step_playwright_browsers(step, total)
         step += 1; step_browser_harness(step, total)
+        # Data sovereignty — operator picks Local libSQL or Cloud Supabase.
+        # Runs BEFORE dashboard pairing so the dashboard handoff knows which
+        # backend the bridge will write to.
+        step += 1; step_data_sovereignty(profile, step, total)
         # Cloud handoff — wizard answers → dashboard, mint local-bridge token
         step += 1; step_dashboard_pair(profile, step, total)
         # V6.0 sandbox: write hook defaults, boot state DB, build FTS5 index,
