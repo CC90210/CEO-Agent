@@ -17,12 +17,12 @@ Finish the Sun Biz "experience layer" so the client sees a polished digital-empl
 - client-facing UI avoids raw backend jargon like `Turso`, `Dispatch`, and `Substrate`
 - same framing synced into `SunBiz-Agent`
 
-## Final shipped commits
+## Final shipped code commits
 
 `Business-Empire-Agent`
 
 - branch: `main`
-- commit: `b8089373a1b2803c68a5b1d34ea3456217e43a7b`
+- commit: `1e1d5e25041b328797f2ecf7d4d1c1ad58d138f5`
 - pushed to: `https://github.com/CC90210/CEO-Agent`
 
 `SunBiz-Agent`
@@ -30,6 +30,30 @@ Finish the Sun Biz "experience layer" so the client sees a polished digital-empl
 - branch: `main`
 - commit: `867d06622763f5446964b088eedf42971492d1a5`
 - pushed to: `https://github.com/CC90210/SunBiz-Agent`
+
+## Post-ship hotfix: setup wizard bootstrap dropout
+
+Issue discovered after the experience-layer ship:
+
+- the real client bootstrap path is `curl -fsSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install.sh | bash`
+- on macOS, the installer completed, auto-updated the wizard, then the wizard printed `Press Enter when ready...` and immediately dropped back to the shell
+- root cause: the wizard inherited piped stdin from the bootstrap shell, so its first interactive prompt saw EOF instead of the operator terminal
+
+Hotfix shipped in `Business-Empire-Agent` commit `1e1d5e25041b328797f2ecf7d4d1c1ad58d138f5`:
+
+- `install.sh`
+  - hands the Python wizard `/dev/tty` when launched from the piped bootstrap flow
+- `bravo_cli/wizard.py`
+  - adds console fallback input helpers so prompts can recover the real terminal even if stdin is not a TTY
+  - routes pause screens and defaulted chooser prompts through the safe input path
+  - reattaches the self-restarted wizard subprocess to the console after auto-update
+- `bravo_cli/test_wizard.py`
+  - adds regression coverage for console-fallback reads and default-selection behavior when console input is unavailable
+
+Why this matters:
+
+- this was the actual blocker that prevented the agent picker, Solara onboarding, browser pairing, and downstream Command Center sign-in flow from ever starting on a fresh Mac install
+- SunBiz is still correctly registered in the wizard profile maps and repo clone registry; the failure was launch interactivity, not missing SunBiz packaging
 
 ## Production access
 
@@ -181,6 +205,10 @@ Behavior:
 Commands run:
 
 - `python -m py_compile bravo_cli/wizard.py bravo_cli/local_bridge.py bravo_cli/bridge_chat_server.py`
+- `python bravo_cli/test_wizard.py`
+- `python -m py_compile bravo_cli/wizard.py bravo_cli/test_wizard.py`
+- `python -c "from bravo_cli import wizard as w; print('sunbiz' in w.PROFILES); print(w.AGENT_REPOS.get('sunbiz'))"`
+- `C:\Program Files\Git\bin\bash.exe -n install.sh`
 - `npm run build` from `apps/command-center`
 - `npm run typecheck` from `apps/command-center`
 - `npx vercel ls`
@@ -191,6 +219,9 @@ Commands run:
 Results:
 
 - Python compile passed.
+- Wizard regression test suite passed.
+- `install.sh` shell syntax check passed.
+- SunBiz is present in `PROFILES` and in `AGENT_REPOS` pointing at `https://github.com/CC90210/SunBiz-Agent.git`.
 - Next.js build passed.
 - Typecheck passed.
 - Latest production deployment was `Ready`.
