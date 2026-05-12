@@ -1,6 +1,8 @@
 import { CC_NAV, SUN_NAV, type NavItem } from "./nav-config";
 import type { Tenant } from "./supabase";
 
+export const DEMO_CLIENT_PROFILE_COOKIE = "oasis_demo_client_profile";
+
 export type ClientDataBackend = "supabase" | "turso";
 export type ClientDeploymentMode = "shared" | "dedicated";
 export type ClientAgentAuthMode = "none" | "bearer" | "hmac";

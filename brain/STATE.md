@@ -129,7 +129,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-05-12
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Sun Biz integration contract finished across both repos: Business-Empire-Agent now uses reusable client profiles plus hosted-agent-first SMS transport and dynamic playbook routes; Marketing-Agent gained dashboard/tenant.manifest.json and dashboard/INTEGRATION.md so the separate Sun Biz product has an explicit command-center handshake, Turso-first data declaration, and env contract.
+- **Result:** Added authenticated Sun Biz demo switch for Command Center: /api/demo/sun sets a short-lived client-profile cookie, /api/demo/clear exits demo mode, and Sun leads/renewals/SMS pages avoid showing CC tenant data while demoing. Typecheck and production build pass.
 
 *Last updated: 2026-05-12*
 
