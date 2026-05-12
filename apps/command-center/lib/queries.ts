@@ -581,3 +581,223 @@ export async function mrrHistory(days = 30): Promise<
   }
   return out;
 }
+
+// ============================================================================
+// Sun Biz Funding (tenant_slug = "sun") — Funding Operations queries
+// ----------------------------------------------------------------------------
+// These helpers back the /leads, /renewals, /sms, /commissions, etc. pages
+// served when the authed profile resolves to the Sun tenant.
+//
+// Defensive note: the funded_deals / sms_sends / commissions / applications
+// tables don't exist in Phase 1 — they land in migrations 037-047 (Phase 2).
+// Every helper here catches PostgREST "relation not found" errors and
+// returns empty/zero shapes so the Phase 1 dashboard renders cleanly
+// (empty-state cards) instead of 500-ing every Sun page.
+// ============================================================================
+
+/** Funded-deal row shape we render. Mirrors the migration 041 schema. */
+export type FundedDealRow = {
+  id: string;
+  merchant_name: string | null;
+  contact_name: string | null;
+  lender_name: string | null; // null = "No lender assigned"
+  funded_amount_usd: number | null;
+  factor_rate: number | null;
+  funded_at: string | null;
+  next_renewal_date: string | null;
+  est_commission_usd: number | null;
+};
+
+export type RenewalsSummary = {
+  past_due_count: number;
+  this_week_count: number;
+  this_month_count: number;
+  est_commission_total_usd: number;
+  total_with_dates: number;
+  total_no_date: number;
+};
+
+const EMPTY_RENEWALS_SUMMARY: RenewalsSummary = {
+  past_due_count: 0,
+  this_week_count: 0,
+  this_month_count: 0,
+  est_commission_total_usd: 0,
+  total_with_dates: 0,
+  total_no_date: 0,
+};
+
+/**
+ * Returns true if a PostgREST error indicates the table simply doesn't
+ * exist yet (Phase 1, before migrations 037-047 land). We swallow these
+ * specifically and return empty shapes; any other error bubbles up so
+ * we see real bugs in Vercel logs.
+ */
+function _isMissingTable(err: { code?: string; message?: string } | null | undefined): boolean {
+  if (!err) return false;
+  if (err.code === "PGRST205" || err.code === "42P01") return true; // PostgREST + Postgres
+  const msg = (err.message || "").toLowerCase();
+  return msg.includes("relation") && msg.includes("does not exist");
+}
+
+/**
+ * Aggregate counts + commission for the 4 Renewals stat cards.
+ * Phase 1: returns zeros until migration 041 (funded_deals) ships.
+ */
+export async function getRenewalsSummary(tenantId: string): Promise<RenewalsSummary> {
+  const db = getServiceSupabase();
+  try {
+    const r = await db
+      .from("funded_deals")
+      .select("next_renewal_date, est_commission_usd")
+      .eq("tenant_id", tenantId);
+
+    if (r.error) {
+      if (_isMissingTable(r.error)) return EMPTY_RENEWALS_SUMMARY;
+      console.warn("[getRenewalsSummary]", r.error.message);
+      return EMPTY_RENEWALS_SUMMARY;
+    }
+
+    const rows = (r.data as Array<{ next_renewal_date: string | null; est_commission_usd: number | null }>) || [];
+    const now = new Date();
+    const weekEnd = new Date(now);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+    const monthEnd = new Date(now);
+    monthEnd.setDate(monthEnd.getDate() + 30);
+
+    let past_due = 0;
+    let this_week = 0;
+    let this_month = 0;
+    let est_total = 0;
+    let with_dates = 0;
+    let no_date = 0;
+
+    for (const row of rows) {
+      if (!row.next_renewal_date) {
+        no_date += 1;
+        continue;
+      }
+      with_dates += 1;
+      const d = new Date(row.next_renewal_date);
+      if (d < now) past_due += 1;
+      else if (d <= weekEnd) this_week += 1;
+      else if (d <= monthEnd) this_month += 1;
+      if (row.est_commission_usd && d >= now && d <= monthEnd) {
+        est_total += Number(row.est_commission_usd);
+      }
+    }
+
+    return {
+      past_due_count: past_due,
+      this_week_count: this_week,
+      this_month_count: this_month,
+      est_commission_total_usd: est_total,
+      total_with_dates: with_dates,
+      total_no_date: no_date,
+    };
+  } catch (e) {
+    console.warn("[getRenewalsSummary] unexpected", e);
+    return EMPTY_RENEWALS_SUMMARY;
+  }
+}
+
+/**
+ * Renewal rows for the table beneath the stat cards. Phase 1: returns
+ * empty until funded_deals lands. Includes the lender join shape we'd
+ * use once the lenders table exists.
+ */
+export async function getRenewalsRows(
+  tenantId: string,
+  limit = 50
+): Promise<FundedDealRow[]> {
+  const db = getServiceSupabase();
+  try {
+    const r = await db
+      .from("funded_deals")
+      .select(
+        "id, merchant_name, contact_name, lender_name, funded_amount_usd, factor_rate, funded_at, next_renewal_date, est_commission_usd"
+      )
+      .eq("tenant_id", tenantId)
+      .order("next_renewal_date", { ascending: true, nullsFirst: false })
+      .limit(limit);
+    if (r.error) {
+      if (_isMissingTable(r.error)) return [];
+      console.warn("[getRenewalsRows]", r.error.message);
+      return [];
+    }
+    return (r.data as FundedDealRow[]) || [];
+  } catch (e) {
+    console.warn("[getRenewalsRows] unexpected", e);
+    return [];
+  }
+}
+
+/** SMS history row for the /sms page recent-sends table. */
+export type SmsSendRow = {
+  id: string;
+  sent_at: string;
+  provider: string | null;
+  to_hash: string | null;
+  body_preview: string | null;
+  status: string | null;
+  sid: string | null;
+};
+
+/**
+ * Recent SMS sends — fed by migration 044 (sms_sends). Phase 1 fallback
+ * reads the local sms_engine.py JSONL log via the API surface; the
+ * Supabase path takes over Phase 2.
+ */
+export async function getSmsHistory(
+  tenantId: string,
+  limit = 50
+): Promise<SmsSendRow[]> {
+  const db = getServiceSupabase();
+  try {
+    const r = await db
+      .from("sms_sends")
+      .select("id, sent_at, provider, to_hash, body_preview, status, sid")
+      .eq("tenant_id", tenantId)
+      .order("sent_at", { ascending: false })
+      .limit(limit);
+    if (r.error) {
+      if (_isMissingTable(r.error)) return [];
+      console.warn("[getSmsHistory]", r.error.message);
+      return [];
+    }
+    return (r.data as SmsSendRow[]) || [];
+  } catch (e) {
+    console.warn("[getSmsHistory] unexpected", e);
+    return [];
+  }
+}
+
+/** Applications count — drives the sidebar badge on /applications. */
+export async function getApplicationsCount(tenantId: string): Promise<number> {
+  const db = getServiceSupabase();
+  try {
+    const r = await db
+      .from("applications")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenantId);
+    if (r.error) {
+      if (_isMissingTable(r.error)) return 0;
+      return 0;
+    }
+    return r.count || 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Convenience helper for the /leads page. Just wraps recentLeads with
+ * a tenant-required signature and sensible default filters for the
+ * funding-ops workflow (no email filter — Sun uses phone-first SMS
+ * outreach so leads without email are still actionable).
+ */
+export async function getLeadsForTenant(
+  tenantId: string,
+  limit = 100
+): Promise<Lead[]> {
+  return recentLeads(tenantId, limit, { include_no_email: true });
+}

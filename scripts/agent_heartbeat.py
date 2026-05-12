@@ -32,7 +32,7 @@ from dotenv import load_dotenv  # type: ignore
 
 load_dotenv(ROOT / ".env.agents")
 
-VALID_AGENTS = {"bravo", "atlas", "maven", "hermes", "codex", "aura"}
+VALID_AGENTS = {"bravo", "atlas", "maven", "hermes", "codex", "aura", "sunbiz"}
 
 
 def _client():

@@ -59,7 +59,7 @@ ACTIVE_TASKS_MD = PROJECT_ROOT / "memory" / "ACTIVE_TASKS.md"
 SESSION_LOG_AUTO_BEGIN = "<!-- AUTO-GENERATED-BEGIN: state_manager.py — do not edit between markers -->"
 SESSION_LOG_AUTO_END = "<!-- AUTO-GENERATED-END -->"
 
-VALID_AGENTS = {"bravo", "codex", "atlas", "maven", "hermes", "aura", "cc"}
+VALID_AGENTS = {"bravo", "codex", "atlas", "maven", "hermes", "aura", "cc", "sunbiz"}
 VALID_BUCKETS = {"TODAY", "P0", "P1", "P2", "WARM_LEADS", "ARCHIVE"}
 VALID_STATUSES = {"open", "done", "blocked", "archived"}
 
@@ -240,11 +240,13 @@ def append_session_log(note: str, agent: str = "bravo",
             conn.close()
     # V6 BUILD 3 — emit a cross-agent event on every NEW session_log row.
     # Best-effort: failures never propagate. Skipped on dedup since the
-    # event would also be a duplicate.
+    # event would also be a duplicate. Event type and source both track the
+    # writing agent so SUNBIZ writes emit SUNBIZ_SESSION_LOG_APPENDED, etc.
     if result == "inserted":
         _emit_cross_agent_event(
-            "BRAVO_SESSION_LOG_APPENDED",
+            f"{agent.upper()}_SESSION_LOG_APPENDED",
             {"agent": agent, "session_id": sid, "note": note[:200]},
+            source=agent,
             target=None,  # broadcast — Atlas/Maven/Aura all may want this
             correlation_id=sid,
         )
@@ -252,19 +254,22 @@ def append_session_log(note: str, agent: str = "bravo",
 
 
 def _emit_cross_agent_event(event_type: str, payload: dict,
+                            source: str = "bravo",
                             target: str | None = None,
                             correlation_id: str | None = None) -> None:
     """Best-effort wrapper around event_bus.publish — never raises.
 
     Lazy-imported because event_bus pulls in the supabase client which is
     a heavyweight dep that some scripts running in headless CI shouldn't pay.
+    The `source` parameter lets non-Bravo agents (sunbiz, etc.) emit events
+    under their own identity rather than masquerading as Bravo.
     """
     try:
         sys.path.insert(0, str(Path(__file__).resolve().parent))
         # Lazy import: event_bus pulls the heavyweight supabase client and
         # is not needed by callers who only want state-DB operations.
         from event_bus import publish as _bus_publish  # type: ignore[import-not-found]
-        _bus_publish(event_type, payload, source="bravo",
+        _bus_publish(event_type, payload, source=source,
                      target=target, correlation_id=correlation_id)
     except Exception:  # noqa: BLE001
         pass  # publish() already absorbs all errors; this catches import failures
