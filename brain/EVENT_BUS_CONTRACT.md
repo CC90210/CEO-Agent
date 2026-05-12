@@ -56,6 +56,12 @@ All producers tag events with these exact `event_type` strings. Subscribers filt
 | `SUNBIZ_RENEWAL_DUE` | sunbiz | (broadcast) | warn | `deal_id`, `due_date`, `est_commission_usd` | renewal_scanner job flagged a deal in the upcoming 30-day window |
 | `SUNBIZ_COMMISSION_BOOKED` | sunbiz | (broadcast) | info | `commission_id`, `deal_id`, `agent_user_id`, `amount_usd` | commission row written (deal funded or renewal closed) |
 | `SUNBIZ_EMAIL_BLAST_DISPATCHED` | sunbiz | (broadcast) | info | `campaign_id`, `recipient_count`, `template_slug` | bulk email send started (per-recipient delivery events still per provider) |
+| `SUGA_SESSION_LOG_APPENDED` | suga_sean | (broadcast) | info | `agent`, `session_id`, `note` | Suga Sean Agent appended a session-log line |
+| `SUGA_FAN_DM_RECEIVED` | suga_sean | (broadcast) | info | `dm_id`, `platform`, `fan_hash`, `intent` | inbound fan DM landed; `fan_hash` is sha256 of platform+handle trimmed to 16 chars — never store raw handle in payload |
+| `SUGA_MERCH_DROP_SCHEDULED` | suga_sean | (broadcast) | info | `drop_id`, `product_slug`, `release_at`, `est_units` | merch drop scheduled (Shopify or affiliate platform) |
+| `SUGA_SOCIAL_POST_PUBLISHED` | suga_sean | (broadcast) | info | `post_id`, `platform`, `scheduled_at`, `late_zernio_id` | social post pushed live via Late/Zernio or direct API |
+| `SUGA_SPONSORSHIP_LEAD_RECEIVED` | suga_sean | (broadcast) | info | `lead_id`, `brand_name`, `est_value_usd`, `category` | inbound sponsorship inquiry surfaced for triage |
+| `SUGA_AFFILIATE_PAYOUT_DUE` | suga_sean | (broadcast) | warn | `payout_id`, `affiliate_id`, `amount_usd`, `period_end` | affiliate commissions ready to disburse |
 
 ## Subscriber contract
 

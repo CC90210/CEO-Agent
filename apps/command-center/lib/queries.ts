@@ -27,6 +27,8 @@ import type {
 } from "./supabase";
 import { KNOWN_INTEGRATIONS } from "./integrations-registry";
 import { operatorDateKey, operatorDayStartIso } from "./dates";
+import { getDbBackend } from "./db";
+import { getTodayPlanTurso } from "./turso-queries";
 
 // ============================================================================
 // Profile + Tenant
@@ -61,6 +63,14 @@ export async function getTenant(tenantId: string): Promise<Tenant | null> {
 }
 
 export async function getTodayPlan(profileId: string): Promise<DailyPlan | null> {
+  // Tenant data sovereignty: when EMPIRE_DATA_BACKEND=turso_local + TURSO_DB_PATH
+  // is set, read from the client's local libSQL file instead of Supabase. Falls
+  // back to Supabase on any Turso failure so the dashboard never blank-screens.
+  if (getDbBackend() === "turso") {
+    const tursoRow = await getTodayPlanTurso(profileId);
+    if (tursoRow) return tursoRow;
+    // Fall through to Supabase on null (Turso miss OR Turso error already logged)
+  }
   const db = getServiceSupabase();
   const today = operatorDateKey();
   const r = await db
