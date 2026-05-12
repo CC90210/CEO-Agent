@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import "./globals.css";
 import { Sidebar } from "@/components/Sidebar";
 import { getActiveProfile } from "@/lib/queries";
@@ -7,7 +7,9 @@ import { getServiceSupabase } from "@/lib/supabase-server";
 import { unreadCountDb } from "@/lib/agent-inbox-db";
 import { safe } from "@/lib/api-helpers";
 import {
+  DEMO_CLIENT_PROFILE_COOKIE,
   getClientCommandCenterProfile,
+  getClientCommandCenterProfileById,
   resolveClientProfileSlug,
 } from "@/lib/client-profiles";
 
@@ -41,7 +43,13 @@ export default async function RootLayout({
   let bridgeOnline = false;
   let inboxUnread = 0;
   let tenantProfileSlug: string | null = null;
+  let demoProfileSlug: string | null = null;
   if (!isFullBleed) {
+    const cookieStore = await cookies();
+    const requestedDemoProfile = cookieStore.get(DEMO_CLIENT_PROFILE_COOKIE)?.value || null;
+    const demoProfile = getClientCommandCenterProfileById(requestedDemoProfile);
+    demoProfileSlug = demoProfile.id === "default" ? null : demoProfile.id;
+
     // Each side-channel query is wrapped independently — one failure
     // (Hermes snapshot row missing, bridge_pairings table absent in dev,
     // RLS blocking a service-role call, etc.) must NOT take down the
@@ -123,7 +131,10 @@ export default async function RootLayout({
       );
     }
   }
-  const clientProfile = getClientCommandCenterProfile(tenantProfileSlug);
+  const demoMode = !!demoProfileSlug;
+  const clientProfile = demoMode
+    ? getClientCommandCenterProfileById(demoProfileSlug)
+    : getClientCommandCenterProfile(tenantProfileSlug);
 
   return (
     <html lang="en">
@@ -133,15 +144,21 @@ export default async function RootLayout({
         ) : (
           <>
             <Sidebar
-              brand={profile?.brand || clientProfile.brand}
+              brand={demoMode ? clientProfile.brand : profile?.brand || clientProfile.brand}
               subtitle={clientProfile.subtitle}
               items={clientProfile.nav}
-              operatorName={profile?.display_name || profile?.full_name || "Operator"}
-              operatorEmail={profile?.email}
-              primaryAgent={profile?.primary_agent || clientProfile.primaryAgent}
-              primaryAgentLive={primaryAgentLive}
-              bridgeOnline={bridgeOnline}
-              inboxUnread={inboxUnread}
+              operatorName={
+                demoMode
+                  ? "Sun Demo Operator"
+                  : profile?.display_name || profile?.full_name || "Operator"
+              }
+              operatorEmail={demoMode ? "demo@sunbizfunding.com" : profile?.email}
+              primaryAgent={
+                demoMode ? clientProfile.primaryAgent : profile?.primary_agent || clientProfile.primaryAgent
+              }
+              primaryAgentLive={demoMode ? false : primaryAgentLive}
+              bridgeOnline={demoMode ? false : bridgeOnline}
+              inboxUnread={demoMode ? 0 : inboxUnread}
             />
             <main className="ml-60 min-h-screen relative z-10">
               <div className="mx-auto max-w-7xl px-8 py-8">{children}</div>

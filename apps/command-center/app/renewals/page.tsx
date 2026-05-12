@@ -7,6 +7,8 @@ import {
   type FundedDealRow,
 } from "@/lib/queries";
 import { safe } from "@/lib/api-helpers";
+import { cookies } from "next/headers";
+import { DEMO_CLIENT_PROFILE_COOKIE } from "@/lib/client-profiles";
 
 export const dynamic = "force-dynamic";
 
@@ -66,8 +68,10 @@ function groupRows(rows: FundedDealRow[]): { label: string; rows: FundedDealRow[
 }
 
 export default async function RenewalsPage() {
+  const demoProfile = (await cookies()).get(DEMO_CLIENT_PROFILE_COOKIE)?.value || null;
+  const demoMode = demoProfile === "sun";
   const profile = await safe("renewals.profile", getActiveProfile(), null);
-  const tenantId = profile?.tenant_id || "";
+  const tenantId = demoMode ? "" : profile?.tenant_id || "";
 
   const [summary, rows] = await Promise.all([
     tenantId
@@ -97,7 +101,9 @@ export default async function RenewalsPage() {
       <PageHeader
         title="Renewals"
         subtitle={
-          summary.total_with_dates + summary.total_no_date === 0
+          demoMode
+            ? "Sun demo mode · renewal data will flow from the client Turso database"
+            : summary.total_with_dates + summary.total_no_date === 0
             ? "Funded deals will appear here as renewals come due"
             : `${summary.total_with_dates} ${summary.total_with_dates === 1 ? "deal" : "deals"} with renewal dates · ${summary.total_no_date} missing date`
         }

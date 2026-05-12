@@ -2,12 +2,16 @@ import { Card, PageHeader, Tag, EmptyState } from "@/components/Card";
 import { timeAgo, truncate } from "@/lib/fmt";
 import { getActiveProfile, getLeadsForTenant } from "@/lib/queries";
 import { safe } from "@/lib/api-helpers";
+import { cookies } from "next/headers";
+import { DEMO_CLIENT_PROFILE_COOKIE } from "@/lib/client-profiles";
 
 export const dynamic = "force-dynamic";
 
 export default async function LeadsPage() {
+  const demoProfile = (await cookies()).get(DEMO_CLIENT_PROFILE_COOKIE)?.value || null;
+  const demoMode = demoProfile === "sun";
   const profile = await safe("leads.profile", getActiveProfile(), null);
-  const tenantId = profile?.tenant_id || "";
+  const tenantId = demoMode ? "" : profile?.tenant_id || "";
   const leads = tenantId
     ? await safe("leads.list", getLeadsForTenant(tenantId, 100), [])
     : [];
@@ -17,7 +21,9 @@ export default async function LeadsPage() {
       <PageHeader
         title="Leads"
         subtitle={
-          tenantId
+          demoMode
+            ? "Sun demo mode · live Turso data connects during client onboarding"
+            : tenantId
             ? `${leads.length} leads · tenant-scoped`
             : "No tenant configured for this profile yet"
         }

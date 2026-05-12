@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { dispatchSmsThroughClientAgent } from "@/lib/client-agent";
 import {
+  DEMO_CLIENT_PROFILE_COOKIE,
   getClientCommandCenterProfile,
+  getClientCommandCenterProfileById,
   resolveClientProfileSlug,
 } from "@/lib/client-profiles";
 import { getActiveProfile, getTenant } from "@/lib/queries";
+import { cookies } from "next/headers";
 
 /**
  * POST /api/sms/send — client-agent SMS dispatch.
@@ -30,7 +33,12 @@ export async function POST(req: Request) {
   }
   const tenant = profile.tenant_id ? await getTenant(profile.tenant_id).catch(() => null) : null;
   const tenantProfileSlug = resolveClientProfileSlug(tenant);
-  const clientProfile = getClientCommandCenterProfile(tenantProfileSlug);
+  const demoProfileSlug = (await cookies()).get(DEMO_CLIENT_PROFILE_COOKIE)?.value || null;
+  const demoProfile = getClientCommandCenterProfileById(demoProfileSlug);
+  const clientProfile =
+    demoProfile.id === "default"
+      ? getClientCommandCenterProfile(tenantProfileSlug)
+      : demoProfile;
   if (!clientProfile.sms?.enabled) {
     return NextResponse.json(
       {
@@ -77,7 +85,7 @@ export async function POST(req: Request) {
 
   const result = await dispatchSmsThroughClientAgent({
     clientProfile,
-    tenantSlug: tenantProfileSlug,
+    tenantSlug: demoProfile.id === "default" ? tenantProfileSlug : demoProfile.id,
     to,
     body,
   });
