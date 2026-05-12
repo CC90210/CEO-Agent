@@ -15,7 +15,16 @@ import {
   type PromptCategory,
 } from "@/lib/prompts-library";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
+
+const DEPLOY_ICONS = {
+  sparkles: Sparkles,
+  terminal: Terminal,
+  users: Users,
+  zap: Zap,
+  shield: Shield,
+  handshake: Handshake,
+} as const;
 
 /**
  * /playbook/client-deploy — the canonical operator runbook for spinning
@@ -31,7 +40,7 @@ type Phase = {
   title: string;
   duration: string;
   body: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: keyof typeof DEPLOY_ICONS;
   steps: Array<{
     title: string;
     detail: string;
@@ -48,7 +57,7 @@ const PHASES: Phase[] = [
     number: "01",
     title: "Pre-flight",
     duration: "10 min — before you touch anything",
-    icon: Sparkles,
+    icon: "sparkles",
     body:
       "Before opening a terminal, gather what the client needs to have ready. This conversation happens on Telegram / Slack / call — not in the dashboard.",
     steps: [
@@ -78,7 +87,7 @@ const PHASES: Phase[] = [
     number: "02",
     title: "Bootstrap",
     duration: "8 min — install + pair",
-    icon: Terminal,
+    icon: "terminal",
     body:
       "Run the one-line installer. The wizard pairs the machine to your dashboard automatically (HMAC-based self-pair, no token paste required).",
     steps: [
@@ -118,7 +127,7 @@ const PHASES: Phase[] = [
     number: "03",
     title: "Personalize",
     duration: "12 min — make this their agent, not yours",
-    icon: Users,
+    icon: "users",
     body:
       "The repo ships with CC's identity baked in. Strip it out and replace with the client's. This is non-optional — until you do it, every draft sounds like CC.",
     steps: [
@@ -152,7 +161,7 @@ const PHASES: Phase[] = [
     number: "04",
     title: "Wire integrations",
     duration: "15 min — bring their stack online",
-    icon: Zap,
+    icon: "zap",
     body:
       "Each api_key integration in the registry has a Connect button that opens a paste-modal. The bridge writes the key to their local secrets file (never touches our servers). Walk through every integration they care about.",
     steps: [
@@ -185,7 +194,7 @@ const PHASES: Phase[] = [
     number: "05",
     title: "Scope + tune",
     duration: "10 min — strip what doesn't apply",
-    icon: Shield,
+    icon: "shield",
     body:
       "The default repo has skills, crons, and prompts tuned for CC's volume + business model. Most of it doesn't apply to the new client. Audit, prune, retune.",
     steps: [
@@ -219,7 +228,7 @@ const PHASES: Phase[] = [
     number: "06",
     title: "Handoff",
     duration: "8 min — they take the wheel",
-    icon: Handshake,
+    icon: "handshake",
     body:
       "Last 8 minutes of the kickoff. Show the client the day-1 prompts they'll run alone. Make sure they know how to correct the agent and where to ask for help.",
     steps: [
@@ -395,7 +404,7 @@ export default function ClientDeployPage() {
       </Card>
 
       {PHASES.map((phase) => {
-        const Icon = phase.icon;
+        const Icon = DEPLOY_ICONS[phase.icon];
         return (
           <Card
             key={phase.number}

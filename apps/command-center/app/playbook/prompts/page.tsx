@@ -8,7 +8,7 @@ import {
 } from "@/lib/prompts-library";
 import { ArrowRight, ShieldAlert, User as UserIcon, Users } from "lucide-react";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 const OPERATOR_CATEGORIES: PromptCategory[] = [
   "ops_daily",

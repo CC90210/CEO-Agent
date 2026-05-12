@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Card, PageHeader, Tag } from "@/components/Card";
 import { ArrowLeft } from "lucide-react";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 const OFFERS = [
   {
