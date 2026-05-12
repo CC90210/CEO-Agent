@@ -12,7 +12,7 @@ curl -fsSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install.sh |
 irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install.ps1 | iex
 ```
 
-One command. Five minutes. The wizard asks who you are, you paste a few API keys, and you have your own personalized AI CEO.
+One command. A few minutes. The wizard asks who you are, helps you connect your tools, and gives you your own personalized AI CEO or client digital employee.
 
 ---
 
@@ -68,13 +68,13 @@ The reference deployment lives at **[agent-dashboard-cc90210.vercel.app](https:/
 The one-liner does nine things:
 
 1. Installs Python 3.10+, Node 18+, and Git if missing
-2. Clones into `~/.bravo`
-3. Builds a Python venv and installs deps
-4. Drops a `bravo` shim onto your PATH
-5. Launches the **setup wizard** — asks who you are, what you sell, what you're optimizing for, and which APIs you have keys for. **Pick your profile** (CEO Bravo / CFO Atlas / CMO Maven / Lifestyle Aura / Commerce Hermes / **client products Solara · Suga**)
+2. Bootstraps the wizard into `~/.oasis/wizard/repo` and reuses that clone on future installs
+3. Builds a Python venv at `~/.oasis/wizard/venv` and installs deps
+4. Drops both `oasis` and `bravo` shims onto your PATH via `~/.oasis/bin`
+5. Launches the **setup wizard** — asks who you are, what you sell, what you're optimizing for, and which APIs you have keys for. **Pick your profile** (CEO Bravo / CFO Atlas / CMO Maven / Lifestyle Aura / Commerce Hermes / **client products Solara (SunBiz) · Suga**)
 6. Renders your personal `brain/USER.md` from your answers (`scripts/personalize.py`)
 7. **Data sovereignty prompt** — choose **Local libSQL** (PII never leaves the machine; recommended for client products like Solara/Suga) or **Cloud Supabase** (managed multi-tenant). Writes `EMPIRE_DATA_BACKEND` + `TURSO_DB_PATH`. The dashboard's [`lib/db.ts:getDbBackend()`](apps/command-center/lib/db.ts) reads this at request time and routes hot reads via [`lib/turso-queries.ts`](apps/command-center/lib/turso-queries.ts)
-8. **Browser-driven dashboard pairing** — wizard auto-opens your dashboard's `/settings/devices`. You sign in (if not already), click "Install Claude Code CLI bridge" to generate a 9-char code (XXX-XXX-XXX, 15-min single-use), paste it back into the terminal. Wizard exchanges it via `/api/auth/pair-code/redeem` for a bridge token. No bearer secrets, no copy-pasting tokens
+8. **Browser-driven dashboard pairing** — wizard opens your dashboard flow, waits for sign-in, and pairs the machine without making you juggle raw bearer tokens
 9. **Rewrites the codebase to match you** — replaces the original operator's identity tokens across every reference in tracked files (`scripts/scaffold.py --apply --backup`), then runs `bravo doctor` to verify everything works
 
 After it finishes, your machine has your own personalized CEO agent. Not a fork of someone else's working copy — yours.
