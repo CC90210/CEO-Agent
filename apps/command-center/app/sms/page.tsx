@@ -4,6 +4,7 @@ import { safe } from "@/lib/api-helpers";
 import { SmsSendForm } from "@/components/sms/SmsSendForm";
 import { cookies } from "next/headers";
 import { DEMO_CLIENT_PROFILE_COOKIE } from "@/lib/client-profiles";
+import { SUNBIZ_DEMO_SMS_HISTORY } from "@/lib/sunbiz-demo-data";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,9 @@ export default async function SmsPage() {
   const demoMode = demoProfile === "sun";
   const profile = await safe("sms.profile", getActiveProfile(), null);
   const tenantId = demoMode ? "" : profile?.tenant_id || "";
-  const history = tenantId
+  const history = demoMode
+    ? SUNBIZ_DEMO_SMS_HISTORY
+    : tenantId
     ? await safe("sms.history", getSmsHistory(tenantId, 50), [])
     : [];
 
@@ -33,7 +36,13 @@ export default async function SmsPage() {
         {/* Send form — left pane */}
         <div className="lg:col-span-2">
           <Card title="Send a message" subtitle="Single-recipient send · TCPA-checked at send time">
-            <SmsSendForm />
+            <SmsSendForm
+              disabledReason={
+                demoMode
+                  ? "Demo mode: connect the hosted Sun Biz Agent before live SMS sends."
+                  : undefined
+              }
+            />
           </Card>
         </div>
 

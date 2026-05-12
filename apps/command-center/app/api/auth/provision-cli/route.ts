@@ -19,6 +19,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServiceSupabase } from "@/lib/supabase-server";
 import { bad, checkBearerSecret } from "@/lib/api-helpers";
+import { applyClientProvisioningProfile } from "@/lib/client-provisioning";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
   const fullName = body.full_name?.trim() || email.split("@")[0];
   const brand = body.brand?.trim() || "OASIS AI";
   const agentToAdd = (body.agent || "").trim().toLowerCase();
-  const VALID_AGENTS = new Set(["bravo", "atlas", "maven", "aura", "hermes", "codex"]);
+  const VALID_AGENTS = new Set(["bravo", "atlas", "maven", "aura", "hermes", "codex", "sunbiz"]);
 
   const db = getServiceSupabase();
 
@@ -134,6 +135,14 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const client = await applyClientProvisioningProfile({
+    db,
+    tenantId,
+    profileId,
+    brand,
+    email,
+  });
+
   return NextResponse.json({
     ok: true,
     auth_user_id: authUserId,
@@ -143,6 +152,8 @@ export async function POST(req: NextRequest) {
     welcome_sent: welcomeSent,
     agent_added,
     requested_agent: agentToAdd || null,
+    client_profile_slug: client.clientProfileSlug,
+    primary_agent: client.primaryAgent,
     sign_in_url: (process.env.PUBLIC_APP_URL || "https://agent-dashboard-cc90210.vercel.app") + "/login",
   });
 }

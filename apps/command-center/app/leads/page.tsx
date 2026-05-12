@@ -4,6 +4,7 @@ import { getActiveProfile, getLeadsForTenant } from "@/lib/queries";
 import { safe } from "@/lib/api-helpers";
 import { cookies } from "next/headers";
 import { DEMO_CLIENT_PROFILE_COOKIE } from "@/lib/client-profiles";
+import { SUNBIZ_DEMO_LEADS } from "@/lib/sunbiz-demo-data";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,9 @@ export default async function LeadsPage() {
   const demoMode = demoProfile === "sun";
   const profile = await safe("leads.profile", getActiveProfile(), null);
   const tenantId = demoMode ? "" : profile?.tenant_id || "";
-  const leads = tenantId
+  const leads = demoMode
+    ? SUNBIZ_DEMO_LEADS
+    : tenantId
     ? await safe("leads.list", getLeadsForTenant(tenantId, 100), [])
     : [];
 

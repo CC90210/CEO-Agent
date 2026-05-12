@@ -80,6 +80,8 @@ export function Sidebar({
   primaryAgentLive = false,
   bridgeOnline = false,
   inboxUnread = 0,
+  demoMode = false,
+  demoLabel = "Client demo",
 }: {
   brand?: string;
   subtitle?: string;
@@ -93,6 +95,8 @@ export function Sidebar({
   primaryAgentLive?: boolean;
   bridgeOnline?: boolean;
   inboxUnread?: number;
+  demoMode?: boolean;
+  demoLabel?: string;
 }) {
   const pathname = usePathname();
   const navItems = items && items.length > 0 ? items : CC_NAV;
@@ -155,6 +159,14 @@ export function Sidebar({
 
       {/* Operator */}
       <div className="border-t border-bg-border px-4 py-3 space-y-2">
+        {demoMode && (
+          <div className="rounded-lg border border-accent/30 bg-accent-soft px-3 py-2 text-[10px] text-accent">
+            <div className="font-bold uppercase tracking-[0.14em]">{demoLabel}</div>
+            <Link href="/api/demo/clear" className="mt-1 inline-block text-fg-muted hover:text-fg">
+              Exit demo mode
+            </Link>
+          </div>
+        )}
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-full bg-bg-elev border border-bg-border flex items-center justify-center text-fg-muted text-xs font-bold">
             {(operatorName || "U").charAt(0).toUpperCase()}

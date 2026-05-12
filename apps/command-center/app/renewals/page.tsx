@@ -9,6 +9,10 @@ import {
 import { safe } from "@/lib/api-helpers";
 import { cookies } from "next/headers";
 import { DEMO_CLIENT_PROFILE_COOKIE } from "@/lib/client-profiles";
+import {
+  SUNBIZ_DEMO_RENEWALS_SUMMARY,
+  SUNBIZ_DEMO_RENEWAL_ROWS,
+} from "@/lib/sunbiz-demo-data";
 
 export const dynamic = "force-dynamic";
 
@@ -73,26 +77,28 @@ export default async function RenewalsPage() {
   const profile = await safe("renewals.profile", getActiveProfile(), null);
   const tenantId = demoMode ? "" : profile?.tenant_id || "";
 
-  const [summary, rows] = await Promise.all([
-    tenantId
-      ? safe("renewals.summary", getRenewalsSummary(tenantId), {
-          past_due_count: 0,
-          this_week_count: 0,
-          this_month_count: 0,
-          est_commission_total_usd: 0,
-          total_with_dates: 0,
-          total_no_date: 0,
-        })
-      : Promise.resolve({
-          past_due_count: 0,
-          this_week_count: 0,
-          this_month_count: 0,
-          est_commission_total_usd: 0,
-          total_with_dates: 0,
-          total_no_date: 0,
-        }),
-    tenantId ? safe("renewals.rows", getRenewalsRows(tenantId, 50), [] as FundedDealRow[]) : Promise.resolve([] as FundedDealRow[]),
-  ]);
+  const [summary, rows] = demoMode
+    ? [SUNBIZ_DEMO_RENEWALS_SUMMARY, SUNBIZ_DEMO_RENEWAL_ROWS]
+    : await Promise.all([
+        tenantId
+          ? safe("renewals.summary", getRenewalsSummary(tenantId), {
+              past_due_count: 0,
+              this_week_count: 0,
+              this_month_count: 0,
+              est_commission_total_usd: 0,
+              total_with_dates: 0,
+              total_no_date: 0,
+            })
+          : Promise.resolve({
+              past_due_count: 0,
+              this_week_count: 0,
+              this_month_count: 0,
+              est_commission_total_usd: 0,
+              total_with_dates: 0,
+              total_no_date: 0,
+            }),
+        tenantId ? safe("renewals.rows", getRenewalsRows(tenantId, 50), [] as FundedDealRow[]) : Promise.resolve([] as FundedDealRow[]),
+      ]);
 
   const groups = groupRows(rows);
 
