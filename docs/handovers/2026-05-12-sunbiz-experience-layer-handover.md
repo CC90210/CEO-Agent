@@ -22,7 +22,7 @@ Finish the Sun Biz "experience layer" so the client sees a polished digital-empl
 `Business-Empire-Agent`
 
 - branch: `main`
-- commit: `6d2b8b7f58d46ded4b67550127934d485ce6ced6`
+- commit: `b8089373a1b2803c68a5b1d34ea3456217e43a7b`
 - pushed to: `https://github.com/CC90210/CEO-Agent`
 
 `SunBiz-Agent`
@@ -42,7 +42,7 @@ Verified on 2026-05-12:
 - root responds with `307 -> /welcome`
 - latest production deployment was `Ready`
 - Vercel deployment URL for the pushed `main` build at verification time:
-  - `https://agent-dashboard-o6foyjp48-cc90210.vercel.app`
+  - `https://agent-dashboard-p7xbfwrrl-cc90210.vercel.app`
 
 Recommended first-time client account URL for Sun Biz:
 
@@ -186,6 +186,7 @@ Commands run:
 - `npx vercel ls`
 - `npx vercel alias ls`
 - `curl.exe -I https://agent-dashboard-cc90210.vercel.app`
+- Playwright public-page smoke on `https://agent-dashboard-cc90210.vercel.app/signup?brand=Sun%20Biz%20Funding`
 
 Results:
 
@@ -194,6 +195,7 @@ Results:
 - Typecheck passed.
 - Latest production deployment was `Ready`.
 - Stable public URL redirects to `/welcome` as expected.
+- Public Sun Biz signup URL resolves successfully and the `Brand or company name` field pre-fills as `Sun Biz Funding`.
 
 ### SunBiz-Agent
 
