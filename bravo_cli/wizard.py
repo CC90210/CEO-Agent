@@ -442,6 +442,30 @@ PROFILE_QUESTIONS: dict[str, list[dict]] = {
         {"key": "HERMES_PO_PARSER", "prompt": "PO parser backend (cloud is DPA-bound and no-storage; ollama is fully local)",
          "type": "choice", "choices": ["ollama-local", "auto", "cloud-anthropic", "cloud-openai"], "default": "ollama-local"},
     ],
+    "sunbiz": [
+        {"key": "SUNBIZ_PRIMARY_MARKET", "prompt": "Primary funding lane",
+         "type": "choice", "choices": ["mca", "term-loan", "equipment-finance", "line-of-credit", "mixed"], "default": "mixed"},
+        {"key": "SUNBIZ_RENEWAL_WINDOW_DAYS", "prompt": "Renewal-warning window (days)",
+         "type": "text", "default": "30"},
+        {"key": "SUNBIZ_DOC_CHASE_STYLE", "prompt": "Document-chase style",
+         "type": "choice", "choices": ["agent-assisted", "manual-review", "auto-reminders"], "default": "agent-assisted"},
+        {"key": "SUNBIZ_SMS_TONE", "prompt": "SMS tone",
+         "type": "choice", "choices": ["professional", "direct", "friendly", "urgent"], "default": "professional"},
+        {"key": "SUNBIZ_APPROVAL_BEFORE_SEND", "prompt": "Require approval before outbound sends?",
+         "type": "yesno", "default": True},
+    ],
+    "suga_sean": [
+        {"key": "SUGA_PRIMARY_PLATFORM", "prompt": "Primary platform",
+         "type": "choice", "choices": ["instagram", "x", "youtube", "tiktok", "email"], "default": "instagram"},
+        {"key": "SUGA_REVENUE_FOCUS", "prompt": "Primary revenue focus",
+         "type": "choice", "choices": ["merch", "sponsorships", "content", "affiliate", "mixed"], "default": "mixed"},
+        {"key": "SUGA_POSTING_CADENCE", "prompt": "Posting cadence",
+         "type": "choice", "choices": ["daily", "fight-week", "3x-week", "weekly", "launch-only"], "default": "daily"},
+        {"key": "SUGA_MERCH_STACK", "prompt": "Merch stack",
+         "type": "choice", "choices": ["shopify", "woocommerce", "gumroad", "none", "other"], "default": "shopify"},
+        {"key": "SUGA_APPROVAL_BEFORE_PUBLISH", "prompt": "Require approval before publishing?",
+         "type": "yesno", "default": True},
+    ],
     "custom": [
         {"key": "CUSTOM_AGENT_NAME", "prompt": "Name for your new agent",
          "type": "text", "default": ""},
@@ -500,7 +524,7 @@ BUSINESS_CONTEXT_QUESTIONS: list[dict] = [
 
 # Profiles that get the shared business-context block in addition to their
 # per-agent questions. Aura is lifestyle, Custom is user-defined — both skip.
-BUSINESS_CONTEXT_PROFILES = {"bravo", "atlas", "maven", "hermes"}
+BUSINESS_CONTEXT_PROFILES = {"bravo", "atlas", "maven", "hermes", "sunbiz", "suga_sean"}
 
 COMMON_CONTEXT_KEYS = [
     "USER_FULL_NAME",
@@ -520,6 +544,8 @@ PROFILE_CONTEXT_PREFIXES = {
     "maven": ["MAVEN_"],
     "aura": ["AURA_"],
     "hermes": ["HERMES_"],
+    "sunbiz": ["SUNBIZ_"],
+    "suga_sean": ["SUGA_"],
     "custom": ["CUSTOM_"],
 }
 

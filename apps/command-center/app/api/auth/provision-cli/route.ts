@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   const fullName = body.full_name?.trim() || email.split("@")[0];
   const brand = body.brand?.trim() || "OASIS AI";
   const agentToAdd = (body.agent || "").trim().toLowerCase();
-  const VALID_AGENTS = new Set(["bravo", "atlas", "maven", "aura", "hermes", "codex", "sunbiz"]);
+  const VALID_AGENTS = new Set(["bravo", "atlas", "maven", "aura", "hermes", "codex", "sunbiz", "suga_sean"]);
 
   const db = getServiceSupabase();
 
