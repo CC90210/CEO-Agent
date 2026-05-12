@@ -197,3 +197,8 @@ After 3 weeks of real call data, capture lessons → V1.1 with refined objection
 - [[skills/sales-closing/SKILL]] | [[brain/DEAL_ARCHITECTURE]]
 - [[memory/SESSION_LOG]] | [[memory/PATTERNS]]
 - [[brain/USER]] | [[brain/SOUL]]
+
+
+## Related (graph)
+
+- [[skills/sales-closing/SKILL]]

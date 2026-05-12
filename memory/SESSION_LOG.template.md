@@ -18,3 +18,9 @@ tags: [session-log]
 ## Live entries below
 
 <!-- Bravo appends here every session. -->
+
+## Related
+
+- [[memory/INDEX]]
+- [[memory/ACTIVE_TASKS]]
+- [[memory/ACTIVE_TASKS.template]]

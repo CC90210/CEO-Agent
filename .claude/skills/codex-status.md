@@ -16,3 +16,9 @@ node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" status $ARGUMENTS
 
 If no job ID passed: render as a compact Markdown table with job ID, kind, status, phase, elapsed, summary.
 If job ID passed: present full output without summarizing.
+
+## Related
+
+- [[.claude/skills/INDEX]]
+- [[.claude/skills/codex-adversarial-review]]
+- [[.claude/skills/codex-cancel]]

@@ -62,3 +62,9 @@ Check all that apply — this helps narrow down which parts of the wizard will w
 ## Additional context
 
 Screenshots, network logs, corporate firewall rules — anything that helps.
+
+## Related
+
+- [[.github/ISSUE_TEMPLATE/INDEX]]
+- [[.github/ISSUE_TEMPLATE/bug_report]]
+- [[.github/ISSUE_TEMPLATE/feature_request]]

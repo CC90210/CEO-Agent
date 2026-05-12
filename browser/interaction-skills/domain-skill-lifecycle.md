@@ -39,3 +39,11 @@ Do not include run narration, raw coordinates, secrets, cookies, tokens, or scre
 - [[browser/README]]
 - [[browser/interaction-skills/INDEX]]
 - [[skills/browser-automation/SKILL]]
+
+
+## Related (graph)
+
+- [[browser/interaction-skills/INDEX]]
+- [[browser/interaction-skills/approval-gates]]
+- [[browser/interaction-skills/connection]]
+- [[browser/interaction-skills/evidence]]

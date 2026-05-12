@@ -15,3 +15,11 @@ Return your answers with direct quotes from the skill where applicable.
 
 ## Obsidian Links
 - [[skills/systematic-debugging/SKILL]] | [[skills/INDEX]]
+
+
+## Related (graph)
+
+- [[skills/systematic-debugging/SKILL]]
+- [[skills/systematic-debugging/condition-based-waiting]]
+- [[skills/systematic-debugging/CREATION-LOG]]
+- [[skills/systematic-debugging/defense-in-depth]]

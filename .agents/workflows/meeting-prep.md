@@ -214,3 +214,11 @@ See `skills/meeting-automation/SKILL.md` for:
 ## Obsidian Links
 - [[skills/meeting-automation/SKILL]] | [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]]
 - [[skills/client-success/SKILL]] | [[brain/STATE]]
+
+
+## Related (graph)
+
+- [[.agents/workflows/INDEX]]
+- [[.agents/workflows/browser-harness]]
+- [[.agents/workflows/ceo-briefing]]
+- [[.agents/workflows/cli-anything]]

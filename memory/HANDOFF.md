@@ -14,3 +14,9 @@
 
 ## Notes for the next session
 (add context if needed — edit this file before commit)
+
+## Related
+
+- [[memory/INDEX]]
+- [[memory/ACTIVE_TASKS]]
+- [[memory/ACTIVE_TASKS.template]]

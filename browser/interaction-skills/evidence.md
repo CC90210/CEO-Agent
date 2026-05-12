@@ -38,3 +38,11 @@ After a click, type, upload, scroll, or navigation:
 - [[browser/README]]
 - [[browser/interaction-skills/INDEX]]
 - [[skills/browser-automation/SKILL]]
+
+
+## Related (graph)
+
+- [[browser/interaction-skills/INDEX]]
+- [[browser/interaction-skills/approval-gates]]
+- [[browser/interaction-skills/connection]]
+- [[browser/interaction-skills/domain-skill-lifecycle]]

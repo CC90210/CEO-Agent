@@ -69,3 +69,11 @@ Which do you choose? Be completely honest about what you would actually do in th
 
 ## Obsidian Links
 - [[skills/systematic-debugging/SKILL]] | [[skills/INDEX]]
+
+
+## Related (graph)
+
+- [[skills/systematic-debugging/SKILL]]
+- [[skills/systematic-debugging/condition-based-waiting]]
+- [[skills/systematic-debugging/CREATION-LOG]]
+- [[skills/systematic-debugging/defense-in-depth]]

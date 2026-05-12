@@ -36,3 +36,9 @@ user-invocable: true
 5. Save to `.agents/plans/prd-<project-name>.md`.
 
 6. Present to CC for review and iteration.
+
+## Related
+
+- [[.claude/skills/INDEX]]
+- [[.claude/skills/codex-adversarial-review]]
+- [[.claude/skills/codex-cancel]]

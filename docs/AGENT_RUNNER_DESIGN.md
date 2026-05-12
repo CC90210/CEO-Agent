@@ -470,3 +470,9 @@ If you want zero rework, do not postpone:
 - session-scoped worker model
 - structured wrapper protocol
 - OS-level sandbox mode split
+
+## Related
+
+- [[docs/INDEX]]
+- [[docs/AGENT_REPO_CROSS_ANALYSIS_2026-04-22]]
+- [[docs/AI_WORKSTATION_ROADMAP]]

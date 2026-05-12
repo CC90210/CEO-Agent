@@ -121,6 +121,8 @@ VALID_INTENTS = {
     "reply_positive",  # confirming / agreeing but not a specific ask
     "reply_negative",  # declining / disengaging but not unsubscribing
     "referral",      # referring someone else
+    "platform_alert", # notification from a platform (Stripe, Vercel, etc.)
+    "tech_alert",     # technical issue: webhook failure, build error, etc.
     "other",
 }
 VALID_PRIORITY = {"hot", "warm", "cold", "low"}
@@ -142,7 +144,139 @@ VALID_ACTIONS = {
     "mark_unsubscribed",
     "ignore",
     "hold_for_review",
+    "notify_cc_telegram",  # fire a Telegram alert to CC
 }
+
+
+# ---- Platform sender pre-routing --------------------------------------------
+# 2026-05-11: Stripe webhook-failure email was misrouted to Atlas as a business
+# expense because the classifier saw "Stripe" and didn't distinguish technical
+# vs. financial. This table catches known platform senders BEFORE Haiku and
+# routes them by content-aware subcategory.
+
+PLATFORM_SENDERS: dict[str, dict[str, Any]] = {
+    # domain-suffix -> default routing metadata
+    "stripe.com": {
+        "platform": "stripe",
+        "default_route": "financial",   # receipts, invoices, payouts
+        # these subject keywords override to technical routing
+        "tech_keywords": [
+            "webhook", "endpoint", "delivery", "failed", "error",
+            "api", "integration", "developer", "test mode",
+            "ssl", "certificate", "deprecated", "migration",
+        ],
+    },
+    "vercel.com": {
+        "platform": "vercel",
+        "default_route": "technical",
+        "tech_keywords": ["deploy", "build", "error", "domain", "ssl"],
+    },
+    "github.com": {
+        "platform": "github",
+        "default_route": "technical",
+        "tech_keywords": ["pull request", "issue", "security", "dependabot", "action"],
+    },
+    "supabase.io": {
+        "platform": "supabase",
+        "default_route": "technical",
+        "tech_keywords": ["migration", "webhook", "edge", "function", "maintenance"],
+    },
+    "supabase.com": {
+        "platform": "supabase",
+        "default_route": "technical",
+        "tech_keywords": ["migration", "webhook", "edge", "function", "maintenance"],
+    },
+    "google.com": {
+        "platform": "google",
+        "default_route": "technical",
+        "tech_keywords": ["cloud", "api", "quota", "billing", "alert", "workspace"],
+    },
+    "googlecloud.com": {
+        "platform": "google_cloud",
+        "default_route": "technical",
+        "tech_keywords": [],
+    },
+    "cloudflare.com": {
+        "platform": "cloudflare",
+        "default_route": "technical",
+        "tech_keywords": [],
+    },
+    "n8n.io": {
+        "platform": "n8n",
+        "default_route": "technical",
+        "tech_keywords": ["workflow", "execution", "error", "credential"],
+    },
+}
+
+
+def _platform_prefilter(
+    from_identity: Optional[str],
+    subject: Optional[str],
+    content: Optional[str],
+) -> Optional[dict]:
+    """Check if the sender is a known platform. Returns a pre-built
+    classification dict if matched, None otherwise.
+
+    Logic:
+    1. Match sender domain against PLATFORM_SENDERS.
+    2. Check subject + content for tech_keywords.
+    3. If any tech keyword hits -> route as tech_alert (ops/technical).
+       Otherwise -> route with the platform's default_route.
+    4. Always set suggested_action=notify_cc_telegram so CC gets pinged.
+    """
+    if not from_identity:
+        return None
+    sender_lower = from_identity.strip().lower()
+    domain = sender_lower.rpartition("@")[2] if "@" in sender_lower else ""
+    if not domain:
+        return None
+
+    matched_config: Optional[dict[str, Any]] = None
+    for suffix, config in PLATFORM_SENDERS.items():
+        if domain == suffix or domain.endswith("." + suffix):
+            matched_config = config
+            break
+    if matched_config is None:
+        return None
+
+    # Check for technical keywords in subject + content
+    haystack = ((subject or "") + " " + (content or "")[:2000]).lower()
+    tech_kws = matched_config.get("tech_keywords", [])
+    is_technical = any(kw in haystack for kw in tech_kws)
+
+    platform = matched_config["platform"]
+    if is_technical:
+        intent = "tech_alert"
+        priority = "hot"
+        route_target = "ops_technical"
+        notes = (f"Technical alert from {platform}: matched tech keywords in subject/body. "
+                 "Route to CC for ops attention, NOT to Atlas/financial.")
+    else:
+        default_route = matched_config["default_route"]
+        if default_route == "financial":
+            intent = "platform_alert"
+            priority = "warm"
+            route_target = "financial"
+            notes = f"Financial notification from {platform} (receipt/invoice/payout). Atlas may process."
+        else:
+            intent = "platform_alert"
+            priority = "warm"
+            route_target = "ops_technical"
+            notes = f"Platform notification from {platform}. Informational."
+
+    return {
+        "sentiment": "neutral",
+        "intent": intent,
+        "priority": priority,
+        "stage_signal": "hold",
+        "confidence": 0.95,
+        "suggested_action": "notify_cc_telegram",
+        "key_phrase": (subject or "")[:200],
+        "notes": notes,
+        "platform_prefilter": True,
+        "platform": platform,
+        "route_target": route_target,
+    }
 
 
 def _keyword_fallback(content: str) -> dict:
@@ -298,8 +432,23 @@ def classify(
     env: Optional[dict[str, str]] = None,
 ) -> dict:
     """Classify an inbound message. Never raises. On any error falls back
-    to the keyword classifier with reduced confidence."""
+    to the keyword classifier with reduced confidence.
+
+    Gate 0 (added 2026-05-11): platform sender pre-filter. Known platform
+    senders (Stripe, Vercel, GitHub, etc.) are classified by domain +
+    keyword match before Haiku is called. This prevents mis-routing where
+    e.g. a Stripe webhook failure notification gets sent to Atlas as a
+    business expense instead of being routed as a technical alert.
+    """
     e = env if env is not None else load_env()
+
+    # Gate 0: platform sender pre-filter
+    pf = _platform_prefilter(from_identity, subject, content)
+    if pf is not None:
+        # Fire Telegram notification for platform alerts
+        _notify_platform_alert(pf, subject, from_identity)
+        return pf
+
     try:
         raw = _classify_via_haiku(
             content=content or "",
@@ -314,6 +463,37 @@ def classify(
               "falling back to keyword classifier.",
               file=sys.stderr)
         return _keyword_fallback(content or "")
+
+
+def _notify_platform_alert(
+    classification: dict,
+    subject: Optional[str],
+    from_identity: Optional[str],
+) -> None:
+    """Best-effort Telegram notification for platform alerts. Never raises."""
+    try:
+        platform = classification.get("platform", "unknown")
+        route = classification.get("route_target", "unknown")
+        intent = classification.get("intent", "platform_alert")
+        priority_emoji = "\U0001f534" if classification.get("priority") == "hot" else "\U0001f7e1"
+
+        if intent == "tech_alert":
+            msg = (
+                f"{priority_emoji} TECH ALERT from {platform.upper()}\n"
+                f"Subject: {(subject or 'no subject')[:100]}\n"
+                f"From: {from_identity or 'unknown'}\n"
+                f"Route: {route} (NOT financial)\n"
+                f"Action needed -- check your {platform} dashboard."
+            )
+        else:
+            msg = (
+                f"\U0001f4e8 Platform notification from {platform.upper()}\n"
+                f"Subject: {(subject or 'no subject')[:100]}\n"
+                f"Route: {route}"
+            )
+        _telegram_notify(msg, category="ops")
+    except Exception:  # noqa: BLE001
+        pass  # Telegram is best-effort; never block classification
 
 
 def record_inbound(

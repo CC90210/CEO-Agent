@@ -23,3 +23,9 @@ Load `skills/retro/SKILL.md` for the full retrospective protocol.
 6. **Memory Update** — Append patterns, mistakes, and retro summary to memory files.
 
 7. Output the Weekly Retro Report.
+
+## Related
+
+- [[.claude/skills/INDEX]]
+- [[.claude/skills/codex-adversarial-review]]
+- [[.claude/skills/codex-cancel]]

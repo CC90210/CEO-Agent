@@ -50,3 +50,9 @@ Default for fresh installs is **shadow** on cloud, **off** on local-dev.
 1. Open the System Health page and confirm the agent has ticked recently.
 2. Skim the next three playbook pages — Safe Interaction, When to Call, Pause & Rollback.
 3. Send your agent a low-stakes ask ("summarize my pipeline", "draft a follow-up email") and watch the Reasoning page render the trace.
+
+## Related
+
+- [[docs/playbooks/INDEX]]
+- [[docs/playbooks/02-safe-interaction]]
+- [[docs/playbooks/03-when-to-call-cc]]

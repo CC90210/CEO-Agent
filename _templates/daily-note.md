@@ -23,3 +23,17 @@ date: "{{date:YYYY-MM-DD}}"
 - [ ] [[memory/ACTIVE_TASKS]] current
 - [ ] [[memory/SESSION_LOG]] appended
 - [ ] Git committed
+
+## Related
+
+- [[_templates/INDEX]]
+- [[_templates/agent-template]]
+- [[_templates/decision-entry]]
+
+
+## Related (graph)
+
+- [[_templates/INDEX]]
+- [[_templates/agent-template]]
+- [[_templates/decision-entry]]
+- [[_templates/mistake-entry]]

@@ -118,3 +118,11 @@ By contributing, you agree your code will be released under the MIT License.
 ## Obsidian Links
 
 - [[CLAUDE]] | [[brain/CAPABILITIES]] | [[brain/ORCHESTRATION]] | [[SECURITY]]
+
+
+## Related (graph)
+
+- [[README]]
+- [[AGENTS]]
+- [[ANTIGRAVITY]]
+- [[ARCHITECTURE]]

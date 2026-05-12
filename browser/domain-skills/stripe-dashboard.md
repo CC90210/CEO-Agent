@@ -32,3 +32,11 @@ Approval required before refunds, charges, cancellations, subscription edits, pa
 - [[browser/README]]
 - [[browser/SAFETY]]
 - [[skills/browser-harness/SKILL]]
+
+
+## Related (graph)
+
+- [[browser/domain-skills/README]]
+- [[browser/domain-skills/browser-use-cloud]]
+- [[browser/domain-skills/canva]]
+- [[browser/domain-skills/client-portal-template]]

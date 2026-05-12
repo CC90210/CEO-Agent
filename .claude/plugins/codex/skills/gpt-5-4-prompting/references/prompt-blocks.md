@@ -170,3 +170,9 @@ If you provide progress updates, keep them brief and outcome-based.
 Mention only major phase changes or blockers.
 </progress_updates>
 ```
+
+## Related
+
+- [[.claude/plugins/codex/skills/gpt-5-4-prompting/references/INDEX]]
+- [[.claude/plugins/codex/skills/gpt-5-4-prompting/references/codex-prompt-antipatterns]]
+- [[.claude/plugins/codex/skills/gpt-5-4-prompting/references/codex-prompt-recipes]]

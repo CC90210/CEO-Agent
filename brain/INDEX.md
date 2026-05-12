@@ -57,3 +57,31 @@ tags: [brain, index]
 - [[.agents/INDEX]] — Workflow + plan registry (Claude Code / Anti-Gravity / Gemini)
 - [[.claude/INDEX]] — Native subagents, skill overrides, Codex plugin
 - [[.gemini/INDEX]] — Gemini CLI workflows + rules
+
+## Files in this directory
+
+- [[brain/AGENT_INDEX]]
+- [[brain/AGENT_ORCHESTRATION]]
+- [[brain/AGENT_ROUTER]]
+- [[brain/C_SUITE_ARCHITECTURE]]
+- [[brain/CLIENT_READY]]
+- [[brain/CREDENTIALS_SCAFFOLD]]
+- [[brain/CRM_STRATEGY]]
+- [[brain/CROSS_MACHINE_SYNC]]
+- [[brain/DAILY_SCHEDULE]]
+- [[brain/DEAL_ARCHITECTURE]]
+- [[brain/EVENT_BUS_CONTRACT]]
+- [[brain/EXECUTION_RULES]]
+- [[brain/INTENTS]]
+- [[brain/MAC_COMMAND_CENTER_PROMPT]]
+- [[brain/MAC_SYNC_PROMPT]]
+- [[brain/METRIC_AUDIT]]
+- [[brain/MODEL_CONFIG]]
+- [[brain/MULTI_MACHINE_PAIRING_PROMPT]]
+- [[brain/ORCHESTRATION]]
+- [[brain/PRODUCT_ARCHITECTURE]]
+- [[brain/QUICK_REFERENCE]]
+- [[brain/RAG_SYSTEM]]
+- [[brain/SECURITY_MODEL]]
+- [[brain/USER.template]]
+- [[brain/WHEN_TO_USE_SKILLS]]

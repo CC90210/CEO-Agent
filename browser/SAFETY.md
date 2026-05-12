@@ -50,3 +50,9 @@ Do save:
 - framework quirks
 - approval-gated actions
 - safe evidence conventions
+
+## Related
+
+- [[browser/README]]
+- [[browser/DOMAIN_SKILL_TEMPLATE]]
+- [[browser/WINDOWS_PATCH]]

@@ -55,3 +55,17 @@ If `oasisai.work` (the marketing site) ever needs domain re-verification on Verc
 python scripts/cloudflare_admin.py sync-vercel-txt --domain oasisai.work --vercel-project oasis-ai-platform
 ```
 Reads what Vercel expects, updates Cloudflare DNS, triggers verify. Built after the 2026-04-30 incident; see `memory/MISTAKES.md` for the full story.
+
+## Related
+
+- [[docs/INDEX]]
+- [[docs/AGENT_REPO_CROSS_ANALYSIS_2026-04-22]]
+- [[docs/AGENT_RUNNER_DESIGN]]
+
+
+## Related (graph)
+
+- [[docs/INDEX]]
+- [[docs/AGENT_REPO_CROSS_ANALYSIS_2026-04-22]]
+- [[docs/AGENT_RUNNER_DESIGN]]
+- [[docs/AI_WORKSTATION_ROADMAP]]

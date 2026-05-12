@@ -109,3 +109,11 @@ Run `python scripts/state_sync.py --note "<one-line summary>"` after edits. The 
 - [[brain/STATE]] (stable identity / North Star / capability arch)
 - [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]] | [[memory/MISTAKES]]
 - [[brain/CHANGELOG]] | [[brain/ORCHESTRATION]]
+
+
+## Related (graph)
+
+- [[memory/INDEX]]
+- [[memory/ACTIVE_TASKS]]
+- [[memory/ACTIVE_TASKS.template]]
+- [[memory/CLAUDE_HANDOVER]]

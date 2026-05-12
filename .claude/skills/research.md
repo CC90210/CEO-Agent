@@ -29,3 +29,9 @@ user-invocable: true
    - Playwright for visual analysis and data extraction
 
 5. Distill findings into actionable summary. Never dump raw HTML or JSON to CC.
+
+## Related
+
+- [[.claude/skills/INDEX]]
+- [[.claude/skills/codex-adversarial-review]]
+- [[.claude/skills/codex-cancel]]

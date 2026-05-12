@@ -32,3 +32,9 @@ Load `skills/code-review/SKILL.md` for the full review protocol.
 5. ASK CC about judgment calls (security, architecture, business logic).
 
 6. Output the Code Review Report (severity-classified findings).
+
+## Related
+
+- [[.claude/skills/INDEX]]
+- [[.claude/skills/codex-adversarial-review]]
+- [[.claude/skills/codex-cancel]]

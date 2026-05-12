@@ -130,3 +130,7 @@ If you want help installing or customizing it for your business: [open an issue]
 - [[CONTRIBUTING]] · [[CLAUDE]] · [[brain/SOUL]] · [[brain/CAPABILITIES]] · [[docs/INDEX]] · [[docs/INSTALL]]
 
 > "Only good things from now on."
+
+## Related leaves
+- [[prompts/RUN_OUTREACH]]
+- [[scripts/windows_bootstrap]]

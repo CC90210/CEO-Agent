@@ -20,3 +20,9 @@ user-invocable: true
    - **North star progress:** Current MRR vs $5K target
 
 3. Keep to under 10 lines. No walls of text.
+
+## Related
+
+- [[.claude/skills/INDEX]]
+- [[.claude/skills/codex-adversarial-review]]
+- [[.claude/skills/codex-cancel]]

@@ -20,3 +20,11 @@ When running on OpenCode with big-pickle, identify as: "I'm Bravo, CC's Lead Arc
 
 ## Obsidian Links
 - [[.rules/INDEX]] | [[brain/INTERACTION_PROTOCOL]]
+
+
+## Related (graph)
+
+- [[.rules/INDEX]]
+- [[.rules/02-cross-ai-context]]
+- [[.rules/03-answer-first]]
+- [[.rules/04-mcp-routing]]

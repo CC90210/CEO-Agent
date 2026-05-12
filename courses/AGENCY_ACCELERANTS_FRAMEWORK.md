@@ -445,3 +445,9 @@ A: Yes, because you're faster and cheaper. Established agencies charge $3-10k/mo
 
 ## Obsidian Links
 - [[courses/INDEX]] | [[brain/CEO_OPERATING_SYSTEM]]
+
+
+## Related (graph)
+
+- [[courses/INDEX]]
+- [[courses/SKOOL_IMAGE_AUDIT]]

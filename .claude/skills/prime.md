@@ -27,3 +27,9 @@ user-invocable: true
    - Any warnings (stale memory, uncommitted changes, expired tokens)
 
 Keep the report under 15 lines. No walls of text.
+
+## Related
+
+- [[.claude/skills/INDEX]]
+- [[.claude/skills/codex-adversarial-review]]
+- [[.claude/skills/codex-cancel]]

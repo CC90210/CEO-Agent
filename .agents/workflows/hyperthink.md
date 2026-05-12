@@ -79,3 +79,11 @@ Then include all 7 phase blocks inline. See [[skills/hyperthink/SKILL]] for the 
 - [[skills/codex-delegation/SKILL]] — Codex as a second-mind participant in Phase 3 or Phase 4
 - [[brain/BRAIN_LOOP]] — the baseline 10-step loop hyperthink amplifies
 - `~/.claude/AGENT_COORDINATION.md` — cross-agent coordination ledger (Phase 5 check)
+
+
+## Related (graph)
+
+- [[.agents/workflows/INDEX]]
+- [[.agents/workflows/browser-harness]]
+- [[.agents/workflows/ceo-briefing]]
+- [[.agents/workflows/cli-anything]]

@@ -37,3 +37,9 @@ opencli list --platform twitter # Platform-specific
 - **API discovery**: Find undocumented endpoints on any website
 
 Always use `--json` flag for structured output that agents can parse.
+
+## Related
+
+- [[.claude/skills/INDEX]]
+- [[.claude/skills/codex-adversarial-review]]
+- [[.claude/skills/codex-cancel]]

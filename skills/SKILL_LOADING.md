@@ -91,3 +91,8 @@ This replaces the previous pattern of loading all skills speculatively. Supabase
 
 ## Obsidian Links
 - [[skills/SKILL_LOADING]] | [[skills/INDEX]]
+
+
+## Related (graph)
+
+- [[skills/INDEX]]

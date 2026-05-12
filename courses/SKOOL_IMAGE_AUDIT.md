@@ -285,3 +285,9 @@ updated: 2026-03-30
 
 ## Obsidian Links
 - [[courses/INDEX]] | [[brain/CEO_OPERATING_SYSTEM]]
+
+
+## Related (graph)
+
+- [[courses/INDEX]]
+- [[courses/AGENCY_ACCELERANTS_FRAMEWORK]]

@@ -18,3 +18,9 @@ Protocol:
 
 Hard limit: 3 attempts per hypothesis. If stuck, escalate with a structured report.
 Never apply a fix without understanding WHY the bug exists.
+
+## Related
+
+- [[.claude/agents/INDEX]]
+- [[.claude/agents/architect]]
+- [[.claude/agents/code-reviewer]]

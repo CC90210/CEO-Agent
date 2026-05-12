@@ -34,3 +34,9 @@ Memory: [fresh / stale (N days)]
 Workspace: [clean / N issues]
 Sync: [aligned / N files out of sync]
 ```
+
+## Related
+
+- [[.claude/skills/INDEX]]
+- [[.claude/skills/codex-adversarial-review]]
+- [[.claude/skills/codex-cancel]]

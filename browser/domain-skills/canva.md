@@ -27,3 +27,11 @@ Approval required before sharing, publishing, deleting, exporting sensitive clie
 - [[browser/README]]
 - [[browser/SAFETY]]
 - [[skills/browser-harness/SKILL]]
+
+
+## Related (graph)
+
+- [[browser/domain-skills/README]]
+- [[browser/domain-skills/browser-use-cloud]]
+- [[browser/domain-skills/client-portal-template]]
+- [[browser/domain-skills/github]]

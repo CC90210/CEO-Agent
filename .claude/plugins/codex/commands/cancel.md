@@ -6,3 +6,9 @@ allowed-tools: Bash(node:*)
 ---
 
 !`node "${CLAUDE_PLUGIN_ROOT}/scripts/codex-companion.mjs" cancel $ARGUMENTS`
+
+## Related
+
+- [[.claude/plugins/codex/commands/INDEX]]
+- [[.claude/plugins/codex/commands/adversarial-review]]
+- [[.claude/plugins/codex/commands/rescue]]

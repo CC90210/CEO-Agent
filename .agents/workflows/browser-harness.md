@@ -33,3 +33,17 @@ print(page_info())
 - Do not store secrets, cookies, tokens, private account screenshots, or raw coordinates.
 - Do not bypass `scripts/send_gateway.py` for outbound communication.
 - Do not click irreversible UI actions without explicit CC approval.
+
+## Related
+
+- [[.agents/workflows/INDEX]]
+- [[.agents/workflows/ceo-briefing]]
+- [[.agents/workflows/cli-anything]]
+
+
+## Related (graph)
+
+- [[.agents/workflows/INDEX]]
+- [[.agents/workflows/ceo-briefing]]
+- [[.agents/workflows/cli-anything]]
+- [[.agents/workflows/client-health-report]]

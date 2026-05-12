@@ -13,3 +13,9 @@ Run:
 ```bash
 node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" cancel $ARGUMENTS
 ```
+
+## Related
+
+- [[.claude/skills/INDEX]]
+- [[.claude/skills/codex-adversarial-review]]
+- [[.claude/skills/codex-rescue]]
