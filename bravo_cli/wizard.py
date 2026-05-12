@@ -2156,8 +2156,6 @@ def step_data_sovereignty(profile: str, step_num: int, total: int) -> None:
     The dashboard's lib/db.ts:getDbBackend() reads EMPIRE_DATA_BACKEND at
     request time, dispatches reads accordingly via lib/turso-queries.ts.
     """
-    import secrets as _secrets
-
     step_header(step_num, total, "Data sovereignty",
                 "Where should this tenant's client data live?")
 
@@ -2190,10 +2188,9 @@ def step_data_sovereignty(profile: str, step_num: int, total: int) -> None:
             db_path = str(bravo_dir / f"{profile}.db")
         write_env("EMPIRE_DATA_BACKEND", backend)
         write_env("TURSO_DB_PATH", db_path)
-        # Auth token is unused for local file mode but write a generated one
-        # so a later switch to hosted Turso has a value to rotate from.
-        if not (read_env("TURSO_AUTH_TOKEN") or os.environ.get("TURSO_AUTH_TOKEN")):
-            write_env("TURSO_AUTH_TOKEN", _secrets.token_hex(32))
+        # No TURSO_AUTH_TOKEN for file: mode — libSQL doesn't authenticate
+        # local file URLs. When/if we add hosted-Turso support, that step
+        # collects the token at the same time as the URL.
         print(f"  {GREEN(OK)} Backend: {CYAN('Local libSQL')}")
         print(f"  {GREEN(OK)} DB path: {CYAN(db_path)}")
         print(f"  {DIM('Bootstrap the schema before first read:')} "
@@ -2472,7 +2469,20 @@ def step_dashboard_pair(profile: str, step_num: int, total: int) -> None:
     dn = read_env("USER_PREFERRED_NAME") or ""
     if dn:
         profile_payload["display_name"] = dn
-    brand = read_env("BRAND") or read_env("USER_BRAND") or ""
+    # Brand fallback chain — none of the legacy keys (BRAND / USER_BRAND) are
+    # actually written by the wizard's steps. The values that DO exist after a
+    # real run are USER_BUSINESS_NAME (every profile, via step_user_identity)
+    # and BRAVO_PRIMARY_BRAND (bravo profile, via step_agent_questions). Read
+    # all of them; first non-empty wins. Without this, /api/auth/pair never
+    # receives a brand → applyClientProvisioningProfile can't route SunBiz /
+    # Suga tenants to their dashboard profile slugs.
+    brand = (
+        read_env("BRAND")
+        or read_env("USER_BRAND")
+        or read_env("USER_BUSINESS_NAME")
+        or read_env("BRAVO_PRIMARY_BRAND")
+        or ""
+    )
     if brand:
         profile_payload["brand"] = brand
     profile_payload["primary_agent"] = profile  # bravo / atlas / maven / aura / hermes
