@@ -1,18 +1,9 @@
 /**
- * Tenant-aware navigation configuration.
+ * Navigation primitives for the command-center shell.
  *
- * The dashboard at agent-dashboard-cc90210.vercel.app serves multiple
- * tenants from a single Vercel deployment. The sidebar swaps based on
- * the authed profile's tenant slug:
- *
- *   - "sun"    → Sun Biz Funding ops nav (Leads, Contacts, Applications,
- *                Offers, Funded Deals, Renewals, Commissions, SMS, etc.)
- *   - default  → CC's empire command center nav (Today, Pipeline,
- *                Reasoning, Playbook, Agents, etc.)
- *
- * Adding a new tenant: add a new const NAV array + a new branch in
- * getNavForTenant(). Do NOT special-case nav inside Sidebar.tsx — the
- * sidebar must stay tenant-agnostic.
+ * Each client/product profile (see lib/client-profiles.ts) picks one of
+ * these nav arrays and can layer its own branding, runtime, and transport
+ * rules on top. Sidebar.tsx stays fully tenant-agnostic.
  */
 
 import {
@@ -121,22 +112,3 @@ export const SUN_NAV: NavItem[] = [
   { group: "System", href: "/embed", label: "Embed", icon: Code2 },
   { group: "System", href: "/settings", label: "Settings", icon: Settings },
 ];
-
-/**
- * Resolve a tenant slug to the right nav config. Defaults to CC's nav
- * when the slug is null/unknown so a misconfigured tenant doesn't strand
- * the operator on an empty sidebar.
- */
-export function getNavForTenant(tenantSlug: string | null | undefined): NavItem[] {
-  if (tenantSlug === "sun") return SUN_NAV;
-  return CC_NAV;
-}
-
-/**
- * Resolve a tenant slug to a brand-aware product subtitle. Renders under
- * the brand name in the sidebar header.
- */
-export function getSubtitleForTenant(tenantSlug: string | null | undefined): string {
-  if (tenantSlug === "sun") return "Operations Command";
-  return "Agent Command Center";
-}

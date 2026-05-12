@@ -583,16 +583,21 @@ export async function mrrHistory(days = 30): Promise<
 }
 
 // ============================================================================
-// Sun Biz Funding (tenant_slug = "sun") — Funding Operations queries
+// Sun Biz Funding shared-shell fallback readers
 // ----------------------------------------------------------------------------
-// These helpers back the /leads, /renewals, /sms, /commissions, etc. pages
-// served when the authed profile resolves to the Sun tenant.
+// These helpers back the current /leads, /renewals, /sms, /commissions, etc.
+// pages while the command-center shell is still rendering Sun inside the
+// empire app.
+//
+// Operator correction (2026-05-11): Sun's long-term client data architecture
+// is Turso/libSQL, not Supabase row-level tenancy. These Supabase readers are
+// therefore transitional scaffolding only — they keep the shared shell
+// rendering clean empty states until the dedicated Turso adapter lands.
 //
 // Defensive note: the funded_deals / sms_sends / commissions / applications
-// tables don't exist in Phase 1 — they land in migrations 037-047 (Phase 2).
-// Every helper here catches PostgREST "relation not found" errors and
-// returns empty/zero shapes so the Phase 1 dashboard renders cleanly
-// (empty-state cards) instead of 500-ing every Sun page.
+// tables don't exist in Phase 1 — they land in the future client schema.
+// Every helper here catches "relation not found" errors and returns empty/zero
+// shapes so the dashboard never 500s while the data layer is in flight.
 // ============================================================================
 
 /** Funded-deal row shape we render. Mirrors the migration 041 schema. */

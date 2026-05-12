@@ -6,7 +6,10 @@ import { getActiveProfile } from "@/lib/queries";
 import { getServiceSupabase } from "@/lib/supabase-server";
 import { unreadCountDb } from "@/lib/agent-inbox-db";
 import { safe } from "@/lib/api-helpers";
-import { getNavForTenant, getSubtitleForTenant } from "@/lib/nav-config";
+import {
+  getClientCommandCenterProfile,
+  resolveClientProfileSlug,
+} from "@/lib/client-profiles";
 
 export const metadata: Metadata = {
   title: "OASIS AI · Agent Command Center",
@@ -37,7 +40,7 @@ export default async function RootLayout({
   let primaryAgentLive = false;
   let bridgeOnline = false;
   let inboxUnread = 0;
-  let tenantSlug: string | null = null;
+  let tenantProfileSlug: string | null = null;
   if (!isFullBleed) {
     // Each side-channel query is wrapped independently — one failure
     // (Hermes snapshot row missing, bridge_pairings table absent in dev,
@@ -98,23 +101,29 @@ export default async function RootLayout({
     }
     if (tenantId) {
       inboxUnread = await safe("layout.inbox_unread", unreadCountDb(tenantId), 0);
-      // Resolve tenant slug for tenant-aware sidebar nav. One extra cheap
-      // query — guarded by safe() so an RLS hiccup never blanks the shell.
-      tenantSlug = await safe(
-        "layout.tenant_slug",
+      // Resolve the dashboard/client profile slug. Tenants can override the
+      // raw tenant slug via tenants.custom_fields.command_center_profile_slug
+      // so one command-center shell can render different products cleanly.
+      tenantProfileSlug = await safe(
+        "layout.tenant_profile_slug",
         (async () => {
           const db = getServiceSupabase();
           const r = await db
             .from("tenants")
-            .select("slug")
+            .select("slug, custom_fields")
             .eq("id", tenantId)
             .maybeSingle();
-          return (r.data as { slug?: string } | null)?.slug || null;
+          const tenant = (r.data as { slug?: string; custom_fields?: Record<string, unknown> | null } | null);
+          return resolveClientProfileSlug({
+            slug: tenant?.slug || "",
+            custom_fields: tenant?.custom_fields || {},
+          });
         })(),
         null
       );
     }
   }
+  const clientProfile = getClientCommandCenterProfile(tenantProfileSlug);
 
   return (
     <html lang="en">
@@ -124,12 +133,12 @@ export default async function RootLayout({
         ) : (
           <>
             <Sidebar
-              brand={profile?.brand || (tenantSlug === "sun" ? "Sun Biz Funding" : "OASIS AI")}
-              subtitle={getSubtitleForTenant(tenantSlug)}
-              items={getNavForTenant(tenantSlug)}
+              brand={profile?.brand || clientProfile.brand}
+              subtitle={clientProfile.subtitle}
+              items={clientProfile.nav}
               operatorName={profile?.display_name || profile?.full_name || "Operator"}
               operatorEmail={profile?.email}
-              primaryAgent={profile?.primary_agent || (tenantSlug === "sun" ? "sunbiz" : "bravo")}
+              primaryAgent={profile?.primary_agent || clientProfile.primaryAgent}
               primaryAgentLive={primaryAgentLive}
               bridgeOnline={bridgeOnline}
               inboxUnread={inboxUnread}
@@ -138,12 +147,8 @@ export default async function RootLayout({
               <div className="mx-auto max-w-7xl px-8 py-8">{children}</div>
               <footer className="mx-auto max-w-7xl px-8 py-6 text-xs text-fg-faint">
                 <div className="border-t border-bg-border pt-4 flex justify-between">
-                  <span>
-                    {tenantSlug === "sun"
-                      ? "Sun Biz Funding · Operations Command · v1.0"
-                      : "OASIS AI · Agent Command Center · v1.0"}
-                  </span>
-                  <span>{tenantSlug === "sun" ? "Funded deals over noise." : '"Only good things from now on."'}</span>
+                  <span>{clientProfile.footerLabel}</span>
+                  <span>{clientProfile.footerTagline}</span>
                 </div>
               </footer>
             </main>

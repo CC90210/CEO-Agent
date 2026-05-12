@@ -10,7 +10,16 @@ import {
   AlertTriangle,
 } from "lucide-react";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
+
+const SECURITY_ICONS = {
+  shieldCheck: ShieldCheck,
+  database: Database,
+  keyRound: KeyRound,
+  network: Network,
+  eye: Eye,
+  alertTriangle: AlertTriangle,
+} as const;
 
 /**
  * /playbook/security — operator-facing summary of the security model.
@@ -23,7 +32,7 @@ export const dynamic = "force-static";
 type Section = {
   title: string;
   subtitle: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
+  icon: keyof typeof SECURITY_ICONS;
   body: React.ReactNode;
 };
 
@@ -31,7 +40,7 @@ const SECTIONS: Section[] = [
   {
     title: "Multi-tenant isolation",
     subtitle: "One shared Supabase. RLS at every row that matters.",
-    icon: Database,
+    icon: "database",
     body: (
       <>
         <p>
@@ -59,7 +68,7 @@ const SECTIONS: Section[] = [
   {
     title: "Encryption at rest",
     subtitle: "AES-256-GCM with scrypt KDF. Master key in Vercel only.",
-    icon: KeyRound,
+    icon: "keyRound",
     body: (
       <>
         <p>
@@ -89,7 +98,7 @@ const SECTIONS: Section[] = [
   {
     title: "Bridge token lifecycle",
     subtitle: "Mint → SHA-256 hash → store. Idempotent rotation by fingerprint.",
-    icon: Network,
+    icon: "network",
     body: (
       <>
         <p>
@@ -125,7 +134,7 @@ const SECTIONS: Section[] = [
   {
     title: "HMAC self-pair",
     subtitle: "Per-profile shared secret. Constant-time compare server-side.",
-    icon: ShieldCheck,
+    icon: "shieldCheck",
     body: (
       <>
         <p>
@@ -151,7 +160,7 @@ const SECTIONS: Section[] = [
   {
     title: "Audit trail",
     subtitle: "Every cron, every chat, every pair. Tenant-scoped.",
-    icon: Eye,
+    icon: "eye",
     body: (
       <>
         <p>
@@ -175,7 +184,7 @@ const SECTIONS: Section[] = [
   {
     title: "Out of scope (and why)",
     subtitle: "What we don't defend against, with rationale.",
-    icon: AlertTriangle,
+    icon: "alertTriangle",
     body: (
       <>
         <p>
@@ -239,7 +248,7 @@ export default function SecurityPage() {
       </Card>
 
       {SECTIONS.map((section) => {
-        const Icon = section.icon;
+        const Icon = SECURITY_ICONS[section.icon];
         return (
           <Card
             key={section.title}

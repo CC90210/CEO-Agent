@@ -1,32 +1,44 @@
 import { NextResponse } from "next/server";
-import { spawn } from "node:child_process";
-import { getActiveProfile } from "@/lib/queries";
+import { dispatchSmsThroughClientAgent } from "@/lib/client-agent";
+import {
+  getClientCommandCenterProfile,
+  resolveClientProfileSlug,
+} from "@/lib/client-profiles";
+import { getActiveProfile, getTenant } from "@/lib/queries";
 
 /**
- * POST /api/sms/send — Phase 1 SMS dispatch.
+ * POST /api/sms/send — client-agent SMS dispatch.
  *
- * The dashboard never holds Twilio credentials directly; instead it shells
- * out to the Sun Biz Agent's sms_engine.py (which lives in the sibling
- * Marketing-Agent repo and reads .env.agents). This keeps the dashboard
- * stateless and matches the "MCPs break, CLIs don't" pattern in
- * brain/QUICK_REFERENCE.md.
+ * The dashboard never holds Twilio credentials directly. It resolves the
+ * active client's command-center profile and then:
+ *   1. prefers a hosted client-agent HTTP endpoint (Vercel/Fly/Render-safe)
+ *   2. falls back to the local sms_engine.py only in non-production dev
  *
- * Auth: gated on the active operator profile. Only Sun-tenant users can
- * dispatch SMS for now — CC's tenant gets a 403 with a clear message so
- * we don't accidentally cross tenants.
+ * This lets the shared command-center shell drive separate client agents
+ * without hardcoding Sun-specific process-spawn behavior into Vercel paths.
  *
- * Local-only: this route shells a Python process — it will not function
- * when deployed to Vercel. Vercel Phase 2 will hit a hosted SMS gateway
- * service or call Twilio's REST API directly via fetch().
+ * Auth: gated on the active operator profile. Only client profiles with
+ * sms.enabled=true can dispatch through this route.
  */
 export async function POST(req: Request) {
-  // Resolve operator tenant — only Sun (and missing tenant for legacy
-  // localdev) can dispatch SMS through this route.
   const profile = await getActiveProfile().catch(() => null);
   if (!profile) {
     return NextResponse.json(
       { ok: false, error: "No active operator profile", status: "auth_error" },
       { status: 401 }
+    );
+  }
+  const tenant = profile.tenant_id ? await getTenant(profile.tenant_id).catch(() => null) : null;
+  const tenantProfileSlug = resolveClientProfileSlug(tenant);
+  const clientProfile = getClientCommandCenterProfile(tenantProfileSlug);
+  if (!clientProfile.sms?.enabled) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: `SMS is not enabled for client profile ${clientProfile.id}`,
+        status: "unsupported",
+      },
+      { status: 403 }
     );
   }
 
@@ -63,72 +75,11 @@ export async function POST(req: Request) {
     );
   }
 
-  const scriptPath =
-    process.env.SUNBIZ_AGENT_PATH ||
-    "C:\\Users\\User\\Marketing-Agent\\scripts\\sms_engine.py";
-  const pythonBin = process.env.PYTHON_BIN || "python";
-
-  return new Promise<NextResponse>((resolve) => {
-    const proc = spawn(
-      pythonBin,
-      [scriptPath, "send", "--to", to, "--body", body, "--provider", "twilio", "--json"],
-      { shell: false }
-    );
-
-    let stdout = "";
-    let stderr = "";
-    proc.stdout.on("data", (chunk: Buffer) => {
-      stdout += chunk.toString("utf-8");
-    });
-    proc.stderr.on("data", (chunk: Buffer) => {
-      stderr += chunk.toString("utf-8");
-    });
-    proc.on("error", (err) => {
-      resolve(
-        NextResponse.json(
-          {
-            ok: false,
-            error: `failed to spawn sms_engine.py: ${err.message}`,
-            status: "spawn_error",
-          },
-          { status: 500 }
-        )
-      );
-    });
-    proc.on("close", (code) => {
-      // sms_engine.py exits 0 on success, 1 on failure — but the JSON
-      // body always carries the truth via { ok }. We parse stdout first.
-      try {
-        const parsed = JSON.parse(stdout);
-        resolve(NextResponse.json(parsed, { status: parsed.ok ? 200 : 422 }));
-      } catch {
-        resolve(
-          NextResponse.json(
-            {
-              ok: false,
-              error: `sms_engine.py produced non-JSON output (exit ${code})`,
-              status: "spawn_error",
-              stdout: stdout.slice(0, 500),
-              stderr: stderr.slice(0, 500),
-            },
-            { status: 500 }
-          )
-        );
-      }
-    });
-
-    // Hard 30-second timeout — Twilio's API is normally sub-second; if
-    // we're past 30s something's stuck (DNS, credentials prompt, etc).
-    setTimeout(() => {
-      if (!proc.killed) {
-        proc.kill();
-        resolve(
-          NextResponse.json(
-            { ok: false, error: "sms_engine.py timed out", status: "timeout" },
-            { status: 504 }
-          )
-        );
-      }
-    }, 30_000);
+  const result = await dispatchSmsThroughClientAgent({
+    clientProfile,
+    tenantSlug: tenantProfileSlug,
+    to,
+    body,
   });
+  return NextResponse.json(result.body, { status: result.status });
 }

@@ -8,7 +8,7 @@ import {
 import { Briefcase, DollarSign, Megaphone, Wrench, Scale, ArrowRight, Check, FileText } from "lucide-react";
 import { getAgentInfo } from "@/lib/agents";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 const PILLAR_ICON: Record<DocPillar, React.ComponentType<{ className?: string }>> = {
   ceo: Briefcase,
