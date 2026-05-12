@@ -14,13 +14,21 @@
  */
 
 import { getTursoClient } from "@/lib/turso";
-import type { DailyPlan } from "@/lib/supabase";
+import type { DailyPlan, Lead } from "@/lib/supabase";
 import { operatorDateKey } from "@/lib/dates";
 
-let _warnedTurso = false;
+function _rowToObject(columns: string[], row: unknown[]): Record<string, unknown> {
+  const obj: Record<string, unknown> = {};
+  columns.forEach((c, i) => {
+    obj[c] = row[i];
+  });
+  return obj;
+}
+
+const _warned = new Set<string>();
 function _warnOnce(scope: string, err: unknown) {
-  if (_warnedTurso) return;
-  _warnedTurso = true;
+  if (_warned.has(scope)) return;
+  _warned.add(scope);
   console.warn(`[turso-queries:${scope}] Turso read failed — check libSQL bootstrap:`, err);
 }
 
@@ -33,12 +41,7 @@ export async function getTodayPlanTurso(profileId: string): Promise<DailyPlan | 
     });
     const row = r.rows?.[0];
     if (!row) return null;
-    // libSQL rows are array-shaped; column metadata lives on r.columns.
-    const cols = r.columns;
-    const obj: Record<string, unknown> = {};
-    cols.forEach((c, i) => {
-      obj[c] = row[i];
-    });
+    const obj = _rowToObject(r.columns, row as unknown as unknown[]);
     // Schedule is stored as TEXT (JSON) in SQLite/libSQL; parse it.
     if (typeof obj.schedule === "string") {
       try {
@@ -50,6 +53,35 @@ export async function getTodayPlanTurso(profileId: string): Promise<DailyPlan | 
     return obj as unknown as DailyPlan;
   } catch (err) {
     _warnOnce("getTodayPlanTurso", err);
+    return null;
+  }
+}
+
+/**
+ * Tenant-scoped recent leads (SunBiz "Leads" page + the lead-discovery surface).
+ * Mirrors recentLeads() options: include_archived, include_no_email, include_lost.
+ *
+ * Returns null on Turso failure so the caller falls back to Supabase. Returns
+ * [] on empty result (not a fallback — genuine empty state).
+ */
+export async function recentLeadsTurso(
+  tenantId: string,
+  limit = 30,
+  opts?: { include_archived?: boolean; include_no_email?: boolean; include_lost?: boolean }
+): Promise<Lead[] | null> {
+  try {
+    const client = getTursoClient();
+    const filters = ["tenant_id = ?"];
+    const args: (string | number)[] = [tenantId];
+    if (!opts?.include_archived) filters.push("status != 'archived'");
+    if (!opts?.include_lost) filters.push("status != 'lost'");
+    if (!opts?.include_no_email) filters.push("email IS NOT NULL");
+    const sql = `SELECT * FROM leads WHERE ${filters.join(" AND ")} ORDER BY updated_at DESC LIMIT ?`;
+    args.push(limit);
+    const r = await client.execute({ sql, args });
+    return (r.rows || []).map((row) => _rowToObject(r.columns, row as unknown as unknown[]) as unknown as Lead);
+  } catch (err) {
+    _warnOnce("recentLeadsTurso", err);
     return null;
   }
 }
