@@ -278,5 +278,11 @@ if [ "$SKIP_WIZARD" -eq 0 ]; then
     printf '  %sBootstrap complete. Launching wizard...%s\n' "$C_WHITE" "$C_RESET"
     printf '%s============================================%s\n\n' "$C_GREEN" "$C_RESET"
     cd "$WIZARD_REPO"
-    "$VENV_PY" "$WIZARD_ENTRY" setup
+    # curl ... | bash gives this script a piped stdin. Hand the wizard the
+    # real terminal instead, or its first input() will see EOF and exit.
+    if [ -r /dev/tty ]; then
+        "$VENV_PY" "$WIZARD_ENTRY" setup </dev/tty
+    else
+        "$VENV_PY" "$WIZARD_ENTRY" setup
+    fi
 fi

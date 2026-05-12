@@ -17,6 +17,7 @@ Zero external dependencies — stdlib only (urllib, getpass, json, re).
 
 from __future__ import annotations
 
+import contextlib
 import getpass
 import datetime as dt
 import json
@@ -87,6 +88,111 @@ def _supports_unicode() -> bool:
     return "utf" in enc
 
 _UNICODE = _supports_unicode()
+
+# Interactive prompts sometimes start from a piped bootstrap command
+# (for example: curl ... | bash). In that case sys.stdin is not the user's
+# terminal, so plain input() sees EOF and the wizard exits. When stdin still
+# points at the original process stream, fall back to the real console.
+_CONSOLE_IN = None
+_CONSOLE_OUT = None
+
+
+def _console_device_paths() -> tuple[str, str]:
+    if os.name == "nt":
+        return ("CONIN$", "CONOUT$")
+    return ("/dev/tty", "/dev/tty")
+
+
+def _should_use_console_fallback() -> bool:
+    try:
+        stdin_is_tty = sys.stdin.isatty()
+    except Exception:
+        stdin_is_tty = False
+    return not stdin_is_tty and sys.stdin is sys.__stdin__
+
+
+def _open_console_input():
+    global _CONSOLE_IN
+    if _CONSOLE_IN is None or _CONSOLE_IN.closed:
+        in_path, _ = _console_device_paths()
+        _CONSOLE_IN = open(
+            in_path,
+            "r",
+            encoding=(sys.stdin.encoding or "utf-8"),
+            errors="replace",
+        )
+    return _CONSOLE_IN
+
+
+def _open_console_output():
+    global _CONSOLE_OUT
+    if _CONSOLE_OUT is None or _CONSOLE_OUT.closed:
+        _, out_path = _console_device_paths()
+        _CONSOLE_OUT = open(
+            out_path,
+            "w",
+            encoding=(sys.stdout.encoding or "utf-8"),
+            errors="replace",
+            buffering=1,
+        )
+    return _CONSOLE_OUT
+
+
+def _read_line(prompt_text: str) -> str:
+    if not _should_use_console_fallback():
+        return input(prompt_text)
+    out = _open_console_output()
+    out.write(prompt_text)
+    out.flush()
+    raw = _open_console_input().readline()
+    if raw == "":
+        raise EOFError
+    return raw.rstrip("\r\n")
+
+
+def _pause(message: str) -> None:
+    try:
+        _read_line(f"  {message} ")
+    except (EOFError, KeyboardInterrupt):
+        print()
+        sys.exit(130)
+
+
+def _choice_with_default(prompt_text: str, default: str) -> str:
+    try:
+        raw = _read_line(prompt_text).strip()
+    except (EOFError, KeyboardInterrupt):
+        return default
+    return raw or default
+
+
+def _subprocess_console_kwargs(
+    stack: contextlib.ExitStack,
+) -> dict[str, object]:
+    if not _should_use_console_fallback():
+        return {}
+    in_path, out_path = _console_device_paths()
+    try:
+        stdin_fh = stack.enter_context(
+            open(
+                in_path,
+                "r",
+                encoding=(sys.stdin.encoding or "utf-8"),
+                errors="replace",
+            )
+        )
+        stdout_fh = stack.enter_context(
+            open(
+                out_path,
+                "w",
+                encoding=(sys.stdout.encoding or "utf-8"),
+                errors="replace",
+                buffering=1,
+            )
+        )
+    except OSError:
+        return {}
+    return {"stdin": stdin_fh, "stdout": stdout_fh, "stderr": stdout_fh}
 
 # ── Style helpers ─────────────────────────────────────────────────────────────
 
@@ -1183,7 +1289,7 @@ def prompt(label: str, default: str | None = None, required: bool = False) -> st
         hint = f" {DIM('(Enter to skip)')}"
     while True:
         try:
-            raw = input(f"  {label}{hint}: ").strip()
+            raw = _read_line(f"  {label}{hint}: ").strip()
         except (EOFError, KeyboardInterrupt):
             print()
             sys.exit(130)
@@ -1198,7 +1304,7 @@ def prompt(label: str, default: str | None = None, required: bool = False) -> st
 def yes_no(label: str, default: bool = False) -> bool:
     hint = "Y/n" if default else "y/N"
     try:
-        raw = input(f"  {label} [{hint}]: ").strip().lower()
+        raw = _read_line(f"  {label} [{hint}]: ").strip().lower()
     except (EOFError, KeyboardInterrupt):
         print()
         sys.exit(130)
@@ -1211,7 +1317,7 @@ def secret_prompt(label: str) -> str:
         return getpass.getpass(f"  {label}: ").strip()
     except Exception:
         print(f"  {YELLOW('(input will be visible)')}")
-        return input(f"  {label}: ").strip()
+        return _read_line(f"  {label}: ").strip()
 
 # ── Validators (optional; return (ok, detail)) ────────────────────────────────
 
@@ -1427,7 +1533,7 @@ def telegram_flow(profile_name: str) -> bool:
         _tg_api(token, "getUpdates", {"offset": -1})
     except Exception:
         pass
-    input(f"  {DIM('Press Enter once you have messaged your bot...')} ")
+    _pause(DIM('Press Enter once you have messaged your bot...'))
     print(f"  {DIM(ARROW + ' Listening for a fresh message (up to 120s)...')}")
     chat_id = tg_wait_for_chat_id(token, timeout=120)
     if chat_id is None:
@@ -1582,10 +1688,7 @@ def step_welcome() -> None:
     print(f"  {DIM('Keys go to')} {CYAN(str(ENV_PATH))}  {DIM('(0600 on POSIX)')}.")
     print(f"  {DIM('Nothing is uploaded; you stay in full control.')}")
     print()
-    try:
-        input(f"  {BOLD('Press Enter when ready...')} ")
-    except (EOFError, KeyboardInterrupt):
-        sys.exit(130)
+    _pause(BOLD('Press Enter when ready...'))
 
 def step_profile() -> str:
     # Header is deliberately unnumbered — step count depends on which agent
@@ -1637,11 +1740,7 @@ def _confirm_profile(slug: str) -> None:
     print(f"     {DIM('Focus:')}  {p['tagline']}")
     print(f"  {color('━' * 62)}")
     print()
-    try:
-        input(f"  {DIM('Press Enter to continue with ' + BOLD(p['name']) + '...')} ")
-    except (EOFError, KeyboardInterrupt):
-        print()
-        sys.exit(130)
+    _pause(DIM('Press Enter to continue with ' + BOLD(p['name']) + '...'))
 
 
 # ── Dynamic questions + repo clone steps ──────────────────────────────────────
@@ -2211,10 +2310,7 @@ def step_environment(step_num: int, total: int) -> None:
     print(f"    {CYAN('2)')} Cloud — VPS / always-on, dashboard accessed remotely")
     print()
     default = "1" if detected == "local" else "2"
-    try:
-        choice = input(f"  Choose [1/2] (default {default}): ").strip() or default
-    except (EOFError, KeyboardInterrupt):
-        choice = default
+    choice = _choice_with_default(f"  Choose [1/2] (default {default}): ", default)
     target = "local" if choice == "1" else "cloud"
     write_env("EMPIRE_DEPLOY_TARGET", target)
     print(f"  {GREEN(OK)} Target: {CYAN(target)}")
@@ -2267,10 +2363,7 @@ def step_data_sovereignty(profile: str, step_num: int, total: int) -> None:
     if pii_heavy:
         print(f"  {DIM('PII-heavy profile — Local is the default. Press Enter to accept.')}")
     print()
-    try:
-        choice = input(f"  Choose [1/2] (default {default}): ").strip() or default
-    except (EOFError, KeyboardInterrupt):
-        choice = default
+    choice = _choice_with_default(f"  Choose [1/2] (default {default}): ", default)
 
     if choice == "1":
         backend = "turso_local"
@@ -3003,7 +3096,9 @@ def run_wizard(profile_override: str | None = None) -> int:
         argv = [sys.executable, str(REPO_ROOT / "bravo_cli" / "main.py"), "setup"]
         if profile_override:
             argv += ["--profile", profile_override]
-        return subprocess.call(argv, env=env, cwd=str(REPO_ROOT))
+        with contextlib.ExitStack() as stack:
+            stdio_kwargs = _subprocess_console_kwargs(stack)
+            return subprocess.call(argv, env=env, cwd=str(REPO_ROOT), **stdio_kwargs)
 
     try:
         step_welcome()
