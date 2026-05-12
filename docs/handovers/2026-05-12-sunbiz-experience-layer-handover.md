@@ -43,12 +43,16 @@ Hotfix shipped in `Business-Empire-Agent` commit `1e1d5e25041b328797f2ecf7d4d1c1
 
 - `install.sh`
   - hands the Python wizard `/dev/tty` when launched from the piped bootstrap flow
+  - installer copy now explicitly mentions the client profiles `Solara (SunBiz)` and `Suga`
 - `bravo_cli/wizard.py`
   - adds console fallback input helpers so prompts can recover the real terminal even if stdin is not a TTY
   - routes pause screens and defaulted chooser prompts through the safe input path
   - reattaches the self-restarted wizard subprocess to the console after auto-update
 - `bravo_cli/test_wizard.py`
   - adds regression coverage for console-fallback reads and default-selection behavior when console input is unavailable
+- `README.md` and `docs/INSTALL.md`
+  - public install docs now reflect the current `~/.oasis/wizard/...` bootstrap layout instead of the older `~/.bravo/...` wording
+  - setup copy now calls out the Solara/SunBiz and Suga client-profile options
 
 Why this matters:
 
