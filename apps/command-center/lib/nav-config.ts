@@ -82,10 +82,17 @@ export const CC_NAV: NavItem[] = [
 
 /**
  * Sun Biz Funding nav - funding-ops sidebar.
+ *
+ * Industry-relevant only: SMS, Email, CRM (Leads/Contacts/Applications), Deals,
+ * Playbook + Reasoning (operating manual + decision log). The OASIS-internal
+ * agent-handoff inbox (/inbox) is intentionally absent — clients don't need
+ * to see agent-to-agent message routing.
  */
 export const SUN_NAV: NavItem[] = [
   { group: "Operations", href: "/", label: "Dashboard", icon: "LayoutDashboard" },
-  { group: "Operations", href: "/agent", label: "Solara", icon: "Bot" },
+  { group: "Operations", href: "/agent", label: "Agents", icon: "Bot" },
+  { group: "Operations", href: "/reasoning", label: "Reasoning", icon: "Brain" },
+  { group: "Operations", href: "/playbook", label: "Playbook", icon: "BookOpen" },
   { group: "Pipeline", href: "/leads", label: "Leads", icon: "Users" },
   { group: "Pipeline", href: "/contacts", label: "Contacts", icon: "BookUser" },
   { group: "Pipeline", href: "/applications", label: "Applications", icon: "FileText", badgeKey: "applications" },
@@ -94,7 +101,6 @@ export const SUN_NAV: NavItem[] = [
   { group: "Deals", href: "/funded-deals", label: "Funded Deals", icon: "BadgeDollarSign" },
   { group: "Deals", href: "/renewals", label: "Renewals", icon: "RefreshCcw" },
   { group: "Deals", href: "/commissions", label: "Commissions", icon: "DollarSign" },
-  { group: "Outreach", href: "/inbox", label: "Inbox", icon: "Inbox", badgeKey: "inbox" },
   { group: "Outreach", href: "/sms", label: "SMS", icon: "MessageSquare", expandable: true },
   { group: "Outreach", href: "/email-blast", label: "Email Blast", icon: "Mail" },
   { group: "Network", href: "/lenders", label: "Lenders", icon: "Landmark" },
@@ -113,8 +119,9 @@ export const SUN_NAV: NavItem[] = [
  */
 export const SUGA_NAV: NavItem[] = [
   { group: "Operations", href: "/", label: "Dashboard", icon: "LayoutDashboard" },
-  { group: "Operations", href: "/agent", label: "Suga", icon: "Bot" },
-  { group: "Fans", href: "/inbox", label: "Inbox", icon: "Inbox", badgeKey: "inbox" },
+  { group: "Operations", href: "/agent", label: "Agents", icon: "Bot" },
+  { group: "Operations", href: "/reasoning", label: "Reasoning", icon: "Brain" },
+  { group: "Operations", href: "/playbook", label: "Playbook", icon: "BookOpen" },
   { group: "Fans", href: "/subscribers", label: "Subscribers", icon: "Users" },
   { group: "Fans", href: "/segments", label: "Segments", icon: "Sparkles" },
   { group: "Brand", href: "/posts", label: "Posts", icon: "Megaphone" },

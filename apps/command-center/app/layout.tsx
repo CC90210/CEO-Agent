@@ -145,6 +145,7 @@ export default async function RootLayout({
           <>
             <Sidebar
               brand={demoMode ? clientProfile.brand : profile?.brand || clientProfile.brand}
+              logo={clientProfile.logo}
               subtitle={clientProfile.subtitle}
               items={clientProfile.nav}
               operatorName={
