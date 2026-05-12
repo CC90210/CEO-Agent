@@ -129,7 +129,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-05-12
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Added authenticated Sun Biz demo switch for Command Center: /api/demo/sun sets a short-lived client-profile cookie, /api/demo/clear exits demo mode, and Sun leads/renewals/SMS pages avoid showing CC tenant data while demoing. Typecheck and production build pass.
+- **Result:** Hotfixed Command Center production crash digest 986327799: nav profiles now pass serializable icon keys to the client Sidebar instead of Lucide component functions. Typecheck and production build pass.
 
 *Last updated: 2026-05-12*
 
