@@ -98,16 +98,29 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
   },
   sunbiz: {
     key: "sunbiz",
-    label: "SunBiz",
-    role: "Funding operations agent · leads · SMS · deals · renewals",
+    label: "Solara",
+    role: "Sun Biz funding operations agent · leads · SMS · deals · renewals",
     tagline: "Funding ops · renewals · outreach",
     location: "C:\\Users\\User\\Marketing-Agent",
     colorRgb: "251, 191, 36",
     textClass: "text-amber-400",
     family: false,
     description:
-      "Client funding-ops agent for Sun Biz Funding. It routes leads, SMS outreach, applications, offers, funded deals, commissions, and renewal follow-up into the business command center.",
+      "Solara is the client funding-ops agent for Sun Biz Funding. It routes leads, SMS outreach, applications, offers, funded deals, commissions, and renewal follow-up into the business command center.",
     askMeAbout: "Show renewal opportunities · Send a compliant SMS follow-up · What deals need lender action?",
+  },
+  suga_sean: {
+    key: "suga_sean",
+    label: "Suga",
+    role: "Suga Sean O'Malley · fan ops + brand agent",
+    tagline: "Fans · merch · social · sponsorship",
+    location: "C:\\Users\\User\\APPS\\suga-sean-agent",
+    colorRgb: "236, 72, 153",
+    textClass: "text-pink-400",
+    family: false,
+    description:
+      "Suga is the client brand-ops agent for Sean O'Malley. It routes fan engagement, merch drops, social posting, and sponsorship triage into the business command center.",
+    askMeAbout: "Draft a fan reply pack · What merch drop converted best last week? · Which sponsorship leads are warm?",
   },
   // Registry key stays "life-preservation" so filesystem paths
   // (~/life-preservation, tmp/agent_inbox routing, sibling_repos, etc.)

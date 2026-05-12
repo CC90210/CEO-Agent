@@ -8,6 +8,9 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { redeemInvite } from "@/lib/team";
+
+const PENDING_INVITE_COOKIE = "pending_invite_token";
 
 export async function GET(req: NextRequest) {
   const { searchParams, origin } = req.nextUrl;
@@ -41,6 +44,20 @@ export async function GET(req: NextRequest) {
   const { data, error } = await supa.auth.exchangeCodeForSession(code);
   if (error || !data.user) {
     return NextResponse.redirect(`${origin}/login?err=${encodeURIComponent(error?.message || "session_failed")}`);
+  }
+
+  // If the user is redeeming an invite, attach them to the inviter's tenant
+  // instead of provisioning a new one. The /invite/[token] route stores the
+  // raw token in a short-lived cookie when the user wasn't yet authed.
+  const pendingInviteToken = req.cookies.get(PENDING_INVITE_COOKIE)?.value;
+  if (pendingInviteToken) {
+    res.cookies.set({ name: PENDING_INVITE_COOKIE, value: "", maxAge: 0, path: "/" });
+    const redeemed = await redeemInvite(pendingInviteToken, data.user.id);
+    if (redeemed.ok) {
+      // Skip provision — the redeemer is now a member of the inviter's tenant.
+      return res;
+    }
+    // Fall through to provision if the invite was invalid; the user still gets signed in.
   }
 
   // Best-effort provision: if no profile yet (OAuth first signup), create tenant + profile.

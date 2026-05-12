@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { Card, Stat, EmptyState, PageHeader, Tag } from "@/components/Card";
 import { MRRProgressChart } from "@/components/charts/MRRProgressChart";
 import { PipelineFunnel } from "@/components/charts/PipelineFunnel";
@@ -25,10 +26,17 @@ import {
   outreachReplyRate,
   activePipeline,
   topOpenLead,
+  getTenant,
 } from "@/lib/queries";
 import { computeStreak } from "@/lib/streak";
 import { safe } from "@/lib/api-helpers";
 import { GoalCountdownCard } from "@/components/GoalCountdownCard";
+import {
+  DEMO_CLIENT_PROFILE_COOKIE,
+  getClientCommandCenterProfileById,
+  resolveClientProfileSlug,
+} from "@/lib/client-profiles";
+import { SunBizDashboard } from "@/components/sunbiz/SunBizDashboard";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +54,24 @@ export default async function TodayPage() {
   }
 
   const tenantId = profile.tenant_id || "";
+  const demoProfileSlug = (await cookies()).get(DEMO_CLIENT_PROFILE_COOKIE)?.value || null;
+  const demoProfile = getClientCommandCenterProfileById(demoProfileSlug);
+  const tenantProfileSlug =
+    demoProfile.id !== "default"
+      ? demoProfile.id
+      : tenantId
+        ? await safe(
+          "today.tenant_profile_slug",
+          (async () => {
+            const tenant = await getTenant(tenantId);
+            return resolveClientProfileSlug(tenant);
+          })(),
+          null
+        )
+        : null;
+  if (tenantProfileSlug === "sun") {
+    return <SunBizDashboard demoMode={demoProfile.id === "sun"} />;
+  }
 
   // safe(label, p, fallback) imported from @/lib/api-helpers — used across
   // every dynamic page so one bad reader can't 500 the whole render. The
@@ -248,36 +274,56 @@ export default async function TodayPage() {
               }
             >
               {remaining.length === 0 && !finalizedAt ? (
-                <div className="rounded-lg border border-status-engaged/30 bg-status-engaged/5 p-4 text-sm text-status-engaged text-center">
+                <div className="rounded-lg border border-status-engaged/30 bg-status-engaged/5 p-4 text-sm text-status-engaged text-center mb-4">
                   Every item checked. Hit <strong>Finalize day</strong> below to wrap.
                 </div>
-              ) : (
-                <ul className="divide-y divide-bg-border">
-                  {remaining.map((slot) => {
-                    const i = plan.schedule.indexOf(slot);
-                    return (
-                      <li
-                        key={i}
-                        className={`grid grid-cols-[1.75rem_7rem_1fr] gap-3 py-3.5 ${
-                          slot.intensity === "break" ? "opacity-70" : ""
-                        }`}
+              ) : null}
+
+              {/* Unified schedule — items stay in time order; completed are dimmed in place. */}
+              <ul className="divide-y divide-bg-border">
+                {plan.schedule.map((slot, i) => {
+                  const done = !!slot.completed;
+                  const completedAt = (slot as Record<string, unknown>).completed_at as
+                    | string
+                    | null
+                    | undefined;
+                  const rowOpacity = done
+                    ? "opacity-50"
+                    : slot.intensity === "break"
+                      ? "opacity-70"
+                      : "";
+                  return (
+                    <li
+                      key={i}
+                      className={`grid grid-cols-[1.75rem_7rem_1fr] gap-3 py-3.5 transition-opacity ${rowOpacity}`}
+                    >
+                      <TodayBlockToggle index={i} initial={done} schedule={plan.schedule} />
+                      <div
+                        className={`text-xs font-bold tracking-wider self-start mt-0.5 ${done ? "text-fg-dim font-mono" : "text-accent"
+                          }`}
                       >
-                        <TodayBlockToggle index={i} initial={false} schedule={plan.schedule} />
-                        <div className="text-accent text-xs font-bold tracking-wider self-start mt-0.5">
-                          {formatTimeRange(slot.time_label)}
+                        {formatTimeRange(slot.time_label)}
+                      </div>
+                      <div>
+                        <div
+                          className={`font-semibold flex items-center gap-2 ${done ? "text-fg-muted line-through" : "text-fg"
+                            }`}
+                        >
+                          {!done && slot.intensity === "intense" && (
+                            <span className="text-accent">▲</span>
+                          )}
+                          {!done && slot.intensity === "break" && (
+                            <span className="text-fg-dim">○</span>
+                          )}
+                          <TodayBlockEditableField
+                            index={i}
+                            field="title"
+                            initial={slot.title || ""}
+                            schedule={plan.schedule}
+                            className="flex-1"
+                          />
                         </div>
-                        <div>
-                          <div className="text-fg font-semibold flex items-center gap-2">
-                            {slot.intensity === "intense" && <span className="text-accent">▲</span>}
-                            {slot.intensity === "break" && <span className="text-fg-dim">○</span>}
-                            <TodayBlockEditableField
-                              index={i}
-                              field="title"
-                              initial={slot.title || ""}
-                              schedule={plan.schedule}
-                              className="flex-1"
-                            />
-                          </div>
+                        {!done && (
                           <div className="text-fg-muted text-sm mt-1 leading-relaxed">
                             <TodayBlockEditableField
                               index={i}
@@ -287,50 +333,17 @@ export default async function TodayPage() {
                               multiline
                             />
                           </div>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-
-              {/* Completed today — collapsible, click-only-when-needed */}
-              {completed.length > 0 && (
-                <details className="mt-4 group">
-                  <summary className="cursor-pointer text-xs text-fg-muted hover:text-accent inline-flex items-center gap-1 select-none">
-                    <span className="group-open:rotate-90 transition-transform inline-block">›</span>
-                    {completed.length} completed today
-                  </summary>
-                  <ul className="mt-2 divide-y divide-bg-border opacity-60">
-                    {completed.map((slot) => {
-                      const i = plan.schedule.indexOf(slot);
-                      const completedAt = (slot as Record<string, unknown>).completed_at as
-                        | string
-                        | null
-                        | undefined;
-                      return (
-                        <li
-                          key={i}
-                          className="grid grid-cols-[1.75rem_7rem_1fr] gap-3 py-2"
-                        >
-                          <TodayBlockToggle index={i} initial={true} schedule={plan.schedule} />
-                          <div className="text-fg-dim text-xs font-mono self-start mt-0.5">
-                            {formatTimeRange(slot.time_label)}
+                        )}
+                        {done && completedAt && (
+                          <div className="text-[10px] text-status-engaged font-mono mt-0.5">
+                            ✓ {new Date(completedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
                           </div>
-                          <div>
-                            <div className="text-fg-muted text-sm line-through">{slot.title}</div>
-                            {completedAt && (
-                              <div className="text-[10px] text-status-engaged font-mono mt-0.5">
-                                ✓ {new Date(completedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
-                              </div>
-                            )}
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </details>
-              )}
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
 
               {/* Finalize day — operator's nightly checkpoint */}
               <div className="mt-5 pt-4 border-t border-bg-border flex items-center justify-between gap-3 flex-wrap">
