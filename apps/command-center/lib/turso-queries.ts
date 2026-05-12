@@ -85,3 +85,85 @@ export async function recentLeadsTurso(
     return null;
   }
 }
+
+export type PipelineBreakdown = {
+  stages: Record<string, number>;
+  total: number;
+  sources: Record<string, number>;
+};
+
+/**
+ * Aggregate lead counts by status + source — powers the dashboard's pipeline
+ * stat band. Same shape as pipelineBreakdown() in queries.ts.
+ *
+ * Returns null on Turso failure (caller falls back to Supabase). Returns an
+ * empty breakdown on empty result.
+ */
+export async function pipelineBreakdownTurso(
+  tenantId: string,
+  includeArchived = false
+): Promise<PipelineBreakdown | null> {
+  try {
+    const client = getTursoClient();
+    const sql = includeArchived
+      ? "SELECT status, source FROM leads WHERE tenant_id = ?"
+      : "SELECT status, source FROM leads WHERE tenant_id = ? AND status != 'archived'";
+    const r = await client.execute({ sql, args: [tenantId] });
+    const stages: Record<string, number> = {
+      new: 0, contacted: 0, qualified: 0, proposal: 0, won: 0, lost: 0,
+    };
+    const sources: Record<string, number> = {};
+    let total = 0;
+    for (const row of r.rows || []) {
+      const obj = _rowToObject(r.columns, row as unknown as unknown[]);
+      const s = (obj.status as string) || "new";
+      stages[s] = (stages[s] || 0) + 1;
+      const src = (obj.source as string) || "unknown";
+      sources[src] = (sources[src] || 0) + 1;
+      total += 1;
+    }
+    return { stages, total, sources };
+  } catch (err) {
+    _warnOnce("pipelineBreakdownTurso", err);
+    return null;
+  }
+}
+
+/**
+ * Date-windowed daily_plans for the streak computation. Returns the raw rows
+ * (plan_date + schedule + finalized_at); streak math lives in lib/streak.ts
+ * so the same logic powers both backends.
+ *
+ * Returns null on Turso failure (caller falls back to Supabase).
+ */
+export async function streakWindowTurso(
+  profileId: string,
+  oldestYmd: string
+): Promise<Array<{ plan_date: string; schedule: unknown; finalized_at: string | null }> | null> {
+  try {
+    const client = getTursoClient();
+    const r = await client.execute({
+      sql: "SELECT plan_date, schedule, finalized_at FROM daily_plans WHERE profile_id = ? AND plan_date >= ? ORDER BY plan_date DESC",
+      args: [profileId, oldestYmd],
+    });
+    return (r.rows || []).map((row) => {
+      const obj = _rowToObject(r.columns, row as unknown as unknown[]);
+      // schedule is TEXT(JSON) in SQLite — deserialize so callers iterate arrays.
+      if (typeof obj.schedule === "string") {
+        try {
+          obj.schedule = JSON.parse(obj.schedule);
+        } catch {
+          obj.schedule = [];
+        }
+      }
+      return {
+        plan_date: obj.plan_date as string,
+        schedule: obj.schedule,
+        finalized_at: (obj.finalized_at as string | null) ?? null,
+      };
+    });
+  } catch (err) {
+    _warnOnce("streakWindowTurso", err);
+    return null;
+  }
+}

@@ -19,6 +19,8 @@
  */
 
 import { getServiceSupabase } from "./supabase-server";
+import { getDbBackend } from "./db";
+import { streakWindowTurso } from "./turso-queries";
 
 export type StreakResult = {
   streak: number; // consecutive completed days back from today
@@ -54,17 +56,27 @@ export async function computeStreak(
   }
   const oldest = window[window.length - 1];
 
-  const { data, error } = await db
-    .from("daily_plans")
-    .select("plan_date, schedule, finalized_at")
-    .eq("profile_id", profileId)
-    .gte("plan_date", oldest)
-    .order("plan_date", { ascending: false });
-  if (error || !data) return FALLBACK;
-
   type Row = { plan_date: string; schedule: unknown; finalized_at: string | null };
+
+  // Tenant data sovereignty: route the streak window to Turso when the
+  // tenant opted into local libSQL. Falls back to Supabase on null.
+  let rows: Row[] | null = null;
+  if (getDbBackend() === "turso") {
+    rows = await streakWindowTurso(profileId, oldest);
+  }
+  if (rows === null) {
+    const { data, error } = await db
+      .from("daily_plans")
+      .select("plan_date, schedule, finalized_at")
+      .eq("profile_id", profileId)
+      .gte("plan_date", oldest)
+      .order("plan_date", { ascending: false });
+    if (error || !data) return FALLBACK;
+    rows = data as Row[];
+  }
+
   const byDate = new Map<string, Row>();
-  for (const row of data as Row[]) {
+  for (const row of rows) {
     byDate.set(row.plan_date, row);
   }
 

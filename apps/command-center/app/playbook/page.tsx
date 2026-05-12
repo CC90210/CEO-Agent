@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { Card, PageHeader, Tag } from "@/components/Card";
+import { listPlaybooks } from "@/lib/playbooks";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
 type PlaybookSection = {
   href: string;
   title: string;
@@ -75,9 +78,11 @@ const SECTIONS: PlaybookSection[] = [
   },
 ];
 
-export default function PlaybookIndex() {
+export default async function PlaybookIndex() {
+  const operatingManual = await listPlaybooks();
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-8 animate-fade-in">
       <PageHeader
         title="Playbook"
         subtitle="The canonical sales operating manual. Memorize the script. Drill the objections. Close the deal."
@@ -108,6 +113,40 @@ export default function PlaybookIndex() {
           );
         })}
       </div>
+
+      {operatingManual.length > 0 && (
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-lg font-bold text-fg">Operating manual</h2>
+            <p className="text-sm text-fg-muted">
+              Verbatim scripts and deployment runbooks. Read top-to-bottom on the
+              call. Don't paraphrase.
+            </p>
+          </div>
+          <div className="grid md:grid-cols-2 gap-4">
+            {operatingManual.map((file) => (
+              <Link
+                key={file.slug}
+                href={`/playbook/${file.slug}`}
+                className="group block"
+              >
+                <Card>
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-fg font-semibold group-hover:text-accent transition-colors">
+                        {file.title}
+                      </div>
+                      <div className="text-[11px] text-fg-dim mt-1 uppercase tracking-wider font-mono">
+                        {file.audience} · {file.slug}.md
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
