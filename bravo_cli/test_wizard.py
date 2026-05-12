@@ -113,11 +113,24 @@ class TestPromptEOF(unittest.TestCase):
 class TestProfileMapsConsistent(unittest.TestCase):
     """Every profile must exist in every map, or the wizard can crash mid-run."""
 
-    def test_six_profiles_identical(self):
-        expected = {"bravo", "atlas", "maven", "aura", "hermes", "custom"}
-        self.assertEqual(set(w.PROFILES), expected)
-        self.assertEqual(set(w.AGENT_REPOS), expected)
-        self.assertEqual(set(w.PROFILE_QUESTIONS), expected)
+    def test_profile_and_repo_maps_match_current_registry(self):
+        expected_profiles = {
+            "bravo",
+            "atlas",
+            "maven",
+            "aura",
+            "hermes",
+            "sunbiz",
+            "suga_sean",
+            "custom",
+        }
+        expected_repos = expected_profiles - {"suga_sean"}
+
+        self.assertEqual(set(w.PROFILES), expected_profiles)
+        self.assertEqual(set(w.PROFILE_QUESTIONS), expected_profiles)
+        self.assertEqual(set(w.AGENT_REPOS), expected_repos)
+        self.assertIsNone(w.AGENT_REPOS["custom"])
+        self.assertNotIn("suga_sean", w.AGENT_REPOS)
 
     def test_each_profile_has_color_and_role(self):
         for slug, cfg in w.PROFILES.items():
