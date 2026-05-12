@@ -106,7 +106,7 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
     textClass: "text-amber-400",
     family: false,
     description:
-      "Solara is the client funding-ops agent for Sun Biz Funding. It routes leads, SMS outreach, applications, offers, funded deals, commissions, and renewal follow-up into the business command center.",
+      "Solara is the Sun Biz digital employee. She routes leads, follow-up, applications, offers, funded deals, commissions, and renewals into one Command Center so the team can move faster with better visibility.",
     askMeAbout: "Show renewal opportunities · Send a compliant SMS follow-up · What deals need lender action?",
   },
   suga_sean: {

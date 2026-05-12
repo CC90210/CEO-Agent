@@ -234,17 +234,19 @@ export function Sidebar({
 function BrandMark({ logo }: { logo: "oasis" | "sunbiz" | "suga" }) {
   if (logo === "sunbiz") {
     return (
-      <div className="relative w-9 h-9 rounded-xl border border-amber-300/40 bg-gradient-to-br from-amber-300/25 via-orange-500/15 to-bg-elev flex items-center justify-center text-amber-200 shadow-[0_0_28px_-6px_rgba(251,191,36,0.7)]">
-        <SunMedium size={20} strokeWidth={2.2} />
-        <div className="absolute -inset-1 rounded-xl bg-amber-300/20 blur opacity-60 -z-10" />
+      <div className="relative flex h-10 w-10 items-center justify-center rounded-2xl border border-amber-300/40 bg-gradient-to-br from-amber-300/25 via-orange-500/15 to-bg-elev text-amber-200 shadow-[0_0_28px_-8px_rgba(251,191,36,0.72)]">
+        <SunMedium size={19} strokeWidth={2.15} />
+        <div className="absolute inset-[3px] rounded-[14px] border border-white/8" />
+        <div className="absolute -inset-1 rounded-2xl bg-amber-300/20 blur opacity-60 -z-10" />
       </div>
     );
   }
   if (logo === "suga") {
     return (
-      <div className="relative w-9 h-9 rounded-xl border border-pink-400/40 bg-gradient-to-br from-pink-400/25 via-fuchsia-500/15 to-bg-elev flex items-center justify-center text-pink-200 shadow-[0_0_28px_-6px_rgba(236,72,153,0.7)]">
-        <Crown size={20} strokeWidth={2.2} />
-        <div className="absolute -inset-1 rounded-xl bg-pink-400/20 blur opacity-60 -z-10" />
+      <div className="relative flex h-10 w-10 items-center justify-center rounded-2xl border border-pink-400/40 bg-gradient-to-br from-pink-400/25 via-fuchsia-500/15 to-bg-elev text-pink-200 shadow-[0_0_28px_-8px_rgba(236,72,153,0.72)]">
+        <Crown size={19} strokeWidth={2.15} />
+        <div className="absolute inset-[3px] rounded-[14px] border border-white/8" />
+        <div className="absolute -inset-1 rounded-2xl bg-pink-400/20 blur opacity-60 -z-10" />
       </div>
     );
   }
