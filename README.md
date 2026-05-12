@@ -18,7 +18,7 @@ One command. Five minutes. The wizard asks who you are, you paste a few API keys
 
 ## What you get
 
-**Bravo** is the CEO. It works alongside three siblings — together they run the empire:
+**Bravo** is the CEO. It works alongside its sibling C-Suite — together they run the empire:
 
 | Agent | Role | What it owns |
 |---|---|---|
@@ -26,6 +26,17 @@ One command. Five minutes. The wizard asks who you are, you paste a few API keys
 | **[Atlas](https://github.com/CC90210/CFO-Agent)** | CFO | Tax, finance, treasury, FIRE planning, trading |
 | **[Maven](https://github.com/CC90210/CMO-Agent)** | CMO | Content, brand, ads, social, video pipeline |
 | **[Aura](https://github.com/CC90210/Aura-Home-Agent)** | Lifestyle | Home, habits, smart-home, voice |
+| **[Hermes](https://github.com/CC90210/hermes)** | Commerce | Wholesale PO→POS→invoice, EDI, A2000 takeover |
+| **Lumen** | Memory keeper | Voice + story capture for loved ones |
+
+**V6.2 — Client products** (separate, paid offerings):
+
+| Product | Industry | What it owns |
+|---|---|---|
+| **Solara** | Funding ops | Sun Biz Funding's lead → SMS → application → funded deal → renewal lifecycle |
+| **Suga** | Brand ops | Suga Sean O'Malley's fan engagement, merch drops, social, sponsorship triage |
+
+Each client product is a separate agent + dashboard profile. The Command Center renders an industry-specific sidebar (`SUN_NAV` / `SUGA_NAV`) based on the tenant's brand. New industries slot in by adding one profile + nav array — the underlying engine is the same.
 
 ---
 
@@ -54,16 +65,17 @@ The reference deployment lives at **[agent-dashboard-cc90210.vercel.app](https:/
 
 ## How the install works
 
-The one-liner does eight things:
+The one-liner does nine things:
 
 1. Installs Python 3.10+, Node 18+, and Git if missing
 2. Clones into `~/.bravo`
 3. Builds a Python venv and installs deps
 4. Drops a `bravo` shim onto your PATH
-5. Launches the **setup wizard** — asks who you are, what you sell, what you're optimizing for, and which APIs you have keys for
+5. Launches the **setup wizard** — asks who you are, what you sell, what you're optimizing for, and which APIs you have keys for. **Pick your profile** (CEO Bravo / CFO Atlas / CMO Maven / Lifestyle Aura / Commerce Hermes / **client products Solara · Suga**)
 6. Renders your personal `brain/USER.md` from your answers (`scripts/personalize.py`)
-7. **Rewrites the codebase to match you** — replaces the original operator's identity tokens across every reference in tracked files (`scripts/scaffold.py --apply --backup` — 200+ files in the current repo, runs ~5 seconds)
-8. Runs `bravo doctor` to verify everything works
+7. **Data sovereignty prompt** — choose **Local libSQL** (PII never leaves the machine; recommended for client products like Solara/Suga) or **Cloud Supabase** (managed multi-tenant). Writes `EMPIRE_DATA_BACKEND` + `TURSO_DB_PATH`. The dashboard's [`lib/db.ts:getDbBackend()`](apps/command-center/lib/db.ts) reads this at request time and routes hot reads via [`lib/turso-queries.ts`](apps/command-center/lib/turso-queries.ts)
+8. **Browser-driven dashboard pairing** — wizard auto-opens your dashboard's `/settings/devices`. You sign in (if not already), click "Install Claude Code CLI bridge" to generate a 9-char code (XXX-XXX-XXX, 15-min single-use), paste it back into the terminal. Wizard exchanges it via `/api/auth/pair-code/redeem` for a bridge token. No bearer secrets, no copy-pasting tokens
+9. **Rewrites the codebase to match you** — replaces the original operator's identity tokens across every reference in tracked files (`scripts/scaffold.py --apply --backup`), then runs `bravo doctor` to verify everything works
 
 After it finishes, your machine has your own personalized CEO agent. Not a fork of someone else's working copy — yours.
 
@@ -101,7 +113,9 @@ If you'd rather build from scratch: respect, but you're paying yourself ~$50K of
 ## Under the hood
 
 - **Python 3.12** + **Node 20** runtime
-- **Supabase** (Postgres + RLS + pgvector) for state
+- **Supabase** (Postgres + RLS + pgvector) for state and shared empire data
+- **Turso / libSQL** for tenant data sovereignty — client products store leads, deals, fan data on the operator's machine; OASIS reads pulse only
+- **Multi-user team access** (V6.2) — `tenant_invites` + role-based gating (`owner`/`admin`/`loan_officer`/`processor`/`read_only`/`member`); owner machine pairings are trigger-protected from employee revocation. See [`database/037_team_roles_and_invites.sql`](database/037_team_roles_and_invites.sql) and the `/team` page
 - **Stripe**, **n8n**, **Late/Zernio**, **Google Workspace** integrations via dedicated CLIs
 - **Anthropic Claude** (Opus / Sonnet / Haiku) primary, with OpenAI / OpenRouter / Groq / DeepSeek / local Ollama as fallbacks
 - <!-- STATS:mcp_servers-->**9 MCP servers**<!-- /STATS --> (Playwright, Context7, Memory, Sequential Thinking, Knowledge Graph, GitHub, Firecrawl, Obsidian, Filesystem)

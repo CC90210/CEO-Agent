@@ -28,7 +28,11 @@ import type {
 import { KNOWN_INTEGRATIONS } from "./integrations-registry";
 import { operatorDateKey, operatorDayStartIso } from "./dates";
 import { getDbBackend } from "./db";
-import { getTodayPlanTurso, recentLeadsTurso } from "./turso-queries";
+import {
+  getTodayPlanTurso,
+  recentLeadsTurso,
+  pipelineBreakdownTurso,
+} from "./turso-queries";
 
 // ============================================================================
 // Profile + Tenant
@@ -148,6 +152,12 @@ export async function todayCounts(tenantId: string) {
 // ============================================================================
 
 export async function pipelineBreakdown(tenantId: string, includeArchived = false) {
+  // Tenant data sovereignty: route to Turso for the SunBiz pipeline stat band
+  // when the client opted into local libSQL. Falls back on null.
+  if (getDbBackend() === "turso") {
+    const tursoBreakdown = await pipelineBreakdownTurso(tenantId, includeArchived);
+    if (tursoBreakdown !== null) return tursoBreakdown;
+  }
   const db = getServiceSupabase();
   let q = db.from("leads").select("status,score,source").eq("tenant_id", tenantId);
   if (!includeArchived) q = q.neq("status", "archived");

@@ -51,6 +51,7 @@ import { getServiceSupabase } from "@/lib/supabase-server";
 import { bad, checkBearerSecret, sha256 } from "@/lib/api-helpers";
 import { encryptField } from "@/lib/field-encryption";
 import { chatAgentKeys } from "@/lib/agent-personas";
+import { applyClientProvisioningProfile } from "@/lib/client-provisioning";
 import {
   clientIp as _clientIp,
   isRateLimited as _isRateLimited,
@@ -266,6 +267,29 @@ export async function POST(req: NextRequest) {
 
   if (!profileRow.tenant_id) {
     return bad(412, "profile has no tenant_id — provision step incomplete");
+  }
+
+  // V6.2: brand-based client profile routing. If the wizard sent a brand
+  // ("Sun Biz Funding", "Suga Sean O'Malley"), apply the matching client
+  // profile slug + data_backend + deployment_mode to tenants.custom_fields.
+  // Without this, a tenant that signed up via OAuth (default brand "OASIS AI")
+  // and is now setting up SunBiz via the wizard would render CC_NAV instead
+  // of SUN_NAV on first dashboard load. Idempotent — non-matching brands
+  // return {clientProfileSlug: null} and leave custom_fields untouched.
+  const brandForRouting = (profileSrc.brand as string | undefined) || "";
+  if (brandForRouting) {
+    try {
+      await applyClientProvisioningProfile({
+        db,
+        tenantId: profileRow.tenant_id,
+        profileId: profileRow.id,
+        brand: brandForRouting,
+        email,
+      });
+    } catch (err) {
+      // Non-fatal: pair still succeeds. Operator can re-trigger from /settings.
+      console.warn("[pair.applyClientProvisioningProfile]", err);
+    }
   }
 
   // ---- 1.5. Seed agent_model_config from local API keys -------------------
