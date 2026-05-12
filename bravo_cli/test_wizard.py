@@ -110,6 +110,22 @@ class TestPromptEOF(unittest.TestCase):
         self.assertEqual(ans, "yes")
 
 
+class TestConsoleFallback(unittest.TestCase):
+    def test_read_line_uses_console_when_bootstrap_stdin_is_pipe(self):
+        fake_in = io.StringIO("Jordan\n")
+        fake_out = io.StringIO()
+        with mock.patch.object(w, "_should_use_console_fallback", return_value=True):
+            with mock.patch.object(w, "_open_console_input", return_value=fake_in):
+                with mock.patch.object(w, "_open_console_output", return_value=fake_out):
+                    ans = w._read_line("  Press Enter when ready... ")
+        self.assertEqual(ans, "Jordan")
+        self.assertEqual(fake_out.getvalue(), "  Press Enter when ready... ")
+
+    def test_choice_with_default_uses_default_on_console_eof(self):
+        with mock.patch.object(w, "_read_line", side_effect=EOFError):
+            self.assertEqual(w._choice_with_default("prompt", "2"), "2")
+
+
 class TestProfileMapsConsistent(unittest.TestCase):
     """Every profile must exist in every map, or the wizard can crash mid-run."""
 
