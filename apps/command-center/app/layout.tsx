@@ -6,6 +6,7 @@ import { getActiveProfile } from "@/lib/queries";
 import { getServiceSupabase } from "@/lib/supabase-server";
 import { unreadCountDb } from "@/lib/agent-inbox-db";
 import { safe } from "@/lib/api-helpers";
+import { getNavForTenant, getSubtitleForTenant } from "@/lib/nav-config";
 
 export const metadata: Metadata = {
   title: "OASIS AI · Agent Command Center",
@@ -36,6 +37,7 @@ export default async function RootLayout({
   let primaryAgentLive = false;
   let bridgeOnline = false;
   let inboxUnread = 0;
+  let tenantSlug: string | null = null;
   if (!isFullBleed) {
     // Each side-channel query is wrapped independently — one failure
     // (Hermes snapshot row missing, bridge_pairings table absent in dev,
@@ -96,6 +98,21 @@ export default async function RootLayout({
     }
     if (tenantId) {
       inboxUnread = await safe("layout.inbox_unread", unreadCountDb(tenantId), 0);
+      // Resolve tenant slug for tenant-aware sidebar nav. One extra cheap
+      // query — guarded by safe() so an RLS hiccup never blanks the shell.
+      tenantSlug = await safe(
+        "layout.tenant_slug",
+        (async () => {
+          const db = getServiceSupabase();
+          const r = await db
+            .from("tenants")
+            .select("slug")
+            .eq("id", tenantId)
+            .maybeSingle();
+          return (r.data as { slug?: string } | null)?.slug || null;
+        })(),
+        null
+      );
     }
   }
 
@@ -107,10 +124,12 @@ export default async function RootLayout({
         ) : (
           <>
             <Sidebar
-              brand={profile?.brand || "OASIS AI"}
+              brand={profile?.brand || (tenantSlug === "sun" ? "Sun Biz Funding" : "OASIS AI")}
+              subtitle={getSubtitleForTenant(tenantSlug)}
+              items={getNavForTenant(tenantSlug)}
               operatorName={profile?.display_name || profile?.full_name || "Operator"}
               operatorEmail={profile?.email}
-              primaryAgent={profile?.primary_agent || "bravo"}
+              primaryAgent={profile?.primary_agent || (tenantSlug === "sun" ? "sunbiz" : "bravo")}
               primaryAgentLive={primaryAgentLive}
               bridgeOnline={bridgeOnline}
               inboxUnread={inboxUnread}
@@ -119,8 +138,12 @@ export default async function RootLayout({
               <div className="mx-auto max-w-7xl px-8 py-8">{children}</div>
               <footer className="mx-auto max-w-7xl px-8 py-6 text-xs text-fg-faint">
                 <div className="border-t border-bg-border pt-4 flex justify-between">
-                  <span>OASIS AI · Agent Command Center · v1.0</span>
-                  <span>"Only good things from now on."</span>
+                  <span>
+                    {tenantSlug === "sun"
+                      ? "Sun Biz Funding · Operations Command · v1.0"
+                      : "OASIS AI · Agent Command Center · v1.0"}
+                  </span>
+                  <span>{tenantSlug === "sun" ? "Funded deals over noise." : '"Only good things from now on."'}</span>
                 </div>
               </footer>
             </main>

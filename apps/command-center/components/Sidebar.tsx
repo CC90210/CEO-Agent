@@ -2,52 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  GitBranch,
-  Brain,
-  BookOpen,
-  Bot,
-  BarChart3,
-  Plug,
-  Settings,
-  LogOut,
-  Activity,
-  Inbox,
-  History,
-  ShieldCheck,
-  ShieldAlert,
-  Radio,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { ChevronRight, LogOut } from "lucide-react";
 import { OasisLogo } from "@/components/brand/OasisLogo";
-
-type NavItem = {
-  href: string;
-  label: string;
-  icon: LucideIcon;
-  group: "ops" | "system";
-};
-
-const ITEMS: NavItem[] = [
-  { href: "/", label: "Today", icon: LayoutDashboard, group: "ops" },
-  { href: "/pipeline", label: "Pipeline", icon: GitBranch, group: "ops" },
-  { href: "/reasoning", label: "Reasoning", icon: Brain, group: "ops" },
-  { href: "/playbook", label: "Playbook", icon: BookOpen, group: "ops" },
-  { href: "/agents", label: "Agents", icon: Bot, group: "system" },
-  { href: "/inbox", label: "Inbox", icon: Inbox, group: "system" },
-  { href: "/runs", label: "Runs", icon: History, group: "system" },
-  { href: "/operations", label: "Operations", icon: Activity, group: "system" },
-  { href: "/system-health", label: "System Health", icon: ShieldCheck, group: "system" },
-  { href: "/overrides", label: "Overrides", icon: ShieldAlert, group: "system" },
-  { href: "/feed", label: "Event Feed", icon: Radio, group: "system" },
-  { href: "/analytics", label: "Analytics", icon: BarChart3, group: "system" },
-  { href: "/integrations", label: "Integrations", icon: Plug, group: "system" },
-  { href: "/settings", label: "Settings", icon: Settings, group: "system" },
-];
+import { CC_NAV, type NavItem } from "@/lib/nav-config";
 
 export function Sidebar({
   brand = "OASIS AI",
+  subtitle = "Agent Command Center",
+  items,
+  badges,
   operatorName,
   operatorEmail,
   primaryAgent = "bravo",
@@ -56,6 +19,11 @@ export function Sidebar({
   inboxUnread = 0,
 }: {
   brand?: string;
+  subtitle?: string;
+  /** Nav items to render. Defaults to CC's empire nav for backwards compat. */
+  items?: NavItem[];
+  /** Counter map keyed by NavItem.badgeKey (e.g. {inbox: 3, applications: 247}). */
+  badges?: Record<string, number>;
   operatorName?: string;
   operatorEmail?: string;
   primaryAgent?: string;
@@ -64,8 +32,25 @@ export function Sidebar({
   inboxUnread?: number;
 }) {
   const pathname = usePathname();
-  const opsItems = ITEMS.filter((i) => i.group === "ops");
-  const systemItems = ITEMS.filter((i) => i.group === "system");
+  const navItems = items && items.length > 0 ? items : CC_NAV;
+
+  // Merge the legacy inboxUnread prop into the badges map so the existing
+  // layout.tsx callers keep working without code changes.
+  const badgeMap: Record<string, number> = { ...(badges || {}) };
+  if (inboxUnread > 0 && badgeMap.inbox === undefined) badgeMap.inbox = inboxUnread;
+
+  // Group items in original order — preserves the array's intent.
+  const groups: { label: string; items: NavItem[] }[] = [];
+  const groupIndex = new Map<string, number>();
+  for (const item of navItems) {
+    let idx = groupIndex.get(item.group);
+    if (idx === undefined) {
+      idx = groups.length;
+      groupIndex.set(item.group, idx);
+      groups.push({ label: item.group, items: [] });
+    }
+    groups[idx].items.push(item);
+  }
 
   return (
     <aside className="fixed left-0 top-0 bottom-0 w-60 border-r border-bg-border bg-bg-panel flex flex-col z-20">
@@ -81,7 +66,7 @@ export function Sidebar({
               {brand}
             </div>
             <div className="text-fg-dim text-[10px] uppercase tracking-[0.18em] font-semibold">
-              Agent Command Center
+              {subtitle}
             </div>
           </div>
         </Link>
@@ -91,21 +76,18 @@ export function Sidebar({
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto">
-        <NavGroup label="Operations">
-          {opsItems.map((item) => (
-            <NavLink key={item.href} item={item} pathname={pathname} />
-          ))}
-        </NavGroup>
-        <NavGroup label="System">
-          {systemItems.map((item) => (
-            <NavLink
-              key={item.href}
-              item={item}
-              pathname={pathname}
-              badgeCount={item.href === "/inbox" ? inboxUnread : 0}
-            />
-          ))}
-        </NavGroup>
+        {groups.map((g) => (
+          <NavGroup key={g.label} label={g.label}>
+            {g.items.map((item) => (
+              <NavLink
+                key={item.href}
+                item={item}
+                pathname={pathname}
+                badgeCount={item.badgeKey ? badgeMap[item.badgeKey] || 0 : 0}
+              />
+            ))}
+          </NavGroup>
+        ))}
       </nav>
 
       {/* Operator */}
@@ -124,7 +106,14 @@ export function Sidebar({
           </div>
         </div>
         <div className="flex items-center justify-between text-[10px] uppercase tracking-wider">
-          <span className="text-fg-dim flex items-center gap-1.5" title={primaryAgentLive ? `${primaryAgent} ticked in the last 15 min` : `${primaryAgent} hasn't ticked recently`}>
+          <span
+            className="text-fg-dim flex items-center gap-1.5"
+            title={
+              primaryAgentLive
+                ? `${primaryAgent} ticked in the last 15 min`
+                : `${primaryAgent} hasn't ticked recently`
+            }
+          >
             <span className={primaryAgentLive ? "text-status-engaged animate-pulse-slow" : "text-fg-faint"}>●</span>
             <span>{primaryAgent}</span>
             <span className={primaryAgentLive ? "text-status-engaged" : "text-fg-faint"}>
@@ -184,7 +173,7 @@ function NavLink({
     <li>
       <Link
         href={item.href}
-        prefetch={true}  // Next.js prefetches on viewport — instant nav
+        prefetch={true}
         className={`group flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-all relative ${
           active
             ? "bg-accent-soft text-accent shadow-[inset_0_0_0_1px_rgba(59,130,246,0.25)]"
@@ -207,6 +196,9 @@ function NavLink({
           >
             {badgeCount > 99 ? "99+" : badgeCount}
           </span>
+        )}
+        {item.expandable && badgeCount === 0 && (
+          <ChevronRight size={12} className="text-fg-faint" />
         )}
       </Link>
     </li>
