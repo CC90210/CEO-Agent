@@ -337,6 +337,7 @@ AGENT_REPOS: dict[str, dict] = {
     "maven":  {"url": "https://github.com/CC90210/CMO-Agent.git",        "dir": "~/maven-repo"},
     "aura":   {"url": "https://github.com/CC90210/Aura-Home-Agent.git",  "dir": "~/aura-repo"},
     "hermes": {"url": "https://github.com/CC90210/hermes.git",           "dir": "~/hermes-repo"},
+    "sunbiz": {"url": "https://github.com/CC90210/SunBiz-Agent.git",     "dir": "~/sunbiz-repo"},
     "custom": None,  # No repo — scaffolded via `bravo agent create` after setup.
 }
 
