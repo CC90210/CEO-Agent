@@ -96,6 +96,19 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
       "Your commerce ops agent. Hermes drives the PO → POS → invoice loop for wholesale distributors — A2000 desktop takeover, web ERPs, GS1-128 labels, EDI 856/810/940/820, chargeback prevention. Local-first, audit-everything, fail-stopped.",
     askMeAbout: "Status of open POs · Draft EDI 856 for the latest shipment · Yesterday's A2000 sync log",
   },
+  sunbiz: {
+    key: "sunbiz",
+    label: "SunBiz",
+    role: "Funding operations agent · leads · SMS · deals · renewals",
+    tagline: "Funding ops · renewals · outreach",
+    location: "C:\\Users\\User\\Marketing-Agent",
+    colorRgb: "251, 191, 36",
+    textClass: "text-amber-400",
+    family: false,
+    description:
+      "Client funding-ops agent for Sun Biz Funding. It routes leads, SMS outreach, applications, offers, funded deals, commissions, and renewal follow-up into the business command center.",
+    askMeAbout: "Show renewal opportunities · Send a compliant SMS follow-up · What deals need lender action?",
+  },
   // Registry key stays "life-preservation" so filesystem paths
   // (~/life-preservation, tmp/agent_inbox routing, sibling_repos, etc.)
   // remain stable. Only the human-facing label changed to "Lumen".

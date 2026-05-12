@@ -159,6 +159,8 @@ export default async function RootLayout({
               primaryAgentLive={demoMode ? false : primaryAgentLive}
               bridgeOnline={demoMode ? false : bridgeOnline}
               inboxUnread={demoMode ? 0 : inboxUnread}
+              demoMode={demoMode}
+              demoLabel={`${clientProfile.brand} demo`}
             />
             <main className="ml-60 min-h-screen relative z-10">
               <div className="mx-auto max-w-7xl px-8 py-8">{children}</div>
