@@ -28,7 +28,7 @@ import type {
 import { KNOWN_INTEGRATIONS } from "./integrations-registry";
 import { operatorDateKey, operatorDayStartIso } from "./dates";
 import { getDbBackend } from "./db";
-import { getTodayPlanTurso } from "./turso-queries";
+import { getTodayPlanTurso, recentLeadsTurso } from "./turso-queries";
 
 // ============================================================================
 // Profile + Tenant
@@ -205,6 +205,12 @@ export async function recentLeads(
   limit = 30,
   opts?: { include_archived?: boolean; include_no_email?: boolean; include_lost?: boolean }
 ): Promise<Lead[]> {
+  // Tenant data sovereignty: route to Turso when the client opted into local
+  // libSQL storage. Falls back to Supabase on null (Turso miss or error).
+  if (getDbBackend() === "turso") {
+    const tursoRows = await recentLeadsTurso(tenantId, limit, opts);
+    if (tursoRows !== null) return tursoRows;
+  }
   const db = getServiceSupabase();
   let q = db.from("leads").select("*").eq("tenant_id", tenantId);
   if (!opts?.include_archived) q = q.neq("status", "archived");
