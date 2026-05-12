@@ -24,11 +24,11 @@ irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install.ps1 | iex
 
 What it does in order:
 1. Checks for Python 3.10+, Node 18+, Git — offers to install missing ones
-2. Clones the repo to `~/.bravo/repo`
-3. Creates a Python virtualenv at `~/.bravo/venv`
+2. Bootstraps the repo to `~/.oasis/wizard/repo`
+3. Creates a Python virtualenv at `~/.oasis/wizard/venv`
 4. Installs Python deps (`requirements.txt`) and Node deps (`package.json`)
-5. Writes a `bravo` shim to `~/.bravo/bin/` and adds it to your PATH
-6. Launches the interactive setup wizard to collect your credentials
+5. Writes `oasis` and `bravo` shims to `~/.oasis/bin/` and adds that folder to your PATH
+6. Launches the interactive setup wizard to collect your credentials and let you choose a profile like Bravo, Atlas, Maven, Aura, Hermes, Solara (SunBiz), or Suga
 7. **Personalizes the agent for you:** wizard answers populate `brain/operator.profile.json`, `scripts/personalize.py` renders `brain/USER.md` + memory templates, `scripts/scaffold.py` token-replaces the original operator's identifiers (name, brand, website, north star) across the codebase with yours
 8. Prints a success banner with your first commands
 
@@ -71,16 +71,16 @@ git --version
 ### Step 1 — Clone
 
 ```bash
-git clone https://github.com/CC90210/CEO-Agent.git ~/.bravo/repo
-cd ~/.bravo/repo
+git clone https://github.com/CC90210/CEO-Agent.git ~/.oasis/wizard/repo
+cd ~/.oasis/wizard/repo
 ```
 
 ### Step 2 — Python virtualenv
 
 ```bash
-python3 -m venv ~/.bravo/venv
-source ~/.bravo/venv/bin/activate        # macOS / Linux / WSL
-# OR:  ~/.bravo/venv/Scripts/activate    # Windows PowerShell
+python3 -m venv ~/.oasis/wizard/venv
+source ~/.oasis/wizard/venv/bin/activate        # macOS / Linux / WSL
+# OR:  ~/.oasis/wizard/venv/Scripts/activate    # Windows PowerShell
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
@@ -112,25 +112,30 @@ All other credentials (Stripe, GitHub, n8n, etc.) can be added later via `bravo 
 
 **macOS / Linux / WSL:**
 ```bash
-mkdir -p ~/.bravo/bin
-cat > ~/.bravo/bin/bravo << 'EOF'
+mkdir -p ~/.oasis/bin
+cat > ~/.oasis/bin/oasis << 'EOF'
 #!/usr/bin/env bash
-exec ~/.bravo/venv/bin/python ~/.bravo/repo/bravo_cli/main.py "$@"
+exec ~/.oasis/wizard/venv/bin/python ~/.oasis/wizard/repo/bravo_cli/main.py "$@"
 EOF
-chmod +x ~/.bravo/bin/bravo
-echo 'export PATH="$HOME/.bravo/bin:$PATH"' >> ~/.bashrc   # or ~/.zshrc
+chmod +x ~/.oasis/bin/oasis
+ln -sf ~/.oasis/bin/oasis ~/.oasis/bin/bravo
+echo 'export PATH="$HOME/.oasis/bin:$PATH"' >> ~/.bashrc   # or ~/.zshrc
 source ~/.bashrc
 ```
 
 **Windows (PowerShell):**
 ```powershell
-New-Item -ItemType Directory -Force "$env:USERPROFILE\.bravo\bin"
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.oasis\bin"
 @"
 @echo off
-"$env:USERPROFILE\.bravo\venv\Scripts\python.exe" "$env:USERPROFILE\.bravo\repo\bravo_cli\main.py" %*
-"@ | Set-Content "$env:USERPROFILE\.bravo\bin\bravo.cmd"
+"$env:USERPROFILE\.oasis\wizard\venv\Scripts\python.exe" "$env:USERPROFILE\.oasis\wizard\repo\bravo_cli\main.py" %*
+"@ | Set-Content "$env:USERPROFILE\.oasis\bin\oasis.cmd"
+@"
+@echo off
+"$env:USERPROFILE\.oasis\wizard\venv\Scripts\python.exe" "$env:USERPROFILE\.oasis\wizard\repo\bravo_cli\main.py" %*
+"@ | Set-Content "$env:USERPROFILE\.oasis\bin\bravo.cmd"
 $current = [Environment]::GetEnvironmentVariable('Path','User')
-[Environment]::SetEnvironmentVariable('Path', "$current;$env:USERPROFILE\.bravo\bin", 'User')
+[Environment]::SetEnvironmentVariable('Path', "$current;$env:USERPROFILE\.oasis\bin", 'User')
 ```
 
 Open a new terminal, then:
@@ -258,7 +263,7 @@ bravo doctor
 
 ## Maintenance — `scripts/system_cleanup.py`
 
-After multiple installs/upgrades, redundant clones (`~/.bravo`, `~/.oasis/wizard`, `~/.oasis/<slug>`) and pip/npm caches accumulate. Run a dry-run audit any time to see reclaimable space:
+After multiple installs/upgrades, redundant clones (including legacy `~/.bravo`, plus `~/.oasis/wizard` and `~/.oasis/<slug>`) and pip/npm caches accumulate. Run a dry-run audit any time to see reclaimable space:
 
 ```bash
 python scripts/system_cleanup.py
@@ -291,14 +296,14 @@ The active repo (where you're running the script from) is **always preserved** b
 
 Pull the latest commits and reinstall deps:
 ```bash
-bash ~/.bravo/repo/install.sh --upgrade
+bash ~/.oasis/wizard/repo/install.sh --upgrade
 ```
 
 Or manually:
 ```bash
-cd ~/.bravo/repo
+cd ~/.oasis/wizard/repo
 git fetch origin && git reset --hard origin/main
-source ~/.bravo/venv/bin/activate
+source ~/.oasis/wizard/venv/bin/activate
 pip install -r requirements.txt
 npm install
 bravo doctor
@@ -309,10 +314,10 @@ bravo doctor
 ## Uninstalling
 
 ```bash
-bash ~/.bravo/repo/install.sh --uninstall
+bash ~/.oasis/wizard/repo/install.sh --uninstall
 ```
 
-This removes `~/.bravo/` and cleans the PATH entry from your shell rc files. Your `.env.agents` credentials file (if you put it somewhere else) will not be touched.
+This removes `~/.oasis/` and cleans the PATH entry from your shell rc files. Your `.env.agents` credentials file (if you put it somewhere else) will not be touched.
 
 ---
 
@@ -361,7 +366,7 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 Your virtualenv may not be active. The `bravo` shim activates it automatically, but if you are calling `python scripts/...` directly:
 ```bash
-source ~/.bravo/venv/bin/activate   # or .venv/Scripts/activate on Windows
+source ~/.oasis/wizard/venv/bin/activate   # or .venv/Scripts/activate on Windows
 ```
 
 ---

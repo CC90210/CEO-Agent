@@ -77,6 +77,7 @@ printf '%s' "$C_RESET"
 printf '\n  %sAutonomous AI C-Suite  ·  oasisai.work%s\n' "$C_WHITE" "$C_RESET"
 printf '  %sbootstrap v%s%s\n\n' "$C_DIM" "$SCRIPT_VERSION" "$C_RESET"
 printf '  %sAfter dependencies install, the wizard will let you pick:%s\n' "$C_WHITE" "$C_RESET"
+printf '  %sClient profiles include Solara (SunBiz) and Suga in addition to the core OASIS lineup.%s\n' "$C_DIM" "$C_RESET"
 printf '    %sBravo (CEO)  ·  Atlas (CFO)  ·  Maven (CMO)  ·  Aura  ·  Hermes%s\n\n' "$C_DIM" "$C_RESET"
 
 ask_yn "Continue with installation?" y || { warn "Aborted."; exit 0; }
