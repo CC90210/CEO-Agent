@@ -2,15 +2,17 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getBrowserSupabase } from "@/lib/supabase-browser";
 import { OasisLogo } from "@/components/brand/OasisLogo";
 
 export default function SignupPage() {
   const router = useRouter();
+  const params = useSearchParams();
+  const brandHint = (params.get("brand") || "").trim();
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
-  const [brand, setBrand] = useState("");
+  const [brand, setBrand] = useState(brandHint);
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -66,10 +68,16 @@ export default function SignupPage() {
     setErr(null);
     try {
       const supa = getBrowserSupabase();
+      const oauthBrand = (brand || brandHint || "OASIS AI").trim();
+      const oauthName = fullName.trim();
+      const callback = new URL("/auth/callback", window.location.origin);
+      callback.searchParams.set("signup", "1");
+      if (oauthBrand) callback.searchParams.set("brand", oauthBrand);
+      if (oauthName) callback.searchParams.set("full_name", oauthName);
       const { error } = await supa.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?signup=1`,
+          redirectTo: callback.toString(),
         },
       });
       if (error) setErr(error.message);
