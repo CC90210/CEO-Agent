@@ -2,9 +2,72 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronRight, LogOut } from "lucide-react";
+import {
+  Activity,
+  BadgeDollarSign,
+  BarChart3,
+  BookOpen,
+  BookUser,
+  Bot,
+  Brain,
+  ChevronRight,
+  Code2,
+  DollarSign,
+  FileCode2,
+  FileText,
+  GitBranch,
+  HandCoins,
+  History,
+  Inbox,
+  Landmark,
+  LayoutDashboard,
+  LogOut,
+  Mail,
+  MessageSquare,
+  Plug,
+  Radio,
+  RefreshCcw,
+  Settings,
+  ShieldAlert,
+  ShieldCheck,
+  Upload,
+  Users,
+  UsersRound,
+  type LucideIcon,
+} from "lucide-react";
 import { OasisLogo } from "@/components/brand/OasisLogo";
-import { CC_NAV, type NavItem } from "@/lib/nav-config";
+import { CC_NAV, type NavIconKey, type NavItem } from "@/lib/nav-config";
+
+const NAV_ICONS: Record<NavIconKey, LucideIcon> = {
+  Activity,
+  BadgeDollarSign,
+  BarChart3,
+  BookOpen,
+  BookUser,
+  Bot,
+  Brain,
+  Code2,
+  DollarSign,
+  FileCode2,
+  FileText,
+  GitBranch,
+  HandCoins,
+  History,
+  Inbox,
+  Landmark,
+  LayoutDashboard,
+  Mail,
+  MessageSquare,
+  Plug,
+  Radio,
+  RefreshCcw,
+  Settings,
+  ShieldAlert,
+  ShieldCheck,
+  Upload,
+  Users,
+  UsersRound,
+};
 
 export function Sidebar({
   brand = "OASIS AI",
@@ -168,7 +231,7 @@ function NavLink({
   badgeCount?: number;
 }) {
   const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-  const Icon = item.icon;
+  const Icon = NAV_ICONS[item.icon] || LayoutDashboard;
   return (
     <li>
       <Link
