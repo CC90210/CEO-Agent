@@ -42,11 +42,18 @@ export async function applyClientProvisioningProfile({
     .eq("id", tenantId);
   if (tenantUpdate.error) throw tenantUpdate.error;
 
-  const profileAgentMap: Record<string, string> = {
-    sun: "sunbiz",
-    suga: "suga_sean",
+  const profileAgentMap: Record<string, { primary: string; enabled: string[] }> = {
+    sun: {
+      primary: "sunbiz",
+      enabled: ["sunbiz", "suga_sean"],
+    },
+    suga: {
+      primary: "suga_sean",
+      enabled: ["suga_sean"],
+    },
   };
-  const primaryAgent = profileAgentMap[clientProfileSlug];
+  const agentConfig = profileAgentMap[clientProfileSlug];
+  const primaryAgent = agentConfig?.primary ?? null;
 
   if (primaryAgent) {
     const profileRes = await db
@@ -57,7 +64,9 @@ export async function applyClientProvisioningProfile({
     if (profileRes.error) throw profileRes.error;
 
     const agents = new Set<string>(profileRes.data?.agents_enabled || []);
-    agents.add(primaryAgent);
+    for (const agent of agentConfig.enabled) {
+      agents.add(agent);
+    }
     const profileUpdate = await db
       .from("user_profiles")
       .update({
