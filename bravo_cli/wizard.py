@@ -295,13 +295,13 @@ PROFILES: dict[str, dict] = {
         "name": "Solara",
         "icon": "☀" if _UNICODE else "S",
         "color": YELLOW,
-        "role": "Sun Biz funding · loan ops + lifecycle SMS",
-        "tagline": "Leads · renewals · SMS · funded deals",
+        "role": "Sun Biz funding · digital employee for lead intake + follow-up",
+        "tagline": "Leads · renewals · text follow-up · funded deals",
         "required": ["anthropic"],
         "ai": ["anthropic", "openai"],
         "chat": ["telegram"],
         "business": ["stripe", "supabase", "twilio", "n8n"],
-        "extra": ["turso"],
+        "extra": [],
     },
     "suga_sean": {
         "name": "Suga",
@@ -679,6 +679,22 @@ INTEGRATIONS: dict[str, dict] = {
         ],
         "followup_key": "TWILIO_AUTH_TOKEN",
         "followup_label": "Twilio Auth Token",
+    },
+    "twilio": {
+        "env_key": "TWILIO_ACCOUNT_SID",
+        "label": "Text Torrent",
+        "tagline": "Lead texting + follow-up lane for Solara",
+        "url": "https://console.twilio.com/",
+        "format": "AC...",
+        "secret": True,
+        "instructions": [
+            "Open the Text Torrent workspace (or the linked Twilio console)",
+            "Copy the Account SID first",
+            "On the next prompt, paste the Auth Token so Solara can send follow-ups",
+        ],
+        "followup_key": "TWILIO_AUTH_TOKEN",
+        "followup_label": "Text Torrent Auth Token",
+        "followup_secret": True,
     },
     # Business ops
     "stripe": {
@@ -1519,9 +1535,50 @@ def integration_step(slug: str, required: bool) -> bool:
 
 # ── Steps ─────────────────────────────────────────────────────────────────────
 
+def _dashboard_url() -> str:
+    return (
+        os.environ.get("BRAVO_DASHBOARD_URL")
+        or read_env("BRAVO_DASHBOARD_URL")
+        or "https://agent-dashboard-cc90210.vercel.app"
+    ).rstrip("/")
+
+
+def _bridge_token_path() -> Path:
+    return Path.home() / ".oasis" / "bridge_token"
+
+
+def _bridge_token() -> str:
+    try:
+        return _bridge_token_path().read_text(encoding="utf-8").strip()
+    except Exception:
+        return ""
+
+
+def _post_bridge_services(dashboard_url: str, services: dict[str, dict]) -> bool:
+    token = _bridge_token()
+    if not token or not services:
+        return False
+    req = urllib.request.Request(
+        f"{dashboard_url}/api/bridge/ping",
+        method="POST",
+        data=json.dumps({"services": services}).encode("utf-8"),
+        headers={
+            "content-type": "application/json",
+            "authorization": f"Bearer {token}",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:  # noqa: S310
+            payload = json.loads(r.read().decode("utf-8"))
+        return bool(payload.get("ok"))
+    except Exception:
+        return False
+
+
 def step_welcome() -> None:
     print_banner()
-    print(f"  {BOLD('Welcome.')} Choose an OASIS AI agent, then connect the tools it needs.")
+    print(f"  {BOLD('Welcome.')} We're onboarding your new digital employee.")
+    print(f"  {DIM('Pick the agent you want to hire, then we will connect the tools it needs behind the scenes.')}")
     print(f"  {DIM('Keys go to')} {CYAN(str(ENV_PATH))}  {DIM('(0600 on POSIX)')}.")
     print(f"  {DIM('Nothing is uploaded; you stay in full control.')}")
     print()
@@ -1870,8 +1927,12 @@ def step_business(profile: str, step_num: int, total: int) -> None:
     p = PROFILES[profile]
     if not p["business"]:
         return
-    step_header(step_num, total, "Business operations",
-                "Revenue tracking, CRM, automations — all optional.")
+    if profile == "sunbiz":
+        step_header(step_num, total, "Client systems",
+                    "Let's connect the tools Solara needs to track deals, send texts, and keep the pipeline moving.")
+    else:
+        step_header(step_num, total, "Business operations",
+                    "Revenue tracking, CRM, automations — all optional.")
     for slug in p["business"]:
         integration_step(slug, required=False)
 
@@ -2183,17 +2244,26 @@ def step_data_sovereignty(profile: str, step_num: int, total: int) -> None:
     The dashboard's lib/db.ts:getDbBackend() reads EMPIRE_DATA_BACKEND at
     request time, dispatches reads accordingly via lib/turso-queries.ts.
     """
-    step_header(step_num, total, "Data sovereignty",
-                "Where should this tenant's client data live?")
+    if profile == "sunbiz":
+        step_header(step_num, total, "Solara's local brain",
+                    "Where should Solara keep client records day to day?")
+    else:
+        step_header(step_num, total, "Data sovereignty",
+                    "Where should this tenant's client data live?")
 
     # Default to Local for PII-heavy client agents; Cloud for empire profiles
     pii_heavy = profile in ("sunbiz", "suga_sean")
     default = "1" if pii_heavy else "2"
 
-    print(f"  {BOLD('Where should client data live?')}")
-    print(f"    {CYAN('1)')} Local Machine (Recommended) — libSQL file on this device. "
-          f"PII never leaves the Mac/PC.")
-    print(f"    {CYAN('2)')} Cloud — OASIS-hosted Supabase, multi-tenant, RLS-isolated.")
+    if profile == "sunbiz":
+        print(f"  {BOLD('Where should Solara keep the live records?')}")
+        print(f"    {CYAN('1)')} Local Brain (Recommended) — private records on this machine.")
+        print(f"    {CYAN('2)')} Cloud Records — managed workspace in the cloud.")
+    else:
+        print(f"  {BOLD('Where should client data live?')}")
+        print(f"    {CYAN('1)')} Local Machine (Recommended) — libSQL file on this device. "
+              f"PII never leaves the Mac/PC.")
+        print(f"    {CYAN('2)')} Cloud — OASIS-hosted Supabase, multi-tenant, RLS-isolated.")
     if pii_heavy:
         print(f"  {DIM('PII-heavy profile — Local is the default. Press Enter to accept.')}")
     print()
@@ -2218,22 +2288,32 @@ def step_data_sovereignty(profile: str, step_num: int, total: int) -> None:
         # No TURSO_AUTH_TOKEN for file: mode — libSQL doesn't authenticate
         # local file URLs. When/if we add hosted-Turso support, that step
         # collects the token at the same time as the URL.
-        print(f"  {GREEN(OK)} Backend: {CYAN('Local libSQL')}")
-        print(f"  {GREEN(OK)} DB path: {CYAN(db_path)}")
-        print(f"  {DIM('Bootstrap the schema before first read:')} "
-              f"{CYAN('bravo db init --backend=turso')}")
+        if profile == "sunbiz":
+            print(f"  {GREEN(OK)} Solara's Local Brain is ready on this machine.")
+        else:
+            print(f"  {GREEN(OK)} Backend: {CYAN('Local libSQL')}")
+            print(f"  {GREEN(OK)} DB path: {CYAN(db_path)}")
+            print(f"  {DIM('Bootstrap the schema before first read:')} "
+                  f"{CYAN('bravo db init --backend=turso')}")
     else:
         backend = "supabase_cloud"
         write_env("EMPIRE_DATA_BACKEND", backend)
-        print(f"  {GREEN(OK)} Backend: {CYAN('OASIS Supabase Cloud')}")
-        print(f"  {DIM('Reads route to BRAVO_SUPABASE_URL — your existing tenant.')}")
+        if profile == "sunbiz":
+            print(f"  {GREEN(OK)} Solara will use cloud records for this workspace.")
+        else:
+            print(f"  {GREEN(OK)} Backend: {CYAN('OASIS Supabase Cloud')}")
+            print(f"  {DIM('Reads route to BRAVO_SUPABASE_URL — your existing tenant.')}")
     print()
 
 
 def step_v6_init(profile: str, step_num: int, total: int) -> None:
     """Bootstrap V6.0: write hook defaults, init state DB, build retrieval index, fan out env."""
-    step_header(step_num, total, "V6.0 sandbox initialization",
-                "Boot the SQLite state DB, FTS5 index, and hook guards.")
+    if profile == "sunbiz":
+        step_header(step_num, total, "Setting up Solara's local brain",
+                    "Preparing records, memory, and safety checks behind the scenes.")
+    else:
+        step_header(step_num, total, "V6.0 sandbox initialization",
+                    "Boot the SQLite state DB, FTS5 index, and hook guards.")
 
     target = (read_env("EMPIRE_DEPLOY_TARGET") or "local").lower()
 
@@ -2253,13 +2333,17 @@ def step_v6_init(profile: str, step_num: int, total: int) -> None:
     write_env("EMPIRE_HOOK_SECRET_GUARD", secret_mode)
     write_env("EMPIRE_HOOK_EXEC_GUARD", exec_mode)
     write_env("EMPIRE_HOOK_STATE_GUARD", state_mode)
-    print(f"  {GREEN(OK)} V6.0 mode: {CYAN(v6_mode)}")
-    print(f"  {GREEN(OK)} Hooks: secret={CYAN(secret_mode)} exec={CYAN(exec_mode)} state={CYAN(state_mode)}")
+    if profile == "sunbiz":
+        print(f"  {GREEN(OK)} Solara's safety checks are active.")
+    else:
+        print(f"  {GREEN(OK)} V6.0 mode: {CYAN(v6_mode)}")
+        print(f"  {GREEN(OK)} Hooks: secret={CYAN(secret_mode)} exec={CYAN(exec_mode)} state={CYAN(state_mode)}")
 
     # Bootstrap the DBs.
     sm_script = REPO_ROOT / "scripts" / "state_manager.py"
     if sm_script.exists():
-        print(f"  {DIM('Initializing')} {CYAN('state/empire_state.db')}{DIM('...')}")
+        if profile != "sunbiz":
+            print(f"  {DIM('Initializing')} {CYAN('state/empire_state.db')}{DIM('...')}")
         rc = subprocess.call([sys.executable, str(sm_script), "heartbeat",
                               "--agent", profile if profile in {"bravo","atlas","maven","hermes","aura","codex"} else "bravo",
                               "--status", "setup",
@@ -2267,7 +2351,10 @@ def step_v6_init(profile: str, step_num: int, total: int) -> None:
                              cwd=str(REPO_ROOT),
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         if rc == 0:
-            print(f"  {GREEN(OK)} State DB initialized.")
+            if profile == "sunbiz":
+                print(f"  {GREEN(OK)} Solara's operating memory is ready.")
+            else:
+                print(f"  {GREEN(OK)} State DB initialized.")
         else:
             print(f"  {YELLOW('state_manager.py heartbeat exited ' + str(rc) + ' — re-run after fixing.')}")
 
@@ -2281,23 +2368,34 @@ def step_v6_init(profile: str, step_num: int, total: int) -> None:
 
     mr_script = REPO_ROOT / "scripts" / "memory_retriever.py"
     if mr_script.exists():
-        print(f"  {DIM('Building FTS5 retrieval index (')}{CYAN('state/memory_index.db')}{DIM(')...')}")
+        if profile != "sunbiz":
+            print(f"  {DIM('Building FTS5 retrieval index (')}{CYAN('state/memory_index.db')}{DIM(')...')}")
         rc = subprocess.call([sys.executable, str(mr_script), "build"],
                              cwd=str(REPO_ROOT),
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         if rc == 0:
-            print(f"  {GREEN(OK)} Memory retriever ready.")
+            if profile == "sunbiz":
+                print(f"  {GREEN(OK)} Solara's memory index is ready.")
+            else:
+                print(f"  {GREEN(OK)} Memory retriever ready.")
         else:
             print(f"  {YELLOW('memory_retriever.py build exited ' + str(rc) + '.')}")
 
     # Scoped env file fan-out — defense in depth.
     counts = _fan_out_scoped_env_files()
     if counts:
-        per = ", ".join(f"{svc}={n}" for svc, n in counts.items())
-        print(f"  {GREEN(OK)} Scoped env files written: {CYAN(per)} keys")
+        if profile == "sunbiz":
+            print(f"  {GREEN(OK)} Solara's background setup is finished.")
+        else:
+            per = ", ".join(f"{svc}={n}" for svc, n in counts.items())
+            print(f"  {GREEN(OK)} Scoped env files written: {CYAN(per)} keys")
 
     # Optional Docker build prompt.
     docker_ok, docker_msg = _docker_available()
+    if profile == "sunbiz":
+        print()
+        return
+
     if docker_ok:
         compose_file = "docker-compose.cloud.yml" if target == "cloud" else "docker-compose.local.yml"
         print()
@@ -2454,8 +2552,12 @@ def step_dashboard_pair(profile: str, step_num: int, total: int) -> None:
     import urllib.request as _ureq
     import urllib.error as _uerr
 
-    step_header(step_num, total, "Dashboard pairing",
-                "Hand your setup off to the cloud Command Center.")
+    if profile == "sunbiz":
+        step_header(step_num, total, "Command Center handoff",
+                    "Pair Solara with the client's Command Center.")
+    else:
+        step_header(step_num, total, "Dashboard pairing",
+                    "Hand your setup off to the cloud Command Center.")
 
     dashboard_url = (
         os.environ.get("BRAVO_DASHBOARD_URL")
@@ -2582,6 +2684,48 @@ def step_dashboard_pair(profile: str, step_num: int, total: int) -> None:
     print()
 
 
+def step_sunbiz_experience_handoff(step_num: int, total: int) -> None:
+    step_header(step_num, total, "Launch Solara",
+                "One last lead-intake and texting check before the client lands in the Command Center.")
+
+    dashboard_url = _dashboard_url()
+    webhook_url = f"{dashboard_url}/api/inbound/lead"
+
+    print(f"  {BOLD('JotForm setup')}")
+    print(f"    {DIM('1. Open the client JotForm and go to Settings -> Integrations -> Webhooks.')}")
+    print(f"    {DIM('2. Paste this webhook URL:')} {CYAN(webhook_url)}")
+    print(f"    {DIM('3. Save the form, then come back here so we can pulse-check it.')}")
+    jotform_ready = yes_no("Mark JotForm as connected now?", default=True)
+    if jotform_ready:
+        write_env("JOTFORM_WEBHOOK_URL", webhook_url)
+
+    text_torrent_ready = bool(read_env("TWILIO_ACCOUNT_SID") and read_env("TWILIO_AUTH_TOKEN"))
+
+    services: dict[str, dict] = {
+        "jotform": {
+            "status": "healthy" if jotform_ready else "unconfigured",
+            "metadata": {"via": "wizard", "agent": "solara", "webhook_url": webhook_url},
+        },
+        "text_torrent": {
+            "status": "healthy" if text_torrent_ready else "unconfigured",
+            "metadata": {"via": "wizard", "agent": "solara"},
+        },
+    }
+    _post_bridge_services(dashboard_url, services)
+
+    print()
+    print(f"  {BOLD('Pulse Check')}")
+    if jotform_ready:
+        print(f"    {GREEN(OK)} Solara is connected to JotForm. She is ready to receive leads.")
+    else:
+        print(f"    {YELLOW(WARN)} JotForm is still waiting on its webhook.")
+    if text_torrent_ready:
+        print(f"    {GREEN(OK)} Solara is connected to Text Torrent. She is ready to send follow-ups.")
+    else:
+        print(f"    {YELLOW(WARN)} Text Torrent still needs its Account SID + Auth Token.")
+    print()
+
+
 def step_finalize(profile: str, step_num: int, total: int) -> None:
     step_header(step_num, total, "Finalize",
                 "Summary of saved credentials and next steps.")
@@ -2614,13 +2758,20 @@ def step_finalize(profile: str, step_num: int, total: int) -> None:
         hr("─", 64)
         print()
 
-    print(f"  {BOLD('Next commands:')}")
-    print(f"    {CYAN('bravo doctor')}          {DIM('— full health check')}")
-    print(f"    {CYAN('bravo status')}          {DIM('— live operational summary')}")
-    print(f"    {CYAN('bravo agent list')}      {DIM('— see sub-agents')}")
-    print(f"    {CYAN('bravo sessions recent')} {DIM('— rewind past sessions')}")
-    if read_env("TELEGRAM_BOT_TOKEN"):
-        print(f"    {CYAN('bravo run telegram_agent')}  {DIM('— start the Telegram bridge')}")
+    if profile == "sunbiz":
+        dashboard_url = _dashboard_url()
+        print(f"  {BOLD('What happens next:')}")
+        print(f"    {GREEN(OK)} Solara's setup is complete.")
+        print(f"    {GREEN(OK)} The Command Center is ready at {CYAN(dashboard_url + '/')}")
+        print(f"    {GREEN(OK)} The Playbook tab walks the client through their first week with Solara.")
+    else:
+        print(f"  {BOLD('Next commands:')}")
+        print(f"    {CYAN('bravo doctor')}          {DIM('— full health check')}")
+        print(f"    {CYAN('bravo status')}          {DIM('— live operational summary')}")
+        print(f"    {CYAN('bravo agent list')}      {DIM('— see sub-agents')}")
+        print(f"    {CYAN('bravo sessions recent')} {DIM('— rewind past sessions')}")
+        if read_env("TELEGRAM_BOT_TOKEN"):
+            print(f"    {CYAN('bravo run telegram_agent')}  {DIM('— start the Telegram bridge')}")
     if profile == "hermes":
         hermes_root = Path(AGENT_REPOS["hermes"]["dir"]).expanduser()
         print()
@@ -2735,16 +2886,28 @@ def step_finalize(profile: str, step_num: int, total: int) -> None:
         print(f"  {DIM('BRAVO_SKIP_POST_DOCTOR=1 — skipping post-install doctor.')}")
         _post_doctor_rc[0] = 0
     else:
-        print(f"  {BOLD('Running')} {CYAN('bravo doctor')} {BOLD('to verify everything...')}")
-        print()
         bravo_cmd = REPO_ROOT / "bravo_cli" / "main.py"
-        rc = subprocess.call([sys.executable, str(bravo_cmd), "doctor"],
-                             cwd=str(REPO_ROOT))
+        if profile == "sunbiz":
+            print(f"  {BOLD('Running a final health check for Solara...')}")
+            rc = subprocess.call(
+                [sys.executable, str(bravo_cmd), "doctor"],
+                cwd=str(REPO_ROOT),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        else:
+            print(f"  {BOLD('Running')} {CYAN('bravo doctor')} {BOLD('to verify everything...')}")
+            print()
+            rc = subprocess.call([sys.executable, str(bravo_cmd), "doctor"],
+                                 cwd=str(REPO_ROOT))
         _post_doctor_rc[0] = rc
         if rc != 0:
             print()
-            print(f"  {YELLOW('Setup finished, but `bravo doctor` reported exit ' + str(rc) + '.')}")
-            print(f"  {DIM('Run')} {CYAN('bravo doctor')} {DIM('again for full output, or set BRAVO_SKIP_POST_DOCTOR=1 to bypass on next run.')}")
+            if profile == "sunbiz":
+                print(f"  {YELLOW('Solara finished onboarding, but one health check still needs attention.')}")
+            else:
+                print(f"  {YELLOW('Setup finished, but `bravo doctor` reported exit ' + str(rc) + '.')}")
+                print(f"  {DIM('Run')} {CYAN('bravo doctor')} {DIM('again for full output, or set BRAVO_SKIP_POST_DOCTOR=1 to bypass on next run.')}")
 
 # ── Self-update preflight ─────────────────────────────────────────────────────
 
@@ -2867,6 +3030,7 @@ def run_wizard(profile_override: str | None = None) -> int:
         total += 2                                         # playwright + harness
         total += 1                                         # data sovereignty
         total += 1                                         # dashboard pairing
+        if profile == "sunbiz":                            total += 1  # Solara launch checks
         total += 1                                         # V6.0 sandbox init
 
         step = 0
@@ -2897,6 +3061,8 @@ def run_wizard(profile_override: str | None = None) -> int:
         step += 1; step_data_sovereignty(profile, step, total)
         # Cloud handoff — wizard answers → dashboard, mint local-bridge token
         step += 1; step_dashboard_pair(profile, step, total)
+        if profile == "sunbiz":
+            step += 1; step_sunbiz_experience_handoff(step, total)
         # V6.0 sandbox: write hook defaults, boot state DB, build FTS5 index,
         # fan out scoped env files, optional docker build. Runs RIGHT BEFORE
         # finalize so the post-install `bravo doctor` sees a healthy V6.0 stack.

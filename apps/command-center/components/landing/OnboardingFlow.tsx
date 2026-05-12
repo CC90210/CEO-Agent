@@ -7,7 +7,7 @@
  *   3. (Optional) pair a local machine for file-system access — Phase 2
  *
  * Final action posts the agent_model_config row for ALL chat-eligible agents
- * with the chosen provider+model+key, then redirects to /agents.
+ * with the chosen provider+model+key, then redirects to the dashboard.
  */
 
 import { useState } from "react";
@@ -112,7 +112,7 @@ export function OnboardingFlow({ userEmail }: Props) {
         console.error("[onboarding_flow.profile_patch]", `status=${profileRes.status}`, body);
         throw new Error(`Could not save onboarding choices (status ${profileRes.status}). Try again.`);
       }
-      router.push("/agents");
+      router.push("/");
     } catch (e) {
       console.error("[onboarding_flow.submit]", e);
       setError(e instanceof Error ? e.message : "request_failed");

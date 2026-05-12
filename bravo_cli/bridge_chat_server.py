@@ -2397,6 +2397,8 @@ _ENV_KEY_TO_SERVICE_FALLBACK = {
     # Workspace surface via scripts/google_tool.py.
     "GMAIL_APP_PASSWORD": "gws",
     "TELEGRAM_BOT_TOKEN": "telegram",
+    "TWILIO_ACCOUNT_SID": "text_torrent",
+    "JOTFORM_WEBHOOK_URL": "jotform",
     # Finance / trading (Atlas reads these from CFO-Agent/.env — the
     # bridge now scans sibling agent repos, see _env_files()).
     "STRIPE_API_KEY": "stripe",

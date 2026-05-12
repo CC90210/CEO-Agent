@@ -46,7 +46,7 @@ export type IntegrationDef = {
   setup_doc_url?: string;
   setup_complexity: SetupComplexity;
   /** Which agent(s) actually use this integration. */
-  used_by?: ("bravo" | "atlas" | "maven" | "aura" | "hermes")[];
+  used_by?: ("bravo" | "atlas" | "maven" | "aura" | "hermes" | "sunbiz" | "suga_sean")[];
   /** For api_key kind: which env var the key-paste modal writes to in
    *  .env.agents. If omitted, modal won't appear and the user falls back
    *  to the manual signup_url + api_key_url affordance. */
@@ -146,6 +146,18 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     setup_complexity: "simple",
     used_by: ["bravo"],
     env_key: "TELEGRAM_BOT_TOKEN",
+  },
+  {
+    service: "text_torrent",
+    label: "Text Torrent",
+    category: "comms",
+    description: "Lead texting and follow-up lane for Solara",
+    connection_kind: "api_key",
+    signup_url: "https://console.twilio.com/",
+    api_key_url: "https://console.twilio.com/",
+    setup_complexity: "simple",
+    used_by: ["sunbiz"],
+    env_key: "TWILIO_ACCOUNT_SID",
   },
 
   // ── Finance ────────────────────────────────────────────────────
@@ -355,10 +367,22 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     env_key: "N8N_API_KEY",
   },
   {
-    service: "turso",
-    label: "Turso",
+    service: "jotform",
+    label: "JotForm",
     category: "data",
-    description: "Edge SQLite for IG Setter Pro + Gritly",
+    description: "Lead capture form that feeds Solara's funding pipeline",
+    connection_kind: "api_key",
+    signup_url: "https://www.jotform.com/",
+    api_key_url: "https://www.jotform.com/",
+    setup_complexity: "simple",
+    used_by: ["sunbiz"],
+    env_key: "JOTFORM_WEBHOOK_URL",
+  },
+  {
+    service: "turso",
+    label: "Local Brain",
+    category: "data",
+    description: "Private client records stored on this machine",
     connection_kind: "api_key",
     signup_url: "https://app.turso.tech/",
     api_key_url: "https://app.turso.tech/account/tokens",

@@ -1,7 +1,9 @@
 import ChatWidget from "@/components/ChatWidget";
 import { Card, PageHeader, Tag } from "@/components/Card";
-import { getActiveProfile } from "@/lib/queries";
+import { safe } from "@/lib/api-helpers";
+import { getActiveProfile, integrationsHealth } from "@/lib/queries";
 import { getSessionUser } from "@/lib/supabase-server";
+import type { IntegrationHealth } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +23,7 @@ const AGENT_LABELS: Record<string, { label: string; pitch: string }> = {
   sunbiz: {
     label: "Solara",
     pitch:
-      "Funding-ops agent for Sun Biz Funding. Reasons through leads, lender fit, applications, SMS follow-up, commissions, and renewal strategy.",
+      "Your Sun Biz digital employee. Solara helps your team work leads, follow up fast, organize applications, track offers, and stay ahead of renewals.",
   },
   suga_sean: {
     label: "Suga",
@@ -30,11 +32,22 @@ const AGENT_LABELS: Record<string, { label: string; pitch: string }> = {
   },
 };
 
+function firstNameOf(name: string | null | undefined, fallback = "Jordan"): string {
+  const raw = (name || "").trim();
+  if (!raw) return fallback;
+  return raw.split(/\s+/)[0] || fallback;
+}
+
 export default async function ClientAgentPage() {
   const [profile, user] = await Promise.all([
-    getActiveProfile().catch(() => null),
+    safe("agent.profile", getActiveProfile(), null),
     getSessionUser().catch(() => null),
   ]);
+  const healthRows = await safe(
+    "agent.health",
+    integrationsHealth(profile?.tenant_id || null),
+    [] as IntegrationHealth[]
+  );
   // Tenant-scoped: only the agents this tenant has purchased / been provisioned for.
   const enabled = (profile?.agents_enabled || []).filter(Boolean);
   const primary = profile?.primary_agent || enabled[0] || "sunbiz";
@@ -47,6 +60,22 @@ export default async function ClientAgentPage() {
     agentKeys.length > 1
       ? `Chat with the ${agentKeys.length} agents on this workspace. Switch between them in the chat header.`
       : primaryMeta.pitch;
+  const clientName = firstNameOf(profile?.display_name || profile?.full_name);
+  const jotformHealthy =
+    primary === "sunbiz" &&
+    healthRows.some((row) => row.service === "jotform" && row.status === "healthy");
+  const welcomeMessages =
+    primary === "sunbiz"
+      ? {
+          sunbiz: jotformHealthy
+            ? `Hello ${clientName}, I'm Solara. I've successfully connected to your JotForm and I'm ready to begin processing your funding pipeline.`
+            : `Hello ${clientName}, I'm Solara. I'm in your Command Center and ready to help with leads, follow-up, applications, offers, and renewals.`,
+        }
+      : undefined;
+  const cardSubtitle =
+    primary === "sunbiz"
+      ? "Talk to Solara in plain English. She can help you organize the funding pipeline, draft follow-up, and explain what needs attention next."
+      : "Cloud mode works once a model key is configured. Local bridge mode unlocks client-machine files and tools.";
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -57,12 +86,13 @@ export default async function ClientAgentPage() {
       />
       <Card
         title={agentKeys.length > 1 ? "Agent chat" : `${primaryMeta.label} chat`}
-        subtitle="Cloud mode works once a model key is configured. Local bridge mode unlocks client-machine files and tools."
+        subtitle={cardSubtitle}
       >
         <ChatWidget
           agentKeys={agentKeys}
           defaultAgent={primary}
           isAdmin={isOperatorEmail(user?.email)}
+          welcomeMessages={welcomeMessages}
         />
       </Card>
     </div>
