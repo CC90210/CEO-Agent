@@ -129,7 +129,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-05-12
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Sun Biz Agent V1 Phase 1 shipped — backend rebrand (AdVantage->Sun Biz Agent, 13 files), V6 substrate registration (state_manager+agent_heartbeat VALID_AGENTS gained sunbiz; _emit_cross_agent_event now source-aware; EVENT_BUS_CONTRACT registers 9 SUNBIZ_* event types; AGENTS.md section 19 added), sms_engine.py (Twilio provider with telnyx/plivo Phase 2 hooks, all 3 failure paths smoke-tested), tenant-aware dashboard nav (lib/nav-config.ts with SUN_NAV 17 items vs CC_NAV 14; Sidebar.tsx generalized; layout.tsx resolves tenants.slug), 3 functional pages (/leads, /renewals matching Bluestone reference, /sms + send form), /api/sms/send shells sms_engine.py, 11 stub pages, Phase 1 query helpers (defensive against missing Phase 2 tables). TypeScript clean. All 14 Sun routes reachable through middleware. Open: provision sun tenant in Supabase; paste Twilio creds per CHANGELOG; confirm theme; Phase 2 migrations 037-047 + multi-provider SMS failover + funding_intel/deal_tracker/renewal_scanner.
+- **Result:** Sun Biz integration contract finished across both repos: Business-Empire-Agent now uses reusable client profiles plus hosted-agent-first SMS transport and dynamic playbook routes; Marketing-Agent gained dashboard/tenant.manifest.json and dashboard/INTEGRATION.md so the separate Sun Biz product has an explicit command-center handshake, Turso-first data declaration, and env contract.
 
 *Last updated: 2026-05-12*
 

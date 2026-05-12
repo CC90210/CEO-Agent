@@ -5,7 +5,23 @@ import {
   Sparkles, Target, MessageSquare, TrendingUp, Sword, Brain, Zap,
 } from "lucide-react";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
+
+const DRILL_ICONS = {
+  scanFace: ScanFace,
+  repeat: Repeat,
+  mic: Mic,
+  barChart3: BarChart3,
+  calendar: Calendar,
+  clock: Clock,
+  sparkles: Sparkles,
+  target: Target,
+  messageSquare: MessageSquare,
+  trendingUp: TrendingUp,
+  sword: Sword,
+  brain: Brain,
+  zap: Zap,
+} as const;
 
 /**
  * Daily Drills v2 — refined per CC's spec: "super advanced, optimized,
@@ -31,7 +47,7 @@ type Drill = {
   chat?: { agent: "bravo" | "atlas" | "maven"; prompt: string };
   /** Dashboard page that backs this drill. */
   link?: { href: string; label: string };
-  icon: React.ComponentType<{ size?: number }>;
+  icon: keyof typeof DRILL_ICONS;
 };
 
 const DRILLS: Drill[] = [
@@ -50,7 +66,7 @@ const DRILLS: Drill[] = [
       prompt:
         "Score the last 3 things I wrote (pull from chat_messages, latest_drafts, anywhere you have access). For each: tone match against ../CMO-Agent/brain/CONTENT_BIBLE.md, sentence rhythm, signature phrase usage. Flag any AI-slop opener or off-brand sentence and rewrite it.",
     },
-    icon: ScanFace,
+    icon: "scanFace",
   },
   {
     num: "02",
@@ -67,7 +83,7 @@ const DRILLS: Drill[] = [
         "Pick my hottest qualified lead from the pipeline. Build me a custom NEPQ flow for THAT lead specifically — situation, problem, solution, consequence questions. Each question must reference something specific about their business (industry, size, recent activity). I'll read it aloud as my rep.",
     },
     link: { href: "/pipeline", label: "Live pipeline" },
-    icon: Brain,
+    icon: "brain",
   },
   {
     num: "03",
@@ -84,7 +100,7 @@ const DRILLS: Drill[] = [
         "Pull my full pipeline by stage. Identify the ONE stage where leads are stalling longest right now. For each stalled lead, give me one specific next-touch I can fire today — message draft included. Don't generalize.",
     },
     link: { href: "/pipeline", label: "Pipeline" },
-    icon: Target,
+    icon: "target",
   },
   {
     num: "04",
@@ -101,7 +117,7 @@ const DRILLS: Drill[] = [
         "Draft today's content. Pick the pillar that hasn't fired in the longest stretch. Give me a hook + body in CC's voice (introspective, raw, '2am to a friend' tone). Reference anything noteworthy from this week's wins. Sign off with 'Only good things from now on.' if it lands.",
     },
     link: { href: "/agents?agent=maven", label: "Send to Maven" },
-    icon: Sparkles,
+    icon: "sparkles",
   },
   {
     num: "05",
@@ -118,7 +134,7 @@ const DRILLS: Drill[] = [
         "Today's MRR delta + how we got it. Source breakdown: Stripe one-offs, recurring retainers, rev shares, community growth. If positive, name what to scale tomorrow. If flat or negative, name the one revenue lever I should pull. Be specific to my $5K target by May 15.",
     },
     link: { href: "/", label: "Today" },
-    icon: TrendingUp,
+    icon: "trendingUp",
   },
 
   // ── ADVANCED (alternate days, week 3+) ─────────────────────────
@@ -137,7 +153,7 @@ const DRILLS: Drill[] = [
         "Run me through the 10 objections from /playbook/script in random order. For each, paste the trigger and wait. After I respond, score me 1-5 on tightness + tone, then give me a tighter version. Only call out the 2-3 weakest at the end.",
     },
     link: { href: "/playbook/script", label: "Script + objections" },
-    icon: Sword,
+    icon: "sword",
   },
   {
     num: "07",
@@ -153,7 +169,7 @@ const DRILLS: Drill[] = [
       prompt:
         "I just listened to a call. Here's my note on what I heard: [paste]. Diagnose the root NEPQ failure (was it situation depth, problem clarity, consequence weight, or solution framing?). Give me the one micro-fix to test on tomorrow's calls.",
     },
-    icon: Mic,
+    icon: "mic",
   },
   {
     num: "08",
@@ -169,7 +185,7 @@ const DRILLS: Drill[] = [
       prompt:
         "Pick my warmest qualified lead. Research what they're likely comparing OASIS to (other AI vendors, freelancers, in-house, status quo). For each, draft the outcome-based reframe in one sentence. Make me dangerous in the next call with them.",
     },
-    icon: Zap,
+    icon: "zap",
   },
   {
     num: "09",
@@ -185,7 +201,7 @@ const DRILLS: Drill[] = [
       prompt:
         "Show me the last 3 qualified leads who didn't book. For each: the touchpoint that lost them (cold open / discovery / close), why that specific moment failed, and the rewrite. Look for patterns across all three.",
     },
-    icon: MessageSquare,
+    icon: "messageSquare",
   },
   {
     num: "10",
@@ -201,7 +217,7 @@ const DRILLS: Drill[] = [
       prompt:
         "Run my weekly retro. Pull this week's KPIs (dials, conversations, bookings, content posted, MRR delta). Diagnose what compounded vs what burned. Give me one process change for next week. Save it to memory/PATTERNS.md if it's worth keeping.",
     },
-    icon: Calendar,
+    icon: "calendar",
   },
 ];
 
@@ -331,7 +347,7 @@ export default function DrillsPage() {
 }
 
 function DrillCard({ drill: d }: { drill: Drill }) {
-  const Icon = d.icon;
+  const Icon = DRILL_ICONS[d.icon];
   const chatHref = d.chat
     ? `/agents?agent=${encodeURIComponent(d.chat.agent)}&prompt=${encodeURIComponent(d.chat.prompt)}`
     : null;

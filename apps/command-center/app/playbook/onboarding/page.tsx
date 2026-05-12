@@ -6,7 +6,7 @@ import { ArrowLeft, BookOpen } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 /**
  * /playbook/onboarding — operator-facing V6.0 SOPs rendered from
