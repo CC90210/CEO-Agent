@@ -171,6 +171,8 @@ ENV_TO_SERVICE: dict[str, str] = {
     "CLOUDFLARE_API_TOKEN": "cloudflare",
     "HOSTINGER_API_TOKEN": "hostinger",
     "TELEGRAM_BOT_TOKEN": "telegram",
+    "TWILIO_ACCOUNT_SID": "text_torrent",
+    "JOTFORM_WEBHOOK_URL": "jotform",
     "FIRECRAWL_API_KEY": "firecrawl",
     "ELEVENLABS_API_KEY": "elevenlabs",
     "LATE_API_KEY": "late",

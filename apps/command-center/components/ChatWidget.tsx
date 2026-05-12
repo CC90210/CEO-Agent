@@ -158,9 +158,19 @@ type Props = {
   defaultAgent?: string;
   /** When true (operator/admin), the widget never blocks on missing config — chat is allowed via platform fallback. */
   isAdmin?: boolean;
+  welcomeMessages?: Partial<Record<string, string>>;
 };
 
-export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) {
+function seedMessagesForAgent(
+  agent: string,
+  welcomeMessages?: Partial<Record<string, string>>
+): Msg[] {
+  const content = welcomeMessages?.[agent]?.trim();
+  if (!content) return [];
+  return [{ role: "assistant", content, at: Date.now() }];
+}
+
+export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMessages }: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -177,7 +187,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
   const [agent, setAgent] = useState<string>(initialAgent);
   const [configs, setConfigs] = useState<AgentConfig[]>([]);
   const [configsLoaded, setConfigsLoaded] = useState(false);
-  const [messages, setMessages] = useState<Msg[]>([]);
+  const [messages, setMessages] = useState<Msg[]>(() => seedMessagesForAgent(initialAgent, welcomeMessages));
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -285,6 +295,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
   const [elapsedTick, setElapsedTick] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const activeWelcomeMessage = welcomeMessages?.[agent]?.trim() || "";
 
   // Tick elapsed time every second while a request is mid-flight.
   useEffect(() => {
@@ -437,7 +448,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
   }, [messages, streaming, awayFromBottom]);
 
   useEffect(() => {
-    setMessages([]);
+    setMessages(seedMessagesForAgent(agent, welcomeMessages));
     setSessionId(null);
     setError(null);
     setActions([]);
@@ -449,7 +460,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
     setExpandedRuns(new Set());
     setThinking(false);
     setAwayFromBottom(false);
-  }, [agent]);
+  }, [agent, activeWelcomeMessage, welcomeMessages]);
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
@@ -489,7 +500,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin }: Props) 
       // the first message after reset would cold-spawn (~5-30s).
       setPrewarmEpoch((e) => e + 1);
     }
-    setMessages([]);
+    setMessages(seedMessagesForAgent(agent, welcomeMessages));
     setSessionId(null);
     setError(null);
     setActions([]);

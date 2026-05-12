@@ -27,6 +27,11 @@ const CONTENT_DIR = path.join(process.cwd(), "content", "playbooks");
 // Audience inferred from the file's # heading suffix / known slugs. Keeps the
 // content files free of frontmatter while still letting the index page filter.
 function inferAudience(slug: string, body: string): PlaybookFile["audience"] {
+  const explicitAudience = body.match(/^Audience:\s*(.+?)\s*$/im)?.[1]?.toLowerCase() || "";
+  if (explicitAudience.includes("client")) return "client";
+  if (explicitAudience.includes("customer")) return "client";
+  if (explicitAudience.includes("operator")) return "operator";
+  if (explicitAudience.includes("internal")) return "internal";
   const lowered = `${slug} ${body.slice(0, 200)}`.toLowerCase();
   if (lowered.includes("customer-facing") || lowered.includes("verbatim script")) {
     return "client";
