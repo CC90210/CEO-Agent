@@ -45,13 +45,20 @@ Public download route added:
 
 - `https://agent-dashboard-cc90210.vercel.app/download`
 
-Planned GitHub prerelease tag:
+Published GitHub prerelease tag:
 
 - `https://github.com/CC90210/CEO-Agent/releases/tag/oasis-desktop-v0.1.0-alpha.1`
 
 Direct Windows alpha asset URL:
 
 - `https://github.com/CC90210/CEO-Agent/releases/download/oasis-desktop-v0.1.0-alpha.1/OASIS-AI-0.1.0-win-x64-unpacked.zip`
+
+Release verification:
+
+- GitHub release asset returns `200 OK`.
+- Uploaded asset size is `136569906` bytes.
+- Uploaded asset digest is `sha256:0061c90ea95fffd3c6b413dcbe18a103880e858f9096ced49505e30fba377404`.
+- Stable production `/download` route returns `200 OK` after Vercel deployment `agent-dashboard-gkko3jyxj-cc90210.vercel.app`.
 
 Important product note:
 
