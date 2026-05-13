@@ -17,11 +17,19 @@ export const dynamic = "force-dynamic";
 
 const VERSION = "0.1.0";
 const CHANNEL = "alpha";
-const RELEASE_TAG = "oasis-desktop-v0.1.0-alpha.1";
+const RELEASE_TAG = "oasis-desktop-v0.1.0-alpha.2";
 const RELEASE_URL = `https://github.com/CC90210/CEO-Agent/releases/tag/${RELEASE_TAG}`;
-const WINDOWS_ZIP_URL = `https://github.com/CC90210/CEO-Agent/releases/download/${RELEASE_TAG}/OASIS-AI-0.1.0-win-x64-unpacked.zip`;
-const CHECKSUM_URL = `https://github.com/CC90210/CEO-Agent/releases/download/${RELEASE_TAG}/SHA256SUMS.txt`;
-const SHA256 = "0061c90ea95fffd3c6b413dcbe18a103880e858f9096ced49505e30fba377404";
+const WINDOWS_INSTALLER_URL = `https://github.com/CC90210/CEO-Agent/releases/download/${RELEASE_TAG}/OASIS-AI-0.1.0-win-x64.exe`;
+const MAC_DMG_URL = `https://github.com/CC90210/CEO-Agent/releases/download/${RELEASE_TAG}/OASIS-AI-0.1.0-mac-arm64.dmg`;
+const LINUX_APPIMAGE_URL = `https://github.com/CC90210/CEO-Agent/releases/download/${RELEASE_TAG}/OASIS-AI-0.1.0-linux-x86_64.AppImage`;
+const LINUX_DEB_URL = `https://github.com/CC90210/CEO-Agent/releases/download/${RELEASE_TAG}/OASIS-AI-0.1.0-linux-amd64.deb`;
+const CHECKSUM_URL = `https://github.com/CC90210/CEO-Agent/releases/download/${RELEASE_TAG}/SHA256SUMS-release.txt`;
+const CHECKSUMS = [
+  "Windows: 54fc179f280305889e6d88185b9126f2fd21e3c2b4ed85c7e6ec63672ac84574",
+  "macOS: aca992706337499e1404f3a74623987c3fb879dad9543957e58f3dec6557c6fa",
+  "Linux AppImage: 1da519f1455c0660363a2098a9e5679610c07603c113cb5e101eeac8d78591dc",
+  "Linux deb: 0f90cb38a231f3ae3d10a48853bc6328fe8fe08fa7697450dcddc24d84b6fb0b",
+];
 
 export default function DownloadPage() {
   return (
@@ -58,7 +66,7 @@ export default function DownloadPage() {
       <section className="relative z-10 mx-auto grid max-w-7xl gap-8 px-6 pb-16 pt-12 sm:px-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
         <div>
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/5 px-3 py-1 text-xs text-accent">
-            <MonitorDown className="h-3.5 w-3.5" /> Windows alpha - v{VERSION}
+            <MonitorDown className="h-3.5 w-3.5" /> Desktop alpha - v{VERSION}
           </div>
           <h1 className="text-5xl font-black leading-[1.04] tracking-tight text-fg sm:text-7xl">
             Download{" "}
@@ -70,17 +78,30 @@ export default function DownloadPage() {
             This is the installable shell for the OASIS Agent Command Center. It is not a Chrome extension.
             It runs as a desktop app and prepares the local runtime for files, tools, automations, and provider-powered agents.
           </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <a href={WINDOWS_ZIP_URL} className="btn-send !px-5 !py-3 text-sm">
-              <Download className="h-4 w-4" /> Download Windows Alpha
+          <div className="mt-8 grid gap-3 sm:grid-cols-2">
+            <a href={WINDOWS_INSTALLER_URL} className="btn-send !px-5 !py-3 text-sm">
+              <Download className="h-4 w-4" /> Windows installer
+            </a>
+            <a href={MAC_DMG_URL} className="btn-secondary !px-5 !py-3 text-sm">
+              <Download className="h-4 w-4" /> Mac dmg
+            </a>
+            <a href={LINUX_APPIMAGE_URL} className="btn-secondary !px-5 !py-3 text-sm">
+              <Download className="h-4 w-4" /> Linux AppImage
+            </a>
+            <a href={LINUX_DEB_URL} className="btn-secondary !px-5 !py-3 text-sm">
+              <Download className="h-4 w-4" /> Linux deb
             </a>
             <a href={CHECKSUM_URL} target="_blank" rel="noopener noreferrer" className="btn-secondary !px-5 !py-3 text-sm">
               SHA-256 checksum
             </a>
           </div>
           <div className="mt-5 rounded-xl border border-bg-border bg-bg-elev/50 p-4 font-mono text-xs text-fg-dim">
-            <div className="mb-1 uppercase tracking-[0.14em] text-fg-muted">Current checksum</div>
-            <div className="break-all text-accent">{SHA256}</div>
+            <div className="mb-2 uppercase tracking-[0.14em] text-fg-muted">Current checksums</div>
+            <div className="space-y-1">
+              {CHECKSUMS.map((checksum) => (
+                <div key={checksum} className="break-all text-accent">{checksum}</div>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -109,10 +130,10 @@ export default function DownloadPage() {
         <div className="grid gap-4 lg:grid-cols-3">
           <Panel title="How To Download" icon={<Download className="h-5 w-5" />}>
             <ol className="space-y-2 text-sm text-fg-muted">
-              <li>1. Click <span className="text-fg">Download Windows Alpha</span>.</li>
-              <li>2. Unzip the folder.</li>
-              <li>3. Open <code className="text-accent">OASIS AI.exe</code>.</li>
-              <li>4. Sign in to the Command Center.</li>
+              <li>1. Pick the download for your operating system.</li>
+              <li>2. Install or open the alpha app.</li>
+              <li>3. Sign in to the Command Center.</li>
+              <li>4. Choose provider connection and desktop access.</li>
             </ol>
           </Panel>
           <Panel title="Chrome Extension?" icon={<XCircle className="h-5 w-5" />}>
