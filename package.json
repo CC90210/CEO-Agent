@@ -20,7 +20,14 @@
     "onboarding:doctor": "python scripts/onboarding_diagnostics.py",
     "gateway": "node gateway/index.js",
     "gateway:bg": "node gateway/index.js >> gateway/gateway.log 2>&1",
-    "gateway:admin": "python scripts/gateway_admin.py"
+    "gateway:admin": "python scripts/gateway_admin.py",
+    "desktop:doctor": "npm --prefix apps/oasis-desktop run doctor",
+    "desktop:release-check": "npm --prefix apps/oasis-desktop run release:check",
+    "desktop:release-metadata": "npm --prefix apps/oasis-desktop run release:metadata",
+    "desktop:artifact-check": "npm --prefix apps/oasis-desktop run artifact:check",
+    "desktop:dev": "npm --prefix apps/oasis-desktop start",
+    "desktop:pack": "npm --prefix apps/oasis-desktop run pack",
+    "desktop:build:win": "npm --prefix apps/oasis-desktop run build:win"
   },
   "repository": {
     "type": "git",

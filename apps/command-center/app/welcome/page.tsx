@@ -66,6 +66,9 @@ export default async function WelcomePage() {
             A C-suite of AI agents wired into your business — Bravo, Maven, Atlas, Aura, Hermes — running with full read/write access to your machine, your files, your stack. Chat any of them from one dashboard. They post handoffs to each other, execute scripts, draft documents, and ship work while you sleep.
           </p>
           <div className="mt-9 flex flex-wrap items-center gap-3">
+            <Link href="/download" className="btn-send !px-5 !py-3 text-sm">
+              Download desktop <Monitor className="w-4 h-4" />
+            </Link>
             <Link href="/configure" className="btn-send !px-5 !py-3 text-sm">
               See if we&apos;re a fit <ArrowRight className="w-4 h-4" />
             </Link>
