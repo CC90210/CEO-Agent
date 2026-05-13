@@ -1,0 +1,77 @@
+name: OASIS Desktop
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "apps/oasis-desktop/**"
+      - ".github/workflows/oasis-desktop.yml"
+
+jobs:
+  package:
+    name: Package ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+            command: build:win
+            artifact: apps/oasis-desktop/dist/**
+          - name: macOS
+            os: macos-latest
+            command: build:mac
+            artifact: apps/oasis-desktop/dist/**
+          - name: Linux
+            os: ubuntu-latest
+            command: build:linux
+            artifact: apps/oasis-desktop/dist/**
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/oasis-desktop/package-lock.json
+
+      - name: Install desktop dependencies
+        working-directory: apps/oasis-desktop
+        run: npm ci
+
+      - name: Doctor
+        working-directory: apps/oasis-desktop
+        run: npm run doctor
+
+      - name: Release check
+        working-directory: apps/oasis-desktop
+        run: npm run release:check
+
+      - name: Audit high severity
+        working-directory: apps/oasis-desktop
+        run: npm audit --audit-level=high
+
+      - name: Build artifact
+        working-directory: apps/oasis-desktop
+        run: npm run ${{ matrix.command }}
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Write release metadata
+        working-directory: apps/oasis-desktop
+        run: npm run release:metadata
+
+      - name: Artifact check
+        working-directory: apps/oasis-desktop
+        run: npm run artifact:check
+
+      - name: Upload desktop artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: oasis-desktop-${{ matrix.name }}
+          path: ${{ matrix.artifact }}
+          if-no-files-found: error

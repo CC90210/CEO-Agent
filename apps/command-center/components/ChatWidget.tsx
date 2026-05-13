@@ -42,6 +42,17 @@ import { BRIDGE_CHAT_BASE } from "@/lib/agent-roots";
 
 type Role = "user" | "assistant" | "system";
 type Msg = { role: Role; content: string; at: number };
+type AccessMode = "auto" | "cloud" | "desktop";
+
+const ACCESS_MODE_STORAGE_KEY = "oasis.chat.accessMode";
+const LEGACY_RUNTIME_MODE_STORAGE_KEY = "oasis.chat.runtimeMode";
+
+function normalizeAccessMode(saved: string | null): AccessMode | null {
+  if (saved === "auto" || saved === "cloud" || saved === "desktop") return saved;
+  if (saved === "api") return "cloud";
+  if (saved === "bridge") return "desktop";
+  return null;
+}
 
 const AGENT_SUGGESTIONS: Record<string, string[]> = {
   bravo: [
@@ -215,6 +226,15 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
     }>
   >([]);
   const [bridgeOnline, setBridgeOnline] = useState<boolean | null>(null);
+  const [accessMode, setAccessMode] = useState<AccessMode>(() => {
+    if (typeof window !== "undefined") {
+      const saved = normalizeAccessMode(window.localStorage.getItem(ACCESS_MODE_STORAGE_KEY));
+      if (saved) return saved;
+      const legacy = normalizeAccessMode(window.localStorage.getItem(LEGACY_RUNTIME_MODE_STORAGE_KEY));
+      if (legacy) return legacy;
+    }
+    return isAdmin ? "auto" : "cloud";
+  });
   const [usage, setUsage] = useState<{ usage: number; limit: number | null } | null>(null);
   // Cloud-tool results — only fire on the cloud /api/chat path. Each
   // entry is one execution of a <cloud-tool> marker the agent emitted
@@ -399,9 +419,14 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
       .catch(() => setUsage(null));
   }, [agent, configs, configsLoaded]);
 
+  useEffect(() => {
+    window.localStorage.setItem(ACCESS_MODE_STORAGE_KEY, accessMode);
+    window.localStorage.removeItem(LEGACY_RUNTIME_MODE_STORAGE_KEY);
+  }, [accessMode]);
+
   // Probe the local bridge on mount + every 30s. When the operator runs
-  // `bravo bridge serve`, this flips true and chat starts targeting their
-  // machine instead of /api/chat (full repo access, operator's API key).
+  // `bravo bridge serve`, this flips true and desktop-enabled runtimes can
+  // target their machine instead of /api/chat.
   useEffect(() => {
     let alive = true;
     const probe = async () => {
@@ -435,12 +460,13 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
   const [prewarmEpoch, setPrewarmEpoch] = useState(0);
   useEffect(() => {
     if (bridgeOnline !== true) return;
+    if (accessMode === "cloud") return;
     void fetch(`${BRIDGE_CHAT_BASE}/prewarm`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ agent, tab_id: tabId }),
     }).catch(() => null);
-  }, [bridgeOnline, agent, tabId, prewarmEpoch]);
+  }, [bridgeOnline, accessMode, agent, tabId, prewarmEpoch]);
 
   useEffect(() => {
     if (awayFromBottom) return;
@@ -476,10 +502,54 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
 
   const cfg = useMemo(() => configs.find((c) => c.agent_key === agent) || null, [configs, agent]);
   const hasOwnKey = cfg?.has_key && cfg?.enabled;
-  // Bridge online → chat works regardless of cloud config (operator's local
-  // ANTHROPIC_API_KEY drives it). Otherwise the cloud config / admin
-  // fallback decides.
-  const ready = bridgeOnline === true || (configsLoaded && (hasOwnKey || isAdmin));
+  const cloudProviderReachable = cfg?.provider !== "ollama";
+  const cloudReady = configsLoaded && (hasOwnKey || isAdmin) && cloudProviderReachable;
+  const bridgeReady = bridgeOnline === true;
+  const desktopBridgeActive = bridgeReady && accessMode !== "cloud";
+  // Access selection is separate from provider connection:
+  //   auto    -> this desktop when available, otherwise cloud workspace
+  //   cloud   -> never call the local bridge
+  //   desktop -> require OASIS Desktop/local bridge for files/tools
+  const ready =
+    accessMode === "desktop"
+      ? bridgeReady
+      : accessMode === "cloud"
+        ? cloudReady
+        : bridgeReady || cloudReady;
+  const providerStatus = (() => {
+    if (desktopBridgeActive && cfg?.provider === "ollama") {
+      return `Provider: ${cfg.provider} · ${cfg.model} · local desktop`;
+    }
+    if (desktopBridgeActive) return "Provider: Claude Code subscription (desktop bridge)";
+    if (cfg?.provider === "ollama") return "Provider: local model (Desktop required)";
+    if (cfg) return `Provider: ${cfg.provider} · ${cfg.model} · saved key`;
+    if (isAdmin) return "Provider: OASIS platform default";
+    return configsLoaded ? "Provider: not connected" : "Provider: loading...";
+  })();
+  const accessStatus =
+    accessMode === "desktop"
+      ? bridgeReady
+        ? "Access: this desktop · local tools + files"
+        : "Access: this desktop offline"
+      : accessMode === "cloud"
+        ? "Access: cloud workspace"
+        : bridgeReady
+          ? "Access: auto · this desktop"
+          : "Access: auto · cloud workspace";
+  const accessTitle =
+    accessMode === "desktop"
+      ? "Use this desktop computer for approved local files, tools, browser actions, and automations. The model provider is configured separately."
+      : accessMode === "cloud"
+        ? "Use the hosted Command Center only. The model provider is configured separately; this mode does not call the local bridge."
+        : "Auto uses this desktop when the bridge is available, otherwise it stays in the cloud workspace.";
+  const activeStatus = `${providerStatus} · ${accessStatus}`;
+  const composerPlaceholder = !ready
+    ? accessMode === "desktop"
+      ? "Start OASIS Desktop to use local tools"
+      : cfg?.provider === "ollama"
+        ? "Switch access to This desktop for local models"
+        : "Configure this agent first"
+    : `Message ${agent.toUpperCase()}…  (Shift+Enter for newline)`;
 
   function reset() {
     // Best-effort: tell the bridge to kill the warm claude subprocess
@@ -487,7 +557,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
     // process pins ~50-200MB of RAM until the 15-min idle reaper
     // catches up. Fire-and-forget; bridge offline / 404 is fine since
     // the reaper is the safety net.
-    if (bridgeOnline === true) {
+    if (bridgeOnline === true && accessMode !== "cloud") {
       void fetch(`${BRIDGE_CHAT_BASE}/chat-reset`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -531,26 +601,33 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
     setStreaming(true);
     setThinking(true);
     setStreamStartedAt(Date.now());
-    setStatusPhase(bridgeOnline === true ? "spawning" : "thinking");
+    const shouldUseBridge = bridgeOnline === true && accessMode !== "cloud";
+    setStatusPhase(shouldUseBridge ? "spawning" : "thinking");
     setStatusDetail("");
 
     try {
-      // Routing decision (three paths):
-      //   1. bridge online + agent provider == "ollama"
+      // Routing decision combines two separate axes:
+      //   - provider connection: OAuth/subscription/API key/local model
+      //   - access mode: cloud workspace vs this desktop
+      //
+      // Current desktop bridge support:
+      //   1. desktop access + agent provider == "ollama"
       //         → POST localhost:9100/local-chat (bridge proxies to the
       //           operator's local Ollama / LM Studio at the URL stored
       //           in the agent's "API key" field). Cloud server never
       //           touches the local model — solves the localhost:11434
       //           reachability problem entirely.
-      //   2. bridge online + any other provider
+      //   2. desktop access + any other provider
       //         → POST localhost:9100/chat (Claude Code subprocess, full
-      //           repo + read_file tool, operator's Claude subscription)
-      //   3. bridge offline
+      //           repo + read_file tool, operator's Claude subscription).
+      //           Next desktop backend slice: API-key-powered desktop tool
+      //           execution, so BYOK providers can drive the same local tools.
+      //   3. cloud access, or desktop unavailable in Auto
       //         → POST /api/chat (Vercel relay, BYO encrypted key — for
       //           ollama this fails because Vercel can't see localhost,
       //           so the dashboard surfaces the reachability caveat)
       const isOllama = cfg?.provider === "ollama";
-      const useBridge = bridgeOnline === true;
+      const useBridge = bridgeOnline === true && accessMode !== "cloud";
       const useLocalChat = useBridge && isOllama;
       const url = useLocalChat
         ? `${BRIDGE_CHAT_BASE}/local-chat`
@@ -830,7 +907,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
       {/* Aurora wash inside the bordered container */}
       <div className="chat-aurora absolute inset-0 pointer-events-none" />
 
-      {/* Header — agent picker + model badge */}
+      {/* Header — agent picker, access selector, and provider/access badge */}
       <div className="flex items-center gap-3 px-5 py-4 relative z-10">
         <select
           value={agent}
@@ -844,32 +921,28 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
             </option>
           ))}
         </select>
+        <select
+          value={accessMode}
+          onChange={(e) => setAccessMode(e.target.value as AccessMode)}
+          className="bg-bg-elev border border-bg-border rounded-lg px-3 py-2 text-xs text-fg font-bold focus:outline-none focus:border-accent transition-colors cursor-pointer"
+          aria-label="Choose computer access"
+          title="Choose whether this agent can use cloud workspace only or this desktop computer"
+        >
+          <option value="auto">Auto</option>
+          <option value="cloud">Cloud</option>
+          <option value="desktop">This desktop</option>
+        </select>
         <div className="flex-1 min-w-0">
           <div className="text-xs text-fg-muted truncate">
             {getAgentInfo(agent).tagline}
           </div>
           <div className="text-xs text-fg-dim font-mono truncate">
-            {bridgeOnline === true ? (
-              <span
-                className="text-accent"
-                title="Local bridge spawns the Claude Code CLI on your machine using your Claude subscription — your saved provider keys are not used in this mode."
-              >
+            <span title={accessTitle} className={accessMode !== "cloud" && bridgeReady ? "text-accent" : undefined}>
+              {accessMode !== "cloud" && bridgeReady && (
                 <Cpu className="w-3 h-3 inline-block mr-1 -mt-0.5" />
-                local bridge · Claude Code CLI · full repo access
-              </span>
-            ) : cfg ? (
-              <span title={`Cloud mode — using your saved ${cfg.provider} key for ${cfg.model}.`}>
-                {`${cfg.provider} · ${cfg.model} · your key`}
-              </span>
-            ) : isAdmin ? (
-              <span title="Cloud mode, no per-agent key saved — falling back to the platform-default key (admin only).">
-                admin · platform-default key
-              </span>
-            ) : configsLoaded ? (
-              "not configured"
-            ) : (
-              "loading…"
-            )}
+              )}
+              {activeStatus}
+            </span>
           </div>
         </div>
         {usage && (
@@ -915,15 +988,14 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
       {/* Animated rail beneath the header */}
       <div className="chat-rail" />
 
-      {/* Bridge-state banner — only when chat is in cloud mode and missing
-          the local repo context. Mirrors the path CC asked for: he should
-          never wonder "why doesn't this agent know my files." */}
-      {bridgeOnline === false && (
+      {/* Bridge-state banner — only when the operator explicitly asks for
+          desktop/local context and the bridge is unavailable. */}
+      {accessMode === "desktop" && bridgeOnline === false && (
         <div className="px-5 py-2.5 bg-status-warm/10 border-b border-status-warm/30 text-xs text-status-warm flex items-start gap-2 relative z-10">
           <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
           <div className="flex-1 leading-relaxed space-y-1.5">
             <div>
-              <span className="font-bold">Cloud mode.</span> Agent doesn&apos;t have access to your local file structure right now. For full repo context (read brain/, skills/, memory/, propose code edits), open a terminal in your install dir and run:
+              <span className="font-bold">Desktop offline.</span> Agent doesn&apos;t have access to your local file structure right now. For full repo context (read brain/, skills/, memory/, propose code edits), open a terminal in your install dir and run:
             </div>
             <code className="block px-2 py-1 bg-bg-deep rounded text-accent font-mono">bravo bridge serve</code>
             <div className="text-fg-dim text-[11px]">
@@ -949,6 +1021,8 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
             agent={agent}
             configsLoaded={configsLoaded}
             isAdmin={!!isAdmin}
+            accessMode={accessMode}
+            currentProvider={cfg?.provider ?? null}
             onSuggestion={applySuggestion}
           />
         )}
@@ -1179,7 +1253,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder={ready ? `Message ${agent.toUpperCase()}…  (Shift+Enter for newline)` : "Configure this agent first"}
+          placeholder={composerPlaceholder}
           disabled={!ready || streaming}
           rows={1}
           className="flex-1 bg-bg-elev border border-bg-border rounded-lg px-3.5 py-2.5 text-sm text-fg placeholder-fg-dim focus:outline-none focus:border-accent disabled:opacity-50 resize-none max-h-32"
@@ -1203,12 +1277,16 @@ function EmptyTranscript({
   agent,
   configsLoaded,
   isAdmin,
+  accessMode,
+  currentProvider,
   onSuggestion,
 }: {
   ready: boolean;
   agent: string;
   configsLoaded: boolean;
   isAdmin: boolean;
+  accessMode: AccessMode;
+  currentProvider: string | null;
   onSuggestion: (text: string) => void;
 }) {
   if (!configsLoaded) {
@@ -1219,25 +1297,28 @@ function EmptyTranscript({
     );
   }
   if (!ready) {
+    const needsDesktop = accessMode === "desktop" || currentProvider === "ollama";
     return (
       <div className="rounded-lg border border-accent/20 bg-accent/5 p-5 text-sm space-y-3">
         <div className="flex items-center gap-2 text-accent font-bold uppercase tracking-[0.14em] text-xs">
           <Sparkles className="w-4 h-4" /> Set up {agent.toUpperCase()}
         </div>
         <p className="text-fg">
-          {agent.toUpperCase()} needs a model + API key before it can chat. The
-          easiest path is OpenRouter — one key gets you Claude, GPT, and
-          Gemini.
+          {needsDesktop
+            ? `${agent.toUpperCase()} needs OASIS Desktop running before it can use local files, tools, or local models.`
+            : `${agent.toUpperCase()} needs a model + API key before it can chat. The easiest path is OpenRouter - one key gets you Claude, GPT, and Gemini.`}
         </p>
         <div className="flex flex-wrap gap-2 pt-1">
-          <a
-            href="https://openrouter.ai/sign-up"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-primary text-xs"
-          >
-            Get OpenRouter key
-          </a>
+          {!needsDesktop && (
+            <a
+              href="https://openrouter.ai/sign-up"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-primary text-xs"
+            >
+              Get OpenRouter key
+            </a>
+          )}
           <Link href="/settings#agents" className="btn-secondary text-xs">
             Open Settings
           </Link>

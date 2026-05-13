@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "product": {
+    "name": "OASIS AI",
+    "appId": "ai.oasis.commandcenter",
+    "channel": "alpha",
+    "description": "Installable desktop shell for the OASIS Agent Command Center."
+  },
+  "commandCenter": {
+    "defaultUrl": "https://agent-dashboard-cc90210.vercel.app",
+    "developmentUrl": "http://localhost:3100"
+  },
+  "providerConnections": [
+    {
+      "id": "oauth",
+      "label": "Sign in with provider",
+      "description": "Connect a provider account through OAuth or local authenticated CLI where supported."
+    },
+    {
+      "id": "api_key",
+      "label": "Paste API key",
+      "description": "Use a provider API key such as OpenRouter, Anthropic, OpenAI, Google, or compatible local endpoints."
+    },
+    {
+      "id": "oasis_subscription",
+      "label": "OASIS subscription",
+      "description": "Use OASIS-managed billing and platform model credentials."
+    }
+  ],
+  "runtimeAccess": [
+    {
+      "id": "cloud",
+      "label": "Cloud workspace",
+      "localFileAccess": false,
+      "description": "Runs without local files, browser, or desktop tools."
+    },
+    {
+      "id": "desktop",
+      "label": "This desktop",
+      "localFileAccess": true,
+      "description": "Runs through the local bridge sidecar with approved local tools, files, browser actions, and automations."
+    }
+  ],
+  "bridge": {
+    "healthUrl": "http://127.0.0.1:9100/health",
+    "module": "bravo_cli.local_bridge",
+    "serveArgs": ["-m", "bravo_cli.local_bridge", "serve"],
+    "startByDefault": true
+  },
+  "security": {
+    "allowedOrigins": [
+      "https://agent-dashboard-cc90210.vercel.app",
+      "http://localhost:3100",
+      "http://127.0.0.1:3100"
+    ],
+    "allowedBrowserPermissions": ["notifications"],
+    "denyNavigationByDefault": true,
+    "nodeIntegration": false,
+    "contextIsolation": true,
+    "sandbox": true
+  },
+  "releaseGates": [
+    "desktop doctor passes",
+    "release check passes",
+    "npm audit high passes",
+    "Windows artifact generated",
+    "macOS artifact generated in CI",
+    "Linux artifact generated in CI",
+    "desktop diagnostics available from app menu",
+    "support bundle generated without secrets",
+    "first-run fallback page available when Command Center cannot load",
+    "local secure store uses OS-backed Electron safeStorage",
+    "release metadata and SHA-256 checksums generated for artifacts",
+    "code signing configured before production clients",
+    "auto-update channel configured before production clients"
+  ]
+}
