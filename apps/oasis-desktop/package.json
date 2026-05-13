@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "description": "OASIS AI Desktop - local runtime shell for the Agent Command Center.",
-  "author": "OASIS AI Solutions",
+  "author": "OASIS AI Solutions <conaugh@oasisai.work>",
+  "homepage": "https://agent-dashboard-cc90210.vercel.app/download",
   "main": "src/main.js",
   "type": "commonjs",
   "scripts": {
@@ -58,6 +59,7 @@
     },
     "linux": {
       "category": "Office",
+      "maintainer": "OASIS AI Solutions <conaugh@oasisai.work>",
       "target": [
         "AppImage",
         "deb"
