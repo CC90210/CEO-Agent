@@ -39,10 +39,13 @@ const releaseMetadata = fs.readFileSync(releaseMetadataPath, "utf8");
 
 assert(pkg.name === "oasis-ai-desktop", "desktop package name is stable");
 assert(pkg.main === "src/main.js", "desktop main entry is src/main.js");
+assert(typeof pkg.homepage === "string" && pkg.homepage.startsWith("https://"), "desktop package has HTTPS homepage metadata");
+assert(typeof pkg.author === "string" && pkg.author.includes("@"), "desktop package author includes maintainer email");
 assert(fs.existsSync(path.join(root, "package-lock.json")), "package-lock.json exists for repeatable installs");
 assert(includesExact(pkg.build.files, "desktop.manifest.json"), "desktop manifest is included in packaged app");
 assert(includesExact(pkg.build.files, "README.md"), "desktop README is included in packaged app");
 assert(includesExact(pkg.build.files, "RELEASE.md"), "desktop release playbook is included in packaged app");
+assert(pkg.build.linux?.maintainer?.includes("@"), "Linux package maintainer metadata is set");
 
 assert(manifest.schemaVersion === 1, "desktop manifest schema is v1");
 assert(Array.isArray(manifest.providerConnections), "manifest separates provider connections");
