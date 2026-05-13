@@ -10,6 +10,7 @@ import { createServerClient } from "@supabase/ssr";
 
 const PUBLIC_PATH_PREFIXES = [
   "/welcome",              // public marketing landing
+  "/download",             // public OASIS Desktop downloads
   "/configure",            // public agent configurator (pre-signup)
   "/login",
   "/signup",

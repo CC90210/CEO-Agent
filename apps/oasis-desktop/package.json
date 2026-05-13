@@ -1,0 +1,71 @@
+{
+  "name": "oasis-ai-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OASIS AI Desktop - local runtime shell for the Agent Command Center.",
+  "author": "OASIS AI Solutions",
+  "main": "src/main.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "electron .",
+    "doctor": "node scripts/doctor.js",
+    "release:check": "node scripts/release-check.js",
+    "release:metadata": "node scripts/write-release-metadata.js",
+    "artifact:check": "node scripts/artifact-check.js",
+    "pack": "electron-builder --dir",
+    "build:win": "electron-builder --win nsis portable",
+    "build:linux": "electron-builder --linux AppImage deb",
+    "build:mac": "electron-builder --mac dmg zip"
+  },
+  "build": {
+    "appId": "ai.oasis.commandcenter",
+    "productName": "OASIS AI",
+    "artifactName": "OASIS-AI-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "scripts/**/*",
+      "desktop.manifest.json",
+      "README.md",
+      "RELEASE.md",
+      "package.json"
+    ],
+    "asar": true,
+    "npmRebuild": false,
+    "win": {
+      "signAndEditExecutable": false,
+      "verifyUpdateCodeSignature": false,
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "OASIS AI"
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "linux": {
+      "category": "Office",
+      "target": [
+        "AppImage",
+        "deb"
+      ]
+    }
+  },
+  "devDependencies": {
+    "electron": "^39.2.7",
+    "electron-builder": "^26.0.12"
+  }
+}
