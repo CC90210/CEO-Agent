@@ -45,19 +45,25 @@ Public download route added:
 
 - `https://agent-dashboard-cc90210.vercel.app/download`
 
-Published GitHub prerelease tag:
+Published GitHub prerelease tags:
 
 - `https://github.com/CC90210/CEO-Agent/releases/tag/oasis-desktop-v0.1.0-alpha.1`
+- `https://github.com/CC90210/CEO-Agent/releases/tag/oasis-desktop-v0.1.0-alpha.2`
 
-Direct Windows alpha asset URL:
+Direct alpha.2 asset URLs:
 
-- `https://github.com/CC90210/CEO-Agent/releases/download/oasis-desktop-v0.1.0-alpha.1/OASIS-AI-0.1.0-win-x64-unpacked.zip`
+- Windows installer: `https://github.com/CC90210/CEO-Agent/releases/download/oasis-desktop-v0.1.0-alpha.2/OASIS-AI-0.1.0-win-x64.exe`
+- macOS Apple Silicon dmg: `https://github.com/CC90210/CEO-Agent/releases/download/oasis-desktop-v0.1.0-alpha.2/OASIS-AI-0.1.0-mac-arm64.dmg`
+- Linux AppImage: `https://github.com/CC90210/CEO-Agent/releases/download/oasis-desktop-v0.1.0-alpha.2/OASIS-AI-0.1.0-linux-x86_64.AppImage`
+- Linux deb: `https://github.com/CC90210/CEO-Agent/releases/download/oasis-desktop-v0.1.0-alpha.2/OASIS-AI-0.1.0-linux-amd64.deb`
 
 Release verification:
 
-- GitHub release asset returns `200 OK`.
-- Uploaded asset size is `136569906` bytes.
-- Uploaded asset digest is `sha256:0061c90ea95fffd3c6b413dcbe18a103880e858f9096ced49505e30fba377404`.
+- Alpha.1 GitHub release asset returns `200 OK`.
+- Alpha.1 uploaded asset size is `136569906` bytes.
+- Alpha.1 uploaded asset digest is `sha256:0061c90ea95fffd3c6b413dcbe18a103880e858f9096ced49505e30fba377404`.
+- Alpha.2 cross-platform CI run succeeded for Windows, macOS, and Linux: `https://github.com/CC90210/CEO-Agent/actions/runs/25824129241`.
+- Alpha.2 selected asset hashes were generated locally in `tmp/oasis-ci-25824129241/SHA256SUMS-release.txt`.
 - Stable production `/download` route returns `200 OK` after Vercel deployment `agent-dashboard-gkko3jyxj-cc90210.vercel.app`.
 
 Important product note:
