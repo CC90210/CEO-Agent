@@ -7,6 +7,7 @@ const root = path.resolve(__dirname, "..");
 const packagePath = path.join(root, "package.json");
 const manifestPath = path.join(root, "desktop.manifest.json");
 const mainPath = path.join(root, "src", "main.js");
+const authNavigationPath = path.join(root, "src", "auth-navigation.js");
 const diagnosticsPath = path.join(root, "src", "diagnostics.js");
 const secureStorePath = path.join(root, "src", "secure-store.js");
 const manifestModulePath = path.join(root, "src", "manifest.js");
@@ -31,6 +32,7 @@ function includesExact(list, value) {
 const pkg = readJson(packagePath);
 const manifest = readJson(manifestPath);
 const main = fs.readFileSync(mainPath, "utf8");
+const authNavigation = fs.readFileSync(authNavigationPath, "utf8");
 const diagnostics = fs.readFileSync(diagnosticsPath, "utf8");
 const secureStore = fs.readFileSync(secureStorePath, "utf8");
 const manifestModule = fs.readFileSync(manifestModulePath, "utf8");
@@ -46,6 +48,7 @@ assert(includesExact(pkg.build.files, "desktop.manifest.json"), "desktop manifes
 assert(includesExact(pkg.build.files, "README.md"), "desktop README is included in packaged app");
 assert(includesExact(pkg.build.files, "RELEASE.md"), "desktop release playbook is included in packaged app");
 assert(pkg.build.linux?.maintainer?.includes("@"), "Linux package maintainer metadata is set");
+assert(pkg.scripts["auth:check"] === "node scripts/auth-navigation-check.js", "desktop auth navigation check script exists");
 
 assert(manifest.schemaVersion === 1, "desktop manifest schema is v1");
 assert(Array.isArray(manifest.providerConnections), "manifest separates provider connections");
@@ -66,6 +69,7 @@ assert(main.includes("webSecurity: true"), "main process keeps webSecurity enabl
 assert(main.includes("setPermissionRequestHandler"), "browser permission handler is installed");
 assert(main.includes("setWindowOpenHandler"), "new-window navigation handler is installed");
 assert(main.includes("will-navigate"), "top-level navigation handler is installed");
+assert(main.includes("shouldAllowInDesktop"), "desktop navigation uses explicit desktop allow gate");
 assert(main.includes("shell.openExternal"), "external links leave the desktop shell");
 assert(main.includes("Desktop Diagnostics"), "desktop diagnostics menu item exists");
 assert(main.includes("Create Support Bundle"), "support bundle menu item exists");
@@ -81,6 +85,11 @@ assert(secureStore.includes("safeStorage"), "secure store uses Electron safeStor
 assert(secureStore.includes("encryptString"), "secure store encrypts values before writing");
 assert(secureStore.includes("decryptString"), "secure store can decrypt values for local runtime use");
 assert(!secureStore.includes("console.log"), "secure store does not log secrets");
+
+assert(authNavigation.includes("createAuthNavigationController"), "desktop OAuth navigation controller exists");
+assert(authNavigation.includes("accounts.google.com"), "desktop OAuth navigation handles Google sign-in host");
+assert(authNavigation.includes(".supabase.co"), "desktop OAuth navigation handles Supabase auth host");
+assert(authNavigation.includes("hasTrustedRedirectTarget"), "desktop OAuth navigation requires trusted redirect target");
 
 assert(manifestModule.includes("validateDesktopManifest"), "desktop manifest validation exists");
 assert(manifestModule.includes("providerConnections must include api_key"), "manifest validation requires API-key provider connection");
