@@ -175,7 +175,10 @@ export default async function RootLayout({
               brand={demoMode ? manifest.brand.name : profile?.brand || manifest.brand.name}
               logo={manifestLogoToSidebarLogo(manifest.brand.logo)}
               subtitle={manifest.brand.subtitle}
-              items={manifestNavToNavItems(manifest.nav)}
+              items={manifestNavToNavItems(
+                manifest.nav,
+                { agents: manifest.agents, tenantSlug: manifestSlug || undefined }
+              )}
               operatorName={
                 demoMode
                   ? "Sun Demo Operator"
