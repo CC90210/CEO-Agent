@@ -12,6 +12,7 @@ const PUBLIC_PATH_PREFIXES = [
   "/welcome",              // public marketing landing
   "/download",             // public OASIS Desktop downloads
   "/configure",            // public agent configurator (pre-signup)
+  "/demo/sun",             // public Sun Biz review shell; demo data only
   "/login",
   "/signup",
   "/forgot-password",
@@ -21,6 +22,7 @@ const PUBLIC_PATH_PREFIXES = [
   "/api/auth/signout",
   "/api/auth/provision",   // legacy + setup-wizard provision (Bearer-auth gated inside)
   "/api/auth/pair",        // setup-wizard pairing (Bearer-auth gated inside)
+  "/api/demo/sun",         // sets Sun demo shell cookie; never exposes live tenant data
   "/api/bridge",           // local-bridge daemon heartbeat (Bearer token gated inside)
   "/api/integrations/registry",  // canonical service+env_key list — used by the bridge to decide what to ping; non-sensitive (names only, no values), 5min Cache-Control
   "/api/exec-override",    // external caller fallback for override approvals (HMAC auth inside)
