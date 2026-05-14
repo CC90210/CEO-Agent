@@ -8,6 +8,7 @@ import { getManifest } from "@/lib/manifest/loader";
 import { catalogFor } from "@/lib/agent-catalog";
 import { getAgentStats } from "@/lib/agent-stats";
 import { getServiceSupabase, getSessionUser } from "@/lib/supabase-server";
+import { isOperatorEmail } from "@/lib/operator-credentials";
 import { Clock, Cog, Download, Workflow } from "lucide-react";
 import Link from "next/link";
 
@@ -36,18 +37,6 @@ async function _tenantHasNoBridge(tenantId: string | null): Promise<boolean> {
 }
 
 export const dynamic = "force-dynamic";
-
-function isOperatorEmail(email: string | null | undefined): boolean {
-  if (!email) return false;
-  const e = email.trim().toLowerCase();
-  const operator = (process.env.OPERATOR_EMAIL || "").trim().toLowerCase();
-  if (operator && e === operator) return true;
-  const admins = (process.env.ADMIN_EMAILS || "")
-    .split(",")
-    .map((x) => x.trim().toLowerCase())
-    .filter(Boolean);
-  return admins.includes(e);
-}
 
 // An agent is "live" if its state_snapshot ticked in the last 15 minutes
 const FRESHNESS_MS = 15 * 60 * 1000;

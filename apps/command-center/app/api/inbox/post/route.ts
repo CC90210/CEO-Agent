@@ -11,28 +11,17 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { randomBytes } from "node:crypto";
 import { getServiceSupabase, getSessionUser } from "@/lib/supabase-server";
+import { isOperatorEmail } from "@/lib/operator-credentials";
 import { postMessage, type Priority, KNOWN_AGENTS } from "@/lib/agent-inbox-fs";
 import { postMessageDb } from "@/lib/agent-inbox-db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function isAdminEmail(email: string | null | undefined): boolean {
-  if (!email) return false;
-  const e = email.trim().toLowerCase();
-  const operator = (process.env.OPERATOR_EMAIL || "").trim().toLowerCase();
-  if (operator && e === operator) return true;
-  const admins = (process.env.ADMIN_EMAILS || "")
-    .split(",")
-    .map((x) => x.trim().toLowerCase())
-    .filter(Boolean);
-  return admins.includes(e);
-}
-
 export async function POST(req: NextRequest) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-  if (!isAdminEmail(user.email)) {
+  if (!isOperatorEmail(user.email)) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
 
