@@ -38,9 +38,7 @@ import {
 import { diffManifests } from "@/lib/manifest/diff";
 import { buildManifestEditorPrompt } from "@/lib/manifest/ai-prompt";
 import { parseAIEnvelope } from "@/lib/manifest/ai-parser";
-import { getManifestRow } from "@/lib/manifest/persistence";
-
-const PROTECTED_SLUGS = new Set(["default", "oasis", "sun", "suga"]);
+import { manifestWriteGuards } from "@/lib/manifest/guards";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -89,20 +87,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
 
-  // Defense-in-depth — same guards the POST persistence endpoint enforces.
-  // Surface them HERE so we never waste an LLM call on a request the save
-  // step would reject anyway.
-  if (PROTECTED_SLUGS.has(slug)) {
+  // Defense-in-depth — same guards the POST persistence endpoint enforces,
+  // shared via lib/manifest/guards.ts. Surface them HERE so we never waste
+  // an LLM call on a request the save step would reject anyway.
+  const guard = await manifestWriteGuards(slug, profile.tenant_id);
+  if (!guard.ok) {
     return NextResponse.json(
-      { ok: false, error: "protected_slug", reason: "Platform seed manifests cannot be edited. This includes default, oasis, sun, suga." },
-      { status: 403 }
-    );
-  }
-  const existingRow = await getManifestRow(slug).catch(() => null);
-  if (existingRow && existingRow.tenant_id && existingRow.tenant_id !== profile.tenant_id) {
-    return NextResponse.json(
-      { ok: false, error: "cross_tenant_forbidden", reason: "This manifest belongs to another tenant." },
-      { status: 403 }
+      { ok: false, error: guard.error, reason: guard.reason },
+      { status: guard.status }
     );
   }
 

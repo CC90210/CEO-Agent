@@ -37,6 +37,7 @@ import {
   ManifestPersistenceError,
   saveManifest,
 } from "@/lib/manifest/persistence";
+import { PROTECTED_SLUGS } from "@/lib/manifest/guards";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -70,7 +71,9 @@ export async function POST(req: NextRequest) {
   }
   // Platform seed slugs (default/oasis/sun/suga) are owned by the platform;
   // tenants pick their own slug instead of overwriting the safety-net seeds.
-  if (SEED_MANIFESTS[slug]) {
+  // Uses the shared PROTECTED_SLUGS set so guard adds in lib/manifest/guards.ts
+  // automatically reach the wizard too.
+  if (SEED_MANIFESTS[slug] || PROTECTED_SLUGS.has(slug)) {
     return NextResponse.json({ ok: false, error: "reserved_slug", reason: `"${slug}" is reserved — pick a different URL slug.` }, { status: 409 });
   }
   const answers = body.answers || {};
@@ -143,6 +146,15 @@ export async function POST(req: NextRequest) {
     // created (the POST /api/manifest/<slug> endpoint still gates on admin/
     // owner role). Existing tenants with an established owner are not
     // affected.
+    //
+    // Race-safe: two users hitting the wizard at the same instant both pass
+    // the existence check; the second UPDATE collides with the partial
+    // unique index `user_profiles_one_owner_per_tenant` and Postgres
+    // returns code 23505. We swallow that — the first user won the race
+    // and is now the legitimate owner, which is the correct outcome. Any
+    // other DB error still surfaces (manifest persisted, audit logged, so
+    // the caller already has the v1 row and can retry the promotion via
+    // the team-management UI if it ever matters).
     const ownerCheck = await service
       .from("user_profiles")
       .select("id")
@@ -151,10 +163,16 @@ export async function POST(req: NextRequest) {
       .limit(1)
       .maybeSingle();
     if (!ownerCheck.data && !profile.is_owner) {
-      await service
+      const promote = await service
         .from("user_profiles")
         .update({ is_owner: true, team_role: "owner" })
         .eq("id", profile.id);
+      if (promote.error && promote.error.code !== "23505") {
+        // Log but don't fail the response — the manifest is already saved.
+        console.warn(
+          `[onboarding.wizard] owner-promotion failed for profile ${profile.id}: ${promote.error.message}`
+        );
+      }
     }
 
     return NextResponse.json({
