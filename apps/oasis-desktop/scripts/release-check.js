@@ -13,6 +13,7 @@ const secureStorePath = path.join(root, "src", "secure-store.js");
 const manifestModulePath = path.join(root, "src", "manifest.js");
 const bridgeRuntimePath = path.join(root, "src", "bridge-runtime.js");
 const windowsPortablePath = path.join(root, "scripts", "create-windows-portable.js");
+const signingStatusPath = path.join(root, "scripts", "signing-status.js");
 const releaseMetadataPath = path.join(root, "scripts", "write-release-metadata.js");
 const workflowPath = path.resolve(root, "..", "..", ".github", "workflows", "oasis-desktop.yml");
 
@@ -40,6 +41,7 @@ const secureStore = fs.readFileSync(secureStorePath, "utf8");
 const manifestModule = fs.readFileSync(manifestModulePath, "utf8");
 const bridgeRuntime = fs.readFileSync(bridgeRuntimePath, "utf8");
 const windowsPortable = fs.readFileSync(windowsPortablePath, "utf8");
+const signingStatus = fs.readFileSync(signingStatusPath, "utf8");
 const releaseMetadata = fs.readFileSync(releaseMetadataPath, "utf8");
 const workflow = fs.readFileSync(workflowPath, "utf8");
 
@@ -54,7 +56,9 @@ assert(includesExact(pkg.build.files, "RELEASE.md"), "desktop release playbook i
 assert(pkg.build.linux?.maintainer?.includes("@"), "Linux package maintainer metadata is set");
 assert(pkg.scripts["auth:check"] === "node scripts/auth-navigation-check.js", "desktop auth navigation check script exists");
 assert(pkg.scripts["portable:win"] === "node scripts/create-windows-portable.js", "Windows portable zip script exists");
+assert(pkg.scripts["signing:check"] === "node scripts/signing-status.js", "Windows signing status script exists");
 assert(!JSON.stringify(pkg.build.win?.target || []).includes("portable"), "Windows build avoids temp-running portable exe target");
+assert(pkg.build.win?.requestedExecutionLevel === "asInvoker", "Windows installer does not request unnecessary elevation");
 
 assert(manifest.schemaVersion === 1, "desktop manifest schema is v1");
 assert(Array.isArray(manifest.providerConnections), "manifest separates provider connections");
@@ -111,6 +115,10 @@ assert(windowsPortable.includes("win-unpacked"), "Windows portable script zips t
 assert(windowsPortable.includes("OASIS AI.exe"), "Windows portable script verifies the app executable exists");
 assert(windowsPortable.includes("Compress-Archive"), "Windows portable script uses a normal zip archive");
 assert(workflow.includes("Create Windows portable zip"), "desktop CI creates Windows portable zip before metadata");
+assert(signingStatus.includes("Get-AuthenticodeSignature"), "Windows signing status checks Authenticode signatures");
+assert(signingStatus.includes("OASIS_REQUIRE_WINDOWS_SIGNING"), "Windows signing status can enforce production signing");
+assert(workflow.includes("WINDOWS_CSC_LINK"), "desktop CI is wired for Windows code-signing certificate secret");
+assert(workflow.includes("Windows signing status"), "desktop CI reports Windows signing status");
 
 assert(releaseMetadata.includes("SHA256SUMS.txt"), "release metadata writes checksum file");
 assert(releaseMetadata.includes("release-metadata.json"), "release metadata writes machine-readable manifest");

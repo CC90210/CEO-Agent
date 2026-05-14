@@ -27,6 +27,7 @@
     "desktop:release-metadata": "npm --prefix apps/oasis-desktop run release:metadata",
     "desktop:artifact-check": "npm --prefix apps/oasis-desktop run artifact:check",
     "desktop:portable:win": "npm --prefix apps/oasis-desktop run portable:win",
+    "desktop:signing-check": "npm --prefix apps/oasis-desktop run signing:check",
     "desktop:dev": "npm --prefix apps/oasis-desktop start",
     "desktop:pack": "npm --prefix apps/oasis-desktop run pack",
     "desktop:build:win": "npm --prefix apps/oasis-desktop run build:win"
