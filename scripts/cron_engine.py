@@ -143,6 +143,30 @@ SEED_JOBS: list[dict] = [
         "action_config": {"window_seconds": 120, "priority": True},
         "is_active": True,
     },
+    {
+        "name": "Daily Briefing Snapshot",
+        "description": "Prep Table layer (brain/AGENTIC_OS_REFERENCE.md §3). Aggregates revenue/pipeline/health into state/snapshots/latest_briefing.json so ceo-briefing skill reads one JSON instead of running 4 engines live. Runnable manually until n8n handler exists.",
+        "schedule": "0 6 * * *",
+        "action_type": "snapshot_run",
+        "action_config": {"script": "scripts/snapshots/briefing_snapshot.py", "args": []},
+        "is_active": True,
+    },
+    {
+        "name": "Weekly Qualified-Leads Snapshot",
+        "description": "Saturday 22:00 ranking of leads scoring >= 60 by MRR potential. Output: state/snapshots/latest_leads.json. Revenue-Hunter agent cherry-picks from this instead of running opencli + scoring per session.",
+        "schedule": "0 22 * * SAT",
+        "action_type": "snapshot_run",
+        "action_config": {"script": "scripts/snapshots/leads_snapshot.py", "args": ["--min-score", "60"]},
+        "is_active": True,
+    },
+    {
+        "name": "Daily Client Alerts Snapshot",
+        "description": "Daily 07:00 RED/ORANGE client extraction with risk factors + suggested actions. Output: state/snapshots/latest_client_alerts.json. Chief-of-Staff reads this instead of full health report.",
+        "schedule": "0 7 * * *",
+        "action_type": "snapshot_run",
+        "action_config": {"script": "scripts/snapshots/client_alerts_snapshot.py", "args": []},
+        "is_active": True,
+    },
 ]
 
 

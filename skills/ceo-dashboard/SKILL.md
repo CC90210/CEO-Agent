@@ -13,8 +13,9 @@ Five numbers every morning. One digest every week. No vanity metrics, no noise.
 
 CC's business is $5,000 Net MRR by May 15, 2026. Every KPI in this skill is chosen because it either predicts that number or explains why it moved.
 
-**Live data tool:** `python scripts/ceo_dashboard.py briefing` — pulls Stripe, Supabase, and memory files.
-**Fallback:** Each section below has a manual source when the script is unavailable.
+**Snapshot (preferred):** Read `state/snapshots/latest_briefing.json` first. Rebuilt daily 06:00 UTC by `scripts/snapshots/briefing_snapshot.py`. If `ts` is <24h old, every section in this skill can be answered from it without a single subprocess call.
+**Live tool (fallback):** `python scripts/ceo_dashboard.py briefing` — pulls Stripe, Supabase, and memory files. Use only when snapshot is stale or errored.
+**Manual fallback:** Each section below has a manual source when both above are unavailable.
 
 ---
 
