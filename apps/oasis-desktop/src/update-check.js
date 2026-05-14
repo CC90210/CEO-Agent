@@ -16,9 +16,9 @@
  * the prompt → "Open release page" hand-off matches the alpha posture.
  */
 
-const https = require("node:https");
 const path = require("node:path");
 const fs = require("node:fs");
+const { httpsGetJson } = require("./https");
 
 const RELEASE_REPO = process.env.OASIS_RELEASE_REPO || "CC90210/CEO-Agent";
 
@@ -31,42 +31,6 @@ function readPackageVersion() {
   } catch {
     return "0.0.0";
   }
-}
-
-function httpsJson(url, headers = {}) {
-  return new Promise((resolve, reject) => {
-    const req = https.get(
-      url,
-      {
-        headers: {
-          "user-agent": "OASIS-AI-Desktop",
-          accept: "application/vnd.github+json",
-          ...headers,
-        },
-        timeout: 10_000,
-      },
-      (res) => {
-        const chunks = [];
-        res.on("data", (c) => chunks.push(c));
-        res.on("end", () => {
-          const body = Buffer.concat(chunks).toString("utf8");
-          if (!res.statusCode || res.statusCode < 200 || res.statusCode >= 300) {
-            reject(new Error(`http_${res.statusCode}:${body.slice(0, 200)}`));
-            return;
-          }
-          try {
-            resolve(JSON.parse(body));
-          } catch (err) {
-            reject(err);
-          }
-        });
-      }
-    );
-    req.on("error", reject);
-    req.on("timeout", () => {
-      req.destroy(new Error("timeout"));
-    });
-  });
 }
 
 /**
@@ -116,8 +80,9 @@ function pickAssetForPlatform(assets) {
 
 async function checkForUpdate() {
   const current = readPackageVersion();
-  const data = await httpsJson(
-    `https://api.github.com/repos/${RELEASE_REPO}/releases/latest`
+  const data = await httpsGetJson(
+    `https://api.github.com/repos/${RELEASE_REPO}/releases/latest`,
+    { accept: "application/vnd.github+json" }
   );
   const latest = tagToVersion(data.tag_name);
   if (!latest) {
