@@ -1,6 +1,7 @@
 # OASIS Desktop Alpha Handover
 
 Date: 2026-05-13
+Updated: 2026-05-14
 Primary repo: `Business-Empire-Agent`
 Working product: `apps/oasis-desktop`
 Authoring agent: Codex
@@ -31,8 +32,8 @@ Artifact metadata:
 
 - version: `0.1.0`
 - channel: `alpha`
-- bytes: `136569906`
-- SHA-256: `0061c90ea95fffd3c6b413dcbe18a103880e858f9096ced49505e30fba377404`
+- bytes: `136571615`
+- SHA-256: `8c5669d6c06bff89448814f10d17e4e28cc518c8582548b62da6ea1484f7da39`
 
 Metadata files generated locally:
 
@@ -49,13 +50,14 @@ Published GitHub prerelease tags:
 
 - `https://github.com/CC90210/CEO-Agent/releases/tag/oasis-desktop-v0.1.0-alpha.1`
 - `https://github.com/CC90210/CEO-Agent/releases/tag/oasis-desktop-v0.1.0-alpha.2`
+- `https://github.com/CC90210/CEO-Agent/releases/tag/oasis-desktop-v0.1.0-alpha.3`
 
-Direct alpha.2 asset URLs:
+Direct alpha.3 asset URLs:
 
-- Windows installer: `https://github.com/CC90210/CEO-Agent/releases/download/oasis-desktop-v0.1.0-alpha.2/OASIS-AI-0.1.0-win-x64.exe`
-- macOS Apple Silicon dmg: `https://github.com/CC90210/CEO-Agent/releases/download/oasis-desktop-v0.1.0-alpha.2/OASIS-AI-0.1.0-mac-arm64.dmg`
-- Linux AppImage: `https://github.com/CC90210/CEO-Agent/releases/download/oasis-desktop-v0.1.0-alpha.2/OASIS-AI-0.1.0-linux-x86_64.AppImage`
-- Linux deb: `https://github.com/CC90210/CEO-Agent/releases/download/oasis-desktop-v0.1.0-alpha.2/OASIS-AI-0.1.0-linux-amd64.deb`
+- Windows installer: `https://github.com/CC90210/CEO-Agent/releases/download/oasis-desktop-v0.1.0-alpha.3/OASIS-AI-0.1.0-win-x64.exe`
+- macOS Apple Silicon dmg: `https://github.com/CC90210/CEO-Agent/releases/download/oasis-desktop-v0.1.0-alpha.3/OASIS-AI-0.1.0-mac-arm64.dmg`
+- Linux AppImage: `https://github.com/CC90210/CEO-Agent/releases/download/oasis-desktop-v0.1.0-alpha.3/OASIS-AI-0.1.0-linux-x86_64.AppImage`
+- Linux deb: `https://github.com/CC90210/CEO-Agent/releases/download/oasis-desktop-v0.1.0-alpha.3/OASIS-AI-0.1.0-linux-amd64.deb`
 
 Release verification:
 
@@ -64,6 +66,9 @@ Release verification:
 - Alpha.1 uploaded asset digest is `sha256:0061c90ea95fffd3c6b413dcbe18a103880e858f9096ced49505e30fba377404`.
 - Alpha.2 cross-platform CI run succeeded for Windows, macOS, and Linux: `https://github.com/CC90210/CEO-Agent/actions/runs/25824129241`.
 - Alpha.2 selected asset hashes were generated locally in `tmp/oasis-ci-25824129241/SHA256SUMS-release.txt`.
+- Alpha.3 desktop OAuth hotfix committed as `fa46e24 Fix desktop Google OAuth navigation`.
+- Alpha.3 cross-platform CI run succeeded for Windows, macOS, and Linux: `https://github.com/CC90210/CEO-Agent/actions/runs/25834820092`.
+- Alpha.3 selected asset hashes were generated locally in `tmp/oasis-desktop-alpha3-25834820092/SHA256SUMS-release.txt`.
 - Stable production `/download` route returns `200 OK` after Vercel deployment `agent-dashboard-gkko3jyxj-cc90210.vercel.app`.
 
 Important product note:

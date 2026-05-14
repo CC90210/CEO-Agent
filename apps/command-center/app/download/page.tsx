@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 
 const VERSION = "0.1.0";
 const CHANNEL = "alpha";
-const RELEASE_TAG = "oasis-desktop-v0.1.0-alpha.2";
+const RELEASE_TAG = "oasis-desktop-v0.1.0-alpha.3";
 const RELEASE_URL = `https://github.com/CC90210/CEO-Agent/releases/tag/${RELEASE_TAG}`;
 const WINDOWS_INSTALLER_URL = `https://github.com/CC90210/CEO-Agent/releases/download/${RELEASE_TAG}/OASIS-AI-0.1.0-win-x64.exe`;
 const MAC_DMG_URL = `https://github.com/CC90210/CEO-Agent/releases/download/${RELEASE_TAG}/OASIS-AI-0.1.0-mac-arm64.dmg`;
@@ -25,10 +25,10 @@ const LINUX_APPIMAGE_URL = `https://github.com/CC90210/CEO-Agent/releases/downlo
 const LINUX_DEB_URL = `https://github.com/CC90210/CEO-Agent/releases/download/${RELEASE_TAG}/OASIS-AI-0.1.0-linux-amd64.deb`;
 const CHECKSUM_URL = `https://github.com/CC90210/CEO-Agent/releases/download/${RELEASE_TAG}/SHA256SUMS-release.txt`;
 const CHECKSUMS = [
-  "Windows: 54fc179f280305889e6d88185b9126f2fd21e3c2b4ed85c7e6ec63672ac84574",
-  "macOS: aca992706337499e1404f3a74623987c3fb879dad9543957e58f3dec6557c6fa",
-  "Linux AppImage: 1da519f1455c0660363a2098a9e5679610c07603c113cb5e101eeac8d78591dc",
-  "Linux deb: 0f90cb38a231f3ae3d10a48853bc6328fe8fe08fa7697450dcddc24d84b6fb0b",
+  "Windows: 970984ea1c8d5a73249278ce8dbfab7f00181c1332815a17584e53fa2d990564",
+  "macOS: d8e25ca09fefc7a375976ff954fbdd778859a5291fd13524fca2193d3788d354",
+  "Linux AppImage: f1b044d47eeb8077a3ae803c13699cc89fe3ff1dfe895a3762850f5ede75451b",
+  "Linux deb: 97fb912f42ccc120677334ea3a1c0b4ed7e7bbd8d4edda4f10a1696b1da7e322",
 ];
 
 export default function DownloadPage() {
