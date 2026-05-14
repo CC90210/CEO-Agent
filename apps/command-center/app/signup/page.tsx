@@ -54,7 +54,12 @@ export default function SignupPage() {
         }
       }
 
-      router.push("/onboarding");
+      // Send everyone to the industry-template wizard. The legacy /onboarding
+      // page was the OASIS-operator-only bridge-pair + API-key + C-suite-picker
+      // flow; client tenants never belonged there. Middleware also redirects
+      // un-onboarded users to /onboarding/wizard, but explicit push keeps the
+      // post-signup redirect deterministic.
+      router.push("/onboarding/wizard");
       router.refresh();
     } catch (ex: unknown) {
       setErr(ex instanceof Error ? ex.message : "Sign up failed");
