@@ -112,11 +112,26 @@ export function finalizeManifestFromWizard(input: FinalizeInput): TenantManifest
       break;
     }
     case "business_funding": {
-      const agentName = typeof answers.agent_name === "string" ? answers.agent_name.trim() : "";
-      if (agentName) {
+      // Primary (operational) — renames Solara
+      const primaryName = typeof answers.primary_agent_name === "string"
+        ? answers.primary_agent_name.trim()
+        : typeof answers.agent_name === "string" // legacy fallback for in-flight wizards
+          ? answers.agent_name.trim()
+          : "";
+      if (primaryName) {
         manifest = updateAgent(manifest, {
           slug: "solara",
-          changes: { display_name: agentName },
+          changes: { display_name: primaryName },
+        });
+      }
+      // Sales-facing — renames Helios
+      const salesName = typeof answers.sales_agent_name === "string"
+        ? answers.sales_agent_name.trim()
+        : "";
+      if (salesName) {
+        manifest = updateAgent(manifest, {
+          slug: "helios",
+          changes: { display_name: salesName },
         });
       }
       break;

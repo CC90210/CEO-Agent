@@ -15,6 +15,7 @@ import {
   Users,
 } from "lucide-react";
 import {
+  TEMPLATES,
   WIZARD_QUESTIONS,
   type TemplateKey,
   type WizardQuestion,
@@ -34,8 +35,19 @@ const INDUSTRIES: {
   { key: "business_funding", title: "Business Funding", blurb: "MCAs, term loans, broker shops. Applications → offers → funded deals → renewals.", Icon: Store },
   { key: "ecommerce", title: "E-commerce", blurb: "Stores moving real product. Orders → customers → inventory → marketing.", Icon: ShoppingBag },
   { key: "agency", title: "Agency", blurb: "Service businesses delivering client work. Clients → projects → retainers → invoices.", Icon: Users },
-  { key: "custom", title: "Custom", blurb: "Anything else. Minimal scaffold; the AI editor builds the rest.", Icon: Sparkles },
+  { key: "custom", title: "Custom (C-suite)", blurb: "Premium done-for-you package with Bravo, Atlas, and Maven. Setup required — we tailor it to your operation before you go live.", Icon: Sparkles },
 ];
+
+/** Color tag per tier label — kept declarative so it's easy to retune. */
+function tierToneClasses(label: string): string {
+  switch (label) {
+    case "Free":       return "border-fg-dim/40 bg-fg-dim/10 text-fg-muted";
+    case "Starter":    return "border-emerald-400/40 bg-emerald-400/10 text-emerald-300";
+    case "Pro":        return "border-accent/40 bg-accent/10 text-accent";
+    case "Enterprise": return "border-amber-400/40 bg-amber-400/10 text-amber-300";
+    default:           return "border-bg-border bg-bg-elev text-fg-muted";
+  }
+}
 
 function slugifyClient(name: string): string {
   return name
@@ -128,25 +140,53 @@ export function OnboardingWizardClient() {
 
         {step === "industry" && (
           <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {INDUSTRIES.map(({ key, title, blurb, Icon }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => pickIndustry(key)}
-                className="group text-left rounded-2xl border border-bg-border bg-bg-elev/40 hover:border-accent/40 hover:bg-bg-elev/70 p-5 transition-all"
-              >
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-accent/30 bg-accent/10 text-accent group-hover:bg-accent group-hover:text-bg transition-all">
-                    <Icon className="h-5 w-5" />
+            {INDUSTRIES.map(({ key, title, blurb, Icon }) => {
+              const tpl = TEMPLATES[key];
+              const tier = tpl.tier;
+              const agents = tpl.agents || [];
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => pickIndustry(key)}
+                  className="group text-left rounded-2xl border border-bg-border bg-bg-elev/40 hover:border-accent/40 hover:bg-bg-elev/70 p-5 transition-all flex flex-col"
+                >
+                  <div className="flex items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-accent/30 bg-accent/10 text-accent group-hover:bg-accent group-hover:text-bg transition-all">
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <div className="font-bold text-base text-fg">{title}</div>
+                    </div>
+                    {tier && (
+                      <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${tierToneClasses(tier.label)}`}>
+                        {tier.label}
+                      </span>
+                    )}
                   </div>
-                  <div className="font-bold text-base text-fg">{title}</div>
-                </div>
-                <p className="mt-3 text-sm text-fg-muted leading-relaxed">{blurb}</p>
-                <div className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-accent">
-                  Pick this template <ArrowRight className="h-3.5 w-3.5" />
-                </div>
-              </button>
-            ))}
+                  <p className="mt-3 text-sm text-fg-muted leading-relaxed">{blurb}</p>
+                  {tier && (
+                    <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
+                      <TierMetaRow label="Setup" value={tier.setup_complexity} />
+                      <TierMetaRow label="Price" value={tier.monthly_price_hint || "—"} />
+                      <TierMetaRow
+                        label="Agents"
+                        value={`${agents.length} included`}
+                        full
+                      />
+                      {tier.summary && (
+                        <div className="col-span-2 text-[11px] text-fg-dim italic">
+                          {tier.summary}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <div className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-accent">
+                    Pick this template <ArrowRight className="h-3.5 w-3.5" />
+                  </div>
+                </button>
+              );
+            })}
           </section>
         )}
 
@@ -377,6 +417,15 @@ function FieldRow({
       {children}
       {hint && <span className="block text-xs text-fg-dim">{hint}</span>}
     </label>
+  );
+}
+
+function TierMetaRow({ label, value, full }: { label: string; value: string; full?: boolean }) {
+  return (
+    <div className={`flex items-baseline gap-1.5 ${full ? "col-span-2" : ""}`}>
+      <span className="text-fg-dim uppercase tracking-wider font-bold text-[9px]">{label}</span>
+      <span className="text-fg-muted">{value}</span>
+    </div>
   );
 }
 

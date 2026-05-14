@@ -92,6 +92,12 @@ export const OASIS_SEED: TenantManifest = {
   deployment_mode: "shared",
   permissions: { local_files: true, computer_control: true, web_access: true },
   onboarding_industry: "custom",
+  tier: {
+    label: "Enterprise",
+    setup_complexity: "Done-for-you",
+    monthly_price_hint: "Internal",
+    summary: "OASIS HQ · operator chrome · all agents enabled.",
+  },
   meta: {
     created_at: FROZEN_AT,
     updated_at: FROZEN_AT,
@@ -114,10 +120,21 @@ export const SUN_SEED: TenantManifest = {
     footer_tagline: "Funded deals over noise.",
   },
   agents: [
+    // Operational primary — backend admin, Chrome jobs, data collection, workflow runner.
+    // Where Ezra goes when they need work done.
     { slug: "solara", display_name: "Solara", enabled: true, primary: true },
+    // Brand-facing sales persona — personable, sales-driven outreach, SMS follow-ups.
+    // The voice SunBiz leads experience. Name TBD with CC; helios is the working default
+    // (sun-themed, matches the Solara linguistic family).
+    { slug: "helios", display_name: "Helios", enabled: true },
   ],
   nav: [
     { href: "/t/sun", label: "Dashboard", icon: "LayoutDashboard", group: "Operations" },
+    // Top-level /agent chat — Ezra picks between Solara (operational) and
+    // Helios (sales) via the in-widget switcher. Lives outside the /t/sun
+    // namespace because chat is a shared dashboard surface, not a manifest
+    // primitive — this is just the entry point.
+    { href: "/agent", label: "Agents", icon: "Bot", group: "Operations" },
     { href: "/t/sun/reasoning", label: "Reasoning", icon: "Brain", group: "Operations" },
     { href: "/t/sun/playbook", label: "Playbook", icon: "BookOpen", group: "Operations" },
     { href: "/t/sun/leads", label: "Leads", icon: "Users", group: "Pipeline" },
@@ -217,14 +234,25 @@ export const SUN_SEED: TenantManifest = {
     { path: "playbook", label: "Operating Manual", kind: "markdown", config: { body: "Solara is your funding-shop agent. She watches inbound leads from JotForm, drafts follow-ups in your voice via Text Torrent, and surfaces renewal windows before they close.\n\nDay-to-day rhythm:\n\n1. Open Leads. Move the hot ones to qualified. Solara drafts the next outreach.\n2. When a lender returns a term sheet, log it under Offers and mark accepted=true to roll it into Funded Deals.\n3. Renewals tab is the revenue lane. Anything within 60 days of due_date is where Solara puts the day's outreach focus." } },
   ],
   default_prompts: [
+    // Solara — operational
     { agent_slug: "solara", label: "Morning briefing", prompt: "Pull leads that haven't been touched in 24h, applications waiting on docs, and offers expiring this week." },
-    { agent_slug: "solara", label: "Renewal sweep", prompt: "Which funded deals are within 60 days of renewal? Draft the outreach for the top 3." },
+    { agent_slug: "solara", label: "Renewal sweep", prompt: "Which funded deals are within 60 days of renewal? Surface the top 3 by amount." },
     { agent_slug: "solara", label: "Lender match", prompt: "For the top 3 qualified leads, recommend the best-fit lender based on monthly revenue and product type." },
+    // Helios — sales / outreach
+    { agent_slug: "helios", label: "Draft cold outreach", prompt: "Draft a first-touch SMS for a freshly qualified lead. Sound human, not corporate. Open with their business pain, not our offer." },
+    { agent_slug: "helios", label: "Follow-up cadence", prompt: "For leads that ghosted after the application step, draft a 3-touch revival sequence over 7 days." },
+    { agent_slug: "helios", label: "Close the loop", prompt: "An approved offer just expired. Draft the SMS to bring them back to the table without sounding salesy." },
   ],
   data_backend: "turso",
   deployment_mode: "dedicated",
   permissions: { local_files: true, computer_control: false, web_access: true },
   onboarding_industry: "business_funding",
+  tier: {
+    label: "Pro",
+    setup_complexity: "Guided",
+    monthly_price_hint: "Custom",
+    summary: "Funding shop: Solara + Helios, full pipeline.",
+  },
   integrations: [
     { kind: "jotform", enabled: true, credential_env_key: "SUNBIZ_AGENT_API_URL" },
     { kind: "twilio", enabled: true, credential_env_key: "SUNBIZ_AGENT_HMAC_SECRET" },
@@ -241,17 +269,24 @@ export const SUGA_SEED: TenantManifest = {
   version: 1,
   tenant_slug: "suga",
   brand: {
-    name: "Suga Sean O'Malley",
+    name: "Suga · Brand Command",
     logo: "suga",
     subtitle: "Brand Command",
     footer_label: "Suga · Brand Command · v0.1",
     footer_tagline: "Fans first. Always.",
   },
   agents: [
-    { slug: "suga_sean", display_name: "Suga", enabled: true, primary: true },
+    // Primary — brand voice, overall command. Where the operator lands by default.
+    { slug: "lyra", display_name: "Lyra", enabled: true, primary: true },
+    // Brand sub-agents — captions, fans, commerce. Switchable inside the shell.
+    { slug: "lyra_brand", display_name: "Lyra · Brand", enabled: true },
+    { slug: "lyra_fans", display_name: "Lyra · Fans", enabled: true },
+    { slug: "lyra_commerce", display_name: "Lyra · Commerce", enabled: true },
   ],
   nav: [
     { href: "/t/suga", label: "Dashboard", icon: "LayoutDashboard", group: "Operations" },
+    // Top-level /agent chat — switcher across Lyra + 3 sub-agents.
+    { href: "/agent", label: "Agents", icon: "Bot", group: "Operations" },
     { href: "/t/suga/subscribers", label: "Subscribers", icon: "Users", group: "Fans" },
     { href: "/t/suga/posts", label: "Posts", icon: "Megaphone", group: "Brand" },
     { href: "/t/suga/drafts", label: "Drafts", icon: "FileText", group: "Brand" },
@@ -306,13 +341,21 @@ export const SUGA_SEED: TenantManifest = {
     { path: "sponsorship", label: "Sponsorships", kind: "kanban", entity: "sponsorship", config: { group_by: "stage" } },
   ],
   default_prompts: [
-    { agent_slug: "suga_sean", label: "Fan check-in", prompt: "Pull the most engaged 10 subscribers this week. Suggest a personalised DM I can send." },
-    { agent_slug: "suga_sean", label: "Post idea", prompt: "What's a high-engagement post angle I haven't run this month?" },
+    { agent_slug: "lyra_fans", label: "Fan check-in", prompt: "Pull the most engaged 10 subscribers this week. Suggest a personalised DM I can send." },
+    { agent_slug: "lyra_brand", label: "Post idea", prompt: "What's a high-engagement post angle I haven't run this month?" },
+    { agent_slug: "lyra_commerce", label: "Merch drop sweep", prompt: "Which merch drops are due to go live this month? Anything understocked?" },
+    { agent_slug: "lyra", label: "Weekly brand pulse", prompt: "Summarise this week's posts, subscriber growth, and any sponsorship movement in 5 bullets." },
   ],
   data_backend: "turso",
   deployment_mode: "dedicated",
   permissions: { local_files: false, computer_control: false, web_access: true },
   onboarding_industry: "agency",
+  tier: {
+    label: "Pro",
+    setup_complexity: "Guided",
+    monthly_price_hint: "$99/mo",
+    summary: "Brand command: posts, fans, merch, sponsorships.",
+  },
   meta: {
     created_at: FROZEN_AT,
     updated_at: FROZEN_AT,

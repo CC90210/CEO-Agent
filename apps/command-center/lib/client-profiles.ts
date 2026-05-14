@@ -96,13 +96,13 @@ const SUN_PROFILE: ClientCommandCenterProfile = {
 
 const SUGA_PROFILE: ClientCommandCenterProfile = {
   id: "suga",
-  brand: "Suga Sean O'Malley",
+  brand: "Suga · Brand Command",
   logo: "suga",
   subtitle: "Brand Command",
   footerLabel: "Suga · Brand Command · v0.1",
   footerTagline: "Fans first. Always.",
-  agentLabel: "Suga",
-  primaryAgent: "suga_sean",
+  agentLabel: "Lyra",
+  primaryAgent: "lyra",
   // Brand + fan data is PII-adjacent — Turso local file by default. Cloud
   // override via EMPIRE_DATA_BACKEND=supabase_cloud at runtime if needed.
   dataBackend: "turso",
@@ -173,6 +173,10 @@ export function getClientProfileSlugForBrand(
     return "sun";
   }
   if (
+    // Current brand (post-rename, 2026-05-13)
+    compact.includes("suga brand command") ||
+    // Legacy brand-string matches kept for backward compat — pre-existing
+    // signups under the old name still resolve to the suga profile.
     compact.includes("suga sean") ||
     compact.includes("sugasean") ||
     compact.includes("o malley") ||
