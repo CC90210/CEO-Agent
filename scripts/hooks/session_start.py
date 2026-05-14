@@ -89,6 +89,11 @@ def _inbox_summary() -> str:
     return "\n".join(out)
 
 
+def _rotate_logs_if_needed() -> None:
+    """Fire-and-forget. rotate_logs.py is idempotent (12h stamp) and silent if no rotation."""
+    _run(["python", "scripts/hooks/rotate_logs.py"], timeout=5)
+
+
 def _staleness_summary() -> str:
     raw = _run(["python", "scripts/memory_aging.py", "stale", "--days", "7", "--json"])
     if not raw:
@@ -109,6 +114,7 @@ def main() -> int:
     except (json.JSONDecodeError, ValueError):
         pass
 
+    _rotate_logs_if_needed()
     state = _state_summary()
     inbox = _inbox_summary()
     stale = _staleness_summary()
