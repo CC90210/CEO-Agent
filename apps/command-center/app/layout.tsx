@@ -8,10 +8,15 @@ import { unreadCountDb } from "@/lib/agent-inbox-db";
 import { safe } from "@/lib/api-helpers";
 import {
   DEMO_CLIENT_PROFILE_COOKIE,
-  getClientCommandCenterProfile,
-  getClientCommandCenterProfileById,
   resolveClientProfileSlug,
 } from "@/lib/client-profiles";
+import {
+  getManifest,
+  manifestLogoToSidebarLogo,
+  manifestNavToNavItems,
+  manifestPrimaryAgentSlug,
+} from "@/lib/manifest/loader";
+import { SEED_MANIFESTS } from "@/lib/manifest/seeds";
 
 export const metadata: Metadata = {
   title: "OASIS AI · Agent Command Center",
@@ -45,14 +50,29 @@ export default async function RootLayout({
   let inboxUnread = 0;
   let tenantProfileSlug: string | null = null;
   let demoProfileSlug: string | null = null;
+  let pathOverrideSlug: string | null = null;
   if (!isFullBleed) {
     const cookieStore = await cookies();
+    // Path-based tenant slug (Phase 1): `/t/<slug>/...` URLs anchor the shell to
+    // that tenant's manifest regardless of the viewer's home tenant. Demo paths
+    // still take precedence — `/demo/sun` is the public, auth-free preview.
+    const tSlugMatch = pathname.match(/^\/t\/([a-z0-9][a-z0-9_-]{1,62})(?:\/|$)/i);
+    const pathTenantSlug = tSlugMatch ? tSlugMatch[1].toLowerCase() : null;
     const requestedDemoProfile =
       pathname.startsWith("/demo/sun")
         ? "sun"
         : cookieStore.get(DEMO_CLIENT_PROFILE_COOKIE)?.value || null;
-    const demoProfile = getClientCommandCenterProfileById(requestedDemoProfile);
-    demoProfileSlug = demoProfile.id === "default" ? null : demoProfile.id;
+    const normalisedDemo = (requestedDemoProfile || "").trim().toLowerCase();
+    demoProfileSlug =
+      normalisedDemo && normalisedDemo !== "default" && SEED_MANIFESTS[normalisedDemo]
+        ? normalisedDemo
+        : null;
+    // Path slug wins when present and not in demo. Lets `/t/sun/...` render
+    // the SunBiz manifest for an OASIS-home operator previewing the tenant.
+    pathOverrideSlug =
+      !demoProfileSlug && pathTenantSlug && SEED_MANIFESTS[pathTenantSlug]
+        ? pathTenantSlug
+        : null;
 
     // Each side-channel query is wrapped independently — one failure
     // (Hermes snapshot row missing, bridge_pairings table absent in dev,
@@ -136,22 +156,23 @@ export default async function RootLayout({
     }
   }
   const demoMode = !!demoProfileSlug;
-  const clientProfile = demoMode
-    ? getClientCommandCenterProfileById(demoProfileSlug)
-    : getClientCommandCenterProfile(tenantProfileSlug);
+  const manifestSlug = demoMode
+    ? demoProfileSlug
+    : pathOverrideSlug ?? tenantProfileSlug;
+  const manifest = isFullBleed ? null : await getManifest(manifestSlug);
 
   return (
     <html lang="en">
       <body className="grain">
-        {isFullBleed ? (
+        {isFullBleed || !manifest ? (
           children
         ) : (
           <>
             <Sidebar
-              brand={demoMode ? clientProfile.brand : profile?.brand || clientProfile.brand}
-              logo={clientProfile.logo}
-              subtitle={clientProfile.subtitle}
-              items={clientProfile.nav}
+              brand={demoMode ? manifest.brand.name : profile?.brand || manifest.brand.name}
+              logo={manifestLogoToSidebarLogo(manifest.brand.logo)}
+              subtitle={manifest.brand.subtitle}
+              items={manifestNavToNavItems(manifest.nav)}
               operatorName={
                 demoMode
                   ? "Sun Demo Operator"
@@ -159,20 +180,22 @@ export default async function RootLayout({
               }
               operatorEmail={demoMode ? "demo@sunbizfunding.com" : profile?.email}
               primaryAgent={
-                demoMode ? clientProfile.primaryAgent : profile?.primary_agent || clientProfile.primaryAgent
+                demoMode
+                  ? manifestPrimaryAgentSlug(manifest)
+                  : profile?.primary_agent || manifestPrimaryAgentSlug(manifest)
               }
               primaryAgentLive={demoMode ? false : primaryAgentLive}
               bridgeOnline={demoMode ? false : bridgeOnline}
               inboxUnread={demoMode ? 0 : inboxUnread}
               demoMode={demoMode}
-              demoLabel={`${clientProfile.brand} demo`}
+              demoLabel={`${manifest.brand.name} demo`}
             />
             <main className="ml-60 min-h-screen relative z-10">
               <div className="mx-auto max-w-7xl px-8 py-8">{children}</div>
               <footer className="mx-auto max-w-7xl px-8 py-6 text-xs text-fg-faint">
                 <div className="border-t border-bg-border pt-4 flex justify-between">
-                  <span>{clientProfile.footerLabel}</span>
-                  <span>{clientProfile.footerTagline}</span>
+                  <span>{manifest.brand.footer_label}</span>
+                  <span>{manifest.brand.footer_tagline}</span>
                 </div>
               </footer>
             </main>
