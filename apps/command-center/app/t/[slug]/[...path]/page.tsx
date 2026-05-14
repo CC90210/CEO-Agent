@@ -5,8 +5,42 @@ import { ManifestMarkdown } from "@/components/manifest/ManifestMarkdown";
 import { ManifestDashboard } from "@/components/manifest/ManifestDashboard";
 import { PageHeader, Tag } from "@/components/Card";
 import { getManifest, manifestExists } from "@/lib/manifest/loader";
+import { getManifestRow } from "@/lib/manifest/persistence";
+import { resolveClientProfileSlug } from "@/lib/client-profiles";
+import { getTenant } from "@/lib/queries";
 import { getSessionUser, getServiceSupabase } from "@/lib/supabase-server";
 import type { ManifestPageDef } from "@/lib/manifest/schema";
+
+/**
+ * Resolve which tenant_id the manifest primitives should query records
+ * for. The rule:
+ *
+ *   - If the manifest has a DB row whose tenant_id matches the caller's
+ *     tenant_id → grant data access (this is the operator's claimed slug).
+ *   - If the manifest is a code seed (no DB row) AND the caller's home
+ *     tenant_slug matches this URL slug → grant data access (legacy
+ *     pre-wizard tenants).
+ *   - Otherwise → null. The primitives render in preview mode: shells
+ *     visible, data empty. Prevents the data-bleed where CC visiting
+ *     /t/sun/leads would see OASIS leads rendered in SunBiz columns.
+ */
+async function resolveDataTenant(
+  slug: string,
+  userTenantId: string | null
+): Promise<string | null> {
+  if (!userTenantId) return null;
+  const row = await getManifestRow(slug).catch(() => null);
+  if (row?.tenant_id && row.tenant_id === userTenantId) return userTenantId;
+  if (!row) {
+    // Code-seed manifest: fall back to slug↔tenant.custom_fields match.
+    const tenant = await getTenant(userTenantId).catch(() => null);
+    const userSlug = resolveClientProfileSlug(tenant || null);
+    if (userSlug && userSlug.toLowerCase() === slug.toLowerCase()) {
+      return userTenantId;
+    }
+  }
+  return null;
+}
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -58,19 +92,35 @@ export default async function TenantCatchAllPage({
         .eq("auth_user_id", user.id)
         .maybeSingle()
     : { data: null };
-  const tenantId = (profileRes.data as { tenant_id: string | null } | null)?.tenant_id ?? null;
-  // The renderer NEVER trusts a non-matching tenant_id — RLS on
-  // tenant_records does the actual gate. tenantId here just decides
-  // whether to render live data or the demo-rows fallback.
+  const userTenantId = (profileRes.data as { tenant_id: string | null } | null)?.tenant_id ?? null;
+  // Resolve which tenant_id should scope record reads. If the caller
+  // isn't the owner of this manifest, dataTenantId is null and the
+  // primitives render in preview mode — shells visible, data empty.
+  // Closes the cross-shell data-bleed bug.
+  const dataTenantId = await resolveDataTenant(normalised, userTenantId);
+  const isPreview = !!userTenantId && dataTenantId === null;
 
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title={pageDef.label}
         subtitle={renderSubtitle(manifest.brand.name, pageDef)}
-        action={<Tag tone="accent">{pageDef.kind}</Tag>}
+        action={
+          <div className="flex items-center gap-2">
+            {isPreview && <Tag tone="warm">preview</Tag>}
+            <Tag tone="accent">{pageDef.kind}</Tag>
+          </div>
+        }
       />
-      <PageBody slug={normalised} tenantId={tenantId} page={pageDef} manifest={manifest} />
+      {isPreview && (
+        <div className="rounded-2xl border border-amber-300/25 bg-amber-300/10 p-4 text-sm leading-relaxed text-amber-100">
+          You&apos;re viewing the <strong className="text-fg">{manifest.brand.name}</strong> shell
+          in preview mode. Your tenant doesn&apos;t own this slug, so no live records render —
+          but the manifest structure, navigation, and entity schemas are exactly what a real{" "}
+          <span className="font-mono">/t/{normalised}</span> tenant would see.
+        </div>
+      )}
+      <PageBody slug={normalised} tenantId={dataTenantId} page={pageDef} manifest={manifest} />
     </div>
   );
 }

@@ -115,8 +115,7 @@ export async function ManifestKanban({
         })}
       </div>
       {/* Reserved for the Phase 5.1 "Add card" affordance per column —
-          will write through POST /api/manifest/<slug>/records/<entity>. */}
-      <p className="mt-3 text-[10px] text-fg-dim font-mono">tenant {tenantSlug} · entity {entity.name}</p>
+          will write through POST /api/manifest/${tenantSlug}/records/${entity.name}. */}
     </Card>
   );
 }

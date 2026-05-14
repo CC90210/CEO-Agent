@@ -7,8 +7,31 @@ import { ManifestKanban } from "@/components/manifest/ManifestKanban";
 import { ManifestMarkdown } from "@/components/manifest/ManifestMarkdown";
 import { ManifestDashboard } from "@/components/manifest/ManifestDashboard";
 import { getManifest, manifestExists } from "@/lib/manifest/loader";
+import { getManifestRow } from "@/lib/manifest/persistence";
+import { resolveClientProfileSlug } from "@/lib/client-profiles";
+import { getTenant } from "@/lib/queries";
 import { CATEGORY_LABELS } from "@/lib/agents/library";
 import { getSessionUser, getServiceSupabase } from "@/lib/supabase-server";
+
+/** Mirror of resolveDataTenant in [...path]/page.tsx — kept inline so the
+ *  root and catch-all share the same data-scoping rule. If this drifts it
+ *  becomes a cross-shell data-bleed bug, so we'd promote to lib/. */
+async function resolveDataTenant(
+  slug: string,
+  userTenantId: string | null
+): Promise<string | null> {
+  if (!userTenantId) return null;
+  const row = await getManifestRow(slug).catch(() => null);
+  if (row?.tenant_id && row.tenant_id === userTenantId) return userTenantId;
+  if (!row) {
+    const tenant = await getTenant(userTenantId).catch(() => null);
+    const userSlug = resolveClientProfileSlug(tenant || null);
+    if (userSlug && userSlug.toLowerCase() === slug.toLowerCase()) {
+      return userTenantId;
+    }
+  }
+  return null;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -59,28 +82,42 @@ async function RootPageRenderer({
         .eq("auth_user_id", user.id)
         .maybeSingle()
     : { data: null };
-  const tenantId = (profileRes.data as { tenant_id: string | null } | null)?.tenant_id ?? null;
+  const userTenantId = (profileRes.data as { tenant_id: string | null } | null)?.tenant_id ?? null;
+  const dataTenantId = await resolveDataTenant(slug, userTenantId);
+  const isPreview = !!userTenantId && dataTenantId === null;
 
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title={page.label || manifest.brand.name}
         subtitle={manifest.brand.subtitle}
-        action={<Tag tone="accent">{page.kind}</Tag>}
+        action={
+          <div className="flex items-center gap-2">
+            {isPreview && <Tag tone="warm">preview</Tag>}
+            <Tag tone="accent">{page.kind}</Tag>
+          </div>
+        }
       />
+      {isPreview && (
+        <div className="rounded-2xl border border-amber-300/25 bg-amber-300/10 p-4 text-sm leading-relaxed text-amber-100">
+          Preview mode — your tenant doesn&apos;t own this slug, so no live records render here.
+          The manifest structure, navigation, and entity schemas are exactly what a real{" "}
+          <span className="font-mono">/t/{slug}</span> tenant would see.
+        </div>
+      )}
       {page.kind === "markdown" && <ManifestMarkdown page={page} />}
       {page.kind === "dashboard" && (
-        <ManifestDashboard manifest={manifest} tenantId={tenantId} />
+        <ManifestDashboard manifest={manifest} tenantId={dataTenantId} />
       )}
       {(page.kind === "table" || page.kind === "form") && (() => {
         const entity = (manifest.data_model || []).find((e) => e.name === page.entity);
         if (!entity) return <UnknownEntity name={page.entity} />;
-        return <ManifestTable tenantSlug={slug} tenantId={tenantId} entity={entity} page={page} canCreate />;
+        return <ManifestTable tenantSlug={slug} tenantId={dataTenantId} entity={entity} page={page} canCreate />;
       })()}
       {page.kind === "kanban" && (() => {
         const entity = (manifest.data_model || []).find((e) => e.name === page.entity);
         if (!entity) return <UnknownEntity name={page.entity} />;
-        return <ManifestKanban tenantSlug={slug} tenantId={tenantId} entity={entity} page={page} />;
+        return <ManifestKanban tenantSlug={slug} tenantId={dataTenantId} entity={entity} page={page} />;
       })()}
     </div>
   );

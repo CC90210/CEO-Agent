@@ -2,7 +2,7 @@ import { Card, PageHeader, EmptyState, Tag } from "@/components/Card";
 import ChatWidget from "@/components/ChatWidget";
 import { timeAgo, truncate } from "@/lib/fmt";
 import { agentStates, recentEvents, getActiveProfile, getTenant, integrationsHealth } from "@/lib/queries";
-import { ALL_AGENT_KEYS, FAMILY_AGENT_KEYS, getAgentInfo } from "@/lib/agents";
+import { FAMILY_AGENT_KEYS, getAgentInfo } from "@/lib/agents";
 import { resolveClientProfileSlug } from "@/lib/client-profiles";
 import { getManifest } from "@/lib/manifest/loader";
 import { catalogFor } from "@/lib/agent-catalog";
@@ -10,12 +10,6 @@ import { getAgentStats } from "@/lib/agent-stats";
 import { getServiceSupabase, getSessionUser } from "@/lib/supabase-server";
 import { Clock, Cog, Download, Workflow } from "lucide-react";
 import Link from "next/link";
-
-// Manifest is now the source of truth for which agents this tenant has
-// subscribed to via the marketplace. Keep ALL_AGENT_KEYS / FAMILY_AGENT_KEYS
-// references as fallbacks while the legacy AGENT_REGISTRY still powers the
-// agent-family card's rich metadata (taglines, locations, etc.).
-void ALL_AGENT_KEYS;
 
 // Returns true if the tenant has zero non-revoked bridge pairings —
 // used to gate the "install bridge" banner above the chat. Suppresses
