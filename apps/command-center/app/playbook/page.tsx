@@ -10,6 +10,7 @@ import {
 } from "@/lib/client-profiles";
 import { listPlaybooks, type PlaybookFile } from "@/lib/playbooks";
 import { getActiveProfile, getTenant } from "@/lib/queries";
+import { demoHref } from "@/lib/demo-href";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -94,6 +95,14 @@ const SUN_MANUAL_ORDER = [
   "04-pause-and-rollback",
 ] as const;
 
+// Slugs that belong to the SunBiz operating manual and must NEVER appear on
+// the OASIS Playbook index (otherwise "Meet Solara" leaks into CC's portal).
+const SUN_PLAYBOOK_SLUGS = new Set<string>([
+  ...SUN_MANUAL_ORDER,
+  "05-customer-onboarding-script",
+  "06-sunbiz-runbook",
+]);
+
 const SUN_MANUAL_META: Record<string, { eyebrow: string; summary: string }> = {
   "01-getting-started": {
     eyebrow: "Step 01",
@@ -136,10 +145,11 @@ export default async function PlaybookIndex() {
     const manualFiles = SUN_MANUAL_ORDER
       .map((slug) => operatingManual.find((file) => file.slug === slug) || null)
       .filter((file): file is PlaybookFile => file !== null);
-    return <SunBizPlaybookIndex manualFiles={manualFiles} />;
+    return <SunBizPlaybookIndex manualFiles={manualFiles} demoMode={demoProfile.id === "sun"} />;
   }
 
-  return <DefaultPlaybookIndex operatingManual={operatingManual} />;
+  const defaultManual = operatingManual.filter((f) => !SUN_PLAYBOOK_SLUGS.has(f.slug));
+  return <DefaultPlaybookIndex operatingManual={defaultManual} />;
 }
 
 function DefaultPlaybookIndex({ operatingManual }: { operatingManual: PlaybookFile[] }) {
@@ -213,7 +223,16 @@ function DefaultPlaybookIndex({ operatingManual }: { operatingManual: PlaybookFi
   );
 }
 
-function SunBizPlaybookIndex({ manualFiles }: { manualFiles: PlaybookFile[] }) {
+function SunBizPlaybookIndex({
+  manualFiles,
+  demoMode = false,
+}: {
+  manualFiles: PlaybookFile[];
+  demoMode?: boolean;
+}) {
+  const chatHref = demoHref("/agent", { demoMode });
+  const renewalsHref = demoHref("/renewals", { demoMode });
+  const playbookEntryHref = (slug: string) => demoHref(`/playbook/${slug}`, { demoMode });
   return (
     <div className="space-y-8 animate-fade-in">
       <PageHeader
@@ -235,10 +254,10 @@ function SunBizPlaybookIndex({ manualFiles }: { manualFiles: PlaybookFile[] }) {
             This is the version your Sun Biz team should actually read. No system language. No setup clutter. Just how to work with Solara, when to review something, when to call CC, and how to pause changes if something feels off.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Link href="/agent" className="btn-send inline-flex items-center gap-2">
+            <Link href={chatHref} className="btn-send inline-flex items-center gap-2">
               Chat with Solara <MessageSquareText className="h-4 w-4" />
             </Link>
-            <Link href="/renewals" className="btn-secondary inline-flex items-center gap-2">
+            <Link href={renewalsHref} className="btn-secondary inline-flex items-center gap-2">
               Review renewals <RefreshCcw className="h-4 w-4" />
             </Link>
           </div>
@@ -254,7 +273,7 @@ function SunBizPlaybookIndex({ manualFiles }: { manualFiles: PlaybookFile[] }) {
               return (
                 <Link
                   key={file.slug}
-                  href={`/playbook/${file.slug}`}
+                  href={playbookEntryHref(file.slug)}
                   className="group flex items-start gap-3 rounded-2xl border border-bg-border bg-bg-elev/35 px-4 py-3 transition-all hover:border-amber-300/35 hover:bg-amber-300/6"
                 >
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-amber-300/25 bg-amber-300/10 text-xs font-black tracking-[0.16em] text-amber-100">
@@ -283,7 +302,7 @@ function SunBizPlaybookIndex({ manualFiles }: { manualFiles: PlaybookFile[] }) {
             summary: file.title,
           };
           return (
-            <Link key={file.slug} href={`/playbook/${file.slug}`} className="group block">
+            <Link key={file.slug} href={playbookEntryHref(file.slug)} className="group block">
               <Card>
                 <div className="space-y-3">
                   <div className="inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] font-bold text-amber-200">

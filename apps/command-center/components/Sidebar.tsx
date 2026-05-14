@@ -43,6 +43,7 @@ import {
 } from "lucide-react";
 import { OasisLogo } from "@/components/brand/OasisLogo";
 import { CC_NAV, type NavIconKey, type NavItem } from "@/lib/nav-config";
+import { demoHref } from "@/lib/demo-href";
 
 const NAV_ICONS: Record<NavIconKey, LucideIcon> = {
   Activity,
@@ -93,6 +94,7 @@ export function Sidebar({
   inboxUnread = 0,
   demoMode = false,
   demoLabel = "Client demo",
+  demoLandingPath = "/demo/sun",
 }: {
   brand?: string;
   logo?: "oasis" | "sunbiz" | "suga";
@@ -109,6 +111,8 @@ export function Sidebar({
   inboxUnread?: number;
   demoMode?: boolean;
   demoLabel?: string;
+  /** Where in-demo clicks land so navigation doesn't leak into the OASIS shell. */
+  demoLandingPath?: string;
 }) {
   const pathname = usePathname();
   const navItems = items && items.length > 0 ? items : CC_NAV;
@@ -160,6 +164,8 @@ export function Sidebar({
                 item={item}
                 pathname={pathname}
                 badgeCount={item.badgeKey ? badgeMap[item.badgeKey] || 0 : 0}
+                demoMode={demoMode}
+                demoLandingPath={demoLandingPath}
               />
             ))}
           </NavGroup>
@@ -273,17 +279,22 @@ function NavLink({
   item,
   pathname,
   badgeCount = 0,
+  demoMode = false,
+  demoLandingPath = "/demo/sun",
 }: {
   item: NavItem;
   pathname: string;
   badgeCount?: number;
+  demoMode?: boolean;
+  demoLandingPath?: string;
 }) {
   const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
   const Icon = NAV_ICONS[item.icon] || LayoutDashboard;
+  const href = demoHref(item.href, { demoMode, landingPath: demoLandingPath });
   return (
     <li>
       <Link
-        href={item.href}
+        href={href}
         prefetch={true}
         className={`group flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-all relative ${
           active

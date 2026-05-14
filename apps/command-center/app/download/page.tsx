@@ -108,6 +108,24 @@ export default function DownloadPage() {
             <strong className="text-fg">Windows note:</strong> use the portable zip first. A Mac <span className="font-mono text-accent">.dmg</span>{" "}
             will make Windows ask you to pick an app, and an unsigned installer can be blocked by corporate security while it runs from Temp.
             Save the zip to Downloads, extract it, then open <span className="font-mono text-accent">OASIS AI.exe</span> from the extracted folder.
+            SmartScreen will warn this build is from an unknown publisher — that&apos;s expected on the unsigned alpha.
+            Click <span className="font-mono text-accent">More info</span> then <span className="font-mono text-accent">Run anyway</span>.
+          </div>
+          <div className="mt-3 rounded-xl border border-amber-300/25 bg-amber-300/10 p-4 text-sm leading-relaxed text-fg-muted">
+            <strong className="text-fg">macOS note:</strong> Gatekeeper will say <em>&quot;Apple cannot verify that OASIS AI is free of malware.&quot;</em>{" "}
+            This alpha is not yet Apple Developer ID-signed. Two ways to open it:
+            <ul className="mt-2 space-y-1.5 list-disc pl-5">
+              <li>
+                <strong className="text-fg">Right-click → Open</strong> the app in Applications, then click <span className="font-mono text-amber-200">Open</span> in
+                the warning dialog. macOS will trust it for future launches.
+              </li>
+              <li>
+                Or run this once in Terminal to clear the quarantine flag:
+                <pre className="mt-1.5 overflow-x-auto rounded-lg border border-amber-300/20 bg-bg-deep/80 px-3 py-2 font-mono text-xs text-amber-100">
+                  xattr -d com.apple.quarantine &quot;/Applications/OASIS AI.app&quot;
+                </pre>
+              </li>
+            </ul>
           </div>
           <div className="mt-5 rounded-xl border border-bg-border bg-bg-elev/50 p-4 font-mono text-xs text-fg-dim">
             <div className="mb-2 uppercase tracking-[0.14em] text-fg-muted">Current checksums</div>
