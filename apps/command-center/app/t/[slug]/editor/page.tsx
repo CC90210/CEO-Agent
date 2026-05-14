@@ -3,9 +3,8 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { PageHeader, Tag } from "@/components/Card";
 import { ManifestEditorChat } from "@/components/manifest/ManifestEditorChat";
-import { getManifest } from "@/lib/manifest/loader";
+import { getManifest, manifestExists } from "@/lib/manifest/loader";
 import { getManifestRow } from "@/lib/manifest/persistence";
-import { SEED_MANIFESTS } from "@/lib/manifest/seeds";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -25,7 +24,7 @@ export default async function ManifestEditorPage({
 }) {
   const { slug } = await params;
   const normalised = slug.toLowerCase();
-  if (!SEED_MANIFESTS[normalised]) notFound();
+  if (!(await manifestExists(normalised))) notFound();
 
   const manifest = await getManifest(normalised);
   const row = await getManifestRow(normalised).catch(() => null);

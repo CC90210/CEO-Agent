@@ -28,8 +28,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { decryptField } from "@/lib/field-encryption";
 import { getSessionUser, getServiceSupabase } from "@/lib/supabase-server";
 import { streamChat, type ChatMessage, type Provider } from "@/lib/providers";
-import { getManifest } from "@/lib/manifest/loader";
-import { SEED_MANIFESTS } from "@/lib/manifest/seeds";
+import { getManifest, manifestExists } from "@/lib/manifest/loader";
 import {
   applyMutations,
   ManifestMutationError,
@@ -92,7 +91,7 @@ export async function POST(req: NextRequest) {
 
   const slug = (body.slug || "").trim().toLowerCase();
   const message = (body.message || "").trim();
-  if (!slug || !SEED_MANIFESTS[slug]) {
+  if (!slug || !(await manifestExists(slug))) {
     return NextResponse.json({ ok: false, error: "unknown_tenant" }, { status: 400 });
   }
   if (!message) {

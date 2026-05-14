@@ -2,8 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Card, PageHeader, Tag } from "@/components/Card";
-import { getManifest } from "@/lib/manifest/loader";
-import { SEED_MANIFESTS } from "@/lib/manifest/seeds";
+import { getManifest, manifestExists } from "@/lib/manifest/loader";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +23,7 @@ export default async function TenantLandingPage({
 }) {
   const { slug } = await params;
   const normalised = slug.toLowerCase();
-  if (!SEED_MANIFESTS[normalised]) notFound();
+  if (!(await manifestExists(normalised))) notFound();
 
   const manifest = await getManifest(normalised);
   const enabledAgents = manifest.agents.filter((a) => a.enabled);

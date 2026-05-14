@@ -21,7 +21,7 @@ import { safe } from "@/lib/api-helpers";
 import { getServiceSupabase } from "@/lib/supabase-server";
 import type { NavItem } from "@/lib/nav-config";
 import { safeParseManifest, type ManifestNavItem, type TenantManifest, primaryAgent } from "./schema";
-import { getSeedManifest } from "./seeds";
+import { getSeedManifest, SEED_MANIFESTS } from "./seeds";
 
 type ManifestRow = {
   slug: string;
@@ -78,6 +78,31 @@ export function manifestNavToNavItems(items: ManifestNavItem[]): NavItem[] {
     badgeKey: item.badge_key,
     expandable: item.expandable,
   }));
+}
+
+/**
+ * True when a slug exists in either the in-code seeds or the
+ * tenant_manifests table. Used by routes that need to 404 for genuinely
+ * unknown tenants (vs. transparently falling back to the default seed).
+ */
+export async function manifestExists(slug: string | null | undefined): Promise<boolean> {
+  const key = (slug || "").trim().toLowerCase();
+  if (!key) return false;
+  if (SEED_MANIFESTS[key]) return true;
+  const row = await safe(
+    "manifest.loader.exists",
+    (async () => {
+      const db = getServiceSupabase();
+      const result = await db
+        .from("tenant_manifests")
+        .select("slug")
+        .eq("slug", key)
+        .maybeSingle();
+      return !!result.data;
+    })(),
+    false
+  );
+  return row;
 }
 
 /** Sidebar logo prop is a closed enum. "custom" manifests fall back to "oasis". */
