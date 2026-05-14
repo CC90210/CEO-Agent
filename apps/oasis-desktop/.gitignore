@@ -1,0 +1,6 @@
+# Bundled sidecar — regenerated on every build via scripts/bundle-sidecar.js.
+# Source of truth is the repo; never commit the copied tree.
+resources/sidecar/
+
+# Electron-builder output
+dist/
