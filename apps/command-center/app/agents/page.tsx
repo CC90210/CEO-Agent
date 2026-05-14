@@ -1,14 +1,21 @@
 import { Card, PageHeader, EmptyState, Tag } from "@/components/Card";
 import ChatWidget from "@/components/ChatWidget";
 import { timeAgo, truncate } from "@/lib/fmt";
-import { agentStates, recentEvents, getActiveProfile, integrationsHealth } from "@/lib/queries";
+import { agentStates, recentEvents, getActiveProfile, getTenant, integrationsHealth } from "@/lib/queries";
 import { ALL_AGENT_KEYS, FAMILY_AGENT_KEYS, getAgentInfo } from "@/lib/agents";
-import { chatAgentKeys } from "@/lib/agent-personas";
+import { resolveClientProfileSlug } from "@/lib/client-profiles";
+import { getManifest } from "@/lib/manifest/loader";
 import { catalogFor } from "@/lib/agent-catalog";
 import { getAgentStats } from "@/lib/agent-stats";
 import { getServiceSupabase, getSessionUser } from "@/lib/supabase-server";
 import { Clock, Cog, Download, Workflow } from "lucide-react";
 import Link from "next/link";
+
+// Manifest is now the source of truth for which agents this tenant has
+// subscribed to via the marketplace. Keep ALL_AGENT_KEYS / FAMILY_AGENT_KEYS
+// references as fallbacks while the legacy AGENT_REGISTRY still powers the
+// agent-family card's rich metadata (taglines, locations, etc.).
+void ALL_AGENT_KEYS;
 
 // Returns true if the tenant has zero non-revoked bridge pairings —
 // used to gate the "install bridge" banner above the chat. Suppresses
@@ -66,15 +73,31 @@ export default async function AgentsPage() {
     _tenantHasNoBridge(profile?.tenant_id || null),
   ]);
 
-  // AGENT FAMILY card shows only personas (excludes backend executors like
-  // Codex). The `agents_enabled` column on user_profiles is the single source
-  // of truth — toggling an agent off in /settings must remove it everywhere.
-  // Only fall back to the full family set when the profile has no enabled
-  // list at all (legacy / brand-new tenants).
+  // Phase 5 — manifest is the source of truth for enabled agents per tenant.
+  // Resolve the manifest for the operator's tenant, derive the enabled slugs
+  // from manifest.agents (filtered by enabled === true), and feed that to the
+  // chat widget so the dropdown reflects exactly what's been subscribed via
+  // the marketplace. We fall back to FAMILY_AGENT_KEYS if the manifest has no
+  // agents declared (brand-new tenants pre-wizard).
+  const tenantSlugForManifest = profile?.tenant_id
+    ? await getTenant(profile.tenant_id)
+        .then((t) => resolveClientProfileSlug(t || null))
+        .catch(() => null)
+    : null;
+  const manifestForAgents = await getManifest(tenantSlugForManifest).catch(() => null);
+  const manifestEnabledSlugs = (manifestForAgents?.agents || [])
+    .filter((a) => a.enabled)
+    .map((a) => a.slug.toLowerCase());
+
   const familySet = new Set(FAMILY_AGENT_KEYS);
-  const enabledList = profile?.agents_enabled?.length
-    ? profile.agents_enabled
-    : FAMILY_AGENT_KEYS;
+  // For the "Agent family" card below we still want the rich metadata from
+  // AGENT_REGISTRY — so the enabled list intersects manifest.agents with the
+  // family registry when both are populated, otherwise falls back gracefully.
+  const enabledList = manifestEnabledSlugs.length > 0
+    ? manifestEnabledSlugs
+    : profile?.agents_enabled?.length
+      ? profile.agents_enabled
+      : FAMILY_AGENT_KEYS;
   const enabled = enabledList.filter((k) => familySet.has(k));
   const byName = new Map(states.map((s) => [s.agent_name, s]));
   const integrationByName = new Map(integrations.map((i) => [i.service, i]));
@@ -136,8 +159,13 @@ export default async function AgentsPage() {
           </div>
         )}
         <ChatWidget
-          agentKeys={chatAgentKeys().filter((k) => enabled.includes(k))}
-          defaultAgent={profile?.primary_agent || "bravo"}
+          agentKeys={manifestEnabledSlugs.length > 0 ? manifestEnabledSlugs : enabled}
+          defaultAgent={
+            manifestForAgents?.agents.find((a) => a.primary && a.enabled)?.slug ||
+            profile?.primary_agent ||
+            manifestEnabledSlugs[0] ||
+            "bravo"
+          }
           isAdmin={isAdmin}
         />
       </section>
