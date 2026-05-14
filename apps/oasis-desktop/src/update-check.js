@@ -34,26 +34,59 @@ function readPackageVersion() {
 }
 
 /**
- * Compare two semver-ish strings ("0.1.0-alpha.4" vs "0.1.0-alpha.5").
- * Returns -1 if a < b, 1 if a > b, 0 if equal. Pre-release tags sort
- * lexicographically; the comparator only needs to detect "is newer."
+ * Compare two SemVer-2.0.0 strings. Returns -1 if a < b, 1 if a > b, 0 if equal.
+ *
+ * The key SemVer rule the previous implementation got wrong: a version WITH
+ * a pre-release suffix has LOWER precedence than the same version without
+ * one. So "0.1.0-alpha" < "0.1.0", not the reverse. Walking the parts
+ * naïvely (which is what we used to do) made an undefined slot beat a
+ * pre-release token, which inverted that rule.
+ *
+ * Algorithm:
+ *   1. Split into MAJOR.MINOR.PATCH and an optional pre-release tail.
+ *   2. Compare the numeric MAJOR/MINOR/PATCH triple first.
+ *   3. If equal: pre-release LOSES to no-pre-release.
+ *   4. If both have pre-release: compare dot-separated identifiers per
+ *      SemVer §11.4 (numeric identifiers compare numerically; alphanumerics
+ *      compare lexicographically; numeric always loses to alphanumeric).
  */
 function compareVersions(a, b) {
   if (a === b) return 0;
-  const partsA = a.split(/[-.]/);
-  const partsB = b.split(/[-.]/);
-  const len = Math.max(partsA.length, partsB.length);
+  const parse = (v) => {
+    const [core, pre] = String(v).split("-", 2);
+    const [maj, min, pat] = core.split(".").map((n) => Number(n) || 0);
+    return { maj, min, pat, pre: pre || null };
+  };
+  const A = parse(a);
+  const B = parse(b);
+  if (A.maj !== B.maj) return A.maj < B.maj ? -1 : 1;
+  if (A.min !== B.min) return A.min < B.min ? -1 : 1;
+  if (A.pat !== B.pat) return A.pat < B.pat ? -1 : 1;
+  // Equal core triple — pre-release LOSES to no-pre-release.
+  if (A.pre === null && B.pre === null) return 0;
+  if (A.pre === null) return 1;
+  if (B.pre === null) return -1;
+  // Both have pre-release. Compare dot-separated identifiers per SemVer 11.4.
+  const idsA = A.pre.split(".");
+  const idsB = B.pre.split(".");
+  const len = Math.max(idsA.length, idsB.length);
   for (let i = 0; i < len; i++) {
-    const pa = partsA[i];
-    const pb = partsB[i];
-    if (pa === undefined) return -1;
-    if (pb === undefined) return 1;
-    const na = Number(pa);
-    const nb = Number(pb);
-    if (!Number.isNaN(na) && !Number.isNaN(nb)) {
+    const ia = idsA[i];
+    const ib = idsB[i];
+    if (ia === undefined) return -1; // shorter pre-release loses on equal prefix
+    if (ib === undefined) return 1;
+    const numA = /^\d+$/.test(ia);
+    const numB = /^\d+$/.test(ib);
+    if (numA && numB) {
+      const na = Number(ia);
+      const nb = Number(ib);
       if (na !== nb) return na < nb ? -1 : 1;
+    } else if (numA) {
+      return -1; // numeric < alphanumeric per SemVer 11.4.3
+    } else if (numB) {
+      return 1;
     } else {
-      if (pa !== pb) return pa < pb ? -1 : 1;
+      if (ia !== ib) return ia < ib ? -1 : 1;
     }
   }
   return 0;

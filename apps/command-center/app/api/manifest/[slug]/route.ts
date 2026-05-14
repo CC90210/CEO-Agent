@@ -9,8 +9,7 @@ import {
   saveManifest,
   ManifestPersistenceError,
 } from "@/lib/manifest/persistence";
-
-const PROTECTED_SLUGS = new Set(["default", "oasis", "sun", "suga"]);
+import { manifestWriteGuards } from "@/lib/manifest/guards";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -114,25 +113,13 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
 
-  // Protected slugs (the in-code seed defaults: default/oasis/sun/suga) are
-  // owned by the platform and cannot be mutated through this endpoint by any
-  // tenant. Tenants modify their OWN manifest (created via the onboarding
-  // wizard); platform seeds are the safety net everyone falls back to.
-  if (PROTECTED_SLUGS.has(normalised)) {
+  // Shared write guards — protected-slug + cross-tenant. Single source of
+  // truth in lib/manifest/guards.ts so the three write-paths stay in lockstep.
+  const guard = await manifestWriteGuards(normalised, profile.tenant_id);
+  if (!guard.ok) {
     return NextResponse.json(
-      { ok: false, error: "protected_slug", reason: "Platform seed manifests cannot be modified. Create your own tenant via /onboarding/wizard." },
-      { status: 403 }
-    );
-  }
-
-  // Cross-tenant guard — if a manifest row already exists for this slug, it
-  // must be bound to the caller's tenant. First writes (no row yet) claim
-  // the slug for the caller's tenant via saveManifest.
-  const existingRow = await getManifestRow(normalised).catch(() => null);
-  if (existingRow && existingRow.tenant_id && existingRow.tenant_id !== profile.tenant_id) {
-    return NextResponse.json(
-      { ok: false, error: "cross_tenant_forbidden", reason: "This manifest belongs to another tenant." },
-      { status: 403 }
+      { ok: false, error: guard.error, reason: guard.reason },
+      { status: guard.status }
     );
   }
 
