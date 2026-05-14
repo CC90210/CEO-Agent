@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionUser, getServiceSupabase } from "@/lib/supabase-server";
-import { getManifest } from "@/lib/manifest/loader";
-import { SEED_MANIFESTS } from "@/lib/manifest/seeds";
+import { getManifest, manifestExists } from "@/lib/manifest/loader";
 import { applyMutations, type MutationArgs, ManifestMutationError } from "@/lib/manifest/mutators";
 import { diffManifests } from "@/lib/manifest/diff";
 import {
@@ -29,7 +28,7 @@ export async function GET(
   if (!/^[a-z0-9][a-z0-9_-]{1,62}$/.test(normalised)) {
     return NextResponse.json({ ok: false, error: "invalid slug" }, { status: 400 });
   }
-  if (!SEED_MANIFESTS[normalised]) {
+  if (!(await manifestExists(normalised))) {
     return NextResponse.json({ ok: false, error: "unknown tenant" }, { status: 404 });
   }
   const manifest = await getManifest(normalised);
@@ -73,7 +72,7 @@ export async function POST(
   if (!/^[a-z0-9][a-z0-9_-]{1,62}$/.test(normalised)) {
     return NextResponse.json({ ok: false, error: "invalid slug" }, { status: 400 });
   }
-  if (!SEED_MANIFESTS[normalised]) {
+  if (!(await manifestExists(normalised))) {
     return NextResponse.json({ ok: false, error: "unknown tenant" }, { status: 404 });
   }
 

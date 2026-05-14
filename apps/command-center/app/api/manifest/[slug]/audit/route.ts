@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionUser } from "@/lib/supabase-server";
-import { SEED_MANIFESTS } from "@/lib/manifest/seeds";
+import { manifestExists } from "@/lib/manifest/loader";
 import { getManifestRow, listManifestAudit } from "@/lib/manifest/persistence";
 
 export const runtime = "nodejs";
@@ -22,7 +22,7 @@ export async function GET(
 
   const { slug } = await ctx.params;
   const normalised = slug.toLowerCase();
-  if (!SEED_MANIFESTS[normalised]) {
+  if (!(await manifestExists(normalised))) {
     return NextResponse.json({ ok: false, error: "unknown tenant" }, { status: 404 });
   }
 
