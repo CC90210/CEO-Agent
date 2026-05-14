@@ -76,6 +76,11 @@ export async function applyClientProvisioningProfile({
       .update({
         primary_agent: primaryAgent,
         agents_enabled: Array.from(agents),
+        // Brand-hinted signups have already chosen their profile by
+        // brand name; the industry-template wizard would just ask
+        // redundant questions. Mark onboarding complete so middleware
+        // doesn't bounce them through /onboarding/wizard.
+        onboarding_completed_at: new Date().toISOString(),
       })
       .eq("id", profileId);
     if (profileUpdate.error) throw profileUpdate.error;
