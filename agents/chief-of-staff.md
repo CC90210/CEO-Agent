@@ -59,13 +59,18 @@ Proactive retention actions:
 ## The Workflow
 
 ### Step 1: Multi-Channel Fetch
+**Snapshot-first (Prep Table, brain/AGENTIC_OS_REFERENCE.md §3):**
+- If `state/snapshots/latest_client_alerts.json` is <24h old, read it for client risk signals instead of running the full health report.
+- If `state/snapshots/latest_briefing.json` is <24h old, read it for pipeline/revenue context.
+
+**Live fetch (only for inbound that snapshots can't cover):**
 - Fetch unread emails via `python scripts/google_tool.py gmail list`.
 - Fetch social mentions/DMs via `python ../CMO-Agent/scripts/late_tool.py` (Maven) or n8n triggers.
 - Fetch Slack/Discord signals via `python scripts/n8n_tool.py execute <triage-workflow-id>`.
 
 ### Step 2: Triage & Classify
 - Apply the 4-tier system.
-- For `action_required`, load `memory/LEAD_TRACKER.csv` or `memory/LONG_TERM.md` for context.
+- For `action_required`, prefer the snapshot's `qualified_leads` (state/snapshots/latest_leads.json) over re-loading `memory/LEAD_TRACKER.csv`. Fall back to LEAD_TRACKER.csv only if the snapshot is stale.
 - Apply client health signal check on all client communications.
 
 ### Step 3: Draft & Present

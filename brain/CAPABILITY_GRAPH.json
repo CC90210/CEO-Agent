@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
   "agent": "bravo",
-  "generated_at": "2026-05-10T04:00:02.327373+00:00",
+  "generated_at": "2026-05-14T21:25:39.658444+00:00",
   "totals": {
-    "skills": 153,
-    "scripts": 115,
+    "skills": 157,
+    "scripts": 127,
     "agents": 20,
     "mcp_servers": 9,
     "workflows": 36,
-    "nodes_total": 333,
-    "edges_total": 44,
+    "nodes_total": 349,
+    "edges_total": 49,
     "drift_count": 0
   },
   "nodes": [
@@ -683,6 +683,30 @@
         "authorized",
         "compliance"
       ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:exec-override",
+      "kind": "skill",
+      "name": "exec-override",
+      "path": "skills/exec-override/SKILL.md",
+      "description": "V6 BUILD 4 operator-approval flow for the exec_guard sandbox. When a legitimate command false-positives on the regex/AST layers, the agent gets a request_id; the operator approves it from their terminal; the next attempt of the SAME command is allowed exactly once. Use when exec_",
+      "tier": "core",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "exec_guard",
+        "override",
+        "approve",
+        "blocked command",
+        "false positive",
+        "sandbox bypass",
+        "override request",
+        "req-",
+        "single-use approval"
+      ],
+      "tags": [],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
     },
@@ -1658,6 +1682,34 @@
       "discovery": "auto-frontmatter"
     },
     {
+      "id": "skill:integrations-sync",
+      "kind": "skill",
+      "name": "integrations-sync",
+      "path": "skills/integrations-sync/SKILL.md",
+      "description": "Idempotent refresh patterns for every external data source \u2014 Stripe, Supabase, Google Workspace, n8n webhooks, Funnel forms. Codifies the safe sync flow so agents stop reinventing dedupe/audit/dry-run logic per source.",
+      "tier": "T2",
+      "owner": "bravo",
+      "risk": "medium",
+      "triggers": [
+        "sync integrations",
+        "refresh stripe",
+        "sync supabase",
+        "refresh data sources",
+        "pull latest data",
+        "integrations sync",
+        "sync external"
+      ],
+      "tags": [
+        "skill",
+        "integrations",
+        "data",
+        "sync",
+        "idempotent"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
       "id": "skill:internal-comms",
       "kind": "skill",
       "name": "internal-comms",
@@ -1921,11 +1973,39 @@
       "discovery": "auto-frontmatter"
     },
     {
+      "id": "skill:memory-journaling",
+      "kind": "skill",
+      "name": "memory-journaling",
+      "path": "skills/memory-journaling/SKILL.md",
+      "description": "Structured decision and pattern logging. Guides the agent through writing high-quality entries to memory/DECISIONS.md, memory/PATTERNS.md, or memory/MISTAKES.md with proper frontmatter, cross-links, and version tags.",
+      "tier": "T1",
+      "owner": "documenter",
+      "risk": "low",
+      "triggers": [
+        "log a decision",
+        "journal this",
+        "memory journal",
+        "log this pattern",
+        "record this",
+        "save this learning",
+        "memory-journaling"
+      ],
+      "tags": [
+        "skill",
+        "memory",
+        "journaling",
+        "decisions",
+        "patterns"
+      ],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
       "id": "skill:memory-management",
       "kind": "skill",
       "name": "memory-management",
       "path": "skills/memory-management/SKILL.md",
-      "description": "MemoryBox system for preventing bloat, scoring confidence, compressing archives, and maintaining memory hygiene. Ensures cross-session intelligence without context window overflow.",
+      "description": "MemoryBox system for preventing bloat, scoring confidence, compressing archives, and maintaining memory hygiene. Plus the V6 hybrid retrieval surface (FTS5 lexical + LanceDB/ONNX semantic + RRF) that replaces whole-file Reads. Ensures cross-session intelligence without context wi",
       "tier": "core",
       "owner": "bravo",
       "risk": "low",
@@ -1936,7 +2016,14 @@
         "compress",
         "session log",
         "confidence",
-        "MemoryBox"
+        "MemoryBox",
+        "retrieval",
+        "hybrid search",
+        "semantic",
+        "embedding",
+        "RRF",
+        "fastembed",
+        "LanceDB"
       ],
       "tags": [],
       "status": "[VALIDATED]",
@@ -2703,6 +2790,33 @@
         "ship it"
       ],
       "tags": [],
+      "status": "[VALIDATED]",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:silver-platter",
+      "kind": "skill",
+      "name": "silver-platter",
+      "path": "skills/silver-platter/SKILL.md",
+      "description": "Per-agent data-readiness audit. Produces an HTML report mapping Pantry (raw sources), Prep Table (deterministic snapshots), and Plate (agent consumers) with a Mermaid data-flow diagram and ranked quick-win list. The audit deliverable from brain/AGENTIC_OS_REFERENCE.md \u00a75.",
+      "tier": "T2",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "silver platter",
+        "data audit",
+        "data readiness audit",
+        "audit my data",
+        "pantry prep table plate",
+        "where does my data live"
+      ],
+      "tags": [
+        "skill",
+        "audit",
+        "data",
+        "agentic-os",
+        "foundation"
+      ],
       "status": "[VALIDATED]",
       "discovery": "auto-frontmatter"
     },
@@ -3661,6 +3775,46 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:event_router",
+      "kind": "script",
+      "name": "event_router",
+      "path": "scripts/event_router.py",
+      "description": "V6 Apex Phase 3 \u2014 cross-agent event-bus router daemon.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:exec_guard",
+      "kind": "script",
+      "name": "exec_guard",
+      "path": "scripts/exec_guard.py",
+      "description": "PreToolUse Bash hook \u2014 layered policy gate against destructive commands.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:exec_override",
+      "kind": "script",
+      "name": "exec_override",
+      "path": "scripts/exec_override.py",
+      "description": "V6 BUILD 4 \u2014 operator-approval CLI for the override flow.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:exec_override_consumer",
+      "kind": "script",
+      "name": "exec_override_consumer",
+      "path": "scripts/exec_override_consumer.py",
+      "description": "V6 Apex Phase 2 \u2014 local consumer for dashboard-driven override decisions.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:financial_model",
       "kind": "script",
       "name": "financial_model",
@@ -3881,6 +4035,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:memory_retriever",
+      "kind": "script",
+      "name": "memory_retriever",
+      "path": "scripts/memory_retriever.py",
+      "description": "V6.0 FTS5 retrieval over memory/, skills/, brain/.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:model_router",
       "kind": "script",
       "name": "model_router",
@@ -3981,6 +4145,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:oasis_embed_server",
+      "kind": "script",
+      "name": "oasis_embed_server",
+      "path": "scripts/oasis_embed_server.py",
+      "description": "OASIS Town V6 Apex Phase 3 \u2014 embedding + retrieval bridge for the agent sim.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:onboarding_diagnostics",
       "kind": "script",
       "name": "onboarding_diagnostics",
@@ -4061,6 +4235,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:quest_publisher",
+      "kind": "script",
+      "name": "quest_publisher",
+      "path": "scripts/quest_publisher.py",
+      "description": "Publish memory/ACTIVE_TASKS.md tasks to the Supabase `oasis_quests` table.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:reap_orphan_mcps",
       "kind": "script",
       "name": "reap_orphan_mcps",
@@ -4096,6 +4280,16 @@
       "name": "register_skill",
       "path": "scripts/register_skill.py",
       "description": "Register Skill \u2014 the skill-onboarding tool.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:retriever_postedit",
+      "kind": "script",
+      "name": "retriever_postedit",
+      "path": "scripts/retriever_postedit.py",
+      "description": "PostToolUse hook \u2014 fires `memory_retriever.py update` after edits to indexed dirs.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -4156,6 +4350,16 @@
       "name": "scrape_firecrawl_leads",
       "path": "scripts/scrape_firecrawl_leads.py",
       "description": "Lead scraper using Firecrawl API (replaces slow Playwright + Google Maps flow).",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:secret_guard",
+      "kind": "script",
+      "name": "secret_guard",
+      "path": "scripts/secret_guard.py",
+      "description": "PreToolUse hook \u2014 denies the LLM direct read access to secret files.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -4261,11 +4465,41 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:state_api",
+      "kind": "script",
+      "name": "state_api",
+      "path": "scripts/state_api.py",
+      "description": "V6.0 read-only state API \u2014 FastAPI service consumed by the Command Center.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:state_guard",
+      "kind": "script",
+      "name": "state_guard",
+      "path": "scripts/state_guard.py",
+      "description": "PreToolUse hook \u2014 blocks edits / shell-redirects on auto-generated state mirrors.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:state_manager",
+      "kind": "script",
+      "name": "state_manager",
+      "path": "scripts/state_manager.py",
+      "description": "V6.0 transactional state manager \u2014 single writer for `state/empire_state.db`.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:state_sync",
       "kind": "script",
       "name": "state_sync",
       "path": "scripts/state_sync.py",
-      "description": "State Sync \u2014 Single-Write Protocol for Fragmented Memory Syncs a key observation/update across all 3 active memory layers simultaneously:   1. brain/STATE.md  \u2014 heartbeat timestamp + last result   2. memory/SESSION_LOG.md \u2014 append session entry   3. scripts/mem0_tool.py  \u2014 semant",
+      "description": "State Sync \u2014 Single-Write Protocol for Fragmented Memory.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -5064,18 +5298,8 @@
     },
     {
       "from": "skill:ceo-dashboard",
-      "to": "script:client_health",
-      "kind": "uses"
-    },
-    {
-      "from": "skill:ceo-dashboard",
       "to": "script:stripe_tool",
       "kind": "uses"
-    },
-    {
-      "from": "skill:ceo-dashboard",
-      "to": "skill:client-success",
-      "kind": "requires"
     },
     {
       "from": "skill:client-success",
@@ -5113,6 +5337,16 @@
       "kind": "uses"
     },
     {
+      "from": "skill:exec-override",
+      "to": "script:exec_guard",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:exec-override",
+      "to": "script:exec_override",
+      "kind": "uses"
+    },
+    {
       "from": "skill:financial-modeling",
       "to": "script:financial_model",
       "kind": "uses"
@@ -5143,6 +5377,26 @@
       "kind": "requires"
     },
     {
+      "from": "skill:integrations-sync",
+      "to": "script:cron_engine",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:integrations-sync",
+      "to": "script:lead_engine",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:integrations-sync",
+      "to": "script:revenue_engine",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:integrations-sync",
+      "to": "script:supabase_tool",
+      "kind": "uses"
+    },
+    {
       "from": "skill:mcp-operations",
       "to": "script:n8n_tool",
       "kind": "uses"
@@ -5155,6 +5409,11 @@
     {
       "from": "skill:mcp-operations",
       "to": "script:supabase_tool",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:memory-management",
+      "to": "script:memory_retriever",
       "kind": "uses"
     },
     {

@@ -77,7 +77,16 @@ Waiting on others:
 
 ## Execution Protocol
 
-1. Run data collection in parallel (revenue, pipeline, client, Atlas)
+**Step 0 — Read the snapshot first (Prep Table layer):**
+`state/snapshots/latest_briefing.json` is rebuilt by `scripts/snapshots/briefing_snapshot.py` (cron: daily 06:00 UTC). Read it first.
+- If the `ts` field is < 24 hours old → use it as-is for sections 1, 2, and 3 below. Skip the live Python calls for those sections.
+- If it's stale (> 24h) or missing → run `python scripts/snapshots/briefing_snapshot.py` once, then read. Falls back to the live engines below only if the snapshot itself errors.
+
+This is the silver-platter principle (brain/AGENTIC_OS_REFERENCE.md §3) — one JSON read instead of 4 subprocess calls. Sub-second briefings vs 30–60 sec.
+
+**Then assemble:**
+
+1. Run any remaining data collection (Atlas STATE.md, ACTIVE_TASKS.md) — these aren't in the snapshot
 2. Assemble briefing in the exact format above
 3. Keep total output under 30 lines — CC should read it in 30 seconds
 4. Highlight anomalies (revenue drop, lead gone cold, overdue item)
