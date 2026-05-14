@@ -2,6 +2,7 @@
 
 const { app, BrowserWindow, Menu, dialog, shell, session } = require("electron");
 const path = require("node:path");
+const { createAuthNavigationController } = require("./auth-navigation");
 const { createBridgeRuntime } = require("./bridge-runtime");
 const { createSupportBundle, openDiagnosticsWindow } = require("./diagnostics");
 const { buildAllowedOrigins, loadDesktopManifest, resolveCommandCenterUrl } = require("./manifest");
@@ -12,6 +13,7 @@ let allowLocalFallbackNavigation = false;
 const desktopManifest = loadDesktopManifest();
 const commandCenterUrl = resolveCommandCenterUrl(desktopManifest);
 const allowedOrigins = buildAllowedOrigins(desktopManifest, commandCenterUrl);
+const authNavigation = createAuthNavigationController({ allowedOrigins });
 const bridgeHealthUrl = new URL(desktopManifest.bridge.healthUrl);
 const bridgeRuntime = createBridgeRuntime({
   app,
@@ -23,10 +25,16 @@ const bridgeRuntime = createBridgeRuntime({
 function isAllowedNavigation(targetUrl) {
   try {
     const parsed = new URL(targetUrl);
-    return allowedOrigins.has(parsed.origin);
+    const allowed = allowedOrigins.has(parsed.origin);
+    if (allowed) authNavigation.noteAllowedAppNavigation(targetUrl);
+    return allowed;
   } catch {
     return false;
   }
+}
+
+function shouldAllowInDesktop(targetUrl) {
+  return isAllowedNavigation(targetUrl) || authNavigation.shouldAllowAuthNavigation(targetUrl);
 }
 
 function escapeHtml(value) {
@@ -133,8 +141,11 @@ function createWindow() {
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (isAllowedNavigation(url)) {
-      return { action: "allow" };
+    if (shouldAllowInDesktop(url)) {
+      mainWindow.loadURL(url).catch((error) => {
+        showFallbackPage(error.message);
+      });
+      return { action: "deny" };
     }
     void shell.openExternal(url);
     return { action: "deny" };
@@ -144,7 +155,7 @@ function createWindow() {
     if (allowLocalFallbackNavigation && url.startsWith("data:text/html")) {
       return;
     }
-    if (!isAllowedNavigation(url)) {
+    if (!shouldAllowInDesktop(url)) {
       event.preventDefault();
       void shell.openExternal(url);
     }

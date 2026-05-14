@@ -47,6 +47,10 @@ jobs:
         working-directory: apps/oasis-desktop
         run: npm run doctor
 
+      - name: Auth navigation check
+        working-directory: apps/oasis-desktop
+        run: npm run auth:check
+
       - name: Release check
         working-directory: apps/oasis-desktop
         run: npm run release:check
