@@ -65,6 +65,23 @@ export function finalizeManifestFromWizard(input: FinalizeInput): TenantManifest
   // Re-anchor the slug to the operator's chosen one.
   base.tenant_slug = slug;
 
+  // Rewrite nav hrefs to point at /t/<slug>/<path>. Templates ship bare
+  // paths ("/", "/leads", "/reasoning") which would otherwise route to
+  // the OASIS legacy bare-path pages when a new tenant clicks around.
+  // Maps:
+  //   "/"                  → "/t/<slug>"
+  //   "/leads"             → "/t/<slug>/leads"
+  //   "/t/whatever/leads"  → "/t/<slug>/leads"  (re-prefixed)
+  //   "https://..."        → left untouched (external link)
+  base.nav = base.nav.map((n) => {
+    if (/^[a-z]+:\/\//i.test(n.href)) return n;
+    if (n.href === "/" || n.href === "") return { ...n, href: `/t/${slug}` };
+    const tenantPrefixed = n.href.match(/^\/t\/[a-z0-9_-]+\/(.*)$/i);
+    if (tenantPrefixed) return { ...n, href: `/t/${slug}/${tenantPrefixed[1]}` };
+    if (n.href.startsWith("/")) return { ...n, href: `/t/${slug}${n.href}` };
+    return { ...n, href: `/t/${slug}/${n.href}` };
+  });
+
   const answers = input.answers;
   const brandName = typeof answers.brand_name === "string" ? answers.brand_name.trim() : "";
   const tagline = typeof answers.tagline === "string" ? answers.tagline.trim() : "";
