@@ -8,42 +8,9 @@ import { ManifestDashboard } from "@/components/manifest/ManifestDashboard";
 import { ManifestRecordForm } from "@/components/manifest/ManifestRecordForm";
 import { Card, PageHeader, Tag } from "@/components/Card";
 import { getManifest, manifestExists } from "@/lib/manifest/loader";
-import { getManifestRow } from "@/lib/manifest/persistence";
-import { resolveClientProfileSlug } from "@/lib/client-profiles";
-import { getTenant } from "@/lib/queries";
+import { resolveDataTenant } from "@/lib/manifest/tenant-scope";
 import { getSessionUser, getServiceSupabase } from "@/lib/supabase-server";
 import type { ManifestPageDef } from "@/lib/manifest/schema";
-
-/**
- * Resolve which tenant_id the manifest primitives should query records
- * for. The rule:
- *
- *   - If the manifest has a DB row whose tenant_id matches the caller's
- *     tenant_id → grant data access (this is the operator's claimed slug).
- *   - If the manifest is a code seed (no DB row) AND the caller's home
- *     tenant_slug matches this URL slug → grant data access (legacy
- *     pre-wizard tenants).
- *   - Otherwise → null. The primitives render in preview mode: shells
- *     visible, data empty. Prevents the data-bleed where CC visiting
- *     /t/sun/leads would see OASIS leads rendered in SunBiz columns.
- */
-async function resolveDataTenant(
-  slug: string,
-  userTenantId: string | null
-): Promise<string | null> {
-  if (!userTenantId) return null;
-  const row = await getManifestRow(slug).catch(() => null);
-  if (row?.tenant_id && row.tenant_id === userTenantId) return userTenantId;
-  if (!row) {
-    // Code-seed manifest: fall back to slug↔tenant.custom_fields match.
-    const tenant = await getTenant(userTenantId).catch(() => null);
-    const userSlug = resolveClientProfileSlug(tenant || null);
-    if (userSlug && userSlug.toLowerCase() === slug.toLowerCase()) {
-      return userTenantId;
-    }
-  }
-  return null;
-}
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";

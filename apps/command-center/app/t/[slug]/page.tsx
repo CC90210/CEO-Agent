@@ -7,31 +7,9 @@ import { ManifestKanban } from "@/components/manifest/ManifestKanban";
 import { ManifestMarkdown } from "@/components/manifest/ManifestMarkdown";
 import { ManifestDashboard } from "@/components/manifest/ManifestDashboard";
 import { getManifest, manifestExists } from "@/lib/manifest/loader";
-import { getManifestRow } from "@/lib/manifest/persistence";
-import { resolveClientProfileSlug } from "@/lib/client-profiles";
-import { getTenant } from "@/lib/queries";
+import { resolveDataTenant } from "@/lib/manifest/tenant-scope";
 import { CATEGORY_LABELS } from "@/lib/agents/library";
 import { getSessionUser, getServiceSupabase } from "@/lib/supabase-server";
-
-/** Mirror of resolveDataTenant in [...path]/page.tsx — kept inline so the
- *  root and catch-all share the same data-scoping rule. If this drifts it
- *  becomes a cross-shell data-bleed bug, so we'd promote to lib/. */
-async function resolveDataTenant(
-  slug: string,
-  userTenantId: string | null
-): Promise<string | null> {
-  if (!userTenantId) return null;
-  const row = await getManifestRow(slug).catch(() => null);
-  if (row?.tenant_id && row.tenant_id === userTenantId) return userTenantId;
-  if (!row) {
-    const tenant = await getTenant(userTenantId).catch(() => null);
-    const userSlug = resolveClientProfileSlug(tenant || null);
-    if (userSlug && userSlug.toLowerCase() === slug.toLowerCase()) {
-      return userTenantId;
-    }
-  }
-  return null;
-}
 
 export const dynamic = "force-dynamic";
 

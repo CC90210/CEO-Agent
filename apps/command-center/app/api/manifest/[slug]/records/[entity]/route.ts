@@ -18,6 +18,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionUser, getServiceSupabase } from "@/lib/supabase-server";
 import { getManifest, manifestExists } from "@/lib/manifest/loader";
+import { resolveDataTenant } from "@/lib/manifest/tenant-scope";
 import {
   RecordsError,
   createRecord,
@@ -59,9 +60,19 @@ async function resolveContext(
     | null;
   if (!profile?.tenant_id) return { ok: false, status: 403, error: "no_tenant" };
 
+  // Cross-tenant write/read guard — the caller must own this slug
+  // (either via tenant_manifests.tenant_id match OR seed-slug fallback).
+  // Without this, a caller could POST to /api/manifest/<not-yours>/records/<entity>
+  // and write into THEIR tenant under someone else's manifest namespace.
+  // resolveDataTenant returns null when the slug isn't owned by the caller.
+  const dataTenant = await resolveDataTenant(slug, profile.tenant_id);
+  if (!dataTenant) {
+    return { ok: false, status: 403, error: "slug_not_owned" };
+  }
+
   return {
     ok: true,
-    tenant_id: profile.tenant_id,
+    tenant_id: dataTenant,
     is_admin: !!profile.is_owner || profile.team_role === "admin" || profile.team_role === "owner",
   };
 }
