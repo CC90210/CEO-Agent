@@ -31,6 +31,7 @@ import {
 import { TEMPLATES, type TemplateKey } from "@/lib/manifest/templates";
 import { diffManifests } from "@/lib/manifest/diff";
 import { parseManifest } from "@/lib/manifest/schema";
+import { SEED_MANIFESTS } from "@/lib/manifest/seeds";
 import {
   getManifestRow,
   ManifestPersistenceError,
@@ -67,28 +68,32 @@ export async function POST(req: NextRequest) {
   if (!isValidSlug(slug)) {
     return NextResponse.json({ ok: false, error: "invalid_slug" }, { status: 400 });
   }
+  // Platform seed slugs (default/oasis/sun/suga) are owned by the platform;
+  // tenants pick their own slug instead of overwriting the safety-net seeds.
+  if (SEED_MANIFESTS[slug]) {
+    return NextResponse.json({ ok: false, error: "reserved_slug", reason: `"${slug}" is reserved — pick a different URL slug.` }, { status: 409 });
+  }
   const answers = body.answers || {};
 
-  // Authorisation — the caller must be an owner or admin of their tenant.
-  // Non-owners attempting to spin up a parallel Command Center is a Phase 3
-  // marketplace concern; locked down for v1.
+  // Authorisation — wizard is the CREATE path, so any authenticated user
+  // with a tenant_id can run it for an unclaimed slug. Edits go through
+  // /api/manifest/<slug> POST which still gates on admin/owner role.
   const service = getServiceSupabase();
   const profileQuery = await service
     .from("user_profiles")
-    .select("tenant_id, team_role, is_owner")
+    .select("id, tenant_id, team_role, is_owner")
     .eq("auth_user_id", user.id)
     .maybeSingle();
   const profile = profileQuery.data as
-    | { tenant_id: string | null; team_role: string; is_owner: boolean }
+    | { id: string; tenant_id: string | null; team_role: string; is_owner: boolean }
     | null;
   if (!profile?.tenant_id) {
     return NextResponse.json({ ok: false, error: "no_tenant" }, { status: 403 });
   }
-  if (!profile.is_owner && profile.team_role !== "admin" && profile.team_role !== "owner") {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
 
-  // Slug collision check before we bother running mutations.
+  // Slug collision + cross-tenant claim check. The wizard is CREATE only —
+  // an existing row means the slug is taken (whether by this tenant or
+  // another) and the caller should pick a different name.
   const existing = await getManifestRow(slug).catch(() => null);
   if (existing) {
     return NextResponse.json({ ok: false, error: "slug_taken" }, { status: 409 });
@@ -130,6 +135,28 @@ export async function POST(req: NextRequest) {
       message: `Onboarding wizard — template "${template}"`,
       tenant_id: profile.tenant_id,
     });
+
+    // First-owner auto-promotion. If this tenant has no `is_owner=true`
+    // user_profile yet, the wizard caller becomes the owner. Migration 037b
+    // does the same backfill manually; this closes the gap for self-service
+    // signups so a brand-new user can keep editing the manifest they just
+    // created (the POST /api/manifest/<slug> endpoint still gates on admin/
+    // owner role). Existing tenants with an established owner are not
+    // affected.
+    const ownerCheck = await service
+      .from("user_profiles")
+      .select("id")
+      .eq("tenant_id", profile.tenant_id)
+      .eq("is_owner", true)
+      .limit(1)
+      .maybeSingle();
+    if (!ownerCheck.data && !profile.is_owner) {
+      await service
+        .from("user_profiles")
+        .update({ is_owner: true, team_role: "owner" })
+        .eq("id", profile.id);
+    }
+
     return NextResponse.json({
       ok: true,
       slug,

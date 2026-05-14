@@ -12,6 +12,7 @@ import {
 } from "@/lib/client-profiles";
 import {
   getManifest,
+  manifestExists,
   manifestLogoToSidebarLogo,
   manifestNavToNavItems,
   manifestPrimaryAgentSlug,
@@ -67,12 +68,14 @@ export default async function RootLayout({
       normalisedDemo && normalisedDemo !== "default" && SEED_MANIFESTS[normalisedDemo]
         ? normalisedDemo
         : null;
-    // Path slug wins when present and not in demo. Lets `/t/sun/...` render
-    // the SunBiz manifest for an OASIS-home operator previewing the tenant.
-    pathOverrideSlug =
-      !demoProfileSlug && pathTenantSlug && SEED_MANIFESTS[pathTenantSlug]
-        ? pathTenantSlug
-        : null;
+    // Path slug wins when present and not in demo. Lets `/t/<slug>/...` render
+    // that tenant's manifest for any operator previewing it. Validates via
+    // manifestExists so wizard-created DB-only slugs are honoured too — not
+    // just the in-code seeds (the bug the Phase 2 wizard would have hit).
+    if (!demoProfileSlug && pathTenantSlug) {
+      const exists = await manifestExists(pathTenantSlug);
+      if (exists) pathOverrideSlug = pathTenantSlug;
+    }
 
     // Each side-channel query is wrapped independently — one failure
     // (Hermes snapshot row missing, bridge_pairings table absent in dev,
