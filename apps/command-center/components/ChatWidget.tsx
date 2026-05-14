@@ -907,31 +907,37 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
       {/* Aurora wash inside the bordered container */}
       <div className="chat-aurora absolute inset-0 pointer-events-none" />
 
-      {/* Header — agent picker, access selector, and provider/access badge */}
+      {/* Header — agent picker, access selector (admins only), provider/access badge */}
       <div className="flex items-center gap-3 px-5 py-4 relative z-10">
+        {/* Defensive fallback — if the page passed an empty agentKeys array (legacy
+            profile.agents_enabled out of sync with chat-eligible agents), always
+            include the current `agent` selection so the dropdown isn't a void
+            rectangle that breaks the chat. */}
         <select
           value={agent}
           onChange={(e) => setAgent(e.target.value)}
-          className="bg-bg-elev border border-bg-border rounded-lg px-3 py-2 text-sm text-fg uppercase tracking-[0.14em] font-bold focus:outline-none focus:border-accent transition-colors cursor-pointer"
+          className="bg-bg-elev border border-bg-border rounded-lg px-3 py-2 text-sm text-fg uppercase tracking-[0.14em] font-bold focus:outline-none focus:border-accent transition-colors cursor-pointer min-w-[120px]"
           aria-label="Choose agent"
         >
-          {agentKeys.map((k) => (
+          {(agentKeys.length > 0 ? agentKeys : [agent]).map((k) => (
             <option key={k} value={k}>
-              {k.toUpperCase()}
+              {getAgentInfo(k).label || k.toUpperCase()}
             </option>
           ))}
         </select>
-        <select
-          value={accessMode}
-          onChange={(e) => setAccessMode(e.target.value as AccessMode)}
-          className="bg-bg-elev border border-bg-border rounded-lg px-3 py-2 text-xs text-fg font-bold focus:outline-none focus:border-accent transition-colors cursor-pointer"
-          aria-label="Choose computer access"
-          title="Choose whether this agent can use cloud workspace only or this desktop computer"
-        >
-          <option value="auto">Auto</option>
-          <option value="cloud">Cloud</option>
-          <option value="desktop">This desktop</option>
-        </select>
+        {isAdmin && (
+          <select
+            value={accessMode}
+            onChange={(e) => setAccessMode(e.target.value as AccessMode)}
+            className="bg-bg-elev border border-bg-border rounded-lg px-3 py-2 text-xs text-fg font-bold focus:outline-none focus:border-accent transition-colors cursor-pointer"
+            aria-label="Choose computer access"
+            title="Operator-only: choose whether this agent uses the cloud workspace or this desktop"
+          >
+            <option value="auto">Auto</option>
+            <option value="cloud">Cloud</option>
+            <option value="desktop">This desktop</option>
+          </select>
+        )}
         <div className="flex-1 min-w-0">
           <div className="text-xs text-fg-muted truncate">
             {getAgentInfo(agent).tagline}
