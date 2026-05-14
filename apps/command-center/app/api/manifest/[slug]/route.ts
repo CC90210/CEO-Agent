@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionUser, getServiceSupabase } from "@/lib/supabase-server";
 import { getManifest, manifestExists } from "@/lib/manifest/loader";
+import { SEED_MANIFESTS } from "@/lib/manifest/seeds";
 import { applyMutations, type MutationArgs, ManifestMutationError } from "@/lib/manifest/mutators";
 import { diffManifests } from "@/lib/manifest/diff";
 import {
@@ -8,6 +9,8 @@ import {
   saveManifest,
   ManifestPersistenceError,
 } from "@/lib/manifest/persistence";
+
+const PROTECTED_SLUGS = new Set(["default", "oasis", "sun", "suga"]);
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -109,6 +112,28 @@ export async function POST(
   }
   if (!profile.is_owner && profile.team_role !== "admin" && profile.team_role !== "owner") {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+  }
+
+  // Protected slugs (the in-code seed defaults: default/oasis/sun/suga) are
+  // owned by the platform and cannot be mutated through this endpoint by any
+  // tenant. Tenants modify their OWN manifest (created via the onboarding
+  // wizard); platform seeds are the safety net everyone falls back to.
+  if (PROTECTED_SLUGS.has(normalised)) {
+    return NextResponse.json(
+      { ok: false, error: "protected_slug", reason: "Platform seed manifests cannot be modified. Create your own tenant via /onboarding/wizard." },
+      { status: 403 }
+    );
+  }
+
+  // Cross-tenant guard — if a manifest row already exists for this slug, it
+  // must be bound to the caller's tenant. First writes (no row yet) claim
+  // the slug for the caller's tenant via saveManifest.
+  const existingRow = await getManifestRow(normalised).catch(() => null);
+  if (existingRow && existingRow.tenant_id && existingRow.tenant_id !== profile.tenant_id) {
+    return NextResponse.json(
+      { ok: false, error: "cross_tenant_forbidden", reason: "This manifest belongs to another tenant." },
+      { status: 403 }
+    );
   }
 
   // Load current manifest (DB → seed fallback) and apply mutations in order.
