@@ -1,9 +1,12 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { ManifestTable } from "@/components/manifest/ManifestTable";
 import { ManifestKanban } from "@/components/manifest/ManifestKanban";
 import { ManifestMarkdown } from "@/components/manifest/ManifestMarkdown";
 import { ManifestDashboard } from "@/components/manifest/ManifestDashboard";
-import { PageHeader, Tag } from "@/components/Card";
+import { ManifestRecordForm } from "@/components/manifest/ManifestRecordForm";
+import { Card, PageHeader, Tag } from "@/components/Card";
 import { getManifest, manifestExists } from "@/lib/manifest/loader";
 import { getManifestRow } from "@/lib/manifest/persistence";
 import { resolveClientProfileSlug } from "@/lib/client-profiles";
@@ -70,13 +73,22 @@ export default async function TenantCatchAllPage({
   const manifest = await getManifest(normalised);
   const subPath = path.join("/");
 
+  // /new flag: when the trailing segment is "new", the operator wants to
+  // create a record for the page's entity. Strip "/new" off the path
+  // and resolve the underlying page, then render the form instead of
+  // the list/kanban primitive.
+  const isNewForm = subPath === "new" || subPath.endsWith("/new");
+  const lookupPath = isNewForm
+    ? (subPath === "new" ? "" : subPath.slice(0, -("/new".length)))
+    : subPath;
+
   // Find the matching page by exact path match. If the caller passed
   // `/t/sun/leads/new` and the manifest only has a page at "leads",
-  // we still match — the trailing path segment is a route the page
-  // primitive owns (e.g. ManifestTable's "new" CTA).
+  // we still match after stripping /new. The fallback startsWith
+  // handles deeper detail-page paths future phases will add.
   const pageDef =
-    manifest.pages?.find((p) => p.path === subPath) ||
-    manifest.pages?.find((p) => subPath.startsWith(`${p.path}/`)) ||
+    manifest.pages?.find((p) => p.path === lookupPath) ||
+    manifest.pages?.find((p) => lookupPath !== "" && lookupPath.startsWith(`${p.path}/`)) ||
     null;
 
   if (!pageDef) {
@@ -99,6 +111,71 @@ export default async function TenantCatchAllPage({
   // Closes the cross-shell data-bleed bug.
   const dataTenantId = await resolveDataTenant(normalised, userTenantId);
   const isPreview = !!userTenantId && dataTenantId === null;
+
+  // Create-form view — the actual functional "New <entity>" button target.
+  if (isNewForm && pageDef.entity) {
+    const entity = (manifest.data_model || []).find((e) => e.name === pageDef.entity);
+    if (!entity) {
+      return (
+        <div className="space-y-4 animate-fade-in">
+          <PageHeader title={`New ${pageDef.label}`} subtitle="Entity not in manifest" />
+          <Card>
+            <div className="text-sm text-fg-muted">
+              This page references entity <span className="font-mono text-fg">{pageDef.entity}</span> but
+              the manifest&apos;s data_model doesn&apos;t define it. Open the AI editor to add the entity.
+            </div>
+          </Card>
+        </div>
+      );
+    }
+    if (isPreview) {
+      // Creating records in someone else's shell would write to YOUR
+      // tenant's records under their entity_type — wrong on every axis.
+      return (
+        <div className="space-y-4 animate-fade-in">
+          <PageHeader
+            title={`New ${entity.label.toLowerCase()}`}
+            subtitle="Preview mode — record creation disabled"
+            action={
+              <Link
+                href={`/t/${normalised}/${lookupPath}`}
+                className="btn-secondary inline-flex items-center gap-2 !px-3 !py-1.5 text-xs"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Back
+              </Link>
+            }
+          />
+          <div className="rounded-2xl border border-amber-300/25 bg-amber-300/10 p-4 text-sm leading-relaxed text-amber-100">
+            You&apos;re previewing the <strong className="text-fg">{manifest.brand.name}</strong> shell.
+            Records can only be created by the tenant that owns this slug.
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="space-y-4 animate-fade-in">
+        <PageHeader
+          title={`New ${entity.label.toLowerCase()}`}
+          subtitle={`${manifest.brand.name} · ${entity.fields.length} fields`}
+          action={
+            <Link
+              href={`/t/${normalised}/${lookupPath}`}
+              className="btn-secondary inline-flex items-center gap-2 !px-3 !py-1.5 text-xs"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Back
+            </Link>
+          }
+        />
+        <ManifestRecordForm
+          tenantSlug={normalised}
+          entity={entity}
+          backPath={lookupPath}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">

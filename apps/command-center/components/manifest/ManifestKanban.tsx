@@ -1,3 +1,5 @@
+import { Plus } from "lucide-react";
+import Link from "next/link";
 import { Card, Tag } from "@/components/Card";
 import { listRecords, groupRecordsBy, formatFieldValue, type TenantRecord } from "@/lib/manifest/data";
 import type { ManifestEntityDef, ManifestPageDef } from "@/lib/manifest/schema";
@@ -62,20 +64,33 @@ export async function ManifestKanban({
     <Card
       title={page.label || entity.label}
       subtitle={`${rows.length} ${entity.label.toLowerCase()}${rows.length === 1 ? "" : "s"} · grouped by ${groupBy}`}
+      action={
+        <Link
+          href={`/t/${tenantSlug}/${page.path}/new`}
+          className="btn-send inline-flex items-center gap-1.5 !px-3 !py-1.5 text-xs"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          New {entity.label.toLowerCase()}
+        </Link>
+      }
     >
-      <div className="grid auto-cols-[minmax(260px,1fr)] grid-flow-col gap-3 overflow-x-auto pb-2">
+      {/* Wrapping grid — columns flex into rows so every stage stays visible
+          without forcing a horizontal scroll. Min column width keeps cards
+          readable; max-width caps the total to four columns per row on
+          large screens. */}
+      <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
         {orderedKeys.map((key) => {
           const items = grouped[key] || [];
           return (
             <section
               key={key}
-              className="rounded-xl border border-bg-border bg-bg-elev/40 p-3 min-h-[180px]"
+              className="rounded-xl border border-bg-border bg-bg-elev/40 p-3 min-h-[180px] flex flex-col"
             >
               <div className="flex items-center justify-between mb-2">
                 <Tag tone="accent">{key === "(unset)" ? "no stage" : key}</Tag>
                 <span className="text-[10px] text-fg-dim font-mono">{items.length}</span>
               </div>
-              <ul className="space-y-2">
+              <ul className="space-y-2 flex-1">
                 {items.map((row) => (
                   <li
                     key={row.id}
@@ -114,8 +129,6 @@ export async function ManifestKanban({
           );
         })}
       </div>
-      {/* Reserved for the Phase 5.1 "Add card" affordance per column —
-          will write through POST /api/manifest/${tenantSlug}/records/${entity.name}. */}
     </Card>
   );
 }
