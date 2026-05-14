@@ -1,0 +1,651 @@
+So, you might have set up your open
+claw, your Hermes agent, or maybe even
+some derivative of my Claude Claude
+system. And it's running, but you've yet
+to derive any form of actual business
+value from it. Because the truth is, a
+lot of creators, including myself, show
+you the final finished product of what
+the ideal agentic OS system looks like.
+But in reality, the magic is in all the
+grunt work that happens behind the
+curtain. And this is the grunt work that
+isn't very sexy to show on YouTube,
+which is why very few actually talk
+about it. So, this video is meant to
+help you get your house in order so you
+can take advantage of the AI opportunity
+and [music] properly use these kinds of
+systems and finally gain leverage with
+them. So, if you have an idle or
+underutilized personal assistant or
+agentic OS system, then you're going to
+want to watch this till the very end.
+Because I'm first going to walk you
+through the mental model and mindset
+shift that you need to focus on the data
+before you worry about any form of
+dashboards or pretty features. And on
+top of that, I'm going to give you the
+exact skill we give all of our clients
+that we consult for to help them and to
+help you self-serve to make sense of all
+the files, integrations, APIs, [music]
+and CLIs that you might need to fully
+get the leverage that you want. And I'll
+finally walk you through some tactical
+tips that no one else is focusing on,
+probably because they've only set it up
+for themselves, not other businesses.
+All right, so big picture, this is the
+full cross-section of an agentic
+operating system. And typically, you are
+staring at the very top on YouTube. And
+the reason being is typically when we
+talk about data engineering, data
+principles, data readiness, this is
+where people fall off and their eyes
+glaze over. But to make it work, you
+have to make your data work as well.
+Now, beneath this beautiful layer, we
+have skills, where you have
+project-level skills and global skills.
+Project are specific to a folder, global
+apply to every single project
+irrespectively. And then we have one of
+the most underutilized and misunderstood
+features in something like Claude Code,
+which are hooks. And irrespective of who
+I speak to, whether it's a business
+owner or someone who works in a
+business, hooks are this weird innocuous
+thing that no one touches. Even though
+they're actually very straightforward,
+they're very reliable, and they can come
+in very handy. And last but not least,
+we have the Claude MD, which to many
+people is interpreted as a diary, but
+it's really an air traffic control
+document that you can create a whole
+empire of Claude MDs to give the right
+information to Claude code at the right
+time. And on the right-hand side, we
+have all of your integrations. And if
+you use something like Claude co-work,
+then this is pretty simple to set up.
+It's a series of clicks. But if you're
+using Claude code, you have to be more
+intentional and think, do I need an API?
+Do I need a command line interface? Do I
+just need a skill? Do I need all of
+them? The answer might really depend on
+your specific circumstance.
+But the real point I want to drive home
+is that there are millions of people who
+have set up their open claws, and only a
+handful of them have derived real
+economic ROI from doing so, because
+you're building a beautiful home with
+fantastic agents on top of burning
+rubble. And that rubble comes down to
+messy files, gigabytes of completely
+dated or useless information, no form of
+a business in a box operating system
+before this AI stuff even existed. So,
+if you layer on sparkly slop on top of a
+foundation of slop, all you'll have is
+compounded slop. Now, let me give you a
+tangible example, so we can put some
+color to the problem. Let's say you are
+a business owner, a solopreneur, someone
+who works in a business and does
+reporting, and all you want to do is ask
+a very basic question. Let's say you're
+an e-commerce, and you want to track the
+last 6 months of sales, and you want
+Claude code and your team of agents to
+derive all the patterns that lead you to
+success and tell you when the next event
+should be, what the discount should be,
+what your perfect avatar should be based
+on these 6 months of information.
+On the face of it, these models are
+advertised as being the silver bullet,
+meaning you can feed everything to this
+oracle and it will figure it out and
+synthesize it. But if you send off your
+agents to go pull six months of data,
+what will happen is the majority of your
+context window in that conversation will
+be bloated with a series of JSON and
+metadata that's invisible to you, but
+necessary to pull if you're pulling this
+information. So when it comes to the
+actual valuable part, which is the
+synthesis, analysis, and the real brain
+power that you're seeking, it falls
+flat. And the reason why is you're
+bloating it with things that don't
+matter.
+So one of the many ways that you can
+solve this is to put a lot of the core
+data, the KPIs that need the analysis
+part, on a silver platter. So one of the
+many ways you could solve this is
+through summary files or summary tables,
+where you distill the core information,
+the core KPIs from each one of those
+months. So if you ask your agent to go
+do a deep-level analysis, it's actually
+spending time analyzing, not retrieving
+information and then analyzing. Because
+you can imagine if an agent is spending
+80% of its session pulling the
+information just to be able to start
+analyzing it, you'll only get that last
+20% of the session, which is usually the
+part where hallucinations happen,
+slowness happen, and weird behavior
+happens, and now you're dedicating it to
+do the very task you wanted it to.
+Trying to execute this more tactically
+is the very reason why I created my
+skill/silver
+platter. And the way it works is this.
+Whether you've never started on your AI
+journey or you've already drafted your
+operating system and you want to
+optimize it, it will take a look at all
+the data you have on your computer. So
+if you have some form of integrations or
+you need it to talk to the cloud, you
+would need to make that as a
+prerequisite for this to do the analysis
+it needs to. Once it has an
+understanding and a snapshot of your
+data, your Doc Cloud rules, your skills,
+your CloudMDs, then it It try to help
+you distill what could you summarize?
+What could you create summary tables or
+summary information to put the
+prerequisite information on a silver
+platter so that the agents can focus on
+the synthesis, not the pulling.
+And the end goal is eventually you have
+enough agents that are very focused and
+you give them all what's called a
+critical path, meaning they don't have
+to go and figure out every single time
+where to look for the data and how to
+pull the data and how to analyze the
+data and which anomalies to regard and
+disregard. They have a good step-by-step
+process, an SOP of exactly what the
+expected behavior is. And on top of just
+having clarity, this skill will also
+help output the following HTML page.
+This will walk through your specific
+systems and files and segment it into
+three sections, a pantry, which is where
+all of your core services and databases
+live, your prep table, what you can
+actually do with information, and your
+plate, what you can do to actually
+tactically put this data to work. And if
+you go through the other tabs here, we
+have a data flow tab where out of the
+box, the skill will break down all the
+relationships between your data. So, you
+can see how you can interact with it,
+where you can interact with it, and how
+you can have some cohesion between all
+your systems so they can actually speak
+to each other.
+And if you need suggestions on what you
+can build with the current data that you
+have, you can have that tab
+auto-generated for you. And the final
+thing is a 30-day plan. So, this all
+comes out of the box from the slash
+command that I'm about to show you in a
+few minutes. By the way, if you're
+finding this content helpful and you
+want to take your Agented OS system and
+your Claude Code skills, [music] as well
+as your AI skills in general, to the
+next level, then you're going to want to
+check out the first link in the
+description below. I keep adding [music]
+practical and applicable lessons to our
+living Claude Code course and we keep
+improving day by day our existing Claude
+Claw operating system. So, if you want
+the best of both worlds in one place,
+then you'll want to check it out.
+[music] All right, back to the video.
+And like I said before, I've spoken
+about hooks on this channel multiple
+times. And typically, those videos do
+the worst because hooks still break
+people's brains. Even though,
+fundamentally, a hook is an event that
+will always fire at one of 18 plus
+events that happen in Claude code. So,
+if you start a brand new session, you
+can make something happen always in the
+beginning of that session. Some
+injection of memory. If you have
+Obsidian, you can make sure that if
+you're in a specific folder and you have
+Obsidian files related to litigations,
+court cases, anything around revenue in
+your business, you could always throw
+that in along with the context from your
+Claude MD. Similarly, if you have a
+longer conversations with your agents
+and you find that when the conversation
+compacts, you lose a lot of core
+information and you have to repeat
+yourself. You could use what's called a
+post-compaction hook to inject that core
+information about you, your business,
+what you do, who you are, to make sure
+you have a much richer conversation. And
+the best part is, you can literally ask
+Claude code through the Claude code
+guide sub agent to create these hooks
+for you. You just have to ask and you
+just have to know that you can ask. And
+when it comes to things like organizing
+your agents, there's a reason why you
+typically see the configuration here on
+the right-hand side where you have an
+orchestrator or a chief of staff
+managing the other agents. The reason
+being is you can load one agent fully
+with the roles, responsibilities, and
+the scopes of the sub agents. This will
+increase the likelihood that you don't
+end up in this scenario where you are
+cold starting conversations with your
+agent teams having a mismatch or overlap
+of which agent should fire at the right
+time. Now, instead of just describing
+it, let's put this slash command to
+work. So, if you go into a terminal and
+you use my skill silver platter, what
+it's going to do is, if you have
+infrastructure that exists, meaning you
+have a Claude MD file, you have skills,
+you have rules, it will do a quick audit
+lasting from 10 to 50 seconds and give
+you a quick TLDR of what the current
+state of your system looks like. And
+once it does the quick audit, it will
+say, "Hey, welcome." Walk you through
+the mental model of what we're doing
+here, and then it will say, "You've
+already started building." In my case, I
+see a Cloud MD, 38 skills, 16 rules, and
+a well-structured output pipeline. And
+then you can pick one of two paths.
+Obviously, you can take the skill and
+edit it to make a medium path if you
+need to. One is very thorough, around 30
+minutes of interview questions back and
+forth. This is really designed for
+someone who's starting from scratch or
+wants to restart, depending on where you
+are in that process. In this case, I
+will pick the fast-track option just for
+the sake of the video, and then I will
+say, "Let's pick the fast-track option,
+and please make sure you don't use any
+real client names or people names or
+deliverable names. Keep it all
+anonymized through this process."
+So, we'll send this up, and I just said
+that to make sure that you can't see
+real client names and emails, and this
+will come back with a full breakdown of
+questions for you. And then it's
+designed to pepper you with questions.
+So, in this case, it starts off
+confirming what I do for a living and
+how I make money. In this case, I just
+walk through that we are a consultancy,
+we have YouTube stuff, we have a
+community, we have high-ticket
+consulting, and then it asks me
+questions like where do I publish and
+what products do I have. It's trying to
+get a sense for what different APIs and
+CLIs could I use for my AIOS. Then asks
+me questions about my audience size,
+where I have video transcripts for
+meetings, workshop materials, if I use
+something like Obsidian.
+And then it asks me questions about my
+paid offers, where I post or host rather
+my email list, my audience research, how
+I pull my YouTube transcripts, a few
+questions about the day-to-day about the
+business. Then eventually, it goes to
+start creating the data map, as you can
+see here. So, if we take a look at the
+output, it recommends a series of
+different things that we can look to
+automate. So, it's very tactical. So, I
+can say, "Let's do all in order."
+And from that vague prompt, it will hold
+your hand to execute each one of these
+steps. So, this first one allows you to
+drag and drop your raw PDFs,
+spreadsheets, email exports into this
+data folder. Again, you can go back and
+forth and customize this as you wish.
+Then it will help you build your morning
+brief. Then it will tell you exactly if
+you were to put an AI orchestrator for
+other agents, what that would look like.
+And then as you scroll to the very
+bottom, it comes up with a series of
+ideas for slash commands. So, in this
+case, maybe weekly triage for email,
+slash weekly content for my YouTube
+funnel, etc.
+And the last question it asks you on the
+fast track is where do you actually want
+to read these briefs? Do you read it in
+Gmail? Do you read it on your iPad
+through Slack, Telegram? And the reason
+it's asking you this is to help you
+decide if you set up your own Agenda OS,
+do you want to interact with it from
+Telegram, from Slack, somewhere else?
+It's helping you optimize where your end
+usage is going to be.
+And once it has that, it starts putting
+together your full data map. It creates
+the JSON and associated HTML file. So,
+this is all out of the box. And by the
+end of this, you will have something
+like this. So, you have your full audit
+and then you can see all of my data
+sources. So, YouTube Studio, you have
+school, you have Gumroad, you have Kit,
+all of these things including my
+Obsidian. You can click on them, better
+understand exactly the pros and cons. If
+it has anything like a skill that you
+can install, and you can obviously ask
+Claude code or similar to go and search
+if you want. And then on top of that,
+you have the prep table on how we could
+add some automation to looking at things
+like monetization.
+And then additional things here like an
+inbox brief like we saw, a finance brief
+every Monday, and it walks you through
+what that would look like. And then like
+we saw before, we have the full data
+flow
+where I would end up reading the
+majority of my data.
+And then if we go to the very top, here
+are additional ideas specific for me. So
+one example is Friday content brief with
+three angle candidates, each backed by
+data. And if you scroll down, it walks
+you through what the chain could look
+like. You have a cron job that spins up
+maybe every Friday at 5:00 p.m. And then
+you have a chief marketing officer bot
+that goes and clusters the signals, etc.
+So not only will it help you create the
+mental model of how to approach these
+problems, but also it will give you the
+inspiration on what can be done that's
+very tactical.
+And again, from a big picture
+perspective, we really have four layers.
+This number one layer is one of the most
+important, where you really establish
+your identity, your Cloud MD, any
+specific rules if you have GPDR or SOC 2
+compliance stuff you have to abide with.
+And then the second layer is knowledge.
+So knowledge can live in the cloud, it
+can live in a drive, it can live in the
+form of skills that can access them, or
+MCPs, or both. And then you have the
+workers, where you would set up your
+crystallized, or in this case
+materialized, meaning it comes out of
+the box. You actually have an agents MD
+file with the name of the agent that you
+can call on every time. And then this is
+where you establish what does it look
+like to have your own AI workforce. You
+don't want to have agents for the sake
+of having agents. You want to hire
+agents like someone would hire employees
+at a bootstrapped company. You don't
+hire five people all at once. You only
+hire an agent as you see that there's so
+much burden on one particular agent that
+it makes sense to naturally split it off
+into a separate subject matter expert.
+And once you've cleaned all the
+skeletons in your closet, you can ascend
+to layer four, we can start layering on
+things like automations, like the
+injections of hooks to really enrich
+your conversations and keep things as
+deterministic as possible while using a
+very chaotic piece of software.
+Now to really drive the point home,
+let's take three hypothetical scenarios
+of three completely different avatars on
+how they would implement this exact same
+methodology. Let's say we have persona
+numero uno, named Marco, and he is a
+solo founder of Slab House. He basically
+does live streams for mystery boxes, and
+he has multiple tiers. There's a very
+small tier, there's a whale tier, and
+one in between. And his stack is a
+combination of Shopify, we have Facebook
+ads, we have TikTok, we have Twitch for
+the live streams, we have Facebook live,
+we have PDFs, and a CSV Empire, which I
+know many clients have. Today, he
+struggles with things like P&L sheets,
+inventory, sales data, and he does this
+for 3 hours every single Monday. There
+must be a better way, right? Right. We
+can get to a place where he can get a
+morning brief of his financials, as long
+as all of this data lives in a place and
+lives in a way that it's easy to be
+queried. So, assuming that these are
+disparate CSVs that he's pulling
+directly from QuickBooks and manually
+analyzing, we could actually pull
+directly from the QuickBooks API, have
+Cloud Code create summary tables, where
+depending on the metrics that matter, it
+will use Python deterministic, so we're
+not risking an AI agent hallucinating.
+It will pre-aggregate things like
+revenue, cost of goods sold, all those
+fancy metrics, and put it into very easy
+to read summary tables. Then, when we
+have a cron job, or we have something
+like an open claw, a cloud claw, a
+Hermes agent, whatever, it will be able
+to easily read those numbers and report
+on them with very minimal chance of
+hallucination, because we did all the
+hard work for it. We did the 80, and
+we're now bringing the agent to actually
+look at the information and communicate
+trends, go through past versions of our
+conversations to look for patterns.
+And this is what his data map would look
+like, where if you scroll down, these
+are the core inputs that we saw before.
+And then notice here there's a legend
+that says, you have this, either this is
+missing, or it'll would be a quick win.
+So, if you scroll to the bottom, one
+example of something that would be a
+quick win is a pre-stream prep brief,
+where maybe there's a slash command, and
+here's exactly how Claude Code could set
+it up for him. And the result is that
+his simple questions would now become a
+chain of actions, where he could ask a
+question like, "Is whale tear worth the
+cost of a guaranteed pull?" And then it
+would go to the orchestrator, it would
+go and talk to the CFO bot, which makes
+sense given we have emphasis on
+finances, and then it could talk to the
+chief marketing officer bot, where it
+would look at the customer voice,
+analyze different trends, and see how it
+would be received by his audience.
+Now, let's pivot to Sally, who's an
+associate at a small boutique law firm.
+And what she works on are small cap
+merger and acquisition deals, four to
+five new matters a month. A matter's
+like a case in the law world, and then
+this is her stack. She has Outlook, she
+has Bill for Time, which is their
+billing system, she has, unfortunately,
+Microsoft Copilot, but for Claude Code,
+they use Amazon Bedrock because
+everything needs to be well controlled
+and well contained because it is very
+confidential client data. And just like
+other law firms, it's very PDF, doc, and
+email intensive. And let's say that the
+current state is that she spends 3 hours
+to go through the matters, scaffold all
+the ideas, review and write the briefs,
+etc. We could get to the point where we
+have a slash command called {slash} case
+launch, where it would execute a series
+of processes that she could outline in
+an SOP that she does over and over
+again. Because the real leverage in an
+agentic system is that you create a
+skill, and you keep iterating on that
+skill nonstop. So, a skill is an
+infinite game. It's not a finite game.
+You don't finish making a skill, you
+start a skill, and you keep improving it
+over time by going through a
+conversation, going through all the
+wrong turns, and eventually getting to
+the right turn, and then saying, "Based
+on all our conversation, I want you to
+map out the perfect critical path that
+would prevent us from going down the
+wrong avenues again." And your eyes
+might glaze over as I describe this, but
+I'm telling you, this is the difference
+between someone who works at 80%
+capacity versus 100% capacity. And then
+in terms of her report, if you click on
+what we'll build and we scroll down and
+we go to new matter scaffolding, it
+gives you the idea of creating either a
+skill, adding a hook as an auto trigger,
+but basically creating this specific
+chain where she can drop a brand new PDF
+as a new client intake. Maybe she runs a
+command that's called {slash} new
+matter, and this is exactly how it would
+launch.
+And last but not least, we pivot to Dr.
+Sana Anwar, who's working in the
+dermatology domain. She does have to
+abide also by healthcare data privacy
+laws, and then she deals with things
+like Athena Health, which is a specific
+CRM that's very common in the healthcare
+domain. And then she has to deal with
+intake forms, EHRs,
+which is the basically CRM, and then she
+has to process all kinds of biopsies.
+In her world, creating the Agendrix OS
+is even more complicated because she has
+to really bifurcate where all this data
+lives. We have data at the clinical
+level, and then we have it at the
+billing level. Given the constraints of
+this domain, you have to be very mindful
+about isolating each and every data set
+and handling in different ways. So,
+unlike a solopreneur, she can't just
+tell Claude Code, "Don't make mistakes."
+She might need to fully isolate each one
+of these data sets and create a unique
+set of hooks, Claude MDs, for each and
+every domain.
+So, her data flow might look very
+different from the average person, where
+you go from this EHR system to all of
+these different prep tables that
+processes the data, and you'd have to be
+very mindful about how the data is
+handled in transit. And obviously, you
+get the idea now. So, if we go to what
+we could build and we scroll down here,
+you can see that we could create these
+skills like summarize biopsy PDF, ingest
+Athena encounters, care coordinator
+orchestrator, etc. And these are an
+examples of different rules and hooks
+that could be helpful. One really
+important thing for her setup are hooks
+because she can't risk any form of data
+or names being sent to Entropic servers
+depending on the situation. At the end
+of the day, context is king in this
+domain. So, the more context you can
+provide and the more cleanly you can
+provide it, the higher the likelihood
+that when you have an agentic system, if
+you want to take your agents on the go
+like I do while I'm traveling and have
+them actually drive real business value,
+all the hard work is in everything that
+happens behind the curtain.
+So, hopefully this really demystifies
+and simplifies what you would have to do
+to take [music] your agentic OS setup to
+the next level. And like I said, I'm
+making the skill I showed you in the
+video available to you in the second
+[music] link in the description below.
+And naturally, if you want to go much
+deeper on Claude code and learn while
+you build and actually perfect your
+agentic OS system, then you want to make
+sure you check out the first link in the
+description below as we always have up
+and coming courses in my living Claude
+code course. And on top of that, you'll
+be able to take advantage of my Claude
+claw business operating system so you
+can do the dirty work behind the scenes
+and then layer on top a very powerful
+[music] agentic system. For the rest of
+you, if you found this helpful and
+illuminating, I would super appreciate a
+like and a comment on the video and I'll
+see you in the next one.

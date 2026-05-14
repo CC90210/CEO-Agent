@@ -1,4 +1,4 @@
-﻿{
+{
   "enableAllProjectMcpServers": false,
   "hooks": {
     "SessionStart": [
@@ -8,6 +8,32 @@
           {
             "type": "command",
             "command": "python ${CLAUDE_PROJECT_DIR}/scripts/audit_mcp_secrets.py --quiet"
+          },
+          {
+            "type": "command",
+            "command": "python ${CLAUDE_PROJECT_DIR}/scripts/hooks/session_start.py"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python ${CLAUDE_PROJECT_DIR}/scripts/hooks/user_prompt_submit.py"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python ${CLAUDE_PROJECT_DIR}/scripts/hooks/pre_compact.py"
           }
         ]
       }
@@ -17,7 +43,8 @@
         "matcher": "Bash",
         "hooks": [
           { "type": "command", "command": "python ${CLAUDE_PROJECT_DIR}/scripts/secret_guard.py" },
-          { "type": "command", "command": "python ${CLAUDE_PROJECT_DIR}/scripts/exec_guard.py" }
+          { "type": "command", "command": "python ${CLAUDE_PROJECT_DIR}/scripts/exec_guard.py" },
+          { "type": "command", "command": "python ${CLAUDE_PROJECT_DIR}/scripts/anti_pattern_hook.py" }
         ]
       },
       {

@@ -3,7 +3,7 @@ name: INTENTS
 description: Verb-by-verb playbook. For each kind of operator request, the exact sequence the agent should run.
 mutability: SEMI-MUTABLE
 tags: [brain, agent-only, playbook]
-last_updated: 2026-05-06
+last_updated: 2026-05-14
 ---
 
 # INTENTS — Verb-by-Verb Playbook
@@ -154,6 +154,66 @@ Allowed action types: `update_profile`, `toggle_agent_enabled`, `set_primary_age
 2. Cross-check frontmatter: each `memory/*.md` should have `last_updated:` and `freshness_threshold_days:`. If a file is missing either, that's drift — patch the frontmatter.
 3. For body-level staleness (a fresh-stamped file with a stale sentence inside, e.g. an outdated Sprint roadmap inside a fresh ACTIVE_TASKS): treat the sentence as archived, not the file. Move it to `memory/ARCHIVES/<YYYY-MM-topic>.md` with a header explaining when and why it was archived.
 4. NEVER quote a stale memory as current truth. NEVER silently "refresh" the timestamp without verifying the body is actually current — that just moves the lie forward.
+
+---
+
+## "Generate a CEO briefing / status report"
+
+1. Read `state/snapshots/latest_briefing.json`. If `ts` < 24h old, use it as the spine — it already has MRR, pipeline, client alerts, top warm leads.
+2. If stale or missing, run `python scripts/snapshots/briefing_snapshot.py` (one subprocess, writes the snapshot). Then read it.
+3. Add what isn't in the snapshot: Atlas STATE.md (`C:\Users\User\APPS\trading-agent\brain\STATE.md` — READ ONLY), blocked items from `memory/ACTIVE_TASKS.md`, today's #1 priority.
+4. Format per `skills/ceo-briefing/SKILL.md`. Keep under 30 lines. End with the #1 priority — make it impossible to ignore.
+5. Do NOT run `revenue_engine.py`, `lead_engine.py`, `client_health.py` live unless the snapshot path errored — the whole point of the snapshot is to avoid that 30–60 sec retrieval tax.
+
+---
+
+## "Draft a proposal or SOW"
+
+1. Read `brain/DEAL_ARCHITECTURE.md` for the canonical proposal structure + pricing tiers. Then `skills/proposal-generation/SKILL.md` for the format.
+2. Ask CC for the deal shape if not given: prospect, scope, MRR or one-time, deadline, any compliance constraints. Don't fabricate.
+3. Compose the draft inline. Voice rules from `brain/SOUL.md`. Avoid AI-slop phrasing ("unlock the power of…", "transform your…").
+4. Show CC the draft + a one-sentence rationale per pricing tier. ASK before sending — proposals route through `send_gateway` like any outbound (see "Send an email to <X>" intent).
+5. After CC approves: send via `send_gateway`, log the deal as a lead-stage update via `lead_engine.py update --id <id> --stage proposal_sent`.
+
+---
+
+## "Score a lead / qualify for outreach"
+
+1. Snapshot-first: read `state/snapshots/latest_leads.json`. If the lead is already in `qualified_leads` (score ≥ 60), you have everything — current score, MRR potential, last contact, next action due.
+2. If not in the snapshot (new lead) or stale: `python scripts/lead_engine.py score --lead-id <id> --json` recomputes and saves the score.
+3. Read `skills/sales-methodology/SKILL.md` for the NEPQ framework before drafting any outreach. Lead with the prospect's problem, not OASIS's solution.
+4. Surface to CC: score, suggested next action, draft message if appropriate. Routes through `send_gateway` for the actual send (see "Send an email to <X>" intent).
+
+---
+
+## "Log a decision or pattern"
+
+1. If it's a decision (architectural, business, commitment): append to `memory/DECISIONS.md`. Format: `## YYYY-MM-DD — <one-line title>` + body sections **Context**, **Decision**, **Why**, **Alternatives rejected**.
+2. If it's a pattern that worked (validated approach worth repeating): append to `memory/PATTERNS.md` as `[P]` (probationary). Promote to `[V]` after 3 successful re-uses.
+3. If it's a mistake or correction: use the "Diagnose why you made a mistake" intent above — that flows to `memory/MISTAKES.md`, not here.
+4. Cross-link: every new entry should link to the file/skill/script it relates to via wiki-link `[[brain/X]]` so the Obsidian graph stays connected.
+5. Update `memory/MEMORY.md` index if the decision/pattern is high-leverage (something future-CC must know without grepping).
+6. The `skills/memory-journaling/SKILL.md` skill is the guided form for this — invoke it if CC says "journal X" or "log a decision."
+
+---
+
+## "Sync an external data source" (Stripe / Supabase / GWS / webhooks)
+
+1. Read `skills/integrations-sync/SKILL.md` for the canonical refresh patterns per integration.
+2. Stripe → revenue_events: `python scripts/revenue_engine.py sync-stripe --json`. Idempotent (uses Stripe event IDs). Verify with `revenue_engine.py mrr --json` after.
+3. Supabase tables: prefer `n8n_tool.py execute <workflow-id>` if a sync workflow exists; otherwise `supabase_tool.py upsert` with explicit `--on-conflict <column>` to stay idempotent.
+4. GWS (Gmail/Calendar): `google_tool.py gmail list --since <iso>` or `calendar events --since <iso>` — pull only the delta, not the full mailbox.
+5. After any sync: rebuild affected snapshots so the read-path sees fresh data — `python scripts/snapshots/briefing_snapshot.py` (or whichever is downstream of what you just synced).
+6. Surface to CC: what was synced, row counts, any errors that hit the `_error` field in the snapshot JSON.
+
+---
+
+## "Publish to social / schedule content / post on X-Instagram-LinkedIn"
+
+1. **This is Maven's domain, not Bravo's.** Maven (CMO-Agent) owns content + social since 2026-04-26. Don't post directly from this repo.
+2. Route: tell CC to switch to Maven in the chat picker, OR delegate via `python scripts/agent_inbox.py post --to maven --from bravo --priority normal --subject "<task>" --body "<context + ask>"`. Maven reads its inbox at session start.
+3. For the actual stack, refer CC to `C:\Users\User\CMO-Agent\` — that's Maven's repo. `late_tool.py` (now Zernio) lives there and handles cross-platform scheduling.
+4. The ONE exception: if CC explicitly says "post this from Bravo," surface the boundary and ask if they're sure before running `late_tool.py` from this repo.
 
 ---
 
