@@ -250,9 +250,18 @@ export function disableAgent(m: TenantManifest, args: DisableAgentArgs): TenantM
   return bumpMeta(next);
 }
 
+/**
+ * `model_override` is intentionally excluded from the changes surface.
+ * Switching the model an agent runs on is a billing-affecting decision
+ * that must be made explicitly in the AgentConfigEditor UI, never via the
+ * AI editor. Keeping it out of the TYPE prevents the AI from being told it
+ * can set the field and ensures parser layers reject envelopes that include
+ * it (rather than the mutator silently no-op'ing — which it also still
+ * does at line 268 as a defense-in-depth fallback).
+ */
 export type UpdateAgentArgs = {
   slug: string;
-  changes: Partial<Omit<ManifestAgentBinding, "slug">>;
+  changes: Partial<Omit<ManifestAgentBinding, "slug" | "model_override">>;
 };
 
 export function updateAgent(m: TenantManifest, args: UpdateAgentArgs): TenantManifest {
