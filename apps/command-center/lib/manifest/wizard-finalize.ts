@@ -8,7 +8,7 @@
  * (just extend WIZARD_QUESTIONS in templates.ts and add a case here).
  */
 
-import type { TenantManifest } from "./schema";
+import type { ManifestAgentBinding, TenantManifest } from "./schema";
 import {
   TEMPLATES,
   type TemplateKey,
@@ -18,6 +18,7 @@ import {
   updateAgent,
   updateBrand,
 } from "./mutators";
+import { AGENT_REGISTRY } from "../agents";
 
 export type WizardAnswers = Record<string, string | string[] | number | undefined>;
 
@@ -95,6 +96,34 @@ export function finalizeManifestFromWizard(input: FinalizeInput): TenantManifest
   }
   if (tagline) {
     manifest = updateBrand(manifest, { footer_tagline: tagline });
+  }
+
+  // Honor the user's agent multi-select from the wizard agents step.
+  // The template ships a sensible default agents[] but the user may have
+  // added or removed entries. Rebuild agents[] from the selection so the
+  // resulting manifest reflects what the user actually chose.
+  //
+  // Primary preservation: if the template's primary agent is still selected,
+  // keep it primary. Otherwise the first selected agent becomes primary.
+  if (Array.isArray(answers.selected_agents) && answers.selected_agents.length > 0) {
+    const picks = answers.selected_agents.filter((s): s is string => typeof s === "string");
+    const templatePrimary = base.agents.find((a) => a.primary)?.slug;
+    const primarySlug = picks.includes(templatePrimary || "") ? templatePrimary! : picks[0];
+    const nextAgents: ManifestAgentBinding[] = picks.map((slug) => {
+      const existing = base.agents.find((a) => a.slug === slug);
+      const registryInfo = AGENT_REGISTRY[slug];
+      return {
+        slug,
+        display_name: existing?.display_name || registryInfo?.label || slug,
+        enabled: true,
+        primary: slug === primarySlug,
+      };
+    });
+    manifest = { ...manifest, agents: nextAgents };
+  } else if (Array.isArray(answers.selected_agents) && answers.selected_agents.length === 0) {
+    // User explicitly cleared all agents — respect that. The shell renders
+    // with no agents until they add some in Settings.
+    manifest = { ...manifest, agents: [] };
   }
 
   switch (input.template) {
