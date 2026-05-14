@@ -12,7 +12,9 @@ const diagnosticsPath = path.join(root, "src", "diagnostics.js");
 const secureStorePath = path.join(root, "src", "secure-store.js");
 const manifestModulePath = path.join(root, "src", "manifest.js");
 const bridgeRuntimePath = path.join(root, "src", "bridge-runtime.js");
+const windowsPortablePath = path.join(root, "scripts", "create-windows-portable.js");
 const releaseMetadataPath = path.join(root, "scripts", "write-release-metadata.js");
+const workflowPath = path.resolve(root, "..", "..", ".github", "workflows", "oasis-desktop.yml");
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -37,7 +39,9 @@ const diagnostics = fs.readFileSync(diagnosticsPath, "utf8");
 const secureStore = fs.readFileSync(secureStorePath, "utf8");
 const manifestModule = fs.readFileSync(manifestModulePath, "utf8");
 const bridgeRuntime = fs.readFileSync(bridgeRuntimePath, "utf8");
+const windowsPortable = fs.readFileSync(windowsPortablePath, "utf8");
 const releaseMetadata = fs.readFileSync(releaseMetadataPath, "utf8");
+const workflow = fs.readFileSync(workflowPath, "utf8");
 
 assert(pkg.name === "oasis-ai-desktop", "desktop package name is stable");
 assert(pkg.main === "src/main.js", "desktop main entry is src/main.js");
@@ -49,6 +53,8 @@ assert(includesExact(pkg.build.files, "README.md"), "desktop README is included 
 assert(includesExact(pkg.build.files, "RELEASE.md"), "desktop release playbook is included in packaged app");
 assert(pkg.build.linux?.maintainer?.includes("@"), "Linux package maintainer metadata is set");
 assert(pkg.scripts["auth:check"] === "node scripts/auth-navigation-check.js", "desktop auth navigation check script exists");
+assert(pkg.scripts["portable:win"] === "node scripts/create-windows-portable.js", "Windows portable zip script exists");
+assert(!JSON.stringify(pkg.build.win?.target || []).includes("portable"), "Windows build avoids temp-running portable exe target");
 
 assert(manifest.schemaVersion === 1, "desktop manifest schema is v1");
 assert(Array.isArray(manifest.providerConnections), "manifest separates provider connections");
@@ -100,6 +106,11 @@ assert(manifestModule.includes("bridge.healthUrl must stay loopback-only"), "man
 assert(bridgeRuntime.includes("createBridgeRuntime"), "bridge runtime module exists");
 assert(bridgeRuntime.includes("windowsHide: true"), "bridge runtime hides Windows child console");
 assert(bridgeRuntime.includes("scrubLogLine"), "bridge runtime log redaction exists");
+
+assert(windowsPortable.includes("win-unpacked"), "Windows portable script zips the unpacked app");
+assert(windowsPortable.includes("OASIS AI.exe"), "Windows portable script verifies the app executable exists");
+assert(windowsPortable.includes("Compress-Archive"), "Windows portable script uses a normal zip archive");
+assert(workflow.includes("Create Windows portable zip"), "desktop CI creates Windows portable zip before metadata");
 
 assert(releaseMetadata.includes("SHA256SUMS.txt"), "release metadata writes checksum file");
 assert(releaseMetadata.includes("release-metadata.json"), "release metadata writes machine-readable manifest");

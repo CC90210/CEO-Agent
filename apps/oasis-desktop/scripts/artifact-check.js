@@ -8,6 +8,8 @@ const path = require("node:path");
 const root = path.resolve(__dirname, "..");
 const distDir = path.join(root, "dist");
 const exePath = path.join(distDir, "win-unpacked", "OASIS AI.exe");
+const windowsInstallerPath = path.join(distDir, "OASIS-AI-0.1.0-win-x64.exe");
+const windowsPortableZipPath = path.join(distDir, "OASIS-AI-0.1.0-win-x64-portable.zip");
 const metadataPath = path.join(distDir, "release-metadata.json");
 const sumsPath = path.join(distDir, "SHA256SUMS.txt");
 
@@ -33,6 +35,10 @@ function walk(dir) {
 
 if (fs.existsSync(exePath)) {
   assert(fs.statSync(exePath).size > 100 * 1024 * 1024, "Windows executable has expected Electron runtime size");
+  assert(fs.existsSync(windowsInstallerPath), "Windows NSIS installer exists");
+  assert(fs.statSync(windowsInstallerPath).size > 10 * 1024 * 1024, "Windows NSIS installer has expected release size");
+  assert(fs.existsSync(windowsPortableZipPath), "Windows portable zip exists");
+  assert(fs.statSync(windowsPortableZipPath).size > 100 * 1024 * 1024, "Windows portable zip has expected Electron runtime size");
 }
 
 const asarPath = walk(distDir).find((filePath) => filePath.endsWith(`${path.sep}app.asar`));
