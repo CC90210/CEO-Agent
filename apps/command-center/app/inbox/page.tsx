@@ -5,20 +5,9 @@ import { listUnreadDb, listReadDb, dbToUiShape } from "@/lib/agent-inbox-db";
 import { getActiveProfile } from "@/lib/queries";
 import { safe } from "@/lib/api-helpers";
 import { getSessionUser } from "@/lib/supabase-server";
+import { isOperatorEmail } from "@/lib/operator-credentials";
 
 export const dynamic = "force-dynamic";
-
-function isOperatorEmail(email: string | null | undefined): boolean {
-  if (!email) return false;
-  const e = email.trim().toLowerCase();
-  const operator = (process.env.OPERATOR_EMAIL || "").trim().toLowerCase();
-  if (operator && e === operator) return true;
-  const admins = (process.env.ADMIN_EMAILS || "")
-    .split(",")
-    .map((x) => x.trim().toLowerCase())
-    .filter(Boolean);
-  return admins.includes(e);
-}
 
 export default async function InboxPage() {
   const user = await getSessionUser();
