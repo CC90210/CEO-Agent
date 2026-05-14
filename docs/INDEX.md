@@ -13,6 +13,7 @@ tags: [docs, index, hub]
 - [[docs/MOBILE_TERMINAL]] — Mobile terminal setup guide
 - [[docs/V6_ARCHITECTURE]] — V6.0 principal-architect design doc (pgvector + LISTEN/NOTIFY + Hetzner VPS)
 - [[docs/OASIS_DESKTOP_PRODUCT_STRATEGY]] — Desktop product strategy for API-key, subscription, and local runtime modes
+- [[docs/OASIS_DESKTOP_DISTRIBUTION_PATHS]] — Windows/Mac distribution paths, signing options, and alpha workaround
 - [[docs/SUNBIZ_CLOUD_PORTAL_ARCHITECTURE]] — SunBiz cloud portal/API architecture and deployment plan
 - [[docs/AGENT_RUNNER_DESIGN]] — Agent runner backend design for the Command Center chat widget
 - [[docs/N8N_INBOUND_INTEGRATION]] — n8n inbound integration patterns

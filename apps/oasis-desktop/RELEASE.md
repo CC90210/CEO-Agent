@@ -22,9 +22,11 @@ apps/oasis-desktop/dist/win-unpacked/OASIS AI.exe
 Optional handoff zip:
 
 ```powershell
-Compress-Archive -Path apps/oasis-desktop/dist/win-unpacked/* -DestinationPath apps/oasis-desktop/dist/OASIS-AI-0.1.0-win-x64-unpacked.zip -Force
+npm run desktop:portable:win
 npm run desktop:release-metadata
 ```
+
+The public Windows alpha should point clients to `OASIS-AI-0.1.0-win-x64-portable.zip` first. That archive extracts to a normal folder and avoids the NSIS installer launching from a blocked Temp path on locked-down Windows machines.
 
 ## Client Beta Gate
 
@@ -80,6 +82,7 @@ If the signing variable is off, CI reports signature status but allows unsigned 
 
 - Windows artifacts are unsigned until the production certificate is configured.
 - Locked-down Windows machines may block unsigned alpha builds even when the archive downloads correctly.
+- Windows users should not download the macOS `.dmg`; Windows will ask which app should open it.
 - The sidecar starts from this repo when it can find `bravo_cli.local_bridge`; it is not bundled yet.
 - macOS and Linux artifacts should be generated through CI or native builders.
 - The app icon still needs final branded `.ico`, `.icns`, and `.png` assets.

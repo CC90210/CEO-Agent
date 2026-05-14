@@ -23,6 +23,7 @@ const PUBLIC_PATH_PREFIXES = [
   "/api/auth/provision",   // legacy + setup-wizard provision (Bearer-auth gated inside)
   "/api/auth/pair",        // setup-wizard pairing (Bearer-auth gated inside)
   "/api/demo/sun",         // sets Sun demo shell cookie; never exposes live tenant data
+  "/api/download/desktop", // public OS-aware desktop download redirect
   "/api/bridge",           // local-bridge daemon heartbeat (Bearer token gated inside)
   "/api/integrations/registry",  // canonical service+env_key list — used by the bridge to decide what to ping; non-sensitive (names only, no values), 5min Cache-Control
   "/api/exec-override",    // external caller fallback for override approvals (HMAC auth inside)
