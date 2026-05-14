@@ -44,12 +44,16 @@ export async function applyClientProvisioningProfile({
 
   const profileAgentMap: Record<string, { primary: string; enabled: string[] }> = {
     sun: {
-      primary: "sunbiz",
-      enabled: ["sunbiz", "suga_sean"],
+      // Operational primary (Solara) + sales-facing sub-agent (Helios).
+      // Old config enabled "suga_sean" on the sun profile — that was a copy
+      // mistake; SunBiz never shipped the Suga client agent.
+      primary: "solara",
+      enabled: ["solara", "helios"],
     },
     suga: {
-      primary: "suga_sean",
-      enabled: ["suga_sean"],
+      // Brand-command package: Lyra primary + 3 sub-agents.
+      primary: "lyra",
+      enabled: ["lyra", "lyra_brand", "lyra_fans", "lyra_commerce"],
     },
   };
   const agentConfig = profileAgentMap[clientProfileSlug];

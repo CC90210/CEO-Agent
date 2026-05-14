@@ -69,3 +69,29 @@ export async function getSessionUser() {
   if (error || !data.user) return null;
   return data.user;
 }
+
+/**
+ * True iff the caller is the OASIS operator (CC). Used to gate the legacy
+ * `/onboarding` flow — only the operator should see the C-suite picker;
+ * everyone else (client tenants) is routed through `/onboarding/wizard`.
+ *
+ * Resolution order:
+ *   1. If the user's email is in ADMIN_EMAILS, they're the operator.
+ *      Same env var as the rest of the dashboard's admin checks
+ *      (app/agent/page.tsx, etc.) — single source of truth.
+ *
+ * Returns false on any error or missing input — false-negative is safe
+ * (just routes to wizard) while a false-positive would leak operator chrome.
+ */
+export function isOasisOperator(emailOrUser: string | { email?: string | null } | null | undefined): boolean {
+  const email = (typeof emailOrUser === "string"
+    ? emailOrUser
+    : emailOrUser?.email || ""
+  ).trim().toLowerCase();
+  if (!email) return false;
+  const admins = (process.env.ADMIN_EMAILS || "")
+    .split(",")
+    .map((x) => x.trim().toLowerCase())
+    .filter(Boolean);
+  return admins.includes(email);
+}

@@ -12,6 +12,7 @@ import {
   KNOWN_INTEGRATIONS,
   type IntegrationCategory,
 } from "@/lib/integrations-registry";
+import { resolveAgentKey } from "@/lib/agents";
 import type { IntegrationHealth } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -21,18 +22,25 @@ export default async function IntegrationsPage() {
   const demoProfile = getClientCommandCenterProfileById(
     (await cookies()).get(DEMO_CLIENT_PROFILE_COOKIE)?.value || null
   );
+  // Sun profile detection — resolveAgentKey normalises legacy "sunbiz" rows to "solara".
+  const primaryResolved = resolveAgentKey(profile?.primary_agent || "");
+  const enabledResolved = (profile?.agents_enabled || []).map(resolveAgentKey);
   const isSunProfile =
     demoProfile.id === "sun" ||
-    profile?.primary_agent === "sunbiz" ||
-    (profile?.agents_enabled || []).includes("sunbiz");
+    primaryResolved === "solara" || primaryResolved === "helios" ||
+    enabledResolved.includes("solara") || enabledResolved.includes("helios");
 
   const [dbRows, connectedAiSet] = await Promise.all([
     safe("integrations.health", integrationsHealth(profile?.tenant_id || null), []),
     safe("integrations.ai_keys", aiServicesWithKey(profile?.tenant_id || null), new Set<string>()),
   ]);
 
+  // SunBiz pulls in Turso + anything used by Solara (operational) or Helios (sales).
   const visibleDefinitions = KNOWN_INTEGRATIONS.filter((definition) =>
-    !isSunProfile || definition.service === "turso" || definition.used_by?.includes("sunbiz")
+    !isSunProfile ||
+    definition.service === "turso" ||
+    definition.used_by?.includes("solara") ||
+    definition.used_by?.includes("helios")
   );
 
   const dbByService = new Map(dbRows.map((row) => [row.service, row] as const));

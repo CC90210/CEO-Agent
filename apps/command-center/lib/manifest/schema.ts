@@ -185,6 +185,25 @@ export type ManifestOnboardingIndustry =
   | "agency"
   | "custom";
 
+// ---------------------------------------------------------------------------
+// Tier metadata — declarative pricing/setup signals surfaced in the wizard's
+// industry-card grid, in marketplace, and (eventually) by the billing layer.
+// Pure metadata, no enforcement; an "Enterprise" label here doesn't gate any
+// feature — it just tells the wizard which copy + price hint to render.
+// ---------------------------------------------------------------------------
+
+export type ManifestTierLabel = "Free" | "Starter" | "Pro" | "Enterprise";
+export type ManifestSetupComplexity = "Self-serve" | "Guided" | "Done-for-you";
+
+export type ManifestTier = {
+  label: ManifestTierLabel;
+  setup_complexity: ManifestSetupComplexity;
+  /** Free-text price hint, e.g. "$49/mo" or "Custom". Not parsed; rendered as-is. */
+  monthly_price_hint?: string;
+  /** One-line summary for the wizard card. Keep it 8 words or fewer. */
+  summary?: string;
+};
+
 export type ManifestMeta = {
   created_at?: string;
   updated_at?: string;
@@ -210,6 +229,7 @@ export type TenantManifest = {
   onboarding_industry?: ManifestOnboardingIndustry;
   data_backend?: ManifestDataBackend;
   deployment_mode?: ManifestDeploymentMode;
+  tier?: ManifestTier;
   meta: ManifestMeta;
 };
 
@@ -300,6 +320,8 @@ const INTEGRATION_KINDS = new Set<ManifestIntegrationKind>([
 const ONBOARDING_INDUSTRIES = new Set<ManifestOnboardingIndustry>([
   "real_estate", "business_funding", "ecommerce", "agency", "custom",
 ]);
+const TIER_LABELS = new Set<ManifestTierLabel>(["Free", "Starter", "Pro", "Enterprise"]);
+const SETUP_COMPLEXITIES = new Set<ManifestSetupComplexity>(["Self-serve", "Guided", "Done-for-you"]);
 
 function parseBrand(v: Json, path: string): ManifestBrand {
   if (!isObject(v)) throw new ManifestParseError(path, "expected object");
@@ -420,6 +442,24 @@ function parsePrompt(v: Json, path: string): ManifestPromptDef {
   };
 }
 
+function parseTier(v: Json, path: string): ManifestTier {
+  if (!isObject(v)) throw new ManifestParseError(path, "expected object");
+  const label = requireString(v, "label", path);
+  if (!TIER_LABELS.has(label as ManifestTierLabel)) {
+    throw new ManifestParseError(`${path}.label`, `unknown tier label "${label}"`);
+  }
+  const setup = requireString(v, "setup_complexity", path);
+  if (!SETUP_COMPLEXITIES.has(setup as ManifestSetupComplexity)) {
+    throw new ManifestParseError(`${path}.setup_complexity`, `unknown setup_complexity "${setup}"`);
+  }
+  return {
+    label: label as ManifestTierLabel,
+    setup_complexity: setup as ManifestSetupComplexity,
+    monthly_price_hint: optionalString(v, "monthly_price_hint"),
+    summary: optionalString(v, "summary"),
+  };
+}
+
 function parseMeta(v: Json, path: string): ManifestMeta {
   if (!isObject(v)) throw new ManifestParseError(path, "expected object");
   const schemaVersionRaw = v.schema_version;
@@ -479,6 +519,7 @@ export function parseManifest(input: Json): TenantManifest {
     onboarding_industry: industry as ManifestOnboardingIndustry | undefined,
     data_backend: dataBackend as ManifestDataBackend | undefined,
     deployment_mode: deploymentMode as ManifestDeploymentMode | undefined,
+    tier: input.tier !== undefined ? parseTier(input.tier, "$.tier") : undefined,
     meta: parseMeta(input.meta ?? {}, "$.meta"),
   };
 }

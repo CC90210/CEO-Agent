@@ -40,7 +40,15 @@ export async function POST(req: NextRequest) {
   const fullName = body.full_name?.trim() || email.split("@")[0];
   const brand = body.brand?.trim() || "OASIS AI";
   const agentToAdd = (body.agent || "").trim().toLowerCase();
-  const VALID_AGENTS = new Set(["bravo", "atlas", "maven", "aura", "hermes", "codex", "sunbiz", "suga_sean"]);
+  // Includes deprecated aliases (sunbiz, suga_sean) so existing CLIs that
+  // still pass the old slugs keep working; agents.ts:resolveAgentKey
+  // normalizes them downstream.
+  const VALID_AGENTS = new Set([
+    "bravo", "atlas", "maven", "aura", "hermes", "codex",
+    "solara", "helios",
+    "lyra", "lyra_brand", "lyra_fans", "lyra_commerce",
+    "sunbiz", "suga_sean", // deprecated aliases
+  ]);
 
   const db = getServiceSupabase();
 

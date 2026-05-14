@@ -96,31 +96,79 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
       "Your commerce ops agent. Hermes drives the PO → POS → invoice loop for wholesale distributors — A2000 desktop takeover, web ERPs, GS1-128 labels, EDI 856/810/940/820, chargeback prevention. Local-first, audit-everything, fail-stopped.",
     askMeAbout: "Status of open POs · Draft EDI 856 for the latest shipment · Yesterday's A2000 sync log",
   },
-  sunbiz: {
-    key: "sunbiz",
+  // Sun Biz Funding — operational primary. Backend admin, Chrome jobs,
+  // data collection, workflow runner. Where Ezra goes when work needs done.
+  solara: {
+    key: "solara",
     label: "Solara",
-    role: "Sun Biz funding operations agent · leads · SMS · deals · renewals",
-    tagline: "Funding ops · renewals · outreach",
+    role: "Sun Biz operational agent · backend admin · workflows · data collection",
+    tagline: "Operations · workflows · data",
     location: "C:\\Users\\User\\Marketing-Agent",
     colorRgb: "251, 191, 36",
     textClass: "text-amber-400",
     family: false,
     description:
-      "Solara is the Sun Biz digital employee. She routes leads, follow-up, applications, offers, funded deals, commissions, and renewals into one Command Center so the team can move faster with better visibility.",
-    askMeAbout: "Show renewal opportunities · Send a compliant SMS follow-up · What deals need lender action?",
+      "Solara is the Sun Biz operations brain. She runs the back office — pipeline reports, application packaging, lender matching, renewal sweeps — and keeps the team aligned on what's working and what's stuck.",
+    askMeAbout: "Show renewal opportunities · Pipeline this week · Which deals need lender action?",
   },
-  suga_sean: {
-    key: "suga_sean",
-    label: "Suga",
-    role: "Suga Sean O'Malley · fan ops + brand agent",
-    tagline: "Fans · merch · social · sponsorship",
-    location: "C:\\Users\\User\\APPS\\suga-sean-agent",
+  // Sun Biz Funding — brand-facing sales persona. Outreach, SMS follow-ups,
+  // closing voice. The agent SunBiz leads experience.
+  helios: {
+    key: "helios",
+    label: "Helios",
+    role: "Sun Biz sales agent · cold outreach · SMS follow-ups · closing voice",
+    tagline: "Outreach · SMS · sales",
+    location: "C:\\Users\\User\\Marketing-Agent",
+    colorRgb: "245, 158, 11",
+    textClass: "text-amber-300",
+    family: false,
+    description:
+      "Helios is the SunBiz sales voice. Personable, results-driven, sharp on cadence — drafts first-touch SMS, runs revival sequences for ghosted leads, brings expired offers back to the table.",
+    askMeAbout: "Draft a first-touch SMS · Revival sequence for ghosted leads · Close-the-loop on expired offer",
+  },
+  // Brand command primary — overall brand operations, voice continuity.
+  lyra: {
+    key: "lyra",
+    label: "Lyra",
+    role: "Brand command primary · voice · weekly pulse",
+    tagline: "Brand · voice · pulse",
+    location: "C:\\Users\\User\\APPS\\brand-command-agent",
     colorRgb: "236, 72, 153",
     textClass: "text-pink-400",
     family: false,
     description:
-      "Suga is the client brand-ops agent for Sean O'Malley. It routes fan engagement, merch drops, social posting, and sponsorship triage into the business command center.",
-    askMeAbout: "Draft a fan reply pack · What merch drop converted best last week? · Which sponsorship leads are warm?",
+      "Lyra is the brand-command primary. She holds the weekly brand pulse — what posted, what landed, what moved subscribers and sponsorships — and keeps voice continuity across the sub-agents.",
+    askMeAbout: "Weekly brand pulse · What's drifting from voice? · Top 3 wins from this week",
+  },
+  lyra_brand: {
+    key: "lyra_brand",
+    label: "Lyra · Brand",
+    role: "Captions, posts, content drops",
+    tagline: "Captions · posts · drops",
+    location: "C:\\Users\\User\\APPS\\brand-command-agent",
+    colorRgb: "236, 72, 153",
+    textClass: "text-pink-400",
+    family: false,
+  },
+  lyra_fans: {
+    key: "lyra_fans",
+    label: "Lyra · Fans",
+    role: "Subscriber engagement, fan DMs",
+    tagline: "Fans · DMs · engagement",
+    location: "C:\\Users\\User\\APPS\\brand-command-agent",
+    colorRgb: "236, 72, 153",
+    textClass: "text-pink-400",
+    family: false,
+  },
+  lyra_commerce: {
+    key: "lyra_commerce",
+    label: "Lyra · Commerce",
+    role: "Merch drops, sponsorships",
+    tagline: "Merch · sponsorships",
+    location: "C:\\Users\\User\\APPS\\brand-command-agent",
+    colorRgb: "236, 72, 153",
+    textClass: "text-pink-400",
+    family: false,
   },
   // Registry key stays "life-preservation" so filesystem paths
   // (~/life-preservation, tmp/agent_inbox routing, sibling_repos, etc.)
@@ -162,9 +210,25 @@ export const FAMILY_AGENT_KEYS = ALL_AGENT_KEYS.filter(
   (k) => AGENT_REGISTRY[k].family !== false
 );
 
+/**
+ * Backward-compatibility aliases. Legacy DB rows + integration registries
+ * may still carry slugs like "sunbiz" (the old key for Solara) or "suga_sean"
+ * (the old Suga client agent). Resolve them transparently so chat + UI keep
+ * working while migrations roll forward.
+ */
+export const AGENT_KEY_ALIASES: Record<string, string> = {
+  sunbiz: "solara",
+  suga_sean: "lyra",
+};
+
+export function resolveAgentKey(key: string): string {
+  return AGENT_KEY_ALIASES[key] || key;
+}
+
 export function getAgentInfo(key: string): AgentInfo {
+  const resolved = resolveAgentKey(key);
   return (
-    AGENT_REGISTRY[key] || {
+    AGENT_REGISTRY[resolved] || {
       key,
       label: key.charAt(0).toUpperCase() + key.slice(1),
       role: "Custom agent",
