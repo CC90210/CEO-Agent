@@ -69,7 +69,7 @@ Release verification:
 - Alpha.3 desktop OAuth hotfix committed as `fa46e24 Fix desktop Google OAuth navigation`.
 - Alpha.3 cross-platform CI run succeeded for Windows, macOS, and Linux: `https://github.com/CC90210/CEO-Agent/actions/runs/25834820092`.
 - Alpha.3 selected asset hashes were generated locally in `tmp/oasis-desktop-alpha3-25834820092/SHA256SUMS-release.txt`.
-- Stable production `/download` route returns `200 OK` after Vercel deployment `agent-dashboard-gkko3jyxj-cc90210.vercel.app`.
+- Stable production `/download` route returns `200 OK` and references alpha.3 after Vercel deployment `agent-dashboard-awc8olr89-cc90210.vercel.app`.
 
 Important product note:
 
