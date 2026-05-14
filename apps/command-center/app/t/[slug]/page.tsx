@@ -2,19 +2,23 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Card, PageHeader, Tag } from "@/components/Card";
+import { ManifestTable } from "@/components/manifest/ManifestTable";
+import { ManifestKanban } from "@/components/manifest/ManifestKanban";
+import { ManifestMarkdown } from "@/components/manifest/ManifestMarkdown";
+import { ManifestDashboard } from "@/components/manifest/ManifestDashboard";
 import { getManifest, manifestExists } from "@/lib/manifest/loader";
+import { CATEGORY_LABELS } from "@/lib/agents/library";
+import { getSessionUser, getServiceSupabase } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Tenant landing for `/t/<slug>/`.
+ * Tenant root at `/t/<slug>/`.
  *
- * Phase 1 ships a manifest-aware overview card. The catch-all
- * `/t/[slug]/[...path]/page.tsx` is what Phase 2's renderer will fill
- * with kind-specific pages (tables, kanbans, dashboards, forms).
- *
- * Auth: handled by middleware. Demo previews continue to flow through
- * `/demo/<slug>`; bare `/t/<slug>` requires a session.
+ * Phase 5: if the manifest declares a page at path "" or "/", we render
+ * THAT page via the same primitive dispatcher the catch-all uses — so
+ * a tenant can have "Dashboard" as their home view. If no root page is
+ * declared, falls back to the generic manifest-summary card.
  */
 export default async function TenantLandingPage({
   params,
@@ -26,6 +30,78 @@ export default async function TenantLandingPage({
   if (!(await manifestExists(normalised))) notFound();
 
   const manifest = await getManifest(normalised);
+  const rootPage =
+    manifest.pages?.find((p) => p.path === "" || p.path === "/") ||
+    null;
+
+  if (rootPage) {
+    return <RootPageRenderer slug={normalised} page={rootPage} manifest={manifest} />;
+  }
+
+  return <GenericSummary slug={normalised} manifest={manifest} />;
+}
+
+async function RootPageRenderer({
+  slug,
+  page,
+  manifest,
+}: {
+  slug: string;
+  page: NonNullable<Awaited<ReturnType<typeof getManifest>>["pages"]>[number];
+  manifest: Awaited<ReturnType<typeof getManifest>>;
+}) {
+  const user = await getSessionUser();
+  const service = getServiceSupabase();
+  const profileRes = user
+    ? await service
+        .from("user_profiles")
+        .select("tenant_id")
+        .eq("auth_user_id", user.id)
+        .maybeSingle()
+    : { data: null };
+  const tenantId = (profileRes.data as { tenant_id: string | null } | null)?.tenant_id ?? null;
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <PageHeader
+        title={page.label || manifest.brand.name}
+        subtitle={manifest.brand.subtitle}
+        action={<Tag tone="accent">{page.kind}</Tag>}
+      />
+      {page.kind === "markdown" && <ManifestMarkdown page={page} />}
+      {page.kind === "dashboard" && (
+        <ManifestDashboard manifest={manifest} tenantId={tenantId} />
+      )}
+      {(page.kind === "table" || page.kind === "form") && (() => {
+        const entity = (manifest.data_model || []).find((e) => e.name === page.entity);
+        if (!entity) return <UnknownEntity name={page.entity} />;
+        return <ManifestTable tenantSlug={slug} tenantId={tenantId} entity={entity} page={page} canCreate />;
+      })()}
+      {page.kind === "kanban" && (() => {
+        const entity = (manifest.data_model || []).find((e) => e.name === page.entity);
+        if (!entity) return <UnknownEntity name={page.entity} />;
+        return <ManifestKanban tenantSlug={slug} tenantId={tenantId} entity={entity} page={page} />;
+      })()}
+    </div>
+  );
+}
+
+function UnknownEntity({ name }: { name?: string }) {
+  return (
+    <div className="rounded-2xl border border-amber-300/25 bg-amber-300/10 p-5 text-sm text-amber-100 leading-relaxed">
+      This page references an entity <span className="font-mono text-fg">{name || "(none)"}</span> that
+      isn&apos;t defined in the manifest&apos;s <code>data_model</code>.
+    </div>
+  );
+}
+
+function GenericSummary({
+  slug,
+  manifest,
+}: {
+  slug: string;
+  manifest: Awaited<ReturnType<typeof getManifest>>;
+}) {
   const enabledAgents = manifest.agents.filter((a) => a.enabled);
   const navGroups = Array.from(new Set(manifest.nav.map((n) => n.group)));
 
@@ -92,21 +168,34 @@ export default async function TenantLandingPage({
         <div className="flex items-start gap-3">
           <Sparkles className="mt-1 h-5 w-5 text-accent" />
           <div>
-            <div className="font-bold text-fg">Phase 2 — Manifest-driven pages</div>
+            <div className="font-bold text-fg">No root page defined</div>
             <p className="mt-1 text-sm text-fg-muted leading-relaxed">
-              This namespace renders this tenant&apos;s manifest. The catch-all renderer for tables,
-              kanbans, dashboards, and forms is the next milestone — same shell, different data,
-              configurable through the embedded AI editor.
+              This tenant&apos;s manifest doesn&apos;t declare a page at the root path.
+              Open the AI editor and ask it to add a dashboard page at path &quot;/&quot;,
+              or browse the existing routes from the sidebar.
             </p>
-            <Link
-              href={`/t/${normalised}/leads`}
-              className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-accent hover:text-accent/80"
-            >
-              Preview a manifest page <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
+            <div className="mt-3 flex gap-3">
+              <Link
+                href={`/t/${slug}/editor`}
+                className="inline-flex items-center gap-2 text-sm font-semibold text-accent hover:text-accent/80"
+              >
+                Open editor <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+              <Link
+                href={`/t/${slug}/marketplace`}
+                className="inline-flex items-center gap-2 text-sm font-semibold text-fg-muted hover:text-fg"
+              >
+                Marketplace
+              </Link>
+            </div>
           </div>
         </div>
       </section>
     </div>
   );
 }
+
+// CATEGORY_LABELS is imported above for type-side use, but we don't render
+// the agent category label on this page in the new path. Keep the import so
+// the markup is consistent with the rest of the manifest pages.
+void CATEGORY_LABELS;
