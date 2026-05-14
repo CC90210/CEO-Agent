@@ -32,6 +32,12 @@ function navToManifest(items: NavItem[]): ManifestNavItem[] {
 
 const FROZEN_AT = "2026-05-13T00:00:00.000Z";
 
+// OASIS AI — CC's own home tenant. Nav still uses bare-path legacy routes
+// (which work because the rest of the dashboard has legacy pages at those
+// paths) but the manifest now declares pages + entities so /t/oasis renders
+// real manifest-driven content for cross-tenant consistency. When the
+// legacy bare-path pages get migrated to manifest-driven, we flip the nav
+// hrefs to /t/oasis/<path> too.
 export const OASIS_SEED: TenantManifest = {
   version: 1,
   tenant_slug: "oasis",
@@ -49,6 +55,39 @@ export const OASIS_SEED: TenantManifest = {
     { slug: "aura", display_name: "Aura", enabled: false },
   ],
   nav: navToManifest(CC_NAV),
+  data_model: [
+    {
+      name: "lead",
+      label: "Lead",
+      fields: [
+        { name: "name", type: "string", required: true },
+        { name: "company", type: "string" },
+        { name: "source", type: "enum", enum_values: ["referral", "inbound", "outbound", "event", "other"] },
+        { name: "stage", type: "enum", enum_values: ["new", "qualified", "proposal", "won", "lost"], required: true },
+        { name: "value_estimate", type: "number" },
+      ],
+    },
+    {
+      name: "task",
+      label: "Task",
+      fields: [
+        { name: "title", type: "string", required: true },
+        { name: "agent_slug", type: "string" },
+        { name: "status", type: "enum", enum_values: ["pending", "in_progress", "blocked", "done"], required: true },
+        { name: "due_date", type: "date" },
+      ],
+    },
+  ],
+  pages: [
+    { path: "", label: "Today", kind: "dashboard" },
+    { path: "leads", label: "Leads (manifest view)", kind: "kanban", entity: "lead", config: { group_by: "stage" } },
+    { path: "tasks", label: "Tasks", kind: "kanban", entity: "task", config: { group_by: "status" } },
+  ],
+  default_prompts: [
+    { agent_slug: "bravo", label: "Daily standup", prompt: "Give me a 5-bullet brief: hot leads, deals closing this week, today's blocks, top priority, anything past-due." },
+    { agent_slug: "maven", label: "Draft content drop", prompt: "Pick the highest-leverage move from this week's pipeline and draft a social post in my voice." },
+    { agent_slug: "atlas", label: "Cash position", prompt: "Net MRR, current burn, projected runway, anything that looks off in the last 7 days." },
+  ],
   data_backend: "supabase",
   deployment_mode: "shared",
   permissions: { local_files: true, computer_control: true, web_access: true },
@@ -211,7 +250,65 @@ export const SUGA_SEED: TenantManifest = {
   agents: [
     { slug: "suga_sean", display_name: "Suga", enabled: true, primary: true },
   ],
-  nav: navToManifest(SUGA_NAV),
+  nav: [
+    { href: "/t/suga", label: "Dashboard", icon: "LayoutDashboard", group: "Operations" },
+    { href: "/t/suga/subscribers", label: "Subscribers", icon: "Users", group: "Fans" },
+    { href: "/t/suga/posts", label: "Posts", icon: "Megaphone", group: "Brand" },
+    { href: "/t/suga/drafts", label: "Drafts", icon: "FileText", group: "Brand" },
+    { href: "/t/suga/merch", label: "Merch", icon: "ShoppingBag", group: "Commerce" },
+    { href: "/t/suga/sponsorship", label: "Sponsorships", icon: "HandCoins", group: "Sponsorship" },
+    { href: "/t/suga/settings", label: "Settings", icon: "Settings", group: "System" },
+  ],
+  data_model: [
+    {
+      name: "subscriber",
+      label: "Subscriber",
+      fields: [
+        { name: "email", type: "string", required: true },
+        { name: "name", type: "string" },
+        { name: "tier", type: "enum", enum_values: ["free", "vip", "patron"] },
+      ],
+    },
+    {
+      name: "post",
+      label: "Post",
+      fields: [
+        { name: "title", type: "string", required: true },
+        { name: "platform", type: "enum", enum_values: ["instagram", "x", "tiktok", "youtube", "email"] },
+        { name: "status", type: "enum", enum_values: ["draft", "scheduled", "published"], required: true },
+      ],
+    },
+    {
+      name: "merch_drop",
+      label: "Merch Drop",
+      fields: [
+        { name: "name", type: "string", required: true },
+        { name: "stock", type: "number" },
+        { name: "status", type: "enum", enum_values: ["upcoming", "live", "sold_out", "archived"] },
+      ],
+    },
+    {
+      name: "sponsorship",
+      label: "Sponsorship",
+      fields: [
+        { name: "brand", type: "string", required: true },
+        { name: "value", type: "number" },
+        { name: "stage", type: "enum", enum_values: ["outreach", "negotiating", "signed", "delivered", "lost"], required: true },
+      ],
+    },
+  ],
+  pages: [
+    { path: "", label: "Fans · Today", kind: "dashboard" },
+    { path: "subscribers", label: "Subscribers", kind: "table", entity: "subscriber" },
+    { path: "posts", label: "Posts", kind: "kanban", entity: "post", config: { group_by: "status" } },
+    { path: "drafts", label: "Drafts", kind: "table", entity: "post" },
+    { path: "merch", label: "Merch Drops", kind: "kanban", entity: "merch_drop", config: { group_by: "status" } },
+    { path: "sponsorship", label: "Sponsorships", kind: "kanban", entity: "sponsorship", config: { group_by: "stage" } },
+  ],
+  default_prompts: [
+    { agent_slug: "suga_sean", label: "Fan check-in", prompt: "Pull the most engaged 10 subscribers this week. Suggest a personalised DM I can send." },
+    { agent_slug: "suga_sean", label: "Post idea", prompt: "What's a high-engagement post angle I haven't run this month?" },
+  ],
   data_backend: "turso",
   deployment_mode: "dedicated",
   permissions: { local_files: false, computer_control: false, web_access: true },
