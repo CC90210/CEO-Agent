@@ -7,14 +7,14 @@ export default function OffersPage() {
   return (
     <ComingSoon
       title="Offers"
-      subtitle="Lender offers · per-application, 0..N with TAR-band routing"
+      subtitle="Lender offers organized by application"
       icon={HandCoins}
       phase2Bullets={[
-        "Migration 040: offers table (application_id, lender_id, amount, factor_rate, term_months, status)",
-        "TAR-band overlap support — a merchant may receive offers from multiple bands simultaneously",
-        "Stack-aware presentation: choose best APR-equivalent for the merchant",
-        "Accept/decline flow with audit trail; accepted offer auto-creates the funded_deal row",
-        "Emits SUNBIZ_OFFER_PRESENTED on save",
+        "Lender offers will sit under the application they belong to.",
+        "Solara will support multiple offers on the same merchant when more than one funding band applies.",
+        "Side-by-side comparisons will help pick the cleanest option for the merchant.",
+        "Accepted offers will move into funded deals automatically after review.",
+        "Every accept or decline decision will keep a clear history.",
       ]}
       related={[
         { href: "/applications", label: "Applications" },

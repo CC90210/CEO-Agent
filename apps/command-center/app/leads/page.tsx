@@ -27,15 +27,15 @@ export default async function LeadsPage() {
           demoMode
             ? "Sun demo mode · sample leads are loaded so you can see Solara's workflow"
             : tenantId
-              ? `${leads.length} leads · tenant-scoped`
-              : "No tenant configured for this profile yet"
+              ? `${leads.length} leads in Solara's pipeline`
+              : "Finish onboarding to connect this workspace"
         }
       />
 
       <Card title="All leads" subtitle="Active funding prospects" noPadding>
         {leads.length === 0 ? (
           <div className="p-5">
-            <EmptyState message="No leads yet. Pull from JotForm or run /lead-ingest in the Sun Biz Agent." />
+            <EmptyState message="No leads yet. Connect JotForm or add the first lead, and Solara will start organizing the pipeline." />
           </div>
         ) : (
           <div className="overflow-x-auto">

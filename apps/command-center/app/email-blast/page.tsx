@@ -7,15 +7,13 @@ export default function EmailBlastPage() {
   return (
     <ComingSoon
       title="Email Blast"
-      subtitle="Bulk outbound campaigns · Gmail SMTP · CAN-SPAM compliant"
+      subtitle="Bulk email campaigns with approved templates"
       icon={Mail}
       phase2Bullets={[
-        "Campaign creator UI: pick template, recipient list (CSV or tenant-scoped contacts query), preview merge vars",
-        "Backed by /api/email-blast/send which shells the Sun Biz Agent's email_blast.py (already production-grade in Marketing-Agent)",
-        "Rate-limited 15 sends/min (Gmail caps at 2,000/day on Workspace, 500/day personal)",
-        "Per-recipient delivery tracking, opens, unsubscribes",
-        "6 HTML templates already shipped: business capital tiers, urgency fast funding, problem-solution, premium executive, etc.",
-        "Emits SUNBIZ_EMAIL_BLAST_DISPATCHED on campaign start",
+        "Pick a template, choose a recipient list, and preview each message before sending.",
+        "Solara will keep sending paced so the mailbox stays healthy.",
+        "Track delivery, opens, replies, and unsubscribes per recipient.",
+        "Use the approved funding email templates already prepared for Sun Biz.",
       ]}
       related={[{ href: "/templates", label: "Templates" }, { href: "/sms", label: "SMS" }]}
     />

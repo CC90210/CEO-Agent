@@ -7,13 +7,13 @@ export default function ApplicationsPage() {
   return (
     <ComingSoon
       title="Applications"
-      subtitle="Funding applications · merchant-submitted via JotForm or processor"
+      subtitle="Funding applications from JotForm, processors, and your team"
       icon={FileText}
       phase2Bullets={[
-        "Migration 039: applications table (FK to contacts; status flow new → in-review → offers-out → declined/funded)",
-        "JotForm webhook ingestion (already running in Sun Biz Agent; surfaces new apps via SUNBIZ_APPLICATION_SUBMITTED event)",
-        "Per-application document checklist with upload",
-        "Sidebar count badge auto-populates from applications.count",
+        "New applications appear here as Solara receives them.",
+        "Each application gets a clear status: new, in review, offers out, declined, or funded.",
+        "Every file gets a document checklist so nothing slips through the cracks.",
+        "The sidebar count updates automatically as the pipeline changes.",
       ]}
       related={[
         { href: "/import", label: "Bulk Import" },

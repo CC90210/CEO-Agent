@@ -7,13 +7,13 @@ export default function LendersPage() {
   return (
     <ComingSoon
       title="Lenders"
-      subtitle="Funder registry · term ranges, TAR bands accepted, commission %"
+      subtitle="Funder directory, terms, and commission notes"
       icon={Landmark}
       phase2Bullets={[
-        "Migration 046: lenders table (name, primary_contact, term_range_months, factor_rate_range, tar_bands_accepted, commission_pct)",
-        "Per-lender pipeline view: how many applications routed, win rate, average factor rate",
-        "Exclusion rules per industry (Real Estate, Cannabis, Auto Sales — Sun's existing exclusion list)",
-        "Contract dates, rate sheets, document templates per lender",
+        "Keep each lender's contact, terms, rate range, funding fit, and commission notes in one place.",
+        "See how many applications go to each lender and how often they win.",
+        "Track industry exclusions so Solara avoids poor-fit submissions.",
+        "Store contract dates, rate sheets, and document templates per lender.",
       ]}
       related={[
         { href: "/offers", label: "Offers" },

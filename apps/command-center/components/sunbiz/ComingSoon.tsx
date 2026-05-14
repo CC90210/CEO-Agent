@@ -34,16 +34,16 @@ export function ComingSoon({
           </div>
           <div className="flex-1 space-y-3">
             <div>
-              <div className="text-fg text-base font-semibold mb-1">Wired · Phase 2</div>
+              <div className="text-fg text-base font-semibold mb-1">Coming Soon</div>
               <p className="text-fg-muted text-sm">
-                This page is reserved in the Sun Biz Funding sidebar and routes correctly.
-                Functionality lands as the Phase 2 migrations and ingest jobs deploy this week.
+                This page is ready in the Sun Biz Funding Command Center.
+                Solara's deeper workflow for this area is queued next, and the links below are the parts your team can use today.
               </p>
             </div>
 
             <div>
               <div className="text-[10px] uppercase tracking-[0.14em] text-fg-muted font-bold mb-2">
-                Coming Phase 2
+                Planned upgrades
               </div>
               <ul className="space-y-1.5">
                 {phase2Bullets.map((b, i) => (
