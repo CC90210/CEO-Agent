@@ -137,13 +137,84 @@ def send_email_smtp(
 # -- Template rendering -------------------------------------
 
 
-def render_template(template_str, variables):
-    """Replace {{variable}} placeholders with values from the variables dict."""
+TEMPLATE_PLACEHOLDER_RE = re.compile(r"\{\{\s*([^}]+?)\s*\}\}")
+
+
+class TemplateRenderError(ValueError):
+    """Raised when a stored email template cannot be rendered safely."""
+
+
+def normalize_template_vars(variables):
+    """Normalize caller-provided template variables before rendering.
+
+    `company_name` is a common CRM/agent spelling; templates use `company`.
+    Normalize it here so good data does not fail just because one caller used
+    the alternate key. Missing or blank canonical variables still fail closed.
+    """
+    if not isinstance(variables, dict):
+        return {}
+    normalized = dict(variables)
+    company = normalized.get("company")
+    company_name = normalized.get("company_name")
+    if (
+        (company is None or str(company).strip() == "")
+        and company_name is not None
+        and str(company_name).strip()
+    ):
+        normalized["company"] = company_name
+    return normalized
+
+
+def missing_template_variables(template_str, variables) -> list[str]:
+    """Return placeholder names that are missing or blank in `variables`."""
+    normalized = normalize_template_vars(variables)
+    missing: list[str] = []
+    for raw_key in TEMPLATE_PLACEHOLDER_RE.findall(template_str or ""):
+        key = raw_key.strip()
+        value = normalized.get(key)
+        if value is None or str(value).strip() == "":
+            if key not in missing:
+                missing.append(key)
+    return missing
+
+
+def unresolved_template_placeholders(*fields) -> list[str]:
+    """Return unresolved `{{...}}` tokens still present in rendered output."""
+    tokens: list[str] = []
+    for field in fields:
+        for token in TEMPLATE_PLACEHOLDER_RE.findall(field or ""):
+            name = token.strip()
+            if name not in tokens:
+                tokens.append(name)
+    return tokens
+
+
+def render_template(template_str, variables, *, strict: bool = True, label: str = "template"):
+    """Replace {{variable}} placeholders with values from the variables dict.
+
+    Strict mode is the production default. It rejects missing or blank values
+    instead of leaving raw `{{company}}` tokens in an email.
+    """
+    normalized = normalize_template_vars(variables)
+    missing = missing_template_variables(template_str, normalized)
+    if strict and missing:
+        raise TemplateRenderError(
+            f"{label} missing required template variable(s): {', '.join(missing)}"
+        )
+
     def replacer(match):
         key = match.group(1).strip()
-        return str(variables.get(key, match.group(0)))
+        value = normalized.get(key)
+        return str(value) if value is not None else match.group(0)
 
-    return re.sub(r"\{\{([^}]+)\}\}", replacer, template_str)
+    rendered = TEMPLATE_PLACEHOLDER_RE.sub(replacer, template_str or "")
+    if strict:
+        leftovers = unresolved_template_placeholders(rendered)
+        if leftovers:
+            raise TemplateRenderError(
+                f"{label} rendered with unresolved placeholder(s): {', '.join(leftovers)}"
+            )
+    return rendered
 
 
 def html_to_text(html):
@@ -267,7 +338,7 @@ def cmd_send_template(env_vars, args, output_json=False):
         sys.exit(1)
 
     tmpl = result.data[0]
-    variables = json.loads(args.vars) if args.vars else {}
+    variables = normalize_template_vars(json.loads(args.vars) if args.vars else {})
     # Defensive sanitization — 2026-04-25 incident:
     # CSV-imported leads had name="Contact" / "Owner" / "Info" / "there"
     # as placeholder text. Earlier staging code did name.split()[0],
@@ -277,7 +348,7 @@ def cmd_send_template(env_vars, args, output_json=False):
     # garbage. The CRM has been scrubbed (placeholder names → empty),
     # but we ALSO defend at render time so a future bad import or
     # caller passing junk first_name can't repeat the failure.
-    variables = _sanitize_template_vars(variables)
+    variables = normalize_template_vars(_sanitize_template_vars(variables))
     # 2026-04-27: auto-inject {{region}} from the lead row if the caller
     # didn't pass one. Templates use this to say "as a fellow local
     # business owner in {{region}}" — geo-rapport without the AI having
@@ -296,14 +367,27 @@ def cmd_send_template(env_vars, args, output_json=False):
             print(f"[email_engine] region auto-inject failed (using "
                   f"'your area'): {exc}", file=sys.stderr)
     variables.setdefault("region", "your area")
-    subject = render_template(tmpl["subject"], variables)
-    body_html = render_template(tmpl.get("body_html") or "", variables) or None
-    body_text_template = tmpl.get("body_text") or ""
-    body_text = (
-        render_template(body_text_template, variables)
-        if body_text_template
-        else (html_to_text(body_html) if body_html else subject)
-    )
+    try:
+        subject = render_template(tmpl["subject"], variables, label="subject")
+        body_html = render_template(tmpl.get("body_html") or "", variables, label="body_html") or None
+        body_text_template = tmpl.get("body_text") or ""
+        body_text = (
+            render_template(body_text_template, variables, label="body_text")
+            if body_text_template
+            else (html_to_text(body_html) if body_html else subject)
+        )
+    except TemplateRenderError as exc:
+        if output_json:
+            print(json.dumps({
+                "status": "failed",
+                "to": args.to,
+                "template_id": args.template_id,
+                "template_name": tmpl.get("name"),
+                "error": f"template render failed: {exc}",
+            }, indent=2))
+        else:
+            print(f"ERROR: template render failed: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     intent = "transactional" if getattr(args, "transactional", False) else "commercial"
     gw = gateway_send(
@@ -588,12 +672,12 @@ def cmd_sequence_run(env_vars, args, output_json=False):
     for i, step in enumerate(steps):
         template_name = step.get("template_name")
         delay_hours = step.get("delay_hours", 0)
-        step_vars = {**lead_vars, **step.get("variables", {})}
+        step_vars = normalize_template_vars({**lead_vars, **step.get("variables", {})})
         # Same defensive sanitization as cmd_send_template — sequence
         # runs pull lead vars from the leads table, where placeholder
         # names ("Contact" / "Owner" / etc) historically slipped in via
         # CSV bulk-import. Junk first_name -> "team" before render.
-        step_vars = _sanitize_template_vars(step_vars)
+        step_vars = normalize_template_vars(_sanitize_template_vars(step_vars))
         # 2026-04-27: auto-inject {{region}} from lead data for geo-rapport.
         if "region" not in step_vars and "lead" in dir():
             try:
@@ -616,14 +700,19 @@ def cmd_sequence_run(env_vars, args, output_json=False):
             continue
 
         tmpl = tmpl_result.data[0]
-        subject = render_template(tmpl["subject"], step_vars)
-        body_html = render_template(tmpl.get("body_html") or "", step_vars) or None
-        body_text_template = tmpl.get("body_text") or ""
-        body_text = (
-            render_template(body_text_template, step_vars)
-            if body_text_template
-            else (html_to_text(body_html) if body_html else subject)
-        )
+        try:
+            subject = render_template(tmpl["subject"], step_vars, label="subject")
+            body_html = render_template(tmpl.get("body_html") or "", step_vars, label="body_html") or None
+            body_text_template = tmpl.get("body_text") or ""
+            body_text = (
+                render_template(body_text_template, step_vars, label="body_text")
+                if body_text_template
+                else (html_to_text(body_html) if body_html else subject)
+            )
+        except TemplateRenderError as exc:
+            results.append({"step": i + 1, "template": template_name, "status": "error",
+                            "error": f"template render failed: {exc}"})
+            continue
 
         # Step 0 sends immediately via send_gateway; future steps log as queued.
         # Gateway handles CASL, cooldown, daily cap, lead_interactions + email_log.
