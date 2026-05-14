@@ -111,6 +111,18 @@ export default function DownloadPage() {
             SmartScreen will warn this build is from an unknown publisher — that&apos;s expected on the unsigned alpha.
             Click <span className="font-mono text-accent">More info</span> then <span className="font-mono text-accent">Run anyway</span>.
           </div>
+          <div className="mt-3 rounded-xl border border-cyan-300/25 bg-cyan-300/10 p-4 text-sm leading-relaxed text-fg-muted">
+            <strong className="text-fg">Prerequisite:</strong> the desktop bridge runs the agent harness in Python and currently uses the Python interpreter installed on your machine.{" "}
+            Install <strong className="text-fg">Python 3.12</strong> (or newer) from{" "}
+            <a href="https://python.org/downloads" target="_blank" rel="noopener noreferrer" className="text-cyan-200 underline hover:text-cyan-100">python.org/downloads</a>{" "}
+            <em>before</em> first launch.
+            <ul className="mt-2 ml-4 list-disc space-y-1 text-xs">
+              <li>Windows: tick &ldquo;Add Python to PATH&rdquo; in the installer.</li>
+              <li>macOS: <span className="font-mono">brew install python@3.12</span> or the python.org installer both work.</li>
+              <li>Linux: most distros ship it; <span className="font-mono">python3 --version</span> should print 3.12+.</li>
+            </ul>
+            A bundled Python ships in a future build so this step goes away; until then it&apos;s the one external dependency.
+          </div>
           <div className="mt-3 rounded-xl border border-amber-300/25 bg-amber-300/10 p-4 text-sm leading-relaxed text-fg-muted">
             <strong className="text-fg">macOS note:</strong> Gatekeeper will say <em>&quot;Apple cannot verify that OASIS AI is free of malware.&quot;</em>{" "}
             This alpha is not yet Apple Developer ID-signed. Two ways to open it:

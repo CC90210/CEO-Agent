@@ -19,8 +19,8 @@
  * concerns the desktop bridge's first-run + key-rotation flows.
  */
 
-const https = require("node:https");
 const { deleteSecret, getSecret, setSecret } = require("./secure-store");
+const { httpsRequest } = require("./https");
 
 const SCOPE = "provider";
 
@@ -78,26 +78,10 @@ function pickDefaultProvider() {
 // Live validation — sends a tiny test request to the provider's REST API
 // to confirm the key is shaped correctly AND accepted. Returns a structured
 // result the first-run window can render. Never logs the key.
+//
+// HTTP plumbing lives in ./https.js so the update-check module and any
+// future caller share the same timeout / buffering / status semantics.
 // ---------------------------------------------------------------------------
-
-function httpsRequest(options, body) {
-  return new Promise((resolve, reject) => {
-    const req = https.request(options, (res) => {
-      const chunks = [];
-      res.on("data", (c) => chunks.push(c));
-      res.on("end", () => {
-        const text = Buffer.concat(chunks).toString("utf8");
-        resolve({ status: res.statusCode || 0, body: text });
-      });
-    });
-    req.on("error", reject);
-    req.setTimeout(15_000, () => {
-      req.destroy(new Error("validation_timeout"));
-    });
-    if (body) req.write(body);
-    req.end();
-  });
-}
 
 async function validateAnthropicKey(key) {
   const body = JSON.stringify({
