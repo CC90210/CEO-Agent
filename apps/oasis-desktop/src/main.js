@@ -6,6 +6,14 @@ const { createAuthNavigationController } = require("./auth-navigation");
 const { createBridgeRuntime } = require("./bridge-runtime");
 const { createSupportBundle, openDiagnosticsWindow } = require("./diagnostics");
 const { buildAllowedOrigins, loadDesktopManifest, resolveCommandCenterUrl } = require("./manifest");
+const { openFirstRunWindow } = require("./first-run-window");
+const {
+  composeBridgeEnv,
+  clearProviderKey,
+  listConfiguredProviders,
+  PROVIDERS,
+} = require("./provider-keys");
+const { checkForUpdate, RELEASE_REPO } = require("./update-check");
 
 let mainWindow = null;
 let allowLocalFallbackNavigation = false;
@@ -19,8 +27,67 @@ const bridgeRuntime = createBridgeRuntime({
   app,
   bridgeHealthUrl,
   desktopManifest,
-  startDir: path.resolve(__dirname, "..", "..", "..")
+  startDir: path.resolve(__dirname, "..", "..", ".."),
+  getEnvOverrides: () => composeBridgeEnv() || {},
 });
+
+async function ensureProviderConfigured() {
+  // First-run check — if the operator has no provider key stored, open
+  // the connect-provider window before we spawn the bridge. The bridge
+  // can still cold-start without a key (it'll surface "no provider" to
+  // the chat layer) but the UX flows better when we collect upfront.
+  if (listConfiguredProviders().length > 0) return { result: "already_configured" };
+  try {
+    return await openFirstRunWindow();
+  } catch (err) {
+    return { result: "error", error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+async function showUpdateDialog(report) {
+  if (!report.ok) return;
+  if (!report.is_newer) {
+    dialog.showMessageBox({
+      type: "info",
+      title: "OASIS AI is up to date",
+      message: `You're on v${report.current}. Latest release is v${report.latest}.`,
+    });
+    return;
+  }
+  const buttons = report.asset
+    ? ["Download for this OS", "Open release page", "Later"]
+    : ["Open release page", "Later"];
+  const choice = await dialog.showMessageBox({
+    type: "info",
+    title: "OASIS AI update available",
+    message: `A newer build is available: v${report.latest} (you're on v${report.current}).`,
+    detail: report.asset
+      ? `Asset: ${report.asset.name} (${(report.asset.size / 1024 / 1024).toFixed(1)} MB)`
+      : "No platform-specific asset detected on the release.",
+    buttons,
+    defaultId: 0,
+    cancelId: buttons.length - 1,
+  });
+  if (report.asset && choice.response === 0) {
+    void shell.openExternal(report.asset.url);
+  } else if (report.asset && choice.response === 1) {
+    void shell.openExternal(report.html_url);
+  } else if (!report.asset && choice.response === 0) {
+    void shell.openExternal(report.html_url);
+  }
+}
+
+async function runStartupUpdateProbe() {
+  if (process.env.OASIS_DESKTOP_DISABLE_UPDATE_CHECK === "true") return;
+  try {
+    const report = await checkForUpdate();
+    if (report.ok && report.is_newer) void showUpdateDialog(report);
+  } catch (err) {
+    // Update probe must NEVER block boot or leak to the UI. Just write
+    // to console; the menu's manual "Check for Updates" surfaces errors.
+    console.warn("[update-check] startup probe failed:", err instanceof Error ? err.message : err);
+  }
+}
 
 function isAllowedNavigation(targetUrl) {
   try {
@@ -212,6 +279,59 @@ function installMenu() {
           label: "Open Command Center in Browser",
           click: () => shell.openExternal(commandCenterUrl.toString())
         },
+        { type: "separator" },
+        {
+          label: "Connect / Update Provider Key…",
+          click: async () => {
+            const result = await openFirstRunWindow({ parent: mainWindow });
+            if (result.result === "saved") {
+              dialog.showMessageBox({
+                type: "info",
+                title: "Provider key saved",
+                message: `Saved ${result.provider} key. Restart the bridge to pick up the new credential.`,
+                buttons: ["Restart bridge now", "Later"],
+                defaultId: 0,
+              }).then((choice) => {
+                if (choice.response === 0) {
+                  bridgeRuntime.stop();
+                  void bridgeRuntime.startIfAvailable();
+                }
+              });
+            }
+          }
+        },
+        {
+          label: "Reset Provider Keys…",
+          click: async () => {
+            const configured = listConfiguredProviders();
+            if (configured.length === 0) {
+              dialog.showMessageBox({
+                type: "info",
+                title: "No provider keys configured",
+                message: "Nothing to reset — open Connect Provider Key to add one.",
+              });
+              return;
+            }
+            const choice = await dialog.showMessageBox({
+              type: "warning",
+              title: "Reset all provider keys?",
+              message: `This deletes saved keys for: ${configured.join(", ")}. The desktop bridge will fall back to cloud-only mode until a new key is configured.`,
+              buttons: ["Reset all", "Cancel"],
+              defaultId: 1,
+              cancelId: 1,
+            });
+            if (choice.response === 0) {
+              for (const p of PROVIDERS) clearProviderKey(p);
+              bridgeRuntime.stop();
+              dialog.showMessageBox({
+                type: "info",
+                title: "Provider keys cleared",
+                message: "Run Connect Provider Key to add a new one.",
+              });
+            }
+          }
+        },
+        { type: "separator" },
         {
           label: "Bridge Log",
           click: () => shell.openPath(bridgeRuntime.getBridgeLogPath())
@@ -220,6 +340,40 @@ function installMenu() {
           label: "Desktop Diagnostics",
           click: () => {
             void openDiagnosticsWindow(diagnosticsContext());
+          }
+        },
+        {
+          label: "Sidecar Bundle Info",
+          click: () => {
+            const manifest = bridgeRuntime.getBundleManifest();
+            if (!manifest) {
+              dialog.showMessageBox({
+                type: "info",
+                title: "No bundled sidecar",
+                message: "This build is running from a repo clone (dev mode) — no bundle manifest available.",
+              });
+              return;
+            }
+            dialog.showMessageBox({
+              type: "info",
+              title: "Sidecar Bundle",
+              message: `Source SHA: ${manifest.bundled_from_sha}${manifest.bundled_from_clean ? "" : " (dirty)"}`,
+              detail: `Bundled at: ${manifest.bundled_at}\nFiles: ${manifest.file_count}\nTotal size: ${(manifest.total_bytes / 1024).toFixed(1)} KiB\nSchema: v${manifest.schema_version}`,
+            });
+          }
+        },
+        {
+          label: "Check for Updates…",
+          click: async () => {
+            try {
+              const report = await checkForUpdate();
+              await showUpdateDialog(report);
+            } catch (err) {
+              dialog.showErrorBox(
+                "Update check failed",
+                `Could not reach GitHub (${RELEASE_REPO}): ${err instanceof Error ? err.message : String(err)}`
+              );
+            }
           }
         },
         {
@@ -269,8 +423,15 @@ if (!gotLock) {
   app.whenReady().then(async () => {
     installSecurityDefaults();
     installMenu();
+    // First-run check happens BEFORE the main window opens. If the user
+    // cancels we still boot in cloud-only mode; the bridge just runs
+    // without a provider credential and the Command Center prompts to
+    // configure one in /settings.
+    await ensureProviderConfigured();
     await bridgeRuntime.startIfAvailable();
     createWindow();
+    // Update probe in the background — non-blocking, never raises.
+    void runStartupUpdateProbe();
   });
 
   app.on("activate", () => {

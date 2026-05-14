@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; connect-src 'none'; form-action 'none';" />
+  <title>OASIS AI — Connect a provider</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #05070d;
+      --panel: #0d131f;
+      --line: #1b2a3f;
+      --text: #edf6ff;
+      --muted: #9fb1c7;
+      --dim: #607389;
+      --accent: #12d8ff;
+      --good: #58d68d;
+      --warn: #ffca65;
+      --bad: #ff7570;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 18% 12%, rgba(18,216,255,.16), transparent 24rem),
+        linear-gradient(145deg, #05070d, #08101b 58%, #04060b);
+      color: var(--text);
+      font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding: 28px;
+    }
+    header { margin-bottom: 18px; }
+    .eyebrow { color: var(--accent); text-transform: uppercase; letter-spacing: .18em; font-size: 11px; font-weight: 800; }
+    h1 { margin: 6px 0 6px; font-size: 26px; letter-spacing: -.04em; }
+    p.intro { color: var(--muted); margin: 0 0 0; max-width: 56ch; }
+    main { display: grid; gap: 18px; }
+    section.card {
+      background: rgba(13,19,31,.86);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px;
+    }
+    .tile-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+    .tile {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: rgba(255,255,255,.02);
+      cursor: pointer;
+      text-align: left;
+      transition: border-color .15s, background .15s;
+      color: var(--text);
+      font: inherit;
+    }
+    .tile:hover { border-color: rgba(18,216,255,.42); }
+    .tile.active { border-color: var(--accent); background: rgba(18,216,255,.08); }
+    .tile-name { font-weight: 700; font-size: 14px; }
+    .tile-pitch { color: var(--muted); font-size: 12px; margin-top: 4px; line-height: 1.45; }
+    label { display: block; font-weight: 700; font-size: 12px; letter-spacing: .04em; color: var(--text); margin-bottom: 6px; text-transform: uppercase; }
+    .hint { color: var(--dim); font-size: 12px; margin-top: 4px; }
+    input[type=password] {
+      width: 100%;
+      background: rgba(0,0,0,.35);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      color: var(--text);
+      font: inherit;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      letter-spacing: .03em;
+    }
+    input:focus { outline: 2px solid rgba(18,216,255,.4); outline-offset: 0; }
+    .button-row { display: flex; gap: 10px; align-items: center; margin-top: 6px; }
+    button.primary, button.secondary {
+      font: inherit;
+      font-weight: 700;
+      padding: 10px 14px;
+      border-radius: 12px;
+      cursor: pointer;
+      border: 1px solid;
+    }
+    button.primary {
+      background: rgba(18,216,255,.18);
+      border-color: rgba(18,216,255,.5);
+      color: var(--accent);
+    }
+    button.primary:disabled, button.secondary:disabled { opacity: .45; cursor: default; }
+    button.primary:hover:not(:disabled) { background: rgba(18,216,255,.28); }
+    button.secondary {
+      background: rgba(255,255,255,.04);
+      border-color: var(--line);
+      color: var(--text);
+    }
+    .status {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-size: 13px;
+      border: 1px solid transparent;
+      display: none;
+    }
+    .status.show { display: block; }
+    .status.ok { border-color: rgba(88,214,141,.4); background: rgba(88,214,141,.1); color: var(--good); }
+    .status.warn { border-color: rgba(255,202,101,.4); background: rgba(255,202,101,.1); color: var(--warn); }
+    .status.bad { border-color: rgba(255,117,112,.4); background: rgba(255,117,112,.1); color: var(--bad); }
+    code { color: var(--accent); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .footer-note { color: var(--dim); font-size: 12px; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="eyebrow">OASIS AI Desktop</div>
+    <h1>Connect a provider to get started.</h1>
+    <p class="intro">Pick where the agent should send completions. Your key stays on this machine, encrypted by the OS keychain — we never ship it to OASIS servers.</p>
+  </header>
+
+  <main>
+    <section class="card">
+      <label>1. Provider</label>
+      <div class="tile-grid" id="tiles" role="radiogroup" aria-label="Choose provider"></div>
+    </section>
+
+    <section class="card">
+      <label for="key">2. API key</label>
+      <input id="key" type="password" autocomplete="off" spellcheck="false" placeholder="Paste the key from your provider dashboard" />
+      <div class="hint" id="placeholder-hint">Paste your provider API key. We validate against the provider before saving.</div>
+      <div class="button-row">
+        <button class="primary" id="validate-btn">Validate &amp; Save</button>
+        <button class="secondary" id="get-key-btn" type="button">Get a key →</button>
+        <button class="secondary" id="cancel-btn" type="button">Skip for now</button>
+      </div>
+      <div class="status" id="status" role="status"></div>
+      <p class="footer-note">Your key never leaves this machine — Electron's safeStorage encrypts it before writing to <code>secure-store.json</code> in your user data directory. <code>Skip</code> uses cloud-only mode and you can come back from <code>OASIS AI → Reset API Key</code>.</p>
+    </section>
+  </main>
+
+  <script>
+    const PROVIDERS = [
+      { id: "openrouter", name: "OpenRouter", pitch: "One key, every model — the recommended path.", url: "https://openrouter.ai/keys", placeholder: "sk-or-v1-..." },
+      { id: "anthropic", name: "Anthropic", pitch: "Direct to Claude. Best if you already have an Anthropic account.", url: "https://console.anthropic.com/settings/keys", placeholder: "sk-ant-..." },
+      { id: "openai", name: "OpenAI", pitch: "Direct to GPT-5 + Codex.", url: "https://platform.openai.com/api-keys", placeholder: "sk-..." },
+      { id: "google", name: "Google", pitch: "Gemini family via Generative Language API.", url: "https://aistudio.google.com/apikey", placeholder: "AIza..." },
+    ];
+
+    const tilesEl = document.getElementById("tiles");
+    const keyEl = document.getElementById("key");
+    const placeholderHintEl = document.getElementById("placeholder-hint");
+    const validateBtn = document.getElementById("validate-btn");
+    const getKeyBtn = document.getElementById("get-key-btn");
+    const cancelBtn = document.getElementById("cancel-btn");
+    const statusEl = document.getElementById("status");
+
+    let selectedProvider = PROVIDERS[0].id;
+
+    function renderTiles() {
+      tilesEl.innerHTML = "";
+      for (const p of PROVIDERS) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "tile" + (p.id === selectedProvider ? " active" : "");
+        btn.setAttribute("role", "radio");
+        btn.setAttribute("aria-checked", String(p.id === selectedProvider));
+        btn.dataset.provider = p.id;
+        btn.innerHTML = `<div class="tile-name">${p.name}</div><div class="tile-pitch">${p.pitch}</div>`;
+        btn.addEventListener("click", () => {
+          selectedProvider = p.id;
+          renderTiles();
+          updatePlaceholder();
+        });
+        tilesEl.appendChild(btn);
+      }
+    }
+
+    function updatePlaceholder() {
+      const p = PROVIDERS.find((x) => x.id === selectedProvider);
+      keyEl.placeholder = p ? p.placeholder : "";
+      placeholderHintEl.textContent = `Paste your ${p ? p.name : "provider"} key. We validate against the provider before saving.`;
+    }
+
+    function showStatus(kind, message) {
+      statusEl.textContent = message;
+      statusEl.classList.remove("ok", "warn", "bad");
+      statusEl.classList.add(kind, "show");
+    }
+
+    function clearStatus() {
+      statusEl.classList.remove("ok", "warn", "bad", "show");
+      statusEl.textContent = "";
+    }
+
+    async function validateAndSave() {
+      const key = (keyEl.value || "").trim();
+      if (!key) {
+        showStatus("warn", "Paste a key first.");
+        return;
+      }
+      if (key.length < 8) {
+        showStatus("bad", "That key looks too short.");
+        return;
+      }
+      validateBtn.disabled = true;
+      cancelBtn.disabled = true;
+      showStatus("warn", "Validating against the provider...");
+      try {
+        const result = await window.oasisFirstRun.validate(selectedProvider, key);
+        if (!result?.ok) {
+          const reason = result?.reason || "unknown_error";
+          if (reason === "invalid_key") {
+            showStatus("bad", "Provider rejected the key. Check that you copied the full value.");
+          } else if (reason === "rate_limited") {
+            showStatus("warn", "Provider says rate-limited. Try again in a minute.");
+          } else if (reason === "validation_timeout") {
+            showStatus("bad", "Provider didn't respond in time. Check your network.");
+          } else {
+            showStatus("bad", `Validation failed: ${reason}`);
+          }
+          validateBtn.disabled = false;
+          cancelBtn.disabled = false;
+          return;
+        }
+        showStatus("ok", "Key validated. Saving to OS keychain...");
+        const saveResult = await window.oasisFirstRun.save(selectedProvider, key);
+        if (!saveResult?.ok) {
+          showStatus("bad", `Save failed: ${saveResult?.error || "unknown"}`);
+          validateBtn.disabled = false;
+          cancelBtn.disabled = false;
+          return;
+        }
+        // Window will close from the main process on save success.
+      } catch (err) {
+        showStatus("bad", `Unexpected error: ${err && err.message ? err.message : "see console"}`);
+        validateBtn.disabled = false;
+        cancelBtn.disabled = false;
+      }
+    }
+
+    function openProviderKeyUrl() {
+      const p = PROVIDERS.find((x) => x.id === selectedProvider);
+      if (p) {
+        // We can't shell-open from sandboxed renderer — show URL inline instead.
+        showStatus("warn", `Open this URL in your browser to get the key: ${p.url}`);
+      }
+    }
+
+    validateBtn.addEventListener("click", validateAndSave);
+    getKeyBtn.addEventListener("click", openProviderKeyUrl);
+    cancelBtn.addEventListener("click", () => window.oasisFirstRun.cancel());
+    keyEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        validateAndSave();
+      } else {
+        clearStatus();
+      }
+    });
+
+    renderTiles();
+    updatePlaceholder();
+    keyEl.focus();
+  </script>
+</body>
+</html>
