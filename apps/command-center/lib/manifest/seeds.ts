@@ -60,6 +60,10 @@ export const OASIS_SEED: TenantManifest = {
   },
 };
 
+// SunBiz Funding — fully populated tenant. Used at /t/sun/* as the
+// authoritative source. The nav hrefs target the /t/sun/<path> namespace
+// so every click lands on a manifest-driven page; the catch-all renderer
+// dispatches by `pages[].kind`.
 export const SUN_SEED: TenantManifest = {
   version: 1,
   tenant_slug: "sun",
@@ -73,7 +77,111 @@ export const SUN_SEED: TenantManifest = {
   agents: [
     { slug: "solara", display_name: "Solara", enabled: true, primary: true },
   ],
-  nav: navToManifest(SUN_NAV),
+  nav: [
+    { href: "/t/sun", label: "Dashboard", icon: "LayoutDashboard", group: "Operations" },
+    { href: "/t/sun/reasoning", label: "Reasoning", icon: "Brain", group: "Operations" },
+    { href: "/t/sun/playbook", label: "Playbook", icon: "BookOpen", group: "Operations" },
+    { href: "/t/sun/leads", label: "Leads", icon: "Users", group: "Pipeline" },
+    { href: "/t/sun/applications", label: "Applications", icon: "FileText", group: "Pipeline" },
+    { href: "/t/sun/offers", label: "Offers", icon: "HandCoins", group: "Deals" },
+    { href: "/t/sun/funded-deals", label: "Funded Deals", icon: "BadgeDollarSign", group: "Deals" },
+    { href: "/t/sun/renewals", label: "Renewals", icon: "RefreshCcw", group: "Deals" },
+    { href: "/t/sun/commissions", label: "Commissions", icon: "DollarSign", group: "Deals" },
+    { href: "/t/sun/lenders", label: "Lenders", icon: "Landmark", group: "Network" },
+    { href: "/t/sun/settings", label: "Settings", icon: "Settings", group: "System" },
+  ],
+  data_model: [
+    {
+      name: "lead",
+      label: "Lead",
+      fields: [
+        { name: "business_name", type: "string", required: true },
+        { name: "contact_name", type: "string" },
+        { name: "phone", type: "string" },
+        { name: "email", type: "string" },
+        { name: "monthly_revenue", type: "number" },
+        { name: "stage", type: "enum", enum_values: ["new", "qualified", "application_sent", "approved", "funded", "lost"], required: true },
+      ],
+    },
+    {
+      name: "application",
+      label: "Application",
+      fields: [
+        { name: "lead_id", type: "string", required: true },
+        { name: "lender_id", type: "string" },
+        { name: "requested_amount", type: "number" },
+        { name: "submitted_at", type: "datetime" },
+        { name: "status", type: "enum", enum_values: ["draft", "submitted", "in_review", "approved", "declined"] },
+      ],
+    },
+    {
+      name: "offer",
+      label: "Offer",
+      fields: [
+        { name: "application_id", type: "string", required: true },
+        { name: "lender_id", type: "string" },
+        { name: "amount", type: "number" },
+        { name: "term_months", type: "number" },
+        { name: "factor_rate", type: "number" },
+        { name: "accepted", type: "boolean" },
+      ],
+    },
+    {
+      name: "funded_deal",
+      label: "Funded Deal",
+      fields: [
+        { name: "lead_id", type: "string", required: true },
+        { name: "lender_id", type: "string" },
+        { name: "amount_funded", type: "number" },
+        { name: "funded_at", type: "date" },
+        { name: "term_months", type: "number" },
+      ],
+    },
+    {
+      name: "renewal",
+      label: "Renewal",
+      fields: [
+        { name: "funded_deal_id", type: "string", required: true },
+        { name: "due_date", type: "date" },
+        { name: "status", type: "enum", enum_values: ["upcoming", "due", "overdue", "renewed", "lost"], required: true },
+      ],
+    },
+    {
+      name: "commission",
+      label: "Commission",
+      fields: [
+        { name: "funded_deal_id", type: "string", required: true },
+        { name: "broker_share_pct", type: "number" },
+        { name: "amount", type: "number" },
+        { name: "paid", type: "boolean" },
+      ],
+    },
+    {
+      name: "lender",
+      label: "Lender",
+      fields: [
+        { name: "name", type: "string", required: true },
+        { name: "contact", type: "string" },
+        { name: "product_types", type: "string" },
+      ],
+    },
+  ],
+  pages: [
+    { path: "", label: "Solara — Today", kind: "dashboard" },
+    { path: "leads", label: "Leads", kind: "kanban", entity: "lead", config: { group_by: "stage" } },
+    { path: "applications", label: "Applications", kind: "table", entity: "application" },
+    { path: "offers", label: "Offers", kind: "table", entity: "offer" },
+    { path: "funded-deals", label: "Funded Deals", kind: "table", entity: "funded_deal" },
+    { path: "renewals", label: "Renewals", kind: "kanban", entity: "renewal", config: { group_by: "status" } },
+    { path: "commissions", label: "Commissions", kind: "table", entity: "commission" },
+    { path: "lenders", label: "Lenders", kind: "table", entity: "lender" },
+    { path: "playbook", label: "Operating Manual", kind: "markdown", config: { body: "Solara is your funding-shop agent. She watches inbound leads from JotForm, drafts follow-ups in your voice via Text Torrent, and surfaces renewal windows before they close.\n\nDay-to-day rhythm:\n\n1. Open Leads. Move the hot ones to qualified. Solara drafts the next outreach.\n2. When a lender returns a term sheet, log it under Offers and mark accepted=true to roll it into Funded Deals.\n3. Renewals tab is the revenue lane. Anything within 60 days of due_date is where Solara puts the day's outreach focus." } },
+  ],
+  default_prompts: [
+    { agent_slug: "solara", label: "Morning briefing", prompt: "Pull leads that haven't been touched in 24h, applications waiting on docs, and offers expiring this week." },
+    { agent_slug: "solara", label: "Renewal sweep", prompt: "Which funded deals are within 60 days of renewal? Draft the outreach for the top 3." },
+    { agent_slug: "solara", label: "Lender match", prompt: "For the top 3 qualified leads, recommend the best-fit lender based on monthly revenue and product type." },
+  ],
   data_backend: "turso",
   deployment_mode: "dedicated",
   permissions: { local_files: true, computer_control: false, web_access: true },
