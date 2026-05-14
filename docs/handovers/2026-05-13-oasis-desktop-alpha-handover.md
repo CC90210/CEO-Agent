@@ -51,13 +51,15 @@ Published GitHub prerelease tags:
 - `https://github.com/CC90210/CEO-Agent/releases/tag/oasis-desktop-v0.1.0-alpha.1`
 - `https://github.com/CC90210/CEO-Agent/releases/tag/oasis-desktop-v0.1.0-alpha.2`
 - `https://github.com/CC90210/CEO-Agent/releases/tag/oasis-desktop-v0.1.0-alpha.3`
+- `https://github.com/CC90210/CEO-Agent/releases/tag/oasis-desktop-v0.1.0-alpha.4`
 
-Direct alpha.3 asset URLs:
+Direct alpha.4 asset URLs:
 
-- Windows installer: `https://github.com/CC90210/CEO-Agent/releases/download/oasis-desktop-v0.1.0-alpha.3/OASIS-AI-0.1.0-win-x64.exe`
-- macOS Apple Silicon dmg: `https://github.com/CC90210/CEO-Agent/releases/download/oasis-desktop-v0.1.0-alpha.3/OASIS-AI-0.1.0-mac-arm64.dmg`
-- Linux AppImage: `https://github.com/CC90210/CEO-Agent/releases/download/oasis-desktop-v0.1.0-alpha.3/OASIS-AI-0.1.0-linux-x86_64.AppImage`
-- Linux deb: `https://github.com/CC90210/CEO-Agent/releases/download/oasis-desktop-v0.1.0-alpha.3/OASIS-AI-0.1.0-linux-amd64.deb`
+- Windows portable zip: `https://github.com/CC90210/CEO-Agent/releases/download/oasis-desktop-v0.1.0-alpha.4/OASIS-AI-0.1.0-win-x64-portable.zip`
+- Windows installer: `https://github.com/CC90210/CEO-Agent/releases/download/oasis-desktop-v0.1.0-alpha.4/OASIS-AI-0.1.0-win-x64.exe`
+- macOS Apple Silicon dmg: `https://github.com/CC90210/CEO-Agent/releases/download/oasis-desktop-v0.1.0-alpha.4/OASIS-AI-0.1.0-mac-arm64.dmg`
+- Linux AppImage: `https://github.com/CC90210/CEO-Agent/releases/download/oasis-desktop-v0.1.0-alpha.4/OASIS-AI-0.1.0-linux-x86_64.AppImage`
+- Linux deb: `https://github.com/CC90210/CEO-Agent/releases/download/oasis-desktop-v0.1.0-alpha.4/OASIS-AI-0.1.0-linux-amd64.deb`
 
 Release verification:
 
@@ -69,7 +71,10 @@ Release verification:
 - Alpha.3 desktop OAuth hotfix committed as `fa46e24 Fix desktop Google OAuth navigation`.
 - Alpha.3 cross-platform CI run succeeded for Windows, macOS, and Linux: `https://github.com/CC90210/CEO-Agent/actions/runs/25834820092`.
 - Alpha.3 selected asset hashes were generated locally in `tmp/oasis-desktop-alpha3-25834820092/SHA256SUMS-release.txt`.
-- Stable production `/download` route returns `200 OK` and references alpha.3 after Vercel deployment `agent-dashboard-awc8olr89-cc90210.vercel.app`.
+- Alpha.4 Windows Security hotfix committed as `46f3d87 Fix Windows desktop packaging path`.
+- Alpha.4 cross-platform CI run succeeded for Windows, macOS, and Linux: `https://github.com/CC90210/CEO-Agent/actions/runs/25836054826`.
+- Alpha.4 selected asset hashes were generated locally in `tmp/oasis-desktop-alpha4-25836054826/SHA256SUMS-release.txt`.
+- Stable production `/download` route returns `200 OK` and references alpha.4 after Vercel deployment verification.
 
 Important product note:
 
