@@ -156,6 +156,22 @@ assert(
   "electron-builder ships the bundled sidecar as extraResources"
 );
 
+// Live test the patterns actually catch their targets — a regex typo
+// in HARD_BLOCK would silently pass the "pattern string present" check
+// but fail to block the real path. test-bundle-hardblock.js exits 0
+// only when all must-block targets match AND all must-allow paths
+// pass AND every pattern in HARD_BLOCK has at least one test case
+// hitting it.
+const { spawnSync } = require("node:child_process");
+const hardblockTest = spawnSync(process.execPath, [path.join(root, "scripts", "test-bundle-hardblock.js")], {
+  stdio: "pipe",
+  encoding: "utf8",
+});
+assert(
+  hardblockTest.status === 0,
+  `bundle HARD_BLOCK regexes actually catch bad paths (see scripts/test-bundle-hardblock.js):\n${hardblockTest.stdout}${hardblockTest.stderr}`
+);
+
 assert(bundleScript.includes("HARD_BLOCK"), "bundle script enforces a hard-block list for secrets");
 assert(bundleScript.includes("\\.env"), "bundle script hard-blocks .env files");
 assert(bundleScript.includes("credentials"), "bundle script hard-blocks credentials* files");

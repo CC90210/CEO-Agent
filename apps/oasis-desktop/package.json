@@ -19,6 +19,7 @@
     "signing:check": "node scripts/signing-status.js",
     "sign:mac:adhoc": "bash scripts/adhoc-sign-mac.sh",
     "bundle:sidecar": "node scripts/bundle-sidecar.js",
+    "bundle:hardblock-test": "node scripts/test-bundle-hardblock.js",
     "prepack": "node scripts/bundle-sidecar.js",
     "pack": "electron-builder --dir",
     "build:win": "npm run bundle:sidecar && electron-builder --win nsis",
