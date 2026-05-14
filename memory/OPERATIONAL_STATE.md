@@ -116,4 +116,3 @@ Run `python scripts/state_sync.py --note "<one-line summary>"` after edits. The 
 - [[memory/INDEX]]
 - [[memory/ACTIVE_TASKS]]
 - [[memory/ACTIVE_TASKS.template]]
-- [[memory/CLAUDE_HANDOVER]]

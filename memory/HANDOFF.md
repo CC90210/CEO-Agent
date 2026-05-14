@@ -1,19 +1,8 @@
-# HANDOFF — Last Session
+# HANDOFF - Cross-Machine Scratchpad
 
-**From:** mac
-**At:**   2026-05-09T22:59:56Z
-**Summary:** mac command-center pairing complete — second bridge live, launchd auto-start, fixed py-bug in cmd_install
+No active cross-machine handoff.
 
-## Files touched this session
-- (none staged at handoff time)
-
-## Next machine: pick up from here
-1. bash scripts/bravo-session-start.sh
-2. Read brain/STATE.md and memory/ACTIVE_TASKS.md
-3. Continue the work described above
-
-## Notes for the next session
-(add context if needed — edit this file before commit)
+Keep this file as the protocol scratchpad used by `brain/CROSS_MACHINE_SYNC.md`. Completed work belongs in `memory/SESSION_LOG.md`; durable decisions belong in `memory/DECISIONS.md`.
 
 ## Related
 
