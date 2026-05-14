@@ -237,4 +237,4 @@ function main() {
 
 if (require.main === module) main();
 
-module.exports = { main, SIDECAR_OUT };
+module.exports = { HARD_BLOCK, isHardBlocked, main, SIDECAR_OUT };
