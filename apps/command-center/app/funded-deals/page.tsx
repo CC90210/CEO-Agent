@@ -7,14 +7,14 @@ export default function FundedDealsPage() {
   return (
     <ComingSoon
       title="Funded Deals"
-      subtitle="Wired deals · the heart of the operation"
+      subtitle="Closed funding deals and renewal opportunities"
       icon={BadgeDollarSign}
       phase2Bullets={[
-        "Migration 041: funded_deals table (merchant_name, contact_name, lender_id, funded_amount_usd, factor_rate, funded_at, next_renewal_date, est_commission_usd)",
-        "Filter by lender, TAR band, month-to-date, year-to-date",
-        "Per-deal timeline: application → offer → funded → renewal lifecycle",
-        "Emits SUNBIZ_DEAL_FUNDED on insert (kicks renewal scheduling + commission booking)",
-        "Renewal scanner (PM2 nightly) reads from here to surface the /renewals view",
+        "Closed deals will show merchant, lender, amount, rate, funding date, next renewal window, and estimated commission.",
+        "Filter by lender, funding band, month-to-date, and year-to-date.",
+        "Each deal gets a timeline: application, offer, funded, renewal.",
+        "New funded deals will automatically feed renewals and commissions.",
+        "Solara will check these deals for renewal opportunities.",
       ]}
       related={[
         { href: "/renewals", label: "Renewals" },

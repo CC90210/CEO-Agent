@@ -7,13 +7,13 @@ export default function TemplatesPage() {
   return (
     <ComingSoon
       title="Templates"
-      subtitle="Email + SMS template library · merge-var aware"
+      subtitle="Email and SMS templates for approved follow-up"
       icon={FileCode2}
       phase2Bullets={[
-        "Edit-in-place editor over the 6 HTML email templates already shipped in Marketing-Agent's templates/email/ (business_capital_tiers, urgency_fast_funding, problem_solution, premium_executive, minimal_clean, grid_restaurant_hospitality)",
-        "SMS template library: pre-approved bodies with TCPA-compliant opt-out language already baked in",
-        "Merge-var preview against a real contact row",
-        "Per-template send stats (open rate, reply rate, application rate)",
+        "Edit approved email templates directly from the Command Center.",
+        "SMS templates will include compliant opt-out language by default.",
+        "Preview each message with a real contact before sending.",
+        "Track opens, replies, and application results per template.",
       ]}
       related={[
         { href: "/email-blast", label: "Email Blast" },

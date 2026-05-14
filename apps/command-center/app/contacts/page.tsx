@@ -7,13 +7,13 @@ export default function ContactsPage() {
   return (
     <ComingSoon
       title="Contacts"
-      subtitle="Engaged merchants · converted from leads"
+      subtitle="Engaged merchants and active relationships"
       icon={BookUser}
       phase2Bullets={[
-        "Migration 038: contacts table (separate from leads — leads convert to contacts on first reply/application)",
-        "Per-contact SMS + email history (deduplicated across providers)",
-        "Linked applications, offers, funded deals, renewals from one merchant view",
-        "TAR-band classification displayed inline",
+        "Leads can become contacts once someone replies or submits an application.",
+        "Each contact will show SMS and email history in one place.",
+        "Applications, offers, funded deals, and renewals will connect back to the same merchant.",
+        "Solara will surface funding-fit notes inline.",
       ]}
       related={[
         { href: "/leads", label: "Leads" },
