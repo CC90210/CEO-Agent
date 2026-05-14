@@ -68,17 +68,18 @@ export const getManifest = cache(async (slug: string | null | undefined): Promis
  * Adapter — convert a manifest nav array (snake_case, source-of-truth) into
  * the existing Sidebar's NavItem shape (lowerCamelCase).
  *
- * Phase 3 extension: enabled agents from manifest.agents auto-surface as a
- * sidebar group called "Agents" so subscribing to an agent in the marketplace
- * immediately makes it reachable from the shell. We only append items the
- * operator hasn't already placed manually — explicit nav entries always win
- * so reorders are preserved.
+ * Each tenant's `Agents` nav item (built into every template) is the SINGLE
+ * entry point to the agent surface — it renders a chat page that picks
+ * which enabled agent to talk to from a dropdown. Earlier versions of this
+ * adapter auto-injected one sidebar slot per enabled agent ("Bravo"
+ * "Atlas" "Maven" listed beneath the rest of the nav), which produced
+ * REDUNDANCY with the Agents page and was confusing for clients. Removed.
+ *
+ * If the operator wants individual agents pinned to the sidebar, they
+ * can add explicit nav items via the AI manifest editor.
  */
-export function manifestNavToNavItems(
-  items: ManifestNavItem[],
-  opts: { agents?: TenantManifest["agents"]; tenantSlug?: string } = {}
-): NavItem[] {
-  const baseNav: NavItem[] = items.map((item) => ({
+export function manifestNavToNavItems(items: ManifestNavItem[]): NavItem[] {
+  return items.map((item) => ({
     href: item.href,
     label: item.label,
     icon: item.icon,
@@ -86,36 +87,6 @@ export function manifestNavToNavItems(
     badgeKey: item.badge_key,
     expandable: item.expandable,
   }));
-
-  if (!opts.agents || opts.agents.length === 0) return baseNav;
-
-  // Auto-derive a slot per enabled agent that the manifest hasn't already
-  // surfaced manually. Hrefs land on the manifest-driven chat route under
-  // the tenant slug; falls back to the legacy /agent path when the tenant
-  // slug isn't resolved (e.g. operator's first session before the manifest
-  // exists in the DB).
-  const tenantPath = opts.tenantSlug ? `/t/${opts.tenantSlug}` : "";
-  const explicitHrefs = new Set(baseNav.map((n) => n.href));
-  const enabledAgents = [...opts.agents]
-    .filter((a) => a.enabled)
-    .sort((a, b) => {
-      if (!!a.primary !== !!b.primary) return a.primary ? -1 : 1;
-      return a.display_name.localeCompare(b.display_name);
-    });
-
-  const derived: NavItem[] = [];
-  for (const agent of enabledAgents) {
-    const tenantHref = `${tenantPath}/agent/${agent.slug}`;
-    const legacyHref = `/agent/${agent.slug}`;
-    if (explicitHrefs.has(tenantHref) || explicitHrefs.has(legacyHref)) continue;
-    derived.push({
-      href: tenantHref || legacyHref,
-      label: agent.display_name,
-      icon: "Bot",
-      group: "Agents",
-    });
-  }
-  return [...baseNav, ...derived];
 }
 
 /**
