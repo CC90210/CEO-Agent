@@ -86,6 +86,7 @@ import argparse
 import json
 import math
 import os
+import re
 import smtplib
 import sys
 import uuid
@@ -131,11 +132,11 @@ except ImportError:
 
 # ---- Canonical constants ----------------------------------------------------
 
-# Cooldown windows per channel (hours). Set to 0 to disable per-lead cooldown.
-# CC's directive 2026-05-11: "We should be able to send emails whenever we want."
-# Daily + hourly caps still protect domain reputation.
+# Cooldown windows per channel. Manual operator overrides can still pass
+# cooldown_hours=0 for a specific approved send, but the default path must
+# protect against an agent repeatedly hitting the same lead.
 DEFAULT_COOLDOWNS: dict[str, int] = {
-    "email": 0,         # no per-lead cooldown — daily/hourly caps are the guard
+    "email": 72,        # 3 days between cold emails to the same lead
     "instagram": 48,    # 2 days between DMs
     "phone": 168,       # 7 days between calls
     "skool": 24,        # 1 day — community is higher frequency
@@ -275,6 +276,21 @@ def _env_ratio(env: dict[str, str], key: str, default: float) -> float:
     if value > 1:
         value /= 100.0
     return max(0.0, min(1.0, value))
+
+
+UNRESOLVED_TEMPLATE_TOKEN_RE = re.compile(r"\{\{\s*([^}]+?)\s*\}\}")
+
+
+def _find_unresolved_template_tokens(**fields: Optional[str]) -> list[str]:
+    """Return unresolved template token names still present in message fields."""
+    found: list[str] = []
+    for field_name, value in fields.items():
+        for token in UNRESOLVED_TEMPLATE_TOKEN_RE.findall(value or ""):
+            name = token.strip()
+            label = f"{field_name}:{name}"
+            if label not in found:
+                found.append(label)
+    return found
 
 
 def _sql_literal(value: Any) -> str:
@@ -1302,10 +1318,13 @@ def _build_email_mime(
         add_list_unsubscribe_headers(outer, to_email)
 
     # Body part — text/plain always, text/html optional
+    # Explicit charset="utf-8" prevents edge-case mojibake on Windows
+    # where Python's auto-detect can pick the wrong encoding for
+    # characters like em dash (U+2014). See 2026-05-13 incident.
     body_alt = MIMEMultipart("alternative")
-    body_alt.attach(MIMEText(body_text, "plain"))
+    body_alt.attach(MIMEText(body_text, "plain", "utf-8"))
     if body_html:
-        body_alt.attach(MIMEText(body_html, "html"))
+        body_alt.attach(MIMEText(body_html, "html", "utf-8"))
     outer.attach(body_alt)
 
     # Optional .ics calendar invite attachment
@@ -1350,7 +1369,7 @@ def _send_email_smtp(
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as smtp:
             smtp.login(gmail_user, gmail_pass)
-            smtp.sendmail(gmail_user, to_email, mime.as_string())
+            smtp.sendmail(gmail_user, to_email, mime.as_bytes())
         _ping_health("gws", status="healthy", metadata={"source": "send_gateway.smtp_send"})
         return True, None
     except smtplib.SMTPAuthenticationError:
@@ -1498,6 +1517,24 @@ def send(
                 "lead_id": lead_id, "interaction_id": None,
                 "cooldown_until": None, "daily_count": None}
 
+    # ---- Gate 1c: unresolved template placeholder rejection ----
+    # This is deliberately deterministic and independent of the AI critic.
+    # The 2026-05-13 incident shipped `{{company}}` because the renderer left
+    # missing variables in place and the critic gate had been made advisory.
+    # No real email should ever leave with raw template tokens visible.
+    if channel == "email":
+        unresolved_tokens = _find_unresolved_template_tokens(
+            subject=subject,
+            body_text=body_text,
+            body_html=body_html,
+        )
+        if unresolved_tokens:
+            return {"status": "blocked",
+                    "reason": ("unresolved template placeholder(s): "
+                               f"{', '.join(unresolved_tokens[:10])}"),
+                    "lead_id": lead_id, "interaction_id": None,
+                    "cooldown_until": None, "daily_count": None}
+
     # ---- Gate 2 + 3: cooldown + daily cap (skipped for internal/transactional) ----
     if intent not in {"internal", "transactional"}:
         check = can_act(
@@ -1543,11 +1580,10 @@ def send(
         })
 
         if intent == "commercial" and _env_bool(env, "DRAFT_CRITIC_ENABLED", True):
-            # Fail-closed gate. The critic is the last automated check
-            # before a real send. Any non-`ship` verdict blocks, and any
-            # exception in the critic ALSO blocks — better to escalate
-            # to CC than to silently bypass the safety review when the
-            # gate itself is down.
+            # Fail-closed quality gate. Non-ship verdicts block. The only
+            # optional fail-open path is an explicit operator env override for
+            # critic unavailability, never for a real rejection.
+            fail_open_unavailable = _env_bool(env, "DRAFT_CRITIC_FAIL_OPEN", False)
             try:
                 critic_result = critique_draft(
                     draft_subject=subject,  # type: ignore[arg-type]
@@ -1557,23 +1593,51 @@ def send(
                     env=env,
                 )
             except Exception as critic_exc:  # noqa: BLE001
-                return {"status": "blocked",
-                        "reason": f"draft_critic unavailable: {critic_exc}",
-                        "lead_id": lead_id, "interaction_id": None,
-                        "cooldown_until": None, "daily_count": None}
+                if fail_open_unavailable:
+                    print(
+                        f"[send_gateway] draft_critic unavailable ({critic_exc})"
+                        " — DRAFT_CRITIC_FAIL_OPEN=true, sending anyway.",
+                        file=sys.stderr,
+                    )
+                    critic_result = {"verdict": "ship", "score": 0,
+                                     "notes": f"critic unavailable: {critic_exc}"}
+                else:
+                    return {"status": "blocked",
+                            "reason": f"draft_critic unavailable: {critic_exc}",
+                            "lead_id": lead_id, "interaction_id": None,
+                            "cooldown_until": None, "daily_count": None}
             verdict = critic_result.get("verdict")
             if verdict != "ship":
                 reasons = critic_result.get("reasons") or []
+                issues = critic_result.get("issues") or []
                 reason_text = (
                     "; ".join(str(r) for r in reasons[:5])
                     or critic_result.get("notes")
                     or verdict
                     or "rejected"
                 )
-                return {"status": "blocked",
-                        "reason": f"draft_critic rejected: {reason_text}",
-                        "lead_id": lead_id, "interaction_id": None,
-                        "cooldown_until": None, "daily_count": None}
+                issue_types = {
+                    str(i.get("type") or "").strip()
+                    for i in issues
+                    if isinstance(i, dict)
+                }
+                critic_unavailable = (
+                    ("draft_critic unavailable" in reason_text.lower()
+                     or "critic failed" in reason_text.lower()
+                     or "critic unavailable" in reason_text.lower())
+                    and (not issue_types or issue_types == {"critic_unavailable"})
+                )
+                if fail_open_unavailable and critic_unavailable:
+                    print(
+                        f"[send_gateway] draft_critic unavailable ({reason_text})"
+                        " — DRAFT_CRITIC_FAIL_OPEN=true, sending anyway.",
+                        file=sys.stderr,
+                    )
+                else:
+                    return {"status": "blocked",
+                            "reason": f"draft_critic rejected: {reason_text}",
+                            "lead_id": lead_id, "interaction_id": None,
+                            "cooldown_until": None, "daily_count": None}
 
         reservation = reserve_send_slot(
             db=db,

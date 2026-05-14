@@ -766,6 +766,49 @@ class TestSendGateway(unittest.TestCase):
         self.assertIn("draft_critic unavailable", r["reason"])
         self.assertEqual(len(self.db.tables["lead_interactions"].rows), 0)
 
+    def test_16d_unresolved_template_placeholders_block_before_critic(self):
+        with self._patch_smtp_ok(), self._patch_suppress(False):
+            r = self.sg.send(
+                channel="email",
+                agent_source="test_harness",
+                to_email="jane@acme.example",
+                subject="{{company}} lead follow-up",
+                body_text="Hi Jane,\n\nI was just on {{company}}'s site.",
+                body_html="<p>I was just on {{company}}'s site.</p>",
+                db=self.db,
+            )
+        self.assertEqual(r["status"], "blocked")
+        self.assertIn("unresolved template placeholder", r["reason"])
+        self.assertIn("company", r["reason"])
+        self.assertEqual(len(self.db.tables["lead_interactions"].rows), 0)
+        self.sg.critique_draft.assert_not_called()
+
+    def test_16e_fail_open_env_does_not_bypass_real_critic_rejection(self):
+        original_load_env = self.sg.load_env
+
+        def fail_open_env():
+            base = original_load_env() or {}
+            base["DRAFT_CRITIC_FAIL_OPEN"] = "true"
+            return base
+
+        with (
+            mock.patch.object(self.sg, "load_env", side_effect=fail_open_env),
+            self._patch_smtp_ok(),
+            self._patch_suppress(False),
+            self._patch_critic("reject", ["spammy opening"]),
+        ):
+            r = self.sg.send(
+                channel="email",
+                agent_source="test_harness",
+                to_email="jane@acme.example",
+                subject="hi",
+                body_text="hi",
+                db=self.db,
+            )
+        self.assertEqual(r["status"], "blocked")
+        self.assertIn("draft_critic rejected", r["reason"])
+        self.assertEqual(len(self.db.tables["lead_interactions"].rows), 0)
+
     def test_17_advisory_lock_contention_blocks(self):
         self.db.force_lock_contention = True
         with self._patch_smtp_ok(), self._patch_suppress(False):
