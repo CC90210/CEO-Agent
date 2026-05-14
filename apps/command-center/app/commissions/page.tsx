@@ -7,14 +7,14 @@ export default function CommissionsPage() {
   return (
     <ComingSoon
       title="Commissions"
-      subtitle="Booked commission ledger · by lender / agent / TAR band"
+      subtitle="Booked commissions by lender, deal, and rep"
       icon={DollarSign}
       phase2Bullets={[
-        "Migration 043: commissions table (deal_id, agent_user_id, lender_id, amount_usd, status: pending|paid|clawed_back)",
-        "Auto-booked on SUNBIZ_DEAL_FUNDED with computed amount from lender commission %",
-        "Renewals book a second commission when the renewal closes (upside on the same merchant relationship)",
-        "Period summaries (MTD, YTD, by-rep) with CSV export",
-        "Reconciliation against lender remittances",
+        "Commissions will be tied back to the exact deal, lender, and team member.",
+        "New funded deals can create the expected commission automatically.",
+        "Renewals can book a second commission on the same merchant relationship.",
+        "Summaries will show month-to-date, year-to-date, and by-rep totals.",
+        "Reconciliation will help compare expected commissions against lender payments.",
       ]}
       related={[
         { href: "/funded-deals", label: "Funded Deals" },

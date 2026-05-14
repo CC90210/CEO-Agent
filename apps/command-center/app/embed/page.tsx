@@ -11,9 +11,9 @@ export default function EmbedPage() {
       icon={Code2}
       phase2Bullets={[
         "Generate a JotForm-style script snippet Sun can paste on their site",
-        "Lead-capture form posts to the same Supabase tenant_id-scoped pipeline (emits SUNBIZ_LEAD_SOURCED)",
-        "Customize colors, fields, qualification gates per embed",
-        "Per-domain tracking — see which page on Sun's site converts highest",
+        "New website leads will land in the same Solara pipeline as every other lead.",
+        "Customize colors, fields, and qualification questions per form.",
+        "See which page on Sun's site converts best.",
       ]}
       related={[{ href: "/leads", label: "Leads" }, { href: "/import", label: "Import" }]}
     />

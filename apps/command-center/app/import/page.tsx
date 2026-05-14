@@ -7,14 +7,14 @@ export default function ImportPage() {
   return (
     <ComingSoon
       title="Import"
-      subtitle="CSV ingestion · bulk lead + contact loading"
+      subtitle="Bulk lead and contact loading"
       icon={Upload}
       phase2Bullets={[
-        "CSV upload UI with column mapping (Name / Phone / Email / Business / Revenue / TAR-band)",
-        "Server-side dedup against existing leads + contacts on phone + email hashes",
-        "Backed by /api/import/upload which feeds deal_tracker.py ingest worker in the Sun Biz Agent",
-        "Progress + error report per row (CSV out)",
-        "Audit log via SUNBIZ_LEAD_SOURCED events (one per new row)",
+        "Upload a spreadsheet and match columns like name, phone, email, business, revenue, and funding band.",
+        "Solara will check for duplicates before adding new records.",
+        "Each import will show progress, skipped rows, and anything that needs review.",
+        "A clean report will be available after each upload.",
+        "New records will flow into the same lead pipeline the team uses every day.",
       ]}
       related={[{ href: "/leads", label: "Leads" }]}
     />

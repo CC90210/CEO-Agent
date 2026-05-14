@@ -181,7 +181,7 @@ export default async function RenewalsPage() {
 
       {rows.length === 0 ? (
         <Card>
-          <EmptyState message="No funded deals yet. Renewal cards will populate as deals close and the renewal scanner runs nightly." />
+          <EmptyState message="No funded deals yet. Renewal cards will appear as deals close and Solara checks the follow-up window." />
         </Card>
       ) : (
         <div className="space-y-6">
