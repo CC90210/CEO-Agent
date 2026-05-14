@@ -230,7 +230,7 @@ export function AgentSubscriptionPanel({
         )}
         {canBuildCustom && (
           <a
-            href={`/t/${tenantSlug}/marketplace/build?edit=${agentSlug}`}
+            href={`/t/${tenantSlug}/marketplace/new?edit=${agentSlug}`}
             className="block text-center text-xs text-fg-dim hover:text-fg pt-1"
           >
             Edit the underlying agent definition →
