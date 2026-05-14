@@ -104,6 +104,12 @@ export const REAL_ESTATE_TEMPLATE: TenantManifest = {
   onboarding_industry: "real_estate",
   data_backend: "supabase",
   deployment_mode: "shared",
+  tier: {
+    label: "Starter",
+    setup_complexity: "Self-serve",
+    monthly_price_hint: "$49/mo",
+    summary: "Lead pipeline + property + deal tracking.",
+  },
   meta: { created_at: NOW, updated_at: NOW, schema_version: MANIFEST_SCHEMA_VERSION },
 };
 
@@ -118,10 +124,15 @@ export const BUSINESS_FUNDING_TEMPLATE: TenantManifest = {
     footer_tagline: "Funded deals over noise.",
   },
   agents: [
+    // Operational primary — backend admin, Chrome jobs, data collection, workflow runner.
     { slug: "solara", display_name: "Solara", enabled: true, primary: true },
+    // Brand-facing sales persona — outreach, SMS follow-ups, closing voice.
+    { slug: "helios", display_name: "Helios", enabled: true },
   ],
   nav: [
     { href: "/", label: "Dashboard", icon: "LayoutDashboard", group: "Operations" },
+    // Multi-agent switcher — Solara (operational) + Helios (sales) under one chat surface.
+    { href: "/agent", label: "Agents", icon: "Bot", group: "Operations" },
     { href: "/reasoning", label: "Reasoning", icon: "Brain", group: "Operations" },
     { href: "/leads", label: "Leads", icon: "Users", group: "Pipeline" },
     { href: "/applications", label: "Applications", icon: "FileText", group: "Pipeline", badge_key: "applications" },
@@ -179,11 +190,19 @@ export const BUSINESS_FUNDING_TEMPLATE: TenantManifest = {
   permissions: { local_files: true, computer_control: false, web_access: true },
   default_prompts: [
     { agent_slug: "solara", label: "Morning briefing", prompt: "Pull leads that haven't been touched in 24h, applications waiting on docs, and offers expiring this week." },
-    { agent_slug: "solara", label: "Renewal sweep", prompt: "Which funded deals are within 60 days of renewal? Draft the outreach for the top 3." },
+    { agent_slug: "solara", label: "Renewal sweep", prompt: "Which funded deals are within 60 days of renewal? Surface the top 3 by amount." },
+    { agent_slug: "helios", label: "Draft cold outreach", prompt: "Draft a first-touch SMS for a freshly qualified lead. Sound human, not corporate." },
+    { agent_slug: "helios", label: "Follow-up cadence", prompt: "Draft a 3-touch revival sequence over 7 days for leads that ghosted after the application step." },
   ],
   onboarding_industry: "business_funding",
   data_backend: "turso",
   deployment_mode: "dedicated",
+  tier: {
+    label: "Pro",
+    setup_complexity: "Guided",
+    monthly_price_hint: "Custom",
+    summary: "Funding shop: Solara + Helios, full pipeline.",
+  },
   integrations: [
     { kind: "jotform", enabled: true },
     { kind: "twilio", enabled: true },
@@ -262,6 +281,12 @@ export const ECOMMERCE_TEMPLATE: TenantManifest = {
   onboarding_industry: "ecommerce",
   data_backend: "supabase",
   deployment_mode: "shared",
+  tier: {
+    label: "Starter",
+    setup_complexity: "Self-serve",
+    monthly_price_hint: "$49/mo",
+    summary: "Orders, products, customers in one shell.",
+  },
   meta: { created_at: NOW, updated_at: NOW, schema_version: MANIFEST_SCHEMA_VERSION },
 };
 
@@ -324,6 +349,12 @@ export const AGENCY_TEMPLATE: TenantManifest = {
   onboarding_industry: "agency",
   data_backend: "supabase",
   deployment_mode: "shared",
+  tier: {
+    label: "Pro",
+    setup_complexity: "Guided",
+    monthly_price_hint: "$99/mo",
+    summary: "Clients, projects, retainers tracked end-to-end.",
+  },
   meta: { created_at: NOW, updated_at: NOW, schema_version: MANIFEST_SCHEMA_VERSION },
 };
 
@@ -337,8 +368,12 @@ export const CUSTOM_TEMPLATE: TenantManifest = {
     footer_label: "Custom · powered by OASIS AI",
     footer_tagline: "Build it your way.",
   },
+  // Custom (C-suite) tier ships the full operations C-suite by default.
+  // CC manually scopes which agents stay enabled when configuring the customer.
   agents: [
     { slug: "bravo", display_name: "Bravo", enabled: true, primary: true },
+    { slug: "atlas", display_name: "Atlas", enabled: true },
+    { slug: "maven", display_name: "Maven", enabled: true },
   ],
   nav: [
     { href: "/", label: "Dashboard", icon: "LayoutDashboard", group: "Operations" },
@@ -349,6 +384,12 @@ export const CUSTOM_TEMPLATE: TenantManifest = {
   onboarding_industry: "custom",
   data_backend: "supabase",
   deployment_mode: "shared",
+  tier: {
+    label: "Enterprise",
+    setup_complexity: "Done-for-you",
+    monthly_price_hint: "Custom",
+    summary: "C-suite package: Bravo, Atlas, Maven. Setup required.",
+  },
   meta: { created_at: NOW, updated_at: NOW, schema_version: MANIFEST_SCHEMA_VERSION },
 };
 
@@ -411,7 +452,8 @@ export const WIZARD_QUESTIONS: Record<TemplateKey, WizardQuestion[]> = {
       { value: "50_200", label: "50–200" },
       { value: "200_plus", label: "200+" },
     ]},
-    { id: "agent_name", prompt: "What should your AI agent be called?", hint: "We default to Solara; rename if you want.", kind: "text", placeholder: "Solara" },
+    { id: "primary_agent_name", prompt: "Name your operations agent.", hint: "Runs the back office — pipeline, applications, lender match, renewals. Default: Solara.", kind: "text", placeholder: "Solara" },
+    { id: "sales_agent_name", prompt: "Name your sales-facing agent.", hint: "Cold outreach, SMS follow-ups, closing voice. Default: Helios.", kind: "text", placeholder: "Helios" },
     { id: "tagline", prompt: "A short footer tagline.", kind: "text", placeholder: "Funded deals over noise." },
   ],
   ecommerce: [

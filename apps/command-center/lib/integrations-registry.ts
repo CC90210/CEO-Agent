@@ -46,7 +46,7 @@ export type IntegrationDef = {
   setup_doc_url?: string;
   setup_complexity: SetupComplexity;
   /** Which agent(s) actually use this integration. */
-  used_by?: ("bravo" | "atlas" | "maven" | "aura" | "hermes" | "sunbiz" | "suga_sean")[];
+  used_by?: ("bravo" | "atlas" | "maven" | "aura" | "hermes" | "solara" | "helios" | "lyra")[];
   /** For api_key kind: which env var the key-paste modal writes to in
    *  .env.agents. If omitted, modal won't appear and the user falls back
    *  to the manual signup_url + api_key_url affordance. */
@@ -156,7 +156,9 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     signup_url: "https://console.twilio.com/",
     api_key_url: "https://console.twilio.com/",
     setup_complexity: "simple",
-    used_by: ["sunbiz"],
+    // SMS belongs to the sales-facing voice (Helios). Solara reads the data
+    // back through the integration but doesn't send.
+    used_by: ["helios"],
     env_key: "TWILIO_ACCOUNT_SID",
   },
 
@@ -375,7 +377,8 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     signup_url: "https://www.jotform.com/",
     api_key_url: "https://www.jotform.com/",
     setup_complexity: "simple",
-    used_by: ["sunbiz"],
+    // Intake forms feed Solara's operational pipeline.
+    used_by: ["solara"],
     env_key: "JOTFORM_WEBHOOK_URL",
   },
   {

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Sparkles } from "lucide-react";
-import { getSessionUser, getServiceSupabase } from "@/lib/supabase-server";
+import { getSessionUser, getServiceSupabase, isOasisOperator } from "@/lib/supabase-server";
 import { OnboardingFlow } from "@/components/landing/OnboardingFlow";
 import { PairingStatus } from "@/components/landing/PairingStatus";
 import { OasisLogo } from "@/components/brand/OasisLogo";
@@ -42,6 +42,13 @@ export default async function OnboardingPage() {
     return null;
   });
   if (!user) redirect("/login?next=/onboarding");
+  // The legacy /onboarding flow ships the OASIS C-suite picker — operator
+  // chrome that client tenants should never see. Send non-operators to the
+  // industry-template wizard instead. Middleware also redirects new signups
+  // straight to /onboarding/wizard; this catches direct-URL hits.
+  if (!isOasisOperator(user)) {
+    redirect("/onboarding/wizard");
+  }
   const initialPaired = await _initialPaired(user.id);
 
   return (

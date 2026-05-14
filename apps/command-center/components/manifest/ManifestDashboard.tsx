@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { Bot } from "lucide-react";
 import { Card, Stat, Tag } from "@/components/Card";
 import { listRecords, type TenantRecord } from "@/lib/manifest/data";
 import type { TenantManifest } from "@/lib/manifest/schema";
@@ -49,6 +51,8 @@ export async function ManifestDashboard({ manifest, tenantId, demoRowsByEntity }
     })
   );
 
+  const enabledAgents = manifest.agents.filter((a) => a.enabled);
+
   return (
     <div className="space-y-4">
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -61,6 +65,42 @@ export async function ManifestDashboard({ manifest, tenantId, demoRowsByEntity }
           />
         ))}
       </section>
+
+      {enabledAgents.length > 0 && (
+        <Card
+          title="Your agents"
+          subtitle={
+            enabledAgents.length === 1
+              ? "One agent on this workspace."
+              : `${enabledAgents.length} agents on this workspace — switch between them in chat.`
+          }
+        >
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {enabledAgents.map((agent) => (
+              <li
+                key={agent.slug}
+                className="flex items-center justify-between rounded-lg border border-bg-border bg-bg-elev/40 px-3 py-2"
+              >
+                <div className="flex items-center gap-2">
+                  <Bot className="h-4 w-4 text-accent" aria-hidden />
+                  <div>
+                    <div className="font-medium text-sm text-fg">{agent.display_name}</div>
+                    <div className="text-[10px] uppercase tracking-wider text-fg-dim">
+                      {agent.primary ? "primary" : "sub-agent"}
+                    </div>
+                  </div>
+                </div>
+                <Link
+                  href={`/agent?agent=${encodeURIComponent(agent.slug)}`}
+                  className="text-xs font-semibold text-accent hover:text-accent/80"
+                >
+                  Chat
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <Card
         title="Live entities"
