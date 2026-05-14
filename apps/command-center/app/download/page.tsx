@@ -17,18 +17,20 @@ export const dynamic = "force-dynamic";
 
 const VERSION = "0.1.0";
 const CHANNEL = "alpha";
-const RELEASE_TAG = "oasis-desktop-v0.1.0-alpha.3";
+const RELEASE_TAG = "oasis-desktop-v0.1.0-alpha.4";
 const RELEASE_URL = `https://github.com/CC90210/CEO-Agent/releases/tag/${RELEASE_TAG}`;
+const WINDOWS_PORTABLE_URL = `https://github.com/CC90210/CEO-Agent/releases/download/${RELEASE_TAG}/OASIS-AI-0.1.0-win-x64-portable.zip`;
 const WINDOWS_INSTALLER_URL = `https://github.com/CC90210/CEO-Agent/releases/download/${RELEASE_TAG}/OASIS-AI-0.1.0-win-x64.exe`;
 const MAC_DMG_URL = `https://github.com/CC90210/CEO-Agent/releases/download/${RELEASE_TAG}/OASIS-AI-0.1.0-mac-arm64.dmg`;
 const LINUX_APPIMAGE_URL = `https://github.com/CC90210/CEO-Agent/releases/download/${RELEASE_TAG}/OASIS-AI-0.1.0-linux-x86_64.AppImage`;
 const LINUX_DEB_URL = `https://github.com/CC90210/CEO-Agent/releases/download/${RELEASE_TAG}/OASIS-AI-0.1.0-linux-amd64.deb`;
 const CHECKSUM_URL = `https://github.com/CC90210/CEO-Agent/releases/download/${RELEASE_TAG}/SHA256SUMS-release.txt`;
 const CHECKSUMS = [
-  "Windows: 970984ea1c8d5a73249278ce8dbfab7f00181c1332815a17584e53fa2d990564",
-  "macOS: d8e25ca09fefc7a375976ff954fbdd778859a5291fd13524fca2193d3788d354",
-  "Linux AppImage: f1b044d47eeb8077a3ae803c13699cc89fe3ff1dfe895a3762850f5ede75451b",
-  "Linux deb: 97fb912f42ccc120677334ea3a1c0b4ed7e7bbd8d4edda4f10a1696b1da7e322",
+  "Windows portable zip: 07dea7cf78ce4ae36321dbdebb0e0c246dbf0c173699c2bd31e3fa9fa88e9c76",
+  "Windows installer: 18e09eb6efd275d06c6b2f8f1e116f3edfe9635e888b0d6fb04cf069f3db23cd",
+  "macOS: 3119cdd4f3e6b7e7f61e715375fa980937964abedc8a393d9d8273bc120d6d63",
+  "Linux AppImage: 7df499a4fe4d0f9746d41ff6e13b85bcc6368ec59287820f288fa1508f5ef777",
+  "Linux deb: 0fc038c210e54b331169f8d443d12fa423eb0a43c5a900ec051e66e36bce33ab",
 ];
 
 export default function DownloadPage() {
@@ -79,7 +81,10 @@ export default function DownloadPage() {
             It runs as a desktop app and prepares the local runtime for files, tools, automations, and provider-powered agents.
           </p>
           <div className="mt-8 grid gap-3 sm:grid-cols-2">
-            <a href={WINDOWS_INSTALLER_URL} className="btn-send !px-5 !py-3 text-sm">
+            <a href={WINDOWS_PORTABLE_URL} className="btn-send !px-5 !py-3 text-sm">
+              <Download className="h-4 w-4" /> Windows zip recommended
+            </a>
+            <a href={WINDOWS_INSTALLER_URL} className="btn-secondary !px-5 !py-3 text-sm">
               <Download className="h-4 w-4" /> Windows installer
             </a>
             <a href={MAC_DMG_URL} className="btn-secondary !px-5 !py-3 text-sm">
@@ -94,6 +99,10 @@ export default function DownloadPage() {
             <a href={CHECKSUM_URL} target="_blank" rel="noopener noreferrer" className="btn-secondary !px-5 !py-3 text-sm">
               SHA-256 checksum
             </a>
+          </div>
+          <div className="mt-4 rounded-xl border border-accent/25 bg-accent/10 p-4 text-sm leading-relaxed text-fg-muted">
+            <strong className="text-fg">Windows note:</strong> if your security blocks the installer, use the Windows zip.
+            Save it to Downloads, extract it to a normal folder, then open <span className="font-mono text-accent">OASIS AI.exe</span> from the extracted folder.
           </div>
           <div className="mt-5 rounded-xl border border-bg-border bg-bg-elev/50 p-4 font-mono text-xs text-fg-dim">
             <div className="mb-2 uppercase tracking-[0.14em] text-fg-muted">Current checksums</div>
@@ -131,9 +140,10 @@ export default function DownloadPage() {
           <Panel title="How To Download" icon={<Download className="h-5 w-5" />}>
             <ol className="space-y-2 text-sm text-fg-muted">
               <li>1. Pick the download for your operating system.</li>
-              <li>2. Install or open the alpha app.</li>
-              <li>3. Sign in to the Command Center.</li>
-              <li>4. Choose provider connection and desktop access.</li>
+              <li>2. On Windows, use the zip first if your security blocks temp-launched apps.</li>
+              <li>3. Install or open the alpha app.</li>
+              <li>4. Sign in to the Command Center.</li>
+              <li>5. Choose provider connection and desktop access.</li>
             </ol>
           </Panel>
           <Panel title="Chrome Extension?" icon={<XCircle className="h-5 w-5" />}>
