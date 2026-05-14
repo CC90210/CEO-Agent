@@ -28,6 +28,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { decryptField } from "@/lib/field-encryption";
 import { getSessionUser, getServiceSupabase } from "@/lib/supabase-server";
 import { streamChat, type ChatMessage, type Provider } from "@/lib/providers";
+import { isOperatorEmail, operatorPlatformFallback } from "@/lib/operator-credentials";
 import { getManifest, manifestExists } from "@/lib/manifest/loader";
 import {
   applyMutations,
@@ -47,36 +48,6 @@ type Body = {
   message?: string;
   history?: ChatMessage[];
 };
-
-// Lightweight admin-email check — same logic as the main chat route but
-// inline so we don't restructure a separate file in this commit. The chat
-// route's `isAdminEmail` and `operatorFallback` should be extracted into a
-// shared helper as part of a Phase 3 cleanup.
-function isOperatorEmail(email: string): boolean {
-  const e = email.trim().toLowerCase();
-  if (!e) return false;
-  const operator = (process.env.OPERATOR_EMAIL || "").trim().toLowerCase();
-  if (operator && e === operator) return true;
-  const admins = (process.env.ADMIN_EMAILS || "")
-    .split(",")
-    .map((x) => x.trim().toLowerCase())
-    .filter(Boolean);
-  return admins.includes(e);
-}
-
-function platformFallback():
-  | { provider: Provider; model: string; apiKey: string }
-  | null {
-  const or = process.env.PLATFORM_DEFAULT_OPENROUTER_API_KEY;
-  if (or) return { provider: "openrouter", model: "anthropic/claude-sonnet-4", apiKey: or };
-  const ant = process.env.PLATFORM_DEFAULT_ANTHROPIC_API_KEY;
-  if (ant) return { provider: "anthropic", model: "claude-sonnet-4-6", apiKey: ant };
-  const oai = process.env.PLATFORM_DEFAULT_OPENAI_API_KEY;
-  if (oai) return { provider: "openai", model: "gpt-5.4", apiKey: oai };
-  const goo = process.env.PLATFORM_DEFAULT_GOOGLE_API_KEY;
-  if (goo) return { provider: "google", model: "gemini-2.5-pro", apiKey: goo };
-  return null;
-}
 
 export async function POST(req: NextRequest) {
   const user = await getSessionUser();
@@ -140,7 +111,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "key_decrypt_failed" }, { status: 500 });
     }
   } else {
-    const fallback = isOperatorEmail(user.email || "") ? platformFallback() : null;
+    const fallback = isOperatorEmail(user.email || "") ? operatorPlatformFallback() : null;
     if (!fallback) {
       return NextResponse.json(
         { ok: false, error: "agent_not_configured", hint: "Configure your Bravo provider key in Settings before using the manifest editor." },
