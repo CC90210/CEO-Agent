@@ -98,34 +98,10 @@ export function finalizeManifestFromWizard(input: FinalizeInput): TenantManifest
     manifest = updateBrand(manifest, { footer_tagline: tagline });
   }
 
-  // Honor the user's agent multi-select from the wizard agents step.
-  // The template ships a sensible default agents[] but the user may have
-  // added or removed entries. Rebuild agents[] from the selection so the
-  // resulting manifest reflects what the user actually chose.
-  //
-  // Primary preservation: if the template's primary agent is still selected,
-  // keep it primary. Otherwise the first selected agent becomes primary.
-  if (Array.isArray(answers.selected_agents) && answers.selected_agents.length > 0) {
-    const picks = answers.selected_agents.filter((s): s is string => typeof s === "string");
-    const templatePrimary = base.agents.find((a) => a.primary)?.slug;
-    const primarySlug = picks.includes(templatePrimary || "") ? templatePrimary! : picks[0];
-    const nextAgents: ManifestAgentBinding[] = picks.map((slug) => {
-      const existing = base.agents.find((a) => a.slug === slug);
-      const registryInfo = AGENT_REGISTRY[slug];
-      return {
-        slug,
-        display_name: existing?.display_name || registryInfo?.label || slug,
-        enabled: true,
-        primary: slug === primarySlug,
-      };
-    });
-    manifest = { ...manifest, agents: nextAgents };
-  } else if (Array.isArray(answers.selected_agents) && answers.selected_agents.length === 0) {
-    // User explicitly cleared all agents — respect that. The shell renders
-    // with no agents until they add some in Settings.
-    manifest = { ...manifest, agents: [] };
-  }
-
+  // Per-template renames operate on the TEMPLATE's default agents[] so the
+  // slugs they target ("solara", "helios", etc.) are guaranteed to exist.
+  // The agent multi-select rebuild runs AFTER, picking up the renamed
+  // display_name when the user kept the slug.
   switch (input.template) {
     case "real_estate": {
       const extras = parseExtraFields(answers.extra_fields as string | undefined);
@@ -141,23 +117,24 @@ export function finalizeManifestFromWizard(input: FinalizeInput): TenantManifest
       break;
     }
     case "business_funding": {
-      // Primary (operational) — renames Solara
+      // Rename only if the slug is present in the template (it always is for
+      // this template, but stay defensive so future template edits don't
+      // turn renames into crashes).
       const primaryName = typeof answers.primary_agent_name === "string"
         ? answers.primary_agent_name.trim()
         : typeof answers.agent_name === "string" // legacy fallback for in-flight wizards
           ? answers.agent_name.trim()
           : "";
-      if (primaryName) {
+      if (primaryName && manifest.agents.some((a) => a.slug === "solara")) {
         manifest = updateAgent(manifest, {
           slug: "solara",
           changes: { display_name: primaryName },
         });
       }
-      // Sales-facing — renames Helios
       const salesName = typeof answers.sales_agent_name === "string"
         ? answers.sales_agent_name.trim()
         : "";
-      if (salesName) {
+      if (salesName && manifest.agents.some((a) => a.slug === "helios")) {
         manifest = updateAgent(manifest, {
           slug: "helios",
           changes: { display_name: salesName },
@@ -169,8 +146,33 @@ export function finalizeManifestFromWizard(input: FinalizeInput): TenantManifest
     case "agency":
     case "custom":
       // Defaults are already strong; no template-specific answer folding yet.
-      // Phase 2.1 can add e.g. platform-specific integrations for ecommerce.
       break;
+  }
+
+  // Now honor the user's agent multi-select. By running AFTER per-template
+  // renames, we preserve any custom display_name the user supplied (e.g.
+  // "Sunny" replacing "Solara") when the slug survives the user's picks.
+  // Primary preservation: if the template's primary agent is still in the
+  // picks, keep it primary. Otherwise the first selected agent becomes primary.
+  if (Array.isArray(answers.selected_agents) && answers.selected_agents.length > 0) {
+    const picks = answers.selected_agents.filter((s): s is string => typeof s === "string");
+    const renamedTemplatePrimary = manifest.agents.find((a) => a.primary)?.slug;
+    const primarySlug = picks.includes(renamedTemplatePrimary || "") ? renamedTemplatePrimary! : picks[0];
+    const nextAgents: ManifestAgentBinding[] = picks.map((slug) => {
+      const existing = manifest.agents.find((a) => a.slug === slug);
+      const registryInfo = AGENT_REGISTRY[slug];
+      return {
+        slug,
+        display_name: existing?.display_name || registryInfo?.label || slug,
+        enabled: true,
+        primary: slug === primarySlug,
+      };
+    });
+    manifest = { ...manifest, agents: nextAgents };
+  } else if (Array.isArray(answers.selected_agents) && answers.selected_agents.length === 0) {
+    // User explicitly cleared all agents — respect that. The shell renders
+    // with no agents until they add some in Settings.
+    manifest = { ...manifest, agents: [] };
   }
 
   return manifest;
