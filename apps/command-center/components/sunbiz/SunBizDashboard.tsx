@@ -22,6 +22,7 @@ import {
   type RenewalsSummary,
 } from "@/lib/queries";
 import { SUNBIZ_DEMO_LEADS, SUNBIZ_DEMO_RENEWALS_SUMMARY } from "@/lib/sunbiz-demo-data";
+import { demoHref } from "@/lib/demo-href";
 import type { IntegrationHealth, Lead } from "@/lib/supabase";
 
 type Props = {
@@ -152,6 +153,7 @@ function readyLine(service: string, status: ServiceStatus): string {
 export async function SunBizDashboard({ demoMode = false }: Props) {
   const profile = await safe("sun.dashboard.profile", getActiveProfile(), null);
   const tenantId = demoMode ? "" : profile?.tenant_id || "";
+  const link = (real: string) => demoHref(real, { demoMode });
   const [liveHealthRows, liveLeads, liveRenewals] = demoMode
     ? [DEMO_HEALTH, SUNBIZ_DEMO_LEADS, SUNBIZ_DEMO_RENEWALS_SUMMARY]
     : await Promise.all([
@@ -213,10 +215,10 @@ export async function SunBizDashboard({ demoMode = false }: Props) {
           </div>
 
           <div className="mt-6 flex flex-wrap gap-3">
-            <Link href="/playbook" className="btn-send inline-flex items-center gap-2">
+            <Link href={link("/playbook")} className="btn-send inline-flex items-center gap-2">
               Open Playbook <ArrowRight className="h-4 w-4" />
             </Link>
-            <Link href="/agent" className="btn-secondary inline-flex items-center gap-2">
+            <Link href={link("/agent")} className="btn-secondary inline-flex items-center gap-2">
               Chat with Solara <MessageSquareText className="h-4 w-4" />
             </Link>
           </div>
@@ -231,7 +233,7 @@ export async function SunBizDashboard({ demoMode = false }: Props) {
             {MANUAL_STEPS.map((step, index) => (
               <Link
                 key={step.slug}
-                href={`/playbook/${step.slug}`}
+                href={link(`/playbook/${step.slug}`)}
                 className="group flex items-start gap-3 rounded-2xl border border-bg-border bg-bg-elev/40 px-4 py-3 transition-all hover:border-amber-300/35 hover:bg-amber-300/6"
               >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-amber-300/25 bg-amber-300/10 text-xs font-black tracking-[0.18em] text-amber-100">
@@ -248,7 +250,7 @@ export async function SunBizDashboard({ demoMode = false }: Props) {
           </div>
           <div className="mt-4 flex items-center justify-between rounded-2xl border border-bg-border bg-bg-elev/35 px-4 py-3 text-xs text-fg-muted">
             <span>Read these once in order, then come back whenever the team needs a reset.</span>
-            <Link href="/playbook" className="text-amber-200 hover:text-amber-100">
+            <Link href={link("/playbook")} className="text-amber-200 hover:text-amber-100">
               View full Playbook
             </Link>
           </div>
@@ -294,7 +296,7 @@ export async function SunBizDashboard({ demoMode = false }: Props) {
                 icon={<Workflow className="h-4 w-4" />}
                 title={`Start with ${priorityLead.name || "this lead"}`}
                 body={`${priorityLead.company || "Funding prospect"} is your best current lead${priorityLead.score ? ` with a score of ${priorityLead.score}` : ""}. Open Leads, confirm the latest context, then let Solara draft the next move.`}
-                href="/leads"
+                href={link("/leads")}
                 cta="Open Leads"
               />
             ) : (
@@ -302,7 +304,7 @@ export async function SunBizDashboard({ demoMode = false }: Props) {
                 icon={<Workflow className="h-4 w-4" />}
                 title="Connect your first inbound lane"
                 body="Once JotForm is connected, new lead forms will start landing here automatically for Solara to sort and follow up."
-                href="/integrations"
+                href={link("/integrations")}
                 cta="Open Integrations"
               />
             )}
@@ -315,7 +317,7 @@ export async function SunBizDashboard({ demoMode = false }: Props) {
                   ? `${liveRenewals.past_due_count} renewal${liveRenewals.past_due_count === 1 ? "" : "s"} are already overdue. This is the fastest place to create revenue today.`
                   : `${liveRenewals.this_month_count} renewal${liveRenewals.this_month_count === 1 ? "" : "s"} are coming up this month. Keep Solara ahead of the follow-up window.`
               }
-              href="/renewals"
+              href={link("/renewals")}
               cta="Open Renewals"
             />
 
@@ -323,7 +325,7 @@ export async function SunBizDashboard({ demoMode = false }: Props) {
               icon={<BookOpen className="h-4 w-4" />}
               title="Share the manual with your team"
               body="The Playbook explains how Solara works, what to ask her for, when to bring in CC, and how to pause changes if something feels off."
-              href="/playbook"
+              href={link("/playbook")}
               cta="Open Playbook"
             />
           </div>
