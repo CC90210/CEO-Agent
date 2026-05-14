@@ -47,7 +47,10 @@ export default async function RootLayout({
   let demoProfileSlug: string | null = null;
   if (!isFullBleed) {
     const cookieStore = await cookies();
-    const requestedDemoProfile = cookieStore.get(DEMO_CLIENT_PROFILE_COOKIE)?.value || null;
+    const requestedDemoProfile =
+      pathname.startsWith("/demo/sun")
+        ? "sun"
+        : cookieStore.get(DEMO_CLIENT_PROFILE_COOKIE)?.value || null;
     const demoProfile = getClientCommandCenterProfileById(requestedDemoProfile);
     demoProfileSlug = demoProfile.id === "default" ? null : demoProfile.id;
 
