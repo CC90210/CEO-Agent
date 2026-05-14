@@ -13,13 +13,16 @@
     "auth:check": "node scripts/auth-navigation-check.js",
     "release:check": "node scripts/release-check.js",
     "release:metadata": "node scripts/write-release-metadata.js",
+    "release:asset-check": "node scripts/check-release-assets.js",
     "artifact:check": "node scripts/artifact-check.js",
     "portable:win": "node scripts/create-windows-portable.js",
     "signing:check": "node scripts/signing-status.js",
+    "sign:mac:adhoc": "bash scripts/adhoc-sign-mac.sh",
     "pack": "electron-builder --dir",
     "build:win": "electron-builder --win nsis",
     "build:linux": "electron-builder --linux AppImage deb",
-    "build:mac": "electron-builder --mac dmg zip"
+    "build:mac": "electron-builder --mac dmg zip",
+    "build:free": "node scripts/build-free.js"
   },
   "build": {
     "appId": "ai.oasis.commandcenter",

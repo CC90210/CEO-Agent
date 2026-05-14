@@ -31,6 +31,33 @@ if (!fs.existsSync(path.join(unpackedDir, "OASIS AI.exe"))) {
   fail("Missing OASIS AI.exe inside win-unpacked.");
 }
 
+// Drop a plain-text "read me first" file beside the EXE so first-time
+// Windows users don't fight SmartScreen blind or try to launch a Mac DMG.
+const startHereText = [
+  "OASIS AI - Windows portable",
+  "================================",
+  "",
+  "1. Extract this zip BEFORE running anything.",
+  "   Right-click the zip in Downloads, choose Extract All, pick a folder.",
+  "",
+  "2. Open the extracted folder and double-click OASIS AI.exe.",
+  "",
+  "3. Windows SmartScreen will warn this app is from an unknown publisher.",
+  "   This is expected - the alpha is unsigned. To run anyway:",
+  "      - Click 'More info'",
+  "      - Click 'Run anyway'",
+  "",
+  "4. If your security software still blocks it, your IT policy may forbid",
+  "   unsigned executables. Ask CC for a signed build or run on a personal",
+  "   machine for the alpha review.",
+  "",
+  "5. Do NOT double-click the Mac .dmg on Windows. That file is for macOS.",
+  "",
+  "Need help? https://agent-dashboard-cc90210.vercel.app/download",
+  "",
+].join("\r\n");
+fs.writeFileSync(path.join(unpackedDir, "START_HERE_WINDOWS.txt"), startHereText, "utf8");
+
 fs.rmSync(zipPath, { force: true });
 
 const command = [
