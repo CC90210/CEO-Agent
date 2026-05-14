@@ -1,7 +1,7 @@
-import { redirect } from "next/navigation";
+import { SunBizDashboard } from "@/components/sunbiz/SunBizDashboard";
 
 export const dynamic = "force-dynamic";
 
 export default function SunDemoPage() {
-  redirect("/api/demo/sun");
+  return <SunBizDashboard demoMode />;
 }
