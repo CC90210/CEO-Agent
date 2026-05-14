@@ -49,7 +49,8 @@ Before a client receives the app:
 
 Before broad distribution:
 
-- Windows code-signing certificate configured.
+- Windows code-signing certificate configured through `WINDOWS_CSC_LINK` and `WINDOWS_CSC_KEY_PASSWORD`.
+- GitHub repository variable `OASIS_REQUIRE_WINDOWS_SIGNING=true` enabled so unsigned Windows artifacts fail CI.
 - macOS Developer ID signing configured.
 - macOS notarization configured.
 - Linux AppImage/deb artifacts generated in CI.
@@ -60,9 +61,25 @@ Before broad distribution:
 - Crash/support bundle command implemented.
 - Release artifact checksums published.
 
+## Windows Signing Gate
+
+The alpha can build unsigned artifacts, but a seamless Windows install requires a trusted Authenticode signature.
+
+For production:
+
+1. Buy or provision a Microsoft Authenticode code-signing certificate for OASIS AI Solutions.
+2. Store the certificate in GitHub Actions as `WINDOWS_CSC_LINK`.
+3. Store the certificate password as `WINDOWS_CSC_KEY_PASSWORD`.
+4. Set the GitHub repository variable `OASIS_REQUIRE_WINDOWS_SIGNING=true`.
+5. Run the `OASIS Desktop` workflow.
+6. Confirm `npm run signing:check` reports a valid Windows installer and app executable signature.
+
+If the signing variable is off, CI reports signature status but allows unsigned alpha artifacts.
+
 ## Known Alpha Limitations
 
-- The current local Windows artifact is an unpacked app folder, not a signed installer.
+- Windows artifacts are unsigned until the production certificate is configured.
+- Locked-down Windows machines may block unsigned alpha builds even when the archive downloads correctly.
 - The sidecar starts from this repo when it can find `bravo_cli.local_bridge`; it is not bundled yet.
 - macOS and Linux artifacts should be generated through CI or native builders.
 - The app icon still needs final branded `.ico`, `.icns`, and `.png` assets.

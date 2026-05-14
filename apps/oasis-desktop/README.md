@@ -47,13 +47,17 @@ npm start
 ```bash
 npm run release:check
 npm run build:win
+npm run portable:win
 npm run release:metadata
+npm run signing:check
 ```
 
 Windows builds can be produced on Windows. macOS signing/notarization requires macOS and Apple credentials. Linux packages should be built on Linux CI.
 
 For the current unsigned alpha, `npm run pack` creates a runnable unpacked app folder at `dist/win-unpacked/`.
 `npm run release:metadata` writes `dist/release-metadata.json` and `dist/SHA256SUMS.txt` for generated installer/archive artifacts.
+
+For production Windows distribution, configure Authenticode signing in CI with `WINDOWS_CSC_LINK` and `WINDOWS_CSC_KEY_PASSWORD`, then set `OASIS_REQUIRE_WINDOWS_SIGNING=true`. Without a trusted publisher signature, locked-down Windows machines can block the app even when the package is built correctly.
 
 ## Security Defaults
 

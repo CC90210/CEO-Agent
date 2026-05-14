@@ -15,6 +15,7 @@
     "release:metadata": "node scripts/write-release-metadata.js",
     "artifact:check": "node scripts/artifact-check.js",
     "portable:win": "node scripts/create-windows-portable.js",
+    "signing:check": "node scripts/signing-status.js",
     "pack": "electron-builder --dir",
     "build:win": "electron-builder --win nsis",
     "build:linux": "electron-builder --linux AppImage deb",
@@ -38,8 +39,8 @@
     "asar": true,
     "npmRebuild": false,
     "win": {
-      "signAndEditExecutable": false,
       "verifyUpdateCodeSignature": false,
+      "requestedExecutionLevel": "asInvoker",
       "target": [
         "nsis"
       ]
