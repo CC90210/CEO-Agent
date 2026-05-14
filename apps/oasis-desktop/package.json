@@ -14,8 +14,9 @@
     "release:check": "node scripts/release-check.js",
     "release:metadata": "node scripts/write-release-metadata.js",
     "artifact:check": "node scripts/artifact-check.js",
+    "portable:win": "node scripts/create-windows-portable.js",
     "pack": "electron-builder --dir",
-    "build:win": "electron-builder --win nsis portable",
+    "build:win": "electron-builder --win nsis",
     "build:linux": "electron-builder --linux AppImage deb",
     "build:mac": "electron-builder --mac dmg zip"
   },
@@ -40,8 +41,7 @@
       "signAndEditExecutable": false,
       "verifyUpdateCodeSignature": false,
       "target": [
-        "nsis",
-        "portable"
+        "nsis"
       ]
     },
     "nsis": {
