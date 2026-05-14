@@ -67,7 +67,7 @@ export default async function MarketplaceBrowsePage({
         subtitle={`Browse, enable, and personalize agents for ${manifest.brand.name}.`}
         action={
           <Link
-            href={`/t/${normalised}/marketplace/build`}
+            href={`/t/${normalised}/marketplace/new`}
             className="btn-send inline-flex items-center gap-1.5 !px-3 !py-1.5 text-xs"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -106,7 +106,7 @@ export default async function MarketplaceBrowsePage({
         <Card>
           <div className="text-sm text-fg-muted text-center py-8">
             No agents in this category yet.{" "}
-            <Link href={`/t/${normalised}/marketplace/build`} className="text-accent hover:underline">
+            <Link href={`/t/${normalised}/marketplace/new`} className="text-accent hover:underline">
               Build one
             </Link>
             .
