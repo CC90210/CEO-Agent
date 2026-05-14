@@ -66,11 +66,19 @@ export const getManifest = cache(async (slug: string | null | undefined): Promis
 
 /**
  * Adapter — convert a manifest nav array (snake_case, source-of-truth) into
- * the existing Sidebar's NavItem shape (lowerCamelCase). Phase 2 will replace
- * the Sidebar with a manifest-native component and retire this.
+ * the existing Sidebar's NavItem shape (lowerCamelCase).
+ *
+ * Phase 3 extension: enabled agents from manifest.agents auto-surface as a
+ * sidebar group called "Agents" so subscribing to an agent in the marketplace
+ * immediately makes it reachable from the shell. We only append items the
+ * operator hasn't already placed manually — explicit nav entries always win
+ * so reorders are preserved.
  */
-export function manifestNavToNavItems(items: ManifestNavItem[]): NavItem[] {
-  return items.map((item) => ({
+export function manifestNavToNavItems(
+  items: ManifestNavItem[],
+  opts: { agents?: TenantManifest["agents"]; tenantSlug?: string } = {}
+): NavItem[] {
+  const baseNav: NavItem[] = items.map((item) => ({
     href: item.href,
     label: item.label,
     icon: item.icon,
@@ -78,6 +86,36 @@ export function manifestNavToNavItems(items: ManifestNavItem[]): NavItem[] {
     badgeKey: item.badge_key,
     expandable: item.expandable,
   }));
+
+  if (!opts.agents || opts.agents.length === 0) return baseNav;
+
+  // Auto-derive a slot per enabled agent that the manifest hasn't already
+  // surfaced manually. Hrefs land on the manifest-driven chat route under
+  // the tenant slug; falls back to the legacy /agent path when the tenant
+  // slug isn't resolved (e.g. operator's first session before the manifest
+  // exists in the DB).
+  const tenantPath = opts.tenantSlug ? `/t/${opts.tenantSlug}` : "";
+  const explicitHrefs = new Set(baseNav.map((n) => n.href));
+  const enabledAgents = [...opts.agents]
+    .filter((a) => a.enabled)
+    .sort((a, b) => {
+      if (!!a.primary !== !!b.primary) return a.primary ? -1 : 1;
+      return a.display_name.localeCompare(b.display_name);
+    });
+
+  const derived: NavItem[] = [];
+  for (const agent of enabledAgents) {
+    const tenantHref = `${tenantPath}/agent/${agent.slug}`;
+    const legacyHref = `/agent/${agent.slug}`;
+    if (explicitHrefs.has(tenantHref) || explicitHrefs.has(legacyHref)) continue;
+    derived.push({
+      href: tenantHref || legacyHref,
+      label: agent.display_name,
+      icon: "Bot",
+      group: "Agents",
+    });
+  }
+  return [...baseNav, ...derived];
 }
 
 /**
