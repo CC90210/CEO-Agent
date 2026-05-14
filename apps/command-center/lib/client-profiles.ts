@@ -1,3 +1,22 @@
+/**
+ * Legacy client-profile registry.
+ *
+ * Phase 1 of the rearchitecture (migration 038, lib/manifest/) introduced
+ * Supabase-backed tenant manifests. The shell (app/layout.tsx, sidebar nav,
+ * footer copy, brand colours) now reads from lib/manifest/loader.ts.
+ *
+ * This file still owns the bits the manifest schema does not yet model:
+ *   - sms transport config (SUN_PROFILE.sms is consumed by /api/sms/send)
+ *   - the `resolveClientProfileSlug` helper used by other consumers to map
+ *     a tenant row to a profile slug.
+ *
+ * When the manifest schema grows to cover SMS transport (Phase 2/3), retire
+ * the corresponding fields here and migrate the consumers. Until then: keep
+ * SUN/SUGA seeds in lib/manifest/seeds.ts AND the relevant fields here in
+ * lockstep. Both are intentionally redundant; the manifest is the future,
+ * this is the present.
+ */
+
 import { CC_NAV, SUN_NAV, SUGA_NAV, type NavItem } from "./nav-config";
 import type { Tenant } from "./supabase";
 

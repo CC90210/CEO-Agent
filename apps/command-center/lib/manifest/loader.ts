@@ -21,7 +21,7 @@ import { safe } from "@/lib/api-helpers";
 import { getServiceSupabase } from "@/lib/supabase-server";
 import type { NavItem } from "@/lib/nav-config";
 import { safeParseManifest, type ManifestNavItem, type TenantManifest, primaryAgent } from "./schema";
-import { getSeedManifest, SEED_MANIFESTS } from "./seeds";
+import { getSeedManifest } from "./seeds";
 
 type ManifestRow = {
   slug: string;
@@ -64,11 +64,6 @@ export const getManifest = cache(async (slug: string | null | undefined): Promis
   return getSeedManifest(key);
 });
 
-/** Synchronous variant — seeds only. Use only where async isn't viable. */
-export function getManifestSync(slug: string | null | undefined): TenantManifest {
-  return getSeedManifest(slug);
-}
-
 /**
  * Adapter — convert a manifest nav array (snake_case, source-of-truth) into
  * the existing Sidebar's NavItem shape (lowerCamelCase). Phase 2 will replace
@@ -101,17 +96,3 @@ export function manifestPrimaryAgentSlug(m: TenantManifest): string {
   return primaryAgent(m)?.slug || "bravo";
 }
 
-/** List the slugs the loader knows about (seeds + Supabase). For onboarding UI. */
-export async function listKnownSlugs(): Promise<string[]> {
-  const dbSlugs = await safe(
-    "manifest.loader.list",
-    (async () => {
-      const db = getServiceSupabase();
-      const result = await db.from("tenant_manifests").select("slug");
-      return ((result.data || []) as { slug: string }[]).map((r) => r.slug);
-    })(),
-    [] as string[]
-  );
-  const seedSlugs = Object.keys(SEED_MANIFESTS);
-  return Array.from(new Set([...seedSlugs, ...dbSlugs])).sort();
-}
