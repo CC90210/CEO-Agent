@@ -12,6 +12,8 @@ const windowsInstallerPath = path.join(distDir, "OASIS-AI-0.1.0-win-x64.exe");
 const windowsPortableZipPath = path.join(distDir, "OASIS-AI-0.1.0-win-x64-portable.zip");
 const metadataPath = path.join(distDir, "release-metadata.json");
 const sumsPath = path.join(distDir, "SHA256SUMS.txt");
+const MIN_INSTALLER_BYTES = 10 * 1024 * 1024;
+const MIN_PORTABLE_BYTES = 100 * 1024 * 1024;
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -34,11 +36,19 @@ function walk(dir) {
 }
 
 if (fs.existsSync(exePath)) {
-  assert(fs.statSync(exePath).size > 100 * 1024 * 1024, "Windows executable has expected Electron runtime size");
-  assert(fs.existsSync(windowsInstallerPath), "Windows NSIS installer exists");
-  assert(fs.statSync(windowsInstallerPath).size > 10 * 1024 * 1024, "Windows NSIS installer has expected release size");
+  assert(fs.statSync(exePath).size > MIN_PORTABLE_BYTES, "Windows executable has expected Electron runtime size");
+  if (fs.existsSync(windowsInstallerPath)) {
+    const installerBytes = fs.statSync(windowsInstallerPath).size;
+    if (installerBytes < MIN_INSTALLER_BYTES) {
+      console.warn(`WARN Windows NSIS installer is a suspicious local stub and must not be released: ${installerBytes} bytes`);
+    } else {
+      assert(true, "Windows NSIS installer has expected release size");
+    }
+  } else {
+    console.warn("WARN Windows NSIS installer is absent; portable zip remains the alpha release artifact");
+  }
   assert(fs.existsSync(windowsPortableZipPath), "Windows portable zip exists");
-  assert(fs.statSync(windowsPortableZipPath).size > 100 * 1024 * 1024, "Windows portable zip has expected Electron runtime size");
+  assert(fs.statSync(windowsPortableZipPath).size > MIN_PORTABLE_BYTES, "Windows portable zip has expected Electron runtime size");
 }
 
 const asarPath = walk(distDir).find((filePath) => filePath.endsWith(`${path.sep}app.asar`));
@@ -72,6 +82,9 @@ assert(Array.isArray(metadata.artifacts) && metadata.artifacts.length > 0, "rele
 for (const artifact of metadata.artifacts) {
   const artifactPath = path.join(distDir, artifact.file);
   assert(fs.existsSync(artifactPath), `artifact exists: ${artifact.file}`);
+  if (/\.exe$/i.test(artifact.file)) {
+    assert(fs.statSync(artifactPath).size > MIN_INSTALLER_BYTES, `installer artifact is not a stub: ${artifact.file}`);
+  }
   assert(
     fs.statSync(artifactPath).mtimeMs >= fs.statSync(asarPath).mtimeMs,
     `artifact is not older than packaged app.asar: ${artifact.file}`

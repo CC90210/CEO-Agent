@@ -19,12 +19,13 @@ const VERSION = "0.1.0";
 const CHANNEL = "alpha";
 const RELEASE_TAG = "oasis-desktop-v0.1.0-alpha.4";
 const RELEASE_URL = `https://github.com/CC90210/CEO-Agent/releases/tag/${RELEASE_TAG}`;
-const WINDOWS_PORTABLE_URL = `https://github.com/CC90210/CEO-Agent/releases/download/${RELEASE_TAG}/OASIS-AI-0.1.0-win-x64-portable.zip`;
-const WINDOWS_INSTALLER_URL = `https://github.com/CC90210/CEO-Agent/releases/download/${RELEASE_TAG}/OASIS-AI-0.1.0-win-x64.exe`;
-const MAC_DMG_URL = `https://github.com/CC90210/CEO-Agent/releases/download/${RELEASE_TAG}/OASIS-AI-0.1.0-mac-arm64.dmg`;
-const LINUX_APPIMAGE_URL = `https://github.com/CC90210/CEO-Agent/releases/download/${RELEASE_TAG}/OASIS-AI-0.1.0-linux-x86_64.AppImage`;
-const LINUX_DEB_URL = `https://github.com/CC90210/CEO-Agent/releases/download/${RELEASE_TAG}/OASIS-AI-0.1.0-linux-amd64.deb`;
-const CHECKSUM_URL = `https://github.com/CC90210/CEO-Agent/releases/download/${RELEASE_TAG}/SHA256SUMS-release.txt`;
+const AUTO_DOWNLOAD_URL = "/api/download/desktop";
+const WINDOWS_PORTABLE_URL = "/api/download/desktop?platform=windows";
+const WINDOWS_INSTALLER_URL = "/api/download/desktop?platform=windows-installer";
+const MAC_DMG_URL = "/api/download/desktop?platform=mac";
+const LINUX_APPIMAGE_URL = "/api/download/desktop?platform=linux";
+const LINUX_DEB_URL = "/api/download/desktop?platform=linux-deb";
+const CHECKSUM_URL = "/api/download/desktop?platform=checksums";
 const CHECKSUMS = [
   "Windows portable zip: 07dea7cf78ce4ae36321dbdebb0e0c246dbf0c173699c2bd31e3fa9fa88e9c76",
   "Windows installer: 18e09eb6efd275d06c6b2f8f1e116f3edfe9635e888b0d6fb04cf069f3db23cd",
@@ -81,14 +82,17 @@ export default function DownloadPage() {
             It runs as a desktop app and prepares the local runtime for files, tools, automations, and provider-powered agents.
           </p>
           <div className="mt-8 grid gap-3 sm:grid-cols-2">
-            <a href={WINDOWS_PORTABLE_URL} className="btn-send !px-5 !py-3 text-sm">
-              <Download className="h-4 w-4" /> Windows zip recommended
+            <a href={AUTO_DOWNLOAD_URL} className="btn-send sm:col-span-2 !justify-center !px-5 !py-4 text-base">
+              <Download className="h-5 w-5" /> Download for this computer
+            </a>
+            <a href={WINDOWS_PORTABLE_URL} className="btn-secondary !px-5 !py-3 text-sm">
+              <Download className="h-4 w-4" /> Windows portable zip
             </a>
             <a href={WINDOWS_INSTALLER_URL} className="btn-secondary !px-5 !py-3 text-sm">
-              <Download className="h-4 w-4" /> Windows installer
+              <Download className="h-4 w-4" /> Windows installer alpha
             </a>
             <a href={MAC_DMG_URL} className="btn-secondary !px-5 !py-3 text-sm">
-              <Download className="h-4 w-4" /> Mac dmg
+              <Download className="h-4 w-4" /> Mac dmg only
             </a>
             <a href={LINUX_APPIMAGE_URL} className="btn-secondary !px-5 !py-3 text-sm">
               <Download className="h-4 w-4" /> Linux AppImage
@@ -101,8 +105,9 @@ export default function DownloadPage() {
             </a>
           </div>
           <div className="mt-4 rounded-xl border border-accent/25 bg-accent/10 p-4 text-sm leading-relaxed text-fg-muted">
-            <strong className="text-fg">Windows note:</strong> if your security blocks the installer, use the Windows zip.
-            Save it to Downloads, extract it to a normal folder, then open <span className="font-mono text-accent">OASIS AI.exe</span> from the extracted folder.
+            <strong className="text-fg">Windows note:</strong> use the portable zip first. A Mac <span className="font-mono text-accent">.dmg</span>{" "}
+            will make Windows ask you to pick an app, and an unsigned installer can be blocked by corporate security while it runs from Temp.
+            Save the zip to Downloads, extract it, then open <span className="font-mono text-accent">OASIS AI.exe</span> from the extracted folder.
           </div>
           <div className="mt-5 rounded-xl border border-bg-border bg-bg-elev/50 p-4 font-mono text-xs text-fg-dim">
             <div className="mb-2 uppercase tracking-[0.14em] text-fg-muted">Current checksums</div>
