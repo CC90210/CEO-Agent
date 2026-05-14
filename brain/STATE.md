@@ -24,8 +24,8 @@ tags: [state, ephemeral]
 | **Version** | V6 Apex (P1+P2+P3) | V6 Optimization Project 100% complete (2026-05-10). Architecture phase closed. |
 | **Position**| ACTIVE | Community Manager for primary retainer client + Lead Gen Funnel Operator |
 | **Confidence** | 0.97 | Core automations production-grade. Telegram V15.4 live. Scheduler fixed. Semi-auto outreach deploying. Top-client concentration risk unresolved. |
-| **Focus Area** | **RESET AND DIVERSIFY REVENUE** | CC is doing a physical/mental reset (quitting weed). Focus is on daily minimums: content creation and cold outreach volume. Target is still $5k MRR by May 30. |
-| **Energy** | RECOVERING | CC reported being in a bad state recently. Reset protocol initiated. Baseline execution only. |
+| **Focus Area** | **WEDNESDAY OUTREACH SURGE** | Usage limit hit. Focus is 100% on manual high-leverage execution: Warm calls (Jonathan Hutton), Lead Enrichment, and Content Creation (Anti-AI Objection). |
+| **Energy** | RECOVERING / MISSION-DRIVEN | CC in reset mode (no weed). Wednesday is a 12-hour high-tempo block to make up for usage gaps. Focus on closing Jonathan Hutton. |
 | **Memory Health** | GOOD | Files current. Knowledge wiki seeded. mem0 live. Fragmentation acknowledged — single-write sync in progress. |
 
 > **Ephemeral state lives in `memory/OPERATIONAL_STATE.md`** (split out 2026-05-07 per Architecture Certification finding C5). That file carries Active Infrastructure, Known Issues, Skool daemon status, Last Heartbeat — under a 7-day freshness gate. Read it for live ops; this file is for stable identity / North Star / capability architecture.
@@ -111,7 +111,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 - [[brain/RISK_REGISTER]] | [[brain/INTERACTION_PROTOCOL]] | [[brain/ORCHESTRATION]]
 - [[brain/METRIC_AUDIT]] — every dashboard metric traced to its source (real vs placeholder)
 - [[brain/MODEL_CONFIG]] (V6.0 multi-provider routing) | [[brain/USER.template]] (public-clone profile template)
-- [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]] | [[memory/DECISIONS]] | [[memory/CLAUDE_HANDOVER]]
+- [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]] | [[memory/DECISIONS]]
 - [[memory/WORKING]] (V6.0 ephemeral working memory) | [[memory/ACTIVE_TASKS.template]] | [[memory/SESSION_LOG.template]]
 - [[docs/V6_ARCHITECTURE]] | [[infra/README]] | [[brain/EVENT_BUS_CONTRACT]]
 - [[memory/PATTERNS]] | [[memory/MISTAKES]] | [[memory/SELF_REFLECTIONS]]
@@ -127,11 +127,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-05-12
+- **Date:** 2026-05-14
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Finalized Sun Biz client separation/demo path: Sun-branded signups tag tenant command_center_profile_slug=sun, sunbiz is a valid agent key, /demo/sun launches safe demo mode with sample Sun data and disabled live SMS until hosted backend is connected.
+- **Result:** Markdown cleanup consolidated OASIS Desktop/SunBiz handoffs into docs/OASIS_DESKTOP_CLAUDE_HANDOFF_2026-05-13.md, deleted redundant handover docs, and cleaned active indexes; self_audit health 98 with no broken links.
 
-*Last updated: 2026-05-12*
+*Last updated: 2026-05-14*
 
 ## Manifest
 

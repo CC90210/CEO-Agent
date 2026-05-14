@@ -199,4 +199,4 @@ from the Actions run log if you need to revert the previous release.
 
 ## Obsidian Links
 - [[docs/V6_ARCHITECTURE]] | [[brain/STATE]] | [[brain/ORCHESTRATION]]
-- [[memory/CLAUDE_HANDOVER]] | [[memory/reference_vercel_deploy]]
+- [[memory/SESSION_LOG]] | [[memory/reference_vercel_deploy]]

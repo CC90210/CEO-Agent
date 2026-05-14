@@ -50,7 +50,7 @@ Behavior:
 - `/api/demo/sun` no longer requires auth; it sets the Sun demo cookie and redirects back to `/demo/sun`.
 - The root layout infers the Sun demo shell directly from paths starting with `/demo/sun`, so direct visits render the Sun Biz sidebar even before a cookie exists.
 - Middleware explicitly allows `/demo/sun` and `/api/demo/sun` without allowing broader private app routes.
-- `docs/SUNBIZ_CLOUD_PORTAL_ARCHITECTURE.md` documents the recommended cloud/API architecture for SunBiz.
+- SunBiz cloud/API guidance was later consolidated into this handoff during the 2026-05-14 Markdown cleanup.
 
 Production verification:
 
@@ -98,7 +98,7 @@ Behavior:
   - portable ZIP is the alpha release gate
   - tiny local NSIS installer stubs warn instead of blocking the working ZIP path
   - any `.exe` included in release metadata must still pass the non-stub size gate
-- `docs/OASIS_DESKTOP_DISTRIBUTION_PATHS.md` documents Windows/Mac distribution options and the alpha workaround.
+- Desktop distribution guidance was later consolidated into this handoff during the 2026-05-14 Markdown cleanup.
 
 Production verification:
 
@@ -385,16 +385,64 @@ Recommended shape:
 - Provider keys/OAuth tokens should be encrypted server-side and never sent to the browser.
 - Desktop bridge is only needed when the client explicitly needs local computer files/tools.
 
-Reference doc:
+Minimum hosted API contract:
 
-```text
-docs/SUNBIZ_CLOUD_PORTAL_ARCHITECTURE.md
-```
+- `GET /health`
+- `GET /integrations/status`
+- `POST /forms/jotform`
+- `POST /lead/intake`
+- `POST /sms/send`
+- `POST /agent/run`
+- `POST /documents/search`
 
-## Source Docs Added
+Production gates:
+
+- public SunBiz demo route uses demo-only data
+- real SunBiz provisioning sets `command_center_profile_slug = "sun"`
+- real profile sets `primary_agent = "sunbiz"`
+- Command Center to SunBiz API uses HMAC or signed bearer auth
+- JotForm webhooks are signature-checked
+- Text Torrent/Twilio sends are rate-limited and audited
+- provider keys are encrypted and never exposed to browser sessions
+
+## Consolidated Desktop Product Decisions
+
+This is the only active OASIS Desktop + SunBiz handoff after the 2026-05-14 Markdown cleanup.
+
+Desktop product shape:
+
+- Command Center is the shared product shell for web and desktop.
+- Provider connection and runtime access stay separate.
+- Provider connection can be OAuth/account sign-in, API key, or OASIS-managed subscription.
+- Runtime access can be cloud workspace or this desktop.
+- Client-specific behavior should come from manifests: brand shell, enabled agents, integrations, permissions, playbooks, and default prompts.
+
+Desktop security boundaries:
+
+- cloud workspace must not read local files, spawn local tools, or call the local bridge
+- desktop access requires the paired local app to be running
+- local file/tool access must be explicitly allowlisted
+- local bridge traffic stays loopback-only until replaced by a signed desktop transport
+- browser-to-local requests need origin checks, local session tokens, tenant binding, and device binding
+- raw API keys must never be logged, returned to the browser, or written into repo config
+
+Distribution decisions:
+
+- internal alpha can use unsigned artifacts if clearly labeled
+- Windows alpha users should start with the portable ZIP, not the NSIS installer
+- Windows beta/production needs MSIX/Microsoft Store, Authenticode signing, or enterprise allowlist/MDM
+- Mac beta/production needs Developer ID signing and Apple notarization
+- beta/production releases need trusted installers, signed updates, uninstall cleanup, crash reporting, support diagnostics, and acceptance testing per client shell
+
+## Source Docs Consolidated
+
+The following one-off docs were deleted on 2026-05-14 after their durable decisions were folded into this handoff:
 
 - `docs/SUNBIZ_CLOUD_PORTAL_ARCHITECTURE.md`
 - `docs/OASIS_DESKTOP_DISTRIBUTION_PATHS.md`
+- `docs/OASIS_DESKTOP_PRODUCT_STRATEGY.md`
+- `docs/handovers/2026-05-12-sunbiz-experience-layer-handover.md`
+- `docs/handovers/2026-05-13-oasis-desktop-alpha-handover.md`
 
 ## State Sync Notes Written
 

@@ -23,7 +23,6 @@ tags: [memory, hub, index]
 - [[memory/PATTERNS]] — validated approaches promoted from probationary
 - [[memory/SOP_LIBRARY]] — standard operating procedures
 - [[memory/PROPOSED_CHANGES]] — semi-mutable file change staging
-- [[memory/CLAUDE_HANDOVER]] — multi-session handoff notes
 - [[memory/SELF_REFLECTIONS]] — Reflexion-pattern post-failure analyses
 
 ## Reference + research
@@ -57,7 +56,7 @@ Some files referenced in chat history (e.g., `feedback_system_philosophy.md`, `p
 ## Files in this directory
 
 - [[memory/ACTIVE_TASKS.template]]
-- [[memory/HANDOFF]]
+- [[memory/HANDOFF]] — cross-machine scratchpad only; not a durable handoff archive
 - [[memory/SESSION_LOG.template]]
 - [[memory/WORKING]]
 

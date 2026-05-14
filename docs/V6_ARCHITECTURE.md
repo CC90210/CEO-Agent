@@ -416,4 +416,4 @@ Not all four at once. Prioritize by revenue leverage × risk reduction:
 ## Obsidian Links
 - [[brain/STATE]] | [[brain/USER]] | [[brain/ORCHESTRATION]]
 - [[brain/CAPABILITIES]] | [[brain/CHANGELOG]]
-- [[memory/CLAUDE_HANDOVER]] | [[memory/DECISIONS]]
+- [[memory/SESSION_LOG]] | [[memory/DECISIONS]]
