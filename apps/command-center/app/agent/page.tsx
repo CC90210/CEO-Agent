@@ -3,22 +3,11 @@ import { Card, PageHeader, Tag } from "@/components/Card";
 import { safe } from "@/lib/api-helpers";
 import { getActiveProfile, integrationsHealth } from "@/lib/queries";
 import { getSessionUser } from "@/lib/supabase-server";
+import { isOperatorEmail } from "@/lib/operator-credentials";
 import { resolveAgentKey } from "@/lib/agents";
 import type { IntegrationHealth } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
-
-function isOperatorEmail(email: string | null | undefined): boolean {
-  if (!email) return false;
-  const e = email.trim().toLowerCase();
-  const operator = (process.env.OPERATOR_EMAIL || "").trim().toLowerCase();
-  if (operator && e === operator) return true;
-  const admins = (process.env.ADMIN_EMAILS || "")
-    .split(",")
-    .map((x) => x.trim().toLowerCase())
-    .filter(Boolean);
-  return admins.includes(e);
-}
 
 const AGENT_LABELS: Record<string, { label: string; pitch: string }> = {
   solara: {
