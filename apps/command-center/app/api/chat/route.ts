@@ -44,6 +44,7 @@ import {
   stripCloudToolMarkers,
 } from "@/lib/cloud-tools";
 import { redactAll } from "@/lib/secret-redaction";
+import { isOperatorEmail, operatorPlatformFallback } from "@/lib/operator-credentials";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -127,7 +128,7 @@ export async function POST(req: NextRequest) {
   // Admin/operator fallback: when CC (or another admin) chats and has no
   // per-agent config row, fall back to a platform-supplied API key from env.
   // Clients must always BYO key — the fallback is gated by email match.
-  const isOperator = isAdminEmail(user.email || "");
+  const isOperator = isOperatorEmail(user.email || "");
   let provider: Provider;
   let model: string;
   let apiKey = "";
@@ -140,7 +141,7 @@ export async function POST(req: NextRequest) {
     cfgOverride = cfg.system_prompt_override || null;
     if (!cfg.encrypted_api_key) {
       // Row exists but key wasn't set — try operator fallback before failing
-      const fallback = isOperator ? operatorFallback() : null;
+      const fallback = isOperator ? operatorPlatformFallback() : null;
       if (!fallback) return jsonError(412, "no_api_key");
       provider = fallback.provider;
       model = fallback.model;
@@ -154,7 +155,7 @@ export async function POST(req: NextRequest) {
     }
   } else {
     // No config row at all
-    const fallback = isOperator ? operatorFallback() : null;
+    const fallback = isOperator ? operatorPlatformFallback() : null;
     if (!fallback) {
       return jsonError(
         412,
@@ -435,37 +436,6 @@ function jsonError(status: number, message: string) {
   });
 }
 
-/* ============================================================================
- * Admin/operator helpers — platform-default keys for the operator tenant only.
- * Env vars (set on Vercel for the home tenant only — never for client deploys):
- *   OPERATOR_EMAIL, ADMIN_EMAILS (comma-separated)
- *   PLATFORM_DEFAULT_OPENROUTER_API_KEY (preferred — covers all models)
- *   PLATFORM_DEFAULT_ANTHROPIC_API_KEY
- *   PLATFORM_DEFAULT_OPENAI_API_KEY
- *   PLATFORM_DEFAULT_GOOGLE_API_KEY
- * ============================================================================ */
-function isAdminEmail(email: string): boolean {
-  const e = email.trim().toLowerCase();
-  if (!e) return false;
-  const operator = (process.env.OPERATOR_EMAIL || "").trim().toLowerCase();
-  if (operator && e === operator) return true;
-  const admins = (process.env.ADMIN_EMAILS || "")
-    .split(",")
-    .map((x) => x.trim().toLowerCase())
-    .filter(Boolean);
-  return admins.includes(e);
-}
-
-function operatorFallback():
-  | { provider: Provider; model: string; apiKey: string }
-  | null {
-  const or = process.env.PLATFORM_DEFAULT_OPENROUTER_API_KEY;
-  if (or) return { provider: "openrouter", model: "anthropic/claude-sonnet-4", apiKey: or };
-  const ant = process.env.PLATFORM_DEFAULT_ANTHROPIC_API_KEY;
-  if (ant) return { provider: "anthropic", model: "claude-sonnet-4-6", apiKey: ant };
-  const oai = process.env.PLATFORM_DEFAULT_OPENAI_API_KEY;
-  if (oai) return { provider: "openai", model: "gpt-5.4", apiKey: oai };
-  const goo = process.env.PLATFORM_DEFAULT_GOOGLE_API_KEY;
-  if (goo) return { provider: "google", model: "gemini-2.5-pro", apiKey: goo };
-  return null;
-}
+// Platform-default operator credentials live in lib/operator-credentials.ts —
+// shared with the manifest chat endpoint (api/manifest/chat) so both paths
+// agree on "is this the platform operator, and which env key falls back."
