@@ -10,6 +10,7 @@
   "scripts": {
     "start": "electron .",
     "doctor": "node scripts/doctor.js",
+    "auth:check": "node scripts/auth-navigation-check.js",
     "release:check": "node scripts/release-check.js",
     "release:metadata": "node scripts/write-release-metadata.js",
     "artifact:check": "node scripts/artifact-check.js",

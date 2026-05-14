@@ -22,6 +22,7 @@
     "gateway:bg": "node gateway/index.js >> gateway/gateway.log 2>&1",
     "gateway:admin": "python scripts/gateway_admin.py",
     "desktop:doctor": "npm --prefix apps/oasis-desktop run doctor",
+    "desktop:auth-check": "npm --prefix apps/oasis-desktop run auth:check",
     "desktop:release-check": "npm --prefix apps/oasis-desktop run release:check",
     "desktop:release-metadata": "npm --prefix apps/oasis-desktop run release:metadata",
     "desktop:artifact-check": "npm --prefix apps/oasis-desktop run artifact:check",

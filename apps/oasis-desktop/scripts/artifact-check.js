@@ -43,6 +43,7 @@ assert(fs.existsSync(sumsPath), "SHA256SUMS exists");
 const filesystem = asar.listPackage(asarPath).map((entry) => entry.replace(/\\/g, "/"));
 for (const required of [
   "/src/main.js",
+  "/src/auth-navigation.js",
   "/src/manifest.js",
   "/src/bridge-runtime.js",
   "/src/diagnostics.js",
@@ -50,6 +51,7 @@ for (const required of [
   "/desktop.manifest.json",
   "/README.md",
   "/RELEASE.md",
+  "/scripts/auth-navigation-check.js",
   "/scripts/release-check.js",
   "/scripts/write-release-metadata.js"
 ]) {
@@ -64,6 +66,10 @@ assert(Array.isArray(metadata.artifacts) && metadata.artifacts.length > 0, "rele
 for (const artifact of metadata.artifacts) {
   const artifactPath = path.join(distDir, artifact.file);
   assert(fs.existsSync(artifactPath), `artifact exists: ${artifact.file}`);
+  assert(
+    fs.statSync(artifactPath).mtimeMs >= fs.statSync(asarPath).mtimeMs,
+    `artifact is not older than packaged app.asar: ${artifact.file}`
+  );
   assert(fs.statSync(artifactPath).size === artifact.bytes, `artifact byte count matches: ${artifact.file}`);
   assert(sha256(artifactPath) === artifact.sha256, `artifact sha256 matches: ${artifact.file}`);
 }
