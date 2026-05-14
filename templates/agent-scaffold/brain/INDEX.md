@@ -11,6 +11,9 @@ last_updated: 2026-05-11
 - [[templates/agent-scaffold/brain/SOUL]]
 - [[templates/agent-scaffold/brain/STATE]]
 - [[templates/agent-scaffold/brain/USER]]
+- [[templates/agent-scaffold/brain/AGENTIC_OS_REFERENCE]] — V6.7 logic spec mirror
+- [[templates/agent-scaffold/brain/DATA_TAXONOMY]] — Pantry/Prep Table/Plate manifest template
+- [[templates/agent-scaffold/brain/INTENTS]] — verb-by-verb playbook template
 
 ## Parent
 - [[templates/agent-scaffold/README]]

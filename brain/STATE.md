@@ -129,7 +129,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-05-14
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Shipped Agentic OS Optimization v1: 4 new hooks (SessionStart/PreCompact/UserPromptSubmit/anti-pattern), 3 snapshot scripts (briefing/leads/client-alerts) wired into cron_engine seed, 6 new INTENTS playbooks, 3 new skills (silver-platter/integrations-sync/memory-journaling), DATA_TAXONOMY manifest, capability graph rebuilt to 157 skills. Bravo only; sibling propagation deferred.
+- **Result:** V6.7 cross-empire propagation complete. Reframed Bravo work as V6.7 (CLAUDE.md anchor). Propagated logic-tier essentials to Maven, Atlas, Hermes. Updated templates/agent-scaffold/ so future client agents inherit V6.7 by default. Substrate-parity gap (V6.0 scripts missing in Maven+Atlas) tracked at brain/V67_SUBSTRATE_GAP.md as next plan.
 
 *Last updated: 2026-05-14*
 

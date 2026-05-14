@@ -2,7 +2,10 @@
 
 | Skill | Description | Status |
 |---|---|---|
-| _none yet_ | Add first skill to `skills/<name>/SKILL.md` | — |
+| [[silver-platter/SKILL]] | Per-agent data-readiness audit (V6.7 default) | ✓ scaffolded |
+| [[integrations-sync/SKILL]] | Idempotent refresh patterns for external sources (V6.7 default) | ✓ scaffolded |
+| [[memory-journaling/SKILL]] | Structured DECISIONS / PATTERNS / MISTAKES logging (V6.7 default) | ✓ scaffolded |
+| _domain skills_ | Add first domain skill to `skills/<name>/SKILL.md` | — |
 
 ## Adding a Skill
 

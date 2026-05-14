@@ -40,8 +40,9 @@ tags: [brain, index]
 - [[brain/CANONICAL_ROLES]] — Who does what in CC's 4-agent operating system
 
 ## Reference
-- [[brain/AGENTIC_OS_REFERENCE]] — Canonical agentic-OS logic spec (5-layer cross-section, Pantry/Prep Table/Plate, gap audit). Shared across Bravo, Maven, Atlas, Hermes.
+- [[brain/AGENTIC_OS_REFERENCE]] — V6.7 canonical agentic-OS logic spec (5-layer cross-section, Pantry/Prep Table/Plate, gap audit). Shared across Bravo, Maven, Atlas, Hermes.
 - [[brain/DATA_TAXONOMY]] — Pantry/Prep Table/Plate manifest. Every data source + snapshot + consumer mapped. Audit target for silver-platter skill.
+- [[brain/V67_SUBSTRATE_GAP]] — V6.0–V6.6 substrate parity tracker for Maven + Atlas. Logic propagated 2026-05-14; hooks + snapshots blocked on substrate.
 - [[brain/USER]] — CC's profile, preferences, financial reality
 - [[brain/AGENT_GAP_AUDIT]] — Cross-agent gap analysis (completeness tracking)
 - [[brain/PRODUCT_VERTICALS]] — Vertical-specific lead-gen + pricing research
