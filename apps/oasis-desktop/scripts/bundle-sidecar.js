@@ -86,14 +86,32 @@ const SIDECAR_TREE = [
 // regardless of include filter. Belt-and-suspenders for secrets.
 // ---------------------------------------------------------------------------
 
+// Defense-in-depth — never copy anything matching one of these patterns
+// into the bundle, regardless of which SIDECAR_TREE source claims it.
+// Current SIDECAR_TREE only sources bravo_cli/scripts/lib/brain/skills so
+// most of these never trigger today, but they catch the case where a
+// future source-tree expansion accidentally includes a user-home-adjacent
+// dir (e.g. someone bundles ~/.config/<thing>/) without a code review.
 const HARD_BLOCK = [
-  /\.env(?:$|\.[^/\\]+)/i,
-  /credentials/i,
+  /\.env(?:$|\.[^/\\]+)?/i,
+  /credentials?/i,
   /[\\/]secrets?[\\/]/i,
   /\.key$/i,
   /\.pem$/i,
   /\.pfx$/i,
+  /\.p12$/i,
+  /\.crt$/i,
+  /\.cer$/i,
+  /\.kdbx$/i,
+  /\.npmrc$/i,
   /id_rsa/i,
+  /[\\/]\.ssh[\\/]/i,
+  /[\\/]\.aws[\\/]/i,
+  /[\\/]\.gnupg[\\/]/i,
+  /[\\/]\.git[\\/]/i,
+  /[\\/]\.docker[\\/]config\.json/i,
+  /token[s]?\.json$/i,
+  /\.htpasswd$/i,
 ];
 
 function isHardBlocked(absPath) {

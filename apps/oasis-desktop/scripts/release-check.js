@@ -161,6 +161,12 @@ assert(bundleScript.includes("\\.env"), "bundle script hard-blocks .env files");
 assert(bundleScript.includes("credentials"), "bundle script hard-blocks credentials* files");
 assert(bundleScript.includes("\\.key"), "bundle script hard-blocks .key files");
 assert(bundleScript.includes("\\.pem"), "bundle script hard-blocks .pem files");
+assert(bundleScript.includes("\\.ssh"), "bundle script hard-blocks ~/.ssh dirs");
+assert(bundleScript.includes("\\.aws"), "bundle script hard-blocks ~/.aws dirs");
+assert(bundleScript.includes("\\.gnupg"), "bundle script hard-blocks ~/.gnupg dirs");
+assert(bundleScript.includes("\\.npmrc"), "bundle script hard-blocks .npmrc auth tokens");
+assert(bundleScript.includes("\\.kdbx"), "bundle script hard-blocks KeePass databases");
+assert(bundleScript.includes("\\.docker"), "bundle script hard-blocks Docker config tokens");
 assert(bundleScript.includes("sha256"), "bundle script records per-file SHA-256 in the manifest");
 assert(bundleScript.includes("bundle.json"), "bundle script writes a bundle manifest for runtime audit");
 
