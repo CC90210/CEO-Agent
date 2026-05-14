@@ -152,8 +152,8 @@ export async function middleware(req: NextRequest) {
         // New signups land on the industry-template wizard by default.
         // The legacy /onboarding flow (Anthropic-key + C-suite picker) is
         // operator-only — non-operator hits to /onboarding get bounced to
-        // /onboarding/wizard by the page itself (see lib/supabase-server.ts
-        // isOasisOperator). Sending everyone to /onboarding/wizard first
+        // /onboarding/wizard by the page itself (see lib/operator-credentials.ts
+        // isOperatorEmail). Sending everyone to /onboarding/wizard first
         // avoids the bounce and keeps the C-suite picker invisible to
         // client tenants who shouldn't see it.
         return NextResponse.redirect(new URL("/onboarding/wizard", req.url));
