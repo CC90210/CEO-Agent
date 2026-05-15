@@ -281,4 +281,48 @@ apps.push({
     max_size: "10M",
 });
 
+// ============================================================================
+// sequence-runner — drip-campaign engine (SunBiz CRM Phase 4)
+// ============================================================================
+//
+// Two responsibilities in one daemon, alternated each tick:
+//   1. Enrollment: reads new agent_events rows since last cursor, matches
+//      against drip_sequences, inserts sequence_state rows for matching
+//      (lead, sequence) pairs.
+//   2. Execution: polls sequence_state for due rows, fires via
+//      send_gateway.send (SMS/email), updates status, enqueues next step.
+//
+// CASL/cooldown/daily-cap enforcement is automatic because all sends
+// route through send_gateway (the single outbound chokepoint). The
+// daemon never bypasses it. Tenant isolation is at the row level
+// (tenant_id match on sequence_state + drip_sequences); the daemon
+// connects as service-role so it sees all tenants' rows but writes
+// only against the resolved tenant_id from each event.
+//
+// 10s tick interval matches the typical operator expectation that a
+// stage-change drip fires "within a couple seconds" without slamming
+// agent_events with a poll storm. Cursor in state/sequence_runner.cursor
+// so restarts don't re-enroll.
+apps.push({
+    name: "sequence-runner",
+    script: "scripts/sequence_runner.py",
+    args: ["loop", "--interval", "10"],
+    interpreter: PYTHON,
+    cwd: PROJECT_ROOT,
+    watch: false,
+    autorestart: true,
+    max_restarts: 20,
+    restart_delay: 10000,
+    windowsHide: true,
+    env: {
+        PYTHONIOENCODING: "utf-8",
+        PYTHONUNBUFFERED: "1",
+    },
+    log_date_format: "YYYY-MM-DD HH:mm:ss",
+    error_file: "tmp/pm2-sequence-runner-error.log",
+    out_file: "tmp/pm2-sequence-runner-out.log",
+    merge_logs: true,
+    max_size: "10M",
+});
+
 module.exports = { apps };

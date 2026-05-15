@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-11T04:53:52.692177+00:00",
-  "script_count": 87,
-  "entry_count": 320,
+  "generated_at_iso": "2026-05-15T20:20:45.619466+00:00",
+  "script_count": 88,
+  "entry_count": 323,
   "entries": [
     {
       "key": "agent_heartbeat",
@@ -1781,6 +1781,27 @@
       "subcmd": "doctor",
       "mutating": false,
       "help": "Send Gateway \u2014 the single outbound chokepoint for every autonomous action \u2014 subcommand: doctor"
+    },
+    {
+      "key": "sequence_runner_once",
+      "path": "scripts/sequence_runner.py",
+      "subcmd": "once",
+      "mutating": false,
+      "help": "sequence_runner.py \u2014 drip-campaign daemon (Phase 4.3 of SunBiz CRM). \u2014 subcommand: once"
+    },
+    {
+      "key": "sequence_runner_loop",
+      "path": "scripts/sequence_runner.py",
+      "subcmd": "loop",
+      "mutating": false,
+      "help": "sequence_runner.py \u2014 drip-campaign daemon (Phase 4.3 of SunBiz CRM). \u2014 subcommand: loop"
+    },
+    {
+      "key": "sequence_runner_tail",
+      "path": "scripts/sequence_runner.py",
+      "subcmd": "tail",
+      "mutating": false,
+      "help": "sequence_runner.py \u2014 drip-campaign daemon (Phase 4.3 of SunBiz CRM). \u2014 subcommand: tail"
     },
     {
       "key": "skill_metrics_track",
