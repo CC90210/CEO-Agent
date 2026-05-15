@@ -137,6 +137,7 @@ except ImportError:
 # protect against an agent repeatedly hitting the same lead.
 DEFAULT_COOLDOWNS: dict[str, int] = {
     "email": 72,        # 3 days between cold emails to the same lead
+    "sms": 24,          # 1 day between SMS to same lead (TT/Twilio shared)
     "instagram": 48,    # 2 days between DMs
     "phone": 168,       # 7 days between calls
     "skool": 24,        # 1 day — community is higher frequency
@@ -151,6 +152,7 @@ DEFAULT_COOLDOWNS: dict[str, int] = {
 # even if a bug slips through. Breach triggers fail-closed: gateway refuses.
 DAILY_CAPS: dict[str, int] = {
     "email": 50,        # 50 outbound emails/day hard cap
+    "sms": 30,          # 30 SMS/day per tenant (TT + Twilio combined)
     "instagram": 30,    # 30 DMs/day (IG is especially spam-sensitive)
     "phone": 15,        # 15 calls/day sanity bound
 }
@@ -159,6 +161,7 @@ DAILY_CAPS: dict[str, int] = {
 # daily cap is still far away.
 HOURLY_CAPS: dict[str, int] = {
     "email": 30,
+    "sms": 10,           # 10 SMS/hour — drip-campaign step burst protection
     "instagram": 6,
     "phone": 3,
 }
@@ -1356,6 +1359,123 @@ def _build_email_mime(
     return outer
 
 
+def _send_sms_via_provider(
+    *,
+    env: dict[str, str],
+    provider: str,
+    to_phone: str,
+    body_text: str,
+    brand: str,
+) -> tuple[bool, Optional[str], dict]:
+    """Physical SMS send. Dispatches to TextTorrent or Twilio based on
+    `provider`. Returns (ok, error_message, metadata).
+
+    Metadata is what the gateway folds into the lead_interactions row
+    so operators can audit provider + message ID + send timestamp from
+    one place. Phase 5.3 of the SunBiz CRM build (2026-05-15).
+
+    Why inline (vs subprocess to text_torrent_tool.py / a twilio
+    wrapper): send_gateway is called from autonomous code paths
+    (sequence_runner.py drip engine, future agent tool calls). A
+    subprocess hop per send is ~150ms of forking + Python init, on
+    top of the actual HTTP call. Inline keeps the send synchronous
+    + cheap, matching the email path's _send_email_smtp pattern.
+    """
+    if provider not in ("texttorrent", "twilio"):
+        return False, f"unknown SMS provider '{provider}' (expected 'texttorrent' or 'twilio')", {}
+
+    try:
+        import requests as _requests
+    except ImportError:
+        return False, "'requests' package not installed (pip install requests)", {}
+
+    if provider == "texttorrent":
+        api_key = (env.get("TEXTTORRENT_API_KEY") or "").strip()
+        if not api_key:
+            return False, "TEXTTORRENT_API_KEY missing — set it in the agents env file", {}
+        api_url = (
+            env.get("TEXTTORRENT_API_URL") or "https://api.texttorrent.com/v1"
+        ).rstrip("/")
+        try:
+            r = _requests.post(
+                f"{api_url}/messages",
+                headers={
+                    "authorization": f"Bearer {api_key}",
+                    "content-type": "application/json",
+                    "user-agent": "oasis-bravo/send-gateway/1.0",
+                },
+                json={"to": to_phone, "message": body_text},
+                timeout=30,
+            )
+        except _requests.RequestException as e:
+            return False, f"network error contacting TT: {e}", {}
+        if r.status_code >= 400:
+            try:
+                err = r.json()
+            except ValueError:
+                err = r.text[:400]
+            return False, f"TT HTTP {r.status_code}: {err}", {}
+        try:
+            data = r.json()
+        except ValueError:
+            data = {}
+        return True, None, {
+            "provider_message_id": data.get("id") or data.get("message_id"),
+        }
+
+    # Twilio path. Twilio's REST API is dead simple: POST to
+    # api.twilio.com/2010-04-01/Accounts/<sid>/Messages.json with
+    # basic auth (sid + auth token). We don't need the Twilio SDK
+    # for this single call.
+    sid = (env.get("TWILIO_ACCOUNT_SID") or "").strip()
+    token = (env.get("TWILIO_AUTH_TOKEN") or "").strip()
+    # Per-brand phone-number selection (CC has multi-brand setup —
+    # oasis / nostalgic / conaugh_mckenna). Operators set
+    # TWILIO_FROM_NUMBER_OASIS, TWILIO_FROM_NUMBER_NOSTALGIC, etc.,
+    # plus a default TWILIO_FROM_NUMBER for back-compat. Brand-specific
+    # number is checked first; falls back to the default so existing
+    # single-brand operators keep working without an env tweak.
+    brand_upper = (brand or "").upper().replace("-", "_")
+    from_number = (
+        env.get(f"TWILIO_FROM_NUMBER_{brand_upper}")
+        or env.get("TWILIO_FROM_NUMBER")
+        or env.get("TWILIO_PHONE_NUMBER")
+        or ""
+    ).strip()
+    if not sid or not token:
+        return False, "TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN required in the agents env file", {}
+    if not from_number:
+        return False, (
+            f"no Twilio from-number for brand '{brand}'. Set "
+            f"TWILIO_FROM_NUMBER_{brand_upper} or a default TWILIO_FROM_NUMBER."
+        ), {}
+    try:
+        r = _requests.post(
+            f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json",
+            data={"To": to_phone, "From": from_number, "Body": body_text},
+            auth=(sid, token),
+            timeout=30,
+            headers={"user-agent": "oasis-bravo/send-gateway/1.0"},
+        )
+    except _requests.RequestException as e:
+        return False, f"network error contacting Twilio: {e}", {}
+    if r.status_code >= 400:
+        try:
+            err = r.json()
+            err_msg = err.get("message") or err
+        except ValueError:
+            err_msg = r.text[:400]
+        return False, f"Twilio HTTP {r.status_code}: {err_msg}", {}
+    try:
+        data = r.json()
+    except ValueError:
+        data = {}
+    return True, None, {
+        "provider_message_id": data.get("sid"),
+        "twilio_status": data.get("status"),
+    }
+
+
 def _send_email_smtp(
     env: dict[str, str],
     mime: MIMEMultipart,
@@ -1401,6 +1521,7 @@ def send(
     agent_source: str,
     *,
     to_email: Optional[str] = None,
+    to_phone: Optional[str] = None,    # SMS: E.164 phone (added Phase 5.3, SunBiz CRM)
     lead_id: Optional[str] = None,
     subject: Optional[str] = None,
     body_text: Optional[str] = None,
@@ -1412,6 +1533,7 @@ def send(
     ics_content: Optional[str] = None,
     ics_filename: str = "meeting.ics",
     attachments: Optional[list[dict]] = None,
+    sms_provider: Optional[str] = None,  # "texttorrent" | "twilio" | None (auto, env-resolved)
     dry_run: bool = False,
     db: Any = None,
 ) -> dict:
@@ -1451,6 +1573,24 @@ def send(
         if not to_email or not subject or not body_text:
             return {"status": "error",
                     "reason": "email channel requires to_email, subject, body_text",
+                    "lead_id": lead_id, "interaction_id": None,
+                    "cooldown_until": None, "daily_count": None}
+    elif channel == "sms":
+        # Phase 5.3 of SunBiz CRM — SMS now goes through the chokepoint
+        # so cooldown / daily-cap / suppression apply uniformly with
+        # email. Drip sequence runner (Phase 4) is the primary caller.
+        if not to_phone or not body_text:
+            return {"status": "error",
+                    "reason": "sms channel requires to_phone (E.164) and body_text",
+                    "lead_id": lead_id, "interaction_id": None,
+                    "cooldown_until": None, "daily_count": None}
+        # Light E.164 sanity check — full validation is the provider's
+        # job (they reject bad numbers with a clear error). Catching
+        # the egregious cases here saves a round-trip.
+        normalized_phone = to_phone.strip()
+        if not normalized_phone.startswith("+") or len(normalized_phone) < 8:
+            return {"status": "error",
+                    "reason": f"sms to_phone must be E.164 starting with '+', got '{to_phone}'",
                     "lead_id": lead_id, "interaction_id": None,
                     "cooldown_until": None, "daily_count": None}
 
@@ -1784,6 +1924,69 @@ def send(
         _emit_outbound_sent(lead_id, channel, interaction_id, intent, brand)
         return {"status": "sent",
                 "reason": "ok",
+                "lead_id": lead_id,
+                "interaction_id": interaction_id,
+                "cooldown_until": (datetime.now(timezone.utc)
+                                   + timedelta(hours=effective_cooldown)).isoformat()
+                if effective_cooldown else None,
+                "daily_count": None}
+
+    # ---- SMS dispatch (Phase 5.3 of SunBiz CRM) ----
+    # SMS goes through the chokepoint inline (mirrors email) rather than
+    # log-only (which is what instagram / phone / skool / telegram do).
+    # The drip sequence runner calls this from autonomous code paths;
+    # it can't perform the physical send itself without re-implementing
+    # provider routing, retry, and credential loading.
+    if channel == "sms":
+        # to_phone is guaranteed non-None here by the per-channel
+        # validation above. Type narrowing for the type checker.
+        assert to_phone is not None and body_text is not None
+        provider_choice = (
+            (sms_provider or "").lower()
+            or (env.get("SMS_PROVIDER") or "").lower()
+            or "twilio"  # back-compat default: Twilio was the only SMS path pre-Phase 5
+        )
+        ok, sms_err, sms_meta = _send_sms_via_provider(
+            env=env,
+            provider=provider_choice,
+            to_phone=to_phone,
+            body_text=body_text,
+            brand=brand,
+        )
+        if not ok:
+            return {"status": "error",
+                    "reason": f"sms provider '{provider_choice}': {sms_err}",
+                    "lead_id": lead_id, "interaction_id": None,
+                    "cooldown_until": None, "daily_count": None}
+
+        effective_cooldown = (
+            cooldown_hours
+            if cooldown_hours is not None
+            else DEFAULT_COOLDOWNS.get(channel, 0)
+        )
+        full_metadata = dict(metadata or {})
+        full_metadata.update({
+            "brand": brand,
+            "intent": intent,
+            "sms_provider": provider_choice,
+            "sent_at": datetime.now(timezone.utc).isoformat(),
+            **sms_meta,
+        })
+        interaction_id = log_action(
+            db=db,
+            lead_id=lead_id,
+            channel=channel,
+            action_type="sms_sent",
+            subject=None,
+            content_preview=body_text,
+            agent_source=agent_source,
+            cooldown_hours=effective_cooldown,
+            metadata=full_metadata,
+            to_email=None,  # SMS has no email; phone is in metadata
+        )
+        _emit_outbound_sent(lead_id, channel, interaction_id, intent, brand)
+        return {"status": "sent",
+                "reason": f"sms via {provider_choice}",
                 "lead_id": lead_id,
                 "interaction_id": interaction_id,
                 "cooldown_until": (datetime.now(timezone.utc)
