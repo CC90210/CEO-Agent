@@ -406,6 +406,90 @@ export const TOOL_DEFINITIONS: ToolDef[] = [
       required: ["name"],
     },
   },
+
+  // ──────────────────────────────────────────────────────────────────
+  // Typed wrappers for the documented *_tool.py CLI layer — Phase C.
+  // Each takes {action, args?} and shells out to the operator's local
+  // scripts/<tool>.py with --json auto-appended. Same execution path
+  // as run_script under the hood, just typed + advertised.
+  // ──────────────────────────────────────────────────────────────────
+  {
+    name: "stripe",
+    description:
+      "Stripe SDK — universal payment access across all the operator's connected Stripe accounts. Actions: list-accounts, balance, customers, products, prices, invoices, subscriptions, charges, payment-links, create-payment-link, create-price, quick-link, create-customer, create-invoice, refund, events. Call action='--help' to see args for each. The wrapper auto-appends --json so you get structured output.",
+    defer: true,
+    input_schema: {
+      type: "object",
+      properties: {
+        action: {
+          type: "string",
+          description: "Subcommand name. Examples: 'customers', 'balance', 'create-payment-link', 'refund'. Pass '--help' to discover args for a specific action.",
+        },
+        args: {
+          type: "array",
+          items: { type: "string" },
+          description: "Argv for the action. Example: ['--limit', '10', '--account', 'oasis_ai'].",
+        },
+      },
+      required: ["action"],
+    },
+  },
+  {
+    name: "supabase",
+    description:
+      "Supabase — query the operator's database, list/get/insert/update/delete records, run raw SQL. Use this for ad-hoc data work that doesn't fit a manifest entity. The list_records / get_record / update_record cloud tools are usually a better choice for tenant_records data — supabase is for non-manifest tables (auth.users, integrations_health, etc.).",
+    defer: true,
+    input_schema: {
+      type: "object",
+      properties: {
+        action: { type: "string", description: "Subcommand. Examples: 'query', 'list', 'get', 'insert', '--help'." },
+        args: { type: "array", items: { type: "string" }, description: "Argv for the action." },
+      },
+      required: ["action"],
+    },
+  },
+  {
+    name: "n8n",
+    description:
+      "n8n workflow automation — list workflows, execute by name/ID, get execution status, manage webhooks. Use to kick off the operator's automated processes (lead enrichment, email sequences, etc.).",
+    defer: true,
+    input_schema: {
+      type: "object",
+      properties: {
+        action: { type: "string", description: "Subcommand. Pass '--help' to discover." },
+        args: { type: "array", items: { type: "string" }, description: "Argv for the action." },
+      },
+      required: ["action"],
+    },
+  },
+  {
+    name: "firecrawl",
+    description:
+      "Firecrawl — scrape a URL or crawl a site, return clean markdown. Use for competitor research, page content extraction, drafting from a real source. Falls back to http_get if Firecrawl credentials aren't configured.",
+    defer: true,
+    input_schema: {
+      type: "object",
+      properties: {
+        action: { type: "string", description: "Subcommand: 'scrape', 'crawl', 'map', '--help'." },
+        args: { type: "array", items: { type: "string" }, description: "Argv for the action. Example for scrape: ['https://example.com', '--format', 'markdown']." },
+      },
+      required: ["action"],
+    },
+  },
+  {
+    name: "notebooklm",
+    description:
+      "NotebookLM — query the operator's curated knowledge base with citations. Use for grounded answers from their documented sources (vs. open-web speculation). Requires NotebookLM credentials in .env.agents; if missing, the action will return an is_error with the credential hint.",
+    defer: true,
+    input_schema: {
+      type: "object",
+      properties: {
+        action: { type: "string", description: "Subcommand: 'query', 'list-notebooks', '--help'." },
+        args: { type: "array", items: { type: "string" }, description: "Argv for the action." },
+      },
+      required: ["action"],
+    },
+  },
 ];
 
 // ============================================================================
