@@ -471,6 +471,188 @@ def _tool_run_script(payload: dict) -> dict:
 
 
 # ──────────────────────────────────────────────────────────────────
+# Skill discovery + invocation — Phase B of harness completeness
+#
+# The operator has ~65 skills/<name>/SKILL.md playbooks documenting
+# how their agents handle specific scenarios (CEO briefing, sales
+# closing, debugging, etc.). In CLI/subscription mode, Claude Code
+# auto-discovers and loads these via the skill system. In API-key
+# mode the model is blind to them.
+#
+# list_skills returns the catalog (name + description + triggers from
+# frontmatter); load_skill returns the full SKILL.md body so the model
+# can follow the SOP step-by-step. Both cached for 5 minutes.
+# ──────────────────────────────────────────────────────────────────
+
+_LIST_SKILLS_CACHE: dict = {"at": 0.0, "data": None}
+
+
+def _parse_skill_frontmatter(text: str) -> dict:
+    """Extract YAML-ish frontmatter from a SKILL.md file. The repo's
+    convention is the standard `---\\n<key>: <value>\\n---\\n` markdown
+    frontmatter block at the top. Not parsing arbitrary YAML — just the
+    keys this skill registry cares about (name, description, triggers,
+    tags). Array values can be inline JSON-ish (["a","b"]) or YAML-
+    style (`- a` lines below the key); we handle both with best-effort
+    eval. Anything we can't parse we drop silently — the file is still
+    loadable via load_skill, just less discoverable."""
+    stripped = text.lstrip()
+    if not stripped.startswith("---"):
+        return {}
+    rest = stripped[3:]
+    end = rest.find("\n---")
+    if end == -1:
+        return {}
+    block = rest[:end]
+    fm: dict = {}
+    current_key: str | None = None
+    list_buf: list[str] | None = None
+    for line in block.splitlines():
+        if not line.strip():
+            continue
+        # YAML list continuation: "  - value"
+        if list_buf is not None and line.lstrip().startswith("- "):
+            list_buf.append(line.lstrip()[2:].strip().strip('"').strip("'"))
+            continue
+        # New key — commit any pending list, start fresh
+        if list_buf is not None and current_key:
+            fm[current_key] = list_buf
+            list_buf = None
+            current_key = None
+        if ":" not in line:
+            continue
+        key, _, val = line.partition(":")
+        key = key.strip()
+        val = val.strip()
+        # Inline list: triggers: ["a", "b"]
+        if val.startswith("[") and val.endswith("]"):
+            inner = val[1:-1].strip()
+            if not inner:
+                fm[key] = []
+            else:
+                items = []
+                # Naive split — works for simple quoted-string lists.
+                # Anything fancier (nested objects) and we just skip.
+                depth = 0
+                buf = ""
+                for ch in inner + ",":
+                    if ch == "," and depth == 0:
+                        s = buf.strip().strip('"').strip("'")
+                        if s:
+                            items.append(s)
+                        buf = ""
+                    else:
+                        if ch in "[{":
+                            depth += 1
+                        elif ch in "]}":
+                            depth -= 1
+                        buf += ch
+                fm[key] = items
+        elif val == "" or val == "|" or val == ">":
+            # Block-style list follows on subsequent `- ...` lines
+            current_key = key
+            list_buf = []
+        else:
+            # Scalar — strip quotes if present
+            fm[key] = val.strip('"').strip("'")
+    if list_buf is not None and current_key:
+        fm[current_key] = list_buf
+    return fm
+
+
+def _tool_list_skills(payload: dict) -> dict:
+    """{filter?: str} → catalog of skills/*/SKILL.md playbooks with their
+    name + description + triggers. Use this to discover the operator's
+    SOPs before running a workflow; then call load_skill to read the
+    full body and follow the steps.
+
+    Cached 5 minutes per bridge process. Filter is a case-insensitive
+    substring match against skill name, description, AND triggers."""
+    now = time.time()
+    if _LIST_SKILLS_CACHE["data"] is None or (now - _LIST_SKILLS_CACHE["at"]) > 300:
+        bravo = _bravo_root()
+        skills_dir = bravo / "skills"
+        catalog: list[dict] = []
+        if skills_dir.is_dir():
+            for skill_path in sorted(skills_dir.iterdir()):
+                if not skill_path.is_dir() or skill_path.name.startswith("."):
+                    continue
+                md = skill_path / "SKILL.md"
+                if not md.is_file():
+                    continue
+                try:
+                    head = md.read_text(encoding="utf-8", errors="replace")[:4096]
+                except OSError:
+                    continue
+                fm = _parse_skill_frontmatter(head)
+                # Fallback: use the directory name when frontmatter is missing
+                name = fm.get("name") or skill_path.name
+                catalog.append({
+                    "name": str(name),
+                    "description": str(fm.get("description") or "")[:300],
+                    "triggers": fm.get("triggers") if isinstance(fm.get("triggers"), list) else [],
+                    "tags": fm.get("tags") if isinstance(fm.get("tags"), list) else [],
+                })
+        _LIST_SKILLS_CACHE["at"] = now
+        _LIST_SKILLS_CACHE["data"] = catalog
+    catalog = _LIST_SKILLS_CACHE["data"] or []
+    flt = str(payload.get("filter") or "").strip().lower()
+    if flt:
+        catalog = [
+            c for c in catalog
+            if flt in str(c.get("name", "")).lower()
+            or flt in str(c.get("description", "")).lower()
+            or any(flt in str(t).lower() for t in c.get("triggers", []))
+        ]
+    return _ok(_json_dumps_compact({
+        "count": len(catalog),
+        "skills": catalog,
+    }))
+
+
+# Forbidden in skill names — same set as scripts, plus we additionally
+# refuse names with slashes since skills are directory-keyed and a path
+# would be a structural error.
+_FORBIDDEN_SKILL_TOKENS = ("..", "/", "\\", "\x00")
+
+
+def _tool_load_skill(payload: dict) -> dict:
+    """{name: str} → full SKILL.md body for a named skill. Use after
+    list_skills has identified the right playbook. Returns the raw
+    markdown — the model reads the steps and follows them.
+
+    Path resolution: skills/<name>/SKILL.md inside the Bravo repo root.
+    No traversal, no slashes in name."""
+    name = str(payload.get("name") or "").strip()
+    if not name:
+        return _err("missing 'name'")
+    for token in _FORBIDDEN_SKILL_TOKENS:
+        if token in name:
+            return _err(f"skill name must be a simple identifier — found forbidden token {token!r}")
+
+    bravo = _bravo_root()
+    md_path = (bravo / "skills" / name / "SKILL.md").resolve()
+    try:
+        md_path.relative_to((bravo / "skills").resolve())
+    except ValueError:
+        return _err(f"skill_path_escapes_skills_dir: {md_path}")
+    if not md_path.is_file():
+        # Soft hint — point the model at list_skills so it can find the
+        # right name if it spelled this one wrong.
+        return _err(
+            f"skill_not_found: skills/{name}/SKILL.md. "
+            "Call list_skills to see what's available."
+        )
+    try:
+        body = md_path.read_text(encoding="utf-8", errors="replace")
+    except OSError as e:
+        return _err(f"read_failed: {e}")
+    # Skills can be long. Truncate to the soft cap so the model can
+    # still reason about the rest of the context.
+    return _ok(body)
+
+
+# ──────────────────────────────────────────────────────────────────
 # Registry + dispatcher
 # ──────────────────────────────────────────────────────────────────
 
@@ -482,6 +664,8 @@ TOOL_REGISTRY: dict[str, Callable[[dict], dict]] = {
     "send_sms": _tool_send_sms,
     "list_scripts": _tool_list_scripts,
     "run_script": _tool_run_script,
+    "list_skills": _tool_list_skills,
+    "load_skill": _tool_load_skill,
 }
 
 
