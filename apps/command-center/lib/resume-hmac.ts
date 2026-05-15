@@ -26,7 +26,11 @@
 
 import { createHmac, timingSafeEqual } from "crypto";
 
-const HMAC_ENV_VAR = "BRAVO_RESUME_HMAC_KEY";
+// Renamed 2026-05-15 from BRAVO_RESUME_HMAC_KEY — the chat-resume HMAC
+// signs tokens for ANY tenant's chat, not just Bravo's. Neutral name
+// reflects that. Legacy fallback for the transition window.
+const HMAC_ENV_VAR = "CHAT_RESUME_HMAC_KEY";
+const HMAC_ENV_VAR_LEGACY = "BRAVO_RESUME_HMAC_KEY";
 const SIG_VERSION = "v1"; // bump when changing the canonicalization or algorithm
 
 /**
@@ -35,7 +39,7 @@ const SIG_VERSION = "v1"; // bump when changing the canonicalization or algorith
  */
 function shouldEnforce(): boolean {
   const isProd = process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";
-  const keySet = !!process.env[HMAC_ENV_VAR];
+  const keySet = !!(process.env[HMAC_ENV_VAR] || process.env[HMAC_ENV_VAR_LEGACY]);
   return isProd || keySet;
 }
 
@@ -59,7 +63,11 @@ function canonicalize(value: unknown): string {
 }
 
 function getKey(): Buffer | null {
-  const raw = process.env[HMAC_ENV_VAR];
+  // Prefer the canonical env var; fall back to the legacy name during
+  // the transition. Once Vercel's legacy key is deleted, the fallback
+  // is harmless dead-code.
+  const raw =
+    process.env[HMAC_ENV_VAR] || process.env[HMAC_ENV_VAR_LEGACY];
   if (!raw || raw.length < 32) return null;
   return Buffer.from(raw, "utf8");
 }

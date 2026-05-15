@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-15T20:57:00.903502+00:00",
-  "script_count": 91,
-  "entry_count": 338,
+  "generated_at_iso": "2026-05-15T21:27:06.491328+00:00",
+  "script_count": 92,
+  "entry_count": 343,
   "entries": [
     {
       "key": "agent_heartbeat",
@@ -2362,6 +2362,41 @@
       "subcmd": null,
       "mutating": true,
       "help": "update_readme_stats.py \u2014 keep README.md (and any other doc) honest about"
+    },
+    {
+      "key": "vercel_env_tool_list",
+      "path": "scripts/vercel_env_tool.py",
+      "subcmd": "list",
+      "mutating": false,
+      "help": "Vercel Environment Variable CLI Tool. \u2014 subcommand: list"
+    },
+    {
+      "key": "vercel_env_tool_set",
+      "path": "scripts/vercel_env_tool.py",
+      "subcmd": "set",
+      "mutating": true,
+      "help": "Vercel Environment Variable CLI Tool. \u2014 subcommand: set"
+    },
+    {
+      "key": "vercel_env_tool_set_random",
+      "path": "scripts/vercel_env_tool.py",
+      "subcmd": "set-random",
+      "mutating": true,
+      "help": "Vercel Environment Variable CLI Tool. \u2014 subcommand: set-random"
+    },
+    {
+      "key": "vercel_env_tool_delete",
+      "path": "scripts/vercel_env_tool.py",
+      "subcmd": "delete",
+      "mutating": true,
+      "help": "Vercel Environment Variable CLI Tool. \u2014 subcommand: delete"
+    },
+    {
+      "key": "vercel_env_tool_projects",
+      "path": "scripts/vercel_env_tool.py",
+      "subcmd": "projects",
+      "mutating": false,
+      "help": "Vercel Environment Variable CLI Tool. \u2014 subcommand: projects"
     },
     {
       "key": "wire_all_templates",
