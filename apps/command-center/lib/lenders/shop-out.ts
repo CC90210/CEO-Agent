@@ -145,9 +145,18 @@ export async function buildShopOutPlan(input: ShopOutPlanInput): Promise<{
 
 /**
  * Insert the application_lender_threads rows for a shop-out batch.
- * Called by /api/applications/[id]/shop-out after individual sends
- * succeed. Returns the inserted thread IDs so the caller can stamp
- * gmail_thread_id once the SMTP response carries one.
+ * Called by /api/applications/[id]/shop-out.
+ *
+ * NOTE on status semantics: rows land at 'pending' (NOT 'sent') because
+ * the physical SMTP send is Phase 6.3-bis. A row only moves to 'sent'
+ * once the bridge-side send_gateway invocation succeeds + stamps
+ * gmail_thread_id. If `entries[i].error` is set (missing contact /
+ * match blocker), the row lands at 'error' so operators see what went
+ * wrong without polluting their pending queue.
+ *
+ * The status column's CHECK constraint covers: pending, sent,
+ * responded, approved, declined, info_requested, no_response, error
+ * (per migration 044).
  */
 export async function recordShopOutThreads(input: {
   tenant_id: string;
@@ -157,16 +166,19 @@ export async function recordShopOutThreads(input: {
 }): Promise<{ ok: true; inserted: number } | { ok: false; error: string }> {
   if (input.entries.length === 0) return { ok: true, inserted: 0 };
   const db = getServiceSupabase();
-  const now = new Date().toISOString();
   const rows = input.entries.map((e) => ({
     application_id: input.application_id,
     lender_id: e.lender_id,
     tenant_id: input.tenant_id,
     subject: e.subject.slice(0, 500),
     cc_emails: input.cc_emails,
-    status: e.sent ? "sent" : "error",
+    // Errors (missing contact, match blocker) -> 'error'. Otherwise
+    // 'pending' until Phase 6.3-bis flips it to 'sent' on real SMTP
+    // success. Never 'sent' from this route — that would lie to the
+    // operator about what actually happened.
+    status: e.error ? "error" : "pending",
     last_error: e.error || null,
-    sent_at: e.sent ? now : null,
+    sent_at: null,
   }));
   const { error } = await db.from("application_lender_threads").insert(rows);
   if (error) {
