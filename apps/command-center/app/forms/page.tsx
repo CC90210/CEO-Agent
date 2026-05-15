@@ -10,7 +10,7 @@
 import { PageHeader, Tag } from "@/components/Card";
 import { getActiveProfile } from "@/lib/queries";
 import { getSessionUser, getServiceSupabase } from "@/lib/supabase-server";
-import { safe } from "@/lib/api-helpers";
+import { safe, isMissingTableError } from "@/lib/api-helpers";
 import { FormsListClient } from "@/components/forms/FormsListClient";
 import { AlertCircle } from "lucide-react";
 import { redirect } from "next/navigation";
@@ -39,13 +39,7 @@ async function loadForms(tenantId: string | null): Promise<
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false });
   if (error) {
-    const msg = error.message || "";
-    const isMissingTable =
-      msg.includes("public.forms") ||
-      msg.toLowerCase().includes("could not find the table") ||
-      error.code === "PGRST205" ||
-      error.code === "42P01";
-    if (isMissingTable) {
+    if (isMissingTableError(error, "public.forms")) {
       return { ok: false, reason: "migration_not_applied" };
     }
     return { ok: false, reason: "db_error", detail: error.message };
