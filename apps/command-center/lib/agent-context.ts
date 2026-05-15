@@ -12,6 +12,11 @@
 
 import { runTool, type ToolContext } from "./agent-tools";
 import { listUnreadDb } from "./agent-inbox-db";
+import { listRecords } from "./manifest/data";
+import { getManifest } from "./manifest/loader";
+import { resolveClientProfileSlug } from "./client-profiles";
+import { getTenant } from "./queries";
+import type { ManifestEntityDef } from "./manifest/schema";
 
 function fmtUSD(n: number): string {
   return `$${Math.round(n).toLocaleString()}`;
@@ -135,6 +140,27 @@ export async function composeDashboardContextV2(ctx: ToolContext): Promise<Dashb
     }
   }
 
+  // Manifest pipeline snapshot — the row-level state of every entity in
+  // the tenant's manifest data_model. Without this block, an agent like
+  // Solara who's been asked "what's expiring in the next 60 days?" has
+  // no way to answer — composeDashboardContextV2's MRR/pipeline tools
+  // are OASIS-shaped (lead_score / pipeline_stage), they don't know
+  // about funded_deal, renewal, application. Inject row counts + a
+  // small sample per entity so the model can answer from real data
+  // instead of hallucinating or asking the operator to paste.
+  //
+  // Best-effort. If the tenant has no manifest or the data layer hiccups,
+  // skip the block; the rest of the context still renders.
+  try {
+    const manifestBlock = await composeManifestPipelineBlock(ctx.tenantId);
+    if (manifestBlock) {
+      lines.push("");
+      lines.push(manifestBlock);
+    }
+  } catch {
+    // swallowed — context build must never throw
+  }
+
   // Inbox messages addressed to THIS agent — closes the inbox loop. When
   // the operator (or a sibling agent) posts to the inbox, the receiving
   // agent surfaces those messages at the top of its next chat session
@@ -174,4 +200,87 @@ export async function composeDashboardContextV2(ctx: ToolContext): Promise<Dashb
 
   lines.push("---");
   return { text: lines.join("\n"), injectedInboxIds };
+}
+
+/**
+ * Manifest-aware pipeline snapshot. Returns null for tenants without a
+ * resolvable manifest slug or whose manifest has no data_model — they
+ * fall back to the OASIS-shaped tools alone.
+ *
+ * For each entity: total row count + the 3 most-recently-updated rows
+ * (truncated to keep token spend predictable). Solara/Helios on a SunBiz
+ * tenant get "5 leads (3 new, 2 qualified), 2 applications submitted, 1
+ * offer expiring this week, 3 renewals in the 60-day window" without
+ * needing a per-tenant pipeline tool.
+ *
+ * The block is labelled by entity so the model can spot "renewals" vs
+ * "leads" vs "applications" by name. No domain-specific filters here —
+ * the entity name is the contract.
+ */
+async function composeManifestPipelineBlock(tenantId: string): Promise<string | null> {
+  // Resolve the manifest slug for this tenant. Same path the records
+  // dashboard-action uses — keeps the answer "what data am I scoped
+  // to?" consistent across the chat read path and the write path.
+  const tenant = await getTenant(tenantId).catch(() => null);
+  if (!tenant) return null;
+  const slug = resolveClientProfileSlug(tenant);
+  if (!slug) return null;
+  let manifest;
+  try {
+    manifest = await getManifest(slug);
+  } catch {
+    return null;
+  }
+  const entities = manifest.data_model || [];
+  if (entities.length === 0) return null;
+
+  const blocks = await Promise.all(
+    entities.map(async (entity) => formatEntityBlock(tenantId, entity))
+  );
+  const populated = blocks.filter((b): b is string => Boolean(b));
+  if (populated.length === 0) return null;
+
+  return [
+    `PIPELINE STATE (${manifest.brand.name} — auto-attached every turn; quote from these rows, don't ask the operator to paste them):`,
+    ...populated,
+  ].join("\n");
+}
+
+async function formatEntityBlock(tenantId: string, entity: ManifestEntityDef): Promise<string | null> {
+  try {
+    const result = await listRecords({
+      tenant_id: tenantId,
+      entity: entity.name,
+      limit: 3,
+      // Default sort is updated_at DESC — most-recent rows first.
+    });
+    if (result.total === 0) {
+      return `- ${entity.label} (${entity.name}): 0 rows`;
+    }
+    const sample = result.rows
+      .map((r) => `    · ${summariseRow(entity, r.data, r.id)}`)
+      .join("\n");
+    return [`- ${entity.label} (${entity.name}): ${result.total} total — most recent:`, sample].join("\n");
+  } catch {
+    return null;
+  }
+}
+
+function summariseRow(entity: ManifestEntityDef, data: Record<string, unknown>, id: string): string {
+  // Pick a label field (business_name / name / title / contact_name / id),
+  // then surface 2-3 highest-signal fields. Stage/status/amount fields
+  // are the ones the model needs to reason about pipeline movement.
+  const label =
+    data.business_name || data.name || data.title || data.contact_name || id.slice(0, 8);
+  const signal: string[] = [];
+  for (const field of entity.fields) {
+    if (signal.length >= 3) break;
+    if (field.name === "business_name" || field.name === "name" || field.name === "title" || field.name === "contact_name") continue;
+    const v = data[field.name];
+    if (v === undefined || v === null || v === "") continue;
+    // Truncate strings; numbers and enums render as-is.
+    const valStr = typeof v === "string" ? (v.length > 40 ? v.slice(0, 37) + "..." : v) : String(v);
+    signal.push(`${field.name}=${valStr}`);
+  }
+  return `${label}${signal.length ? ` [${signal.join(", ")}]` : ""}`;
 }
