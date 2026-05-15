@@ -13,6 +13,9 @@
 
 import { getServiceSupabase } from "./supabase-server";
 import { ALL_AGENT_KEYS } from "./agents";
+import { getManifest } from "./manifest/loader";
+import { createRecord, RecordsError } from "./manifest/data";
+import { resolveClientProfileSlug } from "./client-profiles";
 
 export type ActionContext = {
   tenantId: string;
@@ -158,6 +161,116 @@ const ACTIONS: Record<string, Handler> = {
     return r.ok
       ? { ok: true, type: "update_mrr", summary: r.summary }
       : { ok: false, type: "update_mrr", error: r.error };
+  },
+
+  /**
+   * create_record — agent writes a row into the tenant's manifest-defined
+   * data model. Powers natural-language flows like "we just got a new funded
+   * deal, $50k to ABC Corp, 12 months MCA" → row lands in /t/sun/funded-deals.
+   *
+   * Payload:
+   *   { entity: "funded_deal", data: { lead_id, lender_id, amount_funded, ... } }
+   *
+   * Validation:
+   *   - entity must exist in the tenant's manifest data_model
+   *   - required fields must be present
+   *   - enum fields must match an allowed value
+   *   - the tenant_id from ctx is used as the writer; the agent can't write
+   *     into another tenant's records
+   */
+  async create_record(payload, ctx): Promise<ActionResult> {
+    const entityName = String(payload.entity || "").trim().toLowerCase();
+    const data = payload.data;
+    if (!entityName) {
+      return { ok: false, type: "create_record", error: "entity required" };
+    }
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      return { ok: false, type: "create_record", error: "data must be an object" };
+    }
+
+    // Resolve which manifest scopes this tenant. SunBiz clients have
+    // command_center_profile_slug="sun"; wizard signups have their own
+    // chosen slug. Falls back to the caller's tenants.slug column if
+    // custom_fields is empty (legacy rows).
+    const db = getServiceSupabase();
+    const tenantRow = await db.from("tenants").select("slug, custom_fields").eq("id", ctx.tenantId).maybeSingle();
+    if (tenantRow.error || !tenantRow.data) {
+      return { ok: false, type: "create_record", error: "tenant not found" };
+    }
+    const manifestSlug = resolveClientProfileSlug(tenantRow.data) || tenantRow.data.slug;
+    if (!manifestSlug) {
+      return { ok: false, type: "create_record", error: "no manifest slug resolvable for tenant" };
+    }
+
+    let manifest;
+    try {
+      manifest = await getManifest(manifestSlug);
+    } catch (err) {
+      return { ok: false, type: "create_record", error: `manifest load failed: ${err instanceof Error ? err.message : "unknown"}` };
+    }
+
+    const entityDef = (manifest.data_model || []).find((e) => e.name === entityName);
+    if (!entityDef) {
+      return {
+        ok: false,
+        type: "create_record",
+        error: `unknown entity "${entityName}" — manifest has: ${(manifest.data_model || []).map((e) => e.name).join(", ") || "(none)"}`,
+      };
+    }
+
+    // Validate the incoming data against the entity schema.
+    const sanitized: Record<string, unknown> = {};
+    for (const field of entityDef.fields) {
+      const v = (data as Record<string, unknown>)[field.name];
+      if (v === undefined || v === null || v === "") {
+        if (field.required) {
+          return { ok: false, type: "create_record", error: `${entityName}.${field.name} is required` };
+        }
+        continue;
+      }
+      if (field.type === "enum") {
+        if (!field.enum_values?.includes(String(v))) {
+          return {
+            ok: false,
+            type: "create_record",
+            error: `${entityName}.${field.name} must be one of: ${field.enum_values?.join(", ")}`,
+          };
+        }
+        sanitized[field.name] = v;
+        continue;
+      }
+      if (field.type === "number") {
+        const n = Number(v);
+        if (!Number.isFinite(n)) {
+          return { ok: false, type: "create_record", error: `${entityName}.${field.name} must be a number` };
+        }
+        sanitized[field.name] = n;
+        continue;
+      }
+      if (field.type === "boolean") {
+        sanitized[field.name] = Boolean(v);
+        continue;
+      }
+      // string, date, datetime, json — pass through. data.ts re-validates on insert.
+      sanitized[field.name] = v;
+    }
+
+    try {
+      const row = await createRecord({
+        tenant_id: ctx.tenantId,
+        entity: entityName,
+        data: sanitized,
+      });
+      const labelField = sanitized.business_name || sanitized.name || sanitized.title || sanitized.contact_name || row.id;
+      return {
+        ok: true,
+        type: "create_record",
+        summary: `created ${entityDef.label.toLowerCase()}: ${labelField}`,
+      };
+    } catch (err) {
+      const msg = err instanceof RecordsError ? `${err.code}: ${err.message}` : (err instanceof Error ? err.message : "create_failed");
+      return { ok: false, type: "create_record", error: msg };
+    }
   },
 };
 
