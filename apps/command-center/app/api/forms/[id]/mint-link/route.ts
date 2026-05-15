@@ -100,13 +100,13 @@ export async function POST(
   });
   if (token === null) {
     // Production with no HMAC key — refuse to mint, same fail-closed
-    // posture /api/chat/resume uses when BRAVO_RESUME_HMAC_KEY is unset.
+    // posture /api/chat/resume uses when CHAT_RESUME_HMAC_KEY is unset.
     return NextResponse.json(
       {
         ok: false,
         error: "form_links_misconfigured",
         hint:
-          "BRAVO_FORM_LINK_HMAC_KEY is not set in this environment. Set a ≥32 char random string in Vercel env vars and redeploy.",
+          "FORM_LINK_HMAC_KEY is not set in this environment. Set a ≥32 char random string in Vercel env vars and redeploy.",
       },
       { status: 503 },
     );
