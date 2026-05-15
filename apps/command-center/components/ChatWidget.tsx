@@ -555,6 +555,12 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
     setExpandedRuns(new Set());
     setThinking(false);
     setAwayFromBottom(false);
+    // Conversation-boundary reset — drop the "last failed mode" tracker
+    // so the Retry button doesn't carry over from a previous chat or a
+    // previous agent. The button hides anyway when error=null, but
+    // leaving the state populated is a foot-gun for any future code
+    // path that surfaces the value.
+    setLastFailedMode(null);
   }, [agent, activeWelcomeMessage, welcomeMessages]);
 
   const handleScroll = useCallback(() => {
@@ -648,6 +654,12 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
     setExpandedRuns(new Set());
     setThinking(false);
     setAwayFromBottom(false);
+    // Conversation-boundary reset — drop the "last failed mode" tracker
+    // so the Retry button doesn't carry over from a previous chat or a
+    // previous agent. The button hides anyway when error=null, but
+    // leaving the state populated is a foot-gun for any future code
+    // path that surfaces the value.
+    setLastFailedMode(null);
   }
 
   function applySuggestion(text: string) {
