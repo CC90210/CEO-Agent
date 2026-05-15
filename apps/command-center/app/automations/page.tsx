@@ -51,9 +51,14 @@ export default async function AutomationsPage() {
               Jobs created here are saved but won&apos;t fire until your local
               bridge is back up. Run{" "}
               <code className="font-mono text-accent bg-bg-elev px-1 rounded">
-                pm2 restart claude-bridge
+                pm2 restart claude-bridge claude-bridge-ping
               </code>{" "}
-              on your machine to start the poller.
+              on your machine — the ping daemon is what polls this list and
+              executes due jobs. If neither is registered yet, run{" "}
+              <code className="font-mono text-accent bg-bg-elev px-1 rounded">
+                pm2 start ecosystem.config.js
+              </code>{" "}
+              from the repo root.
             </>
           )}
         </div>
