@@ -25,6 +25,7 @@ import { Download, Check, FileText, FileCode, Printer } from "lucide-react";
 // Single canonical markdown renderer — same logic the chat bubble uses,
 // so what the operator sees in the chat equals what they download.
 import { mdToHtml, escapeHtml } from "@/lib/markdown";
+import { getAgentInfo } from "@/lib/agents";
 
 const PRINT_STYLES = `
   @media print {
@@ -63,15 +64,18 @@ const PRINT_STYLES = `
 function buildHtmlDoc(content: string, agent: string): string {
   const renderedAt = new Date().toLocaleString();
   const inner = mdToHtml(content);
+  // Use the display label, not the raw slug — exports would otherwise read
+  // "LIFE-PRESERVATION — chat reply" instead of "LUMEN — chat reply".
+  const agentLabel = getAgentInfo(agent).label.toUpperCase();
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>${escapeHtml(agent.toUpperCase())} — chat reply</title>
+<title>${escapeHtml(agentLabel)} — chat reply</title>
 <style>${PRINT_STYLES}</style>
 </head>
 <body>
-<div class="header-meta">From <strong>${escapeHtml(agent.toUpperCase())}</strong> · ${escapeHtml(renderedAt)}</div>
+<div class="header-meta">From <strong>${escapeHtml(agentLabel)}</strong> · ${escapeHtml(renderedAt)}</div>
 ${inner}
 </body>
 </html>`;
