@@ -104,6 +104,8 @@ When the operator switches you in the chat picker, the bridge `cd`s to that repo
 | Send an email | `send_gateway_send` (mutating; needs `confirm: true`; passes 8 safety gates) | `skills/outreach-send/SKILL.md` |
 | Send-gateway state | `send_gateway_status` | — |
 | Search the web | `firecrawl_search` (args: "query") | — |
+| Scrape a public unprotected page | `firecrawl_scrape` (args: "url") | — |
+| Scrape a bot-protected page (Cloudflare/DataDome/reCAPTCHA/FingerprintJS/Akamai) — MANDATORY stealth tier | `cloak_browser_tool_scrape` (args: "url" "--json") · also: `cloak_browser_tool_check_stealth`, `cloak_browser_tool_goto` | `skills/cloak-browser/SKILL.md` |
 | Read sibling-agent inbox | `agent_inbox_list` (args: --to bravo|atlas|maven|aura|hermes) | — |
 | Post to sibling agent | `agent_inbox_post` (mutating; needs `confirm: true`) | `brain/AGENTS.md` |
 | Update operator dashboard data | emit `<dashboard-action type="…">{…}</dashboard-action>` marker (separate path; not run_script) | `apps/command-center/lib/agent-actions.ts` |

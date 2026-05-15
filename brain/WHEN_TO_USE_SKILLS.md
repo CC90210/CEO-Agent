@@ -50,7 +50,10 @@ last_updated: 2026-05-06
 | pre-ship review | `code-review` | post-ship — too late, log to `MISTAKES.md` |
 | ship to prod | `ship` | local-only change |
 | run tests | `test-driven-development` | exploratory — just run the script |
-| browser automation | `browser-harness` (logged-in) or `browser-automation` (Playwright clean-room) | scraping for data — `firecrawl_tool` |
+| browser automation (CC's logged-in session) | `browser-harness` | unprotected public scrape — `firecrawl_tool` |
+| **bot-protected fresh-session scrape (Cloudflare/DataDome/reCAPTCHA/FingerprintJS/Akamai/Kasada) — MANDATORY stealth tier** | `cloak-browser` | unprotected page — `firecrawl_tool` is cheaper |
+| browser automation (unprotected fresh session, interactive flow / visual snapshot) | `browser-automation` (Playwright MCP) | bot-protected target — escalate to `cloak-browser` |
+| scraping for data (public unprotected) | `web-scraping` → `firecrawl_tool` | bot-protected — escalate to `cloak-browser` |
 | anti-pattern check | `anti-drift` | normal code — only when self-improving |
 
 ## Memory / state
