@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * ProviderAccountsCard — top-level "Connect your AI provider" surface.
  *
@@ -6,40 +8,40 @@
  * dashboard chat shows:
  *   - Connection status (any agent has a key for this provider → Connected)
  *   - Tagline + which models it unlocks
- *   - "Get API key" deep-link to the provider's console (opens in a new tab)
- *   - "Manage keys" jump to the per-agent rows below
+ *   - "Connect" button → inline dialog with single API-key paste
+ *   - "Get API key ↗" deep-link to the provider's console (new tab)
+ *
+ * Single-click connect: paste the key once, the route POSTs to
+ * /api/agent-config/bulk-provider which stamps (provider, model, key)
+ * across every enabled chat agent in the tenant. No per-agent paste
+ * dance, no navigating to /settings#agents to do it five times.
  *
  * Anthropic gets the "Powers tool_use loop" badge — pasting an Anthropic
  * key flips the cloud-mode chat to the native tool_use protocol (real
  * Claude-Code-class capability), not just the legacy text-marker pipe.
- *
- * Server component — pulls connection status from aiServicesWithKey().
- * The actual paste-key UX still lives in AgentConfigEditor (you paste a
- * key once per agent so different agents can use different providers).
- * This card is the discoverability layer that points operators at it.
  */
 
+import { useState } from "react";
 import Link from "next/link";
-import { ExternalLink, Check, AlertCircle, KeyRound, Cpu, Cloud } from "lucide-react";
+import {
+  ExternalLink,
+  Check,
+  AlertCircle,
+  KeyRound,
+  Cpu,
+  Cloud,
+  Loader2,
+  X,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import { PROVIDER_REGISTRY, type Provider } from "@/lib/providers";
+import { PROVIDER_TO_SERVICE } from "@/lib/queries";
 
 type Props = {
-  /**
-   * Set of services-with-key resolved server-side via aiServicesWithKey().
-   * Keys: "anthropic", "openai_codex", "google_ai", "openrouter".
-   */
+  /** Set of services-with-key resolved server-side via aiServicesWithKey(). */
   connectedServices: Set<string>;
   bridgeOnline: boolean;
-};
-
-// Map providers → aiServicesWithKey service names so we can light up the
-// "Connected" pill correctly. Mirrors PROVIDER_TO_SERVICE in queries.ts.
-const PROVIDER_TO_SERVICE: Record<Provider, string> = {
-  anthropic: "anthropic",
-  openai: "openai_codex",
-  google: "google_ai",
-  openrouter: "openrouter",
-  ollama: "ollama", // never returned by aiServicesWithKey (local), shown for parity
 };
 
 // Providers that get a card on this surface. Ollama is intentionally hidden
@@ -47,15 +49,30 @@ const PROVIDER_TO_SERVICE: Record<Provider, string> = {
 // the bridge + AgentConfigEditor and shouldn't pretend it's an account.
 const CARD_PROVIDERS: Provider[] = ["anthropic", "openrouter", "openai", "google"];
 
-export function ProviderAccountsCard({ connectedServices, bridgeOnline }: Props) {
+export function ProviderAccountsCard({ connectedServices: initialServices, bridgeOnline }: Props) {
+  // Server-rendered set, but track in state so connecting flips the UI
+  // immediately without a page reload.
+  const [services, setServices] = useState<Set<string>>(initialServices);
+  const [activeProvider, setActiveProvider] = useState<Provider | null>(null);
+
+  function markConnected(p: Provider) {
+    const svc = PROVIDER_TO_SERVICE[p];
+    if (!svc) return;
+    setServices((prev) => {
+      if (prev.has(svc)) return prev;
+      const next = new Set(prev);
+      next.add(svc);
+      return next;
+    });
+  }
+
   const totalConnected = CARD_PROVIDERS.filter((p) =>
-    connectedServices.has(PROVIDER_TO_SERVICE[p])
+    services.has(PROVIDER_TO_SERVICE[p])
   ).length;
   const anyConnected = totalConnected > 0;
 
   return (
     <div className="space-y-4">
-      {/* Header: what these are, why you'd connect them */}
       <div className="rounded-lg border border-bg-border bg-bg-deep/40 p-4 space-y-2">
         <div className="flex items-start gap-3">
           <KeyRound className="w-4 h-4 text-accent shrink-0 mt-0.5" />
@@ -64,10 +81,9 @@ export function ProviderAccountsCard({ connectedServices, bridgeOnline }: Props)
               Connect an AI provider account
             </div>
             <p className="text-xs text-fg-muted mt-1 leading-relaxed">
-              Your agents need a model provider to think. Connect one (or
-              several — different agents can use different providers) and
-              your dashboard chat works without needing a local Claude Code
-              subscription.{" "}
+              Paste a key once — it applies to every enabled agent in one
+              click. Different agents can use different providers (override
+              per-agent under Agents below).{" "}
               <span className="text-accent">
                 Connecting Anthropic unlocks the native tool_use loop
               </span>
@@ -100,12 +116,11 @@ export function ProviderAccountsCard({ connectedServices, bridgeOnline }: Props)
         </div>
       </div>
 
-      {/* Per-provider cards */}
       <div className="grid sm:grid-cols-2 gap-3">
         {CARD_PROVIDERS.map((p) => {
           const reg = PROVIDER_REGISTRY.find((r) => r.value === p);
           if (!reg) return null;
-          const connected = connectedServices.has(PROVIDER_TO_SERVICE[p]);
+          const connected = services.has(PROVIDER_TO_SERVICE[p]);
           const isAnthropic = p === "anthropic";
           return (
             <div
@@ -149,29 +164,34 @@ export function ProviderAccountsCard({ connectedServices, bridgeOnline }: Props)
                 {reg.hint}
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {connected ? (
-                  <Link
-                    href="#agents"
-                    className="text-[11px] text-accent hover:text-accent-bright inline-flex items-center gap-1 font-bold"
-                  >
-                    Manage keys ↓
-                  </Link>
-                ) : (
+                <button
+                  type="button"
+                  onClick={() => setActiveProvider(p)}
+                  className={`text-[11px] font-bold inline-flex items-center gap-1 ${
+                    connected
+                      ? "text-fg-muted hover:text-fg"
+                      : "text-accent hover:text-accent-bright"
+                  }`}
+                >
+                  {connected ? "Replace key" : "Connect"} →
+                </button>
+                <span className="text-fg-dim text-[10px]">·</span>
+                <a
+                  href={reg.apiKey}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[11px] text-fg-muted hover:text-fg inline-flex items-center gap-1"
+                >
+                  Get a key <ExternalLink className="w-3 h-3" />
+                </a>
+                {connected && (
                   <>
-                    <a
-                      href={reg.apiKey}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[11px] text-accent hover:text-accent-bright inline-flex items-center gap-1 font-bold"
-                    >
-                      Get API key <ExternalLink className="w-3 h-3" />
-                    </a>
                     <span className="text-fg-dim text-[10px]">·</span>
                     <Link
                       href="#agents"
                       className="text-[11px] text-fg-muted hover:text-fg inline-flex items-center gap-1"
                     >
-                      Paste it on an agent ↓
+                      Per-agent ↓
                     </Link>
                   </>
                 )}
@@ -181,8 +201,6 @@ export function ProviderAccountsCard({ connectedServices, bridgeOnline }: Props)
         })}
       </div>
 
-      {/* Bridge install nudge — only if no cloud provider connected AND
-          bridge isn't online either. Operator has neither path wired. */}
       {!anyConnected && !bridgeOnline && (
         <div className="rounded-lg border border-status-warm/30 bg-status-warm/5 p-3 text-xs text-fg flex items-start gap-2">
           <AlertCircle className="w-4 h-4 text-status-warm shrink-0 mt-0.5" />
@@ -200,6 +218,191 @@ export function ProviderAccountsCard({ connectedServices, bridgeOnline }: Props)
           </div>
         </div>
       )}
+
+      {activeProvider && (
+        <ConnectProviderDialog
+          provider={activeProvider}
+          onClose={() => setActiveProvider(null)}
+          onConnected={(p) => {
+            markConnected(p);
+            setActiveProvider(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// Inline connect dialog — single API key input + Save
+// ============================================================================
+
+function ConnectProviderDialog({
+  provider,
+  onClose,
+  onConnected,
+}: {
+  provider: Provider;
+  onClose: () => void;
+  onConnected: (p: Provider) => void;
+}) {
+  const reg = PROVIDER_REGISTRY.find((r) => r.value === provider);
+  const [apiKey, setApiKey] = useState("");
+  const [showKey, setShowKey] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [model, setModel] = useState(reg?.models[0]?.id || "");
+
+  if (!reg) return null;
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!apiKey.trim() || saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const r = await fetch("/api/agent-config/bulk-provider", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ provider, api_key: apiKey, model }),
+      });
+      const j = await r.json();
+      if (!j.ok) {
+        setError(j.error || `http_${r.status}`);
+        setSaving(false);
+        return;
+      }
+      onConnected(provider);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "save_failed");
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-bg-deep/80 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-md rounded-xl border border-bg-border bg-bg shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-5 border-b border-bg-border">
+          <div>
+            <h2 className="text-base font-bold text-fg">Connect {reg.label}</h2>
+            <p className="text-xs text-fg-muted mt-0.5">
+              This key will apply to every enabled chat agent in one shot.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-fg-dim hover:text-fg-muted p-1"
+            title="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <div>
+            <label className="text-xs font-bold uppercase tracking-wider text-fg-muted block mb-1.5">
+              API key
+            </label>
+            <div className="relative">
+              <input
+                type={showKey ? "text" : "password"}
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder={reg.placeholder}
+                autoFocus
+                className="input w-full font-mono text-sm pr-10"
+                autoComplete="off"
+              />
+              <button
+                type="button"
+                onClick={() => setShowKey((s) => !s)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-fg-dim hover:text-fg-muted p-1"
+                title={showKey ? "Hide" : "Show"}
+              >
+                {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            <a
+              href={reg.apiKey}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] text-accent hover:text-accent-bright inline-flex items-center gap-1 mt-2"
+            >
+              Get an API key at {new URL(reg.apiKey).host}{" "}
+              <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold uppercase tracking-wider text-fg-muted block mb-1.5">
+              Default model
+            </label>
+            <select
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              className="input w-full text-sm"
+            >
+              {reg.models.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+            <div className="text-[11px] text-fg-dim mt-1.5">
+              Applied to every agent. Override per-agent under{" "}
+              <span className="font-mono">/settings#agents</span> if a specific
+              agent should use a different model on the same provider.
+            </div>
+          </div>
+
+          {error && (
+            <div className="rounded-md border border-status-warm/40 bg-status-warm/10 p-3 text-xs text-status-warm flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>
+                {error === "invalid_key_length"
+                  ? "That doesn't look like a valid API key. Double-check what you pasted — most keys are 40–80 characters."
+                  : error}
+              </span>
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn-secondary"
+              disabled={saving}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn-primary inline-flex items-center gap-2"
+              disabled={!apiKey.trim() || saving}
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4" />
+                  Connect {reg.label}
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </form>
     </div>
   );
 }

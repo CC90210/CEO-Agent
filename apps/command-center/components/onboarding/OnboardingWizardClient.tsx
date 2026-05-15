@@ -477,6 +477,21 @@ export function OnboardingWizardClient({ userEmail }: { userEmail?: string }) {
               {userEmail && <Summary label="Signed in as" value={userEmail} full />}
             </div>
 
+            {/* Post-onboarding pointer. The wizard creates the manifest but
+                doesn't wire an AI provider — the user does that in Settings
+                immediately after. Surfacing the next step here means they
+                don't land on /t/<slug> wondering why chat doesn't work. */}
+            <div className="rounded-xl border border-bg-border bg-bg-deep/40 p-3 text-xs text-fg-muted leading-relaxed flex items-start gap-2">
+              <Sparkles className="h-4 w-4 text-accent shrink-0 mt-0.5" />
+              <div>
+                <span className="text-fg font-bold">Next: connect an AI provider.</span>{" "}
+                After this you'll land on your Command Center.
+                Open <span className="font-mono text-accent">Settings → AI provider accounts</span>{" "}
+                and connect an Anthropic, OpenRouter, OpenAI, or Google key — one click applies it to every enabled agent.
+                Anthropic unlocks the native tool_use loop (records read/write, http, integrations).
+              </div>
+            </div>
+
             {error && (
               <div className="rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-2.5 text-sm text-red-200 inline-flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 mt-0.5" />

@@ -609,7 +609,14 @@ export async function mrrSnapshot(): Promise<{ current: number; target: number; 
  * provider cards as "Connected" instead of "Not connected" when a key exists
  * but no successful API call has been pinged yet.
  */
-const PROVIDER_TO_SERVICE: Record<string, string> = {
+/**
+ * Canonical provider → integration-registry service-slug map. Exported so
+ * UI surfaces (e.g. ProviderAccountsCard) can resolve a registry provider
+ * to the slug aiServicesWithKey would emit, without duplicating the table.
+ * Adding a new provider here is the only place — Settings, /agents, and
+ * /integrations all derive from it.
+ */
+export const PROVIDER_TO_SERVICE: Record<string, string> = {
   anthropic: "anthropic",
   openai: "openai_codex",
   google: "google_ai",
