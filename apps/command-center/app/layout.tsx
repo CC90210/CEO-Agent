@@ -4,7 +4,6 @@ import "./globals.css";
 import { Sidebar } from "@/components/Sidebar";
 import { getActiveProfile } from "@/lib/queries";
 import { getServiceSupabase } from "@/lib/supabase-server";
-import { unreadCountDb } from "@/lib/agent-inbox-db";
 import { safe } from "@/lib/api-helpers";
 import {
   DEMO_CLIENT_PROFILE_COOKIE,
@@ -48,7 +47,6 @@ export default async function RootLayout({
   let profile = null;
   let primaryAgentLive = false;
   let bridgeOnline = false;
-  let inboxUnread = 0;
   let tenantProfileSlug: string | null = null;
   let demoProfileSlug: string | null = null;
   let pathOverrideSlug: string | null = null;
@@ -135,7 +133,6 @@ export default async function RootLayout({
         Date.now() - new Date(pair.last_seen_at).getTime() < 5 * 60 * 1000;
     }
     if (tenantId) {
-      inboxUnread = await safe("layout.inbox_unread", unreadCountDb(tenantId), 0);
       // Resolve the dashboard/client profile slug. Tenants can override the
       // raw tenant slug via tenants.custom_fields.command_center_profile_slug
       // so one command-center shell can render different products cleanly.
@@ -189,7 +186,6 @@ export default async function RootLayout({
               }
               primaryAgentLive={demoMode ? false : primaryAgentLive}
               bridgeOnline={demoMode ? false : bridgeOnline}
-              inboxUnread={demoMode ? 0 : inboxUnread}
               demoMode={demoMode}
               demoLabel={`${manifest.brand.name} demo`}
             />
