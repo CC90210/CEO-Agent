@@ -325,47 +325,92 @@ export function AgentConfigEditor({ agentKeys, bridgeOnline = false }: Props) {
               </label>
             </div>
 
-            {/* Tool Access — tenant-level bridge state. Single source of
-                truth ("bridge_pairings", 5-min freshness) gates whether THIS
-                agent can drive local Python tools, scripts, file reads, and
-                cron jobs. Chat works either way (cloud falls back to the
-                API key above), but "running scripts / sending real SMS /
-                scraping a lender portal" needs the bridge paired. */}
-            <div
-              className={`rounded-lg border p-3 flex items-start gap-3 ${
-                bridgeOnline
-                  ? "border-status-engaged/30 bg-status-engaged/5"
-                  : "border-bg-border bg-bg-deep/40"
-              }`}
-            >
-              {bridgeOnline ? (
-                <Cpu className="w-4 h-4 text-status-engaged shrink-0 mt-0.5" />
-              ) : (
-                <Cloud className="w-4 h-4 text-fg-dim shrink-0 mt-0.5" />
-              )}
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-bold uppercase tracking-wider text-fg-muted">
-                  Tool access
+            {/* Tool Access — two-channel summary. Channel A (Cloud tools)
+                is always available once a key is on file; on Anthropic
+                provider it's a native tool_use loop (cloud-tool-runner.ts).
+                Channel B (Local bridge tools) requires bridge_pairings to
+                be fresh (<5 min heartbeat) and unlocks Python scripts /
+                file reads / cron / real SMS via the operator's machine.
+                Both channels coexist — the chat-mode picker chooses which
+                one a given turn routes to. */}
+            <div className="grid sm:grid-cols-2 gap-2.5">
+              {/* Cloud tools — always available with an API key. */}
+              <div
+                className={`rounded-lg border p-3 flex items-start gap-2.5 ${
+                  cfg?.has_key
+                    ? "border-accent/40 bg-accent/5"
+                    : "border-bg-border bg-bg-deep/40"
+                }`}
+              >
+                <Cloud
+                  className={`w-4 h-4 shrink-0 mt-0.5 ${
+                    cfg?.has_key ? "text-accent" : "text-fg-dim"
+                  }`}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-bold uppercase tracking-wider text-fg-muted">
+                    Cloud tools · API key
+                  </div>
+                  <div className="text-xs text-fg mt-0.5 leading-relaxed">
+                    {cfg?.has_key ? (
+                      <>
+                        <span className="text-accent">Active.</span> Real
+                        tool_use loop on Anthropic: records read/write/search,
+                        http_get/post, integration status, lead lookup. No
+                        local file access.
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-fg-muted">Inactive.</span> Paste
+                        an API key above to unlock the cloud tool palette
+                        (records, http, integrations).
+                      </>
+                    )}
+                  </div>
                 </div>
-                <div className="text-sm text-fg mt-0.5">
-                  {bridgeOnline ? (
-                    <>
-                      <span className="text-status-engaged">Bridge online</span> — full local tools enabled (Python scripts, file reads, scheduled jobs, real SMS/email sends).
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-fg-muted">Cloud only</span> — chat + dashboard actions work with the API key above. Install the bridge to unlock Python tools and file access.
-                    </>
+              </div>
+              {/* Local bridge tools — needs `bravo bridge serve` running. */}
+              <div
+                className={`rounded-lg border p-3 flex items-start gap-2.5 ${
+                  bridgeOnline
+                    ? "border-status-engaged/30 bg-status-engaged/5"
+                    : "border-bg-border bg-bg-deep/40"
+                }`}
+              >
+                <Cpu
+                  className={`w-4 h-4 shrink-0 mt-0.5 ${
+                    bridgeOnline ? "text-status-engaged" : "text-fg-dim"
+                  }`}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-bold uppercase tracking-wider text-fg-muted">
+                    Local bridge · CLI
+                  </div>
+                  <div className="text-xs text-fg mt-0.5 leading-relaxed">
+                    {bridgeOnline ? (
+                      <>
+                        <span className="text-status-engaged">Online.</span>{" "}
+                        Python scripts, file reads, scheduled jobs, real
+                        sends — all via the desktop bridge.
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-fg-muted">Offline.</span> Install
+                        the bridge for full Claude Code parity (file system,
+                        bash, all MCPs).
+                      </>
+                    )}
+                  </div>
+                  {!bridgeOnline && (
+                    <Link
+                      href="/settings/devices/install"
+                      className="text-[11px] text-accent hover:text-accent-bright inline-flex items-center gap-1 mt-1.5"
+                    >
+                      Install the bridge →{" "}
+                      <ExternalLink className="w-3 h-3" />
+                    </Link>
                   )}
                 </div>
-                {!bridgeOnline && (
-                  <Link
-                    href="#devices"
-                    className="text-xs text-accent hover:text-accent-bright inline-flex items-center gap-1 mt-1.5"
-                  >
-                    Set up the bridge → <ExternalLink className="w-3 h-3" />
-                  </Link>
-                )}
               </div>
             </div>
 
