@@ -8,6 +8,7 @@
 
 import { PageHeader } from "@/components/Card";
 import { CronJobsManager } from "@/components/automations/CronJobsManager";
+import { BackgroundWorkersPanel } from "@/components/automations/BackgroundWorkersPanel";
 import { getActiveProfile, getBridgeOnline } from "@/lib/queries";
 import { chatAgentKeys } from "@/lib/agent-personas";
 import { safe } from "@/lib/api-helpers";
@@ -69,11 +70,16 @@ export default async function AutomationsPage() {
       </div>
 
       {profile ? (
-        <CronJobsManager
-          agentKeys={chatAgentKeys().filter((k) =>
-            (profile.agents_enabled || chatAgentKeys()).includes(k),
-          )}
-        />
+        <>
+          <CronJobsManager
+            agentKeys={chatAgentKeys().filter((k) =>
+              (profile.agents_enabled || chatAgentKeys()).includes(k),
+            )}
+          />
+          <div className="border-t border-bg-border pt-6">
+            <BackgroundWorkersPanel />
+          </div>
+        </>
       ) : (
         <div className="rounded-xl border border-bg-border bg-bg-elev/40 p-8 text-center text-fg-muted">
           Sign in to manage your automations.
