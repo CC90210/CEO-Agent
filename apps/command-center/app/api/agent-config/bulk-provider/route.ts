@@ -1,0 +1,165 @@
+/**
+ * POST /api/agent-config/bulk-provider
+ *
+ * Single-click connect: paste an API key once, the route stamps it across
+ * every enabled chat agent in the tenant. Powers the "Connect Anthropic"
+ * button on the Provider Accounts card in /settings.
+ *
+ * Behavior:
+ *   - Validates the provider + key format (light — server-side string
+ *     length sanity check, NOT a live provider ping; ping happens on
+ *     first chat turn so we don't leak a key by accident in error
+ *     responses here).
+ *   - Resolves the agent set: explicit `agent_keys[]` if supplied,
+ *     otherwise the tenant's enabled chat-eligible agents.
+ *   - Upserts (provider, model, encrypted_api_key) for each agent.
+ *     Existing per-agent customizations (system_prompt_override, etc.)
+ *     are preserved — only the provider/model/key triple is replaced.
+ *   - Defaults model to the provider's first registry entry (the
+ *     recommended one) unless the caller passed a specific model.
+ *
+ * Body shape:
+ *   {
+ *     provider: "anthropic" | "openai" | "google" | "openrouter",
+ *     api_key: string,                    // required, encrypted server-side
+ *     model?: string,                     // optional, default = first registry entry
+ *     agent_keys?: string[]               // optional, default = enabled agents
+ *   }
+ *
+ * Returns: { ok, applied_to: [agent_key,...], count }
+ */
+
+import { NextRequest, NextResponse } from "next/server";
+import { getSessionUser, getServiceSupabase } from "@/lib/supabase-server";
+import { PROVIDER_MODELS, PROVIDER_REGISTRY, type Provider } from "@/lib/providers";
+import { encryptField } from "@/lib/field-encryption";
+import { chatAgentKeys } from "@/lib/agent-personas";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+async function resolveTenant(): Promise<{ tenantId: string | null; profileEnabledAgents: string[] }> {
+  const user = await getSessionUser();
+  if (!user) return { tenantId: null, profileEnabledAgents: [] };
+  const db = getServiceSupabase();
+  const { data } = await db
+    .from("user_profiles")
+    .select("tenant_id, agents_enabled")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+  const enabled = Array.isArray(data?.agents_enabled)
+    ? (data!.agents_enabled as string[]).filter((s) => typeof s === "string")
+    : [];
+  return { tenantId: data?.tenant_id || null, profileEnabledAgents: enabled };
+}
+
+export async function POST(req: NextRequest) {
+  const { tenantId, profileEnabledAgents } = await resolveTenant();
+  if (!tenantId) {
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+
+  let body: any;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
+  }
+
+  const provider = String(body?.provider || "");
+  if (!Object.keys(PROVIDER_MODELS).includes(provider)) {
+    return NextResponse.json({ ok: false, error: `invalid_provider:${provider}` }, { status: 400 });
+  }
+
+  const apiKeyPlain =
+    typeof body?.api_key === "string" && body.api_key.trim() ? body.api_key.trim() : null;
+  if (!apiKeyPlain) {
+    return NextResponse.json({ ok: false, error: "missing_api_key" }, { status: 400 });
+  }
+  // Generous length cap — long enough for any real provider key, short enough
+  // to refuse obvious paste accidents (entire scripts pasted by mistake).
+  if (apiKeyPlain.length < 8 || apiKeyPlain.length > 400) {
+    return NextResponse.json({ ok: false, error: "invalid_key_length" }, { status: 400 });
+  }
+
+  // Pick a default model — the first registry entry per provider IS the
+  // recommended choice (balanced cost/quality), so a single-click flow can
+  // safely fall through to it. Caller can override via body.model.
+  const requestedModel = typeof body?.model === "string" ? body.model.trim() : "";
+  const reg = PROVIDER_REGISTRY.find((p) => p.value === (provider as Provider));
+  const defaultModel = reg?.models[0]?.id || "";
+  const model = requestedModel || defaultModel;
+  if (!model) {
+    return NextResponse.json({ ok: false, error: "no_default_model" }, { status: 500 });
+  }
+  // Light validation: the requested model must be in the provider's known
+  // registry. Prevents a typo from silently shipping an invalid model name
+  // that the first chat turn will fail on.
+  const providerModels = PROVIDER_MODELS[provider as Provider] || [];
+  if (requestedModel && !providerModels.includes(requestedModel)) {
+    return NextResponse.json(
+      { ok: false, error: `unknown_model_for_provider:${provider}:${requestedModel}` },
+      { status: 400 }
+    );
+  }
+
+  // Resolve target agent set. Caller-supplied list takes precedence; otherwise
+  // fall back to the profile's enabled agents. If neither is populated, fall
+  // back to the full chat-eligible set — operators on a fresh tenant want
+  // every agent wired in one shot.
+  const requestedAgents = Array.isArray(body?.agent_keys)
+    ? (body.agent_keys as unknown[]).filter((s): s is string => typeof s === "string").map((s) => s.toLowerCase())
+    : null;
+  const fallbackAgents =
+    profileEnabledAgents.length > 0 ? profileEnabledAgents : chatAgentKeys();
+  const chatAllowed = new Set(chatAgentKeys());
+  const targetAgents = (requestedAgents || fallbackAgents).filter((k) => chatAllowed.has(k));
+  if (targetAgents.length === 0) {
+    return NextResponse.json({ ok: false, error: "no_target_agents" }, { status: 400 });
+  }
+
+  let encryptedKey: string;
+  try {
+    encryptedKey = encryptField(apiKeyPlain);
+  } catch (err) {
+    return NextResponse.json(
+      { ok: false, error: err instanceof Error ? err.message : "encrypt_failed" },
+      { status: 500 }
+    );
+  }
+
+  const service = getServiceSupabase();
+  const applied: string[] = [];
+  // Sequential — Supabase upsert with onConflict isn't reliable across the
+  // current PostgREST setup for compound keys (we'd need a real unique
+  // index on (tenant_id, agent_key)). Doing it as N small writes is fine
+  // — N is bounded by chat-eligible agent count (5-ish today).
+  for (const agentKey of targetAgents) {
+    const { data: existing } = await service
+      .from("agent_model_config")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .eq("agent_key", agentKey)
+      .maybeSingle();
+    const payload: Record<string, unknown> = {
+      tenant_id: tenantId,
+      agent_key: agentKey,
+      provider,
+      model,
+      enabled: true,
+      encrypted_api_key: encryptedKey,
+    };
+    if (existing) {
+      const { error } = await service
+        .from("agent_model_config")
+        .update(payload)
+        .eq("id", existing.id);
+      if (!error) applied.push(agentKey);
+    } else {
+      const { error } = await service.from("agent_model_config").insert(payload);
+      if (!error) applied.push(agentKey);
+    }
+  }
+
+  return NextResponse.json({ ok: true, applied_to: applied, count: applied.length });
+}

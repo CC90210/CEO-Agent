@@ -153,6 +153,35 @@ function _toolLabel(parsed: Record<string, unknown>): string {
   }
 }
 
+/**
+ * Pretty-prints a tool's input object as a single-line detail string. Used by
+ * the cloud_tool_call event handler (the runner gives us the model's input
+ * blob; we want to show "list_records: entity=lead, limit=10" not the full
+ * JSON in the chip). Falls back to a JSON.stringify slice if no meaningful
+ * keys are present.
+ */
+function truncateJson(obj: Record<string, unknown>, maxLen = 80): string {
+  try {
+    const parts: string[] = [];
+    for (const [k, v] of Object.entries(obj)) {
+      if (v === null || v === undefined) continue;
+      if (typeof v === "string") {
+        parts.push(`${k}="${v.length > 24 ? v.slice(0, 24) + "…" : v}"`);
+      } else if (typeof v === "number" || typeof v === "boolean") {
+        parts.push(`${k}=${v}`);
+      } else {
+        // object/array — just signal its shape so the chip stays one line
+        parts.push(`${k}=${Array.isArray(v) ? "[…]" : "{…}"}`);
+      }
+      if (parts.join(", ").length > maxLen) break;
+    }
+    const out = parts.join(", ");
+    return out.length > maxLen ? out.slice(0, maxLen - 1) + "…" : out;
+  } catch {
+    return "";
+  }
+}
+
 function _toolDetail(parsed: Record<string, unknown>): string {
   const n = String(parsed.name || "tool");
   switch (n) {
@@ -769,25 +798,65 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
               return next;
             });
           } else if (event === "cloud_tool_call") {
-            // Native tool_use loop — model called a tool MID-stream and the
-            // runner is executing. Surface a "calling NAME..." indicator
-            // immediately so the operator sees activity; the matching
-            // cloud_tool_result event arrives a moment later with the
-            // execution outcome.
+            // Native tool_use loop — model called a tool MID-stream, runner
+            // is executing now. Push onto the unified toolCalls list (same
+            // surface the CLI/bridge path uses) so CLI mode and API mode
+            // render tool activity identically. The matching cloud_tool_result
+            // event arrives a moment later and patches `output`.
+            const toolName = String(parsed.name || "tool");
+            const entryId = `cloud-${toolName}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
             setThinking(true);
             setStatusPhase("tool");
-            setStatusDetail(String(parsed.name || "tool"));
+            setStatusDetail(toolName);
+            // Stash the id on the inputs object so the matching result can
+            // find this entry via the most-recent-pending-by-name lookup
+            // below (since the SSE protocol doesn't echo our generated id
+            // back from the route).
+            setToolCalls((prev) => [
+              ...prev,
+              {
+                id: entryId,
+                kind: toolName,
+                label: toolName,
+                detail:
+                  parsed.input && typeof parsed.input === "object"
+                    ? truncateJson(parsed.input)
+                    : undefined,
+                createdAt: Date.now(),
+              },
+            ]);
           } else if (event === "cloud_tool_result") {
             // Cloud-mode tool result — either from the native tool_use loop
-            // (cloud-tool-runner.ts, mid-stream) or from the legacy text
-            // marker path (cloud-tools.ts, post-stream). Either way render
-            // the same inline pill so the operator sees what was done.
+            // (cloud-tool-runner.ts, mid-stream) or the legacy text marker
+            // path (cloud-tools.ts, post-stream). Two surfaces:
+            //   1. Update the matching toolCalls entry so chrome matches CLI
+            //   2. (Legacy compat) also push a cloudResults pill — the
+            //      below-transcript renderer still consumes them for the
+            //      markers path. Harmless duplication; cloudResults is the
+            //      summary line, toolCalls is the expandable detail row.
+            const toolName = String(parsed.name || "?");
+            setToolCalls((prev) => {
+              const next = [...prev];
+              // Find the most recent matching pending entry from this kind.
+              for (let i = next.length - 1; i >= 0; i--) {
+                if (next[i].kind === toolName && next[i].output === undefined && !next[i].completedAt) {
+                  next[i] = {
+                    ...next[i],
+                    output: parsed.summary || undefined,
+                    error: !parsed.ok,
+                    completedAt: Date.now(),
+                  };
+                  break;
+                }
+              }
+              return next;
+            });
             setCloudResults((prev) => [
               ...prev,
               {
                 uid: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
                 ok: !!parsed.ok,
-                name: String(parsed.name || "?"),
+                name: toolName,
                 summary: parsed.summary,
                 error: parsed.error,
                 data: parsed.data,
@@ -1043,10 +1112,10 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
           aria-label="Chat routing mode"
           title={
             chatMode === "auto"
-              ? "Auto: route to local desktop bridge if paired, otherwise cloud API key"
+              ? "Auto: route to local desktop bridge if paired, otherwise cloud API key."
               : chatMode === "bridge"
-                ? "CLI: pin to local Claude Code bridge (uses your Claude subscription, full repo + tools)"
-                : "API: pin to cloud API key (Anthropic tool_use loop: records read/write, http, integrations)"
+                ? "CLI: pin to local Claude Code bridge. Uses your Claude subscription, full repo + every Claude Code tool. Errors if the bridge isn't running."
+                : "API: pin to cloud API key. On Anthropic, runs a real tool_use loop (records read/write, http, integrations). On other providers, falls back to the marker-tool pipe (same tools, executed after the stream)."
           }
         >
           <option value="auto">Mode: Auto</option>
