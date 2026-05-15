@@ -159,6 +159,13 @@ export default async function SettingsPage() {
                 (profile.agents_enabled || chatAgentKeys()).includes(k)
               )}
               bridgeOnline={bridgeOnline}
+              agentPalettes={Object.fromEntries(
+                (manifest?.agents || []).map((a) => [
+                  a.slug.toLowerCase(),
+                  a.tool_palette,
+                ])
+              )}
+              manifestSlug={manifestSlug}
             />
           </Card>
 
