@@ -20,6 +20,25 @@ tags: [changelog, audit]
 
 ## Changelog
 
+### 2026-05-15 — V6.7+ — CloakBrowser stealth tier integration
+**Tier:** SEMI-MUTABLE (skill + brain docs) + FREELY MUTABLE (CLI wrapper)
+**What changed:**
+- New CLI wrapper `scripts/cloak_browser_tool.py` (6 subcommands: scrape, goto, check-stealth, binary-info, download, clear-cache) with proxy support via `CLOAK_PROXY_URL` / `CLOAK_PROXY_USERNAME` / `CLOAK_PROXY_PASSWORD` / `CLOAK_TIMEZONE_ID` / `CLOAK_LOCALE` (all loaded via `lib/secret_loader.py`).
+- New skill `skills/cloak-browser/SKILL.md` (canonical reference + license caveat + proxy guidance).
+- Decision matrix promoted from 3 → 4 tools across `skills/web-scraping/SKILL.md` + `skills/browser-automation/SKILL.md`.
+- Brain updates: `CAPABILITIES.md` (browser-layers section + MCP-replacement table row), `QUICK_REFERENCE.md` (intent → tool routing entry), `INTENTS.md` (new "Scrape <URL>" 4-tier playbook), `AGENT_ROUTER.md` (router-table entries for unprotected vs protected scrape), `WHEN_TO_USE_SKILLS.md` (browser-automation row split into 4 tools).
+- Sibling sync per Rule 4: `CLAUDE.md`, `GEMINI.md`, `ANTIGRAVITY.md`, `AGENTS.md`, `OPENCODE.md` all carry the four-tool ladder with CloakBrowser as mandatory tier-2.
+- Capability graph rebuilt (357 nodes); bridge manifest registered the 6 new subcommands.
+- Memory: `memory/feedback_browser_ladder_mandatory.md` + `memory/reference_cloakbrowser.md` + MEMORY.md index updated.
+
+**Why:** Raw Playwright fingerprints get blocked by Cloudflare/DataDome within 1-3 requests. CloakBrowser (https://github.com/CloakHQ/CloakBrowser, PyPI 0.3.28) ships a Chromium 146 binary with C++ source-level fingerprint patches — drop-in Playwright API, passes reCAPTCHA v3 (~0.9 score), Cloudflare Turnstile, DataDome, FingerprintJS, etc. Browser Harness still wins for CC-authenticated work; CloakBrowser is the missing tier for fresh-session protected scraping.
+
+**Verified:** `check-stealth` 5/5 on Windows + NVIDIA, `scrape https://www.cloudflare.com` 200 OK with 11644 chars.
+
+**Confidence:** 0.95 — smoke-tested live; one pre-existing Browser Harness EXE issue (`ModuleNotFoundError: 'run'`) flagged separately, not silently fixed (V6 Coherence Gate Rule 10).
+
+---
+
 ### 2026-04-22 — V6.0 Finalization Session — MULTI-FILE SCAFFOLD + SEND_GATEWAY HARDENING
 **Tier:** SEMI-MUTABLE (scaffolds are dormant until CC approves activation)
 **What changed:**
