@@ -50,26 +50,73 @@ const ACCESS_MODE_STORAGE_KEY = "oasis.chat.accessMode";
 const LEGACY_RUNTIME_MODE_STORAGE_KEY = "oasis.chat.runtimeMode";
 
 /**
- * Chat-mode picker (re-introduced 2026-05-14).
+ * Chat-mode picker — Phase 3 of giggly-reef, 2026-05-15.
  *
- * The previous picker exposed Auto / Cloud / This-desktop as three separate
- * options and was killed for being noisy on a single-machine setup. This
- * version is back, but the semantic is now meaningful:
+ * Four real combinations of (who-owns-the-LLM, who-owns-the-tools):
  *
- *   "auto"   — bridge if online, else API key. The fall-through default.
- *   "bridge" — pin to the local Claude Code bridge (operator's subscription).
- *              Full repo access, local files, all MCPs. Errors if offline.
- *   "cloud"  — pin to the cloud /api/chat path (operator's API key). Real
- *              Anthropic tool_use loop with the curated cloud-tool palette
- *              (records read/write, http_get/post, integrations). Costs the
- *              operator per-token but works without a paired bridge.
+ *   "auto"               — bridge if reachable, else cloud_bridge_tools.
+ *                          The fall-through default.
+ *   "cli"                — pin to the local Claude Code bridge. Operator's
+ *                          Claude.ai Pro subscription owns the LLM AND the
+ *                          tools. Cheapest path; errors loud if the bridge
+ *                          isn't running.
+ *   "cloud_only"         — /api/chat with the operator's API key. ONLY the
+ *                          11 cloud tools (records, http, integrations). No
+ *                          bridge tools even when the bridge is online —
+ *                          some operators prefer this when they don't
+ *                          trust an LLM with bash/edit_file on real prod
+ *                          machines.
+ *   "cloud_bridge_tools" — /api/chat with the operator's API key for the
+ *                          LLM, AND the bridge for tool execution. Browser
+ *                          proxies tool_use to localhost:9100/exec-tool,
+ *                          posts the result to /api/chat/resume. The best
+ *                          of both worlds — paid LLM, free local tools —
+ *                          and what auto upgrades to when the bridge is
+ *                          paired.
  *
  * The mode survives reloads via localStorage so the operator's choice sticks.
+ * The previous union ("auto" | "bridge" | "cloud") used the v2 key and has
+ * no notion of "cloud only without bridge tools"; the migration below
+ * translates v2 → v3 once, transparently. CC's framing on 2026-05-15:
+ * "It's literally the same as the Telegram bridge. The API key should be
+ * connected to my running server just like the Telegram bridge is."
  */
-type ChatMode = "auto" | "bridge" | "cloud";
-const CHAT_MODE_STORAGE_KEY = "oasis.chat.mode.v2";
+type ChatMode = "auto" | "cli" | "cloud_only" | "cloud_bridge_tools";
+const CHAT_MODE_STORAGE_KEY = "oasis.chat.mode.v3";
+const LEGACY_CHAT_MODE_STORAGE_KEY = "oasis.chat.mode.v2";
 const isChatMode = (s: unknown): s is ChatMode =>
-  s === "auto" || s === "bridge" || s === "cloud";
+  s === "auto" || s === "cli" || s === "cloud_only" || s === "cloud_bridge_tools";
+
+/**
+ * One-shot migration from the v2 vocabulary to the v3 vocabulary.
+ *
+ *   bridge → cli                 (bridge owned LLM + tools — that's CLI mode)
+ *   cloud  → cloud_bridge_tools  (the prior "cloud" path automatically used
+ *                                 bridge tools when the bridge was online;
+ *                                 the new name makes that opt-in explicit
+ *                                 and adds the cloud_only escape hatch
+ *                                 alongside it)
+ *   auto   → auto                (semantics unchanged)
+ *
+ * Returns the migrated ChatMode if a v2 value was present and translated,
+ * or null otherwise. Caller writes it to v3 and deletes v2 on success.
+ */
+function migrateLegacyChatMode(): ChatMode | null {
+  try {
+    const legacy = localStorage.getItem(LEGACY_CHAT_MODE_STORAGE_KEY);
+    if (!legacy) return null;
+    let mapped: ChatMode;
+    if (legacy === "bridge") mapped = "cli";
+    else if (legacy === "cloud") mapped = "cloud_bridge_tools";
+    else if (legacy === "auto") mapped = "auto";
+    else return null;
+    localStorage.setItem(CHAT_MODE_STORAGE_KEY, mapped);
+    localStorage.removeItem(LEGACY_CHAT_MODE_STORAGE_KEY);
+    return mapped;
+  } catch {
+    return null;
+  }
+}
 
 const AGENT_SUGGESTIONS: Record<string, string[]> = {
   bravo: [
@@ -279,7 +326,11 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
   // Tracks which routing mode the most recent FAILED message used. Powers
   // the "Retry on the other mode" affordance on the error banner. Null
   // while everything is healthy or after a successful turn.
-  const [lastFailedMode, setLastFailedMode] = useState<"bridge" | "cloud" | null>(null);
+  // Tracks which transport bucket failed on the previous turn so the
+  // Retry button can pick the most-likely-working alternate. Collapsed
+  // to two buckets — cli-vs-cloud — because the API surface for the
+  // retry is the same regardless of which cloud variant failed.
+  const [lastFailedMode, setLastFailedMode] = useState<"cli" | "cloud" | null>(null);
   function setChatMode(next: ChatMode) {
     setChatModeState(next);
     if (typeof window !== "undefined") {
@@ -484,11 +535,19 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
 
   // Hydrate chat-mode picker from localStorage on mount. Initial render is
   // always "auto" (matches SSR); this effect upgrades to the persisted value.
+  // Phase 3 migration: if the operator's machine still has the v2 vocabulary
+  // ("bridge" / "cloud"), translate it into v3 once and drop the legacy
+  // entry. Subsequent reads always come from v3.
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       const stored = window.localStorage.getItem(CHAT_MODE_STORAGE_KEY);
-      if (isChatMode(stored)) setChatModeState(stored);
+      if (isChatMode(stored)) {
+        setChatModeState(stored);
+        return;
+      }
+      const migrated = migrateLegacyChatMode();
+      if (migrated) setChatModeState(migrated);
     } catch {
       // Privacy mode / disabled storage — leave default "auto".
     }
@@ -595,27 +654,39 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
     if (isAdmin) return "Provider: OASIS platform default";
     return configsLoaded ? "Provider: not connected" : "Provider: loading...";
   })();
-  // Resolve the actual route the next /send will take, given the picker:
-  // - "auto" follows the historical fall-through (bridge if reachable, cloud
-  //   otherwise). "bridge"/"cloud" are pinned overrides.
-  const effectiveMode: "bridge" | "cloud" =
-    chatMode === "bridge"
-      ? "bridge"
-      : chatMode === "cloud"
-        ? "cloud"
-        : bridgeReady
-          ? "bridge"
-          : "cloud";
+  // Resolve the actual route the next /send will take, given the picker.
+  // The 4-mode union collapses into 3 "where does the work happen" buckets:
+  //   - cli                : bridge owns LLM + tools (subscription billing)
+  //   - cloud_only         : cloud LLM, ONLY the 11 cloud tools, no bridge
+  //   - cloud_bridge_tools : cloud LLM (API key), bridge for tool execution
+  // "auto" picks cli when the bridge is ready, otherwise cloud_bridge_tools
+  // (which degrades gracefully to cloud-only when the bridge isn't there).
+  const effectiveMode: "cli" | "cloud_only" | "cloud_bridge_tools" =
+    chatMode === "cli"
+      ? "cli"
+      : chatMode === "cloud_only"
+        ? "cloud_only"
+        : chatMode === "cloud_bridge_tools"
+          ? "cloud_bridge_tools"
+          : bridgeReady
+            ? "cli"
+            : "cloud_bridge_tools";
   const accessStatus =
-    effectiveMode === "bridge"
+    effectiveMode === "cli"
       ? "Access: this desktop · local tools + files"
-      : "Access: cloud workspace · tool_use loop";
+      : effectiveMode === "cloud_only"
+        ? "Access: cloud workspace · cloud tools only"
+        : bridgeReady
+          ? "Access: cloud workspace (Anthropic API) · local tool execution (bridge)"
+          : "Access: cloud workspace · tool_use loop";
   const accessTitle =
     chatMode === "auto"
-      ? "Routing auto-selects: this desktop when the bridge is paired and online, otherwise the cloud workspace using your saved API key."
-      : chatMode === "bridge"
-        ? "Pinned to the local Claude Code bridge. The chat will fail if the bridge isn't reachable — switch to Auto or API key if you don't have one running."
-        : "Pinned to the cloud API-key path. The agent runs an Anthropic tool_use loop with the cloud tool palette (records, http, integrations) — no local file access.";
+      ? "Auto: bridge if paired + online, otherwise API key with bridge tools when available."
+      : chatMode === "cli"
+        ? "CLI: pinned to the local Claude Code bridge. Uses your Claude subscription, full repo + every Claude Code tool. Errors loud if the bridge isn't running."
+        : chatMode === "cloud_only"
+          ? "Cloud-only: pinned to /api/chat with your API key. ONLY the 11 cloud tools (records, http, integrations) — no bridge tools even if it's online. Pick this when you don't want the LLM running bash / edit_file on your machine."
+          : "API + local tools: LLM on your Anthropic API key, tools executed by the bridge (read_file, write_file, bash, send_email, send_sms). Best of both worlds — paid LLM, free local tools.";
   const activeStatus = `${providerStatus} · ${accessStatus}`;
   const composerPlaceholder = !ready
     ? cfg?.provider === "ollama"
@@ -696,15 +767,19 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
     // button below the error banner so the retry routes to the OTHER path
     // without waiting for a setChatMode flush to land in React state).
     const activeMode: ChatMode = modeOverride ?? chatMode;
+    // Phase 3 routing — the 4-mode union collapses into "bridge-pinned" vs
+    // "cloud path." Both cloud_only and cloud_bridge_tools go through
+    // /api/chat; they differ only in whether bridge tools join the palette
+    // (resolved server-side via tool_routing below).
     const wantsBridge =
-      activeMode === "bridge" ||
+      activeMode === "cli" ||
       (activeMode === "auto" && bridgeOnline === true);
-    if (activeMode === "bridge" && bridgeOnline !== true) {
+    if (activeMode === "cli" && bridgeOnline !== true) {
       // Pinned to bridge but bridge isn't online — fail loud rather than
       // silently falling through to the API-key path. The operator chose
-      // bridge for a reason.
+      // CLI mode for a reason.
       setError(
-        "Pinned to local desktop (bridge), but the bridge isn't reachable. Run `pm2 restart claude-bridge` on this machine, or switch the mode to API key."
+        "Pinned to CLI (local bridge), but the bridge isn't reachable. Run `pm2 restart claude-bridge` on this machine, or switch the mode to API key."
       );
       setStreaming(false);
       setMessages((m) => m.slice(0, -1));
@@ -754,6 +829,16 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
               // gives the native Anthropic tool_use loop; route will fall
               // back to "markers" automatically for non-Anthropic providers.
               cloud_tools: "tools" as const,
+              // Phase 3 tool_routing — "cloud_only" force-disables bridge
+              // tools even when the bridge is online (operator opt-out for
+              // the "I don't want this LLM running bash on my machine"
+              // case). "bridge_proxy" is the default and what auto +
+              // cloud_bridge_tools both want; server falls back to
+              // cloud-only automatically when the bridge isn't reachable.
+              tool_routing:
+                activeMode === "cloud_only"
+                  ? ("cloud_only" as const)
+                  : ("bridge_proxy" as const),
             };
       const res = await fetch(url, {
         method: "POST",
@@ -763,7 +848,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
       if (!res.ok || !res.body) {
         const errBody = await safeReadJson(res);
         setError(errBody?.error || `http_${res.status}`);
-        setLastFailedMode(useBridge ? "bridge" : "cloud");
+        setLastFailedMode(useBridge ? "cli" : "cloud");
         setStreaming(false);
         setMessages((m) => m.slice(0, -1));
         return;
@@ -1209,7 +1294,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
         );
         // Stash which route just failed so the error banner can offer a
         // one-click retry on the OTHER route (CLI bridge ↔ cloud API key).
-        setLastFailedMode(useBridge ? "bridge" : "cloud");
+        setLastFailedMode(useBridge ? "cli" : "cloud");
         // Stale session_id can keep tripping the same failure if the
         // server-side process crashed — clear it for a clean retry.
         setSessionId(null);
@@ -1294,11 +1379,16 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
           </div>
         </div>
         {/*
-          Chat-mode picker. Re-introduced 2026-05-14 with meaningful semantics:
-            - Auto: bridge if paired+online, else cloud API key
-            - CLI:  pinned to local Claude Code bridge (operator subscription)
-            - API:  pinned to /api/chat (encrypted per-agent API key + native
-                    Anthropic tool_use loop for full Claude-Code-class power)
+          Chat-mode picker — Phase 3 of giggly-reef (2026-05-15). Four real
+          combinations of (who-owns-the-LLM, who-owns-the-tools):
+            - Auto:                bridge if paired+online, else cloud
+            - CLI:                 bridge owns LLM + tools (subscription)
+            - API · cloud tools:   API key LLM, ONLY the 11 cloud tools
+            - API + local tools:   API key LLM, bridge owns tool execution
+          The last option is disabled while the bridge is offline — the
+          model would emit tool_use for read_file/bash/send_email and the
+          browser-proxy would have nothing to forward to. The picker
+          tooltip explains why it's grey.
           See type ChatMode docs at the top of this file.
         */}
         <select
@@ -1309,17 +1399,24 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
           }}
           className="bg-bg-elev border border-bg-border rounded-lg px-2 py-2 text-[11px] text-fg-muted focus:outline-none focus:border-accent transition-colors cursor-pointer"
           aria-label="Chat routing mode"
-          title={
-            chatMode === "auto"
-              ? "Auto: route to local desktop bridge if paired, otherwise cloud API key."
-              : chatMode === "bridge"
-                ? "CLI: pin to local Claude Code bridge. Uses your Claude subscription, full repo + every Claude Code tool. Errors if the bridge isn't running."
-                : "API: pin to cloud API key. On Anthropic, runs a real tool_use loop (records read/write, http, integrations). On other providers, falls back to the marker-tool pipe (same tools, executed after the stream)."
-          }
+          title={accessTitle}
         >
           <option value="auto">Mode: Auto</option>
-          <option value="bridge">Mode: CLI (bridge)</option>
-          <option value="cloud">Mode: API key</option>
+          <option value="cli">Mode: CLI (local bridge)</option>
+          <option value="cloud_only">Mode: API · cloud tools only</option>
+          <option
+            value="cloud_bridge_tools"
+            disabled={bridgeOnline !== true}
+            title={
+              bridgeOnline !== true
+                ? "Disabled: the local bridge isn't reachable. Run `pm2 restart claude-bridge` on this machine to enable API + local tools."
+                : undefined
+            }
+          >
+            {bridgeOnline === true
+              ? "Mode: API + local tools"
+              : "Mode: API + local tools (bridge offline)"}
+          </option>
         </select>
         {usage && (
           <span
@@ -1607,20 +1704,40 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
                   to re-send the same message on the OTHER route. The retry
                   pops the trailing user message from history before calling
                   submitText so the chat doesn't double-print "yo wsp" once
-                  the assistant replies. */}
+                  the assistant replies.
+
+                  Phase 3 — the picker now has 4 modes (auto / cli /
+                  cloud_only / cloud_bridge_tools). The retry button picks
+                  the most-likely-working alternate within the OTHER bucket:
+                    - cli failed   → cloud_bridge_tools (if bridge online),
+                                      else cloud_only
+                    - cloud failed → cli (if bridge ready) */}
               {(() => {
                 if (!lastFailedMode || streaming) return null;
-                const otherMode: "bridge" | "cloud" =
-                  lastFailedMode === "bridge" ? "cloud" : "bridge";
+                // Map the collapsed bucket to a concrete ChatMode the
+                // retry will route through. cloud_bridge_tools is the
+                // preferred "other cloud" because it has the broadest
+                // tool surface; fall back to cloud_only when the bridge
+                // isn't reachable.
+                const otherMode: ChatMode =
+                  lastFailedMode === "cli"
+                    ? (bridgeOnline === true ? "cloud_bridge_tools" : "cloud_only")
+                    : "cli";
                 const otherReady =
-                  otherMode === "bridge" ? bridgeReady : (cloudReady || isAdmin);
+                  otherMode === "cli"
+                    ? bridgeReady
+                    : (cloudReady || isAdmin);
                 if (!otherReady) return null;
                 // Last user message — what we'll re-send. If history has no
                 // user message somehow, the button shouldn't appear.
                 const lastUser = [...messages].reverse().find((m) => m.role === "user");
                 if (!lastUser) return null;
                 const otherLabel =
-                  otherMode === "bridge" ? "CLI (local bridge)" : "API key (cloud)";
+                  otherMode === "cli"
+                    ? "CLI (local bridge)"
+                    : otherMode === "cloud_only"
+                      ? "API key · cloud tools only"
+                      : "API key + local tools";
                 return (
                   <button
                     type="button"
