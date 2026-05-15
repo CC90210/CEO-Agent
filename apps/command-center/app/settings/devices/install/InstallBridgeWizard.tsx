@@ -162,6 +162,36 @@ export function InstallBridgeWizard() {
               </div>
             </div>
           </div>
+
+          {/*
+            Self-sufficiency follow-up. The pair-code one-liner above starts
+            the bridge for THIS session but doesn't survive a reboot. Three
+            one-time commands wire it into PM2 so it (and the V6 + cron
+            daemons) auto-start on login. Optional — operators who shut down
+            their machine nightly should run them; always-on desktops can
+            skip.
+          */}
+          <div className="rounded-lg border border-bg-border bg-bg-elev/40 p-4 space-y-2">
+            <div className="text-xs uppercase tracking-wider font-bold text-fg-dim">
+              Optional · Make this survive reboots
+            </div>
+            <p className="text-xs text-fg-muted leading-relaxed">
+              The bridge is running in this session. To have it (plus the cron
+              poller, event-bus router, and override consumer) auto-start at
+              login, run these three one-time commands from the repo root:
+            </p>
+            <pre className="text-[11px] font-mono text-accent bg-bg-deep border border-bg-border rounded p-2.5 overflow-x-auto select-all">
+{`pm2 start ecosystem.config.js
+pm2 save
+pm2 startup    # follow the platform-specific line PM2 prints`}
+            </pre>
+            <div className="text-[11px] text-fg-dim">
+              After this, your operator daemons (claude-bridge, claude-bridge-ping,
+              event-router, override-consumer) survive shutdowns and PM2 will
+              auto-restart any of them that crash.
+            </div>
+          </div>
+
           <div className="flex gap-2">
             <Link href="/" className="btn-primary inline-flex items-center gap-2">
               Open a chat
