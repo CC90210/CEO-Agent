@@ -6,6 +6,7 @@ import {
   getTenant,
   getPlanTemplates,
   aiServicesWithKey,
+  getBridgeOnline,
 } from "@/lib/queries";
 import { safe } from "@/lib/api-helpers";
 import { ChangePasswordForm } from "@/components/ChangePasswordForm";
@@ -26,12 +27,13 @@ export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const profile = await safe("settings.profile", getActiveProfile(), null);
-  const [integrations, tenant, templates, connectedAiSet, user] = await Promise.all([
+  const [integrations, tenant, templates, connectedAiSet, user, bridgeOnline] = await Promise.all([
     safe("settings.integrations_health", integrationsHealth(profile?.tenant_id || null), []),
     profile?.tenant_id ? safe("settings.tenant", getTenant(profile.tenant_id), null) : Promise.resolve(null),
     profile ? safe("settings.plan_templates", getPlanTemplates(profile.id), []) : Promise.resolve([]),
     safe("settings.ai_keys", aiServicesWithKey(profile?.tenant_id || null), new Set<string>()),
     getSessionUser().catch(() => null),
+    safe("settings.bridge_online", getBridgeOnline(profile?.tenant_id ?? null), false),
   ]);
   const weekday = templates.find((t) => t.kind === "weekday") || null;
   const weekend = templates.find((t) => t.kind === "weekend") || null;
@@ -129,11 +131,17 @@ export default async function SettingsPage() {
           <Card
             title="Agents"
             subtitle="Each enabled agent runs on its own provider + model + API key. Bring your own key — keys are encrypted at rest and never returned to the browser. Toggle which agents are enabled in the Profile section above."
+            action={
+              <Tag tone={bridgeOnline ? "engaged" : "neutral"}>
+                {bridgeOnline ? "Tool access: bridge online" : "Tool access: cloud only"}
+              </Tag>
+            }
           >
             <AgentConfigEditor
               agentKeys={chatAgentKeys().filter((k) =>
                 (profile.agents_enabled || chatAgentKeys()).includes(k)
               )}
+              bridgeOnline={bridgeOnline}
             />
           </Card>
 
