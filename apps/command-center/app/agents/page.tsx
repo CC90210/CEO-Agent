@@ -185,6 +185,11 @@ export default async function AgentsPage() {
             "bravo"
           }
           isAdmin={isAdmin}
+          // Phase 1 of SunBiz CRM build — gate the 4-mode chat picker
+          // behind the tenant's manifest flag. OASIS keeps it (operator
+          // view); SunBiz / SUGA / future end-user tenants don't show
+          // the dropdown.
+          advancedPicker={manifestForAgents?.ui?.advanced_picker ?? false}
         />
       </section>
 

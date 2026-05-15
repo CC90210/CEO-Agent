@@ -5,6 +5,7 @@ import { getActiveProfile, integrationsHealth } from "@/lib/queries";
 import { getSessionUser } from "@/lib/supabase-server";
 import { isOperatorEmail } from "@/lib/operator-credentials";
 import { resolveAgentKey } from "@/lib/agents";
+import { getTenantManifestForUser } from "@/lib/manifest/tenant-scope";
 import type { IntegrationHealth } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -38,11 +39,14 @@ export default async function ClientAgentPage({
     getSessionUser().catch(() => null),
     searchParams ?? Promise.resolve({} as { agent?: string }),
   ]);
-  const healthRows = await safe(
-    "agent.health",
-    integrationsHealth(profile?.tenant_id || null),
-    [] as IntegrationHealth[]
-  );
+  const [healthRows, manifest] = await Promise.all([
+    safe(
+      "agent.health",
+      integrationsHealth(profile?.tenant_id || null),
+      [] as IntegrationHealth[]
+    ),
+    safe("agent.manifest", getTenantManifestForUser(profile?.tenant_id ?? null), null),
+  ]);
   // Tenant-scoped: only the agents this tenant has purchased / been provisioned for.
   // Normalize legacy slugs (sunbiz → solara, suga_sean/lyra* → maven) so old DB rows still resolve.
   const enabled = (profile?.agents_enabled || []).filter(Boolean).map(resolveAgentKey);
@@ -100,6 +104,11 @@ export default async function ClientAgentPage({
           defaultAgent={primary}
           isAdmin={isOperatorEmail(user?.email)}
           welcomeMessages={welcomeMessages}
+          // Phase 1 of SunBiz CRM build — read the per-tenant manifest
+          // flag. SunBiz / SUGA tenants see no picker (Auto-mode silently
+          // routes). Operator-only tenants like OASIS keep the 4-mode
+          // dropdown for billing-path control.
+          advancedPicker={manifest?.ui?.advanced_picker ?? false}
         />
       </Card>
     </div>
