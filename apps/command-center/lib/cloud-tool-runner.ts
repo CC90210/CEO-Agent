@@ -375,6 +375,37 @@ export const TOOL_DEFINITIONS: ToolDef[] = [
       required: ["script"],
     },
   },
+  {
+    name: "list_skills",
+    description:
+      "List the operator's SKILL.md playbooks under skills/. Each entry has a name, description, and trigger phrases. Use this FIRST when the operator asks for something procedural (a briefing, a workflow, a recurring task) — there's almost certainly an existing playbook you should follow rather than improvising. The 'filter' arg matches case-insensitively across name, description, and trigger phrases.",
+    defer: true,
+    input_schema: {
+      type: "object",
+      properties: {
+        filter: {
+          type: "string",
+          description: "Optional substring filter. Matches against skill name, description, and triggers (case-insensitive). Try keywords from the operator's request: 'briefing', 'closing', 'debug', 'outreach'.",
+        },
+      },
+    },
+  },
+  {
+    name: "load_skill",
+    description:
+      "Load the full SKILL.md body for a named skill. Use after list_skills points at the right one. The file contains the SOP — step-by-step instructions you should follow verbatim instead of guessing. Skills often reference Python scripts in scripts/ — chain into run_script after reading.",
+    defer: true,
+    input_schema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Skill name as returned by list_skills (e.g. 'ceo-briefing', 'sales-closing'). Same as the directory name under skills/.",
+        },
+      },
+      required: ["name"],
+    },
+  },
 ];
 
 // ============================================================================
@@ -1141,6 +1172,14 @@ export function cloudToolsPromptBlockV2(opts: { bridgeOnline?: boolean } = {}): 
   lines.push("- For bridge tools (read_file, write_file, bash, send_email, send_sms): if a tool returns is_error with 'bridge_unreachable' in the body, the operator's local bridge isn't running. Tell them to start it (pm2 restart claude-bridge) instead of retrying.");
   lines.push("- For send_email / send_sms: always confirm content with the operator before sending. Include opt-out language on first-touch SMS.");
   lines.push("- Tool results return JSON; quote relevant fields in your reply.");
+  if (bridgeTools.length > 0) {
+    lines.push("");
+    lines.push("DISCOVERY POSTURE (CRITICAL):");
+    lines.push("- The operator has a library of pre-built playbooks (`skills/`) and Python tools (`scripts/`). DO NOT improvise workflows when one already exists — your job is to execute their established SOPs, not reinvent them.");
+    lines.push("- For procedural requests (briefings, recurring workflows, named tasks): call list_skills FIRST to find the playbook, then load_skill to read its steps, then follow them.");
+    lines.push("- For 'do X with service Y' requests (Stripe, Supabase, n8n, Gmail, Twilio, Firecrawl): call list_scripts to see if there's a tool wrapper, then run_script with `--help` to see its commands, then run_script with the real args. Most documented tools support `--json` — use it so you get structured output.");
+    lines.push("- Only fall back to raw bash when nothing in skills/ or scripts/ fits.");
+  }
   return lines.join("\n");
 }
 
