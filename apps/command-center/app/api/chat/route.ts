@@ -49,6 +49,7 @@ import {
 import { resolveChatContext } from "@/lib/chat-auth";
 import { getBridgeOnline, getBridgeToolCapabilities } from "@/lib/queries";
 import { signResumeState } from "@/lib/resume-hmac";
+import { getAgentInfo } from "@/lib/agents";
 import { getTenantManifestForUser } from "@/lib/manifest/tenant-scope";
 import { redactAll } from "@/lib/secret-redaction";
 import { persistAssistantTurn } from "@/lib/chat-persistence";
@@ -192,13 +193,23 @@ export async function POST(req: NextRequest) {
   const toolPalette: string[] | undefined = agentBinding?.tool_palette;
 
   // Two notices — one for "cloud-only" (no local tools available) and
-  // one for "cloud + bridge" (Anthropic API powers the LLM, local bridge
-  // owns tool execution). The model gets ONE of them so it doesn't have
-  // to guess. Empty when cloud_tools is "off" (operator pinned the chat
-  // to plain text via the picker).
-  const cloudModeNoticeBridge = `\n\n---\nRUNTIME: CLOUD MODE + LOCAL BRIDGE\nYou are running through the dashboard's /api/chat path on Vercel — but the operator's local bridge IS online. The browser proxies tool_use calls to localhost:9100/exec-tool, so you have real local capabilities even though the LLM call itself is going through the operator's API key.\n\nWhat you CAN do:\n- Anything in the cloud tool palette below (records, http_get/post, integrations).\n- Read/write files on the operator's machine (read_file, write_file).\n- Run shell commands (bash) — confirm destructive ones first.\n- Send real emails (send_email) via the operator's Gmail.\n- Send SMS (send_sms) — always include opt-out language on first-touch.\n- Mutate dashboard data via <dashboard-action> markers.\n- Strategy, drafting, brainstorming, advice.\n\nIf a bridge tool fails with "bridge_unreachable" in the result, the operator's bridge just went offline mid-turn. Tell them to check pm2 logs claude-bridge — don't retry the same tool.\n---`;
+  // one for "cloud + bridge" (operator API key powers the LLM, local
+  // bridge owns tool execution). The model gets ONE of them so it
+  // doesn't have to guess. Empty when cloud_tools is "off".
+  //
+  // Phase 0 of harness completeness — these are agent-agnostic. Bravo-
+  // specific CLI strings ("bravo bridge serve") removed; the universal
+  // "pm2 restart claude-bridge" is correct for every agent on the
+  // operator's machine since the bridge is one process shared across
+  // agents. The model is addressed by its registry label so Maven
+  // says "Maven, your CMO," not "Bravo, your lead architect."
+  const agentInfo = getAgentInfo(agentKey);
+  const agentLabel = agentInfo.label || agentKey.toUpperCase();
+  const agentRole = agentInfo.role || "agent";
 
-  const cloudModeNoticeNoBridge = `\n\n---\nRUNTIME: CLOUD ONLY\nYou are running through the dashboard's /api/chat path on Vercel and the operator's local bridge is NOT online. You have the DASHBOARD STATE block below (real Supabase data — MRR, pipeline, recent inbound, today's plan, integrations health) plus the cloud tool palette (records, http_get/post, integrations) but NO local file system access, no shell, no email/SMS sends.\n\nIf the operator asks for something that needs the local machine (read a file, send an email, run a script):\n- Be explicit: say the bridge isn't online right now.\n- Tell them: "Open a terminal on your machine and run \`pm2 restart claude-bridge\` (or \`bravo bridge serve\` if it's not under pm2). The chat header will turn cyan when the bridge comes online and I'll have read_file / write_file / bash / send_email / send_sms available."\n- Do NOT infer file contents. Do NOT pretend to have sent emails you didn't send.\n\nWhat you CAN do right now:\n- Use the cloud tool palette below (records read/write/search, http_get/post, lead lookup, integration status).\n- Mutate dashboard data via <dashboard-action> markers.\n- Strategy, drafting, brainstorming, advice — anything that doesn't need the operator's machine.\n---`;
+  const cloudModeNoticeBridge = `\n\n---\nRUNTIME: CLOUD MODE + LOCAL BRIDGE\nYou are ${agentLabel} (${agentRole}), running through the dashboard's /api/chat path on Vercel — but the operator's local bridge IS online. The browser proxies tool_use calls to localhost:9100/exec-tool, so you have real local capabilities even though the LLM call itself is going through the operator's API key.\n\nWhat you CAN do:\n- Anything in the cloud tool palette below (records, http_get/post, integrations).\n- Read/write files on the operator's machine (read_file, write_file).\n- Run shell commands (bash) — confirm destructive ones first.\n- Discover the operator's scripts (list_scripts) and run them (run_script).\n- Discover the operator's playbooks (list_skills) and load them (load_skill) before executing procedural work — they exist for a reason; don't improvise.\n- Send real emails (send_email) via the operator's Gmail.\n- Send SMS (send_sms) — always include opt-out language on first-touch.\n- Mutate dashboard data via <dashboard-action> markers.\n- Strategy, drafting, brainstorming, advice.\n\nIf a bridge tool fails with "bridge_unreachable" in the result, the operator's bridge just went offline mid-turn. Tell them to check \`pm2 logs claude-bridge\` and \`pm2 restart claude-bridge\` — don't retry the same tool.\n---`;
+
+  const cloudModeNoticeNoBridge = `\n\n---\nRUNTIME: CLOUD ONLY\nYou are ${agentLabel} (${agentRole}), running through the dashboard's /api/chat path on Vercel. The operator's local bridge is NOT online right now. You have the DASHBOARD STATE block below (real Supabase data — MRR, pipeline, recent inbound, today's plan, integrations health) plus the cloud tool palette (records, http_get/post, integrations) but NO local file system access, no shell, no email/SMS sends, no Python scripts.\n\nIf the operator asks for something that needs the local machine (read a file, send an email, run a script, follow a playbook):\n- Be explicit: say the bridge isn't online right now.\n- Tell them: "Open a terminal on your machine and run \`pm2 restart claude-bridge\`. The chat header will turn cyan when it comes back and I'll have read_file / write_file / bash / send_email / send_sms / list_skills / list_scripts available."\n- Do NOT infer file contents. Do NOT pretend to have sent emails you didn't send.\n\nWhat you CAN do right now:\n- Use the cloud tool palette below (records read/write/search, http_get/post, lead lookup, integration status).\n- Mutate dashboard data via <dashboard-action> markers.\n- Strategy, drafting, brainstorming, advice — anything that doesn't need the operator's machine.\n---`;
 
   const cloudModeNotice = bridgeOnline
     ? cloudModeNoticeBridge
