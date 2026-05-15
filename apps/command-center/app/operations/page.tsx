@@ -112,18 +112,22 @@ export default async function OperationsPage({
   ]);
   const snapByName = new Map(snaps.map((s) => [s.agent_name, s] as const));
 
-  // Show only family personas in the AGENT WORKERS card. Codex is a
-  // backend executor, not a standalone agent — see lib/agents.ts.
-  // Hermes / Lumen / others outside profile.agents_enabled still show
-  // (just idle) so CC sees the full family, not a partial view.
+  // Show only the agents this tenant has actually enabled (manifest
+  // first, profile fallback). Codex is filtered via the family-only check
+  // since it's a backend executor, not a standalone persona.
+  //
+  // Earlier this card unioned in the full FAMILY_AGENT_KEYS list "so CC
+  // sees the full family, not a partial view" — but the result was
+  // misleading: Hermes and Lumen rendered for tenants that never
+  // subscribed to them, looking like dead workers. CC's correct call
+  // (2026-05-14): only show what's actually wired up; idle subscribed
+  // agents are useful, hallucinated subscribed agents are noise.
   const familySet = new Set(FAMILY_AGENT_KEYS);
-  const enabledRaw = profile?.agents_enabled || ALL_AGENT_KEYS;
-  const enabled = Array.from(
-    new Set([
-      ...enabledRaw.filter((k) => familySet.has(k)),
-      ...FAMILY_AGENT_KEYS,
-    ])
-  );
+  const enabledSource =
+    manifestEnabledSlugs.length > 0
+      ? manifestEnabledSlugs
+      : profile?.agents_enabled || [];
+  const enabled = enabledSource.filter((k) => familySet.has(resolveAgentKey(k)));
   const now = Date.now();
 
   return (
@@ -160,7 +164,7 @@ export default async function OperationsPage({
                       fresh ? "bg-status-engaged animate-pulse-slow" : snap?.last_tick_at ? "bg-status-warm" : "bg-fg-faint"
                     }`} />
                     <span className={`font-bold uppercase tracking-[0.14em] text-sm ${info.textClass}`}>
-                      {key}
+                      {info.label}
                     </span>
                   </div>
                   <span

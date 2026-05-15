@@ -518,7 +518,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
     ? cfg?.provider === "ollama"
       ? "Install the desktop bridge to use local Ollama models"
       : "Configure this agent's provider + API key in Settings → Agents"
-    : `Message ${agent.toUpperCase()}…  (Shift+Enter for newline)`;
+    : `Message ${getAgentInfo(agent).label.toUpperCase()}…  (Shift+Enter for newline)`;
 
   function reset() {
     // Best-effort: tell the bridge to kill the warm claude subprocess
@@ -836,6 +836,27 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
           }
         }
       }
+      // Stream closed. If the assistant message is STILL empty, the bridge
+      // (or cloud route) ended the stream without emitting any delta or
+      // error events — silent failure. Surface it instead of leaving the
+      // operator staring at an empty bubble (CC's reported "glitches out
+      // after 2s, no response" symptom).
+      setMessages((m) => {
+        const last = m[m.length - 1];
+        if (last && last.role === "assistant" && last.content.trim().length === 0) {
+          // Drop the empty placeholder bubble and route the failure to the
+          // error banner instead.
+          const trimmed = m.slice(0, -1);
+          setError(
+            "The agent returned no response. The bridge or upstream model closed the stream without sending any text. Check the bridge logs (pm2 logs claude-bridge) or your API-key quota."
+          );
+          // Stale session_id can keep tripping the same failure if the
+          // server-side process crashed — clear it for a clean retry.
+          setSessionId(null);
+          return trimmed;
+        }
+        return m;
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "request_failed");
       setMessages((m) => m.slice(0, -1));
@@ -1242,15 +1263,16 @@ function EmptyTranscript({
     // not reachable from Vercel). All other providers work in pure cloud
     // mode once a key is saved.
     const needsDesktop = currentProvider === "ollama";
+    const agentLabel = getAgentInfo(agent).label.toUpperCase();
     return (
       <div className="rounded-lg border border-accent/20 bg-accent/5 p-5 text-sm space-y-3">
         <div className="flex items-center gap-2 text-accent font-bold uppercase tracking-[0.14em] text-xs">
-          <Sparkles className="w-4 h-4" /> Set up {agent.toUpperCase()}
+          <Sparkles className="w-4 h-4" /> Set up {agentLabel}
         </div>
         <p className="text-fg">
           {needsDesktop
-            ? `${agent.toUpperCase()} needs OASIS Desktop running before it can use local files, tools, or local models.`
-            : `${agent.toUpperCase()} needs a model + API key before it can chat. The easiest path is OpenRouter - one key gets you Claude, GPT, and Gemini.`}
+            ? `${agentLabel} needs OASIS Desktop running before it can use local files, tools, or local models.`
+            : `${agentLabel} needs a model + API key before it can chat. The easiest path is OpenRouter - one key gets you Claude, GPT, and Gemini.`}
         </p>
         <div className="flex flex-wrap gap-2 pt-1">
           {!needsDesktop && (
@@ -1280,8 +1302,8 @@ function EmptyTranscript({
         </div>
         <p className="text-fg-muted">
           {isAdmin
-            ? `Talking to ${agent.toUpperCase()} via the platform default key.`
-            : `${agent.toUpperCase()} is configured and ready.`} Ask anything — strategy, drafting, debugging, ops.
+            ? `Talking to ${getAgentInfo(agent).label.toUpperCase()} via the platform default key.`
+            : `${getAgentInfo(agent).label.toUpperCase()} is configured and ready.`} Ask anything — strategy, drafting, debugging, ops.
         </p>
       </div>
       <div>
@@ -1370,13 +1392,13 @@ function Bubble({
 }
 
 function AgentAvatar({ agent }: { agent: string }) {
-  const initial = agent.slice(0, 1).toUpperCase();
   const info = getAgentInfo(agent);
+  const initial = info.label.slice(0, 1).toUpperCase();
   return (
     <div
       className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black tracking-tight border bg-bg-elev/80 ${info.textClass}`}
       style={{ borderColor: "currentColor" }}
-      title={agent.toUpperCase()}
+      title={info.label}
     >
       {initial}
     </div>
