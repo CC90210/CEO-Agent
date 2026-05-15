@@ -2,12 +2,14 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   AlertCircle,
   ArrowRight,
   Building2,
   CheckCircle2,
   ChevronLeft,
+  Download,
   Loader2,
   ShoppingBag,
   Sparkles,
@@ -104,6 +106,10 @@ function slugifyClient(name: string): string {
 export function OnboardingWizardClient({ userEmail }: { userEmail?: string }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("industry");
+  // Tenant slug returned by /api/onboarding/wizard on successful create.
+  // The done step uses this to link directly to the new tenant's dashboard
+  // when the operator declines the "pair a machine first" CTA.
+  const [doneSlug, setDoneSlug] = useState<string | null>(null);
   const [template, setTemplate] = useState<TemplateKey | null>(null);
   const [answers, setAnswers] = useState<Answers>({});
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
@@ -195,8 +201,14 @@ export function OnboardingWizardClient({ userEmail }: { userEmail?: string }) {
         setStep("confirm");
         return;
       }
+      // Stash the new tenant's slug on state and stop the auto-redirect.
+      // The done step now lets the operator choose: pair a local machine
+      // first (recommended for CLI access) or open the dashboard now.
+      // CC's framing 2026-05-15: the wizard should "connect them to the
+      // agent command center" rather than dumping them in cold. This
+      // closes that loop in-product.
+      setDoneSlug(data.slug);
       setStep("done");
-      router.push(`/t/${data.slug}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "network_error");
       setStep("confirm");
@@ -743,9 +755,54 @@ export function OnboardingWizardClient({ userEmail }: { userEmail?: string }) {
         )}
 
         {step === "done" && (
-          <section className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-8 text-center">
-            <CheckCircle2 className="h-8 w-8 text-emerald-300 mx-auto" />
-            <div className="mt-3 font-bold">Created. Redirecting...</div>
+          <section className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-8 space-y-6">
+            <div className="text-center space-y-2">
+              <CheckCircle2 className="h-10 w-10 text-emerald-300 mx-auto" />
+              <div className="text-xl font-bold">Your workspace is live.</div>
+              <p className="text-sm text-fg-muted max-w-md mx-auto">
+                Manifest saved, agents enabled, branding applied. Two ways
+                to use it from here — pick what fits your setup.
+              </p>
+            </div>
+
+            {/* Two CTAs side-by-side. Pair-a-machine is the recommended path
+                for operators with a local computer (unlocks CLI chat, file
+                access, automations). Open-the-dashboard is the no-machine
+                path for cloud-only operators. */}
+            <div className="grid sm:grid-cols-2 gap-3">
+              <Link
+                href="/settings/devices/install"
+                className="rounded-xl border-2 border-accent bg-accent/10 p-5 hover:bg-accent/20 transition-colors flex flex-col gap-2"
+              >
+                <div className="flex items-center gap-2">
+                  <Download className="w-5 h-5 text-accent" />
+                  <div className="font-bold text-fg">Pair a machine</div>
+                  <span className="ml-auto text-[10px] uppercase tracking-wider text-accent font-bold">
+                    Recommended
+                  </span>
+                </div>
+                <p className="text-xs text-fg-muted leading-relaxed">
+                  Run one command on your laptop / desktop. Unlocks CLI chat
+                  with your Claude subscription, local file access, and the
+                  automations engine. ~1 minute.
+                </p>
+              </Link>
+
+              <Link
+                href={doneSlug ? `/t/${doneSlug}` : "/"}
+                className="rounded-xl border border-bg-border bg-bg-elev p-5 hover:border-accent-muted/40 transition-colors flex flex-col gap-2"
+              >
+                <div className="flex items-center gap-2">
+                  <ArrowRight className="w-5 h-5 text-fg-muted" />
+                  <div className="font-bold text-fg">Open dashboard now</div>
+                </div>
+                <p className="text-xs text-fg-muted leading-relaxed">
+                  Go straight to your workspace. Chat runs in cloud mode
+                  with your saved API key. You can pair a machine later
+                  from Settings → Devices.
+                </p>
+              </Link>
+            </div>
           </section>
         )}
       </div>
