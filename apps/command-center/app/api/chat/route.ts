@@ -47,7 +47,7 @@ import {
   streamAnthropicWithTools,
 } from "@/lib/cloud-tool-runner";
 import { resolveChatContext } from "@/lib/chat-auth";
-import { getBridgeOnline } from "@/lib/queries";
+import { getBridgeOnline, getBridgeToolCapabilities } from "@/lib/queries";
 import { getTenantManifestForUser } from "@/lib/manifest/tenant-scope";
 import { redactAll } from "@/lib/secret-redaction";
 
@@ -167,14 +167,22 @@ export async function POST(req: NextRequest) {
   // gaslight the model into telling the operator "I can't send email —
   // run bravo bridge serve" even when the bridge is right there waiting
   // for the tool call. Caught 2026-05-15 from CC's screenshot.
-  const bridgeOnline = await getBridgeOnline(tenantId).catch(() => false);
+  // Bridge online check + advertised tool list (Phase F). Single round
+  // trip vs the original separate getBridgeOnline call. When the bridge
+  // is online AND has advertised a capabilities list, the dashboard
+  // intersects TOOL_DEFINITIONS with what the bridge claims it supports.
+  // When no advertisement is on record yet (older bridge daemons,
+  // freshly-paired bridges before their first heartbeat), bridgeAdvertisedTools
+  // is null and the dashboard falls back to advertising every defer:true
+  // tool in TOOL_DEFINITIONS (pre-Phase-F behavior).
+  const bridgeState = await getBridgeToolCapabilities(tenantId).catch(
+    () => ({ online: false, tools: null as string[] | null }),
+  );
+  const bridgeOnline = bridgeState.online;
+  const bridgeAdvertisedTools = bridgeState.tools;
 
   // Per-agent tool palette from the tenant's manifest (Phase D of
-  // giggly-reef). Undefined when the manifest doesn't specify one —
-  // model gets the full palette (pre-Phase-D behavior). Populated
-  // → filter TOOL_DEFINITIONS to the listed names before sending to
-  // Anthropic. Per-agent, not per-tenant: Helios should have send_sms,
-  // Solara probably shouldn't.
+  // giggly-reef). Undefined → no manifest filter (full palette).
   const manifestForChat = await getTenantManifestForUser(tenantId).catch(() => null);
   const agentBinding = manifestForChat?.agents?.find(
     (a) => a.slug.toLowerCase() === agentKey,
@@ -281,6 +289,11 @@ export async function POST(req: NextRequest) {
               // palette (current default). Phase D adds operator-side
               // UI in Settings → Agents to populate this per agent.
               toolPalette,
+              // Bridge-advertised tool list (Phase F). When set,
+              // restricts the bridge-side palette to what the live
+              // pairing actually has installed. null = no advertisement
+              // on record; runner falls back to the hardcoded bridge set.
+              bridgeAdvertisedTools,
             },
             { tenantId, userId: user.id, agentKey, authUserId: user.id }
           )) {

@@ -328,9 +328,29 @@ class BridgeAuthError(Exception):
     exit so the operator can re-pair via the wizard, not spin forever."""
 
 
+def _collect_tool_capabilities() -> list[str]:
+    """Return the bridge's advertised tool registry — Phase F of giggly-reef.
+    Used by the heartbeat so the dashboard knows which bridge tools to put
+    in TOOL_DEFINITIONS for this tenant. Failure is non-fatal: missing
+    bridge_tools.py just yields an empty list and the dashboard falls back
+    to "no advertised tools" semantics (which the /api/chat side treats as
+    "trust the hardcoded list" for backwards compat)."""
+    try:
+        try:
+            from .bridge_tools import list_available_tools
+        except ImportError:
+            from bridge_tools import list_available_tools  # type: ignore
+        return list_available_tools()
+    except Exception:
+        return []
+
+
 def _post_ping(token: str, services: dict[str, dict]) -> tuple[bool, str]:
     url = f"{_dashboard_url()}/api/bridge/ping"
-    body = json.dumps({"services": services}).encode("utf-8")
+    body = json.dumps({
+        "services": services,
+        "tool_capabilities": _collect_tool_capabilities(),
+    }).encode("utf-8")
     req = urllib.request.Request(
         url,
         method="POST",
