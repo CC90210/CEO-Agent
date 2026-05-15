@@ -185,9 +185,17 @@ def sla_sweep(sb) -> int:
 def fetch_thread_latest_body(thread_id: str) -> str | None:
     """Pull the most recent message body from a Gmail thread.
     Subprocesses out to google_tool.py to inherit the existing OAuth
-    plumbing rather than wiring a second Gmail client here."""
+    plumbing rather than wiring a second Gmail client here.
+
+    Windows console-window suppression: when the parent daemon is run
+    under pythonw.exe via PM2, pythonw doesn't have a console; but
+    a child python.exe subprocess WILL allocate one unless we pass
+    CREATE_NO_WINDOW. Operator sees no popups regardless.
+    """
     if not thread_id:
         return None
+    # Windows-only flag — on POSIX it's not defined and we just pass 0.
+    creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     try:
         proc = subprocess.run(
             [
@@ -202,6 +210,7 @@ def fetch_thread_latest_body(thread_id: str) -> str | None:
             capture_output=True,
             text=True,
             timeout=30,
+            creationflags=creationflags,
         )
     except (subprocess.TimeoutExpired, FileNotFoundError) as e:
         _log(f"gmail fetch failed thread={thread_id}: {e}")
