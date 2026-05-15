@@ -31,7 +31,6 @@ import {
   type Provider,
 } from "@/lib/providers";
 import { getPersona, chatAgentKeys } from "@/lib/agent-personas";
-import { decryptField } from "@/lib/field-encryption";
 import { composeDashboardContextV2 } from "@/lib/agent-context";
 import { markReadDb } from "@/lib/agent-inbox-db";
 import { rateLimit } from "@/lib/rate-limit";
@@ -47,8 +46,9 @@ import {
   cloudToolsPromptBlockV2,
   streamAnthropicWithTools,
 } from "@/lib/cloud-tool-runner";
+import { resolveChatContext } from "@/lib/chat-auth";
+import { getBridgeOnline } from "@/lib/queries";
 import { redactAll } from "@/lib/secret-redaction";
-import { isOperatorEmail, operatorPlatformFallback } from "@/lib/operator-credentials";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -94,21 +94,15 @@ export async function POST(req: NextRequest) {
   const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
   if (!lastUserMsg) return jsonError(400, "no_user_message");
 
-  // Resolve tenant_id via service role (faster + RLS-bypass; the auth
-  // check at the top of the handler is what gates access). Same trip as
-  // the agent_model_config lookup → 1 round-trip for "who are you + what
-  // model do you want" instead of 2.
+  // Resolve tenant + per-agent provider/model/key. Single helper handles
+  // user_profiles lookup, agent_model_config decrypt, and the operator
+  // platform-key fallback — shared with /api/chat/resume. See lib/chat-auth.ts.
+  const ctxResult = await resolveChatContext({ id: user.id, email: user.email }, agentKey);
+  if (!ctxResult.ok) {
+    return jsonError(ctxResult.status, ctxResult.detail || ctxResult.code);
+  }
+  const { tenantId, provider, model, apiKey, cfgOverride } = ctxResult;
   const service = getServiceSupabase();
-  const profileQuery = service
-    .from("user_profiles")
-    .select("tenant_id")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
-
-  const profileRes = await profileQuery;
-  const profile = profileRes.data as { tenant_id: string | null } | null;
-  if (!profile?.tenant_id) return jsonError(403, "no_tenant");
-  const tenantId = profile.tenant_id as string;
 
   // Per-tenant token bucket: 30 turns burst, refill at 1/turn-per-15s
   // (= 4/min steady state). Protects the platform key on operator-fallback;
@@ -134,56 +128,6 @@ export async function POST(req: NextRequest) {
         },
       }
     );
-  }
-
-  // ---- Resolve agent_model_config + decrypt key ---------------------------
-  const { data: cfg } = await service
-    .from("agent_model_config")
-    .select("provider, model, encrypted_api_key, system_prompt_override, enabled")
-    .eq("tenant_id", tenantId)
-    .eq("agent_key", agentKey)
-    .maybeSingle();
-
-  // Admin/operator fallback: when CC (or another admin) chats and has no
-  // per-agent config row, fall back to a platform-supplied API key from env.
-  // Clients must always BYO key — the fallback is gated by email match.
-  const isOperator = isOperatorEmail(user.email || "");
-  let provider: Provider;
-  let model: string;
-  let apiKey = "";
-  let cfgOverride: string | null = null;
-
-  if (cfg) {
-    if (!cfg.enabled) return jsonError(403, "agent_disabled");
-    provider = cfg.provider as Provider;
-    model = cfg.model as string;
-    cfgOverride = cfg.system_prompt_override || null;
-    if (!cfg.encrypted_api_key) {
-      // Row exists but key wasn't set — try operator fallback before failing
-      const fallback = isOperator ? operatorPlatformFallback() : null;
-      if (!fallback) return jsonError(412, "no_api_key");
-      provider = fallback.provider;
-      model = fallback.model;
-      apiKey = fallback.apiKey;
-    } else {
-      try {
-        apiKey = decryptField(cfg.encrypted_api_key as string);
-      } catch (err) {
-        return jsonError(500, err instanceof Error ? err.message : "key_decrypt_failed");
-      }
-    }
-  } else {
-    // No config row at all
-    const fallback = isOperator ? operatorPlatformFallback() : null;
-    if (!fallback) {
-      return jsonError(
-        412,
-        isOperator ? "admin_no_platform_key" : "agent_not_configured"
-      );
-    }
-    provider = fallback.provider;
-    model = fallback.model;
-    apiKey = fallback.apiKey;
   }
 
   // ---- Open or create chat_sessions row -----------------------------------
@@ -214,22 +158,39 @@ export async function POST(req: NextRequest) {
   });
 
   const personaBase = getPersona(agentKey, cfgOverride);
-  // Cloud-mode disclosure — this is the path that runs when the local
-  // bridge isn't serving. The agent has DASHBOARD STATE (operator's MRR,
-  // pipeline, today's plan, etc) but NO file-system access. Be honest
-  // about it; don't infer a repo you can't read.
-  const cloudModeNotice = `\n\n---\nRUNTIME: CLOUD MODE\nYou are running through the dashboard's /api/chat path on Vercel, not the operator's local bridge. You have the DASHBOARD STATE block below (real Supabase data — MRR, pipeline, recent inbound, today's plan, integrations health). You do NOT have access to the operator's local file system, brain/* files, skills/* bodies, or any repo content.\n\nIf the operator asks about local files, code structure, or anything that requires reading the repo:\n- Be explicit: say you're in cloud mode without file access.\n- Tell them: "Run \`bravo bridge serve\` on your machine. The chat will then route to localhost with full repo access — you'll see the header turn cyan."\n- Do NOT infer file contents. Do NOT speculate about brain/ structure. Do NOT pretend to have read SOUL.md or any other file.\n\nWhat you CAN do in cloud mode:\n- Answer using the DASHBOARD STATE block.\n- Mutate dashboard data via <dashboard-action> markers (see below).\n- Strategy, drafting, brainstorming, advice — anything that doesn't need file reads.\n---`;
+  // Bridge-online detection — the persona notice that follows depends on
+  // whether the operator's local bridge is reachable. When it IS, Phase 2
+  // of giggly-reef gives the cloud-mode chat real local tools (read_file,
+  // write_file, bash, send_email, send_sms) via the browser proxy to
+  // localhost:9100/exec-tool. Without this check, the OLD notice would
+  // gaslight the model into telling the operator "I can't send email —
+  // run bravo bridge serve" even when the bridge is right there waiting
+  // for the tool call. Caught 2026-05-15 from CC's screenshot.
+  const bridgeOnline = await getBridgeOnline(tenantId).catch(() => false);
+
+  // Two notices — one for "cloud-only" (no local tools available) and
+  // one for "cloud + bridge" (Anthropic API powers the LLM, local bridge
+  // owns tool execution). The model gets ONE of them so it doesn't have
+  // to guess. Empty when cloud_tools is "off" (operator pinned the chat
+  // to plain text via the picker).
+  const cloudModeNoticeBridge = `\n\n---\nRUNTIME: CLOUD MODE + LOCAL BRIDGE\nYou are running through the dashboard's /api/chat path on Vercel — but the operator's local bridge IS online. The browser proxies tool_use calls to localhost:9100/exec-tool, so you have real local capabilities even though the LLM call itself is going through the operator's API key.\n\nWhat you CAN do:\n- Anything in the cloud tool palette below (records, http_get/post, integrations).\n- Read/write files on the operator's machine (read_file, write_file).\n- Run shell commands (bash) — confirm destructive ones first.\n- Send real emails (send_email) via the operator's Gmail.\n- Send SMS (send_sms) — always include opt-out language on first-touch.\n- Mutate dashboard data via <dashboard-action> markers.\n- Strategy, drafting, brainstorming, advice.\n\nIf a bridge tool fails with "bridge_unreachable" in the result, the operator's bridge just went offline mid-turn. Tell them to check pm2 logs claude-bridge — don't retry the same tool.\n---`;
+
+  const cloudModeNoticeNoBridge = `\n\n---\nRUNTIME: CLOUD ONLY\nYou are running through the dashboard's /api/chat path on Vercel and the operator's local bridge is NOT online. You have the DASHBOARD STATE block below (real Supabase data — MRR, pipeline, recent inbound, today's plan, integrations health) plus the cloud tool palette (records, http_get/post, integrations) but NO local file system access, no shell, no email/SMS sends.\n\nIf the operator asks for something that needs the local machine (read a file, send an email, run a script):\n- Be explicit: say the bridge isn't online right now.\n- Tell them: "Open a terminal on your machine and run \`pm2 restart claude-bridge\` (or \`bravo bridge serve\` if it's not under pm2). The chat header will turn cyan when the bridge comes online and I'll have read_file / write_file / bash / send_email / send_sms available."\n- Do NOT infer file contents. Do NOT pretend to have sent emails you didn't send.\n\nWhat you CAN do right now:\n- Use the cloud tool palette below (records read/write/search, http_get/post, lead lookup, integration status).\n- Mutate dashboard data via <dashboard-action> markers.\n- Strategy, drafting, brainstorming, advice — anything that doesn't need the operator's machine.\n---`;
+
+  const cloudModeNotice = bridgeOnline
+    ? cloudModeNoticeBridge
+    : cloudModeNoticeNoBridge;
   // Inject live dashboard state — MRR, pipeline, recent inbound, today's
   // plan, integrations health, INBOX FOR YOU — so the agent answers from
   // real data instead of asking the operator for things it can already
   // see. V2 also returns the inbox message IDs we injected so we can
   // mark them read after the stream completes successfully (closes the
   // inbox loop documented on /inbox).
-  const ctxResult = await composeDashboardContextV2({ tenantId, agentKey }).catch(
+  const dashboardCtxResult = await composeDashboardContextV2({ tenantId, agentKey }).catch(
     () => ({ text: "", injectedInboxIds: [] as string[] })
   );
-  const dashboardCtx = ctxResult.text;
-  const injectedInboxIds = ctxResult.injectedInboxIds;
+  const dashboardCtx = dashboardCtxResult.text;
+  const injectedInboxIds = dashboardCtxResult.injectedInboxIds;
   // Cloud-mode tool surface selection.
   //
   // - "tools"   → native Anthropic tool_use loop (cloud-tool-runner.ts).
@@ -259,7 +220,7 @@ export async function POST(req: NextRequest) {
     cloudToolsMode === "off"
       ? ""
       : cloudToolsMode === "tools"
-        ? cloudToolsPromptBlockV2()
+        ? cloudToolsPromptBlockV2({ bridgeOnline })
         : cloudToolsPromptBlock();
   const persona = `${personaBase}${cloudModeNotice}${cloudToolsBlock}${dashboardCtx ? `\n\n${dashboardCtx}` : ""}`;
   const startedAt = Date.now();
@@ -297,6 +258,12 @@ export async function POST(req: NextRequest) {
               model,
               system: persona,
               messages: stripped,
+              // Filter deferred (bridge-routed) tools out of the palette
+              // when the bridge isn't online. Prevents the model from
+              // trying to call send_email / bash etc. and getting
+              // bridge_unreachable errors back; the cloud-mode notice
+              // upstream tells the operator to start the bridge.
+              excludeDeferredTools: !bridgeOnline,
             },
             { tenantId, userId: user.id, agentKey, authUserId: user.id }
           )) {

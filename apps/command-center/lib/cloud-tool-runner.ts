@@ -742,6 +742,13 @@ export type ToolLoopRequest = {
   maxTokens?: number;
   /** When false, runs a no-tools straight stream (provider-fallback path). */
   enableTools?: boolean;
+  /** When true, the deferred (bridge-routed) tools are filtered out of the
+   *  palette sent to the model. Use this when the operator's bridge is
+   *  offline — without it, the model sees send_email / bash / read_file
+   *  in TOOL_DEFINITIONS, calls one, the browser proxy errors
+   *  bridge_unreachable, the model retries, etc. Cleaner to tell the
+   *  model up front that those tools don't exist this turn. */
+  excludeDeferredTools?: boolean;
 };
 
 export async function* streamAnthropicWithTools(
@@ -761,6 +768,7 @@ export async function* streamAnthropicWithTools(
     system: req.system,
     maxTokens: req.maxTokens,
     enableTools: req.enableTools,
+    excludeDeferredTools: req.excludeDeferredTools,
     history,
     startIter: 0,
     startTotalIn: 0,
@@ -819,6 +827,7 @@ type IterationLoopArgs = {
   system: string;
   maxTokens?: number;
   enableTools?: boolean;
+  excludeDeferredTools?: boolean;
   /** Pre-built history. Mutates as the loop appends turns. */
   history: AnthropicMessage[];
   /** Iteration index to start at (0 for fresh, N+1 for resume). */
@@ -845,6 +854,12 @@ async function* runIterationLoop(
 ): AsyncGenerator<StreamYield> {
   const { apiKey, model, system, maxTokens, ctx, history } = args;
   const enableTools = args.enableTools !== false;
+  // Filter out deferred tools when caller says the bridge isn't reachable.
+  // The model sees ONLY tools it can actually use this turn — no
+  // bridge_unreachable round-trips, no confusion.
+  const activeTools = args.excludeDeferredTools
+    ? TOOL_DEFINITIONS.filter((t) => !t.defer)
+    : TOOL_DEFINITIONS;
   let totalIn = args.startTotalIn;
   let totalOut = args.startTotalOut;
 
@@ -862,7 +877,7 @@ async function* runIterationLoop(
       messages: history,
     };
     if (enableTools) {
-      body.tools = TOOL_DEFINITIONS;
+      body.tools = activeTools;
     }
 
     const res = await fetchWithRetry("https://api.anthropic.com/v1/messages", {
@@ -1047,9 +1062,16 @@ async function* runIterationLoop(
 // the API contract and this block is unused.
 // ============================================================================
 
-export function cloudToolsPromptBlockV2(): string {
+export function cloudToolsPromptBlockV2(opts: { bridgeOnline?: boolean } = {}): string {
   const cloudTools = TOOL_DEFINITIONS.filter((t) => !t.defer);
-  const bridgeTools = TOOL_DEFINITIONS.filter((t) => t.defer);
+  // Hide bridge tools from the persona block when the bridge is offline.
+  // The Anthropic tools[] array sent on the API call is already filtered
+  // by excludeDeferredTools in runIterationLoop; the persona block
+  // following the same rule keeps the model from being told it has tools
+  // it can't actually call this turn.
+  const bridgeTools = opts.bridgeOnline === false
+    ? []
+    : TOOL_DEFINITIONS.filter((t) => t.defer);
   const lines: string[] = [];
   lines.push("");
   lines.push("---");
@@ -1063,10 +1085,12 @@ export function cloudToolsPromptBlockV2(): string {
   for (const t of cloudTools) {
     lines.push(`- ${t.name} — ${t.description}`);
   }
-  lines.push("");
-  lines.push("Bridge tools (require the operator's local bridge to be online — they execute on the operator's machine via the dashboard's browser proxy):");
-  for (const t of bridgeTools) {
-    lines.push(`- ${t.name} — ${t.description}`);
+  if (bridgeTools.length > 0) {
+    lines.push("");
+    lines.push("Bridge tools (the operator's local bridge IS online — these execute on their machine via the dashboard's browser proxy):");
+    for (const t of bridgeTools) {
+      lines.push(`- ${t.name} — ${t.description}`);
+    }
   }
   lines.push("");
   lines.push("Rules:");
