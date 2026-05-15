@@ -790,11 +790,13 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
 
     try {
       // Routing now respects the chat-mode picker (chatMode):
-      //   - "bridge" or ("auto" + bridgeOnline)
+      //   - "cli" or ("auto" + bridgeOnline)
       //         → bridge endpoints (Claude Code subprocess or local Ollama)
-      //   - "cloud" or ("auto" + bridge offline)
+      //   - "cloud_only" / "cloud_bridge_tools" / ("auto" + bridge offline)
       //         → /api/chat (cloud relay with operator's API key + native
-      //           tool_use loop on Anthropic provider)
+      //           tool_use loop on Anthropic provider). The cloud_only vs
+      //           cloud_bridge_tools split is conveyed via the tool_routing
+      //           body field below — the URL is the same.
       const isOllama = cfg?.provider === "ollama";
       const useBridge = wantsBridge;
       const useLocalChat = useBridge && isOllama;
