@@ -334,6 +334,47 @@ export const TOOL_DEFINITIONS: ToolDef[] = [
       required: ["to", "body"],
     },
   },
+  {
+    name: "list_scripts",
+    description:
+      "List every Python script in the operator's scripts/ directory with a one-line synopsis. The catalog is ~50–150 entries depending on the tenant. Use this FIRST when you need to do something that isn't covered by the typed tools (read_file, write_file, bash, send_email, send_sms) — there's almost certainly a script already written for it. Scripts ending in '_tool.py' (e.g. stripe_tool.py, supabase_tool.py) are the documented CLI layer and support --json + --help. The 'filter' arg matches against script names (case-insensitive) — useful for narrowing down to 'stripe', 'send', 'snapshot', etc.",
+    defer: true,
+    input_schema: {
+      type: "object",
+      properties: {
+        filter: { type: "string", description: "Optional substring filter on script names (case-insensitive)." },
+      },
+    },
+  },
+  {
+    name: "run_script",
+    description:
+      "Run a Python script from the operator's scripts/ directory by name. Returns exit_code, stdout, stderr, and (if stdout parses as JSON) a 'parsed' field with the structured data. 90-second timeout (override up to 300 via timeout_s). Most documented tools support `--help` to discover args and `--json` for machine-readable output — pass those in args. Use list_scripts first to discover what's available. For commands outside scripts/, use the bash tool instead.",
+    defer: true,
+    input_schema: {
+      type: "object",
+      properties: {
+        script: {
+          type: "string",
+          description: "Script filename, e.g. 'stripe_tool.py'. Resolved against scripts/ — no paths, no traversal. The .py suffix is optional.",
+        },
+        args: {
+          type: "array",
+          items: { type: "string" },
+          description: "Argv list passed to the script. Example for stripe_tool.py: ['list-customers', '--limit', '10', '--json'].",
+        },
+        timeout_s: {
+          type: "number",
+          description: "Override the default 90s timeout (max 300).",
+        },
+        parse_json: {
+          type: "boolean",
+          description: "Try to parse stdout as JSON into a 'parsed' field. Default true. Set false for scripts that emit prose.",
+        },
+      },
+      required: ["script"],
+    },
+  },
 ];
 
 // ============================================================================
