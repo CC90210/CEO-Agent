@@ -55,15 +55,21 @@ export function InstallBridgeWizard() {
   const [phase, setPhase] = useState<"mint" | "command" | "watching" | "connected">("mint");
   const [copied, setCopied] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
+  // Retry knob — bumped by the "Try again" button when mint fails. The
+  // useEffect below depends on it so a bump re-runs the mint POST.
+  const [mintAttempt, setMintAttempt] = useState(0);
 
   useEffect(() => {
     setOs(detectOS());
   }, []);
 
-  // Mint pair code on mount (and on re-entry after expiry).
+  // Mint pair code on mount, on re-entry after expiry, or on retry. The
+  // mintAttempt counter (bumped by the Try-again button below) is in deps
+  // so a bump re-runs this even if `phase` is still "mint".
   useEffect(() => {
     if (phase !== "mint") return;
     let cancelled = false;
+    setError(null);
     (async () => {
       try {
         const r = await fetch("/api/auth/pair-code", { method: "POST" });
@@ -85,7 +91,7 @@ export function InstallBridgeWizard() {
     return () => {
       cancelled = true;
     };
-  }, [phase]);
+  }, [phase, mintAttempt]);
 
   // Countdown
   useEffect(() => {
@@ -170,9 +176,20 @@ export function InstallBridgeWizard() {
         </div>
       )}
 
-      {phase === "mint" && (
+      {phase === "mint" && !error && (
         <div className="text-fg-muted text-sm flex items-center gap-2 py-8 justify-center">
           <Loader2 className="w-4 h-4 animate-spin" /> Generating a one-time pair code…
+        </div>
+      )}
+      {phase === "mint" && error && (
+        <div className="py-4 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setMintAttempt((n) => n + 1)}
+            className="btn-primary inline-flex items-center gap-2"
+          >
+            Try again
+          </button>
         </div>
       )}
 

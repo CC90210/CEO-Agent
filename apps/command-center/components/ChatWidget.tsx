@@ -1374,11 +1374,29 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
               )}
               {error === "agent_not_configured" && (
                 <div className="text-xs text-fg-muted font-sans">
-                  This agent needs a provider + key. Open{" "}
+                  No provider key on file. Open{" "}
+                  <Link href="/settings#providers" className="text-accent underline">
+                    Settings → AI provider accounts
+                  </Link>{" "}
+                  and click Connect — it applies to every agent in one shot.
+                </div>
+              )}
+              {error === "no_api_key" && (
+                <div className="text-xs text-fg-muted font-sans">
+                  This agent's provider row exists but has no key. Open{" "}
+                  <Link href="/settings#providers" className="text-accent underline">
+                    Settings → AI provider accounts
+                  </Link>{" "}
+                  and Connect (or Replace key) for the matching provider.
+                </div>
+              )}
+              {error === "agent_disabled" && (
+                <div className="text-xs text-fg-muted font-sans">
+                  This agent is disabled. Open{" "}
                   <Link href="/settings#agents" className="text-accent underline">
                     Settings → Agents
                   </Link>{" "}
-                  to configure it.
+                  and flip its enabled toggle.
                 </div>
               )}
               {error === "rate_limited" && (

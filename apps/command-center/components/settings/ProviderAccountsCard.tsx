@@ -285,6 +285,23 @@ function ConnectProviderDialog({
         setSaving(false);
         return;
       }
+      // Partial-failure case: route returned ok=true (at least one agent
+      // saved) but some failed. Surface a non-blocking warning so the
+      // operator knows which agents need manual attention, then still
+      // flip the card to "connected" since the provider IS connected for
+      // the agents that succeeded.
+      const failed = Array.isArray(j.failed) ? (j.failed as Array<{ agent_key: string; error: string }>) : [];
+      if (failed.length > 0) {
+        const list = failed.map((f) => `${f.agent_key} (${f.error})`).join(", ");
+        // Use console.warn for the detail; the user sees a summary below.
+        console.warn("[bulk-provider] partial failure", failed);
+        setError(`Saved on ${j.count} agent${j.count === 1 ? "" : "s"}. Failed: ${list}`);
+        setSaving(false);
+        // Still call onConnected so the card flips — they ARE connected
+        // for the agents that saved. They can retry from #agents.
+        onConnected(provider);
+        return;
+      }
       onConnected(provider);
     } catch (err) {
       setError(err instanceof Error ? err.message : "save_failed");
