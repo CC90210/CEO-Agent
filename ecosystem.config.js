@@ -325,4 +325,45 @@ apps.push({
     max_size: "10M",
 });
 
+// ============================================================================
+// lender-response-classifier — Gmail label monitor for shop-out replies
+// ============================================================================
+//
+// Phase 6.4 of SunBiz CRM. Polls application_lender_threads rows where
+// status=sent + gmail_thread_id is non-null, fetches the latest message
+// via scripts/google_tool.py, classifies via Claude Haiku 4.5 into
+// approved/declined/info_requested/unclear, and updates status +
+// last_response_summary. Operators see the funding-pipeline state on
+// the application detail page without ever opening Gmail.
+//
+// Also runs an SLA sweep each tick: threads at status=sent older than
+// the lender's sla_response_days auto-flip to no_response (no
+// classifier call needed).
+//
+// 5-min default tick. Cheap-but-non-trivial because each tick does a
+// Gmail thread fetch + Claude classification per pending thread.
+// Operators can run with --interval 60 for tighter responsiveness
+// during a busy submission day.
+apps.push({
+    name: "lender-response-classifier",
+    script: "scripts/lender_response_classifier.py",
+    args: ["loop", "--interval", "300"],
+    interpreter: PYTHON,
+    cwd: PROJECT_ROOT,
+    watch: false,
+    autorestart: true,
+    max_restarts: 20,
+    restart_delay: 30000,
+    windowsHide: true,
+    env: {
+        PYTHONIOENCODING: "utf-8",
+        PYTHONUNBUFFERED: "1",
+    },
+    log_date_format: "YYYY-MM-DD HH:mm:ss",
+    error_file: "tmp/pm2-lender-classifier-error.log",
+    out_file: "tmp/pm2-lender-classifier-out.log",
+    merge_logs: true,
+    max_size: "10M",
+});
+
 module.exports = { apps };
