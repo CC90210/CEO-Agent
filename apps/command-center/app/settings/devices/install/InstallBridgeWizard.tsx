@@ -6,12 +6,11 @@
  * → poll /api/devices for a new pairing → success), but rendered as a page
  * card instead of a fixed-position modal.
  *
- * Duplicating the polling/mint logic instead of factoring it out keeps the
- * blast radius of this PR small. If a third surface ever needs the same flow,
- * pull it into a shared hook (useBridgePairing) then.
+ * The state machine + polling logic lives in hooks/useBridgePairing.ts so
+ * this file is a thin render-only wrapper. The Modal consumes the same hook.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import {
   Loader2,
@@ -24,130 +23,12 @@ import {
   Terminal,
   ExternalLink,
 } from "lucide-react";
-
-type OS = "windows" | "macos" | "linux";
-
-function detectOS(): OS {
-  if (typeof navigator === "undefined") return "windows";
-  const ua = navigator.userAgent.toLowerCase();
-  if (ua.includes("mac os") || ua.includes("macintosh")) return "macos";
-  if (ua.includes("linux") && !ua.includes("android")) return "linux";
-  return "windows";
-}
-
-function oneLinerFor(os: OS, code: string): string {
-  // PowerShell env-var prefix on the iex'd command — verified working in
-  // InstallBridgeModal:2026-05-10. Bash uses the prefix on `bash` (not
-  // `curl`) so the subshell that runs the script inherits the variable.
-  const winShell = `$env:BRAVO_PAIR_CODE="${code}"; irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install.ps1 | iex`;
-  const nixShell = `curl -fsSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install.sh | BRAVO_PAIR_CODE=${code} bash`;
-  return os === "windows" ? winShell : nixShell;
-}
-
-type DeviceLite = { id: string; created_at: string; revoked_at: string | null };
+import { useBridgePairing, type OS } from "@/hooks/useBridgePairing";
 
 export function InstallBridgeWizard() {
-  const [os, setOs] = useState<OS>("windows");
-  const [code, setCode] = useState<string | null>(null);
-  const [expiresAt, setExpiresAt] = useState<string | null>(null);
-  const [mintedAt, setMintedAt] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [phase, setPhase] = useState<"mint" | "command" | "watching" | "connected">("mint");
+  const { os, setOs, code, oneLiner, secondsLeft, phase, error, retryMint } =
+    useBridgePairing();
   const [copied, setCopied] = useState(false);
-  const [secondsLeft, setSecondsLeft] = useState(0);
-  // Retry knob — bumped by the "Try again" button when mint fails. The
-  // useEffect below depends on it so a bump re-runs the mint POST.
-  const [mintAttempt, setMintAttempt] = useState(0);
-
-  useEffect(() => {
-    setOs(detectOS());
-  }, []);
-
-  // Mint pair code on mount, on re-entry after expiry, or on retry. The
-  // mintAttempt counter (bumped by the Try-again button below) is in deps
-  // so a bump re-runs this even if `phase` is still "mint".
-  useEffect(() => {
-    if (phase !== "mint") return;
-    let cancelled = false;
-    setError(null);
-    (async () => {
-      try {
-        const r = await fetch("/api/auth/pair-code", { method: "POST" });
-        const j = await r.json();
-        if (cancelled) return;
-        if (!j.ok) {
-          setError(j.error || `http_${r.status}`);
-          return;
-        }
-        setCode(j.code);
-        setExpiresAt(j.expires_at);
-        setMintedAt(Date.now());
-        setPhase("command");
-      } catch (e) {
-        if (cancelled) return;
-        setError(e instanceof Error ? e.message : "mint_failed");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [phase, mintAttempt]);
-
-  // Countdown
-  useEffect(() => {
-    if (!expiresAt) return;
-    const tick = () => {
-      const left = Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
-      setSecondsLeft(left);
-      if (left === 0 && phase !== "connected") {
-        setError("Pair code expired before the installer ran. Generating a fresh one.");
-        setCode(null);
-        setExpiresAt(null);
-        setMintedAt(null);
-        setPhase("mint");
-      }
-    };
-    tick();
-    const t = setInterval(tick, 1000);
-    return () => clearInterval(t);
-  }, [expiresAt, phase]);
-
-  // Poll /api/devices — flip to connected when a new pairing row appears
-  // after the moment we minted the code.
-  useEffect(() => {
-    if (phase !== "command" && phase !== "watching") return;
-    if (!mintedAt) return;
-    let cancelled = false;
-    let cycles = 0;
-    const poll = async () => {
-      try {
-        const r = await fetch("/api/devices");
-        const j = await r.json();
-        if (cancelled) return;
-        if (j.ok && Array.isArray(j.devices)) {
-          const fresh = (j.devices as DeviceLite[]).find(
-            (d) => !d.revoked_at && new Date(d.created_at).getTime() > mintedAt
-          );
-          if (fresh) {
-            setPhase("connected");
-            return;
-          }
-        }
-      } catch {
-        // Transient blip — keep polling.
-      }
-      cycles += 1;
-      if (cycles >= 3 && phase === "command") setPhase("watching");
-    };
-    poll();
-    const t = setInterval(poll, 2000);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
-  }, [phase, mintedAt]);
-
-  const oneLiner = useMemo(() => (code ? oneLinerFor(os, code) : ""), [os, code]);
 
   function handleCopy() {
     if (typeof navigator === "undefined" || !navigator.clipboard || !oneLiner) return;
@@ -185,7 +66,7 @@ export function InstallBridgeWizard() {
         <div className="py-4 flex justify-center">
           <button
             type="button"
-            onClick={() => setMintAttempt((n) => n + 1)}
+            onClick={retryMint}
             className="btn-primary inline-flex items-center gap-2"
           >
             Try again
