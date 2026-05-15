@@ -149,25 +149,33 @@ export async function POST(
     });
   }
 
-  // Actual send pass.
+  // ---------------------------------------------------------------------------
+  // Queue pass.
   //
-  // v1 approach: insert application_lender_threads at status=pending
-  // BEFORE the physical send. The dashboard surfaces "n lender emails
-  // queued; awaiting send-engine confirmation". Phase 6.4's response
-  // classifier picks up Gmail thread IDs once the send engine ships
-  // them back.
+  // CRITICAL: this route inserts application_lender_threads rows at
+  // status='pending' (the new value — was 'sent'/'error' which was
+  // dishonest because no email actually fires here today). The physical
+  // SMTP send is operator-machine-bound for two reasons:
+  //   1. Bank statement attachments are sensitive tenant data; we don't
+  //      want them transiting Vercel even via Supabase Storage signed URLs
+  //   2. send_gateway is Python on the operator's machine; the chokepoint
+  //      pattern (CASL + cooldown + daily-cap) lives there
   //
-  // The physical send itself is operator-machine-bound — bank statements
-  // attached via Supabase Storage URLs (or the operator's machine via
-  // bridge /exec-tool with write_file when paranoia is enabled). The
-  // route schedules; the bridge or a cloud worker does the physical
-  // SMTP. v1 stops at "queued" so the data plumbing ships without the
-  // full per-attachment subprocess wiring; Phase 6.3-bis (next sub-phase
-  // if needed) closes that.
+  // The full flow Phase 6.3-bis will ship is:
+  //   route here (queues at 'pending') -> bridge /exec-tool with
+  //   tool_name='shop_out_send_batch' -> Python loops through lender
+  //   threads at 'pending', fires each via send_gateway.send(channel=
+  //   'email', attachments=[bank statements]) -> writes gmail_thread_id
+  //   + flips status='sent'. The response classifier daemon (Phase 6.4
+  //   already shipped) picks up replies from there.
+  //
+  // Until 6.3-bis: operator sees `queued: N` (NOT `sent: N`) so the
+  // UI is honest about what happened. They can manually run the send
+  // by triggering the bridge tool, or wait for 6.3-bis. No silent gap.
   const entries = planResult.plan.map((row) => ({
     lender_id: row.lender_id,
     subject: row.rendered_subject,
-    sent: !!row.recipient_email && row.blockers.length === 0,
+    sent: false,  // intentionally false — physical send is Phase 6.3-bis
     error: !row.recipient_email
       ? "missing lender contact email"
       : row.blockers.length > 0
@@ -185,13 +193,21 @@ export async function POST(
     return NextResponse.json({ ok: false, error: inserted.error }, { status: 500 });
   }
 
-  const sent = entries.filter((e) => e.sent).length;
-  const failed = entries.length - sent;
+  const queued = entries.filter((e) => !e.error).length;
+  const blocked = entries.length - queued;
   return NextResponse.json({
     ok: true,
     plan: planResult.plan,
-    sent,
-    failed,
+    queued,
+    blocked,
     missing_recipients: planResult.missing_recipients,
+    // Surface the physical-send gap honestly in the response so the
+    // operator UI doesn't misreport "5 lenders contacted" when no
+    // SMTP fired. Phase 6.3-bis closes this.
+    physical_send: {
+      status: "pending",
+      hint:
+        "Lender threads queued at status='pending'. Physical SMTP send via send_gateway is Phase 6.3-bis (bridge /exec-tool shop_out_send_batch handler). Until that ships, run `python scripts/send_gateway.py send` per thread, or trigger via Solara chat.",
+    },
   });
 }
