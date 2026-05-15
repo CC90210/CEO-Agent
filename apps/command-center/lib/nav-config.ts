@@ -62,6 +62,12 @@ export type NavItem = {
 
 /**
  * CC's empire command center nav.
+ *
+ * /inbox + /runs were removed 2026-05-14 per CC: the cross-agent inbox is
+ * useful as a substrate but doesn't earn a sidebar slot for the operator,
+ * and /runs is a developer-side activity tape (Event Feed serves the same
+ * need with a better UX). Both routes still resolve by direct URL for
+ * agents + scripts that need them; they just don't clutter the human nav.
  */
 export const CC_NAV: NavItem[] = [
   { group: "Operations", href: "/", label: "Today", icon: "LayoutDashboard" },
@@ -69,12 +75,10 @@ export const CC_NAV: NavItem[] = [
   { group: "Operations", href: "/reasoning", label: "Reasoning", icon: "Brain" },
   { group: "Operations", href: "/playbook", label: "Playbook", icon: "BookOpen" },
   { group: "System", href: "/agents", label: "Agents", icon: "Bot" },
-  { group: "System", href: "/inbox", label: "Inbox", icon: "Inbox", badgeKey: "inbox" },
-  { group: "System", href: "/runs", label: "Runs", icon: "History" },
   { group: "System", href: "/operations", label: "Operations", icon: "Activity" },
+  { group: "System", href: "/feed", label: "Event Feed", icon: "Radio" },
   { group: "System", href: "/system-health", label: "System Health", icon: "ShieldCheck" },
   { group: "System", href: "/overrides", label: "Overrides", icon: "ShieldAlert" },
-  { group: "System", href: "/feed", label: "Event Feed", icon: "Radio" },
   { group: "System", href: "/analytics", label: "Analytics", icon: "BarChart3" },
   { group: "System", href: "/integrations", label: "Integrations", icon: "Plug" },
   { group: "System", href: "/settings", label: "Settings", icon: "Settings" },
