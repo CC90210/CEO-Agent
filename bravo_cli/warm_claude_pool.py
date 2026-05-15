@@ -51,7 +51,10 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from ._subprocess_helpers import WINDOWLESS_FLAGS
-from ._claude_auth import build_claude_spawn_env, is_claude_auth_or_quota_failure
+# is_claude_auth_or_quota_failure lives in _claude_auth too but is consumed
+# by bridge_chat_server (which inspects recent_stderr() after a failed
+# send_turn) — not here. Only build_claude_spawn_env is needed in the pool.
+from ._claude_auth import build_claude_spawn_env
 
 
 _POOL_LOCK = threading.RLock()
@@ -562,7 +565,12 @@ def prewarm(
     """
     _start_reaper_once()
 
+    # Honor the sticky API-key flag. If this pool_key already fell over
+    # to the paid path in a prior turn, prewarming on the subscription
+    # path would just waste 5-30s of cold-start before failing the same
+    # way again. Use the same auth mode use_or_create() would resolve.
     with _POOL_LOCK:
+        effective_force_api = pool_key in _FORCED_API_KEY
         existing = _WARM_POOL.get(pool_key)
         if existing and existing.is_alive():
             # Already warm — nothing to do.
@@ -575,7 +583,13 @@ def prewarm(
     # Spawn outside the pool lock — claude startup can take 5-30s and
     # we don't want every other pool operation to block.
     try:
-        wp = WarmClaudeProcess(agent, root, _PREWARM_PROMPT, resume_session_id=None)
+        wp = WarmClaudeProcess(
+            agent,
+            root,
+            _PREWARM_PROMPT,
+            resume_session_id=None,
+            force_api_key=effective_force_api,
+        )
     except Exception:
         return False
 

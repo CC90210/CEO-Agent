@@ -1655,6 +1655,20 @@ class _ChatHandler(BaseHTTPRequestHandler):
 
         # Spawn env — same approach as telegram_agent. Inherit current env,
         # set non-interactive flags so claude doesn't try to render TTY UI.
+        #
+        # NOTE on auth: this cold-spawn path deliberately keeps the env
+        # unmodified — claude picks ANTHROPIC_API_KEY if set, OAuth
+        # otherwise. The warm-pool path (warm_claude_pool.py) IS
+        # subscription-first via build_claude_spawn_env() and has the
+        # auth-fallback retry from Phase 1 of giggly-reef. Cold spawn only
+        # fires when warm pool is disabled (OASIS_NO_WARM_POOL=1) or
+        # crashes — a rare path. Leaving the env model as-is for cold
+        # spawn keeps the change-surface tight; if Phase 2/3 wants to
+        # unify the auth model across both paths, swap this dict for
+        # build_claude_spawn_env() AND add the retry-on-auth-failure
+        # block (cold spawn has no equivalent today, so going
+        # subscription-first here without the retry would regress the
+        # rare-path UX).
         env = dict(os.environ)
         env.update({
             "CI": "true",
