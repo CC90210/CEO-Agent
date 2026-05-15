@@ -23,142 +23,16 @@
  * link, etc.) lands in both surfaces with one edit.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { Loader2, Check, Copy, X, Clock, AlertCircle, Apple, Monitor, Terminal } from "lucide-react";
-
-type OS = "windows" | "macos" | "linux";
-
-function detectOS(): OS {
-  if (typeof navigator === "undefined") return "windows";
-  const ua = navigator.userAgent.toLowerCase();
-  if (ua.includes("mac os") || ua.includes("macintosh")) return "macos";
-  if (ua.includes("linux") && !ua.includes("android")) return "linux";
-  return "windows";
-}
-
-function oneLinerFor(os: OS, code: string): string {
-  // PowerShell: $env:VAR is session-scoped, inherited by `iex`'d
-  // commands and any child processes. Works.
-  const winShell = `$env:BRAVO_PAIR_CODE="${code}"; irm https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install.ps1 | iex`;
-  // Bash: env-var prefix on `curl` would scope the var to curl ONLY
-  // — the bash subshell after the pipe wouldn't inherit it. Putting
-  // the prefix on the `bash` side makes it the env for the shell
-  // that runs the install script + the wizard subprocess. Verified
-  // 2026-05-10 self-review: the wrong shape would silently lose the
-  // pair-code and drop back to the manual-paste prompt.
-  const nixShell = `curl -fsSL https://raw.githubusercontent.com/CC90210/CEO-Agent/main/install.sh | BRAVO_PAIR_CODE=${code} bash`;
-  return os === "windows" ? winShell : nixShell;
-}
-
-type DeviceLite = { id: string; created_at: string; revoked_at: string | null };
+import { useBridgePairing, type OS } from "@/hooks/useBridgePairing";
 
 export function InstallBridgeModal({ onClose }: { onClose: () => void }) {
-  const [os, setOs] = useState<OS>("windows");
-  const [code, setCode] = useState<string | null>(null);
-  const [expiresAt, setExpiresAt] = useState<string | null>(null);
-  const [mintedAt, setMintedAt] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [phase, setPhase] = useState<"mint" | "command" | "watching" | "connected">("mint");
+  // All pairing state + side effects (mint, countdown, polling, retry)
+  // live in the shared hook. This file is now render-only.
+  const { os, setOs, code, oneLiner, secondsLeft, phase, error, retryMint } =
+    useBridgePairing();
   const [copied, setCopied] = useState(false);
-  const [secondsLeft, setSecondsLeft] = useState(0);
-  // Retry knob for mint failures — same shape as InstallBridgeWizard so
-  // a mint failure shows a "Try again" button instead of an indefinite spinner.
-  const [mintAttempt, setMintAttempt] = useState(0);
-
-  // Detect OS once on mount.
-  useEffect(() => {
-    setOs(detectOS());
-  }, []);
-
-  // Mint the pair-code as soon as the modal opens, on re-entry after
-  // expiry, or on a retry click (mintAttempt bump).
-  useEffect(() => {
-    if (phase !== "mint") return;
-    let cancelled = false;
-    setError(null);
-    (async () => {
-      try {
-        const r = await fetch("/api/auth/pair-code", { method: "POST" });
-        const j = await r.json();
-        if (cancelled) return;
-        if (!j.ok) {
-          setError(j.error || `http_${r.status}`);
-          return;
-        }
-        setCode(j.code);
-        setExpiresAt(j.expires_at);
-        setMintedAt(Date.now());
-        setPhase("command");
-      } catch (e) {
-        if (cancelled) return;
-        setError(e instanceof Error ? e.message : "mint_failed");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [phase, mintAttempt]);
-
-  // Live countdown for the code's TTL.
-  useEffect(() => {
-    if (!expiresAt) return;
-    const tick = () => {
-      const left = Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
-      setSecondsLeft(left);
-      if (left === 0 && phase !== "connected") {
-        // Code expired before redemption — re-mint cleanly.
-        setError("Pair code expired before the installer ran. Generating a fresh one.");
-        setCode(null);
-        setExpiresAt(null);
-        setMintedAt(null);
-        setPhase("mint");
-      }
-    };
-    tick();
-    const t = setInterval(tick, 1000);
-    return () => clearInterval(t);
-  }, [expiresAt, phase]);
-
-  // While the code is live, poll devices every 2s. As soon as a new
-  // pairing row appears (created_at > mintedAt) flip to "connected".
-  useEffect(() => {
-    if (phase !== "command" && phase !== "watching") return;
-    if (!mintedAt) return;
-    let cancelled = false;
-    let cycleCount = 0;
-    const poll = async () => {
-      try {
-        const r = await fetch("/api/devices");
-        const j = await r.json();
-        if (cancelled) return;
-        if (j.ok && Array.isArray(j.devices)) {
-          const fresh = (j.devices as DeviceLite[]).find(
-            (d) => !d.revoked_at && new Date(d.created_at).getTime() > mintedAt
-          );
-          if (fresh) {
-            setPhase("connected");
-            return;
-          }
-        }
-      } catch {
-        // Transient network blip — keep polling.
-      }
-      cycleCount += 1;
-      // After ~3 cycles (6s) without a new device, swap the user-facing
-      // copy from "command" to "watching" so they know we're listening.
-      if (cycleCount >= 3 && phase === "command") {
-        setPhase("watching");
-      }
-    };
-    poll();
-    const t = setInterval(poll, 2000);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
-  }, [phase, mintedAt]);
-
-  const oneLiner = useMemo(() => (code ? oneLinerFor(os, code) : ""), [os, code]);
 
   function handleCopy() {
     if (typeof navigator === "undefined" || !navigator.clipboard || !oneLiner) return;
@@ -215,7 +89,7 @@ export function InstallBridgeModal({ onClose }: { onClose: () => void }) {
             <div className="py-4 flex justify-center">
               <button
                 type="button"
-                onClick={() => setMintAttempt((n) => n + 1)}
+                onClick={retryMint}
                 className="btn-primary inline-flex items-center gap-2"
               >
                 Try again
