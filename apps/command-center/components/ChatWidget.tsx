@@ -783,6 +783,10 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
         name: string;
         input: Record<string, unknown>;
         resume_state: unknown;
+        /** HMAC signature minted by /api/chat (Phase H). The browser must
+         *  forward it verbatim on the resume POST so the route can
+         *  verify the resume_state hasn't been tampered with. */
+        resume_signature: string;
       };
       let pendingToolUse: PendingTool | null = null;
 
@@ -929,6 +933,10 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
               name: String(parsed.name || "tool"),
               input: (parsed.input && typeof parsed.input === "object") ? parsed.input : {},
               resume_state: parsed.resume_state,
+              // Phase H signature — opaque to the browser, must echo
+              // verbatim on the resume POST so the server can verify
+              // the resume_state hasn't been tampered with.
+              resume_signature: String(parsed.resume_signature || ""),
             };
             // Show "calling NAME..." chip in the toolCalls strip so the
             // operator sees activity while the bridge runs the tool.
@@ -1159,7 +1167,10 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
         });
 
         // 2) POST the result to /api/chat/resume. New SSE response —
-        //    feed it through the same consumeStream.
+        //    feed it through the same consumeStream. The resume_signature
+        //    (Phase H) MUST be passed verbatim — the server signs on
+        //    tool_use_pending emit and verifies here. Without it the
+        //    route returns resume_signature_missing_signature.
         const resumeRes = await fetch("/api/chat/resume", {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -1167,6 +1178,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
             agent_key: agent,
             session_id: sessionId,
             resume_state: pending.resume_state,
+            resume_signature: pending.resume_signature,
             tool_use_id: pending.tool_use_id,
             tool_result: { content: toolOutput, is_error: toolIsError },
           }),

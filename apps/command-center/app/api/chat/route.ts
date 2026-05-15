@@ -48,6 +48,7 @@ import {
 } from "@/lib/cloud-tool-runner";
 import { resolveChatContext } from "@/lib/chat-auth";
 import { getBridgeOnline, getBridgeToolCapabilities } from "@/lib/queries";
+import { signResumeState } from "@/lib/resume-hmac";
 import { getTenantManifestForUser } from "@/lib/manifest/tenant-scope";
 import { redactAll } from "@/lib/secret-redaction";
 
@@ -313,14 +314,27 @@ export async function POST(req: NextRequest) {
               // operator's local bridge. Forward the pending event +
               // resume_state to the browser; the ChatWidget proxies the
               // call to localhost:9100/exec-tool and POSTs the result
-              // to /api/chat/resume to continue the iteration. See
-              // lib/cloud-tool-runner.ts for the pause semantics.
-              send("tool_use_pending", {
-                tool_use_id: ev.tool_use_id,
-                name: ev.name,
-                input: ev.input,
-                resume_state: ev.resume_state,
-              });
+              // to /api/chat/resume to continue the iteration.
+              //
+              // Phase H: sign resume_state with HMAC so /api/chat/resume
+              // can verify it was server-issued. Browser is a passthrough;
+              // it can't mint valid signatures because BRAVO_RESUME_HMAC_KEY
+              // is server-only. In production, signResumeState returns null
+              // if the env var is missing — we fail closed by emitting an
+              // error event instead of a tool_use_pending.
+              const sig = signResumeState(ev.resume_state);
+              if (sig === null) {
+                streamError = "server_misconfigured:resume_hmac_key_missing";
+                send("error", { message: streamError });
+              } else {
+                send("tool_use_pending", {
+                  tool_use_id: ev.tool_use_id,
+                  name: ev.name,
+                  input: ev.input,
+                  resume_state: ev.resume_state,
+                  resume_signature: sig,
+                });
+              }
             } else if (ev.type === "done") {
               usageIn = ev.inputTokens;
               usageOut = ev.outputTokens;

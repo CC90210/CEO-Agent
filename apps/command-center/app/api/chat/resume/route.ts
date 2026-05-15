@@ -39,7 +39,7 @@
  */
 
 import { NextRequest } from "next/server";
-import { getSessionUser } from "@/lib/supabase-server";
+import { getServiceSupabase, getSessionUser } from "@/lib/supabase-server";
 import { chatAgentKeys } from "@/lib/agent-personas";
 import { rateLimit } from "@/lib/rate-limit";
 import { resolveChatContext } from "@/lib/chat-auth";
@@ -47,6 +47,7 @@ import {
   resumeAnthropicTurn,
   type ResumeState,
 } from "@/lib/cloud-tool-runner";
+import { verifyResumeState, signResumeState } from "@/lib/resume-hmac";
 import { redactAll } from "@/lib/secret-redaction";
 
 export const dynamic = "force-dynamic";
@@ -57,6 +58,10 @@ type IncomingPayload = {
   agent_key?: string;
   session_id?: string | null;
   resume_state?: ResumeState;
+  /** HMAC signature attached by /api/chat when it emitted tool_use_pending.
+   *  Verified by lib/resume-hmac before the resumed iteration runs.
+   *  Phase H of giggly-reef. */
+  resume_signature?: string;
   tool_use_id?: string;
   tool_result?: { content?: string; is_error?: boolean };
 };
@@ -80,6 +85,19 @@ export async function POST(req: NextRequest) {
   const resumeState = payload.resume_state;
   if (!resumeState || typeof resumeState !== "object" || !Array.isArray(resumeState.history)) {
     return jsonError(400, "missing_or_invalid_resume_state");
+  }
+
+  // Phase H — verify HMAC. resume_state passes through the browser; without
+  // signature verification, anyone with a session cookie could mint
+  // arbitrary state and trigger LLM execution with a forged history.
+  // In production this is required; in development it's a soft warning
+  // (lib/resume-hmac handles the env-aware policy).
+  const sigCheck = verifyResumeState(resumeState, payload.resume_signature);
+  if (!sigCheck.ok) {
+    return jsonError(
+      sigCheck.reason === "server_misconfigured" ? 503 : 400,
+      `resume_signature_${sigCheck.reason}`,
+    );
   }
 
   const toolUseId = String(payload.tool_use_id || "").trim();
@@ -127,6 +145,20 @@ export async function POST(req: NextRequest) {
   const encoder = new TextEncoder();
   const sessionId = payload.session_id || null;
 
+  // Capture resumed-turn state for the chat_messages persist below.
+  // Phase G of giggly-reef: paused/resumed turns now leave a real audit
+  // trail in chat_messages instead of vanishing after the SSE stream
+  // closes. session_id ties them back to the original turn; role is
+  // "assistant" with kind="resume" surfaced via a structured prefix so
+  // tooling that reads chat_messages can distinguish resume rows
+  // without a schema change.
+  const startedAt = Date.now();
+  let resumedText = "";
+  let resumeUsageIn = 0;
+  let resumeUsageOut = 0;
+  let resumeStreamError: string | null = null;
+  const toolCallsExecuted: Array<{ name: string; ok: boolean; summary?: string }> = [];
+
   const stream = new ReadableStream({
     async start(controller) {
       const send = (event: string, data: unknown) => {
@@ -145,10 +177,16 @@ export async function POST(req: NextRequest) {
           apiKey,
         )) {
           if (ev.type === "delta") {
+            resumedText += ev.text;
             send("delta", { text: ev.text });
           } else if (ev.type === "tool_use") {
             send("cloud_tool_call", { name: ev.name, input: ev.input });
           } else if (ev.type === "tool_result") {
+            toolCallsExecuted.push({
+              name: ev.name,
+              ok: ev.ok,
+              summary: ev.summary,
+            });
             send("cloud_tool_result", {
               ok: ev.ok,
               name: ev.name,
@@ -157,29 +195,99 @@ export async function POST(req: NextRequest) {
           } else if (ev.type === "tool_use_pending") {
             // Another deferred tool on the resumed turn — perfectly
             // valid. Forward it; ChatWidget will loop through another
-            // bridge execution + resume.
-            send("tool_use_pending", {
-              tool_use_id: ev.tool_use_id,
-              name: ev.name,
-              input: ev.input,
-              resume_state: ev.resume_state,
-            });
+            // bridge execution + resume. Sign the new resume_state
+            // (Phase H) so the next /api/chat/resume verification passes.
+            const sig = signResumeState(ev.resume_state);
+            if (sig === null) {
+              resumeStreamError = "server_misconfigured:resume_hmac_key_missing";
+              send("error", { message: resumeStreamError });
+            } else {
+              send("tool_use_pending", {
+                tool_use_id: ev.tool_use_id,
+                name: ev.name,
+                input: ev.input,
+                resume_state: ev.resume_state,
+                resume_signature: sig,
+              });
+            }
           } else if (ev.type === "done") {
+            resumeUsageIn = ev.inputTokens;
+            resumeUsageOut = ev.outputTokens;
             send("usage", {
               input_tokens: ev.inputTokens,
               output_tokens: ev.outputTokens,
             });
           } else if (ev.type === "error") {
-            send("error", { message: redactAll(ev.message) });
+            resumeStreamError = redactAll(ev.message);
+            send("error", { message: resumeStreamError });
           }
         }
       } catch (err) {
         const raw = err instanceof Error ? err.message : "resume_failed";
-        send("error", { message: redactAll(raw) });
+        resumeStreamError = redactAll(raw);
+        send("error", { message: resumeStreamError });
       }
 
       send("done", {});
       controller.close();
+
+      // ---- Phase G: persist the resumed assistant turn -------------------
+      // Writes a chat_messages row tied to the same session_id as the paused
+      // turn so the conversation reads back as one logical thread. Includes
+      // a short header noting which tool just resolved + how it terminated,
+      // so audit consumers can reconstruct the tool chain even without
+      // joining against a separate tool_execution_log table.
+      if (sessionId) {
+        const header = [
+          `[resume after tool: ${toolUseId.slice(0, 16)}${normalizedResult.is_error ? " — bridge_error" : ""}]`,
+          toolCallsExecuted.length > 0
+            ? `tools_in_turn: ${toolCallsExecuted.map((t) => `${t.name}${t.ok ? "" : "(error)"}`).join(", ")}`
+            : null,
+        ].filter(Boolean).join("\n");
+        const persistContent = [header, redactAll(resumedText)].join("\n\n");
+        const latencyMs = Date.now() - startedAt;
+        try {
+          const service = getServiceSupabase();
+          await service.from("chat_messages").insert({
+            session_id: sessionId,
+            tenant_id: tenantId,
+            role: "assistant",
+            content: persistContent,
+            input_tokens: resumeUsageIn,
+            output_tokens: resumeUsageOut,
+            latency_ms: latencyMs,
+            error: resumeStreamError,
+          });
+          // Bump the chat_sessions running totals so per-conversation
+          // cost estimates stay accurate across the pause boundary.
+          // Fetch + update — no RPC needed. The increment is small and
+          // we already paid the round-trip for the chat_messages insert.
+          // RPC could come later if contention proves an issue.
+          try {
+            const cur = await service
+              .from("chat_sessions")
+              .select("total_input_tokens, total_output_tokens")
+              .eq("id", sessionId)
+              .maybeSingle();
+            const totIn = ((cur.data?.total_input_tokens as number) || 0) + resumeUsageIn;
+            const totOut = ((cur.data?.total_output_tokens as number) || 0) + resumeUsageOut;
+            await service
+              .from("chat_sessions")
+              .update({
+                total_input_tokens: totIn,
+                total_output_tokens: totOut,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", sessionId);
+          } catch (sessErr) {
+            console.error("[chat/resume.session_totals]", sessErr);
+          }
+        } catch (persistErr) {
+          // Don't blow up the stream on persist failure — it already
+          // closed. Just log to console for observability.
+          console.error("[chat/resume.persist]", persistErr);
+        }
+      }
     },
   });
 
