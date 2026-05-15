@@ -243,7 +243,7 @@ Allowed actions:
 - create_record           payload: { entity: "lead" | "application" | "offer" | "funded_deal" | "renewal" | "commission" | "lender" | "<any-manifest-entity>", data: { ...fields per entity schema } }
                           Use this when the operator describes a new business event in chat — "we just got a new funded deal, $50k to ABC Corp, 12 months MCA" → emit create_record with entity="funded_deal" and the fields the manifest defines. Required fields MUST be present; enum fields must match a valid value. The next page load shows the new row in the matching tab.
 - lookup_records          payload: { entity, filter?: { field: value }, sort?: "field" | "-field", limit?: number }
-                          Use this when the operator asks about live data — "what's expiring in the next 60 days?", "show me leads stuck on docs", "any unaccepted offers?". The action result includes count + rows; use them in your next sentence so you're quoting real data, not hallucinating.
+                          Use this when the operator asks for a specific filtered view of pipeline data that isn't already covered by the PIPELINE STATE block above. The action surfaces a toast/result to the operator with the matching rows; you can then ask them to confirm or share what they see. For broad questions like "what's in the pipeline" — answer directly from the PIPELINE STATE block already in your context; don't redundantly emit a marker.
 - update_record           payload: { entity, id, patch: { field: newValue } }
                           Use this when the operator wants to change an existing row — "mark funded deal abc-1234 as renewed", "set lead xyz to qualified". You need the record's id; if the operator gave you a name and not an id, call lookup_records first to find the id, then update_record.
 - delete_record           payload: { entity, id }
@@ -254,7 +254,7 @@ Rules:
 - Always confirm the change in your reply text too ("Set primary agent to Atlas.")
 - The dashboard applies the marker AFTER your reply finishes streaming. The operator sees it on their next page load.
 - If the operator's request is destructive (clear MRR, disable all agents, delete a record), confirm in chat first; only emit the marker after explicit yes.
-- If you call lookup_records, the action result becomes available to your NEXT turn — reference the count and rows in your reply on the following turn, don't pretend you have data you haven't seen.`;
+- For pipeline questions, prefer the PIPELINE STATE block in your context over emitting lookup_records — it's already there. Reserve lookup_records for narrow filtered queries the operator explicitly asks for.`;
 
 export function getPersona(agentKey: string, override?: string | null): string {
   if (override && override.trim().length) return override + DASHBOARD_ACTION_SPEC;
