@@ -12,12 +12,11 @@
  */
 
 import { Card, PageHeader, Tag, EmptyState } from "@/components/Card";
-import { agentStates, getActiveProfile, getTenant, recentEvents } from "@/lib/queries";
+import { agentStates, getActiveProfile, recentEvents } from "@/lib/queries";
 import { safe } from "@/lib/api-helpers";
 import { getServiceSupabase, getSessionUser } from "@/lib/supabase-server";
 import { ALL_AGENT_KEYS, FAMILY_AGENT_KEYS, getAgentInfo, resolveAgentKey } from "@/lib/agents";
-import { resolveClientProfileSlug } from "@/lib/client-profiles";
-import { getManifest } from "@/lib/manifest/loader";
+import { getTenantEnabledAgents } from "@/lib/manifest/tenant-scope";
 import { isOperatorEmail } from "@/lib/operator-credentials";
 import { timeAgo, truncate } from "@/lib/fmt";
 import { WarmPoolPanel } from "@/components/WarmPoolPanel";
@@ -62,15 +61,7 @@ export default async function OperationsPage({
   // to keep client tenants from seeing CC's OASIS heartbeats + activity.
   // Operator (CC) bypasses via isOperator: true on the recentEvents call
   // and explicit ALL_AGENT_KEYS fan-out on agentStates.
-  const tenantSlugForOps = profile?.tenant_id
-    ? await getTenant(profile.tenant_id)
-        .then((t) => resolveClientProfileSlug(t || null))
-        .catch(() => null)
-    : null;
-  const manifestForOps = await getManifest(tenantSlugForOps).catch(() => null);
-  const manifestEnabledSlugs = (manifestForOps?.agents || [])
-    .filter((a) => a.enabled)
-    .map((a) => a.slug.toLowerCase());
+  const manifestEnabledSlugs = await getTenantEnabledAgents(profile?.tenant_id ?? null);
   const agentNamesForOps = isOperator
     ? ALL_AGENT_KEYS
     : (manifestEnabledSlugs.length > 0
