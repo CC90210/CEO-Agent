@@ -109,6 +109,52 @@ function relativeTime(iso: string | null | undefined): string {
 export default async function SystemHealthPage() {
   const data = await fetchHealth();
 
+  // When state-api isn't reachable from this deploy AND v6 mode is off
+  // (the default in production), the rest of the page would render with
+  // empty/OFF cards that look like errors — they're not, they're just
+  // "local-only services that this cloud deploy can't see." Early-return
+  // with a single honest panel so CC doesn't read empty cards as broken.
+  const offlineLocalGuards = !data.available && (data.v6_mode === "off" || !data.v6_mode);
+
+  if (offlineLocalGuards) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <PageHeader
+          title="System Health & Guardrails"
+          subtitle="Local-machine guard substrate (V6.0). Off by design on this cloud deploy — the live stats render here only when the state-api daemon is running on your machine."
+          action={modeBadge("off")}
+        />
+        <Card>
+          <div className="flex items-start gap-3 p-2">
+            <Activity size={20} className="text-fg-dim shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <div className="font-bold text-fg">Local guard substrate not active here</div>
+              <p className="text-sm text-fg-muted mt-1 leading-relaxed">
+                These guardrails (Bash Sandbox, Credential Vault, State Mirror Lock) and the
+                FTS5 memory retriever run as Python processes on the operator&apos;s machine,
+                not on Vercel. The cloud dashboard surfaces their stats only when the
+                <code className="text-accent mx-1">state-api</code> daemon is reachable from
+                this deploy. On the public Vercel deployment that&apos;s expected to be off —
+                guards run locally; this page just visualizes them.
+              </p>
+              <p className="text-sm text-fg-muted mt-2 leading-relaxed">
+                To turn this view on, start the daemon on the operator machine:
+              </p>
+              <code className="text-xs text-accent font-mono block mt-2 p-2 bg-bg-elev rounded border border-bg-border">
+                pm2 start scripts/state_api_server.py --name state-api --interpreter python
+              </code>
+              {data.error && (
+                <p className="text-xs text-fg-faint mt-3 font-mono">
+                  Last fetch error: {data.error}
+                </p>
+              )}
+            </div>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
