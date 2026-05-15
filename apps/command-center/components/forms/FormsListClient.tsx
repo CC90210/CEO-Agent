@@ -1,0 +1,214 @@
+"use client";
+
+/**
+ * FormsListClient — table + "New form" button for /forms (Phase 3.3).
+ *
+ * Server component above passes initialRows; this client component
+ * handles the create flow (POST /api/forms with a starter stub then
+ * redirect to the editor) and per-row toggle/delete.
+ */
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Plus, Edit3, ToggleLeft, ToggleRight, Trash2, ExternalLink, Loader2 } from "lucide-react";
+
+type FormRow = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+const STARTER_FORM = {
+  name: "Untitled form",
+  branding: {
+    primary_color: "#0ea5e9",
+    headline: "Tell us about your business",
+  },
+  steps: [
+    {
+      key: "basic",
+      title: "Tell us about your business",
+      description: "A few quick questions to get started.",
+      fields: [
+        { name: "business_name", label: "Business name", type: "text", required: true },
+        { name: "contact_name", label: "Your name", type: "text", required: true },
+        { name: "email", label: "Email", type: "email", required: true },
+        { name: "phone", label: "Phone", type: "phone", required: true },
+        { name: "monthly_revenue", label: "Monthly revenue", type: "currency" },
+      ],
+    },
+  ],
+  step_outcomes: { "0": "sent_application" },
+  enabled: true,
+};
+
+export function FormsListClient({ initialRows }: { initialRows: FormRow[] }) {
+  const router = useRouter();
+  const [rows, setRows] = useState(initialRows);
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function createForm() {
+    setCreating(true);
+    setError(null);
+    try {
+      // Mint a unique slug — operator can change it before save (well,
+      // can't, since slug is immutable, but the starter slug is OK).
+      const slug = `untitled-${Date.now().toString(36)}`;
+      const res = await fetch("/api/forms", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ...STARTER_FORM, slug }),
+      });
+      const data = (await res.json()) as { ok: boolean; form?: { id: string }; error?: string };
+      if (!data.ok || !data.form) {
+        setError(data.error || `http_${res.status}`);
+        return;
+      }
+      router.push(`/forms/${data.form.id}/edit`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "network_error");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function toggle(id: string, enabled: boolean) {
+    const next = !enabled;
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, enabled: next } : r)));
+    const res = await fetch(`/api/forms/${id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ enabled: next }),
+    });
+    if (!res.ok) {
+      // Revert on failure.
+      setRows((prev) => prev.map((r) => (r.id === id ? { ...r, enabled } : r)));
+    }
+  }
+
+  async function destroy(id: string, name: string) {
+    if (!confirm(`Delete form "${name}"? This can't be undone.`)) return;
+    const res = await fetch(`/api/forms/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setRows((prev) => prev.filter((r) => r.id !== id));
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="text-xs text-fg-muted">
+          {rows.length} form{rows.length === 1 ? "" : "s"}
+        </div>
+        <button
+          type="button"
+          onClick={createForm}
+          disabled={creating}
+          className="inline-flex items-center gap-2 rounded-lg bg-accent text-bg-deep px-4 py-2 text-sm font-bold hover:bg-accent-bright disabled:opacity-50"
+        >
+          {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+          New form
+        </button>
+      </div>
+
+      {error && (
+        <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-400">
+          {error === "slug_taken"
+            ? "Slug collision — try New form again (we'll mint a new one)."
+            : `Couldn't create form: ${error}`}
+        </div>
+      )}
+
+      {rows.length === 0 ? (
+        <div className="rounded-xl border border-bg-border bg-bg-elev/40 p-8 text-center text-fg-muted">
+          <div className="text-sm">No forms yet.</div>
+          <div className="text-xs mt-1 text-fg-dim">
+            Click <span className="text-fg">New form</span> to start designing one.
+          </div>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-bg-border">
+          <table className="w-full text-sm">
+            <thead className="bg-bg-elev/50">
+              <tr className="text-left text-[10px] uppercase tracking-wider text-fg-dim">
+                <th className="px-4 py-2 font-bold">Name</th>
+                <th className="px-4 py-2 font-bold">Slug</th>
+                <th className="px-4 py-2 font-bold">Status</th>
+                <th className="px-4 py-2 font-bold text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-bg-border">
+              {rows.map((r) => (
+                <tr key={r.id} className="hover:bg-bg-elev/30">
+                  <td className="px-4 py-3">
+                    <div className="font-bold text-fg">{r.name}</div>
+                    {r.description && (
+                      <div className="text-xs text-fg-muted truncate max-w-md">
+                        {r.description}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-xs text-fg-muted">{r.slug}</td>
+                  <td className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => toggle(r.id, r.enabled)}
+                      className={`inline-flex items-center gap-1.5 text-xs ${
+                        r.enabled ? "text-status-engaged" : "text-fg-dim"
+                      }`}
+                    >
+                      {r.enabled ? (
+                        <ToggleRight className="w-4 h-4" />
+                      ) : (
+                        <ToggleLeft className="w-4 h-4" />
+                      )}
+                      {r.enabled ? "Live" : "Disabled"}
+                    </button>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="inline-flex items-center gap-2">
+                      <Link
+                        href={`/forms/${r.id}/edit`}
+                        className="inline-flex items-center gap-1 text-accent hover:text-accent-bright text-xs"
+                      >
+                        <Edit3 className="w-3 h-3" />
+                        Edit
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => destroy(r.id, r.name)}
+                        className="inline-flex items-center gap-1 text-rose-400 hover:text-rose-300 text-xs"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="rounded-xl border border-bg-border bg-bg-elev/30 p-4 text-xs text-fg-muted leading-relaxed">
+        <div className="font-bold text-fg mb-1 flex items-center gap-1.5">
+          <ExternalLink className="w-3 h-3 text-accent" />
+          Personalized links
+        </div>
+        Once a form is live, Solara can mint a per-lead URL via{" "}
+        <code className="text-accent bg-bg-deep px-1 rounded">POST /api/forms/{`<id>`}/mint-link</code>
+        {" "}with a <code className="text-accent">lead_id</code>. Drop the returned URL
+        into an outreach SMS or email. Opening the link transitions the lead
+        to <span className="font-mono text-fg">viewed_application</span>;
+        submitting transitions per the form&apos;s <span className="font-mono text-fg">step_outcomes</span> map.
+      </div>
+    </div>
+  );
+}
