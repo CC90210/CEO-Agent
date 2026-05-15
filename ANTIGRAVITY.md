@@ -89,7 +89,8 @@ Your ONLY job is to answer CC's question. Use MCP tools. 1-5 sentences max for s
 
 | CC Asks About | Server | Tool |
 |---|---|---|
-| Browse a URL, screenshot, click | **Playwright** | `browser_navigate`, `browser_snapshot`, `browser_click`, `browser_type` |
+| Browse an unprotected URL, screenshot, click | **Playwright** | `browser_navigate`, `browser_snapshot`, `browser_click`, `browser_type` |
+| **Scrape a bot-protected URL (Cloudflare/DataDome/reCAPTCHA/FingerprintJS) — MANDATORY tier** | **CloakBrowser CLI** | `python scripts/cloak_browser_tool.py scrape <url> --json` · skill: `skills/cloak-browser/SKILL.md` |
 | Real logged-in browser control | **Browser Harness** | `python scripts/browser_harness_doctor.py`, `npm run browser:setup` |
 | Library docs | **Context7** | `resolve-library-id` → `query-docs` |
 | Knowledge/memory | **Memory** | `search_nodes`, `create_entities`, `open_nodes` |

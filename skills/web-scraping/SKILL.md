@@ -1,42 +1,73 @@
 ---
 name: web-scraping
 description: Web scraping and structured data extraction. Activate when CC needs to pull content from competitor sites, extract pricing/contacts/listings, harvest data for research, scrape pages that don't have an API, or operate a site under CC's logged-in account.
-tags: [skill, scraping, data-extraction, research, browser-harness]
+tags: [skill, scraping, data-extraction, research, browser-harness, cloak-browser]
 triggers: ["web scraping", "use web scraping", "run web scraping", "web scraping and structured data extraction"]
+last_updated: 2026-05-15
 ---
 
-# Web Scraping — Firecrawl, Playwright, and Browser Harness
+# Web Scraping — Firecrawl, CloakBrowser, Playwright, and Browser Harness
 
-> Three tools, three jobs. **Firecrawl** extracts public data. **Playwright**
-> automates throwaway-browser interactions. **Browser Harness** drives CC's
-> real, logged-in Chrome for actions that require authenticated sessions.
+> Four tools, four jobs. **Firecrawl** extracts public data fast and cheap.
+> **CloakBrowser** is the mandatory stealth tier when fresh-session targets
+> are bot-protected (Cloudflare, DataDome, etc.). **Playwright** automates
+> throwaway-browser interactions on unprotected sites. **Browser Harness**
+> drives CC's real, logged-in Chrome for actions that require authenticated
+> sessions.
 
 ## Tool Decision Matrix
 
 | Scenario | Tool | Why |
 |----------|------|-----|
-| Extract text/pricing/contacts from a **public** page | **Firecrawl** | Returns clean markdown, handles JS-rendered pages, no browser overhead |
+| Extract text/pricing/contacts from a **public, unprotected** page | **Firecrawl** | Returns clean markdown, handles JS-rendered pages, no browser overhead |
 | Crawl an entire site for content harvesting | **Firecrawl `crawl`** | Follows links automatically up to the limit |
 | Extract structured data (pricing tables, job listings, profiles) | **Firecrawl `extract`** | LLM-powered schema extraction — gets exactly the fields you specify |
 | Get all URLs on a domain for analysis | **Firecrawl `map`** | Purpose-built for site mapping |
 | Search for pages and extract their content in one step | **Firecrawl `search`** | Search + scrape in a single call |
-| Automate a generic web workflow on a site you don't need to be logged into | **Playwright MCP** | Throwaway browser, deterministic, doesn't require user sessions |
-| Take screenshots for visual reference / E2E test | **Playwright MCP** | Firecrawl doesn't capture visuals; Playwright is purpose-built for it |
+| **Firecrawl returned 403/429/empty content, OR target is documented as bot-protected (Cloudflare Turnstile, reCAPTCHA v3, DataDome, ShieldSquare, FingerprintJS, Akamai, Kasada, PerimeterX)** | **CloakBrowser** | Stealth Chromium with C++ source-level fingerprint patches. reCAPTCHA v3 ~0.9 score. Drop-in Playwright API. Use a residential proxy via `CLOAK_PROXY_URL` for the hardest tier. |
+| Automate a generic web workflow on an unprotected site you don't need to be logged into | **Playwright MCP** | Throwaway browser, deterministic. Cheap visual snapshots/screenshots. |
+| Take screenshots for visual reference / E2E test | **Playwright MCP** | Firecrawl doesn't capture visuals; Playwright is purpose-built for it. (For protected sites, CloakBrowser also screenshots via `--screenshot`.) |
 | **Act inside CC's logged-in account** — Skool community, Stripe dashboard, Supabase, Vercel, LinkedIn profile views, anywhere "log in fresh" isn't an option | **Browser Harness** | Attaches to CC's already-running Chrome at port 9222. The session, cookies, MFA, and reputation are all already there. |
-| Scrape a site that aggressively blocks bot browsers (Cloudflare, PerimeterX, Datadome) when you must read it as CC | **Browser Harness** | Anti-bot systems can't easily distinguish it from a real human's browser — because it IS one |
+| Read a protected page AS CC (when CC already has the session) | **Browser Harness** | A real human's browser is the gold standard — even better than CloakBrowser. Use Cloak only when CC has no session on the target. |
 | Read pages that ONLY render under a specific extension/persona Chrome has installed | **Browser Harness** | Inherits whatever extensions and prefs CC's Chrome has |
 
 **Rule of thumb (in priority order):**
 
-1. Need the content from a public page? → **Firecrawl** (cheapest, fastest).
-2. Need to DO something on a public page? → **Playwright** (deterministic).
-3. Need to do it AS CC under CC's login? → **Browser Harness**.
+1. Need the content from a public unprotected page? → **Firecrawl** (cheapest, fastest).
+2. Firecrawl blocked or page sits behind bot defense? → **CloakBrowser** (mandatory stealth tier for fresh-session protected scraping).
+3. Need to DO something on a public unprotected page? → **Playwright** (deterministic).
+4. Need to do it AS CC under CC's login? → **Browser Harness** (real human's Chrome).
 
 Never use Browser Harness for what Firecrawl can do — it's heavier and depends
-on Chrome being open. Never use Playwright for what Browser Harness can do —
-fresh-session bot detection will block you on protected sites.
+on Chrome being open. Never use Playwright for what CloakBrowser can do —
+raw Playwright fingerprints are obvious and Cloudflare/DataDome will block
+within a few requests. Never use CloakBrowser for what Browser Harness can do
+on a CC-authenticated target — a real human's browser beats any stealth fork.
 
 ## Command Reference
+
+### CloakBrowser (stealth tier)
+
+```bash
+# Scrape a Cloudflare/DataDome-protected page → text + metadata
+python scripts/cloak_browser_tool.py scrape https://protected-target.com --json
+
+# With screenshot evidence
+python scripts/cloak_browser_tool.py scrape https://target.com --screenshot evidence/target.png
+
+# One-shot navigate + JS eval
+python scripts/cloak_browser_tool.py goto https://target.com --eval "() => document.title"
+
+# Self-test stealth signals (run after install + when blocking starts unexpectedly)
+python scripts/cloak_browser_tool.py check-stealth --json
+
+# Pre-fetch the ~200MB binary (run once per machine)
+python scripts/cloak_browser_tool.py download
+```
+
+Full reference: [[skills/cloak-browser/SKILL]].
+
+### Firecrawl (default tier — cheapest, fastest)
 
 ```bash
 # Scrape a single page → clean markdown
@@ -111,22 +142,22 @@ FIRECRAWL_API_KEY=fc-xxxxxxxxxxxxx
 
 Get your key at [firecrawl.dev](https://firecrawl.dev). The free tier covers most agent research tasks.
 
-## Three-way Comparison
+## Four-way Comparison
 
-| Feature | Firecrawl | Playwright MCP | Browser Harness |
-|---------|-----------|----------------|-----------------|
-| JS-rendered pages | Yes (cloud browser) | Yes (local browser) | Yes (CC's real Chrome) |
-| Clean markdown output | Yes (built-in) | No (raw HTML/snapshot) | No (raw page state) |
-| Login/auth sessions | No | Throwaway only — fresh login each run | **Yes — CC's real Chrome session** |
-| Form submission | No | Yes | Yes |
-| Anti-bot detection risk | Cloud-side (handled) | High on protected sites (Cloudflare etc.) | **Lowest — it IS a real browser** |
-| Structured extraction | Yes (LLM schema) | No (manual parsing) | No (manual parsing) |
-| Batch crawling | Yes (`crawl`) | No (manual loop) | No (manual loop) |
-| Site mapping | Yes (`map`) | No | No |
-| Screenshots | No | Yes | Yes |
-| Works without API key | No | Yes | Yes (but needs Chrome already running) |
-| Survives `bravo doctor`-quality automation | Yes — stateless | Yes — stateless | Requires the harness daemon up + Chrome attached |
-| Setup overhead per session | None | None | One-time `bravo browser setup` per machine, then leave Chrome open |
+| Feature | Firecrawl | CloakBrowser | Playwright MCP | Browser Harness |
+|---------|-----------|--------------|----------------|-----------------|
+| JS-rendered pages | Yes (cloud browser) | Yes (stealth Chromium 146) | Yes (local browser) | Yes (CC's real Chrome) |
+| Clean markdown output | Yes (built-in) | Text only (HTML→text) | No (raw HTML/snapshot) | No (raw page state) |
+| Login/auth sessions | No | Persistent context optional | Throwaway only | **Yes — CC's real Chrome session** |
+| Form submission | No | Yes (Playwright API) | Yes | Yes |
+| Anti-bot detection risk | Cloud-side (handled) | **Very low** — C++ fingerprint patches, reCAPTCHA v3 ~0.9 | High on protected sites | **Lowest — it IS a real browser** |
+| Structured extraction | Yes (LLM schema) | No (manual parsing) | No (manual parsing) | No (manual parsing) |
+| Batch crawling | Yes (`crawl`) | Manual loop (write your own) | No (manual loop) | No (manual loop) |
+| Site mapping | Yes (`map`) | No | No | No |
+| Screenshots | No | Yes (`--screenshot`) | Yes | Yes |
+| Works without API key | No (FIRECRAWL_API_KEY) | Yes | Yes | Yes (but needs Chrome already running) |
+| Setup overhead per session | None | One-time ~200MB binary download per machine | None | One-time `bravo browser setup` per machine |
+| Recurring cost | Per-scrape (Firecrawl) | Free (proxy optional, ~$50-200/mo if used) | Free | Free |
 
 ## When to use Browser Harness specifically
 

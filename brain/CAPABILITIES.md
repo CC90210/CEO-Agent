@@ -191,14 +191,22 @@ Transform any website into structured CLI commands via browser automation. Compl
 
 **CLI:** `python scripts/computer_control.py info` — shows which backends are available on this machine. Then `open / click / click-text / type / keystroke / screenshot / scroll / window {list,focus,frontmost} / browser {scrape,do-as-me}`.
 
-### Playwright vs Browser Harness — they are complementary, not duplicates
+### Browser layers — Firecrawl, CloakBrowser, Playwright, Browser Harness (4 tools, complementary)
 
-This is a common point of confusion. They serve **different jobs**:
+Common point of confusion. Each serves a **different job**; the right one depends on (a) public vs CC-authenticated and (b) bot-protected vs unprotected.
 
-- **Playwright (MCP)** — stateless, ephemeral browser. New context per call, no login persistence. Best for: scraping public pages, signup-flow testing as anonymous user, headless CI checks. Spins up fresh Chromium/Firefox/WebKit on demand.
-- **Browser Harness** — attaches to your **actual logged-in Chrome** via CDP port 9222. Persistent cookies, real session, your real LinkedIn / Skool / community-platform login. Best for: running tasks AS YOU while you sleep (DM replies, community posts, member-list pulls). Houses `browser/domain-skills/` — recorded recipes for sites you actually use.
+- **Firecrawl** — cloud-side scraper. Returns clean markdown, structured extraction, site mapping. Cheapest + fastest for unprotected public pages. `scripts/firecrawl_tool.py`.
+- **CloakBrowser** *(added 2026-05-15, V6.7+)* — stealth Chromium 146 with C++ source-level fingerprint patches. Drop-in Playwright API. **Mandatory tier-1 for fresh-session work against bot-protected sites** (Cloudflare Turnstile, reCAPTCHA v3, DataDome, ShieldSquare, FingerprintJS, Akamai, Kasada, PerimeterX). Pre-fetched ~200MB binary at `C:\Users\User\.cloakbrowser\chromium-146.0.7680.177.4\chrome.exe`. CLI: `scripts/cloak_browser_tool.py`. Skill: `skills/cloak-browser/SKILL.md`. Optional residential proxy via `CLOAK_PROXY_URL` for the hardest tier (Akamai/Kasada).
+- **Playwright (MCP)** — stateless, ephemeral browser. Use for **unprotected** sites where you need interactive flow / visual snapshots beyond what Firecrawl gives. Raw Playwright fingerprints get blocked by Cloudflare within 1-3 requests, so default to CloakBrowser when the target has any bot defense.
+- **Browser Harness** — attaches to your **actual logged-in Chrome** via CDP port 9222. Persistent cookies, real session, your real LinkedIn / Skool / community login. Best for: running tasks AS YOU (DM replies, community posts, member-list pulls). A real human's browser beats any stealth fork — use this when CC has the session.
 
-**Rule of thumb:** if the task could be done by anyone (scrape, test, fetch) → Playwright. If the task has to be done as you (logged in, your account, your reputation) → Browser Harness. The dispatcher in `computer_control.py browser` exposes this choice via `scrape` vs `do-as-me`.
+**Decision ladder:**
+1. Public unprotected page, just need text → **Firecrawl** (cheapest).
+2. Firecrawl returns 403/429/empty OR target documented as bot-protected → **CloakBrowser** (mandatory stealth tier).
+3. Need interactive flow / visual snapshot on an unprotected site → **Playwright MCP**.
+4. Need to act as CC inside CC's logged-in account → **Browser Harness**.
+
+The dispatcher in `computer_control.py browser` exposes `scrape` (Playwright) vs `do-as-me` (Browser Harness); CloakBrowser is invoked directly via its CLI when escalating from Firecrawl. Full matrix: [skills/web-scraping/SKILL.md](../skills/web-scraping/SKILL.md).
 
 ## Browser Harness (Direct Browser Control + Domain Skills)
 
@@ -230,6 +238,7 @@ Browser Harness is installed as Bravo's direct Chrome/Edge control layer. It com
 | **Supabase** | `scripts/supabase_tool.py` | Supabase MCP (token expired) | `list-projects`, `list-tables`, `select`, `insert`, `update`, `delete`, `query` |
 | **Stripe** | `scripts/stripe_tool.py` | Stripe MCP (v0.3.1 proxy mode) | `balance`, `customers`, `products`, `invoices`, `subscriptions`, `charges` |
 | **Firecrawl** | `scripts/firecrawl_tool.py` | Firecrawl MCP (fallback) | `scrape`, `crawl`, `search`, `extract`, `map` |
+| **CloakBrowser** *(2026-05-15)* | `scripts/cloak_browser_tool.py` | Stealth Chromium 146 — drop-in Playwright. Mandatory tier when target has Cloudflare/DataDome/reCAPTCHA/etc. | `scrape`, `goto`, `check-stealth`, `binary-info`, `download`, `clear-cache` |
 | **Browser Harness Doctor** | `scripts/browser_harness_doctor.py` | Browser Harness install/attach diagnostics | `[--json] [--strict]` |
 | **Browser Connect** | `scripts/browser_connect.py` | Attach to the running CDP browser and run scripted actions | `[--url URL] [--eval SNIPPET]` |
 | **Onboarding Diagnostics** | `scripts/onboarding_diagnostics.py` | Productized setup readiness check | `[--json]` |

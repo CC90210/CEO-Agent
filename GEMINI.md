@@ -88,7 +88,8 @@ Your ONLY job is to answer CC's question. Use MCP tools. 1-5 sentences max for s
 
 | CC Asks About | Server | Tool |
 |---|---|---|
-| Browse a URL, screenshot | **Playwright** | `browser_navigate`, `browser_snapshot` |
+| Browse an unprotected URL, screenshot | **Playwright** | `browser_navigate`, `browser_snapshot` |
+| **Scrape a bot-protected URL (Cloudflare/DataDome/reCAPTCHA/FingerprintJS) — MANDATORY tier** | **CloakBrowser CLI** | `python scripts/cloak_browser_tool.py scrape <url> --json` · skill: `skills/cloak-browser/SKILL.md` |
 | Library docs | **Context7** | `resolve-library-id` → `query-docs` |
 | Knowledge/memory | **Memory** | `search_nodes`, `create_entities` |
 | Structured reasoning | **Sequential Thinking** | `sequentialthinking` |

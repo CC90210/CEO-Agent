@@ -127,11 +127,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-05-14
+- **Date:** 2026-05-15
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** File reorg Phase 1: deleted stale clones (Marketing-Agent, APPS/hermes), 7 temp .json files at user root; moved APPS/browser-harness to tools/; created Agents/ folder for Phase 2; updated APP_REGISTRY hermes row
+- **Result:** V6.7+ CloakBrowser integration: scripts/cloak_browser_tool.py wrapper + skills/cloak-browser/SKILL.md + 4-tool browser ladder rolled across CLAUDE/GEMINI/ANTIGRAVITY/AGENTS/OPENCODE + brain/CAPABILITIES + QUICK_REFERENCE + INTENTS. Stealth Chromium 146 binary pre-fetched. Smoke tests: check-stealth 5/5, cloudflare.com scrape 200 OK.
 
-*Last updated: 2026-05-14*
+*Last updated: 2026-05-15*
 
 ## Manifest
 

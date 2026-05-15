@@ -1,12 +1,40 @@
 ---
 name: browser-automation
-description: Comprehensive reference for browser automation using Playwright MCP. Use for web research, testing, scraping, form filling, screenshots, and any browser-based interaction. This is the primary browser tool for all Claude Code and Gemini CLI operations.
+description: Comprehensive reference for browser automation using Playwright MCP. Use for web research, testing, scraping, form filling, screenshots, and any browser-based interaction on UNPROTECTED sites. For bot-protected sites (Cloudflare, DataDome, reCAPTCHA), escalate to CloakBrowser instead — see Bot-Protection Escalation Ladder below.
 triggers: [playwright, browser, navigate, screenshot, click, snapshot, web research, scrape]
 tier: standard
 dependencies: []
+last_updated: 2026-05-15
 ---
 
 # Browser Automation with Playwright MCP
+
+## Bot-Protection Escalation Ladder (mandatory before any fresh-session scrape)
+
+Before reaching for Playwright MCP on a third-party site, classify the target:
+
+```
+1. Is this a public, unprotected page → use Firecrawl (cheapest):
+       python scripts/firecrawl_tool.py scrape <url>
+
+2. Public but bot-protected (Cloudflare Turnstile, reCAPTCHA v3, DataDome,
+   ShieldSquare, FingerprintJS, Akamai, Kasada, PerimeterX) OR Firecrawl
+   returned 403/429/empty → use CloakBrowser (mandatory stealth tier):
+       python scripts/cloak_browser_tool.py scrape <url> --json
+
+3. Need to act AS CC inside CC's logged-in account → use Browser Harness
+   (CC's real Chrome on port 9222) — see skills/browser-harness/SKILL.md.
+
+4. ONLY use Playwright MCP (this skill) when the site is unprotected AND you
+   need interactive flow / visual snapshots / screenshots beyond what
+   Firecrawl gives.
+```
+
+Raw Playwright MCP fingerprints are obvious to modern bot defenses. Cloudflare typically blocks within 1-3 requests. If you see a Turnstile widget, an "Are you a robot?" page, or a 403 from Cloudflare, **stop and switch to CloakBrowser** — do not retry Playwright.
+
+Full reference: [[skills/cloak-browser/SKILL]] · [[skills/web-scraping/SKILL]] · [[skills/browser-harness/SKILL]].
+
+---
 
 ## Core Workflow
 1. **Navigate:** `browser_navigate` to URL
