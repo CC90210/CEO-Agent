@@ -1941,11 +1941,32 @@ def send(
         # to_phone is guaranteed non-None here by the per-channel
         # validation above. Type narrowing for the type checker.
         assert to_phone is not None and body_text is not None
-        provider_choice = (
-            (sms_provider or "").lower()
-            or (env.get("SMS_PROVIDER") or "").lower()
-            or "twilio"  # back-compat default: Twilio was the only SMS path pre-Phase 5
-        )
+
+        # Provider resolution — explicit beats env beats auto-detect.
+        # Auto-detect: if only ONE of TT/Twilio has credentials, route
+        # there. This prevents the silent-fail case where an operator
+        # set up only TextTorrent but every send routes to Twilio +
+        # fails because TWILIO_ACCOUNT_SID is unset.
+        explicit = (sms_provider or "").lower() or (env.get("SMS_PROVIDER") or "").lower()
+        if explicit in ("texttorrent", "twilio"):
+            provider_choice = explicit
+        else:
+            has_twilio = bool((env.get("TWILIO_ACCOUNT_SID") or "").strip() and (env.get("TWILIO_AUTH_TOKEN") or "").strip())
+            has_tt = bool((env.get("TEXTTORRENT_API_KEY") or "").strip())
+            if has_twilio and not has_tt:
+                provider_choice = "twilio"
+            elif has_tt and not has_twilio:
+                provider_choice = "texttorrent"
+            elif has_twilio and has_tt:
+                # Both configured -- default to twilio for back-compat
+                # (Twilio was the only SMS path pre-Phase 5). Operator
+                # who wants TT-by-default sets SMS_PROVIDER=texttorrent.
+                provider_choice = "twilio"
+            else:
+                return {"status": "error",
+                        "reason": "sms channel needs either TWILIO_ACCOUNT_SID+TWILIO_AUTH_TOKEN or TEXTTORRENT_API_KEY configured in the agents env file",
+                        "lead_id": lead_id, "interaction_id": None,
+                        "cooldown_until": None, "daily_count": None}
         ok, sms_err, sms_meta = _send_sms_via_provider(
             env=env,
             provider=provider_choice,
