@@ -15,7 +15,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Save, Eye, EyeOff, Check, AlertCircle, ExternalLink, Sparkles, ChevronDown, ChevronUp, Cpu, Cloud } from "lucide-react";
+import { Save, Eye, EyeOff, Check, AlertCircle, ExternalLink, Sparkles, ChevronDown, ChevronUp, Cpu, Cloud, KeyRound } from "lucide-react";
 import { getAgentInfo } from "@/lib/agents";
 import { PROVIDER_REGISTRY } from "@/lib/providers";
 
@@ -58,9 +58,25 @@ type Props = {
    * cloud-only (chat + dashboard actions via the saved API key).
    */
   bridgeOnline?: boolean;
+  /**
+   * Per-agent tool palette from the tenant's manifest (Phase D of
+   * giggly-reef). Map of agent slug → string[] (allowlist) | undefined
+   * (no filter — full palette). Used to render a read-only indicator
+   * below the Tool Access strip so the operator sees the current
+   * state at a glance. Editing happens via the AI manifest editor (the
+   * /api/manifest/<slug> mutator handles update_agent with tool_palette).
+   */
+  agentPalettes?: Record<string, string[] | undefined>;
+  /** Manifest slug for the deep-link to the AI editor when present. */
+  manifestSlug?: string | null;
 };
 
-export function AgentConfigEditor({ agentKeys, bridgeOnline = false }: Props) {
+export function AgentConfigEditor({
+  agentKeys,
+  bridgeOnline = false,
+  agentPalettes = {},
+  manifestSlug = null,
+}: Props) {
   const [configs, setConfigs] = useState<Record<string, AgentConfig>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
   // Bumped from the cross-component event below (oasis:agent-configs-changed)
@@ -429,6 +445,50 @@ export function AgentConfigEditor({ agentKeys, bridgeOnline = false }: Props) {
                 </div>
               </div>
             </div>
+
+            {/* Phase D — per-agent tool palette indicator (read-only).
+                Reads the manifest's agents[].tool_palette for this slug
+                and renders a one-line summary. Edits happen via the AI
+                manifest editor (single source of truth for manifest
+                changes), linked from this strip. */}
+            {(() => {
+              const palette = agentPalettes[key];
+              const isFull = palette === undefined;
+              return (
+                <div className="rounded-lg border border-bg-border bg-bg-deep/30 px-3 py-2 text-xs flex items-start gap-2">
+                  <KeyRound className="w-3.5 h-3.5 text-fg-muted shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-fg-muted">
+                      <span className="font-bold uppercase tracking-wider text-[10px] text-fg-dim">Tool palette · </span>
+                      {isFull ? (
+                        <span className="text-fg">
+                          Full palette (no manifest filter)
+                        </span>
+                      ) : palette && palette.length === 0 ? (
+                        <span className="text-status-warm">Chat-only (zero tools allowed)</span>
+                      ) : (
+                        <span className="text-fg">
+                          {palette!.length} tool{palette!.length === 1 ? "" : "s"} allowed
+                        </span>
+                      )}
+                    </div>
+                    {!isFull && palette && palette.length > 0 && (
+                      <div className="text-fg-dim font-mono text-[10px] mt-1 leading-relaxed break-all">
+                        {palette.join(", ")}
+                      </div>
+                    )}
+                    {manifestSlug && (
+                      <Link
+                        href={`/t/${manifestSlug}/editor`}
+                        className="text-[11px] text-accent hover:text-accent-bright inline-flex items-center gap-1 mt-1"
+                      >
+                        Edit via manifest editor →
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* System prompt override (collapsed by default) */}
             <div>
