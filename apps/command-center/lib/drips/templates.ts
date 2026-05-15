@@ -23,6 +23,32 @@
  *   - HTML / URL escaping is the CALLER's job. send_gateway handles
  *     plain-text SMS / multipart email. If a future template engine
  *     supports rich HTML, escape at that layer.
+ *
+ * PARITY ASSERTION — every case below MUST behave identically in
+ * scripts/sequence_runner.py's render_template. The Python side has
+ * the same sample cases in its docstring. When changing either side,
+ * run through the list before shipping:
+ *
+ *   1. renderTemplate("Hi {{lead.first_name}}", { lead: { first_name: "Jordan" } })
+ *        -> "Hi Jordan"
+ *   2. renderTemplate("Hi {{lead.first_name}}", { lead: {} })
+ *        -> "Hi "                                     (empty default)
+ *   3. renderTemplate("Hi {{lead.first_name}}", { lead: {} }, { defaultValue: "there" })
+ *        -> "Hi there"
+ *   4. renderTemplate("Hi {{ lead.first_name }}", { lead: { first_name: "X" } })
+ *        -> "Hi X"                                    (whitespace tolerated)
+ *   5. renderTemplate("Bal: {{lead.monthly_revenue}}", { lead: { monthly_revenue: 25000 } })
+ *        -> "Bal: 25000"                              (number coercion)
+ *   6. renderTemplate("Toggle: {{lead.opted_in}}", { lead: { opted_in: false } })
+ *        -> "Toggle: false"                           (boolean coercion)
+ *   7. renderTemplate("Tags: {{lead.tags}}", { lead: { tags: ["vip"] } })
+ *        -> 'Tags: ["vip"]'                            (JSON fallback)
+ *   8. renderTemplate("Nope: {{unknown.path}}", {})
+ *        -> "Nope: "                                  (missing intermediate)
+ *
+ * Case 6 intentional language divergence: TS String(false) -> "false",
+ * Python str(False) -> "False". The case difference is on record;
+ * don't "fix" it without coordinating with the Python side.
  */
 
 const TOKEN_RE = /\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g;
