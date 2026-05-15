@@ -887,6 +887,12 @@ export type ResumeState = {
    *  identically to what would have happened without the pause. */
   maxTokens?: number;
   enableTools?: boolean;
+  /** Per-agent tool allowlist from the manifest (Phase D). Same value
+   *  the initial /api/chat call resolved. Carried in resume_state so the
+   *  resumed turn sees an identical tool palette to the paused turn — if
+   *  the operator changed it mid-pause, the change applies on the next
+   *  fresh /api/chat call, not on this one. */
+  toolPalette?: string[];
 };
 
 export type ToolLoopRequest = {
@@ -905,6 +911,17 @@ export type ToolLoopRequest = {
    *  bridge_unreachable, the model retries, etc. Cleaner to tell the
    *  model up front that those tools don't exist this turn. */
   excludeDeferredTools?: boolean;
+  /**
+   * Per-agent tool allowlist from the tenant's manifest (Phase D).
+   * Undefined → no filter; agent gets the full palette (preserves
+   * pre-Phase-D behavior for existing tenants).
+   * Empty array → agent is chat-only, no tools.
+   * Populated → only these tool names get advertised to the model.
+   *
+   * Applied AFTER excludeDeferredTools — bridge-routed tools still get
+   * filtered out when bridge is offline, even if they're in the palette.
+   */
+  toolPalette?: string[];
 };
 
 export async function* streamAnthropicWithTools(
@@ -925,6 +942,7 @@ export async function* streamAnthropicWithTools(
     maxTokens: req.maxTokens,
     enableTools: req.enableTools,
     excludeDeferredTools: req.excludeDeferredTools,
+    toolPalette: req.toolPalette,
     history,
     startIter: 0,
     startTotalIn: 0,
@@ -969,6 +987,7 @@ export async function* resumeAnthropicTurn(
     system: resume.system,
     maxTokens: resume.maxTokens,
     enableTools: resume.enableTools,
+    toolPalette: resume.toolPalette,
     history,
     startIter: resume.iteration + 1,
     startTotalIn: resume.totalIn,
@@ -984,6 +1003,7 @@ type IterationLoopArgs = {
   maxTokens?: number;
   enableTools?: boolean;
   excludeDeferredTools?: boolean;
+  toolPalette?: string[];
   /** Pre-built history. Mutates as the loop appends turns. */
   history: AnthropicMessage[];
   /** Iteration index to start at (0 for fresh, N+1 for resume). */
@@ -1010,12 +1030,22 @@ async function* runIterationLoop(
 ): AsyncGenerator<StreamYield> {
   const { apiKey, model, system, maxTokens, ctx, history } = args;
   const enableTools = args.enableTools !== false;
-  // Filter out deferred tools when caller says the bridge isn't reachable.
-  // The model sees ONLY tools it can actually use this turn — no
-  // bridge_unreachable round-trips, no confusion.
-  const activeTools = args.excludeDeferredTools
-    ? TOOL_DEFINITIONS.filter((t) => !t.defer)
-    : TOOL_DEFINITIONS;
+  // Resolve which tools the model sees this turn. Three filters compose:
+  //   1. excludeDeferredTools — drops bridge-routed tools when bridge is
+  //      offline (set in /api/chat from getBridgeOnline()).
+  //   2. toolPalette — per-agent allowlist from manifest. Undefined =
+  //      no filter (full palette). Empty array = chat-only, no tools.
+  //   3. Both applied — intersection. Bridge-tool entries in the palette
+  //      still get filtered out when bridge is offline; cloud-tool entries
+  //      stay.
+  let activeTools: ToolDef[] = TOOL_DEFINITIONS;
+  if (args.excludeDeferredTools) {
+    activeTools = activeTools.filter((t) => !t.defer);
+  }
+  if (args.toolPalette !== undefined) {
+    const allow = new Set(args.toolPalette);
+    activeTools = activeTools.filter((t) => allow.has(t.name));
+  }
   let totalIn = args.startTotalIn;
   let totalOut = args.startTotalOut;
 
@@ -1177,6 +1207,7 @@ async function* runIterationLoop(
           totalOut,
           maxTokens,
           enableTools,
+          toolPalette: args.toolPalette,
         },
       };
       return;

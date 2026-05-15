@@ -113,6 +113,25 @@ export type ManifestAgentBinding = {
   model_override?: string;
   /** Optional prompt overlay appended to the agent's base prompt for this tenant. */
   prompt_overlay?: string;
+  /**
+   * Optional allowlist of tools this agent can call in cloud / API-key mode.
+   * Names match TOOL_DEFINITIONS entries in lib/cloud-tool-runner.ts
+   * (e.g. "list_records", "send_email", "bash", "stripe", "load_skill").
+   *
+   * Semantics:
+   *   - undefined / missing → no filter; agent gets the full palette
+   *     (preserves pre-Phase-D behavior; safe default for existing tenants
+   *     who haven't set a palette yet).
+   *   - empty array []     → no tools at all; agent is chat-only.
+   *   - populated list      → only those tools are advertised to the
+   *     model. Bridge tools still get filtered out when bridge is offline
+   *     even if they're in the palette.
+   *
+   * Why per-agent (not per-tenant): Helios (sales) probably should call
+   * send_sms; Solara (back-office) probably shouldn't. Operator picks
+   * the per-agent palette in Settings → Agents.
+   */
+  tool_palette?: string[];
 };
 
 // ---------------------------------------------------------------------------
