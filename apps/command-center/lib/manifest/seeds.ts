@@ -375,7 +375,10 @@ export const SUGA_SEED: TenantManifest = {
     { href: "/t/suga/subscribers", label: "Subscribers", icon: "Users", group: "Fans" },
     { href: "/t/suga/posts", label: "Posts", icon: "Megaphone", group: "Brand" },
     { href: "/t/suga/drafts", label: "Drafts", icon: "FileText", group: "Brand" },
-    { href: "/forms", label: "Forms", icon: "FileCode2", group: "Brand" },
+    // /forms intentionally absent from SUGA — the form builder is the
+    // SunBiz funding-shop workflow (3-step funnel with bank-statement
+    // upload + lead.stage transitions). SUGA's fan-signup model uses a
+    // different pattern; not the same surface.
     { href: "/t/suga/merch", label: "Merch", icon: "ShoppingBag", group: "Commerce" },
     { href: "/t/suga/sponsorship", label: "Sponsorships", icon: "HandCoins", group: "Sponsorship" },
     // Top-level /automations — same shared cron-job surface every tenant
