@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-15T20:41:25.287383+00:00",
-  "script_count": 90,
-  "entry_count": 335,
+  "generated_at_iso": "2026-05-15T20:57:00.903502+00:00",
+  "script_count": 91,
+  "entry_count": 338,
   "entries": [
     {
       "key": "agent_heartbeat",
@@ -1130,6 +1130,27 @@
       "subcmd": "funnel",
       "mutating": false,
       "help": "Lead Engine - OASIS AI CRM CLI \u2014 subcommand: funnel"
+    },
+    {
+      "key": "lender_response_classifier_once",
+      "path": "scripts/lender_response_classifier.py",
+      "subcmd": "once",
+      "mutating": false,
+      "help": "lender_response_classifier.py \u2014 close the loop on lender shop-out. \u2014 subcommand: once"
+    },
+    {
+      "key": "lender_response_classifier_loop",
+      "path": "scripts/lender_response_classifier.py",
+      "subcmd": "loop",
+      "mutating": false,
+      "help": "lender_response_classifier.py \u2014 close the loop on lender shop-out. \u2014 subcommand: loop"
+    },
+    {
+      "key": "lender_response_classifier_tail",
+      "path": "scripts/lender_response_classifier.py",
+      "subcmd": "tail",
+      "mutating": false,
+      "help": "lender_response_classifier.py \u2014 close the loop on lender shop-out. \u2014 subcommand: tail"
     },
     {
       "key": "maml_onboard_build_tasks",
