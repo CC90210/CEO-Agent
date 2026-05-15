@@ -902,9 +902,74 @@ class _ChatHandler(BaseHTTPRequestHandler):
 
         self._json(200, {"ok": True, "key": key, "pinged": ping_service or None})
 
+    def _handle_exec_tool(self) -> None:
+        """POST /exec-tool — execute a tool by name with input payload, return
+        {output, is_error}. Phase 2 of giggly-reef: when the dashboard runs
+        the Anthropic tool_use loop with the operator's API key, certain tools
+        are marked defer_tool_use. On those, the browser proxies the call here
+        so it runs on the operator's machine (file system, scripts/, .env.agents)
+        before the result is posted back to /api/chat/resume for the next
+        iteration of the model loop.
+
+        Auth: CORS origin must match ALLOWED_ORIGINS (same model /env/set uses).
+        No bearer — the bridge listens on localhost only and the dashboard
+        session cookie already binds the operator's identity.
+
+        Body: { "tool_name": "read_file", "input": {"path": "..."} }
+        """
+        if not self._check_origin_allowed():
+            self._json(403, {"ok": False, "error": "origin_not_allowed"})
+            return
+        try:
+            length = int(self.headers.get("content-length", "0"))
+            raw = self.rfile.read(length) if length else b""
+            payload = json.loads(raw or b"{}")
+        except Exception:
+            self._json(400, {"ok": False, "error": "invalid_json"})
+            return
+        tool_name = str(payload.get("tool_name") or "").strip()
+        tool_input = payload.get("input") or {}
+        if not tool_name:
+            self._json(400, {"ok": False, "error": "missing_tool_name"})
+            return
+        if not isinstance(tool_input, dict):
+            self._json(400, {"ok": False, "error": "input_must_be_object"})
+            return
+        try:
+            # Local import — bridge_tools imports agent_roots which is
+            # already loaded at top-level. Keeping it lazy means a syntax
+            # error in bridge_tools doesn't kill the entire bridge process.
+            try:
+                from .bridge_tools import execute_tool as _exec_tool
+            except ImportError:
+                from bridge_tools import execute_tool as _exec_tool  # type: ignore
+            result = _exec_tool(tool_name, tool_input)
+        except Exception as e:
+            self._json(500, {"ok": False, "error": f"exec_tool_failed: {e}"})
+            return
+        # result already has shape {output: str, is_error: bool, elapsed_ms?: int}
+        self._json(200, {"ok": True, **result})
+
     def do_GET(self) -> None:
         if self.path == "/health":
-            self._json(200, {"ok": True, "service": "bravo-bridge-chat", "version": "0.1.0"})
+            # Now also reports the local tool registry so the dashboard can
+            # advertise the matching tool definitions to the model when
+            # tool_routing="bridge_proxy" is selected.
+            tools: list[str] = []
+            try:
+                try:
+                    from .bridge_tools import list_available_tools as _tools_list
+                except ImportError:
+                    from bridge_tools import list_available_tools as _tools_list  # type: ignore
+                tools = _tools_list()
+            except Exception:
+                pass
+            self._json(200, {
+                "ok": True,
+                "service": "bravo-bridge-chat",
+                "version": "0.1.0",
+                "tools": tools,
+            })
             return
         if self.path == "/agents":
             self._json(200, {"ok": True, "agents": all_resolved()})
@@ -1165,6 +1230,9 @@ class _ChatHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         if self.path == "/env/set":
             self._handle_env_set()
+            return
+        if self.path == "/exec-tool":
+            self._handle_exec_tool()
             return
         if self.path == "/chat-reset":
             self._handle_chat_reset()
