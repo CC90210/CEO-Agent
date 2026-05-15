@@ -51,6 +51,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from ._subprocess_helpers import WINDOWLESS_FLAGS
+from ._claude_auth import build_claude_spawn_env, is_claude_auth_or_quota_failure
 
 
 _POOL_LOCK = threading.RLock()
@@ -195,6 +196,7 @@ class WarmClaudeProcess:
         root: Path,
         first_prompt: str,
         resume_session_id: Optional[str] = None,
+        force_api_key: bool = False,
     ):
         self.agent = agent
         self.root = root
@@ -204,6 +206,12 @@ class WarmClaudeProcess:
         self.lock = threading.Lock()
         self.session_id: Optional[str] = resume_session_id
         self._first_prompt_consumed = False
+        # Records which auth path this process is spawned under. The
+        # send_turn() retry logic and the bridge driver inspect this to
+        # decide whether the current turn is the subscription path
+        # (eligible for fallback) or already on the paid API key
+        # (no further retry — surface the error).
+        self.force_api_key = force_api_key
 
         claude_bin = _resolve_claude_bin()
         if not claude_bin:
@@ -238,14 +246,22 @@ class WarmClaudeProcess:
         if resume_session_id:
             args.extend(["--resume", resume_session_id])
 
-        env = dict(os.environ)
-        env.update({
-            "CI": "true",
-            "NONINTERACTIVE": "true",
-            "PAGER": "cat",
-            "NO_COLOR": "1",
-            "FORCE_COLOR": "0",
-        })
+        # Auth-priority env (subscription-first, API-key-on-retry). When
+        # force_api_key=False we strip ANTHROPIC_API_KEY so claude falls
+        # through to the OAuth token from `claude setup-token`. When
+        # force_api_key=True we keep the key in env so claude bills per
+        # token from console.anthropic.com. Same pattern Telegram bridge
+        # uses (scripts/c_suite_context.js:buildClaudeSpawnEnv).
+        env = build_claude_spawn_env(
+            force_api_key=force_api_key,
+            extras={
+                "CI": "true",
+                "NONINTERACTIVE": "true",
+                "PAGER": "cat",
+                "NO_COLOR": "1",
+                "FORCE_COLOR": "0",
+            },
+        )
 
         self.proc = subprocess.Popen(
             args,
@@ -270,8 +286,16 @@ class WarmClaudeProcess:
         # would block too.
         self._stdout_q: queue.Queue = queue.Queue()
         self._stdout_eof = False
+        # Stderr is captured into a rolling buffer (last ~8KB). Read by
+        # is_claude_auth_or_quota_failure() after a turn fails so we can
+        # tell "subscription quota hit" apart from "real bug". Claude Code
+        # emits auth/quota error text on stderr right before exit. Without
+        # this, the bridge had no signal to decide whether to retry with
+        # the paid API key.
+        self._stderr_buf: list[str] = []
+        self._stderr_lock = threading.Lock()
 
-        def _pump():
+        def _pump_stdout():
             try:
                 assert self.proc.stdout is not None
                 for raw in self.proc.stdout:
@@ -282,10 +306,34 @@ class WarmClaudeProcess:
                 self._stdout_eof = True
                 self._stdout_q.put(None)  # sentinel
 
+        def _pump_stderr():
+            try:
+                assert self.proc.stderr is not None
+                for raw in self.proc.stderr:
+                    with self._stderr_lock:
+                        self._stderr_buf.append(raw)
+                        # Cap at ~8KB of context. Keep the tail since the
+                        # most recent error is the one we care about.
+                        total = sum(len(s) for s in self._stderr_buf)
+                        while total > 8192 and len(self._stderr_buf) > 1:
+                            total -= len(self._stderr_buf.pop(0))
+            except Exception:
+                pass
+
         self._pump_thread = threading.Thread(
-            target=_pump, daemon=True, name=f"warm-pump-{agent}"
+            target=_pump_stdout, daemon=True, name=f"warm-pump-{agent}"
         )
         self._pump_thread.start()
+        self._stderr_thread = threading.Thread(
+            target=_pump_stderr, daemon=True, name=f"warm-err-{agent}"
+        )
+        self._stderr_thread.start()
+
+    def recent_stderr(self) -> str:
+        """Return the captured stderr tail. Called after a turn fails so
+        callers can decide whether to retry on the API key path."""
+        with self._stderr_lock:
+            return "".join(self._stderr_buf)
 
     def is_alive(self) -> bool:
         return self.proc.poll() is None
@@ -400,12 +448,36 @@ class WarmClaudeProcess:
                 self.last_used_at = time.time()
 
 
+# Sticky per-pool-key flag: once a session has fallen over to the paid API
+# key (because the subscription hit quota/auth), every subsequent spawn for
+# that pool_key uses the API key too. Otherwise we'd retry the subscription
+# on every turn and pay the failure latency repeatedly.
+_FORCED_API_KEY: set[str] = set()
+
+
+def mark_force_api_key(pool_key: str) -> None:
+    """Mark a pool_key as sticky-paid for the rest of this bridge session.
+    Future use_or_create() calls for the same key will spawn with the
+    ANTHROPIC_API_KEY in env. Called by the bridge driver after a
+    successful auth-failure fallback so the next turn doesn't re-fail
+    on the subscription path."""
+    with _POOL_LOCK:
+        _FORCED_API_KEY.add(pool_key)
+
+
+def is_forced_api_key(pool_key: str) -> bool:
+    """Whether this pool_key has been pinned to the paid API key path."""
+    with _POOL_LOCK:
+        return pool_key in _FORCED_API_KEY
+
+
 def use_or_create(
     pool_key: str,
     agent: str,
     root: Path,
     prompt_text: str,
     resume_session_id: Optional[str] = None,
+    force_api_key: bool = False,
 ) -> WarmClaudeProcess:
     """Either reuse a warm process for this pool_key or spawn a new one.
 
@@ -415,22 +487,43 @@ def use_or_create(
     Caller must invoke .send_turn() to drive the conversation. If the
     returned process is being created fresh, send_turn will skip the
     stdin write (the prompt was passed via -p).
+
+    force_api_key: if True (OR if pool_key is in _FORCED_API_KEY due to a
+    prior fallback this session), spawn with ANTHROPIC_API_KEY in env so
+    claude bills per-token instead of using the subscription OAuth token.
     """
     _start_reaper_once()
 
     with _POOL_LOCK:
+        # Sticky API-key flag wins — once a session falls over to paid,
+        # it stays there. Callers don't need to pass force_api_key=True
+        # on every subsequent turn; the pool remembers.
+        effective_force_api = force_api_key or pool_key in _FORCED_API_KEY
         existing = _WARM_POOL.get(pool_key)
         if existing and existing.is_alive() and not existing.busy:
-            existing.last_used_at = time.time()
-            return existing
+            # Reuse only if the auth mode matches. If the caller is asking
+            # for API-key but the existing process was spawned on
+            # subscription (or vice-versa), kill it and respawn with the
+            # right env.
+            if existing.force_api_key == effective_force_api:
+                existing.last_used_at = time.time()
+                return existing
+            existing.kill(reason="auth_mode_mismatch")
+            _WARM_POOL.pop(pool_key, None)
         # Stale or busy — kill (busy means another turn is in flight,
         # but our handler calls one-at-a-time per pool_key so this
         # shouldn't happen in practice).
-        if existing:
+        elif existing:
             existing.kill(reason="stale_or_busy")
             _WARM_POOL.pop(pool_key, None)
         _evict_oldest_if_full()
-        wp = WarmClaudeProcess(agent, root, prompt_text, resume_session_id)
+        wp = WarmClaudeProcess(
+            agent,
+            root,
+            prompt_text,
+            resume_session_id,
+            force_api_key=effective_force_api,
+        )
         _WARM_POOL[pool_key] = wp
         return wp
 
