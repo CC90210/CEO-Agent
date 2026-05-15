@@ -1,14 +1,13 @@
 import Link from "next/link";
 import { Card, PageHeader, EmptyState, Tag } from "@/components/Card";
 import { timeAgo, truncate, statusColor } from "@/lib/fmt";
-import { recentDecisions, getActiveProfile, getTenant } from "@/lib/queries";
+import { recentDecisions, getActiveProfile } from "@/lib/queries";
 import { safe } from "@/lib/api-helpers";
 import { CommandPalette } from "@/components/reasoning/CommandPalette";
 import { QuickActionsGrid } from "@/components/reasoning/QuickActionsGrid";
 import { commandsForAgents } from "@/lib/slash-commands";
 import { quickActionsFor } from "@/lib/quick-actions";
-import { resolveClientProfileSlug } from "@/lib/client-profiles";
-import { getManifest } from "@/lib/manifest/loader";
+import { getTenantEnabledAgents } from "@/lib/manifest/tenant-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -21,20 +20,10 @@ export default async function ReasoningPage({
   const devMode = sp.dev === "1";
 
   // Phase 5 — manifest is the source of truth for enabled agents per tenant.
-  // Same migration as /agents: resolve the slug for the operator's tenant,
-  // load the manifest, derive enabled list from manifest.agents. The
-  // QuickActionsGrid + CommandPalette downstream still take slug arrays so
-  // they keep rendering the right per-agent prompts without any change.
+  // QuickActionsGrid + CommandPalette downstream take slug arrays so they
+  // keep rendering the right per-agent prompts without any further change.
   const profile = await safe("reasoning.profile", getActiveProfile(), null);
-  const tenantSlugForReasoning = profile?.tenant_id
-    ? await getTenant(profile.tenant_id)
-        .then((t) => resolveClientProfileSlug(t || null))
-        .catch(() => null)
-    : null;
-  const manifestForReasoning = await getManifest(tenantSlugForReasoning).catch(() => null);
-  const manifestEnabledSlugs = (manifestForReasoning?.agents || [])
-    .filter((a) => a.enabled)
-    .map((a) => a.slug.toLowerCase());
+  const manifestEnabledSlugs = await getTenantEnabledAgents(profile?.tenant_id ?? null);
 
   const enabled =
     manifestEnabledSlugs.length > 0
