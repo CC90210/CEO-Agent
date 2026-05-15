@@ -295,7 +295,11 @@ export const SUN_SEED: TenantManifest = {
     { agent_slug: "helios", label: "Follow-up cadence", prompt: "For leads that ghosted after the application step, draft a 3-touch revival sequence over 7 days." },
     { agent_slug: "helios", label: "Close the loop", prompt: "An approved offer just expired. Draft the SMS to bring them back to the table without sounding salesy." },
   ],
-  data_backend: "turso",
+  // Universal default 2026-05-15 — all tenant data lives in CC's Supabase
+  // project, scoped by tenant_id + RLS. Lower onboarding friction (no
+  // per-tenant Turso provisioning step). Clients who outgrow the shared
+  // tier and want physical isolation can self-host Turso later.
+  data_backend: "supabase",
   deployment_mode: "dedicated",
   permissions: { local_files: true, computer_control: false, web_access: true },
   onboarding_industry: "business_funding",
@@ -416,7 +420,11 @@ export const SUGA_SEED: TenantManifest = {
     { agent_slug: "maven", label: "Merch drop sweep", prompt: "Which merch drops are due to go live this month? Anything understocked?" },
     { agent_slug: "maven", label: "Weekly brand pulse", prompt: "Summarise this week's posts, subscriber growth, and any sponsorship movement in 5 bullets." },
   ],
-  data_backend: "turso",
+  // Universal default 2026-05-15 — all tenant data lives in CC's Supabase
+  // project, scoped by tenant_id + RLS. Lower onboarding friction (no
+  // per-tenant Turso provisioning step). Clients who outgrow the shared
+  // tier and want physical isolation can self-host Turso later.
+  data_backend: "supabase",
   deployment_mode: "dedicated",
   permissions: { local_files: false, computer_control: false, web_access: true },
   onboarding_industry: "agency",
