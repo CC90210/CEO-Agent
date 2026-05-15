@@ -43,11 +43,33 @@ import { BRIDGE_CHAT_BASE } from "@/lib/agent-roots";
 type Role = "user" | "assistant" | "system";
 type Msg = { role: Role; content: string; at: number };
 
-// Legacy localStorage keys from the removed Auto/Cloud/Desktop picker.
-// Kept as named constants only so the one-shot cleanup effect can
-// removeItem() them on mount; nothing else reads them anymore.
+// Legacy localStorage keys from the FIRST Auto/Cloud/Desktop picker (removed
+// 2026-05-13). The one-shot cleanup effect below clears them. Nothing else
+// reads them.
 const ACCESS_MODE_STORAGE_KEY = "oasis.chat.accessMode";
 const LEGACY_RUNTIME_MODE_STORAGE_KEY = "oasis.chat.runtimeMode";
+
+/**
+ * Chat-mode picker (re-introduced 2026-05-14).
+ *
+ * The previous picker exposed Auto / Cloud / This-desktop as three separate
+ * options and was killed for being noisy on a single-machine setup. This
+ * version is back, but the semantic is now meaningful:
+ *
+ *   "auto"   — bridge if online, else API key. The fall-through default.
+ *   "bridge" — pin to the local Claude Code bridge (operator's subscription).
+ *              Full repo access, local files, all MCPs. Errors if offline.
+ *   "cloud"  — pin to the cloud /api/chat path (operator's API key). Real
+ *              Anthropic tool_use loop with the curated cloud-tool palette
+ *              (records read/write, http_get/post, integrations). Costs the
+ *              operator per-token but works without a paired bridge.
+ *
+ * The mode survives reloads via localStorage so the operator's choice sticks.
+ */
+type ChatMode = "auto" | "bridge" | "cloud";
+const CHAT_MODE_STORAGE_KEY = "oasis.chat.mode.v2";
+const isChatMode = (s: unknown): s is ChatMode =>
+  s === "auto" || s === "bridge" || s === "cloud";
 
 const AGENT_SUGGESTIONS: Record<string, string[]> = {
   bravo: [
@@ -221,6 +243,20 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
     }>
   >([]);
   const [bridgeOnline, setBridgeOnline] = useState<boolean | null>(null);
+  // Chat-mode picker — see the type docs at the top of this file. SSR-safe
+  // initializer (always returns "auto" on the server, then localStorage
+  // hydration runs in the mount effect below).
+  const [chatMode, setChatModeState] = useState<ChatMode>("auto");
+  function setChatMode(next: ChatMode) {
+    setChatModeState(next);
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem(CHAT_MODE_STORAGE_KEY, next);
+      } catch {
+        // localStorage quota / privacy mode — fine, mode is in-memory.
+      }
+    }
+  }
   const [usage, setUsage] = useState<{ usage: number; limit: number | null } | null>(null);
   // Cloud-tool results — only fire on the cloud /api/chat path. Each
   // entry is one execution of a <cloud-tool> marker the agent emitted
@@ -413,6 +449,18 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
     window.localStorage.removeItem(LEGACY_RUNTIME_MODE_STORAGE_KEY);
   }, []);
 
+  // Hydrate chat-mode picker from localStorage on mount. Initial render is
+  // always "auto" (matches SSR); this effect upgrades to the persisted value.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = window.localStorage.getItem(CHAT_MODE_STORAGE_KEY);
+      if (isChatMode(stored)) setChatModeState(stored);
+    } catch {
+      // Privacy mode / disabled storage — leave default "auto".
+    }
+  }, []);
+
   // Probe the local bridge on mount + every 30s. When the operator runs
   // `bravo bridge serve`, this flips true and desktop-enabled runtimes can
   // target their machine instead of /api/chat.
@@ -508,11 +556,27 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
     if (isAdmin) return "Provider: OASIS platform default";
     return configsLoaded ? "Provider: not connected" : "Provider: loading...";
   })();
-  const accessStatus = bridgeReady
-    ? "Access: this desktop · local tools + files"
-    : "Access: cloud workspace";
+  // Resolve the actual route the next /send will take, given the picker:
+  // - "auto" follows the historical fall-through (bridge if reachable, cloud
+  //   otherwise). "bridge"/"cloud" are pinned overrides.
+  const effectiveMode: "bridge" | "cloud" =
+    chatMode === "bridge"
+      ? "bridge"
+      : chatMode === "cloud"
+        ? "cloud"
+        : bridgeReady
+          ? "bridge"
+          : "cloud";
+  const accessStatus =
+    effectiveMode === "bridge"
+      ? "Access: this desktop · local tools + files"
+      : "Access: cloud workspace · tool_use loop";
   const accessTitle =
-    "Routing auto-selects: this desktop when the bridge is paired and online, otherwise the cloud workspace using your saved API key.";
+    chatMode === "auto"
+      ? "Routing auto-selects: this desktop when the bridge is paired and online, otherwise the cloud workspace using your saved API key."
+      : chatMode === "bridge"
+        ? "Pinned to the local Claude Code bridge. The chat will fail if the bridge isn't reachable — switch to Auto or API key if you don't have one running."
+        : "Pinned to the cloud API-key path. The agent runs an Anthropic tool_use loop with the cloud tool palette (records, http, integrations) — no local file access.";
   const activeStatus = `${providerStatus} · ${accessStatus}`;
   const composerPlaceholder = !ready
     ? cfg?.provider === "ollama"
@@ -570,23 +634,35 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
     setStreaming(true);
     setThinking(true);
     setStreamStartedAt(Date.now());
-    const shouldUseBridge = bridgeOnline === true;
-    setStatusPhase(shouldUseBridge ? "spawning" : "thinking");
+    // Resolve routing intent — honors the chat-mode picker. "auto" gives
+    // the historical fall-through (bridge if online, else cloud). "bridge"
+    // and "cloud" are explicit pins.
+    const wantsBridge =
+      chatMode === "bridge" ||
+      (chatMode === "auto" && bridgeOnline === true);
+    if (chatMode === "bridge" && bridgeOnline !== true) {
+      // Pinned to bridge but bridge isn't online — fail loud rather than
+      // silently falling through to the API-key path. The operator chose
+      // bridge for a reason.
+      setError(
+        "Pinned to local desktop (bridge), but the bridge isn't reachable. Run `bravo bridge serve` on this machine, or switch the mode to Cloud."
+      );
+      setStreaming(false);
+      setMessages((m) => m.slice(0, -1));
+      return;
+    }
+    setStatusPhase(wantsBridge ? "spawning" : "thinking");
     setStatusDetail("");
 
     try {
-      // Routing self-selects based on bridge availability + provider:
-      //   1. bridge online + ollama provider
-      //         → POST localhost:9100/local-chat (bridge proxies to the
-      //           operator's local Ollama / LM Studio).
-      //   2. bridge online + any other provider
-      //         → POST localhost:9100/chat (Claude Code subprocess via
-      //           the operator's subscription, full repo + read_file tool).
-      //   3. bridge offline
-      //         → POST /api/chat (Vercel relay using the per-agent
-      //           encrypted API key from Settings → Agents).
+      // Routing now respects the chat-mode picker (chatMode):
+      //   - "bridge" or ("auto" + bridgeOnline)
+      //         → bridge endpoints (Claude Code subprocess or local Ollama)
+      //   - "cloud" or ("auto" + bridge offline)
+      //         → /api/chat (cloud relay with operator's API key + native
+      //           tool_use loop on Anthropic provider)
       const isOllama = cfg?.provider === "ollama";
-      const useBridge = bridgeOnline === true;
+      const useBridge = wantsBridge;
       const useLocalChat = useBridge && isOllama;
       const url = useLocalChat
         ? `${BRIDGE_CHAT_BASE}/local-chat`
@@ -611,7 +687,15 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
               session_id: sessionId,
               tab_id: tabId,  // warm pool key — stable across the widget's lifetime
             }
-          : { agent_key: agent, session_id: sessionId, messages: newMessages };
+          : {
+              agent_key: agent,
+              session_id: sessionId,
+              messages: newMessages,
+              // Hint to /api/chat which cloud-tool surface to use. "tools"
+              // gives the native Anthropic tool_use loop; route will fall
+              // back to "markers" automatically for non-Anthropic providers.
+              cloud_tools: "tools" as const,
+            };
       const res = await fetch(url, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -627,6 +711,10 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buf = "";
+      // Flipped to true the first time we get any assistant text. Used after
+      // the loop to detect silent-stream failures without having to read
+      // React state from inside another setter.
+      let receivedAnyContent = false;
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -671,6 +759,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
           else if (event === "delta" && typeof parsed.text === "string") {
             setThinking(false);
             setStatusPhase(null);
+            if (parsed.text.length > 0) receivedAnyContent = true;
             setMessages((m) => {
               const next = [...m];
               const last = next[next.length - 1];
@@ -679,10 +768,20 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
               }
               return next;
             });
+          } else if (event === "cloud_tool_call") {
+            // Native tool_use loop — model called a tool MID-stream and the
+            // runner is executing. Surface a "calling NAME..." indicator
+            // immediately so the operator sees activity; the matching
+            // cloud_tool_result event arrives a moment later with the
+            // execution outcome.
+            setThinking(true);
+            setStatusPhase("tool");
+            setStatusDetail(String(parsed.name || "tool"));
           } else if (event === "cloud_tool_result") {
-            // Cloud-only path — agent emitted a <cloud-tool> marker that
-            // the route executed against the tenant's data. Surface result
-            // inline so the operator sees what the agent looked up.
+            // Cloud-mode tool result — either from the native tool_use loop
+            // (cloud-tool-runner.ts, mid-stream) or from the legacy text
+            // marker path (cloud-tools.ts, post-stream). Either way render
+            // the same inline pill so the operator sees what was done.
             setCloudResults((prev) => [
               ...prev,
               {
@@ -836,27 +935,29 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
           }
         }
       }
-      // Stream closed. If the assistant message is STILL empty, the bridge
-      // (or cloud route) ended the stream without emitting any delta or
-      // error events — silent failure. Surface it instead of leaving the
-      // operator staring at an empty bubble (CC's reported "glitches out
-      // after 2s, no response" symptom).
-      setMessages((m) => {
-        const last = m[m.length - 1];
-        if (last && last.role === "assistant" && last.content.trim().length === 0) {
-          // Drop the empty placeholder bubble and route the failure to the
-          // error banner instead.
-          const trimmed = m.slice(0, -1);
-          setError(
-            "The agent returned no response. The bridge or upstream model closed the stream without sending any text. Check the bridge logs (pm2 logs claude-bridge) or your API-key quota."
-          );
-          // Stale session_id can keep tripping the same failure if the
-          // server-side process crashed — clear it for a clean retry.
-          setSessionId(null);
-          return trimmed;
-        }
-        return m;
-      });
+      // Stream closed. If no delta ever fired, the bridge (or cloud route)
+      // ended the stream without emitting any content — silent failure.
+      // Surface it instead of leaving the operator staring at an empty
+      // bubble (CC's reported "glitches out after 2s, no response" symptom).
+      // Tracked via local boolean so we don't have to read React state
+      // from inside another setter's updater (strict-mode double-invoke
+      // hazard).
+      if (!receivedAnyContent) {
+        setError(
+          "The agent returned no response. The bridge or upstream model closed the stream without sending any text. Check the bridge logs (pm2 logs claude-bridge) or your API-key quota."
+        );
+        // Stale session_id can keep tripping the same failure if the
+        // server-side process crashed — clear it for a clean retry.
+        setSessionId(null);
+        // Drop the empty placeholder bubble.
+        setMessages((m) => {
+          const last = m[m.length - 1];
+          if (last && last.role === "assistant" && last.content.trim().length === 0) {
+            return m.slice(0, -1);
+          }
+          return m;
+        });
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "request_failed");
       setMessages((m) => m.slice(0, -1));
@@ -924,6 +1025,34 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
             </span>
           </div>
         </div>
+        {/*
+          Chat-mode picker. Re-introduced 2026-05-14 with meaningful semantics:
+            - Auto: bridge if paired+online, else cloud API key
+            - CLI:  pinned to local Claude Code bridge (operator subscription)
+            - API:  pinned to /api/chat (encrypted per-agent API key + native
+                    Anthropic tool_use loop for full Claude-Code-class power)
+          See type ChatMode docs at the top of this file.
+        */}
+        <select
+          value={chatMode}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (isChatMode(v)) setChatMode(v);
+          }}
+          className="bg-bg-elev border border-bg-border rounded-lg px-2 py-2 text-[11px] text-fg-muted focus:outline-none focus:border-accent transition-colors cursor-pointer hidden md:inline-block"
+          aria-label="Chat routing mode"
+          title={
+            chatMode === "auto"
+              ? "Auto: route to local desktop bridge if paired, otherwise cloud API key"
+              : chatMode === "bridge"
+                ? "CLI: pin to local Claude Code bridge (uses your Claude subscription, full repo + tools)"
+                : "API: pin to cloud API key (Anthropic tool_use loop: records read/write, http, integrations)"
+          }
+        >
+          <option value="auto">Mode: Auto</option>
+          <option value="bridge">Mode: CLI (bridge)</option>
+          <option value="cloud">Mode: API key</option>
+        </select>
         {usage && (
           <span
             className="text-[10px] font-mono text-fg-dim border border-bg-border bg-bg-elev rounded-full px-2 py-0.5 hidden sm:inline-flex items-center gap-1"

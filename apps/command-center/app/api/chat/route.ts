@@ -43,6 +43,10 @@ import {
   runCloudTool,
   stripCloudToolMarkers,
 } from "@/lib/cloud-tools";
+import {
+  cloudToolsPromptBlockV2,
+  streamAnthropicWithTools,
+} from "@/lib/cloud-tool-runner";
 import { redactAll } from "@/lib/secret-redaction";
 import { isOperatorEmail, operatorPlatformFallback } from "@/lib/operator-credentials";
 
@@ -54,6 +58,21 @@ type IncomingPayload = {
   agent_key?: string;
   session_id?: string | null;
   messages?: ChatMessage[];
+  /**
+   * Cloud-mode tool surface selector.
+   *   "tools"  (default for anthropic provider) — native Anthropic tool_use
+   *            loop via lib/cloud-tool-runner. Mid-stream tool calls, results
+   *            re-fed to the model, full chain-of-tools. The "API key power"
+   *            path that gives the operator Claude-Code-class capability.
+   *   "markers" — legacy text-marker pipe (model emits <cloud-tool> markers,
+   *            we parse + execute AFTER the stream ends, surface results).
+   *            Used by non-Anthropic providers (OpenAI / Google / OpenRouter)
+   *            until those adapters get native tool calling.
+   *   "off"   — straight text stream, no tool affordances. Operators who
+   *            just want chat without dashboard mutation can pin this from
+   *            the chat-mode picker.
+   */
+  cloud_tools?: "tools" | "markers" | "off";
 };
 
 export async function POST(req: NextRequest) {
@@ -211,12 +230,38 @@ export async function POST(req: NextRequest) {
   );
   const dashboardCtx = ctxResult.text;
   const injectedInboxIds = ctxResult.injectedInboxIds;
-  // Cloud-only tool surface — appended to every persona on /api/chat so
-  // the agent knows it can call lookup_lead_by_name, list_open_leads,
-  // integration_status, etc. The local-bridge path doesn't see this block;
-  // it has the full Claude Code harness already.
-  const cloudTools = cloudToolsPromptBlock();
-  const persona = `${personaBase}${cloudModeNotice}${cloudTools}${dashboardCtx ? `\n\n${dashboardCtx}` : ""}`;
+  // Cloud-mode tool surface selection.
+  //
+  // - "tools"   → native Anthropic tool_use loop (cloud-tool-runner.ts).
+  //               Only valid when provider === "anthropic". The persona
+  //               gets cloudToolsPromptBlockV2 (which describes the tools
+  //               by name; the API contract teaches the model their schema).
+  // - "markers" → legacy <cloud-tool> text-marker pipe (cloud-tools.ts).
+  //               Used for non-Anthropic providers and as an explicit
+  //               fallback. Tools execute AFTER the stream, surfaced via
+  //               the same cloud_tool_result SSE event the UI already
+  //               renders.
+  // - "off"     → no tool affordances. Operators can pin this from the
+  //               chat-mode picker when they want straight chat.
+  const requestedCloudTools = payload.cloud_tools;
+  const cloudToolsMode: "tools" | "markers" | "off" =
+    requestedCloudTools === "off"
+      ? "off"
+      : requestedCloudTools === "tools"
+        ? (provider === "anthropic" ? "tools" : "markers") // fall back if provider can't
+        : requestedCloudTools === "markers"
+          ? "markers"
+          : provider === "anthropic"
+            ? "tools" // default: prefer native tools on Anthropic
+            : "markers";
+
+  const cloudToolsBlock =
+    cloudToolsMode === "off"
+      ? ""
+      : cloudToolsMode === "tools"
+        ? cloudToolsPromptBlockV2()
+        : cloudToolsPromptBlock();
+  const persona = `${personaBase}${cloudModeNotice}${cloudToolsBlock}${dashboardCtx ? `\n\n${dashboardCtx}` : ""}`;
   const startedAt = Date.now();
 
   // ---- Stream response back as SSE ----------------------------------------
@@ -236,33 +281,78 @@ export async function POST(req: NextRequest) {
       send("session", { session_id: sessionId });
 
       try {
-        // Ollama / LM Studio: the "API key" field stores the local
-        // endpoint URL (operators paste e.g. http://localhost:11434/v1
-        // during onboarding because there's no real key). Pass it as
-        // baseUrl, leave apiKey blank — streamOllama defaults to the
-        // standard Ollama port if baseUrl is empty.
-        const isOllama = provider === "ollama";
-        for await (const ev of streamChat({
-          provider,
-          model,
-          apiKey: isOllama ? "" : apiKey,
-          baseUrl: isOllama ? apiKey : undefined,
-          system: persona,
-          messages,
-        })) {
-          if (ev.type === "delta") {
-            assistantText += ev.text;
-            send("delta", { text: ev.text });
-          } else if (ev.type === "done") {
-            usageIn = ev.inputTokens;
-            usageOut = ev.outputTokens;
-            send("usage", { input_tokens: ev.inputTokens, output_tokens: ev.outputTokens });
-          } else if (ev.type === "error") {
-            // Redact any operator/platform credential values before
-            // emitting over SSE or persisting — provider error bodies
-            // can echo headers / URLs that contain the API key.
-            streamError = redactAll(ev.message);
-            send("error", { message: streamError });
+        if (cloudToolsMode === "tools" && provider === "anthropic") {
+          // Native Anthropic tool_use loop. The runner re-opens /v1/messages
+          // each iteration as tools chain — it yields {delta, tool_use,
+          // tool_result, done, error} which we forward to the SSE client.
+          // The operator sees a "tool call: NAME" chip in the chat while the
+          // loop is running.
+          const stripped = messages.filter((m) => m.role !== "system") as Array<{
+            role: "user" | "assistant";
+            content: string;
+          }>;
+          for await (const ev of streamAnthropicWithTools(
+            {
+              apiKey,
+              model,
+              system: persona,
+              messages: stripped,
+            },
+            { tenantId, userId: user.id, agentKey, authUserId: user.id }
+          )) {
+            if (ev.type === "delta") {
+              assistantText += ev.text;
+              send("delta", { text: ev.text });
+            } else if (ev.type === "tool_use") {
+              send("cloud_tool_call", { name: ev.name, input: ev.input });
+            } else if (ev.type === "tool_result") {
+              send("cloud_tool_result", {
+                ok: ev.ok,
+                name: ev.name,
+                summary: ev.summary,
+              });
+            } else if (ev.type === "done") {
+              usageIn = ev.inputTokens;
+              usageOut = ev.outputTokens;
+              send("usage", { input_tokens: ev.inputTokens, output_tokens: ev.outputTokens });
+            } else if (ev.type === "error") {
+              streamError = redactAll(ev.message);
+              send("error", { message: streamError });
+            }
+          }
+        } else {
+          // Legacy / fallback path: straight text stream via provider
+          // adapter. Cloud tools (if mode === "markers") run AFTER the
+          // stream completes via the existing marker-extraction block.
+          //
+          // Ollama / LM Studio: the "API key" field stores the local
+          // endpoint URL (operators paste e.g. http://localhost:11434/v1
+          // during onboarding because there's no real key). Pass it as
+          // baseUrl, leave apiKey blank — streamOllama defaults to the
+          // standard Ollama port if baseUrl is empty.
+          const isOllama = provider === "ollama";
+          for await (const ev of streamChat({
+            provider,
+            model,
+            apiKey: isOllama ? "" : apiKey,
+            baseUrl: isOllama ? apiKey : undefined,
+            system: persona,
+            messages,
+          })) {
+            if (ev.type === "delta") {
+              assistantText += ev.text;
+              send("delta", { text: ev.text });
+            } else if (ev.type === "done") {
+              usageIn = ev.inputTokens;
+              usageOut = ev.outputTokens;
+              send("usage", { input_tokens: ev.inputTokens, output_tokens: ev.outputTokens });
+            } else if (ev.type === "error") {
+              // Redact any operator/platform credential values before
+              // emitting over SSE or persisting — provider error bodies
+              // can echo headers / URLs that contain the API key.
+              streamError = redactAll(ev.message);
+              send("error", { message: streamError });
+            }
           }
         }
       } catch (err) {
@@ -271,30 +361,50 @@ export async function POST(req: NextRequest) {
         send("error", { message: streamError });
       }
 
-      // ---- Cloud tool markers --------------------------------------------
+      // ---- Cloud tool markers (legacy / fallback) -------------------------
       // <cloud-tool name="..."> JSON </cloud-tool> — read-only / safe tools
-      // exposed only on the cloud /api/chat path. Local bridge has Claude
-      // Code's full harness; cloud path needs this curated set so the agent
-      // can still look up leads, check integrations, etc.
-      try {
-        const toolSpecs = extractCloudToolMarkers(assistantText);
-        for (const spec of toolSpecs) {
-          const r = await runCloudTool(spec, { tenantId, userId: user.id });
-          send("cloud_tool_result", r);
+      // for providers that don't use the native tool_use loop. When mode is
+      // "tools" we already executed everything mid-stream above, so skip
+      // this block.
+      if (cloudToolsMode === "markers") {
+        try {
+          const toolSpecs = extractCloudToolMarkers(assistantText);
+          for (const spec of toolSpecs) {
+            const r = await runCloudTool(spec, { tenantId, userId: user.id });
+            send("cloud_tool_result", r);
+          }
+        } catch (err) {
+          send("cloud_tool_result", {
+            ok: false,
+            name: "?",
+            error: err instanceof Error ? err.message : "cloud_tool_runner_failed",
+          });
         }
-      } catch (err) {
-        send("cloud_tool_result", {
-          ok: false,
-          name: "?",
-          error: err instanceof Error ? err.message : "cloud_tool_runner_failed",
-        });
       }
 
       // ---- Dashboard mutation markers ------------------------------------
       // The model emits <dashboard-action type="..." > JSON </dashboard-action>
       // when the operator asks for a change. Parse, validate, apply, surface.
+      //
+      // In "tools" mode, create_record / update_record / delete_record are
+      // exposed as native Anthropic tools — the model called them mid-stream
+      // and we already executed. Filter them out of the marker pass here to
+      // avoid double-writes if the model emitted BOTH a tool_use AND a
+      // text marker for the same intent (rare, but possible because the
+      // persona still teaches DASHBOARD_ACTION_SPEC). Operator-side actions
+      // like update_profile / toggle_agent_enabled still run via markers
+      // because they aren't in the cloud-tool palette.
+      const toolNativeMarkerTypes = new Set([
+        "create_record",
+        "update_record",
+        "delete_record",
+      ]);
       try {
-        const specs = extractActionMarkers(assistantText);
+        const rawSpecs = extractActionMarkers(assistantText);
+        const specs =
+          cloudToolsMode === "tools"
+            ? rawSpecs.filter((s) => !toolNativeMarkerTypes.has(s.type))
+            : rawSpecs;
         for (const spec of specs) {
           const r = await runAction(spec, { tenantId, authUserId: user.id });
           send("action", r);
