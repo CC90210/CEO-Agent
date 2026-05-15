@@ -14,6 +14,8 @@ import { PlanTemplateEditor } from "@/components/settings/PlanTemplateEditor";
 import { AgentConfigEditor } from "@/components/settings/AgentConfigEditor";
 import { DevicesEditor } from "@/components/settings/DevicesEditor";
 import { chatAgentKeys } from "@/lib/agent-personas";
+import { resolveClientProfileSlug } from "@/lib/client-profiles";
+import { getManifest } from "@/lib/manifest/loader";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +29,15 @@ export default async function SettingsPage() {
   ]);
   const weekday = templates.find((t) => t.kind === "weekday") || null;
   const weekend = templates.find((t) => t.kind === "weekend") || null;
+
+  // Load the tenant's manifest so the Settings page can render tenant-
+  // specific blocks (compliance posture, brand). Falls back gracefully if
+  // the slug can't be resolved or the manifest load errors — Settings still
+  // renders, the compliance card just stays hidden.
+  const manifestSlug = tenant ? resolveClientProfileSlug(tenant) : null;
+  const manifest = manifestSlug
+    ? await safe("settings.manifest", getManifest(manifestSlug), null)
+    : null;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -62,6 +73,41 @@ export default async function SettingsPage() {
           >
             <DevicesEditor />
           </Card>
+
+          {manifest?.compliance?.tcpa && (
+            <Card
+              title="Compliance posture"
+              subtitle="Read-only summary of the consent + send-window rules this tenant's outbound agents are bound by. Edit via the manifest editor; agents reference these rules in every draft."
+              action={<Tag tone="engaged">TCPA</Tag>}
+            >
+              <dl className="grid sm:grid-cols-2 gap-3 text-sm">
+                <div>
+                  <dt className="text-xs uppercase tracking-wider text-fg-dim font-bold">Send window</dt>
+                  <dd className="mt-0.5 text-fg">{manifest.compliance.tcpa.send_window_local} local</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wider text-fg-dim font-bold">Weekend sends</dt>
+                  <dd className="mt-0.5 text-fg">
+                    {manifest.compliance.tcpa.weekend_sends ? "Allowed" : "Blocked"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wider text-fg-dim font-bold">Honor opt-outs</dt>
+                  <dd className="mt-0.5 text-fg">
+                    {manifest.compliance.tcpa.honor_opt_outs ? "Yes (enforced)" : "No"}
+                  </dd>
+                </div>
+                {manifest.compliance.tcpa.opt_out_phrase && (
+                  <div>
+                    <dt className="text-xs uppercase tracking-wider text-fg-dim font-bold">First-touch opt-out</dt>
+                    <dd className="mt-0.5 text-fg font-mono text-xs">
+                      &ldquo;{manifest.compliance.tcpa.opt_out_phrase}&rdquo;
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            </Card>
+          )}
 
           <Card
             title="Agents"
