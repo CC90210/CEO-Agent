@@ -13,7 +13,9 @@
  * signed token: server signs on emit, server verifies on receipt, browser
  * is just a passthrough that cannot mint valid payloads.
  *
- * Env: BRAVO_RESUME_HMAC_KEY (any ≥32 char string).
+ * Env: CHAT_RESUME_HMAC_KEY (any ≥32 char string). Legacy name
+ *      BRAVO_RESUME_HMAC_KEY honored as fallback during the
+ *      transition window.
  *   Missing in production → fail closed (route returns 503). Missing in
  *   development → degraded "no signing" mode logs a warning but allows
  *   the flow to work without the secret, so dev setup doesn't require a

@@ -10,12 +10,13 @@
  *   - A prospect's URL is shareable. Without signing, anyone who guesses a
  *     UUID could open another lead's form and submit on their behalf.
  *   - The bearer-token model lets us roll keys (operator suspects leak →
- *     rotate BRAVO_FORM_LINK_HMAC_KEY → all in-flight links die).
+ *     rotate FORM_LINK_HMAC_KEY → all in-flight links die).
  *   - HMAC-SHA256 + canonical JSON encoding matches the resume-hmac
  *     pattern lib/resume-hmac.ts established for /api/chat/resume; one
  *     reviewer audits both files identically.
  *
- * Env: BRAVO_FORM_LINK_HMAC_KEY (any ≥32 char string).
+ * Env: FORM_LINK_HMAC_KEY (any ≥32 char string). Legacy name
+ *      BRAVO_FORM_LINK_HMAC_KEY honored as fallback during transition.
  *   Missing in production → fail closed (signer returns null; verifier
  *   refuses).
  *   Missing in development → degraded "no signing" mode with a one-time
