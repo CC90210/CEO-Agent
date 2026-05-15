@@ -171,7 +171,25 @@ export const SUN_SEED: TenantManifest = {
         { name: "phone", type: "string" },
         { name: "email", type: "string" },
         { name: "monthly_revenue", type: "number" },
-        { name: "stage", type: "enum", enum_values: ["new", "qualified", "application_sent", "approved", "funded", "lost"], required: true },
+        // Lead stages — Salesforce-parity per Jordan/CC's 2026-05-15
+        // meeting. Replaces the old (new/qualified/application_sent/...
+        // /funded/lost) shape with the funding-shop progression.
+        //
+        //   cold              — fresh inbound, no contact yet
+        //   follow_up         — contact established, needs nurture (daily/
+        //                       weekly drip lane)
+        //   sent_application  — Solara dispatched the application link;
+        //                       waiting for the prospect to engage
+        //   viewed_application — prospect clicked the link (engagement
+        //                       signal — fires the "viewed" drip)
+        //   signed_application — prospect completed form 2 (the actual app)
+        //   submitted         — bank statements uploaded; ready for
+        //                       underwriting + shop-out
+        //   declined          — passed on after bank-statement review
+        //                       (1-month-revival drip eligible)
+        //   default           — repayment failure / bankruptcy
+        //                       (no drip; permanent lost)
+        { name: "stage", type: "enum", enum_values: ["cold", "follow_up", "sent_application", "viewed_application", "signed_application", "submitted", "declined", "default"], required: true },
       ],
     },
     {
@@ -194,7 +212,21 @@ export const SUN_SEED: TenantManifest = {
         { name: "amount", type: "number" },
         { name: "term_months", type: "number" },
         { name: "factor_rate", type: "number" },
-        { name: "accepted", type: "boolean" },
+        // Opportunity-pipeline stage — replaces the prior boolean
+        // `accepted` field. Salesforce-parity per Jordan/CC's
+        // 2026-05-15 meeting:
+        //
+        //   offered          — lender returned a term sheet, awaiting
+        //                      operator review
+        //   contracts_out    — operator forwarded contract to client;
+        //                      waiting on signature
+        //   accepted         — client signed; ready to fund
+        //   funded           — wire complete; rolls into funded_deals
+        //   no_offer         — lender declined or no offer available
+        //                      (monthly revival drip eligible)
+        //   declined         — operator passed on the term sheet
+        //   expired          — offer aged out without client decision
+        { name: "stage", type: "enum", enum_values: ["offered", "contracts_out", "accepted", "funded", "no_offer", "declined", "expired"], required: true },
       ],
     },
     {
@@ -242,7 +274,11 @@ export const SUN_SEED: TenantManifest = {
     { path: "reasoning", label: "Reasoning", kind: "reasoning" },
     { path: "leads", label: "Leads", kind: "kanban", entity: "lead", config: { group_by: "stage" } },
     { path: "applications", label: "Applications", kind: "table", entity: "application" },
-    { path: "offers", label: "Offers", kind: "table", entity: "offer" },
+    // Opportunity kanban — operator drags offers across the 7 stages.
+    // Mirrors Salesforce's opportunity pipeline columns (offered ->
+    // contracts_out -> accepted -> funded). Renders the same way leads
+    // do, just keyed on offer.stage.
+    { path: "offers", label: "Offers", kind: "kanban", entity: "offer", config: { group_by: "stage" } },
     { path: "funded-deals", label: "Funded Deals", kind: "table", entity: "funded_deal" },
     { path: "renewals", label: "Renewals", kind: "kanban", entity: "renewal", config: { group_by: "status" } },
     { path: "commissions", label: "Commissions", kind: "table", entity: "commission" },
