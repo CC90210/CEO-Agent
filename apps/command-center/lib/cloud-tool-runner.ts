@@ -43,6 +43,7 @@ import {
 } from "./manifest/data";
 import { runAction } from "./agent-actions";
 import { CLOUD_TOOLS } from "./cloud-tools";
+import { parseSSE, safeText } from "./sse-parser";
 
 const ANTHROPIC_VERSION = "2023-06-01";
 const MAX_TOOL_ITERATIONS = 8; // safety cap — prevents runaway tool loops
@@ -777,48 +778,4 @@ export function cloudToolsPromptBlockV2(): string {
   return lines.join("\n");
 }
 
-// ============================================================================
-// SSE parser — Anthropic-shaped (event: + data: per frame)
-// ============================================================================
-
-type SSEFrame = { event: string; data: any };
-async function* parseSSE(body: ReadableStream<Uint8Array>): AsyncGenerator<SSEFrame> {
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let buf = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, { stream: true });
-    let idx;
-    while ((idx = buf.indexOf("\n\n")) !== -1) {
-      const block = buf.slice(0, idx);
-      buf = buf.slice(idx + 2);
-      let event = "message";
-      const dataLines: string[] = [];
-      for (const line of block.split("\n")) {
-        if (line.startsWith("event:")) event = line.slice(6).trim();
-        else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
-      }
-      if (!dataLines.length) continue;
-      const raw = dataLines.join("\n");
-      if (raw === "[DONE]") {
-        yield { event, data: "[DONE]" };
-        continue;
-      }
-      try {
-        yield { event, data: JSON.parse(raw) };
-      } catch {
-        yield { event, data: raw };
-      }
-    }
-  }
-}
-
-async function safeText(r: Response): Promise<string> {
-  try {
-    return (await r.text()).slice(0, 500);
-  } catch {
-    return "";
-  }
-}
+// SSE parser + safeText are shared with lib/providers.ts — see lib/sse-parser.ts.
