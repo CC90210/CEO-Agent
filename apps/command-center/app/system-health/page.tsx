@@ -138,10 +138,12 @@ export default async function SystemHealthPage() {
                 guards run locally; this page just visualizes them.
               </p>
               <p className="text-sm text-fg-muted mt-2 leading-relaxed">
-                To turn this view on, start the daemon on the operator machine:
+                To turn this view on, start the FastAPI service on the operator machine.
+                It runs as the <code className="text-accent">state-api</code> container in
+                the local compose stack:
               </p>
               <code className="text-xs text-accent font-mono block mt-2 p-2 bg-bg-elev rounded border border-bg-border">
-                pm2 start scripts/state_api_server.py --name state-api --interpreter python
+                docker compose -f infra/docker-compose.local.yml up -d state-api
               </code>
               {data.error && (
                 <p className="text-xs text-fg-faint mt-3 font-mono">
