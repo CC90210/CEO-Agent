@@ -22,6 +22,7 @@
  */
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ExternalLink,
@@ -50,8 +51,9 @@ type Props = {
 const CARD_PROVIDERS: Provider[] = ["anthropic", "openrouter", "openai", "google"];
 
 export function ProviderAccountsCard({ connectedServices: initialServices, bridgeOnline }: Props) {
+  const router = useRouter();
   // Server-rendered set, but track in state so connecting flips the UI
-  // immediately without a page reload.
+  // immediately without waiting for the router refresh round-trip.
   const [services, setServices] = useState<Set<string>>(initialServices);
   const [activeProvider, setActiveProvider] = useState<Provider | null>(null);
 
@@ -64,6 +66,17 @@ export function ProviderAccountsCard({ connectedServices: initialServices, bridg
       next.add(svc);
       return next;
     });
+    // Cross-component refresh: AgentConfigEditor on this same page caches
+    // its config list in client state from a fetch() on mount. Without a
+    // poke, the per-agent rows below would still show "no key on file"
+    // after a bulk-connect until the user manually reloaded. The custom
+    // event lets the editor re-fetch on receipt; router.refresh() re-runs
+    // server components so the page's own connectedServices prop is
+    // up-to-date next render. Belt + suspenders intentional.
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("oasis:agent-configs-changed"));
+    }
+    router.refresh();
   }
 
   const totalConnected = CARD_PROVIDERS.filter((p) =>
