@@ -99,6 +99,12 @@ export const OASIS_SEED: TenantManifest = {
     monthly_price_hint: "Internal",
     summary: "OASIS HQ · operator chrome · all agents enabled.",
   },
+  // CC is the operator — keep the 4-mode chat picker (Phase 3) visible so
+  // he can pin CLI / cloud_only / cloud_bridge_tools per turn. End-user
+  // tenants below get advanced_picker=false so the dropdown is hidden.
+  ui: {
+    advanced_picker: true,
+  },
   meta: {
     created_at: FROZEN_AT,
     updated_at: FROZEN_AT,
@@ -276,6 +282,11 @@ export const SUN_SEED: TenantManifest = {
     { kind: "twilio", enabled: true, credential_env_key: "SUNBIZ_AGENT_HMAC_SECRET" },
     { kind: "turso", enabled: true },
   ],
+  // End-user tenant — hide the 4-mode chat picker. Ezra at SunBiz doesn't
+  // need to think about CLI vs API; Auto-mode routing handles it silently.
+  ui: {
+    advanced_picker: false,
+  },
   meta: {
     created_at: FROZEN_AT,
     updated_at: FROZEN_AT,
@@ -378,6 +389,11 @@ export const SUGA_SEED: TenantManifest = {
     setup_complexity: "Guided",
     monthly_price_hint: "$99/mo",
     summary: "Brand command: posts, fans, merch, sponsorships.",
+  },
+  // End-user tenant — hide the 4-mode chat picker. SUGA operators see one
+  // chat that just works; Auto-mode handles routing.
+  ui: {
+    advanced_picker: false,
   },
   meta: {
     created_at: FROZEN_AT,

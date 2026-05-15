@@ -263,6 +263,15 @@ type Props = {
   /** When true (operator/admin), the widget never blocks on missing config — chat is allowed via platform fallback. */
   isAdmin?: boolean;
   welcomeMessages?: Partial<Record<string, string>>;
+  /**
+   * Per-tenant manifest flag — when true, the 4-mode chat picker dropdown
+   * renders. When false (default for end-user tenants), the picker is
+   * hidden and Auto-mode routes silently. Sourced from
+   * TenantManifest.ui.advanced_picker. Phase 1 of SunBiz CRM build
+   * (2026-05-15) — CC's framing: end users don't care about CLI vs API,
+   * "if one of them just works correctly."
+   */
+  advancedPicker?: boolean;
 };
 
 function seedMessagesForAgent(
@@ -274,7 +283,7 @@ function seedMessagesForAgent(
   return [{ role: "assistant", content, at: Date.now() }];
 }
 
-export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMessages }: Props) {
+export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMessages, advancedPicker }: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -1392,38 +1401,46 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
           browser-proxy would have nothing to forward to. The picker
           tooltip explains why it's grey.
           See type ChatMode docs at the top of this file.
+          Per-tenant gate: the picker only renders for tenants that flip
+          manifest.ui.advanced_picker = true (OASIS HQ). End-user tenants
+          (SunBiz, SUGA) get advancedPicker=false and the dropdown is
+          hidden entirely — Auto-mode handles routing silently. CC's
+          framing 2026-05-15: "if one of them just works correctly,"
+          the CLI-vs-API distinction is irrelevant to end users.
         */}
-        <select
-          value={chatMode}
-          onChange={(e) => {
-            const v = e.target.value;
-            if (isChatMode(v)) setChatMode(v);
-          }}
-          className="bg-bg-elev border border-bg-border rounded-lg px-2 py-2 text-[11px] text-fg-muted focus:outline-none focus:border-accent transition-colors cursor-pointer"
-          aria-label="Chat routing mode"
-          title={accessTitle}
-        >
-          <option value="auto">Mode: Auto</option>
-          <option value="cli">Mode: CLI (local bridge)</option>
-          <option value="cloud_only">Mode: API · cloud tools only</option>
-          <option
-            value="cloud_bridge_tools"
-            disabled={bridgeOnline !== true}
-            title={
-              bridgeOnline === false
-                ? "Disabled: the local bridge isn't reachable. Run `pm2 restart claude-bridge` on this machine to enable API + local tools."
-                : bridgeOnline === null
-                  ? "Checking bridge status..."
-                  : undefined
-            }
+        {advancedPicker && (
+          <select
+            value={chatMode}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (isChatMode(v)) setChatMode(v);
+            }}
+            className="bg-bg-elev border border-bg-border rounded-lg px-2 py-2 text-[11px] text-fg-muted focus:outline-none focus:border-accent transition-colors cursor-pointer"
+            aria-label="Chat routing mode"
+            title={accessTitle}
           >
-            {bridgeOnline === true
-              ? "Mode: API + local tools"
-              : bridgeOnline === null
-                ? "Mode: API + local tools (checking…)"
-                : "Mode: API + local tools (bridge offline)"}
-          </option>
-        </select>
+            <option value="auto">Mode: Auto</option>
+            <option value="cli">Mode: CLI (local bridge)</option>
+            <option value="cloud_only">Mode: API · cloud tools only</option>
+            <option
+              value="cloud_bridge_tools"
+              disabled={bridgeOnline !== true}
+              title={
+                bridgeOnline === false
+                  ? "Disabled: the local bridge isn't reachable. Run `pm2 restart claude-bridge` on this machine to enable API + local tools."
+                  : bridgeOnline === null
+                    ? "Checking bridge status..."
+                    : undefined
+              }
+            >
+              {bridgeOnline === true
+                ? "Mode: API + local tools"
+                : bridgeOnline === null
+                  ? "Mode: API + local tools (checking…)"
+                  : "Mode: API + local tools (bridge offline)"}
+            </option>
+          </select>
+        )}
         {usage && (
           <span
             className="text-[10px] font-mono text-fg-dim border border-bg-border bg-bg-elev rounded-full px-2 py-0.5 hidden sm:inline-flex items-center gap-1"

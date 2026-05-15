@@ -11,7 +11,8 @@ import { CronJobsManager } from "@/components/automations/CronJobsManager";
 import { getActiveProfile, getBridgeOnline } from "@/lib/queries";
 import { chatAgentKeys } from "@/lib/agent-personas";
 import { safe } from "@/lib/api-helpers";
-import { Clock, Cpu, Cloud } from "lucide-react";
+import { Clock, Cpu, Cloud, Download } from "lucide-react";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -47,21 +48,23 @@ export default async function AutomationsPage() {
             </>
           ) : (
             <>
-              <span className="text-fg-muted font-bold">Bridge offline.</span>{" "}
-              Jobs created here are saved but won&apos;t fire until your local
-              bridge is back up. Run{" "}
-              <code className="font-mono text-accent bg-bg-elev px-1 rounded">
-                pm2 restart claude-bridge claude-bridge-ping
-              </code>{" "}
-              on your machine — the ping daemon is what polls this list and
-              executes due jobs. If neither is registered yet, run{" "}
-              <code className="font-mono text-accent bg-bg-elev px-1 rounded">
-                pm2 start ecosystem.config.js
-              </code>{" "}
-              from the repo root.
+              <span className="text-fg-muted font-bold">Bridge not connected.</span>{" "}
+              Jobs created here are saved but won&apos;t fire until you pair a
+              machine. Click <span className="text-fg font-medium">Install
+              bridge</span> to set this up in about a minute — one command,
+              copy-paste, and you&apos;re live.
             </>
           )}
         </div>
+        {!bridgeOnline && (
+          <Link
+            href="/settings/devices/install"
+            className="btn-primary inline-flex items-center gap-1.5 text-xs shrink-0"
+          >
+            <Download className="w-3 h-3" />
+            Install bridge
+          </Link>
+        )}
         <Clock className="w-4 h-4 text-fg-dim shrink-0 mt-0.5 hidden sm:block" />
       </div>
 

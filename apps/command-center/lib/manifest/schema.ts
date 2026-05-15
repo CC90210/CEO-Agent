@@ -265,6 +265,32 @@ export type ManifestMeta = {
 };
 
 // ---------------------------------------------------------------------------
+// UI config — per-tenant feature flags for the dashboard shell.
+//
+// Phase 1 of the SunBiz CRM build (2026-05-15) introduces this block so that
+// operator-mode features (the 4-mode chat picker, debug surfaces, advanced
+// integration toggles) can be hidden from end-user tenants without forking
+// the component layer. Defaults are end-user-friendly; OASIS HQ flips
+// `advanced_picker` to true so CC keeps the full Phase 3 chat picker.
+//
+// Keep this block to UI-only feature flags. Anything that affects data
+// shape, persona, or backend behaviour belongs elsewhere (manifest.agents
+// for prompt overlays, manifest.permissions for access scope).
+// ---------------------------------------------------------------------------
+
+export type ManifestUiConfig = {
+  /**
+   * When true, the ChatWidget renders its 4-mode picker dropdown
+   * (Auto / CLI / API · cloud tools / API · cloud + bridge tools).
+   * When false, the dropdown is hidden and Auto-mode handles routing
+   * silently — the operator sees one chat that "just works."
+   *
+   * Default: false (end-user tenants). OASIS_SEED sets true.
+   */
+  advanced_picker?: boolean;
+};
+
+// ---------------------------------------------------------------------------
 // Top-level TenantManifest
 // ---------------------------------------------------------------------------
 
@@ -284,6 +310,7 @@ export type TenantManifest = {
   deployment_mode?: ManifestDeploymentMode;
   tier?: ManifestTier;
   compliance?: ManifestCompliance;
+  ui?: ManifestUiConfig;
   meta: ManifestMeta;
 };
 
@@ -529,6 +556,13 @@ function parseCompliance(v: Json, path: string): ManifestCompliance {
   };
 }
 
+function parseUi(v: Json, path: string): ManifestUiConfig {
+  if (!isObject(v)) throw new ManifestParseError(path, "expected object");
+  return {
+    advanced_picker: optionalBoolean(v, "advanced_picker"),
+  };
+}
+
 function parseMeta(v: Json, path: string): ManifestMeta {
   if (!isObject(v)) throw new ManifestParseError(path, "expected object");
   const schemaVersionRaw = v.schema_version;
@@ -590,6 +624,7 @@ export function parseManifest(input: Json): TenantManifest {
     deployment_mode: deploymentMode as ManifestDeploymentMode | undefined,
     tier: input.tier !== undefined ? parseTier(input.tier, "$.tier") : undefined,
     compliance: input.compliance !== undefined ? parseCompliance(input.compliance, "$.compliance") : undefined,
+    ui: input.ui !== undefined ? parseUi(input.ui, "$.ui") : undefined,
     meta: parseMeta(input.meta ?? {}, "$.meta"),
   };
 }

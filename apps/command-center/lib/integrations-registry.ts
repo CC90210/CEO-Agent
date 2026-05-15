@@ -396,13 +396,19 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
   },
   {
     service: "turso",
-    label: "Local Brain",
+    // Renamed from "Local Brain" 2026-05-15 — the prior label was internal
+    // jargon. Turso is the per-tenant database, provisioned by Bravo when
+    // the tenant is created; SunBiz / SUGA / future-client operators don't
+    // configure it themselves. Marked developer_only so end-user tenants
+    // never see it in their /settings panel.
+    label: "Tenant Database (Turso)",
     category: "data",
-    description: "Private client records stored on this machine",
+    description: "Per-tenant SQLite-compatible database. Provisioned by Bravo.",
     connection_kind: "api_key",
     signup_url: "https://app.turso.tech/",
     api_key_url: "https://app.turso.tech/account/tokens",
     setup_complexity: "simple",
+    developer_only: true,
     env_key: "TURSO_AUTH_TOKEN",
   },
   {
@@ -414,6 +420,11 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     signup_url: "https://www.notion.so/signup",
     api_key_url: "https://www.notion.so/profile/integrations",
     setup_complexity: "simple",
+    // CC's personal knowledge base — not a tenant-facing integration. Was
+    // rendering on SunBiz's /settings panel because it had no used_by filter
+    // (default-shown rule applies to AI providers and a few utility tools).
+    // Marked developer_only so non-operator tenants stop seeing it.
+    developer_only: true,
     env_key: "NOTION_API_KEY",
   },
   {
