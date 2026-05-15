@@ -13,6 +13,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser, getServiceSupabase } from "@/lib/supabase-server";
+import { isMissingTableError, missingTablePayload } from "@/lib/api-helpers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -65,28 +66,12 @@ export async function GET() {
     .eq("tenant_id", tenantId)
     .order("created_at", { ascending: false });
   if (error) {
-    // Detect the "migration not applied" case specifically so the UI
-    // can show actionable instructions instead of a generic 500. Common
-    // PostgREST error string: "Could not find the table 'public.X' in
-    // the schema cache" (PGRST205) — appears verbatim until the schema
-    // cache reloads after the migration runs.
-    const msg = error.message || "";
-    const isMissingTable =
-      msg.includes("public.tenant_cron_jobs") ||
-      msg.toLowerCase().includes("could not find the table") ||
-      error.code === "PGRST205" ||
-      error.code === "42P01"; // PostgreSQL undefined_table
-    if (isMissingTable) {
+    if (isMissingTableError(error, "public.tenant_cron_jobs")) {
       return NextResponse.json(
-        {
-          ok: false,
-          error: "migration_not_applied",
+        missingTablePayload({
           migration: "database/041_tenant_cron_jobs.sql",
-          how_to_apply:
-            "python scripts/apply_migration.py database/041_tenant_cron_jobs.sql",
-          hint:
-            "The Automations feature needs migration 041 applied to your Supabase project. Run the command above on the operator machine (the one with the supabase_tool credentials in .env.agents). After it completes, Supabase's PostgREST cache picks up the new table within ~30 seconds — refresh the page after that.",
-        },
+          feature: "Automations",
+        }),
         { status: 503 },
       );
     }

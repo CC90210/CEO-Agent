@@ -146,6 +146,10 @@ export const SUN_SEED: TenantManifest = {
     { href: "/t/sun/playbook", label: "Playbook", icon: "BookOpen", group: "Operations" },
     { href: "/t/sun/leads", label: "Leads", icon: "Users", group: "Pipeline" },
     { href: "/t/sun/applications", label: "Applications", icon: "FileText", group: "Pipeline" },
+    // /forms is top-level (tenant-aware on the server via user.tenant_id).
+    // Same shared surface every tenant gets — design forms, mint
+    // personalized lead links, replace JotForm.
+    { href: "/forms", label: "Forms", icon: "FileCode2", group: "Pipeline" },
     { href: "/t/sun/offers", label: "Offers", icon: "HandCoins", group: "Deals" },
     { href: "/t/sun/funded-deals", label: "Funded Deals", icon: "BadgeDollarSign", group: "Deals" },
     { href: "/t/sun/renewals", label: "Renewals", icon: "RefreshCcw", group: "Deals" },
@@ -358,6 +362,7 @@ export const SUGA_SEED: TenantManifest = {
     { href: "/t/suga/subscribers", label: "Subscribers", icon: "Users", group: "Fans" },
     { href: "/t/suga/posts", label: "Posts", icon: "Megaphone", group: "Brand" },
     { href: "/t/suga/drafts", label: "Drafts", icon: "FileText", group: "Brand" },
+    { href: "/forms", label: "Forms", icon: "FileCode2", group: "Brand" },
     { href: "/t/suga/merch", label: "Merch", icon: "ShoppingBag", group: "Commerce" },
     { href: "/t/suga/sponsorship", label: "Sponsorships", icon: "HandCoins", group: "Sponsorship" },
     // Top-level /automations — same shared cron-job surface every tenant
