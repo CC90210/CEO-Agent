@@ -117,6 +117,7 @@ The `scripts/` directory contains ~60 production CLI tools that read `.env.agent
 | n8n workflow operations | `python scripts/n8n_tool.py <command>` |
 | Telegram notification to CC | `python scripts/notify.py "message"` |
 | Browser Harness diagnostics / setup | `python scripts/browser_harness_doctor.py` / `npm run browser:setup` |
+| **Scrape a bot-protected URL (Cloudflare/DataDome/reCAPTCHA/FingerprintJS/Akamai) — MANDATORY stealth tier** | `python scripts/cloak_browser_tool.py scrape <url> --json` · `check-stealth` · `download` · skill: [skills/cloak-browser/SKILL.md](skills/cloak-browser/SKILL.md) |
 
 Full routing: [brain/QUICK_REFERENCE.md](brain/QUICK_REFERENCE.md).
 

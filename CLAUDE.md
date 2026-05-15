@@ -73,7 +73,7 @@ Answer using MCP tools. Do NOT dump file contents. Keep answers to 1-5 sentences
 
 ### RULE 2: Tool routing (CLI-first — NEVER ask CC to authenticate anything)
 
-47 CLI tools in `scripts/` are the PRIMARY execution layer — they read `.env.agents` and never break. MCPs are SECONDARY (Playwright, Context7, Memory, Sequential Thinking, Knowledge Graph only — stateless). Browser Harness is the direct logged-in browser layer; diagnose with `python scripts/browser_harness_doctor.py`, setup with `npm run browser:setup`, and obey browser/SAFETY.md. **NEVER use claude.ai MCP connectors.** Full routing: brain/QUICK_REFERENCE.md. Governance: brain/ORCHESTRATION.md.
+48 CLI tools in `scripts/` are the PRIMARY execution layer — they read `.env.agents` and never break. MCPs are SECONDARY (Playwright, Context7, Memory, Sequential Thinking, Knowledge Graph only — stateless). **Browser-tool ladder (mandatory for fresh-session scrapes):** Firecrawl (`scripts/firecrawl_tool.py`) for unprotected pages → **CloakBrowser (`scripts/cloak_browser_tool.py`) MANDATORY tier when target has Cloudflare/DataDome/reCAPTCHA/FingerprintJS/Akamai/Kasada or Firecrawl returned 403/429/empty** → Browser Harness for CC-authenticated work (`scripts/browser_harness_doctor.py`, `npm run browser:setup`, obey `browser/SAFETY.md`) → Playwright MCP only for unprotected interactive flow. Skill: `skills/cloak-browser/SKILL.md`. **NEVER use claude.ai MCP connectors.** Full routing: brain/QUICK_REFERENCE.md. Governance: brain/ORCHESTRATION.md.
 
 ### RULE 3: CREDENTIALS AND SECURITY (CRITICAL)
 
@@ -205,7 +205,7 @@ On start: run `python scripts/agent_inbox.py list --to bravo` — surface any ur
 
 ## MCP vs CLI Status
 
-Working MCPs: Playwright, Context7, Memory, Sequential Thinking, Knowledge Graph. Replaced by CLI: n8n (`n8n_tool.py`), Zernio/Late (`late_tool.py`), Supabase (`supabase_tool.py`), Stripe (`stripe_tool.py`), GWS (`google_tool.py`). Browser Harness handles real logged-in Chrome/Edge workflows when Playwright MCP is too generic. No MCP: GitHub (use `git`). Full routing: brain/QUICK_REFERENCE.md.
+Working MCPs: Playwright, Context7, Memory, Sequential Thinking, Knowledge Graph. Replaced by CLI: n8n (`n8n_tool.py`), Zernio/Late (`late_tool.py`), Supabase (`supabase_tool.py`), Stripe (`stripe_tool.py`), GWS (`google_tool.py`). Browser Harness handles real logged-in Chrome/Edge workflows when Playwright MCP is too generic. **CloakBrowser (`scripts/cloak_browser_tool.py`) is the mandatory stealth tier** for fresh-session scrapes against bot-protected sites (Cloudflare, DataDome, reCAPTCHA, FingerprintJS, Akamai, Kasada) — drop-in Playwright replacement with C++ source-level fingerprint patches; binary at `C:\Users\User\.cloakbrowser\`. No MCP: GitHub (use `git`). Full routing: brain/QUICK_REFERENCE.md.
 
 ## Obsidian Links
 - [[brain/SOUL]] | [[brain/STATE]] | [[brain/USER]] | [[brain/APP_REGISTRY]]

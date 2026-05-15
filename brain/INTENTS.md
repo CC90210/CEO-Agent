@@ -74,6 +74,32 @@ Allowed action types: `update_profile`, `toggle_agent_enabled`, `set_primary_age
 
 ---
 
+## "Scrape <URL>" / "Get the content of this page" / "Pull data from <site>"
+
+The four-tool ladder. **Stop and re-classify** the moment a tier returns 403/429/Turnstile/empty content — do NOT retry the same tier.
+
+1. **Default — Firecrawl** (cheapest, fastest, structured extraction):
+   ```bash
+   python scripts/firecrawl_tool.py scrape <url> --json
+   ```
+   If the page renders fine, you're done — surface text + cite URL.
+
+2. **Bot-protected target OR Firecrawl returned 403/429/empty/Cloudflare-1020 — escalate to CloakBrowser** (mandatory stealth tier — drop-in Playwright with C++ source-level fingerprint patches, passes Cloudflare Turnstile / reCAPTCHA v3 / DataDome / ShieldSquare / FingerprintJS / Akamai / Kasada / PerimeterX):
+   ```bash
+   python scripts/cloak_browser_tool.py scrape <url> --json
+   # With evidence:
+   python scripts/cloak_browser_tool.py scrape <url> --screenshot evidence/<slug>.png
+   ```
+   If first install on this machine, the wrapper triggers a one-time ~200MB binary download (or pre-fetch with `python scripts/cloak_browser_tool.py download`). For Akamai/Kasada-tier hardness, set `CLOAK_PROXY_URL` in `.env.agents` (residential proxy). If a target starts blocking unexpectedly, run `python scripts/cloak_browser_tool.py check-stealth --json` to verify fingerprint signals.
+
+3. **Need to act as CC inside CC's logged-in account on the target** — switch to **Browser Harness** (CC's real Chrome on port 9222). See `skills/browser-harness/SKILL.md` and `browser/SAFETY.md` — sends/posts/billing/destructive actions still need explicit CC approval regardless of tier.
+
+4. **Need interactive flow / visual snapshot on an unprotected site** — fall back to **Playwright MCP** (`browser_navigate`, `browser_snapshot`, `browser_click`). Do NOT use raw Playwright on protected sites — it gets fingerprinted within 1-3 requests.
+
+Skill ref: [skills/cloak-browser/SKILL.md](../skills/cloak-browser/SKILL.md) · decision matrix: [skills/web-scraping/SKILL.md](../skills/web-scraping/SKILL.md).
+
+---
+
 ## "Switch me to <agent>" / "Have <agent> do this"
 
 1. If the chat picker switched the agent, the bridge already `cd`'d for you — your CLAUDE.md changed.
