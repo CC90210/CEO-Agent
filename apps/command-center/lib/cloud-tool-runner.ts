@@ -922,6 +922,20 @@ export type ToolLoopRequest = {
    * filtered out when bridge is offline, even if they're in the palette.
    */
   toolPalette?: string[];
+  /**
+   * Phase F — bridge-advertised tool registry. The operator's local
+   * bridge daemon reports which tools its installation actually has
+   * (bravo_cli/bridge_tools.py:list_available_tools) on each heartbeat.
+   * /api/chat reads bridge_pairings.tool_capabilities and passes it
+   * here. null → no advertisement on record yet (older bridge daemons
+   * or never-pinged pairings); runner falls back to the full bridge
+   * tool palette in TOOL_DEFINITIONS. Empty array semantics are NOT
+   * used here — null is the "no filter" signal.
+   *
+   * Only narrows defer:true tools. Cloud tools (defer:false) are
+   * unaffected — they execute server-side on Vercel, not the bridge.
+   */
+  bridgeAdvertisedTools?: string[] | null;
 };
 
 export async function* streamAnthropicWithTools(
@@ -943,6 +957,7 @@ export async function* streamAnthropicWithTools(
     enableTools: req.enableTools,
     excludeDeferredTools: req.excludeDeferredTools,
     toolPalette: req.toolPalette,
+    bridgeAdvertisedTools: req.bridgeAdvertisedTools,
     history,
     startIter: 0,
     startTotalIn: 0,
@@ -1004,6 +1019,7 @@ type IterationLoopArgs = {
   enableTools?: boolean;
   excludeDeferredTools?: boolean;
   toolPalette?: string[];
+  bridgeAdvertisedTools?: string[] | null;
   /** Pre-built history. Mutates as the loop appends turns. */
   history: AnthropicMessage[];
   /** Iteration index to start at (0 for fresh, N+1 for resume). */
@@ -1030,17 +1046,32 @@ async function* runIterationLoop(
 ): AsyncGenerator<StreamYield> {
   const { apiKey, model, system, maxTokens, ctx, history } = args;
   const enableTools = args.enableTools !== false;
-  // Resolve which tools the model sees this turn. Three filters compose:
-  //   1. excludeDeferredTools — drops bridge-routed tools when bridge is
-  //      offline (set in /api/chat from getBridgeOnline()).
-  //   2. toolPalette — per-agent allowlist from manifest. Undefined =
-  //      no filter (full palette). Empty array = chat-only, no tools.
-  //   3. Both applied — intersection. Bridge-tool entries in the palette
-  //      still get filtered out when bridge is offline; cloud-tool entries
-  //      stay.
+  // Resolve which tools the model sees this turn. Four filters compose
+  // in order — most-restrictive last so the operator's intent wins:
+  //
+  //   1. excludeDeferredTools (bridge offline)
+  //      Drops every bridge-routed tool. Set by /api/chat when no
+  //      live bridge_pairings row is present.
+  //
+  //   2. bridgeAdvertisedTools (Phase F)
+  //      When the operator's bridge has reported a capability list,
+  //      restrict bridge tools to the intersection of what the bridge
+  //      advertises AND what TOOL_DEFINITIONS knows. Skipped on null
+  //      (older bridge daemons / never-pinged pairings) — falls back
+  //      to the hardcoded TOOL_DEFINITIONS bridge set.
+  //
+  //   3. toolPalette (Phase D — manifest per-agent allowlist)
+  //      Operator's intent: "what's this agent allowed to call?"
+  //      Undefined = no filter; empty array = chat-only.
+  //
+  //   4. Cloud tools (defer:false) are unaffected by 1+2 — they
+  //      execute server-side on Vercel, not the bridge.
   let activeTools: ToolDef[] = TOOL_DEFINITIONS;
   if (args.excludeDeferredTools) {
     activeTools = activeTools.filter((t) => !t.defer);
+  } else if (args.bridgeAdvertisedTools !== undefined && args.bridgeAdvertisedTools !== null) {
+    const advertised = new Set(args.bridgeAdvertisedTools);
+    activeTools = activeTools.filter((t) => !t.defer || advertised.has(t.name));
   }
   if (args.toolPalette !== undefined) {
     const allow = new Set(args.toolPalette);

@@ -95,6 +95,48 @@ export async function getBridgeOnline(tenantId: string | null): Promise<boolean>
   }
 }
 
+/**
+ * Phase F of giggly-reef — return the tool registry the operator's currently
+ * live bridge has advertised, or null when no bridge is online or the
+ * advertised list is empty (no filter, fall back to TOOL_DEFINITIONS defaults).
+ *
+ * Used by /api/chat to filter the bridge tools sent to Anthropic: dashboard
+ * shouldn't advertise read_file if the operator's bridge version doesn't ship
+ * that tool yet. Single round-trip — same row getBridgeOnline reads, plus
+ * the tool_capabilities column.
+ */
+export async function getBridgeToolCapabilities(
+  tenantId: string | null,
+): Promise<{ online: boolean; tools: string[] | null }> {
+  if (!tenantId) return { online: false, tools: null };
+  try {
+    const db = getServiceSupabase();
+    const r = await db
+      .from("bridge_pairings")
+      .select("last_seen_at, tool_capabilities")
+      .eq("tenant_id", tenantId)
+      .is("revoked_at", null)
+      .order("last_seen_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const row = r.data as
+      | { last_seen_at?: string | null; tool_capabilities?: string[] | null }
+      | null;
+    if (!row?.last_seen_at) return { online: false, tools: null };
+    const online = Date.now() - new Date(row.last_seen_at).getTime() < 5 * 60 * 1000;
+    if (!online) return { online: false, tools: null };
+    const tools = Array.isArray(row.tool_capabilities)
+      ? row.tool_capabilities.filter((t): t is string => typeof t === "string")
+      : [];
+    // Empty array → bridge online but never ran the new daemon (pre-Phase-F).
+    // Fall back to null so /api/chat treats as "no filter" and uses the
+    // hardcoded defaults. Preserves backwards-compat with existing pairings.
+    return { online, tools: tools.length > 0 ? tools : null };
+  } catch {
+    return { online: false, tools: null };
+  }
+}
+
 export async function getTodayPlan(profileId: string): Promise<DailyPlan | null> {
   // Tenant data sovereignty: when EMPIRE_DATA_BACKEND=turso_local + TURSO_DB_PATH
   // is set, read from the client's local libSQL file instead of Supabase. Falls

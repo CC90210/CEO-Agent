@@ -12,14 +12,20 @@
  *         metadata?: { version?: string, path?: string, ... },
  *         last_error?: string
  *       }
- *     }
+ *     },
+ *     // Phase F of giggly-reef — bridge advertises which local tools its
+ *     // installation has registered. Dashboard reads this when filtering
+ *     // TOOL_DEFINITIONS so it doesn't tell the model about read_file when
+ *     // the operator's bridge version doesn't ship that tool yet.
+ *     tool_capabilities?: string[]
  *   }
  *
  * Effect:
  *   - Bumps bridge_pairings.last_seen_at + last_seen_ip for the active token.
+ *   - Stamps bridge_pairings.tool_capabilities when present in the body.
  *   - Upserts each service into integrations_health for the resolved tenant.
  *
- * Returns: { ok, pairing_id, services_recorded }
+ * Returns: { ok, pairing_id, services_recorded, tool_capabilities_recorded }
  */
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -63,22 +69,37 @@ export async function POST(req: NextRequest) {
     profileId = pf.data?.id || null;
   }
 
-  let body: { services?: Record<string, ServiceReport> };
+  let body: {
+    services?: Record<string, ServiceReport>;
+    tool_capabilities?: string[];
+  };
   try {
     body = await req.json();
   } catch {
     return bad(400, "body must be JSON");
   }
 
-  // Touch the pairing's heartbeat
+  // Touch the pairing's heartbeat. If the bridge included a tool_capabilities
+  // list, stamp it on the pairing too — dashboard reads this when filtering
+  // TOOL_DEFINITIONS for the /api/chat tool palette.
   const ipHeader = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip");
   const ip = ipHeader ? ipHeader.split(",")[0].trim() : null;
+  const pairingUpdate: Record<string, unknown> = {
+    last_seen_at: new Date().toISOString(),
+    last_seen_ip: ip,
+  };
+  let toolCapsRecorded = false;
+  if (Array.isArray(body.tool_capabilities)) {
+    // Defensive — refuse anything that isn't a list of plain strings.
+    const cleaned = body.tool_capabilities
+      .filter((t): t is string => typeof t === "string" && t.length > 0)
+      .map((t) => t.toLowerCase());
+    pairingUpdate.tool_capabilities = cleaned;
+    toolCapsRecorded = true;
+  }
   await db
     .from("bridge_pairings")
-    .update({
-      last_seen_at: new Date().toISOString(),
-      last_seen_ip: ip,
-    })
+    .update(pairingUpdate)
     .eq("id", pairing.data.id);
 
   // Upsert per-service health rows, tenant-scoped
@@ -108,5 +129,6 @@ export async function POST(req: NextRequest) {
     ok: true,
     pairing_id: pairing.data.id,
     services_recorded: recorded,
+    tool_capabilities_recorded: toolCapsRecorded,
   });
 }
