@@ -38,6 +38,8 @@ import {
   saveManifest,
 } from "@/lib/manifest/persistence";
 import { PROTECTED_SLUGS } from "@/lib/manifest/guards";
+import { buildSunbizSequenceRows } from "@/lib/sunbiz-default-sequences";
+import { isMissingTableError } from "@/lib/api-helpers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -206,6 +208,47 @@ export async function POST(req: NextRequest) {
         // Log but don't fail the response — the manifest is already saved.
         console.warn(
           `[onboarding.wizard] owner-promotion failed for profile ${profile.id}: ${promote.error.message}`
+        );
+      }
+    }
+
+    // Phase 4.5 — seed the 5 starter SunBiz drip sequences when the
+    // business_funding template is provisioned. Best-effort; sequences
+    // can also be created from /sequences if this side-effect fails.
+    // We check if any sequences already exist for this tenant to avoid
+    // double-seeding on wizard re-runs (operator edits brand + re-saves).
+    if (template === "business_funding") {
+      try {
+        const existing = await service
+          .from("drip_sequences")
+          .select("id", { count: "exact", head: true })
+          .eq("tenant_id", profile.tenant_id);
+        const seedNeeded = !existing.error && (existing.count ?? 0) === 0;
+        if (seedNeeded) {
+          const rows = buildSunbizSequenceRows(profile.tenant_id, user.id);
+          const seedRes = await service.from("drip_sequences").insert(rows);
+          if (seedRes.error) {
+            // Migration 043 not yet applied is the most common case here —
+            // we log but don't fail the response. Operator applies the
+            // migration later and can create sequences from /sequences.
+            if (isMissingTableError(seedRes.error, "public.drip_sequences")) {
+              console.info(
+                `[onboarding.wizard] migration 043 not applied yet; skipping default-sequences seed for ${slug}`,
+              );
+            } else {
+              console.warn(
+                `[onboarding.wizard] default-sequences seed failed for ${slug}: ${seedRes.error.message}`,
+              );
+            }
+          } else {
+            console.info(
+              `[onboarding.wizard] seeded ${rows.length} default sequences for SunBiz tenant ${slug}`,
+            );
+          }
+        }
+      } catch (err) {
+        console.warn(
+          `[onboarding.wizard] default-sequences seed crashed for ${slug}: ${err instanceof Error ? err.message : "unknown"}`,
         );
       }
     }
