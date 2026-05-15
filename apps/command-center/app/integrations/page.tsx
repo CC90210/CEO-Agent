@@ -9,39 +9,35 @@ import {
 } from "@/lib/client-profiles";
 import {
   INTEGRATION_CATEGORIES,
-  KNOWN_INTEGRATIONS,
+  visibleIntegrationsForTenant,
   type IntegrationCategory,
 } from "@/lib/integrations-registry";
 import { resolveAgentKey } from "@/lib/agents";
+import { isOperatorEmail } from "@/lib/operator-credentials";
+import { getSessionUser } from "@/lib/supabase-server";
 import type { IntegrationHealth } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
 export default async function IntegrationsPage() {
   const profile = await safe("integrations.profile", getActiveProfile(), null);
-  const demoProfile = getClientCommandCenterProfileById(
+  // Demo-profile cookie is still respected for unauthed reviewers walking
+  // the /demo/sun shell, but for authed tenants we use the same agent-
+  // intersection rules as the Settings page so the two surfaces stay in sync.
+  const _demoProfile = getClientCommandCenterProfileById(
     (await cookies()).get(DEMO_CLIENT_PROFILE_COOKIE)?.value || null
   );
-  // Sun profile detection — resolveAgentKey normalises legacy "sunbiz" rows to "solara".
-  const primaryResolved = resolveAgentKey(profile?.primary_agent || "");
-  const enabledResolved = (profile?.agents_enabled || []).map(resolveAgentKey);
-  const isSunProfile =
-    demoProfile.id === "sun" ||
-    primaryResolved === "solara" || primaryResolved === "helios" ||
-    enabledResolved.includes("solara") || enabledResolved.includes("helios");
+  void _demoProfile;
 
-  const [dbRows, connectedAiSet] = await Promise.all([
+  const [dbRows, connectedAiSet, user] = await Promise.all([
     safe("integrations.health", integrationsHealth(profile?.tenant_id || null), []),
     safe("integrations.ai_keys", aiServicesWithKey(profile?.tenant_id || null), new Set<string>()),
+    getSessionUser().catch(() => null),
   ]);
 
-  // SunBiz pulls in Turso + anything used by Solara (operational) or Helios (sales).
-  const visibleDefinitions = KNOWN_INTEGRATIONS.filter((definition) =>
-    !isSunProfile ||
-    definition.service === "turso" ||
-    definition.used_by?.includes("solara") ||
-    definition.used_by?.includes("helios")
-  );
+  const enabledAgents = (profile?.agents_enabled || []).map(resolveAgentKey);
+  const isOperator = isOperatorEmail(user?.email || undefined);
+  const visibleDefinitions = visibleIntegrationsForTenant(enabledAgents, { isOperator });
 
   const dbByService = new Map(dbRows.map((row) => [row.service, row] as const));
   const allRows: IntegrationHealth[] = visibleDefinitions.map((definition) => {
@@ -78,9 +74,9 @@ export default async function IntegrationsPage() {
       <PageHeader
         title="Integrations"
         subtitle={
-          isSunProfile
-            ? `${allRows.length} core connections that keep Solara running`
-            : `${allRows.length} services in your stack — click any card to sign up or grab an API key`
+          isOperator
+            ? `${allRows.length} services in your stack — click any card to sign up or grab an API key`
+            : `${allRows.length} services your enabled agents actually use. Enable more agents to unlock additional integrations.`
         }
         action={
           <div className="flex items-center gap-2">
@@ -111,18 +107,18 @@ export default async function IntegrationsPage() {
       })}
 
       <Card
-        title={isSunProfile ? "How to read this page" : "How pings work"}
+        title={isOperator ? "How pings work" : "How to read this page"}
         subtitle={
-          isSunProfile
-            ? "Green means connected. Gray means Solara is still waiting on that connection."
-            : "A green dot means the service was successfully called recently. 'Not connected' means we haven't seen activity yet — click the card to sign up."
+          isOperator
+            ? "A green dot means the service was successfully called recently. 'Not connected' means we haven't seen activity yet — click the card to sign up."
+            : "Green means connected. Gray means your agents are still waiting on that connection."
         }
       >
         <div className="text-sm text-fg-muted space-y-2 leading-relaxed">
-          {isSunProfile ? (
+          {!isOperator ? (
             <>
               <p>
-                Solara only needs a few visible connections to do her job well: lead intake, follow-up, and her Local Brain.
+                Each agent you enable brings the integrations it needs to do its job. Add a sales-facing agent and SMS / messaging tools appear; add a finance agent and the money tools appear.
               </p>
               <p>
                 If something here drops offline, reconnect it, then come back to the dashboard and confirm the pulse check turns green again.

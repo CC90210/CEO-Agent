@@ -48,12 +48,6 @@ const AGENT_PACKAGES: { id: string; label: string; description: string; agents: 
     description: "Solara runs the back office (pipeline, applications, lender match, renewals). Helios is the sales voice (cold SMS, follow-ups, closing).",
     agents: ["solara", "helios"],
   },
-  {
-    id: "brand_command",
-    label: "Brand Command (Lyra)",
-    description: "Lyra is the brand-command primary, with sub-agents for captions, fan engagement, and merch/sponsorship.",
-    agents: ["lyra", "lyra_brand", "lyra_fans", "lyra_commerce"],
-  },
 ];
 
 /**
@@ -294,7 +288,7 @@ export function OnboardingWizardClient({ userEmail }: { userEmail?: string }) {
             <div>
               <h2 className="text-xl font-bold">Pick your agents</h2>
               <p className="text-sm text-fg-muted mt-1">
-                Multi-select across packages — your shell can run the C-suite, a SunBiz pack, the Lyra brand crew, or any mix. We pre-checked the typical setup for{" "}
+                Multi-select across packages — your shell can run the C-suite, a SunBiz pack, or any mix. We pre-checked the typical setup for{" "}
                 <strong className="text-fg">{INDUSTRIES.find((i) => i.key === template)?.title}</strong>; adjust freely. You can chat with all enabled agents and switch in the dropdown.
               </p>
             </div>

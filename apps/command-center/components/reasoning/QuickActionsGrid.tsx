@@ -28,9 +28,9 @@ export function QuickActionsGrid({ actions }: { actions: QuickAction[] }) {
   }, {});
 
   // Stable order: preferred sequence first, then any other agents in the
-  // order they appeared. Lets new agent packs (Solara/Helios, Lyra, etc.)
-  // render without each one being hand-added here.
-  const PREFERRED_ORDER = ["bravo", "atlas", "maven", "aura", "hermes", "lumen", "life-preservation", "solara", "helios", "lyra", "lyra_brand", "lyra_fans", "lyra_commerce"];
+  // order they appeared. Lets new agent packs (Solara/Helios, etc.) render
+  // without each one being hand-added here.
+  const PREFERRED_ORDER = ["bravo", "atlas", "maven", "aura", "hermes", "lumen", "life-preservation", "solara", "helios"];
   const seen = new Set<string>();
   const agentOrder: string[] = [];
   for (const slug of PREFERRED_ORDER) {

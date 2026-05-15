@@ -101,8 +101,8 @@ const SUGA_PROFILE: ClientCommandCenterProfile = {
   subtitle: "Brand Command",
   footerLabel: "Suga · Brand Command · v0.1",
   footerTagline: "Fans first. Always.",
-  agentLabel: "Lyra",
-  primaryAgent: "lyra",
+  agentLabel: "Maven",
+  primaryAgent: "maven",
   // Brand + fan data is PII-adjacent — Turso local file by default. Cloud
   // override via EMPIRE_DATA_BACKEND=supabase_cloud at runtime if needed.
   dataBackend: "turso",

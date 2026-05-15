@@ -46,7 +46,14 @@ export type IntegrationDef = {
   setup_doc_url?: string;
   setup_complexity: SetupComplexity;
   /** Which agent(s) actually use this integration. */
-  used_by?: ("bravo" | "atlas" | "maven" | "aura" | "hermes" | "solara" | "helios" | "lyra")[];
+  used_by?: ("bravo" | "atlas" | "maven" | "aura" | "hermes" | "solara" | "helios")[];
+  /**
+   * Platform-infra integrations (Supabase, Vercel, Cloudflare, Hostinger,
+   * GitHub, n8n) are developer tools for the OASIS operator, not client
+   * tenants. Hidden from non-operator tenants regardless of agent
+   * enablement. Settings + /integrations both honor this flag.
+   */
+  developer_only?: boolean;
   /** For api_key kind: which env var the key-paste modal writes to in
    *  .env.agents. If omitted, modal won't appear and the user falls back
    *  to the manual signup_url + api_key_url affordance. */
@@ -66,6 +73,7 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     setup_doc_url: "https://supabase.com/docs/guides/getting-started",
     setup_complexity: "moderate",
     used_by: ["bravo"],
+    developer_only: true,
     env_key: "SUPABASE_ACCESS_TOKEN",
   },
   {
@@ -77,6 +85,7 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     signup_url: "https://vercel.com/signup",
     api_key_url: "https://vercel.com/account/tokens",
     setup_complexity: "trivial",
+    developer_only: true,
     env_key: "VERCEL_TOKEN",
   },
   {
@@ -88,6 +97,7 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     signup_url: "https://dash.cloudflare.com/sign-up",
     api_key_url: "https://dash.cloudflare.com/profile/api-tokens",
     setup_complexity: "moderate",
+    developer_only: true,
     env_key: "CLOUDFLARE_API_TOKEN",
   },
   {
@@ -99,6 +109,7 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     signup_url: "https://www.hostinger.com/",
     api_key_url: "https://hpanel.hostinger.com/profile/api",
     setup_complexity: "moderate",
+    developer_only: true,
     env_key: "HOSTINGER_API_KEY",
   },
   {
@@ -111,6 +122,7 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     api_key_url: "https://github.com/settings/tokens",
     setup_complexity: "simple",
     used_by: ["bravo"],
+    developer_only: true,
     env_key: "GITHUB_TOKEN",
   },
 
@@ -366,6 +378,7 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     api_key_url: "https://docs.n8n.io/api/authentication/",
     setup_complexity: "advanced",
     used_by: ["bravo"],
+    developer_only: true,
     env_key: "N8N_API_KEY",
   },
   {
@@ -435,6 +448,7 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     connection_kind: "built_in",
     setup_complexity: "trivial",
     used_by: ["bravo", "maven"],
+    developer_only: true,
   },
   {
     service: "browser_harness",
@@ -445,6 +459,7 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
     signup_url: "https://www.google.com/chrome/",
     setup_complexity: "moderate",
     used_by: ["bravo"],
+    developer_only: true,
   },
 
   // ── AI providers ───────────────────────────────────────────────
@@ -476,15 +491,16 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
   },
   {
     service: "openai_codex",
-    label: "OpenAI",
+    label: "OpenAI Codex",
     category: "ai",
-    description: "GPT-5.x + Codex models",
+    description: "Codex executor for backend tasks — used by Bravo for delegation",
     connection_kind: "api_key",
     signup_url: "https://platform.openai.com/signup",
     api_key_url: "https://platform.openai.com/api-keys",
     setup_doc_url: "https://platform.openai.com/docs/quickstart",
     setup_complexity: "trivial",
     used_by: ["bravo"],
+    developer_only: true,
     env_key: "OPENAI_API_KEY",
   },
   {
@@ -531,4 +547,34 @@ export function categorize(integration: { service: string }): IntegrationDef | n
 
 export function getIntegration(service: string): IntegrationDef | null {
   return KNOWN_INTEGRATIONS.find((i) => i.service === service) || null;
+}
+
+/**
+ * Filter the integration catalog for what THIS tenant should actually see.
+ *
+ * Rules (in order):
+ *   1. `developer_only: true` integrations are platform infra — hidden from
+ *      non-operator tenants regardless of their enabled agents. Vercel,
+ *      Cloudflare, Hostinger, GitHub, Supabase, n8n_inbound, Playwright,
+ *      Browser Harness, OpenAI Codex.
+ *   2. If the integration has a `used_by` list, at least one of those
+ *      agents must be in the tenant's `enabledAgents`. Stripe is only
+ *      shown when Atlas is enabled; Twilio (text_torrent) only when
+ *      Helios is. This way clients see exactly what's relevant — and the
+ *      grid re-grows naturally when they enable a new agent.
+ *   3. If the integration has no `used_by` (e.g. AI providers like
+ *      OpenRouter / Anthropic / Google Gemini), it's shown to everyone.
+ *
+ * The operator (CC, ADMIN_EMAILS) bypasses rule 1 — they see everything.
+ */
+export function visibleIntegrationsForTenant(
+  enabledAgents: string[],
+  opts: { isOperator: boolean }
+): IntegrationDef[] {
+  const enabledSet = new Set(enabledAgents.map((a) => a.toLowerCase()));
+  return KNOWN_INTEGRATIONS.filter((def) => {
+    if (def.developer_only && !opts.isOperator) return false;
+    if (!def.used_by || def.used_by.length === 0) return true;
+    return def.used_by.some((agent) => enabledSet.has(agent));
+  });
 }
