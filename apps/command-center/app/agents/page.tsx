@@ -45,23 +45,12 @@ export default async function AgentsPage() {
   const profile = await getActiveProfile();
   const user = await getSessionUser();
   const isAdmin = isOperatorEmail(user?.email);
-  const [states, events, integrations, stats, noBridge] = await Promise.all([
-    agentStates(),
-    // sinceDays: 0 — same fix as /operations. Default 7-day window left
-    // the Event Bus card looking empty when crons / inbound traffic had
-    // been quiet for a week, even though the table had history.
-    recentEvents(25, { sinceDays: 0 }),
-    integrationsHealth(profile?.tenant_id || null),
-    getAgentStats(profile?.primary_agent || "bravo"),
-    _tenantHasNoBridge(profile?.tenant_id || null),
-  ]);
 
-  // Phase 5 — manifest is the source of truth for enabled agents per tenant.
-  // Resolve the manifest for the operator's tenant, derive the enabled slugs
-  // from manifest.agents (filtered by enabled === true), and feed that to the
-  // chat widget so the dropdown reflects exactly what's been subscribed via
-  // the marketplace. We fall back to FAMILY_AGENT_KEYS if the manifest has no
-  // agents declared (brand-new tenants pre-wizard).
+  // Resolve the manifest BEFORE the parallel fetch so we can scope
+  // agentStates() by the tenant's enabled agents. Without this scoping,
+  // agent_state_snapshot is read globally and a SunBiz tenant would see
+  // CC's OASIS Bravo heartbeats (the table has no tenant_id column yet —
+  // see queries.ts:agentStates() docstring).
   const tenantSlugForManifest = profile?.tenant_id
     ? await getTenant(profile.tenant_id)
         .then((t) => resolveClientProfileSlug(t || null))
@@ -71,6 +60,17 @@ export default async function AgentsPage() {
   const manifestEnabledSlugs = (manifestForAgents?.agents || [])
     .filter((a) => a.enabled)
     .map((a) => a.slug.toLowerCase());
+
+  const [states, events, integrations, stats, noBridge] = await Promise.all([
+    agentStates(manifestEnabledSlugs),
+    // sinceDays: 0 — same fix as /operations. Default 7-day window left
+    // the Event Bus card looking empty when crons / inbound traffic had
+    // been quiet for a week, even though the table had history.
+    recentEvents(25, { sinceDays: 0 }),
+    integrationsHealth(profile?.tenant_id || null),
+    getAgentStats(profile?.primary_agent || "bravo"),
+    _tenantHasNoBridge(profile?.tenant_id || null),
+  ]);
 
   const familySet = new Set(FAMILY_AGENT_KEYS);
   // For the "Agent family" card below we still want the rich metadata from
