@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-15T20:20:45.619466+00:00",
-  "script_count": 88,
-  "entry_count": 323,
+  "generated_at_iso": "2026-05-15T20:41:25.287383+00:00",
+  "script_count": 90,
+  "entry_count": 335,
   "entries": [
     {
       "key": "agent_heartbeat",
@@ -1018,6 +1018,41 @@
       "subcmd": "stats",
       "mutating": false,
       "help": "Inbound Classifier \u2014 the second half of V5.6's chokepoint. \u2014 subcommand: stats"
+    },
+    {
+      "key": "kixie_tool_call",
+      "path": "scripts/kixie_tool.py",
+      "subcmd": "call",
+      "mutating": false,
+      "help": "Kixie CLI Tool \u2014 outbound dialer + click-to-call + live transfer. \u2014 subcommand: call"
+    },
+    {
+      "key": "kixie_tool_click_to_call",
+      "path": "scripts/kixie_tool.py",
+      "subcmd": "click-to-call",
+      "mutating": false,
+      "help": "Kixie CLI Tool \u2014 outbound dialer + click-to-call + live transfer. \u2014 subcommand: click-to-call"
+    },
+    {
+      "key": "kixie_tool_transfer",
+      "path": "scripts/kixie_tool.py",
+      "subcmd": "transfer",
+      "mutating": false,
+      "help": "Kixie CLI Tool \u2014 outbound dialer + click-to-call + live transfer. \u2014 subcommand: transfer"
+    },
+    {
+      "key": "kixie_tool_agents",
+      "path": "scripts/kixie_tool.py",
+      "subcmd": "agents",
+      "mutating": false,
+      "help": "Kixie CLI Tool \u2014 outbound dialer + click-to-call + live transfer. \u2014 subcommand: agents"
+    },
+    {
+      "key": "kixie_tool_status",
+      "path": "scripts/kixie_tool.py",
+      "subcmd": "status",
+      "mutating": false,
+      "help": "Kixie CLI Tool \u2014 outbound dialer + click-to-call + live transfer. \u2014 subcommand: status"
     },
     {
       "key": "lead_engine_list",
@@ -2208,6 +2243,55 @@
       "subcmd": null,
       "mutating": true,
       "help": "Tests for the V5.6 + reasoning-loop stack."
+    },
+    {
+      "key": "text_torrent_tool_blast",
+      "path": "scripts/text_torrent_tool.py",
+      "subcmd": "blast",
+      "mutating": false,
+      "help": "TextTorrent CLI Tool \u2014 direct API client for SMS blast + analytics + local- \u2014 subcommand: blast"
+    },
+    {
+      "key": "text_torrent_tool_send",
+      "path": "scripts/text_torrent_tool.py",
+      "subcmd": "send",
+      "mutating": true,
+      "help": "TextTorrent CLI Tool \u2014 direct API client for SMS blast + analytics + local- \u2014 subcommand: send"
+    },
+    {
+      "key": "text_torrent_tool_lists",
+      "path": "scripts/text_torrent_tool.py",
+      "subcmd": "lists",
+      "mutating": false,
+      "help": "TextTorrent CLI Tool \u2014 direct API client for SMS blast + analytics + local- \u2014 subcommand: lists"
+    },
+    {
+      "key": "text_torrent_tool_list_stats",
+      "path": "scripts/text_torrent_tool.py",
+      "subcmd": "list-stats",
+      "mutating": false,
+      "help": "TextTorrent CLI Tool \u2014 direct API client for SMS blast + analytics + local- \u2014 subcommand: list-stats"
+    },
+    {
+      "key": "text_torrent_tool_purchase_number",
+      "path": "scripts/text_torrent_tool.py",
+      "subcmd": "purchase-number",
+      "mutating": false,
+      "help": "TextTorrent CLI Tool \u2014 direct API client for SMS blast + analytics + local- \u2014 subcommand: purchase-number"
+    },
+    {
+      "key": "text_torrent_tool_numbers",
+      "path": "scripts/text_torrent_tool.py",
+      "subcmd": "numbers",
+      "mutating": false,
+      "help": "TextTorrent CLI Tool \u2014 direct API client for SMS blast + analytics + local- \u2014 subcommand: numbers"
+    },
+    {
+      "key": "text_torrent_tool_status",
+      "path": "scripts/text_torrent_tool.py",
+      "subcmd": "status",
+      "mutating": false,
+      "help": "TextTorrent CLI Tool \u2014 direct API client for SMS blast + analytics + local- \u2014 subcommand: status"
     },
     {
       "key": "tft_forecast_build_dataset",
