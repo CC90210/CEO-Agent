@@ -72,18 +72,36 @@ export async function POST(req: NextRequest) {
 
   const db = getServiceSupabase();
 
-  // Resolve the form's tenant_id from the form row (don't trust the
-  // token's tenant slug for DB writes — only the form_id is the FK
-  // boundary we need).
+  // Resolve the form + join tenant for the three-way cross-check.
+  // Codex review 2026-05-15: the prior implementation skipped the
+  // tenant.slug verification that /api/forms/submit and the public
+  // form page both enforce. A token whose tenant slug has drifted
+  // (e.g. tenant was renamed after the token was minted) could record
+  // views and update stages under whichever tenant currently owns
+  // the form row. Three-way bind matches the submit + page paths:
+  //   1. HMAC verifies link.tenant + link.form_id + link.lead_id
+  //   2. Form row's tenant.slug must equal link.tenant
+  //   3. Form row's enabled must be true
   const formRow = await db
     .from("forms")
-    .select("id, tenant_id, enabled")
+    .select("id, tenant_id, enabled, tenant:tenants!inner(slug)")
     .eq("id", link.form_id)
     .maybeSingle();
   if (formRow.error || !formRow.data) {
     return NextResponse.json({ ok: false, error: "form_not_found" }, { status: 404 });
   }
-  const form = formRow.data as { id: string; tenant_id: string; enabled: boolean };
+  const form = formRow.data as {
+    id: string;
+    tenant_id: string;
+    enabled: boolean;
+    tenant: { slug: string } | { slug: string }[] | null;
+  };
+  // PostgREST returns the joined relation as an object or array
+  // depending on cardinality — normalize.
+  const tenantRow = Array.isArray(form.tenant) ? form.tenant[0] : form.tenant;
+  if (!tenantRow || tenantRow.slug !== link.tenant) {
+    return NextResponse.json({ ok: false, error: "tenant_mismatch" }, { status: 400 });
+  }
   if (!form.enabled) {
     return NextResponse.json({ ok: false, error: "form_disabled" }, { status: 400 });
   }

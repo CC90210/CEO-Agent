@@ -383,7 +383,7 @@ export async function POST(req: NextRequest) {
               //
               // Phase H: sign resume_state with HMAC so /api/chat/resume
               // can verify it was server-issued. Browser is a passthrough;
-              // it can't mint valid signatures because BRAVO_RESUME_HMAC_KEY
+              // it can't mint valid signatures because CHAT_RESUME_HMAC_KEY
               // is server-only. In production, signResumeState returns null
               // if the env var is missing — we fail closed by emitting an
               // error event instead of a tool_use_pending.

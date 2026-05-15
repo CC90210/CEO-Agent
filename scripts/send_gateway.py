@@ -1931,12 +1931,25 @@ def send(
                 if effective_cooldown else None,
                 "daily_count": None}
 
-    # ---- SMS dispatch (Phase 5.3 of SunBiz CRM) ----
+    # ---- SMS dispatch (Phase 5.3 of SunBiz CRM, reservation-pattern
+    # fix per Codex adversarial review 2026-05-15) ----
     # SMS goes through the chokepoint inline (mirrors email) rather than
     # log-only (which is what instagram / phone / skool / telegram do).
     # The drip sequence runner calls this from autonomous code paths;
     # it can't perform the physical send itself without re-implementing
     # provider routing, retry, and credential loading.
+    #
+    # Codex flagged: the prior implementation skipped the reservation
+    # idempotency pattern that email uses. Two concurrent send() calls
+    # could both pass can_act + both dispatch + both log, double-spending
+    # the cooldown budget without the ledger reflecting it. The
+    # reservation-then-dispatch-then-finalize pattern fixes that:
+    #   1. reserve_send_slot inserts a lead_interactions row in
+    #      "reserving" state BEFORE provider dispatch (atomic claim)
+    #   2. If reservation fails -> early return error (no double-claim)
+    #   3. Provider dispatch
+    #   4. finalize_reserved_action flips the reservation row to
+    #      sms_sent / sms_failed AFTER provider response
     if channel == "sms":
         # to_phone is guaranteed non-None here by the per-channel
         # validation above. Type narrowing for the type checker.
@@ -1967,18 +1980,6 @@ def send(
                         "reason": "sms channel needs either TWILIO_ACCOUNT_SID+TWILIO_AUTH_TOKEN or TEXTTORRENT_API_KEY configured in the agents env file",
                         "lead_id": lead_id, "interaction_id": None,
                         "cooldown_until": None, "daily_count": None}
-        ok, sms_err, sms_meta = _send_sms_via_provider(
-            env=env,
-            provider=provider_choice,
-            to_phone=to_phone,
-            body_text=body_text,
-            brand=brand,
-        )
-        if not ok:
-            return {"status": "error",
-                    "reason": f"sms provider '{provider_choice}': {sms_err}",
-                    "lead_id": lead_id, "interaction_id": None,
-                    "cooldown_until": None, "daily_count": None}
 
         effective_cooldown = (
             cooldown_hours
@@ -1991,10 +1992,67 @@ def send(
             "intent": intent,
             "sms_provider": provider_choice,
             "sent_at": datetime.now(timezone.utc).isoformat(),
-            **sms_meta,
         })
-        interaction_id = log_action(
+
+        # ── 1. Reserve the slot BEFORE provider dispatch ──────────────
+        # Atomic claim via reserve_send_slot. If two concurrent sends
+        # race, only one wins the reservation; the other gets blocked
+        # or errors at this gate, BEFORE the provider gets called.
+        reservation = reserve_send_slot(
             db=db,
+            lead_id=lead_id,
+            channel=channel,
+            subject=None,  # SMS has no subject
+            content_preview=body_text,
+            agent_source=agent_source,
+            cooldown_hours=effective_cooldown,
+            metadata=full_metadata,
+        )
+        if reservation["status"] == "blocked":
+            return {"status": "blocked",
+                    "reason": reservation["reason"],
+                    "lead_id": lead_id, "interaction_id": None,
+                    "cooldown_until": None, "daily_count": None}
+        if reservation["status"] != "reserved":
+            return {"status": "error",
+                    "reason": reservation.get("reason", "reservation failed"),
+                    "lead_id": lead_id, "interaction_id": None,
+                    "cooldown_until": None, "daily_count": None}
+
+        # ── 2. Provider dispatch ──────────────────────────────────────
+        ok, sms_err, sms_meta = _send_sms_via_provider(
+            env=env,
+            provider=provider_choice,
+            to_phone=to_phone,
+            body_text=body_text,
+            brand=brand,
+        )
+
+        # ── 3. Finalize the reservation with sent or failed state ─────
+        if not ok:
+            finalize_reserved_action(
+                db=db,
+                interaction_id=reservation.get("reservation_id"),
+                lead_id=lead_id,
+                channel=channel,
+                action_type="sms_failed",
+                subject=None,
+                content_preview=body_text,
+                agent_source=agent_source,
+                cooldown_hours=None,  # don't burn cooldown on a failed send
+                metadata=full_metadata,
+                to_email=None,
+                error_message=sms_err,
+            )
+            return {"status": "error",
+                    "reason": f"sms provider '{provider_choice}': {sms_err}",
+                    "lead_id": lead_id, "interaction_id": None,
+                    "cooldown_until": None, "daily_count": None}
+
+        full_metadata.update(sms_meta)
+        interaction_id = finalize_reserved_action(
+            db=db,
+            interaction_id=reservation.get("reservation_id"),
             lead_id=lead_id,
             channel=channel,
             action_type="sms_sent",
@@ -2003,7 +2061,7 @@ def send(
             agent_source=agent_source,
             cooldown_hours=effective_cooldown,
             metadata=full_metadata,
-            to_email=None,  # SMS has no email; phone is in metadata
+            to_email=None,
         )
         _emit_outbound_sent(lead_id, channel, interaction_id, intent, brand)
         return {"status": "sent",
