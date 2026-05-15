@@ -336,9 +336,41 @@ function ConnectProviderDialog({
         </div>
 
         <div className="p-5 space-y-4">
+          {/* Two-step guided flow:
+                Step 1 — open the provider's account console (where their
+                Claude.ai / ChatGPT subscription already lives) in a popup
+                so signing in feels like an OAuth handshake.
+                Step 2 — back here, paste the key from that console.
+
+              Why we don't do real OAuth pass-through: neither Anthropic nor
+              OpenAI exposes a public flow that lets a third party app use
+              a user's Claude.ai Pro or ChatGPT Plus subscription. The
+              "connectors" both vendors advertise work the OTHER direction
+              (their chat apps calling MCP servers). API key paste against
+              the developer console is the real path. We surface the trip
+              to the console so it feels less like manual data entry. */}
+          <div className="rounded-md border border-bg-border bg-bg-deep/40 p-3">
+            <div className="text-[11px] uppercase tracking-wider text-fg-dim font-bold mb-1">
+              Step 1 · Sign in to {reg.label}
+            </div>
+            <p className="text-xs text-fg-muted leading-relaxed mb-2">
+              Opens {new URL(reg.apiKey).host} in a new tab. Log in with
+              your existing account, then copy your API key from there.
+            </p>
+            <a
+              href={reg.apiKey}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-secondary inline-flex items-center gap-1.5 text-xs"
+            >
+              Sign in &amp; get key{" "}
+              <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
+
           <div>
             <label className="text-xs font-bold uppercase tracking-wider text-fg-muted block mb-1.5">
-              API key
+              Step 2 · Paste your API key
             </label>
             <div className="relative">
               <input
@@ -359,15 +391,11 @@ function ConnectProviderDialog({
                 {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
-            <a
-              href={reg.apiKey}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[11px] text-accent hover:text-accent-bright inline-flex items-center gap-1 mt-2"
-            >
-              Get an API key at {new URL(reg.apiKey).host}{" "}
-              <ExternalLink className="w-3 h-3" />
-            </a>
+            <p className="text-[11px] text-fg-dim mt-2 leading-relaxed">
+              We encrypt the key at rest (AES-256-GCM) and never return it
+              to the browser after save. It powers cloud-mode chat for every
+              enabled agent.
+            </p>
           </div>
 
           <div>

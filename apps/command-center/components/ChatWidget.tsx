@@ -276,6 +276,10 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
   // initializer (always returns "auto" on the server, then localStorage
   // hydration runs in the mount effect below).
   const [chatMode, setChatModeState] = useState<ChatMode>("auto");
+  // Tracks which routing mode the most recent FAILED message used. Powers
+  // the "Retry on the other mode" affordance on the error banner. Null
+  // while everything is healthy or after a successful turn.
+  const [lastFailedMode, setLastFailedMode] = useState<"bridge" | "cloud" | null>(null);
   function setChatMode(next: ChatMode) {
     setChatModeState(next);
     if (typeof window !== "undefined") {
@@ -654,22 +658,36 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
   async function send() {
     const text = input.trim();
     if (!text || streaming) return;
+    setInput("");
+    return submitText(text);
+  }
+
+  /**
+   * Internal: send a user message with full routing logic. send() is the
+   * thin entry point from the composer; submitText also powers the
+   * "Retry on the other mode" button below the error banner — that retry
+   * passes a modeOverride so we route to the alternate path WITHOUT
+   * having to wait for setChatMode to flush before reading state.
+   */
+  async function submitText(text: string, modeOverride?: ChatMode) {
+    if (!text || streaming) return;
     setError(null);
     const now = Date.now();
     const newMessages: Msg[] = [...messages, { role: "user", content: text, at: now }];
     setMessages(newMessages);
-    setInput("");
     setMessages((m) => [...m, { role: "assistant", content: "", at: Date.now() }]);
     setStreaming(true);
     setThinking(true);
     setStreamStartedAt(Date.now());
-    // Resolve routing intent — honors the chat-mode picker. "auto" gives
-    // the historical fall-through (bridge if online, else cloud). "bridge"
-    // and "cloud" are explicit pins.
+    // Resolve routing intent — honors the chat-mode picker, with an explicit
+    // modeOverride taking precedence (used by the "Retry on the other mode"
+    // button below the error banner so the retry routes to the OTHER path
+    // without waiting for a setChatMode flush to land in React state).
+    const activeMode: ChatMode = modeOverride ?? chatMode;
     const wantsBridge =
-      chatMode === "bridge" ||
-      (chatMode === "auto" && bridgeOnline === true);
-    if (chatMode === "bridge" && bridgeOnline !== true) {
+      activeMode === "bridge" ||
+      (activeMode === "auto" && bridgeOnline === true);
+    if (activeMode === "bridge" && bridgeOnline !== true) {
       // Pinned to bridge but bridge isn't online — fail loud rather than
       // silently falling through to the API-key path. The operator chose
       // bridge for a reason.
@@ -733,6 +751,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
       if (!res.ok || !res.body) {
         const errBody = await safeReadJson(res);
         setError(errBody?.error || `http_${res.status}`);
+        setLastFailedMode(useBridge ? "bridge" : "cloud");
         setStreaming(false);
         setMessages((m) => m.slice(0, -1));
         return;
@@ -1015,6 +1034,9 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
         setError(
           "The agent returned no response. The bridge or upstream model closed the stream without sending any text. Check the bridge logs (pm2 logs claude-bridge) or your API-key quota."
         );
+        // Stash which route just failed so the error banner can offer a
+        // one-click retry on the OTHER route (CLI bridge ↔ cloud API key).
+        setLastFailedMode(useBridge ? "bridge" : "cloud");
         // Stale session_id can keep tripping the same failure if the
         // server-side process crashed — clear it for a clean retry.
         setSessionId(null);
@@ -1026,6 +1048,10 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
           }
           return m;
         });
+      } else {
+        // Successful turn — clear any stale "last failed mode" tracking so
+        // the retry button doesn't linger past the next happy message.
+        setLastFailedMode(null);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "request_failed");
@@ -1404,6 +1430,51 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
                   Too many messages too fast. Wait ~15 seconds and try again.
                 </div>
               )}
+              {/* One-click recovery: if a route failed (CLI or cloud), offer
+                  to re-send the same message on the OTHER route. The retry
+                  pops the trailing user message from history before calling
+                  submitText so the chat doesn't double-print "yo wsp" once
+                  the assistant replies. */}
+              {(() => {
+                if (!lastFailedMode || streaming) return null;
+                const otherMode: "bridge" | "cloud" =
+                  lastFailedMode === "bridge" ? "cloud" : "bridge";
+                const otherReady =
+                  otherMode === "bridge" ? bridgeReady : (cloudReady || isAdmin);
+                if (!otherReady) return null;
+                // Last user message — what we'll re-send. If history has no
+                // user message somehow, the button shouldn't appear.
+                const lastUser = [...messages].reverse().find((m) => m.role === "user");
+                if (!lastUser) return null;
+                const otherLabel =
+                  otherMode === "bridge" ? "CLI (local bridge)" : "API key (cloud)";
+                return (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const text = lastUser.content;
+                      setLastFailedMode(null);
+                      setError(null);
+                      // Pop the trailing user message so submitText doesn't
+                      // print it twice when it re-pushes its own copy.
+                      setMessages((m) => {
+                        const last = m[m.length - 1];
+                        if (last && last.role === "user" && last.content === text) {
+                          return m.slice(0, -1);
+                        }
+                        return m;
+                      });
+                      // Update the persisted picker too so subsequent turns
+                      // default to the working path.
+                      setChatMode(otherMode);
+                      void submitText(text, otherMode);
+                    }}
+                    className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-accent/40 bg-accent/10 hover:bg-accent/20 text-accent text-xs font-bold transition-colors"
+                  >
+                    Retry on {otherLabel} →
+                  </button>
+                );
+              })()}
             </div>
           </div>
         )}
