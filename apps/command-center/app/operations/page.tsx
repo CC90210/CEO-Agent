@@ -12,10 +12,13 @@
  */
 
 import { Card, PageHeader, Tag, EmptyState } from "@/components/Card";
-import { getActiveProfile, recentEvents } from "@/lib/queries";
+import { agentStates, getActiveProfile, getTenant, recentEvents } from "@/lib/queries";
 import { safe } from "@/lib/api-helpers";
-import { getServiceSupabase } from "@/lib/supabase-server";
-import { ALL_AGENT_KEYS, FAMILY_AGENT_KEYS, getAgentInfo } from "@/lib/agents";
+import { getServiceSupabase, getSessionUser } from "@/lib/supabase-server";
+import { ALL_AGENT_KEYS, FAMILY_AGENT_KEYS, getAgentInfo, resolveAgentKey } from "@/lib/agents";
+import { resolveClientProfileSlug } from "@/lib/client-profiles";
+import { getManifest } from "@/lib/manifest/loader";
+import { isOperatorEmail } from "@/lib/operator-credentials";
 import { timeAgo, truncate } from "@/lib/fmt";
 import { WarmPoolPanel } from "@/components/WarmPoolPanel";
 
@@ -46,20 +49,46 @@ export default async function OperationsPage({
   searchParams?: Promise<{ showOlder?: string }>;
 }) {
   const profile = await safe("operations.profile", getActiveProfile(), null);
+  const user = await getSessionUser().catch(() => null);
+  const isOperator = isOperatorEmail(user?.email || undefined);
   const db = getServiceSupabase();
   const sp = (await searchParams) || {};
   const showOlder = sp.showOlder === "1";
 
+  // Cross-tenant scoping for agent_state_snapshot + agent_events: resolve
+  // the tenant's enabled agents up front and pass to the helpers. Both
+  // tables predate the tenant_manifests system and have no tenant_id
+  // column today; the helpers proxy-filter by agent_name / publisher_agent
+  // to keep client tenants from seeing CC's OASIS heartbeats + activity.
+  // Operator (CC) bypasses via isOperator: true on the recentEvents call
+  // and explicit ALL_AGENT_KEYS fan-out on agentStates.
+  const tenantSlugForOps = profile?.tenant_id
+    ? await getTenant(profile.tenant_id)
+        .then((t) => resolveClientProfileSlug(t || null))
+        .catch(() => null)
+    : null;
+  const manifestForOps = await getManifest(tenantSlugForOps).catch(() => null);
+  const manifestEnabledSlugs = (manifestForOps?.agents || [])
+    .filter((a) => a.enabled)
+    .map((a) => a.slug.toLowerCase());
+  const agentNamesForOps = isOperator
+    ? ALL_AGENT_KEYS
+    : (manifestEnabledSlugs.length > 0
+        ? manifestEnabledSlugs
+        : (profile?.agents_enabled || []).map(resolveAgentKey));
+
   const [snaps, pairings, events] = await Promise.all([
     safe(
       "operations.agent_state_snapshot",
-      (async () => {
-        const r = await db
-          .from("agent_state_snapshot")
-          .select("agent_name, tick_count, last_tick_at, last_tick_id, health_status")
-          .order("last_tick_at", { ascending: false });
-        return (r.data as AgentSnap[]) || [];
-      })(),
+      agentStates(agentNamesForOps).then((rows) =>
+        rows.map((r) => ({
+          agent_name: r.agent_name,
+          tick_count: r.tick_count ?? null,
+          last_tick_at: r.last_tick_at ?? null,
+          last_tick_id: r.last_tick_id ?? null,
+          health_status: r.health_status ?? null,
+        })) as AgentSnap[]
+      ),
       [] as AgentSnap[]
     ),
     profile?.tenant_id
@@ -77,16 +106,15 @@ export default async function OperationsPage({
           [] as BridgePair[]
         )
       : Promise.resolve([] as BridgePair[]),
-    // Activity tape default: most recent 30 events regardless of age.
-    // The previous "last 7 days only" default left the tape empty when
-    // crons / inbound traffic had been quiet for a week — looked broken
-    // even though the table had history. The "show older" link expands
-    // to 100 events. CC explicitly asked for the tape to be functional.
+    // Activity tape default: most recent N events regardless of age.
+    // Scoped by publisher_agent ∈ agentNamesForOps; operator bypasses.
     safe(
       "operations.recent_events",
       recentEvents(showOlder ? 100 : 30, {
         sinceDays: 0,
         tenantId: profile?.tenant_id || null,
+        agentNames: agentNamesForOps,
+        isOperator,
       }),
       []
     ),
