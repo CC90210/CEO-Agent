@@ -15,6 +15,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser, getServiceSupabase } from "@/lib/supabase-server";
+import { isMissingTableError, missingTablePayload } from "@/lib/api-helpers";
 import {
   parseFormSteps,
   parseFormBranding,
@@ -58,28 +59,12 @@ export async function GET() {
     .order("created_at", { ascending: false });
 
   if (error) {
-    // Same migration-not-applied detection pattern /api/cron-jobs uses.
-    // PostgREST's "Could not find the table" / PGRST205 means migration
-    // 042 hasn't been applied yet — surface as actionable 503 so the
-    // builder UI can render an apply-migration banner instead of a
-    // generic red error.
-    const msg = error.message || "";
-    const isMissingTable =
-      msg.includes("public.forms") ||
-      msg.toLowerCase().includes("could not find the table") ||
-      error.code === "PGRST205" ||
-      error.code === "42P01";
-    if (isMissingTable) {
+    if (isMissingTableError(error, "public.forms")) {
       return NextResponse.json(
-        {
-          ok: false,
-          error: "migration_not_applied",
+        missingTablePayload({
           migration: "database/042_tenant_forms.sql",
-          how_to_apply:
-            "python scripts/apply_migration.py database/042_tenant_forms.sql",
-          hint:
-            "The Forms feature needs migration 042 applied to your Supabase project. After it completes (~30s for the schema cache to reload), refresh this page.",
-        },
+          feature: "Forms",
+        }),
         { status: 503 },
       );
     }

@@ -28,6 +28,7 @@ import type {
 import { KNOWN_INTEGRATIONS } from "./integrations-registry";
 import { operatorDateKey, operatorDayStartIso } from "./dates";
 import { getDbBackend } from "./db";
+import { isMissingTableError } from "./api-helpers";
 import {
   getTodayPlanTurso,
   recentLeadsTurso,
@@ -801,12 +802,14 @@ const EMPTY_RENEWALS_SUMMARY: RenewalsSummary = {
  * exist yet (Phase 1, before migrations 037-047 land). We swallow these
  * specifically and return empty shapes; any other error bubbles up so
  * we see real bugs in Vercel logs.
+ *
+ * Thin wrapper over the shared lib/api-helpers#isMissingTableError so
+ * the queries-reader-side check stays in sync with the API-route-side
+ * check. Kept as a local helper just so existing callers don't need
+ * an import change; new callers should import from api-helpers directly.
  */
 function _isMissingTable(err: { code?: string; message?: string } | null | undefined): boolean {
-  if (!err) return false;
-  if (err.code === "PGRST205" || err.code === "42P01") return true; // PostgREST + Postgres
-  const msg = (err.message || "").toLowerCase();
-  return msg.includes("relation") && msg.includes("does not exist");
+  return isMissingTableError(err);
 }
 
 /**

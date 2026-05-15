@@ -88,3 +88,82 @@ export async function profileForUser(): Promise<{
     .maybeSingle();
   return r.data || null;
 }
+
+/**
+ * Detect "the table doesn't exist in the schema cache" — usually means
+ * the operator has the dashboard deployed but hasn't applied the latest
+ * SQL migration yet. PostgREST's error string is the canonical signal
+ * (PGRST205), with the Postgres-side `42P01 undefined_table` as a
+ * secondary check. The literal "Could not find the table" string also
+ * appears in some response shapes.
+ *
+ * Five routes (/api/cron-jobs, /api/forms, /forms page, CronJobsManager,
+ * lib/queries.ts) duplicated this regex+code-check before consolidation.
+ * Anyone adding a new feature that depends on a fresh migration should
+ * call this helper and return the standard structured 503 below.
+ *
+ * Usage:
+ *   if (error) {
+ *     if (isMissingTableError(error, "public.tenant_cron_jobs")) {
+ *       return NextResponse.json(missingTablePayload({
+ *         migration: "database/041_tenant_cron_jobs.sql",
+ *         feature: "Automations",
+ *       }), { status: 503 });
+ *     }
+ *     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+ *   }
+ */
+export function isMissingTableError(
+  err: { message?: string; code?: string } | null | undefined,
+  tableHint?: string,
+): boolean {
+  if (!err) return false;
+  // Error codes first — cheap and unambiguous.
+  //   PGRST205: PostgREST when the API can't find the table in its
+  //             schema cache (most common when the dashboard runs
+  //             against Supabase but the SQL migration hasn't applied
+  //             yet — cache reloads ~30s after migration).
+  //   42P01:    Postgres-direct undefined_table — happens when something
+  //             bypasses PostgREST and the relation isn't there.
+  if (err.code === "PGRST205" || err.code === "42P01") return true;
+  // Fall through to message-pattern matching for cases where the error
+  // object lost its code (some PostgREST proxy paths drop it). Two
+  // formats to cover both API and direct-SQL responses:
+  const msg = err.message || "";
+  const lower = msg.toLowerCase();
+  if (tableHint && msg.includes(tableHint)) return true;
+  if (lower.includes("could not find the table")) return true;     // PostgREST
+  if (lower.includes("relation") && lower.includes("does not exist")) return true; // Postgres
+  return false;
+}
+
+/**
+ * Standard structured 503 payload for the "migration not applied" case.
+ * Routes hand this to NextResponse.json with status: 503; UI components
+ * branch on `error === "migration_not_applied"` to render the
+ * actionable apply_migration.py banner instead of a generic red error.
+ *
+ * Keeping the shape stable across routes means UI components like
+ * CronJobsManager can be re-used / generalized for future migration-
+ * gated features without per-feature copy.
+ */
+export function missingTablePayload(opts: {
+  /** Path under database/ — e.g. "database/041_tenant_cron_jobs.sql". */
+  migration: string;
+  /** Operator-facing feature name — e.g. "Automations", "Forms". */
+  feature: string;
+}): {
+  ok: false;
+  error: "migration_not_applied";
+  migration: string;
+  how_to_apply: string;
+  hint: string;
+} {
+  return {
+    ok: false,
+    error: "migration_not_applied",
+    migration: opts.migration,
+    how_to_apply: `python scripts/apply_migration.py ${opts.migration}`,
+    hint: `The ${opts.feature} feature needs ${opts.migration.split("/").pop()} applied to your Supabase project. Run the command above on the operator machine. After it completes, Supabase's PostgREST cache picks up the new table within ~30 seconds — refresh the page after that.`,
+  };
+}
