@@ -258,6 +258,14 @@ export const SUN_SEED: TenantManifest = {
     monthly_price_hint: "Custom",
     summary: "Funding shop: Solara + Helios, full pipeline.",
   },
+  compliance: {
+    tcpa: {
+      send_window_local: "9am-9pm",
+      honor_opt_outs: true,
+      weekend_sends: false,
+      opt_out_phrase: "Reply STOP to opt out.",
+    },
+  },
   integrations: [
     { kind: "jotform", enabled: true, credential_env_key: "SUNBIZ_AGENT_API_URL" },
     { kind: "twilio", enabled: true, credential_env_key: "SUNBIZ_AGENT_HMAC_SECRET" },
