@@ -768,13 +768,37 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
         setMessages((m) => m.slice(0, -1));
         return;
       }
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = "";
       // Flipped to true the first time we get any assistant text. Used after
       // the loop to detect silent-stream failures without having to read
       // React state from inside another setter.
       let receivedAnyContent = false;
+      // Populated when the cloud tool_use loop pauses on a deferred tool
+      // (defer:true on a tool definition — see lib/cloud-tool-runner.ts).
+      // After the SSE stream closes, we proxy this to localhost:9100 via
+      // the bridge's /exec-tool, then POST the result to /api/chat/resume
+      // and consume the resumed SSE stream. Repeat for any further
+      // deferred tools until the iteration finishes or hits its cap.
+      type PendingTool = {
+        tool_use_id: string;
+        name: string;
+        input: Record<string, unknown>;
+        resume_state: unknown;
+      };
+      let pendingToolUse: PendingTool | null = null;
+
+      /**
+       * Consume an SSE Response body. Side-effects React state (messages,
+       * tool calls, status) through the surrounding closures. Returns when
+       * the stream closes — either because the turn completed cleanly OR
+       * because tool_use_pending fired (the model wants a deferred tool
+       * executed locally). The caller checks pendingToolUse to decide
+       * whether to resume.
+       */
+      const consumeStream = async (stream: Response): Promise<void> => {
+        if (!stream.body) return;
+        const reader = stream.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = "";
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -893,6 +917,38 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
                 data: parsed.data,
               },
             ]);
+          } else if (event === "tool_use_pending") {
+            // Phase 2: deferred tool. The cloud runner paused because the
+            // model called a tool that needs the operator's local bridge
+            // (send_email, read_file, bash, etc.). Stash the pending data
+            // and exit the read loop — the outer resume loop below will
+            // POST the call to localhost:9100/exec-tool and then POST the
+            // result to /api/chat/resume to continue the model's iteration.
+            pendingToolUse = {
+              tool_use_id: String(parsed.tool_use_id || ""),
+              name: String(parsed.name || "tool"),
+              input: (parsed.input && typeof parsed.input === "object") ? parsed.input : {},
+              resume_state: parsed.resume_state,
+            };
+            // Show "calling NAME..." chip in the toolCalls strip so the
+            // operator sees activity while the bridge runs the tool.
+            const entryId = `bridge-${pendingToolUse.name}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            setThinking(true);
+            setStatusPhase("tool");
+            setStatusDetail(pendingToolUse.name);
+            setToolCalls((prev) => [
+              ...prev,
+              {
+                id: entryId,
+                kind: pendingToolUse!.name,
+                label: pendingToolUse!.name,
+                detail: truncateJson(pendingToolUse!.input),
+                createdAt: Date.now(),
+              },
+            ]);
+            // No early return — let the SSE stream finish naturally.
+            // The outer resume loop checks pendingToolUse after the
+            // stream closes.
           } else if (event === "action") {
             setActions((prev) => [
               ...prev,
@@ -1035,6 +1091,99 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
           }
         }
       }
+      };
+      // ─── End of consumeStream definition ──────────────────────────────
+
+      // Drive the initial SSE stream.
+      await consumeStream(res);
+
+      // Phase 2 resume loop: if the cloud runner paused on a deferred
+      // tool, proxy it to the local bridge and POST the result back to
+      // /api/chat/resume. The resumed stream may pause AGAIN on another
+      // deferred tool; loop until the model finishes or the resume cap
+      // is hit (mirrors MAX_TOOL_ITERATIONS server-side).
+      let resumeCount = 0;
+      while (pendingToolUse && resumeCount < 8) {
+        // Explicit cast — TS can't narrow a closure-captured `let` via the
+        // while condition (the consumeStream arrow function mutates it,
+        // so flow analysis treats every read as potentially the original
+        // null). Asserting against the explicit type alias is cleaner
+        // than NonNullable<typeof ...> for the same reason.
+        const pending: PendingTool = pendingToolUse as PendingTool;
+        pendingToolUse = null;
+        resumeCount += 1;
+
+        // 1) Hit the local bridge to execute the tool. Bridge must be
+        //    online for this to work — if it's not, fall through with
+        //    is_error so the model sees the failure and can adapt.
+        let toolOutput = "";
+        let toolIsError = false;
+        try {
+          const bridgeRes = await fetch(`${BRIDGE_CHAT_BASE}/exec-tool`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              tool_name: pending.name,
+              input: pending.input,
+            }),
+          });
+          const bridgePayload = await bridgeRes.json().catch(() => null);
+          if (!bridgeRes.ok || !bridgePayload?.ok) {
+            toolOutput = `bridge_exec_failed:${bridgeRes.status}:${bridgePayload?.error || "unknown"}`;
+            toolIsError = true;
+          } else {
+            toolOutput = String(bridgePayload.output ?? "");
+            toolIsError = Boolean(bridgePayload.is_error);
+          }
+        } catch (bridgeErr) {
+          toolOutput = `bridge_unreachable:${bridgeErr instanceof Error ? bridgeErr.message : "fetch_failed"}`;
+          toolIsError = true;
+        }
+
+        // Patch the matching toolCalls pill with the result (mirrors the
+        // cloud_tool_result event handler above).
+        setToolCalls((prev) => {
+          const next = [...prev];
+          for (let i = next.length - 1; i >= 0; i--) {
+            if (next[i].kind === pending.name && next[i].output === undefined && !next[i].completedAt) {
+              next[i] = {
+                ...next[i],
+                output: toolOutput.slice(0, 2000),
+                error: toolIsError,
+                completedAt: Date.now(),
+              };
+              break;
+            }
+          }
+          return next;
+        });
+
+        // 2) POST the result to /api/chat/resume. New SSE response —
+        //    feed it through the same consumeStream.
+        const resumeRes = await fetch("/api/chat/resume", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            agent_key: agent,
+            session_id: sessionId,
+            resume_state: pending.resume_state,
+            tool_use_id: pending.tool_use_id,
+            tool_result: { content: toolOutput, is_error: toolIsError },
+          }),
+        });
+        if (!resumeRes.ok || !resumeRes.body) {
+          const e = await safeReadJson(resumeRes);
+          setError(e?.error || `resume_http_${resumeRes.status}`);
+          break;
+        }
+        await consumeStream(resumeRes);
+      }
+      if (resumeCount >= 8 && pendingToolUse) {
+        setError(
+          "Tool loop exceeded the safety cap (8 deferred tools per turn). The model kept asking for tools without finishing — try splitting the request into smaller steps."
+        );
+      }
+
       // Stream closed. If no delta ever fired, the bridge (or cloud route)
       // ended the stream without emitting any content — silent failure.
       // Surface it instead of leaving the operator staring at an empty
