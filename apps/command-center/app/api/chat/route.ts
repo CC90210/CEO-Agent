@@ -51,6 +51,7 @@ import { getBridgeOnline, getBridgeToolCapabilities } from "@/lib/queries";
 import { signResumeState } from "@/lib/resume-hmac";
 import { getTenantManifestForUser } from "@/lib/manifest/tenant-scope";
 import { redactAll } from "@/lib/secret-redaction";
+import { persistAssistantTurn } from "@/lib/chat-persistence";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -456,18 +457,17 @@ export async function POST(req: NextRequest) {
       controller.close();
 
       // ---- Persist assistant turn ----------------------------------------
-      // Redact any credential values before writing to Supabase. The model
-      // could echo a key it saw in tool output; redaction at persist time
-      // means the chat_messages table never holds raw secrets.
+      // Shared writer in lib/chat-persistence — same helper /api/chat/resume
+      // uses. Centralizes redaction + chat_messages row shape so schema
+      // changes only need to land in one place.
       const latencyMs = Date.now() - startedAt;
-      await service.from("chat_messages").insert({
-        session_id: sessionId,
-        tenant_id: tenantId,
-        role: "assistant",
-        content: redactAll(assistantText),
-        input_tokens: usageIn,
-        output_tokens: usageOut,
-        latency_ms: latencyMs,
+      await persistAssistantTurn({
+        sessionId,
+        tenantId,
+        content: assistantText,
+        inputTokens: usageIn,
+        outputTokens: usageOut,
+        latencyMs,
         error: streamError,
       });
       const cost = estimateCostUsd(provider, model, usageIn, usageOut);

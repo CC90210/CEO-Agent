@@ -49,6 +49,7 @@ import {
 } from "@/lib/cloud-tool-runner";
 import { verifyResumeState, signResumeState } from "@/lib/resume-hmac";
 import { redactAll } from "@/lib/secret-redaction";
+import { persistAssistantTurn } from "@/lib/chat-persistence";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -238,54 +239,50 @@ export async function POST(req: NextRequest) {
       // so audit consumers can reconstruct the tool chain even without
       // joining against a separate tool_execution_log table.
       if (sessionId) {
-        const header = [
+        const headerLines: string[] = [
           `[resume after tool: ${toolUseId.slice(0, 16)}${normalizedResult.is_error ? " — bridge_error" : ""}]`,
-          toolCallsExecuted.length > 0
-            ? `tools_in_turn: ${toolCallsExecuted.map((t) => `${t.name}${t.ok ? "" : "(error)"}`).join(", ")}`
-            : null,
-        ].filter(Boolean).join("\n");
-        const persistContent = [header, redactAll(resumedText)].join("\n\n");
+        ];
+        if (toolCallsExecuted.length > 0) {
+          headerLines.push(
+            `tools_in_turn: ${toolCallsExecuted.map((t) => `${t.name}${t.ok ? "" : "(error)"}`).join(", ")}`,
+          );
+        }
         const latencyMs = Date.now() - startedAt;
+        // Shared chat_messages writer (lib/chat-persistence). Same helper
+        // /api/chat uses — single home for redaction + row shape.
+        await persistAssistantTurn({
+          sessionId,
+          tenantId,
+          content: resumedText,
+          prefix: headerLines.join("\n"),
+          inputTokens: resumeUsageIn,
+          outputTokens: resumeUsageOut,
+          latencyMs,
+          error: resumeStreamError,
+        });
+        // chat_sessions running totals — ACCUMULATE here (vs /api/chat
+        // which overwrites). The pause/resume boundary means one logical
+        // turn writes TWO chat_messages rows; without accumulation the
+        // resumed turn would clobber the paused turn's token counts.
         try {
           const service = getServiceSupabase();
-          await service.from("chat_messages").insert({
-            session_id: sessionId,
-            tenant_id: tenantId,
-            role: "assistant",
-            content: persistContent,
-            input_tokens: resumeUsageIn,
-            output_tokens: resumeUsageOut,
-            latency_ms: latencyMs,
-            error: resumeStreamError,
-          });
-          // Bump the chat_sessions running totals so per-conversation
-          // cost estimates stay accurate across the pause boundary.
-          // Fetch + update — no RPC needed. The increment is small and
-          // we already paid the round-trip for the chat_messages insert.
-          // RPC could come later if contention proves an issue.
-          try {
-            const cur = await service
-              .from("chat_sessions")
-              .select("total_input_tokens, total_output_tokens")
-              .eq("id", sessionId)
-              .maybeSingle();
-            const totIn = ((cur.data?.total_input_tokens as number) || 0) + resumeUsageIn;
-            const totOut = ((cur.data?.total_output_tokens as number) || 0) + resumeUsageOut;
-            await service
-              .from("chat_sessions")
-              .update({
-                total_input_tokens: totIn,
-                total_output_tokens: totOut,
-                updated_at: new Date().toISOString(),
-              })
-              .eq("id", sessionId);
-          } catch (sessErr) {
-            console.error("[chat/resume.session_totals]", sessErr);
-          }
-        } catch (persistErr) {
-          // Don't blow up the stream on persist failure — it already
-          // closed. Just log to console for observability.
-          console.error("[chat/resume.persist]", persistErr);
+          const cur = await service
+            .from("chat_sessions")
+            .select("total_input_tokens, total_output_tokens")
+            .eq("id", sessionId)
+            .maybeSingle();
+          const totIn = ((cur.data?.total_input_tokens as number) || 0) + resumeUsageIn;
+          const totOut = ((cur.data?.total_output_tokens as number) || 0) + resumeUsageOut;
+          await service
+            .from("chat_sessions")
+            .update({
+              total_input_tokens: totIn,
+              total_output_tokens: totOut,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", sessionId);
+        } catch (sessErr) {
+          console.error("[chat/resume.session_totals]", sessErr);
         }
       }
     },
