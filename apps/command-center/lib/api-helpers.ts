@@ -90,6 +90,43 @@ export async function profileForUser(): Promise<{
 }
 
 /**
+ * Resolve the authed user's tenant_id directly. Thin wrapper over
+ * profileForUser when the caller only needs the tenant.
+ *
+ * Consolidates the ~9 inline `resolveTenantId()` implementations that
+ * spread across /api/forms, /api/sequences, /api/cron-jobs,
+ * /api/applications/* during the SunBiz CRM build. Each had its own
+ * identical body — getSessionUser -> db.user_profiles.select(tenant_id)
+ * -> return value-or-null. New routes should import this helper.
+ */
+export async function tenantIdForUser(): Promise<string | null> {
+  const p = await profileForUser();
+  return p?.tenant_id ?? null;
+}
+
+/**
+ * Resolve both tenant + user IDs in one call. Some routes need the
+ * user_id too (cron-jobs records created_by, forms records created_by).
+ */
+export async function tenantAndUserIds(): Promise<{
+  tenant_id: string | null;
+  user_id: string | null;
+}> {
+  const user = await getSessionUser();
+  if (!user) return { tenant_id: null, user_id: null };
+  const db = getServiceSupabase();
+  const r = await db
+    .from("user_profiles")
+    .select("tenant_id")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+  return {
+    tenant_id: (r.data as { tenant_id: string | null } | null)?.tenant_id ?? null,
+    user_id: user.id,
+  };
+}
+
+/**
  * Detect "the table doesn't exist in the schema cache" — usually means
  * the operator has the dashboard deployed but hasn't applied the latest
  * SQL migration yet. PostgREST's error string is the canonical signal
