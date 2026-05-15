@@ -149,6 +149,34 @@ def _log(msg: str) -> None:
 #
 # Mirrors apps/command-center/lib/drips/templates.ts. Cross-language
 # sync — if the regex or default-value rule changes, update both.
+#
+# PARITY ASSERTION — every case below MUST behave identically in both
+# implementations. The TS file has the same sample cases in its
+# docstring. When changing either side, run through the list before
+# shipping:
+#
+#   1. render_template("Hi {{lead.first_name}}", {"lead": {"first_name": "Jordan"}})
+#        -> "Hi Jordan"
+#   2. render_template("Hi {{lead.first_name}}", {"lead": {}})
+#        -> "Hi "                                     (empty default)
+#   3. render_template("Hi {{lead.first_name}}", {"lead": {}}, default="there")
+#        -> "Hi there"
+#   4. render_template("Hi {{ lead.first_name }}", {"lead": {"first_name": "X"}})
+#        -> "Hi X"                                    (whitespace tolerated)
+#   5. render_template("Bal: {{lead.monthly_revenue}}", {"lead": {"monthly_revenue": 25000}})
+#        -> "Bal: 25000"                              (number coercion)
+#   6. render_template("Toggle: {{lead.opted_in}}", {"lead": {"opted_in": False}})
+#        -> "Toggle: False"                           (boolean coercion)
+#   7. render_template("Tags: {{lead.tags}}", {"lead": {"tags": ["vip"]}})
+#        -> 'Tags: ["vip"]'                            (JSON fallback)
+#   8. render_template("Nope: {{unknown.path}}", {})
+#        -> "Nope: "                                  (missing intermediate)
+#
+# Cases 5+6: Python `str(False)` -> "False", TS `String(false)` -> "false".
+# This is the ONE intentional language divergence — operators see Python
+# True/False on email but the rendered string only differs by case. Not
+# worth a separate fix; flagged so a future reader doesn't "fix" the
+# Python side to lowercase and break SunBiz operators' muscle memory.
 # ─────────────────────────────────────────────────────────────────────
 
 
@@ -354,11 +382,39 @@ def _build_context(sb, tenant_id: str, lead_id: str, payload: dict) -> dict:
     return ctx
 
 
-def _send_step(sb, state_row: dict, sequence: dict) -> tuple[bool, str]:
-    """Fire the actual send via send_gateway.send. Returns (ok, detail).
-    On send_gateway returning a non-sent status (blocked/suppressed/error)
-    we treat as failure so the daemon's retry/cap logic applies; the
-    detail string lands in last_error."""
+def _send_step(sb, state_row: dict, sequence: dict) -> dict:
+    """Fire the actual send via send_gateway.send. Returns a structured
+    result so the execution loop can branch on the five real outcomes
+    instead of collapsing them into ok/fail:
+
+      { "outcome": "sent",       "detail": "..." }
+        Step shipped. Mark sent, enqueue next step.
+
+      { "outcome": "cooldown",   "detail": "...", "retry_after_iso": "..." }
+        send_gateway returned blocked because a per-lead/channel cooldown
+        is still active. The reschedule honors `cooldown_until` from
+        send_gateway rather than the exponential backoff — cooldown is a
+        deterministic wait, not a flaky failure. attempt_count is NOT
+        incremented so a sequence sitting in cooldown for 72h doesn't
+        burn its 5 retry attempts.
+
+      { "outcome": "suppressed", "detail": "..." }
+        Lead opted out (STOP), CASL block, or other hard reject. Cancel
+        the sequence_state row immediately — no retry will ever succeed.
+
+      { "outcome": "permanent",  "detail": "..." }
+        Configuration error (missing email/phone on file, unknown channel,
+        step_index out of range, gateway import failure). Retry won't fix
+        it; treat as permanent fail without burning the backoff budget.
+
+      { "outcome": "error",      "detail": "..." }
+        Transient failure (network blip, SMTP 5xx). Use the existing
+        exponential-backoff retry path.
+
+    This is the bug-fix for the prior collapsed ok/fail return: previously
+    a lead in cooldown chewed through all 5 retry attempts in the
+    backoff window and got permanently failed for a temporary wait.
+    """
     try:
         # Import lazily — send_gateway pulls smtplib + supabase clients
         # of its own. Importing at module load time would slow the
@@ -366,18 +422,23 @@ def _send_step(sb, state_row: dict, sequence: dict) -> tuple[bool, str]:
         sys.path.insert(0, str(REPO_ROOT / "scripts"))
         from send_gateway import send  # type: ignore
     except Exception as e:
-        return False, f"send_gateway import failed: {e}"
+        return {"outcome": "permanent", "detail": f"send_gateway import failed: {e}"}
 
     steps = sequence.get("steps") or []
     step_index = state_row["step_index"]
     if step_index >= len(steps):
-        return False, f"step_index {step_index} out of range (steps={len(steps)})"
+        return {
+            "outcome": "permanent",
+            "detail": f"step_index {step_index} out of range (steps={len(steps)})",
+        }
     step = steps[step_index]
     channel = step.get("channel")
     body_template = step.get("body") or ""
     subject_template = step.get("subject") or ""
 
-    ctx = _build_context(sb, state_row["tenant_id"], state_row["lead_id"], state_row.get("context_snapshot") or {})
+    ctx = _build_context(
+        sb, state_row["tenant_id"], state_row["lead_id"], state_row.get("context_snapshot") or {}
+    )
     body = render_template(body_template, ctx)
     subject = render_template(subject_template, ctx) if subject_template else None
 
@@ -385,10 +446,13 @@ def _send_step(sb, state_row: dict, sequence: dict) -> tuple[bool, str]:
     to_email = lead.get("email")
     to_phone = lead.get("phone")
 
-    if channel == "email":
-        if not to_email:
-            return False, "lead has no email on file"
-        try:
+    if channel == "email" and not to_email:
+        return {"outcome": "permanent", "detail": "lead has no email on file"}
+    if channel == "sms" and not to_phone:
+        return {"outcome": "permanent", "detail": "lead has no phone on file"}
+
+    try:
+        if channel == "email":
             res = send(
                 channel="email",
                 to_email=to_email,
@@ -399,16 +463,7 @@ def _send_step(sb, state_row: dict, sequence: dict) -> tuple[bool, str]:
                 brand="oasis",
                 intent="commercial",
             )
-        except Exception as e:
-            return False, f"send_gateway raised: {e}"
-        if res.get("status") == "sent":
-            return True, res.get("reason") or "sent"
-        return False, f"{res.get('status')}: {res.get('reason')}"
-
-    if channel == "sms":
-        if not to_phone:
-            return False, "lead has no phone on file"
-        try:
+        elif channel == "sms":
             res = send(
                 channel="sms",
                 to_phone=to_phone,
@@ -418,13 +473,34 @@ def _send_step(sb, state_row: dict, sequence: dict) -> tuple[bool, str]:
                 brand="oasis",
                 intent="commercial",
             )
-        except Exception as e:
-            return False, f"send_gateway raised: {e}"
-        if res.get("status") == "sent":
-            return True, res.get("reason") or "sent"
-        return False, f"{res.get('status')}: {res.get('reason')}"
+        else:
+            return {"outcome": "permanent", "detail": f"unknown channel '{channel}'"}
+    except Exception as e:
+        return {"outcome": "error", "detail": f"send_gateway raised: {e}"}
 
-    return False, f"unknown channel '{channel}'"
+    status = res.get("status")
+    reason = res.get("reason") or ""
+    if status == "sent":
+        return {"outcome": "sent", "detail": reason or "sent"}
+    if status == "blocked":
+        # send_gateway exposes cooldown_until ISO — use it for the
+        # reschedule instead of synthetic backoff. If it's missing,
+        # fall back to error-style backoff so we don't hot-spin on a
+        # blocked-but-no-cooldown-stamp result.
+        cooldown_until = res.get("cooldown_until")
+        if cooldown_until:
+            return {
+                "outcome": "cooldown",
+                "detail": f"blocked: {reason}",
+                "retry_after_iso": cooldown_until,
+            }
+        return {"outcome": "error", "detail": f"blocked (no cooldown_until): {reason}"}
+    if status == "suppressed":
+        # CASL opt-out / hard reject. The retry button isn't going to
+        # un-opt the lead out. Cancel cleanly.
+        return {"outcome": "suppressed", "detail": f"suppressed: {reason}"}
+    # dry_run / error / unknown — treat as transient.
+    return {"outcome": "error", "detail": f"{status}: {reason}"}
 
 
 def execution_tick(sb) -> int:
@@ -472,15 +548,17 @@ def execution_tick(sb) -> int:
             sb.table("sequence_state").update({"status": "cancelled", "last_error": "sequence_disabled"}).eq("id", row["id"]).execute()
             continue
 
-        ok, detail = _send_step(sb, row, sequence)
-        attempt_count = int(row.get("attempt_count") or 0) + 1
+        result = _send_step(sb, row, sequence)
+        outcome = result.get("outcome")
+        detail = (result.get("detail") or "")[:1000]
         now = datetime.now(timezone.utc).isoformat()
+        prior_attempts = int(row.get("attempt_count") or 0)
 
-        if ok:
+        if outcome == "sent":
             try:
                 sb.table("sequence_state").update({
                     "status": "sent",
-                    "attempt_count": attempt_count,
+                    "attempt_count": prior_attempts + 1,
                     "last_attempt_at": now,
                     "last_error": None,
                 }).eq("id", row["id"]).execute()
@@ -488,21 +566,71 @@ def execution_tick(sb) -> int:
                 _log(f"execution: status update failed row={row['id']}: {e}")
                 continue
             _log(f"sent seq={sequence['id']} lead={row['lead_id']} step={row['step_index']}")
-            # Enqueue the next step if any.
             steps = sequence.get("steps") or []
             next_idx = row["step_index"] + 1
             if next_idx < len(steps):
                 _enroll_step(sb, sequence, row["lead_id"], row.get("context_snapshot") or {}, next_idx)
+
+        elif outcome == "cooldown":
+            # NOT a failure. Reschedule to fire shortly after cooldown_until
+            # without incrementing attempt_count -- otherwise a 72h cooldown
+            # would burn all 5 attempts in the backoff window and
+            # permanently fail a perfectly healthy lead.
+            retry_iso = result.get("retry_after_iso")
+            try:
+                next_scheduled = datetime.fromisoformat(
+                    (retry_iso or "").replace("Z", "+00:00")
+                ) + timedelta(minutes=1)
+            except (ValueError, AttributeError):
+                next_scheduled = datetime.now(timezone.utc) + timedelta(hours=1)
+            try:
+                sb.table("sequence_state").update({
+                    "last_attempt_at": now,
+                    "last_error": detail,
+                    "scheduled_for": next_scheduled.isoformat(),
+                }).eq("id", row["id"]).execute()
+            except Exception:
+                pass
+            _log(f"cooldown seq={sequence['id']} lead={row['lead_id']} step={row['step_index']} until={next_scheduled.isoformat()}: {detail}")
+
+        elif outcome == "suppressed":
+            # CASL opt-out / hard block. Cancel; retry will never succeed.
+            try:
+                sb.table("sequence_state").update({
+                    "status": "cancelled",
+                    "attempt_count": prior_attempts + 1,
+                    "last_attempt_at": now,
+                    "last_error": detail,
+                }).eq("id", row["id"]).execute()
+            except Exception:
+                pass
+            _log(f"suppressed seq={sequence['id']} lead={row['lead_id']} step={row['step_index']}: {detail}")
+
+        elif outcome == "permanent":
+            # Config error (no email/phone, unknown channel, bad index).
+            # Retry won't fix. Mark failed without burning the backoff budget.
+            try:
+                sb.table("sequence_state").update({
+                    "status": "failed",
+                    "attempt_count": prior_attempts + 1,
+                    "last_attempt_at": now,
+                    "last_error": detail,
+                }).eq("id", row["id"]).execute()
+            except Exception:
+                pass
+            _log(f"PERMANENT FAIL seq={sequence['id']} lead={row['lead_id']} step={row['step_index']}: {detail}")
+
         else:
-            # Failure — exceeded MAX_ATTEMPTS means permanent fail,
-            # otherwise reschedule with backoff.
+            # outcome == "error" or unknown — transient. Apply the
+            # existing exponential-backoff retry path.
+            attempt_count = prior_attempts + 1
             if attempt_count >= MAX_ATTEMPTS:
                 try:
                     sb.table("sequence_state").update({
                         "status": "failed",
                         "attempt_count": attempt_count,
                         "last_attempt_at": now,
-                        "last_error": (detail or "")[:1000],
+                        "last_error": detail,
                     }).eq("id", row["id"]).execute()
                 except Exception:
                     pass
@@ -514,7 +642,7 @@ def execution_tick(sb) -> int:
                     sb.table("sequence_state").update({
                         "attempt_count": attempt_count,
                         "last_attempt_at": now,
-                        "last_error": (detail or "")[:1000],
+                        "last_error": detail,
                         "scheduled_for": next_scheduled,
                     }).eq("id", row["id"]).execute()
                 except Exception:
