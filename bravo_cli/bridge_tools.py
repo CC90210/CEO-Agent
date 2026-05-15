@@ -275,6 +275,202 @@ def _tool_send_sms(payload: dict) -> dict:
 
 
 # ──────────────────────────────────────────────────────────────────
+# Generic Python tool runner — Phase A of harness completeness
+#
+# Above this point we have 5 typed wrappers (read_file, write_file, bash,
+# send_email, send_sms) and the model is blind to the other ~47 CLI
+# tools sitting in scripts/. list_scripts + run_script close that gap:
+# list_scripts gives the model the catalog with one-line synopses so it
+# knows what's available; run_script gives a typed interface to invoke
+# any of them by name with structured args.
+#
+# Path safety: run_script resolves the script name against scripts/ in
+# the Bravo repo root and refuses paths that escape that directory.
+# Refusing absolute paths + ".." in the name; the bash tool exists for
+# anything outside scripts/.
+# ──────────────────────────────────────────────────────────────────
+
+# In-process cache of list_scripts results. Scanning the dir + reading
+# docstrings every call would re-do the work on every model turn. Five-
+# minute TTL is long enough to amortize the cost across a chat session
+# but short enough that a freshly-added script shows up before the next
+# chat. Cleared on bridge restart anyway.
+_LIST_SCRIPTS_CACHE: dict = {"at": 0.0, "data": None}
+
+
+def _read_docstring_or_top_comment(text: str) -> str:
+    """Extract the first useful one-liner from a Python script's content.
+    Tries module docstring first, then the first non-blank comment line,
+    then the shebang/import context. Returns at most 200 chars."""
+    # Module docstring: """..."""  or  '''...'''
+    stripped = text.lstrip()
+    if stripped.startswith(("'''", '"""')):
+        q = stripped[:3]
+        rest = stripped[3:]
+        end = rest.find(q)
+        if end != -1:
+            doc = rest[:end].strip()
+            first = doc.splitlines()[0].strip() if doc else ""
+            if first:
+                return first[:200]
+    # First comment after shebang / coding line
+    for line in text.splitlines()[:20]:
+        s = line.strip()
+        if not s:
+            continue
+        if s.startswith("#!") or s.startswith("# -*-"):
+            continue
+        if s.startswith("#"):
+            return s.lstrip("# ").rstrip()[:200]
+        # Non-comment / non-empty content — give up on doc extraction
+        break
+    return ""
+
+
+def _tool_list_scripts(payload: dict) -> dict:
+    """{filter?: str} → catalog of Python scripts in the operator's
+    scripts/ directory with one-line synopses. Used by the model for
+    discovery before calling run_script.
+
+    Results are cached for 5 minutes per bridge process to keep model
+    turns snappy. A `filter` substring matches against script names
+    (case-insensitive) — useful when the model is hunting for a
+    specific kind of tool ("stripe", "supabase", "send")."""
+    now = time.time()
+    if _LIST_SCRIPTS_CACHE["data"] is None or (now - _LIST_SCRIPTS_CACHE["at"]) > 300:
+        bravo = _bravo_root()
+        scripts_dir = bravo / "scripts"
+        catalog: list[dict] = []
+        if scripts_dir.is_dir():
+            for p in sorted(scripts_dir.glob("*.py")):
+                # Skip private / dunder files — they're internal helpers
+                # the model shouldn't be invoking directly.
+                if p.name.startswith("_") or p.name.startswith("."):
+                    continue
+                try:
+                    head = p.read_text(encoding="utf-8", errors="replace")[:8192]
+                    summary = _read_docstring_or_top_comment(head)
+                except OSError:
+                    summary = ""
+                # Tag `*_tool.py` scripts as "tool" — those are the
+                # documented CLI-tool layer with --json + --help args.
+                kind = "tool" if p.name.endswith("_tool.py") else "script"
+                catalog.append({
+                    "name": p.name,
+                    "kind": kind,
+                    "summary": summary,
+                })
+        _LIST_SCRIPTS_CACHE["at"] = now
+        _LIST_SCRIPTS_CACHE["data"] = catalog
+    catalog = _LIST_SCRIPTS_CACHE["data"] or []
+    flt = str(payload.get("filter") or "").strip().lower()
+    if flt:
+        catalog = [c for c in catalog if flt in c["name"].lower()]
+    return _ok(_json_dumps_compact({
+        "count": len(catalog),
+        "scripts": catalog,
+    }))
+
+
+def _json_dumps_compact(obj) -> str:
+    """JSON-serialize for tool output. Compact (no indent) so the model
+    sees the most data within the truncation cap."""
+    import json as _json
+    return _json.dumps(obj, separators=(",", ":"), ensure_ascii=False)
+
+
+# Names that would let the model break out of scripts/. The path-resolve
+# check below catches `..` but rejecting up-front is clearer + faster.
+_FORBIDDEN_SCRIPT_TOKENS = ("..", "/", "\\", "\x00")
+
+
+def _tool_run_script(payload: dict) -> dict:
+    """{script: str, args?: list[str], timeout_s?: int, parse_json?: bool}
+    → run the named script from scripts/ with the given args. Returns
+    exit code + stdout + stderr. If parse_json is true (default) and
+    stdout parses as JSON, the parsed value goes into a 'parsed' field
+    so the model gets structured data without having to re-parse.
+
+    Path resolution is allowlisted to scripts/<name>.py inside the Bravo
+    repo root — no traversal, no absolute paths. For anything outside
+    scripts/, the model should use the `bash` tool instead."""
+    script_name = str(payload.get("script") or "").strip()
+    if not script_name:
+        return _err("missing 'script' name")
+    # Reject obvious traversal attempts up front. The resolve() check
+    # below would also catch these, but the explicit error tells the
+    # model exactly why its call was rejected.
+    for token in _FORBIDDEN_SCRIPT_TOKENS:
+        if token in script_name:
+            return _err(
+                f"script name must be a simple filename — found forbidden token {token!r}. "
+                "Use only files inside scripts/. For paths outside scripts/, use the bash tool."
+            )
+    if not script_name.endswith(".py"):
+        script_name = script_name + ".py"
+
+    raw_args = payload.get("args") or []
+    if not isinstance(raw_args, list) or any(not isinstance(a, (str, int, float)) for a in raw_args):
+        return _err("'args' must be a list of strings/numbers")
+    args = [str(a) for a in raw_args]
+    try:
+        timeout_s = max(1, min(int(payload.get("timeout_s") or SCRIPT_TIMEOUT_S), 300))
+    except (TypeError, ValueError):
+        timeout_s = SCRIPT_TIMEOUT_S
+    parse_json = payload.get("parse_json")
+    parse_json = True if parse_json is None else bool(parse_json)
+
+    bravo = _bravo_root()
+    script_path = (bravo / "scripts" / script_name).resolve()
+    # Sanity: resolved path MUST be inside scripts/. Defends against the
+    # edge cases the upfront token-rejection misses (case-folding tricks,
+    # symlinks, etc.).
+    try:
+        script_path.relative_to((bravo / "scripts").resolve())
+    except ValueError:
+        return _err(f"script_path_escapes_scripts_dir: {script_path}")
+    if not script_path.is_file():
+        return _err(f"script_not_found: scripts/{script_name}")
+
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(script_path), *args],
+            cwd=str(bravo),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout_s,
+        )
+    except subprocess.TimeoutExpired as e:
+        return _err(
+            f"script_timeout after {timeout_s}s: scripts/{script_name}\n"
+            f"--- partial stdout ---\n{(e.stdout or '')}\n"
+            f"--- partial stderr ---\n{(e.stderr or '')}"
+        )
+    except OSError as e:
+        return _err(f"script_spawn_failed: {e}")
+
+    result: dict = {
+        "exit_code": proc.returncode,
+        "stdout": proc.stdout,
+        "stderr": proc.stderr,
+    }
+    if parse_json and proc.stdout.strip():
+        try:
+            import json as _json
+            result["parsed"] = _json.loads(proc.stdout)
+        except (ValueError, TypeError):
+            # stdout isn't JSON — fine, model still has the raw text.
+            pass
+
+    out_blob = _json_dumps_compact(result)
+    if proc.returncode != 0:
+        return {"output": _truncate(out_blob), "is_error": True}
+    return _ok(out_blob)
+
+
+# ──────────────────────────────────────────────────────────────────
 # Registry + dispatcher
 # ──────────────────────────────────────────────────────────────────
 
@@ -284,6 +480,8 @@ TOOL_REGISTRY: dict[str, Callable[[dict], dict]] = {
     "bash": _tool_bash,
     "send_email": _tool_send_email,
     "send_sms": _tool_send_sms,
+    "list_scripts": _tool_list_scripts,
+    "run_script": _tool_run_script,
 }
 
 
