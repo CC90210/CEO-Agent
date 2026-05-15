@@ -495,7 +495,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
   }, []);
 
   // Probe the local bridge on mount + every 30s. When the operator runs
-  // `bravo bridge serve`, this flips true and desktop-enabled runtimes can
+  // `pm2 restart claude-bridge`, this flips true and desktop-enabled runtimes can
   // target their machine instead of /api/chat.
   useEffect(() => {
     let alive = true;
@@ -704,7 +704,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
       // silently falling through to the API-key path. The operator chose
       // bridge for a reason.
       setError(
-        "Pinned to local desktop (bridge), but the bridge isn't reachable. Run `bravo bridge serve` on this machine, or switch the mode to Cloud."
+        "Pinned to local desktop (bridge), but the bridge isn't reachable. Run `pm2 restart claude-bridge` on this machine, or switch the mode to API key."
       );
       setStreaming(false);
       setMessages((m) => m.slice(0, -1));
