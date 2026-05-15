@@ -20,16 +20,12 @@ export default async function ReasoningPage({
   const sp = (await searchParams) || {};
   const devMode = sp.dev === "1";
 
-  const [profile, decisions] = await Promise.all([
-    safe("reasoning.profile", getActiveProfile(), null),
-    safe("reasoning.recent_decisions", recentDecisions(20), []),
-  ]);
-
   // Phase 5 — manifest is the source of truth for enabled agents per tenant.
   // Same migration as /agents: resolve the slug for the operator's tenant,
   // load the manifest, derive enabled list from manifest.agents. The
   // QuickActionsGrid + CommandPalette downstream still take slug arrays so
   // they keep rendering the right per-agent prompts without any change.
+  const profile = await safe("reasoning.profile", getActiveProfile(), null);
   const tenantSlugForReasoning = profile?.tenant_id
     ? await getTenant(profile.tenant_id)
         .then((t) => resolveClientProfileSlug(t || null))
@@ -44,6 +40,17 @@ export default async function ReasoningPage({
     manifestEnabledSlugs.length > 0
       ? manifestEnabledSlugs
       : profile?.agents_enabled || ["bravo"];
+
+  // Agent decisions tape is scoped by tenant_id + enabled agents — see
+  // recentDecisions() docstring for the schema-debt explanation. Without
+  // this, a SunBiz user would see CC's OASIS Bravo decisions because the
+  // table has no tenant_id column yet.
+  const decisions = await safe(
+    "reasoning.recent_decisions",
+    recentDecisions(profile?.tenant_id ?? null, enabled, 20),
+    []
+  );
+
   const quickActions = quickActionsFor(enabled);
   const commands = commandsForAgents(enabled);
 

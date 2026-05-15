@@ -176,11 +176,40 @@ export async function pipelineBreakdown(tenantId: string, includeArchived = fals
   return { stages, total: r.data.length, sources };
 }
 
-export async function recentDecisions(limit = 20): Promise<AgentDecision[]> {
+/**
+ * Recent autonomous-loop decisions for the Reasoning page's "Agent decisions"
+ * tape.
+ *
+ * SCOPING (cross-tenant data-leak fix, 2026-05-14):
+ *   The agent_decisions table predates the tenant_manifests system and does
+ *   NOT carry a tenant_id column today — every row was written by the
+ *   autonomous_agent.py loop running for CC's OASIS Bravo. Until the column
+ *   + RLS land (Phase 5 schema migration), the read path filters by
+ *   agent_name ∈ agentNames so a SunBiz tenant (agents_enabled = [solara,
+ *   helios]) sees ZERO Bravo rows.
+ *
+ *   When agentNames is empty (legacy callers, new tenants pre-wizard) the
+ *   query returns [] — safer to show nothing than to leak.
+ *
+ *   When the schema gains tenant_id, prefer .eq("tenant_id", tenantId) and
+ *   keep agentNames as a secondary filter for "show only decisions from
+ *   agents I currently have enabled."
+ *
+ *   The tenantId param is plumbed through now so callers stop changing
+ *   shape when the migration lands.
+ */
+export async function recentDecisions(
+  tenantId: string | null,
+  agentNames: string[],
+  limit = 20
+): Promise<AgentDecision[]> {
+  if (!tenantId) return [];
+  if (agentNames.length === 0) return [];
   const db = getServiceSupabase();
   const r = await db
     .from("agent_decisions")
     .select("*")
+    .in("agent_name", agentNames)
     .order("created_at", { ascending: false })
     .limit(limit);
   return (r.data as AgentDecision[]) || [];
@@ -231,11 +260,20 @@ export async function recentLeads(
   return (r.data as Lead[]) || [];
 }
 
-export async function agentStates(): Promise<AgentStateSnapshot[]> {
+/**
+ * Live heartbeat snapshots from the autonomous loop. Same scoping caveat
+ * as recentDecisions — agent_state_snapshot is per-agent_name, not per-
+ * tenant. Filter by the tenant's enabled agent set so a client tenant
+ * doesn't see CC's Bravo heartbeats and vice versa. Empty agentNames →
+ * empty result (safer than leaking).
+ */
+export async function agentStates(agentNames: string[] = []): Promise<AgentStateSnapshot[]> {
+  if (agentNames.length === 0) return [];
   const db = getServiceSupabase();
   const r = await db
     .from("agent_state_snapshot")
     .select("*")
+    .in("agent_name", agentNames)
     .order("last_tick_at", { ascending: false });
   return (r.data as AgentStateSnapshot[]) || [];
 }
