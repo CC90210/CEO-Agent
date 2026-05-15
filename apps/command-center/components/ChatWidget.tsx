@@ -1039,7 +1039,7 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
             const v = e.target.value;
             if (isChatMode(v)) setChatMode(v);
           }}
-          className="bg-bg-elev border border-bg-border rounded-lg px-2 py-2 text-[11px] text-fg-muted focus:outline-none focus:border-accent transition-colors cursor-pointer hidden md:inline-block"
+          className="bg-bg-elev border border-bg-border rounded-lg px-2 py-2 text-[11px] text-fg-muted focus:outline-none focus:border-accent transition-colors cursor-pointer"
           aria-label="Chat routing mode"
           title={
             chatMode === "auto"
