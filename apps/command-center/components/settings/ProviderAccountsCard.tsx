@@ -36,8 +36,7 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
-import { PROVIDER_REGISTRY, type Provider } from "@/lib/providers";
-import { PROVIDER_TO_SERVICE } from "@/lib/queries";
+import { PROVIDER_REGISTRY, PROVIDER_TO_SERVICE, type Provider } from "@/lib/providers";
 
 type Props = {
   /** Set of services-with-key resolved server-side via aiServicesWithKey(). */
