@@ -63,6 +63,11 @@ type Props = {
 export function AgentConfigEditor({ agentKeys, bridgeOnline = false }: Props) {
   const [configs, setConfigs] = useState<Record<string, AgentConfig>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Bumped from the cross-component event below (oasis:agent-configs-changed)
+  // when bulk-provider-connect from /settings#providers writes new rows
+  // for every agent. Triggers the fetch effect to re-run so the per-agent
+  // rows reflect the freshly-saved provider+model+key without a reload.
+  const [refreshTick, setRefreshTick] = useState(0);
   const [rows, setRows] = useState<Record<string, RowState>>(() =>
     Object.fromEntries(
       agentKeys.map((k) => [
@@ -119,7 +124,18 @@ export function AgentConfigEditor({ agentKeys, bridgeOnline = false }: Props) {
         console.error("[agent_config_editor.load]", err);
         setLoadError(err instanceof Error ? err.message : "network error");
       });
-  }, [agentKeys]);
+  }, [agentKeys, refreshTick]);
+
+  // Listen for cross-component "configs changed" pokes — emitted by the
+  // ProviderAccountsCard's single-click connect flow upstream on /settings.
+  // Bumps refreshTick which re-runs the fetch effect above. Cleaned up on
+  // unmount so a navigated-away editor isn't holding an orphan listener.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onChange = () => setRefreshTick((n) => n + 1);
+    window.addEventListener("oasis:agent-configs-changed", onChange);
+    return () => window.removeEventListener("oasis:agent-configs-changed", onChange);
+  }, []);
 
   function patchRow(key: string, patch: Partial<RowState>) {
     setRows((r) => ({ ...r, [key]: { ...r[key], ...patch } }));
