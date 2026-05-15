@@ -11,7 +11,14 @@
  * power-users.
  */
 
-export type AgentSlug = "bravo" | "atlas" | "maven" | "aura" | "hermes";
+export type AgentSlug =
+  | "bravo"
+  | "atlas"
+  | "maven"
+  | "aura"
+  | "hermes"
+  | "solara"
+  | "helios";
 
 export type QuickAction = {
   agent: AgentSlug;
@@ -143,6 +150,60 @@ export const QUICK_ACTIONS: QuickAction[] = [
     agent: "hermes", title: "Commerce alerts", category: "Ops", icon: "Sparkles",
     description: "Anything that needs a human eye in the last 24h — failed orders, low stock, bad addresses.",
     prompt: "Surface every commerce alert from the last 24 hours: failed orders, low stock, bad shipping addresses, payment failures. Rank by urgency.",
+  },
+
+  // -- SUNBIZ / SOLAR-SOLARA - funding operations --
+  {
+    agent: "solara", title: "Funding pipeline briefing", category: "Daily", icon: "Sparkles",
+    description: "Leads, applications, expiring offers, renewals, and stuck docs.",
+    prompt: "Run the SunBiz funding pipeline briefing. Use real dashboard data only: leads untouched in 24h, applications waiting on docs, offers expiring this week, funded deals approaching renewal, and the top 3 operator actions for today.",
+  },
+  {
+    agent: "solara", title: "Qualify new submissions", category: "Sales", icon: "Target",
+    description: "Applies SunBiz fit gates before anyone spends time chasing.",
+    prompt: "Review the newest funding submissions and score fit using SunBiz's public gates: 450+ FICO, 6+ months in business, and $10k+ monthly revenue. Flag missing fields, likely product fit, and the next action for each.",
+  },
+  {
+    agent: "solara", title: "Match lenders", category: "Ops", icon: "FileText",
+    description: "Turns qualified businesses into lender/product recommendations.",
+    prompt: "For the top qualified leads, recommend the best funding product and lender lane: same-day funding, equipment financing, SBA, invoice factoring, business line of credit, or long-term loan. Explain why and name any data you still need.",
+  },
+  {
+    agent: "solara", title: "Record a funded deal", category: "Money", icon: "DollarSign",
+    description: "Creates the funded-deal row when the deal closes.",
+    prompt: "I'm going to describe a newly funded deal. If business name, amount, funded date, lender, or term are missing, ask once. If enough is present, create the funded_deal dashboard record using a create_record action.",
+  },
+  {
+    agent: "solara", title: "Renewal sweep", category: "Money", icon: "TrendingUp",
+    description: "Finds the 60-day renewal lane before it gets cold.",
+    prompt: "Run a renewal sweep. Find funded deals inside the 60-day renewal window, rank by likely commission impact, and recommend the next operator move for each.",
+  },
+
+  // -- HELIOS - sales-facing outreach --
+  {
+    agent: "helios", title: "First-touch SMS", category: "Sales", icon: "Mail",
+    description: "Drafts a human opener for a qualified funding lead.",
+    prompt: "Draft a first-touch SMS for a newly qualified funding lead. Use their business context, keep it human, do not promise terms, and include opt-out-safe wording where appropriate. Draft only; do not send.",
+  },
+  {
+    agent: "helios", title: "3-touch revival", category: "Sales", icon: "Calendar",
+    description: "Seven-day cadence for leads who ghosted after applying.",
+    prompt: "Draft a 3-touch revival cadence over 7 days for leads who ghosted after the application step. Each message should be short, specific, and non-pushy. Draft only; do not send.",
+  },
+  {
+    agent: "helios", title: "Expired offer save", category: "Sales", icon: "Phone",
+    description: "Reopens an offer without sounding desperate.",
+    prompt: "An approved offer expired. Draft the SMS and email to reopen the conversation without pressure. Reference the prior amount/term only if the dashboard data confirms it.",
+  },
+  {
+    agent: "helios", title: "Text blast draft", category: "Sales", icon: "Users",
+    description: "Segmented blast copy with consent guardrails.",
+    prompt: "Draft a segmented text blast for eligible SunBiz leads. Respect consent and opt-out status, avoid spam language, and give me the exact audience filter before the copy. Draft only; do not send.",
+  },
+  {
+    agent: "helios", title: "Handle objections", category: "Sales", icon: "Activity",
+    description: "Replies to rate, payback, timing, and trust objections.",
+    prompt: "I'm going to paste a lead reply. Write the best Helios response using NEPQ: mirror their concern, ask one clarifying question, and avoid overpromising rates or approvals.",
   },
 ];
 

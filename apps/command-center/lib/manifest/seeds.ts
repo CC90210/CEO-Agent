@@ -80,6 +80,7 @@ export const OASIS_SEED: TenantManifest = {
   ],
   pages: [
     { path: "", label: "Today", kind: "dashboard" },
+    { path: "reasoning", label: "Reasoning", kind: "reasoning" },
     { path: "leads", label: "Leads (manifest view)", kind: "kanban", entity: "lead", config: { group_by: "stage" } },
     { path: "tasks", label: "Tasks", kind: "kanban", entity: "task", config: { group_by: "status" } },
   ],
@@ -227,6 +228,7 @@ export const SUN_SEED: TenantManifest = {
   ],
   pages: [
     { path: "", label: "Solara — Today", kind: "dashboard" },
+    { path: "reasoning", label: "Reasoning", kind: "reasoning" },
     { path: "leads", label: "Leads", kind: "kanban", entity: "lead", config: { group_by: "stage" } },
     { path: "applications", label: "Applications", kind: "table", entity: "application" },
     { path: "offers", label: "Offers", kind: "table", entity: "offer" },
@@ -337,6 +339,7 @@ export const SUGA_SEED: TenantManifest = {
   ],
   pages: [
     { path: "", label: "Fans · Today", kind: "dashboard" },
+    { path: "reasoning", label: "Reasoning", kind: "reasoning" },
     { path: "subscribers", label: "Subscribers", kind: "table", entity: "subscriber" },
     { path: "posts", label: "Posts", kind: "kanban", entity: "post", config: { group_by: "status" } },
     { path: "drafts", label: "Drafts", kind: "table", entity: "post" },
