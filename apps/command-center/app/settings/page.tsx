@@ -14,6 +14,7 @@ import { ProfileEditor } from "@/components/settings/ProfileEditor";
 import { PlanTemplateEditor } from "@/components/settings/PlanTemplateEditor";
 import { AgentConfigEditor } from "@/components/settings/AgentConfigEditor";
 import { DevicesEditor } from "@/components/settings/DevicesEditor";
+import { ProviderAccountsCard } from "@/components/settings/ProviderAccountsCard";
 import { chatAgentKeys } from "@/lib/agent-personas";
 import { resolveClientProfileSlug } from "@/lib/client-profiles";
 import { getManifest } from "@/lib/manifest/loader";
@@ -128,7 +129,23 @@ export default async function SettingsPage() {
             </Card>
           )}
 
+          {/* Top-level "Connect a provider" surface. Lives ABOVE the
+              per-agent Agents card so the very first thing operators see
+              under Settings is the provider-account grid. The per-agent
+              paste-key UX is one click away (anchor #agents). */}
           <Card
+            id="providers"
+            title="AI provider accounts"
+            subtitle="Connect at least one model provider so your agents can think. Anthropic gets you the native tool_use loop (Claude-Code-class power); OpenRouter is one key for every model; OpenAI / Google are direct."
+          >
+            <ProviderAccountsCard
+              connectedServices={connectedAiSet}
+              bridgeOnline={bridgeOnline}
+            />
+          </Card>
+
+          <Card
+            id="agents"
             title="Agents"
             subtitle="Each enabled agent runs on its own provider + model + API key. Bring your own key — keys are encrypted at rest and never returned to the browser. Toggle which agents are enabled in the Profile section above."
             action={

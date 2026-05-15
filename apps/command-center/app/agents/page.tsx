@@ -1,7 +1,7 @@
 import { Card, PageHeader, EmptyState, Tag } from "@/components/Card";
 import ChatWidget from "@/components/ChatWidget";
 import { timeAgo, truncate } from "@/lib/fmt";
-import { agentStates, recentEvents, getActiveProfile, integrationsHealth } from "@/lib/queries";
+import { agentStates, recentEvents, getActiveProfile, integrationsHealth, aiServicesWithKey } from "@/lib/queries";
 import { FAMILY_AGENT_KEYS, getAgentInfo } from "@/lib/agents";
 import { getTenantManifestForUser } from "@/lib/manifest/tenant-scope";
 import { catalogFor } from "@/lib/agent-catalog";
@@ -53,7 +53,7 @@ export default async function AgentsPage() {
     .filter((a) => a.enabled)
     .map((a) => a.slug.toLowerCase());
 
-  const [states, events, integrations, stats, noBridge] = await Promise.all([
+  const [states, events, integrations, stats, noBridge, aiServices] = await Promise.all([
     agentStates(manifestEnabledSlugs),
     // sinceDays: 0 — same fix as /operations. Default 7-day window left
     // the Event Bus card looking empty when crons / inbound traffic had
@@ -66,7 +66,14 @@ export default async function AgentsPage() {
     integrationsHealth(profile?.tenant_id || null),
     getAgentStats(profile?.primary_agent || "bravo"),
     _tenantHasNoBridge(profile?.tenant_id || null),
+    aiServicesWithKey(profile?.tenant_id || null),
   ]);
+  // No provider keys on file AND bridge offline AND non-operator. Operators
+  // have the platform fallback so chat works without a per-agent key — they
+  // don't need the nudge. Client tenants without either path can't chat
+  // until they wire one up, so we surface a hard CTA above the chat.
+  const noCloudProvider = aiServices.size === 0;
+  const showProviderNudge = noCloudProvider && noBridge && !isAdmin;
 
   const familySet = new Set(FAMILY_AGENT_KEYS);
   // For the "Agent family" card below we still want the rich metadata from
@@ -122,14 +129,46 @@ export default async function AgentsPage() {
             </div>
           </div>
         </header>
-        {noBridge && (
+        {/* Tenant has neither cloud provider keys nor a paired bridge — chat
+            can't work at all. Hard CTA pointing to both onboarding paths. */}
+        {showProviderNudge && (
+          <div className="rounded-lg border border-status-warm/40 bg-status-warm/5 px-4 py-3 space-y-2">
+            <div className="text-sm font-bold text-fg">
+              Wire up an AI provider so your agents can think.
+            </div>
+            <div className="text-xs text-fg-muted leading-relaxed">
+              Pick one (you can do both): connect a cloud provider key (works
+              from anywhere) or install the local bridge (uses your Claude
+              Code subscription, gives the agent file system access).
+            </div>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Link
+                href="/settings#providers"
+                className="btn-primary inline-flex items-center gap-1.5 text-xs"
+              >
+                Connect a provider →
+              </Link>
+              <Link
+                href="/settings/devices/install"
+                className="btn-secondary inline-flex items-center gap-1.5 text-xs"
+              >
+                <Download className="w-3 h-3" />
+                Install the bridge →
+              </Link>
+            </div>
+          </div>
+        )}
+        {/* Bridge-not-installed nudge — shown when the operator already has
+            cloud chat working (provider key OR operator fallback) but hasn't
+            paired a bridge yet. Soft CTA, not blocking. */}
+        {noBridge && !showProviderNudge && (
           <div className="rounded-lg border border-accent/30 bg-accent/5 px-3 py-2 flex items-center justify-between gap-3 flex-wrap">
             <div className="text-xs text-fg-muted">
               <span className="font-bold text-fg">Chat is running in cloud mode.</span>{" "}
               Install the Claude Code CLI bridge to power chat with your local subscription + file access.
             </div>
             <Link
-              href="/settings#devices"
+              href="/settings/devices/install"
               className="btn-primary inline-flex items-center gap-1.5 text-xs shrink-0"
             >
               <Download className="w-3 h-3" />
