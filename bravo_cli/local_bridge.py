@@ -382,6 +382,34 @@ def _log(msg: str) -> None:
         pass
 
 
+def _poll_and_execute_cron(token: str) -> None:
+    """Phase I: pull tenant_cron_jobs from the dashboard, execute any that are
+    due, report results back. Called once per outer ping loop iteration so
+    cron resolution is bounded by the ping interval (60s typical). Cron
+    expressions are evaluated against the operator-machine clock — the
+    dashboard just stores the spec; the bridge owns execution.
+
+    Best-effort: any HTTP / parse error logs and returns. The ping loop
+    continues; next iteration retries fresh.
+    """
+    try:
+        from .cron_runner import poll_once  # type: ignore
+    except ImportError:
+        try:
+            from cron_runner import poll_once  # type: ignore
+        except ImportError:
+            # Cron module not yet present in this bridge install — older
+            # daemon. Skip silently; operator runs an unsupported version
+            # of the bridge.
+            return
+    try:
+        ran = poll_once(token=token, dashboard_url=_dashboard_url())
+        if ran:
+            _log(f"CRON ran {ran} job(s)")
+    except Exception as e:
+        _log(f"CRON loop error: {e}")
+
+
 def run_loop() -> int:
     token = _read_token()
     if not token:
@@ -405,6 +433,11 @@ def run_loop() -> int:
                     datetime.now(timezone.utc).isoformat(), encoding="utf-8"
                 )
                 _log(f"OK ping recorded {len(services)} services {info}")
+                # Cron tick — same cadence as ping. Polls /api/cron-jobs/poll
+                # via the bridge token, evaluates schedules locally, runs
+                # whatever's due. Best-effort; failures don't block the ping
+                # loop.
+                _poll_and_execute_cron(token)
             else:
                 _log(f"FAIL {info}")
             time.sleep(PING_INTERVAL_SEC)
