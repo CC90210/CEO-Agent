@@ -83,6 +83,17 @@ const PYTHON = IS_MAC
     ? path.join(PROJECT_ROOT, '.venv', 'bin', 'python')
     : path.join(PROJECT_ROOT, '.venv', 'Scripts', 'python.exe');
 
+// pythonw.exe — Windows GUI variant of python.exe. CRITICAL: pythonw
+// DOES NOT allocate a console window. Use this for any daemon that
+// should NEVER pop a terminal on the operator's screen. The
+// difference matters because PM2's windowsHide setting is unreliable
+// across PM2 versions on Windows; pythonw guarantees no window
+// regardless of restart loops, crashes, or PM2 quirks. Mac/Linux
+// have no console concept here so we fall back to plain python.
+const PYTHONW = IS_MAC
+    ? path.join(PROJECT_ROOT, '.venv', 'bin', 'python')
+    : path.join(PROJECT_ROOT, '.venv', 'Scripts', 'pythonw.exe');
+
 // Node interpreter — both platforms use whatever's on PATH.
 // Mac has nvm node v24+, Windows has whatever the user installed.
 const NODE = 'node';
@@ -165,7 +176,7 @@ apps.push({
 // multiple bridges paired is fine (each one services its own operator).
 apps.push({
     name: "claude-bridge",
-    script: PYTHON,
+    script: PYTHONW,  // no-console interpreter; popup-suppressed even on crash-loop
     args: ["-m", "bravo_cli.bridge_chat_server"],
     cwd: PROJECT_ROOT,
     watch: false,
@@ -201,7 +212,7 @@ apps.push({
 //      auto-start (`pm2 save` + `pm2 startup`).
 apps.push({
     name: "claude-bridge-ping",
-    script: PYTHON,
+    script: PYTHONW,  // no-console interpreter; popup-suppressed even on crash-loop
     args: ["-m", "bravo_cli.local_bridge", "_loop"],
     cwd: PROJECT_ROOT,
     watch: false,
@@ -233,7 +244,7 @@ apps.push({
     name: "event-router",
     script: "scripts/event_router.py",
     args: ["loop", "--interval", "3"],
-    interpreter: PYTHON,
+    interpreter: PYTHONW,  // no-console interpreter; popup-suppressed
     cwd: PROJECT_ROOT,
     watch: false,
     autorestart: true,
@@ -263,7 +274,7 @@ apps.push({
     name: "override-consumer",
     script: "scripts/exec_override_consumer.py",
     args: ["loop", "--interval", "5"],
-    interpreter: PYTHON,
+    interpreter: PYTHONW,  // no-console interpreter; popup-suppressed
     cwd: PROJECT_ROOT,
     watch: false,
     autorestart: true,
@@ -307,7 +318,7 @@ apps.push({
     name: "sequence-runner",
     script: "scripts/sequence_runner.py",
     args: ["loop", "--interval", "10"],
-    interpreter: PYTHON,
+    interpreter: PYTHONW,  // no-console interpreter; popup-suppressed
     cwd: PROJECT_ROOT,
     watch: false,
     autorestart: true,
@@ -348,7 +359,7 @@ apps.push({
     name: "lender-response-classifier",
     script: "scripts/lender_response_classifier.py",
     args: ["loop", "--interval", "300"],
-    interpreter: PYTHON,
+    interpreter: PYTHONW,  // no-console interpreter; popup-suppressed
     cwd: PROJECT_ROOT,
     watch: false,
     autorestart: true,

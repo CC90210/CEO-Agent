@@ -36,7 +36,13 @@
 
 import { createHmac, timingSafeEqual } from "crypto";
 
-const HMAC_ENV_VAR = "BRAVO_FORM_LINK_HMAC_KEY";
+// Renamed 2026-05-15 from BRAVO_FORM_LINK_HMAC_KEY at CC's correction —
+// forms aren't a Bravo-agent feature, they're a tenant-product feature
+// the dashboard signs at the infrastructure layer. Neutral name reflects
+// that. Falls back to the old name during the transition window so
+// in-flight tokens (none today, but future-safe) keep verifying.
+const HMAC_ENV_VAR = "FORM_LINK_HMAC_KEY";
+const HMAC_ENV_VAR_LEGACY = "BRAVO_FORM_LINK_HMAC_KEY";
 const TTL_ENV_VAR = "FORM_LINK_TTL_DAYS";
 const SIG_VERSION = "v1";
 const DEFAULT_TTL_DAYS = 60;
@@ -55,7 +61,7 @@ export type FormLinkPayload = {
 function shouldEnforce(): boolean {
   const isProd =
     process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";
-  const keySet = !!process.env[HMAC_ENV_VAR];
+  const keySet = !!(process.env[HMAC_ENV_VAR] || process.env[HMAC_ENV_VAR_LEGACY]);
   return isProd || keySet;
 }
 
@@ -74,7 +80,11 @@ function canonicalize(value: unknown): string {
 }
 
 function getKey(): Buffer | null {
-  const raw = process.env[HMAC_ENV_VAR];
+  // Prefer the canonical env var; fall back to the legacy name during
+  // the transition. Once Vercel's legacy key is deleted (post-deploy
+  // of this change), the fallback is harmless dead-code.
+  const raw =
+    process.env[HMAC_ENV_VAR] || process.env[HMAC_ENV_VAR_LEGACY];
   if (!raw || raw.length < 32) return null;
   return Buffer.from(raw, "utf8");
 }
