@@ -126,50 +126,6 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
       "Helios is the SunBiz sales voice. Personable, results-driven, sharp on cadence — drafts first-touch SMS, runs revival sequences for ghosted leads, brings expired offers back to the table.",
     askMeAbout: "Draft a first-touch SMS · Revival sequence for ghosted leads · Close-the-loop on expired offer",
   },
-  // Brand command primary — overall brand operations, voice continuity.
-  lyra: {
-    key: "lyra",
-    label: "Lyra",
-    role: "Brand command primary · voice · weekly pulse",
-    tagline: "Brand · voice · pulse",
-    location: "C:\\Users\\User\\APPS\\brand-command-agent",
-    colorRgb: "236, 72, 153",
-    textClass: "text-pink-400",
-    family: false,
-    description:
-      "Lyra is the brand-command primary. She holds the weekly brand pulse — what posted, what landed, what moved subscribers and sponsorships — and keeps voice continuity across the sub-agents.",
-    askMeAbout: "Weekly brand pulse · What's drifting from voice? · Top 3 wins from this week",
-  },
-  lyra_brand: {
-    key: "lyra_brand",
-    label: "Lyra · Brand",
-    role: "Captions, posts, content drops",
-    tagline: "Captions · posts · drops",
-    location: "C:\\Users\\User\\APPS\\brand-command-agent",
-    colorRgb: "236, 72, 153",
-    textClass: "text-pink-400",
-    family: false,
-  },
-  lyra_fans: {
-    key: "lyra_fans",
-    label: "Lyra · Fans",
-    role: "Subscriber engagement, fan DMs",
-    tagline: "Fans · DMs · engagement",
-    location: "C:\\Users\\User\\APPS\\brand-command-agent",
-    colorRgb: "236, 72, 153",
-    textClass: "text-pink-400",
-    family: false,
-  },
-  lyra_commerce: {
-    key: "lyra_commerce",
-    label: "Lyra · Commerce",
-    role: "Merch drops, sponsorships",
-    tagline: "Merch · sponsorships",
-    location: "C:\\Users\\User\\APPS\\brand-command-agent",
-    colorRgb: "236, 72, 153",
-    textClass: "text-pink-400",
-    family: false,
-  },
   // Registry key stays "life-preservation" so filesystem paths
   // (~/life-preservation, tmp/agent_inbox routing, sibling_repos, etc.)
   // remain stable. Only the human-facing label changed to "Lumen".
@@ -218,7 +174,14 @@ export const FAMILY_AGENT_KEYS = ALL_AGENT_KEYS.filter(
  */
 export const AGENT_KEY_ALIASES: Record<string, string> = {
   sunbiz: "solara",
-  suga_sean: "lyra",
+  // Lyra package removed 2026-05-14 — brand/content work folds into Maven.
+  // Legacy "suga_sean" + "lyra*" rows in user_profiles.agents_enabled
+  // resolve to Maven so existing tenants keep rendering without DB writes.
+  suga_sean: "maven",
+  lyra: "maven",
+  lyra_brand: "maven",
+  lyra_fans: "maven",
+  lyra_commerce: "maven",
 };
 
 export function resolveAgentKey(key: string): string {

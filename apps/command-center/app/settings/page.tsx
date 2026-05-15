@@ -16,16 +16,22 @@ import { DevicesEditor } from "@/components/settings/DevicesEditor";
 import { chatAgentKeys } from "@/lib/agent-personas";
 import { resolveClientProfileSlug } from "@/lib/client-profiles";
 import { getManifest } from "@/lib/manifest/loader";
+import { visibleIntegrationsForTenant } from "@/lib/integrations-registry";
+import { resolveAgentKey } from "@/lib/agents";
+import { isOperatorEmail } from "@/lib/operator-credentials";
+import { getSessionUser } from "@/lib/supabase-server";
+import type { IntegrationHealth } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const profile = await safe("settings.profile", getActiveProfile(), null);
-  const [integrations, tenant, templates, connectedAiSet] = await Promise.all([
+  const [integrations, tenant, templates, connectedAiSet, user] = await Promise.all([
     safe("settings.integrations_health", integrationsHealth(profile?.tenant_id || null), []),
     profile?.tenant_id ? safe("settings.tenant", getTenant(profile.tenant_id), null) : Promise.resolve(null),
     profile ? safe("settings.plan_templates", getPlanTemplates(profile.id), []) : Promise.resolve([]),
     safe("settings.ai_keys", aiServicesWithKey(profile?.tenant_id || null), new Set<string>()),
+    getSessionUser().catch(() => null),
   ]);
   const weekday = templates.find((t) => t.kind === "weekday") || null;
   const weekend = templates.find((t) => t.kind === "weekend") || null;
@@ -38,6 +44,17 @@ export default async function SettingsPage() {
   const manifest = manifestSlug
     ? await safe("settings.manifest", getManifest(manifestSlug), null)
     : null;
+
+  // Tenant-aware integration visibility. Show only what this tenant's
+  // enabled agents actually need + AI providers (no used_by). Operators
+  // (OASIS) see everything including platform infra (Vercel, Cloudflare,
+  // GitHub, etc.). Client tenants only see what their agent mix exposes —
+  // re-enable an agent later and the integrations grow back.
+  const enabledAgents = (profile?.agents_enabled || []).map(resolveAgentKey);
+  const isOperator = isOperatorEmail(user?.email || undefined);
+  const visibleDefs = visibleIntegrationsForTenant(enabledAgents, { isOperator });
+  const visibleServices = new Set(visibleDefs.map((d) => d.service));
+  const visibleIntegrations = integrations.filter((h: IntegrationHealth) => visibleServices.has(h.service));
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -134,15 +151,27 @@ export default async function SettingsPage() {
             <PlanTemplateEditor kind="weekend" existing={weekend} />
           </Card>
 
-          <Card title="Integrations" subtitle="Health across every connected system. Open the Integrations page for the full setup grid.">
+          <Card
+            title="Integrations"
+            subtitle={
+              isOperator
+                ? "Health across every connected system (operator view — includes platform infra). Open the Integrations page for the full setup grid."
+                : "Health across the systems your enabled agents actually use. Enable more agents to unlock additional integrations."
+            }
+          >
             <div className="grid sm:grid-cols-2 gap-3">
-              {integrations.map((h) => (
+              {visibleIntegrations.map((h: IntegrationHealth) => (
                 <IntegrationDot
                   key={h.service}
                   health={h}
                   connection={{ hasCredentials: connectedAiSet.has(h.service) }}
                 />
               ))}
+              {visibleIntegrations.length === 0 && (
+                <div className="col-span-full text-sm text-fg-muted">
+                  No integrations active for your current agent set. Enable an agent above to see what they need.
+                </div>
+              )}
             </div>
           </Card>
         </>

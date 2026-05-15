@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { UserProfile } from "@/lib/supabase";
-import { ALL_AGENT_KEYS, AGENT_REGISTRY } from "@/lib/agents";
+import { FAMILY_AGENT_KEYS, AGENT_REGISTRY } from "@/lib/agents";
 
 export function ProfileEditor({ profile }: { profile: UserProfile }) {
   const router = useRouter();
@@ -78,8 +78,8 @@ export function ProfileEditor({ profile }: { profile: UserProfile }) {
         </Field>
         <Field label="Primary agent">
           <select className="select" value={primaryAgent} onChange={(e) => setPrimaryAgent(e.target.value)}>
-            {ALL_AGENT_KEYS.map((k) => (
-              <option key={k} value={k}>{k}</option>
+            {FAMILY_AGENT_KEYS.map((k) => (
+              <option key={k} value={k}>{AGENT_REGISTRY[k]?.label || k}</option>
             ))}
           </select>
         </Field>
@@ -110,7 +110,7 @@ export function ProfileEditor({ profile }: { profile: UserProfile }) {
       <div>
         <div className="label mb-2">Agents enabled</div>
         <ul className="grid sm:grid-cols-2 gap-2">
-          {ALL_AGENT_KEYS.map((key) => {
+          {FAMILY_AGENT_KEYS.map((key) => {
             const a = AGENT_REGISTRY[key];
             const on = enabled.has(key);
             return (
@@ -132,7 +132,7 @@ export function ProfileEditor({ profile }: { profile: UserProfile }) {
                     {on && <CheckIcon />}
                   </div>
                   <div>
-                    <div className={`font-bold uppercase tracking-wider text-xs ${on ? "text-accent" : ""}`}>{key}</div>
+                    <div className={`font-bold uppercase tracking-wider text-xs ${on ? "text-accent" : ""}`}>{a.label}</div>
                     <div className="text-xs">{a.role}</div>
                   </div>
                 </button>

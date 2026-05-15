@@ -20,11 +20,6 @@ const AGENT_LABELS: Record<string, { label: string; pitch: string }> = {
     pitch:
       "Your Sun Biz sales voice. Personable, results-driven, sharp on cadence — drafts first-touch SMS, runs revival sequences for ghosted leads, brings expired offers back to the table.",
   },
-  lyra: {
-    label: "Lyra",
-    pitch:
-      "Your brand-command primary. Lyra holds the weekly pulse — what posted, what landed, what moved subscribers and sponsorships — and keeps voice continuity across the sub-agents.",
-  },
 };
 
 function firstNameOf(name: string | null | undefined, fallback = "Jordan"): string {
@@ -49,7 +44,7 @@ export default async function ClientAgentPage({
     [] as IntegrationHealth[]
   );
   // Tenant-scoped: only the agents this tenant has purchased / been provisioned for.
-  // Normalize legacy slugs (sunbiz → solara, suga_sean → lyra) so old DB rows still resolve.
+  // Normalize legacy slugs (sunbiz → solara, suga_sean/lyra* → maven) so old DB rows still resolve.
   const enabled = (profile?.agents_enabled || []).filter(Boolean).map(resolveAgentKey);
   const profilePrimary = resolveAgentKey(profile?.primary_agent || enabled[0] || "solara");
   // Honor ?agent=<slug> only if the user actually has that agent enabled —

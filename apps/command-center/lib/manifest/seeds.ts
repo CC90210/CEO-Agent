@@ -289,16 +289,15 @@ export const SUGA_SEED: TenantManifest = {
     footer_tagline: "Fans first. Always.",
   },
   agents: [
-    // Primary — brand voice, overall command. Where the operator lands by default.
-    { slug: "lyra", display_name: "Lyra", enabled: true, primary: true },
-    // Brand sub-agents — captions, fans, commerce. Switchable inside the shell.
-    { slug: "lyra_brand", display_name: "Lyra · Brand", enabled: true },
-    { slug: "lyra_fans", display_name: "Lyra · Fans", enabled: true },
-    { slug: "lyra_commerce", display_name: "Lyra · Commerce", enabled: true },
+    // Maven (CMO) owns brand work — content, fans, sponsorships, drops.
+    // Previously this seed had a 4-agent Lyra package; collapsed 2026-05-14
+    // because the brand-command capabilities fold cleanly into Maven, and
+    // a tenant-specific agent fork is over-engineering for one client.
+    { slug: "maven", display_name: "Maven", enabled: true, primary: true },
   ],
   nav: [
     { href: "/t/suga", label: "Dashboard", icon: "LayoutDashboard", group: "Operations" },
-    // Top-level /agent chat — switcher across Lyra + 3 sub-agents.
+    // Top-level /agent chat — Maven as the primary brand agent.
     { href: "/agent", label: "Agents", icon: "Bot", group: "Operations" },
     { href: "/t/suga/subscribers", label: "Subscribers", icon: "Users", group: "Fans" },
     { href: "/t/suga/posts", label: "Posts", icon: "Megaphone", group: "Brand" },
@@ -355,10 +354,10 @@ export const SUGA_SEED: TenantManifest = {
     { path: "sponsorship", label: "Sponsorships", kind: "kanban", entity: "sponsorship", config: { group_by: "stage" } },
   ],
   default_prompts: [
-    { agent_slug: "lyra_fans", label: "Fan check-in", prompt: "Pull the most engaged 10 subscribers this week. Suggest a personalised DM I can send." },
-    { agent_slug: "lyra_brand", label: "Post idea", prompt: "What's a high-engagement post angle I haven't run this month?" },
-    { agent_slug: "lyra_commerce", label: "Merch drop sweep", prompt: "Which merch drops are due to go live this month? Anything understocked?" },
-    { agent_slug: "lyra", label: "Weekly brand pulse", prompt: "Summarise this week's posts, subscriber growth, and any sponsorship movement in 5 bullets." },
+    { agent_slug: "maven", label: "Fan check-in", prompt: "Pull the most engaged 10 subscribers this week. Suggest a personalised DM I can send." },
+    { agent_slug: "maven", label: "Post idea", prompt: "What's a high-engagement post angle I haven't run this month?" },
+    { agent_slug: "maven", label: "Merch drop sweep", prompt: "Which merch drops are due to go live this month? Anything understocked?" },
+    { agent_slug: "maven", label: "Weekly brand pulse", prompt: "Summarise this week's posts, subscriber growth, and any sponsorship movement in 5 bullets." },
   ],
   data_backend: "turso",
   deployment_mode: "dedicated",

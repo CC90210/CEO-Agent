@@ -51,9 +51,10 @@ export async function applyClientProvisioningProfile({
       enabled: ["solara", "helios"],
     },
     suga: {
-      // Brand-command package: Lyra primary + 3 sub-agents.
-      primary: "lyra",
-      enabled: ["lyra", "lyra_brand", "lyra_fans", "lyra_commerce"],
+      // Brand-command work folds into Maven (CMO). Lyra package retired
+      // 2026-05-14 — single tenant doesn't justify a forked agent line.
+      primary: "maven",
+      enabled: ["maven"],
     },
   };
   const agentConfig = profileAgentMap[clientProfileSlug];
