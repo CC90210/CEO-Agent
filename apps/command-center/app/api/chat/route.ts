@@ -311,6 +311,19 @@ export async function POST(req: NextRequest) {
                 name: ev.name,
                 summary: ev.summary,
               });
+            } else if (ev.type === "tool_use_pending") {
+              // Deferred tool — model called something that needs the
+              // operator's local bridge. Forward the pending event +
+              // resume_state to the browser; the ChatWidget proxies the
+              // call to localhost:9100/exec-tool and POSTs the result
+              // to /api/chat/resume to continue the iteration. See
+              // lib/cloud-tool-runner.ts for the pause semantics.
+              send("tool_use_pending", {
+                tool_use_id: ev.tool_use_id,
+                name: ev.name,
+                input: ev.input,
+                resume_state: ev.resume_state,
+              });
             } else if (ev.type === "done") {
               usageIn = ev.inputTokens;
               usageOut = ev.outputTokens;

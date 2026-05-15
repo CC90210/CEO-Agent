@@ -84,6 +84,19 @@ type ToolDef = {
   name: string;
   description: string;
   input_schema: Record<string, unknown>;
+  /**
+   * When true, the streaming loop does NOT execute this tool server-side.
+   * Instead it yields { type: "tool_use_pending", resume_state } and exits
+   * — the caller (the /api/chat route) emits a tool_use_pending SSE event,
+   * the browser POSTs the call to its local bridge (Phase 2 of giggly-reef),
+   * and the dashboard hits /api/chat/resume with the bridge-produced
+   * tool_result to continue the Anthropic iteration.
+   *
+   * Mark this on tools that need the operator's local machine (file I/O,
+   * shell, emails sent from their .env.agents credentials). Leave it off
+   * for tools that the cloud runner can execute itself (records, http).
+   */
+  defer?: boolean;
 };
 
 /**
@@ -233,6 +246,93 @@ export const TOOL_DEFINITIONS: ToolDef[] = [
     description:
       "List the operator's connected integrations (Stripe, Gmail, Late, etc.) with health. Use before recommending an action that needs an integration.",
     input_schema: { type: "object", properties: {} },
+  },
+
+  // ──────────────────────────────────────────────────────────────────
+  // Bridge-proxied tools (defer: true) — these execute on the operator's
+  // local machine via bravo_cli/bridge_tools.py. The runner pauses on
+  // tool_use, the browser POSTs to localhost:9100/exec-tool, the result
+  // gets POSTed back to /api/chat/resume. See bridge_tools.py for the
+  // server-side implementations.
+  //
+  // If the bridge is offline when one of these fires, the browser-side
+  // proxy returns is_error=true with "bridge_unreachable:..." in the
+  // tool_result — the model sees the failure and can adapt (suggest the
+  // operator start the bridge, or fall back to a cloud-only approach).
+  // ──────────────────────────────────────────────────────────────────
+  {
+    name: "read_file",
+    description:
+      "Read a file from the operator's local machine. Relative paths resolve against the Bravo repo root; absolute paths work too. Returns up to 200KB of content; larger files get a head + truncation note. Use when the operator references a file, asks 'what's in X', or needs SKILL.md / brain/* context.",
+    defer: true,
+    input_schema: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Absolute path OR path relative to the Bravo repo root." },
+        max_bytes: { type: "number", description: "Optional cap on returned bytes (default 200000)." },
+      },
+      required: ["path"],
+    },
+  },
+  {
+    name: "write_file",
+    description:
+      "Create or overwrite a file on the operator's local machine. Use sparingly — confirm with the operator before writing. Parent directories are auto-created.",
+    defer: true,
+    input_schema: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Destination path (absolute or repo-relative)." },
+        content: { type: "string", description: "Full file content to write." },
+        create_dirs: { type: "boolean", description: "Create missing parent dirs (default true)." },
+      },
+      required: ["path", "content"],
+    },
+  },
+  {
+    name: "bash",
+    description:
+      "Run a shell command on the operator's local machine. 60-second timeout. Use for grep / find / git / npm / python invocations. Returns combined stdout+stderr with the exit code. For destructive commands (rm, drop, force-push), confirm with the operator first.",
+    defer: true,
+    input_schema: {
+      type: "object",
+      properties: {
+        command: { type: "string", description: "Shell command to execute." },
+        cwd: { type: "string", description: "Optional working directory (default Bravo repo root)." },
+        timeout_s: { type: "number", description: "Override default 60s timeout (max 300)." },
+      },
+      required: ["command"],
+    },
+  },
+  {
+    name: "send_email",
+    description:
+      "Send an email via the operator's Gmail account (uses scripts/google_tool.py with the operator's stored OAuth). Use when the operator says 'send an email to X' or 'reply to that lead'. Always include a professional subject and body. The 'from' field defaults to the operator's primary Gmail.",
+    defer: true,
+    input_schema: {
+      type: "object",
+      properties: {
+        to: { type: "string", description: "Recipient email address." },
+        subject: { type: "string", description: "Email subject line." },
+        body: { type: "string", description: "Email body (plain text or markdown — Gmail renders both)." },
+        from: { type: "string", description: "Optional sender — defaults to operator's primary." },
+      },
+      required: ["to", "subject", "body"],
+    },
+  },
+  {
+    name: "send_sms",
+    description:
+      "Send an SMS via the operator's Twilio account. Honors the local opt-out list. Always include opt-out language ('Reply STOP to opt out') in the first touch — TCPA requires it. For cold outreach, confirm consent posture with the operator first.",
+    defer: true,
+    input_schema: {
+      type: "object",
+      properties: {
+        to: { type: "string", description: "Recipient phone number (E.164 format preferred, e.g. +12025551234)." },
+        body: { type: "string", description: "SMS body. Keep under 160 chars to avoid multi-part billing." },
+      },
+      required: ["to", "body"],
+    },
   },
 ];
 
@@ -572,6 +672,20 @@ export type StreamYield =
   | { type: "delta"; text: string }
   | { type: "tool_use"; name: string; input: Record<string, unknown> }
   | { type: "tool_result"; name: string; summary: string; ok: boolean }
+  /**
+   * Deferred tool — the model called a tool marked defer:true. The runner
+   * captured the assistant turn (including the tool_use block) into the
+   * resume_state below, then exits. The /api/chat route forwards this as an
+   * SSE event so the browser can execute the tool locally and POST the
+   * result to /api/chat/resume.
+   */
+  | {
+      type: "tool_use_pending";
+      tool_use_id: string;
+      name: string;
+      input: Record<string, unknown>;
+      resume_state: ResumeState;
+    }
   | { type: "done"; inputTokens: number; outputTokens: number }
   | { type: "error"; message: string };
 
@@ -583,6 +697,41 @@ type ContentBlock =
 type AnthropicMessage =
   | { role: "user"; content: string | ContentBlock[] }
   | { role: "assistant"; content: ContentBlock[] };
+
+/**
+ * The payload that gets serialized to the browser, hops through the
+ * /api/chat/resume route, and seeds the next iteration of the loop with
+ * the pre-pause state intact. Contains everything resumeAnthropicTurn()
+ * needs to continue the model's session without re-running prior iterations.
+ *
+ * Security note: this state passes through the browser. v1 trusts the
+ * authed dashboard session (replay attacks only let an operator mess with
+ * their OWN chat, no cross-tenant blast radius). If /api/chat/resume ever
+ * becomes a multi-tenant or public surface, add HMAC signing here so a
+ * malicious page can't synthesize states the server didn't issue.
+ */
+export type ResumeState = {
+  /** Anthropic model ID — must match the model that was streaming the pause. */
+  model: string;
+  /** System prompt the iteration loop was running with. */
+  system: string;
+  /** Full conversation history, including the assistant turn with the
+   *  deferred tool_use block. resumeAnthropicTurn appends the tool_result
+   *  block on top before re-opening the stream. */
+  history: AnthropicMessage[];
+  /** Iteration index the pause happened on; used to enforce the iteration
+   *  cap across the resume boundary. */
+  iteration: number;
+  /** Running totals so the resumed turn keeps incrementing usage instead
+   *  of resetting to zero. */
+  totalIn: number;
+  totalOut: number;
+  /** Echo of the original request's maxTokens / enableTools — applied to
+   *  the resumed call so the second half of the conversation behaves
+   *  identically to what would have happened without the pause. */
+  maxTokens?: number;
+  enableTools?: boolean;
+};
 
 export type ToolLoopRequest = {
   apiKey: string;
@@ -599,27 +748,117 @@ export async function* streamAnthropicWithTools(
   req: ToolLoopRequest,
   ctx: ToolContext
 ): AsyncGenerator<StreamYield> {
-  const enableTools = req.enableTools !== false;
-  // Convert history to Anthropic content-block format. Initial round is all
-  // strings; subsequent rounds we append { tool_use, tool_result } blocks.
+  // Convert flat-string history → Anthropic content-block format. The
+  // iteration helper handles the rest (initial call, tool dispatch,
+  // deferred-tool pause/resume).
   const history: AnthropicMessage[] = req.messages
     .filter((m) => m.content && m.content.length > 0)
     .map((m) => ({ role: m.role, content: m.content }) as AnthropicMessage);
 
-  let totalIn = 0;
-  let totalOut = 0;
+  yield* runIterationLoop({
+    apiKey: req.apiKey,
+    model: req.model,
+    system: req.system,
+    maxTokens: req.maxTokens,
+    enableTools: req.enableTools,
+    history,
+    startIter: 0,
+    startTotalIn: 0,
+    startTotalOut: 0,
+    ctx,
+  });
+}
 
-  for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter++) {
+/**
+ * Resume a paused tool_use loop. Called by /api/chat/resume after the
+ * browser has executed a deferred tool (e.g., via the bridge proxy at
+ * localhost:9100/exec-tool) and POSTed back its result.
+ *
+ * Takes the ResumeState the runner emitted before pausing + the
+ * tool_result the client produced. Appends the tool_result block onto
+ * the message history and continues the iteration loop from where it
+ * left off — same iteration cap, same running token totals.
+ */
+export async function* resumeAnthropicTurn(
+  resume: ResumeState,
+  toolUseId: string,
+  toolResult: { content: string; is_error: boolean },
+  ctx: ToolContext,
+  apiKey: string,
+): AsyncGenerator<StreamYield> {
+  const history: AnthropicMessage[] = [...resume.history];
+  // Append the user-side tool_result block that the browser produced.
+  history.push({
+    role: "user",
+    content: [
+      {
+        type: "tool_result",
+        tool_use_id: toolUseId,
+        content: toolResult.content,
+        is_error: toolResult.is_error,
+      },
+    ],
+  });
+  yield* runIterationLoop({
+    apiKey,
+    model: resume.model,
+    system: resume.system,
+    maxTokens: resume.maxTokens,
+    enableTools: resume.enableTools,
+    history,
+    startIter: resume.iteration + 1,
+    startTotalIn: resume.totalIn,
+    startTotalOut: resume.totalOut,
+    ctx,
+  });
+}
+
+type IterationLoopArgs = {
+  apiKey: string;
+  model: string;
+  system: string;
+  maxTokens?: number;
+  enableTools?: boolean;
+  /** Pre-built history. Mutates as the loop appends turns. */
+  history: AnthropicMessage[];
+  /** Iteration index to start at (0 for fresh, N+1 for resume). */
+  startIter: number;
+  startTotalIn: number;
+  startTotalOut: number;
+  ctx: ToolContext;
+};
+
+/**
+ * The core Anthropic tool_use streaming loop. Owns the per-iteration
+ * fetch → parseSSE → block accumulation → tool-dispatch cycle. Two
+ * callers: streamAnthropicWithTools (initial turn) and
+ * resumeAnthropicTurn (post-deferred-tool resume).
+ *
+ * Yields delta/tool_use/tool_result/done/error as documented on
+ * StreamYield. NEW for Phase 2: when a tool is marked defer:true on
+ * its TOOL_DEFINITIONS entry, the loop captures the in-progress
+ * history, yields tool_use_pending with a ResumeState, and exits.
+ * Caller resumes via resumeAnthropicTurn.
+ */
+async function* runIterationLoop(
+  args: IterationLoopArgs,
+): AsyncGenerator<StreamYield> {
+  const { apiKey, model, system, maxTokens, ctx, history } = args;
+  const enableTools = args.enableTools !== false;
+  let totalIn = args.startTotalIn;
+  let totalOut = args.startTotalOut;
+
+  for (let iter = args.startIter; iter < MAX_TOOL_ITERATIONS; iter++) {
     // Output tokens for THIS iteration only. Anthropic's message_delta
     // events report a cumulative count within a single message — not
     // per-event deltas — so we OVERWRITE on each frame and add the
     // final value into totalOut after the inner loop ends. Adding on
     // every event would double-count by a factor of (frames per message).
     const body: Record<string, unknown> = {
-      model: req.model,
-      max_tokens: req.maxTokens ?? 4096,
+      model,
+      max_tokens: maxTokens ?? 4096,
       stream: true,
-      system: req.system,
+      system,
       messages: history,
     };
     if (enableTools) {
@@ -630,7 +869,7 @@ export async function* streamAnthropicWithTools(
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-api-key": req.apiKey,
+        "x-api-key": apiKey,
         "anthropic-version": ANTHROPIC_VERSION,
       },
       body: JSON.stringify(body),
@@ -739,6 +978,39 @@ export async function* streamAnthropicWithTools(
       content: blocks.filter(Boolean) as ContentBlock[],
     });
 
+    // Phase 2 deferred-tool short-circuit: if ANY of the tool_use blocks
+    // points at a tool marked defer:true, we can't keep iterating
+    // server-side — the operator's local bridge has to execute the tool
+    // and POST the result back via /api/chat/resume. Capture the in-
+    // flight state and exit. (If a single turn mixes deferred + non-
+    // deferred tools, we pause on the first deferred one and defer ALL
+    // remaining tool calls to the resume; the model will re-emit them.
+    // In practice the model issues one tool_use per turn unless we ask
+    // for parallel-tools, which we don't.)
+    const deferred = toolUses.find((tu) => {
+      const def = TOOL_DEFINITIONS.find((d) => d.name === tu.name);
+      return def?.defer === true;
+    });
+    if (deferred) {
+      yield {
+        type: "tool_use_pending",
+        tool_use_id: deferred.id,
+        name: deferred.name,
+        input: deferred.input,
+        resume_state: {
+          model,
+          system,
+          history,
+          iteration: iter,
+          totalIn,
+          totalOut,
+          maxTokens,
+          enableTools,
+        },
+      };
+      return;
+    }
+
     // Execute each tool call, surface to the operator, and queue the
     // tool_result blocks for the next turn.
     const resultBlocks: ContentBlock[] = [];
@@ -776,16 +1048,24 @@ export async function* streamAnthropicWithTools(
 // ============================================================================
 
 export function cloudToolsPromptBlockV2(): string {
+  const cloudTools = TOOL_DEFINITIONS.filter((t) => !t.defer);
+  const bridgeTools = TOOL_DEFINITIONS.filter((t) => t.defer);
   const lines: string[] = [];
   lines.push("");
   lines.push("---");
   lines.push("CLOUD TOOLS — REAL TOOL_USE");
   lines.push("");
   lines.push(
-    "You're running in cloud mode with a real tool_use loop. The runtime exposes these tools — call them like any native Claude tool. Each tool is tenant-scoped to the current operator and audit-logged."
+    "You're running in cloud mode with a real tool_use loop. The runtime exposes two tiers of tools — call them like any native Claude tool. All are tenant-scoped to the current operator and audit-logged."
   );
   lines.push("");
-  for (const t of TOOL_DEFINITIONS) {
+  lines.push("Cloud tools (always available, execute server-side on Vercel):");
+  for (const t of cloudTools) {
+    lines.push(`- ${t.name} — ${t.description}`);
+  }
+  lines.push("");
+  lines.push("Bridge tools (require the operator's local bridge to be online — they execute on the operator's machine via the dashboard's browser proxy):");
+  for (const t of bridgeTools) {
     lines.push(`- ${t.name} — ${t.description}`);
   }
   lines.push("");
@@ -793,6 +1073,8 @@ export function cloudToolsPromptBlockV2(): string {
   lines.push("- Prefer get_record over list_records once you have an ID.");
   lines.push("- Confirm with the operator before delete_record (no undo).");
   lines.push("- Don't use http_get/http_post for the operator's own integrations — that needs a connector.");
+  lines.push("- For bridge tools (read_file, write_file, bash, send_email, send_sms): if a tool returns is_error with 'bridge_unreachable' in the body, the operator's local bridge isn't running. Tell them to start it (pm2 restart claude-bridge) instead of retrying.");
+  lines.push("- For send_email / send_sms: always confirm content with the operator before sending. Include opt-out language on first-touch SMS.");
   lines.push("- Tool results return JSON; quote relevant fields in your reply.");
   return lines.join("\n");
 }
