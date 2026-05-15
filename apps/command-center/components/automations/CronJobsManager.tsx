@@ -38,7 +38,12 @@ type CronJob = {
   name: string;
   description: string | null;
   schedule: string;
-  action_type: ActionType;
+  // Empire rows (source: "empire") carry action_type values from
+  // cron_engine.py SEED_JOBS that aren't in the tenant ActionType union
+  // (e.g. "stripe_sync", "funnel_sync"). UI just shows the string; the
+  // editor never opens for empire rows so the type narrowing on
+  // ActionType only matters for tenant rows.
+  action_type: ActionType | string;
   action_payload: Record<string, unknown>;
   enabled: boolean;
   last_run_at: string | null;
@@ -48,6 +53,7 @@ type CronJob = {
   run_count: number;
   created_at: string;
   updated_at: string;
+  source: "tenant" | "empire";
 };
 
 type Props = { agentKeys: string[] };
@@ -166,11 +172,21 @@ export function CronJobsManager({ agentKeys }: Props) {
 
       <div className="flex items-center justify-between">
         <div className="text-xs text-fg-muted">
-          {jobs === null
-            ? "Loading…"
-            : jobs.length === 0
-              ? "No automations yet."
-              : `${jobs.length} automation${jobs.length === 1 ? "" : "s"} · ${jobs.filter((j) => j.enabled).length} active`}
+          {(() => {
+            if (jobs === null) return "Loading…";
+            if (jobs.length === 0) return "No automations yet.";
+            const tenantCount = jobs.filter((j) => j.source === "tenant").length;
+            const empireCount = jobs.filter((j) => j.source === "empire").length;
+            const activeCount = jobs.filter((j) => j.enabled).length;
+            const parts = [
+              `${jobs.length} automation${jobs.length === 1 ? "" : "s"}`,
+              `${activeCount} active`,
+            ];
+            if (empireCount > 0) {
+              parts.push(`${tenantCount} tenant · ${empireCount} empire`);
+            }
+            return parts.join(" · ");
+          })()}
         </div>
         <button
           type="button"
@@ -195,33 +211,65 @@ export function CronJobsManager({ agentKeys }: Props) {
         />
       )}
 
-      {jobs && jobs.length > 0 && (
-        <div className="space-y-2">
-          {jobs.map((job) =>
-            editingId === job.id ? (
-              <JobEditor
-                key={job.id}
-                mode="edit"
-                job={job}
-                agentKeys={agentKeys}
-                onCancel={() => setEditingId(null)}
-                onSaved={() => {
-                  setEditingId(null);
-                  refresh();
-                }}
-              />
-            ) : (
-              <JobRow
-                key={job.id}
-                job={job}
-                onToggle={() => toggleEnabled(job)}
-                onEdit={() => setEditingId(job.id)}
-                onDelete={() => deleteJob(job.id)}
-              />
-            ),
-          )}
-        </div>
-      )}
+          {jobs && jobs.length > 0 && (() => {
+        const tenantJobs = jobs.filter((j) => j.source === "tenant");
+        const empireJobs = jobs.filter((j) => j.source === "empire");
+        return (
+          <div className="space-y-6">
+            {tenantJobs.length > 0 && (
+              <div className="space-y-2">
+                {empireJobs.length > 0 && (
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-fg-dim">
+                    Tenant automations
+                  </div>
+                )}
+                {tenantJobs.map((job) =>
+                  editingId === job.id ? (
+                    <JobEditor
+                      key={job.id}
+                      mode="edit"
+                      job={job}
+                      agentKeys={agentKeys}
+                      onCancel={() => setEditingId(null)}
+                      onSaved={() => {
+                        setEditingId(null);
+                        refresh();
+                      }}
+                    />
+                  ) : (
+                    <JobRow
+                      key={job.id}
+                      job={job}
+                      onToggle={() => toggleEnabled(job)}
+                      onEdit={() => setEditingId(job.id)}
+                      onDelete={() => deleteJob(job.id)}
+                    />
+                  ),
+                )}
+              </div>
+            )}
+            {empireJobs.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-fg-dim">
+                  Empire automations
+                  <span className="ml-2 text-fg-dim/70 normal-case font-normal tracking-normal">
+                    Managed by <span className="font-mono">scripts/cron_engine.py</span> SEED_JOBS · read-only here
+                  </span>
+                </div>
+                {empireJobs.map((job) => (
+                  <JobRow
+                    key={job.id}
+                    job={job}
+                    onToggle={() => {/* empire toggling is intentionally a no-op */}}
+                    onEdit={() => {/* empire editing is intentionally a no-op */}}
+                    onDelete={() => {/* empire deletion is intentionally a no-op */}}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -238,6 +286,9 @@ function JobRow({
   onDelete: () => void;
 }) {
   const preset = SCHEDULE_PRESETS.find((p) => p.value === job.schedule);
+  // Empire rows live in cron_jobs and are seeded from scripts/cron_engine.py.
+  // The UI shows their state read-only — no toggle, edit, or delete.
+  const isEmpire = job.source === "empire";
   return (
     <div
       className={`rounded-lg border p-3 ${
@@ -245,26 +296,44 @@ function JobRow({
       }`}
     >
       <div className="flex items-start gap-3">
-        <button
-          type="button"
-          onClick={onToggle}
-          className="shrink-0 mt-0.5"
-          title={job.enabled ? "Disable (keeps the spec, stops firing)" : "Enable"}
-        >
-          {job.enabled ? (
-            <ToggleRight className="w-5 h-5 text-status-engaged" />
-          ) : (
-            <ToggleLeft className="w-5 h-5 text-fg-dim" />
-          )}
-        </button>
+        {isEmpire ? (
+          <div
+            className="shrink-0 mt-0.5"
+            title={job.enabled ? "Empire automation (read-only)" : "Empire automation (disabled in cron_jobs)"}
+          >
+            {job.enabled ? (
+              <ToggleRight className="w-5 h-5 text-fg-dim" />
+            ) : (
+              <ToggleLeft className="w-5 h-5 text-fg-dim" />
+            )}
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={onToggle}
+            className="shrink-0 mt-0.5"
+            title={job.enabled ? "Disable (keeps the spec, stops firing)" : "Enable"}
+          >
+            {job.enabled ? (
+              <ToggleRight className="w-5 h-5 text-status-engaged" />
+            ) : (
+              <ToggleLeft className="w-5 h-5 text-fg-dim" />
+            )}
+          </button>
+        )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <div className="font-bold text-sm text-fg truncate">{job.name}</div>
+            {isEmpire && (
+              <span className="text-[10px] uppercase tracking-wider text-accent border border-accent/40 bg-accent/10 rounded-full px-1.5 py-0.5">
+                Empire
+              </span>
+            )}
             <span className="text-[10px] uppercase tracking-wider text-fg-dim border border-bg-border rounded-full px-1.5 py-0.5">
               {job.agent_key}
             </span>
             <span className="text-[10px] uppercase tracking-wider text-fg-dim border border-bg-border rounded-full px-1.5 py-0.5">
-              {job.action_type.replace("_", " ")}
+              {job.action_type.replace(/_/g, " ")}
             </span>
           </div>
           {job.description && <div className="text-xs text-fg-muted mt-0.5">{job.description}</div>}
@@ -285,24 +354,26 @@ function JobRow({
             </div>
           )}
         </div>
-        <div className="flex items-center gap-1 shrink-0">
-          <button
-            type="button"
-            onClick={onEdit}
-            className="text-fg-dim hover:text-fg p-1"
-            title="Edit"
-          >
-            <Edit3 className="w-3.5 h-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={onDelete}
-            className="text-fg-dim hover:text-status-warm p-1"
-            title="Delete"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        {!isEmpire && (
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={onEdit}
+              className="text-fg-dim hover:text-fg p-1"
+              title="Edit"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={onDelete}
+              className="text-fg-dim hover:text-status-warm p-1"
+              title="Delete"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
       {job.last_run_error && (
         <div className="mt-2 text-[11px] text-status-warm bg-status-warm/5 border border-status-warm/30 rounded px-2 py-1.5 font-mono break-words">
@@ -334,7 +405,12 @@ function JobEditor({
     return SCHEDULE_PRESETS.some((p) => p.value === job.schedule) ? "preset" : "custom";
   });
   const [schedule, setSchedule] = useState(job?.schedule || SCHEDULE_PRESETS[4].value);
-  const [actionType, setActionType] = useState<ActionType>(job?.action_type || "script_run");
+  // JobEditor is only opened for tenant rows (gated in JobRow above), so
+  // job.action_type is always one of the four ActionType values here. Cast
+  // is safe — empire rows never reach this code path.
+  const [actionType, setActionType] = useState<ActionType>(
+    (job?.action_type as ActionType) || "script_run",
+  );
   const [actionPayload, setActionPayload] = useState<Record<string, unknown>>(
     job?.action_payload || { script: "" },
   );
