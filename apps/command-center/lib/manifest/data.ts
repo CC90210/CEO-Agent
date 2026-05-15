@@ -23,6 +23,7 @@
  */
 
 import { getServiceSupabase } from "@/lib/supabase-server";
+import { detectStatusTransitions, publishStatusChange } from "./events";
 
 export class RecordsError extends Error {
   constructor(
@@ -154,7 +155,26 @@ export async function createRecord(input: CreateRecordInput): Promise<TenantReco
     .select("id, tenant_id, entity_type, data, created_at, updated_at")
     .single();
   if (result.error) throw new RecordsError("db", result.error.message);
-  return result.data as TenantRecord;
+  const row = result.data as TenantRecord;
+
+  // Phase 2: emit BRAVO_RECORD_STATUS_CHANGED for the initial stage/status
+  // value so the drip engine (Phase 4) can fire the "new lead" sequence
+  // when a lead lands with stage="cold". detectStatusTransitions treats
+  // before=null as a real transition for this case.
+  const transitions = detectStatusTransitions(null, row.data);
+  for (const t of transitions) {
+    await publishStatusChange({
+      tenantId: input.tenant_id,
+      entity: input.entity,
+      recordId: row.id,
+      field: t.field,
+      from: t.from,
+      to: t.to,
+      data: row.data,
+    });
+  }
+
+  return row;
 }
 
 export type UpdateRecordInput = {
@@ -179,7 +199,27 @@ export async function updateRecord(input: UpdateRecordInput): Promise<TenantReco
     .select("id, tenant_id, entity_type, data, created_at, updated_at")
     .single();
   if (result.error) throw new RecordsError("db", result.error.message);
-  return result.data as TenantRecord;
+  const row = result.data as TenantRecord;
+
+  // Phase 2: emit BRAVO_RECORD_STATUS_CHANGED on every stage/status
+  // transition. Drip engine (Phase 4) subscribes to fire next sequence
+  // step; /feed surfaces them as live signals. Diffing against the
+  // pre-update row's data — so a patch that doesn't touch stage/status
+  // produces zero events (the loop body never runs).
+  const transitions = detectStatusTransitions(existing.data, row.data);
+  for (const t of transitions) {
+    await publishStatusChange({
+      tenantId: input.tenant_id,
+      entity: input.entity,
+      recordId: row.id,
+      field: t.field,
+      from: t.from,
+      to: t.to,
+      data: row.data,
+    });
+  }
+
+  return row;
 }
 
 export async function deleteRecord(input: { tenant_id: string; entity: string; id: string }): Promise<void> {
