@@ -117,6 +117,29 @@ export function Sidebar({
   const pathname = usePathname();
   const navItems = items && items.length > 0 ? items : CC_NAV;
 
+  // Longest-prefix-wins active highlight. The naive
+  //   pathname.startsWith(item.href)
+  // rule lit BOTH Dashboard (/t/sun) AND Reasoning (/t/sun/reasoning) when
+  // the user was on /t/sun/reasoning, because the Dashboard prefix is a
+  // proper prefix of the Reasoning path. Computing the single best match
+  // once means only the longest-matching nav item highlights.
+  const bestMatchHref = (() => {
+    let bestLen = -1;
+    let bestHref: string | null = null;
+    for (const item of navItems) {
+      const href = item.href;
+      const matches =
+        href === "/"
+          ? pathname === "/"
+          : pathname === href || pathname.startsWith(href + "/");
+      if (matches && href.length > bestLen) {
+        bestLen = href.length;
+        bestHref = href;
+      }
+    }
+    return bestHref;
+  })();
+
   // Merge the legacy inboxUnread prop into the badges map so the existing
   // layout.tsx callers keep working without code changes.
   const badgeMap: Record<string, number> = { ...(badges || {}) };
@@ -162,7 +185,7 @@ export function Sidebar({
               <NavLink
                 key={item.href}
                 item={item}
-                pathname={pathname}
+                isActive={item.href === bestMatchHref}
                 badgeCount={item.badgeKey ? badgeMap[item.badgeKey] || 0 : 0}
                 demoMode={demoMode}
                 demoLandingPath={demoLandingPath}
@@ -277,18 +300,18 @@ function NavGroup({ label, children }: { label: string; children: React.ReactNod
 
 function NavLink({
   item,
-  pathname,
+  isActive,
   badgeCount = 0,
   demoMode = false,
   demoLandingPath = "/demo/sun",
 }: {
   item: NavItem;
-  pathname: string;
+  isActive: boolean;
   badgeCount?: number;
   demoMode?: boolean;
   demoLandingPath?: string;
 }) {
-  const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+  const active = isActive;
   const Icon = NAV_ICONS[item.icon] || LayoutDashboard;
   const href = demoHref(item.href, { demoMode, landingPath: demoLandingPath });
   return (
