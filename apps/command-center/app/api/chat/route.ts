@@ -48,6 +48,7 @@ import {
 } from "@/lib/cloud-tool-runner";
 import { resolveChatContext } from "@/lib/chat-auth";
 import { getBridgeOnline } from "@/lib/queries";
+import { getTenantManifestForUser } from "@/lib/manifest/tenant-scope";
 import { redactAll } from "@/lib/secret-redaction";
 
 export const dynamic = "force-dynamic";
@@ -168,6 +169,18 @@ export async function POST(req: NextRequest) {
   // for the tool call. Caught 2026-05-15 from CC's screenshot.
   const bridgeOnline = await getBridgeOnline(tenantId).catch(() => false);
 
+  // Per-agent tool palette from the tenant's manifest (Phase D of
+  // giggly-reef). Undefined when the manifest doesn't specify one —
+  // model gets the full palette (pre-Phase-D behavior). Populated
+  // → filter TOOL_DEFINITIONS to the listed names before sending to
+  // Anthropic. Per-agent, not per-tenant: Helios should have send_sms,
+  // Solara probably shouldn't.
+  const manifestForChat = await getTenantManifestForUser(tenantId).catch(() => null);
+  const agentBinding = manifestForChat?.agents?.find(
+    (a) => a.slug.toLowerCase() === agentKey,
+  );
+  const toolPalette: string[] | undefined = agentBinding?.tool_palette;
+
   // Two notices — one for "cloud-only" (no local tools available) and
   // one for "cloud + bridge" (Anthropic API powers the LLM, local bridge
   // owns tool execution). The model gets ONE of them so it doesn't have
@@ -264,6 +277,10 @@ export async function POST(req: NextRequest) {
               // bridge_unreachable errors back; the cloud-mode notice
               // upstream tells the operator to start the bridge.
               excludeDeferredTools: !bridgeOnline,
+              // Per-agent allowlist from the manifest. Undefined = full
+              // palette (current default). Phase D adds operator-side
+              // UI in Settings → Agents to populate this per agent.
+              toolPalette,
             },
             { tenantId, userId: user.id, agentKey, authUserId: user.id }
           )) {

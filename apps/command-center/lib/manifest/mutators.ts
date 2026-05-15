@@ -282,6 +282,22 @@ export function updateAgent(m: TenantManifest, args: UpdateAgentArgs): TenantMan
   } else if (c.primary === false && agent.primary) {
     agent.primary = false;
   }
+  // Phase D: per-agent tool palette allowlist. Accepts:
+  //   - undefined (skip — preserve current value)
+  //   - null     (clear — back to "full palette" semantics)
+  //   - string[] (allowlist; empty array = chat-only, no tools)
+  // Tool names aren't validated against TOOL_DEFINITIONS here because that
+  // registry lives on the dashboard side. The /api/chat filter handles
+  // unknown names gracefully (they just don't match any tool).
+  if (c.tool_palette !== undefined) {
+    if (c.tool_palette === null) {
+      agent.tool_palette = undefined;
+    } else if (Array.isArray(c.tool_palette)) {
+      agent.tool_palette = c.tool_palette
+        .map((s) => String(s).trim())
+        .filter((s) => s.length > 0);
+    }
+  }
   return bumpMeta(next);
 }
 
