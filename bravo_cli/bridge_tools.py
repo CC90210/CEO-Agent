@@ -471,6 +471,76 @@ def _tool_run_script(payload: dict) -> dict:
 
 
 # ──────────────────────────────────────────────────────────────────
+# Typed wrappers for the documented *_tool.py CLI layer — Phase C
+#
+# Each of these is a 3-line wrapper around _run_script that pre-fills
+# the script name and auto-appends --json. The model COULD reach the
+# same scripts via run_script, but typed tools mean:
+#   - The Anthropic tools[] palette advertises them by name (better
+#     discoverability than scanning list_scripts each turn).
+#   - Input schema is structured (action + args) so the model gets
+#     better completions than free-form argv.
+#   - Lower latency (no --help round-trip needed).
+#
+# Each wrapper takes {action: str, args?: list[str]} and translates to
+# `python scripts/<tool>.py <action> <...args> --json`. The auto-json
+# suffix is skipped when the action is --help or already contains --json.
+# ──────────────────────────────────────────────────────────────────
+
+def _run_typed_tool(script_name: str, payload: dict) -> dict:
+    """Shared wrapper body for the typed _tool.py CLIs. Pulls action +
+    args from the payload, builds the argv, runs via _run_script, and
+    auto-appends --json so the model gets structured output."""
+    action = str(payload.get("action") or "").strip()
+    if not action:
+        return _err(f"missing 'action' (e.g. 'list', 'create', '--help'). Run with action='--help' to see available subcommands.")
+    raw_args = payload.get("args") or []
+    if not isinstance(raw_args, list) or any(not isinstance(a, (str, int, float)) for a in raw_args):
+        return _err("'args' must be a list of strings/numbers")
+    str_args = [str(a) for a in raw_args]
+    argv = [f"scripts/{script_name}", action, *str_args]
+    # Auto --json for structured output unless asking for help or already present
+    if action != "--help" and "--help" not in str_args and "--json" not in str_args:
+        argv.append("--json")
+    return _run_script(argv)
+
+
+def _tool_stripe(payload: dict) -> dict:
+    """Stripe SDK — payments, customers, subscriptions, payment links,
+    refunds. Calls scripts/stripe_tool.py. Actions include: list-accounts,
+    balance, customers, products, prices, invoices, subscriptions, charges,
+    payment-links, create-payment-link, create-price, quick-link,
+    create-customer, create-invoice, refund, events."""
+    return _run_typed_tool("stripe_tool.py", payload)
+
+
+def _tool_supabase(payload: dict) -> dict:
+    """Supabase — query the operator's database, manage tables, run RPCs.
+    Calls scripts/supabase_tool.py. Most useful actions: query (raw SQL),
+    list, get, insert, update, delete."""
+    return _run_typed_tool("supabase_tool.py", payload)
+
+
+def _tool_n8n(payload: dict) -> dict:
+    """n8n — list workflows, execute by name, get execution status, manage
+    webhooks. Calls scripts/n8n_tool.py."""
+    return _run_typed_tool("n8n_tool.py", payload)
+
+
+def _tool_firecrawl(payload: dict) -> dict:
+    """Firecrawl — scrape a URL, crawl a site, get markdown extraction.
+    Calls scripts/firecrawl_tool.py. Use when the operator wants competitor
+    research, page extraction, or a starting-point for content drafting."""
+    return _run_typed_tool("firecrawl_tool.py", payload)
+
+
+def _tool_notebooklm(payload: dict) -> dict:
+    """NotebookLM — query the operator's curated knowledge base, get
+    citations, ask multi-doc questions. Calls scripts/notebooklm_tool.py."""
+    return _run_typed_tool("notebooklm_tool.py", payload)
+
+
+# ──────────────────────────────────────────────────────────────────
 # Skill discovery + invocation — Phase B of harness completeness
 #
 # The operator has ~65 skills/<name>/SKILL.md playbooks documenting
@@ -666,6 +736,11 @@ TOOL_REGISTRY: dict[str, Callable[[dict], dict]] = {
     "run_script": _tool_run_script,
     "list_skills": _tool_list_skills,
     "load_skill": _tool_load_skill,
+    "stripe": _tool_stripe,
+    "supabase": _tool_supabase,
+    "n8n": _tool_n8n,
+    "firecrawl": _tool_firecrawl,
+    "notebooklm": _tool_notebooklm,
 }
 
 
