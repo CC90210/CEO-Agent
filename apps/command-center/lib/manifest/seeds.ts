@@ -272,7 +272,17 @@ export const SUN_SEED: TenantManifest = {
       fields: [
         { name: "name", type: "string", required: true },
         { name: "contact", type: "string" },
-        { name: "product_types", type: "string" },
+        // Phase 6.1 — match-fitness fields per Jordan's 2026-05-15
+        // meeting. Operator UI on /lenders/[id]/edit lets the operator
+        // populate these; the shop-out flow pre-ranks lenders against
+        // each application's profile before the operator picks.
+        { name: "product_types", type: "string", enum_values: ["mca", "term_loan", "line_of_credit", "equipment", "invoice_factoring", "sba"] },
+        { name: "min_monthly_revenue", type: "number" },
+        { name: "max_funded_amount", type: "number" },
+        { name: "min_time_in_business_months", type: "number" },
+        { name: "fico_floor", type: "number" },
+        { name: "sla_response_days", type: "number" },
+        { name: "notes", type: "string" },
       ],
     },
   ],
