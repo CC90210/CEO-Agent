@@ -609,19 +609,15 @@ export async function mrrSnapshot(): Promise<{ current: number; target: number; 
  * provider cards as "Connected" instead of "Not connected" when a key exists
  * but no successful API call has been pinged yet.
  */
-/**
- * Canonical provider → integration-registry service-slug map. Exported so
- * UI surfaces (e.g. ProviderAccountsCard) can resolve a registry provider
- * to the slug aiServicesWithKey would emit, without duplicating the table.
- * Adding a new provider here is the only place — Settings, /agents, and
- * /integrations all derive from it.
- */
-export const PROVIDER_TO_SERVICE: Record<string, string> = {
-  anthropic: "anthropic",
-  openai: "openai_codex",
-  google: "google_ai",
-  openrouter: "openrouter",
-};
+// PROVIDER_TO_SERVICE moved to lib/providers.ts (client-safe pure-data
+// home) so client components can import the mapping without dragging
+// supabase-server's next/headers dep into the client bundle. See
+// providers.ts for the table itself. Re-imported + re-exported here so
+// (a) aiServicesWithKey below can use the local name, and (b) existing
+// callers that still grab the symbol from this file's surface keep
+// working.
+import { PROVIDER_TO_SERVICE } from "./providers";
+export { PROVIDER_TO_SERVICE };
 
 export async function aiServicesWithKey(tenantId: string | null): Promise<Set<string>> {
   const out = new Set<string>();

@@ -197,6 +197,25 @@ export function getProvider(value: Provider): ProviderRegistryEntry | null {
   return PROVIDER_REGISTRY.find((p) => p.value === value) || null;
 }
 
+/**
+ * Canonical provider → integration-registry service-slug map. Lives here
+ * (in client-safe pure-data territory) so both server code (queries.ts's
+ * aiServicesWithKey) and client surfaces (ProviderAccountsCard) can
+ * import it without pulling server-only deps into the client bundle.
+ *
+ * Previously this lived in queries.ts; that broke the production build
+ * the moment the client-side ProviderAccountsCard tried to import it —
+ * queries.ts transitively imports next/headers via supabase-server.ts,
+ * which Next 15 (App Router) refuses to bundle into a client component.
+ * The fix is keeping the data here, where it semantically belongs.
+ */
+export const PROVIDER_TO_SERVICE: Record<string, string> = {
+  anthropic: "anthropic",
+  openai: "openai_codex",
+  google: "google_ai",
+  openrouter: "openrouter",
+};
+
 /* ============================================================================
  * Public entry point — async generator that yields StreamEvents.
  * ============================================================================ */
