@@ -24,7 +24,15 @@ import { AGENT_REGISTRY } from "@/lib/agents";
 
 type Answers = Record<string, string | string[]>;
 
-type Step = "industry" | "questions" | "agents" | "brand" | "confirm" | "submitting" | "done";
+type Step =
+  | "industry"
+  | "questions"
+  | "agents"
+  | "agent_setup" // Phase J — per-agent setup questions for picked agents
+  | "brand"
+  | "confirm"
+  | "submitting"
+  | "done";
 
 /**
  * Agent packages — declarative groups exposed in the multi-select step.
@@ -99,6 +107,14 @@ export function OnboardingWizardClient({ userEmail }: { userEmail?: string }) {
   const [template, setTemplate] = useState<TemplateKey | null>(null);
   const [answers, setAnswers] = useState<Answers>({});
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
+  // Phase J — per-agent setup answers. Map<agentSlug, Map<questionId, value>>.
+  // Populated during the agent_setup step from AGENT_REGISTRY[slug].setup_questions.
+  // Submitted alongside the wizard body so the API can write each agent
+  // binding's setup_answers field. Defaults pre-filled from question.default
+  // when the step first renders so operators only adjust what differs.
+  const [agentSetupAnswers, setAgentSetupAnswers] = useState<
+    Record<string, Record<string, string | number | boolean>>
+  >({});
   const [slug, setSlug] = useState<string>("");
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -159,6 +175,11 @@ export function OnboardingWizardClient({ userEmail }: { userEmail?: string }) {
           template,
           slug: effectiveSlug,
           answers: finalAnswers,
+          // Phase J — per-agent setup answers. Map<agentSlug, Record<qid, val>>.
+          // wizard-finalize stamps these onto each agent binding's
+          // setup_answers field; the persona resolver folds them into
+          // the agent's system prompt on every chat turn.
+          agent_setup_answers: agentSetupAnswers,
         }),
       });
       const data = (await res.json()) as
@@ -370,12 +391,195 @@ export function OnboardingWizardClient({ userEmail }: { userEmail?: string }) {
               </button>
               <button
                 type="button"
-                onClick={() => setStep("brand")}
+                onClick={() => {
+                  // Phase J — if any selected agent has setup_questions, route
+                  // through agent_setup step first. Otherwise skip straight
+                  // to brand (existing behavior). Pre-fill defaults so the
+                  // operator only adjusts what differs.
+                  const needsSetup = selectedAgents.some(
+                    (slug) => (AGENT_REGISTRY[slug]?.setup_questions?.length || 0) > 0,
+                  );
+                  if (needsSetup) {
+                    setAgentSetupAnswers((prev) => {
+                      const next = { ...prev };
+                      for (const slug of selectedAgents) {
+                        const qs = AGENT_REGISTRY[slug]?.setup_questions || [];
+                        if (!qs.length) continue;
+                        next[slug] = { ...(next[slug] || {}) };
+                        for (const q of qs) {
+                          if (next[slug][q.id] === undefined && q.default !== undefined) {
+                            next[slug][q.id] = q.default;
+                          }
+                        }
+                      }
+                      return next;
+                    });
+                    setStep("agent_setup");
+                  } else {
+                    setStep("brand");
+                  }
+                }}
                 className="btn-send inline-flex items-center gap-1.5 !px-3 !py-1.5 text-xs"
               >
                 Continue <ArrowRight className="h-3.5 w-3.5" />
               </button>
             </div>
+          </section>
+        )}
+
+        {step === "agent_setup" && (
+          <section className="rounded-2xl border border-bg-border bg-bg-elev/40 p-6 space-y-5">
+            <div>
+              <h2 className="text-xl font-bold">Configure your agents</h2>
+              <p className="text-sm text-fg-muted mt-1">
+                Quick setup per agent so each one knows your specifics from
+                turn one. You can change any of this later in{" "}
+                <span className="font-mono text-fg">/settings</span>.
+              </p>
+            </div>
+
+            <div className="space-y-5">
+              {selectedAgents
+                .filter((slug) => (AGENT_REGISTRY[slug]?.setup_questions?.length || 0) > 0)
+                .map((slug) => {
+                  const info = AGENT_REGISTRY[slug];
+                  if (!info) return null;
+                  const qs = info.setup_questions || [];
+                  const slugAnswers = agentSetupAnswers[slug] || {};
+                  const setAnswer = (qid: string, val: string | number | boolean) => {
+                    setAgentSetupAnswers((prev) => ({
+                      ...prev,
+                      [slug]: { ...(prev[slug] || {}), [qid]: val },
+                    }));
+                  };
+                  return (
+                    <div key={slug} className="rounded-xl border border-bg-border bg-bg-deep/40 p-4 space-y-3">
+                      <div className="flex items-baseline gap-2 flex-wrap">
+                        <div className={`font-bold text-base ${info.textClass}`}>{info.label}</div>
+                        <div className="text-xs text-fg-dim">{info.role}</div>
+                      </div>
+                      <div className="space-y-3">
+                        {qs.map((q) => (
+                          <div key={q.id} className="space-y-1">
+                            <label className="block">
+                              <span className="text-xs font-bold text-fg block">
+                                {q.label}
+                                {q.required && <span className="text-status-warm ml-1">*</span>}
+                              </span>
+                              {q.description && (
+                                <span className="text-[11px] text-fg-dim block mt-0.5 leading-relaxed">
+                                  {q.description}
+                                </span>
+                              )}
+                              {q.type === "text" && (
+                                <input
+                                  type="text"
+                                  value={String(slugAnswers[q.id] ?? "")}
+                                  onChange={(e) => setAnswer(q.id, e.target.value)}
+                                  placeholder={q.placeholder}
+                                  className="mt-1 w-full rounded-lg border border-bg-border bg-bg-deep/80 px-3 py-2 text-sm text-fg placeholder:text-fg-faint focus:border-accent/50 focus:outline-none"
+                                />
+                              )}
+                              {q.type === "textarea" && (
+                                <textarea
+                                  value={String(slugAnswers[q.id] ?? "")}
+                                  onChange={(e) => setAnswer(q.id, e.target.value)}
+                                  placeholder={q.placeholder}
+                                  rows={3}
+                                  className="mt-1 w-full rounded-lg border border-bg-border bg-bg-deep/80 px-3 py-2 text-sm text-fg placeholder:text-fg-faint focus:border-accent/50 focus:outline-none"
+                                />
+                              )}
+                              {q.type === "number" && (
+                                <input
+                                  type="number"
+                                  value={String(slugAnswers[q.id] ?? "")}
+                                  onChange={(e) => {
+                                    const n = Number(e.target.value);
+                                    setAnswer(q.id, isFinite(n) ? n : 0);
+                                  }}
+                                  placeholder={q.placeholder}
+                                  className="mt-1 w-full rounded-lg border border-bg-border bg-bg-deep/80 px-3 py-2 text-sm text-fg placeholder:text-fg-faint focus:border-accent/50 focus:outline-none"
+                                />
+                              )}
+                              {q.type === "select" && (
+                                <select
+                                  value={String(slugAnswers[q.id] ?? "")}
+                                  onChange={(e) => setAnswer(q.id, e.target.value)}
+                                  className="mt-1 w-full rounded-lg border border-bg-border bg-bg-deep/80 px-3 py-2 text-sm text-fg focus:border-accent/50 focus:outline-none"
+                                >
+                                  <option value="">— select —</option>
+                                  {(q.options || []).map((o) => (
+                                    <option key={o.value} value={o.value}>
+                                      {o.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                              {q.type === "boolean" && (
+                                <label className="mt-1 inline-flex items-center gap-2 text-sm text-fg cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={!!slugAnswers[q.id]}
+                                    onChange={(e) => setAnswer(q.id, e.target.checked)}
+                                    className="accent-accent"
+                                  />
+                                  <span>{slugAnswers[q.id] ? "Yes" : "No"}</span>
+                                </label>
+                              )}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <button
+                type="button"
+                onClick={() => setStep("agents")}
+                className="btn-secondary inline-flex items-center gap-1.5 !px-3 !py-1.5 text-xs"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  // Validate required answers per agent. Block progression
+                  // until they're filled.
+                  const missing: string[] = [];
+                  for (const slug of selectedAgents) {
+                    const qs = AGENT_REGISTRY[slug]?.setup_questions || [];
+                    const slugAnswers = agentSetupAnswers[slug] || {};
+                    for (const q of qs) {
+                      if (!q.required) continue;
+                      const v = slugAnswers[q.id];
+                      if (v === undefined || v === "" || v === null) {
+                        missing.push(`${AGENT_REGISTRY[slug]?.label || slug}: ${q.label}`);
+                      }
+                    }
+                  }
+                  if (missing.length > 0) {
+                    setError(`Required: ${missing.join(" · ")}`);
+                    return;
+                  }
+                  setError(null);
+                  setStep("brand");
+                }}
+                className="btn-send inline-flex items-center gap-1.5 !px-3 !py-1.5 text-xs"
+              >
+                Continue <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+
+            {error && (
+              <div className="rounded-xl border border-status-warm/40 bg-status-warm/10 px-4 py-2.5 text-xs text-status-warm inline-flex items-start gap-2">
+                <AlertCircle className="h-3.5 w-3.5 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
           </section>
         )}
 
@@ -428,7 +632,15 @@ export function OnboardingWizardClient({ userEmail }: { userEmail?: string }) {
             <div className="flex items-center justify-between pt-2">
               <button
                 type="button"
-                onClick={() => setStep("agents")}
+                onClick={() => {
+                  // Route back through agent_setup if any picked agent has
+                  // setup questions, otherwise straight to agents (matches
+                  // forward routing).
+                  const needsSetup = selectedAgents.some(
+                    (s) => (AGENT_REGISTRY[s]?.setup_questions?.length || 0) > 0,
+                  );
+                  setStep(needsSetup ? "agent_setup" : "agents");
+                }}
                 className="btn-secondary inline-flex items-center gap-1.5 !px-3 !py-1.5 text-xs"
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
@@ -546,17 +758,25 @@ function Header({ step }: { step: Step }) {
     industry: "Pick your industry",
     questions: "Tell us about your operation",
     agents: "Pick your agents",
+    agent_setup: "Configure your agents",
     brand: "Brand the shell",
     confirm: "Review & create",
     submitting: "Building",
     done: "Done",
   };
+  // 6 visible steps when agent_setup is rendered; we always show the
+  // higher numerator so the agent_setup step lands on "4 / 6" rather
+  // than re-labelling earlier steps. Steps that don't appear (e.g.
+  // operators with no setup_questions on their agents) skip the number
+  // — Header still renders cleanly because Step is a string union, not
+  // an index.
   const number: Record<Step, string> = {
-    industry: "1 / 5",
-    questions: "2 / 5",
-    agents: "3 / 5",
-    brand: "4 / 5",
-    confirm: "5 / 5",
+    industry: "1 / 6",
+    questions: "2 / 6",
+    agents: "3 / 6",
+    agent_setup: "4 / 6",
+    brand: "5 / 6",
+    confirm: "6 / 6",
     submitting: "",
     done: "",
   };

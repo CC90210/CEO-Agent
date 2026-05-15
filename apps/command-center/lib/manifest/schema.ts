@@ -132,6 +132,18 @@ export type ManifestAgentBinding = {
    * the per-agent palette in Settings → Agents.
    */
   tool_palette?: string[];
+  /**
+   * Phase J of giggly-reef — answers to the per-agent setup
+   * questionnaire from /onboarding/wizard. Map of question-id to
+   * operator-supplied value. Folded into the agent's system prompt
+   * as a "TENANT SETUP" overlay via lib/agent-personas.ts so the agent
+   * knows the operator's specifics (FICO floor, send window, TCPA
+   * language, etc.) from turn 1 without manual prompt-overlay editing.
+   *
+   * Stable per (agent, tenant) — same shape Maven uses on tenant A
+   * and tenant B; only the values differ.
+   */
+  setup_answers?: Record<string, string | number | boolean>;
 };
 
 // ---------------------------------------------------------------------------

@@ -256,7 +256,25 @@ export async function POST(req: NextRequest) {
       : cloudToolsMode === "tools"
         ? cloudToolsPromptBlockV2({ bridgeOnline })
         : cloudToolsPromptBlock();
-  const persona = `${personaBase}${cloudModeNotice}${cloudToolsBlock}${dashboardCtx ? `\n\n${dashboardCtx}` : ""}`;
+  // Phase J — fold per-agent setup answers from the onboarding wizard
+  // into a "TENANT SETUP" overlay so the agent sees the operator's
+  // specifics (FICO floor, send window, TCPA language, etc.) from turn
+  // one. Stable per (tenant, agent) — answers live on the manifest
+  // agent binding. Operator can edit later via the manifest editor;
+  // changes take effect on the next chat turn.
+  const setupAnswers = agentBinding?.setup_answers;
+  let setupBlock = "";
+  if (setupAnswers && typeof setupAnswers === "object" && Object.keys(setupAnswers).length > 0) {
+    const lines: string[] = ["", "---", "TENANT SETUP"];
+    lines.push("Operator-provided context from onboarding. Treat these as authoritative facts about how this tenant runs. Apply them in every decision unless the operator explicitly overrides in the conversation.");
+    lines.push("");
+    for (const [k, v] of Object.entries(setupAnswers)) {
+      lines.push(`- ${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`);
+    }
+    lines.push("---");
+    setupBlock = lines.join("\n");
+  }
+  const persona = `${personaBase}${cloudModeNotice}${cloudToolsBlock}${setupBlock}${dashboardCtx ? `\n\n${dashboardCtx}` : ""}`;
   const startedAt = Date.now();
 
   // ---- Stream response back as SSE ----------------------------------------
