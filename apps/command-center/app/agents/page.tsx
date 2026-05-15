@@ -1,10 +1,9 @@
 import { Card, PageHeader, EmptyState, Tag } from "@/components/Card";
 import ChatWidget from "@/components/ChatWidget";
 import { timeAgo, truncate } from "@/lib/fmt";
-import { agentStates, recentEvents, getActiveProfile, getTenant, integrationsHealth } from "@/lib/queries";
+import { agentStates, recentEvents, getActiveProfile, integrationsHealth } from "@/lib/queries";
 import { FAMILY_AGENT_KEYS, getAgentInfo } from "@/lib/agents";
-import { resolveClientProfileSlug } from "@/lib/client-profiles";
-import { getManifest } from "@/lib/manifest/loader";
+import { getTenantManifestForUser } from "@/lib/manifest/tenant-scope";
 import { catalogFor } from "@/lib/agent-catalog";
 import { getAgentStats } from "@/lib/agent-stats";
 import { getServiceSupabase, getSessionUser } from "@/lib/supabase-server";
@@ -46,17 +45,10 @@ export default async function AgentsPage() {
   const user = await getSessionUser();
   const isAdmin = isOperatorEmail(user?.email);
 
-  // Resolve the manifest BEFORE the parallel fetch so we can scope
-  // agentStates() by the tenant's enabled agents. Without this scoping,
-  // agent_state_snapshot is read globally and a SunBiz tenant would see
-  // CC's OASIS Bravo heartbeats (the table has no tenant_id column yet —
-  // see queries.ts:agentStates() docstring).
-  const tenantSlugForManifest = profile?.tenant_id
-    ? await getTenant(profile.tenant_id)
-        .then((t) => resolveClientProfileSlug(t || null))
-        .catch(() => null)
-    : null;
-  const manifestForAgents = await getManifest(tenantSlugForManifest).catch(() => null);
+  // Resolve manifest BEFORE the parallel fetch so we can scope
+  // agentStates() by the tenant's enabled agents. agent_state_snapshot
+  // has no tenant_id column yet — see queries.ts:agentStates() docstring.
+  const manifestForAgents = await getTenantManifestForUser(profile?.tenant_id ?? null);
   const manifestEnabledSlugs = (manifestForAgents?.agents || [])
     .filter((a) => a.enabled)
     .map((a) => a.slug.toLowerCase());

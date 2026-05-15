@@ -28,6 +28,7 @@
 
 import { resolveClientProfileSlug } from "@/lib/client-profiles";
 import { getTenant } from "@/lib/queries";
+import { getManifest } from "./loader";
 import { getManifestRow } from "./persistence";
 
 /**
@@ -59,4 +60,47 @@ export async function ownsSlug(
   userTenantId: string | null
 ): Promise<boolean> {
   return (await resolveDataTenant(slug, userTenantId)) !== null;
+}
+
+/**
+ * Resolve the full manifest for the tenant the caller belongs to. Returns
+ * null when there's no tenant, no resolvable slug, or the manifest load
+ * fails. Used by pages that need both the enabled-agent list AND other
+ * manifest fields (primary agent, compliance posture, brand etc.) so we
+ * don't pay two DB hops for the same data.
+ */
+export async function getTenantManifestForUser(
+  userTenantId: string | null
+): Promise<import("./schema").TenantManifest | null> {
+  if (!userTenantId) return null;
+  try {
+    const tenant = await getTenant(userTenantId);
+    if (!tenant) return null;
+    const slug = resolveClientProfileSlug(tenant);
+    if (!slug) return null;
+    return await getManifest(slug);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve the agents a tenant has enabled via their manifest. Returns
+ * lowercased slugs of `manifest.agents[].enabled === true`. Returns []
+ * when the tenant has no manifest, no enabled agents, or the lookup
+ * fails — callers pick the right fallback (FAMILY_AGENT_KEYS, ["bravo"],
+ * ALL_AGENT_KEYS, or an empty list with messaging) based on display intent.
+ *
+ * Single source of truth for the "which agents does THIS tenant care
+ * about?" question. Replaces three identical ~10-line resolve-manifest-
+ * then-pluck-enabled blocks in /reasoning, /agents, and /operations.
+ */
+export async function getTenantEnabledAgents(
+  userTenantId: string | null
+): Promise<string[]> {
+  const manifest = await getTenantManifestForUser(userTenantId);
+  if (!manifest) return [];
+  return (manifest.agents || [])
+    .filter((a) => a.enabled)
+    .map((a) => a.slug.toLowerCase());
 }
