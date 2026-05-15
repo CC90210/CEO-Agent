@@ -46,6 +46,23 @@ type RowState = {
   saving: boolean;
   saved: boolean;
   error: string | null;
+  // Phase E — per-agent tool palette editor state. The expandable panel
+  // shows checkboxes for every tool in toolCatalog (Cloud + Bridge
+  // groups). null `palette` means "use full palette" (no filter); a
+  // string[] is the explicit allowlist. paletteDirty tracks whether the
+  // operator has made unsaved changes so the Save button activates.
+  showPalette: boolean;
+  palette: string[] | null;
+  paletteDirty: boolean;
+  paletteSaving: boolean;
+  paletteSaved: boolean;
+  paletteError: string | null;
+};
+
+export type ToolCatalogEntry = {
+  name: string;
+  description: string;
+  defer: boolean;
 };
 
 type Props = {
@@ -69,6 +86,14 @@ type Props = {
   agentPalettes?: Record<string, string[] | undefined>;
   /** Manifest slug for the deep-link to the AI editor when present. */
   manifestSlug?: string | null;
+  /**
+   * Slim catalog of every tool the model could be allowed to call.
+   * Server-rendered from TOOL_DEFINITIONS in lib/cloud-tool-runner.ts
+   * (which can't be imported client-side because it transitively pulls
+   * server-only Supabase code). Used by the per-agent palette editor
+   * to render checkboxes grouped by Cloud vs Bridge.
+   */
+  toolCatalog?: ToolCatalogEntry[];
 };
 
 export function AgentConfigEditor({
@@ -76,6 +101,7 @@ export function AgentConfigEditor({
   bridgeOnline = false,
   agentPalettes = {},
   manifestSlug = null,
+  toolCatalog = [],
 }: Props) {
   const [configs, setConfigs] = useState<Record<string, AgentConfig>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -86,21 +112,34 @@ export function AgentConfigEditor({
   const [refreshTick, setRefreshTick] = useState(0);
   const [rows, setRows] = useState<Record<string, RowState>>(() =>
     Object.fromEntries(
-      agentKeys.map((k) => [
-        k,
-        {
-          provider: "openrouter",
-          model: "anthropic/claude-sonnet-4",
-          apiKey: "",
-          enabled: true,
-          override: "",
-          showKey: false,
-          showOverride: false,
-          saving: false,
-          saved: false,
-          error: null,
-        },
-      ])
+      agentKeys.map((k) => {
+        // Initial palette: convert undefined → null (UI semantic for
+        // "use full palette") so the checkbox group renders all-checked.
+        // An empty array stays as [] (chat-only). A populated list
+        // stays as-is.
+        const initialPalette = agentPalettes[k];
+        return [
+          k,
+          {
+            provider: "openrouter",
+            model: "anthropic/claude-sonnet-4",
+            apiKey: "",
+            enabled: true,
+            override: "",
+            showKey: false,
+            showOverride: false,
+            saving: false,
+            saved: false,
+            error: null,
+            showPalette: false,
+            palette: initialPalette === undefined ? null : initialPalette,
+            paletteDirty: false,
+            paletteSaving: false,
+            paletteSaved: false,
+            paletteError: null,
+          },
+        ];
+      })
     )
   );
 
@@ -203,6 +242,70 @@ export function AgentConfigEditor({
       patchRow(agentKey, {
         saving: false,
         error: e instanceof Error ? e.message : "save_failed",
+      });
+    }
+  }
+
+  /**
+   * Phase E — save the per-agent tool palette to the manifest via the
+   * existing /api/manifest/<slug> mutation endpoint. Different write
+   * path than save(): tool_palette lives on the manifest, not on
+   * agent_model_config.
+   *
+   * Empty array means "chat-only, no tools". A null palette (toggled by
+   * the "Use full palette" link) becomes the absent field on the agent
+   * binding, which the /api/chat filter treats as "no filter, full
+   * palette" — preserves pre-Phase-D behavior.
+   */
+  async function savePalette(agentKey: string) {
+    if (!manifestSlug) {
+      patchRow(agentKey, {
+        paletteError:
+          "No manifest slug available — palette editing requires a manifest-managed tenant. Operator account / dev mode falls through to the full palette automatically.",
+      });
+      return;
+    }
+    const row = rows[agentKey];
+    patchRow(agentKey, { paletteSaving: true, paletteError: null, paletteSaved: false });
+    const change: Record<string, unknown> = { tool_palette: row.palette };
+    try {
+      const res = await fetch(`/api/manifest/${manifestSlug}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          mutations: [
+            {
+              name: "update_agent",
+              args: { slug: agentKey, changes: change },
+            },
+          ],
+          actor: "user",
+          message: `Palette update for ${agentKey} via Settings → Agents`,
+        }),
+      });
+      const j = await res.json();
+      if (!j.ok) {
+        patchRow(agentKey, {
+          paletteSaving: false,
+          paletteError: j.error || `http_${res.status}`,
+        });
+        return;
+      }
+      patchRow(agentKey, {
+        paletteSaving: false,
+        paletteSaved: true,
+        paletteDirty: false,
+      });
+      setTimeout(() => patchRow(agentKey, { paletteSaved: false }), 2500);
+      // Cross-component refresh so the parent server component re-reads
+      // the manifest on next render and the indicator stays in sync.
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("oasis:agent-configs-changed"));
+      }
+    } catch (e) {
+      patchRow(agentKey, {
+        paletteSaving: false,
+        paletteError: e instanceof Error ? e.message : "save_failed",
       });
     }
   }
@@ -446,46 +549,175 @@ export function AgentConfigEditor({
               </div>
             </div>
 
-            {/* Phase D — per-agent tool palette indicator (read-only).
-                Reads the manifest's agents[].tool_palette for this slug
-                and renders a one-line summary. Edits happen via the AI
-                manifest editor (single source of truth for manifest
-                changes), linked from this strip. */}
+            {/* Phase E — per-agent tool palette editor.
+                Collapsed: one-line summary of current allowlist state.
+                Expanded: grouped checkboxes (Cloud / Bridge) + Save.
+                Writes through /api/manifest/<slug> via update_agent
+                mutation; that's the canonical path for manifest changes. */}
             {(() => {
-              const palette = agentPalettes[key];
-              const isFull = palette === undefined;
-              return (
-                <div className="rounded-lg border border-bg-border bg-bg-deep/30 px-3 py-2 text-xs flex items-start gap-2">
-                  <KeyRound className="w-3.5 h-3.5 text-fg-muted shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-fg-muted">
-                      <span className="font-bold uppercase tracking-wider text-[10px] text-fg-dim">Tool palette · </span>
-                      {isFull ? (
-                        <span className="text-fg">
-                          Full palette (no manifest filter)
-                        </span>
-                      ) : palette && palette.length === 0 ? (
-                        <span className="text-status-warm">Chat-only (zero tools allowed)</span>
-                      ) : (
-                        <span className="text-fg">
-                          {palette!.length} tool{palette!.length === 1 ? "" : "s"} allowed
-                        </span>
-                      )}
-                    </div>
-                    {!isFull && palette && palette.length > 0 && (
-                      <div className="text-fg-dim font-mono text-[10px] mt-1 leading-relaxed break-all">
-                        {palette.join(", ")}
-                      </div>
-                    )}
-                    {manifestSlug && (
-                      <Link
-                        href={`/t/${manifestSlug}/editor`}
-                        className="text-[11px] text-accent hover:text-accent-bright inline-flex items-center gap-1 mt-1"
+              const palette = row.palette;
+              const isFull = palette === null;
+              const cloudTools = toolCatalog.filter((t) => !t.defer);
+              const bridgeTools = toolCatalog.filter((t) => t.defer);
+              const totalCount = palette === null ? toolCatalog.length : palette.length;
+              const summary = isFull
+                ? "Full palette (no manifest filter)"
+                : palette!.length === 0
+                  ? "Chat-only (zero tools allowed)"
+                  : `${palette!.length} tool${palette!.length === 1 ? "" : "s"} allowed`;
+              const setPalette = (next: string[] | null) =>
+                patchRow(key, { palette: next, paletteDirty: true });
+              const toggle = (toolName: string, checked: boolean) => {
+                const base = palette === null ? toolCatalog.map((t) => t.name) : palette;
+                if (checked && !base.includes(toolName)) {
+                  setPalette([...base, toolName]);
+                } else if (!checked && base.includes(toolName)) {
+                  setPalette(base.filter((n) => n !== toolName));
+                }
+              };
+              const groupCheckboxes = (group: ToolCatalogEntry[]) => (
+                <div className="grid sm:grid-cols-2 gap-x-3 gap-y-1.5">
+                  {group.map((t) => {
+                    const checked = palette === null || palette.includes(t.name);
+                    return (
+                      <label
+                        key={t.name}
+                        className="flex items-start gap-2 text-xs cursor-pointer hover:text-fg"
+                        title={t.description}
                       >
-                        Edit via manifest editor →
-                      </Link>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => toggle(t.name, e.target.checked)}
+                          className="mt-0.5 shrink-0 accent-accent"
+                        />
+                        <span className="font-mono text-fg-muted leading-relaxed">{t.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              );
+              return (
+                <div className="rounded-lg border border-bg-border bg-bg-deep/30">
+                  <button
+                    type="button"
+                    onClick={() => patchRow(key, { showPalette: !row.showPalette })}
+                    className="w-full px-3 py-2 text-xs flex items-start gap-2 hover:bg-bg-elev/40 transition-colors text-left"
+                  >
+                    <KeyRound className="w-3.5 h-3.5 text-fg-muted shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-fg-muted">
+                        <span className="font-bold uppercase tracking-wider text-[10px] text-fg-dim">Tool palette · </span>
+                        <span className={isFull ? "text-fg" : palette!.length === 0 ? "text-status-warm" : "text-fg"}>
+                          {summary}
+                        </span>
+                        {row.paletteDirty && (
+                          <span className="ml-2 text-[10px] text-status-warm">(unsaved)</span>
+                        )}
+                      </div>
+                    </div>
+                    {row.showPalette ? (
+                      <ChevronUp className="w-3.5 h-3.5 text-fg-dim shrink-0 mt-0.5" />
+                    ) : (
+                      <ChevronDown className="w-3.5 h-3.5 text-fg-dim shrink-0 mt-0.5" />
                     )}
-                  </div>
+                  </button>
+                  {row.showPalette && (
+                    <div className="border-t border-bg-border px-3 py-3 space-y-3">
+                      <p className="text-[11px] text-fg-dim leading-relaxed">
+                        Choose which tools this agent can call. Uncheck what
+                        it shouldn&apos;t touch (e.g. give Helios{" "}
+                        <span className="font-mono">send_sms</span> but not{" "}
+                        <span className="font-mono">bash</span>). The bridge
+                        tools (right column) require the local bridge to be
+                        online — when offline they get auto-filtered out
+                        regardless of palette state.
+                      </p>
+                      <div className="flex items-center gap-3 text-[11px]">
+                        <button
+                          type="button"
+                          onClick={() => setPalette(null)}
+                          className="text-accent hover:text-accent-bright"
+                          disabled={isFull}
+                        >
+                          Use full palette
+                        </button>
+                        <span className="text-fg-dim">·</span>
+                        <button
+                          type="button"
+                          onClick={() => setPalette(toolCatalog.map((t) => t.name))}
+                          className="text-fg-muted hover:text-fg"
+                        >
+                          Check all
+                        </button>
+                        <span className="text-fg-dim">·</span>
+                        <button
+                          type="button"
+                          onClick={() => setPalette([])}
+                          className="text-fg-muted hover:text-fg"
+                        >
+                          Uncheck all
+                        </button>
+                        <span className="text-fg-dim ml-auto">
+                          {totalCount} / {toolCatalog.length} selected
+                        </span>
+                      </div>
+                      <div className="space-y-3">
+                        <div>
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-fg-dim mb-1.5">
+                            Cloud tools ({cloudTools.length})
+                          </div>
+                          {groupCheckboxes(cloudTools)}
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-fg-dim mb-1.5">
+                            Bridge tools ({bridgeTools.length})
+                          </div>
+                          {groupCheckboxes(bridgeTools)}
+                        </div>
+                      </div>
+                      {row.paletteError && (
+                        <div className="text-[11px] text-status-warm flex items-start gap-1">
+                          <AlertCircle className="w-3 h-3 mt-0.5" />
+                          <span>{row.paletteError}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-end gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // Revert to whatever the server-rendered manifest
+                            // says — clears the dirty flag without saving.
+                            const orig = agentPalettes[key];
+                            patchRow(key, {
+                              palette: orig === undefined ? null : orig,
+                              paletteDirty: false,
+                              paletteError: null,
+                            });
+                          }}
+                          className="btn-secondary !px-3 !py-1.5 text-[11px]"
+                          disabled={!row.paletteDirty || row.paletteSaving}
+                        >
+                          Revert
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => savePalette(key)}
+                          className="btn-primary !px-3 !py-1.5 text-[11px] inline-flex items-center gap-1"
+                          disabled={!row.paletteDirty || row.paletteSaving}
+                        >
+                          {row.paletteSaving ? (
+                            <Sparkles className="w-3 h-3 animate-spin" />
+                          ) : row.paletteSaved ? (
+                            <Check className="w-3 h-3" />
+                          ) : (
+                            <Save className="w-3 h-3" />
+                          )}
+                          {row.paletteSaving ? "Saving" : row.paletteSaved ? "Saved" : "Save palette"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })()}
