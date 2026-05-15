@@ -81,8 +81,13 @@ export const CC_NAV: NavItem[] = [
   { group: "System", href: "/agents", label: "Agents", icon: "Bot" },
   { group: "System", href: "/operations", label: "Operations", icon: "Activity" },
   { group: "System", href: "/automations", label: "Automations", icon: "RefreshCcw" },
-  { group: "System", href: "/forms", label: "Forms", icon: "FileText" },
-  { group: "System", href: "/sequences", label: "Sequences", icon: "Sparkles" },
+  // /forms + /sequences intentionally absent from OASIS HQ nav. Forms
+  // for OASIS-side lead capture live in the cc-funnel app (a separate
+  // CC90210/cc-funnel repo). The dashboard's /forms + /sequences routes
+  // are SunBiz CRM features and surface only on the SunBiz tenant nav.
+  // Mixing them into CC_NAV here would mislead CC into thinking they're
+  // his lead-capture surface when they're actually the funding-shop
+  // workflow's form builder.
   { group: "System", href: "/feed", label: "Event Feed", icon: "Radio" },
   { group: "System", href: "/overrides", label: "Overrides", icon: "ShieldAlert" },
   { group: "System", href: "/analytics", label: "Analytics", icon: "BarChart3" },
@@ -139,7 +144,12 @@ export const SUGA_NAV: NavItem[] = [
   { group: "Fans", href: "/segments", label: "Segments", icon: "Sparkles" },
   { group: "Brand", href: "/posts", label: "Posts", icon: "Megaphone" },
   { group: "Brand", href: "/drafts", label: "Drafts", icon: "FileText" },
-  { group: "Brand", href: "/forms", label: "Forms", icon: "FileCode2" },
+  // /forms intentionally NOT in SUGA nav — the form builder shipped
+  // in Phase 3 of the SunBiz CRM build is funding-shop-flavored
+  // (multi-step funnels, bank statement upload, stage_outcomes mapping
+  // to funding lead.stage values). SUGA's brand workflow uses a
+  // different model (fan signups via Late/Zernio + Square). If SUGA
+  // ever needs a generic form builder, that's a separate add.
   { group: "Brand", href: "/queue", label: "Queue", icon: "RefreshCcw" },
   { group: "Commerce", href: "/merch", label: "Merch", icon: "ShoppingBag" },
   { group: "Commerce", href: "/orders", label: "Orders", icon: "BadgeDollarSign" },
