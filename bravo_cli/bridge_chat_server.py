@@ -60,7 +60,8 @@ try:
         all_resolved,
         under_root,
     )
-    from .warm_claude_pool import use_or_create as _warm_use_or_create, pool_status as _warm_pool_status, chat_lean_args as _warm_chat_lean_args
+    from .warm_claude_pool import use_or_create as _warm_use_or_create, pool_status as _warm_pool_status, chat_lean_args as _warm_chat_lean_args, mark_force_api_key as _warm_mark_force_api_key
+    from ._claude_auth import is_claude_auth_or_quota_failure as _is_auth_failure
 except ImportError:
     _here = Path(__file__).resolve().parent
     if str(_here) not in sys.path:
@@ -74,6 +75,8 @@ except ImportError:
     from warm_claude_pool import use_or_create as _warm_use_or_create  # type: ignore
     from warm_claude_pool import pool_status as _warm_pool_status  # type: ignore
     from warm_claude_pool import chat_lean_args as _warm_chat_lean_args  # type: ignore
+    from warm_claude_pool import mark_force_api_key as _warm_mark_force_api_key  # type: ignore
+    from _claude_auth import is_claude_auth_or_quota_failure as _is_auth_failure  # type: ignore
 
 PORT = int(os.environ.get("BRAVO_BRIDGE_PORT", "9100"))
 ANTHROPIC_API = "https://api.anthropic.com/v1/messages"
@@ -1418,76 +1421,144 @@ class _ChatHandler(BaseHTTPRequestHandler):
 
         # Bridge between warm-pool stream-json events and the SSE shape
         # ChatWidget expects. Same translation as _run_chat_via_claude.
-        emitted_session = False
+        # Two flags survive across the inner retry loop (mutable list so
+        # the closure can write through):
+        #   state["emitted_session"] — did we already send the session event?
+        #   state["emitted_any_text"] — did the model emit any delta?
+        #                                Used to gate the auth-fallback
+        #                                retry: only retry if no partial
+        #                                content was shipped (otherwise
+        #                                retry would double-print).
+        state = {"emitted_session": False, "emitted_any_text": False}
 
-        def on_event(ev: dict) -> None:
-            nonlocal emitted_session
-            etype = ev.get("type")
-            subtype = ev.get("subtype")
+        def make_on_event() -> Callable[[dict], None]:
+            def on_event(ev: dict) -> None:
+                etype = ev.get("type")
+                subtype = ev.get("subtype")
 
-            if etype == "system" and subtype == "init":
-                if not emitted_session:
-                    emit("session", {"session_id": ev.get("session_id")})
-                    emitted_session = True
-                return
-            if etype == "system" and subtype and subtype.startswith("hook_"):
-                return
-            if etype == "assistant":
-                msg = ev.get("message") or {}
-                content = msg.get("content") or []
-                for block in content:
-                    btype = block.get("type")
-                    if btype == "text":
-                        text = block.get("text") or ""
-                        if text:
-                            emit("delta", {"text": text})
-                    elif btype == "tool_use":
-                        tname = block.get("name") or "tool"
-                        tid = block.get("id") or ""
-                        tinput = block.get("input") or {}
-                        mapped = _map_tool_use(tname, tinput)
-                        mapped["tool_use_id"] = tid
-                        emit("tool", mapped)
-                return
-            if etype == "user":
-                msg = ev.get("message") or {}
-                content = msg.get("content") or []
-                if isinstance(content, list):
+                if etype == "system" and subtype == "init":
+                    if not state["emitted_session"]:
+                        emit("session", {"session_id": ev.get("session_id")})
+                        state["emitted_session"] = True
+                    return
+                if etype == "system" and subtype and subtype.startswith("hook_"):
+                    return
+                if etype == "assistant":
+                    msg = ev.get("message") or {}
+                    content = msg.get("content") or []
                     for block in content:
-                        if not isinstance(block, dict):
-                            continue
-                        if block.get("type") == "tool_result":
-                            tres = _map_tool_result(block, ev)
-                            emit("tool_result", tres)
-                return
-            if etype == "result":
-                usage = ev.get("usage") or {}
-                emit("done", {
-                    "stop_reason": ev.get("stop_reason"),
-                    "input_tokens": usage.get("input_tokens"),
-                    "output_tokens": usage.get("output_tokens"),
-                    "total_cost_usd": ev.get("total_cost_usd"),
-                    "num_turns": ev.get("num_turns"),
-                    "warm": True,  # debugging — confirms warm path served this turn
-                })
-                return
-            if etype == "system" and subtype == "error":
-                raw_detail = ev.get("message") or json.dumps(ev)[:200]
-                emit("error", {
-                    "message": "claude_subprocess_error",
-                    "detail": _redact_secrets(str(raw_detail)),
-                })
+                        btype = block.get("type")
+                        if btype == "text":
+                            text = block.get("text") or ""
+                            if text:
+                                emit("delta", {"text": text})
+                                state["emitted_any_text"] = True
+                        elif btype == "tool_use":
+                            tname = block.get("name") or "tool"
+                            tid = block.get("id") or ""
+                            tinput = block.get("input") or {}
+                            mapped = _map_tool_use(tname, tinput)
+                            mapped["tool_use_id"] = tid
+                            emit("tool", mapped)
+                    return
+                if etype == "user":
+                    msg = ev.get("message") or {}
+                    content = msg.get("content") or []
+                    if isinstance(content, list):
+                        for block in content:
+                            if not isinstance(block, dict):
+                                continue
+                            if block.get("type") == "tool_result":
+                                tres = _map_tool_result(block, ev)
+                                emit("tool_result", tres)
+                    return
+                if etype == "result":
+                    usage = ev.get("usage") or {}
+                    emit("done", {
+                        "stop_reason": ev.get("stop_reason"),
+                        "input_tokens": usage.get("input_tokens"),
+                        "output_tokens": usage.get("output_tokens"),
+                        "total_cost_usd": ev.get("total_cost_usd"),
+                        "num_turns": ev.get("num_turns"),
+                        "warm": True,  # debugging — confirms warm path served this turn
+                    })
+                    return
+                if etype == "system" and subtype == "error":
+                    raw_detail = ev.get("message") or json.dumps(ev)[:200]
+                    emit("error", {
+                        "message": "claude_subprocess_error",
+                        "detail": _redact_secrets(str(raw_detail)),
+                    })
 
-        ok = wp.send_turn(prompt_text, on_event, max_seconds=300)
-        if not ok:
-            # send_turn returned False — process died mid-turn or stream
-            # ended without a result event. The warm process is now in an
-            # undefined state; kill it so the next turn gets a fresh one.
-            wp.kill(reason="send_turn_failed")
-            # Don't fall back to cold spawn here — we may have already
-            # emitted partial output. Just close the stream cleanly.
+            return on_event
+
+        ok = wp.send_turn(prompt_text, make_on_event(), max_seconds=300)
+        if ok:
+            return True
+
+        # send_turn returned False — process died mid-turn or stream
+        # ended without a result event. Pull captured stderr to decide
+        # whether this looks like a subscription auth/quota failure.
+        # If it does AND we haven't shipped any text yet AND we weren't
+        # already on the paid API key, fall over: kill the warm proc,
+        # mark the pool sticky-paid, respawn with ANTHROPIC_API_KEY in
+        # env, retry send_turn ONCE.
+        stderr_tail = ""
+        try:
+            stderr_tail = wp.recent_stderr()
+        except Exception:
+            pass
+        exit_code = wp.proc.poll()
+        wp.kill(reason="send_turn_failed")
+
+        should_fallback = (
+            not state["emitted_any_text"]
+            and not wp.force_api_key
+            and _is_auth_failure(stderr_tail, exit_code)
+        )
+        if not should_fallback:
+            # Original behaviour: close the stream and let the user retry
+            # from the dashboard's "Retry on the other mode" button.
             emit("done", {"warm_aborted": True})
             return True
+
+        # Auth/quota fallback — spawn a fresh process forced onto the
+        # paid API key path. Sticky-mark the pool so subsequent turns
+        # in this session skip the subscription attempt entirely.
+        _warm_mark_force_api_key(pool_key)
+        # Give the operator a one-line notice in the chat transcript so
+        # they know what happened. Markdown italics for soft styling.
+        emit("delta", {
+            "text": "_Subscription was capped — switched to API key for the rest of this conversation._\n\n"
+        })
+        state["emitted_any_text"] = True
+
+        try:
+            wp2 = _warm_use_or_create(
+                pool_key=pool_key,
+                agent=agent,
+                root=root,
+                prompt_text=prompt_text,
+                resume_session_id=resume_session_id,
+                force_api_key=True,
+            )
+        except Exception as e:
+            print(f"[bridge] auth-fallback respawn failed: {e}", file=sys.stderr)
+            emit("done", {"warm_aborted": True, "fallback_attempted": True})
+            return True
+
+        if not wp2.is_alive():
+            wp2.kill(reason="dead_at_send_after_fallback")
+            emit("done", {"warm_aborted": True, "fallback_attempted": True})
+            return True
+
+        ok2 = wp2.send_turn(prompt_text, make_on_event(), max_seconds=300)
+        if not ok2:
+            # Both paths failed. Kill the second proc and bail — the
+            # client will surface the empty-stream banner with its Retry
+            # button as before.
+            wp2.kill(reason="send_turn_failed_after_fallback")
+            emit("done", {"warm_aborted": True, "fallback_attempted": True})
         return True
 
 
