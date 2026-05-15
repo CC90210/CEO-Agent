@@ -161,17 +161,43 @@ export const KNOWN_INTEGRATIONS: IntegrationDef[] = [
   },
   {
     service: "text_torrent",
-    label: "Text Torrent",
+    label: "TextTorrent",
     category: "comms",
-    description: "Lead texting and follow-up lane for Solara",
+    description:
+      "Direct TT API for SMS blasts, list analytics, and local-area-code presence dialing. Phase 5.1 of SunBiz CRM build — separate from Twilio (the prior Twilio-relabel approach lost TT's analytics + area-code features).",
     connection_kind: "api_key",
-    signup_url: "https://console.twilio.com/",
-    api_key_url: "https://console.twilio.com/",
+    signup_url: "https://texttorrent.com/",
+    api_key_url: "https://texttorrent.com/settings/api",
     setup_complexity: "simple",
-    // SMS belongs to the sales-facing voice (Helios). Solara reads the data
-    // back through the integration but doesn't send.
-    used_by: ["helios"],
+    used_by: ["helios", "solara"],
+    env_key: "TEXTTORRENT_API_KEY",
+  },
+  {
+    service: "twilio",
+    label: "Twilio",
+    category: "comms",
+    description:
+      "Personalized 1:1 SMS with deeper number-pool management. Used alongside TextTorrent — operators route blasts to TT, individual personalized sends to Twilio.",
+    connection_kind: "api_key",
+    signup_url: "https://www.twilio.com/try-twilio",
+    api_key_url: "https://console.twilio.com/",
+    setup_doc_url: "https://www.twilio.com/docs/usage/api",
+    setup_complexity: "simple",
+    used_by: ["helios", "solara"],
     env_key: "TWILIO_ACCOUNT_SID",
+  },
+  {
+    service: "kixie",
+    label: "Kixie",
+    category: "comms",
+    description:
+      "Outbound dialer + live call transfers. Click-to-call links generated server-side; webhook fires on call.answered / call.transferred for /feed visibility.",
+    connection_kind: "api_key",
+    signup_url: "https://www.kixie.com/",
+    api_key_url: "https://app.kixie.com/settings/api",
+    setup_complexity: "moderate",
+    used_by: ["helios"],
+    env_key: "KIXIE_API_KEY",
   },
 
   // ── Finance ────────────────────────────────────────────────────
