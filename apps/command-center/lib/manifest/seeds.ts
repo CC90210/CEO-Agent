@@ -150,6 +150,9 @@ export const SUN_SEED: TenantManifest = {
     // Same shared surface every tenant gets — design forms, mint
     // personalized lead links, replace JotForm.
     { href: "/forms", label: "Forms", icon: "FileCode2", group: "Pipeline" },
+    // /sequences is the drip-campaign control panel — same Outreach
+    // lane as SMS / Email Blast but for status-triggered automation.
+    { href: "/sequences", label: "Sequences", icon: "Sparkles", group: "Pipeline" },
     { href: "/t/sun/offers", label: "Offers", icon: "HandCoins", group: "Deals" },
     { href: "/t/sun/funded-deals", label: "Funded Deals", icon: "BadgeDollarSign", group: "Deals" },
     { href: "/t/sun/renewals", label: "Renewals", icon: "RefreshCcw", group: "Deals" },
