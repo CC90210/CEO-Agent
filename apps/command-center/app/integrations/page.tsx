@@ -1,12 +1,7 @@
-import { cookies } from "next/headers";
 import { Card, PageHeader, Tag } from "@/components/Card";
 import { IntegrationDot } from "@/components/IntegrationDot";
 import { getActiveProfile, integrationsHealth, aiServicesWithKey } from "@/lib/queries";
 import { safe } from "@/lib/api-helpers";
-import {
-  DEMO_CLIENT_PROFILE_COOKIE,
-  getClientCommandCenterProfileById,
-} from "@/lib/client-profiles";
 import {
   INTEGRATION_CATEGORIES,
   visibleIntegrationsForTenant,
@@ -19,15 +14,11 @@ import type { IntegrationHealth } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
+// Note: the /demo/sun public shell is gated by middleware to its own
+// route prefix, never reaches /integrations. Agent-intersection rules
+// below are authoritative for every caller that gets through auth.
 export default async function IntegrationsPage() {
   const profile = await safe("integrations.profile", getActiveProfile(), null);
-  // Demo-profile cookie is still respected for unauthed reviewers walking
-  // the /demo/sun shell, but for authed tenants we use the same agent-
-  // intersection rules as the Settings page so the two surfaces stay in sync.
-  const _demoProfile = getClientCommandCenterProfileById(
-    (await cookies()).get(DEMO_CLIENT_PROFILE_COOKIE)?.value || null
-  );
-  void _demoProfile;
 
   const [dbRows, connectedAiSet, user] = await Promise.all([
     safe("integrations.health", integrationsHealth(profile?.tenant_id || null), []),
