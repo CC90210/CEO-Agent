@@ -61,16 +61,21 @@ export function InstallBridgeModal({ onClose }: { onClose: () => void }) {
   const [phase, setPhase] = useState<"mint" | "command" | "watching" | "connected">("mint");
   const [copied, setCopied] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(0);
+  // Retry knob for mint failures — same shape as InstallBridgeWizard so
+  // a mint failure shows a "Try again" button instead of an indefinite spinner.
+  const [mintAttempt, setMintAttempt] = useState(0);
 
   // Detect OS once on mount.
   useEffect(() => {
     setOs(detectOS());
   }, []);
 
-  // Mint the pair-code as soon as the modal opens.
+  // Mint the pair-code as soon as the modal opens, on re-entry after
+  // expiry, or on a retry click (mintAttempt bump).
   useEffect(() => {
     if (phase !== "mint") return;
     let cancelled = false;
+    setError(null);
     (async () => {
       try {
         const r = await fetch("/api/auth/pair-code", { method: "POST" });
@@ -92,7 +97,7 @@ export function InstallBridgeModal({ onClose }: { onClose: () => void }) {
     return () => {
       cancelled = true;
     };
-  }, [phase]);
+  }, [phase, mintAttempt]);
 
   // Live countdown for the code's TTL.
   useEffect(() => {
@@ -201,9 +206,20 @@ export function InstallBridgeModal({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
-          {phase === "mint" && (
+          {phase === "mint" && !error && (
             <div className="text-fg-muted text-sm flex items-center gap-2 py-8 justify-center">
               <Loader2 className="w-4 h-4 animate-spin" /> Generating a one-time pair code…
+            </div>
+          )}
+          {phase === "mint" && error && (
+            <div className="py-4 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setMintAttempt((n) => n + 1)}
+                className="btn-primary inline-flex items-center gap-2"
+              >
+                Try again
+              </button>
             </div>
           )}
 

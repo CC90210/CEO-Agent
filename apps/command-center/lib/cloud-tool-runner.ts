@@ -610,6 +610,11 @@ export async function* streamAnthropicWithTools(
   let totalOut = 0;
 
   for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter++) {
+    // Output tokens for THIS iteration only. Anthropic's message_delta
+    // events report a cumulative count within a single message — not
+    // per-event deltas — so we OVERWRITE on each frame and add the
+    // final value into totalOut after the inner loop ends. Adding on
+    // every event would double-count by a factor of (frames per message).
     const body: Record<string, unknown> = {
       model: req.model,
       max_tokens: req.maxTokens ?? 4096,
@@ -648,6 +653,7 @@ export async function* streamAnthropicWithTools(
     const blocks: ContentBlock[] = [];
     const blockBuffers = new Map<number, { kind: "text" | "tool_use"; partial: string }>();
     let stopReason: string | null = null;
+    let iterOut = 0;
 
     for await (const ev of parseSSE(res.body)) {
       const data: any = ev.data;
@@ -701,14 +707,27 @@ export async function* streamAnthropicWithTools(
         blockBuffers.delete(idx);
       } else if (ev.event === "message_delta") {
         if (data.delta?.stop_reason) stopReason = String(data.delta.stop_reason);
-        if (data.usage?.output_tokens) totalOut += data.usage.output_tokens;
+        // Cumulative for THIS message — overwrite, don't add. Final
+        // message_delta has the total; we add to totalOut after the loop.
+        if (typeof data.usage?.output_tokens === "number") {
+          iterOut = data.usage.output_tokens;
+        }
       } else if (ev.event === "message_stop") {
         break;
       }
     }
+    totalOut += iterOut;
 
-    // If the model didn't ask to call any tools, we're done.
-    const toolUses = blocks.filter((b): b is Extract<ContentBlock, { type: "tool_use" }> => b?.type === "tool_use");
+    // If the model didn't ask to call any tools, we're done. Filter
+    // tool_use blocks defensively: a block with no id or name would
+    // get rejected on the next API call (Anthropic requires both), so
+    // dropping it here gives a cleaner error than a 400 we'd have to
+    // translate. In practice the API always emits both — this guards
+    // against transient stream truncation, not normal traffic.
+    const toolUses = blocks.filter(
+      (b): b is Extract<ContentBlock, { type: "tool_use" }> =>
+        b?.type === "tool_use" && typeof b.id === "string" && b.id.length > 0 && typeof b.name === "string" && b.name.length > 0
+    );
     if (toolUses.length === 0 || stopReason !== "tool_use") {
       yield { type: "done", inputTokens: totalIn, outputTokens: totalOut };
       return;
