@@ -251,7 +251,28 @@ const ACTIONS: Record<string, Handler> = {
         sanitized[field.name] = Boolean(v);
         continue;
       }
-      // string, date, datetime, json — pass through. data.ts re-validates on insert.
+      if (field.type === "date") {
+        // Accept YYYY-MM-DD (matches HTML <input type="date">). Reject anything
+        // else — storing free-form date strings breaks downstream sort/filter.
+        const s = String(v).trim();
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || Number.isNaN(Date.parse(s))) {
+          return { ok: false, type: "create_record", error: `${entityName}.${field.name} must be a YYYY-MM-DD date (got "${s}")` };
+        }
+        sanitized[field.name] = s;
+        continue;
+      }
+      if (field.type === "datetime") {
+        // Accept ISO 8601 (matches HTML <input type="datetime-local"> and
+        // anything the AI typically emits). Reject anything Date.parse() can't
+        // round-trip so we don't store junk that breaks the records API.
+        const s = String(v).trim();
+        if (Number.isNaN(Date.parse(s))) {
+          return { ok: false, type: "create_record", error: `${entityName}.${field.name} must be an ISO 8601 datetime (got "${s}")` };
+        }
+        sanitized[field.name] = s;
+        continue;
+      }
+      // string + json — pass through.
       sanitized[field.name] = v;
     }
 
