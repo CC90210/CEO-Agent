@@ -44,15 +44,11 @@ type Role = "user" | "assistant" | "system";
 type Msg = { role: Role; content: string; at: number };
 type AccessMode = "auto" | "cloud" | "desktop";
 
+// Legacy localStorage keys from the removed Auto/Cloud/Desktop picker.
+// Kept as named constants only so the one-shot cleanup effect can
+// removeItem() them on mount; nothing else reads them anymore.
 const ACCESS_MODE_STORAGE_KEY = "oasis.chat.accessMode";
 const LEGACY_RUNTIME_MODE_STORAGE_KEY = "oasis.chat.runtimeMode";
-
-function normalizeAccessMode(saved: string | null): AccessMode | null {
-  if (saved === "auto" || saved === "cloud" || saved === "desktop") return saved;
-  if (saved === "api") return "cloud";
-  if (saved === "bridge") return "desktop";
-  return null;
-}
 
 const AGENT_SUGGESTIONS: Record<string, string[]> = {
   bravo: [
@@ -226,15 +222,11 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
     }>
   >([]);
   const [bridgeOnline, setBridgeOnline] = useState<boolean | null>(null);
-  const [accessMode, setAccessMode] = useState<AccessMode>(() => {
-    if (typeof window !== "undefined") {
-      const saved = normalizeAccessMode(window.localStorage.getItem(ACCESS_MODE_STORAGE_KEY));
-      if (saved) return saved;
-      const legacy = normalizeAccessMode(window.localStorage.getItem(LEGACY_RUNTIME_MODE_STORAGE_KEY));
-      if (legacy) return legacy;
-    }
-    return isAdmin ? "auto" : "cloud";
-  });
+  // accessMode is always "auto" now. The previous user-facing picker is
+  // gone; routing decides itself by bridge-pair status. State + setter
+  // retained so downstream branches (status badge, send-route choice)
+  // keep typechecking without a sweeping refactor.
+  const [accessMode] = useState<AccessMode>("auto");
   const [usage, setUsage] = useState<{ usage: number; limit: number | null } | null>(null);
   // Cloud-tool results — only fire on the cloud /api/chat path. Each
   // entry is one execution of a <cloud-tool> marker the agent emitted
@@ -419,10 +411,13 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
       .catch(() => setUsage(null));
   }, [agent, configs, configsLoaded]);
 
+  // Clean up legacy localStorage keys from the removed Auto/Cloud/Desktop
+  // picker. One-shot on mount — the keys are no longer written to or read.
   useEffect(() => {
-    window.localStorage.setItem(ACCESS_MODE_STORAGE_KEY, accessMode);
+    if (typeof window === "undefined") return;
+    window.localStorage.removeItem(ACCESS_MODE_STORAGE_KEY);
     window.localStorage.removeItem(LEGACY_RUNTIME_MODE_STORAGE_KEY);
-  }, [accessMode]);
+  }, []);
 
   // Probe the local bridge on mount + every 30s. When the operator runs
   // `bravo bridge serve`, this flips true and desktop-enabled runtimes can
@@ -907,7 +902,13 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
       {/* Aurora wash inside the bordered container */}
       <div className="chat-aurora absolute inset-0 pointer-events-none" />
 
-      {/* Header — agent picker, access selector (admins only), provider/access badge */}
+      {/* Header — agent picker only. Routing (cloud-API-key vs local-bridge)
+          is decided automatically: use the desktop bridge when it's paired
+          and online, otherwise the per-agent API key from Settings → Agents.
+          The previous Auto/Cloud/Desktop dropdown over-exposed a one-time
+          configuration decision as a per-message choice — gone 2026-05-14
+          per CC. accessMode state stays internally as "auto" so the
+          downstream routing logic + status labels keep working. */}
       <div className="flex items-center gap-3 px-5 py-4 relative z-10">
         {/* Defensive fallback — if the page passed an empty agentKeys array (legacy
             profile.agents_enabled out of sync with chat-eligible agents), always
@@ -925,19 +926,6 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
             </option>
           ))}
         </select>
-        {isAdmin && (
-          <select
-            value={accessMode}
-            onChange={(e) => setAccessMode(e.target.value as AccessMode)}
-            className="bg-bg-elev border border-bg-border rounded-lg px-3 py-2 text-xs text-fg font-bold focus:outline-none focus:border-accent transition-colors cursor-pointer"
-            aria-label="Choose computer access"
-            title="Operator-only: choose whether this agent uses the cloud workspace or this desktop"
-          >
-            <option value="auto">Auto</option>
-            <option value="cloud">Cloud</option>
-            <option value="desktop">This desktop</option>
-          </select>
-        )}
         <div className="flex-1 min-w-0">
           <div className="text-xs text-fg-muted truncate">
             {getAgentInfo(agent).tagline}
