@@ -15,6 +15,7 @@ import { PlanTemplateEditor } from "@/components/settings/PlanTemplateEditor";
 import { AgentConfigEditor } from "@/components/settings/AgentConfigEditor";
 import { DevicesEditor } from "@/components/settings/DevicesEditor";
 import { ProviderAccountsCard } from "@/components/settings/ProviderAccountsCard";
+import { TOOL_DEFINITIONS } from "@/lib/cloud-tool-runner";
 import { chatAgentKeys } from "@/lib/agent-personas";
 import { resolveClientProfileSlug } from "@/lib/client-profiles";
 import { getManifest } from "@/lib/manifest/loader";
@@ -166,6 +167,15 @@ export default async function SettingsPage() {
                 ])
               )}
               manifestSlug={manifestSlug}
+              // Slim catalog for the per-agent palette editor. Server-side
+              // TOOL_DEFINITIONS contains the full input_schema JSON which
+              // the client UI doesn't need; we pass name + description +
+              // defer flag (for grouping into Cloud vs Bridge sections).
+              toolCatalog={TOOL_DEFINITIONS.map((t) => ({
+                name: t.name,
+                description: t.description,
+                defer: !!t.defer,
+              }))}
             />
           </Card>
 
