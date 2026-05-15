@@ -130,17 +130,28 @@ export async function POST(req: NextRequest) {
 
   const service = getServiceSupabase();
   const applied: string[] = [];
+  const failed: Array<{ agent_key: string; error: string }> = [];
   // Sequential — Supabase upsert with onConflict isn't reliable across the
   // current PostgREST setup for compound keys (we'd need a real unique
   // index on (tenant_id, agent_key)). Doing it as N small writes is fine
   // — N is bounded by chat-eligible agent count (5-ish today).
+  //
+  // Partial-failure semantics: if any agent fails to save, the response
+  // surfaces the failing agents + their error codes so the client can
+  // show "saved on 3 of 5, see errors" instead of silently dropping the
+  // bad ones. ok is true iff at least one save succeeded — caller is
+  // expected to inspect `failed[]` when count < targetAgents.length.
   for (const agentKey of targetAgents) {
-    const { data: existing } = await service
+    const { data: existing, error: lookupErr } = await service
       .from("agent_model_config")
       .select("id")
       .eq("tenant_id", tenantId)
       .eq("agent_key", agentKey)
       .maybeSingle();
+    if (lookupErr) {
+      failed.push({ agent_key: agentKey, error: `lookup_failed:${lookupErr.code || lookupErr.message}` });
+      continue;
+    }
     const payload: Record<string, unknown> = {
       tenant_id: tenantId,
       agent_key: agentKey,
@@ -154,12 +165,19 @@ export async function POST(req: NextRequest) {
         .from("agent_model_config")
         .update(payload)
         .eq("id", existing.id);
-      if (!error) applied.push(agentKey);
+      if (error) failed.push({ agent_key: agentKey, error: error.code || error.message });
+      else applied.push(agentKey);
     } else {
       const { error } = await service.from("agent_model_config").insert(payload);
-      if (!error) applied.push(agentKey);
+      if (error) failed.push({ agent_key: agentKey, error: error.code || error.message });
+      else applied.push(agentKey);
     }
   }
 
-  return NextResponse.json({ ok: true, applied_to: applied, count: applied.length });
+  return NextResponse.json({
+    ok: applied.length > 0,
+    applied_to: applied,
+    failed,
+    count: applied.length,
+  });
 }
