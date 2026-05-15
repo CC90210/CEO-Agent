@@ -63,11 +63,15 @@ export type NavItem = {
 /**
  * CC's empire command center nav.
  *
- * /inbox + /runs were removed 2026-05-14 per CC: the cross-agent inbox is
- * useful as a substrate but doesn't earn a sidebar slot for the operator,
- * and /runs is a developer-side activity tape (Event Feed serves the same
- * need with a better UX). Both routes still resolve by direct URL for
- * agents + scripts that need them; they just don't clutter the human nav.
+ * Routes intentionally hidden from this sidebar:
+ *   - /inbox  — cross-agent inbox; useful substrate but no human nav slot
+ *   - /runs   — developer-side activity tape; Event Feed serves the same UX
+ *   - /system-health — V6 guard-substrate monitor; only meaningful when the
+ *     state-api daemon is reachable from this deploy. On the public Vercel
+ *     it's always "Off" by design, which CC reads (correctly) as noise.
+ *     Reach it by direct URL when the local stack is up.
+ * All three routes still resolve by direct URL for agents + scripts; they
+ * just don't earn a sidebar slot in CC's day-to-day view.
  */
 export const CC_NAV: NavItem[] = [
   { group: "Operations", href: "/", label: "Today", icon: "LayoutDashboard" },
@@ -77,7 +81,6 @@ export const CC_NAV: NavItem[] = [
   { group: "System", href: "/agents", label: "Agents", icon: "Bot" },
   { group: "System", href: "/operations", label: "Operations", icon: "Activity" },
   { group: "System", href: "/feed", label: "Event Feed", icon: "Radio" },
-  { group: "System", href: "/system-health", label: "System Health", icon: "ShieldCheck" },
   { group: "System", href: "/overrides", label: "Overrides", icon: "ShieldAlert" },
   { group: "System", href: "/analytics", label: "Analytics", icon: "BarChart3" },
   { group: "System", href: "/integrations", label: "Integrations", icon: "Plug" },
