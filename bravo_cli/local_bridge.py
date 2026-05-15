@@ -264,6 +264,89 @@ def detect_codex_cli() -> dict:
     return {"status": "unconfigured"}
 
 
+def detect_pm2_daemons() -> dict[str, dict]:
+    """Snapshot the operator's PM2 process table — surfaces background
+    workers (sequence-runner, event-router, override-consumer, claude-bridge,
+    lender-response-classifier, bravo-scheduler, bravo-telegram) on the
+    dashboard's /automations page so the operator can see at a glance which
+    daemons are alive vs stopped.
+
+    Each PM2 entry becomes a service report keyed `pm2.<name>` with status
+    `healthy` (online), `degraded` (stopped/errored), or `unconfigured` (not
+    in PM2 / pm2 CLI missing). Failure is non-fatal — pm2 not installed
+    just yields an empty dict and the dashboard renders the "PM2 not
+    detected" path.
+
+    Also probes for the standalone Skool daemon (NOT in PM2 — it owns its
+    own DaemonLock per ecosystem.config.js header) by checking for the
+    lock file or process.
+    """
+    out: dict[str, dict] = {}
+    pm2_bin = shutil.which("pm2")
+    if pm2_bin:
+        try:
+            res = subprocess.run(
+                [pm2_bin, "jlist"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                creationflags=WINDOWLESS_FLAGS,
+            )
+            if res.returncode == 0 and res.stdout.strip():
+                procs = json.loads(res.stdout)
+                for p in procs if isinstance(procs, list) else []:
+                    name = p.get("name") or "unnamed"
+                    pm2_env = p.get("pm2_env") or {}
+                    status = pm2_env.get("status") or "unknown"
+                    # PM2 statuses: online, stopping, stopped, launching,
+                    # errored, one-launch-status. Map to integrations_health
+                    # vocabulary.
+                    if status == "online":
+                        health = "healthy"
+                    elif status in ("errored", "stopped"):
+                        health = "down"
+                    else:
+                        health = "degraded"
+                    monit = p.get("monit") or {}
+                    out[f"pm2.{name}"] = {
+                        "status": health,
+                        "metadata": {
+                            "pm2_status": status,
+                            "pid": p.get("pid") or 0,
+                            "restart_count": pm2_env.get("restart_time") or 0,
+                            "uptime_ms": pm2_env.get("pm_uptime") or 0,
+                            "memory_bytes": monit.get("memory") or 0,
+                            "cpu_pct": monit.get("cpu") or 0,
+                        },
+                    }
+        except Exception:
+            # pm2 jlist exploded for whatever reason — don't crash the
+            # heartbeat. The dashboard will just show "no PM2 data" until
+            # the next successful tick.
+            pass
+
+    # Standalone Skool daemon — runs outside PM2 (DaemonLock conflict per
+    # ecosystem.config.js). Detect via its lock file under the project root.
+    # Resolved from this file's location since collect_services() is called
+    # from arbitrary CWDs depending on PM2 invocation context.
+    skool_lock = Path(__file__).resolve().parent.parent / "tmp" / "skool_engine.lock"
+    if skool_lock.exists():
+        try:
+            mtime = skool_lock.stat().st_mtime
+            stale = (time.time() - mtime) > 600  # >10 min = considered stopped
+            out["skool_engine"] = {
+                "status": "down" if stale else "healthy",
+                "metadata": {
+                    "via": "lockfile",
+                    "lock_age_sec": int(time.time() - mtime),
+                    "note": "Standalone daemon — `python scripts/skool_engine.py daemon --interval 5`",
+                },
+            }
+        except Exception:
+            pass
+    return out
+
+
 def collect_services() -> dict[str, dict]:
     services: dict[str, dict] = {
         "ffmpeg": detect_ffmpeg(),
@@ -274,6 +357,11 @@ def collect_services() -> dict[str, dict]:
         "codex_cli": detect_codex_cli(),
     }
     services.update(detect_repo_clones())
+    # PM2 daemon snapshot — populates the dashboard's Background Workers
+    # panel so the operator sees sequence-runner / event-router / claude-bridge /
+    # override-consumer / lender-response-classifier status without SSH'ing
+    # into their own machine.
+    services.update(detect_pm2_daemons())
     # Credentials on disk — flips integration cards green for the operator
     # without them ever pasting a key into the dashboard.
     services.update(detect_local_credentials())
