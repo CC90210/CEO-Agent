@@ -66,7 +66,11 @@ export default async function AgentsPage() {
     // sinceDays: 0 — same fix as /operations. Default 7-day window left
     // the Event Bus card looking empty when crons / inbound traffic had
     // been quiet for a week, even though the table had history.
-    recentEvents(25, { sinceDays: 0 }),
+    recentEvents(25, {
+      sinceDays: 0,
+      agentNames: manifestEnabledSlugs,
+      isOperator: isAdmin,
+    }),
     integrationsHealth(profile?.tenant_id || null),
     getAgentStats(profile?.primary_agent || "bravo"),
     _tenantHasNoBridge(profile?.tenant_id || null),

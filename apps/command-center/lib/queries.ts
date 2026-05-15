@@ -278,23 +278,50 @@ export async function agentStates(agentNames: string[] = []): Promise<AgentState
   return (r.data as AgentStateSnapshot[]) || [];
 }
 
+/**
+ * Activity-tape rows for /agents and /operations.
+ *
+ * SCOPING (cross-tenant data-leak fix, 2026-05-14):
+ *   agent_events does NOT carry a tenant_id column today (same schema debt
+ *   as agent_decisions + agent_state_snapshot). Until the column lands,
+ *   the read path filters by publisher_agent ∈ agentNames so a client
+ *   tenant only sees events fired by agents they have enabled.
+ *
+ *   Operators (CC) get the full feed by passing isOperator: true — the
+ *   activity tape is one of the operator's primary debugging surfaces and
+ *   we want them to see everything including system events with no
+ *   publisher_agent.
+ *
+ *   Empty agentNames + non-operator: return [] (safer than leaking).
+ *
+ *   Default sinceDays: 7. The /operations + /agents pages explicitly pass
+ *   sinceDays:0 to show "most recent N regardless of age" — they were
+ *   rendering empty when the event bus was quiet for a week even though
+ *   the table had history.
+ */
 export async function recentEvents(
   limit = 25,
-  opts?: { sinceDays?: number; tenantId?: string | null }
+  opts?: {
+    sinceDays?: number;
+    tenantId?: string | null;
+    agentNames?: string[];
+    isOperator?: boolean;
+  }
 ): Promise<AgentEvent[]> {
+  const agentNames = opts?.agentNames ?? [];
+  const isOperator = opts?.isOperator === true;
+
+  // Non-operator with no enabled agents → no leakage. Operator with no
+  // agentNames → full feed (this is the dashboard-debug expectation).
+  if (!isOperator && agentNames.length === 0) return [];
+
   const db = getServiceSupabase();
   let q = db.from("agent_events").select("*");
-  // agent_events does NOT carry a tenant_id column today (audit confirmed
-  // 2026-05-07). Tenant scoping happens via the publisher_agent + payload
-  // shape rather than a column. The opts.tenantId param is accepted for
-  // API consistency but not applied as a filter — would error otherwise.
-  //
-  // Default: 7-day freshness window. The activity-tape pages (/operations,
-  // /agents) explicitly pass sinceDays:0 to show "most recent N regardless
-  // of age" — they were rendering empty when the event bus was quiet for a
-  // week even though the table had history. The 7-day default is kept here
-  // to protect any future caller that wants a real "fresh activity only"
-  // window without thinking about it.
+
+  if (!isOperator) {
+    q = q.in("publisher_agent", agentNames);
+  }
+
   const sinceDays = opts?.sinceDays ?? 7;
   if (sinceDays > 0) {
     const since = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000).toISOString();
