@@ -14,8 +14,16 @@
 import { getServiceSupabase } from "./supabase-server";
 import { ALL_AGENT_KEYS } from "./agents";
 import { getManifest } from "./manifest/loader";
-import { createRecord, RecordsError } from "./manifest/data";
+import {
+  createRecord,
+  deleteRecord,
+  getRecord,
+  listRecords,
+  RecordsError,
+  updateRecord,
+} from "./manifest/data";
 import { resolveClientProfileSlug } from "./client-profiles";
+import type { ManifestEntityDef, TenantManifest } from "./manifest/schema";
 
 export type ActionContext = {
   tenantId: string;
@@ -188,112 +196,267 @@ const ACTIONS: Record<string, Handler> = {
       return { ok: false, type: "create_record", error: "data must be an object" };
     }
 
-    // Resolve which manifest scopes this tenant. SunBiz clients have
-    // command_center_profile_slug="sun"; wizard signups have their own
-    // chosen slug. Falls back to the caller's tenants.slug column if
-    // custom_fields is empty (legacy rows).
-    const db = getServiceSupabase();
-    const tenantRow = await db.from("tenants").select("slug, custom_fields").eq("id", ctx.tenantId).maybeSingle();
-    if (tenantRow.error || !tenantRow.data) {
-      return { ok: false, type: "create_record", error: "tenant not found" };
-    }
-    const manifestSlug = resolveClientProfileSlug(tenantRow.data) || tenantRow.data.slug;
-    if (!manifestSlug) {
-      return { ok: false, type: "create_record", error: "no manifest slug resolvable for tenant" };
-    }
+    const ctxResolved = await resolveTenantManifest(ctx.tenantId);
+    if (!ctxResolved.ok) return { ok: false, type: "create_record", error: ctxResolved.error };
+    const entityDef = findEntity(ctxResolved.manifest, entityName);
+    if (!entityDef) return { ok: false, type: "create_record", error: unknownEntityError(ctxResolved.manifest, entityName) };
 
-    let manifest;
+    const validated = validateAgainstEntity(entityDef, data as Record<string, unknown>, { requireAll: true });
+    if (!validated.ok) return { ok: false, type: "create_record", error: validated.error };
+
     try {
-      manifest = await getManifest(manifestSlug);
+      const row = await createRecord({ tenant_id: ctx.tenantId, entity: entityName, data: validated.data });
+      const label = recordLabel(validated.data, row.id);
+      return { ok: true, type: "create_record", summary: `created ${entityDef.label.toLowerCase()}: ${label}` };
     } catch (err) {
-      return { ok: false, type: "create_record", error: `manifest load failed: ${err instanceof Error ? err.message : "unknown"}` };
+      return { ok: false, type: "create_record", error: recordsErrorMessage(err, "create_failed") };
+    }
+  },
+
+  /**
+   * lookup_records — agent reads from the tenant's manifest data model.
+   * Powers natural-language queries like "what's expiring in the next 60
+   * days?" — Solara emits lookup_records with entity="renewal" and any
+   * supported filters, the chat route returns the matching rows as part
+   * of the action result so the model can quote real data.
+   *
+   * Payload:
+   *   { entity, filter?: { field: value }, sort?: "field" | "-field",
+   *     limit?: number (default 25, max 100) }
+   *
+   * Result.summary is JSON-encoded { count, rows: [{ id, ...data }] }.
+   */
+  async lookup_records(payload, ctx): Promise<ActionResult> {
+    const entityName = String(payload.entity || "").trim().toLowerCase();
+    if (!entityName) return { ok: false, type: "lookup_records", error: "entity required" };
+
+    const ctxResolved = await resolveTenantManifest(ctx.tenantId);
+    if (!ctxResolved.ok) return { ok: false, type: "lookup_records", error: ctxResolved.error };
+    if (!findEntity(ctxResolved.manifest, entityName)) {
+      return { ok: false, type: "lookup_records", error: unknownEntityError(ctxResolved.manifest, entityName) };
     }
 
-    const entityDef = (manifest.data_model || []).find((e) => e.name === entityName);
-    if (!entityDef) {
-      return {
-        ok: false,
-        type: "create_record",
-        error: `unknown entity "${entityName}" — manifest has: ${(manifest.data_model || []).map((e) => e.name).join(", ") || "(none)"}`,
-      };
+    const rawFilter = payload.filter;
+    const where: Record<string, string | number | boolean | null> = {};
+    if (rawFilter && typeof rawFilter === "object" && !Array.isArray(rawFilter)) {
+      for (const [k, v] of Object.entries(rawFilter as Record<string, unknown>)) {
+        if (v === null || typeof v === "string" || typeof v === "number" || typeof v === "boolean") {
+          where[k] = v;
+        }
+      }
     }
-
-    // Validate the incoming data against the entity schema.
-    const sanitized: Record<string, unknown> = {};
-    for (const field of entityDef.fields) {
-      const v = (data as Record<string, unknown>)[field.name];
-      if (v === undefined || v === null || v === "") {
-        if (field.required) {
-          return { ok: false, type: "create_record", error: `${entityName}.${field.name} is required` };
-        }
-        continue;
-      }
-      if (field.type === "enum") {
-        if (!field.enum_values?.includes(String(v))) {
-          return {
-            ok: false,
-            type: "create_record",
-            error: `${entityName}.${field.name} must be one of: ${field.enum_values?.join(", ")}`,
-          };
-        }
-        sanitized[field.name] = v;
-        continue;
-      }
-      if (field.type === "number") {
-        const n = Number(v);
-        if (!Number.isFinite(n)) {
-          return { ok: false, type: "create_record", error: `${entityName}.${field.name} must be a number` };
-        }
-        sanitized[field.name] = n;
-        continue;
-      }
-      if (field.type === "boolean") {
-        sanitized[field.name] = Boolean(v);
-        continue;
-      }
-      if (field.type === "date") {
-        // Accept YYYY-MM-DD (matches HTML <input type="date">). Reject anything
-        // else — storing free-form date strings breaks downstream sort/filter.
-        const s = String(v).trim();
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || Number.isNaN(Date.parse(s))) {
-          return { ok: false, type: "create_record", error: `${entityName}.${field.name} must be a YYYY-MM-DD date (got "${s}")` };
-        }
-        sanitized[field.name] = s;
-        continue;
-      }
-      if (field.type === "datetime") {
-        // Accept ISO 8601 (matches HTML <input type="datetime-local"> and
-        // anything the AI typically emits). Reject anything Date.parse() can't
-        // round-trip so we don't store junk that breaks the records API.
-        const s = String(v).trim();
-        if (Number.isNaN(Date.parse(s))) {
-          return { ok: false, type: "create_record", error: `${entityName}.${field.name} must be an ISO 8601 datetime (got "${s}")` };
-        }
-        sanitized[field.name] = s;
-        continue;
-      }
-      // string + json — pass through.
-      sanitized[field.name] = v;
-    }
+    const sort = typeof payload.sort === "string" ? payload.sort : undefined;
+    const limit = Math.max(1, Math.min(Number(payload.limit) || 25, 100));
 
     try {
-      const row = await createRecord({
+      const result = await listRecords({
         tenant_id: ctx.tenantId,
         entity: entityName,
-        data: sanitized,
+        where: Object.keys(where).length > 0 ? where : undefined,
+        sort,
+        limit,
       });
-      const labelField = sanitized.business_name || sanitized.name || sanitized.title || sanitized.contact_name || row.id;
+      const slim = result.rows.map((r) => ({ id: r.id, ...r.data }));
       return {
         ok: true,
-        type: "create_record",
-        summary: `created ${entityDef.label.toLowerCase()}: ${labelField}`,
+        type: "lookup_records",
+        summary: JSON.stringify({ count: result.total, rows: slim }),
       };
     } catch (err) {
-      const msg = err instanceof RecordsError ? `${err.code}: ${err.message}` : (err instanceof Error ? err.message : "create_failed");
-      return { ok: false, type: "create_record", error: msg };
+      return { ok: false, type: "lookup_records", error: recordsErrorMessage(err, "lookup_failed") };
+    }
+  },
+
+  /**
+   * update_record — agent patches an existing row. Used for "mark this
+   * funded deal as renewed", "set this lead to qualified", etc.
+   *
+   * Payload: { entity, id, patch: { field: newValue } }
+   *
+   * Validates patch fields against the entity schema like create_record,
+   * but with requireAll=false (patches are partial). Required fields are
+   * only re-validated if the patch supplies them.
+   */
+  async update_record(payload, ctx): Promise<ActionResult> {
+    const entityName = String(payload.entity || "").trim().toLowerCase();
+    const id = String(payload.id || "").trim();
+    const patch = payload.patch;
+    if (!entityName) return { ok: false, type: "update_record", error: "entity required" };
+    if (!id) return { ok: false, type: "update_record", error: "id required" };
+    if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
+      return { ok: false, type: "update_record", error: "patch must be an object" };
+    }
+
+    const ctxResolved = await resolveTenantManifest(ctx.tenantId);
+    if (!ctxResolved.ok) return { ok: false, type: "update_record", error: ctxResolved.error };
+    const entityDef = findEntity(ctxResolved.manifest, entityName);
+    if (!entityDef) return { ok: false, type: "update_record", error: unknownEntityError(ctxResolved.manifest, entityName) };
+
+    const validated = validateAgainstEntity(entityDef, patch as Record<string, unknown>, { requireAll: false });
+    if (!validated.ok) return { ok: false, type: "update_record", error: validated.error };
+
+    try {
+      const row = await updateRecord({
+        tenant_id: ctx.tenantId,
+        entity: entityName,
+        id,
+        patch: validated.data,
+      });
+      const label = recordLabel(row.data, row.id);
+      const fieldsTouched = Object.keys(validated.data);
+      return {
+        ok: true,
+        type: "update_record",
+        summary: `updated ${entityDef.label.toLowerCase()} ${label}: ${fieldsTouched.join(", ")}`,
+      };
+    } catch (err) {
+      return { ok: false, type: "update_record", error: recordsErrorMessage(err, "update_failed") };
+    }
+  },
+
+  /**
+   * delete_record — agent removes a row. Always confirms via summary text
+   * so the operator-facing toast shows what was destroyed. The model's
+   * persona spec instructs it to *never* emit delete_record without
+   * explicit operator confirmation in the conversation.
+   *
+   * Payload: { entity, id }
+   */
+  async delete_record(payload, ctx): Promise<ActionResult> {
+    const entityName = String(payload.entity || "").trim().toLowerCase();
+    const id = String(payload.id || "").trim();
+    if (!entityName) return { ok: false, type: "delete_record", error: "entity required" };
+    if (!id) return { ok: false, type: "delete_record", error: "id required" };
+
+    const ctxResolved = await resolveTenantManifest(ctx.tenantId);
+    if (!ctxResolved.ok) return { ok: false, type: "delete_record", error: ctxResolved.error };
+    const entityDef = findEntity(ctxResolved.manifest, entityName);
+    if (!entityDef) return { ok: false, type: "delete_record", error: unknownEntityError(ctxResolved.manifest, entityName) };
+
+    // Look up the row first so we can include a meaningful label in the
+    // result summary; the toast tells the operator what got destroyed,
+    // not just a UUID.
+    const existing = await getRecord({ tenant_id: ctx.tenantId, entity: entityName, id }).catch(() => null);
+
+    try {
+      await deleteRecord({ tenant_id: ctx.tenantId, entity: entityName, id });
+      const label = existing ? recordLabel(existing.data, id) : id;
+      return { ok: true, type: "delete_record", summary: `deleted ${entityDef.label.toLowerCase()}: ${label}` };
+    } catch (err) {
+      return { ok: false, type: "delete_record", error: recordsErrorMessage(err, "delete_failed") };
     }
   },
 };
+
+// ---------------------------------------------------------------------------
+// Shared helpers — manifest resolution + field validation for record actions.
+// Extracted so create_record / update_record / lookup_records / delete_record
+// share one source of truth for "which manifest scopes this tenant?" and
+// "does this data fit the entity schema?".
+// ---------------------------------------------------------------------------
+
+async function resolveTenantManifest(
+  tenantId: string
+): Promise<{ ok: true; manifest: TenantManifest; slug: string } | { ok: false; error: string }> {
+  const db = getServiceSupabase();
+  const tenantRow = await db.from("tenants").select("slug, custom_fields").eq("id", tenantId).maybeSingle();
+  if (tenantRow.error || !tenantRow.data) return { ok: false, error: "tenant not found" };
+  const slug = resolveClientProfileSlug(tenantRow.data) || tenantRow.data.slug;
+  if (!slug) return { ok: false, error: "no manifest slug resolvable for tenant" };
+  try {
+    const manifest = await getManifest(slug);
+    return { ok: true, manifest, slug };
+  } catch (err) {
+    return { ok: false, error: `manifest load failed: ${err instanceof Error ? err.message : "unknown"}` };
+  }
+}
+
+function findEntity(manifest: TenantManifest, entityName: string): ManifestEntityDef | undefined {
+  return (manifest.data_model || []).find((e) => e.name === entityName);
+}
+
+function unknownEntityError(manifest: TenantManifest, entityName: string): string {
+  const known = (manifest.data_model || []).map((e) => e.name).join(", ") || "(none)";
+  return `unknown entity "${entityName}" — manifest has: ${known}`;
+}
+
+function recordsErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof RecordsError) return `${err.code}: ${err.message}`;
+  if (err instanceof Error) return err.message;
+  return fallback;
+}
+
+function recordLabel(data: Record<string, unknown>, fallback: string): string {
+  return String(
+    data.business_name ||
+      data.name ||
+      data.title ||
+      data.contact_name ||
+      fallback
+  );
+}
+
+/**
+ * Validate an arbitrary data object against an entity's field definitions.
+ * Returns { ok: true, data: sanitized } if all supplied fields are valid;
+ * { ok: false, error } otherwise.
+ *
+ * `requireAll`: true for create_record (all required fields must be present);
+ * false for update_record (a patch may touch only some fields).
+ */
+function validateAgainstEntity(
+  entity: ManifestEntityDef,
+  input: Record<string, unknown>,
+  opts: { requireAll: boolean }
+): { ok: true; data: Record<string, unknown> } | { ok: false; error: string } {
+  const sanitized: Record<string, unknown> = {};
+  for (const field of entity.fields) {
+    const supplied = field.name in input;
+    const v = input[field.name];
+    if (!supplied || v === undefined || v === null || v === "") {
+      if (opts.requireAll && field.required) {
+        return { ok: false, error: `${entity.name}.${field.name} is required` };
+      }
+      continue;
+    }
+    if (field.type === "enum") {
+      if (!field.enum_values?.includes(String(v))) {
+        return { ok: false, error: `${entity.name}.${field.name} must be one of: ${field.enum_values?.join(", ")}` };
+      }
+      sanitized[field.name] = v;
+      continue;
+    }
+    if (field.type === "number") {
+      const n = Number(v);
+      if (!Number.isFinite(n)) return { ok: false, error: `${entity.name}.${field.name} must be a number` };
+      sanitized[field.name] = n;
+      continue;
+    }
+    if (field.type === "boolean") {
+      sanitized[field.name] = Boolean(v);
+      continue;
+    }
+    if (field.type === "date") {
+      const s = String(v).trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || Number.isNaN(Date.parse(s))) {
+        return { ok: false, error: `${entity.name}.${field.name} must be a YYYY-MM-DD date (got "${s}")` };
+      }
+      sanitized[field.name] = s;
+      continue;
+    }
+    if (field.type === "datetime") {
+      const s = String(v).trim();
+      if (Number.isNaN(Date.parse(s))) {
+        return { ok: false, error: `${entity.name}.${field.name} must be an ISO 8601 datetime (got "${s}")` };
+      }
+      sanitized[field.name] = s;
+      continue;
+    }
+    // string + json — pass through.
+    sanitized[field.name] = v;
+  }
+  return { ok: true, data: sanitized };
+}
 
 /**
  * Parse <dashboard-action type="X">{...}</dashboard-action> markers from

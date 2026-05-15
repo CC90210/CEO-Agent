@@ -204,6 +204,28 @@ export type ManifestTier = {
   summary?: string;
 };
 
+// ---------------------------------------------------------------------------
+// Compliance — declarative posture for outbound messaging (SMS/email). Used
+// by industries with regulatory exposure (TCPA for SunBiz, etc). Settings
+// surfaces these as read-only badges in v1; agents reference them in their
+// system prompts so drafts don't violate consent rules.
+// ---------------------------------------------------------------------------
+
+export type ManifestComplianceTcpa = {
+  /** Local send window, e.g. "9am-9pm". Free-text label rendered to operator + agent. */
+  send_window_local: string;
+  /** When true, outbound to opted-out leads is forbidden at the agent + engine layer. */
+  honor_opt_outs: boolean;
+  /** When false, agents refuse weekend sends (TCPA-safe default). */
+  weekend_sends: boolean;
+  /** Standard opt-out phrase appended to first-touch SMS. */
+  opt_out_phrase?: string;
+};
+
+export type ManifestCompliance = {
+  tcpa?: ManifestComplianceTcpa;
+};
+
 export type ManifestMeta = {
   created_at?: string;
   updated_at?: string;
@@ -230,6 +252,7 @@ export type TenantManifest = {
   data_backend?: ManifestDataBackend;
   deployment_mode?: ManifestDeploymentMode;
   tier?: ManifestTier;
+  compliance?: ManifestCompliance;
   meta: ManifestMeta;
 };
 
@@ -460,6 +483,21 @@ function parseTier(v: Json, path: string): ManifestTier {
   };
 }
 
+function parseCompliance(v: Json, path: string): ManifestCompliance {
+  if (!isObject(v)) throw new ManifestParseError(path, "expected object");
+  const tcpaRaw = v.tcpa;
+  if (tcpaRaw === undefined) return {};
+  if (!isObject(tcpaRaw)) throw new ManifestParseError(`${path}.tcpa`, "expected object");
+  return {
+    tcpa: {
+      send_window_local: requireString(tcpaRaw, "send_window_local", `${path}.tcpa`),
+      honor_opt_outs: requireBoolean(tcpaRaw, "honor_opt_outs", `${path}.tcpa`),
+      weekend_sends: requireBoolean(tcpaRaw, "weekend_sends", `${path}.tcpa`),
+      opt_out_phrase: optionalString(tcpaRaw, "opt_out_phrase"),
+    },
+  };
+}
+
 function parseMeta(v: Json, path: string): ManifestMeta {
   if (!isObject(v)) throw new ManifestParseError(path, "expected object");
   const schemaVersionRaw = v.schema_version;
@@ -520,6 +558,7 @@ export function parseManifest(input: Json): TenantManifest {
     data_backend: dataBackend as ManifestDataBackend | undefined,
     deployment_mode: deploymentMode as ManifestDeploymentMode | undefined,
     tier: input.tier !== undefined ? parseTier(input.tier, "$.tier") : undefined,
+    compliance: input.compliance !== undefined ? parseCompliance(input.compliance, "$.compliance") : undefined,
     meta: parseMeta(input.meta ?? {}, "$.meta"),
   };
 }

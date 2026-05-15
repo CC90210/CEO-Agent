@@ -207,6 +207,14 @@ export const BUSINESS_FUNDING_TEMPLATE: TenantManifest = {
     monthly_price_hint: "Custom",
     summary: "Funding shop: Solara + Helios, full pipeline.",
   },
+  compliance: {
+    tcpa: {
+      send_window_local: "9am-9pm",
+      honor_opt_outs: true,
+      weekend_sends: false,
+      opt_out_phrase: "Reply STOP to opt out.",
+    },
+  },
   integrations: [
     { kind: "jotform", enabled: true },
     { kind: "twilio", enabled: true },
