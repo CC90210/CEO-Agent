@@ -1410,14 +1410,18 @@ export default function ChatWidget({ agentKeys, defaultAgent, isAdmin, welcomeMe
             value="cloud_bridge_tools"
             disabled={bridgeOnline !== true}
             title={
-              bridgeOnline !== true
+              bridgeOnline === false
                 ? "Disabled: the local bridge isn't reachable. Run `pm2 restart claude-bridge` on this machine to enable API + local tools."
-                : undefined
+                : bridgeOnline === null
+                  ? "Checking bridge status..."
+                  : undefined
             }
           >
             {bridgeOnline === true
               ? "Mode: API + local tools"
-              : "Mode: API + local tools (bridge offline)"}
+              : bridgeOnline === null
+                ? "Mode: API + local tools (checking…)"
+                : "Mode: API + local tools (bridge offline)"}
           </option>
         </select>
         {usage && (

@@ -103,7 +103,11 @@ export function CronJobsManager({ agentKeys }: Props) {
       setLoadError(null);
       setMigrationGap(null);
     } catch (e) {
+      // Network error / fetch threw — clear the migration banner too so
+      // the operator doesn't see "One-time setup required" + "Load failed"
+      // stacked from a previous load while the new state is unknown.
       setLoadError(e instanceof Error ? e.message : "load_failed");
+      setMigrationGap(null);
     }
   }
 
