@@ -97,27 +97,6 @@ const AGENT_SUGGESTIONS: Record<string, string[]> = {
     "Close-the-loop SMS for an offer that just expired",
     "What's the best follow-up cadence for this stage?",
   ],
-  lyra: [
-    "Weekly brand pulse — what landed, what didn't",
-    "Top 3 wins from this week",
-    "What's drifting from voice right now?",
-    "Summarize this week's posts, growth, sponsorships",
-  ],
-  lyra_brand: [
-    "Draft 3 high-engagement post angles I haven't run",
-    "Pick a top-performing post and propose 3 follow-ups",
-    "What captions are landing best on Instagram this month?",
-  ],
-  lyra_fans: [
-    "Draft a reply pack for the top 10 hot fan DMs",
-    "Top 10 most engaged subscribers this week — DM ideas",
-    "What's the right VIP welcome message?",
-  ],
-  lyra_commerce: [
-    "What merch drop converted best last week?",
-    "Which sponsorship leads are warm right now?",
-    "Which drops are due to go live this month?",
-  ],
   "life-preservation": [
     "Help me plan an interview session with Grandma",
     "What questions surface the small details, not the obvious ones?",
