@@ -145,6 +145,11 @@ export const SUN_SEED: TenantManifest = {
     { href: "/t/sun/renewals", label: "Renewals", icon: "RefreshCcw", group: "Deals" },
     { href: "/t/sun/commissions", label: "Commissions", icon: "DollarSign", group: "Deals" },
     { href: "/t/sun/lenders", label: "Lenders", icon: "Landmark", group: "Network" },
+    // Top-level /automations — tenant-aware cron job manager. Bridge polls
+    // tenant_cron_jobs and executes locally on the operator's machine.
+    // Same surface across every tenant; routes here from any /t/<slug>/
+    // path land on the shared /automations page.
+    { href: "/automations", label: "Automations", icon: "RefreshCcw", group: "System" },
     // Top-level /settings — already tenant-aware (reads profile.tenant_id).
     // Modeled on the OASIS settings shell: integrations, agents enabled,
     // templates, devices, password. Same shape, tenant-scoped data.
@@ -304,6 +309,11 @@ export const SUGA_SEED: TenantManifest = {
     { href: "/t/suga/drafts", label: "Drafts", icon: "FileText", group: "Brand" },
     { href: "/t/suga/merch", label: "Merch", icon: "ShoppingBag", group: "Commerce" },
     { href: "/t/suga/sponsorship", label: "Sponsorships", icon: "HandCoins", group: "Sponsorship" },
+    // Top-level /automations — same shared cron-job surface every tenant
+    // gets. Sidebar entry is mirrored across SUN_SEED + SUGA_SEED + the
+    // CC_NAV-derived OASIS_SEED so operators on /t/suga/* land on the
+    // same Automations page anyone else does.
+    { href: "/automations", label: "Automations", icon: "RefreshCcw", group: "System" },
     { href: "/settings", label: "Settings", icon: "Settings", group: "System" },
   ],
   data_model: [

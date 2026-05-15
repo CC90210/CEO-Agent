@@ -77,6 +77,20 @@ type IncomingPayload = {
    *            the chat-mode picker.
    */
   cloud_tools?: "tools" | "markers" | "off";
+  /**
+   * Phase 3 of giggly-reef (2026-05-15): how should the runner resolve the
+   * tool palette when the bridge is online?
+   *   "bridge_proxy" — (default) include deferred bridge tools in the
+   *                    palette when bridge is online. Browser proxies any
+   *                    tool_use_pending to localhost:9100/exec-tool and
+   *                    POSTs the result to /api/chat/resume.
+   *   "cloud_only"   — operator-pinned opt-out: NEVER include bridge tools
+   *                    even if the bridge is online. Used by the "API ·
+   *                    cloud tools only" mode for operators who don't want
+   *                    an LLM running bash / edit_file on their machine.
+   * Omitted/unknown → treated as "bridge_proxy" (current default).
+   */
+  tool_routing?: "bridge_proxy" | "cloud_only";
 };
 
 export async function POST(req: NextRequest) {
@@ -184,6 +198,17 @@ export async function POST(req: NextRequest) {
   const bridgeOnline = bridgeState.online;
   const bridgeAdvertisedTools = bridgeState.tools;
 
+  // Phase 3 tool_routing — operator opt-out from bridge tools even when the
+  // bridge is reachable. Mode "cloud_only" on the picker pins this; everything
+  // else (auto / cli / cloud_bridge_tools) defaults to "bridge_proxy" and lets
+  // the bridge-online check below decide whether to include bridge tools.
+  // The cloud-mode notice further down also respects this: when an operator
+  // pinned cloud_only, the persona is told the bridge is "off" for THIS
+  // conversation even if the daemon is paired and the heartbeat is fresh.
+  const toolRouting: "bridge_proxy" | "cloud_only" =
+    payload.tool_routing === "cloud_only" ? "cloud_only" : "bridge_proxy";
+  const bridgeToolsActive = toolRouting !== "cloud_only" && bridgeOnline;
+
   // Per-agent tool palette from the tenant's manifest (Phase D of
   // giggly-reef). Undefined → no manifest filter (full palette).
   const manifestForChat = await getTenantManifestForUser(tenantId).catch(() => null);
@@ -211,7 +236,12 @@ export async function POST(req: NextRequest) {
 
   const cloudModeNoticeNoBridge = `\n\n---\nRUNTIME: CLOUD ONLY\nYou are ${agentLabel} (${agentRole}), running through the dashboard's /api/chat path on Vercel. The operator's local bridge is NOT online right now. You have the DASHBOARD STATE block below (real Supabase data — MRR, pipeline, recent inbound, today's plan, integrations health) plus the cloud tool palette (records, http_get/post, integrations) but NO local file system access, no shell, no email/SMS sends, no Python scripts.\n\nIf the operator asks for something that needs the local machine (read a file, send an email, run a script, follow a playbook):\n- Be explicit: say the bridge isn't online right now.\n- Tell them: "Open a terminal on your machine and run \`pm2 restart claude-bridge\`. The chat header will turn cyan when it comes back and I'll have read_file / write_file / bash / send_email / send_sms / list_skills / list_scripts available."\n- Do NOT infer file contents. Do NOT pretend to have sent emails you didn't send.\n\nWhat you CAN do right now:\n- Use the cloud tool palette below (records read/write/search, http_get/post, lead lookup, integration status).\n- Mutate dashboard data via <dashboard-action> markers.\n- Strategy, drafting, brainstorming, advice — anything that doesn't need the operator's machine.\n---`;
 
-  const cloudModeNotice = bridgeOnline
+  // Phase 3 — when operator pinned cloud_only, the persona MUST see the
+  // no-bridge notice even if the bridge is paired. Otherwise the model
+  // would emit tool_use for read_file/bash, the runner would refuse to
+  // dispatch them (excludeDeferredTools=true), and the operator would
+  // see a model that "knows" about tools it isn't allowed to call.
+  const cloudModeNotice = bridgeToolsActive
     ? cloudModeNoticeBridge
     : cloudModeNoticeNoBridge;
   // Inject live dashboard state — MRR, pipeline, recent inbound, today's
@@ -254,7 +284,7 @@ export async function POST(req: NextRequest) {
     cloudToolsMode === "off"
       ? ""
       : cloudToolsMode === "tools"
-        ? cloudToolsPromptBlockV2({ bridgeOnline })
+        ? cloudToolsPromptBlockV2({ bridgeOnline: bridgeToolsActive })
         : cloudToolsPromptBlock();
   // Phase J — fold per-agent setup answers from the onboarding wizard
   // into a "TENANT SETUP" overlay so the agent sees the operator's
@@ -315,7 +345,12 @@ export async function POST(req: NextRequest) {
               // trying to call send_email / bash etc. and getting
               // bridge_unreachable errors back; the cloud-mode notice
               // upstream tells the operator to start the bridge.
-              excludeDeferredTools: !bridgeOnline,
+              // Phase 3 — bridge tools enter the palette ONLY when both
+              // the bridge is online AND the operator hasn't pinned the
+              // cloud_only mode. The two conditions are pre-resolved into
+              // bridgeToolsActive above so the runner only needs the
+              // simple boolean.
+              excludeDeferredTools: !bridgeToolsActive,
               // Per-agent allowlist from the manifest. Undefined = full
               // palette (current default). Phase D adds operator-side
               // UI in Settings → Agents to populate this per agent.

@@ -68,6 +68,11 @@ const SCHEDULE_PRESETS: Array<{ label: string; value: string; hint: string }> = 
 export function CronJobsManager({ agentKeys }: Props) {
   const [jobs, setJobs] = useState<CronJob[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [migrationGap, setMigrationGap] = useState<null | {
+    migration: string;
+    command: string;
+    hint: string;
+  }>(null);
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -76,11 +81,27 @@ export function CronJobsManager({ agentKeys }: Props) {
       const res = await fetch("/api/cron-jobs");
       const j = await res.json();
       if (!j.ok) {
+        // Special-case the "migration not applied" 503 — the route emits
+        // structured fields the UI uses to render an actionable message
+        // (with the actual apply_migration.py command) instead of a generic
+        // "couldn't load" red banner.
+        if (j.error === "migration_not_applied") {
+          setMigrationGap({
+            migration: j.migration || "database/041_tenant_cron_jobs.sql",
+            command: j.how_to_apply || "python scripts/apply_migration.py database/041_tenant_cron_jobs.sql",
+            hint: j.hint || "Apply the migration to enable Automations.",
+          });
+          setLoadError(null);
+          setJobs([]);
+          return;
+        }
         setLoadError(j.error || `http_${res.status}`);
+        setMigrationGap(null);
         return;
       }
       setJobs(j.jobs || []);
       setLoadError(null);
+      setMigrationGap(null);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "load_failed");
     }
@@ -115,6 +136,23 @@ export function CronJobsManager({ agentKeys }: Props) {
 
   return (
     <div className="space-y-4">
+      {migrationGap && (
+        <div className="rounded-xl border border-accent/40 bg-accent/5 p-4 space-y-2">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-accent shrink-0 mt-0.5" />
+            <div className="flex-1 text-sm">
+              <div className="font-bold text-fg">One-time setup required</div>
+              <p className="text-xs text-fg-muted mt-1 leading-relaxed">{migrationGap.hint}</p>
+            </div>
+          </div>
+          <div className="rounded-md bg-bg-deep border border-bg-border p-2.5 font-mono text-[11px] text-fg-muted select-all">
+            {migrationGap.command}
+          </div>
+          <div className="text-[11px] text-fg-dim">
+            Migration file: <span className="font-mono">{migrationGap.migration}</span>
+          </div>
+        </div>
+      )}
       {loadError && (
         <div className="rounded-lg border border-status-warm/40 bg-status-warm/10 p-3 text-sm text-status-warm flex items-start gap-2">
           <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
