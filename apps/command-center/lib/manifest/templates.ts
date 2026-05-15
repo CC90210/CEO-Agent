@@ -91,6 +91,7 @@ export const REAL_ESTATE_TEMPLATE: TenantManifest = {
     },
   ],
   pages: [
+    { path: "reasoning", label: "Reasoning", kind: "reasoning" },
     { path: "leads", label: "Leads", kind: "kanban", entity: "lead", config: { group_by: "stage" } },
     { path: "properties", label: "Properties", kind: "table", entity: "property" },
     { path: "deals", label: "Deals", kind: "kanban", entity: "deal", config: { group_by: "stage" } },
@@ -185,6 +186,7 @@ export const BUSINESS_FUNDING_TEMPLATE: TenantManifest = {
     },
   ],
   pages: [
+    { path: "reasoning", label: "Reasoning", kind: "reasoning" },
     { path: "leads", label: "Leads", kind: "kanban", entity: "lead", config: { group_by: "stage" } },
     { path: "applications", label: "Applications", kind: "table", entity: "application" },
     { path: "offers", label: "Offers", kind: "table", entity: "offer" },
@@ -271,6 +273,7 @@ export const ECOMMERCE_TEMPLATE: TenantManifest = {
     },
   ],
   pages: [
+    { path: "reasoning", label: "Reasoning", kind: "reasoning" },
     { path: "orders", label: "Orders", kind: "table", entity: "order" },
     { path: "products", label: "Products", kind: "table", entity: "product" },
     { path: "customers", label: "Customers", kind: "table", entity: "customer" },
@@ -340,6 +343,7 @@ export const AGENCY_TEMPLATE: TenantManifest = {
     },
   ],
   pages: [
+    { path: "reasoning", label: "Reasoning", kind: "reasoning" },
     { path: "clients", label: "Clients", kind: "table", entity: "client" },
     { path: "projects", label: "Projects", kind: "kanban", entity: "project", config: { group_by: "stage" } },
   ],

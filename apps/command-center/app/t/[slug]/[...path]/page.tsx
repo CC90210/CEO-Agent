@@ -6,6 +6,7 @@ import { ManifestKanban } from "@/components/manifest/ManifestKanban";
 import { ManifestMarkdown } from "@/components/manifest/ManifestMarkdown";
 import { ManifestDashboard } from "@/components/manifest/ManifestDashboard";
 import { ManifestRecordForm } from "@/components/manifest/ManifestRecordForm";
+import { ManifestReasoning } from "@/components/manifest/ManifestReasoning";
 import { Card, PageHeader, Tag } from "@/components/Card";
 import { getManifest, manifestExists } from "@/lib/manifest/loader";
 import { resolveDataTenant } from "@/lib/manifest/tenant-scope";
@@ -176,6 +177,7 @@ function renderSubtitle(brand: string, page: ManifestPageDef): string {
     case "kanban": return page.entity ? `Kanban for ${page.entity}` : "Kanban view";
     case "form": return page.entity ? `Form for ${page.entity}` : "Form";
     case "markdown": return "Reference page";
+    case "reasoning": return "Click an action to send it straight to chat.";
     default: return brand;
   }
 }
@@ -194,6 +196,8 @@ async function PageBody({
   switch (page.kind) {
     case "markdown":
       return <ManifestMarkdown page={page} />;
+    case "reasoning":
+      return <ManifestReasoning manifest={manifest} tenantSlug={slug} />;
     case "dashboard":
       return <ManifestDashboard manifest={manifest} tenantId={tenantId} />;
     case "table":
