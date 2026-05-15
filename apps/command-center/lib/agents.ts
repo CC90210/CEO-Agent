@@ -33,6 +33,41 @@ export type AgentInfo = {
    * use the agent. Surfaces in the family card under the description.
    */
   askMeAbout?: string;
+  /**
+   * Per-agent setup questionnaire (Phase J of giggly-reef). When a
+   * tenant onboards and picks this agent, the wizard renders these
+   * questions between the agent-picker step and the brand step.
+   * Answers persist on manifest.agents[].setup_answers and fold into
+   * the agent's system prompt as a "TENANT SETUP" overlay so the
+   * agent immediately knows the operator's specifics (TCPA opt-out
+   * language for SMS agents, FICO floor for funding agents, primary
+   * domain for email agents, etc.).
+   *
+   * Keep the list tight — wizard-step abandonment scales with question
+   * count. Two-to-five questions per agent is the sweet spot; anything
+   * deeper should live in /settings post-onboarding.
+   */
+  setup_questions?: SetupQuestion[];
+};
+
+export type SetupQuestionType = "text" | "textarea" | "select" | "boolean" | "number";
+
+export type SetupQuestion = {
+  /** Stable key — used as the field name in setup_answers. Snake_case. */
+  id: string;
+  /** Operator-facing question text. */
+  label: string;
+  /** Optional one-line clarification under the label. */
+  description?: string;
+  type: SetupQuestionType;
+  /** Required questions block wizard progression until answered. */
+  required?: boolean;
+  /** For type="select" — list of option values. UI shows them as a dropdown. */
+  options?: Array<{ value: string; label: string }>;
+  /** Hint text inside the input field (text / textarea / number only). */
+  placeholder?: string;
+  /** Default value pre-filled in the field. */
+  default?: string | number | boolean;
 };
 
 export const AGENT_REGISTRY: Record<string, AgentInfo> = {
@@ -47,6 +82,38 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
     description:
       "Your CEO operating system. Bravo runs the day — ranks the leads worth calling first, drafts your outbound, finalizes today's plan, runs the daily briefing, and keeps the whole agent family rowing in the same direction.",
     askMeAbout: "Run the daily briefing · Draft a follow-up to Jonathan · What's blocking $5K?",
+    setup_questions: [
+      {
+        id: "primary_business",
+        label: "What's the primary business you're running?",
+        description: "Anchors Bravo's recommendations. Single line — 'AI agency for small business' is enough.",
+        type: "text",
+        required: true,
+        placeholder: "OASIS AI Solutions — AI agents for SMBs",
+      },
+      {
+        id: "mrr_target_usd",
+        label: "Current MRR target (USD)",
+        description: "Bravo uses this as the daily north-star metric.",
+        type: "number",
+        required: true,
+        placeholder: "5000",
+        default: 5000,
+      },
+      {
+        id: "tone",
+        label: "Outreach voice",
+        description: "How Bravo writes when drafting on your behalf.",
+        type: "select",
+        required: true,
+        default: "direct",
+        options: [
+          { value: "direct", label: "Direct — short, sharp, no fluff" },
+          { value: "consultative", label: "Consultative — NEPQ-style questions, mirror objections" },
+          { value: "warm", label: "Warm — personal, relational, longer prose" },
+        ],
+      },
+    ],
   },
   atlas: {
     key: "atlas",
@@ -110,6 +177,42 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
     description:
       "Solara is the Sun Biz operations brain. She runs the back office — pipeline reports, application packaging, lender matching, renewal sweeps — and keeps the team aligned on what's working and what's stuck.",
     askMeAbout: "Show renewal opportunities · Pipeline this week · Which deals need lender action?",
+    setup_questions: [
+      {
+        id: "fico_floor",
+        label: "Minimum FICO you'll qualify",
+        description: "Below this, Solara auto-marks applications as unqualified.",
+        type: "number",
+        required: true,
+        default: 450,
+        placeholder: "450",
+      },
+      {
+        id: "monthly_revenue_floor_usd",
+        label: "Minimum monthly revenue (USD)",
+        description: "Solara filters submissions below this before lender matching.",
+        type: "number",
+        required: true,
+        default: 10000,
+        placeholder: "10000",
+      },
+      {
+        id: "months_in_business_floor",
+        label: "Minimum months in business",
+        type: "number",
+        required: true,
+        default: 6,
+        placeholder: "6",
+      },
+      {
+        id: "renewal_window_days",
+        label: "Pre-expiry renewal window (days)",
+        description: "How early Solara starts working renewal candidates. 60 is industry standard.",
+        type: "number",
+        default: 60,
+        placeholder: "60",
+      },
+    ],
   },
   // Sun Biz Funding — brand-facing sales persona. Outreach, SMS follow-ups,
   // closing voice. The agent SunBiz leads experience.
@@ -125,6 +228,45 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
     description:
       "Helios is the SunBiz sales voice. Personable, results-driven, sharp on cadence — drafts first-touch SMS, runs revival sequences for ghosted leads, brings expired offers back to the table.",
     askMeAbout: "Draft a first-touch SMS · Revival sequence for ghosted leads · Close-the-loop on expired offer",
+    setup_questions: [
+      {
+        id: "opt_out_phrase",
+        label: "TCPA opt-out language",
+        description: "Helios appends this to every first-touch SMS. Required by federal law.",
+        type: "text",
+        required: true,
+        default: "Reply STOP to opt out.",
+        placeholder: "Reply STOP to opt out.",
+      },
+      {
+        id: "send_window_local",
+        label: "SMS send window (local time)",
+        description: "Helios refuses outbound outside this range.",
+        type: "select",
+        required: true,
+        default: "9am-9pm",
+        options: [
+          { value: "9am-9pm", label: "9 AM – 9 PM (standard)" },
+          { value: "10am-7pm", label: "10 AM – 7 PM (conservative)" },
+          { value: "8am-8pm", label: "8 AM – 8 PM (extended)" },
+        ],
+      },
+      {
+        id: "weekend_sends",
+        label: "Allow weekend sends?",
+        description: "Sat/Sun outreach. Most funding shops keep this off.",
+        type: "boolean",
+        default: false,
+      },
+      {
+        id: "max_blast_size",
+        label: "Max audience size per blast",
+        description: "Caps how many recipients Helios will queue in a single send. Prevents accidental million-message blasts.",
+        type: "number",
+        default: 500,
+        placeholder: "500",
+      },
+    ],
   },
   // Registry key stays "life-preservation" so filesystem paths
   // (~/life-preservation, tmp/agent_inbox routing, sibling_repos, etc.)
