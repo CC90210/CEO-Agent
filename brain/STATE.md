@@ -129,7 +129,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-05-14
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** V6.7 cross-empire propagation complete. Reframed Bravo work as V6.7 (CLAUDE.md anchor). Propagated logic-tier essentials to Maven, Atlas, Hermes. Updated templates/agent-scaffold/ so future client agents inherit V6.7 by default. Substrate-parity gap (V6.0 scripts missing in Maven+Atlas) tracked at brain/V67_SUBSTRATE_GAP.md as next plan.
+- **Result:** File reorg Phase 1: deleted stale clones (Marketing-Agent, APPS/hermes), 7 temp .json files at user root; moved APPS/browser-harness to tools/; created Agents/ folder for Phase 2; updated APP_REGISTRY hermes row
 
 *Last updated: 2026-05-14*
 
