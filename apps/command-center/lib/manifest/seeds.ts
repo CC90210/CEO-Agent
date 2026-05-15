@@ -115,8 +115,8 @@ export const SUN_SEED: TenantManifest = {
   brand: {
     name: "Sun Biz Funding",
     logo: "sunbiz",
-    subtitle: "Command Center",
-    footer_label: "Sun Biz Funding · Command Center · v1.0",
+    subtitle: "Agent Command Center",
+    footer_label: "Sun Biz Funding · Agent Command Center · v1.0",
     footer_tagline: "Funded deals over noise.",
   },
   agents: [
@@ -144,7 +144,10 @@ export const SUN_SEED: TenantManifest = {
     { href: "/t/sun/renewals", label: "Renewals", icon: "RefreshCcw", group: "Deals" },
     { href: "/t/sun/commissions", label: "Commissions", icon: "DollarSign", group: "Deals" },
     { href: "/t/sun/lenders", label: "Lenders", icon: "Landmark", group: "Network" },
-    { href: "/t/sun/settings", label: "Settings", icon: "Settings", group: "System" },
+    // Top-level /settings — already tenant-aware (reads profile.tenant_id).
+    // Modeled on the OASIS settings shell: integrations, agents enabled,
+    // templates, devices, password. Same shape, tenant-scoped data.
+    { href: "/settings", label: "Settings", icon: "Settings", group: "System" },
   ],
   data_model: [
     {
@@ -271,7 +274,7 @@ export const SUGA_SEED: TenantManifest = {
   brand: {
     name: "Suga · Brand Command",
     logo: "suga",
-    subtitle: "Brand Command",
+    subtitle: "Agent Command Center",
     footer_label: "Suga · Brand Command · v0.1",
     footer_tagline: "Fans first. Always.",
   },
@@ -292,7 +295,7 @@ export const SUGA_SEED: TenantManifest = {
     { href: "/t/suga/drafts", label: "Drafts", icon: "FileText", group: "Brand" },
     { href: "/t/suga/merch", label: "Merch", icon: "ShoppingBag", group: "Commerce" },
     { href: "/t/suga/sponsorship", label: "Sponsorships", icon: "HandCoins", group: "Sponsorship" },
-    { href: "/t/suga/settings", label: "Settings", icon: "Settings", group: "System" },
+    { href: "/settings", label: "Settings", icon: "Settings", group: "System" },
   ],
   data_model: [
     {

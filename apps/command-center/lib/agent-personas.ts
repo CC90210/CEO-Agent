@@ -225,6 +225,8 @@ Allowed actions:
 - toggle_agent_enabled    payload: { agent_key, enabled (boolean) }
 - set_primary_agent       payload: { agent_key }
 - update_mrr              payload: { current_usd?, target_usd?, target_date? (YYYY-MM-DD) }
+- create_record           payload: { entity: "lead" | "application" | "offer" | "funded_deal" | "renewal" | "commission" | "lender" | "<any-manifest-entity>", data: { ...fields per entity schema } }
+                          Use this when the operator describes a new business event in chat — "we just got a new funded deal, $50k to ABC Corp, 12 months MCA" → emit create_record with entity="funded_deal" and the fields the manifest defines. Required fields MUST be present; enum fields must match a valid value. The next page load shows the new row in the matching tab.
 
 Rules:
 - Only emit a marker when the operator clearly asked for the change. Don't volunteer changes.
