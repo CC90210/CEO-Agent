@@ -46,6 +46,11 @@ type Body = {
   template?: string;
   slug?: string;
   answers?: WizardAnswers;
+  /** Phase J — per-agent setup questionnaire answers from the wizard's
+   *  agent_setup step. Map<agentSlug, Record<questionId, value>>. We
+   *  stamp these onto each matching manifest.agents[] binding's
+   *  setup_answers field after the template is finalized. */
+  agent_setup_answers?: Record<string, Record<string, string | number | boolean>>;
 };
 
 const TEMPLATE_KEYS: TemplateKey[] = ["real_estate", "business_funding", "ecommerce", "agency", "custom"];
@@ -110,6 +115,36 @@ export async function POST(req: NextRequest) {
       { ok: false, error: "build_failed", message: err instanceof Error ? err.message : "unknown" },
       { status: 422 }
     );
+  }
+
+  // Phase J — stamp per-agent setup_answers onto matching agent bindings.
+  // The wizard collected these in its agent_setup step; we drop them onto
+  // the manifest before the schema parser runs so they get round-trip
+  // validated like every other field. Unknown agent slugs in the answers
+  // map are silently ignored (operator might have toggled an agent off
+  // after answering its questions).
+  if (body.agent_setup_answers && typeof body.agent_setup_answers === "object") {
+    const setupBySlug = body.agent_setup_answers;
+    manifest = {
+      ...manifest,
+      agents: (manifest.agents || []).map((a: { slug: string }) => {
+        const answersForSlug = setupBySlug[a.slug.toLowerCase()];
+        if (answersForSlug && typeof answersForSlug === "object" && !Array.isArray(answersForSlug)) {
+          // Sanitize — only keep scalar values, drop nulls / undefined.
+          const cleaned: Record<string, string | number | boolean> = {};
+          for (const [k, v] of Object.entries(answersForSlug)) {
+            if (v === null || v === undefined) continue;
+            if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") {
+              cleaned[k] = v;
+            }
+          }
+          if (Object.keys(cleaned).length > 0) {
+            return { ...a, setup_answers: cleaned };
+          }
+        }
+        return a;
+      }),
+    };
   }
 
   // Re-validate via the schema parser so any drift between the template
