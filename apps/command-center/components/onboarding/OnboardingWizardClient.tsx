@@ -56,14 +56,15 @@ const AGENT_PACKAGES: { id: string; label: string; description: string; agents: 
   },
 ];
 
-/** Default agents pre-checked per industry template. */
-const DEFAULT_AGENTS_PER_INDUSTRY: Record<TemplateKey, string[]> = {
-  real_estate:       ["bravo", "atlas", "maven"],
-  business_funding:  ["solara", "helios"],
-  ecommerce:         ["bravo", "maven"],
-  agency:            ["bravo", "maven", "atlas"],
-  custom:            ["bravo", "atlas", "maven"],
-};
+/**
+ * Default agents pre-checked when the user picks an industry. Derived from
+ * each template's own agents[] list so there's one source of truth — if a
+ * template changes which agents it ships with, the wizard reflects it
+ * automatically with no second edit.
+ */
+function defaultAgentsForTemplate(k: TemplateKey): string[] {
+  return TEMPLATES[k].agents.filter((a) => a.enabled).map((a) => a.slug);
+}
 
 const INDUSTRIES: {
   key: TemplateKey;
@@ -124,7 +125,7 @@ export function OnboardingWizardClient({ userEmail }: { userEmail?: string }) {
     // Pre-fill agent selection with the industry's default package so the
     // user can confirm without unchecking anything. They can still add/
     // remove anything in the agents step.
-    setSelectedAgents(DEFAULT_AGENTS_PER_INDUSTRY[k] || []);
+    setSelectedAgents(defaultAgentsForTemplate(k));
     setStep("questions");
   }
 
