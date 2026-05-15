@@ -119,7 +119,7 @@ export const BUSINESS_FUNDING_TEMPLATE: TenantManifest = {
   brand: {
     name: "Your Funding Operation",
     logo: "sunbiz",
-    subtitle: "Funding Command Center",
+    subtitle: "Agent Command Center",
     footer_label: "Business funding · powered by OASIS AI",
     footer_tagline: "Funded deals over noise.",
   },
@@ -143,6 +143,8 @@ export const BUSINESS_FUNDING_TEMPLATE: TenantManifest = {
     { href: "/sms", label: "SMS", icon: "MessageSquare", group: "Outreach" },
     { href: "/email-blast", label: "Email", icon: "Mail", group: "Outreach" },
     { href: "/lenders", label: "Lenders", icon: "Landmark", group: "Network" },
+    // Top-level integrations + settings — both tenant-aware so SunBiz signups
+    // see their own credentials + agent toggles, not OASIS's.
     { href: "/integrations", label: "Integrations", icon: "Plug", group: "System" },
     { href: "/settings", label: "Settings", icon: "Settings", group: "System" },
   ],
