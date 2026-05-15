@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import "./globals.css";
 import { Sidebar } from "@/components/Sidebar";
-import { getActiveProfile } from "@/lib/queries";
+import { getActiveProfile, getBridgeOnline } from "@/lib/queries";
 import { getServiceSupabase } from "@/lib/supabase-server";
 import { safe } from "@/lib/api-helpers";
 import {
@@ -87,9 +87,11 @@ export default async function RootLayout({
     const tenantId = profile?.tenant_id || null;
 
     // Run agent-state + bridge lookups in parallel, isolated.
+    // Bridge-online check uses the shared getBridgeOnline() helper so the
+    // header dot, Settings page, and any future caller agree on what
+    // "online" means (last_seen_at within 5 minutes, revoked_at IS NULL).
     const emptySnap: { data: { last_tick_at?: string | null } | null } = { data: null };
-    const emptyPair: { data: { last_seen_at?: string | null } | null } = { data: null };
-    const [snapRes, pairRes] = await Promise.all([
+    const [snapRes, bridgeOnlineResolved] = await Promise.all([
       safe(
         "layout.agent_state_snapshot",
         (async () => {
@@ -103,35 +105,14 @@ export default async function RootLayout({
         })(),
         emptySnap
       ),
-      tenantId
-        ? safe(
-            "layout.bridge_pairings",
-            (async () => {
-              const db = getServiceSupabase();
-              const r = await db
-                .from("bridge_pairings")
-                .select("last_seen_at")
-                .eq("tenant_id", tenantId)
-                .is("revoked_at", null)
-                .order("last_seen_at", { ascending: false })
-                .limit(1)
-                .maybeSingle();
-              return { data: r.data as { last_seen_at?: string | null } | null };
-            })(),
-            emptyPair
-          )
-        : Promise.resolve(emptyPair),
+      safe("layout.bridge_online", getBridgeOnline(tenantId), false),
     ]);
     const snap = snapRes.data;
     if (snap?.last_tick_at) {
       primaryAgentLive =
         Date.now() - new Date(snap.last_tick_at).getTime() < 15 * 60 * 1000;
     }
-    const pair = pairRes.data;
-    if (pair?.last_seen_at) {
-      bridgeOnline =
-        Date.now() - new Date(pair.last_seen_at).getTime() < 5 * 60 * 1000;
-    }
+    bridgeOnline = bridgeOnlineResolved;
     if (tenantId) {
       // Resolve the dashboard/client profile slug. Tenants can override the
       // raw tenant slug via tenants.custom_fields.command_center_profile_slug

@@ -14,7 +14,8 @@
  */
 
 import { useEffect, useState } from "react";
-import { Save, Eye, EyeOff, Check, AlertCircle, ExternalLink, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import Link from "next/link";
+import { Save, Eye, EyeOff, Check, AlertCircle, ExternalLink, Sparkles, ChevronDown, ChevronUp, Cpu, Cloud } from "lucide-react";
 import { getAgentInfo } from "@/lib/agents";
 import { PROVIDER_REGISTRY } from "@/lib/providers";
 
@@ -49,9 +50,17 @@ type RowState = {
 
 type Props = {
   agentKeys: string[];
+  /**
+   * Tenant-level bridge-pairing state — single source of truth resolved
+   * server-side via getBridgeOnline(). The per-agent Tool Access strip
+   * below reads this to show whether the agent has full local-tool
+   * access (bridge paired, Python/file/script tools wired) or runs
+   * cloud-only (chat + dashboard actions via the saved API key).
+   */
+  bridgeOnline?: boolean;
 };
 
-export function AgentConfigEditor({ agentKeys }: Props) {
+export function AgentConfigEditor({ agentKeys, bridgeOnline = false }: Props) {
   const [configs, setConfigs] = useState<Record<string, AgentConfig>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
   const [rows, setRows] = useState<Record<string, RowState>>(() =>
@@ -314,6 +323,50 @@ export function AgentConfigEditor({ agentKeys }: Props) {
                   </button>
                 </div>
               </label>
+            </div>
+
+            {/* Tool Access — tenant-level bridge state. Single source of
+                truth ("bridge_pairings", 5-min freshness) gates whether THIS
+                agent can drive local Python tools, scripts, file reads, and
+                cron jobs. Chat works either way (cloud falls back to the
+                API key above), but "running scripts / sending real SMS /
+                scraping a lender portal" needs the bridge paired. */}
+            <div
+              className={`rounded-lg border p-3 flex items-start gap-3 ${
+                bridgeOnline
+                  ? "border-status-engaged/30 bg-status-engaged/5"
+                  : "border-bg-border bg-bg-deep/40"
+              }`}
+            >
+              {bridgeOnline ? (
+                <Cpu className="w-4 h-4 text-status-engaged shrink-0 mt-0.5" />
+              ) : (
+                <Cloud className="w-4 h-4 text-fg-dim shrink-0 mt-0.5" />
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-bold uppercase tracking-wider text-fg-muted">
+                  Tool access
+                </div>
+                <div className="text-sm text-fg mt-0.5">
+                  {bridgeOnline ? (
+                    <>
+                      <span className="text-status-engaged">Bridge online</span> — full local tools enabled (Python scripts, file reads, scheduled jobs, real SMS/email sends).
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-fg-muted">Cloud only</span> — chat + dashboard actions work with the API key above. Install the bridge to unlock Python tools and file access.
+                    </>
+                  )}
+                </div>
+                {!bridgeOnline && (
+                  <Link
+                    href="#devices"
+                    className="text-xs text-accent hover:text-accent-bright inline-flex items-center gap-1 mt-1.5"
+                  >
+                    Set up the bridge → <ExternalLink className="w-3 h-3" />
+                  </Link>
+                )}
+              </div>
             </div>
 
             {/* System prompt override (collapsed by default) */}

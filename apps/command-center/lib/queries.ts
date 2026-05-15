@@ -66,6 +66,35 @@ export async function getTenant(tenantId: string): Promise<Tenant | null> {
   return r.data as Tenant;
 }
 
+/**
+ * True when the tenant has a non-revoked bridge pairing that pinged in the
+ * last 5 minutes — same freshness rule the layout's header dot uses. Single
+ * source of truth so Settings page + ChatWidget + AgentConfigEditor + any
+ * future caller agree on what "bridge online" means.
+ *
+ * Returns false on missing tenant, missing pair, stale pair, or any DB error.
+ * Never throws — best-effort signal that callers gate optional features on.
+ */
+export async function getBridgeOnline(tenantId: string | null): Promise<boolean> {
+  if (!tenantId) return false;
+  try {
+    const db = getServiceSupabase();
+    const r = await db
+      .from("bridge_pairings")
+      .select("last_seen_at")
+      .eq("tenant_id", tenantId)
+      .is("revoked_at", null)
+      .order("last_seen_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const last = (r.data as { last_seen_at?: string | null } | null)?.last_seen_at;
+    if (!last) return false;
+    return Date.now() - new Date(last).getTime() < 5 * 60 * 1000;
+  } catch {
+    return false;
+  }
+}
+
 export async function getTodayPlan(profileId: string): Promise<DailyPlan | null> {
   // Tenant data sovereignty: when EMPIRE_DATA_BACKEND=turso_local + TURSO_DB_PATH
   // is set, read from the client's local libSQL file instead of Supabase. Falls
