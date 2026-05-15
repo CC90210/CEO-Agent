@@ -114,6 +114,7 @@ export const SUN_NAV: NavItem[] = [
   { group: "Network", href: "/lenders", label: "Lenders", icon: "Landmark" },
   { group: "Network", href: "/templates", label: "Templates", icon: "FileCode2" },
   { group: "System", href: "/team", label: "Team", icon: "UsersRound" },
+  { group: "System", href: "/automations", label: "Automations", icon: "RefreshCcw" },
   { group: "System", href: "/embed", label: "Embed", icon: "Code2" },
   { group: "System", href: "/settings", label: "Settings", icon: "Settings" },
 ];
@@ -141,6 +142,7 @@ export const SUGA_NAV: NavItem[] = [
   { group: "Sponsorship", href: "/sponsorship", label: "Pipeline", icon: "HandCoins" },
   { group: "Sponsorship", href: "/contracts", label: "Contracts", icon: "FileCode2" },
   { group: "System", href: "/team", label: "Team", icon: "UsersRound" },
+  { group: "System", href: "/automations", label: "Automations", icon: "RefreshCcw" },
   { group: "System", href: "/embed", label: "Embed", icon: "Code2" },
   { group: "System", href: "/settings", label: "Settings", icon: "Settings" },
 ];
