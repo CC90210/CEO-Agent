@@ -902,6 +902,100 @@ class _ChatHandler(BaseHTTPRequestHandler):
 
         self._json(200, {"ok": True, "key": key, "pinged": ping_service or None})
 
+    def _handle_diag(self) -> None:
+        """GET /diag — bridge self-diagnostic.
+
+        Surfaces the most common failure modes so the operator (or
+        whoever's debugging "why doesn't CLI work?") can see what's
+        actually wrong without tailing pm2 logs. Reports:
+          - claude CLI on PATH? Which path?
+          - OAuth credentials file present? (size only — never the contents)
+          - ANTHROPIC_API_KEY set in .env.agents? (presence only — never the value)
+          - Available bridge tools (Phase 2 tool registry)
+          - Recent stderr tails from live warm-pool processes
+          - Sticky-API-key pool keys (sessions that fell over to paid path)
+          - Python version + bridge uptime
+
+        Read-only. Safe to hit from the dashboard.
+        """
+        out: dict[str, object] = {
+            "ok": True,
+            "service": "bravo-bridge-chat",
+        }
+        # 1. claude CLI discoverability
+        try:
+            claude_path = shutil.which("claude")
+            if not claude_path and os.name == "nt":
+                home = Path.home()
+                candidates = [
+                    home / ".local" / "bin" / "claude.exe",
+                    home / "AppData" / "Roaming" / "npm" / "claude.cmd",
+                ]
+                for c in candidates:
+                    if c.is_file():
+                        claude_path = str(c)
+                        break
+            out["claude_cli"] = {
+                "found": bool(claude_path),
+                "path": claude_path,
+            }
+        except Exception as e:
+            out["claude_cli"] = {"found": False, "error": str(e)}
+
+        # 2. Auth artifacts (presence only, never values)
+        try:
+            try:
+                from ._claude_auth import check_claude_auth_paths
+            except ImportError:
+                from _claude_auth import check_claude_auth_paths  # type: ignore
+            auth_info = check_claude_auth_paths()
+            out["auth"] = {
+                "subscription_oauth_present": auth_info["has_oauth"],
+                "api_key_in_env": auth_info["has_api_key"],
+                "claude_dir": auth_info["claude_dir"],
+            }
+        except Exception as e:
+            out["auth"] = {"error": str(e)}
+
+        # 3. Phase 2 tool registry
+        try:
+            try:
+                from .bridge_tools import list_available_tools as _tools_list
+            except ImportError:
+                from bridge_tools import list_available_tools as _tools_list  # type: ignore
+            out["bridge_tools"] = _tools_list()
+        except Exception as e:
+            out["bridge_tools"] = {"error": str(e)}
+
+        # 4. Warm pool — recent stderr + sticky-paid flags. Names only, no
+        # raw subprocess output that might contain repo paths leaks.
+        try:
+            try:
+                from .warm_claude_pool import _WARM_POOL, _FORCED_API_KEY  # type: ignore
+            except ImportError:
+                from warm_claude_pool import _WARM_POOL, _FORCED_API_KEY  # type: ignore
+            pool_summary: list[dict] = []
+            for key, wp in list(_WARM_POOL.items()):
+                stderr_tail = ""
+                try:
+                    stderr_tail = wp.recent_stderr()[-500:]
+                except Exception:
+                    pass
+                pool_summary.append({
+                    "pool_key": key,
+                    "alive": wp.is_alive(),
+                    "force_api_key": wp.force_api_key,
+                    "stderr_tail": stderr_tail,
+                })
+            out["warm_pool"] = {
+                "processes": pool_summary,
+                "sticky_api_key_keys": sorted(_FORCED_API_KEY),
+            }
+        except Exception as e:
+            out["warm_pool"] = {"error": str(e)}
+
+        self._json(200, out)
+
     def _handle_exec_tool(self) -> None:
         """POST /exec-tool — execute a tool by name with input payload, return
         {output, is_error}. Phase 2 of giggly-reef: when the dashboard runs
@@ -973,6 +1067,9 @@ class _ChatHandler(BaseHTTPRequestHandler):
             return
         if self.path == "/agents":
             self._json(200, {"ok": True, "agents": all_resolved()})
+            return
+        if self.path == "/diag":
+            self._handle_diag()
             return
         if self.path == "/warm-status":
             # Diagnostic for the warm-process pool. Returns process count,

@@ -39,17 +39,15 @@
  */
 
 import { NextRequest } from "next/server";
-import { getServiceSupabase, getSessionUser } from "@/lib/supabase-server";
-import { type Provider } from "@/lib/providers";
+import { getSessionUser } from "@/lib/supabase-server";
 import { chatAgentKeys } from "@/lib/agent-personas";
-import { decryptField } from "@/lib/field-encryption";
 import { rateLimit } from "@/lib/rate-limit";
+import { resolveChatContext } from "@/lib/chat-auth";
 import {
   resumeAnthropicTurn,
   type ResumeState,
 } from "@/lib/cloud-tool-runner";
 import { redactAll } from "@/lib/secret-redaction";
-import { isOperatorEmail, operatorPlatformFallback } from "@/lib/operator-credentials";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -96,15 +94,13 @@ export async function POST(req: NextRequest) {
     is_error: Boolean(toolResult.is_error),
   };
 
-  // Resolve tenant + per-agent API key — same logic as /api/chat.
-  const service = getServiceSupabase();
-  const { data: profile } = await service
-    .from("user_profiles")
-    .select("tenant_id")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
-  const tenantId = (profile as { tenant_id: string | null } | null)?.tenant_id ?? null;
-  if (!tenantId) return jsonError(403, "no_tenant");
+  // Resolve tenant + per-agent provider/key. Single source of truth for the
+  // auth+tenant+key plumbing — same helper /api/chat uses.
+  const ctxResult = await resolveChatContext({ id: user.id, email: user.email }, agentKey);
+  if (!ctxResult.ok) {
+    return jsonError(ctxResult.status, ctxResult.detail || ctxResult.code);
+  }
+  const { tenantId, provider, apiKey } = ctxResult;
 
   // Per-tenant token bucket — sized smaller than /api/chat (resumes are
   // continuations of a paused turn; burst caps don't add value here).
@@ -118,37 +114,6 @@ export async function POST(req: NextRequest) {
       JSON.stringify({ ok: false, error: "rate_limited", retry_in_sec: limit.resetIn }),
       { status: 429, headers: { "content-type": "application/json" } }
     );
-  }
-
-  const { data: cfg } = await service
-    .from("agent_model_config")
-    .select("provider, model, encrypted_api_key, enabled")
-    .eq("tenant_id", tenantId)
-    .eq("agent_key", agentKey)
-    .maybeSingle();
-  const isOperator = isOperatorEmail(user.email || "");
-  let provider: Provider;
-  let apiKey = "";
-  if (cfg) {
-    if (!cfg.enabled) return jsonError(403, "agent_disabled");
-    provider = cfg.provider as Provider;
-    if (!cfg.encrypted_api_key) {
-      const fb = isOperator ? operatorPlatformFallback() : null;
-      if (!fb) return jsonError(412, "no_api_key");
-      provider = fb.provider;
-      apiKey = fb.apiKey;
-    } else {
-      try {
-        apiKey = decryptField(cfg.encrypted_api_key as string);
-      } catch (err) {
-        return jsonError(500, err instanceof Error ? err.message : "key_decrypt_failed");
-      }
-    }
-  } else {
-    const fb = isOperator ? operatorPlatformFallback() : null;
-    if (!fb) return jsonError(412, isOperator ? "admin_no_platform_key" : "agent_not_configured");
-    provider = fb.provider;
-    apiKey = fb.apiKey;
   }
 
   // Resume is only supported on the Anthropic tool_use loop. Markers
