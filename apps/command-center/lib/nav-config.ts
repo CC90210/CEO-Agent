@@ -80,6 +80,7 @@ export const CC_NAV: NavItem[] = [
   { group: "Operations", href: "/playbook", label: "Playbook", icon: "BookOpen" },
   { group: "System", href: "/agents", label: "Agents", icon: "Bot" },
   { group: "System", href: "/operations", label: "Operations", icon: "Activity" },
+  { group: "System", href: "/automations", label: "Automations", icon: "RefreshCcw" },
   { group: "System", href: "/feed", label: "Event Feed", icon: "Radio" },
   { group: "System", href: "/overrides", label: "Overrides", icon: "ShieldAlert" },
   { group: "System", href: "/analytics", label: "Analytics", icon: "BarChart3" },
