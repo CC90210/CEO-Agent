@@ -121,7 +121,7 @@ export type ManifestAgentBinding = {
 // renderer is ready)
 // ---------------------------------------------------------------------------
 
-export type ManifestPageKind = "dashboard" | "table" | "kanban" | "form" | "markdown";
+export type ManifestPageKind = "dashboard" | "table" | "kanban" | "form" | "markdown" | "reasoning";
 
 export type ManifestPageDef = {
   path: string;           // relative path under /t/<slug>/ e.g. "leads"
@@ -312,7 +312,7 @@ const NAV_ICON_KEYS = new Set<ManifestNavIconKey>([
 ]);
 
 const LOGO_KEYS = new Set<ManifestLogoKey>(["oasis", "sunbiz", "suga", "custom"]);
-const PAGE_KINDS = new Set<ManifestPageKind>(["dashboard", "table", "kanban", "form", "markdown"]);
+const PAGE_KINDS = new Set<ManifestPageKind>(["dashboard", "table", "kanban", "form", "markdown", "reasoning"]);
 const ENTITY_FIELD_TYPES = new Set(["string", "number", "boolean", "date", "datetime", "enum", "json"]);
 const INTEGRATION_KINDS = new Set<ManifestIntegrationKind>([
   "twilio", "jotform", "stripe", "google_workspace", "supabase", "turso", "custom",
