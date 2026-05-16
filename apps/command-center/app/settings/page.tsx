@@ -15,6 +15,7 @@ import { PlanTemplateEditor } from "@/components/settings/PlanTemplateEditor";
 import { AgentConfigEditor } from "@/components/settings/AgentConfigEditor";
 import { DevicesEditor } from "@/components/settings/DevicesEditor";
 import { ProviderAccountsCard } from "@/components/settings/ProviderAccountsCard";
+import { LocalCliProvidersCard } from "@/components/settings/LocalCliProvidersCard";
 import { TOOL_DEFINITIONS } from "@/lib/cloud-tool-runner";
 import { chatAgentKeys } from "@/lib/agent-personas";
 import { resolveClientProfileSlug } from "@/lib/client-profiles";
@@ -144,6 +145,8 @@ export default async function SettingsPage() {
               bridgeOnline={bridgeOnline}
             />
           </Card>
+
+          <LocalCliProvidersCard />
 
           <Card
             id="agents"

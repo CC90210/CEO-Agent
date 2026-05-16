@@ -1137,6 +1137,124 @@ def _tool_shop_out_send_batch(payload: dict) -> dict:
     }))
 
 
+def _tool_cli_status(payload: dict) -> dict:
+    """Phase 8.2.1 — probe locally-installed AI CLIs (Claude Code, Codex,
+    Gemini) so the dashboard's Settings page can show real-time install +
+    auth status for the "Connect via local CLI" cards.
+
+    For each CLI we report:
+      - installed: whether the binary is on PATH (or known install paths)
+      - authenticated: whether the operator's logged-in subscription is
+        usable (CLI-specific check)
+      - version: the version string the CLI reports
+      - install_hint_url: where to install if missing
+
+    No arguments. Returns JSON with three top-level keys: claude, codex,
+    gemini. Each value is `{installed, authenticated, version, install_hint_url}`.
+
+    All probes wrap in 5s timeouts; failures resolve to installed=false so
+    the dashboard always renders a stable shape.
+    """
+    del payload  # unused — this is a no-arg probe
+    import shutil
+
+    def _which(name: str) -> str | None:
+        path = shutil.which(name)
+        if path:
+            return path
+        # Windows commonly has these in npm global or cmd shim form.
+        if sys.platform == "win32":
+            for candidate in (name + ".cmd", name + ".exe"):
+                p = shutil.which(candidate)
+                if p:
+                    return p
+        return None
+
+    def _run(args: list[str], timeout: int = 5) -> tuple[int, str]:
+        try:
+            r = subprocess.run(args, capture_output=True, text=True,
+                               timeout=timeout, encoding="utf-8", errors="replace")
+            return r.returncode, (r.stdout or "").strip() + ("\n" + r.stderr.strip() if r.stderr else "")
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            return -1, ""
+
+    def _probe_claude() -> dict:
+        bin_path = _which("claude")
+        if not bin_path:
+            return {"installed": False, "authenticated": False, "version": None,
+                    "install_hint_url": "https://docs.anthropic.com/en/docs/claude-code/quickstart"}
+        rc, out = _run([bin_path, "--version"])
+        if rc != 0:
+            return {"installed": True, "authenticated": False, "version": None,
+                    "install_hint_url": "https://docs.anthropic.com/en/docs/claude-code/quickstart"}
+        version = out.splitlines()[0].strip() if out else None
+        # Auth check — credentials file or env. Reuse the existing helper.
+        try:
+            from _claude_auth import check_claude_auth_paths  # type: ignore
+        except ImportError:
+            from ._claude_auth import check_claude_auth_paths  # type: ignore
+        auth = check_claude_auth_paths()
+        authenticated = bool(auth.get("has_oauth") or auth.get("has_api_key"))
+        return {"installed": True, "authenticated": authenticated, "version": version,
+                "install_hint_url": "https://docs.anthropic.com/en/docs/claude-code/quickstart"}
+
+    def _probe_codex() -> dict:
+        # Codex CLI ships as 'codex' (when installed via npm @openai/codex
+        # or the codex-plugin bundle). We reuse scripts/codex_health.py
+        # for the canonical authoritative answer — it knows the plugin
+        # install paths + auth file locations.
+        codex_health = _bravo_root() / "scripts" / "codex_health.py"
+        if not codex_health.exists():
+            # Fallback: minimal which-based probe.
+            bin_path = _which("codex")
+            return {"installed": bool(bin_path), "authenticated": False,
+                    "version": None,
+                    "install_hint_url": "https://github.com/openai/codex"}
+        rc, out = _run([sys.executable, str(codex_health), "--json"], timeout=10)
+        if rc != 0 or not out:
+            return {"installed": False, "authenticated": False, "version": None,
+                    "install_hint_url": "https://github.com/openai/codex"}
+        try:
+            data = json.loads(out.splitlines()[-1] if "\n" in out else out)
+        except json.JSONDecodeError:
+            return {"installed": False, "authenticated": False, "version": None,
+                    "install_hint_url": "https://github.com/openai/codex"}
+        cli_block = data.get("cli") or {}
+        auth_block = data.get("auth") or {}
+        return {
+            "installed": bool(cli_block.get("installed")),
+            "authenticated": bool(auth_block.get("ready") or auth_block.get("authenticated")),
+            "version": cli_block.get("version"),
+            "install_hint_url": "https://github.com/openai/codex",
+        }
+
+    def _probe_gemini() -> dict:
+        bin_path = _which("gemini")
+        if not bin_path:
+            return {"installed": False, "authenticated": False, "version": None,
+                    "install_hint_url": "https://github.com/google-gemini/gemini-cli"}
+        rc, out = _run([bin_path, "--version"])
+        if rc != 0:
+            return {"installed": True, "authenticated": False, "version": None,
+                    "install_hint_url": "https://github.com/google-gemini/gemini-cli"}
+        version = out.splitlines()[0].strip() if out else None
+        # Auth check: gemini CLI stores OAuth at ~/.gemini/settings.json or
+        # uses GEMINI_API_KEY env var.
+        home = Path.home()
+        has_oauth = (home / ".gemini" / "oauth_creds.json").exists() or (home / ".config" / "google-cloud-sdk").exists()
+        import os
+        has_key = bool(os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"))
+        return {"installed": True, "authenticated": has_oauth or has_key, "version": version,
+                "install_hint_url": "https://github.com/google-gemini/gemini-cli"}
+
+    result = {
+        "claude": _probe_claude(),
+        "codex": _probe_codex(),
+        "gemini": _probe_gemini(),
+    }
+    return _ok(json.dumps(result))
+
+
 TOOL_REGISTRY: dict[str, Callable[[dict], dict]] = {
     "read_file": _tool_read_file,
     "write_file": _tool_write_file,
@@ -1154,6 +1272,7 @@ TOOL_REGISTRY: dict[str, Callable[[dict], dict]] = {
     "notebooklm": _tool_notebooklm,
     "underwriting_run": _tool_underwriting_run,
     "shop_out_send_batch": _tool_shop_out_send_batch,
+    "cli_status": _tool_cli_status,
 }
 
 
