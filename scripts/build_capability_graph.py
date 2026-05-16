@@ -191,6 +191,9 @@ def discover_skills() -> list[dict[str, Any]]:
             "triggers": triggers if isinstance(triggers, list) else [],
             "tags": fm.get("tags", []) if isinstance(fm.get("tags"), list) else [],
             "status": fm.get("status", "[VALIDATED]"),
+            "disable_model_invocation": bool(fm.get("disable-model-invocation") or fm.get("disable_model_invocation")),
+            "archived": fm.get("archived"),
+            "superseded_by": fm.get("superseded_by"),
             "discovery": "auto-frontmatter" if fm.get("name") else "auto-foldername",
             "_body": body[:2000],  # used for edge inference, dropped in output
         })

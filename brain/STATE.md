@@ -127,11 +127,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-05-15
+- **Date:** 2026-05-16
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** V6.7+ CloakBrowser integration: scripts/cloak_browser_tool.py wrapper + skills/cloak-browser/SKILL.md + 4-tool browser ladder rolled across CLAUDE/GEMINI/ANTIGRAVITY/AGENTS/OPENCODE + brain/CAPABILITIES + QUICK_REFERENCE + INTENTS. Stealth Chromium 146 binary pre-fetched. Smoke tests: check-stealth 5/5, cloudflare.com scrape 200 OK.
+- **Result:** V6.7+ Phase 2-5: research_fetch unified fetcher + persona archive (9 skills -> _archive/) + routing-accuracy bug fix (disable-model-invocation now respected by capability_query resolver). 159->150 active skills. Audit verdict on knowledge/memory clusters: not redundant, keep all.
 
-*Last updated: 2026-05-15*
+*Last updated: 2026-05-16*
 
 ## Manifest
 
