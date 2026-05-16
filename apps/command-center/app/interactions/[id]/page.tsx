@@ -82,17 +82,15 @@ export default async function InteractionDetailPage({
   const isOutbound = ["email_sent", "dm_sent", "linkedin_sent", "call_made"].includes(interaction.type);
   const fromIdentity = (meta.from_identity || meta.from_name || meta.from_email || "—") as string;
 
+  // Phase 9.6 — back-link in PageHeader's action slot (top-right) so
+  // detail pages have consistent button placement across the app. Was
+  // a separate <Link> block above the header; CC flagged the inconsistency
+  // (pipeline detail had it top-right, interaction detail had it top-left).
+  const backHref = isInbound ? "/" : "/pipeline";
+  const backLabel = isInbound ? "Today" : "Pipeline";
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center gap-2">
-        <Link
-          href={isInbound ? "/" : "/pipeline"}
-          className="text-fg-muted hover:text-accent text-sm inline-flex items-center gap-1.5 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back to {isInbound ? "Today" : "Pipeline"}
-        </Link>
-      </div>
-
       <PageHeader
         title={truncate(interaction.subject || "(no subject)", 80)}
         subtitle={
@@ -110,7 +108,18 @@ export default async function InteractionDetailPage({
           </span>
         }
         action={
-          <Tag tone={isInbound ? "accent" : "engaged"}>{isInbound ? "inbound" : isOutbound ? "outbound" : "interaction"}</Tag>
+          <div className="flex items-center gap-2">
+            <Tag tone={isInbound ? "accent" : "engaged"}>
+              {isInbound ? "inbound" : isOutbound ? "outbound" : "interaction"}
+            </Tag>
+            <Link
+              href={backHref}
+              className="btn-secondary inline-flex items-center gap-2 !px-3 !py-1.5 text-xs"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Back to {backLabel}
+            </Link>
+          </div>
         }
       />
 
