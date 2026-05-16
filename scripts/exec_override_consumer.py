@@ -115,6 +115,9 @@ def loop(interval: int, verbose: bool) -> int:
     """Run forever (Ctrl-C to stop)."""
     print(f"[exec_override_consumer] polling every {interval}s — Ctrl-C to stop", flush=True)
     total = 0
+    # Round 3 R3-11: rate-limited crash alerts.
+    crash_window_start = 0.0
+    crash_window_count = 0
     try:
         while True:
             try:
@@ -127,6 +130,17 @@ def loop(interval: int, verbose: bool) -> int:
                 raise
             except Exception as e:  # noqa: BLE001
                 print(f"\n[tick error] {e}", flush=True)
+                now = time.time()
+                if now - crash_window_start > 600:
+                    crash_window_start = now
+                    crash_window_count = 0
+                if crash_window_count < 2:
+                    crash_window_count += 1
+                    try:
+                        from notify import notify_daemon_crash  # type: ignore
+                        notify_daemon_crash("override-consumer", str(e))
+                    except Exception:
+                        pass
             time.sleep(max(1, interval))
     except KeyboardInterrupt:
         print(f"\n[exec_override_consumer] stopped. {total} intent(s) applied total.")
