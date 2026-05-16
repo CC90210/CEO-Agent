@@ -143,8 +143,8 @@ export function LocalCliProvidersCard() {
 
   return (
     <Card
-      title="Connect via local CLI subscription"
-      subtitle="Use Claude Code, Codex, or Gemini installed on this machine — no API key needed. Each card detects install + auth state via the local bridge."
+      title="Local CLI status (detection)"
+      subtitle="Detects which AI CLIs are installed + authenticated on this machine. Chat currently always routes through Claude Code (the bridge); per-agent provider switching to Codex / Gemini ships next phase."
       action={
         <button
           type="button"
