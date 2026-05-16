@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-16T22:29:36.037421+00:00",
-  "script_count": 99,
-  "entry_count": 360,
+  "generated_at_iso": "2026-05-16T23:20:15.129857+00:00",
+  "script_count": 100,
+  "entry_count": 361,
   "entries": [
     {
       "key": "agent_heartbeat",
@@ -1466,6 +1466,13 @@
       "subcmd": "call",
       "mutating": false,
       "help": "Model Router -- unified provider registry, routing, and call surface. \u2014 subcommand: call"
+    },
+    {
+      "key": "morning_powwow",
+      "path": "scripts/morning_powwow.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Morning Pow Wow Call \u2014 daily 08:00 voice message to CC's Telegram."
     },
     {
       "key": "n8n_tool_list",

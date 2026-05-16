@@ -199,6 +199,8 @@ def execute_job(job: dict, env_vars: dict[str, str]) -> str:
             return run_auto_score_leads(env_vars)
         elif action_type == "snapshot_run":
             return run_snapshot(config)
+        elif action_type == "morning_powwow":
+            return run_morning_powwow(env_vars)
         else:
             # Round 3 R3-12: previously this returned a plain string
             # which scheduler.py's caller treats as success and stamps
@@ -495,6 +497,23 @@ def run_snapshot(config: dict) -> str:
         return f"ERROR: snapshot_run exit {result.returncode}: {err}"
     out = (result.stdout or "").strip().splitlines()
     return out[-1][:200] if out else "ok"
+
+
+def run_morning_powwow(_env_vars: dict) -> str:
+    """Phase 10.2 — Morning Pow Wow Call.
+
+    Daily 08:00 voice-note to CC's Telegram. Claude drafts a ~120-word
+    motivational/flirty monologue, ElevenLabs renders it in Aura's voice,
+    Telegram sendVoice ships it as an inline voicemail. Self-contained
+    in scripts/morning_powwow.py; this handler is a thin shell so the
+    Health page surfaces it as a real cron row.
+    """
+    out = run_script("morning_powwow.py", [], timeout=120)
+    if not out or not out.strip():
+        return "ERROR: morning_powwow returned empty output"
+    # Surface the last line — typically 'sent: morning pow wow shipped to Telegram'.
+    last = out.strip().splitlines()[-1]
+    return last[:200]
 
 
 def run_auto_score_leads(_env_vars: dict) -> str:
