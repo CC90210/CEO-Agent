@@ -21,10 +21,13 @@ Functions:
   fetch_pending_intents() — read rows the dashboard has decided but the
                             local consumer hasn't synced yet
   mark_synced(...)      — confirm the consumer applied the dashboard decision
+  classify_workspace(cwd, command) — bucket a request by cwd / command keywords
+                                     (used at write-time by mirror_pending)
 """
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -60,9 +63,38 @@ def _client():
         return None
 
 
+# Workspace classification rules (migration 048). Order matters — more
+# specific buckets first so a SunBiz-touching command running from the
+# shared Business-Empire-Agent repo still classifies as sunbiz_client
+# (the WORK is for the client, not the empire).
+_WORKSPACE_RULES = [
+    ("sunbiz_client",   re.compile(r"(marketing-agent|text_torrent|texttorrent|kixie|/t/sun/|sun_biz|sunbiz)", re.IGNORECASE)),
+    ("suga_client",     re.compile(r"(cmo-agent|sugasean|suga sean|suga[_ ]brand)", re.IGNORECASE)),
+    ("propflow_client", re.compile(r"(propflow|prop-flow|prop_flow)", re.IGNORECASE)),
+    ("empire",          re.compile(r"(business-empire-agent|/oasis|oasis_seed|empire)", re.IGNORECASE)),
+]
+
+
+def classify_workspace(cwd: str | None, command: str | None) -> str:
+    """Bucket a request into empire | sunbiz_client | suga_client | propflow_client | unknown.
+
+    Checks cwd_path first (most reliable), falls back to scanning the
+    command text. Used at write-time by mirror_pending so the dashboard
+    can filter; also mirrored by the SQL backfill in
+    scripts/backfill_exec_overrides_workspace.py for older rows.
+    """
+    blob = f"{cwd or ''} {command or ''}"
+    for label, regex in _WORKSPACE_RULES:
+        if regex.search(blob):
+            return label
+    return "unknown"
+
+
 def _row_to_pending_payload(row: dict[str, Any]) -> dict[str, Any]:
     """Translate a SQLite override_request row → Supabase exec_overrides row.
     Only fields that exist on the Supabase schema; SQLite-only fields are dropped."""
+    cwd = row.get("cwd_path")
+    workspace = row.get("workspace_label") or classify_workspace(cwd, row.get("command"))
     return {
         "request_id":   row["id"],
         "ts":           row["ts"],
@@ -77,6 +109,8 @@ def _row_to_pending_payload(row: dict[str, Any]) -> dict[str, Any]:
         "approved_by":  row.get("approved_by"),
         "consumed_at":  row.get("consumed_at"),
         "hmac_sig":     row.get("hmac_sig"),
+        "cwd_path":     cwd,
+        "workspace_label": workspace,
     }
 
 
