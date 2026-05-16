@@ -26,9 +26,11 @@ API-key path.
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
@@ -753,6 +755,190 @@ def _tool_load_skill(payload: dict) -> dict:
 # Registry + dispatcher
 # ──────────────────────────────────────────────────────────────────
 
+def _tool_underwriting_run(payload: dict) -> dict:
+    """{application_id: str, bank_statement_paths: [str], tenant_id?: str}
+    → fire the full underwriting chain (Phase 7) on the operator's
+    machine and write the result back to tenant_records.
+
+    Round 3 R3-3 / Codex production-readiness fix: /api/applications/[id]/
+    underwrite was returning 503 'bridge_required' because no bridge
+    handler had been wired. This is that handler.
+
+    Three-step pipeline (mirrors scripts/underwriting/ CLIs):
+
+      1. statement_parser.py parse --file <pdf> --json
+         For each bank statement PDF, extract structured deposits /
+         withdrawals / recurring_debits / loan_payments / nsf_events
+         via Anthropic vision (Sonnet 4.6). Each parse writes to a
+         scratch JSON file under tmp/underwriting/ so the downstream
+         step can re-read.
+
+      2. debt_detector.py summarize --statements <parsed_jsons> --json
+         Cross-statement debt-load aggregate. Identifies recurring
+         lender debits, estimates outstanding balance per lender,
+         flags NSF risk.
+
+      3. sales_angle.py write --debt-summary <jsonl> --application
+         <app_json> --json
+         Claude-generated sales-angle paragraph the operator uses to
+         pitch the deal. Plain English coaching for the rep.
+
+    Final aggregate (underwriting_jsonb) is written to
+    tenant_records(id=application_id).data.underwriting_jsonb so the
+    dashboard's application detail page + the recommended-lenders
+    scoring endpoint can read it without further bridge calls.
+
+    Failure modes:
+      - Any subprocess returns non-zero → _err with stderr captured.
+      - Missing ANTHROPIC_API_KEY → statement_parser fails fast; we
+        bubble the message.
+      - Application id doesn't resolve → _err early so we don't burn
+        Anthropic credits on a phantom row.
+    """
+    application_id = str(payload.get("application_id") or "").strip()
+    bank_statement_paths = payload.get("bank_statement_paths") or []
+    if not application_id:
+        return _err("missing 'application_id'")
+    if not isinstance(bank_statement_paths, list) or not bank_statement_paths:
+        return _err("missing 'bank_statement_paths' (list of PDF paths)")
+
+    # Resolve the application row first so we fail-fast on a bad id
+    # before incurring Anthropic costs.
+    bravo = _bravo_root()
+    try:
+        from supabase import create_client  # type: ignore
+        from scripts.lib.secret_loader import load_env  # type: ignore
+    except Exception:
+        # Bridge may not have scripts/ on path; add it and retry.
+        sys.path.insert(0, str(bravo))
+        sys.path.insert(0, str(bravo / "scripts"))
+        from supabase import create_client  # type: ignore
+        from lib.secret_loader import load_env  # type: ignore
+
+    try:
+        env = load_env([
+            "BRAVO_SUPABASE_URL",
+            "BRAVO_SUPABASE_SERVICE_ROLE_KEY",
+        ])
+        sb = create_client(env["BRAVO_SUPABASE_URL"], env["BRAVO_SUPABASE_SERVICE_ROLE_KEY"])
+    except Exception as e:
+        return _err(f"supabase init failed: {e}")
+
+    app_row = (
+        sb.table("tenant_records")
+        .select("id, tenant_id, data")
+        .eq("id", application_id)
+        .eq("entity_type", "application")
+        .maybeSingle()
+        .execute()
+    )
+    if not app_row.data:
+        return _err(f"application_id {application_id} not found in tenant_records")
+    app_data = app_row.data.get("data") or {}
+    tenant_id = app_row.data.get("tenant_id")
+
+    # Working dir for intermediate JSON. One subdir per application
+    # so multiple runs don't clobber each other.
+    scratch = bravo / "tmp" / "underwriting" / application_id
+    scratch.mkdir(parents=True, exist_ok=True)
+
+    # Step 1 — parse each PDF.
+    parsed_paths: list[str] = []
+    for i, pdf in enumerate(bank_statement_paths):
+        pdf_path = Path(pdf)
+        if not pdf_path.exists():
+            return _err(f"bank statement not found: {pdf}")
+        out_path = scratch / f"statement_{i:02d}.json"
+        parse_args = [
+            "scripts/underwriting/statement_parser.py", "parse",
+            "--file", str(pdf_path),
+            "--json",
+        ]
+        parse_res = _run_script(parse_args)
+        if not parse_res.get("ok"):
+            return _err(f"statement_parser failed on {pdf_path.name}: {parse_res.get('content','')[:200]}")
+        try:
+            parsed = json.loads(parse_res.get("content", "{}"))
+            if not parsed.get("ok"):
+                return _err(f"statement_parser error on {pdf_path.name}: {parsed.get('error')}")
+            out_path.write_text(json.dumps(parsed["result"]), encoding="utf-8")
+            parsed_paths.append(str(out_path))
+        except (json.JSONDecodeError, KeyError) as e:
+            return _err(f"statement_parser output malformed for {pdf_path.name}: {e}")
+
+    # Step 2 — debt summary across the parsed statements.
+    debt_summary_path = scratch / "debt_summary.json"
+    debt_args = [
+        "scripts/underwriting/debt_detector.py", "summarize",
+        "--statements", *parsed_paths,
+        "--json",
+    ]
+    debt_res = _run_script(debt_args)
+    if not debt_res.get("ok"):
+        return _err(f"debt_detector failed: {debt_res.get('content','')[:200]}")
+    try:
+        debt = json.loads(debt_res.get("content", "{}"))
+        if not debt.get("ok"):
+            return _err(f"debt_detector error: {debt.get('error')}")
+        debt_summary_path.write_text(json.dumps(debt["result"]), encoding="utf-8")
+    except (json.JSONDecodeError, KeyError) as e:
+        return _err(f"debt_detector output malformed: {e}")
+
+    # Step 3 — sales angle narrative.
+    app_json_path = scratch / "application.json"
+    app_json_path.write_text(json.dumps(app_data), encoding="utf-8")
+    sales_args = [
+        "scripts/underwriting/sales_angle.py", "write",
+        "--debt-summary", str(debt_summary_path),
+        "--application", str(app_json_path),
+        "--json",
+    ]
+    sales_res = _run_script(sales_args)
+    sales_angle_text = ""
+    if sales_res.get("ok"):
+        try:
+            sa = json.loads(sales_res.get("content", "{}"))
+            if sa.get("ok"):
+                sales_angle_text = sa.get("result", "")
+        except json.JSONDecodeError:
+            # sales_angle is best-effort prose; an empty value is
+            # tolerable — operator can re-run later.
+            pass
+
+    # Final aggregate write-back. Uses updateRecord-equivalent shape
+    # the dashboard's data layer expects (data is a shallow merge per
+    # lib/manifest/data.ts:updateRecord, so we only need to send the
+    # new key + the underwriting_jsonb payload).
+    underwriting_jsonb = {
+        "monthly_revenue": debt["result"].get("avg_monthly_deposits"),
+        "monthly_debt_service": debt["result"].get("monthly_debt_service"),
+        "loan_count": debt["result"].get("loan_count"),
+        "nsf_events_90d": debt["result"].get("nsf_events"),
+        "lenders_identified": debt["result"].get("identified_lenders") or [],
+        "sales_angle": sales_angle_text,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    merged_data = {**app_data, "underwriting_jsonb": underwriting_jsonb}
+    update_res = (
+        sb.table("tenant_records")
+        .update({"data": merged_data, "updated_at": datetime.now(timezone.utc).isoformat()})
+        .eq("id", application_id)
+        .eq("tenant_id", tenant_id)
+        .execute()
+    )
+    if getattr(update_res, "error", None):
+        return _err(f"tenant_records update failed: {update_res.error}")
+
+    return _ok(json.dumps({
+        "ok": True,
+        "application_id": application_id,
+        "statements_parsed": len(parsed_paths),
+        "monthly_debt_service": underwriting_jsonb["monthly_debt_service"],
+        "lender_count": len(underwriting_jsonb["lenders_identified"]),
+        "sales_angle_len": len(sales_angle_text),
+    }))
+
+
 TOOL_REGISTRY: dict[str, Callable[[dict], dict]] = {
     "read_file": _tool_read_file,
     "write_file": _tool_write_file,
@@ -768,6 +954,7 @@ TOOL_REGISTRY: dict[str, Callable[[dict], dict]] = {
     "n8n": _tool_n8n,
     "firecrawl": _tool_firecrawl,
     "notebooklm": _tool_notebooklm,
+    "underwriting_run": _tool_underwriting_run,
 }
 
 
