@@ -4,6 +4,7 @@ import { Card, Tag } from "@/components/Card";
 import { listRecords, groupRecordsBy, formatFieldValue, type TenantRecord } from "@/lib/manifest/data";
 import type { ManifestEntityDef, ManifestEntityField, ManifestPageDef } from "@/lib/manifest/schema";
 import { OfferCardActions } from "./OfferCardActions";
+import { ApplicationCardActions } from "./ApplicationCardActions";
 
 type Props = {
   tenantSlug: string;
@@ -177,6 +178,9 @@ export async function ManifestKanban({
                         offerId={row.id}
                         stage={row.data.stage}
                       />
+                    )}
+                    {entity.name === "application" && (
+                      <ApplicationCardActions applicationId={row.id} />
                     )}
                   </li>
                 ))}
