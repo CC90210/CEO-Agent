@@ -5,6 +5,7 @@ import { listRecords, groupRecordsBy, formatFieldValue, type TenantRecord } from
 import type { ManifestEntityDef, ManifestEntityField, ManifestPageDef } from "@/lib/manifest/schema";
 import { OfferCardActions } from "./OfferCardActions";
 import { ApplicationCardActions } from "./ApplicationCardActions";
+import { humanize } from "@/lib/manifest/humanize";
 
 type Props = {
   tenantSlug: string;
@@ -197,16 +198,6 @@ export async function ManifestKanban({
       </div>
     </Card>
   );
-}
-
-/** snake_case_or_lowercase → "Title Case" for human-friendly labels.
- *  Mirrors the helper in ManifestRecordForm — kept inline rather than
- *  shared to avoid a circular import; both are 3-line functions. */
-function humanize(name: string): string {
-  if (!name) return "";
-  return name
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 /**

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, CheckCircle2, Loader2, Save, AlertCircle, Plus, X, Code2 } from "lucide-react";
 import Link from "next/link";
 import type { ManifestEntityDef, ManifestEntityField } from "@/lib/manifest/schema";
+import { humanize } from "@/lib/manifest/humanize";
 
 type Props = {
   tenantSlug: string;
@@ -39,13 +40,6 @@ type Props = {
  * operator can fix them in place. Server-side validation in the records
  * API + RecordsError catches anything the client missed.
  */
-
-/** snake_case → "Title Case" for human-friendly labels. */
-function humanize(name: string): string {
-  return name
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 /** Per-field example placeholder. Helps operators infer the expected shape
  *  without having to read the underlying type. Kept conservative — only
