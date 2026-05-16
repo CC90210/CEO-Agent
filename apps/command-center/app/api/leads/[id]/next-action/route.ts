@@ -24,8 +24,9 @@ export const dynamic = "force-dynamic";
 type InteractionRow = {
   id: string;
   type: string;
+  channel: string | null;
   subject: string | null;
-  body: string | null;
+  content: string | null;
   created_at: string;
   metadata?: Record<string, unknown> | null;
 };
@@ -44,9 +45,11 @@ function toSnapshot(row: InteractionRow): InteractionSnapshot {
       : INBOUND_TYPES.has(row.type)
         ? "inbound"
         : "outbound",
-    channel: row.type,
+    // Prefer the explicit channel column; fall back to the type so older
+    // rows (channel was added later in migration 003) still narrate.
+    channel: row.channel || row.type,
     subject: row.subject,
-    body_preview: row.body,
+    body_preview: row.content,
     at: row.created_at,
   };
 }
@@ -77,21 +80,18 @@ export async function POST(
   }
   const leadData = ((r.data as { data: Record<string, unknown> }).data) || {};
 
-  // Pull the last 10 interactions tied to this lead's email. The
-  // lead_interactions table is scoped by tenant + has lead_email /
-  // lead_id linkage; we filter by either since legacy rows used email
-  // and newer rows use lead_id.
-  const leadEmail = typeof leadData.email === "string" ? leadData.email : "";
+  // Pull the last 10 interactions tied to this lead. lead_interactions
+  // is keyed on lead_id (see lib/supabase.ts LeadInteraction type +
+  // migration 003); there's no lead_email column. Empty list is a fine
+  // fallback — Claude can still recommend a next action from the lead
+  // data alone, it just won't have prior-touch context.
   let interactions: InteractionRow[] = [];
   try {
-    const filter = leadEmail
-      ? `lead_id.eq.${leadId},lead_email.eq.${encodeURIComponent(leadEmail)}`
-      : `lead_id.eq.${leadId}`;
     const ir = await db
       .from("lead_interactions")
-      .select("id, type, subject, body, created_at, metadata")
+      .select("id, type, channel, subject, content, created_at, metadata")
       .eq("tenant_id", tenantId)
-      .or(filter)
+      .eq("lead_id", leadId)
       .order("created_at", { ascending: false })
       .limit(10);
     interactions = (ir.data as InteractionRow[]) || [];
