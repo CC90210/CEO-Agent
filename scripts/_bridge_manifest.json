@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-16T06:55:39.324121+00:00",
-  "script_count": 97,
-  "entry_count": 358,
+  "generated_at_iso": "2026-05-16T19:33:35.969992+00:00",
+  "script_count": 98,
+  "entry_count": 359,
   "entries": [
     {
       "key": "agent_heartbeat",
@@ -542,6 +542,13 @@
       "subcmd": "seed",
       "mutating": true,
       "help": "Cron Engine - Business Automation Job Manager \u2014 subcommand: seed"
+    },
+    {
+      "key": "daily_brief",
+      "path": "scripts/daily_brief.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Daily Bravo Brief \u2014 AI-narrated morning summary to CC's Telegram."
     },
     {
       "key": "deploy_command_center",
