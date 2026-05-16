@@ -1,8 +1,9 @@
 import { Card, EmptyState, Tag } from "@/components/Card";
 import { listRecords, formatFieldValue, type TenantRecord } from "@/lib/manifest/data";
 import type { ManifestEntityDef, ManifestPageDef } from "@/lib/manifest/schema";
-import { Plus } from "lucide-react";
+import { Plus, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
+import { humanize } from "@/lib/manifest/humanize";
 
 type Props = {
   tenantSlug: string;
@@ -91,23 +92,26 @@ export async function ManifestTable({
                     key={col.name}
                     className="px-4 py-2.5 text-left text-[10px] uppercase tracking-[0.14em] font-bold text-fg-dim whitespace-nowrap"
                   >
-                    {col.name.replace(/_/g, " ")}
+                    {humanize(col.name)}
                   </th>
                 ))}
                 <th className="px-4 py-2.5 text-left text-[10px] uppercase tracking-[0.14em] font-bold text-fg-dim">
                   Updated
                 </th>
+                <th className="px-2 py-2.5 text-right">
+                  <span className="sr-only">Open</span>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-bg-border">
               {rows.map((row) => (
-                <tr key={row.id} className="hover:bg-bg-elev/40 transition-colors">
+                <tr key={row.id} className="group hover:bg-bg-elev/40 transition-colors">
                   {columns.map((col) => {
                     const v = row.data[col.name];
                     if (col.type === "enum" && typeof v === "string" && v) {
                       return (
                         <td key={col.name} className="px-4 py-2.5">
-                          <Tag tone="accent">{v}</Tag>
+                          <Tag tone="accent">{humanize(v)}</Tag>
                         </td>
                       );
                     }
@@ -129,6 +133,16 @@ export async function ManifestTable({
                   })}
                   <td className="px-4 py-2.5 text-xs text-fg-dim whitespace-nowrap">
                     {new Date(row.updated_at).toLocaleDateString()}
+                  </td>
+                  <td className="px-2 py-2.5 text-right">
+                    <Link
+                      href={`/t/${tenantSlug}/${page.path}/${row.id}`}
+                      className="inline-flex items-center gap-1 text-fg-dim hover:text-accent text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Open record"
+                    >
+                      Open
+                      <ArrowUpRight className="h-3 w-3" />
+                    </Link>
                   </td>
                 </tr>
               ))}
