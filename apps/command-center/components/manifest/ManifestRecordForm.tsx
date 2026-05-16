@@ -418,7 +418,8 @@ function JsonField({
 }) {
   // Normalize the current value to a row list. The form may hand us an
   // object (the common case), a string (legacy / Advanced-mode draft),
-  // or nothing.
+  // an array (rare — manifest fields are typically objects, but
+  // defensive), or nothing.
   const initialRows = (() => {
     if (value && typeof value === "object" && !Array.isArray(value)) {
       return Object.entries(value as Record<string, unknown>).map(([k, v]) => ({
@@ -429,7 +430,16 @@ function JsonField({
     return [] as { key: string; value: string }[];
   })();
   const [rows, setRows] = useState(initialRows);
-  const [rawMode, setRawMode] = useState(false);
+  // Default to Simple (key/value) mode for object values; Advanced (raw
+  // JSON) for arrays + non-empty strings + anything else the simple
+  // editor can't represent losslessly. Without this, an operator
+  // clicking "Add field" in Simple mode on an array value would
+  // silently overwrite the array with a new object.
+  const valueLooksStructured =
+    Array.isArray(value) ||
+    (typeof value === "string" && value.trim().length > 0 && !value.includes(":")) ||
+    (typeof value === "object" && value !== null && Array.isArray(value));
+  const [rawMode, setRawMode] = useState(valueLooksStructured);
   const [rawText, setRawText] = useState(() => {
     if (typeof value === "string") return value;
     if (value && typeof value === "object") return JSON.stringify(value, null, 2);
