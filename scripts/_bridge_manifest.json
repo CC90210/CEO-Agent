@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-16T23:20:15.129857+00:00",
-  "script_count": 100,
-  "entry_count": 361,
+  "generated_at_iso": "2026-05-16T23:54:51.561508+00:00",
+  "script_count": 98,
+  "entry_count": 359,
   "entries": [
     {
       "key": "agent_heartbeat",
@@ -1468,13 +1468,6 @@
       "help": "Model Router -- unified provider registry, routing, and call surface. \u2014 subcommand: call"
     },
     {
-      "key": "morning_powwow",
-      "path": "scripts/morning_powwow.py",
-      "subcmd": null,
-      "mutating": false,
-      "help": "Morning Pow Wow Call \u2014 daily 08:00 voice message to CC's Telegram."
-    },
-    {
       "key": "n8n_tool_list",
       "path": "scripts/n8n_tool.py",
       "subcmd": "list",
@@ -1662,13 +1655,6 @@
       "subcmd": null,
       "mutating": false,
       "help": "Bravo onboarding diagnostics."
-    },
-    {
-      "key": "outreach_batch",
-      "path": "scripts/outreach_batch.py",
-      "subcmd": null,
-      "mutating": false,
-      "help": "Outreach Batch \u2014 Semi-Auto Lead Outreach Engine"
     },
     {
       "key": "outreach_eligible",

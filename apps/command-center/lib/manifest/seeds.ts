@@ -52,7 +52,10 @@ export const OASIS_SEED: TenantManifest = {
     { slug: "bravo", display_name: "Bravo", enabled: true, primary: true },
     { slug: "atlas", display_name: "Atlas", enabled: true },
     { slug: "maven", display_name: "Maven", enabled: true },
-    { slug: "aura", display_name: "Aura", enabled: false },
+    // Aura — voice / sensory persona. Owns scripts/aura/ (morning pow
+    // wow + future voice automations). Enabled 2026-05-17 when Aura got
+    // her own home directory and first cron. See agents/aura.md.
+    { slug: "aura", display_name: "Aura", enabled: true },
   ],
   nav: navToManifest(CC_NAV),
   data_model: [
