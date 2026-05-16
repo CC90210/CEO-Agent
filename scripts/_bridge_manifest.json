@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-15T22:42:45.826665+00:00",
-  "script_count": 93,
-  "entry_count": 349,
+  "generated_at_iso": "2026-05-16T05:31:08.508690+00:00",
+  "script_count": 94,
+  "entry_count": 350,
   "entries": [
     {
       "key": "agent_heartbeat",
@@ -1368,6 +1368,13 @@
       "subcmd": "status",
       "mutating": false,
       "help": "V6.0 FTS5 retrieval over memory/, skills/, brain/. \u2014 subcommand: status"
+    },
+    {
+      "key": "migrate_leads_to_tenant_records",
+      "path": "scripts/migrate_leads_to_tenant_records.py",
+      "subcmd": null,
+      "mutating": true,
+      "help": "migrate_leads_to_tenant_records.py"
     },
     {
       "key": "model_router_list_providers",
