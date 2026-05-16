@@ -251,11 +251,11 @@ export default async function OperationsPage({
           shows just the counts so CC can see "do I have anything to look
           at right now" without leaving Operations. */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-        <HealthMiniTile label="Errors 24h" count={errorsCount} tone={errorsCount === 0 ? "engaged" : "warm"} href="/health" />
-        <HealthMiniTile label="Failed crons" count={failedCronsCount} tone={failedCronsCount === 0 ? "engaged" : "warm"} href="/automations" />
-        <HealthMiniTile label="Stuck shop-outs" count={stuckThreadsCount} tone={stuckThreadsCount === 0 ? "engaged" : "accent"} href="/health" />
-        <HealthMiniTile label="Stale leads" count={staleLeadsCount} tone={staleLeadsCount === 0 ? "engaged" : "accent"} href="/pipeline" />
-        <HealthMiniTile label="Overrides pending" count={pendingOverridesCount} tone={pendingOverridesCount === 0 ? "engaged" : "hot"} href="/overrides" />
+        <HealthMiniTile label="Errors today" count={errorsCount} tone={errorsCount === 0 ? "engaged" : "warm"} href="/health" hint="Anything that broke or warned in the last 24h." />
+        <HealthMiniTile label="Failed automations" count={failedCronsCount} tone={failedCronsCount === 0 ? "engaged" : "warm"} href="/automations" hint="Scheduled jobs whose last run errored." />
+        <HealthMiniTile label="Quiet shop-outs" count={stuckThreadsCount} tone={stuckThreadsCount === 0 ? "engaged" : "accent"} href="/health" hint="Lender emails sent >7d ago with no reply yet." />
+        <HealthMiniTile label="Cold leads" count={staleLeadsCount} tone={staleLeadsCount === 0 ? "engaged" : "accent"} href="/pipeline" hint="Pipeline leads you haven't touched in 2+ weeks." />
+        <HealthMiniTile label="Overrides pending" count={pendingOverridesCount} tone={pendingOverridesCount === 0 ? "engaged" : "hot"} href="/overrides" hint="Bravo asked you to approve a blocked command." />
       </div>
       {allClear && pendingOverridesCount === 0 && (
         <div className="text-xs text-status-engaged">All clear — nothing needs your attention.</div>
@@ -411,11 +411,13 @@ function HealthMiniTile({
   count,
   tone,
   href,
+  hint,
 }: {
   label: string;
   count: number;
   tone: "engaged" | "warm" | "accent" | "hot";
   href: string;
+  hint?: string;
 }) {
   const toneClass =
     tone === "engaged"
@@ -428,6 +430,7 @@ function HealthMiniTile({
   return (
     <a
       href={href}
+      title={hint}
       className={`rounded-lg border px-3 py-2 transition-opacity hover:opacity-80 ${toneClass}`}
     >
       <div className="text-[10px] uppercase tracking-wider font-bold opacity-70">{label}</div>
