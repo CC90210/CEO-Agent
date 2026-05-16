@@ -88,19 +88,6 @@ export async function POST(req: NextRequest) {
     return jsonError(400, "missing_or_invalid_resume_state");
   }
 
-  // Phase H — verify HMAC. resume_state passes through the browser; without
-  // signature verification, anyone with a session cookie could mint
-  // arbitrary state and trigger LLM execution with a forged history.
-  // In production this is required; in development it's a soft warning
-  // (lib/resume-hmac handles the env-aware policy).
-  const sigCheck = verifyResumeState(resumeState, payload.resume_signature);
-  if (!sigCheck.ok) {
-    return jsonError(
-      sigCheck.reason === "server_misconfigured" ? 503 : 400,
-      `resume_signature_${sigCheck.reason}`,
-    );
-  }
-
   const toolUseId = String(payload.tool_use_id || "").trim();
   if (!toolUseId) return jsonError(400, "missing_tool_use_id");
 
@@ -113,13 +100,30 @@ export async function POST(req: NextRequest) {
     is_error: Boolean(toolResult.is_error),
   };
 
-  // Resolve tenant + per-agent provider/key. Single source of truth for the
-  // auth+tenant+key plumbing — same helper /api/chat uses.
+  // Resolve tenant + per-agent provider/key first so the HMAC binding
+  // check below can compare against the caller's actual identity.
   const ctxResult = await resolveChatContext({ id: user.id, email: user.email }, agentKey);
   if (!ctxResult.ok) {
     return jsonError(ctxResult.status, ctxResult.detail || ctxResult.code);
   }
   const { tenantId, provider, apiKey } = ctxResult;
+
+  // 2026-05-16 Codex finding #3: HMAC alone proves the state was server-
+  // issued, but doesn't prove the resuming session has the right to it.
+  // Re-verify with the caller's resolved identity baked in. A captured
+  // signature from a different tenant / user / agent fails this check
+  // because the HMAC was computed over a different binding triple.
+  const sigCheck = verifyResumeState(resumeState, payload.resume_signature, {
+    tenant_id: tenantId,
+    user_id: user.id,
+    agent_key: agentKey,
+  });
+  if (!sigCheck.ok) {
+    return jsonError(
+      sigCheck.reason === "server_misconfigured" ? 503 : 400,
+      `resume_signature_${sigCheck.reason}`,
+    );
+  }
 
   // Per-tenant token bucket — sized smaller than /api/chat (resumes are
   // continuations of a paused turn; burst caps don't add value here).
@@ -197,8 +201,13 @@ export async function POST(req: NextRequest) {
             // Another deferred tool on the resumed turn — perfectly
             // valid. Forward it; ChatWidget will loop through another
             // bridge execution + resume. Sign the new resume_state
-            // (Phase H) so the next /api/chat/resume verification passes.
-            const sig = signResumeState(ev.resume_state);
+            // with the SAME identity binding so the next
+            // /api/chat/resume verification passes (Codex finding #3).
+            const sig = signResumeState(ev.resume_state, {
+              tenant_id: tenantId,
+              user_id: user.id,
+              agent_key: agentKey,
+            });
             if (sig === null) {
               resumeStreamError = "server_misconfigured:resume_hmac_key_missing";
               send("error", { message: resumeStreamError });

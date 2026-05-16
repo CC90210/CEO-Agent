@@ -681,18 +681,82 @@ function assertSafeUrl(url: string): URL {
     "localhost",
     "127.0.0.1",
     "0.0.0.0",
-    "169.254.169.254", // AWS/Azure/GCP IMDS
+    "::1",
+    "169.254.169.254", // AWS/Azure/GCP IMDS v1 + v2
+    "fd00:ec2::254",   // AWS IMDS v6
     "metadata.google.internal",
+    "metadata.azure.com",
   ];
   if (blocked.includes(host)) throw new Error("blocked_host");
-  if (host.endsWith(".internal") || host.endsWith(".local")) {
+  if (host.endsWith(".internal") || host.endsWith(".local") || host.endsWith(".localhost")) {
     throw new Error("blocked_host");
   }
-  // Private IP ranges — quick check, not exhaustive
-  if (/^10\./.test(host) || /^192\.168\./.test(host) || /^172\.(1[6-9]|2[0-9]|3[01])\./.test(host)) {
+  // Private IP ranges (IPv4) — quick string check, not exhaustive but
+  // covers 10/8, 172.16/12, 192.168/16, 169.254/16 link-local.
+  if (
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^172\.(1[6-9]|2[0-9]|3[01])\./.test(host) ||
+    /^169\.254\./.test(host)
+  ) {
+    throw new Error("blocked_private_ip");
+  }
+  // IPv6 unique-local / loopback / link-local
+  if (/^(::ffff:0?7f\.|fc|fd|fe[89ab]|::1$)/i.test(host)) {
     throw new Error("blocked_private_ip");
   }
   return parsed;
+}
+
+/**
+ * DNS-aware SSRF check. The synchronous assertSafeUrl above blocks
+ * literal hostnames + IPs but a public hostname like `evil.com` that
+ * resolves to 127.0.0.1 or 169.254.169.254 would slip through.
+ *
+ * Resolves the hostname via Node's dns.lookup and rejects when any
+ * resolved address falls in a private / loopback / IMDS range. Called
+ * from fetchWithCap right before issuing the request so the resolved
+ * IP we check IS the IP fetch will connect to (modulo TOCTOU — rare in
+ * practice for this use case; Codex flagged DNS rebinding as a
+ * theoretical risk but the cost of full pin-and-connect is too high
+ * for a chat tool's latency budget).
+ *
+ * 2026-05-16 Codex review finding #6 hardening.
+ */
+async function assertResolvedIpIsPublic(host: string): Promise<void> {
+  // Skip when the host is already a literal IP — assertSafeUrl above
+  // handled it.
+  if (/^[0-9.]+$/.test(host) || /^\[?[0-9a-f:]+\]?$/i.test(host)) return;
+  let lookup: typeof import("dns/promises").lookup;
+  try {
+    ({ lookup } = await import("dns/promises"));
+  } catch {
+    // dns module unavailable (edge runtime, etc.) — fall back to
+    // hostname-only check. This route declares runtime='nodejs' so
+    // we expect the import to succeed in production.
+    return;
+  }
+  let addrs: Array<{ address: string; family: number }>;
+  try {
+    addrs = await lookup(host, { all: true });
+  } catch {
+    // DNS failed — let fetch surface the network error rather than
+    // pretending we know something about the host.
+    return;
+  }
+  for (const a of addrs) {
+    const ip = a.address.toLowerCase();
+    if (
+      ip === "127.0.0.1" || ip === "::1" || ip === "0.0.0.0" ||
+      /^10\./.test(ip) ||
+      /^192\.168\./.test(ip) ||
+      /^172\.(1[6-9]|2[0-9]|3[01])\./.test(ip) ||
+      /^169\.254\./.test(ip) ||
+      /^(fc|fd|fe[89ab]|::1)/i.test(ip)
+    ) {
+      throw new Error("blocked_resolved_private_ip");
+    }
+  }
 }
 
 function sanitizeHeaders(input: unknown): Record<string, string> {
@@ -701,13 +765,22 @@ function sanitizeHeaders(input: unknown): Record<string, string> {
   for (const [k, v] of Object.entries(input as Record<string, unknown>)) {
     if (typeof v !== "string") continue;
     const lower = k.toLowerCase();
-    // Block setting hop-by-hop or auth-shaped headers — operator's API key
-    // must NEVER be leaked into outbound headers the model controls.
+    // Block hop-by-hop, auth-shaped, and cloud-credential-carrying
+    // headers — operator's API key + AWS/GCP/Azure metadata-service
+    // tokens must NEVER be leaked into outbound requests the model
+    // controls. 2026-05-16 Codex review finding #6 expanded the
+    // block list beyond just cookie / host / connection.
     if (
       lower === "host" ||
       lower === "connection" ||
       lower === "content-length" ||
-      lower === "cookie"
+      lower === "cookie" ||
+      lower === "authorization" ||
+      lower === "proxy-authorization" ||
+      lower === "x-aws-ec2-metadata-token" ||
+      lower.startsWith("x-amz-") ||
+      lower.startsWith("x-goog-") ||
+      lower.startsWith("x-ms-")
     ) {
       continue;
     }
@@ -717,10 +790,20 @@ function sanitizeHeaders(input: unknown): Record<string, string> {
 }
 
 async function fetchWithCap(url: URL, init: RequestInit): Promise<{ status: number; contentType: string; body: string; truncated: boolean }> {
+  // DNS-aware SSRF guard — resolves the hostname and rejects if it
+  // points at a private / loopback / IMDS address. Defends against
+  // attacker-controlled hostnames like `evil.com` that resolve to
+  // 169.254.169.254. 2026-05-16 Codex review hardening.
+  await assertResolvedIpIsPublic(url.hostname.toLowerCase());
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), HTTP_TIMEOUT_MS);
   try {
-    const res = await fetch(url.toString(), { ...init, signal: controller.signal });
+    // redirect: 'manual' so a public URL can't 302 us into an internal
+    // address. 3xx responses surface to the model as-is; if the
+    // operator/agent wants to follow, they make a new tool call with
+    // the new URL (which re-runs SSRF checks).
+    const res = await fetch(url.toString(), { ...init, signal: controller.signal, redirect: "manual" });
     const contentType = res.headers.get("content-type") || "";
     const reader = res.body?.getReader();
     if (!reader) return { status: res.status, contentType, body: "", truncated: false };

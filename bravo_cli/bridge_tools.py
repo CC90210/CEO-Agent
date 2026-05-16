@@ -232,7 +232,21 @@ def _run_script(args: list[str], timeout_s: int = SCRIPT_TIMEOUT_S) -> dict:
 
 
 def _tool_send_email(payload: dict) -> dict:
-    """{to: str, subject: str, body: str, from?: str} → google_tool.py output."""
+    """{to: str, subject: str, body: str, lead_id?: str} → send_gateway.
+
+    2026-05-16 Codex review finding #5 fix: this used to shell out
+    directly to scripts/google_tool.py mail send, which bypassed
+    scripts/send_gateway.py — the SINGLE outbound chokepoint that
+    enforces CASL suppression, per-recipient cooldown, daily caps,
+    multi-brand routing, and the audit ledger. A chat-initiated email
+    that skipped send_gateway could (a) re-mail a recently-contacted
+    lead inside their cooldown window, (b) re-mail an opted-out
+    recipient, or (c) blow past the daily-cap.
+
+    Route every chat-driven email through send_gateway. agent_source
+    'manual_cc' tags the audit ledger so operator-initiated chats are
+    distinguishable from scheduler / engine sends.
+    """
     to_addr = str(payload.get("to") or "").strip()
     subject = str(payload.get("subject") or "").strip()
     body = str(payload.get("body") or "")
@@ -243,22 +257,30 @@ def _tool_send_email(payload: dict) -> dict:
     if not body:
         return _err("missing 'body'")
     args = [
-        "scripts/google_tool.py", "mail", "send",
+        "scripts/send_gateway.py", "send",
+        "--channel", "email",
+        "--agent-source", "manual_cc",
         "--to", to_addr,
         "--subject", subject,
         "--body", body,
         "--json",
     ]
-    from_addr = payload.get("from")
-    if isinstance(from_addr, str) and from_addr.strip():
-        args.extend(["--from", from_addr.strip()])
+    lead_id = payload.get("lead_id")
+    if isinstance(lead_id, str) and lead_id.strip():
+        args.extend(["--lead-id", lead_id.strip()])
     return _run_script(args)
 
 
 def _tool_send_sms(payload: dict) -> dict:
-    """{to: str, body: str} → twilio_tool.py output. Honors TCPA opt-out
-    list maintained inside the script — the tool refuses sends to
-    opted-out numbers."""
+    """{to: str, body: str, lead_id?: str} → send_gateway.
+
+    Same fix as _tool_send_email (Codex finding #5). Previously shelled
+    out to scripts/twilio_tool.py send directly. send_gateway carries
+    the SMS opt-out check (Codex finding #4, still in-flight) once
+    that ships — until then the gateway at least enforces cooldown +
+    daily cap + audit logging. Never call twilio_tool.py / TextTorrent
+    directly from the bridge layer.
+    """
     to_num = str(payload.get("to") or "").strip()
     body = str(payload.get("body") or "")
     if not to_num:
@@ -266,11 +288,16 @@ def _tool_send_sms(payload: dict) -> dict:
     if not body:
         return _err("missing 'body'")
     args = [
-        "scripts/twilio_tool.py", "send",
+        "scripts/send_gateway.py", "send",
+        "--channel", "sms",
+        "--agent-source", "manual_cc",
         "--to", to_num,
         "--body", body,
         "--json",
     ]
+    lead_id = payload.get("lead_id")
+    if isinstance(lead_id, str) and lead_id.strip():
+        args.extend(["--lead-id", lead_id.strip()])
     return _run_script(args)
 
 
