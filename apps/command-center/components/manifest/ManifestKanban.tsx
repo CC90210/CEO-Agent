@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Card, Tag } from "@/components/Card";
 import { listRecords, groupRecordsBy, formatFieldValue, type TenantRecord } from "@/lib/manifest/data";
 import type { ManifestEntityDef, ManifestEntityField, ManifestPageDef } from "@/lib/manifest/schema";
+import { OfferCardActions } from "./OfferCardActions";
 
 type Props = {
   tenantSlug: string;
@@ -169,6 +170,13 @@ export async function ManifestKanban({
                             </div>
                           ))}
                       </dl>
+                    )}
+                    {entity.name === "offer" && typeof row.data.stage === "string" && (
+                      <OfferCardActions
+                        tenantSlug={tenantSlug}
+                        offerId={row.id}
+                        stage={row.data.stage}
+                      />
                     )}
                   </li>
                 ))}
