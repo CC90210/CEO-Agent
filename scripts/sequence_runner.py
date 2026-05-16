@@ -744,11 +744,33 @@ def tick() -> tuple[int, int]:
 def loop(interval: int) -> int:
     interval = max(1, int(interval))
     _log(f"sequence-runner up; tick interval = {interval}s")
+    # Round 3 R3-11: track repeated crashes so we don't flood
+    # CC's Telegram if the daemon is restart-looping. After the
+    # first 2 alerts in a 10-minute window, suppress until the
+    # window resets — the operator gets the signal without the noise.
+    crash_window_start = 0.0
+    crash_window_count = 0
+    CRASH_ALERT_LIMIT = 2
+    CRASH_ALERT_WINDOW_SEC = 600
     while True:
         try:
             tick()
         except Exception as e:
             _log(f"tick crashed: {e}")
+            now = time.time()
+            if now - crash_window_start > CRASH_ALERT_WINDOW_SEC:
+                crash_window_start = now
+                crash_window_count = 0
+            if crash_window_count < CRASH_ALERT_LIMIT:
+                crash_window_count += 1
+                try:
+                    # Import locally so a missing notify module doesn't
+                    # take down the daemon at boot — daemon resilience
+                    # over alert delivery.
+                    from notify import notify_daemon_crash  # type: ignore
+                    notify_daemon_crash("sequence-runner", str(e))
+                except Exception:
+                    pass
         try:
             time.sleep(interval)
         except KeyboardInterrupt:

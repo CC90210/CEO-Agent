@@ -381,11 +381,26 @@ def tick() -> tuple[int, int]:
 def loop(interval: int) -> int:
     interval = max(60, int(interval))  # never poll Gmail faster than once a minute
     _log(f"lender-response-classifier up; tick interval = {interval}s")
+    # Round 3 R3-11: rate-limited crash alerts. See sequence_runner.py
+    # for the rationale.
+    crash_window_start = 0.0
+    crash_window_count = 0
     while True:
         try:
             tick()
         except Exception as e:
             _log(f"tick crashed: {e}")
+            now = time.time()
+            if now - crash_window_start > 600:
+                crash_window_start = now
+                crash_window_count = 0
+            if crash_window_count < 2:
+                crash_window_count += 1
+                try:
+                    from notify import notify_daemon_crash  # type: ignore
+                    notify_daemon_crash("lender-response-classifier", str(e))
+                except Exception:
+                    pass
         try:
             time.sleep(interval)
         except KeyboardInterrupt:
