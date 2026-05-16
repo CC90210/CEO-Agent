@@ -156,6 +156,37 @@ def notify_error(engine: str, error: str) -> bool:
     return notify(f"{engine} error: {error}", category="system", silent=False)
 
 
+def notify_daemon_crash(daemon: str, error: str, tick_id: str | None = None) -> bool:
+    """Daemon-level crash alert. Always bypasses the category block list.
+
+    Round 3 R3-11 (2026-05-16): the 4 long-running PM2 daemons
+    (sequence_runner, lender_response_classifier, event_router,
+    exec_override_consumer) all had top-level except clauses that
+    logged to stdout and swallowed the failure. PM2 would restart
+    the process but CC wouldn't know anything had crashed. This
+    helper closes that gap — wraps daemon tick errors with a Telegram
+    push the operator sees in real time.
+
+    Category 'system' is normally blocked, but daemon crashes are
+    operational-critical so we pass force=True. The notify() helper's
+    rate-limiter still applies (no spam if a daemon restart-loops).
+
+    Returns True on successful Telegram delivery, False on miss.
+    Always best-effort — daemon crash handling must not depend on
+    Telegram availability.
+    """
+    msg = f"Daemon crashed: {daemon}"
+    if tick_id:
+        msg += f" (tick {tick_id})"
+    msg += f"\n\nError: {error[:500]}"
+    try:
+        return notify(msg, category="system", silent=False, force=True)
+    except Exception:
+        # Telegram itself can fail (network, token expiry); don't let
+        # a notify failure cascade into the daemon's own error path.
+        return False
+
+
 # Quick test
 if __name__ == "__main__":
     msg = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else "Bravo notification system online."
