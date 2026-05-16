@@ -237,8 +237,9 @@ Browser Harness is installed as Bravo's direct Chrome/Edge control layer. It com
 | **n8n (build/modify)** | n8n-mcp SDK flow | — | `get_sdk_reference`, `search_nodes`, `get_node_types`, `validate_workflow`, `create_workflow_from_code`, `update_workflow`, `archive_workflow`. Build canonical path — see `skills/n8n-mcp-integration` |
 | **Supabase** | `scripts/supabase_tool.py` | Supabase MCP (token expired) | `list-projects`, `list-tables`, `select`, `insert`, `update`, `delete`, `query` |
 | **Stripe** | `scripts/stripe_tool.py` | Stripe MCP (v0.3.1 proxy mode) | `balance`, `customers`, `products`, `invoices`, `subscriptions`, `charges` |
-| **Firecrawl** | `scripts/firecrawl_tool.py` | Firecrawl MCP (fallback) | `scrape`, `crawl`, `search`, `extract`, `map` |
-| **CloakBrowser** *(2026-05-15)* | `scripts/cloak_browser_tool.py` | Stealth Chromium 146 — drop-in Playwright. Mandatory tier when target has Cloudflare/DataDome/reCAPTCHA/etc. | `scrape`, `goto`, `check-stealth`, `binary-info`, `download`, `clear-cache` |
+| **research_fetch** *(2026-05-16, DEFAULT)* | `scripts/research_fetch.py` | Single tier-aware URL fetcher. Auto-escalates Firecrawl → CloakBrowser based on actual response + SQLite per-domain reputation memory at `state/site_reputation.db`. Skill: `skills/research-fetch/SKILL.md`. | `fetch <url>` (bare URL also works), `reputation [domain]`, `reputation-clear <domain>`, `--force-tier {firecrawl,cloak}` |
+| **Firecrawl** | `scripts/firecrawl_tool.py` | Firecrawl MCP (fallback). Use directly when you need crawl/extract/map/search; otherwise prefer `research_fetch`. | `scrape`, `crawl`, `search`, `extract`, `map` |
+| **CloakBrowser** *(2026-05-15)* | `scripts/cloak_browser_tool.py` | Stealth Chromium 146 — drop-in Playwright. Use directly for interactive `goto`/screenshot/check-stealth; otherwise `research_fetch` handles the escalation. | `scrape`, `goto`, `check-stealth`, `binary-info`, `download`, `clear-cache` |
 | **Browser Harness Doctor** | `scripts/browser_harness_doctor.py` | Browser Harness install/attach diagnostics | `[--json] [--strict]` |
 | **Browser Connect** | `scripts/browser_connect.py` | Attach to the running CDP browser and run scripted actions | `[--url URL] [--eval SNIPPET]` |
 | **Onboarding Diagnostics** | `scripts/onboarding_diagnostics.py` | Productized setup readiness check | `[--json]` |
