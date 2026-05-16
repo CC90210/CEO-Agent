@@ -16,6 +16,7 @@ SMS shipment to real leads.
 |---|---|---|---|
 | 2 | SMS dispatch skipped reservation idempotency pattern (concurrent send race) | `scripts/send_gateway.py` SMS branch | (this session) |
 | 5 | `/api/forms/view` missing tenant slug cross-check | `apps/command-center/app/api/forms/view/route.ts` | (this session) |
+| 3 | `one_per_lead` enrollment had no unique constraint (DB-level race) | `database/045_sequence_state_one_per_lead.sql` + `scripts/sequence_runner.py:_enroll_step` | 2026-05-15 evening |
 
 ## Still open — DO NOT enable real-lead SMS until these close
 

@@ -247,7 +247,23 @@ def _has_active_state(sb, sequence_id: str, lead_id: str) -> bool:
 
 
 def _enroll_step(sb, sequence: dict, lead_id: str, payload: dict, step_index: int) -> Optional[str]:
-    """Insert a sequence_state row. Returns the new row id on success."""
+    """Insert a sequence_state row. Returns the new row id on success.
+
+    Codex finding #3 fix (2026-05-15): the SELECT-then-INSERT pattern in
+    enrollment_tick can race against itself when two agent_events for the
+    same (sequence, lead) land in the same poll batch. Migration 045
+    (database/045_sequence_state_one_per_lead.sql) added a partial UNIQUE
+    index on (sequence_id, lead_id) WHERE status IN ('scheduled','failed').
+    A concurrent duplicate INSERT now raises a unique_violation that we
+    catch + treat as "already enrolled, no-op" — same outcome the
+    in-Python _has_active_state check would have produced, just enforced
+    at the DB layer where the race window is zero.
+
+    The unique_violation surfaces as a PostgrestAPIError carrying
+    code=23505. We don't bubble it up as an error; the second event
+    arriving for an already-enrolled lead is expected behavior and the
+    DB just refused the dupe. Other exceptions still log as failures.
+    """
     steps = sequence.get("steps") or []
     if step_index >= len(steps):
         return None
@@ -273,6 +289,12 @@ def _enroll_step(sb, sequence: dict, lead_id: str, payload: dict, step_index: in
         if r.data:
             return r.data[0]["id"]
     except Exception as e:
+        msg = str(e).lower()
+        # Postgres unique-violation = expected idempotency outcome.
+        # Anything else is a real failure.
+        if "23505" in msg or "unique" in msg or "duplicate key" in msg:
+            _log(f"enroll dedup (already active) seq={sequence.get('id')} lead={lead_id}")
+            return None
         _log(f"enroll insert failed seq={sequence.get('id')} lead={lead_id}: {e}")
     return None
 
