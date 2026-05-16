@@ -198,6 +198,13 @@ export async function POST(req: NextRequest) {
     (isLastStep && form.on_complete_stage) ||
     null;
 
+  // Round 3 R3-10: stage-transition failure used to swallow the error
+  // and return ok:true, hiding from the operator that the drip never
+  // fired. Now we capture the reason + surface it in the response so
+  // the public form page can flag a partial success and the operator
+  // sees in their /feed event tape that the lead landed but the
+  // pipeline didn't advance.
+  let stageWarning: { reason: string; target_stage: string } | null = null;
   if (targetStage) {
     try {
       await updateRecord({
@@ -208,15 +215,13 @@ export async function POST(req: NextRequest) {
       });
       appliedStage = targetStage;
     } catch (err) {
-      // Don't fail the submission because of a stage-transition issue —
-      // the prospect's data is already saved. Log + surface a warning
-      // in the response so the operator UI can flag it.
       const reason = err instanceof RecordsError ? err.code : "unknown";
       console.error("[forms.submit.stage_transition]", {
         lead_id: link.lead_id,
         target_stage: targetStage,
         reason,
       });
+      stageWarning = { reason, target_stage: targetStage };
     }
   }
 
@@ -226,5 +231,10 @@ export async function POST(req: NextRequest) {
     next_step: isLastStep ? null : stepIndex + 1,
     lead_stage: appliedStage,
     redirect_url: isLastStep ? form.redirect_url : null,
+    // Non-null when the prospect's submission landed but the lead's
+    // stage didn't advance — drip didn't fire, operator needs to look
+    // (typical causes: lead row was deleted between view + submit;
+    // entity_type mismatch from a manifest edit mid-flight).
+    stage_warning: stageWarning,
   });
 }
