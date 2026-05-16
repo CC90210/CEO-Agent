@@ -225,13 +225,21 @@ export async function updateRecord(input: UpdateRecordInput): Promise<TenantReco
 export async function deleteRecord(input: { tenant_id: string; entity: string; id: string }): Promise<void> {
   assertEntity(input.entity);
   const db = getServiceSupabase();
+  // Round 3 R3-9: ask for an exact row count so a no-op delete (id
+  // doesn't match, or tenant scope is wrong) surfaces as a "not_found"
+  // error instead of silently returning ok. Mirrors the pattern from
+  // commit fcec21d that closed the same gap on /api/sequences and
+  // /api/forms — the catch-all manifest DELETE route was missed.
   const result = await db
     .from("tenant_records")
-    .delete()
+    .delete({ count: "exact" })
     .eq("id", input.id)
     .eq("tenant_id", input.tenant_id)
     .eq("entity_type", input.entity);
   if (result.error) throw new RecordsError("db", result.error.message);
+  if (!result.count) {
+    throw new RecordsError("not_found", "record not found or not in tenant scope");
+  }
 }
 
 /** Convenience — group records by a top-level data key for kanban views. */

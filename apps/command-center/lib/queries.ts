@@ -29,6 +29,7 @@ import { KNOWN_INTEGRATIONS } from "./integrations-registry";
 import { operatorDateKey, operatorDayStartIso } from "./dates";
 import { getDbBackend } from "./db";
 import { isMissingTableError } from "./api-helpers";
+import { getTenantEnabledAgents } from "./manifest/tenant-scope";
 import {
   getTodayPlanTurso,
   recentLeadsTurso,
@@ -186,6 +187,17 @@ export async function todayCounts(tenantId: string) {
   // hitting Vercel UTC after 8pm see TOMORROW's counts instead of today's.
   const dayStart = operatorDayStartIso();
 
+  // Decisions + hot-alerts come from agent_decisions + agent_events,
+  // both of which are PRE-multi-tenant tables (no tenant_id column —
+  // tracked schema debt; see migration 017's docstring). Until the
+  // tenant_id columns + RLS land, scope by the tenant's enabled-agent
+  // set so a SunBiz operator never sees OASIS HQ Bravo's decision /
+  // alert counts on their stat cards.
+  //
+  // Empty agentNames → return 0 (safer than leaking — same posture
+  // recentDecisions / recentEvents already take).
+  const enabledAgents = await getTenantEnabledAgents(tenantId);
+
   const [outbound, inbound, decisions, hot] = await Promise.all([
     db
       .from("lead_interactions")
@@ -199,16 +211,22 @@ export async function todayCounts(tenantId: string) {
       .eq("tenant_id", tenantId)
       .in("type", ["email_received", "email_reply", "dm_received"])
       .gte("created_at", dayStart),
-    db
-      .from("agent_decisions")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", dayStart),
-    db
-      .from("agent_events")
-      .select("id", { count: "exact", head: true })
-      .eq("event_type", "inbound.classified")
-      .eq("severity", "warn")
-      .gte("published_at", dayStart),
+    enabledAgents.length === 0
+      ? Promise.resolve({ count: 0 })
+      : db
+          .from("agent_decisions")
+          .select("id", { count: "exact", head: true })
+          .in("agent_name", enabledAgents)
+          .gte("created_at", dayStart),
+    enabledAgents.length === 0
+      ? Promise.resolve({ count: 0 })
+      : db
+          .from("agent_events")
+          .select("id", { count: "exact", head: true })
+          .in("publisher_agent", enabledAgents)
+          .eq("event_type", "inbound.classified")
+          .eq("severity", "warn")
+          .gte("published_at", dayStart),
   ]);
 
   return {
@@ -464,12 +482,32 @@ export async function channelUtilization(tenantId: string) {
 export async function integrationsHealth(
   tenantId: string | null
 ): Promise<IntegrationHealth[]> {
+  // 2026-05-16 Round 3 R3-8: previously the function fell through when
+  // tenantId was null and returned every tenant's integration rows
+  // (cross-tenant leak on the "unconfigured" placeholder path). Now
+  // null returns an unconfigured-everywhere shape — same UX a real
+  // tenant with no rows would see, no leak.
   const db = getServiceSupabase();
-  const q = db
+  if (!tenantId) {
+    // Synthesize placeholders for every known integration so the UI
+    // still has something to render. Caller's behavior is preserved
+    // (every service shows "unconfigured") without scanning all tenants.
+    return KNOWN_INTEGRATIONS.map((integration) => ({
+      id: `placeholder-${integration.service}`,
+      profile_id: null,
+      tenant_id: null,
+      service: integration.service,
+      status: "unconfigured" as const,
+      last_ping_at: null,
+      metadata: {},
+      last_error: null,
+    })) as IntegrationHealth[];
+  }
+  const r = await db
     .from("integrations_health")
     .select("*")
+    .eq("tenant_id", tenantId)
     .order("service", { ascending: true });
-  const r = tenantId ? await q.eq("tenant_id", tenantId) : await q;
 
   const expected = KNOWN_INTEGRATIONS.map((integration) => integration.service);
   const existing = new Map(
