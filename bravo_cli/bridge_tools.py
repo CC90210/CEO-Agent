@@ -939,6 +939,204 @@ def _tool_underwriting_run(payload: dict) -> dict:
     }))
 
 
+def _tool_shop_out_send_batch(payload: dict) -> dict:
+    """{application_id: str} → fire send_gateway.send for every pending
+    application_lender_threads row.
+
+    Round 3 R3-4 / Codex production-readiness fix: /api/applications/[id]/
+    shop-out previously inserted rows at status='pending' but never
+    physically dispatched. The UI honestly said 'queued: N' but the
+    lender emails never went out. This handler closes that loop.
+
+    Per-thread dispatch:
+      1. Resolve the thread row (lender_id, subject, recipient).
+      2. Look up the lender's contact email from tenant_records.
+      3. Build the email body using the same template the planner
+         renders during the dry-run preview (kept on the thread row's
+         data jsonb when shop-out queued).
+      4. Subprocess scripts/send_gateway.py send --channel email
+         --agent-source manual_cc --to <lender> --subject ... --body ...
+         --lead-id <app's lead_id> --json. send_gateway enforces
+         CASL/cooldown/daily-cap automatically.
+      5. On success, capture gmail_thread_id (sent-message id), flip
+         status='sent', stamp sent_at.
+      6. On failure, capture the error in last_response_summary and
+         flip status='error'.
+
+    Bank statement attachments are intentionally NOT inlined yet —
+    send_gateway's CLI doesn't expose --attachments today. Following
+    up: extend send_gateway to accept --attachments <paths> for the
+    email channel. For Monday, the thread carries the bank statement
+    paths in its data jsonb so the operator can attach manually if
+    needed; for the smoke test we ship without attachments first to
+    verify the send path is healthy.
+    """
+    application_id = str(payload.get("application_id") or "").strip()
+    if not application_id:
+        return _err("missing 'application_id'")
+
+    bravo = _bravo_root()
+    try:
+        from supabase import create_client  # type: ignore
+        from scripts.lib.secret_loader import load_env  # type: ignore
+    except Exception:
+        sys.path.insert(0, str(bravo))
+        sys.path.insert(0, str(bravo / "scripts"))
+        from supabase import create_client  # type: ignore
+        from lib.secret_loader import load_env  # type: ignore
+
+    try:
+        env = load_env([
+            "BRAVO_SUPABASE_URL",
+            "BRAVO_SUPABASE_SERVICE_ROLE_KEY",
+        ])
+        sb = create_client(env["BRAVO_SUPABASE_URL"], env["BRAVO_SUPABASE_SERVICE_ROLE_KEY"])
+    except Exception as e:
+        return _err(f"supabase init failed: {e}")
+
+    # Fetch the application + its pending threads.
+    app_row = (
+        sb.table("tenant_records")
+        .select("id, tenant_id, data")
+        .eq("id", application_id)
+        .eq("entity_type", "application")
+        .maybeSingle()
+        .execute()
+    )
+    if not app_row.data:
+        return _err(f"application_id {application_id} not found in tenant_records")
+    tenant_id = app_row.data.get("tenant_id")
+    app_data = app_row.data.get("data") or {}
+    lead_id = app_data.get("lead_id")
+
+    threads = (
+        sb.table("application_lender_threads")
+        .select("id, lender_id, subject, body, recipient_email, status, data")
+        .eq("application_id", application_id)
+        .eq("tenant_id", tenant_id)
+        .eq("status", "pending")
+        .execute()
+    )
+    pending_rows = threads.data or []
+    if not pending_rows:
+        return _ok(json.dumps({
+            "ok": True,
+            "application_id": application_id,
+            "sent": 0,
+            "failed": 0,
+            "skipped_no_pending": True,
+        }))
+
+    sent_count = 0
+    failed_count = 0
+    failures: list[dict] = []
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    for thread in pending_rows:
+        recipient = thread.get("recipient_email")
+        subject = thread.get("subject") or "Funding application from SunBiz Funding"
+        body = thread.get("body") or ""
+        if not recipient:
+            # Pre-existing recipient-missing rows were inserted at
+            # status='error' upstream, but defensive — if any pending
+            # row lacks a recipient, mark error and skip dispatch.
+            sb.table("application_lender_threads").update({
+                "status": "error",
+                "last_response_summary": "missing recipient_email",
+                "updated_at": now_iso,
+            }).eq("id", thread["id"]).execute()
+            failed_count += 1
+            failures.append({"thread_id": thread["id"], "reason": "missing_recipient"})
+            continue
+
+        send_args = [
+            "scripts/send_gateway.py", "send",
+            "--channel", "email",
+            "--agent-source", "manual_cc",
+            "--to", recipient,
+            "--subject", subject,
+            "--body", body,
+            "--json",
+        ]
+        if lead_id:
+            send_args.extend(["--lead-id", str(lead_id)])
+
+        send_res = _run_script(send_args)
+        if not send_res.get("ok"):
+            failures.append({
+                "thread_id": thread["id"],
+                "lender_id": thread.get("lender_id"),
+                "reason": f"send_gateway failed: {send_res.get('content','')[:300]}",
+            })
+            sb.table("application_lender_threads").update({
+                "status": "error",
+                "last_response_summary": (send_res.get("content") or "send_gateway failed")[:500],
+                "updated_at": now_iso,
+            }).eq("id", thread["id"]).execute()
+            failed_count += 1
+            continue
+
+        # send_gateway returns its own JSON shape on success. The
+        # gmail_thread_id (or twilio message_sid for SMS channels) is
+        # in the result.message_id field.
+        try:
+            sg = json.loads(send_res.get("content", "{}"))
+            status = sg.get("status")
+            if status == "sent":
+                gmail_thread_id = sg.get("gmail_thread_id") or sg.get("message_id") or None
+                sb.table("application_lender_threads").update({
+                    "status": "sent",
+                    "gmail_thread_id": gmail_thread_id,
+                    "sent_at": now_iso,
+                    "updated_at": now_iso,
+                }).eq("id", thread["id"]).execute()
+                sent_count += 1
+            elif status == "suppressed":
+                # CASL opt-out — flip to a terminal state so the
+                # classifier daemon doesn't keep polling.
+                sb.table("application_lender_threads").update({
+                    "status": "suppressed",
+                    "last_response_summary": f"CASL suppressed: {sg.get('reason','')}",
+                    "updated_at": now_iso,
+                }).eq("id", thread["id"]).execute()
+                failed_count += 1
+                failures.append({"thread_id": thread["id"], "reason": f"suppressed: {sg.get('reason','')}"})
+            elif status == "blocked":
+                # Cooldown — leave as pending so a future re-run picks
+                # it up after cooldown_until.
+                failures.append({
+                    "thread_id": thread["id"],
+                    "reason": f"cooldown until {sg.get('cooldown_until','?')}",
+                })
+                failed_count += 1
+            else:
+                # Unknown status — log and treat as error.
+                sb.table("application_lender_threads").update({
+                    "status": "error",
+                    "last_response_summary": f"send_gateway returned: {status}",
+                    "updated_at": now_iso,
+                }).eq("id", thread["id"]).execute()
+                failed_count += 1
+                failures.append({"thread_id": thread["id"], "reason": f"status={status}"})
+        except json.JSONDecodeError as e:
+            sb.table("application_lender_threads").update({
+                "status": "error",
+                "last_response_summary": f"send_gateway returned non-JSON: {e}",
+                "updated_at": now_iso,
+            }).eq("id", thread["id"]).execute()
+            failed_count += 1
+            failures.append({"thread_id": thread["id"], "reason": "non_json_response"})
+
+    return _ok(json.dumps({
+        "ok": True,
+        "application_id": application_id,
+        "sent": sent_count,
+        "failed": failed_count,
+        "total_pending": len(pending_rows),
+        "failures": failures[:20],
+    }))
+
+
 TOOL_REGISTRY: dict[str, Callable[[dict], dict]] = {
     "read_file": _tool_read_file,
     "write_file": _tool_write_file,
@@ -955,6 +1153,7 @@ TOOL_REGISTRY: dict[str, Callable[[dict], dict]] = {
     "firecrawl": _tool_firecrawl,
     "notebooklm": _tool_notebooklm,
     "underwriting_run": _tool_underwriting_run,
+    "shop_out_send_batch": _tool_shop_out_send_batch,
 }
 
 
