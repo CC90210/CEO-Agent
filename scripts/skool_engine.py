@@ -2639,6 +2639,22 @@ def cmd_daemon(args):
                     except Exception:
                         pass
 
+                    # Phase 7.4 — push a heartbeat to integrations_health so
+                    # the dashboard's Background Workers panel renders the
+                    # Skool daemon as healthy. Before this the panel showed
+                    # "Standalone (NOT in PM2)" + "unconfigured" status even
+                    # though the daemon was running fine; the row stays
+                    # 'unconfigured' until something pings the table.
+                    try:
+                        from integration_health import ping as _ih_ping  # type: ignore
+                        _ih_ping(
+                            "skool_engine",
+                            status="healthy",
+                            metadata={"pid": os.getpid(), "cycle": cycle, "interval_min": interval},
+                        )
+                    except Exception:
+                        pass
+
                     try:
                         cmd_auto(args, page=page, ctx=ctx)
                         consecutive_failures = 0
