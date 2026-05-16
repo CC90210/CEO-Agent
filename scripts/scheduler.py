@@ -184,6 +184,8 @@ def execute_job(job: dict, env_vars: dict[str, str]) -> str:
             return run_daily_brief(env_vars)
         elif action_type == "auto_score_leads":
             return run_auto_score_leads(env_vars)
+        elif action_type == "snapshot_run":
+            return run_snapshot(config)
         else:
             # Round 3 R3-12: previously this returned a plain string
             # which scheduler.py's caller treats as success and stamps
@@ -427,6 +429,59 @@ def run_daily_brief(_env_vars: dict) -> str:
         return "ERROR: daily_brief returned empty output"
     first_line = out.strip().splitlines()[0]
     return f"sent: {first_line[:120]}"
+
+
+def run_snapshot(config: dict) -> str:
+    """Generic snapshot_run handler — invokes the Python script named in
+    action_config['script'] with action_config['args'] as argv.
+
+    Used by three SEED_JOBS today (Daily Briefing, Weekly Qualified-Leads,
+    Daily Client Alerts) — all of which produce state/snapshots/latest_*.json
+    files for the Prep Table layer. Before this handler existed they were
+    landing in the dashboard's Automations panel as
+    "ERROR: unknown_action_type:snapshot_run".
+
+    action_config shape:
+      {"script": "scripts/snapshots/briefing_snapshot.py", "args": ["--min-score", "60"]}
+
+    Returns the script's stdout (first line) on success, or "ERROR: ..." on
+    failure so cron_jobs.last_result drives the red/green badge.
+    """
+    script = config.get("script", "")
+    args = config.get("args") or []
+    if not script or not isinstance(script, str):
+        return "ERROR: snapshot_run config missing 'script' path"
+    if not isinstance(args, list):
+        return "ERROR: snapshot_run config 'args' must be a list"
+
+    # Resolve script path. SEED_JOBS use the repo-relative path
+    # "scripts/snapshots/briefing_snapshot.py"; run_script() expects just
+    # the filename + directory under SCRIPTS_DIR. Build the full command
+    # inline so subdirectory scripts work without overloading run_script.
+    full_path = PROJECT_ROOT / script
+    if not full_path.exists():
+        return f"ERROR: snapshot_run script not found: {script}"
+
+    try:
+        result = subprocess.run(
+            [PYTHON, str(full_path), *[str(a) for a in args]],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=300,
+            cwd=str(PROJECT_ROOT),
+            creationflags=CREATE_NO_WINDOW,
+        )
+    except subprocess.TimeoutExpired:
+        return f"ERROR: snapshot_run timed out (300s): {script}"
+    except Exception as exc:  # noqa: BLE001
+        return f"ERROR: snapshot_run failed: {exc}"
+
+    if result.returncode != 0:
+        err = (result.stderr or result.stdout or "non-zero exit").strip()[:300]
+        return f"ERROR: snapshot_run exit {result.returncode}: {err}"
+    out = (result.stdout or "").strip().splitlines()
+    return out[-1][:200] if out else "ok"
 
 
 def run_auto_score_leads(_env_vars: dict) -> str:

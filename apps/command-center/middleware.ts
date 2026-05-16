@@ -58,17 +58,15 @@ function isPublic(pathname: string): boolean {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Phase 6b — redirect removed-from-nav routes to their new homes.
-  // The Phase 2 redesign collapsed 13 nav entries to 7; the merged
-  // pages (Reasoning, Event Feed, Health, Overrides, Playbook,
-  // Integrations) still resolve at their old URLs because of phase
-  // 1's conservative "don't break bookmarks" rule, but they land at
-  // their new homes now so the dashboard's behaviour matches its nav.
-  // /health and /overrides stay reachable at their own URLs because
-  // the Operations banner deep-links to them — only the obviously-
-  // folded ones redirect.
+  // Phase 6b/7 — redirect routes still folded into bigger surfaces.
+  // Reasoning + Health + Overrides came back to top-level nav in
+  // Phase 7 (CC found the Phase 2 trim too aggressive). The remaining
+  // three really are merged elsewhere and shouldn't be reachable at
+  // their old URLs:
+  //   /feed → /operations         (Activity Tape is the same stream)
+  //   /playbook → /settings       (reference under Settings)
+  //   /integrations → /settings   (setup under Settings)
   const REDIRECT_MAP: Record<string, string> = {
-    "/reasoning": "/agents",
     "/feed": "/operations",
     "/playbook": "/settings",
     "/integrations": "/settings",
