@@ -7,7 +7,7 @@
  * then redirects to the editor for the operator to flesh out.
  */
 
-import { PageHeader, Tag } from "@/components/Card";
+import { PageHeader } from "@/components/Card";
 import { getActiveProfile } from "@/lib/queries";
 import { getSessionUser, getServiceSupabase } from "@/lib/supabase-server";
 import { safe, isMissingTableError } from "@/lib/api-helpers";
@@ -59,7 +59,6 @@ export default async function FormsPage() {
       <PageHeader
         title="Forms"
         subtitle="First-party forms with personalized lead links. Built-in replacement for JotForm + similar 3rd-party intake."
-        action={<Tag tone="accent">Phase 3</Tag>}
       />
 
       {!result.ok && result.reason === "no_tenant" && (

@@ -155,12 +155,14 @@ export default async function TenantCatchAllPage({
       <PageHeader
         title={pageDef.label}
         subtitle={renderSubtitle(manifest.brand.name, pageDef)}
-        action={
-          <div className="flex items-center gap-2">
-            {isPreview && <Tag tone="warm">preview</Tag>}
-            <Tag tone="accent">{pageDef.kind}</Tag>
-          </div>
-        }
+        // Only the preview-mode tag is operator-relevant here. The
+        // page.kind tag ("kanban" / "table" / "form") used to live in
+        // this slot but was a leak of internal manifest vocabulary
+        // into the operator UI — operators asked "what does kanban
+        // mean? is that a signal reference?" The view toggle below
+        // the header already exposes the kanban-vs-table choice
+        // visually, so the tag was redundant on top of being confusing.
+        action={isPreview ? <Tag tone="warm">preview</Tag> : null}
       />
       {isPreview && (
         <div className="rounded-2xl border border-amber-300/25 bg-amber-300/10 p-4 text-sm leading-relaxed text-amber-100">
