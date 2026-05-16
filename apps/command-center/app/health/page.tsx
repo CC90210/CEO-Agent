@@ -194,7 +194,7 @@ export default async function HealthPage() {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="System health"
-        subtitle="Errors, failed crons, stuck threads, and leads that haven't moved in 14 days. One pane to know if anything needs you."
+        subtitle="Four things that might need you. Green tiles mean everything in that bucket is fine. Hover each one for plain-English context."
         action={
           overallHealthy ? (
             <Tag tone="engaged">
@@ -207,36 +207,45 @@ export default async function HealthPage() {
         }
       />
 
-      {/* ── Tile grid ──────────────────────────────────────────── */}
+      {/* ── Tile grid — Phase 10.1 each tile has an explanatory hint so
+          CC doesn't have to translate the developer jargon ("stuck
+          shop-outs", "stale leads") into "what does this mean for me". */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <HealthTile
-          label="Errors (24h)"
+          label="Errors today"
           count={recentErrors.length}
           icon={<AlertCircle className="w-4 h-4" />}
           tone={recentErrors.length === 0 ? "engaged" : "warm"}
+          hint="Things that broke or threw a warning in the last 24 hours — daemon crashes, API failures, anything an agent flagged as wrong."
         />
         <HealthTile
-          label="Failed crons"
+          label="Failed automations"
           count={failedCrons.length}
           icon={<AlertTriangle className="w-4 h-4" />}
           tone={failedCrons.length === 0 ? "engaged" : "warm"}
+          hint="Scheduled jobs (Daily Brief, lead scoring, etc.) whose last run errored. Fix the underlying script or pause the job."
         />
         <HealthTile
-          label="Stuck shop-outs (>7d)"
+          label="Quiet shop-outs"
           count={stuckThreads.length}
           icon={<Clock className="w-4 h-4" />}
           tone={stuckThreads.length === 0 ? "engaged" : "accent"}
+          hint="Emails sent to lenders more than 7 days ago with no reply yet. Worth a chase call or a polite close-loop note."
         />
         <HealthTile
-          label="Stale leads (>14d)"
+          label="Cold leads"
           count={stuckLeads.length}
           icon={<Activity className="w-4 h-4" />}
           tone={stuckLeads.length === 0 ? "engaged" : "accent"}
+          hint="Leads in the pipeline that haven't been touched in 2+ weeks. Either the drip should have moved them, or you need to disposition them (won / lost / pass)."
         />
       </div>
 
       {/* ── Error events ────────────────────────────────────────── */}
-      <Card title={`Recent errors / warnings`} subtitle="Last 24h from agent_events">
+      <Card
+        title="Recent errors / warnings"
+        subtitle="Anything that broke or threw a warning in the last 24 hours. Daemons, APIs, classifiers — they all report here when they fail."
+      >
         {recentErrors.length === 0 ? (
           <div className="text-sm text-fg-muted">No errors or warnings in the last 24 hours.</div>
         ) : (
@@ -269,7 +278,10 @@ export default async function HealthPage() {
       </Card>
 
       {/* ── Failed crons ────────────────────────────────────────── */}
-      <Card title="Failed crons" subtitle="Crons whose last run errored. Fix the underlying handler or disable the job.">
+      <Card
+        title="Failed automations"
+        subtitle="Scheduled jobs whose last run errored — either the script failed, the handler is missing, or an upstream service was down. Either fix it or pause the job from /automations."
+      >
         {failedCrons.length === 0 ? (
           <div className="text-sm text-fg-muted">Every cron's last run completed cleanly.</div>
         ) : (
@@ -298,7 +310,10 @@ export default async function HealthPage() {
       </Card>
 
       {/* ── Stuck lender threads ────────────────────────────────── */}
-      <Card title="Stuck shop-outs" subtitle="Sent >7 days ago with no reply yet. Operator should chase or close-loop.">
+      <Card
+        title="Quiet shop-outs"
+        subtitle="Emails you sent to lenders more than a week ago that haven't gotten a reply. Worth a chase call or a polite 'still alive?' nudge — leaving them hanging burns the relationship."
+      >
         {stuckThreads.length === 0 ? (
           <div className="text-sm text-fg-muted">No shop-outs stuck past 7 days.</div>
         ) : (
@@ -332,7 +347,10 @@ export default async function HealthPage() {
       </Card>
 
       {/* ── Stale leads ─────────────────────────────────────────── */}
-      <Card title="Stale leads (>14d)" subtitle="Leads whose last update is more than two weeks old. Drips should have moved them or operator should disposition.">
+      <Card
+        title="Cold leads (>14d)"
+        subtitle="Leads in the pipeline you haven't touched in 2+ weeks. Either your drip sequence should have moved them along, or it's time to disposition them — won, lost, or pass."
+      >
         {stuckLeads.length === 0 ? (
           <div className="text-sm text-fg-muted">Pipeline is moving — no leads stale past 14 days.</div>
         ) : (
@@ -376,11 +394,13 @@ function HealthTile({
   count,
   icon,
   tone,
+  hint,
 }: {
   label: string;
   count: number;
   icon: React.ReactNode;
   tone: "engaged" | "warm" | "accent";
+  hint?: string;
 }) {
   const toneClasses =
     tone === "engaged"
@@ -389,12 +409,17 @@ function HealthTile({
         ? "border-status-warm/40 bg-status-warm/5 text-status-warm"
         : "border-accent/40 bg-accent/5 text-accent";
   return (
-    <div className={`rounded-xl border p-4 ${toneClasses}`}>
+    <div className={`rounded-xl border p-4 ${toneClasses}`} title={hint}>
       <div className="flex items-center justify-between">
         <span className="text-[10px] uppercase tracking-wider font-bold opacity-70">{label}</span>
         {icon}
       </div>
       <div className="mt-2 text-3xl font-bold">{count}</div>
+      {hint && (
+        <div className="mt-2 text-[11px] leading-snug opacity-75 font-normal normal-case tracking-normal">
+          {hint}
+        </div>
+      )}
     </div>
   );
 }
