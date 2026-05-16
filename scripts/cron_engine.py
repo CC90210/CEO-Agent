@@ -106,6 +106,19 @@ SEED_JOBS: list[dict] = [
         "is_active": True,
     },
     {
+        # Phase 10.2 — Morning Pow Wow Call. Claude drafts a ~120-word
+        # motivational/flirty monologue, ElevenLabs renders it in Aura's
+        # voice, Telegram sendVoice ships it as an inline voicemail at
+        # 08:00 every morning. Cost ~$0.02/day. CC opts in/out via the
+        # standard toggle.
+        "name": "Morning Pow Wow Call",
+        "description": "Daily 8 a.m. voice note from Aura — a ~120-word motivational + flirty kickoff monologue delivered as a Telegram voice message. Cost ~$0.02/day (Claude draft + ElevenLabs TTS).",
+        "schedule": "0 8 * * *",
+        "action_type": "morning_powwow",
+        "action_config": {"voice": "aura"},
+        "is_active": True,
+    },
+    {
         "name": "Booking Reminders",
         "description": "Send reminders for tomorrow's bookings",
         "schedule": "0 18 * * *",
