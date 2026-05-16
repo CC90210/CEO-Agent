@@ -1,0 +1,16 @@
+{
+  "lead_scoring": [
+    "name",
+    "company",
+    "email",
+    "phone",
+    "source",
+    "stage",
+    "score",
+    "value_estimate",
+    "last_contacted_at",
+    "notes",
+    "title",
+    "role"
+  ]
+}

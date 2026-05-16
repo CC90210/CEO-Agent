@@ -60,30 +60,14 @@ THROTTLE_SEC = 1.0  # gap between Anthropic calls so we don't burst-rate-limit
 # --tenant-slug or the EMPIRE_TENANT_SLUG env var if the operator moves.
 DEFAULT_OASIS_SLUG = "oasis-ai-cc"
 
-# Mirror of lib/ai-lead-scoring.ts SYSTEM_PROMPT. Keep in lockstep — a
-# divergence here means the manual button and the cron produce different
-# scores on the same lead.
-SYSTEM_PROMPT = """You are an AI lead-quality scorer for OASIS AI, a custom AI agent build service. CC sells managed AI agents to small business owners, agencies, landlords, and operators — typically $2,500-$10,000 build fees + $500-$3,000/month retainers.
-
-For each lead, you return a JSON object with two fields:
-  score: integer 0-100, weighing (a) ICP fit, (b) likelihood of closing soon, (c) urgency / signal strength
-  reasoning: 1-2 short sentences explaining the score. Cite the specific data point that drove it.
-
-Scoring guide:
-  90-100  Strong ICP fit + active intent + budget signal + named timeline
-  70-89   ICP fit + warm signal (replied to outreach, attended a call, asked for pricing)
-  50-69   Looks like ICP but cold — no engagement yet, or unclear budget
-  30-49   Wrong ICP shape but possibly viable (size, industry, or budget mismatch)
-  10-29   Weak fit, low engagement, no signal
-  0-9     Not an OASIS customer (consumer, student, competitor, irrelevant)
-
-Be honest. A score of 65 is more useful than an inflated 85. If the data is sparse, lean toward 40-50 and say "limited signal" in the reasoning.
-
-Output ONLY a single JSON object on one line — no markdown, no prose, no code fence."""
-
-INCLUDED_FIELDS = ["name", "company", "email", "phone", "source", "stage",
-                   "score", "value_estimate", "last_contacted_at", "notes",
-                   "title", "role"]
+# Single source of truth for both the prompt + allowlist. The TypeScript
+# dashboard reads the same files via lib/prompts/index.ts so the manual
+# "Score with AI" button and this cron path produce identical scores.
+PROMPTS_DIR = PROJECT_ROOT / "apps" / "command-center" / "lib" / "prompts"
+SYSTEM_PROMPT = (PROMPTS_DIR / "oasis-lead-scoring.txt").read_text(encoding="utf-8").strip()
+INCLUDED_FIELDS = json.loads(
+    (PROMPTS_DIR / "included-fields.json").read_text(encoding="utf-8")
+)["lead_scoring"]
 
 # Stages worth scoring. Closed-out leads stay frozen at their last score.
 SCORABLE_STAGES = {"new", "contacted", "qualified", "proposal", "negotiation"}
