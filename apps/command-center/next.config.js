@@ -36,6 +36,15 @@ const nextConfig = {
   // daemon's cookie store) during 'Collecting build traces', failing builds
   // with EBUSY. App is fully self-contained anyway.
   outputFileTracingRoot: path.join(__dirname),
+  // Force-include the shared AI prompt files. lib/prompts/index.ts reads
+  // these at module init via fs.readFileSync(process.cwd()/lib/prompts/...).
+  // Next.js's static tracer doesn't follow runtime-built paths, so without
+  // an explicit include the .txt + .json files don't ship to Vercel and
+  // the AI scoring API route 500s on cold start with "ENOENT".
+  outputFileTracingIncludes: {
+    "/api/leads/*/score": ["./lib/prompts/**/*"],
+    "/api/leads/*/next-action": ["./lib/prompts/**/*"],
+  },
   // V6.0 Docker deployment — produce .next/standalone with a self-contained
   // server.js + trimmed node_modules. Required by infra/Dockerfile.commandcenter.
   // No effect on Vercel (Vercel uses its own builder; this just enables an
