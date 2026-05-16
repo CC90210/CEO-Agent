@@ -196,54 +196,59 @@ def _reputation_record(domain: str, tier: str, succeeded: bool) -> None:
 
 # ── Tier callers ─────────────────────────────────────────────────────────────
 
-def _call_firecrawl(url: str) -> dict:
-    """Invoke scripts/firecrawl_tool.py scrape <url> --json. Returns a normalized dict."""
-    cmd = [sys.executable, str(SCRIPTS_DIR / "firecrawl_tool.py"), "scrape", url, "--json"]
+_EMPTY_TIER = {"ok": False, "status": None, "text": "", "title": None, "final_url": None}
+
+
+def _run_tier_subprocess(tier_name: str, argv: list[str], timeout: int) -> dict:
+    """Shared subprocess + JSON parse boilerplate for tier callers.
+
+    Returns (parsed_json, None) on success or ({error_payload}, error_string) on failure.
+    Caller normalizes parsed_json into the common response shape.
+    """
     try:
         proc = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=TIER_TIMEOUT_SECONDS,
+            argv, capture_output=True, text=True, timeout=timeout,
             encoding="utf-8", errors="replace",
         )
     except subprocess.TimeoutExpired:
-        return {"ok": False, "error": "firecrawl timeout", "status": None, "text": "", "title": None, "final_url": None}
+        return {**_EMPTY_TIER, "error": f"{tier_name} timeout", "_parsed": None}
     if proc.returncode != 0:
-        return {"ok": False, "error": (proc.stderr or proc.stdout or "firecrawl nonzero exit")[:300], "status": None, "text": "", "title": None, "final_url": None}
+        err = (proc.stderr or proc.stdout or f"{tier_name} nonzero exit")[:300]
+        return {**_EMPTY_TIER, "error": err, "_parsed": None}
     try:
-        raw = json.loads(proc.stdout)
+        return {"ok": True, "_parsed": json.loads(proc.stdout)}
     except json.JSONDecodeError:
-        return {"ok": False, "error": "firecrawl returned non-json", "status": None, "text": "", "title": None, "final_url": None}
-    md = raw.get("markdown") or raw.get("text") or ""
+        return {**_EMPTY_TIER, "error": f"{tier_name} returned non-json", "_parsed": None}
+
+
+def _call_firecrawl(url: str) -> dict:
+    """Invoke scripts/firecrawl_tool.py scrape <url> --json. Returns a normalized dict."""
+    argv = [sys.executable, str(SCRIPTS_DIR / "firecrawl_tool.py"), "scrape", url, "--json"]
+    out = _run_tier_subprocess("firecrawl", argv, TIER_TIMEOUT_SECONDS)
+    raw = out.pop("_parsed", None)
+    if raw is None:
+        return out
     metadata = raw.get("metadata") or {}
-    status = metadata.get("statusCode") or metadata.get("status")
-    title = metadata.get("title") or metadata.get("ogTitle")
-    final_url = metadata.get("url") or metadata.get("sourceURL") or url
     return {
         "ok": True,
-        "status": status,
-        "text": md,
-        "title": title,
-        "final_url": final_url,
+        "status": metadata.get("statusCode") or metadata.get("status"),
+        "text": raw.get("markdown") or raw.get("text") or "",
+        "title": metadata.get("title") or metadata.get("ogTitle"),
+        "final_url": metadata.get("url") or metadata.get("sourceURL") or url,
         "raw_metadata": metadata,
     }
 
 
 def _call_cloak(url: str, timeout: int) -> dict:
     """Invoke scripts/cloak_browser_tool.py scrape <url> --json. Returns a normalized dict."""
-    cmd = [
+    argv = [
         sys.executable, str(SCRIPTS_DIR / "cloak_browser_tool.py"),
         "scrape", url, "--json", "--timeout", str(timeout),
     ]
-    try:
-        proc = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout + 30,
-            encoding="utf-8", errors="replace",
-        )
-    except subprocess.TimeoutExpired:
-        return {"ok": False, "error": "cloak timeout", "status": None, "text": "", "title": None, "final_url": None}
-    try:
-        raw = json.loads(proc.stdout)
-    except json.JSONDecodeError:
-        return {"ok": False, "error": "cloak returned non-json", "status": None, "text": "", "title": None, "final_url": None}
+    out = _run_tier_subprocess("cloak", argv, timeout + 30)
+    raw = out.pop("_parsed", None)
+    if raw is None:
+        return out
     return {
         "ok": bool(raw.get("ok")),
         "status": raw.get("status"),
