@@ -22,19 +22,27 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SNAPSHOT_DIR = PROJECT_ROOT / "state" / "snapshots"
 TIMEOUT_SEC = 60
+sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 DEFAULT_MIN_SCORE = 60
 
 
 def _call(args: list[str]) -> dict | list | None:
+    # Phase 9.4 — suppress the console window the subprocess would
+    # otherwise pop when triggered by the empire scheduler.
+    try:
+        from _subprocess_helpers import WINDOWLESS_FLAGS  # type: ignore
+    except ImportError:
+        WINDOWLESS_FLAGS = 0x08000000 if sys.platform == "win32" else 0
     try:
         result = subprocess.run(
-            ["python", *args],
+            [sys.executable, *args],
             capture_output=True,
             text=True,
             timeout=TIMEOUT_SEC,
             cwd=str(PROJECT_ROOT),
             encoding="utf-8",
             errors="replace",
+            creationflags=WINDOWLESS_FLAGS,
         )
     except (subprocess.TimeoutExpired, OSError) as e:
         return {"_error": str(e)}

@@ -69,6 +69,78 @@ export default async function AutomationsPage() {
         <Clock className="w-4 h-4 text-fg-dim shrink-0 mt-0.5 hidden sm:block" />
       </div>
 
+      {/* Phase 9.5 — "How automations work" expander. CC asked: where do
+          these run, who pays for them, where does the output go. Short
+          answer in plain English, behind a one-click open so it doesn't
+          clutter the daily-use view. */}
+      <details className="rounded-xl border border-bg-border bg-bg-elev/30 p-4 text-sm">
+        <summary className="cursor-pointer select-none flex items-center gap-2 text-fg font-bold">
+          <span className="inline-block">▸</span>
+          How do these automations work? (cost, output, what runs where)
+        </summary>
+        <div className="mt-3 space-y-3 text-fg-muted leading-relaxed">
+          <p>
+            <span className="text-fg font-bold">Where they run.</span> Each
+            automation is a Python script in <code className="font-mono text-fg-dim">scripts/</code>{" "}
+            on YOUR machine. The local bridge daemon
+            (<code className="font-mono text-fg-dim">bravo-scheduler</code> in PM2) polls
+            this list every 60 seconds and fires due jobs as background
+            subprocesses — no terminal windows pop up, nothing leaves your
+            laptop unless the script itself makes an API call.
+          </p>
+          <p>
+            <span className="text-fg font-bold">Cost model.</span> Most jobs
+            are free (Supabase reads, Stripe webhook sync, file snapshots).
+            The ones that cost money are the AI-narrated ones — Daily Bravo
+            Brief and OASIS Auto-Score Leads both call Claude Sonnet (~$0.25/day
+            for the brief, ~$0.01 per scored lead). Anything that hits Stripe
+            or Twilio uses your accounts directly. Nothing is metered by us.
+          </p>
+          <p>
+            <span className="text-fg font-bold">Where output goes.</span>{" "}
+            Three destinations depending on the job:
+          </p>
+          <ul className="ml-5 space-y-1.5 list-disc">
+            <li>
+              <span className="text-fg font-medium">Telegram</span> — Daily
+              Brief, Lead Follow-up alerts, daemon crash alerts. Goes to
+              the chat IDs in your <code className="font-mono text-fg-dim">TELEGRAM_ALLOWED_USERS</code>{" "}
+              env. If you&apos;re not seeing messages, that var isn&apos;t set
+              or the chat ID doesn&apos;t include you.
+            </li>
+            <li>
+              <span className="text-fg font-medium">Local files</span> —
+              snapshot jobs write to <code className="font-mono text-fg-dim">state/snapshots/latest_*.json</code>{" "}
+              for the agents to read later. These don&apos;t notify anyone;
+              they&apos;re the &quot;Prep Table&quot; layer.
+            </li>
+            <li>
+              <span className="text-fg font-medium">Supabase</span> — Stripe
+              sync writes to <code className="font-mono text-fg-dim">revenue_events</code>;
+              the auto-scorer updates <code className="font-mono text-fg-dim">tenant_records.data.ai_score</code>.
+              You see these reflected on Today / Pipeline / Health.
+            </li>
+          </ul>
+          <p>
+            <span className="text-fg font-bold">Toggle behaviour.</span>{" "}
+            Flipping the On / Off switch on any row updates{" "}
+            <code className="font-mono text-fg-dim">cron_jobs.is_active</code>{" "}
+            (empire) or <code className="font-mono text-fg-dim">tenant_cron_jobs.enabled</code>{" "}
+            (tenant). The scheduler checks this on every 60-second poll —
+            disabled jobs stay in the list but stop firing within one cycle.
+            No restart needed.
+          </p>
+          <p>
+            <span className="text-fg font-bold">Empire vs tenant.</span>{" "}
+            Empire jobs (locked badge) come from <code className="font-mono text-fg-dim">scripts/cron_engine.py
+            SEED_JOBS</code> and only the on/off toggle is operator-controlled —
+            schedule + action stay locked to the code. Tenant jobs are
+            anything you create via &quot;+ New automation&quot; — fully
+            editable.
+          </p>
+        </div>
+      </details>
+
       {profile ? (
         <>
           <CronJobsManager
