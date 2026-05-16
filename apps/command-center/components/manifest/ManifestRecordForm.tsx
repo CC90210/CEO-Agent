@@ -436,14 +436,46 @@ function JsonField({
     return "";
   });
 
-  function commitRows(next: { key: string; value: string }[]) {
-    setRows(next);
+  /** Serialize the row list back to a JSON object (drops empty keys). */
+  function rowsToObject(list: { key: string; value: string }[]): Record<string, string> {
     const obj: Record<string, string> = {};
-    for (const r of next) {
+    for (const r of list) {
       if (!r.key.trim()) continue;
       obj[r.key.trim()] = r.value;
     }
-    onChange(obj);
+    return obj;
+  }
+
+  function commitRows(next: { key: string; value: string }[]) {
+    setRows(next);
+    onChange(rowsToObject(next));
+  }
+
+  /** Switch to Advanced (raw JSON) — seed the textarea from current rows
+   *  so the operator's in-progress Simple edits don't disappear. */
+  function enterRawMode() {
+    setRawText(JSON.stringify(rowsToObject(rows), null, 2));
+    setRawMode(true);
+  }
+
+  /** Switch back to Simple — re-parse the current rawText into rows so
+   *  edits made in Advanced view show up. If the JSON is malformed,
+   *  keep rows as-is (operator will see the parse error on submit). */
+  function exitRawMode() {
+    try {
+      const parsed = JSON.parse(rawText);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        const next = Object.entries(parsed as Record<string, unknown>).map(([k, v]) => ({
+          key: k,
+          value: typeof v === "string" ? v : JSON.stringify(v),
+        }));
+        setRows(next);
+        onChange(parsed);
+      }
+    } catch {
+      // Malformed JSON — leave rows alone; operator can fix in Advanced.
+    }
+    setRawMode(false);
   }
 
   if (rawMode) {
@@ -453,7 +485,7 @@ function JsonField({
           {label}
           <button
             type="button"
-            onClick={() => setRawMode(false)}
+            onClick={exitRawMode}
             className="text-[10px] uppercase tracking-wider text-fg-dim hover:text-fg inline-flex items-center gap-1"
           >
             <X className="h-3 w-3" /> Simple
@@ -484,7 +516,7 @@ function JsonField({
         {label}
         <button
           type="button"
-          onClick={() => setRawMode(true)}
+          onClick={enterRawMode}
           className="text-[10px] uppercase tracking-wider text-fg-dim hover:text-fg inline-flex items-center gap-1"
           title="Switch to raw JSON for nested structures"
         >

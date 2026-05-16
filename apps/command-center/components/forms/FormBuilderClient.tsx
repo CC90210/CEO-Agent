@@ -181,6 +181,16 @@ export function FormBuilderClient({ initialForm }: Props) {
     <div className="grid lg:grid-cols-2 gap-6">
       {/* ── Left: editor ──────────────────────────────────────────── */}
       <div className="space-y-5">
+        <div className="rounded-xl border border-accent/30 bg-accent/5 p-3 text-xs text-fg-muted flex items-start gap-2">
+          <AlertCircle className="h-3.5 w-3.5 text-accent shrink-0 mt-0.5" />
+          <span>
+            <strong className="text-fg">Power-user editor.</strong> The form
+            fields, branding, and outcomes are edited as raw JSON below — a
+            visual drag-and-drop builder is on the next round. The live
+            preview on the right shows exactly what your prospects will see;
+            iterate there to know your changes are valid.
+          </span>
+        </div>
         <section className="space-y-3 rounded-xl border border-bg-border bg-bg-elev/40 p-4">
           <h3 className="text-xs font-bold uppercase tracking-wider text-fg-muted">Basics</h3>
           <div>
