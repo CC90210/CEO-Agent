@@ -166,6 +166,91 @@ export const SUNBIZ_DEFAULT_SEQUENCES: DefaultSequence[] = [
       },
     ],
   },
+
+  // ─────────────────────────────────────────────────────────────────
+  // 6. Sent application -> 24h reminder
+  // Phase 15.1 add (2026-05-15 evening). Adon: meeting decision was
+  // "every stage triggers something". A lead at sent_application
+  // that hasn't viewed the link is the canonical "they got distracted"
+  // case — 24h SMS to bring them back.
+  // ─────────────────────────────────────────────────────────────────
+  {
+    name: "Sent application — 24h reminder",
+    description:
+      "Fires when an application link goes out. If the lead hasn't clicked through, send a soft 24h reminder.",
+    trigger_event: "BRAVO_RECORD_STATUS_CHANGED",
+    trigger_filter: { entity: "lead", field: "stage", to: "sent_application" },
+    one_per_lead: true,
+    steps: [
+      {
+        channel: "sms",
+        delay_minutes: 60 * 24, // 24h
+        from_label: "Solara",
+        body:
+          "Hi {{lead.contact_name}} — quick reminder, your SunBiz application link is still active. Takes about 5 minutes. Reply if anything's blocking you and I'll help.",
+      },
+    ],
+  },
+
+  // ─────────────────────────────────────────────────────────────────
+  // 7. Signed application -> bank-statement nag
+  // The form is 3-step: basic → app → bank statements. signed means
+  // they finished steps 1+2; the bank-statements upload is the last
+  // gate to underwriting. Without those statements no lender can
+  // price the deal. 12h SMS + 36h email.
+  // ─────────────────────────────────────────────────────────────────
+  {
+    name: "Signed application — bank statements nag",
+    description:
+      "Fires when a lead signs the application but hasn't uploaded bank statements yet. Without statements no underwriting can fire.",
+    trigger_event: "BRAVO_RECORD_STATUS_CHANGED",
+    trigger_filter: { entity: "lead", field: "stage", to: "signed_application" },
+    one_per_lead: true,
+    steps: [
+      {
+        channel: "sms",
+        delay_minutes: 60 * 12, // 12h
+        from_label: "Solara",
+        body:
+          "Nice — your application is signed. Last step is 3 months of bank statements (PDFs from your bank's online portal). Without them no lender can price the deal. Upload at the same link.",
+      },
+      {
+        channel: "email",
+        delay_minutes: 60 * 24 * 1.5, // ~36h
+        from_label: "Solara",
+        subject: "Last step for {{lead.business_name}} — bank statements",
+        body:
+          "Hi {{lead.contact_name}},\n\nYour signed application is in. To unlock offers from our lender network, I need 3 months of bank statements (PDF exports from your online banking work great).\n\nUpload at the same application link. Underwriting fires automatically once they land.\n\n— Solara, SunBiz Funding",
+      },
+    ],
+  },
+
+  // ─────────────────────────────────────────────────────────────────
+  // 8. Default -> 60-day soft re-engagement
+  // Phase 15.1 add. Sensitive — a defaulted lead means the borrower
+  // missed payments on a previous funded deal. Compliance: NO new
+  // funding pitch in the same touch as the default. Just a check-in.
+  // Adon: review this copy with collections before turning the sequence
+  // on. Default-state is disabled by default (see seed loop).
+  // ─────────────────────────────────────────────────────────────────
+  {
+    name: "Default — 60-day soft check-in (DISABLED by default)",
+    description:
+      "Sensitive: fires 60 days after a lead's funded_deal defaults. Soft check-in only — no new funding pitch in this touch. Review with compliance before enabling.",
+    trigger_event: "BRAVO_RECORD_STATUS_CHANGED",
+    trigger_filter: { entity: "lead", field: "stage", to: "default" },
+    one_per_lead: true,
+    steps: [
+      {
+        channel: "email",
+        delay_minutes: 60 * 24 * 60, // 60 days
+        from_label: "Solara",
+        subject: "Checking in on {{lead.business_name}}",
+        body:
+          "Hi {{lead.contact_name}},\n\nIt's been a while. I wanted to reach out and see how things are going on your end — no pitch attached, just a check-in.\n\nIf the business is back on its feet and you'd ever want to talk again, I'm here. If not, no harm done — just close out the thread and I'll respect that.\n\n— Solara, SunBiz Funding",
+      },
+    ],
+  },
 ];
 
 /**
@@ -193,7 +278,10 @@ export function buildSunbizSequenceRows(
     trigger_event: s.trigger_event,
     trigger_filter: s.trigger_filter,
     steps: s.steps,
-    enabled: true,
+    // Default-stage sequence ships disabled — sensitive compliance
+    // territory (collections re-engagement); operator + Adon must
+    // approve copy before turning it on.
+    enabled: !s.trigger_filter.to || s.trigger_filter.to !== "default",
     one_per_lead: s.one_per_lead,
     created_by: createdBy,
   }));
