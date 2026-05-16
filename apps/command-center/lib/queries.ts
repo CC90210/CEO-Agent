@@ -30,6 +30,7 @@ import { operatorDateKey, operatorDayStartIso } from "./dates";
 import { getDbBackend } from "./db";
 import { isMissingTableError } from "./api-helpers";
 import { getTenantEnabledAgents } from "./manifest/tenant-scope";
+import type { TenantRecord } from "./manifest/data";
 import {
   getTodayPlanTurso,
   recentLeadsTurso,
@@ -180,15 +181,11 @@ export async function getPlanTemplates(profileId: string): Promise<PlanTemplate[
  * to on 2026-05-15) onto tenant_records. Single mapper so the readers
  * stay shape-identical to their pre-migration behavior.
  */
-type TenantRecordRow = {
-  id: string;
-  tenant_id: string;
-  created_at: string;
-  updated_at: string;
-  data: Record<string, unknown> | null;
-};
-
-function tenantRecordToLead(row: TenantRecordRow): Lead {
+/** Re-use the canonical TenantRecord shape from lib/manifest/data.ts.
+ *  TenantRecord.data is `Record<string, unknown>` (non-null); rows
+ *  with a literally-null data column from Supabase shouldn't happen
+ *  in practice but we defensively coalesce inside the mapper. */
+function tenantRecordToLead(row: TenantRecord): Lead {
   const d = row.data || {};
   const str = (k: string): string | null => {
     const v = d[k];
@@ -238,7 +235,7 @@ export async function getLeadById(leadId: string): Promise<Lead | null> {
     .eq("entity_type", "lead")
     .maybeSingle();
   if (r.error || !r.data) return null;
-  return tenantRecordToLead(r.data as TenantRecordRow);
+  return tenantRecordToLead(r.data as TenantRecord);
 }
 
 // ============================================================================
@@ -430,7 +427,7 @@ export async function recentLeads(
     .order("updated_at", { ascending: false })
     .limit(limit * 3);
   if (r.error || !r.data) return [];
-  const rows = (r.data as TenantRecordRow[])
+  const rows = (r.data as TenantRecord[])
     .map(tenantRecordToLead)
     .filter((lead) => {
       if (!opts?.include_archived && lead.status === "archived") return false;
@@ -776,7 +773,7 @@ export async function topOpenLead(tenantId: string): Promise<Lead | null> {
     .limit(500);
   if (r.error || !r.data) return null;
   const TERMINAL: ReadonlySet<string> = new Set(["won", "lost", "archived"]);
-  const leads = (r.data as TenantRecordRow[])
+  const leads = (r.data as TenantRecord[])
     .map(tenantRecordToLead)
     .filter((lead) => !lead.status || !TERMINAL.has(lead.status));
   leads.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
