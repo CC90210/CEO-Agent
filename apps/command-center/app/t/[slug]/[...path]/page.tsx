@@ -7,6 +7,8 @@ import { ManifestMarkdown } from "@/components/manifest/ManifestMarkdown";
 import { ManifestDashboard } from "@/components/manifest/ManifestDashboard";
 import { ManifestRecordForm } from "@/components/manifest/ManifestRecordForm";
 import { ManifestReasoning } from "@/components/manifest/ManifestReasoning";
+import { LeadsImportClient } from "@/components/leads/LeadsImportClient";
+import { humanize } from "@/lib/manifest/humanize";
 import { Card, PageHeader, Tag } from "@/components/Card";
 import { getManifest, manifestExists } from "@/lib/manifest/loader";
 import { resolveDataTenant } from "@/lib/manifest/tenant-scope";
@@ -180,13 +182,18 @@ export default async function TenantCatchAllPage({
 function renderSubtitle(brand: string, page: ManifestPageDef): string {
   switch (page.kind) {
     case "dashboard": return `${brand} · live snapshot`;
-    case "table": return page.entity ? `Table view of ${page.entity}` : "Table view";
-    case "kanban": return page.entity ? `Kanban for ${page.entity}` : "Kanban view";
-    case "form": return page.entity ? `Form for ${page.entity}` : "Form";
+    case "table": return page.entity ? `${humanizeEntity(page.entity)}` : "Table view";
+    case "kanban": return page.entity ? `${humanizeEntity(page.entity)} by stage` : "Kanban view";
+    case "form": return page.entity ? `Form for ${humanizeEntity(page.entity)}` : "Form";
     case "markdown": return "Reference page";
     case "reasoning": return "Click an action to send it straight to chat.";
+    case "import": return "Paste a CSV or drop a file. Duplicate-check is automatic.";
     default: return brand;
   }
+}
+
+function humanizeEntity(name: string): string {
+  return humanize(name) + "s";
 }
 
 async function PageBody({
@@ -209,6 +216,12 @@ async function PageBody({
       return <ManifestReasoning manifest={manifest} tenantSlug={slug} />;
     case "dashboard":
       return <ManifestDashboard manifest={manifest} tenantId={tenantId} />;
+    case "import":
+      // The import page reads the operator's tenant_id server-side via
+      // /api/leads/import; no extra props needed. Tenant_id check
+      // happens inside the API route so a viewer in preview-mode can't
+      // accidentally bulk-insert into someone else's leads table.
+      return <LeadsImportClient />;
     case "table":
     case "kanban":
     case "form": {
