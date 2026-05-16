@@ -525,15 +525,32 @@ def _send_step(sb, state_row: dict, sequence: dict) -> dict:
     return {"outcome": "error", "detail": f"{status}: {reason}"}
 
 
+# Worker identity stamped on claimed rows. Format mirrors PM2's
+# {name}-{instance} convention so a multi-process deploy shows up
+# legibly in the claimed_by column. Defaults to a static "sequence_runner"
+# when no per-instance hint exists.
+_WORKER_ID = os.environ.get("PM2_INSTANCE_ID") or os.environ.get("HOSTNAME") or "sequence_runner"
+
+
 def execution_tick(sb) -> int:
-    """Poll due sequence_state rows, fire each, advance to the next
-    step on success. Returns the number of rows processed."""
+    """Poll due sequence_state rows, atomically claim each, fire it, advance
+    to the next step on success. Returns the number of rows processed.
+
+    Codex finding #1 fix (2026-05-16 / migration 046): each row goes
+    through claim_sequence_state_row RPC BEFORE _send_step. The RPC
+    does an atomic UPDATE...RETURNING with WHERE status='scheduled' AND
+    claimed_at IS NULL — only the first concurrent caller's UPDATE
+    matches, so two workers (or a PM2 restart overlap) can no longer
+    both dispatch the same row. A claim miss is silent — the row is
+    skipped; the winning worker handles it.
+    """
     now_iso = datetime.now(timezone.utc).isoformat()
     try:
         due = (
             sb.table("sequence_state")
-            .select("*")
+            .select("id")
             .eq("status", "scheduled")
+            .is_("claimed_at", "null")
             .lte("scheduled_for", now_iso)
             .order("scheduled_for", desc=False)
             .limit(50)
@@ -542,12 +559,30 @@ def execution_tick(sb) -> int:
     except Exception as e:
         _log(f"execution: sequence_state read failed: {e}")
         return 0
-    rows = due.data or []
-    if not rows:
+    candidate_ids = [r["id"] for r in (due.data or [])]
+    if not candidate_ids:
         return 0
 
     processed = 0
-    for row in rows:
+    for row_id in candidate_ids:
+        # Atomic claim — only one concurrent caller's UPDATE matches.
+        # RPC returns the full row when claim succeeds; empty when the
+        # row was already claimed (or status moved off 'scheduled') by
+        # another worker between our SELECT and now.
+        try:
+            claim = sb.rpc(
+                "claim_sequence_state_row",
+                {"row_id": row_id, "claimer": _WORKER_ID},
+            ).execute()
+        except Exception as e:
+            _log(f"execution: claim_sequence_state_row RPC failed row={row_id}: {e}")
+            continue
+        claimed_rows = claim.data or []
+        if not claimed_rows:
+            # Another worker won. Silent skip — they'll dispatch it.
+            continue
+        row = claimed_rows[0]
+
         try:
             seq_lookup = (
                 sb.table("drip_sequences")
@@ -558,6 +593,11 @@ def execution_tick(sb) -> int:
             )
         except Exception as e:
             _log(f"execution: drip_sequences read failed id={row.get('sequence_id')}: {e}")
+            # Release the claim so a future tick can retry the lookup.
+            try:
+                sb.rpc("release_sequence_state_claim", {"row_id": row["id"]}).execute()
+            except Exception:
+                pass
             continue
         if not seq_lookup.data:
             # Sequence deleted while a state row was scheduled. Cancel.
@@ -610,6 +650,12 @@ def execution_tick(sb) -> int:
                     "last_attempt_at": now,
                     "last_error": detail,
                     "scheduled_for": next_scheduled.isoformat(),
+                    # Release the atomic claim so a future tick can
+                    # re-pick this row when cooldown lifts. Without
+                    # this, claimed_at stays set and the partial index
+                    # excludes the row from candidate_ids forever.
+                    "claimed_at": None,
+                    "claimed_by": None,
                 }).eq("id", row["id"]).execute()
             except Exception:
                 pass
@@ -666,6 +712,11 @@ def execution_tick(sb) -> int:
                         "last_attempt_at": now,
                         "last_error": detail,
                         "scheduled_for": next_scheduled,
+                        # Release the atomic claim so the retry path
+                        # can be picked up on the next tick — same
+                        # rationale as the cooldown branch above.
+                        "claimed_at": None,
+                        "claimed_by": None,
                     }).eq("id", row["id"]).execute()
                 except Exception:
                     pass
