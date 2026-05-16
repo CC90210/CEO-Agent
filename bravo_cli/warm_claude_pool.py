@@ -263,6 +263,12 @@ class WarmClaudeProcess:
                 "PAGER": "cat",
                 "NO_COLOR": "1",
                 "FORCE_COLOR": "0",
+                # Phase 8.1.2 — match the cold-spawn fix in
+                # bridge_chat_server.py. Hooks reference
+                # ${CLAUDE_PROJECT_DIR}/scripts/hooks/*.py; without it
+                # they exit 2 and Claude Code 2.1.39 swallows the
+                # assistant response.
+                "CLAUDE_PROJECT_DIR": str(root),
             },
         )
 
