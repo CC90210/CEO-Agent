@@ -50,6 +50,7 @@ import { resolveChatContext } from "@/lib/chat-auth";
 import { getBridgeOnline, getBridgeToolCapabilities } from "@/lib/queries";
 import { signResumeState } from "@/lib/resume-hmac";
 import { getAgentInfo } from "@/lib/agents";
+import { isOperatorEmail } from "@/lib/operator-credentials";
 import { getTenantManifestForUser } from "@/lib/manifest/tenant-scope";
 import { redactAll } from "@/lib/secret-redaction";
 import { persistAssistantTurn } from "@/lib/chat-persistence";
@@ -57,6 +58,49 @@ import { persistAssistantTurn } from "@/lib/chat-persistence";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 300; // 5 min — enough for long Sonnet/Opus runs
+
+/**
+ * Safe-default tool palette for non-operator tenants.
+ *
+ * When a tenant's manifest doesn't pin an explicit per-agent tool_palette,
+ * client tenants (SunBiz, future PropFlow, etc.) get THIS list — not the
+ * full TOOL_DEFINITIONS palette. The omitted tools are:
+ *
+ *   - `bash` / `write_file` / `read_file` — arbitrary filesystem access on
+ *     whichever machine hosts the bridge. Today that's CC's host; tomorrow
+ *     it might be a client VPS. Either way, an end-user chatting with
+ *     their agent should not be able to coax the LLM into shell commands.
+ *   - `run_script` — arbitrary Python execution. Same blast-radius
+ *     concern; per-tenant agents should drive scripts via typed
+ *     endpoints (/api/applications/.../match-lenders etc.), not raw
+ *     subprocess.
+ *   - `delete_record` — no undo. Tenants can update_record to soft-delete
+ *     via a status field; hard delete is operator-only.
+ *
+ * Operators (CC's account, anyone in ADMIN_EMAILS) bypass this filter —
+ * their chats keep the full unrestricted palette so the operator's
+ * own multi-tool workflows aren't crippled.
+ */
+const SAFE_TENANT_TOOL_PALETTE: string[] = [
+  // Data tools — tenant_records CRUD, all RLS-scoped at the data layer.
+  "list_records",
+  "get_record",
+  "search_records",
+  "create_record",
+  "update_record",
+  "lookup_lead_by_name",
+  "list_open_leads",
+  "integration_status",
+  // HTTP — fetchWithCap enforces an SSRF block list (see cloud-tool-
+  // runner.ts after the 2026-05-16 hardening). Tenants can hit public
+  // URLs and the dashboard's own API but not internal services.
+  "http_get",
+  "http_post",
+  // Bridge sends — already routed through send_gateway (CASL/TCPA
+  // enforced) per the 2026-05-16 hardening of bridge_tools.py.
+  "send_email",
+  "send_sms",
+];
 
 type IncomingPayload = {
   agent_key?: string;
@@ -210,12 +254,34 @@ export async function POST(req: NextRequest) {
   const bridgeToolsActive = toolRouting !== "cloud_only" && bridgeOnline;
 
   // Per-agent tool palette from the tenant's manifest (Phase D of
-  // giggly-reef). Undefined → no manifest filter (full palette).
+  // giggly-reef). Undefined → no manifest filter — BUT we apply a
+  // deny-by-default safe palette for non-operator tenants below
+  // (Codex review finding 2026-05-16).
   const manifestForChat = await getTenantManifestForUser(tenantId).catch(() => null);
   const agentBinding = manifestForChat?.agents?.find(
     (a) => a.slug.toLowerCase() === agentKey,
   );
-  const toolPalette: string[] | undefined = agentBinding?.tool_palette;
+  let toolPalette: string[] | undefined = agentBinding?.tool_palette;
+
+  // Deny-by-default safe palette for non-operator tenants. The chat
+  // backend's full palette includes `bash`, `write_file`, and `run_script`
+  // (arbitrary Python on the host machine) — fine for CC running on
+  // CC's machine, but a SunBiz operator chatting with Solara should
+  // NOT be able to coax the LLM into bash-ing CC's filesystem. Before
+  // this guard, an undefined manifest tool_palette meant "every tool"
+  // and a tenant could reach across the operator boundary.
+  //
+  // Safe default = DATA + integrations + workflow tools that already
+  // have their own tenant scoping at the dispatch layer. Excludes:
+  //   - bash / write_file / read_file (arbitrary FS access)
+  //   - run_script (arbitrary Python execution)
+  //   - delete_record without an explicit operator confirmation flow
+  //
+  // Operators (OPERATOR_EMAIL / ADMIN_EMAILS) get the full unrestricted
+  // palette so CC's own multi-tool workflows aren't crippled.
+  if (!toolPalette && !isOperatorEmail(user.email)) {
+    toolPalette = SAFE_TENANT_TOOL_PALETTE;
+  }
 
   // Two notices — one for "cloud-only" (no local tools available) and
   // one for "cloud + bridge" (operator API key powers the LLM, local
@@ -387,7 +453,16 @@ export async function POST(req: NextRequest) {
               // is server-only. In production, signResumeState returns null
               // if the env var is missing — we fail closed by emitting an
               // error event instead of a tool_use_pending.
-              const sig = signResumeState(ev.resume_state);
+              // 2026-05-16 Codex finding #3: bind the signed state to
+              // the issuing tenant + user + agent. The resume route
+              // re-checks this binding against the caller's resolved
+              // identity so a captured signature can't replay across
+              // tenants or under a different agent.
+              const sig = signResumeState(ev.resume_state, {
+                tenant_id: tenantId,
+                user_id: user.id,
+                agent_key: agentKey,
+              });
               if (sig === null) {
                 streamError = "server_misconfigured:resume_hmac_key_missing";
                 send("error", { message: streamError });
