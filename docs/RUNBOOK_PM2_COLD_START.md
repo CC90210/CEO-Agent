@@ -48,6 +48,9 @@ This rewrites `~/.pm2/dump.pm2` with the current process list. Without `pm2 save
 
 ## Auto-start at login — ACTIVE (Phase 7.4, 2026-05-17)
 
+Two scheduled tasks now keep the substrate alive across reboots.
+
+### Task 1: "PM2 Resurrect"
 The Windows Task Scheduler entry **"PM2 Resurrect"** is registered and runs `C:\Users\User\AppData\Roaming\npm\pm2.cmd resurrect` at every login. Settings:
 - Trigger: at logon of `User`
 - Hidden window (no terminal popup — Phase 7.4 fixed the "non-stop terminal windows" complaint)
@@ -67,6 +70,37 @@ $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -RestartCount 3 -Re
 $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive
 Register-ScheduledTask -TaskName "PM2 Resurrect" -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force
 ```
+
+### Task 2: "Skool Daemon"
+The Skool daemon is standalone (NOT in PM2 — owns its own DaemonLock). It needs its own scheduled task. Registered alongside PM2 Resurrect; fires 60s after login so PM2 settles first.
+
+- Execute: `C:\Users\User\AppData\Local\Programs\Python\Python312\python.exe`
+- Args: `C:\Users\User\Business-Empire-Agent\scripts\skool_engine.py daemon --interval 5`
+- Working dir: `C:\Users\User\Business-Empire-Agent`
+- Trigger: at logon, **60s delay**
+- Hidden window (no terminal popup)
+
+**IMPORTANT — use `python.exe` not the `.venv\Scripts\pythonw.exe` shim.** The venv launcher fails silently when invoked with `WindowStyle Hidden` via Start-Process; it spawns a child that dies immediately. The system Python interpreter works fine and the daemon's `secret_loader` finds `.env.agents` via path resolution regardless.
+
+If the task was deleted, re-register:
+```powershell
+$py = "C:\Users\User\AppData\Local\Programs\Python\Python312\python.exe"
+$script = "C:\Users\User\Business-Empire-Agent\scripts\skool_engine.py"
+$cwd = "C:\Users\User\Business-Empire-Agent"
+$action = New-ScheduledTaskAction -Execute $py -Argument "$script daemon --interval 5" -WorkingDirectory $cwd
+$trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+$trigger.Delay = "PT60S"
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -Hidden
+$principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive
+Register-ScheduledTask -TaskName "Skool Daemon" -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force
+```
+
+Verify the daemon is alive:
+```powershell
+Get-CimInstance Win32_Process -Filter "Name = 'python.exe'" | Where-Object { $_.CommandLine -match 'skool_engine.py daemon' }
+```
+
+The daemon also self-reports to `integrations_health` (`service = "skool_engine"`) every 5-minute cycle since Phase 7.4, so the Operations dashboard's Background Workers panel shows it green within one cycle of startup.
 
 ## Verifying `dump.pm2` is fresh
 
