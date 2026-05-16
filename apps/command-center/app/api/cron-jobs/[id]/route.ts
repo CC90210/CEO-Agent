@@ -73,8 +73,30 @@ export async function PATCH(
     .select()
     .maybeSingle();
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  if (!data) return NextResponse.json({ ok: false, error: "not_found_or_forbidden" }, { status: 404 });
-  return NextResponse.json({ ok: true, job: data });
+  if (data) return NextResponse.json({ ok: true, job: data });
+
+  // Tenant row not found — try the empire cron_jobs table. Operators have
+  // a legitimate need to pause/resume SEED_JOBS without code edits (e.g.
+  // when an underlying engine is temporarily broken and the cron keeps
+  // banging on it). For empire rows only the enabled flag is honoured;
+  // schedule / action_config edits would drift from the SEED_JOBS source
+  // of truth which re-asserts on every bridge tick.
+  if (typeof body.enabled !== "boolean") {
+    return NextResponse.json({ ok: false, error: "empire_rows_only_accept_enabled_toggle" }, { status: 400 });
+  }
+  const empireRes = await db
+    .from("cron_jobs")
+    .update({ is_active: body.enabled })
+    .eq("id", id)
+    .select()
+    .maybeSingle();
+  if (empireRes.error) {
+    return NextResponse.json({ ok: false, error: empireRes.error.message }, { status: 500 });
+  }
+  if (!empireRes.data) {
+    return NextResponse.json({ ok: false, error: "not_found_or_forbidden" }, { status: 404 });
+  }
+  return NextResponse.json({ ok: true, job: empireRes.data, source: "empire" });
 }
 
 export async function DELETE(

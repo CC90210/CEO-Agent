@@ -314,16 +314,16 @@ export function CronJobsManager({ agentKeys }: Props) {
                 <div className="text-[10px] font-bold uppercase tracking-wider text-fg-dim">
                   Empire automations
                   <span className="ml-2 text-fg-dim/70 normal-case font-normal tracking-normal">
-                    Managed by <span className="font-mono">scripts/cron_engine.py</span> SEED_JOBS · read-only here
+                    Schedule + action managed by <span className="font-mono">scripts/cron_engine.py</span> SEED_JOBS · on/off is operator-controlled
                   </span>
                 </div>
                 {empireJobs.map((job) => (
                   <JobRow
                     key={job.id}
                     job={job}
-                    onToggle={() => {/* empire toggling is intentionally a no-op */}}
-                    onEdit={() => {/* empire editing is intentionally a no-op */}}
-                    onDelete={() => {/* empire deletion is intentionally a no-op */}}
+                    onToggle={() => toggleEnabled(job)}
+                    onEdit={() => {/* empire schedule + action_config remain read-only */}}
+                    onDelete={() => {/* empire rows can be disabled, not deleted */}}
                   />
                 ))}
               </div>
@@ -349,10 +349,11 @@ function JobRow({
   const friendlySchedule = humanizeCron(job.schedule);
   const showRawSchedule = friendlySchedule !== job.schedule;
   // Empire rows live in cron_jobs and are seeded from scripts/cron_engine.py.
-  // Shown read-only — no toggle, edit, or delete from the dashboard.
-  // (Future: a `paused_until` column on cron_jobs would let CC pause an
-  // empire job without redeploying. That's a separate migration; today
-  // it's still seed-only.)
+  // The enabled toggle now wires through to the cron_jobs.is_active column
+  // (Phase 7 — operators get real pause/resume on empire crons without
+  // editing SEED_JOBS). Schedule + action_config remain read-only since
+  // SEED_JOBS re-asserts them on every bridge tick; only the on/off is
+  // operator-controlled.
   const isEmpire = job.source === "empire";
   const ranOk = job.last_run_status === "success";
   const ranBad = job.last_run_status === "error";
@@ -368,40 +369,32 @@ function JobRow({
   return (
     <div className={`rounded-lg border p-4 ${borderClass}`}>
       <div className="flex items-start gap-4">
-        {/* Toggle — prominent, labeled. Empire shows a read-only state
-            badge instead of a clickable toggle. */}
+        {/* Toggle — prominent, labeled. Empire + tenant rows share the
+            same toggle UX now; the API route dispatches by source. */}
         <div className="shrink-0">
-          {isEmpire ? (
-            <div
-              className="flex flex-col items-center gap-0.5"
-              title="Empire automation — managed by scripts/cron_engine.py SEED_JOBS, not editable from the dashboard."
-            >
-              {job.enabled ? (
-                <ToggleRight className="w-7 h-7 text-fg-dim" />
-              ) : (
-                <ToggleLeft className="w-7 h-7 text-fg-dim" />
-              )}
-              <span className="text-[9px] uppercase tracking-wider text-fg-faint font-bold">
-                Locked
-              </span>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={onToggle}
-              className="flex flex-col items-center gap-0.5 group"
-              title={job.enabled ? "Click to disable — keeps the spec, stops firing" : "Click to enable"}
-            >
-              {job.enabled ? (
-                <ToggleRight className="w-7 h-7 text-status-engaged group-hover:scale-110 transition-transform" />
-              ) : (
-                <ToggleLeft className="w-7 h-7 text-fg-dim group-hover:text-fg group-hover:scale-110 transition-all" />
-              )}
-              <span className={`text-[9px] uppercase tracking-wider font-bold ${job.enabled ? "text-status-engaged" : "text-fg-faint"}`}>
-                {job.enabled ? "On" : "Off"}
-              </span>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={onToggle}
+            className="flex flex-col items-center gap-0.5 group"
+            title={
+              isEmpire
+                ? job.enabled
+                  ? "Empire automation — click to pause. Schedule + action stay locked to SEED_JOBS; only the on/off flips."
+                  : "Empire automation — click to resume."
+                : job.enabled
+                  ? "Click to disable — keeps the spec, stops firing"
+                  : "Click to enable"
+            }
+          >
+            {job.enabled ? (
+              <ToggleRight className="w-7 h-7 text-status-engaged group-hover:scale-110 transition-transform" />
+            ) : (
+              <ToggleLeft className="w-7 h-7 text-fg-dim group-hover:text-fg group-hover:scale-110 transition-all" />
+            )}
+            <span className={`text-[9px] uppercase tracking-wider font-bold ${job.enabled ? "text-status-engaged" : "text-fg-faint"}`}>
+              {job.enabled ? "On" : "Off"}
+            </span>
+          </button>
         </div>
 
         {/* Main column — name, description, schedule, last run */}
