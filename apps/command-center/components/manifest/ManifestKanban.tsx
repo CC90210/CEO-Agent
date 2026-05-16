@@ -1,11 +1,12 @@
 import { Plus, Inbox } from "lucide-react";
 import Link from "next/link";
 import { Card, Tag } from "@/components/Card";
-import { listRecords, groupRecordsBy, formatFieldValue, type TenantRecord } from "@/lib/manifest/data";
+import { listRecords, groupRecordsBy, type TenantRecord } from "@/lib/manifest/data";
 import type { ManifestEntityDef, ManifestEntityField, ManifestPageDef } from "@/lib/manifest/schema";
 import { OfferCardActions } from "./OfferCardActions";
 import { ApplicationCardActions } from "./ApplicationCardActions";
 import { humanize } from "@/lib/manifest/humanize";
+import { formatCardField, ENTITY_TITLE_PRIORITY } from "@/lib/manifest/format";
 
 type Props = {
   tenantSlug: string;
@@ -288,100 +289,6 @@ function KanbanCard({
   );
 }
 
-/**
- * Per-entity title field priorities. First match wins. For domain
- * entities the "best" title isn't the manifest's fields[0] — it's a
- * domain-specific header (amount for offer; business_name for
- * application; etc.). Unlisted entities fall through to the generic
- * heuristic in the caller.
- */
-const ENTITY_TITLE_PRIORITY: Record<string, string[]> = {
-  lead: ["name", "contact_name", "business_name", "first_name", "email", "phone"],
-  application: ["business_name", "company", "name", "contact_name", "lead_id"],
-  offer: ["amount", "lender_id", "lead_id"],
-  funded_deal: ["amount_funded", "lender_id", "lead_id"],
-  renewal: ["funded_deal_id", "due_date"],
-  lender: ["name", "company"],
-  commission: ["amount", "name"],
-  task: ["title", "name"],
-};
-
-/**
- * Format a card field value with currency / percent / date / number
- * units based on field name heuristics + the manifest type. The unit
- * inference is intentionally name-based because the manifest field
- * type ("number") doesn't carry semantics (is 1.35 a factor rate or
- * a count?). For SunBiz the field names are stable, so this works.
- *
- * Examples:
- *   amount / amount_funded / max_funded_amount / min_monthly_revenue
- *     → "$3,435,435"
- *   factor_rate / rate → "1.35"  (plain number — factor rates aren't %)
- *   fico / fico_floor / score → "650"
- *   *_at / *_date → "May 16, 2026"
- *   *_months → "12 mo"
- *   default → formatFieldValue (em-dash for empty, JSON for objects)
- */
-function formatCardField(
-  name: string,
-  value: unknown,
-  fieldDef?: ManifestEntityField,
-): string {
-  if (value === undefined || value === null || value === "") return "—";
-  const n = name.toLowerCase();
-
-  // Currency — explicit currency-ish field names. Operator-facing
-  // numbers worth showing as money: amount, amount_funded, revenue,
-  // funded, price, commission, fee.
-  if (
-    typeof value === "number" &&
-    (n.includes("amount") ||
-      n.includes("revenue") ||
-      n.includes("funded") ||
-      n === "price" ||
-      n.includes("commission") ||
-      n === "fee" ||
-      n === "cost")
-  ) {
-    return "$" + value.toLocaleString("en-US", { maximumFractionDigits: 0 });
-  }
-
-  // Months — operator-friendly suffix.
-  if (typeof value === "number" && n.includes("months")) {
-    return `${value} mo`;
-  }
-
-  // FICO / score — integer, no decimals.
-  if (typeof value === "number" && (n === "fico" || n.endsWith("_fico") || n === "score" || n.includes("fico_floor"))) {
-    return value.toString();
-  }
-
-  // Factor rate — 2-decimal display.
-  if (typeof value === "number" && (n === "factor_rate" || n === "rate")) {
-    return value.toFixed(2);
-  }
-
-  // Date / datetime fields — manifest type wins, falls back to name.
-  if (
-    fieldDef?.type === "date" ||
-    fieldDef?.type === "datetime" ||
-    n.endsWith("_at") ||
-    n.endsWith("_date")
-  ) {
-    if (typeof value === "string" && value) {
-      const d = new Date(value);
-      if (!Number.isNaN(d.getTime())) {
-        return d.toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        });
-      }
-    }
-  }
-
-  return formatFieldValue(value);
-}
 
 /**
  * Canonical column order for each compute_group_by mode. Keep this
