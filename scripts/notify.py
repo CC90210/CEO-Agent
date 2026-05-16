@@ -19,6 +19,7 @@ FILTERING: Only high-signal categories reach CC's Telegram.
 Override via NOTIFY_BLOCKED_CATEGORIES in .env.agents (comma-separated).
 """
 
+import json
 import sys
 from pathlib import Path
 from datetime import datetime
@@ -185,6 +186,78 @@ def notify_daemon_crash(daemon: str, error: str, tick_id: str | None = None) -> 
         # Telegram itself can fail (network, token expiry); don't let
         # a notify failure cascade into the daemon's own error path.
         return False
+
+
+def notify_voice(audio_bytes: bytes, *, caption: str | None = None,
+                 mime: str = "audio/ogg", filename: str = "voice.ogg") -> bool:
+    """Ship a voice/audio blob to CC's Telegram via sendVoice.
+
+    Phase 10.2 extracted from scripts/morning_powwow.py — every future
+    voice-driven automation (Morning Pow Wow, future Daily Brief voice
+    variant, etc.) should go through this helper so the multipart upload
+    + chat-id resolution + auth handling lives in one place. Mirrors the
+    notify() / notify_daemon_crash() pattern: best-effort, never raises.
+
+    Args:
+        audio_bytes: raw audio (Telegram accepts OGG-Opus for sendVoice).
+        caption: optional text caption attached to the voice note.
+        mime: MIME type sent in the multipart part. "audio/ogg" works for
+            Telegram sendVoice with Opus codec.
+        filename: name shown to Telegram for the upload. Cosmetic.
+
+    Returns True if at least one chat received the voice note. False on
+    any failure (missing env, network, Telegram rejection).
+    """
+    import urllib.request
+
+    env = _load_env()
+    token = (env.get("TELEGRAM_BOT_TOKEN") or "").strip()
+    raw_users = env.get("TELEGRAM_ALLOWED_USERS") or ""
+    chat_ids = [c.strip() for c in raw_users.split(",") if c.strip()]
+    if not token:
+        print("[notify_voice] TELEGRAM_BOT_TOKEN missing", file=sys.stderr)
+        return False
+    if not chat_ids:
+        print("[notify_voice] TELEGRAM_ALLOWED_USERS empty", file=sys.stderr)
+        return False
+
+    boundary = "----notifyvoice"
+    ok_count = 0
+    for chat_id in chat_ids:
+        try:
+            parts: list[bytes] = [
+                f"--{boundary}\r\n".encode("utf-8"),
+                f'Content-Disposition: form-data; name="chat_id"\r\n\r\n{chat_id}\r\n'.encode("utf-8"),
+                f"--{boundary}\r\n".encode("utf-8"),
+                (
+                    f'Content-Disposition: form-data; name="voice"; filename="{filename}"\r\n'
+                    f"Content-Type: {mime}\r\n\r\n"
+                ).encode("utf-8"),
+                audio_bytes,
+                b"\r\n",
+            ]
+            if caption:
+                parts.extend([
+                    f"--{boundary}\r\n".encode("utf-8"),
+                    f'Content-Disposition: form-data; name="caption"\r\n\r\n{caption}\r\n'.encode("utf-8"),
+                ])
+            parts.append(f"--{boundary}--\r\n".encode("utf-8"))
+            data = b"".join(parts)
+            req = urllib.request.Request(
+                f"https://api.telegram.org/bot{token}/sendVoice",
+                data=data,
+                headers={"content-type": f"multipart/form-data; boundary={boundary}"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
+                resp_body = json.loads(resp.read().decode("utf-8"))
+            if resp_body.get("ok"):
+                ok_count += 1
+            else:
+                print(f"[notify_voice] sendVoice rejected for {chat_id}: {resp_body}", file=sys.stderr)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[notify_voice] sendVoice exception for {chat_id}: {exc}", file=sys.stderr)
+    return ok_count > 0
 
 
 # Quick test

@@ -163,61 +163,17 @@ def _synthesize_voice(env: dict, text: str) -> bytes:
         return resp.read()
 
 
-def _send_voice_note(env: dict, audio_path: Path, caption: str | None = None) -> bool:
-    """Telegram sendVoice — plays inline as a voice message. Returns True on
-    success. Never raises (mirrors notify.notify's best-effort posture)."""
-    token = (env.get("TELEGRAM_BOT_TOKEN") or "").strip()
-    raw_users = env.get("TELEGRAM_ALLOWED_USERS") or ""
-    chat_ids = [c.strip() for c in raw_users.split(",") if c.strip()]
-    if not token or not chat_ids:
-        sys.stderr.write("[powwow] TELEGRAM_BOT_TOKEN or TELEGRAM_ALLOWED_USERS missing\n")
+def _send_voice_note(audio_path: Path) -> bool:
+    """Ship the OGG/Opus voice note to Telegram. Delegates to the canonical
+    notify_voice helper so the multipart + chat-id resolution lives in
+    one place (scripts/notify.py)."""
+    try:
+        from notify import notify_voice  # type: ignore
+    except ImportError:
+        sys.stderr.write("[powwow] scripts/notify.py not on sys.path\n")
         return False
-
-    ok_count = 0
-    for chat_id in chat_ids:
-        try:
-            # multipart/form-data for the audio file. Use urllib so we don't
-            # add a requests dependency just for one POST. Telegram's
-            # sendVoice ceiling for OPUS files is 1MB which our ~30-60s clip
-            # at 64kbps comfortably fits under.
-            import mimetypes
-            del mimetypes  # not needed, file is well-known type
-            with audio_path.open("rb") as f:
-                audio_bytes = f.read()
-            boundary = "----morningpowwow"
-            parts = [
-                f"--{boundary}\r\n".encode("utf-8"),
-                f'Content-Disposition: form-data; name="chat_id"\r\n\r\n{chat_id}\r\n'.encode("utf-8"),
-                f"--{boundary}\r\n".encode("utf-8"),
-                (
-                    f'Content-Disposition: form-data; name="voice"; filename="powwow.ogg"\r\n'
-                    'Content-Type: audio/ogg\r\n\r\n'
-                ).encode("utf-8"),
-                audio_bytes,
-                b"\r\n",
-            ]
-            if caption:
-                parts.extend([
-                    f"--{boundary}\r\n".encode("utf-8"),
-                    f'Content-Disposition: form-data; name="caption"\r\n\r\n{caption}\r\n'.encode("utf-8"),
-                ])
-            parts.append(f"--{boundary}--\r\n".encode("utf-8"))
-            data = b"".join(parts)
-            req = urllib.request.Request(
-                f"https://api.telegram.org/bot{token}/sendVoice",
-                data=data,
-                headers={"content-type": f"multipart/form-data; boundary={boundary}"},
-                method="POST",
-            )
-            with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
-                resp_body = json.loads(resp.read().decode("utf-8"))
-            if resp_body.get("ok"):
-                ok_count += 1
-            else:
-                sys.stderr.write(f"[powwow] sendVoice failed for {chat_id}: {resp_body}\n")
-        except Exception as e:  # noqa: BLE001
-            sys.stderr.write(f"[powwow] sendVoice exception for {chat_id}: {e}\n")
-    return ok_count > 0
+    audio_bytes = audio_path.read_bytes()
+    return notify_voice(audio_bytes, filename="powwow.ogg", mime="audio/ogg")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -270,7 +226,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"DRY: saved {len(audio_bytes)} bytes to {out_path}, skipping Telegram send")
         return 0
 
-    ok = _send_voice_note(env, out_path)
+    ok = _send_voice_note(out_path)
     if not args.save_to:
         # Auto-delete temp file after send.
         try:
