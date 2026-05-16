@@ -81,26 +81,27 @@ async function loadHealth(tenantId: string, enabledAgents: string[]) {
   const weekAgoIso = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
   const twoWeeksAgoIso = new Date(now - 14 * 24 * 60 * 60 * 1000).toISOString();
 
-  // ── 1. Recent error/warn events ────────────────────────────────
-  // agent_events doesn't carry tenant_id (legacy schema debt); scope
-  // by the tenant's enabled-agent set. Empty agents → no events
-  // (same posture todayCounts takes).
-  let recentErrors: ErrorEvent[] = [];
-  if (enabledAgents.length > 0) {
-    const evRes = await db
-      .from("agent_events")
-      .select("id, event_type, severity, publisher_agent, payload, published_at")
-      .in("publisher_agent", enabledAgents)
-      .in("severity", ["error", "warn"])
-      .gte("published_at", dayAgoIso)
-      .order("published_at", { ascending: false })
-      .limit(50);
-    recentErrors = (evRes.data as ErrorEvent[]) || [];
-  }
+  // All four lookups are independent — fire in parallel so the page
+  // renders in max(query) instead of sum(query).
+  //
+  // 1. Recent error/warn events from agent_events. The table has no
+  //    tenant_id column (legacy schema debt); scope by the tenant's
+  //    enabled-agent set, same posture todayCounts takes. Empty
+  //    enabled-agents → resolved promise of empty list, no round trip.
+  const recentErrorsPromise = enabledAgents.length > 0
+    ? db
+        .from("agent_events")
+        .select("id, event_type, severity, publisher_agent, payload, published_at")
+        .in("publisher_agent", enabledAgents)
+        .in("severity", ["error", "warn"])
+        .gte("published_at", dayAgoIso)
+        .order("published_at", { ascending: false })
+        .limit(50)
+        .then((res) => (res.data as ErrorEvent[]) || [])
+    : Promise.resolve<ErrorEvent[]>([]);
 
-  // ── 2. Failed crons ─────────────────────────────────────────────
-  // Empire crons (cron_jobs) — single-tenant, operator-only.
-  const empireFailed = await db
+  // 2a + 2b. Failed crons across both registries.
+  const empireFailedPromise = db
     .from("cron_jobs")
     .select("id, name, schedule, last_run_at, last_result")
     .or(
@@ -108,14 +109,47 @@ async function loadHealth(tenantId: string, enabledAgents: string[]) {
     )
     .order("last_run_at", { ascending: false })
     .limit(20);
-  // Tenant crons.
-  const tenantFailed = await db
+  const tenantFailedPromise = db
     .from("tenant_cron_jobs")
     .select("id, name, schedule, last_run_at, last_run_status, last_run_error")
     .eq("tenant_id", tenantId)
     .eq("last_run_status", "error")
     .order("last_run_at", { ascending: false })
     .limit(20);
+
+  // 3. Lender threads stuck at sent>7d.
+  const stuckThreadsPromise = db
+    .from("application_lender_threads")
+    .select("id, application_id, lender_id, recipient_email, status, sent_at")
+    .eq("tenant_id", tenantId)
+    .eq("status", "sent")
+    .lt("sent_at", weekAgoIso)
+    .order("sent_at", { ascending: true })
+    .limit(50)
+    .then((res) => (res.data as StuckThread[]) || []);
+
+  // 4. Lead rows with updated_at >14d. Cap at 50 — the operator only
+  //    needs the worst offenders; if there are more, the count tile
+  //    will under-report but the list stays scannable.
+  const stuckLeadsPromise = db
+    .from("tenant_records")
+    .select("id, data, updated_at")
+    .eq("tenant_id", tenantId)
+    .eq("entity_type", "lead")
+    .lt("updated_at", twoWeeksAgoIso)
+    .order("updated_at", { ascending: true })
+    .limit(50)
+    .then((res) => (res.data as StuckLead[]) || []);
+
+  const [recentErrors, empireFailed, tenantFailed, stuckThreads, stuckLeads] =
+    await Promise.all([
+      recentErrorsPromise,
+      empireFailedPromise,
+      tenantFailedPromise,
+      stuckThreadsPromise,
+      stuckLeadsPromise,
+    ]);
+
   const failedCrons: FailedCron[] = [
     ...((empireFailed.data || []) as Array<{
       id: string;
@@ -139,31 +173,6 @@ async function loadHealth(tenantId: string, enabledAgents: string[]) {
       source: "tenant" as const,
     })),
   ];
-
-  // ── 3. Stuck lender threads (sent > 7d, no response) ───────────
-  const stuckRes = await db
-    .from("application_lender_threads")
-    .select("id, application_id, lender_id, recipient_email, status, sent_at")
-    .eq("tenant_id", tenantId)
-    .eq("status", "sent")
-    .lt("sent_at", weekAgoIso)
-    .order("sent_at", { ascending: true })
-    .limit(50);
-  const stuckThreads: StuckThread[] = (stuckRes.data as StuckThread[]) || [];
-
-  // ── 4. Leads stuck in same stage > 14d ──────────────────────────
-  // Pull tenant_records lead rows ordered by updated_at asc; the
-  // ones at the top are the most stuck. Cap at 500 so dense
-  // pipelines don't pull a giant payload.
-  const stuckLeadsRes = await db
-    .from("tenant_records")
-    .select("id, data, updated_at")
-    .eq("tenant_id", tenantId)
-    .eq("entity_type", "lead")
-    .lt("updated_at", twoWeeksAgoIso)
-    .order("updated_at", { ascending: true })
-    .limit(50);
-  const stuckLeads: StuckLead[] = (stuckLeadsRes.data as StuckLead[]) || [];
 
   return { recentErrors, failedCrons, stuckThreads, stuckLeads };
 }
