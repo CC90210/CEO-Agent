@@ -14,13 +14,23 @@ last_updated: 2026-05-15
 Before reaching for Playwright MCP on a third-party site, classify the target:
 
 ```
-1. Is this a public, unprotected page → use Firecrawl (cheapest):
+0. DEFAULT for "fetch URL content" → use research_fetch (V6.7+, 2026-05-16):
+       python scripts/research_fetch.py <url> --json
+   Auto-escalates Firecrawl → CloakBrowser based on actual response and
+   remembers which tier worked per domain. Skill: skills/research-fetch/SKILL.md.
+
+The tiers below are still the authoritative mental model and remain useful when
+you need a tier's unique features (Firecrawl extract/crawl/map, Cloak
+interactive goto, Harness CC-auth, Playwright snapshot).
+
+1. Public unprotected page (need Firecrawl-specific features) →
        python scripts/firecrawl_tool.py scrape <url>
 
-2. Public but bot-protected (Cloudflare Turnstile, reCAPTCHA v3, DataDome,
-   ShieldSquare, FingerprintJS, Akamai, Kasada, PerimeterX) OR Firecrawl
-   returned 403/429/empty → use CloakBrowser (mandatory stealth tier):
+2. Bot-protected (Cloudflare Turnstile, reCAPTCHA v3, DataDome, ShieldSquare,
+   FingerprintJS, Akamai, Kasada, PerimeterX) OR Firecrawl returned 403/429/empty
+   AND you need to force the stealth tier or use its interactive features →
        python scripts/cloak_browser_tool.py scrape <url> --json
+   (research_fetch handles the escalation for you in the common case)
 
 3. Need to act AS CC inside CC's logged-in account → use Browser Harness
    (CC's real Chrome on port 9222) — see skills/browser-harness/SKILL.md.

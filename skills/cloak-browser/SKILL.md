@@ -17,6 +17,16 @@ last_updated: 2026-05-15
 >
 > **Does NOT replace** Browser Harness (which attaches to CC's REAL logged-in Chrome — already maximally stealthy because it IS a real human's browser). Does NOT replace Firecrawl for simple public scrapes (Firecrawl is cheaper, faster, structured-extraction-ready).
 
+## ⚡ Preferred entry — `research_fetch` (V6.7+, 2026-05-16)
+
+For any "give me the content at URL X" task, default to `python scripts/research_fetch.py <url>` instead of calling this skill directly. It auto-escalates Firecrawl → CloakBrowser based on actual response and remembers which tier worked per domain (so the next call skips the Firecrawl roundtrip). Skill: [[skills/research-fetch/SKILL]].
+
+**Drop down to this CloakBrowser skill directly only when you need its unique features:**
+- Interactive flow on a protected site (`goto <url> --eval "..."`)
+- Screenshot evidence (`scrape <url> --screenshot path.png`)
+- Self-test stealth signals (`check-stealth`)
+- Force the stealth tier for a domain where you don't want reputation memory to apply
+
 Source: https://github.com/CloakHQ/CloakBrowser · PyPI `cloakbrowser` 0.3.28 · npm `cloakbrowser` (MIT wrapper, separate "free to use, no redistribution" binary license).
 
 ## Decision: when does CloakBrowser fire?

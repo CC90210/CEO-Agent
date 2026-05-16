@@ -50,10 +50,11 @@ last_updated: 2026-05-06
 | pre-ship review | `code-review` | post-ship — too late, log to `MISTAKES.md` |
 | ship to prod | `ship` | local-only change |
 | run tests | `test-driven-development` | exploratory — just run the script |
-| browser automation (CC's logged-in session) | `browser-harness` | unprotected public scrape — `firecrawl_tool` |
-| **bot-protected fresh-session scrape (Cloudflare/DataDome/reCAPTCHA/FingerprintJS/Akamai/Kasada) — MANDATORY stealth tier** | `cloak-browser` | unprotected page — `firecrawl_tool` is cheaper |
-| browser automation (unprotected fresh session, interactive flow / visual snapshot) | `browser-automation` (Playwright MCP) | bot-protected target — escalate to `cloak-browser` |
-| scraping for data (public unprotected) | `web-scraping` → `firecrawl_tool` | bot-protected — escalate to `cloak-browser` |
+| **fetch a URL / scrape a page (DEFAULT, V6.7+)** | `research-fetch` (auto-escalates Firecrawl→Cloak + remembers per-domain) | acting as CC under CC's login — use `browser-harness` |
+| browser automation (CC's logged-in session) | `browser-harness` | fresh-session URL fetch — use `research-fetch` |
+| bot-protected fresh-session scrape — force the stealth tier directly (interactive goto / screenshot / check-stealth) | `cloak-browser` | "give me text from URL X" — use `research-fetch` which auto-handles the escalation |
+| browser automation (unprotected fresh session, interactive flow / visual snapshot) | `browser-automation` (Playwright MCP) | bot-protected target — `research-fetch` handles it |
+| scraping for data with Firecrawl-specific features (crawl/extract/map/search) | `web-scraping` → `firecrawl_tool` | simple "fetch URL X" — use `research-fetch` |
 | anti-pattern check | `anti-drift` | normal code — only when self-improving |
 
 ## Memory / state

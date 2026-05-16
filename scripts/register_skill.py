@@ -496,7 +496,11 @@ def build_skill_row(name: str, report: dict, now: str) -> dict[str, Any]:
     # rejects later in sync-all; coerce to string at read-time.
     raw_archived = fm.get("archived") or spec.get("archived")
     archived = str(raw_archived) if raw_archived else None
-    is_active = not bool(archived)
+    # disable-model-invocation: true → also deactivate at the registry level
+    # (auto-generated CLI references like gws-gmail-send opt out of being routable;
+    # see memory/feedback_skill_routing_disable_invocation.md, 2026-05-16).
+    disable_invoke = bool(fm.get("disable-model-invocation") or fm.get("disable_model_invocation"))
+    is_active = not (bool(archived) or disable_invoke)
 
     return {
         "skill_name": fm.get("name") or name,

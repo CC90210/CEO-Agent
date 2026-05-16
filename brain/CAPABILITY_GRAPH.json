@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "agent": "bravo",
-  "generated_at": "2026-05-16T06:12:36.380616+00:00",
+  "generated_at": "2026-05-16T06:17:46.320066+00:00",
   "totals": {
     "skills": 150,
     "scripts": 136,
@@ -9,7 +9,7 @@
     "mcp_servers": 9,
     "workflows": 36,
     "nodes_total": 351,
-    "edges_total": 62,
+    "edges_total": 66,
     "drift_count": 0
   },
   "nodes": [
@@ -5722,12 +5722,22 @@
     },
     {
       "from": "skill:browser-automation",
+      "to": "script:research_fetch",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:browser-automation",
       "to": "skill:browser-harness",
       "kind": "requires"
     },
     {
       "from": "skill:browser-automation",
       "to": "skill:cloak-browser",
+      "kind": "requires"
+    },
+    {
+      "from": "skill:browser-automation",
+      "to": "skill:research-fetch",
       "kind": "requires"
     },
     {
@@ -5779,6 +5789,16 @@
       "from": "skill:cloak-browser",
       "to": "script:firecrawl_tool",
       "kind": "uses"
+    },
+    {
+      "from": "skill:cloak-browser",
+      "to": "script:research_fetch",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:cloak-browser",
+      "to": "skill:research-fetch",
+      "kind": "requires"
     },
     {
       "from": "skill:computer-control",
