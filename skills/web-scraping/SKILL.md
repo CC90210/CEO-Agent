@@ -67,6 +67,12 @@ python scripts/cloak_browser_tool.py download
 
 Full reference: [[skills/cloak-browser/SKILL]].
 
+#### Known bot-protected targets — ALWAYS cloak, never raw
+
+- **True People Search (truepeoplesearch.com)** — Cloudflare + DataDome layered. Raw Playwright is blocked within a few requests; Firecrawl returns empty. Must route through `cloak_browser_tool.py scrape <url>`. If even Cloak gets a hard block (rare), set `CLOAK_PROXY_URL` in `.env.agents` to a residential proxy (Bright Data, Smartproxy, etc.) and retry. The 2026-05-15 SunBiz meeting flagged a prior TPS attempt that failed without cloak — that's the failure mode this entry exists to prevent.
+- **LinkedIn (any logged-out page)** — use Browser Harness (CC's authenticated session) instead. Cloak gets you past the bot wall but you'll hit the un-authed paywall on most profile pages.
+- **State business registries** (FL SunBiz, NY Dept State, etc.) — usually Firecrawl-friendly; only fall through to Cloak on 403 / 429.
+
 ### Firecrawl (default tier — cheapest, fastest)
 
 ```bash
