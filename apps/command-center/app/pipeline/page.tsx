@@ -61,6 +61,7 @@ export default async function PipelinePage() {
             config: { group_by: "stage" },
           }}
           linkBase="/pipeline"
+          sortBy="ai_score"
         />
       ) : (
         <Card>
