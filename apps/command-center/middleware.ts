@@ -90,6 +90,36 @@ export async function middleware(req: NextRequest) {
   });
 
   const { data, error } = await supa.auth.getUser();
+
+  // Cross-tenant view leak hardening (2026-05-16):
+  //
+  // The `oasis_demo_client_profile` cookie was originally a Sun Biz pitch
+  // surface — anonymous prospects hitting /demo/sun get the SunBiz shell
+  // for 8 hours. Failure mode: an authenticated operator who once touched
+  // /demo/sun came back signed in, and the stale cookie hijacked their
+  // shell into SunBiz for the remaining cookie TTL even though their auth
+  // was their real OASIS account (RLS still protected the data; only the
+  // chrome was wrong, but it routed `/api/sms/send` etc. as SunBiz which
+  // is a real integrity hazard).
+  //
+  // Rule: an authenticated user on a non-/demo path gets the cookie
+  // cleared on the response. /demo/sun itself is exempted so the
+  // anonymous preview keeps working. The layout has a defense-in-depth
+  // copy of this rule for the page render, but the middleware clear is
+  // the durable one — Server Component cookie writes silently no-op in
+  // some Next 15 contexts, so the layout-side clear can't be relied on.
+  if (
+    !error &&
+    data.user &&
+    !pathname.startsWith("/demo/sun") &&
+    req.cookies.get("oasis_demo_client_profile")?.value
+  ) {
+    res.cookies.set("oasis_demo_client_profile", "", {
+      maxAge: 0,
+      path: "/",
+    });
+  }
+
   if (error || !data.user) {
     // For /api/* requests return 401 JSON so client fetch() sees a real
     // error (not an HTML redirect that breaks .json()). For pages,

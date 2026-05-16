@@ -57,10 +57,51 @@ export default async function RootLayout({
     // still take precedence — `/demo/sun` is the public, auth-free preview.
     const tSlugMatch = pathname.match(/^\/t\/([a-z0-9][a-z0-9_-]{1,62})(?:\/|$)/i);
     const pathTenantSlug = tSlugMatch ? tSlugMatch[1].toLowerCase() : null;
-    const requestedDemoProfile =
-      pathname.startsWith("/demo/sun")
-        ? "sun"
-        : cookieStore.get(DEMO_CLIENT_PROFILE_COOKIE)?.value || null;
+
+    // Resolve the operator's real profile FIRST so we can decide whether to
+    // honour the demo cookie. The demo cookie is a public-preview cosmetic —
+    // an authenticated operator with a real tenant should NEVER have their
+    // shell hijacked by a stale demo cookie (the 2026-05-16 cross-tenant view
+    // leak: CC touched /demo/sun on a Vercel URL once, came back signed in,
+    // and the SunBiz shell rendered over his OASIS session for 8 hours).
+    //
+    // Each side-channel query is wrapped independently — one failure
+    // (Hermes snapshot row missing, bridge_pairings table absent in dev,
+    // RLS blocking a service-role call, etc.) must NOT take down the
+    // whole layout. Failure mode prior to this hardening: any throw
+    // here blanked the dashboard with a 500. Each catch logs via safe()
+    // so a stuck sidebar indicator is searchable in Vercel logs instead
+    // of silently rendering as "offline".
+    profile = await safe("layout.profile", getActiveProfile(), null);
+
+    // Demo cookie is honoured ONLY when:
+    //   - the operator is on /demo/sun (explicit opt-in via URL), OR
+    //   - the operator has no real tenant binding (anonymous preview)
+    // Once `profile.tenant_id` exists, the cookie is ignored and best-effort
+    // cleared. Best-effort because Server Components can't always mutate
+    // cookies in Next 15 — middleware handles the durable clear.
+    const isExplicitDemoPath = pathname.startsWith("/demo/sun");
+    const operatorHasRealTenant = !!profile?.tenant_id;
+    const rawDemoCookie = cookieStore.get(DEMO_CLIENT_PROFILE_COOKIE)?.value || null;
+    const requestedDemoProfile = isExplicitDemoPath
+      ? "sun"
+      : operatorHasRealTenant
+        ? null
+        : rawDemoCookie;
+
+    if (rawDemoCookie && operatorHasRealTenant && !isExplicitDemoPath) {
+      try {
+        cookieStore.set(DEMO_CLIENT_PROFILE_COOKIE, "", {
+          maxAge: 0,
+          path: "/",
+        });
+      } catch {
+        // Server-Component cookie writes are no-ops in some Next contexts.
+        // Middleware also clears this cookie; the ignore-logic above wins
+        // even if the clear fails silently.
+      }
+    }
+
     const normalisedDemo = (requestedDemoProfile || "").trim().toLowerCase();
     demoProfileSlug =
       normalisedDemo && normalisedDemo !== "default" && SEED_MANIFESTS[normalisedDemo]
@@ -75,14 +116,6 @@ export default async function RootLayout({
       if (exists) pathOverrideSlug = pathTenantSlug;
     }
 
-    // Each side-channel query is wrapped independently — one failure
-    // (Hermes snapshot row missing, bridge_pairings table absent in dev,
-    // RLS blocking a service-role call, etc.) must NOT take down the
-    // whole layout. Failure mode prior to this hardening: any throw
-    // here blanked the dashboard with a 500. Each catch logs via safe()
-    // so a stuck sidebar indicator is searchable in Vercel logs instead
-    // of silently rendering as "offline".
-    profile = await safe("layout.profile", getActiveProfile(), null);
     const agent = profile?.primary_agent || "bravo";
     const tenantId = profile?.tenant_id || null;
 
