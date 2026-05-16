@@ -32,6 +32,10 @@ export type DefaultSequence = {
   trigger_filter: DripTriggerFilter;
   steps: DripStep[];
   one_per_lead: boolean;
+  /** Whether the sequence is enabled on seed. Defaults to true. Set to
+   *  false for sensitive drips (compliance-flagged, collections, etc.)
+   *  that operators must approve before they fire on real leads. */
+  enabled_on_seed?: boolean;
 };
 
 export const SUNBIZ_DEFAULT_SEQUENCES: DefaultSequence[] = [
@@ -240,6 +244,7 @@ export const SUNBIZ_DEFAULT_SEQUENCES: DefaultSequence[] = [
     trigger_event: "BRAVO_RECORD_STATUS_CHANGED",
     trigger_filter: { entity: "lead", field: "stage", to: "default" },
     one_per_lead: true,
+    enabled_on_seed: false,
     steps: [
       {
         channel: "email",
@@ -278,10 +283,11 @@ export function buildSunbizSequenceRows(
     trigger_event: s.trigger_event,
     trigger_filter: s.trigger_filter,
     steps: s.steps,
-    // Default-stage sequence ships disabled — sensitive compliance
-    // territory (collections re-engagement); operator + Adon must
-    // approve copy before turning it on.
-    enabled: !s.trigger_filter.to || s.trigger_filter.to !== "default",
+    // Per-seed enabled flag (defaults to true). Sensitive sequences
+    // (e.g. defaulted-borrower re-engagement) explicitly set
+    // enabled_on_seed: false so the operator approves copy before
+    // they fire on real leads.
+    enabled: s.enabled_on_seed !== false,
     one_per_lead: s.one_per_lead,
     created_by: createdBy,
   }));

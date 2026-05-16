@@ -110,7 +110,8 @@ These are tracked in the plan file; none need external input but they're each me
 | 13.3 | "Assign to rep" picker on Lead + Application detail pages | ~half day |
 | 13.4 | Form templates seed + "Use template" clone button on /forms | ~half day after Adon confirms Meta/Google ad shapes |
 | 15.3 | `scripts/snapshots/renewal_window_scan.py` daily cron — auto-enroll 40% deals into the renewal drip | ~half day. Until this ships, the renewal Kanban shows the windows correctly but no automated drip fires; operator must manually move leads into the renewal drip from `/sequences` |
-| Codex #4 (open) | SMS opt-out webhook + phone-side DNC + first-touch STOP language enforcement | ~3 hours. **Gates commercial SMS.** Don't blast real leads until this lands. |
+| Codex #1 (open) | Atomic claim on sequence_state rows in `execution_tick` — add `claimed_at` / `claimed_by` columns + an atomic `UPDATE … RETURNING` so two daemon ticks can't both fire the same step | ~2 hours. **Gates commercial SMS** alongside #4. Today the race is hypothetical (single-machine deployment, single sequence-runner daemon) but if CC ever spawns a second runner — or if a PM2 restart overlaps a tick — the same step fires twice. The fix in `brain/SUNBIZ_CRM_KNOWN_GAPS.md` Finding #1 is exact: add migration 046 with the claim columns + an `rpc("claim_sequence_state_row")` SQL function, then route `_send_step` through it. |
+| Codex #4 (open) | SMS opt-out webhook + phone-side DNC + first-touch STOP language enforcement | ~3 hours. **Gates commercial SMS** alongside #1. Don't blast real leads until this lands. |
 | Setup Wizard 2.0 (Round 1 Phase 8) | Full repo scaffold + credentials questionnaire + auto-pair for new client tenants | ~2 weeks. Deferred until the SunBiz CRM is operational. |
 
 ---
@@ -168,7 +169,7 @@ The infrastructure is end-to-end functional. Operators can:
 - Watch funded deals walk toward the renewal window
 
 What's blocking commercial use:
-1. **Codex finding #4** (SMS opt-out enforcement). Don't blast real commercial SMS until this lands.
+1. **Codex findings #1 + #4** — atomic sequence-state claim (no double-send under restart-overlap) and SMS opt-out enforcement (STOP language + phone-side DNC + inbound STOP webhook). Don't blast real commercial SMS until both land.
 2. **Real lender data** (Adon to populate) — without it the recommended-lenders panel ranks nothing meaningfully.
 3. **Constant Contact / mega-email credentials** — Phases 11 + 12 are wired but unconfigured.
 
