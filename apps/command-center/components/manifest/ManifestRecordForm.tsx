@@ -11,8 +11,13 @@ type Props = {
   tenantSlug: string;
   entity: ManifestEntityDef;
   /** Relative path of the page that brought us here (e.g. "applications").
-   *  Used for the cancel/return link. */
+   *  Used to compute the cancel/return link as `/t/${tenantSlug}/${backPath}`
+   *  when `backHref` is not supplied. */
   backPath: string;
+  /** Optional absolute href that overrides the computed `/t/${slug}/${backPath}`
+   *  return URL. Used by empire-side pages like /pipeline that need to land
+   *  back on `/pipeline`, not `/t/oasis/pipeline`. */
+  backHref?: string;
   /** Optional pre-populated values for edit mode (Phase 5.1). */
   initial?: Record<string, unknown>;
   /** Optional record id for edit mode (Phase 5.1). */
@@ -67,10 +72,12 @@ export function ManifestRecordForm({
   tenantSlug,
   entity,
   backPath,
+  backHref,
   initial,
   editId,
 }: Props) {
   const router = useRouter();
+  const resolvedBackHref = backHref ?? `/t/${tenantSlug}/${backPath}`;
   const [values, setValues] = useState<Record<string, unknown>>(initial || {});
   const [saving, setSaving] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -168,7 +175,7 @@ export function ManifestRecordForm({
         return;
       }
       setFlash("Saved. Redirecting...");
-      router.push(`/t/${tenantSlug}/${backPath}`);
+      router.push(resolvedBackHref);
       router.refresh();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "network_error");
@@ -212,7 +219,7 @@ export function ManifestRecordForm({
           {isEdit ? "Save changes" : `Create ${entity.label.toLowerCase()}`}
         </button>
         <Link
-          href={`/t/${tenantSlug}/${backPath}`}
+          href={resolvedBackHref}
           className="btn-secondary inline-flex items-center gap-1.5 !px-3 !py-2 text-sm"
         >
           <ArrowLeft className="h-4 w-4" />

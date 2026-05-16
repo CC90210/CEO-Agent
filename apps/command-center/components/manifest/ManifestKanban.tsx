@@ -14,6 +14,15 @@ type Props = {
   entity: ManifestEntityDef;
   page: ManifestPageDef;
   demoRows?: TenantRecord[];
+  /**
+   * Optional override for the URL shape used by the card + "New" links.
+   * Defaults to `/t/${tenantSlug}/${pagePath}` (the canonical manifest
+   * tenant route). The OASIS /pipeline page passes `"/pipeline"` so
+   * cards land on `/pipeline/<id>` and the create CTA lands on
+   * `/pipeline/new` — both of which exist as empire-side pages, instead
+   * of the tenant-route URL that 404s for the empire tenant.
+   */
+  linkBase?: string;
 };
 
 /**
@@ -49,7 +58,9 @@ export async function ManifestKanban({
   entity,
   page,
   demoRows,
+  linkBase,
 }: Props) {
+  const effectiveLinkBase = linkBase ?? `/t/${tenantSlug}/${page.path}`;
   // Two ways to pick the grouping key:
   //   1. page.config.compute_group_by — name of a server-side computer
   //      that derives a synthetic stage from a row's data (e.g. funded
@@ -140,7 +151,7 @@ export async function ManifestKanban({
       subtitle={`${rows.length} ${entity.label.toLowerCase()}${rows.length === 1 ? "" : "s"} · grouped by ${humanize(groupBy)}`}
       action={
         <Link
-          href={`/t/${tenantSlug}/${page.path}/new`}
+          href={`${effectiveLinkBase}/new`}
           className="btn-send inline-flex items-center gap-1.5 !px-3 !py-1.5 text-xs"
         >
           <Plus className="h-3.5 w-3.5" />
@@ -178,7 +189,7 @@ export async function ManifestKanban({
                     cardFields={cardFields}
                     entity={entity}
                     tenantSlug={tenantSlug}
-                    pagePath={page.path}
+                    linkBase={effectiveLinkBase}
                   />
                 ))}
                 {items.length === 0 && (
@@ -220,14 +231,14 @@ function KanbanCard({
   cardFields,
   entity,
   tenantSlug,
-  pagePath,
+  linkBase,
 }: {
   row: TenantRecord;
   titleField: string;
   cardFields: ManifestEntityField[];
   entity: ManifestEntityDef;
   tenantSlug: string;
-  pagePath: string;
+  linkBase: string;
 }) {
   // Every field with a non-empty value. Operator entered these for a
   // reason; show them all. Empty fields silently drop so a half-
@@ -249,7 +260,7 @@ function KanbanCard({
   return (
     <li className="rounded-md border border-bg-border bg-bg-deep/60 hover:border-accent/40 hover:bg-bg-deep/80 transition-colors">
       <Link
-        href={`/t/${tenantSlug}/${pagePath}/${row.id}`}
+        href={`${linkBase}/${row.id}`}
         className="block px-3 py-2.5"
       >
         <div className="font-bold text-[14px] text-fg break-words leading-snug">
