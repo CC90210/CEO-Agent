@@ -290,7 +290,16 @@ export const SUN_SEED: TenantManifest = {
     { path: "", label: "Solara — Today", kind: "dashboard" },
     { path: "reasoning", label: "Reasoning", kind: "reasoning" },
     { path: "leads", label: "Leads", kind: "kanban", entity: "lead", config: { group_by: "stage" } },
-    { path: "applications", label: "Applications", kind: "table", entity: "application" },
+    {
+      path: "applications",
+      label: "Applications",
+      kind: "kanban",
+      entity: "application",
+      // status is the natural pipeline field. Operators can still flip
+      // to ?view=table for sortable/filterable rows. Each card carries
+      // a "Recommended lenders" action via ApplicationCardActions.
+      config: { group_by: "status" },
+    },
     // Opportunity kanban — operator drags offers across the 7 stages.
     // Mirrors Salesforce's opportunity pipeline columns (offered ->
     // contracts_out -> accepted -> funded). Renders the same way leads
