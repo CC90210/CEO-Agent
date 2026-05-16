@@ -71,6 +71,67 @@ const SCHEDULE_PRESETS: Array<{ label: string; value: string; hint: string }> = 
   { label: "Sundays at 20:00", value: "0 20 * * 0", hint: "Weekly digest / recap." },
 ];
 
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/**
+ * Humanize a 5-field cron expression for the operator. Falls back to the
+ * raw expression when the pattern isn't a common shape we know how to
+ * translate. Covers the bulk of crons in cron_engine.py SEED_JOBS (daily
+ * at HH:00, every N minutes, weekday-only daily, weekly-on-day, monthly).
+ */
+function humanizeCron(expr: string): string {
+  const trimmed = expr.trim();
+  const preset = SCHEDULE_PRESETS.find((p) => p.value === trimmed);
+  if (preset) return preset.label;
+  const parts = trimmed.split(/\s+/);
+  if (parts.length !== 5) return trimmed;
+  const [minute, hour, dom, month, dow] = parts;
+
+  // "every N minutes" pattern
+  const everyNMin = minute.match(/^\*\/(\d+)$/);
+  if (everyNMin && hour === "*" && dom === "*" && month === "*" && dow === "*") {
+    return `Every ${everyNMin[1]} minutes`;
+  }
+
+  // "at minute N" of every hour
+  if (/^\d+$/.test(minute) && hour === "*" && dom === "*" && month === "*" && dow === "*") {
+    return `Every hour at :${minute.padStart(2, "0")}`;
+  }
+
+  // "daily / weekday / weekly at HH:MM" pattern
+  if (/^\d+$/.test(minute) && /^\d+$/.test(hour) && dom === "*" && month === "*") {
+    const time = `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
+    if (dow === "*") return `Daily at ${time}`;
+    if (dow === "1-5") return `Weekdays at ${time}`;
+    if (dow === "0,6" || dow === "6,0") return `Weekends at ${time}`;
+    const singleDow = dow.match(/^[0-6]$/);
+    if (singleDow) return `${DAY_NAMES[parseInt(dow, 10)]} at ${time}`;
+    // comma-separated days
+    if (/^[0-6](,[0-6])+$/.test(dow)) {
+      const days = dow.split(",").map((d) => DAY_NAMES[parseInt(d, 10)]).join("/");
+      return `${days} at ${time}`;
+    }
+  }
+
+  // Day-of-month monthly
+  if (/^\d+$/.test(minute) && /^\d+$/.test(hour) && /^\d+$/.test(dom) && month === "*" && dow === "*") {
+    const time = `${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
+    return `Day ${dom} of each month at ${time}`;
+  }
+
+  // Couldn't humanize — return raw so the operator at least sees the truth.
+  return trimmed;
+}
+
+function relativeTimeShort(iso: string | null | undefined): string {
+  if (!iso) return "never";
+  const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 60_000) return `${Math.round(diff / 1000)}s ago`;
+  if (diff < 3_600_000) return `${Math.round(diff / 60_000)}m ago`;
+  if (diff < 86_400_000) return `${Math.round(diff / 3_600_000)}h ago`;
+  return `${Math.round(diff / 86_400_000)}d ago`;
+}
+
 export function CronJobsManager({ agentKeys }: Props) {
   const [jobs, setJobs] = useState<CronJob[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -285,98 +346,144 @@ function JobRow({
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const preset = SCHEDULE_PRESETS.find((p) => p.value === job.schedule);
+  const friendlySchedule = humanizeCron(job.schedule);
+  const showRawSchedule = friendlySchedule !== job.schedule;
   // Empire rows live in cron_jobs and are seeded from scripts/cron_engine.py.
-  // The UI shows their state read-only — no toggle, edit, or delete.
+  // Shown read-only — no toggle, edit, or delete from the dashboard.
+  // (Future: a `paused_until` column on cron_jobs would let CC pause an
+  // empire job without redeploying. That's a separate migration; today
+  // it's still seed-only.)
   const isEmpire = job.source === "empire";
+  const ranOk = job.last_run_status === "success";
+  const ranBad = job.last_run_status === "error";
+  // Card border telegraphs status at a glance: green if last run succeeded,
+  // warm if it errored, muted if disabled, neutral otherwise.
+  const borderClass = !job.enabled
+    ? "border-bg-border bg-bg-deep/40 opacity-60"
+    : ranBad
+      ? "border-status-warm/30 bg-status-warm/5"
+      : ranOk
+        ? "border-bg-border bg-bg-elev/30"
+        : "border-bg-border bg-bg-elev/30";
   return (
-    <div
-      className={`rounded-lg border p-3 ${
-        job.enabled ? "border-bg-border bg-bg-elev/30" : "border-bg-border bg-bg-deep/40 opacity-60"
-      }`}
-    >
-      <div className="flex items-start gap-3">
-        {isEmpire ? (
-          <div
-            className="shrink-0 mt-0.5"
-            title={job.enabled ? "Empire automation (read-only)" : "Empire automation (disabled in cron_jobs)"}
-          >
-            {job.enabled ? (
-              <ToggleRight className="w-5 h-5 text-fg-dim" />
-            ) : (
-              <ToggleLeft className="w-5 h-5 text-fg-dim" />
-            )}
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={onToggle}
-            className="shrink-0 mt-0.5"
-            title={job.enabled ? "Disable (keeps the spec, stops firing)" : "Enable"}
-          >
-            {job.enabled ? (
-              <ToggleRight className="w-5 h-5 text-status-engaged" />
-            ) : (
-              <ToggleLeft className="w-5 h-5 text-fg-dim" />
-            )}
-          </button>
-        )}
+    <div className={`rounded-lg border p-4 ${borderClass}`}>
+      <div className="flex items-start gap-4">
+        {/* Toggle — prominent, labeled. Empire shows a read-only state
+            badge instead of a clickable toggle. */}
+        <div className="shrink-0">
+          {isEmpire ? (
+            <div
+              className="flex flex-col items-center gap-0.5"
+              title="Empire automation — managed by scripts/cron_engine.py SEED_JOBS, not editable from the dashboard."
+            >
+              {job.enabled ? (
+                <ToggleRight className="w-7 h-7 text-fg-dim" />
+              ) : (
+                <ToggleLeft className="w-7 h-7 text-fg-dim" />
+              )}
+              <span className="text-[9px] uppercase tracking-wider text-fg-faint font-bold">
+                Locked
+              </span>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={onToggle}
+              className="flex flex-col items-center gap-0.5 group"
+              title={job.enabled ? "Click to disable — keeps the spec, stops firing" : "Click to enable"}
+            >
+              {job.enabled ? (
+                <ToggleRight className="w-7 h-7 text-status-engaged group-hover:scale-110 transition-transform" />
+              ) : (
+                <ToggleLeft className="w-7 h-7 text-fg-dim group-hover:text-fg group-hover:scale-110 transition-all" />
+              )}
+              <span className={`text-[9px] uppercase tracking-wider font-bold ${job.enabled ? "text-status-engaged" : "text-fg-faint"}`}>
+                {job.enabled ? "On" : "Off"}
+              </span>
+            </button>
+          )}
+        </div>
+
+        {/* Main column — name, description, schedule, last run */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <div className="font-bold text-sm text-fg truncate">{job.name}</div>
+            <div className="font-bold text-base text-fg truncate">{job.name}</div>
             {isEmpire && (
-              <span className="text-[10px] uppercase tracking-wider text-accent border border-accent/40 bg-accent/10 rounded-full px-1.5 py-0.5">
+              <span className="text-[10px] uppercase tracking-wider text-accent border border-accent/40 bg-accent/10 rounded-full px-1.5 py-0.5 font-bold">
                 Empire
               </span>
             )}
-            <span className="text-[10px] uppercase tracking-wider text-fg-dim border border-bg-border rounded-full px-1.5 py-0.5">
+          </div>
+          <div className="flex items-center gap-2 flex-wrap mt-1">
+            <span className="text-[10px] uppercase tracking-wider text-fg-dim">
               {job.agent_key}
             </span>
-            <span className="text-[10px] uppercase tracking-wider text-fg-dim border border-bg-border rounded-full px-1.5 py-0.5">
+            <span className="text-fg-faint">·</span>
+            <span className="text-[10px] uppercase tracking-wider text-fg-dim">
               {job.action_type.replace(/_/g, " ")}
             </span>
           </div>
-          {job.description && <div className="text-xs text-fg-muted mt-0.5">{job.description}</div>}
-          <div className="text-[11px] text-fg-dim font-mono mt-1 inline-flex items-center gap-1.5">
-            <Clock className="w-3 h-3" />
-            {preset ? `${preset.label} · ${job.schedule}` : job.schedule}
-          </div>
-          {job.last_run_at && (
-            <div className="text-[11px] mt-1 inline-flex items-center gap-1.5">
-              {job.last_run_status === "success" ? (
-                <PlayCircle className="w-3 h-3 text-status-engaged" />
-              ) : (
-                <XCircle className="w-3 h-3 text-status-warm" />
-              )}
-              <span className={job.last_run_status === "success" ? "text-fg-muted" : "text-status-warm"}>
-                Last run: {new Date(job.last_run_at).toLocaleString()} · {job.run_count} total
-              </span>
-            </div>
+          {job.description && (
+            <div className="text-sm text-fg-muted mt-2 leading-snug">{job.description}</div>
           )}
+
+          {/* Schedule + last run live on one row so the eye reads
+              "Daily at 06:00 · Ran successfully 2h ago · 142 total" */}
+          <div className="flex items-center gap-x-3 gap-y-1 flex-wrap mt-2.5 text-xs">
+            <span className="inline-flex items-center gap-1.5 text-fg-muted">
+              <Clock className="w-3.5 h-3.5" />
+              <span className="font-medium text-fg">{friendlySchedule}</span>
+              {showRawSchedule && (
+                <span className="text-fg-faint font-mono text-[10px]">({job.schedule})</span>
+              )}
+            </span>
+            {job.last_run_at ? (
+              <span className="inline-flex items-center gap-1.5">
+                {ranOk ? (
+                  <Check className="w-3.5 h-3.5 text-status-engaged" />
+                ) : ranBad ? (
+                  <XCircle className="w-3.5 h-3.5 text-status-warm" />
+                ) : (
+                  <PlayCircle className="w-3.5 h-3.5 text-fg-dim" />
+                )}
+                <span className={ranBad ? "text-status-warm font-medium" : "text-fg-muted"}>
+                  {ranOk ? "Ran" : ranBad ? "Failed" : "Ran"} {relativeTimeShort(job.last_run_at)}
+                </span>
+                <span className="text-fg-faint">·</span>
+                <span className="text-fg-faint">{job.run_count} total</span>
+              </span>
+            ) : (
+              <span className="text-fg-faint">Not run yet</span>
+            )}
+          </div>
         </div>
+
+        {/* Edit / delete — tenant only */}
         {!isEmpire && (
           <div className="flex items-center gap-1 shrink-0">
             <button
               type="button"
               onClick={onEdit}
-              className="text-fg-dim hover:text-fg p-1"
+              className="text-fg-dim hover:text-fg p-1.5 rounded hover:bg-bg-deep transition-colors"
               title="Edit"
             >
-              <Edit3 className="w-3.5 h-3.5" />
+              <Edit3 className="w-4 h-4" />
             </button>
             <button
               type="button"
               onClick={onDelete}
-              className="text-fg-dim hover:text-status-warm p-1"
+              className="text-fg-dim hover:text-status-warm p-1.5 rounded hover:bg-bg-deep transition-colors"
               title="Delete"
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              <Trash2 className="w-4 h-4" />
             </button>
           </div>
         )}
       </div>
+
       {job.last_run_error && (
-        <div className="mt-2 text-[11px] text-status-warm bg-status-warm/5 border border-status-warm/30 rounded px-2 py-1.5 font-mono break-words">
+        <div className="mt-3 text-[11px] text-status-warm bg-status-warm/5 border border-status-warm/30 rounded px-2.5 py-1.5 font-mono break-words">
+          <span className="font-bold not-italic">Error: </span>
           {job.last_run_error.slice(0, 240)}
         </div>
       )}
