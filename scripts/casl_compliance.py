@@ -1,4 +1,4 @@
-"""CASL compliance helpers for all outgoing cold email.
+"""CASL compliance helpers for all outgoing cold email and SMS.
 
 Single source of truth for CASL (Canada's Anti-Spam Legislation) requirements:
 - Sender identification (name + physical address)
@@ -30,6 +30,8 @@ from typing import Optional
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SUPPRESSIONS_CSV = PROJECT_ROOT / "data" / "email_suppressions.csv"
+EMAIL_SUPPRESSIONS_CSV = SUPPRESSIONS_CSV
+PHONE_SUPPRESSIONS_CSV = PROJECT_ROOT / "data" / "phone_suppressions.csv"
 
 # RFC 2606 reserved + common placeholder/sample domains that should never
 # receive a real send. Firecrawl + manual lead imports occasionally pull
@@ -65,6 +67,18 @@ DEFAULT_UNSUBSCRIBE_BASE = "https://oasisai.work/unsubscribe"
 
 def _normalize_email(email: str) -> str:
     return (email or "").strip().lower()
+
+
+def normalize_phone(phone: str | None) -> str:
+    """E.164-friendly normalization.
+
+    Strips formatting, drops a leading US/Canada country code, and returns
+    digits only. Empty/None returns an empty string.
+    """
+    digits = "".join(ch for ch in (phone or "") if ch.isdigit())
+    if len(digits) == 11 and digits.startswith("1"):
+        return digits[1:]
+    return digits
 
 
 def should_suppress(email: str) -> bool:
@@ -107,6 +121,63 @@ def add_suppression(email: str, reason: str = "unsubscribe") -> bool:
             w.writerow(["email", "reason", "added_at"])
         w.writerow([normalized, reason, datetime.now(timezone.utc).isoformat()])
     return True
+
+
+def should_suppress_phone(phone: str | None) -> bool:
+    """Return True if the normalized phone is on the DNC list.
+
+    Mirrors should_suppress(email): empty recipients suppress, missing file
+    means no suppression yet, and read errors fail closed.
+    """
+    normalized = normalize_phone(phone)
+    if not normalized:
+        return True
+    if not PHONE_SUPPRESSIONS_CSV.exists():
+        return False
+    try:
+        with open(PHONE_SUPPRESSIONS_CSV, "r", encoding="utf-8", newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if normalize_phone(row.get("phone", "")) == normalized:
+                    return True
+    except Exception:
+        # Fail CLOSED on read errors. Better to skip one SMS than violate STOP.
+        return True
+    return False
+
+
+def add_phone_suppression(
+    phone: str,
+    reason: str = "stop_received",
+    source: str = "twilio_inbound",
+) -> None:
+    """Append a phone to the DNC CSV.
+
+    Idempotent: already-suppressed numbers are left untouched.
+    Columns: phone,added_at,reason,source.
+    """
+    from datetime import datetime, timezone
+
+    normalized = normalize_phone(phone)
+    if not normalized:
+        return
+    if should_suppress_phone(normalized):
+        return
+    PHONE_SUPPRESSIONS_CSV.parent.mkdir(parents=True, exist_ok=True)
+    header_needed = (
+        not PHONE_SUPPRESSIONS_CSV.exists()
+        or PHONE_SUPPRESSIONS_CSV.stat().st_size == 0
+    )
+    with open(PHONE_SUPPRESSIONS_CSV, "a", encoding="utf-8", newline="") as f:
+        w = csv.writer(f)
+        if header_needed:
+            w.writerow(["phone", "added_at", "reason", "source"])
+        w.writerow([
+            normalized,
+            datetime.now(timezone.utc).isoformat(),
+            reason,
+            source,
+        ])
 
 
 def build_casl_footer(
@@ -191,22 +262,49 @@ def add_list_unsubscribe_headers(msg, recipient_email: str) -> None:
     msg["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
 
 
-if __name__ == "__main__":
-    import sys
-    cmd = sys.argv[1] if len(sys.argv) > 1 else "help"
-    if cmd == "check" and len(sys.argv) > 2:
-        email = sys.argv[2]
-        print(f"suppressed: {should_suppress(email)}")
-    elif cmd == "add" and len(sys.argv) > 2:
-        email = sys.argv[2]
-        reason = sys.argv[3] if len(sys.argv) > 3 else "manual"
-        ok = add_suppression(email, reason)
+def main() -> None:
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        prog="casl_compliance.py",
+        description="CASL/TCPA suppression helpers.",
+    )
+    sub = parser.add_subparsers(dest="command")
+
+    check = sub.add_parser("check", help="Check email suppression")
+    check.add_argument("email")
+
+    add = sub.add_parser("add", help="Add email suppression")
+    add.add_argument("email")
+    add.add_argument("reason", nargs="?", default="manual")
+
+    footer = sub.add_parser("footer", help="Render CASL footer")
+    footer.add_argument("email")
+
+    suppress_phone = sub.add_parser(
+        "add-phone-suppression",
+        aliases=["suppress-phone"],
+        help="Add SMS DNC suppression",
+    )
+    suppress_phone.add_argument("--phone", required=True)
+    suppress_phone.add_argument("--reason", default="stop_received")
+    suppress_phone.add_argument("--source", default="twilio_inbound")
+
+    args = parser.parse_args()
+
+    if args.command == "check":
+        print(f"suppressed: {should_suppress(args.email)}")
+    elif args.command == "add":
+        ok = add_suppression(args.email, args.reason)
         print(f"added: {ok}")
-    elif cmd == "footer" and len(sys.argv) > 2:
-        print(build_casl_footer(sys.argv[2]))
+    elif args.command == "footer":
+        print(build_casl_footer(args.email))
+    elif args.command in {"add-phone-suppression", "suppress-phone"}:
+        add_phone_suppression(args.phone, reason=args.reason, source=args.source)
+        print(f"suppressed_phone: {normalize_phone(args.phone)}")
     else:
-        print(__doc__)
-        print("\nUsage:")
-        print("  python scripts/casl_compliance.py check <email>")
-        print("  python scripts/casl_compliance.py add <email> [reason]")
-        print("  python scripts/casl_compliance.py footer <email>")
+        parser.print_help()
+
+
+if __name__ == "__main__":
+    main()
