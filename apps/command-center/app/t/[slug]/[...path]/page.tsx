@@ -31,10 +31,15 @@ export const runtime = "nodejs";
  */
 export default async function TenantCatchAllPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string; path: string[] }>;
+  searchParams?: Promise<{ view?: string }>;
 }) {
   const { slug, path } = await params;
+  const sp = (await searchParams) || {};
+  const viewOverride: "table" | "kanban" | null =
+    sp.view === "table" ? "table" : sp.view === "kanban" ? "kanban" : null;
   const normalised = slug.toLowerCase();
   if (!(await manifestExists(normalised))) notFound();
 
@@ -165,7 +170,7 @@ export default async function TenantCatchAllPage({
           <span className="font-mono">/t/{normalised}</span> tenant would see.
         </div>
       )}
-      <PageBody slug={normalised} tenantId={dataTenantId} page={pageDef} manifest={manifest} />
+      <PageBody slug={normalised} tenantId={dataTenantId} page={pageDef} manifest={manifest} viewOverride={viewOverride} />
     </div>
   );
 }
@@ -187,11 +192,13 @@ async function PageBody({
   tenantId,
   page,
   manifest,
+  viewOverride,
 }: {
   slug: string;
   tenantId: string | null;
   page: ManifestPageDef;
   manifest: Awaited<ReturnType<typeof getManifest>>;
+  viewOverride: "table" | "kanban" | null;
 }) {
   switch (page.kind) {
     case "markdown":
@@ -213,16 +220,45 @@ async function PageBody({
           </div>
         );
       }
-      if (page.kind === "kanban") {
-        return <ManifestKanban tenantSlug={slug} tenantId={tenantId} entity={entity} page={page} />;
+      // `view` query param overrides the manifest's default kind for
+      // table-vs-kanban entities. Lets the operator flip between a
+      // dense sortable table and the stage-Kanban without an admin
+      // changing the manifest. Form pages don't have a "kanban"
+      // alternative, so the override only applies to kanban/table.
+      const effectiveKind: "kanban" | "table" =
+        page.kind === "form"
+          ? "table"
+          : viewOverride
+            ? viewOverride
+            : (page.kind as "kanban" | "table");
+
+      // Toggle bar — rendered above the body so the operator can flip
+      // views without leaving the page. Only meaningful when the entity
+      // has a group-by-able field (otherwise the Kanban renders as one
+      // big column and the toggle is pointless).
+      const supportsKanban =
+        page.kind === "kanban" ||
+        entity.fields.some((f) => f.type === "enum") ||
+        entity.fields.some((f) => f.name === "stage" || f.name === "status");
+
+      const toggle = supportsKanban ? (
+        <ViewToggle slug={slug} path={page.path} current={effectiveKind} />
+      ) : null;
+
+      if (effectiveKind === "kanban") {
+        return (
+          <>
+            {toggle}
+            <ManifestKanban tenantSlug={slug} tenantId={tenantId} entity={entity} page={page} />
+          </>
+        );
       }
-      if (page.kind === "form") {
-        // Form view is just a single-record table view for now; the
-        // create/edit modal is Phase 5.1. Renders the entity's
-        // field list so the operator can see the shape.
-        return <ManifestTable tenantSlug={slug} tenantId={tenantId} entity={entity} page={page} canCreate />;
-      }
-      return <ManifestTable tenantSlug={slug} tenantId={tenantId} entity={entity} page={page} canCreate />;
+      return (
+        <>
+          {toggle}
+          <ManifestTable tenantSlug={slug} tenantId={tenantId} entity={entity} page={page} canCreate />
+        </>
+      );
     }
     default:
       return (
@@ -231,6 +267,51 @@ async function PageBody({
         </div>
       );
   }
+}
+
+/**
+ * ViewToggle — small two-button toolbar above the body that lets the
+ * operator switch a manifest page between Kanban and Table views.
+ *
+ * Why server-side links instead of a client toggle: this whole route is
+ * a server component, and the underlying ManifestKanban / ManifestTable
+ * both fetch their own data. A `?view=` URL param keeps the bookmark /
+ * back-button behavior natural (e.g. an operator can email a teammate
+ * a link to "/t/sun/leads?view=table" and they land on the same view).
+ */
+function ViewToggle({
+  slug,
+  path,
+  current,
+}: {
+  slug: string;
+  path: string;
+  current: "kanban" | "table";
+}) {
+  return (
+    <div className="flex items-center gap-1 mb-3">
+      <Link
+        href={`/t/${slug}/${path}?view=kanban`}
+        className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-md border ${
+          current === "kanban"
+            ? "border-accent/50 bg-accent/10 text-accent"
+            : "border-bg-border bg-bg-elev/40 text-fg-muted hover:text-fg"
+        }`}
+      >
+        Kanban
+      </Link>
+      <Link
+        href={`/t/${slug}/${path}?view=table`}
+        className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-md border ${
+          current === "table"
+            ? "border-accent/50 bg-accent/10 text-accent"
+            : "border-bg-border bg-bg-elev/40 text-fg-muted hover:text-fg"
+        }`}
+      >
+        Table
+      </Link>
+    </div>
+  );
 }
 
 function UnknownPath({ slug, subPath }: { slug: string; subPath: string }) {
