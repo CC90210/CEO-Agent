@@ -91,6 +91,12 @@ export const OASIS_SEED: TenantManifest = {
         { name: "ai_score", type: "number" },
         { name: "ai_reasoning", type: "string" },
         { name: "ai_scored_at", type: "datetime" },
+        // AI next-action fields (Phase 5b). Written by POST
+        // /api/leads/[id]/next-action — Claude reads the lead + last 10
+        // interactions and recommends a single concrete next move.
+        { name: "ai_next_action", type: "string" },
+        { name: "ai_next_action_rationale", type: "string" },
+        { name: "ai_next_action_at", type: "datetime" },
       ],
     },
     {
