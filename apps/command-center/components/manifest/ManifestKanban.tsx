@@ -23,6 +23,14 @@ type Props = {
    * of the tenant-route URL that 404s for the empire tenant.
    */
   linkBase?: string;
+  /**
+   * Optional within-column sort. When set to a field name, rows in each
+   * column are sorted by `data[sortBy]` descending — numeric values
+   * compared numerically (nulls/missing last), strings compared
+   * lexicographically. /pipeline uses `"ai_score"` so the hottest
+   * Claude-rated leads bubble to the top of every stage column.
+   */
+  sortBy?: string;
 };
 
 /**
@@ -59,6 +67,7 @@ export async function ManifestKanban({
   page,
   demoRows,
   linkBase,
+  sortBy,
 }: Props) {
   const effectiveLinkBase = linkBase ?? `/t/${tenantSlug}/${page.path}`;
   // Two ways to pick the grouping key:
@@ -98,6 +107,27 @@ export async function ManifestKanban({
     : rawRows;
 
   const grouped = groupRecordsBy(rows, groupBy);
+
+  // Optional within-column sort. Numeric fields sort numerically with
+  // null/undefined to the bottom; non-numeric falls back to lexical desc.
+  // Sort is stable (mutates per-column copies of the array; the upstream
+  // groupRecordsBy result is untouched if a future caller wants it).
+  if (sortBy) {
+    for (const key of Object.keys(grouped)) {
+      grouped[key] = [...grouped[key]].sort((a, b) => {
+        const av = a.data[sortBy];
+        const bv = b.data[sortBy];
+        const aHas = av !== undefined && av !== null && av !== "";
+        const bHas = bv !== undefined && bv !== null && bv !== "";
+        if (!aHas && !bHas) return 0;
+        if (!aHas) return 1;
+        if (!bHas) return -1;
+        if (typeof av === "number" && typeof bv === "number") return bv - av;
+        return String(bv).localeCompare(String(av));
+      });
+    }
+  }
+
   const groupingField = entity.fields.find((f) => f.name === groupBy);
   const computedOrder = computeGroupBy ? COMPUTED_GROUP_ORDER[computeGroupBy] : null;
   const orderedKeys: string[] =
@@ -225,6 +255,39 @@ export async function ManifestKanban({
  * now achieved via column scroll, not by hiding data the operator
  * already entered.
  */
+/**
+ * Map an AI score (0-100) to a tone bucket for the kanban chip.
+ * Tier breakpoints mirror the scoring rubric in lib/ai-lead-scoring.ts —
+ * the 70/50/30 boundaries are the same ones Claude was instructed to
+ * weight against, so the chip color tracks the prompt's narrative.
+ */
+function aiScoreTone(score: number): "engaged" | "accent" | "warm" | "hot" {
+  if (score >= 70) return "engaged";
+  if (score >= 50) return "accent";
+  if (score >= 30) return "warm";
+  return "hot";
+}
+
+function AiScoreChip({ score }: { score: number }) {
+  const tone = aiScoreTone(score);
+  const toneClass =
+    tone === "engaged"
+      ? "border-status-engaged/40 bg-status-engaged/10 text-status-engaged"
+      : tone === "accent"
+        ? "border-accent/40 bg-accent/10 text-accent"
+        : tone === "warm"
+          ? "border-status-warm/40 bg-status-warm/10 text-status-warm"
+          : "border-status-hot/40 bg-status-hot/10 text-status-hot";
+  return (
+    <span
+      title="AI lead score (0-100). Tap the lead to see Bravo's reasoning."
+      className={`shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-full border text-sm font-bold ${toneClass}`}
+    >
+      {score}
+    </span>
+  );
+}
+
 function KanbanCard({
   row,
   titleField,
@@ -240,15 +303,26 @@ function KanbanCard({
   tenantSlug: string;
   linkBase: string;
 }) {
-  // Every field with a non-empty value. Operator entered these for a
-  // reason; show them all. Empty fields silently drop so a half-
-  // filled lead doesn't show "Notes: —" filler.
+  // AI scoring fields surface as a chip on the card header — they're
+  // not normal data the operator entered. Exclude them from the
+  // populated-fields list so the dt/dd block doesn't duplicate or
+  // bury the score. The detail page's form view still shows the
+  // full ai_reasoning + ai_scored_at audit trail.
+  const AI_CHIP_FIELDS = new Set([
+    "ai_score", "ai_reasoning", "ai_scored_at",
+    "ai_next_action", "ai_next_action_rationale", "ai_next_action_at",
+  ]);
+
   const populatedFields = cardFields.filter(
     (f) =>
+      !AI_CHIP_FIELDS.has(f.name) &&
       row.data[f.name] !== undefined &&
       row.data[f.name] !== null &&
       row.data[f.name] !== "",
   );
+
+  const aiScoreRaw = row.data.ai_score;
+  const aiScore = typeof aiScoreRaw === "number" ? Math.round(aiScoreRaw) : null;
 
   // Domain-aware title rendering. The title field (e.g. amount for
   // offer) gets formatted with the appropriate unit so the card's
@@ -263,8 +337,11 @@ function KanbanCard({
         href={`${linkBase}/${row.id}`}
         className="block px-3 py-2.5"
       >
-        <div className="font-bold text-[14px] text-fg break-words leading-snug">
-          {titleValue || "Untitled"}
+        <div className="flex items-start justify-between gap-2">
+          <div className="font-bold text-[14px] text-fg break-words leading-snug min-w-0">
+            {titleValue || "Untitled"}
+          </div>
+          {aiScore !== null && <AiScoreChip score={aiScore} />}
         </div>
         {populatedFields.length > 0 && (
           <dl className="mt-2 space-y-0.5 text-[11px]">
