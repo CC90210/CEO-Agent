@@ -89,6 +89,7 @@ export const CC_NAV: NavItem[] = [
   // his lead-capture surface when they're actually the funding-shop
   // workflow's form builder.
   { group: "System", href: "/feed", label: "Event Feed", icon: "Radio" },
+  { group: "System", href: "/health", label: "Health", icon: "ShieldCheck" },
   { group: "System", href: "/overrides", label: "Overrides", icon: "ShieldAlert" },
   { group: "System", href: "/analytics", label: "Analytics", icon: "BarChart3" },
   { group: "System", href: "/integrations", label: "Integrations", icon: "Plug" },
@@ -124,6 +125,7 @@ export const SUN_NAV: NavItem[] = [
   { group: "Network", href: "/templates", label: "Templates", icon: "FileCode2" },
   { group: "System", href: "/team", label: "Team", icon: "UsersRound" },
   { group: "System", href: "/automations", label: "Automations", icon: "RefreshCcw" },
+  { group: "System", href: "/health", label: "Health", icon: "ShieldCheck" },
   { group: "System", href: "/embed", label: "Embed", icon: "Code2" },
   { group: "System", href: "/settings", label: "Settings", icon: "Settings" },
 ];
