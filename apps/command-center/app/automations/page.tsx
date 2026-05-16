@@ -9,6 +9,7 @@
 import { PageHeader } from "@/components/Card";
 import { CronJobsManager } from "@/components/automations/CronJobsManager";
 import { BackgroundWorkersPanel } from "@/components/automations/BackgroundWorkersPanel";
+import { DescribeAutomationFlow } from "@/components/automations/DescribeAutomationFlow";
 import { getActiveProfile, getBridgeOnline } from "@/lib/queries";
 import { chatAgentKeys } from "@/lib/agent-personas";
 import { safe } from "@/lib/api-helpers";
@@ -143,6 +144,7 @@ export default async function AutomationsPage() {
 
       {profile ? (
         <>
+          <DescribeAutomationFlow />
           <CronJobsManager
             agentKeys={chatAgentKeys().filter((k) =>
               (profile.agents_enabled || chatAgentKeys()).includes(k),
