@@ -37,6 +37,13 @@ import { OverrideDecisionForms } from "./OverrideDecisionForms";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+type WorkspaceLabel =
+  | "empire"
+  | "sunbiz_client"
+  | "suga_client"
+  | "propflow_client"
+  | "unknown";
+
 type Row = {
   request_id: string;
   ts: string;
@@ -55,6 +62,16 @@ type Row = {
   dashboard_reason: string | null;
   consumer_synced_at: string | null;
   updated_at: string;
+  workspace_label: WorkspaceLabel;
+  cwd_path: string | null;
+};
+
+const WORKSPACE_LABELS: Record<WorkspaceLabel, { label: string; tone: "accent" | "warm" | "engaged" | "info" | "neutral" }> = {
+  empire:          { label: "OASIS empire",   tone: "engaged" },
+  sunbiz_client:   { label: "Sun Biz client", tone: "warm" },
+  suga_client:     { label: "Suga client",    tone: "info" },
+  propflow_client: { label: "PropFlow client", tone: "info" },
+  unknown:         { label: "Unclassified",   tone: "neutral" },
 };
 
 function relativeTime(iso: string | null | undefined): string {
@@ -125,21 +142,32 @@ async function decisionAction(formData: FormData): Promise<void> {
   revalidatePath("/overrides");
 }
 
-async function fetchRows(): Promise<{ rows: Row[]; error?: string }> {
+async function fetchRows(showAllWorkspaces: boolean): Promise<{ rows: Row[]; error?: string }> {
   try {
     const db = getServiceSupabase();
     const cutoff = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
-    const r = await db
+    // Default view: only empire + unclassified rows. SunBiz / Suga / PropFlow
+    // client work surfaces overrides too, but those belong on their own
+    // tenant-scoped dashboard, not OASIS HQ. Migration 048 added workspace_label
+    // so we can filter cleanly; before that, the operator saw every client's
+    // commits mixed into their view, including SunBiz TextTorrent commits that
+    // looked like noise. ?ws=all is the escape hatch for power users who need
+    // to audit cross-workspace traffic.
+    let query = db
       .from("exec_overrides")
       .select(
         "request_id, ts, expires_at, command, command_hash, layer, reason, " +
           "status, approved_at, approved_by, consumed_at, dashboard_decision, " +
           "dashboard_decided_at, dashboard_decided_by, dashboard_reason, " +
-          "consumer_synced_at, updated_at",
+          "consumer_synced_at, updated_at, workspace_label, cwd_path",
       )
       .gte("ts", cutoff)
       .order("ts", { ascending: false })
       .limit(100);
+    if (!showAllWorkspaces) {
+      query = query.in("workspace_label", ["empire", "unknown"]);
+    }
+    const r = await query;
     if (r.error) {
       return { rows: [], error: r.error.message };
     }
@@ -149,12 +177,18 @@ async function fetchRows(): Promise<{ rows: Row[]; error?: string }> {
   }
 }
 
-export default async function OverridesPage() {
+export default async function OverridesPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ ws?: string }>;
+}) {
   // Force-evaluate the headers so Next streams this as a dynamic route — same
   // pattern as system-health/page.tsx. Without this, prerender tries to bake
   // the page at build-time and the Supabase call falls back to anon.
   await headers();
-  const { rows, error } = await fetchRows();
+  const params = (await searchParams) || {};
+  const showAllWorkspaces = params.ws === "all";
+  const { rows, error } = await fetchRows(showAllWorkspaces);
 
   const pending = rows.filter((r) => r.status === "pending" && !r.dashboard_decision);
   const inFlight = rows.filter((r) => r.dashboard_decision && !r.consumer_synced_at);
@@ -166,11 +200,26 @@ export default async function OverridesPage() {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Override Approvals"
-        subtitle="V6 exec_guard blocks land here. Approve releases the agent's next retry of the EXACT same command (single-use, command-hash-bound)."
+        subtitle={
+          showAllWorkspaces
+            ? "All workspaces — empire + every client repo's blocks visible. Use the link below to return to the empire-only view."
+            : "Empire-side exec_guard blocks. Approve releases the agent's next retry of the EXACT same command (single-use, command-hash-bound)."
+        }
         action={<Tag tone={pending.length > 0 ? "hot" : "engaged"}>
           {pending.length} pending
         </Tag>}
       />
+      <div className="text-xs text-fg-faint">
+        {showAllWorkspaces ? (
+          <a href="/overrides" className="text-accent hover:underline">
+            ← Hide client-workspace overrides
+          </a>
+        ) : (
+          <a href="/overrides?ws=all" className="text-accent hover:underline">
+            Show all workspaces (empire + clients) →
+          </a>
+        )}
+      </div>
 
       {error && (
         <Card>
@@ -239,6 +288,9 @@ export default async function OverridesPage() {
             <div key={row.request_id} className="flex items-center gap-3 text-xs text-fg-muted">
               <span className="font-mono text-fg w-28">{row.request_id}</span>
               {statusBadge(row)}
+              <Tag tone={WORKSPACE_LABELS[row.workspace_label]?.tone || "neutral"}>
+                {WORKSPACE_LABELS[row.workspace_label]?.label || row.workspace_label}
+              </Tag>
               <span className="text-fg-dim">{row.layer}</span>
               <span className="font-mono text-fg-faint truncate flex-1">
                 {row.command.slice(0, 120)}
@@ -265,6 +317,9 @@ function OverrideRow({ row, interactive }: { row: Row; interactive: boolean }) {
             <div className="flex items-center gap-2">
               <span className="font-mono text-sm text-fg">{row.request_id}</span>
               {statusBadge(row)}
+              <Tag tone={WORKSPACE_LABELS[row.workspace_label]?.tone || "neutral"}>
+                {WORKSPACE_LABELS[row.workspace_label]?.label || row.workspace_label}
+              </Tag>
               <span className="text-xs text-fg-dim">{row.layer}</span>
               <span className="text-xs text-fg-faint ml-auto">
                 TTL {expiresIn}s · created {relativeTime(row.ts)}

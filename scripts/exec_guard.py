@@ -191,12 +191,20 @@ def _create_override_request(cmd: str, layer: str) -> str | None:
     block itself.
     """
     try:
+        # cwd_path is the source-of-truth for workspace_label classification
+        # (migration 048). Capture at the block site so the dashboard knows
+        # whether this request came from empire code or a client repo.
+        try:
+            cwd = os.getcwd()
+        except OSError:
+            cwd = None
         req = state_manager.create_override_request(
             command=cmd,
             layer=layer,
             reason="auto-created by exec_guard on block",
             caller_pid=os.getpid(),
             ttl_sec=300,
+            cwd_path=cwd,
         )
         return req.get("id")
     except Exception:  # noqa: BLE001

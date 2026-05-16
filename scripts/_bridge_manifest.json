@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-16T06:03:21.208507+00:00",
-  "script_count": 96,
-  "entry_count": 357,
+  "generated_at_iso": "2026-05-16T06:55:39.324121+00:00",
+  "script_count": 97,
+  "entry_count": 358,
   "entries": [
     {
       "key": "agent_heartbeat",
@@ -87,6 +87,13 @@
       "subcmd": "decisions",
       "mutating": false,
       "help": "Autonomous Agent \u2014 the always-on reasoning loop. \u2014 subcommand: decisions"
+    },
+    {
+      "key": "backfill_exec_overrides_workspace",
+      "path": "scripts/backfill_exec_overrides_workspace.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "One-off backfill: classify existing exec_overrides rows into workspace buckets."
     },
     {
       "key": "booking_engine_slots",
