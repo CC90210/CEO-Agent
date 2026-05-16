@@ -165,13 +165,20 @@ export async function DELETE(
   const { id } = await ctx.params;
 
   const db = getServiceSupabase();
-  const { error } = await db
+  // count: "exact" so a no-op delete (id already gone, or tenant
+  // mismatch) surfaces as 404 instead of a silent ok:true that the UI
+  // would interpret as success. See the parallel /api/sequences/[id]
+  // handler for the same rationale.
+  const { error, count } = await db
     .from("forms")
-    .delete()
+    .delete({ count: "exact" })
     .eq("id", id)
     .eq("tenant_id", tenantId);
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  }
+  if (!count) {
+    return NextResponse.json({ ok: false, error: "not_found_or_forbidden" }, { status: 404 });
   }
   return NextResponse.json({ ok: true });
 }

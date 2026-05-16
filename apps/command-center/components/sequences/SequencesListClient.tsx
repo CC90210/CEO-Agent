@@ -100,15 +100,26 @@ export function SequencesListClient({ initialRows }: { initialRows: SequenceRow[
     });
     if (!res.ok) {
       setRows((prev) => prev.map((r) => (r.id === id ? { ...r, enabled } : r)));
+      return;
     }
+    // Invalidate the RSC cache so a future navigation to /sequences picks
+    // up the new enabled state instead of replaying the cached page that
+    // still shows the old toggle position.
+    router.refresh();
   }
 
   async function destroy(id: string, name: string) {
     if (!confirm(`Delete sequence "${name}"? In-flight enrollments will be cancelled too.`)) return;
     const res = await fetch(`/api/sequences/${id}`, { method: "DELETE" });
-    if (res.ok) {
-      setRows((prev) => prev.filter((r) => r.id !== id));
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      setError(data.error || `delete failed (${res.status})`);
+      return;
     }
+    setRows((prev) => prev.filter((r) => r.id !== id));
+    // Same RSC-cache invalidation rationale as toggle — without this,
+    // navigating away and back resurrects the row from the cached page.
+    router.refresh();
   }
 
   function summarize(row: SequenceRow): string {

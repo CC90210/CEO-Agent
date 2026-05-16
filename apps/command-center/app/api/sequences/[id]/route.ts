@@ -143,13 +143,21 @@ export async function DELETE(
   const { id } = await ctx.params;
 
   const db = getServiceSupabase();
-  const { error } = await db
+  // count: "exact" so we can detect "matched zero rows" — that's the
+  // signal for either (a) the id was already gone, or (b) the tenant
+  // scope doesn't match. Both are "not found" from the operator's
+  // perspective. Without this check, a no-op delete returns ok:true and
+  // the UI optimistically removes a row that the DB still has.
+  const { error, count } = await db
     .from("drip_sequences")
-    .delete()
+    .delete({ count: "exact" })
     .eq("id", id)
     .eq("tenant_id", tenantId);
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  }
+  if (!count) {
+    return NextResponse.json({ ok: false, error: "not_found_or_forbidden" }, { status: 404 });
   }
   return NextResponse.json({ ok: true });
 }
