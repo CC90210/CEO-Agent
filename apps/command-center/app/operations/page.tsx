@@ -19,6 +19,7 @@ import { ALL_AGENT_KEYS, FAMILY_AGENT_KEYS, getAgentInfo, resolveAgentKey } from
 import { getTenantEnabledAgents } from "@/lib/manifest/tenant-scope";
 import { isOperatorEmail } from "@/lib/operator-credentials";
 import { timeAgo, truncate } from "@/lib/fmt";
+import { projectEvent } from "@/lib/event-projection";
 import { WarmPoolPanel } from "@/components/WarmPoolPanel";
 
 export const dynamic = "force-dynamic";
@@ -68,7 +69,17 @@ export default async function OperationsPage({
         ? manifestEnabledSlugs
         : (profile?.agents_enabled || []).map(resolveAgentKey));
 
-  const [snaps, pairings, events] = await Promise.all([
+  // Health banner counts (4 tiles at the top). Phase 3 merge: the dedicated
+  // /health page still exists for drill-down, but the operator gets a
+  // glance-able summary right where they're already looking. Each is a
+  // pure count query — no payloads pulled — so the round-trip cost is
+  // ~5ms per table.
+  const tenantId = profile?.tenant_id || null;
+  const now24Ago = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const now7Ago = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const now14Ago = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+
+  const [snaps, pairings, events, errorsCount, failedCronsCount, stuckThreadsCount, staleLeadsCount, pendingOverridesCount] = await Promise.all([
     safe(
       "operations.agent_state_snapshot",
       agentStates(agentNamesForOps).then((rows) =>
@@ -109,6 +120,95 @@ export default async function OperationsPage({
       }),
       []
     ),
+    // Health tile #1: error/warn events in last 24h (tenant-scoped via
+    // enabled agents — same posture as the activity tape above).
+    safe(
+      "operations.errors_24h",
+      (async () => {
+        if (agentNamesForOps.length === 0 && !isOperator) return 0;
+        let q = db
+          .from("agent_events")
+          .select("id", { count: "exact", head: true })
+          .in("severity", ["error", "warn"])
+          .gte("published_at", now24Ago);
+        if (!isOperator) q = q.in("publisher_agent", agentNamesForOps);
+        const r = await q;
+        return r.count || 0;
+      })(),
+      0
+    ),
+    // Health tile #2: crons whose last run errored — both empire SEED_JOBS
+    // (cron_jobs.last_result starts with ERROR/FAILED/unknown_action_type)
+    // and tenant crons (last_run_status='error').
+    safe(
+      "operations.failed_crons",
+      (async () => {
+        const empireRes = await db
+          .from("cron_jobs")
+          .select("id", { count: "exact", head: true })
+          .or(
+            "last_result.like.ERROR%,last_result.like.FAILED%,last_result.like.unknown_action_type%",
+          );
+        let tenantCount = 0;
+        if (tenantId) {
+          const r = await db
+            .from("tenant_cron_jobs")
+            .select("id", { count: "exact", head: true })
+            .eq("tenant_id", tenantId)
+            .eq("last_run_status", "error");
+          tenantCount = r.count || 0;
+        }
+        return (empireRes.count || 0) + tenantCount;
+      })(),
+      0
+    ),
+    // Health tile #3: lender threads stuck at sent for >7d.
+    tenantId
+      ? safe(
+          "operations.stuck_threads",
+          (async () => {
+            const r = await db
+              .from("application_lender_threads")
+              .select("id", { count: "exact", head: true })
+              .eq("tenant_id", tenantId)
+              .eq("status", "sent")
+              .lt("sent_at", now7Ago);
+            return r.count || 0;
+          })(),
+          0
+        )
+      : Promise.resolve(0),
+    // Health tile #4: leads whose updated_at is >14d ago.
+    tenantId
+      ? safe(
+          "operations.stale_leads",
+          (async () => {
+            const r = await db
+              .from("tenant_records")
+              .select("id", { count: "exact", head: true })
+              .eq("tenant_id", tenantId)
+              .eq("entity_type", "lead")
+              .lt("updated_at", now14Ago);
+            return r.count || 0;
+          })(),
+          0
+        )
+      : Promise.resolve(0),
+    // Pending overrides — for the badge on the Override Approvals link.
+    safe(
+      "operations.pending_overrides",
+      (async () => {
+        const r = await db
+          .from("exec_overrides")
+          .select("request_id", { count: "exact", head: true })
+          .eq("status", "pending")
+          .is("dashboard_decision", null)
+          .in("workspace_label", ["empire", "unknown"])
+          .gte("ts", now24Ago);
+        return r.count || 0;
+      })(),
+      0
+    ),
   ]);
   const snapByName = new Map(snaps.map((s) => [s.agent_name, s] as const));
 
@@ -130,6 +230,9 @@ export default async function OperationsPage({
   const enabled = enabledSource.filter((k) => familySet.has(resolveAgentKey(k)));
   const now = Date.now();
 
+  const totalHealthSignals = errorsCount + failedCronsCount + stuckThreadsCount + staleLeadsCount;
+  const allClear = totalHealthSignals === 0;
+
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
@@ -141,6 +244,22 @@ export default async function OperationsPage({
           </Tag>
         }
       />
+
+      {/* Health banner — phase 3 merge of /health into /operations.
+          Compact 4-tile glance + a fifth pill for pending overrides.
+          /health still exists for the full row-level drill-down; this
+          shows just the counts so CC can see "do I have anything to look
+          at right now" without leaving Operations. */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        <HealthMiniTile label="Errors 24h" count={errorsCount} tone={errorsCount === 0 ? "engaged" : "warm"} href="/health" />
+        <HealthMiniTile label="Failed crons" count={failedCronsCount} tone={failedCronsCount === 0 ? "engaged" : "warm"} href="/automations" />
+        <HealthMiniTile label="Stuck shop-outs" count={stuckThreadsCount} tone={stuckThreadsCount === 0 ? "engaged" : "accent"} href="/health" />
+        <HealthMiniTile label="Stale leads" count={staleLeadsCount} tone={staleLeadsCount === 0 ? "engaged" : "accent"} href="/pipeline" />
+        <HealthMiniTile label="Overrides pending" count={pendingOverridesCount} tone={pendingOverridesCount === 0 ? "engaged" : "hot"} href="/overrides" />
+      </div>
+      {allClear && pendingOverridesCount === 0 && (
+        <div className="text-xs text-status-engaged">All clear — nothing needs your attention.</div>
+      )}
 
       <Card
         title="Agent workers"
@@ -250,26 +369,70 @@ export default async function OperationsPage({
           />
         ) : (
           <ul className="divide-y divide-bg-border">
-            {events.map((e) => (
-              <li key={e.id} className="py-2.5">
-                <div className="flex items-center justify-between gap-3">
-                  <Tag tone="accent">{e.event_type}</Tag>
-                  <span className="text-xs text-fg-dim">
-                    {e.publisher_agent} · {timeAgo(e.published_at)}
-                  </span>
-                </div>
-                {(() => {
-                  const subj = (e.payload as Record<string, unknown>)?.subject as string | undefined;
-                  return subj ? (
-                    <div className="text-fg mt-1.5 text-sm">{truncate(subj, 100)}</div>
-                  ) : null;
-                })()}
-              </li>
-            ))}
+            {events.map((e) => {
+              // Project to human-readable shape — replaces the raw event_type
+              // tag and ad-hoc subject extraction with a single label +
+              // summary line. Wire format (BRAVO_RECORD_STATUS_CHANGED, etc.)
+              // stays available in a dim line for the developer-debug case.
+              const p = projectEvent(e);
+              return (
+                <li key={e.id} className="py-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Tag tone={p.tone}>{p.label}</Tag>
+                      {p.source_agent !== "unknown" && (
+                        <span className="text-[10px] uppercase tracking-wider text-fg-dim">
+                          {p.source_agent}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs text-fg-dim shrink-0">
+                      {timeAgo(p.published_at)}
+                    </span>
+                  </div>
+                  {p.summary && p.summary !== "—" && (
+                    <div className="text-fg mt-1 text-sm break-words">{p.summary}</div>
+                  )}
+                  <div className="text-[10px] text-fg-faint font-mono mt-0.5">
+                    {p.event_type}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         )}
       </Card>
     </div>
+  );
+}
+
+function HealthMiniTile({
+  label,
+  count,
+  tone,
+  href,
+}: {
+  label: string;
+  count: number;
+  tone: "engaged" | "warm" | "accent" | "hot";
+  href: string;
+}) {
+  const toneClass =
+    tone === "engaged"
+      ? "border-status-engaged/30 bg-status-engaged/5 text-status-engaged"
+      : tone === "warm"
+        ? "border-status-warm/40 bg-status-warm/5 text-status-warm"
+        : tone === "hot"
+          ? "border-status-hot/40 bg-status-hot/5 text-status-hot"
+          : "border-accent/40 bg-accent/5 text-accent";
+  return (
+    <a
+      href={href}
+      className={`rounded-lg border px-3 py-2 transition-opacity hover:opacity-80 ${toneClass}`}
+    >
+      <div className="text-[10px] uppercase tracking-wider font-bold opacity-70">{label}</div>
+      <div className="text-2xl font-bold mt-0.5">{count}</div>
+    </a>
   );
 }
 
