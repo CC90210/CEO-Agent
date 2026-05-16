@@ -15,6 +15,24 @@ last_updated: 2026-05-15
 > drives CC's real, logged-in Chrome for actions that require authenticated
 > sessions.
 
+## 🟢 PREFERRED ENTRY POINT (V6.7+, 2026-05-16): `research_fetch`
+
+**For any "give me the content at URL X" task, default to:**
+
+```bash
+python scripts/research_fetch.py <url> --json
+```
+
+It auto-escalates Firecrawl → CloakBrowser based on actual response and remembers which tier worked per domain (SQLite at `state/site_reputation.db`). The four-tool matrix below is still the authoritative mental model — but `research_fetch` lets agents stop choosing tiers manually for the Firecrawl/CloakBrowser hand-off. Full skill: [[skills/research-fetch/SKILL]]. Drop down to a specific tool only when you need:
+
+- structured extraction with a schema → `firecrawl_tool.py extract`
+- batch site crawling → `firecrawl_tool.py crawl`
+- site mapping → `firecrawl_tool.py map`
+- search-and-scrape in one call → `firecrawl_tool.py search`
+- interactive flow / form submission on a protected site → `cloak_browser_tool.py goto`
+- screenshot evidence → `cloak_browser_tool.py scrape --screenshot`
+- act AS CC in CC's logged-in account → Browser Harness
+
 ## Tool Decision Matrix
 
 | Scenario | Tool | Why |

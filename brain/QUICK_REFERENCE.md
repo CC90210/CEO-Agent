@@ -64,8 +64,9 @@ tags: [reference, tools, routing]
 | Supabase query / CRUD | `supabase_tool.py` | `select <table> --project bravo`, `insert`, `update`, `query` |
 | n8n workflows (read/exec) | `n8n_tool.py` | `list`, `search`, `execute <id>`, `stats` |
 | n8n workflows (build/modify) | n8n-mcp SDK flow | `get_sdk_reference` → `search_nodes` → `get_node_types` → `validate_workflow` → `create_workflow_from_code`. See `skills/n8n-mcp-integration` |
-| Web scraping (data extraction, public unprotected) | `firecrawl_tool.py` | `scrape <url>`, `search <query>`, `crawl`, `extract` |
-| **Scrape a bot-protected site (Cloudflare, DataDome, reCAPTCHA, FingerprintJS, etc.) — MANDATORY tier when Firecrawl returns 403/empty** | `cloak_browser_tool.py` | `scrape <url> --json`, `check-stealth`, `goto <url> --eval "..."`, `download`, `binary-info`. Optional `CLOAK_PROXY_URL` in `.env.agents` for residential proxy. Skill: `skills/cloak-browser/SKILL.md` |
+| **Fetch a URL — DEFAULT entry point (auto-escalates Firecrawl→Cloak + remembers per-domain)** | `research_fetch.py` | `python scripts/research_fetch.py <url> --json`. Reputation: `reputation [domain]`, `reputation-clear <domain>`. Skill: `skills/research-fetch/SKILL.md` |
+| Web scraping (data extraction, public unprotected — when you want Firecrawl-specific features) | `firecrawl_tool.py` | `scrape <url>`, `search <query>`, `crawl`, `extract`, `map` |
+| **Scrape a bot-protected site directly (Cloudflare, DataDome, reCAPTCHA, FingerprintJS, etc.) — usually `research_fetch` handles this for you** | `cloak_browser_tool.py` | `scrape <url> --json`, `check-stealth`, `goto <url> --eval "..."`, `download`, `binary-info`. Optional `CLOAK_PROXY_URL` in `.env.agents` for residential proxy. Skill: `skills/cloak-browser/SKILL.md` |
 | Web automation (clicks, forms) on unprotected sites | Playwright MCP | `browser_navigate`, `browser_click`, `browser_type` |
 | Real logged-in browser control + reusable site memory | Browser Harness | `python scripts/browser_harness_doctor.py`; setup: `& (Get-Command browser-harness).Source --setup`; workflow: `/.agents/workflows/browser-harness.md` |
 | Cron jobs / scheduled tasks | `cron_engine.py` | `list`, `add`, `run`, `due`, `seed` |
@@ -117,7 +118,7 @@ tags: [reference, tools, routing]
 When multiple tools could handle a request, use this precedence:
 
 1. **One-off email** → `google_tool.py` | **Email sequence/template** → `email_engine.py`
-2. **Public unprotected page (markdown)** → `firecrawl_tool.py` | **Bot-protected fresh-session scrape (Cloudflare/DataDome/reCAPTCHA)** → `cloak_browser_tool.py` (mandatory tier) | **Interactive flow on unprotected site** → Playwright MCP | **Act as CC under CC's login** → Browser Harness
+2. **Any "fetch URL X" task** → **`research_fetch.py` (default, auto-escalates + remembers per-domain)**. Specific tiers only when you need their unique features: `firecrawl_tool.py` (crawl / extract / map / search), `cloak_browser_tool.py` (interactive goto / screenshot / direct Cloak), Playwright MCP (interactive flow on unprotected), Browser Harness (act as CC under CC's login).
 3. **Quick post** → `late_tool.py` | **Full content pipeline** → Maven (`../CMO-Agent/scripts/content_pipeline.py`)
 4. **Simple DB query** → `supabase_tool.py` | **Business metrics** → `revenue_engine.py` or `ceo_dashboard.py`
 5. **Structured memory** → markdown files | **Fuzzy recall** → `mem0_tool.py`
