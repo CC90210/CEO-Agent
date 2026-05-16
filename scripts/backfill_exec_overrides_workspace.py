@@ -24,26 +24,20 @@ Run:
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 
-RULES = [
-    ("sunbiz_client",   re.compile(r"(marketing-agent|text_torrent|texttorrent|kixie|/t/sun/|sun_biz|sunbiz)", re.IGNORECASE)),
-    ("suga_client",     re.compile(r"(cmo-agent|sugasean|suga sean|suga[_ ]brand)", re.IGNORECASE)),
-    ("propflow_client", re.compile(r"(propflow|prop-flow|prop_flow)", re.IGNORECASE)),
-    ("empire",          re.compile(r"(business-empire-agent|/oasis|oasis_seed|empire)", re.IGNORECASE)),
-]
+# Single source of truth for the workspace classifier — shared with the
+# write-time path so historical backfill and forward-going inserts can
+# never drift apart.
+from lib.exec_override_mirror import classify_workspace  # noqa: E402
 
 
 def _classify(command: str) -> str:
-    for label, regex in RULES:
-        if regex.search(command or ""):
-            return label
-    return "unknown"
+    return classify_workspace(None, command)
 
 
 def _client():
