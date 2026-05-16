@@ -15,6 +15,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser, getServiceSupabase } from "@/lib/supabase-server";
+import { resolveTenantId } from "@/lib/api-auth";
 import { isMissingTableError, missingTablePayload } from "@/lib/api-helpers";
 import {
   parseFormSteps,
@@ -27,18 +28,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const SLUG_RE = /^[a-z0-9][a-z0-9_-]{1,62}$/;
-
-async function resolveTenantId(): Promise<string | null> {
-  const user = await getSessionUser();
-  if (!user) return null;
-  const db = getServiceSupabase();
-  const { data } = await db
-    .from("user_profiles")
-    .select("tenant_id")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
-  return (data as { tenant_id: string | null } | null)?.tenant_id ?? null;
-}
 
 async function resolveUserId(): Promise<string | null> {
   const user = await getSessionUser();
