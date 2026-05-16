@@ -58,6 +58,25 @@ function isPublic(pathname: string): boolean {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // Phase 6b — redirect removed-from-nav routes to their new homes.
+  // The Phase 2 redesign collapsed 13 nav entries to 7; the merged
+  // pages (Reasoning, Event Feed, Health, Overrides, Playbook,
+  // Integrations) still resolve at their old URLs because of phase
+  // 1's conservative "don't break bookmarks" rule, but they land at
+  // their new homes now so the dashboard's behaviour matches its nav.
+  // /health and /overrides stay reachable at their own URLs because
+  // the Operations banner deep-links to them — only the obviously-
+  // folded ones redirect.
+  const REDIRECT_MAP: Record<string, string> = {
+    "/reasoning": "/agents",
+    "/feed": "/operations",
+    "/playbook": "/settings",
+    "/integrations": "/settings",
+  };
+  if (pathname in REDIRECT_MAP) {
+    return NextResponse.redirect(new URL(REDIRECT_MAP[pathname], req.url));
+  }
+
   // Pass pathname through as a header so the root layout can decide whether
   // to render the dashboard shell vs full-bleed (marketing/auth) chrome.
   const requestHeaders = new Headers(req.headers);
