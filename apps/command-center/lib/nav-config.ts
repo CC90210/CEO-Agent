@@ -78,26 +78,27 @@ export const CC_NAV: NavItem[] = [
   { group: "Operations", href: "/", label: "Today", icon: "LayoutDashboard" },
   { group: "Operations", href: "/pipeline", label: "Pipeline", icon: "GitBranch" },
   { group: "Operations", href: "/agents", label: "Agents", icon: "Bot" },
+  { group: "Operations", href: "/reasoning", label: "Reasoning", icon: "Brain" },
   // System group — observability + control surfaces.
   { group: "System", href: "/operations", label: "Operations", icon: "Activity" },
   { group: "System", href: "/automations", label: "Automations", icon: "RefreshCcw" },
+  { group: "System", href: "/health", label: "Health", icon: "ShieldCheck" },
+  { group: "System", href: "/overrides", label: "Overrides", icon: "ShieldAlert" },
   { group: "System", href: "/analytics", label: "Analytics", icon: "BarChart3" },
   { group: "System", href: "/settings", label: "Settings", icon: "Settings" },
-  // 2026-05-16 redesign Phase 2: nav consolidation from 13 to 7. Removed
-  // entries that were rarely-used or duplicates of richer surfaces:
-  //   /reasoning  → folded into /agents as a Decisions tab (Phase 3)
-  //   /playbook   → moved under /settings/playbook (Phase 3)
-  //   /feed       → folded into /operations as the live stream tab (Phase 3)
-  //   /health     → folded into /operations top banner (Phase 3)
-  //   /overrides  → folded into /operations as a collapsible panel (Phase 3)
-  //   /integrations → moved under /settings/integrations (Phase 3)
-  // All six routes still resolve by direct URL (existing pages untouched
-  // this phase). Phase 3 wires the redirects and rich merging.
+  // 2026-05-16 Phase 7 — restored Reasoning, Health, Overrides after CC
+  // pointed out the Phase 2 nav trim was too aggressive. The full nav
+  // arc:
+  //   - 13 entries → 7 (Phase 2: blunt consolidation, no merge)
+  //   - 7 → 10 (Phase 7: restore the dailies operators actually use)
   //
-  // /forms + /sequences intentionally absent from OASIS HQ nav. Forms
-  // for OASIS-side lead capture live in the cc-funnel app (a separate
-  // CC90210/cc-funnel repo). The dashboard's /forms + /sequences routes
-  // are SunBiz CRM features and surface only on the SunBiz tenant nav.
+  // Still folded into Settings sub-routes (not top-level):
+  //   /playbook → /settings/playbook    (reference, not daily)
+  //   /integrations → /settings/integrations (setup-time, not daily)
+  //   /feed → merged into /operations (Activity Tape is the same stream)
+  //
+  // /forms + /sequences intentionally absent — SunBiz CRM features that
+  // surface only on the SunBiz tenant nav.
 ];
 
 /**
