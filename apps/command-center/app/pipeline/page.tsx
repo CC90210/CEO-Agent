@@ -3,13 +3,14 @@ import { Card, PageHeader, Tag, EmptyState } from "@/components/Card";
 import { PipelineFunnel } from "@/components/charts/PipelineFunnel";
 import { timeAgo, truncate } from "@/lib/fmt";
 import {
-  recentLeads,
   pipelineBreakdown,
   recentOutbound,
   recentInbound,
   getActiveProfile,
 } from "@/lib/queries";
 import { safe } from "@/lib/api-helpers";
+import { ManifestKanban } from "@/components/manifest/ManifestKanban";
+import { OASIS_SEED } from "@/lib/manifest/seeds";
 
 export const dynamic = "force-dynamic";
 
@@ -23,20 +24,19 @@ export default async function PipelinePage({
 
   const profile = await safe("pipeline.profile", getActiveProfile(), null);
   const tenantId = profile?.tenant_id || "";
-  const [leads, pipeline, outbound, inbound] = await Promise.all([
-    safe(
-      "pipeline.recent_leads",
-      recentLeads(tenantId, 80, {
-        include_archived: includeAll,
-        include_no_email: includeAll,
-        include_lost: includeAll,
-      }),
-      []
-    ),
+  const [pipeline, outbound, inbound] = await Promise.all([
     safe("pipeline.breakdown", pipelineBreakdown(tenantId, includeAll), { stages: {} as Record<string, number>, total: 0, sources: {} as Record<string, number> }),
     safe("pipeline.recent_outbound", recentOutbound(tenantId, 20), []),
     safe("pipeline.recent_inbound", recentInbound(tenantId, 20), []),
   ]);
+
+  // Phase 4: OASIS Pipeline becomes a full CRM. Source of stages + card
+  // fields is OASIS_SEED.data_model.lead, which the same ManifestKanban
+  // SunBiz uses already understands. The flat-table fallback at
+  // ?view=table is preserved via the manifest tenant route — for the
+  // empire pipeline we go kanban-first since CC's actual complaint was
+  // "the pipeline page is a table, I want it to feel like SunBiz's CRM."
+  const leadEntity = OASIS_SEED.data_model?.find((e) => e.name === "lead");
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -66,58 +66,24 @@ export default async function PipelinePage({
         </Card>
       </section>
 
-      <Card title="Active leads" subtitle={`${leads.length} shown of ${pipeline.total}`} noPadding>
-        {leads.length === 0 ? (
-          <div className="p-5">
-            <EmptyState message="No active leads. Run `python scripts/lead_engine.py bulk-import` from Bravo." />
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="border-b border-bg-border">
-                <tr className="text-left text-[10px] uppercase tracking-[0.14em] text-fg-muted font-bold">
-                  <th className="px-5 py-3">Last touch</th>
-                  <th className="px-5 py-3">Stage</th>
-                  <th className="px-5 py-3">Score</th>
-                  <th className="px-5 py-3">Name</th>
-                  <th className="px-5 py-3">Company</th>
-                  <th className="px-5 py-3">Email</th>
-                  <th className="px-5 py-3">Source</th>
-                </tr>
-              </thead>
-              <tbody>
-                {leads.map((l) => (
-                  <tr key={l.id} className="border-b border-bg-border last:border-0 hover:bg-bg-hover/30 transition-colors">
-                    <td className="px-5 py-3 text-fg-dim text-sm">
-                      {timeAgo(l.last_contacted_at || l.updated_at)}
-                    </td>
-                    <td className="px-5 py-3">
-                      <Tag
-                        tone={
-                          l.status === "qualified"
-                            ? "engaged"
-                            : l.status === "lost" || l.status === "archived"
-                              ? "neutral"
-                              : l.status === "won"
-                                ? "engaged"
-                                : "info"
-                        }
-                      >
-                        {l.status || "new"}
-                      </Tag>
-                    </td>
-                    <td className="px-5 py-3 text-fg font-mono text-sm">{l.score ?? "—"}</td>
-                    <td className="px-5 py-3 text-fg text-sm">{truncate(l.name, 28)}</td>
-                    <td className="px-5 py-3 text-fg-muted text-sm">{truncate(l.company, 28)}</td>
-                    <td className="px-5 py-3 text-fg-muted font-mono text-xs">{truncate(l.email, 32)}</td>
-                    <td className="px-5 py-3 text-fg-dim text-xs">{l.source || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+      {leadEntity ? (
+        <ManifestKanban
+          tenantSlug="oasis"
+          tenantId={tenantId || null}
+          entity={leadEntity}
+          page={{
+            path: "pipeline",
+            label: "Pipeline",
+            kind: "kanban",
+            entity: "lead",
+            config: { group_by: "stage" },
+          }}
+        />
+      ) : (
+        <Card>
+          <EmptyState message="OASIS lead entity not defined in the manifest. Open the AI editor at /t/oasis/editor to add it." />
+        </Card>
+      )}
 
       <section className="grid lg:grid-cols-2 gap-6">
         <Card title="Recent outbound" subtitle={`${outbound.length} most recent`}>

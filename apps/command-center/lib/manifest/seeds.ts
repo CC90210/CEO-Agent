@@ -62,9 +62,26 @@ export const OASIS_SEED: TenantManifest = {
       fields: [
         { name: "name", type: "string", required: true },
         { name: "company", type: "string" },
-        { name: "source", type: "enum", enum_values: ["referral", "inbound", "outbound", "event", "other"] },
-        { name: "stage", type: "enum", enum_values: ["new", "qualified", "proposal", "won", "lost"], required: true },
+        { name: "email", type: "string" },
+        { name: "phone", type: "string" },
+        { name: "source", type: "enum", enum_values: ["referral", "inbound", "outbound", "event", "cold_outreach", "other"] },
+        // OASIS lead stages (operator-side sales funnel for AI agent
+        // builds + retainers). Different shape from SUN_SEED's funding
+        // funnel — these are the stages CC moves a prospect through when
+        // selling an OASIS agent.
+        //
+        //   new          — fresh lead, hasn't been contacted yet
+        //   contacted    — first touch sent (cold email / DM / call)
+        //   qualified    — replied with intent, fits the ICP
+        //   proposal     — SOW / proposal sent
+        //   negotiation  — back-and-forth on scope or price
+        //   won          — signed, project kicked off
+        //   lost         — passed, ghosted, or not a fit
+        { name: "stage", type: "enum", enum_values: ["new", "contacted", "qualified", "proposal", "negotiation", "won", "lost"], required: true },
+        { name: "score", type: "number" },
         { name: "value_estimate", type: "number" },
+        { name: "last_contacted_at", type: "date" },
+        { name: "notes", type: "string" },
       ],
     },
     {
