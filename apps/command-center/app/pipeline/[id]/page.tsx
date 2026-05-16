@@ -19,6 +19,7 @@ import { getRecord } from "@/lib/manifest/data";
 import { getActiveProfile } from "@/lib/queries";
 import { safe } from "@/lib/api-helpers";
 import { ScoreLeadButton } from "./ScoreLeadButton";
+import { NextActionButton } from "./NextActionButton";
 
 export const dynamic = "force-dynamic";
 
@@ -93,12 +94,20 @@ export default async function PipelineLeadDetailPage({
           </Link>
         }
       />
-      <ScoreLeadButton
-        leadId={id}
-        existingScore={typeof record.data.ai_score === "number" ? record.data.ai_score : null}
-        existingReasoning={typeof record.data.ai_reasoning === "string" ? record.data.ai_reasoning : null}
-        existingScoredAt={typeof record.data.ai_scored_at === "string" ? record.data.ai_scored_at : null}
-      />
+      <div className="grid lg:grid-cols-2 gap-3">
+        <ScoreLeadButton
+          leadId={id}
+          existingScore={typeof record.data.ai_score === "number" ? record.data.ai_score : null}
+          existingReasoning={typeof record.data.ai_reasoning === "string" ? record.data.ai_reasoning : null}
+          existingScoredAt={typeof record.data.ai_scored_at === "string" ? record.data.ai_scored_at : null}
+        />
+        <NextActionButton
+          leadId={id}
+          existingAction={typeof record.data.ai_next_action === "string" ? record.data.ai_next_action : null}
+          existingRationale={typeof record.data.ai_next_action_rationale === "string" ? record.data.ai_next_action_rationale : null}
+          existingAt={typeof record.data.ai_next_action_at === "string" ? record.data.ai_next_action_at : null}
+        />
+      </div>
       <ManifestRecordForm
         tenantSlug="oasis"
         entity={leadEntity}
