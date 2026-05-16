@@ -1,0 +1,270 @@
+"""Auto-score OASIS leads — daily cron.
+
+Phase 6a of the OASIS HQ redesign. Companion to the operator-triggered
+POST /api/leads/[id]/score (Phase 5a): instead of CC clicking "Score
+with AI" on every lead, this script scans tenant_records for OASIS
+leads with no ai_score and scores them in batches.
+
+Why a Python script + cron instead of a Vercel route:
+  - Long-running batches don't fit in Vercel's request budget. 50 leads
+    × 2s/Anthropic call = ~100s; cron jobs are unbounded.
+  - The empire briefing snapshot already runs from this script tree;
+    keeping AI batches in the same place means one stack to monitor.
+  - send_gateway.py + CASL_compliance.py + all the rest of the Python
+    machinery is right here.
+
+Behaviour:
+  - Find unscored OASIS leads (entity_type=lead, data->>ai_score IS NULL)
+  - Skip leads with stage in {won, lost} — scoring a closed lead is wasted
+  - Cap at MAX_PER_RUN per invocation so a backlog doesn't burn through
+    the Anthropic quota in one shot
+  - For each: call the same prompt the TS lib uses (mirrored here so
+    one prompt change in lib/ai-lead-scoring.ts triggers a follow-on
+    in this script — both paths are intentionally identical)
+  - Write {ai_score, ai_reasoning, ai_scored_at} back into data jsonb
+
+CLI:
+  python scripts/auto_score_leads.py              # run with default cap
+  python scripts/auto_score_leads.py --limit 20   # smaller batch
+  python scripts/auto_score_leads.py --dry-run    # show what would score, no API calls
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+import time
+import urllib.request
+from datetime import datetime, timezone
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
+ANTHROPIC_VERSION = "2023-06-01"
+MODEL = "claude-sonnet-4-6"
+MAX_TOKENS = 400
+MAX_PER_RUN_DEFAULT = 25
+THROTTLE_SEC = 1.0  # gap between Anthropic calls so we don't burst-rate-limit
+
+# Default OASIS tenant slug. CC's empire tenant lives at slug "oasis-ai-cc"
+# (auto-generated when the auth profile was created). Override with
+# --tenant-slug or the EMPIRE_TENANT_SLUG env var if the operator moves.
+DEFAULT_OASIS_SLUG = "oasis-ai-cc"
+
+# Mirror of lib/ai-lead-scoring.ts SYSTEM_PROMPT. Keep in lockstep — a
+# divergence here means the manual button and the cron produce different
+# scores on the same lead.
+SYSTEM_PROMPT = """You are an AI lead-quality scorer for OASIS AI, a custom AI agent build service. CC sells managed AI agents to small business owners, agencies, landlords, and operators — typically $2,500-$10,000 build fees + $500-$3,000/month retainers.
+
+For each lead, you return a JSON object with two fields:
+  score: integer 0-100, weighing (a) ICP fit, (b) likelihood of closing soon, (c) urgency / signal strength
+  reasoning: 1-2 short sentences explaining the score. Cite the specific data point that drove it.
+
+Scoring guide:
+  90-100  Strong ICP fit + active intent + budget signal + named timeline
+  70-89   ICP fit + warm signal (replied to outreach, attended a call, asked for pricing)
+  50-69   Looks like ICP but cold — no engagement yet, or unclear budget
+  30-49   Wrong ICP shape but possibly viable (size, industry, or budget mismatch)
+  10-29   Weak fit, low engagement, no signal
+  0-9     Not an OASIS customer (consumer, student, competitor, irrelevant)
+
+Be honest. A score of 65 is more useful than an inflated 85. If the data is sparse, lean toward 40-50 and say "limited signal" in the reasoning.
+
+Output ONLY a single JSON object on one line — no markdown, no prose, no code fence."""
+
+INCLUDED_FIELDS = ["name", "company", "email", "phone", "source", "stage",
+                   "score", "value_estimate", "last_contacted_at", "notes",
+                   "title", "role"]
+
+# Stages worth scoring. Closed-out leads stay frozen at their last score.
+SCORABLE_STAGES = {"new", "contacted", "qualified", "proposal", "negotiation"}
+
+
+def _client():
+    from lib.secret_loader import load_env  # noqa: E402
+    env = load_env()
+    url = (env.get("BRAVO_SUPABASE_URL") or "").strip()
+    key = (env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "").strip()
+    api_key = (env.get("BRAVO_ANTHROPIC_API_KEY")
+               or env.get("ANTHROPIC_API_KEY")
+               or os.environ.get("BRAVO_ANTHROPIC_API_KEY", "")).strip()
+    if not url or not key:
+        sys.stderr.write("ERROR: missing Supabase credentials\n")
+        sys.exit(2)
+    if not api_key:
+        sys.stderr.write("ERROR: missing Anthropic key\n")
+        sys.exit(2)
+    from supabase import create_client
+    return create_client(url, key), api_key
+
+
+def _score_one(api_key: str, lead_data: dict) -> tuple[int, str] | None:
+    """Returns (score, reasoning) or None on any failure. Never raises."""
+    relevant = {k: v for k, v in lead_data.items()
+                if k in INCLUDED_FIELDS and v not in (None, "", [], {})}
+    user_prompt = f"Score this lead:\n\n{json.dumps(relevant, indent=2, default=str)}"
+
+    body = json.dumps({
+        "model": MODEL,
+        "max_tokens": MAX_TOKENS,
+        "system": SYSTEM_PROMPT,
+        "messages": [{"role": "user", "content": user_prompt}],
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        "https://api.anthropic.com/v1/messages",
+        data=body,
+        headers={
+            "content-type": "application/json",
+            "x-api-key": api_key,
+            "anthropic-version": ANTHROPIC_VERSION,
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
+            payload = json.loads(resp.read().decode("utf-8"))
+    except Exception as e:  # noqa: BLE001
+        sys.stderr.write(f"  anthropic call failed: {e}\n")
+        return None
+
+    blocks = payload.get("content") or []
+    text = "".join(b.get("text", "") for b in blocks if b.get("type") == "text").strip()
+    cleaned = text
+    if cleaned.startswith("```"):
+        cleaned = cleaned.replace("```json", "").replace("```", "").strip()
+    try:
+        parsed = json.loads(cleaned)
+    except (json.JSONDecodeError, ValueError):
+        sys.stderr.write(f"  parse fail: {text[:200]}\n")
+        return None
+
+    score = parsed.get("score")
+    reasoning = parsed.get("reasoning")
+    if not isinstance(score, (int, float)) or not isinstance(reasoning, str):
+        return None
+    score_int = int(round(score))
+    if score_int < 0 or score_int > 100 or not reasoning.strip():
+        return None
+    return score_int, reasoning.strip()
+
+
+def _unscored_oasis_leads(client, limit: int, tenant_slug: str) -> list[dict]:
+    """Pull leads on the OASIS tenant with no ai_score and a scorable
+    stage. Filtering happens client-side because Postgres jsonb
+    "->>" lookups for missing keys are awkward through the supabase-py
+    builder — we pull a wider net and filter in Python."""
+    # Resolve tenant id from slug. The OASIS empire tenant defaults to
+    # 'oasis-ai-cc'; --tenant-slug overrides if the operator moved.
+    # limit(1) + array shape instead of maybe_single() — newer supabase-py
+    # raises on 0 rows from maybe_single().
+    t = (client.table("tenants").select("id").eq("slug", tenant_slug).limit(1).execute())
+    tenant_rows = t.data or []
+    if not tenant_rows:
+        sys.stderr.write(f"Tenant slug '{tenant_slug}' not found in tenants table — nothing to score\n")
+        return []
+    tenant_id = tenant_rows[0]["id"]
+
+    r = (client.table("tenant_records")
+         .select("id, data")
+         .eq("tenant_id", tenant_id)
+         .eq("entity_type", "lead")
+         .order("updated_at", desc=True)
+         .limit(max(limit * 4, 100))
+         .execute())
+
+    unscored: list[dict] = []
+    for row in r.data or []:
+        data = row.get("data") or {}
+        if isinstance(data, str):
+            try:
+                data = json.loads(data)
+            except (json.JSONDecodeError, ValueError):
+                continue
+        stage = (data.get("stage") or data.get("status") or "").strip().lower()
+        if stage and stage not in SCORABLE_STAGES:
+            continue
+        if data.get("ai_score") is not None:
+            continue
+        unscored.append({"id": row["id"], "data": data, "tenant_id": tenant_id})
+        if len(unscored) >= limit:
+            break
+    return unscored
+
+
+def _write_score(client, tenant_id: str, lead_id: str, lead_data: dict, score: int, reasoning: str) -> bool:
+    merged = {
+        **lead_data,
+        "ai_score": score,
+        "ai_reasoning": reasoning,
+        "ai_scored_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
+    try:
+        client.table("tenant_records").update({"data": merged}).eq("tenant_id", tenant_id).eq("entity_type", "lead").eq("id", lead_id).execute()
+        return True
+    except Exception as e:  # noqa: BLE001
+        sys.stderr.write(f"  write failed lead={lead_id[:8]}: {e}\n")
+        return False
+
+
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    p.add_argument("--limit", type=int, default=MAX_PER_RUN_DEFAULT,
+                   help=f"max leads to score per run (default {MAX_PER_RUN_DEFAULT})")
+    p.add_argument("--tenant-slug", type=str,
+                   default=os.environ.get("EMPIRE_TENANT_SLUG", DEFAULT_OASIS_SLUG),
+                   help=f"target tenant slug (default {DEFAULT_OASIS_SLUG}; override via EMPIRE_TENANT_SLUG env)")
+    p.add_argument("--dry-run", action="store_true",
+                   help="print what would be scored, no Anthropic calls or writes")
+    args = p.parse_args(argv)
+
+    client, api_key = _client()
+    leads = _unscored_oasis_leads(client, args.limit, args.tenant_slug)
+
+    if not leads:
+        print("No unscored OASIS leads in scorable stages.")
+        return 0
+
+    print(f"Found {len(leads)} unscored leads. Scoring...")
+    if args.dry_run:
+        for lead in leads:
+            d = lead["data"]
+            print(f"  [DRY] {lead['id'][:8]} {d.get('name', '?')[:30]} stage={d.get('stage', '?')}")
+        return 0
+
+    scored = 0
+    failed = 0
+    for i, lead in enumerate(leads, 1):
+        d = lead["data"]
+        name_preview = (d.get("name") or "?")[:30]
+        print(f"  [{i}/{len(leads)}] {lead['id'][:8]} {name_preview}...", end="", flush=True)
+        result = _score_one(api_key, d)
+        if not result:
+            print(" FAIL")
+            failed += 1
+            continue
+        score, reasoning = result
+        if _write_score(client, lead["tenant_id"], lead["id"], d, score, reasoning):
+            print(f" {score}")
+            scored += 1
+        else:
+            print(" WRITE FAIL")
+            failed += 1
+        if i < len(leads):
+            time.sleep(THROTTLE_SEC)
+
+    print(f"\nDone. {scored} scored, {failed} failed.")
+    return 0 if failed == 0 else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
