@@ -46,17 +46,27 @@ pm2 save
 
 This rewrites `~/.pm2/dump.pm2` with the current process list. Without `pm2 save`, the next reboot resurrects to a stale snapshot.
 
-## Auto-start at login (recommended, not yet configured)
+## Auto-start at login — ACTIVE (Phase 7.4, 2026-05-17)
 
-`pm2 startup` is Linux/Mac only. On Windows, the equivalent is a Windows Task Scheduler entry that runs `pm2 resurrect` at login:
+The Windows Task Scheduler entry **"PM2 Resurrect"** is registered and runs `C:\Users\User\AppData\Roaming\npm\pm2.cmd resurrect` at every login. Settings:
+- Trigger: at logon of `User`
+- Hidden window (no terminal popup — Phase 7.4 fixed the "non-stop terminal windows" complaint)
+- Restart on failure: 3 attempts, 1 minute apart
+- Replays `~/.pm2/dump.pm2` so the 10 daemons (atlas-telegram, bravo-scheduler, bravo-telegram, claude-bridge, claude-bridge-ping, event-router, lender-response-classifier, maven-telegram, override-consumer, sequence-runner) come back online within 30s of login.
 
-1. Open Task Scheduler → Create Task.
-2. **Trigger:** At log on of `User`.
-3. **Action:** Start a program → `cmd.exe`.
-4. **Arguments:** `/c pm2 resurrect`.
-5. **Settings:** Allow task to run on demand; if task fails, restart after 1 min, max 3 attempts.
+Verify:
+```powershell
+Get-ScheduledTask -TaskName "PM2 Resurrect" | Select-Object TaskName, State
+```
 
-Once configured, CC can reboot without manual intervention — daemons come back within 30s of login.
+If the task was deleted, re-register:
+```powershell
+$action = New-ScheduledTaskAction -Execute "C:\Users\User\AppData\Roaming\npm\pm2.cmd" -Argument "resurrect"
+$trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -Hidden
+$principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive
+Register-ScheduledTask -TaskName "PM2 Resurrect" -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force
+```
 
 ## Verifying `dump.pm2` is fresh
 
