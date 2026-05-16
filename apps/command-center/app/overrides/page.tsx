@@ -304,36 +304,77 @@ export default async function OverridesPage({
   );
 }
 
+/**
+ * Extract a human-readable intent from a raw command. The command field
+ * holds the literal bash invocation that was blocked — for a git commit
+ * that's `git commit -m "$(cat <<'EOF' ... EOF\n)"` with a heredoc that
+ * contains the actual subject in its first line. Pulling the subject
+ * gives the operator "Phase 5 SunBiz CRM: TextTorrent direct API + Kixie
+ * integration" instead of two screens of bash boilerplate.
+ *
+ * Falls back to the first meaningful line of the command if no commit
+ * heredoc is present.
+ */
+function extractIntent(command: string): string {
+  // git commit -m "$(cat <<'EOF'\nSUBJECT\n..." or git commit -m "SUBJECT\n\n..."
+  const heredoc = command.match(/<<['"]?EOF['"]?\s*\n([^\n]+)/);
+  if (heredoc && heredoc[1].trim()) return heredoc[1].trim().slice(0, 140);
+  const inlineMsg = command.match(/-m\s+["']([^"'\n]+)/);
+  if (inlineMsg && inlineMsg[1].trim()) return inlineMsg[1].trim().slice(0, 140);
+  // Otherwise return the first non-empty line, trimmed.
+  const firstLine = command.split("\n").map((l) => l.trim()).find((l) => l.length > 0);
+  return (firstLine || command).slice(0, 140);
+}
+
 function OverrideRow({ row, interactive }: { row: Row; interactive: boolean }) {
   const expiresIn = Math.max(
     0,
     Math.round((new Date(row.expires_at).getTime() - Date.now()) / 1000),
   );
+  const intent = extractIntent(row.command);
   return (
     <Card>
       <div className="space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-sm text-fg">{row.request_id}</span>
+            <div className="flex items-center gap-2 flex-wrap">
               {statusBadge(row)}
               <Tag tone={WORKSPACE_LABELS[row.workspace_label]?.tone || "neutral"}>
                 {WORKSPACE_LABELS[row.workspace_label]?.label || row.workspace_label}
               </Tag>
-              <span className="text-xs text-fg-dim">{row.layer}</span>
+              <span className="text-[10px] uppercase tracking-wider text-fg-dim">
+                {row.layer}
+              </span>
               <span className="text-xs text-fg-faint ml-auto">
-                TTL {expiresIn}s · created {relativeTime(row.ts)}
+                TTL {expiresIn}s · {relativeTime(row.ts)}
               </span>
             </div>
+            {/* Intent — the operator-facing "what is this asking" line. */}
+            <div className="text-base text-fg mt-2 font-medium leading-snug">
+              {intent}
+            </div>
             {row.reason && (
-              <div className="text-xs text-fg-muted mt-1">reason: {row.reason}</div>
+              <div className="text-xs text-fg-muted mt-1.5">
+                <span className="font-bold">Why blocked: </span>
+                {row.reason}
+              </div>
             )}
+            <div className="text-[10px] font-mono text-fg-faint mt-1">
+              {row.request_id}
+            </div>
           </div>
         </div>
 
-        <code className="text-xs font-mono block p-3 bg-bg-elev rounded border border-bg-border whitespace-pre-wrap break-all text-accent">
-          {row.command.slice(0, 1500)}
-        </code>
+        <details className="group">
+          <summary className="text-xs text-fg-dim hover:text-accent cursor-pointer select-none inline-flex items-center gap-1">
+            <span className="group-open:rotate-90 transition-transform inline-block">▸</span>
+            Inspect full command
+          </summary>
+          <code className="mt-2 text-[11px] font-mono block p-3 bg-bg-elev rounded border border-bg-border whitespace-pre-wrap break-all text-accent max-h-64 overflow-y-auto">
+            {row.command.slice(0, 4000)}
+            {row.command.length > 4000 && "\n... (truncated)"}
+          </code>
+        </details>
 
         {interactive && (
           <OverrideDecisionForms requestId={row.request_id} action={decisionAction} />
