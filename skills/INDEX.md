@@ -2,10 +2,19 @@
 tags: [skills, index, hub]
 ---
 
-# Skills Index — 151 Specialized Capabilities
+# Skills Index — 150 Specialized Capabilities
 
 > Central hub for all Bravo skills. Each skill is a reusable protocol loaded on-demand.
 > [[brain/CAPABILITIES]] | [[brain/AGENTS]] | [[brain/DASHBOARD]]
+>
+> Last cluster-audit: 2026-05-16 (V6.7+). 9 archived persona-* skills moved to `skills/_archive/personas/` (orphaned 2026-05-07, never physically removed). Knowledge + memory clusters confirmed non-redundant. GWS cluster confirmed intentional auto-gen (OpenClaw). Routing-accuracy bug fixed: capability_query resolver now respects `disable-model-invocation: true` and `archived: <date>` per skill frontmatter.
+
+## Research + Web (V6.7+, 2026-05-16 update)
+- [[skills/research-fetch/SKILL]] — **DEFAULT URL fetcher** (V6.7+). Auto-escalates Firecrawl → CloakBrowser + SQLite per-domain reputation memory. `python scripts/research_fetch.py <url>`
+- [[skills/cloak-browser/SKILL]] — Stealth Chromium 146 tier (drop-in Playwright with C++ fingerprint patches). Called by `research-fetch`; use directly for interactive goto / screenshot / check-stealth
+- [[skills/web-scraping/SKILL]] — Decision matrix: research-fetch / Firecrawl / CloakBrowser / Playwright / Browser Harness
+- [[skills/browser-harness/SKILL]] — Real-Chrome attach for CC-authenticated work
+- [[skills/browser-automation/SKILL]] — Playwright MCP reference (unprotected interactive flows)
 
 ## Meta
 - [[skills/SKILL_LOADING]] — How skills are loaded and activated across AI interfaces
