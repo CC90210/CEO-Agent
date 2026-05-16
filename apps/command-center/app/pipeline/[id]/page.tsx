@@ -18,6 +18,7 @@ import { OASIS_SEED } from "@/lib/manifest/seeds";
 import { getRecord } from "@/lib/manifest/data";
 import { getActiveProfile } from "@/lib/queries";
 import { safe } from "@/lib/api-helpers";
+import { ScoreLeadButton } from "./ScoreLeadButton";
 
 export const dynamic = "force-dynamic";
 
@@ -91,6 +92,12 @@ export default async function PipelineLeadDetailPage({
             Back to pipeline
           </Link>
         }
+      />
+      <ScoreLeadButton
+        leadId={id}
+        existingScore={typeof record.data.ai_score === "number" ? record.data.ai_score : null}
+        existingReasoning={typeof record.data.ai_reasoning === "string" ? record.data.ai_reasoning : null}
+        existingScoredAt={typeof record.data.ai_scored_at === "string" ? record.data.ai_scored_at : null}
       />
       <ManifestRecordForm
         tenantSlug="oasis"

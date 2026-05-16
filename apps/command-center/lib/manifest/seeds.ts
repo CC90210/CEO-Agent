@@ -82,6 +82,15 @@ export const OASIS_SEED: TenantManifest = {
         { name: "value_estimate", type: "number" },
         { name: "last_contacted_at", type: "date" },
         { name: "notes", type: "string" },
+        // AI scoring fields (Phase 5a). Written by POST /api/leads/[id]/score
+        // when an operator clicks "Score with AI" on the lead detail page,
+        // OR by a daily cron that scores unscored leads in batches.
+        // ai_score: 0-100 fit + close-likelihood + urgency
+        // ai_reasoning: 1-2 sentence Claude rationale for the score
+        // ai_scored_at: timestamp so the UI can show staleness
+        { name: "ai_score", type: "number" },
+        { name: "ai_reasoning", type: "string" },
+        { name: "ai_scored_at", type: "datetime" },
       ],
     },
     {
