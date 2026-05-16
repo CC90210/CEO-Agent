@@ -85,6 +85,41 @@ export const OASIS_SEED: TenantManifest = {
       ],
     },
     {
+      name: "contact",
+      label: "Contact",
+      fields: [
+        { name: "name", type: "string", required: true },
+        { name: "email", type: "string" },
+        { name: "phone", type: "string" },
+        { name: "company", type: "string" },
+        { name: "role", type: "string" },
+        { name: "lead_id", type: "string" },
+        { name: "last_contacted_at", type: "date" },
+        { name: "notes", type: "string" },
+      ],
+    },
+    {
+      name: "proposal",
+      label: "Proposal",
+      fields: [
+        { name: "title", type: "string", required: true },
+        { name: "lead_id", type: "string" },
+        // OASIS sells AI agent builds. Proposal lifecycle:
+        //   draft       — operator is composing
+        //   sent        — link delivered, awaiting view
+        //   viewed      — prospect opened the proposal page
+        //   signed      — accepted (kicks the "won" stage on the lead)
+        //   declined    — passed
+        //   expired     — TTL elapsed without action
+        { name: "stage", type: "enum", enum_values: ["draft", "sent", "viewed", "signed", "declined", "expired"], required: true },
+        { name: "value_usd", type: "number" },
+        { name: "monthly_retainer_usd", type: "number" },
+        { name: "sent_at", type: "date" },
+        { name: "signed_at", type: "date" },
+        { name: "notes", type: "string" },
+      ],
+    },
+    {
       name: "task",
       label: "Task",
       fields: [
@@ -99,6 +134,8 @@ export const OASIS_SEED: TenantManifest = {
     { path: "", label: "Today", kind: "dashboard" },
     { path: "reasoning", label: "Reasoning", kind: "reasoning" },
     { path: "leads", label: "Leads (manifest view)", kind: "kanban", entity: "lead", config: { group_by: "stage" } },
+    { path: "contacts", label: "Contacts", kind: "table", entity: "contact" },
+    { path: "proposals", label: "Proposals", kind: "kanban", entity: "proposal", config: { group_by: "stage" } },
     { path: "tasks", label: "Tasks", kind: "kanban", entity: "task", config: { group_by: "status" } },
   ],
   default_prompts: [
