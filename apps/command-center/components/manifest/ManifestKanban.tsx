@@ -100,25 +100,38 @@ export async function ManifestKanban({
     if (!orderedKeys.includes(k)) orderedKeys.push(k);
   }
 
+  // Per-entity title resolution. For domain entities (offer / lead /
+  // application / funded_deal / renewal / lender) the "best" title field
+  // is rarely fields[0] — it's a domain-specific header like the
+  // amount-formatted-as-currency, the business name, etc. The
+  // ENTITY_TITLE_PRIORITY registry below lists the preferred title
+  // fields for each entity in priority order; first one that exists
+  // on the entity wins. Falls back to the previous heuristic (name /
+  // title / label / first field) for unrecognized entities.
   const titleField =
+    ENTITY_TITLE_PRIORITY[entity.name]?.find((n) =>
+      entity.fields.find((f) => f.name === n),
+    ) ||
     entity.fields.find((f) => f.name === "name")?.name ||
     entity.fields.find((f) => f.name === "title")?.name ||
     entity.fields.find((f) => f.name === "label")?.name ||
     entity.fields[0]?.name ||
     "id";
 
-  // Fields the operator sees on each card. Excludes the title (already
-  // the heading), the group_by (already the column), and obvious meta
-  // fields. Caps at 5 so a card stays scannable; the rest live on the
-  // record detail page.
-  const cardFields: ManifestEntityField[] = entity.fields
-    .filter(
-      (f) =>
-        f.name !== titleField &&
-        f.name !== groupBy &&
-        !["id", "tenant_id", "created_at", "updated_at"].includes(f.name)
-    )
-    .slice(0, 5);
+  // Every operator-relevant field on the card — no slice cap. The
+  // operator entered these values for a reason; hiding them on a
+  // card-density argument is the wrong tradeoff (per 2026-05-16
+  // feedback: "they should be stacked on top of each other. Just
+  // look at proper data storage and how it should be displayed").
+  // Excludes the title (already the heading), the group_by (already
+  // the column), and obvious meta / FK-only fields the operator
+  // doesn't read at a glance.
+  const cardFields: ManifestEntityField[] = entity.fields.filter(
+    (f) =>
+      f.name !== titleField &&
+      f.name !== groupBy &&
+      !["id", "tenant_id", "created_at", "updated_at"].includes(f.name),
+  );
 
   return (
     <Card
@@ -181,17 +194,22 @@ export async function ManifestKanban({
 }
 
 /**
- * KanbanCard — compact single-row summary inside a Kanban column.
+ * KanbanCard — single record summary inside a Kanban column.
  *
  * Click target: navigates to /t/<slug>/<page.path>/<row.id> which the
- * catch-all router renders as the record-detail edit form. Per-card
+ * catch-all router renders as the record-detail edit form. Per-entity
  * actions (Accept/Decline for offers, Recommended Lenders for
  * applications) stay below the link so the operator can act without
  * leaving the Kanban for routine moves.
  *
- * Density rationale: shows the title + up to 2 most-relevant fields
- * inline (not 5 like the prior version). Operators with a column of
- * 20 cards need to scan, not read; full record is one click away.
+ * Field rendering: every entity field with a value shows up on the
+ * card as a labeled `dt/dd` row, currency / percent / date formatted
+ * appropriately. Pre-2026-05-16 the card capped at 2 preview fields
+ * to keep dense columns scannable; operator feedback flipped that
+ * decision — "they should be stacked on top of each other. Just look
+ * at proper data storage and how it should be displayed." Density is
+ * now achieved via column scroll, not by hiding data the operator
+ * already entered.
  */
 function KanbanCard({
   row,
@@ -208,45 +226,52 @@ function KanbanCard({
   tenantSlug: string;
   pagePath: string;
 }) {
-  // The 2 fields most worth showing inline — operator can see the rest
-  // by clicking the card. Filtered to ones that actually have values
-  // so an empty "lender_id" doesn't take up vertical space.
-  const previewFields = cardFields
-    .filter(
-      (f) =>
-        row.data[f.name] !== undefined &&
-        row.data[f.name] !== null &&
-        row.data[f.name] !== "",
-    )
-    .slice(0, 2);
+  // Every field with a non-empty value. Operator entered these for a
+  // reason; show them all. Empty fields silently drop so a half-
+  // filled lead doesn't show "Notes: —" filler.
+  const populatedFields = cardFields.filter(
+    (f) =>
+      row.data[f.name] !== undefined &&
+      row.data[f.name] !== null &&
+      row.data[f.name] !== "",
+  );
+
+  // Domain-aware title rendering. The title field (e.g. amount for
+  // offer) gets formatted with the appropriate unit so the card's
+  // headline reads operator-naturally — "$3,435,435" instead of the
+  // raw "3435435".
+  const titleFieldDef = entity.fields.find((f) => f.name === titleField);
+  const titleValue = formatCardField(titleField, row.data[titleField], titleFieldDef);
 
   return (
     <li className="rounded-md border border-bg-border bg-bg-deep/60 hover:border-accent/40 hover:bg-bg-deep/80 transition-colors">
       <Link
         href={`/t/${tenantSlug}/${pagePath}/${row.id}`}
-        className="block px-2.5 py-2"
+        className="block px-3 py-2.5"
       >
-        <div className="font-bold text-[13px] text-fg break-words leading-snug">
-          {formatFieldValue(row.data[titleField]) || "Untitled"}
+        <div className="font-bold text-[14px] text-fg break-words leading-snug">
+          {titleValue || "Untitled"}
         </div>
-        {previewFields.length > 0 && (
-          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-fg-muted">
-            {previewFields.map((f) => (
-              <span key={f.name} className="inline-flex items-center gap-1">
-                <span className="text-fg-dim">{humanize(f.name)}:</span>
-                <span className="truncate max-w-[140px]">
-                  {formatFieldValue(row.data[f.name])}
-                </span>
-              </span>
+        {populatedFields.length > 0 && (
+          <dl className="mt-2 space-y-0.5 text-[11px]">
+            {populatedFields.map((f) => (
+              <div key={f.name} className="flex items-baseline gap-2">
+                <dt className="text-fg-dim shrink-0 min-w-[88px]">
+                  {humanize(f.name)}
+                </dt>
+                <dd className="text-fg-muted break-words font-mono">
+                  {formatCardField(f.name, row.data[f.name], f)}
+                </dd>
+              </div>
             ))}
-          </div>
+          </dl>
         )}
       </Link>
       {/* Per-entity inline actions live outside the Link so clicking
           Accept / Decline / Recommended lenders doesn't also fire the
           card-level navigation. */}
       {entity.name === "offer" && typeof row.data.stage === "string" && (
-        <div className="px-2.5 pb-2">
+        <div className="px-3 pb-2.5">
           <OfferCardActions
             tenantSlug={tenantSlug}
             offerId={row.id}
@@ -255,12 +280,107 @@ function KanbanCard({
         </div>
       )}
       {entity.name === "application" && (
-        <div className="px-2.5 pb-2">
+        <div className="px-3 pb-2.5">
           <ApplicationCardActions applicationId={row.id} />
         </div>
       )}
     </li>
   );
+}
+
+/**
+ * Per-entity title field priorities. First match wins. For domain
+ * entities the "best" title isn't the manifest's fields[0] — it's a
+ * domain-specific header (amount for offer; business_name for
+ * application; etc.). Unlisted entities fall through to the generic
+ * heuristic in the caller.
+ */
+const ENTITY_TITLE_PRIORITY: Record<string, string[]> = {
+  lead: ["name", "contact_name", "business_name", "first_name", "email", "phone"],
+  application: ["business_name", "company", "name", "contact_name", "lead_id"],
+  offer: ["amount", "lender_id", "lead_id"],
+  funded_deal: ["amount_funded", "lender_id", "lead_id"],
+  renewal: ["funded_deal_id", "due_date"],
+  lender: ["name", "company"],
+  commission: ["amount", "name"],
+  task: ["title", "name"],
+};
+
+/**
+ * Format a card field value with currency / percent / date / number
+ * units based on field name heuristics + the manifest type. The unit
+ * inference is intentionally name-based because the manifest field
+ * type ("number") doesn't carry semantics (is 1.35 a factor rate or
+ * a count?). For SunBiz the field names are stable, so this works.
+ *
+ * Examples:
+ *   amount / amount_funded / max_funded_amount / min_monthly_revenue
+ *     → "$3,435,435"
+ *   factor_rate / rate → "1.35"  (plain number — factor rates aren't %)
+ *   fico / fico_floor / score → "650"
+ *   *_at / *_date → "May 16, 2026"
+ *   *_months → "12 mo"
+ *   default → formatFieldValue (em-dash for empty, JSON for objects)
+ */
+function formatCardField(
+  name: string,
+  value: unknown,
+  fieldDef?: ManifestEntityField,
+): string {
+  if (value === undefined || value === null || value === "") return "—";
+  const n = name.toLowerCase();
+
+  // Currency — explicit currency-ish field names. Operator-facing
+  // numbers worth showing as money: amount, amount_funded, revenue,
+  // funded, price, commission, fee.
+  if (
+    typeof value === "number" &&
+    (n.includes("amount") ||
+      n.includes("revenue") ||
+      n.includes("funded") ||
+      n === "price" ||
+      n.includes("commission") ||
+      n === "fee" ||
+      n === "cost")
+  ) {
+    return "$" + value.toLocaleString("en-US", { maximumFractionDigits: 0 });
+  }
+
+  // Months — operator-friendly suffix.
+  if (typeof value === "number" && n.includes("months")) {
+    return `${value} mo`;
+  }
+
+  // FICO / score — integer, no decimals.
+  if (typeof value === "number" && (n === "fico" || n.endsWith("_fico") || n === "score" || n.includes("fico_floor"))) {
+    return value.toString();
+  }
+
+  // Factor rate — 2-decimal display.
+  if (typeof value === "number" && (n === "factor_rate" || n === "rate")) {
+    return value.toFixed(2);
+  }
+
+  // Date / datetime fields — manifest type wins, falls back to name.
+  if (
+    fieldDef?.type === "date" ||
+    fieldDef?.type === "datetime" ||
+    n.endsWith("_at") ||
+    n.endsWith("_date")
+  ) {
+    if (typeof value === "string" && value) {
+      const d = new Date(value);
+      if (!Number.isNaN(d.getTime())) {
+        return d.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
+      }
+    }
+  }
+
+  return formatFieldValue(value);
 }
 
 /**
