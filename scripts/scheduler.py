@@ -181,7 +181,15 @@ def execute_job(job: dict, env_vars: dict[str, str]) -> str:
         elif action_type == "agent_self_improvement":
             return run_agent_self_improvement(env_vars)
         else:
-            return f"unknown_action_type: {action_type}"
+            # Round 3 R3-12: previously this returned a plain string
+            # which scheduler.py's caller treats as success and stamps
+            # into last_result. Operators couldn't distinguish "handler
+            # ran and reported unknown" from "handler doesn't exist"
+            # — failed crons hid in the green column. ERROR: prefix
+            # routes through the same status-detection path that
+            # genuine failures use, so the Automations panel surfaces
+            # it in red and Telegram alerting (R3-11) can pick it up.
+            return f"ERROR: unknown_action_type:{action_type} — add a handler in scheduler.py or remove the cron job"
     except Exception as exc:
         error_msg = f"ERROR: {exc}"
         log(error_msg)
