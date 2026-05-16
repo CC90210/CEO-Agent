@@ -1,49 +1,10 @@
 import { Card, EmptyState, Tag } from "@/components/Card";
-import { listRecords, formatFieldValue, type TenantRecord } from "@/lib/manifest/data";
-import type { ManifestEntityDef, ManifestEntityField, ManifestPageDef } from "@/lib/manifest/schema";
+import { listRecords, type TenantRecord } from "@/lib/manifest/data";
+import type { ManifestEntityDef, ManifestPageDef } from "@/lib/manifest/schema";
 import { Plus, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { humanize } from "@/lib/manifest/humanize";
-
-/** Same value formatter the kanban uses — currency / months / FICO /
- *  factor-rate / date heuristics so tables read operator-naturally
- *  instead of dumping raw JSON numbers. Inline here (not shared in a
- *  helper file yet) because both call sites are server components and
- *  we'd want a single export once we add a third caller. */
-function formatTableCell(
-  name: string,
-  value: unknown,
-  fieldDef?: ManifestEntityField,
-): string {
-  if (value === undefined || value === null || value === "") return "—";
-  const n = name.toLowerCase();
-  if (
-    typeof value === "number" &&
-    (n.includes("amount") || n.includes("revenue") || n.includes("funded") ||
-      n === "price" || n.includes("commission") || n === "fee" || n === "cost")
-  ) {
-    return "$" + value.toLocaleString("en-US", { maximumFractionDigits: 0 });
-  }
-  if (typeof value === "number" && n.includes("months")) return `${value} mo`;
-  if (typeof value === "number" && (n === "fico" || n === "score" || n.includes("fico_floor"))) {
-    return value.toString();
-  }
-  if (typeof value === "number" && (n === "factor_rate" || n === "rate")) {
-    return value.toFixed(2);
-  }
-  if (
-    fieldDef?.type === "date" || fieldDef?.type === "datetime" ||
-    n.endsWith("_at") || n.endsWith("_date")
-  ) {
-    if (typeof value === "string" && value) {
-      const d = new Date(value);
-      if (!Number.isNaN(d.getTime())) {
-        return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-      }
-    }
-  }
-  return formatFieldValue(value);
-}
+import { formatCardField } from "@/lib/manifest/format";
 
 type Props = {
   tenantSlug: string;
@@ -167,7 +128,7 @@ export async function ManifestTable({
                         key={col.name}
                         className="px-4 py-2.5 text-fg-muted whitespace-nowrap"
                       >
-                        {formatTableCell(col.name, v, col)}
+                        {formatCardField(col.name, v, col)}
                       </td>
                     );
                   })}
