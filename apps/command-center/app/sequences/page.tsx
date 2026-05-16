@@ -5,7 +5,7 @@
  * operator UX for the drip definitions it consumes.
  */
 
-import { PageHeader, Tag } from "@/components/Card";
+import { PageHeader } from "@/components/Card";
 import { getActiveProfile } from "@/lib/queries";
 import { getSessionUser, getServiceSupabase } from "@/lib/supabase-server";
 import { safe, isMissingTableError } from "@/lib/api-helpers";
@@ -60,7 +60,6 @@ export default async function SequencesPage() {
       <PageHeader
         title="Drip sequences"
         subtitle="Automated SMS + email follow-up triggered by status changes (viewed application, submitted, declined, etc.). Runs on your machine via the local sequence-runner daemon."
-        action={<Tag tone="accent">Phase 4</Tag>}
       />
 
       {!result.ok && result.reason === "no_tenant" && (

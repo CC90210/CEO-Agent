@@ -69,12 +69,7 @@ async function RootPageRenderer({
       <PageHeader
         title={page.label || manifest.brand.name}
         subtitle={manifest.brand.subtitle}
-        action={
-          <div className="flex items-center gap-2">
-            {isPreview && <Tag tone="warm">preview</Tag>}
-            <Tag tone="accent">{page.kind}</Tag>
-          </div>
-        }
+        action={isPreview ? <Tag tone="warm">preview</Tag> : null}
       />
       {isPreview && (
         <div className="rounded-2xl border border-amber-300/25 bg-amber-300/10 p-4 text-sm leading-relaxed text-amber-100">
