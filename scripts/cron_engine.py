@@ -93,6 +93,19 @@ SEED_JOBS: list[dict] = [
         "is_active": True,
     },
     {
+        # Phase 6a — OASIS auto-score sweep. Scans tenant_records for
+        # OASIS leads with no ai_score and scores them in batches of 25
+        # so the operator's morning view already has scores on
+        # overnight-arrived leads. Daily at 05:45 — finishes before the
+        # 06:00 Daily Brief so the brief can cite the new scores.
+        "name": "OASIS Auto-Score Leads",
+        "description": "Score any unscored OASIS leads in scorable stages (new/contacted/qualified/proposal/negotiation). Daily, batches of 25.",
+        "schedule": "45 5 * * *",
+        "action_type": "auto_score_leads",
+        "action_config": {"batch_size": 25},
+        "is_active": True,
+    },
+    {
         "name": "Booking Reminders",
         "description": "Send reminders for tomorrow's bookings",
         "schedule": "0 18 * * *",
