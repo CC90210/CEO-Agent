@@ -4,7 +4,7 @@ import type { ManifestEntityDef, ManifestPageDef } from "@/lib/manifest/schema";
 import { Plus, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { humanize } from "@/lib/manifest/humanize";
-import { formatCardField } from "@/lib/manifest/format";
+import { formatCardField, stageToneFor } from "@/lib/manifest/format";
 
 type Props = {
   tenantSlug: string;
@@ -110,9 +110,14 @@ export async function ManifestTable({
                   {columns.map((col) => {
                     const v = row.data[col.name];
                     if (col.type === "enum" && typeof v === "string" && v) {
+                      // Stage / status enum cells pick up the same per-
+                      // entity color palette the Kanban column headers
+                      // use, so a row reading "Submitted" lights up
+                      // green the same way the Kanban Submitted column
+                      // does. Easy on the eyes across both views.
                       return (
                         <td key={col.name} className="px-4 py-2.5">
-                          <Tag tone="accent">{humanize(v)}</Tag>
+                          <Tag tone={stageToneFor(entity.name, v)}>{humanize(v)}</Tag>
                         </td>
                       );
                     }

@@ -118,3 +118,108 @@ export const ENTITY_TITLE_PRIORITY: Record<string, string[]> = {
   commission: ["amount", "name"],
   task: ["title", "name"],
 };
+
+/**
+ * Tone palette match for Tag — keep in sync with components/Card.tsx
+ * Tag tone union.
+ */
+export type StageTone = "neutral" | "accent" | "hot" | "warm" | "engaged" | "info";
+
+/**
+ * Per-entity stage → tone color mapping. Operators asked for clearly
+ * distinguished colors across every CRM Kanban + Table so columns and
+ * status badges are scannable at a glance. The mapping below follows
+ * a consistent semantic palette:
+ *
+ *   neutral / fg-dim → inert, early-funnel, archived
+ *   info (blue)      → in motion, expected next step
+ *   accent (teal)    → operator-attention required, hot lane
+ *   engaged (green)  → success, money landed, closed-won
+ *   warm (red/orange) → failed, lost, requires immediate handling
+ *   hot              → reserved for the urgency-spike lane on a stage
+ *                       (e.g., due renewals — the operator's "today" col)
+ *
+ * Unlisted entities + unlisted stages fall back to "accent" (current
+ * default before this registry shipped).
+ */
+export const ENTITY_STAGE_TONES: Record<string, Record<string, StageTone>> = {
+  // Lead pipeline — Phase 2 enum.
+  lead: {
+    cold: "neutral",
+    follow_up: "info",
+    sent_application: "info",
+    viewed_application: "accent",
+    signed_application: "accent",
+    submitted: "engaged",
+    declined: "warm",
+    default: "warm",
+    // Legacy status values still in the wild (pre-Phase 2 enum).
+    new: "neutral",
+    qualified: "accent",
+    application_sent: "info",
+    approved: "engaged",
+    funded: "engaged",
+    lost: "warm",
+    archived: "neutral",
+  },
+  // Application pipeline — manifest enum draft/submitted/in_review/approved/declined.
+  application: {
+    draft: "neutral",
+    submitted: "info",
+    in_review: "accent",
+    approved: "engaged",
+    declined: "warm",
+  },
+  // Offer pipeline — Phase 2 enum offered/contracts_out/accepted/funded/no_offer/declined/expired.
+  offer: {
+    offered: "info",
+    contracts_out: "accent",
+    accepted: "engaged",
+    funded: "engaged",
+    no_offer: "warm",
+    declined: "warm",
+    expired: "neutral",
+  },
+  // Funded deal renewal-window buckets — Phase 10.1 compute_group_by.
+  funded_deal: {
+    upcoming: "info",
+    due: "hot",        // urgency-spike: this is "today's outreach focus"
+    overdue: "warm",
+    renewed: "engaged",
+    lost: "warm",
+  },
+  // Renewals — separate entity from funded_deal but same business-meaning
+  // status enum (upcoming/due/overdue/renewed/lost). Operator wanted these
+  // colored identically so a renewal row in any view reads the same way.
+  renewal: {
+    upcoming: "info",
+    due: "hot",
+    overdue: "warm",
+    renewed: "engaged",
+    lost: "warm",
+  },
+  // Commission status — most commissions live in pending/paid/disputed.
+  commission: {
+    pending: "info",
+    paid: "engaged",
+    disputed: "warm",
+  },
+  // Generic task status (used by OASIS_SEED's tasks board).
+  task: {
+    new: "neutral",
+    in_progress: "info",
+    blocked: "warm",
+    done: "engaged",
+  },
+};
+
+/**
+ * Resolve a tone for a stage value on a given entity. Falls back to
+ * "accent" so unknown stages still render visibly (vs invisible
+ * neutral) until someone adds them to the registry above.
+ */
+export function stageToneFor(entity: string, stage: string | null | undefined): StageTone {
+  if (!stage) return "neutral";
+  const key = String(stage).toLowerCase();
+  return ENTITY_STAGE_TONES[entity]?.[key] ?? "accent";
+}
