@@ -75,13 +75,35 @@ function getKey(): Buffer | null {
 }
 
 /**
+ * Identity binding stamped into a signed resume_state. The verifier
+ * returns this to the caller so /api/chat/resume can re-check that
+ * the resuming session's tenant matches the tenant the state was
+ * issued under.
+ *
+ * 2026-05-16 Codex review finding #3 added the binding. Pre-binding,
+ * a valid resume_signature would replay across tenants — a SunBiz
+ * user who somehow captured an OASIS HQ resume signature could feed
+ * it back through their own session and resume the LLM iteration
+ * under OASIS context. Binding closes that door.
+ */
+export type ResumeBinding = {
+  tenant_id: string;
+  user_id: string;
+  agent_key: string;
+};
+
+/**
  * Sign a resume_state payload. Returns a string of the form `v1.<base64>`.
  * When the HMAC key isn't set in non-production environments, returns an
  * empty string + logs a warning — the verifier accepts empty signatures
  * in that mode too. In production with a missing key, returns null so the
  * caller can choose to fail closed.
+ *
+ * The identity `binding` is stamped into the signed payload. Verifier
+ * must re-check the binding against the caller's resolved identity to
+ * prevent cross-tenant replay (see verifyResumeState below).
  */
-export function signResumeState(state: unknown): string | null {
+export function signResumeState(state: unknown, binding?: ResumeBinding): string | null {
   const key = getKey();
   if (!key) {
     if (shouldEnforce()) {
@@ -98,29 +120,40 @@ export function signResumeState(state: unknown): string | null {
     }
     return "";
   }
-  const canonical = canonicalize(state);
+  const payload = { state, binding: binding ?? null };
+  const canonical = canonicalize(payload);
   const sig = createHmac("sha256", key).update(canonical, "utf8").digest("base64url");
   return `${SIG_VERSION}.${sig}`;
 }
 
 export type VerifyResult =
-  | { ok: true }
+  | { ok: true; binding: ResumeBinding | null }
   | { ok: false; reason: "server_misconfigured" | "missing_signature" | "version_mismatch" | "invalid" };
 
 /**
  * Verify a resume_state payload against its claimed signature. Returns
- * { ok: true } when the signature matches (or when the dev-mode "no key
- * configured + no signature claimed" case applies). Specific failure
- * reasons returned so the route can give the operator an actionable error.
+ * { ok: true, binding } when the signature matches (or { ok: true,
+ * binding: null } when the dev-mode "no key configured + no signature
+ * claimed" case applies). Specific failure reasons returned so the
+ * route can give the operator an actionable error.
+ *
+ * IMPORTANT: callers MUST cross-check the returned binding's tenant_id
+ * against the caller's resolved tenant before resuming the LLM
+ * iteration. The HMAC alone proves the state is server-issued; it does
+ * NOT prove the resuming session has the right to that state.
  */
-export function verifyResumeState(state: unknown, signature: string | undefined | null): VerifyResult {
+export function verifyResumeState(
+  state: unknown,
+  signature: string | undefined | null,
+  binding?: ResumeBinding,
+): VerifyResult {
   const key = getKey();
   if (!key) {
     if (shouldEnforce()) {
       return { ok: false, reason: "server_misconfigured" };
     }
     // Dev mode — accept anything since we couldn't have signed it either.
-    return { ok: true };
+    return { ok: true, binding: binding ?? null };
   }
   if (!signature || typeof signature !== "string") {
     return { ok: false, reason: "missing_signature" };
@@ -132,7 +165,8 @@ export function verifyResumeState(state: unknown, signature: string | undefined 
   if (!sig) {
     return { ok: false, reason: "missing_signature" };
   }
-  const canonical = canonicalize(state);
+  const payload = { state, binding: binding ?? null };
+  const canonical = canonicalize(payload);
   const expected = createHmac("sha256", key).update(canonical, "utf8").digest();
   let provided: Buffer;
   try {
@@ -143,5 +177,7 @@ export function verifyResumeState(state: unknown, signature: string | undefined 
   if (provided.length !== expected.length) {
     return { ok: false, reason: "invalid" };
   }
-  return timingSafeEqual(provided, expected) ? { ok: true } : { ok: false, reason: "invalid" };
+  return timingSafeEqual(provided, expected)
+    ? { ok: true, binding: binding ?? null }
+    : { ok: false, reason: "invalid" };
 }
