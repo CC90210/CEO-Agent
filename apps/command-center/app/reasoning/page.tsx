@@ -1,27 +1,17 @@
-import Link from "next/link";
 import { Card, PageHeader, EmptyState, Tag } from "@/components/Card";
 import { timeAgo, truncate, statusColor } from "@/lib/fmt";
 import { recentDecisions, getActiveProfile } from "@/lib/queries";
 import { safe } from "@/lib/api-helpers";
-import { CommandPalette } from "@/components/reasoning/CommandPalette";
 import { QuickActionsGrid } from "@/components/reasoning/QuickActionsGrid";
-import { commandsForAgents } from "@/lib/slash-commands";
 import { quickActionsFor } from "@/lib/quick-actions";
 import { getTenantEnabledAgents } from "@/lib/manifest/tenant-scope";
 
 export const dynamic = "force-dynamic";
 
-export default async function ReasoningPage({
-  searchParams,
-}: {
-  searchParams?: Promise<{ dev?: string }>;
-}) {
-  const sp = (await searchParams) || {};
-  const devMode = sp.dev === "1";
-
+export default async function ReasoningPage() {
   // Phase 5 — manifest is the source of truth for enabled agents per tenant.
-  // QuickActionsGrid + CommandPalette downstream take slug arrays so they
-  // keep rendering the right per-agent prompts without any further change.
+  // QuickActionsGrid downstream takes the slug array so it keeps rendering
+  // the right per-agent prompts as the manifest evolves.
   const profile = await safe("reasoning.profile", getActiveProfile(), null);
   const manifestEnabledSlugs = await getTenantEnabledAgents(profile?.tenant_id ?? null);
 
@@ -41,57 +31,25 @@ export default async function ReasoningPage({
   );
 
   const quickActions = quickActionsFor(enabled);
-  const commands = commandsForAgents(enabled);
 
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Reasoning"
-        subtitle={
-          devMode
-            ? "Developer view — full slash-command palette + autonomous decision tape."
-            : "Click an action to send it straight to chat. The agent runs it for you — no terminal, no setup."
-        }
-        action={
-          <Tag tone="accent">
-            {devMode ? `${commands.length} commands · ${enabled.length} agents` : `${quickActions.length} actions · ${enabled.length} agents`}
-          </Tag>
-        }
+        subtitle="Click an action to send it straight to chat. The agent runs it for you — no terminal, no setup."
+        action={<Tag tone="accent">{`${quickActions.length} actions · ${enabled.length} agents`}</Tag>}
       />
 
-      {devMode ? (
-        <Card
-          title="Developer command palette"
-          subtitle="Click a command to see the exact terminal invocation. Auto-populated from your enabled agents."
-          action={
-            <Link href="/reasoning" className="text-xs text-fg-muted hover:text-accent transition-colors">
-              ← back to quick actions
-            </Link>
-          }
-        >
-          {commands.length === 0 ? (
-            <EmptyState message="No agents enabled. Toggle agents in Settings → Agents." />
-          ) : (
-            <CommandPalette commands={commands} enabledAgents={enabled} />
-          )}
-        </Card>
-      ) : (
-        <Card
-          title="Quick actions"
-          subtitle="Each one drops a prompt into chat with the right agent already selected. Hit Enter to send."
-          action={
-            <Link href="/reasoning?dev=1" className="text-xs text-fg-dim hover:text-accent transition-colors">
-              developer view →
-            </Link>
-          }
-        >
-          {quickActions.length === 0 ? (
-            <EmptyState message="No agents enabled. Toggle agents in Settings → Agents." />
-          ) : (
-            <QuickActionsGrid actions={quickActions} />
-          )}
-        </Card>
-      )}
+      <Card
+        title="Quick actions"
+        subtitle="Each one drops a prompt into chat with the right agent already selected. Hit Enter to send."
+      >
+        {quickActions.length === 0 ? (
+          <EmptyState message="No agents enabled. Toggle agents in Settings → Agents." />
+        ) : (
+          <QuickActionsGrid actions={quickActions} />
+        )}
+      </Card>
 
       <Card
         title="Agent decisions"

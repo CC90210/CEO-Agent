@@ -166,6 +166,9 @@ export function CustomAgentBuilder({ tenantSlug, editing }: Props) {
         setError(data.message || data.error || "delete_failed");
         return;
       }
+      // Invalidate the marketplace page's RSC cache; without this the
+      // just-deleted agent reappears in the cached list.
+      router.refresh();
       router.push(`/t/${tenantSlug}/marketplace`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "network_error");

@@ -177,6 +177,11 @@ export function SequenceBuilderClient({ initialSequence }: Props) {
       return;
     const res = await fetch(`/api/sequences/${initialSequence.id}`, { method: "DELETE" });
     if (res.ok) {
+      // router.push alone re-uses the RSC cache for /sequences and the
+      // just-deleted row reappears (Next.js 15 router-cache behavior).
+      // router.refresh() invalidates the cached server-component output
+      // so the list re-fetches from Supabase.
+      router.refresh();
       router.push("/sequences");
     } else {
       const data = await res.json().catch(() => ({}));

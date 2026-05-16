@@ -167,6 +167,9 @@ export function FormBuilderClient({ initialForm }: Props) {
     if (!confirm(`Delete form "${name}"? This can't be undone.`)) return;
     const res = await fetch(`/api/forms/${initialForm.id}`, { method: "DELETE" });
     if (res.ok) {
+      // Invalidate the /forms RSC cache so the just-deleted form
+      // doesn't reappear when we push back to the list.
+      router.refresh();
       router.push("/forms");
     } else {
       const data = await res.json().catch(() => ({}));

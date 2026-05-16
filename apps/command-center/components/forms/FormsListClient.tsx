@@ -95,17 +95,24 @@ export function FormsListClient({ initialRows }: { initialRows: FormRow[] }) {
       body: JSON.stringify({ enabled: next }),
     });
     if (!res.ok) {
-      // Revert on failure.
       setRows((prev) => prev.map((r) => (r.id === id ? { ...r, enabled } : r)));
+      return;
     }
+    // Invalidate the cached /forms RSC payload so the next navigation
+    // picks up the new toggle state (Next.js 15 router-cache fix).
+    router.refresh();
   }
 
   async function destroy(id: string, name: string) {
     if (!confirm(`Delete form "${name}"? This can't be undone.`)) return;
     const res = await fetch(`/api/forms/${id}`, { method: "DELETE" });
-    if (res.ok) {
-      setRows((prev) => prev.filter((r) => r.id !== id));
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      setError(data.error || `delete failed (${res.status})`);
+      return;
     }
+    setRows((prev) => prev.filter((r) => r.id !== id));
+    router.refresh();
   }
 
   return (
