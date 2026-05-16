@@ -153,7 +153,20 @@ def execute_job(job: dict, env_vars: dict[str, str]) -> str:
         MAVEN_DOMAIN_ACTIONS = {
             "content_post", "ig_research", "ig_dm_check", "ig_auto_reply",
             "content_generate", "content_repurpose", "content_planning",
+            # Phase 9.1 — Maven Token Expiry Check ships from CMO-Agent.
+            # Was emitting "unknown_action_type" on this dashboard's
+            # bravo-scheduler because the row exists empire-side but the
+            # handler doesn't. Mark as moved so the Health page shows a
+            # clean "moved_to_maven" instead of red.
+            "maven_token_check",
         }
+        # Atlas-domain actions ship from APPS/CFO-Agent. Same rationale
+        # as MAVEN_DOMAIN_ACTIONS — bridge rows that have no local handler.
+        ATLAS_DOMAIN_ACTIONS = {
+            "atlas_wealth_refresh",
+        }
+        if action_type in ATLAS_DOMAIN_ACTIONS:
+            return f"moved_to_atlas: {action_type} is now owned by CFO-Agent"
         if action_type in MAVEN_DOMAIN_ACTIONS:
             return f"moved_to_maven: {action_type} is now owned by CMO-Agent"
         if action_type == "lead_followup":

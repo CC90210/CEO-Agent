@@ -95,13 +95,21 @@ def _is_stale(path: Path) -> bool:
 
 
 def _regenerate_snapshot() -> None:
+    # Phase 9.4 — pass creationflags=CREATE_NO_WINDOW so the subprocess
+    # doesn't flash a console window every 06:00 when the empire scheduler
+    # invokes us. The flag is no-op on POSIX.
+    try:
+        from _subprocess_helpers import WINDOWLESS_FLAGS  # type: ignore
+    except ImportError:
+        WINDOWLESS_FLAGS = 0x08000000 if sys.platform == "win32" else 0
     try:
         subprocess.run(
-            ["python", "scripts/snapshots/briefing_snapshot.py"],
+            [sys.executable, "scripts/snapshots/briefing_snapshot.py"],
             cwd=str(PROJECT_ROOT),
             timeout=60,
             capture_output=True,
             text=True,
+            creationflags=WINDOWLESS_FLAGS,
         )
     except (subprocess.TimeoutExpired, OSError) as e:
         sys.stderr.write(f"[daily_brief] snapshot regen failed: {e}\n")

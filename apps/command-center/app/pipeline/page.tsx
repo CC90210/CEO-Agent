@@ -10,11 +10,18 @@ import {
 } from "@/lib/queries";
 import { safe } from "@/lib/api-helpers";
 import { ManifestKanban } from "@/components/manifest/ManifestKanban";
+import { ManifestTable } from "@/components/manifest/ManifestTable";
 import { OASIS_SEED } from "@/lib/manifest/seeds";
 
 export const dynamic = "force-dynamic";
 
-export default async function PipelinePage() {
+export default async function PipelinePage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ view?: string }>;
+}) {
+  const sp = (await searchParams) || {};
+  const view: "kanban" | "table" = sp.view === "table" ? "table" : "kanban";
   const profile = await safe("pipeline.profile", getActiveProfile(), null);
   const tenantId = profile?.tenant_id || "";
   // Phase 4: kanban-first pipeline. The legacy ?show=all toggle is gone —
@@ -49,20 +56,60 @@ export default async function PipelinePage() {
       </section>
 
       {leadEntity ? (
-        <ManifestKanban
-          tenantSlug="oasis"
-          tenantId={tenantId || null}
-          entity={leadEntity}
-          page={{
-            path: "pipeline",
-            label: "Pipeline",
-            kind: "kanban",
-            entity: "lead",
-            config: { group_by: "stage" },
-          }}
-          linkBase="/pipeline"
-          sortBy="ai_score"
-        />
+        <>
+          <div className="flex items-center gap-1">
+            <Link
+              href="/pipeline?view=kanban"
+              className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-md border ${
+                view === "kanban"
+                  ? "border-accent/50 bg-accent/10 text-accent"
+                  : "border-bg-border bg-bg-elev/40 text-fg-muted hover:text-fg"
+              }`}
+            >
+              Kanban
+            </Link>
+            <Link
+              href="/pipeline?view=table"
+              className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-md border ${
+                view === "table"
+                  ? "border-accent/50 bg-accent/10 text-accent"
+                  : "border-bg-border bg-bg-elev/40 text-fg-muted hover:text-fg"
+              }`}
+            >
+              Table
+            </Link>
+          </div>
+          {view === "kanban" ? (
+            <ManifestKanban
+              tenantSlug="oasis"
+              tenantId={tenantId || null}
+              entity={leadEntity}
+              page={{
+                path: "pipeline",
+                label: "Pipeline",
+                kind: "kanban",
+                entity: "lead",
+                config: { group_by: "stage" },
+              }}
+              linkBase="/pipeline"
+              sortBy="ai_score"
+            />
+          ) : (
+            <ManifestTable
+              tenantSlug="oasis"
+              tenantId={tenantId || null}
+              entity={leadEntity}
+              page={{
+                path: "pipeline",
+                label: "Pipeline",
+                kind: "table",
+                entity: "lead",
+              }}
+              linkBase="/pipeline"
+              canCreate
+            />
+          )}
+        </>
       ) : (
         <Card>
           <EmptyState message="OASIS lead entity not defined in the manifest. Open the AI editor at /t/oasis/editor to add it." />
