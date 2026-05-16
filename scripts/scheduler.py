@@ -204,12 +204,25 @@ def run_script(script_name: str, args: List[str], timeout: int = 120) -> str:
     if result.returncode != 0:
         error = result.stderr.strip()
         return f"FAILED (exit {result.returncode}): {error[:2000]}"
-    # V2.1 2026-04-11: Increased from 500 to 8000 chars. The old 500 limit
-    # was truncating JSON arrays mid-object, causing downstream JSON parse
-    # failures in fail-closed handlers (specifically run_lead_followup which
-    # receives ~2200 chars of lead data). 8000 covers any realistic CRM
-    # response while still preventing runaway stdout from eating memory.
-    return output[:8000] if output else "ok"
+    if not output:
+        return "ok"
+    # 2026-04-11: capped at 8000 chars to prevent runaway stdout. 2026-05-15:
+    # found that cap was breaking `lead_followup` because the 20-row JSON
+    # dump from `lead_engine.py --json list` is ~12,500 chars — truncating
+    # mid-string left an unterminated JSON value that crashed json.loads()
+    # downstream. Behavior the cron exhibited for 25 days straight before
+    # the catch: log "ERROR: lead_followup list JSON parse failed:
+    # Unterminated string starting at: line 247 column 14 (char 7906)".
+    #
+    # New policy: JSON output (starts with `[` or `{`) is NOT truncated —
+    # the downstream parser needs the whole thing intact. We cap at 200KB
+    # as a fork-bomb guard but report-don't-truncate. Plain text output is
+    # still capped at 8KB.
+    if output[:1] in ("[", "{"):
+        if len(output) > 200_000:
+            return f"FAILED (exit 0): json output exceeds 200KB ({len(output)} bytes) — refusing to truncate JSON"
+        return output
+    return output[:8000]
 
 
 # ── Job handlers ──────────────────────────────────────────────────────────────
@@ -235,8 +248,11 @@ def run_lead_followup(env_vars: dict) -> str:
     ERROR instead of being silenced. Matches the pattern of run_stripe_sync,
     run_nurture_check, run_funnel_sync, run_funnel_fast_poll.
     """
-    # Phase 1: fetch leads list
-    leads_result = run_script("lead_engine.py", ["--json", "list"])
+    # Phase 1: fetch leads list. Cap to the most recent 50 since this job
+    # is checking for overdue follow-ups, not auditing the whole CRM. The
+    # 50 cap also keeps the JSON dump well under the 200KB ceiling
+    # run_script enforces.
+    leads_result = run_script("lead_engine.py", ["--json", "list", "--limit", "50"])
     if not leads_result or leads_result.startswith("FAILED"):
         return f"ERROR: lead_followup list failed: {leads_result[:200] if leads_result else 'empty'}"
 

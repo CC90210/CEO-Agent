@@ -14,7 +14,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, CheckCircle2, Loader2, Save, Trash2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Loader2, Save, Trash2, Plus, X, Code2, ListTree, MessageSquare, Mail } from "lucide-react";
 import {
   parseDripSteps,
   parseDripTriggerFilter,
@@ -47,12 +47,20 @@ export function SequenceBuilderClient({ initialSequence }: Props) {
   const [enabled, setEnabled] = useState(initialSequence.enabled);
   const [onePerLead, setOnePerLead] = useState(initialSequence.one_per_lead);
   const [triggerEvent, setTriggerEvent] = useState(initialSequence.trigger_event);
+  // Two editor modes for the steps body — structured (one card per step,
+  // operator-friendly default) and raw (monospace JSON for advanced
+  // operators or shapes the structured editor doesn't cover). Same goes
+  // for the trigger filter. The serialized JSON strings remain the source
+  // of truth feeding `parsed` below; the structured editor writes back
+  // through the same setStepsJson / setFilterJson hooks on every edit.
   const [stepsJson, setStepsJson] = useState(() =>
     JSON.stringify(initialSequence.steps, null, 2),
   );
   const [filterJson, setFilterJson] = useState(() =>
     JSON.stringify(initialSequence.trigger_filter, null, 2),
   );
+  const [stepsMode, setStepsMode] = useState<"structured" | "raw">("structured");
+  const [filterMode, setFilterMode] = useState<"structured" | "raw">("structured");
 
   type ParseState = {
     steps: DripStep[] | null;
@@ -267,45 +275,99 @@ export function SequenceBuilderClient({ initialSequence }: Props) {
             />
           </div>
           <div>
-            <label className="block text-[11px] uppercase tracking-wider font-bold text-fg-dim mb-1">
-              Filter (JSON — shallow equality against payload)
-            </label>
-            <textarea
-              value={filterJson}
-              onChange={(e) => setFilterJson(e.target.value)}
-              className="w-full rounded-md border border-bg-border bg-bg-deep px-3 py-2 font-mono text-[11px] text-fg min-h-[5rem]"
-              spellCheck={false}
-            />
-            <p className="text-[11px] text-fg-dim mt-1 leading-relaxed">
-              Common shapes:
-              <br />
-              <code className="text-fg-muted">{`{ "entity": "lead", "field": "stage", "to": "viewed_application" }`}</code>
-              <br />
-              <code className="text-fg-muted">{`{ "entity": "offer", "field": "stage", "to": "no_offer" }`}</code>
-            </p>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-[11px] uppercase tracking-wider font-bold text-fg-dim">
+                Filter
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  // Re-serialize when leaving structured mode so the
+                  // textarea picks up whatever the operator clicked in.
+                  if (filterMode === "structured" && parsed.filter) {
+                    setFilterJson(JSON.stringify(parsed.filter, null, 2));
+                  }
+                  setFilterMode(filterMode === "structured" ? "raw" : "structured");
+                }}
+                className="text-[10px] uppercase tracking-wider text-fg-dim hover:text-fg inline-flex items-center gap-1"
+              >
+                {filterMode === "structured" ? (
+                  <><Code2 className="h-3 w-3" /> Advanced</>
+                ) : (
+                  <><ListTree className="h-3 w-3" /> Simple</>
+                )}
+              </button>
+            </div>
+            {filterMode === "structured" ? (
+              <FilterEditor
+                filter={parsed.filter || {}}
+                onChange={(next) => setFilterJson(JSON.stringify(next, null, 2))}
+              />
+            ) : (
+              <>
+                <textarea
+                  value={filterJson}
+                  onChange={(e) => setFilterJson(e.target.value)}
+                  className="w-full rounded-md border border-bg-border bg-bg-deep px-3 py-2 font-mono text-[11px] text-fg min-h-[5rem]"
+                  spellCheck={false}
+                />
+                <p className="text-[11px] text-fg-dim mt-1 leading-relaxed">
+                  Common shapes:
+                  <br />
+                  <code className="text-fg-muted">{`{ "entity": "lead", "field": "stage", "to": "viewed_application" }`}</code>
+                </p>
+              </>
+            )}
           </div>
         </section>
 
         <section className="space-y-3 rounded-xl border border-bg-border bg-bg-elev/40 p-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-fg-muted">
-            Steps (JSON)
-          </h3>
-          <p className="text-[11px] text-fg-dim leading-relaxed">
-            Each step:{" "}
-            <code className="text-fg-muted">
-              {`{ "channel": "sms" | "email", "delay_minutes": N, "subject"?: "...", "body": "..." }`}
-            </code>
-            <br />
-            Subject required when channel is email. Body supports{" "}
-            <code className="text-fg-muted">{`{{lead.first_name}}`}</code> mustache
-            substitution.
-          </p>
-          <textarea
-            value={stepsJson}
-            onChange={(e) => setStepsJson(e.target.value)}
-            className="w-full rounded-md border border-bg-border bg-bg-deep px-3 py-2 font-mono text-[11px] text-fg min-h-[20rem]"
-            spellCheck={false}
-          />
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-fg-muted">
+              Steps
+            </h3>
+            <button
+              type="button"
+              onClick={() => {
+                if (stepsMode === "structured" && parsed.steps) {
+                  setStepsJson(JSON.stringify(parsed.steps, null, 2));
+                }
+                setStepsMode(stepsMode === "structured" ? "raw" : "structured");
+              }}
+              className="text-[10px] uppercase tracking-wider text-fg-dim hover:text-fg inline-flex items-center gap-1"
+            >
+              {stepsMode === "structured" ? (
+                <><Code2 className="h-3 w-3" /> Advanced (raw JSON)</>
+              ) : (
+                <><ListTree className="h-3 w-3" /> Simple</>
+              )}
+            </button>
+          </div>
+          {stepsMode === "structured" ? (
+            <StepsEditor
+              steps={parsed.steps || []}
+              onChange={(next) => setStepsJson(JSON.stringify(next, null, 2))}
+            />
+          ) : (
+            <>
+              <p className="text-[11px] text-fg-dim leading-relaxed">
+                Each step:{" "}
+                <code className="text-fg-muted">
+                  {`{ "channel": "sms" | "email", "delay_minutes": N, "subject"?: "...", "body": "..." }`}
+                </code>
+                <br />
+                Subject required when channel is email. Body supports{" "}
+                <code className="text-fg-muted">{`{{lead.first_name}}`}</code> mustache
+                substitution.
+              </p>
+              <textarea
+                value={stepsJson}
+                onChange={(e) => setStepsJson(e.target.value)}
+                className="w-full rounded-md border border-bg-border bg-bg-deep px-3 py-2 font-mono text-[11px] text-fg min-h-[20rem]"
+                spellCheck={false}
+              />
+            </>
+          )}
         </section>
 
         <div className="flex items-center gap-3">
@@ -430,6 +492,302 @@ export function SequenceBuilderClient({ initialSequence }: Props) {
           )}
         </section>
       </div>
+    </div>
+  );
+}
+
+/**
+ * StepsEditor — structured editor for a DripStep[]. Operator gets one
+ * card per step with channel dropdown, delay number, optional subject
+ * (email only), body textarea, and an optional from_label. Add / remove
+ * / reorder via the card chrome.
+ *
+ * Source of truth is the parent's stepsJson string. On every change we
+ * call onChange with the full updated array; parent re-serializes to
+ * JSON and runs it through parseDripSteps, so validation behavior is
+ * identical to the raw textarea path.
+ */
+function StepsEditor({
+  steps,
+  onChange,
+}: {
+  steps: DripStep[];
+  onChange: (steps: DripStep[]) => void;
+}) {
+  function update(idx: number, patch: Partial<DripStep>) {
+    const next = steps.map((s, i) => (i === idx ? { ...s, ...patch } : s));
+    onChange(next);
+  }
+  function remove(idx: number) {
+    onChange(steps.filter((_, i) => i !== idx));
+  }
+  function move(idx: number, delta: -1 | 1) {
+    const target = idx + delta;
+    if (target < 0 || target >= steps.length) return;
+    const next = [...steps];
+    [next[idx], next[target]] = [next[target], next[idx]];
+    onChange(next);
+  }
+  function addStep(channel: "sms" | "email") {
+    const last = steps[steps.length - 1];
+    onChange([
+      ...steps,
+      {
+        channel,
+        delay_minutes: last ? Math.max(60, last.delay_minutes) : 0,
+        ...(channel === "email" ? { subject: "" } : {}),
+        body: "",
+      },
+    ]);
+  }
+
+  return (
+    <div className="space-y-3">
+      {steps.length === 0 && (
+        <div className="text-xs text-fg-dim italic px-3 py-4 rounded-md border border-dashed border-bg-border">
+          No steps yet. Add an SMS or email step below to start the drip.
+        </div>
+      )}
+      {steps.map((step, idx) => (
+        <div key={idx} className="rounded-lg border border-bg-border bg-bg-deep/40 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs">
+              <span className="font-bold text-fg-muted">Step {idx + 1}</span>
+              {step.channel === "email" ? (
+                <Mail className="h-3 w-3 text-accent" />
+              ) : (
+                <MessageSquare className="h-3 w-3 text-accent" />
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => move(idx, -1)}
+                disabled={idx === 0}
+                className="text-fg-dim hover:text-fg disabled:opacity-30 px-1"
+                title="Move up"
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                onClick={() => move(idx, 1)}
+                disabled={idx === steps.length - 1}
+                className="text-fg-dim hover:text-fg disabled:opacity-30 px-1"
+                title="Move down"
+              >
+                ↓
+              </button>
+              <button
+                type="button"
+                onClick={() => remove(idx)}
+                className="text-fg-dim hover:text-rose-400 px-1"
+                title="Remove step"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block">
+              <span className="text-[10px] uppercase tracking-wider text-fg-dim block mb-0.5">
+                Channel
+              </span>
+              <select
+                value={step.channel}
+                onChange={(e) => {
+                  const ch = e.target.value as "sms" | "email";
+                  // Email needs a subject — supply a sensible default
+                  // when switching to email so the operator isn't
+                  // staring at a "subject required" error from validation.
+                  update(idx, {
+                    channel: ch,
+                    ...(ch === "email" && !step.subject ? { subject: "Following up" } : {}),
+                  });
+                }}
+                className="w-full rounded-md border border-bg-border bg-bg-elev px-2 py-1.5 text-xs text-fg"
+              >
+                <option value="sms">SMS (Twilio / TextTorrent)</option>
+                <option value="email">Email (Gmail)</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-[10px] uppercase tracking-wider text-fg-dim block mb-0.5">
+                Delay after previous step (minutes)
+              </span>
+              <input
+                type="number"
+                value={step.delay_minutes}
+                onChange={(e) =>
+                  update(idx, { delay_minutes: Math.max(0, Number(e.target.value) || 0) })
+                }
+                min={0}
+                className="w-full rounded-md border border-bg-border bg-bg-elev px-2 py-1.5 text-xs text-fg"
+              />
+            </label>
+          </div>
+          {step.channel === "email" && (
+            <label className="block">
+              <span className="text-[10px] uppercase tracking-wider text-fg-dim block mb-0.5">
+                Subject
+              </span>
+              <input
+                type="text"
+                value={step.subject || ""}
+                onChange={(e) => update(idx, { subject: e.target.value })}
+                placeholder="Following up on your application"
+                className="w-full rounded-md border border-bg-border bg-bg-elev px-2 py-1.5 text-xs text-fg"
+              />
+            </label>
+          )}
+          <label className="block">
+            <span className="text-[10px] uppercase tracking-wider text-fg-dim block mb-0.5">
+              Body
+              <span className="ml-2 normal-case tracking-normal text-fg-dim/70">
+                Mustache vars: {`{{lead.first_name}}`} {`{{lead.business_name}}`}
+              </span>
+            </span>
+            <textarea
+              value={step.body}
+              onChange={(e) => update(idx, { body: e.target.value })}
+              rows={step.channel === "email" ? 6 : 3}
+              placeholder={
+                step.channel === "sms"
+                  ? "Hey {{lead.first_name}}, quick follow-up on the application — let me know if I can answer anything. — Solara"
+                  : "Hi {{lead.first_name}},\n\nFollowing up on the application. Let me know if I can help."
+              }
+              className="w-full rounded-md border border-bg-border bg-bg-elev px-2 py-1.5 text-xs text-fg font-mono"
+            />
+          </label>
+          <label className="block">
+            <span className="text-[10px] uppercase tracking-wider text-fg-dim block mb-0.5">
+              From label (optional)
+            </span>
+            <input
+              type="text"
+              value={step.from_label || ""}
+              onChange={(e) => update(idx, { from_label: e.target.value || undefined })}
+              placeholder="Solara"
+              className="w-full rounded-md border border-bg-border bg-bg-elev px-2 py-1.5 text-xs text-fg"
+            />
+          </label>
+        </div>
+      ))}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => addStep("sms")}
+          className="inline-flex items-center gap-1.5 text-xs rounded-md border border-bg-border bg-bg-elev hover:bg-bg-elev/80 px-3 py-1.5 text-fg-muted hover:text-fg"
+        >
+          <Plus className="h-3 w-3" /> SMS step
+        </button>
+        <button
+          type="button"
+          onClick={() => addStep("email")}
+          className="inline-flex items-center gap-1.5 text-xs rounded-md border border-bg-border bg-bg-elev hover:bg-bg-elev/80 px-3 py-1.5 text-fg-muted hover:text-fg"
+        >
+          <Plus className="h-3 w-3" /> Email step
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * FilterEditor — structured editor for the DripTriggerFilter shape.
+ * Three of the four supported keys (entity, field, to) cover ~all real
+ * use cases; `from` is exposed under an expandable "Advanced" disclosure
+ * since it's rarely needed (matches a specific transition pair).
+ */
+function FilterEditor({
+  filter,
+  onChange,
+}: {
+  filter: DripTriggerFilter;
+  onChange: (next: DripTriggerFilter) => void;
+}) {
+  const [showFrom, setShowFrom] = useState(!!filter.from);
+  function patch(p: Partial<DripTriggerFilter>) {
+    onChange({ ...filter, ...p });
+  }
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-3 gap-2">
+        <label className="block">
+          <span className="text-[10px] uppercase tracking-wider text-fg-dim block mb-0.5">
+            Entity
+          </span>
+          <select
+            value={filter.entity || ""}
+            onChange={(e) => patch({ entity: e.target.value || undefined })}
+            className="w-full rounded-md border border-bg-border bg-bg-elev px-2 py-1.5 text-xs text-fg"
+          >
+            <option value="">— any —</option>
+            <option value="lead">Lead</option>
+            <option value="application">Application</option>
+            <option value="offer">Offer</option>
+            <option value="funded_deal">Funded deal</option>
+          </select>
+        </label>
+        <label className="block">
+          <span className="text-[10px] uppercase tracking-wider text-fg-dim block mb-0.5">
+            Field
+          </span>
+          <select
+            value={filter.field || ""}
+            onChange={(e) => patch({ field: e.target.value || undefined })}
+            className="w-full rounded-md border border-bg-border bg-bg-elev px-2 py-1.5 text-xs text-fg"
+          >
+            <option value="">— any —</option>
+            <option value="stage">stage</option>
+            <option value="status">status</option>
+          </select>
+        </label>
+        <label className="block">
+          <span className="text-[10px] uppercase tracking-wider text-fg-dim block mb-0.5">
+            To (target value)
+          </span>
+          <input
+            type="text"
+            value={filter.to || ""}
+            onChange={(e) => patch({ to: e.target.value || undefined })}
+            placeholder="viewed_application"
+            className="w-full rounded-md border border-bg-border bg-bg-elev px-2 py-1.5 text-xs text-fg"
+          />
+        </label>
+      </div>
+      {showFrom ? (
+        <label className="block">
+          <span className="text-[10px] uppercase tracking-wider text-fg-dim block mb-0.5">
+            From (source value, rare)
+            <button
+              type="button"
+              onClick={() => {
+                setShowFrom(false);
+                patch({ from: undefined });
+              }}
+              className="ml-2 text-fg-dim hover:text-fg normal-case tracking-normal"
+            >
+              hide
+            </button>
+          </span>
+          <input
+            type="text"
+            value={filter.from || ""}
+            onChange={(e) => patch({ from: e.target.value || undefined })}
+            placeholder="sent_application"
+            className="w-full rounded-md border border-bg-border bg-bg-elev px-2 py-1.5 text-xs text-fg"
+          />
+        </label>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setShowFrom(true)}
+          className="text-[10px] uppercase tracking-wider text-fg-dim hover:text-fg"
+        >
+          + Match only a specific transition
+        </button>
+      )}
     </div>
   );
 }

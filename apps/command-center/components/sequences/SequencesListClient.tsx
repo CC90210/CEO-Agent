@@ -25,8 +25,16 @@ type SequenceRow = {
   one_per_lead: boolean;
 };
 
-const STARTER_SEQUENCE = {
-  name: "Untitled drip",
+/**
+ * Today's date in YYYY-MM-DD, computed at click time so operators who
+ * leave the page open overnight don't get yesterday's date in the name.
+ */
+function todayStamp(): string {
+  const d = new Date();
+  return d.toISOString().slice(0, 10);
+}
+
+const STARTER_SEQUENCE_TEMPLATE = {
   trigger_event: "BRAVO_RECORD_STATUS_CHANGED",
   trigger_filter: {
     entity: "lead",
@@ -64,7 +72,10 @@ export function SequencesListClient({ initialRows }: { initialRows: SequenceRow[
       const res = await fetch("/api/sequences", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(STARTER_SEQUENCE),
+        body: JSON.stringify({
+          ...STARTER_SEQUENCE_TEMPLATE,
+          name: `New drip — ${todayStamp()}`,
+        }),
       });
       const data = (await res.json()) as { ok: boolean; sequence?: { id: string }; error?: string };
       if (!data.ok || !data.sequence) {
