@@ -296,7 +296,19 @@ export const SUN_SEED: TenantManifest = {
     // contracts_out -> accepted -> funded). Renders the same way leads
     // do, just keyed on offer.stage.
     { path: "offers", label: "Offers", kind: "kanban", entity: "offer", config: { group_by: "stage" } },
-    { path: "funded-deals", label: "Funded Deals", kind: "table", entity: "funded_deal" },
+    {
+      path: "funded-deals",
+      label: "Funded Deals",
+      kind: "kanban",
+      entity: "funded_deal",
+      // Synthetic Kanban bucketing — server computes renewal_window from
+      // funded_at + term_months on every row read. Columns:
+      //   upcoming (0-40%) → due (40-50%) → overdue (50%+) → renewed → lost
+      // Matches the meeting decision (CC + Adon, 2026-05-15) that funded
+      // deals get a renewal-window-driven pipeline view instead of a flat
+      // table. Operator can flip to ?view=table for sorting/filtering.
+      config: { compute_group_by: "renewal_window" },
+    },
     { path: "renewals", label: "Renewals", kind: "kanban", entity: "renewal", config: { group_by: "status" } },
     { path: "commissions", label: "Commissions", kind: "table", entity: "commission" },
     { path: "lenders", label: "Lenders", kind: "table", entity: "lender" },
