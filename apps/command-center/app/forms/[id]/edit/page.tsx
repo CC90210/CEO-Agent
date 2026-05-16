@@ -105,16 +105,18 @@ export default async function EditFormPage({
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <Link
-        href="/forms"
-        className="inline-flex items-center gap-1.5 text-xs text-fg-muted hover:text-accent"
-      >
-        <ChevronLeft className="w-3 h-3" />
-        Back to forms
-      </Link>
       <PageHeader
         title={row.name || "Untitled form"}
         subtitle={`Slug: ${row.slug} · ${row.enabled ? "Live" : "Disabled"}`}
+        action={
+          <Link
+            href="/forms"
+            className="btn-secondary inline-flex items-center gap-2 !px-3 !py-1.5 text-xs"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+            Back to forms
+          </Link>
+        }
       />
       <FormBuilderClient
         initialForm={{
