@@ -180,6 +180,8 @@ def execute_job(job: dict, env_vars: dict[str, str]) -> str:
             return run_lead_outreach_batch(env_vars)
         elif action_type == "agent_self_improvement":
             return run_agent_self_improvement(env_vars)
+        elif action_type == "daily_brief":
+            return run_daily_brief(env_vars)
         else:
             # Round 3 R3-12: previously this returned a plain string
             # which scheduler.py's caller treats as success and stamps
@@ -407,6 +409,24 @@ def run_agent_self_improvement(env_vars: dict) -> str:
     if not out or not out.strip():
         return "ERROR: agent_self_improvement returned empty output"
     return _send_digest(out.strip(), "system", "self-improvement-handled-by-digest")
+
+
+def run_daily_brief(_env_vars: dict) -> str:
+    """Phase 5c — daily AI-narrated brief to CC's Telegram.
+
+    scripts/daily_brief.py reads the latest briefing snapshot (regenerating
+    if >24h stale), hands the JSON to Claude Sonnet for a 5-bullet
+    narration, and ships it to Telegram via notify(force=True). The brief
+    self-ships — this handler just invokes the script and returns the
+    stdout so cron_jobs.last_result captures whether it landed.
+    """
+    out = run_script("daily_brief.py", [], timeout=90)
+    if not out or not out.strip():
+        return "ERROR: daily_brief returned empty output"
+    # daily_brief.py prints the brief on stdout AND sends to Telegram —
+    # we report the first line so the cron-jobs panel shows what landed.
+    first_line = out.strip().splitlines()[0]
+    return f"sent: {first_line[:120]}"
 
 
 def run_pipeline_review(env_vars: dict) -> str:

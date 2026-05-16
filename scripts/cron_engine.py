@@ -80,6 +80,19 @@ SEED_JOBS: list[dict] = [
         "is_active": True,
     },
     {
+        # Phase 5c — OASIS HQ daily AI brief. Sonnet narrates the
+        # briefing_snapshot into a 5-bullet morning summary, shipped to
+        # CC's Telegram via notify(force=True). Empty MRR / pipeline data
+        # still produces a brief that says "nothing happened" — the cron's
+        # job is to fire reliably, not to gate on activity.
+        "name": "Daily Bravo Brief",
+        "description": "AI-narrated morning brief — pipeline, MRR, follow-ups — sent to CC's Telegram",
+        "schedule": "0 6 * * *",
+        "action_type": "daily_brief",
+        "action_config": {"notify_channel": "telegram"},
+        "is_active": True,
+    },
+    {
         "name": "Booking Reminders",
         "description": "Send reminders for tomorrow's bookings",
         "schedule": "0 18 * * *",
