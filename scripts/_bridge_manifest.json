@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-16T05:56:18.228707+00:00",
-  "script_count": 95,
-  "entry_count": 354,
+  "generated_at_iso": "2026-05-16T05:59:57.802262+00:00",
+  "script_count": 96,
+  "entry_count": 357,
   "entries": [
     {
       "key": "agent_heartbeat",
@@ -1760,6 +1760,27 @@
       "subcmd": null,
       "mutating": false,
       "help": "Reap duplicate MCP server processes from leaked editor sessions."
+    },
+    {
+      "key": "research_fetch_fetch",
+      "path": "scripts/research_fetch.py",
+      "subcmd": "fetch",
+      "mutating": false,
+      "help": "research_fetch \u2014 Unified research-tier fetcher with auto-escalation + site-reputation memory. \u2014 subcommand: fetch"
+    },
+    {
+      "key": "research_fetch_reputation",
+      "path": "scripts/research_fetch.py",
+      "subcmd": "reputation",
+      "mutating": false,
+      "help": "research_fetch \u2014 Unified research-tier fetcher with auto-escalation + site-reputation memory. \u2014 subcommand: reputation"
+    },
+    {
+      "key": "research_fetch_reputation_clear",
+      "path": "scripts/research_fetch.py",
+      "subcmd": "reputation-clear",
+      "mutating": false,
+      "help": "research_fetch \u2014 Unified research-tier fetcher with auto-escalation + site-reputation memory. \u2014 subcommand: reputation-clear"
     },
     {
       "key": "revenue_engine_mrr",
