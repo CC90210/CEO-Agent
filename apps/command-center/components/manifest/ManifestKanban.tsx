@@ -6,7 +6,7 @@ import type { ManifestEntityDef, ManifestEntityField, ManifestPageDef } from "@/
 import { OfferCardActions } from "./OfferCardActions";
 import { ApplicationCardActions } from "./ApplicationCardActions";
 import { humanize } from "@/lib/manifest/humanize";
-import { formatCardField, ENTITY_TITLE_PRIORITY } from "@/lib/manifest/format";
+import { formatCardField, ENTITY_TITLE_PRIORITY, stageToneFor } from "@/lib/manifest/format";
 
 type Props = {
   tenantSlug: string;
@@ -162,7 +162,9 @@ export async function ManifestKanban({
               className="rounded-xl border border-bg-border bg-bg-elev/40 flex flex-col max-h-[520px]"
             >
               <header className="sticky top-0 z-10 flex items-center justify-between px-3 py-2 border-b border-bg-border bg-bg-elev/95 backdrop-blur rounded-t-xl">
-                <Tag tone="accent">{key === "(unset)" ? "no stage" : humanize(key)}</Tag>
+                <Tag tone={key === "(unset)" ? "neutral" : stageToneFor(entity.name, key)}>
+                  {key === "(unset)" ? "no stage" : humanize(key)}
+                </Tag>
                 <span className="text-[10px] text-fg-dim font-mono">
                   {items.length}
                 </span>
