@@ -74,26 +74,30 @@ export type NavItem = {
  * just don't earn a sidebar slot in CC's day-to-day view.
  */
 export const CC_NAV: NavItem[] = [
+  // Operations group — daily-use pages CC opens to run the business.
   { group: "Operations", href: "/", label: "Today", icon: "LayoutDashboard" },
   { group: "Operations", href: "/pipeline", label: "Pipeline", icon: "GitBranch" },
-  { group: "Operations", href: "/reasoning", label: "Reasoning", icon: "Brain" },
-  { group: "Operations", href: "/playbook", label: "Playbook", icon: "BookOpen" },
-  { group: "System", href: "/agents", label: "Agents", icon: "Bot" },
+  { group: "Operations", href: "/agents", label: "Agents", icon: "Bot" },
+  // System group — observability + control surfaces.
   { group: "System", href: "/operations", label: "Operations", icon: "Activity" },
   { group: "System", href: "/automations", label: "Automations", icon: "RefreshCcw" },
+  { group: "System", href: "/analytics", label: "Analytics", icon: "BarChart3" },
+  { group: "System", href: "/settings", label: "Settings", icon: "Settings" },
+  // 2026-05-16 redesign Phase 2: nav consolidation from 13 to 7. Removed
+  // entries that were rarely-used or duplicates of richer surfaces:
+  //   /reasoning  → folded into /agents as a Decisions tab (Phase 3)
+  //   /playbook   → moved under /settings/playbook (Phase 3)
+  //   /feed       → folded into /operations as the live stream tab (Phase 3)
+  //   /health     → folded into /operations top banner (Phase 3)
+  //   /overrides  → folded into /operations as a collapsible panel (Phase 3)
+  //   /integrations → moved under /settings/integrations (Phase 3)
+  // All six routes still resolve by direct URL (existing pages untouched
+  // this phase). Phase 3 wires the redirects and rich merging.
+  //
   // /forms + /sequences intentionally absent from OASIS HQ nav. Forms
   // for OASIS-side lead capture live in the cc-funnel app (a separate
   // CC90210/cc-funnel repo). The dashboard's /forms + /sequences routes
   // are SunBiz CRM features and surface only on the SunBiz tenant nav.
-  // Mixing them into CC_NAV here would mislead CC into thinking they're
-  // his lead-capture surface when they're actually the funding-shop
-  // workflow's form builder.
-  { group: "System", href: "/feed", label: "Event Feed", icon: "Radio" },
-  { group: "System", href: "/health", label: "Health", icon: "ShieldCheck" },
-  { group: "System", href: "/overrides", label: "Overrides", icon: "ShieldAlert" },
-  { group: "System", href: "/analytics", label: "Analytics", icon: "BarChart3" },
-  { group: "System", href: "/integrations", label: "Integrations", icon: "Plug" },
-  { group: "System", href: "/settings", label: "Settings", icon: "Settings" },
 ];
 
 /**
