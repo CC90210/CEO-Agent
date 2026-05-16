@@ -13,6 +13,7 @@ import { Card, PageHeader, Tag } from "@/components/Card";
 import { getActiveProfile } from "@/lib/queries";
 import { getServiceSupabase } from "@/lib/supabase-server";
 import { timeAgo, truncate } from "@/lib/fmt";
+import { humanize } from "@/lib/manifest/humanize";
 import type { LeadInteraction } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
@@ -227,7 +228,7 @@ export default async function InteractionDetailPage({
       {lead && (
         <Card
           title="Linked lead"
-          subtitle={`${lead.status || "no status"} · score ${lead.score ?? "—"} · source ${lead.source || "—"}`}
+          subtitle={`${lead.status ? humanize(lead.status) : "no status"} · score ${lead.score ?? "—"} · source ${lead.source ? humanize(lead.source) : "—"}`}
           action={
             <Link
               href={`/pipeline?show=all`}
@@ -247,11 +248,44 @@ export default async function InteractionDetailPage({
         </Card>
       )}
 
-      {/* Raw metadata — for debugging when something looks off */}
-      <Card title="Raw metadata" subtitle="Full row payload for debugging">
-        <pre className="text-[11px] text-fg-dim font-mono leading-relaxed overflow-x-auto">
-          {JSON.stringify({ ...interaction, content: undefined }, null, 2)}
-        </pre>
+      {/* Metadata — humanized key/value pairs. Raw JSON tucked behind a
+          details expander since CC flagged the snake-case dump as noise. */}
+      <Card title="Metadata" subtitle="Captured fields on this interaction row">
+        <dl className="grid sm:grid-cols-[10rem_1fr] gap-y-2 gap-x-4 text-sm">
+          {Object.entries({ ...interaction, content: undefined })
+            .filter(([, v]) => v !== null && v !== undefined && v !== "")
+            .map(([k, v]) => {
+              const display =
+                typeof v === "object"
+                  ? JSON.stringify(v, null, 2)
+                  : typeof v === "string" && /^[a-z][a-z0-9_]*$/.test(v) && v.includes("_")
+                    ? humanize(v)
+                    : String(v);
+              return (
+                <div key={k} className="contents">
+                  <dt className="text-fg-muted text-xs font-bold uppercase tracking-wider">
+                    {humanize(k)}
+                  </dt>
+                  <dd className="text-fg break-words font-mono text-xs">
+                    {typeof v === "object" ? (
+                      <pre className="whitespace-pre-wrap leading-relaxed">{display}</pre>
+                    ) : (
+                      display
+                    )}
+                  </dd>
+                </div>
+              );
+            })}
+        </dl>
+        <details className="mt-4">
+          <summary className="text-xs text-fg-dim hover:text-accent cursor-pointer select-none inline-flex items-center gap-1">
+            <span className="inline-block">▸</span>
+            Inspect raw JSON
+          </summary>
+          <pre className="mt-2 text-[11px] text-fg-faint font-mono leading-relaxed overflow-x-auto bg-bg-deep p-3 rounded">
+            {JSON.stringify({ ...interaction, content: undefined }, null, 2)}
+          </pre>
+        </details>
       </Card>
 
       {!interaction.content && !classification.summary && (

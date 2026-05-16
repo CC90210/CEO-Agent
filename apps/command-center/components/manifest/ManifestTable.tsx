@@ -14,6 +14,14 @@ type Props = {
   /** Optional sample rows to show when tenantId is null (demo mode). */
   demoRows?: TenantRecord[];
   canCreate?: boolean;
+  /**
+   * Optional URL prefix for the row + "New" links. Mirrors the
+   * ManifestKanban prop — used by OASIS /pipeline to keep links on the
+   * empire-side detail route (`/pipeline/<id>`) instead of the tenant
+   * route (`/t/oasis/pipeline/<id>`) which doesn't resolve for the
+   * SEED_MANIFESTS-only OASIS tenant.
+   */
+  linkBase?: string;
 };
 
 /**
@@ -33,7 +41,9 @@ export async function ManifestTable({
   page,
   demoRows,
   canCreate,
+  linkBase,
 }: Props) {
+  const effectiveLinkBase = linkBase ?? `/t/${tenantSlug}/${page.path}`;
   // Read either from DB (real tenant) or the supplied demo set. When
   // tenantId is null AND no demoRows were provided we still render the
   // empty state so the page surface is consistent.
@@ -64,7 +74,7 @@ export async function ManifestTable({
       action={
         canCreate ? (
           <Link
-            href={`/t/${tenantSlug}/${page.path}/new`}
+            href={`${effectiveLinkBase}/new`}
             className="btn-send inline-flex items-center gap-1.5 !px-3 !py-1.5 text-xs"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -142,7 +152,7 @@ export async function ManifestTable({
                   </td>
                   <td className="px-2 py-2.5 text-right">
                     <Link
-                      href={`/t/${tenantSlug}/${page.path}/${row.id}`}
+                      href={`${effectiveLinkBase}/${row.id}`}
                       className="inline-flex items-center gap-1 text-fg-dim hover:text-accent text-xs opacity-0 group-hover:opacity-100 transition-opacity"
                       title="Open record"
                     >
