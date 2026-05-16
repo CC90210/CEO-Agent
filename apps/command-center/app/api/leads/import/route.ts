@@ -101,12 +101,23 @@ export async function POST(req: NextRequest) {
     : ["email", "phone"];
   const defaultSource = body.default_source || "csv_import";
 
-  // Fetch existing leads' dedup keys. Pull just the columns we need so
-  // a 20k-row scan stays cheap.
+  // Dedup against the SAME table we're writing to. Imports go to
+  // tenant_records (entity_type='lead') so they show up on the
+  // manifest-driven Kanban + drill-down detail routes that every
+  // tenant's UI consumes. Pre-2026-05-15 we wrote to a dedicated
+  // public.leads table, but that diverged from the manifest reads
+  // and silently hid imported leads from the operator's view.
+  //
+  // tenant_records.data is JSONB; the dedup query extracts the
+  // email + phone fields server-side via the ->> operator. We pull
+  // a denormalized projection (record id stays in id, email/phone
+  // come out as top-level columns) so the dedup logic stays
+  // shape-identical to the prior dedicated-table version.
   const existingRes = await db
-    .from("leads")
-    .select("email, phone")
+    .from("tenant_records")
+    .select("data")
     .eq("tenant_id", tenantId)
+    .eq("entity_type", "lead")
     .order("updated_at", { ascending: false })
     .limit(DEDUP_LOOKBACK);
   if (existingRes.error) {
@@ -117,24 +128,24 @@ export async function POST(req: NextRequest) {
   }
   const existingEmails = new Set<string>();
   const existingPhones = new Set<string>();
-  for (const r of (existingRes.data || []) as Array<{ email: string | null; phone: string | null }>) {
-    const e = normEmail(r.email);
+  for (const r of (existingRes.data || []) as Array<{ data: Record<string, unknown> | null }>) {
+    const d = r.data || {};
+    const e = normEmail(typeof d.email === "string" ? d.email : null);
     if (e) existingEmails.add(e);
-    const p = normPhone(r.phone);
+    const p = normPhone(typeof d.phone === "string" ? d.phone : null);
     if (p) existingPhones.add(p);
   }
 
+  // tenant_records insert shape — each row carries tenant_id +
+  // entity_type ('lead') + the full lead profile in data JSONB. The
+  // manifest's data_model.lead.fields determines which keys land
+  // where; we send the operator-visible columns + a few sensible
+  // defaults (stage='cold', score=0, status='new' for back-compat
+  // with anything still reading the legacy status field).
   const toInsert: Array<{
     tenant_id: string;
-    name: string | null;
-    email: string | null;
-    phone: string | null;
-    company: string | null;
-    source: string;
-    notes: string | null;
-    tags: string[] | null;
-    status: string;
-    score: number;
+    entity_type: string;
+    data: Record<string, unknown>;
   }> = [];
   let skippedDuplicate = 0;
   let skippedMalformed = 0;
@@ -188,23 +199,34 @@ export async function POST(req: NextRequest) {
 
     toInsert.push({
       tenant_id: tenantId,
-      name,
-      email,
-      phone,
-      company,
-      source,
-      notes,
-      tags,
-      status: "new",
-      score: 0,
+      entity_type: "lead",
+      data: {
+        name,
+        email,
+        phone,
+        company,
+        source,
+        notes,
+        ...(tags && tags.length > 0 ? { tags } : {}),
+        // Manifest's lead.stage enum starts at 'cold' (per SUN_SEED
+        // Phase 2). Imported leads land cold; operator moves them.
+        stage: "cold",
+        // Legacy status field — kept for backward-compat with any
+        // code path still reading status. Phase 2 reconciled
+        // stage as the canonical pipeline field; remove this once
+        // every reader migrates.
+        status: "new",
+        score: 0,
+      },
     });
   }
 
   let inserted = 0;
   if (toInsert.length > 0) {
-    // Single bulk insert. Supabase's REST layer batches efficiently so
-    // even a few-thousand-row insert is one round-trip.
-    const insRes = await db.from("leads").insert(toInsert).select("id");
+    // Single bulk insert into tenant_records. The kanban + table
+    // primitives read from this same table via listRecords() so
+    // imported leads appear on /t/<slug>/leads immediately.
+    const insRes = await db.from("tenant_records").insert(toInsert).select("id");
     if (insRes.error) {
       return NextResponse.json(
         {
