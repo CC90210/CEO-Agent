@@ -14,54 +14,36 @@ import { OASIS_SEED } from "@/lib/manifest/seeds";
 
 export const dynamic = "force-dynamic";
 
-export default async function PipelinePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ show?: string }>;
-}) {
-  const params = await searchParams;
-  const includeAll = params.show === "all";
-
+export default async function PipelinePage() {
   const profile = await safe("pipeline.profile", getActiveProfile(), null);
   const tenantId = profile?.tenant_id || "";
+  // Phase 4: kanban-first pipeline. The legacy ?show=all toggle is gone —
+  // the kanban exposes lost/won as their own columns instead of hiding
+  // them. Funnel chart matches the kanban's stage breakdown so counts
+  // can't disagree across the two surfaces.
   const [pipeline, outbound, inbound] = await Promise.all([
-    safe("pipeline.breakdown", pipelineBreakdown(tenantId, includeAll), { stages: {} as Record<string, number>, total: 0, sources: {} as Record<string, number> }),
+    safe("pipeline.breakdown", pipelineBreakdown(tenantId, true), { stages: {} as Record<string, number>, total: 0, sources: {} as Record<string, number> }),
     safe("pipeline.recent_outbound", recentOutbound(tenantId, 20), []),
     safe("pipeline.recent_inbound", recentInbound(tenantId, 20), []),
   ]);
 
   // Phase 4: OASIS Pipeline becomes a full CRM. Source of stages + card
   // fields is OASIS_SEED.data_model.lead, which the same ManifestKanban
-  // SunBiz uses already understands. The flat-table fallback at
-  // ?view=table is preserved via the manifest tenant route — for the
-  // empire pipeline we go kanban-first since CC's actual complaint was
-  // "the pipeline page is a table, I want it to feel like SunBiz's CRM."
+  // SunBiz uses already understands. `linkBase="/pipeline"` swaps the
+  // default `/t/oasis/pipeline/<id>` URL shape (which 404s — OASIS isn't
+  // a tenant_manifests row) for `/pipeline/<id>` which routes to the
+  // empire-side detail + new pages built alongside this.
   const leadEntity = OASIS_SEED.data_model?.find((e) => e.name === "lead");
 
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Pipeline"
-        subtitle={
-          includeAll
-            ? `${pipeline.total} leads (showing all — including lost + archived + no-email)`
-            : `${pipeline.total} active leads · clean view (lost / archived / no-email hidden)`
-        }
-        action={
-          includeAll ? (
-            <Link href="/pipeline" className="btn-secondary !text-xs !py-1.5">
-              Hide noise
-            </Link>
-          ) : (
-            <Link href="/pipeline?show=all" className="btn-secondary !text-xs !py-1.5">
-              Show everything
-            </Link>
-          )
-        }
+        subtitle={`${pipeline.total} lead${pipeline.total === 1 ? "" : "s"} across the funnel`}
       />
 
       <section>
-        <Card title="Funnel" subtitle="By stage — clean view default">
+        <Card title="Funnel" subtitle="By stage">
           <PipelineFunnel stages={pipeline.stages} />
         </Card>
       </section>
@@ -78,6 +60,7 @@ export default async function PipelinePage({
             entity: "lead",
             config: { group_by: "stage" },
           }}
+          linkBase="/pipeline"
         />
       ) : (
         <Card>
