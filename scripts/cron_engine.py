@@ -112,10 +112,10 @@ SEED_JOBS: list[dict] = [
         # 08:00 every morning. Cost ~$0.02/day. CC opts in/out via the
         # standard toggle.
         "name": "Morning Pow Wow Call",
-        "description": "Daily 8 a.m. voice note from Aura — a ~120-word motivational + flirty kickoff monologue delivered as a Telegram voice message. Cost ~$0.02/day (Claude draft + ElevenLabs TTS).",
+        "description": "Aura's daily 8 a.m. voice note — a ~120-word motivational + flirty kickoff monologue delivered as a Telegram voice message. Lives in scripts/aura/. Cost ~$0.02/day (Claude draft + ElevenLabs TTS).",
         "schedule": "0 8 * * *",
         "action_type": "morning_powwow",
-        "action_config": {"voice": "aura"},
+        "action_config": {"voice": "aura", "agent": "aura"},
         "is_active": True,
     },
     {
