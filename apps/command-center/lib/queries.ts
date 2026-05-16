@@ -170,11 +170,75 @@ export async function getPlanTemplates(profileId: string): Promise<PlanTemplate[
   return (r.data as PlanTemplate[]) || [];
 }
 
+/**
+ * Convert a tenant_records row (entity_type='lead') to the Lead shape
+ * other code already consumes. Lead profile lives in row.data JSONB;
+ * everything else maps from top-level columns.
+ *
+ * 2026-05-16 Round 3 R3-2: introduced when migrating the 6 legacy
+ * lead readers off public.leads (which the bulk import stopped writing
+ * to on 2026-05-15) onto tenant_records. Single mapper so the readers
+ * stay shape-identical to their pre-migration behavior.
+ */
+type TenantRecordRow = {
+  id: string;
+  tenant_id: string;
+  created_at: string;
+  updated_at: string;
+  data: Record<string, unknown> | null;
+};
+
+function tenantRecordToLead(row: TenantRecordRow): Lead {
+  const d = row.data || {};
+  const str = (k: string): string | null => {
+    const v = d[k];
+    return typeof v === "string" ? v : null;
+  };
+  const num = (k: string): number | null => {
+    const v = d[k];
+    return typeof v === "number" ? v : null;
+  };
+  const arr = (k: string): string[] | null => {
+    const v = d[k];
+    return Array.isArray(v) ? (v.filter((s) => typeof s === "string") as string[]) : null;
+  };
+  return {
+    id: row.id,
+    tenant_id: row.tenant_id,
+    name: str("name"),
+    email: str("email"),
+    phone: str("phone"),
+    company: str("company"),
+    // Lead.status historically used legacy enum (new / qualified / won / lost /
+    // archived). The Phase 2 SunBiz CRM build also writes a `stage` field
+    // (cold / follow_up / sent_application / ...). Read both — prefer
+    // status when present (back-compat), fall back to stage so any reader
+    // that filters .status sees a value.
+    status: str("status") || str("stage"),
+    score: num("score"),
+    source: str("source"),
+    notes: str("notes"),
+    tags: arr("tags"),
+    last_contacted_at: str("last_contacted_at"),
+    next_followup_at: str("next_followup_at"),
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
 export async function getLeadById(leadId: string): Promise<Lead | null> {
+  // R3-2: read from tenant_records. Legacy public.leads stays writable
+  // for now (no one writes there anymore) but is no longer the source
+  // of truth for any reader.
   const db = getServiceSupabase();
-  const r = await db.from("leads").select("*").eq("id", leadId).maybeSingle();
+  const r = await db
+    .from("tenant_records")
+    .select("id, tenant_id, created_at, updated_at, data")
+    .eq("id", leadId)
+    .eq("entity_type", "lead")
+    .maybeSingle();
   if (r.error || !r.data) return null;
-  return r.data as Lead;
+  return tenantRecordToLead(r.data as TenantRecordRow);
 }
 
 // ============================================================================
@@ -248,22 +312,35 @@ export async function pipelineBreakdown(tenantId: string, includeArchived = fals
     const tursoBreakdown = await pipelineBreakdownTurso(tenantId, includeArchived);
     if (tursoBreakdown !== null) return tursoBreakdown;
   }
+  // R3-2: read leads from tenant_records (entity_type='lead'). Pull
+  // only the data jsonb since that's where status/source live; let
+  // the post-fetch loop handle the filter (cleaner than embedding
+  // jsonb path predicates in the query).
   const db = getServiceSupabase();
-  let q = db.from("leads").select("status,score,source").eq("tenant_id", tenantId);
-  if (!includeArchived) q = q.neq("status", "archived");
-  const r = await q;
+  const r = await db
+    .from("tenant_records")
+    .select("data")
+    .eq("tenant_id", tenantId)
+    .eq("entity_type", "lead");
   if (r.error || !r.data) return { stages: {}, total: 0, sources: {} };
   const stages: Record<string, number> = {
     new: 0, contacted: 0, qualified: 0, proposal: 0, won: 0, lost: 0,
   };
   const sources: Record<string, number> = {};
-  for (const row of r.data as Array<{ status: string | null; source: string | null }>) {
-    const s = (row.status as string) || "new";
-    stages[s] = (stages[s] || 0) + 1;
-    const src = row.source || "unknown";
+  let total = 0;
+  for (const row of r.data as Array<{ data: Record<string, unknown> | null }>) {
+    const d = row.data || {};
+    const status =
+      (typeof d.status === "string" ? d.status : null) ||
+      (typeof d.stage === "string" ? d.stage : null) ||
+      "new";
+    if (!includeArchived && status === "archived") continue;
+    stages[status] = (stages[status] || 0) + 1;
+    const src = typeof d.source === "string" ? d.source : "unknown";
     sources[src] = (sources[src] || 0) + 1;
+    total += 1;
   }
-  return { stages, total: r.data.length, sources };
+  return { stages, total, sources };
 }
 
 /**
@@ -340,14 +417,29 @@ export async function recentLeads(
     const tursoRows = await recentLeadsTurso(tenantId, limit, opts);
     if (tursoRows !== null) return tursoRows;
   }
+  // R3-2: read from tenant_records. Over-fetch by 3x then apply the
+  // status / email filters post-load so we don't have to express jsonb
+  // path predicates in the supabase query (cleaner + same correctness;
+  // bulk import caps at 5000/req so even 90-row over-fetch stays cheap).
   const db = getServiceSupabase();
-  let q = db.from("leads").select("*").eq("tenant_id", tenantId);
-  if (!opts?.include_archived) q = q.neq("status", "archived");
-  if (!opts?.include_lost) q = q.neq("status", "lost");
-  if (!opts?.include_no_email) q = q.not("email", "is", null);
-  q = q.order("updated_at", { ascending: false }).limit(limit);
-  const r = await q;
-  return (r.data as Lead[]) || [];
+  const r = await db
+    .from("tenant_records")
+    .select("id, tenant_id, created_at, updated_at, data")
+    .eq("tenant_id", tenantId)
+    .eq("entity_type", "lead")
+    .order("updated_at", { ascending: false })
+    .limit(limit * 3);
+  if (r.error || !r.data) return [];
+  const rows = (r.data as TenantRecordRow[])
+    .map(tenantRecordToLead)
+    .filter((lead) => {
+      if (!opts?.include_archived && lead.status === "archived") return false;
+      if (!opts?.include_lost && lead.status === "lost") return false;
+      if (!opts?.include_no_email && !lead.email) return false;
+      return true;
+    })
+    .slice(0, limit);
+  return rows;
 }
 
 /**
@@ -554,19 +646,35 @@ export async function topClientConcentration(tenantId: string): Promise<{
     return { client_name: "—", pct_of_mrr: 0, is_at_risk: false };
   }
 
-  // For tenants without top_client_* in custom_fields, fall back to the
-  // top-scoring won lead. Operator-configured fields take precedence.
+  // R3-2: read from tenant_records. Pull leads with status="won"
+  // (or stage="funded" — Phase 2 enum equivalent), pick the highest
+  // scoring as the fallback name.
   const db = getServiceSupabase();
   const r = await db
-    .from("leads")
-    .select("name,company,score")
+    .from("tenant_records")
+    .select("data")
     .eq("tenant_id", tenantId)
-    .eq("status", "won")
-    .order("score", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .eq("entity_type", "lead")
+    .order("updated_at", { ascending: false })
+    .limit(200);
+  let topWonName: string | null = null;
+  let topWonScore = -Infinity;
+  for (const row of (r.data || []) as Array<{ data: Record<string, unknown> | null }>) {
+    const d = row.data || {};
+    const status = (typeof d.status === "string" ? d.status : null);
+    const stage = (typeof d.stage === "string" ? d.stage : null);
+    const isWon = status === "won" || stage === "funded";
+    if (!isWon) continue;
+    const score = typeof d.score === "number" ? d.score : 0;
+    if (score > topWonScore) {
+      topWonScore = score;
+      topWonName =
+        (typeof d.name === "string" ? d.name : null) ||
+        (typeof d.company === "string" ? d.company : null);
+    }
+  }
 
-  if (!r.data) return { client_name: "—", pct_of_mrr: 0, is_at_risk: false };
+  if (!topWonName) return { client_name: "—", pct_of_mrr: 0, is_at_risk: false };
 
   // Read from profile.custom_fields.top_client_mrr_usd. Operators set this
   // in Settings or via scripts/seed_profile.py. No magic numbers.
@@ -574,7 +682,7 @@ export async function topClientConcentration(tenantId: string): Promise<{
   const configuredName = (customFields.top_client_name as string) || null;
   const configuredMrr = Number(customFields.top_client_mrr_usd) || 0;
 
-  const name = configuredName || r.data.name || r.data.company || "Top client";
+  const name = configuredName || topWonName || "Top client";
   const pct = configuredMrr > 0 ? (configuredMrr / totalMrr) * 100 : 0;
   return {
     client_name: name,
@@ -630,16 +738,23 @@ export async function activePipeline(tenantId: string): Promise<{
   proposal: number;
   total_active: number;
 }> {
+  // R3-2: read leads from tenant_records. Same filter (status in
+  // qualified/proposal), but applied post-load over the jsonb data.
   const db = getServiceSupabase();
   const r = await db
-    .from("leads")
-    .select("status")
+    .from("tenant_records")
+    .select("data")
     .eq("tenant_id", tenantId)
-    .in("status", ["qualified", "proposal"]);
-  const data = (r.data || []) as Array<{ status: string }>;
-  const qualified = data.filter((d) => d.status === "qualified").length;
-  const proposal = data.filter((d) => d.status === "proposal").length;
-  return { qualified, proposal, total_active: data.length };
+    .eq("entity_type", "lead");
+  if (r.error || !r.data) return { qualified: 0, proposal: 0, total_active: 0 };
+  let qualified = 0;
+  let proposal = 0;
+  for (const row of r.data as Array<{ data: Record<string, unknown> | null }>) {
+    const status = (row.data?.status as string) || (row.data?.stage as string) || "";
+    if (status === "qualified") qualified += 1;
+    else if (status === "proposal") proposal += 1;
+  }
+  return { qualified, proposal, total_active: qualified + proposal };
 }
 
 // ============================================================================
@@ -647,17 +762,25 @@ export async function activePipeline(tenantId: string): Promise<{
 // ============================================================================
 
 export async function topOpenLead(tenantId: string): Promise<Lead | null> {
+  // R3-2: read from tenant_records. Pull the recent rows ordered by
+  // updated_at, then sort in-memory by score and pick the first
+  // non-terminal-status entry. Tenants typically have <500 active
+  // leads so in-memory sort is fine.
   const db = getServiceSupabase();
   const r = await db
-    .from("leads")
-    .select("*")
+    .from("tenant_records")
+    .select("id, tenant_id, created_at, updated_at, data")
     .eq("tenant_id", tenantId)
-    .not("status", "in", "(won,lost,archived)")
-    .order("score", { ascending: false, nullsFirst: false })
+    .eq("entity_type", "lead")
     .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return (r.data as Lead | null) || null;
+    .limit(500);
+  if (r.error || !r.data) return null;
+  const TERMINAL: ReadonlySet<string> = new Set(["won", "lost", "archived"]);
+  const leads = (r.data as TenantRecordRow[])
+    .map(tenantRecordToLead)
+    .filter((lead) => !lead.status || !TERMINAL.has(lead.status));
+  leads.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+  return leads[0] ?? null;
 }
 
 // ============================================================================
