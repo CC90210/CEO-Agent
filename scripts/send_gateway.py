@@ -107,6 +107,7 @@ if str(_SCRIPTS_DIR) not in sys.path:
 
 from casl_compliance import (  # noqa: E402
     should_suppress,
+    should_suppress_phone,
     is_reserved_domain,
     build_casl_footer,
     build_casl_footer_html,
@@ -385,6 +386,33 @@ def resolve_lead_id(db, to_email: Optional[str], lead_id: Optional[str]) -> Opti
         # Lead resolution is best-effort; a DB blip must not block sending.
         print(f"[send_gateway] resolve_lead_id warning: {exc}", file=sys.stderr)
         return None
+
+
+def _has_prior_sms_sent(db: Any, lead_id: Optional[str]) -> bool:
+    """Return True when this lead already has a completed outbound SMS row.
+
+    On ledger read errors, assume this is a first touch so the compliance
+    footer is appended. Extra STOP language is safer than omitting it.
+    """
+    if not lead_id:
+        return False
+    try:
+        rows = (
+            db.table("lead_interactions")
+            .select("id", count="exact")
+            .eq("lead_id", lead_id)
+            .eq("type", "sms_sent")
+            .limit(1)
+            .execute()
+        )
+        return bool((rows.count or 0) > 0 or rows.data)
+    except Exception as exc:  # noqa: BLE001
+        print(
+            f"[send_gateway] prior SMS query warning: {exc}; "
+            "assuming first SMS for opt-out language.",
+            file=sys.stderr,
+        )
+        return False
 
 
 def get_bounce_rate(db, last_n_hours: int = 24) -> float:
@@ -1619,12 +1647,35 @@ def send(
 
     lead_id = resolve_lead_id(db, to_email, lead_id)
 
+    # ---- SMS STOP / DNC suppression ----
+    # STOP is a channel-level opt-out. Once a phone is on the local DNC CSV,
+    # no SMS intent should burn cooldown/reservation capacity or reach a
+    # provider.
+    if channel == "sms" and to_phone and should_suppress_phone(to_phone):
+        return {"status": "suppressed",
+                "reason": f"{to_phone} is on the SMS DNC list",
+                "lead_id": lead_id, "interaction_id": None,
+                "cooldown_until": None, "daily_count": None}
+
     # ---- Gate 1: commercial suppression ----
     if intent == "commercial" and to_email and should_suppress(to_email):
         return {"status": "suppressed",
                 "reason": f"{to_email} is on CASL suppression list",
                 "lead_id": lead_id, "interaction_id": None,
                 "cooldown_until": None, "daily_count": None}
+
+    # ---- First-touch SMS opt-out language ----
+    # TCPA/CTIA expectation for commercial SMS: the first outbound message
+    # must tell the recipient how to opt out. Do this before cooldown /
+    # reservation so the ledger stores the exact body that gets dispatched.
+    if (
+        channel == "sms"
+        and intent == "commercial"
+        and body_text
+        and "stop" not in body_text.lower()
+        and not _has_prior_sms_sent(db, lead_id)
+    ):
+        body_text = body_text.rstrip() + "\n\nReply STOP to opt out."
 
     # ---- Gate 1a: reserved / placeholder domain rejection ----
     # 2026-04-27: Firecrawl scraped a lead with email=info@example.com from a

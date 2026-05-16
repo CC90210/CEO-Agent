@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-16T05:31:08.508690+00:00",
-  "script_count": 94,
-  "entry_count": 350,
+  "generated_at_iso": "2026-05-16T05:56:18.228707+00:00",
+  "script_count": 95,
+  "entry_count": 354,
   "entries": [
     {
       "key": "agent_heartbeat",
@@ -227,6 +227,34 @@
       "subcmd": null,
       "mutating": false,
       "help": "Connect Browser Harness to Chrome with the OASIS business profile."
+    },
+    {
+      "key": "casl_compliance_check",
+      "path": "scripts/casl_compliance.py",
+      "subcmd": "check",
+      "mutating": false,
+      "help": "CASL compliance helpers for all outgoing cold email and SMS. \u2014 subcommand: check"
+    },
+    {
+      "key": "casl_compliance_add",
+      "path": "scripts/casl_compliance.py",
+      "subcmd": "add",
+      "mutating": true,
+      "help": "CASL compliance helpers for all outgoing cold email and SMS. \u2014 subcommand: add"
+    },
+    {
+      "key": "casl_compliance_footer",
+      "path": "scripts/casl_compliance.py",
+      "subcmd": "footer",
+      "mutating": false,
+      "help": "CASL compliance helpers for all outgoing cold email and SMS. \u2014 subcommand: footer"
+    },
+    {
+      "key": "casl_compliance_add_phone_suppression",
+      "path": "scripts/casl_compliance.py",
+      "subcmd": "add-phone-suppression",
+      "mutating": true,
+      "help": "CASL compliance helpers for all outgoing cold email and SMS. \u2014 subcommand: add-phone-suppression"
     },
     {
       "key": "catalog_sync",

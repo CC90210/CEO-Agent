@@ -6,9 +6,9 @@ status: ACTIVE — close before any real commercial SMS send to a SunBiz lead
 
 # Known gaps from Codex adversarial review (2026-05-15)
 
-Codex caught 5 real bugs in the SunBiz CRM Phase 4-7 substrate. Two were
-fixed in commit chain on 2026-05-15. Three remain — all block commercial
-SMS shipment to real leads.
+Codex caught 5 real bugs in the SunBiz CRM Phase 4-7 substrate. Three are
+now fixed in the 2026-05-15/2026-05-16 commit chain. Two remain and still
+block commercial SMS shipment to real leads.
 
 ## Fixed in this session
 
@@ -16,6 +16,7 @@ SMS shipment to real leads.
 |---|---|---|---|
 | 2 | SMS dispatch skipped reservation idempotency pattern (concurrent send race) | `scripts/send_gateway.py` SMS branch | (this session) |
 | 5 | `/api/forms/view` missing tenant slug cross-check | `apps/command-center/app/api/forms/view/route.ts` | (this session) |
+| 4 | Commercial SMS had no opt-out / DNC / STOP enforcement | `scripts/casl_compliance.py`, `scripts/send_gateway.py`, `/api/webhooks/{twilio,texttorrent}/sms-inbound` | R3-6 (this commit; final SHA reported after commit) |
 | 3 | `one_per_lead` enrollment had no unique constraint (DB-level race) | `database/045_sequence_state_one_per_lead.sql` + `scripts/sequence_runner.py:_enroll_step` | 2026-05-15 evening |
 
 ## Still open — DO NOT enable real-lead SMS until these close
@@ -86,59 +87,14 @@ sb.table("sequence_state").upsert(
 
 ---
 
-### Finding #4 — Commercial SMS has no opt-out / DNC enforcement (HIGH — CASL/TCPA risk)
-
-**File:** `scripts/send_gateway.py:1622-1626` (`should_suppress` check is email-only)
-
-**Bug:** The CASL suppression gate checks `should_suppress(to_email)` but NOT `should_suppress_phone(to_phone)`. A lead that replied STOP to a Twilio short code would still get the next drip step. Plus first-touch commercial SMS doesn't auto-append "Reply STOP to opt out." per the SUN_SEED compliance manifest.
-
-**Fix:** Multi-step compliance work:
-
-1. **Add phone-side suppression** (`scripts/casl_compliance.py`):
-```python
-PHONE_SUPPRESSIONS_CSV = DATA_DIR / "phone_suppressions.csv"
-
-def should_suppress_phone(phone: str) -> bool:
-    """Return True if the E.164 phone is on the DNC list."""
-    normalized = (phone or "").strip()
-    if not normalized: return True
-    if not PHONE_SUPPRESSIONS_CSV.exists(): return False
-    # CSV reader matching email path semantics
-    ...
-```
-
-2. **SMS opt-out webhook handler** — Twilio + TT both fire webhooks on inbound STOP. Add `/api/webhooks/twilio/sms-inbound` + `/api/webhooks/texttorrent/sms-inbound` that parse the body for "STOP" / "UNSUBSCRIBE" / "QUIT" / "CANCEL" and call `add_phone_suppression()`.
-
-3. **First-touch STOP-language enforcement** in `send_gateway` SMS branch:
-```python
-if intent == "commercial":
-    # Check whether this is the first SMS to this lead
-    prior_sms = db.table("lead_interactions").select("id", count="exact").eq("lead_id", lead_id).eq("channel", "sms").execute()
-    if (prior_sms.count or 0) == 0 and "STOP" not in body_text.upper():
-        body_text = body_text.rstrip() + "\n\nReply STOP to opt out."
-```
-
-4. **Gate the existing CASL suppression check** for SMS:
-```python
-if intent == "commercial":
-    if to_email and should_suppress(to_email):
-        return {"status": "suppressed", ...}
-    if channel == "sms" and to_phone and should_suppress_phone(to_phone):
-        return {"status": "suppressed", "reason": f"{to_phone} is on SMS DNC list", ...}
-```
-
-**Why deferred:** ~3 hours of work spanning send_gateway + casl_compliance + two new webhook routes. Operator needs to verify the webhooks land on Twilio/TT configuration BEFORE any commercial SMS goes out.
-
----
-
 ## Cutover gate
 
 Before SunBiz's first real commercial-SMS drip campaign fires:
 
 - [ ] Ship migration 045: atomic-claim + one-per-lead unique index (closes #1 + #3)
-- [ ] Ship phone-side CASL suppression (closes #4 step 1)
-- [ ] Ship the two SMS-inbound webhook handlers (closes #4 step 2)
-- [ ] Ship first-touch STOP-language enforcement (closes #4 step 3)
+- [x] Ship phone-side CASL suppression (closes #4 step 1)
+- [x] Ship the two SMS-inbound webhook handlers (closes #4 step 2)
+- [x] Ship first-touch STOP-language enforcement (closes #4 step 3)
 - [ ] Verify a real STOP reply suppresses the next drip step on a test lead
 - [ ] Verify a duplicate enrollment via two agent_events doesn't double-send
 
