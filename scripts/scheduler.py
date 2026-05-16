@@ -551,20 +551,39 @@ def run_script_action(config: dict) -> str:
 
 
 def run_morning_powwow(_env_vars: dict) -> str:
-    """Phase 10.2 — Morning Pow Wow Call.
+    """Phase 10.2 — Morning Pow Wow Call (Aura).
 
-    Daily 08:00 voice-note to CC's Telegram. Claude drafts a ~120-word
-    motivational/flirty monologue, ElevenLabs renders it in Aura's voice,
-    Telegram sendVoice ships it as an inline voicemail. Self-contained
-    in scripts/morning_powwow.py; this handler is a thin shell so the
-    Health page surfaces it as a real cron row.
+    Daily 08:00 voice-note to CC's Telegram. Aura drafts a ~120-word
+    monologue (scripts/aura/brain.py), renders it in her voice
+    (scripts/aura/voice.py), Telegram sendVoice ships it as an inline
+    voicemail via notify_voice. Self-contained in scripts/aura/; this
+    handler is a thin shell so the Health page surfaces it as a real
+    cron row.
+
+    Relocated 2026-05-17 from scripts/morning_powwow.py into the Aura
+    home directory — the brain + voice primitives are reusable across
+    every future Aura cron job.
     """
-    out = run_script("morning_powwow.py", [], timeout=120)
-    if not out or not out.strip():
-        return "ERROR: morning_powwow returned empty output"
-    # Surface the last line — typically 'sent: morning pow wow shipped to Telegram'.
-    last = out.strip().splitlines()[-1]
-    return last[:200]
+    full_path = PROJECT_ROOT / "scripts" / "aura" / "morning_powwow.py"
+    try:
+        result = subprocess.run(
+            [PYTHON, str(full_path)],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=120,
+            cwd=str(PROJECT_ROOT),
+            creationflags=CREATE_NO_WINDOW,
+        )
+    except subprocess.TimeoutExpired:
+        return "ERROR: morning_powwow timed out (120s)"
+    except Exception as exc:  # noqa: BLE001
+        return f"ERROR: morning_powwow failed: {exc}"
+    if result.returncode != 0:
+        err = (result.stderr or result.stdout or "non-zero exit").strip()[:300]
+        return f"ERROR: morning_powwow exit {result.returncode}: {err}"
+    out = (result.stdout or "").strip().splitlines()
+    return out[-1][:200] if out else "ok"
 
 
 def run_auto_score_leads(_env_vars: dict) -> str:
