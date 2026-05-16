@@ -35,6 +35,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 # Windows console defaults to cp1252; the brief includes 🌅 + bullet
 # glyphs. Reconfigure to UTF-8 so --dry-run prints don't UnicodeEncodeError.
@@ -95,13 +96,8 @@ def _is_stale(path: Path) -> bool:
 
 
 def _regenerate_snapshot() -> None:
-    # Phase 9.4 — pass creationflags=CREATE_NO_WINDOW so the subprocess
-    # doesn't flash a console window every 06:00 when the empire scheduler
-    # invokes us. The flag is no-op on POSIX.
-    try:
-        from _subprocess_helpers import WINDOWLESS_FLAGS  # type: ignore
-    except ImportError:
-        WINDOWLESS_FLAGS = 0x08000000 if sys.platform == "win32" else 0
+    # Phase 9.4 — windowless flag prevents the briefing snapshot
+    # subprocess from flashing a console every 06:00.
     try:
         subprocess.run(
             [sys.executable, "scripts/snapshots/briefing_snapshot.py"],
