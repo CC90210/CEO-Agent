@@ -1639,10 +1639,31 @@ class _ChatHandler(BaseHTTPRequestHandler):
                     return
                 if etype == "result":
                     usage = ev.get("usage") or {}
+                    out_tokens = usage.get("output_tokens") or 0
+                    # Phase 8.1.3 (warm path mirror) — surface empty
+                    # success so the dashboard doesn't render a silent
+                    # "no response" toast when hooks failed. Same logic
+                    # as the cold-spawn path below.
+                    if not state["emitted_any_text"] and out_tokens == 0:
+                        result_text = ev.get("result")
+                        is_empty_result = (
+                            result_text is None
+                            or (isinstance(result_text, str) and not result_text.strip())
+                        )
+                        if is_empty_result:
+                            emit("error", {
+                                "message": "claude_returned_empty_response",
+                                "detail": (
+                                    "Claude Code completed successfully but returned no content. "
+                                    "Most common cause: a SessionStart hook errored. Check "
+                                    "`pm2 logs claude-bridge --err --lines 50`. Switch to Cloud "
+                                    "mode in the meantime to bypass the local CLI."
+                                ),
+                            })
                     emit("done", {
                         "stop_reason": ev.get("stop_reason"),
                         "input_tokens": usage.get("input_tokens"),
-                        "output_tokens": usage.get("output_tokens"),
+                        "output_tokens": out_tokens,
                         "total_cost_usd": ev.get("total_cost_usd"),
                         "num_turns": ev.get("num_turns"),
                         "warm": True,  # debugging — confirms warm path served this turn
@@ -1841,6 +1862,16 @@ class _ChatHandler(BaseHTTPRequestHandler):
             "PAGER": "cat",
             "NO_COLOR": "1",
             "FORCE_COLOR": "0",
+            # Phase 8.1.1 — Claude Code hooks (.claude/settings.local.json)
+            # reference `${CLAUDE_PROJECT_DIR}/scripts/hooks/*.py`. Without
+            # this env var the substitution produces `/scripts/hooks/...`,
+            # the hook exits 2, and Claude Code 2.1.39+ suppresses the
+            # assistant response — the bridge then sees an empty result
+            # event and the dashboard renders "no response from agent".
+            # Setting CLAUDE_PROJECT_DIR to the same path we use for cwd
+            # keeps hooks consistent with what the operator would see
+            # running `claude -p` directly in that repo.
+            "CLAUDE_PROJECT_DIR": str(root),
         })
 
         # Synthetic status pre-spawn so the dashboard can show "starting Atlas
@@ -2041,10 +2072,40 @@ class _ChatHandler(BaseHTTPRequestHandler):
                 # 5. Final result -> done.
                 if etype == "result":
                     usage = ev.get("usage") or {}
+                    out_tokens = usage.get("output_tokens") or 0
+                    # Phase 8.1.3 — surface the "empty success" case. Claude
+                    # Code 2.1.39 returns a clean result event with no text
+                    # blocks and 0 output_tokens when the model declined to
+                    # answer (often because a SessionStart hook errored
+                    # before the first turn). The dashboard previously saw
+                    # a silent done event and rendered a generic "no
+                    # response" toast. Now the operator gets the actual
+                    # diagnostic — including the CLAUDE_PROJECT_DIR-not-set
+                    # hint, which was the bug Phase 8.1.1 fixed.
+                    if not accumulated_text.strip() and out_tokens == 0:
+                        result_text = ev.get("result")
+                        is_empty_result = (
+                            result_text is None
+                            or (isinstance(result_text, str) and not result_text.strip())
+                        )
+                        if is_empty_result:
+                            emit("error", {
+                                "message": "claude_returned_empty_response",
+                                "detail": (
+                                    "Claude Code completed successfully but returned no content "
+                                    "(output_tokens=0, no text blocks emitted). Most common cause: "
+                                    "a SessionStart hook errored before the assistant turn ran. "
+                                    "Check `pm2 logs claude-bridge --err --lines 50` for hook "
+                                    "exit codes. If you recently changed .claude/settings.local.json "
+                                    "hooks, verify they run standalone with "
+                                    "`echo '{\"hook_event_name\":\"SessionStart\"}' | python <hook_script>`. "
+                                    "Switch the chat to Cloud mode in the meantime to bypass the local CLI."
+                                ),
+                            })
                     emit("done", {
                         "stop_reason": ev.get("stop_reason"),
                         "input_tokens": usage.get("input_tokens"),
-                        "output_tokens": usage.get("output_tokens"),
+                        "output_tokens": out_tokens,
                         "total_cost_usd": ev.get("total_cost_usd"),
                         "num_turns": ev.get("num_turns"),
                     })
