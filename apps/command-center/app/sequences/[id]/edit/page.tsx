@@ -83,16 +83,18 @@ export default async function EditSequencePage({
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <Link
-        href="/sequences"
-        className="inline-flex items-center gap-1.5 text-xs text-fg-muted hover:text-accent"
-      >
-        <ChevronLeft className="w-3 h-3" />
-        Back to sequences
-      </Link>
       <PageHeader
         title={row.name || "Untitled sequence"}
         subtitle={`${row.enabled ? "Live" : "Paused"} · ${row.one_per_lead ? "one enrollment per lead" : "re-enrollable"}`}
+        action={
+          <Link
+            href="/sequences"
+            className="btn-secondary inline-flex items-center gap-2 !px-3 !py-1.5 text-xs"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+            Back to sequences
+          </Link>
+        }
       />
       <SequenceBuilderClient
         initialSequence={{
