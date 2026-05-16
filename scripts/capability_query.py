@@ -74,14 +74,24 @@ class Graph:
         o = owner.lower()
         return [n for n in self.nodes if str(n.get("owner", "")).lower() == o]
 
-    def resolve_intent(self, intent: str, kind: str = "skill", limit: int = 5) -> list[dict[str, Any]]:
-        """Score every node by trigger overlap + description token match."""
+    def resolve_intent(self, intent: str, kind: str = "skill", limit: int = 5,
+                       include_disabled: bool = False, include_archived: bool = False) -> list[dict[str, Any]]:
+        """Score every node by trigger overlap + description token match.
+
+        Skips skills with `disable-model-invocation: true` (auto-generated CLI references
+        that pollute trigger resolution) and `archived: <date>` (superseded skills not yet
+        physically removed) unless explicitly opted in via include_disabled / include_archived.
+        """
         words = set(re.findall(r"\w+", intent.lower()))
         if not words:
             return []
         scored: list[tuple[float, dict[str, Any]]] = []
         for n in self.nodes:
             if kind and n.get("kind") != kind:
+                continue
+            if not include_disabled and n.get("disable_model_invocation"):
+                continue
+            if not include_archived and n.get("archived"):
                 continue
             score = 0.0
             triggers = n.get("triggers") or []
@@ -146,6 +156,10 @@ def main() -> int:
     pr.add_argument("intent", help="Natural-language intent, e.g. 'draft outreach email'")
     pr.add_argument("--kind", default="skill", choices=["skill", "script", "agent", "workflow", "any"])
     pr.add_argument("--limit", type=int, default=5)
+    pr.add_argument("--include-disabled", action="store_true",
+                    help="Include skills with disable-model-invocation: true (auto-generated CLI refs).")
+    pr.add_argument("--include-archived", action="store_true",
+                    help="Include skills with archived: <date> in frontmatter.")
 
     pd = sub.add_parser("deps", help="Dependencies of a node (skill:foo)")
     pd.add_argument("node_id")
@@ -179,7 +193,11 @@ def main() -> int:
 
     if args.command == "resolve":
         kind = None if args.kind == "any" else args.kind
-        results = g.resolve_intent(args.intent, kind=kind or "skill", limit=args.limit)
+        results = g.resolve_intent(
+            args.intent, kind=kind or "skill", limit=args.limit,
+            include_disabled=getattr(args, "include_disabled", False),
+            include_archived=getattr(args, "include_archived", False),
+        )
         _print(results, out_json)
     elif args.command == "deps":
         _print(g.dependencies(args.node_id), True)

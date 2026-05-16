@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0",
   "agent": "bravo",
-  "generated_at": "2026-05-16T06:03:18.890991+00:00",
+  "generated_at": "2026-05-16T06:12:36.380616+00:00",
   "totals": {
-    "skills": 159,
+    "skills": 150,
     "scripts": 136,
     "agents": 20,
     "mcp_servers": 9,
     "workflows": 36,
-    "nodes_total": 360,
+    "nodes_total": 351,
     "edges_total": 62,
     "drift_count": 0
   },
@@ -30,6 +30,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -50,6 +53,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -72,6 +78,9 @@
         "agents"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -90,6 +99,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -112,6 +124,9 @@
         "agent-teams"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -134,6 +149,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -155,6 +173,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -177,6 +198,9 @@
         "agents"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -194,6 +218,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": true,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -216,6 +243,9 @@
         "system-health"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -239,6 +269,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -261,6 +294,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -284,6 +320,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -303,6 +342,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -325,6 +367,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -349,6 +394,9 @@
         "briefing"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -375,6 +423,9 @@
         "pipeline"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -396,6 +447,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -419,6 +473,9 @@
         "retention"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -456,6 +513,9 @@
         "cloudflare"
       ],
       "status": "[NEW]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -478,6 +538,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -498,6 +561,9 @@
         "skill"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -518,6 +584,9 @@
         "skill"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -541,6 +610,9 @@
         "context"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -564,6 +636,9 @@
         "ceo"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -588,6 +663,9 @@
         "daily"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -609,6 +687,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -630,6 +711,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -652,6 +736,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -673,6 +760,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -691,6 +781,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": true,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -721,6 +814,9 @@
         "compliance"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -745,6 +841,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -764,6 +863,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -789,6 +891,9 @@
         "saas-metrics"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -810,6 +915,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -833,6 +941,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -856,6 +967,9 @@
         "cookbook"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -875,6 +989,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -894,6 +1011,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -913,6 +1033,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -932,6 +1055,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -951,6 +1077,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -970,6 +1099,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": true,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -989,6 +1121,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1008,6 +1143,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1027,6 +1165,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1046,6 +1187,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1065,6 +1209,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1084,6 +1231,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1102,6 +1252,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1120,6 +1273,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1139,6 +1295,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1158,6 +1317,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1177,6 +1339,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1196,6 +1361,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1215,6 +1383,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": true,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1233,6 +1404,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": true,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1252,6 +1426,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": true,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1271,6 +1448,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1290,6 +1470,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1309,6 +1492,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1328,6 +1514,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1347,6 +1536,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1366,6 +1558,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1384,6 +1579,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1402,6 +1600,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1421,6 +1622,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1440,6 +1644,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1459,6 +1666,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1478,6 +1688,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1497,6 +1710,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1516,6 +1732,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1535,6 +1754,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1554,6 +1776,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1572,6 +1797,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1591,6 +1819,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1610,6 +1841,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1628,6 +1862,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1646,6 +1883,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1667,6 +1907,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1689,6 +1932,9 @@
         "orchestration"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1716,6 +1962,9 @@
         "top-tier"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1744,6 +1993,9 @@
         "idempotent"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1765,6 +2017,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1793,6 +2048,9 @@
         "communications"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1814,6 +2072,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1843,6 +2104,9 @@
         "ingest"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1868,6 +2132,9 @@
         "search"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1896,6 +2163,9 @@
         "management"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1916,6 +2186,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1936,6 +2209,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1959,6 +2235,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -1984,6 +2263,9 @@
         "calendar"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2007,6 +2289,9 @@
         "claude-mem"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2035,6 +2320,9 @@
         "patterns"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2064,6 +2352,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2088,6 +2379,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": true,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2111,6 +2405,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2131,6 +2428,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2153,6 +2453,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2172,6 +2475,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2194,177 +2500,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
-      "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "skill:persona-customer-support",
-      "kind": "skill",
-      "name": "persona-customer-support",
-      "path": "skills/persona-customer-support/SKILL.md",
-      "description": "Manage customer support \u2014 track tickets, respond, escalate issues.",
-      "tier": "specialized",
-      "owner": "bravo",
-      "risk": "low",
-      "triggers": [
-        "persona customer support",
-        "use persona customer support",
-        "run persona customer support",
-        "manage customer support \\u2014 track tickets"
-      ],
-      "tags": [],
-      "status": "[VALIDATED]",
-      "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "skill:persona-event-coordinator",
-      "kind": "skill",
-      "name": "persona-event-coordinator",
-      "path": "skills/persona-event-coordinator/SKILL.md",
-      "description": "Plan and manage events \u2014 scheduling, invitations, and logistics.",
-      "tier": "specialized",
-      "owner": "bravo",
-      "risk": "low",
-      "triggers": [
-        "persona event coordinator",
-        "use persona event coordinator",
-        "run persona event coordinator",
-        "plan and manage events \\u2014 scheduling"
-      ],
-      "tags": [],
-      "status": "[VALIDATED]",
-      "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "skill:persona-exec-assistant",
-      "kind": "skill",
-      "name": "persona-exec-assistant",
-      "path": "skills/persona-exec-assistant/SKILL.md",
-      "description": "Manage an executive's schedule, inbox, and communications.",
-      "tier": "specialized",
-      "owner": "bravo",
-      "risk": "low",
-      "triggers": [
-        "persona exec assistant",
-        "use persona exec assistant",
-        "run persona exec assistant",
-        "manage an executive's schedule"
-      ],
-      "tags": [],
-      "status": "[VALIDATED]",
-      "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "skill:persona-hr-coordinator",
-      "kind": "skill",
-      "name": "persona-hr-coordinator",
-      "path": "skills/persona-hr-coordinator/SKILL.md",
-      "description": "Handle HR workflows \u2014 onboarding, announcements, and employee comms.",
-      "tier": "specialized",
-      "owner": "bravo",
-      "risk": "low",
-      "triggers": [
-        "persona hr coordinator",
-        "use persona hr coordinator",
-        "run persona hr coordinator",
-        "handle hr workflows \\u2014 onboarding"
-      ],
-      "tags": [],
-      "status": "[VALIDATED]",
-      "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "skill:persona-it-admin",
-      "kind": "skill",
-      "name": "persona-it-admin",
-      "path": "skills/persona-it-admin/SKILL.md",
-      "description": "Administer IT \u2014 monitor security and configure Workspace.",
-      "tier": "specialized",
-      "owner": "bravo",
-      "risk": "low",
-      "triggers": [
-        "persona it admin",
-        "use persona it admin",
-        "run persona it admin",
-        "administer it \\u2014 monitor security and configure workspace"
-      ],
-      "tags": [],
-      "status": "[VALIDATED]",
-      "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "skill:persona-project-manager",
-      "kind": "skill",
-      "name": "persona-project-manager",
-      "path": "skills/persona-project-manager/SKILL.md",
-      "description": "Coordinate projects \u2014 track tasks, schedule meetings, and share docs.",
-      "tier": "specialized",
-      "owner": "bravo",
-      "risk": "low",
-      "triggers": [
-        "persona project manager",
-        "use persona project manager",
-        "run persona project manager",
-        "coordinate projects \\u2014 track tasks"
-      ],
-      "tags": [],
-      "status": "[VALIDATED]",
-      "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "skill:persona-researcher",
-      "kind": "skill",
-      "name": "persona-researcher",
-      "path": "skills/persona-researcher/SKILL.md",
-      "description": "Organize research \u2014 manage references, notes, and collaboration.",
-      "tier": "specialized",
-      "owner": "bravo",
-      "risk": "low",
-      "triggers": [
-        "persona researcher",
-        "use persona researcher",
-        "run persona researcher",
-        "organize research \\u2014 manage references"
-      ],
-      "tags": [],
-      "status": "[VALIDATED]",
-      "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "skill:persona-sales-ops",
-      "kind": "skill",
-      "name": "persona-sales-ops",
-      "path": "skills/persona-sales-ops/SKILL.md",
-      "description": "Manage sales workflows \u2014 track deals, schedule calls, client comms.",
-      "tier": "specialized",
-      "owner": "bravo",
-      "risk": "low",
-      "triggers": [
-        "persona sales ops",
-        "use persona sales ops",
-        "run persona sales ops",
-        "manage sales workflows \\u2014 track deals"
-      ],
-      "tags": [],
-      "status": "[VALIDATED]",
-      "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "skill:persona-team-lead",
-      "kind": "skill",
-      "name": "persona-team-lead",
-      "path": "skills/persona-team-lead/SKILL.md",
-      "description": "Lead a team \u2014 run standups, coordinate tasks, and communicate.",
-      "tier": "specialized",
-      "owner": "bravo",
-      "risk": "low",
-      "triggers": [
-        "persona team lead",
-        "use persona team lead",
-        "run persona team lead",
-        "lead a team \\u2014 run standups"
-      ],
-      "tags": [],
-      "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2387,6 +2525,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2412,6 +2553,9 @@
         "delivery"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2436,6 +2580,9 @@
         "client"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2460,6 +2607,9 @@
         "windows"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2480,6 +2630,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2499,6 +2652,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2531,6 +2687,9 @@
         "auto-escalation"
       ],
       "status": "[NEW]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2551,6 +2710,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2575,6 +2737,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2599,6 +2764,9 @@
         "ceo"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2628,6 +2796,9 @@
         "revenue"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2651,6 +2822,9 @@
         "nepq"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2681,6 +2855,9 @@
         "growth"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2700,6 +2877,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2725,6 +2905,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2747,6 +2930,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2772,6 +2958,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2802,6 +2991,9 @@
         "embeddings"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2820,6 +3012,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": true,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2839,6 +3034,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2860,6 +3058,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": true,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2887,6 +3088,9 @@
         "foundation"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2907,6 +3111,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2929,6 +3136,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": true,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2948,6 +3158,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2968,6 +3181,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -2990,6 +3206,9 @@
         "methodology"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -3011,6 +3230,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -3036,6 +3258,9 @@
         "ceo"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -3056,6 +3281,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -3079,6 +3307,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -3102,6 +3333,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -3124,6 +3358,9 @@
         "agents"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -3148,6 +3385,9 @@
         "hiring"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -3171,6 +3411,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -3192,6 +3435,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -3213,6 +3459,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -3233,6 +3482,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -3253,6 +3505,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -3275,6 +3530,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -3294,6 +3552,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -3315,6 +3576,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -3341,6 +3605,9 @@
         "cloak-browser"
       ],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -3361,6 +3628,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -3381,6 +3651,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -3400,6 +3673,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
@@ -3422,6 +3698,9 @@
       ],
       "tags": [],
       "status": "[VALIDATED]",
+      "disable_model_invocation": false,
+      "archived": null,
+      "superseded_by": null,
       "discovery": "auto-frontmatter"
     },
     {
