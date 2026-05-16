@@ -23,8 +23,12 @@ type FormRow = {
   updated_at: string;
 };
 
-const STARTER_FORM = {
-  name: "Untitled form",
+/** Today's date in YYYY-MM-DD for default form names. */
+function todayStamp(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+const STARTER_FORM_TEMPLATE = {
   branding: {
     primary_color: "#0ea5e9",
     headline: "Tell us about your business",
@@ -59,11 +63,15 @@ export function FormsListClient({ initialRows }: { initialRows: FormRow[] }) {
     try {
       // Mint a unique slug — operator can change it before save (well,
       // can't, since slug is immutable, but the starter slug is OK).
-      const slug = `untitled-${Date.now().toString(36)}`;
+      const slug = `form-${Date.now().toString(36)}`;
       const res = await fetch("/api/forms", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ...STARTER_FORM, slug }),
+        body: JSON.stringify({
+          ...STARTER_FORM_TEMPLATE,
+          name: `New form — ${todayStamp()}`,
+          slug,
+        }),
       });
       const data = (await res.json()) as { ok: boolean; form?: { id: string }; error?: string };
       if (!data.ok || !data.form) {
