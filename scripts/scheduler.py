@@ -182,6 +182,8 @@ def execute_job(job: dict, env_vars: dict[str, str]) -> str:
             return run_agent_self_improvement(env_vars)
         elif action_type == "daily_brief":
             return run_daily_brief(env_vars)
+        elif action_type == "auto_score_leads":
+            return run_auto_score_leads(env_vars)
         else:
             # Round 3 R3-12: previously this returned a plain string
             # which scheduler.py's caller treats as success and stamps
@@ -423,10 +425,26 @@ def run_daily_brief(_env_vars: dict) -> str:
     out = run_script("daily_brief.py", [], timeout=90)
     if not out or not out.strip():
         return "ERROR: daily_brief returned empty output"
-    # daily_brief.py prints the brief on stdout AND sends to Telegram —
-    # we report the first line so the cron-jobs panel shows what landed.
     first_line = out.strip().splitlines()[0]
     return f"sent: {first_line[:120]}"
+
+
+def run_auto_score_leads(_env_vars: dict) -> str:
+    """Phase 6a — score unscored OASIS leads in a daily batch.
+
+    Each new lead would otherwise sit unscored until CC clicked the
+    "Score with AI" button on its detail page. This handler delegates
+    to scripts/auto_score_leads.py which scans tenant_records, scores
+    leads in scorable stages (new / contacted / qualified / proposal /
+    negotiation), and writes ai_score + ai_reasoning + ai_scored_at
+    back into the data jsonb.
+    """
+    out = run_script("auto_score_leads.py", ["--limit", "25"], timeout=600)
+    if not out or not out.strip():
+        return "ERROR: auto_score_leads returned empty output"
+    # The script prints "Done. N scored, M failed." on its last line.
+    last_line = out.strip().splitlines()[-1]
+    return last_line[:200]
 
 
 def run_pipeline_review(env_vars: dict) -> str:

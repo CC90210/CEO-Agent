@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-16T19:33:35.969992+00:00",
-  "script_count": 98,
-  "entry_count": 359,
+  "generated_at_iso": "2026-05-16T19:44:40.417225+00:00",
+  "script_count": 99,
+  "entry_count": 360,
   "entries": [
     {
       "key": "agent_heartbeat",
@@ -59,6 +59,13 @@
       "subcmd": null,
       "mutating": false,
       "help": "Audit MCP config files for plaintext live secrets."
+    },
+    {
+      "key": "auto_score_leads",
+      "path": "scripts/auto_score_leads.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Auto-score OASIS leads \u2014 daily cron."
     },
     {
       "key": "autonomous_agent_tick",
