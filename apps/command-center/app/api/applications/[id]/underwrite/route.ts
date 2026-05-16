@@ -109,34 +109,61 @@ export async function POST(
 
   // ── Bridge dispatch ───────────────────────────────────────────────
   //
-  // The underwriting subprocess chain (statement_parser -> debt_detector
-  // -> sales_angle) runs on the operator's machine because:
-  //   1. Bank statements are sensitive; some operators don't want them
-  //      passing through Vercel even via Supabase Storage
+  // The underwriting subprocess chain (statement_parser → debt_detector
+  // → sales_angle) runs on the operator's machine because:
+  //   1. Bank statements are sensitive; operators don't want them
+  //      passing through Vercel even via Supabase Storage.
   //   2. PyMuPDF / pdf2image require system libs (poppler) the Vercel
-  //      runtime doesn't carry
-  //   3. The Anthropic vision call is fine cloud-side, but the PDF
-  //      decoding step needs the local file system anyway
+  //      runtime doesn't carry.
+  //   3. The Anthropic vision call is fine cloud-side, but PDF decoding
+  //      needs the local file system anyway.
   //
-  // The bridge's /exec-tool endpoint accepts script_run actions. We
-  // dispatch the underwriting pipeline as a script_run with the lead_id
-  // payload; the script reads attachments, parses, summarizes, generates
-  // the angle, and writes back to tenant_records.data.underwriting_jsonb.
+  // Vercel CAN'T reach the bridge's localhost:9100 directly. The
+  // operator triggers the chain by asking Solara (who has the
+  // underwriting_run bridge tool — bravo_cli/bridge_tools.py
+  // _tool_underwriting_run). Solara emits a tool_use; the
+  // ChatWidget proxies it to /exec-tool; the bridge runs the chain
+  // and writes underwriting_jsonb back to tenant_records.
   //
-  // v1 SCOPE: the bridge wiring is a follow-on. This route currently
-  // returns a 503 with the actionable hint until the bridge tool is
-  // registered. Phase 7.3-bis closes that gap.
+  // 2026-05-16 Round 3 R3-3: bridge handler is live. This route
+  // returns a 200 with the actionable instruction + the exact tool
+  // payload the operator's UI can pre-fill into a chat message.
+  // The dashboard application detail page surfaces a one-click
+  // "Run underwriting" button that POSTs this payload to /api/chat
+  // with agent_key='solara'.
+
+  const bridgeToolPayload = {
+    tool: "underwriting_run",
+    input: {
+      application_id: applicationId,
+      bank_statement_paths: allAttachments.map((a) => a.storage_path),
+    },
+  };
+  const operatorPrompt =
+    `Please run underwriting on application ${applicationId.slice(0, 8)}… ` +
+    `(${allAttachments.length} bank statement${allAttachments.length === 1 ? "" : "s"} on file). ` +
+    `Use your underwriting_run tool with the application_id and the storage_paths.`;
 
   return NextResponse.json(
     {
-      ok: false,
-      error: "underwriting_bridge_pending",
-      hint:
-        "The AI underwriting chain runs on your local machine via the bridge. To complete Phase 7.3, the bridge's /exec-tool endpoint needs an underwriting_run handler that subprocesses scripts/underwriting/statement_parser.py + debt_detector.py + sales_angle.py and writes the result back to tenant_records. Once that ships, this route dispatches via bridge auto-discover. v1 returns this 503 honestly rather than pretending.",
+      ok: true,
+      mode: "bridge_tool",
       application_id: applicationId,
       lead_id: leadId,
       attachments_available: allAttachments.length,
+      // The dashboard application-detail page wires this into a
+      // "Run underwriting" button. Clicking it pre-fills a chat
+      // turn to Solara with operator_prompt + bridge_tool_payload
+      // as a system hint; Solara emits the tool_use directly.
+      bridge_tool_payload: bridgeToolPayload,
+      operator_prompt: operatorPrompt,
+      hint:
+        "Underwriting runs on your local machine through Solara's bridge tool. " +
+        "Open the SunBiz agent chat and paste the operator_prompt above, or click " +
+        "the 'Run underwriting' button on the application detail page. Solara will " +
+        "subprocess statement_parser → debt_detector → sales_angle and write the " +
+        "underwriting_jsonb back to this application within ~60s.",
     },
-    { status: 503 },
+    { status: 200 },
   );
 }
