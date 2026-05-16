@@ -1,10 +1,20 @@
-import { Card, PageHeader, Tag, EmptyState } from "@/components/Card";
-import { timeAgo, truncate } from "@/lib/fmt";
+/**
+ * /leads — operator-facing pipeline view.
+ *
+ * 2026-05-15 rebuild: the prior static table couldn't handle scale.
+ * LeadsTableClient adds stage tabs, search, sortable columns,
+ * pagination — built for thousands of rows, not dozens. Per CC's
+ * post-meeting feedback ("boxes too small, build proper
+ * infrastructure for thousands of leads").
+ */
+
+import { PageHeader } from "@/components/Card";
 import { getActiveProfile, getLeadsForTenant } from "@/lib/queries";
 import { safe } from "@/lib/api-helpers";
 import { cookies } from "next/headers";
 import { DEMO_CLIENT_PROFILE_COOKIE } from "@/lib/client-profiles";
 import { SUNBIZ_DEMO_LEADS } from "@/lib/sunbiz-demo-data";
+import { LeadsTableClient } from "@/components/leads/LeadsTableClient";
 
 export const dynamic = "force-dynamic";
 
@@ -13,10 +23,15 @@ export default async function LeadsPage() {
   const demoMode = demoProfile === "sun";
   const profile = await safe("leads.profile", getActiveProfile(), null);
   const tenantId = demoMode ? "" : profile?.tenant_id || "";
+
+  // Pull up to 500 leads — the client component paginates locally at
+  // 50/page, so 500 is "10 pages of in-memory data" which feels
+  // instant to the operator. Beyond that we'd want server-side cursor
+  // pagination (Phase 13).
   const leads = demoMode
     ? SUNBIZ_DEMO_LEADS
     : tenantId
-      ? await safe("leads.list", getLeadsForTenant(tenantId, 100), [])
+      ? await safe("leads.list", getLeadsForTenant(tenantId, 500), [])
       : [];
 
   return (
@@ -25,70 +40,22 @@ export default async function LeadsPage() {
         title="Leads"
         subtitle={
           demoMode
-            ? "Sun demo mode · sample leads are loaded so you can see Solara's workflow"
+            ? "Sun demo mode — sample leads loaded so you can see Solara's workflow."
             : tenantId
-              ? `${leads.length} leads in Solara's pipeline`
-              : "Finish onboarding to connect this workspace"
+              ? leads.length === 0
+                ? "Send the application form to your first prospect to get started."
+                : `${leads.length} lead${leads.length === 1 ? "" : "s"} in the pipeline.`
+              : "Finish onboarding to connect this workspace."
         }
       />
 
-      <Card title="All leads" subtitle="Active funding prospects" noPadding>
-        {leads.length === 0 ? (
-          <div className="p-5">
-            <EmptyState message="No leads yet. Connect JotForm or add the first lead, and Solara will start organizing the pipeline." />
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="border-b border-bg-border">
-                <tr className="text-left text-[10px] uppercase tracking-[0.14em] text-fg-muted font-bold">
-                  <th className="px-5 py-3">Last touch</th>
-                  <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3">Score</th>
-                  <th className="px-5 py-3">Name</th>
-                  <th className="px-5 py-3">Company</th>
-                  <th className="px-5 py-3">Email</th>
-                  <th className="px-5 py-3">Phone</th>
-                  <th className="px-5 py-3">Source</th>
-                </tr>
-              </thead>
-              <tbody>
-                {leads.map((lead) => (
-                  <tr
-                    key={lead.id}
-                    className="border-b border-bg-border last:border-0 hover:bg-bg-hover/30 transition-colors"
-                  >
-                    <td className="px-5 py-3 text-fg-dim text-sm">
-                      {timeAgo(lead.last_contacted_at || lead.updated_at)}
-                    </td>
-                    <td className="px-5 py-3">
-                      <Tag
-                        tone={
-                          lead.status === "qualified"
-                            ? "engaged"
-                            : lead.status === "lost" || lead.status === "archived"
-                              ? "neutral"
-                              : lead.status === "won"
-                                ? "engaged"
-                                : "info"
-                        }
-                      >
-                        {lead.status || "new"}
-                      </Tag>
-                    </td>
-                    <td className="px-5 py-3 text-fg font-mono text-sm">{lead.score ?? "-"}</td>
-                    <td className="px-5 py-3 text-fg text-sm">{truncate(lead.name, 28)}</td>
-                    <td className="px-5 py-3 text-fg-muted text-sm">{truncate(lead.company, 28)}</td>
-                    <td className="px-5 py-3 text-fg-muted font-mono text-xs">{truncate(lead.email, 32)}</td>
-                    <td className="px-5 py-3 text-fg-muted font-mono text-xs">{lead.phone || "-"}</td>
-                    <td className="px-5 py-3 text-fg-dim text-xs">{lead.source || "-"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+      {tenantId || demoMode ? (
+        <LeadsTableClient initialLeads={leads} />
+      ) : (
+        <div className="rounded-xl border border-bg-border bg-bg-elev/40 p-8 text-center text-fg-muted">
+          Sign in to see your leads.
+        </div>
+      )}
     </div>
   );
 }
