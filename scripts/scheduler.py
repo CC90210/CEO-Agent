@@ -190,7 +190,11 @@ def execute_job(job: dict, env_vars: dict[str, str]) -> str:
         elif action_type == "funnel_fast_poll":
             return run_funnel_fast_poll(env_vars)
         elif action_type == "lead_outreach_batch":
-            return run_lead_outreach_batch(env_vars)
+            # Retired 2026-05-16. The cold-outreach cron + Telegram approval
+            # loop was removed (CC opted out of auto-drafted cold outreach;
+            # inbound alerts are now covered by funnel_fast_poll). Any orphan
+            # cron_jobs row with this action_type no-ops cleanly.
+            return "retired: lead_outreach_batch — cold-outreach cron removed 2026-05-16; use funnel_fast_poll for inbound alerts"
         elif action_type == "agent_self_improvement":
             return run_agent_self_improvement(env_vars)
         elif action_type == "daily_brief":
@@ -199,6 +203,8 @@ def execute_job(job: dict, env_vars: dict[str, str]) -> str:
             return run_auto_score_leads(env_vars)
         elif action_type == "snapshot_run":
             return run_snapshot(config)
+        elif action_type == "script_run":
+            return run_script_action(config)
         elif action_type == "morning_powwow":
             return run_morning_powwow(env_vars)
         else:
@@ -262,11 +268,6 @@ def run_script(script_name: str, args: List[str], timeout: int = 120) -> str:
 # to Maven (CMO-Agent). Maven owns its own scheduler for those jobs.
 # The dispatch above routes legacy DB rows with those action_types to a
 # "moved_to_maven" marker so they don't fail loudly during the cutover.
-
-
-def run_lead_outreach_batch(env_vars: dict) -> str:
-    """Semi-auto outreach: pull new leads, draft emails, send to CC via Telegram for approval."""
-    return run_script("outreach_batch.py", ["--limit", "5"], timeout=120)
 
 
 def run_lead_followup(env_vars: dict) -> str:
@@ -495,6 +496,56 @@ def run_snapshot(config: dict) -> str:
     if result.returncode != 0:
         err = (result.stderr or result.stdout or "non-zero exit").strip()[:300]
         return f"ERROR: snapshot_run exit {result.returncode}: {err}"
+    out = (result.stdout or "").strip().splitlines()
+    return out[-1][:200] if out else "ok"
+
+
+def run_script_action(config: dict) -> str:
+    """Generic script_run handler — invokes the Python script named in
+    action_payload['script'] with action_payload['args'] as argv.
+
+    This is the handler the CronJobsManager UI declares (ActionType union
+    in components/automations/CronJobsManager.tsx) and the Phase 10.3
+    "Describe an automation" flow targets. Mirror of run_snapshot above
+    but for arbitrary tenant scripts.
+
+    action_payload / action_config shape (the dispatcher accepts either
+    key — config is what the empire-side cron_jobs row stores, payload
+    is what tenant_cron_jobs uses):
+      {"script": "scripts/foo.py", "args": ["--limit", "10"]}
+
+    Returns the script's last stdout line on success, or "ERROR: ..." on
+    failure so cron_jobs.last_result drives the red/green badge.
+    """
+    script = config.get("script", "")
+    args = config.get("args") or []
+    if not script or not isinstance(script, str):
+        return "ERROR: script_run config missing 'script' path"
+    if not isinstance(args, list):
+        return "ERROR: script_run config 'args' must be a list"
+
+    full_path = PROJECT_ROOT / script
+    if not full_path.exists():
+        return f"ERROR: script_run target not found: {script}"
+
+    try:
+        result = subprocess.run(
+            [PYTHON, str(full_path), *[str(a) for a in args]],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=300,
+            cwd=str(PROJECT_ROOT),
+            creationflags=CREATE_NO_WINDOW,
+        )
+    except subprocess.TimeoutExpired:
+        return f"ERROR: script_run timed out (300s): {script}"
+    except Exception as exc:  # noqa: BLE001
+        return f"ERROR: script_run failed: {exc}"
+
+    if result.returncode != 0:
+        err = (result.stderr or result.stdout or "non-zero exit").strip()[:300]
+        return f"ERROR: script_run exit {result.returncode}: {err}"
     out = (result.stdout or "").strip().splitlines()
     return out[-1][:200] if out else "ok"
 
