@@ -146,6 +146,7 @@ export const SUN_SEED: TenantManifest = {
     { href: "/t/sun/playbook", label: "Playbook", icon: "BookOpen", group: "Operations" },
     { href: "/t/sun/leads", label: "Leads", icon: "Users", group: "Pipeline" },
     { href: "/t/sun/applications", label: "Applications", icon: "FileText", group: "Pipeline" },
+    { href: "/t/sun/import", label: "Import", icon: "Upload", group: "Pipeline" },
     // /forms is top-level (tenant-aware on the server via user.tenant_id).
     // Same shared surface every tenant gets — design forms, mint
     // personalized lead links, replace JotForm.
@@ -321,6 +322,7 @@ export const SUN_SEED: TenantManifest = {
     { path: "renewals", label: "Renewals", kind: "kanban", entity: "renewal", config: { group_by: "status" } },
     { path: "commissions", label: "Commissions", kind: "table", entity: "commission" },
     { path: "lenders", label: "Lenders", kind: "table", entity: "lender" },
+    { path: "import", label: "Import leads", kind: "import" },
     { path: "playbook", label: "Operating Manual", kind: "markdown", config: { body: "Solara is your funding-shop agent. She watches inbound leads from JotForm, drafts follow-ups in your voice via Text Torrent, and surfaces renewal windows before they close.\n\nDay-to-day rhythm:\n\n1. Open Leads. Move the hot ones to qualified. Solara drafts the next outreach.\n2. When a lender returns a term sheet, log it under Offers and mark accepted=true to roll it into Funded Deals.\n3. Renewals tab is the revenue lane. Anything within 60 days of due_date is where Solara puts the day's outreach focus." } },
   ],
   default_prompts: [
