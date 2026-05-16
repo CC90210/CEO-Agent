@@ -89,7 +89,8 @@ Your ONLY job is to answer CC's question. Use MCP tools. 1-5 sentences max for s
 | CC Asks About | Server | Tool |
 |---|---|---|
 | Browse an unprotected URL, screenshot | **Playwright** | `browser_navigate`, `browser_snapshot` |
-| **Scrape a bot-protected URL (Cloudflare/DataDome/reCAPTCHA/FingerprintJS) — MANDATORY tier** | **CloakBrowser CLI** | `python scripts/cloak_browser_tool.py scrape <url> --json` · skill: `skills/cloak-browser/SKILL.md` |
+| **Fetch URL content (DEFAULT — auto-escalates Firecrawl→Cloak, remembers per-domain)** | **research_fetch CLI** | `python scripts/research_fetch.py <url> --json` · skill: `skills/research-fetch/SKILL.md` |
+| Force the bot-protected tier directly (interactive goto / screenshot / check-stealth) | **CloakBrowser CLI** | `python scripts/cloak_browser_tool.py scrape <url> --json` · skill: `skills/cloak-browser/SKILL.md` |
 | Library docs | **Context7** | `resolve-library-id` → `query-docs` |
 | Knowledge/memory | **Memory** | `search_nodes`, `create_entities` |
 | Structured reasoning | **Sequential Thinking** | `sequentialthinking` |

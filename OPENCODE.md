@@ -86,11 +86,12 @@ OpenCode is the move when speed beats breadth:
 4. claude.ai MCP connectors   ← NEVER (Gmail/Calendar/Square/Cloudflare blocked — see ORCHESTRATION.md)
 ```
 
-**Browser-tool ladder (mandatory, applies to every fresh-session scrape):**
-1. Public unprotected page → `python scripts/firecrawl_tool.py scrape <url>`
-2. Firecrawl 403/429/empty OR target has bot defense (Cloudflare/DataDome/reCAPTCHA/FingerprintJS/Akamai/Kasada) → `python scripts/cloak_browser_tool.py scrape <url> --json` (mandatory stealth tier — drop-in Playwright with C++ fingerprint patches; skill: `skills/cloak-browser/SKILL.md`)
-3. Need to act AS CC inside CC's logged-in session → Browser Harness (`scripts/browser_harness_doctor.py` first)
-4. Interactive flow / visual snapshot on unprotected site → Playwright MCP
+**Research-fetch ladder (V6.7+, 2026-05-16):**
+1. **DEFAULT for any URL** → `python scripts/research_fetch.py <url> --json` (auto-escalates Firecrawl→Cloak, remembers per-domain in `state/site_reputation.db`; skill: `skills/research-fetch/SKILL.md`)
+2. Need Firecrawl-specific features (crawl/extract/map/search) → `python scripts/firecrawl_tool.py {crawl|extract|map|search} ...`
+3. Need to force CloakBrowser directly (interactive goto / screenshot / check-stealth) → `python scripts/cloak_browser_tool.py scrape <url> --json` (skill: `skills/cloak-browser/SKILL.md`)
+4. Act AS CC inside CC's logged-in session → Browser Harness (`scripts/browser_harness_doctor.py` first)
+5. Interactive flow / visual snapshot on unprotected site → Playwright MCP
 
 Intent → tool routing: `brain/QUICK_REFERENCE.md`. Capability registry: `brain/CAPABILITY_GRAPH.json` (auto-built by `scripts/build_capability_graph.py`).
 

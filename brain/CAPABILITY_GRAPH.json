@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
   "agent": "bravo",
-  "generated_at": "2026-05-15T22:36:16.565237+00:00",
+  "generated_at": "2026-05-16T06:03:18.890991+00:00",
   "totals": {
-    "skills": 158,
-    "scripts": 134,
+    "skills": 159,
+    "scripts": 136,
     "agents": 20,
     "mcp_servers": 9,
     "workflows": 36,
-    "nodes_total": 357,
-    "edges_total": 56,
+    "nodes_total": 360,
+    "edges_total": 62,
     "drift_count": 0
   },
   "nodes": [
@@ -2502,6 +2502,38 @@
       "discovery": "auto-frontmatter"
     },
     {
+      "id": "skill:research-fetch",
+      "kind": "skill",
+      "name": "research-fetch",
+      "path": "skills/research-fetch/SKILL.md",
+      "description": "Unified research-tier fetcher with auto-escalation (Firecrawl \u2192 CloakBrowser) and SQLite site-reputation memory. The single entry point all research-heavy skills should call instead of choosing tiers manually. Replaces ad-hoc firecrawl_tool / cloak_browser_tool decisions in compe",
+      "tier": "tool",
+      "owner": "bravo",
+      "risk": "low",
+      "triggers": [
+        "research fetch",
+        "research_fetch",
+        "fetch url",
+        "fetch a page",
+        "get page content",
+        "scrape a page",
+        "scrape this url",
+        "research a website",
+        "scrape with auto escalation",
+        "intelligent fetch",
+        "tier aware scrape"
+      ],
+      "tags": [
+        "tool",
+        "research",
+        "scraping",
+        "fetch",
+        "auto-escalation"
+      ],
+      "status": "[NEW]",
+      "discovery": "auto-frontmatter"
+    },
+    {
       "id": "skill:retro",
       "kind": "skill",
       "name": "retro",
@@ -3567,7 +3599,7 @@
       "kind": "script",
       "name": "casl_compliance",
       "path": "scripts/casl_compliance.py",
-      "description": "CASL compliance helpers for all outgoing cold email.",
+      "description": "CASL compliance helpers for all outgoing cold email and SMS.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -4113,6 +4145,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:migrate_leads_to_tenant_records",
+      "kind": "script",
+      "name": "migrate_leads_to_tenant_records",
+      "path": "scripts/migrate_leads_to_tenant_records.py",
+      "description": "migrate_leads_to_tenant_records.py ==================================",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:model_router",
       "kind": "script",
       "name": "model_router",
@@ -4358,6 +4400,16 @@
       "name": "register_skill",
       "path": "scripts/register_skill.py",
       "description": "Register Skill \u2014 the skill-onboarding tool.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:research_fetch",
+      "kind": "script",
+      "name": "research_fetch",
+      "path": "scripts/research_fetch.py",
+      "description": "research_fetch \u2014 Unified research-tier fetcher with auto-escalation + site-reputation memory.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -5580,6 +5632,26 @@
       "kind": "uses"
     },
     {
+      "from": "skill:research-fetch",
+      "to": "script:browser_harness_doctor",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:research-fetch",
+      "to": "script:cloak_browser_tool",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:research-fetch",
+      "to": "script:firecrawl_tool",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:research-fetch",
+      "to": "script:research_fetch",
+      "kind": "uses"
+    },
+    {
       "from": "skill:revenue-operations",
       "to": "script:revenue_engine",
       "kind": "uses"
@@ -5617,6 +5689,16 @@
     {
       "from": "skill:strategic-planning",
       "to": "skill:financial-modeling",
+      "kind": "requires"
+    },
+    {
+      "from": "skill:web-scraping",
+      "to": "script:research_fetch",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:web-scraping",
+      "to": "skill:research-fetch",
       "kind": "requires"
     }
   ],
