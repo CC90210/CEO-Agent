@@ -331,6 +331,7 @@ def _mirror_override_row(row: dict, *, kind: str) -> None:
 
 def create_override_request(command: str, layer: str, reason: str | None = None,
                             caller_pid: int | None = None, ttl_sec: int = 300,
+                            cwd_path: str | None = None,
                             conn: sqlite3.Connection | None = None) -> dict:
     """Insert a pending override_request row when exec_guard blocks.
 
@@ -338,6 +339,12 @@ def create_override_request(command: str, layer: str, reason: str | None = None,
     Idempotent: if an unexpired pending/approved request for the same
     command_hash already exists, return that one instead of creating a new
     row — prevents duplicate request spam when the agent retries quickly.
+
+    cwd_path is captured at the exec_guard call site and used by the
+    Supabase mirror to classify the workspace (empire / sunbiz_client /
+    suga_client / propflow_client) so the dashboard can filter by tenant
+    view. Not persisted in the local SQLite schema today; passed through
+    on the in-memory result dict so _mirror_override_row sees it.
     """
     cmd_hash = _cmd_hash(command)
     own = conn is None
@@ -359,7 +366,10 @@ def create_override_request(command: str, layer: str, reason: str | None = None,
                 (cmd_hash, now_iso),
             ).fetchone()
             if existing:
-                return dict(existing)
+                row_dict = dict(existing)
+                if cwd_path:
+                    row_dict["cwd_path"] = cwd_path
+                return row_dict
 
             req_id = _make_request_id()
             conn.execute(
@@ -377,6 +387,8 @@ def create_override_request(command: str, layer: str, reason: str | None = None,
                 (req_id,),
             ).fetchone()
             result = dict(row)
+            if cwd_path:
+                result["cwd_path"] = cwd_path
     finally:
         if own:
             conn.close()
