@@ -46,12 +46,26 @@ export async function ManifestKanban({
   page,
   demoRows,
 }: Props) {
-  const groupBy =
-    (typeof page.config?.group_by === "string" && page.config.group_by) ||
-    entity.fields.find((f) => f.type === "enum")?.name ||
-    "stage";
+  // Two ways to pick the grouping key:
+  //   1. page.config.compute_group_by — name of a server-side computer
+  //      that derives a synthetic stage from a row's data (e.g. funded
+  //      deal renewal_window: upcoming / due / overdue / renewed / lost
+  //      computed from funded_at + term_months). The computed column is
+  //      stamped into the row's data under the synthetic key so the
+  //      regular grouping pipeline below still works unchanged.
+  //   2. page.config.group_by — explicit field name on the entity.
+  //   3. Fallback: first enum field, then "stage".
+  // (1) wins when present so an entity without a literal `stage` column
+  // can still surface a Kanban view organized by business logic.
+  const computeGroupBy =
+    (typeof page.config?.compute_group_by === "string" && page.config.compute_group_by) || null;
+  const groupBy = computeGroupBy
+    ? `__${computeGroupBy}`
+    : (typeof page.config?.group_by === "string" && page.config.group_by) ||
+      entity.fields.find((f) => f.type === "enum")?.name ||
+      "stage";
 
-  const rows = tenantId
+  const rawRows = tenantId
     ? (await listRecords({
         tenant_id: tenantId,
         entity: entity.name,
@@ -59,13 +73,26 @@ export async function ManifestKanban({
       }).catch(() => ({ rows: [], total: 0 }))).rows
     : demoRows || [];
 
+  // Stamp the synthetic group_by onto each row's data so groupRecordsBy
+  // can use it. We don't mutate the caller's array — clone the rows.
+  const rows = computeGroupBy
+    ? rawRows.map((r) => ({
+        ...r,
+        data: { ...r.data, [groupBy]: computeRowGroup(computeGroupBy, r) },
+      }))
+    : rawRows;
+
   const grouped = groupRecordsBy(rows, groupBy);
   const groupingField = entity.fields.find((f) => f.name === groupBy);
+  const computedOrder = computeGroupBy ? COMPUTED_GROUP_ORDER[computeGroupBy] : null;
   const orderedKeys: string[] =
-    groupingField?.type === "enum" && groupingField.enum_values
-      ? [...groupingField.enum_values]
-      : Object.keys(grouped).sort();
-  // Add any orphan keys that don't appear in the enum (legacy values, etc.)
+    computedOrder
+      ? [...computedOrder]
+      : groupingField?.type === "enum" && groupingField.enum_values
+        ? [...groupingField.enum_values]
+        : Object.keys(grouped).sort();
+  // Add any orphan keys that don't appear in the canonical order
+  // (legacy values, unknown buckets, etc.).
   for (const k of Object.keys(grouped)) {
     if (!orderedKeys.includes(k)) orderedKeys.push(k);
   }
@@ -168,4 +195,56 @@ function humanize(name: string): string {
   return name
     .replace(/_/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/**
+ * Canonical column order for each compute_group_by mode. Keep this
+ * registry in sync with the matching branch in computeRowGroup —
+ * adding a bucket here without producing it from the computer would
+ * leave an always-empty column; producing a bucket the computer
+ * emits but isn't listed here pushes it to the end as an orphan
+ * (still visible, just at the end).
+ */
+const COMPUTED_GROUP_ORDER: Record<string, string[]> = {
+  renewal_window: ["upcoming", "due", "overdue", "renewed", "lost"],
+};
+
+/**
+ * Derive a synthetic group_by value for a row.
+ *
+ * `renewal_window` — for `funded_deal` records. Reads `funded_at`
+ * (date) + `term_months` (number) and computes how far the deal is
+ * into its term as of now. Buckets per the meeting decision:
+ *
+ *   - upcoming: 0–40% through. Renewal sequence hasn't opened yet.
+ *   - due: 40–50%. Renewal window is open; drip should be enrolling.
+ *   - overdue: 50–100% with no renewal record. Solara missed it.
+ *   - renewed: deal carries `renewed: true` or status === "renewed".
+ *     (TBD: also detect from a related renewal record once Phase 15
+ *     creates them — for now we trust an operator-set flag.)
+ *   - lost: deal carries `lost: true` or status === "lost".
+ *
+ * Missing `funded_at` or `term_months` → "(unset)" so the row still
+ * renders in a clearly-flagged column instead of throwing.
+ */
+function computeRowGroup(mode: string, row: { data: Record<string, unknown> }): string {
+  if (mode === "renewal_window") {
+    const d = row.data;
+    if (d.renewed === true || d.status === "renewed") return "renewed";
+    if (d.lost === true || d.status === "lost") return "lost";
+    const fundedAt = typeof d.funded_at === "string" ? d.funded_at : null;
+    const termMonths = typeof d.term_months === "number" ? d.term_months : null;
+    if (!fundedAt || !termMonths || termMonths <= 0) return "(unset)";
+    const fundedMs = Date.parse(fundedAt);
+    if (Number.isNaN(fundedMs)) return "(unset)";
+    const termMs = termMonths * 30 * 24 * 60 * 60 * 1000;
+    const elapsed = (Date.now() - fundedMs) / termMs;
+    if (elapsed < 0.4) return "upcoming";
+    if (elapsed < 0.5) return "due";
+    if (elapsed < 1.0) return "overdue";
+    // Past the term entirely with no renewal recorded — also overdue
+    // from a sales perspective (the deal lapsed without us pitching).
+    return "overdue";
+  }
+  return "(unset)";
 }
