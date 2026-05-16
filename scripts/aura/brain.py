@@ -10,10 +10,9 @@ specific occasion.
 from __future__ import annotations
 
 import json
-import os
-import sys
 import urllib.request
-from pathlib import Path
+
+from ._env import anthropic_key
 
 ANTHROPIC_VERSION = "2023-06-01"
 WRITER_MODEL = "claude-sonnet-4-6"
@@ -32,22 +31,6 @@ Universal rules for every Aura monologue:
   - Keep it punchy — every line should earn its place in his ear."""
 
 
-def _load_api_key() -> str:
-    """Resolve the Anthropic key from .env.agents via secret_loader, with
-    env-var fallbacks. Routes through the same path everything else uses
-    so we don't need a second secret-loading code path."""
-    repo_root = Path(__file__).resolve().parents[2]
-    sys.path.insert(0, str(repo_root / "scripts"))
-    from lib.secret_loader import load_env  # noqa: E402
-    env = load_env()
-    key = (env.get("BRAVO_ANTHROPIC_API_KEY")
-           or env.get("ANTHROPIC_API_KEY")
-           or os.environ.get("BRAVO_ANTHROPIC_API_KEY", "")).strip()
-    if not key:
-        raise RuntimeError("ANTHROPIC_API_KEY missing")
-    return key
-
-
 def draft_monologue(occasion_prompt: str, *, max_tokens: int = WRITER_MAX_TOKENS) -> str:
     """Generate one Aura monologue for the given occasion.
 
@@ -59,7 +42,7 @@ def draft_monologue(occasion_prompt: str, *, max_tokens: int = WRITER_MAX_TOKENS
     directly into TTS). Raises RuntimeError on any failure — callers
     decide whether to fall back or surface the error.
     """
-    api_key = _load_api_key()
+    api_key = anthropic_key()
     body = json.dumps({
         "model": WRITER_MODEL,
         "max_tokens": max_tokens,

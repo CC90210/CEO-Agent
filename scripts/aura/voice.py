@@ -9,11 +9,10 @@ ElevenLabs request shape.
 from __future__ import annotations
 
 import json
-import os
-import sys
 import urllib.parse
 import urllib.request
-from pathlib import Path
+
+from ._env import aura_voice_id, elevenlabs_key
 
 # ElevenLabs' "Rachel" — the safe-bet female voice that ships with every
 # account. Used until CC sets ELEVENLABS_AURA_VOICE_ID to his custom
@@ -37,33 +36,11 @@ AURA_VOICE_SETTINGS = {
 }
 
 
-def _resolve_voice_id() -> str:
-    """ELEVENLABS_AURA_VOICE_ID env var if set, otherwise the default."""
-    repo_root = Path(__file__).resolve().parents[2]
-    sys.path.insert(0, str(repo_root / "scripts"))
-    from lib.secret_loader import load_env  # noqa: E402
-    env = load_env()
-    return (env.get("ELEVENLABS_AURA_VOICE_ID")
-            or os.environ.get("ELEVENLABS_AURA_VOICE_ID", "")
-            or AURA_DEFAULT_VOICE_ID).strip()
-
-
-def _load_api_key() -> str:
-    repo_root = Path(__file__).resolve().parents[2]
-    sys.path.insert(0, str(repo_root / "scripts"))
-    from lib.secret_loader import load_env  # noqa: E402
-    env = load_env()
-    key = (env.get("ELEVENLABS_API_KEY") or "").strip()
-    if not key:
-        raise RuntimeError("ELEVENLABS_API_KEY missing")
-    return key
-
-
 def synthesize(text: str) -> bytes:
     """Convert text to Aura-voice Opus audio. Returns raw bytes suitable
     for Telegram sendVoice."""
-    api_key = _load_api_key()
-    voice_id = _resolve_voice_id()
+    api_key = elevenlabs_key()
+    voice_id = aura_voice_id(AURA_DEFAULT_VOICE_ID)
     url = (
         f"https://api.elevenlabs.io/v1/text-to-speech/{urllib.parse.quote(voice_id)}"
         f"?output_format={ELEVENLABS_OUTPUT_FORMAT}"
