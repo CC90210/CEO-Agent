@@ -134,59 +134,39 @@ export async function ManifestKanban({
         </Link>
       }
     >
-      <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid gap-3 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {orderedKeys.map((key) => {
           const items = grouped[key] || [];
           return (
             <section
               key={key}
-              className="rounded-xl border border-bg-border bg-bg-elev/40 p-4 min-h-[220px] flex flex-col"
+              // Fixed height keeps the grid balanced — long columns
+              // scroll internally instead of stretching the row. Sticky
+              // header so the column label + count stay visible while
+              // scrolling. 520px ≈ 6-7 compact cards visible before
+              // scroll kicks in, which matches Trello's feel.
+              className="rounded-xl border border-bg-border bg-bg-elev/40 flex flex-col max-h-[520px]"
             >
-              <header className="flex items-center justify-between mb-3 pb-2 border-b border-bg-border">
+              <header className="sticky top-0 z-10 flex items-center justify-between px-3 py-2 border-b border-bg-border bg-bg-elev/95 backdrop-blur rounded-t-xl">
                 <Tag tone="accent">{key === "(unset)" ? "no stage" : humanize(key)}</Tag>
                 <span className="text-[10px] text-fg-dim font-mono">
-                  {items.length} card{items.length === 1 ? "" : "s"}
+                  {items.length}
                 </span>
               </header>
-              <ul className="space-y-2.5 flex-1">
+              <ul className="flex-1 overflow-y-auto p-2 space-y-2">
                 {items.map((row) => (
-                  <li
+                  <KanbanCard
                     key={row.id}
-                    className="rounded-lg border border-bg-border bg-bg-deep/60 p-3 hover:border-accent/40 transition-colors"
-                  >
-                    <div className="font-bold text-sm text-fg break-words">
-                      {formatFieldValue(row.data[titleField]) || "Untitled"}
-                    </div>
-                    {cardFields.length > 0 && (
-                      <dl className="mt-2 space-y-1 text-[11px]">
-                        {cardFields
-                          .filter((f) => row.data[f.name] !== undefined && row.data[f.name] !== null && row.data[f.name] !== "")
-                          .map((f) => (
-                            <div key={f.name} className="flex items-start gap-2">
-                              <dt className="text-fg-dim shrink-0 min-w-[80px]">
-                                {humanize(f.name)}
-                              </dt>
-                              <dd className="text-fg-muted break-words">
-                                {formatFieldValue(row.data[f.name])}
-                              </dd>
-                            </div>
-                          ))}
-                      </dl>
-                    )}
-                    {entity.name === "offer" && typeof row.data.stage === "string" && (
-                      <OfferCardActions
-                        tenantSlug={tenantSlug}
-                        offerId={row.id}
-                        stage={row.data.stage}
-                      />
-                    )}
-                    {entity.name === "application" && (
-                      <ApplicationCardActions applicationId={row.id} />
-                    )}
-                  </li>
+                    row={row}
+                    titleField={titleField}
+                    cardFields={cardFields}
+                    entity={entity}
+                    tenantSlug={tenantSlug}
+                    pagePath={page.path}
+                  />
                 ))}
                 {items.length === 0 && (
-                  <li className="flex flex-col items-center justify-center text-fg-faint text-[11px] py-6">
+                  <li className="flex flex-col items-center justify-center text-fg-faint text-[10px] py-8">
                     <Inbox className="h-4 w-4 mb-1" />
                     <span className="italic">empty</span>
                   </li>
@@ -197,6 +177,89 @@ export async function ManifestKanban({
         })}
       </div>
     </Card>
+  );
+}
+
+/**
+ * KanbanCard — compact single-row summary inside a Kanban column.
+ *
+ * Click target: navigates to /t/<slug>/<page.path>/<row.id> which the
+ * catch-all router renders as the record-detail edit form. Per-card
+ * actions (Accept/Decline for offers, Recommended Lenders for
+ * applications) stay below the link so the operator can act without
+ * leaving the Kanban for routine moves.
+ *
+ * Density rationale: shows the title + up to 2 most-relevant fields
+ * inline (not 5 like the prior version). Operators with a column of
+ * 20 cards need to scan, not read; full record is one click away.
+ */
+function KanbanCard({
+  row,
+  titleField,
+  cardFields,
+  entity,
+  tenantSlug,
+  pagePath,
+}: {
+  row: TenantRecord;
+  titleField: string;
+  cardFields: ManifestEntityField[];
+  entity: ManifestEntityDef;
+  tenantSlug: string;
+  pagePath: string;
+}) {
+  // The 2 fields most worth showing inline — operator can see the rest
+  // by clicking the card. Filtered to ones that actually have values
+  // so an empty "lender_id" doesn't take up vertical space.
+  const previewFields = cardFields
+    .filter(
+      (f) =>
+        row.data[f.name] !== undefined &&
+        row.data[f.name] !== null &&
+        row.data[f.name] !== "",
+    )
+    .slice(0, 2);
+
+  return (
+    <li className="rounded-md border border-bg-border bg-bg-deep/60 hover:border-accent/40 hover:bg-bg-deep/80 transition-colors">
+      <Link
+        href={`/t/${tenantSlug}/${pagePath}/${row.id}`}
+        className="block px-2.5 py-2"
+      >
+        <div className="font-bold text-[13px] text-fg break-words leading-snug">
+          {formatFieldValue(row.data[titleField]) || "Untitled"}
+        </div>
+        {previewFields.length > 0 && (
+          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-fg-muted">
+            {previewFields.map((f) => (
+              <span key={f.name} className="inline-flex items-center gap-1">
+                <span className="text-fg-dim">{humanize(f.name)}:</span>
+                <span className="truncate max-w-[140px]">
+                  {formatFieldValue(row.data[f.name])}
+                </span>
+              </span>
+            ))}
+          </div>
+        )}
+      </Link>
+      {/* Per-entity inline actions live outside the Link so clicking
+          Accept / Decline / Recommended lenders doesn't also fire the
+          card-level navigation. */}
+      {entity.name === "offer" && typeof row.data.stage === "string" && (
+        <div className="px-2.5 pb-2">
+          <OfferCardActions
+            tenantSlug={tenantSlug}
+            offerId={row.id}
+            stage={row.data.stage}
+          />
+        </div>
+      )}
+      {entity.name === "application" && (
+        <div className="px-2.5 pb-2">
+          <ApplicationCardActions applicationId={row.id} />
+        </div>
+      )}
+    </li>
   );
 }
 

@@ -9,6 +9,7 @@ import { ManifestRecordForm } from "@/components/manifest/ManifestRecordForm";
 import { ManifestReasoning } from "@/components/manifest/ManifestReasoning";
 import { LeadsImportClient } from "@/components/leads/LeadsImportClient";
 import { humanize } from "@/lib/manifest/humanize";
+import { getRecord } from "@/lib/manifest/data";
 import { Card, PageHeader, Tag } from "@/components/Card";
 import { getManifest, manifestExists } from "@/lib/manifest/loader";
 import { resolveDataTenant } from "@/lib/manifest/tenant-scope";
@@ -57,13 +58,28 @@ export default async function TenantCatchAllPage({
     ? (subPath === "new" ? "" : subPath.slice(0, -("/new".length)))
     : subPath;
 
+  // Record-detail path: `/t/sun/leads/<uuid>`. Detected when the last
+  // segment is a UUID and stripping it lands on a real page path.
+  // Renders the ManifestRecordForm in edit mode with pre-populated
+  // values — gives operators a clickable drill-down from Kanban cards
+  // without building a separate detail-view primitive.
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const subPathSegs = subPath.split("/").filter(Boolean);
+  const lastSeg = subPathSegs[subPathSegs.length - 1] || "";
+  const isRecordDetail = !isNewForm && UUID_RE.test(lastSeg);
+  const recordDetailId = isRecordDetail ? lastSeg : null;
+  const recordDetailPath = isRecordDetail
+    ? subPathSegs.slice(0, -1).join("/")
+    : null;
+
   // Find the matching page by exact path match. If the caller passed
   // `/t/sun/leads/new` and the manifest only has a page at "leads",
-  // we still match after stripping /new. The fallback startsWith
-  // handles deeper detail-page paths future phases will add.
+  // we still match after stripping /new. Same logic handles
+  // record-detail paths (`/t/sun/leads/<uuid>` matches the leads page).
+  const lookupForPage = recordDetailPath ?? lookupPath;
   const pageDef =
-    manifest.pages?.find((p) => p.path === lookupPath) ||
-    manifest.pages?.find((p) => lookupPath !== "" && lookupPath.startsWith(`${p.path}/`)) ||
+    manifest.pages?.find((p) => p.path === lookupForPage) ||
+    manifest.pages?.find((p) => lookupForPage !== "" && lookupForPage.startsWith(`${p.path}/`)) ||
     null;
 
   if (!pageDef) {
@@ -86,6 +102,72 @@ export default async function TenantCatchAllPage({
   // Closes the cross-shell data-bleed bug.
   const dataTenantId = await resolveDataTenant(normalised, userTenantId);
   const isPreview = !!userTenantId && dataTenantId === null;
+
+  // Record-detail view — opened when an operator clicks a Kanban card or
+  // a row in a manifest table. Reuses ManifestRecordForm in edit mode so
+  // every field on the record is visible + editable on one screen
+  // without building a separate detail primitive.
+  if (recordDetailId && pageDef.entity) {
+    const entity = (manifest.data_model || []).find((e) => e.name === pageDef.entity);
+    if (entity && dataTenantId) {
+      const record = await getRecord({
+        tenant_id: dataTenantId,
+        entity: entity.name,
+        id: recordDetailId,
+      }).catch(() => null);
+      if (!record) {
+        return (
+          <div className="space-y-4 animate-fade-in">
+            <PageHeader
+              title="Record not found"
+              subtitle={`No ${entity.label.toLowerCase()} with id ${recordDetailId.slice(0, 8)}…`}
+              action={
+                <Link
+                  href={`/t/${normalised}/${recordDetailPath}`}
+                  className="btn-secondary inline-flex items-center gap-2 !px-3 !py-1.5 text-xs"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  Back to {pageDef.label.toLowerCase()}
+                </Link>
+              }
+            />
+          </div>
+        );
+      }
+      // Resolve a sensible display title from the record's data —
+      // tries `name` / `title` / `business_name` in that order, then
+      // falls back to the short id.
+      const title =
+        (typeof record.data.name === "string" && record.data.name) ||
+        (typeof record.data.title === "string" && record.data.title) ||
+        (typeof record.data.business_name === "string" && record.data.business_name) ||
+        `${entity.label} ${recordDetailId.slice(0, 8)}`;
+      return (
+        <div className="space-y-4 animate-fade-in">
+          <PageHeader
+            title={title}
+            subtitle={`${entity.label} · ${entity.fields.length} fields`}
+            action={
+              <Link
+                href={`/t/${normalised}/${recordDetailPath}`}
+                className="btn-secondary inline-flex items-center gap-2 !px-3 !py-1.5 text-xs"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Back to {pageDef.label.toLowerCase()}
+              </Link>
+            }
+          />
+          <ManifestRecordForm
+            tenantSlug={normalised}
+            entity={entity}
+            backPath={recordDetailPath!}
+            initial={record.data}
+            editId={recordDetailId}
+          />
+        </div>
+      );
+    }
+  }
 
   // Create-form view — the actual functional "New <entity>" button target.
   if (isNewForm && pageDef.entity) {
