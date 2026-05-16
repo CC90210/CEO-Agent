@@ -36,23 +36,12 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionUser, getServiceSupabase } from "@/lib/supabase-server";
+import { getServiceSupabase } from "@/lib/supabase-server";
+import { resolveTenantId } from "@/lib/api-auth";
 import { buildShopOutPlan, recordShopOutThreads } from "@/lib/lenders/shop-out";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-async function resolveTenantId(): Promise<string | null> {
-  const user = await getSessionUser();
-  if (!user) return null;
-  const db = getServiceSupabase();
-  const { data } = await db
-    .from("user_profiles")
-    .select("tenant_id")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
-  return (data as { tenant_id: string | null } | null)?.tenant_id ?? null;
-}
 
 export async function POST(
   req: NextRequest,
