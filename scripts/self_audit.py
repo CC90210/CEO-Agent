@@ -49,7 +49,16 @@ ORPHAN_ALLOWLIST = {
     "memory/ACTIVE_TASKS.md", "memory/SESSION_LOG.md",
     "memory/MISTAKES.md", "memory/PATTERNS.md", "memory/DECISIONS.md",
     "memory/MEMORY_INDEX.md", "memory/content-strategy.md",
+    "brain/SETUP_WIZARD_2_SPEC.md", "brain/SUNBIZ_CRM_KNOWN_GAPS.md",
+    "brain/V68_AGENT_OS_PATTERNS.md",
+    "memory/feedback_browser_ladder_mandatory.md",
+    "memory/feedback_skill_routing_disable_invocation.md",
+    "memory/reference_cloakbrowser.md",
+    "memory/RETROSPECTIVE_2026-05-14_rearchitecture.md",
+    "agents/aura.md",
 }
+
+SKILL_DIR_ALLOWLIST = {"in-progress", "_archive"}
 
 # ---------------------------------------------------------------------------
 
@@ -165,7 +174,7 @@ def check_skills(result: AuditResult) -> None:
     if not skills_dir.exists():
         return
     for sub in skills_dir.iterdir():
-        if not sub.is_dir() or sub.name.startswith("."):
+        if not sub.is_dir() or sub.name.startswith(".") or sub.name in SKILL_DIR_ALLOWLIST:
             continue
         result.skills_total += 1
         skill_md = sub / "SKILL.md"

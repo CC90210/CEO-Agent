@@ -222,15 +222,19 @@ _DAILY_CAP_ALERTS_SENT: set[str] = set()
 
 def load_env() -> dict[str, str]:
     env_path = PROJECT_ROOT / ".env.agents"
-    if not env_path.exists():
-        return {}
     env_vars: dict[str, str] = {}
-    with open(env_path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                k, _, v = line.partition("=")
-                env_vars[k.strip()] = v.strip()
+    if env_path.exists():
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, _, v = line.partition("=")
+                    env_vars[k.strip()] = v.strip()
+    # CI / VPS / systemd deployments inject credentials directly into the
+    # process environment. Keep .env.agents as local-file override, but never
+    # require the file to exist in hosted runtimes or tests.
+    for k, v in os.environ.items():
+        env_vars.setdefault(k, v)
     # Also mirror into os.environ so downstream helpers resolve
     for k, v in env_vars.items():
         os.environ.setdefault(k, v)

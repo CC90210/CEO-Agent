@@ -18,6 +18,7 @@ codebase — regressions here fan out to every business engine.
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 import unittest
@@ -289,7 +290,9 @@ def _import_gateway_fresh():
 class TestSendGateway(unittest.TestCase):
 
     def setUp(self):
-        _fresh_env({})
+        self._env_patcher = mock.patch.dict(os.environ, _fresh_env({}), clear=False)
+        self._env_patcher.start()
+        self.addCleanup(self._env_patcher.stop)
         self.sg = _import_gateway_fresh()
         self.db = FakeSupabase()
         self.sg._DAILY_CAP_ALERTS_SENT.clear()
