@@ -79,6 +79,7 @@ export const CC_NAV: NavItem[] = [
   { group: "Operations", href: "/pipeline", label: "Pipeline", icon: "GitBranch" },
   { group: "Operations", href: "/agents", label: "Agents", icon: "Bot" },
   { group: "Operations", href: "/reasoning", label: "Reasoning", icon: "Brain" },
+  { group: "Operations", href: "/playbook", label: "Playbook", icon: "BookOpen" },
   // System group — observability + control surfaces.
   { group: "System", href: "/operations", label: "Operations", icon: "Activity" },
   { group: "System", href: "/automations", label: "Automations", icon: "RefreshCcw" },
@@ -91,9 +92,13 @@ export const CC_NAV: NavItem[] = [
   // arc:
   //   - 13 entries → 7 (Phase 2: blunt consolidation, no merge)
   //   - 7 → 10 (Phase 7: restore the dailies operators actually use)
+  //   - 10 → 11 (V6.8.5, 2026-05-17): restored /playbook — the V6.8.3
+  //     INTEGRATE_NEW_TOOL prompt lives at /playbook/prompts and is
+  //     daily-use now ("drop a URL → run the audit"), not reference.
+  //     The earlier "fold into /settings/playbook" plan never shipped;
+  //     that path doesn't exist. /playbook is the canonical hub.
   //
-  // Still folded into Settings sub-routes (not top-level):
-  //   /playbook → /settings/playbook    (reference, not daily)
+  // Still folded (not top-level):
   //   /integrations → /settings/integrations (setup-time, not daily)
   //   /feed → merged into /operations (Activity Tape is the same stream)
   //
