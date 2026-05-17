@@ -139,6 +139,22 @@ def create_skill(args) -> int:
         fm_lines.append("triggers: [" + ", ".join(f'"{t}"' for t in triggers) + "]")
     if tags:
         fm_lines.append("tags: [" + ", ".join(tags) + "]")
+    if getattr(args, "argument_hint", None):
+        fm_lines.append(f'argument_hint: "{args.argument_hint}"')
+    if getattr(args, "disable_model_invocation", False):
+        fm_lines.append("disable_model_invocation: true")
+
+    # V6.8 / ADR-0001 — hard-dependency declaration
+    req_items: list[str] = []
+    for env_name in _parse_csv(getattr(args, "requires_env", None)):
+        req_items.append(f"env:{env_name}")
+    for daemon in _parse_csv(getattr(args, "requires_daemon", None)):
+        req_items.append(f"daemon:{daemon}")
+    for state_path in _parse_csv(getattr(args, "requires_state", None)):
+        req_items.append(f"state:{state_path}")
+    if req_items:
+        fm_lines.append("requires: [" + ", ".join(req_items) + "]")
+
     fm_lines += [
         f"status: '[NEW]'",
         f"created_at: {datetime.now(timezone.utc).isoformat()}",
@@ -402,6 +418,19 @@ def main() -> int:
                                help="Comma-separated trigger phrases")
     common_create.add_argument("--tags", default=None,
                                help="Comma-separated tags")
+    # V6.8 frontmatter conventions
+    common_create.add_argument("--argument-hint", dest="argument_hint", default=None,
+                               help="Prompt surfaced to user at invocation (e.g. 'Which lead?')")
+    common_create.add_argument("--disable-model-invocation", dest="disable_model_invocation",
+                               action="store_true",
+                               help="Skill fires only on explicit /command, never auto-loaded by semantic match")
+    # ADR-0001 hard-dependency declaration
+    common_create.add_argument("--requires-env", dest="requires_env", default=None,
+                               help="Comma-separated env var names this skill REQUIRES (hard dep)")
+    common_create.add_argument("--requires-daemon", dest="requires_daemon", default=None,
+                               help="Comma-separated PM2 daemon names this skill REQUIRES")
+    common_create.add_argument("--requires-state", dest="requires_state", default=None,
+                               help="Comma-separated state file paths this skill REQUIRES")
 
     sub.add_parser("skill", parents=[common_create], help="Scaffold a new skill")
     sub.add_parser("script", parents=[common_create], help="Scaffold a new script")

@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "agent": "bravo",
-  "generated_at": "2026-05-16T23:53:51.487917+00:00",
+  "generated_at": "2026-05-17T00:16:08.421750+00:00",
   "totals": {
     "skills": 150,
     "scripts": 138,
@@ -32,6 +32,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -56,6 +61,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -82,6 +92,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -104,6 +119,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -130,6 +150,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -156,6 +181,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -181,6 +211,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -207,6 +242,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -228,6 +268,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -254,6 +299,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -281,6 +331,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -307,6 +362,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -334,6 +394,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -357,6 +422,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -383,6 +453,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -411,6 +486,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -441,6 +521,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -466,6 +551,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -493,6 +583,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -534,6 +629,11 @@
       "status": "[NEW]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -560,6 +660,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -584,6 +689,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -608,6 +718,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -635,6 +750,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -662,6 +782,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -690,6 +815,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -715,6 +845,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -740,6 +875,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -766,6 +906,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -791,6 +936,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -813,6 +963,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -847,6 +1002,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -875,6 +1035,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -898,6 +1063,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -927,6 +1097,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -952,6 +1127,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -979,6 +1159,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1006,6 +1191,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1029,6 +1219,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1052,6 +1247,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1075,6 +1275,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1098,6 +1303,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1121,6 +1331,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1144,6 +1359,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1167,6 +1387,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1190,6 +1415,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1213,6 +1443,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1236,6 +1471,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1259,6 +1499,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1282,6 +1527,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1304,6 +1554,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1326,6 +1581,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1349,6 +1609,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1372,6 +1637,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1395,6 +1665,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1418,6 +1693,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1441,6 +1721,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1463,6 +1748,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1486,6 +1776,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1509,6 +1804,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1532,6 +1832,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1555,6 +1860,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1578,6 +1888,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1601,6 +1916,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1624,6 +1944,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1646,6 +1971,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1668,6 +1998,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1691,6 +2026,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1714,6 +2054,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1737,6 +2082,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1760,6 +2110,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1783,6 +2138,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1806,6 +2166,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1829,6 +2194,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1852,6 +2222,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1874,6 +2249,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1897,6 +2277,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1920,6 +2305,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1942,6 +2332,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1964,6 +2359,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -1989,6 +2389,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2015,6 +2420,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2046,6 +2456,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2078,6 +2493,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2103,6 +2523,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2135,6 +2560,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2160,6 +2590,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2193,6 +2628,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2222,6 +2662,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2254,6 +2699,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2278,6 +2728,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2302,6 +2757,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2329,6 +2789,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2358,6 +2823,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2385,6 +2855,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2417,6 +2892,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2450,6 +2930,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2478,6 +2963,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2505,6 +2995,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2529,6 +3024,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2555,6 +3055,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2578,6 +3083,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": "Which lead(s)? (lead UUID, email address, or filter like 'all warm cold-2 days')",
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2604,6 +3114,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2630,6 +3145,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2659,6 +3179,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2687,6 +3212,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2715,6 +3245,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2739,6 +3274,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2762,6 +3302,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2798,6 +3343,11 @@
       "status": "[NEW]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2822,6 +3372,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2850,6 +3405,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2878,6 +3438,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2911,6 +3476,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2938,6 +3508,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2972,6 +3547,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -2995,6 +3575,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3024,6 +3609,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3050,6 +3640,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3079,6 +3674,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3113,6 +3713,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3135,6 +3740,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3158,6 +3768,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3183,6 +3798,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3214,6 +3834,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3238,6 +3863,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3264,6 +3894,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3287,6 +3922,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3311,6 +3951,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3337,6 +3982,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": true,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3362,6 +4012,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3391,6 +4046,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3415,6 +4075,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3442,6 +4107,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3469,6 +4139,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3495,6 +4170,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3523,6 +4203,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3550,6 +4235,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3575,6 +4265,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3600,6 +4295,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3624,6 +4324,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3648,6 +4353,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3674,6 +4384,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3697,6 +4412,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3722,6 +4442,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3752,6 +4477,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3776,6 +4506,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3800,6 +4535,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": "What spec or requirements? (Drop the doc / Linear issue / paste the brief)",
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3823,6 +4563,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
@@ -3849,6 +4594,11 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
       "archived": null,
       "superseded_by": null,
       "discovery": "auto-frontmatter"
