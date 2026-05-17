@@ -313,6 +313,7 @@ function renderSubtitle(brand: string, page: ManifestPageDef): string {
     case "reasoning": return "Click an action to send it straight to chat.";
     case "import": return "Paste a CSV or drop a file. Duplicate-check is automatic.";
     case "pipeline": return "Lead Pipeline and Opportunity Pipeline — Salesforce-parity overview.";
+    case "pipeline_entity": return page.entity ? `${humanizeEntity(page.entity)} by stage` : "Pipeline";
     default: return brand;
   }
 }
@@ -352,14 +353,9 @@ async function PageBody({
       // accidentally bulk-insert into someone else's leads table.
       return <LeadsImportClient />;
     case "pipeline": {
-      // Salesforce-replacement two-pipeline view. Each section renders:
-      //   1. StagePipelineBar — the Salesforce-style arrow chevron chain
-      //      with verbatim colors from Adon's screenshots.
-      //   2. A stage-filtered table of records (ManifestTable with
-      //      pre-filtered rows). Clicking a chevron applies ?stage=...
-      //      to the URL for Lead Pipeline or ?opp_stage=... for
-      //      Opportunity Pipeline (separate params so both bars can
-      //      filter independently on the same page).
+      // Stacked superview — Lead Pipeline above Opportunity Pipeline.
+      // Each section has its own chevron bar + filtered table. Filter
+      // params are independent so both bars work in parallel.
       return (
         <PipelineSuperview
           slug={slug}
@@ -368,6 +364,33 @@ async function PageBody({
           manifest={manifest}
           stageFilter={stageFilter}
           oppStageFilter={oppStageFilter}
+        />
+      );
+    }
+    case "pipeline_entity": {
+      // Single-entity chevron pipeline — used by /leads (entity=lead) and
+      // /applications (entity=application). Reads `stage_field` from
+      // page.config (defaults to "stage"; applications use "status").
+      // Filter via ?stage=<key>.
+      const cfg = (page.config || {}) as { stage_field?: string };
+      const stageField = cfg.stage_field || "stage";
+      const entityName = page.entity || "";
+      const entity = (manifest.data_model || []).find((e) => e.name === entityName);
+      if (!entity) {
+        return (
+          <div className="rounded-2xl border border-amber-300/25 bg-amber-300/10 p-5 text-sm text-amber-100 leading-relaxed">
+            Pipeline entity <code>{entityName}</code> isn&apos;t defined in this manifest.
+          </div>
+        );
+      }
+      return (
+        <SingleEntityPipeline
+          slug={slug}
+          tenantId={tenantId}
+          page={page}
+          entity={entity}
+          stageField={stageField}
+          stageFilter={stageFilter}
         />
       );
     }
@@ -507,7 +530,7 @@ async function PipelineSuperview({
 }) {
   const cfg = (page.config || {}) as { lead_entity?: string; opportunity_entity?: string };
   const leadName = cfg.lead_entity || "lead";
-  const oppName = cfg.opportunity_entity || "offer";
+  const oppName = cfg.opportunity_entity || "application";
   const leadEntity = (manifest.data_model || []).find((e) => e.name === leadName);
   const oppEntity = (manifest.data_model || []).find((e) => e.name === oppName);
   if (!leadEntity || !oppEntity) {
@@ -518,6 +541,12 @@ async function PipelineSuperview({
       </div>
     );
   }
+
+  // Resolve the stage field per entity. lead uses `stage`; application
+  // uses `status` (Salesforce naming kept on the application entity);
+  // offer also uses `stage`. Lookup keys on the row's data jsonb.
+  const leadStageField = "stage";
+  const oppStageField = oppName === "application" ? "status" : "stage";
 
   // Fetch every record for each pipeline once; partition client-side
   // into stage buckets. Cheaper than N round-trips (one per stage) and
@@ -533,20 +562,20 @@ async function PipelineSuperview({
 
   const leadCounts: Record<string, number> = {};
   for (const r of leadRowsRes.rows) {
-    const s = String((r.data as Record<string, unknown>).stage || "");
+    const s = String((r.data as Record<string, unknown>)[leadStageField] || "");
     if (s) leadCounts[s] = (leadCounts[s] || 0) + 1;
   }
   const oppCounts: Record<string, number> = {};
   for (const r of oppRowsRes.rows) {
-    const s = String((r.data as Record<string, unknown>).stage || "");
+    const s = String((r.data as Record<string, unknown>)[oppStageField] || "");
     if (s) oppCounts[s] = (oppCounts[s] || 0) + 1;
   }
 
   const leadVisible = stageFilter
-    ? leadRowsRes.rows.filter((r) => String((r.data as Record<string, unknown>).stage || "") === stageFilter)
+    ? leadRowsRes.rows.filter((r) => String((r.data as Record<string, unknown>)[leadStageField] || "") === stageFilter)
     : leadRowsRes.rows;
   const oppVisible = oppStageFilter
-    ? oppRowsRes.rows.filter((r) => String((r.data as Record<string, unknown>).stage || "") === oppStageFilter)
+    ? oppRowsRes.rows.filter((r) => String((r.data as Record<string, unknown>)[oppStageField] || "") === oppStageFilter)
     : oppRowsRes.rows;
 
   return (
@@ -567,6 +596,7 @@ async function PipelineSuperview({
         <PipelineRecordList
           slug={slug}
           entityName={leadName}
+          stageField={leadStageField}
           rows={leadVisible}
           activeStageLabel={stageFilter ? findStage("lead", stageFilter)?.label || stageFilter : "All stages"}
         />
@@ -576,7 +606,7 @@ async function PipelineSuperview({
         <div className="flex items-baseline justify-between gap-4">
           <h2 className="text-lg font-bold text-fg">Opportunity Pipeline</h2>
           <div className="text-[11px] text-fg-dim font-mono">
-            {oppStageFilter ? `${oppVisible.length} in ${findStage("offer", oppStageFilter)?.label || oppStageFilter}` : `${oppRowsRes.rows.length} total`}
+            {oppStageFilter ? `${oppVisible.length} in ${findStage(oppName, oppStageFilter)?.label || oppStageFilter}` : `${oppRowsRes.rows.length} total`}
           </div>
         </div>
         <StagePipelineBar
@@ -584,12 +614,14 @@ async function PipelineSuperview({
           activeKey={oppStageFilter}
           basePath={`/t/${slug}/${page.path}`}
           counts={oppCounts}
+          paramName="opp_stage"
         />
         <PipelineRecordList
           slug={slug}
           entityName={oppName}
+          stageField={oppStageField}
           rows={oppVisible}
-          activeStageLabel={oppStageFilter ? findStage("offer", oppStageFilter)?.label || oppStageFilter : "All opportunities"}
+          activeStageLabel={oppStageFilter ? findStage(oppName, oppStageFilter)?.label || oppStageFilter : "All opportunities"}
         />
       </section>
     </div>
@@ -606,11 +638,13 @@ async function PipelineSuperview({
 function PipelineRecordList({
   slug,
   entityName,
+  stageField,
   rows,
   activeStageLabel,
 }: {
   slug: string;
   entityName: string;
+  stageField: string;
   rows: { id: string; data: Record<string, unknown> }[];
   activeStageLabel: string;
 }) {
@@ -633,6 +667,12 @@ function PipelineRecordList({
       { key: "email", label: "Email" },
       { key: "monthly_revenue", label: "Monthly Rev" },
     ],
+    application: [
+      { key: "lead_id", label: "Lead" },
+      { key: "lender_id", label: "Lender" },
+      { key: "requested_amount", label: "Requested Amt" },
+      { key: "submitted_at", label: "Submitted" },
+    ],
     offer: [
       { key: "lender_id", label: "Lender" },
       { key: "amount", label: "Amount" },
@@ -641,7 +681,12 @@ function PipelineRecordList({
     ],
   };
   const cols = COLS_BY_ENTITY[entityName] || [];
-  const linkBase = `/t/${slug}/${entityName === "lead" ? "leads" : entityName === "offer" ? "offers" : entityName}`;
+  const linkBase = `/t/${slug}/${
+    entityName === "lead" ? "leads" :
+    entityName === "application" ? "applications" :
+    entityName === "offer" ? "offers" :
+    entityName
+  }`;
   const formatVal = (v: unknown) => {
     if (v == null || v === "") return "—";
     return String(v);
@@ -660,7 +705,7 @@ function PipelineRecordList({
         </thead>
         <tbody>
           {rows.map((r) => {
-            const stage = String(r.data.stage || "");
+            const stage = String(r.data[stageField] || "");
             const stageMeta = findStage(entityName, stage);
             return (
               <tr key={r.id} className="border-b border-bg-border/40 last:border-b-0 hover:bg-bg-elev/30">
@@ -692,6 +737,91 @@ function PipelineRecordList({
           })}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/**
+ * SingleEntityPipeline — the chevron bar + filtered table for ONE entity.
+ *
+ * Used by /leads (lead entity, Lead Pipeline) and /applications
+ * (application entity, Opportunity Pipeline). Mirrors what each section
+ * of the PipelineSuperview renders, just standalone with one entity's
+ * chevron chain.
+ */
+async function SingleEntityPipeline({
+  slug,
+  tenantId,
+  page,
+  entity,
+  stageField,
+  stageFilter,
+}: {
+  slug: string;
+  tenantId: string | null;
+  page: ManifestPageDef;
+  entity: { name: string; label: string; fields: { name: string; type: string }[] };
+  stageField: string;
+  stageFilter: string | null;
+}) {
+  const stages = entity.name === "lead"
+    ? LEAD_PIPELINE_STAGES
+    : entity.name === "application" || entity.name === "offer"
+      ? OPPORTUNITY_PIPELINE_STAGES
+      : [];
+
+  if (stages.length === 0) {
+    return (
+      <div className="rounded-2xl border border-amber-300/25 bg-amber-300/10 p-5 text-sm text-amber-100 leading-relaxed">
+        No Salesforce-parity pipeline stages registered for entity <code>{entity.name}</code>.
+      </div>
+    );
+  }
+
+  const rowsRes = tenantId
+    ? await listRecords({ tenant_id: tenantId, entity: entity.name, limit: 500 }).catch(() => ({ rows: [], total: 0 }))
+    : { rows: [], total: 0 };
+
+  const counts: Record<string, number> = {};
+  for (const r of rowsRes.rows) {
+    const s = String((r.data as Record<string, unknown>)[stageField] || "");
+    if (s) counts[s] = (counts[s] || 0) + 1;
+  }
+
+  const visible = stageFilter
+    ? rowsRes.rows.filter((r) => String((r.data as Record<string, unknown>)[stageField] || "") === stageFilter)
+    : rowsRes.rows;
+
+  const activeLabel = stageFilter
+    ? findStage(entity.name, stageFilter)?.label || stageFilter
+    : `All ${entity.label.toLowerCase()}s`;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-baseline justify-between gap-4">
+        <div className="text-[11px] text-fg-dim font-mono">
+          {stageFilter ? `${visible.length} in ${activeLabel}` : `${rowsRes.rows.length} total`}
+        </div>
+        <Link
+          href={`/t/${slug}/${page.path}/new`}
+          className="text-[11px] uppercase tracking-wider text-accent hover:text-accent/80 font-semibold"
+        >
+          + New {entity.label.toLowerCase()}
+        </Link>
+      </div>
+      <StagePipelineBar
+        stages={stages}
+        activeKey={stageFilter}
+        basePath={`/t/${slug}/${page.path}`}
+        counts={counts}
+      />
+      <PipelineRecordList
+        slug={slug}
+        entityName={entity.name}
+        stageField={stageField}
+        rows={visible}
+        activeStageLabel={activeLabel}
+      />
     </div>
   );
 }
