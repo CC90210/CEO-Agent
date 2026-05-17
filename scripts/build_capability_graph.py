@@ -164,6 +164,9 @@ def _python_docstring(path: Path) -> str:
 
 # ── Discoverers ──────────────────────────────────────────────────────────────
 
+SKIP_SKILL_DIRS = {"_archive", "in-progress", "deprecated"}
+
+
 def discover_skills() -> list[dict[str, Any]]:
     skills_dir = PROJECT_ROOT / "skills"
     if not skills_dir.exists():
@@ -171,6 +174,8 @@ def discover_skills() -> list[dict[str, Any]]:
     out = []
     for sub in sorted(skills_dir.iterdir()):
         if not sub.is_dir() or sub.name.startswith("."):
+            continue
+        if sub.name in SKIP_SKILL_DIRS:
             continue
         skill_md = sub / "SKILL.md"
         if not skill_md.exists():
@@ -192,6 +197,7 @@ def discover_skills() -> list[dict[str, Any]]:
             "tags": fm.get("tags", []) if isinstance(fm.get("tags"), list) else [],
             "status": fm.get("status", "[VALIDATED]"),
             "disable_model_invocation": bool(fm.get("disable-model-invocation") or fm.get("disable_model_invocation")),
+            "argument_hint": fm.get("argument-hint") or fm.get("argument_hint"),
             "archived": fm.get("archived"),
             "superseded_by": fm.get("superseded_by"),
             "discovery": "auto-frontmatter" if fm.get("name") else "auto-foldername",

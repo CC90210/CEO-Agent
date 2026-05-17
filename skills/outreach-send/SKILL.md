@@ -2,6 +2,7 @@
 name: outreach-send
 description: Send OASIS cold/follow-up outreach emails with branded HTML, booking link, geo-rapport, and full deliverability protection. Use whenever CC says "send outreach", "email these leads", "follow up with X", or any first/second-touch sales email to a lead in the CRM. Works identically from Claude Code, OpenCode, Codex, Gemini, and Antigravity.
 triggers: ["outreach send", "use outreach send", "run outreach send", "send oasis cold/follow-up outreach emails with branded html"]
+argument_hint: "Which lead(s)? (lead UUID, email address, or filter like 'all warm cold-2 days')"
 ---
 
 # Outreach Send — Canonical Workflow
@@ -93,7 +94,7 @@ for lead in leads:
     time.sleep(2)
 ```
 
-For Bravo's semi-auto draft-then-approve flow, use `python scripts/outreach_batch.py --limit 5`. That writes drafts to `tmp/outreach_drafts/`, posts to Telegram for CC's approval, and routes through the same gateway on `--send-draft <path>`.
+The semi-auto Telegram-approval flow (`outreach_batch.py`) was retired on 2026-05-16. CC opted out of auto-drafted cold outreach — cold outreach is now operator-initiated only, per-lead via `outreach_engine.py send`. Inbound funnel notifications are handled by the `funnel_fast_poll` cron.
 
 ---
 
@@ -134,7 +135,6 @@ Filter to leads with `email` set, `last_contacted_at` null or > 5 days old, and 
 | `scripts/email_engine.py stats` | Aggregate stats |
 | `scripts/email_engine.py check-inbox` | Process inbound replies (auto-suppress unsub) |
 | `scripts/region_inference.py` | Self-test the region inferrer |
-| `scripts/outreach_batch.py` | Semi-auto draft + Telegram-approve flow |
 | `scripts/send_gateway.py status` | View gateway gate state |
 
 All accept `--json` for machine-readable output. All accept `--dry-run` to validate without sending.
@@ -162,5 +162,5 @@ Whichever entry point an AI uses to enter this repo, this is the canonical outre
 
 ## Obsidian Links
 - [[brain/QUICK_REFERENCE]] | [[brain/CAPABILITIES]]
-- [[memory/feedback_outreach_send_template]]
+- [[memory/feedback_no_cold_outreach_cron]]
 - [[skills/email-safety/SKILL]]

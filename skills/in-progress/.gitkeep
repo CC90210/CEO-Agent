@@ -1,0 +1,12 @@
+# skills/in-progress/
+
+Staging lane for skills under active development. Skills here are excluded from:
+
+- `scripts/build_capability_graph.py` (not indexed in CAPABILITY_GRAPH.json)
+- `scripts/capability_query.py resolve` (not returned in routing results)
+- `.claude-plugin/plugin.json` (not distributed to external installs)
+
+Promote to `skills/<name>/` when frontmatter is complete, the skill has been
+exercised at least once, and it's earned `[PROBATIONARY]` status.
+
+Convention adopted 2026-05-16 from mattpocock/skills (see `docs/adr/0001-...`).
