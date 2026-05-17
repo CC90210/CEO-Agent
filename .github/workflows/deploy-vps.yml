@@ -57,7 +57,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check VPS deploy secrets
+        id: deploy_secrets
+        run: |
+          if [ -z "${{ secrets.VPS_HOST }}" ] || \
+             [ -z "${{ secrets.VPS_USER }}" ] || \
+             [ -z "${{ secrets.VPS_SSH_PRIVATE_KEY }}" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::VPS deploy secrets are not configured; skipping SSH deploy."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Set up SSH
+        if: steps.deploy_secrets.outputs.configured == 'true'
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.VPS_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
@@ -65,6 +78,7 @@ jobs:
           ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Deploy via SSH
+        if: steps.deploy_secrets.outputs.configured == 'true'
         id: deploy
         run: |
           ssh -i ~/.ssh/id_ed25519 "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
@@ -78,6 +92,7 @@ jobs:
              echo \"PRIOR=\$PRIOR_SHA NEW=\$NEW_SHA\""
 
       - name: Smoke test — webhook healthz
+        if: steps.deploy_secrets.outputs.configured == 'true'
         run: |
           for i in 1 2 3 4 5 6; do
             if curl -fsS "https://${{ secrets.VPS_HOST }}/healthz" | grep -q "ok"; then
@@ -88,15 +103,23 @@ jobs:
           echo "healthz failed after 60s"; exit 1
 
       - name: Notify Telegram — success
-        if: success()
+        if: success() && steps.deploy_secrets.outputs.configured == 'true'
         run: |
+          if [ -z "${{ secrets.TELEGRAM_BOT_TOKEN }}" ] || [ -z "${{ secrets.TELEGRAM_CHAT_ID }}" ]; then
+            echo "::notice::Telegram deploy notification secrets are not configured; skipping notification."
+            exit 0
+          fi
           curl -fsS "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
             -d "text=✅ bravo VPS deploy succeeded (${GITHUB_SHA:0:7})"
 
       - name: Notify Telegram — failure
-        if: failure()
+        if: failure() && steps.deploy_secrets.outputs.configured == 'true'
         run: |
+          if [ -z "${{ secrets.TELEGRAM_BOT_TOKEN }}" ] || [ -z "${{ secrets.TELEGRAM_CHAT_ID }}" ]; then
+            echo "::notice::Telegram deploy notification secrets are not configured; skipping notification."
+            exit 0
+          fi
           curl -fsS "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
             -d "text=❌ bravo VPS deploy FAILED on ${GITHUB_SHA:0:7} — check Actions"
