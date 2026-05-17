@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-16T23:54:51.561508+00:00",
-  "script_count": 98,
-  "entry_count": 359,
+  "generated_at_iso": "2026-05-17T05:38:16.964085+00:00",
+  "script_count": 99,
+  "entry_count": 360,
   "entries": [
     {
       "key": "agent_heartbeat",
@@ -101,6 +101,13 @@
       "subcmd": null,
       "mutating": false,
       "help": "One-off backfill: classify existing exec_overrides rows into workspace buckets."
+    },
+    {
+      "key": "backfill_sunbiz_stages",
+      "path": "scripts/backfill_sunbiz_stages.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "backfill_sunbiz_stages.py \u2014 one-shot migration of pre-2026-05-17 stage values."
     },
     {
       "key": "booking_engine_slots",
