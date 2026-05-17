@@ -795,8 +795,6 @@ async function SingleEntityPipeline({
         counts={counts}
       />
       <PipelineSearchableTable
-        slug={slug}
-        entityName={entity.name}
         entityLabel={entity.label}
         stageField={stageField}
         rows={visible}
