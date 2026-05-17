@@ -106,8 +106,16 @@ async function probeCliStatus(signal: AbortSignal): Promise<ProbeState> {
     const data = JSON.parse(body.output) as CliStatusResponse;
     return { kind: "ok", data };
   } catch (err) {
+    // AbortError fires when the 10s timeout in the caller elapses. The
+    // previous return `{ kind: "loading" }` left the spinner forever
+    // because the parent state never moved off "loading" — exactly the
+    // perpetual-spinner bug CC reported. Surface as bridge_offline
+    // instead: if the probe couldn't complete in 10s the local bridge
+    // is effectively unreachable from the operator's POV, and the
+    // bridge-offline card already has the right "install + refresh"
+    // affordance.
     if ((err as Error).name === "AbortError") {
-      return { kind: "loading" };
+      return { kind: "bridge_offline" };
     }
     return { kind: "error", message: (err as Error).message };
   }
@@ -171,7 +179,8 @@ export function LocalCliProvidersCard() {
             <div className="font-bold">Local bridge offline</div>
             <p className="mt-1 text-xs text-fg-muted leading-relaxed">
               The CLI cards need the local bridge running on this machine to probe installed
-              CLIs. Run <code className="font-mono text-fg">bravo bridge start</code> and refresh.
+              CLIs. Start the local bridge on this machine (use the <strong className="text-fg">Install Claude Code CLI bridge</strong> button
+              in Devices above) and refresh.
               Until then the dashboard can't tell which CLIs are installed.
             </p>
           </div>

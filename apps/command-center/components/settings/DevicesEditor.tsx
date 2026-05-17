@@ -86,8 +86,8 @@ function PairCodeBlock({
         </button>
       </div>
       <div className="text-xs text-fg-muted leading-relaxed">
-        Run <code className="text-accent bg-bg-deep px-1.5 py-0.5 rounded">bravo setup</code> on the
-        new machine and paste this code when it asks for one. Single-use; expires in {code.ttl_minutes} minutes.
+        Open the installer on the new machine — click <strong className="text-fg">Install Claude Code CLI bridge</strong> below
+        and paste this code when it asks for one. Single-use; expires in {code.ttl_minutes} minutes.
       </div>
       <button
         type="button"

@@ -305,9 +305,9 @@ export default async function OperationsPage({
         </div>
       </Card>
 
-      <Card title="Paired machines" subtitle="Local installs heartbeating to this dashboard. Run `bravo bridge start` on a machine to add it.">
+      <Card title="Paired machines" subtitle="Local installs heartbeating to this dashboard. Pair a new machine from Settings → Devices → Install Claude Code CLI bridge.">
         {pairings.length === 0 ? (
-          <EmptyState message="No machines paired yet. After running the setup wizard, run `bravo bridge start` to begin pinging." />
+          <EmptyState message="No machines paired yet. Open Settings → Devices and click Install Claude Code CLI bridge to walk through the install." />
         ) : (
           <ul className="divide-y divide-bg-border">
             {pairings.map((p) => {

@@ -247,7 +247,7 @@ export function Sidebar({
           className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-fg-dim"
           title={bridgeOnline
             ? "Local bridge daemon pinged within last 5 min"
-            : "Local bridge offline — run `bravo bridge start`"}
+            : "Local bridge offline — pair a machine from Settings → Devices"}
         >
           <span className={bridgeOnline ? "text-accent animate-pulse-slow" : "text-fg-faint"}>◆</span>
           <span>local bridge</span>
