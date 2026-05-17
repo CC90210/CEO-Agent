@@ -3,6 +3,18 @@ import { Bot } from "lucide-react";
 import { Card, Stat, Tag } from "@/components/Card";
 import { listRecords, type TenantRecord } from "@/lib/manifest/data";
 import type { TenantManifest } from "@/lib/manifest/schema";
+import { getServiceSupabase } from "@/lib/supabase-server";
+
+type AgentAlertRow = {
+  id: string;
+  alert_type: string;
+  severity: "info" | "warn" | "urgent";
+  subject_type: string | null;
+  subject_id: string | null;
+  title: string;
+  body: string | null;
+  created_at: string;
+};
 
 type Props = {
   manifest: TenantManifest;
@@ -53,8 +65,79 @@ export async function ManifestDashboard({ manifest, tenantId, demoRowsByEntity }
 
   const enabledAgents = manifest.agents.filter((a) => a.enabled);
 
+  // Open operator alerts — Phase 20 missing-info classifier raises these
+  // on every lead the lender asks for additional docs on. Surfaced here
+  // so the dashboard's first impression is "what needs my attention."
+  // Skipped in preview mode (no tenant context = no alerts to pull).
+  const openAlerts: AgentAlertRow[] = await (async () => {
+    if (!tenantId) return [];
+    try {
+      const sb = getServiceSupabase();
+      const { data, error } = await sb
+        .from("agent_alerts")
+        .select("id, alert_type, severity, subject_type, subject_id, title, body, created_at")
+        .eq("tenant_id", tenantId)
+        .is("resolved_at", null)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (error) return [];
+      return (data || []) as AgentAlertRow[];
+    } catch {
+      return [];
+    }
+  })();
+
   return (
     <div className="space-y-4">
+      {openAlerts.length > 0 && (
+        <Card
+          title={`${openAlerts.length} open alert${openAlerts.length === 1 ? "" : "s"}`}
+          subtitle="Operator-facing notifications. Resolve from the lead/application detail page."
+        >
+          <ul className="space-y-2">
+            {openAlerts.map((alert) => {
+              const tone =
+                alert.severity === "urgent"
+                  ? "border-red-500/40 bg-red-500/10 text-red-200"
+                  : alert.severity === "warn"
+                    ? "border-amber-400/40 bg-amber-400/10 text-amber-200"
+                    : "border-bg-border bg-bg-elev/40 text-fg-muted";
+              const detailHref =
+                alert.subject_type === "lead" && alert.subject_id
+                  ? `/t/${manifest.tenant_slug}/leads/${alert.subject_id}`
+                  : alert.subject_type === "application" && alert.subject_id
+                    ? `/t/${manifest.tenant_slug}/applications/${alert.subject_id}`
+                    : null;
+              const inner = (
+                <div className={`rounded-lg border px-3 py-2 text-[12.5px] ${tone}`}>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="font-semibold">{alert.title}</span>
+                    <span className="text-[10.5px] font-mono opacity-70 shrink-0">
+                      {new Date(alert.created_at).toLocaleString()}
+                    </span>
+                  </div>
+                  {alert.body && (
+                    <div className="mt-1 text-[11.5px] opacity-90 break-words">
+                      {alert.body}
+                    </div>
+                  )}
+                </div>
+              );
+              return (
+                <li key={alert.id}>
+                  {detailHref ? (
+                    <Link href={detailHref} className="block hover:opacity-90 transition-opacity">
+                      {inner}
+                    </Link>
+                  ) : (
+                    inner
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      )}
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {counts.map(({ entity, total }) => (
           <Stat
