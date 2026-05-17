@@ -249,6 +249,27 @@ Skill refs: [skills/research-fetch/SKILL.md](../skills/research-fetch/SKILL.md) 
 
 ---
 
+## "Integrate a new tool / GitHub repo / open-source code / research"
+
+CC drops a URL, a paste, a file path, a research request, or any vague pointer like "I saw this cool repo." Standing pattern (V6.8.3, 2026-05-16):
+
+1. **Load the canonical workflow** — `prompts/INTEGRATE_NEW_TOOL.md`. Don't paraphrase the 6 phases; follow them exactly.
+2. **Identity probe first** — Bravo / Maven / Atlas / client agent. The integration lands in the agent that owns the relevant domain.
+3. **Phase 1 — name the problem this actually solves.** If "looks cool" is the only justification, STOP and push back on CC.
+4. **Phase 2 — parallel audit.** Spawn the researcher agent (external) + Explore agent (our side) in a single message. Wait for both. Synthesize yourself.
+5. **Phase 3 — write to `~/.claude/plans/<slug>.md`.** Include ADR-0001 hard/soft dep classification, completeness scores 0-10. ExitPlanMode for non-trivial work.
+6. **Phase 4 — substrate → conventions → vocabulary → distribution.** Commit per layer with V6.X.Y semantic versioning.
+7. **Phase 5 — 4 symbiosis tests** after each layer: graph rebuild, retriever pickup, resolver behavior, end-to-end behavior change. Loop back if any fail.
+8. **Phase 6 — propagate to siblings** per V6.8.1 contract (CONTEXT.md + V68_AGENT_OS_PATTERNS.md). Log a `[P]` pattern in `memory/PATTERNS.md`. State sync. Memory sync line.
+
+**Reference case:** mattpocock/skills audit → commits 5aeb5fb → bec2fcc → 5335556 (Bravo), da1e5aa → 00d8e14 (Maven), 1699c9e → 18e89af (Atlas). Plan file: `~/.claude/plans/i-found-a-really-parallel-pascal.md`.
+
+**Dashboard access:** `/playbook/prompts` → category **System integration** → click **"Integrate a new tool / repo / research"** → paste resource at end. The same prompt is also pasteable directly from `prompts/INTEGRATE_NEW_TOOL.md`.
+
+**Anti-slop guardrails:** no stub functions, no "Proposed future tooling" claims in ADRs, no duplicate scripts, no substrate touches without need. See the full guardrails block in the prompt body.
+
+---
+
 ## How to extend this file
 
 Add new sections when an intent recurs. Sections are first-person playbooks, not reference docs — write them as if instructing the agent on its first day. Keep each section under ~15 lines so it's cheap to load.

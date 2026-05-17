@@ -15,6 +15,7 @@ const OPERATOR_CATEGORIES: PromptCategory[] = [
   "ops_review",
   "system_override",
   "system_health",
+  "system_integration",
 ];
 
 const CLIENT_CATEGORIES: PromptCategory[] = [
