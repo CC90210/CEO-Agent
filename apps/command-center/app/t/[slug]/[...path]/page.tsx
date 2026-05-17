@@ -178,8 +178,8 @@ export default async function TenantCatchAllPage({
                   Missing: {items.join(", ")}
                 </div>
                 <div className="text-[11.5px] text-red-200/80 mt-1.5">
-                  Upload the matching document via the lead&apos;s docs panel (queued) or forward the lender thread to the
-                  classifier inbox once received.
+                  Auto-detected from the lender&apos;s reply. Clear an item by editing this lead&apos;s
+                  <span className="font-mono"> missing_info</span> field once the doc is sent.
                 </div>
               </div>
             );
