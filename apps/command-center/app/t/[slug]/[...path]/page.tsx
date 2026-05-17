@@ -11,6 +11,7 @@ import { LeadsImportClient } from "@/components/leads/LeadsImportClient";
 import { LeadTimelinePanel } from "@/components/leads/LeadTimelinePanel";
 import { StagePipelineBar } from "@/components/manifest/StagePipelineBar";
 import { PipelineSearchableTable } from "@/components/manifest/PipelineSearchableTable";
+import { PageSearchBar } from "@/components/manifest/PageSearchBar";
 import { PIPELINE_COLUMNS, formatPipelineCell, pipelineLinkBase } from "@/lib/pipeline-display";
 import { LEAD_PIPELINE_STAGES, OPPORTUNITY_PIPELINE_STAGES, findStage } from "@/lib/sunbiz-stage-meta";
 import { humanize } from "@/lib/manifest/humanize";
@@ -42,7 +43,7 @@ export default async function TenantCatchAllPage({
   searchParams,
 }: {
   params: Promise<{ slug: string; path: string[] }>;
-  searchParams?: Promise<{ view?: string; stage?: string; opp_stage?: string }>;
+  searchParams?: Promise<{ view?: string; stage?: string; opp_stage?: string; q?: string }>;
 }) {
   const { slug, path } = await params;
   const sp = (await searchParams) || {};
@@ -50,6 +51,7 @@ export default async function TenantCatchAllPage({
     sp.view === "table" ? "table" : sp.view === "kanban" ? "kanban" : null;
   const stageFilter = typeof sp.stage === "string" && sp.stage ? sp.stage : null;
   const oppStageFilter = typeof sp.opp_stage === "string" && sp.opp_stage ? sp.opp_stage : null;
+  const query = typeof sp.q === "string" && sp.q ? sp.q : null;
   const normalised = slug.toLowerCase();
   if (!(await manifestExists(normalised))) notFound();
 
@@ -300,6 +302,7 @@ export default async function TenantCatchAllPage({
         viewOverride={viewOverride}
         stageFilter={stageFilter}
         oppStageFilter={oppStageFilter}
+        query={query}
       />
     </div>
   );
@@ -332,6 +335,7 @@ async function PageBody({
   viewOverride,
   stageFilter,
   oppStageFilter,
+  query,
 }: {
   slug: string;
   tenantId: string | null;
@@ -340,6 +344,7 @@ async function PageBody({
   viewOverride: "table" | "kanban" | null;
   stageFilter: string | null;
   oppStageFilter: string | null;
+  query: string | null;
 }) {
   switch (page.kind) {
     case "markdown":
@@ -434,18 +439,43 @@ async function PageBody({
         <ViewToggle slug={slug} path={page.path} current={effectiveKind} />
       ) : null;
 
+      // Universal search bar above every Kanban + Table list page so
+      // /offers, /funded-deals, /renewals, /commissions, /lenders all
+      // gain Salesforce-style "Search this list" without a per-page
+      // refactor. Query lands in the URL ?q= and the Kanban / Table
+      // server components filter their rows post-fetch.
+      const newHref = page.kind === "form" ? undefined : `/t/${slug}/${page.path}/new`;
+      const searchBar = (
+        <PageSearchBar entityLabel={entity.label} newHref={newHref} />
+      );
+
       if (effectiveKind === "kanban") {
         return (
           <>
             {toggle}
-            <ManifestKanban tenantSlug={slug} tenantId={tenantId} entity={entity} page={page} />
+            {searchBar}
+            <ManifestKanban
+              tenantSlug={slug}
+              tenantId={tenantId}
+              entity={entity}
+              page={page}
+              query={query ?? undefined}
+            />
           </>
         );
       }
       return (
         <>
           {toggle}
-          <ManifestTable tenantSlug={slug} tenantId={tenantId} entity={entity} page={page} canCreate />
+          {searchBar}
+          <ManifestTable
+            tenantSlug={slug}
+            tenantId={tenantId}
+            entity={entity}
+            page={page}
+            canCreate
+            query={query ?? undefined}
+          />
         </>
       );
     }
