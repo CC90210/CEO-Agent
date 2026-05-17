@@ -127,13 +127,24 @@ export async function GET(
     // Emit on the event bus so sequence_runner can react to opens
     // without polling email_open_events on every tick. Soft-fail if
     // agent_events isn't reachable in this deploy.
+    //
+    // Payload follows the canonical agent_event shape (tenant_id +
+    // entity + record_id) so the existing drip enrollment path in
+    // sequence_runner.enrollment_tick picks it up for free if a drip
+    // is configured with trigger_event='BRAVO_EMAIL_OPENED' — no new
+    // handler needed in the daemon. Suspicious prefetches are flagged
+    // in payload so drip authors can filter them out via
+    // trigger_filter if desired.
     try {
       await sb.from("agent_events").insert({
         tenant_id: tenantId,
         event_type: "BRAVO_EMAIL_OPENED",
         payload: {
-          outbound_message_id: id,
+          tenant_id: tenantId,
+          entity: "lead",
+          record_id: leadId,
           lead_id: leadId,
+          outbound_message_id: id,
           suspicious_prefetch: suspicious,
         },
       });
