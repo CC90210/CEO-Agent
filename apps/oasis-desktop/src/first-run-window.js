@@ -31,7 +31,6 @@ const { BrowserWindow, ipcMain, shell } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 const os = require("node:os");
-const crypto = require("node:crypto");
 const http = require("node:http");
 const https = require("node:https");
 const { spawn } = require("node:child_process");
@@ -82,12 +81,6 @@ function machineFingerprint() {
   }
   return `${sys}|${machine}|${os.hostname()}`;
 }
-
-// Reserved for future use (e.g. multi-tenant disambiguation log lines).
-// crypto is intentionally imported even though machineFingerprint stopped
-// using it — the bridge-runtime + other future flows hash the raw value
-// downstream.
-void crypto;
 
 function defaultMachineLabel() {
   const user = (os.userInfo().username || "").trim();
