@@ -211,15 +211,17 @@
       <h2>Connect a personal AI account <span style="color: var(--dim); font-weight: 500; font-size: 13px;">(optional)</span></h2>
       <p class="lead">Skip this and your chat will use the workspace's shared AI key — totally fine for getting started. Connect your own to keep your usage on your account and unlock per-agent model choices.</p>
 
-      <!-- Auto-detected local CLI subscriptions. Populated by detectCli()
-           on Step 2 mount; rendered as one-click cards above the
-           paste-a-key path. Best UX when the operator already has
-           `claude` / `codex` / `gemini` installed and authed locally —
-           no key paste at all. -->
+      <!-- Auto-detected local CLI subscriptions. The local bridge already
+           spawns claude/codex/gemini for chat when they're on PATH; this
+           section is a DISCLOSURE — it tells the operator "you already
+           have an AI source set up, you can skip the API key step." It
+           is NOT a switch the wizard flips; the bridge does the routing.
+           Clicking a card just advances to Step 3 with the choice noted
+           for the welcome-state log. -->
       <div id="cli-detected-wrap" style="display:none; margin-bottom: 14px;">
-        <label class="field-label">Detected on this machine</label>
+        <label class="field-label">You already have an AI source</label>
         <div id="cli-detected" style="display: grid; gap: 8px;"></div>
-        <div class="hint">Using your existing CLI subscription means chat routes through your local <code>claude</code> / <code>codex</code> / <code>gemini</code> binary — no API key needed and your usage stays on your subscription.</div>
+        <div class="hint">The local bridge will route chat through your installed <code>claude</code> / <code>codex</code> / <code>gemini</code> binary automatically — no API key needed and your usage stays on your subscription. You can still add an API key below as a fallback if your CLI ever logs out.</div>
       </div>
 
       <label class="field-label">Provider</label>
@@ -357,9 +359,9 @@
         const probes = await window.oasisFirstRun.detectCli();
         const hits = [];
         const meta = {
-          claude: { label: "Claude Code", pitch: "Uses your Claude Pro / Max subscription. Recommended if you have one." },
-          codex:  { label: "Codex CLI",   pitch: "Uses your OpenAI subscription via the Codex CLI." },
-          gemini: { label: "Gemini CLI",  pitch: "Uses your Google AI Studio account via the Gemini CLI." },
+          claude: { label: "Claude Code", pitch: "The bridge will use your Claude Pro / Max subscription for chat." },
+          codex:  { label: "Codex CLI",   pitch: "The bridge will use your OpenAI subscription via the Codex CLI." },
+          gemini: { label: "Gemini CLI",  pitch: "The bridge will use your Google AI Studio account via the Gemini CLI." },
         };
         for (const key of ["claude", "codex", "gemini"]) {
           if (probes && probes[key] && probes[key].installed) {
@@ -378,21 +380,21 @@
           btn.style.cssText = "display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px;";
           btn.innerHTML = `
             <div>
-              <div class="tile-name">${hit.label} <span class="ok-badge" style="margin-left: 6px;">Detected</span></div>
+              <div class="tile-name">${hit.label} <span class="ok-badge" style="margin-left: 6px;">Installed</span></div>
               <div class="tile-pitch">${hit.pitch}</div>
               <div class="hint" style="margin-top:4px; font-family: ui-monospace, monospace; font-size: 11px;">${(hit.version || "").slice(0, 60)}</div>
             </div>
-            <span style="color: var(--accent); font-weight: 700; font-size: 13px;">Use this →</span>
+            <span style="color: var(--accent); font-weight: 700; font-size: 13px;">Skip API key →</span>
           `;
           btn.addEventListener("click", () => {
-            // CLI mode == no API key; just stash a marker in custom_fields
-            // so the dashboard knows this operator prefers local-CLI
-            // routing, then advance. The bridge's tool palette already
-            // spawns `claude -p` / `codex` for the chat surface — no
-            // extra wiring needed in the desktop wizard itself.
+            // The bridge already routes chat through the local CLI when
+            // it's on PATH — clicking this card is a disclosure +
+            // shortcut to Step 3, not a real "switch." We mark the
+            // wizard state with cli:<key> so the welcome summary
+            // accurately describes what the operator chose.
             state.ai_configured = true;
             state.ai_provider = `cli:${hit.key}`;
-            showStatus(aiStatusEl, "ok", `Locked in ${hit.label}. Local subscription will route chat.`);
+            showStatus(aiStatusEl, "ok", `Great — the bridge will use your ${hit.label} subscription.`);
             setTimeout(() => setStep(3), 600);
           });
           list.appendChild(btn);
