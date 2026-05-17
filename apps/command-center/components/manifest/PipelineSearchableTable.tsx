@@ -38,8 +38,14 @@ type Props = {
   stageField: string;
   rows: Row[];
   columns: PipelineColumn[];
-  /** Resolves the stage chip's color from the row's stage value. */
-  findStage: (key: string) => StageMeta | undefined;
+  /**
+   * Pre-resolved map of stage key -> StageMeta. Server scope passes a
+   * plain object because functions are not serializable across the
+   * server/client boundary in Next.js App Router (a `findStage`
+   * function prop crashed every pipeline page with digest 3846505047
+   * on the 2026-05-17 deploy).
+   */
+  stageMap: Record<string, StageMeta>;
   /** href base for record-detail links + "+ New" CTA */
   linkBase: string;
   /** Stage filter label rendered in the empty-state message. */
@@ -71,12 +77,12 @@ function rowHaystack(row: Row, columns: PipelineColumn[], stageField: string): s
 
 export function PipelineSearchableTable({
   slug: _slug,
-  entityName,
+  entityName: _entityName,
   entityLabel,
   stageField,
   rows,
   columns,
-  findStage,
+  stageMap,
   linkBase,
   activeStageLabel,
 }: Props) {
@@ -161,7 +167,7 @@ export function PipelineSearchableTable({
             <tbody>
               {visible.map((r) => {
                 const stage = String(r.data[stageField] || "");
-                const stageMeta = findStage(stage);
+                const stageMeta = stageMap[stage];
                 return (
                   <tr key={r.id} className="border-b border-bg-border/40 last:border-b-0 hover:bg-bg-elev/30">
                     {columns.map((c, idx) => (
