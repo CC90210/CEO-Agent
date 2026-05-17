@@ -251,6 +251,7 @@
 
       <ul id="health-list" style="list-style: none; padding: 0; margin: 14px 0; display: grid; gap: 8px;">
         <li id="health-pair" class="hint" style="font-size: 13px;">⏳ Workspace pairing…</li>
+        <li id="health-dashboard" class="hint" style="font-size: 13px;">⏳ Dashboard reachable…</li>
         <li id="health-bridge" class="hint" style="font-size: 13px;">⏳ Local bridge daemon…</li>
         <li id="health-ai" class="hint" style="font-size: 13px;">⏳ AI configuration…</li>
       </ul>
@@ -554,16 +555,25 @@
         ? `✅ AI configured — ${state.ai_provider}`
         : "ℹ Using workspace AI default (no personal override)";
 
+      const healthDashboard = document.getElementById("health-dashboard");
       healthBridge.textContent = "⏳ Local bridge daemon…";
+      healthDashboard.textContent = "⏳ Dashboard reachable…";
       try {
         const r = await window.oasisFirstRun.bridgeHealth();
-        if (r && r.ok) {
+        if (r && r.bridge && r.bridge.ok) {
           healthBridge.textContent = "✅ Local bridge daemon — online";
         } else {
           healthBridge.textContent = "⚠ Local bridge daemon — starting up (will retry on dashboard load)";
         }
+        if (r && r.dashboard && r.dashboard.ok) {
+          const v = r.dashboard.version ? ` (build ${r.dashboard.version})` : "";
+          healthDashboard.textContent = `✅ Dashboard reachable${v}`;
+        } else {
+          healthDashboard.textContent = "⚠ Dashboard not reachable — check your internet";
+        }
       } catch {
         healthBridge.textContent = "⚠ Local bridge daemon — couldn't probe";
+        healthDashboard.textContent = "⚠ Dashboard not reachable — couldn't probe";
       }
 
       finishBtn.disabled = false;

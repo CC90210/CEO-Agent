@@ -32,6 +32,7 @@ const PUBLIC_PATH_PREFIXES = [
   "/api/event-feed",       // OASIS Town poller reads recent agent_events (read-only, no secrets in payloads). Option B "public for proof-of-life" per 2026-05-10 directive; HMAC hardening deferred.
   "/api/quests",           // OASIS Town Quest Log polls ACTIVE_TASKS.md mirror. Read-only, public for Phase 5 proof-of-life.
   "/api/track",            // Email-open tracking pixel (Phase 19 SunBiz CRM, 2026-05-17). Must be public — mail clients fetch the pixel without a session. Route resolves tenant_id by lookup against the interaction row (never trusts the URL parameter) and always returns a 1x1 GIF, so 401-gating it would silently break every operator's open-rate tracking. Migration 050 dedupes by (outbound_message_id, ip_hash) so a known reservation_id can't be replayed to inflate row counts.
+  "/api/health",           // Liveness probe — Docker healthcheck, the desktop wizard's "dashboard reachable?" check, any external uptime monitor. The route returns a static JSON status with no sensitive payload, so 401-gating it would silently break health monitoring across the deploy.
 
   "/api/cron",
   "/api/webhook",          // public webhooks for clients (HMAC/Bearer gated inside)
