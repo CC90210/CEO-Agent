@@ -13,6 +13,7 @@ import { ChangePasswordForm } from "@/components/ChangePasswordForm";
 import { ProfileEditor } from "@/components/settings/ProfileEditor";
 import { PlanTemplateEditor } from "@/components/settings/PlanTemplateEditor";
 import { AgentConfigEditor } from "@/components/settings/AgentConfigEditor";
+import { MyAgentsCard } from "@/components/settings/MyAgentsCard";
 import { DevicesEditor } from "@/components/settings/DevicesEditor";
 import { ProviderAccountsCard } from "@/components/settings/ProviderAccountsCard";
 import { LocalCliProvidersCard } from "@/components/settings/LocalCliProvidersCard";
@@ -190,6 +191,18 @@ export default async function SettingsPage() {
               }))}
             />
           </Card>
+
+          <MyAgentsCard
+            enabledAgentKeys={chatAgentKeys().filter((k) =>
+              (profile.agents_enabled || chatAgentKeys()).includes(k)
+            )}
+            agentLabels={Object.fromEntries(
+              (manifest?.agents || []).map((a) => [
+                a.slug.toLowerCase(),
+                a.display_name || a.slug,
+              ]),
+            )}
+          />
 
           <Card
             title="Weekday template"
