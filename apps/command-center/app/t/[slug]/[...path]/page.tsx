@@ -13,6 +13,7 @@ import { StagePipelineBar } from "@/components/manifest/StagePipelineBar";
 import { PipelineSearchableTable } from "@/components/manifest/PipelineSearchableTable";
 import { PageSearchBar } from "@/components/manifest/PageSearchBar";
 import { PIPELINE_COLUMNS, formatPipelineCell, pipelineLinkBase } from "@/lib/pipeline-display";
+import { filterRowsByQuery } from "@/lib/search-filter";
 import { LEAD_PIPELINE_STAGES, OPPORTUNITY_PIPELINE_STAGES, findStage } from "@/lib/sunbiz-stage-meta";
 import { humanize } from "@/lib/manifest/humanize";
 import { getRecord, listRecords } from "@/lib/manifest/data";
@@ -398,6 +399,7 @@ async function PageBody({
           entity={entity}
           stageField={stageField}
           stageFilter={stageFilter}
+          query={query}
         />
       );
     }
@@ -759,6 +761,7 @@ async function SingleEntityPipeline({
   entity,
   stageField,
   stageFilter,
+  query,
 }: {
   slug: string;
   tenantId: string | null;
@@ -766,6 +769,7 @@ async function SingleEntityPipeline({
   entity: { name: string; label: string; fields: { name: string; type: string }[] };
   stageField: string;
   stageFilter: string | null;
+  query: string | null;
 }) {
   const stages = entity.name === "lead"
     ? LEAD_PIPELINE_STAGES
@@ -785,15 +789,22 @@ async function SingleEntityPipeline({
     ? await listRecords({ tenant_id: tenantId, entity: entity.name, limit: 500 }).catch(() => ({ rows: [], total: 0 }))
     : { rows: [], total: 0 };
 
+  // Apply ?q= search filter FIRST so the chevron stage counts reflect
+  // the search-narrowed set (matches Salesforce: typing in the search
+  // box updates the stage badges to "how many in this stage that also
+  // match my query"). Same matcher as every other list surface;
+  // implementation in lib/search-filter.ts.
+  const searched = filterRowsByQuery(rowsRes.rows, query);
+
   const counts: Record<string, number> = {};
-  for (const r of rowsRes.rows) {
+  for (const r of searched) {
     const s = String((r.data as Record<string, unknown>)[stageField] || "");
     if (s) counts[s] = (counts[s] || 0) + 1;
   }
 
   const visible = stageFilter
-    ? rowsRes.rows.filter((r) => String((r.data as Record<string, unknown>)[stageField] || "") === stageFilter)
-    : rowsRes.rows;
+    ? searched.filter((r) => String((r.data as Record<string, unknown>)[stageField] || "") === stageFilter)
+    : searched;
 
   const activeLabel = stageFilter
     ? findStage(entity.name, stageFilter)?.label || stageFilter
@@ -815,8 +826,14 @@ async function SingleEntityPipeline({
 
   return (
     <div className="space-y-4">
+      <PageSearchBar
+        entityLabel={entity.label}
+        newHref={`/t/${slug}/${page.path}/new`}
+      />
       <div className="text-[11px] text-fg-dim font-mono">
-        {stageFilter ? `${visible.length} in ${activeLabel}` : `${rowsRes.rows.length} total`}
+        {query && query.trim()
+          ? `${visible.length} match${visible.length === 1 ? "" : "es"} for "${query}"${stageFilter ? ` in ${activeLabel}` : ""}`
+          : stageFilter ? `${visible.length} in ${activeLabel}` : `${rowsRes.rows.length} total`}
       </div>
       <StagePipelineBar
         stages={stages}
@@ -832,6 +849,7 @@ async function SingleEntityPipeline({
         stageMap={stageMap}
         linkBase={localLinkBase}
         activeStageLabel={activeLabel}
+        query={query}
       />
     </div>
   );

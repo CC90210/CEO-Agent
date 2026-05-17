@@ -7,6 +7,7 @@ import { OfferCardActions } from "./OfferCardActions";
 import { ApplicationCardActions } from "./ApplicationCardActions";
 import { humanize } from "@/lib/manifest/humanize";
 import { formatCardField, ENTITY_TITLE_PRIORITY, stageToneFor } from "@/lib/manifest/format";
+import { filterRowsByQuery } from "@/lib/search-filter";
 
 type Props = {
   tenantSlug: string;
@@ -42,30 +43,7 @@ type Props = {
   query?: string;
 };
 
-/**
- * Decide whether a row matches the operator's search query.
- * Lowercases the query + every stringifiable value in the row's data
- * and looks for a substring hit. Phone digits get a digits-only twin
- * so "5551234" matches "(555) 123-4567" without the operator caring
- * about format. Same matcher as PipelineSearchableTable so behaviour
- * is consistent across every list surface.
- */
-function rowMatchesQuery(row: TenantRecord, query: string): boolean {
-  const q = query.trim().toLowerCase();
-  if (!q) return true;
-  const qDigits = q.replace(/\D/g, "");
-  const parts: string[] = [row.id];
-  for (const v of Object.values(row.data || {})) {
-    if (v == null) continue;
-    parts.push(String(v));
-  }
-  const phone = row.data?.phone;
-  if (typeof phone === "string") parts.push(phone.replace(/\D/g, ""));
-  const hay = parts.join(" ").toLowerCase();
-  if (hay.includes(q)) return true;
-  if (qDigits.length >= 4 && hay.includes(qDigits)) return true;
-  return false;
-}
+// rowMatchesQuery + filterRowsByQuery moved to lib/search-filter.ts.
 
 /**
  * Kanban view — group entity rows by a single field (typically `stage`)
@@ -141,11 +119,10 @@ export async function ManifestKanban({
       }))
     : rawRows;
 
-  // Apply ?q= search filter (if any). Filter post-fetch so the operator
-  // sees every Kanban column shrink to just matching cards as they type.
-  const rows = query && query.trim()
-    ? computedRows.filter((r) => rowMatchesQuery(r, query))
-    : computedRows;
+  // Apply ?q= search filter (shared matcher; see lib/search-filter.ts).
+  // Filter post-fetch so the operator sees every Kanban column shrink
+  // to just matching cards as they type.
+  const rows = filterRowsByQuery(computedRows, query);
 
   const grouped = groupRecordsBy(rows, groupBy);
 
