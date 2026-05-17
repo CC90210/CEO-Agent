@@ -8,6 +8,7 @@ import { ManifestDashboard } from "@/components/manifest/ManifestDashboard";
 import { ManifestRecordForm } from "@/components/manifest/ManifestRecordForm";
 import { ManifestReasoning } from "@/components/manifest/ManifestReasoning";
 import { LeadsImportClient } from "@/components/leads/LeadsImportClient";
+import { LeadTimelinePanel } from "@/components/leads/LeadTimelinePanel";
 import { humanize } from "@/lib/manifest/humanize";
 import { getRecord } from "@/lib/manifest/data";
 import { Card, PageHeader, Tag } from "@/components/Card";
@@ -157,6 +158,32 @@ export default async function TenantCatchAllPage({
               </Link>
             }
           />
+          {(() => {
+            // Missing-info banner — surfaces Phase 20 classifier output
+            // at the top of the lead detail so the operator sees what's
+            // owed before reading any other field. Only on the `lead`
+            // entity; other entities don't carry missing_info.
+            if (entity.name !== "lead") return null;
+            const mi = (record.data as Record<string, unknown>)?.missing_info;
+            const items = Array.isArray(mi)
+              ? (mi as unknown[]).filter((x): x is string => typeof x === "string")
+              : [];
+            if (items.length === 0) return null;
+            return (
+              <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-4 text-sm leading-relaxed text-red-200">
+                <div className="font-semibold text-red-100 mb-1">
+                  🔴 Lender asked for additional documentation
+                </div>
+                <div className="font-mono text-[12.5px]">
+                  Missing: {items.join(", ")}
+                </div>
+                <div className="text-[11.5px] text-red-200/80 mt-1.5">
+                  Upload the matching document via the lead&apos;s docs panel (queued) or forward the lender thread to the
+                  classifier inbox once received.
+                </div>
+              </div>
+            );
+          })()}
           <ManifestRecordForm
             tenantSlug={normalised}
             entity={entity}
@@ -164,6 +191,9 @@ export default async function TenantCatchAllPage({
             initial={record.data}
             editId={recordDetailId}
           />
+          {entity.name === "lead" && (
+            <LeadTimelinePanel leadId={recordDetailId} />
+          )}
         </div>
       );
     }
