@@ -40,12 +40,14 @@ export type DefaultSequence = {
 
 export const SUNBIZ_DEFAULT_SEQUENCES: DefaultSequence[] = [
   // ─────────────────────────────────────────────────────────────────
-  // 1. Cold -> follow_up : 3-touch follow-up cadence
+  // 1. Any earlier stage -> follow_up : 3-touch follow-up cadence
+  // (Salesforce-parity stages 2026-05-17: imported / not_interested /
+  // hot_lead / missing_info — any of these landing on follow_up.)
   // ─────────────────────────────────────────────────────────────────
   {
-    name: "Follow-up sequence (cold leads)",
+    name: "Follow-up sequence",
     description:
-      "Fires when a lead moves cold → follow_up. 3-touch SMS+email cadence to get them on a call.",
+      "Fires when a lead reaches the follow_up stage. 3-touch SMS+email cadence to get them on a call.",
     trigger_event: "BRAVO_RECORD_STATUS_CHANGED",
     trigger_filter: { entity: "lead", field: "stage", to: "follow_up" },
     one_per_lead: true,
@@ -155,7 +157,7 @@ export const SUNBIZ_DEFAULT_SEQUENCES: DefaultSequence[] = [
     description:
       "Fires when an offer rolls to no_offer status. Asks the operator for updated bank statements monthly so we can re-shop.",
     trigger_event: "BRAVO_RECORD_STATUS_CHANGED",
-    trigger_filter: { entity: "offer", field: "stage", to: "no_offer" },
+    trigger_filter: { entity: "offer", field: "stage", to: "no_offers_available" },
     // Multi-fire-allowed (one_per_lead=false). The monthly cadence is
     // the whole point — same lead, new month, new statements.
     one_per_lead: false,

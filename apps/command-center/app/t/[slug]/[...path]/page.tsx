@@ -9,8 +9,10 @@ import { ManifestRecordForm } from "@/components/manifest/ManifestRecordForm";
 import { ManifestReasoning } from "@/components/manifest/ManifestReasoning";
 import { LeadsImportClient } from "@/components/leads/LeadsImportClient";
 import { LeadTimelinePanel } from "@/components/leads/LeadTimelinePanel";
+import { StagePipelineBar } from "@/components/manifest/StagePipelineBar";
+import { LEAD_PIPELINE_STAGES, OPPORTUNITY_PIPELINE_STAGES, findStage } from "@/lib/sunbiz-stage-meta";
 import { humanize } from "@/lib/manifest/humanize";
-import { getRecord } from "@/lib/manifest/data";
+import { getRecord, listRecords } from "@/lib/manifest/data";
 import { Card, PageHeader, Tag } from "@/components/Card";
 import { getManifest, manifestExists } from "@/lib/manifest/loader";
 import { resolveDataTenant } from "@/lib/manifest/tenant-scope";
@@ -38,12 +40,14 @@ export default async function TenantCatchAllPage({
   searchParams,
 }: {
   params: Promise<{ slug: string; path: string[] }>;
-  searchParams?: Promise<{ view?: string }>;
+  searchParams?: Promise<{ view?: string; stage?: string; opp_stage?: string }>;
 }) {
   const { slug, path } = await params;
   const sp = (await searchParams) || {};
   const viewOverride: "table" | "kanban" | null =
     sp.view === "table" ? "table" : sp.view === "kanban" ? "kanban" : null;
+  const stageFilter = typeof sp.stage === "string" && sp.stage ? sp.stage : null;
+  const oppStageFilter = typeof sp.opp_stage === "string" && sp.opp_stage ? sp.opp_stage : null;
   const normalised = slug.toLowerCase();
   if (!(await manifestExists(normalised))) notFound();
 
@@ -286,7 +290,15 @@ export default async function TenantCatchAllPage({
           <span className="font-mono">/t/{normalised}</span> tenant would see.
         </div>
       )}
-      <PageBody slug={normalised} tenantId={dataTenantId} page={pageDef} manifest={manifest} viewOverride={viewOverride} />
+      <PageBody
+        slug={normalised}
+        tenantId={dataTenantId}
+        page={pageDef}
+        manifest={manifest}
+        viewOverride={viewOverride}
+        stageFilter={stageFilter}
+        oppStageFilter={oppStageFilter}
+      />
     </div>
   );
 }
@@ -315,12 +327,16 @@ async function PageBody({
   page,
   manifest,
   viewOverride,
+  stageFilter,
+  oppStageFilter,
 }: {
   slug: string;
   tenantId: string | null;
   page: ManifestPageDef;
   manifest: Awaited<ReturnType<typeof getManifest>>;
   viewOverride: "table" | "kanban" | null;
+  stageFilter: string | null;
+  oppStageFilter: string | null;
 }) {
   switch (page.kind) {
     case "markdown":
@@ -336,48 +352,23 @@ async function PageBody({
       // accidentally bulk-insert into someone else's leads table.
       return <LeadsImportClient />;
     case "pipeline": {
-      // Two-pipeline superview — Lead Pipeline stacked over Opportunity
-      // Pipeline. Salesforce-replacement view per the 2026-05-16 meeting.
-      // Each section reuses ManifestKanban; the only thing this kind
-      // contributes is the layout shell + the "graduation" caption between
-      // them so operators see the submitted→offered handoff clearly.
-      const cfg = (page.config || {}) as { lead_entity?: string; opportunity_entity?: string };
-      const leadName = cfg.lead_entity || "lead";
-      const oppName = cfg.opportunity_entity || "offer";
-      const leadEntity = (manifest.data_model || []).find((e) => e.name === leadName);
-      const oppEntity = (manifest.data_model || []).find((e) => e.name === oppName);
-      if (!leadEntity || !oppEntity) {
-        return (
-          <div className="rounded-2xl border border-amber-300/25 bg-amber-300/10 p-5 text-sm text-amber-100 leading-relaxed">
-            Pipeline superview references entities <code>{leadName}</code> and <code>{oppName}</code> — at least one
-            isn&apos;t defined in the manifest&apos;s <code>data_model</code>.
-          </div>
-        );
-      }
-      const leadPage: ManifestPageDef = { path: page.path + "/leads", label: "Leads", kind: "kanban", entity: leadName, config: { group_by: "stage" } };
-      const oppPage: ManifestPageDef = { path: page.path + "/offers", label: "Offers", kind: "kanban", entity: oppName, config: { group_by: "stage" } };
+      // Salesforce-replacement two-pipeline view. Each section renders:
+      //   1. StagePipelineBar — the Salesforce-style arrow chevron chain
+      //      with verbatim colors from Adon's screenshots.
+      //   2. A stage-filtered table of records (ManifestTable with
+      //      pre-filtered rows). Clicking a chevron applies ?stage=...
+      //      to the URL for Lead Pipeline or ?opp_stage=... for
+      //      Opportunity Pipeline (separate params so both bars can
+      //      filter independently on the same page).
       return (
-        <div className="space-y-6">
-          <div>
-            <div className="flex items-baseline justify-between mb-3">
-              <h2 className="text-sm uppercase tracking-wider text-fg-muted">Lead Pipeline</h2>
-              <Link href={`/t/${slug}/leads`} className="text-xs text-fg-muted hover:text-fg">Open full board →</Link>
-            </div>
-            <ManifestKanban tenantSlug={slug} tenantId={tenantId} entity={leadEntity} page={leadPage} />
-          </div>
-          <div className="flex items-center gap-3 py-2">
-            <div className="h-px flex-1 bg-border" />
-            <div className="text-xs uppercase tracking-wider text-fg-muted">↓ Application submitted · Opportunity opens ↓</div>
-            <div className="h-px flex-1 bg-border" />
-          </div>
-          <div>
-            <div className="flex items-baseline justify-between mb-3">
-              <h2 className="text-sm uppercase tracking-wider text-fg-muted">Opportunity Pipeline</h2>
-              <Link href={`/t/${slug}/offers`} className="text-xs text-fg-muted hover:text-fg">Open full board →</Link>
-            </div>
-            <ManifestKanban tenantSlug={slug} tenantId={tenantId} entity={oppEntity} page={oppPage} />
-          </div>
-        </div>
+        <PipelineSuperview
+          slug={slug}
+          tenantId={tenantId}
+          page={page}
+          manifest={manifest}
+          stageFilter={stageFilter}
+          oppStageFilter={oppStageFilter}
+        />
       );
     }
     case "table":
@@ -483,6 +474,224 @@ function ViewToggle({
       >
         Table
       </Link>
+    </div>
+  );
+}
+
+/**
+ * PipelineSuperview — Salesforce-replacement two-pipeline page renderer.
+ *
+ * Renders the Lead Pipeline chevron bar + filtered record table, then
+ * the Opportunity Pipeline chevron bar + filtered record table. Each
+ * chevron is clickable; clicking applies a URL filter (stage= or
+ * opp_stage=) so the operator can drill into one stage without losing
+ * sight of the other pipeline.
+ *
+ * Per-stage record counts are pre-computed server-side from listRecords
+ * so the chevrons render with badges showing "how many in this stage."
+ */
+async function PipelineSuperview({
+  slug,
+  tenantId,
+  page,
+  manifest,
+  stageFilter,
+  oppStageFilter,
+}: {
+  slug: string;
+  tenantId: string | null;
+  page: ManifestPageDef;
+  manifest: Awaited<ReturnType<typeof getManifest>>;
+  stageFilter: string | null;
+  oppStageFilter: string | null;
+}) {
+  const cfg = (page.config || {}) as { lead_entity?: string; opportunity_entity?: string };
+  const leadName = cfg.lead_entity || "lead";
+  const oppName = cfg.opportunity_entity || "offer";
+  const leadEntity = (manifest.data_model || []).find((e) => e.name === leadName);
+  const oppEntity = (manifest.data_model || []).find((e) => e.name === oppName);
+  if (!leadEntity || !oppEntity) {
+    return (
+      <div className="rounded-2xl border border-amber-300/25 bg-amber-300/10 p-5 text-sm text-amber-100 leading-relaxed">
+        Pipeline superview references entities <code>{leadName}</code> and <code>{oppName}</code> — at least one
+        isn&apos;t defined in the manifest&apos;s <code>data_model</code>.
+      </div>
+    );
+  }
+
+  // Fetch every record for each pipeline once; partition client-side
+  // into stage buckets. Cheaper than N round-trips (one per stage) and
+  // gives us accurate counts for the chevron badges in the same query.
+  const [leadRowsRes, oppRowsRes] = await Promise.all([
+    tenantId
+      ? listRecords({ tenant_id: tenantId, entity: leadName, limit: 500 }).catch(() => ({ rows: [], total: 0 }))
+      : Promise.resolve({ rows: [], total: 0 }),
+    tenantId
+      ? listRecords({ tenant_id: tenantId, entity: oppName, limit: 500 }).catch(() => ({ rows: [], total: 0 }))
+      : Promise.resolve({ rows: [], total: 0 }),
+  ]);
+
+  const leadCounts: Record<string, number> = {};
+  for (const r of leadRowsRes.rows) {
+    const s = String((r.data as Record<string, unknown>).stage || "");
+    if (s) leadCounts[s] = (leadCounts[s] || 0) + 1;
+  }
+  const oppCounts: Record<string, number> = {};
+  for (const r of oppRowsRes.rows) {
+    const s = String((r.data as Record<string, unknown>).stage || "");
+    if (s) oppCounts[s] = (oppCounts[s] || 0) + 1;
+  }
+
+  const leadVisible = stageFilter
+    ? leadRowsRes.rows.filter((r) => String((r.data as Record<string, unknown>).stage || "") === stageFilter)
+    : leadRowsRes.rows;
+  const oppVisible = oppStageFilter
+    ? oppRowsRes.rows.filter((r) => String((r.data as Record<string, unknown>).stage || "") === oppStageFilter)
+    : oppRowsRes.rows;
+
+  return (
+    <div className="space-y-10">
+      <section className="space-y-4">
+        <div className="flex items-baseline justify-between gap-4">
+          <h2 className="text-lg font-bold text-fg">Lead Pipeline</h2>
+          <div className="text-[11px] text-fg-dim font-mono">
+            {stageFilter ? `${leadVisible.length} in ${findStage("lead", stageFilter)?.label || stageFilter}` : `${leadRowsRes.rows.length} total`}
+          </div>
+        </div>
+        <StagePipelineBar
+          stages={LEAD_PIPELINE_STAGES}
+          activeKey={stageFilter}
+          basePath={`/t/${slug}/${page.path}`}
+          counts={leadCounts}
+        />
+        <PipelineRecordList
+          slug={slug}
+          entityName={leadName}
+          rows={leadVisible}
+          activeStageLabel={stageFilter ? findStage("lead", stageFilter)?.label || stageFilter : "All stages"}
+        />
+      </section>
+
+      <section className="space-y-4">
+        <div className="flex items-baseline justify-between gap-4">
+          <h2 className="text-lg font-bold text-fg">Opportunity Pipeline</h2>
+          <div className="text-[11px] text-fg-dim font-mono">
+            {oppStageFilter ? `${oppVisible.length} in ${findStage("offer", oppStageFilter)?.label || oppStageFilter}` : `${oppRowsRes.rows.length} total`}
+          </div>
+        </div>
+        <StagePipelineBar
+          stages={OPPORTUNITY_PIPELINE_STAGES}
+          activeKey={oppStageFilter}
+          basePath={`/t/${slug}/${page.path}`}
+          counts={oppCounts}
+        />
+        <PipelineRecordList
+          slug={slug}
+          entityName={oppName}
+          rows={oppVisible}
+          activeStageLabel={oppStageFilter ? findStage("offer", oppStageFilter)?.label || oppStageFilter : "All opportunities"}
+        />
+      </section>
+    </div>
+  );
+}
+
+/**
+ * PipelineRecordList — compact table rendered below each pipeline bar.
+ *
+ * Salesforce shows a tabular layout under each pipeline stage filter.
+ * We do the same — name + key contact fields + stage tag. Empty state
+ * renders explicitly so a fresh tenant doesn't see a blank container.
+ */
+function PipelineRecordList({
+  slug,
+  entityName,
+  rows,
+  activeStageLabel,
+}: {
+  slug: string;
+  entityName: string;
+  rows: { id: string; data: Record<string, unknown> }[];
+  activeStageLabel: string;
+}) {
+  if (rows.length === 0) {
+    return (
+      <div className="rounded-2xl border border-bg-border bg-bg-deep/40 p-6 text-center text-sm text-fg-dim italic">
+        No records in {activeStageLabel}.
+      </div>
+    );
+  }
+
+  // Pick reasonable display columns per entity. Salesforce showed
+  // Name / Phone / Email / Agent / Status — we mirror that with the
+  // funding-shop equivalents.
+  const COLS_BY_ENTITY: Record<string, { key: string; label: string }[]> = {
+    lead: [
+      { key: "business_name", label: "Company" },
+      { key: "contact_name", label: "Contact" },
+      { key: "phone", label: "Phone" },
+      { key: "email", label: "Email" },
+      { key: "monthly_revenue", label: "Monthly Rev" },
+    ],
+    offer: [
+      { key: "lender_id", label: "Lender" },
+      { key: "amount", label: "Amount" },
+      { key: "term_months", label: "Term" },
+      { key: "factor_rate", label: "Factor" },
+    ],
+  };
+  const cols = COLS_BY_ENTITY[entityName] || [];
+  const linkBase = `/t/${slug}/${entityName === "lead" ? "leads" : entityName === "offer" ? "offers" : entityName}`;
+  const formatVal = (v: unknown) => {
+    if (v == null || v === "") return "—";
+    return String(v);
+  };
+
+  return (
+    <div className="overflow-x-auto rounded-2xl border border-bg-border bg-bg-deep/30">
+      <table className="w-full text-[12.5px]">
+        <thead>
+          <tr className="text-left text-fg-dim border-b border-bg-border">
+            {cols.map((c) => (
+              <th key={c.key} className="px-3 py-2 font-medium">{c.label}</th>
+            ))}
+            <th className="px-3 py-2 font-medium">Stage</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => {
+            const stage = String(r.data.stage || "");
+            const stageMeta = findStage(entityName, stage);
+            return (
+              <tr key={r.id} className="border-b border-bg-border/40 last:border-b-0 hover:bg-bg-elev/30">
+                {cols.map((c, idx) => (
+                  <td key={c.key} className={`px-3 py-2 ${idx === 0 ? "font-medium text-fg" : "text-fg-muted"}`}>
+                    {idx === 0 ? (
+                      <Link href={`${linkBase}/${r.id}`} className="hover:underline">
+                        {formatVal(r.data[c.key])}
+                      </Link>
+                    ) : (
+                      formatVal(r.data[c.key])
+                    )}
+                  </td>
+                ))}
+                <td className="px-3 py-2">
+                  {stageMeta ? (
+                    <span
+                      className="inline-block px-2 py-0.5 rounded text-[11px] font-semibold"
+                      style={{ background: stageMeta.bg, color: stageMeta.fg }}
+                    >
+                      {stageMeta.label}
+                    </span>
+                  ) : (
+                    <span className="text-fg-dim font-mono">{stage || "—"}</span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

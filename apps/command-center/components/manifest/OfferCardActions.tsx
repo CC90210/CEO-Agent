@@ -5,19 +5,22 @@
  * cards (Phase 10.2 of SunBiz CRM).
  *
  * Mounted by ManifestKanban when entity.name === "offer" and the row's
- * stage is one of the "actionable" stages (offered, contracts_out).
- * Other stages (accepted, funded, no_offer, declined, expired) don't
- * render this component — the operator can still edit via the record
- * detail page, but a one-click accept/decline on a terminal stage
- * would be a footgun.
+ * stage is one of the "actionable" Opportunity Pipeline stages (post
+ * 2026-05-17 Salesforce-parity rework: approved_open_offers /
+ * contracts_ordered). Terminal stages (funded / no_offers_available /
+ * approved_never_funded / dead_file) don't render this — the operator
+ * can still edit via the record detail page, but a one-click flip on a
+ * terminal stage is a footgun.
  *
  * Accept = POST /api/manifest/{slug}/offer/{id}/accept which:
- *   1. flips offer.stage → "accepted" (fires status-change event)
+ *   1. flips offer.stage → "funded" (fires status-change event)
  *   2. creates a draft funded_deal row carrying the offer's
  *      lead_id + lender_id + amount + term + funded_at=today
  *
  * Decline = quieter PATCH to /api/manifest/{slug}/records/offer to
- * flip stage → "declined". No downstream record creation.
+ * flip stage → "dead_file" (the funding-shop equivalent of "client
+ * killed it"; aligns with Adon's Salesforce vocabulary). No downstream
+ * record creation.
  */
 
 import { useState } from "react";
@@ -36,10 +39,10 @@ export function OfferCardActions({ tenantSlug, offerId, stage }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<null | "accept" | "decline">(null);
 
-  // The two stages where Accept/Decline makes sense. If a downstream
-  // tenant edits the offer.stage enum we'd want to revisit, but for
-  // SunBiz the canonical actionable pair is offered + contracts_out.
-  const isActionable = stage === "offered" || stage === "contracts_out";
+  // The two stages where Accept/Decline makes sense. Salesforce-parity
+  // 2026-05-17: approved_open_offers (lender returned terms, awaiting
+  // client signature) + contracts_ordered (contract sent, awaiting wire).
+  const isActionable = stage === "approved_open_offers" || stage === "contracts_ordered";
   if (!isActionable) return null;
 
   async function accept() {
@@ -84,7 +87,7 @@ export function OfferCardActions({ tenantSlug, offerId, stage }: Props) {
         {
           method: "PATCH",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ patch: { stage: "declined" } }),
+          body: JSON.stringify({ patch: { stage: "dead_file" } }),
         },
       );
       const data = (await res.json()) as { ok: boolean; error?: string };
@@ -133,7 +136,7 @@ export function OfferCardActions({ tenantSlug, offerId, stage }: Props) {
         onClick={decline}
         disabled={busy !== null}
         className="inline-flex items-center gap-1 rounded-md bg-bg-deep hover:bg-bg-elev/60 border border-bg-border text-fg-muted px-2 py-1 text-[11px] disabled:opacity-50"
-        title="Mark declined (no funded deal created)"
+        title="Mark as dead file (client killed it — no funded deal created)"
       >
         {busy === "decline" ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
         Decline
