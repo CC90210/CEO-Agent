@@ -687,9 +687,30 @@ function PipelineRecordList({
     entityName === "offer" ? "offers" :
     entityName
   }`;
-  const formatVal = (v: unknown) => {
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const formatVal = (v: unknown, key?: string) => {
     if (v == null || v === "") return "—";
-    return String(v);
+    const s = String(v);
+    // Stub UUIDs down to a readable 8-char prefix so the table doesn't
+    // become a wall of opaque hashes. Real fix is a server-side join
+    // against the referenced record's business_name / lender name —
+    // queued as a follow-up; today the operator can still click in to
+    // the detail page to see context.
+    if ((key === "lead_id" || key === "lender_id") && UUID_RE.test(s)) {
+      return s.slice(0, 8);
+    }
+    // Money columns get $ formatting.
+    if ((key === "amount" || key === "requested_amount" || key === "monthly_revenue") && typeof v === "number") {
+      return v.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+    }
+    // Date columns get a short MMM DD, YYYY format.
+    if ((key === "submitted_at" || key === "funded_at") && typeof s === "string" && s.length >= 10) {
+      const d = new Date(s);
+      if (!Number.isNaN(d.getTime())) {
+        return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+      }
+    }
+    return s;
   };
 
   return (
@@ -713,10 +734,10 @@ function PipelineRecordList({
                   <td key={c.key} className={`px-3 py-2 ${idx === 0 ? "font-medium text-fg" : "text-fg-muted"}`}>
                     {idx === 0 ? (
                       <Link href={`${linkBase}/${r.id}`} className="hover:underline">
-                        {formatVal(r.data[c.key])}
+                        {formatVal(r.data[c.key], c.key)}
                       </Link>
                     ) : (
-                      formatVal(r.data[c.key])
+                      formatVal(r.data[c.key], c.key)
                     )}
                   </td>
                 ))}
