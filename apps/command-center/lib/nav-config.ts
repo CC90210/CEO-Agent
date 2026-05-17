@@ -125,25 +125,35 @@ export const CC_NAV: NavItem[] = [
  * to see agent-to-agent message routing.
  */
 export const SUN_NAV: NavItem[] = [
+  // Operations — daily-use core. /pipeline is the new Salesforce-parity
+  // superview (Lead Pipeline + Opportunity Pipeline stacked with arrow
+  // chevron bars per Adon's 2026-05-16 screenshots).
   { group: "Operations", href: "/", label: "Dashboard", icon: "LayoutDashboard" },
   { group: "Operations", href: "/pipeline", label: "Pipeline", icon: "GitBranch" },
   { group: "Operations", href: "/agent", label: "Agents", icon: "Bot" },
   { group: "Operations", href: "/reasoning", label: "Reasoning", icon: "Brain" },
   { group: "Operations", href: "/playbook", label: "Playbook", icon: "BookOpen" },
+  // Pipeline — per-entity boards behind the unified /pipeline view.
+  // Contacts dropped 2026-05-17 — was a speculative scaffold; the lead
+  // record itself carries contact_name + phone + email so a separate
+  // Contacts surface is dead weight until Adon asks for it.
   { group: "Pipeline", href: "/leads", label: "Leads", icon: "Users" },
-  { group: "Pipeline", href: "/contacts", label: "Contacts", icon: "BookUser" },
   { group: "Pipeline", href: "/applications", label: "Applications", icon: "FileText", badgeKey: "applications" },
-  { group: "Pipeline", href: "/forms", label: "Forms", icon: "FileCode2" },
   { group: "Pipeline", href: "/import", label: "Import", icon: "Upload" },
+  { group: "Pipeline", href: "/forms", label: "Forms", icon: "FileCode2" },
+  // Deals — Opportunity-side records.
   { group: "Deals", href: "/offers", label: "Offers", icon: "HandCoins" },
   { group: "Deals", href: "/funded-deals", label: "Funded Deals", icon: "BadgeDollarSign" },
   { group: "Deals", href: "/renewals", label: "Renewals", icon: "RefreshCcw" },
   { group: "Deals", href: "/commissions", label: "Commissions", icon: "DollarSign" },
+  // Outreach — drip + blast cadence surfaces.
+  { group: "Outreach", href: "/sequences", label: "Sequences", icon: "Sparkles" },
   { group: "Outreach", href: "/sms", label: "SMS", icon: "MessageSquare", expandable: true },
   { group: "Outreach", href: "/email-blast", label: "Email Blast", icon: "Mail" },
-  { group: "Outreach", href: "/sequences", label: "Sequences", icon: "Sparkles" },
+  // Network — lender book + templates.
   { group: "Network", href: "/lenders", label: "Lenders", icon: "Landmark" },
   { group: "Network", href: "/templates", label: "Templates", icon: "FileCode2" },
+  // System — config + ops.
   { group: "System", href: "/team", label: "Team", icon: "UsersRound" },
   { group: "System", href: "/automations", label: "Automations", icon: "RefreshCcw" },
   { group: "System", href: "/health", label: "Health", icon: "ShieldCheck" },
