@@ -65,6 +65,19 @@ export async function PATCH(req: NextRequest) {
       newRole,
       actor: ctx,
     });
+    // Audit-log the role change (Phase D).
+    try {
+      const { getServiceSupabase } = await import("@/lib/supabase-server");
+      await getServiceSupabase().rpc("log_tenant_event", {
+        p_tenant_id: ctx.tenantId,
+        p_action_type: "member.role_change",
+        p_target_table: "user_profiles",
+        p_target_id: body.profile_id,
+        p_after: { team_role: newRole },
+      });
+    } catch {
+      // audit-log soft-fail
+    }
     return NextResponse.json({ ok: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "update_failed";
@@ -93,6 +106,18 @@ export async function DELETE(req: NextRequest) {
       targetProfileId: profileId,
       actor: ctx,
     });
+    // Audit-log the removal (Phase D).
+    try {
+      const { getServiceSupabase } = await import("@/lib/supabase-server");
+      await getServiceSupabase().rpc("log_tenant_event", {
+        p_tenant_id: ctx.tenantId,
+        p_action_type: "member.remove",
+        p_target_table: "user_profiles",
+        p_target_id: profileId,
+      });
+    } catch {
+      // audit-log soft-fail
+    }
     return NextResponse.json({ ok: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "remove_failed";
