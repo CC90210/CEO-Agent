@@ -73,12 +73,31 @@ export async function resolveChatContext(
     return { ok: false, status: 403, code: "no_tenant" };
   }
 
-  const { data: cfg } = await service
+  // Phase B (per-user agent config, 2026-05-17): prefer the user-scoped
+  // override row before falling back to the tenant default. Migration 052
+  // added the user_id column + partial unique indexes that let both rows
+  // coexist. The resolver semantics live in lib/agent-resolver.ts; the
+  // two-step lookup is inlined here to keep the chat-auth path on one
+  // service-role client + minimize round-trips.
+  const userOverride = await service
     .from("agent_model_config")
     .select("provider, model, encrypted_api_key, system_prompt_override, enabled")
     .eq("tenant_id", tenantId)
+    .eq("user_id", user.id)
     .eq("agent_key", agentKey)
     .maybeSingle();
+
+  const tenantDefault = userOverride.data
+    ? { data: null as null }
+    : await service
+        .from("agent_model_config")
+        .select("provider, model, encrypted_api_key, system_prompt_override, enabled")
+        .eq("tenant_id", tenantId)
+        .is("user_id", null)
+        .eq("agent_key", agentKey)
+        .maybeSingle();
+
+  const cfg = userOverride.data ?? tenantDefault.data;
 
   const isOperator = isOperatorEmail(user.email || "");
   let provider: Provider;

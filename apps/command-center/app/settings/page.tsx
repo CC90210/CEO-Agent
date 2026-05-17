@@ -75,11 +75,20 @@ export default async function SettingsPage() {
             title="Profile"
             subtitle={`Signed in as ${profile.email}`}
             action={
-              tenant && (
-                <Tag tone={tenant.purchase_status === "active" ? "engaged" : "warm"}>
-                  {tenant.plan_tier} · {tenant.purchase_status}
-                </Tag>
-              )
+              <div className="flex items-center gap-2">
+                {tenant && (
+                  <Tag tone={tenant.purchase_status === "active" ? "engaged" : "warm"}>
+                    {tenant.plan_tier} · {tenant.purchase_status}
+                  </Tag>
+                )}
+                <a
+                  href="/onboarding/welcome"
+                  className="text-xs text-accent hover:text-accent/80 underline underline-offset-2"
+                  title="Re-open the personalisation wizard to edit timezone / default agent / briefing channel"
+                >
+                  Open personalisation wizard →
+                </a>
+              </div>
             }
           >
             <ProfileEditor profile={profile} />

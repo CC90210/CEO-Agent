@@ -13,6 +13,18 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string 
   if (!id) return bad(400, "missing id");
   try {
     await revokeInvite(id, session.tenantId);
+    // Audit-log the revoke (Phase D). Best-effort.
+    try {
+      const { getServiceSupabase } = await import("@/lib/supabase-server");
+      await getServiceSupabase().rpc("log_tenant_event", {
+        p_tenant_id: session.tenantId,
+        p_action_type: "invite.revoke",
+        p_target_table: "tenant_invites",
+        p_target_id: id,
+      });
+    } catch {
+      // audit-log soft-fail
+    }
     return NextResponse.json({ ok: true });
   } catch (err) {
     return bad(500, err instanceof Error ? err.message : "revoke_failed");
