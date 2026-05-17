@@ -230,6 +230,208 @@ def fetch_thread_latest_body(thread_id: str) -> str | None:
 # ─────────────────────────────────────────────────────────────────────
 
 
+# ─────────────────────────────────────────────────────────────────────
+# Missing-info second-pass classifier (Phase 20, 2026-05-17)
+# ─────────────────────────────────────────────────────────────────────
+#
+# When the main classifier returns label='info_requested', we run a
+# focused second pass to extract WHICH specific artefacts the lender
+# is asking for. Output is a fixed-vocabulary array that maps cleanly
+# to lead_documents.doc_type values + the lead Kanban card's red chip.
+#
+# Vocabulary intentionally short — adding to it requires:
+#   1. update MISSING_INFO_VOCAB below
+#   2. update Phase 20.4 cross-reference in /api/leads/[id]/documents
+#      route's POST handler (clears missing_info when matching doc lands)
+#   3. update doc_type enum docs in database/049_crm_reconstructor.sql
+
+MISSING_INFO_VOCAB = [
+    "bank_statements_3mo",      # most common — last 3 months business banking
+    "void_cheque",              # for ACH setup
+    "drivers_license",          # owner ID
+    "proof_of_ownership",       # articles, op agreement, EIN letter, etc.
+    "business_license",         # state/municipal license
+    "tax_returns",              # personal or business
+    "signed_application",       # original app signature
+    "voided_check",             # alias kept for older lender phrasing
+    "other",                    # catch-all when lender wants something off-vocab
+]
+
+MISSING_INFO_PROMPT = """A lender just emailed asking for additional documentation on a funding application. Identify EVERY artefact they're requesting, mapping each to ONE of this fixed vocabulary:
+
+{vocab}
+
+Return JSON with two keys ONLY:
+  {{
+    "missing": ["bank_statements_3mo", ...],    // array; empty if nothing concrete is being requested
+    "note": "<one-sentence summary of the ask, max 200 chars>"
+  }}
+
+Rules:
+- Map synonyms to the closest vocab item (e.g. "3 months bank stmts" -> bank_statements_3mo, "DL" -> drivers_license, "EIN letter" -> proof_of_ownership).
+- If the lender asks for something not in the vocab, include "other" AND describe it in the note.
+- Empty array is correct when the email is a clarifying question, scheduling a call, or otherwise NOT requesting documents.
+- No duplicates; preserve the order in which the lender mentions them.
+
+Email body between markers:
+
+<email>
+{body}
+</email>
+"""
+
+
+def extract_missing_info(body: str) -> dict:
+    """Second-pass classifier: when the lender response is info_requested,
+    extract a structured list of missing artefacts. Returns
+    {"missing": [...], "note": "..."} — empty list on any error so the
+    caller can fall through without surfacing a false alarm."""
+    api_key = _load_env_var("ANTHROPIC_API_KEY")
+    if not api_key:
+        return {"missing": [], "note": ""}
+    try:
+        import requests
+    except ImportError:
+        return {"missing": [], "note": ""}
+
+    vocab_str = "\n".join(f"  - {v}" for v in MISSING_INFO_VOCAB)
+    prompt = MISSING_INFO_PROMPT.format(vocab=vocab_str, body=body[:4000])
+    try:
+        r = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+            json={
+                "model": "claude-haiku-4-5-20251001",
+                "max_tokens": 300,
+                "messages": [{"role": "user", "content": prompt}],
+            },
+            timeout=30,
+        )
+    except requests.RequestException as e:
+        _log(f"missing_info: network error: {e}")
+        return {"missing": [], "note": ""}
+    if r.status_code >= 400:
+        _log(f"missing_info: Anthropic HTTP {r.status_code}")
+        return {"missing": [], "note": ""}
+    try:
+        data = r.json()
+    except ValueError:
+        return {"missing": [], "note": ""}
+
+    text = "".join(blk.get("text", "") for blk in data.get("content", []) if blk.get("type") == "text").strip()
+    s, e = text.find("{"), text.rfind("}")
+    if s == -1 or e <= s:
+        return {"missing": [], "note": ""}
+    try:
+        parsed = json.loads(text[s : e + 1])
+    except json.JSONDecodeError:
+        return {"missing": [], "note": ""}
+
+    raw_missing = parsed.get("missing") or []
+    if not isinstance(raw_missing, list):
+        return {"missing": [], "note": ""}
+    # Filter to known vocab + dedup in order.
+    seen: set[str] = set()
+    cleaned: list[str] = []
+    for item in raw_missing:
+        if isinstance(item, str) and item in MISSING_INFO_VOCAB and item not in seen:
+            seen.add(item)
+            cleaned.append(item)
+    return {"missing": cleaned, "note": str(parsed.get("note", ""))[:200]}
+
+
+def apply_missing_info(sb, tenant_id: str, application_id: str, missing: list[str], note: str) -> bool:
+    """Resolve application -> lead, merge `missing` into the lead's
+    data.missing_info jsonb array (additive — never clears existing
+    entries here; the documents-upload path is what clears), then raise
+    an agent_alerts row (deduped by lead_id) so CC gets one Telegram
+    ping per lead per missing-info-cycle. Returns True if anything
+    landed."""
+    if not missing or not application_id or not tenant_id:
+        return False
+    # 1. Look up the application record to get lead_id from its data blob.
+    try:
+        app_rows = (
+            sb.table("tenant_records")
+            .select("id, data")
+            .eq("tenant_id", tenant_id)
+            .eq("entity_type", "application")
+            .eq("id", application_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:
+        _log(f"missing_info: app lookup failed app_id={application_id}: {e}")
+        return False
+    if not app_rows.data:
+        return False
+    app_data = (app_rows.data[0].get("data") or {})
+    lead_id = app_data.get("lead_id")
+    if not lead_id:
+        return False
+
+    # 2. Read the lead, merge missing_info, write back.
+    try:
+        lead_rows = (
+            sb.table("tenant_records")
+            .select("id, data")
+            .eq("tenant_id", tenant_id)
+            .eq("entity_type", "lead")
+            .eq("id", lead_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception as e:
+        _log(f"missing_info: lead lookup failed lead_id={lead_id}: {e}")
+        return False
+    if not lead_rows.data:
+        return False
+
+    lead_row = lead_rows.data[0]
+    lead_data = lead_row.get("data") or {}
+    current = lead_data.get("missing_info") or []
+    if not isinstance(current, list):
+        current = []
+    merged_seen = set(current)
+    for item in missing:
+        if item not in merged_seen:
+            merged_seen.add(item)
+            current.append(item)
+
+    lead_data["missing_info"] = current
+    try:
+        sb.table("tenant_records").update({"data": lead_data}).eq("id", lead_row["id"]).execute()
+    except Exception as e:
+        _log(f"missing_info: lead update failed lead_id={lead_id}: {e}")
+        return False
+
+    # 3. Raise an operator alert. dedup_key prevents repeat pings — the
+    # unique partial index on agent_alerts means a second insert for
+    # the same (tenant_id, dedup_key) while the previous alert is still
+    # unresolved will fail silently (which is what we want).
+    try:
+        sb.table("agent_alerts").insert({
+            "tenant_id": tenant_id,
+            "alert_type": "missing_info",
+            "severity": "warn",
+            "subject_type": "lead",
+            "subject_id": lead_id,
+            "title": f"Missing info: {', '.join(missing[:3])}{' …' if len(missing) > 3 else ''}",
+            "body": note or "Lender asked for additional documentation before deciding.",
+            "payload": {"missing": missing, "application_id": application_id},
+            "dedup_key": f"missing_info:{lead_id}",
+        }).execute()
+    except Exception:
+        # Duplicate alert — already open. Not an error.
+        pass
+
+    return True
+
+
 CLASSIFIER_PROMPT = """You're triaging a lender's email response to a funding-shop submission. Classify the reply into EXACTLY ONE of:
 
 - approved        — lender offered terms (factor rate, amount, advance, etc.)
@@ -332,7 +534,7 @@ def classify_tick(sb) -> int:
     try:
         rows = (
             sb.table("application_lender_threads")
-            .select("id, tenant_id, gmail_thread_id, status, sent_at")
+            .select("id, tenant_id, application_id, gmail_thread_id, status, sent_at")
             .eq("status", "sent")
             .not_.is_("gmail_thread_id", "null")
             .execute()
@@ -360,6 +562,24 @@ def classify_tick(sb) -> int:
             _log(f"classified thread={r['id']} -> {new_status}: {result['summary']}")
         except Exception as e:
             _log(f"classify_tick: update failed row={r['id']}: {e}")
+
+        # Phase 20: when the lender asked for more info, second-pass
+        # extract WHAT is missing → lead.missing_info + agent_alerts.
+        if result.get("label") == "info_requested":
+            try:
+                mi = extract_missing_info(body)
+                if mi["missing"]:
+                    landed = apply_missing_info(
+                        sb,
+                        tenant_id=r.get("tenant_id"),
+                        application_id=r.get("application_id"),
+                        missing=mi["missing"],
+                        note=mi["note"],
+                    )
+                    if landed:
+                        _log(f"missing_info applied thread={r['id']} missing={mi['missing']}")
+            except Exception as e:
+                _log(f"missing_info: extraction crashed thread={r['id']}: {e}")
     return classified
 
 
