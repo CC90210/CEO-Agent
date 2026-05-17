@@ -18,7 +18,7 @@ Pattern adapted from [mattpocock/skills CONTEXT.md](https://github.com/mattpococ
 - **CC** — The operator. Owner of Business-Empire-Agent, OASIS AI Solutions, and 100% of the empire. Adon is a 50/50 partner on PropFlow only.
 - **Bravo** — This agent. Lead Architect across five runtimes (Claude / Gemini / Antigravity / OpenCode / IDE-agnostic). Identity is shared; routing differs per-runtime entry point.
 - **Maven** — CMO agent at `~/CMO-Agent`. Owns all content, brand voice, ads, social posting. Bravo NEVER writes content; routes to Maven.
-- **Atlas** — CFO agent at `~/APPS/trading-agent`. Owns trading engine, tax/compliance, financial advisory.
+- **Atlas** — CFO agent at `~/APPS/CFO-Agent`. Owns tax/compliance, financial advisory, equity research. Pivoted from autonomous trading 2026-04-14; trading code archived under `archive/trading-automation/`.
 - **Hermes** — Messaging/inbox agent at `~/APPS/hermes`.
 - **Aura** — Branding/design agent.
 - **Codex** — OpenAI's executor, integrated as Bravo's dual-AI backend specialist. Delegated to via `codex-companion.mjs` for backend implementation, deep debugging, adversarial review.
