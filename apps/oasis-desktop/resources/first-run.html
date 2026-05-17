@@ -4,13 +4,14 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; connect-src 'none'; form-action 'none';" />
-  <title>OASIS AI — Connect a provider</title>
+  <title>OASIS AI Desktop — Get started</title>
   <style>
     :root {
       color-scheme: dark;
       --bg: #05070d;
       --panel: #0d131f;
       --line: #1b2a3f;
+      --line-strong: #2a4060;
       --text: #edf6ff;
       --muted: #9fb1c7;
       --dim: #607389;
@@ -33,14 +34,63 @@
     header { margin-bottom: 18px; }
     .eyebrow { color: var(--accent); text-transform: uppercase; letter-spacing: .18em; font-size: 11px; font-weight: 800; }
     h1 { margin: 6px 0 6px; font-size: 26px; letter-spacing: -.04em; }
-    p.intro { color: var(--muted); margin: 0 0 0; max-width: 56ch; }
+    h2 { margin: 0 0 4px; font-size: 17px; letter-spacing: -.02em; }
+    p.intro { color: var(--muted); margin: 0; max-width: 60ch; }
     main { display: grid; gap: 18px; }
+
+    /* Progress bar */
+    nav.progress {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--dim);
+    }
+    nav.progress .step {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    nav.progress .num {
+      width: 22px; height: 22px; border-radius: 999px;
+      display: inline-flex; align-items: center; justify-content: center;
+      border: 1px solid var(--line); background: rgba(255,255,255,.02);
+      color: var(--dim); font-size: 11px;
+    }
+    nav.progress .step.current .num { background: rgba(18,216,255,.18); border-color: rgba(18,216,255,.6); color: var(--accent); }
+    nav.progress .step.done .num { background: var(--accent); color: #06121b; border-color: var(--accent); }
+    nav.progress .step.current span:last-child { color: var(--text); }
+    nav.progress .sep { width: 14px; height: 1px; background: var(--line); }
+
     section.card {
       background: rgba(13,19,31,.86);
       border: 1px solid var(--line);
       border-radius: 18px;
-      padding: 18px;
+      padding: 20px;
     }
+    .card .lead {
+      color: var(--muted);
+      margin: 6px 0 14px;
+      line-height: 1.55;
+    }
+    label.field-label { display: block; font-weight: 700; font-size: 11px; letter-spacing: .12em; color: var(--text); margin-bottom: 6px; text-transform: uppercase; }
+    .hint { color: var(--dim); font-size: 12px; margin-top: 6px; line-height: 1.5; }
+    input[type=text], input[type=password] {
+      width: 100%;
+      background: rgba(0,0,0,.35);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      color: var(--text);
+      font: inherit;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      letter-spacing: .03em;
+    }
+    input:focus { outline: 2px solid rgba(18,216,255,.4); outline-offset: 0; border-color: rgba(18,216,255,.5); }
+
     .tile-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
     .tile {
       border: 1px solid var(--line);
@@ -57,22 +107,9 @@
     .tile.active { border-color: var(--accent); background: rgba(18,216,255,.08); }
     .tile-name { font-weight: 700; font-size: 14px; }
     .tile-pitch { color: var(--muted); font-size: 12px; margin-top: 4px; line-height: 1.45; }
-    label { display: block; font-weight: 700; font-size: 12px; letter-spacing: .04em; color: var(--text); margin-bottom: 6px; text-transform: uppercase; }
-    .hint { color: var(--dim); font-size: 12px; margin-top: 4px; }
-    input[type=password] {
-      width: 100%;
-      background: rgba(0,0,0,.35);
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 10px 12px;
-      color: var(--text);
-      font: inherit;
-      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-      letter-spacing: .03em;
-    }
-    input:focus { outline: 2px solid rgba(18,216,255,.4); outline-offset: 0; }
-    .button-row { display: flex; gap: 10px; align-items: center; margin-top: 6px; }
-    button.primary, button.secondary {
+
+    .button-row { display: flex; gap: 10px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+    button.primary, button.secondary, button.ghost {
       font: inherit;
       font-weight: 700;
       padding: 10px 14px;
@@ -85,13 +122,22 @@
       border-color: rgba(18,216,255,.5);
       color: var(--accent);
     }
-    button.primary:disabled, button.secondary:disabled { opacity: .45; cursor: default; }
     button.primary:hover:not(:disabled) { background: rgba(18,216,255,.28); }
     button.secondary {
       background: rgba(255,255,255,.04);
       border-color: var(--line);
       color: var(--text);
     }
+    button.secondary:hover:not(:disabled) { border-color: var(--line-strong); }
+    button.ghost {
+      background: transparent;
+      border-color: transparent;
+      color: var(--dim);
+      padding: 8px 6px;
+    }
+    button.ghost:hover:not(:disabled) { color: var(--text); }
+    button:disabled { opacity: .45; cursor: default; }
+
     .status {
       margin-top: 12px;
       padding: 10px 12px;
@@ -104,54 +150,184 @@
     .status.ok { border-color: rgba(88,214,141,.4); background: rgba(88,214,141,.1); color: var(--good); }
     .status.warn { border-color: rgba(255,202,101,.4); background: rgba(255,202,101,.1); color: var(--warn); }
     .status.bad { border-color: rgba(255,117,112,.4); background: rgba(255,117,112,.1); color: var(--bad); }
-    code { color: var(--accent); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
-    .footer-note { color: var(--dim); font-size: 12px; margin-top: 12px; }
+    code, kbd { color: var(--accent); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .96em; }
+    .footer-note { color: var(--dim); font-size: 12px; margin-top: 12px; line-height: 1.55; }
+    .step-pane { display: none; }
+    .step-pane.active { display: block; }
+    .ok-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 2px 8px; border-radius: 999px;
+      background: rgba(88,214,141,.14); color: var(--good);
+      border: 1px solid rgba(88,214,141,.4);
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em;
+    }
+    .pair-code-input {
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 18px;
+      letter-spacing: .14em;
+      text-align: center;
+      text-transform: uppercase;
+    }
+    summary { cursor: pointer; padding: 4px 0; }
+    details[open] summary { color: var(--accent); }
   </style>
 </head>
 <body>
   <header>
-    <div class="eyebrow">OASIS AI Desktop</div>
-    <h1>Connect a provider to get started.</h1>
-    <p class="intro">Pick where the agent should send completions. Your key stays on this machine, encrypted by the OS keychain — we never ship it to OASIS servers.</p>
+    <div class="eyebrow">OASIS AI Desktop · First-run setup</div>
+    <h1 id="page-title">Pair this machine to a workspace</h1>
+    <p class="intro" id="page-intro">Three quick steps and you're in. We'll set up the link to your workspace, optionally bring your own AI account, and confirm the local daemon is healthy.</p>
   </header>
 
+  <nav class="progress" aria-label="Setup steps">
+    <span class="step" id="nav-1"><span class="num">1</span><span>Pair workspace</span></span>
+    <span class="sep"></span>
+    <span class="step" id="nav-2"><span class="num">2</span><span>Connect AI</span></span>
+    <span class="sep"></span>
+    <span class="step" id="nav-3"><span class="num">3</span><span>Ready</span></span>
+  </nav>
+
   <main>
-    <section class="card">
-      <label>1. Provider</label>
-      <div class="tile-grid" id="tiles" role="radiogroup" aria-label="Choose provider"></div>
+    <!-- Step 1 — pair the machine to a workspace -->
+    <section class="card step-pane" id="pane-1">
+      <h2>Pair this machine to a workspace</h2>
+      <p class="lead">In your dashboard, open <strong>Settings → Devices → Install Claude Code CLI bridge</strong> and copy the 9-character code that appears. Paste it below and we'll link this machine.</p>
+
+      <label class="field-label" for="pair-code">Pair code</label>
+      <input id="pair-code" type="text" class="pair-code-input" inputmode="text" maxlength="11" autocomplete="off" spellcheck="false" placeholder="ABC-DEF-GHJ" aria-describedby="pair-hint" />
+      <div class="hint" id="pair-hint">Generated in the dashboard's Devices panel. Single-use, 15-minute lifespan.</div>
+
+      <div class="button-row">
+        <button class="primary" id="pair-btn" type="button">Pair this machine</button>
+        <button class="secondary" id="open-dashboard-btn" type="button">Open dashboard ↗</button>
+      </div>
+      <div class="status" id="pair-status" role="status"></div>
+
+      <p class="footer-note">Your machine label (what your workspace shows in the device list) is set to <code id="default-label">your-machine</code>. The bridge token lives in <code>~/.oasis/bridge_token</code> with restricted permissions.</p>
     </section>
 
-    <section class="card">
-      <label for="key">2. API key</label>
+    <!-- Step 2 — provider key (optional) -->
+    <section class="card step-pane" id="pane-2">
+      <h2>Connect a personal AI account <span style="color: var(--dim); font-weight: 500; font-size: 13px;">(optional)</span></h2>
+      <p class="lead">Skip this and your chat will use the workspace's shared AI key — totally fine for getting started. Connect your own to keep your usage on your account and unlock per-agent model choices.</p>
+
+      <label class="field-label">Provider</label>
+      <div class="tile-grid" id="tiles" role="radiogroup" aria-label="Choose provider"></div>
+
+      <label class="field-label" for="key" style="margin-top: 14px;">API key</label>
       <input id="key" type="password" autocomplete="off" spellcheck="false" placeholder="Paste the key from your provider dashboard" />
       <div class="hint" id="placeholder-hint">Paste your provider API key. We validate against the provider before saving.</div>
+
       <div class="button-row">
-        <button class="primary" id="validate-btn">Validate &amp; Save</button>
-        <button class="secondary" id="get-key-btn" type="button">Get a key →</button>
-        <button class="secondary" id="cancel-btn" type="button">Skip for now</button>
+        <button class="primary" id="validate-btn" type="button">Validate &amp; save</button>
+        <button class="secondary" id="get-key-btn" type="button">Get a key ↗</button>
+        <button class="ghost" id="skip-ai-btn" type="button">Skip for now</button>
       </div>
-      <div class="status" id="status" role="status"></div>
-      <p class="footer-note">Your key never leaves this machine — Electron's safeStorage encrypts it before writing to <code>secure-store.json</code> in your user data directory. <code>Skip</code> uses cloud-only mode and you can come back from <code>OASIS AI → Reset API Key</code>.</p>
+      <div class="status" id="ai-status" role="status"></div>
+
+      <p class="footer-note">Your key is encrypted by your OS keychain via Electron's <code>safeStorage</code> and never leaves this machine. You can change it anytime from <strong>OASIS AI menu → Reset API key</strong>.</p>
+
+      <div class="button-row" style="justify-content: space-between;">
+        <button class="ghost" id="back-1-btn" type="button">← Back</button>
+        <span></span>
+      </div>
+    </section>
+
+    <!-- Step 3 — health + finish -->
+    <section class="card step-pane" id="pane-3">
+      <h2>Final check</h2>
+      <p class="lead">Confirming the local bridge daemon is up and ready to serve your dashboard.</p>
+
+      <ul id="health-list" style="list-style: none; padding: 0; margin: 14px 0; display: grid; gap: 8px;">
+        <li id="health-pair" class="hint" style="font-size: 13px;">⏳ Workspace pairing…</li>
+        <li id="health-bridge" class="hint" style="font-size: 13px;">⏳ Local bridge daemon…</li>
+        <li id="health-ai" class="hint" style="font-size: 13px;">⏳ AI configuration…</li>
+      </ul>
+
+      <div class="button-row" style="justify-content: space-between;">
+        <button class="ghost" id="back-2-btn" type="button">← Back</button>
+        <button class="primary" id="finish-btn" type="button" disabled>Open Command Center →</button>
+      </div>
+
+      <p class="footer-note">If something failed, the dashboard still works in cloud-only mode while you debug. Visit <strong>Settings → Devices</strong> any time to re-pair or generate a new code.</p>
     </section>
   </main>
 
   <script>
+    /* ============================================================
+     * Wizard state machine — three steps, linear progression.
+     * State lives in `state`; renderer reflects it via setStep().
+     * ============================================================ */
+
     const PROVIDERS = [
-      { id: "openrouter", name: "OpenRouter", pitch: "One key, every model — the recommended path.", url: "https://openrouter.ai/keys", placeholder: "sk-or-v1-..." },
-      { id: "anthropic", name: "Anthropic", pitch: "Direct to Claude. Best if you already have an Anthropic account.", url: "https://console.anthropic.com/settings/keys", placeholder: "sk-ant-..." },
+      { id: "openrouter", name: "OpenRouter", pitch: "One key, every model. Recommended.", url: "https://openrouter.ai/keys", placeholder: "sk-or-v1-..." },
+      { id: "anthropic", name: "Anthropic", pitch: "Direct to Claude.", url: "https://console.anthropic.com/settings/keys", placeholder: "sk-ant-..." },
       { id: "openai", name: "OpenAI", pitch: "Direct to GPT-5 + Codex.", url: "https://platform.openai.com/api-keys", placeholder: "sk-..." },
-      { id: "google", name: "Google", pitch: "Gemini family via Generative Language API.", url: "https://aistudio.google.com/apikey", placeholder: "AIza..." },
+      { id: "google", name: "Google", pitch: "Gemini via AI Studio.", url: "https://aistudio.google.com/apikey", placeholder: "AIza..." },
     ];
+
+    const state = {
+      step: 1,
+      paired: false,
+      tenant_id: null,
+      machine_label: null,
+      ai_configured: false,
+      ai_provider: null,
+    };
+
+    // DOM refs
+    const navSteps = [document.getElementById("nav-1"), document.getElementById("nav-2"), document.getElementById("nav-3")];
+    const panes = [document.getElementById("pane-1"), document.getElementById("pane-2"), document.getElementById("pane-3")];
+    const pageTitle = document.getElementById("page-title");
+    const pageIntro = document.getElementById("page-intro");
+
+    const pairCodeEl = document.getElementById("pair-code");
+    const pairBtn = document.getElementById("pair-btn");
+    const openDashboardBtn = document.getElementById("open-dashboard-btn");
+    const pairStatusEl = document.getElementById("pair-status");
+    const defaultLabelEl = document.getElementById("default-label");
 
     const tilesEl = document.getElementById("tiles");
     const keyEl = document.getElementById("key");
     const placeholderHintEl = document.getElementById("placeholder-hint");
     const validateBtn = document.getElementById("validate-btn");
     const getKeyBtn = document.getElementById("get-key-btn");
-    const cancelBtn = document.getElementById("cancel-btn");
-    const statusEl = document.getElementById("status");
+    const skipAiBtn = document.getElementById("skip-ai-btn");
+    const aiStatusEl = document.getElementById("ai-status");
+    const back1Btn = document.getElementById("back-1-btn");
+
+    const healthPair = document.getElementById("health-pair");
+    const healthBridge = document.getElementById("health-bridge");
+    const healthAi = document.getElementById("health-ai");
+    const finishBtn = document.getElementById("finish-btn");
+    const back2Btn = document.getElementById("back-2-btn");
+
+    const STEP_HEADERS = {
+      1: { title: "Pair this machine to a workspace", intro: "Open your dashboard's Devices panel, copy the pair code, and paste it below. We'll link this machine to your workspace." },
+      2: { title: "Connect your AI (optional)", intro: "Bring your own provider key to use your personal subscription, or skip and fall back to the workspace default." },
+      3: { title: "All set — final check", intro: "Confirming the local bridge daemon is online and your AI configuration is ready." },
+    };
 
     let selectedProvider = PROVIDERS[0].id;
+
+    /* ============================================================
+     * Render
+     * ============================================================ */
+
+    function setStep(n) {
+      state.step = n;
+      panes.forEach((p, i) => p.classList.toggle("active", i === n - 1));
+      navSteps.forEach((el, i) => {
+        el.classList.toggle("current", i === n - 1);
+        el.classList.toggle("done", i < n - 1);
+      });
+      const head = STEP_HEADERS[n];
+      if (head) {
+        pageTitle.textContent = head.title;
+        pageIntro.textContent = head.intro;
+      }
+      if (n === 3) runHealthChecks();
+    }
 
     function renderTiles() {
       tilesEl.innerHTML = "";
@@ -178,86 +354,184 @@
       placeholderHintEl.textContent = `Paste your ${p ? p.name : "provider"} key. We validate against the provider before saving.`;
     }
 
-    function showStatus(kind, message) {
-      statusEl.textContent = message;
-      statusEl.classList.remove("ok", "warn", "bad");
-      statusEl.classList.add(kind, "show");
+    function showStatus(el, kind, message) {
+      el.textContent = message;
+      el.classList.remove("ok", "warn", "bad");
+      el.classList.add(kind, "show");
+    }
+    function clearStatus(el) {
+      el.classList.remove("ok", "warn", "bad", "show");
+      el.textContent = "";
     }
 
-    function clearStatus() {
-      statusEl.classList.remove("ok", "warn", "bad", "show");
-      statusEl.textContent = "";
+    /* ============================================================
+     * Step 1 — pair
+     * ============================================================ */
+
+    function normalizePairCode(raw) {
+      const clean = String(raw || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+      if (clean.length !== 9) return clean;
+      return `${clean.slice(0, 3)}-${clean.slice(3, 6)}-${clean.slice(6, 9)}`;
     }
+
+    pairCodeEl.addEventListener("input", (e) => {
+      const v = normalizePairCode(e.target.value);
+      if (v !== e.target.value) e.target.value = v;
+    });
+
+    async function attemptPair() {
+      clearStatus(pairStatusEl);
+      const code = normalizePairCode(pairCodeEl.value);
+      if (!/^[A-Z0-9]{3}-[A-Z0-9]{3}-[A-Z0-9]{3}$/.test(code)) {
+        showStatus(pairStatusEl, "warn", "Pair codes look like ABC-DEF-GHJ. Paste the one from your dashboard.");
+        return;
+      }
+      pairBtn.disabled = true;
+      showStatus(pairStatusEl, "warn", "Linking this machine to your workspace…");
+      try {
+        const res = await window.oasisFirstRun.pair(code);
+        if (!res?.ok) {
+          showStatus(pairStatusEl, "bad", res?.message || res?.error || "Pair failed. Generate a new code and try again.");
+          pairBtn.disabled = false;
+          return;
+        }
+        state.paired = true;
+        state.tenant_id = res.tenant_id || null;
+        state.machine_label = res.machine_label || null;
+        showStatus(pairStatusEl, "ok", `Linked. Continuing to AI setup…`);
+        setTimeout(() => setStep(2), 750);
+      } catch (err) {
+        showStatus(pairStatusEl, "bad", (err && err.message) || "Pair failed.");
+        pairBtn.disabled = false;
+      }
+    }
+
+    pairBtn.addEventListener("click", attemptPair);
+    pairCodeEl.addEventListener("keyup", (e) => {
+      if (e.key === "Enter") attemptPair();
+    });
+
+    openDashboardBtn.addEventListener("click", () => {
+      window.oasisFirstRun.openExternal("https://agent-dashboard-cc90210.vercel.app/settings");
+    });
+
+    /* ============================================================
+     * Step 2 — AI provider
+     * ============================================================ */
 
     async function validateAndSave() {
+      clearStatus(aiStatusEl);
       const key = (keyEl.value || "").trim();
       if (!key) {
-        showStatus("warn", "Paste a key first.");
+        showStatus(aiStatusEl, "warn", "Paste a key first, or click Skip for now.");
         return;
       }
       if (key.length < 8) {
-        showStatus("bad", "That key looks too short.");
+        showStatus(aiStatusEl, "bad", "That key looks too short.");
         return;
       }
       validateBtn.disabled = true;
-      cancelBtn.disabled = true;
-      showStatus("warn", "Validating against the provider...");
+      skipAiBtn.disabled = true;
+      showStatus(aiStatusEl, "warn", "Validating against the provider…");
       try {
-        const result = await window.oasisFirstRun.validate(selectedProvider, key);
-        if (!result?.ok) {
-          const reason = result?.reason || "unknown_error";
-          if (reason === "invalid_key") {
-            showStatus("bad", "Provider rejected the key. Check that you copied the full value.");
-          } else if (reason === "rate_limited") {
-            showStatus("warn", "Provider says rate-limited. Try again in a minute.");
-          } else if (reason === "validation_timeout") {
-            showStatus("bad", "Provider didn't respond in time. Check your network.");
-          } else {
-            showStatus("bad", `Validation failed: ${reason}`);
-          }
+        const v = await window.oasisFirstRun.validate(selectedProvider, key);
+        if (!v?.ok) {
+          showStatus(aiStatusEl, "bad", v?.reason === "invalid_key" ? "Provider rejected that key." : (v?.reason || "Validation failed."));
           validateBtn.disabled = false;
-          cancelBtn.disabled = false;
+          skipAiBtn.disabled = false;
           return;
         }
-        showStatus("ok", "Key validated. Saving to OS keychain...");
-        const saveResult = await window.oasisFirstRun.save(selectedProvider, key);
-        if (!saveResult?.ok) {
-          showStatus("bad", `Save failed: ${saveResult?.error || "unknown"}`);
+        const s = await window.oasisFirstRun.save(selectedProvider, key);
+        if (!s?.ok) {
+          showStatus(aiStatusEl, "bad", s?.error || "Save failed.");
           validateBtn.disabled = false;
-          cancelBtn.disabled = false;
+          skipAiBtn.disabled = false;
           return;
         }
-        // Window will close from the main process on save success.
+        state.ai_configured = true;
+        state.ai_provider = selectedProvider;
+        showStatus(aiStatusEl, "ok", "Saved. Running final check…");
+        setTimeout(() => setStep(3), 600);
       } catch (err) {
-        showStatus("bad", `Unexpected error: ${err && err.message ? err.message : "see console"}`);
+        showStatus(aiStatusEl, "bad", (err && err.message) || "Validation failed.");
         validateBtn.disabled = false;
-        cancelBtn.disabled = false;
-      }
-    }
-
-    function openProviderKeyUrl() {
-      const p = PROVIDERS.find((x) => x.id === selectedProvider);
-      if (p) {
-        // We can't shell-open from sandboxed renderer — show URL inline instead.
-        showStatus("warn", `Open this URL in your browser to get the key: ${p.url}`);
+        skipAiBtn.disabled = false;
       }
     }
 
     validateBtn.addEventListener("click", validateAndSave);
-    getKeyBtn.addEventListener("click", openProviderKeyUrl);
-    cancelBtn.addEventListener("click", () => window.oasisFirstRun.cancel());
-    keyEl.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        validateAndSave();
-      } else {
-        clearStatus();
-      }
+    keyEl.addEventListener("keyup", (e) => { if (e.key === "Enter") validateAndSave(); });
+    getKeyBtn.addEventListener("click", () => {
+      const p = PROVIDERS.find((x) => x.id === selectedProvider);
+      if (p && p.url) window.oasisFirstRun.openExternal(p.url);
     });
+    skipAiBtn.addEventListener("click", () => setStep(3));
+    back1Btn.addEventListener("click", () => setStep(1));
+
+    /* ============================================================
+     * Step 3 — health checks
+     * ============================================================ */
+
+    async function runHealthChecks() {
+      healthPair.textContent = state.paired
+        ? `✅ Workspace pairing — ${state.machine_label || "this machine"} linked`
+        : "⚠ Workspace not paired (skipped). Pair anytime from Settings → Devices.";
+
+      healthAi.textContent = state.ai_configured
+        ? `✅ AI configured — ${state.ai_provider}`
+        : "ℹ Using workspace AI default (no personal override)";
+
+      healthBridge.textContent = "⏳ Local bridge daemon…";
+      try {
+        const r = await window.oasisFirstRun.bridgeHealth();
+        if (r && r.ok) {
+          healthBridge.textContent = "✅ Local bridge daemon — online";
+        } else {
+          healthBridge.textContent = "⚠ Local bridge daemon — starting up (will retry on dashboard load)";
+        }
+      } catch {
+        healthBridge.textContent = "⚠ Local bridge daemon — couldn't probe";
+      }
+
+      finishBtn.disabled = false;
+    }
+
+    back2Btn.addEventListener("click", () => setStep(2));
+    finishBtn.addEventListener("click", () => {
+      window.oasisFirstRun.finish({
+        paired: state.paired,
+        tenant_id: state.tenant_id,
+        ai_provider: state.ai_provider,
+      });
+    });
+
+    /* ============================================================
+     * Init
+     * ============================================================ */
 
     renderTiles();
     updatePlaceholder();
-    keyEl.focus();
+    setStep(1);
+
+    // If a previous run already paired this machine, skip to step 2.
+    (async () => {
+      try {
+        const r = await window.oasisFirstRun.pairStatus();
+        if (r && r.paired && r.meta) {
+          state.paired = true;
+          state.tenant_id = r.meta.tenant_id || null;
+          state.machine_label = r.meta.machine_label || null;
+          showStatus(pairStatusEl, "ok", `Already paired as ${state.machine_label || "this machine"}.`);
+          setTimeout(() => setStep(2), 400);
+        }
+      } catch { /* ignore */ }
+    })();
+
+    // Show the actual machine label preview.
+    if (typeof navigator !== "undefined" && navigator.userAgent) {
+      const platform = /Win/.test(navigator.userAgent) ? "Windows" : /Mac/.test(navigator.userAgent) ? "macOS" : /Linux/.test(navigator.userAgent) ? "Linux" : "this machine";
+      defaultLabelEl.textContent = platform + " device";
+    }
   </script>
 </body>
 </html>
