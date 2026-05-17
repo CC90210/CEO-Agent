@@ -26,6 +26,7 @@ Default to the lighter path. The cost of an over-eager file-read on a casual mes
 2. **`brain/EXECUTION_RULES.md`** — the iron law (self-execute, never tell CC to run commands, confirm after every mutation). Read once per session, at the moment you're about to act.
 3. **`brain/INTENTS.md`** — verb-by-verb playbooks (send-email, apply-migration, push-to-prod, etc). Read when an intent matches.
 4. **`brain/WHEN_TO_USE_SKILLS.md`** — trigger map for the 150+ skills. Read when an operator request might match a skill.
+5. **`CONTEXT.md`** — canonical empire vocabulary (OASIS, PropFlow, tenant, drip sequence, Pulse, etc). Read when a domain term needs to be canonicalized or a new term is about to enter the codebase. See [docs/adr/0002-context-md-canonical-vocabulary.md](docs/adr/0002-context-md-canonical-vocabulary.md).
 
 State files (`brain/STATE.md`, `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md`) are no longer auto-loaded — they're per-intent reads now. The router tells you when.
 
@@ -229,3 +230,20 @@ Closes the highest-leverage gaps from `brain/AGENTIC_OS_REFERENCE.md` §10 — t
 
 Source provenance: `brain/AGENTIC_OS_REFERENCE.md` (captured 2026-05-14 from YouTube "Build your agentic OS better than 99% of people"; full transcript at `docs/references/agentic-os-99pct-transcript.txt`). All four sibling agents (Bravo here, Maven at `~/CMO-Agent`, Atlas at `~/APPS/CFO-Agent`, Hermes at `~/APPS/hermes`) carry the same V6.7 logic anchor — implementation differs per-agent, taxonomy and skill set is shared. Client harness (`skills/agent-forge`, `skills/agent-runtime-packaging`) must include the full V6.7 layout so forked client agents inherit the orchestration + Prep Table + canonical skills out of the box.
 - `scripts/register.py` — one-command "add new capability" wizard. `register.py skill <name> --description "..." --triggers "..."` scaffolds the file with proper frontmatter, rebuilds the graph, runs self_audit, prints next-steps. Ends the 6-step add-a-skill ritual.
+
+## Agent-OS Vocabulary Layer (V6.8, 2026-05-16)
+
+Closes the discoverability + governance gap surfaced by auditing [mattpocock/skills](https://github.com/mattpocock/skills) against our setup. V6.0–V6.7 built the substrate; V6.8 makes it self-documenting and externally distributable. Full propagation contract: [brain/V68_AGENT_OS_PATTERNS.md](brain/V68_AGENT_OS_PATTERNS.md).
+
+- **[CONTEXT.md](CONTEXT.md) at project root** — canonical empire vocabulary glossary (people, brands, multi-tenancy, sales/CRM, state/substrate, V6 arch, skill/agent semantics, browser ladder, North Star). All five sibling entry points (CLAUDE.md, GEMINI.md, ANTIGRAVITY.md, AGENTS.md, OPENCODE.md) reference it as boot item #5 — lazy-load when a domain term needs canonicalization. Indexed by `memory_retriever.py` (new `context` scope) so cold sessions get the right definition in <100ms.
+- **[docs/adr/](docs/adr/) — Architectural Decision Records** — numbered, dated, frontmatter-tagged. Starter ADRs: `0001-skill-dependency-classification.md` (hard vs soft deps), `0002-context-md-canonical-vocabulary.md` (this section's enforcement). Scaffold new ones with `python scripts/register.py adr-new <slug>`. Distinct from `memory/DECISIONS.md` (tactical/business decisions) — ADRs are architectural and persistent.
+- **Skill frontmatter conventions** — two new keys honored across the graph + resolver:
+  - `disable_model_invocation: true` — skill never auto-loads via semantic match; fires ONLY on explicit `/command`. Applied to `hyperthink`, `sparc-methodology`, `retro`. Verify exclusion: `python scripts/capability_query.py resolve "<intent>"` (default mode).
+  - `argument_hint: "<question>"` — surfaces invocation prompt at runtime. Applied to `writing-plans`, `outreach-send`. Surfaced in `CAPABILITY_GRAPH.json` entries.
+- **Skill lifecycle directories** — `skills/_archive/` (retired, preserved for reference) and `skills/in-progress/` (staging lane for drafts). Both excluded from `build_capability_graph.py` (via `SKIP_SKILL_DIRS`) and `.claude-plugin/plugin.json`. Use the staging lane for skills not yet `[PROBATIONARY]`.
+- **[.claude-plugin/plugin.json](.claude-plugin/plugin.json)** — distribution manifest. 47 universally-useful skills listed for `npx skills@latest add` consumption. Excludes Bravo-internal (`outreach-send`, `gws-*`), staging, archived. Will power the `skills/agent-forge` client harness mandate.
+- **[skills/skill-creator/SKILL.md](skills/skill-creator/SKILL.md)** — opens with a 4-step "Before drafting any new skill" checklist enforcing CONTEXT.md consult + hard/soft dep classification per ADR-0001 + invocation-discipline decision (disable_model_invocation / argument_hint) + scaffold via `register.py skill`.
+
+**Propagation contract:** Siblings (Maven at `~/CMO-Agent`, Atlas at `~/APPS/CFO-Agent`, future Hermes) inherit the *patterns* — CONTEXT.md tailored to their domain (brand/content for Maven, finance/tax for Atlas), `docs/adr/` with their own decisions, frontmatter conventions when they audit their skills. The patterns are universal; the content is per-agent. See [brain/V68_AGENT_OS_PATTERNS.md](brain/V68_AGENT_OS_PATTERNS.md).
+
+Source provenance: cross-reference audit against [mattpocock/skills](https://github.com/mattpocock/skills). Plan: `~/.claude/plans/i-found-a-really-parallel-pascal.md`. Probationary pattern logged in `memory/PATTERNS.md` — promote to `[V]` after 3 more external-repo imports re-use this surgical cross-reference approach.

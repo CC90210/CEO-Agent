@@ -73,6 +73,7 @@ SKILLS_DIR = PROJECT_ROOT / "skills"
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 AGENTS_DIR = PROJECT_ROOT / "agents"
 WORKFLOWS_DIR = PROJECT_ROOT / ".agents" / "workflows"
+ADR_DIR = PROJECT_ROOT / "docs" / "adr"
 
 VALID_TIERS = {"core", "specialized", "meta", "safety", "tool"}
 VALID_RISKS = {"low", "medium", "high"}
@@ -256,6 +257,68 @@ def create_workflow(args) -> int:
     return _post_create(["workflow", slug, str(md.relative_to(PROJECT_ROOT))])
 
 
+# ── ADR creation ────────────────────────────────────────────────────────────
+
+def create_adr(args) -> int:
+    """Scaffold a new docs/adr/NNNN-<slug>.md with proper frontmatter.
+
+    Numbering is auto-derived: next integer after the highest existing ADR.
+    """
+    ADR_DIR.mkdir(parents=True, exist_ok=True)
+    slug = _slug(args.name)
+
+    existing = sorted(ADR_DIR.glob("[0-9][0-9][0-9][0-9]-*.md"))
+    if existing:
+        last_num = int(existing[-1].name.split("-", 1)[0])
+        next_num = last_num + 1
+    else:
+        next_num = 1
+    num_str = f"{next_num:04d}"
+
+    adr_path = ADR_DIR / f"{num_str}-{slug}.md"
+    if adr_path.exists():
+        print(f"ERROR: {adr_path.relative_to(PROJECT_ROOT)} already exists", file=sys.stderr)
+        return 1
+
+    title = args.title or slug.replace("-", " ").title()
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    text = (
+        "---\n"
+        f"adr: {num_str.lstrip('0') or '0'}\n"
+        f"title: {title}\n"
+        "status: proposed\n"
+        f"date: {today}\n"
+        f"deciders: [{args.owner or _agent_name()}, cc]\n"
+        "supersedes: null\n"
+        "superseded_by: null\n"
+        "---\n\n"
+        f"# ADR-{num_str} — {title}\n\n"
+        "## Context\n\n"
+        f"{args.description}\n\n"
+        "## Decision\n\n"
+        "(State the decision in one paragraph. Then enumerate the rule(s) it codifies.)\n\n"
+        "## Consequences\n\n"
+        "**Positive:**\n- (One per bullet.)\n\n"
+        "**Negative:**\n- (Honest tradeoffs.)\n\n"
+        "**Neutral:**\n- (Things that change but don't help or hurt.)\n\n"
+        "## Enforcement\n\n"
+        "(How does this ADR get checked? Hook? Lint? Review-time only?)\n\n"
+        "## References\n\n"
+        "- (Source patterns, related ADRs, code paths.)\n"
+    )
+    if args.dry_run:
+        print(f"[dry-run] would create {adr_path.relative_to(PROJECT_ROOT)}\n")
+        print(text)
+        return 0
+    adr_path.write_text(text, encoding="utf-8")
+    print(f"  Created {adr_path.relative_to(PROJECT_ROOT)}")
+    print(f"\n  NEXT STEPS for ADR-{num_str}:")
+    print(f"    1. Edit {adr_path.relative_to(PROJECT_ROOT)} — fill Context, Decision, Consequences")
+    print(f"    2. Flip status: from 'proposed' to 'accepted' once CC approves")
+    print(f"    3. Cross-link from CONTEXT.md and/or skills/skill-creator/SKILL.md if scope warrants")
+    return 0
+
+
 # ── Post-create hook: rebuild graph + audit ────────────────────────────────
 
 def _post_create(meta: list[str]) -> int:
@@ -348,11 +411,20 @@ def main() -> int:
     pv = sub.add_parser("validate", help="Re-validate an existing capability")
     pv.add_argument("name")
 
+    pa = sub.add_parser("adr-new", help="Scaffold a new docs/adr/NNNN-<slug>.md")
+    pa.add_argument("name", help="Slug for the ADR (kebab-case)")
+    pa.add_argument("--description", "-d", default="(Why is this decision needed? What problem does it address?)",
+                    help="One-paragraph context for the ADR")
+    pa.add_argument("--title", default=None, help="Human-readable title (default: derived from slug)")
+    pa.add_argument("--owner", default=None, help="Primary decider (default: this agent)")
+    pa.add_argument("--dry-run", action="store_true", help="Print the scaffold without writing")
+
     args = p.parse_args()
     if args.command == "skill":     return create_skill(args)
     if args.command == "script":    return create_script(args)
     if args.command == "agent":     return create_agent(args)
     if args.command == "workflow":  return create_workflow(args)
+    if args.command == "adr-new":   return create_adr(args)
     if args.command == "list":      return cmd_list(args)
     if args.command == "validate":  return cmd_validate(args)
     p.print_help()

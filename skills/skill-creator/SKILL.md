@@ -10,6 +10,19 @@ dependencies: [writing-skills]
 
 A skill for creating new skills and iteratively improving them.
 
+## Before drafting any new skill
+
+1. **Read `CONTEXT.md`** at project root. Every domain term the skill uses must already exist there, or be added there in the same PR. If your skill is about to introduce 5+ new terms, the skill needs its own `skills/<name>/LANGUAGE.md` — `CONTEXT.md` stays empire-wide (per [ADR-0002](../../docs/adr/0002-context-md-canonical-vocabulary.md)).
+2. **Classify dependencies** per [ADR-0001](../../docs/adr/0001-skill-dependency-classification.md). For every external resource the skill needs (env var, daemon, state DB, API key): is it **hard** (skill cannot function without it → declare in `requires:` frontmatter + body prerequisite check) or **soft** (degrade gracefully → no pointer in body)? Mixing the two is the most common bug.
+3. **Decide invocation discipline.**
+   - Set `disable_model_invocation: true` in frontmatter if the skill should fire ONLY on explicit `/command` (high-stakes, expensive, or destructive skills — e.g., `hyperthink`, `retro`, `sparc-methodology`).
+   - Set `argument_hint: "<question>"` in frontmatter if the skill consistently needs a user-supplied context value at invocation. The runtime surfaces the hint before running the skill body.
+4. **Scaffold via `scripts/register.py skill <name>`** — never hand-craft frontmatter. The wizard generates the correct shape and auto-rebuilds [brain/CAPABILITY_GRAPH.json](../../brain/CAPABILITY_GRAPH.json).
+
+If the skill is exploratory and not yet shippable, put it under `skills/in-progress/<name>/` instead of `skills/<name>/`. The capability graph and the `.claude-plugin/plugin.json` exclude that directory.
+
+## How iteration works
+
 At a high level, the process of creating a skill goes like this:
 
 - Decide what you want the skill to do and roughly how it should do it
