@@ -32,13 +32,29 @@ const bridgeRuntime = createBridgeRuntime({
 });
 
 async function ensureProviderConfigured() {
-  // First-run check — if the operator has no provider key stored, open
-  // the connect-provider window before we spawn the bridge. The bridge
-  // can still cold-start without a key (it'll surface "no provider" to
-  // the chat layer) but the UX flows better when we collect upfront.
-  if (listConfiguredProviders().length > 0) return { result: "already_configured" };
+  // First-run check — open the 3-step wizard if either (a) no provider
+  // key is stored locally OR (b) no bridge_pairing exists yet. The
+  // wizard's pair step (Step 1) handles the second case; provider key
+  // (Step 2) handles the first. Skipping straight to the dashboard
+  // works in either state, but the wizard makes the missing pieces
+  // obvious so the operator doesn't end up wondering why chat 412s.
+  //
+  // Post-2026-05-17 refresh: replaced the single-screen provider form
+  // with the 3-step pair → AI → health wizard. CC's product goal is
+  // "clients never touch a terminal" — pairing used to require
+  // `bravo setup` in a shell; now it's a paste-the-9-char-code field.
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const os = require("node:os");
+  const bridgePaired = fs.existsSync(path.join(os.homedir(), ".oasis", "bridge_token"));
+  const providerConfigured = listConfiguredProviders().length > 0;
+  if (bridgePaired && providerConfigured) return { result: "already_configured" };
   try {
-    return await openFirstRunWindow();
+    return await openFirstRunWindow({
+      desktopManifest,
+      commandCenterUrl,
+      bridgeHealthUrl: desktopManifest?.bridge?.healthUrl,
+    });
   } catch (err) {
     return { result: "error", error: err instanceof Error ? err.message : String(err) };
   }
