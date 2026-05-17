@@ -160,11 +160,12 @@ export type ManifestPageKind =
   | "markdown"
   | "reasoning"
   | "import" // bulk lead import — renders LeadsImportClient in the catch-all router
-  | "pipeline"; // two-pipeline superview — renders Lead + Opportunity Kanbans
-                // stacked with the submitted→offered handoff visualised. Added
-                // 2026-05-17 per the Salesforce-replacement meeting. Reads
-                // config.lead_entity + config.opportunity_entity (default
-                // 'lead' + 'offer').
+  | "pipeline"        // two-pipeline superview — Lead Pipeline above Opportunity
+                      // Pipeline. Reads config.lead_entity + config.opportunity_entity.
+  | "pipeline_entity"; // single-entity Salesforce-style pipeline — renders the
+                      // chevron arrow bar + filtered records table for one entity.
+                      // Used by /leads (entity=lead) + /applications (entity=
+                      // application). Reads config.stage_field (default "stage").
 
 export type ManifestPageDef = {
   path: string;           // relative path under /t/<slug>/ e.g. "leads"

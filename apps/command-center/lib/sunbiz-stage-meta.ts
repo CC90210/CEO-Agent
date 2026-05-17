@@ -47,6 +47,11 @@ export const OPPORTUNITY_PIPELINE_STAGES: StageMeta[] = [
 
 export function getStageMeta(entityName: string): StageMeta[] {
   if (entityName === "lead") return LEAD_PIPELINE_STAGES;
+  // application is the operator-facing Opportunity Pipeline (per
+  // Salesforce vocabulary); offer is a per-lender term-sheet sub-detail
+  // that happens to share the same stage labels. Both resolve to the
+  // same StageMeta list.
+  if (entityName === "application") return OPPORTUNITY_PIPELINE_STAGES;
   if (entityName === "offer") return OPPORTUNITY_PIPELINE_STAGES;
   return [];
 }

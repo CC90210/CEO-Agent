@@ -290,7 +290,22 @@ export const SUN_SEED: TenantManifest = {
         { name: "lender_id", type: "string" },
         { name: "requested_amount", type: "number" },
         { name: "submitted_at", type: "datetime" },
-        { name: "status", type: "enum", enum_values: ["draft", "submitted", "in_review", "approved", "declined"] },
+        // Opportunity Pipeline status — verbatim Salesforce parity per
+        // Adon's 2026-05-16 screenshots. /applications page renders this
+        // as the chevron pipeline. "New" is intentionally excluded per
+        // the meeting decision. Order = left-to-right arrow flow.
+        // Colors in lib/sunbiz-stage-meta.ts under the "application" key.
+        //
+        //   submitted_to_underwriting — application in lender hands
+        //   approved_open_offers      — lender returned a term sheet
+        //   contracts_ordered         — contract sent; awaiting signature
+        //   funded                    — wire complete; rolls into
+        //                               funded_deals + commissions
+        //   approved_never_funded     — approved but client never closed
+        //                               (revival drip eligible)
+        //   no_offers_available       — every lender declined
+        //   dead_file                 — client killed the deal
+        { name: "status", type: "enum", enum_values: ["submitted_to_underwriting", "approved_open_offers", "contracts_ordered", "funded", "approved_never_funded", "no_offers_available", "dead_file"], required: true },
       ],
     },
     {
@@ -380,22 +395,28 @@ export const SUN_SEED: TenantManifest = {
     // Opportunity Pipeline (offer.stage) with the submitted→offered
     // graduation visualised. Operators still drill into /leads or
     // /offers individually for full-board interaction.
-    { path: "pipeline", label: "Pipeline", kind: "pipeline", config: { lead_entity: "lead", opportunity_entity: "offer" } },
-    { path: "leads", label: "Leads", kind: "kanban", entity: "lead", config: { group_by: "stage" } },
+    // Stacked overview — Lead Pipeline above Opportunity Pipeline.
+    // Useful for the morning glance; daily-driving happens on /leads
+    // and /applications individually.
+    { path: "pipeline", label: "Pipeline", kind: "pipeline", config: { lead_entity: "lead", opportunity_entity: "application" } },
+    // Lead Pipeline — the chevron arrow bar + filtered records table,
+    // verbatim Salesforce per Adon's screenshots. Replaces the prior
+    // /leads Kanban (2026-05-17). Filter by ?stage=<key>.
+    { path: "leads", label: "Lead Pipeline", kind: "pipeline_entity", entity: "lead", config: { stage_field: "stage" } },
+    // Opportunity Pipeline — same chevron pattern keyed on
+    // application.status. Verbatim Salesforce stages (submitted_to_
+    // underwriting → funded → dead_file). Replaces the prior
+    // /applications Kanban (2026-05-17). Filter by ?stage=<key>.
     {
       path: "applications",
-      label: "Applications",
-      kind: "kanban",
+      label: "Opportunity Pipeline",
+      kind: "pipeline_entity",
       entity: "application",
-      // status is the natural pipeline field. Operators can still flip
-      // to ?view=table for sortable/filterable rows. Each card carries
-      // a "Recommended lenders" action via ApplicationCardActions.
-      config: { group_by: "status" },
+      config: { stage_field: "status" },
     },
-    // Opportunity kanban — operator drags offers across the 7 stages.
-    // Mirrors Salesforce's opportunity pipeline columns (offered ->
-    // contracts_out -> accepted -> funded). Renders the same way leads
-    // do, just keyed on offer.stage.
+    // Offers are per-lender term sheets under an application; rendered
+    // as the conventional Kanban since they're a sub-detail view, not
+    // the operator's primary pipeline.
     { path: "offers", label: "Offers", kind: "kanban", entity: "offer", config: { group_by: "stage" } },
     {
       path: "funded-deals",
