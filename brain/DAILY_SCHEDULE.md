@@ -152,8 +152,10 @@ These are the active automated jobs, timed to CC's schedule:
 - Funnel Lead Sync (every 5 min) — backstop
 - Email Inbox Monitor (every 5 min) — alerts on real emails, silent on spam
 
+**Retired permanently 2026-05-16:**
+- Daily Outreach Batch — cron row deleted, `scripts/outreach_batch.py` removed, scheduler dispatch stubbed, Telegram approval callbacks pulled from `telegram_agent.js` and `gateway/adapters/telegram.js`. CC opted out of auto-drafted cold outreach; inbound funnel alerts are already covered by Funnel Fast-Poll. See `memory/feedback_no_cold_outreach_cron.md`.
+
 **Disabled (by CC's request 2026-04-12):**
-- Daily Outreach Batch — CC doesn't use this; prefers manual outreach
 - Morning/Afternoon/Evening Content Post — n8n handles text content
 - Content Week Plan — same
 

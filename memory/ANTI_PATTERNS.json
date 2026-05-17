@@ -1,7 +1,7 @@
 [
   {
     "pattern": "python(?:\\.exe)?\\s+-c\\s+[\"'].*(lead_engine|email_engine)",
-    "message": "Don't roll an ad-hoc lead/email filter via inline `python -c`. Use scripts/outreach_batch.py — extend it with --include-archived/--min-score flags if needed. (MISTAKES.md 2026-05-04: Sent to Known-Bad Lead — Notes-Field Filter Gap)",
+    "message": "Don't roll an ad-hoc lead/email filter via inline `python -c`. Use scripts/lead_engine.py with --status / --min-score filters, then loop through outreach_engine.py send. (MISTAKES.md 2026-05-04: Sent to Known-Bad Lead — Notes-Field Filter Gap)",
     "tag": "ad-hoc-lead-filter",
     "block": false
   },
@@ -10,5 +10,11 @@
     "message": "Sending hand-crafted HTML body via raw `send` bypasses the canonical OASIS template path and the geo-rapport feature. Use `send-template` with one of the 3 OASIS template UUIDs. (MISTAKES.md 2026-05-04: Draft Critic vs. OASIS Templates)",
     "tag": "template-bypass",
     "block": false
+  },
+  {
+    "pattern": "outreach_batch\\.py|action_type.{0,12}lead_outreach_batch|Daily Outreach Batch",
+    "message": "DO NOT recreate the cold-outreach Telegram-approval cron. CC opted out 2026-05-16; the script + DB row + callbacks were removed end-to-end. Cold outreach is operator-initiated only via `outreach_engine.py send --lead-id <id>`. Inbound funnel alerts are covered by funnel_fast_poll. See memory/feedback_no_cold_outreach_cron.md + MISTAKES.md 2026-05-16.",
+    "tag": "retired-outreach-batch",
+    "block": true
   }
 ]

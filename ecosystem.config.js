@@ -107,7 +107,10 @@ if (IS_WIN) {
     apps.push({
         name: "bravo-scheduler",
         script: "scripts/scheduler.py",
-        interpreter: PYTHON,
+        // PYTHONW (no-console) — was PYTHON until 2026-05-16, which caused a
+        // python.exe console window to flash on every PM2 spawn/restart.
+        // Matches the pattern of every other daemon in this file.
+        interpreter: PYTHONW,
         cwd: PROJECT_ROOT,
         watch: false,
         autorestart: true,

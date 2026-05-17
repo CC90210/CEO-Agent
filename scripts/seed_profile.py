@@ -177,7 +177,7 @@ CC_TODAY_PLAN = {
         {
             "time_label": "3:30 — 4:00",
             "title": "Email batch — 10 follow-ups",
-            "body": "python scripts/outreach_batch.py --json — send 10 OASIS Value-Add follow-ups with the new 14-day pilot framing.",
+            "body": "Open /pipeline, filter contacted leads, write 10 personalized Value-Add follow-ups with the new 14-day pilot framing. Use scripts/outreach_engine.py send --lead-id <id> per lead.",
             "intensity": "normal",
         },
         {

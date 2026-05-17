@@ -6,8 +6,8 @@ speak with social awareness.
 WHY THIS EXISTS
 ---------------
 Before this module, every automated email was drafted in a vacuum. Claude
-Haiku (in outreach_batch) saw only {name, company, notes} — no prior-reply
-history, no sentiment trajectory, no engagement signal. That is why tone
+Haiku saw only {name, company, notes} — no prior-reply history, no
+sentiment trajectory, no engagement signal. That is why tone
 was flat, why cold-email language leaked into warm follow-ups, and why CC
 described the AI as "not knowing the social cues."
 

@@ -44,6 +44,16 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 PYTHON = sys.executable  # Use same Python that's running this script
 
+# Action types that were retired but whose handlers are kept as no-op stubs
+# (see execute_job dispatch). On startup, the orphan-cron self-check warns
+# if any cron_jobs row still uses one of these — a 39-day silent-pings
+# incident (MISTAKES.md 2026-05-16: Daily Outreach Batch) was caused by an
+# orphan row hiding without ever surfacing in any audit. Append here when
+# retiring a new action_type.
+RETIRED_ACTIONS: frozenset[str] = frozenset({
+    "lead_outreach_batch",  # retired 2026-05-16 — see feedback_no_cold_outreach_cron.md
+})
+
 
 # ── Credential loading ────────────────────────────────────────────────────────
 
@@ -169,6 +179,16 @@ def execute_job(job: dict, env_vars: dict[str, str]) -> str:
             return f"moved_to_atlas: {action_type} is now owned by CFO-Agent"
         if action_type in MAVEN_DOMAIN_ACTIONS:
             return f"moved_to_maven: {action_type} is now owned by CMO-Agent"
+        if action_type in RETIRED_ACTIONS:
+            # Single source of truth: RETIRED_ACTIONS (defined at module
+            # top). Adding a new retirement only requires appending to the
+            # set — no second elif branch to keep in sync. See MISTAKES.md
+            # 2026-05-16 for the incident that motivated this pattern.
+            return (
+                f"retired: {action_type} — see RETIRED_ACTIONS in scheduler.py "
+                f"and memory/feedback_no_cold_outreach_cron.md (if applicable). "
+                f"Delete the orphan cron_jobs row."
+            )
         if action_type == "lead_followup":
             return run_lead_followup(env_vars)
         elif action_type == "booking_reminder":
@@ -189,12 +209,6 @@ def execute_job(job: dict, env_vars: dict[str, str]) -> str:
             return run_funnel_sync(env_vars)
         elif action_type == "funnel_fast_poll":
             return run_funnel_fast_poll(env_vars)
-        elif action_type == "lead_outreach_batch":
-            # Retired 2026-05-16. The cold-outreach cron + Telegram approval
-            # loop was removed (CC opted out of auto-drafted cold outreach;
-            # inbound alerts are now covered by funnel_fast_poll). Any orphan
-            # cron_jobs row with this action_type no-ops cleanly.
-            return "retired: lead_outreach_batch — cold-outreach cron removed 2026-05-16; use funnel_fast_poll for inbound alerts"
         elif action_type == "agent_self_improvement":
             return run_agent_self_improvement(env_vars)
         elif action_type == "daily_brief":
@@ -967,6 +981,25 @@ def main():
 
     # Initialize any jobs missing next_run_at
     initialize_next_run_times(client)
+
+    # Orphan-cron self-check (added 2026-05-16 after the Daily Outreach
+    # Batch silent-pings incident). Surfaces any cron_jobs row using a
+    # retired action_type so a future agent can clean it up — instead of
+    # the row hiding for weeks while the stub silently returns "retired:".
+    try:
+        check = client.table("cron_jobs").select("id,name,action_type,is_active").in_(
+            "action_type", list(RETIRED_ACTIONS)
+        ).execute()
+        for row in check.data or []:
+            log(
+                f"  [ORPHAN-CRON] cron_jobs row '{row.get('name')}' "
+                f"(id={row.get('id')}, active={row.get('is_active')}) "
+                f"uses retired action_type='{row.get('action_type')}' — "
+                f"delete this row or re-add a handler. See MISTAKES.md "
+                f"2026-05-16."
+            )
+    except Exception as orphan_exc:  # noqa: BLE001
+        log(f"  [warn] orphan-cron check failed: {orphan_exc}")
 
     log("Scheduler running. Checking for due jobs every 60 seconds...")
     log("")

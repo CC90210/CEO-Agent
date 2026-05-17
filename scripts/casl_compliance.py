@@ -5,14 +5,13 @@ Single source of truth for CASL (Canada's Anti-Spam Legislation) requirements:
 - Working unsubscribe mechanism
 - Suppression list check before every send
 
-AS OF 2026-04-20 (V5.6 chokepoint era): the only callers that matter are
-`scripts/send_gateway.py` (which applies these to every outbound commercial
-AND transactional send) and `scripts/outreach_batch.py` (which calls
-should_suppress pre-draft so suppressed addresses don't burn Claude Haiku
-tokens on emails that can never be sent). All business engines
-(outreach_engine, email_engine, funnel_nurture, booking_engine,
-contract_generator) delegate physical send to send_gateway — they no
-longer call these functions directly.
+AS OF 2026-05-16: the canonical caller is `scripts/send_gateway.py`, which
+applies these to every outbound commercial AND transactional send. The
+old `outreach_batch.py` pre-draft suppression caller was removed on
+2026-05-16 along with the cold-outreach Telegram-approval cron. All
+business engines (outreach_engine, email_engine, funnel_nurture,
+booking_engine, contract_generator) delegate physical send to
+send_gateway — they no longer call these functions directly.
 
 Every outgoing commercial email MUST:
   1. Call should_suppress(lead_email) and refuse to send if True
@@ -36,8 +35,8 @@ PHONE_SUPPRESSIONS_CSV = PROJECT_ROOT / "data" / "phone_suppressions.csv"
 # RFC 2606 reserved + common placeholder/sample domains that should never
 # receive a real send. Firecrawl + manual lead imports occasionally pull
 # these from page templates / dummy mailto links. Gate-level rejection so
-# every send path (email_engine, outreach_batch, autonomous_agent, etc.)
-# is protected, not just the scraper.
+# every send path (email_engine, autonomous_agent, etc.) is protected,
+# not just the scraper.
 RESERVED_EMAIL_DOMAINS: frozenset[str] = frozenset({
     "example.com", "example.org", "example.net",
     "test.com", "test.org", "invalid", "localhost",

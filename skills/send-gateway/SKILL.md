@@ -103,14 +103,13 @@ Conservative by default — CC is still building reputation; better to under-sen
 
 Override per-call with `cooldown_hours=<int>`. Daily caps are hard — gateway refuses over-cap sends with `status="blocked"`.
 
-## Engine wire-up (2026-04-20 rewire)
+## Engine wire-up (2026-04-20 rewire, trimmed 2026-05-16)
 
-All five outbound Python engines now route through the gateway:
+The four live outbound Python engines route through the gateway. `outreach_batch.py` was retired 2026-05-16 (cold-outreach Telegram-approval cron killed; CC opted out).
 
 | Engine | Function that calls `send()` |
 |---|---|
 | [outreach_engine.py:send_outreach()](../../scripts/outreach_engine.py) | cold outreach with Meet invite .ics |
-| [outreach_batch.py:send_approved_draft()](../../scripts/outreach_batch.py) | Telegram-approved batch sends |
 | [email_engine.py:cmd_send() / cmd_send_template() / cmd_sequence_run()](../../scripts/email_engine.py) | one-off, templated, and sequence sends |
 | [funnel_nurture.py:send_email()](../../scripts/funnel_nurture.py) | Day 2 / Day 5 follow-ups |
 | [booking_engine.py:_send_booking_confirmation() / _send_reminder_email()](../../scripts/booking_engine.py) | transactional confirmations + reminders |
