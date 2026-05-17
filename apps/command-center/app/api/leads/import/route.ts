@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
   // entity_type ('lead') + the full lead profile in data JSONB. The
   // manifest's data_model.lead.fields determines which keys land
   // where; we send the operator-visible columns + a few sensible
-  // defaults (stage='cold', score=0, status='new' for back-compat
+  // defaults (stage='imported', score=0, status='new' for back-compat
   // with anything still reading the legacy status field).
   const toInsert: Array<{
     tenant_id: string;
@@ -208,9 +208,10 @@ export async function POST(req: NextRequest) {
         source,
         notes,
         ...(tags && tags.length > 0 ? { tags } : {}),
-        // Manifest's lead.stage enum starts at 'cold' (per SUN_SEED
-        // Phase 2). Imported leads land cold; operator moves them.
-        stage: "cold",
+        // Salesforce-parity Lead Pipeline starts at 'imported' (per
+        // SUN_SEED, 2026-05-17 rework). Bulk-imported leads land here;
+        // operator promotes to hot_lead / follow_up / etc.
+        stage: "imported",
         // Legacy status field — kept for backward-compat with any
         // code path still reading status. Phase 2 reconciled
         // stage as the canonical pipeline field; remove this once

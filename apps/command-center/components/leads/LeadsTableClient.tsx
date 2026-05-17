@@ -54,19 +54,24 @@ type Props = {
   initialLeads: Lead[];
 };
 
-/** SunBiz lead-stage enum (Phase 2 of SunBiz CRM). Keep this in sync
- *  with SUN_SEED.data_model.lead.stage in lib/manifest/seeds.ts — any
- *  drift means a stage value won't have a tab here and gets bucketed
- *  under "All". */
+/** SunBiz Lead Pipeline tabs — Salesforce-parity rework 2026-05-17.
+ *  Must stay in sync with SUN_SEED.data_model.lead.stage in
+ *  lib/manifest/seeds.ts AND the colors in lib/sunbiz-stage-meta.ts.
+ *  Any drift means a stage value won't have a tab here and gets
+ *  bucketed under "Uncategorized". */
 const STAGES: { value: string; label: string; tone: string }[] = [
-  { value: "cold", label: "Cold", tone: "text-fg-dim" },
-  { value: "follow_up", label: "Follow-up", tone: "text-status-info" },
-  { value: "sent_application", label: "App sent", tone: "text-status-info" },
-  { value: "viewed_application", label: "App viewed", tone: "text-accent" },
-  { value: "signed_application", label: "App signed", tone: "text-accent" },
-  { value: "submitted", label: "Submitted", tone: "text-status-engaged" },
-  { value: "declined", label: "Declined", tone: "text-status-warm" },
-  { value: "default", label: "Default", tone: "text-status-warm" },
+  { value: "imported",           label: "Imported",           tone: "text-fg-dim" },
+  { value: "not_interested",     label: "Not interested",     tone: "text-status-warm" },
+  { value: "hot_lead",           label: "Hot lead",           tone: "text-accent" },
+  { value: "missing_info",       label: "Missing info",       tone: "text-status-info" },
+  { value: "declined",           label: "Declined",           tone: "text-status-warm" },
+  { value: "follow_up",          label: "Follow up",          tone: "text-status-info" },
+  { value: "sent_application",   label: "App sent",           tone: "text-status-info" },
+  { value: "viewed_application", label: "App viewed",         tone: "text-accent" },
+  { value: "signed_application", label: "App signed",         tone: "text-accent" },
+  { value: "default",            label: "Default",            tone: "text-status-warm" },
+  { value: "submitted",          label: "Submitted",          tone: "text-status-engaged" },
+  { value: "approved",           label: "Approved",           tone: "text-status-engaged" },
 ];
 
 type SortKey = "last_touch" | "score" | "name" | "company" | "created";
