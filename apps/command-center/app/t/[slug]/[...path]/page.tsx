@@ -775,9 +775,13 @@ async function SingleEntityPipeline({
   // PipelineRecordList and this component prior to 2026-05-17 cleanup).
   const localCols = PIPELINE_COLUMNS[entity.name] || [];
   const localLinkBase = pipelineLinkBase(slug, entity.name);
-  // findStage is curried so the client component doesn't need to know
-  // about the entity key — it just calls `findStage(stageValue)`.
-  const findStageForEntity = (key: string) => findStage(entity.name, key);
+  // Build a plain stage_key -> StageMeta map for the client component.
+  // Cannot pass `findStage` directly because functions are not
+  // serializable across the Next.js server/client boundary — that's
+  // what crashed every pipeline page on the prior deploy.
+  const stageMap: Record<string, typeof stages[number]> = Object.fromEntries(
+    stages.map((s) => [s.key, s]),
+  );
 
   return (
     <div className="space-y-4">
@@ -797,7 +801,7 @@ async function SingleEntityPipeline({
         stageField={stageField}
         rows={visible}
         columns={localCols}
-        findStage={findStageForEntity}
+        stageMap={stageMap}
         linkBase={localLinkBase}
         activeStageLabel={activeLabel}
       />
