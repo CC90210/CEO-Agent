@@ -22,7 +22,31 @@ type Props = {
    * SEED_MANIFESTS-only OASIS tenant.
    */
   linkBase?: string;
+  /**
+   * Optional search query string from the URL ?q= param. When present,
+   * rows are filtered post-fetch with a case-insensitive substring
+   * match across every stringifiable value in the row's data blob
+   * (same matcher as ManifestKanban + PipelineSearchableTable).
+   */
+  query?: string;
 };
+
+function rowMatchesQuery(row: TenantRecord, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const qDigits = q.replace(/\D/g, "");
+  const parts: string[] = [row.id];
+  for (const v of Object.values(row.data || {})) {
+    if (v == null) continue;
+    parts.push(String(v));
+  }
+  const phone = row.data?.phone;
+  if (typeof phone === "string") parts.push(phone.replace(/\D/g, ""));
+  const hay = parts.join(" ").toLowerCase();
+  if (hay.includes(q)) return true;
+  if (qDigits.length >= 4 && hay.includes(qDigits)) return true;
+  return false;
+}
 
 /**
  * Server-rendered table view for a manifest entity. Renders every field
@@ -42,18 +66,22 @@ export async function ManifestTable({
   demoRows,
   canCreate,
   linkBase,
+  query,
 }: Props) {
   const effectiveLinkBase = linkBase ?? `/t/${tenantSlug}/${page.path}`;
   // Read either from DB (real tenant) or the supplied demo set. When
   // tenantId is null AND no demoRows were provided we still render the
   // empty state so the page surface is consistent.
-  const rows = tenantId
+  const fetchedRows = tenantId
     ? (await listRecords({
         tenant_id: tenantId,
         entity: entity.name,
         limit: 200,
       }).catch(() => ({ rows: [], total: 0 }))).rows
     : demoRows || [];
+  const rows = query && query.trim()
+    ? fetchedRows.filter((r) => rowMatchesQuery(r, query))
+    : fetchedRows;
 
   // The columns the table renders. Reads `config.columns` if the
   // manifest specifies a subset; otherwise renders every field.
