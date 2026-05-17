@@ -87,23 +87,33 @@ export const CC_NAV: NavItem[] = [
   { group: "System", href: "/overrides", label: "Overrides", icon: "ShieldAlert" },
   { group: "System", href: "/analytics", label: "Analytics", icon: "BarChart3" },
   { group: "System", href: "/settings", label: "Settings", icon: "Settings" },
-  // 2026-05-16 Phase 7 — restored Reasoning, Health, Overrides after CC
-  // pointed out the Phase 2 nav trim was too aggressive. The full nav
-  // arc:
-  //   - 13 entries → 7 (Phase 2: blunt consolidation, no merge)
-  //   - 7 → 10 (Phase 7: restore the dailies operators actually use)
-  //   - 10 → 11 (V6.8.5, 2026-05-17): restored /playbook — the V6.8.3
-  //     INTEGRATE_NEW_TOOL prompt lives at /playbook/prompts and is
-  //     daily-use now ("drop a URL → run the audit"), not reference.
-  //     The earlier "fold into /settings/playbook" plan never shipped;
-  //     that path doesn't exist. /playbook is the canonical hub.
+  // Nav arc on CC's empire sidebar:
+  //   - 13 entries → 7  (Phase 2, 2026-05-16: blunt consolidation, no merge)
+  //   - 7 → 10          (Phase 7: restore Reasoning + Health + Overrides
+  //                      after CC pointed out Phase 2 was too aggressive)
+  //   - 10 → 11         (V6.8.5, 2026-05-17: restore /playbook — V6.8.3
+  //                      shipped INTEGRATE_NEW_TOOL at /playbook/prompts
+  //                      so the playbook surface is daily-use now, not
+  //                      reference. Phase 2's "fold into /settings/playbook"
+  //                      plan was never implemented — that path doesn't exist.)
   //
-  // Still folded (not top-level):
-  //   /integrations → /settings/integrations (setup-time, not daily)
-  //   /feed → merged into /operations (Activity Tape is the same stream)
+  // Routes reachable by direct URL but intentionally NOT in this sidebar:
+  //   /integrations  — apps/command-center/app/integrations/page.tsx exists
+  //                    and is functional, but it's setup-time work (paste a
+  //                    Stripe key once), not daily. Reach via direct URL or
+  //                    deep-link from /settings.
+  //   /feed          — apps/command-center/app/feed/page.tsx exists and
+  //                    renders the agent_events stream. /operations shows
+  //                    the same stream styled as an Activity Tape; CC reads
+  //                    that one, so /feed stays URL-only.
+  //   /inbox         — cross-agent inbox, useful substrate, no human nav slot.
+  //   /runs          — developer-side activity tape; /operations covers it.
+  //   /system-health — V6 guard-substrate monitor; only meaningful when the
+  //                    state-api daemon is reachable. On public Vercel it's
+  //                    always "Off" by design (noise without the local stack).
   //
   // /forms + /sequences intentionally absent — SunBiz CRM features that
-  // surface only on the SunBiz tenant nav.
+  // surface only on the SunBiz tenant nav (see SUN_NAV below).
 ];
 
 /**
