@@ -91,7 +91,7 @@ export default async function SettingsPage() {
 
           <Card
             title="Devices"
-            subtitle="Local installs paired to this dashboard. Each runs `bravo bridge start` and pings every 60s with what's installed on that machine."
+            subtitle="Local installs paired to this dashboard. Each one runs the bridge daemon and pings every 60s with what's installed on that machine."
           >
             <DevicesEditor />
           </Card>

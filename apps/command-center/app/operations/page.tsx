@@ -11,6 +11,7 @@
  * inbound events that landed.
  */
 
+import Link from "next/link";
 import { Card, PageHeader, Tag, EmptyState } from "@/components/Card";
 import { agentStates, getActiveProfile, recentEvents } from "@/lib/queries";
 import { safe } from "@/lib/api-helpers";
@@ -305,9 +306,16 @@ export default async function OperationsPage({
         </div>
       </Card>
 
-      <Card title="Paired machines" subtitle="Local installs heartbeating to this dashboard. Pair a new machine from Settings → Devices → Install Claude Code CLI bridge.">
+      <Card title="Paired machines" subtitle="Local installs heartbeating to this dashboard. Add a new one from Settings → Devices.">
         {pairings.length === 0 ? (
-          <EmptyState message="No machines paired yet. Open Settings → Devices and click Install Claude Code CLI bridge to walk through the install." />
+          <EmptyState
+            message="No machines paired yet."
+            cta={
+              <Link href="/settings" className="btn-primary inline-flex items-center gap-1">
+                Open Settings → Devices
+              </Link>
+            }
+          />
         ) : (
           <ul className="divide-y divide-bg-border">
             {pairings.map((p) => {
