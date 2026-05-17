@@ -20,6 +20,9 @@ USAGE
     python scripts/capability_query.py by-owner bravo --json
     python scripts/capability_query.py drift --json
     python scripts/capability_query.py stats --json
+    python scripts/capability_query.py check-deps skill:outreach-send  # V6.8.1 / ADR-0001
+    python scripts/capability_query.py find-workflow ship
+    python scripts/capability_query.py get skill:hyperthink
 
 PYTHON API
 ----------
@@ -28,6 +31,7 @@ PYTHON API
     skill = g.resolve_intent("send a follow-up email to a warm lead")
     deps  = g.dependencies(skill["id"])
     sibs  = g.by_tag("outreach")
+    health = g.check_deps(skill["id"])  # V6.8.1: enforces ADR-0001 requires:
 """
 from __future__ import annotations
 
