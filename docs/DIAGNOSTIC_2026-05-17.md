@@ -15,6 +15,36 @@ Adon's team starts driving the system.
 
 # Live findings — fixed in this round
 
+### F0. CRITICAL: tracking pixel was silently 401'd by middleware
+
+`/api/track/open/[id]` was added in Round 3 (Phase 19) but NEVER added
+to the `PUBLIC_PATH_PREFIXES` allowlist in `apps/command-center/middleware.ts`.
+Mail clients fetching the pixel got a 401 JSON body instead of the 1×1
+GIF. **Every email opened by every operator's recipients since the pixel
+shipped was lost — zero rows ever landed in `email_open_events`.**
+
+The bug was invisible in code review because the route's TypeScript
+exits 0 and the unit-level logic is correct; it was invisible in DB
+diagnostics because failed inserts don't leave evidence; only a live
+HTTP probe to the deployed route surfaced it:
+
+```
+$ curl -o /dev/null -w "%{http_code}\n" \
+    https://agent-dashboard-cc90210.vercel.app/api/track/open/test-id
+401
+```
+
+**Fix:** added `/api/track` to `PUBLIC_PATH_PREFIXES` with an inline
+comment explaining the public-by-design tenant-resolution-by-lookup
++ pixel-dedup protections.
+
+Lesson logged: **every new public endpoint MUST be live-probed against
+the deployed URL** as part of its diagnostic, not just code-reviewed.
+Migration 050's dedup index was sized to defend a route that wasn't
+even reachable.
+
+
+
 ### F1. Production data drift on legacy enum values
 
 Five SunBiz tenant_records rows were still on the pre-rework enum:
@@ -121,6 +151,22 @@ eecc076  Replace /leads with Lead Pipeline, /applications with Opp Pipeline
 
 All commits live on `main`. Vercel auto-deployed every push; latest
 URL is `agent-dashboard-cc90210.vercel.app`.
+
+# Live HTTP probe results
+
+After all fixes shipped:
+
+```
+GET /api/track/open/<bad-id>       200  image/gif  43 bytes  ← was 401
+GET /t/sun/leads (unauthed)        307  → /login?next=%2Ft%2Fsun%2Fleads
+GET /t/sun/applications (unauthed) 307  → /login?next=%2Ft%2Fsun%2Fapplications
+GET /t/sun/pipeline (unauthed)     307  → /login?next=%2Ft%2Fsun%2Fpipeline
+GET /api/leads/<id>/timeline       401  (correct — protected endpoint)
+```
+
+All routes behave as designed. The chevron pipeline pages render once
+the operator authenticates; the tracking pixel now actually serves the
+GIF + records opens.
 
 # Sign-off
 
