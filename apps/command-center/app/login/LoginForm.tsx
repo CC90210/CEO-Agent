@@ -9,7 +9,11 @@ import { OasisLogo } from "@/components/brand/OasisLogo";
 export function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const next = params.get("next") || "/";
+  const inviteToken = (params.get("invite") || "").trim();
+  // If there's an invite, post-login routes through the welcome wizard
+  // (Phase C) so the new teammate sets their personal preferences before
+  // landing on the dashboard. Otherwise honor the explicit ?next= param.
+  const next = inviteToken ? "/onboarding/welcome" : params.get("next") || "/";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -21,9 +25,35 @@ export function LoginForm() {
     setErr(null);
     try {
       const supa = getBrowserSupabase();
-      const { error } = await supa.auth.signInWithPassword({ email, password });
+      const { data, error } = await supa.auth.signInWithPassword({ email, password });
       if (error) {
         setErr(error.message);
+        return;
+      }
+      // If the user followed an invite link, redeem it against their
+      // existing account before routing. The redeem RPC is atomic so a
+      // second submit (network retry / refresh) is safe.
+      if (inviteToken && data.user) {
+        const r = await fetch("/api/auth/redeem-invite", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            auth_user_id: data.user.id,
+            raw_token: inviteToken,
+          }),
+        });
+        const body = (await r.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          message?: string;
+          first_login?: boolean;
+        };
+        if (!r.ok || !body.ok) {
+          setErr(body.message || body.error || "Invite redemption failed");
+          return;
+        }
+        router.push(body.first_login ? "/onboarding/welcome" : "/");
+        router.refresh();
         return;
       }
       router.push(next);

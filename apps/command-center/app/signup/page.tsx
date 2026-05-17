@@ -10,7 +10,9 @@ export default function SignupPage() {
   const router = useRouter();
   const params = useSearchParams();
   const brandHint = (params.get("brand") || "").trim();
-  const [email, setEmail] = useState("");
+  const inviteToken = (params.get("invite") || "").trim();
+  const emailHint = (params.get("email") || "").trim();
+  const [email, setEmail] = useState(emailHint);
   const [fullName, setFullName] = useState("");
   const [brand, setBrand] = useState(brandHint);
   const [password, setPassword] = useState("");
@@ -35,8 +37,38 @@ export default function SignupPage() {
         setErr(error.message);
         return;
       }
-      // Provision tenant + profile via API route (uses service role server-side)
+      // Branch on invite token. If present, the recipient is joining an
+      // existing tenant — redeem instead of provisioning a new tenant.
+      // If absent, this is a fresh top-level signup (creates a new tenant).
       if (data.user) {
+        if (inviteToken) {
+          const r = await fetch("/api/auth/redeem-invite", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              auth_user_id: data.user.id,
+              raw_token: inviteToken,
+            }),
+          });
+          const body = (await r.json().catch(() => ({}))) as {
+            ok?: boolean;
+            error?: string;
+            message?: string;
+            first_login?: boolean;
+          };
+          if (!r.ok || !body.ok) {
+            setErr(body.message || body.error || "Invite redemption failed");
+            return;
+          }
+          // First-login invitees land on the welcome wizard (Phase C).
+          // Returning users (re-redeem of a previously-redeemed token
+          // shouldn't happen because the RPC marks redeemed_at, but if
+          // they somehow get here, send them home).
+          router.push(body.first_login ? "/onboarding/welcome" : "/");
+          router.refresh();
+          return;
+        }
+
         const r = await fetch("/api/auth/provision", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -54,11 +86,7 @@ export default function SignupPage() {
         }
       }
 
-      // Send everyone to the industry-template wizard. The legacy /onboarding
-      // page was the OASIS-operator-only bridge-pair + API-key + C-suite-picker
-      // flow; client tenants never belonged there. Middleware also redirects
-      // un-onboarded users to /onboarding/wizard, but explicit push keeps the
-      // post-signup redirect deterministic.
+      // Fresh-tenant signups land on the industry-template wizard.
       router.push("/onboarding/wizard");
       router.refresh();
     } catch (ex: unknown) {
@@ -101,11 +129,21 @@ export default function SignupPage() {
             <OasisLogo size={44} priority />
             <div className="text-fg font-bold tracking-tight text-lg">OASIS AI</div>
           </div>
-          <h1 className="text-2xl font-bold text-fg">Create your Command Center</h1>
+          <h1 className="text-2xl font-bold text-fg">
+            {inviteToken ? "Accept your invite" : "Create your Command Center"}
+          </h1>
           <p className="text-fg-muted text-sm mt-2">
-            Your isolated workspace. Multi-agent. Profile-driven.
+            {inviteToken
+              ? "Set up your personal account. You'll join the workspace right after."
+              : "Your isolated workspace. Multi-agent. Profile-driven."}
           </p>
         </div>
+
+        {inviteToken && (
+          <div className="mb-4 rounded-lg border border-accent/40 bg-accent/5 px-3 py-2 text-[12px] text-fg-muted">
+            ✓ Invite detected — you&apos;ll be added to the workspace automatically after signup.
+          </div>
+        )}
 
         <div className="bg-bg-panel border border-bg-border rounded-xl p-6 shadow-card">
           <form onSubmit={onSubmit} className="space-y-3">
