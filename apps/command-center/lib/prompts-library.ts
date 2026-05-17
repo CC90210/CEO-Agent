@@ -25,6 +25,7 @@ export type PromptCategory =
   | "client_handoff"
   | "system_override"
   | "system_health"
+  | "system_integration"
   | "ops_daily"
   | "ops_review";
 
@@ -64,6 +65,10 @@ export const PROMPT_CATEGORIES: Record<PromptCategory, { label: string; descript
     label: "System health",
     description: "Diagnose, repair, refactor your stack.",
   },
+  system_integration: {
+    label: "System integration",
+    description: "Drop a GitHub repo, research doc, open-source tool, or competitor pattern. The agent runs the canonical V6.8 cross-reference audit, plans the import, ships it across the relevant siblings.",
+  },
   ops_daily: {
     label: "Daily ops",
     description: "What to fire every morning / before sales blocks / before content blocks.",
@@ -75,6 +80,38 @@ export const PROMPT_CATEGORIES: Record<PromptCategory, { label: string; descript
 };
 
 export const PROMPTS_LIBRARY: PromptEntry[] = [
+  // ── SYSTEM INTEGRATION (V6.8.3, 2026-05-16) ───────────────────
+  // Canonical surface for "I found a thing, integrate it" moments.
+  // Mirrors the disciplined pattern from the mattpocock/skills audit
+  // (commits 5aeb5fb → bec2fcc → 5335556). The full prompt body lives
+  // in prompts/INTEGRATE_NEW_TOOL.md; this entry is the dashboard click.
+  {
+    id: "integrate-new-tool",
+    category: "system_integration",
+    audience: "operator",
+    agent: "bravo",
+    title: "Integrate a new tool / repo / research",
+    description:
+      "Paste a GitHub URL, an open-source repo, a research doc, a transcript, a competitor pattern, or any external resource. Bravo (or the right sibling) runs the canonical 6-phase audit: identify → cross-reference → plan → execute → verify symbiosis → commit + propagate. Anti-slop guardrails enforced. Output is load-bearing code, not paperwork.",
+    foundational: true,
+    tags: ["integration", "audit", "v6.8", "research", "github"],
+    prompt:
+      "I'm dropping you a new external resource to integrate into the empire. " +
+      "Use the canonical workflow in `prompts/INTEGRATE_NEW_TOOL.md` end-to-end. " +
+      "Identity probe first — figure out which agent (Bravo / Maven / Atlas / client) this belongs in. " +
+      "Run Phase 1 (identify the problem this solves — don't import for the sake of importing). " +
+      "Spawn the Phase 2 parallel audit (researcher + Explore agents). " +
+      "Synthesize the cross-reference table yourself — never delegate synthesis. " +
+      "Write a plan to `~/.claude/plans/<slug>.md` with ADR-0001 hard/soft dependency classification and completeness scores 0-10. " +
+      "Call ExitPlanMode for non-trivial work, wait for my approval. " +
+      "Execute in layers: substrate → conventions → vocabulary → distribution. " +
+      "Run the 4 symbiosis tests after each layer (graph rebuild, retriever pickup, resolver behavior, end-to-end). " +
+      "Commit per layer with V6.X.Y semantic-versioning. " +
+      "Propagate to siblings via CONTEXT.md + V68_AGENT_OS_PATTERNS.md contract when cross-agent. " +
+      "Log a probationary pattern in memory/PATTERNS.md. " +
+      "Finish with the memory sync line. " +
+      "Resource to integrate: ",
+  },
   // ── CLIENT SETUP ────────────────────────────────────────────────
   {
     id: "client-fresh-machine-bootstrap",

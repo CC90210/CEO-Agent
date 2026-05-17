@@ -47,6 +47,7 @@ SCOPES: dict[str, list[str]] = {
     "entry":   ["CLAUDE.md", "AGENTS.md", "GEMINI.md", "ANTIGRAVITY.md", "OPENCODE.md"],
     "context": ["CONTEXT.md"],
     "adr":     ["docs/adr/*.md"],
+    "prompt":  ["prompts/*.md"],
 }
 
 # Files to skip — DB-derived, ephemeral, or templates.

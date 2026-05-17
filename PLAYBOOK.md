@@ -22,6 +22,7 @@ These are the five things you'll actually do 80% of days. Bookmark this section.
 | **Trigger the reasoning loop on demand** | `python scripts/autonomous_agent.py tick` | One cycle of the brain loop. Prints plain-English summary. |
 | **See your MRR / pipeline / revenue right now** | "what's my pipeline?" — or: `python scripts/ceo_dashboard.py briefing` | The CEO briefing: MRR, pipeline counts by stage, #1 priority |
 | **Ask a general business question** | Just ask in Telegram or IDE — plain English | The agent routes to the right tool and answers in plain English. You don't need to know which tool. |
+| **Integrate a new GitHub repo / open-source tool / research doc** | Open `/playbook/prompts` → click **"Integrate a new tool / repo / research"** → paste the URL or content at the end. Or paste the contents of [prompts/INTEGRATE_NEW_TOOL.md](prompts/INTEGRATE_NEW_TOOL.md) as your first message. | Bravo (or the right sibling) runs the canonical 6-phase audit: identify → cross-reference → plan → execute → verify → commit + propagate. Output is load-bearing code across the relevant agents. The mattpocock/skills V6.8 import is the reference case. |
 
 **Rule of thumb:** if you're typing more than one command, you're doing it the hard way. Ask in English, let Bravo route.
 
@@ -99,7 +100,6 @@ Organized by the question, not the tool. The tool names are in italics so you ca
 | Question | Answer |
 |---|---|
 | "Send a cold email to this new lead" | *`outreach_engine.py send --lead-id ...`* — drafts + sends through the gateway, CASL-compliant |
-| "Start a batch of cold emails for me to approve" | *`outreach_batch.py --limit 5`* — you approve each via Telegram |
 | "Send this one-off email" | *`email_engine.py send --to ... --subject ... --body ...`* |
 | "Is it safe to email this lead right now?" | *`send_gateway.py can-act --lead-id ... --channel email`* |
 | "How many outbounds today?" | *`send_gateway.py stats`* |
