@@ -47,7 +47,7 @@ WEEKDAY_TEMPLATE = {
         {"time_label": "12:00 — 12:30", "title": "Lunch + retro", "body": "Eat. Step outside. Replay best/worst calls. Note any objection that caught you.", "intensity": "break"},
         {"time_label": "12:30 — 13:00", "title": "Primary lead — phone call", "body": "Use the play card on Today. One ring. Voicemail script ready. If they pick up, book it before you hang up.", "intensity": "intense"},
         {"time_label": "13:00 — 14:30", "title": "Cold call block #2 (15+ calls)", "body": "Switch verticals. 15 dials, 5+ conversations, 1+ booking.", "intensity": "intense"},
-        {"time_label": "14:30 — 15:00", "title": "Email batch — 10 follow-ups", "body": "python scripts/outreach_batch.py — send 10 OASIS Value-Add follow-ups with the new 14-day pilot framing.", "intensity": "normal"},
+        {"time_label": "14:30 — 15:00", "title": "Email batch — 10 follow-ups", "body": "Open /pipeline → filter contacted → write 10 personalized Value-Add follow-ups with the new 14-day pilot framing. Send per-lead via scripts/outreach_engine.py send --lead-id <id>.", "intensity": "normal"},
         {"time_label": "15:00 — 16:00", "title": "Content — 1 piece shipped", "body": "Record a 60-sec iPhone vertical OR write a long-form post. Hand to Maven for the pipeline.", "intensity": "normal"},
         {"time_label": "16:00 — 16:30", "title": "Pipeline review + KPI log", "body": "Open Pipeline. Confirm every call shows. Update statuses. Score: dials / conversations / bookings.", "intensity": "normal"},
         {"time_label": "16:30 — 17:30", "title": "Strategic partner outreach (3 targets)", "body": "Tier 1 partner pitch. Recruitment, not selling. One business coach, one accountant, one agency.", "intensity": "intense"},

@@ -57,8 +57,8 @@ CLI
 
 DESIGN
 ------
-1. Claude Haiku as critic. Fast enough to run inline in outreach_batch
-   without making CC wait. Cheap (~$0.0002/review).
+1. Claude Haiku as critic. Fast and cheap (~$0.0002/review), suitable
+   for inline use in any outbound engine without making CC wait.
 2. Structured output. Fixed schema, never free-form.
 3. Single retry. If a draft fails critique and the revision also fails,
    escalate rather than infinite-loop.

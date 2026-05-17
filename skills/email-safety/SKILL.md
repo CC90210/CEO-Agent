@@ -57,9 +57,6 @@ python scripts/email_engine.py send-template \
 python scripts/outreach_engine.py send \
   --lead-id <uuid> \
   --dry-run
-
-# And for batch approvals
-python scripts/outreach_batch.py --send-draft <path> --dry-run
 ```
 
 If you are reasoning about whether a send is safe: **always dry-run first.**
@@ -151,9 +148,6 @@ python scripts/outreach_engine.py send \
   --lead-id <lead_uuid> \
   --meeting-datetime 2026-04-25T14:00:00 \
   --duration 30
-
-# 5. Approve a Telegram-drafted batch outreach
-python scripts/outreach_batch.py --send-draft tmp/outreach_drafts/<file>.json
 ```
 
 ## Common UNSAFE patterns to avoid

@@ -31,7 +31,7 @@ freshness_threshold_days: 7
 
 | Tool | Status | Purpose |
 |--------|--------|---------|
-| **Send Gateway** | ✅ V5.6 HARDENED (2026-04-23) | `scripts/send_gateway.py` — single outbound chokepoint. CASL + cooldown + daily cap + hourly cap + domain cap + bounce breaker + draft critic gate + reservation guard + DNS doctor. `scripts/dns_reputation.py` added. 48 tests green. All 6 business engines (outreach_engine, outreach_batch, email_engine, funnel_nurture, booking_engine, contract_generator) rewired through it. |
+| **Send Gateway** | ✅ V5.6 HARDENED (2026-04-23) | `scripts/send_gateway.py` — single outbound chokepoint. CASL + cooldown + daily cap + hourly cap + domain cap + bounce breaker + draft critic gate + reservation guard + DNS doctor. `scripts/dns_reputation.py` added. 48 tests green. Business engines rewired through it: `outreach_engine`, `email_engine`, `funnel_nurture`, `booking_engine`, `contract_generator`. (Sixth caller `outreach_batch` retired 2026-05-16.) |
 | **Unified Interaction Ledger** | ✅ V5.6 LIVE | `lead_interactions` table extended (cooldown_until + agent_source + metadata + 4 indexes) via migration 003. Shared memory across every outbound + N8N inbound. |
 | **Context Builder** | ✅ V5.6 LIVE | `scripts/context_builder.py` — relationship stage + sentiment + prompt composition. Feeds persona-aware drafts. |
 | **Inbound Classifier** | ✅ V5.6 LIVE | `scripts/inbound_classifier.py` — Claude Haiku intent/sentiment/priority classifier + keyword fallback. Writes to `lead_interactions` + publishes `agent_events.inbound.classified`. |
@@ -49,7 +49,7 @@ freshness_threshold_days: 7
 | **Skool Community Engine** | ✅ V2 RESEARCH-ENHANCED | Post-reply only (DMs disabled). V2: web research before replying. Never admits ignorance. 108 posts replied all-time. |
 | **Skool Watchdog** | ⚠️ NEEDS ADMIN FIX (Windows only) | Task uses bare `pythonw.exe` — needs full path. Run `scripts/fix_watchdog_task.ps1` as admin. Daemon manually started. |
 | **cc-funnel** | ✅ LIVE | Lead capture form → Supabase → Telegram notify → Booking CTA on success screen. |
-| **Semi-Auto Outreach Loop** | 🔄 DEPLOYING | `scripts/outreach_batch.py` — daily scrape → score → draft → Telegram approve buttons. In build. |
+| **Semi-Auto Outreach Loop** | ⛔ RETIRED 2026-05-16 | Cold-outreach Telegram-approval cron + `scripts/outreach_batch.py` removed. CC opted out of auto-drafted cold outreach; inbound alerts now flow through `funnel_fast_poll`. |
 | **Stripe SDK** | ✅ LIVE | Multi-account (OASIS, PropFlow, Nostalgic) |
 | **Supabase SDK** | ✅ LIVE | Bravo, OASIS, Nostalgic projects |
 | **Zernio (Late) CLI** | ⚠️ FREE PLAN LIMIT | 20 posts/month limit hit. Needs upgrade or frequency reduction. `late_tool.py` operational. |

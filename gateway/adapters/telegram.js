@@ -933,27 +933,9 @@ CC's message:`;
             return;
         }
 
-        // Outreach batch buttons
-        if (data.startsWith('outreach_send_') || data.startsWith('outreach_skip_')) {
-            const leadId = data.replace(/^outreach_(send|skip)_/, '');
-            const action = data.startsWith('outreach_send_') ? 'send' : 'skip';
-            const draftPath = path.join(REPO_ROOT, 'tmp', 'outreach_drafts', `${leadId}.json`);
-            await this._bot.answerCallbackQuery(query.id, { text: action === 'send' ? 'Sending...' : 'Skipped' }).catch(() => {});
-            if (action === 'send') {
-                await this._bot.sendMessage(chatId, 'Sending email...');
-                execFile(PYTHON, ['scripts/outreach_batch.py', '--send-draft', draftPath],
-                    { cwd: REPO_ROOT, timeout: 30000 }, (err, stdout) => {
-                        let msg = stdout ? stdout.trim() : '';
-                        try { const j = JSON.parse(msg); msg = j.output || msg; } catch (_) {}
-                        this._bot.sendMessage(chatId, msg || 'Email sent.').catch(() => {});
-                    });
-            } else {
-                execFile(PYTHON, ['scripts/outreach_batch.py', '--skip-draft', draftPath],
-                    { cwd: REPO_ROOT, timeout: 15000 }, () => {});
-                await this._bot.sendMessage(chatId, 'Lead skipped.');
-            }
-            return;
-        }
+        // Cold-outreach Approve/Skip callbacks removed 2026-05-16 (see
+        // telegram_agent.js for the matching change). Stale buttons fall
+        // through to "No pending confirmation found." — safe no-op.
 
         const pending = this._pendingConfirmations[String(chatId)];
         await this._bot.answerCallbackQuery(query.id).catch(() => {});

@@ -154,7 +154,7 @@ Every autonomous outbound action now routes through a single entry point: `scrip
 - `scripts/test_send_gateway.py` — 17 tests covering golden, suppression, cooldown, daily cap, dry-run, input validation, SMTP failure, brand identity, auto-create lead, sentiment, stage inference. Must pass before any gateway change ships.
 - `skills/send-gateway/SKILL.md` — full caller contract and extension guide.
 
-**Engines rewired (five):** `outreach_engine`, `outreach_batch`, `email_engine`, `funnel_nurture`, `booking_engine`. Each now delegates physical send + CASL + logging to the gateway; each keeps only its business-specific logic (template rendering, .ics generation, Telegram callback flow).
+**Engines rewired (four):** `outreach_engine`, `email_engine`, `funnel_nurture`, `booking_engine`. Each delegates physical send + CASL + logging to the gateway; each keeps only its business-specific logic (template rendering, .ics generation). The fifth engine, `outreach_batch` (semi-auto cold-outreach with Telegram approval), was retired 2026-05-16 — CC opted out of auto-drafted cold outreach; inbound notifications now flow through `funnel_fast_poll` instead.
 
 **Still outside the chokepoint (tracked):** The N8N `OASIS Inbound Qualifier` workflow writes replies directly via Gmail node — closing this is a one-node N8N change (add a Supabase write to `lead_interactions` with `agent_source='n8n_inbound'`). Documented as follow-on work.
 

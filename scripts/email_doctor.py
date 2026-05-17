@@ -202,8 +202,6 @@ CHECKS = [
         "email_engine.py", ["sequence", "run"])),
     ("outreach_engine send --dry-run", lambda: check_subcommand_dryrun_flag(
         "outreach_engine.py", ["send"])),
-    ("outreach_batch --dry-run", lambda: check_subcommand_dryrun_flag(
-        "outreach_batch.py", [])),
     ("send_gateway send --dry-run", lambda: check_subcommand_dryrun_flag(
         "send_gateway.py", ["send"])),
     ("no smtp bypass", check_no_smtp_bypass),

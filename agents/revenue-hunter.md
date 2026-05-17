@@ -30,7 +30,7 @@ those burn paying clients and CC's reputation.
 Practical rules:
 - Email sends: `python scripts/email_engine.py send-template ...` (routes through gateway)
 - Outreach with calendar invite: `python scripts/outreach_engine.py send ...`
-- Approved batch drafts: `python scripts/outreach_batch.py --send-draft <path>`
+- Cold outreach is operator-initiated only (no cron). Inbound funnel hits are handled by `funnel_fast_poll`.
 - ALWAYS support `--dry-run` for preview. When in doubt, set
   `BRAVO_FORCE_DRY_RUN=1` in your env — universal killswitch.
 - LinkedIn outreach: NO automation by design. CC drafts manually on

@@ -127,11 +127,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-05-16
+- **Date:** 2026-05-17
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** V6.7+ Phase 2-5: research_fetch unified fetcher + persona archive (9 skills -> _archive/) + routing-accuracy bug fix (disable-model-invocation now respected by capability_query resolver). 159->150 active skills. Audit verdict on knowledge/memory clusters: not redundant, keep all.
+- **Result:** Codex hardened Command Center multi-tenant plan: invite redemption is session-bound and OAuth/password callbacks preserve invite tokens; agent config writes are scoped to admin tenant defaults vs personal overrides; audit logging now uses authed RPC calls with hardened migration 054 plus scripts/audit_rls_coverage.py; SunBiz manifest/catalog/reasoning data model now supports Solara/Helios funded deals, renewals, lenders, commissions, and outreach drafts. Verified typecheck, build, RLS audit, and local HTTP probes.
 
-*Last updated: 2026-05-16*
+*Last updated: 2026-05-17*
 
 ## Manifest
 

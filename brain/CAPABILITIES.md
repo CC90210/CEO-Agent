@@ -540,7 +540,7 @@ Four entry files at the repo root — one per AI tooling surface. Every agent th
 | CASL | `scripts/casl_compliance.py` | Suppression + footer + RFC 2369/8058 headers. Composed by the gateway. |
 | Templates | `scripts/wire_all_templates.py` | Keeps OASIS Welcome / Value Add / CTA congruent across sessions. Verifies `https://oasisai.work` + `https://calendar.app.google/tpfvJYBGircnGu8G8`. |
 
-Rewired engines (all route through gateway): `outreach_engine`, `outreach_batch`, `email_engine`, `funnel_nurture`, `booking_engine`. See [[skills/send-gateway/SKILL]] for complete contract.
+Rewired engines (all route through gateway): `outreach_engine`, `email_engine`, `funnel_nurture`, `booking_engine`. `outreach_batch` was retired 2026-05-16 along with the cold-outreach Telegram-approval cron. See [[skills/send-gateway/SKILL]] for complete contract.
 
 ## Agent Governance Scripts (V5.6+)
 
@@ -549,6 +549,7 @@ Scripts that enforce Bravo's coherence, autonomy, and self-correction. Run in-pr
 | Script | Purpose | Usage |
 |---|---|---|
 | `scripts/self_audit.py` | **Self-diagnostic health check.** Scans brain/, memory/, skills/, agents/, scripts/ for orphans, broken wiring, undocumented scripts, MCP config drift. Emits 0-100 health score. | `python scripts/self_audit.py` (human) or `--json` |
+| `scripts/audit_rls_coverage.py` | Supabase RLS coverage check for every tenant-scoped table. Fails if a `tenant_id` table lacks RLS or policies. | `python scripts/audit_rls_coverage.py --json` |
 | `scripts/draft_critic.py` | Adversarial second-opinion reviewer. Runs on every Claude-drafted outbound before `send_gateway`. Answers the 2026-04-19 "dumb outreach" complaint. | Called by gateway hook, also `--review <draft>` |
 | `scripts/inbound_classifier.py` | The inbound chokepoint companion to `send_gateway`. Classifies every inbound email/DM into unified `lead_interactions` ledger so no engine re-contacts a replied lead. | Called by engines; `--classify <payload>` |
 | `scripts/autonomous_agent.py` | The always-on reasoning loop. Wakes on schedule or Telegram poke, consults pulse files, picks highest-leverage action, executes, logs. | `python scripts/autonomous_agent.py --once` or daemon mode |
