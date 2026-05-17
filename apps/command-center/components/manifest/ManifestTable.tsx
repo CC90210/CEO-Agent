@@ -5,6 +5,7 @@ import { Plus, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { humanize } from "@/lib/manifest/humanize";
 import { formatCardField, stageToneFor } from "@/lib/manifest/format";
+import { filterRowsByQuery } from "@/lib/search-filter";
 
 type Props = {
   tenantSlug: string;
@@ -31,22 +32,7 @@ type Props = {
   query?: string;
 };
 
-function rowMatchesQuery(row: TenantRecord, query: string): boolean {
-  const q = query.trim().toLowerCase();
-  if (!q) return true;
-  const qDigits = q.replace(/\D/g, "");
-  const parts: string[] = [row.id];
-  for (const v of Object.values(row.data || {})) {
-    if (v == null) continue;
-    parts.push(String(v));
-  }
-  const phone = row.data?.phone;
-  if (typeof phone === "string") parts.push(phone.replace(/\D/g, ""));
-  const hay = parts.join(" ").toLowerCase();
-  if (hay.includes(q)) return true;
-  if (qDigits.length >= 4 && hay.includes(qDigits)) return true;
-  return false;
-}
+// rowMatchesQuery moved to lib/search-filter.ts.
 
 /**
  * Server-rendered table view for a manifest entity. Renders every field
@@ -79,9 +65,7 @@ export async function ManifestTable({
         limit: 200,
       }).catch(() => ({ rows: [], total: 0 }))).rows
     : demoRows || [];
-  const rows = query && query.trim()
-    ? fetchedRows.filter((r) => rowMatchesQuery(r, query))
-    : fetchedRows;
+  const rows = filterRowsByQuery(fetchedRows, query);
 
   // The columns the table renders. Reads `config.columns` if the
   // manifest specifies a subset; otherwise renders every field.
