@@ -311,6 +311,9 @@ function KanbanCard({
   const AI_CHIP_FIELDS = new Set([
     "ai_score", "ai_reasoning", "ai_scored_at",
     "ai_next_action", "ai_next_action_rationale", "ai_next_action_at",
+    // missing_info renders as its own chip below the title, not as a
+    // dt/dd row — same pattern as ai_score.
+    "missing_info",
   ]);
 
   const populatedFields = cardFields.filter(
@@ -323,6 +326,16 @@ function KanbanCard({
 
   const aiScoreRaw = row.data.ai_score;
   const aiScore = typeof aiScoreRaw === "number" ? Math.round(aiScoreRaw) : null;
+
+  // Missing-info chip — populated by Phase 20's lender-response
+  // classifier when an inbound lender email asks for additional docs.
+  // Array of canonical doc-type strings (bank_statements_3mo etc).
+  // Rendered as a single red chip with the top 2 entries inline + "+N"
+  // overflow so the card stays scannable.
+  const rawMissing = row.data.missing_info;
+  const missingInfo: string[] = Array.isArray(rawMissing)
+    ? rawMissing.filter((x): x is string => typeof x === "string")
+    : [];
 
   // Domain-aware title rendering. The title field (e.g. amount for
   // offer) gets formatted with the appropriate unit so the card's
@@ -343,6 +356,15 @@ function KanbanCard({
           </div>
           {aiScore !== null && <AiScoreChip score={aiScore} />}
         </div>
+        {missingInfo.length > 0 && (
+          <div className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-red-500/40 bg-red-500/10 px-1.5 py-0.5 text-[10px] font-medium text-red-300">
+            <span aria-hidden>🔴</span>
+            <span className="font-mono">
+              Missing: {missingInfo.slice(0, 2).map(humanize).join(", ")}
+              {missingInfo.length > 2 ? ` +${missingInfo.length - 2}` : ""}
+            </span>
+          </div>
+        )}
         {populatedFields.length > 0 && (
           <dl className="mt-2 space-y-0.5 text-[11px]">
             {populatedFields.map((f) => (

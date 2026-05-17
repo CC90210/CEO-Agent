@@ -126,6 +126,7 @@ export const CC_NAV: NavItem[] = [
  */
 export const SUN_NAV: NavItem[] = [
   { group: "Operations", href: "/", label: "Dashboard", icon: "LayoutDashboard" },
+  { group: "Operations", href: "/pipeline", label: "Pipeline", icon: "GitBranch" },
   { group: "Operations", href: "/agent", label: "Agents", icon: "Bot" },
   { group: "Operations", href: "/reasoning", label: "Reasoning", icon: "Brain" },
   { group: "Operations", href: "/playbook", label: "Playbook", icon: "BookOpen" },

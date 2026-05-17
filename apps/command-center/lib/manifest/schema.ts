@@ -159,7 +159,12 @@ export type ManifestPageKind =
   | "form"
   | "markdown"
   | "reasoning"
-  | "import"; // bulk lead import — renders LeadsImportClient in the catch-all router
+  | "import" // bulk lead import — renders LeadsImportClient in the catch-all router
+  | "pipeline"; // two-pipeline superview — renders Lead + Opportunity Kanbans
+                // stacked with the submitted→offered handoff visualised. Added
+                // 2026-05-17 per the Salesforce-replacement meeting. Reads
+                // config.lead_entity + config.opportunity_entity (default
+                // 'lead' + 'offer').
 
 export type ManifestPageDef = {
   path: string;           // relative path under /t/<slug>/ e.g. "leads"
