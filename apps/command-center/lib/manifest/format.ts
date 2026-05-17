@@ -143,24 +143,32 @@ export type StageTone = "neutral" | "accent" | "hot" | "warm" | "engaged" | "inf
  * default before this registry shipped).
  */
 export const ENTITY_STAGE_TONES: Record<string, Record<string, StageTone>> = {
-  // Lead pipeline — Phase 2 enum.
+  // Lead Pipeline — Salesforce-parity enum (2026-05-17 rework).
+  // Exact color hex codes per stage live in lib/sunbiz-stage-meta.ts;
+  // the tones below are the semantic-palette fallback the Kanban uses
+  // when it can't reach the per-stage style.
   lead: {
-    cold: "neutral",
+    imported: "neutral",
+    not_interested: "warm",
+    hot_lead: "hot",
+    missing_info: "info",
+    declined: "warm",
     follow_up: "info",
     sent_application: "info",
     viewed_application: "accent",
     signed_application: "accent",
-    submitted: "engaged",
-    declined: "warm",
     default: "warm",
-    // Legacy status values still in the wild (pre-Phase 2 enum).
-    new: "neutral",
+    submitted: "engaged",
+    approved: "engaged",
+    // Legacy status values still in the wild (pre-2026-05-17 enum) — keep
+    // mapping so any backfilled rows in old shape don't render invisible.
+    cold: "neutral",
     qualified: "accent",
     application_sent: "info",
-    approved: "engaged",
     funded: "engaged",
     lost: "warm",
     archived: "neutral",
+    dead_file: "warm",
   },
   // Application pipeline — manifest enum draft/submitted/in_review/approved/declined.
   application: {
@@ -170,12 +178,22 @@ export const ENTITY_STAGE_TONES: Record<string, Record<string, StageTone>> = {
     approved: "engaged",
     declined: "warm",
   },
-  // Offer pipeline — Phase 2 enum offered/contracts_out/accepted/funded/no_offer/declined/expired.
+  // Opportunity Pipeline — Salesforce-parity enum (2026-05-17 rework).
+  // submitted_to_underwriting / approved_open_offers / contracts_ordered /
+  // funded / approved_never_funded / no_offers_available / dead_file.
+  // "New" intentionally omitted per the 2026-05-16 meeting decision.
   offer: {
+    submitted_to_underwriting: "info",
+    approved_open_offers: "accent",
+    contracts_ordered: "accent",
+    funded: "engaged",
+    approved_never_funded: "warm",
+    no_offers_available: "warm",
+    dead_file: "warm",
+    // Legacy values from the pre-rework enum.
     offered: "info",
     contracts_out: "accent",
     accepted: "engaged",
-    funded: "engaged",
     no_offer: "warm",
     declined: "warm",
     expired: "neutral",

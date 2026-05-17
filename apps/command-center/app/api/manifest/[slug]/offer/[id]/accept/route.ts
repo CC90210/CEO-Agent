@@ -1,11 +1,12 @@
 /**
  * POST /api/manifest/[slug]/offer/[id]/accept — accept a lender offer.
  *
- * Two-stroke mutation (Phase 10.2 of SunBiz CRM):
- *   1. Flip the offer's stage from offered/contracts_out → accepted.
- *      updateRecord auto-publishes a BRAVO_RECORD_STATUS_CHANGED event
- *      so any drip sequence triggered on "offer.stage → accepted" fires
- *      automatically.
+ * Two-stroke mutation (Phase 10.2 of SunBiz CRM; stage names updated
+ * 2026-05-17 to Salesforce-parity Opportunity Pipeline):
+ *   1. Flip the offer's stage from approved_open_offers / contracts_ordered
+ *      → funded. updateRecord auto-publishes a BRAVO_RECORD_STATUS_CHANGED
+ *      event so any drip sequence triggered on "offer.stage → funded"
+ *      fires automatically.
  *   2. Insert a draft funded_deal record carrying the offer's lead_id,
  *      lender_id, amount, term_months, and funded_at = today. The
  *      operator can fine-tune the funded_at date on the funded_deal
@@ -15,7 +16,7 @@
  * tenant_id, so a Sun rep can't accept an offer on a different tenant's
  * application by guessing the offer id.
  *
- * Idempotency: if the offer is already in stage=accepted, the response
+ * Idempotency: if the offer is already in stage=funded, the response
  * returns ok with `already_accepted: true` and doesn't double-insert
  * the funded_deal. The operator can hit Accept twice without creating
  * two duplicate funded_deal records.
@@ -82,7 +83,7 @@ export async function POST(
   if (!offer) return NextResponse.json({ ok: false, error: "offer_not_found" }, { status: 404 });
 
   // Idempotent path — already accepted, don't double-write.
-  if (offer.data.stage === "accepted") {
+  if (offer.data.stage === "funded") {
     return NextResponse.json({
       ok: true,
       offer,
@@ -100,7 +101,7 @@ export async function POST(
       tenant_id: dataTenantId,
       entity: "offer",
       id,
-      patch: { stage: "accepted" },
+      patch: { stage: "funded" },
     });
   } catch (err) {
     const code = err instanceof RecordsError ? err.code : "unknown";

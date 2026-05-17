@@ -251,33 +251,25 @@ export const SUN_SEED: TenantManifest = {
         { name: "phone", type: "string" },
         { name: "email", type: "string" },
         { name: "monthly_revenue", type: "number" },
-        // Lead stages — Salesforce-parity per Jordan/CC's 2026-05-15
-        // meeting. Replaces the old (new/qualified/application_sent/...
-        // /funded/lost) shape with the funding-shop progression.
+        // Lead Pipeline stages — verbatim Salesforce parity per Adon's
+        // 2026-05-16 screenshots. Order = left-to-right arrow flow on
+        // the pipeline bar. Colors live in lib/sunbiz-stage-meta.ts.
         //
-        //   cold              — fresh inbound, no contact yet
-        //   follow_up         — contact established, needs nurture (daily/
-        //                       weekly drip lane)
-        //   sent_application  — Solara dispatched the application link;
-        //                       waiting for the prospect to engage
-        //   viewed_application — prospect clicked the link (engagement
-        //                       signal — fires the "viewed" drip)
-        //   signed_application — prospect completed form 2 (the actual app)
-        //   submitted         — bank statements uploaded; ready for
-        //                       underwriting + shop-out
-        //   declined          — passed on after bank-statement review
-        //                       (1-month-revival drip eligible)
-        //   dead_file         — file was once good but the client killed
-        //                       it (lost contact, changed mind, took
-        //                       another funder's offer). Distinct from
-        //                       declined (which is a lender no) and
-        //                       default (which is post-funding failure).
-        //                       Added per 2026-05-16 Adon ↔ Oasis meeting
-        //                       — Salesforce-parity stage that Adon's
-        //                       team uses today.
-        //   default           — repayment failure / bankruptcy
-        //                       (no drip; permanent lost)
-        { name: "stage", type: "enum", enum_values: ["cold", "follow_up", "sent_application", "viewed_application", "signed_application", "submitted", "declined", "dead_file", "default"], required: true },
+        //   imported            — fresh CSV/API ingest, no engagement yet
+        //   not_interested      — explicitly declined the cold touch
+        //   hot_lead            — actively engaging, replied / called back
+        //   missing_info        — needs additional data before progressing
+        //                         (auto-tagged by Phase 20 classifier)
+        //   declined            — lender or operator passed
+        //   follow_up           — nurture cadence, waiting on next touch
+        //   sent_application    — Solara dispatched the application link
+        //   viewed_application  — prospect opened the link (engagement)
+        //   signed_application  — prospect completed the application form
+        //   default             — repayment failure / bankruptcy
+        //   submitted           — submitted to underwriting (graduates to
+        //                         Opportunity Pipeline; see offer.stage)
+        //   approved            — lender approved (graduates to offer)
+        { name: "stage", type: "enum", enum_values: ["imported", "not_interested", "hot_lead", "missing_info", "declined", "follow_up", "sent_application", "viewed_application", "signed_application", "default", "submitted", "approved"], required: true },
         // missing_info — Phase 20 (2026-05-17) classifier output. Array
         // of canonical doc-type strings the lead still owes us before
         // an application can advance. Populated by
@@ -310,21 +302,24 @@ export const SUN_SEED: TenantManifest = {
         { name: "amount", type: "number" },
         { name: "term_months", type: "number" },
         { name: "factor_rate", type: "number" },
-        // Opportunity-pipeline stage — replaces the prior boolean
-        // `accepted` field. Salesforce-parity per Jordan/CC's
-        // 2026-05-15 meeting:
+        // Opportunity Pipeline stages — verbatim Salesforce parity per
+        // Adon's 2026-05-16 screenshots. "New" is intentionally excluded
+        // per the meeting decision. Order = left-to-right arrow flow.
+        // Colors in lib/sunbiz-stage-meta.ts.
         //
-        //   offered          — lender returned a term sheet, awaiting
-        //                      operator review
-        //   contracts_out    — operator forwarded contract to client;
-        //                      waiting on signature
-        //   accepted         — client signed; ready to fund
-        //   funded           — wire complete; rolls into funded_deals
-        //   no_offer         — lender declined or no offer available
-        //                      (monthly revival drip eligible)
-        //   declined         — operator passed on the term sheet
-        //   expired          — offer aged out without client decision
-        { name: "stage", type: "enum", enum_values: ["offered", "contracts_out", "accepted", "funded", "no_offer", "declined", "expired"], required: true },
+        //   submitted_to_underwriting — application in lender hands
+        //   approved_open_offers      — lender returned a term sheet
+        //   contracts_ordered         — contract sent to client; awaiting
+        //                               signature
+        //   funded                    — wire complete; rolls into
+        //                               funded_deals + commission split
+        //   approved_never_funded     — approved but client never closed
+        //                               (revival drip eligible)
+        //   no_offers_available       — every lender declined
+        //   dead_file                 — file was good but client killed
+        //                               it (took a competitor's offer,
+        //                               lost contact, changed plans)
+        { name: "stage", type: "enum", enum_values: ["submitted_to_underwriting", "approved_open_offers", "contracts_ordered", "funded", "approved_never_funded", "no_offers_available", "dead_file"], required: true },
       ],
     },
     {
