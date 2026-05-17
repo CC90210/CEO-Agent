@@ -151,7 +151,7 @@ export function DescribeAutomationFlow() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-accent" />
-            <span className="font-bold text-sm text-fg">Describe an automation — AI writes the script</span>
+            <span className="font-bold text-sm text-fg">Describe what you want — your agent writes it for you</span>
           </div>
         </div>
         <textarea
@@ -163,8 +163,8 @@ export function DescribeAutomationFlow() {
         />
         <div className="flex items-center justify-between gap-2">
           <span className="text-[11px] text-fg-dim leading-snug">
-            Bravo drafts the Python script + cron schedule. You review, edit if needed, then save —
-            created disabled so nothing fires until you flip it on.
+            Your agent writes the code and picks the schedule. You read it, tweak if needed, then save.
+            New automations land switched off, so nothing runs until you flip it on yourself.
           </span>
           <button
             type="button"

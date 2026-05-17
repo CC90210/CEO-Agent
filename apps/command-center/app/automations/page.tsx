@@ -30,7 +30,7 @@ export default async function AutomationsPage() {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Automations"
-        subtitle="Cron-style scheduled jobs your agents run on your machine. Stored here, executed by your local bridge."
+        subtitle="Scheduled jobs your agents run for you — daily briefs, follow-up reminders, lead scoring, anything you describe in plain English."
       />
 
       <div className="rounded-xl border border-bg-border bg-bg-deep/40 p-4 flex items-start gap-3">
@@ -42,19 +42,16 @@ export default async function AutomationsPage() {
         <div className="flex-1 text-xs leading-relaxed">
           {bridgeOnline ? (
             <>
-              <span className="text-status-engaged font-bold">Bridge online.</span>{" "}
-              Your jobs run on your machine on the schedule below. The bridge
-              polls this list every ~60 seconds — new jobs / edits take effect
-              on the next poll cycle. Disabling a job stops it firing without
-              losing the spec.
+              <span className="text-status-engaged font-bold">Your computer is connected.</span>{" "}
+              Jobs run on the schedule below. Edits take effect within a minute. Switch any job off
+              and it stops firing — the spec stays saved so you can flip it back on later.
             </>
           ) : (
             <>
-              <span className="text-fg-muted font-bold">Bridge not connected.</span>{" "}
-              Jobs created here are saved but won&apos;t fire until you pair a
-              machine. Click <span className="text-fg font-medium">Install
-              bridge</span> to set this up in about a minute — one command,
-              copy-paste, and you&apos;re live.
+              <span className="text-fg-muted font-bold">Computer not connected yet.</span>{" "}
+              Jobs you create here are saved, but they won&apos;t start running until you pair a
+              machine. Click <span className="text-fg font-medium">Install bridge</span> —
+              it takes about a minute, one command to copy-paste, and you&apos;re live.
             </>
           )}
         </div>
@@ -77,59 +74,53 @@ export default async function AutomationsPage() {
       <details className="rounded-xl border border-bg-border bg-bg-elev/30 p-4 text-sm">
         <summary className="cursor-pointer select-none flex items-center gap-2 text-fg font-bold">
           <span className="inline-block">▸</span>
-          How do these automations work? (cost, output, what runs where)
+          How automations work, in plain English
         </summary>
         <div className="mt-3 space-y-3 text-fg-muted leading-relaxed">
           <p>
-            <span className="text-fg font-bold">Where they run.</span> Each
-            automation is a Python script in <code className="font-mono text-fg-dim">scripts/</code>{" "}
-            on YOUR machine. The local bridge daemon
-            (<code className="font-mono text-fg-dim">bravo-scheduler</code> in PM2) polls
-            this list every 60 seconds and fires due jobs as background
-            subprocesses — no terminal windows pop up, nothing leaves your
-            laptop unless the script itself makes an API call.
+            <span className="text-fg font-bold">Where they run.</span> Each automation runs
+            on YOUR computer, not the cloud. Your machine wakes up every minute, checks the
+            schedule, and runs anything that&apos;s due — quietly in the background, no windows
+            pop up, nothing leaves your laptop unless the job itself sends a message somewhere.
           </p>
           <p>
-            <span className="text-fg font-bold">Cost model.</span> Most jobs
-            are free (Supabase reads, Stripe webhook sync, file snapshots).
-            The ones that cost money are the AI-narrated ones — Daily Bravo
-            Brief and OASIS Auto-Score Leads both call Claude Sonnet (~$0.25/day
-            for the brief, ~$0.01 per scored lead). Anything that hits Stripe
-            or Twilio uses your accounts directly. Nothing is metered by us.
+            <span className="text-fg font-bold">What it costs.</span> Most jobs are free
+            (pulling data, taking snapshots, syncing Stripe). The ones that cost something are
+            the AI-powered ones — a daily summary written by Claude costs roughly 25¢; scoring
+            a single lead costs about a penny. If a job sends emails or texts, that uses your
+            Gmail or Twilio account directly. We don&apos;t add any markup.
           </p>
           <p>
-            <span className="text-fg font-bold">Where output goes.</span>{" "}
-            Three destinations depending on the job:
+            <span className="text-fg font-bold">Where the output ends up.</span> Three places,
+            depending on the job:
           </p>
           <ul className="ml-5 space-y-1.5 list-disc">
             <li>
-              <span className="text-fg font-medium">Telegram</span> — Daily
-              Brief, Lead Follow-up alerts, daemon crash alerts. Goes to
-              the chat IDs in your <code className="font-mono text-fg-dim">TELEGRAM_ALLOWED_USERS</code>{" "}
-              env. If you&apos;re not seeing messages, that var isn&apos;t set
-              or the chat ID doesn&apos;t include you.
+              <span className="text-fg font-medium">Telegram</span> — for things you want a
+              ping about: daily briefs, follow-up reminders, alerts when something needs your
+              attention.
             </li>
             <li>
-              <span className="text-fg font-medium">Local files</span> —
-              snapshot jobs write to <code className="font-mono text-fg-dim">state/snapshots/latest_*.json</code>{" "}
-              for the agents to read later. These don&apos;t notify anyone;
-              they&apos;re the &quot;Prep Table&quot; layer.
+              <span className="text-fg font-medium">Files on your machine</span> — snapshot
+              jobs save pre-computed data your agents read later (so the dashboard stays fast).
+              No notification, just quietly available.
             </li>
             <li>
-              <span className="text-fg font-medium">Supabase</span> — Stripe
-              sync writes to <code className="font-mono text-fg-dim">revenue_events</code>;
-              the auto-scorer updates <code className="font-mono text-fg-dim">tenant_records.data.ai_score</code>.
-              You see these reflected on Today / Pipeline / Health.
+              <span className="text-fg font-medium">The dashboard itself</span> — scoring +
+              sync jobs write back to your pipeline so Today / Pipeline / Health stay current.
             </li>
           </ul>
           <p>
-            <span className="text-fg font-bold">Toggle behaviour.</span>{" "}
-            Flipping the On / Off switch on any row updates{" "}
-            <code className="font-mono text-fg-dim">cron_jobs.is_active</code>{" "}
-            (empire) or <code className="font-mono text-fg-dim">tenant_cron_jobs.enabled</code>{" "}
-            (tenant). The scheduler checks this on every 60-second poll —
-            disabled jobs stay in the list but stop firing within one cycle.
-            No restart needed.
+            <span className="text-fg font-bold">Switching jobs on and off.</span> Each row
+            has a toggle. Flip it off and the job stops firing within a minute — the spec
+            stays saved so you can switch it back on later. No restart needed.
+          </p>
+          <p>
+            <span className="text-fg font-bold">Making your own.</span> Type what you want
+            in the &quot;Describe an automation&quot; box below — &quot;Every Monday at 9am,
+            text me a summary of last week&apos;s funded deals,&quot; that kind of thing.
+            Bravo writes the script, shows you what it does, and saves it switched-off so
+            nothing fires until you&apos;ve read it.
           </p>
           <p>
             <span className="text-fg font-bold">Empire vs tenant.</span>{" "}
