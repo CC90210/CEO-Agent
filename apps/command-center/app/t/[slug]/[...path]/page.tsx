@@ -270,6 +270,7 @@ function renderSubtitle(brand: string, page: ManifestPageDef): string {
     case "markdown": return "Reference page";
     case "reasoning": return "Click an action to send it straight to chat.";
     case "import": return "Paste a CSV or drop a file. Duplicate-check is automatic.";
+    case "pipeline": return "Lead Pipeline and Opportunity Pipeline — Salesforce-parity overview.";
     default: return brand;
   }
 }
@@ -304,6 +305,51 @@ async function PageBody({
       // happens inside the API route so a viewer in preview-mode can't
       // accidentally bulk-insert into someone else's leads table.
       return <LeadsImportClient />;
+    case "pipeline": {
+      // Two-pipeline superview — Lead Pipeline stacked over Opportunity
+      // Pipeline. Salesforce-replacement view per the 2026-05-16 meeting.
+      // Each section reuses ManifestKanban; the only thing this kind
+      // contributes is the layout shell + the "graduation" caption between
+      // them so operators see the submitted→offered handoff clearly.
+      const cfg = (page.config || {}) as { lead_entity?: string; opportunity_entity?: string };
+      const leadName = cfg.lead_entity || "lead";
+      const oppName = cfg.opportunity_entity || "offer";
+      const leadEntity = (manifest.data_model || []).find((e) => e.name === leadName);
+      const oppEntity = (manifest.data_model || []).find((e) => e.name === oppName);
+      if (!leadEntity || !oppEntity) {
+        return (
+          <div className="rounded-2xl border border-amber-300/25 bg-amber-300/10 p-5 text-sm text-amber-100 leading-relaxed">
+            Pipeline superview references entities <code>{leadName}</code> and <code>{oppName}</code> — at least one
+            isn&apos;t defined in the manifest&apos;s <code>data_model</code>.
+          </div>
+        );
+      }
+      const leadPage: ManifestPageDef = { path: page.path + "/leads", label: "Leads", kind: "kanban", entity: leadName, config: { group_by: "stage" } };
+      const oppPage: ManifestPageDef = { path: page.path + "/offers", label: "Offers", kind: "kanban", entity: oppName, config: { group_by: "stage" } };
+      return (
+        <div className="space-y-6">
+          <div>
+            <div className="flex items-baseline justify-between mb-3">
+              <h2 className="text-sm uppercase tracking-wider text-fg-muted">Lead Pipeline</h2>
+              <Link href={`/t/${slug}/leads`} className="text-xs text-fg-muted hover:text-fg">Open full board →</Link>
+            </div>
+            <ManifestKanban tenantSlug={slug} tenantId={tenantId} entity={leadEntity} page={leadPage} />
+          </div>
+          <div className="flex items-center gap-3 py-2">
+            <div className="h-px flex-1 bg-border" />
+            <div className="text-xs uppercase tracking-wider text-fg-muted">↓ Application submitted · Opportunity opens ↓</div>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+          <div>
+            <div className="flex items-baseline justify-between mb-3">
+              <h2 className="text-sm uppercase tracking-wider text-fg-muted">Opportunity Pipeline</h2>
+              <Link href={`/t/${slug}/offers`} className="text-xs text-fg-muted hover:text-fg">Open full board →</Link>
+            </div>
+            <ManifestKanban tenantSlug={slug} tenantId={tenantId} entity={oppEntity} page={oppPage} />
+          </div>
+        </div>
+      );
+    }
     case "table":
     case "kanban":
     case "form": {

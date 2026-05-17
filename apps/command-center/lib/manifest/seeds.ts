@@ -267,9 +267,27 @@ export const SUN_SEED: TenantManifest = {
         //                       underwriting + shop-out
         //   declined          — passed on after bank-statement review
         //                       (1-month-revival drip eligible)
+        //   dead_file         — file was once good but the client killed
+        //                       it (lost contact, changed mind, took
+        //                       another funder's offer). Distinct from
+        //                       declined (which is a lender no) and
+        //                       default (which is post-funding failure).
+        //                       Added per 2026-05-16 Adon ↔ Oasis meeting
+        //                       — Salesforce-parity stage that Adon's
+        //                       team uses today.
         //   default           — repayment failure / bankruptcy
         //                       (no drip; permanent lost)
-        { name: "stage", type: "enum", enum_values: ["cold", "follow_up", "sent_application", "viewed_application", "signed_application", "submitted", "declined", "default"], required: true },
+        { name: "stage", type: "enum", enum_values: ["cold", "follow_up", "sent_application", "viewed_application", "signed_application", "submitted", "declined", "dead_file", "default"], required: true },
+        // missing_info — Phase 20 (2026-05-17) classifier output. Array
+        // of canonical doc-type strings the lead still owes us before
+        // an application can advance. Populated by
+        // scripts/lender_response_classifier.py's second LLM pass when
+        // an inbound lender email is classified as info_request. The
+        // Documents tab on the lead drawer auto-clears entries here
+        // when a matching lead_document is uploaded (Phase 20.4).
+        // Renders as a red "🔴 Missing: bank_statements_3mo" chip on
+        // the lead Kanban card.
+        { name: "missing_info", type: "json" },
       ],
     },
     {
@@ -362,6 +380,12 @@ export const SUN_SEED: TenantManifest = {
   pages: [
     { path: "", label: "Solara — Today", kind: "dashboard" },
     { path: "reasoning", label: "Reasoning", kind: "reasoning" },
+    // Two-pipeline superview — Salesforce-replacement overview per the
+    // 2026-05-16 meeting. Renders Lead Pipeline (lead.stage) over
+    // Opportunity Pipeline (offer.stage) with the submitted→offered
+    // graduation visualised. Operators still drill into /leads or
+    // /offers individually for full-board interaction.
+    { path: "pipeline", label: "Pipeline", kind: "pipeline", config: { lead_entity: "lead", opportunity_entity: "offer" } },
     { path: "leads", label: "Leads", kind: "kanban", entity: "lead", config: { group_by: "stage" } },
     {
       path: "applications",

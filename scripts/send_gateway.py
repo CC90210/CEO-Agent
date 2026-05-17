@@ -171,7 +171,6 @@ HOURLY_CAPS: dict[str, int] = {
 # Free-form strings allowed, but staying on these values keeps audits sane.
 KNOWN_AGENT_SOURCES: frozenset[str] = frozenset({
     "outreach_engine",
-    "outreach_batch",
     "funnel_nurture",
     "email_engine",
     "booking_engine",
@@ -1703,8 +1702,7 @@ def send(
         return {"status": "blocked",
                 "reason": ("oasis commercial sends require body_html "
                            "(branded HTML + booking link). Use email_engine "
-                           "send-template, or pass body_html explicitly. "
-                           "See feedback_outreach_send_template.md."),
+                           "send-template, or pass body_html explicitly."),
                 "lead_id": lead_id, "interaction_id": None,
                 "cooldown_until": None, "daily_count": None}
 
@@ -1910,6 +1908,44 @@ def send(
                 # Template missing or borked — keep whatever the
                 # caller passed (plaintext if None, original HTML
                 # if they supplied one).
+                pass
+
+        # ----------------------------------------------------------------
+        # Email-open tracking pixel (Phase 19, 2026-05-17)
+        # ----------------------------------------------------------------
+        # Inject a 1x1 transparent tracking pixel into the HTML body whose
+        # GET hit lands in /api/track/open/<reservation_id>. The route
+        # writes one email_open_events row per hit + emits
+        # BRAVO_EMAIL_OPENED on the event bus so sequence_runner can
+        # fast-forward an on-open follow-up step. Skipped for internal
+        # sends + when body_html is None (plain-text-only).
+        #
+        # Tracking ID is the reservation_id we already created above. It
+        # is a uuid, tenant-scoped, and lives in send_gateway's
+        # interactions table so the API route can resolve tenant_id +
+        # lead_id by lookup without trusting the URL parameter.
+        if intent != "internal" and body_html and reservation.get("reservation_id"):
+            try:
+                pixel_base = (
+                    os.environ.get("EMAIL_TRACKING_BASE_URL")
+                    or os.environ.get("DASHBOARD_BASE_URL")
+                    or "https://agent-dashboard-cc90210.vercel.app"
+                ).rstrip("/")
+                pixel = (
+                    f'<img src="{pixel_base}/api/track/open/{reservation["reservation_id"]}" '
+                    'width="1" height="1" alt="" '
+                    'style="display:none;border:0;outline:none;text-decoration:none;" />'
+                )
+                # Inject just before </body> if present, else append.
+                if "</body>" in body_html.lower():
+                    # case-insensitive replace of first </body>
+                    idx = body_html.lower().rfind("</body>")
+                    body_html = body_html[:idx] + pixel + body_html[idx:]
+                else:
+                    body_html = body_html + pixel
+            except Exception as _e:
+                # Tracking is best-effort — never block a send because
+                # pixel injection hit an edge case.
                 pass
 
         mime = _build_email_mime(
