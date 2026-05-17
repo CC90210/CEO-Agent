@@ -43,6 +43,24 @@ export function truncate(text: string | null | undefined, max = 80): string {
   return text.length > max ? text.slice(0, max - 1) + "…" : text;
 }
 
+/**
+ * Format a numeric value as USD whole-dollar string (no cents).
+ *   1234        -> "$1,234"
+ *   1500000     -> "$1,500,000"
+ *   null / NaN  -> "—"
+ *
+ * Lifted out of ManifestDashboard + pipeline-display + LeadTimelinePanel
+ * after a 2026-05-17 consolidation pass — was duplicated in three places.
+ */
+export function formatMoney(value: unknown): string {
+  if (value == null || typeof value !== "number" || Number.isNaN(value)) return "—";
+  return value.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
+}
+
 /** Map a status string to a Tailwind text-color utility. */
 export function statusColor(status: string | null | undefined): string {
   switch ((status || "").toLowerCase()) {

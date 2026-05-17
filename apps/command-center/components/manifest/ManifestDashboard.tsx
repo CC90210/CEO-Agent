@@ -5,6 +5,7 @@ import { listRecords, type TenantRecord } from "@/lib/manifest/data";
 import type { TenantManifest } from "@/lib/manifest/schema";
 import { getServiceSupabase } from "@/lib/supabase-server";
 import { LEAD_PIPELINE_STAGES, OPPORTUNITY_PIPELINE_STAGES, type StageMeta } from "@/lib/sunbiz-stage-meta";
+import { formatMoney, timeAgo } from "@/lib/fmt";
 
 type AgentAlertRow = {
   id: string;
@@ -668,26 +669,4 @@ function RenewalsDueSoon({ slug, fundedDeals }: { slug: string; fundedDeals: Ten
   );
 }
 
-/* ----------------------------------------------------------------- *
- * Tiny helpers
- * ----------------------------------------------------------------- */
-
-function formatMoney(v: number): string {
-  return v.toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  });
-}
-
-function timeAgo(iso: string): string {
-  const t = Date.parse(iso);
-  if (Number.isNaN(t)) return "";
-  const sec = Math.round((Date.now() - t) / 1000);
-  if (sec < 60) return `${sec}s ago`;
-  const min = Math.round(sec / 60);
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.round(min / 60);
-  if (hr < 48) return `${hr}h ago`;
-  return `${Math.round(hr / 24)}d ago`;
-}
+// formatMoney + timeAgo live in lib/fmt.ts (shared with the rest of the app).
