@@ -45,6 +45,28 @@ freshness_threshold_days: 365
 - ✅ `scripts/register.py skill` — wizard emits V6.8 frontmatter by default. Flags: `--argument-hint`, `--disable-model-invocation`, `--requires-env`, `--requires-daemon`, `--requires-state`. New skills inherit V6.8 conventions without author discipline.
 - ✅ Module docstrings updated (`capability_query.py`, `register.py`, `user_prompt_submit.py`) to reflect V6.8.1 behaviors.
 
+**V6.8.2 (docs catch up, commit 5335556):**
+- ✅ ADR-0001 Enforcement section updated to mark `check-deps` shipped.
+- ✅ Module docstrings in `capability_query.py`, `register.py`, `user_prompt_submit.py` updated to describe V6.8.1 behavior.
+- ✅ CLAUDE.md V6.8 section + this file updated to reflect V6.8.1 load-bearing state.
+
+**V6.8.3 (INTEGRATE_NEW_TOOL prompt + dashboard wiring, commit 484b6e0):**
+- ✅ `prompts/INTEGRATE_NEW_TOOL.md` — canonical 6-phase pasteable system message for any external-resource integration. Generalized from the mattpocock/skills audit.
+- ✅ `apps/command-center/lib/prompts-library.ts` — new `system_integration` category + foundational `integrate-new-tool` PromptEntry.
+- ✅ PLAYBOOK.md top-5-moves table — new row pointing operators to the dashboard prompt.
+- ✅ `scripts/memory_retriever.py` SCOPES extended with `prompt` scope — prompts/*.md are now retriever-indexable.
+
+**V6.8.4 (self-review fixes for V6.8.3, commit a2e58d2):**
+- ✅ `apps/command-center/app/playbook/prompts/page.tsx` — `system_integration` added to `OPERATOR_CATEGORIES` so the new category actually renders.
+- ✅ `apps/command-center/lib/prompts-library.ts` — prompt entry refactored from `+` concatenation to template literal for pattern consistency with existing entries.
+- ✅ `brain/INTENTS.md` — added "Integrate a new tool / GitHub repo / open-source code / research" routing section so the agent fires the prompt automatically on intent match, without CC having to find it.
+
+**V6.8.5 (sidebar nav fix, commit cc4fbbd):**
+- ✅ `apps/command-center/lib/nav-config.ts` `CC_NAV` — restored `/playbook` as the 5th Operations item. Phase 2 nav trim had claimed `/playbook` was folded into `/settings/playbook`, but that route was never built. V6.8.3 made `/playbook/prompts` daily-use; hiding it broke the flow. Other tenants (`SUN_NAV`, `SUGA_NAV`) already had this nav slot — only CC's own empire nav was missing it. After deploy, click path is: Sidebar → Playbook → Prompts Library card → /playbook/prompts → System integration section → Integrate-a-new-tool prompt.
+
+**V6.8.6 (consistency sweep, commit forthcoming):**
+- ✅ `apps/command-center/lib/nav-config.ts` — updated stale comments. Previously claimed `/integrations → /settings/integrations` and `/feed → /operations` folds; verified `/settings/integrations` doesn't exist and `/feed` is still a separate page from `/operations`. Comment now honestly lists routes-reachable-by-URL-but-not-in-sidebar (with reason) so the next operator doesn't waste a session diagnosing the same nav-vs-route mismatch this V6.8.5 cycle did.
+
 ### Maven (`~/CMO-Agent`) — V6.8 + V6.8.1 propagated 2026-05-16
 
 **V6.8 (commit da1e5aa):**
