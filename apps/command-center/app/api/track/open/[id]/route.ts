@@ -115,14 +115,26 @@ export async function GET(
     const suspicious =
       sentAtMs !== null && nowMs - sentAtMs < 60_000; // <60s = APMP-likely prefetch
 
-    await sb.from("email_open_events").insert({
-      tenant_id: tenantId,
-      outbound_message_id: id,
-      lead_id: leadId,
-      user_agent: ua,
-      ip_hash: ipHash,
-      suspicious_prefetch: suspicious,
-    });
+    // Insert with ON CONFLICT DO NOTHING semantics via upsert + the
+    // partial unique index (outbound_message_id, ip_hash) added in
+    // migration 050. Re-opens from the same recipient don't add new
+    // rows; the operator timeline cares "did they open" not the
+    // exact re-open count. Anonymous opens (ip_hash null) skip the
+    // index and always insert — over-counting anon is the right side
+    // of the trade-off.
+    await sb
+      .from("email_open_events")
+      .upsert(
+        {
+          tenant_id: tenantId,
+          outbound_message_id: id,
+          lead_id: leadId,
+          user_agent: ua,
+          ip_hash: ipHash,
+          suspicious_prefetch: suspicious,
+        },
+        { onConflict: "outbound_message_id,ip_hash", ignoreDuplicates: true },
+      );
 
     // Emit on the event bus so sequence_runner can react to opens
     // without polling email_open_events on every tick. Soft-fail if
