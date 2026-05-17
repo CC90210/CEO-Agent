@@ -172,14 +172,16 @@ export default function DownloadPage() {
 
       <section className="relative z-10 mx-auto max-w-7xl px-6 pb-24 sm:px-10">
         <div className="grid gap-4 lg:grid-cols-3">
-          <Panel title="How To Download" icon={<Download className="h-5 w-5" />}>
+          <Panel title="First-run onboarding" icon={<Download className="h-5 w-5" />}>
             <ol className="space-y-2 text-sm text-fg-muted">
-              <li>1. Pick the download for your operating system.</li>
-              <li>2. On Windows, use the zip first if your security blocks temp-launched apps.</li>
-              <li>3. Install or open the alpha app.</li>
-              <li>4. Sign in to the Command Center.</li>
-              <li>5. Choose provider connection and desktop access.</li>
+              <li><span className="text-accent font-bold">1.</span> Download for your OS and launch the app.</li>
+              <li><span className="text-accent font-bold">2.</span> <span className="text-fg">Pair this machine</span> — paste the 9-character code from your dashboard&apos;s <em>Settings → Devices</em>.</li>
+              <li><span className="text-accent font-bold">3.</span> <span className="text-fg">Connect AI</span> — pick your own provider, use a detected <code className="text-accent">claude/codex/gemini</code> CLI subscription, or skip and use the workspace default.</li>
+              <li><span className="text-accent font-bold">4.</span> Health check finishes, Command Center loads. Done.</li>
             </ol>
+            <p className="text-[11px] text-fg-dim mt-3 leading-relaxed">
+              No terminal. No <code>bravo setup</code>. Everything the CLI wizard used to do is in the app now.
+            </p>
           </Panel>
           <Panel title="Chrome Extension?" icon={<XCircle className="h-5 w-5" />}>
             <p className="text-sm leading-relaxed text-fg-muted">
