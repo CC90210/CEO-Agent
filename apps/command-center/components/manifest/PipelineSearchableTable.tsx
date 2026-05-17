@@ -27,10 +27,9 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { StageMeta } from "@/lib/sunbiz-stage-meta";
+import { formatPipelineCell, type PipelineColumn } from "@/lib/pipeline-display";
 
 type Row = { id: string; data: Record<string, unknown> };
-
-type Column = { key: string; label: string };
 
 type Props = {
   slug: string;
@@ -38,7 +37,7 @@ type Props = {
   entityLabel: string;
   stageField: string;
   rows: Row[];
-  columns: Column[];
+  columns: PipelineColumn[];
   /** Resolves the stage chip's color from the row's stage value. */
   findStage: (key: string) => StageMeta | undefined;
   /** href base for record-detail links + "+ New" CTA */
@@ -47,33 +46,13 @@ type Props = {
   activeStageLabel: string;
 };
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function formatVal(v: unknown, key: string): string {
-  if (v == null || v === "") return "—";
-  const s = String(v);
-  if ((key === "lead_id" || key === "lender_id") && UUID_RE.test(s)) {
-    return s.slice(0, 8);
-  }
-  if ((key === "amount" || key === "requested_amount" || key === "monthly_revenue") && typeof v === "number") {
-    return v.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
-  }
-  if ((key === "submitted_at" || key === "funded_at") && typeof s === "string" && s.length >= 10) {
-    const d = new Date(s);
-    if (!Number.isNaN(d.getTime())) {
-      return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    }
-  }
-  return s;
-}
-
 /**
  * Build a flat searchable haystack for one row — every stringifiable
  * value lowercased + joined. We index `id`, every column value, and the
  * raw stage so a query like "funded" matches by stage as well as name.
  * Phone digits get a digits-only twin so "5551234" matches "(555) 123-4..."
  */
-function rowHaystack(row: Row, columns: Column[], stageField: string): string {
+function rowHaystack(row: Row, columns: PipelineColumn[], stageField: string): string {
   const parts: string[] = [row.id];
   for (const c of columns) {
     const v = row.data[c.key];
@@ -189,10 +168,10 @@ export function PipelineSearchableTable({
                       <td key={c.key} className={`px-3 py-2 ${idx === 0 ? "font-medium text-fg" : "text-fg-muted"}`}>
                         {idx === 0 ? (
                           <Link href={`${linkBase}/${r.id}`} className="hover:underline">
-                            {formatVal(r.data[c.key], c.key)}
+                            {formatPipelineCell(r.data[c.key], c.key)}
                           </Link>
                         ) : (
-                          formatVal(r.data[c.key], c.key)
+                          formatPipelineCell(r.data[c.key], c.key)
                         )}
                       </td>
                     ))}

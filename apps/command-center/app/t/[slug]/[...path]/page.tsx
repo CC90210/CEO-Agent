@@ -11,6 +11,7 @@ import { LeadsImportClient } from "@/components/leads/LeadsImportClient";
 import { LeadTimelinePanel } from "@/components/leads/LeadTimelinePanel";
 import { StagePipelineBar } from "@/components/manifest/StagePipelineBar";
 import { PipelineSearchableTable } from "@/components/manifest/PipelineSearchableTable";
+import { PIPELINE_COLUMNS, formatPipelineCell, pipelineLinkBase } from "@/lib/pipeline-display";
 import { LEAD_PIPELINE_STAGES, OPPORTUNITY_PIPELINE_STAGES, findStage } from "@/lib/sunbiz-stage-meta";
 import { humanize } from "@/lib/manifest/humanize";
 import { getRecord, listRecords } from "@/lib/manifest/data";
@@ -657,62 +658,12 @@ function PipelineRecordList({
     );
   }
 
-  // Pick reasonable display columns per entity. Salesforce showed
-  // Name / Phone / Email / Agent / Status — we mirror that with the
-  // funding-shop equivalents.
-  const COLS_BY_ENTITY: Record<string, { key: string; label: string }[]> = {
-    lead: [
-      { key: "business_name", label: "Company" },
-      { key: "contact_name", label: "Contact" },
-      { key: "phone", label: "Phone" },
-      { key: "email", label: "Email" },
-      { key: "monthly_revenue", label: "Monthly Rev" },
-    ],
-    application: [
-      { key: "lead_id", label: "Lead" },
-      { key: "lender_id", label: "Lender" },
-      { key: "requested_amount", label: "Requested Amt" },
-      { key: "submitted_at", label: "Submitted" },
-    ],
-    offer: [
-      { key: "lender_id", label: "Lender" },
-      { key: "amount", label: "Amount" },
-      { key: "term_months", label: "Term" },
-      { key: "factor_rate", label: "Factor" },
-    ],
-  };
-  const cols = COLS_BY_ENTITY[entityName] || [];
-  const linkBase = `/t/${slug}/${
-    entityName === "lead" ? "leads" :
-    entityName === "application" ? "applications" :
-    entityName === "offer" ? "offers" :
-    entityName
-  }`;
-  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const formatVal = (v: unknown, key?: string) => {
-    if (v == null || v === "") return "—";
-    const s = String(v);
-    // Stub UUIDs down to a readable 8-char prefix so the table doesn't
-    // become a wall of opaque hashes. Real fix is a server-side join
-    // against the referenced record's business_name / lender name —
-    // queued as a follow-up; today the operator can still click in to
-    // the detail page to see context.
-    if ((key === "lead_id" || key === "lender_id") && UUID_RE.test(s)) {
-      return s.slice(0, 8);
-    }
-    // Money columns get $ formatting.
-    if ((key === "amount" || key === "requested_amount" || key === "monthly_revenue") && typeof v === "number") {
-      return v.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
-    }
-    // Date columns get a short MMM DD, YYYY format.
-    if ((key === "submitted_at" || key === "funded_at") && typeof s === "string" && s.length >= 10) {
-      const d = new Date(s);
-      if (!Number.isNaN(d.getTime())) {
-        return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-      }
-    }
-    return s;
-  };
+  // Display columns + link base resolved from the shared
+  // lib/pipeline-display module — single source of truth, shared with
+  // PipelineSearchableTable. Adding a column once propagates to both
+  // the searchable variant and the unsearchable superview-side list.
+  const cols = PIPELINE_COLUMNS[entityName] || [];
+  const linkBase = pipelineLinkBase(slug, entityName);
 
   return (
     <div className="overflow-x-auto rounded-2xl border border-bg-border bg-bg-deep/30">
@@ -735,10 +686,10 @@ function PipelineRecordList({
                   <td key={c.key} className={`px-3 py-2 ${idx === 0 ? "font-medium text-fg" : "text-fg-muted"}`}>
                     {idx === 0 ? (
                       <Link href={`${linkBase}/${r.id}`} className="hover:underline">
-                        {formatVal(r.data[c.key], c.key)}
+                        {formatPipelineCell(r.data[c.key], c.key)}
                       </Link>
                     ) : (
-                      formatVal(r.data[c.key], c.key)
+                      formatPipelineCell(r.data[c.key], c.key)
                     )}
                   </td>
                 ))}
@@ -818,37 +769,12 @@ async function SingleEntityPipeline({
     ? findStage(entity.name, stageFilter)?.label || stageFilter
     : `All ${entity.label.toLowerCase()}s`;
 
-  // Resolve display columns + link base for the searchable table.
-  // Mirrors PipelineRecordList's mapping; kept in this server scope so
-  // we hand the client component a serializable shape.
-  const COLS_BY_ENTITY_LOCAL: Record<string, { key: string; label: string }[]> = {
-    lead: [
-      { key: "business_name", label: "Company" },
-      { key: "contact_name", label: "Contact" },
-      { key: "phone", label: "Phone" },
-      { key: "email", label: "Email" },
-      { key: "monthly_revenue", label: "Monthly Rev" },
-    ],
-    application: [
-      { key: "lead_id", label: "Lead" },
-      { key: "lender_id", label: "Lender" },
-      { key: "requested_amount", label: "Requested Amt" },
-      { key: "submitted_at", label: "Submitted" },
-    ],
-    offer: [
-      { key: "lender_id", label: "Lender" },
-      { key: "amount", label: "Amount" },
-      { key: "term_months", label: "Term" },
-      { key: "factor_rate", label: "Factor" },
-    ],
-  };
-  const localCols = COLS_BY_ENTITY_LOCAL[entity.name] || [];
-  const localLinkBase = `/t/${slug}/${
-    entity.name === "lead" ? "leads" :
-    entity.name === "application" ? "applications" :
-    entity.name === "offer" ? "offers" :
-    entity.name
-  }`;
+  // Resolve display columns + link base from the shared
+  // lib/pipeline-display module so adding a column or tweaking a
+  // formatter is one edit, not three (was duplicated across
+  // PipelineRecordList and this component prior to 2026-05-17 cleanup).
+  const localCols = PIPELINE_COLUMNS[entity.name] || [];
+  const localLinkBase = pipelineLinkBase(slug, entity.name);
   // findStage is curried so the client component doesn't need to know
   // about the entity key — it just calls `findStage(stageValue)`.
   const findStageForEntity = (key: string) => findStage(entity.name, key);
