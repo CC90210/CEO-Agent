@@ -167,6 +167,39 @@ def _python_docstring(path: Path) -> str:
 SKIP_SKILL_DIRS = {"_archive", "in-progress", "deprecated"}
 
 
+def _parse_requires(value: Any) -> dict[str, list[str]]:
+    """Parse the `requires:` frontmatter block per ADR-0001.
+
+    Accepts either an inline form ``[env:STRIPE_KEY, daemon:event-router]``
+    or the absence of the field. The frontmatter loader in this script is
+    intentionally minimal (no nested YAML), so the inline form is the
+    canonical shape skills should use until a real YAML parser lands.
+
+    Returns ``{"env": [...], "daemons": [...], "state": [...]}``.
+    """
+    out: dict[str, list[str]] = {"env": [], "daemons": [], "state": []}
+    if not value:
+        return out
+    items: list[str] = []
+    if isinstance(value, list):
+        items = [str(x) for x in value]
+    elif isinstance(value, str):
+        items = [v.strip() for v in value.strip("[]").split(",") if v.strip()]
+    for raw in items:
+        if ":" not in raw:
+            continue
+        kind, _, name = raw.partition(":")
+        kind = kind.strip().lower()
+        name = name.strip().strip("'\"")
+        if kind in ("env", "envvar", "env_var"):
+            out["env"].append(name)
+        elif kind in ("daemon", "pm2"):
+            out["daemons"].append(name)
+        elif kind in ("state", "file", "db"):
+            out["state"].append(name)
+    return out
+
+
 def discover_skills() -> list[dict[str, Any]]:
     skills_dir = PROJECT_ROOT / "skills"
     if not skills_dir.exists():
@@ -198,6 +231,7 @@ def discover_skills() -> list[dict[str, Any]]:
             "status": fm.get("status", "[VALIDATED]"),
             "disable_model_invocation": bool(fm.get("disable-model-invocation") or fm.get("disable_model_invocation")),
             "argument_hint": fm.get("argument-hint") or fm.get("argument_hint"),
+            "requires": _parse_requires(fm.get("requires")),
             "archived": fm.get("archived"),
             "superseded_by": fm.get("superseded_by"),
             "discovery": "auto-frontmatter" if fm.get("name") else "auto-foldername",
