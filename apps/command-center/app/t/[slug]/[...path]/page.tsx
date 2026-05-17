@@ -10,6 +10,7 @@ import { ManifestReasoning } from "@/components/manifest/ManifestReasoning";
 import { LeadsImportClient } from "@/components/leads/LeadsImportClient";
 import { LeadTimelinePanel } from "@/components/leads/LeadTimelinePanel";
 import { StagePipelineBar } from "@/components/manifest/StagePipelineBar";
+import { PipelineSearchableTable } from "@/components/manifest/PipelineSearchableTable";
 import { LEAD_PIPELINE_STAGES, OPPORTUNITY_PIPELINE_STAGES, findStage } from "@/lib/sunbiz-stage-meta";
 import { humanize } from "@/lib/manifest/humanize";
 import { getRecord, listRecords } from "@/lib/manifest/data";
@@ -817,18 +818,45 @@ async function SingleEntityPipeline({
     ? findStage(entity.name, stageFilter)?.label || stageFilter
     : `All ${entity.label.toLowerCase()}s`;
 
+  // Resolve display columns + link base for the searchable table.
+  // Mirrors PipelineRecordList's mapping; kept in this server scope so
+  // we hand the client component a serializable shape.
+  const COLS_BY_ENTITY_LOCAL: Record<string, { key: string; label: string }[]> = {
+    lead: [
+      { key: "business_name", label: "Company" },
+      { key: "contact_name", label: "Contact" },
+      { key: "phone", label: "Phone" },
+      { key: "email", label: "Email" },
+      { key: "monthly_revenue", label: "Monthly Rev" },
+    ],
+    application: [
+      { key: "lead_id", label: "Lead" },
+      { key: "lender_id", label: "Lender" },
+      { key: "requested_amount", label: "Requested Amt" },
+      { key: "submitted_at", label: "Submitted" },
+    ],
+    offer: [
+      { key: "lender_id", label: "Lender" },
+      { key: "amount", label: "Amount" },
+      { key: "term_months", label: "Term" },
+      { key: "factor_rate", label: "Factor" },
+    ],
+  };
+  const localCols = COLS_BY_ENTITY_LOCAL[entity.name] || [];
+  const localLinkBase = `/t/${slug}/${
+    entity.name === "lead" ? "leads" :
+    entity.name === "application" ? "applications" :
+    entity.name === "offer" ? "offers" :
+    entity.name
+  }`;
+  // findStage is curried so the client component doesn't need to know
+  // about the entity key — it just calls `findStage(stageValue)`.
+  const findStageForEntity = (key: string) => findStage(entity.name, key);
+
   return (
     <div className="space-y-4">
-      <div className="flex items-baseline justify-between gap-4">
-        <div className="text-[11px] text-fg-dim font-mono">
-          {stageFilter ? `${visible.length} in ${activeLabel}` : `${rowsRes.rows.length} total`}
-        </div>
-        <Link
-          href={`/t/${slug}/${page.path}/new`}
-          className="text-[11px] uppercase tracking-wider text-accent hover:text-accent/80 font-semibold"
-        >
-          + New {entity.label.toLowerCase()}
-        </Link>
+      <div className="text-[11px] text-fg-dim font-mono">
+        {stageFilter ? `${visible.length} in ${activeLabel}` : `${rowsRes.rows.length} total`}
       </div>
       <StagePipelineBar
         stages={stages}
@@ -836,11 +864,15 @@ async function SingleEntityPipeline({
         basePath={`/t/${slug}/${page.path}`}
         counts={counts}
       />
-      <PipelineRecordList
+      <PipelineSearchableTable
         slug={slug}
         entityName={entity.name}
+        entityLabel={entity.label}
         stageField={stageField}
         rows={visible}
+        columns={localCols}
+        findStage={findStageForEntity}
+        linkBase={localLinkBase}
         activeStageLabel={activeLabel}
       />
     </div>
