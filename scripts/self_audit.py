@@ -225,8 +225,10 @@ def check_mcp_sync(result: AuditResult) -> None:
     project_sets: dict[str, set[str]] = {}
     for label, path in project_configs.items():
         if not path.exists():
+            # CI checkouts and fresh clones may omit editor-local MCP config
+            # files. Warn so humans can repair their local toolchain, but do
+            # not mark the repository unhealthy unless existing configs drift.
             result.warnings.append(f"MCP config missing: {label}")
-            result.mcp_configs_in_sync = False
             continue
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
