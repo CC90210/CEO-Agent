@@ -4,6 +4,7 @@ description: Use when you have a spec or requirements for a multi-step task, bef
 triggers: [plan, implementation plan, feature plan, spec, requirements]
 tier: standard
 dependencies: [using-git-worktrees]
+argument_hint: "What spec or requirements? (Drop the doc / Linear issue / paste the brief)"
 ---
 
 # Writing Plans

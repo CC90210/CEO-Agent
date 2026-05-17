@@ -8,6 +8,7 @@ description: >
   documentation updates, configuration changes, single-file edits.
 tags: [development, planning, methodology]
 triggers: ["sparc methodology", "use sparc methodology", "run sparc methodology"]
+disable_model_invocation: true
 ---
 
 # SPARC Methodology — Structured Development Phases

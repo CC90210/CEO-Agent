@@ -41,10 +41,12 @@ EMBED_BATCH_SIZE = 256    # fastembed throughput sweet spot on CPU
 
 # Indexing scope — relative paths from PROJECT_ROOT.
 SCOPES: dict[str, list[str]] = {
-    "memory": ["memory/*.md"],
-    "skill":  ["skills/*/SKILL.md"],
-    "brain":  ["brain/*.md"],
-    "entry":  ["CLAUDE.md", "AGENTS.md", "GEMINI.md", "ANTIGRAVITY.md", "OPENCODE.md"],
+    "memory":  ["memory/*.md"],
+    "skill":   ["skills/*/SKILL.md"],
+    "brain":   ["brain/*.md"],
+    "entry":   ["CLAUDE.md", "AGENTS.md", "GEMINI.md", "ANTIGRAVITY.md", "OPENCODE.md"],
+    "context": ["CONTEXT.md"],
+    "adr":     ["docs/adr/*.md"],
 }
 
 # Files to skip — DB-derived, ephemeral, or templates.

@@ -4,6 +4,7 @@ description: Weekly retrospective analysis. Use when CC says "/retro", "weekly r
 triggers: [retro, retrospective, weekly retro, what shipped, how did we do]
 tier: specialized
 dependencies: [memory-management]
+disable_model_invocation: true
 ---
 
 # Retro — Weekly Retrospective Engine
