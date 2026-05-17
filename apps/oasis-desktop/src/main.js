@@ -13,6 +13,7 @@ const {
   listConfiguredProviders,
   PROVIDERS,
 } = require("./provider-keys");
+const { bridgePaired } = require("./bridge-paths");
 const { checkForUpdate, RELEASE_REPO } = require("./update-check");
 
 let mainWindow = null;
@@ -43,12 +44,10 @@ async function ensureProviderConfigured() {
   // with the 3-step pair → AI → health wizard. CC's product goal is
   // "clients never touch a terminal" — pairing used to require
   // `bravo setup` in a shell; now it's a paste-the-9-char-code field.
-  const fs = require("node:fs");
-  const path = require("node:path");
-  const os = require("node:os");
-  const bridgePaired = fs.existsSync(path.join(os.homedir(), ".oasis", "bridge_token"));
+  // Path knowledge lives in src/bridge-paths.js (shared with the
+  // wizard) so neither file can drift from where bravo_cli writes.
   const providerConfigured = listConfiguredProviders().length > 0;
-  if (bridgePaired && providerConfigured) return { result: "already_configured" };
+  if (bridgePaired() && providerConfigured) return { result: "already_configured" };
   try {
     return await openFirstRunWindow({
       desktopManifest,

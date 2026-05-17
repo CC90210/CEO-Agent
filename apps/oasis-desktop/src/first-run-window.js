@@ -41,6 +41,11 @@ const {
   validateProviderKey,
 } = require("./provider-keys");
 const { loadDesktopManifest, resolveCommandCenterUrl } = require("./manifest");
+const {
+  BRIDGE_TOKEN_FILE,
+  BRIDGE_META_FILE,
+  ensureOasisHome,
+} = require("./bridge-paths");
 
 const HTML_PATH = path.join(__dirname, "..", "resources", "first-run.html");
 const PRELOAD_PATH = path.join(__dirname, "..", "resources", "first-run-preload.js");
@@ -53,20 +58,34 @@ const CHANNEL_OPEN_EXTERNAL = "oasis-first-run/open-external";
 const CHANNEL_BRIDGE_HEALTH = "oasis-first-run/bridge-health";
 const CHANNEL_PAIR_STATUS = "oasis-first-run/pair-status";
 
-// Bridge-token path matches what bravo_cli writes today, so the existing
-// local_bridge.py auth path keeps working without changes.
-const BRIDGE_TOKEN_DIR = path.join(os.homedir(), ".oasis");
-const BRIDGE_TOKEN_FILE = path.join(BRIDGE_TOKEN_DIR, "bridge_token");
-const BRIDGE_META_FILE = path.join(BRIDGE_TOKEN_DIR, "bridge_pairing.json");
-
 function machineFingerprint() {
-  // Stable hash of hostname + platform + cpu arch + username. Same shape
-  // the CLI wizard built; the dashboard uses this for partial-unique
-  // bridge_pairings dedup so re-running pair from the same machine
-  // rotates the token instead of stacking rows.
-  const seed = [os.hostname(), process.platform, process.arch, os.userInfo().username || ""].join("|");
-  return crypto.createHash("sha256").update(seed).digest("hex").slice(0, 32);
+  // Match bravo_cli/wizard.py's fingerprint format exactly:
+  //   f"{platform.system()}|{platform.machine()}|{socket.gethostname()}"
+  // The dashboard dedups bridge_pairings on (tenant_id, machine_fingerprint)
+  // via a partial unique index. If the desktop wizard sent a different
+  // shape (e.g. a sha256 hash), re-pairing the same machine via the
+  // wrong path would create a duplicate row instead of rotating the
+  // token. Keep the formats interchangeable.
+  const sys = process.platform === "win32" ? "Windows" : process.platform === "darwin" ? "Darwin" : "Linux";
+  // process.arch is "x64"/"arm64"; Python's platform.machine() returns
+  // "AMD64" / "arm64" / "x86_64". Pick the conventional value per OS so
+  // a paired-via-CLI machine matches a paired-via-desktop machine.
+  let machine;
+  if (sys === "Windows") {
+    machine = process.arch === "x64" ? "AMD64" : process.arch === "arm64" ? "ARM64" : process.arch;
+  } else if (sys === "Darwin") {
+    machine = process.arch === "x64" ? "x86_64" : "arm64";
+  } else {
+    machine = process.arch === "x64" ? "x86_64" : process.arch;
+  }
+  return `${sys}|${machine}|${os.hostname()}`;
 }
+
+// Reserved for future use (e.g. multi-tenant disambiguation log lines).
+// crypto is intentionally imported even though machineFingerprint stopped
+// using it — the bridge-runtime + other future flows hash the raw value
+// downstream.
+void crypto;
 
 function defaultMachineLabel() {
   const user = (os.userInfo().username || "").trim();
@@ -157,7 +176,7 @@ function getJson(urlString, timeoutMs = 6_000) {
 
 function saveBridgeToken(token, meta) {
   try {
-    if (!fs.existsSync(BRIDGE_TOKEN_DIR)) fs.mkdirSync(BRIDGE_TOKEN_DIR, { recursive: true, mode: 0o700 });
+    ensureOasisHome();
     fs.writeFileSync(BRIDGE_TOKEN_FILE, token, { mode: 0o600 });
     if (meta) fs.writeFileSync(BRIDGE_META_FILE, JSON.stringify(meta, null, 2), { mode: 0o600 });
     return { ok: true };
@@ -167,9 +186,25 @@ function saveBridgeToken(token, meta) {
 }
 
 function readBridgeMeta() {
+  // Prefer the desktop wizard's metadata file (richer: tenant_id,
+  // machine_label, paired_at). Fall back to "the CLI paired this
+  // machine and didn't write metadata" — detect that by the bare
+  // bridge_token's presence so the resume path still skips Step 1.
   try {
-    if (!fs.existsSync(BRIDGE_META_FILE)) return null;
-    return JSON.parse(fs.readFileSync(BRIDGE_META_FILE, "utf-8"));
+    if (fs.existsSync(BRIDGE_META_FILE)) {
+      return JSON.parse(fs.readFileSync(BRIDGE_META_FILE, "utf-8"));
+    }
+    if (fs.existsSync(BRIDGE_TOKEN_FILE)) {
+      return {
+        pairing_id: null,
+        tenant_id: null,
+        dashboard_url: null,
+        machine_label: defaultMachineLabel(),
+        paired_at: null,
+        source: "cli", // marker: paired via bravo setup, not the wizard
+      };
+    }
+    return null;
   } catch {
     return null;
   }
