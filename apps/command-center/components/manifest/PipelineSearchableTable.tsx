@@ -32,8 +32,6 @@ import { formatPipelineCell, type PipelineColumn } from "@/lib/pipeline-display"
 type Row = { id: string; data: Record<string, unknown> };
 
 type Props = {
-  slug: string;
-  entityName: string;
   entityLabel: string;
   stageField: string;
   rows: Row[];
@@ -76,8 +74,6 @@ function rowHaystack(row: Row, columns: PipelineColumn[], stageField: string): s
 }
 
 export function PipelineSearchableTable({
-  slug: _slug,
-  entityName: _entityName,
   entityLabel,
   stageField,
   rows,
