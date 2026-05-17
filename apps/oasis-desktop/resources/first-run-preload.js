@@ -26,6 +26,9 @@ contextBridge.exposeInMainWorld("oasisFirstRun", {
   save: (provider, key) =>
     ipcRenderer.invoke("oasis-first-run/save", { provider, key }),
 
+  // Local CLI detection (Step 2 — offer "use my subscription" before key paste).
+  detectCli: () => ipcRenderer.invoke("oasis-first-run/detect-cli"),
+
   // Health check (Step 3).
   bridgeHealth: () => ipcRenderer.invoke("oasis-first-run/bridge-health"),
 

@@ -128,6 +128,12 @@ export default async function AgentsPage() {
                 ? "Chat any agent. Two paths: (1) Local bridge — spawns the Claude Code CLI on your machine using your Claude subscription, full file/script access. (2) Cloud mode — uses the API key you saved per agent (OpenRouter / Anthropic / OpenAI / Gemini) to power the chat without a Claude subscription. Same persona either way; the bridge path can also write files. Clients run cloud mode by default."
                 : "Talk to any agent in your family — set up your provider + key in Settings → Agents. The key powers the chat (no Claude Code subscription needed)."}
             </div>
+            <div className="mt-2 rounded-md border border-bg-border bg-bg-elev/40 px-3 py-2 text-[11.5px] text-fg-muted max-w-3xl leading-relaxed">
+              <span className="text-fg font-semibold">Workspace default vs. personal override:</span>{" "}
+              {isAdmin
+                ? "The keys you save in Settings → Agents are the workspace default — every employee on this tenant uses them. Each employee can also paste their OWN key under Settings → My Agents to route only their chat through their personal account."
+                : "Settings → Agents is the workspace-wide config (admin-only). Your personal override lives in Settings → My Agents — paste your own key there and only your chat uses it."}
+            </div>
           </div>
         </header>
         {/* Tenant has neither cloud provider keys nor a paired bridge — chat

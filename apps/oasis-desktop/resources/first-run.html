@@ -211,6 +211,17 @@
       <h2>Connect a personal AI account <span style="color: var(--dim); font-weight: 500; font-size: 13px;">(optional)</span></h2>
       <p class="lead">Skip this and your chat will use the workspace's shared AI key — totally fine for getting started. Connect your own to keep your usage on your account and unlock per-agent model choices.</p>
 
+      <!-- Auto-detected local CLI subscriptions. Populated by detectCli()
+           on Step 2 mount; rendered as one-click cards above the
+           paste-a-key path. Best UX when the operator already has
+           `claude` / `codex` / `gemini` installed and authed locally —
+           no key paste at all. -->
+      <div id="cli-detected-wrap" style="display:none; margin-bottom: 14px;">
+        <label class="field-label">Detected on this machine</label>
+        <div id="cli-detected" style="display: grid; gap: 8px;"></div>
+        <div class="hint">Using your existing CLI subscription means chat routes through your local <code>claude</code> / <code>codex</code> / <code>gemini</code> binary — no API key needed and your usage stays on your subscription.</div>
+      </div>
+
       <label class="field-label">Provider</label>
       <div class="tile-grid" id="tiles" role="radiogroup" aria-label="Choose provider"></div>
 
@@ -326,7 +337,69 @@
         pageTitle.textContent = head.title;
         pageIntro.textContent = head.intro;
       }
+      if (n === 2) runCliDetection();
       if (n === 3) runHealthChecks();
+    }
+
+    /* ============================================================
+     * Local CLI detection — top of Step 2.
+     * Probes claude/codex/gemini --version, renders a card per hit so
+     * the operator can pick "use my subscription" without pasting a key.
+     * ============================================================ */
+    let cliDetectionRan = false;
+    async function runCliDetection() {
+      if (cliDetectionRan) return;
+      cliDetectionRan = true;
+      const wrap = document.getElementById("cli-detected-wrap");
+      const list = document.getElementById("cli-detected");
+      try {
+        const probes = await window.oasisFirstRun.detectCli();
+        const hits = [];
+        const meta = {
+          claude: { label: "Claude Code", pitch: "Uses your Claude Pro / Max subscription. Recommended if you have one." },
+          codex:  { label: "Codex CLI",   pitch: "Uses your OpenAI subscription via the Codex CLI." },
+          gemini: { label: "Gemini CLI",  pitch: "Uses your Google AI Studio account via the Gemini CLI." },
+        };
+        for (const key of ["claude", "codex", "gemini"]) {
+          if (probes && probes[key] && probes[key].installed) {
+            hits.push({ key, version: probes[key].version, ...meta[key] });
+          }
+        }
+        if (!hits.length) {
+          wrap.style.display = "none";
+          return;
+        }
+        list.innerHTML = "";
+        for (const hit of hits) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "tile";
+          btn.style.cssText = "display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px;";
+          btn.innerHTML = `
+            <div>
+              <div class="tile-name">${hit.label} <span class="ok-badge" style="margin-left: 6px;">Detected</span></div>
+              <div class="tile-pitch">${hit.pitch}</div>
+              <div class="hint" style="margin-top:4px; font-family: ui-monospace, monospace; font-size: 11px;">${(hit.version || "").slice(0, 60)}</div>
+            </div>
+            <span style="color: var(--accent); font-weight: 700; font-size: 13px;">Use this →</span>
+          `;
+          btn.addEventListener("click", () => {
+            // CLI mode == no API key; just stash a marker in custom_fields
+            // so the dashboard knows this operator prefers local-CLI
+            // routing, then advance. The bridge's tool palette already
+            // spawns `claude -p` / `codex` for the chat surface — no
+            // extra wiring needed in the desktop wizard itself.
+            state.ai_configured = true;
+            state.ai_provider = `cli:${hit.key}`;
+            showStatus(aiStatusEl, "ok", `Locked in ${hit.label}. Local subscription will route chat.`);
+            setTimeout(() => setStep(3), 600);
+          });
+          list.appendChild(btn);
+        }
+        wrap.style.display = "";
+      } catch {
+        wrap.style.display = "none";
+      }
     }
 
     function renderTiles() {

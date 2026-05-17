@@ -34,6 +34,7 @@ const os = require("node:os");
 const crypto = require("node:crypto");
 const http = require("node:http");
 const https = require("node:https");
+const { spawn } = require("node:child_process");
 const { URL } = require("node:url");
 const {
   PROVIDERS,
@@ -57,6 +58,7 @@ const CHANNEL_PAIR = "oasis-first-run/pair";
 const CHANNEL_OPEN_EXTERNAL = "oasis-first-run/open-external";
 const CHANNEL_BRIDGE_HEALTH = "oasis-first-run/bridge-health";
 const CHANNEL_PAIR_STATUS = "oasis-first-run/pair-status";
+const CHANNEL_DETECT_CLI = "oasis-first-run/detect-cli";
 
 function machineFingerprint() {
   // Match bravo_cli/wizard.py's fingerprint format exactly:
@@ -174,6 +176,68 @@ function getJson(urlString, timeoutMs = 6_000) {
   });
 }
 
+/**
+ * Probe a local CLI binary by invoking `<binary> --version` (with a hard
+ * 3s timeout). Returns { installed: boolean, version: string|null }.
+ * Used by Step 2 of the wizard to detect Claude Code / Codex / Gemini
+ * subscriptions so the operator can pick "use my existing CLI" instead
+ * of pasting an API key.
+ *
+ * Why spawn directly instead of `which` first: Windows doesn't ship
+ * `which`, and even on Unix the lookup gives us shell-resolution PATH
+ * for free if we just spawn the bare binary name. ENOENT means the
+ * binary isn't on PATH; everything else means it is and we capture the
+ * version string for display.
+ */
+function probeCli(binary, timeoutMs = 3_000) {
+  return new Promise((resolve) => {
+    let proc;
+    let stdout = "";
+    let stderr = "";
+    let done = false;
+    const finish = (result) => {
+      if (done) return;
+      done = true;
+      if (proc && !proc.killed) {
+        try { proc.kill(); } catch { /* ignore */ }
+      }
+      resolve(result);
+    };
+    try {
+      proc = spawn(binary, ["--version"], {
+        windowsHide: true,
+        shell: process.platform === "win32", // PATH resolution on Windows
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+    } catch {
+      finish({ installed: false, version: null });
+      return;
+    }
+    const timer = setTimeout(() => finish({ installed: false, version: null, error: "timeout" }), timeoutMs);
+    proc.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    proc.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    proc.on("error", () => {
+      clearTimeout(timer);
+      finish({ installed: false, version: null });
+    });
+    proc.on("close", (code) => {
+      clearTimeout(timer);
+      if (code !== 0 && !stdout) {
+        finish({ installed: false, version: null });
+        return;
+      }
+      const raw = (stdout || stderr).trim();
+      // First non-empty line, capped at 200 chars for display safety.
+      const line = raw.split(/\r?\n/).find((s) => s.trim()) || raw;
+      finish({ installed: true, version: line.slice(0, 200) });
+    });
+  });
+}
+
 function saveBridgeToken(token, meta) {
   try {
     ensureOasisHome();
@@ -220,6 +284,7 @@ function ensureChannelsRegistered(onClose, runtimeCtx) {
   ipcMain.removeHandler(CHANNEL_PAIR);
   ipcMain.removeHandler(CHANNEL_BRIDGE_HEALTH);
   ipcMain.removeHandler(CHANNEL_PAIR_STATUS);
+  ipcMain.removeHandler(CHANNEL_DETECT_CLI);
   ipcMain.removeAllListeners(CHANNEL_CANCEL);
   ipcMain.removeAllListeners(CHANNEL_OPEN_EXTERNAL);
 
@@ -303,6 +368,20 @@ function ensureChannelsRegistered(onClose, runtimeCtx) {
     return { paired: !!meta, meta };
   });
 
+  // Local CLI subscription detection — wizard's Step 2 calls this to
+  // offer "Use my Claude Pro / Codex / Gemini CLI subscription" instead
+  // of paste-an-API-key. The bridge will spawn the matching CLI when
+  // chat fires; this probe just confirms the binary is on PATH +
+  // captures the version string for display.
+  ipcMain.handle(CHANNEL_DETECT_CLI, async () => {
+    const [claude, codex, gemini] = await Promise.all([
+      probeCli("claude"),
+      probeCli("codex"),
+      probeCli("gemini"),
+    ]);
+    return { claude, codex, gemini };
+  });
+
   ipcMain.handle(CHANNEL_BRIDGE_HEALTH, async () => {
     if (!bridgeHealthUrl) return { ok: false, error: "no_health_url" };
     const r = await getJson(bridgeHealthUrl, 4_000);
@@ -359,6 +438,7 @@ function openFirstRunWindow({ parent, desktopManifest, commandCenterUrl, bridgeH
       try { ipcMain.removeHandler(CHANNEL_PAIR); } catch {}
       try { ipcMain.removeHandler(CHANNEL_PAIR_STATUS); } catch {}
       try { ipcMain.removeHandler(CHANNEL_BRIDGE_HEALTH); } catch {}
+      try { ipcMain.removeHandler(CHANNEL_DETECT_CLI); } catch {}
       try { ipcMain.removeAllListeners(CHANNEL_CANCEL); } catch {}
       try { ipcMain.removeAllListeners(CHANNEL_OPEN_EXTERNAL); } catch {}
       if (win && !win.isDestroyed()) win.close();
@@ -409,6 +489,7 @@ function openFirstRunWindow({ parent, desktopManifest, commandCenterUrl, bridgeH
 module.exports = {
   CHANNEL_BRIDGE_HEALTH,
   CHANNEL_CANCEL,
+  CHANNEL_DETECT_CLI,
   CHANNEL_OPEN_EXTERNAL,
   CHANNEL_PAIR,
   CHANNEL_PAIR_STATUS,
