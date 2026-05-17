@@ -20,9 +20,20 @@ Now:
     --triggers "follow up,nudge,follow-up email"
     --tags outreach,sales
 
+V6.8 frontmatter flags (auto-emitted into the scaffold when supplied):
+  --argument-hint "Which lead?"          # surfaces prompt at invocation
+  --disable-model-invocation             # skill fires only on explicit /command
+  --requires-env STRIPE_KEY,GWS_TOKEN    # hard-dep env vars (ADR-0001)
+  --requires-daemon event-router         # hard-dep PM2 daemons
+  --requires-state state/empire_state.db # hard-dep file paths
+
 Or for a script:
   python scripts/register.py script lead_scorer
     --description "Score inbound leads 0-100 by intent + fit signals"
+
+Or to scaffold an ADR (V6.8, 2026-05-16):
+  python scripts/register.py adr-new skill-dep-classification
+    --description "Why we classify skill deps as hard vs soft" --dry-run
 
 The wizard:
   1. Validates the name (not already taken, slugified)

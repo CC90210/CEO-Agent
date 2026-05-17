@@ -1,9 +1,20 @@
-"""UserPromptSubmit hook — selective context injection from memory_retriever.
+"""UserPromptSubmit hook — V6.8.1 selective context injection.
 
-Fires when CC submits a prompt. Triages the prompt by length + intent shape:
-  - T1 (chat/lookup, <60 chars or starts with greeting): no injection
-  - T2 (operational, default): query memory_retriever for top 3 snippets
-  - T3 (architectural keywords: "design"/"refactor"/"architecture"): top 5 snippets
+Two passes run on every prompt:
+
+PASS 1 — Canonical Vocabulary (V6.8.1, added 2026-05-16)
+    Parses CONTEXT.md once (cached on mtime) into {term: definition}.
+    Word-boundary matches any term against the prompt.
+    Injects up to CONTEXT_MAX_INJECTIONS matched definitions before the agent
+    reads the prompt. Runs on every tier (even T1 greetings) — vocabulary
+    discipline is cheap and load-bearing. Zero overhead on prompts with no
+    matching term.
+
+PASS 2 — Memory Retrieval (V6.7)
+    Triages by length + intent shape:
+      - T1 (chat/lookup, <60 chars or greeting): skip retriever
+      - T2 (operational, default): top 3 snippets from memory_retriever
+      - T3 (architectural keywords): top 5 snippets
 
 This is the silver-platter principle applied to prompts themselves — instead
 of the agent searching FTS5 mid-conversation, we pre-resolve the top hits and
@@ -13,7 +24,7 @@ Output contract:
     {
       "hookSpecificOutput": {
         "hookEventName": "UserPromptSubmit",
-        "additionalContext": "<markdown block>"
+        "additionalContext": "<Canonical Vocabulary block><Relevant Memory block>"
       }
     }
 

@@ -79,16 +79,15 @@ Soft-dependency skills MUST NOT include the explicit prerequisite pointer in the
 
 ## Enforcement
 
-Today (initial accept, 2026-05-16):
-- This ADR is referenced from [CONTEXT.md](../../CONTEXT.md) and [skills/skill-creator/SKILL.md](../../skills/skill-creator/SKILL.md). New skills are expected to declare dependencies at draft time.
-- Audit of the existing ~150 skills against their dependencies is tracked as a follow-up item in [memory/ACTIVE_TASKS.md](../../memory/ACTIVE_TASKS.md); not done in this PR.
+**Implemented in V6.8.1 (commit bec2fcc, 2026-05-16):**
+- `scripts/capability_query.py check-deps <node_id>` — verifies declared `requires:` against current environment. Returns ok/missing/pointer report. Exit code 0 if all present, 1 otherwise. Checks: env vars via `os.environ`; PM2 daemons via `state/<name>.pid` mtime freshness (≤120s); state files via existence check.
+- `scripts/register.py skill` — accepts `--requires-env`, `--requires-daemon`, `--requires-state` (CSV-each) and emits a `requires: [env:X, daemon:Y, state:Z]` line in the scaffolded frontmatter.
+- `scripts/build_capability_graph.py` — surfaces `requires:` field on every skill node via `_parse_requires()` (lines 167-198). Result available in `CAPABILITY_GRAPH.json` for every skill.
+- This ADR is referenced from [CONTEXT.md](../../CONTEXT.md) and [skills/skill-creator/SKILL.md](../../skills/skill-creator/SKILL.md). New skills declare dependencies at draft time via the wizard.
 
-Proposed future tooling (not implemented in this ADR, will be added in a follow-up):
-- `scripts/capability_query.py check-deps <skill_id>` — verifies declared `requires:` against current environment. Returns 0 if all present, 1 with a setup pointer otherwise.
-- `scripts/register.py skill` — prompt for hard/soft classification per declared dependency at scaffold time.
-- `brain/CAPABILITY_GRAPH.json` — surface `requires:` field on each skill node so the runtime resolver can warn before activation.
-
-The ADR is accepted on its rule (classify hard vs soft, declare in frontmatter, body pointer only for hard). The tooling is the natural next step but not blocking this acceptance.
+**Not yet done (follow-up):**
+- Audit of the existing ~150 skills against their runtime dependencies. Most skills do not yet declare a `requires:` field. Tracked in [memory/ACTIVE_TASKS.md](../../memory/ACTIVE_TASKS.md). The dependency-classification rule applies to ALL skills, but the audit is incremental.
+- Activation-time enforcement (resolver auto-runs `check-deps` before returning a skill in `resolve_intent`). Currently `check-deps` is opt-in via CLI; the resolver does not yet gate on it.
 
 ## References
 

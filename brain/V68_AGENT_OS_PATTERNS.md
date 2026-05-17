@@ -24,8 +24,9 @@ freshness_threshold_days: 365
 
 ## Propagation contract per sibling
 
-### Bravo (this repo) — fully applied 2026-05-16
+### Bravo (this repo) — V6.8 + V6.8.1 fully applied 2026-05-16
 
+**V6.8 (static patterns, commit 5aeb5fb):**
 - ✅ `/CONTEXT.md` (40+ terms, empire-wide vocabulary)
 - ✅ `/docs/adr/0001-skill-dependency-classification.md` (hard vs soft)
 - ✅ `/docs/adr/0002-context-md-canonical-vocabulary.md` (this layer)
@@ -37,20 +38,40 @@ freshness_threshold_days: 365
 - ✅ `register.py adr-new <slug>` scaffolds new ADRs
 - ✅ `skills/skill-creator/SKILL.md` opens with 4-step pre-flight (CONTEXT.md + ADR-0001 + invocation discipline + register.py scaffold)
 
-### Maven (`~/CMO-Agent`) — propagated 2026-05-16
+**V6.8.1 (load-bearing wiring, commit bec2fcc):**
+- ✅ `scripts/hooks/user_prompt_submit.py` — Pass 1 auto-injects CONTEXT.md definitions when prompt mentions a glossary term. Runs on every tier including T1 (greetings with domain terms still get vocab). Cached on CONTEXT.md mtime.
+- ✅ `scripts/capability_query.py check-deps <node_id>` — verifies declared `requires:` against env / daemon pid mtime / state files. Returns structured report; exits 1 on miss. Makes ADR-0001 enforceable.
+- ✅ `scripts/build_capability_graph.py` — `_parse_requires()` surfaces `requires: [env:X, daemon:Y, state:Z]` into every skill node. Field is now first-class in the graph.
+- ✅ `scripts/register.py skill` — wizard emits V6.8 frontmatter by default. Flags: `--argument-hint`, `--disable-model-invocation`, `--requires-env`, `--requires-daemon`, `--requires-state`. New skills inherit V6.8 conventions without author discipline.
+- ✅ Module docstrings updated (`capability_query.py`, `register.py`, `user_prompt_submit.py`) to reflect V6.8.1 behaviors.
 
+### Maven (`~/CMO-Agent`) — V6.8 + V6.8.1 propagated 2026-05-16
+
+**V6.8 (commit da1e5aa):**
 - ✅ `/CONTEXT.md` (content/brand/social vocabulary — pillars, platforms, NEPQ, voice rules)
 - ✅ `/docs/adr/0001-context-md-canonical-vocabulary.md` (references Bravo's ADR-0002 as the empire-wide parent)
-- ⏭ Skill frontmatter audit — deferred. Maven adopts `disable_model_invocation` + `argument_hint` skill-by-skill as the skill set is audited.
-- ⏭ `skills/in-progress/` + `.claude-plugin/plugin.json` — deferred. Maven's skills don't yet have a distribution use case.
-- ⏭ Sibling entry-point sync — Maven owns its own CLAUDE/AGENTS/GEMINI/ANTIGRAVITY/OPENCODE; update those when Maven next has a clean session. The pattern is documented; not enforced now.
 
-### Atlas (`~/APPS/CFO-Agent`) — propagated 2026-05-16
+**V6.8.1 (commit 00d8e14):**
+- ✅ All 5 sibling entry points (CLAUDE / GEMINI / ANTIGRAVITY / AGENTS / OPENCODE) reference `CONTEXT.md` on operational turns
 
+**Still deferred:**
+- ⏭ Skill frontmatter audit — Maven adopts `disable_model_invocation` + `argument_hint` + `requires:` skill-by-skill as the skill set is audited.
+- ⏭ `skills/in-progress/` + `.claude-plugin/plugin.json` — Maven's skills don't yet have a distribution use case.
+- ⏭ Hook-side vocab injection — Maven's runtime doesn't yet have a `user_prompt_submit.py` equivalent. If it adds one, the same V6.8.1 pattern applies.
+
+### Atlas (`~/APPS/CFO-Agent`) — V6.8 + V6.8.1 propagated 2026-05-16
+
+**V6.8 (commit 1699c9e):**
 - ✅ `/CONTEXT.md` (finance/tax/research vocabulary — T2125, FHSA/TFSA/RRSP, conviction score, IRR/MOIC, CRA rules)
 - ✅ `/docs/adr/0001-context-md-canonical-vocabulary.md` (references Bravo's ADR-0002)
-- ⏭ Skill frontmatter audit — deferred (same reason as Maven)
-- ⏭ Distribution manifest — deferred
+
+**V6.8.1 (commit 18e89af):**
+- ✅ All 5 sibling entry points (CLAUDE / GEMINI / ANTIGRAVITY / AGENTS / OPENCODE) reference `CONTEXT.md` on operational turns. Particularly load-bearing for Atlas because CRA-rule drift has direct dollar consequences.
+
+**Still deferred:**
+- ⏭ Skill frontmatter audit
+- ⏭ Distribution manifest
+- ⏭ Hook-side vocab injection
 
 ### Hermes (future) — propagated via agent-forge
 
