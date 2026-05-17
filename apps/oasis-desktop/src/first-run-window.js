@@ -383,9 +383,24 @@ function ensureChannelsRegistered(onClose, runtimeCtx) {
   });
 
   ipcMain.handle(CHANNEL_BRIDGE_HEALTH, async () => {
-    if (!bridgeHealthUrl) return { ok: false, error: "no_health_url" };
-    const r = await getJson(bridgeHealthUrl, 4_000);
-    return { ok: r.ok, status: r.status, body: r.body || null };
+    // Probe the LOCAL bridge daemon AND the cloud dashboard /api/health
+    // in parallel. Both should be reachable for a fully-functional
+    // deploy; the wizard's Step 3 surfaces them as two separate
+    // checkmarks so the operator knows which side is broken.
+    const dashboardUrl = commandCenterUrl
+      ? new URL("/api/health", commandCenterUrl).toString()
+      : null;
+    const [bridge, dashboard] = await Promise.all([
+      bridgeHealthUrl ? getJson(bridgeHealthUrl, 4_000) : Promise.resolve({ ok: false, error: "no_health_url" }),
+      dashboardUrl ? getJson(dashboardUrl, 4_000) : Promise.resolve({ ok: false, error: "no_dashboard_url" }),
+    ]);
+    return {
+      ok: bridge.ok,                          // legacy field; old renderers still check this
+      status: bridge.status,
+      body: bridge.body || null,
+      bridge: { ok: bridge.ok, status: bridge.status },
+      dashboard: { ok: dashboard.ok, status: dashboard.status, version: dashboard.body?.version || null },
+    };
   });
 
   ipcMain.on(CHANNEL_OPEN_EXTERNAL, (_event, url) => {
