@@ -84,7 +84,8 @@ export default async function AgentsPage() {
     : profile?.agents_enabled?.length
       ? profile.agents_enabled
       : FAMILY_AGENT_KEYS;
-  const enabled = enabledList.filter((k) => familySet.has(k));
+  const explicitTenantAgents = manifestEnabledSlugs.length > 0 || !!profile?.agents_enabled?.length;
+  const enabled = enabledList.filter((k) => explicitTenantAgents || familySet.has(k));
   const byName = new Map(states.map((s) => [s.agent_name, s]));
   const integrationByName = new Map(integrations.map((i) => [i.service, i]));
 

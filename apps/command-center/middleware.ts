@@ -194,7 +194,7 @@ export async function middleware(req: NextRequest) {
     try {
       const { data: profile } = await supa
         .from("user_profiles")
-        .select("onboarding_completed_at")
+        .select("onboarding_completed_at, invited_by")
         .eq("auth_user_id", data.user.id)
         .maybeSingle();
       if (profile && profile.onboarding_completed_at == null) {
@@ -205,7 +205,9 @@ export async function middleware(req: NextRequest) {
         // isOperatorEmail). Sending everyone to /onboarding/wizard first
         // avoids the bounce and keeps the C-suite picker invisible to
         // client tenants who shouldn't see it.
-        return NextResponse.redirect(new URL("/onboarding/wizard", req.url));
+        return NextResponse.redirect(
+          new URL(profile.invited_by ? "/onboarding/welcome" : "/onboarding/wizard", req.url),
+        );
       }
       if (profile && profile.onboarding_completed_at) {
         // Cache the decision so subsequent page loads skip the DB query.

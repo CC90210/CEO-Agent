@@ -57,7 +57,14 @@ export default async function SettingsPage() {
   // GitHub, etc.). Client tenants only see what their agent mix exposes —
   // re-enable an agent later and the integrations grow back.
   const enabledAgents = (profile?.agents_enabled || []).map(resolveAgentKey);
+  const enabledChatAgentKeys = chatAgentKeys().filter((k) =>
+    ((profile?.agents_enabled || chatAgentKeys()).map(resolveAgentKey)).includes(k),
+  );
   const isOperator = isOperatorEmail(user?.email || undefined);
+  const teamProfile = profile as (typeof profile & { is_owner?: boolean; team_role?: string }) | null;
+  const canManageTenant =
+    !!teamProfile &&
+    (teamProfile.is_owner || teamProfile.team_role === "owner" || teamProfile.team_role === "admin");
   const visibleDefs = visibleIntegrationsForTenant(enabledAgents, { isOperator });
   const visibleServices = new Set(visibleDefs.map((d) => d.service));
   const visibleIntegrations = integrations.filter((h: IntegrationHealth) => visibleServices.has(h.service));
@@ -89,6 +96,14 @@ export default async function SettingsPage() {
                 >
                   Open personalisation wizard →
                 </a>
+                {canManageTenant && (
+                  <a
+                    href="/settings/audit-log"
+                    className="text-xs text-accent hover:text-accent/80 underline underline-offset-2"
+                  >
+                    Audit log →
+                  </a>
+                )}
               </div>
             }
           >
@@ -153,6 +168,7 @@ export default async function SettingsPage() {
             <ProviderAccountsCard
               connectedServices={connectedAiSet}
               bridgeOnline={bridgeOnline}
+              canManageTeam={canManageTenant}
             />
           </Card>
 
@@ -168,34 +184,34 @@ export default async function SettingsPage() {
               </Tag>
             }
           >
-            <AgentConfigEditor
-              agentKeys={chatAgentKeys().filter((k) =>
-                (profile.agents_enabled || chatAgentKeys()).includes(k)
-              )}
-              bridgeOnline={bridgeOnline}
-              agentPalettes={Object.fromEntries(
-                (manifest?.agents || []).map((a) => [
-                  a.slug.toLowerCase(),
-                  a.tool_palette,
-                ])
-              )}
-              manifestSlug={manifestSlug}
-              // Slim catalog for the per-agent palette editor. Server-side
-              // TOOL_DEFINITIONS contains the full input_schema JSON which
-              // the client UI doesn't need; we pass name + description +
-              // defer flag (for grouping into Cloud vs Bridge sections).
-              toolCatalog={TOOL_DEFINITIONS.map((t) => ({
-                name: t.name,
-                description: t.description,
-                defer: !!t.defer,
-              }))}
-            />
+            {canManageTenant ? (
+              <AgentConfigEditor
+                agentKeys={enabledChatAgentKeys}
+                bridgeOnline={bridgeOnline}
+                agentPalettes={Object.fromEntries(
+                  (manifest?.agents || []).map((a) => [
+                    a.slug.toLowerCase(),
+                    a.tool_palette,
+                  ])
+                )}
+                manifestSlug={manifestSlug}
+                // Slim catalog for the per-agent palette editor. Server-side
+                // TOOL_DEFINITIONS contains the full input_schema JSON which
+                // the client UI doesn't need; we pass name + description +
+                // defer flag (for grouping into Cloud vs Bridge sections).
+                toolCatalog={TOOL_DEFINITIONS.map((t) => ({
+                  name: t.name,
+                  description: t.description,
+                  defer: !!t.defer,
+                }))}
+              />
+            ) : (
+              <EmptyState message="Team-wide model defaults are managed by an owner or admin. Use My Agents below for your personal AI keys." />
+            )}
           </Card>
 
           <MyAgentsCard
-            enabledAgentKeys={chatAgentKeys().filter((k) =>
-              (profile.agents_enabled || chatAgentKeys()).includes(k)
-            )}
+            enabledAgentKeys={enabledChatAgentKeys}
             agentLabels={Object.fromEntries(
               (manifest?.agents || []).map((a) => [
                 a.slug.toLowerCase(),

@@ -7,7 +7,7 @@
  * `redeem_tenant_invite` RPC (migration 037) and stamps onboarding
  * state so the welcome wizard (Phase C) knows this is a fresh invitee.
  *
- * Body: { auth_user_id: string, raw_token: string }
+ * Body: { raw_token: string }
  *
  * Response 200: { ok: true, tenant_id, team_role, first_login: boolean }
  * Response 4xx: { ok: false, error, message? }
@@ -20,31 +20,35 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { redeemInvite } from "@/lib/team";
-import { getServiceSupabase } from "@/lib/supabase-server";
+import { getServiceSupabase, getSessionUser } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  let body: { auth_user_id?: string; raw_token?: string };
+  const user = await getSessionUser();
+  if (!user) {
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+
+  let body: { raw_token?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
 
-  const authUserId = (body.auth_user_id || "").trim();
   const rawToken = (body.raw_token || "").trim();
-  if (!authUserId || !rawToken) {
+  if (!rawToken) {
     return NextResponse.json(
-      { ok: false, error: "missing_fields", message: "auth_user_id and raw_token required" },
+      { ok: false, error: "missing_fields", message: "raw_token required" },
       { status: 400 },
     );
   }
 
   // Redeem — atomic in the SECURITY DEFINER RPC. Attaches the user_profile
   // to the inviter's tenant + assigns the invite's team_role.
-  const result = await redeemInvite(rawToken, authUserId);
+  const result = await redeemInvite(rawToken, user.id);
   if (!result.ok) {
     return NextResponse.json(
       { ok: false, error: "redeem_failed", message: result.error },
@@ -63,7 +67,7 @@ export async function POST(req: NextRequest) {
     const { data } = await db
       .from("user_profiles")
       .select("onboarding_completed_at")
-      .eq("auth_user_id", authUserId)
+      .eq("auth_user_id", user.id)
       .maybeSingle();
     firstLogin = !data?.onboarding_completed_at;
   } catch {

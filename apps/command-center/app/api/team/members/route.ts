@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { bad } from "@/lib/api-helpers";
+import { getAuthedSupabase } from "@/lib/supabase-server";
 import {
   canManageTeam,
   getSessionContext,
@@ -67,8 +68,8 @@ export async function PATCH(req: NextRequest) {
     });
     // Audit-log the role change (Phase D).
     try {
-      const { getServiceSupabase } = await import("@/lib/supabase-server");
-      await getServiceSupabase().rpc("log_tenant_event", {
+      const authed = await getAuthedSupabase();
+      await authed.rpc("log_tenant_event", {
         p_tenant_id: ctx.tenantId,
         p_action_type: "member.role_change",
         p_target_table: "user_profiles",
@@ -108,8 +109,8 @@ export async function DELETE(req: NextRequest) {
     });
     // Audit-log the removal (Phase D).
     try {
-      const { getServiceSupabase } = await import("@/lib/supabase-server");
-      await getServiceSupabase().rpc("log_tenant_event", {
+      const authed = await getAuthedSupabase();
+      await authed.rpc("log_tenant_event", {
         p_tenant_id: ctx.tenantId,
         p_action_type: "member.remove",
         p_target_table: "user_profiles",

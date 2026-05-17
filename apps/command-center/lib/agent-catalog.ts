@@ -130,6 +130,68 @@ export const AGENT_CATALOG: Record<string, AgentCatalog> = {
       { name: "chargeback_dispute", kind: "workflow", description: "Auto-builds dispute packet from audit log.", location: "local" },
     ],
   },
+
+  solara: {
+    crons: [
+      {
+        name: "sunbiz-daily-brief",
+        kind: "cron",
+        description: "Summarizes hot leads, missing docs, expiring offers, and renewal candidates for the morning dashboard.",
+        location: "vercel",
+        schedule: "0 12 * * 1-5",
+      },
+      {
+        name: "sunbiz-renewal-sweep",
+        kind: "cron",
+        description: "Finds funded deals moving into the 40-60% payback window and queues the next renewal action.",
+        location: "vercel",
+        schedule: "0 15 * * *",
+      },
+      {
+        name: "sunbiz-lender-followup",
+        kind: "cron",
+        description: "Checks lender response SLA by application and flags files that need a nudge.",
+        location: "vercel",
+        schedule: "0 */4 * * 1-5",
+      },
+    ],
+    processes: [
+      { name: "funding-record-actions", kind: "process", description: "Creates and updates leads, funded deals, renewals, lenders, and commissions through manifest-validated dashboard actions.", location: "supabase" },
+      { name: "lender-match-ranker", kind: "process", description: "Ranks lenders by product type, revenue floor, FICO floor, and response SLA.", location: "local" },
+      { name: "sunbiz-import-dedupe", kind: "process", description: "Normalizes CSV imports and de-duplicates by business, phone, and email before records enter the pipeline.", location: "local" },
+    ],
+    workflows: [
+      { name: "funded-deal-to-renewal", kind: "workflow", description: "When a deal is logged as funded, prepares renewal timing and commission follow-up fields.", location: "supabase" },
+      { name: "missing-info-triage", kind: "workflow", description: "Converts lender info requests into missing-info chips and next actions on the lead/application.", location: "supabase" },
+    ],
+  },
+
+  helios: {
+    crons: [
+      {
+        name: "sunbiz-followup-cadence",
+        kind: "cron",
+        description: "Builds draft follow-ups for hot leads, ghosted applications, and expired offers inside TCPA send windows.",
+        location: "vercel",
+        schedule: "*/30 9-20 * * 1-5",
+      },
+      {
+        name: "sunbiz-stale-lead-revival",
+        kind: "cron",
+        description: "Finds leads with no touch in 72 hours and drafts a revival message for operator approval.",
+        location: "vercel",
+        schedule: "0 14 * * 1-5",
+      },
+    ],
+    processes: [
+      { name: "outreach-draft-engine", kind: "process", description: "Drafts SMS and email copy; never sends directly without the send gateway / operator approval path.", location: "supabase" },
+      { name: "tcpa-guard", kind: "process", description: "Applies opt-out language, weekend policy, and local send-window rules to every outreach draft.", location: "supabase" },
+    ],
+    workflows: [
+      { name: "ghosted-application-revival", kind: "workflow", description: "Creates a 3-touch sequence for signed applications that stopped responding.", location: "supabase" },
+      { name: "expired-offer-close-loop", kind: "workflow", description: "Drafts a direct but human close-the-loop note when an approved offer expires.", location: "supabase" },
+    ],
+  },
   // Life Preservation catalog stays empty until the repo ships real
   // processes — CC noted data ingestion + persona tuning are still
   // active work. CLAUDE.md rule: "Do not fake agent status. Unknown

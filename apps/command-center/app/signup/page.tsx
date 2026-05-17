@@ -18,18 +18,26 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setErr(null);
+    setInfo(null);
     try {
       const supa = getBrowserSupabase();
+      const callback = new URL("/auth/callback", window.location.origin);
+      callback.searchParams.set("next", inviteToken ? "/onboarding/welcome" : "/onboarding/wizard");
+      if (inviteToken) callback.searchParams.set("invite", inviteToken);
+      if (brand || brandHint) callback.searchParams.set("brand", brand || brandHint);
+      if (fullName.trim()) callback.searchParams.set("full_name", fullName.trim());
+
       const { data, error } = await supa.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: callback.toString(),
           data: { full_name: fullName, brand: brand || "OASIS AI" },
         },
       });
@@ -42,13 +50,14 @@ export default function SignupPage() {
       // If absent, this is a fresh top-level signup (creates a new tenant).
       if (data.user) {
         if (inviteToken) {
+          if (!data.session) {
+            setInfo("Check your email to finish accepting the invite.");
+            return;
+          }
           const r = await fetch("/api/auth/redeem-invite", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              auth_user_id: data.user.id,
-              raw_token: inviteToken,
-            }),
+            body: JSON.stringify({ raw_token: inviteToken }),
           });
           const body = (await r.json().catch(() => ({}))) as {
             ok?: boolean;
@@ -73,8 +82,6 @@ export default function SignupPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            auth_user_id: data.user.id,
-            email,
             full_name: fullName,
             brand: brand || "OASIS AI",
           }),
@@ -105,6 +112,8 @@ export default function SignupPage() {
       const oauthName = fullName.trim();
       const callback = new URL("/auth/callback", window.location.origin);
       callback.searchParams.set("signup", "1");
+      callback.searchParams.set("next", inviteToken ? "/onboarding/welcome" : "/onboarding/wizard");
+      if (inviteToken) callback.searchParams.set("invite", inviteToken);
       if (oauthBrand) callback.searchParams.set("brand", oauthBrand);
       if (oauthName) callback.searchParams.set("full_name", oauthName);
       const { error } = await supa.auth.signInWithOAuth({
@@ -171,6 +180,11 @@ export default function SignupPage() {
                 {err}
               </div>
             )}
+            {info && (
+              <div className="text-sm text-accent bg-accent/10 border border-accent/30 rounded-md px-3 py-2">
+                {info}
+              </div>
+            )}
 
             <button
               type="submit"
@@ -198,7 +212,10 @@ export default function SignupPage() {
 
         <p className="text-center text-sm text-fg-muted mt-6">
           Already have an account?{" "}
-          <Link href="/login" className="text-accent hover:underline font-medium">
+          <Link
+            href={inviteToken ? `/login?invite=${encodeURIComponent(inviteToken)}` : "/login"}
+            className="text-accent hover:underline font-medium"
+          >
             Sign in
           </Link>
         </p>

@@ -32,6 +32,8 @@ export type ChatAuthContext = {
   /** True when the user matches isOperatorEmail. Useful for routes that
    *  want to grant operator-only features beyond what auth covers. */
   isOperator: boolean;
+  /** Which config row actually supplied the model/key, if any. */
+  cfgScope: "user" | "tenant" | null;
 };
 
 export type ChatAuthError = {
@@ -87,7 +89,7 @@ export async function resolveChatContext(
     .eq("agent_key", agentKey)
     .maybeSingle();
 
-  const tenantDefault = userOverride.data
+  const tenantDefault = userOverride.data?.encrypted_api_key
     ? { data: null as null }
     : await service
         .from("agent_model_config")
@@ -97,7 +99,12 @@ export async function resolveChatContext(
         .eq("agent_key", agentKey)
         .maybeSingle();
 
-  const cfg = userOverride.data ?? tenantDefault.data;
+  const cfg = userOverride.data?.encrypted_api_key ? userOverride.data : tenantDefault.data;
+  const cfgScope: "user" | "tenant" | null = userOverride.data?.encrypted_api_key
+    ? "user"
+    : tenantDefault.data
+      ? "tenant"
+      : null;
 
   const isOperator = isOperatorEmail(user.email || "");
   let provider: Provider;
@@ -156,5 +163,6 @@ export async function resolveChatContext(
     apiKey,
     cfgOverride,
     isOperator,
+    cfgScope,
   };
 }

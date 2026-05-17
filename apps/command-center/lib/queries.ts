@@ -824,11 +824,13 @@ export async function aiServicesWithKey(tenantId: string | null): Promise<Set<st
   const out = new Set<string>();
   if (!tenantId) return out;
   const db = getServiceSupabase();
+  const user = await getSessionUser().catch(() => null);
   const { data } = await db
     .from("agent_model_config")
-    .select("provider, encrypted_api_key, enabled")
+    .select("provider, encrypted_api_key, enabled, user_id")
     .eq("tenant_id", tenantId);
-  for (const row of (data || []) as Array<{ provider: string; encrypted_api_key: string | null; enabled: boolean }>) {
+  for (const row of (data || []) as Array<{ provider: string; encrypted_api_key: string | null; enabled: boolean; user_id: string | null }>) {
+    if (row.user_id && row.user_id !== user?.id) continue;
     if (!row.encrypted_api_key || !row.enabled) continue;
     const svc = PROVIDER_TO_SERVICE[row.provider];
     if (svc) out.add(svc);

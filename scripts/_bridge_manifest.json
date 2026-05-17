@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-17T05:38:16.964085+00:00",
-  "script_count": 99,
-  "entry_count": 360,
+  "generated_at_iso": "2026-05-17T20:38:11.371392+00:00",
+  "script_count": 100,
+  "entry_count": 361,
   "entries": [
     {
       "key": "agent_heartbeat",
@@ -59,6 +59,13 @@
       "subcmd": null,
       "mutating": false,
       "help": "Audit MCP config files for plaintext live secrets."
+    },
+    {
+      "key": "audit_rls_coverage",
+      "path": "scripts/audit_rls_coverage.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Audit tenant-scoped Supabase tables for basic RLS coverage."
     },
     {
       "key": "auto_score_leads",

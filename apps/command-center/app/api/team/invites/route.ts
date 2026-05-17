@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { bad } from "@/lib/api-helpers";
+import { getAuthedSupabase } from "@/lib/supabase-server";
 import {
   INVITABLE_ROLES,
   canManageTeam,
@@ -57,8 +58,8 @@ export async function POST(req: NextRequest) {
     // Audit-log the invite creation (Phase D). Best-effort — never fail
     // the operator-facing request because the audit write hiccuped.
     try {
-      const { getServiceSupabase } = await import("@/lib/supabase-server");
-      await getServiceSupabase().rpc("log_tenant_event", {
+      const authed = await getAuthedSupabase();
+      await authed.rpc("log_tenant_event", {
         p_tenant_id: ctx.tenantId,
         p_action_type: "invite.create",
         p_target_table: "tenant_invites",

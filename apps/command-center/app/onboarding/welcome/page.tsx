@@ -21,6 +21,8 @@
 
 import { redirect } from "next/navigation";
 import { getServiceSupabase, getSessionUser } from "@/lib/supabase-server";
+import { resolveClientProfileSlug } from "@/lib/client-profiles";
+import { getManifest } from "@/lib/manifest/loader";
 import { OasisLogo } from "@/components/brand/OasisLogo";
 import { WelcomeWizardClient } from "./WelcomeWizardClient";
 
@@ -49,7 +51,11 @@ export default async function WelcomePage() {
 
   const tenant = profile.tenant_id
     ? (
-        await db.from("tenants").select("id, name, slug").eq("id", profile.tenant_id).maybeSingle()
+        await db
+          .from("tenants")
+          .select("id, name, slug, custom_fields")
+          .eq("id", profile.tenant_id)
+          .maybeSingle()
       ).data
     : null;
 
@@ -61,14 +67,27 @@ export default async function WelcomePage() {
     .select("manifest")
     .eq("tenant_id", profile.tenant_id || "")
     .maybeSingle();
-  const enabledAgents: string[] =
+  let enabledAgents: string[] =
     Array.isArray(
       (manifest?.manifest as { agents?: Array<{ slug: string; enabled?: boolean }> } | null)?.agents,
     )
       ? ((manifest!.manifest as { agents: Array<{ slug: string; enabled?: boolean }> }).agents
           .filter((a) => a.enabled !== false)
           .map((a) => a.slug))
-      : ["bravo"];
+      : [];
+
+  if (!enabledAgents.length && tenant) {
+    const seedSlug = resolveClientProfileSlug(tenant);
+    if (seedSlug) {
+      const seedManifest = await getManifest(seedSlug).catch(() => null);
+      enabledAgents =
+        seedManifest?.agents
+          .filter((agent) => agent.enabled !== false)
+          .map((agent) => agent.slug) ?? [];
+    }
+  }
+
+  if (!enabledAgents.length) enabledAgents = ["bravo"];
 
   return (
     <div className="min-h-screen bg-bg-deep flex flex-col items-center py-12 px-6">

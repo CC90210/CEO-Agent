@@ -284,19 +284,42 @@ async function resolveAgentModelConfig(
   session: RunnerSession
 ): Promise<AgentModelConfigRow> {
   const admin = getSupabaseAdmin();
-  const result = await admin
+  const selectCols =
+    "id, credential_origin, auth_mode, secret_ciphertext, secret_nonce, secret_key_version, provider, model_slug, wrapper_command, wrapper_args, env_overrides, metadata";
+
+  const userResult = await admin
     .from("agent_model_config")
-    .select(
-      "id, credential_origin, auth_mode, secret_ciphertext, secret_nonce, secret_key_version, provider, model_slug, wrapper_command, wrapper_args, env_overrides, metadata"
-    )
+    .select(selectCols)
     .eq("tenant_id", auth.tenantId)
+    .eq("user_id", auth.userId)
     .eq("agent_key", session.agentKey)
     .eq("provider", session.provider)
     .eq("model_slug", session.model)
     .eq("enabled", true)
     .maybeSingle();
 
-  const config = result.data as AgentModelConfigRow | null;
+  if (userResult.error) {
+    throw userResult.error;
+  }
+
+  const defaultResult = userResult.data
+    ? { data: null, error: null }
+    : await admin
+        .from("agent_model_config")
+        .select(selectCols)
+        .eq("tenant_id", auth.tenantId)
+        .is("user_id", null)
+        .eq("agent_key", session.agentKey)
+        .eq("provider", session.provider)
+        .eq("model_slug", session.model)
+        .eq("enabled", true)
+        .maybeSingle();
+
+  if (defaultResult.error) {
+    throw defaultResult.error;
+  }
+
+  const config = (userResult.data || defaultResult.data) as AgentModelConfigRow | null;
   if (!config) {
     throw new Error(
       `No enabled agent_model_config row for ${session.agentKey}/${session.provider}/${session.model}.`
