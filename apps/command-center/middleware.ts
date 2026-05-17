@@ -18,6 +18,7 @@ const PUBLIC_PATH_PREFIXES = [
   "/forgot-password",
   "/auth/callback",
   "/auth/reset-password",
+  "/invite",               // Tenant-invite landing /invite/<token>. Token is opaque; preview RPC validates server-side (Phase A, master multi-tenant infra plan, 2026-05-17).
   "/api/inbound",          // n8n inbound webhook (Bearer-auth gated inside the route)
   "/api/auth/signout",
   "/api/auth/provision",   // legacy + setup-wizard provision (Bearer-auth gated inside)

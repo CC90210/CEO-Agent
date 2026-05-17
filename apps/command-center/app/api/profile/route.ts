@@ -21,6 +21,10 @@ const EDITABLE = new Set([
   "agents_enabled",
   "preferred_language",
   "prospect_focus",
+  // Free-form per-user prefs blob (timezone, briefing_channel, photo url,
+  // anything the welcome wizard or settings page wants to store without a
+  // dedicated column). Whitelisted because the welcome wizard writes here.
+  "custom_fields",
   // Set by the OnboardingFlow's "Finish" button. Middleware uses this to
   // decide whether to force-route a signed-in user back to /onboarding.
   // The user can only set this on themselves; the only side effect of a
