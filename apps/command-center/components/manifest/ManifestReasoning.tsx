@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Card, EmptyState, Tag } from "@/components/Card";
 import { QuickActionsGrid } from "@/components/reasoning/QuickActionsGrid";
 import { quickActionsFor } from "@/lib/quick-actions";
@@ -29,25 +28,17 @@ export function ManifestReasoning({
       title="Quick actions"
       subtitle="Each one drops a prompt into chat with the right agent already selected. Hit Enter to send."
       action={
-        <div className="flex items-center gap-2">
-          <Tag tone="accent">
-            {actions.length} actions · {enabled.length} agents
-          </Tag>
-          <Link
-            href="/reasoning?dev=1"
-            className="text-xs text-fg-dim hover:text-accent transition-colors"
-          >
-            developer view →
-          </Link>
-        </div>
+        <Tag tone="accent">
+          {actions.length} actions · {enabled.length} agents
+        </Tag>
       }
     >
       {actions.length === 0 ? (
         <EmptyState
           message={
             enabled.length === 0
-              ? `No agents enabled for /t/${tenantSlug}. Add some in Settings → Agents.`
-              : `No quick actions registered for ${enabled.join(", ")}. Open lib/quick-actions.ts to add some.`
+              ? `No agents enabled yet. Switch one on from Settings → Agents.`
+              : `No quick actions for ${enabled.join(", ")} yet — they'll appear here as we add more.`
           }
         />
       ) : (
