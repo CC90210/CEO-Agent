@@ -57,8 +57,11 @@ ADD_FIELD_TO_ENTITY add_field_to_entity({ entity, field: {name, type, required?,
 REMOVE_FIELD_FROM_ENTITY remove_field_from_entity({ entity, field_name })
 
 ADD_PAGE            add_page({ path, label, kind, entity?, config? })
-                    kind is one of: dashboard | table | kanban | form | markdown.
+                    kind is one of: dashboard | table | kanban | form | markdown | pipeline.
                     If kind is table/kanban/form, entity should reference an entity in data_model.
+                    pipeline is a two-stack superview: config.lead_entity + config.opportunity_entity
+                    name the two entities whose stage Kanbans render stacked (Salesforce-parity
+                    Lead + Opportunity overview — see SunBiz /pipeline).
 
 REMOVE_PAGE         remove_page({ path })
 
