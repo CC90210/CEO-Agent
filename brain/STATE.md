@@ -129,7 +129,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-05-17
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Codex hardened Command Center multi-tenant plan: invite redemption is session-bound and OAuth/password callbacks preserve invite tokens; agent config writes are scoped to admin tenant defaults vs personal overrides; audit logging now uses authed RPC calls with hardened migration 054 plus scripts/audit_rls_coverage.py; SunBiz manifest/catalog/reasoning data model now supports Solara/Helios funded deals, renewals, lenders, commissions, and outreach drafts. Verified typecheck, build, RLS audit, and local HTTP probes.
+- **Result:** Codex completed Agent Command Center hardening release: GitHub main is at 4394952, Vercel deployment succeeded, deploy-vps workflow green with VPS steps skipped when secrets absent, production smoke probes pass for invite/auth/SunBiz gates.
 
 *Last updated: 2026-05-17*
 
