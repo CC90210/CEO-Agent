@@ -170,8 +170,19 @@ export const ENTITY_STAGE_TONES: Record<string, Record<string, StageTone>> = {
     archived: "neutral",
     dead_file: "warm",
   },
-  // Application pipeline — manifest enum draft/submitted/in_review/approved/declined.
+  // Opportunity Pipeline — Salesforce-parity enum on application.status
+  // (2026-05-17 rework). The /applications page renders this as the
+  // chevron pipeline. Tones below are the semantic-palette fallback;
+  // hex colors per stage live in lib/sunbiz-stage-meta.ts.
   application: {
+    submitted_to_underwriting: "info",
+    approved_open_offers: "accent",
+    contracts_ordered: "accent",
+    funded: "engaged",
+    approved_never_funded: "warm",
+    no_offers_available: "warm",
+    dead_file: "warm",
+    // Legacy values from the pre-rework enum so old rows still render.
     draft: "neutral",
     submitted: "info",
     in_review: "accent",

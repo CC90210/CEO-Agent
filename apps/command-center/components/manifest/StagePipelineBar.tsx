@@ -24,13 +24,17 @@ import type { StageMeta } from "@/lib/sunbiz-stage-meta";
 type Props = {
   stages: StageMeta[];
   activeKey: string | null;
-  /** href base; this component appends `?stage=<key>` (or removes it for "All"). */
+  /** href base; this component appends `?<paramName>=<key>` (or removes it for "All"). */
   basePath: string;
   /** optional per-stage record counts to render as a badge */
   counts?: Record<string, number>;
+  /** URL parameter used for the filter. Default "stage"; the
+   *  PipelineSuperview's Opportunity-side passes "opp_stage" so two
+   *  bars on the same page can filter independently. */
+  paramName?: string;
 };
 
-export function StagePipelineBar({ stages, activeKey, basePath, counts }: Props) {
+export function StagePipelineBar({ stages, activeKey, basePath, counts, paramName = "stage" }: Props) {
   return (
     <nav
       aria-label="Pipeline stages"
@@ -65,7 +69,7 @@ export function StagePipelineBar({ stages, activeKey, basePath, counts }: Props)
           return (
             <li key={stage.key} className="shrink-0 -ml-[1px]">
               <Link
-                href={`${basePath}?stage=${encodeURIComponent(stage.key)}`}
+                href={`${basePath}?${paramName}=${encodeURIComponent(stage.key)}`}
                 className="relative inline-flex items-center justify-center gap-2 h-9 px-5 text-[12.5px] font-semibold whitespace-nowrap transition-transform hover:translate-y-[-1px]"
                 style={{
                   background: stage.bg,

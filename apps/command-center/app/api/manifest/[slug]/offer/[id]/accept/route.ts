@@ -92,9 +92,8 @@ export async function POST(
     });
   }
 
-  // Flip the stage. updateRecord emits the status-change event so the
-  // drip engine picks up "offer.stage → accepted" without us doing
-  // anything else.
+  // Flip the offer stage. updateRecord emits the status-change event
+  // so any drip on offer.stage → funded fires automatically.
   let updatedOffer;
   try {
     updatedOffer = await updateRecord({
@@ -109,6 +108,28 @@ export async function POST(
       { ok: false, error: `update_failed:${code}` },
       { status: 500 },
     );
+  }
+
+  // Also flip the parent application's status to "funded" so the
+  // Opportunity Pipeline on /applications reflects the deal closing.
+  // Best-effort: if the offer doesn't carry application_id (legacy
+  // rows from before the application↔offer link was enforced) we
+  // silently skip — the funded_deal still gets created below.
+  const offerAppId = (offer.data as Record<string, unknown>).application_id;
+  if (typeof offerAppId === "string" && offerAppId) {
+    try {
+      await updateRecord({
+        tenant_id: dataTenantId,
+        entity: "application",
+        id: offerAppId,
+        patch: { status: "funded" },
+      });
+    } catch {
+      // application may have been deleted or this offer pre-dates the
+      // application↔offer link. The funded_deal is the source of truth
+      // for the actual money landed; the missing application sync is a
+      // cosmetic gap, not a data-integrity one.
+    }
   }
 
   // Create the draft funded_deal. Fields come straight from the offer
