@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { UserProfile } from "@/lib/supabase";
-import { FAMILY_AGENT_KEYS, AGENT_REGISTRY } from "@/lib/agents";
+import { FAMILY_AGENT_KEYS, AGENT_REGISTRY, resolveAgentKey } from "@/lib/agents";
 
 export function ProfileEditor({ profile }: { profile: UserProfile }) {
   const router = useRouter();
@@ -18,8 +18,16 @@ export function ProfileEditor({ profile }: { profile: UserProfile }) {
   const [mrrCurrent, setMrrCurrent] = useState(String(profile.mrr_current_usd));
   const [mrrDate, setMrrDate] = useState(profile.mrr_target_date || "");
   const [manifesto, setManifesto] = useState(profile.manifesto || "");
-  const [primaryAgent, setPrimaryAgent] = useState(profile.primary_agent);
-  const [enabled, setEnabled] = useState<Set<string>>(new Set(profile.agents_enabled));
+  const [primaryAgent, setPrimaryAgent] = useState(resolveAgentKey(profile.primary_agent));
+  const [enabled, setEnabled] = useState<Set<string>>(
+    new Set((profile.agents_enabled || []).map(resolveAgentKey)),
+  );
+  const availableAgentKeys = Array.from(
+    new Set(
+      [...FAMILY_AGENT_KEYS, ...(profile.agents_enabled || []).map(resolveAgentKey), resolveAgentKey(profile.primary_agent)]
+        .filter((key): key is string => typeof key === "string" && key.length > 0),
+    ),
+  );
 
   function toggleAgent(key: string) {
     setEnabled((prev) => {
@@ -78,7 +86,7 @@ export function ProfileEditor({ profile }: { profile: UserProfile }) {
         </Field>
         <Field label="Primary agent">
           <select className="select" value={primaryAgent} onChange={(e) => setPrimaryAgent(e.target.value)}>
-            {FAMILY_AGENT_KEYS.map((k) => (
+            {availableAgentKeys.map((k) => (
               <option key={k} value={k}>{AGENT_REGISTRY[k]?.label || k}</option>
             ))}
           </select>
@@ -110,7 +118,7 @@ export function ProfileEditor({ profile }: { profile: UserProfile }) {
       <div>
         <div className="label mb-2">Agents enabled</div>
         <ul className="grid sm:grid-cols-2 gap-2">
-          {FAMILY_AGENT_KEYS.map((key) => {
+          {availableAgentKeys.map((key) => {
             const a = AGENT_REGISTRY[key];
             const on = enabled.has(key);
             return (
@@ -132,8 +140,10 @@ export function ProfileEditor({ profile }: { profile: UserProfile }) {
                     {on && <CheckIcon />}
                   </div>
                   <div>
-                    <div className={`font-bold uppercase tracking-wider text-xs ${on ? "text-accent" : ""}`}>{a.label}</div>
-                    <div className="text-xs">{a.role}</div>
+                    <div className={`font-bold uppercase tracking-wider text-xs ${on ? "text-accent" : ""}`}>
+                      {a?.label || key}
+                    </div>
+                    <div className="text-xs">{a?.role || "Custom agent"}</div>
                   </div>
                 </button>
               </li>

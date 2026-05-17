@@ -317,17 +317,27 @@ export async function POST(req: NextRequest) {
       // earlier by overwriting only when the key is newer.
       const rows = chatAgentKeys().map((agent_key) => ({
         tenant_id: profileRow!.tenant_id,
+        user_id: null,
         agent_key,
         provider: chosen,
         model,
         encrypted_api_key: encrypted,
         enabled: true,
       }));
-      const seedRes = await db
-        .from("agent_model_config")
-        .upsert(rows, { onConflict: "tenant_id,agent_key" });
-      if (seedRes.error) {
-        return bad(500, `seed_failed: ${seedRes.error.message}`);
+      for (const seedRow of rows) {
+        const existing = await db
+          .from("agent_model_config")
+          .select("id")
+          .eq("tenant_id", seedRow.tenant_id)
+          .eq("agent_key", seedRow.agent_key)
+          .is("user_id", null)
+          .maybeSingle();
+        if (existing.error) return bad(500, `seed_lookup_failed: ${existing.error.message}`);
+
+        const write = existing.data
+          ? await db.from("agent_model_config").update(seedRow).eq("id", existing.data.id)
+          : await db.from("agent_model_config").insert(seedRow);
+        if (write.error) return bad(500, `seed_failed: ${write.error.message}`);
       }
       seededAgents = rows.length;
       seededProvider = chosen;

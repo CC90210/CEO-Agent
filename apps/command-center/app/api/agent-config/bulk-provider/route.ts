@@ -30,31 +30,45 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionUser, getServiceSupabase } from "@/lib/supabase-server";
+import { getAuthedSupabase, getServiceSupabase } from "@/lib/supabase-server";
 import { PROVIDER_MODELS, PROVIDER_REGISTRY, type Provider } from "@/lib/providers";
 import { encryptField } from "@/lib/field-encryption";
 import { chatAgentKeys } from "@/lib/agent-personas";
+import { canManageTeam, getSessionContext } from "@/lib/team";
+import { resolveAgentKey } from "@/lib/agents";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-async function resolveTenant(): Promise<{ tenantId: string | null; profileEnabledAgents: string[] }> {
-  const user = await getSessionUser();
-  if (!user) return { tenantId: null, profileEnabledAgents: [] };
+async function resolveTenant(): Promise<{
+  tenantId: string | null;
+  userId: string | null;
+  canManageTenant: boolean;
+  profileEnabledAgents: string[];
+}> {
+  const ctx = await getSessionContext();
+  if (!ctx) {
+    return { tenantId: null, userId: null, canManageTenant: false, profileEnabledAgents: [] };
+  }
   const db = getServiceSupabase();
   const { data } = await db
     .from("user_profiles")
     .select("tenant_id, agents_enabled")
-    .eq("auth_user_id", user.id)
+    .eq("auth_user_id", ctx.authUserId)
     .maybeSingle();
   const enabled = Array.isArray(data?.agents_enabled)
     ? (data!.agents_enabled as string[]).filter((s) => typeof s === "string")
     : [];
-  return { tenantId: data?.tenant_id || null, profileEnabledAgents: enabled };
+  return {
+    tenantId: data?.tenant_id || ctx.tenantId || null,
+    userId: ctx.authUserId,
+    canManageTenant: ctx.isOwner || canManageTeam(ctx.teamRole),
+    profileEnabledAgents: enabled,
+  };
 }
 
 export async function POST(req: NextRequest) {
-  const { tenantId, profileEnabledAgents } = await resolveTenant();
+  const { tenantId, userId, canManageTenant, profileEnabledAgents } = await resolveTenant();
   if (!tenantId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
@@ -70,6 +84,14 @@ export async function POST(req: NextRequest) {
   if (!Object.keys(PROVIDER_MODELS).includes(provider)) {
     return NextResponse.json({ ok: false, error: `invalid_provider:${provider}` }, { status: 400 });
   }
+  const scope = body?.scope === "user" ? "user" : "tenant";
+  if (scope === "tenant" && !canManageTenant) {
+    return NextResponse.json({ ok: false, error: "admin_required" }, { status: 403 });
+  }
+  if (scope === "user" && !userId) {
+    return NextResponse.json({ ok: false, error: "no_user" }, { status: 401 });
+  }
+  const effectiveUserId = scope === "user" ? userId : null;
 
   const apiKeyPlain =
     typeof body?.api_key === "string" && body.api_key.trim() ? body.api_key.trim() : null;
@@ -113,7 +135,9 @@ export async function POST(req: NextRequest) {
   const fallbackAgents =
     profileEnabledAgents.length > 0 ? profileEnabledAgents : chatAgentKeys();
   const chatAllowed = new Set(chatAgentKeys());
-  const targetAgents = (requestedAgents || fallbackAgents).filter((k) => chatAllowed.has(k));
+  const targetAgents = Array.from(
+    new Set((requestedAgents || fallbackAgents).map((k) => resolveAgentKey(k))),
+  ).filter((k) => chatAllowed.has(k));
   if (targetAgents.length === 0) {
     return NextResponse.json({ ok: false, error: "no_target_agents" }, { status: 400 });
   }
@@ -142,18 +166,22 @@ export async function POST(req: NextRequest) {
   // bad ones. ok is true iff at least one save succeeded — caller is
   // expected to inspect `failed[]` when count < targetAgents.length.
   for (const agentKey of targetAgents) {
-    const { data: existing, error: lookupErr } = await service
+    let lookupQ = service
       .from("agent_model_config")
       .select("id")
       .eq("tenant_id", tenantId)
-      .eq("agent_key", agentKey)
-      .maybeSingle();
+      .eq("agent_key", agentKey);
+    lookupQ = effectiveUserId
+      ? lookupQ.eq("user_id", effectiveUserId)
+      : lookupQ.is("user_id", null);
+    const { data: existing, error: lookupErr } = await lookupQ.maybeSingle();
     if (lookupErr) {
       failed.push({ agent_key: agentKey, error: `lookup_failed:${lookupErr.code || lookupErr.message}` });
       continue;
     }
     const payload: Record<string, unknown> = {
       tenant_id: tenantId,
+      user_id: effectiveUserId,
       agent_key: agentKey,
       provider,
       model,
@@ -174,8 +202,29 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  try {
+    const authed = await getAuthedSupabase();
+    await authed.rpc("log_tenant_event", {
+      p_tenant_id: tenantId,
+      p_action_type: scope === "user" ? "agent_config.user_update" : "agent_config.tenant_update",
+      p_target_table: "agent_model_config",
+      p_target_id: `${tenantId}:${effectiveUserId || "tenant"}:${provider}:bulk`,
+      p_after: {
+        provider,
+        model,
+        scope,
+        applied_to: applied,
+        failed,
+        has_key: applied.length > 0,
+      },
+    });
+  } catch {
+    // audit-log soft-fail
+  }
+
   return NextResponse.json({
     ok: applied.length > 0,
+    scope,
     applied_to: applied,
     failed,
     count: applied.length,

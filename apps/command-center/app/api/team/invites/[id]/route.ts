@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { bad } from "@/lib/api-helpers";
+import { getAuthedSupabase } from "@/lib/supabase-server";
 import { canManageTeam, getSessionContext, revokeInvite } from "@/lib/team";
 
 export const runtime = "nodejs";
@@ -15,8 +16,8 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string 
     await revokeInvite(id, session.tenantId);
     // Audit-log the revoke (Phase D). Best-effort.
     try {
-      const { getServiceSupabase } = await import("@/lib/supabase-server");
-      await getServiceSupabase().rpc("log_tenant_event", {
+      const authed = await getAuthedSupabase();
+      await authed.rpc("log_tenant_event", {
         p_tenant_id: session.tenantId,
         p_action_type: "invite.revoke",
         p_target_table: "tenant_invites",

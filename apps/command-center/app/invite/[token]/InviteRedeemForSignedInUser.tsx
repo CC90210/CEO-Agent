@@ -41,10 +41,7 @@ export function InviteRedeemForSignedInUser({ token, tenantName, roleLabel, emai
       const r = await fetch("/api/auth/redeem-invite", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          auth_user_id: data.user.id,
-          raw_token: token,
-        }),
+        body: JSON.stringify({ raw_token: token }),
       });
       const body = (await r.json().catch(() => ({}))) as {
         ok?: boolean;

@@ -104,23 +104,38 @@ export async function upsertUserAgentConfig(args: {
   system_prompt_override?: string | null;
 }): Promise<string> {
   const db = getServiceSupabase();
-  const { data, error } = await db
+  const payload = {
+    tenant_id: args.tenantId,
+    user_id: args.userId,
+    agent_key: args.agentKey,
+    provider: args.provider,
+    model: args.model,
+    encrypted_api_key: args.encrypted_api_key ?? null,
+    system_prompt_override: args.system_prompt_override ?? null,
+    enabled: true,
+  };
+
+  const existing = await db
     .from("agent_model_config")
-    .upsert(
-      {
-        tenant_id: args.tenantId,
-        user_id: args.userId,
-        agent_key: args.agentKey,
-        provider: args.provider,
-        model: args.model,
-        encrypted_api_key: args.encrypted_api_key ?? null,
-        system_prompt_override: args.system_prompt_override ?? null,
-        enabled: true,
-      },
-      { onConflict: "tenant_id,user_id,agent_key", ignoreDuplicates: false },
-    )
     .select("id")
-    .single();
+    .eq("tenant_id", args.tenantId)
+    .eq("user_id", args.userId)
+    .eq("agent_key", args.agentKey)
+    .maybeSingle();
+  if (existing.error) throw existing.error;
+
+  const { data, error } = existing.data
+    ? await db
+        .from("agent_model_config")
+        .update(payload)
+        .eq("id", existing.data.id)
+        .select("id")
+        .single()
+    : await db
+        .from("agent_model_config")
+        .insert(payload)
+        .select("id")
+        .single();
   if (error || !data) throw error ?? new Error("upsert_user_agent_failed");
   return data.id as string;
 }

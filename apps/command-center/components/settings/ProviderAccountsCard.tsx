@@ -42,6 +42,7 @@ type Props = {
   /** Set of services-with-key resolved server-side via aiServicesWithKey(). */
   connectedServices: Set<string>;
   bridgeOnline: boolean;
+  canManageTeam: boolean;
 };
 
 // Providers that get a card on this surface. Ollama is intentionally hidden
@@ -49,7 +50,11 @@ type Props = {
 // the bridge + AgentConfigEditor and shouldn't pretend it's an account.
 const CARD_PROVIDERS: Provider[] = ["anthropic", "openrouter", "openai", "google"];
 
-export function ProviderAccountsCard({ connectedServices: initialServices, bridgeOnline }: Props) {
+export function ProviderAccountsCard({
+  connectedServices: initialServices,
+  bridgeOnline,
+  canManageTeam,
+}: Props) {
   const router = useRouter();
   // Server-rendered set, but track in state so connecting flips the UI
   // immediately without waiting for the router refresh round-trip.
@@ -93,9 +98,9 @@ export function ProviderAccountsCard({ connectedServices: initialServices, bridg
               Connect an AI provider account
             </div>
             <p className="text-xs text-fg-muted mt-1 leading-relaxed">
-              Paste a key once — it applies to every enabled agent in one
-              click. Different agents can use different providers (override
-              per-agent under Agents below).{" "}
+              Paste a key once and choose whether it powers the whole team
+              or just your own chats. Different agents can use different
+              providers under Agents below.{" "}
               <span className="text-accent">
                 Connecting Anthropic unlocks the native tool_use loop
               </span>
@@ -234,6 +239,7 @@ export function ProviderAccountsCard({ connectedServices: initialServices, bridg
       {activeProvider && (
         <ConnectProviderDialog
           provider={activeProvider}
+          canManageTeam={canManageTeam}
           onClose={() => setActiveProvider(null)}
           onConnected={(p) => {
             markConnected(p);
@@ -251,10 +257,12 @@ export function ProviderAccountsCard({ connectedServices: initialServices, bridg
 
 function ConnectProviderDialog({
   provider,
+  canManageTeam,
   onClose,
   onConnected,
 }: {
   provider: Provider;
+  canManageTeam: boolean;
   onClose: () => void;
   onConnected: (p: Provider) => void;
 }) {
@@ -264,6 +272,7 @@ function ConnectProviderDialog({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [model, setModel] = useState(reg?.models[0]?.id || "");
+  const [scope, setScope] = useState<"tenant" | "user">(canManageTeam ? "tenant" : "user");
 
   if (!reg) return null;
 
@@ -276,7 +285,7 @@ function ConnectProviderDialog({
       const r = await fetch("/api/agent-config/bulk-provider", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ provider, api_key: apiKey, model }),
+        body: JSON.stringify({ provider, api_key: apiKey, model, scope }),
       });
       const j = await r.json();
       if (!j.ok) {
@@ -322,7 +331,9 @@ function ConnectProviderDialog({
           <div>
             <h2 className="text-base font-bold text-fg">Connect {reg.label}</h2>
             <p className="text-xs text-fg-muted mt-0.5">
-              This key will apply to every enabled chat agent in one shot.
+              {scope === "tenant"
+                ? "This key applies to every enabled chat agent for the whole team."
+                : "This key applies only to your own agent chats."}
             </p>
           </div>
           <button
@@ -393,8 +404,8 @@ function ConnectProviderDialog({
             </div>
             <p className="text-[11px] text-fg-dim mt-2 leading-relaxed">
               We encrypt the key at rest (AES-256-GCM) and never return it
-              to the browser after save. It powers cloud-mode chat for every
-              enabled agent.
+              to the browser after save. The selected scope controls who can
+              use it.
             </p>
           </div>
 
@@ -418,6 +429,42 @@ function ConnectProviderDialog({
               <span className="font-mono">/settings#agents</span> if a specific
               agent should use a different model on the same provider.
             </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold uppercase tracking-wider text-fg-muted block mb-1.5">
+              Save scope
+            </label>
+            {canManageTeam ? (
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setScope("tenant")}
+                  className={`rounded-md border px-3 py-2 text-xs font-bold transition-colors ${
+                    scope === "tenant"
+                      ? "border-accent bg-accent/10 text-accent"
+                      : "border-bg-border bg-bg-elev text-fg-muted hover:text-fg"
+                  }`}
+                >
+                  Whole team
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScope("user")}
+                  className={`rounded-md border px-3 py-2 text-xs font-bold transition-colors ${
+                    scope === "user"
+                      ? "border-accent bg-accent/10 text-accent"
+                      : "border-bg-border bg-bg-elev text-fg-muted hover:text-fg"
+                  }`}
+                >
+                  Just me
+                </button>
+              </div>
+            ) : (
+              <div className="rounded-md border border-bg-border bg-bg-deep/40 px-3 py-2 text-xs text-fg-muted">
+                Saves just for you. Team defaults are managed by an owner or admin.
+              </div>
+            )}
           </div>
 
           {error && (

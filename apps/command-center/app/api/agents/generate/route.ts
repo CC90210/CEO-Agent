@@ -30,6 +30,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { decryptField } from "@/lib/field-encryption";
 import { getSessionUser, getServiceSupabase } from "@/lib/supabase-server";
 import { streamChat, type ChatMessage, type Provider } from "@/lib/providers";
+import { getAgentModelForUser } from "@/lib/agent-resolver";
 import { isOperatorEmail, operatorPlatformFallback } from "@/lib/operator-credentials";
 import { CATEGORY_LABELS, type AgentCategory } from "@/lib/agents/library";
 
@@ -168,22 +169,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
 
-  // Provider resolution — same path the manifest editor uses (bravo's
-  // tenant-encrypted key, with platform fallback for the operator).
-  const cfgRes = await service
-    .from("agent_model_config")
-    .select("provider, model, encrypted_api_key, enabled")
-    .eq("tenant_id", profile.tenant_id)
-    .eq("agent_key", "bravo")
-    .maybeSingle();
-  const cfg = cfgRes.data as
-    | { provider: string; model: string; encrypted_api_key: string | null; enabled: boolean }
-    | null;
+  // Provider resolution — same path the manifest editor uses: personal
+  // override first, tenant default second, operator platform fallback last.
+  const cfg = await getAgentModelForUser({
+    tenantId: profile.tenant_id,
+    userId: user.id,
+    agentKey: "bravo",
+  });
 
   let provider: Provider;
   let model: string;
   let apiKey = "";
-  if (cfg && cfg.enabled && cfg.encrypted_api_key) {
+  if (cfg && cfg.encrypted_api_key) {
     provider = cfg.provider as Provider;
     model = cfg.model;
     try {

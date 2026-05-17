@@ -37,10 +37,7 @@ export function LoginForm() {
         const r = await fetch("/api/auth/redeem-invite", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            auth_user_id: data.user.id,
-            raw_token: inviteToken,
-          }),
+          body: JSON.stringify({ raw_token: inviteToken }),
         });
         const body = (await r.json().catch(() => ({}))) as {
           ok?: boolean;
@@ -70,10 +67,13 @@ export function LoginForm() {
     setErr(null);
     try {
       const supa = getBrowserSupabase();
+      const callback = new URL("/auth/callback", window.location.origin);
+      callback.searchParams.set("next", next);
+      if (inviteToken) callback.searchParams.set("invite", inviteToken);
       const { error } = await supa.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+          redirectTo: callback.toString(),
         },
       });
       if (error) setErr(error.message);
@@ -184,7 +184,10 @@ export function LoginForm() {
 
         <p className="text-center text-sm text-fg-muted mt-6">
           New to OASIS?{" "}
-          <Link href="/signup" className="text-accent hover:underline font-medium">
+          <Link
+            href={inviteToken ? `/signup?invite=${encodeURIComponent(inviteToken)}` : "/signup"}
+            className="text-accent hover:underline font-medium"
+          >
             Create an account
           </Link>
         </p>

@@ -15,24 +15,27 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthedSupabase, getServiceSupabase, getSessionUser } from "@/lib/supabase-server";
+import { getAuthedSupabase, getServiceSupabase } from "@/lib/supabase-server";
 import { chatAgentKeys } from "@/lib/agent-personas";
 import { PROVIDER_MODELS } from "@/lib/providers";
 import { encryptField } from "@/lib/field-encryption";
+import { canManageTeam, getSessionContext } from "@/lib/team";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-async function resolveTenant(): Promise<{ tenantId: string | null; userId: string | null }> {
-  const user = await getSessionUser();
-  if (!user) return { tenantId: null, userId: null };
-  const authed = await getAuthedSupabase();
-  const { data: profile } = await authed
-    .from("user_profiles")
-    .select("tenant_id")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
-  return { tenantId: profile?.tenant_id || null, userId: user.id };
+async function resolveTenant(): Promise<{
+  tenantId: string | null;
+  userId: string | null;
+  canManageTenant: boolean;
+}> {
+  const ctx = await getSessionContext();
+  if (!ctx) return { tenantId: null, userId: null, canManageTenant: false };
+  return {
+    tenantId: ctx.tenantId,
+    userId: ctx.authUserId,
+    canManageTenant: ctx.isOwner || canManageTeam(ctx.teamRole),
+  };
 }
 
 export async function GET(req: NextRequest) {
@@ -68,7 +71,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { tenantId, userId } = await resolveTenant();
+  const { tenantId, userId, canManageTenant } = await resolveTenant();
   if (!tenantId) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
 
   let body: any;
@@ -114,6 +117,9 @@ export async function POST(req: NextRequest) {
   // writes (tenant_id, NULL, agent_key). Phase B of master multi-tenant
   // infra plan (2026-05-17).
   const scope = body?.scope === "user" ? "user" : "tenant";
+  if (scope === "tenant" && !canManageTenant) {
+    return NextResponse.json({ ok: false, error: "admin_required" }, { status: 403 });
+  }
   if (scope === "user" && !userId) {
     return NextResponse.json({ ok: false, error: "no_user" }, { status: 401 });
   }
@@ -122,13 +128,23 @@ export async function POST(req: NextRequest) {
   // Upsert
   let existingQ = service
     .from("agent_model_config")
-    .select("id")
+    .select("id, encrypted_api_key")
     .eq("tenant_id", tenantId)
     .eq("agent_key", agentKey);
   existingQ = effectiveUserId
     ? existingQ.eq("user_id", effectiveUserId)
     : existingQ.is("user_id", null);
   const { data: existing } = await existingQ.maybeSingle();
+  if (scope === "user" && !encryptedKey && !existing?.encrypted_api_key) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "personal_key_required",
+        message: "Personal agent overrides need an API key. Clear the override to use the team fallback.",
+      },
+      { status: 400 },
+    );
+  }
 
   const payload: Record<string, unknown> = {
     tenant_id: tenantId,
@@ -156,7 +172,8 @@ export async function POST(req: NextRequest) {
 
   // Audit-log (Phase D). Best-effort; never bubble up to the operator.
   try {
-    await service.rpc("log_tenant_event", {
+    const authed = await getAuthedSupabase();
+    await authed.rpc("log_tenant_event", {
       p_tenant_id: tenantId,
       p_action_type: scope === "user" ? "agent_config.user_update" : "agent_config.tenant_update",
       p_target_table: "agent_model_config",
@@ -171,7 +188,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const { tenantId, userId } = await resolveTenant();
+  const { tenantId, userId, canManageTenant } = await resolveTenant();
   if (!tenantId) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   const url = req.nextUrl;
   const scope = url.searchParams.get("scope") === "user" ? "user" : "tenant";
@@ -181,6 +198,9 @@ export async function DELETE(req: NextRequest) {
   }
   if (scope === "user" && !userId) {
     return NextResponse.json({ ok: false, error: "no_user" }, { status: 401 });
+  }
+  if (scope === "tenant" && !canManageTenant) {
+    return NextResponse.json({ ok: false, error: "admin_required" }, { status: 403 });
   }
   const service = getServiceSupabase();
   let q = service
@@ -194,7 +214,8 @@ export async function DELETE(req: NextRequest) {
 
   // Audit-log the delete (Phase D).
   try {
-    await service.rpc("log_tenant_event", {
+    const authed = await getAuthedSupabase();
+    await authed.rpc("log_tenant_event", {
       p_tenant_id: tenantId,
       p_action_type: scope === "user" ? "agent_config.user_clear" : "agent_config.tenant_clear",
       p_target_table: "agent_model_config",

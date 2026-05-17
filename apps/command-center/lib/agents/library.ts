@@ -154,6 +154,20 @@ const SOLARA = seed({
   pricing: { tier: "free" },
 });
 
+const HELIOS = seed({
+  slug: "helios",
+  name: "Helios",
+  category: "industry_funding",
+  short_description: "Funding sales voice. Drafts SMS, email, revivals, and offer follow-ups.",
+  description:
+    "Helios is the front-office sales agent for business-funding teams. Drafts first-touch SMS, email follow-ups, revival cadences for ghosted files, and close-the-loop notes for expired offers. Compliance-first: drafts only, with TCPA opt-out and send-window rules baked in.",
+  base_prompt:
+    "You are Helios, the sales-facing funding agent for {{tenant.brand.name}}. Draft concise, human SMS and email copy for leads, applications, renewals, and expired offers. Never send directly; create compliant drafts with opt-out language and wait for operator approval.",
+  required_tools: ["supabase_query", "twilio_sms_draft", "email_draft"],
+  suggested_model: "claude-sonnet-4-6",
+  pricing: { tier: "free" },
+});
+
 // ===========================================================================
 // Generic role templates — useful across industries. Operators clone these
 // in the custom-agent builder to start from a sane base prompt instead of
@@ -226,6 +240,7 @@ export const SEED_AGENTS: AgentLibraryEntry[] = [
   MAVEN,
   AURA,
   SOLARA,
+  HELIOS,
   SDR,
   QA_REVIEWER,
   RESEARCH_ANALYST,

@@ -315,6 +315,7 @@ export const FAMILY_AGENT_KEYS = ALL_AGENT_KEYS.filter(
  * working while migrations roll forward.
  */
 export const AGENT_KEY_ALIASES: Record<string, string> = {
+  solar: "solara",
   sunbiz: "solara",
   // Lyra package removed 2026-05-14 — brand/content work folds into Maven.
   // Legacy "suga_sean" + "lyra*" rows in user_profiles.agents_enabled

@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
   if (!ctxResult.ok) {
     return jsonError(ctxResult.status, ctxResult.detail || ctxResult.code);
   }
-  const { tenantId, provider, model, apiKey, cfgOverride } = ctxResult;
+  const { tenantId, provider, model, apiKey, cfgOverride, cfgScope } = ctxResult;
   const service = getServiceSupabase();
 
   // Per-tenant token bucket: 30 turns burst, refill at 1/turn-per-15s
@@ -619,11 +619,18 @@ export async function POST(req: NextRequest) {
           updated_at: new Date().toISOString(),
         })
         .eq("id", sessionId);
-      await service
-        .from("agent_model_config")
-        .update({ last_used_at: new Date().toISOString() })
-        .eq("tenant_id", tenantId)
-        .eq("agent_key", agentKey);
+      if (cfgScope) {
+        let lastUsedUpdate = service
+          .from("agent_model_config")
+          .update({ last_used_at: new Date().toISOString() })
+          .eq("tenant_id", tenantId)
+          .eq("agent_key", agentKey);
+        lastUsedUpdate =
+          cfgScope === "user"
+            ? lastUsedUpdate.eq("user_id", user.id)
+            : lastUsedUpdate.is("user_id", null);
+        await lastUsedUpdate;
+      }
 
       // ---- Mark injected inbox messages read ----------------------------
       // The "INBOX FOR YOU" block in the system prompt was assembled by

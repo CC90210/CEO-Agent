@@ -15,6 +15,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getServiceSupabase, getSessionUser } from "@/lib/supabase-server";
 import { decryptField } from "@/lib/field-encryption";
+import { getAgentModelForUser } from "@/lib/agent-resolver";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,13 +40,7 @@ export async function GET(req: NextRequest) {
   const tenantId = (profileR.data?.tenant_id as string | null) || null;
   if (!tenantId) return bad(403, "no_tenant");
 
-  const cfgR = await db
-    .from("agent_model_config")
-    .select("provider, encrypted_api_key")
-    .eq("tenant_id", tenantId)
-    .eq("agent_key", agentKey)
-    .maybeSingle();
-  const cfg = cfgR.data as { provider: string; encrypted_api_key: string | null } | null;
+  const cfg = await getAgentModelForUser({ tenantId, userId: user.id, agentKey });
 
   let provider = cfg?.provider || "openrouter";
   let apiKey: string | null = null;
