@@ -54,6 +54,20 @@ export async function POST(req: NextRequest) {
       createdBy: ctx.authUserId,
       email,
     });
+    // Audit-log the invite creation (Phase D). Best-effort — never fail
+    // the operator-facing request because the audit write hiccuped.
+    try {
+      const { getServiceSupabase } = await import("@/lib/supabase-server");
+      await getServiceSupabase().rpc("log_tenant_event", {
+        p_tenant_id: ctx.tenantId,
+        p_action_type: "invite.create",
+        p_target_table: "tenant_invites",
+        p_target_id: invite.id,
+        p_after: { team_role: role, email, expires_at: invite.expiresAt },
+      });
+    } catch {
+      // audit-log soft-fail
+    }
     return NextResponse.json({
       ok: true,
       invite: {
