@@ -10,6 +10,7 @@ import { ManifestRecordForm } from "@/components/manifest/ManifestRecordForm";
 import { ManifestReasoning } from "@/components/manifest/ManifestReasoning";
 import { LeadsImportClient } from "@/components/leads/LeadsImportClient";
 import { LeadTimelinePanel } from "@/components/leads/LeadTimelinePanel";
+import { LeadDocumentsPanel } from "@/components/leads/LeadDocumentsPanel";
 import { StagePipelineBar } from "@/components/manifest/StagePipelineBar";
 import { PipelineSearchableTable } from "@/components/manifest/PipelineSearchableTable";
 import { PageSearchBar } from "@/components/manifest/PageSearchBar";
@@ -207,6 +208,13 @@ export default async function TenantCatchAllPage({
           {entity.name === "lead" && (
             <LeadTimelinePanel leadId={recordDetailId} />
           )}
+          {(entity.name === "lead" || entity.name === "application") &&
+            dataTenantId && (
+              <LeadDocumentsPanel
+                tenantId={dataTenantId}
+                leadId={recordDetailId!}
+              />
+            )}
         </div>
       );
     }

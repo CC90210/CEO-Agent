@@ -23,7 +23,11 @@ import { CheckCircle2, AlertCircle } from "lucide-react";
 import { FormRenderer } from "./FormRenderer";
 import type { FormStep, FormBranding } from "@/lib/forms/types";
 
-const INLINE_FILE_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+// Submit-side route (api/forms/submit) now decodes the base64 and uploads
+// to Supabase Storage instead of holding the bytes in form_submissions.
+// 15 MB matches Vercel's request body limit minus base64 overhead (~1.33×)
+// — bigger than that fails on the platform, not in our code.
+const INLINE_FILE_MAX_BYTES = 15 * 1024 * 1024;
 
 type Props = {
   formId: string;
