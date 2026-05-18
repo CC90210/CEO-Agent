@@ -22,7 +22,7 @@
 - **Project:** Business-Empire-Agent — autonomous AI operations hub
 - **Owner:** CC (Conaugh McKenna), OASIS AI Solutions, Collingwood ON
 - **Brands:** OASIS AI, PropFlow, Nostalgic Requests
-- **Goal:** $5,000 USD Net MRR by May 30, 2026
+- **Goal:** $5,000 USD Net MRR by June 18, 2026 (extended 2026-05-18 from May 30)
 - **System architecture:** @ARCHITECTURE.md
 
 ## Triage (FIRST step every operator turn — before any tool call)
@@ -318,4 +318,4 @@ pm2 start scripts/exec_override_consumer.py  --name override-consumer --interpre
 pm2 save
 ```
 
-V6 Apex closes the V6 Optimization Phase. Architecture work is complete; next epic is business execution ($5K Net MRR by May 30).
+V6 Apex closes the V6 Optimization Phase. Architecture work is complete; next epic is business execution ($5K Net MRR by June 18).

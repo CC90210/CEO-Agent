@@ -39,7 +39,7 @@ DEFAULT_GROSS_MARGIN = 0.94  # 94%
 DEFAULT_CAC = 250.0          # opportunity cost estimate (no paid ads)
 DEFAULT_CASH_ON_HAND = 5000.0  # conservative estimate — CC to update
 MRR_TARGET = 5000.0
-TARGET_DATE = "2026-05-30"
+TARGET_DATE = "2026-06-18"
 
 DEFAULT_CLIENT_REVENUE = {
     "Stripe": 180.0,
