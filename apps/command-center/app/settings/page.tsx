@@ -133,38 +133,80 @@ export default async function SettingsPage() {
           </Card>
 
           {manifest?.compliance?.tcpa && (
-            <Card
-              title="Compliance posture"
-              subtitle="Read-only summary of the consent + send-window rules this tenant's outbound agents are bound by. Edit via the manifest editor; agents reference these rules in every draft."
-              action={<Tag tone="engaged">TCPA</Tag>}
-            >
-              <dl className="grid sm:grid-cols-2 gap-3 text-sm">
-                <div>
-                  <dt className="text-xs uppercase tracking-wider text-fg-dim font-bold">Send window</dt>
-                  <dd className="mt-0.5 text-fg">{manifest.compliance.tcpa.send_window_local} local</dd>
+            <details className="rounded-xl border border-bg-border bg-bg-elev/30 group">
+              <summary className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer list-none">
+                <div className="flex items-center gap-2">
+                  <Tag tone="engaged">TCPA</Tag>
+                  <span className="text-sm font-bold text-fg">
+                    Compliance posture
+                  </span>
+                  <span className="text-xs text-fg-dim">
+                    {manifest.compliance.tcpa.send_window_local} ·{" "}
+                    {manifest.compliance.tcpa.weekend_sends
+                      ? "weekends ON"
+                      : "weekends blocked"}{" "}
+                    ·{" "}
+                    {manifest.compliance.tcpa.honor_opt_outs
+                      ? "opt-outs enforced"
+                      : "opt-outs not enforced"}
+                  </span>
                 </div>
-                <div>
-                  <dt className="text-xs uppercase tracking-wider text-fg-dim font-bold">Weekend sends</dt>
-                  <dd className="mt-0.5 text-fg">
-                    {manifest.compliance.tcpa.weekend_sends ? "Allowed" : "Blocked"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs uppercase tracking-wider text-fg-dim font-bold">Honor opt-outs</dt>
-                  <dd className="mt-0.5 text-fg">
-                    {manifest.compliance.tcpa.honor_opt_outs ? "Yes (enforced)" : "No"}
-                  </dd>
-                </div>
-                {manifest.compliance.tcpa.opt_out_phrase && (
+                <span className="text-xs text-fg-dim group-open:hidden">
+                  Show details ↓
+                </span>
+                <span className="text-xs text-fg-dim hidden group-open:inline">
+                  Hide ↑
+                </span>
+              </summary>
+              <div className="px-4 pb-4 border-t border-bg-border pt-3">
+                <p className="text-[11px] text-fg-dim mb-3 leading-relaxed">
+                  Read-only reference. These rules govern when outbound
+                  agents (Solara, Helios) are allowed to send SMS/email.
+                  Edit via the manifest editor — every agent honors them
+                  on every draft.
+                </p>
+                <dl className="grid sm:grid-cols-2 gap-3 text-sm">
                   <div>
-                    <dt className="text-xs uppercase tracking-wider text-fg-dim font-bold">First-touch opt-out</dt>
-                    <dd className="mt-0.5 text-fg font-mono text-xs">
-                      &ldquo;{manifest.compliance.tcpa.opt_out_phrase}&rdquo;
+                    <dt className="text-xs uppercase tracking-wider text-fg-dim font-bold">
+                      Send window
+                    </dt>
+                    <dd className="mt-0.5 text-fg">
+                      {manifest.compliance.tcpa.send_window_local} local
                     </dd>
                   </div>
-                )}
-              </dl>
-            </Card>
+                  <div>
+                    <dt className="text-xs uppercase tracking-wider text-fg-dim font-bold">
+                      Weekend sends
+                    </dt>
+                    <dd className="mt-0.5 text-fg">
+                      {manifest.compliance.tcpa.weekend_sends
+                        ? "Allowed"
+                        : "Blocked"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs uppercase tracking-wider text-fg-dim font-bold">
+                      Honor opt-outs
+                    </dt>
+                    <dd className="mt-0.5 text-fg">
+                      {manifest.compliance.tcpa.honor_opt_outs
+                        ? "Yes (enforced)"
+                        : "No"}
+                    </dd>
+                  </div>
+                  {manifest.compliance.tcpa.opt_out_phrase && (
+                    <div>
+                      <dt className="text-xs uppercase tracking-wider text-fg-dim font-bold">
+                        First-touch opt-out
+                      </dt>
+                      <dd className="mt-0.5 text-fg font-mono text-xs">
+                        &ldquo;{manifest.compliance.tcpa.opt_out_phrase}&rdquo;
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
+            </details>
           )}
 
           {/* Top-level "Connect a provider" surface. Lives ABOVE the
