@@ -96,9 +96,11 @@ const STARTER_FORM_TEMPLATE = {
 export function FormsListClient({
   initialRows,
   tenantLogoUrl,
+  tenantSlug,
 }: {
   initialRows: FormRow[];
   tenantLogoUrl: string | null;
+  tenantSlug: string | null;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -170,19 +172,27 @@ export function FormsListClient({
   // Per-row "Copy" feedback. Keyed by form id so the check icon only
   // appears on the row the operator just clicked.
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  async function copyEditorUrl(id: string) {
+  function publicFormUrl(formSlug: string): string | null {
+    if (!tenantSlug) return null;
+    return `${window.location.origin}/f/${tenantSlug}/${formSlug}`;
+  }
+  async function copyPublicUrl(formId: string, formSlug: string) {
+    const url = publicFormUrl(formSlug);
+    if (!url) {
+      setError("tenant_slug_missing");
+      return;
+    }
     try {
-      const url = `${window.location.origin}/forms/${id}/edit`;
       await navigator.clipboard.writeText(url);
-      setCopiedId(id);
+      setCopiedId(formId);
       setTimeout(() => {
-        setCopiedId((prev) => (prev === id ? null : prev));
+        setCopiedId((prev) => (prev === formId ? null : prev));
       }, 1800);
     } catch {
       // Clipboard API blocked (rare — old browsers, insecure contexts).
       // Fall back to a window.prompt so the operator can still grab the
       // URL manually.
-      window.prompt("Copy this URL:", `${window.location.origin}/forms/${id}/edit`);
+      window.prompt("Copy this URL:", url);
     }
   }
 
@@ -287,9 +297,16 @@ export function FormsListClient({
                       </Link>
                       <button
                         type="button"
-                        onClick={() => copyEditorUrl(r.id)}
-                        className="inline-flex items-center gap-1 text-fg-muted hover:text-fg text-xs"
-                        title="Copy a link to this form's editor (share with a teammate or open on another device). For prospect-facing personalized links, open the form and use Mint link."
+                        onClick={() => copyPublicUrl(r.id, r.slug)}
+                        disabled={!tenantSlug || !r.enabled}
+                        className="inline-flex items-center gap-1 text-fg-muted hover:text-fg text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                        title={
+                          !tenantSlug
+                            ? "Couldn't resolve your tenant — refresh and try again."
+                            : !r.enabled
+                              ? "Enable the form first — disabled forms refuse public submissions."
+                              : "Copy the public form URL. Anyone with this link can fill the form; a fresh lead is created on submit. For per-prospect personalized links, use Solara's mint flow."
+                        }
                       >
                         {copiedId === r.id ? (
                           <>
@@ -320,17 +337,32 @@ export function FormsListClient({
         </div>
       )}
 
-      <div className="rounded-xl border border-bg-border bg-bg-elev/30 p-4 text-xs text-fg-muted leading-relaxed">
-        <div className="font-bold text-fg mb-1 flex items-center gap-1.5">
-          <ExternalLink className="w-3 h-3 text-accent" />
-          Personalized links
+      <div className="rounded-xl border border-bg-border bg-bg-elev/30 p-4 text-xs text-fg-muted leading-relaxed space-y-2">
+        <div>
+          <div className="font-bold text-fg mb-1 flex items-center gap-1.5">
+            <ExternalLink className="w-3 h-3 text-accent" />
+            Share link (anonymous)
+          </div>
+          The <span className="font-mono text-fg">Copy link</span> button on
+          each row gives you a public URL anyone can open without an account.
+          A fresh lead is created the moment they submit; their name / email /
+          phone / business name (if those fields are in the form) seed the
+          lead row automatically. Use this for landing pages, social bios, ad
+          destinations — anywhere you want one URL that works for everyone.
         </div>
-        Once a form is live, Solara can mint a per-lead URL via{" "}
-        <code className="text-accent bg-bg-deep px-1 rounded">POST /api/forms/{`<id>`}/mint-link</code>
-        {" "}with a <code className="text-accent">lead_id</code>. Drop the returned URL
-        into an outreach SMS or email. Opening the link transitions the lead
-        to <span className="font-mono text-fg">viewed_application</span>;
-        submitting transitions per the form&apos;s <span className="font-mono text-fg">step_outcomes</span> map.
+        <div>
+          <div className="font-bold text-fg mb-1 flex items-center gap-1.5">
+            <ExternalLink className="w-3 h-3 text-accent" />
+            Personalized links (Solara mint)
+          </div>
+          For per-prospect outreach Solara can mint a tracked URL via{" "}
+          <code className="text-accent bg-bg-deep px-1 rounded">POST /api/forms/{`<id>`}/mint-link</code>
+          {" "}with a <code className="text-accent">lead_id</code>. Opening
+          the link transitions the existing lead to{" "}
+          <span className="font-mono text-fg">viewed_application</span>;
+          submitting transitions per the form&apos;s{" "}
+          <span className="font-mono text-fg">step_outcomes</span> map.
+        </div>
       </div>
     </div>
   );

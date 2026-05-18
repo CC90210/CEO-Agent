@@ -60,6 +60,10 @@ export default async function FormsPage() {
     ? await safe("forms.tenant", getTenant(profile.tenant_id), null)
     : null;
   const tenantLogoUrl = tenant?.logo_url ?? null;
+  // Tenant slug threads through so the per-row Copy button can produce
+  // a real public form URL (/f/<tenant_slug>/<form_slug>) instead of an
+  // operator-only edit URL.
+  const tenantSlug = tenant?.slug ?? null;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -105,6 +109,7 @@ export default async function FormsPage() {
         <FormsListClient
           initialRows={result.rows}
           tenantLogoUrl={tenantLogoUrl}
+          tenantSlug={tenantSlug}
         />
       )}
     </div>

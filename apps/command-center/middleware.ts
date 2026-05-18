@@ -45,6 +45,7 @@ const PUBLIC_PATH_PREFIXES = [
   // gets a broken form.
   "/api/forms/submit",     // POST per-step → inserts form_submissions row + maybe stage-transitions the lead.
   "/api/forms/view",       // POST on form-page mount → records form_views + fires viewed_application drip.
+  "/f/",                   // Public prospect-facing form pages. Two shapes: /f/<tenant>/<form>/<lead_token> (personalized, HMAC-signed via Solara mint) and /f/<tenant>/<form> (anonymous share — server creates a fresh lead on submit). Both must be reachable without a session cookie or every inbound form return 401 — verified failure mode 2026-05-18 (CC opened a copied link in incognito and landed on /login).
 
   "/api/cron",
   "/api/webhook",          // public webhooks for clients (HMAC/Bearer gated inside)
