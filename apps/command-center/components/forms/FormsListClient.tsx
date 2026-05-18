@@ -28,10 +28,22 @@ function todayStamp(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Starter template — every new form ships with a file-upload step out of
+// the box so SunBiz operators don't have to remember to add one. The
+// document field names (bank_statements_3mo / drivers_license /
+// proof_of_ownership) match the doc_type classifier in migration 049 so
+// submit-side storage keys land in the right bucket without a second
+// pass. Branding lines up with the "sunbiz_standard" theme so the picker
+// highlights it as active immediately.
 const STARTER_FORM_TEMPLATE = {
   branding: {
     primary_color: "#0ea5e9",
+    accent_color: "#FFB81C",
     headline: "Tell us about your business",
+    subheadline:
+      "A few quick questions, then upload the documents we need to underwrite.",
+    thanks_message:
+      "Thanks — we received your application. A funding specialist will reach out within one business day.",
   },
   steps: [
     {
@@ -46,8 +58,41 @@ const STARTER_FORM_TEMPLATE = {
         { name: "monthly_revenue", label: "Monthly revenue", type: "currency" },
       ],
     },
+    {
+      key: "documents",
+      title: "Upload your documents",
+      description:
+        "We need three files to underwrite your application. Each one's required.",
+      fields: [
+        {
+          name: "bank_statements_3mo",
+          label: "Last 3 months of bank statements",
+          help: "PDF preferred. One file per month is fine.",
+          type: "file_upload",
+          required: true,
+          accept: ["application/pdf", "image/*"],
+        },
+        {
+          name: "drivers_license",
+          label: "Photo of your driver's license",
+          help: "Front of card, clear and readable.",
+          type: "file_upload",
+          required: true,
+          accept: ["image/*", "application/pdf"],
+        },
+        {
+          name: "proof_of_ownership",
+          label: "Proof of business ownership",
+          help: "Articles of incorporation, EIN letter, or business license.",
+          type: "file_upload",
+          required: true,
+          accept: ["application/pdf", "image/*"],
+        },
+      ],
+    },
   ],
   step_outcomes: { "0": "sent_application" },
+  on_complete_stage: "submitted",
   enabled: true,
 };
 

@@ -1,33 +1,45 @@
 "use client";
 
 /**
- * FormBuilderClient — JSON-schema editor + live preview for /forms/[id]/edit.
+ * FormBuilderClient — visual editor + live preview for /forms/[id]/edit.
  *
- * Phase 3.3 of the SunBiz CRM build. v1 is intentionally a schema-editor
- * (left pane: monospace JSON textareas for steps + branding; right pane:
- * FormRenderer live preview). v2 will add drag-drop on top — but the
- * schema editor ships in a day; drag-drop is a week. Schema-editor is
- * enough for operators to design real forms today.
+ * Non-technical operators land here, so every control is structured UI:
+ * a theme picker (no hex codes), a fields editor (no JSON), and a per-step
+ * "what stage does the lead move to?" dropdown (no string keys). The old
+ * JSON tabs and free-form textareas are gone — if a form's stored
+ * definition is malformed, the page-level loader surfaces a corrupt-row
+ * error before we ever try to render the builder.
  *
- * Save semantics: PATCH /api/forms/[id]. On 400 invalid_steps the route
- * returns { path, reason } from FormDefinitionError; we surface that as
- * an inline message above the textarea so the operator knows exactly
- * which field is malformed.
+ * Save semantics: PATCH /api/forms/[id]. On 400 invalid_definition the
+ * route returns { path, reason } from FormDefinitionError; we surface
+ * that inline so the operator knows which field broke.
  */
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, CheckCircle2, Code2, LayoutList, Loader2, Save, Trash2 } from "lucide-react";
+import {
+  AlertCircle,
+  Check,
+  CheckCircle2,
+  Loader2,
+  Save,
+  Trash2,
+} from "lucide-react";
 import { FormRenderer } from "./FormRenderer";
 import { VisualFieldsEditor } from "./VisualFieldsEditor";
 import {
-  parseFormSteps,
-  parseFormBranding,
-  parseStepOutcomes,
   FormDefinitionError,
-  type FormStep,
+  parseFormBranding,
+  parseFormSteps,
+  parseStepOutcomes,
   type FormBranding,
+  type FormStep,
 } from "@/lib/forms/types";
+import { FORM_THEMES, inferActiveThemeId } from "@/lib/forms/themes";
+import {
+  LEAD_PIPELINE_STAGES,
+  OPPORTUNITY_PIPELINE_STAGES,
+} from "@/lib/sunbiz-stage-meta";
 
 type FormRecord = {
   id: string;
@@ -46,85 +58,110 @@ type Props = {
   initialForm: FormRecord;
 };
 
+// Operator-friendly stage options for the per-step "what happens next?"
+// dropdown. The Lead and Opportunity pipelines are the two stage families
+// a SunBiz form can transition into; "no change" is the explicit no-op.
+const STAGE_OPTIONS: Array<{ value: string; label: string; group: string }> = [
+  { value: "", label: "Don't change the stage", group: "—" },
+  ...LEAD_PIPELINE_STAGES.map((s) => ({
+    value: s.key,
+    label: s.label,
+    group: "Lead Pipeline",
+  })),
+  ...OPPORTUNITY_PIPELINE_STAGES.map((s) => ({
+    value: s.key,
+    label: s.label,
+    group: "Opportunity Pipeline",
+  })),
+];
+
 export function FormBuilderClient({ initialForm }: Props) {
   const router = useRouter();
 
-  // Core mutable state — name/desc as inputs, steps + branding + outcomes
-  // as raw JSON textareas (operators copy-paste between forms; raw is
-  // honest about that). The parsed shapes derived from the JSON power
-  // the preview pane.
   const [name, setName] = useState(initialForm.name);
   const [description, setDescription] = useState(initialForm.description || "");
   const [enabled, setEnabled] = useState(initialForm.enabled);
-  const [onCompleteStage, setOnCompleteStage] = useState(initialForm.on_complete_stage || "");
   const [redirectUrl, setRedirectUrl] = useState(initialForm.redirect_url || "");
-  const [stepsJson, setStepsJson] = useState(() => JSON.stringify(initialForm.steps, null, 2));
-  // Visual is the default — the JSON tab is preserved for power-users
-  // copying definitions between forms or recovering corrupt rows.
-  const [stepsMode, setStepsMode] = useState<"visual" | "json">("visual");
-  const [brandingJson, setBrandingJson] = useState(() =>
-    JSON.stringify(initialForm.branding, null, 2),
+  const [steps, setSteps] = useState<FormStep[]>(initialForm.steps);
+  const [branding, setBranding] = useState<FormBranding>(initialForm.branding);
+  const [stepOutcomes, setStepOutcomes] = useState<Record<string, string>>(
+    initialForm.step_outcomes,
   );
-  const [outcomesJson, setOutcomesJson] = useState(() =>
-    JSON.stringify(initialForm.step_outcomes, null, 2),
+  const [onCompleteStage, setOnCompleteStage] = useState(
+    initialForm.on_complete_stage || "",
   );
 
-  // Parse the raw JSON every keystroke so the preview reflects the
-  // live state. Errors land in parseError and skip the preview render.
-  type ParseState = {
-    steps: FormStep[] | null;
-    branding: FormBranding | null;
-    outcomes: Record<string, string> | null;
-    error: { path: string; reason: string } | null;
-  };
+  const activeThemeId = useMemo(() => inferActiveThemeId(branding), [branding]);
 
-  const parsed: ParseState = useMemo(() => {
+  // Live-validate via the same parsers the server runs so we surface
+  // FormDefinitionError messages before the save round-trip.
+  const definitionError = useMemo(() => {
     try {
-      const steps = parseFormSteps(JSON.parse(stepsJson));
-      const branding = parseFormBranding(JSON.parse(brandingJson));
-      const outcomes = parseStepOutcomes(JSON.parse(outcomesJson));
-      return { steps, branding, outcomes, error: null };
+      parseFormSteps(steps);
+      parseFormBranding(branding);
+      parseStepOutcomes(stepOutcomes);
+      return null;
     } catch (err) {
       if (err instanceof FormDefinitionError) {
-        return {
-          steps: null,
-          branding: null,
-          outcomes: null,
-          error: { path: err.path, reason: err.reason },
-        };
+        return { path: err.path, reason: err.reason };
       }
-      if (err instanceof SyntaxError) {
-        return {
-          steps: null,
-          branding: null,
-          outcomes: null,
-          error: { path: "$", reason: `invalid JSON: ${err.message}` },
-        };
-      }
-      throw err;
+      return { path: "$", reason: err instanceof Error ? err.message : "unknown" };
     }
-  }, [stepsJson, brandingJson, outcomesJson]);
+  }, [steps, branding, stepOutcomes]);
 
   const [previewStepIndex, setPreviewStepIndex] = useState(0);
-  const [previewValues, setPreviewValues] = useState<Record<string, unknown>>({});
+  const [previewValues, setPreviewValues] = useState<Record<string, unknown>>(
+    {},
+  );
 
   // Clamp the preview step when the steps array shrinks.
   useEffect(() => {
-    if (parsed.steps && previewStepIndex >= parsed.steps.length) {
-      setPreviewStepIndex(Math.max(0, parsed.steps.length - 1));
+    if (previewStepIndex >= steps.length) {
+      setPreviewStepIndex(Math.max(0, steps.length - 1));
     }
-  }, [parsed.steps, previewStepIndex]);
+  }, [steps.length, previewStepIndex]);
 
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<
     null | { kind: "ok" | "err"; text: string }
   >(null);
 
+  function applyTheme(themeId: string) {
+    const theme = FORM_THEMES.find((t) => t.id === themeId);
+    if (!theme) return;
+    // Merge so operator-customized logo_url survives.
+    setBranding({ ...branding, ...theme.branding });
+  }
+
+  function updateStepOutcome(stepIdx: number, target: string) {
+    const isLast = stepIdx === steps.length - 1;
+    if (isLast) {
+      // Final step writes on_complete_stage. Keeps the existing data
+      // contract — server still reads step_outcomes for non-final
+      // transitions and on_complete_stage for the terminal one.
+      setOnCompleteStage(target);
+      const next = { ...stepOutcomes };
+      delete next[String(stepIdx)];
+      setStepOutcomes(next);
+    } else {
+      const next = { ...stepOutcomes };
+      if (target) next[String(stepIdx)] = target;
+      else delete next[String(stepIdx)];
+      setStepOutcomes(next);
+    }
+  }
+
+  function outcomeForStep(stepIdx: number): string {
+    const isLast = stepIdx === steps.length - 1;
+    if (isLast) return onCompleteStage;
+    return stepOutcomes[String(stepIdx)] || "";
+  }
+
   async function save() {
-    if (parsed.error) {
+    if (definitionError) {
       setSaveMessage({
         kind: "err",
-        text: `Fix the definition first — ${parsed.error.path}: ${parsed.error.reason}`,
+        text: `Fix the definition first — ${definitionError.path}: ${definitionError.reason}`,
       });
       return;
     }
@@ -137,21 +174,27 @@ export function FormBuilderClient({ initialForm }: Props) {
         body: JSON.stringify({
           name,
           description: description || null,
-          branding: parsed.branding,
-          steps: parsed.steps,
-          step_outcomes: parsed.outcomes,
+          branding,
+          steps,
+          step_outcomes: stepOutcomes,
           on_complete_stage: onCompleteStage || null,
           enabled,
           redirect_url: redirectUrl || null,
         }),
       });
-      const data = (await res.json()) as { ok: boolean; error?: string; path?: string; reason?: string };
+      const data = (await res.json()) as {
+        ok: boolean;
+        error?: string;
+        path?: string;
+        reason?: string;
+      };
       if (!data.ok) {
         setSaveMessage({
           kind: "err",
-          text: data.path && data.reason
-            ? `Save failed — ${data.path}: ${data.reason}`
-            : `Save failed: ${data.error || `http_${res.status}`}`,
+          text:
+            data.path && data.reason
+              ? `Save failed — ${data.path}: ${data.reason}`
+              : `Save failed: ${data.error || `http_${res.status}`}`,
         });
         return;
       }
@@ -171,8 +214,6 @@ export function FormBuilderClient({ initialForm }: Props) {
     if (!confirm(`Delete form "${name}"? This can't be undone.`)) return;
     const res = await fetch(`/api/forms/${initialForm.id}`, { method: "DELETE" });
     if (res.ok) {
-      // Invalidate the /forms RSC cache so the just-deleted form
-      // doesn't reappear when we push back to the list.
       router.refresh();
       router.push("/forms");
     } else {
@@ -184,6 +225,10 @@ export function FormBuilderClient({ initialForm }: Props) {
     }
   }
 
+  const hasFileUploadField = steps.some((s) =>
+    s.fields.some((f) => f.type === "file_upload"),
+  );
+
   return (
     <div className="grid lg:grid-cols-2 gap-6">
       {/* ── Left: editor ──────────────────────────────────────────── */}
@@ -192,13 +237,30 @@ export function FormBuilderClient({ initialForm }: Props) {
           <AlertCircle className="h-3.5 w-3.5 text-accent shrink-0 mt-0.5" />
           <span>
             <strong className="text-fg">Build your form visually.</strong>{" "}
-            Add steps, add fields, toggle required — the live preview on the
-            right updates as you go. The JSON tab is still there if you'd
-            rather paste a definition in directly.
+            Pick a theme, add the questions you want to ask, and tell us where
+            the lead should land after each step. The live preview on the
+            right matches exactly what your prospect will see.
           </span>
         </div>
+
+        {!hasFileUploadField && (
+          <div className="rounded-xl border border-status-warn/40 bg-status-warn/10 p-3 text-xs text-fg flex items-start gap-2">
+            <AlertCircle className="h-3.5 w-3.5 text-status-warn shrink-0 mt-0.5" />
+            <span>
+              <strong>This form has no file uploads.</strong> SunBiz
+              onboarding usually needs at least one document step (bank
+              statements, ID, proof of ownership). Use the{" "}
+              <strong>Add SunBiz docs step</strong> button below the steps
+              list to add the standard three-document upload step in one
+              click.
+            </span>
+          </div>
+        )}
+
         <section className="space-y-3 rounded-xl border border-bg-border bg-bg-elev/40 p-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-fg-muted">Basics</h3>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-fg-muted">
+            Basics
+          </h3>
           <div>
             <label className="block text-[11px] uppercase tracking-wider font-bold text-fg-dim mb-1">
               Name
@@ -239,132 +301,148 @@ export function FormBuilderClient({ initialForm }: Props) {
         </section>
 
         <section className="space-y-3 rounded-xl border border-bg-border bg-bg-elev/40 p-4">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-fg-muted">
-              Steps & fields
-            </h3>
-            <div className="flex rounded-md border border-bg-border overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setStepsMode("visual")}
-                className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold ${
-                  stepsMode === "visual"
-                    ? "bg-accent/20 text-accent"
-                    : "text-fg-dim hover:text-fg"
-                }`}
-              >
-                <LayoutList className="w-3 h-3" />
-                Visual
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  // Switching out of visual → flush the parsed structure
-                  // into the JSON pane so the operator sees the same
-                  // definition they were just editing.
-                  if (stepsMode === "visual" && parsed.steps) {
-                    setStepsJson(JSON.stringify(parsed.steps, null, 2));
-                  }
-                  setStepsMode("json");
-                }}
-                className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold border-l border-bg-border ${
-                  stepsMode === "json"
-                    ? "bg-accent/20 text-accent"
-                    : "text-fg-dim hover:text-fg"
-                }`}
-              >
-                <Code2 className="w-3 h-3" />
-                JSON
-              </button>
-            </div>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-fg-muted">
+            Look & feel
+          </h3>
+          <p className="text-[11px] text-fg-dim leading-relaxed">
+            Pick the design that fits the prospect. The preview on the right
+            updates instantly. Email and ad templates aren&apos;t shown here —
+            those live under Settings → Templates.
+          </p>
+          <div className="grid sm:grid-cols-2 gap-2">
+            {FORM_THEMES.map((theme) => {
+              const active = activeThemeId === theme.id;
+              return (
+                <button
+                  key={theme.id}
+                  type="button"
+                  onClick={() => applyTheme(theme.id)}
+                  className={`text-left rounded-lg border p-3 transition ${
+                    active
+                      ? "border-accent bg-accent/10"
+                      : "border-bg-border bg-bg-elev hover:border-accent/40"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="inline-block h-3 w-3 rounded-full border border-bg-border"
+                      style={{ background: theme.branding.primary_color }}
+                    />
+                    <span
+                      className="inline-block h-3 w-3 rounded-full border border-bg-border"
+                      style={{ background: theme.branding.accent_color }}
+                    />
+                    <span className="text-sm font-bold text-fg">
+                      {theme.label}
+                    </span>
+                    {active && (
+                      <Check className="w-3.5 h-3.5 text-accent ml-auto" />
+                    )}
+                  </div>
+                  <div className="text-[11px] text-fg-dim mt-1">
+                    {theme.description}
+                  </div>
+                </button>
+              );
+            })}
           </div>
-          {stepsMode === "visual" ? (
-            parsed.steps ? (
-              <VisualFieldsEditor
-                steps={parsed.steps}
-                onChange={(next) => setStepsJson(JSON.stringify(next, null, 2))}
-              />
-            ) : (
-              <div className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-xs text-rose-400">
-                Definition has a parse error — switch to the JSON tab to fix
-                it, then come back to the visual editor.
-              </div>
-            )
-          ) : (
-            <>
-              <p className="text-[11px] text-fg-dim leading-relaxed">
-                Power-user editor. Each step has a key, title, optional
-                description, and a fields array. Field types: text, textarea,
-                email, phone, number, currency, date, select, multiselect,
-                rating, file_upload, signature, hidden.
-              </p>
-              <textarea
-                value={stepsJson}
-                onChange={(e) => setStepsJson(e.target.value)}
-                className="w-full rounded-md border border-bg-border bg-bg-deep px-3 py-2 font-mono text-[11px] text-fg min-h-[20rem]"
-                spellCheck={false}
-              />
-            </>
-          )}
-        </section>
-
-        <section className="space-y-3 rounded-xl border border-bg-border bg-bg-elev/40 p-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-fg-muted">Branding</h3>
-          <textarea
-            value={brandingJson}
-            onChange={(e) => setBrandingJson(e.target.value)}
-            className="w-full rounded-md border border-bg-border bg-bg-deep px-3 py-2 font-mono text-[11px] text-fg min-h-[8rem]"
-            spellCheck={false}
-          />
+          <div>
+            <label className="block text-[11px] uppercase tracking-wider font-bold text-fg-dim mb-1">
+              Logo URL (optional)
+            </label>
+            <input
+              value={branding.logo_url || ""}
+              onChange={(e) =>
+                setBranding({
+                  ...branding,
+                  logo_url: e.target.value || undefined,
+                })
+              }
+              placeholder="https://… (shown at the top of the public form)"
+              className="w-full rounded-md border border-bg-border bg-bg-elev px-3 py-2 text-sm text-fg"
+            />
+          </div>
         </section>
 
         <section className="space-y-3 rounded-xl border border-bg-border bg-bg-elev/40 p-4">
           <h3 className="text-xs font-bold uppercase tracking-wider text-fg-muted">
-            Lead-stage transitions
+            Steps & fields
+          </h3>
+          <VisualFieldsEditor steps={steps} onChange={setSteps} />
+        </section>
+
+        <section className="space-y-3 rounded-xl border border-bg-border bg-bg-elev/40 p-4">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-fg-muted">
+            What happens after each step?
           </h3>
           <p className="text-[11px] text-fg-dim leading-relaxed">
-            step_outcomes maps step index (string) → lead.stage value. The
-            on_complete_stage applies on the final step if no per-step
-            outcome is set. Common SunBiz flow: 0 → sent_application,
-            1 → signed_application, 2 → submitted.
+            When the prospect finishes a step, optionally move their lead to
+            a new pipeline stage. The standard SunBiz flow is to advance to
+            <strong> Sent Application</strong> after the first step, then{" "}
+            <strong>Submitted</strong> after the docs are uploaded.
           </p>
-          <textarea
-            value={outcomesJson}
-            onChange={(e) => setOutcomesJson(e.target.value)}
-            className="w-full rounded-md border border-bg-border bg-bg-deep px-3 py-2 font-mono text-[11px] text-fg min-h-[6rem]"
-            spellCheck={false}
-          />
-          <div>
-            <label className="block text-[11px] uppercase tracking-wider font-bold text-fg-dim mb-1">
-              on_complete_stage (fallback for last step)
-            </label>
-            <input
-              value={onCompleteStage}
-              onChange={(e) => setOnCompleteStage(e.target.value)}
-              placeholder="submitted"
-              className="w-full rounded-md border border-bg-border bg-bg-elev px-3 py-2 text-sm text-fg"
-            />
+          <div className="space-y-2">
+            {steps.map((step, idx) => (
+              <div
+                key={step.key || idx}
+                className="flex items-center gap-3 rounded-md border border-bg-border bg-bg-deep/60 px-3 py-2"
+              >
+                <span className="text-[11px] font-bold uppercase tracking-wider text-fg-dim shrink-0">
+                  Step {idx + 1}
+                </span>
+                <span className="text-sm text-fg truncate flex-1">
+                  {step.title || `(untitled)`}
+                </span>
+                <select
+                  value={outcomeForStep(idx)}
+                  onChange={(e) => updateStepOutcome(idx, e.target.value)}
+                  className="rounded-md border border-bg-border bg-bg-elev px-2 py-1 text-xs text-fg"
+                >
+                  {STAGE_OPTIONS.map((opt, oi) => (
+                    <option key={`${opt.value}-${oi}`} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
           </div>
           <div>
             <label className="block text-[11px] uppercase tracking-wider font-bold text-fg-dim mb-1">
-              redirect_url (optional — sends prospect here after final submit)
+              After the prospect finishes, send them to (optional)
             </label>
             <input
               value={redirectUrl}
               onChange={(e) => setRedirectUrl(e.target.value)}
-              placeholder="https://..."
+              placeholder="https://… leave blank for our default thank-you screen"
               className="w-full rounded-md border border-bg-border bg-bg-elev px-3 py-2 text-sm text-fg"
             />
           </div>
         </section>
 
+        {definitionError && (
+          <div className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-400 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+            <div>
+              <div className="font-bold">Definition invalid</div>
+              <div className="text-xs mt-0.5 font-mono">
+                {definitionError.path}: {definitionError.reason}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center gap-3">
           <button
             onClick={save}
-            disabled={saving}
+            disabled={saving || !!definitionError}
             className="inline-flex items-center gap-2 rounded-lg bg-accent text-bg-deep px-4 py-2 text-sm font-bold hover:bg-accent-bright disabled:opacity-50"
           >
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {saving ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Save className="w-4 h-4" />
+            )}
             Save
           </button>
           <button
@@ -377,7 +455,9 @@ export function FormBuilderClient({ initialForm }: Props) {
           {saveMessage && (
             <div
               className={`flex items-center gap-2 text-sm ${
-                saveMessage.kind === "ok" ? "text-status-engaged" : "text-rose-400"
+                saveMessage.kind === "ok"
+                  ? "text-status-engaged"
+                  : "text-rose-400"
               }`}
             >
               {saveMessage.kind === "ok" ? (
@@ -398,77 +478,64 @@ export function FormBuilderClient({ initialForm }: Props) {
             Live preview
           </h3>
 
-          {parsed.error ? (
-            <div className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-400 flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-              <div>
-                <div className="font-bold">Definition invalid</div>
-                <div className="text-xs mt-0.5 font-mono">
-                  {parsed.error.path}: {parsed.error.reason}
-                </div>
-              </div>
-            </div>
-          ) : parsed.steps && parsed.branding ? (
-            <>
-              {(parsed.branding.headline || parsed.branding.subheadline) && (
-                <div className="text-center pb-3 border-b border-bg-border">
-                  {parsed.branding.logo_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={parsed.branding.logo_url}
-                      alt="Brand logo"
-                      className="mx-auto h-10 mb-3"
-                    />
-                  )}
-                  {parsed.branding.headline && (
-                    <h2 className="text-lg font-bold text-fg">
-                      {parsed.branding.headline}
-                    </h2>
-                  )}
-                  {parsed.branding.subheadline && (
-                    <p className="text-sm text-fg-muted mt-1">
-                      {parsed.branding.subheadline}
-                    </p>
-                  )}
-                </div>
+          {(branding.headline || branding.subheadline) && (
+            <div className="text-center pb-3 border-b border-bg-border">
+              {branding.logo_url && (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={branding.logo_url}
+                  alt="Brand logo"
+                  className="mx-auto h-10 mb-3"
+                />
               )}
+              {branding.headline && (
+                <h2 className="text-lg font-bold text-fg">{branding.headline}</h2>
+              )}
+              {branding.subheadline && (
+                <p className="text-sm text-fg-muted mt-1">
+                  {branding.subheadline}
+                </p>
+              )}
+            </div>
+          )}
 
-              <div className="flex gap-2 text-[11px]">
-                {parsed.steps.map((s, i) => (
-                  <button
-                    key={s.key}
-                    onClick={() => setPreviewStepIndex(i)}
-                    className={`px-2 py-1 rounded ${
-                      i === previewStepIndex
-                        ? "bg-accent/20 text-accent font-bold"
-                        : "text-fg-dim hover:text-fg"
-                    }`}
-                  >
-                    {i + 1}. {s.title}
-                  </button>
-                ))}
-              </div>
+          <div className="flex flex-wrap gap-2 text-[11px]">
+            {steps.map((s, i) => (
+              <button
+                key={s.key || i}
+                type="button"
+                onClick={() => setPreviewStepIndex(i)}
+                className={`px-2 py-1 rounded ${
+                  i === previewStepIndex
+                    ? "bg-accent/20 text-accent font-bold"
+                    : "text-fg-dim hover:text-fg"
+                }`}
+              >
+                {i + 1}. {s.title}
+              </button>
+            ))}
+          </div>
 
-              <FormRenderer
-                step={parsed.steps[previewStepIndex]}
-                values={previewValues}
-                errors={{}}
-                branding={parsed.branding}
-                onFieldChange={(name, v) =>
-                  setPreviewValues((prev) => ({ ...prev, [name]: v }))
-                }
-                onSubmit={() => {
-                  /* preview mode — disabled below */
-                }}
-                previewMode
-                showBack={previewStepIndex > 0}
-                onBack={() => setPreviewStepIndex((i) => Math.max(0, i - 1))}
-                ctaLabelOverride={
-                  previewStepIndex === parsed.steps.length - 1 ? "Submit" : undefined
-                }
-              />
-            </>
-          ) : null}
+          {steps[previewStepIndex] && (
+            <FormRenderer
+              step={steps[previewStepIndex]}
+              values={previewValues}
+              errors={{}}
+              branding={branding}
+              onFieldChange={(fieldName, v) =>
+                setPreviewValues((prev) => ({ ...prev, [fieldName]: v }))
+              }
+              onSubmit={() => {
+                /* preview mode — disabled below */
+              }}
+              previewMode
+              showBack={previewStepIndex > 0}
+              onBack={() => setPreviewStepIndex((i) => Math.max(0, i - 1))}
+              ctaLabelOverride={
+                previewStepIndex === steps.length - 1 ? "Submit" : undefined
+              }
+            />
+          )}
         </div>
       </div>
     </div>
