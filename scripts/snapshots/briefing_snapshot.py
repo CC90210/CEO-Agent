@@ -66,7 +66,30 @@ def build_snapshot() -> dict:
     pipeline = _call(["scripts/lead_engine.py", "--json", "pipeline"])
     followups = _call(["scripts/lead_engine.py", "--json", "followups"])
     health_alerts = _call(["scripts/client_health.py", "--json", "alerts"])
+    # Full client list for the monitored-count signal (see below).
+    health_full = _call(["scripts/client_health.py", "--json", "report"])
     briefing = _call(["scripts/ceo_dashboard.py", "--json", "briefing"])
+
+    # Disambiguate "all clients healthy" from "no clients monitored" — the
+    # second is a CRM data-hygiene gap, not a green light. On 2026-05-18 the
+    # brief told CC "All clients GREEN, no fires" while his real Stripe
+    # subscribers were sitting outside the health engine entirely (none
+    # tagged status='client' in leads). Surfacing the monitored_count lets
+    # the AI narrator (or any downstream consumer) tell the truth.
+    monitored_count = 0
+    if isinstance(health_full, list):
+        monitored_count = len(health_full)
+    elif isinstance(health_full, dict) and isinstance(health_full.get("clients"), list):
+        monitored_count = len(health_full["clients"])
+    if isinstance(briefing, dict) and isinstance(briefing.get("client_health"), dict):
+        briefing["client_health"]["monitored"] = monitored_count
+        if monitored_count == 0:
+            briefing["client_health"]["_note"] = (
+                "NO CLIENTS MONITORED — health engine has 0 rows tagged "
+                "status='client'. CC's Stripe-paying customers are not "
+                "visible here. Surface this as a CRM data-hygiene gap, "
+                "do NOT report 'all clients green'."
+            )
 
     return {
         "snapshot_type": "briefing",
