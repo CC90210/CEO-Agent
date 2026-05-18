@@ -35,7 +35,14 @@ type Props = {
   branding: FormBranding;
   steps: FormStep[];
   redirectUrl: string | null;
-  token: string;
+  /**
+   * Pre-signed HMAC token tied to a specific lead — used by Solara's
+   * personalized mint flow. Null for the anonymous-share flow, in which
+   * case `anonymousInit` MUST be set and the server will mint a fresh
+   * token + lead on the first submit.
+   */
+  token: string | null;
+  anonymousInit?: { tenant_slug: string; form_slug: string };
 };
 
 type SubmitResponse = {
@@ -45,6 +52,8 @@ type SubmitResponse = {
   lead_stage?: string | null;
   redirect_url?: string | null;
   error?: string;
+  /** Set on the first anonymous-flow submit so subsequent steps re-use it. */
+  minted_token?: string | null;
 };
 
 export function FormPublicClient({
@@ -52,8 +61,13 @@ export function FormPublicClient({
   branding,
   steps,
   redirectUrl,
-  token,
+  token: initialToken,
+  anonymousInit,
 }: Props) {
+  // The token starts as whatever the page passed in. For anonymous flows
+  // it's null; the first /api/forms/submit response carries minted_token,
+  // which we capture and use for the rest of the steps.
+  const [token, setToken] = useState<string | null>(initialToken);
   // Per-step values keyed by step index so going back doesn't lose data.
   const [stepValues, setStepValues] = useState<Record<number, Record<string, unknown>>>(
     () =>
@@ -76,12 +90,14 @@ export function FormPublicClient({
   const [done, setDone] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
-  // Fire view-ping exactly once on mount. The route's DB-level dedup
-  // catches accidental re-fires (component remount, navigate-away-then-
-  // back), but the client-side guard saves the round trip.
+  // Fire view-ping exactly once on mount. Anonymous flows can't ping
+  // /api/forms/view yet — there's no lead until the first submit — so
+  // we skip the ping when the token is null and let the submission row
+  // be the first signal the operator sees.
   const viewedRef = useRef(false);
   useEffect(() => {
     if (viewedRef.current) return;
+    if (!token) return;
     viewedRef.current = true;
     fetch("/api/forms/view", {
       method: "POST",
@@ -203,15 +219,23 @@ export function FormPublicClient({
         setServerError(built.error);
         return;
       }
+      // Anonymous flow: on step 0 we have no token yet, send
+      // anonymous_init so the server mints + returns one. Personalized
+      // flow: always send the existing token.
+      const submitBody: Record<string, unknown> = {
+        step_index: currentStep,
+        payload: built.payload,
+        file_attachments: built.file_attachments,
+      };
+      if (token) {
+        submitBody.token = token;
+      } else if (anonymousInit) {
+        submitBody.anonymous_init = anonymousInit;
+      }
       const res = await fetch("/api/forms/submit", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          token,
-          step_index: currentStep,
-          payload: built.payload,
-          file_attachments: built.file_attachments,
-        }),
+        body: JSON.stringify(submitBody),
       });
       const data = (await res.json()) as SubmitResponse;
       if (!data.ok) {
@@ -221,6 +245,11 @@ export function FormPublicClient({
             : data.error || `Submission failed (http_${res.status}).`,
         );
         return;
+      }
+      // Capture the freshly-signed token from an anonymous step 0 so
+      // step 1+ uses it like any other personalized submit.
+      if (!token && data.minted_token) {
+        setToken(data.minted_token);
       }
 
       // Next-step navigation OR final-step completion.

@@ -32,14 +32,14 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceSupabase } from "@/lib/supabase-server";
-import { verifyFormLink, type FormLinkPayload } from "@/lib/form-links";
+import { verifyFormLink, signFormLink, type FormLinkPayload } from "@/lib/form-links";
 import {
   parseFormSteps,
   type FormStep,
   FormDefinitionError,
 } from "@/lib/forms/types";
 import { rateLimit } from "@/lib/rate-limit";
-import { updateRecord, RecordsError } from "@/lib/manifest/data";
+import { createRecord, updateRecord, RecordsError } from "@/lib/manifest/data";
 import { sanitizeStorageFilename } from "@/lib/storage-helpers";
 
 export const runtime = "nodejs";
@@ -55,6 +55,14 @@ type SubmitBody = {
     mime_type: string;
     size_bytes: number;
   }>;
+  // Anonymous-form mode (shareable-link, no per-lead HMAC): on the first
+  // submit the client sends anonymous_init {tenant_slug, form_slug} and
+  // no token. The server creates a fresh lead, signs a token tied to it,
+  // and returns it for the rest of the multi-step funnel.
+  anonymous_init?: {
+    tenant_slug?: string;
+    form_slug?: string;
+  };
 };
 
 // The public client embeds files as `inline_base64` inside payload[field].
@@ -86,15 +94,43 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
 
-  // Verify HMAC first — fast rejection before any DB work.
-  const sigResult = verifyFormLink(body.token);
-  if (!sigResult.ok) {
+  // Two auth shapes:
+  //   1. Personalized link (Solara's mint): body.token is an HMAC.
+  //   2. Anonymous share link: body.anonymous_init = {tenant_slug, form_slug}
+  //      with no token. The server creates a fresh lead, signs a token,
+  //      and returns it so subsequent steps in the same session re-use it.
+  let link: FormLinkPayload;
+  let mintedTokenForResponse: string | null = null;
+  if (body.token) {
+    const sigResult = verifyFormLink(body.token);
+    if (!sigResult.ok) {
+      return NextResponse.json(
+        { ok: false, error: `token_${sigResult.reason}` },
+        { status: sigResult.reason === "server_misconfigured" ? 503 : 400 },
+      );
+    }
+    link = sigResult.payload;
+  } else if (body.anonymous_init?.tenant_slug && body.anonymous_init?.form_slug) {
+    const anonResult = await initAnonymousLead({
+      tenantSlug: body.anonymous_init.tenant_slug,
+      formSlug: body.anonymous_init.form_slug,
+      payload: body.payload || {},
+      ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null,
+    });
+    if (!anonResult.ok) {
+      return NextResponse.json(
+        { ok: false, error: anonResult.error },
+        { status: anonResult.status },
+      );
+    }
+    link = anonResult.link;
+    mintedTokenForResponse = anonResult.token;
+  } else {
     return NextResponse.json(
-      { ok: false, error: `token_${sigResult.reason}` },
-      { status: sigResult.reason === "server_misconfigured" ? 503 : 400 },
+      { ok: false, error: "no_auth_provided" },
+      { status: 400 },
     );
   }
-  const link: FormLinkPayload = sigResult.payload;
 
   // Per-token rate limit. 30/min is roughly 1 submission every 2s, enough
   // for legitimate multi-step funnels (basic -> app -> upload) but well
@@ -377,5 +413,116 @@ export async function POST(req: NextRequest) {
       succeeded: uploadedDocs.length,
       warnings: uploadWarnings,
     },
+    // Anonymous-share flow only: returned on the first step so the
+    // client can carry the freshly-signed token through subsequent
+    // steps. Null on every personalized (Solara-minted) submit.
+    minted_token: mintedTokenForResponse,
   });
+}
+
+/**
+ * Anonymous-share intake: validate the (tenant_slug, form_slug) pair,
+ * create a fresh lead seeded with whatever name/email/phone we can pull
+ * out of the first-step payload, sign a token for it. The signed token
+ * becomes the auth boundary for the rest of the submission flow.
+ */
+async function initAnonymousLead(input: {
+  tenantSlug: string;
+  formSlug: string;
+  payload: Record<string, unknown>;
+  ip: string | null;
+}): Promise<
+  | { ok: true; link: FormLinkPayload; token: string }
+  | { ok: false; error: string; status: number }
+> {
+  const tenantSlug = input.tenantSlug.trim().toLowerCase();
+  const formSlug = input.formSlug.trim().toLowerCase();
+  if (!tenantSlug || !formSlug) {
+    return { ok: false, error: "anonymous_init_invalid", status: 400 };
+  }
+  const db = getServiceSupabase();
+  const row = await db
+    .from("forms")
+    .select("id, tenant_id, enabled, tenant:tenants!inner(slug)")
+    .eq("slug", formSlug)
+    .maybeSingle();
+  if (row.error || !row.data) {
+    return { ok: false, error: "form_not_found", status: 404 };
+  }
+  const form = row.data as {
+    id: string;
+    tenant_id: string;
+    enabled: boolean;
+    tenant: { slug: string } | { slug: string }[] | null;
+  };
+  const tenantRow = Array.isArray(form.tenant) ? form.tenant[0] : form.tenant;
+  if (!tenantRow || tenantRow.slug.toLowerCase() !== tenantSlug) {
+    return { ok: false, error: "tenant_mismatch", status: 400 };
+  }
+  if (!form.enabled) {
+    return { ok: false, error: "form_disabled", status: 400 };
+  }
+
+  // Seed the lead with whatever common contact fields the operator
+  // already collected on this step. Falls back gracefully when the
+  // form's field names don't match — the operator can still see the
+  // raw payload in the form_submissions row.
+  const pick = (k: string) =>
+    typeof input.payload[k] === "string" ? (input.payload[k] as string) : undefined;
+  const leadData: Record<string, unknown> = {
+    stage: "imported",
+    source: "public_form",
+    created_from_form_id: form.id,
+    created_from_ip_hash: input.ip ? hashIp(input.ip) : null,
+  };
+  const name = pick("contact_name") || pick("name") || pick("full_name");
+  if (name) leadData.contact_name = name;
+  const business = pick("business_name") || pick("company");
+  if (business) leadData.business_name = business;
+  const email = pick("email");
+  if (email) leadData.email = email;
+  const phone = pick("phone");
+  if (phone) leadData.phone = phone;
+
+  let lead;
+  try {
+    lead = await createRecord({
+      tenant_id: form.tenant_id,
+      entity: "lead",
+      data: leadData,
+    });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : "unknown";
+    return { ok: false, error: `lead_create_failed: ${detail}`, status: 500 };
+  }
+
+  const token = signFormLink({
+    tenant: tenantSlug,
+    form_id: form.id,
+    lead_id: lead.id,
+  });
+  if (token === null) {
+    return { ok: false, error: "form_links_misconfigured", status: 503 };
+  }
+
+  return {
+    ok: true,
+    token,
+    link: {
+      tenant: tenantSlug,
+      form_id: form.id,
+      lead_id: lead.id,
+      iat: Math.floor(Date.now() / 1000),
+    },
+  };
+}
+
+/** Truncated SHA-256 of the IP — used for lightweight per-IP dedup
+ *  without persisting raw IPs in tenant data. */
+function hashIp(ip: string): string {
+  // Node's crypto is available at runtime via require — keep this
+  // route's import surface tight (no top-level crypto import) since
+  // the rest of the file is pure JSON wrangling.
+  const { createHash } = require("node:crypto") as typeof import("node:crypto");
+  return createHash("sha256").update(ip).digest("hex").slice(0, 16);
 }
