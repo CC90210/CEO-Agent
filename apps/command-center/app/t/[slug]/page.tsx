@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Card, PageHeader, Tag } from "@/components/Card";
 import { ManifestTable } from "@/components/manifest/ManifestTable";
@@ -10,7 +10,7 @@ import { getManifest, manifestExists } from "@/lib/manifest/loader";
 import { resolveDataTenant } from "@/lib/manifest/tenant-scope";
 import { CATEGORY_LABELS } from "@/lib/agents/library";
 import { getSessionUser, getServiceSupabase } from "@/lib/supabase-server";
-import { canPreviewTenantSlug } from "@/lib/tenant-access";
+import { requireTenantPreviewAccess } from "@/lib/tenant-access";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +34,7 @@ export default async function TenantLandingPage({
   // Tenant-preview gate: only the empire operator or someone whose tenant
   // matches the slug may render this shell. Without it, /t/sun was
   // hijacking the OASIS operator into the SunBiz Command Center on login.
-  await enforceTenantPreviewAccess(normalised);
+  await requireTenantPreviewAccess(normalised);
 
   const manifest = await getManifest(normalised);
   const rootPage =
@@ -46,42 +46,6 @@ export default async function TenantLandingPage({
   }
 
   return <GenericSummary slug={normalised} manifest={manifest} />;
-}
-
-async function enforceTenantPreviewAccess(slug: string): Promise<void> {
-  const user = await getSessionUser().catch(() => null);
-  if (!user) {
-    redirect(`/login?next=${encodeURIComponent(`/t/${slug}`)}`);
-  }
-  const db = getServiceSupabase();
-  const profile = await db
-    .from("user_profiles")
-    .select("email, tenant_id")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
-  const tenantId = profile.data?.tenant_id || null;
-  let tenantSlug: string | null = null;
-  let commandSlug: string | null = null;
-  if (tenantId) {
-    const t = await db
-      .from("tenants")
-      .select("slug, custom_fields")
-      .eq("id", tenantId)
-      .maybeSingle();
-    tenantSlug = (t.data?.slug as string | undefined) ?? null;
-    const custom = (t.data?.custom_fields || {}) as Record<string, unknown>;
-    const cf = custom.command_center_profile_slug;
-    commandSlug = typeof cf === "string" ? cf : null;
-  }
-  const allowed = canPreviewTenantSlug(
-    {
-      email: profile.data?.email ?? user.email,
-      tenant_slug: tenantSlug,
-      command_center_profile_slug: commandSlug,
-    },
-    slug,
-  );
-  if (!allowed) redirect("/");
 }
 
 async function RootPageRenderer({
