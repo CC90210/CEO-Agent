@@ -166,6 +166,11 @@ export async function POST(
       sent: 0,
       failed: 0,
       missing_recipients: planResult.missing_recipients,
+      // Always surface rejected_attachments so the operator can see WHICH
+      // docs got dropped — even on a partial-acceptance pass (9 valid +
+      // 1 foreign). Previously this was only set when ALL attachments
+      // failed, which silently shipped incomplete packets.
+      rejected_attachments: rejectedAttachments,
     });
   }
 
@@ -221,6 +226,10 @@ export async function POST(
     queued,
     blocked,
     missing_recipients: planResult.missing_recipients,
+    // Always surface rejected_attachments — partial-acceptance was
+    // silently dropping foreign-tenant paths before, which gave
+    // operators a false-positive "package complete" signal.
+    rejected_attachments: rejectedAttachments,
     // Surface the physical-send gap honestly in the response so the
     // operator UI doesn't misreport "5 lenders contacted" when no
     // SMTP fired. Phase 6.3-bis closes this.

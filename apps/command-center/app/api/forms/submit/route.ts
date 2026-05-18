@@ -420,19 +420,24 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Replace the public client's `inline:<field>` placeholders with the real
-  // storage paths so form_submissions.file_attachments is honest about what
-  // landed where.
-  const resolvedAttachments = fileAttachments.map((att) => {
-    const matched = uploadedDocs.find((d) => d.field_name === att.field_name);
-    if (matched) {
-      return {
-        ...att,
-        storage_path: matched.storage_path,
-      };
-    }
-    return att;
-  });
+  // form_submissions.file_attachments is now derived SOLELY from
+  // uploadedDocs — the server-side record of what landed in Storage.
+  // Codex flagged that the previous map kept any client-supplied
+  // attachments[] entry without a matched inline upload, which let a
+  // crafted POST persist arbitrary storage_path values (including
+  // foreign-tenant paths) — and downstream /api/applications/.../
+  // underwrite would later forward those paths to the underwriter.
+  // Discarding the request-body attachments entirely closes that.
+  // fileAttachments from body is still referenced for surface-level
+  // shape but never persisted as-is.
+  void fileAttachments;
+  const resolvedAttachments = uploadedDocs.map((d) => ({
+    field_name: d.field_name,
+    storage_path: d.storage_path,
+    filename: d.filename,
+    mime_type: d.mime_type,
+    size_bytes: d.size_bytes,
+  }));
 
   const insertRes = await db
     .from("form_submissions")
