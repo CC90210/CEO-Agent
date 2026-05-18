@@ -432,23 +432,44 @@ def run_revenue_report(env_vars: dict) -> str:
     conv = d.get("conversion_rate", 0)
     last = d.get("last_payment") or {}
 
-    bar_len = 10
-    filled = int(round(min(pct, 100) / 100 * bar_len))
-    bar = "█" * filled + "░" * (bar_len - filled)
+    # Days left to North Star deadline (May 30 per CLAUDE.md WHY section).
+    import datetime as _dt
+    deadline = _dt.date(2026, 5, 30)
+    days_left = max((deadline - _dt.date.today()).days, 0)
+
+    # 12-wide progress bar with three glyphs (▓ for the rough fill edge so
+    # the bar looks intentional rather than blocky at boundaries).
+    bar_len = 12
+    pct_clamped = max(0.0, min(pct, 100.0))
+    filled_f = pct_clamped / 100 * bar_len
+    full = int(filled_f)
+    partial = 1 if (filled_f - full) >= 0.5 and full < bar_len else 0
+    empty = bar_len - full - partial
+    bar = "█" * full + ("▓" if partial else "") + "░" * empty
+
+    # Days since last payment — surfaces "going stale" risk implicitly.
+    last_days = ""
+    if last and last.get("date"):
+        try:
+            last_date = _dt.date.fromisoformat(str(last["date"])[:10])
+            last_days = f"  ·  {(_dt.date.today() - last_date).days}d ago"
+        except Exception:
+            pass
 
     lines = [
-        "📊 Weekly MRR Report",
+        f"📊 *MRR*  ${mrr:,.0f} / ${goal:,.0f}  ·  {pct:.1f}%",
+        f"`{bar}`  ${gap:,.0f} to go  ·  {days_left}d left",
         "",
-        f"MRR: ${mrr:,.0f} / ${goal:,.0f}  ({pct:.1f}%)",
-        f"{bar}",
-        f"Gap to goal: ${gap:,.0f}  →  {clients_needed} client(s) needed",
-        "",
-        f"Pipeline value: ${pipeline:,.0f}",
-        f"Active leads: {leads}",
-        f"Conversion: {conv:.1f}%",
+        f"Pipeline   ${pipeline:,.0f}  ·  {leads} active  ·  {conv:.1f}% conv",
     ]
     if last:
-        lines.append(f"Last payment: ${last.get('amount', 0):,.0f} from {last.get('client', '?')} on {last.get('date', '?')}")
+        lines.append(
+            f"Last paid  ${last.get('amount', 0):,.0f} · {last.get('client', '?')[:30]}{last_days}"
+        )
+    if clients_needed > 0:
+        clients_word = "client" if clients_needed == 1 else "clients"
+        lines.append("")
+        lines.append(f"→ {clients_needed} {clients_word} closes the gap")
     return _send_digest("\n".join(lines), "revenue", "revenue-report-handled-by-digest")
 
 
@@ -669,19 +690,38 @@ def run_pipeline_review(env_vars: dict) -> str:
         "lost": "❌",
     }
     total = sum((d.get(s, {}) or {}).get("count", 0) for s in stage_order)
+    qualified_info = d.get("qualified", {}) or {}
+    qualified_count = qualified_info.get("count", 0)
+    qualified_score = qualified_info.get("avg_score")
 
-    lines = ["🎯 Weekly Pipeline Review", ""]
+    # Headline: top-of-message TL;DR so CC scans the action first.
+    headline_action = ""
+    if qualified_count > 0:
+        score_part = f" (avg score {qualified_score:.0f})" if qualified_score is not None else ""
+        plural = "lead" if qualified_count == 1 else "leads"
+        headline_action = f"  ·  {qualified_count} qualified {plural} ready{score_part}"
+
+    lines = [
+        f"🎯 *Pipeline*  {total} total{headline_action}",
+        "",
+    ]
+    # Right-aligned numbers + drop zero-count stages so the eye lands on the
+    # rows that matter. The old layout printed all 6 stages even when 4 were
+    # empty, which made the actionable stage hard to spot.
     for stage in stage_order:
         info = d.get(stage, {}) or {}
         count = info.get("count", 0)
+        if count == 0 and stage in ("proposal", "lost"):
+            continue  # noise — skip empty pre-proposal stages
         score = info.get("avg_score")
-        score_txt = f" · avg score {score:.0f}" if score is not None else ""
-        lines.append(f"{stage_emoji[stage]} {stage.capitalize():<10} {count}{score_txt}")
-    lines.append("")
-    lines.append(f"Total in pipeline: {total}")
-    qualified = (d.get("qualified", {}) or {}).get("count", 0)
-    if qualified:
-        lines.append(f"Action: {qualified} qualified lead(s) ready to close — surface them today.")
+        score_txt = f"   avg {score:.0f}" if score is not None and count > 0 else ""
+        marker = "  ← ready" if stage == "qualified" and count > 0 else ""
+        lines.append(f"  {count:>3}  {stage_emoji[stage]} {stage.capitalize():<10}{score_txt}{marker}")
+
+    if qualified_count > 0:
+        lines.append("")
+        plural = "lead" if qualified_count == 1 else "leads"
+        lines.append(f"→ Surface the qualified {plural} today")
     return _send_digest("\n".join(lines), "lead", "pipeline-review-handled-by-digest")
 
 
