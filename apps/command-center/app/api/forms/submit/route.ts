@@ -41,6 +41,7 @@ import {
 import { rateLimit } from "@/lib/rate-limit";
 import { createRecord, updateRecord, RecordsError } from "@/lib/manifest/data";
 import { sanitizeStorageFilename } from "@/lib/storage-helpers";
+import { createHash } from "node:crypto";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -520,9 +521,5 @@ async function initAnonymousLead(input: {
 /** Truncated SHA-256 of the IP — used for lightweight per-IP dedup
  *  without persisting raw IPs in tenant data. */
 function hashIp(ip: string): string {
-  // Node's crypto is available at runtime via require — keep this
-  // route's import surface tight (no top-level crypto import) since
-  // the rest of the file is pure JSON wrangling.
-  const { createHash } = require("node:crypto") as typeof import("node:crypto");
   return createHash("sha256").update(ip).digest("hex").slice(0, 16);
 }
