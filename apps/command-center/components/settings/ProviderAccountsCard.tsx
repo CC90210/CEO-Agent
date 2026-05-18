@@ -552,7 +552,15 @@ function DisconnectButton({
   const [error, setError] = useState<string | null>(null);
 
   async function go() {
-    if (!confirm(`Disconnect ${provider}? Every agent using it will fall back to whatever's left. You'll need the key again to reconnect.`)) {
+    if (
+      !confirm(
+        `Disconnect ${provider}?\n\n` +
+          `• The encrypted API key is wiped from every agent that uses ${provider}.\n` +
+          `• Any per-agent custom system prompts on those agents are also wiped (the row is removed).\n` +
+          `• You'll need to paste the key again to reconnect.\n\n` +
+          `If you only want to swap keys, use "Replace key" instead — that preserves custom prompts.`,
+      )
+    ) {
       return;
     }
     setBusy(true);
