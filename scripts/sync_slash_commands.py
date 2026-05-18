@@ -3,12 +3,17 @@
 against the actual `.agents/workflows/` directories on disk.
 
 Why this is detect-only, not auto-rewrite: the hand-curated catalog at
-apps/command-center/lib/slash-commands.ts has nicer descriptions, custom
-CLI invocations (e.g. `python scripts/ceo_dashboard.py briefing` instead
-of the default `claude /ceo-briefing`), and per-command notes. Auto-
-regeneration would clobber that craftsmanship. Instead, this script
-reports drift so a human (or a future Codex pass) can patch the catalog
-deliberately.
+lib/slash-commands.ts in the oasis-command-center repo has nicer
+descriptions, custom CLI invocations (e.g. `python scripts/ceo_dashboard.py
+briefing` instead of the default `claude /ceo-briefing`), and per-command
+notes. Auto-regeneration would clobber that craftsmanship. Instead, this
+script reports drift so a human (or a future Codex pass) can patch the
+catalog deliberately.
+
+The catalog now lives in a sibling checkout of the extracted dashboard repo
+(default: ~/APPS/oasis-command-center). Override with
+COMMAND_CENTER_REPO=<path> if you keep it elsewhere. The script no-ops
+gracefully when the catalog isn't reachable.
 
 Reads:
 - c:/Users/User/Business-Empire-Agent/.agents/workflows/*.md  (Bravo)
@@ -29,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -49,7 +55,11 @@ def _maven_workflows() -> Path:
     # Last resort: assume sibling of ROOT
     return ROOT.parent / "CMO-Agent" / ".agents" / "workflows"
 MAVEN_WORKFLOWS = _maven_workflows()
-CATALOG = ROOT / "apps" / "command-center" / "lib" / "slash-commands.ts"
+_COMMAND_CENTER_REPO = os.environ.get(
+    "COMMAND_CENTER_REPO",
+    str(Path.home() / "APPS" / "oasis-command-center"),
+)
+CATALOG = Path(_COMMAND_CENTER_REPO) / "lib" / "slash-commands.ts"
 
 
 def workflow_slugs(workflow_dir: Path) -> set[str]:
@@ -79,6 +89,17 @@ def main() -> int:
     p.add_argument("--json", action="store_true")
     args = p.parse_args()
 
+    if not CATALOG.exists():
+        msg = (
+            f"command-center catalog not found at {CATALOG}\n"
+            "Either clone https://github.com/CC90210/oasis-command-center to "
+            "~/APPS/oasis-command-center, or set COMMAND_CENTER_REPO=<path>."
+        )
+        if args.json:
+            print(json.dumps({"status": "catalog_missing", "expected_at": str(CATALOG)}, indent=2))
+        else:
+            print(msg)
+        return 0
     src = CATALOG.read_text(encoding="utf-8")
     drift_found = False
     report: dict = {"agents": {}}
@@ -115,7 +136,7 @@ def main() -> int:
             print()
 
         if drift_found:
-            print("Drift detected. Patch apps/command-center/lib/slash-commands.ts")
+            print(f"Drift detected. Patch {CATALOG}")
             print("manually with proper descriptions/cli_invocations/notes (don't")
             print("blindly auto-generate — hand-curated entries beat default stubs).")
         else:

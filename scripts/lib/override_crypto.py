@@ -27,7 +27,7 @@ They have similar names and similar shapes; they are NOT the same secret.
       n8n_webhook_secrets so the Supabase RPC can verify.
     - Authenticates the dashboard → Supabase RPC call
       (record_exec_override_decision_v1) — see
-      apps/command-center/app/overrides/page.tsx::decisionAction.
+      app/overrides/page.tsx::decisionAction in the oasis-command-center repo.
 
 They are layered: OASIS_OUTBOUND_HMAC_SECRET protects "did the dashboard
 operator click Approve" (cloud trust). EMPIRE_OVERRIDE_HMAC_KEY protects

@@ -2530,7 +2530,7 @@ def _try_pair_code_flow(dashboard_url: str) -> bool:
 
     # Env-var path: when the install one-liner sets BRAVO_PAIR_CODE
     # (the dashboard's Install button does this — see DevicesEditor +
-    # InstallBridgeModal in apps/command-center/), skip the manual paste
+    # InstallBridgeModal in the oasis-command-center repo), skip the manual paste
     # prompt entirely. The operator already clicked the button, so we
     # can go straight to redeem. Falls back to interactive prompt on
     # any failure (so existing CLI flow still works).

@@ -42,40 +42,13 @@ x-cloud-base: &cloud-base
 
 services:
 
-  # Next.js Command Center — public TLS via Caddy.
-  command-center:
-    build:
-      context: ..
-      dockerfile: infra/Dockerfile.commandcenter
-    env_file: ../.env.agents
-    environment:
-      NODE_ENV: production
-      NEXT_PUBLIC_SUPABASE_URL: "${BRAVO_SUPABASE_URL}"
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: "${BRAVO_SUPABASE_ANON_KEY}"
-      STATE_API_URL: "http://state-api:8500"
-    expose:
-      - "3000"
-    read_only: true
-    tmpfs:
-      - /tmp
-      - /app/.next/cache
-    cap_drop: [ALL]
-    security_opt: [no-new-privileges:true]
-    restart: unless-stopped
-    depends_on:
-      - state-api
-      - pgbouncer
-    networks:
-      - bravo-net
-    labels:
-      bravo.role: command-center
-      bravo.profile: cloud
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
-      interval: 60s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
+  # Next.js Command Center — extracted 2026-05-18 to its own repo:
+  # https://github.com/CC90210/oasis-command-center
+  # Production deploys to Vercel (agent-dashboard-cc90210.vercel.app), not this
+  # compose stack. To self-host the dashboard alongside the rest of this
+  # empire's services, clone that repo separately and run its Dockerfile.
+  # The state-api service below stays in this stack and is reachable from
+  # the dashboard via STATE_API_URL when both run on the same network.
 
   # Read-only state API — internal-only (Caddy network).
   # Reads state/empire_state.db + tails state/*.log for the dashboard.

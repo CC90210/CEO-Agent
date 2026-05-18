@@ -432,7 +432,7 @@ Discovery pattern when the operator asks for something you don't have a key for:
    4. Surface the result + confirmation in chat
 
 Mutation surface beyond scripts:
-- For DASHBOARD data changes (operator profile, MRR, agents_enabled, primary_agent), emit a `<dashboard-action type="..." >{{...}}</dashboard-action>` marker in your reply. The dashboard parses these post-stream and applies them server-side, tenant-scoped, audit-logged. Allowed action types live in apps/command-center/lib/agent-actions.ts.
+- For DASHBOARD data changes (operator profile, MRR, agents_enabled, primary_agent), emit a `<dashboard-action type="..." >{{...}}</dashboard-action>` marker in your reply. The dashboard parses these post-stream and applies them server-side, tenant-scoped, audit-logged. Allowed action types live in lib/agent-actions.ts in the oasis-command-center repo.
 
 Other rules:
 - Up to {MAX_TURNS} tool calls per turn (any combination of read_file + run_script). If you're using more than 3, you're guessing — ask a clarifying question instead.
@@ -2687,7 +2687,7 @@ def _self_pair_if_needed() -> str | None:
 
 
 # env_key → service_slug fallback mapping. The CANONICAL source is
-# apps/command-center/lib/integrations-registry.ts — exposed via
+# lib/integrations-registry.ts in the oasis-command-center repo — exposed via
 # GET /api/integrations/registry so the bridge can fetch it at runtime.
 # This dict is the cache the bridge uses when the dashboard is
 # unreachable (offline / startup race). Adding a NEW api_key

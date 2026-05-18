@@ -59,7 +59,7 @@ def load_client():
 
 # The Lead row columns we copy into tenant_records.data. Keep this list
 # stable — the dashboard's tenantRecordToLead() mapper in
-# apps/command-center/lib/queries.ts reads exactly these keys back out.
+# lib/queries.ts (oasis-command-center repo) reads exactly these keys back out.
 COPY_FIELDS = [
     "name",
     "email",

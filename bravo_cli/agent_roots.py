@@ -21,7 +21,7 @@ from pathlib import Path
 
 HOME = Path.home()
 
-# Default repo paths. Mirrors apps/command-center/lib/agent-roots.ts.
+# Default repo paths. Mirrors lib/agent-roots.ts in the oasis-command-center repo.
 DEFAULTS: dict[str, list[Path]] = {
     "bravo": [
         HOME / "Business-Empire-Agent",

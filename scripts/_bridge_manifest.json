@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-17T20:38:11.371392+00:00",
-  "script_count": 100,
-  "entry_count": 361,
+  "generated_at_iso": "2026-05-18T04:37:30.056935+00:00",
+  "script_count": 99,
+  "entry_count": 360,
   "entries": [
     {
       "key": "agent_heartbeat",
@@ -570,13 +570,6 @@
       "subcmd": null,
       "mutating": false,
       "help": "Daily Bravo Brief \u2014 AI-narrated morning summary to CC's Telegram."
-    },
-    {
-      "key": "deploy_command_center",
-      "path": "scripts/deploy_command_center.py",
-      "subcmd": null,
-      "mutating": true,
-      "help": "deploy_command_center.py \u2014 one-shot production deploy for the OASIS AI"
     },
     {
       "key": "dns_reputation",
