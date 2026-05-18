@@ -42,6 +42,13 @@ import sys
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
+
+# CREATE_NO_WINDOW on Windows — prevents a console flicker every time the
+# bridge-ping loop fires a cron job's script. capture_output=True alone is
+# NOT enough: it redirects stdio AFTER process creation, but Windows still
+# allocates a console window at CreateProcess() time unless this flag is
+# passed. Setting it to 0 on non-Windows so the same call works portably.
+_WINDOWLESS = 0x08000000 if sys.platform == "win32" else 0
 from pathlib import Path
 from typing import Any
 
@@ -158,6 +165,7 @@ def _exec_script_run(payload: dict) -> dict:
             encoding="utf-8",
             errors="replace",
             timeout=300,
+            creationflags=_WINDOWLESS,
         )
     except subprocess.TimeoutExpired as e:
         return {

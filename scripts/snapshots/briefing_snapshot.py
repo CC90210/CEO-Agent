@@ -56,12 +56,17 @@ def _call(args: list[str]) -> dict | list | None:
 
 
 def build_snapshot() -> dict:
-    mrr = _call(["scripts/revenue_engine.py", "mrr", "--json"])
-    goal = _call(["scripts/revenue_engine.py", "goal", "--json"])
-    pipeline = _call(["scripts/lead_engine.py", "pipeline", "--json"])
-    followups = _call(["scripts/lead_engine.py", "followups", "--json"])
-    health_alerts = _call(["scripts/client_health.py", "alerts", "--json"])
-    briefing = _call(["scripts/ceo_dashboard.py", "briefing", "--json"])
+    # argparse on these CLIs places --json on the top-level parser, not on
+    # subcommand parsers. The 2026-05-18 brief shipped 3 stale rows because
+    # the calls below had --json AFTER the verb (e.g. `pipeline --json`),
+    # which argparse rejects as "unrecognized arguments: --json". Order
+    # matters: --json must come FIRST, then the subcommand.
+    mrr = _call(["scripts/revenue_engine.py", "--json", "mrr"])
+    goal = _call(["scripts/revenue_engine.py", "--json", "goal"])
+    pipeline = _call(["scripts/lead_engine.py", "--json", "pipeline"])
+    followups = _call(["scripts/lead_engine.py", "--json", "followups"])
+    health_alerts = _call(["scripts/client_health.py", "--json", "alerts"])
+    briefing = _call(["scripts/ceo_dashboard.py", "--json", "briefing"])
 
     return {
         "snapshot_type": "briefing",
