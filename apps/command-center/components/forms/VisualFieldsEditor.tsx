@@ -1,18 +1,14 @@
 "use client";
 
 /**
- * Visual fields editor — replaces the raw "Steps (JSON)" textarea with a
- * structured per-step / per-field UI. Operators add fields with a type
- * dropdown, label, required toggle, and (for file_upload) accepted MIME
- * types + min/max file counts. The underlying state is still the same
- * FormStep[] shape so parseFormSteps still validates on save.
+ * Visual fields editor — structured per-step / per-field UI for the form
+ * builder. Operators add fields with a type dropdown, label, required
+ * toggle, and (for file_upload) accepted MIME types. The state stays as
+ * a FormStep[] so parseFormSteps still validates on save.
  *
- * Two top-level escape hatches the operator can grow into:
- *   - "Add file upload" preset stamps out the standard 3-document SunBiz
- *     intake (bank statements / ID / proof of ownership) since that's the
- *     overwhelming default.
- *   - The JSON power-user view is reachable from the builder via a tab
- *     (FormBuilderClient owns that toggle).
+ * "Add SunBiz docs step" stamps out the standard 3-document intake (bank
+ * statements / ID / proof of ownership) since that's the overwhelming
+ * default for funding applications.
  */
 
 import { useState } from "react";

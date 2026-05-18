@@ -60,19 +60,20 @@ type Props = {
 
 // Operator-friendly stage options for the per-step "what happens next?"
 // dropdown. The Lead and Opportunity pipelines are the two stage families
-// a SunBiz form can transition into; "no change" is the explicit no-op.
-const STAGE_OPTIONS: Array<{ value: string; label: string; group: string }> = [
-  { value: "", label: "Don't change the stage", group: "—" },
-  ...LEAD_PIPELINE_STAGES.map((s) => ({
-    value: s.key,
-    label: s.label,
-    group: "Lead Pipeline",
-  })),
-  ...OPPORTUNITY_PIPELINE_STAGES.map((s) => ({
-    value: s.key,
-    label: s.label,
-    group: "Opportunity Pipeline",
-  })),
+// a SunBiz form can transition into; rendered as optgroups so a flat list
+// of 20+ stages doesn't overwhelm.
+const STAGE_GROUPS: Array<{ label: string; options: { value: string; label: string }[] }> = [
+  {
+    label: "Lead Pipeline",
+    options: LEAD_PIPELINE_STAGES.map((s) => ({ value: s.key, label: s.label })),
+  },
+  {
+    label: "Opportunity Pipeline",
+    options: OPPORTUNITY_PIPELINE_STAGES.map((s) => ({
+      value: s.key,
+      label: s.label,
+    })),
+  },
 ];
 
 export function FormBuilderClient({ initialForm }: Props) {
@@ -398,10 +399,15 @@ export function FormBuilderClient({ initialForm }: Props) {
                   onChange={(e) => updateStepOutcome(idx, e.target.value)}
                   className="rounded-md border border-bg-border bg-bg-elev px-2 py-1 text-xs text-fg"
                 >
-                  {STAGE_OPTIONS.map((opt, oi) => (
-                    <option key={`${opt.value}-${oi}`} value={opt.value}>
-                      {opt.label}
-                    </option>
+                  <option value="">Don&apos;t change the stage</option>
+                  {STAGE_GROUPS.map((group) => (
+                    <optgroup key={group.label} label={group.label}>
+                      {group.options.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </div>
