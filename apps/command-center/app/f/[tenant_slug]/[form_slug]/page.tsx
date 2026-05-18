@@ -16,6 +16,7 @@
  * the submit route.
  */
 
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getServiceSupabase } from "@/lib/supabase-server";
 import { FormPublicClient } from "@/components/forms/FormPublicClient";
@@ -28,6 +29,40 @@ import {
 import { resolvePublicForm } from "@/lib/forms/public-resolver";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Per-form metadata so the browser tab shows the tenant brand instead of
+ * the dashboard's default "OASIS AI · Agent Command Center". A prospect
+ * opening a SunBiz application form sees "SunBiz Funding · Tell us about
+ * your business" in their tab — not the operator-side product name.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<RouteParams>;
+}): Promise<Metadata> {
+  const resolved = await params;
+  const db = getServiceSupabase();
+  const lookup = await resolvePublicForm(db, resolved.tenant_slug, resolved.form_slug);
+  if (!lookup.ok) {
+    return { title: "Form" };
+  }
+  let title = lookup.form.name || "Application";
+  try {
+    const branding = parseFormBranding(lookup.form.branding);
+    if (branding.headline) title = branding.headline;
+  } catch {
+    // Fall through to form name on parse failure.
+  }
+  return {
+    title,
+    // Public form pages should never be indexed — every URL is a single-
+    // tenant intake form, not marketing content. noindex,nofollow keeps
+    // Google out and avoids "OASIS AI dashboard" pages showing up in
+    // tenant-branded search results.
+    robots: { index: false, follow: false },
+  };
+}
 export const revalidate = 0;
 
 type RouteParams = {
