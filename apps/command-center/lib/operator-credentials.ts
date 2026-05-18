@@ -22,10 +22,20 @@
 
 import type { Provider } from "./providers";
 
+// Hardcoded fallback matches the same default lib/queries.ts uses — so if
+// OPERATOR_EMAIL isn't set on Vercel, CC is still recognized as the empire
+// operator. Without this, the /t/<slug> preview gate (2026-05-17 SunBiz
+// hijack fix) would lock CC out of his own preview.
+const DEFAULT_OPERATOR_EMAIL = "conaugh@oasisai.work";
+
 export function isOperatorEmail(email: string | null | undefined): boolean {
   const e = (email || "").trim().toLowerCase();
   if (!e) return false;
-  const operator = (process.env.OPERATOR_EMAIL || "").trim().toLowerCase();
+  const operator = (
+    process.env.OPERATOR_EMAIL || DEFAULT_OPERATOR_EMAIL
+  )
+    .trim()
+    .toLowerCase();
   if (operator && e === operator) return true;
   const admins = (process.env.ADMIN_EMAILS || "")
     .split(",")
