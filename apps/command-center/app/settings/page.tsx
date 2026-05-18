@@ -132,7 +132,7 @@ export default async function SettingsPage() {
             <DevicesEditor />
           </Card>
 
-          {manifest?.compliance?.tcpa && (
+          {canManageTenant && manifest?.compliance?.tcpa && (
             <details className="rounded-xl border border-bg-border bg-bg-elev/30 group">
               <summary className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer list-none">
                 <div className="flex items-center gap-2">
