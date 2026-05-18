@@ -288,8 +288,16 @@ def fetch_clients(db_client) -> list[dict]:
     """
     try:
         result = db_client.table("leads").select("*").eq("status", "client").execute()
-        if result.data:
-            return result.data
+        # Empty result means CC has no clients tagged status='client' in the
+        # leads table — return empty so callers see ground truth instead of
+        # demo data leaking into operator-facing alerts. Was: silently
+        # falling through to seed records, which surfaced "Demo Community
+        # Client RED, your biggest account!" in CC's daily brief on 2026-05-18
+        # when his real paying customers are tracked via revenue_events, not
+        # leads-with-status-client. The fix here is structural — don't fake
+        # data; the seed-data path below stays available only for hard query
+        # failures (exception path), not empty results.
+        return result.data or []
     except Exception as exc:
         print(f"  NOTE: Supabase query failed ({exc}). Using demo data.", file=sys.stderr)
 

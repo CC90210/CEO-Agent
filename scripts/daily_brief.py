@@ -49,7 +49,13 @@ SNAPSHOT_PATH = PROJECT_ROOT / "state" / "snapshots" / "latest_briefing.json"
 ANTHROPIC_VERSION = "2023-06-01"
 NARRATION_MODEL = "claude-sonnet-4-6"
 MAX_TOKENS = 600
-SNAPSHOT_STALENESS_SEC = 24 * 60 * 60  # 24h
+SNAPSHOT_STALENESS_SEC = 5 * 60  # 5 min — was 24h, but CC's revenue events
+# (subscription_start / cancel logged manually) change throughout the day. A
+# 24h-old snapshot caused the 2026-05-18 15:15 brief to report MRR $3,322 / 12d
+# left when the primary retainer's $2,951 retainer had been cancelled at 15:20 just before
+# the brief fired — snapshot was 11 min old and pre-cancel. 5 min cap means
+# the brief regenerates from fresh CLIs on any non-trivial wait, while still
+# avoiding regeneration cost on rapid-fire manual re-runs.
 
 SYSTEM_PROMPT = """You are Bravo, CC's lead architect. Each morning you turn last 24h's empire data into a 5-bullet brief CC can read in 30 seconds before he starts his day.
 
