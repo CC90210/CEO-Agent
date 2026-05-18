@@ -34,23 +34,27 @@ export default async function RootLayout({
   // sidebar shell. The pathname is set as a header by middleware.ts.
   const hdrs = await headers();
   const pathname = hdrs.get("x-pathname") || hdrs.get("x-invoke-path") || "";
-  const isFullBleed =
-    pathname.startsWith("/welcome") ||
-    pathname.startsWith("/download") ||
-    pathname.startsWith("/configure") ||
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/signup") ||
-    pathname.startsWith("/forgot-password") ||
-    pathname.startsWith("/auth/callback") ||
-    pathname.startsWith("/auth/reset-password") ||
-    pathname.startsWith("/onboarding") ||
-    // Public-facing form pages — prospects must NOT see the operator
-    // sidebar/chrome. /f/<tenant_slug>/<form_slug> (anonymous share) and
-    // /f/<tenant_slug>/<form_slug>/<lead_token> (Solara-minted). Both
-    // route shapes start with /f/.
-    pathname.startsWith("/f/") ||
-    // Invite landing — pre-signup, no sidebar.
-    pathname.startsWith("/invite/");
+  // Paths that render edge-to-edge (no operator sidebar, no footer, no
+  // tenant manifest resolution). Anything aimed at a prospect / pre-auth
+  // visitor or a fresh signup walks through here. Operators on these
+  // surfaces also get the chrome stripped so the auth flow itself looks
+  // clean. Mirrors middleware.ts PUBLIC_PATH_PREFIXES — kept as a
+  // separate list because middleware also lists API routes that aren't
+  // page-rendered.
+  const FULL_BLEED_PREFIXES = [
+    "/welcome",
+    "/download",
+    "/configure",
+    "/login",
+    "/signup",
+    "/forgot-password",
+    "/auth/callback",
+    "/auth/reset-password",
+    "/onboarding",
+    "/f/",        // public form pages (anonymous + personalized)
+    "/invite/",   // pre-signup invite landing
+  ];
+  const isFullBleed = FULL_BLEED_PREFIXES.some((p) => pathname.startsWith(p));
 
   let profile = null;
   let primaryAgentLive = false;

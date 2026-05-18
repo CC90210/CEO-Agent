@@ -12,6 +12,7 @@
  * tenant-slug mismatch) render a clean error page instead of 500.
  */
 
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getServiceSupabase } from "@/lib/supabase-server";
 import { verifyFormLink } from "@/lib/form-links";
@@ -30,6 +31,28 @@ export const dynamic = "force-dynamic";
 // caching one prospect's render and serving it to another would be a
 // data-leak vector even if the HMAC verification still gates submits.
 export const revalidate = 0;
+
+/** Tab title = the form's headline / name, not the dashboard's default.
+ *  Personalized links don't leak the tenant identity any harder than
+ *  the URL already does, so this is brand polish, not security. */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<RouteParams>;
+}): Promise<Metadata> {
+  const { tenant_slug, form_slug, lead_token } = await params;
+  // Verifying the token here is overkill for a tab title — fall back
+  // gracefully on any failure. The form_slug is the cheapest readable
+  // string we have without a DB round-trip on the metadata path.
+  let title = decodeURIComponent(form_slug).replace(/-/g, " ");
+  if (lead_token && tenant_slug) {
+    title = `${title} · ${tenant_slug}`;
+  }
+  return {
+    title,
+    robots: { index: false, follow: false },
+  };
+}
 
 type RouteParams = {
   tenant_slug: string;
