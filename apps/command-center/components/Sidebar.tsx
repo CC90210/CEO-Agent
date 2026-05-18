@@ -39,6 +39,7 @@ import {
   Upload,
   Users,
   UsersRound,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import { OasisLogo } from "@/components/brand/OasisLogo";
@@ -96,6 +97,7 @@ export function Sidebar({
   demoLabel = "Client demo",
   demoLandingPath = "/demo/sun",
   isMobileOpen = false,
+  onMobileClose,
 }: {
   brand?: string;
   logo?: "oasis" | "sunbiz" | "suga";
@@ -116,6 +118,9 @@ export function Sidebar({
   demoLandingPath?: string;
   /** Mobile drawer open state — controlled by SidebarShell. Ignored at md+. */
   isMobileOpen?: boolean;
+  /** Mobile drawer close handler. Required for the close button inside the
+   *  drawer to work. Ignored at md+. */
+  onMobileClose?: () => void;
 }) {
   const pathname = usePathname();
   const navItems = items && items.length > 0 ? items : CC_NAV;
@@ -169,6 +174,19 @@ export function Sidebar({
     >
       {/* Brand block */}
       <div className="px-5 py-5 border-b border-bg-border relative">
+        {/* Mobile-only close button. Sits over the brand block so the
+            operator can dismiss the drawer without reaching for the
+            outer backdrop. md+ never renders this. */}
+        {onMobileClose && (
+          <button
+            type="button"
+            onClick={onMobileClose}
+            aria-label="Close menu"
+            className="md:hidden absolute top-3 right-3 inline-flex h-8 w-8 items-center justify-center rounded-md text-fg-muted hover:text-fg hover:bg-bg-elev"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
         <Link href="/" className="flex items-center gap-2.5 group">
           <BrandMark logo={logo} />
           <div className="leading-tight">
