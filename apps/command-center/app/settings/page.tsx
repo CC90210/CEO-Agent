@@ -259,7 +259,7 @@ export default async function SettingsPage() {
                 }))}
               />
             ) : (
-              <EmptyState message="Team-wide model defaults are managed by an owner or admin. Use My Agents below for your personal AI keys." />
+              <EmptyState message="Team-wide model defaults are managed by an owner or admin. Scroll down to 'Use my own AI keys (just for me)' if you'd rather plug in your own AI account." />
             )}
           </Card>
 
