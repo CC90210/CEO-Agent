@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Loader2, ExternalLink } from "lucide-react";
+import { Loader2, ExternalLink } from "lucide-react";
 
 export function LeadDocumentDownloadButton({
   documentId,
@@ -64,4 +64,3 @@ export function LeadDocumentDownloadButton({
   );
 }
 
-export { Download };
