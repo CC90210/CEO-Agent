@@ -122,7 +122,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 - [[skills/ethical-hacking/SKILL]] | [[skills/sales-closing/SKILL]]
 - [[knowledge/index]] | [[knowledge/SCHEMA]]
 - [[brain/DASHBOARD]]
-- **Hubs (graph spine):** [[skills/INDEX]] · [[docs/INDEX]] · [[browser/README]] · [[browser/domain-skills/README]] · [[browser/interaction-skills/INDEX]] · [[apps/command-center/README]] · [[data/pulse/README]] · [[memory/outreach_archive/INDEX]] · [[memory/daily/INDEX]] · [[.gemini/INDEX]] · [[templates/agent-scaffold/README]]
+- **Hubs (graph spine):** [[skills/INDEX]] · [[docs/INDEX]] · [[browser/README]] · [[browser/domain-skills/README]] · [[browser/interaction-skills/INDEX]] · [oasis-command-center](https://github.com/CC90210/oasis-command-center) (external) · [[data/pulse/README]] · [[memory/outreach_archive/INDEX]] · [[memory/daily/INDEX]] · [[.gemini/INDEX]] · [[templates/agent-scaffold/README]]
 - **Top-level:** [[PLAYBOOK]] · [[SECURITY]] · [[CLIENT_READY]]
 
 ## Last Heartbeat

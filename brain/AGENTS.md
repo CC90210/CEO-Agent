@@ -204,7 +204,7 @@ Per STATE.md "Content Studio | MOVED TO MAVEN", the `content-creator`, `social-p
 
 ### 20. Suga Sean O'Malley Agent (Brand Ops — Client Product Scaffold, added 2026-05-12)
 - **Model Tier:** Sonnet (target runtime; standalone repo TBD)
-- **Project:** `C:\Users\User\APPS\suga-sean-agent` (planned; directory does not yet exist on disk — agent profile + dashboard shell live in-tree at `apps/command-center` until the standalone runtime ships)
+- **Project:** `C:\Users\User\APPS\suga-sean-agent` (planned; directory does not yet exist on disk — agent profile + dashboard shell live in the [oasis-command-center](https://github.com/CC90210/oasis-command-center) repo until the standalone runtime ships)
 - **GitHub:** TBD (operator will supply repo URL; wizard `AGENT_REPOS["suga_sean"]` left unset so cloning is skipped until ready)
 - **Purpose:** CC's second **client backend operations product**. Runs Suga Sean O'Malley's brand operations — fan engagement, merch drops, social distribution (X/Twitter + Late/Zernio scheduling), sponsorship triage — as a separate client-facing agent paralleling Sun Biz Agent's structure.
 - **Capabilities (Phase 1 scaffold):** Command Center profile (SUGA_PROFILE, Turso/dedicated), SUGA_NAV sidebar (17 items across Operations / Fans / Brand / Commerce / Sponsorship / System), Crown brand mark (pink gradient), ChatWidget suggestions. SMS deferred — Suga's primary channels are social + email, not transactional SMS. Demo data + dedicated stub pages pending.
@@ -215,7 +215,7 @@ Per STATE.md "Content Studio | MOVED TO MAVEN", the `content-creator`, `social-p
 - **Relationship to Bravo:** Bravo owns shared substrate (state_manager, event_bus, dashboard chrome, wizard rails). Suga Sean Agent will own Sean's runtime + business logic once its repo ships. Bravo MAY read Suga pulse/state and mutate shared substrate files here; Suga product/data architecture lives in the Suga repo/runtime.
 - **Relationship to Atlas/Maven:** Atlas approves spend gates on Suga's paid promo budget. Maven owns CC's empire content but does NOT touch Suga's brand voice — that's the tenant's own (Sean's).
 - **Routing rule:** Anything labeled "for Suga", "Sean O'Malley", fan engagement inside the Suga tenant, merch drop scheduling, social post pipeline, or sponsorship triage → route to Suga Sean Agent repo (when it ships).
-- **Key files (current):** `apps/command-center/lib/agents.ts:115` (registry entry), `apps/command-center/lib/client-profiles.ts` (SUGA_PROFILE), `apps/command-center/lib/nav-config.ts` (SUGA_NAV), `apps/command-center/components/Sidebar.tsx` (Crown brand mark), `bravo_cli/wizard.py` PROFILES["suga_sean"]. Planned key files in the standalone repo: `brain/SOUL.md`, `brain/CLIENT.md`, `scripts/fan_engagement.py`, `scripts/merch_scheduler.py`, `scripts/social_publisher.py`.
+- **Key files (current):** in the [oasis-command-center](https://github.com/CC90210/oasis-command-center) repo: `lib/agents.ts:115` (registry entry), `lib/client-profiles.ts` (SUGA_PROFILE), `lib/nav-config.ts` (SUGA_NAV), `components/Sidebar.tsx` (Crown brand mark). In this repo: `bravo_cli/wizard.py` PROFILES["suga_sean"]. Planned key files in the standalone Suga repo: `brain/SOUL.md`, `brain/CLIENT.md`, `scripts/fan_engagement.py`, `scripts/merch_scheduler.py`, `scripts/social_publisher.py`.
 
 ### External: Atlas (CFO — Separate Project)
 - **Model Tier:** Opus (separate project, own CLAUDE.md)

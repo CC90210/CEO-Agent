@@ -39,6 +39,7 @@ When CC says "fix [app]", "update [app]", "build [feature] in [app]", "debug [ap
 | **IG Setter Pro** | ig-setter, ig setter, dm automation, manychat | `C:\Users\User\APPS\ig-setter-pro` | CC90210/ig-setter-pro | Turso (ig-setter-cc90210) | Next.js 14, TypeScript, Turso/libSQL, n8n, Claude API, Tailwind | Vercel (ig-setter-pro.vercel.app) |
 | **Gritly** | gritly, field service, fsm, trades app | `C:\Users\User\APPS\gritly` | (pending) | Turso (libSQL) | Next.js 15, TypeScript, Drizzle ORM, Better Auth, Stripe, Framer Motion | Vercel (pending) |
 | **Hermes** | hermes, lowinger, emmanuel, commerce agent, pos agent, a2000, walgreens, edi, chargeback | `C:\Users\User\hermes` | [CC90210/hermes](https://github.com/CC90210/hermes) (public) | — | Python 3.12, SQLite, FastAPI, Ollama OR Anthropic/OpenAI (DPA), pywinauto (A2000 desktop takeover), Playwright (web ERPs), reportlab (GS1-128 labels), pdfplumber/openpyxl (PO parsing) | Local (client machine) + GitHub Pages demo (cc90210.github.io/hermes) |
+| **OASIS Command Center** | command center, agent command center, dashboard, agent-dashboard, oasis dashboard | `C:\Users\User\APPS\oasis-command-center` | [CC90210/oasis-command-center](https://github.com/CC90210/oasis-command-center) | shared with empire (BRAVO_SUPABASE_URL) | Next.js 15.5, React 19, TypeScript, Tailwind, Supabase SSR, Anthropic | Vercel (`agent-dashboard`, alias agent-dashboard-cc90210.vercel.app) — auto-deploys on push to `main` |
 
 
 ## App Context Files

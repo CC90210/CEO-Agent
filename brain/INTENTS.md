@@ -49,7 +49,7 @@ In chat (bridge mode), this runs through the `run_script` tool with `confirm:tru
 
 ## "Update my dashboard / profile / settings"
 
-1. Read `apps/command-center/lib/agent-actions.ts` to confirm the action shape (allowed fields, validators).
+1. Read `oasis-command-center:lib/agent-actions.ts` to confirm the action shape (allowed fields, validators).
 2. Emit a `<dashboard-action type="…">{…}</dashboard-action>` marker in your chat reply. The chat route parses it post-stream and applies via `runAction()`.
 3. Confirm in chat with one line: "Set primary agent to Atlas. Refresh the page to see it stick."
 
@@ -59,8 +59,8 @@ Allowed action types: `update_profile`, `toggle_agent_enabled`, `set_primary_age
 
 ## "Schedule / run a cron"
 
-1. For Vercel-hosted crons (the dashboard's): edit `apps/command-center/vercel.json`'s `crons` array. Push. Vercel picks it up on next deploy.
-2. For local-machine crons (most of `scripts/*`): there's no central scheduler. The convention is `python scripts/<name>.py` invoked from the operator's task scheduler / launchd / systemd. Tell them what to schedule, but if they ask you to "automate it," wire it via `apps/command-center/vercel.json` if it's HTTP-pingable, or surface the OS-specific install command.
+1. For Vercel-hosted crons (the dashboard's): edit `oasis-command-center:vercel.json`'s `crons` array. Push. Vercel picks it up on next deploy.
+2. For local-machine crons (most of `scripts/*`): there's no central scheduler. The convention is `python scripts/<name>.py` invoked from the operator's task scheduler / launchd / systemd. Tell them what to schedule, but if they ask you to "automate it," wire it via `oasis-command-center:vercel.json` if it's HTTP-pingable, or surface the OS-specific install command.
 3. Confirm in chat: where it's now scheduled, when next run is.
 
 ---
@@ -118,7 +118,7 @@ Skill refs: [skills/research-fetch/SKILL.md](../skills/research-fetch/SKILL.md) 
 ## "Stop / pause / undo"
 
 1. **Outbound mid-flight:** `BRAVO_FORCE_DRY_RUN=1` env var — every send routes to dry-run. Set on the local shell or in `.env.agents`.
-2. **Cron:** comment the line in `apps/command-center/vercel.json` and push.
+2. **Cron:** comment the line in `oasis-command-center:vercel.json` and push.
 3. **Last action emitted via dashboard-action:** there's no automated undo. Emit a compensating action (e.g. `update_profile` with the previous value) in the next turn after the operator confirms.
 
 ---

@@ -59,4 +59,4 @@ Tuned for intimate-confident in `scripts/aura/voice.py`:
 
 ## Manifest status
 
-Aura is `enabled: true` in `OASIS_SEED.agents` (`apps/command-center/lib/manifest/seeds.ts`). She appears in the dashboard Agents list with display name "Aura" once the Vercel deploy picks up the seed change.
+Aura is `enabled: true` in `OASIS_SEED.agents` (`oasis-command-center:lib/manifest/seeds.ts`). She appears in the dashboard Agents list with display name "Aura" once the Vercel deploy picks up the seed change.
