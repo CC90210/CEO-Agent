@@ -35,6 +35,12 @@ import { composeDashboardContextV2 } from "@/lib/agent-context";
 import { markReadDb } from "@/lib/agent-inbox-db";
 import { rateLimit } from "@/lib/rate-limit";
 import { extractActionMarkers, runAction } from "@/lib/agent-actions";
+import {
+  READ_ONLY_DENIED_TOOLS,
+  READ_ONLY_DENIED_MARKERS,
+  TOOL_NATIVE_MARKER_TYPES,
+  isReadOnlyRole,
+} from "@/lib/role-gates";
 import { logAction } from "@/lib/action-log";
 import {
   cloudToolsPromptBlock,
@@ -357,27 +363,14 @@ export async function POST(req: NextRequest) {
     // Best-effort; an operator name lookup failure shouldn't block chat.
   }
   // Server-side enforcement of read_only — the persona text above is
-  // advisory (the model can ignore it on a jailbreak). For read_only
-  // users we hard-strip write tools from the palette AND block write
-  // actions in the runAction dispatcher below. Belt and braces.
-  const isReadOnly = operatorRole === "read_only";
+  // advisory (the model can ignore it on a jailbreak). Hard-strip
+  // write tools from the palette AND block write markers in the
+  // dispatcher below. Both lists live in lib/role-gates.ts so they
+  // can't drift out of sync.
+  const isReadOnly = isReadOnlyRole(operatorRole);
   if (isReadOnly) {
-    const writeTools = new Set([
-      "create_record",
-      "update_record",
-      "delete_record",
-      "send_email",
-      "send_sms",
-      "write_file",
-      "bash",
-      "run_script",
-    ]);
-    if (toolPalette) {
-      toolPalette = toolPalette.filter((t) => !writeTools.has(t));
-    } else {
-      // Fall through to SAFE_TENANT_TOOL_PALETTE then filter
-      toolPalette = SAFE_TENANT_TOOL_PALETTE.filter((t) => !writeTools.has(t));
-    }
+    const base = toolPalette ?? SAFE_TENANT_TOOL_PALETTE;
+    toolPalette = base.filter((t) => !READ_ONLY_DENIED_TOOLS.has(t));
   }
   // Cloud-mode tool surface selection.
   //
@@ -616,29 +609,14 @@ export async function POST(req: NextRequest) {
       // persona still teaches DASHBOARD_ACTION_SPEC). Operator-side actions
       // like update_profile / toggle_agent_enabled still run via markers
       // because they aren't in the cloud-tool palette.
-      const toolNativeMarkerTypes = new Set([
-        "create_record",
-        "update_record",
-        "delete_record",
-      ]);
-      // Write actions a read_only operator must NEVER perform — even
-      // via marker actions. The persona text was advisory; this is the
-      // hard gate. Mirrors the cloud-tool filter further up.
-      const writeMarkerTypes = new Set([
-        "create_record",
-        "update_record",
-        "delete_record",
-        "update_profile",
-        "toggle_agent_enabled",
-      ]);
       try {
         const rawSpecs = extractActionMarkers(assistantText);
         const specs =
           cloudToolsMode === "tools"
-            ? rawSpecs.filter((s) => !toolNativeMarkerTypes.has(s.type))
+            ? rawSpecs.filter((s) => !TOOL_NATIVE_MARKER_TYPES.has(s.type))
             : rawSpecs;
         for (const spec of specs) {
-          if (isReadOnly && writeMarkerTypes.has(spec.type)) {
+          if (isReadOnly && READ_ONLY_DENIED_MARKERS.has(spec.type)) {
             send("action", {
               ok: false,
               error: "forbidden_read_only",
