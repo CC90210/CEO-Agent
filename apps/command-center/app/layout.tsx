@@ -43,7 +43,14 @@ export default async function RootLayout({
     pathname.startsWith("/forgot-password") ||
     pathname.startsWith("/auth/callback") ||
     pathname.startsWith("/auth/reset-password") ||
-    pathname.startsWith("/onboarding");
+    pathname.startsWith("/onboarding") ||
+    // Public-facing form pages — prospects must NOT see the operator
+    // sidebar/chrome. /f/<tenant_slug>/<form_slug> (anonymous share) and
+    // /f/<tenant_slug>/<form_slug>/<lead_token> (Solara-minted). Both
+    // route shapes start with /f/.
+    pathname.startsWith("/f/") ||
+    // Invite landing — pre-signup, no sidebar.
+    pathname.startsWith("/invite/");
 
   let profile = null;
   let primaryAgentLive = false;
