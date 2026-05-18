@@ -247,6 +247,23 @@ export const TOOL_DEFINITIONS: ToolDef[] = [
       "List the operator's connected integrations (Stripe, Gmail, Late, etc.) with health. Use before recommending an action that needs an integration.",
     input_schema: { type: "object", properties: {} },
   },
+  {
+    name: "list_lead_documents",
+    description:
+      "List documents the prospect uploaded against a lead — bank statements, ID, proof of ownership, etc. Returns filename, doc_type (matches the SunBiz classifier enum: bank_statements_3mo / drivers_license / proof_of_ownership / void_cheque / business_license / tax_returns / other / unclassified), size, when they uploaded, and which form field they came from. Use this when the operator asks 'what docs do I have for this lead', 'are we missing anything for the application', or before recommending a lender shop-out. Returns metadata only — the operator views the file itself via the dashboard's Documents panel.",
+    input_schema: {
+      type: "object",
+      properties: {
+        lead_id: { type: "string", description: "The lead's UUID." },
+        doc_type: {
+          type: "string",
+          description:
+            "Optional filter — only return documents whose doc_type matches this string (e.g. 'bank_statements_3mo').",
+        },
+      },
+      required: ["lead_id"],
+    },
+  },
 
   // ──────────────────────────────────────────────────────────────────
   // Bridge-proxied tools (defer: true) — these execute on the operator's
@@ -557,6 +574,8 @@ async function dispatch(
       if (!r.ok) throw new Error(r.error);
       return r.data;
     }
+    case "list_lead_documents":
+      return await toolListLeadDocuments(input, ctx);
     default:
       throw new Error(`unknown_tool:${name}`);
   }
@@ -623,6 +642,58 @@ async function toolGetRecord(input: Record<string, unknown>, ctx: ToolContext) {
   const row = await dataGet({ tenant_id: ctx.tenantId, entity: entity.toLowerCase(), id });
   if (!row) throw new Error("record_not_found");
   return { id: row.id, ...row.data };
+}
+
+async function toolListLeadDocuments(
+  input: Record<string, unknown>,
+  ctx: ToolContext,
+) {
+  const leadId = String(input.lead_id || "").trim();
+  if (!leadId) throw new Error("lead_id_required");
+  const docTypeFilter =
+    typeof input.doc_type === "string" && input.doc_type.trim()
+      ? input.doc_type.trim().toLowerCase()
+      : null;
+
+  const db = getServiceSupabase();
+  let query = db
+    .from("lead_documents")
+    .select("id, filename, mime_type, size_bytes, doc_type, uploaded_by, uploaded_at, metadata")
+    .eq("tenant_id", ctx.tenantId)
+    .eq("lead_id", leadId)
+    .order("uploaded_at", { ascending: false })
+    .limit(50);
+  if (docTypeFilter) query = query.eq("doc_type", docTypeFilter);
+  const { data, error } = await query;
+  if (error) throw new Error(`lead_documents_query_failed: ${error.message}`);
+  const rows = (data || []) as Array<{
+    id: string;
+    filename: string;
+    mime_type: string | null;
+    size_bytes: number | null;
+    doc_type: string;
+    uploaded_by: string | null;
+    uploaded_at: string;
+    metadata: Record<string, unknown> | null;
+  }>;
+
+  return {
+    lead_id: leadId,
+    count: rows.length,
+    documents: rows.map((d) => ({
+      id: d.id,
+      filename: d.filename,
+      mime_type: d.mime_type,
+      size_bytes: d.size_bytes,
+      doc_type: d.doc_type,
+      uploaded_by: d.uploaded_by,
+      uploaded_at: d.uploaded_at,
+      // Surface the form field name so the model can correlate to the
+      // form definition when the operator asks "is the bank statements
+      // field still missing".
+      form_field: ((d.metadata || {}) as Record<string, unknown>).field_name ?? null,
+    })),
+  };
 }
 
 async function toolSearchRecords(input: Record<string, unknown>, ctx: ToolContext) {
