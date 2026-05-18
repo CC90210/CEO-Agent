@@ -1,10 +1,12 @@
 /**
  * /forms/[id]/edit — operator form-builder page.
  *
- * Phase 3.3 of the SunBiz CRM build. Server component loads the form
- * row (tenant-scoped via service-role + explicit user_profiles join),
- * then hands it to FormBuilderClient which owns the JSON editor +
- * live preview.
+ * Server component loads the form row (tenant-scoped via service-role
+ * + explicit user_profiles join), then hands it to FormBuilderClient
+ * which owns the visual editor + live preview. If the stored definition
+ * is malformed (manual DB edit, schema drift), we render a clean
+ * "definition corrupt" page instead of routing into the editor —
+ * the visual surface can't repair an unparseable row.
  *
  * 404 when the form doesn't belong to this user's tenant — defends
  * against a guessed-UUID URL.
@@ -91,7 +93,7 @@ export default async function EditFormPage({
       <div className="space-y-6 animate-fade-in">
         <PageHeader
           title="Form definition corrupt"
-          subtitle={`forms.id=${row.id} has malformed jsonb. Drop into the editor to fix.`}
+          subtitle={`forms.id=${row.id} has malformed data. Ask the operator who owns this tenant to delete + re-create the form, or restore from the audit log.`}
         />
         <pre className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 text-xs font-mono text-rose-400 overflow-x-auto">
           {err instanceof Error ? err.message : String(err)}
