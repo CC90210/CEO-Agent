@@ -121,16 +121,49 @@ export default async function SettingsPage() {
             />
           </Card>
 
+          {canManageTenant && (
+            <Card
+              title="Team"
+              subtitle="Invite teammates so they can sign into this tenant. Each invite is a one-time link — send it via Slack / email / SMS."
+              action={
+                <a
+                  href="/team"
+                  className="inline-flex items-center gap-1 rounded-lg bg-accent text-bg-deep px-3 py-1.5 text-xs font-bold hover:bg-accent-bright"
+                >
+                  Manage team & invites →
+                </a>
+              }
+            >
+              <p className="text-xs text-fg-muted leading-relaxed">
+                Mint personalized signup URLs for employees. They land on
+                /invite/&lt;token&gt;, sign up, and join this tenant
+                automatically — Solara recognizes them by name and respects
+                their role (owner / admin / loan_officer / processor /
+                read_only).
+              </p>
+            </Card>
+          )}
+
           <Card title="Password" subtitle="Change your sign-in password">
             <ChangePasswordForm />
           </Card>
 
-          <Card
-            title="Devices"
-            subtitle="Local installs paired to this dashboard. Each one runs the bridge daemon and pings every 60s with what's installed on that machine."
-          >
-            <DevicesEditor />
-          </Card>
+          {/* Devices + Local CLI detection are operator-machine concerns —
+              hide for tenant operators (SunBiz employees). Showing them
+              CC's machine state (Claude Code "Ready", Gemini "Ready") was
+              both confusing and a leak. Empire operators (CC) still see
+              them. Tenant admins who pair their OWN machine via the
+              standard bridge-install flow will see their device here
+              once the row exists — we don't preemptively render an empty
+              shell. */}
+          {isOperator && (
+            <Card
+              title="Devices"
+              subtitle="Local installs paired to this dashboard. Each one runs the bridge daemon and pings every 60s with what's installed on that machine."
+            >
+              <DevicesEditor />
+            </Card>
+          )}
 
           {canManageTenant && manifest?.compliance?.tcpa && (
             <details className="rounded-xl border border-bg-border bg-bg-elev/30 group">
@@ -216,7 +249,11 @@ export default async function SettingsPage() {
           <Card
             id="providers"
             title="AI provider accounts"
-            subtitle="Connect at least one model provider so your agents can think. Anthropic gets you the native tool_use loop (Claude-Code-class power); OpenRouter is one key for every model; OpenAI / Google are direct."
+            subtitle={
+              canManageTenant
+                ? "Connect at least one AI account so your agents can think. OpenRouter is the easiest — one key powers every model. Anthropic Direct, OpenAI Direct, and Google Gemini are the per-vendor paths if you prefer."
+                : "These are the team's AI accounts. Your admin connects them once — your chats will route through whichever account they pick."
+            }
           >
             <ProviderAccountsCard
               connectedServices={connectedAiSet}
@@ -225,7 +262,11 @@ export default async function SettingsPage() {
             />
           </Card>
 
-          <LocalCliProvidersCard />
+          {/* Local CLI detection probes the bridge daemon which is
+              machine-specific. For tenant operators it surfaces the
+              operator's (CC's) machine state, which is both confusing
+              and a leak. Empire-only. */}
+          {isOperator && <LocalCliProvidersCard />}
 
           <Card
             id="agents"
