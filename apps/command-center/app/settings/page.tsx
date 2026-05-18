@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Card, PageHeader, Tag, EmptyState } from "@/components/Card";
 import { IntegrationDot } from "@/components/IntegrationDot";
 import {
@@ -148,100 +149,31 @@ export default async function SettingsPage() {
             <ChangePasswordForm />
           </Card>
 
-          {/* Devices + Local CLI detection are operator-machine concerns —
-              hide for tenant operators (SunBiz employees). Showing them
-              CC's machine state (Claude Code "Ready", Gemini "Ready") was
-              both confusing and a leak. Empire operators (CC) still see
-              them. Tenant admins who pair their OWN machine via the
-              standard bridge-install flow will see their device here
-              once the row exists — we don't preemptively render an empty
-              shell. */}
-          {isOperator && (
+          {/* Devices — operator/admin can pair THEIR machine to run the
+              local bridge. Tenant admins need this too so they can give
+              their agents full Claude-Code-class capability without
+              waiting on the empire operator. Non-admin employees still
+              don't see it. */}
+          {canManageTenant && (
             <Card
-              title="Devices"
-              subtitle="Local installs paired to this dashboard. Each one runs the bridge daemon and pings every 60s with what's installed on that machine."
+              title="Devices (advanced)"
+              subtitle="Pair a machine on your network to run the local bridge — gives your agents file-system, bash, and full MCP access. Optional: a connected AI provider account below is enough for chat without ever pairing a machine."
+              action={
+                <Link
+                  href="/settings/devices/install"
+                  className="inline-flex items-center gap-1 rounded-lg bg-accent text-bg-deep px-3 py-1.5 text-xs font-bold hover:bg-accent-bright"
+                >
+                  Pair a machine →
+                </Link>
+              }
             >
               <DevicesEditor />
             </Card>
           )}
 
-          {canManageTenant && manifest?.compliance?.tcpa && (
-            <details className="rounded-xl border border-bg-border bg-bg-elev/30 group">
-              <summary className="flex items-center justify-between gap-3 px-4 py-3 cursor-pointer list-none">
-                <div className="flex items-center gap-2">
-                  <Tag tone="engaged">TCPA</Tag>
-                  <span className="text-sm font-bold text-fg">
-                    Compliance posture
-                  </span>
-                  <span className="text-xs text-fg-dim">
-                    {manifest.compliance.tcpa.send_window_local} ·{" "}
-                    {manifest.compliance.tcpa.weekend_sends
-                      ? "weekends ON"
-                      : "weekends blocked"}{" "}
-                    ·{" "}
-                    {manifest.compliance.tcpa.honor_opt_outs
-                      ? "opt-outs enforced"
-                      : "opt-outs not enforced"}
-                  </span>
-                </div>
-                <span className="text-xs text-fg-dim group-open:hidden">
-                  Show details ↓
-                </span>
-                <span className="text-xs text-fg-dim hidden group-open:inline">
-                  Hide ↑
-                </span>
-              </summary>
-              <div className="px-4 pb-4 border-t border-bg-border pt-3">
-                <p className="text-[11px] text-fg-dim mb-3 leading-relaxed">
-                  Read-only reference. These rules govern when outbound
-                  agents (Solara, Helios) are allowed to send SMS/email.
-                  Edit via the manifest editor — every agent honors them
-                  on every draft.
-                </p>
-                <dl className="grid sm:grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <dt className="text-xs uppercase tracking-wider text-fg-dim font-bold">
-                      Send window
-                    </dt>
-                    <dd className="mt-0.5 text-fg">
-                      {manifest.compliance.tcpa.send_window_local} local
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs uppercase tracking-wider text-fg-dim font-bold">
-                      Weekend sends
-                    </dt>
-                    <dd className="mt-0.5 text-fg">
-                      {manifest.compliance.tcpa.weekend_sends
-                        ? "Allowed"
-                        : "Blocked"}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs uppercase tracking-wider text-fg-dim font-bold">
-                      Honor opt-outs
-                    </dt>
-                    <dd className="mt-0.5 text-fg">
-                      {manifest.compliance.tcpa.honor_opt_outs
-                        ? "Yes (enforced)"
-                        : "No"}
-                    </dd>
-                  </div>
-                  {manifest.compliance.tcpa.opt_out_phrase && (
-                    <div>
-                      <dt className="text-xs uppercase tracking-wider text-fg-dim font-bold">
-                        First-touch opt-out
-                      </dt>
-                      <dd className="mt-0.5 text-fg font-mono text-xs">
-                        &ldquo;{manifest.compliance.tcpa.opt_out_phrase}&rdquo;
-                      </dd>
-                    </div>
-                  )}
-                </dl>
-              </div>
-            </details>
-          )}
-
+          {/* Compliance posture card removed — TCPA rules now live in the
+              manifest editor only. The Settings page never edited them
+              anyway and the read-only summary was noise. */}
           {/* Top-level "Connect a provider" surface. Lives ABOVE the
               per-agent Agents card so the very first thing operators see
               under Settings is the provider-account grid. The per-agent
@@ -270,8 +202,8 @@ export default async function SettingsPage() {
 
           <Card
             id="agents"
-            title="Agents"
-            subtitle="Each enabled agent runs on its own provider + model + API key. Bring your own key — keys are encrypted at rest and never returned to the browser. Toggle which agents are enabled in the Profile section above."
+            title="Per-agent overrides"
+            subtitle="Optional. By default every enabled agent uses the team AI provider account from above. Use this card only if a specific agent needs a different model or its OWN key (e.g., Solara on Claude Sonnet but Helios on GPT-5). Leave a row alone to inherit the team default."
             action={
               <Tag tone={bridgeOnline ? "engaged" : "neutral"}>
                 {bridgeOnline ? "Tool access: bridge online" : "Tool access: cloud only"}
