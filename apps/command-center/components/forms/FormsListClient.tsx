@@ -8,10 +8,10 @@
  * redirect to the editor) and per-row toggle/delete.
  */
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Plus, Edit3, ToggleLeft, ToggleRight, Trash2, ExternalLink, Loader2 } from "lucide-react";
+import { Plus, Edit3, ToggleLeft, ToggleRight, Trash2, ExternalLink, Loader2, Copy, Check } from "lucide-react";
 import { getFormTheme } from "@/lib/forms/themes";
 
 type FormRow = {
@@ -101,9 +101,24 @@ export function FormsListClient({
   tenantLogoUrl: string | null;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [rows, setRows] = useState(initialRows);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Flash message when the operator just saved and got bounced here from
+  // the editor. Auto-clears after a few seconds and strips the query
+  // param so a page refresh doesn't re-fire the toast.
+  const [savedFlash, setSavedFlash] = useState(false);
+  useEffect(() => {
+    if (searchParams.get("saved") === "1") {
+      setSavedFlash(true);
+      const t = setTimeout(() => setSavedFlash(false), 3000);
+      // Strip the query without refetching the RSC.
+      router.replace("/forms", { scroll: false });
+      return () => clearTimeout(t);
+    }
+  }, [searchParams, router]);
 
   async function createForm() {
     setCreating(true);
@@ -152,6 +167,25 @@ export function FormsListClient({
     router.refresh();
   }
 
+  // Per-row "Copy" feedback. Keyed by form id so the check icon only
+  // appears on the row the operator just clicked.
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  async function copyEditorUrl(id: string) {
+    try {
+      const url = `${window.location.origin}/forms/${id}/edit`;
+      await navigator.clipboard.writeText(url);
+      setCopiedId(id);
+      setTimeout(() => {
+        setCopiedId((prev) => (prev === id ? null : prev));
+      }, 1800);
+    } catch {
+      // Clipboard API blocked (rare — old browsers, insecure contexts).
+      // Fall back to a window.prompt so the operator can still grab the
+      // URL manually.
+      window.prompt("Copy this URL:", `${window.location.origin}/forms/${id}/edit`);
+    }
+  }
+
   async function destroy(id: string, name: string) {
     if (!confirm(`Delete form "${name}"? This can't be undone.`)) return;
     const res = await fetch(`/api/forms/${id}`, { method: "DELETE" });
@@ -180,6 +214,13 @@ export function FormsListClient({
           New form
         </button>
       </div>
+
+      {savedFlash && (
+        <div className="rounded-lg border border-status-engaged/40 bg-status-engaged/10 px-3 py-2 text-sm text-status-engaged flex items-center gap-2">
+          <Check className="w-4 h-4" />
+          Form saved.
+        </div>
+      )}
 
       {error && (
         <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-400">
@@ -244,6 +285,24 @@ export function FormsListClient({
                         <Edit3 className="w-3 h-3" />
                         Edit
                       </Link>
+                      <button
+                        type="button"
+                        onClick={() => copyEditorUrl(r.id)}
+                        className="inline-flex items-center gap-1 text-fg-muted hover:text-fg text-xs"
+                        title="Copy a link to this form's editor (share with a teammate or open on another device). For prospect-facing personalized links, open the form and use Mint link."
+                      >
+                        {copiedId === r.id ? (
+                          <>
+                            <Check className="w-3 h-3 text-status-engaged" />
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3 h-3" />
+                            Copy link
+                          </>
+                        )}
+                      </button>
                       <button
                         type="button"
                         onClick={() => destroy(r.id, r.name)}
