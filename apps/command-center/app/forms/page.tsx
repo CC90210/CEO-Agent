@@ -59,8 +59,7 @@ export default async function FormsPage() {
   const tenant = profile?.tenant_id
     ? await safe("forms.tenant", getTenant(profile.tenant_id), null)
     : null;
-  const tenantLogoUrl =
-    (tenant as { logo_url?: string | null } | null)?.logo_url || null;
+  const tenantLogoUrl = tenant?.logo_url ?? null;
 
   return (
     <div className="space-y-6 animate-fade-in">

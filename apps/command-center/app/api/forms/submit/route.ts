@@ -40,6 +40,7 @@ import {
 } from "@/lib/forms/types";
 import { rateLimit } from "@/lib/rate-limit";
 import { updateRecord, RecordsError } from "@/lib/manifest/data";
+import { sanitizeStorageFilename } from "@/lib/storage-helpers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -76,17 +77,6 @@ function isInlineFile(v: unknown): v is InlineFile {
   );
 }
 
-function sanitizeFilename(name: string): string {
-  // Strip directory traversal + collapse whitespace. Storage paths come
-  // from prospect input so refuse anything that would let them escape the
-  // tenant/lead folder.
-  return name
-    .replace(/[/\\]/g, "_")
-    .replace(/\.\.+/g, "_")
-    .replace(/\s+/g, "_")
-    .replace(/[^a-zA-Z0-9._-]/g, "")
-    .slice(0, 120) || `file_${Date.now()}`;
-}
 
 export async function POST(req: NextRequest) {
   let body: SubmitBody;
@@ -228,7 +218,7 @@ export async function POST(req: NextRequest) {
 
   for (const { fieldName, file } of inlineFiles) {
     try {
-      const cleanName = sanitizeFilename(file.filename);
+      const cleanName = sanitizeStorageFilename(file.filename);
       const bytes = Buffer.from(file.inline_base64, "base64");
       // Use the field name as doc_type so it lines up with the classifier
       // enum in migration 049 (bank_statements_3mo / drivers_license /
