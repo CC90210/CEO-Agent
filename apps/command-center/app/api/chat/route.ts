@@ -321,6 +321,40 @@ export async function POST(req: NextRequest) {
   );
   const dashboardCtx = dashboardCtxResult.text;
   const injectedInboxIds = dashboardCtxResult.injectedInboxIds;
+
+  // OPERATOR CONTEXT — who is signed in on this turn. Without this the
+  // agent treated every teammate identically: a tenant with 3 employees
+  // got the same Solara persona for everyone. Inject the signed-in
+  // user's display name + team role so the agent greets them correctly
+  // and respects role boundaries (e.g., refuses destructive actions for
+  // read_only members). One row read; failure silently drops the block
+  // so a transient DB hiccup never breaks chat.
+  let operatorBlock = "";
+  try {
+    const opRow = await service
+      .from("user_profiles")
+      .select("display_name, full_name, email, team_role")
+      .eq("auth_user_id", user.id)
+      .maybeSingle();
+    const op = opRow.data as
+      | {
+          display_name: string | null;
+          full_name: string | null;
+          email: string | null;
+          team_role: string | null;
+        }
+      | null;
+    if (op) {
+      const name = op.display_name || op.full_name || op.email || "Operator";
+      const role = op.team_role || "member";
+      operatorBlock =
+        `\n\n---\nOPERATOR CONTEXT\n` +
+        `You are talking to ${name} (team_role: ${role}). Address them by name when natural. ` +
+        `Respect their role: owner/admin can do anything; loan_officer/processor/member can read everything but should confirm with an admin before destructive actions; read_only sees only — refuse writes.\n---`;
+    }
+  } catch {
+    // Best-effort; an operator name lookup failure shouldn't block chat.
+  }
   // Cloud-mode tool surface selection.
   //
   // - "tools"   → native Anthropic tool_use loop (cloud-tool-runner.ts).
@@ -370,7 +404,7 @@ export async function POST(req: NextRequest) {
     lines.push("---");
     setupBlock = lines.join("\n");
   }
-  const persona = `${personaBase}${cloudModeNotice}${cloudToolsBlock}${setupBlock}${dashboardCtx ? `\n\n${dashboardCtx}` : ""}`;
+  const persona = `${personaBase}${cloudModeNotice}${cloudToolsBlock}${setupBlock}${operatorBlock}${dashboardCtx ? `\n\n${dashboardCtx}` : ""}`;
   const startedAt = Date.now();
 
   // ---- Stream response back as SSE ----------------------------------------

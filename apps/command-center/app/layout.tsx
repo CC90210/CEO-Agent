@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import "./globals.css";
-import { Sidebar } from "@/components/Sidebar";
+import { SidebarShell } from "@/components/SidebarShell";
 import { getActiveProfile, getBridgeOnline } from "@/lib/queries";
 import { getServiceSupabase } from "@/lib/supabase-server";
 import { safe } from "@/lib/api-helpers";
@@ -204,7 +204,7 @@ export default async function RootLayout({
           children
         ) : (
           <>
-            <Sidebar
+            <SidebarShell
               brand={demoMode ? manifest.brand.name : profile?.brand || manifest.brand.name}
               logo={manifestLogoToSidebarLogo(manifest.brand.logo)}
               subtitle={manifest.brand.subtitle}
@@ -225,8 +225,8 @@ export default async function RootLayout({
               demoMode={demoMode}
               demoLabel={`${manifest.brand.name} demo`}
             />
-            <main className="ml-60 min-h-screen relative z-10">
-              <div className="mx-auto max-w-7xl px-8 py-8">{children}</div>
+            <main className="ml-0 md:ml-60 min-h-screen relative z-10 pt-14 md:pt-0">
+              <div className="mx-auto max-w-7xl px-4 md:px-8 py-6 md:py-8">{children}</div>
               <footer className="mx-auto max-w-7xl px-8 py-6 text-xs text-fg-faint">
                 <div className="border-t border-bg-border pt-4 flex justify-between">
                   <span>{manifest.brand.footer_label}</span>

@@ -95,6 +95,7 @@ export function Sidebar({
   demoMode = false,
   demoLabel = "Client demo",
   demoLandingPath = "/demo/sun",
+  isMobileOpen = false,
 }: {
   brand?: string;
   logo?: "oasis" | "sunbiz" | "suga";
@@ -113,6 +114,8 @@ export function Sidebar({
   demoLabel?: string;
   /** Where in-demo clicks land so navigation doesn't leak into the OASIS shell. */
   demoLandingPath?: string;
+  /** Mobile drawer open state — controlled by SidebarShell. Ignored at md+. */
+  isMobileOpen?: boolean;
 }) {
   const pathname = usePathname();
   const navItems = items && items.length > 0 ? items : CC_NAV;
@@ -159,7 +162,11 @@ export function Sidebar({
   }
 
   return (
-    <aside className="fixed left-0 top-0 bottom-0 w-60 border-r border-bg-border bg-bg-panel flex flex-col z-20">
+    <aside
+      className={`fixed left-0 top-0 bottom-0 w-60 border-r border-bg-border bg-bg-panel flex flex-col z-40 md:z-20 transition-transform duration-200 ${
+        isMobileOpen ? "translate-x-0" : "-translate-x-full"
+      } md:translate-x-0`}
+    >
       {/* Brand block */}
       <div className="px-5 py-5 border-b border-bg-border relative">
         <Link href="/" className="flex items-center gap-2.5 group">
