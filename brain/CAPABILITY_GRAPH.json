@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0",
   "agent": "bravo",
-  "generated_at": "2026-05-17T04:00:13.141144+00:00",
+  "generated_at": "2026-05-17T21:54:39.912276+00:00",
   "totals": {
     "skills": 150,
-    "scripts": 138,
+    "scripts": 140,
     "agents": 21,
     "mcp_servers": 9,
     "workflows": 36,
-    "nodes_total": 354,
+    "nodes_total": 356,
     "edges_total": 66,
     "drift_count": 0
   },
@@ -4664,6 +4664,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:audit_rls_coverage",
+      "kind": "script",
+      "name": "audit_rls_coverage",
+      "path": "scripts/audit_rls_coverage.py",
+      "description": "Audit tenant-scoped Supabase tables for basic RLS coverage.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:auto_dream",
       "kind": "script",
       "name": "auto_dream",
@@ -4699,6 +4709,16 @@
       "name": "backfill_exec_overrides_workspace",
       "path": "scripts/backfill_exec_overrides_workspace.py",
       "description": "One-off backfill: classify existing exec_overrides rows into workspace buckets.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:backfill_sunbiz_stages",
+      "kind": "script",
+      "name": "backfill_sunbiz_stages",
+      "path": "scripts/backfill_sunbiz_stages.py",
+      "description": "backfill_sunbiz_stages.py \u2014 one-shot migration of pre-2026-05-17 stage values.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"

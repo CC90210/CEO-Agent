@@ -1,29 +1,62 @@
 import { redirect } from "next/navigation";
 import { SunBizDashboard } from "@/components/sunbiz/SunBizDashboard";
-import { getSessionUser } from "@/lib/supabase-server";
+import { getSessionUser, getServiceSupabase } from "@/lib/supabase-server";
+import { isOperatorEmail } from "@/lib/operator-credentials";
+import { canPreviewTenantSlug } from "@/lib/tenant-access";
 
 export const dynamic = "force-dynamic";
 
 /**
- * /demo/sun behaviour, Phase 5:
+ * /demo/sun behaviour:
  *
- *   - Authenticated users → 302 to /t/sun. The real manifest-driven
- *     shell renders, sidebar nav works, every route under /t/sun/<path>
- *     dispatches via the catch-all renderer. The "demo mode" framing
- *     stops being a hack-shell and starts being a real tenant view.
- *   - Anonymous users → keep seeing the static SunBizDashboard preview.
- *     This is the marketing surface (no auth, public route per
- *     middleware.ts). The "Sign up" CTAs on that page push visitors
- *     into the authed product.
- *
- * Net effect: the operator (CC), or any SunBiz client signed in, gets
- * the working shell immediately. A marketing visitor gets a clean
- * preview of what SunBiz looks like without pretending to navigate.
+ *   - Anonymous visitors  → static SunBiz preview (marketing surface).
+ *   - Empire operator (CC) → redirect into the real /t/sun shell.
+ *   - Signed-in operator on a different tenant → redirect to `/` so we
+ *     don't hijack their shell with another tenant's Command Center
+ *     (2026-05-17 incident: Google login → SunBiz hijack).
+ *   - SunBiz tenant operator → /t/sun (their own tenant, legitimate).
  */
 export default async function SunDemoPage() {
   const user = await getSessionUser().catch(() => null);
-  if (user) {
+  if (!user) {
+    return <SunBizDashboard demoMode />;
+  }
+  if (isOperatorEmail(user.email)) {
     redirect("/t/sun");
   }
-  return <SunBizDashboard demoMode />;
+  // Look up the operator's own tenant to decide whether they can see /t/sun.
+  // Service-role read is cheap and the page is already force-dynamic.
+  const db = getServiceSupabase();
+  const profile = await db
+    .from("user_profiles")
+    .select("email, tenant_id")
+    .eq("auth_user_id", user.id)
+    .maybeSingle();
+  const tenantId = profile.data?.tenant_id || null;
+  let tenantSlug: string | null = null;
+  let commandSlug: string | null = null;
+  if (tenantId) {
+    const t = await db
+      .from("tenants")
+      .select("slug, custom_fields")
+      .eq("id", tenantId)
+      .maybeSingle();
+    tenantSlug = (t.data?.slug as string | undefined) ?? null;
+    const custom = (t.data?.custom_fields || {}) as Record<string, unknown>;
+    const cf = custom.command_center_profile_slug;
+    commandSlug = typeof cf === "string" ? cf : null;
+  }
+  if (
+    canPreviewTenantSlug(
+      {
+        email: profile.data?.email ?? user.email,
+        tenant_slug: tenantSlug,
+        command_center_profile_slug: commandSlug,
+      },
+      "sun",
+    )
+  ) {
+    redirect("/t/sun");
+  }
+  redirect("/");
 }
