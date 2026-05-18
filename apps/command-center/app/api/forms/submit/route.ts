@@ -41,6 +41,7 @@ import {
 import { rateLimit } from "@/lib/rate-limit";
 import { createRecord, updateRecord, RecordsError } from "@/lib/manifest/data";
 import { sanitizeStorageFilename } from "@/lib/storage-helpers";
+import { resolvePublicForm } from "@/lib/forms/public-resolver";
 import { createHash } from "node:crypto";
 
 export const runtime = "nodejs";
@@ -536,40 +537,13 @@ async function initAnonymousLead(input: {
   | { ok: true; link: FormLinkPayload; token: string }
   | { ok: false; error: string; status: number }
 > {
-  const tenantSlug = input.tenantSlug.trim().toLowerCase();
-  const formSlug = input.formSlug.trim().toLowerCase();
-  if (!tenantSlug || !formSlug) {
-    return { ok: false, error: "not_found", status: 404 };
-  }
   const db = getServiceSupabase();
-
-  // Resolve tenant_id FIRST so the form lookup is scoped (avoids
-  // multi-tenant slug collisions where two tenants both have a form
-  // with slug='application'). All public negatives return a single
-  // 'not_found' so the route can't be used to enumerate tenants /
-  // form names by diffing 404 vs form_disabled vs tenant_mismatch.
-  const tenantQ = await db
-    .from("tenants")
-    .select("id")
-    .eq("slug", tenantSlug)
-    .maybeSingle();
-  const tenantId = (tenantQ.data as { id: string } | null)?.id;
-  if (!tenantId) {
+  const resolved = await resolvePublicForm(db, input.tenantSlug, input.formSlug);
+  if (!resolved.ok) {
     return { ok: false, error: "not_found", status: 404 };
   }
-  const row = await db
-    .from("forms")
-    .select("id, tenant_id, enabled")
-    .eq("tenant_id", tenantId)
-    .eq("slug", formSlug)
-    .maybeSingle();
-  if (row.error || !row.data) {
-    return { ok: false, error: "not_found", status: 404 };
-  }
-  const form = row.data as { id: string; tenant_id: string; enabled: boolean };
-  if (!form.enabled) {
-    return { ok: false, error: "not_found", status: 404 };
-  }
+  const tenantSlug = resolved.tenant_slug;
+  const form = resolved.form;
 
   // Seed the lead with whatever common contact fields the operator
   // already collected on this step. Falls back gracefully when the

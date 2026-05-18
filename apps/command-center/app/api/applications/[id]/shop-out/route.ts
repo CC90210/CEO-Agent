@@ -84,7 +84,38 @@ export async function POST(
   const ccEmails = Array.isArray(body.cc_emails)
     ? body.cc_emails.filter((s) => typeof s === "string" && s.includes("@"))
     : [];
-  const attachments = Array.isArray(body.attachments) ? body.attachments : [];
+  // Defense-in-depth: every attachment's storage_path MUST be anchored
+  // under this operator's tenant_id folder. Without this an authenticated
+  // admin from tenant A could put a foreign tenant's storage_path in the
+  // request body and the downstream send_gateway would happily attach it.
+  // Matches the same confused-deputy fix in /api/lead-documents/[id].
+  const rawAttachments = Array.isArray(body.attachments) ? body.attachments : [];
+  const tenantPrefix = `${tenantId}/`;
+  const rejectedAttachments: Array<{ filename: string; reason: string }> = [];
+  const attachments = rawAttachments.filter((att) => {
+    if (!att || typeof att !== "object") return false;
+    const path = typeof att.storage_path === "string" ? att.storage_path : "";
+    if (!path.startsWith(tenantPrefix)) {
+      rejectedAttachments.push({
+        filename: typeof att.filename === "string" ? att.filename : "(unnamed)",
+        reason: "storage_path_outside_tenant",
+      });
+      return false;
+    }
+    return true;
+  });
+  if (rejectedAttachments.length > 0 && attachments.length === 0) {
+    // Every attachment was foreign — refuse the request entirely so the
+    // operator can't accidentally fire a shop-out with zero docs.
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "all_attachments_rejected",
+        rejected: rejectedAttachments,
+      },
+      { status: 400 },
+    );
+  }
 
   // Pull the application row to confirm tenant + extract the profile
   // for match scoring. Application is a tenant_records row with the
