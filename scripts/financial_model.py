@@ -14,7 +14,7 @@ Usage:
     python scripts/financial_model.py scenario --type bull
     python scripts/financial_model.py scenario --type bear
     python scripts/financial_model.py concentration
-    python scripts/financial_model.py concentration --clients '{"Top Client": 2791, "Other": 191}'
+    python scripts/financial_model.py concentration --clients '{"Top Client": 2500, "Other": 191}'
     python scripts/financial_model.py runway
     python scripts/financial_model.py runway --cash 15000 --expenses 184
     python scripts/financial_model.py --json <any subcommand>
@@ -28,22 +28,21 @@ from datetime import datetime, timezone
 
 
 # ---------------------------------------------------------------------------
-# CC-specific baseline constants (March 2026)
+# CC-specific baseline constants (post-primary retainer: 2026-05-18)
 # ---------------------------------------------------------------------------
 
-DEFAULT_MRR = 2982.0
+DEFAULT_MRR = 371.0
 DEFAULT_OVERHEAD = 184.0
-DEFAULT_CLIENTS = 2          # primary retainer + base
-DEFAULT_CHURN_RATE = 0.01    # ~1%/mo (no churn to date, using conservative floor)
+DEFAULT_CLIENTS = 1          # Stripe baseline only; SunBiz salary pending
+DEFAULT_CHURN_RATE = 0.01    # ~1%/mo (conservative floor)
 DEFAULT_GROSS_MARGIN = 0.94  # 94%
 DEFAULT_CAC = 250.0          # opportunity cost estimate (no paid ads)
 DEFAULT_CASH_ON_HAND = 5000.0  # conservative estimate — CC to update
 MRR_TARGET = 5000.0
-TARGET_DATE = "2026-05-15"
+TARGET_DATE = "2026-05-30"
 
-# Default client revenue split for concentration analysis
 DEFAULT_CLIENT_REVENUE = {
-    "Primary retainer": 2791.0,
+    "Stripe": 180.0,
     "Base (other)": 191.0,
 }
 
@@ -382,7 +381,7 @@ def cmd_concentration(args: argparse.Namespace) -> dict:
             client_revenue = json.loads(args.clients)
             client_revenue = {k: float(v) for k, v in client_revenue.items()}
         except (json.JSONDecodeError, ValueError):
-            return {"error": "Invalid JSON for --clients. Use: '{\"Top Client\": 2791, \"Other\": 191}'"}
+            return {"error": "Invalid JSON for --clients. Use: '{\"Top Client\": 2500, \"Other\": 191}'"}
     else:
         client_revenue = DEFAULT_CLIENT_REVENUE
 
@@ -451,8 +450,8 @@ def cmd_runway(args: argparse.Namespace) -> dict:
     runway = calc_runway(cash, burn)
     runway_str = f"{runway:.0f} months" if not math.isinf(runway) else "inf (profitable)"
 
-    # Worst-case: what if the primary retainer churns?
-    primary_revenue = DEFAULT_CLIENT_REVENUE.get("Primary retainer", 2791.0)
+    # Worst-case: what if the top client churns? (largest revenue stream in the default split)
+    primary_revenue = max(DEFAULT_CLIENT_REVENUE.values(), default=0.0) if DEFAULT_CLIENT_REVENUE else 0.0
     post_churn_mrr = max(mrr - primary_revenue, 0)
     post_churn_net = post_churn_mrr - expenses
     post_churn_burn = -post_churn_net if post_churn_net < 0 else 0
@@ -468,7 +467,7 @@ def cmd_runway(args: argparse.Namespace) -> dict:
         "runway_months": round(runway, 1) if not math.isinf(runway) else "inf",
         "runway_str": runway_str,
         "worst_case": {
-            "scenario": "primary retainer churns",
+            "scenario": "top client churns",
             "remaining_mrr": round(post_churn_mrr, 2),
             "monthly_net": round(post_churn_net, 2),
             "runway_months": round(post_churn_runway, 1) if not math.isinf(post_churn_runway) else "inf",
@@ -486,7 +485,7 @@ def cmd_runway(args: argparse.Namespace) -> dict:
         print(f"  Monthly net:       ${net:,.0f} ({'PROFITABLE' if net >= 0 else 'BURNING'})")
         print(f"  Runway:            {runway_str}")
         print()
-        print("  WORST CASE: primary retainer churns today")
+        print("  WORST CASE: top client churns today")
         print(f"    Remaining MRR:   ${post_churn_mrr:,.0f}")
         print(f"    Monthly net:     ${post_churn_net:,.0f}")
         print(f"    Runway:          {post_churn_str}")

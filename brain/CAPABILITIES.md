@@ -625,7 +625,7 @@ markdown wiki pages. Deterministic retrieval via `knowledge/index.md` — no emb
 
 **Seeded wiki pages (2026-04-06):**
 - `knowledge/wiki/ai-automation-agency.md` — OASIS AI positioning, ICP, services, pitch
-- `knowledge/wiki/revenue-model.md` — MRR breakdown, primary retainer deal, $5K gap analysis
+- `knowledge/wiki/revenue-model.md` — [ARCHIVED 2026-05-18] MRR breakdown pre-primary retainer-end; preserved as historical context. Current MRR lives in brain/STATE.md.
 - `knowledge/wiki/tech-stack.md` — Full technology inventory, all tools and integrations
 - `knowledge/wiki/client-playbook.md` — Client lifecycle, NEPQ, health scoring, retention
 

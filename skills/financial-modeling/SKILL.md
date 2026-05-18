@@ -7,6 +7,8 @@ triggers: ["financial modeling", "use financial modeling", "run financial modeli
 
 # Financial Modeling
 
+> **Note (2026-05-18):** Worked examples below use pre-primary retainer-end numbers ($2,500 primary retainer, $2,982 MRR, 94% concentration). They remain as **pedagogical references** — the formulas + structure still apply. For current state: brain/STATE.md (~$371 confirmed MRR, no dominant client). For the revenue shift event: [docs/handovers/2026-05-18-primary_retainer-revenue-shift-handoff.md](../../docs/handovers/2026-05-18-primary_retainer-revenue-shift-handoff.md).
+
 ## Overview
 
 Every business decision is a financial decision with numbers attached. This skill gives CC the formulas, templates, and CLI tool to model revenue, measure unit economics, and make decisions from data rather than gut feel.

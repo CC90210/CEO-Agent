@@ -110,7 +110,7 @@ top-client at 93% is a critical risk. Two new clients at 800 USD/mo transforms t
 The CFO job at sub-1M ARR is: know where every dollar is, protect against sudden death,
 and make sure the government takes only what it must. Benjamin Graham (The Intelligent Investor)
 and Warren Buffett both ground financial discipline in one principle: margin of safety. This means
-Atlas always has an answer to: how many months of runway do we have? And: worst case if the primary retainer leaves?
+Atlas always has an answer to: how many months of runway do we have? And: worst case if the top client leaves?
 
 ### Core Responsibilities
 

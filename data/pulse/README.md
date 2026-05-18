@@ -85,9 +85,9 @@ Bravo's first `ceo_pulse.json` has not been written yet. Until it exists, Atlas 
   "mrr_growth_30d_pct": null,
   "clients_active": 3,
   "clients_top": [
-    {"name": "Primary retainer", "share_pct": 94},
-    {"name": "Stripe Client A", "share_pct": 3},
-    {"name": "Stripe Client B", "share_pct": 3}
+    {"name": "Top Client", "share_pct": 60},
+    {"name": "Stripe Client A", "share_pct": 25},
+    {"name": "Stripe Client B", "share_pct": 15}
   ],
   "pipeline_qualified_usd": 0,
   "committed_spend_next_30d_cad": 0,

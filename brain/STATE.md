@@ -22,11 +22,11 @@ tags: [state, ephemeral]
 | Dimension | Level | Notes |
 |-----------|-------|-------|
 | **Version** | V6 Apex (P1+P2+P3) | V6 Optimization Project 100% complete (2026-05-10). Architecture phase closed. |
-| **Position**| ACTIVE | Community Manager for primary retainer client + Lead Gen Funnel Operator |
-| **Confidence** | 0.97 | Core automations production-grade. Telegram V15.4 live. Scheduler fixed. Semi-auto outreach deploying. Top-client concentration risk unresolved. |
-| **Focus Area** | **WEDNESDAY OUTREACH SURGE** | Usage limit hit. Focus is 100% on manual high-leverage execution: Warm calls (Jonathan Hutton), Lead Enrichment, and Content Creation (Anti-AI Objection). |
-| **Energy** | RECOVERING / MISSION-DRIVEN | CC in reset mode (no weed). Wednesday is a 12-hour high-tempo block to make up for usage gaps. Focus on closing Jonathan Hutton. |
-| **Memory Health** | GOOD | Files current. Knowledge wiki seeded. mem0 live. Fragmentation acknowledged — single-write sync in progress. |
+| **Position**| PIVOTING | primary retainer retainer ending (communicated 2026-05-17). SunBiz salary opportunity pending confirmation. |
+| **Confidence** | 0.65 | Core automations production-grade but revenue base collapsed. Must land SunBiz salary + diversify ASAP. |
+| **Focus Area** | **REVENUE RECOVERY + SUNBIZ SALARY** | primary retainer retainer lost. SunBiz salary is the primary near-term revenue play. Outreach for new OASIS clients remains critical. |
+| **Energy** | PIVOTING / DETERMINED | Major client shift. CC handling it well — already has SunBiz lined up as replacement. Strategy session with Atlas + Bravo scheduled. |
+| **Memory Health** | GOOD | Files current. Knowledge wiki seeded. mem0 live. |
 
 > **Ephemeral state lives in `memory/OPERATIONAL_STATE.md`** (split out 2026-05-07 per Architecture Certification finding C5). That file carries Active Infrastructure, Known Issues, Skool daemon status, Last Heartbeat — under a 7-day freshness gate. Read it for live ops; this file is for stable identity / North Star / capability architecture.
 
@@ -35,12 +35,15 @@ tags: [state, ephemeral]
 ## North Star: $5,000 USD Net MRR by May 30, 2026
 
 > Previous goal ($1,000 USD Net MRR by March 31, 2026) — **ACHIEVED** at $2,691 USD (+169% surplus).
+> **CRITICAL UPDATE (2026-05-18):** Concentration risk R-001 materialized. primary retainer retainer ($2,500 flat + ~$451 rev share) ending. primary retainer owes $1,300 outstanding payment.
 
-1. **Revenue:** ~$3,322 USD/mo Net MRR ($180 Stripe + $191 base + $2,500 primary-retainer flat + $451 primary-retainer 15% rev share on $3,007 community MRR).
-2. **Gap:** ~$1,678 USD/mo (~2 new OASIS clients at $800-1,000/mo, or 4 at $400-500/mo).
-3. **Pace:** ~1 new client/week for 5 weeks to hit target by May 30.
-4. **Strategy:** Semi-auto outreach loop (daily batch) + CC Funnel inbound. Diversify beyond the primary retainer.
-5. **Risk:** Primary-retainer loss = drop to ~$822/mo. Diversification is the #1 operational priority.
+1. **Confirmed Revenue:** ~$371 USD/mo Net MRR ($180 Stripe + $191 base). primary retainer retainer ended.
+2. **Pending Revenue:** SunBiz salary — CC expects ~similar to primary retainer retainer ($2,500 range). NOT confirmed yet. Do not count until signed.
+3. **Outstanding AR:** $1,300 owed by primary retainer. CC needs this paid ASAP.
+4. **Gap (from confirmed only):** ~$4,629 USD/mo. If SunBiz lands at ~$2,500: gap drops to ~$2,129.
+5. **Strategy (revised):** (a) Lock in SunBiz salary ASAP. (b) Outreach for new OASIS clients. (c) primary retainer may return as smaller coaching gig later — do not count on it.
+6. **Risk:** Revenue base dropped ~89%. SunBiz salary is the lifeline. Diversification is now existential, not optional.
+7. **North Star status:** Goal date (May 30) needs reassessment in today's 4 PM strategy session with Atlas + Bravo.
 
 ## Active Infrastructure
 
@@ -92,7 +95,7 @@ Stable structural facts (change rarely, audit on edit):
 Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 - **Gritly** — Field Service Management SaaS. Next.js 15, Drizzle, Turso, Stripe, Better Auth. Foundation built (auth+onboarding+dashboard+marketing site). Context: [[APPS_CONTEXT/GRITLY_CLAUDE]]
 - **IG Setter Pro** — Instagram DM automation (ManyChat replacement). Next.js 14, Turso, n8n, Claude API. Live at `ig-setter-pro.vercel.app`. Context: [[APPS_CONTEXT/IG_SETTER_PRO_CLAUDE]]
-- **Primary community-management retainer** — community partnership. CC = Head Coach, $2,500/mo + 15% rev share. Contract formalized 2026-04-10. Context: [[APPS_CONTEXT/SKOOL_COMMUNITY_CLAUDE]]
+- **Primary community-management retainer** — **ENDING (2026-05-18).** primary retainer communicated retainer too high, bringing Jesse on as full-time coach. CC may return as smaller coach later. $1,300 outstanding owed. Context: [[APPS_CONTEXT/SKOOL_COMMUNITY_CLAUDE]]
 
 ## Agent Runner Backend (2026-05-05)
 
@@ -127,11 +130,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-05-17
+- **Date:** 2026-05-18
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Codex patched all open Dependabot npm alerts: Command Center Next upgraded to 15.5.18; root protobufjs/@protobufjs transitive lock updated; root and Command Center npm audit report 0 vulnerabilities; GitHub Dependabot API reports 0 open alerts; Vercel deploy and production smoke probes passed.
+- **Result:** primary_retainer cleanup pass complete: ceo_pulse.json refreshed ($371 MRR, no primary retainer refs), DASHBOARD.md/METRIC_AUDIT.md/LONG_TERM.md/sales-closing/scaling-playbook/ceo-dashboard SKILLS updated, revenue-model.md + financial-modeling + risk-management archived/banner'd, financial_model.py defaults stripped to baseline, knowledge/log+index marked archived. Supabase user_profiles row updated: mrr_current_usd=371, custom_fields.top_client_*=null/0. Dashboard will reflect on next page load.
 
-*Last updated: 2026-05-17*
+*Last updated: 2026-05-18*
 
 ## Manifest
 
