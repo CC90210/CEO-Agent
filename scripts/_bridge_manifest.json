@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-18T04:37:30.056935+00:00",
-  "script_count": 99,
-  "entry_count": 360,
+  "generated_at_iso": "2026-05-18T19:25:09.896715+00:00",
+  "script_count": 100,
+  "entry_count": 361,
   "entries": [
     {
       "key": "agent_heartbeat",
@@ -2355,6 +2355,13 @@
       "subcmd": "rpc",
       "mutating": false,
       "help": "Supabase SDK Integration \u2014 Universal Agent Tool \u2014 subcommand: rpc"
+    },
+    {
+      "key": "sync_mrr",
+      "path": "scripts/sync_mrr.py",
+      "subcmd": null,
+      "mutating": true,
+      "help": "sync_mrr.py \u2014 daily MRR auto-sync from revenue_engine to Supabase."
     },
     {
       "key": "sync_slash_commands",
