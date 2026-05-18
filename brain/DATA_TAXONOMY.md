@@ -61,7 +61,7 @@ What CC and the agents actually read. Snapshot-first; live engines only as fallb
 | `agents/chief-of-staff.md` | `latest_briefing.json`, `latest_client_alerts.json`, `latest_leads.json` | Terminal / Telegram digests |
 | `agents/revenue-hunter.md` | `latest_leads.json` | Outreach session output |
 | `agents/researcher.md` | `memory_retriever.py query` over Prep Table indexes | Terminal |
-| Command Center web | Supabase + state-api fastapi service (separate from snapshots) | `apps/command-center/` Next.js |
+| Command Center web | Supabase + state-api fastapi service (separate from snapshots) | `oasis-command-center:` Next.js |
 | Telegram bridge | `latest_briefing.json` on demand via `telegram_agent.js` | Telegram chat |
 | `ceo-dashboard` skill | `latest_briefing.json` → `ceo_dashboard.py` live (fallback) | Terminal / Markdown report |
 | `silver-platter` skill (audit) | This file + scans `state/snapshots/`, `scripts/snapshots/`, `memory/` | HTML report at `tmp/silver-platter-*.html` |
@@ -85,4 +85,4 @@ When wiring a new integration:
 - ❌ Agent calls 3+ subprocess CLIs in one turn to assemble a briefing. → Build a snapshot.
 - ❌ Hand-edited `memory/LEAD_TRACKER.csv` as if it were a Prep Table. → Decide: is it Pantry (raw input) or Plate (curated view)? Pick one role; don't mix.
 - ❌ Snapshot script that calls an LLM. → That's not Prep Table, that's a synthesis step belonging in a skill.
-- ❌ Reading raw Supabase from an `apps/command-center/` API route when a snapshot exists. → Switch to snapshot read; saves wall time + Vercel cold-start cost.
+- ❌ Reading raw Supabase from an `oasis-command-center:` API route when a snapshot exists. → Switch to snapshot read; saves wall time + Vercel cold-start cost.

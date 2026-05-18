@@ -152,7 +152,7 @@ The video's last fast-track question: **"Where do you actually want to read thes
 
 This determines the output adapter. Bravo currently delivers via:
 - Telegram bridge (`telegram_agent.js`, `scripts/bridge_lock.py`)
-- Command Center web (`apps/command-center/`)
+- Command Center web (`oasis-command-center:`)
 - Email (`scripts/send_gateway.py`)
 - CLI (`bravo_cli/`)
 - Discord/Slack — planned

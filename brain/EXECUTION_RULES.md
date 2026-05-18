@@ -156,6 +156,37 @@ If the live check **contradicts** the inherited claim, surface the contradiction
 
 The general shape: agent-A acts on stale state → agent-B inherits the broken result → coherence collapses → operator re-teaches the same lesson to every chassis. Verify at agent-B and the cycle stops.
 
+## 13. PUBLIC ROUTES NEED TWO-LAYER GATING (added 2026-05-18)
+
+When adding a NEW public-facing page route (anything aimed at prospects, anonymous visitors, pre-auth signups, or invite-bearing strangers), the change is a TWO-FILE minimum:
+
+1. **`oasis-command-center:middleware.ts`** — append the prefix to `PUBLIC_PATH_PREFIXES`. Controls "does an unauthenticated visitor get past the auth redirect?"
+2. **`oasis-command-center:app/layout.tsx`** — append the prefix to `FULL_BLEED_PREFIXES`. Controls "does the page render with the operator sidebar + footer, or edge-to-edge?"
+
+Missing either layer creates an asymmetric silent failure:
+- Middleware-gated public route → 401-redirect to `/login` (the share link "doesn't work")
+- Layout-not-gated public route → operator sidebar renders over the prospect's view (brand leak)
+
+**Verification before "done":** open the URL in incognito against the production deploy. `curl -s -L "<url>"` with no cookies + grep the HTML for (a) the expected page-specific marker present, (b) `/login` redirect absent, (c) `<aside`/`SidebarShell`/`ml-60` absent. Don't trust the dev session.
+
+**Why this rule exists:** 2026-05-18 — shipped `/f/<tenant>/<form>` for prospect form submissions. Forgot middleware allowlist for weeks (every Solara-minted form link was 401'ing). Fixed that, forgot the layout chrome bypass (prospects saw the SunBiz operator sidebar). Both bugs were CC-caught via incognito test, not via Bravo's "verified" claim. Full incident log: `memory/MISTAKES.md` 2026-05-18 entries.
+
+## 14. SECURITY BOUNDARIES ARE SERVER-SIDE (added 2026-05-18)
+
+Role-based access, tenant scoping, write authorization, file-path validation — these live in server-side code paths, NEVER in prompt text the model "should follow."
+
+Persona instructions ("respect read_only — refuse writes") are documentation. They do not gate anything. A jailbreak prompt, a model hallucination, or a direct tool_use call from a compromised client all bypass prompt-only guards.
+
+**The wall:**
+- Cloud-tool palette → filter out denied tools in `lib/role-gates.ts` BEFORE the model sees them.
+- Marker dispatcher → refuse denied marker types regardless of what the model emitted.
+- Server-side data writes → tenant_id / storage_path / lead_id prefix checks at the route layer.
+- DB layer → CHECK constraints anchoring storage paths to their tenant prefix.
+
+For unauthenticated public-facing surfaces specifically: run `node codex-companion.mjs adversarial-review` BEFORE the "ready to ship" claim, not as a CC-prompted retrospective. Two passes minimum. Codex caught 9 real bugs across 2 passes on the 2026-05-18 forms diff — diff Bravo had twice declared production-ready.
+
+**Why this rule exists:** 2026-05-18 — shipped `read_only` role enforcement as a paragraph in Solara's persona. Cloud-tool palette still included `create_record`/`update_record`/`delete_record`. A jailbreak prompt would have executed writes under the service-role path with zero check. Server-side enforcement in `lib/role-gates.ts` is the actual boundary now. Full incident: `memory/MISTAKES.md` 2026-05-18 "Public-Form Share Infrastructure Shipped Without Adversarial Review".
+
 ## Obsidian Links
 - [[brain/AGENT_ROUTER]] | [[brain/INTENTS]] | [[brain/WHEN_TO_USE_SKILLS]]
 - [[brain/SOUL]] | [[memory/MISTAKES]]

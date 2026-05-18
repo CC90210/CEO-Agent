@@ -32,7 +32,7 @@ Pattern adapted from [mattpocock/skills CONTEXT.md](https://github.com/mattpococ
 ## Multi-tenancy
 
 - **Tenant** — A customer-facing namespace inside the empire DB. Tenant-scoped data is filtered by `tenant_id`. Examples: OASIS, PropFlow, CC-Funnel.
-- **Tenant manifest** — Config object describing a tenant's nav, theme, feature flags. Lives in code under `apps/command-center/config/tenants/`.
+- **Tenant manifest** — Config object describing a tenant's nav, theme, feature flags. Lives in code under `oasis-command-center:config/tenants/`.
 - **Tenant-scoped feature** — A feature that should appear in ONE tenant's nav only (e.g., `/forms` lives in CC-Funnel, NOT in OASIS). Infrastructure features extrapolate across tenants; product features do not. See `feedback_tenant_scoped_nav.md`.
 - **Empire DB** — CC's Supabase project. Single source for all empire + client data; tenant_id-scoped. (Turso-per-tenant was deferred 2026-05-15.)
 

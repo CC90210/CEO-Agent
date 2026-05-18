@@ -73,7 +73,7 @@ an `.eq('tenant_id', ...)` filter near it.
 CC's clients paste their Anthropic / OpenAI / OpenRouter / etc. API keys
 into the Settings UI. We store them encrypted, decrypt at agent-spawn time.
 
-**Implementation:** `apps/command-center/lib/field-encryption.ts`
+**Implementation:** `oasis-command-center:lib/field-encryption.ts`
 - **Algorithm:** AES-256-GCM (authenticated encryption — tampering is
   detected via the GCM auth tag).
 - **Key derivation:** Node's `scryptSync(passphrase, "oasis-bravo-v1", 32)`.
@@ -148,7 +148,7 @@ we use a per-profile HMAC secret.
 - writes plaintext to operator's `.env.agents` as
   `OASIS_OUTBOUND_HMAC_SECRET`
 
-**Verify:** `_hmacAuthEmail()` in `apps/command-center/app/api/auth/pair/route.ts`
+**Verify:** `_hmacAuthEmail()` in `oasis-command-center:app/api/auth/pair/route.ts`
 - reads `x-oasis-profile-id` + `x-oasis-secret` headers
 - validates profile_id is a UUID (regex)
 - SHA-256 hashes the secret
@@ -253,11 +253,11 @@ grep -lE "ENABLE ROW LEVEL SECURITY" database/*.sql | xargs grep -hE "ENABLE ROW
 python scripts/audit_mcp_secrets.py
 
 # Bridge tokens never returned from any API except the mint endpoint
-grep -rn "bridge_token" apps/command-center/app/api --include="*.ts" | grep -v "pair/route.ts"
+grep -rn "bridge_token" oasis-command-center:app/api --include="*.ts" | grep -v "pair/route.ts"
 # (only matches in pair/route.ts are expected)
 
 # Constant-time HMAC compare wired in pair route (Tier C1)
-grep -n "timingSafeEqual" apps/command-center/app/api/auth/pair/route.ts
+grep -n "timingSafeEqual" oasis-command-center:app/api/auth/pair/route.ts
 
 # Migration 030 applied (idempotent pair)
 python scripts/supabase_tool.py select bridge_pairings --columns "machine_fingerprint" --limit 5

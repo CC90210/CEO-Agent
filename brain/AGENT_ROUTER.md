@@ -75,8 +75,8 @@ When the operator switches you in the chat picker, the bridge `cd`s to that repo
 | App-specific work (PropFlow, OASIS, etc.) | `brain/APP_REGISTRY.md` | `APPS_CONTEXT/<app>_CLAUDE.md` |
 | Code review / pre-ship | `skills/code-review/SKILL.md` | `skills/ship/SKILL.md` |
 | Debugging | `skills/systematic-debugging/SKILL.md` | `memory/MISTAKES.md` |
-| Cron / background workers | `skills/background-workers/SKILL.md` | `apps/command-center/vercel.json` |
-| Dashboard structure | `apps/command-center/lib/agent-roots.ts` | the relevant `apps/command-center/app/<route>/page.tsx` |
+| Cron / background workers | `skills/background-workers/SKILL.md` | `oasis-command-center:vercel.json` |
+| Dashboard structure | `oasis-command-center:lib/agent-roots.ts` | the relevant `oasis-command-center:app/<route>/page.tsx` |
 | **Audit the system / health check** | (run `python scripts/self_audit.py`) | `brain/ORCHESTRATION.md` |
 | **Clean up the repo / delete junk** | (run `python scripts/system_cleanup.py` — dry-run by default) | `brain/EXECUTION_RULES.md` Rule 9 |
 | **Current date / day-of-week / time** | (run the date snippet in `brain/EXECUTION_RULES.md` Rule 11 — never quote from prompt) | `brain/STATE.md` |
@@ -109,10 +109,10 @@ When the operator switches you in the chat picker, the bridge `cd`s to that repo
 | Scrape a bot-protected page directly (interactive goto/screenshot or force-tier) | `cloak_browser_tool_scrape` (args: "url" "--json") · also: `cloak_browser_tool_check_stealth`, `cloak_browser_tool_goto` | `skills/cloak-browser/SKILL.md` |
 | Read sibling-agent inbox | `agent_inbox_list` (args: --to bravo|atlas|maven|aura|hermes) | — |
 | Post to sibling agent | `agent_inbox_post` (mutating; needs `confirm: true`) | `brain/AGENTS.md` |
-| Update operator dashboard data | emit `<dashboard-action type="…">{…}</dashboard-action>` marker (separate path; not run_script) | `apps/command-center/lib/agent-actions.ts` |
+| Update operator dashboard data | emit `<dashboard-action type="…">{…}</dashboard-action>` marker (separate path; not run_script) | `oasis-command-center:lib/agent-actions.ts` |
 | Apply a SQL migration | (off run_script allowlist; surface `python scripts/apply_migration.py <path>` for operator approval) | `database/` for next migration number |
 | Push to Vercel | (off allowlist; `git push` auto-deploys; verify with `npx vercel ls`) | — |
-| Set a Vercel env var | (off allowlist; surface `npx vercel env add NAME production`) | `apps/command-center/ENV_SETUP.md` |
+| Set a Vercel env var | (off allowlist; surface `npx vercel env add NAME production`) | `oasis-command-center:ENV_SETUP.md` |
 
 To add a new script to the allowlist: edit `SCRIPT_ALLOWLIST` in `bravo_cli/bridge_chat_server.py`. Format: friendly key → `{path, subcmd, mutating, help}`. Run-only scripts run freely; mutating require `confirm: true` from the operator.
 
