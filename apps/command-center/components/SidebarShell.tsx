@@ -18,7 +18,7 @@
 import { useEffect, useState, type ComponentProps } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { Menu, X } from "lucide-react";
+import { Menu } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 
 type SidebarProps = ComponentProps<typeof Sidebar>;
@@ -74,20 +74,10 @@ export function SidebarShell(props: SidebarProps) {
         />
       )}
 
-      {/* The aside itself — Sidebar reads isMobileOpen to flip its
-          translate-x class. Close button (X) appears only on mobile. */}
-      <Sidebar {...props} isMobileOpen={open} />
-
-      {open && (
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          aria-label="Close menu"
-          className="md:hidden fixed top-3 left-[14.5rem] z-50 inline-flex h-9 w-9 items-center justify-center rounded-md bg-bg-panel border border-bg-border text-fg-muted hover:text-fg"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      )}
+      {/* The aside itself — Sidebar owns its own close button (mobile)
+          via the onMobileClose prop, so the X always tracks the sidebar's
+          actual width instead of a magic offset. */}
+      <Sidebar {...props} isMobileOpen={open} onMobileClose={() => setOpen(false)} />
     </>
   );
 }
