@@ -135,6 +135,21 @@ SEED_JOBS: list[dict] = [
         "is_active": True,
     },
     {
+        # Added 2026-05-18 — closes the manual-edit gap on user_profiles.mrr_current_usd
+        # that surfaced during the primary retainer retainer cleanup. revenue_engine.calculate_mrr
+        # (Stripe + manual retainer rows in revenue_events) is the source of truth;
+        # sync_mrr.py upserts the result into user_profiles + writes today's
+        # mrr_snapshots row. Runs 30 min after Stripe Revenue Sync so today's
+        # Stripe events are already in revenue_events. Backstops the Vercel
+        # snapshot-mrr cron which has been silently 401-ing since 2026-05-08.
+        "name": "Daily MRR Auto-Sync",
+        "description": "Compute MRR via revenue_engine + upsert user_profiles.mrr_current_usd + mrr_snapshots row",
+        "schedule": "30 6 * * *",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/sync_mrr.py", "args": ["--json"]},
+        "is_active": True,
+    },
+    {
         "name": "Weekly MRR Report",
         "description": "Generate and log weekly MRR dashboard",
         "schedule": "0 9 * * MON",
