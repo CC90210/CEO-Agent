@@ -147,7 +147,7 @@ def _log(msg: str) -> None:
 # ─────────────────────────────────────────────────────────────────────
 # Mustache-style template rendering
 #
-# Mirrors apps/command-center/lib/drips/templates.ts. Cross-language
+# Mirrors lib/drips/templates.ts in the oasis-command-center repo. Cross-language
 # sync — if the regex or default-value rule changes, update both.
 #
 # PARITY ASSERTION — every case below MUST behave identically in both
