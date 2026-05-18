@@ -17,8 +17,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, CheckCircle2, Loader2, Save, Trash2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Code2, LayoutList, Loader2, Save, Trash2 } from "lucide-react";
 import { FormRenderer } from "./FormRenderer";
+import { VisualFieldsEditor } from "./VisualFieldsEditor";
 import {
   parseFormSteps,
   parseFormBranding,
@@ -58,6 +59,9 @@ export function FormBuilderClient({ initialForm }: Props) {
   const [onCompleteStage, setOnCompleteStage] = useState(initialForm.on_complete_stage || "");
   const [redirectUrl, setRedirectUrl] = useState(initialForm.redirect_url || "");
   const [stepsJson, setStepsJson] = useState(() => JSON.stringify(initialForm.steps, null, 2));
+  // Visual is the default — the JSON tab is preserved for power-users
+  // copying definitions between forms or recovering corrupt rows.
+  const [stepsMode, setStepsMode] = useState<"visual" | "json">("visual");
   const [brandingJson, setBrandingJson] = useState(() =>
     JSON.stringify(initialForm.branding, null, 2),
   );
@@ -187,11 +191,10 @@ export function FormBuilderClient({ initialForm }: Props) {
         <div className="rounded-xl border border-accent/30 bg-accent/5 p-3 text-xs text-fg-muted flex items-start gap-2">
           <AlertCircle className="h-3.5 w-3.5 text-accent shrink-0 mt-0.5" />
           <span>
-            <strong className="text-fg">Power-user editor.</strong> The form
-            fields, branding, and outcomes are edited as raw JSON below — a
-            visual drag-and-drop builder is on the next round. The live
-            preview on the right shows exactly what your prospects will see;
-            iterate there to know your changes are valid.
+            <strong className="text-fg">Build your form visually.</strong>{" "}
+            Add steps, add fields, toggle required — the live preview on the
+            right updates as you go. The JSON tab is still there if you'd
+            rather paste a definition in directly.
           </span>
         </div>
         <section className="space-y-3 rounded-xl border border-bg-border bg-bg-elev/40 p-4">
@@ -236,20 +239,73 @@ export function FormBuilderClient({ initialForm }: Props) {
         </section>
 
         <section className="space-y-3 rounded-xl border border-bg-border bg-bg-elev/40 p-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-fg-muted">
-            Steps (JSON)
-          </h3>
-          <p className="text-[11px] text-fg-dim leading-relaxed">
-            Each step has a key, title, optional description, and a fields array.
-            Field types: text, textarea, email, phone, number, currency, date,
-            select, multiselect, rating, file_upload, signature, hidden.
-          </p>
-          <textarea
-            value={stepsJson}
-            onChange={(e) => setStepsJson(e.target.value)}
-            className="w-full rounded-md border border-bg-border bg-bg-deep px-3 py-2 font-mono text-[11px] text-fg min-h-[20rem]"
-            spellCheck={false}
-          />
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-fg-muted">
+              Steps & fields
+            </h3>
+            <div className="flex rounded-md border border-bg-border overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setStepsMode("visual")}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold ${
+                  stepsMode === "visual"
+                    ? "bg-accent/20 text-accent"
+                    : "text-fg-dim hover:text-fg"
+                }`}
+              >
+                <LayoutList className="w-3 h-3" />
+                Visual
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  // Switching out of visual → flush the parsed structure
+                  // into the JSON pane so the operator sees the same
+                  // definition they were just editing.
+                  if (stepsMode === "visual" && parsed.steps) {
+                    setStepsJson(JSON.stringify(parsed.steps, null, 2));
+                  }
+                  setStepsMode("json");
+                }}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold border-l border-bg-border ${
+                  stepsMode === "json"
+                    ? "bg-accent/20 text-accent"
+                    : "text-fg-dim hover:text-fg"
+                }`}
+              >
+                <Code2 className="w-3 h-3" />
+                JSON
+              </button>
+            </div>
+          </div>
+          {stepsMode === "visual" ? (
+            parsed.steps ? (
+              <VisualFieldsEditor
+                steps={parsed.steps}
+                onChange={(next) => setStepsJson(JSON.stringify(next, null, 2))}
+              />
+            ) : (
+              <div className="rounded-md border border-rose-500/40 bg-rose-500/10 p-3 text-xs text-rose-400">
+                Definition has a parse error — switch to the JSON tab to fix
+                it, then come back to the visual editor.
+              </div>
+            )
+          ) : (
+            <>
+              <p className="text-[11px] text-fg-dim leading-relaxed">
+                Power-user editor. Each step has a key, title, optional
+                description, and a fields array. Field types: text, textarea,
+                email, phone, number, currency, date, select, multiselect,
+                rating, file_upload, signature, hidden.
+              </p>
+              <textarea
+                value={stepsJson}
+                onChange={(e) => setStepsJson(e.target.value)}
+                className="w-full rounded-md border border-bg-border bg-bg-deep px-3 py-2 font-mono text-[11px] text-fg min-h-[20rem]"
+                spellCheck={false}
+              />
+            </>
+          )}
         </section>
 
         <section className="space-y-3 rounded-xl border border-bg-border bg-bg-elev/40 p-4">
