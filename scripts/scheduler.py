@@ -37,6 +37,15 @@ except ImportError:
     def notify(*a, **kw): return False
     def notify_error(*a, **kw): return False
 
+# Local-time cron parser + quiet-day awareness (2026-05-17).
+# Replaces the UTC-naive calculate_next_run that fired the 8am Pow Wow
+# at 04:00 ET on Victoria Day weekend. See schedule_helpers.py header.
+from schedule_helpers import (
+    next_local_cron_run_iso,
+    is_quiet_day,
+    today_local,
+)
+
 # ── Config ────────────────────────────────────────────────────────────────────
 
 CHECK_INTERVAL_SECONDS = 60  # How often to check for due jobs
@@ -129,7 +138,17 @@ def parse_cron_schedule(schedule: str) -> Optional[timedelta]:
 
 
 def calculate_next_run(schedule: str) -> str:
-    """Calculate the next run time based on the cron schedule."""
+    """Calculate the next run time based on the cron schedule.
+
+    Prefers the local-time cron parser (schedule_helpers.next_local_cron_run_iso)
+    so "0 8 * * *" means 08:00 in CC's timezone, not 08:00 UTC. Falls back to
+    the legacy interval-add path only when the schedule isn't parseable by
+    the local helper (kept so unusual expressions still get a next_run_at and
+    a row never goes dead).
+    """
+    next_iso = next_local_cron_run_iso(schedule)
+    if next_iso:
+        return next_iso
     interval = parse_cron_schedule(schedule)
     if not interval:
         interval = timedelta(hours=24)
@@ -577,7 +596,19 @@ def run_morning_powwow(_env_vars: dict) -> str:
     Relocated 2026-05-17 from scripts/morning_powwow.py into the Aura
     home directory — the brain + voice primitives are reusable across
     every future Aura cron job.
+
+    Quiet-day guard (added 2026-05-17 after a 04:00 ET Sunday-of-the-
+    Victoria-Day-long-weekend voice ping): if today is a Saturday,
+    Sunday, or Ontario stat holiday, the pow wow doesn't fire. CC isn't
+    cold-calling on those days, doesn't need a "let's go, baby" voicemail
+    on them either. Returns a "quiet-day:" routine-silent phrase so the
+    scheduler advances next_run_at without notifying CC.
     """
+    today = today_local()
+    quiet, reason = is_quiet_day(today)
+    if quiet:
+        return f"quiet-day:{reason} — pow wow skipped for {today.isoformat()}"
+
     full_path = PROJECT_ROOT / "scripts" / "aura" / "morning_powwow.py"
     try:
         result = subprocess.run(
@@ -912,6 +943,10 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
             "revenue-report-handled-by-digest",
             "pipeline-review-handled-by-digest",
             "self-improvement-handled-by-digest",
+            # 2026-05-17: quiet-day guard skips (weekends, stat holidays).
+            # The handler intentionally returns this prefix so CC isn't
+            # poked every Saturday/Sunday with a "powwow skipped" note.
+            "quiet-day:",
             # Generic empty-result signals
             "no content due",
             "no leads",

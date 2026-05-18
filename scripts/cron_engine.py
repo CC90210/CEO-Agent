@@ -19,7 +19,7 @@ Usage:
 import argparse
 import json
 import sys
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -214,72 +214,25 @@ SEED_JOBS: list[dict] = [
 def _next_run_approx(schedule: str) -> Optional[str]:
     """
     Best-effort approximation of the next UTC run time for a 5-field cron expression.
-    Handles simple cases (numeric fields, '*', step '/N'). Day-of-week names
-    (MON, MON-FRI, etc.) are normalised before parsing.
-    Returns an ISO-8601 string or None if the expression is not parseable.
+
+    Delegates to schedule_helpers.next_local_cron_run_iso (2026-05-17), which
+    parses the expression in CC's local tz (America/Toronto by default) so
+    "0 8 * * *" lands at 08:00 ET, not 08:00 UTC. The old in-file UTC parser
+    fired Aura's 8am Pow Wow at 04:00 ET on Victoria Day weekend. Kept the
+    function signature + name for callers in this module + cron_dispatcher.
     """
-    DAY_NAMES = {
-        "SUN": "0", "MON": "1", "TUE": "2", "WED": "3",
-        "THU": "4", "FRI": "5", "SAT": "6",
-    }
-
-    def normalise(field: str) -> str:
-        """Replace day-name abbreviations with numeric equivalents."""
-        for name, num in DAY_NAMES.items():
-            field = field.replace(name, num)
-        return field
-
-    parts = schedule.strip().split()
-    if len(parts) != 5:
+    try:
+        # Local import: schedule_helpers is sibling-pathed under scripts/, and
+        # cron_engine is sometimes imported by callers outside of scripts/.
+        from pathlib import Path
+        import sys as _sys
+        _here = Path(__file__).resolve().parent
+        if str(_here) not in _sys.path:
+            _sys.path.insert(0, str(_here))
+        from schedule_helpers import next_local_cron_run_iso
+        return next_local_cron_run_iso(schedule)
+    except Exception:
         return None
-
-    minute_f, hour_f, dom_f, month_f, dow_f = [normalise(p) for p in parts]
-
-    def parse_int(field: str) -> Optional[int]:
-        try:
-            return int(field)
-        except (ValueError, TypeError):
-            return None
-
-    # Only handle simple numeric or '*' fields for the direct values
-    minute = parse_int(minute_f)
-    hour = parse_int(hour_f)
-    if minute is None or hour is None:
-        return None
-
-    now = datetime.now(timezone.utc)
-    candidate = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-
-    # Advance forward if the candidate is already in the past
-    if candidate <= now:
-        candidate = candidate + timedelta(days=1)
-
-    # If specific weekdays are requested, walk forward until one matches
-    if dow_f != "*":
-        allowed_days: set[int] = set()
-        for part in dow_f.split(","):
-            if "-" in part:
-                start, end = part.split("-", 1)
-                s, e = parse_int(start), parse_int(end)
-                if s is not None and e is not None:
-                    for d in range(s, e + 1):
-                        allowed_days.add(d % 7)
-            else:
-                d = parse_int(part)
-                if d is not None:
-                    allowed_days.add(d % 7)
-
-        if allowed_days:
-            # Python: Monday=0 ... Sunday=6; cron: Sunday=0 ... Saturday=6
-            for _ in range(8):
-                python_weekday = candidate.weekday()
-                # convert Python weekday to cron weekday (Sun=0)
-                cron_weekday = (python_weekday + 1) % 7
-                if cron_weekday in allowed_days:
-                    break
-                candidate = candidate + timedelta(days=1)
-
-    return candidate.isoformat()
 
 
 # -- Formatting helpers --------------------------------------------------------
