@@ -8,7 +8,7 @@
  * operator can see + download bank statements / ID / proof-of-ownership
  * without leaving the dashboard.
  */
-import { FileText, Download, ImageIcon } from "lucide-react";
+import { FileText, ImageIcon } from "lucide-react";
 import { Card } from "@/components/Card";
 import { getServiceSupabase } from "@/lib/supabase-server";
 import { LeadDocumentDownloadButton } from "./LeadDocumentDownloadButton";
@@ -128,4 +128,3 @@ export async function LeadDocumentsPanel({
   );
 }
 
-export { Download };
