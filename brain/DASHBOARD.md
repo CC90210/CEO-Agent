@@ -60,7 +60,7 @@ aliases:
 - [[../CMO-Agent/skills/content-engine/SKILL]] — Daily content rhythm
 
 ### Automations
-- [[skills/skool-automation/SKILL]] — Skool V2 (research-enhanced post replies)
+- ~~skool-automation~~ — Archived 2026-05-18, see `skills/_archive/skool-automation/`
 - [[skills/codex-delegation/SKILL]] — Dual-AI execution (Bravo + Codex)
 - [[skills/cli-anything/SKILL]] — CLI wrapper generation
 - [[skills/browser-automation/SKILL]] — Playwright MCP
@@ -93,7 +93,7 @@ aliases:
 | Documenter | Haiku | [[agents/documenter]] |
 | Explorer | Haiku | [[agents/explorer]] |
 | Meta-Agent | Sonnet | [[agents/meta-agent]] |
-| Skool Engine | Claude API | [[skills/skool-automation/SKILL]] |
+| ~~Skool Engine~~ | _archived 2026-05-18_ | `scripts/_archive/skool/` |
 | Codex Executor | GPT-5.4 | [[skills/codex-delegation/SKILL]] |
 
 ---
@@ -103,7 +103,7 @@ aliases:
 |--------|--------|-----------|
 | Bravo Scheduler (PM2) | Running | 60s poll |
 | Telegram Bot (PM2) | Running | Always-on |
-| Skool Community V2 | Running | 5 min cycle |
+| Skool Community V2 | Archived (2026-05-18) | Paused — preserved for CC's own community |
 | Email Inbox Monitor | Active | Every 5 min |
 | Funnel Lead Sync | Active | Every 5 min |
 | Content Publisher | Active | 9am/1pm/7pm |

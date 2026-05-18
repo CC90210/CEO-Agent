@@ -36,7 +36,6 @@ tags: [reference, tools, routing]
 | "Make this a post" / full video pipeline | **Maven** (`../CMO-Agent/scripts/content_pipeline.py`) | Route to Maven — Bravo does not own video production |
 | Content calendar / brand voice / captions | **Maven** | All copywriting + scheduling + brand voice lives in CMO-Agent |
 | Generate AI images | `codex_image_gen.py` | `generate "<prompt>" --style branded` |
-| Skool community management | `skool_engine.py` | `daemon`, `scan-posts`, `engage-members` |
 | Instagram engagement (DMs/replies) | `instagram_engine.py` | `daemon`, `check-dms`, `auto-reply` |
 | LinkedIn — research a profile (read-only) | Browser Harness on CC's logged-in Chrome | n/a — there is no LinkedIn outreach automation by design. CC drafts LinkedIn messages by hand. |
 
@@ -176,8 +175,6 @@ Exceptions (accept after too): `register_skill.py`, `stripe_tool.py`, `n8n_tool.
 | `render_video.py` | Remotion video rendering | Script |
 | `transcribe.py` | Whisper audio transcription | Script |
 | **--- Platform Automation ---** | | |
-| `skool_engine.py` | Skool community automation | Daemon |
-| `skool_watchdog.py` | Skool monitoring | Daemon |
 | `instagram_engine.py` | Instagram DM/engagement | Daemon |
 | _(LinkedIn outreach removed 2026-04-25)_ | research-only via Browser Harness — no automation by design | n/a |
 | **--- Infrastructure ---** | | |
@@ -219,7 +216,7 @@ Full list with descriptions: @brain/CAPABILITIES.md § Workflows
 | `/ceo-briefing` | `/client-health` | `/investor-update` | `/strategic-review` | `/debug`, `/research`, `/content` |
 | | `/knowledge-maintenance` | | | `/post`, `/proposal`, `/meeting-prep` |
 | | | | | `/plan-feature`, `/execute`, `/prime` |
-| | | | | `/skool-edit`, `/skool-push`, `/opencli` |
+| | | | | `/opencli` |
 | | | | | `/ingest`, `/query-knowledge`, `/evolve` |
 | | | | | `/generate-proposal`, `/client-health-report` |
 

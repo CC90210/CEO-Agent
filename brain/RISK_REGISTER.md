@@ -11,7 +11,7 @@ tags: [brain, risk, register]
 
 | ID | Risk | Category | Probability | Impact | Severity | Mitigation | Owner | Last Reviewed |
 |----|------|----------|------------|--------|----------|------------|-------|---------------|
-| R-001 | Primary retainer churned (was 94% revenue) | Revenue | **MATERIALIZED** | CRITICAL | **MATERIALIZED** | primary retainer retainer ($2,951/mo) ending 2026-05-18. Jesse replacing CC as full-time coach. $1,300 AR outstanding. SunBiz salary pending as replacement. Diversification now existential. | CC + Bravo | 2026-05-18 |
+| R-001 | Primary retainer churned (was 94% revenue) | Revenue | **MATERIALIZED** | CRITICAL | **MATERIALIZED** | primary retainer retainer ($2,951/mo) ENDED 2026-05-18. Jesse replacing CC as full-time coach. $1,300 AR outstanding. SunBiz salary pending as replacement. Diversification now existential. | CC + Bravo | 2026-05-18 |
 | R-002 | CC is single point of failure | Operational | MEDIUM | CRITICAL | CRITICAL | SOPs for all delivery, VA hire at $5K MRR, dead man's switch protocol | CC | 2026-03-28 |
 | R-003 | No formal contracts with some clients | Legal | MEDIUM | HIGH | HIGH | Standardize all engagements with contracts via proposal-generation skill | CC | 2026-03-28 |
 | R-004 | Security breach (API keys, client data) | Technology | LOW | HIGH | HIGH | .env.agents security, hooks, RLS, quarterly security audit | Bravo | 2026-03-28 |

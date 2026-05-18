@@ -1,24 +1,18 @@
-"""Silent Skool Watchdog — runs via pythonw.exe (no console window).
+"""Skool Watchdog — ARCHIVED 2026-05-18.
 
-Replaces skool-watchdog.cmd which opened a visible terminal every 5 minutes.
-This .pyw file is executed by pythonw.exe automatically — completely invisible.
+The Skool community comment/reply automation was retired when CC stepped away
+from the primary retainer retainer. The full implementation is preserved under
+`scripts/_archive/skool/` for revival when CC launches their own Skool
+community (see scripts/_archive/skool/README.md for the revival steps).
+
+The Windows scheduled task `\\SkoolWatchdog` still fires every 5 minutes (it
+requires admin rights to disable and that hasn't been done yet). This launcher
+is now a no-op so each fire is harmless — it exits immediately without
+launching anything.
+
+DO NOT delete this file — the scheduled task references it by path. Restoring
+the original behavior is a single `git mv` from the archive directory.
 """
 
-import subprocess
-import sys
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parent.parent
-VENV_PYTHON = ROOT / ".venv" / "Scripts" / "python.exe"
-WATCHDOG_SCRIPT = ROOT / "scripts" / "skool_watchdog.py"
-
-CREATE_NO_WINDOW = 0x08000000
-
 if __name__ == "__main__":
-    subprocess.run(
-        [str(VENV_PYTHON), str(WATCHDOG_SCRIPT)],
-        cwd=str(ROOT),
-        creationflags=CREATE_NO_WINDOW,
-        capture_output=True,
-        timeout=30,
-    )
+    pass

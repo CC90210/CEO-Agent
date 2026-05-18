@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0",
   "agent": "bravo",
-  "generated_at": "2026-05-18T20:45:46.117392+00:00",
+  "generated_at": "2026-05-18T23:40:25.958512+00:00",
   "totals": {
-    "skills": 150,
-    "scripts": 142,
+    "skills": 149,
+    "scripts": 140,
     "agents": 21,
     "mcp_servers": 9,
-    "workflows": 36,
-    "nodes_total": 358,
+    "workflows": 34,
+    "nodes_total": 353,
     "edges_total": 66,
     "drift_count": 0
   },
@@ -3873,37 +3873,6 @@
       "discovery": "auto-frontmatter"
     },
     {
-      "id": "skill:skool-automation",
-      "kind": "skill",
-      "name": "skool-automation",
-      "path": "skills/skool-automation/SKILL.md",
-      "description": "Manage Skool community content (lessons, about page, courses) using Playwright MCP browser automation",
-      "tier": "specialized",
-      "owner": "bravo",
-      "risk": "low",
-      "triggers": [
-        "Skool",
-        "lesson",
-        "classroom",
-        "community",
-        "Tiptap",
-        "course",
-        "Skool edit"
-      ],
-      "tags": [],
-      "status": "[VALIDATED]",
-      "disable_model_invocation": true,
-      "argument_hint": null,
-      "requires": {
-        "env": [],
-        "daemons": [],
-        "state": []
-      },
-      "archived": null,
-      "superseded_by": null,
-      "discovery": "auto-frontmatter"
-    },
-    {
       "id": "skill:slack-gif-creator",
       "kind": "skill",
       "name": "slack-gif-creator",
@@ -5804,26 +5773,6 @@
       "discovery": "auto-docstring"
     },
     {
-      "id": "script:skool_engine",
-      "kind": "script",
-      "name": "skool_engine",
-      "path": "scripts/skool_engine.py",
-      "description": "Skool Community Engine V2.1 \u2014 Autonomous community management via Playwright.",
-      "tier": "tool",
-      "owner": "bravo",
-      "discovery": "auto-docstring"
-    },
-    {
-      "id": "script:skool_watchdog",
-      "kind": "script",
-      "name": "skool_watchdog",
-      "path": "scripts/skool_watchdog.py",
-      "description": "Skool Engine Watchdog \u2014 reliable single-instance daemon management on Windows.",
-      "tier": "tool",
-      "owner": "bravo",
-      "discovery": "auto-docstring"
-    },
-    {
       "id": "script:state_api",
       "kind": "script",
       "name": "state_api",
@@ -6590,24 +6539,6 @@
       "name": "ship",
       "path": ".agents/workflows/ship.md",
       "description": "Full shipping pipeline \u2014 test, review, changelog, PR, deploy verification",
-      "owner": "bravo",
-      "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "workflow:skool-edit",
-      "kind": "workflow",
-      "name": "skool-edit",
-      "path": ".agents/workflows/skool-edit.md",
-      "description": "Edit a single Skool lesson or the About page using Playwright browser automation",
-      "owner": "bravo",
-      "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "workflow:skool-push",
-      "kind": "workflow",
-      "name": "skool-push",
-      "path": ".agents/workflows/skool-push.md",
-      "description": "Batch push content to multiple Skool lessons from local content files",
       "owner": "bravo",
       "discovery": "auto-frontmatter"
     },

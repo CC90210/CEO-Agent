@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-18T19:25:09.896715+00:00",
-  "script_count": 100,
-  "entry_count": 361,
+  "generated_at_iso": "2026-05-18T23:44:08.522422+00:00",
+  "script_count": 99,
+  "entry_count": 354,
   "entries": [
     {
       "key": "agent_heartbeat",
@@ -2047,55 +2047,6 @@
       "subcmd": "synthesize",
       "mutating": false,
       "help": "Skill Synthesizer \u2014 autonomous skill extraction pipeline. \u2014 subcommand: synthesize"
-    },
-    {
-      "key": "skool_engine_login",
-      "path": "scripts/skool_engine.py",
-      "subcmd": "login",
-      "mutating": false,
-      "help": "Skool Community Engine V2.1 \u2014 Autonomous community management via Playwright. \u2014 subcommand: login"
-    },
-    {
-      "key": "skool_engine_scan_posts",
-      "path": "scripts/skool_engine.py",
-      "subcmd": "scan-posts",
-      "mutating": false,
-      "help": "Skool Community Engine V2.1 \u2014 Autonomous community management via Playwright. \u2014 subcommand: scan-posts"
-    },
-    {
-      "key": "skool_engine_scan_dms",
-      "path": "scripts/skool_engine.py",
-      "subcmd": "scan-dms",
-      "mutating": false,
-      "help": "Skool Community Engine V2.1 \u2014 Autonomous community management via Playwright. \u2014 subcommand: scan-dms"
-    },
-    {
-      "key": "skool_engine_auto",
-      "path": "scripts/skool_engine.py",
-      "subcmd": "auto",
-      "mutating": false,
-      "help": "Skool Community Engine V2.1 \u2014 Autonomous community management via Playwright. \u2014 subcommand: auto"
-    },
-    {
-      "key": "skool_engine_status",
-      "path": "scripts/skool_engine.py",
-      "subcmd": "status",
-      "mutating": false,
-      "help": "Skool Community Engine V2.1 \u2014 Autonomous community management via Playwright. \u2014 subcommand: status"
-    },
-    {
-      "key": "skool_engine_metrics",
-      "path": "scripts/skool_engine.py",
-      "subcmd": "metrics",
-      "mutating": false,
-      "help": "Skool Community Engine V2.1 \u2014 Autonomous community management via Playwright. \u2014 subcommand: metrics"
-    },
-    {
-      "key": "skool_engine_daemon",
-      "path": "scripts/skool_engine.py",
-      "subcmd": "daemon",
-      "mutating": false,
-      "help": "Skool Community Engine V2.1 \u2014 Autonomous community management via Playwright. \u2014 subcommand: daemon"
     },
     {
       "key": "state_manager_heartbeat",

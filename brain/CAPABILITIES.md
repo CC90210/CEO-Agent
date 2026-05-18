@@ -36,7 +36,7 @@ tags: [capabilities, tools]
 
 Models: Gemini 3.1 Pro High/Low, Gemini 3 Flash, Claude Sonnet/Opus 4.6, GPT-OSS 120B Medium
 Entry Point: `ANTIGRAVITY.md` | Config: `.vscode/mcp.json`
-Workflows: `.agents/workflows/` (33 workflows: post, status, health, prime, content, commit, n8n, sync, research, debug, client-onboard, cli-anything, skool-edit, skool-push, evolve, briefing, client-health-report, generate-proposal, strategic-review, competitive-report, qbr, onboard-team-member, meeting-prep, investor-update, knowledge-maintenance, review, ship, retro, create-prd, opencli, ingest, query-knowledge, lint-knowledge)
+Workflows: `.agents/workflows/` (31 active workflows: post, status, health, prime, content, commit, n8n, sync, research, debug, client-onboard, cli-anything, evolve, briefing, client-health-report, generate-proposal, strategic-review, competitive-report, qbr, onboard-team-member, meeting-prep, investor-update, knowledge-maintenance, review, ship, retro, create-prd, opencli, ingest, query-knowledge, lint-knowledge). Archived: skool-edit, skool-push (2026-05-18, see `.agents/workflows/_archive/`).
 
 | Server | Purpose | Config |
 |--------|---------|--------|
@@ -480,7 +480,7 @@ The following were added to the Business Operations Engines table above (already
 
 | Engine | Script | Purpose | Key Commands |
 |--------|--------|---------|-------------|
-| **Skool Community** | `scripts/skool_engine.py` | Autonomous Skool community manager — post replies, DM welcome, member engagement | `daemon`, `run-cycle`, `scan-posts`, `scan-dms`, `engage-members` |
+| ~~Skool Community~~ | _(archived 2026-05-18)_ | Skool community comment/reply daemon — paused when CC stepped away from the primary retainer retainer. Code preserved at `scripts/_archive/skool/` for revival when CC launches their own community. | n/a |
 | **Instagram** | `../CMO-Agent/scripts/instagram_engine.py` (owned by Maven) | Instagram DM auto-reply, content scheduling, engagement | `daemon`, `check-dms`, `auto-reply`, `post` |
 | ~~LinkedIn~~ | _(removed 2026-04-25)_ | LinkedIn outreach automation was removed by design. CC drafts LinkedIn messages by hand. For LinkedIn profile **research only**, use Browser Harness under CC's logged-in session. | n/a |
 
@@ -503,7 +503,6 @@ The following were added to the Business Operations Engines table above (already
 | `scripts/music_control.py` | Audio/music control |
 | `scripts/outreach_engine.py` | Outreach campaign automation |
 | `../CMO-Agent/scripts/render_video.py` | Remotion video rendering |
-| `scripts/skool_watchdog.py` | Skool community monitoring daemon |
 | `scripts/transcribe.py` | Whisper audio transcription |
 
 ## Notification & Scheduling
@@ -658,8 +657,6 @@ markdown wiki pages. Deterministic retrieval via `knowledge/index.md` — no emb
 | /retro | Weekly (Sun/Mon) | Retrospective — commits, scores, patterns, improvement actions |
 | /review | On-demand | Pre-landing code review with Fix-First methodology |
 | /ship | On-demand | Full shipping pipeline — test, review, changelog, PR, deploy |
-| /skool-edit | On-demand | Edit Skool lessons or About page via Playwright |
-| /skool-push | On-demand | Bulk-push course content to Skool |
 | /status | On-demand | Project status report |
 | /strategic-review | Quarterly | Strategic review — revenue, pipeline, competitive, OKR progress |
 | /sync | On-demand | End-of-session sync |
