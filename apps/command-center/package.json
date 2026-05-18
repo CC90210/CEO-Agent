@@ -1,9 +1,0 @@
-{
-  "name": "command-center-extracted-stub",
-  "private": true,
-  "version": "0.0.0",
-  "description": "Stub — the real app is at https://github.com/CC90210/oasis-command-center. This directory exists only so the stale Vercel project's Root Directory check passes. The vercel.json next to this file returns ignoreCommand=0 to skip the build cleanly.",
-  "scripts": {
-    "build": "echo 'extracted to CC90210/oasis-command-center'"
-  }
-}
