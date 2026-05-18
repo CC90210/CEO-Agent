@@ -81,10 +81,13 @@ def main() -> int:
     # Step 2: disable git deployments by patching deployHooks to empty AND
     # setting rootDirectory=null + framework=null so Vercel stops looking
     # for apps/command-center.
+    # buildCommand must actually CREATE the output dir Vercel expects to
+    # find after the build, or it errors with "No Output Directory named
+    # 'public' found". mkdir + echo a single index.html does the job.
     patch_body = {
         "rootDirectory": None,
         "framework": None,
-        "buildCommand": "echo 'extracted'",
+        "buildCommand": "mkdir -p public && echo 'apps/command-center extracted to CC90210/oasis-command-center' > public/index.html",
         "installCommand": "echo 'extracted'",
         "outputDirectory": "public",
     }
