@@ -153,6 +153,8 @@ export type Tenant = {
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   primary_brand_color: string | null;
+  /** Public URL of the tenant's brand logo. Set via Settings → Branding (migration 056). */
+  logo_url: string | null;
   custom_fields: Record<string, unknown>;
   created_at: string;
   updated_at: string;

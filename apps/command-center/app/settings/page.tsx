@@ -116,9 +116,7 @@ export default async function SettingsPage() {
             subtitle="Your logo is applied to every new form, public application page, and anywhere else the dashboard shows your brand."
           >
             <BrandLogoCard
-              initialLogoUrl={
-                (tenant as { logo_url?: string | null } | null)?.logo_url || null
-              }
+              initialLogoUrl={tenant?.logo_url ?? null}
               canManage={canManageTenant}
             />
           </Card>

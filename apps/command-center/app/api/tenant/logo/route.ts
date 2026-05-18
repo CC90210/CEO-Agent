@@ -13,6 +13,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceSupabase, getSessionUser } from "@/lib/supabase-server";
+import { sanitizeStorageFilename } from "@/lib/storage-helpers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,17 +27,6 @@ const ALLOWED_MIME = new Set([
   "image/svg+xml",
   "image/gif",
 ]);
-
-function sanitizeFilename(name: string): string {
-  return (
-    name
-      .replace(/[/\\]/g, "_")
-      .replace(/\.\.+/g, "_")
-      .replace(/\s+/g, "_")
-      .replace(/[^a-zA-Z0-9._-]/g, "")
-      .slice(0, 80) || `logo_${Date.now()}`
-  );
-}
 
 async function resolveOwnerTenant(): Promise<{
   tenantId: string;
@@ -106,7 +96,7 @@ export async function POST(req: NextRequest) {
   }
 
   const db = getServiceSupabase();
-  const clean = sanitizeFilename(file.name);
+  const clean = sanitizeStorageFilename(file.name);
   const storagePath = `${tenantId}/${Date.now()}_${clean}`;
   const bytes = Buffer.from(await file.arrayBuffer());
 

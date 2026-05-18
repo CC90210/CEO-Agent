@@ -72,7 +72,7 @@ async function loadAndVerify(params: RouteParams): Promise<LoadResult> {
   const row = await db
     .from("forms")
     .select(
-      "id, tenant_id, slug, name, branding, steps, on_complete_stage, step_outcomes, enabled, redirect_url, tenant:tenants!inner(slug)",
+      "id, tenant_id, slug, name, branding, steps, on_complete_stage, step_outcomes, enabled, redirect_url, tenant:tenants!inner(slug, logo_url)",
     )
     .eq("id", sig.payload.form_id)
     .maybeSingle();
@@ -90,7 +90,10 @@ async function loadAndVerify(params: RouteParams): Promise<LoadResult> {
     step_outcomes: unknown;
     enabled: boolean;
     redirect_url: string | null;
-    tenant: { slug: string } | { slug: string }[] | null;
+    tenant:
+      | { slug: string; logo_url: string | null }
+      | { slug: string; logo_url: string | null }[]
+      | null;
   };
   // The URL slug must also match the form's stored slug — defends
   // against a token paired with a swapped form_slug.
@@ -118,6 +121,14 @@ async function loadAndVerify(params: RouteParams): Promise<LoadResult> {
       reason: "form_corrupt",
       detail: err instanceof Error ? err.message : String(err),
     };
+  }
+
+  // Tenant-logo fallback: if this form was created before the operator
+  // uploaded their brand logo (or they cleared the per-form override),
+  // pull from tenants.logo_url so existing forms inherit the new logo
+  // without an edit pass. The per-form override still wins.
+  if (!branding.logo_url && tenantRow.logo_url) {
+    branding = { ...branding, logo_url: tenantRow.logo_url };
   }
 
   return {
