@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "_comment": [
+    "STUB — apps/command-center/ has been extracted to the standalone repo",
+    "https://github.com/CC90210/oasis-command-center as of 30d2c4a.",
+    "",
+    "The Vercel project rooted here predates the extraction. Updating its",
+    "Root Directory in project settings requires dashboard access; this",
+    "stub achieves the same result from code: the directory exists (so",
+    "Vercel's clone-validation passes), and ignoreCommand returns 0 so the",
+    "build is skipped with a clean 'Skipped' status instead of 'Error'.",
+    "",
+    "The real Command Center deploys continue on a separate Vercel project",
+    "linked to CC90210/oasis-command-center."
+  ],
+  "ignoreCommand": "echo 'apps/command-center extracted to CC90210/oasis-command-center; skipping build' && exit 0"
+}
