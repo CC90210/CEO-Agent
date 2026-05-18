@@ -25,6 +25,7 @@ import {
   type FormStep,
   type FormBranding,
 } from "@/lib/forms/types";
+import { resolvePublicForm } from "@/lib/forms/public-resolver";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -55,56 +56,17 @@ type LoadResult =
     };
 
 async function loadForm(params: RouteParams): Promise<LoadResult> {
-  const tenantSlug = params.tenant_slug.toLowerCase();
-  const formSlug = params.form_slug.toLowerCase();
   const db = getServiceSupabase();
-  // Resolve tenant_id first, then look up the form by (tenant_id, slug).
-  // The schema permits same form_slug across different tenants
-  // (UNIQUE constraint is per-tenant), so a global slug query can hit
-  // the wrong row. All negative responses collapse to 404 so this
-  // route can't be used to enumerate which tenants exist by diffing
-  // status codes.
-  const tenantRowQ = await db
-    .from("tenants")
-    .select("id, logo_url")
-    .eq("slug", tenantSlug)
-    .maybeSingle();
-  const tenantRow = tenantRowQ.data as
-    | { id: string; logo_url: string | null }
-    | null;
-  if (!tenantRow) {
-    return { ok: false, reason: "not_found" };
-  }
-  const row = await db
-    .from("forms")
-    .select(
-      "id, tenant_id, slug, name, branding, steps, enabled, redirect_url",
-    )
-    .eq("tenant_id", tenantRow.id)
-    .eq("slug", formSlug)
-    .maybeSingle();
-  if (row.error || !row.data) {
-    return { ok: false, reason: "not_found" };
-  }
-  const form = row.data as {
-    id: string;
-    tenant_id: string;
-    slug: string;
-    name: string;
-    branding: unknown;
-    steps: unknown;
-    enabled: boolean;
-    redirect_url: string | null;
-  };
-  if (!form.enabled) {
+  const resolved = await resolvePublicForm(db, params.tenant_slug, params.form_slug);
+  if (!resolved.ok) {
     return { ok: false, reason: "not_found" };
   }
 
   let steps: FormStep[];
   let branding: FormBranding;
   try {
-    steps = parseFormSteps(form.steps);
-    branding = parseFormBranding(form.branding);
+    steps = parseFormSteps(resolved.form.steps);
+    branding = parseFormBranding(resolved.form.branding);
   } catch (err) {
     return {
       ok: false,
@@ -113,22 +75,22 @@ async function loadForm(params: RouteParams): Promise<LoadResult> {
     };
   }
   // Tenant-logo fallback (same rule the personalized route uses).
-  if (branding.logo_url == null && tenantRow.logo_url) {
-    branding = { ...branding, logo_url: tenantRow.logo_url };
+  if (branding.logo_url == null && resolved.tenant_logo_url) {
+    branding = { ...branding, logo_url: resolved.tenant_logo_url };
   }
 
   return {
     ok: true,
     form: {
-      id: form.id,
-      tenant_id: form.tenant_id,
-      slug: form.slug,
-      name: form.name,
+      id: resolved.form.id,
+      tenant_id: resolved.form.tenant_id,
+      slug: resolved.form.slug,
+      name: resolved.form.name,
       branding,
       steps,
-      redirect_url: form.redirect_url,
+      redirect_url: resolved.form.redirect_url,
     },
-    tenant_slug: tenantSlug,
+    tenant_slug: resolved.tenant_slug,
   };
 }
 
