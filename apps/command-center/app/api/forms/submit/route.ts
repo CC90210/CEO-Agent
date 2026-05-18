@@ -184,9 +184,10 @@ export async function POST(req: NextRequest) {
 
   const payload =
     body.payload && typeof body.payload === "object" ? body.payload : {};
-  const fileAttachments = Array.isArray(body.file_attachments)
-    ? body.file_attachments
-    : [];
+  // body.file_attachments is intentionally ignored after Codex pass 2 —
+  // anything the client says it uploaded must be re-derived from
+  // server-side uploadedDocs further down. See the comment at
+  // resolvedAttachments for the reasoning.
 
   // Inline files arrive base64-encoded inside payload. Pull them out so we
   // can upload to Supabase Storage and stop persisting the bytes in jsonb
@@ -420,7 +421,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // form_submissions.file_attachments is now derived SOLELY from
+  // form_submissions.file_attachments is derived SOLELY from
   // uploadedDocs — the server-side record of what landed in Storage.
   // Codex flagged that the previous map kept any client-supplied
   // attachments[] entry without a matched inline upload, which let a
@@ -428,9 +429,6 @@ export async function POST(req: NextRequest) {
   // foreign-tenant paths) — and downstream /api/applications/.../
   // underwrite would later forward those paths to the underwriter.
   // Discarding the request-body attachments entirely closes that.
-  // fileAttachments from body is still referenced for surface-level
-  // shape but never persisted as-is.
-  void fileAttachments;
   const resolvedAttachments = uploadedDocs.map((d) => ({
     field_name: d.field_name,
     storage_path: d.storage_path,
