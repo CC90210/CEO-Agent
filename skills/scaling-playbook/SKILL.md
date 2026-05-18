@@ -225,14 +225,17 @@ Define this before you need it. At minimum:
 
 This is the concrete roadmap from current state to empire, specific to CC's situation.
 
-### NOW — March 2026 (~$2,982 USD MRR)
-**Current constraint:** Revenue concentration (primary retainer = 84% of MRR) and pipeline insufficiency
+### NOW — May 2026 (~$371 USD confirmed MRR, post-primary retainer-end)
+**Current constraint:** Baseline rebuild after R-001 materialization (primary retainer retainer ended 2026-05-18). SunBiz salary (~$2,500 pending) is the primary near-term recovery candidate; do not count until signed.
 
 **Immediate actions:**
+- Lock in SunBiz salary (~$2,500/mo pending) — primary replacement for ended primary retainer retainer
+- Collect $1,300 AR outstanding from primary retainer (CC handling directly)
 - Close 4-5 new OASIS AI clients at $1,500-$2,500/month to reach $5K MRR
 - Build the inbound content engine (1 post/day on X and LinkedIn) — the single highest-ROI activity
-- Document the primary retainer's delivery process as an SOP so it can eventually be delegated
 - Systematize client onboarding so new clients start faster
+
+**Historical (pre-2026-05-18):** primary retainer retainer was 84% of MRR until it ended. The concentration risk this playbook flagged actually materialized. Avoid re-creating that single-client dependency.
 
 **What NOT to do at this stage:** Hire, build new products, or optimize for scale before the revenue base is stable.
 

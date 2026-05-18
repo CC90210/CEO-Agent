@@ -36,14 +36,14 @@ freshness_threshold_days: 90
 | PropFlow is pre-revenue, in active development | 0.85 | brain/USER.md current | 2026-05-06 |
 | CC works weekends at Nicky's Donuts | 0.90 | brain/USER.md | 2026-05-06 |
 | **Content Strategy:** Wednesday is "Content Day". CC uploads batch video/files, Maven schedules 1 piece/day across all channels via Zernio. | 0.90 | CC stated 2026-03-05, content pipeline now owned by Maven | 2026-05-06 |
-| Primary retainer is ~93% of revenue — diversification is critical risk #1 | 0.95 | brain/STATE.md current | 2026-05-06 |
+| ~~Primary retainer is ~93% of revenue — diversification is critical risk #1~~ **SUPERSEDED 2026-05-18:** primary retainer retainer ended; confirmed MRR is now ~$371. R-001 materialized — see brain/RISK_REGISTER.md | 1.00 | brain/STATE.md, docs/handovers/2026-05-18-primary_retainer-revenue-shift-handoff.md | 2026-05-18 |
 | Atlas (CFO agent) at `C:\Users\User\APPS\CFO-Agent` — finance, tax, trading, FIRE. Pulse: `data/pulse/cfo_pulse.json`. Read-only from Bravo. | 0.95 | brain/APP_REGISTRY.md + C_SUITE_ARCHITECTURE.md | 2026-05-06 |
 | Maven (CMO agent) at `C:\Users\User\CMO-Agent` — content, ads, brand, funnels, growth. Pulse: `data/pulse/cmo_pulse.json`. Read-only from Bravo. | 0.95 | brain/APP_REGISTRY.md + C_SUITE_ARCHITECTURE.md | 2026-05-06 |
 | Aura (life/home agent) at `C:\Users\User\AURA` — habits, smart home, RPi5 hub. Pulse: `data/pulse/aura_pulse.json`. | 0.90 | brain/C_SUITE_ARCHITECTURE.md | 2026-05-06 |
 | Hermes is a client product (commerce agent), NOT a peer C-Suite agent. Repo: `~/hermes`. First client: Emmanuel Lowinger. | 0.95 | brain/APP_REGISTRY.md, AGENT_ROUTER.md updated 2026-05-06 | 2026-05-06 |
 | CC Funnel live at cc-funnel.vercel.app — lead capture → Supabase → Telegram notify | 0.90 | Deployed 2026-03-24, still live | 2026-05-06 |
-| Primary-retainer relationship is friend-based, contract formalized 2026-04-10. $2,500/mo flat + 15% rev share on community MRR. CC = Head Coach. | 0.95 | brain/STATE.md current | 2026-05-06 |
-| Primary-retainer $10K coaching referral DEFERRED — partner currently overcommitted to their own clients. Revisit Q3 2026. | 0.90 | memory/ACTIVE_TASKS.md | 2026-05-06 |
+| ~~Primary-retainer relationship is friend-based, contract formalized 2026-04-10. $2,500/mo flat + 15% rev share on community MRR. CC = Head Coach.~~ **ENDED 2026-05-18** — primary retainer brought Jesse on as full-time coach with equity. CC retains IP. Relationship amicable. primary retainer indicated he'd bring CC back as smaller coach later (no terms). | 1.00 | brain/STATE.md, APPS_CONTEXT/SKOOL_COMMUNITY_CLAUDE.md | 2026-05-18 |
+| ~~Primary-retainer $10K coaching referral DEFERRED — partner currently overcommitted to their own clients. Revisit Q3 2026.~~ **OBSOLETE 2026-05-18** — primary retainer relationship ended. | 0.90 | memory/ACTIVE_TASKS.md | 2026-05-18 |
 | CC's #1 priority is CONTENT CREATION for personal brand (Conaugh McKenna) to build inbound funnel | 0.95 | brain/USER.md | 2026-05-06 |
 | CC's role: content creation, marketing, sales, face-to-face. Everything else = Bravo handles autonomously. | 0.95 | brain/USER.md | 2026-05-06 |
 | Monthly overhead: ~$184 USD (Claude $140, Supabase $25, Hostinger/n8n $14, ElevenLabs ~$5) | 0.90 | brain/STATE.md | 2026-05-06 |

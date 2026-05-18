@@ -1,13 +1,16 @@
 ---
-tags: [knowledge, wiki, revenue, mrr, pricing, retainer]
+tags: [knowledge, wiki, revenue, mrr, pricing, retainer, archived]
 sources: [brain/STATE.md, brain/USER.md]
-last_updated: 2026-05-09
+last_updated: 2026-05-18
+status: archived
 confidence: 0.92
 ---
 
-# Revenue Model — MRR Breakdown and Path to $5K
+> **ARCHIVED 2026-05-18 — pre-primary retainer-end snapshot.** This file documents the revenue model as it existed before the primary retainer's retainer ended on 2026-05-18. Numbers below are historical context, NOT current state. For current MRR see [[brain/STATE]] (~$371 confirmed) and the full handoff: [docs/handovers/2026-05-18-primary_retainer-revenue-shift-handoff.md](../../docs/handovers/2026-05-18-primary_retainer-revenue-shift-handoff.md). When a current-state revenue doc is written, link it here.
 
-> Full picture of how revenue works today, the primary retainer relationship, and what's needed to hit $5K MRR.
+# Revenue Model — MRR Breakdown and Path to $5K [ARCHIVED]
+
+> Full picture of how revenue worked **up to 2026-05-18**, the primary retainer relationship, and what was needed to hit $5K MRR before the retainer ended.
 > [[knowledge/index]] | [[knowledge/wiki/ai-automation-agency]] | [[knowledge/wiki/client-playbook]]
 
 ## North Star
