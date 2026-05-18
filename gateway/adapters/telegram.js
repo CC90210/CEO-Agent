@@ -735,21 +735,57 @@ CC's message:`;
             await this._handleCallbackQuery(query);
         });
 
+        // 409 handling: in-process exponential backoff, do NOT go silently
+        // dormant (old pattern left bridges dead for days) and do NOT exit
+        // (creates ghost long-poll connections that re-trigger the 409 on
+        // restart — see Maven 2026-05-18, 512 pm2 restarts). Stay alive,
+        // wait for the stale long-poll to expire on Telegram's side, then
+        // resume polling in-process. Counter resets after 5 min healthy.
+        this._pollConflictCount = 0;
+        this._pollResumeTimer = null;
+        this._lastPollOkAt = Date.now();
+        this._scheduleResumeAfterConflict = () => {
+            if (this._pollResumeTimer) return;
+            const baseDelays = [60000, 90000, 120000, 180000, 300000];
+            const c = this._pollConflictCount;
+            const delay = c <= baseDelays.length
+                ? baseDelays[Math.min(c - 1, baseDelays.length - 1)]
+                : 600000;
+            log(`[POLL] 409 conflict #${c}: pausing polling for ${Math.round(delay/1000)}s ` +
+                `to let the stale long-poll connection expire on Telegram's side.`);
+            this._pollResumeTimer = setTimeout(async () => {
+                this._pollResumeTimer = null;
+                try { await this._bot.stopPolling(); } catch (_) {}
+                try {
+                    await this._bot.startPolling({ restart: true });
+                    log('[POLL] Resumed polling after 409 backoff.');
+                    setTimeout(() => {
+                        if (Date.now() - this._lastPollOkAt > 4.5 * 60 * 1000) {
+                            this._pollConflictCount = 0;
+                            log('[POLL] 5 min stable since last 409 — backoff counter reset.');
+                        }
+                    }, 5 * 60 * 1000);
+                } catch (err) {
+                    log(`[POLL] startPolling after backoff failed: ${err.message || err}.`);
+                }
+            }, delay);
+        };
+
         this._bot.on('polling_error', (e) => {
             this._pollErrorCount++;
             const msg = e.message || String(e);
             if (msg.includes('409') || msg.includes('Conflict')) {
-                if (!this._pollingDormant) {
-                    this._pollingDormant = true;
-                    log('[POLL] 409 conflict: another instance owns this token. Dormant mode.');
-                }
+                this._pollConflictCount++;
                 this._bot.stopPolling().catch(() => {});
+                this._scheduleResumeAfterConflict();
                 return;
             }
             if (this._pollErrorCount === 1 || this._pollErrorCount % 50 === 0) {
                 log(`[POLL] Error: ${msg} (count: ${this._pollErrorCount})`);
             }
         });
+        // Track polls so the conflict counter resets after healthy traffic
+        this._bot.on('message', () => { this._lastPollOkAt = Date.now(); });
     }
 
     // ---- PRIVATE: COMMAND HANDLER (all commands preserved) ----

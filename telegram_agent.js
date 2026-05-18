@@ -1314,91 +1314,70 @@ const shutdown = async (sig) => {
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
-// ---- CRASH RECOVERY + 409 CIRCUIT BREAKER ----
+// ---- CRASH RECOVERY + 409 IN-PROCESS BACKOFF (V15.12) ----
 // Suppress polling errors (network drops, sleep/wake cycles)
 // node-telegram-bot-api auto-retries polling — just log, don't crash
+//
+// 409 handling: do NOT exit. Telegram's long-poll connection (≤50s timeout)
+// from our own previous getUpdates stays "alive" on Telegram's side after we
+// disconnect ungracefully. Exiting + pm2-restarting recreates the ghost every
+// cycle, producing a perpetual loop (Maven hit 512 restarts on 2026-05-18
+// from the prior exit-on-409 pattern). Instead, stay alive, stop polling,
+// wait for the ghost to expire with exponential backoff, then resume polling
+// in-process. Counter resets after 5 minutes of healthy traffic. 401 still
+// exits (real bad token, no point retrying).
 let pollErrorCount = 0;
-let pollingDormant = false;
-
-// --- 409 Circuit Breaker (V15.11) ---
-// Tracks consecutive 409 errors across PM2 restarts via a persistent file.
-// If another machine (e.g. Mac) is holding the Telegram bot token, the bridge
-// would otherwise crash-loop forever (409 → exit 1 → PM2 restart → 409...).
-// After 3 consecutive 409 failures, exit with code 0 (tells PM2 to STOP
-// restarting) and log a clear message. CC must resolve the conflict manually.
-const CONFLICT_COUNTER_FILE = path.join(__dirname, 'tmp', 'bravo_409_count.json');
-const MAX_409_RETRIES = 3;
-
-const read409Counter = () => {
-    try {
-        if (fs.existsSync(CONFLICT_COUNTER_FILE)) {
-            const data = JSON.parse(fs.readFileSync(CONFLICT_COUNTER_FILE, 'utf8'));
-            // Reset if last 409 was more than 10 minutes ago (conflict resolved)
-            if (data.last_409 && (Date.now() - new Date(data.last_409).getTime()) > 10 * 60 * 1000) {
-                return 0;
-            }
-            return data.count || 0;
+let pollConflictCount = 0;
+let pollResumeTimer = null;
+let lastPollOkAt = Date.now();
+function scheduleResumeAfterConflict() {
+    if (pollResumeTimer) return;
+    const baseDelays = [60000, 90000, 120000, 180000, 300000];
+    const delay = pollConflictCount <= baseDelays.length
+        ? baseDelays[Math.min(pollConflictCount - 1, baseDelays.length - 1)]
+        : 600000;
+    log(`[POLL] 409 conflict #${pollConflictCount}: pausing polling for ${Math.round(delay/1000)}s ` +
+        `to let the stale long-poll connection expire on Telegram's side. ` +
+        `(staying online — no pm2 restart)`);
+    pollResumeTimer = setTimeout(async () => {
+        pollResumeTimer = null;
+        try { await bot.stopPolling(); } catch (_) {}
+        try {
+            await bot.startPolling({ restart: true });
+            log('[POLL] Resumed polling after 409 backoff.');
+            setTimeout(() => {
+                if (Date.now() - lastPollOkAt > 4.5 * 60 * 1000) {
+                    pollConflictCount = 0;
+                    log('[POLL] 5 min stable since last 409 — backoff counter reset.');
+                }
+            }, 5 * 60 * 1000);
+        } catch (err) {
+            log(`[POLL] startPolling after backoff failed: ${err.message || err}. Will retry on next polling_error.`);
         }
-    } catch (_) {}
-    return 0;
-};
-
-const write409Counter = (count) => {
-    try {
-        ensureTmpDir();
-        fs.writeFileSync(CONFLICT_COUNTER_FILE, JSON.stringify({
-            count, last_409: new Date().toISOString(),
-            note: 'Consecutive 409 Conflict errors. Another bot instance is polling this token.'
-        }, null, 2));
-    } catch (_) {}
-};
-
-const clear409Counter = () => {
-    try { if (fs.existsSync(CONFLICT_COUNTER_FILE)) fs.unlinkSync(CONFLICT_COUNTER_FILE); } catch (_) {}
-};
-
-// Clear the counter on successful startup (we got past the initial poll)
-setTimeout(() => {
-    if (!pollingDormant) clear409Counter();
-}, 60000); // If still alive after 60s, the poll is working
+    }, delay);
+}
 
 bot.on('polling_error', (e) => {
     pollErrorCount++;
     const msg = e.message || String(e);
-
-    // 409 Conflict = another bot instance is polling the same token.
     if (msg.includes('409') || msg.includes('Conflict')) {
-        if (!pollingDormant) {
-            pollingDormant = true;
-            const consecutiveCount = read409Counter() + 1;
-            write409Counter(consecutiveCount);
-
-            if (consecutiveCount >= MAX_409_RETRIES) {
-                // CIRCUIT BREAKER: Stop retrying. Exit 0 so PM2 does NOT restart.
-                log(`[POLL] 409 CIRCUIT BREAKER (${consecutiveCount}/${MAX_409_RETRIES}): ` +
-                    'Another bot instance has been holding this Telegram token across ' +
-                    `${consecutiveCount} consecutive restarts. Exiting with code 0 to STOP ` +
-                    'PM2 autorestart. Resolution: stop the other instance (likely the Mac), ' +
-                    'then run: npx pm2 restart bravo-telegram');
-                bot.stopPolling().catch(() => {});
-                setTimeout(() => process.exit(0), 3000); // exit 0 = PM2 won't restart
-            } else {
-                log(`[POLL] 409 conflict (attempt ${consecutiveCount}/${MAX_409_RETRIES}): ` +
-                    'another bot instance owns this Telegram token. Exiting in 5s for PM2 retry.');
-                bot.stopPolling().catch(() => {});
-                setTimeout(() => {
-                    log('[POLL] Exiting with code 1 to trigger PM2 restart.');
-                    process.exit(1);
-                }, 5000); // 5s (was 30s) — PM2 restart_delay handles the cooldown
-            }
-        }
+        pollConflictCount++;
+        bot.stopPolling().catch(() => {});
+        scheduleResumeAfterConflict();
         return;
     }
-    // Log first error, then only every 50th to avoid filling logs
+    if (msg.includes('401')) {
+        log('[POLL] 401 — TELEGRAM_BOT_TOKEN invalid or revoked. Exiting.');
+        process.exit(1);
+        return;
+    }
     if (pollErrorCount === 1 || pollErrorCount % 50 === 0) {
         log(`[POLL] EFATAL: ${msg} (count: ${pollErrorCount})`);
     }
 });
+// Track successful polls so the conflict counter can reset after sustained
+// healthy polling. node-telegram-bot-api emits 'message' for any update.
+bot.on('message', () => { lastPollOkAt = Date.now(); });
 
 // Catch unhandled rejections to prevent crash
 process.on('unhandledRejection', (err) => {
