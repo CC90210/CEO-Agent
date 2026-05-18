@@ -82,12 +82,15 @@ export function MyAgentsCard({ enabledAgentKeys, agentLabels }: Props) {
       <header>
         <h3 className="text-sm font-bold text-fg uppercase tracking-wider flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-accent" />
-          My Agents — personal AI overrides
+          Use my own AI keys (just for me)
         </h3>
         <p className="text-[12px] text-fg-muted leading-relaxed mt-1">
-          Connect your own AI account to override the workspace defaults. Only your chat is affected
-          — your teammates keep using whatever the admin set. Leave a row alone to use the tenant
-          default.
+          Optional. By default every employee&apos;s chat runs on the team&apos;s
+          shared API key (set up by your admin in &ldquo;AI provider accounts&rdquo;
+          above). Paste your own key here if you&apos;d rather your chats run on
+          your personal Anthropic / OpenRouter / OpenAI / Google account
+          instead. Only your chats are affected — teammates keep using the
+          team key.
         </p>
       </header>
 
