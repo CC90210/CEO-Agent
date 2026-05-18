@@ -8,7 +8,7 @@
  */
 
 import { PageHeader } from "@/components/Card";
-import { getActiveProfile } from "@/lib/queries";
+import { getActiveProfile, getTenant } from "@/lib/queries";
 import { getSessionUser, getServiceSupabase } from "@/lib/supabase-server";
 import { safe, isMissingTableError } from "@/lib/api-helpers";
 import { FormsListClient } from "@/components/forms/FormsListClient";
@@ -53,6 +53,14 @@ export default async function FormsPage() {
 
   const profile = await safe("forms.profile", getActiveProfile(), null);
   const result = await loadForms(profile?.tenant_id || null);
+  // Pass the tenant logo down so the "New form" creator can pre-fill the
+  // starter's branding.logo_url. One source of truth — operators set the
+  // logo once in Settings → Branding, every new form picks it up.
+  const tenant = profile?.tenant_id
+    ? await safe("forms.tenant", getTenant(profile.tenant_id), null)
+    : null;
+  const tenantLogoUrl =
+    (tenant as { logo_url?: string | null } | null)?.logo_url || null;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -94,7 +102,12 @@ export default async function FormsPage() {
         </div>
       )}
 
-      {result.ok && <FormsListClient initialRows={result.rows} />}
+      {result.ok && (
+        <FormsListClient
+          initialRows={result.rows}
+          tenantLogoUrl={tenantLogoUrl}
+        />
+      )}
     </div>
   );
 }

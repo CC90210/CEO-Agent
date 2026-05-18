@@ -11,6 +11,7 @@ import {
 import { safe } from "@/lib/api-helpers";
 import { ChangePasswordForm } from "@/components/ChangePasswordForm";
 import { ProfileEditor } from "@/components/settings/ProfileEditor";
+import { BrandLogoCard } from "@/components/settings/BrandLogoCard";
 import { PlanTemplateEditor } from "@/components/settings/PlanTemplateEditor";
 import { AgentConfigEditor } from "@/components/settings/AgentConfigEditor";
 import { MyAgentsCard } from "@/components/settings/MyAgentsCard";
@@ -108,6 +109,18 @@ export default async function SettingsPage() {
             }
           >
             <ProfileEditor profile={profile} />
+          </Card>
+
+          <Card
+            title="Branding"
+            subtitle="Your logo is applied to every new form, public application page, and anywhere else the dashboard shows your brand."
+          >
+            <BrandLogoCard
+              initialLogoUrl={
+                (tenant as { logo_url?: string | null } | null)?.logo_url || null
+              }
+              canManage={canManageTenant}
+            />
           </Card>
 
           <Card title="Password" subtitle="Change your sign-in password">

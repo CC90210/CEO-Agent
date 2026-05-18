@@ -36,8 +36,12 @@ function todayStamp(): string {
 // submit-side storage keys land in the right bucket without a second
 // pass. Branding is sourced from the sunbiz_standard theme so the picker
 // highlights it as active immediately and the two sources can't drift.
+function starterBranding(tenantLogoUrl: string | null) {
+  const base = getFormTheme("sunbiz_standard")!.branding;
+  return tenantLogoUrl ? { ...base, logo_url: tenantLogoUrl } : base;
+}
+
 const STARTER_FORM_TEMPLATE = {
-  branding: getFormTheme("sunbiz_standard")!.branding,
   steps: [
     {
       key: "basic",
@@ -89,7 +93,13 @@ const STARTER_FORM_TEMPLATE = {
   enabled: true,
 };
 
-export function FormsListClient({ initialRows }: { initialRows: FormRow[] }) {
+export function FormsListClient({
+  initialRows,
+  tenantLogoUrl,
+}: {
+  initialRows: FormRow[];
+  tenantLogoUrl: string | null;
+}) {
   const router = useRouter();
   const [rows, setRows] = useState(initialRows);
   const [creating, setCreating] = useState(false);
@@ -107,6 +117,7 @@ export function FormsListClient({ initialRows }: { initialRows: FormRow[] }) {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           ...STARTER_FORM_TEMPLATE,
+          branding: starterBranding(tenantLogoUrl),
           name: `New form — ${todayStamp()}`,
           slug,
         }),
