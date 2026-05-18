@@ -127,7 +127,10 @@ async function loadAndVerify(params: RouteParams): Promise<LoadResult> {
   // uploaded their brand logo (or they cleared the per-form override),
   // pull from tenants.logo_url so existing forms inherit the new logo
   // without an edit pass. The per-form override still wins.
-  if (!branding.logo_url && tenantRow.logo_url) {
+  // == null catches undefined AND null; an explicit empty string "" is
+  // treated as "intentionally blank" (operator deliberately suppressed
+  // the logo for this form) and won't be overridden.
+  if (branding.logo_url == null && tenantRow.logo_url) {
     branding = { ...branding, logo_url: tenantRow.logo_url };
   }
 
