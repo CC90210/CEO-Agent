@@ -28,8 +28,6 @@ tags: [workflows, index, hub]
 ## Content & Social
 - [[.agents/workflows/content]] — Platform-optimized content
 - [[.agents/workflows/post]] — Social media publishing
-- [[.agents/workflows/skool-edit]] — Skool lesson editing
-- [[.agents/workflows/skool-push]] — Batch Skool push
 
 ## Business Operations
 - [[.agents/workflows/ceo-briefing]] — Morning briefing

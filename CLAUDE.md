@@ -187,7 +187,7 @@ V6 Apex closes the V6 Optimization Phase. Architecture work is complete; next ep
 
 ## Skills (on-demand — load SKILL.md when needed, not at boot)
 
-Pattern: `skills/[skill-name]/SKILL.md`. Key skills: `outreach-send` (canonical OASIS cold/follow-up email path — auto-loads on outreach intent), `systematic-debugging`, `self-healing`, `test-driven-development`, `browser-harness`, `browser-automation`, `e2e-testing`, `agent-runtime-packaging`, `writing-plans`, `executing-plans`, `skool-automation`, `code-review`, `ship`, `retro`, `task-routing`, `anti-drift`, `sparc-methodology`, `agent-permissions`, `hooks-automation`, `background-workers`, `context-optimization`, `codex-delegation`, `security-protocol`, `memory-management`, `mcp-operations`, `sop-breakdown`. Full workflow commands: brain/QUICK_REFERENCE.md.
+Pattern: `skills/[skill-name]/SKILL.md`. Key skills: `outreach-send` (canonical OASIS cold/follow-up email path — auto-loads on outreach intent), `systematic-debugging`, `self-healing`, `test-driven-development`, `browser-harness`, `browser-automation`, `e2e-testing`, `agent-runtime-packaging`, `writing-plans`, `executing-plans`, `code-review`, `ship`, `retro`, `task-routing`, `anti-drift`, `sparc-methodology`, `agent-permissions`, `hooks-automation`, `background-workers`, `context-optimization`, `codex-delegation`, `security-protocol`, `memory-management`, `mcp-operations`, `sop-breakdown`. Full workflow commands: brain/QUICK_REFERENCE.md.
 
 ## AI Slop Detection — STOP and redo if you catch any of these
 

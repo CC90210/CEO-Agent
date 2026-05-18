@@ -22,13 +22,13 @@ tags: [state, ephemeral]
 | Dimension | Level | Notes |
 |-----------|-------|-------|
 | **Version** | V6 Apex (P1+P2+P3) | V6 Optimization Project 100% complete (2026-05-10). Architecture phase closed. |
-| **Position**| PIVOTING | primary retainer retainer ending (communicated 2026-05-17). SunBiz salary opportunity pending confirmation. |
+| **Position**| PIVOTING | primary retainer retainer ENDED 2026-05-18. SunBiz salary opportunity pending confirmation. |
 | **Confidence** | 0.65 | Core automations production-grade but revenue base collapsed. Must land SunBiz salary + diversify ASAP. |
-| **Focus Area** | **REVENUE RECOVERY + SUNBIZ SALARY** | primary retainer retainer lost. SunBiz salary is the primary near-term revenue play. Outreach for new OASIS clients remains critical. |
+| **Focus Area** | **REVENUE RECOVERY + SUNBIZ SALARY** | primary retainer retainer ended. SunBiz salary is the primary near-term revenue play. Outreach for new OASIS clients remains critical. |
 | **Energy** | PIVOTING / DETERMINED | Major client shift. CC handling it well — already has SunBiz lined up as replacement. Strategy session with Atlas + Bravo scheduled. |
 | **Memory Health** | GOOD | Files current. Knowledge wiki seeded. mem0 live. |
 
-> **Ephemeral state lives in `memory/OPERATIONAL_STATE.md`** (split out 2026-05-07 per Architecture Certification finding C5). That file carries Active Infrastructure, Known Issues, Skool daemon status, Last Heartbeat — under a 7-day freshness gate. Read it for live ops; this file is for stable identity / North Star / capability architecture.
+> **Ephemeral state lives in `memory/OPERATIONAL_STATE.md`** (split out 2026-05-07 per Architecture Certification finding C5). That file carries Active Infrastructure, Known Issues, Last Heartbeat — under a 7-day freshness gate. Read it for live ops; this file is for stable identity / North Star / capability architecture.
 
 ---
 
@@ -77,7 +77,7 @@ Stable structural facts (change rarely, audit on edit):
 - **MCP servers:** 9 active in Claude Code config (verified via `mcp_configs_in_sync` in self_audit)
 - **Hooks:** 4 active safety/audit hooks in `.claude/settings.local.json`
 - **Cross-machine sync:** Windows (CCPC, 192.168.2.133) production + Mac (Conaughs-MacBook-Air, 192.168.2.196) cold-standby via `ssh cc-mac`
-- **PM2 state:** Windows runs bravo-scheduler + telegram-bot (standalone) + skool daemon (standalone). Mac has bravo-telegram registered but stopped.
+- **PM2 state:** Windows runs bravo-scheduler + telegram-bot (standalone). Mac has bravo-telegram registered but stopped. Skool daemon archived 2026-05-18 (preserved at `scripts/_archive/skool/` for revival when CC launches their own community).
 
 ## Context Optimization (2026-03-31)
 
@@ -132,7 +132,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-05-18
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** North Star deadline extended: May 30 -> June 18, 2026 (CC's call after primary retainer shift). Updated Supabase user_profiles.mrr_target_date + 19 tracked files across boot chassis, brain, scripts, ADR, scaling-playbook + ceo_pulse.json. Commit b6e64f4 pushed. Daily required pace drops 75/day -> ~49/day.
+- **Result:** Shipped PropFlow 3D Gaussian Splat walkthroughs end-to-end: DB migration, 6 API routes, public viewer, photo uploader with quality gate, RunPod-Serverless trainer container (COLMAP+gsplat, fully OSS). Commit 790dc11 pushed to PropFlow main. CC needs to apply migration + build/push Docker image + create RunPod endpoint.
 
 *Last updated: 2026-05-18*
 

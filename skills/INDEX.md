@@ -93,7 +93,6 @@ tags: [skills, index, hub]
 - [[skills/browser-automation/SKILL]] — Playwright tasks
 - [[skills/e2e-testing/SKILL]] — End-to-end testing
 - [[skills/webapp-testing/SKILL]] — Web app testing
-- [[skills/skool-automation/SKILL]] — Skool content management
 - [[skills/computer-control/SKILL]] — OS-level automation (mouse, keyboard, window management)
 - [[skills/web-scraping/SKILL]] — Web data extraction
 

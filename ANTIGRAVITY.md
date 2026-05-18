@@ -146,8 +146,8 @@ When CC asks you to fix something, **fix it**. Do NOT create audit documents —
 See `brain/AGENTS.md` for the complete subagent registry (**17 agents** with decision matrix, security protocol, self-improvement protocol).
 Delegation: Complex features → planner. Architecture → architect. Code review → reviewer. Bugs → debugger. Research → researcher.
 
-- **34 workflows** in `.agents/workflows/`. Key: `/plan-feature` → `/execute` → `/commit`, `/cli-anything <target>`, `/opencli`, `/review`, `/ship`, `/retro`, `/briefing`, `/ceo-briefing`, `/content`, `/post`, `/skool-edit`, `/skool-push`, `/ingest`, `/query-knowledge`, `/evolve`, `/close-review` (sales transcript analysis)
-- **150 skills** in `skills/` directory. Each stored in `skills/[skill-name]/SKILL.md` format. Key strategic skills: **hyperthink** (multi-hypothesis protocol for architectural decisions), **systematic-debugging**, **sales-methodology** (NEPQ discovery), **sales-closing** (LAER objection loop + 6 close techniques), **ethical-hacking** (authorized offensive security + secure-by-default coding), **content-engine** (CC voice, hooks, platform matrix), **elite-video-production**, **codex-delegation**, **cli-anything**, **ship**, **retro**, **skool-automation**
+- **32 workflows** in `.agents/workflows/`. Key: `/plan-feature` → `/execute` → `/commit`, `/cli-anything <target>`, `/opencli`, `/review`, `/ship`, `/retro`, `/briefing`, `/ceo-briefing`, `/content`, `/post`, `/ingest`, `/query-knowledge`, `/evolve`, `/close-review` (sales transcript analysis)
+- **150 skills** in `skills/` directory. Each stored in `skills/[skill-name]/SKILL.md` format. Key strategic skills: **hyperthink** (multi-hypothesis protocol for architectural decisions), **systematic-debugging**, **sales-methodology** (NEPQ discovery), **sales-closing** (LAER objection loop + 6 close techniques), **ethical-hacking** (authorized offensive security + secure-by-default coding), **content-engine** (CC voice, hooks, platform matrix), **elite-video-production**, **codex-delegation**, **cli-anything**, **ship**, **retro**
 - **Progressive skill loading**: Skills load in 3 tiers (frontmatter → instructions → references) to conserve context
 - **Video pipeline**: `../CMO-Agent/scripts/content_pipeline.py` (master orchestrator) + `../CMO-Agent/scripts/edit_content_v2.py` — FFmpeg 8.0.1, word-level Whisper, ElevenLabs, Remotion 4.0.436
 - **Plans**: Implementation plans in `.agents/plans/`
@@ -317,8 +317,8 @@ Focused rules are in `.rules/` directory:
 
 ## IDE Workflows
 
-15 workflows in `.workflows/` and `.agents/workflows/`:
-`/post`, `/commit`, `/prime`, `/sync`, `/content`, `/n8n`, `/research`, `/client-onboard`, `/debug`, `/health`, `/status`, `/cli-anything`, `/review`, `/ship`, `/retro`, `/skool-edit`, `/skool-push`, `/evolve`
+13 workflows in `.workflows/` and `.agents/workflows/`:
+`/post`, `/commit`, `/prime`, `/sync`, `/content`, `/n8n`, `/research`, `/client-onboard`, `/debug`, `/health`, `/status`, `/cli-anything`, `/review`, `/ship`, `/retro`, `/evolve`
 
 **First message: "Bravo online." — then answer the query.**
 

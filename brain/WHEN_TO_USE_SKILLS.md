@@ -100,7 +100,6 @@ last_updated: 2026-05-06
 | Trigger | Skill | Don't use when |
 |---|---|---|
 | backend implementation, deep debug | `codex-delegation` | frontend, brand, simple fix (do inline) |
-| Skool community engagement | `skool-automation` | one-off post — Playwright direct |
 | ad creative production | (delegate to Maven) | — |
 
 ---

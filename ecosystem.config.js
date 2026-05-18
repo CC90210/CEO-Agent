@@ -13,10 +13,10 @@
  *     control Telegram from the MacBook (travel, demo, testing).
  *     Two bridges on the same TELEGRAM_BOT_TOKEN = random message routing.
  *
- *   - The Skool daemon is NOT in this ecosystem. It runs as a standalone
- *     process with its own OS-level DaemonLock (msvcrt on Windows). Moving
- *     it into PM2 would fight the lock. Windows only, started via:
- *       python scripts/skool_engine.py daemon --interval 5
+ *   - The Skool daemon was archived 2026-05-18 (preserved at
+ *     scripts/_archive/skool/). It was never in PM2 — it ran standalone
+ *     with its own OS-level lock. Will be revived for CC's own Skool
+ *     community in the future; see scripts/_archive/skool/README.md.
  *
  *   - V6 + giggly-reef local daemons added 2026-05-15. Four new entries:
  *       claude-bridge       — localhost:9100 chat HTTP server (giggly-reef

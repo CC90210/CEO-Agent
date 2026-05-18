@@ -1,6 +1,6 @@
 ---
 tags: [operational-state, ephemeral]
-last_updated: 2026-05-07
+last_updated: 2026-05-18
 freshness_threshold_days: 7
 ---
 
@@ -14,16 +14,15 @@ freshness_threshold_days: 7
 
 ---
 
-## Skool Automation Status (last verified 2026-04-04)
+## Skool Automation Status — ARCHIVED 2026-05-18
 
-**Bot Mode — POST-REPLY ONLY, V2 RESEARCH-ENHANCED**
+**Status: ARCHIVED — not running, not live.**
 
-- **V2 upgrade:** Before replying, agent identifies specific tools/products/frameworks in posts, web-searches them via DuckDuckGo (free, no API key), and injects research context into the reply prompt.
-- **Knowledge rules:** Agent will NEVER admit ignorance ("I don't know", "what is X?"). Either responds knowledgeably with research, or pivots to broader principles.
-- **Pipeline:** `_identify_research_topics()` → `_web_search()` → `_research_post()` → `generate_post_reply()`.
-- **Daemon:** Running (PID tracked in `tmp/skool_daemon.pid`). 108 posts replied all-time as of last sync.
-- **Heartbeat:** Working. `tmp/skool_daemon.heartbeat` written every cycle (5 min interval).
-- **DMs:** Permanently disabled. CC handles all DMs manually.
+Daemon terminated (PID 43252) and code moved to `scripts/_archive/skool/`. Windows scheduled task `\SkoolWatchdog` still fires every 5 min but lands on a no-op (admin rights needed to disable the task itself). Skill at `skills/_archive/skool-automation/`. Workflows at `.agents/workflows/_archive/skool-{edit,push}.md`.
+
+**Why archived:** CC no longer manages the Skool community the daemon was posting into. Code is preserved for revival when CC launches their own Skool community — full revival steps in `scripts/_archive/skool/README.md`.
+
+**State files left in place (gitignored, harmless):** `tmp/skool_*.json`, `tmp/skool_daemon.{pid,heartbeat}`, `tmp/skool-browser/`. Delete for a clean slate before revival if desired.
 
 ---
 
@@ -46,8 +45,8 @@ freshness_threshold_days: 7
 | **macOS Computer Control** | ✅ V2.2 LIVE | `scripts/macos_control.py` — 65+ commands. `scripts/mousetool` native CoreGraphics binary. youtube-play, mouse-animate, drag, open --wait. |
 | **Scheduler** | ✅ LIVE (Mac fixed) | `scheduler.py` — Python 3.9 compat fixed (was crashing since day 1 on Mac). All 12 cron jobs now running. PM2 online. |
 | **Google Workspace CLI** | ✅ FULLY CONNECTED | `scripts/google_tool.py` wraps gws v0.18.1 + SMTP fallback. oasisaisolutions@gmail.com authenticated. 14 OAuth scopes. 5 integration tests passing. |
-| **Skool Community Engine** | ✅ V2 RESEARCH-ENHANCED | Post-reply only (DMs disabled). V2: web research before replying. Never admits ignorance. 108 posts replied all-time. |
-| **Skool Watchdog** | ⚠️ NEEDS ADMIN FIX (Windows only) | Task uses bare `pythonw.exe` — needs full path. Run `scripts/fix_watchdog_task.ps1` as admin. Daemon manually started. |
+| **Skool Community Engine** | ⛔ ARCHIVED 2026-05-18 | Daemon stopped. Code at `scripts/_archive/skool/`. Revive for CC's own community per `scripts/_archive/skool/README.md`. |
+| **Skool Watchdog** | ⛔ ARCHIVED 2026-05-18 | Watchdog launcher neutralized to no-op. Scheduled task `\SkoolWatchdog` still fires every 5 min (admin needed to disable) but lands on no-op. Harmless. |
 | **cc-funnel** | ✅ LIVE | Lead capture form → Supabase → Telegram notify → Booking CTA on success screen. |
 | **Semi-Auto Outreach Loop** | ⛔ RETIRED 2026-05-16 | Cold-outreach Telegram-approval cron + `scripts/outreach_batch.py` removed. CC opted out of auto-drafted cold outreach; inbound alerts now flow through `funnel_fast_poll`. |
 | **Stripe SDK** | ✅ LIVE | Multi-account (OASIS, PropFlow, Nostalgic) |
@@ -79,7 +78,6 @@ freshness_threshold_days: 7
 | Top-client revenue concentration (~93%) | CRITICAL | Semi-auto outreach loop deploying. 2 new clients needed. |
 | Zernio free plan limit | HIGH | Upgrade plan OR reduce posting to 20/month. CC decision needed. |
 | Memory fragmentation (5 systems) | MEDIUM | `scripts/state_sync.py` — single-write protocol deploying. |
-| SkoolWatchdog task path | LOW | Windows only. Run `scripts/fix_watchdog_task.ps1` as admin (one-time). |
 | TIKTIK IP Camera | LOW | Waiting on Midas for NVR spec. |
 | LinkedIn Auth | LOW | Need Chrome auth hookup. |
 | 3 apps missing CLAUDE.md | LOW | Grape Vine, Mindset, On The Hill. |
@@ -100,8 +98,7 @@ This file is the ephemeral half of `brain/STATE.md`. Update when:
 
 1. An infrastructure component changes status (LIVE → DEPRECATED, DEPLOYING → LIVE, etc.).
 2. A new known issue is added or an existing one is resolved.
-3. The Skool daemon mode changes.
-4. End-of-session: bump `last_updated:` if anything in the body changed.
+3. End-of-session: bump `last_updated:` if anything in the body changed.
 
 Run `python scripts/state_sync.py --note "<one-line summary>"` after edits. The 7-day freshness gate is enforced by `memory_aging.py` — drift past it and the agent will treat this content as archived.
 
