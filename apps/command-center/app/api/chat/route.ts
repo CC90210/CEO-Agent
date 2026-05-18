@@ -330,6 +330,7 @@ export async function POST(req: NextRequest) {
   // read_only members). One row read; failure silently drops the block
   // so a transient DB hiccup never breaks chat.
   let operatorBlock = "";
+  let operatorRole = "member";
   try {
     const opRow = await service
       .from("user_profiles")
@@ -346,14 +347,37 @@ export async function POST(req: NextRequest) {
       | null;
     if (op) {
       const name = op.display_name || op.full_name || op.email || "Operator";
-      const role = op.team_role || "member";
+      operatorRole = op.team_role || "member";
       operatorBlock =
         `\n\n---\nOPERATOR CONTEXT\n` +
-        `You are talking to ${name} (team_role: ${role}). Address them by name when natural. ` +
+        `You are talking to ${name} (team_role: ${operatorRole}). Address them by name when natural. ` +
         `Respect their role: owner/admin can do anything; loan_officer/processor/member can read everything but should confirm with an admin before destructive actions; read_only sees only — refuse writes.\n---`;
     }
   } catch {
     // Best-effort; an operator name lookup failure shouldn't block chat.
+  }
+  // Server-side enforcement of read_only — the persona text above is
+  // advisory (the model can ignore it on a jailbreak). For read_only
+  // users we hard-strip write tools from the palette AND block write
+  // actions in the runAction dispatcher below. Belt and braces.
+  const isReadOnly = operatorRole === "read_only";
+  if (isReadOnly) {
+    const writeTools = new Set([
+      "create_record",
+      "update_record",
+      "delete_record",
+      "send_email",
+      "send_sms",
+      "write_file",
+      "bash",
+      "run_script",
+    ]);
+    if (toolPalette) {
+      toolPalette = toolPalette.filter((t) => !writeTools.has(t));
+    } else {
+      // Fall through to SAFE_TENANT_TOOL_PALETTE then filter
+      toolPalette = SAFE_TENANT_TOOL_PALETTE.filter((t) => !writeTools.has(t));
+    }
   }
   // Cloud-mode tool surface selection.
   //
@@ -597,6 +621,16 @@ export async function POST(req: NextRequest) {
         "update_record",
         "delete_record",
       ]);
+      // Write actions a read_only operator must NEVER perform — even
+      // via marker actions. The persona text was advisory; this is the
+      // hard gate. Mirrors the cloud-tool filter further up.
+      const writeMarkerTypes = new Set([
+        "create_record",
+        "update_record",
+        "delete_record",
+        "update_profile",
+        "toggle_agent_enabled",
+      ]);
       try {
         const rawSpecs = extractActionMarkers(assistantText);
         const specs =
@@ -604,6 +638,14 @@ export async function POST(req: NextRequest) {
             ? rawSpecs.filter((s) => !toolNativeMarkerTypes.has(s.type))
             : rawSpecs;
         for (const spec of specs) {
+          if (isReadOnly && writeMarkerTypes.has(spec.type)) {
+            send("action", {
+              ok: false,
+              error: "forbidden_read_only",
+              summary: `Refused ${spec.type}: signed-in operator has team_role=read_only.`,
+            });
+            continue;
+          }
           const r = await runAction(spec, { tenantId, authUserId: user.id });
           send("action", r);
           // A6: audit log to agent_events. Best-effort; never throws.

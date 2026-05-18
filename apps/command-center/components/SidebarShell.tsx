@@ -15,7 +15,7 @@
  * rendering the nav definition as data without going client.
  */
 
-import { useEffect, useState, type ComponentProps } from "react";
+import { useEffect, useRef, useState, type ComponentProps } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Menu } from "lucide-react";
@@ -26,6 +26,7 @@ type SidebarProps = ComponentProps<typeof Sidebar>;
 export function SidebarShell(props: SidebarProps) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const hamburgerRef = useRef<HTMLButtonElement | null>(null);
 
   // Close the drawer whenever the route changes — operator taps a nav
   // link, we slide it shut so they see the page they navigated to.
@@ -45,15 +46,37 @@ export function SidebarShell(props: SidebarProps) {
     }
   }, [open]);
 
+  // Accessibility — keyboard escape + restore focus to the hamburger
+  // when the drawer closes. Without these a keyboard user could open
+  // the drawer and have no way to dismiss it (no Esc handler) or to
+  // get focus back to a sensible anchor after closing.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open]);
+  useEffect(() => {
+    if (!open && hamburgerRef.current && document.activeElement === document.body) {
+      // Drawer just closed and nothing else has focus — return it to
+      // the hamburger so the next Tab lands somewhere predictable.
+      hamburgerRef.current.focus({ preventScroll: true });
+    }
+  }, [open]);
+
   return (
     <>
       {/* Mobile top bar — desktop hides this. */}
       <div className="md:hidden fixed top-0 inset-x-0 h-14 z-30 bg-bg-panel border-b border-bg-border flex items-center px-3 gap-3">
         <button
+          ref={hamburgerRef}
           type="button"
           onClick={() => setOpen(true)}
           aria-label="Open menu"
           aria-expanded={open}
+          aria-controls="sidebar-drawer"
           className="inline-flex h-9 w-9 items-center justify-center rounded-md text-fg-muted hover:text-fg hover:bg-bg-elev"
         >
           <Menu className="w-5 h-5" />

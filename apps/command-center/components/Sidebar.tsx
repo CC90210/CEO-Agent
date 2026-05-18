@@ -168,6 +168,15 @@ export function Sidebar({
 
   return (
     <aside
+      id="sidebar-drawer"
+      // Dialog semantics only matter on mobile (md:hidden in effect).
+      // Desktop always renders the sidebar inline; aria-modal=false +
+      // tabindex untouched there. The role+aria-modal attributes are
+      // harmless on desktop since screen-readers treat the open state
+      // as the gate.
+      role={isMobileOpen ? "dialog" : undefined}
+      aria-modal={isMobileOpen ? true : undefined}
+      aria-label="Navigation menu"
       className={`fixed left-0 top-0 bottom-0 w-60 border-r border-bg-border bg-bg-panel flex flex-col z-40 md:z-20 transition-transform duration-200 ${
         isMobileOpen ? "translate-x-0" : "-translate-x-full"
       } md:translate-x-0`}
@@ -176,12 +185,15 @@ export function Sidebar({
       <div className="px-5 py-5 border-b border-bg-border relative">
         {/* Mobile-only close button. Sits over the brand block so the
             operator can dismiss the drawer without reaching for the
-            outer backdrop. md+ never renders this. */}
+            outer backdrop. md+ never renders this. autoFocus is
+            conditional on isMobileOpen so desktop renders don't yank
+            focus away from whatever the operator is doing. */}
         {onMobileClose && (
           <button
             type="button"
             onClick={onMobileClose}
             aria-label="Close menu"
+            autoFocus={isMobileOpen}
             className="md:hidden absolute top-3 right-3 inline-flex h-8 w-8 items-center justify-center rounded-md text-fg-muted hover:text-fg hover:bg-bg-elev"
           >
             <X className="w-4 h-4" />
