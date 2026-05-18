@@ -170,7 +170,7 @@ pm2 start scripts/exec_override_consumer.py  --name override-consumer --interpre
 pm2 save
 ```
 
-V6 Apex closes the V6 Optimization Phase. Architecture work is complete; next epic is business execution ($5K Net MRR by May 30).
+V6 Apex closes the V6 Optimization Phase. Architecture work is complete; next epic is business execution ($5K Net MRR by June 18).
 
 
 ## Related (graph)

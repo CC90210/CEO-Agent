@@ -10,7 +10,7 @@ tags: [brain, ceo, operating-system]
 ## The CEO's 7 Domains
 
 ### 1. Revenue & Growth
-**Goal:** Hit $5,000 USD Net MRR by May 30, 2026
+**Goal:** Hit $5,000 USD Net MRR by June 18, 2026 (extended 2026-05-18 from May 30)
 
 | Function | Tool | Command |
 |----------|------|---------|

@@ -53,7 +53,7 @@ CC_DEFAULTS = {
     "role": "operator",
     "mrr_target_usd": 5000.00,
     "mrr_current_usd": 3322.00,
-    "mrr_target_date": "2026-05-15",
+    "mrr_target_date": "2026-06-18",
     "agents_enabled": ["bravo", "codex", "atlas", "maven", "aura", "hermes"],
     "primary_agent": "bravo",
     "primary_script_version": "cold_call_v1",

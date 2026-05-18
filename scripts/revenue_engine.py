@@ -759,12 +759,17 @@ def cmd_goal(env_vars: dict[str, str], db, args) -> dict:
     filled = int(pct / 100 * 30)
     bar = "#" * filled + "-" * (30 - filled)
 
+    # North Star deadline per CLAUDE.md WHY section: $5K Net MRR by June 18, 2026.
+    # (Extended 2026-05-18 from May 30 after primary retainer retainer ended.) Was May 15
+    # in earlier versions — the canonical date is the only thing this comment
+    # needs to track; update the date below to match brain/STATE.md.
+    DEADLINE = datetime.date(2026, 5, 30)
     result = {
         "current_mrr": current,
         "goal": MRR_GOAL_USD,
         "pct": round(pct, 1),
         "gap": round(gap, 2),
-        "deadline": "2026-05-15",
+        "deadline": DEADLINE.isoformat(),
     }
 
     if getattr(args, "output_json", False):
@@ -775,13 +780,13 @@ def cmd_goal(env_vars: dict[str, str], db, args) -> dict:
     print(f"  Current:   ${current:,.2f}")
     print(f"  Goal:      ${MRR_GOAL_USD:,.0f}")
     print(f"  Gap:       ${gap:,.2f}")
-    print(f"  Deadline:  May 15, 2026")
+    print(f"  Deadline:  {DEADLINE.strftime('%B')} {DEADLINE.day}, {DEADLINE.year}")
 
     if gap <= 0:
         print("\n  GOAL ACHIEVED. Only good things from now on.")
     else:
         # Days remaining to deadline
-        deadline = datetime.date(2026, 5, 15)
+        deadline = DEADLINE
         days_left = (deadline - datetime.date.today()).days
         if days_left > 0:
             daily_needed = gap / days_left

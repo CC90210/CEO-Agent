@@ -17,7 +17,7 @@ Audit run 2026-05-07. Tenant: `ef8d389e-3f15-43f2-ae00-3660f69a1452` (CC's). Pro
 |---|---|---|---|
 | **Net MRR** | `mrrSnapshot()` → `mrr_snapshots` table latest row | ⚠️ **Operator-supplied, not Stripe-computed** | Latest value: $371 / $5,000 target (primary retainer retainer ended 2026-05-18). Source column = `"profile"` — value is read from `user_profiles.mrr_current_usd` and snapshotted nightly. CC manually edits that field. No Stripe-driven auto-computation today. To make real: add a writer that pulls Stripe + retainer rev shares + adds to mrr_current_usd before the snapshot. |
 | **Gap to goal** | computed from MRR + `profile.mrr_target_usd` | ✅ Real | Math is correct; relies on the MRR value being trustworthy. |
-| **Days left** | computed from `profile.mrr_target_date` | ✅ Real | `mrr_target_date` = 2026-05-30. |
+| **Days left** | computed from `profile.mrr_target_date` | ✅ Real | `mrr_target_date` = 2026-06-18 (extended 2026-05-18 from 2026-05-30 after primary retainer retainer ended). |
 | **Replies (7d)** | `outreachReplyRate(tenantId, 7)` | ✅ Real | 14 lead_interactions in 7d, 1 inbound, 13 outbound. Reply rate ≈ 7.7%. |
 | **MRR added (7d)** | `mrrHistory(30)` last - 8th-last | ✅ Real | Computed from snapshot rows. |
 | **Top client share** | `topClientConcentration()` → `profile.custom_fields.top_client_mrr_usd` | ⚠️ **Operator-supplied** | As of 2026-05-18: $0 / null — no dominant client (primary retainer retainer ended). Hand-set in user_profiles.custom_fields. Not auto-derived from any client-revenue source. |
