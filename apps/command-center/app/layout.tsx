@@ -17,6 +17,7 @@ import {
   manifestPrimaryAgentSlug,
 } from "@/lib/manifest/loader";
 import { SEED_MANIFESTS } from "@/lib/manifest/seeds";
+import { isOperatorEmail } from "@/lib/operator-credentials";
 
 export const metadata: Metadata = {
   title: "OASIS AI · Agent Command Center",
@@ -108,12 +109,28 @@ export default async function RootLayout({
         ? normalisedDemo
         : null;
     // Path slug wins when present and not in demo. Lets `/t/<slug>/...` render
-    // that tenant's manifest for any operator previewing it. Validates via
-    // manifestExists so wizard-created DB-only slugs are honoured too — not
-    // just the in-code seeds (the bug the Phase 2 wizard would have hit).
+    // that tenant's manifest for ANY operator who's allowed to preview it.
+    // Validates via manifestExists so wizard-created DB-only slugs are
+    // honoured too — not just the in-code seeds (the bug the Phase 2 wizard
+    // would have hit). Defense-in-depth: only set pathOverrideSlug for
+    // operators with preview access. The page-level requireTenantPreviewAccess
+    // already redirects unauthorized callers (so the layout body never
+    // renders for them), but this also keeps the layout from doing extra
+    // manifest work on those redirect-bound requests.
     if (!demoProfileSlug && pathTenantSlug) {
-      const exists = await manifestExists(pathTenantSlug);
-      if (exists) pathOverrideSlug = pathTenantSlug;
+      // Defense-in-depth: only honor the path override for the empire
+      // operator. Non-empire users hitting /t/<slug> are already being
+      // redirected by requireTenantPreviewAccess at the page level — but
+      // we don't want the layout doing a manifestExists round-trip on
+      // those redirect-bound requests, AND a tenant operator visiting
+      // their own /t/<own-slug> falls through to the tenant-slug branch
+      // below (which loads the same manifest anyway). The full gate
+      // can't run here because tenantProfileSlug isn't resolved yet —
+      // the empire-operator short-circuit is the part that matters.
+      if (isOperatorEmail(profile?.email)) {
+        const exists = await manifestExists(pathTenantSlug);
+        if (exists) pathOverrideSlug = pathTenantSlug;
+      }
     }
 
     const agent = profile?.primary_agent || "bravo";
