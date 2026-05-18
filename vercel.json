@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "_comment": [
+    "Repo migration 2026-05-18: the apps/command-center Next.js app",
+    "was extracted to https://github.com/CC90210/oasis-command-center.",
+    "The Vercel project that was previously rooted at apps/command-center",
+    "in this repo (CEO-Agent) now has no app to build — every push has",
+    "been erroring with 'specified Root Directory apps/command-center",
+    "does not exist'. ignoreCommand returns 0 unconditionally, which",
+    "tells Vercel to SKIP the build entirely. No more red error rows",
+    "in the deployments dashboard for commits to this repo."
+  ],
+  "ignoreCommand": "echo 'apps/command-center extracted to CC90210/oasis-command-center; skipping build' && exit 0"
+}
