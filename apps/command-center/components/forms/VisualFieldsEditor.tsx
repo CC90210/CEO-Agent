@@ -220,7 +220,7 @@ export function VisualFieldsEditor({ steps, onChange }: Props) {
             key={stepKey}
             className="rounded-xl border border-bg-border bg-bg-elev/30"
           >
-            <div className="flex items-center gap-2 p-3 border-b border-bg-border">
+            <div className="flex flex-wrap items-center gap-2 p-3 border-b border-bg-border">
               <button
                 type="button"
                 onClick={() =>
@@ -381,7 +381,7 @@ function FieldRow({
 }) {
   return (
     <div className="rounded-lg border border-bg-border bg-bg-deep/60 p-3 space-y-2">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <GripVertical className="w-3.5 h-3.5 text-fg-dim shrink-0" />
         <select
           value={field.type}

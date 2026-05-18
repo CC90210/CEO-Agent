@@ -231,6 +231,12 @@ export const SUN_SEED: TenantManifest = {
     { href: "/t/sun/renewals", label: "Renewals", icon: "RefreshCcw", group: "Deals" },
     { href: "/t/sun/commissions", label: "Commissions", icon: "DollarSign", group: "Deals" },
     { href: "/t/sun/lenders", label: "Lenders", icon: "Landmark", group: "Network" },
+    // Top-level /team — admins mint invite URLs that drop a teammate
+    // straight into this tenant's onboarding wizard. Owner/admin sees
+    // the mint UI; non-admins see the member roster. Without this entry
+    // SunBiz operators had no way to find the invite flow (the page
+    // existed but wasn't linked in the manifest nav).
+    { href: "/team", label: "Team", icon: "UsersRound", group: "System" },
     // Top-level /automations — tenant-aware cron job manager. Bridge polls
     // tenant_cron_jobs and executes locally on the operator's machine.
     // Same surface across every tenant; routes here from any /t/<slug>/
@@ -537,10 +543,9 @@ export const SUGA_SEED: TenantManifest = {
     // different pattern; not the same surface.
     { href: "/t/suga/merch", label: "Merch", icon: "ShoppingBag", group: "Commerce" },
     { href: "/t/suga/sponsorship", label: "Sponsorships", icon: "HandCoins", group: "Sponsorship" },
-    // Top-level /automations — same shared cron-job surface every tenant
-    // gets. Sidebar entry is mirrored across SUN_SEED + SUGA_SEED + the
-    // CC_NAV-derived OASIS_SEED so operators on /t/suga/* land on the
-    // same Automations page anyone else does.
+    // Same shared admin surfaces every tenant gets: /team (invite +
+    // member management), /automations (cron jobs), /settings.
+    { href: "/team", label: "Team", icon: "UsersRound", group: "System" },
     { href: "/automations", label: "Automations", icon: "RefreshCcw", group: "System" },
     { href: "/settings", label: "Settings", icon: "Settings", group: "System" },
   ],
