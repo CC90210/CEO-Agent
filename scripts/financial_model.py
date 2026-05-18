@@ -451,8 +451,8 @@ def cmd_runway(args: argparse.Namespace) -> dict:
     runway_str = f"{runway:.0f} months" if not math.isinf(runway) else "inf (profitable)"
 
     # Worst-case: what if the top client churns? (largest revenue stream in the default split)
-    primary_revenue = max(DEFAULT_CLIENT_REVENUE.values(), default=0.0) if DEFAULT_CLIENT_REVENUE else 0.0
-    post_churn_mrr = max(mrr - primary_revenue, 0)
+    top_client_revenue = max(DEFAULT_CLIENT_REVENUE.values(), default=0.0) if DEFAULT_CLIENT_REVENUE else 0.0
+    post_churn_mrr = max(mrr - top_client_revenue, 0)
     post_churn_net = post_churn_mrr - expenses
     post_churn_burn = -post_churn_net if post_churn_net < 0 else 0
     post_churn_runway = calc_runway(cash, post_churn_burn)
