@@ -132,7 +132,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-05-18
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** primary_retainer cleanup pass complete: ceo_pulse.json refreshed ($371 MRR, no primary retainer refs), DASHBOARD.md/METRIC_AUDIT.md/LONG_TERM.md/sales-closing/scaling-playbook/ceo-dashboard SKILLS updated, revenue-model.md + financial-modeling + risk-management archived/banner'd, financial_model.py defaults stripped to baseline, knowledge/log+index marked archived. Supabase user_profiles row updated: mrr_current_usd=371, custom_fields.top_client_*=null/0. Dashboard will reflect on next page load.
+- **Result:** North Star deadline extended: May 30 -> June 18, 2026 (CC's call after primary retainer shift). Updated Supabase user_profiles.mrr_target_date + 19 tracked files across boot chassis, brain, scripts, ADR, scaling-playbook + ceo_pulse.json. Commit b6e64f4 pushed. Daily required pace drops 75/day -> ~49/day.
 
 *Last updated: 2026-05-18*
 

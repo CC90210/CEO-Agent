@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0",
   "agent": "bravo",
-  "generated_at": "2026-05-17T21:54:39.912276+00:00",
+  "generated_at": "2026-05-18T20:45:46.117392+00:00",
   "totals": {
     "skills": 150,
-    "scripts": 140,
+    "scripts": 142,
     "agents": 21,
     "mcp_servers": 9,
     "workflows": 36,
-    "nodes_total": 356,
+    "nodes_total": 358,
     "edges_total": 66,
     "drift_count": 0
   },
@@ -5004,16 +5004,6 @@
       "discovery": "auto-docstring"
     },
     {
-      "id": "script:deploy_command_center",
-      "kind": "script",
-      "name": "deploy_command_center",
-      "path": "scripts/deploy_command_center.py",
-      "description": "deploy_command_center.py \u2014 one-shot production deploy for the OASIS AI Agent Command Center.",
-      "tier": "tool",
-      "owner": "bravo",
-      "discovery": "auto-docstring"
-    },
-    {
       "id": "script:dns_reputation",
       "kind": "script",
       "name": "dns_reputation",
@@ -5684,6 +5674,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:schedule_helpers",
+      "kind": "script",
+      "name": "schedule_helpers",
+      "path": "scripts/schedule_helpers.py",
+      "description": "schedule_helpers.py \u2014 local-time cron parsing + quiet-day awareness.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:scheduler",
       "kind": "script",
       "name": "scheduler",
@@ -5894,6 +5894,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:sync_mrr",
+      "kind": "script",
+      "name": "sync_mrr",
+      "path": "scripts/sync_mrr.py",
+      "description": "sync_mrr.py \u2014 daily MRR auto-sync from revenue_engine to Supabase.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:sync_slash_commands",
       "kind": "script",
       "name": "sync_slash_commands",
@@ -5969,6 +5979,16 @@
       "name": "vercel_env_tool",
       "path": "scripts/vercel_env_tool.py",
       "description": "Vercel Environment Variable CLI Tool.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:vercel_relink_command_center",
+      "kind": "script",
+      "name": "vercel_relink_command_center",
+      "path": "scripts/vercel_relink_command_center.py",
+      "description": "URGENT: re-link the `agent-dashboard` Vercel project from CEO-Agent (now a stub) to the new standalone repo CC90210/oasis-command-center.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"

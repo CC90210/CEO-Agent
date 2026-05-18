@@ -27,7 +27,7 @@ from typing import Optional
 # ---------------------------------------------------------------------------
 
 MRR_GOAL_USD = 5000.0
-MRR_TARGET_DATE = datetime.date(2026, 5, 15)
+MRR_TARGET_DATE = datetime.date(2026, 6, 18)  # North Star per CLAUDE.md WHY section (extended 2026-05-18 from May 30)
 STRIPE_API = "https://api.stripe.com/v1"
 STRIPE_VERSION = "2025-01-27.acacia"
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -345,22 +345,71 @@ def _build_north_star(env: dict, as_json: bool) -> dict:
         mrr_source = "stripe" if stripe_mrr > 100 else "memory"
 
     # --- Pipeline ---
-    leads = _read_lead_tracker()
-    pipeline = _pipeline_stats(leads)
+    # Source-of-truth is the Supabase `leads` table via lead_engine.py, NOT
+    # the legacy memory/LEAD_TRACKER.csv (which has been dormant since the
+    # migration to tenant_records). The 2026-05-18 brief told CC "0 active
+    # leads in the briefing layer" because this function was still reading
+    # the dead CSV with a stage-name vocabulary (Discovery/Proposal/...)
+    # that doesn't match the canonical new/contacted/qualified/won statuses.
+    pipeline = {"total_pipeline": 0.0, "active_count": 0, "by_stage": {}}
+    lead_engine = PROJECT_ROOT / "scripts" / "lead_engine.py"
+    if lead_engine.exists():
+        try:
+            result = subprocess.run(
+                [sys.executable, str(lead_engine), "--json", "pipeline"],
+                capture_output=True, text=True, timeout=20,
+                creationflags=(0x08000000 if sys.platform == "win32" else 0),
+            )
+            if result.returncode == 0 and result.stdout.strip().startswith("{"):
+                pdata = json.loads(result.stdout)
+                # lead_engine returns { new: {count, avg_score, total_value?}, contacted: {...}, ... }
+                ACTIVE_STAGES = {"new", "contacted", "qualified", "proposal"}
+                by_stage: dict[str, int] = {}
+                active_count = 0
+                total_value = 0.0
+                for stage, stats in pdata.items():
+                    if not isinstance(stats, dict):
+                        continue
+                    cnt = int(stats.get("count", 0) or 0)
+                    by_stage[stage] = cnt
+                    if stage in ACTIVE_STAGES:
+                        active_count += cnt
+                        total_value += float(stats.get("total_value", 0) or 0)
+                pipeline = {
+                    "total_pipeline": round(total_value, 2),
+                    "active_count": active_count,
+                    "by_stage": by_stage,
+                }
+        except Exception:
+            pass
 
     # --- Client health (via client_health.py if available) ---
+    # NOTE: argparse on client_health.py puts --json on the TOP-LEVEL parser,
+    # so it must come BEFORE the subcommand verb. The old `report --json`
+    # order errored out silently with exit 0 + help text, leaving CC's brief
+    # showing "0 alerts, score 0" when there were actually 2 at-risk clients.
     client_health_avg = 0.0
     clients_at_risk = 0
     client_script = PROJECT_ROOT / "scripts" / "client_health.py"
     if client_script.exists():
         try:
             result = subprocess.run(
-                [sys.executable, str(client_script), "report", "--json"],
+                [sys.executable, str(client_script), "--json", "report"],
                 capture_output=True, text=True, timeout=20,
+                creationflags=(0x08000000 if sys.platform == "win32" else 0),
             )
             if result.returncode == 0:
                 health_data = json.loads(result.stdout)
-                scores = [c.get("score", 0) for c in health_data.get("clients", [])]
+                # client_health.py --json report returns a LIST of clients
+                # directly (not wrapped in {"clients": [...]}). Be tolerant
+                # of both shapes — the wrapped form was assumed for months
+                # but was never actually produced, which is why CC's brief
+                # showed avg_score=0 / at_risk=0 even with 2 RED clients.
+                if isinstance(health_data, list):
+                    clients = health_data
+                else:
+                    clients = health_data.get("clients", [])
+                scores = [c.get("score", 0) for c in clients if isinstance(c, dict)]
                 if scores:
                     client_health_avg = round(sum(scores) / len(scores), 1)
                     clients_at_risk = sum(1 for s in scores if s < 55)
