@@ -20,6 +20,18 @@ tags: [changelog, audit]
 
 ## Changelog
 
+### 2026-05-18 — Self-evolution from SunBiz CRM session — 13 feedback memories + 3 MISTAKES entries + 2 PATTERNS
+**Tier:** FREELY MUTABLE (auto-memory) + EPHEMERAL (MISTAKES / PATTERNS)
+**What changed:**
+- **13 new `feedback_*.md` files** in auto-memory at `C:\Users\User\.claude\projects\c--Users-User-Business-Empire-Agent\memory\` codifying every durable lesson from CC's corrections during the 2026-05-17/18 SunBiz CRM + multi-tenant infrastructure session. Files: `feedback_test_user_journey_incognito.md`, `feedback_visual_first_for_non_technical_operators.md`, `feedback_starter_template_includes_core_workflow.md`, `feedback_remove_dont_collapse_on_confusion.md`, `feedback_security_must_be_server_side.md`, `feedback_adversarial_review_before_done.md`, `feedback_public_routes_two_layer_gate.md`, `feedback_verification_means_actual_probing.md`, `feedback_inline_feature_not_link_out.md`, `feedback_no_magic_offset_positioning.md`, `feedback_subagent_prompt_forces_output.md`, `feedback_role_enum_needs_matrix.md`, `feedback_tenant_chrome_bleed_check.md`.
+- **`MEMORY.md` index** — new top section "CRITICAL: 2026-05-17/18 session lessons" pointing at all 13.
+- **3 new entries in `memory/MISTAKES.md`** — full Failure/Why/Prevention structure for: (1) Public-form share infra shipped without adversarial review (9 Codex bugs across 2 passes), (2) Cross-tenant chrome leak on /f/ pages (sidebar visible to prospects), (3) Copy-link button copied the operator edit URL instead of public form URL.
+- **2 new `[P]` patterns in `memory/PATTERNS.md`** — `[P]` Centralized role-deny single-source (lib/role-gates.ts) + `[P]` Two-layer public-route gate (middleware allowlist + layout chrome bypass).
+
+**Why:** CC asked for self-evolution — review the session, identify every correction, log it, update memory so future sessions don't repeat the same mistakes. Without this consolidation the corrections live only in this session's transcript; a fresh Bravo session 7 days from now would re-make the same mistakes (default to JSON tabs, ship public routes without adversarial review, copy admin URLs as share links, etc.).
+
+**Confidence:** 0.95 — the 13 lessons map 1:1 to CC's actual corrections, the 3 MISTAKES entries follow the established schema, and the 2 patterns are validated approaches that survived multiple commits this session.
+
 ### 2026-05-16 — V6.7+ — Skill-cluster audit, research_fetch, persona archive, routing-accuracy bug fix
 **Tier:** SEMI-MUTABLE (skills + brain docs) + FREELY MUTABLE (scripts) + EPHEMERAL (state DB)
 **What changed:**
