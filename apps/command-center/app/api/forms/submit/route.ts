@@ -56,6 +56,38 @@ type SubmitBody = {
   }>;
 };
 
+// The public client embeds files as `inline_base64` inside payload[field].
+// This shape unwraps them so the server can move bytes to Supabase Storage.
+type InlineFile = {
+  inline_base64: string;
+  filename: string;
+  mime_type: string;
+  size_bytes: number;
+};
+
+function isInlineFile(v: unknown): v is InlineFile {
+  if (!v || typeof v !== "object") return false;
+  const obj = v as Record<string, unknown>;
+  return (
+    typeof obj.inline_base64 === "string" &&
+    typeof obj.filename === "string" &&
+    typeof obj.mime_type === "string" &&
+    typeof obj.size_bytes === "number"
+  );
+}
+
+function sanitizeFilename(name: string): string {
+  // Strip directory traversal + collapse whitespace. Storage paths come
+  // from prospect input so refuse anything that would let them escape the
+  // tenant/lead folder.
+  return name
+    .replace(/[/\\]/g, "_")
+    .replace(/\.\.+/g, "_")
+    .replace(/\s+/g, "_")
+    .replace(/[^a-zA-Z0-9._-]/g, "")
+    .slice(0, 120) || `file_${Date.now()}`;
+}
+
 export async function POST(req: NextRequest) {
   let body: SubmitBody;
   try {
@@ -102,6 +134,18 @@ export async function POST(req: NextRequest) {
   const fileAttachments = Array.isArray(body.file_attachments)
     ? body.file_attachments
     : [];
+
+  // Inline files arrive base64-encoded inside payload. Pull them out so we
+  // can upload to Supabase Storage and stop persisting the bytes in jsonb
+  // (form_submissions.payload would otherwise grow unbounded). The mutated
+  // payload retains a reference to the storage_path so operators can still
+  // see what was uploaded against each field.
+  const inlineFiles: Array<{ fieldName: string; file: InlineFile }> = [];
+  for (const [fieldName, value] of Object.entries(payload)) {
+    if (isInlineFile(value)) {
+      inlineFiles.push({ fieldName, file: value });
+    }
+  }
 
   // Look up the form to confirm it's still enabled + step_index is in
   // range. Tenant scoping comes from the verified token's tenant slug;
@@ -164,6 +208,104 @@ export async function POST(req: NextRequest) {
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
   const userAgent = req.headers.get("user-agent")?.slice(0, 500) || null;
 
+  // Move inline files to Supabase Storage. The bucket + RLS policies live
+  // in migration 055. Each file lands under <tenant_id>/<lead_id>/<filename>
+  // — the tenant-prefix anchors the read RLS policy without an extra join.
+  //
+  // Errors here don't abort the whole submission: a stage-transition can
+  // still go through with missing docs, and the operator sees the gap on
+  // the lead detail page. We log to stage_warning style so the UI can
+  // surface the partial-success state.
+  const uploadedDocs: Array<{
+    field_name: string;
+    storage_path: string;
+    filename: string;
+    mime_type: string;
+    size_bytes: number;
+    doc_type: string;
+  }> = [];
+  const uploadWarnings: Array<{ field_name: string; reason: string }> = [];
+
+  for (const { fieldName, file } of inlineFiles) {
+    try {
+      const cleanName = sanitizeFilename(file.filename);
+      const bytes = Buffer.from(file.inline_base64, "base64");
+      // Use the field name as doc_type so it lines up with the classifier
+      // enum in migration 049 (bank_statements_3mo / drivers_license /
+      // proof_of_ownership / …). Anything else falls under "unclassified".
+      const docType = fieldName.replace(/[^a-z0-9_]/gi, "_").toLowerCase()
+        || "unclassified";
+      const storagePath = `${form.tenant_id}/${link.lead_id}/${Date.now()}_${cleanName}`;
+      const upload = await db.storage
+        .from("lead-documents")
+        .upload(storagePath, bytes, {
+          contentType: file.mime_type,
+          upsert: false,
+        });
+      if (upload.error) {
+        uploadWarnings.push({ field_name: fieldName, reason: upload.error.message });
+        continue;
+      }
+      // Strip the bytes from the payload now that they're persisted —
+      // form_submissions.payload should not carry the file contents.
+      payload[fieldName] = {
+        filename: file.filename,
+        mime_type: file.mime_type,
+        size_bytes: file.size_bytes,
+        storage_path: storagePath,
+      };
+      const docInsert = await db
+        .from("lead_documents")
+        .insert({
+          tenant_id: form.tenant_id,
+          lead_id: link.lead_id,
+          filename: cleanName,
+          storage_path: storagePath,
+          mime_type: file.mime_type,
+          size_bytes: file.size_bytes,
+          doc_type: docType,
+          uploaded_by: "form_intake",
+          metadata: { form_id: form.id, field_name: fieldName, step_index: stepIndex },
+        })
+        .select("id")
+        .single();
+      if (docInsert.error) {
+        uploadWarnings.push({
+          field_name: fieldName,
+          reason: `metadata_insert_failed: ${docInsert.error.message}`,
+        });
+        continue;
+      }
+      uploadedDocs.push({
+        field_name: fieldName,
+        storage_path: storagePath,
+        filename: cleanName,
+        mime_type: file.mime_type,
+        size_bytes: file.size_bytes,
+        doc_type: docType,
+      });
+    } catch (err) {
+      uploadWarnings.push({
+        field_name: fieldName,
+        reason: err instanceof Error ? err.message : "unknown",
+      });
+    }
+  }
+
+  // Replace the public client's `inline:<field>` placeholders with the real
+  // storage paths so form_submissions.file_attachments is honest about what
+  // landed where.
+  const resolvedAttachments = fileAttachments.map((att) => {
+    const matched = uploadedDocs.find((d) => d.field_name === att.field_name);
+    if (matched) {
+      return {
+        ...att,
+        storage_path: matched.storage_path,
+      };
+    }
+    return att;
+  });
+
   const insertRes = await db
     .from("form_submissions")
     .insert({
@@ -172,7 +314,7 @@ export async function POST(req: NextRequest) {
       lead_id: link.lead_id,
       step_index: stepIndex,
       payload,
-      file_attachments: fileAttachments,
+      file_attachments: resolvedAttachments,
       ip_address: ipHeader,
       user_agent: userAgent,
     })
@@ -236,5 +378,14 @@ export async function POST(req: NextRequest) {
     // (typical causes: lead row was deleted between view + submit;
     // entity_type mismatch from a manifest edit mid-flight).
     stage_warning: stageWarning,
+    // Per-file outcome: how many uploads landed in storage, which
+    // failed. The public client doesn't show this to the prospect (it
+    // would just confuse them) but the operator-facing /forms/[id]/
+    // detail surface can.
+    uploads: {
+      attempted: inlineFiles.length,
+      succeeded: uploadedDocs.length,
+      warnings: uploadWarnings,
+    },
   });
 }

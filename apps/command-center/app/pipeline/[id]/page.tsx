@@ -20,6 +20,7 @@ import { getActiveProfile } from "@/lib/queries";
 import { safe } from "@/lib/api-helpers";
 import { ScoreLeadButton } from "./ScoreLeadButton";
 import { NextActionButton } from "./NextActionButton";
+import { LeadDocumentsPanel } from "@/components/leads/LeadDocumentsPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -116,6 +117,7 @@ export default async function PipelineLeadDetailPage({
         initial={record.data}
         editId={id}
       />
+      <LeadDocumentsPanel tenantId={tenantId} leadId={id} />
     </div>
   );
 }
