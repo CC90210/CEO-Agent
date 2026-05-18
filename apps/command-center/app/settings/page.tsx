@@ -12,6 +12,7 @@ import { safe } from "@/lib/api-helpers";
 import { ChangePasswordForm } from "@/components/ChangePasswordForm";
 import { ProfileEditor } from "@/components/settings/ProfileEditor";
 import { BrandLogoCard } from "@/components/settings/BrandLogoCard";
+import { QuickInviteCard } from "@/components/settings/QuickInviteCard";
 import { PlanTemplateEditor } from "@/components/settings/PlanTemplateEditor";
 import { AgentConfigEditor } from "@/components/settings/AgentConfigEditor";
 import { MyAgentsCard } from "@/components/settings/MyAgentsCard";
@@ -128,18 +129,17 @@ export default async function SettingsPage() {
               action={
                 <a
                   href="/team"
-                  className="inline-flex items-center gap-1 rounded-lg bg-accent text-bg-deep px-3 py-1.5 text-xs font-bold hover:bg-accent-bright"
+                  className="inline-flex items-center gap-1 text-xs text-accent hover:text-accent-bright"
                 >
                   Manage team & invites →
                 </a>
               }
             >
-              <p className="text-xs text-fg-muted leading-relaxed">
-                Mint personalized signup URLs for employees. They land on
-                /invite/&lt;token&gt;, sign up, and join this tenant
-                automatically — Solara recognizes them by name and respects
-                their role (owner / admin / loan_officer / processor /
-                read_only).
+              <QuickInviteCard />
+              <p className="text-[11px] text-fg-dim leading-relaxed mt-3">
+                Invitees land on /invite/&lt;token&gt;, sign up, and join
+                this tenant automatically. Solara recognizes them by name
+                and respects their role.
               </p>
             </Card>
           )}
