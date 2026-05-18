@@ -12,6 +12,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Plus, Edit3, ToggleLeft, ToggleRight, Trash2, ExternalLink, Loader2 } from "lucide-react";
+import { getFormTheme } from "@/lib/forms/themes";
 
 type FormRow = {
   id: string;
@@ -33,18 +34,10 @@ function todayStamp(): string {
 // document field names (bank_statements_3mo / drivers_license /
 // proof_of_ownership) match the doc_type classifier in migration 049 so
 // submit-side storage keys land in the right bucket without a second
-// pass. Branding lines up with the "sunbiz_standard" theme so the picker
-// highlights it as active immediately.
+// pass. Branding is sourced from the sunbiz_standard theme so the picker
+// highlights it as active immediately and the two sources can't drift.
 const STARTER_FORM_TEMPLATE = {
-  branding: {
-    primary_color: "#0ea5e9",
-    accent_color: "#FFB81C",
-    headline: "Tell us about your business",
-    subheadline:
-      "A few quick questions, then upload the documents we need to underwrite.",
-    thanks_message:
-      "Thanks — we received your application. A funding specialist will reach out within one business day.",
-  },
+  branding: getFormTheme("sunbiz_standard")!.branding,
   steps: [
     {
       key: "basic",
