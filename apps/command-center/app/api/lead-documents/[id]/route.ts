@@ -66,6 +66,21 @@ export async function GET(
     );
   }
 
+  // Confused-deputy guard. lead_documents.tenant_id matched the caller
+  // — but `storage_path` is operator-writable through RLS (the
+  // lead_documents_member_all policy lets authenticated tenant members
+  // INSERT rows for their own tenant). A malicious employee could
+  // craft a row pointing at another tenant's storage path and then
+  // this service-role mint would sign it. Refuse to sign unless the
+  // storage path is anchored under THIS tenant's folder.
+  const expectedPrefix = `${doc.tenant_id}/`;
+  if (!doc.storage_path.startsWith(expectedPrefix)) {
+    return NextResponse.json(
+      { ok: false, error: "storage_path_mismatch" },
+      { status: 403 },
+    );
+  }
+
   const signed = await db.storage
     .from("lead-documents")
     .createSignedUrl(doc.storage_path, SIGN_TTL_SECONDS);

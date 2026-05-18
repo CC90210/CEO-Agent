@@ -50,7 +50,7 @@ type LoadResult =
     }
   | {
       ok: false;
-      reason: "not_found" | "form_disabled" | "form_corrupt";
+      reason: "not_found" | "form_corrupt";
       detail?: string;
     };
 
@@ -58,11 +58,29 @@ async function loadForm(params: RouteParams): Promise<LoadResult> {
   const tenantSlug = params.tenant_slug.toLowerCase();
   const formSlug = params.form_slug.toLowerCase();
   const db = getServiceSupabase();
+  // Resolve tenant_id first, then look up the form by (tenant_id, slug).
+  // The schema permits same form_slug across different tenants
+  // (UNIQUE constraint is per-tenant), so a global slug query can hit
+  // the wrong row. All negative responses collapse to 404 so this
+  // route can't be used to enumerate which tenants exist by diffing
+  // status codes.
+  const tenantRowQ = await db
+    .from("tenants")
+    .select("id, logo_url")
+    .eq("slug", tenantSlug)
+    .maybeSingle();
+  const tenantRow = tenantRowQ.data as
+    | { id: string; logo_url: string | null }
+    | null;
+  if (!tenantRow) {
+    return { ok: false, reason: "not_found" };
+  }
   const row = await db
     .from("forms")
     .select(
-      "id, tenant_id, slug, name, branding, steps, enabled, redirect_url, tenant:tenants!inner(slug, logo_url)",
+      "id, tenant_id, slug, name, branding, steps, enabled, redirect_url",
     )
+    .eq("tenant_id", tenantRow.id)
     .eq("slug", formSlug)
     .maybeSingle();
   if (row.error || !row.data) {
@@ -77,17 +95,9 @@ async function loadForm(params: RouteParams): Promise<LoadResult> {
     steps: unknown;
     enabled: boolean;
     redirect_url: string | null;
-    tenant:
-      | { slug: string; logo_url: string | null }
-      | { slug: string; logo_url: string | null }[]
-      | null;
   };
-  const tenantRow = Array.isArray(form.tenant) ? form.tenant[0] : form.tenant;
-  if (!tenantRow || tenantRow.slug.toLowerCase() !== tenantSlug) {
-    return { ok: false, reason: "not_found" };
-  }
   if (!form.enabled) {
-    return { ok: false, reason: "form_disabled" };
+    return { ok: false, reason: "not_found" };
   }
 
   let steps: FormStep[];
@@ -131,8 +141,10 @@ export default async function AnonymousFormPage({
   const result = await loadForm(resolved);
 
   if (!result.ok) {
-    if (result.reason === "not_found") notFound();
-    return <FormErrorPage reason={result.reason} detail={result.detail} />;
+    if (result.reason === "form_corrupt") {
+      return <FormErrorPage reason={result.reason} detail={result.detail} />;
+    }
+    notFound();
   }
 
   return (
@@ -152,28 +164,21 @@ export default async function AnonymousFormPage({
 }
 
 function FormErrorPage({
-  reason,
   detail,
 }: {
-  reason: "form_disabled" | "form_corrupt";
+  reason: "form_corrupt";
   detail?: string;
 }) {
-  const copy =
-    reason === "form_disabled"
-      ? {
-          title: "This form isn't accepting submissions right now",
-          body: "Reach out to the team — we'll let you know when it reopens.",
-        }
-      : {
-          title: "Form configuration error",
-          body: "The form's definition is malformed. Operators: open the form in /forms/[id]/edit to fix.",
-        };
+  const copy = {
+    title: "Form configuration error",
+    body: "The form's definition is malformed. Operators: open the form in /forms/[id]/edit to fix.",
+  };
   return (
     <main className="min-h-screen bg-bg-deep text-fg flex items-center justify-center px-6 py-10">
       <div className="max-w-md w-full rounded-2xl border border-bg-border bg-bg-elev/50 p-8 text-center space-y-3">
         <h1 className="text-xl font-bold">{copy.title}</h1>
         <p className="text-sm text-fg-muted leading-relaxed">{copy.body}</p>
-        {detail && reason === "form_corrupt" && (
+        {detail && (
           <pre className="text-[10px] font-mono text-fg-dim text-left bg-bg-deep border border-bg-border rounded p-2 overflow-x-auto">
             {detail}
           </pre>

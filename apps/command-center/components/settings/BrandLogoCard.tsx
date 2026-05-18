@@ -96,7 +96,7 @@ export function BrandLogoCard({ initialLogoUrl, canManage }: Props) {
         <div className="text-xs text-fg-muted leading-relaxed flex-1">
           Upload once here. Every new form, public application page, and
           anywhere else the dashboard shows your brand will pick it up
-          automatically. PNG, JPG, WEBP, SVG, or GIF — under 2 MB.
+          automatically. PNG, JPG, WEBP, or GIF — under 2 MB.
         </div>
       </div>
 
@@ -112,7 +112,7 @@ export function BrandLogoCard({ initialLogoUrl, canManage }: Props) {
             <input
               type="file"
               className="sr-only"
-              accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif"
+              accept="image/png,image/jpeg,image/webp,image/gif"
               onChange={onPick}
               disabled={busy}
             />

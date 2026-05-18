@@ -19,12 +19,16 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MAX_BYTES = 2 * 1024 * 1024; // 2 MB cap — logos are small
+// SVG is deliberately excluded. The tenant-assets bucket is public-read
+// and Supabase serves objects with their stored Content-Type — a
+// malicious operator (or a compromised admin) could upload SVG that
+// embeds <script>, and any place we surface the URL outside of an
+// <img src> attribute would execute it. Inert raster formats only.
 const ALLOWED_MIME = new Set([
   "image/png",
   "image/jpeg",
   "image/jpg",
   "image/webp",
-  "image/svg+xml",
   "image/gif",
 ]);
 

@@ -112,11 +112,36 @@ export async function POST(req: NextRequest) {
     }
     link = sigResult.payload;
   } else if (body.anonymous_init?.tenant_slug && body.anonymous_init?.form_slug) {
+    // Pre-create rate limit on the anonymous_init path. The token-bucket
+    // BELOW keys on lead_id, which is freshly minted here — so without
+    // this gate every anonymous request would land in its own bucket and
+    // a bot could spam-create leads unbounded. Key the limiter on
+    // (ip, tenant_slug, form_slug) so legitimate humans aren't blocked
+    // by someone else hammering the same form. 10 inits/minute per
+    // (ip, form) is roughly one human filling the form every 6 seconds,
+    // well above retry-after-typo but far below scripted abuse.
+    const ip =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      req.headers.get("x-real-ip")?.trim() ||
+      "no-ip";
+    const tenantSlug = body.anonymous_init.tenant_slug.toLowerCase();
+    const formSlug = body.anonymous_init.form_slug.toLowerCase();
+    const initLimit = rateLimit({
+      key: `forms-anon-init:${ip}:${tenantSlug}:${formSlug}`,
+      capacity: 10,
+      refillPerSec: 10 / 60,
+    });
+    if (!initLimit.allowed) {
+      return NextResponse.json(
+        { ok: false, error: "rate_limited", retry_in_sec: initLimit.resetIn },
+        { status: 429 },
+      );
+    }
     const anonResult = await initAnonymousLead({
-      tenantSlug: body.anonymous_init.tenant_slug,
-      formSlug: body.anonymous_init.form_slug,
+      tenantSlug,
+      formSlug,
       payload: body.payload || {},
-      ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null,
+      ip,
     });
     if (!anonResult.ok) {
       return NextResponse.json(
@@ -253,10 +278,85 @@ export async function POST(req: NextRequest) {
   }> = [];
   const uploadWarnings: Array<{ field_name: string; reason: string }> = [];
 
+  // Schema-driven file validation. Without this an attacker could embed
+  // arbitrary {inline_base64, ...} blobs against any payload key (even
+  // ones the form doesn't declare as file_upload) and we'd happily push
+  // bytes to Storage with attacker-controlled MIME types. Enforce on
+  // the server: (a) the field must exist on THIS step, (b) it must be
+  // type=file_upload, (c) the file's mime_type must be in the field's
+  // accept[] list, (d) decoded length must agree with the claimed
+  // size, (e) total decoded bytes per request cap so a base64-bomb can
+  // never knock the runtime over.
+  const currentStepFields = new Map(steps[stepIndex].fields.map((f) => [f.name, f]));
+  const PER_FILE_DECODED_CAP_BYTES = 15 * 1024 * 1024;
+  const PER_REQUEST_DECODED_CAP_BYTES = 60 * 1024 * 1024;
+  const MAX_FILES_PER_STEP = 10;
+  let totalDecodedBytes = 0;
+  if (inlineFiles.length > MAX_FILES_PER_STEP) {
+    return NextResponse.json(
+      { ok: false, error: "too_many_files", max: MAX_FILES_PER_STEP },
+      { status: 400 },
+    );
+  }
   for (const { fieldName, file } of inlineFiles) {
+    const fieldDef = currentStepFields.get(fieldName);
+    if (!fieldDef || fieldDef.type !== "file_upload") {
+      // Drop silently from inlineFiles; clear the payload entry so the
+      // form_submissions row doesn't keep the attacker bytes either.
+      uploadWarnings.push({
+        field_name: fieldName,
+        reason: "field_not_file_upload",
+      });
+      delete payload[fieldName];
+      continue;
+    }
+    // MIME allowlist from the form schema. When the operator left
+    // accept empty we fall back to a conservative inert-image / PDF
+    // set — never allow application/* freeform.
+    const allowedMime = (fieldDef.accept && fieldDef.accept.length > 0)
+      ? fieldDef.accept
+      : ["application/pdf", "image/png", "image/jpeg", "image/webp"];
+    const mimeAllowed = allowedMime.some((rule) =>
+      rule.endsWith("/*")
+        ? file.mime_type.startsWith(rule.slice(0, -1))
+        : file.mime_type === rule
+    );
+    if (!mimeAllowed) {
+      uploadWarnings.push({
+        field_name: fieldName,
+        reason: `mime_not_allowed: ${file.mime_type}`,
+      });
+      delete payload[fieldName];
+      continue;
+    }
+    // Decoded-length check. Computing Buffer length once here means we
+    // pay the base64-decode cost regardless, but it bounds memory: a
+    // 60MB request bomb still gets rejected before storage.
+    let bytes: Buffer;
+    try {
+      bytes = Buffer.from(file.inline_base64, "base64");
+    } catch {
+      uploadWarnings.push({ field_name: fieldName, reason: "base64_invalid" });
+      delete payload[fieldName];
+      continue;
+    }
+    if (bytes.length > PER_FILE_DECODED_CAP_BYTES) {
+      uploadWarnings.push({
+        field_name: fieldName,
+        reason: `file_too_large: ${bytes.length}`,
+      });
+      delete payload[fieldName];
+      continue;
+    }
+    totalDecodedBytes += bytes.length;
+    if (totalDecodedBytes > PER_REQUEST_DECODED_CAP_BYTES) {
+      return NextResponse.json(
+        { ok: false, error: "request_payload_too_large" },
+        { status: 413 },
+      );
+    }
     try {
       const cleanName = sanitizeStorageFilename(file.filename);
-      const bytes = Buffer.from(file.inline_base64, "base64");
       // Use the field name as doc_type so it lines up with the classifier
       // enum in migration 049 (bank_statements_3mo / drivers_license /
       // proof_of_ownership / …). Anything else falls under "unclassified".
@@ -439,29 +539,36 @@ async function initAnonymousLead(input: {
   const tenantSlug = input.tenantSlug.trim().toLowerCase();
   const formSlug = input.formSlug.trim().toLowerCase();
   if (!tenantSlug || !formSlug) {
-    return { ok: false, error: "anonymous_init_invalid", status: 400 };
+    return { ok: false, error: "not_found", status: 404 };
   }
   const db = getServiceSupabase();
+
+  // Resolve tenant_id FIRST so the form lookup is scoped (avoids
+  // multi-tenant slug collisions where two tenants both have a form
+  // with slug='application'). All public negatives return a single
+  // 'not_found' so the route can't be used to enumerate tenants /
+  // form names by diffing 404 vs form_disabled vs tenant_mismatch.
+  const tenantQ = await db
+    .from("tenants")
+    .select("id")
+    .eq("slug", tenantSlug)
+    .maybeSingle();
+  const tenantId = (tenantQ.data as { id: string } | null)?.id;
+  if (!tenantId) {
+    return { ok: false, error: "not_found", status: 404 };
+  }
   const row = await db
     .from("forms")
-    .select("id, tenant_id, enabled, tenant:tenants!inner(slug)")
+    .select("id, tenant_id, enabled")
+    .eq("tenant_id", tenantId)
     .eq("slug", formSlug)
     .maybeSingle();
   if (row.error || !row.data) {
-    return { ok: false, error: "form_not_found", status: 404 };
+    return { ok: false, error: "not_found", status: 404 };
   }
-  const form = row.data as {
-    id: string;
-    tenant_id: string;
-    enabled: boolean;
-    tenant: { slug: string } | { slug: string }[] | null;
-  };
-  const tenantRow = Array.isArray(form.tenant) ? form.tenant[0] : form.tenant;
-  if (!tenantRow || tenantRow.slug.toLowerCase() !== tenantSlug) {
-    return { ok: false, error: "tenant_mismatch", status: 400 };
-  }
+  const form = row.data as { id: string; tenant_id: string; enabled: boolean };
   if (!form.enabled) {
-    return { ok: false, error: "form_disabled", status: 400 };
+    return { ok: false, error: "not_found", status: 404 };
   }
 
   // Seed the lead with whatever common contact fields the operator
