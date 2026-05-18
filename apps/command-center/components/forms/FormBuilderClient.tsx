@@ -362,6 +362,16 @@ export function FormBuilderClient({ initialForm }: Props) {
               placeholder="https://… (shown at the top of the public form)"
               className="w-full rounded-md border border-bg-border bg-bg-elev px-3 py-2 text-sm text-fg"
             />
+            <p className="text-[11px] text-fg-dim mt-1">
+              New forms inherit the logo you set in{" "}
+              <a
+                href="/settings"
+                className="text-accent hover:text-accent-bright underline underline-offset-2"
+              >
+                Settings → Branding
+              </a>
+              . Override here only if this form needs a different mark.
+            </p>
           </div>
         </section>
 
