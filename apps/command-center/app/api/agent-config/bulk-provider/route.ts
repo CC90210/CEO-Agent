@@ -230,3 +230,66 @@ export async function POST(req: NextRequest) {
     count: applied.length,
   });
 }
+
+/**
+ * DELETE /api/agent-config/bulk-provider?provider=openrouter&scope=tenant
+ *
+ * Inverse of POST — disconnects a provider across every agent in the tenant
+ * (or just the caller's per-user override row when scope=user). Operators
+ * use this to revoke a connected provider before re-pasting a new key or
+ * switching providers entirely. Without this they could only paste a new
+ * key on top, leaving the old one encrypted-at-rest forever.
+ *
+ * Query: provider=<provider>&scope=tenant|user
+ * Returns: { ok, scope, provider, count }
+ */
+export async function DELETE(req: NextRequest) {
+  const { tenantId, userId, canManageTenant } = await resolveTenant();
+  if (!tenantId) {
+    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+  const url = req.nextUrl;
+  const provider = String(url.searchParams.get("provider") || "");
+  if (!Object.keys(PROVIDER_MODELS).includes(provider)) {
+    return NextResponse.json(
+      { ok: false, error: `invalid_provider:${provider}` },
+      { status: 400 },
+    );
+  }
+  const scope = url.searchParams.get("scope") === "user" ? "user" : "tenant";
+  if (scope === "tenant" && !canManageTenant) {
+    return NextResponse.json({ ok: false, error: "admin_required" }, { status: 403 });
+  }
+  if (scope === "user" && !userId) {
+    return NextResponse.json({ ok: false, error: "no_user" }, { status: 401 });
+  }
+  const service = getServiceSupabase();
+  let q = service
+    .from("agent_model_config")
+    .delete()
+    .eq("tenant_id", tenantId)
+    .eq("provider", provider);
+  q = scope === "user" ? q.eq("user_id", userId!) : q.is("user_id", null);
+  const { error, count } = await q.select("agent_key");
+  if (error) {
+    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  }
+
+  // Audit-log the disconnect.
+  try {
+    const authed = await getAuthedSupabase();
+    await authed.rpc("log_tenant_event", {
+      p_tenant_id: tenantId,
+      p_action_type:
+        scope === "user"
+          ? "agent_config.user_disconnect"
+          : "agent_config.tenant_disconnect",
+      p_target_table: "agent_model_config",
+      p_target_id: `${tenantId}:${scope === "user" ? userId : "tenant"}:${provider}`,
+    });
+  } catch {
+    // audit-log soft-fail
+  }
+
+  return NextResponse.json({ ok: true, scope, provider, count: count ?? 0 });
+}

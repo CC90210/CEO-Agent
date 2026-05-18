@@ -210,6 +210,30 @@ export function ProviderAccountsCard({
                     >
                       Per-agent ↓
                     </Link>
+                    {canManageTeam && (
+                      <>
+                        <span className="text-fg-dim text-[10px]">·</span>
+                        <DisconnectButton
+                          provider={p}
+                          onDisconnected={() => {
+                            // Optimistically clear from local state; the
+                            // server source-of-truth will catch up on the
+                            // next refresh.
+                            setServices((prev) => {
+                              const next = new Set(prev);
+                              next.delete(PROVIDER_TO_SERVICE[p]);
+                              return next;
+                            });
+                            if (typeof window !== "undefined") {
+                              window.dispatchEvent(
+                                new CustomEvent("oasis:agent-configs-changed"),
+                              );
+                            }
+                            router.refresh();
+                          }}
+                        />
+                      </>
+                    )}
                   </>
                 )}
               </div>
@@ -508,5 +532,72 @@ function ConnectProviderDialog({
         </div>
       </form>
     </div>
+  );
+}
+
+/**
+ * Disconnect a provider across the whole tenant. Confirms before firing —
+ * disconnect can't be undone (the encrypted key is wiped from the DB; the
+ * operator has to paste it again from the provider's console). Soft-fails
+ * are surfaced inline.
+ */
+function DisconnectButton({
+  provider,
+  onDisconnected,
+}: {
+  provider: Provider;
+  onDisconnected: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function go() {
+    if (!confirm(`Disconnect ${provider}? Every agent using it will fall back to whatever's left. You'll need the key again to reconnect.`)) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/agent-config/bulk-provider?provider=${encodeURIComponent(provider)}&scope=tenant`,
+        { method: "DELETE" },
+      );
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+      };
+      if (!res.ok || !data.ok) {
+        setError(data.error || `http_${res.status}`);
+        return;
+      }
+      onDisconnected();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "network_error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={go}
+        disabled={busy}
+        className="text-[11px] text-rose-400 hover:text-rose-300 inline-flex items-center gap-1 disabled:opacity-50"
+      >
+        {busy ? (
+          <Loader2 className="w-3 h-3 animate-spin" />
+        ) : (
+          <X className="w-3 h-3" />
+        )}
+        Disconnect
+      </button>
+      {error && (
+        <span className="text-[10px] text-rose-400" title={error}>
+          ({error})
+        </span>
+      )}
+    </>
   );
 }
