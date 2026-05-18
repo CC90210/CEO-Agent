@@ -199,8 +199,12 @@ export function FormBuilderClient({ initialForm }: Props) {
         });
         return;
       }
-      setSaveMessage({ kind: "ok", text: "Saved." });
+      setSaveMessage({ kind: "ok", text: "Saved. Returning to forms…" });
+      // Send the operator back to the forms list after a successful save
+      // — same pattern Delete uses. router.refresh() first to invalidate
+      // the RSC cache so the list reflects the freshly-saved row.
       router.refresh();
+      router.push("/forms?saved=1");
     } catch (err) {
       setSaveMessage({
         kind: "err",

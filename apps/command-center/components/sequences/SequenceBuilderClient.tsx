@@ -156,8 +156,11 @@ export function SequenceBuilderClient({ initialSequence }: Props) {
         });
         return;
       }
-      setSaveMessage({ kind: "ok", text: "Saved." });
+      setSaveMessage({ kind: "ok", text: "Saved. Returning to sequences…" });
+      // Bounce back to the list with a flash — consistent with the
+      // forms editor pattern. Matches what Delete already does below.
       router.refresh();
+      router.push("/sequences?saved=1");
     } catch (err) {
       setSaveMessage({
         kind: "err",

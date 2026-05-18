@@ -9,10 +9,10 @@
  * and per-row toggle/delete.
  */
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Plus, Edit3, ToggleLeft, ToggleRight, Trash2, Loader2 } from "lucide-react";
+import { Plus, Edit3, ToggleLeft, ToggleRight, Trash2, Loader2, Check } from "lucide-react";
 
 type SequenceRow = {
   id: string;
@@ -61,9 +61,20 @@ const STARTER_SEQUENCE_TEMPLATE = {
 
 export function SequencesListClient({ initialRows }: { initialRows: SequenceRow[] }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [rows, setRows] = useState(initialRows);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [savedFlash, setSavedFlash] = useState(false);
+  useEffect(() => {
+    if (searchParams.get("saved") === "1") {
+      setSavedFlash(true);
+      const t = setTimeout(() => setSavedFlash(false), 3000);
+      router.replace("/sequences", { scroll: false });
+      return () => clearTimeout(t);
+    }
+  }, [searchParams, router]);
 
   async function createSequence() {
     setCreating(true);
@@ -147,6 +158,13 @@ export function SequencesListClient({ initialRows }: { initialRows: SequenceRow[
           New sequence
         </button>
       </div>
+
+      {savedFlash && (
+        <div className="rounded-lg border border-status-engaged/40 bg-status-engaged/10 px-3 py-2 text-sm text-status-engaged flex items-center gap-2">
+          <Check className="w-4 h-4" />
+          Sequence saved.
+        </div>
+      )}
 
       {error && (
         <div className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-400">
