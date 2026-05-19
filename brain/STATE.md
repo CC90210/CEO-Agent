@@ -132,7 +132,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-05-19
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Mac travel-ready: synced all 7 repos, migrated env+state to ~/CEO-Agent, repointed PM2/LaunchAgent, made MCP audit platform-aware, deleted stale Downloads clone
+- **Result:** Codex fixed SunBiz CSV import for messy Monday board exports, added local CLI runtime selection for Claude/Codex/Gemini bridge chat, fixed Codex CLI detection/install EBUSY false negative, clarified Settings integration panels, cleared npm audit vulnerabilities with ws override, and pushed oasis-command-center f9a2851 + CEO-Agent 58a255f to GitHub. Vercel production deploy is Ready.
 
 *Last updated: 2026-05-19*
 
