@@ -1332,7 +1332,21 @@ def _tool_install_cli(payload: dict) -> dict:
                 f"  2. Run this manually in your terminal: npm install -g {pkg}\n\n"
                 f"Raw detail: {err[:400]}"
             )
+        # EBUSY happens when an earlier install is still finalizing file
+        # copies. Tell the operator to wait a few seconds and retry.
+        if "EBUSY" in err or "resource busy or locked" in err:
+            return _err(
+                f"{pkg} is currently in use (likely a prior install still finalizing, "
+                "or the CLI binary is running). Wait 10 seconds and click Install "
+                "again. If it persists, close any open terminal that has the CLI "
+                f"running.\n\nRaw detail: {err[:400]}"
+            )
         return _err(f"npm install failed (exit {proc.returncode}): {err[:1500]}")
+    # npm exited 0, but the binary's shim files can take a moment to
+    # appear on PATH (especially on Windows where it writes .cmd shims
+    # after the package files). Brief settle delay so the post-install
+    # cli_status probe sees installed=true on the first try.
+    time.sleep(1.5)
     return _ok(
         f"Installed {pkg}.\n\n"
         f"{(proc.stdout or '').strip()[:1500] or '(no stdout)'}"
@@ -1358,13 +1372,21 @@ _AUTH_CMD_MAP: dict[str, list[str]] = {
 
 
 def _tool_cli_auth_start(payload: dict) -> dict:
-    """{provider: "claude" | "codex" | "gemini"} → started.
+    """{provider: "claude" | "codex" | "gemini"} → started + auth URL.
 
-    Spawns the CLI's auth subcommand in the background (non-blocking).
-    Returns immediately with a "browser opening" message; the dashboard
-    polls cli_status to detect READY.
+    Spawns the CLI's auth subcommand in the background and captures
+    the first ~5 seconds of stdout/stderr. CLIs print "Visit https://..."
+    to stdout in the OAuth flow — we surface that text to the dashboard
+    so the operator can click the URL directly instead of hunting for a
+    console window.
+
+    The CLI process keeps running after we return (we don't .wait()).
+    Its loopback HTTP server handles the OAuth callback locally; the
+    dashboard polls cli_status to detect READY.
     """
     import shutil
+    import threading
+    import queue
     provider = str(payload.get("provider") or "").lower().strip()
     # Claude Code doesn't expose an auth subcommand — the CLI prompts
     # for /login on first interactive run. Best we can do is guide.
@@ -1383,29 +1405,74 @@ def _tool_cli_auth_start(payload: dict) -> dict:
             f"{provider} is not installed. Click Install on the {provider} card first, "
             "then click Sign in."
         )
-    # Spawn detached so the CLI's loopback OAuth server runs without
-    # blocking the bridge response. The CLI manages browser open +
-    # callback capture entirely on its own.
+    # Spawn with combined stdout/stderr capture. We want to surface the
+    # CLI's "Visit https://..." line in the dashboard. Detaching with
+    # DEVNULL hid that output and made the flow opaque.
     try:
-        kwargs: dict = dict(
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+        proc = subprocess.Popen(
+            [bin_path, *args],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             stdin=subprocess.DEVNULL,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            bufsize=1,  # line-buffered so we get URLs as they print
         )
-        if sys.platform == "win32":
-            # DETACHED_PROCESS so the child survives bridge restarts and
-            # has its own console group for the browser-redirect handler.
-            kwargs["creationflags"] = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
-        else:
-            kwargs["start_new_session"] = True
-        subprocess.Popen([bin_path, *args], **kwargs)
     except FileNotFoundError:
         return _err(f"{provider} binary disappeared between status check and spawn")
     except Exception as e:
         return _err(f"failed to start {provider} auth: {e}")
+
+    # Background reader thread + queue so we can poll for early output
+    # without blocking on a process that runs for the entire OAuth
+    # roundtrip (which can be minutes).
+    out_q: queue.Queue[str] = queue.Queue()
+
+    def _reader() -> None:
+        try:
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                out_q.put(line)
+        except Exception:
+            pass
+
+    threading.Thread(target=_reader, daemon=True).start()
+
+    # Collect output for up to 5 seconds, or until the process exits,
+    # or until we've seen a URL (early-out so the dashboard is snappy).
+    deadline = time.time() + 5.0
+    collected: list[str] = []
+    while time.time() < deadline:
+        try:
+            line = out_q.get(timeout=0.25)
+            collected.append(line)
+            # Early-out as soon as a URL surfaces.
+            if "http://" in line or "https://" in line:
+                # Drain any immediately-following lines (often the
+                # CLI prints a blank-line separator after the URL).
+                for _ in range(3):
+                    try:
+                        collected.append(out_q.get_nowait())
+                    except queue.Empty:
+                        break
+                break
+        except queue.Empty:
+            # If the process died early, surface whatever it said.
+            if proc.poll() is not None:
+                break
+
+    raw = "".join(collected).strip()
+    if not raw:
+        return _ok(
+            f"Started {provider} sign-in (pid {proc.pid}). Your browser should "
+            "open shortly. If it doesn't, watch this card — when the CLI "
+            "prints a URL the next probe will surface it. Click Refresh after "
+            "you've signed in."
+        )
     return _ok(
-        f"Started {provider} sign-in. Your browser should open shortly — sign in "
-        "to grant access, then click Refresh in the dashboard."
+        f"{provider} sign-in started. Copy/paste the URL below into your browser "
+        f"if it doesn't auto-open:\n\n{raw[:2000]}"
     )
 
 
