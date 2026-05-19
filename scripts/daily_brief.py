@@ -52,7 +52,7 @@ MAX_TOKENS = 600
 SNAPSHOT_STALENESS_SEC = 5 * 60  # 5 min — was 24h, but CC's revenue events
 # (subscription_start / cancel logged manually) change throughout the day. A
 # 24h-old snapshot caused the 2026-05-18 15:15 brief to report MRR $3,322 / 12d
-# left when the primary retainer's $2,951 retainer had been cancelled at 15:20 just before
+# left when the primary $2,951 retainer had been cancelled at 15:20 just before
 # the brief fired — snapshot was 11 min old and pre-cancel. 5 min cap means
 # the brief regenerates from fresh CLIs on any non-trivial wait, while still
 # avoiding regeneration cost on rapid-fire manual re-runs.

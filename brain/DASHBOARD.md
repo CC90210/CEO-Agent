@@ -11,7 +11,7 @@ aliases:
 
 > **North Star:** $5,000 USD Net MRR by June 18, 2026 (extended 2026-05-18 from May 30 — gives 31 days to rebuild from $371 baseline)
 > **Current MRR (confirmed):** ~$371 USD (Stripe $180 + Base $191) | **Gap:** ~$4,629
-> **Status (2026-05-18):** Primary retainer (primary retainer / the prior community) ENDED 2026-05-18; R-001 materialized. SunBiz salary (~$2,500/mo) is the pending replacement — do not count until signed.
+> **Status (2026-05-18):** Primary retainer (community-management gig) ENDED 2026-05-18; R-001 materialized. SunBiz salary (~$2,500/mo) is the pending replacement — do not count until signed.
 
 ---
 

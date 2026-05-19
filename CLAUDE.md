@@ -50,7 +50,7 @@ Fix obvious issues without asking. Answer questions in 1-5 sentences, then act. 
 
 ## WHY — Purpose
 
-Build CC's empire through AI automation. North star: **$5,000 USD Net MRR by June 18, 2026.** (Extended 2026-05-18 from May 30 after primary retainer retainer ended.)
+Build CC's empire through AI automation. North star: **$5,000 USD Net MRR by June 18, 2026.** (Extended 2026-05-18 from May 30 after primary retainer ended.)
 
 ## HOW — Rules
 

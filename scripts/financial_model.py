@@ -28,7 +28,7 @@ from datetime import datetime, timezone
 
 
 # ---------------------------------------------------------------------------
-# CC-specific baseline constants (post-primary retainer: 2026-05-18)
+# CC-specific baseline constants (post-primary-retainer end: 2026-05-18)
 # ---------------------------------------------------------------------------
 
 DEFAULT_MRR = 371.0

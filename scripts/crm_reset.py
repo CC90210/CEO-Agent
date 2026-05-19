@@ -64,11 +64,11 @@ def _split_csv_env(name: str) -> list[str]:
 
 
 _DEFAULT_KEEP_NAMES = [
-    "primary_retainer", "spooner", "jonathan hutton", "alejandro",
+    "jonathan hutton", "alejandro",
     "alondra", "andrade", "tremont",
 ]
 _DEFAULT_KEEP_COMPANIES = [
-    "primary_retainer", "agency-accelerance", "agency accelerance", "basque",
+    "basque",
 ]
 
 KEEP_NAME_PATTERNS = _split_csv_env("CRM_KEEP_NAMES") or _DEFAULT_KEEP_NAMES

@@ -7,7 +7,7 @@ triggers: ["risk management", "use risk management", "run risk management", "bus
 
 # Risk Management — Business Continuity & Threat Monitoring
 
-> **Note (2026-05-18):** R-001 (primary retainer concentration = 94% of MRR) **MATERIALIZED** when the primary retainer's retainer ended. The playbook below is now the **active recovery framework**, not a hypothetical. Current state: brain/STATE.md (~$371 confirmed). Event detail: [docs/handovers/2026-05-18-primary_retainer-revenue-shift-handoff.md](../../docs/handovers/2026-05-18-primary_retainer-revenue-shift-handoff.md). Risk register: brain/RISK_REGISTER.md.
+> **Note (2026-05-18):** R-001 (primary retainer concentration = 94% of MRR) **MATERIALIZED** when the primary retainer ended. The playbook below is now the **active recovery framework**, not a hypothetical. Current state: brain/STATE.md (~$371 confirmed). Event detail: [docs/handovers/2026-05-18-primary-retainer-revenue-shift-handoff.md](../../docs/handovers/2026-05-18-primary-retainer-revenue-shift-handoff.md). Risk register: brain/RISK_REGISTER.md.
 
 ## Overview
 

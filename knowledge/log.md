@@ -28,7 +28,7 @@ Each entry records: date, source, pages created or updated, agent that ran the i
 **Source:** Compiled from `brain/STATE.md`, `brain/USER.md`, `brain/CAPABILITIES.md`, `memory/ACTIVE_TASKS.md`
 **Pages created:**
 - [[knowledge/wiki/ai-automation-agency]] — OASIS AI services, positioning, ICP, differentiation
-- [[knowledge/wiki/revenue-model]] — [ARCHIVED 2026-05-18] Full MRR breakdown pre-primary retainer-end; preserved as historical context
+- [[knowledge/wiki/revenue-model]] — [ARCHIVED 2026-05-18] Full MRR breakdown pre-2026-05-18; preserved as historical context
 - [[knowledge/wiki/tech-stack]] — Complete technology inventory across all tools and integrations
 - [[knowledge/wiki/client-playbook]] — Client acquisition, onboarding, retention, health scoring
 **Agent:** Bravo (Claude Sonnet 4.6) via Claude Code

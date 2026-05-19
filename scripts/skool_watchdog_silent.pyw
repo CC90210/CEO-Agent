@@ -1,7 +1,7 @@
 """Skool Watchdog — ARCHIVED 2026-05-18.
 
 The Skool community comment/reply automation was retired when CC stepped away
-from the primary retainer retainer. The full implementation is preserved under
+from the primary retainer (2026-05-18). The full implementation is preserved under
 `scripts/_archive/skool/` for revival when CC launches their own Skool
 community (see scripts/_archive/skool/README.md for the revival steps).
 

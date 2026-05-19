@@ -136,7 +136,7 @@ SEED_JOBS: list[dict] = [
     },
     {
         # Added 2026-05-18 — closes the manual-edit gap on user_profiles.mrr_current_usd
-        # that surfaced during the primary retainer retainer cleanup. revenue_engine.calculate_mrr
+        # that surfaced during the primary-retainer cleanup. revenue_engine.calculate_mrr
         # (Stripe + manual retainer rows in revenue_events) is the source of truth;
         # sync_mrr.py upserts the result into user_profiles + writes today's
         # mrr_snapshots row. Runs 30 min after Stripe Revenue Sync so today's

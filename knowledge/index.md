@@ -21,7 +21,7 @@ page_count: 6
 | Page | Slug | Topics Covered | Confidence | Last Updated |
 |------|------|----------------|------------|--------------|
 | [[knowledge/wiki/ai-automation-agency]] | `ai-automation-agency` | OASIS AI positioning, service tiers, ICP, differentiation, pitch | 0.92 | 2026-04-06 |
-| [[knowledge/wiki/revenue-model]] **[ARCHIVED 2026-05-18]** | `revenue-model` | MRR breakdown pre-primary retainer-end. Historical context. Current MRR in brain/STATE.md. | 0.92 | 2026-05-18 |
+| [[knowledge/wiki/revenue-model]] **[ARCHIVED 2026-05-18]** | `revenue-model` | MRR breakdown pre-2026-05-18. Historical context. Current MRR in brain/STATE.md. | 0.92 | 2026-05-18 |
 | [[knowledge/wiki/tech-stack]] | `tech-stack` | Full technology inventory, all tools, MCPs, CLIs, scripts | 0.90 | 2026-04-06 |
 | [[knowledge/wiki/client-playbook]] | `client-playbook` | How to win clients, onboarding, retention, health scoring | 0.90 | 2026-04-06 |
 | [[../CMO-Agent/brain/VIDEO_PRODUCTION_BIBLE]] (Maven canonical) | `video-production-bible` | AI video stack, transcription, audio, captions, effects, Remotion, FFmpeg | 0.93 | 2026-04-06 |

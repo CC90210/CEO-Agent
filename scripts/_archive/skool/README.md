@@ -3,7 +3,7 @@ name: skool-automation-archive
 description: Archived Skool community comment/reply automation — paused 2026-05-18, preserved for revival when CC launches their own Skool community.
 type: archive
 archived_on: 2026-05-18
-archived_reason: primary retainer retainer ended; CC does not own the Skool community the automation was posting into. Will be revived for CC's own community in the future.
+archived_reason: Primary retainer ended 2026-05-18; CC does not own the Skool community the automation was posting into. Will be revived for CC's own community in the future.
 ---
 
 # Skool Automation — Archived

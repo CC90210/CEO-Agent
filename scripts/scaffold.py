@@ -183,12 +183,8 @@ def build_replacement_map(profile: dict[str, Any]) -> dict[str, str]:
         "$5,000 USD Net MRR by 2026-05-15": north_star or "Your North Star",
         "$5,000 USD Net MRR by May 15, 2026": north_star or "Your North Star",
 
-        # --- 2. Community (CC runs an the prior community Skool community) ---
+        # --- 2. Community (CC previously ran a Skool community on retainer) ---
         # If the client doesn't have an equivalent, scrub the references.
-        # Order matters: longest-first below handles "the prior community"
-        # vs "Skool community" vs "Skool" overlap correctly.
-        "the prior community": community_name or "",
-        "the prior community": community_name or "",
         "Skool community": (
             f"{community_platform} community"
             if community_platform else (community_name or "online community")
