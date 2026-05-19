@@ -132,7 +132,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-05-19
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Added production chat attachments for Agent Command Center: private chat_attachments storage, ChatWidget paperclip upload, cloud/bridge attachment context, and import_leads_from_attachment tool for messy SunBiz CSVs. Verified typecheck/build/audit, applied migration 061, deployed Vercel, and live-tested SunBiz CSV upload.
+- **Result:** Hardened local bridge CORS for Chrome Private Network Access after live chat attachment verification surfaced loopback probe warnings.
 
 *Last updated: 2026-05-19*
 
