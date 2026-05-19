@@ -132,7 +132,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-05-19
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Codex fixed SunBiz CSV import for messy Monday board exports, added local CLI runtime selection for Claude/Codex/Gemini bridge chat, fixed Codex CLI detection/install EBUSY false negative, clarified Settings integration panels, cleared npm audit vulnerabilities with ws override, and pushed oasis-command-center f9a2851 + CEO-Agent 58a255f to GitHub. Vercel production deploy is Ready.
+- **Result:** Added production chat attachments for Agent Command Center: private chat_attachments storage, ChatWidget paperclip upload, cloud/bridge attachment context, and import_leads_from_attachment tool for messy SunBiz CSVs. Verified typecheck/build/audit, applied migration 061, deployed Vercel, and live-tested SunBiz CSV upload.
 
 *Last updated: 2026-05-19*
 
