@@ -40,6 +40,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import tempfile
 
 # Windows console-suppression — see bravo_cli/_subprocess_helpers.
 from ._subprocess_helpers import (
@@ -1360,10 +1361,14 @@ class _ChatHandler(BaseHTTPRequestHandler):
         if not isinstance(messages, list) or not messages:
             self._json(400, {"ok": False, "error": "no_messages"})
             return
+        cli_provider = str(payload.get("cli_provider") or "claude").strip().lower()
+        if cli_provider not in {"claude", "codex", "gemini"}:
+            self._json(400, {"ok": False, "error": "invalid_cli_provider"})
+            return
 
         # V6.0: log this interaction to state/empire_state.db so the System
         # Health page sees dashboard chat activity. Best-effort, fire-and-forget.
-        _v6_log_chat_interaction(agent, "cloud-chat", _v6_last_user_text(messages))
+        _v6_log_chat_interaction(agent, f"{cli_provider}-chat", _v6_last_user_text(messages))
 
         # Optional Claude Code session id — when present we pass --resume
         # so the agent skips the cold context-load on subsequent turns.
@@ -1464,6 +1469,14 @@ class _ChatHandler(BaseHTTPRequestHandler):
                 emit("done", {})
             except Exception as e:
                 emit("error", {"message": _redact_secrets(f"chat_loop_failed: {e}")})
+                emit("done", {})
+            return
+
+        if cli_provider != "claude":
+            try:
+                self._run_chat_via_local_cli(cli_provider, agent, root, messages, emit)
+            except Exception as e:
+                emit("error", {"message": _redact_secrets(f"{cli_provider}_chat_failed: {e}")})
                 emit("done", {})
             return
 
@@ -1763,6 +1776,202 @@ class _ChatHandler(BaseHTTPRequestHandler):
     #   user.message tool_result  -> tool_result (output)
     #   result/success            -> done (+ usage)
     #   anything else             -> ignored / logged
+    def _run_chat_via_local_cli(
+        self,
+        provider: str,
+        agent: str,
+        root: Path,
+        messages: list[dict],
+        emit: Callable[[str, dict], None],
+    ) -> None:
+        """Run one non-Claude local CLI turn and translate it to ChatWidget SSE."""
+        prompt_text = self._build_local_cli_prompt(provider, agent, messages)
+        if not prompt_text.strip():
+            emit("error", {"message": "empty_user_message"})
+            emit("done", {})
+            return
+
+        emit("agent_status", {"phase": "spawning", "agent": agent, "cwd": str(root)})
+        emit("session", {"session_id": f"{provider}-{int(time.time() * 1000)}"})
+
+        if provider == "codex":
+            text = self._run_codex_cli(root, prompt_text)
+        elif provider == "gemini":
+            text = self._run_gemini_cli(root, prompt_text)
+        else:
+            emit("error", {"message": "invalid_cli_provider"})
+            emit("done", {})
+            return
+
+        emit("agent_status", {"phase": "thinking"})
+        text = (text or "").strip()
+        if not text:
+            emit("error", {"message": f"{provider}_returned_no_content"})
+            emit("done", {})
+            return
+        emit("delta", {"text": text})
+        emit("done", {})
+
+    def _build_local_cli_prompt(self, provider: str, agent: str, messages: list[dict]) -> str:
+        labels = {"codex": "Codex CLI", "gemini": "Gemini CLI"}
+        transcript: list[str] = []
+        for m in messages[-12:]:
+            if not isinstance(m, dict):
+                continue
+            role = str(m.get("role") or "user").upper()
+            content = m.get("content")
+            if isinstance(content, list):
+                parts = [
+                    str(block.get("text") or "")
+                    for block in content
+                    if isinstance(block, dict) and block.get("type") == "text"
+                ]
+                text = " ".join(p for p in parts if p).strip()
+            else:
+                text = str(content or "").strip()
+            if text:
+                transcript.append(f"{role}: {text}")
+        return (
+            f"You are {agent}, running through {labels.get(provider, provider)} inside the "
+            "operator's paired repository. Follow the local repository instructions and "
+            "answer the latest user turn. Keep the response useful and concise. Do not "
+            "send outbound email/SMS or mutate production data unless the user explicitly "
+            "asked for that action.\n\n"
+            "Conversation:\n"
+            + "\n\n".join(transcript)
+        )
+
+    def _which_cli(self, name: str) -> str | None:
+        found = shutil.which(name)
+        if found:
+            return found
+        if os.name == "nt":
+            for suffix in (".cmd", ".exe"):
+                found = shutil.which(name + suffix)
+                if found:
+                    return found
+        return None
+
+    def _run_cli_command(self, args: list[str], root: Path, timeout_s: int = 300) -> subprocess.CompletedProcess:
+        env = dict(os.environ)
+        env.update({
+            "CI": "true",
+            "NONINTERACTIVE": "true",
+            "PAGER": "cat",
+            "NO_COLOR": "1",
+            "FORCE_COLOR": "0",
+        })
+        return subprocess.run(
+            args,
+            cwd=str(root),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            stdin=subprocess.DEVNULL,
+            shell=False,
+            env=env,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout_s,
+            creationflags=_WINDOWLESS_FLAGS,
+            startupinfo=_windowless_startupinfo(),
+        )
+
+    def _run_codex_cli(self, root: Path, prompt_text: str) -> str:
+        codex_bin = self._which_cli("codex")
+        if not codex_bin:
+            raise FileNotFoundError("codex CLI not on PATH")
+        out_path = ""
+        try:
+            with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".txt", delete=False) as fh:
+                out_path = fh.name
+            args = [
+                codex_bin,
+                "exec",
+                "--sandbox",
+                "read-only",
+                "--skip-git-repo-check",
+                "-C",
+                str(root),
+                "--output-last-message",
+                out_path,
+                self._cli_arg_prompt(prompt_text),
+            ]
+            proc = self._run_cli_command(args, root, timeout_s=180)
+            try:
+                text = Path(out_path).read_text(encoding="utf-8", errors="replace").strip()
+            except Exception:
+                text = ""
+            if proc.returncode != 0:
+                detail = (proc.stderr or proc.stdout or "").strip()
+                raise RuntimeError(_redact_secrets(detail[:2000] or f"codex exited {proc.returncode}"))
+            return text or self._strip_cli_noise(proc.stdout)
+        finally:
+            if out_path:
+                try:
+                    Path(out_path).unlink(missing_ok=True)
+                except Exception:
+                    pass
+
+    def _run_gemini_cli(self, root: Path, prompt_text: str) -> str:
+        gemini_bin = self._which_cli("gemini")
+        if not gemini_bin:
+            raise FileNotFoundError("gemini CLI not on PATH")
+        args = [
+            gemini_bin,
+            "-p",
+            self._cli_arg_prompt(prompt_text),
+            "--output-format",
+            "json",
+            "--approval-mode",
+            "plan",
+            "--skip-trust",
+        ]
+        proc = self._run_cli_command(args, root, timeout_s=120)
+        if proc.returncode != 0:
+            detail = (proc.stderr or proc.stdout or "").strip()
+            raise RuntimeError(_redact_secrets(detail[:2000] or f"gemini exited {proc.returncode}"))
+        return self._extract_gemini_text(proc.stdout) or self._strip_cli_noise(proc.stdout)
+
+    def _extract_gemini_text(self, stdout: str) -> str:
+        text = (stdout or "").strip()
+        if not text:
+            return ""
+        candidates = [line.strip() for line in text.splitlines() if line.strip().startswith("{")]
+        if text.startswith("{"):
+            candidates.append(text)
+        for candidate in reversed(candidates):
+            try:
+                data = json.loads(candidate)
+            except Exception:
+                continue
+            if not isinstance(data, dict):
+                continue
+            for key in ("response", "text", "content", "message"):
+                value = data.get(key)
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
+            nested = data.get("candidates")
+            if isinstance(nested, list) and nested:
+                return json.dumps(nested[0], ensure_ascii=False)
+        return ""
+
+    def _strip_cli_noise(self, stdout: str) -> str:
+        lines: list[str] = []
+        for line in (stdout or "").splitlines():
+            s = line.strip()
+            if not s:
+                continue
+            if s.startswith("Warning:") or s.startswith("[ERROR]") or s.startswith("[INFO]"):
+                continue
+            lines.append(line)
+        return "\n".join(lines).strip()
+
+    def _cli_arg_prompt(self, prompt_text: str) -> str:
+        # Windows .cmd shims are brittle when an argv token contains literal
+        # newlines. Preserve the transcript shape as escaped line breaks.
+        return prompt_text.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "\\n")
+
     def _run_chat_via_claude(
         self,
         agent: str,
