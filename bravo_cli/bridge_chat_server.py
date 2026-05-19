@@ -860,6 +860,10 @@ class _ChatHandler(BaseHTTPRequestHandler):
         origin = self.headers.get("origin", "")
         if origin in ALLOWED_ORIGINS:
             self.send_header("access-control-allow-origin", origin)
+            # Chrome's Private Network Access preflight can block a public
+            # HTTPS dashboard from reaching localhost unless the local bridge
+            # explicitly opts in. Required for /health, /chat, /exec-tool.
+            self.send_header("access-control-allow-private-network", "true")
         self.send_header("access-control-allow-methods", "GET, POST, OPTIONS")
         self.send_header("access-control-allow-headers", "content-type")
 
