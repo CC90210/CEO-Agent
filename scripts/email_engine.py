@@ -26,6 +26,7 @@ import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -99,6 +100,37 @@ def get_smtp_credentials(env_vars):
         sys.exit(1)
 
     return address, password
+
+
+# -- HTML detection helpers ---------------------------------
+#
+# 2026-05-19 incident: an agent invocation passed HTML content to --body
+# (a plain-text slot) AND then passed --html "true" to satisfy argparse
+# after the previous attempt errored with "--html expects a value". Result:
+# body_text correctly held the HTML (which is what email_log.body_preview
+# recorded), but body_html="true" won at SMTP-render time, so the brand
+# template wrapped the literal string "true" and shipped it. Recipient saw
+# a useless email; the actual Meet link never left send_gateway.
+#
+# Two defenses below — both apply at the CLI boundary so every caller of
+# email_engine.py is protected, not just the bridge chat session:
+#   1. _looks_like_html() — quick heuristic for "this string contains HTML markup"
+#   2. cmd_send rewires: auto-detect HTML in --body, reject non-HTML in --html
+
+
+_HTML_TAG_RE = re.compile(r"<[A-Za-z][A-Za-z0-9]*(?:\s[^>]*)?/?>")
+
+
+def _looks_like_html(s: Optional[str]) -> bool:
+    """True if the string contains at least one well-formed HTML opener.
+
+    Conservative on purpose — we want false-negatives (treat as plain text)
+    over false-positives (treat literal '<5' as HTML). A real HTML body
+    will always contain at least one tag like <p>, <a>, <div>, etc.
+    """
+    if not s or len(s) < 4:
+        return False
+    return bool(_HTML_TAG_RE.search(s))
 
 
 # -- SMTP --------------------------------------------------
@@ -277,6 +309,34 @@ def cmd_send(env_vars, args, output_json=False):
     """
     from send_gateway import send as gateway_send
 
+    body_text = args.body
+    body_html = getattr(args, "html", None)
+
+    # Auto-detect: if --body looks like HTML and --html was not provided,
+    # promote --body to the HTML slot and synthesize a plain-text version.
+    # Agents reaching for `python scripts/email_engine.py send` from a chat
+    # session routinely write HTML into --body (it's the obvious slot when
+    # you have one body to send); this routes correctly without forcing
+    # them to learn the --html/--body distinction.
+    if body_html is None and _looks_like_html(body_text):
+        body_html = body_text
+        body_text = re.sub(r"<[^>]+>", "", body_html).strip()
+
+    # Validation: if --html was passed, it MUST contain HTML markup. The
+    # 2026-05-19 incident was a non-HTML literal ("true") landing in the
+    # HTML slot and winning at SMTP-render time; reject loudly so the next
+    # caller iterates instead of shipping garbage.
+    if body_html is not None and not _looks_like_html(body_html):
+        msg = (
+            f"--html must contain actual HTML markup; got "
+            f"{body_html[:60]!r}. If you meant plain text, omit --html."
+        )
+        if output_json:
+            print(json.dumps({"status": "failed", "error": msg}, indent=2))
+        else:
+            print(f"ERROR: {msg}", file=sys.stderr)
+        sys.exit(1)
+
     intent = "transactional" if getattr(args, "transactional", False) else "commercial"
     gw = gateway_send(
         channel="email",
@@ -284,8 +344,8 @@ def cmd_send(env_vars, args, output_json=False):
         to_email=args.to,
         lead_id=getattr(args, "lead_id", None),
         subject=args.subject,
-        body_text=args.body,
-        body_html=getattr(args, "html", None),
+        body_text=body_text,
+        body_html=body_html,
         brand=getattr(args, "brand", "oasis"),
         intent=intent,
         dry_run=getattr(args, "dry_run", False),
