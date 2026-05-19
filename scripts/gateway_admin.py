@@ -30,6 +30,7 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 from datetime import datetime
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 # ---- CONFIG ----
 REPO_ROOT = Path(__file__).parent.parent.resolve()
@@ -76,7 +77,7 @@ def _pm2_available() -> bool:
     try:
         result = subprocess.run(
             ["pm2", "--version"], capture_output=True, timeout=5,
-        )
+         creationflags=WINDOWLESS_FLAGS)
         return result.returncode == 0
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return False
@@ -130,7 +131,7 @@ def cmd_start(args) -> dict:
             ["pm2", "start", str(GATEWAY_ENTRY), "--name", PM2_PROCESS_NAME,
              "--no-autorestart" if getattr(args, "no_autorestart", False) else "--"],
             cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=15,
-        )
+         creationflags=WINDOWLESS_FLAGS)
         # Strip --no-autorestart placeholder arg
         if result.returncode == 0:
             return {"ok": True, "status": "started_pm2", "process": PM2_PROCESS_NAME}
@@ -168,7 +169,7 @@ def cmd_stop(args) -> dict:
         r = subprocess.run(
             ["pm2", "stop", PM2_PROCESS_NAME],
             capture_output=True, text=True, timeout=10,
-        )
+         creationflags=WINDOWLESS_FLAGS)
         if r.returncode == 0:
             return {"ok": True, "status": "stopped_pm2"}
     return {"ok": False, "error": result.get("error", "Could not reach control server")}

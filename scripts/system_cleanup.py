@@ -38,6 +38,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 HOME = Path.home()
@@ -76,7 +77,7 @@ def _is_oasis_repo(path: Path) -> bool:
         out = subprocess.check_output(
             ["git", "-C", str(path), "config", "--get", "remote.origin.url"],
             stderr=subprocess.DEVNULL,
-        ).decode().strip()
+         creationflags=WINDOWLESS_FLAGS).decode().strip()
     except Exception:  # noqa: BLE001
         return False
     return bool(out) and any(s in out for s in ("CC90210/CEO-Agent", "CC90210/CFO-Agent",

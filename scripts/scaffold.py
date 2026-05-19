@@ -56,6 +56,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PROFILE_PATH = PROJECT_ROOT / "brain" / "operator.profile.json"
@@ -85,7 +86,7 @@ def _git_ls_files() -> list[Path]:
     """Use git to enumerate tracked files. Falls back to a recursive walk."""
     try:
         out = subprocess.check_output(
-            ["git", "ls-files"], cwd=str(PROJECT_ROOT), text=True)
+            ["git", "ls-files"], cwd=str(PROJECT_ROOT), text=True, creationflags=WINDOWLESS_FLAGS)
         files: list[Path] = []
         for line in out.splitlines():
             line = line.strip()

@@ -20,6 +20,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = REPO_ROOT / "scripts"
@@ -51,7 +52,7 @@ def list_active_crons(include_disabled: bool = False) -> list[dict]:
     r = subprocess.run(
         [sys.executable, str(SCRIPTS_DIR / "cron_engine.py"), "--json", "list"],
         capture_output=True, text=True, encoding="utf-8", errors="replace",
-    )
+     creationflags=WINDOWLESS_FLAGS)
     if r.returncode != 0:
         return []
     jobs = json.loads(r.stdout)

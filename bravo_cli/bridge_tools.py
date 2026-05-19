@@ -34,6 +34,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
 
+# Add the repo's scripts/ to sys.path so we can import the canonical
+# subprocess helper. bridge_tools runs from bravo_cli/ (sibling of
+# scripts/) under the claude-bridge PM2 daemon — every shell/script
+# spawn from here MUST be windowless or the user sees a cmd.exe popup
+# on each bridge tool call.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_REPO_ROOT / "scripts"))
+from _subprocess_helpers import safe_run  # noqa: E402
+
 try:
     from .agent_roots import resolve_root
 except ImportError:
@@ -168,7 +177,7 @@ def _tool_bash(payload: dict) -> dict:
     cwd = str(Path(cwd_raw)) if cwd_raw else str(_bravo_root())
 
     try:
-        proc = subprocess.run(
+        proc = safe_run(
             cmd,
             shell=True,
             cwd=cwd,
@@ -211,7 +220,7 @@ def _run_script(args: list[str], timeout_s: int = SCRIPT_TIMEOUT_S) -> dict:
     so the model gets structured data, not a TUI."""
     bravo = _bravo_root()
     try:
-        proc = subprocess.run(
+        proc = safe_run(
             [sys.executable, *args],
             cwd=str(bravo),
             capture_output=True,
@@ -462,7 +471,7 @@ def _tool_run_script(payload: dict) -> dict:
         return _err(f"script_not_found: scripts/{script_name}")
 
     try:
-        proc = subprocess.run(
+        proc = safe_run(
             [sys.executable, str(script_path), *args],
             cwd=str(bravo),
             capture_output=True,
@@ -1172,8 +1181,8 @@ def _tool_cli_status(payload: dict) -> dict:
 
     def _run(args: list[str], timeout: int = 5) -> tuple[int, str]:
         try:
-            r = subprocess.run(args, capture_output=True, text=True,
-                               timeout=timeout, encoding="utf-8", errors="replace")
+            r = safe_run(args, capture_output=True, text=True,
+                         timeout=timeout, encoding="utf-8", errors="replace")
             return r.returncode, (r.stdout or "").strip() + ("\n" + r.stderr.strip() if r.stderr else "")
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
             return -1, ""

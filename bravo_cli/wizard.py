@@ -32,6 +32,11 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Callable
+_p = Path(__file__).resolve()
+while _p.parent != _p and not (_p / "scripts" / "_subprocess_helpers.py").exists():
+    _p = _p.parent
+sys.path.insert(0, str(_p / "scripts"))
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 
@@ -993,7 +998,7 @@ def _git_run(args: list[str], cwd: Path, timeout: int = 10) -> subprocess.Comple
             encoding="utf-8",
             errors="replace",
             timeout=timeout,
-        )
+         creationflags=WINDOWLESS_FLAGS)
     except Exception:
         return None
 
@@ -1089,7 +1094,7 @@ def _chmod_secret_file(path: Path) -> None:
                 ["icacls", str(path), "/grant:r", f"{user}:F"],
             ):
                 subprocess.run(argv, capture_output=True, timeout=10,
-                               check=False)
+                               check=False, creationflags=WINDOWLESS_FLAGS)
         except Exception:
             # icacls is built-in on every supported Windows version; if it
             # fails we silently fall back to default ACLs rather than
@@ -1897,7 +1902,7 @@ def _clone_one_repo(url: str, target: Path, label: str) -> bool:
     print(f"    {DIM(ARROW + ' cloning ' + label + '...')}")
     try:
         r = subprocess.run(["git", "clone", "--depth", "10", url, str(target)],
-                           capture_output=True, text=True, timeout=300)
+                           capture_output=True, text=True, timeout=300, creationflags=WINDOWLESS_FLAGS)
         if r.returncode == 0:
             print(f"    {GREEN(OK)} {label} -> {CYAN(str(target))}")
             return True
@@ -1949,7 +1954,7 @@ def step_clone_agent_repo(profile: str, step_num: int, total: int) -> None:
     try:
         r = subprocess.run(["git", "clone", "--depth", "10",
                             repo_info["url"], str(target)],
-                           capture_output=True, text=True, timeout=300)
+                           capture_output=True, text=True, timeout=300, creationflags=WINDOWLESS_FLAGS)
         if r.returncode == 0:
             print(f"  {GREEN(OK)} Cloned to {CYAN(str(target))}")
             if _activate_env_destination(target):
@@ -2075,7 +2080,7 @@ def step_playwright_browsers(step_num: int, total: int) -> None:
     try:
         r = subprocess.run(
             [sys.executable, "-c", "import playwright; print('ok')"],
-            capture_output=True, text=True, timeout=10)
+            capture_output=True, text=True, timeout=10, creationflags=WINDOWLESS_FLAGS)
         if r.returncode != 0:
             print(f"  {DIM('Playwright package not found — skipping. Re-run setup after fixing pip.')}")
             return
@@ -2097,7 +2102,7 @@ def step_playwright_browsers(step_num: int, total: int) -> None:
     try:
         r = subprocess.run(
             [sys.executable, "-m", "playwright", "install", "chromium"],
-            timeout=600)
+            timeout=600, creationflags=WINDOWLESS_FLAGS)
         if r.returncode == 0:
             print(f"  {GREEN(OK)} Chromium installed.")
         else:
@@ -2167,7 +2172,7 @@ def step_browser_harness(step_num: int, total: int) -> None:
         cmd = [sys.executable, "-m", "pip", "install", "browser-use"]
         print(f"  {DIM(ARROW + ' pip install browser-use...')}")
     try:
-        r = subprocess.run(cmd, timeout=300)
+        r = subprocess.run(cmd, timeout=300, creationflags=WINDOWLESS_FLAGS)
         if r.returncode == 0:
             print(f"  {GREEN(OK)} Installed.")
             _harness_post_install_checklist()
@@ -2236,7 +2241,7 @@ def _docker_available() -> tuple[bool, str]:
         r = subprocess.run(
             ["docker", "info", "--format", "{{.ServerVersion}}"],
             capture_output=True, text=True, timeout=10,
-        )
+         creationflags=WINDOWLESS_FLAGS)
         if r.returncode == 0 and r.stdout.strip():
             return (True, f"docker {r.stdout.strip()}")
         return (False, "docker daemon not responding (start Docker Desktop?)")
@@ -2442,7 +2447,7 @@ def step_v6_init(profile: str, step_num: int, total: int) -> None:
                               "--status", "setup",
                               "--focus", "V6.0 wizard bootstrap"],
                              cwd=str(REPO_ROOT),
-                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=WINDOWLESS_FLAGS)
         if rc == 0:
             if profile == "sunbiz":
                 print(f"  {GREEN(OK)} Solara's operating memory is ready.")
@@ -2454,10 +2459,10 @@ def step_v6_init(profile: str, step_num: int, total: int) -> None:
         # Idempotent — UNIQUE(session_id, note) handles dedup.
         subprocess.call([sys.executable, str(sm_script), "import-from-files"],
                         cwd=str(REPO_ROOT),
-                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=WINDOWLESS_FLAGS)
         subprocess.call([sys.executable, str(sm_script), "export"],
                         cwd=str(REPO_ROOT),
-                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=WINDOWLESS_FLAGS)
 
     mr_script = REPO_ROOT / "scripts" / "memory_retriever.py"
     if mr_script.exists():
@@ -2465,7 +2470,7 @@ def step_v6_init(profile: str, step_num: int, total: int) -> None:
             print(f"  {DIM('Building FTS5 retrieval index (')}{CYAN('state/memory_index.db')}{DIM(')...')}")
         rc = subprocess.call([sys.executable, str(mr_script), "build"],
                              cwd=str(REPO_ROOT),
-                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=WINDOWLESS_FLAGS)
         if rc == 0:
             if profile == "sunbiz":
                 print(f"  {GREEN(OK)} Solara's memory index is ready.")
@@ -2498,7 +2503,7 @@ def step_v6_init(profile: str, step_num: int, total: int) -> None:
             rc = subprocess.call(
                 ["docker", "compose", "-f", f"infra/{compose_file}", "build"],
                 cwd=str(REPO_ROOT),
-            )
+             creationflags=WINDOWLESS_FLAGS)
             if rc == 0:
                 print(f"  {GREEN(OK)} Sandbox image built. Start with: {CYAN(f'docker compose -f infra/{compose_file} up -d')}")
             else:
@@ -2895,7 +2900,7 @@ def step_finalize(profile: str, step_num: int, total: int) -> None:
     if personalize_script.exists() and profile == "bravo":
         print(f"  {BOLD('Personalizing identity files...')}")
         rc = subprocess.call([sys.executable, str(personalize_script), "apply", "--force"],
-                             cwd=str(REPO_ROOT))
+                             cwd=str(REPO_ROOT), creationflags=WINDOWLESS_FLAGS)
         if rc == 0:
             print(f"  {GREEN(OK)} brain/USER.md + memory/ACTIVE_TASKS.md + memory/SESSION_LOG.md rendered.")
         else:
@@ -2914,7 +2919,7 @@ def step_finalize(profile: str, step_num: int, total: int) -> None:
                 run_scaffold = yes_no("Run scaffold now? (recommended for fresh clones)", default=True)
                 if run_scaffold:
                     rc = subprocess.call([sys.executable, str(scaffold_script),
-                                          "--apply", "--backup"], cwd=str(REPO_ROOT))
+                                          "--apply", "--backup"], cwd=str(REPO_ROOT), creationflags=WINDOWLESS_FLAGS)
                     if rc == 0:
                         print(f"  {GREEN(OK)} Codebase scaffolded for {read_env('USER_PREFERRED_NAME') or 'you'}.")
                     else:
@@ -2987,12 +2992,12 @@ def step_finalize(profile: str, step_num: int, total: int) -> None:
                 cwd=str(REPO_ROOT),
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-            )
+             creationflags=WINDOWLESS_FLAGS)
         else:
             print(f"  {BOLD('Running')} {CYAN('bravo doctor')} {BOLD('to verify everything...')}")
             print()
             rc = subprocess.call([sys.executable, str(bravo_cmd), "doctor"],
-                                 cwd=str(REPO_ROOT))
+                                 cwd=str(REPO_ROOT), creationflags=WINDOWLESS_FLAGS)
         _post_doctor_rc[0] = rc
         if rc != 0:
             print()
@@ -3033,7 +3038,7 @@ def _self_update_preflight() -> bool:
                 ["git", "-C", str(REPO_ROOT), *args],
                 capture_output=capture, text=True, timeout=30,
                 encoding="utf-8", errors="replace",
-            )
+             creationflags=WINDOWLESS_FLAGS)
             return r.returncode, (r.stdout or "") + (r.stderr or "")
         except Exception as exc:  # noqa: BLE001
             return 1, str(exc)
@@ -3098,7 +3103,7 @@ def run_wizard(profile_override: str | None = None) -> int:
             argv += ["--profile", profile_override]
         with contextlib.ExitStack() as stack:
             stdio_kwargs = _subprocess_console_kwargs(stack)
-            return subprocess.call(argv, env=env, cwd=str(REPO_ROOT), **stdio_kwargs)
+            return subprocess.call(argv, env=env, cwd=str(REPO_ROOT), **stdio_kwargs, creationflags=WINDOWLESS_FLAGS)
 
     try:
         step_welcome()

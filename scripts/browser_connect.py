@@ -28,6 +28,10 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _subprocess_helpers import safe_popen, safe_run
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
+
 ROOT = Path(__file__).resolve().parent.parent
 CDP_PORT = 9222
 CHROME_EXE = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
@@ -70,7 +74,7 @@ def _get_browser_info(port: int = CDP_PORT) -> dict[str, Any] | None:
 def _chrome_running() -> bool:
     """Check if any Chrome process is running."""
     if os.name == "nt":
-        result = subprocess.run(
+        result = safe_run(
             ["tasklist", "/FI", "IMAGENAME eq chrome.exe"],
             capture_output=True, text=True, timeout=10
         )
@@ -81,7 +85,7 @@ def _chrome_running() -> bool:
 def _kill_chrome() -> None:
     """Kill all Chrome processes."""
     if os.name == "nt":
-        subprocess.run(
+        safe_run(
             ["taskkill", "/F", "/IM", "chrome.exe"],
             capture_output=True, timeout=15
         )
@@ -99,7 +103,7 @@ def _launch_chrome_debug() -> None:
         f"--user-data-dir={CHROME_USER_DATA}",
         "--restore-last-session",
     ]
-    subprocess.Popen(args, close_fds=True)
+    safe_popen(args, close_fds=True)
 
 
 def _attach_harness(ws_url: str) -> dict[str, Any]:
@@ -114,7 +118,7 @@ def _attach_harness(ws_url: str) -> dict[str, Any]:
     if os.name == "nt":
         quoted = str(harness).replace("'", "''")
         command = "& '" + quoted + "' --setup"
-        result = subprocess.run(
+        result = safe_run(
             ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
             capture_output=True, text=True, timeout=30, env=env
         )
@@ -122,7 +126,7 @@ def _attach_harness(ws_url: str) -> dict[str, Any]:
         result = subprocess.run(
             [str(harness), "--setup"],
             capture_output=True, text=True, timeout=30, env=env
-        )
+        , creationflags=WINDOWLESS_FLAGS)
 
     output = (result.stdout + "\n" + result.stderr).strip()
     return {

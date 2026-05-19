@@ -80,6 +80,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -209,7 +210,7 @@ def _run_tier_subprocess(tier_name: str, argv: list[str], timeout: int) -> dict:
         proc = subprocess.run(
             argv, capture_output=True, text=True, timeout=timeout,
             encoding="utf-8", errors="replace",
-        )
+         creationflags=WINDOWLESS_FLAGS)
     except subprocess.TimeoutExpired:
         return {**_EMPTY_TIER, "error": f"{tier_name} timeout", "_parsed": None}
     if proc.returncode != 0:

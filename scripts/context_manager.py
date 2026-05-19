@@ -31,6 +31,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 # Force UTF-8 output on Windows (avoids cp1252 failures with arrow/dash characters)
 if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
@@ -544,7 +545,7 @@ def check_npm_package(package: str) -> tuple[bool, str]:
                 [npm_cmd, "list", "-g", "--depth=0", "--json"],
                 capture_output=True, text=True, timeout=15,
                 shell=(npm_cmd.endswith(".cmd")),
-            )
+             creationflags=WINDOWLESS_FLAGS)
             data = json.loads(result.stdout or "{}")
             deps = data.get("dependencies", {})
             if package in deps:

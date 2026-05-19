@@ -26,6 +26,7 @@ import sys
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PYTHON = sys.executable
@@ -55,7 +56,7 @@ def _run(cmd: list[str], cwd: Path, timeout: int = 90) -> tuple[int, str, str]:
         proc = subprocess.run(
             cmd, cwd=str(cwd), capture_output=True, text=True,
             timeout=timeout, env=env, encoding="utf-8", errors="replace",
-        )
+         creationflags=WINDOWLESS_FLAGS)
         return proc.returncode, proc.stdout or "", proc.stderr or ""
     except subprocess.TimeoutExpired:
         return 124, "", f"timeout after {timeout}s"

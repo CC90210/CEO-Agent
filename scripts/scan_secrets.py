@@ -39,6 +39,7 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Iterator
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 if os.name == "nt":
     try:
@@ -154,7 +155,7 @@ def _git_cmd(args: list[str], cwd: Path) -> tuple[int, str]:
             errors="replace",
             capture_output=True,
             timeout=120,
-        )
+         creationflags=WINDOWLESS_FLAGS)
         return r.returncode, r.stdout or ""
     except Exception as exc:  # noqa: BLE001
         return 1, str(exc)

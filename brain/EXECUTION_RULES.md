@@ -187,6 +187,23 @@ For unauthenticated public-facing surfaces specifically: run `node codex-compani
 
 **Why this rule exists:** 2026-05-18 — shipped `read_only` role enforcement as a paragraph in Solara's persona. Cloud-tool palette still included `create_record`/`update_record`/`delete_record`. A jailbreak prompt would have executed writes under the service-role path with zero check. Server-side enforcement in `lib/role-gates.ts` is the actual boundary now. Full incident: `memory/MISTAKES.md` 2026-05-18 "Public-Form Share Infrastructure Shipped Without Adversarial Review".
 
+## 15. NO RAW `subprocess.*` IN DAEMON-SPAWNED CODE (added 2026-05-18)
+
+Every subprocess call that may fire from a background daemon (PM2-managed, scheduler-managed, bridge-spawned, hook-driven, n8n-action-driven) MUST go through one of:
+
+- `safe_run(cmd, …)` / `safe_popen(cmd, …)` / `safe_daemon_popen(cmd, …)` from `scripts/_subprocess_helpers.py` (or the `bravo_cli/_subprocess_helpers.py` sibling for bridge code), OR
+- An explicit `creationflags=WINDOWLESS_FLAGS` kwarg on the raw `subprocess.{Popen,run,...}` call.
+
+A raw `subprocess.run([...])` from a pythonw daemon spawns a fresh console window every time it fires. That's the recurring pop-up CC keeps reporting. Layered defenses:
+
+1. **Lint** — `python scripts/audit_no_visible_subprocess.py` exits 1 on any violation. Wire into pre-push / CI.
+2. **Block at write-time** — `scripts/hooks/subprocess_guard.py` is wired in `.claude/settings.local.json` PreToolUse Edit/Write chain. Defaults to `EMPIRE_HOOK_SUBPROCESS_GUARD=report` for soak; flip to `enforce` after 7 days clean.
+3. **Mass-migration tool** — `scripts/migrate_subprocess_calls.py` is the one-shot codemod for legacy violations.
+
+Operator-facing CLIs where a visible window IS the intended UX (rare): annotate the line with `# noqa: SUBPROCESS`. The audit and guard both honor this opt-out.
+
+**Why this rule exists:** 2026-05-18 — CC reported terminal pop-ups for the 4th+ time. Root cause was `bravo_cli/bridge_tools.py:171` (`subprocess.run(cmd, shell=True, …)` without creationflags) firing on every Telegram-bridge bash tool call. PM2 daemons all had `pythonw` + `windowsHide`; the cockpit was already configured (`bravo_console_launcher.vbs`, WindowStyle=7). The leak was always at the subprocess layer one level below. Audit found 68 unflagged calls across 36 files at the time the rule was written; codemod migrated them in one pass.
+
 ## Obsidian Links
 - [[brain/AGENT_ROUTER]] | [[brain/INTENTS]] | [[brain/WHEN_TO_USE_SKILLS]]
 - [[brain/SOUL]] | [[memory/MISTAKES]]

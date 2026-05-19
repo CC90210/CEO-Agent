@@ -17,6 +17,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PYTHON = sys.executable
@@ -34,7 +35,7 @@ def list_templates() -> list[dict]:
     r = subprocess.run(
         [PYTHON, "scripts/email_engine.py", "--json", "templates", "list"],
         cwd=str(REPO_ROOT), capture_output=True, text=True, encoding="utf-8",
-    )
+     creationflags=WINDOWLESS_FLAGS)
     if r.returncode != 0:
         raise RuntimeError(f"templates list failed: {r.stderr}")
     return json.loads(r.stdout)
@@ -48,7 +49,7 @@ def render_template(template_id: str, vars_: dict) -> dict:
     r = subprocess.run(
         [PYTHON, "scripts/email_engine.py", "--json", "templates", "view", template_id],
         cwd=str(REPO_ROOT), capture_output=True, text=True, encoding="utf-8",
-    )
+     creationflags=WINDOWLESS_FLAGS)
     if r.returncode != 0:
         raise RuntimeError(f"template view failed for {template_id}: {r.stderr}")
     tpl = json.loads(r.stdout)
@@ -76,7 +77,7 @@ def critique(subject: str, body: str, stage: str = "cold",
         "--company", SAMPLE_VARS["company"],
     ]
     r = subprocess.run(cmd, cwd=str(REPO_ROOT), capture_output=True,
-                       text=True, encoding="utf-8", errors="replace")
+                       text=True, encoding="utf-8", errors="replace", creationflags=WINDOWLESS_FLAGS)
     if not r.stdout.strip().startswith("{"):
         return {"error": f"critic returned non-JSON: {(r.stderr or r.stdout)[:200]}"}
     return json.loads(r.stdout)

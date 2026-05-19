@@ -22,13 +22,13 @@ When CC reboots his Windows machine (CCPC), the 9 PM2 daemons that drive the Sun
 | `sequence-runner` | SunBiz drip-campaign engine | Yes |
 | `lender-response-classifier` | Gmail thread classifier | Yes |
 
-Plus the standalone Skool daemon (NOT in PM2 — owns its own DaemonLock; auto-started by Windows scheduled task).
+Plus the standalone Skool daemon (NOT in PM2 — owns its own DaemonLock; auto-managed by the `SkoolWatchdog` Windows scheduled task).
 
 ## After a reboot
 
 1. **Wait 30 seconds** after login — Windows takes a moment to settle services.
-2. **Open a terminal:** `pm2 resurrect` — replays the saved process list from `~/.pm2/dump.pm2`.
-3. **Verify:** `pm2 list` — every row should show `status: online`.
+2. **Auto-start should run:** the `PM2 Resurrect` scheduled task replays the saved process list from `~/.pm2/dump.pm2`.
+3. **Verify manually if needed:** `pm2 list` — every row should show `status: online`.
 4. **Optional sanity ping:** open `https://agent-dashboard-cc90210.vercel.app/automations` — the Background Workers panel shows green for all 9 daemons within 60 seconds (next heartbeat tick).
 
 If any daemon shows `errored` or `stopped`:
@@ -46,14 +46,22 @@ pm2 save
 
 This rewrites `~/.pm2/dump.pm2` with the current process list. Without `pm2 save`, the next reboot resurrects to a stale snapshot.
 
-## Auto-start at login — ACTIVE (Phase 7.4, 2026-05-17)
+## Auto-start at login - ACTIVE (popup fix, 2026-05-18)
 
-Two scheduled tasks now keep the substrate alive across reboots.
+Two scheduled tasks keep the substrate alive across reboots. There must be
+exactly one PM2 resurrection entry point and exactly one Skool manager entry
+point. Do not also keep `start-bravo.vbs` or `OASIS-Bravo-Bridge.vbs` in the
+Windows Startup folder; those duplicate PM2's ownership and can reintroduce
+visible terminal popups.
 
 ### Task 1: "PM2 Resurrect"
-The Windows Task Scheduler entry **"PM2 Resurrect"** is registered and runs `C:\Users\User\AppData\Roaming\npm\pm2.cmd resurrect` at every login. Settings:
+The Windows Task Scheduler entry **"PM2 Resurrect"** is registered and runs
+`wscript.exe //B //Nologo C:\Users\User\Business-Empire-Agent\scripts\pm2_resurrect_hidden.vbs`
+at every login. The VBS wrapper calls `pm2.cmd resurrect` with
+`WshShell.Run(..., 0, False)`, so the PM2 restore happens without a visible
+`cmd.exe` console. Settings:
 - Trigger: at logon of `User`
-- Hidden window (no terminal popup — Phase 7.4 fixed the "non-stop terminal windows" complaint)
+- Hidden task
 - Restart on failure: 3 attempts, 1 minute apart
 - Replays `~/.pm2/dump.pm2` so the 10 daemons (atlas-telegram, bravo-scheduler, bravo-telegram, claude-bridge, claude-bridge-ping, event-router, lender-response-classifier, maven-telegram, override-consumer, sequence-runner) come back online within 30s of login.
 
@@ -64,41 +72,51 @@ Get-ScheduledTask -TaskName "PM2 Resurrect" | Select-Object TaskName, State
 
 If the task was deleted, re-register:
 ```powershell
-$action = New-ScheduledTaskAction -Execute "C:\Users\User\AppData\Roaming\npm\pm2.cmd" -Argument "resurrect"
+$repo = "C:\Users\User\Business-Empire-Agent"
+$vbs = "$repo\scripts\pm2_resurrect_hidden.vbs"
+$action = New-ScheduledTaskAction -Execute "$env:WINDIR\System32\wscript.exe" -Argument "//B //Nologo `"$vbs`"" -WorkingDirectory $repo
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -Hidden
 $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive
 Register-ScheduledTask -TaskName "PM2 Resurrect" -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force
 ```
 
-### Task 2: "Skool Daemon"
-The Skool daemon is standalone (NOT in PM2 — owns its own DaemonLock). It needs its own scheduled task. Registered alongside PM2 Resurrect; fires 60s after login so PM2 settles first.
+The old duplicate task **"PM2 Resurrect on Login"** must stay disabled. It used
+`cmd.exe /c pm2.cmd resurrect ...` directly and was the popup-prone path.
 
-- Execute: `C:\Users\User\AppData\Local\Programs\Python\Python312\python.exe`
-- Args: `C:\Users\User\Business-Empire-Agent\scripts\skool_engine.py daemon --interval 5`
+### Task 2: "SkoolWatchdog"
+The Skool daemon is standalone (NOT in PM2 - owns its own DaemonLock). It is
+managed by **"SkoolWatchdog"**, which runs every 5 minutes through
+`pythonw.exe` and starts/restarts `skool_engine.py` with the no-console
+triple guard (`pythonw.exe`, `CREATE_NO_WINDOW`, `SW_HIDE`).
+
+- Execute: `C:\Users\User\AppData\Local\Programs\Python\Python312\pythonw.exe`
+- Args: `C:\Users\User\Business-Empire-Agent\scripts\skool_watchdog_silent.pyw`
 - Working dir: `C:\Users\User\Business-Empire-Agent`
-- Trigger: at logon, **60s delay**
-- Hidden window (no terminal popup)
-
-**IMPORTANT — use `python.exe` not the `.venv\Scripts\pythonw.exe` shim.** The venv launcher fails silently when invoked with `WindowStyle Hidden` via Start-Process; it spawns a child that dies immediately. The system Python interpreter works fine and the daemon's `secret_loader` finds `.env.agents` via path resolution regardless.
+- Trigger: every 5 minutes
+- Console-free: yes (`pythonw.exe`)
 
 If the task was deleted, re-register:
 ```powershell
-$py = "C:\Users\User\AppData\Local\Programs\Python\Python312\python.exe"
-$script = "C:\Users\User\Business-Empire-Agent\scripts\skool_engine.py"
+$py = "C:\Users\User\AppData\Local\Programs\Python\Python312\pythonw.exe"
+$script = "C:\Users\User\Business-Empire-Agent\scripts\skool_watchdog_silent.pyw"
 $cwd = "C:\Users\User\Business-Empire-Agent"
-$action = New-ScheduledTaskAction -Execute $py -Argument "$script daemon --interval 5" -WorkingDirectory $cwd
-$trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
-$trigger.Delay = "PT60S"
+$action = New-ScheduledTaskAction -Execute $py -Argument $script -WorkingDirectory $cwd
+$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date
+$trigger.Repetition.Interval = "PT5M"
+$trigger.Repetition.Duration = "P1D"
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -Hidden
 $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive
-Register-ScheduledTask -TaskName "Skool Daemon" -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force
+Register-ScheduledTask -TaskName "SkoolWatchdog" -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force
 ```
 
 Verify the daemon is alive:
 ```powershell
-Get-CimInstance Win32_Process -Filter "Name = 'python.exe'" | Where-Object { $_.CommandLine -match 'skool_engine.py daemon' }
+Get-CimInstance Win32_Process | Where-Object { $_.Name -eq "pythonw.exe" -and $_.CommandLine -match "skool_engine.py daemon" }
 ```
+
+The old **"Skool Daemon"** task must stay disabled. It used `python.exe`
+directly at login, which is console-capable on Windows.
 
 The daemon also self-reports to `integrations_health` (`service = "skool_engine"`) every 5-minute cycle since Phase 7.4, so the Operations dashboard's Background Workers panel shows it green within one cycle of startup.
 
@@ -131,6 +149,50 @@ The `tg_notify(severity=error)` wiring (added Saturday per Round 3 plan) sends a
    - Anthropic API quota → check `state/anthropic_quota.log`.
    - Disk full → `dir %TEMP%` and clean if >80% full.
 4. Fix the underlying issue → `pm2 restart <name>` → verify green.
+
+## Authorized auto-start entries (anything else = bug)
+
+CC's reboot UX requirement: **exactly one minimized terminal in the taskbar after login. Nothing else visible. No pop-ups.** The whitelist below is what must be running. Anything pointing into this repo outside this list is a regression — disable it and file a fix.
+
+### Whitelisted auto-start surfaces
+
+| Surface | Entry | Visibility | Purpose |
+|---|---|---|---|
+| Task Scheduler | `PM2 Resurrect` | Hidden (wscript //B //Nologo) | Replays `~/.pm2/dump.pm2` so all 10 daemons come back online |
+| Startup folder | `Bravo Console.lnk` → `bravo_console_launcher.vbs` | Minimized in taskbar (WindowStyle=7) | THE cockpit — `wt.exe` tailing `pm2 logs --raw` |
+| Startup folder | `Chrome-RemoteDebug.lnk` | Visible Chrome window (its own GUI, not a terminal) | Chrome with `--remote-debugging-port=9222` for Browser Harness |
+
+### Things that must NOT be in either surface
+
+- `PM2 Resurrect on Login` (the `cmd.exe /c pm2.cmd resurrect …` variant) — keep disabled. It pops a cmd window.
+- `start-bravo.vbs` / `OASIS-Bravo-Bridge.vbs` in the Startup folder — moved to `tmp/windows-startup-disabled/` 2026-05-18.
+- Any direct `python.exe scripts\foo.py` in Startup or Task Scheduler — console-subsystem, always pops.
+
+### Quick audit
+
+```powershell
+# Task Scheduler entries pointing into this repo
+Get-ScheduledTask | Where-Object { $_.TaskName -match 'Bravo|Skool|Empire|PM2|Claude' -or $_.Actions.Execute -match 'Business-Empire' } | Select-Object TaskName, State, @{Name='Action';Expression={$_.Actions.Execute + ' ' + $_.Actions.Arguments}}
+
+# Startup-folder shortcuts
+Get-ChildItem "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup"
+```
+
+If the result lists anything beyond the whitelist above, disable it (`schtasks /Change /TN "<name>" /DISABLE` or move the Startup shortcut to `tmp/windows-startup-disabled/`).
+
+### The subprocess-popup root cause + safety net (2026-05-18)
+
+Most "terminal pop-up" reports are NOT Task Scheduler or Startup-folder bugs — by 2026-05-18 those surfaces were already clean. The recurring cause was `subprocess.{Popen,run,...}` calls inside background daemons (PM2-managed, bridge-spawned, scheduler-managed) without `creationflags=CREATE_NO_WINDOW`. The parent daemon runs under `pythonw.exe` (no console). When it spawns a console-subsystem child (`python.exe`, `cmd.exe`, anything via `shell=True`), Windows allocates a fresh console for the child — the pop-up.
+
+The fix is layered:
+
+1. **Canonical wrappers** — `scripts/_subprocess_helpers.py` and `bravo_cli/_subprocess_helpers.py` export `safe_run`, `safe_popen`, `safe_daemon_popen` (CREATE_NO_WINDOW forced; STARTUPINFO+SW_HIDE auto-applied on `shell=True` / `.cmd` / `.bat` shims). Every daemon-spawned subprocess MUST go through these.
+
+2. **Audit script** — `python scripts/audit_no_visible_subprocess.py` AST-walks the repo for any unflagged `subprocess.*` call. Exits 1 on any violation. Wire into CI / pre-push hooks.
+
+3. **PreToolUse guard** — `scripts/hooks/subprocess_guard.py` blocks Edit/Write/MultiEdit on `.py` files that introduce a new unflagged call. Wired in `.claude/settings.local.json`. Default mode `report` for 7-day soak; flip `EMPIRE_HOOK_SUBPROCESS_GUARD=enforce` once stable.
+
+To deliberately ALLOW a console-visible subprocess (an operator-facing CLI CC runs interactively), annotate the line with `# noqa: SUBPROCESS`. Don't strip the flag.
 
 ## Last-known-healthy reference (2026-05-16)
 

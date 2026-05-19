@@ -19,11 +19,17 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _subprocess_helpers import WINDOWLESS_FLAGS, prefer_pythonw
+
 ROOT = Path(__file__).resolve().parent.parent
 LOG_FILE = ROOT / "tmp" / "logs" / "startup.log"
-VENV_PYTHON = ROOT / ".venv" / "Scripts" / "python.exe"
-SYSTEM_PYTHON = Path(r"C:\Users\User\AppData\Local\Programs\Python\Python312\python.exe")
-CREATE_NO_WINDOW = 0x08000000
+# Use pythonw.exe (no console subsystem) for every child Python daemon.
+# Even if the child later shells out without CREATE_NO_WINDOW, Windows
+# cannot allocate a console from a pythonw parent — defense in depth.
+VENV_PYTHON = prefer_pythonw(ROOT / ".venv" / "Scripts" / "python.exe")
+SYSTEM_PYTHON = prefer_pythonw(Path(r"C:\Users\User\AppData\Local\Programs\Python\Python312\python.exe"))
+CREATE_NO_WINDOW = WINDOWLESS_FLAGS
 
 
 def log(msg: str):

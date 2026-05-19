@@ -24,6 +24,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 # Ensure UTF-8 output on Windows
 if sys.stdout.encoding != "utf-8":
@@ -45,7 +46,7 @@ def run_notebooklm(args_list, timeout=120):
         result = subprocess.run(
             cmd, capture_output=True, text=True, timeout=timeout,
             encoding="utf-8", errors="replace"
-        )
+        , creationflags=WINDOWLESS_FLAGS)
         stdout = result.stdout.strip()
         stderr = result.stderr.strip()
 

@@ -78,6 +78,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SKILLS_DIR = PROJECT_ROOT / "skills"
@@ -354,7 +355,7 @@ def _post_create(meta: list[str]) -> int:
     r = subprocess.run(
         [sys.executable, str(SCRIPTS_DIR / "build_capability_graph.py")],
         capture_output=True, text=True, timeout=30,
-    )
+     creationflags=WINDOWLESS_FLAGS)
     if r.returncode != 0:
         print(f"  WARN: graph build returned {r.returncode}: {r.stderr[:200]}")
     else:
@@ -366,7 +367,7 @@ def _post_create(meta: list[str]) -> int:
         r = subprocess.run(
             [sys.executable, str(audit_path), "--json"],
             capture_output=True, text=True, timeout=30,
-        )
+         creationflags=WINDOWLESS_FLAGS)
         if r.returncode == 0:
             try:
                 data = json.loads(r.stdout)
@@ -398,7 +399,7 @@ def _post_create(meta: list[str]) -> int:
 def cmd_list(_args) -> int:
     """List every registered capability via the graph."""
     cmd = [sys.executable, str(SCRIPTS_DIR / "capability_query.py"), "stats", "--json"]
-    r = subprocess.run(cmd, capture_output=True, text=True)
+    r = subprocess.run(cmd, capture_output=True, text=True, creationflags=WINDOWLESS_FLAGS)
     if r.returncode == 0:
         print(r.stdout.strip())
     else:

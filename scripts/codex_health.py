@@ -9,6 +9,7 @@ import json
 import sys
 import os
 from pathlib import Path
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 GLOBAL_PLUGIN = Path.home() / ".claude" / "codex-plugin"
@@ -34,7 +35,7 @@ def check_codex_cli():
                 [cmd, "--version"],
                 capture_output=True, text=True, timeout=10,
                 encoding="utf-8",
-            )
+             creationflags=WINDOWLESS_FLAGS)
             if result.returncode == 0 and result.stdout.strip():
                 return {"status": "ok", "version": result.stdout.strip()}
         except (FileNotFoundError, OSError):
@@ -52,7 +53,7 @@ def check_codex_auth():
             ["node", f"{plugin_root}/scripts/codex-companion.mjs", "setup", "--json"],
             capture_output=True, text=True, timeout=15,
             env={**os.environ, "CLAUDE_PLUGIN_ROOT": plugin_root}
-        )
+        , creationflags=WINDOWLESS_FLAGS)
         data = json.loads(result.stdout)
         return {
             "status": "ok" if data.get("ready") else "not_ready",

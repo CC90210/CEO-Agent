@@ -64,6 +64,7 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Optional
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
@@ -115,7 +116,7 @@ def _run_native(args: list[str]) -> dict[str, Any]:
         result = subprocess.run(
             [sys.executable, str(script)] + args,
             capture_output=True, text=True, timeout=60,
-        )
+         creationflags=WINDOWLESS_FLAGS)
         out = result.stdout.strip()
         try:
             payload = json.loads(out) if out else {}

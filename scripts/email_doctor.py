@@ -27,6 +27,7 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Any
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS = ROOT / "scripts"
@@ -115,7 +116,7 @@ def check_subcommand_dryrun_flag(script: str, subcmd: list[str]) -> dict[str, An
     cmd = [sys.executable, str(SCRIPTS / script)] + subcmd + ["--help"]
     try:
         out = subprocess.run(cmd, capture_output=True, text=True,
-                             timeout=20, encoding="utf-8", errors="replace")
+                             timeout=20, encoding="utf-8", errors="replace", creationflags=WINDOWLESS_FLAGS)
     except Exception as exc:  # noqa: BLE001
         return _fail(f"{script} {' '.join(subcmd)}",
                      f"could not run --help: {exc}")
@@ -173,7 +174,7 @@ def check_template_render() -> dict[str, Any]:
            "--verify-only", "--render-check", "--json"]
     try:
         out = subprocess.run(cmd, capture_output=True, text=True,
-                             timeout=30, encoding="utf-8", errors="replace")
+                             timeout=30, encoding="utf-8", errors="replace", creationflags=WINDOWLESS_FLAGS)
     except Exception as exc:  # noqa: BLE001
         return _fail("template-render",
                      f"wire_all_templates --render-check failed to run: {exc}")

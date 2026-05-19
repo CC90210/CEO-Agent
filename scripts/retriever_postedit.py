@@ -15,6 +15,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib.hook_runtime import PROJECT_ROOT, read_hook_input  # noqa: E402
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 INDEXED_DIRS = ("memory", "skills", "brain")
 ENTRY_FILES = {"CLAUDE.md", "AGENTS.md", "GEMINI.md", "ANTIGRAVITY.md", "OPENCODE.md"}
@@ -65,7 +66,7 @@ def main() -> int:
         subprocess.Popen(
             [sys.executable, str(PROJECT_ROOT / "scripts" / "memory_retriever.py"), "update"],
             **kwargs,
-        )
+         creationflags=WINDOWLESS_FLAGS)
     except OSError:
         pass
     return 0

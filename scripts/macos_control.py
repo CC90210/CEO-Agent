@@ -18,6 +18,7 @@ import platform
 import signal
 import subprocess
 import sys
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 
 def guard_macos():
@@ -31,7 +32,7 @@ def run_osascript(script, timeout=30):
         result = subprocess.run(
             ["osascript", "-e", script],
             capture_output=True, text=True, timeout=timeout
-        )
+        , creationflags=WINDOWLESS_FLAGS)
         if result.returncode != 0:
             return {"ok": False, "error": result.stderr.strip()}
         return {"ok": True, "output": result.stdout.strip()}
@@ -43,7 +44,7 @@ def run_osascript(script, timeout=30):
 
 def run_shell(cmd, timeout=30):
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, creationflags=WINDOWLESS_FLAGS)
         if result.returncode != 0:
             return {"ok": False, "error": result.stderr.strip()}
         return {"ok": True, "output": result.stdout.strip()}
@@ -490,7 +491,7 @@ def cmd_record_start(args):
     proc = subprocess.Popen(
         ["screencapture", "-v", "-x", target],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-    )
+    , creationflags=WINDOWLESS_FLAGS)
     with open(RECORD_PID_FILE, "w") as f:
         f.write(f"{proc.pid}\n{target}")
     return {"ok": True, "output": f"Recording started (PID {proc.pid}). Saving to {target}", "file": target}
@@ -698,7 +699,7 @@ def cmd_clipboard_write(args):
         proc = subprocess.run(
             ["pbcopy"],
             input=args.text, text=True, timeout=5
-        )
+        , creationflags=WINDOWLESS_FLAGS)
         if proc.returncode == 0:
             return {"ok": True, "output": f"Copied {len(args.text)} chars to clipboard."}
         return {"ok": False, "error": "pbcopy failed"}
