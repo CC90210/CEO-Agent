@@ -39,23 +39,29 @@ LAUNCHER_VBS = ROOT / "scripts" / "bravo_console_launcher.vbs"
 
 
 def _cockpit_is_alive() -> bool:
-    """True if a `pm2 logs --lines …` shell is running anywhere on the
-    system. We don't strictly require it to be inside Windows Terminal
-    (the user could have it open in plain cmd.exe) — but the Startup
-    launcher always wraps it in wt.exe, so in practice both are true."""
+    """True if a `WindowsTerminal.exe` running the Bravo Console is up.
+
+    Uses `tasklist` (built-in, stable across Windows versions) rather
+    than `wmic` (deprecated in Windows 11 24H2+). We check for
+    WindowsTerminal.exe specifically — the VBS launcher always wraps
+    `pm2 logs` in `wt.exe`, so if the terminal is gone, the cockpit
+    is effectively gone even if a stray `cmd.exe` running pm2 logs
+    happens to be alive."""
     if sys.platform != "win32":
         return True  # No cockpit concept on POSIX
     try:
         result = safe_run(
-            ["wmic", "process", "get", "CommandLine", "/FORMAT:CSV"],
+            ["tasklist", "/FI", "IMAGENAME eq WindowsTerminal.exe", "/FO", "CSV", "/NH"],
             capture_output=True, text=True, timeout=10,
         )
     except Exception:
         return False
-    for line in (result.stdout or "").splitlines():
-        if "pm2 logs --lines" in line:
-            return True
-    return False
+    # tasklist prints "INFO: No tasks are running…" to stdout when
+    # nothing matches — anything else means at least one wt process exists.
+    out = (result.stdout or "").strip()
+    if not out or "No tasks are running" in out:
+        return False
+    return "WindowsTerminal.exe" in out
 
 
 def _launch_cockpit() -> None:
