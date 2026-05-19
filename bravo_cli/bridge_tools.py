@@ -1264,6 +1264,151 @@ def _tool_cli_status(payload: dict) -> dict:
     return _ok(json.dumps(result))
 
 
+# ──────────────────────────────────────────────────────────────────
+# install_cli — npm install -g <package> for Claude Code / Codex / Gemini
+# ──────────────────────────────────────────────────────────────────
+#
+# Phase 8.3 (2026-05-19). Dashboard's LocalCliProvidersCard calls this
+# when the operator clicks "Install" on a not-yet-installed CLI card.
+# We whitelist the three packages to avoid arbitrary npm-install attack
+# surface. Each install:
+#
+#   1. Resolves npm on PATH (npm.cmd on Windows)
+#   2. Runs `npm install -g <package>` with a 5-minute timeout
+#   3. Catches EACCES/EPERM and surfaces a clear "elevate the bridge"
+#      message instead of dumping the raw npm error
+#
+# Returns _ok / _err per the tool convention.
+
+_NPM_PACKAGE_MAP: dict[str, str] = {
+    "claude": "@anthropic-ai/claude-code",
+    "codex": "@openai/codex",
+    "gemini": "@google/gemini-cli",
+}
+
+
+def _tool_install_cli(payload: dict) -> dict:
+    """{provider: "claude" | "codex" | "gemini"} → install status.
+
+    Runs `npm install -g <whitelisted-package>`. Whitelist enforced
+    server-side: any other provider value returns an error without
+    invoking npm.
+    """
+    import shutil
+    provider = str(payload.get("provider") or "").lower().strip()
+    pkg = _NPM_PACKAGE_MAP.get(provider)
+    if not pkg:
+        return _err(f"unknown provider: {provider!r}. Expected one of: claude, codex, gemini.")
+    # Resolve npm. Windows installs it as `npm.cmd`; *nix as `npm`.
+    npm_bin = shutil.which("npm") or shutil.which("npm.cmd")
+    if not npm_bin:
+        return _err(
+            "npm not found on PATH. Install Node.js first from https://nodejs.org "
+            "(any recent LTS works), then click Install again."
+        )
+    try:
+        proc = safe_run(
+            [npm_bin, "install", "-g", pkg],
+            capture_output=True,
+            text=True,
+            timeout=300,  # 5 min — global installs can be slow on first run
+            encoding="utf-8",
+            errors="replace",
+        )
+    except subprocess.TimeoutExpired:
+        return _err(f"npm install -g {pkg} timed out after 5 minutes")
+    except Exception as e:
+        return _err(f"npm install failed to spawn: {e}")
+    if proc.returncode != 0:
+        err = (proc.stderr or proc.stdout or "").strip()
+        # Friendly errors for the most common operator-side failures.
+        if any(token in err for token in ("EACCES", "EPERM", "Operation not permitted", "Access is denied")):
+            return _err(
+                f"Permission denied installing {pkg}. The bridge needs to run in an "
+                "elevated shell to install global npm packages. Either:\n"
+                "  1. Stop the bridge daemon, re-open your terminal as Administrator "
+                "(Windows) or with sudo (Mac/Linux), restart the bridge, then click "
+                "Install again. OR\n"
+                f"  2. Run this manually in your terminal: npm install -g {pkg}\n\n"
+                f"Raw detail: {err[:400]}"
+            )
+        return _err(f"npm install failed (exit {proc.returncode}): {err[:1500]}")
+    return _ok(
+        f"Installed {pkg}.\n\n"
+        f"{(proc.stdout or '').strip()[:1500] or '(no stdout)'}"
+    )
+
+
+# ──────────────────────────────────────────────────────────────────
+# cli_auth_start — kick off CLI's interactive auth flow
+# ──────────────────────────────────────────────────────────────────
+#
+# The CLI itself handles the OAuth roundtrip locally (it starts a
+# loopback HTTP server, opens the browser to the provider's OAuth
+# screen, captures the callback). The bridge's job is to invoke the
+# auth subcommand non-blockingly and return immediately — the
+# dashboard polls cli_status to detect when authentication completes.
+
+_AUTH_CMD_MAP: dict[str, list[str]] = {
+    "codex": ["auth", "login"],
+    "gemini": ["auth", "login"],
+    # Claude Code auths on first interactive use (`claude` → /login).
+    # No subcommand path to spawn; we surface guidance text instead.
+}
+
+
+def _tool_cli_auth_start(payload: dict) -> dict:
+    """{provider: "claude" | "codex" | "gemini"} → started.
+
+    Spawns the CLI's auth subcommand in the background (non-blocking).
+    Returns immediately with a "browser opening" message; the dashboard
+    polls cli_status to detect READY.
+    """
+    import shutil
+    provider = str(payload.get("provider") or "").lower().strip()
+    # Claude Code doesn't expose an auth subcommand — the CLI prompts
+    # for /login on first interactive run. Best we can do is guide.
+    if provider == "claude":
+        return _ok(
+            "Claude Code authenticates on first interactive use. Open a terminal, "
+            "run `claude`, type `/login`, and follow the printed URL. Once you've "
+            "signed in, click Refresh in the dashboard."
+        )
+    if provider not in _AUTH_CMD_MAP:
+        return _err(f"unknown provider: {provider!r}. Expected one of: claude, codex, gemini.")
+    args = _AUTH_CMD_MAP[provider]
+    bin_path = shutil.which(provider) or shutil.which(provider + ".cmd")
+    if not bin_path:
+        return _err(
+            f"{provider} is not installed. Click Install on the {provider} card first, "
+            "then click Sign in."
+        )
+    # Spawn detached so the CLI's loopback OAuth server runs without
+    # blocking the bridge response. The CLI manages browser open +
+    # callback capture entirely on its own.
+    try:
+        kwargs: dict = dict(
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+        )
+        if sys.platform == "win32":
+            # DETACHED_PROCESS so the child survives bridge restarts and
+            # has its own console group for the browser-redirect handler.
+            kwargs["creationflags"] = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+        else:
+            kwargs["start_new_session"] = True
+        subprocess.Popen([bin_path, *args], **kwargs)
+    except FileNotFoundError:
+        return _err(f"{provider} binary disappeared between status check and spawn")
+    except Exception as e:
+        return _err(f"failed to start {provider} auth: {e}")
+    return _ok(
+        f"Started {provider} sign-in. Your browser should open shortly — sign in "
+        "to grant access, then click Refresh in the dashboard."
+    )
+
+
 TOOL_REGISTRY: dict[str, Callable[[dict], dict]] = {
     "read_file": _tool_read_file,
     "write_file": _tool_write_file,
@@ -1282,6 +1427,8 @@ TOOL_REGISTRY: dict[str, Callable[[dict], dict]] = {
     "underwriting_run": _tool_underwriting_run,
     "shop_out_send_batch": _tool_shop_out_send_batch,
     "cli_status": _tool_cli_status,
+    "install_cli": _tool_install_cli,
+    "cli_auth_start": _tool_cli_auth_start,
 }
 
 
