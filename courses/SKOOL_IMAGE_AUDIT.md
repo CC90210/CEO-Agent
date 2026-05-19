@@ -290,4 +290,4 @@ updated: 2026-03-30
 ## Related (graph)
 
 - [[courses/INDEX]]
-- [[courses/AGENCY_ACCELERANTS_FRAMEWORK]]
+- [[courses/PRIMARY_RETAINER_FRAMEWORK]]
