@@ -799,6 +799,58 @@ def _v6_last_user_text(messages: list) -> str:
     return ""
 
 
+def _attachment_context_from_payload(attachments: object) -> str:
+    """Build a bounded context block from dashboard-uploaded chat files."""
+    if not isinstance(attachments, list) or not attachments:
+        return ""
+    lines = [
+        "",
+        "---",
+        "ATTACHED FILES FOR THIS TURN",
+        "These files were uploaded through the dashboard chat attachment button and stored by the web app. Use the excerpts as operator-provided context. If the operator asks to update CRM data, use the dashboard tools or produce the exact record updates needed. If they ask to send email/SMS, draft first and only send after an explicit send instruction.",
+        "",
+    ]
+    for idx, raw in enumerate(attachments[:5], start=1):
+        if not isinstance(raw, dict):
+            continue
+        filename = str(raw.get("filename") or "attachment")
+        attachment_id = str(raw.get("id") or "")
+        mime_type = str(raw.get("mime_type") or "unknown")
+        size_bytes = str(raw.get("size_bytes") or "0")
+        parser = str(raw.get("parser") or "metadata_only")
+        excerpt = raw.get("text_excerpt")
+        lines.extend([
+            f"[{idx}] {filename}",
+            f"attachment_id: {attachment_id}",
+            f"mime_type: {mime_type}",
+            f"size_bytes: {size_bytes}",
+            f"parser: {parser}",
+        ])
+        if isinstance(excerpt, str) and excerpt.strip():
+            clipped = excerpt[:24_000]
+            suffix = "\n[truncated for local CLI prompt]" if len(excerpt) > len(clipped) else ""
+            lines.extend(["excerpt:", f"{clipped}{suffix}"])
+        else:
+            lines.append("excerpt: [binary file stored; no text extracted yet]")
+        lines.append("")
+    lines.append("---")
+    return "\n".join(lines)
+
+
+def _inject_attachment_context(messages: list, attachments: object) -> list:
+    context = _attachment_context_from_payload(attachments)
+    if not context or not isinstance(messages, list):
+        return messages
+    out = [dict(m) if isinstance(m, dict) else m for m in messages]
+    for i in range(len(out) - 1, -1, -1):
+        m = out[i]
+        if isinstance(m, dict) and m.get("role") == "user" and isinstance(m.get("content"), str):
+            m["content"] = f"{m.get('content')}\n\n{context}"
+            return out
+    out.append({"role": "user", "content": context})
+    return out
+
+
 class _ChatHandler(BaseHTTPRequestHandler):
     # Quiet the default request logger
     def log_message(self, fmt: str, *args: Any) -> None:
@@ -1119,6 +1171,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
 
         model = str(payload.get("model", "")).strip()
         messages = payload.get("messages") or []
+        messages = _inject_attachment_context(messages, payload.get("attachments"))
         system_prompt = str(payload.get("system", "") or "")
         # base_url precedence: payload (dashboard tells us) → .env.agents
         # operator-set OLLAMA_BASE_URL / LM_STUDIO_BASE_URL → default Ollama.
@@ -1358,6 +1411,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
 
         agent = str(payload.get("agent", "bravo")).lower()
         messages = payload.get("messages") or []
+        messages = _inject_attachment_context(messages, payload.get("attachments"))
         if not isinstance(messages, list) or not messages:
             self._json(400, {"ok": False, "error": "no_messages"})
             return
