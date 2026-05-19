@@ -1224,15 +1224,25 @@ def _tool_cli_status(payload: dict) -> dict:
             return {"installed": False, "authenticated": False, "version": None,
                     "install_hint_url": "https://github.com/openai/codex"}
         try:
-            data = json.loads(out.splitlines()[-1] if "\n" in out else out)
+            data = json.loads(out)
         except json.JSONDecodeError:
             return {"installed": False, "authenticated": False, "version": None,
                     "install_hint_url": "https://github.com/openai/codex"}
         cli_block = data.get("cli") or {}
         auth_block = data.get("auth") or {}
+        cli_status = str(cli_block.get("status") or "").lower()
+        auth_status = str(auth_block.get("status") or "").lower()
         return {
-            "installed": bool(cli_block.get("installed")),
-            "authenticated": bool(auth_block.get("ready") or auth_block.get("authenticated")),
+            "installed": bool(
+                cli_block.get("installed")
+                or cli_status in {"ok", "ready"}
+                or cli_block.get("version")
+            ),
+            "authenticated": bool(
+                auth_block.get("ready")
+                or auth_block.get("authenticated")
+                or auth_status in {"ok", "ready"}
+            ),
             "version": cli_block.get("version"),
             "install_hint_url": "https://github.com/openai/codex",
         }
@@ -1287,6 +1297,18 @@ _NPM_PACKAGE_MAP: dict[str, str] = {
 }
 
 
+def _current_cli_info(provider: str) -> dict | None:
+    try:
+        res = _tool_cli_status({})
+        if res.get("is_error"):
+            return None
+        data = json.loads(str(res.get("output") or "{}"))
+        info = data.get(provider)
+        return info if isinstance(info, dict) else None
+    except Exception:
+        return None
+
+
 def _tool_install_cli(payload: dict) -> dict:
     """{provider: "claude" | "codex" | "gemini"} → install status.
 
@@ -1299,6 +1321,14 @@ def _tool_install_cli(payload: dict) -> dict:
     pkg = _NPM_PACKAGE_MAP.get(provider)
     if not pkg:
         return _err(f"unknown provider: {provider!r}. Expected one of: claude, codex, gemini.")
+    current = _current_cli_info(provider)
+    if current and current.get("installed"):
+        ready = " and authenticated" if current.get("authenticated") else ""
+        version = f" ({current.get('version')})" if current.get("version") else ""
+        return _ok(
+            f"{pkg} is already installed{ready}{version}. "
+            "No npm install was needed; click Refresh if the card has not updated."
+        )
     # Resolve npm. Windows installs it as `npm.cmd`; *nix as `npm`.
     npm_bin = shutil.which("npm") or shutil.which("npm.cmd")
     if not npm_bin:
@@ -1335,6 +1365,16 @@ def _tool_install_cli(payload: dict) -> dict:
         # EBUSY happens when an earlier install is still finalizing file
         # copies. Tell the operator to wait a few seconds and retry.
         if "EBUSY" in err or "resource busy or locked" in err:
+            current = _current_cli_info(provider)
+            if current and current.get("installed"):
+                ready = " and authenticated" if current.get("authenticated") else ""
+                version = f" ({current.get('version')})" if current.get("version") else ""
+                return _ok(
+                    f"{pkg} is already usable{ready}{version}. npm reported EBUSY "
+                    "because the CLI binary is currently running or a prior install "
+                    "is still settling. The dashboard can use the CLI now; close any "
+                    "running CLI terminal only if you want to upgrade it."
+                )
             return _err(
                 f"{pkg} is currently in use (likely a prior install still finalizing, "
                 "or the CLI binary is running). Wait 10 seconds and click Install "
