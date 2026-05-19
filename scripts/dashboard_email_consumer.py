@@ -60,35 +60,28 @@ except Exception:
 
 
 def _load_env() -> dict[str, str]:
-    """Load .env.agents into the current process env. send_gateway.py
-    has a more elaborate version; we just need GMAIL_USER + GMAIL_APP_PASSWORD
-    + the Supabase URL/key, all of which live in .env.agents.
+    """Load .env.agents via the canonical scripts/lib/secret_loader.
+    Matches the pattern every other daemon in this repo uses
+    (event_router, sequence_runner, override_consumer) — audited
+    access via state/secret_access.log, single source of truth, and
+    refuses interactive shells.
     """
-    env_path = PROJECT_ROOT / ".env.agents"
-    if not env_path.exists():
-        return dict(os.environ)
-    out: dict[str, str] = dict(os.environ)
     try:
-        for line in env_path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            if "=" not in line:
-                continue
-            k, _, v = line.partition("=")
-            k = k.strip()
-            v = v.strip().strip('"').strip("'")
-            if k and k not in out:  # current env wins
-                out[k] = v
+        from lib.secret_loader import load_env  # type: ignore
+        return load_env()
     except Exception as e:
-        print(f"[dashboard_email_consumer] warning: couldn't read .env.agents: {e}", file=sys.stderr)
-    return out
+        # Last-resort fallback so the daemon stays up if the loader
+        # ever errors on startup. PM2 backoff handles the rest.
+        print(f"[dashboard_email_consumer] secret_loader failed, falling back to os.environ: {e}",
+              file=sys.stderr)
+        return dict(os.environ)
 
 
 def _client(env: dict[str, str]):
     """Service-role Supabase client. Returns None on missing config."""
-    url = env.get("BRAVO_SUPABASE_URL") or env.get("SUPABASE_URL")
-    key = env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or env.get("SUPABASE_SERVICE_ROLE_KEY")
+    url = (env.get("BRAVO_SUPABASE_URL") or env.get("SUPABASE_URL") or "").strip()
+    key = (env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
+           or env.get("SUPABASE_SERVICE_ROLE_KEY") or "").strip()
     if not url or not key:
         print("[dashboard_email_consumer] BRAVO_SUPABASE_URL / SERVICE_ROLE_KEY missing — sleeping",
               file=sys.stderr)
@@ -104,6 +97,25 @@ def _client(env: dict[str, str]):
     except Exception as e:
         print(f"[dashboard_email_consumer] supabase client error: {e}", file=sys.stderr)
         return None
+
+
+def _publish_event(sb, *, event_type: str, tenant_id: str, payload: dict) -> None:
+    """Insert an agent_events row for observability. Mirrors the
+    lib/manifest/events.publishAgentEvent shape on the dashboard
+    side: agent_events has no tenant_id column — scope rides on
+    correlation_id. Best-effort, never raises.
+    """
+    try:
+        sb.table("agent_events").insert({
+            "event_type": event_type,
+            "publisher_agent": "dashboard_email_consumer",
+            "severity": "info" if event_type.endswith("_SENT") else "warn",
+            "correlation_id": tenant_id,
+            "payload": {**payload, "tenant_id": tenant_id},
+        }).execute()
+    except Exception as e:
+        print(f"[dashboard_email_consumer] event publish failed ({event_type}): {e}",
+              file=sys.stderr)
 
 
 def _fetch_queued(sb, *, limit: int = 25) -> list[dict]:
@@ -197,6 +209,8 @@ def _send_one(env: dict[str, str], sb, row: dict) -> bool:
         )
         return False
     msg = _build_message(row, gmail_from or gmail_user)
+    tenant_id = row.get("tenant_id") or ""
+    lead_id = row.get("lead_id") or ""
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as smtp:
             smtp.login(gmail_user, gmail_pass)
@@ -204,13 +218,22 @@ def _send_one(env: dict[str, str], sb, row: dict) -> bool:
     except smtplib.SMTPAuthenticationError:
         _mark_status(sb, row_id, status="failed",
                      error="SMTP auth failed — rotate GMAIL_APP_PASSWORD")
+        _publish_event(sb, event_type="BRAVO_DASHBOARD_EMAIL_FAILED",
+                       tenant_id=tenant_id,
+                       payload={"interaction_id": row_id, "lead_id": lead_id,
+                                "to_email": to_email, "reason": "smtp_auth_failed"})
         return False
     except smtplib.SMTPRecipientsRefused:
         _mark_status(sb, row_id, status="failed",
                      error=f"recipient refused: {to_email}")
+        _publish_event(sb, event_type="BRAVO_DASHBOARD_EMAIL_FAILED",
+                       tenant_id=tenant_id,
+                       payload={"interaction_id": row_id, "lead_id": lead_id,
+                                "to_email": to_email, "reason": "recipient_refused"})
         return False
     except smtplib.SMTPException as e:
         # Transient SMTP error — leave status='queued' so we retry next tick.
+        # Don't emit failed event yet (we haven't given up).
         print(f"[dashboard_email_consumer] SMTP transient error for {row_id}: {e}",
               file=sys.stderr)
         return False
@@ -219,6 +242,10 @@ def _send_one(env: dict[str, str], sb, row: dict) -> bool:
         print(f"[dashboard_email_consumer] send error for {row_id}: {e}", file=sys.stderr)
         return False
     _mark_status(sb, row_id, status="sent")
+    _publish_event(sb, event_type="BRAVO_DASHBOARD_EMAIL_SENT",
+                   tenant_id=tenant_id,
+                   payload={"interaction_id": row_id, "lead_id": lead_id,
+                            "to_email": to_email})
     print(f"[dashboard_email_consumer] sent {row_id} → {to_email}", file=sys.stderr)
     return True
 
@@ -244,6 +271,11 @@ def main() -> int:
                         help="seconds between polls in loop mode (default 10)")
     args = parser.parse_args()
     env = _load_env()
+    # Ensure secret_loader's loaded values are visible to smtplib + any
+    # downstream module that reads os.environ directly.
+    for k, v in env.items():
+        if k and isinstance(v, str) and k not in os.environ:
+            os.environ[k] = v
     sb = _client(env)
     if sb is None:
         # Don't crash — pm2 will hold the process; sleep + retry.
