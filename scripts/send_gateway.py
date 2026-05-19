@@ -255,6 +255,26 @@ def get_supabase(env_vars: Optional[dict[str, str]] = None):
     return create_client(url, key)
 
 
+# HTML body detection — chokepoint defense against malformed body_html.
+# 2026-05-19: bridge-chat session passed body_html='true' (literal) and
+# render_branded_html_fragment wrapped it as the email content. Validation
+# at the gateway means every caller (CLI, sequence runner, n8n, future
+# Command Center tools) is protected, not just one.
+_HTML_TAG_RE = re.compile(r"<[A-Za-z][A-Za-z0-9]*(?:\s[^>]*)?/?>")
+
+
+def _looks_like_html_body(s: Optional[str]) -> bool:
+    """Conservative HTML detector — requires at least one well-formed tag."""
+    if not s or len(s) < 4:
+        return False
+    return bool(_HTML_TAG_RE.search(s))
+
+
+def _strip_html_tags(html: str) -> str:
+    """Tag-strip + whitespace-normalize for the body_text fallback path."""
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html or "")).strip()
+
+
 def _env_bool(env: dict[str, str], key: str, default: bool) -> bool:
     raw = (env.get(key) or os.environ.get(key) or "").strip().lower()
     if not raw:
@@ -1579,6 +1599,26 @@ def send(
     NEVER raises. A caller can trust that the return shape above always holds.
     """
     # ---- Validate inputs ----
+    # body_html must contain HTML if provided. 2026-05-19 incident: a CLI
+    # caller passed body_html='true' (literal string) and the brand template
+    # wrapped that as the email body. Validation here is the chokepoint
+    # defense for every caller, not just the CLI.
+    if body_html is not None and body_html != "" and not _looks_like_html_body(body_html):
+        return {"status": "error",
+                "reason": f"body_html must contain HTML markup; got {body_html[:60]!r}",
+                "lead_id": lead_id, "interaction_id": None,
+                "cooldown_until": None, "daily_count": None}
+
+    # Auto-promote: if body_html is missing but body_text looks like HTML,
+    # treat body_text as the HTML body. Catches the common caller mistake
+    # of putting HTML in the text slot (same root cause as the validation
+    # above, different shape). Keeps body_text populated with the
+    # tag-stripped version so the suppression-list/cooldown/log paths
+    # still get a clean text preview.
+    if (body_html is None or body_html == "") and body_text and _looks_like_html_body(body_text):
+        body_html = body_text
+        body_text = _strip_html_tags(body_html)
+
     channel = (channel or "").lower()
     if channel not in KNOWN_CHANNELS:
         return {"status": "error", "reason": f"unknown channel '{channel}'",
