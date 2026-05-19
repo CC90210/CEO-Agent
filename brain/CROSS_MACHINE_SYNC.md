@@ -121,9 +121,9 @@ Different machines, different clone paths. When SSH-ing across machines, use the
 | Machine | Repo path |
 |---|---|
 | Windows (CCPC) | `C:\Users\User\Business-Empire-Agent` (bash: `/c/Users/User/Business-Empire-Agent`) |
-| Mac (Conaughs-MacBook-Air) | `/Users/conaugh/Downloads/business-empire-agent` |
+| Mac (Conaughs-MacBook-Air) | `/Users/conaugh/CEO-Agent` |
 
-**Do NOT assume `~/APPS/Business-Empire-Agent` on Mac** — that path does not exist. If you ever need to move the Mac clone to `~/APPS/` for consistency, it requires killing any running processes, rsync-ing the tree, and re-cloning PM2 state. For now, `Downloads/` is fine.
+Mac moved from `~/Downloads/business-empire-agent` to `~/CEO-Agent` on 2026-05-19 — the stale Downloads clone was 8 days behind a force-pushed remote and ~1.0 GB of redundant disk. Mac is now CC's on-the-go workstation only; all daemons + cron run on Windows.
 
 ## Machine Identification
 
@@ -163,7 +163,7 @@ Both declared in `ecosystem.config.js`. Single-instance invariant: same `TELEGRA
 
 ```bash
 # On Windows (or via SSH from wherever):
-ssh cc-mac "cd /Users/conaugh/Downloads/business-empire-agent && pm2 start bravo-telegram"
+ssh cc-mac "cd /Users/conaugh/CEO-Agent && pm2 start bravo-telegram"
 # Wait ~5 seconds, verify Mac is online:
 ssh cc-mac "pm2 list"
 # Then stop Windows:

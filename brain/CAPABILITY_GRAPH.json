@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0",
   "agent": "bravo",
-  "generated_at": "2026-05-18T23:40:25.958512+00:00",
+  "generated_at": "2026-05-19T07:46:44.213178+00:00",
   "totals": {
     "skills": 149,
-    "scripts": 140,
+    "scripts": 143,
     "agents": 21,
-    "mcp_servers": 9,
+    "mcp_servers": 0,
     "workflows": 34,
-    "nodes_total": 353,
+    "nodes_total": 347,
     "edges_total": 66,
     "drift_count": 0
   },
@@ -4633,6 +4633,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:audit_no_visible_subprocess",
+      "kind": "script",
+      "name": "audit_no_visible_subprocess",
+      "path": "scripts/audit_no_visible_subprocess.py",
+      "description": "Audit every Python file in the repo for subprocess calls that could spawn a visible console window on Windows.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:audit_rls_coverage",
       "kind": "script",
       "name": "audit_rls_coverage",
@@ -5033,6 +5043,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:ensure_cockpit",
+      "kind": "script",
+      "name": "ensure_cockpit",
+      "path": "scripts/ensure_cockpit.py",
+      "description": "Ensure the Bravo Console cockpit terminal is alive.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:event_bus",
       "kind": "script",
       "name": "event_bus",
@@ -5338,6 +5358,16 @@
       "name": "migrate_leads_to_tenant_records",
       "path": "scripts/migrate_leads_to_tenant_records.py",
       "description": "migrate_leads_to_tenant_records.py ==================================",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:migrate_subprocess_calls",
+      "kind": "script",
+      "name": "migrate_subprocess_calls",
+      "path": "scripts/migrate_subprocess_calls.py",
+      "description": "One-shot codemod: migrate raw subprocess.{Popen,run,...} calls to safe_run/safe_popen from _subprocess_helpers, OR add creationflags where the migration would be too invasive.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -6183,85 +6213,13 @@
       "discovery": "auto-frontmatter"
     },
     {
-      "id": "mcp:sequential-thinking",
-      "kind": "mcp",
-      "name": "sequential-thinking",
-      "path": ".claude/mcp.json",
-      "description": "MCP server registered in mcp.json",
+      "id": "workflow:INDEX",
+      "kind": "workflow",
+      "name": "INDEX",
+      "path": ".agents/workflows/INDEX.md",
+      "description": "# Workflows Index \u2014 35 Automated Pipelines\n\n> Workflow files define slash-command triggers and step-by-step execution plans.\n> [[brain/CAPABILITIES]] | [[brain/AGENTS]] | [[brain/CEO_OPERATING_SYSTEM]",
       "owner": "bravo",
-      "discovery": "auto-config"
-    },
-    {
-      "id": "mcp:playwright",
-      "kind": "mcp",
-      "name": "playwright",
-      "path": ".claude/mcp.json",
-      "description": "MCP server registered in mcp.json",
-      "owner": "bravo",
-      "discovery": "auto-config"
-    },
-    {
-      "id": "mcp:context7",
-      "kind": "mcp",
-      "name": "context7",
-      "path": ".claude/mcp.json",
-      "description": "MCP server registered in mcp.json",
-      "owner": "bravo",
-      "discovery": "auto-config"
-    },
-    {
-      "id": "mcp:memory",
-      "kind": "mcp",
-      "name": "memory",
-      "path": ".claude/mcp.json",
-      "description": "MCP server registered in mcp.json",
-      "owner": "bravo",
-      "discovery": "auto-config"
-    },
-    {
-      "id": "mcp:github",
-      "kind": "mcp",
-      "name": "github",
-      "path": ".claude/mcp.json",
-      "description": "MCP server registered in mcp.json",
-      "owner": "bravo",
-      "discovery": "auto-config"
-    },
-    {
-      "id": "mcp:firecrawl",
-      "kind": "mcp",
-      "name": "firecrawl",
-      "path": ".claude/mcp.json",
-      "description": "MCP server registered in mcp.json",
-      "owner": "bravo",
-      "discovery": "auto-config"
-    },
-    {
-      "id": "mcp:obsidian",
-      "kind": "mcp",
-      "name": "obsidian",
-      "path": ".claude/mcp.json",
-      "description": "MCP server registered in mcp.json",
-      "owner": "bravo",
-      "discovery": "auto-config"
-    },
-    {
-      "id": "mcp:filesystem",
-      "kind": "mcp",
-      "name": "filesystem",
-      "path": ".claude/mcp.json",
-      "description": "MCP server registered in mcp.json",
-      "owner": "bravo",
-      "discovery": "auto-config"
-    },
-    {
-      "id": "mcp:knowledge-graph",
-      "kind": "mcp",
-      "name": "knowledge-graph",
-      "path": ".claude/mcp.json",
-      "description": "MCP server registered in mcp.json",
-      "owner": "bravo",
-      "discovery": "auto-config"
+      "discovery": "auto-frontmatter"
     },
     {
       "id": "workflow:browser-harness",
@@ -6395,15 +6353,6 @@
       "name": "hyperthink",
       "path": ".agents/workflows/hyperthink.md",
       "description": "Fire the Hyperthink maximum-depth reasoning protocol \u2014 structured 7-phase loop for architectural, irreversible, or multi-hypothesis problems.",
-      "owner": "bravo",
-      "discovery": "auto-frontmatter"
-    },
-    {
-      "id": "workflow:INDEX",
-      "kind": "workflow",
-      "name": "INDEX",
-      "path": ".agents/workflows/INDEX.md",
-      "description": "# Workflows Index \u2014 35 Automated Pipelines\n\n> Workflow files define slash-command triggers and step-by-step execution plans.\n> [[brain/CAPABILITIES]] | [[brain/AGENTS]] | [[brain/CEO_OPERATING_SYSTEM]",
       "owner": "bravo",
       "discovery": "auto-frontmatter"
     },
