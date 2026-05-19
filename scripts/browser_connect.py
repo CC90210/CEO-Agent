@@ -29,8 +29,7 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _subprocess_helpers import safe_popen, safe_run
-from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
+from _subprocess_helpers import WINDOWLESS_FLAGS, safe_popen, safe_run  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 CDP_PORT = 9222

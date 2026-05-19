@@ -14,29 +14,14 @@ without CREATE_NO_WINDOW, Windows allocates a fresh console — the pop-up.
 
 What this script flags
 ----------------------
-A "violation" is any of:
-  1. `subprocess.Popen(...)` missing a `creationflags=` keyword AND not
-     gated behind `if sys.platform != "win32":` / `if os.name != "nt":`.
-  2. `subprocess.run/call/check_call/check_output(...)` with the same shape.
-  3. `subprocess.run(..., shell=True, ...)` missing creationflags — this
-     allocates cmd.exe and is the WORST offender because every shell-true
-     call from a daemon is a guaranteed pop-up.
-
-Allowed forms (NOT flagged)
----------------------------
-  - Calls that include `creationflags=` (any value — we trust the author)
-  - Calls to `safe_run` / `safe_popen` / `safe_daemon_popen` from
-    `_subprocess_helpers` (the canonical wrappers)
-  - Calls inside `tests/`, `_archive/`, `.venv/`, `tmp/`, `node_modules/`
-  - Calls inside an explicit `if sys.platform != "win32":` or
-    `if os.name != "nt":` block (POSIX-only code)
-  - Calls inside `# noqa: SUBPROCESS` annotated blocks (deliberate
-    operator-facing CLIs)
+Any unflagged `subprocess.{Popen,run,call,check_call,check_output}` call
+that is NOT inside a POSIX-only branch and NOT annotated `# noqa: SUBPROCESS`.
+See `scripts/lib/subprocess_ast.py` for the canonical predicate.
 
 Exit codes
 ----------
   0 — zero violations
-  1 — at least one violation found (prints file:line — snippet for each)
+  1 — at least one violation found
 
 Usage
 -----
@@ -48,18 +33,14 @@ Usage
 from __future__ import annotations
 
 import argparse
-import ast
 import json
 import sys
 from pathlib import Path
 from typing import Iterable
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-
-SUBPROCESS_CALLS = {"Popen", "run", "call", "check_call", "check_output"}
-
-# Whitelisted call targets that already enforce CREATE_NO_WINDOW.
-SAFE_WRAPPERS = {"safe_run", "safe_popen", "safe_daemon_popen"}
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
+from lib.subprocess_ast import find_violations  # noqa: E402
 
 # Path-prefix excludes (relative to repo root). Files under these
 # trees are NEVER flagged.
@@ -68,172 +49,44 @@ EXCLUDED_DIRS = {
     "_archive", ".next", ".cache", ".pytest_cache", "__pycache__",
 }
 
-# Per-file excludes — operator-facing CLIs where a visible window is
-# the intended UX (e.g., interactive tools CC runs from the cockpit).
+# Per-file excludes — modules that legitimately call subprocess.* with
+# creationflags injected at runtime via **kwargs, where AST can't see it.
 EXCLUDED_FILES = {
-    # The wrapper modules themselves call subprocess.run/Popen and
-    # rely on **kwargs to inject creationflags at runtime; AST can't
-    # see that, so exclude them.
+    # The wrapper modules themselves call subprocess.run/Popen with
+    # **kwargs that the caller passes in. The AST can't see the dynamic
+    # creationflags merge, so exclude them.
     "scripts/_subprocess_helpers.py",
     "bravo_cli/_subprocess_helpers.py",
-    # The audit + guard scripts walk for subprocess calls as STRING /
-    # AST matches; their own internal calls would be flagged otherwise.
+    # The audit + guard scripts walk for subprocess calls as
+    # AST patterns; their own internal calls would be flagged.
     "scripts/audit_no_visible_subprocess.py",
     "scripts/hooks/subprocess_guard.py",
 }
 
 
-def _is_posix_guard(stmt: ast.AST) -> bool:
-    """True if `stmt` is `if sys.platform != "win32":` or
-    `if os.name != "nt":` or `if sys.platform in (...)` etc — any guard
-    that means the body runs on POSIX only."""
-    if not isinstance(stmt, ast.If):
-        return False
-    test = stmt.test
-    # sys.platform != "win32"
-    if isinstance(test, ast.Compare):
-        left = test.left
-        if (
-            isinstance(left, ast.Attribute)
-            and isinstance(left.value, ast.Name)
-            and ((left.value.id == "sys" and left.attr == "platform")
-                 or (left.value.id == "os" and left.attr == "name"))
-        ):
-            for op, comparator in zip(test.ops, test.comparators):
-                if isinstance(op, ast.NotEq) and isinstance(comparator, ast.Constant):
-                    if comparator.value in ("win32", "nt"):
-                        return True
-                if isinstance(op, ast.Eq) and isinstance(comparator, ast.Constant):
-                    # `if sys.platform == "darwin":` — also POSIX
-                    if comparator.value in ("darwin", "linux", "posix"):
-                        return True
-    return False
-
-
-def _is_windows_guard(stmt: ast.AST) -> bool:
-    """True if `stmt` is a Windows-specific guard whose body should
-    contain creationflags — but if not flagged, the inner call IS
-    a violation (Windows path missing the flag)."""
-    if not isinstance(stmt, ast.If):
-        return False
-    test = stmt.test
-    if isinstance(test, ast.Compare):
-        left = test.left
-        if (
-            isinstance(left, ast.Attribute)
-            and isinstance(left.value, ast.Name)
-            and ((left.value.id == "sys" and left.attr == "platform")
-                 or (left.value.id == "os" and left.attr == "name"))
-        ):
-            for op, comparator in zip(test.ops, test.comparators):
-                if isinstance(op, ast.Eq) and isinstance(comparator, ast.Constant):
-                    if comparator.value in ("win32", "nt"):
-                        return True
-    return False
-
-
-def _call_target(call: ast.Call) -> str | None:
-    """Return 'subprocess.Popen' / 'subprocess.run' / 'safe_run' / etc.
-    or None if the call isn't one we care about."""
-    func = call.func
-    if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
-        if func.value.id == "subprocess" and func.attr in SUBPROCESS_CALLS:
-            return f"subprocess.{func.attr}"
-    if isinstance(func, ast.Name) and func.id in SAFE_WRAPPERS:
-        return func.id
-    return None
-
-
-def _has_creationflags(call: ast.Call) -> bool:
-    return any(kw.arg == "creationflags" for kw in call.keywords)
-
-
-def _has_noqa_marker(source_lines: list[str], lineno: int) -> bool:
-    """True if the line (or one immediately above) carries a
-    `# noqa: SUBPROCESS` annotation."""
-    if 1 <= lineno <= len(source_lines):
-        line = source_lines[lineno - 1]
-        if "noqa: SUBPROCESS" in line or "noqa:SUBPROCESS" in line:
-            return True
-    if 1 <= lineno - 1 <= len(source_lines):
-        prev = source_lines[lineno - 2]
-        if "noqa: SUBPROCESS" in prev or "noqa:SUBPROCESS" in prev:
-            return True
-    return False
-
-
-def _iter_calls_with_context(tree: ast.Module):
-    """Yield (call_node, posix_only) for every Call in the tree, where
-    posix_only is True if the call is inside an `if sys.platform != win32:`
-    style guard."""
-    parents: dict[int, ast.AST] = {}
-    for node in ast.walk(tree):
-        for child in ast.iter_child_nodes(node):
-            parents[id(child)] = node
-
-    def is_posix_only(node: ast.AST) -> bool:
-        # walk up; if any enclosing `If` is a POSIX guard and node is
-        # in the body (not orelse), this call is POSIX-only.
-        cur = node
-        while id(cur) in parents:
-            parent = parents[id(cur)]
-            if isinstance(parent, ast.If):
-                if _is_posix_guard(parent):
-                    # Confirm we are in `body`, not `orelse`
-                    if cur in parent.body:
-                        return True
-            cur = parent
-        return False
-
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Call):
-            yield node, is_posix_only(node)
-
-
 def audit_file(path: Path) -> list[dict]:
-    """Return a list of violation dicts for `path`. Empty list = clean."""
+    """Return a list of violation dicts for `path`. Empty list = clean.
+
+    Each dict includes `file` (repo-relative path) on top of the
+    line/col/call/snippet shape from `find_violations`."""
     try:
         source = path.read_text(encoding="utf-8")
     except (UnicodeDecodeError, OSError):
         return []
-    try:
-        tree = ast.parse(source, filename=str(path))
-    except SyntaxError:
-        return []
-
-    source_lines = source.splitlines()
-    violations: list[dict] = []
-    for call, posix_only in _iter_calls_with_context(tree):
-        target = _call_target(call)
-        if target is None:
-            continue
-        if target in SAFE_WRAPPERS:
-            continue
-        if posix_only:
-            continue
-        if _has_creationflags(call):
-            continue
-        if _has_noqa_marker(source_lines, call.lineno):
-            continue
-        snippet = source_lines[call.lineno - 1].strip() if 0 < call.lineno <= len(source_lines) else ""
-        violations.append({
-            "file": str(path.relative_to(REPO_ROOT)).replace("\\", "/"),
-            "line": call.lineno,
-            "col": call.col_offset,
-            "call": target,
-            "snippet": snippet[:160],
-        })
-    return violations
+    violations = find_violations(source)
+    rel = str(path.relative_to(REPO_ROOT)).replace("\\", "/")
+    return [{**v, "file": rel} for v in violations]
 
 
 def _is_excluded(path: Path) -> bool:
-    rel = path.relative_to(REPO_ROOT).parts
+    try:
+        rel = path.relative_to(REPO_ROOT).parts
+    except ValueError:
+        return True
     if any(part in EXCLUDED_DIRS for part in rel):
         return True
     rel_str = "/".join(rel)
-    if rel_str in EXCLUDED_FILES:
-        return True
-    return False
+    return rel_str in EXCLUDED_FILES
 
 
 def walk_repo(roots: Iterable[Path]) -> Iterable[Path]:
