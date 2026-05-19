@@ -15,25 +15,46 @@ Exit codes:
 import argparse
 import json
 import os
+import platform
 import re
 import sys
 from typing import Iterable
 
 # Paths the IDE / CLI tooling reads as MCP config — every one of these must
 # stay credential-free. Add new entry points here when integrating new agents.
-MCP_CONFIG_PATHS = [
-    r'C:\Users\User\.claude.json',
-    r'C:\Users\User\.claude\mcp.json',
-    r'C:\Users\User\.claude\settings.json',
-    r'C:\Users\User\AppData\Roaming\Antigravity\User\mcp.json',
-    r'C:\Users\User\AppData\Roaming\Antigravity\User\settings.json',
-    r'C:\Users\User\.gemini\settings.json',
-    r'C:\Users\User\.cursor\mcp.json',
-    r'C:\Users\User\Business-Empire-Agent\.vscode\mcp.json',
-    r'C:\Users\User\Business-Empire-Agent\.claude\settings.json',
-    r'C:\Users\User\Business-Empire-Agent\.claude\settings.local.json',
-    r'C:\Users\User\Business-Empire-Agent\.mcp.json',
-]
+# Mac CEO-Agent repo path added 2026-05-19 (was ~/Downloads/business-empire-agent
+# before the move — see brain/CROSS_MACHINE_SYNC.md).
+_HOME = os.path.expanduser('~')
+_IS_MAC = platform.system() == 'Darwin'
+
+if _IS_MAC:
+    MCP_CONFIG_PATHS = [
+        os.path.join(_HOME, '.claude.json'),
+        os.path.join(_HOME, '.claude', 'mcp.json'),
+        os.path.join(_HOME, '.claude', 'settings.json'),
+        os.path.join(_HOME, 'Library', 'Application Support', 'Antigravity', 'User', 'mcp.json'),
+        os.path.join(_HOME, 'Library', 'Application Support', 'Antigravity', 'User', 'settings.json'),
+        os.path.join(_HOME, '.gemini', 'settings.json'),
+        os.path.join(_HOME, '.cursor', 'mcp.json'),
+        os.path.join(_HOME, 'CEO-Agent', '.vscode', 'mcp.json'),
+        os.path.join(_HOME, 'CEO-Agent', '.claude', 'settings.json'),
+        os.path.join(_HOME, 'CEO-Agent', '.claude', 'settings.local.json'),
+        os.path.join(_HOME, 'CEO-Agent', '.mcp.json'),
+    ]
+else:
+    MCP_CONFIG_PATHS = [
+        r'C:\Users\User\.claude.json',
+        r'C:\Users\User\.claude\mcp.json',
+        r'C:\Users\User\.claude\settings.json',
+        r'C:\Users\User\AppData\Roaming\Antigravity\User\mcp.json',
+        r'C:\Users\User\AppData\Roaming\Antigravity\User\settings.json',
+        r'C:\Users\User\.gemini\settings.json',
+        r'C:\Users\User\.cursor\mcp.json',
+        r'C:\Users\User\Business-Empire-Agent\.vscode\mcp.json',
+        r'C:\Users\User\Business-Empire-Agent\.claude\settings.json',
+        r'C:\Users\User\Business-Empire-Agent\.claude\settings.local.json',
+        r'C:\Users\User\Business-Empire-Agent\.mcp.json',
+    ]
 
 # Known live-secret prefixes/patterns. Triggers a hit when found in any
 # scanned config file. Order matters only for human-readable labels.

@@ -132,7 +132,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-05-19
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Killed terminal popups at the source. Audit + guard + 68 daemon-spawn fixes.
+- **Result:** Mac travel-ready: synced all 7 repos, migrated env+state to ~/CEO-Agent, repointed PM2/LaunchAgent, made MCP audit platform-aware, deleted stale Downloads clone
 
 *Last updated: 2026-05-19*
 

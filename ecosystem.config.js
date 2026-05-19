@@ -42,14 +42,15 @@
  *   # Selective start (e.g. just the chat bridge):
  *   pm2 start ecosystem.config.js --only claude-bridge
  *
- *   # Mac — cold standby telegram bridge + local claude-bridge if desired
- *   cd ~/Downloads/business-empire-agent
+ *   # Mac — on-the-go workstation, no daemons run by default. Only start
+ *   # bridges manually when CC is travelling and Windows is offline.
+ *   cd ~/CEO-Agent
  *   pm2 start ecosystem.config.js --only bravo-telegram
  *   pm2 start ecosystem.config.js --only claude-bridge,claude-bridge-ping
  *
  * TELEGRAM HANDOFF PROTOCOL (Windows <-> Mac):
  *   # Hand off FROM Windows TO Mac:
- *   ssh cc-mac "cd ~/Downloads/business-empire-agent && pm2 start bravo-telegram"
+ *   ssh cc-mac "cd ~/CEO-Agent && pm2 start bravo-telegram"
  *   pm2 stop bravo-telegram  (on Windows, after Mac confirms start)
  *
  *   # Hand off FROM Mac TO Windows:
@@ -69,9 +70,10 @@ const IS_WIN = process.platform === 'win32';
 const IS_LINUX = process.platform === 'linux';
 
 // Project root per machine — these paths are load-bearing.
-// Mac lives at Downloads/ not ~/APPS/ (historical — see CROSS_MACHINE_SYNC.md).
+// Mac canonical location is ~/CEO-Agent (moved from ~/Downloads/business-empire-agent
+// on 2026-05-19 — see CROSS_MACHINE_SYNC.md).
 const PROJECT_ROOT = IS_MAC
-    ? path.join(os.homedir(), 'Downloads', 'business-empire-agent')
+    ? path.join(os.homedir(), 'CEO-Agent')
     : (IS_WIN
         ? 'C:\\Users\\User\\Business-Empire-Agent'
         : path.join(os.homedir(), 'business-empire-agent'));

@@ -25,7 +25,7 @@ verified: |
 ## Prerequisites (operator does once, by hand)
 
 1. Repo cloned to a local path. Recommended:
-   - **macOS:** `~/APPS/Business-Empire-Agent` (or `~/Downloads/business-empire-agent`)
+   - **macOS:** `~/CEO-Agent` (canonical as of 2026-05-19; older clones may live at `~/APPS/Business-Empire-Agent` or `~/Downloads/business-empire-agent`)
    - **Linux:** `~/Business-Empire-Agent`
    - **Windows-as-secondary:** `C:\Users\<user>\Business-Empire-Agent`
 2. `.env.agents` populated. The two **mandatory keys for pairing**:
