@@ -8,5 +8,5 @@ tags: [courses, index, hub]
 > [[brain/CEO_OPERATING_SYSTEM]] | [[brain/DASHBOARD]] | [[../CMO-Agent/brain/CONTENT_BIBLE]] (Maven canonical)
 
 ## Available Courses
-- [[courses/AGENCY_ACCELERANTS_FRAMEWORK]] — Agency growth framework
+- [[courses/PRIMARY_RETAINER_FRAMEWORK]] — Agency growth framework
 - [[courses/SKOOL_IMAGE_AUDIT]] — Skool community image audit
