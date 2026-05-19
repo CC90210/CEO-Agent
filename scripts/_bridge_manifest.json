@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-19T00:44:58.719979+00:00",
-  "script_count": 101,
-  "entry_count": 356,
+  "generated_at_iso": "2026-05-19T19:14:58.339398+00:00",
+  "script_count": 102,
+  "entry_count": 357,
   "entries": [
     {
       "key": "agent_heartbeat",
@@ -577,6 +577,13 @@
       "subcmd": null,
       "mutating": false,
       "help": "Daily Bravo Brief \u2014 AI-narrated morning summary to CC's Telegram."
+    },
+    {
+      "key": "dashboard_email_consumer",
+      "path": "scripts/dashboard_email_consumer.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Dashboard outbound-email consumer daemon."
     },
     {
       "key": "dns_reputation",
