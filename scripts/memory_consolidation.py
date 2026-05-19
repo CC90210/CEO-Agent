@@ -45,6 +45,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 MEMORY_DIR = PROJECT_ROOT / "memory"
@@ -615,7 +616,7 @@ def cmd_sync_mem0(args: argparse.Namespace) -> int:
             text=True,
             encoding="utf-8",
             errors="replace",
-        )
+         creationflags=WINDOWLESS_FLAGS)
         if result.returncode == 0:
             synced += 1
         else:

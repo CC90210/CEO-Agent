@@ -11,6 +11,7 @@ import shutil
 import subprocess
 from datetime import datetime, timezone
 from typing import Any
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 
 COMMON_DKIM_SELECTORS = [
@@ -37,7 +38,7 @@ def _run_nslookup(name: str, record_type: str) -> dict[str, Any]:
             text=True,
             timeout=10,
             check=False,
-        )
+         creationflags=WINDOWLESS_FLAGS)
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "records": [], "error": str(exc)}
 

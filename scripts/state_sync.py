@@ -26,6 +26,7 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 STATE_FILE = PROJECT_ROOT / "brain" / "STATE.md"
@@ -164,7 +165,7 @@ def sync_mem0(note: str):
         [python, str(PROJECT_ROOT / "scripts" / "mem0_tool.py"), "add",
          f"[state_sync] {note}", "--user", "bravo"],
         capture_output=True, text=True, cwd=str(PROJECT_ROOT), timeout=30
-    )
+    , creationflags=WINDOWLESS_FLAGS)
     return result.returncode == 0
 
 

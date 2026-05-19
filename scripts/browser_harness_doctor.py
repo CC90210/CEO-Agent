@@ -15,6 +15,7 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Any
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -36,7 +37,7 @@ def _find_harness() -> Path | None:
 
 def _run(cmd: list[str], timeout: int = 45) -> dict[str, Any]:
     try:
-        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=timeout)
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=timeout, creationflags=WINDOWLESS_FLAGS)
         return {
             "ok": proc.returncode == 0,
             "returncode": proc.returncode,

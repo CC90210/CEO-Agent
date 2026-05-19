@@ -60,6 +60,7 @@ import sys
 import time
 from pathlib import Path
 from typing import Any, Optional
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 LOCK_DIR = Path.home() / ".oasis" / "bridge_locks"
 DEFAULT_STALE_SECONDS = 60
@@ -181,7 +182,7 @@ def _pid_alive(pid: Optional[int]) -> bool:
             r = subprocess.run(
                 ["tasklist", "/FI", f"PID eq {pid}"],
                 capture_output=True, text=True, timeout=3,
-            )
+             creationflags=WINDOWLESS_FLAGS)
             return str(pid) in r.stdout
         os.kill(int(pid), 0)
         return True

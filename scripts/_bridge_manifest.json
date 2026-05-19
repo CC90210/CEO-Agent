@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-18T23:44:08.522422+00:00",
-  "script_count": 99,
-  "entry_count": 354,
+  "generated_at_iso": "2026-05-19T00:08:27.238831+00:00",
+  "script_count": 101,
+  "entry_count": 356,
   "entries": [
     {
       "key": "agent_heartbeat",
@@ -59,6 +59,13 @@
       "subcmd": null,
       "mutating": false,
       "help": "Audit MCP config files for plaintext live secrets."
+    },
+    {
+      "key": "audit_no_visible_subprocess",
+      "path": "scripts/audit_no_visible_subprocess.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Audit every Python file in the repo for subprocess calls that could"
     },
     {
       "key": "audit_rls_coverage",
@@ -1431,6 +1438,13 @@
       "subcmd": null,
       "mutating": true,
       "help": "migrate_leads_to_tenant_records.py"
+    },
+    {
+      "key": "migrate_subprocess_calls",
+      "path": "scripts/migrate_subprocess_calls.py",
+      "subcmd": null,
+      "mutating": true,
+      "help": "One-shot codemod: migrate raw subprocess.{Popen,run,...} calls to"
     },
     {
       "key": "model_router_list_providers",

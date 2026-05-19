@@ -25,6 +25,11 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+_p = Path(__file__).resolve()
+while _p.parent != _p and not (_p / "scripts" / "_subprocess_helpers.py").exists():
+    _p = _p.parent
+sys.path.insert(0, str(_p / "scripts"))
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 STATE_DIR = PROJECT_ROOT / "state"
@@ -51,7 +56,7 @@ def _run(cmd: list[str], timeout: int = TIMEOUT_SEC) -> str | None:
             cwd=str(PROJECT_ROOT),
             encoding="utf-8",
             errors="replace",
-        )
+         creationflags=WINDOWLESS_FLAGS)
         if result.returncode != 0:
             return None
         return result.stdout.strip() or None

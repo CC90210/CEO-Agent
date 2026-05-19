@@ -16,6 +16,7 @@ import os
 import subprocess
 import sys
 import time
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 IS_WIN = sys.platform == "win32"
 IS_MAC = sys.platform == "darwin"
@@ -81,12 +82,12 @@ def _win_screenshot(target):
 # ── macOS helpers ────────────────────────────────────────────────────────────
 
 def _mac_open_chrome(url):
-    subprocess.Popen(["open", "-a", "Google Chrome", url])
+    subprocess.Popen(["open", "-a", "Google Chrome", url], creationflags=WINDOWLESS_FLAGS)
 
 
 def _mac_screenshot(target):
     """Full-screen screenshot with sound suppressed (-x)."""
-    subprocess.run(["screencapture", "-x", target], check=False)
+    subprocess.run(["screencapture", "-x", target], check=False, creationflags=WINDOWLESS_FLAGS)
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────

@@ -27,6 +27,7 @@ import subprocess
 import sys
 import time
 import urllib.parse
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 IS_MAC = platform.system() == "Darwin"
 IS_WIN = platform.system() == "Windows"
@@ -169,7 +170,7 @@ def run_osascript(script, timeout=30):
         result = subprocess.run(
             ["osascript", "-e", script],
             capture_output=True, text=True, timeout=timeout
-        )
+        , creationflags=WINDOWLESS_FLAGS)
         if result.returncode != 0:
             return {"ok": False, "error": result.stderr.strip()}
         return {"ok": True, "output": result.stdout.strip()}
@@ -237,7 +238,7 @@ def search_soundcloud_curl(query, limit=5):
         result = subprocess.run(
             ["curl", "-s", "-L", url, "-H", "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"],
             capture_output=True, text=True, timeout=15
-        )
+        , creationflags=WINDOWLESS_FLAGS)
         if result.returncode != 0:
             return []
         html = result.stdout

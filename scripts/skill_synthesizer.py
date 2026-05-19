@@ -45,6 +45,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SKILLS_DIR = PROJECT_ROOT / "skills"
@@ -661,7 +662,7 @@ def register_skill(skill_path: Path) -> dict[str, Any]:
         text=True,
         encoding="utf-8",
         errors="replace",
-    )
+     creationflags=WINDOWLESS_FLAGS)
 
     output: dict[str, Any] = {
         "returncode": result.returncode,

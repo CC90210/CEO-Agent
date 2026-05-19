@@ -47,6 +47,7 @@ from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
 from pathlib import Path
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 
 # Ensure UTF-8 output on Windows
@@ -117,7 +118,7 @@ def run_gws(args_list, timeout=30):
         result = subprocess.run(
             cmd, capture_output=True, text=True, timeout=timeout,
             encoding="utf-8", errors="replace"
-        )
+        , creationflags=WINDOWLESS_FLAGS)
         # gws outputs to stdout, errors to stderr
         output = result.stdout.strip()
         if result.returncode != 0:

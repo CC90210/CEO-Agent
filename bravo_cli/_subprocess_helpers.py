@@ -34,11 +34,15 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 # 0x08000000 == CREATE_NO_WINDOW on Windows. Hides the conhost flicker
 # direct-exe spawns would otherwise create.
 WINDOWLESS_FLAGS: int = 0x08000000 if os.name == "nt" else 0
+
+# DETACHED_PROCESS | CREATE_NO_WINDOW — for daemon-style children that
+# must keep running after the parent exits.
+DETACHED_FLAGS: int = (0x08000000 | 0x00000008) if os.name == "nt" else 0
 
 
 def windowless_startupinfo() -> Optional["subprocess.STARTUPINFO"]:
@@ -67,3 +71,60 @@ def prefer_pythonw(python_path: Union[str, Path]) -> Path:
         return p
     cand = p.with_name(p.name.replace("python.exe", "pythonw.exe"))
     return cand if cand.exists() else p
+
+
+def _merge_creationflags(kw: dict, base: int) -> dict:
+    existing = kw.pop("creationflags", 0) or 0
+    kw["creationflags"] = existing | base
+    return kw
+
+
+def safe_run(cmd: Any, **kwargs: Any) -> subprocess.CompletedProcess:
+    """subprocess.run with CREATE_NO_WINDOW forced on Windows. Caller's
+    creationflags are preserved (ORed). Also auto-applies the windowless
+    startupinfo when shell=True or a .cmd/.bat shim is detected."""
+    if os.name == "nt":
+        kwargs = _merge_creationflags(kwargs, WINDOWLESS_FLAGS)
+        if "startupinfo" not in kwargs:
+            if kwargs.get("shell"):
+                kwargs["startupinfo"] = windowless_startupinfo()
+            elif isinstance(cmd, (list, tuple)) and cmd:
+                first = str(cmd[0]).lower()
+                if first.endswith(".cmd") or first.endswith(".bat"):
+                    kwargs["startupinfo"] = windowless_startupinfo()
+    return subprocess.run(cmd, **kwargs)
+
+
+def safe_popen(cmd: Any, **kwargs: Any) -> subprocess.Popen:
+    """subprocess.Popen with CREATE_NO_WINDOW forced on Windows. Same
+    shim auto-detection as safe_run."""
+    if os.name == "nt":
+        kwargs = _merge_creationflags(kwargs, WINDOWLESS_FLAGS)
+        if "startupinfo" not in kwargs:
+            if kwargs.get("shell"):
+                kwargs["startupinfo"] = windowless_startupinfo()
+            elif isinstance(cmd, (list, tuple)) and cmd:
+                first = str(cmd[0]).lower()
+                if first.endswith(".cmd") or first.endswith(".bat"):
+                    kwargs["startupinfo"] = windowless_startupinfo()
+    return subprocess.Popen(cmd, **kwargs)
+
+
+def safe_daemon_popen(cmd: Any, **kwargs: Any) -> subprocess.Popen:
+    """Popen for long-lived daemons that must outlive the parent —
+    CREATE_NO_WINDOW + DETACHED_PROCESS so the child has no parent
+    linkage and won't be SIGINT'd when the parent exits."""
+    if os.name == "nt":
+        kwargs = _merge_creationflags(kwargs, DETACHED_FLAGS)
+    return subprocess.Popen(cmd, **kwargs)
+
+
+__all__ = [
+    "WINDOWLESS_FLAGS",
+    "DETACHED_FLAGS",
+    "windowless_startupinfo",
+    "prefer_pythonw",
+    "safe_run",
+    "safe_popen",
+    "safe_daemon_popen",
+]

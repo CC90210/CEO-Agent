@@ -21,6 +21,7 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Optional
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -241,7 +242,7 @@ def _content_this_week() -> dict[str, int]:
         result = subprocess.run(
             [sys.executable, str(script), "posts", "--status", "published", "--json"],
             capture_output=True, text=True, timeout=20,
-        )
+         creationflags=WINDOWLESS_FLAGS)
         posts = json.loads(result.stdout) if result.returncode == 0 else []
     except Exception:
         return {}

@@ -20,6 +20,7 @@ import json
 import re
 import sys
 from pathlib import Path
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 _SCRIPTS_DIR = REPO_ROOT / "scripts"
@@ -134,7 +135,7 @@ def get_drift(repo: Path) -> list[dict]:
     r = subprocess.run(
         [sys.executable, str(repo / "scripts" / "capability_query.py"), "drift"],
         capture_output=True, text=True, encoding="utf-8", errors="replace",
-    )
+     creationflags=WINDOWLESS_FLAGS)
     if r.returncode != 0 or not r.stdout.strip().startswith("["):
         return []
     return json.loads(r.stdout)

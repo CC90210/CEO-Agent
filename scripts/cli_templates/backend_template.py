@@ -16,6 +16,11 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+_p = Path(__file__).resolve()
+while _p.parent != _p and not (_p / "scripts" / "_subprocess_helpers.py").exists():
+    _p = _p.parent
+sys.path.insert(0, str(_p / "scripts"))
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 
 class Backend:
@@ -91,7 +96,7 @@ class Backend:
                 timeout=effective_timeout,
                 env=self.env,
                 cwd=os.getcwd(),
-            )
+             creationflags=WINDOWLESS_FLAGS)
 
             response = {
                 "output": result.stdout.strip(),

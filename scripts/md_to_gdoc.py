@@ -23,6 +23,7 @@ import subprocess
 import sys
 import uuid
 from pathlib import Path
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 try:
     import markdown
@@ -86,7 +87,7 @@ def upload(html_path: Path, title: str, folder: str | None) -> dict:
            "--title", title, "--html", str(html_path), "--json"]
     if folder:
         cmd += ["--folder", folder]
-    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False, creationflags=WINDOWLESS_FLAGS)
     if result.returncode != 0:
         raise RuntimeError(f"google_tool failed: {result.stderr or result.stdout}")
     # google_tool.py --json emits a Drive file object; parse the last JSON object

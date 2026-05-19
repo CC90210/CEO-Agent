@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import browser_harness_doctor
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -23,7 +24,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 def _run(cmd: list[str], timeout: int = 60) -> dict[str, Any]:
     try:
-        proc = subprocess.run(cmd, cwd=ROOT, text=True, capture_output=True, timeout=timeout)
+        proc = subprocess.run(cmd, cwd=ROOT, text=True, capture_output=True, timeout=timeout, creationflags=WINDOWLESS_FLAGS)
         return {
             "ok": proc.returncode == 0,
             "returncode": proc.returncode,

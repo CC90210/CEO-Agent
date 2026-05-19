@@ -32,6 +32,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 from supabase_tool import get_client, load_env  # noqa: E402
 from name_utils import _is_placeholder, strip_honorifics  # noqa: E402
 from casl_compliance import is_reserved_domain  # noqa: E402
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 # Schema Firecrawl uses to pull structured contact info from each website
 EXTRACT_SCHEMA = {
@@ -80,7 +81,7 @@ def _run_firecrawl(args: list[str]) -> dict | None:
             ["python", "scripts/firecrawl_tool.py", *args, "--json"],
             capture_output=True, text=True, timeout=60,
             cwd=str(PROJECT_ROOT),
-        )
+         creationflags=WINDOWLESS_FLAGS)
         if r.returncode != 0:
             print(f"  [firecrawl error rc={r.returncode}] {r.stderr.strip()[:200]}",
                   file=sys.stderr)

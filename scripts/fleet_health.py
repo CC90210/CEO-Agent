@@ -25,6 +25,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SIBLING_REPOS = {
@@ -125,7 +126,7 @@ def check_cron() -> dict[str, Any]:
             capture_output=True,
             text=True,
             timeout=15,
-        )
+         creationflags=WINDOWLESS_FLAGS)
         if result.returncode != 0:
             return {"status": "error", "stderr": result.stderr.strip()[:200]}
         lines = result.stdout.strip().splitlines()
@@ -169,7 +170,7 @@ def check_memory_staleness() -> dict[str, Any]:
             capture_output=True,
             text=True,
             timeout=15,
-        )
+         creationflags=WINDOWLESS_FLAGS)
         if result.returncode != 0:
             return {"status": "error", "stderr": result.stderr.strip()[:200]}
         data = json.loads(result.stdout)
