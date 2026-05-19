@@ -482,7 +482,7 @@ The following were added to the Business Operations Engines table above (already
 
 | Engine | Script | Purpose | Key Commands |
 |--------|--------|---------|-------------|
-| ~~Skool Community~~ | _(archived 2026-05-18)_ | Skool community comment/reply daemon — paused when CC stepped away from the primary retainer retainer. Code preserved at `scripts/_archive/skool/` for revival when CC launches their own community. | n/a |
+| ~~Skool Community~~ | _(archived 2026-05-18)_ | Skool community comment/reply daemon — paused when CC stepped away from the primary retainer. Code preserved at `scripts/_archive/skool/` for revival when CC launches their own community. | n/a |
 | **Instagram** | `../CMO-Agent/scripts/instagram_engine.py` (owned by Maven) | Instagram DM auto-reply, content scheduling, engagement | `daemon`, `check-dms`, `auto-reply`, `post` |
 | ~~LinkedIn~~ | _(removed 2026-04-25)_ | LinkedIn outreach automation was removed by design. CC drafts LinkedIn messages by hand. For LinkedIn profile **research only**, use Browser Harness under CC's logged-in session. | n/a |
 
@@ -626,7 +626,7 @@ markdown wiki pages. Deterministic retrieval via `knowledge/index.md` — no emb
 
 **Seeded wiki pages (2026-04-06):**
 - `knowledge/wiki/ai-automation-agency.md` — OASIS AI positioning, ICP, services, pitch
-- `knowledge/wiki/revenue-model.md` — [ARCHIVED 2026-05-18] MRR breakdown pre-primary retainer-end; preserved as historical context. Current MRR lives in brain/STATE.md.
+- `knowledge/wiki/revenue-model.md` — [ARCHIVED 2026-05-18] MRR breakdown pre-2026-05-18; preserved as historical context. Current MRR lives in brain/STATE.md.
 - `knowledge/wiki/tech-stack.md` — Full technology inventory, all tools and integrations
 - `knowledge/wiki/client-playbook.md` — Client lifecycle, NEPQ, health scoring, retention
 

@@ -11,7 +11,7 @@ tags: [state, ephemeral]
 >   - **Phase 2** — Dashboard-driven override approvals. `state_manager.create_override_request` mirrors to Supabase `exec_overrides` (migration 035). `/overrides` page + server action signs with OASIS_OUTBOUND_HMAC_SECRET → `record_exec_override_decision_v1` RPC. `scripts/exec_override_consumer.py loop` applies the decision to local SQLite + HMAC-signs via EMPIRE_OVERRIDE_HMAC_KEY. The at-runtime auth gate stays on CC's machine.
 >   - **Phase 3** — Cross-agent event feed. `scripts/event_router.py loop` is a cursor-based, lossless observability tail; `state/event_router.log` carries the on-host audit projection. `/feed` page is the cloud-side view of the same `agent_events` stream with 5s `router.refresh()` (no websockets).
 >
-> Bravo is officially out of the architecture phase. The next epic is business execution: $5K Net MRR by June 18, 2026 (deadline extended 2026-05-18 from May 30 after primary retainer retainer ended — gives 31 days to rebuild $4,629 from $371 baseline).
+> Bravo is officially out of the architecture phase. The next epic is business execution: $5K Net MRR by June 18, 2026 (deadline extended 2026-05-18 from May 30 after primary retainer ended — gives 31 days to rebuild $4,629 from $371 baseline).
 >
 > **What V6.1 added (fork mechanism, intact):** `brain/operator.profile.json` (gitignored single source of truth), `scripts/personalize.py` (renders `brain/USER.md` + memory templates from `*.template.md` placeholders, skip-on-exists), `scripts/scaffold.py` (token-replaces operator identifiers across tracked files at fork-time, refuses to run on the original operator's repo, `--backup` snapshots first). Wizard `step_finalize` always runs personalize; prompts for scaffold on new operators. `self_audit.check_personalization()` warns when profile missing. CC's working copy is preserved via the safety guard + gitignored personal files.
 >
@@ -22,9 +22,9 @@ tags: [state, ephemeral]
 | Dimension | Level | Notes |
 |-----------|-------|-------|
 | **Version** | V6 Apex (P1+P2+P3) | V6 Optimization Project 100% complete (2026-05-10). Architecture phase closed. |
-| **Position**| PIVOTING | primary retainer retainer ENDED 2026-05-18. SunBiz salary opportunity pending confirmation. |
+| **Position**| PIVOTING | Primary retainer ENDED 2026-05-18. SunBiz salary opportunity pending confirmation. |
 | **Confidence** | 0.65 | Core automations production-grade but revenue base collapsed. Must land SunBiz salary + diversify ASAP. |
-| **Focus Area** | **REVENUE RECOVERY + SUNBIZ SALARY** | primary retainer retainer ended. SunBiz salary is the primary near-term revenue play. Outreach for new OASIS clients remains critical. |
+| **Focus Area** | **REVENUE RECOVERY + SUNBIZ SALARY** | primary retainer ended. SunBiz salary is the primary near-term revenue play. Outreach for new OASIS clients remains critical. |
 | **Energy** | PIVOTING / DETERMINED | Major client shift. CC handling it well — already has SunBiz lined up as replacement. Strategy session with Atlas + Bravo scheduled. |
 | **Memory Health** | GOOD | Files current. Knowledge wiki seeded. mem0 live. |
 
@@ -35,13 +35,13 @@ tags: [state, ephemeral]
 ## North Star: $5,000 USD Net MRR by June 18, 2026
 
 > Previous goal ($1,000 USD Net MRR by March 31, 2026) — **ACHIEVED** at $2,691 USD (+169% surplus).
-> **CRITICAL UPDATE (2026-05-18):** Concentration risk R-001 materialized. primary retainer retainer ($2,500 flat + ~$451 rev share) ending. primary retainer owes $1,300 outstanding payment. **Deadline extended:** May 30 → June 18, 2026 (31 days to close $4,629 gap from $371 baseline).
+> **CRITICAL UPDATE (2026-05-18):** Concentration risk R-001 materialized. Primary retainer ($2,500 flat + ~$451 rev share) ended. $1,300 outstanding AR from the prior client. **Deadline extended:** May 30 → June 18, 2026 (31 days to close $4,629 gap from $371 baseline).
 
-1. **Confirmed Revenue:** ~$371 USD/mo Net MRR ($180 Stripe + $191 base). primary retainer retainer ended.
-2. **Pending Revenue:** SunBiz salary — CC expects ~similar to primary retainer retainer ($2,500 range). NOT confirmed yet. Do not count until signed.
-3. **Outstanding AR:** $1,300 owed by primary retainer. CC needs this paid ASAP.
+1. **Confirmed Revenue:** ~$371 USD/mo Net MRR ($180 Stripe + $191 base). primary retainer ended.
+2. **Pending Revenue:** SunBiz salary — CC expects ~similar to the prior retainer ($2,500 range). NOT confirmed yet. Do not count until signed.
+3. **Outstanding AR:** $1,300 outstanding from the prior client. CC is collecting directly.
 4. **Gap (from confirmed only):** ~$4,629 USD/mo. If SunBiz lands at ~$2,500: gap drops to ~$2,129.
-5. **Strategy (revised):** (a) Lock in SunBiz salary ASAP. (b) Outreach for new OASIS clients. (c) primary retainer may return as smaller coaching gig later — do not count on it.
+5. **Strategy (revised):** (a) Lock in SunBiz salary ASAP. (b) Outreach for new OASIS clients. (c) The prior client may return as smaller coaching gig later — do not count on it.
 6. **Risk:** Revenue base dropped ~89%. SunBiz salary is the lifeline. Diversification is now existential, not optional.
 7. **North Star status:** Goal date **extended 2026-05-18: May 30 → June 18, 2026** (31 days from extension). $4,629 / 31 days ≈ $149/day required, vs $375/day under the May 30 deadline.
 
@@ -95,7 +95,7 @@ Stable structural facts (change rarely, audit on edit):
 Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 - **Gritly** — Field Service Management SaaS. Next.js 15, Drizzle, Turso, Stripe, Better Auth. Foundation built (auth+onboarding+dashboard+marketing site). Context: [[APPS_CONTEXT/GRITLY_CLAUDE]]
 - **IG Setter Pro** — Instagram DM automation (ManyChat replacement). Next.js 14, Turso, n8n, Claude API. Live at `ig-setter-pro.vercel.app`. Context: [[APPS_CONTEXT/IG_SETTER_PRO_CLAUDE]]
-- **Primary community-management retainer** — **ENDING (2026-05-18).** primary retainer communicated retainer too high, bringing Jesse on as full-time coach. CC may return as smaller coach later. $1,300 outstanding owed. Context: [[APPS_CONTEXT/SKOOL_COMMUNITY_CLAUDE]]
+- **Primary community-management retainer** — **ENDED 2026-05-18.** Client said the retainer was too expensive at full-time hands; brought a full-time coach on. CC may return as smaller coach later. $1,300 outstanding AR. Skool comment/reply daemon archived 2026-05-18 — see `scripts/_archive/skool/`. Context: [[APPS_CONTEXT/SKOOL_COMMUNITY_CLAUDE]]
 
 ## Agent Runner Backend (2026-05-05)
 
@@ -130,11 +130,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-05-18
+- **Date:** 2026-05-19
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Shipped PropFlow 3D Gaussian Splat walkthroughs end-to-end: DB migration, 6 API routes, public viewer, photo uploader with quality gate, RunPod-Serverless trainer container (COLMAP+gsplat, fully OSS). Commit 790dc11 pushed to PropFlow main. CC needs to apply migration + build/push Docker image + create RunPod endpoint.
+- **Result:** Killed terminal popups at the source. Audit + guard + 68 daemon-spawn fixes.
 
-*Last updated: 2026-05-18*
+*Last updated: 2026-05-19*
 
 ## Manifest
 

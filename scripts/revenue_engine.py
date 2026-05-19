@@ -760,7 +760,7 @@ def cmd_goal(env_vars: dict[str, str], db, args) -> dict:
     bar = "#" * filled + "-" * (30 - filled)
 
     # North Star deadline per CLAUDE.md WHY section: $5K Net MRR by June 18, 2026.
-    # (Extended 2026-05-18 from May 30 after primary retainer retainer ended.) Was May 15
+    # (Extended 2026-05-18 from May 30 after primary retainer ended.) Was May 15
     # in earlier versions — the canonical date is the only thing this comment
     # needs to track; update the date below to match brain/STATE.md.
     DEADLINE = datetime.date(2026, 5, 30)

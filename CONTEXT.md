@@ -82,7 +82,7 @@ Pattern adapted from [mattpocock/skills CONTEXT.md](https://github.com/mattpococ
 
 ## North Star
 
-- **$5K Net MRR by June 18, 2026** — The single business metric Bravo optimizes for. Extended 2026-05-18 from the original May 30 deadline after primary retainer retainer ended; new deadline gives 31 days to rebuild from $371 baseline.
+- **$5K Net MRR by June 18, 2026** — The single business metric Bravo optimizes for. Extended 2026-05-18 from the original May 30 deadline after primary retainer ended; new deadline gives 31 days to rebuild from $371 baseline.
 
 ---
 
