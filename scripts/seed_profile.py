@@ -271,7 +271,7 @@ def main() -> int:
     p.add_argument("--display-name", default=CC_DEFAULTS["display_name"])
     p.add_argument("--brand", default=CC_DEFAULTS["brand"])
     p.add_argument("--mrr-target", type=float, default=CC_DEFAULTS["mrr_target_usd"])
-    p.add_argument("--mrr-current", type=float, default=CC_DEFAULTS["mrr_current_usd"])
+    p.add_argument("--mrr-current", type=float, default=0.0)
     p.add_argument("--mrr-target-date", default=CC_DEFAULTS["mrr_target_date"])
     p.add_argument("--plan-only", action="store_true", help="Only refresh today's plan, skip profile upsert")
     p.add_argument("--no-plan", action="store_true", help="Skip today's plan seed")
