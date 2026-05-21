@@ -7,7 +7,7 @@ freshness_threshold_days: 90
 
 > Only facts with confidence >= 0.8 belong here. Reviewed quarterly (90-day threshold — this file is meant to be slow-moving).
 >
-> ⚠️ **Per-entry freshness still applies.** Each entry has its own date — `memory_aging.py` decays confidence per-entry by category. Even within this file, an entry > 90 days without re-verification is suspect. Run `python scripts/memory_aging.py stale --days 30` before quoting business facts.
+> ⚠️ **Per-entry freshness still applies.** Each entry has its own date — `memory_aging.py` decays confidence per-entry by category. Even within this file, an entry > 90 days without re-verification is suspect. Run `python scripts/core/memory_aging.py stale --days 30` before quoting business facts.
 >
 > **Last full re-validation:** 2026-05-06 (finalization audit). All entries below were either verified against current state files (`brain/STATE.md`, `brain/USER.md`) or removed if obsolete.
 >
@@ -25,13 +25,13 @@ freshness_threshold_days: 90
 | Supabase orgs: CC (oktipozhyojufxsytrse), oasis-ai-platform (sajanpiqysuwviucycjh) | 0.95 | Confirmed | 2026-02-28 |
 | PowerShell `>` redirection produces UTF-16LE which breaks Node parsers — use `Out-File -Encoding utf8` instead | 0.95 | Permanent OS quirk | 2026-05-06 |
 | X/Twitter has 280 character limit (including spaces, URLs, mentions) | 0.95 | Permanent API limit | 2026-05-06 |
-| Outbound chokepoint: every email/DM goes through `scripts/send_gateway.py` (CASL + cooldown + caps + draft critic + DNS doctor). Direct `smtplib` calls from engines = regression. | 0.95 | V5.6 architecture, 48 tests green | 2026-05-06 |
+| Outbound chokepoint: every email/DM goes through `scripts/integrations/send_gateway.py` (CASL + cooldown + caps + draft critic + DNS doctor). Direct `smtplib` calls from engines = regression. | 0.95 | V5.6 architecture, 48 tests green | 2026-05-06 |
 
 ## Business Facts
 
 | Fact | Confidence | Source | Last Verified |
 |------|-----------|--------|---------------|
-| OASIS AI Solutions at ~$3,322 USD/mo Net MRR ($180 Stripe + $191 base + $2,500 primary-retainer flat + $451 primary-retainer 15% rev share on $3,007 community MRR). Target: $5K USD by May 15, 2026. Live: `python scripts/revenue_engine.py mrr --json` | 0.95 | brain/STATE.md current | 2026-05-06 |
+| OASIS AI Solutions at ~$3,322 USD/mo Net MRR ($180 Stripe + $191 base + $2,500 primary-retainer flat + $451 primary-retainer 15% rev share on $3,007 community MRR). Target: $5K USD by June 18, 2026. Live: `python scripts/revenue_engine.py mrr --json` | 0.95 | brain/STATE.md current | 2026-05-06 |
 | CC's partner Adon handles content + client relations. Owns 50% of PropFlow only. CC owns 100% of OASIS AI. | 0.90 | brain/USER.md | 2026-05-06 |
 | PropFlow is pre-revenue, in active development | 0.85 | brain/USER.md current | 2026-05-06 |
 | CC works weekends at Nicky's Donuts | 0.90 | brain/USER.md | 2026-05-06 |
@@ -53,13 +53,13 @@ freshness_threshold_days: 90
 
 | Fact | Confidence | Source | Last Verified |
 |------|-----------|--------|---------------|
-| n8n instance: https://n8n.srv993801.hstgr.cloud (Hostinger VPS). CLI: `python scripts/n8n_tool.py`. Build canonical path uses n8n-mcp SDK. | 0.95 | Config + n8n_tool list verified | 2026-05-06 |
+| n8n instance: https://n8n.srv993801.hstgr.cloud (Hostinger VPS). CLI: `python scripts/integrations/n8n_tool.py`. Build canonical path uses n8n-mcp SDK. | 0.95 | Config + n8n_tool list verified | 2026-05-06 |
 | Telegram bot V15.4 (`telegram_agent.js`) — full computer control (60+ cmds), tier classifier, PM2-managed. Multi-machine arbitration via `scripts/bridge_lock.py`. | 0.95 | brain/STATE.md current | 2026-05-06 |
 | Zernio (formerly Late) — social media scheduler. CLI: `../CMO-Agent/scripts/late_tool.py` (owned by Maven). API base: `https://zernio.com/api/v1/`. Free plan limit 20 posts/month. | 0.95 | brain/CAPABILITIES.md current | 2026-05-06 |
 | `__future__` imports must be absolute first line in Python files | 0.95 | Permanent Python rule | 2026-05-06 |
 | MCP servers in Claude Code config (9 active): Playwright, Context7, Memory, Sequential Thinking, Knowledge Graph, GitHub, Firecrawl, Filesystem, Obsidian. Credential-bearing services (Supabase, Stripe, Late, n8n) use CLI tools instead. | 0.95 | self_audit `mcp_servers` array | 2026-05-06 |
-| Self-audit health score baseline: 95-100 in good state. < 90 = drift to investigate. < 70 = STOP and surface to CC. | 0.95 | scripts/self_audit.py exit codes | 2026-05-06 |
-| Outbound dry-run kill switch: `BRAVO_FORCE_DRY_RUN=1` env var routes every send_gateway send to dry-run | 0.95 | scripts/send_gateway.py | 2026-05-06 |
+| Self-audit health score baseline: 95-100 in good state. < 90 = drift to investigate. < 70 = STOP and surface to CC. | 0.95 | scripts/core/self_audit.py exit codes | 2026-05-06 |
+| Outbound dry-run kill switch: `BRAVO_FORCE_DRY_RUN=1` env var routes every send_gateway send to dry-run | 0.95 | scripts/integrations/send_gateway.py | 2026-05-06 |
 
 ## Confidence Decay Rules
 
@@ -80,4 +80,4 @@ freshness_threshold_days: 90
 
 - [[memory/INDEX]]
 - [[memory/ACTIVE_TASKS]]
-- [[memory/ACTIVE_TASKS.template]]
+- [[memory/ACTIVE_TASKS.template.md]]

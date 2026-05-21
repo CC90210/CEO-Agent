@@ -67,9 +67,9 @@ tags: [reference, tools, routing]
 | Web scraping (data extraction, public unprotected — when you want Firecrawl-specific features) | `firecrawl_tool.py` | `scrape <url>`, `search <query>`, `crawl`, `extract`, `map` |
 | **Scrape a bot-protected site directly (Cloudflare, DataDome, reCAPTCHA, FingerprintJS, etc.) — usually `research_fetch` handles this for you** | `cloak_browser_tool.py` | `scrape <url> --json`, `check-stealth`, `goto <url> --eval "..."`, `download`, `binary-info`. Optional `CLOAK_PROXY_URL` in `.env.agents` for residential proxy. Skill: `skills/cloak-browser/SKILL.md` |
 | Web automation (clicks, forms) on unprotected sites | Playwright MCP | `browser_navigate`, `browser_click`, `browser_type` |
-| Real logged-in browser control + reusable site memory | Browser Harness | `python scripts/browser_harness_doctor.py`; setup: `& (Get-Command browser-harness).Source --setup`; workflow: `/.agents/workflows/browser-harness.md` |
+| Real logged-in browser control + reusable site memory | Browser Harness | `python scripts/browser/browser_harness_doctor.py`; setup: `& (Get-Command browser-harness).Source --setup`; workflow: `/.agents/workflows/browser-harness.md` |
 | Cron jobs / scheduled tasks | `cron_engine.py` | `list`, `add`, `run`, `due`, `seed` |
-| Execute allowlisted script-backed cron jobs | `cron_dispatcher.py` | `python scripts/cron_dispatcher.py due --execute`, `run <job_id>`, `--dry-run` |
+| Execute allowlisted script-backed cron jobs | `cron_dispatcher.py` | `python scripts/core/cron_dispatcher.py due --execute`, `run <job_id>`, `--dry-run` |
 | Cross-agent health rollup (pulses + inboxes + cron + bridges + memory staleness) | `fleet_health.py` | `python scripts/fleet_health.py [--json] [--agent <name>]` |
 | Refresh Bravo's ceo_pulse (atomic, schema-validated) | `pulse_publish.py` | `python scripts/pulse_publish.py refresh --net-mrr 3322 --priority "..."`, `validate`, `status` |
 | Funnel sync (GoHighLevel) | `funnel_sync.py` | Sync funnels to GHL |
@@ -226,5 +226,6 @@ Decision matrix and full registry: @brain/AGENTS.md
 Native Claude Code agents (`.claude/agents/`): architect, code-reviewer, content-writer, debugger, researcher, security-reviewer
 
 ## Obsidian Links
+- **Core router (the 5 brain entry points):** [[brain/AGENT_ROUTER]] · [[brain/EXECUTION_RULES]] · [[brain/INTENTS]] · [[brain/WHEN_TO_USE_SKILLS]] · QUICK_REFERENCE (this file)
 - [[CLAUDE]] | [[brain/CAPABILITIES]] | [[brain/AGENTS]] | [[brain/STATE]]
 - [[skills/codex-delegation/SKILL]] | [[skills/mcp-operations/SKILL]]

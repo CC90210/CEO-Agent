@@ -36,4 +36,4 @@ Organize research — manage references, notes, and collaboration.
 
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

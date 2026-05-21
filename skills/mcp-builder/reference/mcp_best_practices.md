@@ -249,4 +249,4 @@ Comprehensive testing should cover:
 - Document rate limits and performance characteristics
 
 ## Obsidian Links
-- [[skills/mcp-builder/SKILL]] | [[skills/INDEX]]
+- [[skills/mcp-builder/SKILL.md]] | [[skills/INDEX.md]]

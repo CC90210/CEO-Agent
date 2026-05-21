@@ -223,4 +223,4 @@ Write a JSON file with this structure:
 - **No partial credit**: Each expectation is pass or fail, not partial
 
 ## Obsidian Links
-- [[skills/skill-creator/SKILL]] | [[skills/INDEX]]
+- [[skills/skill-creator/SKILL.md]] | [[skills/INDEX.md]]

@@ -15,7 +15,7 @@ The healthy baseline is 0–3 blocks per day during normal operation, almost all
 Run this from a terminal:
 
 ```bash
-python scripts/state_manager.py export --check
+python scripts/state/state_manager.py export --check
 ```
 
 Exit 0 = mirrors match the database. Exit 1 = drift. Drift means someone hand-edited a file that's supposed to be auto-generated (`memory/SESSION_LOG.md` between markers, `brain/STATE.md` heartbeat block). Investigate the diff:
@@ -24,11 +24,11 @@ Exit 0 = mirrors match the database. Exit 1 = drift. Drift means someone hand-ed
 git diff memory/SESSION_LOG.md brain/STATE.md
 ```
 
-If the change looks legitimate (a teammate edited intentionally), regenerate cleanly with `python scripts/state_manager.py export`. If it looks like the agent did it, escalate.
+If the change looks legitimate (a teammate edited intentionally), regenerate cleanly with `python scripts/state/state_manager.py export`. If it looks like the agent did it, escalate.
 
 ### 3. The agent claims it can't access your credentials
 
-This is correct and expected. The agent should not be reading `.env.agents`. CLI tool wrappers (`scripts/stripe_tool.py`, `scripts/supabase_tool.py`) load secrets internally and return sanitized JSON.
+This is correct and expected. The agent should not be reading `.env.agents`. CLI tool wrappers (`scripts/integrations/stripe_tool.py`, `scripts/integrations/supabase_tool.py`) load secrets internally and return sanitized JSON.
 
 If the agent tells you "I need you to paste your Stripe key," **stop**. Either:
 
@@ -67,7 +67,7 @@ The cost of a false-positive escalation is one minute of your time. The cost of 
 If you have an OASIS support contract, the agent has an `agent_inbox` channel — drop a high-priority message:
 
 ```bash
-python scripts/agent_inbox.py post --to oasis-support --priority high \
+python scripts/core/agent_inbox.py post --to oasis-support --priority high \
   --note "Suspected prompt-injection in conversation X — halting agent for review"
 ```
 

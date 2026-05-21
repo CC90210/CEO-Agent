@@ -17,7 +17,7 @@ Use Google NotebookLM as an "on-site RAG" for deep research, source-grounded cha
 - Managing an "External Brain" with sources from web, files, YouTube, and Drive.
 
 ## Core Tool: notebooklm
-All operations run via `scripts/notebooklm_tool.py`.
+All operations run via `scripts/integrations/notebooklm_tool.py`.
 
 ### Essential Commands
 - `login`: First-time setup (requires manual browser login).
@@ -60,4 +60,4 @@ All operations run via `scripts/notebooklm_tool.py`.
 - `.env.agents` has any required Google credentials (though `storage_state.json` handles most).
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

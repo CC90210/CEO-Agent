@@ -32,7 +32,7 @@ bravo agent create <name> [--template <template>] [--role "<role>"] [--path <tar
 bravo agent doctor <name>
 ```
 
-Templates live in `templates/agent-scaffold/`. The default template produces the minimum viable agent: `AGENTS.md`, `CLAUDE.md`, `brain/SOUL.md`, `brain/STATE.md`, `memory/SESSION_LOG.md`, `memory/ACTIVE_TASKS.md`, `scripts/self_audit.py`, a `doctor` command, and a README.
+Templates live in `templates/agent-scaffold/`. The default template produces the minimum viable agent: `AGENTS.md`, `CLAUDE.md`, `brain/SOUL.md`, `brain/STATE.md`, `memory/SESSION_LOG.md`, `memory/ACTIVE_TASKS.md`, `scripts/core/self_audit.py`, a `doctor` command, and a README.
 
 **Template files (read by `bravo agent create`):**
 - [[templates/agent-scaffold/README]] — generated agent's user-facing README
@@ -49,8 +49,8 @@ Templates live in `templates/agent-scaffold/`. The default template produces the
 | Identity | `AGENTS.md`, `CLAUDE.md`, `brain/SOUL.md` | Who the agent is, voice, values, prime directive |
 | Memory | `brain/STATE.md`, `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md` | Live operational state + task backlog + session history |
 | User context | `brain/USER.md` | Who they work for and that person's priorities |
-| Safety | `scripts/send_gateway.py` (stub) + `skills/security-protocol/` | V5.6 outbound chokepoint; no bypass paths |
-| Health | `scripts/self_audit.py` + `scripts/doctor.py` | Same 100-point audit Bravo uses |
+| Safety | `scripts/integrations/send_gateway.py` (stub) + `skills/security-protocol/` | V5.6 outbound chokepoint; no bypass paths |
+| Health | `scripts/core/self_audit.py` + `scripts/doctor.py` | Same 100-point audit Bravo uses |
 | Skills | `skills/INDEX.md` | Registry of capabilities |
 | Docs | `README.md` | One-page explanation of what this agent does |
 
@@ -66,7 +66,7 @@ Template files support these tokens (replaced during `bravo agent create`):
 
 ## Conventions (NON-NEGOTIABLE)
 
-1. **Every forged agent preserves the V5.6 send_gateway chokepoint.** Outbound email/DM/post/publish routes through `scripts/send_gateway.py` or an explicit approval gate.
+1. **Every forged agent preserves the V5.6 send_gateway chokepoint.** Outbound email/DM/post/publish routes through `scripts/integrations/send_gateway.py` or an explicit approval gate.
 2. **Every forged agent has a `doctor` command on day one.** It doesn't need to be rich; it just needs to be runnable so the agent can self-check.
 3. **Every forged agent has a clear Prime Directive.** `brain/SOUL.md` must state what this agent exists to do.
 4. **Forged agents get registered in Bravo's world.** The Forge updates `brain/C_SUITE_ARCHITECTURE.md` and `brain/APP_REGISTRY.md` so Bravo can route to them.
@@ -94,7 +94,7 @@ After `bravo agent create <name>` finishes:
 
 1. `cd` into the forged repo.
 2. Fill in `.env.agents` with only the keys this agent actually needs.
-3. Run `bravo agent doctor <name>` (or `python scripts/self_audit.py` from inside the new repo).
+3. Run `bravo agent doctor <name>` (or `python scripts/core/self_audit.py` from inside the new repo).
 4. Edit `brain/SOUL.md` to tune voice and Prime Directive.
 5. Commit and push.
 6. Add a line to `brain/C_SUITE_ARCHITECTURE.md` under the appropriate role slot.
@@ -110,5 +110,5 @@ After `bravo agent create <name>` finishes:
 - [[brain/C_SUITE_ARCHITECTURE]] — where new agents slot in
 - [[brain/APP_REGISTRY]] — routing table for named agents
 - [[brain/AGENTS]] — sub-agent roster
-- [[skills/security-protocol/SKILL]] — safety defaults
+- [[skills/security-protocol/SKILL.md]] — safety defaults
 - [[runtime/profile_home]] — profile substrate for multi-agent isolation

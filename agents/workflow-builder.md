@@ -122,7 +122,7 @@ Before marking a workflow "done":
 ## Failure Recovery
 - `validate_workflow` rejects 3+ times → re-read `get_sdk_reference` (the SDK probably updated)
 - `get_node_types` returns nothing → re-run `search_nodes` with broader query (node ID was wrong)
-- MCP unreachable → fall back to `python scripts/n8n_tool.py` for read/exec ops; build is blocked until MCP returns
+- MCP unreachable → fall back to `python scripts/integrations/n8n_tool.py` for read/exec ops; build is blocked until MCP returns
 - Workflow won't activate after deploy → open in n8n UI, check trigger node config (usually a missing credential binding)
 
 ## Escalation Protocol

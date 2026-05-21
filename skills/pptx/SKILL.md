@@ -9,6 +9,16 @@ dependencies: []
 
 # PPTX Skill
 
+> **⚠ Three helpers not bundled in this repo.** Replace with the underlying commands:
+>
+> | Referenced as | Direct replacement |
+> |---|---|
+> | `scripts/thumbnail.py` | `soffice --headless --convert-to pdf <file.pptx>` then `pdftoppm -jpeg -r 150 <file.pdf> slide` |
+> | `scripts/office/unpack.py` | `python -m zipfile -e <file.pptx> unpacked/` |
+> | `scripts/office/soffice.py` | call `soffice` directly with the same flags |
+>
+> Anthropic-reference utilities; everything else below (markitdown, pptxgenjs, pdftoppm) works as-written.
+
 ## Quick Reference
 
 | Task | Guide |
@@ -239,4 +249,4 @@ pdftoppm -jpeg -r 150 -f N -l N output.pdf slide-fixed
 - [[skills/pptx/pptxgenjs]] — Creating presentations from scratch with PptxGenJS
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

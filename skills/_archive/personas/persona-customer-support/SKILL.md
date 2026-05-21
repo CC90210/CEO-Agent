@@ -37,4 +37,4 @@ Manage customer support — track tickets, respond, escalate issues.
 
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

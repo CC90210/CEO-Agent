@@ -164,9 +164,9 @@ On a fresh machine (e.g., CC's MacBook):
 
 5. **Verify core integrations**
    ```bash
-   python scripts/supabase_tool.py list projects
-   python scripts/stripe_tool.py balance
-   python scripts/firecrawl_tool.py scrape https://example.com
+   python scripts/integrations/supabase_tool.py list projects
+   python scripts/integrations/stripe_tool.py balance
+   python scripts/integrations/firecrawl_tool.py scrape https://example.com
    ```
 
 6. **One-time service logins**

@@ -76,7 +76,7 @@ created: 2026-04-11
 ### On session START (every Claude Code boot, either machine)
 
 ```bash
-bash scripts/bravo-session-start.sh
+bash scripts/hooks/bravo-session-start.sh
 ```
 
 What it does:
@@ -93,7 +93,7 @@ The session script runs in the background and bumps the heartbeat every 5 minute
 ### On session END
 
 ```bash
-bash scripts/bravo-session-end.sh "one-line summary of what I did"
+bash scripts/hooks/bravo-session-end.sh "one-line summary of what I did"
 ```
 
 What it does:

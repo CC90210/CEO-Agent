@@ -247,7 +247,7 @@ apps.push({
 // one cycle behind.
 apps.push({
     name: "event-router",
-    script: "scripts/event_router.py",
+    script: "scripts/core/event_router.py",
     args: ["loop", "--interval", "3"],
     interpreter: PYTHONW,  // no-console interpreter; popup-suppressed
     cwd: PROJECT_ROOT,
@@ -277,7 +277,7 @@ apps.push({
 // override approvals never reach the operator's machine.
 apps.push({
     name: "override-consumer",
-    script: "scripts/exec_override_consumer.py",
+    script: "scripts/state/exec_override_consumer.py",
     args: ["loop", "--interval", "5"],
     interpreter: PYTHONW,  // no-console interpreter; popup-suppressed
     cwd: PROJECT_ROOT,
@@ -347,7 +347,7 @@ apps.push({
 //
 // Phase 6.4 of SunBiz CRM. Polls application_lender_threads rows where
 // status=sent + gmail_thread_id is non-null, fetches the latest message
-// via scripts/google_tool.py, classifies via Claude Haiku 4.5 into
+// via scripts/integrations/google_tool.py, classifies via Claude Haiku 4.5 into
 // approved/declined/info_requested/unclear, and updates status +
 // last_response_summary. Operators see the funding-pipeline state on
 // the application detail page without ever opening Gmail.
@@ -381,5 +381,46 @@ apps.push({
     merge_logs: true,
     max_size: "10M",
 });
+
+// ============================================================================
+// dashboard-email-consumer — Command Center email sender daemon
+// ============================================================================
+//
+// Polls Supabase lead_interactions every 10s for rows the operator queued
+// from the Command Center's lead-drawer Email composer:
+//   type='email_queued', channel='email', direction='outbound',
+//   agent_source='dashboard_drawer', metadata.status='queued'
+//
+// For each row: resolves GMAIL_USER + GMAIL_APP_PASSWORD from .env.agents,
+// sends via smtplib SMTP_SSL, and updates metadata.status to 'sent' or
+// 'failed' so the drawer's timeline reflects the outcome.
+//
+// Was originally registered via manual `pm2 start` with `python` interpreter
+// (not pythonw), which popped a visible console window. Fixed 2026-05-19
+// to use PYTHONW. Now also declared here so ecosystem.config.js boots it
+// on `pm2 start ecosystem.config.js`.
+if (IS_WIN) {
+    apps.push({
+        name: "dashboard-email-consumer",
+        script: "scripts/dashboard_email_consumer.py",
+        args: ["loop", "--interval", "10"],
+        interpreter: PYTHONW,  // no-console interpreter; popup-suppressed
+        cwd: PROJECT_ROOT,
+        watch: false,
+        autorestart: true,
+        max_restarts: 20,
+        restart_delay: 10000,
+        windowsHide: true,
+        env: {
+            PYTHONIOENCODING: "utf-8",
+            PYTHONUNBUFFERED: "1",
+        },
+        log_date_format: "YYYY-MM-DD HH:mm:ss",
+        error_file: "tmp/pm2-dashboard-email-consumer-error.log",
+        out_file: "tmp/pm2-dashboard-email-consumer-out.log",
+        merge_logs: true,
+        max_size: "10M",
+    });
+}
 
 module.exports = { apps };

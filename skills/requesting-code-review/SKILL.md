@@ -111,4 +111,4 @@ See template at: requesting-code-review/code-reviewer.md
 - [[skills/requesting-code-review/code-reviewer]] — Subagent prompt template for code review dispatch
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

@@ -71,7 +71,7 @@ Draft the message and present to CC for review and send.
 Log to the V6.0 state DB (auto-mirrors to `memory/SESSION_LOG.md`):
 
 ```bash
-python scripts/state_manager.py log --agent bravo \
+python scripts/state/state_manager.py log --agent bravo \
   --note "Client Health Report — portfolio \$[MRR], avg score [X]/100, tiers G[X]/Y[X]/O[X]/R[X], at-risk \$[X]; actions: [brief list]"
 ```
 

@@ -251,7 +251,7 @@ if [ "$SKIP_SMOKE" -eq 0 ]; then
         # set +e in this scope so we don't trip set -e (install.sh is
         # not strict-set today, but staying defensive).
         set +e
-        python3 "$REPO_ROOT/scripts/self_audit.py" 2>&1 | tail -5
+        python3 "$REPO_ROOT/scripts/core/self_audit.py" 2>&1 | tail -5
         audit_rc="${PIPESTATUS[0]}"
         set -e
         if [ "$audit_rc" != "0" ]; then

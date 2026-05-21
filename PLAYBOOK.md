@@ -151,7 +151,7 @@ After V6 Apex (2026-05-10) + OASIS Town Phase 3 (2026-05-11) shipped, three daem
 | Daemon | What it does | Without it |
 |---|---|---|
 | **event-router** | Reads every new `agent_events` row, projects it to `state/event_router.log`. Powers the `/feed` page on the Vercel dashboard. | Dashboard feed shows stale data. No on-host event-bus audit log. |
-| **override-consumer** | Polls Supabase for dashboard Approve/Deny clicks on blocked commands. Applies them locally with HMAC. | Dashboard `/overrides` page can record decisions but the agent never sees them — you'd have to fall back to CLI `python scripts/exec_override.py approve <req-id>` (TTY-only). |
+| **override-consumer** | Polls Supabase for dashboard Approve/Deny clicks on blocked commands. Applies them locally with HMAC. | Dashboard `/overrides` page can record decisions but the agent never sees them — you'd have to fall back to CLI `python scripts/state/exec_override.py approve <req-id>` (TTY-only). |
 | **oasis-embed** | FastAPI on `localhost:8767` that exposes Bravo's FTS5+LanceDB retrieval to the OASIS Town Convex backend. Provides `/embed` (384-dim fastembed MiniLM) and `/query` (hybrid RRF retrieval over `memory/`, `skills/`, `brain/`). | OASIS Town's agent memory falls back to zero-vector stubs — agents still talk but lose live empire-state context (no more "Archive has three validated cases in memory/X.md" style references). |
 
 ### One-time setup
@@ -161,12 +161,12 @@ Run these once. They register the daemons with PM2 and persist across reboot:
 ```bash
 cd /c/Users/User/Business-Empire-Agent
 
-pm2 start scripts/event_router.py \
+pm2 start scripts/core/event_router.py \
   --name event-router \
   --interpreter python \
   -- loop --interval 3
 
-pm2 start scripts/exec_override_consumer.py \
+pm2 start scripts/state/exec_override_consumer.py \
   --name override-consumer \
   --interpreter python \
   -- loop --interval 5
@@ -186,8 +186,8 @@ pm2 startup             # follow the printed instructions (one elevated command)
 pm2 status              # list all PM2 processes; both should show "online"
 pm2 logs event-router         --lines 50
 pm2 logs override-consumer    --lines 50
-pm2 restart event-router      # after editing scripts/event_router.py
-pm2 restart override-consumer # after editing scripts/exec_override_consumer.py
+pm2 restart event-router      # after editing scripts/core/event_router.py
+pm2 restart override-consumer # after editing scripts/state/exec_override_consumer.py
 pm2 stop  event-router        # temporary halt; pm2 start brings it back
 pm2 delete event-router       # remove from PM2 entirely (rarely needed)
 ```
@@ -198,10 +198,10 @@ If something feels off:
 
 ```bash
 # event-router heartbeat — last line of the log should be recent (<5s)
-python scripts/event_router.py tail --count 5
+python scripts/core/event_router.py tail --count 5
 
 # override-consumer — apply any pending dashboard intent in one shot
-python scripts/exec_override_consumer.py once --verbose
+python scripts/state/exec_override_consumer.py once --verbose
 
 # Are the daemons actually polling? Check PM2 uptime + restart count
 pm2 status
@@ -224,7 +224,7 @@ Three things that will happen and how to unstick each.
 
 **Why**: Claude reads `CLAUDE.md` → `brain/STATE.md` → `memory/ACTIVE_TASKS.md` at session start. If any of those are stale, context is stale.
 
-**Fix**: ask "read the brain — what's our current state?" — forces a re-read. If that doesn't help, run `python scripts/state_sync.py --heartbeat` to refresh the timestamp, then restart the chat.
+**Fix**: ask "read the brain — what's our current state?" — forces a re-read. If that doesn't help, run `python scripts/state/state_sync.py --heartbeat` to refresh the timestamp, then restart the chat.
 
 ### "Codex introduces itself as generic 'Codex', not Bravo-aware"
 
@@ -313,7 +313,7 @@ In alphabetical order. Skip this unless you're unsure about a specific word.
 - **Cron** — a scheduler that runs scripts at fixed times (e.g. "every 15 min"). Your scheduler.py daemon is a cron runner.
 - **Daemon** — a long-running background process. Your Telegram bot is a daemon. The reasoning loop can run as a daemon.
 - **Decision tape** — the `agent_decisions` table. Every choice the reasoning loop makes is logged here with reasoning + confidence.
-- **Gateway** — the send gateway. `scripts/send_gateway.py`. Every outbound email/DM/call passes through it.
+- **Gateway** — the send gateway. `scripts/integrations/send_gateway.py`. Every outbound email/DM/call passes through it.
 - **Intent** — what the AI thinks the inbound message is about: booking, pricing, objection, unsubscribe, etc. Assigned by the inbound classifier.
 - **Ledger** — the `lead_interactions` table. Every interaction (outbound + inbound) with every lead, across every channel.
 - **MCP** — Model Context Protocol. How Claude connects to external tools (Playwright, Context7, GitHub, etc.). You have 8 active MCP servers.

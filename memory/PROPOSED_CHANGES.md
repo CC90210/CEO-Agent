@@ -1,5 +1,7 @@
 ---
 tags: [memory, governance]
+last_updated: 2026-05-21
+freshness_threshold_days: 90
 ---
 
 # BRAVO — Proposed Changes Queue

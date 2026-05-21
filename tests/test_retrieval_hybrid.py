@@ -43,12 +43,12 @@ def _ensure_indexes_exist():
     module otherwise — these tests are integration-grade, not unit-grade."""
     status = mr.status()
     if status.get("index") == "missing":
-        pytest.skip("FTS5 index not built — run `python scripts/memory_retriever.py build`")
+        pytest.skip("FTS5 index not built — run `python scripts/core/memory_retriever.py build`")
     if status.get("chunks", 0) == 0:
         pytest.skip("FTS5 index has zero chunks")
     sem = status.get("semantic") or {}
     if sem.get("store") != "lancedb" or not sem.get("rows"):
-        pytest.skip("LanceDB index missing/empty — run `python scripts/memory_retriever.py build`")
+        pytest.skip("LanceDB index missing/empty — run `python scripts/core/memory_retriever.py build`")
 
 
 # ── Mode plumbing tests ──────────────────────────────────────────────────
@@ -231,7 +231,7 @@ def test_status_surfaces_both_engine_stats() -> None:
         ratio = sem["rows"] / s["chunks"]
         assert 0.9 <= ratio <= 1.1, (
             f"semantic ({sem['rows']}) and FTS5 ({s['chunks']}) drift by "
-            f"more than 10% — run `python scripts/memory_retriever.py build --force`"
+            f"more than 10% — run `python scripts/core/memory_retriever.py build --force`"
         )
 
 

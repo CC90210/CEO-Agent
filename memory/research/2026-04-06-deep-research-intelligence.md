@@ -301,7 +301,7 @@ Integrates with 13 agent frameworks, 3 voice integrations, 19 vector store backe
 
 **HOW TO IMPLEMENT:**
 1. `pip install mem0ai` and add to `.venv`
-2. Create `scripts/mem0_tool.py` as CLI wrapper (following our CLI-first pattern)
+2. Create `scripts/integrations/mem0_tool.py` as CLI wrapper (following our CLI-first pattern)
 3. Configure with Anthropic as LLM provider, Supabase as vector store backend
 4. Hook into session lifecycle: SessionEnd extracts memories, SessionStart loads relevant ones
 5. Replace or augment our knowledge graph MCP with Mem0's graph memory

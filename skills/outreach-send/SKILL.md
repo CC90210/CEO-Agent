@@ -18,7 +18,7 @@ argument_hint: "Which lead(s)? (lead UUID, email address, or filter like 'all wa
 ## TL;DR — The one command you need
 
 ```bash
-python scripts/email_engine.py --json send-template \
+python scripts/integrations/email_engine.py --json send-template \
   --template-id <uuid> \
   --to <email> \
   --lead-id <lead-uuid> \
@@ -31,7 +31,7 @@ That's it. The engine handles everything else: HTML rendering, geo-rapport line,
 
 ## The 3 OASIS templates
 
-Run `python scripts/email_engine.py templates list` to get current UUIDs (don't memorize them — they may rotate).
+Run `python scripts/integrations/email_engine.py templates list` to get current UUIDs (don't memorize them — they may rotate).
 
 | Name | Subject pattern | When to use |
 |---|---|---|
@@ -83,7 +83,7 @@ For a list of leads, loop the single command. Pace at ~2-3 sec between sends to 
 ```python
 import json, subprocess, time
 for lead in leads:
-    cmd = ["python", "scripts/email_engine.py", "--json", "send-template",
+    cmd = ["python", "scripts/integrations/email_engine.py", "--json", "send-template",
            "--template-id", TEMPLATE_UUID,
            "--to", lead["email"],
            "--lead-id", lead["id"],
@@ -128,14 +128,14 @@ Filter to leads with `email` set, `last_contacted_at` null or > 5 days old, and 
 
 | Tool | Use for |
 |---|---|
-| `scripts/email_engine.py send-template` | The send command. Always this for outreach. |
-| `scripts/email_engine.py templates list` | List the 3 OASIS template UUIDs |
-| `scripts/email_engine.py templates view <uuid>` | Inspect a template's HTML/text/vars |
-| `scripts/email_engine.py log` | View recent sends |
-| `scripts/email_engine.py stats` | Aggregate stats |
-| `scripts/email_engine.py check-inbox` | Process inbound replies (auto-suppress unsub) |
+| `scripts/integrations/email_engine.py send-template` | The send command. Always this for outreach. |
+| `scripts/integrations/email_engine.py templates list` | List the 3 OASIS template UUIDs |
+| `scripts/integrations/email_engine.py templates view <uuid>` | Inspect a template's HTML/text/vars |
+| `scripts/integrations/email_engine.py log` | View recent sends |
+| `scripts/integrations/email_engine.py stats` | Aggregate stats |
+| `scripts/integrations/email_engine.py check-inbox` | Process inbound replies (auto-suppress unsub) |
 | `scripts/region_inference.py` | Self-test the region inferrer |
-| `scripts/send_gateway.py status` | View gateway gate state |
+| `scripts/integrations/send_gateway.py status` | View gateway gate state |
 
 All accept `--json` for machine-readable output. All accept `--dry-run` to validate without sending.
 
@@ -163,4 +163,4 @@ Whichever entry point an AI uses to enter this repo, this is the canonical outre
 ## Obsidian Links
 - [[brain/QUICK_REFERENCE]] | [[brain/CAPABILITIES]]
 - [[memory/feedback_no_cold_outreach_cron]]
-- [[skills/email-safety/SKILL]]
+- [[skills/email-safety/SKILL.md]]

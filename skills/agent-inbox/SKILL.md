@@ -1,6 +1,6 @@
 ---
 name: agent-inbox
-description: Async agent-to-agent messaging protocol. Use when Bravo, Atlas, Maven, Aura, or Codex needs to pass a structured message to another agent without blocking the orchestrator. Replaces synchronous-only delegation with a checkpoint-based pickup pattern. CLI backed by scripts/agent_inbox.py.
+description: Async agent-to-agent messaging protocol. Use when Bravo, Atlas, Maven, Aura, or Codex needs to pass a structured message to another agent without blocking the orchestrator. Replaces synchronous-only delegation with a checkpoint-based pickup pattern. CLI backed by scripts/core/agent_inbox.py.
 triggers: [agent inbox, inter-agent message, async delegation, agent notification, cross-agent handoff]
 tier: standard
 dependencies: []
@@ -44,38 +44,38 @@ Every message is one JSON file in `tmp/agent_inbox/inbox/` (unread) or `read/` (
 
 Filenames sort by priority-then-time: `{priority_prefix}_{ts}_{to}_{id}.json` — so urgent messages surface first when listing.
 
-## Commands (scripts/agent_inbox.py)
+## Commands (scripts/core/agent_inbox.py)
 
 ```bash
 # Post a message
-python scripts/agent_inbox.py post --from codex --to bravo \
+python scripts/core/agent_inbox.py post --from codex --to bravo \
   --subject "Task complete" \
   --body "Refactor of send_gateway landed in commit abc123. Tests green." \
   --priority normal
 
 # List unread messages for a recipient
-python scripts/agent_inbox.py list --to bravo
+python scripts/core/agent_inbox.py list --to bravo
 
 # Read (and acknowledge — moves to read/)
-python scripts/agent_inbox.py read <message_id>
+python scripts/core/agent_inbox.py read <message_id>
 
 # Reply in-thread
-python scripts/agent_inbox.py reply --from bravo --in-reply-to <message_id> \
+python scripts/core/agent_inbox.py reply --from bravo --in-reply-to <message_id> \
   --body "Received. Deploying."
 
 # Machine-readable
-python scripts/agent_inbox.py list --to bravo --json
+python scripts/core/agent_inbox.py list --to bravo --json
 ```
 
 ## Integration Points
 
 ### Bravo session start
-Add to boot sequence: `python scripts/agent_inbox.py list --to bravo --json` — if any urgent/high messages, surface in briefing.
+Add to boot sequence: `python scripts/core/agent_inbox.py list --to bravo --json` — if any urgent/high messages, surface in briefing.
 
 ### Codex task completion
 When Codex finishes a background task via `codex-companion.mjs`, have the script post a completion message:
 ```bash
-python scripts/agent_inbox.py post --from codex --to bravo \
+python scripts/core/agent_inbox.py post --from codex --to bravo \
   --subject "Codex task <id> complete" \
   --body "$(cat result.md)" --priority normal
 ```
@@ -83,7 +83,7 @@ python scripts/agent_inbox.py post --from codex --to bravo \
 ### Cross-agent pulse updates
 When any sibling agent writes to `data/pulse/<agent>_pulse.json` with a significant change, it should also post a broadcast message so others pick it up on next activation:
 ```bash
-python scripts/agent_inbox.py post --from atlas --to broadcast \
+python scripts/core/agent_inbox.py post --from atlas --to broadcast \
   --subject "Spend gate threshold lowered to $50/day" \
   --body "..." --priority high
 ```

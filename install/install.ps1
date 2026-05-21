@@ -180,12 +180,12 @@ if (-not $SkipPathUpdate) {
 # 5. Smoke tests - propagate failures instead of silently swallowing them
 if (-not $SkipSmokeTests) {
     Step "Running self_audit + browser_harness_doctor" {
-        & python "$repoRoot\scripts\self_audit.py" 2>&1 | Select-Object -Last 5 | Write-Host
+        & python "$repoRoot\scripts\core\self_audit.py" 2>&1 | Select-Object -Last 5 | Write-Host
         if ($LASTEXITCODE -ne 0) {
             Write-Host "    WARN: self_audit exited with code $LASTEXITCODE" -ForegroundColor Yellow
         }
-        if (Test-Path "$repoRoot\scripts\browser_harness_doctor.py") {
-            & python "$repoRoot\scripts\browser_harness_doctor.py" --json 2>&1 |
+        if (Test-Path "$repoRoot\scripts\browser\browser_harness_doctor.py") {
+            & python "$repoRoot\scripts\browser\browser_harness_doctor.py" --json 2>&1 |
                 Select-String -Pattern '"ok"|"install_ok"|"attach_ok"' | Write-Host
             if ($LASTEXITCODE -ne 0) {
                 Write-Host "    INFO: browser_harness_doctor exit $LASTEXITCODE (attach may be pending)" -ForegroundColor DarkGray

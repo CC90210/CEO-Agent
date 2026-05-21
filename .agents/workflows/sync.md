@@ -25,7 +25,7 @@ Use `/sync` before ending any session — this is **mandatory** per session prot
 
 4. Log the session summary to the V6.0 state DB (auto-mirrors to `memory/SESSION_LOG.md`):
    ```bash
-   python scripts/state_manager.py log --agent <agent> \
+   python scripts/state/state_manager.py log --agent <agent> \
      --note "Session via <agent> — [what was done]; issues: [if any]; next: [next steps]"
    ```
 

@@ -19,4 +19,4 @@ A soft and sophisticated theme with dusty, muted tones perfect for elegant prese
 Fashion presentations, beauty brands, wedding planning, interior design, boutique businesses.
 
 ## Obsidian Links
-- [[skills/theme-factory/SKILL]] | [[skills/INDEX]]
+- [[skills/theme-factory/SKILL.md]] | [[skills/INDEX.md]]

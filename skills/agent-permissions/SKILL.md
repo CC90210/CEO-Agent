@@ -111,5 +111,5 @@ All permission settings are in `.agents/config.toml`:
 - `[permissions.blocked]` — Universal blocked patterns
 
 ## Obsidian Links
-- [[brain/AGENTS]] | [[skills/task-routing/SKILL]]
-- [[skills/security-protocol/SKILL]] | [[brain/CAPABILITIES]]
+- [[brain/AGENTS]] | [[skills/task-routing/SKILL.md]]
+- [[skills/security-protocol/SKILL.md]] | [[brain/CAPABILITIES]]

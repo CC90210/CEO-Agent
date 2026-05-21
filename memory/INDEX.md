@@ -1,5 +1,7 @@
 ---
 tags: [memory, hub, index]
+last_updated: 2026-05-21
+freshness_threshold_days: 90
 ---
 
 # memory/ — Operational Memory Hub
@@ -55,9 +57,9 @@ Some files referenced in chat history (e.g., `feedback_system_philosophy.md`, `p
 
 ## Files in this directory
 
-- [[memory/ACTIVE_TASKS.template]]
+- [[memory/ACTIVE_TASKS.template.md]]
 - [[memory/HANDOFF]] — cross-machine scratchpad only; not a durable handoff archive
-- [[memory/SESSION_LOG.template]]
+- [[memory/SESSION_LOG.template.md]]
 - [[memory/WORKING]]
 
 ## Related leaves

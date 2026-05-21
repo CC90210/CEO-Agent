@@ -1,5 +1,5 @@
 {
-  "//": "MCP server config template — copied to .claude/mcp.json by the installer. Paths that reference the user's home should use ${USER_HOME} placeholders; the installer substitutes them for the current user at copy time. The .cmd wrapper scripts read tokens from .env.agents at runtime; no credentials live here.",
+  "//": "MCP server config template — copied to .claude/mcp.json by the installer. Use ${REPO_ROOT} for the repo path and ${USER_HOME} for the user's home; the installer substitutes them at copy time. The .js shim scripts in scripts/mcp_shims/ read tokens from .env.agents at runtime; no credentials live here. Last synced with live mcp.json: 2026-05-21 (9 servers).",
   "mcpServers": {
     "sequential-thinking": {
       "command": "npx",
@@ -31,33 +31,37 @@
       ]
     },
     "github": {
-      "command": "cmd",
-      "args": [
-        "/c",
-        "scripts\\github-mcp-wrapper.cmd"
-      ]
+      "command": "node",
+      "args": ["scripts\\mcp_shims\\github.js"]
     },
     "firecrawl": {
-      "command": "cmd",
-      "args": [
-        "/c",
-        "scripts\\firecrawl-mcp-wrapper.cmd"
-      ]
+      "command": "node",
+      "args": ["scripts\\mcp_shims\\firecrawl.js"]
     },
     "obsidian": {
-      "command": "cmd",
-      "args": [
-        "/c",
-        "scripts\\obsidian-mcp-wrapper.cmd"
-      ]
+      "command": "node",
+      "args": ["scripts\\mcp_shims\\obsidian.js"]
     },
     "filesystem": {
       "command": "npx",
       "args": [
         "-y",
         "@modelcontextprotocol/server-filesystem",
-        "${REPO_ROOT}"
+        "${REPO_ROOT}",
+        "${USER_HOME}\\APPS",
+        "${USER_HOME}\\.claude"
       ]
+    },
+    "knowledge-graph": {
+      "command": "npx",
+      "args": [
+        "tsx",
+        "${USER_HOME}\\tools\\knowledge-graph\\src\\mcp\\index.ts"
+      ],
+      "env": {
+        "KG_VAULT_PATH": "${REPO_ROOT}",
+        "KG_DATA_DIR": "${USER_HOME}\\tools\\knowledge-graph\\data"
+      }
     }
   }
 }

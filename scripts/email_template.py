@@ -1,8 +1,8 @@
 """email_template.py — single canonical OASIS AI branded HTML email.
 
 Used by:
-  - scripts/google_tool.py gmail send --branded
-  - scripts/send_gateway.py for outreach + transactional sends
+  - scripts/integrations/google_tool.py gmail send --branded
+  - scripts/integrations/send_gateway.py for outreach + transactional sends
   - any other script that needs to send a branded email
 
 Why a Python module not an HTML file: every send picks the operator's

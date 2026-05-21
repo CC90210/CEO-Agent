@@ -250,4 +250,4 @@ Done!
 - [[skills/subagent-driven-development/code-quality-reviewer-prompt]] — Code quality reviewer template
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

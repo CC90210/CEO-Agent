@@ -31,7 +31,7 @@ Patch behavior:
 Run:
 
 ```powershell
-python scripts/browser_harness_doctor.py
+python scripts/browser/browser_harness_doctor.py
 ```
 
 Expected current result:

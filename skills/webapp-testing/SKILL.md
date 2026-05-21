@@ -11,10 +11,7 @@ dependencies: [browser-automation]
 
 To test local web applications, write native Python Playwright scripts.
 
-**Helper Scripts Available**:
-- `scripts/with_server.py` - Manages server lifecycle (supports multiple servers)
-
-**Always run scripts with `--help` first** to see usage. DO NOT read the source until you try running the script first and find that a customized solution is abslutely necessary. These scripts can be very large and thus pollute your context window. They exist to be called directly as black-box scripts rather than ingested into your context window.
+> **Note:** A `scripts/with_server.py` helper (Anthropic-reference utility for server lifecycle management) is referenced in the original skill but is NOT bundled here. Start the dev server in a separate terminal (or with `subprocess.Popen` + `time.sleep`/`wait_for_port`) before running Playwright. The patterns below show both approaches.
 
 ## Decision Tree: Choosing Your Approach
 
@@ -25,8 +22,9 @@ User task → Is it static HTML?
     │         └─ Fails/Incomplete → Treat as dynamic (below)
     │
     └─ No (dynamic webapp) → Is the server already running?
-        ├─ No → Run: python scripts/with_server.py --help
-        │        Then use the helper + write simplified Playwright script
+        ├─ No → Start the dev server in another terminal
+        │        (e.g., `npm run dev`), wait for it to bind the port,
+        │        then run your Playwright script
         │
         └─ Yes → Reconnaissance-then-action:
             1. Navigate and wait for networkidle
@@ -35,24 +33,34 @@ User task → Is it static HTML?
             4. Execute actions with discovered selectors
 ```
 
-## Example: Using with_server.py
+## Example: Managing the server yourself
 
-To start a server, run `--help` first, then use the helper:
-
-**Single server:**
 ```bash
-python scripts/with_server.py --server "npm run dev" --port 5173 -- python your_automation.py
+# Terminal 1: start the dev server
+npm run dev
+
+# Terminal 2: once the port is bound, run your automation
+python your_automation.py
 ```
 
-**Multiple servers (e.g., backend + frontend):**
-```bash
-python scripts/with_server.py \
-  --server "cd backend && python server.py" --port 3000 \
-  --server "cd frontend && npm run dev" --port 5173 \
-  -- python your_automation.py
+Or wrap the lifecycle in your Python script:
+
+```python
+import subprocess, socket, time
+proc = subprocess.Popen(["npm", "run", "dev"], cwd="frontend")
+# Wait until port 5173 is accepting connections
+for _ in range(60):
+    with socket.socket() as s:
+        try: s.connect(("127.0.0.1", 5173)); break
+        except OSError: time.sleep(0.5)
+try:
+    # ... Playwright automation ...
+    pass
+finally:
+    proc.terminate()
 ```
 
-To create an automation script, include only Playwright logic (servers are managed automatically):
+Then the Playwright body looks the same as the bundled-helper version:
 ```python
 from playwright.sync_api import sync_playwright
 
@@ -98,4 +106,4 @@ with sync_playwright() as p:
   - `static_html_automation.py` - Using file:// URLs for local HTML
   - `console_logging.py` - Capturing console logs during automation
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

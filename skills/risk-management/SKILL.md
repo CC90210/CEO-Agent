@@ -144,5 +144,5 @@ Since the primary retainer represents 94% of revenue, this scenario gets its own
 
 ## Obsidian Links
 - [[brain/CEO_OPERATING_SYSTEM]] | [[brain/STATE]] | [[brain/CAPABILITIES]]
-- [[skills/client-success/SKILL]] | [[skills/financial-modeling/SKILL]]
-- [[skills/strategic-planning/SKILL]] | [[skills/scaling-playbook/SKILL]]
+- [[skills/client-success/SKILL.md]] | [[skills/financial-modeling/SKILL.md]]
+- [[skills/strategic-planning/SKILL.md]] | [[skills/scaling-playbook/SKILL.md]]

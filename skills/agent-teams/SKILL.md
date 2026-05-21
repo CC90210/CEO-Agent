@@ -112,5 +112,5 @@ This skill extends `skills/task-routing/SKILL.md`. When task routing classifies 
 | ARCHITECTURAL | Recommended: architect teammate drafts spec, Bravo implements |
 
 ## Obsidian Links
-- [[brain/AGENTS]] | [[brain/CAPABILITIES]] | [[skills/task-routing/SKILL]]
-- [[skills/anti-drift/SKILL]] | [[skills/codex-delegation/SKILL]]
+- [[brain/AGENTS]] | [[brain/CAPABILITIES]] | [[skills/task-routing/SKILL.md]]
+- [[skills/anti-drift/SKILL.md]] | [[skills/codex-delegation/SKILL.md]]

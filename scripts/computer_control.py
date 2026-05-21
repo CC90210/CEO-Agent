@@ -165,7 +165,7 @@ class _BrowserAPI:
         if not _has_browser_harness():
             return {"ok": False, "error": "Browser Harness not running. "
                     "Start Chrome with --remote-debugging-port=9222 (see "
-                    "scripts/browser_harness_doctor.py for setup)."}
+                    "scripts/browser/browser_harness_doctor.py for setup)."}
         doctor = SCRIPTS_DIR / "browser_harness_doctor.py"
         if not doctor.exists():
             return {"ok": False, "error": "browser_harness_doctor.py missing"}

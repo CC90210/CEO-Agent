@@ -52,4 +52,4 @@ gws sheets +append --spreadsheet ID --json-values '[["a","b"],["c","d"]]'
 - [gws-sheets](../gws-sheets/SKILL.md) — All read and write spreadsheets commands
 
 ## Obsidian Links
-- [[brain/CAPABILITIES]] | [[skills/INDEX]] | [[brain/DASHBOARD]]
+- [[brain/CAPABILITIES]] | [[skills/INDEX.md]] | [[brain/DASHBOARD]]

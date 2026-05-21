@@ -67,4 +67,4 @@ gws gmail +reply-all --message-id 18f1a2b3c4d --body 'Notes attached' -a notes.p
 - [gws-gmail](../gws-gmail/SKILL.md) — All send, read, and manage email commands
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

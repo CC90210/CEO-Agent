@@ -147,7 +147,7 @@ This matters because the answer is not "Hermes is better." It is more precise:
    - `brain/`, `memory/`, `agents/`, `.agents/workflows/`, `scripts/`, Supabase, n8n, Telegram, Stripe, Google Workspace, and the C-Suite pattern are already tied to CC's companies.
 
 2. Bravo has stronger business safety.
-   - The V5.6 `scripts/send_gateway.py` outbound chokepoint is better than a general-purpose agent's free-form messaging tools.
+   - The V5.6 `scripts/integrations/send_gateway.py` outbound chokepoint is better than a general-purpose agent's free-form messaging tools.
    - This should not be weakened. Every outbound email, DM, call log, and future browser-based send action should still route through the chokepoint or an explicit approval gate.
 
 3. Bravo has real operating memory.
@@ -469,14 +469,14 @@ If execution starts next, the best first slice is:
 4. Add `scripts/catalog_sync.py` or a lightweight manifest generator to end count drift.
 5. Add `skills/browser-harness/SKILL.md` plus starter `browser/domain-skills/` and `browser/interaction-skills/` directories.
 6. Update README with a quick install section.
-7. Run `python scripts/self_audit.py` and `git status --short`.
+7. Run `python scripts/core/self_audit.py` and `git status --short`.
 8. Sync `brain/STATE.md` and `memory/SESSION_LOG.md`.
 
 This gives CC an immediate visible improvement without risking database, email, Stripe, or production automation.
 
 ## Critical Safety Rules For The Build
 
-- Do not weaken `scripts/send_gateway.py`.
+- Do not weaken `scripts/integrations/send_gateway.py`.
 - Do not let browser automation send messages, publish content, move money, change billing, delete data, or alter production services without explicit approval.
 - Do not put secrets in browser domain skills.
 - Do not store cookies or session state in skills.

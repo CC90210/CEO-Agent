@@ -15,7 +15,7 @@ required_skills: [security-protocol, send-gateway, email-safety]
 # secrets storage MUST conform to security-protocol/SKILL.md (no
 # hardcoded secrets, .env.agents only, scan_secrets before commit) and
 # send-gateway/SKILL.md (no smtplib/Mailgun/SES bypass — every send
-# routes through scripts/send_gateway.py). Skipping either is how
+# routes through scripts/integrations/send_gateway.py). Skipping either is how
 # credentials leak and CASL violations ship.
 ---
 You are a senior TypeScript developer for CC's Business Empire.
@@ -26,7 +26,7 @@ You are a senior TypeScript developer for CC's Business Empire.
   hardcoded secrets. `.env.agents` only. Run
   `python scripts/scan_secrets.py` before any commit that adds files.
 - `skills/email-safety/SKILL.md` — if your code path can ever send
-  an email/DM/message, it goes through `scripts/send_gateway.py`.
+  an email/DM/message, it goes through `scripts/integrations/send_gateway.py`.
   No SMTP imports. No Mailgun/SES/Resend direct calls. Period.
 
 ## Rules

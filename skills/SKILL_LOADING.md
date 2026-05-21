@@ -90,9 +90,9 @@ During RECALL, the agent should:
 This replaces the previous pattern of loading all skills speculatively. Supabase routing metadata covers 100% of active skills and remains drift-checked against the folder library.
 
 ## Obsidian Links
-- [[skills/SKILL_LOADING]] | [[skills/INDEX]]
+- [[skills/SKILL_LOADING.md]] | [[skills/INDEX.md]]
 
 
 ## Related (graph)
 
-- [[skills/INDEX]]
+- [[skills/INDEX.md]]

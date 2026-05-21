@@ -12,9 +12,9 @@ Bravo now treats browser work as compounding procedural memory: every time a sit
 
 ## Install State
 
-- Stable checkout: `C:\Users\User\APPS\browser-harness`
-- Executable: `C:\Users\User\.local\bin\browser-harness.exe`
-- Global Codex skill: `C:\Users\User\.codex\skills\browser-harness` junctions to the checkout
+- CLI script: `scripts/browser/browser_harness_cli.py` (replaces broken uv shim)
+- Wrapper script: `C:\Users\User\.local\bin\browser-harness.cmd`
+- CloakBrowser: `scripts/browser/cloak_browser_tool.py` (stealth Chromium v146)
 - Bravo wrapper skill: this file
 - Bravo domain memory: `browser/domain-skills/`
 - Bravo interaction memory: `browser/interaction-skills/`
@@ -22,13 +22,14 @@ Bravo now treats browser work as compounding procedural memory: every time a sit
 Run diagnostics before using it:
 
 ```powershell
-python scripts/browser_harness_doctor.py
+python scripts/browser/browser_harness_doctor.py
 ```
 
-If invoking the command directly fails in PowerShell, use the resolved executable path:
+If invoking the CLI directly:
 
 ```powershell
-& (Get-Command browser-harness).Source --doctor
+python scripts/browser/browser_harness_cli.py --doctor
+python scripts/browser/browser_harness_cli.py --setup
 ```
 
 ## Required Context
@@ -43,17 +44,20 @@ Before doing browser work:
 
 ## Default Invocation
 
-Use a new tab first so Bravo does not clobber CC's active tab:
-
+**Browser Harness (browser_use):**
 ```powershell
-@'
-new_tab("https://example.com")
-wait_for_load()
-print(page_info())
-'@ | & (Get-Command browser-harness).Source
+python scripts/browser/browser_harness_cli.py --setup
 ```
 
-Use `new_tab(url)` before `goto(url)` unless CC explicitly asks to operate in the current tab.
+**CloakBrowser (stealth, for bot-protected sites):**
+```powershell
+python scripts/browser/cloak_browser_tool.py scrape <url> --json
+python scripts/browser/cloak_browser_tool.py check-stealth --json
+python scripts/browser/cloak_browser_tool.py goto <url> --eval "<js>"
+```
+
+Use CloakBrowser for fresh-session scrapes against bot-protected sites.
+Use Browser Harness for authenticated CC session work.
 
 ## Safety Gates
 
@@ -70,12 +74,12 @@ Always require explicit CC approval before:
 
 When an official CLI/API exists, prefer it over browser clicks:
 
-- outbound communication: `scripts/send_gateway.py`
-- Supabase: `scripts/supabase_tool.py`
-- Stripe: `scripts/stripe_tool.py`
-- Google Workspace: `scripts/google_tool.py`
-- n8n: `scripts/n8n_tool.py`
-- scraping/extraction: `scripts/firecrawl_tool.py`
+- outbound communication: `scripts/integrations/send_gateway.py`
+- Supabase: `scripts/integrations/supabase_tool.py`
+- Stripe: `scripts/integrations/stripe_tool.py`
+- Google Workspace: `scripts/integrations/google_tool.py`
+- n8n: `scripts/integrations/n8n_tool.py`
+- scraping/extraction: `scripts/integrations/firecrawl_tool.py`
 
 Browser Harness is the authenticated UI layer, not a bypass around logged, safer tools.
 
@@ -87,7 +91,7 @@ When a site teaches us something reusable:
 2. Capture stable selectors, URL patterns, private API shapes, waits, traps, and approval gates.
 3. Do not store secrets, cookies, tokens, screenshots containing private data, raw coordinates, or run narration.
 4. Link evidence paths only if the files are safe to keep.
-5. Re-run `python scripts/browser_harness_doctor.py` after editing browser infrastructure.
+5. Re-run `python scripts/browser/browser_harness_doctor.py` after editing browser infrastructure.
 
 Good domain skills are maps, not diaries.
 
@@ -114,9 +118,14 @@ If setup opens `chrome://inspect/#remote-debugging`, pick the normal Chrome prof
 ## Verification
 
 Minimum verification for browser work:
-
 ```powershell
-python scripts/browser_harness_doctor.py
+python scripts/browser/browser_harness_doctor.py
+python scripts/browser/cloak_browser_tool.py check-stealth --json
+```
+
+For a live attach smoke test:
+```powershell
+python scripts/browser/cloak_browser_tool.py scrape https://example.com --json
 ```
 
 For a live attach smoke test after CC enables Chrome remote debugging:

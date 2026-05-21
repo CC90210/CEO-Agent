@@ -5,10 +5,12 @@
 #
 # Replace OPS_DOMAIN with the actual FQDN you point at the VPS, e.g.,
 # ops.oasisai.work. The email is required by Let's Encrypt for cert renewal
-# notices — use Konamak@icloud.com or a dedicated alias.
+# notices — set CADDY_ACME_EMAIL in .env.agents to an address you actually
+# read. Defaults to a generic admin alias so the file doesn't leak the
+# operator's personal email.
 
 {
-    email {$CADDY_ACME_EMAIL:Konamak@icloud.com}
+    email {$CADDY_ACME_EMAIL:admin@oasisai.work}
     # Stricter defaults: disable OCSP stapling leaks, block HTTP/3 if unstable
     # servers_policy internal  # uncomment if you want internal CA for staging
 }

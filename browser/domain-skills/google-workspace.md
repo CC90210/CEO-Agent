@@ -15,7 +15,7 @@
 
 ## Preferred Tools
 
-- Use `python scripts/google_tool.py` for Gmail, Drive, Docs, Sheets, Slides, Calendar, and Tasks.
+- Use `python scripts/integrations/google_tool.py` for Gmail, Drive, Docs, Sheets, Slides, Calendar, and Tasks.
 - Browser Harness is for UI-only tasks and visual verification.
 
 ## Traps

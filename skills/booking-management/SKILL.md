@@ -97,4 +97,4 @@ Meeting notes on `complete` are stored against the booking record. Pull them bac
 - **revenue_engine.py** — meetings that close into retainers should be logged: `revenue_engine.py log-revenue` the day the contract is confirmed
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

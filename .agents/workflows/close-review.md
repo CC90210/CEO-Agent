@@ -93,7 +93,7 @@ When this workflow fires, Bravo:
    - Lesson learned
 6. **Check for repeat patterns** — grep `memory/sales_patterns.md` for the same objection. If seen 3+ times, propose an update to `skills/sales-closing/SKILL.md` with the new handling pattern.
 7. **Update** `memory/ACTIVE_TASKS.md` if the call moved a deal's stage
-8. **If lost:** Set 90-day follow-up reminder via `python scripts/cron_engine.py add --task "followup: [deal]" --when "+90d"`
+8. **If lost:** Set 90-day follow-up reminder via `python scripts/core/cron_engine.py add --task "followup: [deal]" --when "+90d"`
 9. **If won:** Log the winning technique to `memory/PATTERNS.md` as a validated pattern with `[V]` tag after 3 wins
 
 ## The Compound Effect

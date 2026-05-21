@@ -19,16 +19,16 @@ External integrations and on-disk raw data. Agents should NOT read these directl
 
 | Domain | Source | Access | Owner |
 |--------|--------|--------|-------|
-| Sales / CRM | Supabase `leads`, `lead_interactions`, `revenue_events` | `scripts/supabase_tool.py`, `scripts/lead_engine.py` | Bravo |
-| Revenue | Stripe (subs, charges, balance) | `scripts/stripe_tool.py`, `scripts/revenue_engine.py sync-stripe` | Bravo |
-| Comms | Gmail, Google Calendar, GWS | `scripts/google_tool.py` | Bravo |
-| Inbound funnel | JotForm webhooks, n8n triggers, funnel_leads table | `scripts/cron_engine.py` (Funnel Fast-Poll), `scripts/inbound_classifier.py` | Bravo |
-| Content | Late / Zernio (cross-platform posts) | `scripts/late_tool.py` | Maven (CMO-Agent) |
+| Sales / CRM | Supabase `leads`, `lead_interactions`, `revenue_events` | `scripts/integrations/supabase_tool.py`, `scripts/lead_engine.py` | Bravo |
+| Revenue | Stripe (subs, charges, balance) | `scripts/integrations/stripe_tool.py`, `scripts/revenue_engine.py sync-stripe` | Bravo |
+| Comms | Gmail, Google Calendar, GWS | `scripts/integrations/google_tool.py` | Bravo |
+| Inbound funnel | JotForm webhooks, n8n triggers, funnel_leads table | `scripts/core/cron_engine.py` (Funnel Fast-Poll), `scripts/inbound_classifier.py` | Bravo |
+| Content | Late / Zernio (cross-platform posts) | `../CMO-Agent/scripts/late_tool.py` (owned by Maven) | Maven (CMO-Agent) |
 | Finance / Trading | Kraken, QuickBooks API | (Atlas-owned: `~/APPS/trading-agent/`) | Atlas |
-| Ops state | `state/empire_state.db` (SQLite/WAL), `state/memory_index.db` (FTS5+LanceDB) | `scripts/state_manager.py`, `scripts/memory_retriever.py` | Bravo |
+| Ops state | `state/empire_state.db` (SQLite/WAL), `state/memory_index.db` (FTS5+LanceDB) | `scripts/state/state_manager.py`, `scripts/core/memory_retriever.py` | Bravo |
 | On-disk data | `data/competitors.json`, `data/email_suppressions.csv`, `data/pulse/`, `data/content_research/` | direct file read | Bravo |
-| Cross-agent inbox | `tmp/agent_inbox/inbox/`, `tmp/agent_inbox/read/` | `scripts/agent_inbox.py` | Bravo |
-| Event bus | Postgres `agent_events` (LISTEN/NOTIFY), `tmp/events_offline.jsonl` fallback | `scripts/event_router.py` | Bravo |
+| Cross-agent inbox | `tmp/agent_inbox/inbox/`, `tmp/agent_inbox/read/` | `scripts/core/agent_inbox.py` | Bravo |
+| Event bus | Postgres `agent_events` (LISTEN/NOTIFY), `tmp/events_offline.jsonl` fallback | `scripts/core/event_router.py` | Bravo |
 
 ---
 
@@ -41,9 +41,9 @@ Python-only. No LLM. Runs on a schedule (cron) and writes a JSON artifact agents
 | Daily briefing | `scripts/snapshots/briefing_snapshot.py` | `0 6 * * *` | `state/snapshots/latest_briefing.json` + dated | `skills/ceo-briefing/`, `skills/ceo-dashboard/`, `agents/chief-of-staff.md` |
 | Weekly qualified leads | `scripts/snapshots/leads_snapshot.py` | `0 22 * * SAT` | `state/snapshots/latest_leads.json` + ISO-week | `agents/revenue-hunter.md`, `agents/chief-of-staff.md` |
 | Daily client alerts | `scripts/snapshots/client_alerts_snapshot.py` | `0 7 * * *` | `state/snapshots/latest_client_alerts.json` + dated | `agents/chief-of-staff.md`, `skills/client-success/` |
-| FTS5 + vector index | `scripts/memory_retriever.py update` (incremental on PostToolUse Edit/Write) | event-driven | `state/memory_index.db` + `state/memory_index.lance/` | All hooks + agents via `memory_retriever.py query` |
+| FTS5 + vector index | `scripts/core/memory_retriever.py update` (incremental on PostToolUse Edit/Write) | event-driven | `state/memory_index.db` + `state/memory_index.lance/` | All hooks + agents via `memory_retriever.py query` |
 | Stripe → revenue_events | `scripts/revenue_engine.py sync-stripe` | `0 6 * * *` (existing) | Supabase `revenue_events` rows | `revenue_engine.py mrr`, downstream snapshots |
-| Funnel lead sync | `scripts/cron_engine.py` action_type `funnel_sync` | `*/5 * * * *` | Supabase `leads` (welcome email backstop) | `lead_engine.py`, downstream snapshots |
+| Funnel lead sync | `scripts/core/cron_engine.py` action_type `funnel_sync` | `*/5 * * * *` | Supabase `leads` (welcome email backstop) | `lead_engine.py`, downstream snapshots |
 
 **Refresh cadence rule:** Read-path checks `ts` field. If > 24h old (or > 8 days for weekly), trigger a manual rebuild or fall back to live engines.
 
@@ -74,7 +74,7 @@ When wiring a new integration:
 
 1. **Pantry first:** Get the raw data flowing (`scripts/*_tool.py` CLI wrapper with `--json`).
 2. **Decide if it needs a Prep Table.** If agents will read it more than 2×/day, build a snapshot script under `scripts/snapshots/`. Else, agents can call the CLI directly.
-3. **If Prep Table:** add a row to the table above, register in `scripts/cron_engine.py` SEED_JOBS, write a `scripts/snapshots/<name>_snapshot.py`. Output to `state/snapshots/latest_<name>.json`.
+3. **If Prep Table:** add a row to the table above, register in `scripts/core/cron_engine.py` SEED_JOBS, write a `scripts/snapshots/<name>_snapshot.py`. Output to `state/snapshots/latest_<name>.json`.
 4. **Update consumers:** the agents/skills that read it should prefer the snapshot, fall back to live.
 5. **Index it:** `silver-platter` audit picks it up automatically from this file.
 

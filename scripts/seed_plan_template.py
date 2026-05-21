@@ -51,7 +51,7 @@ WEEKDAY_TEMPLATE = {
         {"time_label": "15:00 — 16:00", "title": "Content — 1 piece shipped", "body": "Record a 60-sec iPhone vertical OR write a long-form post. Hand to Maven for the pipeline.", "intensity": "normal"},
         {"time_label": "16:00 — 16:30", "title": "Pipeline review + KPI log", "body": "Open Pipeline. Confirm every call shows. Update statuses. Score: dials / conversations / bookings.", "intensity": "normal"},
         {"time_label": "16:30 — 17:30", "title": "Strategic partner outreach (3 targets)", "body": "Tier 1 partner pitch. Recruitment, not selling. One business coach, one accountant, one agency.", "intensity": "intense"},
-        {"time_label": "17:30 — 18:00", "title": "End of day + state sync", "body": "python scripts/state_sync.py --note. Pre-stage tomorrow's leads. Sleep at 11.", "intensity": "normal"},
+        {"time_label": "17:30 — 18:00", "title": "End of day + state sync", "body": "python scripts/state/state_sync.py --note. Pre-stage tomorrow's leads. Sleep at 11.", "intensity": "normal"},
     ],
 }
 

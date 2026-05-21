@@ -246,8 +246,8 @@ def _tool_send_email(payload: dict) -> dict:
     """{to: str, subject: str, body: str, lead_id?: str} → send_gateway.
 
     2026-05-16 Codex review finding #5 fix: this used to shell out
-    directly to scripts/google_tool.py mail send, which bypassed
-    scripts/send_gateway.py — the SINGLE outbound chokepoint that
+    directly to scripts/integrations/google_tool.py mail send, which bypassed
+    scripts/integrations/send_gateway.py — the SINGLE outbound chokepoint that
     enforces CASL suppression, per-recipient cooldown, daily caps,
     multi-brand routing, and the audit ledger. A chat-initiated email
     that skipped send_gateway could (a) re-mail a recently-contacted
@@ -268,7 +268,7 @@ def _tool_send_email(payload: dict) -> dict:
     if not body:
         return _err("missing 'body'")
     args = [
-        "scripts/send_gateway.py", "send",
+        "scripts/integrations/send_gateway.py", "send",
         "--channel", "email",
         "--agent-source", "manual_cc",
         "--to", to_addr,
@@ -299,7 +299,7 @@ def _tool_send_sms(payload: dict) -> dict:
     if not body:
         return _err("missing 'body'")
     args = [
-        "scripts/send_gateway.py", "send",
+        "scripts/integrations/send_gateway.py", "send",
         "--channel", "sms",
         "--agent-source", "manual_cc",
         "--to", to_num,
@@ -545,7 +545,7 @@ def _run_typed_tool(script_name: str, payload: dict) -> dict:
 
 def _tool_stripe(payload: dict) -> dict:
     """Stripe SDK — payments, customers, subscriptions, payment links,
-    refunds. Calls scripts/stripe_tool.py. Actions include: list-accounts,
+    refunds. Calls scripts/integrations/stripe_tool.py. Actions include: list-accounts,
     balance, customers, products, prices, invoices, subscriptions, charges,
     payment-links, create-payment-link, create-price, quick-link,
     create-customer, create-invoice, refund, events."""
@@ -554,27 +554,27 @@ def _tool_stripe(payload: dict) -> dict:
 
 def _tool_supabase(payload: dict) -> dict:
     """Supabase — query the operator's database, manage tables, run RPCs.
-    Calls scripts/supabase_tool.py. Most useful actions: query (raw SQL),
+    Calls scripts/integrations/supabase_tool.py. Most useful actions: query (raw SQL),
     list, get, insert, update, delete."""
     return _run_typed_tool("supabase_tool.py", payload)
 
 
 def _tool_n8n(payload: dict) -> dict:
     """n8n — list workflows, execute by name, get execution status, manage
-    webhooks. Calls scripts/n8n_tool.py."""
+    webhooks. Calls scripts/integrations/n8n_tool.py."""
     return _run_typed_tool("n8n_tool.py", payload)
 
 
 def _tool_firecrawl(payload: dict) -> dict:
     """Firecrawl — scrape a URL, crawl a site, get markdown extraction.
-    Calls scripts/firecrawl_tool.py. Use when the operator wants competitor
+    Calls scripts/integrations/firecrawl_tool.py. Use when the operator wants competitor
     research, page extraction, or a starting-point for content drafting."""
     return _run_typed_tool("firecrawl_tool.py", payload)
 
 
 def _tool_notebooklm(payload: dict) -> dict:
     """NotebookLM — query the operator's curated knowledge base, get
-    citations, ask multi-doc questions. Calls scripts/notebooklm_tool.py."""
+    citations, ask multi-doc questions. Calls scripts/integrations/notebooklm_tool.py."""
     return _run_typed_tool("notebooklm_tool.py", payload)
 
 
@@ -963,7 +963,7 @@ def _tool_shop_out_send_batch(payload: dict) -> dict:
       3. Build the email body using the same template the planner
          renders during the dry-run preview (kept on the thread row's
          data jsonb when shop-out queued).
-      4. Subprocess scripts/send_gateway.py send --channel email
+      4. Subprocess scripts/integrations/send_gateway.py send --channel email
          --agent-source manual_cc --to <lender> --subject ... --body ...
          --lead-id <app's lead_id> --json. send_gateway enforces
          CASL/cooldown/daily-cap automatically.
@@ -1059,7 +1059,7 @@ def _tool_shop_out_send_batch(payload: dict) -> dict:
             continue
 
         send_args = [
-            "scripts/send_gateway.py", "send",
+            "scripts/integrations/send_gateway.py", "send",
             "--channel", "email",
             "--agent-source", "manual_cc",
             "--to", recipient,

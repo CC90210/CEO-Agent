@@ -319,13 +319,13 @@ def _load_script_manifest() -> dict[str, dict]:
     # Static fallback — keeps the bridge usable without a manifest.
     print("[bridge] no _bridge_manifest.json found; using static fallback", file=sys.stderr)
     return {
-        "supabase_select": {"path": "scripts/supabase_tool.py", "subcmd": "select", "mutating": False,
+        "supabase_select": {"path": "scripts/integrations/supabase_tool.py", "subcmd": "select", "mutating": False,
                              "help": "Query a Supabase table."},
         "lead_engine_list": {"path": "scripts/lead_engine.py", "subcmd": "list", "mutating": False,
                               "help": "List leads."},
         "revenue_engine_mrr": {"path": "scripts/revenue_engine.py", "subcmd": "mrr", "mutating": False,
                                 "help": "Current Net MRR."},
-        "send_gateway_send": {"path": "scripts/send_gateway.py", "subcmd": "send", "mutating": True,
+        "send_gateway_send": {"path": "scripts/integrations/send_gateway.py", "subcmd": "send", "mutating": True,
                                "help": "Send via the 8-gate safety pipeline."},
     }
 
@@ -2903,7 +2903,7 @@ def _self_pair_if_needed() -> str | None:
     if not profile_id or not hmac_secret:
         print(
             "[bridge] no OASIS_PROFILE_ID / OASIS_OUTBOUND_HMAC_SECRET — "
-            "skipping self-pair (run `python scripts/n8n_webhook_secret.py "
+            "skipping self-pair (run `python scripts/integrations/n8n_webhook_secret.py "
             "issue --profile-email <you> --save-env` to enable).",
             file=sys.stderr,
         )
@@ -2972,7 +2972,7 @@ _ENV_KEY_TO_SERVICE_FALLBACK = {
     "SUPABASE_ACCESS_TOKEN": "supabase",
     "BRAVO_SUPABASE_URL": "supabase",
     # Comms — single GMAIL_APP_PASSWORD covers the entire Google
-    # Workspace surface via scripts/google_tool.py.
+    # Workspace surface via scripts/integrations/google_tool.py.
     "GMAIL_APP_PASSWORD": "gws",
     "TELEGRAM_BOT_TOKEN": "telegram",
     "TWILIO_ACCOUNT_SID": "text_torrent",

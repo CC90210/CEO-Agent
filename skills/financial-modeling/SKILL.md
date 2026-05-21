@@ -208,7 +208,7 @@ Percentages are vs Month 1 revenue for that cohort.
 | May 2026 | $X | $X | $X |
 | Jun 2026 | $X | $X | $X |
 
-North star: $5,000 MRR by May 15, 2026
+North star: $5,000 MRR by June 18, 2026
 Gap: $2,018 ÷ $1,000 avg deal = 2 new clients needed minimum
 ```
 
@@ -610,6 +610,6 @@ Target: 0.75+ by adding formal contracts to existing clients
 ---
 
 ## Obsidian Links
-- [[brain/STATE]] | [[brain/USER]] | [[skills/strategic-planning/SKILL]]
-- [[skills/ceo-briefing/SKILL]] | [[../../CMO-Agent/skills/competitive-intelligence/SKILL]]
-- [[skills/client-success/SKILL]] | [[memory/ACTIVE_TASKS]] | [[brain/CAPABILITIES]]
+- [[brain/STATE]] | [[brain/USER]] | [[skills/strategic-planning/SKILL.md]]
+- [[skills/ceo-briefing/SKILL.md]] | [[../../CMO-Agent/skills/competitive-intelligence/SKILL]]
+- [[skills/client-success/SKILL.md]] | [[memory/ACTIVE_TASKS]] | [[brain/CAPABILITIES]]

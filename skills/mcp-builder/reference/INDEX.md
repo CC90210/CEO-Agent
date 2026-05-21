@@ -14,4 +14,4 @@ last_updated: 2026-05-11
 - [[skills/mcp-builder/reference/python_mcp_server]]
 
 ## Parent
-- [[skills/mcp-builder/SKILL]]
+- [[skills/mcp-builder/SKILL.md]]

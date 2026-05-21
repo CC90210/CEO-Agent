@@ -4,7 +4,8 @@
   "description": "> Autonomous AI operations hub for CC's business empire. Manages codebases, deployments, content pipelines, and business operations across OASIS AI Solutions, PropFlow, and Nostalgic Requests.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "python -m pytest scripts/ -v --tb=short",
+    "test:quiet": "python -m pytest scripts/ -q",
     "telegram": "node telegram_agent.js",
     "telegram:bg": "node telegram_agent.js >> telegram_bot.log 2>&1",
     "ai:doctor": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ai_workstation_doctor.ps1",
@@ -15,7 +16,7 @@
     "ai:security-events": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ai_operator.ps1 security-events",
     "ai:tools": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ai_operator.ps1 tools",
     "ai:upgrade-plan": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ai_operator.ps1 upgrade-plan",
-    "browser:doctor": "python scripts/browser_harness_doctor.py",
+    "browser:doctor": "python scripts/browser/browser_harness_doctor.py",
     "browser:setup": "powershell -NoProfile -Command \"& (Get-Command browser-harness).Source --setup\"",
     "onboarding:doctor": "python scripts/onboarding_diagnostics.py",
     "gateway": "node gateway/index.js",

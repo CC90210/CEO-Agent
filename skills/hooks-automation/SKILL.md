@@ -182,6 +182,6 @@ Hook settings in `.agents/config.toml`:
 - `[hooks.learning]` — Learning trigger settings
 
 ## Obsidian Links
-- [[brain/CAPABILITIES]] | [[skills/task-routing/SKILL]]
-- [[skills/anti-drift/SKILL]] | [[skills/memory-management/SKILL]]
-- [[skills/code-review/SKILL]] | [[skills/security-protocol/SKILL]]
+- [[brain/CAPABILITIES]] | [[skills/task-routing/SKILL.md]]
+- [[skills/anti-drift/SKILL.md]] | [[skills/memory-management/SKILL.md]]
+- [[skills/code-review/SKILL.md]] | [[skills/security-protocol/SKILL.md]]

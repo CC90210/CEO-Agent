@@ -503,4 +503,4 @@ Good luck!
 - [[skills/skill-creator/references/schemas]] — JSON schemas for evals.json, grading.json, benchmark.json
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

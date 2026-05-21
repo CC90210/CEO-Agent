@@ -65,7 +65,7 @@ tags: [product, architecture, business-in-a-box, clonable]
 | `brain/USER.md` | PERSONAL | CC-specific → must be buyer-specific |
 | `brain/clients/*.md` | PERSONAL | Each buyer's clients/brands |
 | `data/pulse/ceo_pulse.json` | PERSONAL | Live financial state, MRR figures |
-| `skills/content-engine/SKILL.md` | CORE | Content voice framework + calibration rules |
+| `../CMO-Agent/skills/content-engine/SKILL.md` (Maven) | CORE | Content voice framework + calibration rules (moved to CMO-Agent 2026-04-04) |
 | `memory/MISTAKES.md` | PERSONAL (template empty in CORE) | Each buyer accumulates their own |
 | `.env.agents` | PERSONAL (gitignored) | Credentials |
 | `.env.agents.template` | CORE | Documents what keys are needed |
@@ -211,9 +211,9 @@ The `self-improvement-protocol/` skill we just built is not just infrastructure 
 
 ## Related Docs
 
-- [[C_SUITE_ARCHITECTURE]] — governance
-- [[CROSS_AGENT_AWARENESS]] — pulse protocol
-- [[RAG_SYSTEM]] — memory stack
+- [[brain/C_SUITE_ARCHITECTURE]] — governance
+- [[brain/CROSS_AGENT_AWARENESS]] — pulse protocol
+- [[brain/RAG_SYSTEM]] — memory stack
 - `skills/self-improvement-protocol/SKILL.md` — the self-healing/evolving loop every agent runs
 - `brain/CANONICAL_ROLES.md` (being written) — canonical CEO/CFO/CMO scope
 - `brain/PRODUCT_VERTICALS.md` (being written) — vertical packs + lead management + marketing research

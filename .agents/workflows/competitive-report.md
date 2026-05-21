@@ -150,7 +150,7 @@ For any lost deals, note which competitor won and why. Update the relevant battl
 
 Log to the V6.0 state DB (auto-mirrors to `memory/SESSION_LOG.md`):
 ```bash
-python scripts/state_manager.py log --agent bravo \
+python scripts/state/state_manager.py log --agent bravo \
   --note "Monthly Competitive Report — reviewed [N] competitors, changes: [list], battlecards: [Y/N], key finding: [1 sentence]"
 ```
 

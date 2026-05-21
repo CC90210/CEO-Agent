@@ -205,4 +205,4 @@ This skill works for ANY Skool community CC manages (DJ, AI agency, etc.):
 4. Content format and gamification patterns are reusable
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

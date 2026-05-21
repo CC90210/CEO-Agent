@@ -321,4 +321,4 @@ with open("encrypted.pdf", "wb") as output:
 - [[skills/pdf/reference]] — Advanced reference (pypdfium2, pdf-lib, troubleshooting)
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

@@ -19,7 +19,7 @@ Usage:
     bravo version             Show version and agent info
 
 Wraps existing scripts + the runtime layer. Never duplicates business logic.
-Preserves V5.6 outbound chokepoint (scripts/send_gateway.py).
+Preserves V5.6 outbound chokepoint (scripts/integrations/send_gateway.py).
 """
 
 from __future__ import annotations
@@ -331,13 +331,13 @@ def cmd_doctor(_args: argparse.Namespace) -> int:
         ("scripts/model_router.py",        "list-providers"),
         ("scripts/skill_synthesizer.py",   "scan --since 7d"),
         ("scripts/skill_metrics.py",       "report"),
-        ("scripts/memory_consolidation.py", "status"),
+        ("scripts/core/memory_consolidation.py", "status"),
         ("scripts/personalize.py",         "check"),
         ("scripts/scaffold.py",            None),  # has no subcommand, --help only
         ("scripts/fleet_health.py",        None),
-        ("scripts/cron_dispatcher.py",     None),
+        ("scripts/core/cron_dispatcher.py",     None),
         ("scripts/pulse_publish.py",       None),
-        ("scripts/system_cleanup.py",      None),
+        ("scripts/core/system_cleanup.py",      None),
         ("scripts/computer_control.py",    "info"),
         ("scripts/neuro_symbolic_gate.py", "rules"),
         ("scripts/gnn_skill_router.py",    None),

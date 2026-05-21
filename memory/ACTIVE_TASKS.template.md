@@ -1,5 +1,7 @@
 ---
 tags: [tasks, active]
+last_updated: 2026-05-21
+freshness_threshold_days: 7
 ---
 # ACTIVE TASKS — {{ preferred_name }}
 

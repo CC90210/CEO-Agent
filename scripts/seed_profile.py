@@ -206,7 +206,7 @@ CC_TODAY_PLAN = {
         {
             "time_label": "7:30 — 8:00",
             "title": "Day retro + state sync",
-            "body": "python scripts/state_sync.py --note. Pre-stage tomorrow's 30 leads. Sleep at 11.",
+            "body": "python scripts/state/state_sync.py --note. Pre-stage tomorrow's 30 leads. Sleep at 11.",
             "intensity": "normal",
         },
     ],

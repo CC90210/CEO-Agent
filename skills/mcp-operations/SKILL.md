@@ -27,10 +27,10 @@ dependencies: []
 
 | User Intent | CLI Tool | Command | Example |
 |---|---|---|---|
-| n8n workflows | `python scripts/n8n_tool.py` | `list`, `get <id>`, `execute <id>`, `activate/deactivate <id>` | "List my workflows" |
+| n8n workflows | `python scripts/integrations/n8n_tool.py` | `list`, `get <id>`, `execute <id>`, `activate/deactivate <id>` | "List my workflows" |
 | Social media posts | `python ../CMO-Agent/scripts/late_tool.py` (Maven) | `accounts`, `posts`, `create --text "..." --account <id>`, `cross-post` | "Post this to X" |
-| Database queries | `python scripts/supabase_tool.py` | `select <table>`, `insert`, `update`, `delete`, `sql "..."` | "Show my tables" |
-| Payments / billing | `python scripts/stripe_tool.py` | `balance`, `customers`, `invoices`, `products`, `subscriptions` | "Check my Stripe balance" |
+| Database queries | `python scripts/integrations/supabase_tool.py` | `select <table>`, `insert`, `update`, `delete`, `sql "..."` | "Show my tables" |
+| Payments / billing | `python scripts/integrations/stripe_tool.py` | `balance`, `customers`, `invoices`, `products`, `subscriptions` | "Check my Stripe balance" |
 | Email / Calendar | `gws` CLI | `gws gmail users messages list`, `gws calendar events list` (REST-style syntax, use --params for filters) | "Check my email" |
 | Website-to-CLI | OpenCLI | `opencli explore <url>`, `opencli <platform> <cmd>` | "What's trending?" |
 
@@ -92,7 +92,7 @@ dependencies: []
 ## CLI Tool Details
 
 ### n8n (Workflow Automation)
-**Script:** `python scripts/n8n_tool.py`
+**Script:** `python scripts/integrations/n8n_tool.py`
 **Instance:** https://n8n.srv993801.hstgr.cloud (Hostinger VPS)
 **Inventory:** 47 workflows, 10 active
 **Credentials:** `N8N_API_URL` + `N8N_API_KEY` from `.env.agents`
@@ -131,7 +131,7 @@ for back-compat; same key, the Zernio API still accepts it)
 Always validate character count BEFORE posting.
 
 ### Supabase (Database)
-**Script:** `python scripts/supabase_tool.py`
+**Script:** `python scripts/integrations/supabase_tool.py`
 **Credentials:** `SUPABASE_ACCESS_TOKEN`, project-specific URLs + keys from `.env.agents`
 
 | Command | Purpose |
@@ -146,7 +146,7 @@ Always validate character count BEFORE posting.
 **Projects:** bravo (`phctllmtsogkovoilwos`), nostalgic-requests (`jqybbrtzpvmefgzzdagz`), oasis-ai-platform (`sajanpiqysuwviucycjh`)
 
 ### Stripe (Payments)
-**Script:** `python scripts/stripe_tool.py`
+**Script:** `python scripts/integrations/stripe_tool.py`
 **Credentials:** Stripe API key from `.env.agents`
 **Note:** Stripe MCP (v0.3.1) switched to OAuth proxy mode — permanently broken. CLI tool is the only option.
 
@@ -192,4 +192,4 @@ Credential-dependent services use CLI tools that read `.env.agents` directly.
 | MCP server hangs | Server crash on init | Restart terminal |
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

@@ -55,7 +55,7 @@ tags: [changelog, audit]
 ### 2026-05-15 — V6.7+ — CloakBrowser stealth tier integration
 **Tier:** SEMI-MUTABLE (skill + brain docs) + FREELY MUTABLE (CLI wrapper)
 **What changed:**
-- New CLI wrapper `scripts/cloak_browser_tool.py` (6 subcommands: scrape, goto, check-stealth, binary-info, download, clear-cache) with proxy support via `CLOAK_PROXY_URL` / `CLOAK_PROXY_USERNAME` / `CLOAK_PROXY_PASSWORD` / `CLOAK_TIMEZONE_ID` / `CLOAK_LOCALE` (all loaded via `lib/secret_loader.py`).
+- New CLI wrapper `scripts/browser/cloak_browser_tool.py` (6 subcommands: scrape, goto, check-stealth, binary-info, download, clear-cache) with proxy support via `CLOAK_PROXY_URL` / `CLOAK_PROXY_USERNAME` / `CLOAK_PROXY_PASSWORD` / `CLOAK_TIMEZONE_ID` / `CLOAK_LOCALE` (all loaded via `lib/secret_loader.py`).
 - New skill `skills/cloak-browser/SKILL.md` (canonical reference + license caveat + proxy guidance).
 - Decision matrix promoted from 3 → 4 tools across `skills/web-scraping/SKILL.md` + `skills/browser-automation/SKILL.md`.
 - Brain updates: `CAPABILITIES.md` (browser-layers section + MCP-replacement table row), `QUICK_REFERENCE.md` (intent → tool routing entry), `INTENTS.md` (new "Scrape <URL>" 4-tier playbook), `AGENT_ROUTER.md` (router-table entries for unprotected vs protected scrape), `WHEN_TO_USE_SKILLS.md` (browser-automation row split into 4 tools).
@@ -80,7 +80,7 @@ tags: [changelog, audit]
 - NEW scripts: `event_bus.py` (pub/sub + offline queue), `memory_chunker.py` (MD → chunks), `memory_ingest.py` (chunks → pgvector), `memory_query.py` (RAG retrieval), `pii_scrubber.py` (reversible redaction)
 - NEW `infra/` — Dockerfile (Python 3.12-slim non-root), docker-compose.yml (5 daemons + pgbouncer + Caddy), Caddyfile (Let's Encrypt + security headers), .dockerignore, README.md runbook
 - NEW `.github/workflows/deploy-vps.yml` — CD pipeline with tests + Telegram notify
-- UPDATE `scripts/send_gateway.py` (via Codex) — bounce circuit breaker, HOURLY_CAPS, per-domain cooldown, draft_critic gate, DNS reputation doctor
+- UPDATE `scripts/integrations/send_gateway.py` (via Codex) — bounce circuit breaker, HOURLY_CAPS, per-domain cooldown, draft_critic gate, DNS reputation doctor
 - NEW `scripts/dns_reputation.py` (via Codex) — SPF/DKIM/DMARC verification
 - FIX stale Calendly references in `APPS_CONTEXT/OASIS_AI_CLAUDE.md`, `brain/MAC_SYNC_PROMPT.md`, `memory/ARCHIVES/lead_system/build_workflows.py`, `.agents/plans/inbound-engine-build-plan.md`
 - UPDATE `brain/CAPABILITIES.md` — registered browser_connect.py + V6 scaffold table

@@ -22,7 +22,7 @@ Read `brain/STATE.md`, `memory/ACTIVE_TASKS.md`, and `memory/SESSION_LOG.md` bef
 
 ## Session Protocol
 
-Before ending: run `python scripts/self_audit.py`, update `brain/STATE.md`, commit with `{{agent_name}}: sync — session YYYY-MM-DD`, say "Memory synced."
+Before ending: run `python scripts/core/self_audit.py`, update `brain/STATE.md`, commit with `{{agent_name}}: sync — session YYYY-MM-DD`, say "Memory synced."
 
 ## Obsidian Links
 - [[brain/SOUL]] · [[brain/STATE]] · [[brain/USER]]

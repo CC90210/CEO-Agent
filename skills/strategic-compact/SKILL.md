@@ -41,4 +41,4 @@ Manage session context by compacting at logical boundaries rather than arbitrary
 - **Clear the "dead-end"**: If an approach fails, compact to remove the confusing "noise" from the session context.
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

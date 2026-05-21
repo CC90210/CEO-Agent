@@ -15,7 +15,7 @@ confidence: 0.92
 
 ## North Star
 
-**$5,000 USD Net MRR by May 15, 2026.**
+**$5,000 USD Net MRR by June 18, 2026.**
 
 Previous milestone: $1,000 USD Net MRR by March 31, 2026 — achieved at $2,691 USD (+169% surplus).
 Current Net MRR: ~$2,982 USD/mo.
@@ -84,7 +84,7 @@ net margin approaches 96%.
 | Mix of Starter + Growth | ~4–5 clients | ~4–5 weeks |
 | Rev share growth alone | Community needs ~$22K MRR | Not fast enough |
 
-**Recommended path:** Close 4–5 OASIS retainer clients between now and May 15, 2026.
+**Recommended path:** Close 4–5 OASIS retainer clients between now and June 18, 2026.
 Inbound funnel (CC Funnel + content) is the primary lead source.
 Cold outreach (NEPQ-style) as secondary source.
 
@@ -102,7 +102,7 @@ Cold outreach (NEPQ-style) as secondary source.
 |------|---------|
 | March 31, 2026 | $2,691 (milestone achieved) |
 | April 6, 2026 | $2,982 |
-| Target May 15, 2026 | $5,000 |
+| Target June 18, 2026 | $5,000 |
 
 ## Sources
 - `brain/STATE.md` — current MRR, gap analysis, risk flags

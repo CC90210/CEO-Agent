@@ -38,4 +38,4 @@ Plan and manage events — scheduling, invitations, and logistics.
 
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

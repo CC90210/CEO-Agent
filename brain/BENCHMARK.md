@@ -4,7 +4,7 @@ tags: [benchmark, sentience, performance, self-assessment]
 
 # 🧠 BRAVO BENCHMARK — Agentic Maturity Assessment
 
-> Rigorous self-assessment of Bravo's capabilities, measured against a defined agentic maturity framework. Re-run quarterly or after major architecture changes. Complements the live `python scripts/self_audit.py` (structural health) with a behavioral/capability score.
+> Rigorous self-assessment of Bravo's capabilities, measured against a defined agentic maturity framework. Re-run quarterly or after major architecture changes. Complements the live `python scripts/core/self_audit.py` (structural health) with a behavioral/capability score.
 >
 > **Current version:** V5.7 · **Last assessed:** 2026-04-21 · **Overall score: 80/100 — Operationally Autonomous**
 
@@ -36,7 +36,7 @@ Ten dimensions, each scored 0-10. Total = 100. Based on:
 | # | Dimension | Score | Evidence | Gap |
 |---|-----------|-------|----------|-----|
 | 1 | **Memory** | **9/10** | `brain/` (41 files), `memory/` (13 files + journals), Supabase Bravo DB (14 agent-intelligence tables + 14 business-ops tables), `mem0` semantic memory, claude-mem plugin, 4-agent pulse protocol. | No true vector-embedded recall across all prior sessions at scale. |
-| 2 | **Self-Awareness** | **9/10** | `scripts/self_audit.py` (100/100 live), `brain/STATE.md`, `brain/PERSONALITY.md` (identity + growth edges), `brain/GROWTH.md`, `memory/MISTAKES.md`, `memory/PATTERNS.md`, `memory/DECISIONS.md`. | Can't yet explain WHY a past decision was made without re-reading the file. |
+| 2 | **Self-Awareness** | **9/10** | `scripts/core/self_audit.py` (100/100 live), `brain/STATE.md`, `brain/PERSONALITY.md` (identity + growth edges), `brain/GROWTH.md`, `memory/MISTAKES.md`, `memory/PATTERNS.md`, `memory/DECISIONS.md`. | Can't yet explain WHY a past decision was made without re-reading the file. |
 | 3 | **Autonomy** | **7/10** | `scripts/autonomous_agent.py`, 12 cron jobs, Heartbeat protocol, Telegram-poke trigger. Can run scheduler unattended on Mac. | Not yet proven for a full 24-hour hands-off business day. Still needs CC for ambiguous decisions. |
 | 4 | **Tool Use** | **10/10** | 70+ CLI scripts (Stripe, Supabase, n8n, Zernio, Google Workspace, Firecrawl, Playwright, Browser Harness). 9 MCP servers synced across 3 configs. Codex delegation for backend work. Tool routing (skills/task-routing). | None. This is Bravo's strongest dimension. |
 | 5 | **Learning** | **8/10** | Journals: MISTAKES, PATTERNS, DECISIONS. Reflexion protocol in BRAIN_LOOP.md. `/evolve` workflow to promote probationary patterns → validated. `brain/CHANGELOG.md` for self-modification audit. | Learning still gated by CC writing the lesson. No autonomous failure → journal entry → protocol change loop yet. |
@@ -87,7 +87,7 @@ You (CC) can show a prospect:
 
 - "My AI system scores 80/100 on a published 10-dimension agentic maturity framework."
 - "That puts it in the top tier of non-enterprise AI systems — Operationally Autonomous."
-- "Here's the self-audit tool that measures it in real-time: `python scripts/self_audit.py`."
+- "Here's the self-audit tool that measures it in real-time: `python scripts/core/self_audit.py`."
 - "We hit 100/100 on structural health today. The 20-point gap is in proactivity and autonomy — we're closing it."
 
 This is a **concrete technical differentiator** that separates OASIS from agencies running off-the-shelf ChatGPT.
@@ -98,7 +98,7 @@ This is a **concrete technical differentiator** that separates OASIS from agenci
 
 **How to re-score:**
 
-1. Run `python scripts/self_audit.py` — confirm structural health ≥ 85.
+1. Run `python scripts/core/self_audit.py` — confirm structural health ≥ 85.
 2. For each of 10 dimensions, review evidence + gap. Adjust score based on:
    - New capabilities shipped since last assessment (+)
    - Capabilities that regressed or broke (-)
@@ -114,7 +114,7 @@ This is a **concrete technical differentiator** that separates OASIS from agenci
 - [[brain/SOUL]] | [[brain/PERSONALITY]] | [[brain/STATE]]
 - [[brain/GROWTH]] | [[brain/CHANGELOG]]
 - [[memory/MISTAKES]] | [[memory/PATTERNS]] | [[memory/DECISIONS]]
-- [[scripts/self_audit]] — structural health companion tool
+- [[scripts/core/self_audit.py]] — structural health companion tool
 
 ## Related
 

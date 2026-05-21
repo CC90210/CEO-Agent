@@ -24,7 +24,7 @@ Pull live MRR and revenue data:
 
 ```bash
 python scripts/revenue_engine.py dashboard --json
-python scripts/stripe_tool.py invoices --limit 20 --json
+python scripts/integrations/stripe_tool.py invoices --limit 20 --json
 python scripts/revenue_engine.py history --months 3 --json
 ```
 
@@ -76,7 +76,7 @@ Report:
 Check active client health from Supabase:
 
 ```bash
-python scripts/supabase_tool.py select leads --project bravo --json
+python scripts/integrations/supabase_tool.py select leads --project bravo --json
 ```
 
 Filter for status = 'client'. For each:
@@ -166,7 +166,7 @@ Gross Margin: X% | Net/mo: $X,XXX | HHI: X.XX
 
 Log to the V6.0 state DB (auto-mirrors to `memory/SESSION_LOG.md`):
 ```bash
-python scripts/state_manager.py log --agent bravo \
+python scripts/state/state_manager.py log --agent bravo \
   --note "Q[X] strategic review — MRR \$X,XXX ([X]% of target), top risk: [risk], top priority: [priority]"
 ```
 

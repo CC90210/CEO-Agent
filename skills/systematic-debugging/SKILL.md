@@ -558,4 +558,4 @@ For any bug that caused production impact, a post-mortem is required before the 
 - [[skills/systematic-debugging/test-pressure-3]] — Pressure scenario 3
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]] | [[skills/test-driven-development/SKILL]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]] | [[skills/test-driven-development/SKILL.md]]

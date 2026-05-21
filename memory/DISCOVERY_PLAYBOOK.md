@@ -1,5 +1,7 @@
 ---
 tags: [sales, outreach, NEPQ]
+last_updated: 2026-05-21
+freshness_threshold_days: 90
 ---
 
 # UNIVERSAL DISCOVERY PLAYBOOK: OASIS AI SOLUTIONS

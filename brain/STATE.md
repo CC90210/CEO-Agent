@@ -4,12 +4,12 @@ tags: [state, ephemeral]
 
 # STATE — Current Operational State
 
-> Updated 2026-05-10 | **V6 OPTIMIZATION PROJECT — 100% COMPLETE.** Apex Phases 1-3 shipped. V6.1 scaffolding mechanism + V6.0.3 polish + V6.0 foundation all intact. Self-audit health: 97/100 (`python scripts/self_audit.py`). Counts are auto-emitted by self_audit and the MANIFEST block at the bottom of this file — do NOT hardcode them in the header.
+> Updated 2026-05-21 (cleanup pass complete — see [memory/CLEANUP_2026-05-21_SUMMARY](../memory/CLEANUP_2026-05-21_SUMMARY.md)) | **V6 OPTIMIZATION PROJECT — 100% COMPLETE.** Apex Phases 1-3 shipped 2026-05-10. V6.1 scaffolding mechanism + V6.0.3 polish + V6.0 foundation all intact. Self-audit health: 97/100 (`python scripts/core/self_audit.py`). Counts are auto-emitted by self_audit and the MANIFEST block at the bottom of this file — do NOT hardcode them in the header.
 >
 > **V6 Apex (2026-05-10 — closes the V6 architecture epic):**
 >   - **Phase 1** — `/api/state-health` two-tier read path: state-api passthrough preferred, Supabase mirror fallback for Vercel. The page renders a `via state-api` / `via supabase-mirror` tag so operators see which side served the payload.
->   - **Phase 2** — Dashboard-driven override approvals. `state_manager.create_override_request` mirrors to Supabase `exec_overrides` (migration 035). `/overrides` page + server action signs with OASIS_OUTBOUND_HMAC_SECRET → `record_exec_override_decision_v1` RPC. `scripts/exec_override_consumer.py loop` applies the decision to local SQLite + HMAC-signs via EMPIRE_OVERRIDE_HMAC_KEY. The at-runtime auth gate stays on CC's machine.
->   - **Phase 3** — Cross-agent event feed. `scripts/event_router.py loop` is a cursor-based, lossless observability tail; `state/event_router.log` carries the on-host audit projection. `/feed` page is the cloud-side view of the same `agent_events` stream with 5s `router.refresh()` (no websockets).
+>   - **Phase 2** — Dashboard-driven override approvals. `state_manager.create_override_request` mirrors to Supabase `exec_overrides` (migration 035). `/overrides` page + server action signs with OASIS_OUTBOUND_HMAC_SECRET → `record_exec_override_decision_v1` RPC. `scripts/state/exec_override_consumer.py loop` applies the decision to local SQLite + HMAC-signs via EMPIRE_OVERRIDE_HMAC_KEY. The at-runtime auth gate stays on CC's machine.
+>   - **Phase 3** — Cross-agent event feed. `scripts/core/event_router.py loop` is a cursor-based, lossless observability tail; `state/event_router.log` carries the on-host audit projection. `/feed` page is the cloud-side view of the same `agent_events` stream with 5s `router.refresh()` (no websockets).
 >
 > Bravo is officially out of the architecture phase. The next epic is business execution: $5K Net MRR by June 18, 2026 (deadline extended 2026-05-18 from May 30 after primary retainer ended — gives 31 days to rebuild $4,629 from $371 baseline).
 >
@@ -67,7 +67,7 @@ tags: [state, ephemeral]
 
 > **Do NOT hardcode counts here.** They drift the moment a script lands. Read live:
 >
-> - `python scripts/self_audit.py --json | jq '{skills_total, scripts_total, mcp_servers, health_score}'`
+> - `python scripts/core/self_audit.py --json | jq '{skills_total, scripts_total, mcp_servers, health_score}'`
 > - MANIFEST block at the bottom of this file (synced by `scripts/catalog_sync.py`)
 > - `python scripts/capability_query.py drift` for graph drift items
 
@@ -113,55 +113,53 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 - [[brain/BRAIN_LOOP]] | [[brain/GROWTH]] | [[brain/CHANGELOG]]
 - [[brain/RISK_REGISTER]] | [[brain/INTERACTION_PROTOCOL]] | [[brain/ORCHESTRATION]]
 - [[brain/METRIC_AUDIT]] — every dashboard metric traced to its source (real vs placeholder)
-- [[brain/MODEL_CONFIG]] (V6.0 multi-provider routing) | [[brain/USER.template]] (public-clone profile template)
+- [[brain/MODEL_CONFIG]] (V6.0 multi-provider routing) | [[brain/USER.template.md]] (public-clone profile template)
 - [[memory/ACTIVE_TASKS]] | [[memory/SESSION_LOG]] | [[memory/DECISIONS]]
-- [[memory/WORKING]] (V6.0 ephemeral working memory) | [[memory/ACTIVE_TASKS.template]] | [[memory/SESSION_LOG.template]]
+- [[memory/WORKING]] (V6.0 ephemeral working memory) | [[memory/ACTIVE_TASKS.template.md]] | [[memory/SESSION_LOG.template.md]]
 - [[docs/V6_ARCHITECTURE]] | [[infra/README]] | [[brain/EVENT_BUS_CONTRACT]]
 - [[memory/PATTERNS]] | [[memory/MISTAKES]] | [[memory/SELF_REFLECTIONS]]
-- [[memory/content-strategy]] | [[memory/PROPOSED_CHANGES]]
+- [[memory/PROPOSED_CHANGES]]
 - [[memory/poems/sub_agents_collective_intelligence]] | [[skills/sales-closing/COLD_CALL_SCRIPT_V1]]
 - [[APPS_CONTEXT/INDEX]] | [[APPS_CONTEXT/GRITLY_CLAUDE]] | [[APPS_CONTEXT/IG_SETTER_PRO_CLAUDE]] | [[APPS_CONTEXT/SKOOL_COMMUNITY_CLAUDE]]
-- [[skills/skool-automation/SKILL]] | [[skills/codex-delegation/SKILL]] | [[../CMO-Agent/skills/elite-video-production/SKILL]]
+- [[skills/codex-delegation/SKILL]] | [[../CMO-Agent/skills/elite-video-production/SKILL]]
 - [[skills/ethical-hacking/SKILL]] | [[skills/sales-closing/SKILL]]
 - [[knowledge/index]] | [[knowledge/SCHEMA]]
 - [[brain/DASHBOARD]]
 - **Hubs (graph spine):** [[skills/INDEX]] · [[docs/INDEX]] · [[browser/README]] · [[browser/domain-skills/README]] · [[browser/interaction-skills/INDEX]] · [oasis-command-center](https://github.com/CC90210/oasis-command-center) (external) · [[data/pulse/README]] · [[memory/outreach_archive/INDEX]] · [[memory/daily/INDEX]] · [[.gemini/INDEX]] · [[templates/agent-scaffold/README]]
-- **Top-level:** [[PLAYBOOK]] · [[SECURITY]] · [[CLIENT_READY]]
+- **Top-level:** [[PLAYBOOK]] · [[SECURITY]] · [[brain/CLIENT_READY]]
 
 ## Last Heartbeat
 
-- **Date:** 2026-05-19
+- **Date:** 2026-05-21
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Hardened local bridge CORS for Chrome Private Network Access after live chat attachment verification surfaced loopback probe warnings.
+- **Result:** Full 7-phase audit cleanup pass complete. 38/42 items fixed; 4 deferred to CC. See memory/CLEANUP_2026-05-21_SUMMARY.md.
 
-*Last updated: 2026-05-19*
+*Last updated: 2026-05-21*
 
 ## Manifest
 
 <!-- MANIFEST:BEGIN -->
 _Auto-generated by `scripts/catalog_sync.py` — do not edit this block manually._
-_Last synced: 2026-05-04T21:33:26.379993+00:00_
+_Last synced: 2026-05-21T22:23:37.688699+00:00_
 
 | Type | Count |
 |---|---:|
-| Python scripts | 107 |
-| PowerShell scripts | 9 |
-| Shell scripts | 4 |
-| **Total scripts** | **120** |
-| Skills | 153 (8 destructive) |
-| Agents | 20 |
-| Workflows | 35 |
+| Python scripts | 95 |
+| PowerShell scripts | 10 |
+| Shell scripts | 2 |
+| **Total scripts** | **107** |
+| Skills | 149 (7 destructive) |
+| Agents | 21 |
+| Workflows | 33 |
 
 **Scripts by category:**
 
-- Other: 58
-- Data & Memory: 19
-- System: 11
+- Other: 69
 - Communication: 10
-- Content: 7
-- Governance: 5
-- Finance: 5
-- Browser & Web: 4
-- Google: 1
+- Data & Memory: 9
+- System: 6
+- Content: 5
+- Governance: 4
+- Finance: 4
 
 <!-- MANIFEST:END -->

@@ -40,26 +40,26 @@ python scripts/revenue_engine.py sync-stripe --json
 ```
 
 - Idempotent: uses Stripe event IDs as primary key. Safe to re-run.
-- Default lookback: 25h (configured in `scripts/cron_engine.py` "Stripe Revenue Sync" cron).
+- Default lookback: 25h (configured in `scripts/core/cron_engine.py` "Stripe Revenue Sync" cron).
 - Verify: `python scripts/revenue_engine.py mrr --json` after.
 - Downstream: rebuild `state/snapshots/latest_briefing.json` (`python scripts/snapshots/briefing_snapshot.py`).
 
 ### Supabase tables (leads, contacts, etc.)
 
 ```bash
-python scripts/supabase_tool.py upsert <table> --project bravo --on-conflict <col> --rows '<json>'
+python scripts/integrations/supabase_tool.py upsert <table> --project bravo --on-conflict <col> --rows '<json>'
 ```
 
 - Idempotent: `--on-conflict <col>` forces upsert semantics.
 - For bulk imports from CSV: `python scripts/lead_engine.py bulk-import --file memory/LEAD_TRACKER.csv --dry-run` then drop `--dry-run`.
-- Verify: `python scripts/supabase_tool.py select <table> --project bravo --limit 5 --json`.
+- Verify: `python scripts/integrations/supabase_tool.py select <table> --project bravo --limit 5 --json`.
 - Downstream: rebuild `state/snapshots/latest_leads.json` if leads/lead_interactions touched.
 
 ### Google Workspace (Gmail / Calendar / Drive)
 
 ```bash
-python scripts/google_tool.py gmail list --since "2026-05-13T00:00:00Z" --json
-python scripts/google_tool.py calendar events --since <iso> --json
+python scripts/integrations/google_tool.py gmail list --since "2026-05-13T00:00:00Z" --json
+python scripts/integrations/google_tool.py calendar events --since <iso> --json
 ```
 
 - Idempotent: GWS APIs return the same items per query.
@@ -69,8 +69,8 @@ python scripts/google_tool.py calendar events --since <iso> --json
 ### n8n webhooks / workflows
 
 ```bash
-python scripts/n8n_tool.py execute <workflow-id> --data '<json>'
-python scripts/n8n_tool.py executions list --workflow-id <id> --status success
+python scripts/integrations/n8n_tool.py execute <workflow-id> --data '<json>'
+python scripts/integrations/n8n_tool.py executions list --workflow-id <id> --status success
 ```
 
 - Idempotent: depends on workflow design. Webhook handlers MUST check for replay via signature + a stored event-id table.
@@ -79,14 +79,14 @@ python scripts/n8n_tool.py executions list --workflow-id <id> --status success
 ### Funnel form submissions
 
 - Fast-poll: `cron_engine.py` "Funnel Fast-Poll" job runs every 1 min already. No manual sync needed.
-- Manual flush: `python scripts/cron_engine.py run funnel_sync --json` (forces a sync cycle now).
+- Manual flush: `python scripts/core/cron_engine.py run funnel_sync --json` (forces a sync cycle now).
 - Verify: new rows in Supabase `leads` table with `source = "funnel"`.
 
 ### State DB → markdown mirrors (V6 export)
 
 ```bash
-python scripts/state_manager.py export
-python scripts/state_manager.py export --check  # exits 1 if drift
+python scripts/state/state_manager.py export
+python scripts/state/state_manager.py export --check  # exits 1 if drift
 ```
 
 - Idempotent: full regen each time.
@@ -114,7 +114,7 @@ If `errors > 0`, also append to `state/integrations_sync.errors.log` with the st
 
 ## Anti-Patterns
 
-- ❌ `python scripts/supabase_tool.py upsert <table> --rows '...'` without `--on-conflict` → silent duplicate insertion.
+- ❌ `python scripts/integrations/supabase_tool.py upsert <table> --rows '...'` without `--on-conflict` → silent duplicate insertion.
 - ❌ `--full` re-sync as the default. Always pull delta unless CC asked for full.
 - ❌ Sync-ing Stripe but not rebuilding the briefing snapshot. The Prep Table is now stale and CC will read pre-sync MRR.
 - ❌ Burying errors. Always log; always surface; never swallow.
@@ -123,11 +123,11 @@ If `errors > 0`, also append to `state/integrations_sync.errors.log` with the st
 ## Integration
 
 - **brain/DATA_TAXONOMY.md** — the source registry (Pantry tier)
-- **scripts/cron_engine.py** — scheduled syncs (the autopilot path)
+- **scripts/core/cron_engine.py** — scheduled syncs (the autopilot path)
 - **scripts/snapshots/** — Prep Tables that consume these sources
 - **scripts/*_tool.py** — the underlying CLI wrappers
 - **state/integrations_sync.log** — the audit trail
 
 ## Obsidian Links
 - [[brain/DATA_TAXONOMY]] | [[brain/CAPABILITIES]] | [[brain/INTENTS]]
-- [[skills/silver-platter/SKILL]] | [[skills/memory-journaling/SKILL]]
+- [[skills/silver-platter/SKILL.md]] | [[skills/memory-journaling/SKILL.md]]

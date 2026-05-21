@@ -72,4 +72,4 @@ Inbound Call → Twilio Webhook → n8n Workflow → Transcribe (Whisper/Deepgra
 - Set max_tokens appropriately (don't use 4096 for a yes/no answer)
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

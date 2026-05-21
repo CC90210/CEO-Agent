@@ -32,7 +32,7 @@ Returns `{eligible: [...], stats: {...}}`. Each eligible row has `lead_id`, `fir
 
 ### 2. Get template UUIDs (do this once, cache in memory for this session)
 ```bash
-python scripts/email_engine.py templates list
+python scripts/integrations/email_engine.py templates list
 ```
 Map names → UUIDs:
 - `OASIS Welcome` → first-touch
@@ -42,7 +42,7 @@ Map names → UUIDs:
 ### 3. Send each eligible lead via the template path
 For each lead in `eligible`:
 ```bash
-python scripts/email_engine.py --json send-template \
+python scripts/integrations/email_engine.py --json send-template \
   --template-id <uuid for next_template_recommended> \
   --to <email> \
   --lead-id <lead_id> \

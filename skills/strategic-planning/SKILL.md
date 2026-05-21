@@ -616,4 +616,4 @@ Before considering a pivot, answer these 4 questions:
 
 ## Obsidian Links
 - [[brain/STATE]] | [[brain/USER]] | [[memory/ACTIVE_TASKS]] | [[brain/CAPABILITIES]]
-- [[skills/financial-modeling/SKILL]] | [[../../CMO-Agent/skills/competitive-intelligence/SKILL]] | [[skills/ceo-briefing/SKILL]]
+- [[skills/financial-modeling/SKILL.md]] | [[../../CMO-Agent/skills/competitive-intelligence/SKILL]] | [[skills/ceo-briefing/SKILL.md]]

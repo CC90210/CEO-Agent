@@ -113,6 +113,7 @@ from casl_compliance import (  # noqa: E402
     build_casl_footer_html,
     add_list_unsubscribe_headers,
 )
+from lib.smtp_send import smtp_send as _smtp_send  # noqa: E402
 
 try:
     from notify import notify as _telegram_notify  # noqa: F401
@@ -1534,26 +1535,17 @@ def _send_email_smtp(
 ) -> tuple[bool, Optional[str]]:
     gmail_user = env.get("GMAIL_USER") or env.get("GMAIL_ADDRESS", "")
     gmail_pass = env.get("GMAIL_APP_PASSWORD", "")
-    if not gmail_user or not gmail_pass:
-        _ping_health("gws", status="unconfigured", error="GMAIL_USER/GMAIL_APP_PASSWORD missing")
-        return False, "GMAIL_USER/GMAIL_APP_PASSWORD missing in .env.agents"
-    try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as smtp:
-            smtp.login(gmail_user, gmail_pass)
-            smtp.sendmail(gmail_user, to_email, mime.as_bytes())
+    ok, err = _smtp_send(gmail_user, gmail_pass, mime, to_email)
+    if ok:
         _ping_health("gws", status="healthy", metadata={"source": "send_gateway.smtp_send"})
-        return True, None
-    except smtplib.SMTPAuthenticationError:
-        _ping_health("gws", status="down", error="SMTP authentication failed")
-        return False, "SMTP authentication failed — rotate GMAIL_APP_PASSWORD"
-    except smtplib.SMTPRecipientsRefused:
-        # Recipient refused is a per-message issue, not a service-health issue — don't degrade gws
-        return False, f"recipient refused by server: {to_email}"
-    except smtplib.SMTPException as e:
-        _ping_health("gws", status="degraded", error=f"SMTP error: {e}")
-        return False, f"SMTP error: {e}"
-    except Exception as e:  # noqa: BLE001
-        return False, f"unexpected send error: {e}"
+    else:
+        if "authentication" in (err or "").lower():
+            _ping_health("gws", status="down", error="SMTP authentication failed")
+        elif "recipient refused" in (err or "").lower():
+            pass  # per-message issue, not service health
+        else:
+            _ping_health("gws", status="degraded", error=err or "unknown")
+    return ok, err
 
 
 def _ping_health(service: str, *, status: str = "healthy", error: Optional[str] = None, metadata: Optional[dict] = None) -> None:

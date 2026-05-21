@@ -51,4 +51,4 @@ gws gmail +triage --labels
 - [gws-gmail](../gws-gmail/SKILL.md) — All send, read, and manage email commands
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

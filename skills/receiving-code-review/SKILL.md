@@ -216,4 +216,4 @@ Verify. Question. Then implement.
 No performative agreement. Technical rigor always.
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

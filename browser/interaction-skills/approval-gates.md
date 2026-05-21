@@ -20,11 +20,11 @@ Do not bundle multiple risky approvals into one ask.
 
 Prefer existing tools that log business activity:
 
-- `scripts/send_gateway.py` for outbound messages.
-- `scripts/stripe_tool.py` for Stripe inspection and safe operations.
-- `scripts/supabase_tool.py` for database reads.
-- `scripts/n8n_tool.py` for workflow inspection.
-- `scripts/google_tool.py` for Google Workspace.
+- `scripts/integrations/send_gateway.py` for outbound messages.
+- `scripts/integrations/stripe_tool.py` for Stripe inspection and safe operations.
+- `scripts/integrations/supabase_tool.py` for database reads.
+- `scripts/integrations/n8n_tool.py` for workflow inspection.
+- `scripts/integrations/google_tool.py` for Google Workspace.
 
 Browser clicks should not bypass Bravo's logs.
 

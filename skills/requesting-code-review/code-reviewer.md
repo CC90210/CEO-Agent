@@ -146,4 +146,4 @@ git diff {BASE_SHA}..{HEAD_SHA}
 ```
 
 ## Obsidian Links
-- [[skills/requesting-code-review/SKILL]] | [[skills/INDEX]]
+- [[skills/requesting-code-review/SKILL.md]] | [[skills/INDEX.md]]

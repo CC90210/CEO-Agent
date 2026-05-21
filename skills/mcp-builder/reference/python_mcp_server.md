@@ -718,4 +718,4 @@ Before finalizing your Python MCP server implementation, ensure:
 - [ ] Sample tool calls work as expected
 - [ ] Error scenarios handled gracefully
 ## Obsidian Links
-- [[skills/mcp-builder/SKILL]] | [[skills/INDEX]]
+- [[skills/mcp-builder/SKILL.md]] | [[skills/INDEX.md]]

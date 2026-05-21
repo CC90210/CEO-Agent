@@ -31,7 +31,7 @@ In chat (bridge mode), this runs through the `run_script` tool with `confirm:tru
 1. Confirm migration file is in `database/<NNN>_<name>.sql`. If not, write it with the next number.
 2. Run `python scripts/apply_migration.py database/<NNN>_<name>.sql`. The script applies through Supabase Management API; gates on dangerous patterns (`DROP TABLE`, `TRUNCATE`, naked `GRANT`/`REVOKE`).
 3. If gated, surface the reason. Operator may approve via the Supabase Dashboard SQL editor — only then do you suggest a manual path.
-4. Confirm post-apply: `python scripts/supabase_tool.py select <new_table> --project bravo --limit 1` to verify the schema is live.
+4. Confirm post-apply: `python scripts/integrations/supabase_tool.py select <new_table> --project bravo --limit 1` to verify the schema is live.
 5. Update `brain/CHANGELOG.md` with the migration name + one-line purpose.
 
 ---
@@ -68,8 +68,8 @@ Allowed action types: `update_profile`, `toggle_agent_enabled`, `set_primary_age
 ## "Find / search / look up"
 
 1. **Code or files:** use the `read_file` tool you already have. Pattern-match starting from the indexes (`brain/AGENT_ROUTER.md`, `skills/INDEX.md`, `brain/CAPABILITIES.md`).
-2. **Web search:** `python scripts/firecrawl_tool.py search "<query>"` then `read <url>` to extract structured content.
-3. **Database:** `python scripts/supabase_tool.py select <table> --project bravo --eq '{"…":"…"}' --limit N`.
+2. **Web search:** `python scripts/integrations/firecrawl_tool.py search "<query>"` then `read <url>` to extract structured content.
+3. **Database:** `python scripts/integrations/supabase_tool.py select <table> --project bravo --eq '{"…":"…"}' --limit N`.
 4. **Memory / past sessions:** read `memory/SESSION_LOG.md` (recent) or `memory/ARCHIVES/` (older).
 
 ---
@@ -88,13 +88,13 @@ Result includes `tier_used`, `tiers_tried`, `reputation.hit`, `reputation.start_
 
 1. **Firecrawl** specifically — for `crawl` (multi-page), `extract` (LLM-schema), `map` (URL inventory), `search` (search-and-scrape in one call):
    ```bash
-   python scripts/firecrawl_tool.py {crawl|extract|map|search} ...
+   python scripts/integrations/firecrawl_tool.py {crawl|extract|map|search} ...
    ```
 
 2. **CloakBrowser** specifically — for interactive flows on protected sites, screenshots, or forcing the stealth tier:
    ```bash
-   python scripts/cloak_browser_tool.py goto <url> --eval "() => document.title"
-   python scripts/cloak_browser_tool.py scrape <url> --screenshot evidence/<slug>.png
+   python scripts/browser/cloak_browser_tool.py goto <url> --eval "() => document.title"
+   python scripts/browser/cloak_browser_tool.py scrape <url> --screenshot evidence/<slug>.png
    ```
    For Akamai/Kasada-tier hardness, set `CLOAK_PROXY_URL` in `.env.agents` (residential proxy). If a target starts blocking unexpectedly, run `cloak_browser_tool.py check-stealth --json`.
 
@@ -111,7 +111,7 @@ Skill refs: [skills/research-fetch/SKILL.md](../skills/research-fetch/SKILL.md) 
 1. If the chat picker switched the agent, the bridge already `cd`'d for you — your CLAUDE.md changed.
 2. If the operator typed it in chat ("ask Atlas to recalc tax"), you have two options:
    - Surface the delegation: explain that the operator should switch in the picker, or that this is a `bravo agent run atlas …` task.
-   - For cross-agent work that doesn't need the user-facing agent, post to `tmp/agent_inbox/` via `python scripts/agent_inbox.py post --to atlas --priority high --body "…"`. Atlas reads its inbox at session start.
+   - For cross-agent work that doesn't need the user-facing agent, post to `tmp/agent_inbox/` via `python scripts/core/agent_inbox.py post --to atlas --priority high --body "…"`. Atlas reads its inbox at session start.
 
 ---
 
@@ -125,9 +125,9 @@ Skill refs: [skills/research-fetch/SKILL.md](../skills/research-fetch/SKILL.md) 
 
 ## "Audit the system" / "health check"
 
-1. Run `python scripts/self_audit.py --json`. Health score < 90 → drift to investigate. Health score < 70 → STOP and surface to CC before any new work.
+1. Run `python scripts/core/self_audit.py --json`. Health score < 90 → drift to investigate. Health score < 70 → STOP and surface to CC before any new work.
 2. Drill into specific drift items: `python scripts/capability_query.py drift`.
-3. Check freshness: `python scripts/memory_aging.py stale --days 7 --json` for memory. `python scripts/fleet_health.py --json` for cross-agent rollup.
+3. Check freshness: `python scripts/core/memory_aging.py stale --days 7 --json` for memory. `python scripts/fleet_health.py --json` for cross-agent rollup.
 4. If self_audit flags MCP config drift: `mcp_configs_in_sync: false` → reconcile `.claude/mcp.json` ↔ `.vscode/mcp.json` ↔ `~/.gemini/settings.json`. Credentials live ONLY in `.env.agents`.
 5. Confirm in chat: health score, top 3 issues, recommended fix order, whether you can fix them yourself or need CC approval.
 
@@ -135,10 +135,10 @@ Skill refs: [skills/research-fetch/SKILL.md](../skills/research-fetch/SKILL.md) 
 
 ## "Clean up the repo" / "delete junk"
 
-1. Default to dry-run: `python scripts/system_cleanup.py` (no `--apply` flag = report only). Read the output before doing anything.
+1. Default to dry-run: `python scripts/core/system_cleanup.py` (no `--apply` flag = report only). Read the output before doing anything.
 2. The script preserves the active repo via a safety guard (V6.1.1). It targets pip/npm caches, redundant install clones, old `tmp/` files, `__pycache__` trees, scaffold backups.
 3. If the report includes anything outside its allowlist, STOP and surface to CC. Don't manually `rm -rf` to "help."
-4. Apply with `python scripts/system_cleanup.py --apply` ONLY after CC confirms.
+4. Apply with `python scripts/core/system_cleanup.py --apply` ONLY after CC confirms.
 5. After apply: `git status` to confirm only intended deletions, then re-run `self_audit.py` to verify health didn't regress.
 
 ---
@@ -182,7 +182,7 @@ Skill refs: [skills/research-fetch/SKILL.md](../skills/research-fetch/SKILL.md) 
 
 ## "Check whether memories are stale"
 
-1. Run `python scripts/memory_aging.py stale --days 7 --json`. Output is a per-line breakdown: file, line number, days since last referenced date, the title.
+1. Run `python scripts/core/memory_aging.py stale --days 7 --json`. Output is a per-line breakdown: file, line number, days since last referenced date, the title.
 2. Cross-check frontmatter: each `memory/*.md` should have `last_updated:` and `freshness_threshold_days:`. If a file is missing either, that's drift — patch the frontmatter.
 3. For body-level staleness (a fresh-stamped file with a stale sentence inside, e.g. an outdated Sprint roadmap inside a fresh ACTIVE_TASKS): treat the sentence as archived, not the file. Move it to `memory/ARCHIVES/<YYYY-MM-topic>.md` with a header explaining when and why it was archived.
 4. NEVER quote a stale memory as current truth. NEVER silently "refresh" the timestamp without verifying the body is actually current — that just moves the lie forward.
@@ -243,7 +243,7 @@ Skill refs: [skills/research-fetch/SKILL.md](../skills/research-fetch/SKILL.md) 
 ## "Publish to social / schedule content / post on X-Instagram-LinkedIn"
 
 1. **This is Maven's domain, not Bravo's.** Maven (CMO-Agent) owns content + social since 2026-04-26. Don't post directly from this repo.
-2. Route: tell CC to switch to Maven in the chat picker, OR delegate via `python scripts/agent_inbox.py post --to maven --from bravo --priority normal --subject "<task>" --body "<context + ask>"`. Maven reads its inbox at session start.
+2. Route: tell CC to switch to Maven in the chat picker, OR delegate via `python scripts/core/agent_inbox.py post --to maven --from bravo --priority normal --subject "<task>" --body "<context + ask>"`. Maven reads its inbox at session start.
 3. For the actual stack, refer CC to `C:\Users\User\CMO-Agent\` — that's Maven's repo. `late_tool.py` (now Zernio) lives there and handles cross-platform scheduling.
 4. The ONE exception: if CC explicitly says "post this from Bravo," surface the boundary and ask if they're sure before running `late_tool.py` from this repo.
 
@@ -275,5 +275,5 @@ CC drops a URL, a paste, a file path, a research request, or any vague pointer l
 Add new sections when an intent recurs. Sections are first-person playbooks, not reference docs — write them as if instructing the agent on its first day. Keep each section under ~15 lines so it's cheap to load.
 
 ## Obsidian Links
-- [[brain/AGENT_ROUTER]] | [[brain/WHEN_TO_USE_SKILLS]] | [[brain/EXECUTION_RULES]]
+- **Core router (the 5 brain entry points):** [[brain/AGENT_ROUTER]] · [[brain/EXECUTION_RULES]] · INTENTS (this file) · [[brain/WHEN_TO_USE_SKILLS]] · [[brain/QUICK_REFERENCE]]
 - [[skills/outreach-send/SKILL]] | [[skills/code-review/SKILL]] | [[skills/ship/SKILL]]

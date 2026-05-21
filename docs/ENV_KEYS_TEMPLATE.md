@@ -14,7 +14,7 @@ freshness_threshold_days: 60
 
 1. Copy the variable names below into a new `.env.agents` at the repo root (CC must create this manually — the deny rule prevents Claude from writing it).
 2. Fill in real values from each provider's dashboard.
-3. Verify load with `python scripts/google_tool.py test` (any CLI tool will surface missing keys).
+3. Verify load with `python scripts/integrations/google_tool.py test` (any CLI tool will surface missing keys).
 
 For client deployments (deploying Hermes / a sibling agent for someone else), copy the same keys into `.env.client-<id>` on the **client's** machine. NEVER copy CC's keys into a client deployment.
 

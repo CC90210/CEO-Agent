@@ -224,11 +224,11 @@ When deciding what to wrap next, prioritize:
 ## Existing CLI Wrappers (Already Built)
 
 These follow the CLI-Anything pattern already:
-- `scripts/supabase_tool.py` — Supabase SDK wrapper (3 projects)
-- `scripts/stripe_tool.py` — Stripe API wrapper (balance, customers, invoices)
+- `scripts/integrations/supabase_tool.py` — Supabase SDK wrapper (3 projects)
+- `scripts/integrations/stripe_tool.py` — Stripe API wrapper (balance, customers, invoices)
 - `../CMO-Agent/scripts/late_tool.py` (owned by Maven) — Zernio (formerly Late) social-scheduling wrapper
-- `scripts/firecrawl_tool.py` — Firecrawl scrape/extract wrapper
-- `scripts/google_tool.py` — Google Workspace (gws CLI + SMTP fallback) wrapper
+- `scripts/integrations/firecrawl_tool.py` — Firecrawl scrape/extract wrapper
+- `scripts/integrations/google_tool.py` — Google Workspace (gws CLI + SMTP fallback) wrapper
 - `../CMO-Agent/scripts/edit_content_v2.py` — FFmpeg + Whisper video pipeline (relocated to Maven 2026-04-04)
 
 ## Anti-Patterns
@@ -257,4 +257,4 @@ When CC says "make a CLI for X":
 - Setup template: `scripts/cli_templates/setup_template.py`
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

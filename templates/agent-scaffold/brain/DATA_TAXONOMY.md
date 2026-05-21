@@ -19,9 +19,9 @@ Fill in {{AGENT_NAME}}'s domain integrations. Examples below; replace with real 
 
 | Domain | Source | Access | Owner |
 |--------|--------|--------|-------|
-| (e.g.) CRM | (e.g.) Supabase `leads` | `scripts/supabase_tool.py` | {{agent_name}} |
-| (e.g.) Payments | (e.g.) Stripe | `scripts/stripe_tool.py` | {{agent_name}} |
-| (e.g.) Comms | (e.g.) Gmail | `scripts/google_tool.py` | {{agent_name}} |
+| (e.g.) CRM | (e.g.) Supabase `leads` | `scripts/integrations/supabase_tool.py` | {{agent_name}} |
+| (e.g.) Payments | (e.g.) Stripe | `scripts/integrations/stripe_tool.py` | {{agent_name}} |
+| (e.g.) Comms | (e.g.) Gmail | `scripts/integrations/google_tool.py` | {{agent_name}} |
 | Domain-specific N | TBD | TBD | {{agent_name}} |
 
 ---

@@ -15,17 +15,17 @@ Whole-file `Read` of `MISTAKES.md`/`PATTERNS.md`/`SESSION_LOG.md` was the old wa
 
 ```bash
 # Last week of session log (used for "what happened recently")
-python scripts/state_manager.py status                              # latest tick + last_session_log
-python scripts/memory_retriever.py query "recent mistake correction" --kind memory --limit 8
+python scripts/state/state_manager.py status                              # latest tick + last_session_log
+python scripts/core/memory_retriever.py query "recent mistake correction" --kind memory --limit 8
 
 # Existing patterns ready for [PROBATIONARY] → [VALIDATED] promotion
-python scripts/memory_retriever.py query "PROBATIONARY pattern"     --kind memory --limit 10
+python scripts/core/memory_retriever.py query "PROBATIONARY pattern"     --kind memory --limit 10
 
 # SOPs with their execution counts
-python scripts/memory_retriever.py query "SOP-ID success rate"      --kind memory --limit 5
+python scripts/core/memory_retriever.py query "SOP-ID success rate"      --kind memory --limit 5
 
 # Skill-shaped capabilities the operator keeps re-asking for
-python scripts/memory_retriever.py query "<recurring task you noticed>" --kind skill --limit 3
+python scripts/core/memory_retriever.py query "<recurring task you noticed>" --kind skill --limit 3
 ```
 
 Only `Read` a full file when a snippet doesn't carry enough context. `MISTAKES.md` is rare — most queries don't need its 27KB body, just three relevant entries.
@@ -64,15 +64,15 @@ For each candidate:
 
 **If repeated failure → Create prevention:**
 - Draft a rule for CLAUDE.md (1-2 sentences, includes "why")
-- Consider if a hook could enforce it automatically (extend [scripts/exec_guard.py](scripts/exec_guard.py) blocklist if it's a destructive command class)
+- Consider if a hook could enforce it automatically (extend [scripts/state/exec_guard.py](scripts/state/exec_guard.py) blocklist if it's a destructive command class)
 - Add to MISTAKES.md if not already there
-- Then `python scripts/state_manager.py log --note "Added prevention rule for <pattern>"` so the change is in the audit trail
+- Then `python scripts/state/state_manager.py log --note "Added prevention rule for <pattern>"` so the change is in the audit trail
 
 **If implicit skill → Generate skill:**
 - Use the meta-agent pattern to create a new skill file
 - Tag as [PROBATIONARY]
 - Register in CLAUDE.md skills section
-- Run `python scripts/memory_retriever.py update` to absorb the new SKILL.md (or let the PostToolUse hook fire on save)
+- Run `python scripts/core/memory_retriever.py update` to absorb the new SKILL.md (or let the PostToolUse hook fire on save)
 
 **If stale → Archive:**
 - Move to memory/ARCHIVES/ with date stamp
@@ -105,7 +105,7 @@ Most candidates will be filtered out. This is correct. Only high-signal patterns
 After promoting / archiving / adding rules, write a single audit entry:
 
 ```bash
-python scripts/state_manager.py log --note "Evolve cycle: promoted N patterns, added M rules, archived K stale entries"
+python scripts/state/state_manager.py log --note "Evolve cycle: promoted N patterns, added M rules, archived K stale entries"
 ```
 
 This makes the next `/retro` run see the evolution event in the DB without parsing markdown.

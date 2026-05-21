@@ -23,17 +23,17 @@ But Bravo is the only agent with the **V6.0–V6.6 substrate** that the V6.7 hoo
 
 Per audit 2026-05-14:
 
-- ❌ `scripts/state_manager.py` — transactional state writer (V6.0 source-of-truth proxy)
-- ❌ `scripts/memory_retriever.py` — FTS5 + LanceDB hybrid retrieval (V6 Ascension)
-- ❌ `scripts/memory_aging.py` — staleness scanner
-- ❌ `scripts/secret_guard.py` — credential leak prevention
-- ❌ `scripts/exec_guard.py` — dangerous-command AST/regex gate
-- ❌ `scripts/state_guard.py` — auto-generated-mirror edit protection
-- ❌ `scripts/anti_pattern_hook.py` — regex anti-pattern enforcement
+- ❌ `scripts/state/state_manager.py` — transactional state writer (V6.0 source-of-truth proxy)
+- ❌ `scripts/core/memory_retriever.py` — FTS5 + LanceDB hybrid retrieval (V6 Ascension)
+- ❌ `scripts/core/memory_aging.py` — staleness scanner
+- ❌ `scripts/state/secret_guard.py` — credential leak prevention
+- ❌ `scripts/state/exec_guard.py` — dangerous-command AST/regex gate
+- ❌ `scripts/state/state_guard.py` — auto-generated-mirror edit protection
+- ❌ `scripts/hooks/anti_pattern_hook.py` — regex anti-pattern enforcement
 - ❌ `memory/ANTI_PATTERNS.json` — the pattern registry
 - ❌ `state/empire_state.db` — SQLite/WAL transactional store
 - ❌ `state/memory_index.db` — FTS5 retrieval index
-- ❌ `scripts/cron_engine.py` — automation job registry
+- ❌ `scripts/core/cron_engine.py` — automation job registry
 - ❌ `scripts/build_capability_graph.py` — capability auto-discovery
 
 **Has:** `agent_inbox.py`, `brain/SOUL.md`, `brain/STATE.md`, `memory/ACTIVE_TASKS.md`, `memory/DECISIONS.md`, shared Supabase via `SHARED_DB.md`.
@@ -44,17 +44,17 @@ Per audit 2026-05-14:
 
 Per audit 2026-05-14:
 
-- ❌ `scripts/state_manager.py`
-- ❌ `scripts/memory_retriever.py`
-- ❌ `scripts/memory_aging.py`
-- ❌ `scripts/secret_guard.py` (with CFO-specific regex patterns for Kraken keys, SIN, business number, etc.)
-- ❌ `scripts/exec_guard.py`
-- ❌ `scripts/state_guard.py`
-- ❌ `scripts/anti_pattern_hook.py`
+- ❌ `scripts/state/state_manager.py`
+- ❌ `scripts/core/memory_retriever.py`
+- ❌ `scripts/core/memory_aging.py`
+- ❌ `scripts/state/secret_guard.py` (with CFO-specific regex patterns for Kraken keys, SIN, business number, etc.)
+- ❌ `scripts/state/exec_guard.py`
+- ❌ `scripts/state/state_guard.py`
+- ❌ `scripts/hooks/anti_pattern_hook.py`
 - ❌ `memory/ANTI_PATTERNS.json`
 - ❌ `state/empire_state.db`
 - ❌ `state/memory_index.db`
-- ❌ `scripts/cron_engine.py`
+- ❌ `scripts/core/cron_engine.py`
 - ⚠ `scripts/audit_mcp_secrets.py` — referenced in Atlas's SessionStart hook but doesn't exist (silent fail)
 
 **Has:** `agent_inbox.py`, `brain/CAPABILITY_GRAPH.json` (auto-discovered already), 21 finance-domain skills, finance/ knowledge modules.
@@ -89,13 +89,13 @@ For each of Maven and Atlas:
 1. Copy the 7 substrate scripts from `~/Business-Empire-Agent/scripts/` (state_manager, memory_retriever, memory_aging, secret_guard, exec_guard, state_guard, anti_pattern_hook). Adapt:
    - `PROJECT_ROOT` references (each script uses `Path(__file__).resolve().parent.parent` — already correct)
    - Atlas's `secret_guard.py`: extend regex patterns for CFO domain (Kraken keys, SIN, business number, account numbers, salary figures)
-2. Copy `scripts/cron_engine.py`. Adapt SEED_JOBS:
+2. Copy `scripts/core/cron_engine.py`. Adapt SEED_JOBS:
    - Maven: content_calendar refresh, ad performance sync, weekly digest
    - Atlas: ACB recompute, tax position rebuild, quarterly FIRE update
 3. Copy `scripts/build_capability_graph.py` (no adaptation needed). Run it to populate `brain/CAPABILITY_GRAPH.json` for Maven.
 4. Copy `memory/ANTI_PATTERNS.json` (start with the 2 Bravo patterns; add agent-specific ones over time).
-5. Bootstrap `state/empire_state.db` via `python scripts/state_manager.py import-from-files`.
-6. Bootstrap `state/memory_index.db` via `python scripts/memory_retriever.py build`.
+5. Bootstrap `state/empire_state.db` via `python scripts/state/state_manager.py import-from-files`.
+6. Bootstrap `state/memory_index.db` via `python scripts/core/memory_retriever.py build`.
 
 ### Phase 2 — V6.7 hook + snapshot completion (Maven + Atlas, ~2h each)
 

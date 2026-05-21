@@ -201,6 +201,6 @@ All SPARC settings are in `.agents/config.toml` [sparc] section:
 - Default: CC approval required at Specification and Architecture phases
 
 ## Obsidian Links
-- [[skills/writing-plans/SKILL]] | [[skills/executing-plans/SKILL]] | [[brain/CAPABILITIES]]
-- [[skills/test-driven-development/SKILL]] | [[skills/code-review/SKILL]]
-- [[skills/task-routing/SKILL]] | [[brain/BRAIN_LOOP]]
+- [[skills/writing-plans/SKILL.md]] | [[skills/executing-plans/SKILL.md]] | [[brain/CAPABILITIES]]
+- [[skills/test-driven-development/SKILL.md]] | [[skills/code-review/SKILL.md]]
+- [[skills/task-routing/SKILL.md]] | [[brain/BRAIN_LOOP]]

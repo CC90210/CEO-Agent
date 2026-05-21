@@ -10,7 +10,7 @@ Use this workflow when CC asks for browser automation, authenticated web app ins
 ## Steps
 
 1. Read `skills/browser-harness/SKILL.md`.
-2. Run `python scripts/browser_harness_doctor.py`.
+2. Run `python scripts/browser/browser_harness_doctor.py`.
 3. If attach is pending, run `& (Get-Command browser-harness).Source --setup` and ask CC for the Chrome one-time approval only if required.
 4. Search `browser/domain-skills/` for the site.
 5. Use `new_tab(url)`, then `wait_for_load()`, then `page_info()` or screenshots.
@@ -31,7 +31,7 @@ print(page_info())
 ## Never
 
 - Do not store secrets, cookies, tokens, private account screenshots, or raw coordinates.
-- Do not bypass `scripts/send_gateway.py` for outbound communication.
+- Do not bypass `scripts/integrations/send_gateway.py` for outbound communication.
 - Do not click irreversible UI actions without explicit CC approval.
 
 ## Related

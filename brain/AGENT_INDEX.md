@@ -8,18 +8,18 @@ tags: [index, agents, hub, graph]
 
 ## The 4 Agents
 
-- [[C_SUITE_ARCHITECTURE]] — governance, decision rights, pulse protocol, shared DB
-- [[CROSS_AGENT_AWARENESS]] — how pulses pass the baton + multi-resident privacy (Aura)
-- [[HOW_TO_USE_THE_4_AGENTS]] — decision tree, per-agent use cases, cross-agent workflows
-- [[APP_REGISTRY]] — all apps + agents mapped to local paths and GitHub repos
+- [[brain/C_SUITE_ARCHITECTURE]] — governance, decision rights, pulse protocol, shared DB
+- [[brain/CROSS_AGENT_AWARENESS]] — how pulses pass the baton + multi-resident privacy (Aura)
+- [[brain/HOW_TO_USE_THE_4_AGENTS]] — decision tree, per-agent use cases, cross-agent workflows
+- [[brain/APP_REGISTRY]] — all apps + agents mapped to local paths and GitHub repos
 
 ### 🏛️ Bravo (CEO — you are here)
-- Identity: [[SOUL]]
-- State: [[STATE]]
+- Identity: [[brain/SOUL]]
+- State: [[brain/STATE]]
 - Active tasks: [[memory/ACTIVE_TASKS]]
 - Skill routing: [[AGENTS]]
-- Revenue + OKRs: [[OKRs]], [[CEO_OPERATING_SYSTEM]]
-- Dashboard: [[DASHBOARD]]
+- Revenue + OKRs: [[brain/OKRs]], [[brain/CEO_OPERATING_SYSTEM]]
+- Dashboard: [[brain/DASHBOARD]]
 
 ### 💰 Atlas (CFO) — cross-repo
 Atlas lives at `C:\Users\User\APPS\CFO-Agent`. Its docs aren't in Bravo's vault by default; open Atlas as a separate Obsidian vault for full graph access.
@@ -46,8 +46,8 @@ Obsidian's graph view shows wikilinks inside the current vault only. To see the 
 3. All 4 vaults registered at `C:\Users\User\AppData\Roaming\obsidian\obsidian.json`
 
 Each agent's brain/ is its own sovereign space — this is intentional. Cross-agent synthesis happens via:
-- [[CROSS_AGENT_AWARENESS]] — pulse file reads
-- [[SHARED_DB]] (in Maven's vault) — Supabase `phctllmtsogkovoilwos`, 38 tables, all 4 agents read/write
+- [[brain/CROSS_AGENT_AWARENESS]] — pulse file reads
+- [[brain/SHARED_DB]] (in Maven's vault) — Supabase `phctllmtsogkovoilwos`, 38 tables, all 4 agents read/write
 
 ## The Shared Data Layer
 
@@ -59,18 +59,18 @@ Each agent's brain/ is its own sovereign space — this is intentional. Cross-ag
 
 | I need... | Where |
 |-----------|-------|
-| Current strategy / OKRs | [[OKRs]] + [[ceo_pulse.json]] |
+| Current strategy / OKRs | [[brain/OKRs]] + [[data/pulse/ceo_pulse.json]] |
 | Runway / money / tax | Atlas vault → `cfo_pulse.json` + `USER.md` |
 | Current ad performance | Maven vault → `cmo_pulse.json` + `campaigns/` |
 | My habits / presence / energy | Aura vault → `aura_pulse.json` |
-| Any app (PULSE, PropFlow, etc.) | [[APP_REGISTRY]] |
-| How to decide which agent to ask | [[HOW_TO_USE_THE_4_AGENTS]] |
+| Any app (PULSE, PropFlow, etc.) | [[brain/APP_REGISTRY]] |
+| How to decide which agent to ask | [[brain/HOW_TO_USE_THE_4_AGENTS]] |
 | What's happening right now across all 4 | Ask Bravo directly — I synthesize the pulses |
 
 ## Related Hub Docs
 
-- [[SOUL]] | [[STATE]] | [[USER]]
-- [[BRAIN_LOOP]] | [[INTERACTION_PROTOCOL]]
-- [[AGENTS]] | [[CAPABILITIES]] | [[QUICK_REFERENCE]]
-- [[ORCHESTRATION]] | [[CROSS_MACHINE_SYNC]]
-- [[DAILY_SCHEDULE]] | [[CLIENT_READY]] | [[RISK_REGISTER]]
+- [[brain/SOUL]] | [[brain/STATE]] | [[brain/USER]]
+- [[brain/BRAIN_LOOP]] | [[brain/INTERACTION_PROTOCOL]]
+- [[AGENTS]] | [[brain/CAPABILITIES]] | [[brain/QUICK_REFERENCE]]
+- [[brain/ORCHESTRATION]] | [[brain/CROSS_MACHINE_SYNC]]
+- [[brain/DAILY_SCHEDULE]] | [[brain/CLIENT_READY]] | [[brain/RISK_REGISTER]]

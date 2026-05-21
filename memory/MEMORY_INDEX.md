@@ -1,5 +1,7 @@
 ---
 tags: [memory, index]
+last_updated: 2026-05-21
+freshness_threshold_days: 90
 ---
 # MEMORY INDEX -- 3-Layer Architecture
 
@@ -71,4 +73,4 @@ tags: [memory, index]
 
 - [[memory/INDEX]]
 - [[memory/ACTIVE_TASKS]]
-- [[memory/ACTIVE_TASKS.template]]
+- [[memory/ACTIVE_TASKS.template.md]]

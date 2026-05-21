@@ -6,7 +6,7 @@ tags: [capabilities, tools]
 
 > Complete inventory of what Bravo can do. Last reviewed: 2026-05-06 (V6.1 era).
 >
-> **Counts are live — read them, do not quote them.** Hardcoding counts in this header is a known regression vector. The MANIFEST block at the bottom of this file is auto-synced by `scripts/catalog_sync.py`. For absolute live truth: `python scripts/self_audit.py --json`.
+> **Counts are live — read them, do not quote them.** Hardcoding counts in this header is a known regression vector. The MANIFEST block at the bottom of this file is auto-synced by `scripts/catalog_sync.py`. For absolute live truth: `python scripts/core/self_audit.py --json`.
 >
 > Marketing/social scripts (`late_tool.py`, `late_publisher.py`, `instagram_engine.py`, `codex_image_gen.py`) transferred to Maven on 2026-04-26 — they live at `../CMO-Agent/scripts/` now. Bravo subprocesses to Maven's `late_tool.py` only for read-only CEO-dashboard stats (see `ceo_dashboard.py:_content_this_week`).
 >
@@ -30,7 +30,7 @@ tags: [capabilities, tools]
 - **Access:** Full read/write to all 151 skills in `skills/`, all 68 Python CLI tools in `scripts/`, all brain/ and memory/ files, all subagent definitions.
 - **Entry Point:** `AGENTS.md` (shared with Codex/Cursor/Windsurf). Identity routing at lines 13-15.
 - **MCP Servers:** Same 9 servers as Claude Code (Playwright, Context7, Memory, Sequential Thinking, GitHub, Firecrawl, Obsidian, Filesystem, Knowledge Graph) when available via OpenCode.
-- **Tool routing:** Same CLI-first rules — `scripts/send_gateway.py`, `scripts/supabase_tool.py`, `scripts/stripe_tool.py`, `scripts/google_tool.py`, `scripts/n8n_tool.py`.
+- **Tool routing:** Same CLI-first rules — `scripts/integrations/send_gateway.py`, `scripts/integrations/supabase_tool.py`, `scripts/integrations/stripe_tool.py`, `scripts/integrations/google_tool.py`, `scripts/integrations/n8n_tool.py`.
 
 ### Anti-Gravity IDE (Native Local Agent — Multi-Model)
 
@@ -47,8 +47,8 @@ Workflows: `.agents/workflows/` (31 active workflows: post, status, health, prim
 | **Knowledge Graph** | Vault graph — PageRank, communities, semantic search | npx tsx C:\Users\User\tools\knowledge-graph\src\mcp\index.ts |
 
 **SDK INTEGRATIONS (Universal — replaces broken MCPs):**
-| **Supabase** | Database CRUD, queries, RPC | `python scripts/supabase_tool.py select <table> --project bravo --limit 10` |
-| **Stripe** | Balance, customers, products, invoices, subscriptions, payment links | `python scripts/stripe_tool.py balance` |
+| **Supabase** | Database CRUD, queries, RPC | `python scripts/integrations/supabase_tool.py select <table> --project bravo --limit 10` |
+| **Stripe** | Balance, customers, products, invoices, subscriptions, payment links | `python scripts/integrations/stripe_tool.py balance` |
 
 **Supabase tool commands:** `list-projects`, `list-tables`, `select`, `insert`, `update`, `delete`, `upsert`, `rpc`, `query`
 **Stripe tool commands:** `balance`, `customers`, `products`, `prices`, `invoices`, `subscriptions`, `charges`, `payment-links`, `create-payment-link`, `create-customer`, `create-invoice`, `refund`, `events`
@@ -60,7 +60,7 @@ Workflows: `.agents/workflows/` (31 active workflows: post, status, health, prim
 - Purpose: Fast diagnostics, file system cleanup, automated audits, heartbeat monitoring, fallback execution
 - Interface: `gemini` command (global npm)
 - MCP Access (via `.gemini/settings.json`): Playwright, Context7, Memory, Sequential Thinking (4 active servers)
-- CLI Tools: `python scripts/supabase_tool.py`, `python scripts/stripe_tool.py`, `python scripts/n8n_tool.py`, `python ../CMO-Agent/scripts/late_tool.py` (Maven)
+- CLI Tools: `python scripts/integrations/supabase_tool.py`, `python scripts/integrations/stripe_tool.py`, `python scripts/integrations/n8n_tool.py`, `python ../CMO-Agent/scripts/late_tool.py` (Maven)
 - Note: Config synced with `.vscode/mcp.json`. Credential-dependent services use CLI tools — not MCP.
 
 ## Supabase Projects
@@ -125,7 +125,7 @@ V6.0 ships the multi-provider model router, autonomous skill synthesis, 3-layer 
 | `model_router.py` | Multi-provider LLM routing (Claude, OpenAI, OpenRouter, Groq, DeepSeek, local). Reads `brain/MODEL_CONFIG.md`. | `python scripts/model_router.py list-providers --json` |
 | `skill_synthesizer.py` | Extracts successful patterns from `agent_decisions`, generates SKILL.md, validates, registers. | `python scripts/skill_synthesizer.py synthesize --decision-id <id>` |
 | `skill_metrics.py` | Tracks per-skill `metrics.json`. Promotes `[NEW]` → `[VALIDATED]` after 3 successful uses. | `python scripts/skill_metrics.py report --json` |
-| `memory_consolidation.py` | 3-layer memory: `WORKING.md` → `memories_episodic` / `memories_semantic`. Nightly cron. | `python scripts/memory_consolidation.py status --json` |
+| `memory_consolidation.py` | 3-layer memory: `WORKING.md` → `memories_episodic` / `memories_semantic`. Nightly cron. | `python scripts/core/memory_consolidation.py status --json` |
 | `gnn_skill_router.py` | Graph neural net over Obsidian vault. Predicts next-skill-to-load from task embedding. | `python scripts/gnn_skill_router.py predict --task "draft outreach"` |
 | `rlhf_outreach.py` | RLHF/DPO skeleton trained on `lead_interactions` approve/reject signals. | `python scripts/rlhf_outreach.py build-dataset` |
 | `neural_memory.py` | Neural Turing Machine with content + location addressing. Differentiable memory layer. | `python scripts/neural_memory.py read --query "..."` |
@@ -136,9 +136,9 @@ V6.0 ships the multi-provider model router, autonomous skill synthesis, 3-layer 
 | `setup_wizard.py` | Interactive client onboarding — collects credentials, validates, writes env, smoke-tests. | `python scripts/setup_wizard.py` |
 | `personalize.py` | Renders `brain/USER.md` + memory templates from `brain/operator.profile.json`. Idempotent. **V6.1** | `python scripts/personalize.py apply --json` |
 | `scaffold.py` | Token-replaces operator identifiers across the codebase at fork-time. Refuses to run on the original operator's repo by design. **V6.1** | `python scripts/scaffold.py --apply --backup` |
-| `system_cleanup.py` | Find + delete redundant install clones, pip/npm caches, old `tmp/` files, `__pycache__` trees, scaffold backups. Active repo preserved by safety guard. **V6.1.1** | `python scripts/system_cleanup.py --apply` |
+| `system_cleanup.py` | Find + delete redundant install clones, pip/npm caches, old `tmp/` files, `__pycache__` trees, scaffold backups. Active repo preserved by safety guard. **V6.1.1** | `python scripts/core/system_cleanup.py --apply` |
 | `reap_orphan_mcps.py` | Kill duplicate/leaked MCP server processes (multi-editor host pattern leaves orphans). Keeps N most recent per signature. **V6.6** | `python scripts/reap_orphan_mcps.py --keep 4 --apply` |
-| `system_health_check.py` | Self-sustaining maintenance pass: reap orphan MCPs, clean Temp >14d, run `self_audit.py` + `audit_mcp_secrets.py`, post inbox alerts on degradation. Scheduled via `BravoSystemHealth` task at login (5 min delay) + every 30 min. **V6.6** | `python scripts/system_health_check.py` |
+| `system_health_check.py` | Self-sustaining maintenance pass: reap orphan MCPs, clean Temp >14d, run `self_audit.py` + `audit_mcp_secrets.py`, post inbox alerts on degradation. Scheduled via `BravoSystemHealth` task at login (5 min delay) + every 30 min. **V6.6** | `python scripts/core/system_health_check.py` |
 | `build_bridge_manifest.py` | Generate the bridge manifest from `bridge_lock.py` arbitration data. | `python scripts/build_bridge_manifest.py` |
 | `check_bridge_manifest.py` | Validate the bridge manifest is consistent with current PM2 + lockfile state. | `python scripts/check_bridge_manifest.py` |
 | `update_readme_stats.py` | Walks disk, regenerates README.md count fields (skills/scripts/sub-agents/workflows/MCP servers) from real state. `--check` mode used by self_audit so the README never lies about itself. **V6.7** | `python scripts/update_readme_stats.py --apply` |
@@ -195,8 +195,8 @@ Transform any website into structured CLI commands via browser automation. Compl
 
 Common point of confusion. Each serves a **different job**; the right one depends on (a) public vs CC-authenticated and (b) bot-protected vs unprotected.
 
-- **Firecrawl** — cloud-side scraper. Returns clean markdown, structured extraction, site mapping. Cheapest + fastest for unprotected public pages. `scripts/firecrawl_tool.py`.
-- **CloakBrowser** *(added 2026-05-15, V6.7+)* — stealth Chromium 146 with C++ source-level fingerprint patches. Drop-in Playwright API. **Mandatory tier-1 for fresh-session work against bot-protected sites** (Cloudflare Turnstile, reCAPTCHA v3, DataDome, ShieldSquare, FingerprintJS, Akamai, Kasada, PerimeterX). Pre-fetched ~200MB binary at `C:\Users\User\.cloakbrowser\chromium-146.0.7680.177.4\chrome.exe`. CLI: `scripts/cloak_browser_tool.py`. Skill: `skills/cloak-browser/SKILL.md`. Optional residential proxy via `CLOAK_PROXY_URL` for the hardest tier (Akamai/Kasada).
+- **Firecrawl** — cloud-side scraper. Returns clean markdown, structured extraction, site mapping. Cheapest + fastest for unprotected public pages. `scripts/integrations/firecrawl_tool.py`.
+- **CloakBrowser** *(added 2026-05-15, V6.7+)* — stealth Chromium 146 with C++ source-level fingerprint patches. Drop-in Playwright API. **Mandatory tier-1 for fresh-session work against bot-protected sites** (Cloudflare Turnstile, reCAPTCHA v3, DataDome, ShieldSquare, FingerprintJS, Akamai, Kasada, PerimeterX). Pre-fetched ~200MB binary at `C:\Users\User\.cloakbrowser\chromium-146.0.7680.177.4\chrome.exe`. CLI: `scripts/browser/cloak_browser_tool.py`. Skill: `skills/cloak-browser/SKILL.md`. Optional residential proxy via `CLOAK_PROXY_URL` for the hardest tier (Akamai/Kasada).
 - **Playwright (MCP)** — stateless, ephemeral browser. Use for **unprotected** sites where you need interactive flow / visual snapshots beyond what Firecrawl gives. Raw Playwright fingerprints get blocked by Cloudflare within 1-3 requests, so default to CloakBrowser when the target has any bot defense.
 - **Browser Harness** — attaches to your **actual logged-in Chrome** via CDP port 9222. Persistent cookies, real session, your real LinkedIn / Skool / community login. Best for: running tasks AS YOU (DM replies, community posts, member-list pulls). A real human's browser beats any stealth fork — use this when CC has the session.
 
@@ -217,8 +217,8 @@ Browser Harness is installed as Bravo's direct Chrome/Edge control layer. It com
 - **Global Codex skill:** `C:\Users\User\.codex\skills\browser-harness`
 - **Bravo skill:** `skills/browser-harness/SKILL.md`
 - **Runtime packaging skill:** `skills/agent-runtime-packaging/SKILL.md`
-- **Diagnostics:** `python scripts/browser_harness_doctor.py`
-- **Direct attach helper:** `python scripts/browser_connect.py` — connect to the running CDP browser (headless-aware)
+- **Diagnostics:** `python scripts/browser/browser_harness_doctor.py`
+- **Direct attach helper:** `python scripts/browser/browser_connect.py` — connect to the running CDP browser (headless-aware)
 - **Onboarding doctor:** `python scripts/onboarding_diagnostics.py`
 - **Workflow:** `.agents/workflows/browser-harness.md`
 - **Domain skills:** `browser/domain-skills/`
@@ -226,22 +226,22 @@ Browser Harness is installed as Bravo's direct Chrome/Edge control layer. It com
 
 **Current Windows note:** upstream Browser Harness assumed Unix sockets. The editable checkout has a local Windows compatibility patch that falls back to localhost TCP when `socket.AF_UNIX` is unavailable. Chrome/Edge still needs one-time remote-debugging profile approval before attach works.
 
-**Safety:** Browser Harness may inspect and draft, but any real send/publish/delete/billing/finance/admin/production action requires explicit CC approval. Outbound communication still goes through `scripts/send_gateway.py`.
+**Safety:** Browser Harness may inspect and draft, but any real send/publish/delete/billing/finance/admin/production action requires explicit CC approval. Outbound communication still goes through `scripts/integrations/send_gateway.py`.
 
 ## MCP Replacement CLI Tools (5 — replaces broken credential MCPs)
 
 | Tool | Script | Replaces MCP | Key Commands |
 |------|--------|-------------|-------------|
 | **Zernio (Late)** | `../CMO-Agent/scripts/late_tool.py` (owned by Maven) | Late MCP (env var broken) | `accounts`, `profiles`, `posts`, `create`, `cross-post`, `publish`, `failed` |
-| **n8n (read/exec)** | `scripts/n8n_tool.py` | Always-works fallback | `list`, `search`, `get`, `execute`, `activate`, `deactivate`, `executions`, `stats` |
+| **n8n (read/exec)** | `scripts/integrations/n8n_tool.py` | Always-works fallback | `list`, `search`, `get`, `execute`, `activate`, `deactivate`, `executions`, `stats` |
 | **n8n (build/modify)** | n8n-mcp SDK flow | — | `get_sdk_reference`, `search_nodes`, `get_node_types`, `validate_workflow`, `create_workflow_from_code`, `update_workflow`, `archive_workflow`. Build canonical path — see `skills/n8n-mcp-integration` |
-| **Supabase** | `scripts/supabase_tool.py` | Supabase MCP (token expired) | `list-projects`, `list-tables`, `select`, `insert`, `update`, `delete`, `query` |
-| **Stripe** | `scripts/stripe_tool.py` | Stripe MCP (v0.3.1 proxy mode) | `balance`, `customers`, `products`, `invoices`, `subscriptions`, `charges` |
+| **Supabase** | `scripts/integrations/supabase_tool.py` | Supabase MCP (token expired) | `list-projects`, `list-tables`, `select`, `insert`, `update`, `delete`, `query` |
+| **Stripe** | `scripts/integrations/stripe_tool.py` | Stripe MCP (v0.3.1 proxy mode) | `balance`, `customers`, `products`, `invoices`, `subscriptions`, `charges` |
 | **research_fetch** *(2026-05-16, DEFAULT)* | `scripts/research_fetch.py` | Single tier-aware URL fetcher. Auto-escalates Firecrawl → CloakBrowser based on actual response + SQLite per-domain reputation memory at `state/site_reputation.db`. Skill: `skills/research-fetch/SKILL.md`. | `fetch <url>` (bare URL also works), `reputation [domain]`, `reputation-clear <domain>`, `--force-tier {firecrawl,cloak}` |
-| **Firecrawl** | `scripts/firecrawl_tool.py` | Firecrawl MCP (fallback). Use directly when you need crawl/extract/map/search; otherwise prefer `research_fetch`. | `scrape`, `crawl`, `search`, `extract`, `map` |
-| **CloakBrowser** *(2026-05-15)* | `scripts/cloak_browser_tool.py` | Stealth Chromium 146 — drop-in Playwright. Use directly for interactive `goto`/screenshot/check-stealth; otherwise `research_fetch` handles the escalation. | `scrape`, `goto`, `check-stealth`, `binary-info`, `download`, `clear-cache` |
-| **Browser Harness Doctor** | `scripts/browser_harness_doctor.py` | Browser Harness install/attach diagnostics | `[--json] [--strict]` |
-| **Browser Connect** | `scripts/browser_connect.py` | Attach to the running CDP browser and run scripted actions | `[--url URL] [--eval SNIPPET]` |
+| **Firecrawl** | `scripts/integrations/firecrawl_tool.py` | Firecrawl MCP (fallback). Use directly when you need crawl/extract/map/search; otherwise prefer `research_fetch`. | `scrape`, `crawl`, `search`, `extract`, `map` |
+| **CloakBrowser** *(2026-05-15)* | `scripts/browser/cloak_browser_tool.py` | Stealth Chromium 146 — drop-in Playwright. Use directly for interactive `goto`/screenshot/check-stealth; otherwise `research_fetch` handles the escalation. | `scrape`, `goto`, `check-stealth`, `binary-info`, `download`, `clear-cache` |
+| **Browser Harness Doctor** | `scripts/browser/browser_harness_doctor.py` | Browser Harness install/attach diagnostics | `[--json] [--strict]` |
+| **Browser Connect** | `scripts/browser/browser_connect.py` | Attach to the running CDP browser and run scripted actions | `[--url URL] [--eval SNIPPET]` |
 | **Onboarding Diagnostics** | `scripts/onboarding_diagnostics.py` | Productized setup readiness check | `[--json]` |
 
 ## V6.0 Architecture (2026-05-10 — transactional state + retrieval + guards)
@@ -250,26 +250,26 @@ Browser Harness is installed as Bravo's direct Chrome/Edge control layer. It com
 
 | Component | Path | Purpose | CLI |
 |-----------|------|---------|-----|
-| **State Manager** | `scripts/state_manager.py` | Single-writer SQLite/WAL proxy for `state/empire_state.db` (heartbeats, session_log, active_task) — also mirrors heartbeat to Supabase | `heartbeat`, `log`, `task {add,close,list}`, `export [--check]`, `import-from-files`, `status` |
-| **Memory Retriever** | `scripts/memory_retriever.py` | Hybrid lexical+semantic retrieval. FTS5 BM25 (`state/memory_index.db`) + LanceDB cosine (`state/memory_lance/`) with ONNX MiniLM-L6-v2 embeddings via fastembed. RRF merge (k=60). 226 sources / 2,857 chunks. Hybrid = default; `--lexical-only` / `--semantic-only` / `--explain` for introspection. ~9ms FTS5 + ~50ms semantic. | `build [--force] [--lexical-only]`, `update`, `query "..." [--lexical-only \| --semantic-only] [--explain] [--kind ...] [--limit N] [--json]`, `status` |
-| **Exec Guard** | `scripts/exec_guard.py` | PreToolUse Bash hook. Hard blocks on DROP, DELETE-without-WHERE, ALTER DROP COLUMN, rm -rf / outside tmp, force-push to main, git reset --hard <ref>, fork bombs, dd-to-disk. AST-validates SQL via sqlglot. Read-only CLI verbs fast-path. | env: `EMPIRE_HOOK_EXEC_GUARD={enforce,report,off}` |
-| **Secret Guard** | `scripts/secret_guard.py` | PreToolUse Read/Bash/Edit hook. Blocks Read on `.env*`/`*.pem`/`*.key`/`credentials.json`. Blocks `cat`/`grep`/`sed`/`awk` on those paths. | env: `EMPIRE_HOOK_SECRET_GUARD={enforce,report,off}` |
-| **State Guard** | `scripts/state_guard.py` | PreToolUse Edit hook on auto-generated mirrors (`memory/SESSION_LOG.md` between markers). Pushes you to `state_manager.py` instead. | env: `EMPIRE_HOOK_STATE_GUARD={enforce,report,off}` |
+| **State Manager** | `scripts/state/state_manager.py` | Single-writer SQLite/WAL proxy for `state/empire_state.db` (heartbeats, session_log, active_task) — also mirrors heartbeat to Supabase | `heartbeat`, `log`, `task {add,close,list}`, `export [--check]`, `import-from-files`, `status` |
+| **Memory Retriever** | `scripts/core/memory_retriever.py` | Hybrid lexical+semantic retrieval. FTS5 BM25 (`state/memory_index.db`) + LanceDB cosine (`state/memory_lance/`) with ONNX MiniLM-L6-v2 embeddings via fastembed. RRF merge (k=60). 226 sources / 2,857 chunks. Hybrid = default; `--lexical-only` / `--semantic-only` / `--explain` for introspection. ~9ms FTS5 + ~50ms semantic. | `build [--force] [--lexical-only]`, `update`, `query "..." [--lexical-only \| --semantic-only] [--explain] [--kind ...] [--limit N] [--json]`, `status` |
+| **Exec Guard** | `scripts/state/exec_guard.py` | PreToolUse Bash hook. Hard blocks on DROP, DELETE-without-WHERE, ALTER DROP COLUMN, rm -rf / outside tmp, force-push to main, git reset --hard <ref>, fork bombs, dd-to-disk. AST-validates SQL via sqlglot. Read-only CLI verbs fast-path. | env: `EMPIRE_HOOK_EXEC_GUARD={enforce,report,off}` |
+| **Secret Guard** | `scripts/state/secret_guard.py` | PreToolUse Read/Bash/Edit hook. Blocks Read on `.env*`/`*.pem`/`*.key`/`credentials.json`. Blocks `cat`/`grep`/`sed`/`awk` on those paths. | env: `EMPIRE_HOOK_SECRET_GUARD={enforce,report,off}` |
+| **State Guard** | `scripts/state/state_guard.py` | PreToolUse Edit hook on auto-generated mirrors (`memory/SESSION_LOG.md` between markers). Pushes you to `state_manager.py` instead. | env: `EMPIRE_HOOK_STATE_GUARD={enforce,report,off}` |
 | **Subprocess Guard** | `scripts/hooks/subprocess_guard.py` | PreToolUse Edit/Write/MultiEdit AST hook. Blocks new `subprocess.{Popen,run,...}` calls in `.py` files that omit `creationflags=` — the recurring "terminal window popped up" root cause. Compares against pre-existing file violations so cleanup edits aren't unfairly blocked. Bypass via `# noqa: SUBPROCESS`. Predicate shared with audit script via `scripts/lib/subprocess_ast.py`. | env: `EMPIRE_HOOK_SUBPROCESS_GUARD={enforce,report,off}` (default `report`) |
 | **Subprocess Audit** | `scripts/audit_no_visible_subprocess.py` | Repo-wide scanner — exits 1 on any unflagged daemon-spawned subprocess call. Companion codemod: `scripts/migrate_subprocess_calls.py` (dry-run by default, `--apply` to bulk-patch). Canonical wrappers live in `scripts/_subprocess_helpers.py` + `bravo_cli/_subprocess_helpers.py` (`safe_run`, `safe_popen`, `safe_daemon_popen`). | `audit_no_visible_subprocess.py [--quiet \| --json] [path]` |
 | **Retriever Post-Edit** | `scripts/retriever_postedit.py` | PostToolUse hook — fires `memory_retriever.py update` (detached) when an indexed file is written, keeping the FTS5 index warm. | auto |
 | **Secret Loader** | `scripts/lib/secret_loader.py` | Canonical in-process loader for `.env.agents`. Refuses tmp/ callers + interactive shells. Audits every load to `state/secret_access.log`. | `from lib.secret_loader import load_env` |
-| **Safe Error** | `scripts/lib/safe_error.py` | Credential-pattern scrubber for tracebacks before any LLM-visible surface. | `from lib.safe_error import scrub, scrub_traceback` |
+| **Safe Error** _(archived 2026-05-21)_ | `scripts/_archive/safe_error.py` | Credential-pattern scrubber for tracebacks. No active callers; archived during 2026-05-21 cleanup. Revive if a future surface needs scrub-before-log. | — |
 | **State DB** | `state/empire_state.db` | SQLite/WAL. Tables: `agent_state`, `session_log` (UNIQUE(session_id, note)), `active_task`, `state_transaction` (audit). | — |
 | **Index DB** | `state/memory_index.db` | SQLite FTS5. Separate file so retrieval reads never block state writes. | — |
 | **Migrations** | `state/migrations/{001_init,002_memory_index,003_override_requests}.sql` | Idempotent; auto-applied on first connect. Tracked in git; everything else under `state/` is gitignored. | — |
 | **Audit logs (jsonl)** | `state/{exec_guard,secret_guard,state_guard,secret_access,state_manager}.log` | Local, gitignored. Reviewed weekly during 14-day soak before flipping `EMPIRE_HOOK_*=enforce`. | `tail -f state/exec_guard.log` |
-| **Exec Override** | `scripts/exec_override.py` + `scripts/lib/override_crypto.py` | BUILD 4 operator-approval flow. `exec_guard` block auto-creates a pending `override_request` row; operator approves by id from their terminal; single-use HMAC-signed approval bound to `sha256(command)`. | `list [--pending]`, `approve <id>`, `deny <id>`, `status <id>`, `cleanup` |
-| **Event Bus** | `scripts/event_bus.py` + Supabase `agent_events` table | BUILD 3 cross-agent pub/sub. Raw psycopg `LISTEN/NOTIFY` with 5-second polling fallback; `claim_events()` RPC uses `FOR UPDATE SKIP LOCKED` for race-free dequeue. Migration 015 applied 2026-05-10. **All 4 producers wired** (state_manager.append_session_log → BRAVO_SESSION_LOG_APPENDED, pulse_publish.cmd_refresh → BRAVO_PULSE_REFRESHED, bridge_chat_server → BRAVO_CHAT_INTERACTION, send_gateway → BRAVO_OUTBOUND_SENT). | `publish --type X --payload '...'`, `tail --agent bravo`, `stats`, `reap`, `drain` |
+| **Exec Override** | `scripts/state/exec_override.py` + `scripts/lib/override_crypto.py` | BUILD 4 operator-approval flow. `exec_guard` block auto-creates a pending `override_request` row; operator approves by id from their terminal; single-use HMAC-signed approval bound to `sha256(command)`. | `list [--pending]`, `approve <id>`, `deny <id>`, `status <id>`, `cleanup` |
+| **Event Bus** | `scripts/core/event_bus.py` + Supabase `agent_events` table | BUILD 3 cross-agent pub/sub. Raw psycopg `LISTEN/NOTIFY` with 5-second polling fallback; `claim_events()` RPC uses `FOR UPDATE SKIP LOCKED` for race-free dequeue. Migration 015 applied 2026-05-10. **All 4 producers wired** (state_manager.append_session_log → BRAVO_SESSION_LOG_APPENDED, pulse_publish.cmd_refresh → BRAVO_PULSE_REFRESHED, bridge_chat_server → BRAVO_CHAT_INTERACTION, send_gateway → BRAVO_OUTBOUND_SENT). | `publish --type X --payload '...'`, `tail --agent bravo`, `stats`, `reap`, `drain` |
 
 **Hook chain:** Bash → secret_guard → exec_guard. Read → secret_guard. Edit/Write → secret_guard → state_guard → subprocess_guard. Each guard exits 0/2 and writes to its own JSONL audit log. Default modes are safe (`report`/`off`) — flip to `enforce` after soak.
 
-**Drift check:** `python scripts/state_manager.py export --check` exits 1 if mirror markdown is out of sync with the DB. Run before commits in `EMPIRE_V6_MODE=on`.
+**Drift check:** `python scripts/state/state_manager.py export --check` exits 1 if mirror markdown is out of sync with the DB. Run before commits in `EMPIRE_V6_MODE=on`.
 
 ### V6.0 Phase 2 — Productized Deployment (2026-05-10)
 
@@ -281,15 +281,15 @@ Turnkey deployment for B2B clients. Two compose targets, scoped secrets, dashboa
 | **Cloud compose** | `infra/docker-compose.cloud.yml` | Always-on VPS. `include:`s the prod stack (5 daemons + pgbouncer + Caddy) and adds `command-center` (Next.js) + `state-api` (read-only FastAPI). Requires Compose ≥ 2.20. |
 | **Command Center image** | `infra/Dockerfile.commandcenter` | Next.js 15 multi-stage build. Non-root UID 10001, `output: 'standalone'`, healthcheck via `/api/health`. |
 | **Caddy dashboard route** | `infra/Caddyfile` | TLS-terminated dashboard endpoint with basic auth. `/api/health` carved out for probes. |
-| **State API** | `scripts/state_api.py` | Read-only FastAPI service. Wraps `state_manager.status()` + tails guard logs. Mounted with `state/` read-only — physically cannot write to the DB. Endpoints: `/health`, `/status`, `/guards`, `/retrieval`. |
+| **State API** | `scripts/state/state_api.py` | Read-only FastAPI service. Wraps `state_manager.status()` + tails guard logs. Mounted with `state/` read-only — physically cannot write to the DB. Endpoints: `/health`, `/status`, `/guards`, `/retrieval`. |
 | **System Health page** | `oasis-command-center:app/system-health/page.tsx` | Server component → `/api/state-health` → state-api. Shows DB stats, agent ticks, all three guard modes + 24h block counts. Header carries a `via state-api` / `via supabase-mirror` tag so operators see which read path served the payload. |
 | **State-health read path** | `oasis-command-center:app/api/state-health/route.ts` | Two-tier: tries `state-api:8500/status` first (canonical, available in local + Cloud Compose). On Vercel where that hostname isn't routable, falls back to a Supabase mirror that synthesizes the same shape from `agent_state_snapshot` + `agent_events` + `session_logs` via `getServiceSupabase()`. Envelope carries `source` field; FTS5/guard-tail sections render empty (local-only). |
 | **Operator Playbook page** | `oasis-command-center:app/playbook/onboarding/page.tsx` | `react-markdown` renders `docs/playbooks/*.md`. Updated by editing markdown, not code. |
 | **Override Approvals page (Apex Phase 2)** | `oasis-command-center:app/overrides/page.tsx` | Dashboard-driven approve/deny for exec_guard-blocked commands. Reads `exec_overrides` Supabase mirror; server action POSTs to `record_exec_override_decision_v1` RPC with sha256(OASIS_OUTBOUND_HMAC_SECRET) validated server-side against `n8n_webhook_secrets.secret_hash`. Local SQLite remains the at-runtime auth gate — Vercel writes intent only. |
 | **Override API endpoint** | `oasis-command-center:app/api/exec-override/route.ts` | Public POST `/api/exec-override` with `x-oasis-profile-id` + `x-oasis-secret` headers for CLI/external callers. Same RPC as the page server action. GET lists recent rows via service-role. |
 | **Override mirror table** | `database/035_exec_overrides_mirror.sql` (Supabase `exec_overrides`) | Mirror of the local SQLite `override_request` table. Pending rows land here via `state_manager._mirror_override_row` after `create_override_request`. RPCs: `record_exec_override_decision_v1` (dashboard write), `mark_exec_override_synced_v1` (consumer write-back). |
-| **Override consumer daemon** | `scripts/exec_override_consumer.py` | Polls `exec_overrides` for `dashboard_decision IS NOT NULL AND consumer_synced_at IS NULL`, applies via `state_manager.approve_override_request` / `deny_override_request` (HMAC-signs in local SQLite), then mirrors final status back. `loop --interval 5` is the production mode. |
-| **Event router daemon (Apex Phase 3)** | `scripts/event_router.py` | Polls `agent_events` with a cursor (`state/event_router.cursor`), projects each row to a uniform shape, appends to `state/event_router.log` jsonl. Cursor-based — sees every event exactly once on the host. Run-modes: `once`, `loop`, `tail`. |
+| **Override consumer daemon** | `scripts/state/exec_override_consumer.py` | Polls `exec_overrides` for `dashboard_decision IS NOT NULL AND consumer_synced_at IS NULL`, applies via `state_manager.approve_override_request` / `deny_override_request` (HMAC-signs in local SQLite), then mirrors final status back. `loop --interval 5` is the production mode. |
+| **Event router daemon (Apex Phase 3)** | `scripts/core/event_router.py` | Polls `agent_events` with a cursor (`state/event_router.cursor`), projects each row to a uniform shape, appends to `state/event_router.log` jsonl. Cursor-based — sees every event exactly once on the host. Run-modes: `once`, `loop`, `tail`. |
 | **Event Feed page (Apex Phase 3)** | `oasis-command-center:app/feed/page.tsx` | Live cross-agent activity tape. Server-renders the last hour of `agent_events`; `refresher.tsx` client island calls `router.refresh()` every 5s so the operator sees sibling activity land without websockets. |
 | **Event feed API** | `oasis-command-center:app/api/event-feed/route.ts` | GET `/api/event-feed?since_minutes=60&limit=100&source=&event_type=`. Service-role read with bounded windows + filters; used by the page on initial render and any future client poller. |
 | **Playbook docs** | `docs/playbooks/{01-getting-started,02-safe-interaction,03-when-to-call-cc,04-pause-and-rollback}.md` | Four operator SOPs. Plain-English contract for non-technical clients. |
@@ -320,13 +320,13 @@ docker compose -f infra/docker-compose.cloud.yml up -d --build
 
 | Component | Path | Purpose | CLI |
 |-----------|------|---------|-----|
-| **Event Bus** | `scripts/event_bus.py` | Postgres LISTEN/NOTIFY pub/sub replacing pulse JSON | `publish`, `stats`, `reap`, `drain`, `tail` |
-| **Memory Chunker** | `scripts/memory_chunker.py` | Markdown → RAG chunks with wiki-link provenance | `<path> [--stats] [--json]` |
-| **Memory Ingest** | `scripts/memory_ingest.py` | Chunk + embed + upsert to `memory_chunks` | `[--dry-run] [--only FILE] [--force-reembed]` |
-| **Memory Query** | `scripts/memory_query.py` | Hybrid RAG retrieval (vector + trigram + freshness) | `--task "..." [--k N] [--format markdown\|json]` |
+| **Event Bus** | `scripts/core/event_bus.py` | Postgres LISTEN/NOTIFY pub/sub replacing pulse JSON | `publish`, `stats`, `reap`, `drain`, `tail` |
+| **Memory Chunker** | `scripts/core/memory_chunker.py` | Markdown → RAG chunks with wiki-link provenance | `<path> [--stats] [--json]` |
+| **Memory Ingest** | `scripts/core/memory_ingest.py` | Chunk + embed + upsert to `memory_chunks` | `[--dry-run] [--only FILE] [--force-reembed]` |
+| **Memory Query** | `scripts/core/memory_query.py` | Hybrid RAG retrieval (vector + trigram + freshness) | `--task "..." [--k N] [--format markdown\|json]` |
 | **PII Scrubber** | `scripts/pii_scrubber.py` | Regex + optional Presidio PII redaction with reversible table | `scrub`, `unscrub`, `audit` |
 | **DNS Reputation Doctor** | `scripts/dns_reputation.py` | Check SPF/DKIM/DMARC presence for a sender domain (invoked by `send_gateway.py doctor`) | `--domain oasisai.work` |
-| **Webhook Listener** | `scripts/webhook_listener.py` | FastAPI endpoint for Stripe (sig-verified) / N8N (token) / Telegram updates → event bus | `uvicorn webhook_listener:app` |
+| **Webhook Listener** | `scripts/hooks/webhook_listener.py` | FastAPI endpoint for Stripe (sig-verified) / N8N (token) / Telegram updates → event bus | `uvicorn webhook_listener:app` |
 | **V6 Migration 014** | `database/014_v6_pgvector_memory.sql` | pgvector + `memory_chunks` + `search_memory_chunks` RPC | `python scripts/apply_migration.py database/014_v6_pgvector_memory.sql` |
 | **V6 Migration 015** | `database/015_v6_event_bus_extensions.sql` | LISTEN/NOTIFY trigger + `claim_events`/`ack_event`/`fail_event` RPCs | `python scripts/apply_migration.py database/015_v6_event_bus_extensions.sql` |
 | **Docker stack** | `infra/Dockerfile` + `infra/docker-compose.yml` | 5-service containerized daemon set for headless VPS | `docker compose -f infra/docker-compose.yml up -d` |
@@ -345,7 +345,7 @@ docker compose -f infra/docker-compose.cloud.yml up -d --build
 | Engine | Script | Purpose | Key Commands |
 |--------|--------|---------|-------------|
 | **Lead CRM** | `scripts/lead_engine.py` | Full pipeline management, scoring, interactions | `list`, `add`, `view`, `update`, `score`, `interact`, `followups`, `pipeline`, `search`, `funnel` |
-| **Email** | `scripts/email_engine.py` | Free Gmail SMTP sending, templates, nurture sequences. Cold outreach uses `send-template` (Gate 1b refuses raw text-only OASIS commercial sends). | `send`, `send-template`, `templates list/create`, `sequence list/create/run`, `log`, `stats` |
+| **Email** | `scripts/integrations/email_engine.py` | Free Gmail SMTP sending, templates, nurture sequences. Cold outreach uses `send-template` (Gate 1b refuses raw text-only OASIS commercial sends). | `send`, `send-template`, `templates list/create`, `sequence list/create/run`, `log`, `stats` |
 | **Region Inference** | `scripts/region_inference.py` | Lead → regional phrase ("the Toronto area" / "the Collingwood area" / "Central Ontario"). Auto-injected into outreach templates as `{{region}}` for geo-rapport. | `python scripts/region_inference.py '{"company":"X","phone":"..."}'` |
 | **Template Wiring** | `scripts/wire_all_templates.py` | Canonical OASIS template sync + verification. Enforces website link + Google Calendar CTA in `email_templates`. | `--verify-only --json` / `--dry-run` |
 | **Outreach send (canonical SOP)** | [skills/outreach-send/SKILL.md](../skills/outreach-send/SKILL.md) | One-command cold/follow-up email path for all AIs (Claude Code, OpenCode, Codex, Gemini, Antigravity). Auto geo-rapport. | See skill doc. |
@@ -356,7 +356,7 @@ docker compose -f infra/docker-compose.cloud.yml up -d --build
 | **Revenue** | `scripts/revenue_engine.py` | MRR tracking, Stripe sync, forecasting | `mrr`, `dashboard`, `sync-stripe`, `log-revenue`, `history`, `forecast`, `clients`, `goal` |
 | **Competitive Intel** | `scripts/competitive_intel.py` | Competitor profiles, battlecards, landscape reports | `add`, `list`, `view`, `update`, `battlecard`, `report`, `matrix`, `delete` |
 | **Financial Model** | `scripts/financial_model.py` | Unit economics, scenario modeling, concentration risk | `unit-economics`, `forecast`, `scenario`, `concentration`, `runway` |
-| **Cron** | `scripts/cron_engine.py` + `scripts/cron_dispatcher.py` | Automated job registry plus allowlisted script-backed execution for Atlas/Maven jobs | `cron_engine.py list/add/toggle/due/seed`; `cron_dispatcher.py due --execute`, `run <job_id>` |
+| **Cron** | `scripts/core/cron_engine.py` + `scripts/core/cron_dispatcher.py` | Automated job registry plus allowlisted script-backed execution for Atlas/Maven jobs | `cron_engine.py list/add/toggle/due/seed`; `cron_dispatcher.py due --execute`, `run <job_id>` |
 
 All engines: `--json` flag for agent consumption, credentials from `.env.agents`, Supabase backend.
 
@@ -367,7 +367,7 @@ Complements markdown memory: markdown handles structured state, mem0 handles fuz
 
 | Tool | Script | Purpose | Key Commands |
 |------|--------|---------|-------------|
-| **Semantic Memory** | `scripts/mem0_tool.py` | Semantic search, auto-dedup, cross-session context injection | `add`, `search`, `list`, `get`, `delete`, `history`, `stats` |
+| **Semantic Memory** | `scripts/integrations/mem0_tool.py` | Semantic search, auto-dedup, cross-session context injection | `add`, `search`, `list`, `get`, `delete`, `history`, `stats` |
 
 **Stack:** mem0ai 1.0.10, fastembed (thenlper/gte-large, 1024-dim, local ONNX), Claude Haiku (extraction), Qdrant (embedded, local)
 **Storage:** `data/mem0_qdrant/` (persisted, no server required)
@@ -379,16 +379,16 @@ Patterns extracted from Claude Code's internal harness architecture (1,902 TS fi
 
 | Tool | Script | Purpose | Key Commands |
 |------|--------|---------|-------------|
-| **Context Manager** | `scripts/context_manager.py` | Tiered loading, transcript compaction, deferred init health | `tier "<query>"`, `compact [--dry-run]`, `status`, `health` |
+| **Context Manager** | `scripts/core/context_manager.py` | Tiered loading, transcript compaction, deferred init health | `tier "<query>"`, `compact [--dry-run]`, `status`, `health` |
 | **Cost Tracker** | `scripts/cost_tracker.py` | Per-operation cost tracking (label:units), budget alerts | `log --label X --units N`, `summary [--period today]`, `budget --check`, `session` |
-| **Memory Aging** | `scripts/memory_aging.py` | Confidence decay, stale fact detection, memory health grading | `scan`, `stale [--days 30]`, `health`, `archive [--dry-run]` |
+| **Memory Aging** | `scripts/core/memory_aging.py` | Confidence decay, stale fact detection, memory health grading | `scan`, `stale [--days 30]`, `health`, `archive [--dry-run]` |
 
 **Config:** `.agents/config.toml` sections `[context]`, `[cost_tracking]`, `[memory_aging]`
 **Skill:** `skills/context-optimization/SKILL.md` — full reference for all 5 patterns
 
 ## Google Workspace (1 CLI tool — 7 services, 30+ commands)
 
-Full Google ecosystem via `scripts/google_tool.py`. Auth: GWS CLI keyring (auto-refreshes). All commands support `--json`.
+Full Google ecosystem via `scripts/integrations/google_tool.py`. Auth: GWS CLI keyring (auto-refreshes). All commands support `--json`.
 
 | Service | Commands | Scope |
 |---------|----------|-------|
@@ -421,7 +421,7 @@ On-site RAG for source-grounded chat, podcast generation, and multi-format conte
 
 | Tool | Script | Key Commands |
 |------|--------|-------------|
-| **NotebookLM** | `scripts/notebooklm_tool.py` | `list`, `create --title "..."`, `use <id>`, `ask "..."`, `summary` |
+| **NotebookLM** | `scripts/integrations/notebooklm_tool.py` | `list`, `create --title "..."`, `use <id>`, `ask "..."`, `summary` |
 | | | `source add <url/file>`, `source add-research <query>`, `source list` |
 | | | `generate audio/video/report/quiz/flashcards/slide-deck [--wait]` |
 | | | `download audio/video/report <path>` |
@@ -435,7 +435,7 @@ On-site RAG for source-grounded chat, podcast generation, and multi-format conte
 |------|--------|---------|-------------|
 | **Codex Image Gen** | `../CMO-Agent/scripts/codex_image_gen.py` (owned by Maven) | AI image generation via Codex (no extra API keys) | `generate "<prompt>" --style branded`, `styles` |
 | **autoDream** | `scripts/auto_dream.py` | Memory consolidation: Orient → Gather → Consolidate → Prune | `run [--dry-run]`, `status` |
-| **Memory Index** | `scripts/memory_index.py` | 3-layer memory architecture (index → topics → archives) | `build`, `search "<query>"`, `stats` |
+| **Memory Index** | `scripts/core/memory_index.py` | 3-layer memory architecture (index → topics → archives) | `build`, `search "<query>"`, `stats` |
 | **Codex Health** | `scripts/codex_health.py` | Full Codex integration health check (grade A-F) | `[--json]` |
 
 **Content pipeline moved to Maven** — see section above. When CC says "make this a post," route to `C:\Users\User\CMO-Agent`.
@@ -498,7 +498,7 @@ The following were added to the Business Operations Engines table above (already
 
 | Script | Purpose |
 |--------|---------|
-| `scripts/browse_and_capture.py` | Browser screenshot + capture |
+| `scripts/browser/browse_and_capture.py` | Browser screenshot + capture |
 | `../CMO-Agent/scripts/content_generator.py` | Claude API content generation |
 | `scripts/generate_covers.py` | Cover art / image generation |
 | `scripts/macos_control.py` | macOS system automation |
@@ -528,15 +528,15 @@ Four entry files at the repo root — one per AI tooling surface. Every agent th
 
 ## Outbound Communication Architecture (V5.6 — 2026-04-20)
 
-**All autonomous sends route through `scripts/send_gateway.py`.** Direct `smtplib` calls from business engines are a regression and must be reverted in review.
+**All autonomous sends route through `scripts/integrations/send_gateway.py`.** Direct `smtplib` calls from business engines are a regression and must be reverted in review.
 
 | Layer | File | Role |
 |---|---|---|
-| Gateway | `scripts/send_gateway.py` | Single chokepoint. CASL + cooldown + daily cap + multi-brand + logging. 17 tests green. |
-| Context | `scripts/context_builder.py` | `get_entity_context()` — relationship stage, sentiment, prior interactions. Input for persona-aware LLM drafts. |
+| Gateway | `scripts/integrations/send_gateway.py` | Single chokepoint. CASL + cooldown + daily cap + multi-brand + logging. 17 tests green. |
+| Context | `scripts/core/context_builder.py` | `get_entity_context()` — relationship stage, sentiment, prior interactions. Input for persona-aware LLM drafts. |
 | Migrations | `scripts/apply_migration.py` | Applies `database/*.sql` via Supabase Management API. |
-| Supabase Mgmt API | `scripts/supabase_admin.py` | Shared client for Supabase Management API (auth provider config, etc.). Handles Cloudflare-friendly UA. CLI: `python scripts/supabase_admin.py get /v1/projects/<ref>/config/auth` · `enable-google-oauth --project-ref X --client-id Y --client-secret Z`. |
-| Cloudflare DNS | `scripts/cloudflare_admin.py` | Shared client for Cloudflare DNS. CLI: `list-zone --domain X` · `upsert-txt --domain X --name _vercel --value Y` · `sync-vercel-txt --domain X --vercel-project Y` (recovers a Vercel domain that needs new TXT verification). Built after the 2026-04-30 oasisai.work outage. |
+| Supabase Mgmt API | `scripts/integrations/supabase_admin.py` | Shared client for Supabase Management API (auth provider config, etc.). Handles Cloudflare-friendly UA. CLI: `python scripts/integrations/supabase_admin.py get /v1/projects/<ref>/config/auth` · `enable-google-oauth --project-ref X --client-id Y --client-secret Z`. |
+| Cloudflare DNS | `scripts/integrations/cloudflare_admin.py` | Shared client for Cloudflare DNS. CLI: `list-zone --domain X` · `upsert-txt --domain X --name _vercel --value Y` · `sync-vercel-txt --domain X --vercel-project Y` (recovers a Vercel domain that needs new TXT verification). Built after the 2026-04-30 oasisai.work outage. |
 | Ledger | `lead_interactions` table (+ migration 003: `cooldown_until`, `agent_source`, `metadata`) | Unified cross-engine action log. |
 | CASL | `scripts/casl_compliance.py` | Suppression + footer + RFC 2369/8058 headers. Composed by the gateway. |
 | Templates | `scripts/wire_all_templates.py` | Keeps OASIS Welcome / Value Add / CTA congruent across sessions. Verifies `https://oasisai.work` + `https://calendar.app.google/tpfvJYBGircnGu8G8`. |
@@ -549,31 +549,31 @@ Scripts that enforce Bravo's coherence, autonomy, and self-correction. Run in-pr
 
 | Script | Purpose | Usage |
 |---|---|---|
-| `scripts/self_audit.py` | **Self-diagnostic health check.** Scans brain/, memory/, skills/, agents/, scripts/ for orphans, broken wiring, undocumented scripts, MCP config drift. Emits 0-100 health score. | `python scripts/self_audit.py` (human) or `--json` |
+| `scripts/core/self_audit.py` | **Self-diagnostic health check.** Scans brain/, memory/, skills/, agents/, scripts/ for orphans, broken wiring, undocumented scripts, MCP config drift. Emits 0-100 health score. | `python scripts/core/self_audit.py` (human) or `--json` |
 | `scripts/audit_rls_coverage.py` | Supabase RLS coverage check for every tenant-scoped table. Fails if a `tenant_id` table lacks RLS or policies. | `python scripts/audit_rls_coverage.py --json` |
 | `scripts/draft_critic.py` | Adversarial second-opinion reviewer. Runs on every Claude-drafted outbound before `send_gateway`. Answers the 2026-04-19 "dumb outreach" complaint. | Called by gateway hook, also `--review <draft>` |
 | `scripts/inbound_classifier.py` | The inbound chokepoint companion to `send_gateway`. Classifies every inbound email/DM into unified `lead_interactions` ledger so no engine re-contacts a replied lead. | Called by engines; `--classify <payload>` |
 | `scripts/autonomous_agent.py` | The always-on reasoning loop. Wakes on schedule or Telegram poke, consults pulse files, picks highest-leverage action, executes, logs. | `python scripts/autonomous_agent.py --once` or daemon mode |
-| `scripts/state_sync.py` | Canonicalizes session state at end of every session. **NON-NEGOTIABLE** per Rule 4. | `python scripts/state_sync.py --note "<1-sentence summary>"` |
+| `scripts/state/state_sync.py` | Canonicalizes session state at end of every session. **NON-NEGOTIABLE** per Rule 4. | `python scripts/state/state_sync.py --note "<1-sentence summary>"` |
 | `scripts/register_skill.py` | Runtime skill catalog: create/register/sync-all all `SKILL.md` folders into Supabase `skills_registry`, synthesize triggers/tier/owner/risk/source hashes, route a plain-English task to the right skills, and audit drift. | `python scripts/register_skill.py sync-all --deactivate-missing --json` · `python scripts/register_skill.py route "<task>" --json` · `python scripts/register_skill.py audit --json` |
 | `scripts/build_maven_env.py` | One-time setup: seeds Maven's `.env.agents` from Bravo's shared infra credentials. | Run once per Maven bootstrap |
-| `scripts/agent_heartbeat.py` | Write heartbeat to `agent_state_snapshot` so Command Center detects live agents within 15 min. | `python scripts/agent_heartbeat.py --agent bravo` |
+| `scripts/core/agent_heartbeat.py` | Write heartbeat to `agent_state_snapshot` so Command Center detects live agents within 15 min. | `python scripts/core/agent_heartbeat.py --agent bravo` |
 | `scripts/crm_reset.py` | Archive cold/dead leads from bravo Supabase CRM. CC directive: remove noise, keep warm leads only. | `python scripts/crm_reset.py --dry-run` |
-| `scripts/deploy_command_center.py` | One-shot production deploy for OASIS AI Agent Command Center. Sets real User-Agent for Supabase Management API. | `python scripts/deploy_command_center.py` |
+| `scripts/deploy_command_center.py` _(moved 2026-05-18)_ | One-shot production deploy for OASIS AI Agent Command Center. Migrated to the standalone `oasis-command-center` repo when the dashboard was extracted; deploys now run there via `vercel deploy --prod`. | `cd ~/APPS/oasis-command-center && vercel deploy --prod` |
 | `scripts/integration_health.py` | Bump `integrations_health` row from any background worker. Supports Command Center Settings → Integrations page. | `python scripts/integration_health.py --integration stripe --status ok` |
 | `scripts/fleet_health.py` | Cross-agent health rollup: pulse freshness (Bravo/Atlas/Maven), inbox unread per agent, cron job state, bridge lock status, memory staleness summary. | `python scripts/fleet_health.py`, `--json`, `--agent <name>` |
-| `scripts/cron_dispatcher.py` | Executes allowlisted script-backed cron jobs from the shared registry (Atlas pulse publish, Maven token check, Maven backlog audit) and writes run status back to Supabase. | `python scripts/cron_dispatcher.py due --execute`, `run <job_id>`, `--dry-run` |
+| `scripts/core/cron_dispatcher.py` | Executes allowlisted script-backed cron jobs from the shared registry (Atlas pulse publish, Maven token check, Maven backlog audit) and writes run status back to Supabase. | `python scripts/core/cron_dispatcher.py due --execute`, `run <job_id>`, `--dry-run` |
 | `scripts/pulse_publish.py` | Atomic, schema-validated writer for Bravo's ceo_pulse.json. Only blessed path to update the file (direct edits forbidden per AGENT_ORCHESTRATION.md). | `python scripts/pulse_publish.py refresh --net-mrr <X> --priority "<...>"`, `validate`, `status` |
-| `scripts/n8n_webhook_secret.py` | Manage shared secrets for OASIS Command Center inbound webhook (n8n workflow 1cGIN32alM8sf8OV). Issue/list/revoke. | `python scripts/n8n_webhook_secret.py issue`, `--list`, `--revoke <id>` |
+| `scripts/integrations/n8n_webhook_secret.py` | Manage shared secrets for OASIS Command Center inbound webhook (n8n workflow 1cGIN32alM8sf8OV). Issue/list/revoke. | `python scripts/integrations/n8n_webhook_secret.py issue`, `--list`, `--revoke <id>` |
 | `scripts/seed_plan_template.py` | Seed (or update) weekday/weekend plan templates for an operator in the Command Center. | `python scripts/seed_plan_template.py --operator cc --type weekday` |
 | `scripts/seed_profile.py` | Seed (or update) OASIS Command Center operator profile. Idempotent, defaults to CC's profile. | `python scripts/seed_profile.py`, `--email <email>` |
-| `scripts/sync_slash_commands.py` | Drift-detect dashboard slash-command catalog against actual `.agents/workflows/` on disk. Detect-only, not auto-fix. | `python scripts/sync_slash_commands.py` |
-| `scripts/agent_inbox.py` | **Async agent-to-agent messaging** (mcp_agent_mail pattern). Bravo/Atlas/Maven/Aura/Codex post structured messages to `tmp/agent_inbox/`, orchestrator picks up at checkpoints. Closes the synchronous-delegation gap. | `post --from <agent> --to <agent> --subject ... --body ...`, `list --to bravo`, `read <msg_id>`, `reply --in-reply-to <msg_id>` |
+| `scripts/core/sync_slash_commands.py` | Drift-detect dashboard slash-command catalog against actual `.agents/workflows/` on disk. Detect-only, not auto-fix. | `python scripts/core/sync_slash_commands.py` |
+| `scripts/core/agent_inbox.py` | **Async agent-to-agent messaging** (mcp_agent_mail pattern). Bravo/Atlas/Maven/Aura/Codex post structured messages to `tmp/agent_inbox/`, orchestrator picks up at checkpoints. Closes the synchronous-delegation gap. | `post --from <agent> --to <agent> --subject ... --body ...`, `list --to bravo`, `read <msg_id>`, `reply --in-reply-to <msg_id>` |
 | `scripts/md_to_gdoc.py` | Markdown → styled Google Doc export. Wraps `google_tool.py docs create` with inline CSS for tables, code, blockquotes. | `python scripts/md_to_gdoc.py brain/TOOL_SHED.md [--title "..."] [--folder <drive-id>] [--json]` |
 | `scripts/name_utils.py` | **Render-path name sanitizer.** Single source of truth for blocking placeholder lead names ("Contact", "Owner", "info", empty, etc.) before they reach a real recipient. Imported by `email_engine`, `outreach_engine`, `funnel_nurture`, `autonomous_agent`. Tests: `scripts/test_name_utils.py` (21 cases). Motivated by the 2026-04-25 "Hi Contact," incident. | `from name_utils import safe_first_name, safe_full_name, sanitize_template_vars` |
 | `scripts/sibling_repos.py` | **Cross-repo path resolver.** Single source of truth for sibling-agent locations (Bravo/Maven/Atlas/Aura). Used by `agent_inbox.py` (cross-repo posting) and `ceo_dashboard.py` (subprocess to Maven's late_tool for content stats). Per-machine override via `BRAVO_REPO`/`MAVEN_REPO`/`ATLAS_REPO`/`AURA_REPO` env vars. | `from sibling_repos import repo_for, script_in` |
 | `scripts/critic_template_check.py` | **Regression test for OASIS templates vs `draft_critic`.** Renders every OASIS email template against a synthetic lead and runs the critic at the live gateway threshold (6.5). Exits 1 if any template fails. Run before merging any template OR critic config change. Originated from the 2026-05-04 template-drift mistake. | `python scripts/critic_template_check.py [--json]` |
-| `scripts/n8n_inbound_doctor.py` | **Diagnostic for the OASIS Inbound Qualifier (Bravo Aware) n8n workflow.** Verifies workflow `1cGIN32alM8sf8OV` is active, the Supabase `record_inbound_from_n8n` RPC exists and accepts payloads, and the email_engine IMAP poll path can write to `lead_interactions`. Use when inbound classification appears broken. | `python scripts/n8n_inbound_doctor.py [--json]` |
+| `scripts/integrations/n8n_inbound_doctor.py` | **Diagnostic for the OASIS Inbound Qualifier (Bravo Aware) n8n workflow.** Verifies workflow `1cGIN32alM8sf8OV` is active, the Supabase `record_inbound_from_n8n` RPC exists and accepts payloads, and the email_engine IMAP poll path can write to `lead_interactions`. Use when inbound classification appears broken. | `python scripts/integrations/n8n_inbound_doctor.py [--json]` |
 
 ## Business Ops Database Schema (14 tables — Supabase Bravo)
 
@@ -769,9 +769,9 @@ These are registered in Claude Code's native skill system with proper frontmatte
 ## Obsidian Links
 - [[brain/AGENTS]] | [[brain/STATE]] | [[brain/APP_REGISTRY]]
 - [[brain/MODEL_CONFIG]] — V6.0 per-agent provider/model routing config
-- [[brain/USER.template]] — public-clone operator profile template
+- [[brain/USER.template.md]] — public-clone operator profile template
 - [[memory/WORKING]] — V6.0 ephemeral working memory (consolidated nightly)
-- [[memory/ACTIVE_TASKS.template]] | [[memory/SESSION_LOG.template]]
+- [[memory/ACTIVE_TASKS.template.md]] | [[memory/SESSION_LOG.template.md]]
 - [[skills/mcp-operations/SKILL]] | [[skills/browser-automation/SKILL]]
 - [[skills/auto-generated/SKILL]] — V6.0 runtime-synthesized skill container
 
@@ -779,28 +779,26 @@ These are registered in Claude Code's native skill system with proper frontmatte
 
 <!-- MANIFEST:BEGIN -->
 _Auto-generated by `scripts/catalog_sync.py` — do not edit this block manually._
-_Last synced: 2026-05-04T21:33:26.379993+00:00_
+_Last synced: 2026-05-21T22:23:37.688699+00:00_
 
 | Type | Count |
 |---|---:|
-| Python scripts | 107 |
-| PowerShell scripts | 9 |
-| Shell scripts | 4 |
-| **Total scripts** | **120** |
-| Skills | 153 (8 destructive) |
-| Agents | 20 |
-| Workflows | 35 |
+| Python scripts | 95 |
+| PowerShell scripts | 10 |
+| Shell scripts | 2 |
+| **Total scripts** | **107** |
+| Skills | 149 (7 destructive) |
+| Agents | 21 |
+| Workflows | 33 |
 
 **Scripts by category:**
 
-- Other: 58
-- Data & Memory: 19
-- System: 11
+- Other: 69
 - Communication: 10
-- Content: 7
-- Governance: 5
-- Finance: 5
-- Browser & Web: 4
-- Google: 1
+- Data & Memory: 9
+- System: 6
+- Content: 5
+- Governance: 4
+- Finance: 4
 
 <!-- MANIFEST:END -->

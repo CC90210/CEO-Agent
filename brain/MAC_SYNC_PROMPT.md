@@ -70,8 +70,8 @@ The biggest one: GWS_PATH must be set to the Mac path, not Windows. Also
 FFmpeg must be brew-installed. Report which overrides are needed.
 
 STEP 4 — Verify core integrations WITHOUT modifying anything:
-  python3 scripts/supabase_tool.py select leads --limit 1
-  python3 scripts/stripe_tool.py balance
+  python3 scripts/integrations/supabase_tool.py select leads --limit 1
+  python3 scripts/integrations/stripe_tool.py balance
   python3 scripts/funnel_sync.py stats
   python3 scripts/revenue_engine.py --json mrr
 For each: report OK or the specific error. Don't try to fix credential errors
@@ -246,8 +246,8 @@ Commits you're pulling (newest first):
 - [scripts/funnel_sync.py](scripts/funnel_sync.py) — fast-poll mode (60s cadence, 120s window, race-safe insert, consolidated digest)
 - [scripts/funnel_nurture.py](scripts/funnel_nurture.py) — Day2/Day5 window fix (dead zone closed), migrated to notify.py
 - [scripts/revenue_engine.py](scripts/revenue_engine.py) — argparse --json flag fix (root cause of weeks of Telegram spam)
-- [scripts/n8n_tool.py](scripts/n8n_tool.py) — same argparse fix
-- [scripts/email_engine.py](scripts/email_engine.py) — IMAP poison UID quarantine
+- [scripts/integrations/n8n_tool.py](scripts/integrations/n8n_tool.py) — same argparse fix
+- [scripts/integrations/email_engine.py](scripts/integrations/email_engine.py) — IMAP poison UID quarantine
 - [scripts/notify.py](scripts/notify.py) — 5s Telegram timeout, stderr error logging, guarded chat_id parsing
 
 **New cron job active on Windows (will also need to be seeded if Mac ever runs its own scheduler):**
@@ -262,8 +262,8 @@ After pasting the prompt above and getting Claude's report, verify:
 - [ ] Git pull succeeded, on commit `2bf7293` or newer
 - [ ] `.env.agents` audit shows 0 REQUIRED missing, 0 CORE missing
 - [ ] `GWS_PATH` is a Mac path, not a Windows path
-- [ ] `python3 scripts/supabase_tool.py select leads --limit 1` returns JSON (not an error)
-- [ ] `python3 scripts/stripe_tool.py balance` returns balance data
+- [ ] `python3 scripts/integrations/supabase_tool.py select leads --limit 1` returns JSON (not an error)
+- [ ] `python3 scripts/integrations/stripe_tool.py balance` returns balance data
 - [ ] `python3 scripts/funnel_sync.py stats` shows `1 total` (John)
 - [ ] `python3 scripts/revenue_engine.py --json mrr` returns `{"mrr": 3322.0, ...}`
 - [ ] FFmpeg installed (`ffmpeg -version`)
@@ -278,8 +278,8 @@ If any of those fail, share the error back and I'll triage from Windows.
 
 ```bash
 bash scripts/sync-from-github.sh --verify-only && \
-python3 scripts/supabase_tool.py select leads --limit 1 && \
-python3 scripts/stripe_tool.py balance && \
+python3 scripts/integrations/supabase_tool.py select leads --limit 1 && \
+python3 scripts/integrations/stripe_tool.py balance && \
 python3 scripts/revenue_engine.py --json mrr && \
 echo "ALL GREEN"
 ```

@@ -15,7 +15,7 @@ For each row:
        deferred until the multi-tenant Gmail-account split lands;
        env-var fallback covers the SunBiz pilot.
     2. Send via smtplib.SMTP_SSL('smtp.gmail.com', 465) using the same
-       transport scripts/send_gateway.py uses.
+       transport scripts/integrations/send_gateway.py uses.
     3. Update the row's metadata.status to 'sent' (+ sent_at timestamp)
        or 'failed' (+ metadata.send_error) so the drawer's timeline
        reflects the outcome.
@@ -41,7 +41,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import smtplib
 import sys
 import time
 from datetime import datetime, timezone
@@ -51,6 +50,9 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+
+# V5.6 chokepoint: all SMTP sends go through lib.smtp_send (single source of truth)
+from lib.smtp_send import smtp_send  # noqa: E402
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -211,32 +213,17 @@ def _send_one(env: dict[str, str], sb, row: dict) -> bool:
     msg = _build_message(row, gmail_from or gmail_user)
     tenant_id = row.get("tenant_id") or ""
     lead_id = row.get("lead_id") or ""
+    # V5.6 chokepoint: uses shared lib.smtp_send (single source of truth).
+    # send_gateway.py and this daemon share the same transport layer.
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as smtp:
-            smtp.login(gmail_user, gmail_pass)
-            smtp.sendmail(gmail_user, to_email, msg.as_bytes())
-    except smtplib.SMTPAuthenticationError:
-        _mark_status(sb, row_id, status="failed",
-                     error="SMTP auth failed — rotate GMAIL_APP_PASSWORD")
-        _publish_event(sb, event_type="BRAVO_DASHBOARD_EMAIL_FAILED",
-                       tenant_id=tenant_id,
-                       payload={"interaction_id": row_id, "lead_id": lead_id,
-                                "to_email": to_email, "reason": "smtp_auth_failed"})
-        return False
-    except smtplib.SMTPRecipientsRefused:
-        _mark_status(sb, row_id, status="failed",
-                     error=f"recipient refused: {to_email}")
-        _publish_event(sb, event_type="BRAVO_DASHBOARD_EMAIL_FAILED",
-                       tenant_id=tenant_id,
-                       payload={"interaction_id": row_id, "lead_id": lead_id,
-                                "to_email": to_email, "reason": "recipient_refused"})
-        return False
-    except smtplib.SMTPException as e:
-        # Transient SMTP error — leave status='queued' so we retry next tick.
-        # Don't emit failed event yet (we haven't given up).
-        print(f"[dashboard_email_consumer] SMTP transient error for {row_id}: {e}",
-              file=sys.stderr)
-        return False
+        ok, err = smtp_send(gmail_user, gmail_pass, msg, to_email)
+        if not ok:
+            _mark_status(sb, row_id, status="failed", error=err)
+            _publish_event(sb, event_type="BRAVO_DASHBOARD_EMAIL_FAILED",
+                           tenant_id=tenant_id,
+                           payload={"interaction_id": row_id, "lead_id": lead_id,
+                                    "to_email": to_email, "reason": err or "unknown"})
+            return False
     except Exception as e:  # noqa: BLE001
         # Network blip — leave queued for retry.
         print(f"[dashboard_email_consumer] send error for {row_id}: {e}", file=sys.stderr)

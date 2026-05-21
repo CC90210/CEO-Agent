@@ -49,7 +49,7 @@ Pick the right file. If unsure, ask CC.
 
 **Alternatives rejected:** What else was on the table + why we passed.
 
-**Related:** [[brain/X]] | [[skills/Y/SKILL]] | (commit hash if applicable)
+**Related:** [[brain/X]] | [[skills/Y/SKILL.md]] | (commit hash if applicable)
 ```
 
 ### Pattern entry
@@ -82,7 +82,7 @@ Use the structure from `brain/INTENTS.md` "Diagnose why you made a mistake":
 - **Prevention** (concrete rules, ideally including a system rail)
 - **Tag** (semantic tag)
 
-If the prevention is regex-detectable, also add an entry to `memory/ANTI_PATTERNS.json` so `scripts/anti_pattern_hook.py` flags future occurrences.
+If the prevention is regex-detectable, also add an entry to `memory/ANTI_PATTERNS.json` so `scripts/hooks/anti_pattern_hook.py` flags future occurrences.
 
 ## Execution Protocol
 
@@ -113,8 +113,8 @@ If the prevention is regex-detectable, also add an entry to `memory/ANTI_PATTERN
 - **memory/DECISIONS.md / PATTERNS.md / MISTAKES.md** — the target files
 - **memory/MEMORY.md** — the index pointing to high-leverage entries
 - **brain/INTENTS.md** — the "Log a decision or pattern" playbook routes here
-- **scripts/anti_pattern_hook.py** + **memory/ANTI_PATTERNS.json** — the regex enforcement layer for anti-patterns
+- **scripts/hooks/anti_pattern_hook.py** + **memory/ANTI_PATTERNS.json** — the regex enforcement layer for anti-patterns
 
 ## Obsidian Links
 - [[memory/DECISIONS]] | [[memory/PATTERNS]] | [[memory/MISTAKES]] | [[memory/SELF_REFLECTIONS]]
-- [[brain/INTENTS]] | [[skills/silver-platter/SKILL]] | [[skills/integrations-sync/SKILL]]
+- [[brain/INTENTS]] | [[skills/silver-platter/SKILL.md]] | [[skills/integrations-sync/SKILL.md]]

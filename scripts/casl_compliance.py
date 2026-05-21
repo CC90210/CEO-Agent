@@ -5,7 +5,7 @@ Single source of truth for CASL (Canada's Anti-Spam Legislation) requirements:
 - Working unsubscribe mechanism
 - Suppression list check before every send
 
-AS OF 2026-05-16: the canonical caller is `scripts/send_gateway.py`, which
+AS OF 2026-05-16: the canonical caller is `scripts/integrations/send_gateway.py`, which
 applies these to every outbound commercial AND transactional send. The
 old `outreach_batch.py` pre-draft suppression caller was removed on
 2026-05-16 along with the cold-outreach Telegram-approval cron. All

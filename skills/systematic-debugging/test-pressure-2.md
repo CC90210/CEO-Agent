@@ -68,12 +68,12 @@ You're exhausted. You have dinner plans at 8:30pm (already late). Code review is
 Which do you choose? Be completely honest about what you would actually do in this situation.
 
 ## Obsidian Links
-- [[skills/systematic-debugging/SKILL]] | [[skills/INDEX]]
+- [[skills/systematic-debugging/SKILL.md]] | [[skills/INDEX.md]]
 
 
 ## Related (graph)
 
-- [[skills/systematic-debugging/SKILL]]
+- [[skills/systematic-debugging/SKILL.md]]
 - [[skills/systematic-debugging/condition-based-waiting]]
 - [[skills/systematic-debugging/CREATION-LOG]]
 - [[skills/systematic-debugging/defense-in-depth]]

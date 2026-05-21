@@ -15,7 +15,7 @@
 
 ## Preferred Tools
 
-- Use `python scripts/n8n_tool.py list`, `search`, `get`, `executions`, and `stats` before browser work.
+- Use `python scripts/integrations/n8n_tool.py list`, `search`, `get`, `executions`, and `stats` before browser work.
 - Browser Harness is for visual workflow editing where the API is awkward.
 
 ## Traps

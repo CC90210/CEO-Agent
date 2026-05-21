@@ -76,4 +76,4 @@ To test/visualize the artifact, use available tools (including other Skills or b
 
 - **shadcn/ui components**: https://ui.shadcn.com/docs/components
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

@@ -181,7 +181,7 @@ PHASE 7 — EXECUTE
 - **Triggers** `anti-drift` check before executing multi-step plans
 
 ## Obsidian Links
-- [[skills/systematic-debugging/SKILL]]
-- [[skills/codex-delegation/SKILL]]
-- [[skills/agent-teams/SKILL]]
+- [[skills/systematic-debugging/SKILL.md]]
+- [[skills/codex-delegation/SKILL.md]]
+- [[skills/agent-teams/SKILL.md]]
 - [[brain/BRAIN_LOOP]]

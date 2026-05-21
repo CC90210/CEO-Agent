@@ -209,9 +209,9 @@ freshness_threshold_days: 180
 **Trigger:** Every Monday morning (part of /briefing)
 **Prerequisites:** Stripe access, Supabase access
 **Steps:**
-1. Run `python scripts/stripe_tool.py balance` — check current balance
+1. Run `python scripts/integrations/stripe_tool.py balance` — check current balance
 2. Run `python scripts/revenue_engine.py dashboard` — pull MRR breakdown
-3. Compare current MRR vs target ($5,000 USD by May 15, 2026)
+3. Compare current MRR vs target ($5,000 USD by June 18, 2026)
 4. Calculate gap and required weekly growth rate
 5. Check pipeline: how many leads in proposal/negotiation stage?
 6. IF gap > $1,000: flag as CRITICAL, recommend specific outreach actions
@@ -409,4 +409,4 @@ When the heartbeat (Step 6: Growth Check) detects:
 
 - [[memory/INDEX]]
 - [[memory/ACTIVE_TASKS]]
-- [[memory/ACTIVE_TASKS.template]]
+- [[memory/ACTIVE_TASKS.template.md]]

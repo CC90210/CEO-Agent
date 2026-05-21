@@ -146,7 +146,7 @@ def _tier(prompt: str) -> str:
 def _query_retriever(prompt: str, limit: int) -> list[dict]:
     try:
         result = subprocess.run(
-            ["python", "scripts/memory_retriever.py", "query", "--json", "--limit", str(limit), prompt],
+            ["python", "scripts/core/memory_retriever.py", "query", "--json", "--limit", str(limit), prompt],
             capture_output=True,
             text=True,
             timeout=TIMEOUT_SEC,

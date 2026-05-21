@@ -23,7 +23,7 @@ last_updated: 2026-05-15
 python scripts/research_fetch.py <url> --json
 ```
 
-It auto-escalates Firecrawl → CloakBrowser based on actual response and remembers which tier worked per domain (SQLite at `state/site_reputation.db`). The four-tool matrix below is still the authoritative mental model — but `research_fetch` lets agents stop choosing tiers manually for the Firecrawl/CloakBrowser hand-off. Full skill: [[skills/research-fetch/SKILL]]. Drop down to a specific tool only when you need:
+It auto-escalates Firecrawl → CloakBrowser based on actual response and remembers which tier worked per domain (SQLite at `state/site_reputation.db`). The four-tool matrix below is still the authoritative mental model — but `research_fetch` lets agents stop choosing tiers manually for the Firecrawl/CloakBrowser hand-off. Full skill: [[skills/research-fetch/SKILL.md]]. Drop down to a specific tool only when you need:
 
 - structured extraction with a schema → `firecrawl_tool.py extract`
 - batch site crawling → `firecrawl_tool.py crawl`
@@ -68,22 +68,22 @@ on a CC-authenticated target — a real human's browser beats any stealth fork.
 
 ```bash
 # Scrape a Cloudflare/DataDome-protected page → text + metadata
-python scripts/cloak_browser_tool.py scrape https://protected-target.com --json
+python scripts/browser/cloak_browser_tool.py scrape https://protected-target.com --json
 
 # With screenshot evidence
-python scripts/cloak_browser_tool.py scrape https://target.com --screenshot evidence/target.png
+python scripts/browser/cloak_browser_tool.py scrape https://target.com --screenshot evidence/target.png
 
 # One-shot navigate + JS eval
-python scripts/cloak_browser_tool.py goto https://target.com --eval "() => document.title"
+python scripts/browser/cloak_browser_tool.py goto https://target.com --eval "() => document.title"
 
 # Self-test stealth signals (run after install + when blocking starts unexpectedly)
-python scripts/cloak_browser_tool.py check-stealth --json
+python scripts/browser/cloak_browser_tool.py check-stealth --json
 
 # Pre-fetch the ~200MB binary (run once per machine)
-python scripts/cloak_browser_tool.py download
+python scripts/browser/cloak_browser_tool.py download
 ```
 
-Full reference: [[skills/cloak-browser/SKILL]].
+Full reference: [[skills/cloak-browser/SKILL.md]].
 
 #### Known bot-protected targets — ALWAYS cloak, never raw
 
@@ -95,23 +95,23 @@ Full reference: [[skills/cloak-browser/SKILL]].
 
 ```bash
 # Scrape a single page → clean markdown
-python scripts/firecrawl_tool.py scrape https://example.com
+python scripts/integrations/firecrawl_tool.py scrape https://example.com
 
 # Crawl a site (follows links, max 10 pages)
-python scripts/firecrawl_tool.py crawl https://example.com --limit 10
+python scripts/integrations/firecrawl_tool.py crawl https://example.com --limit 10
 
 # Search query → scrape top results
-python scripts/firecrawl_tool.py search "AI automation agencies Ontario"
+python scripts/integrations/firecrawl_tool.py search "AI automation agencies Ontario"
 
 # Extract structured data with a schema
-python scripts/firecrawl_tool.py extract https://example.com/pricing \
+python scripts/integrations/firecrawl_tool.py extract https://example.com/pricing \
   --schema '{"type":"object","properties":{"plans":{"type":"array"}}}'
 
 # Get all URLs on a domain
-python scripts/firecrawl_tool.py map https://example.com
+python scripts/integrations/firecrawl_tool.py map https://example.com
 
 # Machine-readable JSON (for agent pipelines)
-python scripts/firecrawl_tool.py scrape https://example.com --json
+python scripts/integrations/firecrawl_tool.py scrape https://example.com --json
 ```
 
 ## Common Use Cases
@@ -119,42 +119,42 @@ python scripts/firecrawl_tool.py scrape https://example.com --json
 ### Competitor Research
 ```bash
 # Get their full pricing page
-python scripts/firecrawl_tool.py scrape https://competitor.com/pricing
+python scripts/integrations/firecrawl_tool.py scrape https://competitor.com/pricing
 
 # Map what pages exist on their site
-python scripts/firecrawl_tool.py map https://competitor.com
+python scripts/integrations/firecrawl_tool.py map https://competitor.com
 
 # Extract pricing structured data
-python scripts/firecrawl_tool.py extract https://competitor.com/pricing \
+python scripts/integrations/firecrawl_tool.py extract https://competitor.com/pricing \
   --schema '{"type":"object","properties":{"plans":{"type":"array","items":{"type":"object","properties":{"name":{"type":"string"},"price":{"type":"string"},"features":{"type":"array","items":{"type":"string"}}}}}}}'
 ```
 
 ### Lead Website Analysis (OASIS client research)
 ```bash
 # Understand what a prospect's business does before the call
-python scripts/firecrawl_tool.py scrape https://prospect.com
+python scripts/integrations/firecrawl_tool.py scrape https://prospect.com
 
 # Crawl their full site for comprehensive understanding
-python scripts/firecrawl_tool.py crawl https://prospect.com --limit 15
+python scripts/integrations/firecrawl_tool.py crawl https://prospect.com --limit 15
 ```
 
 ### Content Harvesting
 ```bash
 # Search for industry articles to inform content strategy
-python scripts/firecrawl_tool.py search "AI automation for HVAC businesses 2025"
+python scripts/integrations/firecrawl_tool.py search "AI automation for HVAC businesses 2025"
 
 # Crawl a resource site for research
-python scripts/firecrawl_tool.py crawl https://industry-blog.com --limit 25
+python scripts/integrations/firecrawl_tool.py crawl https://industry-blog.com --limit 25
 ```
 
 ### Market Research
 ```bash
 # Extract job listing data for hiring research
-python scripts/firecrawl_tool.py extract https://jobs.example.com \
+python scripts/integrations/firecrawl_tool.py extract https://jobs.example.com \
   --schema '{"type":"object","properties":{"jobs":{"type":"array","items":{"type":"object","properties":{"title":{"type":"string"},"salary":{"type":"string"},"location":{"type":"string"}}}}}}'
 
 # Search for competitor pricing intelligence
-python scripts/firecrawl_tool.py search "HVAC AI software pricing 2025" --json
+python scripts/integrations/firecrawl_tool.py search "HVAC AI software pricing 2025" --json
 ```
 
 ## Credentials
@@ -208,6 +208,6 @@ before you start. If it isn't, run `bravo browser setup` once.
 - **Knowledge Wiki:** `/ingest` scraped content into `knowledge/raw/`
 
 ## Obsidian Links
-- [[skills/browser-automation/SKILL]] | [[skills/browser-harness/SKILL]] | [[brain/CAPABILITIES]]
-- `scripts/firecrawl_tool.py` | `scripts/browser_harness_doctor.py` | [[browser/README]] | [[browser/SAFETY]]
+- [[skills/browser-automation/SKILL.md]] | [[skills/browser-harness/SKILL.md]] | [[brain/CAPABILITIES]]
+- `scripts/integrations/firecrawl_tool.py` | `scripts/browser/browser_harness_doctor.py` | [[browser/README]] | [[browser/SAFETY]]
 - [[memory/ACTIVE_TASKS]]

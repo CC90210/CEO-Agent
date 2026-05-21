@@ -769,7 +769,7 @@ def cmd_remind(client, args, json_mode: bool) -> None:
         print()
 
     print("To mark reminder sent for a booking:")
-    print("  python scripts/supabase_tool.py update bookings '{\"reminder_sent\": true}' --match '{\"id\": \"<id>\"}'")
+    print("  python scripts/integrations/supabase_tool.py update bookings '{\"reminder_sent\": true}' --match '{\"id\": \"<id>\"}'")
 
 
 def cmd_complete(client, args, json_mode: bool) -> None:

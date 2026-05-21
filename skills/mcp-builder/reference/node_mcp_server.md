@@ -969,4 +969,4 @@ Before finalizing your Node/TypeScript MCP server implementation, ensure:
 - [ ] All imports resolve correctly
 - [ ] Sample tool calls work as expected
 ## Obsidian Links
-- [[skills/mcp-builder/SKILL]] | [[skills/INDEX]]
+- [[skills/mcp-builder/SKILL.md]] | [[skills/INDEX.md]]

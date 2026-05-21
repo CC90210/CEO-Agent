@@ -5,7 +5,7 @@ Two responsibilities, both pre-2026-05-17 missing from this repo:
   1. next_local_cron_run(schedule, after, tz)
      Parse a 5-field cron expression IN LOCAL TIME (default America/Toronto)
      and return the next UTC datetime it would fire. Replaces the old
-     UTC-naive logic in scripts/scheduler.py and scripts/cron_engine.py,
+     UTC-naive logic in scripts/scheduler.py and scripts/core/cron_engine.py,
      which interpreted "0 8 * * *" as 08:00 UTC and fired Aura's Morning
      Pow Wow at 04:00 ET on 2026-05-17 (Sunday of the Victoria Day long
      weekend). Cron schedules are operator-authored — operators think in

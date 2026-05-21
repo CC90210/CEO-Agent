@@ -611,10 +611,10 @@ def extract_text_with_ocr(pdf_path):
 - **pdf-lib**: MIT License
 - **pdfjs-dist**: Apache License
 ## Obsidian Links
-- [[skills/pdf/SKILL]] | [[skills/INDEX]]
+- [[skills/pdf/SKILL.md]] | [[skills/INDEX.md]]
 
 
 ## Related (graph)
 
-- [[skills/pdf/SKILL]]
+- [[skills/pdf/SKILL.md]]
 - [[skills/pdf/forms]]

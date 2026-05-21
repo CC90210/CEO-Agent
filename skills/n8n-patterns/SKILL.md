@@ -110,4 +110,4 @@ If you find yourself building JSON by hand, stop and re-read [[skills/n8n-mcp-in
 - [ ] Workflow has a Start sticky note: purpose, trigger, owner
 
 ## Obsidian Links
-- [[skills/n8n-mcp-integration]] | [[brain/CAPABILITIES]] | [[skills/INDEX]] | [[brain/DASHBOARD]]
+- [[skills/n8n-mcp-integration]] | [[brain/CAPABILITIES]] | [[skills/INDEX.md]] | [[brain/DASHBOARD]]

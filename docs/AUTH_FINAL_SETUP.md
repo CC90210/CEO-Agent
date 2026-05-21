@@ -44,15 +44,15 @@ Enter `conaugh@oasisai.work` + your password → Sign in.
 
 If you ever need to change these via API:
 ```bash
-python scripts/supabase_admin.py get /v1/projects/phctllmtsogkovoilwos/config/auth
-python scripts/supabase_admin.py patch /v1/projects/phctllmtsogkovoilwos/config/auth --body '{"site_url":"..."}'
+python scripts/integrations/supabase_admin.py get /v1/projects/phctllmtsogkovoilwos/config/auth
+python scripts/integrations/supabase_admin.py patch /v1/projects/phctllmtsogkovoilwos/config/auth --body '{"site_url":"..."}'
 ```
 
 ## DNS / domain ops
 
 If `oasisai.work` (the marketing site) ever needs domain re-verification on Vercel:
 ```bash
-python scripts/cloudflare_admin.py sync-vercel-txt --domain oasisai.work --vercel-project oasis-ai-platform
+python scripts/integrations/cloudflare_admin.py sync-vercel-txt --domain oasisai.work --vercel-project oasis-ai-platform
 ```
 Reads what Vercel expects, updates Cloudflare DNS, triggers verify. Built after the 2026-04-30 incident; see `memory/MISTAKES.md` for the full story.
 

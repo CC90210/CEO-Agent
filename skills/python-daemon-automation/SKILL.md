@@ -8,6 +8,8 @@ triggers: ["python daemon automation", "use python daemon automation", "run pyth
 # Python Daemon Automation — Windows Background Process Management
 
 > **Purpose:** Prevent zombie daemon incidents. A running Python process does NOT pick up source code changes. This skill encodes every lesson from a 7-day zombie incident where an old Skool automation kept sending unwanted DMs because the process was never properly killed and restarted after code changes.
+>
+> **Note on examples:** `daemon_name.py` throughout this skill is a placeholder — substitute the real daemon you're building. The historical `skool_engine.py` / `skool_watchdog.py` references reflect the original incident; those scripts were archived 2026-05-18 to `scripts/_archive/skool/` and the pattern is retained as a teaching example. `scripts/bravo_startup.pyw` (active) remains the single startup entry point.
 
 ## The Core Law
 
@@ -611,6 +613,6 @@ Copy this when building any new daemon automation.
 ```
 
 ## Obsidian Links
-- `scripts/bravo_startup.pyw` | `scripts/skool_engine.py` | `scripts/skool_watchdog.py` | [[brain/CAPABILITIES]]
-- [[skills/background-workers/SKILL]] | [[skills/hooks-automation/SKILL]]
+- `scripts/bravo_startup.pyw` | `scripts/_archive/skool/skool_engine.py` (historical) | `scripts/_archive/skool/skool_watchdog.py` (historical) | [[brain/CAPABILITIES]]
+- [[skills/background-workers/SKILL.md]] | [[skills/hooks-automation/SKILL.md]]
 - [[memory/MISTAKES]] | [[memory/SESSION_LOG]]

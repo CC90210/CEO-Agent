@@ -20,11 +20,11 @@ Task tool (superpowers:code-reviewer):
 **Code reviewer returns:** Strengths, Issues (Critical/Important/Minor), Assessment
 
 ## Obsidian Links
-- [[skills/subagent-driven-development/SKILL]] | [[skills/INDEX]]
+- [[skills/subagent-driven-development/SKILL.md]] | [[skills/INDEX.md]]
 
 
 ## Related (graph)
 
-- [[skills/subagent-driven-development/SKILL]]
+- [[skills/subagent-driven-development/SKILL.md]]
 - [[skills/subagent-driven-development/implementer-prompt]]
 - [[skills/subagent-driven-development/spec-reviewer-prompt]]

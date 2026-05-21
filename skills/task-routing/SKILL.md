@@ -148,4 +148,4 @@ When routing to multiple agents (COMPLEX+):
 
 ## Obsidian Links
 - [[brain/AGENTS]] | [[brain/BRAIN_LOOP]] | [[brain/CAPABILITIES]]
-- [[skills/anti-drift/SKILL]] | [[skills/agent-permissions/SKILL]]
+- [[skills/anti-drift/SKILL.md]] | [[skills/agent-permissions/SKILL.md]]

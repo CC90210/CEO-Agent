@@ -15,7 +15,7 @@
 
 ## Preferred Tools
 
-- Use `python scripts/stripe_tool.py balance`, `customers`, `invoices`, `subscriptions`, `payment-links` first.
+- Use `python scripts/integrations/stripe_tool.py balance`, `customers`, `invoices`, `subscriptions`, `payment-links` first.
 - Browser Harness is for dashboard verification, screenshots, and UI-only details.
 
 ## Traps

@@ -53,7 +53,7 @@ If you got something wrong — wrong tool, wrong file, wrong assumption that the
 
 ## 5. STAY IN YOUR REPO
 
-`read_file` is path-allowlisted to your agent's repo. If you need information from a sibling agent's repo (Atlas's tax tables, Maven's content calendar), surface it as a delegation — either tell the operator to switch agents in the chat picker, or post to `tmp/agent_inbox/` via `python scripts/agent_inbox.py post`. Don't try to traverse the path-allowlist; you'll just hit the under_root() guard.
+`read_file` is path-allowlisted to your agent's repo. If you need information from a sibling agent's repo (Atlas's tax tables, Maven's content calendar), surface it as a delegation — either tell the operator to switch agents in the chat picker, or post to `tmp/agent_inbox/` via `python scripts/core/agent_inbox.py post`. Don't try to traverse the path-allowlist; you'll just hit the under_root() guard.
 
 ---
 
@@ -124,8 +124,8 @@ Before quoting **any** of the following, compute or read live. Never infer from 
 | Current pipeline state | `python scripts/lead_engine.py pipeline --json` |
 | Active tasks | `read_file("memory/ACTIVE_TASKS.md")` AND verify its `last_updated` against today |
 | Recent activity | `read_file("memory/SESSION_LOG.md")` |
-| Live deployment / system health | `git status` + `python scripts/self_audit.py --json` + (when relevant) `npx vercel ls` |
-| Memory freshness | `python scripts/memory_aging.py stale --days 7 --json` |
+| Live deployment / system health | `git status` + `python scripts/core/self_audit.py --json` + (when relevant) `npx vercel ls` |
+| Memory freshness | `python scripts/core/memory_aging.py stale --days 7 --json` |
 
 **Why this rule exists:** day-of-week hallucination has been logged as a 3-time repeat offense (2026-04-04, 2026-05-03, 2026-05-04). Each time the system reminder gave the date but NOT the day name, the agent inferred a day, said it confidently, and was wrong. The fix is mechanical: never type a day name without computing it first.
 

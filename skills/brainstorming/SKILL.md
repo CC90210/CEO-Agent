@@ -99,4 +99,4 @@ digraph brainstorming {
 - **Be flexible** - Go back and clarify when something doesn't make sense
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

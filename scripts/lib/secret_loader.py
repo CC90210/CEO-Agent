@@ -3,6 +3,24 @@
 Refuses to load if invoked from `tmp/` (LLM-written one-off scripts) or from
 an interactive Python shell. Logs every load to `state/secret_access.log`
 (jsonl) so we can audit which keys each script actually touched.
+
+==============================================================================
+CANONICAL PATTERN — use this for any new script that needs `.env.agents`:
+
+    from lib.secret_loader import load_env
+    env = load_env(required=["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"])
+    url = env["SUPABASE_URL"]
+
+Or, for a single key with a default:
+
+    from lib.secret_loader import get
+    debug = get("EMPIRE_DEBUG", "0")
+
+DO NOT use `python-dotenv` (`from dotenv import load_dotenv`) for new code.
+It bypasses the audit log and the tmp/-caller refusal, both of which the
+guard-mode hooks expect. Existing scripts that still call `load_dotenv` are
+on the V6.0 migration backlog — see audit 2026-05-21.
+==============================================================================
 """
 
 from __future__ import annotations

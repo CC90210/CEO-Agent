@@ -290,8 +290,8 @@ Current dirty files:
 - `apps/command-center/components/sunbiz/ComingSoon.tsx`
 - `brain/STATE.md`
 - `data/email_suppressions.csv`
-- `scripts/email_engine.py`
-- `scripts/send_gateway.py`
+- `scripts/integrations/email_engine.py`
+- `scripts/integrations/send_gateway.py`
 - `scripts/test_send_gateway.py`
 - `final_analysis.txt`
 - `scripts/test_email_engine.py`

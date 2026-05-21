@@ -48,4 +48,4 @@ gws sheets +read --spreadsheet ID --range Sheet1
 - [gws-sheets](../gws-sheets/SKILL.md) — All read and write spreadsheets commands
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

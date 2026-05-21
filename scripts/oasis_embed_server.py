@@ -1,7 +1,7 @@
 """OASIS Town V6 Apex Phase 3 — embedding + retrieval bridge for the agent sim.
 
 A tiny FastAPI daemon that exposes Bravo's existing FTS5 + LanceDB retrieval
-engine (scripts/memory_retriever.py) to the OASIS Town Convex backend over
+engine (scripts/core/memory_retriever.py) to the OASIS Town Convex backend over
 loopback. Bound to 127.0.0.1 only — no external surface, no auth needed.
 
 Endpoints:
@@ -143,7 +143,7 @@ def query(req: QueryRequest) -> QueryResponse:
     """Hybrid (FTS5 + LanceDB) retrieval over Bravo's indexed memory.
 
     Passes through to memory_retriever.query directly. Returns ranked snippets
-    with file:line references — the same payload `python scripts/memory_retriever.py
+    with file:line references — the same payload `python scripts/core/memory_retriever.py
     query "..."` returns at the CLI.
     """
     try:

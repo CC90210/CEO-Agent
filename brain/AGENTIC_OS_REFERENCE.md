@@ -40,11 +40,11 @@ The video later re-frames the same stack as a build-order ladder. Use this for n
 1. **Identity** — CLAUDE.md, rules, compliance constraints (GDPR / SOC 2 / HIPAA / PIPEDA).
    - Bravo: `brain/SOUL.md` (IMMUTABLE), `brain/USER.md`, `CLAUDE.md` rules 0–10.
 2. **Knowledge** — where data lives, how it's retrieved. Cloud, drive, skills, MCPs, RAG.
-   - Bravo: `memory/`, `brain/CAPABILITIES.md`, `scripts/memory_retriever.py` (FTS5 + LanceDB hybrid).
+   - Bravo: `memory/`, `brain/CAPABILITIES.md`, `scripts/core/memory_retriever.py` (FTS5 + LanceDB hybrid).
 3. **Workers** — materialized agents with explicit roles. Hire only when one agent is overburdened. **"Don't have agents for the sake of having agents."**
    - Bravo: `agents/*.md` (17 specialists), `brain/AGENTS.md` registry, chief-of-staff orchestrator.
 4. **Automations** — hooks, cron, event bus, deterministic injections.
-   - Bravo: V6 event bus (`scripts/event_router.py`), PM2 daemons, hooks (currently security-only).
+   - Bravo: V6 event bus (`scripts/core/event_router.py`), PM2 daemons, hooks (currently security-only).
 
 **Rule:** Don't ascend to layer N+1 until layer N is solid. The video is blunt — "clean the skeletons before you ascend."
 
@@ -127,7 +127,7 @@ The output becomes the agent's "Day 0 self-knowledge" doc.
 | **PreToolUse** | Security guards | ✓ `file-guard`, `secret_guard`, `exec_guard`, `state_guard` |
 | **PostToolUse / Stop** | Checkpoints, self-review | ✓ `create-checkpoint`, `self-review` |
 
-**Recommended next:** `SessionStart` hook that runs `python scripts/agent_inbox.py list --to bravo` + `python scripts/state_manager.py status` + staleness report. Eliminates the "what's my state?" cold-start cost on every new session.
+**Recommended next:** `SessionStart` hook that runs `python scripts/core/agent_inbox.py list --to bravo` + `python scripts/state/state_manager.py status` + staleness report. Eliminates the "what's my state?" cold-start cost on every new session.
 
 ---
 
@@ -153,7 +153,7 @@ The video's last fast-track question: **"Where do you actually want to read thes
 This determines the output adapter. Bravo currently delivers via:
 - Telegram bridge (`telegram_agent.js`, `scripts/bridge_lock.py`)
 - Command Center web (`oasis-command-center:`)
-- Email (`scripts/send_gateway.py`)
+- Email (`scripts/integrations/send_gateway.py`)
 - CLI (`bravo_cli/`)
 - Discord/Slack — planned
 
@@ -189,8 +189,8 @@ The video stress-tests the framework against three avatars. Use these as a **reg
 | Identity / immutable rules | `brain/SOUL.md` (IMMUTABLE) | ✅ |
 | Materialized agents | 17 `agents/*.md` files | ✅ |
 | Compliance scaffolding | `brain/SECURITY_MODEL.md`, `EXECUTION_RULES.md`, `secret_guard` | ✅ |
-| Cross-agent event bus | V6 Apex `scripts/event_router.py` + Supabase | ✅ ahead of video |
-| Hybrid retrieval (FTS5 + vector) | `scripts/memory_retriever.py` (FTS5 + LanceDB RRF) | ✅ ahead of video |
+| Cross-agent event bus | V6 Apex `scripts/core/event_router.py` + Supabase | ✅ ahead of video |
+| Hybrid retrieval (FTS5 + vector) | `scripts/core/memory_retriever.py` (FTS5 + LanceDB RRF) | ✅ ahead of video |
 | **Silver Platter audit skill** | — | ❌ **gap** |
 | **Pantry/Prep Table/Plate taxonomy** | implicit in `memory/`, not explicit | ❌ **gap** |
 | **Pre-aggregated summary tables (Prep Table layer)** | partial — `state_manager.py status`, not per-domain | ⚠ **partial** |

@@ -38,4 +38,4 @@ Manage sales workflows — track deals, schedule calls, client comms.
 
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

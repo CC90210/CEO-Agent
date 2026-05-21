@@ -177,7 +177,7 @@ def run_query_via_management_api(
 ) -> tuple[bool, str]:
     """POST the SQL to the Management API via the shared supabase_admin client.
 
-    The shared client (scripts/supabase_admin.py) bakes in the right
+    The shared client (scripts/integrations/supabase_admin.py) bakes in the right
     Cloudflare-friendly User-Agent + auth headers + error handling. This
     function used to inline its own urllib call with those headers; that
     duplicate logic was extracted 2026-04-30 after a misdiagnosed

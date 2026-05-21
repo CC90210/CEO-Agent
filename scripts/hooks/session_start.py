@@ -65,7 +65,7 @@ def _run(cmd: list[str], timeout: int = TIMEOUT_SEC) -> str | None:
 
 
 def _state_summary() -> str:
-    raw = _run(["python", "scripts/state_manager.py", "status"])
+    raw = _run(["python", "scripts/state/state_manager.py", "status"])
     if not raw:
         return ""
     lines = raw.splitlines()[:12]
@@ -73,7 +73,7 @@ def _state_summary() -> str:
 
 
 def _inbox_summary() -> str:
-    raw = _run(["python", "scripts/agent_inbox.py", "list", "--to", "bravo", "--json"])
+    raw = _run(["python", "scripts/core/agent_inbox.py", "list", "--to", "bravo", "--json"])
     if not raw:
         return ""
     try:
@@ -100,7 +100,7 @@ def _rotate_logs_if_needed() -> None:
 
 
 def _staleness_summary() -> str:
-    raw = _run(["python", "scripts/memory_aging.py", "stale", "--days", "7", "--json"])
+    raw = _run(["python", "scripts/core/memory_aging.py", "stale", "--days", "7", "--json"])
     if not raw:
         return ""
     try:

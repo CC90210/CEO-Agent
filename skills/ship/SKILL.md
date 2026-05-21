@@ -479,4 +479,4 @@ After a successful ship, notify the right people through the right channel.
 ---
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]] | [[skills/code-review/SKILL]] | [[skills/systematic-debugging/SKILL]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]] | [[skills/code-review/SKILL.md]] | [[skills/systematic-debugging/SKILL.md]]

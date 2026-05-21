@@ -261,31 +261,31 @@ bravo doctor
 
 ---
 
-## Maintenance — `scripts/system_cleanup.py`
+## Maintenance — `scripts/core/system_cleanup.py`
 
 After multiple installs/upgrades, redundant clones (including legacy `~/.bravo`, plus `~/.oasis/wizard` and `~/.oasis/<slug>`) and pip/npm caches accumulate. Run a dry-run audit any time to see reclaimable space:
 
 ```bash
-python scripts/system_cleanup.py
+python scripts/core/system_cleanup.py
 ```
 
 Output shows total reclaimable size + per-category breakdown. To delete (with per-category confirmation):
 
 ```bash
-python scripts/system_cleanup.py --apply
+python scripts/core/system_cleanup.py --apply
 ```
 
 Skip prompts entirely:
 
 ```bash
-python scripts/system_cleanup.py --apply --yes
+python scripts/core/system_cleanup.py --apply --yes
 ```
 
 Be selective:
 
 ```bash
-python scripts/system_cleanup.py --apply --skip pip,npm     # nuke clones only
-python scripts/system_cleanup.py --apply --tmp-age 30       # keep tmp/ files <30d old
+python scripts/core/system_cleanup.py --apply --skip pip,npm     # nuke clones only
+python scripts/core/system_cleanup.py --apply --tmp-age 30       # keep tmp/ files <30d old
 ```
 
 The active repo (where you're running the script from) is **always preserved** by a hardcoded safety guard. Categories: redundant clones, pip cache, npm cache, old `tmp/` files, `__pycache__` trees, scaffold backups.

@@ -20,7 +20,7 @@ Three tables predate the multi-tenant `tenant_manifests` system and have **no `t
 | Table | Keyed by | Read paths | Write paths |
 |---|---|---|---|
 | `agent_decisions` | `agent_name + tick_id` | `recentDecisions()` → /reasoning Agent Decisions card | `scripts/autonomous_agent.py` |
-| `agent_state_snapshot` | `agent_name` | `agentStates()` → /agents, /operations Workers card | `scripts/state_manager.py heartbeat` |
+| `agent_state_snapshot` | `agent_name` | `agentStates()` → /agents, /operations Workers card | `scripts/state/state_manager.py heartbeat` |
 | `agent_events` | `publisher_agent + correlation_id + idempotency_key` | `recentEvents()` → /operations + /agents Event Bus card | `scripts/state_manager.append_session_log`, `pulse_publish.cmd_refresh`, `bridge_chat_server._v6_log_chat_interaction`, `send_gateway._emit_outbound_sent`, others |
 
 Service-role Supabase reads (which bypass RLS) returned every row regardless of caller. Every existing row was written by CC's OASIS Bravo because that's the only autonomous loop running today. When a SunBiz session hit `/reasoning`, those Bravo rows landed in the SunBiz tenant's view.
@@ -91,11 +91,11 @@ Every writer needs to set `tenant_id` on every insert. Today these run as CC's B
 | File | Writes to | Status |
 |---|---|---|
 | `scripts/autonomous_agent.py` | `agent_decisions` | needs tenant_id on every insert |
-| `scripts/state_manager.py heartbeat` | `agent_state_snapshot` | needs tenant_id |
-| `scripts/state_manager.py append_session_log` | `agent_events` | needs tenant_id |
+| `scripts/state/state_manager.py heartbeat` | `agent_state_snapshot` | needs tenant_id |
+| `scripts/state/state_manager.py append_session_log` | `agent_events` | needs tenant_id |
 | `scripts/pulse_publish.py cmd_refresh` | `agent_events` | needs tenant_id |
 | `bravo_cli/bridge_chat_server.py _v6_log_chat_interaction` | `agent_events` | needs tenant_id |
-| `scripts/send_gateway.py _emit_outbound_sent` | `agent_events` | needs tenant_id |
+| `scripts/integrations/send_gateway.py _emit_outbound_sent` | `agent_events` | needs tenant_id |
 | `app/api/chat/route.ts (logAction)` | `agent_events` | TS path; already has `tenantId` in scope, just needs to pass it |
 
 ### 4. Reader simplification

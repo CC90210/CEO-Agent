@@ -136,7 +136,7 @@ Next check-in: [Date]
 
 Log to the V6.0 state DB (auto-mirrors to `memory/SESSION_LOG.md`):
 ```bash
-python scripts/state_manager.py log --agent bravo \
+python scripts/state/state_manager.py log --agent bravo \
   --note "Team onboarding: [Name] — [Role] for [Brand], start [Date] @ \$[rate], tools: [list], day-7 check-in: [date]"
 ```
 

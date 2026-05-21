@@ -16,7 +16,7 @@ triggers: ["google workspace recipes", "use google workspace recipes", "run goog
 
 > Multi-step recipes combining `gws` CLI commands. Each recipe solves a concrete productivity workflow.
 > Single source of truth — replaces 41 individual `recipe-*` skill files.
-> [[skills/INDEX]] | [[brain/CAPABILITIES]]
+> [[skills/INDEX.md]] | [[brain/CAPABILITIES]]
 
 ## Prerequisites
 
@@ -692,4 +692,4 @@ Revenue: $125,000
 ---
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]] | [[skills/gws-shared/SKILL]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]] | [[skills/gws-shared/SKILL.md]]

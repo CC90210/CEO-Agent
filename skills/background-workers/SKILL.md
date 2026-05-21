@@ -157,6 +157,6 @@ If any worker consistently fails, log to MISTAKES.md and investigate root cause.
 - **Brain Loop Step 10 (HEAL):** The HEAL step runs a subset of worker checks
 
 ## Obsidian Links
-- [[skills/self-healing/SKILL]] | [[skills/memory-management/SKILL]]
-- [[skills/hooks-automation/SKILL]] | [[brain/BRAIN_LOOP]]
+- [[skills/self-healing/SKILL.md]] | [[skills/memory-management/SKILL.md]]
+- [[skills/hooks-automation/SKILL.md]] | [[brain/BRAIN_LOOP]]
 - [[brain/CAPABILITIES]] | [[brain/STATE]]

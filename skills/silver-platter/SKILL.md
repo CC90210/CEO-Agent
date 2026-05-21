@@ -47,7 +47,7 @@ Default: Bravo (current repo). If CC says "audit Maven" / "audit Atlas" / "audit
 - Atlas: `C:\Users\User\APPS\trading-agent`
 - Hermes: `C:\Users\User\APPS\hermes`
 
-If the sibling repo lacks `brain/DATA_TAXONOMY.md`, surface that as the first quick-win and run a partial audit from `scripts/snapshots/`, `scripts/cron_engine.py`, and `.env.agents` only.
+If the sibling repo lacks `brain/DATA_TAXONOMY.md`, surface that as the first quick-win and run a partial audit from `scripts/snapshots/`, `scripts/core/cron_engine.py`, and `.env.agents` only.
 
 ### Step 2: Collect inputs
 
@@ -55,7 +55,7 @@ Read in this order (each step's output feeds the next):
 
 1. `brain/DATA_TAXONOMY.md` — authoritative manifest
 2. `ls scripts/snapshots/` + `ls state/snapshots/` — what Prep Table actually exists
-3. `grep -l "snapshot" scripts/cron_engine.py` — what's scheduled
+3. `grep -l "snapshot" scripts/core/cron_engine.py` — what's scheduled
 4. `scripts/build_capability_graph.py` output — what skills/agents exist
 5. `ls .env.agents | grep -i "_API_KEY\|_TOKEN"` (via the CLI wrapper, not direct read — secret_guard will block direct read) — what integrations are credentialed
 
@@ -104,4 +104,4 @@ Once this skill is proven on Bravo, the same SKILL.md (with adjusted paths) shou
 
 ## Obsidian Links
 - [[brain/AGENTIC_OS_REFERENCE]] | [[brain/DATA_TAXONOMY]] | [[brain/CAPABILITIES]]
-- [[skills/ceo-briefing/SKILL]] | [[skills/integrations-sync/SKILL]]
+- [[skills/ceo-briefing/SKILL.md]] | [[skills/integrations-sync/SKILL.md]]

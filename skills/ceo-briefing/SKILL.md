@@ -22,7 +22,7 @@ When triggered, generate this exact format:
 MRR: $X,XXX / $5,000 target (XX% — Y days remaining)
 [████████░░] XX%
 ```
-**Data source:** `python scripts/revenue_engine.py mrr --json` OR `python scripts/stripe_tool.py balance --json`
+**Data source:** `python scripts/revenue_engine.py mrr --json` OR `python scripts/integrations/stripe_tool.py balance --json`
 **Fallback:** Read memory/ACTIVE_TASKS.md for last known MRR figure.
 
 ### Section 2: Pipeline Health
@@ -108,4 +108,4 @@ This is the silver-platter principle (brain/AGENTIC_OS_REFERENCE.md §3) — one
 
 ## Obsidian Links
 - [[brain/STATE]] | [[memory/ACTIVE_TASKS]] | [[brain/DASHBOARD]] | [[brain/CAPABILITIES]]
-- [[skills/revenue-operations/SKILL]] | [[../../CMO-Agent/skills/lead-management/SKILL]]
+- [[skills/revenue-operations/SKILL.md]] | [[../../CMO-Agent/skills/lead-management/SKILL]]

@@ -78,7 +78,7 @@ The dashboard (screenshot from CC at 2:33 PM) still shows stale data:
 - Check `revenue_events` and `monthly_metrics` tables in Supabase (Bravo project). **Rule 8 applies — these are financial truth tables. Get CC's explicit approval before writing to them.**
 - The MRR number may also come from `pulse_publish.py` or the CEO dashboard script
 - Top Client Share likely queries `revenue_events` or has a hardcoded/cached reference to the prior client
-- Run: `python scripts/supabase_tool.py select revenue_events --project bravo --limit 5` to see current data
+- Run: `python scripts/integrations/supabase_tool.py select revenue_events --project bravo --limit 5` to see current data
 
 ---
 

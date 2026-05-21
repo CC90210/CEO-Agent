@@ -105,4 +105,4 @@ Settings auto-created at `~/.claude-mem/settings.json` on first run. No manual c
 - **Bun status:** Not yet installed — auto-installs on first session with "startup" prompt
 
 ## Obsidian Links
-- [[skills/memory-management/SKILL]] | [[brain/CAPABILITIES]] | [[memory/SESSION_LOG]]
+- [[skills/memory-management/SKILL.md]] | [[brain/CAPABILITIES]] | [[memory/SESSION_LOG]]

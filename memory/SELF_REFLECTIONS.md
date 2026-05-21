@@ -60,4 +60,4 @@ freshness_threshold_days: 90
 
 - [[memory/INDEX]]
 - [[memory/ACTIVE_TASKS]]
-- [[memory/ACTIVE_TASKS.template]]
+- [[memory/ACTIVE_TASKS.template.md]]

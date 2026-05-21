@@ -120,4 +120,4 @@ After saving the plan, offer execution choice:
 - **REQUIRED SUB-SKILL:** New session uses superpowers:executing-plans
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

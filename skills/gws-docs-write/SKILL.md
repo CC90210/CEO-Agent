@@ -50,4 +50,4 @@ gws docs +write --document DOC_ID --text 'Hello, world!'
 - [gws-docs](../gws-docs/SKILL.md) — All read and write google docs commands
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

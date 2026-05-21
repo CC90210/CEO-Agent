@@ -378,4 +378,4 @@ Announce document completion. Provide a few final tips:
 - The goal is a document that actually works for readers
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

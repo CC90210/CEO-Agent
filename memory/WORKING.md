@@ -1,5 +1,7 @@
 ---
 tags: [working-memory, ephemeral]
+last_updated: 2026-05-21
+freshness_threshold_days: 7
 ---
 # WORKING
 
@@ -22,4 +24,4 @@ tags: [working-memory, ephemeral]
 
 - [[memory/INDEX]]
 - [[memory/ACTIVE_TASKS]]
-- [[memory/ACTIVE_TASKS.template]]
+- [[memory/ACTIVE_TASKS.template.md]]

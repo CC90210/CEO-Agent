@@ -245,4 +245,4 @@ Load these resources as needed during development:
 - [[skills/mcp-builder/reference/python_mcp_server]] — Python/FastMCP implementation guide
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

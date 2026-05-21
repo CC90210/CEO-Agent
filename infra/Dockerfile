@@ -43,10 +43,11 @@ RUN mkdir -p /app/tmp /app/logs /app/data \
 
 USER bravo
 
-# Default healthcheck: `scripts/self_audit.py` prints health score.
+# Default healthcheck: `scripts/core/self_audit.py` prints health score.
+# (self_audit moved into scripts/core/ during the 2026-05 reorg.)
 # Override per-service in docker-compose.yml when a different probe fits better.
 HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
-    CMD python scripts/self_audit.py --health-only 2>/dev/null || exit 1
+    CMD python scripts/core/self_audit.py --health-only 2>/dev/null || exit 1
 
 # No CMD — docker-compose.yml names the daemon per service. This prevents
 # accidental "run everything as one blob" which defeats observability.

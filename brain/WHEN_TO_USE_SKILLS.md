@@ -124,5 +124,5 @@ When `skills/<new-name>/SKILL.md` lands and is meant to be invoked from chat:
 3. Don't grow this file past ~250 lines. If a section bloats, split into a domain-specific index file and link from here.
 
 ## Obsidian Links
-- [[brain/AGENT_ROUTER]] | [[brain/INTENTS]] | [[brain/EXECUTION_RULES]]
+- **Core router (the 5 brain entry points):** [[brain/AGENT_ROUTER]] · [[brain/EXECUTION_RULES]] · [[brain/INTENTS]] · WHEN_TO_USE_SKILLS (this file) · [[brain/QUICK_REFERENCE]]
 - [[skills/INDEX]] | [[brain/CAPABILITIES]]

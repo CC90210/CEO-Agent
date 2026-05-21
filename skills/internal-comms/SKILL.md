@@ -41,4 +41,4 @@ If the communication type doesn't match any existing guideline, ask for clarific
 - [[skills/internal-comms/examples/general-comms]] — General internal communications
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

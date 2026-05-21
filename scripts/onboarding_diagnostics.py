@@ -73,7 +73,7 @@ def diagnose() -> dict[str, Any]:
         for p in required_paths
     ]
 
-    self_audit = _run([sys.executable, "scripts/self_audit.py"], timeout=90)
+    self_audit = _run([sys.executable, "scripts/core/self_audit.py"], timeout=90)
     browser = browser_harness_doctor.diagnose()
 
     ok = (
