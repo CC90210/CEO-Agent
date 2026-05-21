@@ -37,7 +37,7 @@ import msvcrt
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 BROWSER_DIR = str(PROJECT_ROOT / "tmp" / "skool-browser")
 TMP_DIR = PROJECT_ROOT / "tmp"
@@ -2866,7 +2866,7 @@ def cmd_metrics(args, page=None, ctx=None):
 
             try:
                 result = subprocess.run(
-                    [sys.executable, "scripts/supabase_tool.py", "update", "revenue_events",
+                    [sys.executable, "scripts/integrations/supabase_tool.py", "update", "revenue_events",
                      json.dumps({"amount_usd": total_retainer, "metadata": json.dumps({"notes": update_note})}),
                      "--project", "bravo",
                      "--match", json.dumps({"client_name": retainer_client_name, "type": "subscription_start"})],

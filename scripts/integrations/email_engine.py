@@ -941,7 +941,7 @@ IMAP_MAX_EMAILS = 20
 # on the same UID (e.g., corrupt message, encoding error), quarantine it
 # by marking it \Seen after 3 failed attempts. This prevents a bad message
 # at the head of the UNSEEN queue from blocking newer messages forever.
-POISON_UID_PATH = Path(__file__).resolve().parent.parent / "tmp" / "imap_poison_uids.json"
+POISON_UID_PATH = Path(__file__).resolve().parent.parent.parent / "tmp" / "imap_poison_uids.json"
 POISON_MAX_ATTEMPTS = 3
 
 
