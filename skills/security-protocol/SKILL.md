@@ -119,6 +119,6 @@ id_ed25519
 When spawning subagents that need API access, pass secrets via environment variables or a shared `.env.agents` path reference — never paste the raw string into the prompt structure.
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]] | [[memory/MISTAKES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]] | [[memory/MISTAKES]]
 - [[scripts/scan_secrets]] (the detection tool)
 - [[templates/agent-scaffold/.gitignore]] (the baseline)

@@ -122,4 +122,4 @@ All self-healing events are logged to:
 - `brain/STATE.md` (operational state updated)
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

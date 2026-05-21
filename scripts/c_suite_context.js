@@ -195,7 +195,7 @@ function readSelfRepo(relPath, maxLines = 0) {
 function loadCSuiteSnapshot(opts = {}) {
     const PYTHON = opts.python || (IS_MAC ? 'python3' : 'python');
     const HEADER = `=== C-SUITE (CC's 4-agent team — always load) ===`;
-    const FOOTER = `\nCross-agent messaging: ${PYTHON} scripts/agent_inbox.py post --from bravo --to <atlas|maven|aura> --subject "..." --body "..."\nPulse files: data/pulse/ceo_pulse.json (yours), ../CMO-Agent/data/pulse/cmo_pulse.json (Maven), ../APPS/CFO-Agent/data/pulse/cfo_pulse.json (Atlas)`;
+    const FOOTER = `\nCross-agent messaging: ${PYTHON} scripts/core/agent_inbox.py post --from bravo --to <atlas|maven|aura> --subject "..." --body "..."\nPulse files: data/pulse/ceo_pulse.json (yours), ../CMO-Agent/data/pulse/cmo_pulse.json (Maven), ../APPS/CFO-Agent/data/pulse/cfo_pulse.json (Atlas)`;
 
     const canon = readSelfRepo('brain/CROSS_AGENT_AWARENESS.md');
     if (canon) {

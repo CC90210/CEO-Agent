@@ -208,7 +208,7 @@ Per STATE.md "Content Studio | MOVED TO MAVEN", the `content-creator`, `social-p
 - **GitHub:** TBD (operator will supply repo URL; wizard `AGENT_REPOS["suga_sean"]` left unset so cloning is skipped until ready)
 - **Purpose:** CC's second **client backend operations product**. Runs Suga Sean O'Malley's brand operations — fan engagement, merch drops, social distribution (X/Twitter + Late/Zernio scheduling), sponsorship triage — as a separate client-facing agent paralleling Sun Biz Agent's structure.
 - **Capabilities (Phase 1 scaffold):** Command Center profile (SUGA_PROFILE, Turso/dedicated), SUGA_NAV sidebar (17 items across Operations / Fans / Brand / Commerce / Sponsorship / System), Crown brand mark (pink gradient), ChatWidget suggestions. SMS deferred — Suga's primary channels are social + email, not transactional SMS. Demo data + dedicated stub pages pending.
-- **Heartbeat:** Same pattern as Sun Biz — once the runtime exists, `state_bridge.py` pings shared V6 state DB every 15s under `agent="suga_sean"`. Registered in `scripts/state_manager.py` VALID_AGENTS, `scripts/agent_heartbeat.py` VALID_AGENTS, `scripts/agent_inbox.py` KNOWN_AGENTS (commit 1fe3d91).
+- **Heartbeat:** Same pattern as Sun Biz — once the runtime exists, `state_bridge.py` pings shared V6 state DB every 15s under `agent="suga_sean"`. Registered in `scripts/state/state_manager.py` VALID_AGENTS, `scripts/core/agent_heartbeat.py` VALID_AGENTS, `scripts/core/agent_inbox.py` KNOWN_AGENTS (commit 1fe3d91).
 - **Events:** Reserved `SUGA_SEAN_*` family (deterministic from agent key `suga_sean` via state_manager's `f"{agent.upper()}_..."` templating) in [[brain/EVENT_BUS_CONTRACT]] §Standard event-type registry — populated when the runtime ships. Types: SESSION_LOG_APPENDED, FAN_DM_RECEIVED, MERCH_DROP_SCHEDULED, SOCIAL_POST_PUBLISHED, SPONSORSHIP_LEAD_RECEIVED, AFFILIATE_PAYOUT_DUE.
 - **Data topology:** Brand + fan data is **Turso/libSQL-first** (PII-adjacent — DMs, subscriber lists, affiliate payouts). Same sovereignty story as Sun Biz: client data stays on the operator's Mac Mini; shared infra reads pulse/state only.
 - **Dashboard connection:** Tenants whose `command_center_profile_slug = "suga"` see the Suga shell — magenta Crown logo, fan-ops sidebar, agents tab gated to `suga_sean`. Brand detection in `lib/client-provisioning.ts` matches "suga sean" / "o'malley" variants on signup.
@@ -264,7 +264,7 @@ When a sibling agent (Atlas, Maven, Aura, Hermes) reads from this repo, the V6.0
 
 **What sibling agents should do:**
 - **V5.5-era siblings:** ignore the `v6` field (JSON additive — no breaking change). Read the existing fields as before.
-- **V6.0-aware siblings:** prefer `pulse.v6.state_db.last_heartbeat` for Bravo liveness checks (sub-second precision; the markdown frontmatter is rounded to the day). When `pulse.v6.mode == "on"`, Bravo's flat-file mirrors are auto-generated, so DON'T attempt to write to them — write to the cross-agent inbox instead (`scripts/agent_inbox.py`).
+- **V6.0-aware siblings:** prefer `pulse.v6.state_db.last_heartbeat` for Bravo liveness checks (sub-second precision; the markdown frontmatter is rounded to the day). When `pulse.v6.mode == "on"`, Bravo's flat-file mirrors are auto-generated, so DON'T attempt to write to them — write to the cross-agent inbox instead (`scripts/core/agent_inbox.py`).
 - **All siblings:** still use `data/pulse/cfo_pulse.json` etc. for THEIR pulse handoff back. Bravo reads sibling pulses unchanged.
 
 **Hard rule (unchanged from V5.5):** Bravo NEVER writes to a sibling repo. Siblings NEVER write to Business-Empire-Agent. Cross-agent state moves only through pulse files + agent_inbox.
@@ -285,7 +285,7 @@ Browser Harness is a shared capability, not a new sovereign agent. Bravo owns th
 | Aura | Home Assistant, router/device dashboards, local home services | approval before locks, cameras, alarms, resets, privacy-sensitive views |
 | Hermes/client agents | supplier/client portals and browser-only workflows | per-client approval profile and audit trail required |
 
-Outbound communication still goes through `scripts/send_gateway.py`. Browser domain skills must never store secrets, cookies, tokens, raw coordinates, private screenshots, or task diaries.
+Outbound communication still goes through `scripts/integrations/send_gateway.py`. Browser domain skills must never store secrets, cookies, tokens, raw coordinates, private screenshots, or task diaries.
 
 ## Agent Permissions (Claims-Based Access Control)
 

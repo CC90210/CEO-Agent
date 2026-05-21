@@ -56,4 +56,4 @@ gws calendar +agenda --today --timezone America/New_York
 - [gws-calendar](../gws-calendar/SKILL.md) — All manage calendars and events commands
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

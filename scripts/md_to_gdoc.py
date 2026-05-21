@@ -2,7 +2,7 @@
 """
 md_to_gdoc — Export a markdown file to Google Docs with branded styling.
 
-Thin wrapper around `scripts/google_tool.py docs create`:
+Thin wrapper around `scripts/integrations/google_tool.py docs create`:
   1. Strips YAML frontmatter
   2. Converts markdown -> HTML with inline CSS (tables, code, blockquotes, links)
   3. Calls google_tool.py to upload as a Google Doc

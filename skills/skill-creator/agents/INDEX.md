@@ -13,4 +13,4 @@ last_updated: 2026-05-11
 - [[skills/skill-creator/agents/grader]]
 
 ## Parent
-- [[skills/skill-creator/SKILL]]
+- [[skills/skill-creator/SKILL.md]]

@@ -55,7 +55,7 @@ A skill that introduces ≥5 unique terms beyond CONTEXT.md gets its own `skills
 - Eliminates re-derivation cost per session.
 - Forces a single canonical definition for terms that span tenants / brands / runtimes.
 - Onboarding cost for sibling agents (Maven, Atlas, Hermes) drops — they reference CONTEXT.md instead of re-explaining empire vocabulary in their own CLAUDE.md.
-- Memory retriever indexes CONTEXT.md alongside the rest of `memory/` and `brain/`, so cold sessions can pull glossary snippets via `python scripts/memory_retriever.py query "what is OASIS Outbound"`.
+- Memory retriever indexes CONTEXT.md alongside the rest of `memory/` and `brain/`, so cold sessions can pull glossary snippets via `python scripts/core/memory_retriever.py query "what is OASIS Outbound"`.
 
 **Negative:**
 - One more file to keep current. Mitigated by `last_updated:` field surfacing staleness in the SessionStart hook.
@@ -74,4 +74,4 @@ A skill that introduces ≥5 unique terms beyond CONTEXT.md gets its own `skills
 
 - Source pattern: https://github.com/mattpocock/skills/blob/main/CONTEXT.md
 - Related: [ADR-0001 — Skill dependency classification](0001-skill-dependency-classification.md)
-- Memory retriever: [scripts/memory_retriever.py](../../scripts/memory_retriever.py)
+- Memory retriever: [scripts/core/memory_retriever.py](../../scripts/core/memory_retriever.py)

@@ -104,6 +104,6 @@ When things go wrong, speed and clarity matter more than perfection. This skill 
 ```
 
 ## Obsidian Links
-- [[skills/risk-management/SKILL]] | [[brain/CEO_OPERATING_SYSTEM]] | [[brain/CAPABILITIES]]
+- [[skills/risk-management/SKILL.md]] | [[brain/CEO_OPERATING_SYSTEM]] | [[brain/CAPABILITIES]]
 - [[memory/MISTAKES]] | [[memory/DECISIONS]]
-- [[skills/client-success/SKILL]] | [[skills/self-healing/SKILL]]
+- [[skills/client-success/SKILL.md]] | [[skills/self-healing/SKILL.md]]

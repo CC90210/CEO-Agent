@@ -221,4 +221,4 @@ Ready to implement auth feature
 - **finishing-a-development-branch** - REQUIRED for cleanup after work complete
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

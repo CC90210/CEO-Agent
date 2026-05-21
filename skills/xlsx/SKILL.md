@@ -74,7 +74,20 @@ A user may ask you to create, edit, or analyze the contents of an .xlsx file. Yo
 
 ## Important Requirements
 
-**LibreOffice Required for Formula Recalculation**: You can assume LibreOffice is installed for recalculating formula values using the `scripts/recalc.py` script. The script automatically configures LibreOffice on first run, including in sandboxed environments where Unix sockets are restricted (handled by `scripts/office/soffice.py`)
+**⚠ LibreOffice Required for Formula Recalculation**: The body of this skill references two helpers that are NOT bundled in this repo:
+- `scripts/recalc.py` → replace with `soffice --headless --calc --convert-to xlsx <file>` (forces LibreOffice to recompute formulas), or use `openpyxl` with `data_only=False` + the `formulas` pip package for in-process recalc.
+- `scripts/office/soffice.py` → call `soffice` directly with the same flags.
+
+## Helper Scripts Replacement Table
+
+The following helper scripts were previously referenced in this skill but no longer exist. Use the direct replacements below:
+
+| Missing Script | Was At | Replacement |
+|---|---|---|
+| `scripts/recalc.py` | `scripts/recalc.py` | `python -c "import openpyxl; wb=openpyxl.load_workbook('file.xlsx', data_only=False); wb.save('file.xlsx')"` |
+| `scripts/office/soffice.py` | `scripts/office/soffice.py` | `soffice --headless --calc --convert-to xlsx file.csv` or `libreoffice --headless --calc file.ods` |
+
+Both are Anthropic-reference utilities; the rest of the patterns below (pandas, openpyxl) work as-written.
 
 ## Reading and analyzing data
 
@@ -294,4 +307,4 @@ The script returns JSON with error details:
 - Document data sources for hardcoded values
 - Include notes for key calculations and model sections
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

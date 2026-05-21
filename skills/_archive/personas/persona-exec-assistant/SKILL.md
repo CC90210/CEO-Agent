@@ -38,4 +38,4 @@ Manage an executive's schedule, inbox, and communications.
 
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

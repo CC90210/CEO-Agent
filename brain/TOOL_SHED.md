@@ -134,7 +134,7 @@ The curated lists, plugins, and toolkits that make Claude Code 10x more useful.
 | **Official GitHub MCP** | [github/github-mcp-server](https://github.com/github/github-mcp-server) | 29.1K ⭐ — Official GitHub MCP. 19 tool categories, OAuth scope filtering. Optional: `gh` CLI already covers this. | Optional — current `gh` setup works fine |
 
 ### Dead/Broken
-- ~~Stripe MCP~~ — `v0.3.1` broke with proxy mode. Use `scripts/stripe_tool.py` instead.
+- ~~Stripe MCP~~ — `v0.3.1` broke with proxy mode. Use `scripts/integrations/stripe_tool.py` instead.
 
 ---
 
@@ -144,11 +144,11 @@ The third-party platforms CC's empire runs on. Each has a CLI wrapper in `script
 
 | Service | CLI Wrapper | Use Case |
 |---------|-------------|----------|
-| **Stripe** | `scripts/stripe_tool.py` | Payments, subscriptions, Connect accounts |
-| **Supabase** | `scripts/supabase_tool.py` | Postgres DB + auth + storage + edge functions |
-| **n8n** | `scripts/n8n_tool.py` | Workflow automation, Telegram routing, DM flows |
+| **Stripe** | `scripts/integrations/stripe_tool.py` | Payments, subscriptions, Connect accounts |
+| **Supabase** | `scripts/integrations/supabase_tool.py` | Postgres DB + auth + storage + edge functions |
+| **n8n** | `scripts/integrations/n8n_tool.py` | Workflow automation, Telegram routing, DM flows |
 | **Late/Zernio** | `../CMO-Agent/scripts/late_tool.py` (owned by Maven) | Multi-platform social scheduling |
-| **Google Workspace** | `scripts/google_tool.py` | Gmail, Sheets, Drive, Calendar |
+| **Google Workspace** | `scripts/integrations/google_tool.py` | Gmail, Sheets, Drive, Calendar |
 | **GitHub** | `gh` CLI (`/c/Program Files/GitHub CLI/gh.exe`) | Repos, PRs, issues, actions |
 | **Firecrawl** | MCP wrapper | Structured web scraping |
 | **Turso/libSQL** | Native client libs | Serverless SQLite (ig-setter-pro, Gritly) |
@@ -228,7 +228,7 @@ npm install -g @carlrannaberg/claudekit
 
 ## 🔗 Obsidian Links
 - [[brain/SOUL]] | [[brain/APP_REGISTRY]] | [[brain/CAPABILITIES]] | [[brain/QUICK_REFERENCE]]
-- [[memory/MEMORY]] | [[../CMO-Agent/brain/CONTENT_BIBLE]] (Maven canonical)
+- [[memory/MEMORY_INDEX]] | [[../CMO-Agent/brain/CONTENT_BIBLE]] (Maven canonical)
 
 ---
 

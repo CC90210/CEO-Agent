@@ -74,10 +74,10 @@ def edit_payload(path: str) -> dict:
 
 EXEC_BLOCK_VECTORS: list[tuple[str, str]] = [
     # ── Codex-found Critical bypass (chained-command leak past read-only fast path) ──
-    ("CODEX-fast-path-chain-rm",      "python scripts/state_manager.py status && rm -rf /"),
-    ("CODEX-fast-path-chain-semicolon", "python scripts/state_manager.py status; DROP TABLE users"),
-    ("CODEX-fast-path-chain-pipe",    "python scripts/memory_retriever.py status | xargs rm -rf"),
-    ("CODEX-fast-path-cmdsubst",      "python scripts/state_manager.py status $(rm -rf /)"),
+    ("CODEX-fast-path-chain-rm",      "python scripts/state/state_manager.py status && rm -rf /"),
+    ("CODEX-fast-path-chain-semicolon", "python scripts/state/state_manager.py status; DROP TABLE users"),
+    ("CODEX-fast-path-chain-pipe",    "python scripts/core/memory_retriever.py status | xargs rm -rf"),
+    ("CODEX-fast-path-cmdsubst",      "python scripts/state/state_manager.py status $(rm -rf /)"),
     # name                            command
     ("drop-table-plain",              'psql -c "DROP TABLE users;"'),
     ("drop-table-lowercase",          'psql -c "drop table users;"'),
@@ -151,8 +151,8 @@ EXEC_ALLOW_VECTORS: list[tuple[str, str]] = [
     ("rm-relative-tmp",            "rm -rf tmp/scratch"),
     ("git-push-feature-branch",    "git push origin feature/v6"),
     ("git-reset-hard-head",        "git reset --hard HEAD"),
-    ("read-only-cli-status",       "python scripts/state_manager.py status"),
-    ("read-only-cli-search",       "python scripts/memory_retriever.py query 'stripe refund'"),
+    ("read-only-cli-status",       "python scripts/state/state_manager.py status"),
+    ("read-only-cli-search",       "python scripts/core/memory_retriever.py query 'stripe refund'"),
     ("delete-with-where",          'psql -c "DELETE FROM leads WHERE id=42;"'),
     ("select-query",               'psql -c "SELECT count(*) FROM users;"'),
     ("ls-list",                    "ls -la"),
@@ -284,7 +284,7 @@ def test_state_guard_blocks_session_log_edit() -> None:
 def test_state_guard_allows_other_edits() -> None:
     payload = edit_payload(str(REPO_ROOT / "scripts" / "state_sync.py"))
     rc = _run_guard(STATE_GUARD, payload, {"EMPIRE_HOOK_STATE_GUARD": "enforce"})
-    assert rc == 0, "state_guard false-positive on scripts/state_sync.py edit"
+    assert rc == 0, "state_guard false-positive on scripts/state/state_sync.py edit"
 
 
 def test_state_guard_off_mode_passthrough() -> None:

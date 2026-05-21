@@ -37,4 +37,4 @@ Prioritize by CC's active client pipeline. When CC signs the first client in a v
 ## 🔗 Obsidian Links
 - [[brain/PRODUCT_VERTICALS]] — product/vertical research
 - [[brain/PRODUCT_ARCHITECTURE]] — "Business in a Box" productization plan
-- [[skills/INDEX]] — full skills registry
+- [[skills/INDEX.md]] — full skills registry

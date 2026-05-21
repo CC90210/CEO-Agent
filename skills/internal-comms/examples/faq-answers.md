@@ -29,4 +29,4 @@ Make sure you're being holistic in your questions. Don't focus too much on just 
 - Keep tone professional but approachable
 - Flag if a question requires executive input or official response
 ## Obsidian Links
-- [[skills/internal-comms/SKILL]] | [[skills/INDEX]]
+- [[skills/internal-comms/SKILL.md]] | [[skills/INDEX.md]]

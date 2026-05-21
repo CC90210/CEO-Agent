@@ -7,9 +7,9 @@ description: "Go into grind mode — autonomous deep work across the entire Busi
 CC wants to relax while Bravo handles everything. Run the full pipeline:
 
 ## Phase 1: System Health (2 min)
-1. Run `python scripts/memory_aging.py health` — get letter grade
-2. Run `python scripts/context_manager.py status` — check SESSION_LOG size
-3. If SESSION_LOG > 200 lines: `python scripts/context_manager.py compact`
+1. Run `python scripts/core/memory_aging.py health` — get letter grade
+2. Run `python scripts/core/context_manager.py status` — check SESSION_LOG size
+3. If SESSION_LOG > 200 lines: `python scripts/core/context_manager.py compact`
 4. Check `memory/ACTIVE_TASKS.md` — flag anything stale (> 7 days without update)
 5. Run Codex setup check: `export CLAUDE_PLUGIN_ROOT="/c/Users/User/.claude/codex-plugin" && node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" setup --json 2>/dev/null`
 

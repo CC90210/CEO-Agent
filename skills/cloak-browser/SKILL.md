@@ -1,6 +1,6 @@
 ---
 name: cloak-browser
-description: Use CloakBrowser as the mandatory stealth tier for fresh-session browser work against bot-protected sites (Cloudflare Turnstile, reCAPTCHA v3, DataDome, ShieldSquare, FingerprintJS, BrowserScan). Drop-in Playwright replacement with C++ source-level fingerprint patches. Wraps cloakbrowser pip/npm package via scripts/cloak_browser_tool.py.
+description: Use CloakBrowser as the mandatory stealth tier for fresh-session browser work against bot-protected sites (Cloudflare Turnstile, reCAPTCHA v3, DataDome, ShieldSquare, FingerprintJS, BrowserScan). Drop-in Playwright replacement with C++ source-level fingerprint patches. Wraps cloakbrowser pip/npm package via scripts/browser/cloak_browser_tool.py.
 tier: tool
 owner: bravo
 risk: low
@@ -19,7 +19,7 @@ last_updated: 2026-05-15
 
 ## ⚡ Preferred entry — `research_fetch` (V6.7+, 2026-05-16)
 
-For any "give me the content at URL X" task, default to `python scripts/research_fetch.py <url>` instead of calling this skill directly. It auto-escalates Firecrawl → CloakBrowser based on actual response and remembers which tier worked per domain (so the next call skips the Firecrawl roundtrip). Skill: [[skills/research-fetch/SKILL]].
+For any "give me the content at URL X" task, default to `python scripts/research_fetch.py <url>` instead of calling this skill directly. It auto-escalates Firecrawl → CloakBrowser based on actual response and remembers which tier worked per domain (so the next call skips the Firecrawl roundtrip). Skill: [[skills/research-fetch/SKILL.md]].
 
 **Drop down to this CloakBrowser skill directly only when you need its unique features:**
 - Interactive flow on a protected site (`goto <url> --eval "..."`)
@@ -33,11 +33,11 @@ Source: https://github.com/CloakHQ/CloakBrowser · PyPI `cloakbrowser` 0.3.28 ·
 
 ```
 Need a public page's text/markdown, no auth, no detection issues
-  → Firecrawl (scripts/firecrawl_tool.py)
+  → Firecrawl (scripts/integrations/firecrawl_tool.py)
 
 Need a public page but Firecrawl returns 403 / empty / wrong content,
 or the site is documented as bot-protected (Cloudflare/Datadome/etc.)
-  → CloakBrowser (scripts/cloak_browser_tool.py)
+  → CloakBrowser (scripts/browser/cloak_browser_tool.py)
 
 Need to act AS CC inside CC's logged-in account
   → Browser Harness (CC's real Chrome on port 9222)
@@ -52,22 +52,22 @@ The "mandatory" framing: any time an agent reaches for fresh-session Playwright 
 
 ```bash
 # Scrape a Cloudflare-protected page → text + metadata
-python scripts/cloak_browser_tool.py scrape https://target.com --json
+python scripts/browser/cloak_browser_tool.py scrape https://target.com --json
 
 # Scrape with screenshot evidence
-python scripts/cloak_browser_tool.py scrape https://target.com --screenshot evidence/target.png
+python scripts/browser/cloak_browser_tool.py scrape https://target.com --screenshot evidence/target.png
 
 # One-shot navigate + JS eval
-python scripts/cloak_browser_tool.py goto https://target.com --eval "() => document.title"
+python scripts/browser/cloak_browser_tool.py goto https://target.com --eval "() => document.title"
 
 # Self-test stealth signals (run once after install, then before suspect runs)
-python scripts/cloak_browser_tool.py check-stealth
+python scripts/browser/cloak_browser_tool.py check-stealth
 
 # Pre-fetch the ~200MB binary (run once per machine)
-python scripts/cloak_browser_tool.py download
+python scripts/browser/cloak_browser_tool.py download
 
 # Show installed binary info
-python scripts/cloak_browser_tool.py binary-info
+python scripts/browser/cloak_browser_tool.py binary-info
 ```
 
 Common flags: `--headed` (debug, shows window), `--timeout N` (default 30s), `--proxy URL` (override), `--user-agent S`, `--json`.
@@ -115,14 +115,14 @@ Recommended residential proxy providers when a use case demands it: Bright Data,
 Run after install and any time a target site starts blocking unexpectedly:
 
 ```bash
-python scripts/cloak_browser_tool.py check-stealth --json
+python scripts/browser/cloak_browser_tool.py check-stealth --json
 ```
 
 Verifies five core fingerprint signals: `navigator.webdriver` hidden, `chrome.runtime` present, plugins populated, languages populated, WebGL vendor not SwiftShader. Exit 0 = all green; exit 1 = a stealth signal regressed and we should investigate before relying on the tool.
 
 ## Tools used
 
-- `scripts/cloak_browser_tool.py` — canonical CLI wrapper (subcommands: `scrape`, `goto`, `check-stealth`, `binary-info`, `download`, `clear-cache`)
+- `scripts/browser/cloak_browser_tool.py` — canonical CLI wrapper (subcommands: `scrape`, `goto`, `check-stealth`, `binary-info`, `download`, `clear-cache`)
 - `scripts/lib/secret_loader.py` — env loading (CLOAK_PROXY_URL etc., audit-logged to `state/secret_access.log`)
 - `cloakbrowser` Python package (Playwright drop-in) — installed in `.venv`
 - `cloakbrowser` npm package (Playwright/Puppeteer drop-in for Node-based agents)
@@ -136,7 +136,7 @@ Verifies five core fingerprint signals: `navigator.webdriver` hidden, `chrome.ru
 
 ## Related skills
 
-- [[skills/web-scraping/SKILL]] — full 4-tool decision matrix (Firecrawl / CloakBrowser / Playwright / Browser Harness)
-- [[skills/browser-automation/SKILL]] — Playwright MCP reference (used for non-protected sites)
-- [[skills/browser-harness/SKILL]] — CC's real-Chrome layer for authenticated work
+- [[skills/web-scraping/SKILL.md]] — full 4-tool decision matrix (Firecrawl / CloakBrowser / Playwright / Browser Harness)
+- [[skills/browser-automation/SKILL.md]] — Playwright MCP reference (used for non-protected sites)
+- [[skills/browser-harness/SKILL.md]] — CC's real-Chrome layer for authenticated work
 - [[browser/SAFETY]] — applies regardless of which browser layer; sends/posts/money still need CC approval

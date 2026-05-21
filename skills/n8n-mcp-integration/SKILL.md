@@ -11,15 +11,15 @@ disable-model-invocation: false
 
 > The n8n-mcp server (community package, REST-API-backed) exposes a TypeScript-style SDK. You write workflow code, the MCP validates it, then `create_workflow_from_code` ships it directly to the n8n instance. No more hand-rolling JSON, no more guessing parameter names, no more drift between docs and runtime.
 
-## When to use this skill vs `scripts/n8n_tool.py`
+## When to use this skill vs `scripts/integrations/n8n_tool.py`
 
 | Task | Tool |
 |------|------|
 | **Build / update a workflow** | This skill (n8n-mcp SDK flow) |
 | **List, search, inspect existing workflows** | This skill (`search_workflows`, `get_workflow_details`) |
 | **Execute a workflow with inputs** | This skill (`execute_workflow`) |
-| **Quick CLI-only ops in a script (cron, agent_inbox, etc.)** | `scripts/n8n_tool.py` |
-| **Bulk listing or JSON dump for piping** | `scripts/n8n_tool.py` (returns `--json`) |
+| **Quick CLI-only ops in a script (cron, agent_inbox, etc.)** | `scripts/integrations/n8n_tool.py` |
+| **Bulk listing or JSON dump for piping** | `scripts/integrations/n8n_tool.py` (returns `--json`) |
 
 **Default: build and modify through MCP. Read and execute through either.** CLI exists as the always-works fallback per CLAUDE.md Rule 2.
 
@@ -171,7 +171,7 @@ These don't require the build flow — call them directly:
 |---------|--------|
 | `validate_workflow` rejects code 3+ times | Re-read `get_sdk_reference`. The SDK shape probably changed. |
 | `get_node_types` returns nothing for a node | Re-run `search_nodes` with broader query — node ID was wrong. |
-| MCP server unreachable | Fall back to `scripts/n8n_tool.py` for read/exec. Building blocked until MCP returns. |
+| MCP server unreachable | Fall back to `scripts/integrations/n8n_tool.py` for read/exec. Building blocked until MCP returns. |
 | `create_workflow_from_code` succeeds but workflow won't activate | Open in n8n UI, check trigger node config. Often a missing credential binding. |
 
 ## What this replaces
@@ -183,5 +183,5 @@ These don't require the build flow — call them directly:
 The SDK flow is the n8n team's official answer to those failure modes. Use it.
 
 ## Obsidian Links
-- [[skills/n8n-patterns]] | [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/n8n-patterns]] | [[skills/INDEX.md]] | [[brain/CAPABILITIES]]
 - [[agents/workflow-builder]] | [[memory/SESSION_LOG]]

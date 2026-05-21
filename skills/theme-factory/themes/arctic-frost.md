@@ -19,4 +19,4 @@ A cool and crisp winter-inspired theme that conveys clarity, precision, and prof
 Healthcare presentations, technology solutions, winter sports, clean tech, pharmaceutical content.
 
 ## Obsidian Links
-- [[skills/theme-factory/SKILL]] | [[skills/INDEX]]
+- [[skills/theme-factory/SKILL.md]] | [[skills/INDEX.md]]

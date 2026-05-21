@@ -124,4 +124,4 @@ heartbeat_tasks:
 - **Growth Engine:** Heartbeat tracks session-over-session improvements
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

@@ -17,7 +17,7 @@ The dashboard's `n8n_inbound` integration is showing **unconfigured** because n8
 ## Step 1 — Issue a webhook secret (Bravo can do this)
 
 ```bash
-python scripts/n8n_webhook_secret.py issue --profile-email conaugh@oasisai.work
+python scripts/integrations/n8n_webhook_secret.py issue --profile-email conaugh@oasisai.work
 ```
 
 You'll see something like:
@@ -98,7 +98,7 @@ Save the workflow. Make sure it's **active** (not just saved). Done.
 ## Troubleshooting
 
 ### "I get a 401"
-- Re-issue the secret: `python scripts/n8n_webhook_secret.py issue --profile-email conaugh@oasisai.work`
+- Re-issue the secret: `python scripts/integrations/n8n_webhook_secret.py issue --profile-email conaugh@oasisai.work`
 - Make sure both headers are sent (n8n sometimes drops empty headers — check the actual request log).
 
 ### "I get a 400 with `from_email is required`"
@@ -110,17 +110,17 @@ Save the workflow. Make sure it's **active** (not just saved). Done.
 ### "I want to revoke a secret"
 ```bash
 # List secrets
-python scripts/n8n_webhook_secret.py list --profile-email conaugh@oasisai.work
+python scripts/integrations/n8n_webhook_secret.py list --profile-email conaugh@oasisai.work
 
 # Revoke by id
-python scripts/n8n_webhook_secret.py revoke --secret-id <uuid>
+python scripts/integrations/n8n_webhook_secret.py revoke --secret-id <uuid>
 ```
 
 ### "I want a separate secret per workflow / per environment"
 Issue more than one. The `--label` flag lets you tag each secret:
 
 ```bash
-python scripts/n8n_webhook_secret.py issue \
+python scripts/integrations/n8n_webhook_secret.py issue \
     --profile-email conaugh@oasisai.work \
     --label "OASIS Qualifier · production"
 ```

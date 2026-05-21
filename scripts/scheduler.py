@@ -476,7 +476,7 @@ def run_revenue_report(env_vars: dict) -> str:
 def run_agent_self_improvement(env_vars: dict) -> str:
     """Run cross-agent self-improvement sweep (Bravo + Atlas + Maven).
 
-    Delegates to scripts/agent_self_improvement.py for the full digest, then
+    Delegates to scripts/core/agent_self_improvement.py for the full digest, then
     sends it via notify() directly (wrapper truncates at 200 chars).
     """
     out = run_script("agent_self_improvement.py", ["run"])

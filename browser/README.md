@@ -29,7 +29,7 @@ browser/
 
 ## Operating Model
 
-1. Diagnose the harness: `python scripts/browser_harness_doctor.py`.
+1. Diagnose the harness: `python scripts/browser/browser_harness_doctor.py`.
 2. Search `browser/domain-skills/` before exploring a site.
 3. Use Browser Harness for authenticated UI tasks and screenshots.
 4. Prefer official CLIs/APIs for logged business operations.

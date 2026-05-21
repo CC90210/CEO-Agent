@@ -10,16 +10,16 @@ The legacy retro pulled `MISTAKES.md`, `SELF_REFLECTIONS.md`, `SESSION_LOG.md` w
 
 ```bash
 # Live operational state — last tick, transaction count, open tasks per bucket
-python scripts/state_manager.py status
+python scripts/state/state_manager.py status
 
 # Last week of session activity (chunk-level, not whole-file)
-python scripts/memory_retriever.py query "<this-week's-theme>" --kind memory --limit 12
+python scripts/core/memory_retriever.py query "<this-week's-theme>" --kind memory --limit 12
 
 # Mistakes that recurred (the ones worth a CLAUDE.md rule)
-python scripts/memory_retriever.py query "recurring mistake root cause" --kind memory --limit 8
+python scripts/core/memory_retriever.py query "recurring mistake root cause" --kind memory --limit 8
 
 # Skills that ticked frequently in session_log (high-activation = healthy)
-python scripts/memory_retriever.py query "<core skill keyword>" --kind skill --limit 6
+python scripts/core/memory_retriever.py query "<core skill keyword>" --kind skill --limit 6
 ```
 
 Use whole-file `Read` only when a snippet's heading suggests context outside the chunk window matters.
@@ -31,7 +31,7 @@ Use whole-file `Read` only when a snippet's heading suggests context outside the
 2. **Data Collection** (Phase 1):
    - Git activity across all app repos (last 7 days): `git log --since='7 days ago' --oneline`
    - Files changed in Business-Empire-Agent: `git diff --stat origin/main...HEAD`
-   - V6.0 DB stats: `python scripts/state_manager.py status` → session_log_count, transaction_count, agents[], open_tasks_by_bucket
+   - V6.0 DB stats: `python scripts/state/state_manager.py status` → session_log_count, transaction_count, agents[], open_tasks_by_bucket
    - Targeted memory pulls via `memory_retriever query` (see V6.0 block above) — NOT whole-file reads
 
 3. **Metric Calculation** (Phase 2):
@@ -60,7 +60,7 @@ Use whole-file `Read` only when a snippet's heading suggests context outside the
    - Recurring mistakes → MISTAKES.md
    - **Single retro audit entry to the DB:**
      ```bash
-     python scripts/state_manager.py log --agent bravo \
+     python scripts/state/state_manager.py log --agent bravo \
        --note "Weekly retro YYYY-MM-DD: shipping=N/10, quality=N/10, memory=N/10, coord=N/10" \
        --artifacts "memory/PATTERNS.md,memory/MISTAKES.md"
      ```

@@ -24,7 +24,7 @@ All 4 agents share the same memory stack. Different data, same pipes.
   - Maven: `C:\Users\User\CMO-Agent`
   - Aura: `C:\Users\User\AURA`
 - **Graph scope**: per-vault (Obsidian doesn't cross vaults by default)
-- **Cross-vault hub**: [[AGENT_INDEX]] lives in Bravo and references all agents
+- **Cross-vault hub**: [[brain/AGENT_INDEX]] lives in Bravo and references all agents
 
 ### 3. Shared Supabase (`phctllmtsogkovoilwos`)
 - **Tables that make this a RAG**:
@@ -73,7 +73,7 @@ If you write something in a markdown file, it's also available as structured dat
 
 1. **Won't open** → clear cache: `del /q "%APPDATA%\obsidian\Cache\*"` (Windows) or use vault picker (⌘/Ctrl+O)
 2. **Graph stuck / empty** → Settings → Community plugins → rebuild cache; or just close and reopen the vault
-3. **Broken [[links]]** → run `python scripts/obsidian_link_check.py` (if it exists) or scan with grep
+3. **Broken links** → run `python scripts/obsidian_link_check.py` (if it exists) or scan with grep
 4. **Vault not in picker** → edit `C:\Users\User\AppData\Roaming\obsidian\obsidian.json` and add the vault entry
 5. **Stuck "Ops, can't open vault"** → remove the `workspace.json` in that vault's `.obsidian/` dir; Obsidian will rebuild fresh
 6. **Post-refactor cleanup** → after big renames/migrations, scan for broken wikilinks across the vault
@@ -92,7 +92,7 @@ Every vault has `.obsidian/`:
 
 ## Related
 
-- [[AGENT_INDEX]] — cross-vault hub
-- [[C_SUITE_ARCHITECTURE]] — overall governance
-- [[CROSS_AGENT_AWARENESS]] — pulse-file passing
-- [[SHARED_DB]] (in Maven's vault) — Supabase schema detail
+- [[brain/AGENT_INDEX]] — cross-vault hub
+- [[brain/C_SUITE_ARCHITECTURE]] — overall governance
+- [[brain/CROSS_AGENT_AWARENESS]] — pulse-file passing
+- [[brain/SHARED_DB]] (in Maven's vault) — Supabase schema detail

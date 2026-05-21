@@ -214,6 +214,6 @@ Append the lint report to `knowledge/log.md` as a lint entry.
 - [[knowledge/SCHEMA]] | [[knowledge/index]] | [[knowledge/log]]
 - [[knowledge/wiki/ai-automation-agency]] | [[knowledge/wiki/revenue-model]]
 - [[knowledge/wiki/tech-stack]] | [[knowledge/wiki/client-playbook]]
-- [[skills/knowledge-management/SKILL]] | [[skills/memory-management/SKILL]]
+- [[skills/knowledge-management/SKILL.md]] | [[skills/memory-management/SKILL.md]]
 - `/ingest` | `/query-knowledge`
 - [[brain/CAPABILITIES]] | [[brain/STATE]]

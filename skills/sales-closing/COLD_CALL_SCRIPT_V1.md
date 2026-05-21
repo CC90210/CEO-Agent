@@ -194,11 +194,11 @@ Daily for 90 days. Most people quit at week 3 because early data is bad. Data tu
 After 3 weeks of real call data, capture lessons → V1.1 with refined objection responses and the strongest opener variants observed.
 
 ## Obsidian Links
-- [[skills/sales-closing/SKILL]] | [[brain/DEAL_ARCHITECTURE]]
+- [[skills/sales-closing/SKILL.md]] | [[brain/DEAL_ARCHITECTURE]]
 - [[memory/SESSION_LOG]] | [[memory/PATTERNS]]
 - [[brain/USER]] | [[brain/SOUL]]
 
 
 ## Related (graph)
 
-- [[skills/sales-closing/SKILL]]
+- [[skills/sales-closing/SKILL.md]]

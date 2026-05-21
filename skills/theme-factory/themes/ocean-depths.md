@@ -19,4 +19,4 @@ A professional and calming maritime theme that evokes the serenity of deep ocean
 Corporate presentations, financial reports, professional consulting decks, trust-building content.
 
 ## Obsidian Links
-- [[skills/theme-factory/SKILL]] | [[skills/INDEX]]
+- [[skills/theme-factory/SKILL.md]] | [[skills/INDEX.md]]

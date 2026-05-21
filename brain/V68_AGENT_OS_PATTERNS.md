@@ -54,7 +54,7 @@ freshness_threshold_days: 365
 - ✅ `prompts/INTEGRATE_NEW_TOOL.md` — canonical 6-phase pasteable system message for any external-resource integration. Generalized from the mattpocock/skills audit.
 - ✅ `oasis-command-center:lib/prompts-library.ts` — new `system_integration` category + foundational `integrate-new-tool` PromptEntry.
 - ✅ PLAYBOOK.md top-5-moves table — new row pointing operators to the dashboard prompt.
-- ✅ `scripts/memory_retriever.py` SCOPES extended with `prompt` scope — prompts/*.md are now retriever-indexable.
+- ✅ `scripts/core/memory_retriever.py` SCOPES extended with `prompt` scope — prompts/*.md are now retriever-indexable.
 
 **V6.8.4 (self-review fixes for V6.8.3, commit a2e58d2):**
 - ✅ `oasis-command-center:app/playbook/prompts/page.tsx` — `system_integration` added to `OPERATOR_CATEGORIES` so the new category actually renders.
@@ -138,7 +138,7 @@ V6.8 closes that specific gap without touching substrate. No new daemons. No new
 test -f CONTEXT.md && head -5 CONTEXT.md
 
 # 2. memory_retriever (if exists) returns CONTEXT.md for a domain query
-python scripts/memory_retriever.py query "what is <domain term>" --lexical-only 2>/dev/null | head -5
+python scripts/core/memory_retriever.py query "what is <domain term>" --lexical-only 2>/dev/null | head -5
 
 # 3. ADR-0001 references the empire canonical
 grep -q "Bravo.*ADR-0002\|Business-Empire-Agent" docs/adr/0001*.md

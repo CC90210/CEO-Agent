@@ -24,14 +24,21 @@ const path = require('path');
 const EventEmitter = require('events');
 
 // ---- PLATFORM DETECTION (preserved from telegram_agent.js) ----
+// All hardcoded paths now fall back to sensible defaults but accept env-var
+// overrides so operators on non-standard layouts (Linux, WSL, custom venv
+// locations) can configure without editing this file. Document the env vars
+// in gateway/README.md.
 const IS_MAC = process.platform === 'darwin';
 const IS_WIN = process.platform === 'win32';
-const PYTHON = IS_MAC
-    ? 'python3'
-    : path.join(__dirname, '..', '..', '.venv', 'Scripts', 'python.exe');
-const MACHINE_NAME = IS_MAC ? 'MacBook' : 'Windows Desktop';
-const TEMP_PATH = IS_MAC ? '/tmp' : (process.env.TEMP || 'C:\\Temp');
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
+const PYTHON = process.env.BRAVO_PYTHON
+    || (IS_MAC
+        ? 'python3'
+        : path.join(REPO_ROOT, '.venv', 'Scripts', 'python.exe'));
+const MACHINE_NAME = process.env.BRAVO_MACHINE_NAME
+    || (IS_MAC ? 'MacBook' : 'Windows Desktop');
+const TEMP_PATH = process.env.BRAVO_TEMP_DIR
+    || (IS_MAC ? '/tmp' : (process.env.TEMP || path.join(REPO_ROOT, 'tmp')));
 
 // C-Suite module (shared with telegram_agent.js)
 const cSuite = require(path.join(REPO_ROOT, 'scripts', 'c_suite_context.js'));
@@ -137,19 +144,23 @@ class TelegramAdapter extends EventEmitter {
         this._CONFIRM_PATTERN = /⚠️\s*CONFIRM:\s*(.+)$/m;
         this._pendingConfirmations = {};
 
-        // ---- PATHS (preserved) ----
+        // ---- PATHS (env-overridable; documented in gateway/README.md) ----
+        // BRAVO_CLAUDE_EXE / BRAVO_GEMINI_SCRIPT can override the auto-detected
+        // CLI locations when operators install the tools to non-default paths.
         this._NODE_EXE = process.execPath;
-        this._CLAUDE_EXE = IS_MAC
-            ? 'claude'
-            : path.join(process.env.USERPROFILE || '', '.local', 'bin', 'claude.exe');
-        this._GEMINI_SCRIPT = IS_MAC
-            ? (() => {
-                const nvmDir = path.join(process.env.HOME || '', '.nvm', 'versions', 'node');
-                return path.join(nvmDir, process.version, 'lib', 'node_modules',
-                    '@google', 'gemini-cli', 'dist', 'index.js');
-            })()
-            : path.join(process.env.APPDATA || '',
-                'npm', 'node_modules', '@google', 'gemini-cli', 'dist', 'index.js');
+        this._CLAUDE_EXE = process.env.BRAVO_CLAUDE_EXE
+            || (IS_MAC
+                ? 'claude'
+                : path.join(process.env.USERPROFILE || '', '.local', 'bin', 'claude.exe'));
+        this._GEMINI_SCRIPT = process.env.BRAVO_GEMINI_SCRIPT
+            || (IS_MAC
+                ? (() => {
+                    const nvmDir = path.join(process.env.HOME || '', '.nvm', 'versions', 'node');
+                    return path.join(nvmDir, process.version, 'lib', 'node_modules',
+                        '@google', 'gemini-cli', 'dist', 'index.js');
+                })()
+                : path.join(process.env.APPDATA || '',
+                    'npm', 'node_modules', '@google', 'gemini-cli', 'dist', 'index.js'));
 
         this._MCP_CONFIG_PATH = path.join(REPO_ROOT, '.claude', 'mcp.json');
         this._HAS_MCP_CONFIG = fs.existsSync(this._MCP_CONFIG_PATH);
@@ -356,14 +367,14 @@ class TelegramAdapter extends EventEmitter {
             if (lastN) chunks.push(`=== SESSION_LOG.md (recent) ===\n${lastN}`);
         }
         chunks.push(`=== Available CLI Tools ===
-- n8n: ${PYTHON} scripts/n8n_tool.py [list|get|execute|activate]
-- Supabase: ${PYTHON} scripts/supabase_tool.py [select|insert|sql]
-- Stripe: ${PYTHON} scripts/stripe_tool.py [balance|customers|invoices]
-- Email/Calendar: ${PYTHON} scripts/google_tool.py [gmail send|gmail list|calendar list]
-- Context Manager: ${PYTHON} scripts/context_manager.py [tier|compact|status|health]
+- n8n: ${PYTHON} scripts/integrations/n8n_tool.py [list|get|execute|activate]
+- Supabase: ${PYTHON} scripts/integrations/supabase_tool.py [select|insert|sql]
+- Stripe: ${PYTHON} scripts/integrations/stripe_tool.py [balance|customers|invoices]
+- Email/Calendar: ${PYTHON} scripts/integrations/google_tool.py [gmail send|gmail list|calendar list]
+- Context Manager: ${PYTHON} scripts/core/context_manager.py [tier|compact|status|health]
 - Cost Tracker: ${PYTHON} scripts/cost_tracker.py [log|summary|session|budget]
-- Firecrawl: ${PYTHON} scripts/firecrawl_tool.py [scrape|crawl|search|extract|map]
-- Semantic memory: ${PYTHON} scripts/mem0_tool.py [add|search|list|get|delete|stats]`);
+- Firecrawl: ${PYTHON} scripts/integrations/firecrawl_tool.py [scrape|crawl|search|extract|map]
+- Semantic memory: ${PYTHON} scripts/integrations/mem0_tool.py [add|search|list|get|delete|stats]`);
 
         if (tier === 2) {
             chunks.push('=== Context Tier: T2 STANDARD ===');
@@ -419,13 +430,13 @@ ${csuite}
 ${reach}
 
 BUSINESS OPS:
-- Email: ${PYTHON} scripts/google_tool.py gmail list | gmail send --to "..." --subject "..." --body "..."
+- Email: ${PYTHON} scripts/integrations/google_tool.py gmail list | gmail send --to "..." --subject "..." --body "..."
 - Revenue: ${PYTHON} scripts/revenue_engine.py mrr | dashboard | forecast | clients | goal
-- Stripe: ${PYTHON} scripts/stripe_tool.py balance | customers | invoices
+- Stripe: ${PYTHON} scripts/integrations/stripe_tool.py balance | customers | invoices
 - CEO Briefing: ${PYTHON} scripts/ceo_dashboard.py briefing | revenue | pipeline | content | full
 - Leads/CRM: ${PYTHON} scripts/lead_engine.py list | add "Name" --email x | followups | view <id>
-- Database: ${PYTHON} scripts/supabase_tool.py select <table> --project bravo --limit 10
-- n8n: ${PYTHON} scripts/n8n_tool.py list | execute <id>
+- Database: ${PYTHON} scripts/integrations/supabase_tool.py select <table> --project bravo --limit 10
+- n8n: ${PYTHON} scripts/integrations/n8n_tool.py list | execute <id>
 
 COMPUTER CONTROL (${IS_MAC ? 'macOS' : 'Windows'}):
 - All commands: ${PYTHON} scripts/${IS_MAC ? 'macos' : 'windows'}_control.py <command> [args] --json
@@ -559,7 +570,7 @@ CC's message:`;
 
                 // State sync after successful Claude runs
                 if (tool === 'claude' && code === 0 && tier > 0) {
-                    execFile(PYTHON, ['scripts/state_sync.py',
+                    execFile(PYTHON, ['scripts/state/state_sync.py',
                         '--note', `telegram T${tier}: ${userPrompt.substring(0, 140)}`],
                         { cwd: REPO_ROOT, windowsHide: true, timeout: 8000 }, () => {});
                 }
@@ -859,7 +870,7 @@ CC's message:`;
         }
 
         if (text === '/memhealth') {
-            exec(`${PYTHON} scripts/memory_aging.py health`,
+            exec(`${PYTHON} scripts/core/memory_aging.py health`,
                 { cwd: REPO_ROOT, windowsHide: IS_WIN, timeout: 10000 }, (err, out) => {
                     this._bot.sendMessage(chatId, out || err?.message || 'Health check failed.').catch(() => {});
                 });
@@ -867,7 +878,7 @@ CC's message:`;
         }
 
         if (text === '/compact') {
-            exec(`${PYTHON} scripts/context_manager.py status`,
+            exec(`${PYTHON} scripts/core/context_manager.py status`,
                 { cwd: REPO_ROOT, windowsHide: IS_WIN, timeout: 10000 }, (err, out) => {
                     this._bot.sendMessage(chatId, out || err?.message || 'Status check failed.').catch(() => {});
                 });
@@ -875,7 +886,7 @@ CC's message:`;
         }
 
         if (text === '/stale') {
-            exec(`${PYTHON} scripts/memory_aging.py stale --days 30`,
+            exec(`${PYTHON} scripts/core/memory_aging.py stale --days 30`,
                 { cwd: REPO_ROOT, windowsHide: IS_WIN, timeout: 10000 }, (err, out) => {
                     this._bot.sendMessage(chatId, (out || err?.message || 'No stale facts.').substring(0, 4000)).catch(() => {});
                 });

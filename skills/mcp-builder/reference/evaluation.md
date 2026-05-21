@@ -601,4 +601,4 @@ If tasks are timing out:
 - Verify pagination is working correctly
 - Consider simplifying complex questions
 ## Obsidian Links
-- [[skills/mcp-builder/SKILL]] | [[skills/INDEX]]
+- [[skills/mcp-builder/SKILL.md]] | [[skills/INDEX.md]]

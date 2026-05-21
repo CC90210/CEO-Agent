@@ -377,4 +377,4 @@ No exceptions without your human partner's permission.
 - [[skills/test-driven-development/testing-anti-patterns]] — Common test anti-patterns to avoid
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

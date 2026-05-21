@@ -32,7 +32,7 @@ Every productized agent should have:
 ## Current Bravo Files
 
 - Onboarding doctor: `scripts/onboarding_diagnostics.py`
-- Browser doctor: `scripts/browser_harness_doctor.py`
+- Browser doctor: `scripts/browser/browser_harness_doctor.py`
 - Runtime notes: `runtime/README.md`
 - Install notes: `install/README.md`
 - Config example: `config/bravo-config.example.toml`
@@ -94,12 +94,12 @@ Doctor commands should not:
 
 Never let packaging work bypass Bravo's business safety:
 
-- Outbound stays behind `scripts/send_gateway.py`.
+- Outbound stays behind `scripts/integrations/send_gateway.py`.
 - Browser writes require approval.
 - Finance actions require approval.
 - Production setting changes require approval.
 - Destructive actions require approval.
 
 ## Related
-- [[skills/INDEX]]
+- [[skills/INDEX.md]]
 - [[brain/CAPABILITIES]]

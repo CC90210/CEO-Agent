@@ -150,7 +150,7 @@ If any step breaks, the failure-mode docs are in `brain/SUNBIZ_CRM_KNOWN_GAPS.md
 | `apps/command-center/components/leads/` | LeadsTableClient + LeadsImportClient |
 | `scripts/sequence_runner.py` | The daemon that enrolls + fires drips |
 | `scripts/lender_response_classifier.py` | Gmail thread classifier |
-| `scripts/send_gateway.py` | The single outbound send chokepoint — CASL / cooldown / multi-brand |
+| `scripts/integrations/send_gateway.py` | The single outbound send chokepoint — CASL / cooldown / multi-brand |
 | `database/043_drip_sequences.sql` + `044_lender_shopout.sql` + `045_sequence_state_one_per_lead.sql` | Phase 4 + 6 + Codex #3 migrations |
 | `brain/SUNBIZ_CRM_KNOWN_GAPS.md` | Codex review findings — fixed + still open |
 | `C:\Users\User\.claude\plans\this-is-a-handover-giggly-reef.md` | The two-round plan doc (Round 1 Phases 1-8 + Round 2 Phases 9-15) |

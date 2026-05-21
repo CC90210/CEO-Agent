@@ -205,10 +205,10 @@ Handled automatically by unpack/pack. But the Edit tool converts smart quotes to
 - **XML parsing**: Use `defusedxml.minidom`, not `xml.etree.ElementTree` (corrupts namespaces)
 
 ## Obsidian Links
-- [[skills/pptx/SKILL]] | [[skills/INDEX]]
+- [[skills/pptx/SKILL.md]] | [[skills/INDEX.md]]
 
 
 ## Related (graph)
 
-- [[skills/pptx/SKILL]]
+- [[skills/pptx/SKILL.md]]
 - [[skills/pptx/pptxgenjs]]

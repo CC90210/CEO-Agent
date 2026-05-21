@@ -66,7 +66,7 @@ days, pull `main` before reporting — the issue may already be fixed.
 ### Outbound communication
 
 - Every email, Telegram, LinkedIn, and Instagram message routes through
-  one chokepoint: `scripts/send_gateway.py`. No business engine calls
+  one chokepoint: `scripts/integrations/send_gateway.py`. No business engine calls
   SMTP directly.
 - The gateway enforces: CASL compliance footer, per-channel cooldown
   (email 72h, IG 48h, LinkedIn 72h, phone 168h), daily cap (email 50,

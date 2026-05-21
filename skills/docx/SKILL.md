@@ -13,6 +13,19 @@ dependencies: []
 
 A .docx file is a ZIP archive containing XML files.
 
+> **⚠ Helper scripts not bundled.** The body of this skill references six helper scripts that ship with Anthropic's reference docx skill but are NOT in this repo:
+>
+> | Referenced as | Direct replacement |
+> |---|---|
+> | `scripts/office/soffice.py` | `soffice --headless --convert-to <format> <file>` (LibreOffice CLI) |
+> | `scripts/office/unpack.py` | `python -m zipfile -e <file.docx> unpacked/` |
+> | `scripts/office/pack.py` | `python -m zipfile -c <out.docx> unpacked/*` |
+> | `scripts/office/validate.py` | `python -c "import docx; docx.Document('<file>')"` (basic round-trip) |
+> | `scripts/accept_changes.py` | `pandoc --track-changes=accept input.docx -o output.docx` |
+> | `scripts/comment.py` | Hand-edit `word/comments.xml` inside the unpacked zip |
+>
+> The other patterns (docx-js, openpyxl, pandoc, pdftoppm) work as-written — no replacement needed.
+
 ## Quick Reference
 
 | Task | Approach |
@@ -593,4 +606,4 @@ After running `comment.py` (see Step 2), add markers to document.xml. For replie
 - **Poppler**: `pdftoppm` for images
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

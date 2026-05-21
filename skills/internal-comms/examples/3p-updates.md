@@ -46,4 +46,4 @@ Problems: [1-3 sentences of content]
 
 Each section should be no more than 1-3 sentences: clear, to the point. It should be data-driven, and generally include metrics where possible. The tone should be very matter-of-fact, not super prose-heavy.
 ## Obsidian Links
-- [[skills/internal-comms/SKILL]] | [[skills/INDEX]]
+- [[skills/internal-comms/SKILL.md]] | [[skills/INDEX.md]]

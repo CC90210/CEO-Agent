@@ -202,4 +202,4 @@ If no expectations were provided, omit the `expectation_results` field entirely.
 - **Handle edge cases**: If both outputs fail, pick the one that fails less badly. If both are excellent, pick the one that's marginally better.
 
 ## Obsidian Links
-- [[skills/skill-creator/SKILL]] | [[skills/INDEX]]
+- [[skills/skill-creator/SKILL.md]] | [[skills/INDEX.md]]

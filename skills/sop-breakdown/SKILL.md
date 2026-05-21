@@ -102,4 +102,4 @@ When CC says "Create an SOP for [process]":
 The Brain Loop (Step 2: RECALL) checks SOP_LIBRARY.md for relevant SOPs before planning a task. If an SOP exists, follow it. If no SOP exists but the task is a candidate, note it for future SOP creation.
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

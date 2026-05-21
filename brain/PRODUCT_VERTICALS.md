@@ -4,7 +4,7 @@ tags: [product, verticals, lead-management, marketing-research, pricing]
 
 # PRODUCT VERTICALS -- Business in a Box Research Reference
 
-> Companion to [[PRODUCT_ARCHITECTURE]]. Research layer for the product: canonical agent knowledge, vertical pack contents, lead management best practice, marketing research methodology, and product pricing.
+> Companion to [[brain/PRODUCT_ARCHITECTURE]]. Research layer for the product: canonical agent knowledge, vertical pack contents, lead management best practice, marketing research methodology, and product pricing.
 > Last updated: 2026-04-18 | Confidence: HIGH (triangulated 3+ sources per claim)
 
 ---
@@ -59,7 +59,7 @@ Document in each agent UPGRADE.md. For non-technical buyers, the GitHub Actions 
 
 ### Recommended Distribution Model
 
-V1: Public template repo (GitHub) => buyer forks => buyer customizes personal/ => runs on their machine. Optional managed-setup upsell. See [[PRODUCT_ARCHITECTURE]] for full tier structure and clone flow.
+V1: Public template repo (GitHub) => buyer forks => buyer customizes personal/ => runs on their machine. Optional managed-setup upsell. See [[brain/PRODUCT_ARCHITECTURE]] for full tier structure and clone flow.
 
 ---
 

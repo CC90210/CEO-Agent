@@ -24,12 +24,12 @@ you need a tier's unique features (Firecrawl extract/crawl/map, Cloak
 interactive goto, Harness CC-auth, Playwright snapshot).
 
 1. Public unprotected page (need Firecrawl-specific features) →
-       python scripts/firecrawl_tool.py scrape <url>
+       python scripts/integrations/firecrawl_tool.py scrape <url>
 
 2. Bot-protected (Cloudflare Turnstile, reCAPTCHA v3, DataDome, ShieldSquare,
    FingerprintJS, Akamai, Kasada, PerimeterX) OR Firecrawl returned 403/429/empty
    AND you need to force the stealth tier or use its interactive features →
-       python scripts/cloak_browser_tool.py scrape <url> --json
+       python scripts/browser/cloak_browser_tool.py scrape <url> --json
    (research_fetch handles the escalation for you in the common case)
 
 3. Need to act AS CC inside CC's logged-in account → use Browser Harness
@@ -42,7 +42,7 @@ interactive goto, Harness CC-auth, Playwright snapshot).
 
 Raw Playwright MCP fingerprints are obvious to modern bot defenses. Cloudflare typically blocks within 1-3 requests. If you see a Turnstile widget, an "Are you a robot?" page, or a 403 from Cloudflare, **stop and switch to CloakBrowser** — do not retry Playwright.
 
-Full reference: [[skills/cloak-browser/SKILL]] · [[skills/web-scraping/SKILL]] · [[skills/browser-harness/SKILL]].
+Full reference: [[skills/cloak-browser/SKILL.md]] · [[skills/web-scraping/SKILL.md]] · [[skills/browser-harness/SKILL.md]].
 
 ---
 
@@ -381,4 +381,4 @@ Step 5: browser_close when done
 ---
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]] | [[skills/e2e-testing/SKILL]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]] | [[skills/e2e-testing/SKILL.md]]

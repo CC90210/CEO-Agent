@@ -78,11 +78,11 @@ Task tool (general-purpose):
 ```
 
 ## Obsidian Links
-- [[skills/subagent-driven-development/SKILL]] | [[skills/INDEX]]
+- [[skills/subagent-driven-development/SKILL.md]] | [[skills/INDEX.md]]
 
 
 ## Related (graph)
 
-- [[skills/subagent-driven-development/SKILL]]
+- [[skills/subagent-driven-development/SKILL.md]]
 - [[skills/subagent-driven-development/code-quality-reviewer-prompt]]
 - [[skills/subagent-driven-development/spec-reviewer-prompt]]

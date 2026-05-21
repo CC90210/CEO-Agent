@@ -65,4 +65,4 @@ Avoid:
 - Update 3
 
 ## Obsidian Links
-- [[skills/internal-comms/SKILL]] | [[skills/INDEX]]
+- [[skills/internal-comms/SKILL.md]] | [[skills/INDEX.md]]

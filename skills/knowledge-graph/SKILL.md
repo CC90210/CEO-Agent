@@ -141,4 +141,4 @@ KG_VAULT_PATH="C:/Users/User/Business-Empire-Agent" KG_DATA_DIR="C:/Users/User/t
 - Index is stored at `C:\Users\User\tools\knowledge-graph\data\kg.db` — persists across sessions.
 
 ## Obsidian Links
-- [[brain/CAPABILITIES]] | [[brain/STATE]] | [[skills/memory-management/SKILL]]
+- [[brain/CAPABILITIES]] | [[brain/STATE]] | [[skills/memory-management/SKILL.md]]

@@ -14,10 +14,10 @@ Runs 5 long-lived Python daemons in containers on one VPS:
 | Container | Command | Role |
 |---|---|---|
 | `bravo-core` | `python scripts/autonomous_agent.py daemon` | The reasoning loop |
-| `bravo-scheduler` | `python scheduler.py` | Cron-like recurring jobs |
-| `bravo-inbox` | `python scripts/email_engine.py check-inbox --daemon` | Gmail polling |
-| `bravo-webhook` | `uvicorn scripts.webhook_listener:app …` | Stripe/N8N/Telegram webhooks |
-| `bravo-event-reaper` | `scripts/event_bus.py reap` + `drain` loop | Unsticks stuck events |
+| `bravo-scheduler` | `python scripts/scheduler.py` | Cron-like recurring jobs |
+| `bravo-inbox` | `python scripts/integrations/email_engine.py check-inbox --daemon` | Gmail polling |
+| `bravo-webhook` | `uvicorn hooks.webhook_listener:app …` (working_dir=/app/scripts) | Stripe/N8N/Telegram webhooks |
+| `bravo-event-reaper` | `scripts/core/event_bus.py reap` + `drain` loop | Unsticks stuck events |
 
 Plus two infra containers:
 
@@ -152,13 +152,13 @@ docker compose restart bravo-webhook
 docker compose exec bravo-core python scripts/apply_migration.py database/014_v6_pgvector_memory.sql
 
 # Full ingest (V6 RAG)
-docker compose exec bravo-core python scripts/memory_ingest.py
+docker compose exec bravo-core python scripts/core/memory_ingest.py
 
 # Event bus stats
-docker compose exec bravo-core python scripts/event_bus.py stats
+docker compose exec bravo-core python scripts/core/event_bus.py stats
 
 # Reap stuck events manually
-docker compose exec bravo-core python scripts/event_bus.py reap
+docker compose exec bravo-core python scripts/core/event_bus.py reap
 ```
 
 ---

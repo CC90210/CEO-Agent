@@ -11,7 +11,7 @@
 
 ```bash
 # From the agent's repo root
-python scripts/self_audit.py
+python scripts/core/self_audit.py
 python scripts/doctor.py
 ```
 

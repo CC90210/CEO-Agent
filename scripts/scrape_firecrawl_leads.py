@@ -78,7 +78,7 @@ OUT_JSON = PROJECT_ROOT / "tmp" / "scraped_leads_firecrawl.json"
 def _run_firecrawl(args: list[str]) -> dict | None:
     try:
         r = subprocess.run(
-            ["python", "scripts/firecrawl_tool.py", *args, "--json"],
+            ["python", "scripts/integrations/firecrawl_tool.py", *args, "--json"],
             capture_output=True, text=True, timeout=60,
             cwd=str(PROJECT_ROOT),
          creationflags=WINDOWLESS_FLAGS)

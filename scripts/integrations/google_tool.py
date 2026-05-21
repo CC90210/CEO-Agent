@@ -48,11 +48,11 @@ from email.mime.base import MIMEBase
 from email import encoders
 from pathlib import Path
 
-# Add the parent directory (scripts/) to sys.path to import _subprocess_helpers
+# Add the parent directory (scripts/) to sys.path to import subprocess_helpers
 import os
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
+from lib.subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 
 # Ensure UTF-8 output on Windows
@@ -220,6 +220,13 @@ def gmail_send_smtp(to, subject, body, ics_content=None, *, branded=False, cta_l
     msg["To"] = to
     msg["Subject"] = subject
 
+    # V5.6 chokepoint exception (documented 2026-05-21):
+    # google_tool.py is an OPERATOR CLI for one-off ad-hoc sends (calendar
+    # invites, manual emails from the terminal) — NOT a pipeline send.
+    # Pipeline outbound (drips, lead replies, queue consumers, agent
+    # actions) still routes through scripts/integrations/send_gateway.py.
+    # This direct SMTP path is intentional and audited; do NOT add it to
+    # any automated flow without also updating send_gateway.
     try:
         server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
         server.login(gmail_user, gmail_pass)

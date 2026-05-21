@@ -256,6 +256,6 @@ opencli --version                         # Show version
 ```
 
 ## Obsidian Links
-- [[skills/cli-anything/SKILL]] | [[skills/browser-automation/SKILL]]
+- [[skills/cli-anything/SKILL.md]] | [[skills/browser-automation/SKILL.md]]
 - [[brain/CAPABILITIES]] | [[brain/AGENTS]]
-- [[skills/mcp-operations/SKILL]]
+- [[skills/mcp-operations/SKILL.md]]

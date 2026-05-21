@@ -63,7 +63,7 @@ Run the SELF-HEAL checklist from skills/self-improvement-protocol/:
 ### Protocol 2 — OPTIMIZE
 Query your own traces from Supabase:
 ```
-python scripts/supabase_tool.py query \
+python scripts/integrations/supabase_tool.py query \
   "SELECT action, COUNT(*), AVG(execution_time_ms)
    FROM agent_traces WHERE agent='atlas'
    AND created_at > now() - interval '7 days'
@@ -194,7 +194,7 @@ repo. Your job today is to internalize them + self-diagnose + level up.
 ### Protocol 2 — OPTIMIZE
 Query your own traces from shared Supabase:
 ```
-python scripts/supabase_tool.py query \
+python scripts/integrations/supabase_tool.py query \
   "SELECT action, COUNT(*), AVG(execution_time_ms)
    FROM agent_traces WHERE agent='maven'
    AND created_at > now() - interval '7 days'
@@ -331,7 +331,7 @@ a few polish gaps remain. Your self-improvement kit is now installed.
 ### Protocol 2 — OPTIMIZE
 Query your own traces + skill_activation scores:
 ```
-python scripts/supabase_tool.py query \
+python scripts/integrations/supabase_tool.py query \
   "SELECT action, COUNT(*) FROM agent_traces
    WHERE agent='aura' AND created_at > now() - interval '7 days'
    GROUP BY action" --project bravo
@@ -523,7 +523,7 @@ improve themselves continuously.
 > **Why this addendum exists:** Bravo shipped V5.7 today — a sophistication leap that Atlas/Maven/Aura haven't absorbed yet. CC noted the Obsidian graphs are dramatically different across agents: Bravo is massive and structured, the others lag. These prompts bring each sibling up to parity on the V5.7 patterns.
 >
 > **The 7 V5.7 patterns every agent should have its own version of:**
-> 1. `scripts/self_audit.py` — automated orphan/wiring/MCP-drift detector with 0-100 health score
+> 1. `scripts/core/self_audit.py` — automated orphan/wiring/MCP-drift detector with 0-100 health score
 > 2. `brain/PERSONALITY.md` — voice, opinions, quirks, growth edges (distinct from immutable SOUL)
 > 3. `brain/BENCHMARK.md` — 10-dimension agentic maturity scoring with gap-to-90 roadmap
 > 4. Claudekit hooks (file-guard, create-checkpoint, self-review) in `.claude/settings.json`
@@ -542,7 +542,7 @@ Atlas — V5.7 upgrade cycle. Bravo leapfrogged you today. Level up.
 
 ## What Bravo shipped (reference implementations in C:\Users\User\Business-Empire-Agent)
 
-1. scripts/self_audit.py — 0-100 structural health score. Runs in <2s.
+1. scripts/core/self_audit.py — 0-100 structural health score. Runs in <2s.
    Detects orphans, missing frontmatter, undocumented scripts, MCP drift.
 2. brain/PERSONALITY.md — lived voice + opinions + growth edges.
    Complements the IMMUTABLE SOUL.md with an evolving identity layer.
@@ -556,7 +556,7 @@ Atlas — V5.7 upgrade cycle. Bravo leapfrogged you today. Level up.
 
 ## Your V5.7 tasks (in order)
 
-### 1. Build YOUR scripts/self_audit.py (CFO-tuned)
+### 1. Build YOUR scripts/core/self_audit.py (CFO-tuned)
 Copy the pattern from Bravo's. Adapt scoring to financial domain:
 - Freshness of tax docs (CRA updates, T-slip deadlines)
 - cfo_pulse.json last-write recency
@@ -621,7 +621,7 @@ Maven — V5.7 upgrade cycle. Bravo shipped today; your turn.
 
 ## What Bravo shipped (reference implementations in C:\Users\User\Business-Empire-Agent)
 
-1. scripts/self_audit.py (structural health tool, 0-100 score)
+1. scripts/core/self_audit.py (structural health tool, 0-100 score)
 2. brain/PERSONALITY.md (lived voice, complementing IMMUTABLE SOUL)
 3. brain/BENCHMARK.md (10-dim agentic maturity, 80/100 currently)
 4. brain/TOOL_SHED.md (shareable catalog, now a Google Doc)
@@ -632,7 +632,7 @@ Maven — V5.7 upgrade cycle. Bravo shipped today; your turn.
 
 ## Your V5.7 tasks (in order)
 
-### 1. Build YOUR scripts/self_audit.py (CMO-tuned)
+### 1. Build YOUR scripts/core/self_audit.py (CMO-tuned)
 Adapt to creative/marketing domain:
 - Content calendar freshness (last publish per platform)
 - Brand voice drift (scan recent drafts for off-voice markers)
@@ -693,7 +693,7 @@ Aura — V5.7 upgrade cycle. Bravo shipped; you get the ambient version.
 
 ## What Bravo shipped (reference in C:\Users\User\Business-Empire-Agent)
 
-1. scripts/self_audit.py (health scoring)
+1. scripts/core/self_audit.py (health scoring)
 2. brain/PERSONALITY.md (voice + opinions layer over SOUL)
 3. brain/BENCHMARK.md (agentic maturity 10-dim)
 4. brain/TOOL_SHED.md (shareable catalog)
@@ -847,7 +847,7 @@ plugin (Local REST API) on your CMO-Agent Obsidian vault:
 
 ## Build YOUR V5.7 domain stack (tailored to marketing)
 
-### 1. scripts/self_audit.py (CMO-tuned)
+### 1. scripts/core/self_audit.py (CMO-tuned)
 Copy the pattern. Adapt health dimensions:
 - Content calendar freshness: last publish per platform (Instagram, LinkedIn,
   Twitter, YouTube) — fail if > 7 days quiet on any
@@ -960,7 +960,7 @@ Write findings to brain/AUDIT_2026_04_22.md first. Then execute.
 
 ## Study Bravo's reference files (read-only cross-repo)
 
-- scripts/self_audit.py
+- scripts/core/self_audit.py
 - scripts/obsidian-mcp-wrapper.cmd
 - brain/PERSONALITY.md
 - brain/BENCHMARK.md (10-dim maturity)
@@ -981,7 +981,7 @@ Do NOT copy. Adapt for finance/tax/trading domain.
 
 ## Build YOUR V5.7 domain stack (tailored to finance)
 
-### 1. scripts/self_audit.py (CFO-tuned)
+### 1. scripts/core/self_audit.py (CFO-tuned)
 Health dimensions for a financial agent:
 - Tax doc freshness (CRA updates, T-slip deadlines approaching within 60d)
 - Position reconciliation: ledger vs broker API (should match within 1%)

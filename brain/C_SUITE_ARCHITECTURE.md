@@ -194,7 +194,7 @@ User asks Bravo: "Plan a Meta ad for PULSE"
   → Maven executes the ad launch
 ```
 
-**Tool sharing:** Each agent's `scripts/` directory is a set of CLI tools. Other agents may *invoke* (not modify) these scripts via subprocess. If Bravo needs to send an email, it can shell out to `../CMO-Agent/scripts/email_engine.py` (or the local Bravo copy still in Business-Empire-Agent during transition).
+**Tool sharing:** Each agent's `scripts/` directory is a set of CLI tools. Other agents may *invoke* (not modify) these scripts via subprocess. If Bravo needs to send an email, it can shell out to `../CMO-Agent/scripts/integrations/email_engine.py` (or the local Bravo copy still in Business-Empire-Agent during transition).
 
 ## Maven (CMO) — Full Scope
 

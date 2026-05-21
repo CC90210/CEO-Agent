@@ -49,4 +49,4 @@ gws events +renew --all --within 2d
 - [gws-events](../gws-events/SKILL.md) — All subscribe to google workspace events commands
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

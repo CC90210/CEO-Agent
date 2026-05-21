@@ -178,7 +178,7 @@ After CC approves the OKR draft:
 4. Log the QBR completion to the V6.0 state DB (auto-mirrors to `memory/SESSION_LOG.md`):
 
 ```bash
-python scripts/state_manager.py log --agent bravo \
+python scripts/state/state_manager.py log --agent bravo \
   --note "Q[X] QBR complete — OKR score X.X/1.0, top win: [win], key miss: [miss], Q[X+1] OKRs approved"
 ```
 

@@ -36,4 +36,4 @@ Handle HR workflows — onboarding, announcements, and employee comms.
 
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

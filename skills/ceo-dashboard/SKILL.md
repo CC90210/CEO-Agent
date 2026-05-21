@@ -11,7 +11,7 @@ triggers: ["ceo dashboard", "use ceo dashboard", "run ceo dashboard", "unified k
 
 Five numbers every morning. One digest every week. No vanity metrics, no noise.
 
-CC's business is $5,000 Net MRR by May 15, 2026. Every KPI in this skill is chosen because it either predicts that number or explains why it moved.
+CC's business is $5,000 Net MRR by June 18, 2026. Every KPI in this skill is chosen because it either predicts that number or explains why it moved.
 
 **Snapshot (preferred):** Read `state/snapshots/latest_briefing.json` first. Rebuilt daily 06:00 UTC by `scripts/snapshots/briefing_snapshot.py`. If `ts` is <24h old, every section in this skill can be answered from it without a single subprocess call.
 **Live tool (fallback):** `python scripts/ceo_dashboard.py briefing` — pulls Stripe, Supabase, and memory files. Use only when snapshot is stale or errored.
@@ -48,11 +48,11 @@ NORTH STAR SNAPSHOT — [Date]
 ```
 
 **Manual sources when script unavailable:**
-1. MRR: `memory/ACTIVE_TASKS.md` last known MRR entry + `python scripts/stripe_tool.py subscriptions --status active --json`
+1. MRR: `memory/ACTIVE_TASKS.md` last known MRR entry + `python scripts/integrations/stripe_tool.py subscriptions --status active --json`
 2. Pipeline: `memory/LEAD_TRACKER.csv` — sum value of leads in Discovery, Proposal, Negotiation stages
 3. Client health: `python scripts/client_health.py alerts` or `skills/client-success/SKILL.md`
-4. Cash: Stripe balance (`python scripts/stripe_tool.py balance`) + bank (manual input)
-5. Content: `python scripts/late_tool.py posts --status published` filtered to current week
+4. Cash: Stripe balance (`python scripts/integrations/stripe_tool.py balance`) + bank (manual input)
+5. Content: `python ../CMO-Agent/scripts/late_tool.py posts --status published` (owned by Maven) filtered to current week
 
 ---
 
@@ -116,7 +116,7 @@ Nostalgic Requests (Stripe subs):  $[X]/mo  ([X]%)
 Other (consulting, ad-hoc):        $[X]/mo  ([X]%)
 ```
 
-**Data source:** Multi-account Stripe data via `python scripts/stripe_tool.py subscriptions --json` for each account.
+**Data source:** Multi-account Stripe data via `python scripts/integrations/stripe_tool.py subscriptions --json` for each account.
 
 ---
 
@@ -237,7 +237,7 @@ Threads    | [N]   | [Y]    | ✅/⚠️  | [brief desc]
 TOTAL:     | [N]   | [Y]    |
 ```
 
-**Data source:** `python scripts/late_tool.py posts --status published` — filter to current week by date.
+**Data source:** `python ../CMO-Agent/scripts/late_tool.py posts --status published` (owned by Maven) — filter to current week by date.
 
 ### Engagement Metrics (Last 7 Days)
 
@@ -395,13 +395,13 @@ TODAY'S #1 PRIORITY
 
 - **Live data** → `python scripts/ceo_dashboard.py briefing`
 - **Revenue** → `python scripts/revenue_engine.py mrr --json`
-- **Stripe** → `python scripts/stripe_tool.py subscriptions --status active --json`
+- **Stripe** → `python scripts/integrations/stripe_tool.py subscriptions --status active --json`
 - **Pipeline** → `memory/LEAD_TRACKER.csv`
 - **Client health** → `python scripts/client_health.py report --json`
-- **Content** → `python scripts/late_tool.py posts --status published`
+- **Content** → `python ../CMO-Agent/scripts/late_tool.py posts --status published` (owned by Maven)
 - **Atlas CFO snapshot** → `C:\Users\User\APPS\trading-agent\brain\STATE.md` (read-only)
 
 ## Obsidian Links
 - [[brain/STATE]] | [[brain/USER]] | [[memory/ACTIVE_TASKS]] | [[brain/CAPABILITIES]]
-- [[skills/client-success/SKILL]] | [[skills/ceo-briefing/SKILL]]
+- [[skills/client-success/SKILL.md]] | [[skills/ceo-briefing/SKILL.md]]
 - `/ceo-briefing` | `scripts/ceo_dashboard.py`

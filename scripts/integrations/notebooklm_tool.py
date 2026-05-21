@@ -25,9 +25,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-# Add the parent directory (scripts/) to sys.path to import _subprocess_helpers
+# Add the parent directory (scripts/) to sys.path to import subprocess_helpers
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
+from lib.subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 # Ensure UTF-8 output on Windows
 if sys.stdout.encoding != "utf-8":

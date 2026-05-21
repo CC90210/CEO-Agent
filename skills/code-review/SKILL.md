@@ -257,4 +257,4 @@ The Validator returns `validation_score` (0-100) and `verdict`:
 This gate is mandatory when the code-review was spawned as a parallel sub-agent (per `brain/ORCHESTRATION.md` §Validator Pattern). It is optional but recommended on inline reviews — fast, read-only, and catches hallucinated "auto-fixed" claims.
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

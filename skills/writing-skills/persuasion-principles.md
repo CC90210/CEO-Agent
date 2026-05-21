@@ -187,11 +187,11 @@ When designing a skill, ask:
 5. **Is this ethical?** (Serves user's genuine interests?)
 
 ## Obsidian Links
-- [[skills/writing-skills/SKILL]] | [[skills/INDEX]]
+- [[skills/writing-skills/SKILL.md]] | [[skills/INDEX.md]]
 
 
 ## Related (graph)
 
-- [[skills/writing-skills/SKILL]]
+- [[skills/writing-skills/SKILL.md]]
 - [[skills/writing-skills/anthropic-best-practices]]
 - [[skills/writing-skills/testing-skills-with-subagents]]

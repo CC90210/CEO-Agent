@@ -73,4 +73,4 @@ Before delivering:
 - the output makes a decision easier
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

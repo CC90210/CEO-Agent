@@ -14,9 +14,9 @@ block commercial SMS shipment to real leads.
 
 | # | Codex Finding | File | Fix commit |
 |---|---|---|---|
-| 2 | SMS dispatch skipped reservation idempotency pattern (concurrent send race) | `scripts/send_gateway.py` SMS branch | (this session) |
+| 2 | SMS dispatch skipped reservation idempotency pattern (concurrent send race) | `scripts/integrations/send_gateway.py` SMS branch | (this session) |
 | 5 | `/api/forms/view` missing tenant slug cross-check | `oasis-command-center:app/api/forms/view/route.ts` | (this session) |
-| 4 | Commercial SMS had no opt-out / DNC / STOP enforcement | `scripts/casl_compliance.py`, `scripts/send_gateway.py`, `/api/webhooks/{twilio,texttorrent}/sms-inbound` | R3-6 (this commit; final SHA reported after commit) |
+| 4 | Commercial SMS had no opt-out / DNC / STOP enforcement | `scripts/casl_compliance.py`, `scripts/integrations/send_gateway.py`, `/api/webhooks/{twilio,texttorrent}/sms-inbound` | R3-6 (this commit; final SHA reported after commit) |
 | 3 | `one_per_lead` enrollment had no unique constraint (DB-level race) | `database/045_sequence_state_one_per_lead.sql` + `scripts/sequence_runner.py:_enroll_step` | 2026-05-15 evening |
 
 ## Still open — DO NOT enable real-lead SMS until these close

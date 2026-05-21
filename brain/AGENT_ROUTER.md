@@ -30,7 +30,7 @@ Every operator turn, do this in order:
 
 The operator's profile (name, brand, north-star MRR target, manifesto) lives in `brain/USER.md`. **Read it once on the first operator turn** of a session — it's small and high-value. After that, trust your prompt unless the operator says something changed.
 
-The operator also has a profile row in Supabase `user_profiles` keyed by `auth_user_id`. Use `python scripts/supabase_tool.py select user_profiles --eq '{"id":"<id>"}'` if you need the live values (mrr_current_usd, mrr_target_usd, primary_agent, agents_enabled).
+The operator also has a profile row in Supabase `user_profiles` keyed by `auth_user_id`. Use `python scripts/integrations/supabase_tool.py select user_profiles --eq '{"id":"<id>"}'` if you need the live values (mrr_current_usd, mrr_target_usd, primary_agent, agents_enabled).
 
 ## Where you run
 
@@ -77,13 +77,13 @@ When the operator switches you in the chat picker, the bridge `cd`s to that repo
 | Debugging | `skills/systematic-debugging/SKILL.md` | `memory/MISTAKES.md` |
 | Cron / background workers | `skills/background-workers/SKILL.md` | `oasis-command-center:vercel.json` |
 | Dashboard structure | `oasis-command-center:lib/agent-roots.ts` | the relevant `oasis-command-center:app/<route>/page.tsx` |
-| **Audit the system / health check** | (run `python scripts/self_audit.py`) | `brain/ORCHESTRATION.md` |
-| **Clean up the repo / delete junk** | (run `python scripts/system_cleanup.py` — dry-run by default) | `brain/EXECUTION_RULES.md` Rule 9 |
+| **Audit the system / health check** | (run `python scripts/core/self_audit.py`) | `brain/ORCHESTRATION.md` |
+| **Clean up the repo / delete junk** | (run `python scripts/core/system_cleanup.py` — dry-run by default) | `brain/EXECUTION_RULES.md` Rule 9 |
 | **Current date / day-of-week / time** | (run the date snippet in `brain/EXECUTION_RULES.md` Rule 11 — never quote from prompt) | `brain/STATE.md` |
 | **Create a new skill / agent / workflow** | `skills/agent-forge/SKILL.md` | `skills/<name>/SKILL.md` after `python scripts/register_skill.py create` |
 | **Diagnose why you made a mistake** | `memory/MISTAKES.md` | `brain/BRAIN_LOOP.md` (Reflexion section) |
-| **Check whether memories are stale** | (run `python scripts/memory_aging.py stale --days 7 --json`) | `brain/EXECUTION_RULES.md` Rule 11 |
-| **Update memory** | `brain/EXECUTION_RULES.md` Rule 0 | (write to `memory/<file>.md`, then `python scripts/state_sync.py --note "<summary>"`) |
+| **Check whether memories are stale** | (run `python scripts/core/memory_aging.py stale --days 7 --json`) | `brain/EXECUTION_RULES.md` Rule 11 |
+| **Update memory** | `brain/EXECUTION_RULES.md` Rule 0 | (write to `memory/<file>.md`, then `python scripts/state/state_sync.py --note "<summary>"`) |
 
 ---
 

@@ -156,4 +156,4 @@ All saved to: `e2e-screenshots/`
 - **Use:** skills/verification-before-completion before claiming tests pass
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

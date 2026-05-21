@@ -15,4 +15,4 @@
   - Include relevant links and references
   - Match the company's communication style
 ## Obsidian Links
-- [[skills/internal-comms/SKILL]] | [[skills/INDEX]]
+- [[skills/internal-comms/SKILL.md]] | [[skills/INDEX.md]]

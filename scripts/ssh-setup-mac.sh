@@ -143,7 +143,7 @@ echo "${BOLD}=== DONE ===${X}"
 echo "You can now run commands on Mac from Windows:"
 echo "  ssh cc-mac \"uptime\""
 echo "  ssh cc-mac \"cd ~/APPS/Business-Empire-Agent && git status\""
-echo "  ssh cc-mac \"cd ~/APPS/Business-Empire-Agent && bash scripts/bravo-session-start.sh\""
+echo "  ssh cc-mac \"cd ~/APPS/Business-Empire-Agent && bash scripts/hooks/bravo-session-start.sh\""
 echo
 echo "Drop into an interactive Mac shell:  ssh cc-mac"
 echo "Copy files to Mac:                    scp file.txt cc-mac:~/"

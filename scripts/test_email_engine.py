@@ -14,7 +14,8 @@ SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
-from email_engine import (  # noqa: E402
+# email_engine moved to scripts/integrations/ during the 2026-05 reorg.
+from integrations.email_engine import (  # noqa: E402
     TemplateRenderError,
     missing_template_variables,
     normalize_template_vars,

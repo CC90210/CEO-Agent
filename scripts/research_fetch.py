@@ -7,8 +7,8 @@ worked per domain so the next call skips straight to the right one.
 
 TIERS (escalation order, cheapest → most stealthy)
 --------------------------------------------------
-  1. Firecrawl     — scripts/firecrawl_tool.py scrape (cloud-side, clean markdown)
-  2. CloakBrowser  — scripts/cloak_browser_tool.py scrape (stealth Chromium 146)
+  1. Firecrawl     — scripts/integrations/firecrawl_tool.py scrape (cloud-side, clean markdown)
+  2. CloakBrowser  — scripts/browser/cloak_browser_tool.py scrape (stealth Chromium 146)
   3. Fail          — return ok=False with last-tier error
 
 Escalation triggers (auto, no agent decision needed):
@@ -223,7 +223,7 @@ def _run_tier_subprocess(tier_name: str, argv: list[str], timeout: int) -> dict:
 
 
 def _call_firecrawl(url: str) -> dict:
-    """Invoke scripts/firecrawl_tool.py scrape <url> --json. Returns a normalized dict."""
+    """Invoke scripts/integrations/firecrawl_tool.py scrape <url> --json. Returns a normalized dict."""
     argv = [sys.executable, str(SCRIPTS_DIR / "firecrawl_tool.py"), "scrape", url, "--json"]
     out = _run_tier_subprocess("firecrawl", argv, TIER_TIMEOUT_SECONDS)
     raw = out.pop("_parsed", None)
@@ -241,7 +241,7 @@ def _call_firecrawl(url: str) -> dict:
 
 
 def _call_cloak(url: str, timeout: int) -> dict:
-    """Invoke scripts/cloak_browser_tool.py scrape <url> --json. Returns a normalized dict."""
+    """Invoke scripts/browser/cloak_browser_tool.py scrape <url> --json. Returns a normalized dict."""
     argv = [
         sys.executable, str(SCRIPTS_DIR / "cloak_browser_tool.py"),
         "scrape", url, "--json", "--timeout", str(timeout),

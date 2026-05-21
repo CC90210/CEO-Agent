@@ -40,7 +40,7 @@ services:
   # Cron runner — replaces PM2 bravo-scheduler on CC's Mac.
   bravo-scheduler:
     <<: *bravo-base
-    command: python scheduler.py
+    command: python scripts/scheduler.py
     depends_on:
       - pgbouncer
     labels:
@@ -49,21 +49,21 @@ services:
   # Gmail inbox watcher + inbound classifier — polls every 5 min.
   bravo-inbox:
     <<: *bravo-base
-    command: python scripts/email_engine.py check-inbox --daemon --interval 300
+    command: python scripts/integrations/email_engine.py check-inbox --daemon --interval 300
     depends_on:
       - pgbouncer
     labels:
       bravo.role: inbox
 
   # FastAPI receiver for N8N + Stripe + Telegram webhooks.
-  # scripts/ is not a Python package (no __init__.py by design — every script
-  # is independently runnable). uvicorn resolves webhook_listener:app by
-  # running from /app/scripts as the working directory.
+  # webhook_listener lives at scripts/hooks/webhook_listener.py — with
+  # working_dir=/app/scripts and scripts/hooks/__init__.py present, uvicorn
+  # resolves `hooks.webhook_listener:app` as the dotted module path.
   bravo-webhook:
     <<: *bravo-base
     working_dir: /app/scripts
     command: >
-      uvicorn webhook_listener:app
+      uvicorn hooks.webhook_listener:app
       --host 0.0.0.0 --port 8000
       --proxy-headers --forwarded-allow-ips='*'
     expose:
@@ -78,8 +78,8 @@ services:
     <<: *bravo-base
     command: >
       sh -c "while true; do
-        python scripts/event_bus.py reap >> /app/logs/reaper.log 2>&1;
-        python scripts/event_bus.py drain >> /app/logs/reaper.log 2>&1;
+        python scripts/core/event_bus.py reap >> /app/logs/reaper.log 2>&1;
+        python scripts/core/event_bus.py drain >> /app/logs/reaper.log 2>&1;
         sleep 60;
       done"
     depends_on:

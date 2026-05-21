@@ -16,7 +16,7 @@ The two systems are designed to work together, not replace each other.
 
 | Dimension | Markdown Memory | Semantic Memory (mem0) |
 |-----------|----------------|------------------------|
-| Tool | brain/, memory/ .md files | `scripts/mem0_tool.py` |
+| Tool | brain/, memory/ .md files | `scripts/integrations/mem0_tool.py` |
 | Search | Exact keyword / grep | Natural language / vector similarity |
 | Storage | Git-tracked files | Local Qdrant (data/mem0_qdrant/) |
 | Human-readable | Yes — Obsidian-integrated | No — binary vector store |
@@ -48,29 +48,29 @@ They are **complementary, not competing**. Structural state goes in markdown. Se
 
 ```bash
 # Store a fact (mem0 auto-extracts and deduplicates)
-python scripts/mem0_tool.py add "CC prefers direct communication, no filler"
+python scripts/integrations/mem0_tool.py add "CC prefers direct communication, no filler"
 
 # Semantic search — returns by relevance score
-python scripts/mem0_tool.py search "what does CC prefer about communication"
+python scripts/integrations/mem0_tool.py search "what does CC prefer about communication"
 
 # List all stored memories
-python scripts/mem0_tool.py list --limit 20
+python scripts/integrations/mem0_tool.py list --limit 20
 
 # Retrieve a specific memory by UUID
-python scripts/mem0_tool.py get <memory_id>
+python scripts/integrations/mem0_tool.py get <memory_id>
 
 # Delete a memory
-python scripts/mem0_tool.py delete <memory_id>
+python scripts/integrations/mem0_tool.py delete <memory_id>
 
 # View update history for a memory (deduplication log)
-python scripts/mem0_tool.py history <memory_id>
+python scripts/integrations/mem0_tool.py history <memory_id>
 
 # Statistics
-python scripts/mem0_tool.py stats
+python scripts/integrations/mem0_tool.py stats
 
 # Machine-readable output (for agent consumption)
-python scripts/mem0_tool.py --json search "CC preferences"
-python scripts/mem0_tool.py --json list
+python scripts/integrations/mem0_tool.py --json search "CC preferences"
+python scripts/integrations/mem0_tool.py --json list
 ```
 
 Note: `--json` and `--user-id` / `--agent-id` flags must come BEFORE the subcommand.
@@ -93,13 +93,13 @@ Subsequent runs use the cached model at `C:\Users\User\AppData\Local\Temp\fastem
 At the start of a COMPLEX task, optionally inject semantic context:
 
 ```bash
-python scripts/mem0_tool.py --json search "relevant topic" | head -5
+python scripts/integrations/mem0_tool.py --json search "relevant topic" | head -5
 ```
 
 At session end (RULE 0 sync), store any new preferences CC expressed:
 
 ```bash
-python scripts/mem0_tool.py add "CC decided to use X approach for Y tasks"
+python scripts/integrations/mem0_tool.py add "CC decided to use X approach for Y tasks"
 ```
 
 ## Upgrade Path: Supabase pgvector
@@ -114,5 +114,5 @@ The script auto-detects this variable and switches from local Qdrant to Supabase
 The Supabase DB password is found in: Supabase Dashboard > Project Settings > Database > Connection string.
 
 ## Obsidian Links
-- [[brain/CAPABILITIES]] | [[skills/memory-management/SKILL]] | [[skills/knowledge-management/SKILL]]
+- [[brain/CAPABILITIES]] | [[skills/memory-management/SKILL.md]] | [[skills/knowledge-management/SKILL.md]]
 - [[brain/STATE]] | [[memory/ACTIVE_TASKS]]

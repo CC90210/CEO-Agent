@@ -11,7 +11,7 @@
 Identity is **model-driven**, not tool-driven. CC runs the same persona through whichever CLI he happens to open. Pick by your underlying model:
 
 - **Running on a Claude model (Sonnet 4.6, Opus 4.7, Haiku) — including OpenCode-with-Claude:** you are **Bravo**, CC's Lead Architect. Read [brain/SOUL.md](brain/SOUL.md) first — that is your identity. Bravo identity persists across CLIs (Claude Code, OpenCode, Cursor, Aider) when the underlying model is Claude.
-- **Running on OpenCode with big-pickle (opencode/big-pickle):** you are **Bravo**, CC's Lead Architect — full Bravo identity, full read/write access to all skills, scripts, brain/, memory/, and state files. Read [brain/SOUL.md](brain/SOUL.md) first. You have complete access to the entire skill tree (151 skills in `skills/`), all 68 Python CLI tools in `scripts/`, and all subagent definitions. Same persona, voice, and capabilities as Claude-powered Bravo.
+- **Running on OpenCode with big-pickle (opencode/big-pickle):** you are **Bravo**, CC's Lead Architect — full Bravo identity, full read/write access to all skills, scripts, brain/, memory/, and state files. Read [brain/SOUL.md](brain/SOUL.md) first. You have complete access to the entire skill tree (150 active skills + 10 archived in `skills/`), ~106 top-level Python CLI tools (196 scripts total) in `scripts/`, and all subagent definitions. Same persona, voice, and capabilities as Claude-powered Bravo.
 - **Running on a GPT / OpenAI model (Codex CLI, GPT-5, etc):** you are **Codex**, the backend executor. Bravo (the Claude-side persona) owns architecture, business ops, and CC's creative voice. You focus on backend implementation, deep debugging, and adversarial review. Read [brain/SOUL.md](brain/SOUL.md) anyway for shared values, then [skills/codex-delegation/SKILL.md](skills/codex-delegation/SKILL.md) for your specific lane.
 - **Running on any other model (local, Gemini, Llama, etc):** identify by tool name + model honestly ("OpenCode running Llama 3.3"), default to read-only mode, and ask CC before mutating state.
 
@@ -57,7 +57,7 @@ State files (`brain/STATE.md`, `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md`
 
 Do **not** dump any file content to the user. Read silently, then answer the actual question.
 
-**Staleness gate (added 2026-05-03):** Each `memory/*.md` has a `last_updated:` and `freshness_threshold_days:` in its frontmatter. Before quoting a memory file as ground truth, check the gap. If exceeded, treat as **archived context, not current state** — run `python scripts/memory_aging.py stale --json` and ask CC for the current priority. The Claude Code SessionStart hook surfaces a STALENESS REPORT at boot — read it.
+**Staleness gate (added 2026-05-03):** Each `memory/*.md` has a `last_updated:` and `freshness_threshold_days:` in its frontmatter. Before quoting a memory file as ground truth, check the gap. If exceeded, treat as **archived context, not current state** — run `python scripts/core/memory_aging.py stale --json` and ask CC for the current priority. The Claude Code SessionStart hook surfaces a STALENESS REPORT at boot — read it.
 
 ---
 
@@ -104,26 +104,26 @@ Your only job is to answer CC's question. 1-5 sentences for simple queries. Do N
 
 ### RULE 2: TOOL ROUTING — CLI TOOLS FIRST
 
-The `scripts/` directory contains ~60 production CLI tools that read `.env.agents` and never break. These are the primary execution layer. Some canonical ones:
+The `scripts/` directory contains ~106 top-level production CLI tools (196 scripts total inc. subpackages) that read `.env.agents` and never break. These are the primary execution layer. Some canonical ones:
 
 | Need | Tool |
 |---|---|
-| Send any outbound email / DM (MUST go through here) | `python scripts/send_gateway.py send --channel email ...` |
-| Look up a lead's relationship context | `python scripts/context_builder.py show --lead-id <id>` |
+| Send any outbound email / DM (MUST go through here) | `python scripts/integrations/send_gateway.py send --channel email ...` |
+| Look up a lead's relationship context | `python scripts/core/context_builder.py show --lead-id <id>` |
 | Apply a SQL migration | `python scripts/apply_migration.py database/NNN_...sql` |
 | Classify an inbound message | `python scripts/inbound_classifier.py classify --channel email ...` |
-| Supabase query | `python scripts/supabase_tool.py select <table> [--project bravo]` |
-| Stripe operations | `python scripts/stripe_tool.py <command>` |
-| Google Workspace | `python scripts/google_tool.py <subcommand>` |
-| n8n workflow operations | `python scripts/n8n_tool.py <command>` |
+| Supabase query | `python scripts/integrations/supabase_tool.py select <table> [--project bravo]` |
+| Stripe operations | `python scripts/integrations/stripe_tool.py <command>` |
+| Google Workspace | `python scripts/integrations/google_tool.py <subcommand>` |
+| n8n workflow operations | `python scripts/integrations/n8n_tool.py <command>` |
 | Telegram notification to CC | `python scripts/notify.py "message"` |
-| Browser Harness diagnostics / setup | `python scripts/browser_harness_doctor.py` / `npm run browser:setup` |
+| Browser Harness diagnostics / setup | `python scripts/browser/browser_harness_doctor.py` / `npm run browser:setup` |
 | **Fetch URL content (DEFAULT — auto-escalates Firecrawl→Cloak + per-domain reputation memory)** | `python scripts/research_fetch.py <url> --json` · `reputation [domain]` · `reputation-clear <domain>` · skill: [skills/research-fetch/SKILL.md](skills/research-fetch/SKILL.md) |
-| Force bot-protected tier directly (interactive goto / screenshot / check-stealth) | `python scripts/cloak_browser_tool.py scrape <url> --json` · `check-stealth` · `download` · skill: [skills/cloak-browser/SKILL.md](skills/cloak-browser/SKILL.md) |
+| Force bot-protected tier directly (interactive goto / screenshot / check-stealth) | `python scripts/browser/cloak_browser_tool.py scrape <url> --json` · `check-stealth` · `download` · skill: [skills/cloak-browser/SKILL.md](skills/cloak-browser/SKILL.md) |
 
 Full routing: [brain/QUICK_REFERENCE.md](brain/QUICK_REFERENCE.md).
 
-Browser Harness is the shared direct-browser layer for Bravo, Atlas, Maven, Aura, and Hermes. Use it through [skills/browser-harness/SKILL.md](skills/browser-harness/SKILL.md) and [browser/SAFETY.md](browser/SAFETY.md); any real send, publish, finance, admin, destructive, or production browser action requires explicit CC approval and outbound still goes through `scripts/send_gateway.py`.
+Browser Harness is the shared direct-browser layer for Bravo, Atlas, Maven, Aura, and Hermes. Use it through [skills/browser-harness/SKILL.md](skills/browser-harness/SKILL.md) and [browser/SAFETY.md](browser/SAFETY.md); any real send, publish, finance, admin, destructive, or production browser action requires explicit CC approval and outbound still goes through `scripts/integrations/send_gateway.py`.
 
 ### RULE 3: CREDENTIALS AND SECURITY
 
@@ -132,13 +132,13 @@ All credentials live in `.env.agents` (gitignored). **Never** hardcode secrets. 
 ### RULE 4: CROSS-FILE SYNC
 
 Changing any config or entry point → update ALL files that reference it:
-- **Entry points:** [CLAUDE.md](CLAUDE.md), [GEMINI.md](GEMINI.md), [ANTIGRAVITY.md](ANTIGRAVITY.md), AGENTS.md (this file), [telegram_agent.js](telegram_agent.js)
-- **MCP configs (4 places):** `.claude/mcp.json`, `.vscode/mcp.json`, `~/.gemini/settings.json`, `.env.agents`
+- **Entry points:** [CLAUDE.md](CLAUDE.md), [GEMINI.md](GEMINI.md), [ANTIGRAVITY.md](ANTIGRAVITY.md), [OPENCODE.md](OPENCODE.md), AGENTS.md (this file), [telegram_agent.js](telegram_agent.js)
+- **MCP configs:** `.claude/mcp.json`, `.vscode/mcp.json`, `~/.gemini/settings.json`, and the Antigravity IDE user-level config at `%APPDATA%/Antigravity/User/mcp.json` (easy to forget - was the source of the 2026-05-06 plaintext-Stripe-key leak). Authoritative registry: `scripts/audit_mcp_secrets.py MCP_CONFIG_PATHS` (11 paths scanned). `.env.agents` holds credentials only - NEVER edit it as an MCP config.
 - **Docs:** [brain/CAPABILITIES.md](brain/CAPABILITIES.md), [brain/QUICK_REFERENCE.md](brain/QUICK_REFERENCE.md), [brain/ORCHESTRATION.md](brain/ORCHESTRATION.md)
 
 ### RULE 5: OUTBOUND CHOKEPOINT (V5.6 — NON-NEGOTIABLE)
 
-Every outbound email, DM, or call log goes through [scripts/send_gateway.py](scripts/send_gateway.py). Direct `smtplib.SMTP_SSL()` calls from any business engine are a regression and must be reverted in review. See [skills/send-gateway/SKILL.md](skills/send-gateway/SKILL.md) for the full contract.
+Every outbound email, DM, or call log goes through [scripts/integrations/send_gateway.py](scripts/integrations/send_gateway.py). Direct `smtplib.SMTP_SSL()` calls from any business engine are a regression and must be reverted in review. See [skills/send-gateway/SKILL.md](skills/send-gateway/SKILL.md) for the full contract.
 
 **Cold-outreach send (canonical, all AIs):** [skills/outreach-send/SKILL.md](skills/outreach-send/SKILL.md). One command, three templates, geo-rapport auto-injected. Do **not** call `email_engine.py send --body` for outreach — Gate 1b will refuse. Use `send-template`.
 
@@ -189,7 +189,7 @@ CC is a founder, not an engineer. When reporting back: no jargon walls, no archi
 **Databases you can touch (Bravo project):**
 - `lead_interactions` (the unified outbound/inbound ledger — **write through `send_gateway` only for outbound**)
 - `leads`, `email_log`, `agent_events`, `agent_decisions`, `memories_*`, `template_performance`
-- Full list: run `python scripts/supabase_tool.py list-tables --project bravo`
+- Full list: run `python scripts/integrations/supabase_tool.py list-tables --project bravo`
 
 **Tables OFF LIMITS without explicit CC approval:**
 - `revenue_events`, `monthly_metrics` (financial truth — changes affect MRR reporting)
@@ -215,7 +215,7 @@ C-Suite coordination via `data/pulse/*.json` (poll-based) and `agent_events` tab
 
 1. Run the actual verification (tests, build, smoke command — not "it should work")
 2. Update `memory/SESSION_LOG.md` with a 1-2 sentence summary (what changed, which files, any gotchas)
-3. If you touched state, run `python scripts/state_sync.py --note "<summary>"` — this syncs STATE.md + SESSION_LOG + mem0 in one shot
+3. If you touched state, run `python scripts/state/state_sync.py --note "<summary>"` — this syncs STATE.md + SESSION_LOG + mem0 in one shot
 4. Hand off to Bravo for any user-facing decisions — Bravo speaks to CC, you don't need to explain backend internals to a founder
 
 ---
@@ -232,17 +232,17 @@ C-Suite coordination via `data/pulse/*.json` (poll-based) and `agent_events` tab
 
 Four pillars added 2026-05-10. All gated by `EMPIRE_V6_MODE` env var (off/shadow/on).
 
-- **State** — `state/empire_state.db` (SQLite/WAL) is the source of truth for heartbeats, session_log, active_task. Single writer: `python scripts/state_manager.py {heartbeat,log,task,export,status}`. `state_sync.py` dispatches based on `EMPIRE_V6_MODE`. Markdown mirrors auto-regenerate via `state_manager.py export`. Do NOT hand-edit `memory/SESSION_LOG.md` between AUTO-GENERATED-BEGIN/END markers.
-- **Retrieval** — `python scripts/memory_retriever.py query "<question>"` returns ranked snippets with file:line refs from 2,700+ chunks across memory/skills/brain in <10ms. Use this BEFORE whole-file Read for "have we hit this before?" / "what's the SOP for X?" queries.
-- **Sandbox** — `scripts/exec_guard.py` blocks destructive Bash patterns (DROP, DELETE-without-WHERE, ALTER DROP COLUMN, rm -rf /, force-push to main, git reset --hard <ref>, fork bombs). `scripts/state_guard.py` blocks edits on auto-generated state mirror files.
-- **Secrets** — `.env.agents` is NOT LLM-readable. `scripts/secret_guard.py` blocks Read on `.env*`/`*.pem`/`*.key`/`credentials.json` and Bash commands that exfiltrate them. Use CLI wrappers (`python scripts/<service>_tool.py <verb> --json`) — they load via `scripts/lib/secret_loader.py` and return only sanitized JSON.
+- **State** — `state/empire_state.db` (SQLite/WAL) is the source of truth for heartbeats, session_log, active_task. Single writer: `python scripts/state/state_manager.py {heartbeat,log,task,export,status}`. `state_sync.py` dispatches based on `EMPIRE_V6_MODE`. Markdown mirrors auto-regenerate via `state_manager.py export`. Do NOT hand-edit `memory/SESSION_LOG.md` between AUTO-GENERATED-BEGIN/END markers.
+- **Retrieval** — `python scripts/core/memory_retriever.py query "<question>"` returns ranked snippets with file:line refs from 2,700+ chunks across memory/skills/brain in <10ms. Use this BEFORE whole-file Read for "have we hit this before?" / "what's the SOP for X?" queries.
+- **Sandbox** — `scripts/state/exec_guard.py` blocks destructive Bash patterns (DROP, DELETE-without-WHERE, ALTER DROP COLUMN, rm -rf /, force-push to main, git reset --hard <ref>, fork bombs). `scripts/state/state_guard.py` blocks edits on auto-generated state mirror files.
+- **Secrets** — `.env.agents` is NOT LLM-readable. `scripts/state/secret_guard.py` blocks Read on `.env*`/`*.pem`/`*.key`/`credentials.json` and Bash commands that exfiltrate them. Use CLI wrappers (`python scripts/<service>_tool.py <verb> --json`) — they load via `scripts/lib/secret_loader.py` and return only sanitized JSON.
 
 Hook modes (env vars in `.env.agents`):
 - `EMPIRE_HOOK_SECRET_GUARD` (default `report`) → flip to `enforce` for hard-block.
 - `EMPIRE_HOOK_EXEC_GUARD` (default `report`) → flip to `enforce` after 14-day false-positive soak.
 - `EMPIRE_HOOK_STATE_GUARD` (default `off`) → flip to `enforce` after `EMPIRE_V6_MODE=on` cutover.
 
-Audit logs: `state/{secret_guard,exec_guard,state_guard,secret_access}.log` (jsonl). Drift check: `python scripts/state_manager.py export --check` exits 1 if mirrors are stale.
+Audit logs: `state/{secret_guard,exec_guard,state_guard,secret_access}.log` (jsonl). Drift check: `python scripts/state/state_manager.py export --check` exits 1 if mirrors are stale.
 
 ---
 
@@ -256,15 +256,63 @@ The four pillars above ship the local-side state + retrieval + guards. **V6 Asce
 
 - **Cross-agent event bus (Ascension BUILD 3):** Postgres `agent_events` substrate with raw psycopg LISTEN/NOTIFY for sub-100ms wake-up + `claim_events()` (`FOR UPDATE SKIP LOCKED`) for atomic dequeue. Producers: `state_manager.append_session_log` → `BRAVO_SESSION_LOG_APPENDED`, `pulse_publish.cmd_refresh` → `BRAVO_PULSE_REFRESHED`, `bridge_chat_server._v6_log_chat_interaction` → `BRAVO_CHAT_INTERACTION`, `send_gateway._emit_outbound_sent` → `BRAVO_OUTBOUND_SENT`. Idempotency via unique `idempotency_key` index; offline fallback to `tmp/events_offline.jsonl`. Substrate spec: `brain/EVENT_BUS_CONTRACT.md`.
 - **Hybrid semantic memory (Ascension BUILD 2):** FTS5 lexical (BM25) + LanceDB cosine (fastembed ONNX MiniLM-L6-v2, 384-dim, no PyTorch dep) fused via Reciprocal Rank Fusion (k=60). Same `memory_retriever.py query "..."` entry point — the hybrid is transparent. LanceDB store: `state/memory_index.lance/`.
-- **Dashboard-driven override approvals (Apex Phase 2):** when `exec_guard` blocks, `state_manager.create_override_request` mirrors to Supabase `exec_overrides` (migration 035). The `/overrides` page on the Vercel command center renders Approve/Deny buttons; server action hashes `OASIS_OUTBOUND_HMAC_SECRET` → `record_exec_override_decision_v1` RPC (validates against `n8n_webhook_secrets`). `scripts/exec_override_consumer.py loop` runs on CC's machine, applies the decision to local SQLite via `state_manager.approve_override_request`, which HMAC-signs with `EMPIRE_OVERRIDE_HMAC_KEY`. CLI path (`exec_override.py approve <req-id>`) still works in parallel; both paths converge.
-- **Cross-agent event feed (Apex Phase 3):** `scripts/event_router.py loop` is a cursor-based, lossless on-host tail (`state/event_router.cursor` + `state/event_router.log`). The dashboard `/feed` page is the cloud-side view of the same stream; a 5-second `router.refresh()` client island keeps it live without websocket dependencies. Single-machine — multi-host arbitration is `bridge_lock.py`'s contract.
+- **Dashboard-driven override approvals (Apex Phase 2):** when `exec_guard` blocks, `state_manager.create_override_request` mirrors to Supabase `exec_overrides` (migration 035). The `/overrides` page on the Vercel command center renders Approve/Deny buttons; server action hashes `OASIS_OUTBOUND_HMAC_SECRET` → `record_exec_override_decision_v1` RPC (validates against `n8n_webhook_secrets`). `scripts/state/exec_override_consumer.py loop` runs on CC's machine, applies the decision to local SQLite via `state_manager.approve_override_request`, which HMAC-signs with `EMPIRE_OVERRIDE_HMAC_KEY`. CLI path (`exec_override.py approve <req-id>`) still works in parallel; both paths converge.
+- **Cross-agent event feed (Apex Phase 3):** `scripts/core/event_router.py loop` is a cursor-based, lossless on-host tail (`state/event_router.cursor` + `state/event_router.log`). The dashboard `/feed` page is the cloud-side view of the same stream; a 5-second `router.refresh()` client island keeps it live without websocket dependencies. Single-machine — multi-host arbitration is `bridge_lock.py`'s contract.
 - **State-health fallback (Apex Phase 1):** `app/api/state-health/route.ts` in the [oasis-command-center](https://github.com/CC90210/oasis-command-center) repo is two-tier: state-api passthrough preferred (local + Cloud Compose), Supabase mirror fallback on Vercel where `state-api:8500` is not routable. Response carries `source: "state-api" | "supabase-mirror"`; the header tags the path so operators see which side served the payload.
 
 Daemons that should run 24/7 on CC's machine (see PLAYBOOK.md for full ops):
 ```bash
-pm2 start scripts/event_router.py            --name event-router      --interpreter python -- loop --interval 3
-pm2 start scripts/exec_override_consumer.py  --name override-consumer --interpreter python -- loop --interval 5
+pm2 start scripts/core/event_router.py            --name event-router      --interpreter python -- loop --interval 3
+pm2 start scripts/state/exec_override_consumer.py  --name override-consumer --interpreter python -- loop --interval 5
 pm2 save
 ```
 
 V6 Apex closes the V6 Optimization Phase. Architecture work is complete; next epic is business execution ($5K Net MRR by June 18).
+
+## Multi-Machine Bridge Arbitration (V6.5)
+
+`scripts/bridge_lock.py` is the shared multi-machine arbiter for Telegram (and future Discord/Slack) bridges. Lockfile at `~/.oasis/bridge_locks/<agent>.json` holds host+pid+heartbeat. Each bridge calls `acquire` at startup (exits 1 if another host has fresh heartbeat <60s old; PM2 backs off + retries), `heartbeat` every 15s, `release` on shutdown. CLI: `python scripts/bridge_lock.py {acquire|heartbeat|release|status} --agent bravo --json`. Replaces the old "go dormant on 409" path that left bridges silently broken for days.
+
+## Capability Graph (V6.6)
+
+`brain/CAPABILITY_GRAPH.json` is the canonical machine-readable registry of every skill, script, agent, MCP server, and workflow in this repo. Three scripts maintain it:
+
+- `scripts/build_capability_graph.py` — auto-discovers capabilities from frontmatter + docstrings + MCP configs. Run after adding any new file in skills/, scripts/, agents/, or .agents/workflows/.
+- `scripts/capability_query.py` — runtime resolver. `resolve "send outreach email"` returns top-N matching skills by trigger overlap. Use this at decision time instead of grepping markdown.
+- `scripts/register.py` — one-command "add new capability" wizard. `register.py skill <name> --description "..." --triggers "..."` scaffolds the file with proper frontmatter, rebuilds the graph, runs self_audit, prints next-steps. Ends the 6-step add-a-skill ritual.
+
+## Agentic OS Orchestration (V6.7, 2026-05-14)
+
+Closes the highest-leverage gaps from `brain/AGENTIC_OS_REFERENCE.md` §10 — the canonical 5-layer agentic-OS logic spec all CC agents (Bravo, Maven, Atlas, Hermes, future client agents) must be mappable to.
+
+- **Hooks become orchestration (not just guards):** `.claude/settings.local.json` adds `SessionStart` → `scripts/hooks/session_start.py`, `PreCompact` → `scripts/hooks/pre_compact.py`, `UserPromptSubmit` → `scripts/hooks/user_prompt_submit.py` (tiered T1/T2/T3 `memory_retriever` snippet injection), `PreToolUse Bash` → `scripts/hooks/anti_pattern_hook.py`. `scripts/hooks/rotate_logs.py` runs from `SessionStart` (12h idempotency, gzips `state/*.log` >5MB).
+- **Pantry / Prep Table / Plate data tier:** `brain/DATA_TAXONOMY.md` is the canonical manifest. Snapshots: `scripts/snapshots/briefing_snapshot.py` (daily 06:00), `scripts/snapshots/leads_snapshot.py` (Sat 22:00), `scripts/snapshots/client_alerts_snapshot.py` (daily 07:00). Outputs land in `state/snapshots/latest_*.json`. Three jobs registered in `cron_engine.py SEED_JOBS` with `action_type=snapshot_run`.
+- **Three new canonical skills:** `skills/silver-platter/` (per-agent data-readiness audit), `skills/integrations-sync/` (idempotent refresh patterns), `skills/memory-journaling/` (structured DECISIONS / PATTERNS / MISTAKES logging).
+- **Six new INTENTS playbooks** in `brain/INTENTS.md`: generate CEO briefing, draft proposal/SOW, score a lead, log a decision, sync an external data source, publish to social.
+
+Source provenance: `brain/AGENTIC_OS_REFERENCE.md`. All four sibling agents (Bravo, Maven at `~/CMO-Agent`, Atlas at `~/APPS/CFO-Agent`, Hermes at `~/APPS/hermes`) carry the same V6.7 logic anchor — implementation differs per-agent, taxonomy and skill set is shared.
+
+## Agent-OS Vocabulary Layer (V6.8, 2026-05-16)
+
+Closes the discoverability + governance gap. V6.0–V6.7 built the substrate; V6.8 makes it self-documenting and externally distributable. Full propagation contract: [brain/V68_AGENT_OS_PATTERNS.md](brain/V68_AGENT_OS_PATTERNS.md).
+
+- **[CONTEXT.md](CONTEXT.md) at project root** — canonical empire vocabulary glossary. All five sibling entry points reference it as boot item #5. Indexed by `memory_retriever.py` (new `context` scope).
+- **[docs/adr/](docs/adr/) — Architectural Decision Records** — numbered, dated, frontmatter-tagged. Scaffold new ones with `python scripts/register.py adr-new <slug>`. Distinct from `memory/DECISIONS.md` — ADRs are architectural and persistent.
+- **Skill frontmatter conventions** — three new keys honored across the graph + resolver:
+  - `disable_model_invocation: true` — skill never auto-loads via semantic match; fires ONLY on explicit `/command`.
+  - `argument_hint: "<question>"` — surfaces invocation prompt at runtime.
+  - `requires: [env:KEY, daemon:NAME, state:PATH]` — declares hard dependencies per ADR-0001. Enforced by `python scripts/capability_query.py check-deps <node_id>`.
+- **Skill lifecycle directories** — `skills/_archive/` (retired) and `skills/in-progress/` (staging). Both excluded from `build_capability_graph.py` (`SKIP_SKILL_DIRS`) and `.claude-plugin/plugin.json`.
+- **[.claude-plugin/plugin.json](.claude-plugin/plugin.json)** — distribution manifest. 47 universally-useful skills listed for `npx skills@latest add` consumption.
+- **[skills/skill-creator/SKILL.md](skills/skill-creator/SKILL.md)** — opens with a 4-step "Before drafting any new skill" checklist enforcing CONTEXT.md consult + hard/soft dep classification per ADR-0001 + invocation-discipline decision + scaffold via `register.py skill`.
+
+**V6.8.1 (2026-05-16):** Promoted V6.8 to load-bearing substrate. `user_prompt_submit.py` auto-injects CONTEXT.md definitions on every prompt that mentions a glossary term. `capability_query.py check-deps` enforces ADR-0001 `requires:` declarations. `register.py skill` wizard emits V6.8 frontmatter by default.
+
+## Inventory (synced 2026-05-21)
+
+- **Skills:** 160 total (150 active + 10 archived in `skills/_archive/`)
+- **Python scripts:** 196 total (~106 top-level under `scripts/`)
+- **MCP servers:** 9 (sequential-thinking, playwright, context7, memory, github, firecrawl, obsidian, filesystem, knowledge-graph) — same set across `.claude/mcp.json`, `.vscode/mcp.json`, `~/.gemini/settings.json`
+- **Subagents:** 8 in `.claude/agents/`
+- **Workflows:** 34 in `.agents/workflows/`
+- **MRR Goal:** $5,000 USD Net MRR by June 18, 2026 (extended 2026-05-18 from May 30)

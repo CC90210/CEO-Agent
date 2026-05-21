@@ -67,14 +67,14 @@ create index on memory_chunks (source_file);
 
 | Script | Role |
 |---|---|
-| `scripts/memory_chunker.py` | Parse MD by H2/H3 boundaries, max 1000 tokens/chunk, preserve frontmatter + wiki-link context per chunk |
-| `scripts/memory_ingest.py` | Walk `brain/`, `memory/`, `knowledge/`, `APPS_CONTEXT/` → diff against `content_hash` → only re-embed changed chunks → upsert. Idempotent. Runs on file-save hook + nightly cron |
-| `scripts/memory_query.py` | Takes a task string → embed → hybrid search (70% vector cosine + 30% BM25 trigram) → return top-k with freshness decay applied → emit markdown-formatted context block |
+| `scripts/core/memory_chunker.py` | Parse MD by H2/H3 boundaries, max 1000 tokens/chunk, preserve frontmatter + wiki-link context per chunk |
+| `scripts/core/memory_ingest.py` | Walk `brain/`, `memory/`, `knowledge/`, `APPS_CONTEXT/` → diff against `content_hash` → only re-embed changed chunks → upsert. Idempotent. Runs on file-save hook + nightly cron |
+| `scripts/core/memory_query.py` | Takes a task string → embed → hybrid search (70% vector cosine + 30% BM25 trigram) → return top-k with freshness decay applied → emit markdown-formatted context block |
 
 ### Retrieval contract (how agents consume it)
 
 ```bash
-python scripts/memory_query.py \
+python scripts/core/memory_query.py \
   --task "Alejandro retainer status" \
   --k 8 \
   --max-tokens 3000 \
@@ -114,7 +114,7 @@ Obsidian graph **stays**. It's CC's thinking environment and provides structural
 ### Migration phases
 
 1. **Week 1** — migration 014: add `pgvector` + `memory_chunks` table. Ship `memory_chunker.py` + `memory_ingest.py`. One-time backfill ingest of current tree.
-2. **Week 2** — Ship `memory_query.py`. Add `--use-rag` flag to `scripts/context_builder.py`. Dual-run: retrieve via RAG, also load old files, diff the outputs, log deltas.
+2. **Week 2** — Ship `memory_query.py`. Add `--use-rag` flag to `scripts/core/context_builder.py`. Dual-run: retrieve via RAG, also load old files, diff the outputs, log deltas.
 3. **Week 3** — Flip default. CAPABILITIES and AGENTS files move to "retrieved-only" — remove from CLAUDE.md `@imports`.
 4. **Week 4** — Measure: token cost per session before/after, answer quality via Validator subagent. Keep dual-run as fallback for one month.
 
@@ -185,7 +185,7 @@ create trigger trg_notify_agent_event
 ### Publisher pattern (replaces all `*_pulse.json` writes)
 
 ```python
-# scripts/event_bus.py
+# scripts/core/event_bus.py
 def publish(event_type: str, payload: dict, target: str | None = None,
             source: str = "bravo", correlation_id: str | None = None) -> str:
     """Durable pub/sub. Returns event id. Idempotent on idempotency_key collisions."""
@@ -267,7 +267,7 @@ services:
 
   bravo-inbox:             # Gmail poller — replaces local email_engine check-inbox
     build: ./bravo
-    command: python scripts/email_engine.py check-inbox --daemon --interval 300
+    command: python scripts/integrations/email_engine.py check-inbox --daemon --interval 300
     env_file: .env.agents
     restart: unless-stopped
 

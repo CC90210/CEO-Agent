@@ -240,4 +240,4 @@ If `ready: false` — don't delegate. Handle the task directly and note the issu
 
 ## Obsidian Links
 - [[agents/codex-agent]] | [[brain/AGENTS]] | [[brain/CAPABILITIES]]
-- [[skills/task-routing/SKILL]] | [[skills/ship/SKILL]] | [[skills/code-review/SKILL]]
+- [[skills/task-routing/SKILL.md]] | [[skills/ship/SKILL.md]] | [[skills/code-review/SKILL.md]]

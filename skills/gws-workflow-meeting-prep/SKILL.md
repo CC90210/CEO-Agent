@@ -48,4 +48,4 @@ gws workflow +meeting-prep --calendar Work
 - [gws-workflow](../gws-workflow/SKILL.md) — All cross-service productivity workflows commands
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

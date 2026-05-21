@@ -39,4 +39,4 @@ Lead a team — run standups, coordinate tasks, and communicate.
 
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

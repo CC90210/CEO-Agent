@@ -51,4 +51,4 @@ gws chat +send --space spaces/AAAAxxxx --text 'Hello team!'
 - [gws-chat](../gws-chat/SKILL.md) — All manage chat spaces and messages commands
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

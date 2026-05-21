@@ -33,4 +33,4 @@ Administer IT — monitor security and configure Workspace.
 
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

@@ -14,4 +14,4 @@ last_updated: 2026-05-11
 - [[skills/internal-comms/examples/general-comms]]
 
 ## Parent
-- [[skills/internal-comms/SKILL]]
+- [[skills/internal-comms/SKILL.md]]

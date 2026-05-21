@@ -7,7 +7,7 @@ Welcome. Your AI agent is now installed and watching its own back via the V6.0 g
 You installed an autonomous AI agent that:
 
 - **Reads and writes a local SQLite database** (`state/empire_state.db`) for every action it takes — heartbeat, session log, tasks. This is the single source of truth.
-- **Searches its own memory** via FTS5 (`scripts/memory_retriever.py`) so it answers "what did we do last week?" in milliseconds without re-reading your entire knowledge base.
+- **Searches its own memory** via FTS5 (`scripts/core/memory_retriever.py`) so it answers "what did we do last week?" in milliseconds without re-reading your entire knowledge base.
 - **Runs every command through three guards** (exec, secret, state) that block destructive actions, refuse to read your credentials, and protect auto-generated state files.
 
 You did not install a chatbot. You installed an operator. It will do work; the guardrails make sure it does the *right* work.

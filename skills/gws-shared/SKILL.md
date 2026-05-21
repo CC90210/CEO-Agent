@@ -84,16 +84,16 @@ gws <service> <resource> [sub-resource] <method> [flags]
 ## Per-Action Skills (auto-generated, loaded on demand)
 
 Service hubs (load these when working with the service generally):
-- [[skills/gws-gmail/SKILL]] · [[skills/gws-calendar/SKILL]] · [[skills/gws-drive/SKILL]] · [[skills/gws-sheets/SKILL]] · [[skills/gws-docs/SKILL]] · [[skills/gws-chat/SKILL]] · [[skills/gws-classroom/SKILL]] · [[skills/gws-forms/SKILL]] · [[skills/gws-keep/SKILL]] · [[skills/gws-meet/SKILL]] · [[skills/gws-people/SKILL]] · [[skills/gws-slides/SKILL]] · [[skills/gws-tasks/SKILL]] · [[skills/gws-admin-reports/SKILL]] · [[skills/gws-events/SKILL]] · [[skills/gws-modelarmor/SKILL]] · [[skills/gws-workflow/SKILL]]
+- [[skills/gws-gmail/SKILL.md]] · [[skills/gws-calendar/SKILL.md]] · [[skills/gws-drive/SKILL.md]] · [[skills/gws-sheets/SKILL.md]] · [[skills/gws-docs/SKILL.md]] · [[skills/gws-chat/SKILL.md]] · [[skills/gws-classroom/SKILL.md]] · [[skills/gws-forms/SKILL.md]] · [[skills/gws-keep/SKILL.md]] · [[skills/gws-meet/SKILL.md]] · [[skills/gws-people/SKILL.md]] · [[skills/gws-slides/SKILL.md]] · [[skills/gws-tasks/SKILL.md]] · [[skills/gws-admin-reports/SKILL.md]] · [[skills/gws-events/SKILL.md]] · [[skills/gws-modelarmor/SKILL.md]] · [[skills/gws-workflow/SKILL.md]]
 
 Per-action skills (load only when invoking the specific operation):
-- Gmail: [[skills/gws-gmail-send/SKILL]] · [[skills/gws-gmail-read/SKILL]] · [[skills/gws-gmail-reply/SKILL]] · [[skills/gws-gmail-reply-all/SKILL]] · [[skills/gws-gmail-forward/SKILL]] · [[skills/gws-gmail-triage/SKILL]] · [[skills/gws-gmail-watch/SKILL]]
-- Calendar: [[skills/gws-calendar-insert/SKILL]] · [[skills/gws-calendar-agenda/SKILL]]
-- Drive / Docs / Sheets: [[skills/gws-drive-upload/SKILL]] · [[skills/gws-docs-write/SKILL]] · [[skills/gws-sheets-read/SKILL]] · [[skills/gws-sheets-append/SKILL]]
-- Chat: [[skills/gws-chat-send/SKILL]]
-- Events: [[skills/gws-events-subscribe/SKILL]] · [[skills/gws-events-renew/SKILL]]
-- Model Armor: [[skills/gws-modelarmor-create-template/SKILL]] · [[skills/gws-modelarmor-sanitize-prompt/SKILL]] · [[skills/gws-modelarmor-sanitize-response/SKILL]]
-- Workflow recipes: [[skills/gws-workflow-email-to-task/SKILL]] · [[skills/gws-workflow-file-announce/SKILL]] · [[skills/gws-workflow-meeting-prep/SKILL]] · [[skills/gws-workflow-standup-report/SKILL]] · [[skills/gws-workflow-weekly-digest/SKILL]]
+- Gmail: [[skills/gws-gmail-send/SKILL.md]] · [[skills/gws-gmail-read/SKILL.md]] · [[skills/gws-gmail-reply/SKILL.md]] · [[skills/gws-gmail-reply-all/SKILL.md]] · [[skills/gws-gmail-forward/SKILL.md]] · [[skills/gws-gmail-triage/SKILL.md]] · [[skills/gws-gmail-watch/SKILL.md]]
+- Calendar: [[skills/gws-calendar-insert/SKILL.md]] · [[skills/gws-calendar-agenda/SKILL.md]]
+- Drive / Docs / Sheets: [[skills/gws-drive-upload/SKILL.md]] · [[skills/gws-docs-write/SKILL.md]] · [[skills/gws-sheets-read/SKILL.md]] · [[skills/gws-sheets-append/SKILL.md]]
+- Chat: [[skills/gws-chat-send/SKILL.md]]
+- Events: [[skills/gws-events-subscribe/SKILL.md]] · [[skills/gws-events-renew/SKILL.md]]
+- Model Armor: [[skills/gws-modelarmor-create-template/SKILL.md]] · [[skills/gws-modelarmor-sanitize-prompt/SKILL.md]] · [[skills/gws-modelarmor-sanitize-response/SKILL.md]]
+- Workflow recipes: [[skills/gws-workflow-email-to-task/SKILL.md]] · [[skills/gws-workflow-file-announce/SKILL.md]] · [[skills/gws-workflow-meeting-prep/SKILL.md]] · [[skills/gws-workflow-standup-report/SKILL.md]] · [[skills/gws-workflow-weekly-digest/SKILL.md]]
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]] | [[skills/send-gateway/SKILL]] | [[skills/email-safety/SKILL]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]] | [[skills/send-gateway/SKILL.md]] | [[skills/email-safety/SKILL.md]]

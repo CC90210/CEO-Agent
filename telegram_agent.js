@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 // ============================================================
-// BRAVO TELEGRAM BRIDGE V15.7
+// BRAVO TELEGRAM BRIDGE V15.8
 //
 // V11.0: Full-Context Parity — loads CLAUDE.md, brain files, skills refs.
 // V12.0: Conversation Memory — stores last 15 messages per chat,
@@ -201,7 +201,7 @@ const bot = new TelegramBot(TELEGRAM_TOKEN, {
     request: { timeout: 60000 }
 });
 
-log(`Bravo Telegram Bridge V15.7 (${IS_MAC ? 'macOS' : 'Windows'} - guarded autonomy) starting...`);
+log(`Bravo Telegram Bridge V15.8 (${IS_MAC ? 'macOS' : 'Windows'} - guarded autonomy) starting...`);
 
 // ---- CONVERSATION HISTORY ----
 // Stores last N message pairs (user + assistant) per chat.
@@ -372,7 +372,7 @@ const classifyTier = (text) => {
 // Loads project context for Claude — tier-aware loading.
 // V6.0 note: STATE.md / SESSION_LOG.md / ACTIVE_TASKS.md are still read as
 // flat files here, but in EMPIRE_V6_MODE=on those are auto-generated
-// mirrors of state/empire_state.db (see scripts/state_manager.py export).
+// mirrors of state/empire_state.db (see scripts/state/state_manager.py export).
 // So these reads remain canonical — the DB drives the markdown, not the
 // other way around. No need for a separate state-api HTTP fetch on the
 // Telegram side; the bridge fetches the same data via the same files.
@@ -426,16 +426,16 @@ const loadContext = (tier = 2) => {
 
     // Tool routing summary — includes new maintenance tools
     chunks.push(`=== Available CLI Tools ===
-- n8n: ${PYTHON} scripts/n8n_tool.py [list|get|execute|activate]
+- n8n: ${PYTHON} scripts/integrations/n8n_tool.py [list|get|execute|activate]
 - Social posting (Maven owns — cross-repo): ${PYTHON} ../CMO-Agent/scripts/late_tool.py [accounts|posts|create]
-- Supabase: ${PYTHON} scripts/supabase_tool.py [select|insert|sql]
-- Stripe: ${PYTHON} scripts/stripe_tool.py [balance|customers|invoices]
-- Email/Calendar: ${PYTHON} scripts/google_tool.py [gmail send|gmail list|calendar list|calendar create]
-- Context Manager: ${PYTHON} scripts/context_manager.py [tier|compact|status|health]
+- Supabase: ${PYTHON} scripts/integrations/supabase_tool.py [select|insert|sql]
+- Stripe: ${PYTHON} scripts/integrations/stripe_tool.py [balance|customers|invoices]
+- Email/Calendar: ${PYTHON} scripts/integrations/google_tool.py [gmail send|gmail list|calendar list|calendar create]
+- Context Manager: ${PYTHON} scripts/core/context_manager.py [tier|compact|status|health]
 - Cost Tracker: ${PYTHON} scripts/cost_tracker.py [log|summary|session|budget]
-- Memory Aging: ${PYTHON} scripts/memory_aging.py [scan|stale|health|archive]
-- Firecrawl (web scraping): ${PYTHON} scripts/firecrawl_tool.py [scrape|crawl|search|extract|map] <url|query>
-- Semantic memory (mem0): ${PYTHON} scripts/mem0_tool.py [add|search|list|get|delete|stats]
+- Memory Aging: ${PYTHON} scripts/core/memory_aging.py [scan|stale|health|archive]
+- Firecrawl (web scraping): ${PYTHON} scripts/integrations/firecrawl_tool.py [scrape|crawl|search|extract|map] <url|query>
+- Semantic memory (mem0): ${PYTHON} scripts/integrations/mem0_tool.py [add|search|list|get|delete|stats]
 - MCP servers: Playwright, Context7, Memory, Sequential Thinking, Firecrawl`);
 
     // Computer control (cross-platform — macOS + Windows)
@@ -532,10 +532,10 @@ ${csuite}
 ${reach}
 
 BUSINESS OPS (use these — NOT the browser):
-- Email: ${PYTHON} scripts/google_tool.py gmail list | gmail read <id> | gmail send --to "..." --subject "..." --body "..."
-- Calendar: ${PYTHON} scripts/google_tool.py calendar list | calendar create --title "..." --start "..." --end "..."
+- Email: ${PYTHON} scripts/integrations/google_tool.py gmail list | gmail read <id> | gmail send --to "..." --subject "..." --body "..."
+- Calendar: ${PYTHON} scripts/integrations/google_tool.py calendar list | calendar create --title "..." --start "..." --end "..."
 - Revenue: ${PYTHON} scripts/revenue_engine.py mrr | dashboard | forecast | clients | goal
-- Stripe: ${PYTHON} scripts/stripe_tool.py balance | customers | invoices
+- Stripe: ${PYTHON} scripts/integrations/stripe_tool.py balance | customers | invoices
 - CEO Briefing: ${PYTHON} scripts/ceo_dashboard.py briefing | revenue | pipeline | content | full
 - Leads/CRM: ${PYTHON} scripts/lead_engine.py list | add "Name" --email x | followups | view <id>
 - Client Health: ${PYTHON} scripts/client_health.py report | alerts | score <name>
@@ -543,12 +543,12 @@ BUSINESS OPS (use these — NOT the browser):
 - Social (Maven cross-repo): ${PYTHON} ../CMO-Agent/scripts/late_tool.py accounts | posts | create --text "..." --account <id>
 - Instagram (Maven cross-repo): ${PYTHON} ../CMO-Agent/scripts/instagram_engine.py check-dms | auto-reply
 - Image gen (Maven cross-repo): ${PYTHON} ../CMO-Agent/scripts/codex_image_gen.py generate "<prompt>"
-- n8n: ${PYTHON} scripts/n8n_tool.py list | execute <id>
-- Database: ${PYTHON} scripts/supabase_tool.py select <table> --project bravo --limit 10
+- n8n: ${PYTHON} scripts/integrations/n8n_tool.py list | execute <id>
+- Database: ${PYTHON} scripts/integrations/supabase_tool.py select <table> --project bravo --limit 10
 - Financial: ${PYTHON} scripts/financial_model.py unit-economics | forecast | scenario --type base|bull|bear
 - Skool metrics: ${PYTHON} scripts/skool_engine.py metrics --json (scrapes dashboard, updates revenue DB automatically)
-- Web scraping: ${PYTHON} scripts/firecrawl_tool.py scrape <url> | crawl <url> --limit 10 | search "query" | map <url>
-- Semantic memory: ${PYTHON} scripts/mem0_tool.py add "fact" | search "query" | list | stats
+- Web scraping: ${PYTHON} scripts/integrations/firecrawl_tool.py scrape <url> | crawl <url> --limit 10 | search "query" | map <url>
+- Semantic memory: ${PYTHON} scripts/integrations/mem0_tool.py add "fact" | search "query" | list | stats
 
 COMPUTER CONTROL (${IS_MAC ? 'macOS' : 'Windows'}):
 ${IS_MAC ? `SINGLE-COMMAND WORKFLOWS (use these first — atomic, 1 turn):
@@ -568,7 +568,7 @@ MOUSE & INTERACTION (visual — CC can watch the cursor move):
 - Get screen size: python3 scripts/macos_control.py screen-size --json
 
 ANY OTHER ACTION: python3 scripts/macos_control.py <command> [args] --json  (65+ commands)` : `- System/apps/windows: python scripts/windows_control.py <command> [args] --json
-- Open URL in Chrome: python scripts/browse_and_capture.py --url "https://..."
+- Open URL in Chrome: python scripts/browser/browse_and_capture.py --url "https://..."
 - Music: python scripts/music_control.py play --query "..." --json`}
 
 RULES: Use ATOMIC commands first (youtube-play, open --wait). For multi-step tasks, chain commands across turns — max 6 turns. Always prefer the single-command version when it exists. Never manually orchestrate what a built-in command already does.
@@ -579,7 +579,7 @@ CC says:`;
     const context = loadContext(tier);
     const csuite = loadCSuiteSnapshot();
     const reach = loadLocalSiblingPaths();
-    return `You are BRAVO V5.5 (CEO agent in the 4-agent C-Suite), CC's Lead Architect and AI business manager, running via Telegram bridge.
+    return `You are BRAVO V6.0 (CEO agent in the 4-agent C-Suite), CC's Lead Architect and AI business manager, running via Telegram bridge.
 You have full access to the Business-Empire-Agent project at ${__dirname}.
 Platform: ${IS_MAC ? 'macOS (darwin)' : 'Windows 11 (win32)'} — Machine: ${MACHINE_NAME}
 If CC asks "what machine are you on?" or "where are you running?", answer: "${MACHINE_NAME}" (${IS_MAC ? 'CC\'s MacBook' : 'CC\'s Windows Desktop PC — AMD Ryzen 5 5600GT, 16GB RAM, 1080p'}).
@@ -602,7 +602,7 @@ TELEGRAM-SPECIFIC RULES:
 (8) All credentials are in .env.agents — NEVER hardcode secrets.
 (9) Use RECENT CONVERSATION HISTORY for context from prior messages.
 (10) APPROVAL GATE: Before destructive actions, output "⚠️ CONFIRM: [description]" and STOP.
-(11) COMPUTER CONTROL: ${PYTHON} scripts/${IS_MAC ? 'macos' : 'windows'}_control.py <command> --json for desktop control. ${PYTHON} scripts/browse_and_capture.py --url "URL" for opening webpages in CC's real Chrome.
+(11) COMPUTER CONTROL: ${PYTHON} scripts/${IS_MAC ? 'macos' : 'windows'}_control.py <command> --json for desktop control. ${PYTHON} scripts/browser/browse_and_capture.py --url "URL" for opening webpages in CC's real Chrome.
 (12) FILE RELAY: Screenshots/files saved to ${TEMP_PATH} are auto-sent to Telegram.
 (13) MUSIC: ${PYTHON} scripts/music_control.py for SoundCloud.
 
@@ -791,7 +791,7 @@ const executeCli = (tool, userPrompt, chatId, modelOverride = null, forceApiKey 
             // backend work shows up in the System Health page alongside Bravo's.
             if (code === 0 && tier > 0 && (tool === 'claude' || tool === 'codex')) {
                 execFileTrack(PYTHON, [
-                    'scripts/state_sync.py',
+                    'scripts/state/state_sync.py',
                     '--note', `telegram T${tier} (${tool}): ${userPrompt.substring(0, 140)}`
                 ], { cwd: __dirname, windowsHide: true, timeout: 8000 }, () => {});
             }
@@ -1041,7 +1041,7 @@ bot.on('message', async (msg) => {
 
     if (text === '/start' || text === '/help') {
         return bot.sendMessage(chatId, [
-            `Bravo Bridge V15.7 (${MACHINE_NAME} — Full Computer Control)`,
+            `Bravo Bridge V15.8 (${MACHINE_NAME} — Full Computer Control)`,
             '',
             'Just type anything → Claude handles it (25 turns)',
             '',
@@ -1132,21 +1132,21 @@ bot.on('message', async (msg) => {
     }
 
     if (text === '/memhealth') {
-        exec(`${PYTHON} scripts/memory_aging.py health`, { cwd: __dirname, windowsHide: IS_WIN, timeout: 10000 }, (err, out) => {
+        exec(`${PYTHON} scripts/core/memory_aging.py health`, { cwd: __dirname, windowsHide: IS_WIN, timeout: 10000 }, (err, out) => {
             bot.sendMessage(chatId, out || err?.message || 'Health check failed.').catch(() => {});
         });
         return;
     }
 
     if (text === '/compact') {
-        exec(`${PYTHON} scripts/context_manager.py status`, { cwd: __dirname, windowsHide: IS_WIN, timeout: 10000 }, (err, out) => {
+        exec(`${PYTHON} scripts/core/context_manager.py status`, { cwd: __dirname, windowsHide: IS_WIN, timeout: 10000 }, (err, out) => {
             bot.sendMessage(chatId, out || err?.message || 'Status check failed.').catch(() => {});
         });
         return;
     }
 
     if (text === '/stale') {
-        exec(`${PYTHON} scripts/memory_aging.py stale --days 30`, { cwd: __dirname, windowsHide: IS_WIN, timeout: 10000 }, (err, out) => {
+        exec(`${PYTHON} scripts/core/memory_aging.py stale --days 30`, { cwd: __dirname, windowsHide: IS_WIN, timeout: 10000 }, (err, out) => {
             const result = out || err?.message || 'No stale facts found.';
             bot.sendMessage(chatId, result.substring(0, 4000)).catch(() => {});
         });

@@ -7,7 +7,7 @@
 Every webhook endpoint takes `Authorization: Bearer <secret>` headers, where the secret is issued per integration. Generate via:
 
 ```bash
-python scripts/n8n_webhook_secret.py issue --profile-email <operator@email>
+python scripts/integrations/n8n_webhook_secret.py issue --profile-email <operator@email>
 ```
 
 Multiple endpoints share the same secret-table model (`n8n_webhook_secrets`). Secrets are SHA-256 hashed at rest. Lose the secret → revoke + re-issue.

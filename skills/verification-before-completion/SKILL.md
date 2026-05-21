@@ -142,4 +142,4 @@ Run the command. Read the output. THEN claim the result.
 This is non-negotiable.
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

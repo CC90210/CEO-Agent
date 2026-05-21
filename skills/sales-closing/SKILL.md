@@ -207,9 +207,9 @@ After every close attempt, log to `memory/SESSION_LOG.md`:
 Three losses with the same objection = update this skill. That's the iron law: CC never teaches the same lesson twice.
 
 ## Obsidian Links
-- [[skills/sales-methodology/SKILL]]
-- [[skills/proposal-generation/SKILL]] *(if exists)*
-- [[skills/client-success/SKILL]]
+- [[skills/sales-methodology/SKILL.md]]
+- [[skills/proposal-generation/SKILL.md]] *(if exists)*
+- [[skills/client-success/SKILL.md]]
 - feedback_objection_handling
 - [[brain/USER]]
 - [[brain/SOUL]]

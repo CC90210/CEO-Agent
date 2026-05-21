@@ -183,4 +183,4 @@ From debugging session (2025-10-03):
 - Zero conflicts between agent changes
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

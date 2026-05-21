@@ -42,13 +42,13 @@ Not every query needs the full 4,944-line context. Match the load to the task.
 
 ```bash
 # Check what tier a query needs
-python scripts/context_manager.py tier "what's our current MRR?"
+python scripts/core/context_manager.py tier "what's our current MRR?"
 # → TIER 1: Load STATE.md + ACTIVE_TASKS.md (~185 lines)
 
-python scripts/context_manager.py tier "build a new Stripe integration"
+python scripts/core/context_manager.py tier "build a new Stripe integration"
 # → TIER 2: Load standard context (~780 lines)
 
-python scripts/context_manager.py tier "redesign the agent orchestration system"
+python scripts/core/context_manager.py tier "redesign the agent orchestration system"
 # → TIER 3: Load full context (~4,944 lines)
 ```
 
@@ -67,15 +67,15 @@ Claude Code compacts transcripts after 12 turns and caps at 8 turns by default. 
 
 ```bash
 # Check if compaction is needed
-python scripts/context_manager.py status
+python scripts/core/context_manager.py status
 # → SESSION_LOG.md: 246 lines (18 entries) — COMPACT NOW
 
 # Preview what would be archived
-python scripts/context_manager.py compact --dry-run
+python scripts/core/context_manager.py compact --dry-run
 # → Would archive 8 entries to memory/ARCHIVES/sessions-2026-03.md
 
 # Execute compaction
-python scripts/context_manager.py compact
+python scripts/core/context_manager.py compact
 # → Archived 8 entries. SESSION_LOG.md: 10 entries (120 lines)
 ```
 
@@ -146,17 +146,17 @@ Where `λ` varies by category:
 
 ```bash
 # Full decay scan across all memory files
-python scripts/memory_aging.py scan
+python scripts/core/memory_aging.py scan
 
 # Find stale facts (not updated in 30+ days)
-python scripts/memory_aging.py stale --days 30
+python scripts/core/memory_aging.py stale --days 30
 
 # Memory health report with letter grade
-python scripts/memory_aging.py health
+python scripts/core/memory_aging.py health
 
 # Archive old entries (preview first)
-python scripts/memory_aging.py archive --dry-run
-python scripts/memory_aging.py archive
+python scripts/core/memory_aging.py archive --dry-run
+python scripts/core/memory_aging.py archive
 ```
 
 ### When to Trigger
@@ -199,5 +199,5 @@ All settings in `.agents/config.toml`:
 
 ## Obsidian Links
 - [[brain/INTERACTION_PROTOCOL]] | [[brain/BRAIN_LOOP]] | [[brain/CAPABILITIES]]
-- [[skills/memory-management/SKILL]] | [[skills/background-workers/SKILL]]
+- [[skills/memory-management/SKILL.md]] | [[skills/background-workers/SKILL.md]]
 - [[memory/SESSION_LOG]] | [[memory/PATTERNS]]

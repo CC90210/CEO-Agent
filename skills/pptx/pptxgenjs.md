@@ -420,10 +420,10 @@ titleSlide.addText("My Title", { placeholder: "title" });
 - **Chart data labels**: "outEnd", "inEnd", "center"
 
 ## Obsidian Links
-- [[skills/pptx/SKILL]] | [[skills/INDEX]]
+- [[skills/pptx/SKILL.md]] | [[skills/INDEX.md]]
 
 
 ## Related (graph)
 
-- [[skills/pptx/SKILL]]
+- [[skills/pptx/SKILL.md]]
 - [[skills/pptx/editing]]

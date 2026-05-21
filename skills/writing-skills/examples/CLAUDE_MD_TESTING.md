@@ -189,4 +189,4 @@ For each variant:
 6. Iterate on winning variant to close holes
 
 ## Obsidian Links
-- [[skills/writing-skills/SKILL]] | [[skills/INDEX]]
+- [[skills/writing-skills/SKILL.md]] | [[skills/INDEX.md]]

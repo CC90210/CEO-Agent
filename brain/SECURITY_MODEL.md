@@ -141,7 +141,7 @@ Operators don't have `CLI_SIGNUP_SECRET` in their local env (that lives
 on Vercel only). To let the bridge self-pair without operator interaction,
 we use a per-profile HMAC secret.
 
-**Issued by:** `python scripts/n8n_webhook_secret.py issue --save-env`
+**Issued by:** `python scripts/integrations/n8n_webhook_secret.py issue --save-env`
 - generates a random 32-byte secret
 - SHA-256 hashes it
 - stores hash in `n8n_webhook_secrets.secret_hash` keyed by `profile_id`
@@ -260,7 +260,7 @@ grep -rn "bridge_token" oasis-command-center:app/api --include="*.ts" | grep -v 
 grep -n "timingSafeEqual" oasis-command-center:app/api/auth/pair/route.ts
 
 # Migration 030 applied (idempotent pair)
-python scripts/supabase_tool.py select bridge_pairings --columns "machine_fingerprint" --limit 5
+python scripts/integrations/supabase_tool.py select bridge_pairings --columns "machine_fingerprint" --limit 5
 # Then attempt a duplicate insert via the Python client — should fail with code 23505
 ```
 

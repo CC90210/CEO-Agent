@@ -33,7 +33,7 @@ SAMPLE_VARS = {
 
 def list_templates() -> list[dict]:
     r = subprocess.run(
-        [PYTHON, "scripts/email_engine.py", "--json", "templates", "list"],
+        [PYTHON, "scripts/integrations/email_engine.py", "--json", "templates", "list"],
         cwd=str(REPO_ROOT), capture_output=True, text=True, encoding="utf-8",
      creationflags=WINDOWLESS_FLAGS)
     if r.returncode != 0:
@@ -47,7 +47,7 @@ def render_template(template_id: str, vars_: dict) -> dict:
     works but goes through gates — we want the rendered draft only.
     """
     r = subprocess.run(
-        [PYTHON, "scripts/email_engine.py", "--json", "templates", "view", template_id],
+        [PYTHON, "scripts/integrations/email_engine.py", "--json", "templates", "view", template_id],
         cwd=str(REPO_ROOT), capture_output=True, text=True, encoding="utf-8",
      creationflags=WINDOWLESS_FLAGS)
     if r.returncode != 0:

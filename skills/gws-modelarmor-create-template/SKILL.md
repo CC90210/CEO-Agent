@@ -54,4 +54,4 @@ gws modelarmor +create-template --project P --location us-central1 --template-id
 - [gws-modelarmor](../gws-modelarmor/SKILL.md) — All filter user-generated content for safety commands
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

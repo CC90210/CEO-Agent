@@ -103,7 +103,7 @@ Ship in this order — substrate first, conventions next, vocabulary last:
 3. **Vocabulary** — `CONTEXT.md` entries, sibling entry-point sync. Make the language canonical across agents.
 4. **Distribution** — `.claude-plugin/plugin.json` updates, `skills/agent-forge` template updates (if forking-relevant).
 
-After each layer: `python scripts/build_capability_graph.py` + `python scripts/memory_retriever.py build`. Commit per layer.
+After each layer: `python scripts/build_capability_graph.py` + `python scripts/core/memory_retriever.py build`. Commit per layer.
 
 **Anti-slop guardrails (mandatory):**
 
@@ -121,7 +121,7 @@ After each layer: `python scripts/build_capability_graph.py` + `python scripts/m
 After execution, run **at least these four tests** to prove the integration is load-bearing, not additive:
 
 1. **Capability graph rebuilds clean**: `python scripts/build_capability_graph.py --check` (exit 0, no drift)
-2. **Memory retriever picks up new content**: `python scripts/memory_retriever.py query "<new term or new skill name>"` returns the new file at rank ≤3
+2. **Memory retriever picks up new content**: `python scripts/core/memory_retriever.py query "<new term or new skill name>"` returns the new file at rank ≤3
 3. **New frontmatter consumed by resolver**: `python scripts/capability_query.py resolve "<intent that matches new skill>"` includes/excludes correctly
 4. **End-to-end behavior changed**: spin up a fresh-shape prompt the new pattern is supposed to handle, prove the system handles it without re-deriving from scratch
 
@@ -154,7 +154,7 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
 2. **Log a probationary pattern** in `memory/PATTERNS.md`: `[P] <pattern name> — <one-line>. Promote to [V] after 3 re-uses.`
 3. **Update PATTERNS.md `last_updated:` frontmatter** to today's date.
 4. **Update `brain/STATE.md` or `brain/V6X_<NAME>.md`** if the integration is structural (a new substrate layer, a new convention).
-5. **State sync** — `python scripts/state_sync.py --note "<one-line summary>"`.
+5. **State sync** — `python scripts/state/state_sync.py --note "<one-line summary>"`.
 6. **Memory sync line** — finish your turn with: *"Memory synced. [X] commits, [Y] files, [Z] retriever chunks added."*
 
 ---

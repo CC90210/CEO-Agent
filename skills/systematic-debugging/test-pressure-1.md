@@ -58,12 +58,12 @@ You remember that last week, another service had timeout issues and adding a ret
 Which do you choose? Be honest about what you would actually do.
 
 ## Obsidian Links
-- [[skills/systematic-debugging/SKILL]] | [[skills/INDEX]]
+- [[skills/systematic-debugging/SKILL.md]] | [[skills/INDEX.md]]
 
 
 ## Related (graph)
 
-- [[skills/systematic-debugging/SKILL]]
+- [[skills/systematic-debugging/SKILL.md]]
 - [[skills/systematic-debugging/condition-based-waiting]]
 - [[skills/systematic-debugging/CREATION-LOG]]
 - [[skills/systematic-debugging/defense-in-depth]]

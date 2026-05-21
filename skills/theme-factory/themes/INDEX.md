@@ -20,4 +20,4 @@ last_updated: 2026-05-11
 - [[skills/theme-factory/themes/tech-innovation]]
 
 ## Parent
-- [[skills/theme-factory/SKILL]]
+- [[skills/theme-factory/SKILL.md]]

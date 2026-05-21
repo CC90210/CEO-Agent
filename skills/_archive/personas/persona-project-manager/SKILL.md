@@ -38,4 +38,4 @@ Coordinate projects — track tasks, schedule meetings, and share docs.
 
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

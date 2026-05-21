@@ -65,7 +65,7 @@ The V1.0 push closes that gap and then leapfrogs with the moat.
 
 ### Gateway Modularization
 - `runtime/gateway/router.py` + `runtime/gateway/adapters/{telegram,email,n8n}.py`
-- Modular adapter pattern without weakening `scripts/send_gateway.py`
+- Modular adapter pattern without weakening `scripts/integrations/send_gateway.py`
 - CLI: `bravo gateway status | start | stop`
 
 ### Trajectory Export (Hermes v0.8 pattern)

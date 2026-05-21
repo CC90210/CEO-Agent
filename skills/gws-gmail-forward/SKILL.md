@@ -60,4 +60,4 @@ gws gmail +forward --message-id 18f1a2b3c4d --to dave@example.com -a notes.pdf
 - [gws-gmail](../gws-gmail/SKILL.md) — All send, read, and manage email commands
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

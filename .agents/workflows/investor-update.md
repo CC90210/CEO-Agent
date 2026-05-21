@@ -20,20 +20,20 @@ Generate and draft a monthly investor update email using live data from Stripe, 
 
 ### Step 1 — Pull Revenue Data
 ```bash
-python scripts/stripe_tool.py subscriptions --status active --json
-python scripts/stripe_tool.py invoices --limit 10 --json
+python scripts/integrations/stripe_tool.py subscriptions --status active --json
+python scripts/integrations/stripe_tool.py invoices --limit 10 --json
 ```
 Extract: current MRR, new MRR added this month, churned MRR, total active subscriptions.
 
 ### Step 2 — Pull Pipeline Data
 ```bash
-python scripts/supabase_tool.py select leads --project bravo --limit 50
+python scripts/integrations/supabase_tool.py select leads --project bravo --limit 50
 ```
 Filter for leads with status `active` or `proposal_sent`. Calculate: number of active prospects, estimated pipeline value (sum of deal values for open opportunities).
 
 ### Step 3 — Calculate Burn Rate
 ```bash
-python scripts/stripe_tool.py invoices --limit 30 --json
+python scripts/integrations/stripe_tool.py invoices --limit 30 --json
 ```
 Pull last 30 days of outgoing charges (Stripe subscriptions CC pays). Reference `brain/USER.md` for fixed monthly overhead (~$184 USD/month as of 2026-03-28).
 
@@ -85,7 +85,7 @@ Wait for CC's review and approval before sending.
 ### Step 8 — Log to Session Log
 After CC approves and sends, log to the V6.0 state DB (auto-mirrors to `memory/SESSION_LOG.md`):
 ```bash
-python scripts/state_manager.py log --agent bravo \
+python scripts/state/state_manager.py log --agent bravo \
   --note "Monthly investor update sent — MRR \$X,XXX, pipeline \$X,XXX, [N] recipients"
 ```
 

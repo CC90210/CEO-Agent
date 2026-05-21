@@ -17,7 +17,7 @@ environment is coherent, and report back in a fixed format. Do NOT push
 code, restart daemons, or modify .env.agents without my OK.
 
 STEP 1 — Session start.
-Run: bash scripts/bravo-session-start.sh
+Run: bash scripts/hooks/bravo-session-start.sh
 If the script doesn't exist yet (first run on this Mac), fall back to:
   git fetch origin main && git pull --ff-only origin main
 Then re-run the session-start script — it will exist after pull.
@@ -75,8 +75,8 @@ in .env.agents. If gws is not installed, skip it — google_tool.py will
 simply error out if called, which is fine.
 
 STEP 4 — Integration smoke test. For each, report OK or specific error:
-  python3 scripts/supabase_tool.py select leads --limit 1
-  python3 scripts/stripe_tool.py balance
+  python3 scripts/integrations/supabase_tool.py select leads --limit 1
+  python3 scripts/integrations/stripe_tool.py balance
   python3 scripts/funnel_sync.py stats
   python3 scripts/revenue_engine.py --json mrr
   python3 scripts/funnel_nurture.py --json run
@@ -131,7 +131,7 @@ STEP 7 — Report back in this exact format:
   <one sentence: is Mac fully synced, or what's blocking>
 
 STEP 8 — Run session end.
-bash scripts/bravo-session-end.sh "mac sync verification — no spam, all clear"
+bash scripts/hooks/bravo-session-end.sh "mac sync verification — no spam, all clear"
 
 This will commit memory/SESSION_LOG.md with the Mac session entry, write
 HANDOFF.md, and push to origin/main. Windows will pick it up on next

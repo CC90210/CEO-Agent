@@ -384,11 +384,11 @@ From applying TDD to TDD skill itself (2025-10-03):
 - Same process works for any discipline-enforcing skill
 
 ## Obsidian Links
-- [[skills/writing-skills/SKILL]] | [[skills/INDEX]]
+- [[skills/writing-skills/SKILL.md]] | [[skills/INDEX.md]]
 
 
 ## Related (graph)
 
-- [[skills/writing-skills/SKILL]]
+- [[skills/writing-skills/SKILL.md]]
 - [[skills/writing-skills/anthropic-best-practices]]
 - [[skills/writing-skills/persuasion-principles]]

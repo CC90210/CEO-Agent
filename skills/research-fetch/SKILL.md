@@ -30,22 +30,22 @@ Built 2026-05-16 (V6.7+) to unify what was previously 13 skills making the tier-
   ```
 
 Do NOT use when:
-- You need to act AS CC inside CC's logged-in account (Skool, Stripe dashboard, Vercel admin, LinkedIn private profile) → use **Browser Harness** (`scripts/browser_harness_doctor.py`).
-- You need an interactive flow on a protected site (multi-step form, navigation chain) → use **CloakBrowser** directly (`scripts/cloak_browser_tool.py goto`).
-- You need batch site crawling or LLM-schema extraction → use **Firecrawl** directly (`scripts/firecrawl_tool.py crawl` / `extract`).
+- You need to act AS CC inside CC's logged-in account (Skool, Stripe dashboard, Vercel admin, LinkedIn private profile) → use **Browser Harness** (`scripts/browser/browser_harness_doctor.py`).
+- You need an interactive flow on a protected site (multi-step form, navigation chain) → use **CloakBrowser** directly (`scripts/browser/cloak_browser_tool.py goto`).
+- You need batch site crawling or LLM-schema extraction → use **Firecrawl** directly (`scripts/integrations/firecrawl_tool.py crawl` / `extract`).
 - You need a visual screenshot for evidence → use **Playwright MCP** or `cloak_browser_tool.py scrape --screenshot`.
 
 ## Tier ladder (auto, no agent decision needed)
 
 ```
-1. Firecrawl (scripts/firecrawl_tool.py scrape)
+1. Firecrawl (scripts/integrations/firecrawl_tool.py scrape)
      ↓ escalate if:
      - errored (timeout / nonzero / non-json)
      - status 4xx (excluding 200) or 5xx
      - text is empty
      - status missing AND text < min_chars (silent block page)
 
-2. CloakBrowser (scripts/cloak_browser_tool.py scrape)
+2. CloakBrowser (scripts/browser/cloak_browser_tool.py scrape)
      ↓ accept if:
      - successful response with any text (soft-block tolerant per G2 case)
      ↓ otherwise fail
@@ -113,8 +113,8 @@ Flags: `--json`, `--force-tier {firecrawl,cloak}`, `--min-chars N` (escalation t
 ## Tools used
 
 - `scripts/research_fetch.py` — the canonical entry point (fetch / reputation / reputation-clear)
-- `scripts/firecrawl_tool.py` — tier-1 invoked as subprocess
-- `scripts/cloak_browser_tool.py` — tier-2 invoked as subprocess
+- `scripts/integrations/firecrawl_tool.py` — tier-1 invoked as subprocess
+- `scripts/browser/cloak_browser_tool.py` — tier-2 invoked as subprocess
 - `state/site_reputation.db` — SQLite reputation store
 
 ## Constraints + gotchas
@@ -126,7 +126,7 @@ Flags: `--json`, `--force-tier {firecrawl,cloak}`, `--min-chars N` (escalation t
 
 ## Related skills
 
-- [[skills/cloak-browser/SKILL]] — the tier-2 stealth Chromium
-- [[skills/web-scraping/SKILL]] — full 4-tool decision matrix (research-fetch sits inside the Firecrawl + CloakBrowser tiers)
-- [[skills/browser-harness/SKILL]] — for CC-authenticated work
-- [[skills/competitive-intelligence/SKILL]] · [[skills/market-research/SKILL]] · [[skills/proposal-generation/SKILL]] · [[skills/ceo-briefing/SKILL]] — primary consumers
+- [[skills/cloak-browser/SKILL.md]] — the tier-2 stealth Chromium
+- [[skills/web-scraping/SKILL.md]] — full 4-tool decision matrix (research-fetch sits inside the Firecrawl + CloakBrowser tiers)
+- [[skills/browser-harness/SKILL.md]] — for CC-authenticated work
+- [[../../CMO-Agent/skills/competitive-intelligence/SKILL.md]] (Maven) · [[skills/market-research/SKILL.md]] · [[skills/proposal-generation/SKILL.md]] · [[skills/ceo-briefing/SKILL.md]] — primary consumers

@@ -35,7 +35,7 @@ BLOCKED by exec_guard (hard-blocklist): matches hard blocklist pattern 'git-forc
   Command: git push --force origin staging
   Override request: req-7fed684e (TTL 5 min, single-use)
   To approve from your terminal:
-    python scripts/exec_override.py approve req-7fed684e
+    python scripts/state/exec_override.py approve req-7fed684e
   Do NOT bypass with eval, base64, or --no-verify.
   Bypass attempts are logged.
 ```
@@ -47,7 +47,7 @@ The agent surfaces the request_id to CC. It does NOT auto-retry, does NOT try to
 From CC's interactive terminal (NOT inside the agent's chat):
 
 ```bash
-python scripts/exec_override.py approve req-7fed684e --reason "staging cleanup, intended"
+python scripts/state/exec_override.py approve req-7fed684e --reason "staging cleanup, intended"
 ```
 
 Output:
@@ -97,22 +97,22 @@ There is one env-var bypass that disables the non-TTY refusal: `EMPIRE_OVERRIDE_
 
 ```bash
 # List recent requests (default: last 24h)
-python scripts/exec_override.py list
+python scripts/state/exec_override.py list
 
 # Only pending approval — what's CC waiting on?
-python scripts/exec_override.py list --pending
+python scripts/state/exec_override.py list --pending
 
 # Approve a request
-python scripts/exec_override.py approve req-7fed684e [--reason "..."]
+python scripts/state/exec_override.py approve req-7fed684e [--reason "..."]
 
 # Deny a request (closes it; subsequent retries block)
-python scripts/exec_override.py deny req-7fed684e [--reason "..."]
+python scripts/state/exec_override.py deny req-7fed684e [--reason "..."]
 
 # Inspect one request as JSON
-python scripts/exec_override.py status req-7fed684e
+python scripts/state/exec_override.py status req-7fed684e
 
 # Purge old rows (>7 days) — runnable from cron
-python scripts/exec_override.py cleanup [--days 7]
+python scripts/state/exec_override.py cleanup [--days 7]
 ```
 
 ## Where the data lives
@@ -123,7 +123,7 @@ python scripts/exec_override.py cleanup [--days 7]
 | State | `state/empire_state.db` (table `override_request`) | The approval rows |
 | HMAC key | `.env.agents` (`EMPIRE_OVERRIDE_HMAC_KEY`) | Generated lazily on first use; never logged |
 | Audit | `state/exec_guard.log` (jsonl) | `decision: "blocked"` rows include `override_request_id`; `decision: "allowed-via-override"` rows record successful approvals |
-| Helpers | `scripts/state_manager.py` (create/approve/deny/find/consume/list/cleanup) | Single source of truth for state reads |
+| Helpers | `scripts/state/state_manager.py` (create/approve/deny/find/consume/list/cleanup) | Single source of truth for state reads |
 | Crypto | `scripts/lib/override_crypto.py` (HMAC, hash, request-id mint, TTY detection) | Shared between exec_guard + exec_override |
 | Tests | `tests/test_exec_override.py` (12 lifecycle tests) | Locked behavior |
 
@@ -139,4 +139,4 @@ python scripts/exec_override.py cleanup [--days 7]
 - `systematic-debugging` — when `exec_guard` blocks, debug the BLOCK first (is it a real false positive, or did the LLM misunderstand the task?). Reach for override only after the false-positive is confirmed.
 
 ## Obsidian
-- [[skills/security-protocol/SKILL]] | [[brain/CAPABILITIES]] | [[ARCHITECTURE]]
+- [[skills/security-protocol/SKILL.md]] | [[brain/CAPABILITIES]] | [[ARCHITECTURE]]

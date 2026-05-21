@@ -180,7 +180,7 @@ STEP 9 — Verify both machines are visible in the dashboard.
   refresh. If duplicates appear for THIS machine's fingerprint, the
   fingerprint-idempotent fix didn't propagate (migration 030 must be
   applied on the dashboard's Supabase project — verify with
-  scripts/supabase_tool.py select bridge_pairings).
+  scripts/integrations/supabase_tool.py select bridge_pairings).
 
 STEP 10 — Daemon-leak check (mandatory).
   Anchored to the Bravo repo path so sibling Maven / Atlas processes
@@ -232,7 +232,7 @@ STEP 11 — Report back in this exact format:
    and ready" — or what's still blocking>
 
 STEP 12 — Session end.
-  bash scripts/bravo-session-end.sh "<machine name> pairing complete"
+  bash scripts/hooks/bravo-session-end.sh "<machine name> pairing complete"
   This commits SESSION_LOG.md + HANDOFF.md and pushes. The primary
   machine will see it on next session-start.
 ```

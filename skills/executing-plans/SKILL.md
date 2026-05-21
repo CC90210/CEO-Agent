@@ -87,4 +87,4 @@ After all tasks complete and verified:
 - **superpowers:finishing-a-development-branch** - Complete development after all tasks
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

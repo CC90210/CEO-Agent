@@ -64,12 +64,12 @@ When in doubt: escalate to CC via `agent_inbox` (priority `HIGH` or `URGENT`). D
 
 ## The agent inbox — async cross-agent messaging
 
-`scripts/agent_inbox.py` is the cross-repo message queue. Different from pulse files: pulses are state, inbox is messages.
+`scripts/core/agent_inbox.py` is the cross-repo message queue. Different from pulse files: pulses are state, inbox is messages.
 
 **Protocol:**
-- Sender posts: `python scripts/agent_inbox.py post --from <self> --to <recipient> --subject "..." --body "..." [--priority normal|high|urgent]`
-- Recipient lists at session start: `python scripts/agent_inbox.py list --to <self>`
-- Recipient reads: `python scripts/agent_inbox.py read <message_id>`
+- Sender posts: `python scripts/core/agent_inbox.py post --from <self> --to <recipient> --subject "..." --body "..." [--priority normal|high|urgent]`
+- Recipient lists at session start: `python scripts/core/agent_inbox.py list --to <self>`
+- Recipient reads: `python scripts/core/agent_inbox.py read <message_id>`
 - Storage: `tmp/agent_inbox/<recipient>/<unread|read>/<id>.json`
 
 **When to use inbox vs pulse:**
@@ -121,7 +121,7 @@ python scripts/autonomous_agent.py status --json
 python scripts/autonomous_agent.py decisions --today --limit 50
 ```
 
-**Cron orchestration today:** `scripts/cron_engine.py` is the source-of-truth registry of scheduled jobs (delegates actual scheduling to n8n at `https://n8n.srv993801.hstgr.cloud`). Currently 14 jobs registered, 8 active — all owned by Bravo. Atlas and Maven have **zero registered jobs** as of 2026-05-03.
+**Cron orchestration today:** `scripts/core/cron_engine.py` is the source-of-truth registry of scheduled jobs (delegates actual scheduling to n8n at `https://n8n.srv993801.hstgr.cloud`). Currently 14 jobs registered, 8 active — all owned by Bravo. Atlas and Maven have **zero registered jobs** as of 2026-05-03.
 
 **For full fleet autonomy, every agent needs its own scheduled work:**
 - Atlas: nightly `wealth_tracker` refresh + receipt ingestion sweep + tax-window deadline check

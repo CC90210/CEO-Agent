@@ -15,7 +15,7 @@
 
 ## Preferred Tools
 
-- Use `python scripts/supabase_tool.py select <table> --project bravo` for reads.
+- Use `python scripts/integrations/supabase_tool.py select <table> --project bravo` for reads.
 - Use `python scripts/apply_migration.py database/<migration>.sql` for approved migrations.
 - Browser Harness is for dashboard confirmation and UI-only settings.
 

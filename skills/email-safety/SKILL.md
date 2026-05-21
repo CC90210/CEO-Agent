@@ -18,7 +18,7 @@ stream. There is no "undo".
 
 ## The one rule
 
-**All outbound goes through `scripts/send_gateway.py`. Period.**
+**All outbound goes through `scripts/integrations/send_gateway.py`. Period.**
 
 If you find yourself reaching for `smtplib`, the Gmail API, the SES API,
 Mailgun, SendGrid, or any other transport — **stop**. The gateway is the
@@ -40,14 +40,14 @@ Every send command accepts `--dry-run`. The gateway returns
 
 ```bash
 # Preview an email without sending
-python scripts/email_engine.py send \
+python scripts/integrations/email_engine.py send \
   --to test@example.com \
   --subject "Test" \
   --body "Hello" \
   --dry-run
 
 # Same for templates
-python scripts/email_engine.py send-template \
+python scripts/integrations/email_engine.py send-template \
   --template-id <uuid> \
   --to test@example.com \
   --vars '{"first_name":"Alex"}' \
@@ -88,7 +88,7 @@ export BRAVO_FORCE_DRY_RUN=1
 $env:BRAVO_FORCE_DRY_RUN = "1"
 
 # In a single command (bash)
-BRAVO_FORCE_DRY_RUN=1 python scripts/email_engine.py send --to ... --subject ... --body ...
+BRAVO_FORCE_DRY_RUN=1 python scripts/integrations/email_engine.py send --to ... --subject ... --body ...
 ```
 
 To resume real sends, unset the variable. There is no override flag — the
@@ -125,7 +125,7 @@ team (= file an issue) — don't paper over it with a wrapper.
 
 ```bash
 # 1. Preview a one-off email
-python scripts/email_engine.py send \
+python scripts/integrations/email_engine.py send \
   --to alex@northern-hvac.example.com \
   --subject "Quick thought for Northern HVAC" \
   --body "Hi Alex, ..." \
@@ -133,14 +133,14 @@ python scripts/email_engine.py send \
   --dry-run
 
 # 2. Send a known template (real send)
-python scripts/email_engine.py send-template \
+python scripts/integrations/email_engine.py send-template \
   --template-id 7e3a... \
   --to alex@example.com \
   --vars '{"first_name":"Alex","company":"Northern HVAC"}' \
   --brand oasis
 
 # 3. Run a nurture sequence step (real send for step 0)
-python scripts/email_engine.py sequence run <sequence_uuid> \
+python scripts/integrations/email_engine.py sequence run <sequence_uuid> \
   --lead-id <lead_uuid>
 
 # 4. Send a personalized outreach with calendar invite
@@ -210,5 +210,5 @@ You're a smart AI. Act like the email is going to a paying client at
 $2,500/month MRR — because it might be.
 
 ## Related
-- [[skills/INDEX]]
+- [[skills/INDEX.md]]
 - [[brain/CAPABILITIES]]

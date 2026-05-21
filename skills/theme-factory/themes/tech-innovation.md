@@ -19,4 +19,4 @@ A bold and modern theme with high-contrast colors perfect for cutting-edge techn
 Tech startups, software launches, innovation showcases, AI/ML presentations, digital transformation content.
 
 ## Obsidian Links
-- [[skills/theme-factory/SKILL]] | [[skills/INDEX]]
+- [[skills/theme-factory/SKILL.md]] | [[skills/INDEX.md]]

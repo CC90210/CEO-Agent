@@ -666,4 +666,4 @@ If you follow TDD for code, follow it for skills. It's the same discipline appli
 - [[skills/writing-skills/examples/CLAUDE_MD_TESTING]] — CLAUDE.md testing examples and patterns
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

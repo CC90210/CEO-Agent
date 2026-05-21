@@ -255,6 +255,6 @@ That's a legitimate competitive edge, not a marketing line. It's true because Br
 Log progress in `memory/cybersecurity_learning.md` (create on first session).
 
 ## Obsidian Links
-- [[skills/security-protocol/SKILL]]
+- [[skills/security-protocol/SKILL.md]]
 - [[.claude/agents/security-reviewer]] *(security-reviewer is an agent, not a skill — invoke via Task tool with subagent_type:"security-reviewer")*
 - [[brain/RISK_REGISTER]]

@@ -109,4 +109,4 @@ source_decision_id: <agent_decisions row id>
 | `scripts/register_skill.py` | Wire skill into `skills_registry` Supabase table |
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]] | [[memory/PATTERNS]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]] | [[memory/PATTERNS]]

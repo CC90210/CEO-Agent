@@ -51,4 +51,4 @@ gws workflow +file-announce --file-id FILE_ID --space spaces/ABC123 --message 'C
 - [gws-workflow](../gws-workflow/SKILL.md) — All cross-service productivity workflows commands
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

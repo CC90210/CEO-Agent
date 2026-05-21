@@ -107,6 +107,22 @@ as a class. Every command is preserved verbatim:
 
 `telegram_agent.js` is kept as a backup. The gateway is the active path.
 
+## Environment overrides (gateway/adapters/telegram.js)
+
+Auto-detected paths can be overridden when the local layout doesn't match
+defaults (custom Python venv, alternate CLI install location, etc.). Add to
+`.env.agents`:
+
+| Env var | Default | When to set |
+|---|---|---|
+| `BRAVO_PYTHON` | `python3` on Mac, `.venv/Scripts/python.exe` on Windows | Custom virtualenv path or system Python |
+| `BRAVO_MACHINE_NAME` | `MacBook` / `Windows Desktop` | Multi-machine fleets that need distinct labels |
+| `BRAVO_TEMP_DIR` | `/tmp` on Mac, `%TEMP%` or `<repo>/tmp` on Windows | Sandboxes where the default `TEMP` isn't writable |
+| `BRAVO_CLAUDE_EXE` | `claude` on Mac, `~/.local/bin/claude.exe` on Windows | Non-default Claude Code install path |
+| `BRAVO_GEMINI_SCRIPT` | nvm/APPDATA-derived `index.js` path | Custom Gemini CLI install |
+
+All five env vars are optional. The defaults work on CC's standard Windows + Mac layouts.
+
 ## Obsidian Links
 - [[brain/AGENTS]] — routing rules source
 - [[brain/CAPABILITIES]] — full tool inventory

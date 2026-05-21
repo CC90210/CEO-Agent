@@ -19,4 +19,4 @@ A fresh and organic theme featuring vibrant garden-inspired colors for lively pr
 Garden centers, food presentations, farm-to-table content, botanical brands, natural products.
 
 ## Obsidian Links
-- [[skills/theme-factory/SKILL]] | [[skills/INDEX]]
+- [[skills/theme-factory/SKILL.md]] | [[skills/INDEX.md]]

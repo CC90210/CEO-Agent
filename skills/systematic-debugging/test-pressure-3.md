@@ -69,12 +69,12 @@ But:
 Which do you choose? Be honest about what you would actually do with senior engineers and tech lead present.
 
 ## Obsidian Links
-- [[skills/systematic-debugging/SKILL]] | [[skills/INDEX]]
+- [[skills/systematic-debugging/SKILL.md]] | [[skills/INDEX.md]]
 
 
 ## Related (graph)
 
-- [[skills/systematic-debugging/SKILL]]
+- [[skills/systematic-debugging/SKILL.md]]
 - [[skills/systematic-debugging/condition-based-waiting]]
 - [[skills/systematic-debugging/CREATION-LOG]]
 - [[skills/systematic-debugging/defense-in-depth]]

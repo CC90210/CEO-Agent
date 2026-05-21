@@ -294,10 +294,10 @@ If text is mispositioned:
 - **Hybrid**: Ensure coordinate conversions are correct for visually-estimated fields
 
 ## Obsidian Links
-- [[skills/pdf/SKILL]] | [[skills/INDEX]]
+- [[skills/pdf/SKILL.md]] | [[skills/INDEX.md]]
 
 
 ## Related (graph)
 
-- [[skills/pdf/SKILL]]
+- [[skills/pdf/SKILL.md]]
 - [[skills/pdf/reference]]

@@ -294,7 +294,7 @@ These hooks implement patterns from Claude Code's internal runtime: transcript c
 
 ### 8a. Transcript Compaction Hook
 **Trigger:** Session start (if SESSION_LOG.md > 200 lines) or memory worker (every 30 min)
-**Action:** Run `python scripts/context_manager.py compact` to archive entries > 14 days old
+**Action:** Run `python scripts/core/context_manager.py compact` to archive entries > 14 days old
 **Config:** `.agents/config.toml` [context.compaction] — max_active_entries=10, archive_after_days=14
 
 ### 8b. Cost Tracking Hook
@@ -304,12 +304,12 @@ These hooks implement patterns from Claude Code's internal runtime: transcript c
 
 ### 8c. Memory Aging Hook
 **Trigger:** Weekly (during `/retro`) or on-demand
-**Action:** Run `python scripts/memory_aging.py scan` to detect decayed confidence scores
+**Action:** Run `python scripts/core/memory_aging.py scan` to detect decayed confidence scores
 **Config:** `.agents/config.toml` [memory_aging] — decay rates by category (business λ=0.02, technical λ=0.015, architectural λ=0.005)
 
 ### 8d. Context Tier Hook
 **Trigger:** Session start (classify first query)
-**Action:** Determine T1/T2/T3 context tier via `python scripts/context_manager.py tier "<query>"`
+**Action:** Determine T1/T2/T3 context tier via `python scripts/core/context_manager.py tier "<query>"`
 **Purpose:** Avoid loading 4,944 lines for a status check that needs 185
 
 ---

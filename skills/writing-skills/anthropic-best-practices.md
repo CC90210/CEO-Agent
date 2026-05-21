@@ -1150,11 +1150,11 @@ Before sharing a Skill, verify:
 </CardGroup>
 
 ## Obsidian Links
-- [[skills/writing-skills/SKILL]] | [[skills/INDEX]]
+- [[skills/writing-skills/SKILL.md]] | [[skills/INDEX.md]]
 
 
 ## Related (graph)
 
-- [[skills/writing-skills/SKILL]]
+- [[skills/writing-skills/SKILL.md]]
 - [[skills/writing-skills/persuasion-principles]]
 - [[skills/writing-skills/testing-skills-with-subagents]]

@@ -19,4 +19,4 @@ A dramatic and cosmic theme with deep purples and mystical tones for impactful p
 Entertainment industry, gaming presentations, nightlife venues, luxury brands, creative agencies.
 
 ## Obsidian Links
-- [[skills/theme-factory/SKILL]] | [[skills/INDEX]]
+- [[skills/theme-factory/SKILL.md]] | [[skills/INDEX.md]]

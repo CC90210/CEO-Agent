@@ -126,7 +126,7 @@ Log: "[N] templates updated based on recent use"
 
 Log to the V6.0 state DB (auto-mirrors to `memory/SESSION_LOG.md`):
 ```bash
-python scripts/state_manager.py log --agent bravo \
+python scripts/state/state_manager.py log --agent bravo \
   --note "Weekly Knowledge Maintenance — patterns: [N→VALIDATED], mistakes: [N themes / N SOPs], LONG_TERM: [N audited], tasks: [N cleaned], wiki-links: [N fixed]"
 ```
 

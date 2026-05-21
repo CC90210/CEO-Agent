@@ -24,7 +24,7 @@ Everything below is BUILT but **turned off or disconnected**:
 | Funnel → CRM sync | `scripts/funnel_sync.py` | ⏸️ Built, not on cron |
 | Nurture emails (Day 2 + Day 5) | `scripts/funnel_nurture.py` | ⏸️ Built, not on cron |
 | Lead CRM | `scripts/lead_engine.py` | ✅ Working |
-| Email engine | `scripts/email_engine.py` | ✅ Working |
+| Email engine | `scripts/integrations/email_engine.py` | ✅ Working |
 | Booking system | `scripts/booking_engine.py` | ✅ Working |
 | Content calendar | `../CMO-Agent/scripts/content_engine.py` | ✅ 21 drafts sitting idle |
 | Content generator | `../CMO-Agent/scripts/content_generator.py` | ✅ Claude API powered |
@@ -210,14 +210,14 @@ These two scripts are built but NOT registered as cron jobs:
 
 ```bash
 # Funnel sync: check every 4 hours for new funnel leads → sync to CRM
-python scripts/cron_engine.py add \
+python scripts/core/cron_engine.py add \
   --name "Funnel Lead Sync" \
   --action-type funnel_sync \
   --schedule "0 */4 * * *" \
   --description "Sync new cc-funnel leads into CRM leads table + send welcome email"
 
 # Funnel nurture: run daily at 10am ET (14:00 UTC)
-python scripts/cron_engine.py add \
+python scripts/core/cron_engine.py add \
   --name "Funnel Nurture Sequence" \
   --action-type nurture_check \
   --schedule "0 14 * * *" \
@@ -336,7 +336,7 @@ python ../CMO-Agent/scripts/content_engine.py due
 ### 6C. Confirm all cron jobs are active
 
 ```bash
-python scripts/cron_engine.py list
+python scripts/core/cron_engine.py list
 ```
 
 Should show these as active:
@@ -353,8 +353,8 @@ Should show these as active:
 
 ```bash
 # Clean test lead from funnel_leads and leads tables
-python scripts/supabase_tool.py delete funnel_leads --filter "email=test@example.com" --project bravo
-python scripts/supabase_tool.py delete leads --filter "email=test@example.com" --project bravo
+python scripts/integrations/supabase_tool.py delete funnel_leads --filter "email=test@example.com" --project bravo
+python scripts/integrations/supabase_tool.py delete leads --filter "email=test@example.com" --project bravo
 ```
 
 ---

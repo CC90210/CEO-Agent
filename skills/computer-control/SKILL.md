@@ -255,4 +255,4 @@ pip install pyautogui pyperclip pywin32 pillow pycaw plyer mss
 
 ## Obsidian Links
 - [[brain/CAPABILITIES]] | [[brain/AGENTS]]
-- [[skills/browser-automation/SKILL]] | [[skills/security-protocol/SKILL]]
+- [[skills/browser-automation/SKILL.md]] | [[skills/security-protocol/SKILL.md]]

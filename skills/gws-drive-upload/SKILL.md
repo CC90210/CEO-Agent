@@ -53,4 +53,4 @@ gws drive +upload ./data.csv --name 'Sales Data.csv'
 - [gws-drive](../gws-drive/SKILL.md) — All manage files, folders, and shared drives commands
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

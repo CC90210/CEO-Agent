@@ -379,9 +379,9 @@ LOG TO MEMORY
 - **Scope changes** → document in project file, log decision to `memory/DECISIONS.md`
 - **Retro findings** → log to `memory/MISTAKES.md` and `memory/PATTERNS.md`
 - **Client satisfaction** → feed into `skills/client-success/SKILL.md` health score
-- **Budget tracking** → reference `scripts/stripe_tool.py invoices` for revenue side
+- **Budget tracking** → reference `scripts/integrations/stripe_tool.py invoices` for revenue side
 
 ## Obsidian Links
 - [[brain/USER]] | [[memory/ACTIVE_TASKS]] | [[memory/DECISIONS]] | [[brain/CAPABILITIES]]
-- [[skills/client-success/SKILL]] | [[skills/meeting-automation/SKILL]]
-- [[skills/ceo-dashboard/SKILL]] | [[memory/MISTAKES]]
+- [[skills/client-success/SKILL.md]] | [[skills/meeting-automation/SKILL.md]]
+- [[skills/ceo-dashboard/SKILL.md]] | [[memory/MISTAKES]]

@@ -51,7 +51,7 @@ tags: [brain, ceo, operating-system]
 | Project management | `skills/project-management/SKILL.md` | Phase gates, milestones |
 | Meeting automation | `skills/meeting-automation/SKILL.md` | `/meeting-prep` |
 | SOP management | `skills/sop-breakdown/SKILL.md` | Process documentation |
-| Workflow automation | `scripts/n8n_tool.py` | 47+ n8n workflows |
+| Workflow automation | `scripts/integrations/n8n_tool.py` | 47+ n8n workflows |
 | Code shipping | `skills/ship/SKILL.md` | `/ship` |
 
 ### 5. Team & People

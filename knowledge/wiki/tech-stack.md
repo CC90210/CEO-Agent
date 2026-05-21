@@ -52,13 +52,13 @@ tools because credential passing through MCP breaks frequently.
 
 | Tool | Script | Replaces |
 |------|--------|---------|
-| Supabase | `scripts/supabase_tool.py` | Supabase MCP |
-| Stripe | `scripts/stripe_tool.py` | Stripe MCP |
-| n8n | `scripts/n8n_tool.py` | n8n MCP |
+| Supabase | `scripts/integrations/supabase_tool.py` | Supabase MCP |
+| Stripe | `scripts/integrations/stripe_tool.py` | Stripe MCP |
+| n8n | `scripts/integrations/n8n_tool.py` | n8n MCP |
 | Zernio (social) | `../CMO-Agent/scripts/late_tool.py` (owned by Maven) | Late/Zernio MCP |
-| Google Workspace | `scripts/google_tool.py` | — |
+| Google Workspace | `scripts/integrations/google_tool.py` | — |
 | Lead CRM | `scripts/lead_engine.py` | — |
-| Email | `scripts/email_engine.py` | — |
+| Email | `scripts/integrations/email_engine.py` | — |
 | Booking | `scripts/booking_engine.py` | — |
 | Content calendar | `../CMO-Agent/scripts/content_engine.py` | — |
 | Revenue tracking | `scripts/revenue_engine.py` | — |

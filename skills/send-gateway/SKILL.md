@@ -7,7 +7,7 @@ triggers: ["send gateway", "use send gateway", "run send gateway"]
 
 # Send Gateway — the only outbound path
 
-> **Rule of law:** If code sends email, a DM, or any outbound message on CC's behalf, it goes through `scripts/send_gateway.py`. Direct `smtplib.SMTP_SSL()` calls from a business engine are a regression and must be reverted in review.
+> **Rule of law:** If code sends email, a DM, or any outbound message on CC's behalf, it goes through `scripts/integrations/send_gateway.py`. Direct `smtplib.SMTP_SSL()` calls from a business engine are a regression and must be reverted in review.
 
 ## Why this skill exists
 
@@ -61,13 +61,13 @@ result = send(
 ### From the CLI (scheduler, Telegram, manual)
 
 ```
-python scripts/send_gateway.py --json send --channel email \
+python scripts/integrations/send_gateway.py --json send --channel email \
     --to jane@acme.example --subject "..." --body "..." \
     --agent-source manual_cc
 
-python scripts/send_gateway.py can-act --lead-id <uuid> --channel email --json
-python scripts/send_gateway.py history --lead-id <uuid> --limit 10
-python scripts/send_gateway.py stats --json
+python scripts/integrations/send_gateway.py can-act --lead-id <uuid> --channel email --json
+python scripts/integrations/send_gateway.py history --lead-id <uuid> --limit 10
+python scripts/integrations/send_gateway.py stats --json
 ```
 
 ## Intent semantics
@@ -80,7 +80,7 @@ python scripts/send_gateway.py stats --json
 
 ## Brand identity
 
-The `brand` keyword selects CASL footer sender name + business name + address. Add a brand to `BRAND_IDENTITY` in `scripts/send_gateway.py` when CC wants a new one to share the chokepoint.
+The `brand` keyword selects CASL footer sender name + business name + address. Add a brand to `BRAND_IDENTITY` in `scripts/integrations/send_gateway.py` when CC wants a new one to share the chokepoint.
 
 | Brand | Business name | Sender | Use for |
 |---|---|---|---|
@@ -110,7 +110,7 @@ The four live outbound Python engines route through the gateway. `outreach_batch
 | Engine | Function that calls `send()` |
 |---|---|
 | [outreach_engine.py:send_outreach()](../../scripts/outreach_engine.py) | cold outreach with Meet invite .ics |
-| [email_engine.py:cmd_send() / cmd_send_template() / cmd_sequence_run()](../../scripts/email_engine.py) | one-off, templated, and sequence sends |
+| [email_engine.py:cmd_send() / cmd_send_template() / cmd_sequence_run()](../../scripts/integrations/email_engine.py) | one-off, templated, and sequence sends |
 | [funnel_nurture.py:send_email()](../../scripts/funnel_nurture.py) | Day 2 / Day 5 follow-ups |
 | [booking_engine.py:_send_booking_confirmation() / _send_reminder_email()](../../scripts/booking_engine.py) | transactional confirmations + reminders |
 
@@ -127,7 +127,7 @@ Failed sends write only to `email_log` with `status='failed'` for forensics.
 ## Related
 
 - **Migration:** [database/003_unified_interaction_ledger.sql](../../database/003_unified_interaction_ledger.sql) — adds `cooldown_until`, `agent_source`, `metadata` columns + indexes. Apply via `python scripts/apply_migration.py`.
-- **Context builder:** [scripts/context_builder.py](../../scripts/context_builder.py) — `get_entity_context(lead_id)` returns the full relationship context for persona-aware LLM drafting.
+- **Context builder:** [scripts/core/context_builder.py](../../scripts/core/context_builder.py) — `get_entity_context(lead_id)` returns the full relationship context for persona-aware LLM drafting.
 - **Tests:** [scripts/test_send_gateway.py](../../scripts/test_send_gateway.py) — 17 golden + negative path tests. MUST pass before any gateway change ships.
 - **CASL module:** [scripts/casl_compliance.py](../../scripts/casl_compliance.py) — suppression list + footer + List-Unsubscribe helpers the gateway composes.
 

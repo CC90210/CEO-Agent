@@ -19,4 +19,4 @@ A natural and grounded theme featuring earth tones inspired by dense forest envi
 Environmental presentations, sustainability reports, outdoor brands, wellness content, organic products.
 
 ## Obsidian Links
-- [[skills/theme-factory/SKILL]] | [[skills/INDEX]]
+- [[skills/theme-factory/SKILL.md]] | [[skills/INDEX.md]]

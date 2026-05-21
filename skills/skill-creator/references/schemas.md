@@ -430,4 +430,4 @@ Output from post-hoc analyzer. Located at `<grading-dir>/analysis.json`.
 ```
 
 ## Obsidian Links
-- [[skills/skill-creator/SKILL]] | [[skills/INDEX]]
+- [[skills/skill-creator/SKILL.md]] | [[skills/INDEX.md]]

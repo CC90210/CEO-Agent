@@ -369,6 +369,6 @@ Run every Sunday as part of the `/knowledge-maintenance` workflow.
 ---
 
 ## Obsidian Links
-- [[skills/memory-management/SKILL]] | [[skills/sop-breakdown/SKILL]] | [[brain/CAPABILITIES]]
+- [[skills/memory-management/SKILL.md]] | [[skills/sop-breakdown/SKILL.md]] | [[brain/CAPABILITIES]]
 - [[memory/PATTERNS]] | [[memory/MISTAKES]] | [[memory/LONG_TERM]]
 - [[memory/SESSION_LOG]] | [[brain/STATE]] | `data/competitors.json`

@@ -74,4 +74,4 @@ To handle cases where none of the existing themes work for an artifact, create a
 - [[skills/theme-factory/themes/tech-innovation]] — Bold and modern tech aesthetic
 
 ## Obsidian Links
-- [[skills/INDEX]] | [[brain/CAPABILITIES]]
+- [[skills/INDEX.md]] | [[brain/CAPABILITIES]]

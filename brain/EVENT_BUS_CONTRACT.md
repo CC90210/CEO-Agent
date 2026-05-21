@@ -17,8 +17,8 @@ freshness_threshold_days: 14
 | Trigger | `trg_notify_agent_event` → `pg_notify(target_agent OR 'broadcast', payload)` | ⚠ active only if migration 015 applied |
 | RPC: `claim_events()` | `FOR UPDATE SKIP LOCKED` atomic dequeue | ⚠ active only if migration 015 applied |
 | RPC: `ack_event` / `fail_event` / `reap_stuck_events` | retry + reaper helpers | ⚠ active only if migration 015 applied |
-| Publisher API | `scripts/event_bus.py::publish(event_type, payload, source, target, ...)` | ✅ shipped; PGRST204-resilient |
-| Subscriber API | `scripts/event_bus.py::subscribe(agent, handlers={...})` | ✅ shipped; LISTEN-first, polling fallback |
+| Publisher API | `scripts/core/event_bus.py::publish(event_type, payload, source, target, ...)` | ✅ shipped; PGRST204-resilient |
+| Subscriber API | `scripts/core/event_bus.py::subscribe(agent, handlers={...})` | ✅ shipped; LISTEN-first, polling fallback |
 | Offline queue | `tmp/events_offline.jsonl` (drained by `drain_offline_queue()`) | ✅ active when Supabase unreachable |
 
 ## Producer wiring (V6 BUILD 3 batch)
@@ -126,29 +126,29 @@ The LISTEN connection bypasses pgbouncer (transaction pooling drops session stat
 
 ```bash
 # Publish from CLI
-python scripts/event_bus.py publish --type BRAVO_TEST --payload '{"hello":"world"}'
+python scripts/core/event_bus.py publish --type BRAVO_TEST --payload '{"hello":"world"}'
 
 # Tail recent events (for debugging)
-python scripts/event_bus.py tail --agent bravo
+python scripts/core/event_bus.py tail --agent bravo
 
 # Stats: counts per status, per agent
-python scripts/event_bus.py stats
+python scripts/core/event_bus.py stats
 
 # Manually re-queue visibility-timeout rows (cron job runs this every 60s)
-python scripts/event_bus.py reap
+python scripts/core/event_bus.py reap
 
 # Replay offline queue after Supabase outage
-python scripts/event_bus.py drain
+python scripts/core/event_bus.py drain
 ```
 
 ## Router observability (Apex Phase 3, 2026-05-10)
 
-`scripts/event_router.py` is the on-host observability tail on top of the substrate. It polls `agent_events` with a cursor file (`state/event_router.cursor`), projects each row to a uniform shape (`{id, event_type, source_agent, target_agent, severity, published_at, status, preview}`), and appends to `state/event_router.log` (jsonl). Run-modes:
+`scripts/core/event_router.py` is the on-host observability tail on top of the substrate. It polls `agent_events` with a cursor file (`state/event_router.cursor`), projects each row to a uniform shape (`{id, event_type, source_agent, target_agent, severity, published_at, status, preview}`), and appends to `state/event_router.log` (jsonl). Run-modes:
 
 ```bash
-python scripts/event_router.py once               # one tick + exit
-python scripts/event_router.py loop --interval 3  # daemon mode
-python scripts/event_router.py tail --count 20    # last N lines of the log
+python scripts/core/event_router.py once               # one tick + exit
+python scripts/core/event_router.py loop --interval 3  # daemon mode
+python scripts/core/event_router.py tail --count 20    # last N lines of the log
 ```
 
 The router is **read-only and lossless** — it doesn't claim_events / ack_event (that's the per-agent consumer path). Its cursor advances by `max(created_at)` so a crash + restart resumes without re-emitting. Single-machine deployment expected; running two routers on different hosts would double-emit side-effects.
@@ -159,7 +159,7 @@ The dashboard's `/feed` page is the cloud-side view of the same stream — both 
 
 - **State DB (`state/empire_state.db`)** — local-only; the event bus is its cross-agent broadcast layer. State DB writes (`append_session_log`, `heartbeat`) auto-emit corresponding events.
 - **Pulse files (`data/pulse/ceo_pulse.json`)** — still the per-agent snapshot. The bus broadcasts CHANGES to the snapshot; the file remains the canonical "current state" reference.
-- **Agent inbox (`scripts/agent_inbox.py`)** — durable point-to-point messages with response expectations. Bus is fire-and-forget broadcast/multicast. Use inbox when you NEED a reply; use bus when you just want subscribers to know.
+- **Agent inbox (`scripts/core/agent_inbox.py`)** — durable point-to-point messages with response expectations. Bus is fire-and-forget broadcast/multicast. Use inbox when you NEED a reply; use bus when you just want subscribers to know.
 
 ## Obsidian
 - [[brain/CAPABILITIES]] · [[brain/AGENTS]] · [[brain/CROSS_AGENT_AWARENESS]] · [[ARCHITECTURE]]

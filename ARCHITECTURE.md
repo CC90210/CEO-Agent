@@ -9,15 +9,15 @@ V6.0 is the substrate underneath every other system in this document. V5.6 (outb
 
 Five pillars, all gated by `EMPIRE_V6_MODE` (`off` → V5.5 behavior unchanged · `shadow` → dual-write to flat files AND DB for the soak period · `on` → DB authoritative, markdown becomes auto-generated mirror).
 
-### Pillar 1 — Transactional state (`scripts/state_manager.py` + `state/empire_state.db`)
+### Pillar 1 — Transactional state (`scripts/state/state_manager.py` + `state/empire_state.db`)
 
 SQLite in WAL mode is the new source of truth for `agent_state`, `session_log`, `active_task`, and a full `state_transaction` audit trail. **One writer proxy** (`state_manager.py`) wraps every mutation in `BEGIN IMMEDIATE … COMMIT` with a 5-second `busy_timeout`. Five concurrent processes can append to `session_log` simultaneously and the UNIQUE(`session_id`, `note`) constraint gives atomic dedup — replacing the V5.5 race-prone "regex-find-and-replace into markdown" path that lost writes under load.
 
-Markdown stays readable. After every commit, `state_manager.export_markdown()` regenerates `brain/STATE.md` (heartbeat block) and `memory/SESSION_LOG.md` (entries section between AUTO-GENERATED-BEGIN/END markers) from the DB. The operator opens the same files and sees the same data — but the bytes flow DB → markdown, not the other way around. `python scripts/state_manager.py export --check` exits non-zero if the mirrors drift, gating commits.
+Markdown stays readable. After every commit, `state_manager.export_markdown()` regenerates `brain/STATE.md` (heartbeat block) and `memory/SESSION_LOG.md` (entries section between AUTO-GENERATED-BEGIN/END markers) from the DB. The operator opens the same files and sees the same data — but the bytes flow DB → markdown, not the other way around. `python scripts/state/state_manager.py export --check` exits non-zero if the mirrors drift, gating commits.
 
 The CLI surface (`heartbeat`, `log`, `task add/close/list`, `export`, `status`, `import-from-files`) is what every other script calls. `state_sync.py` is now a thin dispatcher that routes to either the V5.5 flat-file path or `state_manager` based on `EMPIRE_V6_MODE` — no caller has to know which era they're running in.
 
-### Pillar 2 — Hybrid retrieval: FTS5 (lexical) + LanceDB/ONNX (semantic) (`scripts/memory_retriever.py`)
+### Pillar 2 — Hybrid retrieval: FTS5 (lexical) + LanceDB/ONNX (semantic) (`scripts/core/memory_retriever.py`)
 
 Two indexes, one query surface, one merge function.
 
@@ -29,14 +29,14 @@ Two indexes, one query surface, one merge function.
 
 **CLI surface:**
 ```bash
-python scripts/memory_retriever.py query "price objections"                    # hybrid (default)
-python scripts/memory_retriever.py query "..." --lexical-only                  # FTS5 only
-python scripts/memory_retriever.py query "..." --semantic-only                 # LanceDB only
-python scripts/memory_retriever.py query "..." --explain                       # show lex_rank, sem_rank, rrf_score per hit
-python scripts/memory_retriever.py query "..." --kind {skill,memory,brain,entry}
-python scripts/memory_retriever.py build [--force] [--lexical-only]            # full reindex (lexical-only skips embedding pass)
-python scripts/memory_retriever.py update                                      # incremental (hash-skipped)
-python scripts/memory_retriever.py status                                      # both legs + LanceDB row count
+python scripts/core/memory_retriever.py query "price objections"                    # hybrid (default)
+python scripts/core/memory_retriever.py query "..." --lexical-only                  # FTS5 only
+python scripts/core/memory_retriever.py query "..." --semantic-only                 # LanceDB only
+python scripts/core/memory_retriever.py query "..." --explain                       # show lex_rank, sem_rank, rrf_score per hit
+python scripts/core/memory_retriever.py query "..." --kind {skill,memory,brain,entry}
+python scripts/core/memory_retriever.py build [--force] [--lexical-only]            # full reindex (lexical-only skips embedding pass)
+python scripts/core/memory_retriever.py update                                      # incremental (hash-skipped)
+python scripts/core/memory_retriever.py status                                      # both legs + LanceDB row count
 ```
 
 **Concrete payoff (measured 2026-05-11):** the query `price objections` returns:
@@ -62,7 +62,7 @@ Three Claude Code `PreToolUse` hooks wired in `.claude/settings.local.json`:
 
 Each guard has three modes via env var (`enforce` / `report` / `off`). Default safe-mode for fresh installs: `secret_guard=enforce`, `exec_guard=report` (soak), `state_guard=off` (until `EMPIRE_V6_MODE=on` cutover). Cloud installs flip all three to `enforce` by default. Every block writes a JSONL audit row to `state/{guard}.log`. The full bypass surface is locked behind a 109-test regression suite at `tests/test_hook_regression.py` — including all three Codex Critical bypasses and five self-review follow-ups.
 
-### Pillar 5 — Cross-agent event bus (`scripts/event_bus.py` + Supabase `agent_events`)
+### Pillar 5 — Cross-agent event bus (`scripts/core/event_bus.py` + Supabase `agent_events`)
 
 V5.x cross-agent coordination ran through three flat JSON files (`ceo_pulse.json`, `cfo_pulse.json`, `cmo_pulse.json`) that every agent polled. Race-prone, latency-bound, no push semantics. V6.0 layers a Postgres-backed durable pub/sub on top.
 
@@ -111,8 +111,8 @@ Defense in depth: a single-service RCE in `bravo-webhook` cannot exfiltrate the 
 - **Setup wizard (`bravo_cli/wizard.py`)** — `step_environment` detects local vs cloud; `step_v6_init` writes hook-mode defaults, bootstraps both DBs, builds the FTS5 index, fans out scoped env files, and optionally runs `docker compose build`.
 - **Command Center modules** — `oasis-command-center:app/system-health/page.tsx` (DB stats + agent ticks + 3 guard cards live), `app/playbook/onboarding/page.tsx` (markdown SOPs from `docs/playbooks/`).
 - **Two-tier `/api/state-health` read path (2026-05-10)** — `oasis-command-center:app/api/state-health/route.ts` tries `state-api:8500/status` first; on Vercel where that hostname is not routable, it falls back to a Supabase mirror that synthesizes the same `StateHealthResponse` shape from `agent_state_snapshot` + `agent_events` + `session_logs` via `getServiceSupabase()`. The response carries `source: "state-api" | "supabase-mirror"` so operators can see which path served the payload (rendered as a tag in the page header). Local-only fields (FTS5 stats, jsonl guard tails) are omitted in the fallback — the page already renders those sections conditionally.
-- **Dashboard-driven override approvals (Apex Phase 2, 2026-05-10)** — `state_manager.create_override_request` best-effort mirrors pending rows to Supabase `exec_overrides` (migration 035). `/overrides` (server component) renders the queue + server-action approve/deny. The action validates the dashboard session, hashes `OASIS_OUTBOUND_HMAC_SECRET` server-side, and calls the `record_exec_override_decision_v1` SECURITY DEFINER RPC which re-checks the secret against `n8n_webhook_secrets`. `scripts/exec_override_consumer.py loop` runs on CC's machine, polls `dashboard_decision IS NOT NULL AND consumer_synced_at IS NULL`, applies via `state_manager.approve_override_request` (which HMAC-signs the SQLite row with `EMPIRE_OVERRIDE_HMAC_KEY`), and stamps `consumer_synced_at` back via `mark_exec_override_synced_v1`. The at-runtime block / allow auth gate stays in local SQLite — Vercel only records operator intent.
-- **Event router + live feed (Apex Phase 3, 2026-05-10)** — `scripts/event_router.py loop` is the on-host event-bus tail. It polls `agent_events` with a cursor file (`state/event_router.cursor`) and appends a projected, scannable summary to `state/event_router.log` jsonl. The cursor makes the consumer lossless + crash-safe. The dashboard's `/feed` page is the cloud-side view of the same stream: server-renders the last hour, a 5-second `router.refresh()` client island keeps it live without websockets. `/api/event-feed` exposes the same read for any future poller. The router is single-machine — multiple hosts running it would each emit duplicate side-effects; the bridge_lock contract owns that arbitration.
+- **Dashboard-driven override approvals (Apex Phase 2, 2026-05-10)** — `state_manager.create_override_request` best-effort mirrors pending rows to Supabase `exec_overrides` (migration 035). `/overrides` (server component) renders the queue + server-action approve/deny. The action validates the dashboard session, hashes `OASIS_OUTBOUND_HMAC_SECRET` server-side, and calls the `record_exec_override_decision_v1` SECURITY DEFINER RPC which re-checks the secret against `n8n_webhook_secrets`. `scripts/state/exec_override_consumer.py loop` runs on CC's machine, polls `dashboard_decision IS NOT NULL AND consumer_synced_at IS NULL`, applies via `state_manager.approve_override_request` (which HMAC-signs the SQLite row with `EMPIRE_OVERRIDE_HMAC_KEY`), and stamps `consumer_synced_at` back via `mark_exec_override_synced_v1`. The at-runtime block / allow auth gate stays in local SQLite — Vercel only records operator intent.
+- **Event router + live feed (Apex Phase 3, 2026-05-10)** — `scripts/core/event_router.py loop` is the on-host event-bus tail. It polls `agent_events` with a cursor file (`state/event_router.cursor`) and appends a projected, scannable summary to `state/event_router.log` jsonl. The cursor makes the consumer lossless + crash-safe. The dashboard's `/feed` page is the cloud-side view of the same stream: server-renders the last hour, a 5-second `router.refresh()` client island keeps it live without websockets. `/api/event-feed` exposes the same read for any future poller. The router is single-machine — multiple hosts running it would each emit duplicate side-effects; the bridge_lock contract owns that arbitration.
 
 ### Cross-agent contract under V6.0
 
@@ -122,7 +122,7 @@ Sibling agents (Atlas, Maven, Aura, Hermes) read Bravo's state through the same 
 
 V5.5 worked. V6.0 was built because three failure modes had already manifested or were imminent:
 
-1. **Race-prone flat files** — concurrent `state_sync.py` invocations from cron + a manual run overwrote each other's heartbeat blocks. Postgres `pg_try_advisory_xact_lock` protected sends ([send_gateway.py:840](scripts/send_gateway.py#L840)) but local state had no protection.
+1. **Race-prone flat files** — concurrent `state_sync.py` invocations from cron + a manual run overwrote each other's heartbeat blocks. Postgres `pg_try_advisory_xact_lock` protected sends ([send_gateway.py:840](scripts/integrations/send_gateway.py#L840)) but local state had no protection.
 2. **Whole-file context bloat** — Tier 2 loads pulled ~104K tokens just to answer "what did we do last week?". The agent regularly burned 4-5× the context it needed before producing the first useful sentence.
 3. **Live secret leak** — the 2026-05-06 plaintext-Stripe-key incident in `%APPDATA%\Antigravity\User\mcp.json` proved the LLM-readable secret surface was a live exploit path, not a theoretical one.
 
@@ -132,7 +132,7 @@ V6.0 closes all three with single-machine SQLite WAL, FTS5 chunk retrieval, and 
 
 ## V5.6 — Outbound Communication Chokepoint (2026-04-20)
 
-Every autonomous outbound action now routes through a single entry point: `scripts/send_gateway.py`. This is the V5.6 headline change.
+Every autonomous outbound action now routes through a single entry point: `scripts/integrations/send_gateway.py`. This is the V5.6 headline change.
 
 **Why:** Before V5.6 four Python engines plus the N8N inbound qualifier could contact the same lead on the same day without seeing each other. The audit of 2026-04-19 traced the "AI sends 10 emails in a row" bug to this fragmentation. Idempotency was a library callers had to remember — so they forgot, or each wrote their own.
 
@@ -150,7 +150,7 @@ Every autonomous outbound action now routes through a single entry point: `scrip
 
 - `database/003_unified_interaction_ledger.sql` — adds `cooldown_until`, `agent_source`, `metadata` columns + four indexes to `lead_interactions`. Purely additive, safe to apply mid-traffic.
 - `scripts/apply_migration.py` — Management API runner for SQL migrations.
-- `scripts/context_builder.py` — `get_entity_context(lead_id)` returns relationship stage, sentiment trajectory, and a compose-ready prompt block. Foundation for persona-aware LLM drafts.
+- `scripts/core/context_builder.py` — `get_entity_context(lead_id)` returns relationship stage, sentiment trajectory, and a compose-ready prompt block. Foundation for persona-aware LLM drafts.
 - `scripts/test_send_gateway.py` — 17 tests covering golden, suppression, cooldown, daily cap, dry-run, input validation, SMTP failure, brand identity, auto-create lead, sentiment, stage inference. Must pass before any gateway change ships.
 - `skills/send-gateway/SKILL.md` — full caller contract and extension guide.
 
@@ -345,7 +345,7 @@ This scoring means a highly-validated pattern used regularly is surfaced faster 
 
 The five-tier model above describes WHERE memories live. The V6.0 retrieval layer changes HOW they enter context.
 
-Instead of `Read memory/MISTAKES.md` (157 lines, ~6KB) on every recall, the agent runs `python scripts/memory_retriever.py query "stripe refund"` and gets back ranked snippets with file:line refs in <10ms. The FTS5 index (`state/memory_index.db`) covers `memory/`, `skills/`, `brain/`, and the five entry-point markdown files — 224 sources / 2,800+ chunks at the time of writing.
+Instead of `Read memory/MISTAKES.md` (157 lines, ~6KB) on every recall, the agent runs `python scripts/core/memory_retriever.py query "stripe refund"` and gets back ranked snippets with file:line refs in <10ms. The FTS5 index (`state/memory_index.db`) covers `memory/`, `skills/`, `brain/`, and the five entry-point markdown files — 224 sources / 2,800+ chunks at the time of writing.
 
 **Token impact:** a Tier 2 standard load that used to inject ~104K tokens now resolves to ≤1500 tokens of targeted snippets. The agent reads the FULL file only when the snippet's heading suggests context outside the chunk window matters.
 
@@ -399,10 +399,10 @@ The matrix prevents role confusion. Without it, every task would default to the 
 | Context7 | Live library documentation | `npx @upstash/context7-mcp` |
 | Memory | Persistent knowledge graph | `npx @modelcontextprotocol/server-memory` |
 | Sequential Thinking | Structured reasoning | `npx @modelcontextprotocol/server-sequential-thinking` |
-| n8n (CLI) | Workflow automation management | `python scripts/n8n_tool.py` |
+| n8n (CLI) | Workflow automation management | `python scripts/integrations/n8n_tool.py` |
 | Late (CLI) | Social media posting (8+ platforms) | `python ../CMO-Agent/scripts/late_tool.py` (Maven) |
-| Supabase (CLI) | Database queries and migrations | `python scripts/supabase_tool.py` |
-| Stripe (CLI) | Payment and subscription data | `python scripts/stripe_tool.py` |
+| Supabase (CLI) | Database queries and migrations | `python scripts/integrations/supabase_tool.py` |
+| Stripe (CLI) | Payment and subscription data | `python scripts/integrations/stripe_tool.py` |
 
 ### Why MCP Over Raw API Calls?
 
@@ -421,8 +421,8 @@ Zero credentials appear in any config file. The config files are safe to commit 
 When MCPs break (and they do — Stripe MCP v0.3.1 silently switched to OAuth proxy mode and broke all `--api-key` auth), the CLI-Anything pattern provides a durable fallback:
 
 ```
-python scripts/stripe_tool.py balance
-python scripts/supabase_tool.py select <table> --project bravo
+python scripts/integrations/stripe_tool.py balance
+python scripts/integrations/supabase_tool.py select <table> --project bravo
 ```
 
 These are Python subprocess wrappers that use the official SDKs directly. They support a `--json` flag for structured output, read credentials from `.env.agents`, and work identically across Claude, Gemini, and Antigravity. MCPs are the preferred path; CLI tools are the resilience layer.
@@ -623,7 +623,7 @@ Regex/AST guards eventually false-positive on a legitimate command. Without an e
 
 1. `exec_guard` blocks a command.
 2. Hook auto-creates `override_request` row in `state/empire_state.db` (status: `pending`, TTL: 5 min, idempotent on `command_hash`). The `request_id` is included in stderr alongside the block reason.
-3. Operator from an interactive terminal: `python scripts/exec_override.py approve req-7fed684e [--reason "..."]`. Helper validates the parent is a TTY (refuses LLM-spawned subprocesses), HMAC-signs the row, marks `status='approved'`.
+3. Operator from an interactive terminal: `python scripts/state/exec_override.py approve req-7fed684e [--reason "..."]`. Helper validates the parent is a TTY (refuses LLM-spawned subprocesses), HMAC-signs the row, marks `status='approved'`.
 4. Agent retries the SAME command. `exec_guard` calls `state_manager.find_fresh_approval(cmd)` → finds the approved+signed row → atomically consumes it (`status='consumed'`, `consumed_at=now`) → allows the call.
 5. Subsequent attempts at the same command create a new request — single-use is the contract.
 
@@ -792,9 +792,9 @@ The Supabase `memories` table uses full-text search, not vector embeddings. Vect
 | `memory/LONG_TERM.md` | High-confidence persistent facts | Agent (FREELY MUTABLE) |
 | `memory/SOP_LIBRARY.md` | Standard operating procedures | Agent (GOVERNED) |
 | `.env.agents` | All credentials (gitignored) | CC only |
-| `scripts/supabase_tool.py` | Supabase SDK CLI | Agent/CC |
-| `scripts/stripe_tool.py` | Stripe SDK CLI | Agent/CC |
-| `scripts/n8n_tool.py` | n8n REST API CLI | Agent/CC |
+| `scripts/integrations/supabase_tool.py` | Supabase SDK CLI | Agent/CC |
+| `scripts/integrations/stripe_tool.py` | Stripe SDK CLI | Agent/CC |
+| `scripts/integrations/n8n_tool.py` | n8n REST API CLI | Agent/CC |
 | `../CMO-Agent/scripts/late_tool.py` (owned by Maven) | Late social media CLI | Agent/CC |
 
 ---

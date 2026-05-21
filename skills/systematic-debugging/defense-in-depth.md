@@ -122,12 +122,12 @@ All four layers were necessary. During testing, each layer caught bugs the other
 **Don't stop at one validation point.** Add checks at every layer.
 
 ## Obsidian Links
-- [[skills/systematic-debugging/SKILL]] | [[skills/INDEX]]
+- [[skills/systematic-debugging/SKILL.md]] | [[skills/INDEX.md]]
 
 
 ## Related (graph)
 
-- [[skills/systematic-debugging/SKILL]]
+- [[skills/systematic-debugging/SKILL.md]]
 - [[skills/systematic-debugging/condition-based-waiting]]
 - [[skills/systematic-debugging/CREATION-LOG]]
 - [[skills/systematic-debugging/root-cause-tracing]]

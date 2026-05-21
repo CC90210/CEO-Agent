@@ -191,7 +191,7 @@ Rule of thumb: **if you could finish the task in 3 tool calls before the sub-age
 Before firing any parallel / complex sub-agent operation, Bravo runs:
 
 ```bash
-python scripts/self_audit.py
+python scripts/core/self_audit.py
 ```
 
 If health score < 85 → abort orchestration, clean up drift first. Broken state multiplied across 4 parallel agents = compounded failure.
@@ -203,7 +203,7 @@ Anthropic's Claude Code Design Space Paper (arXiv:2604.14228) explicitly calls o
 Bravo's mitigations for this gap:
 1. **Validator subagent** (above) — Haiku reads all sub-agent outputs against criteria
 2. **Result Schema** (above) — every agent must self-report `confidence` + `risks`
-3. **Agent inbox** (SHIPPED 2026-04-21) — `scripts/agent_inbox.py` + `skills/agent-inbox/SKILL.md` + `tmp/agent_inbox/`. Bravo reads the inbox on session start per CLAUDE.md Session Protocol. Codex, Atlas, Maven, Aura all post to the inbox for async coordination. **Integration hook pending:** `codex-companion.mjs` should auto-post a completion message after every background task — currently manual, next session's wiring task.
+3. **Agent inbox** (SHIPPED 2026-04-21) — `scripts/core/agent_inbox.py` + `skills/agent-inbox/SKILL.md` + `tmp/agent_inbox/`. Bravo reads the inbox on session start per CLAUDE.md Session Protocol. Codex, Atlas, Maven, Aura all post to the inbox for async coordination. **Integration hook pending:** `codex-companion.mjs` should auto-post a completion message after every background task — currently manual, next session's wiring task.
 4. **MISTAKES.md tag** — when an agent claim turns out wrong (like the orphan-audit false positives in session 2026-04-21), log tagged `agent-hallucination` so patterns surface over time
 
 ## Bravo's Own Context Budget (from Anthropic 2026 docs)
@@ -384,12 +384,12 @@ Run quarterly or after major capability additions:
 
 ```bash
 # Tier 1: Core tools (must all pass)
-python scripts/google_tool.py test
-python scripts/supabase_tool.py list-tables --project bravo
-python scripts/stripe_tool.py balance
+python scripts/integrations/google_tool.py test
+python scripts/integrations/supabase_tool.py list-tables --project bravo
+python scripts/integrations/stripe_tool.py balance
 python scripts/late_tool.py --json accounts
-python scripts/n8n_tool.py list
-python scripts/firecrawl_tool.py search "test"
+python scripts/integrations/n8n_tool.py list
+python scripts/integrations/firecrawl_tool.py search "test"
 
 # Tier 2: Business ops (must all pass)
 python scripts/lead_engine.py --json list

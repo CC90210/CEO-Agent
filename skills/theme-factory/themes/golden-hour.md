@@ -19,4 +19,4 @@ A rich and warm autumnal palette that creates an inviting and sophisticated atmo
 Restaurant presentations, hospitality brands, fall campaigns, cozy lifestyle content, artisan products.
 
 ## Obsidian Links
-- [[skills/theme-factory/SKILL]] | [[skills/INDEX]]
+- [[skills/theme-factory/SKILL.md]] | [[skills/INDEX.md]]
