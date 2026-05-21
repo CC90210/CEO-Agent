@@ -88,6 +88,12 @@ services:
     labels:
       bravo.role: webhook
       bravo.profile: local
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=5).status==200 else 1)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # Read-only state API for the local Command Center to consume.
   # Wraps state_manager.status() + tails state/*.log. No write capability.
@@ -106,6 +112,12 @@ services:
     labels:
       bravo.role: state-api
       bravo.profile: local
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8500/health', timeout=5).status==200 else 1)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 networks:
   bravo-net:

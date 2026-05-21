@@ -55,6 +55,15 @@ except ImportError as e:  # pragma: no cover — import error surfaces on `pip i
 
 from event_bus import publish as bus_publish  # noqa: E402
 
+# V6.8.3 rate limiter — webhooks are public, so the bucket is more permissive
+# than state_api but still capped. Stripe sends bursts of related events; n8n
+# may retry on transient 5xx. 60 req/s steady-state, burst to 120.
+try:
+    from lib.rate_limiter import RateLimiter  # type: ignore
+    _LIMITER = RateLimiter(rate=60, burst=120, name="webhook-listener")
+except ImportError:
+    _LIMITER = None  # rate-limiting disabled if lib/ unavailable (dev env)
+
 # ---- Env ------------------------------------------------------------------
 
 def _load_env() -> dict[str, str]:
@@ -82,7 +91,28 @@ TELEGRAM_SECRET_TOKEN = ENV.get("TELEGRAM_WEBHOOK_SECRET", "")
 _COUNTERS: dict[str, int] = {"stripe": 0, "n8n": 0, "telegram": 0, "rejected": 0}
 
 
-app = FastAPI(title="Bravo Webhook Listener", version="6.0.0", docs_url=None, redoc_url=None)
+app = FastAPI(title="Bravo Webhook Listener", version="6.8.3", docs_url=None, redoc_url=None)
+
+
+@app.middleware("http")
+async def _rate_limit(request: Request, call_next):
+    # /healthz and /health are exempt — never throttle liveness probes.
+    if request.url.path in ("/healthz", "/health"):
+        return await call_next(request)
+    if _LIMITER is None:
+        return await call_next(request)
+    client_id = (request.client.host if request.client else "unknown")
+    decision = _LIMITER.check(client_id)
+    if not decision.allowed:
+        return JSONResponse(
+            status_code=429,
+            content={"error": "rate_limited", "retry_after": int(round(decision.retry_after))},
+            headers=decision.as_headers(),
+        )
+    response = await call_next(request)
+    for k, v in decision.as_headers().items():
+        response.headers.setdefault(k, v)
+    return response
 
 
 # ---- Helpers --------------------------------------------------------------
@@ -117,6 +147,32 @@ def _body_hash(raw: bytes) -> str:
 @app.get("/healthz", include_in_schema=False)
 async def healthz() -> PlainTextResponse:
     return PlainTextResponse("ok", status_code=200)
+
+
+@app.get("/health", include_in_schema=False)
+async def health() -> JSONResponse:
+    """V6.8.3 enriched health endpoint — same shape as state_api /health so
+    `verify_deploy` + the dashboard can poll both with one schema."""
+    from datetime import datetime, timezone
+    checks: dict[str, dict[str, Any]] = {
+        "secrets": {
+            "status": "ok" if STRIPE_WEBHOOK_SECRET and (WEBHOOK_N8N_TOKEN or TELEGRAM_SECRET_TOKEN) else "warn",
+            "stripe_secret": bool(STRIPE_WEBHOOK_SECRET),
+            "n8n_token": bool(WEBHOOK_N8N_TOKEN),
+            "telegram_token": bool(TELEGRAM_SECRET_TOKEN),
+        },
+        "counters": {"status": "ok", **dict(_COUNTERS)},
+    }
+    any_degraded = any(c["status"] not in ("ok",) for c in checks.values())
+    return JSONResponse(
+        status_code=200,
+        content={
+            "status": "degraded" if any_degraded else "healthy",
+            "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "version": app.version,
+            "checks": checks,
+        },
+    )
 
 
 @app.get("/stats", include_in_schema=False)

@@ -27,6 +27,22 @@ import json
 import sys
 from pathlib import Path
 
+# V6.8.3 reliability primitive — @retry transient network/timeout errors.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+try:
+    from lib.retry import retry, RetryConfig  # type: ignore
+    _RETRY_OK = True
+except ImportError:
+    _RETRY_OK = False
+
+    def retry(*_a, **_kw):  # type: ignore
+        def _wrap(fn):
+            return fn
+        return _wrap
+
+    class RetryConfig:  # type: ignore
+        def __init__(self, *a, **kw): pass
+
 try:
     import requests
 except ImportError:
@@ -86,6 +102,19 @@ class StripeClient:
         }
         self.account_id = account_id
     
+    # V6.8.3: transient network errors (ConnectionError, Timeout) get 2
+    # retries with exponential backoff. Stripe API errors (4xx/5xx) still
+    # surface immediately — Stripe is highly available, and retrying a 4xx
+    # would just repeat the validation failure.
+    _RETRY = RetryConfig(
+        max_retries=2,
+        base_delay=0.5,
+        max_delay=8.0,
+        jitter=True,
+        retryable_exceptions=(ConnectionError, TimeoutError),
+    )
+
+    @retry(_RETRY)
     def get(self, endpoint, params=None):
         """GET request to Stripe API."""
         resp = requests.get(f"{STRIPE_API}/{endpoint}", headers=self.headers, params=params or {}, timeout=15)
@@ -93,7 +122,8 @@ class StripeClient:
             error = resp.json().get("error", {})
             raise Exception(f"Stripe API error ({resp.status_code}): {error.get('message', resp.text[:300])}")
         return resp.json()
-    
+
+    @retry(_RETRY)
     def post(self, endpoint, data=None):
         """POST request to Stripe API."""
         resp = requests.post(f"{STRIPE_API}/{endpoint}", headers=self.headers, data=data or {}, timeout=15)
