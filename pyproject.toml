@@ -1,0 +1,94 @@
+[project]
+name = "business-empire-agent"
+version = "6.8.3"
+description = "CC's autonomous AI operations hub — Bravo agent runtime"
+requires-python = ">=3.12"
+authors = [{ name = "Conaugh McKenna", email = "admin@oasisai.work" }]
+readme = "README.md"
+license = { text = "Proprietary" }
+
+# Runtime deps live in requirements.txt (canonical). This block stays empty so
+# `pip install -e .` doesn't fight requirements.txt for ownership of versions.
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+# Don't try to auto-discover packages — scripts/ is intentionally NOT a
+# package (each .py is independently runnable). Tests live in scripts/test_*.
+# This stub prevents setuptools from scanning the tree and emitting noise.
+[tool.setuptools]
+packages = []
+
+# ── Pytest ─────────────────────────────────────────────────────────────────
+
+[tool.pytest.ini_options]
+testpaths = ["scripts"]
+python_files = ["test_*.py"]
+addopts = "--tb=short"
+filterwarnings = [
+    "ignore::DeprecationWarning:datetime",
+]
+markers = [
+    "integration: hits live external services; skip in CI",
+    "slow: takes more than 5 seconds",
+]
+
+# ── Ruff ───────────────────────────────────────────────────────────────────
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+extend-exclude = [
+    "_archive",
+    "in-progress",
+    "tmp",
+    "state",
+    ".venv",
+    "node_modules",
+    "media",
+    "templates/agent-scaffold",  # operator-substituted tokens look like bad syntax
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line length — handled by formatter
+    "B008",  # mutable default — common in dataclass(field=field(default_factory=list))
+    "SIM108",  # ternary if-else preference — situational
+    "UP007",  # X | Y syntax — too aggressive for stdlib parity
+]
+per-file-ignores = { "scripts/test_*.py" = ["E402", "F401"] }
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
+
+# ── Mypy (lenient — primarily for net-new V6.8.3 modules) ─────────────────
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+warn_unused_configs = true
+no_implicit_optional = true
+# Stay lenient on legacy scripts — strict only where we've already typed.
+files = [
+    "scripts/lib/retry.py",
+    "scripts/lib/structured_log.py",
+    "scripts/lib/rate_limiter.py",
+    "scripts/lib/secret_loader.py",
+    "scripts/state/backup_db.py",
+    "scripts/state/health_aggregator.py",
+    "scripts/core/error_knowledge_pipeline.py",
+    "scripts/security_audit.py",
+    "scripts/deploy/verify_deploy.py",
+]

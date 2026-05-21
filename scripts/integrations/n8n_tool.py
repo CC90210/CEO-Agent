@@ -29,6 +29,25 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 
+# V6.8.3 reliability primitives — auto-retry transient n8n errors with
+# exponential backoff. Missing imports are non-fatal: if the lib/ tree
+# isn't on sys.path (e.g. running this script standalone outside the
+# repo), we fall back to a no-op decorator.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+try:
+    from lib.retry import retry, RetryConfig  # type: ignore
+    _RETRY_OK = True
+except ImportError:
+    _RETRY_OK = False
+
+    def retry(*_a, **_kw):  # noqa: D401
+        def _wrap(fn):
+            return fn
+        return _wrap
+
+    class RetryConfig:  # noqa: D401
+        def __init__(self, *a, **kw): pass
+
 
 def load_env():
     """Load .env.agents from project root."""
@@ -54,8 +73,20 @@ class N8nClient:
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
 
+    @retry(RetryConfig(
+        max_retries=2,
+        base_delay=0.5,
+        max_delay=8.0,
+        jitter=True,
+        retryable_exceptions=(URLError, TimeoutError, ConnectionError),
+    ))
     def _request(self, method: str, path: str, data=None, params=None) -> dict:
-        """Make authenticated API request."""
+        """Make authenticated API request.
+
+        V6.8.3: wrapped in @retry — transient URLError / connection failures
+        are retried up to 2 times with exponential backoff. Non-transient
+        HTTPError (4xx / 5xx) still terminates immediately.
+        """
         url = f"{self.base_url}/api/v1{path}"
         if params:
             url += "?" + urlencode(params)
@@ -85,8 +116,10 @@ class N8nClient:
             print(f"ERROR: n8n API {e.code}: {msg}", file=sys.stderr)
             sys.exit(1)
         except URLError as e:
-            print(f"ERROR: Connection failed: {e.reason}", file=sys.stderr)
-            sys.exit(1)
+            # Bubble URLError up so @retry can act on it before the script
+            # decides to exit. After exhausted retries the wrapper re-raises;
+            # then we catch it here at the call sites if desired.
+            raise
 
     # --- Workflow CRUD ---
 

@@ -111,20 +111,54 @@ on first request (may take 30-90s).
 
 ## 2. First deploy
 
+### 2.1 Pre-deploy gate (V6.8.3 — required)
+
+Before touching production, the gate must pass on the build host:
+
+```bash
+# All-in-one verification (tests + compile + health + security + entry-point
+# consistency + docker config + env vars + bridge manifest)
+python scripts/deploy/verify_deploy.py
+# → exit 0 = SAFE_TO_DEPLOY
+# → exit 2 = DEPLOY_WITH_CAUTION (warnings; review)
+# → exit 1 = DO_NOT_DEPLOY (critical fail; fix first)
+
+# Quick gate (critical checks only, ~15s)
+python scripts/deploy/verify_deploy.py --quick
+
+# Belt-and-braces health snapshot
+python scripts/state/health_aggregator.py
+
+# Take a state backup BEFORE you flip
+python scripts/state/backup_db.py backup --keep 7
+```
+
+### 2.2 Compose up
+
 ```bash
 cd /srv/bravo
 docker compose -f infra/docker-compose.yml --env-file .env.agents up -d --build
 docker compose logs -f bravo-core   # watch the brain loop come up
 ```
 
-Verify:
+### 2.3 Verify the deploy
 
 ```bash
+# Public health (Caddy → bravo-webhook /healthz)
 curl -fsS https://ops.oasisai.work/healthz
 # → ok
 
+# State-API local health (the V6.8.3 enriched endpoint with sub-checks)
+curl -fsS http://localhost:8500/health | python -m json.tool
+# → {"status": "healthy", "checks": {"database": {"status": "ok", ...}, ...}}
+
+# Container status
 docker compose ps
-# all services "running (healthy)"
+# → all services "running (healthy)"
+
+# Re-run the aggregator against the live system
+python scripts/state/health_aggregator.py
+# → Overall: HEALTHY
 ```
 
 ---
@@ -160,6 +194,26 @@ docker compose exec bravo-core python scripts/core/event_bus.py stats
 # Reap stuck events manually
 docker compose exec bravo-core python scripts/core/event_bus.py reap
 ```
+
+---
+
+## 4.1 V6.8.3 production-hardening tools
+
+| Need | Command |
+|---|---|
+| Backup all state DBs (cron-compatible) | `python scripts/state/backup_db.py backup --keep 7` |
+| Restore from a specific backup | `python scripts/state/backup_db.py restore --file <name>` |
+| Verify a backup file's integrity | `python scripts/state/backup_db.py verify --file <name>` |
+| Aggregate health across 10 subsystems | `python scripts/state/health_aggregator.py` |
+| Pre-deploy gate (full) | `python scripts/deploy/verify_deploy.py` |
+| Pre-deploy gate (quick) | `python scripts/deploy/verify_deploy.py --quick` |
+| Run full security audit | `python scripts/security_audit.py scan` |
+| Single security scan | `python scripts/security_audit.py {secrets,injection,perms,evals,traversal,deps,guards}` |
+| Parse logs → suggest MISTAKES.md entries | `python scripts/core/error_knowledge_pipeline.py suggest` |
+| Generate CHANGELOG draft from git log | `python scripts/generate_changelog.py` |
+
+The nightly cron `state_backup` (registered in `cron_engine.SEED_JOBS`) runs
+03:00 daily; backups go to `state/backups/` (gitignored).
 
 ---
 

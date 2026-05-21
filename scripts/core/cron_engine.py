@@ -221,6 +221,14 @@ SEED_JOBS: list[dict] = [
         "action_config": {"script": "scripts/snapshots/client_alerts_snapshot.py", "args": []},
         "is_active": True,
     },
+    {
+        "name": "Daily State DB Backup",
+        "description": "V6.8.3 nightly backup of empire_state.db + memory_index.db + site_reputation.db to state/backups/ with PRAGMA integrity_check verification. Keeps last 7. Uses sqlite3.Connection.backup() — consistent snapshot even in WAL mode.",
+        "schedule": "0 3 * * *",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/state/backup_db.py", "args": ["backup", "--keep", "7"]},
+        "is_active": True,
+    },
 ]
 
 

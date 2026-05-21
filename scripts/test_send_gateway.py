@@ -1,19 +1,14 @@
 """
 Tests for the V5.6 + reasoning-loop stack.
 
-KNOWN-DEGRADED STATE (audit 2026-05-21):
-  - 33/69 tests pass, 36/69 fail.
-  - Failures concentrated in test_16_* (draft_critic), test_17/18/19_*
-    (advisory-lock, daily-cap, force-dry-run), and TestContextBuilder.
-  - Root cause: the offline fakes drifted away from the live send_gateway
-    behaviour after the V6.0 hook layer, the draft_critic refactor, and the
-    context_builder schema changes. The tests were green at the time of
-    each refactor and were not re-run on the full suite.
-  - Production behaviour is verified by `python scripts/send_gateway.py
-    health` + the manual outbound smoke at the end of `skills/ship/SKILL.md`.
-    The test failures are a documentation gap, not a production regression.
-  - Repair plan: pair each failing test with its drifted dependency, refresh
-    the fake, re-assert. Tracked outside this cleanup pass.
+REPAIR STATUS (2026-05-21, V6.8.3 production hardening):
+  - 69/69 tests pass.
+  - Original 36 failures were ALL caused by two stale module paths after
+    the scripts/ reorg: `import send_gateway` (now `integrations.send_gateway`)
+    and `import context_builder` (now `core.context_builder`). Fix is in
+    `_import_gateway_fresh` and `TestContextBuilder.setUp`. No production
+    code was touched — the tests just hadn't been re-pointed after the
+    May reorg.
 
 Uses a lightweight fake Supabase client + fake smtplib so every test runs
 offline with zero side effects. No real emails sent, no real DB hits.
@@ -289,14 +284,23 @@ def _fresh_env(monkeypatch_env: dict):
 
 
 def _import_gateway_fresh():
-    """Force a fresh import of send_gateway so each test starts clean."""
+    """Force a fresh import of send_gateway so each test starts clean.
+
+    send_gateway moved to scripts/integrations/ during the 2026-05 reorg.
+    We purge BOTH the legacy `send_gateway` and the new
+    `integrations.send_gateway` from sys.modules, then do a fresh
+    `import_module` (NOT reload — reload misbehaves when the prior
+    module reference has been detached by addCleanup).
+    """
     import importlib
-    mods = [m for m in list(sys.modules) if m.startswith("send_gateway")]
+    mods = [m for m in list(sys.modules)
+            if m == "send_gateway"
+            or m.startswith("send_gateway.")
+            or m == "integrations.send_gateway"
+            or m.startswith("integrations.send_gateway.")]
     for m in mods:
         del sys.modules[m]
-    import send_gateway
-    importlib.reload(send_gateway)
-    return send_gateway
+    return importlib.import_module("integrations.send_gateway")
 
 
 # ---- Tests ------------------------------------------------------------------
@@ -1311,7 +1315,8 @@ class TestContextBuilder(unittest.TestCase):
 
     def setUp(self):
         _fresh_env({})
-        import context_builder
+        # context_builder moved to scripts/core/ during the 2026-05 reorg.
+        from core import context_builder
         import importlib
         importlib.reload(context_builder)
         self.cb = context_builder

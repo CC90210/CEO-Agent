@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-21T22:58:04.682641+00:00",
-  "script_count": 66,
-  "entry_count": 181,
+  "generated_at_iso": "2026-05-21T23:36:40.920958+00:00",
+  "script_count": 68,
+  "entry_count": 183,
   "entries": [
     {
       "key": "apply_migration",
@@ -528,6 +528,13 @@
       "subcmd": "list-adapters",
       "mutating": false,
       "help": "gateway_admin.py \u2014 CLI admin tool for the multi-platform messaging gateway. \u2014 subcommand: list-adapters"
+    },
+    {
+      "key": "generate_changelog",
+      "path": "scripts/generate_changelog.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Generate a conventional-commits \u2192 CHANGELOG.md draft from `git log`."
     },
     {
       "key": "gnn_skill_router_export_graph",
@@ -1095,6 +1102,13 @@
       "subcmd": null,
       "mutating": false,
       "help": "Lead scraper using Firecrawl API (replaces slow Playwright + Google Maps flow)."
+    },
+    {
+      "key": "security_audit",
+      "path": "scripts/security_audit.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Empire-wide security audit. Seven independent scans, one report."
     },
     {
       "key": "seed_plan_template",
