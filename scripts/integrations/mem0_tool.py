@@ -93,7 +93,7 @@ def build_config(env_vars: dict[str, str]) -> dict:
         sys.exit(1)
 
     # Local Qdrant path — persisted inside the project data/ directory
-    qdrant_path = str(Path(__file__).resolve().parent.parent / "data" / "mem0_qdrant")
+    qdrant_path = str(Path(__file__).resolve().parent.parent.parent / "data" / "mem0_qdrant")
     Path(qdrant_path).mkdir(parents=True, exist_ok=True)
 
     # Optional: Supabase pgvector upgrade path

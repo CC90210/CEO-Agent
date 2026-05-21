@@ -13,13 +13,13 @@ from reportlab.lib import colors
 # Load env vars
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env.agents'))
 
-# Physical send lives in the V5.6 chokepoint (scripts/send_gateway.py).
+# Physical send lives in the V5.6 chokepoint (scripts/integrations/send_gateway.py).
 # Rewired 2026-04-20 — onboarding emails are TRANSACTIONAL mail (client
 # just paid / agreed), so intent='transactional' bypasses suppression
 # while still adding CASL footer + List-Unsubscribe and writing to the
 # unified ledger. Before this rewire, onboarding emails were a gateway
 # bypass and skipped legal hygiene.
-_SCRIPTS_DIR = Path(__file__).resolve().parent.parent
+_SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent
 if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
 
