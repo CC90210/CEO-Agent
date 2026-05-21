@@ -15,9 +15,9 @@ Usage:
     sync_vercel_verify_txt('oasisai.work', 'oasis-ai-platform')
 
     # As a CLI
-    python scripts/cloudflare_admin.py sync-vercel-txt --domain oasisai.work --vercel-project oasis-ai-platform
-    python scripts/cloudflare_admin.py list-zone --domain oasisai.work
-    python scripts/cloudflare_admin.py upsert-txt --domain oasisai.work --name _vercel --value "vc-domain-verify=..."
+    python scripts/integrations/cloudflare_admin.py sync-vercel-txt --domain oasisai.work --vercel-project oasis-ai-platform
+    python scripts/integrations/cloudflare_admin.py list-zone --domain oasisai.work
+    python scripts/integrations/cloudflare_admin.py upsert-txt --domain oasisai.work --name _vercel --value "vc-domain-verify=..."
 """
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT))
 
 from dotenv import load_dotenv  # type: ignore

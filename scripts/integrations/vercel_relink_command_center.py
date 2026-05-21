@@ -28,7 +28,7 @@ import sys
 from pathlib import Path
 from urllib import request, error
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 from lib.secret_loader import load_env  # type: ignore  # noqa: E402

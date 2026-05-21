@@ -4,17 +4,17 @@ Replaces the broken n8n MCP management tools with direct API access.
 All credentials loaded from .env.agents (never hardcoded).
 
 Usage (from any agent via terminal):
-  python scripts/n8n_tool.py list                          # List all workflows
-  python scripts/n8n_tool.py get <id>                      # Get workflow details
-  python scripts/n8n_tool.py create <json_file_or_string>  # Create workflow from JSON
-  python scripts/n8n_tool.py update <id> <json>            # Update workflow
-  python scripts/n8n_tool.py activate <id>                 # Activate workflow
-  python scripts/n8n_tool.py deactivate <id>               # Deactivate workflow
-  python scripts/n8n_tool.py delete <id>                   # Delete workflow
-  python scripts/n8n_tool.py execute <id> [--data '{}']    # Execute/test workflow
-  python scripts/n8n_tool.py executions <id> [--limit 5]   # View execution history
-  python scripts/n8n_tool.py export <id> [--output file]   # Export workflow JSON
-  python scripts/n8n_tool.py import <json_file>            # Import workflow from file
+  python scripts/integrations/n8n_tool.py list                          # List all workflows
+  python scripts/integrations/n8n_tool.py get <id>                      # Get workflow details
+  python scripts/integrations/n8n_tool.py create <json_file_or_string>  # Create workflow from JSON
+  python scripts/integrations/n8n_tool.py update <id> <json>            # Update workflow
+  python scripts/integrations/n8n_tool.py activate <id>                 # Activate workflow
+  python scripts/integrations/n8n_tool.py deactivate <id>               # Deactivate workflow
+  python scripts/integrations/n8n_tool.py delete <id>                   # Delete workflow
+  python scripts/integrations/n8n_tool.py execute <id> [--data '{}']    # Execute/test workflow
+  python scripts/integrations/n8n_tool.py executions <id> [--limit 5]   # View execution history
+  python scripts/integrations/n8n_tool.py export <id> [--output file]   # Export workflow JSON
+  python scripts/integrations/n8n_tool.py import <json_file>            # Import workflow from file
 
 Flags:
   --json    Output raw JSON for agent consumption
@@ -32,7 +32,7 @@ from urllib.parse import urlencode
 
 def load_env():
     """Load .env.agents from project root."""
-    env_path = Path(__file__).resolve().parent.parent / ".env.agents"
+    env_path = Path(__file__).resolve().parent.parent.parent / ".env.agents"
     if not env_path.exists():
         print(f"ERROR: {env_path} not found", file=sys.stderr)
         sys.exit(1)

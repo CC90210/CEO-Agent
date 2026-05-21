@@ -26,7 +26,12 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+# Project root is THREE levels up from this file:
+#   scripts/integrations/supabase_admin.py → scripts/integrations → scripts → <repo root>
+# The file moved into scripts/integrations/ during a 2026-05-20 reorg
+# without updating the parent count, which left .env.agents unloadable
+# and forced every caller to re-implement env loading inline.
+ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT))
 
 from dotenv import load_dotenv  # type: ignore

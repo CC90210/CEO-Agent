@@ -4,17 +4,17 @@ Zero paid services. Gmail SMTP (500/day free) + Supabase for tracking.
 All credentials loaded from .env.agents (never hardcoded).
 
 Usage:
-  python scripts/email_engine.py send --to "person@email.com" --subject "Subject" --body "Body"
-  python scripts/email_engine.py send --to "person@email.com" --subject "Subject" --body "Body" --html "<h1>Hi</h1>" --lead-id uuid
-  python scripts/email_engine.py send-template --template-id uuid --to "person@email.com" --vars '{"first_name": "John"}'
-  python scripts/email_engine.py templates list
-  python scripts/email_engine.py templates create --name "Welcome" --subject "Welcome to OASIS" --body-html "<h1>Welcome {{first_name}}</h1>" --category welcome --vars '["first_name"]'
-  python scripts/email_engine.py templates view <template_id>
-  python scripts/email_engine.py sequence list
-  python scripts/email_engine.py sequence create --name "New Lead Nurture" --trigger lead_created --steps '[{"delay_hours": 0, "template_name": "Welcome"}]'
-  python scripts/email_engine.py sequence run <sequence_id> --lead-id <lead_id>
-  python scripts/email_engine.py log [--status queued|sent|failed] [--limit 20]
-  python scripts/email_engine.py stats
+  python scripts/integrations/email_engine.py send --to "person@email.com" --subject "Subject" --body "Body"
+  python scripts/integrations/email_engine.py send --to "person@email.com" --subject "Subject" --body "Body" --html "<h1>Hi</h1>" --lead-id uuid
+  python scripts/integrations/email_engine.py send-template --template-id uuid --to "person@email.com" --vars '{"first_name": "John"}'
+  python scripts/integrations/email_engine.py templates list
+  python scripts/integrations/email_engine.py templates create --name "Welcome" --subject "Welcome to OASIS" --body-html "<h1>Welcome {{first_name}}</h1>" --category welcome --vars '["first_name"]'
+  python scripts/integrations/email_engine.py templates view <template_id>
+  python scripts/integrations/email_engine.py sequence list
+  python scripts/integrations/email_engine.py sequence create --name "New Lead Nurture" --trigger lead_created --steps '[{"delay_hours": 0, "template_name": "Welcome"}]'
+  python scripts/integrations/email_engine.py sequence run <sequence_id> --lead-id <lead_id>
+  python scripts/integrations/email_engine.py log [--status queued|sent|failed] [--limit 20]
+  python scripts/integrations/email_engine.py stats
 """
 
 import argparse
@@ -48,7 +48,7 @@ from name_utils import sanitize_template_vars as _sanitize_template_vars
 
 def load_env():
     """Load .env.agents from project root."""
-    env_path = Path(__file__).resolve().parent.parent / ".env.agents"
+    env_path = Path(__file__).resolve().parent.parent.parent / ".env.agents"
     if not env_path.exists():
         print(f"ERROR: {env_path} not found", file=sys.stderr)
         sys.exit(1)
@@ -314,7 +314,7 @@ def cmd_send(env_vars, args, output_json=False):
 
     # Auto-detect: if --body looks like HTML and --html was not provided,
     # promote --body to the HTML slot and synthesize a plain-text version.
-    # Agents reaching for `python scripts/email_engine.py send` from a chat
+    # Agents reaching for `python scripts/integrations/email_engine.py send` from a chat
     # session routinely write HTML into --body (it's the obvious slot when
     # you have one body to send); this routes correctly without forcing
     # them to learn the --html/--body distinction.

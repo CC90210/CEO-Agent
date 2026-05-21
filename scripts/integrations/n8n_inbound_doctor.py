@@ -12,8 +12,8 @@ Walks the inbound pipeline end-to-end and prints what's healthy vs broken:
   5. Recommendation block — what to check on Hostinger n8n console.
 
 Usage:
-  python scripts/n8n_inbound_doctor.py            # human-readable
-  python scripts/n8n_inbound_doctor.py --json     # JSON for cron / dashboard
+  python scripts/integrations/n8n_inbound_doctor.py            # human-readable
+  python scripts/integrations/n8n_inbound_doctor.py --json     # JSON for cron / dashboard
 
 Exit codes:
   0 — healthy (inbound row in last 24h)
@@ -34,7 +34,7 @@ import urllib.request
 import urllib.error
 
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 ENV_AGENTS = REPO_ROOT / ".env.agents"
 
 INBOUND_TYPES = ("email_received", "email_reply", "dm_received")
@@ -197,14 +197,14 @@ def print_human(r: dict) -> None:
         print("Fixes:")
         print("  - Open https://srv####.hstgr.cloud/ → workflow → check Executions tab")
         print("  - Re-issue the secret if rotated:")
-        print("      python scripts/n8n_webhook_secret.py issue --profile-email <you>")
+        print("      python scripts/integrations/n8n_webhook_secret.py issue --profile-email <you>")
     elif r["broken"]:
         print("✗ Broken — bridge cannot work in current state.")
         if not r["webhook_route"]["ok"]:
             print(f"  - Webhook route unreachable: {r['webhook_route']['msg']}")
         if r["active_webhook_secrets"] == 0:
             print("  - No active webhook secret. Issue one:")
-            print("      python scripts/n8n_webhook_secret.py issue --profile-email <you>")
+            print("      python scripts/integrations/n8n_webhook_secret.py issue --profile-email <you>")
 
 
 def main() -> int:
