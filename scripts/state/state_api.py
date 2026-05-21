@@ -30,7 +30,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -39,6 +39,11 @@ sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 import state_manager        # noqa: E402  — single source of truth for state DB
 import memory_retriever     # noqa: E402  — single source of truth for FTS index
 from lib.hook_runtime import mode_from_env, state_log_path  # noqa: E402
+from lib.rate_limiter import RateLimiter  # noqa: E402
+
+# V6.8.3 rate limiter — token bucket per client IP. 20 req/s steady-state,
+# burst up to 60. Tuned for a dashboard polling every 5s plus normal API use.
+_LIMITER = RateLimiter(rate=20, burst=60, name="state-api")
 
 # Map dashboard guard names → env vars. Defaults match the Phase 1 safe-mode.
 HOOK_MODE_ENV = {
@@ -56,7 +61,26 @@ GUARD_LOGS = {
     "secret_access":  state_log_path("secret_access"),
 }
 
-app = FastAPI(title="Bravo V6.0 State API", version="6.0.0")
+app = FastAPI(title="Bravo V6.0 State API", version="6.8.3")
+
+
+@app.middleware("http")
+async def _rate_limit(request: Request, call_next):
+    # /health is exempt — never throttle the liveness probe.
+    if request.url.path == "/health":
+        return await call_next(request)
+    client_id = (request.client.host if request.client else "unknown")
+    decision = _LIMITER.check(client_id)
+    if not decision.allowed:
+        return JSONResponse(
+            status_code=429,
+            content={"error": "rate_limited", "retry_after": int(round(decision.retry_after))},
+            headers=decision.as_headers(),
+        )
+    response = await call_next(request)
+    for k, v in decision.as_headers().items():
+        response.headers.setdefault(k, v)
+    return response
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────
@@ -123,8 +147,59 @@ def _summarize_guard(name: str, log_path: Path) -> dict[str, Any]:
 # ── Endpoints ────────────────────────────────────────────────────────────
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok", "ts": datetime.now(timezone.utc).isoformat(timespec="seconds")}
+def health() -> JSONResponse:
+    """Liveness + lightweight readiness probe.
+
+    Returns 200 with `status: healthy` when all sub-checks pass, 200 with
+    `status: degraded` when something secondary (memory index, disk space)
+    is unhealthy, and 503 when the primary state DB is unreachable.
+    """
+    import shutil as _shutil
+
+    checks: dict[str, dict[str, Any]] = {}
+
+    # State DB
+    try:
+        db_status = state_manager.status()
+        checks["database"] = {"status": "ok", "v6_mode": db_status.get("v6_mode", "?")}
+    except Exception as exc:  # noqa: BLE001
+        checks["database"] = {"status": "down", "error": type(exc).__name__}
+
+    # Memory index
+    try:
+        idx_status = memory_retriever.status()
+        chunks = idx_status.get("chunk_count", idx_status.get("chunks", 0))
+        checks["memory_index"] = {"status": "ok" if chunks else "warn", "chunks": chunks}
+    except Exception as exc:  # noqa: BLE001
+        checks["memory_index"] = {"status": "warn", "error": type(exc).__name__}
+
+    # Disk space (state/ dir)
+    try:
+        usage = _shutil.disk_usage(str(PROJECT_ROOT / "state"))
+        free_gb = round(usage.free / (1024 ** 3), 1)
+        pct_used = round((usage.used / usage.total) * 100, 1) if usage.total else 0
+        checks["disk_space"] = {
+            "status": "ok" if pct_used < 80 else "warn",
+            "free_gb": free_gb,
+            "pct_used": pct_used,
+        }
+    except OSError as exc:
+        checks["disk_space"] = {"status": "warn", "error": str(exc)}
+
+    primary_down = checks["database"]["status"] == "down"
+    any_degraded = any(c["status"] not in ("ok",) for c in checks.values())
+    overall = "down" if primary_down else ("degraded" if any_degraded else "healthy")
+    status_code = 503 if primary_down else 200
+
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "status": overall,
+            "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "version": app.version,
+            "checks": checks,
+        },
+    )
 
 
 @app.get("/status")

@@ -178,10 +178,43 @@ def cmd_list_tables(client, args):
         """)
 
 
+_DESTRUCTIVE_SQL_PATTERN = __import__("re").compile(
+    r"\b(DROP|TRUNCATE|DELETE|ALTER\s+TABLE\s+\w+\s+DROP|GRANT|REVOKE)\b",
+    __import__("re").IGNORECASE,
+)
+
+
 def cmd_query(client, args):
-    """Execute a raw SQL query via RPC."""
+    """Execute a raw SQL query via RPC.
+
+    V6.8.3 SQL-injection guard: destructive keywords (DROP/TRUNCATE/DELETE/
+    ALTER … DROP/GRANT/REVOKE) are blocked unless `--dangerous-raw-query` is
+    passed. Every raw query execution is logged regardless of acceptance.
+    """
     sql = args.sql
-    
+
+    # Destructive-keyword guard
+    if _DESTRUCTIVE_SQL_PATTERN.search(sql):
+        if not getattr(args, "dangerous_raw_query", False):
+            print(
+                "ERROR: destructive SQL keyword detected (DROP / TRUNCATE / DELETE / "
+                "ALTER…DROP / GRANT / REVOKE).\n"
+                "Refusing to execute. If this is intentional, re-run with "
+                "`--dangerous-raw-query` to acknowledge the risk.",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        # Log the destructive run for audit
+        try:
+            from lib.structured_log import get_logger  # type: ignore
+            get_logger("supabase_tool").warn(
+                "dangerous_raw_sql_executed",
+                sql_preview=sql[:200],
+            )
+        except Exception:
+            print(f"[supabase_tool] WARN dangerous_raw_sql_executed: {sql[:120]}",
+                  file=sys.stderr)
+
     # Try using a query_sql RPC function first
     try:
         result = client.rpc("query_sql", {"sql_query": sql}).execute()
@@ -381,6 +414,13 @@ Examples:
     # query
     p_query = subparsers.add_parser("query", parents=[parent_parser], help="Execute SQL query (requires RPC function)")
     p_query.add_argument("sql", help="SQL query string")
+    p_query.add_argument(
+        "--dangerous-raw-query",
+        action="store_true",
+        dest="dangerous_raw_query",
+        help="(V6.8.3) acknowledge running DROP/TRUNCATE/DELETE/ALTER…DROP — "
+             "logged to structured_log",
+    )
     
     # select
     p_select = subparsers.add_parser("select", parents=[parent_parser], help="Select rows from a table")
