@@ -28,7 +28,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+SCRIPT_DIR = Path(__file__).resolve().parent
+SCRIPTS_DIR = SCRIPT_DIR.parent
+sys.path.insert(0, str(SCRIPT_DIR))
+sys.path.insert(0, str(SCRIPTS_DIR))
 
 try:
     from notify import notify
