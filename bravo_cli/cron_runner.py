@@ -149,6 +149,17 @@ def _exec_script_run(payload: dict) -> dict:
         return {"status": "error", "error": f"script path forbidden: {script}"}
     if not script.endswith(".py"):
         script = script + ".py"
+    # tenant_cron_jobs.action_payload.script entries are written by the
+    # dashboard ("scripts/pulse_publish.py") AND by older seed scripts
+    # ("pulse_publish.py" — implicit scripts/ prefix). Accept both shapes
+    # by stripping a leading scripts/ once before joining; otherwise the
+    # path becomes bravo/scripts/scripts/pulse_publish.py and the cron
+    # ERRORs every tick. Forbids absolute / traversal earlier so this
+    # is just a normalisation.
+    if script.startswith("scripts/"):
+        script = script[len("scripts/"):]
+    elif script.startswith("scripts\\"):
+        script = script[len("scripts\\"):]
     args = payload.get("args") or []
     if not isinstance(args, list):
         return {"status": "error", "error": "args must be a list"}
