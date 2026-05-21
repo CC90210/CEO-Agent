@@ -7,11 +7,11 @@ never sees VERCEL_TOKEN directly — secret_guard would block it
 anyway. Same wrapper-pattern as stripe_tool / kixie_tool / etc.
 
 Usage:
-  python scripts/vercel_env_tool.py list --project <slug> [--env production|preview|development]
-  python scripts/vercel_env_tool.py set --project <slug> --key NAME --value VALUE [--env production]
-  python scripts/vercel_env_tool.py set-random --project <slug> --key NAME [--env production] [--bytes 48]
-  python scripts/vercel_env_tool.py delete --project <slug> --key NAME [--env production]
-  python scripts/vercel_env_tool.py projects
+  python scripts/integrations/vercel_env_tool.py list --project <slug> [--env production|preview|development]
+  python scripts/integrations/vercel_env_tool.py set --project <slug> --key NAME --value VALUE [--env production]
+  python scripts/integrations/vercel_env_tool.py set-random --project <slug> --key NAME [--env production] [--bytes 48]
+  python scripts/integrations/vercel_env_tool.py delete --project <slug> --key NAME [--env production]
+  python scripts/integrations/vercel_env_tool.py projects
 
 set-random generates a cryptographically-strong base64-url random
 value (default 48 bytes -> ~64-char string), useful for HMAC keys
@@ -39,7 +39,7 @@ except ImportError:
     sys.exit(1)
 
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 VERCEL_API = "https://api.vercel.com"
 DEFAULT_TIMEOUT_S = 30
 

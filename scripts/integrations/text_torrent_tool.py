@@ -11,13 +11,13 @@ them gave SunBiz operators a worse UI than either platform provides
 natively.
 
 Usage:
-  python scripts/text_torrent_tool.py blast --list <list_id> --message "..." [--from-label "Solara"]
-  python scripts/text_torrent_tool.py send --to <e164> --message "..."
-  python scripts/text_torrent_tool.py lists [--limit 25]
-  python scripts/text_torrent_tool.py list-stats --list <list_id>
-  python scripts/text_torrent_tool.py purchase-number --area-code 416 [--label "Toronto local"]
-  python scripts/text_torrent_tool.py numbers
-  python scripts/text_torrent_tool.py status
+  python scripts/integrations/text_torrent_tool.py blast --list <list_id> --message "..." [--from-label "Solara"]
+  python scripts/integrations/text_torrent_tool.py send --to <e164> --message "..."
+  python scripts/integrations/text_torrent_tool.py lists [--limit 25]
+  python scripts/integrations/text_torrent_tool.py list-stats --list <list_id>
+  python scripts/integrations/text_torrent_tool.py purchase-number --area-code 416 [--label "Toronto local"]
+  python scripts/integrations/text_torrent_tool.py numbers
+  python scripts/integrations/text_torrent_tool.py status
 
 All commands support --json for agent-consumable output.
 
@@ -62,7 +62,7 @@ except ImportError:
     sys.exit(1)
 
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_API_URL = "https://api.texttorrent.com/v1"
 DEFAULT_TIMEOUT_S = 30
 

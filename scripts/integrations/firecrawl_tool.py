@@ -4,11 +4,11 @@ Fallback to the Firecrawl MCP server. Reads FIRECRAWL_API_KEY from .env.agents.
 All credentials loaded from .env.agents (never hardcoded).
 
 Usage (from any agent via terminal):
-  python scripts/firecrawl_tool.py scrape <url>              # Scrape page -> clean markdown
-  python scripts/firecrawl_tool.py crawl <url> [--limit 10]  # Crawl site (max pages)
-  python scripts/firecrawl_tool.py search <query>            # Search and scrape results
-  python scripts/firecrawl_tool.py extract <url> --schema {} # Extract structured data
-  python scripts/firecrawl_tool.py map <url>                 # Get site map / all URLs
+  python scripts/integrations/firecrawl_tool.py scrape <url>              # Scrape page -> clean markdown
+  python scripts/integrations/firecrawl_tool.py crawl <url> [--limit 10]  # Crawl site (max pages)
+  python scripts/integrations/firecrawl_tool.py search <query>            # Search and scrape results
+  python scripts/integrations/firecrawl_tool.py extract <url> --schema {} # Extract structured data
+  python scripts/integrations/firecrawl_tool.py map <url>                 # Get site map / all URLs
 
 Flags:
   --json    Output raw JSON for agent consumption
@@ -46,7 +46,7 @@ def _c(code: str, text: str, json_mode: bool) -> str:
 
 def load_env() -> dict:
     """Load .env.agents from project root."""
-    env_path = Path(__file__).resolve().parent.parent / ".env.agents"
+    env_path = Path(__file__).resolve().parent.parent.parent / ".env.agents"
     if not env_path.exists():
         print(f"ERROR: {env_path} not found", file=sys.stderr)
         sys.exit(1)

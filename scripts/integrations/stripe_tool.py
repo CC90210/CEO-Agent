@@ -5,20 +5,20 @@ for seamless access to all 3 brand accounts with ONE key.
 All credentials loaded from .env.agents (never hardcoded).
 
 Usage (from any agent via terminal):
-  python scripts/stripe_tool.py list-accounts
-  python scripts/stripe_tool.py balance [--account oasis]
-  python scripts/stripe_tool.py customers [--limit 10] [--account propflow]
-  python scripts/stripe_tool.py products [--limit 10]
-  python scripts/stripe_tool.py prices [--product prod_xxx]
-  python scripts/stripe_tool.py invoices [--customer cus_xxx] [--status paid|open|draft]
-  python scripts/stripe_tool.py subscriptions [--customer cus_xxx] [--status active|canceled]
-  python scripts/stripe_tool.py payment-links [--limit 10]
-  python scripts/stripe_tool.py create-payment-link --price price_xxx [--quantity 1]
-  python scripts/stripe_tool.py create-customer --email x@y.com --name "Name"
-  python scripts/stripe_tool.py create-invoice --customer cus_xxx
-  python scripts/stripe_tool.py charges [--limit 10]
-  python scripts/stripe_tool.py refund <charge_id> [--amount 500]
-  python scripts/stripe_tool.py events [--type payment_intent.succeeded] [--limit 10]
+  python scripts/integrations/stripe_tool.py list-accounts
+  python scripts/integrations/stripe_tool.py balance [--account oasis]
+  python scripts/integrations/stripe_tool.py customers [--limit 10] [--account propflow]
+  python scripts/integrations/stripe_tool.py products [--limit 10]
+  python scripts/integrations/stripe_tool.py prices [--product prod_xxx]
+  python scripts/integrations/stripe_tool.py invoices [--customer cus_xxx] [--status paid|open|draft]
+  python scripts/integrations/stripe_tool.py subscriptions [--customer cus_xxx] [--status active|canceled]
+  python scripts/integrations/stripe_tool.py payment-links [--limit 10]
+  python scripts/integrations/stripe_tool.py create-payment-link --price price_xxx [--quantity 1]
+  python scripts/integrations/stripe_tool.py create-customer --email x@y.com --name "Name"
+  python scripts/integrations/stripe_tool.py create-invoice --customer cus_xxx
+  python scripts/integrations/stripe_tool.py charges [--limit 10]
+  python scripts/integrations/stripe_tool.py refund <charge_id> [--amount 500]
+  python scripts/integrations/stripe_tool.py events [--type payment_intent.succeeded] [--limit 10]
 """
 
 import argparse
@@ -40,7 +40,7 @@ STRIPE_VERSION = "2025-01-27.acacia"
 
 def load_env():
     """Load .env.agents from project root."""
-    env_path = Path(__file__).resolve().parent.parent / ".env.agents"
+    env_path = Path(__file__).resolve().parent.parent.parent / ".env.agents"
     if not env_path.exists():
         print(f"ERROR: {env_path} not found", file=sys.stderr)
         sys.exit(1)

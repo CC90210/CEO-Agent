@@ -45,12 +45,12 @@ From any engine::
 
 From the CLI (scheduler, Telegram, manual)::
 
-    python scripts/send_gateway.py send --channel email --to jane@acme.com \\
+    python scripts/integrations/send_gateway.py send --channel email --to jane@acme.com \\
         --subject "..." --body "..." --agent-source manual_cc --json
 
-    python scripts/send_gateway.py can-act --lead-id <uuid> --channel email --json
-    python scripts/send_gateway.py stats --json
-    python scripts/send_gateway.py history --lead-id <uuid> --limit 10
+    python scripts/integrations/send_gateway.py can-act --lead-id <uuid> --channel email --json
+    python scripts/integrations/send_gateway.py stats --json
+    python scripts/integrations/send_gateway.py history --lead-id <uuid> --limit 10
 
 DESIGN DECISIONS
 ----------------
@@ -100,8 +100,8 @@ from typing import Any, Optional
 
 # ---- Path + env wiring (same pattern used by every other engine) -----------
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-_SCRIPTS_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+_SCRIPTS_DIR = Path(__file__).resolve().parent.parent
 if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
 

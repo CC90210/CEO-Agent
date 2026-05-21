@@ -4,34 +4,34 @@ Wraps gws CLI with auto-token-refresh and fallback to direct API.
 All credentials loaded from .env.agents (never hardcoded).
 
 Usage (from any agent via terminal):
-  python scripts/google_tool.py calendar list [--max 10]
-  python scripts/google_tool.py calendar create --title "Meeting" --start "2026-04-01T16:00:00" --end "2026-04-01T16:45:00" [--attendees "a@b.com,c@d.com"] [--meet] [--description "..."] [--timezone "America/Toronto"]
-  python scripts/google_tool.py calendar delete <event_id>
-  python scripts/google_tool.py gmail send --to "a@b.com" --subject "Hi" --body "Hello"
-  python scripts/google_tool.py gmail list [--max 10]
-  python scripts/google_tool.py gmail read <message_id>
-  python scripts/google_tool.py drive list [--max 10] [--query "name contains 'report'"]
-  python scripts/google_tool.py drive upload --file "/path/to/file.pdf" [--name "Custom Name"] [--folder FOLDER_ID]
-  python scripts/google_tool.py drive download <file_id> [--output "/path/to/save"]
-  python scripts/google_tool.py drive delete <file_id>
-  python scripts/google_tool.py drive info <file_id>
-  python scripts/google_tool.py drive share <file_id> --email "user@example.com" [--role writer]
-  python scripts/google_tool.py docs create --title "My Document" [--content "Plain text content"] [--html "/path/to/file.html"] [--folder FOLDER_ID]
-  python scripts/google_tool.py docs read <doc_id>
-  python scripts/google_tool.py docs append <doc_id> --text "Text to append"
-  python scripts/google_tool.py docs export <doc_id> [--format pdf|docx|txt|html] [--output "/path/to/save"]
-  python scripts/google_tool.py sheets create --title "My Sheet" [--sheets "Sheet1,Data,Summary"]
-  python scripts/google_tool.py sheets read <spreadsheet_id> [--range "Sheet1!A1:Z"]
-  python scripts/google_tool.py sheets write <spreadsheet_id> --range "Sheet1!A1" --values "Name,Email;John,j@t.com"
-  python scripts/google_tool.py sheets append <spreadsheet_id> --values "NewRow1,NewRow2"
-  python scripts/google_tool.py sheets info <spreadsheet_id>
-  python scripts/google_tool.py slides create --title "My Deck"
-  python scripts/google_tool.py slides read <presentation_id>
-  python scripts/google_tool.py slides export <presentation_id> [--format pdf|pptx] [--output "/path/to/save"]
-  python scripts/google_tool.py tasks list [--list-id LIST_ID]
-  python scripts/google_tool.py tasks add --list-id LIST_ID --title "Do the thing" [--due 2026-04-15] [--notes "details"]
-  python scripts/google_tool.py tasks complete --list-id LIST_ID --task-id TASK_ID
-  python scripts/google_tool.py test
+  python scripts/integrations/google_tool.py calendar list [--max 10]
+  python scripts/integrations/google_tool.py calendar create --title "Meeting" --start "2026-04-01T16:00:00" --end "2026-04-01T16:45:00" [--attendees "a@b.com,c@d.com"] [--meet] [--description "..."] [--timezone "America/Toronto"]
+  python scripts/integrations/google_tool.py calendar delete <event_id>
+  python scripts/integrations/google_tool.py gmail send --to "a@b.com" --subject "Hi" --body "Hello"
+  python scripts/integrations/google_tool.py gmail list [--max 10]
+  python scripts/integrations/google_tool.py gmail read <message_id>
+  python scripts/integrations/google_tool.py drive list [--max 10] [--query "name contains 'report'"]
+  python scripts/integrations/google_tool.py drive upload --file "/path/to/file.pdf" [--name "Custom Name"] [--folder FOLDER_ID]
+  python scripts/integrations/google_tool.py drive download <file_id> [--output "/path/to/save"]
+  python scripts/integrations/google_tool.py drive delete <file_id>
+  python scripts/integrations/google_tool.py drive info <file_id>
+  python scripts/integrations/google_tool.py drive share <file_id> --email "user@example.com" [--role writer]
+  python scripts/integrations/google_tool.py docs create --title "My Document" [--content "Plain text content"] [--html "/path/to/file.html"] [--folder FOLDER_ID]
+  python scripts/integrations/google_tool.py docs read <doc_id>
+  python scripts/integrations/google_tool.py docs append <doc_id> --text "Text to append"
+  python scripts/integrations/google_tool.py docs export <doc_id> [--format pdf|docx|txt|html] [--output "/path/to/save"]
+  python scripts/integrations/google_tool.py sheets create --title "My Sheet" [--sheets "Sheet1,Data,Summary"]
+  python scripts/integrations/google_tool.py sheets read <spreadsheet_id> [--range "Sheet1!A1:Z"]
+  python scripts/integrations/google_tool.py sheets write <spreadsheet_id> --range "Sheet1!A1" --values "Name,Email;John,j@t.com"
+  python scripts/integrations/google_tool.py sheets append <spreadsheet_id> --values "NewRow1,NewRow2"
+  python scripts/integrations/google_tool.py sheets info <spreadsheet_id>
+  python scripts/integrations/google_tool.py slides create --title "My Deck"
+  python scripts/integrations/google_tool.py slides read <presentation_id>
+  python scripts/integrations/google_tool.py slides export <presentation_id> [--format pdf|pptx] [--output "/path/to/save"]
+  python scripts/integrations/google_tool.py tasks list [--list-id LIST_ID]
+  python scripts/integrations/google_tool.py tasks add --list-id LIST_ID --title "Do the thing" [--due 2026-04-15] [--notes "details"]
+  python scripts/integrations/google_tool.py tasks complete --list-id LIST_ID --task-id TASK_ID
+  python scripts/integrations/google_tool.py test
 
 All commands support --json flag for agent consumption.
 """
@@ -47,6 +47,11 @@ from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
 from pathlib import Path
+
+# Add the parent directory (scripts/) to sys.path to import _subprocess_helpers
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 
@@ -59,7 +64,7 @@ if sys.stderr.encoding != "utf-8":
 
 def load_env():
     """Load .env.agents from project root."""
-    env_path = Path(__file__).parent.parent / ".env.agents"
+    env_path = Path(__file__).resolve().parent.parent.parent / ".env.agents"
     if not env_path.exists():
         print("ERROR: .env.agents not found", file=sys.stderr)
         sys.exit(1)

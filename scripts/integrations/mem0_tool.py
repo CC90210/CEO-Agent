@@ -9,13 +9,13 @@ Vector store: local Qdrant at data/mem0_qdrant/ (persisted, no server required)
 Upgrade path: set BRAVO_SUPABASE_DB_PASSWORD in .env.agents to migrate to Supabase pgvector.
 
 Usage:
-  python scripts/mem0_tool.py add "CC prefers direct communication, no filler"
-  python scripts/mem0_tool.py search "what does CC prefer"
-  python scripts/mem0_tool.py list [--limit 20]
-  python scripts/mem0_tool.py get <memory_id>
-  python scripts/mem0_tool.py delete <memory_id>
-  python scripts/mem0_tool.py stats
-  python scripts/mem0_tool.py history <memory_id>
+  python scripts/integrations/mem0_tool.py add "CC prefers direct communication, no filler"
+  python scripts/integrations/mem0_tool.py search "what does CC prefer"
+  python scripts/integrations/mem0_tool.py list [--limit 20]
+  python scripts/integrations/mem0_tool.py get <memory_id>
+  python scripts/integrations/mem0_tool.py delete <memory_id>
+  python scripts/integrations/mem0_tool.py stats
+  python scripts/integrations/mem0_tool.py history <memory_id>
 
 Flags:
   --user-id   Override user_id (default: cc)
@@ -35,7 +35,7 @@ warnings.filterwarnings("ignore", message=".*mean pooling.*", category=UserWarni
 
 # ── Config loading ────────────────────────────────────────────────────────────
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 def _read_config_model(key: str, fallback: str) -> str:
@@ -59,7 +59,7 @@ def _read_config_model(key: str, fallback: str) -> str:
 
 def load_env() -> dict[str, str]:
     """Load .env.agents from project root."""
-    env_path = Path(__file__).resolve().parent.parent / ".env.agents"
+    env_path = Path(__file__).resolve().parent.parent.parent / ".env.agents"
     if not env_path.exists():
         print(f"ERROR: {env_path} not found", file=sys.stderr)
         sys.exit(1)

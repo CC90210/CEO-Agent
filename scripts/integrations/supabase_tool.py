@@ -4,13 +4,13 @@ Replaces the broken Supabase MCP server with direct Python SDK access.
 All credentials loaded from .env.agents (never hardcoded).
 
 Usage (from any agent via terminal):
-  python scripts/supabase_tool.py list-tables [--project bravo|oasis|nostalgic]
-  python scripts/supabase_tool.py query "SELECT * FROM agent_state LIMIT 5" [--project bravo]
-  python scripts/supabase_tool.py insert <table> '{"key": "value"}' [--project bravo]
-  python scripts/supabase_tool.py update <table> '{"key": "value"}' --match '{"id": "123"}' [--project bravo]
-  python scripts/supabase_tool.py delete <table> --match '{"id": "123"}' [--project bravo]
-  python scripts/supabase_tool.py rpc <function_name> '{"arg": "value"}' [--project bravo]
-  python scripts/supabase_tool.py list-projects
+  python scripts/integrations/supabase_tool.py list-tables [--project bravo|oasis|nostalgic]
+  python scripts/integrations/supabase_tool.py query "SELECT * FROM agent_state LIMIT 5" [--project bravo]
+  python scripts/integrations/supabase_tool.py insert <table> '{"key": "value"}' [--project bravo]
+  python scripts/integrations/supabase_tool.py update <table> '{"key": "value"}' --match '{"id": "123"}' [--project bravo]
+  python scripts/integrations/supabase_tool.py delete <table> --match '{"id": "123"}' [--project bravo]
+  python scripts/integrations/supabase_tool.py rpc <function_name> '{"arg": "value"}' [--project bravo]
+  python scripts/integrations/supabase_tool.py list-projects
 """
 
 import argparse
@@ -20,8 +20,15 @@ import sys
 from pathlib import Path
 
 def load_env():
-    """Load .env.agents from project root."""
-    env_path = Path(__file__).resolve().parent.parent / ".env.agents"
+    """Load .env.agents from project root.
+
+    The file lives at scripts/integrations/supabase_tool.py so the repo
+    root is three parents up (parent → integrations, parent → scripts,
+    parent → repo root). Prior shape (parent.parent) was correct when
+    this file lived directly under scripts/ and broke silently after
+    the 2026-05-20 reorg moved it into integrations/.
+    """
+    env_path = Path(__file__).resolve().parent.parent.parent / ".env.agents"
     if not env_path.exists():
         print(f"ERROR: {env_path} not found", file=sys.stderr)
         sys.exit(1)
@@ -214,7 +221,7 @@ def cmd_query(client, args):
   $$ LANGUAGE plpgsql SECURITY DEFINER;
     """)
     print(f"\nFor simple queries, try table operations directly:")
-    print(f"  python scripts/supabase_tool.py select <table_name> [--limit 10]")
+    print(f"  python scripts/integrations/supabase_tool.py select <table_name> [--limit 10]")
 
 
 def cmd_select(client, args):

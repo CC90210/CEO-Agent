@@ -10,11 +10,11 @@ as spam.
 Kixie's public API: https://docs.kixie.com/
 
 Usage:
-  python scripts/kixie_tool.py call --to <e164> --agent <agent_email>
-  python scripts/kixie_tool.py click-to-call --lead-id <uuid> --to <e164>
-  python scripts/kixie_tool.py transfer --call-id <id> --to <agent_email>
-  python scripts/kixie_tool.py agents
-  python scripts/kixie_tool.py status
+  python scripts/integrations/kixie_tool.py call --to <e164> --agent <agent_email>
+  python scripts/integrations/kixie_tool.py click-to-call --lead-id <uuid> --to <e164>
+  python scripts/integrations/kixie_tool.py transfer --call-id <id> --to <agent_email>
+  python scripts/integrations/kixie_tool.py agents
+  python scripts/integrations/kixie_tool.py status
 
 Credentials (in .env.agents):
   KIXIE_API_KEY        bearer token from https://app.kixie.com/settings/api
@@ -38,7 +38,7 @@ except ImportError:
     sys.exit(1)
 
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 DEFAULT_API_URL = "https://apig.kixie.com/app/event"
 DEFAULT_TIMEOUT_S = 30
 
