@@ -256,6 +256,35 @@ def cmd_add(client, args, output_json: bool):
     if args.notes:
         payload["notes"] = args.notes
 
+    # Run the manual-add through the canonical lead contract so the
+    # operator sees missing-field warnings before the row goes in. We
+    # set stage/score/value_estimate so missing_info is correct, but
+    # only persist columns that exist on `public.leads` — the rest
+    # ride along into tenant_records via the dual-write path.
+    try:
+        from lib.lead_contract import (  # type: ignore  # noqa: E402
+            enrich_lead_defaults, has_hard_required,
+        )
+        check_row = dict(payload)
+        check_row.setdefault("stage", check_row.get("status", "new"))
+        if not has_hard_required(check_row):
+            if output_json:
+                print(json.dumps({
+                    "ok": False, "error": "missing_hard_required",
+                    "required": ["email", "source"],
+                    "provided": list(check_row.keys()),
+                }, indent=2))
+            else:
+                print("ERROR: lead is missing required field(s) "
+                      "(email and/or source). Pass --email and --source.")
+            return
+        enriched = enrich_lead_defaults(check_row)
+        if enriched.get("missing_info") and not output_json:
+            print(f"  [contract] missing: {','.join(enriched['missing_info'])}",
+                  file=sys.stderr)
+    except ImportError:
+        pass
+
     result = client.table("leads").insert(payload).execute()
     lead = result.data[0] if result.data else {}
 

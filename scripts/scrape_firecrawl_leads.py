@@ -33,6 +33,9 @@ from supabase_tool import get_client, load_env  # noqa: E402
 from name_utils import _is_placeholder, strip_honorifics  # noqa: E402
 from casl_compliance import is_reserved_domain  # noqa: E402
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
+from lib.lead_contract import (  # noqa: E402
+    enrich_lead_defaults, has_hard_required, validate_lead,
+)
 
 # Schema Firecrawl uses to pull structured contact info from each website
 EXTRACT_SCHEMA = {
@@ -274,20 +277,49 @@ def main() -> None:
             # extracted. The placeholder sanitizer + eligibility filter both
             # treat "" as "no usable first name" and skip these leads from
             # auto-send until enriched.
-            rows.append({
+            #
+            # Run every row through the canonical lead-contract enricher
+            # (scripts/lib/lead_contract.py) so the dashboard's
+            # missing_info chip surfaces gaps to CC before he sends.
+            # has_hard_required drops rows without email / source — those
+            # can't be acted on anyway, so silently skipping is the right
+            # behaviour. value_estimate stays null here; auto_score_leads
+            # writes it during the daily scoring cron.
+            raw_row = {
                 "name": L["full_name"] or L["first_name"] or "",
                 "company": L["company"],
                 "email": L["email"],
                 "phone": L["phone"],
                 "source": "cold_outreach",
-                "status": "new",
+                "stage": "new",
+                "status": "new",  # legacy mirror of stage; some readers still use it
                 "score": 0,
+                "value_estimate": None,
                 "tags": [L["niche"], "firecrawl"],
                 "notes": " | ".join(notes_parts),
                 "assigned_to": "bravo",
                 "created_at": now,
                 "updated_at": now,
-            })
+            }
+            if not has_hard_required(raw_row):
+                print(f"    skip (missing hard-required): {raw_row.get('email') or '(no email)'}",
+                      file=sys.stderr)
+                continue
+            enriched = enrich_lead_defaults(raw_row)
+            # The DB `leads` table does not have a missing_info column; the
+            # tenant_records mirror does. We tuck it into notes so the
+            # operator-facing rendering picks it up via the dual-write path.
+            if enriched.get("missing_info"):
+                enriched["notes"] = (
+                    enriched["notes"]
+                    + f" | MISSING: {','.join(enriched['missing_info'])}"
+                )
+            # Drop fields that aren't columns on `public.leads` — the
+            # contract carries them, the table doesn't.
+            enriched.pop("stage", None)
+            enriched.pop("value_estimate", None)
+            enriched.pop("missing_info", None)
+            rows.append(enriched)
         for i in range(0, len(rows), 25):
             chunk = rows[i:i + 25]
             try:
