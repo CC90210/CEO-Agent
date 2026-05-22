@@ -68,32 +68,25 @@ ARCHIVES_DIR = PROJECT_ROOT / "memory" / "ARCHIVES"
 # ---------------------------------------------------------------------------
 
 def load_env() -> dict:
-    """Load .env.agents from project root. Never raises — returns empty dict on miss."""
-    env_path = PROJECT_ROOT / ".env.agents"
-    env_vars: dict = {}
-    if not env_path.exists():
-        return env_vars
-    try:
-        with open(env_path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    key, _, value = line.partition("=")
-                    env_vars[key.strip()] = value.strip()
-    except OSError:
-        pass
+    """Load .env.agents via the canonical secret_loader.
 
-    # Also attempt python-dotenv for richer .env support
+    Was a 25-line duplicate before V6.8.3 (handled its own dotenv parsing).
+    Now delegates to scripts/lib/secret_loader.py so the secret_guard hook
+    can audit every access and the loader's safety checks (refuses to load
+    from tmp/, refuses interactive shells, logs to state/secret_access.log)
+    apply uniformly. Returns {} on miss so callers keep their never-raises
+    contract.
+    """
     try:
-        from dotenv import dotenv_values  # type: ignore
-        dotenv_parsed = dotenv_values(env_path)
-        for k, v in dotenv_parsed.items():
-            if k and v is not None:
-                env_vars.setdefault(k, v)
-    except ImportError:
-        pass  # python-dotenv not installed — manual parse already done above
-
-    return env_vars
+        import sys as _sys
+        from pathlib import Path as _Path
+        _scripts = _Path(__file__).resolve().parent.parent
+        if str(_scripts) not in _sys.path:
+            _sys.path.insert(0, str(_scripts))
+        from lib.secret_loader import load_env as _load_env  # type: ignore
+        return _load_env()
+    except Exception:
+        return {}
 
 
 # ---------------------------------------------------------------------------

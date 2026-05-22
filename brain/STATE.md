@@ -130,11 +130,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-05-21
+- **Date:** 2026-05-22
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Full 7-phase audit cleanup pass complete. 38/42 items fixed; 4 deferred to CC. See memory/CLEANUP_2026-05-21_SUMMARY.md.
+- **Result:** V6.8.3 Final — All gaps closed: scheduler May 30 bug fixed (real source of brief-vs-dashboard discrepancy), @retry on all 5 integration tools, structured_log installed in 4 daemons, 13 scripts migrated off dotenv, lead-sync dual-write landed (Tom McCrae fix), tests/ included in pyproject. Pushed: 4999d91.
 
-*Last updated: 2026-05-21*
+*Last updated: 2026-05-22*
 
 ## Manifest
 

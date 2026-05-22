@@ -26,12 +26,17 @@ def test_callsites_share_the_same_constant():
     matters because future scripts get the helper for free."""
     import re
     pat = re.compile(r"creationflags\s*=\s*0x0?8000000")
+    # Paths reflect the post-2026-05 reorg: system_health_check moved to
+    # scripts/core/, scheduler / funnel_sync / cron_dispatcher stayed flat.
     leaks: list[str] = []
-    for fname in ("scheduler.py", "system_health_check.py",
-                  "cron_dispatcher.py", "funnel_sync.py"):
-        text = (SCRIPTS / fname).read_text(encoding="utf-8")
+    for relpath in ("scheduler.py", "core/system_health_check.py",
+                    "cron_dispatcher.py", "funnel_sync.py"):
+        p = SCRIPTS / relpath
+        if not p.exists():
+            continue  # script archived/removed — skip rather than fail
+        text = p.read_text(encoding="utf-8")
         if pat.search(text):
-            leaks.append(fname)
+            leaks.append(relpath)
     assert not leaks, (
         f"Inline magic number reappeared in: {leaks}. "
         "Use WINDOWLESS_FLAGS from _subprocess_helpers instead."

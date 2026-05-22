@@ -12,10 +12,8 @@ tags: [docs, index, hub]
 - [[docs/Cedarwood_ROI_Analysis]] — Cedarwood prospect ROI analysis
 - [[docs/MOBILE_TERMINAL]] — Mobile terminal setup guide
 - [[docs/V6_ARCHITECTURE]] — V6.0 principal-architect design doc (pgvector + LISTEN/NOTIFY + Hetzner VPS)
-- [[docs/OASIS_DESKTOP_CLAUDE_HANDOFF_2026-05-13]] — canonical OASIS Desktop + SunBiz portal handoff; includes consolidated product, distribution, and SunBiz architecture notes
 - [[docs/AGENT_RUNNER_DESIGN]] — Agent runner backend design for the Command Center chat widget
 - [[docs/N8N_INBOUND_INTEGRATION]] — n8n inbound integration patterns
-- [[docs/AGENT_REPO_CROSS_ANALYSIS_2026-04-22]] — Cross-repo gap analysis (historical snapshot)
 
 ## Setup & Operations
 - [[docs/INSTALL]] — Installation guide
