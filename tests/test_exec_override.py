@@ -89,6 +89,63 @@ def _extract_request_id(stderr: str) -> str | None:
     return m.group(0) if m else None
 
 
+# ── Test pollution cleanup ──────────────────────────────────────────────
+# Every test in this suite spawns exec_guard against a unique command
+# string, which creates a real row in exec_overrides (the same table
+# the dashboard reads). Without cleanup, the dashboard's "pending count"
+# badge accumulates a stale row per test per CI run — CC saw 284 stale
+# pendings on 2026-05-22, almost all from this suite.
+#
+# Autouse fixture: track every command we generate in this suite via
+# _unique_cmd, then after the test mark those rows status='expired' so
+# the dashboard doesn't surface them as "waiting for human input."
+
+import pytest
+
+_TRACKED_CMDS: list[str] = []
+
+
+_orig_unique_cmd = _unique_cmd
+
+
+def _tracking_unique_cmd(base: str) -> str:
+    cmd = _orig_unique_cmd(base)
+    _TRACKED_CMDS.append(cmd)
+    return cmd
+
+
+# Re-bind globally so every test that calls _unique_cmd hits the
+# tracking version. Safe because the suite owns this name.
+_unique_cmd = _tracking_unique_cmd  # type: ignore[assignment]
+
+
+@pytest.fixture(autouse=True)
+def _cleanup_exec_overrides():
+    """Mark every row this test created as 'expired' on teardown so the
+    dashboard never sees test artifacts as 'pending'."""
+    before = len(_TRACKED_CMDS)
+    yield
+    new_cmds = _TRACKED_CMDS[before:]
+    if not new_cmds:
+        return
+    try:
+        # state_manager has a known shape for this. Import here so a
+        # missing import doesn't fail the test itself.
+        import hashlib
+        from datetime import datetime, timezone
+        import supabase_tool  # type: ignore  # noqa: E402
+        db = supabase_tool.get_client(supabase_tool.load_env())
+        now_iso = datetime.now(timezone.utc).isoformat()
+        for cmd in new_cmds:
+            h = hashlib.sha256(cmd.encode("utf-8")).hexdigest()
+            db.table("exec_overrides").update({
+                "status": "expired", "updated_at": now_iso,
+            }).eq("command_hash", h).eq("status", "pending").execute()
+    except Exception:
+        # Teardown cleanup is best-effort — never fail a test for it.
+        pass
+
+
 # ── Lifecycle tests ─────────────────────────────────────────────────────
 
 
