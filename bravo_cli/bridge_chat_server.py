@@ -1932,10 +1932,15 @@ class _ChatHandler(BaseHTTPRequestHandler):
         emit("agent_status", {"phase": "spawning", "agent": agent, "cwd": str(root)})
         emit("session", {"session_id": f"{provider}-{int(time.time() * 1000)}"})
 
+        # Pass chat_mode so each runtime can pick the right safety flag:
+        #   plan  → codex --sandbox=read-only,   gemini --approval-mode=plan
+        #   build → codex --sandbox=workspace-write, gemini --approval-mode=yolo
+        # Without this, the CLIs were hardcoded to plan-mode equivalents and
+        # the operator's /build command was ignored on these runtimes.
         if provider == "codex":
-            text = self._run_codex_cli(root, prompt_text)
+            text = self._run_codex_cli(root, prompt_text, chat_mode=chat_mode)
         elif provider == "gemini":
-            text = self._run_gemini_cli(root, prompt_text)
+            text = self._run_gemini_cli(root, prompt_text, chat_mode=chat_mode)
         else:
             emit("error", {"message": "invalid_cli_provider"})
             emit("done", {})
@@ -2016,10 +2021,15 @@ class _ChatHandler(BaseHTTPRequestHandler):
             startupinfo=_windowless_startupinfo(),
         )
 
-    def _run_codex_cli(self, root: Path, prompt_text: str) -> str:
+    def _run_codex_cli(self, root: Path, prompt_text: str, chat_mode: str = "build") -> str:
         codex_bin = self._which_cli("codex")
         if not codex_bin:
             raise FileNotFoundError("codex CLI not on PATH")
+        # Plan mode → read-only sandbox (no writes, no shell). Build mode →
+        # workspace-write so codex can actually edit files in the agent root.
+        # "danger-full-access" is intentionally NOT exposed; operators get
+        # workspace-scoped write at most, scoped to the agent's repo root.
+        sandbox_mode = "read-only" if chat_mode == "plan" else "workspace-write"
         out_path = ""
         try:
             with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".txt", delete=False) as fh:
@@ -2028,7 +2038,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
                 codex_bin,
                 "exec",
                 "--sandbox",
-                "read-only",
+                sandbox_mode,
                 "--skip-git-repo-check",
                 "-C",
                 str(root),
@@ -2052,10 +2062,15 @@ class _ChatHandler(BaseHTTPRequestHandler):
                 except Exception:
                     pass
 
-    def _run_gemini_cli(self, root: Path, prompt_text: str) -> str:
+    def _run_gemini_cli(self, root: Path, prompt_text: str, chat_mode: str = "build") -> str:
         gemini_bin = self._which_cli("gemini")
         if not gemini_bin:
             raise FileNotFoundError("gemini CLI not on PATH")
+        # Plan mode → --approval-mode=plan (gemini researches + proposes,
+        # never executes). Build mode → --approval-mode=yolo (auto-approve
+        # tool calls so chat doesn't hang on stdin prompts; bridge runs
+        # non-interactively so any approval prompt is fatal).
+        approval_mode = "plan" if chat_mode == "plan" else "yolo"
         args = [
             gemini_bin,
             "-p",
@@ -2063,7 +2078,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
             "--output-format",
             "json",
             "--approval-mode",
-            "plan",
+            approval_mode,
             "--skip-trust",
         ]
         proc = self._run_cli_command(args, root, timeout_s=120)
