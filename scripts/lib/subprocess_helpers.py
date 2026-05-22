@@ -29,6 +29,8 @@ Example:
 from __future__ import annotations
 
 import os
+import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -76,6 +78,38 @@ def prefer_pythonw(python_path: Union[str, Path]) -> Path:
     return cand if cand.exists() else p
 
 
+def command_without_cmd_shim(bin_path: str) -> list[str]:
+    """Return argv that bypasses npm .cmd/.bat shims on Windows.
+
+    CREATE_NO_WINDOW + SW_HIDE normally suppresses console windows, but
+    cmd.exe can still allocate a visible conhost before an npm shim hands
+    off to node.exe. npm's generated shim contains the real JS entrypoint
+    as "%dp0%\\node_modules\\..."; invoking that through node.exe keeps
+    cmd.exe out of the process tree entirely.
+    """
+    path = Path(bin_path)
+    if os.name != "nt" or path.suffix.lower() not in {".cmd", ".bat"}:
+        return [bin_path]
+    try:
+        text = path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return [bin_path]
+    match = re.search(r'"%dp0%\\([^"]+)"\s+%\*', text)
+    if match:
+        target = path.parent / match.group(1)
+    elif path.name.lower() == "npm.cmd":
+        target = path.parent / "node_modules" / "npm" / "bin" / "npm-cli.js"
+    else:
+        return [bin_path]
+    node = shutil.which("node")
+    bundled_node = path.parent / "node.exe"
+    if bundled_node.exists():
+        node = str(bundled_node)
+    if not node or not target.exists():
+        return [bin_path]
+    return [node, str(target)]
+
+
 def _merge_creationflags(kw: dict, base: int) -> dict:
     """OR the caller's creationflags with `base` so an explicit
     DETACHED_PROCESS, CREATE_NEW_PROCESS_GROUP, etc. isn't lost."""
@@ -95,7 +129,12 @@ def _auto_startupinfo(kw: dict, cmd: Any) -> dict:
         needs = True
     elif isinstance(cmd, (list, tuple)) and cmd:
         first = str(cmd[0]).lower()
-        if first.endswith(".cmd") or first.endswith(".bat"):
+        first_name = Path(first).name
+        if (
+            first.endswith(".cmd")
+            or first.endswith(".bat")
+            or first_name in {"cmd", "cmd.exe", "powershell", "powershell.exe", "pwsh", "pwsh.exe"}
+        ):
             needs = True
     if needs:
         kw["startupinfo"] = windowless_startupinfo()
@@ -136,6 +175,7 @@ __all__ = [
     "DETACHED_FLAGS",
     "windowless_startupinfo",
     "prefer_pythonw",
+    "command_without_cmd_shim",
     "safe_run",
     "safe_popen",
     "safe_daemon_popen",

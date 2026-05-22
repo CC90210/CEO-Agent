@@ -8,8 +8,9 @@ import subprocess
 import json
 import sys
 import os
+import shutil
 from pathlib import Path
-from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
+from _subprocess_helpers import command_without_cmd_shim, safe_run  # noqa: E402
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 GLOBAL_PLUGIN = Path.home() / ".claude" / "codex-plugin"
@@ -22,20 +23,24 @@ LOCAL_SETTINGS = PROJECT_ROOT / ".claude" / "settings.local.json"
 
 def check_codex_cli():
     """Check if Codex CLI is installed and accessible."""
-    # On Windows, subprocess may not find npm-installed binaries without shell=True
-    # or explicit .cmd extension. Try multiple paths.
-    candidates = [
-        "codex",
-        "codex.cmd",
+    # Resolve the npm shim, then bypass it on Windows so cmd.exe never
+    # enters the process tree during background health probes.
+    raw_candidates = [
+        shutil.which("codex"),
+        shutil.which("codex.cmd"),
         str(Path.home() / "AppData" / "Roaming" / "npm" / "codex.cmd"),
     ]
+    candidates = []
+    for cmd in raw_candidates:
+        if cmd and cmd not in candidates:
+            candidates.append(cmd)
     for cmd in candidates:
         try:
-            result = subprocess.run(
-                [cmd, "--version"],
+            result = safe_run(
+                [*command_without_cmd_shim(cmd), "--version"],
                 capture_output=True, text=True, timeout=10,
                 encoding="utf-8",
-             creationflags=WINDOWLESS_FLAGS)
+            )
             if result.returncode == 0 and result.stdout.strip():
                 return {"status": "ok", "version": result.stdout.strip()}
         except (FileNotFoundError, OSError):
@@ -49,11 +54,11 @@ def check_codex_auth():
     """Check if Codex is authenticated."""
     plugin_root = str(GLOBAL_PLUGIN) if GLOBAL_PLUGIN.exists() else str(LOCAL_PLUGIN)
     try:
-        result = subprocess.run(
+        result = safe_run(
             ["node", f"{plugin_root}/scripts/codex-companion.mjs", "setup", "--json"],
             capture_output=True, text=True, timeout=15,
             env={**os.environ, "CLAUDE_PLUGIN_ROOT": plugin_root}
-        , creationflags=WINDOWLESS_FLAGS)
+        )
         data = json.loads(result.stdout)
         return {
             "status": "ok" if data.get("ready") else "not_ready",

@@ -39,13 +39,13 @@ import urllib.error
 
 try:
     from ._constants import dashboard_url as _resolve_dashboard_url
-    from ._subprocess_helpers import WINDOWLESS_FLAGS
+    from ._subprocess_helpers import WINDOWLESS_FLAGS, command_without_cmd_shim, safe_popen, safe_run
 except ImportError:  # script-mode invocation (python local_bridge.py _loop)
     _here = Path(__file__).resolve().parent
     if str(_here) not in sys.path:
         sys.path.insert(0, str(_here))
     from _constants import dashboard_url as _resolve_dashboard_url  # type: ignore
-    from _subprocess_helpers import WINDOWLESS_FLAGS  # type: ignore
+    from _subprocess_helpers import WINDOWLESS_FLAGS, command_without_cmd_shim, safe_popen, safe_run  # type: ignore
 
 HOME = Path.home()
 OASIS_DIR = HOME / ".oasis"
@@ -68,10 +68,18 @@ def _which_version(cmd: str, args: list[str], timeout: int = 5) -> tuple[bool, s
     if not bin_path:
         return False, ""
     try:
-        out = subprocess.check_output([bin_path, *args], timeout=timeout,
-                                      stderr=subprocess.STDOUT,
-                                      creationflags=WINDOWLESS_FLAGS)
-        return True, out.decode("utf-8", errors="ignore").strip().splitlines()[0]
+        proc = safe_run(
+            [*command_without_cmd_shim(bin_path), *args],
+            timeout=timeout,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="ignore",
+        )
+        if proc.returncode != 0:
+            return False, (proc.stdout or "").strip()
+        return True, (proc.stdout or "").strip().splitlines()[0]
     except Exception as e:
         return False, str(e)
 
@@ -84,9 +92,21 @@ def detect_ffmpeg() -> dict:
 
 
 def detect_whisper() -> dict:
-    ok, _ = _which_version("whisper", ["--help"])
-    if ok:
-        return {"status": "healthy", "metadata": {"path": shutil.which("whisper")}}
+    try:
+        proc = safe_run(
+            [
+                sys.executable,
+                "-c",
+                "import importlib.util; raise SystemExit(0 if importlib.util.find_spec('whisper') else 1)",
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+        )
+        if proc.returncode == 0:
+            return {"status": "healthy", "metadata": {"via": "python_module"}}
+    except Exception:
+        pass
     return {"status": "unconfigured", "last_error": "whisper CLI not on PATH"}
 
 
@@ -109,14 +129,22 @@ def detect_browser_harness() -> dict:
 
 
 def detect_playwright() -> dict:
-    ok, _ = _which_version("playwright", ["--version"])
-    if ok:
-        return {"status": "healthy", "metadata": {"path": shutil.which("playwright")}}
-    # npx playwright is also valid
-    ok2, line = _which_version("npx", ["playwright", "--version"])
-    if ok2:
-        return {"status": "healthy", "metadata": {"via": "npx", "version": line}}
-    return {"status": "unconfigured", "last_error": "playwright not detected via PATH or npx"}
+    try:
+        proc = safe_run(
+            [
+                sys.executable,
+                "-c",
+                "import importlib.util; raise SystemExit(0 if importlib.util.find_spec('playwright') else 1)",
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+        )
+        if proc.returncode == 0:
+            return {"status": "healthy", "metadata": {"via": "python_module"}}
+    except Exception:
+        pass
+    return {"status": "unconfigured", "last_error": "playwright Python package not detected"}
 
 
 def detect_node() -> dict:
@@ -285,12 +313,11 @@ def detect_pm2_daemons() -> dict[str, dict]:
     pm2_bin = shutil.which("pm2")
     if pm2_bin:
         try:
-            res = subprocess.run(
-                [pm2_bin, "jlist"],
+            res = safe_run(
+                [*command_without_cmd_shim(pm2_bin), "jlist"],
                 capture_output=True,
                 text=True,
                 timeout=10,
-                creationflags=WINDOWLESS_FLAGS,
             )
             if res.returncode == 0 and res.stdout.strip():
                 procs = json.loads(res.stdout)
@@ -567,7 +594,7 @@ def cmd_start(_args) -> int:
             | WINDOWLESS_FLAGS
         )
     log_fh = LOG_PATH.open("a", encoding="utf-8")
-    proc = subprocess.Popen(
+    proc = safe_popen(
         [sys.executable, str(Path(__file__).resolve()), "_loop"],
         stdout=log_fh, stderr=log_fh,
         stdin=subprocess.DEVNULL,
@@ -596,8 +623,7 @@ def cmd_stop(_args) -> int:
         return 0
     try:
         if os.name == "nt":
-            subprocess.run(["taskkill", "/F", "/PID", str(pid)], check=False,
-                           creationflags=WINDOWLESS_FLAGS)
+            safe_run(["taskkill", "/F", "/PID", str(pid)], check=False)
         else:
             os.kill(pid, 15)
         PID_PATH.unlink(missing_ok=True)
@@ -631,9 +657,9 @@ def _kill_chat_server() -> tuple[bool, str]:
             pid = int(pid_path.read_text(encoding="utf-8").strip())
             if _pid_alive(pid):
                 if os.name == "nt":
-                    subprocess.run(["taskkill", "/F", "/PID", str(pid)],
-                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                   check=False, creationflags=WINDOWLESS_FLAGS)
+                    safe_run(["taskkill", "/F", "/PID", str(pid)],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                             check=False)
                 else:
                     os.kill(pid, 15)
                 killed.append(pid)
@@ -648,13 +674,18 @@ def _kill_chat_server() -> tuple[bool, str]:
     # Startup may have launched a chat server we don't yet track.
     try:
         if os.name == "nt":
-            out = subprocess.check_output(
+            proc = safe_run(
                 ["wmic", "process", "where",
                  "name='python.exe' or name='pythonw.exe'",
                  "get", "ProcessId,CommandLine", "/format:list"],
-                stderr=subprocess.DEVNULL, timeout=10,
-                creationflags=WINDOWLESS_FLAGS,
-            ).decode("utf-8", errors="ignore")
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                timeout=10,
+                text=True,
+                encoding="utf-8",
+                errors="ignore",
+            )
+            out = proc.stdout or ""
             current_pid = -1
             current_cmd = ""
             for line in out.splitlines():
@@ -667,16 +698,23 @@ def _kill_chat_server() -> tuple[bool, str]:
                     except Exception:
                         current_pid = -1
                     if current_pid > 0 and "bridge_chat_server" in current_cmd and current_pid not in killed:
-                        subprocess.run(["taskkill", "/F", "/PID", str(current_pid)],
-                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                       check=False, creationflags=WINDOWLESS_FLAGS)
+                        safe_run(["taskkill", "/F", "/PID", str(current_pid)],
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                 check=False)
                         killed.append(current_pid)
                     current_pid = -1
                     current_cmd = ""
         else:
-            out = subprocess.check_output(["ps", "-eo", "pid,args"],
-                                          stderr=subprocess.DEVNULL, timeout=10,
-                                          creationflags=WINDOWLESS_FLAGS).decode("utf-8", errors="ignore")
+            proc = safe_run(
+                ["ps", "-eo", "pid,args"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                timeout=10,
+                text=True,
+                encoding="utf-8",
+                errors="ignore",
+            )
+            out = proc.stdout or ""
             for line in out.splitlines()[1:]:
                 parts = line.strip().split(None, 1)
                 if len(parts) != 2:
@@ -718,7 +756,7 @@ def _spawn_chat_server() -> tuple[bool, str]:
     OASIS_DIR.mkdir(parents=True, exist_ok=True)
     log_fh = LOG_PATH.open("a", encoding="utf-8")
     try:
-        proc = subprocess.Popen(
+        proc = safe_popen(
             [py, "-m", "bravo_cli.bridge_chat_server"],
             cwd=str(Path.cwd().resolve()),
             stdout=log_fh, stderr=log_fh,
@@ -901,11 +939,15 @@ def _pid_alive(pid: int) -> bool:
         return False
     try:
         if os.name == "nt":
-            out = subprocess.check_output(
+            proc = safe_run(
                 ["tasklist", "/FI", f"PID eq {pid}"],
+                stdout=subprocess.PIPE,
                 stderr=subprocess.DEVNULL,
-                creationflags=WINDOWLESS_FLAGS,
-            ).decode("utf-8", errors="ignore")
+                text=True,
+                encoding="utf-8",
+                errors="ignore",
+            )
+            out = proc.stdout or ""
             return str(pid) in out
         os.kill(pid, 0)
         return True
@@ -1010,8 +1052,7 @@ def cmd_install(_args) -> int:
         ]
         schtasks_err: str | None = None
         try:
-            r = subprocess.run(cmd, check=False, capture_output=True, text=True,
-                               creationflags=WINDOWLESS_FLAGS)
+            r = safe_run(cmd, check=False, capture_output=True, text=True)
             if r.returncode == 0:
                 print(f"OK — registered Windows scheduled task '{task_name}'.")
                 print(f"     Path: schtasks ONLOGON")
@@ -1064,15 +1105,13 @@ def cmd_install(_args) -> int:
 </plist>
 """, encoding="utf-8")
         try:
-            subprocess.run(["launchctl", "unload", str(plist_path)],
-                           check=False, capture_output=True,
-                           creationflags=WINDOWLESS_FLAGS)
+            safe_run(["launchctl", "unload", str(plist_path)],
+                     check=False, capture_output=True)
         except FileNotFoundError:
             pass
         try:
-            subprocess.run(["launchctl", "load", "-w", str(plist_path)],
-                           check=False, capture_output=True,
-                           creationflags=WINDOWLESS_FLAGS)
+            safe_run(["launchctl", "load", "-w", str(plist_path)],
+                     check=False, capture_output=True)
         except FileNotFoundError:
             pass
         print(f"OK — installed launchd plist at {plist_path}.")
@@ -1104,11 +1143,9 @@ RestartSec=5
 WantedBy=default.target
 """, encoding="utf-8")
     try:
-        subprocess.run(["systemctl", "--user", "daemon-reload"], check=False,
-                       creationflags=WINDOWLESS_FLAGS)
-        subprocess.run(["systemctl", "--user", "enable", "--now", "bravo-bridge.service"],
-                       check=False, capture_output=True,
-                       creationflags=WINDOWLESS_FLAGS)
+        safe_run(["systemctl", "--user", "daemon-reload"], check=False)
+        safe_run(["systemctl", "--user", "enable", "--now", "bravo-bridge.service"],
+                 check=False, capture_output=True)
     except FileNotFoundError:
         print("systemctl not found — install manually:", file=sys.stderr)
         print(f"  systemctl --user enable --now bravo-bridge.service", file=sys.stderr)
@@ -1128,10 +1165,9 @@ def cmd_uninstall(_args) -> int:
         removed_any = False
         # Try schtasks
         try:
-            r = subprocess.run(
+            r = safe_run(
                 ["schtasks", "/Delete", "/TN", task_name, "/F"],
                 check=False, capture_output=True, text=True,
-                creationflags=WINDOWLESS_FLAGS,
             )
             if r.returncode == 0:
                 print(f"OK — removed Windows scheduled task '{task_name}'.")
@@ -1153,9 +1189,8 @@ def cmd_uninstall(_args) -> int:
     if sys.platform == "darwin":
         plist_path = Path.home() / "Library" / "LaunchAgents" / "work.oasisai.bravo-bridge.plist"
         try:
-            subprocess.run(["launchctl", "unload", str(plist_path)],
-                           check=False, capture_output=True,
-                           creationflags=WINDOWLESS_FLAGS)
+            safe_run(["launchctl", "unload", str(plist_path)],
+                     check=False, capture_output=True)
         except FileNotFoundError:
             pass
         plist_path.unlink(missing_ok=True)
@@ -1163,9 +1198,8 @@ def cmd_uninstall(_args) -> int:
         return 0
     # Linux
     try:
-        subprocess.run(["systemctl", "--user", "disable", "--now", "bravo-bridge.service"],
-                       check=False, capture_output=True,
-                       creationflags=WINDOWLESS_FLAGS)
+        safe_run(["systemctl", "--user", "disable", "--now", "bravo-bridge.service"],
+                 check=False, capture_output=True)
     except FileNotFoundError:
         pass
     unit_path = Path.home() / ".config" / "systemd" / "user" / "bravo-bridge.service"

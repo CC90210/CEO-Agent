@@ -64,9 +64,9 @@ except Exception:
 def _load_env() -> dict[str, str]:
     """Load .env.agents via the canonical scripts/lib/secret_loader.
     Matches the pattern every other daemon in this repo uses
-    (event_router, sequence_runner, override_consumer) — audited
-    access via state/secret_access.log, single source of truth, and
-    refuses interactive shells.
+    (event_router, sequence_runner) — audited access via
+    state/secret_access.log, single source of truth, and refuses
+    interactive shells.
     """
     try:
         from lib.secret_loader import load_env  # type: ignore

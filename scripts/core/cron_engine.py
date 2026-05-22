@@ -232,21 +232,10 @@ SEED_JOBS: list[dict] = [
         "action_config": {"script": "scripts/core/cron_health_check.py", "args": ["--alert"]},
         "is_active": True,
     },
-    {
-        # Added 2026-05-22 — exec_override queue hygiene. exec_guard creates
-        # a `pending` row every time it blocks a hard-blocklisted command.
-        # Each row carries a 5-minute approval window. Without cleanup, the
-        # dashboard's "pending count" balloons over time — CC saw 284
-        # stale pendings on 2026-05-22 (all from test runs + prior blocks
-        # nobody ever approved). This cron keeps that count honest:
-        # pending = actually waiting for input, never the total backlog.
-        "name": "Bravo — Override Queue Cleanup",
-        "description": "Every 10 min — marks any exec_override.status='pending' row with expired expires_at as 'expired'. Keeps the dashboard's pending-count badge honest (only shows requests truly waiting for input, not stale ones). Without this, the badge balloons.",
-        "schedule": "*/10 * * * *",
-        "action_type": "script_run",
-        "action_config": {"script": "scripts/state/exec_override_expire.py", "args": ["--json"]},
-        "is_active": True,
-    },
+    # 'Bravo — Override Queue Cleanup' removed 2026-05-22 along with the
+    # entire exec_override approval-request system. exec_guard still blocks
+    # destructive commands; it just doesn't create DB rows asking for human
+    # approval. The block itself IS the protection.
 ]
 
 

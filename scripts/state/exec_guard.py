@@ -14,13 +14,11 @@ Modes (env var `EMPIRE_HOOK_EXEC_GUARD`):
 
 from __future__ import annotations
 
-import os
 import re
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import state_manager  # noqa: E402  — single source of truth for override-flow state
 from lib.hook_runtime import (  # noqa: E402
     log_jsonl,
     mode_from_env,
@@ -159,58 +157,6 @@ def _evaluate(cmd: str) -> tuple[str, str | None, str | None]:
     return ("allow", "default-pass", None)
 
 
-def _check_operator_approval(cmd: str) -> tuple[bool, str | None]:
-    """Look up an unconsumed operator-approved override for THIS command.
-
-    Returns (allowed, request_id). When allowed=True, the caller atomically
-    consumes the approval (single-use guarantee — the next attempt will need
-    a fresh approval).
-
-    BUILD 4 contract: approvals are bound to sha256(command). Approving
-    'rm -rf staging/' does NOT also approve 'rm -rf /'. They differ by hash.
-
-    Failures (DB missing, broken row, etc.) fall through to "not approved" —
-    fail-closed by design.
-    """
-    try:
-        row = state_manager.find_fresh_approval(cmd)
-    except Exception:  # noqa: BLE001  — fail-closed on any DB hiccup
-        return (False, None)
-    if not row:
-        return (False, None)
-    if state_manager.consume_override_request(row["id"]):
-        return (True, row["id"])
-    return (False, None)
-
-
-def _create_override_request(cmd: str, layer: str) -> str | None:
-    """Auto-create a pending override_request row when a block fires.
-
-    Returns the request_id (so the stderr block message can surface it),
-    or None if the DB write failed. Always best-effort — never blocks the
-    block itself.
-    """
-    try:
-        # cwd_path is the source-of-truth for workspace_label classification
-        # (migration 048). Capture at the block site so the dashboard knows
-        # whether this request came from empire code or a client repo.
-        try:
-            cwd = os.getcwd()
-        except OSError:
-            cwd = None
-        req = state_manager.create_override_request(
-            command=cmd,
-            layer=layer,
-            reason="auto-created by exec_guard on block",
-            caller_pid=os.getpid(),
-            ttl_sec=300,
-            cwd_path=cwd,
-        )
-        return req.get("id")
-    except Exception:  # noqa: BLE001
-        return None
-
-
 def main() -> int:
     mode = mode_from_env("EMPIRE_HOOK_EXEC_GUARD", default="report")
     if mode == "off":
@@ -237,61 +183,34 @@ def main() -> int:
         return 0
 
     # decision == "block"
-    # BUILD 4: before issuing the block, check for an operator-approved
-    # override of THIS exact command. Approvals are single-use and bound
-    # to sha256(cmd) — see scripts/state/exec_override.py for the operator path.
-    allowed, req_id = _check_operator_approval(cmd)
-    if allowed:
-        log_jsonl(LOG_PATH, {
-            "decision": "allowed-via-override",
-            "layer": layer,
-            "request_id": req_id,
-            "command": cmd_clip,
-        })
-        sys.stderr.write(
-            f"[exec_guard] allowed via approved override {req_id} (single-use, consumed).\n"
-        )
-        return 0
-
+    # The block IS the protection. No override / approval-request path
+    # exists anymore (deleted 2026-05-22 per CC: "I don't want to be an
+    # approval bot — agents pick a different approach when blocked").
+    # If a future need for human approval emerges, do it as an explicit
+    #, narrow workflow — not a default-deny queue.
     if mode == "enforce":
-        # In enforce mode, AUTO-CREATE the override_request so the operator
-        # has a one-line approval command in the block message.
-        new_req = _create_override_request(cmd, layer or "?")
         log_jsonl(LOG_PATH, {
             "decision": "blocked",
             "layer": layer,
             "command": cmd_clip,
-            "override_request_id": new_req,
         })
         sys.stderr.write(
             f"BLOCKED by exec_guard ({layer}): {reason}\n"
             f"  Command: {cmd[:200]}{'...' if len(cmd) > 200 else ''}\n"
-        )
-        if new_req:
-            sys.stderr.write(
-                f"  Override request: {new_req} (TTL 5 min, single-use)\n"
-                f"  To approve from your terminal:\n"
-                f"    python scripts/state/exec_override.py approve {new_req}\n"
-            )
-        sys.stderr.write(
-            "  Do NOT bypass with eval, base64, or --no-verify.\n"
-            "  Bypass attempts are logged.\n"
+            "  Pick a safer alternative. Do NOT bypass with eval, base64, "
+            "or --no-verify (bypass attempts are logged).\n"
         )
         return 2
 
-    # report mode — log a would-be block, also auto-create a request so the
-    # operator can experiment with the approval flow without flipping enforce.
-    new_req = _create_override_request(cmd, layer or "?")
+    # report mode — log a would-be block, no DB write, no approval request.
     log_jsonl(LOG_PATH, {
         "decision": "would-block",
         "layer": layer,
         "command": cmd_clip,
-        "override_request_id": new_req,
     })
-    msg = f"[exec_guard report-mode] would block ({layer}): {cmd[:160]}"
-    if new_req:
-        msg += f" — request_id={new_req}"
-    sys.stderr.write(msg + "\n")
+    sys.stderr.write(
+        f"[exec_guard report-mode] would block ({layer}): {cmd[:160]}\n"
+    )
     return 0
 
 

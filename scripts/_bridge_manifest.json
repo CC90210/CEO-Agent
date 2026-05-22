@@ -68,13 +68,6 @@
       "help": "Autonomous Agent \u2014 the always-on reasoning loop. \u2014 subcommand: decisions"
     },
     {
-      "key": "backfill_exec_overrides_workspace",
-      "path": "scripts/backfill_exec_overrides_workspace.py",
-      "subcmd": null,
-      "mutating": false,
-      "help": "One-off backfill: classify existing exec_overrides rows into workspace buckets."
-    },
-    {
       "key": "backfill_sunbiz_stages",
       "path": "scripts/backfill_sunbiz_stages.py",
       "subcmd": null,

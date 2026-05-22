@@ -132,7 +132,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-05-22
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Empire-wide V6.8.3 finalized. Bravo+Maven+Atlas all pushed to remotes. Maven main now has V6.8.3 (was on readme/v6-refresh). Dashboard production at 40ea4d1f with 9/12 integrations (all critical green: ANTHROPIC, SUPABASE, ENCRYPTION, HMAC).
+- **Result:** Marked OASIS Chrome Audio Guard scheduled task hidden; remaining visible PowerShell launches traced to ASUS Armoury/Wispr Flow parent processes outside the repo.
 
 *Last updated: 2026-05-22*
 

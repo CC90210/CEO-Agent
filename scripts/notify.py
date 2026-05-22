@@ -160,10 +160,10 @@ def notify_error(engine: str, error: str) -> bool:
 def notify_daemon_crash(daemon: str, error: str, tick_id: str | None = None) -> bool:
     """Daemon-level crash alert. Always bypasses the category block list.
 
-    Round 3 R3-11 (2026-05-16): the 4 long-running PM2 daemons
-    (sequence_runner, lender_response_classifier, event_router,
-    exec_override_consumer) all had top-level except clauses that
-    logged to stdout and swallowed the failure. PM2 would restart
+    Round 3 R3-11 (2026-05-16): the long-running PM2 daemons
+    (sequence_runner, lender_response_classifier, event_router) all
+    had top-level except clauses that logged to stdout and swallowed
+    the failure. PM2 would restart
     the process but CC wouldn't know anything had crashed. This
     helper closes that gap — wraps daemon tick errors with a Telegram
     push the operator sees in real time.

@@ -27,11 +27,10 @@ import subprocess
 import sys
 import time
 import urllib.parse
-from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
+from _subprocess_helpers import safe_run  # noqa: E402
 
 IS_MAC = platform.system() == "Darwin"
 IS_WIN = platform.system() == "Windows"
-CREATE_NO_WINDOW = 0x08000000 if IS_WIN else 0
 CDP_PORT = 9222
 
 
@@ -155,9 +154,9 @@ end tell
         import pyautogui
         pyautogui.FAILSAFE = False
         # Focus Chrome first
-        subprocess.run(["powershell", "-NoProfile", "-Command",
+        safe_run(["powershell", "-NoProfile", "-Command",
             'Add-Type @"\nusing System; using System.Runtime.InteropServices;\npublic class W { [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h); }\n"@\n$p = Get-Process chrome -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1\nif ($p) { [W]::SetForegroundWindow($p.MainWindowHandle) }'],
-            capture_output=True, creationflags=CREATE_NO_WINDOW, timeout=5)
+            capture_output=True, timeout=5)
         time.sleep(0.3)
         pyautogui.press('space')
         return {"ok": True, "output": "spacebar sent"}
@@ -167,10 +166,10 @@ end tell
 
 def run_osascript(script, timeout=30):
     try:
-        result = subprocess.run(
+        result = safe_run(
             ["osascript", "-e", script],
             capture_output=True, text=True, timeout=timeout
-        , creationflags=WINDOWLESS_FLAGS)
+        )
         if result.returncode != 0:
             return {"ok": False, "error": result.stderr.strip()}
         return {"ok": True, "output": result.stdout.strip()}
@@ -235,10 +234,10 @@ def search_soundcloud_curl(query, limit=5):
     encoded = urllib.parse.quote(query)
     url = f"https://soundcloud.com/search?q={encoded}"
     try:
-        result = subprocess.run(
+        result = safe_run(
             ["curl", "-s", "-L", url, "-H", "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"],
             capture_output=True, text=True, timeout=15
-        , creationflags=WINDOWLESS_FLAGS)
+        )
         if result.returncode != 0:
             return []
         html = result.stdout

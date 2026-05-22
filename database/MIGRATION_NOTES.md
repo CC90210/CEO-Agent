@@ -3,13 +3,21 @@
 Audit-compatible explanation of the two non-monotonic items in `database/`.
 Captured 2026-05-21 during the empire-wide cleanup pass.
 
-## Numbering gap at 047
+## Numbering gaps
 
-There is no `database/047_*.sql`. The numbers jump from `046_sequence_state_atomic_claim.sql` straight to `048_exec_overrides_workspace_label.sql`.
+Three slots are deliberately unused: `047`, `035`, `048`.
 
-**Why:** Slot 047 was reserved for a sequence-state extension that ended up folded back into 046 during review. The gap is intentional — do NOT renumber subsequent migrations to close it. Production tracks applied migrations by filename, and renaming applied migrations breaks the tracking table.
+- **047:** Reserved for a sequence-state extension that ended up folded
+  back into 046 during review.
+- **035 + 048:** Originally created the `exec_overrides` table and added
+  a workspace_label column. Both files were deleted 2026-05-22 along
+  with the entire override-approval feature (CC's call — see
+  `scripts/state/exec_guard.py` comment). The table was also dropped
+  in Supabase. Subsequent migrations have not been renumbered;
+  production tracks applied migrations by filename.
 
-**If you need slot 047:** write `047_<descriptive_name>.sql` as a new migration and apply it forward. Don't backfill.
+**If you need a gap slot:** write `XXX_<descriptive_name>.sql` as a
+new migration and apply it forward. Don't backfill.
 
 ## Duplicate prefixes at 030 and 031
 

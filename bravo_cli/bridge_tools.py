@@ -41,7 +41,7 @@ from typing import Callable
 # on each bridge tool call.
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO_ROOT / "scripts"))
-from _subprocess_helpers import safe_popen, safe_run  # noqa: E402
+from _subprocess_helpers import command_without_cmd_shim, safe_popen, safe_run  # noqa: E402
 
 try:
     from .agent_roots import resolve_root
@@ -1180,8 +1180,9 @@ def _tool_cli_status(payload: dict) -> dict:
         return None
 
     def _run(args: list[str], timeout: int = 5) -> tuple[int, str]:
+        cmd = [*command_without_cmd_shim(args[0]), *args[1:]] if args else args
         try:
-            r = safe_run(args, capture_output=True, text=True,
+            r = safe_run(cmd, capture_output=True, text=True,
                          timeout=timeout, encoding="utf-8", errors="replace")
             return r.returncode, (r.stdout or "").strip() + ("\n" + r.stderr.strip() if r.stderr else "")
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
@@ -1338,7 +1339,7 @@ def _tool_install_cli(payload: dict) -> dict:
         )
     try:
         proc = safe_run(
-            [npm_bin, "install", "-g", pkg],
+            [*command_without_cmd_shim(npm_bin), "install", "-g", pkg],
             capture_output=True,
             text=True,
             timeout=300,  # 5 min — global installs can be slow on first run
@@ -1450,7 +1451,7 @@ def _tool_cli_auth_start(payload: dict) -> dict:
     # DEVNULL hid that output and made the flow opaque.
     try:
         proc = safe_popen(
-            [bin_path, *args],
+            [*command_without_cmd_shim(bin_path), *args],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             stdin=subprocess.DEVNULL,
