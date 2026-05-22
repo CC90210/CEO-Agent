@@ -19,20 +19,30 @@
  *   node scripts/build-platform.js mac
  *   node scripts/build-platform.js mac --unsigned
  *
- * Signing env vars (electron-builder convention):
+ * Signing env vars (electron-builder convention, platform-specific
+ * vars override the cross-platform ones — matches what the existing
+ * .github/workflows/oasis-desktop.yml CI sets):
  *   Mac:
- *     CSC_LINK             - path to .p12 OR https URL to cert
- *     CSC_KEY_PASSWORD     - .p12 password
- *     APPLE_ID             - Apple ID for notarization
- *     APPLE_APP_SPECIFIC_PASSWORD - app-specific password
- *     APPLE_TEAM_ID        - 10-char Team ID
+ *     MAC_CSC_LINK or CSC_LINK             - path to .p12 OR https URL
+ *     MAC_CSC_KEY_PASSWORD or CSC_KEY_PASSWORD - .p12 password
+ *     APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID — for notarytool
  *   Win:
- *     CSC_LINK             - path to .pfx OR https URL
- *     CSC_KEY_PASSWORD     - .pfx password
+ *     WIN_CSC_LINK or CSC_LINK             - path to .pfx OR https URL
+ *     WIN_CSC_KEY_PASSWORD or CSC_KEY_PASSWORD - .pfx password
+ *
+ * Strict mode:
+ *   OASIS_REQUIRE_WINDOWS_SIGNING=true  — fail the build if win signing
+ *                                        env vars are missing. Matches
+ *                                        scripts/release-check.js and
+ *                                        scripts/signing-status.js so a
+ *                                        production CI can pin "no
+ *                                        unsigned artifacts ever".
+ *   OASIS_REQUIRE_MAC_SIGNING=true      — same enforcement for Mac.
  *
  * Set --unsigned to force an unsigned local build even when env
  * vars are present (useful for fast iteration without a notarize
- * round-trip).
+ * round-trip). --unsigned overrides OASIS_REQUIRE_* so the operator
+ * can intentionally bypass strict mode for one local build.
  */
 "use strict";
 
@@ -49,17 +59,51 @@ if (!PLATFORM || !["win", "mac"].includes(PLATFORM)) {
 
 const env = { ...process.env };
 
-// Detect signing readiness per platform.
-const macSigningReady =
-  PLATFORM === "mac" &&
-  !!env.CSC_LINK &&
-  !!env.CSC_KEY_PASSWORD;
+// Detect signing readiness per platform. Honors the platform-specific
+// electron-builder env vars (WIN_CSC_LINK / MAC_CSC_LINK) AND the
+// cross-platform fallback (CSC_LINK). CI sets WIN_CSC_LINK explicitly
+// per .github/workflows/oasis-desktop.yml; local operators usually
+// just set CSC_LINK — both work.
+const macCert = !!(env.MAC_CSC_LINK || env.CSC_LINK);
+const macPassword = !!(env.MAC_CSC_KEY_PASSWORD || env.CSC_KEY_PASSWORD);
+const winCert = !!(env.WIN_CSC_LINK || env.CSC_LINK);
+const winPassword = !!(env.WIN_CSC_KEY_PASSWORD || env.CSC_KEY_PASSWORD);
+
+const macSigningReady = PLATFORM === "mac" && macCert && macPassword;
 const macNotarizeReady =
   macSigningReady && !!env.APPLE_ID && !!env.APPLE_APP_SPECIFIC_PASSWORD && !!env.APPLE_TEAM_ID;
-const winSigningReady =
-  PLATFORM === "win" && !!env.CSC_LINK && !!env.CSC_KEY_PASSWORD;
+const winSigningReady = PLATFORM === "win" && winCert && winPassword;
 
 const forceUnsigned = UNSIGNED_FLAG;
+
+// Strict-mode enforcement — refuses to build unsigned when set, unless
+// --unsigned was explicitly passed (escape hatch for local debugging).
+// Mirrors scripts/release-check.js + scripts/signing-status.js so a
+// production CI can pin "no unsigned artifacts ever ship."
+const requireWinSigning = env.OASIS_REQUIRE_WINDOWS_SIGNING === "true";
+const requireMacSigning = env.OASIS_REQUIRE_MAC_SIGNING === "true";
+if (!forceUnsigned && PLATFORM === "win" && requireWinSigning && !winSigningReady) {
+  console.error("");
+  console.error("================================================================");
+  console.error(" BUILD REFUSED — OASIS_REQUIRE_WINDOWS_SIGNING=true but no");
+  console.error(" Windows signing certificate is configured in env. Set");
+  console.error(" WIN_CSC_LINK + WIN_CSC_KEY_PASSWORD (or CSC_LINK +");
+  console.error(" CSC_KEY_PASSWORD) to proceed. See SIGNING.md.");
+  console.error(" Bypass for local debug: pass --unsigned.");
+  console.error("================================================================");
+  process.exit(2);
+}
+if (!forceUnsigned && PLATFORM === "mac" && requireMacSigning && !macSigningReady) {
+  console.error("");
+  console.error("================================================================");
+  console.error(" BUILD REFUSED — OASIS_REQUIRE_MAC_SIGNING=true but no Mac");
+  console.error(" Developer ID certificate is configured in env. Set");
+  console.error(" MAC_CSC_LINK + MAC_CSC_KEY_PASSWORD (or CSC_LINK +");
+  console.error(" CSC_KEY_PASSWORD). See SIGNING.md.");
+  console.error(" Bypass for local debug: pass --unsigned.");
+  console.error("================================================================");
+  process.exit(2);
+}
 
 let mode;
 if (forceUnsigned) {
