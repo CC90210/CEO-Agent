@@ -70,6 +70,99 @@ def _bravo_root() -> Path:
     return Path(p) if p else Path.cwd()
 
 
+# Per-agent root allowlist for read_file / write_file. Tools only touch
+# paths that resolve INSIDE one of these roots. Closes Codex adversarial
+# finding 2026-05-22 #4 — the prior implementation accepted absolute paths
+# anywhere on disk because under_root() was a documented helper that
+# nobody actually called.
+_ALLOWED_FILE_ROOTS: list[Path] = []
+
+
+def _allowed_roots() -> list[Path]:
+    """Resolve once + cache. Returns all known agent repo roots
+    (bravo, atlas, maven, aura, hermes, …) the bridge is allowed to
+    touch. resolve_root() returns None for un-paired agents — we
+    skip those so the allowlist matches the operator's actual layout."""
+    if _ALLOWED_FILE_ROOTS:
+        return _ALLOWED_FILE_ROOTS
+    for slug in ("bravo", "atlas", "maven", "aura", "hermes"):
+        root = resolve_root(slug)
+        if root:
+            try:
+                _ALLOWED_FILE_ROOTS.append(Path(root).resolve(strict=False))
+            except OSError:
+                continue
+    return _ALLOWED_FILE_ROOTS
+
+
+# Secret-file name patterns — refused even when the path otherwise resolves
+# inside an allowed root. Defense in depth against prompt-injection
+# attempts to exfiltrate credentials from the agent's own repo.
+_SECRET_FILENAME_PATTERNS = (
+    ".env", ".env.local", ".env.production", ".env.agents",
+    "credentials.json", "service-account.json",
+    "id_rsa", "id_ed25519",
+)
+_SECRET_SUFFIXES = (".pem", ".key", ".p12", ".pfx")
+
+
+def _is_secret_path(p: Path) -> bool:
+    """True if the path's basename matches a known secret-file pattern.
+    Case-insensitive. Returns true on .env* variants too (e.g.,
+    .env.agents, .env.local, .env.production)."""
+    name = p.name.lower()
+    if name in _SECRET_FILENAME_PATTERNS:
+        return True
+    if name.startswith(".env"):
+        return True
+    for suf in _SECRET_SUFFIXES:
+        if name.endswith(suf):
+            return True
+    return False
+
+
+def _resolve_under_allowed_root(raw_path: str) -> tuple[Path | None, str | None]:
+    """Resolve raw_path and verify it falls under one of _allowed_roots().
+    Returns (resolved_path, None) on success, (None, error_msg) on rejection.
+
+    Rules:
+      - Relative paths resolve against the Bravo repo root (existing
+        ergonomics — the agent is usually working on Bravo).
+      - Absolute paths are honored ONLY if they resolve under one of
+        the allowlisted agent roots.
+      - Secret-file names (.env*, *.pem, *.key, credentials.json, …) are
+        refused regardless of location.
+    """
+    p = Path(raw_path)
+    if not p.is_absolute():
+        p = _bravo_root() / p
+    try:
+        p = p.resolve(strict=False)
+    except OSError as e:
+        return None, f"path_resolve_failed: {e}"
+    roots = _allowed_roots()
+    if not roots:
+        # No agent roots registered yet — fall back to Bravo cwd only.
+        # Safer than wide-open on fresh-clone / single-agent setups.
+        roots = [Path.cwd().resolve(strict=False)]
+    under_any = False
+    for root in roots:
+        try:
+            p.relative_to(root)
+            under_any = True
+            break
+        except ValueError:
+            continue
+    if not under_any:
+        return None, (
+            f"path_outside_allowed_roots: {p} is not inside any of "
+            f"{[str(r) for r in roots]}"
+        )
+    if _is_secret_path(p):
+        return None, f"refused_secret_file: {p.name} matches a credential pattern"
+    return p, None
+
+
 def _truncate(blob: str) -> str:
     if len(blob) <= MAX_OUTPUT_BYTES:
         return blob
@@ -93,10 +186,12 @@ def _err(msg: str) -> dict:
 def _tool_read_file(payload: dict) -> dict:
     """{path: str, max_bytes?: int} → file contents.
 
-    Path resolution: absolute paths are read as-is. Relative paths are
-    resolved against the Bravo repo root. The bridge already runs as the
-    operator; OS-level perms gate access. Soft cap on returned bytes
-    keeps the model from drowning in huge logs.
+    Path resolution: relative paths resolve against the Bravo repo root.
+    Absolute paths are honored ONLY if they resolve under an agent root
+    in _allowed_roots() (bravo, atlas, maven, aura, hermes). Secret-file
+    names (.env*, *.pem, *.key, credentials.json, …) are refused.
+    Hardened 2026-05-22 per Codex adversarial finding #4 — the prior
+    implementation accepted any absolute path, only OS perms gated it.
     """
     raw_path = str(payload.get("path") or "").strip()
     if not raw_path:
@@ -106,13 +201,9 @@ def _tool_read_file(payload: dict) -> dict:
     except (TypeError, ValueError):
         max_bytes = 200_000
 
-    p = Path(raw_path)
-    if not p.is_absolute():
-        p = _bravo_root() / p
-    try:
-        p = p.resolve(strict=False)
-    except OSError as e:
-        return _err(f"path_resolve_failed: {e}")
+    p, err = _resolve_under_allowed_root(raw_path)
+    if err or p is None:
+        return _err(err or "path_resolution_failed")
     if not p.exists():
         return _err(f"file_not_found: {p}")
     if not p.is_file():
@@ -135,7 +226,12 @@ def _tool_read_file(payload: dict) -> dict:
 # ──────────────────────────────────────────────────────────────────
 
 def _tool_write_file(payload: dict) -> dict:
-    """{path: str, content: str, create_dirs?: bool} → "wrote N bytes"."""
+    """{path: str, content: str, create_dirs?: bool} → "wrote N bytes".
+
+    Same path-allowlisting as _tool_read_file: writes are confined to
+    one of _allowed_roots() and secret-file names are refused. Hardened
+    2026-05-22 per Codex adversarial finding #4.
+    """
     raw_path = str(payload.get("path") or "").strip()
     content = payload.get("content")
     if not raw_path:
@@ -143,9 +239,9 @@ def _tool_write_file(payload: dict) -> dict:
     if not isinstance(content, str):
         return _err("'content' must be a string")
     create_dirs = bool(payload.get("create_dirs", True))
-    p = Path(raw_path)
-    if not p.is_absolute():
-        p = _bravo_root() / p
+    p, err = _resolve_under_allowed_root(raw_path)
+    if err or p is None:
+        return _err(err or "path_resolution_failed")
     try:
         if create_dirs and not p.parent.exists():
             p.parent.mkdir(parents=True, exist_ok=True)
