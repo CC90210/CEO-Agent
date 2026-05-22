@@ -32,6 +32,9 @@ from pathlib import Path
 from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+
+from lib.subprocess_helpers import safe_run  # noqa: E402
 
 
 def _ok(name: str, detail: str = "") -> dict[str, Any]:
@@ -52,7 +55,7 @@ def check_tests() -> dict[str, Any]:
     """Run pytest in quiet mode. Test_send_gateway is excluded by default
     until its V6.0-era fixtures are repaired (see test_send_gateway docstring)."""
     try:
-        result = subprocess.run(
+        result = safe_run(
             [sys.executable, "-m", "pytest", "scripts/", "-q",
              "--tb=no",
              "--ignore=scripts/test_send_gateway.py"],
@@ -84,7 +87,7 @@ def check_compile() -> dict[str, Any]:
 def check_health() -> dict[str, Any]:
     """Delegate to the health aggregator."""
     try:
-        result = subprocess.run(
+        result = safe_run(
             [sys.executable, "scripts/state/health_aggregator.py", "--json"],
             capture_output=True, text=True, timeout=30, cwd=str(PROJECT_ROOT),
         )
@@ -104,7 +107,7 @@ def check_health() -> dict[str, Any]:
 
 def check_security() -> dict[str, Any]:
     try:
-        result = subprocess.run(
+        result = safe_run(
             [sys.executable, "scripts/security_audit.py", "scan", "--json"],
             capture_output=True, text=True, timeout=120, cwd=str(PROJECT_ROOT),
         )
@@ -155,7 +158,7 @@ def check_docker_config() -> dict[str, Any]:
         if not path.exists():
             continue
         try:
-            result = subprocess.run(
+            result = safe_run(
                 [docker, "compose", "-f", str(path), "config", "--quiet"],
                 capture_output=True, text=True, timeout=30, cwd=str(PROJECT_ROOT),
             )

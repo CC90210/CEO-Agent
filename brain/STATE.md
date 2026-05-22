@@ -132,7 +132,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-05-22
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** V6.8.3 self-review pass: fixed state_sync heartbeat path + brain/ ref sweep
+- **Result:** Patched Windows subprocess pop-up risks by routing remaining unhidden subprocess calls through safe_run/safe_popen; audit_no_visible_subprocess now reports zero violations.
 
 *Last updated: 2026-05-22*
 

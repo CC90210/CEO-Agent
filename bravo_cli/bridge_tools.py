@@ -41,7 +41,7 @@ from typing import Callable
 # on each bridge tool call.
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO_ROOT / "scripts"))
-from _subprocess_helpers import safe_run  # noqa: E402
+from _subprocess_helpers import safe_popen, safe_run  # noqa: E402
 
 try:
     from .agent_roots import resolve_root
@@ -1449,7 +1449,7 @@ def _tool_cli_auth_start(payload: dict) -> dict:
     # CLI's "Visit https://..." line in the dashboard. Detaching with
     # DEVNULL hid that output and made the flow opaque.
     try:
-        proc = subprocess.Popen(
+        proc = safe_popen(
             [bin_path, *args],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,

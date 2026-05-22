@@ -37,6 +37,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
 
+from lib.subprocess_helpers import safe_run
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 
@@ -243,7 +245,7 @@ def scan_dependencies() -> dict[str, Any]:
     pip_audit = shutil.which("pip-audit") or shutil.which("pip_audit")
     if pip_audit:
         try:
-            result = subprocess.run(
+            result = safe_run(
                 [pip_audit, "-f", "json"], capture_output=True,
                 text=True, timeout=60, cwd=str(PROJECT_ROOT),
             )

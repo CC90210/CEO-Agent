@@ -368,12 +368,52 @@ def cmd_scan(args: argparse.Namespace) -> None:
 # Command: stale
 # ---------------------------------------------------------------------------
 
+def _file_threshold(file_path: str, default: int) -> int:
+    """Honor per-file `freshness_threshold_days:` frontmatter.
+
+    LONG_TERM.md declares 90 in its frontmatter — quarterly review cadence,
+    not weekly. Before 2026-05-22 this script ignored the frontmatter and
+    used the CLI default (7), surfacing 34 false-positive "stale" entries
+    in a file explicitly meant to be slow-moving. Now respects it.
+    """
+    try:
+        from pathlib import Path as _P
+        p = _P(file_path)
+        if not p.is_absolute():
+            p = (_P(__file__).resolve().parents[2] / file_path)
+        if not p.exists():
+            return default
+        text = p.read_text(encoding="utf-8")
+        if not text.startswith("---"):
+            return default
+        end = text.find("---", 3)
+        if end < 0:
+            return default
+        for line in text[3:end].splitlines():
+            if line.strip().startswith("freshness_threshold_days:"):
+                v = line.split(":", 1)[1].strip()
+                try:
+                    return int(v)
+                except ValueError:
+                    return default
+        return default
+    except Exception:
+        return default
+
+
 def cmd_stale(args: argparse.Namespace) -> None:
-    """Find facts not updated in N days."""
-    threshold = args.days
-    entries   = _all_entries()
-    stale     = [e for e in entries if e.days_since >= threshold]
+    """Find facts not updated in N days. Honors per-file frontmatter
+    `freshness_threshold_days:` — slow-moving files (LONG_TERM.md = 90)
+    use their own cadence rather than the CLI default."""
+    cli_default = args.days
+    entries     = _all_entries()
+    stale: list = []
+    for e in entries:
+        per_file = _file_threshold(e.file, cli_default)
+        if e.days_since >= per_file:
+            stale.append(e)
     stale.sort(key=lambda e: e.days_since, reverse=True)
+    threshold = cli_default  # for the report header / json output
 
     rows = [e.to_dict() for e in stale]
 

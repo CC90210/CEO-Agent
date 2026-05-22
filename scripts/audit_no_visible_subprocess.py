@@ -56,6 +56,7 @@ EXCLUDED_FILES = {
     # **kwargs that the caller passes in. The AST can't see the dynamic
     # creationflags merge, so exclude them.
     "scripts/_subprocess_helpers.py",
+    "scripts/lib/subprocess_helpers.py",
     "bravo_cli/_subprocess_helpers.py",
     # The audit + guard scripts walk for subprocess calls as
     # AST patterns; their own internal calls would be flagged.
