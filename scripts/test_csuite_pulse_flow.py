@@ -21,6 +21,8 @@ import json
 from pathlib import Path
 from datetime import datetime
 
+import pytest
+
 BRAVO = Path(r"C:\Users\User\Business-Empire-Agent\data\pulse\ceo_pulse.json")
 ATLAS = Path(r"C:\Users\User\APPS\CFO-Agent\data\pulse\cfo_pulse.json")
 MAVEN = Path(r"C:\Users\User\CMO-Agent\data\pulse\cmo_pulse.json")
@@ -76,6 +78,15 @@ def test_cross_read():
 
 def test_spend_gate_flow():
     print("\n[3/5] Spend-gate round-trip simulation")
+    # Cross-repo round-trip — only meaningful when ALL THREE sibling
+    # pulse files have been bootstrapped. On CI / fresh checkouts where
+    # CFO-Agent or CMO-Agent isn't pulled, skip rather than hard-fail.
+    # AURA gets the same gentle skip treatment in test_existence above.
+    if not (MAVEN.exists() and ATLAS.exists()):
+        pytest.skip(
+            f"sibling pulse files missing — MAVEN={MAVEN.exists()}, "
+            f"ATLAS={ATLAS.exists()}. Bootstrap siblings to enable."
+        )
     # 1. Maven requests $500 spend
     cmo = load(MAVEN)
     cmo.setdefault("spend_requests", [])
@@ -129,6 +140,9 @@ def test_sovereignty():
 
 def test_cleanup():
     print("\n[5/5] Cleanup of test data")
+    # Skip when siblings aren't bootstrapped — same gate as test_spend_gate_flow.
+    if not (MAVEN.exists() and ATLAS.exists()):
+        pytest.skip("sibling pulse files missing — nothing to clean up")
     # Remove TEST-SR-001 from both pulses
     cmo = load(MAVEN)
     cmo["spend_requests"] = [r for r in cmo.get("spend_requests", []) if r.get("id") != "TEST-SR-001"]

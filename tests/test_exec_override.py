@@ -23,12 +23,14 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = REPO_ROOT / "scripts"
-EXEC_GUARD = SCRIPTS / "exec_guard.py"
-EXEC_OVERRIDE = SCRIPTS / "exec_override.py"
-SECRET_GUARD = SCRIPTS / "secret_guard.py"
-STATE_GUARD = SCRIPTS / "state_guard.py"
+# Post-2026-05 reorg: guards + override CLI live under scripts/state/.
+EXEC_GUARD = SCRIPTS / "state" / "exec_guard.py"
+EXEC_OVERRIDE = SCRIPTS / "state" / "exec_override.py"
+SECRET_GUARD = SCRIPTS / "state" / "secret_guard.py"
+STATE_GUARD = SCRIPTS / "state" / "state_guard.py"
 
 sys.path.insert(0, str(SCRIPTS))
+sys.path.insert(0, str(SCRIPTS / "state"))
 import state_manager  # type: ignore[import-not-found]  # noqa: E402 — sys.path.insert above
 
 
@@ -45,20 +47,40 @@ def _bash(cmd: str) -> dict:
     return {"tool_name": "Bash", "tool_input": {"command": cmd}}
 
 
+def _subprocess_env(extras: dict[str, str]) -> dict[str, str]:
+    """Build the env dict every subprocess in this suite needs.
+
+    Adds scripts/ + scripts/state/ to PYTHONPATH so the guard / override
+    scripts can `from lib.hook_runtime import ...` and `import state_manager`
+    when launched as standalone subprocesses (their import discovery is
+    sys.path-driven; with no PYTHONPATH they crash on the first import
+    and the test mis-reads rc=1 as a logic failure).
+    """
+    pp_parts = [str(SCRIPTS), str(SCRIPTS / "state")]
+    if existing := os.environ.get("PYTHONPATH"):
+        pp_parts.append(existing)
+    return {
+        **os.environ,
+        **extras,
+        "PYTHONIOENCODING": "utf-8",
+        "PYTHONPATH": os.pathsep.join(pp_parts),
+    }
+
+
 def _run_guard(guard_path: Path, payload: dict, env_overrides: dict[str, str]) -> subprocess.CompletedProcess:
-    env = {**os.environ, **env_overrides, "PYTHONIOENCODING": "utf-8"}
     return subprocess.run(
         [sys.executable, str(guard_path)],
         input=json.dumps(payload),
-        capture_output=True, text=True, env=env, timeout=15,
+        capture_output=True, text=True,
+        env=_subprocess_env(env_overrides), timeout=15,
     )
 
 
 def _approve(req_id: str, reason: str = "test") -> subprocess.CompletedProcess:
-    env = {**os.environ, "EMPIRE_OVERRIDE_FORCE_TTY": "1", "PYTHONIOENCODING": "utf-8"}
     return subprocess.run(
         [sys.executable, str(EXEC_OVERRIDE), "approve", req_id, "--reason", reason],
-        capture_output=True, text=True, env=env, timeout=15,
+        capture_output=True, text=True,
+        env=_subprocess_env({"EMPIRE_OVERRIDE_FORCE_TTY": "1"}), timeout=15,
     )
 
 

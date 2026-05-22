@@ -1,19 +1,20 @@
 """Lock the python→pythonw consolidation.
 
-Two real callers existed before consolidation:
+Originally consolidated two callers:
   - bravo_cli/local_bridge.py:_resolve_pythonw  (used by wizard, schtasks
     install, plist install, .vbs install)
   - scripts/skool_watchdog.py:_resolve_daemon_python  (used to spawn the
-    skool_engine daemon)
+    skool_engine daemon)  ← ARCHIVED 2026-05-18 with the rest of Skool;
+    when CC's primary retainer ended, the daemon moved to
+    scripts/_archive/skool/.
 
-Both implemented `path.replace("python.exe", "pythonw.exe")` + existence
-check by hand. They now both delegate to a shared `prefer_pythonw(path)`
-primitive. This test enforces:
+The remaining live caller is bravo_cli/local_bridge.py. This test still
+enforces:
 
-1. Both _subprocess_helpers modules export the primitive.
+1. Both _subprocess_helpers modules export the primitive (the scripts
+   helper is kept for any future daemon that needs it).
 2. The two functions agree on the same input.
-3. Neither file re-implements the .replace("python.exe", "pythonw.exe")
-   pattern inline (would defeat the consolidation).
+3. The live caller doesn't re-implement the inline replace pattern.
 """
 
 import re
@@ -45,16 +46,17 @@ def test_both_primitives_agree_on_sys_executable():
 
 
 def test_no_inline_pythonw_replace_in_callers():
-    """Neither caller may reinstate the inline `replace("python.exe",
+    """Live callers may not reinstate the inline `replace("python.exe",
     "pythonw.exe")` pattern — that's the consolidation regression we're
     guarding against."""
     inline_pat = re.compile(r"\.replace\([\"']python\.exe[\"']\s*,\s*[\"']pythonw\.exe[\"']\)")
     callers = [
         ROOT / "bravo_cli" / "local_bridge.py",
-        ROOT / "scripts" / "skool_watchdog.py",
     ]
     leaks: list[str] = []
     for path in callers:
+        if not path.exists():
+            continue
         text = path.read_text(encoding="utf-8")
         if inline_pat.search(text):
             leaks.append(path.name)
@@ -65,11 +67,12 @@ def test_no_inline_pythonw_replace_in_callers():
 
 
 def test_callers_import_prefer_pythonw():
-    """Sanity: the migrated callers must actually import prefer_pythonw."""
+    """Sanity: the live callers must actually import prefer_pythonw."""
     for path in [
         ROOT / "bravo_cli" / "local_bridge.py",
-        ROOT / "scripts" / "skool_watchdog.py",
     ]:
+        if not path.exists():
+            continue
         text = path.read_text(encoding="utf-8")
         assert "prefer_pythonw" in text, (
             f"{path.name} doesn't reference prefer_pythonw — did the migration "

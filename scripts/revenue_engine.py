@@ -763,7 +763,7 @@ def cmd_goal(env_vars: dict[str, str], db, args) -> dict:
     # (Extended 2026-05-18 from May 30 after primary retainer ended.) Was May 15
     # in earlier versions — the canonical date is the only thing this comment
     # needs to track; update the date below to match brain/STATE.md.
-    DEADLINE = datetime.date(2026, 5, 30)
+    DEADLINE = datetime.date(2026, 6, 18)
     result = {
         "current_mrr": current,
         "goal": MRR_GOAL_USD,

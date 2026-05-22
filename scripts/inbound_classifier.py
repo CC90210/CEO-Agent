@@ -527,16 +527,25 @@ def record_inbound(
             else:
                 # Create a minimal inbound-only lead record. Source='inbound'
                 # distinguishes from outbound gateway auto-creates.
-                ins = db.table("leads").insert({
+                from lib.lead_contract import has_hard_required, enrich_lead_defaults
+                raw_lead = {
                     "name": from_identity.split("@")[0],
                     "email": from_identity.strip().lower(),
-                    "status": "new",
                     "source": "inbound_" + channel,
-                    "created_at": now.isoformat(),
-                    "updated_at": now.isoformat(),
-                }).execute().data
-                if ins:
-                    lead_id = ins[0]["id"]
+                }
+                
+                if has_hard_required(raw_lead):
+                    enriched_lead = enrich_lead_defaults(raw_lead)
+                    # Use 'status' instead of 'stage' for the older leads table mapping
+                    enriched_lead["status"] = enriched_lead.pop("stage", "new")
+                    enriched_lead["created_at"] = now.isoformat()
+                    enriched_lead["updated_at"] = now.isoformat()
+                    
+                    ins = db.table("leads").insert(enriched_lead).execute().data
+                    if ins:
+                        lead_id = ins[0]["id"]
+                else:
+                    print(f"[inbound_classifier] lead_contract rejected lead creation for {from_identity}", file=sys.stderr)
         except Exception as exc:  # noqa: BLE001
             print(f"[inbound_classifier] lead resolve warning: {exc}", file=sys.stderr)
 

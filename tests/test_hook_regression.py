@@ -31,9 +31,10 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = REPO_ROOT / "scripts"
-EXEC_GUARD = SCRIPTS / "exec_guard.py"
-SECRET_GUARD = SCRIPTS / "secret_guard.py"
-STATE_GUARD = SCRIPTS / "state_guard.py"
+# Post-reorg (2026-05): guards live under scripts/state/, not flat scripts/.
+EXEC_GUARD = SCRIPTS / "state" / "exec_guard.py"
+SECRET_GUARD = SCRIPTS / "state" / "secret_guard.py"
+STATE_GUARD = SCRIPTS / "state" / "state_guard.py"
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────
@@ -44,7 +45,20 @@ def _run_guard(guard_path: Path, payload: dict, mode_env: dict[str, str]) -> int
 
     Returns 0 = allowed, 2 = blocked. Anything else = test infrastructure problem.
     """
-    env = {**os.environ, **mode_env, "PYTHONIOENCODING": "utf-8"}
+    # The guard scripts do `from lib.hook_runtime import ...` which needs
+    # scripts/ on PYTHONPATH for the subprocess. Without this the guard
+    # crashes on import (rc=1) and every test mis-reads it as "blocked".
+    scripts_dir = guard_path.parent.parent
+    existing_pp = os.environ.get("PYTHONPATH", "")
+    pythonpath = (
+        f"{scripts_dir}{os.pathsep}{existing_pp}" if existing_pp else str(scripts_dir)
+    )
+    env = {
+        **os.environ,
+        **mode_env,
+        "PYTHONIOENCODING": "utf-8",
+        "PYTHONPATH": pythonpath,
+    }
     p = subprocess.run(
         [sys.executable, str(guard_path)],
         input=json.dumps(payload),
@@ -409,7 +423,13 @@ def test_all_guards_handle_empty_stdin() -> None:
         (SECRET_GUARD, "EMPIRE_HOOK_SECRET_GUARD"),
         (STATE_GUARD,  "EMPIRE_HOOK_STATE_GUARD"),
     ]:
-        env = {**os.environ, env_var: "enforce", "PYTHONIOENCODING": "utf-8"}
+        scripts_dir = guard.parent.parent
+        env = {
+            **os.environ,
+            env_var: "enforce",
+            "PYTHONIOENCODING": "utf-8",
+            "PYTHONPATH": str(scripts_dir),
+        }
         p = subprocess.run(
             [sys.executable, str(guard)],
             input="",
@@ -424,7 +444,13 @@ def test_all_guards_handle_malformed_json() -> None:
         (SECRET_GUARD, "EMPIRE_HOOK_SECRET_GUARD"),
         (STATE_GUARD,  "EMPIRE_HOOK_STATE_GUARD"),
     ]:
-        env = {**os.environ, env_var: "enforce", "PYTHONIOENCODING": "utf-8"}
+        scripts_dir = guard.parent.parent
+        env = {
+            **os.environ,
+            env_var: "enforce",
+            "PYTHONIOENCODING": "utf-8",
+            "PYTHONPATH": str(scripts_dir),
+        }
         p = subprocess.run(
             [sys.executable, str(guard)],
             input="{this is not valid json",
