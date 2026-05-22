@@ -6,7 +6,7 @@ status: archived
 confidence: 0.92
 ---
 
-> **ARCHIVED 2026-05-18 — pre-2026-05-18 snapshot.** This file documents the revenue model as it existed before the primary retainer ended on 2026-05-18. Numbers below are historical context, NOT current state. For current MRR see [[brain/STATE]] (~$371 confirmed) and the full handoff: [docs/handovers/2026-05-18-primary-retainer-revenue-shift-handoff.md](../../docs/handovers/2026-05-18-primary-retainer-revenue-shift-handoff.md). When a current-state revenue doc is written, link it here.
+> **ARCHIVED 2026-05-18 — pre-2026-05-18 snapshot.** This file documents the revenue model as it existed before the primary retainer ended on 2026-05-18. Numbers below are historical context, NOT current state. For current MRR see [[brain/STATE]] (~$371 confirmed). When a current-state revenue doc is written, link it here.
 
 # Revenue Model — MRR Breakdown and Path to $5K [ARCHIVED]
 

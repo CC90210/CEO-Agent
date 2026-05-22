@@ -142,13 +142,11 @@ The raw secret never lives anywhere on the server — only the SHA-256 hash. If 
 ## Related
 
 - [[docs/INDEX]]
-- [[docs/AGENT_REPO_CROSS_ANALYSIS_2026-04-22]]
 - [[docs/AGENT_RUNNER_DESIGN]]
 
 
 ## Related (graph)
 
 - [[docs/INDEX]]
-- [[docs/AGENT_REPO_CROSS_ANALYSIS_2026-04-22]]
 - [[docs/AGENT_RUNNER_DESIGN]]
 - [[docs/AI_WORKSTATION_ROADMAP]]

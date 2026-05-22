@@ -7,7 +7,7 @@ created: 2026-04-22
 
 > Where Bravo is going — the path from "CC's internal command center" to **the best AI operating system on the market for solo founders and small teams**.
 
-Anchor references: [[brain/SOUL]] · [[brain/AGENTS]] · [[brain/ORCHESTRATION]] · [[docs/AGENT_REPO_CROSS_ANALYSIS_2026-04-22]]
+Anchor references: [[brain/SOUL]] · [[brain/AGENTS]] · [[brain/ORCHESTRATION]]
 
 ---
 
@@ -151,7 +151,6 @@ V2.0 makes Bravo the product surface under OASIS AI Solutions — one subscripti
 
 ## Related
 - [[brain/SOUL]] · [[brain/AGENTS]] · [[brain/C_SUITE_ARCHITECTURE]]
-- [[docs/AGENT_REPO_CROSS_ANALYSIS_2026-04-22]] — Codex's cross-analysis that kicked this off
 - [[skills/browser-harness/SKILL]] · [[skills/agent-forge/SKILL]]
 - [[runtime/README]] · [[runtime/SKILL_LIFECYCLE]]
 - [[install/README]]
