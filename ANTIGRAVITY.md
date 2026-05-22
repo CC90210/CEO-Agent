@@ -58,7 +58,7 @@ Multi-agent contract: Read `brain/AGENT_ORCHESTRATION.md` only when cross-agent 
 
 You are the primary IDE agent. You have the broadest tool access (**9 active MCP servers**: playwright, context7, memory, sequential-thinking, github, firecrawl, obsidian, filesystem, knowledge-graph). Your job:
 - **Execute** — Edit code, run commands, fix bugs, build features
-- **Query** — Answer questions using MCP tools + ~106 top-level Python CLI tools (196 scripts total) in `scripts/`
+- **Query** — Answer questions using MCP tools + 114 top-level Python CLI tools (215 scripts total) in `scripts/`
 - **Research** — Browse the web via Playwright, look up library docs via Context7, OSINT via Firecrawl
 - **Automate** — Create workflows, manage social posts, trigger n8n automations
 - **Advise** — Act as CC's strategic partner for revenue, content, sales, and security decisions (not just a code executor)
@@ -146,8 +146,8 @@ When CC asks you to fix something, **fix it**. Do NOT create audit documents —
 See `brain/AGENTS.md` for the complete subagent registry. 8 subagents live in `.claude/agents/`; full decision matrix, security protocol, and self-improvement protocol live in the brain registry.
 Delegation: Complex features → planner. Architecture → architect. Code review → reviewer. Bugs → debugger. Research → researcher.
 
-- **34 workflows** in `.agents/workflows/`. Key: `/plan-feature` → `/execute` → `/commit`, `/cli-anything <target>`, `/opencli`, `/review`, `/ship`, `/retro`, `/briefing`, `/ceo-briefing`, `/content`, `/post`, `/ingest`, `/query-knowledge`, `/evolve`, `/close-review` (sales transcript analysis)
-- **150 active skills** (160 total inc. 10 archived) in `skills/` directory. Each stored in `skills/[skill-name]/SKILL.md` format. Key strategic skills: **hyperthink** (multi-hypothesis protocol for architectural decisions), **systematic-debugging**, **sales-methodology** (NEPQ discovery), **sales-closing** (LAER objection loop + 6 close techniques), **ethical-hacking** (authorized offensive security + secure-by-default coding), **content-engine** (CC voice, hooks, platform matrix), **elite-video-production**, **codex-delegation**, **cli-anything**, **ship**, **retro**
+- **35 workflows** in `.agents/workflows/`. Key: `/plan-feature` → `/execute` → `/commit`, `/cli-anything <target>`, `/opencli`, `/review`, `/ship`, `/retro`, `/briefing`, `/ceo-briefing`, `/content`, `/post`, `/ingest`, `/query-knowledge`, `/evolve`, `/close-review` (sales transcript analysis)
+- **148 active skills** (1 archived in `skills/_archive/`) in `skills/` directory. Each stored in `skills/[skill-name]/SKILL.md` format. Key strategic skills: **hyperthink** (multi-hypothesis protocol for architectural decisions), **systematic-debugging**, **sales-methodology** (NEPQ discovery), **sales-closing** (LAER objection loop + 6 close techniques), **ethical-hacking** (authorized offensive security + secure-by-default coding), **content-engine** (CC voice, hooks, platform matrix), **elite-video-production**, **codex-delegation**, **cli-anything**, **ship**, **retro**
 - **Progressive skill loading**: Skills load in 3 tiers (frontmatter → instructions → references) to conserve context
 - **Video pipeline**: `../CMO-Agent/scripts/content_pipeline.py` (master orchestrator) + `../CMO-Agent/scripts/edit_content_v2.py` — FFmpeg 8.0.1, word-level Whisper, ElevenLabs, Remotion 4.0.436
 - **Plans**: Implementation plans in `.agents/plans/`
@@ -404,11 +404,11 @@ Closes the discoverability + governance gap. V6.0–V6.7 built the substrate; V6
 
 **V6.8.1 (2026-05-16):** Promoted V6.8 to load-bearing substrate. `user_prompt_submit.py` auto-injects CONTEXT.md definitions on every prompt that mentions a glossary term. `capability_query.py check-deps` enforces ADR-0001 `requires:` declarations. `register.py skill` wizard emits V6.8 frontmatter by default.
 
-## Inventory (synced 2026-05-21)
+## Inventory (synced 2026-05-22)
 
-- **Skills:** 160 total (150 active + 10 archived in `skills/_archive/`)
-- **Python scripts:** 196 total (~106 top-level under `scripts/`)
+- **Skills:** 148 active (1 archived in `skills/_archive/`) — graph-registered with frontmatter
+- **Python scripts:** 114 top-level under `scripts/` (215 total inc. subpackages)
 - **MCP servers:** 9 (sequential-thinking, playwright, context7, memory, github, firecrawl, obsidian, filesystem, knowledge-graph) — same set across `.claude/mcp.json`, `.vscode/mcp.json`, `~/.gemini/settings.json`
 - **Subagents:** 8 in `.claude/agents/`
-- **Workflows:** 34 in `.agents/workflows/`
+- **Workflows:** 35 in `.agents/workflows/`
 - **MRR Goal:** $5,000 USD Net MRR by June 18, 2026 (extended 2026-05-18 from May 30)

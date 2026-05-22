@@ -8,7 +8,7 @@ tags: [state, ephemeral]
 >
 > **V6 Apex (2026-05-10 — closes the V6 architecture epic):**
 >   - **Phase 1** — `/api/state-health` two-tier read path: state-api passthrough preferred, Supabase mirror fallback for Vercel. The page renders a `via state-api` / `via supabase-mirror` tag so operators see which side served the payload.
->   - **Phase 2** — Dashboard-driven override approvals. `state_manager.create_override_request` mirrors to Supabase `exec_overrides` (migration 035). `/overrides` page + server action signs with OASIS_OUTBOUND_HMAC_SECRET → `record_exec_override_decision_v1` RPC. `scripts/state/exec_override_consumer.py loop` applies the decision to local SQLite + HMAC-signs via EMPIRE_OVERRIDE_HMAC_KEY. The at-runtime auth gate stays on CC's machine.
+>   - **Phase 2** — ~~Dashboard-driven override approvals~~ **DELETED 2026-05-22 per CC.** The `exec_guard` block on destructive operations (DROP TABLE / rm -rf / git push --force) stands — the block IS the protection. No approval-request rows, no `/overrides` page. When blocked, the agent picks a different approach. (See CLAUDE.md "V6 Apex" note for the canonical removal rationale.)
 >   - **Phase 3** — Cross-agent event feed. `scripts/core/event_router.py loop` is a cursor-based, lossless observability tail; `state/event_router.log` carries the on-host audit projection. `/feed` page is the cloud-side view of the same `agent_events` stream with 5s `router.refresh()` (no websockets).
 >
 > Bravo is officially out of the architecture phase. The next epic is business execution: $5K Net MRR by June 18, 2026 (deadline extended 2026-05-18 from May 30 after primary retainer ended — gives 31 days to rebuild $4,629 from $371 baseline).
@@ -132,7 +132,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-05-22
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Marked OASIS Chrome Audio Guard scheduled task hidden; remaining visible PowerShell launches traced to ASUS Armoury/Wispr Flow parent processes outside the repo.
+- **Result:** V6 hardening pass complete: CI now tests both tests/ + scripts/; 5 entry points synced to ground-truth inventory (148 skills, 114 top-level scripts); STATE.md exec-override stale paragraph removed; .pyc hygiene verified clean; ACTIVE_TASKS has high-priority task for CC to flip EMPIRE_HOOK_SECRET_GUARD to enforce.
 
 *Last updated: 2026-05-22*
 
