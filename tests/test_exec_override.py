@@ -37,10 +37,22 @@ import state_manager  # type: ignore[import-not-found]  # noqa: E402 — sys.pat
 # ── Helpers ──────────────────────────────────────────────────────────────
 
 
+_TRACKED_CMDS: list[str] = []
+
+
 def _unique_cmd(base: str) -> str:
-    """Tag a command with a unique suffix so each test gets its own DB row."""
+    """Tag a command with a unique suffix so each test gets its own DB row.
+
+    Tracks every generated command into _TRACKED_CMDS so the autouse
+    fixture can expire the matching exec_overrides rows on teardown —
+    keeps the dashboard's pending-count badge from accumulating test
+    artifacts (CC found 284 stale pendings on 2026-05-22, almost all
+    from this suite's historical runs).
+    """
     tag = uuid.uuid4().hex[:8]
-    return f"{base}  # test-{tag}"
+    cmd = f"{base}  # test-{tag}"
+    _TRACKED_CMDS.append(cmd)
+    return cmd
 
 
 def _bash(cmd: str) -> dict:
@@ -94,29 +106,13 @@ def _extract_request_id(stderr: str) -> str | None:
 # string, which creates a real row in exec_overrides (the same table
 # the dashboard reads). Without cleanup, the dashboard's "pending count"
 # badge accumulates a stale row per test per CI run — CC saw 284 stale
-# pendings on 2026-05-22, almost all from this suite.
+# pendings on 2026-05-22, almost all from this suite's historical runs.
 #
-# Autouse fixture: track every command we generate in this suite via
-# _unique_cmd, then after the test mark those rows status='expired' so
-# the dashboard doesn't surface them as "waiting for human input."
+# _unique_cmd already appends to _TRACKED_CMDS. This autouse fixture
+# walks that list after each test and marks the matching exec_overrides
+# rows as 'expired' so the dashboard never sees them as pending input.
 
 import pytest
-
-_TRACKED_CMDS: list[str] = []
-
-
-_orig_unique_cmd = _unique_cmd
-
-
-def _tracking_unique_cmd(base: str) -> str:
-    cmd = _orig_unique_cmd(base)
-    _TRACKED_CMDS.append(cmd)
-    return cmd
-
-
-# Re-bind globally so every test that calls _unique_cmd hits the
-# tracking version. Safe because the suite owns this name.
-_unique_cmd = _tracking_unique_cmd  # type: ignore[assignment]
 
 
 @pytest.fixture(autouse=True)
