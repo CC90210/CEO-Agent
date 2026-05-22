@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTD/PropertyList-1.0.dtd">
+<!--
+  Hardened-runtime entitlements for the OASIS AI desktop shell.
+
+  Why each one is here:
+    * com.apple.security.cs.allow-jit
+        Electron embeds V8; the JIT compiler needs page-allocation
+        rights at runtime. Without this the app crashes on the first
+        JavaScript that gets JIT-compiled.
+    * com.apple.security.cs.allow-unsigned-executable-memory
+        Same V8/JIT requirement — V8 maps writable+executable pages
+        for compiled JS. The hardened runtime blocks W+X by default.
+    * com.apple.security.cs.allow-dyld-environment-variables
+        Electron uses DYLD_* env vars during launch for bundled
+        frameworks. Hardened runtime sandboxes these unless
+        explicitly allowed.
+    * com.apple.security.cs.disable-library-validation
+        The sidecar bundles a Python interpreter + native deps with
+        signatures from different teams. Library validation refuses
+        to load any framework that wasn't signed by the same team
+        ID; disabling lets the sidecar boot.
+    * com.apple.security.network.client
+        Desktop chat surface hits the dashboard's /api endpoints +
+        the local bridge endpoint. Outbound network is required.
+    * com.apple.security.network.server
+        Bridge mode opens a listener on 127.0.0.1:9100 so the
+        browser can proxy tool_use calls. Inbound network from
+        loopback only — Apple still gates non-loopback inbound at
+        the firewall layer.
+    * com.apple.security.files.user-selected.read-write
+        The agent picker reads/writes files the OPERATOR explicitly
+        chooses via NSOpenPanel (e.g. importing leads from a CSV
+        they pick). Restricted to user-selected paths so we're not
+        broadly clobbering the home dir.
+    * com.apple.security.files.downloads.read-write
+        Reports + exports land in ~/Downloads by default.
+
+  NOT enabled:
+    - com.apple.security.app-sandbox (we don't ship sandboxed;
+      bridge needs subprocess spawn + arbitrary file access via
+      the operator's CLAUDE.md root)
+    - com.apple.security.cs.allow-any-load (broader than we need;
+      disable-library-validation covers our actual case)
+-->
+<plist version="1.0">
+  <dict>
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <key>com.apple.security.network.server</key>
+    <true/>
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+    <key>com.apple.security.files.downloads.read-write</key>
+    <true/>
+  </dict>
+</plist>

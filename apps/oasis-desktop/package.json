@@ -22,9 +22,11 @@
     "bundle:hardblock-test": "node scripts/test-bundle-hardblock.js",
     "prepack": "node scripts/bundle-sidecar.js",
     "pack": "electron-builder --dir",
-    "build:win": "npm run bundle:sidecar && electron-builder --win nsis",
+    "build:win": "node scripts/build-platform.js win",
+    "build:win:unsigned": "node scripts/build-platform.js win --unsigned",
     "build:linux": "npm run bundle:sidecar && electron-builder --linux AppImage deb",
-    "build:mac": "npm run bundle:sidecar && electron-builder --mac dmg zip",
+    "build:mac": "node scripts/build-platform.js mac",
+    "build:mac:unsigned": "node scripts/build-platform.js mac --unsigned",
     "build:free": "node scripts/build-free.js"
   },
   "build": {
@@ -55,23 +57,43 @@
       "verifyUpdateCodeSignature": false,
       "requestedExecutionLevel": "asInvoker",
       "target": [
-        "nsis"
-      ]
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "signingHashAlgorithms": ["sha256"],
+      "signAndEditExecutable": true
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "OASIS AI"
+      "shortcutName": "OASIS AI",
+      "uninstallDisplayName": "OASIS AI Command Center",
+      "perMachine": false
+    },
+    "portable": {
+      "artifactName": "OASIS-AI-${version}-portable.exe"
     },
     "mac": {
       "category": "public.app-category.productivity",
       "target": [
-        "dmg",
-        "zip"
-      ]
+        { "target": "dmg", "arch": ["universal"] },
+        { "target": "zip", "arch": ["universal"] }
+      ],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build-config/entitlements.mac.plist",
+      "entitlementsInherit": "build-config/entitlements.mac.plist",
+      "darkModeSupport": true,
+      "extendInfo": {
+        "NSCameraUsageDescription": "Not used by OASIS AI.",
+        "NSMicrophoneUsageDescription": "Not used by OASIS AI.",
+        "LSApplicationCategoryType": "public.app-category.productivity",
+        "LSMinimumSystemVersion": "11.0.0"
+      }
     },
+    "afterSign": "scripts/notarize.js",
     "linux": {
       "category": "Office",
       "maintainer": "OASIS AI Solutions <conaugh@oasisai.work>",
