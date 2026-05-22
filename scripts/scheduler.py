@@ -432,9 +432,10 @@ def run_revenue_report(env_vars: dict) -> str:
     conv = d.get("conversion_rate", 0)
     last = d.get("last_payment") or {}
 
-    # Days left to North Star deadline (May 30 per CLAUDE.md WHY section).
+    # Days left to North Star deadline (June 18, 2026 — extended 2026-05-18
+    # from May 30 after primary retainer ended; see CLAUDE.md WHY section).
     import datetime as _dt
-    deadline = _dt.date(2026, 5, 30)
+    deadline = _dt.date(2026, 6, 18)
     days_left = max((deadline - _dt.date.today()).days, 0)
 
     # 12-wide progress bar with three glyphs (▓ for the rough fill edge so

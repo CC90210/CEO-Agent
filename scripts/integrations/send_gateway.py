@@ -115,6 +115,22 @@ from casl_compliance import (  # noqa: E402
 )
 from lib.smtp_send import smtp_send as _smtp_send  # noqa: E402
 
+# V6.8.3 structured logging — JSON-shaped error/state events go to
+# state/logs/{module}.log alongside stderr. Falls back to a stub on
+# import error so this daemon never fails just because the lib isn't
+# on sys.path (dev environments, ad-hoc subprocess invocations).
+try:
+    from lib.structured_log import get_logger  # type: ignore
+    _slog = get_logger("send_gateway")
+except Exception:
+    class _StubSlog:
+        def info(self, *_a, **_k): pass
+        def warn(self, *_a, **_k): pass
+        def error(self, *_a, **_k): pass
+        def critical(self, *_a, **_k): pass
+    _slog = _StubSlog()
+
+
 try:
     from notify import notify as _telegram_notify  # noqa: F401
 except ImportError:

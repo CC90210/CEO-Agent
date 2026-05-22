@@ -23,7 +23,7 @@ packages = []
 # ── Pytest ─────────────────────────────────────────────────────────────────
 
 [tool.pytest.ini_options]
-testpaths = ["scripts"]
+testpaths = ["scripts", "tests"]
 python_files = ["test_*.py"]
 addopts = "--tb=short"
 filterwarnings = [

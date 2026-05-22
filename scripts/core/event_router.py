@@ -41,6 +41,22 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+# V6.8.3 structured logging — JSON-shaped error/state events go to
+# state/logs/{module}.log alongside stderr. Falls back to a stub on
+# import error so this daemon never fails just because the lib isn't
+# on sys.path (dev environments, ad-hoc subprocess invocations).
+try:
+    from lib.structured_log import get_logger  # type: ignore
+    _slog = get_logger("event_router")
+except Exception:
+    class _StubSlog:
+        def info(self, *_a, **_k): pass
+        def warn(self, *_a, **_k): pass
+        def error(self, *_a, **_k): pass
+        def critical(self, *_a, **_k): pass
+    _slog = _StubSlog()
+
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 

@@ -19,6 +19,24 @@ import os
 import sys
 from pathlib import Path
 
+# V6.8.3 reliability primitive — @retry transient network errors on
+# Supabase SDK calls (postgrest / gotrue raise httpx-level errors via
+# the supabase-py client).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+try:
+    from lib.retry import retry, RetryConfig  # type: ignore
+    _RETRY = RetryConfig(
+        max_retries=2, base_delay=0.5, max_delay=8.0, jitter=True,
+        retryable_exceptions=(ConnectionError, TimeoutError, OSError),
+    )
+except ImportError:
+    def retry(*_a, **_kw):  # type: ignore
+        def _wrap(fn):
+            return fn
+        return _wrap
+    _RETRY = None  # type: ignore
+
+
 def load_env():
     """Load .env.agents from project root.
 
@@ -114,6 +132,7 @@ def get_client(env_vars, project="bravo"):
     return client
 
 
+@retry(_RETRY)
 def cmd_list_tables(client, args):
     """List all tables in the project's public schema."""
     import requests as req
@@ -184,6 +203,7 @@ _DESTRUCTIVE_SQL_PATTERN = __import__("re").compile(
 )
 
 
+@retry(_RETRY)
 def cmd_query(client, args):
     """Execute a raw SQL query via RPC.
 
@@ -257,6 +277,7 @@ def cmd_query(client, args):
     print(f"  python scripts/integrations/supabase_tool.py select <table_name> [--limit 10]")
 
 
+@retry(_RETRY)
 def cmd_select(client, args):
     """Select rows from a table."""
     query = client.table(args.table).select(args.columns or "*")
@@ -291,6 +312,7 @@ def _preview_match(client, table: str, match_filter: dict, limit: int = 10):
     print(json.dumps(rows, indent=2, default=str))
 
 
+@retry(_RETRY)
 def cmd_insert(client, args):
     """Insert a row into a table."""
     data = json.loads(args.data)
@@ -304,6 +326,7 @@ def cmd_insert(client, args):
     print(f"\n--- Inserted {len(result.data)} row(s) ---")
 
 
+@retry(_RETRY)
 def cmd_update(client, args):
     """Update rows in a table."""
     data = json.loads(args.data)
@@ -326,6 +349,7 @@ def cmd_update(client, args):
     print(f"\n--- Updated {len(result.data)} row(s) ---")
 
 
+@retry(_RETRY)
 def cmd_delete(client, args):
     """Delete rows from a table."""
     match_filter = json.loads(args.match)
@@ -346,6 +370,7 @@ def cmd_delete(client, args):
     print(f"\n--- Deleted {len(result.data)} row(s) ---")
 
 
+@retry(_RETRY)
 def cmd_upsert(client, args):
     """Upsert (insert or update) a row into a table."""
     data = json.loads(args.data)
@@ -359,6 +384,7 @@ def cmd_upsert(client, args):
     print(f"\n--- Upserted {len(result.data)} row(s) ---")
 
 
+@retry(_RETRY)
 def cmd_rpc(client, args):
     """Call a Supabase Edge Function / database RPC."""
     params = json.loads(args.params) if args.params else {}

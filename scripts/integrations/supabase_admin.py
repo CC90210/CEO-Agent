@@ -34,9 +34,18 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT))
 
-from dotenv import load_dotenv  # type: ignore
+# V6.8.3: migrated from python-dotenv to lib.secret_loader
+_REPO = Path(__file__).resolve()
+while _REPO.name != 'Business-Empire-Agent' and _REPO.parent != _REPO:
+    _REPO = _REPO.parent
+import sys as _sys
+_sys.path.insert(0, str(_REPO / 'scripts'))
+from lib.secret_loader import load_env as _load_env  # noqa: E402
 
-load_dotenv(ROOT / ".env.agents")
+_env = _load_env()
+import os as _os
+for _k, _v in _env.items():
+    _os.environ.setdefault(_k, str(_v))
 
 API_BASE = "https://api.supabase.com"
 

@@ -48,14 +48,11 @@ TOKEN_RE = re.compile(r"[a-zA-Z][a-zA-Z0-9_'-]{1,30}")
 
 
 def load_env() -> dict[str, str]:
-    env_file = PROJECT_ROOT / ".env.agents"
-    try:
-        from dotenv import dotenv_values, load_dotenv  # type: ignore
-    except ImportError:
-        return {}
-    load_dotenv(env_file)
-    raw = dotenv_values(env_file)
-    return {k: str(v) for k, v in raw.items() if v is not None}
+    """V6.8.3: delegate to lib.secret_loader (was python-dotenv)."""
+    env = dict(_load_env())
+    for _k, _v in env.items():
+        os.environ.setdefault(_k, str(_v))
+    return {k: str(v) for k, v in env.items() if v is not None}
 
 
 def _get_supabase():
