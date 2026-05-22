@@ -45,6 +45,9 @@ import tempfile
 # Windows console-suppression — see bravo_cli/_subprocess_helpers.
 from ._subprocess_helpers import (
     WINDOWLESS_FLAGS as _WINDOWLESS_FLAGS,
+    command_without_cmd_shim as _command_without_cmd_shim,
+    safe_popen as _safe_popen,
+    safe_run as _safe_run,
     windowless_startupinfo as _windowless_startupinfo,
 )
 import time
@@ -78,6 +81,11 @@ except ImportError:
     from warm_claude_pool import chat_lean_args as _warm_chat_lean_args  # type: ignore
     from warm_claude_pool import mark_force_api_key as _warm_mark_force_api_key  # type: ignore
     from _claude_auth import is_claude_auth_or_quota_failure as _is_auth_failure  # type: ignore
+    from _subprocess_helpers import (  # type: ignore
+        command_without_cmd_shim as _command_without_cmd_shim,
+        safe_popen as _safe_popen,
+        safe_run as _safe_run,
+    )
 
 PORT = int(os.environ.get("BRAVO_BRIDGE_PORT", "9100"))
 ANTHROPIC_API = "https://api.anthropic.com/v1/messages"
@@ -748,7 +756,7 @@ def _v6_log_chat_interaction(agent: str, kind: str, last_user_msg: str) -> None:
     else:
         _detach_flags = 0
     try:
-        subprocess.Popen(
+        _safe_popen(
             [sys.executable, str(_V6_STATE_MANAGER),
              "log", "--note", note, "--agent", safe_agent],
             stdout=subprocess.DEVNULL,
@@ -1919,8 +1927,9 @@ class _ChatHandler(BaseHTTPRequestHandler):
             "NO_COLOR": "1",
             "FORCE_COLOR": "0",
         })
-        return subprocess.run(
-            args,
+        cmd = [*_command_without_cmd_shim(args[0]), *args[1:]] if args else args
+        return _safe_run(
+            cmd,
             cwd=str(root),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -2150,7 +2159,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
         })
 
         try:
-            proc = subprocess.Popen(
+            proc = _safe_popen(
                 args,
                 cwd=str(root),
                 stdout=subprocess.PIPE,
@@ -2759,7 +2768,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
         timeout_s = 60 if spec.get("mutating") else 180
 
         try:
-            proc = subprocess.Popen(
+            proc = _safe_popen(
                 cmd,
                 cwd=str(root),
                 stdout=subprocess.PIPE,
@@ -3143,11 +3152,9 @@ def _services_from_local_installs() -> dict[str, dict]:
 
     # ffmpeg — `ffmpeg -version` exits 0 if installed.
     try:
-        rc = subprocess.run(
+        rc = _safe_run(
             ["ffmpeg", "-version"],
             capture_output=True, text=True, timeout=4,
-            creationflags=_WINDOWLESS_FLAGS,
-            startupinfo=_windowless_startupinfo(),
         )
         if rc.returncode == 0:
             ver = rc.stdout.split("\n", 1)[0][:80]
@@ -3155,28 +3162,22 @@ def _services_from_local_installs() -> dict[str, dict]:
     except Exception:
         pass
 
-    # whisper — Python module check; fall back to CLI.
+    # whisper: detect the Python module directly. Avoid the `whisper.exe`
+    # console-script shim; it can spawn child python.exe without our flags.
     if "whisper" not in out:
         try:
-            rc = subprocess.run(
-                [sys.executable, "-c", "import whisper; print(whisper.__file__)"],
-                capture_output=True, text=True, timeout=6,
-                creationflags=_WINDOWLESS_FLAGS,
-                startupinfo=_windowless_startupinfo(),
-            )
-            if rc.returncode == 0 and rc.stdout.strip():
-                out["whisper"] = {"status": "healthy", "metadata": {"via": "local_probe", "import": "ok"}}
-        except Exception:
-            pass
-    if "whisper" not in out:
-        try:
-            rc = subprocess.run(
-                ["whisper", "--help"], capture_output=True, text=True, timeout=4,
-                creationflags=_WINDOWLESS_FLAGS,
-                startupinfo=_windowless_startupinfo(),
+            rc = _safe_run(
+                [
+                    sys.executable,
+                    "-c",
+                    "import importlib.util; raise SystemExit(0 if importlib.util.find_spec('whisper') else 1)",
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=6,
             )
             if rc.returncode == 0:
-                out["whisper"] = {"status": "healthy", "metadata": {"via": "local_probe", "cli": "ok"}}
+                out["whisper"] = {"status": "healthy", "metadata": {"via": "local_probe", "import": "ok"}}
         except Exception:
             pass
 
@@ -3212,20 +3213,21 @@ def _services_from_local_installs() -> dict[str, dict]:
     except Exception:
         pass
 
-    # Playwright — `npx playwright --version` is heavy; just check the
-    # `playwright` binary on PATH. CRITICAL: on Windows `playwright`
-    # resolves to `playwright.cmd` which requires cmd.exe to execute
-    # — without STARTUPINFO+SW_HIDE the operator sees a system32 cmd
-    # window flash every 60s when the heartbeat fires. That was the
-    # 2026-05-09 popup CC reported.
+    # Playwright: detect the Python module directly. Avoid the console-script
+    # wrappers; they can spawn their own node/python children and leak conhost.
     try:
-        rc = subprocess.run(
-            ["playwright", "--version"], capture_output=True, text=True, timeout=4,
-            creationflags=_WINDOWLESS_FLAGS,
-            startupinfo=_windowless_startupinfo(),
+        rc = _safe_run(
+            [
+                sys.executable,
+                "-c",
+                "import importlib.util; raise SystemExit(0 if importlib.util.find_spec('playwright') else 1)",
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=4,
         )
         if rc.returncode == 0:
-            out["playwright"] = {"status": "healthy", "metadata": {"via": "local_probe", "version": rc.stdout.strip()[:40]}}
+            out["playwright"] = {"status": "healthy", "metadata": {"via": "local_probe", "import": "ok"}}
     except Exception:
         pass
 

@@ -20,6 +20,7 @@ import shutil
 import subprocess
 import sys
 import time
+from _subprocess_helpers import safe_run
 
 # Windows-specific — conditional imports handled gracefully
 CREATE_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
@@ -34,10 +35,9 @@ def guard_windows():
 def run_powershell(script, timeout=10):
     """Run a PowerShell script and return structured result."""
     try:
-        result = subprocess.run(
+        result = safe_run(
             ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
             capture_output=True, text=True, timeout=timeout,
-            creationflags=CREATE_NO_WINDOW
         )
         if result.returncode != 0:
             return {"ok": False, "error": result.stderr.strip()}
@@ -51,9 +51,8 @@ def run_powershell(script, timeout=10):
 def run_shell(cmd, timeout=10):
     """Run a shell command and return structured result."""
     try:
-        result = subprocess.run(
+        result = safe_run(
             cmd, capture_output=True, text=True, timeout=timeout,
-            creationflags=CREATE_NO_WINDOW
         )
         if result.returncode != 0:
             return {"ok": False, "error": result.stderr.strip()}

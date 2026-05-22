@@ -143,6 +143,33 @@ def get(key: str, default: str | None = None) -> str | None:
     return env.get(key, default)
 
 
+def bootstrap() -> dict[str, str]:
+    """One-liner replacement for the 6-line module-load bootstrap pattern.
+
+    Loads .env.agents via the canonical audit-logged path AND populates
+    os.environ.setdefault for every key — so legacy `os.environ.get(...)`
+    callsites keep working without a rewrite.
+
+    Replaces this boilerplate in every script::
+
+        from lib.secret_loader import load_env as _load_env
+        for _k, _v in _load_env().items():
+            os.environ.setdefault(_k, str(_v))
+
+    with::
+
+        from lib.secret_loader import bootstrap
+        bootstrap()
+
+    Returns the loaded env dict for callers who want it; safe to ignore.
+    Idempotent — second call is a cache hit + no-op on os.environ.
+    """
+    env = load_env()
+    for k, v in env.items():
+        os.environ.setdefault(k, v)
+    return dict(env)
+
+
 def reset_cache() -> None:
     """Test hook — reset the in-process cache."""
     global _CACHE
