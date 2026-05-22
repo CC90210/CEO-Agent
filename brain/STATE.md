@@ -132,7 +132,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-05-22
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Patched Windows subprocess pop-up risks by routing remaining unhidden subprocess calls through safe_run/safe_popen; audit_no_visible_subprocess now reports zero violations.
+- **Result:** Deep V6.8.3 audit complete: Maven/Atlas substrate genuinely parity'd (was aspirational before), 8 dotenv helpers migrated, memory-aging frontmatter respect, Vercel HMAC pushed (9/12). Maven V6.8.3 still on readme/v6-refresh — needs merge to main.
 
 *Last updated: 2026-05-22*
 
