@@ -54,16 +54,16 @@ def test_kill_chat_server_no_op_when_nothing_running(tmp_path, monkeypatch):
 
     # Force the wmic/ps fallback to return nothing matching.
     import subprocess
-    real_check_output = subprocess.check_output
+    real_safe_run = lb.safe_run
 
-    def fake_check_output(args, *a, **kw):  # type: ignore[no-untyped-def]
+    def fake_safe_run(args, *a, **kw):  # type: ignore[no-untyped-def]
         # Return empty for the process-list scan; defer everything else
         # to the real call (defensive — currently nothing else uses it).
         if isinstance(args, list) and (args[0] in ("wmic", "ps")):
-            return b""
-        return real_check_output(args, *a, **kw)
+            return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+        return real_safe_run(args, *a, **kw)
 
-    monkeypatch.setattr(subprocess, "check_output", fake_check_output)
+    monkeypatch.setattr(lb, "safe_run", fake_safe_run)
 
     ok, msg = lb._kill_chat_server()
     assert ok is False
