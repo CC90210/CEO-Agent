@@ -4,14 +4,23 @@ import time
 import stripe
 import argparse
 from pathlib import Path
-from dotenv import load_dotenv
+# V6.8.3: migrated from python-dotenv to lib.secret_loader
+_REPO = Path(__file__).resolve()
+while _REPO.name != 'Business-Empire-Agent' and _REPO.parent != _REPO:
+    _REPO = _REPO.parent
+import sys as _sys
+_sys.path.insert(0, str(_REPO / 'scripts'))
+from lib.secret_loader import load_env as _load_env  # noqa: E402
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib import colors
 
-# Load env vars
-load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env.agents'))
+# Load env vars (V6.8.3: secret_loader picks up <repo>/.env.agents)
+_env = _load_env()
+import os as _os
+for _k, _v in _env.items():
+    _os.environ.setdefault(_k, str(_v))
 
 # Physical send lives in the V5.6 chokepoint (scripts/integrations/send_gateway.py).
 # Rewired 2026-04-20 — onboarding emails are TRANSACTIONAL mail (client

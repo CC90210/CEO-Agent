@@ -54,6 +54,24 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lib.subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
+# V6.8.3 reliability — @retry transient gws CLI failures. The gws binary
+# can flake on network re-auth refreshes; one retry with backoff cleanly
+# masks that for callers. We retry the parent run_gws return-value rather
+# than the subprocess.run exception, so non-AUTH_EXPIRED errors that
+# aren't transient still surface immediately.
+try:
+    from lib.retry import retry, RetryConfig  # noqa: E402  type: ignore
+    _GWS_RETRY = RetryConfig(
+        max_retries=2, base_delay=0.5, max_delay=4.0, jitter=True,
+        retryable_exceptions=(ConnectionError, TimeoutError, OSError),
+    )
+except ImportError:
+    def retry(*_a, **_kw):  # type: ignore
+        def _wrap(fn):
+            return fn
+        return _wrap
+    _GWS_RETRY = None  # type: ignore
+
 
 # Ensure UTF-8 output on Windows
 if sys.stdout.encoding != "utf-8":
@@ -116,8 +134,15 @@ def _ping_gws_service(args_list: list, ok: bool) -> None:
         pass  # best-effort — never break the caller
 
 
+@retry(_GWS_RETRY)
 def run_gws(args_list, timeout=30):
-    """Run a gws CLI command and return parsed JSON output."""
+    """Run a gws CLI command and return parsed JSON output.
+
+    V6.8.3: wrapped in @retry — transient ConnectionError / TimeoutError
+    bubbling up from the gws CLI's underlying httpx calls get 2 retries
+    with exponential backoff. Auth errors (AUTH_EXPIRED) and bad-args
+    pass through immediately.
+    """
     cmd = [GWS_PATH] + args_list
     try:
         result = subprocess.run(

@@ -26,6 +26,22 @@ if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
+# V6.8.3 reliability — @retry transient network failures (firecrawl SDK
+# bubbles up urllib3/httpx ConnectionError + TimeoutError for transients).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+try:
+    from lib.retry import retry, RetryConfig  # type: ignore
+    _RETRY = RetryConfig(
+        max_retries=2, base_delay=1.0, max_delay=8.0, jitter=True,
+        retryable_exceptions=(ConnectionError, TimeoutError, OSError),
+    )
+except ImportError:
+    def retry(*_a, **_kw):  # type: ignore
+        def _wrap(fn):
+            return fn
+        return _wrap
+    _RETRY = None  # type: ignore
+
 
 # ANSI color codes -- suppressed when piping or when --json is used
 _RESET  = "\033[0m"
@@ -96,8 +112,14 @@ def _to_dict(obj):
     return obj
 
 
+@retry(_RETRY)
 def cmd_scrape(app, args) -> None:
-    """Scrape a single page and return clean markdown."""
+    """Scrape a single page and return clean markdown.
+
+    V6.8.3: wrapped in @retry — transient ConnectionError / TimeoutError /
+    OSError from urllib3/httpx get 2 retries with exponential backoff.
+    Application errors (bad URL, 4xx) pass through immediately.
+    """
     jm = args.output_json
     result = _to_dict(app.scrape(args.url, formats=["markdown"]))
 
@@ -120,6 +142,7 @@ def cmd_scrape(app, args) -> None:
     print(_c(_DIM, f"--- {len(markdown)} characters ---", jm))
 
 
+@retry(_RETRY)
 def cmd_crawl(app, args) -> None:
     """Crawl a site up to --limit pages and return markdown for each."""
     jm = args.output_json
@@ -151,6 +174,7 @@ def cmd_crawl(app, args) -> None:
     print(_c(_DIM, f"--- {len(pages)} page(s) crawled ---", jm))
 
 
+@retry(_RETRY)
 def cmd_search(app, args) -> None:
     """Search and scrape results."""
     jm = args.output_json
@@ -183,6 +207,7 @@ def cmd_search(app, args) -> None:
     print(_c(_DIM, f"--- {len(data)} result(s) ---", jm))
 
 
+@retry(_RETRY)
 def cmd_extract(app, args) -> None:
     """Extract structured data from a page using a JSON schema."""
     jm = args.output_json
@@ -210,6 +235,7 @@ def cmd_extract(app, args) -> None:
     print(_c(_DIM, "--- extraction complete ---", jm))
 
 
+@retry(_RETRY)
 def cmd_map(app, args) -> None:
     """Get site map -- all crawlable URLs for a domain."""
     jm = args.output_json

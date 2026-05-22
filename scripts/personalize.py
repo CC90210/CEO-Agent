@@ -92,14 +92,11 @@ ENV_TO_PROFILE: dict[str, str] = {
 
 
 def _load_dotenv() -> dict[str, str]:
-    env_file = PROJECT_ROOT / ".env.agents"
-    try:
-        from dotenv import dotenv_values  # type: ignore
-    except ImportError:
-        return {}
-    if not env_file.exists():
-        return {}
-    return {k: str(v) for k, v in dotenv_values(env_file).items() if v is not None}
+    """V6.8.3: function name preserved for back-compat; body now delegates to
+    lib.secret_loader. Returns the same dict[str,str] shape the rest of
+    personalize.py expects (layered over os.environ; secret_loader handles
+    the layering + audit log + tmp/-caller refusal)."""
+    return {k: str(v) for k, v in dict(_load_env()).items() if v is not None}
 
 
 def load_profile() -> Optional[dict[str, Any]]:

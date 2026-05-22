@@ -72,6 +72,12 @@ services:
       - pgbouncer
     labels:
       bravo.role: webhook
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health', timeout=5).status==200 else 1)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # Event-bus maintenance: reap stuck rows + drain offline queue every 60s.
   bravo-event-reaper:

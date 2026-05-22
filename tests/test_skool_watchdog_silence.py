@@ -1,20 +1,19 @@
 """Lock the persistent-terminal fix in skool_watchdog.start_daemon.
 
 CC reported on 2026-05-09 that a Windows Terminal tab kept popping up
-and staying open with title `.venv\\Scripts\\python.exe`. Root cause:
-start_daemon spawned the long-lived skool_engine.py daemon via
-python.exe (console subsystem) with CREATE_NO_WINDOW only — on Win11
-ConPTY, that occasionally leaks a visible terminal that persists for
-the daemon's lifetime.
+and staying open. Triple-flag suppression (pythonw.exe + CREATE_NO_WINDOW
++ STARTUPINFO/SW_HIDE) fixed it; this test guards each leg.
 
-Fix is triple-flag suppression: pythonw.exe (no console subsystem) +
-CREATE_NO_WINDOW + STARTUPINFO/SW_HIDE. This test guards each leg.
+ARCHIVED 2026-05-18: skool_watchdog moved to scripts/_archive/skool/
+when the primary retainer ended. Tests now point at the archive so the
+historical-fix guard still runs.
 """
 
 import re
 from pathlib import Path
 
-SRC = Path(__file__).resolve().parent.parent / "scripts" / "skool_watchdog.py"
+SRC = (Path(__file__).resolve().parent.parent
+       / "scripts" / "_archive" / "skool" / "skool_watchdog.py")
 
 
 def _start_daemon_block() -> str:

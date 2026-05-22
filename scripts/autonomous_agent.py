@@ -98,6 +98,22 @@ except ImportError:
 
 from name_utils import safe_first_name, safe_full_name
 
+# V6.8.3 structured logging — JSON-shaped error/state events go to
+# state/logs/{module}.log alongside stderr. Falls back to a stub on
+# import error so this daemon never fails just because the lib isn't
+# on sys.path (dev environments, ad-hoc subprocess invocations).
+try:
+    from lib.structured_log import get_logger  # type: ignore
+    _slog = get_logger("autonomous_agent")
+except Exception:
+    class _StubSlog:
+        def info(self, *_a, **_k): pass
+        def warn(self, *_a, **_k): pass
+        def error(self, *_a, **_k): pass
+        def critical(self, *_a, **_k): pass
+    _slog = _StubSlog()
+
+
 
 # ---- Env + DB (same pattern as every other engine) --------------------------
 
