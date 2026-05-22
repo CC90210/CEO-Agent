@@ -130,6 +130,5 @@ When n8n webhook triggers are configured, heartbeat can run on a schedule:
 ## Related (graph)
 
 - [[brain/INDEX]]
-- [[brain/AGENT_GAP_AUDIT]]
 - [[brain/AGENT_INDEX]]
 - [[brain/AGENT_ORCHESTRATION]]

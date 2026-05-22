@@ -148,5 +148,4 @@ I re-read these weekly as part of the heartbeat cycle. Not to punish myself — 
 ## Related
 
 - [[brain/INDEX]]
-- [[brain/AGENT_GAP_AUDIT]]
 - [[brain/AGENT_INDEX]]

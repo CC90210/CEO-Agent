@@ -42,13 +42,10 @@ tags: [brain, index]
 ## Reference
 - [[brain/AGENTIC_OS_REFERENCE]] — V6.7 canonical agentic-OS logic spec (5-layer cross-section, Pantry/Prep Table/Plate, gap audit). Shared across Bravo, Maven, Atlas, Hermes.
 - [[brain/DATA_TAXONOMY]] — Pantry/Prep Table/Plate manifest. Every data source + snapshot + consumer mapped. Audit target for silver-platter skill.
-- [[brain/V67_SUBSTRATE_GAP]] — V6.0–V6.6 substrate parity tracker for Maven + Atlas. Logic propagated 2026-05-14; hooks + snapshots blocked on substrate.
 - [[brain/V68_AGENT_OS_PATTERNS]] — V6.8 vocabulary-layer propagation contract (CONTEXT.md, ADRs, skill frontmatter conventions). Cross-agent inheritance pattern.
 - [[brain/SETUP_WIZARD_2_SPEC]] — Setup Wizard 2 specification (V6.0 step_environment + step_v6_init wiring).
 - [[brain/SHARED_DB]] — Shared database architecture notes (cross-agent state DB usage).
-- [[brain/SUNBIZ_CRM_KNOWN_GAPS]] — Sun Biz CRM known gaps from the May 2026 pilot — preserved for the dedicated Sun Biz repo migration.
 - [[brain/USER]] — CC's profile, preferences, financial reality
-- [[brain/AGENT_GAP_AUDIT]] — Cross-agent gap analysis (completeness tracking)
 - [[brain/PRODUCT_VERTICALS]] — Vertical-specific lead-gen + pricing research
 - [[brain/MAC_ANTIGRAVITY_PROMPT]] — Self-contained Mac sync prompt (one-time paste-ready)
 - [[brain/HOW_TO_USE_THE_4_AGENTS]] — CC's operating manual: which agent do I ask when

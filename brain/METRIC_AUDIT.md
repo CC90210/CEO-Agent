@@ -154,5 +154,4 @@ This audit committed to `brain/METRIC_AUDIT.md`. Re-run after each chunk to keep
 ## Related
 
 - [[brain/INDEX]]
-- [[brain/AGENT_GAP_AUDIT]]
 - [[brain/AGENT_INDEX]]

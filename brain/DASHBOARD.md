@@ -162,5 +162,4 @@ SORT file.mtime DESC
 ## Related
 
 - [[brain/INDEX]]
-- [[brain/AGENT_GAP_AUDIT]]
 - [[brain/AGENT_INDEX]]

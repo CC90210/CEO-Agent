@@ -49,7 +49,7 @@ ORPHAN_ALLOWLIST = {
     "memory/ACTIVE_TASKS.md", "memory/SESSION_LOG.md",
     "memory/MISTAKES.md", "memory/PATTERNS.md", "memory/DECISIONS.md",
     "memory/MEMORY_INDEX.md", "memory/content-strategy.md",
-    "brain/SETUP_WIZARD_2_SPEC.md", "brain/SUNBIZ_CRM_KNOWN_GAPS.md",
+    "brain/SETUP_WIZARD_2_SPEC.md",
     "brain/V68_AGENT_OS_PATTERNS.md",
     "memory/feedback_browser_ladder_mandatory.md",
     "memory/feedback_skill_routing_disable_invocation.md",

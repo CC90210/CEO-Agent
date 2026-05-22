@@ -31,9 +31,9 @@ you should focus on.
    you do from here must be dual-use: works for CC personally AND for
    every future buyer.
 
-3. brain/AGENT_GAP_AUDIT.md (in Bravo's repo) — your completeness scored
-   8.5/10. Gaps flagged: (a) unit-economics validator, (b) per-brand
-   breakdown, (c) SOUL/STATE stale pre-pivot references.
+3. (archived 2026-05-22) prior gap-audit file scored Atlas 8.5/10; gaps
+   flagged: (a) unit-economics validator, (b) per-brand breakdown,
+   (c) SOUL/STATE stale pre-pivot references.
 
 4. brain/MARKETING_CANON.md (in Maven's repo) + skills/lead-management/
    v2.0 (in Maven's repo) — Maven now has a curated knowledge canon
@@ -309,7 +309,7 @@ a few polish gaps remain. Your self-improvement kit is now installed.
 3. brain/MARKETING_CANON.md (in Maven's repo) — example of how canonical
    knowledge should be organized. You need a LIFE_CANON.md equivalent.
 
-4. brain/AGENT_GAP_AUDIT.md (in Bravo's repo) — your gaps:
+4. (archived 2026-05-22) prior gap-audit flagged Aura gaps:
    (a) behavioral design canon missing
    (b) personal analytics export (habit/sleep data stuck in SQLite)
    (c) reflection/retro cadence not formalized
