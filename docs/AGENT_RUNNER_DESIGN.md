@@ -474,5 +474,4 @@ If you want zero rework, do not postpone:
 ## Related
 
 - [[docs/INDEX]]
-- [[docs/AGENT_REPO_CROSS_ANALYSIS_2026-04-22]]
 - [[docs/AI_WORKSTATION_ROADMAP]]

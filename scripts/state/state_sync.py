@@ -26,9 +26,20 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+# After the 2026-05 scripts/ reorg, this file lives under scripts/state/ but
+# still imports flat-layout siblings (_subprocess_helpers from scripts/,
+# agent_heartbeat from scripts/core/). Inject both onto sys.path so the
+# script works as a CLI entry point regardless of where it's invoked from.
+_THIS = Path(__file__).resolve()
+_SCRIPTS = _THIS.parent.parent
+for _p in (_SCRIPTS, _SCRIPTS / "core", _SCRIPTS / "state"):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
+
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+PROJECT_ROOT = _SCRIPTS.parent
 STATE_FILE = PROJECT_ROOT / "brain" / "STATE.md"
 SESSION_LOG = PROJECT_ROOT / "memory" / "SESSION_LOG.md"
 

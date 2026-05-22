@@ -126,6 +126,5 @@ Have the store show or document:
 ## Related (graph)
 
 - [[docs/INDEX]]
-- [[docs/AGENT_REPO_CROSS_ANALYSIS_2026-04-22]]
 - [[docs/AGENT_RUNNER_DESIGN]]
 - [[docs/AI_WORKSTATION_ROADMAP]]

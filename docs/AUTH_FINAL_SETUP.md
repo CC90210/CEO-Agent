@@ -59,13 +59,11 @@ Reads what Vercel expects, updates Cloudflare DNS, triggers verify. Built after 
 ## Related
 
 - [[docs/INDEX]]
-- [[docs/AGENT_REPO_CROSS_ANALYSIS_2026-04-22]]
 - [[docs/AGENT_RUNNER_DESIGN]]
 
 
 ## Related (graph)
 
 - [[docs/INDEX]]
-- [[docs/AGENT_REPO_CROSS_ANALYSIS_2026-04-22]]
 - [[docs/AGENT_RUNNER_DESIGN]]
 - [[docs/AI_WORKSTATION_ROADMAP]]
