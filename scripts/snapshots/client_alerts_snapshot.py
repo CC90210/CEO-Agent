@@ -17,12 +17,15 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SNAPSHOT_DIR = PROJECT_ROOT / "state" / "snapshots"
 TIMEOUT_SEC = 30
+# 2026-05-22: import was reaching to the REPO ROOT for _subprocess_helpers,
+# but the module actually lives in scripts/. Cron-runner kept failing this
+# script every 07:00 with ModuleNotFoundError. Now matches the working
+# briefing_snapshot.py pattern: scripts/ on the path, bare-name import.
+sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 
 def _call(args: list[str]) -> dict | list | None:
