@@ -1225,6 +1225,16 @@ def cmd_check_inbox(env_vars, args, output_json=False):
                                 ),
                                 "updated_at": datetime.now(timezone.utc).isoformat(),
                             }).eq("id", lead["id"]).execute()
+                            # V6.8.3 dual-write — mirror status='lost' into
+                            # tenant_records so the dashboard shows the lost
+                            # state too. Best-effort, never raises.
+                            try:
+                                import sys as _esys
+                                _esys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+                                from lib.lead_sync import sync_lead_status_to_tenant_records  # type: ignore  # noqa: E402
+                                sync_lead_status_to_tenant_records(db, lead["id"], "lost")
+                            except ImportError:
+                                pass
                     except Exception as lead_err:
                         print(f"[email_inbox] lead update on STOP failed: {lead_err}", file=sys.stderr)
                     # Loud Telegram ping so CC knows someone opted out

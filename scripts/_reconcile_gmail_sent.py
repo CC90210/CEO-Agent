@@ -253,6 +253,13 @@ def reconcile(days: int, dry_run: bool, output_json: bool) -> int:
                     + f"Historical Gmail send detected — flipped new→contacted."
                 ),
             }).eq("id", lead["id"]).execute()
+            # V6.8.3 dual-write — mirror status into tenant_records.data.stage
+            # for the command-centre dashboard. Best-effort, never raises.
+            try:
+                from lib.lead_sync import sync_lead_status_to_tenant_records  # type: ignore  # noqa: E402
+                sync_lead_status_to_tenant_records(db, lead["id"], "contacted")
+            except ImportError:
+                pass
             flipped += 1
         except Exception as exc:  # noqa: BLE001
             print(f"  flip failed for {lead.get('email')}: {exc}", file=sys.stderr)

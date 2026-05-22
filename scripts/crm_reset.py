@@ -193,6 +193,14 @@ def main() -> int:
                 client.table("leads").update(
                     {"status": "archived", "tags": new_tags}
                 ).eq("id", lid).execute()
+                # V6.8.3 dual-write — "archived" returns 'no_mapping' from the
+                # helper (it's a tenant_records-only stage), but the call is
+                # safe and never raises. Kept consistent with other writers.
+                try:
+                    from lib.lead_sync import sync_lead_status_to_tenant_records  # type: ignore  # noqa: E402
+                    sync_lead_status_to_tenant_records(client, lid, "archived")
+                except ImportError:
+                    pass
                 archived_count += 1
         summary["applied"] = True
         summary["archived_count_actual"] = archived_count

@@ -129,6 +129,14 @@ def evaluate(limit: int = 50, mark_dormant: bool = False) -> dict:
                             f"{attempt_n} unanswered email touches."
                         ),
                     }).eq("id", L["id"]).execute()
+                    # V6.8.3 dual-write — "dormant" has no tenant_records
+                    # counterpart (returns 'no_mapping'); the call is still
+                    # made so the audit log has visibility. Best-effort.
+                    try:
+                        from lib.lead_sync import sync_lead_status_to_tenant_records  # type: ignore  # noqa: E402
+                        sync_lead_status_to_tenant_records(db, L["id"], "dormant")
+                    except ImportError:
+                        pass
                     dormant_marked.append(L["id"])
                 except Exception as exc:  # noqa: BLE001
                     print(f"[outreach_eligible] dormant flip failed for {L['id']}: {exc}",

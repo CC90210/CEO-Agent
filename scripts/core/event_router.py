@@ -232,7 +232,12 @@ def loop(interval: int, verbose: bool) -> int:
             except KeyboardInterrupt:
                 raise
             except Exception as e:  # noqa: BLE001
+                # V6.8.3: stderr print stays for live `pm2 logs` tails;
+                # structured_log captures the same event for queryable
+                # post-mortems in state/logs/event_router.log.
                 print(f"\n[tick error] {e}", flush=True)
+                _slog.error("tick_failed", error_type=type(e).__name__,
+                            error=str(e)[:200], total_routed=total)
                 now = time.time()
                 if now - crash_window_start > 600:
                     crash_window_start = now

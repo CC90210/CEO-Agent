@@ -120,6 +120,10 @@ async def _rate_limit(request: Request, call_next):
     client_id = (request.client.host if request.client else "unknown")
     decision = _LIMITER.check(client_id)
     if not decision.allowed:
+        # V6.8.3: structured-log every 429 so abusive clients show up in
+        # state/logs/webhook_listener.log for the error_knowledge_pipeline.
+        _slog.warn("rate_limited", client_id=client_id, path=request.url.path,
+                   retry_after=round(decision.retry_after, 2))
         return JSONResponse(
             status_code=429,
             content={"error": "rate_limited", "retry_after": int(round(decision.retry_after))},
