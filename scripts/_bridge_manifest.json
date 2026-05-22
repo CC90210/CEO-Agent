@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-21T23:36:40.920958+00:00",
+  "generated_at_iso": "2026-05-22T07:54:49.322303+00:00",
   "script_count": 68,
-  "entry_count": 183,
+  "entry_count": 184,
   "entries": [
     {
       "key": "apply_migration",
@@ -171,6 +171,20 @@
       "subcmd": "send-reminders",
       "mutating": true,
       "help": "Booking Engine - Self-hosted scheduling system replacing Cal.com. \u2014 subcommand: send-reminders"
+    },
+    {
+      "key": "bravo_sleep_run",
+      "path": "scripts/bravo_sleep.py",
+      "subcmd": "run",
+      "mutating": true,
+      "help": "bravo_sleep \u2014 Nightly memory consolidation by an LLM judge. \u2014 subcommand: run"
+    },
+    {
+      "key": "bravo_sleep_status",
+      "path": "scripts/bravo_sleep.py",
+      "subcmd": "status",
+      "mutating": false,
+      "help": "bravo_sleep \u2014 Nightly memory consolidation by an LLM judge. \u2014 subcommand: status"
     },
     {
       "key": "bridge_lock_acquire",
