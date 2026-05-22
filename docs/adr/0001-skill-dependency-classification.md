@@ -16,7 +16,7 @@ We have 150+ skills under `skills/<name>/SKILL.md`. Several depend on infrastruc
 
 - `EMPIRE_V6_MODE=on` (state DB authoritative)
 - Specific `.env.agents` keys (Stripe, Supabase, Late/Zernio, ElevenLabs, ...)
-- Running PM2 daemons (`event-router`, `override-consumer`, Telegram bridge)
+- Running PM2 daemons (`event-router`, `sequence-runner`, Telegram bridge)
 - Initialized state DB (`state/empire_state.db` exists + has tables)
 - Browser Harness session (`~/.browser_harness/edge_profile/`)
 
@@ -38,7 +38,7 @@ Hard-dependency skills MUST:
    ```yaml
    requires:
      env: [STRIPE_SECRET_KEY]
-     daemons: [override-consumer]
+     daemons: [event-router]
      state: [empire_state.db]
    ```
 2. Check the prerequisite in the body, before any work:

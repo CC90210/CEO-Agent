@@ -146,12 +146,11 @@ Organized by the question, not the tool. The tool names are in italics so you ca
 
 ## V6 Apex background daemons — what must be running 24/7
 
-After V6 Apex (2026-05-10) + OASIS Town Phase 3 (2026-05-11) shipped, three daemons need to be alive on your machine. PM2 keeps them up across reboots.
+After V6 Apex (2026-05-10) + OASIS Town Phase 3 (2026-05-11) shipped, two daemons need to be alive on your machine. PM2 keeps them up across reboots. (A third — `override-consumer` — was deleted 2026-05-22 along with the entire Overrides approval-request feature; see `scripts/state/exec_guard.py` comment for the rationale.)
 
 | Daemon | What it does | Without it |
 |---|---|---|
 | **event-router** | Reads every new `agent_events` row, projects it to `state/event_router.log`. Powers the `/feed` page on the Vercel dashboard. | Dashboard feed shows stale data. No on-host event-bus audit log. |
-| **override-consumer** | Polls Supabase for dashboard Approve/Deny clicks on blocked commands. Applies them locally with HMAC. | Dashboard `/overrides` page can record decisions but the agent never sees them — you'd have to fall back to CLI `python scripts/state/exec_override.py approve <req-id>` (TTY-only). |
 | **oasis-embed** | FastAPI on `localhost:8767` that exposes Bravo's FTS5+LanceDB retrieval to the OASIS Town Convex backend. Provides `/embed` (384-dim fastembed MiniLM) and `/query` (hybrid RRF retrieval over `memory/`, `skills/`, `brain/`). | OASIS Town's agent memory falls back to zero-vector stubs — agents still talk but lose live empire-state context (no more "Archive has three validated cases in memory/X.md" style references). |
 
 ### One-time setup
@@ -165,11 +164,6 @@ pm2 start scripts/core/event_router.py \
   --name event-router \
   --interpreter python \
   -- loop --interval 3
-
-pm2 start scripts/state/exec_override_consumer.py \
-  --name override-consumer \
-  --interpreter python \
-  -- loop --interval 5
 
 pm2 start scripts/oasis_embed_server.py \
   --name oasis-embed \
@@ -185,9 +179,7 @@ pm2 startup             # follow the printed instructions (one elevated command)
 ```bash
 pm2 status              # list all PM2 processes; both should show "online"
 pm2 logs event-router         --lines 50
-pm2 logs override-consumer    --lines 50
 pm2 restart event-router      # after editing scripts/core/event_router.py
-pm2 restart override-consumer # after editing scripts/state/exec_override_consumer.py
 pm2 stop  event-router        # temporary halt; pm2 start brings it back
 pm2 delete event-router       # remove from PM2 entirely (rarely needed)
 ```
@@ -199,9 +191,6 @@ If something feels off:
 ```bash
 # event-router heartbeat — last line of the log should be recent (<5s)
 python scripts/core/event_router.py tail --count 5
-
-# override-consumer — apply any pending dashboard intent in one shot
-python scripts/state/exec_override_consumer.py once --verbose
 
 # Are the daemons actually polling? Check PM2 uptime + restart count
 pm2 status
