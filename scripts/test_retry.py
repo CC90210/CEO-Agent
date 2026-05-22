@@ -166,7 +166,10 @@ def test_breaker_closes_after_threshold_failures():
 
 
 def test_breaker_half_open_after_recovery_timeout():
-    cfg = CircuitBreakerConfig(failure_threshold=2, recovery_timeout=0.05)
+    # Margin choice: Windows default timer resolution is ~15.6ms. Use
+    # recovery_timeout=0.1 + sleep=0.25 so even under full-suite load the
+    # sleep reliably exceeds the recovery window. Saw flakes at 0.05/0.06.
+    cfg = CircuitBreakerConfig(failure_threshold=2, recovery_timeout=0.1)
 
     @circuit_breaker("test_half_open", cfg)
     def fn(boom: bool):
@@ -179,7 +182,7 @@ def test_breaker_half_open_after_recovery_timeout():
             fn(True)
     assert get_breaker_state("test_half_open")["state"] == "open"
 
-    time.sleep(0.06)  # exceed recovery timeout
+    time.sleep(0.25)  # comfortably exceed recovery timeout under load
 
     # Test call allowed; success closes the breaker
     assert fn(False) == "ok"
@@ -187,7 +190,7 @@ def test_breaker_half_open_after_recovery_timeout():
 
 
 def test_breaker_half_open_failure_reopens():
-    cfg = CircuitBreakerConfig(failure_threshold=2, recovery_timeout=0.05)
+    cfg = CircuitBreakerConfig(failure_threshold=2, recovery_timeout=0.1)
 
     @circuit_breaker("test_half_reopen", cfg)
     def fn(boom: bool):
@@ -198,7 +201,7 @@ def test_breaker_half_open_failure_reopens():
     for _ in range(2):
         with pytest.raises(ConnectionError):
             fn(True)
-    time.sleep(0.06)
+    time.sleep(0.25)
 
     # Test call fails — breaker re-opens
     with pytest.raises(ConnectionError):

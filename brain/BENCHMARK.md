@@ -119,5 +119,4 @@ This is a **concrete technical differentiator** that separates OASIS from agenci
 ## Related
 
 - [[brain/INDEX]]
-- [[brain/AGENT_GAP_AUDIT]]
 - [[brain/AGENT_INDEX]]

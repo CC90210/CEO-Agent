@@ -217,7 +217,6 @@ The `self-improvement-protocol/` skill we just built is not just infrastructure 
 - `skills/self-improvement-protocol/SKILL.md` — the self-healing/evolving loop every agent runs
 - `brain/CANONICAL_ROLES.md` (being written) — canonical CEO/CFO/CMO scope
 - `brain/PRODUCT_VERTICALS.md` (being written) — vertical packs + lead management + marketing research
-- `brain/AGENT_GAP_AUDIT.md` (being written) — current state vs canonical
 
 ## The Meta-Point
 

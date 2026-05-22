@@ -294,5 +294,4 @@ cd C:\Users\User\CMO-Agent
 ## Related
 
 - [[brain/INDEX]]
-- [[brain/AGENT_GAP_AUDIT]]
 - [[brain/AGENT_INDEX]]
