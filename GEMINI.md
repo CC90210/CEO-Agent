@@ -168,7 +168,7 @@ See `brain/AGENTS.md` for the complete subagent registry (16 agents with decisio
 Delegation: Complex features → planner. Architecture → architect. Code review → reviewer. Bugs → debugger. Research → researcher.
 
 - **13 workflows** available in `.agents/workflows/`. Key commands: `/status`, `/health`, `/post`, `/commit`, `/sync`, `/cli-anything <target>`, `/opencli`, `/review`, `/ship`, `/retro`, `/evolve`
-- **150 active skills** in `skills/` directory (160 total including 10 archived under `skills/_archive/`). Each skill is stored in `skills/[skill-name]/SKILL.md` format (Claude Agent Skills 2.0 structure). Key: systematic-debugging, self-healing, test-driven-development, **cli-anything** (generate CLI wrappers for any software/API — templates in `scripts/cli_templates/`), **opencli** (explore websites, run prebuilt adapters, create website CLI adapters), **code-review** (`skills/code-review/SKILL.md`), **ship** (`skills/ship/SKILL.md`), **retro** (`skills/retro/SKILL.md`)
+- **148 active skills** in `skills/` directory (1 archived under `skills/_archive/`). Each skill is stored in `skills/[skill-name]/SKILL.md` format (Claude Agent Skills 2.0 structure). Key: systematic-debugging, self-healing, test-driven-development, **cli-anything** (generate CLI wrappers for any software/API — templates in `scripts/cli_templates/`), **opencli** (explore websites, run prebuilt adapters, create website CLI adapters), **code-review** (`skills/code-review/SKILL.md`), **ship** (`skills/ship/SKILL.md`), **retro** (`skills/retro/SKILL.md`)
 - **Progressive skill loading**: Skills load in 3 tiers (frontmatter → instructions → references) to conserve context. See `skills/SKILL_LOADING.md`
 - **Meta-agent**: Can generate new subagent definitions from natural language descriptions. See `agents/meta-agent.md`
 - **Video pipeline**: `scripts/edit_content.py` — FFmpeg 8.0.1, Whisper captions, ElevenLabs voiceover, Remotion animations
@@ -358,11 +358,11 @@ Closes the discoverability + governance gap. V6.0–V6.7 built the substrate; V6
 
 **V6.8.1 (2026-05-16):** Promoted V6.8 to load-bearing substrate. `user_prompt_submit.py` auto-injects CONTEXT.md definitions on every prompt that mentions a glossary term. `capability_query.py check-deps` enforces ADR-0001 `requires:` declarations. `register.py skill` wizard emits V6.8 frontmatter by default.
 
-## Inventory (synced 2026-05-21)
+## Inventory (synced 2026-05-22)
 
-- **Skills:** 160 total (150 active + 10 archived in `skills/_archive/`)
-- **Python scripts:** 196 total (~106 top-level under `scripts/`)
+- **Skills:** 148 active (1 archived in `skills/_archive/`) — graph-registered with frontmatter
+- **Python scripts:** 114 top-level under `scripts/` (215 total inc. subpackages)
 - **MCP servers:** 9 (sequential-thinking, playwright, context7, memory, github, firecrawl, obsidian, filesystem, knowledge-graph) — same set across `.claude/mcp.json`, `.vscode/mcp.json`, `~/.gemini/settings.json`
 - **Subagents:** 8 in `.claude/agents/`
-- **Workflows:** 34 in `.agents/workflows/`
+- **Workflows:** 35 in `.agents/workflows/`
 - **MRR Goal:** $5,000 USD Net MRR by June 18, 2026 (extended 2026-05-18 from May 30)

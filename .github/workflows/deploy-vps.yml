@@ -45,7 +45,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       - name: Run tests
-        run: python -m pytest scripts/ -q --ignore=scripts/test_send_gateway.py --ignore=scripts/test_csuite_pulse_flow.py
+        run: python -m pytest tests/ scripts/ -q --ignore=scripts/test_send_gateway.py --ignore=scripts/test_csuite_pulse_flow.py
       - name: Self audit
         run: python scripts/core/self_audit.py
         continue-on-error: true

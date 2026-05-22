@@ -66,7 +66,7 @@ OpenCode is the move when speed beats breadth:
 - Remote terminal runs from a thin Mac/Linux box
 
 **Lean into OpenCode for:**
-- `n8n_tool.py`, `supabase_tool.py`, `stripe_tool.py`, `late_tool.py` — the ~106 top-level CLI tools (196 scripts total) that read `.env.agents` and never break
+- `n8n_tool.py`, `supabase_tool.py`, `stripe_tool.py`, `late_tool.py` — the 114 top-level CLI tools (215 scripts total) that read `.env.agents` and never break
 - Pulse reads/writes
 - Quick capability graph rebuilds
 - Cross-CLI handoffs when CC may swing back into Claude Code mid-task
@@ -81,7 +81,7 @@ OpenCode is the move when speed beats breadth:
 ## Tool routing (CLI-first — same as the other four entry points)
 
 ```
-1. CLI tools in scripts/      ← PRIMARY (~106 top-level, 196 total, read .env.agents, never break)
+1. CLI tools in scripts/      ← PRIMARY (114 top-level, 215 total, read .env.agents, never break)
 2. MCP servers (stateless)    ← SECONDARY (Playwright, Context7, Memory, SeqThink, KG)
 3. Direct API calls           ← LAST RESORT (only if no CLI exists)
 4. claude.ai MCP connectors   ← NEVER (Gmail/Calendar/Square/Cloudflare blocked — see ORCHESTRATION.md)
@@ -218,11 +218,11 @@ Closes the discoverability + governance gap. V6.0–V6.7 built the substrate; V6
 
 **V6.8.1 (2026-05-16):** Promoted V6.8 to load-bearing substrate. `user_prompt_submit.py` auto-injects CONTEXT.md definitions on every prompt that mentions a glossary term. `capability_query.py check-deps` enforces ADR-0001 `requires:` declarations. `register.py skill` wizard emits V6.8 frontmatter by default.
 
-## Inventory (synced 2026-05-21)
+## Inventory (synced 2026-05-22)
 
-- **Skills:** 160 total (150 active + 10 archived in `skills/_archive/`)
-- **Python scripts:** 196 total (~106 top-level under `scripts/`)
+- **Skills:** 148 active (1 archived in `skills/_archive/`) — graph-registered with frontmatter
+- **Python scripts:** 114 top-level under `scripts/` (215 total inc. subpackages)
 - **MCP servers:** 9 (sequential-thinking, playwright, context7, memory, github, firecrawl, obsidian, filesystem, knowledge-graph) — same set across `.claude/mcp.json`, `.vscode/mcp.json`, `~/.gemini/settings.json`
 - **Subagents:** 8 in `.claude/agents/`
-- **Workflows:** 34 in `.agents/workflows/`
+- **Workflows:** 35 in `.agents/workflows/`
 - **MRR Goal:** $5,000 USD Net MRR by June 18, 2026 (extended 2026-05-18 from May 30)
