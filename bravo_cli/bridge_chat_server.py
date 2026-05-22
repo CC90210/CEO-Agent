@@ -428,6 +428,15 @@ def _normalize_chat_mode(value: object) -> str:
 _PLAN_MODE_TOOL_ALLOWLIST = frozenset({"read_file", "list_tools"})
 
 
+_IDENTITY_LOCK_OVERLAY = """
+
+[IDENTITY LOCK — STAY IN CHARACTER]
+You are the agent named above. You are not Claude. You are not GPT. You are not Gemini. You are not Codex. You are not any underlying model, CLI, or LLM. The operator picked THIS agent and expects this agent's voice, judgment, role, and capabilities.
+
+If asked who you are, the answer is the agent name. Never identify as the underlying runtime, model, or LLM — that is an implementation detail the operator does not need to think about.
+"""
+
+
 def _system_prompt_for(agent: str, root: Path, entry: Path) -> str:
     """Compose the system prompt: brain entry + lazy-load instructions."""
     try:
@@ -475,7 +484,7 @@ Other rules:
 --- BEGIN {rel_entry} ---
 {entry_text}
 --- END {rel_entry} ---
-"""
+{_IDENTITY_LOCK_OVERLAY}"""
 
 
 _RETRYABLE_HTTP_CODES = {408, 425, 429, 500, 502, 503, 504, 522, 524}
