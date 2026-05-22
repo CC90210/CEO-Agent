@@ -213,6 +213,17 @@ def run_sync(env_vars: dict[str, str], as_json: bool = False, window_seconds: in
         if notes:
             payload["notes"] = notes
 
+        # Lead contract gate (scripts/lib/lead_contract.py) — drops rows
+        # without email/source (cc_funnel always supplies both, but the
+        # check guards against contract drift if upstream payload changes).
+        # The funnel_fast_poll path runs every few minutes against CC's
+        # public funnel, so the operator sees missing_info on the
+        # dashboard within one poll cycle of any new submission.
+        from lib.lead_contract import has_hard_required  # noqa: E402
+        if not has_hard_required(payload):
+            errors.append(f"{email}: lead_contract rejected (missing email/source)")
+            continue
+
         # Two-phase race-safe insert:
         #   1. SELECT existing row by email
         #   2. If exists -> skip. If not -> INSERT and handle duplicate-key error gracefully.
