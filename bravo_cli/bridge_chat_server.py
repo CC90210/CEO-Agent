@@ -1905,7 +1905,12 @@ class _ChatHandler(BaseHTTPRequestHandler):
         chat_mode: str = "build",
     ) -> None:
         """Run one non-Claude local CLI turn and translate it to ChatWidget SSE."""
-        prompt_text = self._build_local_cli_prompt(provider, agent, messages)
+        # Resolve the agent's brain entry so the prompt can carry the actual
+        # persona content into Codex/Gemini's context. Without this the
+        # underlying runtime introduces itself as Codex or Gemini and the
+        # operator's chosen agent persona is lost.
+        entry = resolve_entry_file(root)
+        prompt_text = self._build_local_cli_prompt(agent, messages, entry)
         if not prompt_text.strip():
             emit("error", {"message": "empty_user_message"})
             emit("done", {})
@@ -1955,8 +1960,55 @@ class _ChatHandler(BaseHTTPRequestHandler):
         emit("delta", {"text": text})
         emit("done", {})
 
-    def _build_local_cli_prompt(self, provider: str, agent: str, messages: list[dict]) -> str:
-        labels = {"codex": "Codex CLI", "gemini": "Gemini CLI"}
+    def _build_local_cli_prompt(
+        self,
+        agent: str,
+        messages: list[dict],
+        entry: Path | None,
+    ) -> str:
+        """Compose the prompt sent to Codex/Gemini for one turn.
+
+        2026-05-22 fix — operators reported that asking Bravo "who are you?"
+        via the Codex CLI got "I'm Codex, backend executor..." in response,
+        breaking the agent identity contract. Root cause: the prior prompt
+        named the runtime ("running through Codex CLI") and lacked a hard
+        identity lock + the agent's actual persona content.
+
+        The runtime (`provider`) and repo path (`root`) are intentionally
+        NOT taken as arguments — naming the runtime in this prompt is
+        exactly what produced the bug, and the persona file path is fully
+        captured by the resolved `entry`.
+
+        Now the prompt:
+          1. Hard-locks the model into the agent's identity at the top —
+             "You are BRAVO. You are not Codex. You are not Gemini."
+          2. Embeds the agent's persona/brain entry as the model's IDENTITY,
+             not as instructions about a separate character.
+          3. Tells the model explicitly: if asked "who are you", the answer
+             is the AGENT, never the runtime. The runtime is an
+             implementation detail the operator does not need to think
+             about.
+          4. Provides the conversation transcript and the latest turn last,
+             so the model treats the identity block as established fact and
+             responds in character.
+        """
+        agent_upper = agent.upper()
+
+        # Read the agent's brain entry so the persona content can be
+        # injected verbatim. Cap at ~8 KB to keep the prompt under most
+        # CLI argv length limits; the entry summarizes character + voice
+        # in fewer bytes than that anyway. Empty fallback when no entry
+        # exists keeps the identity lock intact even without a persona
+        # file.
+        entry_text = ""
+        if entry is not None:
+            try:
+                full = entry.read_text(encoding="utf-8", errors="ignore")
+                entry_text = full[:8000]
+            except Exception:
+                entry_text = ""
+
+        # Conversation transcript (last 12 turns, same window as before).
         transcript: list[str] = []
         for m in messages[-12:]:
             if not isinstance(m, dict):
@@ -1974,14 +2026,30 @@ class _ChatHandler(BaseHTTPRequestHandler):
                 text = str(content or "").strip()
             if text:
                 transcript.append(f"{role}: {text}")
+        transcript_block = "\n\n".join(transcript) if transcript else "(no prior turns)"
+
+        persona_block = (
+            f"--- BEGIN {agent_upper} IDENTITY ---\n{entry_text}\n--- END {agent_upper} IDENTITY ---"
+            if entry_text
+            else f"(No persona file resolved for {agent_upper}. Improvise in character based on the agent name and the operator's context.)"
+        )
+
         return (
-            f"You are {agent}, running through {labels.get(provider, provider)} inside the "
-            "operator's paired repository. Follow the local repository instructions and "
-            "answer the latest user turn. Keep the response useful and concise. Do not "
-            "send outbound email/SMS or mutate production data unless the user explicitly "
-            "asked for that action.\n\n"
-            "Conversation:\n"
-            + "\n\n".join(transcript)
+            f"[IDENTITY LOCK — STAY IN CHARACTER]\n"
+            f"You are {agent_upper}. You are not Codex. You are not Gemini. You are not Claude. "
+            f"You are not any underlying model or CLI runtime. The operator picked {agent_upper} "
+            f"and expects {agent_upper}'s voice, judgment, role, and capabilities.\n\n"
+            f"If asked who you are, the answer is {agent_upper}. Never identify as the runtime, "
+            f"model, or LLM that powers you — that is an implementation detail the operator "
+            f"does not need to think about. Refer to yourself by the agent name when self-"
+            f"identifying.\n\n"
+            f"Your character, role, expertise, voice, and operating principles are defined in "
+            f"the document below. Read it AS your identity, not as instructions about a "
+            f"separate character.\n\n"
+            f"{persona_block}\n\n"
+            f"[CONVERSATION SO FAR]\n"
+            f"{transcript_block}\n\n"
+            f"[OPERATOR'S LATEST TURN — RESPOND AS {agent_upper}, IN CHARACTER]"
         )
 
     def _which_cli(self, name: str) -> str | None:
