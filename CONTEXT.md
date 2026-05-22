@@ -53,7 +53,6 @@ Pattern adapted from [mattpocock/skills CONTEXT.md](https://github.com/mattpococ
 - **State DB** — `state/empire_state.db` (SQLite/WAL). Source of truth for heartbeats, session_log entries, active_tasks. Single writer: `scripts/state/state_manager.py`.
 - **Empire State** — Generic term for the operational status surface (heartbeats, queue depths, daemon health). Read via `state_manager.py status` or the `/system-health` page.
 - **Event bus** — Postgres `agent_events` table with LISTEN/NOTIFY. Producers (state_manager, pulse_publish, send_gateway, etc.) emit `BRAVO_*` event types. Consumers claim via `claim_events()` with `FOR UPDATE SKIP LOCKED`.
-- **Override (exec_override)** — When `exec_guard.py` blocks a command, CC can approve it via the `/overrides` dashboard page or `exec_override.py approve <req-id>`. Approval is HMAC-signed.
 - **Bridge lock** — Multi-machine arbitration for Telegram / Discord bridges. Lockfile at `~/.oasis/bridge_locks/<agent>.json`. Owner heartbeats every 15s.
 
 ## V6 architecture vocabulary

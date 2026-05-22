@@ -30,7 +30,6 @@
  *                              tenant cron-job poller (giggly-reef Phase I,
  *                              calls cron_runner.poll_once each cycle).
  *       event-router        — V6 Apex Phase 3 cross-agent event bus tail.
- *       override-consumer   — V6 Apex Phase 2 exec-override decision poller.
  *
  * USAGE:
  *
@@ -267,35 +266,10 @@ apps.push({
     max_size: "10M",
 });
 
-// ============================================================================
-// override-consumer — V6 Apex Phase 2 exec-override decision poller
-// ============================================================================
-//
-// Pulls approve/deny decisions for exec_guard-blocked actions from
-// Supabase (cloud-side Approve/Deny UI) and applies them to the local
-// state DB. HMAC-verified. Without this daemon running, dashboard-driven
-// override approvals never reach the operator's machine.
-apps.push({
-    name: "override-consumer",
-    script: "scripts/state/exec_override_consumer.py",
-    args: ["loop", "--interval", "5"],
-    interpreter: PYTHONW,  // no-console interpreter; popup-suppressed
-    cwd: PROJECT_ROOT,
-    watch: false,
-    autorestart: true,
-    max_restarts: 20,
-    restart_delay: 10000,
-    windowsHide: true,
-    env: {
-        PYTHONIOENCODING: "utf-8",
-        PYTHONUNBUFFERED: "1",
-    },
-    log_date_format: "YYYY-MM-DD HH:mm:ss",
-    error_file: "tmp/pm2-override-consumer-error.log",
-    out_file: "tmp/pm2-override-consumer-out.log",
-    merge_logs: true,
-    max_size: "10M",
-});
+// override-consumer daemon was deleted 2026-05-22 along with the entire
+// exec_override approval-request system. The exec_guard hook still blocks
+// destructive commands; it just refuses them outright now rather than
+// queuing them for human approval. See scripts/state/exec_guard.py.
 
 // ============================================================================
 // sequence-runner — drip-campaign engine (SunBiz CRM Phase 4)

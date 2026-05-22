@@ -7,7 +7,7 @@ status: ACTIVE — required reading before any client agent moves off CC's machi
 # Why this exists
 
 Today (2026-05-16) every Python automation daemon runs on **CC's Windows box** via PM2:
-`sequence_runner`, `lender_response_classifier`, `event-router`, `override-consumer`,
+`sequence_runner`, `lender_response_classifier`, `event-router`,
 `bravo-scheduler`, `claude-bridge`, `claude-bridge-ping`, etc. They all read `.env.agents`
 locally to get the Supabase service-role key + dashboard URL + per-service credentials.
 That works because CC is the operator AND the host.

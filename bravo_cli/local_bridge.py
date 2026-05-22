@@ -294,7 +294,7 @@ def detect_codex_cli() -> dict:
 
 def detect_pm2_daemons() -> dict[str, dict]:
     """Snapshot the operator's PM2 process table — surfaces background
-    workers (sequence-runner, event-router, override-consumer, claude-bridge,
+    workers (sequence-runner, event-router, claude-bridge,
     lender-response-classifier, bravo-scheduler, bravo-telegram) on the
     dashboard's /automations page so the operator can see at a glance which
     daemons are alive vs stopped.
@@ -386,8 +386,7 @@ def collect_services() -> dict[str, dict]:
     services.update(detect_repo_clones())
     # PM2 daemon snapshot — populates the dashboard's Background Workers
     # panel so the operator sees sequence-runner / event-router / claude-bridge /
-    # override-consumer / lender-response-classifier status without SSH'ing
-    # into their own machine.
+    # lender-response-classifier status without SSH'ing into their own machine.
     services.update(detect_pm2_daemons())
     # Credentials on disk — flips integration cards green for the operator
     # without them ever pasting a key into the dashboard.

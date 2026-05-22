@@ -47,7 +47,7 @@ TMP_DIR = PROJECT_ROOT / "tmp"
 ENV_FILE = PROJECT_ROOT / ".env.agents"
 
 EXPECTED_STATE_TABLES = {"agent_state", "session_log", "active_task"}
-EXPECTED_DAEMONS = {"event-router", "override-consumer"}  # core pair from PLAYBOOK
+EXPECTED_DAEMONS = {"event-router"}  # core daemon from PLAYBOOK (override-consumer deleted 2026-05-22)
 REQUIRED_ENV_KEYS = (
     "BRAVO_SUPABASE_URL",
     "BRAVO_SUPABASE_SERVICE_ROLE_KEY",

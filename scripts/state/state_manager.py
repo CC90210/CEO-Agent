@@ -41,16 +41,12 @@ from typing import Iterable, Iterator, Sequence
 # The file moved into scripts/state/ during the 2026-05-20 reorg without
 # updating these parent counts; the result was that PROJECT_ROOT pointed
 # at scripts/, STATE_DIR pointed at scripts/state/ (where the script
-# lives, not where the real DB sits), and the override_crypto import
-# resolved against scripts/state/lib/* (which doesn't exist) instead of
-# scripts/lib/override_crypto.py.
+# lives, not where the real DB sits).
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 STATE_DIR = PROJECT_ROOT / "state"
 DB_PATH = STATE_DIR / "empire_state.db"
 MIGRATIONS_DIR = STATE_DIR / "migrations"
 
-# lib/* used to live here for override_crypto. Override surface deleted
-# 2026-05-22 (CC's call — see scripts/state/exec_guard.py comment).
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 STATE_MD = PROJECT_ROOT / "brain" / "STATE.md"

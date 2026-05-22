@@ -111,7 +111,7 @@ Defense in depth: a single-service RCE in `bravo-webhook` cannot exfiltrate the 
 - **Setup wizard (`bravo_cli/wizard.py`)** — `step_environment` detects local vs cloud; `step_v6_init` writes hook-mode defaults, bootstraps both DBs, builds the FTS5 index, fans out scoped env files, and optionally runs `docker compose build`.
 - **Command Center modules** — `oasis-command-center:app/system-health/page.tsx` (DB stats + agent ticks + 3 guard cards live), `app/playbook/onboarding/page.tsx` (markdown SOPs from `docs/playbooks/`).
 - **Two-tier `/api/state-health` read path (2026-05-10)** — `oasis-command-center:app/api/state-health/route.ts` tries `state-api:8500/status` first; on Vercel where that hostname is not routable, it falls back to a Supabase mirror that synthesizes the same `StateHealthResponse` shape from `agent_state_snapshot` + `agent_events` + `session_logs` via `getServiceSupabase()`. The response carries `source: "state-api" | "supabase-mirror"` so operators can see which path served the payload (rendered as a tag in the page header). Local-only fields (FTS5 stats, jsonl guard tails) are omitted in the fallback — the page already renders those sections conditionally.
-- **Dashboard-driven override approvals (Apex Phase 2, 2026-05-10)** — `state_manager.create_override_request` best-effort mirrors pending rows to Supabase `exec_overrides` (migration 035). `/overrides` (server component) renders the queue + server-action approve/deny. The action validates the dashboard session, hashes `OASIS_OUTBOUND_HMAC_SECRET` server-side, and calls the `record_exec_override_decision_v1` SECURITY DEFINER RPC which re-checks the secret against `n8n_webhook_secrets`. `scripts/state/exec_override_consumer.py loop` runs on CC's machine, polls `dashboard_decision IS NOT NULL AND consumer_synced_at IS NULL`, applies via `state_manager.approve_override_request` (which HMAC-signs the SQLite row with `EMPIRE_OVERRIDE_HMAC_KEY`), and stamps `consumer_synced_at` back via `mark_exec_override_synced_v1`. The at-runtime block / allow auth gate stays in local SQLite — Vercel only records operator intent.
+- **~~Dashboard-driven override approvals (Apex Phase 2)~~** — DELETED 2026-05-22. See §9 "Operator-Approval Override Flow" for the deprecation rationale.
 - **Event router + live feed (Apex Phase 3, 2026-05-10)** — `scripts/core/event_router.py loop` is the on-host event-bus tail. It polls `agent_events` with a cursor file (`state/event_router.cursor`) and appends a projected, scannable summary to `state/event_router.log` jsonl. The cursor makes the consumer lossless + crash-safe. The dashboard's `/feed` page is the cloud-side view of the same stream: server-renders the last hour, a 5-second `router.refresh()` client island keeps it live without websockets. `/api/event-feed` exposes the same read for any future poller. The router is single-machine — multiple hosts running it would each emit duplicate side-effects; the bridge_lock contract owns that arbitration.
 
 ### Cross-agent contract under V6.0
@@ -607,44 +607,31 @@ The setup wizard generates three per-service env files at install time, each con
 
 Docker Compose mounts the per-service file via `env_file:`. A single-service RCE in `bravo-webhook` cannot exfiltrate Anthropic or service-role keys because they're not in that container's environment. The master `.env.agents` is excluded from `.dockerignore` and never copied into any container layer.
 
-### Regression Suite (`tests/test_hook_regression.py` + `tests/test_exec_override.py`)
+### Regression Suite (`tests/test_hook_regression.py`)
 
-Every known bypass is locked behind a pytest case — 121 tests across two files:
-- **`test_hook_regression.py`** (109): per-vector behavior of `secret_guard` / `exec_guard` / `state_guard` including all three Codex Critical findings (scoped-env fan-out leak, shell-redirect bypass, chained-command leak past the read-only fast-path) and five self-review follow-ups.
-- **`test_exec_override.py`** (12): full lifecycle of the operator-approval override flow — auto-request creation, approve→retry, single-use enforcement, hash-binding, expiry, non-TTY refusal, secret_guard / state_guard exemption, HMAC tamper rejection, idempotent dedup, deny-then-block, CLI `list`.
+Every known bypass is locked behind a pytest case — 109 tests in
+`test_hook_regression.py` covering per-vector behavior of `secret_guard` /
+`exec_guard` / `state_guard` including all three Codex Critical findings
+(scoped-env fan-out leak, shell-redirect bypass, chained-command leak past
+the read-only fast-path) and five self-review follow-ups.
 
 New Codex findings become CODEX-tagged vectors in the per-vector file.
 
-### Operator-Approval Override Flow (BUILD 4, 2026-05-10)
+### ~~Operator-Approval Override Flow~~ — DELETED 2026-05-22
 
-Regex/AST guards eventually false-positive on a legitimate command. Without an escape hatch, the agent gets stuck and the operator has to flip `EMPIRE_HOOK_EXEC_GUARD=off` — too coarse, opens the entire fence. BUILD 4 introduces a surgical, human-in-the-loop alternative.
+This section used to describe a human-in-the-loop approval queue for
+exec_guard blocks (BUILD 4 / V6 Apex Phase 2). CC's call: "I don't want
+to be an approval bot. The block IS the protection."
 
-**Flow (request → approve → consume):**
-
-1. `exec_guard` blocks a command.
-2. Hook auto-creates `override_request` row in `state/empire_state.db` (status: `pending`, TTL: 5 min, idempotent on `command_hash`). The `request_id` is included in stderr alongside the block reason.
-3. Operator from an interactive terminal: `python scripts/state/exec_override.py approve req-7fed684e [--reason "..."]`. Helper validates the parent is a TTY (refuses LLM-spawned subprocesses), HMAC-signs the row, marks `status='approved'`.
-4. Agent retries the SAME command. `exec_guard` calls `state_manager.find_fresh_approval(cmd)` → finds the approved+signed row → atomically consumes it (`status='consumed'`, `consumed_at=now`) → allows the call.
-5. Subsequent attempts at the same command create a new request — single-use is the contract.
-
-**Five hard rules** (built into the validator, not just policy):
-
-| Rule | Mechanism |
-|------|-----------|
-| Single-use | `consume_override_request()` updates only when `status='approved'`; second caller gets False |
-| Hash-bound | `sha256(command)` is the lookup key; different commands cannot share an approval |
-| Time-limited | Default 5 min TTL, max 1 hour; expired rows are skipped at lookup |
-| HMAC-signed at rest | Sig over `id\|hash\|expires_at`; tampering invalidates — defends against DB-level forgery if the guards ever leak |
-| TTY-only approval | `is_tty_caller()` heuristic (stdin, `CLAUDE_HOOK_FIRED`, `EMPIRE_OVERRIDE_FORCE_TTY` bypass for CI); LLM in a Bash tool call cannot approve its own request |
-
-**Override applies to `exec_guard` only.** Approving a command that `secret_guard` or `state_guard` would block has zero effect — those guards never consult the override table. Credentials stay LLM-unreadable; auto-generated state mirrors stay protected. Tested explicitly (`test_exec_override.test_07/test_08`).
-
-**Audit trail:**
-- Every block emits a row to `state/exec_guard.log` with the new `override_request_id` for cross-reference.
-- Every successful override use emits `decision: "allowed-via-override"` with the `request_id`.
-- Every approval / denial is a `state_transaction` row in `empire_state.db`.
-
-**See also:** `skills/exec-override/SKILL.md` (operator workflow), `state/migrations/003_override_requests.sql` (schema), `scripts/lib/override_crypto.py` (HMAC + TTY detection + lazy key bootstrap).
+The block path in `exec_guard` is unchanged — destructive commands
+(DROP TABLE, rm -rf /, git push --force) are still refused outright.
+The deletion removed: the `exec_overrides` Supabase table, the
+`override_request` SQLite schema, `scripts/state/exec_override*.py`,
+`scripts/lib/override_crypto.py`, the override-consumer PM2 daemon,
+the dashboard `/overrides` page + `/api/exec-override` route, the
+`Overrides pending` mini-tile on /operations, and the
+`skills/exec-override/SKILL.md`. If an agent gets blocked, it now
+picks a different approach — no queue, no UI, no escalation surface.
 
 ---
 

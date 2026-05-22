@@ -18,7 +18,6 @@ When CC reboots his Windows machine (CCPC), the 9 PM2 daemons that drive the Sun
 | `claude-bridge` | localhost:9100 chat HTTP server + tool proxy | Yes |
 | `claude-bridge-ping` | Heartbeat + tenant cron poller | Yes |
 | `event-router` | V6 cross-agent event bus tail | Yes |
-| `override-consumer` | exec-override approvals → local state DB | Yes |
 | `sequence-runner` | SunBiz drip-campaign engine | Yes |
 | `lender-response-classifier` | Gmail thread classifier | Yes |
 
@@ -63,7 +62,7 @@ at every login. The VBS wrapper calls `pm2.cmd resurrect` with
 - Trigger: at logon of `User`
 - Hidden task
 - Restart on failure: 3 attempts, 1 minute apart
-- Replays `~/.pm2/dump.pm2` so the 10 daemons (atlas-telegram, bravo-scheduler, bravo-telegram, claude-bridge, claude-bridge-ping, event-router, lender-response-classifier, maven-telegram, override-consumer, sequence-runner) come back online within 30s of login.
+- Replays `~/.pm2/dump.pm2` so the 10 daemons (atlas-telegram, bravo-scheduler, bravo-telegram, claude-bridge, claude-bridge-ping, dashboard-email-consumer, event-router, lender-response-classifier, maven-telegram, sequence-runner) come back online within 30s of login.
 
 Verify:
 ```powershell
