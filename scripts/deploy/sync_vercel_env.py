@@ -33,7 +33,6 @@ from __future__ import annotations
 
 import argparse
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 
@@ -50,6 +49,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 
 try:
     from lib.secret_loader import load_env  # type: ignore
+    from lib.subprocess_helpers import safe_run  # type: ignore
 except ImportError as e:
     print(f"ERROR: lib.secret_loader unavailable: {e}", file=sys.stderr)
     sys.exit(1)
@@ -66,7 +66,7 @@ _USE_SHELL = sys.platform == "win32"
 def _vercel_env_remove(key: str, env: str, cwd: Path) -> tuple[bool, str]:
     """Best-effort delete of an existing variable so `vercel env add` won't
     conflict. Returns (was_removed, message). Missing var → benign no-op."""
-    proc = subprocess.run(
+    proc = safe_run(
         "vercel env rm {k} {e} --yes".format(k=key, e=env) if _USE_SHELL
         else ["vercel", "env", "rm", key, env, "--yes"],
         capture_output=True, text=True, cwd=str(cwd), shell=_USE_SHELL,
@@ -97,7 +97,7 @@ def _vercel_env_add(key: str, value: str, env: str, cwd: Path) -> tuple[bool, st
     LIST so cmd.exe doesn't have to parse / escape the secret.
     """
     argv = ["vercel", "env", "add", key, env, "--value", value, "--yes", "--force"]
-    proc = subprocess.run(
+    proc = safe_run(
         argv,
         capture_output=True, text=True, cwd=str(cwd), shell=_USE_SHELL,
     )

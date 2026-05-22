@@ -21,6 +21,8 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+from lib.subprocess_helpers import safe_run
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CHANGELOG = PROJECT_ROOT / "CHANGELOG.md"
 
@@ -65,7 +67,7 @@ def git_commits_since(ref: str | None) -> list[str]:
     if ref:
         cmd.append(f"{ref}..HEAD")
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
+        result = safe_run(cmd, capture_output=True, text=True, timeout=20)
     except (subprocess.SubprocessError, OSError):
         return []
     if result.returncode != 0:
@@ -123,7 +125,7 @@ def main(argv: list[str] | None = None) -> int:
         if latest:
             ref = f"v{latest}"
             # Verify tag exists; otherwise fall back to no ref
-            check = subprocess.run(
+            check = safe_run(
                 ["git", "-C", str(PROJECT_ROOT), "rev-parse", "--verify", ref],
                 capture_output=True, text=True, timeout=10,
             )

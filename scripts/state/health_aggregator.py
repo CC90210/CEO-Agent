@@ -37,6 +37,10 @@ from pathlib import Path
 from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+
+from lib.subprocess_helpers import safe_run  # noqa: E402
+
 STATE_DIR = PROJECT_ROOT / "state"
 BACKUP_DIR = STATE_DIR / "backups"
 TMP_DIR = PROJECT_ROOT / "tmp"
@@ -174,7 +178,7 @@ def check_daemons() -> dict[str, Any]:
     if not pm2:
         return _warn("pm2 not installed (dev environment)")
     try:
-        result = subprocess.run(
+        result = safe_run(
             [pm2, "jlist"], capture_output=True, text=True, timeout=10
         )
     except (subprocess.SubprocessError, OSError) as exc:
@@ -231,13 +235,13 @@ def check_git_status() -> dict[str, Any]:
         return _warn("git not installed")
     try:
         # Working tree clean?
-        status = subprocess.run(
+        status = safe_run(
             ["git", "-C", str(PROJECT_ROOT), "status", "--porcelain"],
             capture_output=True, text=True, timeout=10,
         )
         dirty = bool(status.stdout.strip()) if status.returncode == 0 else None
         # Last commit age
-        log = subprocess.run(
+        log = safe_run(
             ["git", "-C", str(PROJECT_ROOT), "log", "-1", "--format=%ct"],
             capture_output=True, text=True, timeout=10,
         )
