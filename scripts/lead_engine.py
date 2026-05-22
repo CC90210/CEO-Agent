@@ -337,99 +337,16 @@ def cmd_view(client, args, output_json: bool):
     print(sep)
 
 
-# V6.8.3 lead-lifecycle sync map.
-#
-# Two parallel lead systems coexist:
-#   - public.leads          (pre-2026-05-15 OASIS canonical, 6 statuses)
-#   - tenant_records (entity_type='lead', 11 stages per migration 062)
-#
-# When CC updates a lead via this CLI we need to keep BOTH in sync so the
-# command-centre dashboard's "Discovery scheduled" and lead_engine.py
-# don't drift. Mapping per migration 062:
-#
-#   leads.status  → tenant_records.data->>'stage'
-#   new           → new_contact
-#   contacted     → outreach
-#   won           → active_client
-#   qualified / proposal / negotiation / lost → unchanged
-#
-# Stages that exist ONLY in tenant_records (discovery, onboarding,
-# churned, archived) cannot be set from this CLI — use the dashboard.
-_LEADS_TO_STAGE = {
-    "new":         "new_contact",
-    "contacted":   "outreach",
-    "qualified":   "qualified",
-    "proposal":    "proposal",
-    "negotiation": "negotiation",
-    "won":         "active_client",
-    "lost":        "lost",
-}
-
-
-def _sync_tenant_record_stage(client, lead_id: str, new_status: str) -> str:
-    """Best-effort dual-write: mirror leads.status → tenant_records.data.stage.
-
-    Match by lead_id stored inside tenant_records.data (the manifest layer
-    on the command-centre side writes the source lead's id as
-    data->>'source_lead_id' OR data->>'lead_id'; we probe both). If no
-    matching row exists, no-op (this lead is legacy-only).
-
-    Returns a short status string for the operator: 'synced' | 'no_record'
-    | 'no_mapping' | 'error:<msg>'. Never raises.
-    """
-    stage = _LEADS_TO_STAGE.get(new_status)
-    if not stage:
+# V6.8.3 lead-lifecycle sync: the implementation lives in
+# scripts/lib/lead_sync.py so every writer of leads.status can call the
+# same helper instead of copy-pasting 60 lines. See migration 062 for the
+# stage mapping.
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+try:
+    from lib.lead_sync import sync_lead_status_to_tenant_records  # type: ignore
+except ImportError:
+    def sync_lead_status_to_tenant_records(_client, _lead_id, _status):  # type: ignore
         return "no_mapping"
-    # Look up the lead's email so we have a second fallback identifier.
-    try:
-        lead_row = client.table("leads").select("email").eq("id", lead_id).limit(1).execute()
-        lead_email = (lead_row.data[0].get("email") if lead_row.data else None) or None
-    except Exception:
-        lead_email = None
-
-    candidates: list[dict] = []
-    for key in ("source_lead_id", "lead_id"):
-        try:
-            r = (client.table("tenant_records")
-                 .select("id, data")
-                 .eq("entity_type", "lead")
-                 .filter(f"data->>{key}", "eq", lead_id)
-                 .limit(2)
-                 .execute())
-            if r.data:
-                candidates.extend(r.data)
-        except Exception as exc:  # noqa: BLE001
-            return f"error:{type(exc).__name__}"
-
-    if not candidates and lead_email:
-        try:
-            r = (client.table("tenant_records")
-                 .select("id, data")
-                 .eq("entity_type", "lead")
-                 .filter("data->>email", "eq", lead_email)
-                 .limit(2)
-                 .execute())
-            if r.data:
-                candidates.extend(r.data)
-        except Exception as exc:  # noqa: BLE001
-            return f"error:{type(exc).__name__}"
-
-    if not candidates:
-        return "no_record"
-
-    synced = 0
-    for row in candidates:
-        try:
-            new_data = dict(row.get("data") or {})
-            new_data["stage"] = stage
-            client.table("tenant_records").update({
-                "data": new_data,
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }).eq("id", row["id"]).execute()
-            synced += 1
-        except Exception as exc:  # noqa: BLE001
-            return f"error:{type(exc).__name__}"
-    return f"synced({synced})"
 
 
 def cmd_update(client, args, output_json: bool):
@@ -473,7 +390,7 @@ def cmd_update(client, args, output_json: bool):
     # V6.8.3 dual-write: if status changed, mirror the mapped stage into
     # tenant_records so the command-centre dashboard stays in sync.
     if args.status:
-        tenant_sync_result = _sync_tenant_record_stage(client, args.lead_id, args.status)
+        tenant_sync_result = sync_lead_status_to_tenant_records(client, args.lead_id, args.status)
 
     if output_json:
         out = dict(lead)

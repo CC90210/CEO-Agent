@@ -955,7 +955,12 @@ def run_daemon(interval_seconds: int, shadow: bool, dry_run: bool) -> None:
             print("[autonomous_agent] daemon stopped by user.")
             return
         except Exception as exc:  # noqa: BLE001
+            # V6.8.3: stderr print stays for live pm2 tails; structured_log
+            # captures the same event for state/logs/autonomous_agent.log so
+            # error_knowledge_pipeline can surface recurring tick failures.
             print(f"[autonomous_agent] tick failed: {exc}", file=sys.stderr)
+            _slog.error("tick_failed", error_type=type(exc).__name__,
+                        error=str(exc)[:200], exc_info=True)
         try:
             time.sleep(interval_seconds)
         except KeyboardInterrupt:

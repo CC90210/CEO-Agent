@@ -424,7 +424,10 @@ def resolve_lead_id(db, to_email: Optional[str], lead_id: Optional[str]) -> Opti
         return created.data[0]["id"] if created.data else None
     except Exception as exc:  # noqa: BLE001
         # Lead resolution is best-effort; a DB blip must not block sending.
+        # V6.8.3: structured_log mirrors the stderr line into the JSON ledger.
         print(f"[send_gateway] resolve_lead_id warning: {exc}", file=sys.stderr)
+        _slog.warn("resolve_lead_id_failed", error_type=type(exc).__name__,
+                   error=str(exc)[:200])
         return None
 
 
