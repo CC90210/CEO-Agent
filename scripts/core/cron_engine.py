@@ -71,14 +71,8 @@ SEED_JOBS: list[dict] = [
     # ig_research) were removed from this seed on 2026-04-26 when
     # marketing/social ownership transferred to Maven (CMO-Agent).
     # Maven seeds its own equivalents in CMO-Agent/scripts/core/cron_engine.py.
-    {
-        "name": "Lead Follow-up Check",
-        "description": "Check for overdue follow-ups, send reminders",
-        "schedule": "0 8 * * MON-FRI",
-        "action_type": "lead_followup",
-        "action_config": {"overdue_threshold_days": 3, "notify_channel": "telegram"},
-        "is_active": True,
-    },
+    # 'Lead Follow-up Check' removed 2026-05-22 — superseded by 'Nurture
+    # Sequence Check' (both ran the same overdue-follow-up logic).
     {
         # Phase 5c — OASIS HQ daily AI brief. Sonnet narrates the
         # briefing_snapshot into a 5-bullet morning summary, shipped to
@@ -181,14 +175,9 @@ SEED_JOBS: list[dict] = [
         "action_config": {"tables": ["revenue_events", "leads", "content_calendar"]},
         "is_active": True,
     },
-    {
-        "name": "Funnel Lead Sync",
-        "description": "Sync new funnel_leads to CRM leads table + fire welcome email (24h backstop)",
-        "schedule": "*/5 * * * *",
-        "action_type": "funnel_sync",
-        "action_config": {"auto_welcome_email": True},
-        "is_active": True,
-    },
+    # 'Funnel Lead Sync' removed 2026-05-22 — overlapped with 'Funnel
+    # Fast-Poll' below. Fast-Poll runs every 1 min and covers the same
+    # funnel_leads source; the 5-min job was an older safety net.
     {
         "name": "Funnel Fast-Poll",
         "description": "Near-realtime funnel_leads detection (2-minute window). Fires high-priority Telegram digest when new form submissions land, so CC knows within ~1 min of a lead filling out the CC Funnel on Instagram/social.",
@@ -227,6 +216,20 @@ SEED_JOBS: list[dict] = [
         "schedule": "0 3 * * *",
         "action_type": "script_run",
         "action_config": {"script": "scripts/state/backup_db.py", "args": ["backup", "--keep", "7"]},
+        "is_active": True,
+    },
+    {
+        # Added 2026-05-22 — meta-monitoring. Catches future broken crons
+        # (like the Daily MRR Auto-Sync gap that sat silently failing
+        # for days). Scans cron_jobs nightly for last_result starting with
+        # ERROR / FAILED and Telegrams CC with a consolidated alert.
+        # Self-monitoring: if THIS cron fails, its own FAILED row surfaces
+        # in the dashboard's red-border treatment.
+        "name": "Bravo — Daily Cron Health Check",
+        "description": "Nightly 22:00 scan of cron_jobs for last_result starting with ERROR or FAILED. Telegrams CC with the failing job name + snippet. Meta-cron: guards every other cron so silent breakage doesn't sit dead for days.",
+        "schedule": "0 22 * * *",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/core/cron_health_check.py", "args": ["--alert"]},
         "is_active": True,
     },
 ]
