@@ -44,9 +44,26 @@ npm start
 
 ## Packaging
 
+Two entry points — both go through `scripts/build-platform.js` which
+auto-detects signing readiness from env vars and prints a clear
+banner showing which mode it ran in (signed / signed+notarized /
+unsigned). See [SIGNING.md](./SIGNING.md) for the full env-var
+matrix + per-platform cert-provisioning walkthrough.
+
+```bash
+# Local testing — produces a launchable artifact without certs:
+npm run build:win:unsigned    # NSIS .exe + portable .exe (unsigned)
+npm run build:mac:unsigned    # universal .dmg + .zip (unsigned)
+
+# Production — auto-signs when env vars are present:
+npm run build:win             # Authenticode-signed when CSC_LINK + CSC_KEY_PASSWORD set
+npm run build:mac             # signed + notarized when CSC_LINK + APPLE_* set
+```
+
+Supporting scripts:
+
 ```bash
 npm run release:check
-npm run build:win
 npm run portable:win
 npm run release:metadata
 npm run signing:check
@@ -54,10 +71,10 @@ npm run signing:check
 
 Windows builds can be produced on Windows. macOS signing/notarization requires macOS and Apple credentials. Linux packages should be built on Linux CI.
 
-For the current unsigned alpha, `npm run pack` creates a runnable unpacked app folder at `dist/win-unpacked/`.
+`npm run pack` creates a runnable unpacked app folder at `dist/win-unpacked/` for fast iteration.
 `npm run release:metadata` writes `dist/release-metadata.json` and `dist/SHA256SUMS.txt` for generated installer/archive artifacts.
 
-For production Windows distribution, configure Authenticode signing in CI with `WINDOWS_CSC_LINK` and `WINDOWS_CSC_KEY_PASSWORD`, then set `OASIS_REQUIRE_WINDOWS_SIGNING=true`. Without a trusted publisher signature, locked-down Windows machines can block the app even when the package is built correctly.
+For production CI, set `OASIS_REQUIRE_WINDOWS_SIGNING=true` (or `OASIS_REQUIRE_MAC_SIGNING=true`) — the build wrapper REFUSES to produce an unsigned artifact when either is set, unless `--unsigned` is passed explicitly. CI secrets in `.github/workflows/oasis-desktop.yml` map `WINDOWS_CSC_LINK` → `WIN_CSC_LINK` (electron-builder's platform-specific override); the wrapper honors both that and the cross-platform `CSC_LINK` fallback.
 
 ## Security Defaults
 
