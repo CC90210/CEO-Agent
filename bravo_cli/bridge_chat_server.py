@@ -404,6 +404,30 @@ LIST_TOOLS_TOOL = {
 }
 
 
+_PLAN_MODE_OVERLAY = """
+
+PLAN MODE ACTIVE (operator typed /plan). Until the operator types /build, you are in research-and-propose mode:
+- Allowed: read_file, list_tools, and any read-only investigation.
+- Forbidden: run_script (any mutating or non-mutating script), Bash, Write, Edit, MultiEdit, and any other tool that touches disk, network, or external services. The bridge will reject these tool calls in plan mode regardless of what you advertise.
+- Deliverable: present a step-by-step plan in chat. Wait for the operator to type /build before executing anything. Do NOT escape plan mode by interpreting conversational cues — the state machine belongs to the operator.
+"""
+
+
+def _normalize_chat_mode(value: object) -> str:
+    """Coerce caller-supplied chat_mode → 'plan' | 'build' (default 'build').
+
+    Mirrors lib/chat-modes/plan-mode.ts normalizeMode() on the dashboard side so
+    a malformed payload fails open to build mode (today's behavior) instead of
+    silently dropping the request.
+    """
+    if isinstance(value, str) and value.strip().lower() == "plan":
+        return "plan"
+    return "build"
+
+
+_PLAN_MODE_TOOL_ALLOWLIST = frozenset({"read_file", "list_tools"})
+
+
 def _system_prompt_for(agent: str, root: Path, entry: Path) -> str:
     """Compose the system prompt: brain entry + lazy-load instructions."""
     try:
@@ -638,6 +662,7 @@ def _call_provider(
     system: str,
     messages: list[dict],
     stream: bool = True,
+    tools: list[dict] | None = None,
 ):
     """One streaming call. Provider toggles URL + auth header; the body
     shape is the same Anthropic /v1/messages contract either way (OpenRouter
@@ -654,7 +679,7 @@ def _call_provider(
         "model": model,
         "max_tokens": 4096,
         "system": system,
-        "tools": [READ_FILE_TOOL, RUN_SCRIPT_TOOL, LIST_TOOLS_TOOL],
+        "tools": tools if tools is not None else [READ_FILE_TOOL, RUN_SCRIPT_TOOL, LIST_TOOLS_TOOL],
         "messages": messages,
         "stream": stream,
     }
@@ -1432,6 +1457,12 @@ class _ChatHandler(BaseHTTPRequestHandler):
             self._json(400, {"ok": False, "error": "invalid_cli_provider"})
             return
 
+        # Plan vs build — dashboard sends 'chat_mode' on each request. Default
+        # 'build' is today's behavior; 'plan' filters tools (legacy path),
+        # swaps Claude CLI permission-mode to 'plan' (default path), and
+        # bypasses the warm pool (so the cold spawn picks up the new mode).
+        chat_mode = _normalize_chat_mode(payload.get("chat_mode"))
+
         # V6.0: log this interaction to state/empire_state.db so the System
         # Health page sees dashboard chat activity. Best-effort, fire-and-forget.
         _v6_log_chat_interaction(agent, f"{cli_provider}-chat", _v6_last_user_text(messages))
@@ -1518,7 +1549,10 @@ class _ChatHandler(BaseHTTPRequestHandler):
                 emit("done", {})
                 return
             try:
-                self._run_chat(agent, root, entry, provider, api_key, model, messages, emit)
+                self._run_chat(
+                    agent, root, entry, provider, api_key, model, messages, emit,
+                    chat_mode=chat_mode,
+                )
             except urllib.error.HTTPError as e:
                 if e.code in _RETRYABLE_HTTP_CODES:
                     emit("error", {
@@ -1540,7 +1574,9 @@ class _ChatHandler(BaseHTTPRequestHandler):
 
         if cli_provider != "claude":
             try:
-                self._run_chat_via_local_cli(cli_provider, agent, root, messages, emit)
+                self._run_chat_via_local_cli(
+                    cli_provider, agent, root, messages, emit, chat_mode=chat_mode,
+                )
             except Exception as e:
                 emit("error", {"message": _redact_secrets(f"{cli_provider}_chat_failed: {e}")})
                 emit("done", {})
@@ -1557,7 +1593,8 @@ class _ChatHandler(BaseHTTPRequestHandler):
         if not warm_disabled and tab_id:
             try:
                 warm_path_succeeded = self._run_chat_via_warm_pool(
-                    agent, root, messages, emit, resume_session_id, tab_id
+                    agent, root, messages, emit, resume_session_id, tab_id,
+                    chat_mode=chat_mode,
                 )
             except Exception as e:
                 # Warm path crashed — log to stderr, fall through to cold.
@@ -1571,7 +1608,9 @@ class _ChatHandler(BaseHTTPRequestHandler):
         # verbatim). This runs whenever the warm pool can't serve the
         # request — first-turn cold-start, recovered crash, opt-out.
         try:
-            self._run_chat_via_claude(agent, root, messages, emit, resume_session_id)
+            self._run_chat_via_claude(
+                agent, root, messages, emit, resume_session_id, chat_mode=chat_mode,
+            )
         except FileNotFoundError as e:
             emit("error", {
                 "message": "claude_cli_not_found",
@@ -1598,6 +1637,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
         emit: Callable[[str, dict], None],
         resume_session_id: str | None,
         tab_id: str,
+        chat_mode: str = "build",
     ) -> bool:
         """Drive a chat turn via a persistent claude subprocess from the
         warm pool. Returns True on success (streamed clean to the client),
@@ -1628,6 +1668,19 @@ class _ChatHandler(BaseHTTPRequestHandler):
             return False
         prompt_text = str(last_user.get("content") or "").strip()
         if not prompt_text:
+            return False
+
+        # Plan mode bypasses the warm pool. Warm subprocesses were spawned
+        # with --permission-mode=bypassPermissions; we can't retroactively
+        # downgrade them to plan mode mid-stream. Falling through to
+        # _run_chat_via_claude cold-spawn (which honors chat_mode) is
+        # correct here even though it costs the warm-resume latency win.
+        if chat_mode == "plan":
+            emit("agent_status", {
+                "phase": "plan_mode_cold_spawn",
+                "agent": agent,
+                "detail": "Warm pool bypassed for plan-mode turn.",
+            })
             return False
 
         # Pool key: agent + tab_id (stable for the chat widget's lifetime).
@@ -1849,6 +1902,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
         root: Path,
         messages: list[dict],
         emit: Callable[[str, dict], None],
+        chat_mode: str = "build",
     ) -> None:
         """Run one non-Claude local CLI turn and translate it to ChatWidget SSE."""
         prompt_text = self._build_local_cli_prompt(provider, agent, messages)
@@ -1856,6 +1910,24 @@ class _ChatHandler(BaseHTTPRequestHandler):
             emit("error", {"message": "empty_user_message"})
             emit("done", {})
             return
+
+        # Codex / Gemini CLIs don't expose a structured plan-mode flag like
+        # `claude --permission-mode plan`. The best we can do is (a) prepend
+        # the plan-mode overlay to the prompt and (b) tell the dashboard the
+        # bridge is honoring plan mode advisorily so the badge can show
+        # "(advisory)". The model is asked NOT to call write/exec tools;
+        # there is no hard gate the way the Claude CLI provides one.
+        if chat_mode == "plan":
+            prompt_text = _PLAN_MODE_OVERLAY.strip() + "\n\n" + prompt_text
+            emit("info", {
+                "chat_mode": "plan",
+                "honored": "advisory",
+                "detail": (
+                    f"{provider} CLI has no plan-mode gate; overlay prepended "
+                    "to the prompt but not enforced. Use Claude CLI for hard "
+                    "plan-mode."
+                ),
+            })
 
         emit("agent_status", {"phase": "spawning", "agent": agent, "cwd": str(root)})
         emit("session", {"session_id": f"{provider}-{int(time.time() * 1000)}"})
@@ -2046,6 +2118,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
         messages: list[dict],
         emit: Callable[[str, dict], None],
         resume_session_id: str | None = None,
+        chat_mode: str = "build",
     ) -> None:
         """Spawn `claude --print --output-format=stream-json` and pipe the
         operator's latest message in. Translate stream-json events to the
@@ -2090,6 +2163,13 @@ class _ChatHandler(BaseHTTPRequestHandler):
 
         # Build args — copying telegram's pattern + adding stream-json
         # output so we get incremental events for SSE.
+        # Plan mode swaps bypassPermissions → plan so the Claude CLI's
+        # native plan-mode gate prevents Write/Edit/Bash from firing.
+        # The operator types /build to drop back to bypassPermissions on
+        # the next turn (warm pool is bypassed in plan mode — see
+        # _run_chat_via_warm_pool — so each plan-mode turn cold-spawns
+        # with the correct permission mode).
+        permission_mode = "plan" if chat_mode == "plan" else "bypassPermissions"
         args = [
             claude_bin,
             "-p", prompt_text,
@@ -2097,7 +2177,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
             # edits. acceptEdits prompts for MCP tools, which hangs forever
             # because stdin is DEVNULL. Bridge runs as the operator in the
             # operator's repos, so the trust boundary already permits this.
-            "--permission-mode", "bypassPermissions",
+            "--permission-mode", permission_mode,
             "--output-format", "stream-json",
             "--verbose",  # required when --output-format=stream-json
             "--include-partial-messages",
@@ -2474,8 +2554,14 @@ class _ChatHandler(BaseHTTPRequestHandler):
         model: str,
         messages: list[dict],
         emit,
+        chat_mode: str = "build",
     ) -> None:
         system = _system_prompt_for(agent, root, entry)
+        if chat_mode == "plan":
+            system = system + _PLAN_MODE_OVERLAY
+            tools_payload = [READ_FILE_TOOL, LIST_TOOLS_TOOL]
+        else:
+            tools_payload = [READ_FILE_TOOL, RUN_SCRIPT_TOOL, LIST_TOOLS_TOOL]
         # Anthropic-shape message thread (works for both providers since
         # OpenRouter exposes the same /v1/messages contract).
         thread: list[dict] = [
@@ -2489,10 +2575,13 @@ class _ChatHandler(BaseHTTPRequestHandler):
             "entry": str(entry.relative_to(root)),
             "provider": provider,
             "model": model,
+            "chat_mode": chat_mode,
         })
 
         for turn in range(MAX_TURNS):
-            resp = _call_provider(provider, api_key, model, system, thread, stream=True)
+            resp = _call_provider(
+                provider, api_key, model, system, thread, stream=True, tools=tools_payload,
+            )
             assistant_blocks: list[dict] = []   # reconstructed from stream
             current_block: dict | None = None
             current_input_buf = ""              # for tool_use partial JSON
@@ -2572,6 +2661,22 @@ class _ChatHandler(BaseHTTPRequestHandler):
             for use in tool_uses:
                 tool_name = use.get("name")
                 tool_input = use.get("input", {}) or {}
+                # Plan-mode default-deny — if the model produced a tool_use
+                # outside the allowlist (e.g. the tools-payload filter was
+                # bypassed by a malformed advertise), refuse here too.
+                # Same belt-and-braces pattern as cloud-tool-runner.ts.
+                if chat_mode == "plan" and tool_name not in _PLAN_MODE_TOOL_ALLOWLIST:
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": use.get("id"),
+                        "content": (
+                            f"plan_mode_blocked: '{tool_name}' is not available "
+                            f"in plan mode. Allowed: read_file, list_tools. "
+                            f"Ask the operator to type /build before executing."
+                        ),
+                        "is_error": True,
+                    })
+                    continue
                 if tool_name == "read_file":
                     rel_path = str(tool_input.get("path", "")).strip()
                     emit("tool", {"name": "read_file", "path": rel_path})
