@@ -13,21 +13,19 @@
  *      out of `apps/oasis-desktop/` while running `npm start` still picks
  *      up edits from the parent repo without a rebuild.
  *
- * Python resolution order:
- *   1. process.env.OASIS_PYTHON      — explicit override.
- *   2. <sidecarRoot>/python/bin/python (Phase 4.1 — bundled CPython per-OS).
- *   3. `python3` on Mac/Linux, `python` on Win — falls back to the
- *      system interpreter. Documented as a prerequisite on /download.
- *
- * Health: a single in-flight HTTP probe with a tight timeout; the
- * supervisor loop in main.js handles auto-restart and backoff. Logs are
- * scrubbed line-by-line for credentials before persisting.
+ * Python resolution is delegated to ../scripts/bootstrap-python.js, which
+ * version-gates on >=3.12 (the floor the bridge needs) and writes a
+ * manifest into the Electron user-data dir so subsequent launches can
+ * skip the probe. The bootstrap module returns either a verified
+ * interpreter path or a structured failure with the OS-appropriate
+ * install hint. OASIS_PYTHON env override still wins (debug escape).
  */
 
 const { spawn } = require("node:child_process");
 const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
+const bootstrapPython = require("../scripts/bootstrap-python");
 
 const DEFAULT_START_TIMEOUT_MS = 12_000;
 const SECRET_PATTERNS = [
@@ -66,26 +64,6 @@ function bundledSidecarRoot(app) {
   return candidate;
 }
 
-function resolveBundledPython(sidecarRoot) {
-  if (!sidecarRoot) return null;
-  // Phase 4.1 will land platform-specific Python here. The runtime
-  // probes the conventional layout and falls back when absent.
-  const candidates = process.platform === "win32"
-    ? [path.join(sidecarRoot, "python", "python.exe")]
-    : [
-        path.join(sidecarRoot, "python", "bin", "python3"),
-        path.join(sidecarRoot, "python", "bin", "python"),
-      ];
-  for (const c of candidates) {
-    if (fs.existsSync(c)) return c;
-  }
-  return null;
-}
-
-function systemPython() {
-  return process.platform === "win32" ? "python" : "python3";
-}
-
 function createBridgeRuntime({ app, desktopManifest, bridgeHealthUrl, startDir, getEnvOverrides }) {
   let bridgeProcess = null;
   let bridgeStartedAt = null;
@@ -112,8 +90,13 @@ function createBridgeRuntime({ app, desktopManifest, bridgeHealthUrl, startDir, 
   }
 
   function getResolvedPython() {
-    if (process.env.OASIS_PYTHON) return process.env.OASIS_PYTHON;
-    return resolveBundledPython(getSidecarRoot()) || systemPython();
+    if (process.env.OASIS_PYTHON) {
+      return { ok: true, source: "env", python: { path: process.env.OASIS_PYTHON } };
+    }
+    return bootstrapPython.bootstrap({
+      resourcesPath: getSidecarRoot(),
+      userDataDir: app.getPath("userData"),
+    });
   }
 
   function writeBridgeLog(line) {
@@ -154,8 +137,18 @@ function createBridgeRuntime({ app, desktopManifest, bridgeHealthUrl, startDir, 
       return false;
     }
 
-    const python = getResolvedPython();
-    writeBridgeLog(`Spawning bridge: python=${python} cwd=${cwd}`);
+    const resolved = getResolvedPython();
+    if (!resolved.ok) {
+      writeBridgeLog(
+        `No Python >=3.12 found. ${resolved.hint || ""} ` +
+          `install_command="${resolved.install_command || ""}" ` +
+          `installer_url="${resolved.installer_url || ""}". ` +
+          `Desktop will use cloud mode only until a runtime is provisioned.`,
+      );
+      return false;
+    }
+    const python = resolved.python.path;
+    writeBridgeLog(`Spawning bridge: python=${python} source=${resolved.source} cwd=${cwd}`);
 
     // Pull caller-supplied env overrides (typically the decrypted API
     // key from safeStorage). Never log values from this map.
@@ -224,7 +217,5 @@ module.exports = {
   bundledSidecarRoot,
   createBridgeRuntime,
   findRepoRoot,
-  resolveBundledPython,
   scrubLogLine,
-  systemPython,
 };
