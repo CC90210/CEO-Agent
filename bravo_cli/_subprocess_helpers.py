@@ -107,6 +107,127 @@ def command_without_cmd_shim(bin_path: str) -> list[str]:
     return [node, str(target)]
 
 
+# ─────────────────────────────────────────────────────────────────────
+# Enriched PATH discovery for GUI-launched bridges (macOS / Linux).
+# Electron + launchd inherit a slim LaunchServices PATH that misses
+# Homebrew, npm-global, Bun, Deno, nvm, etc. Both bridge_chat_server
+# (chat dispatch) and bridge_tools (cli_status + install_cli) need
+# the same lookup. Lives here so they don't drift.
+# ─────────────────────────────────────────────────────────────────────
+
+_LOGIN_SHELL_PATH_CACHE: Optional[str] = None
+_CLI_PATH_CACHE: dict = {}
+
+
+def macos_linux_search_paths() -> list[str]:
+    """Common install directories an Electron/launchd-spawned process
+    misses because its PATH is the slim LaunchServices set. Apple
+    Silicon Homebrew is /opt/homebrew/bin; Intel is /usr/local/bin;
+    npm global is ~/.npm-global/bin; etc."""
+    home = os.path.expanduser("~")
+    return [
+        "/opt/homebrew/bin",
+        "/usr/local/bin",
+        "/usr/local/sbin",
+        f"{home}/.npm-global/bin",
+        f"{home}/.bun/bin",
+        f"{home}/.local/bin",
+        f"{home}/.deno/bin",
+        f"{home}/.cargo/bin",
+        "/usr/bin",
+        "/bin",
+    ]
+
+
+def login_shell_path() -> Optional[str]:
+    """Spawn `bash -lc 'echo $PATH'` once and cache the result. A login
+    shell sources ~/.zshrc / ~/.bash_profile so the PATH matches what
+    the user sees in Terminal — including nvm's `~/.nvm/versions/node/
+    <version>/bin`. 1.5s timeout protects against a wedged profile."""
+    global _LOGIN_SHELL_PATH_CACHE
+    if _LOGIN_SHELL_PATH_CACHE is not None:
+        return _LOGIN_SHELL_PATH_CACHE or None
+    if os.name == "nt":
+        _LOGIN_SHELL_PATH_CACHE = ""
+        return None
+    try:
+        proc = subprocess.run(
+            ["bash", "-lc", "echo $PATH"],
+            capture_output=True,
+            text=True,
+            timeout=1.5,
+            check=False,
+        )
+        lines = (proc.stdout or "").strip().splitlines()
+        _LOGIN_SHELL_PATH_CACHE = lines[0] if lines else ""
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        _LOGIN_SHELL_PATH_CACHE = ""
+    return _LOGIN_SHELL_PATH_CACHE or None
+
+
+def which_cli(name: str) -> Optional[str]:
+    """shutil.which on steroids — walks the curated install dirs +
+    falls back to `bash -lc 'command -v <name>'` so nvm-installed
+    binaries are findable from GUI-launched bridges. Cached per-binary
+    for the process lifetime."""
+    if name in _CLI_PATH_CACHE:
+        return _CLI_PATH_CACHE[name] or None
+    found = shutil.which(name)
+    if not found and os.name == "nt":
+        for suffix in (".cmd", ".exe"):
+            found = shutil.which(name + suffix)
+            if found:
+                break
+    if not found and os.name != "nt":
+        for d in macos_linux_search_paths():
+            candidate = os.path.join(d, name)
+            if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+                found = candidate
+                break
+    if not found and os.name != "nt":
+        # Last-ditch login-shell probe. Slow on the first call (one
+        # subprocess spawn), free on subsequent calls (cached).
+        try:
+            proc = subprocess.run(
+                ["bash", "-lc", f"command -v {name} || true"],
+                capture_output=True,
+                text=True,
+                timeout=1.5,
+                check=False,
+            )
+            lines = (proc.stdout or "").strip().splitlines()
+            if lines and lines[0] and os.path.exists(lines[0]):
+                found = lines[0]
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            pass
+    _CLI_PATH_CACHE[name] = found or None
+    return found or None
+
+
+def enriched_path(found_bin: Optional[str] = None) -> str:
+    """Build a PATH suitable for spawning a CLI's children. Layers:
+    parent dir of the resolved binary, curated search dirs, login-shell
+    PATH, current os.environ PATH. De-duped, in priority order."""
+    parts: list[str] = []
+    if found_bin:
+        parts.append(os.path.dirname(found_bin))
+    if os.name != "nt":
+        parts.extend(macos_linux_search_paths())
+        shell_path = login_shell_path()
+        if shell_path:
+            parts.extend(shell_path.split(os.pathsep))
+    existing = os.environ.get("PATH", "")
+    if existing:
+        parts.extend(existing.split(os.pathsep))
+    seen: set = set()
+    ordered: list[str] = []
+    for p in parts:
+        if p and p not in seen:
+            seen.add(p)
+            ordered.append(p)
+    return os.pathsep.join(ordered)
+
+
 def _merge_creationflags(kw: dict, base: int) -> dict:
     existing = kw.pop("creationflags", 0) or 0
     kw["creationflags"] = existing | base

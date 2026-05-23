@@ -27,6 +27,7 @@ API-key path.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -41,7 +42,13 @@ from typing import Callable
 # on each bridge tool call.
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_REPO_ROOT / "scripts"))
-from _subprocess_helpers import command_without_cmd_shim, safe_popen, safe_run  # noqa: E402
+from _subprocess_helpers import (  # noqa: E402
+    command_without_cmd_shim,
+    enriched_path,
+    safe_popen,
+    safe_run,
+    which_cli,
+)
 
 try:
     from .agent_roots import resolve_root
@@ -1261,25 +1268,29 @@ def _tool_cli_status(payload: dict) -> dict:
     the dashboard always renders a stable shape.
     """
     del payload  # unused — this is a no-arg probe
-    import shutil
 
+    # _which delegates to the shared which_cli helper so this probe sees
+    # the same Homebrew / npm-global / nvm install dirs that the chat
+    # path now uses. Without this, the dashboard reports "NOT INSTALLED"
+    # for nvm-installed claude/codex/gemini even though chat finds them
+    # via login-shell PATH.
     def _which(name: str) -> str | None:
-        path = shutil.which(name)
-        if path:
-            return path
-        # Windows commonly has these in npm global or cmd shim form.
-        if sys.platform == "win32":
-            for candidate in (name + ".cmd", name + ".exe"):
-                p = shutil.which(candidate)
-                if p:
-                    return p
-        return None
+        return which_cli(name)
 
     def _run(args: list[str], timeout: int = 5) -> tuple[int, str]:
         cmd = [*command_without_cmd_shim(args[0]), *args[1:]] if args else args
+        env = dict(os.environ)
+        env["PATH"] = enriched_path(args[0] if args else None)
         try:
-            r = safe_run(cmd, capture_output=True, text=True,
-                         timeout=timeout, encoding="utf-8", errors="replace")
+            r = safe_run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                encoding="utf-8",
+                errors="replace",
+                env=env,
+            )
             return r.returncode, (r.stdout or "").strip() + ("\n" + r.stderr.strip() if r.stderr else "")
         except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
             return -1, ""
@@ -1413,7 +1424,6 @@ def _tool_install_cli(payload: dict) -> dict:
     server-side: any other provider value returns an error without
     invoking npm.
     """
-    import shutil
     provider = str(payload.get("provider") or "").lower().strip()
     pkg = _NPM_PACKAGE_MAP.get(provider)
     if not pkg:
@@ -1426,13 +1436,20 @@ def _tool_install_cli(payload: dict) -> dict:
             f"{pkg} is already installed{ready}{version}. "
             "No npm install was needed; click Refresh if the card has not updated."
         )
-    # Resolve npm. Windows installs it as `npm.cmd`; *nix as `npm`.
-    npm_bin = shutil.which("npm") or shutil.which("npm.cmd")
+    # Resolve npm via the enriched lookup so nvm-installed Node (in
+    # ~/.nvm/versions/node/<v>/bin/npm) is found even when the bridge
+    # inherits the slim LaunchServices PATH. The old shutil.which call
+    # missed this on macOS GUI launches.
+    npm_bin = which_cli("npm")
     if not npm_bin:
         return _err(
             "npm not found on PATH. Install Node.js first from https://nodejs.org "
             "(any recent LTS works), then click Install again."
         )
+    # Subprocess env carries the same enriched PATH so npm's own helpers
+    # (npx, node, etc.) resolve too.
+    spawn_env = dict(os.environ)
+    spawn_env["PATH"] = enriched_path(npm_bin)
     try:
         proc = safe_run(
             [*command_without_cmd_shim(npm_bin), "install", "-g", pkg],
@@ -1441,6 +1458,7 @@ def _tool_install_cli(payload: dict) -> dict:
             timeout=300,  # 5 min — global installs can be slow on first run
             encoding="utf-8",
             errors="replace",
+            env=spawn_env,
         )
     except subprocess.TimeoutExpired:
         return _err(f"npm install -g {pkg} timed out after 5 minutes")
