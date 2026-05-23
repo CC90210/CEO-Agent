@@ -315,6 +315,31 @@ if (Test-Path $pkgJson) {
     }
 }
 
+# ── claudekit (Claude Code hooks runner) ─────────────────────────────────────
+# .claude/settings.json declares Stop / SubagentStop hooks that call
+# `claudekit-hooks run create-checkpoint` and `claudekit-hooks run self-review`
+# after every assistant turn. Without the binary on PATH the hooks fail
+# silently and the self-review pass never runs — the operator sees no
+# error, just degraded review behavior on each turn.
+Write-Step "claudekit (Claude Code Stop-hook runner)"
+if (Test-Tool 'claudekit-hooks') {
+    $ckVer = & claudekit-hooks --version 2>$null
+    if (-not $ckVer) { $ckVer = 'version unknown' }
+    Write-Ok "claudekit-hooks already installed ($ckVer)"
+} elseif (Test-Tool 'npm') {
+    Write-Info "Installing claudekit globally so the Stop/SubagentStop hooks work."
+    $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    & npm i -g claudekit --no-fund --no-audit 2>&1 | ForEach-Object { Write-Host "       $_" -ForegroundColor DarkGray }
+    $ErrorActionPreference = $prev
+    if (Test-Tool 'claudekit-hooks') {
+        Write-Ok "claudekit installed"
+    } else {
+        Write-Warn "claudekit-hooks still not on PATH after install — run `npm i -g claudekit` manually"
+    }
+} else {
+    Write-Warn "npm not on PATH — install Node.js then run `npm i -g claudekit`"
+}
+
 # ── Docker check (V6.0) ──────────────────────────────────────────────────────
 # Docker is REQUIRED for the V6.0 sandbox + Command Center, but NOT for the
 # wizard or headless CLI scripts. Probe and warn; never abort.
