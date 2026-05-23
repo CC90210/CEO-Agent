@@ -130,12 +130,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-05-22
-- **Agent:** BRAVO via state_manager.py (tick 18)
-- **Status:** idle
-- **Result:** Codex handoff complete: dashboard /agents cloud knowledge tools shipped in oasis-command-center commit f693289; Bravo Python verification green after README stat + bridge lifecycle test fix.
+- **Date:** 2026-05-23
+- **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
+- **Result:** Finalized welcome-page production deployment at dashboard commit 7358d12 and updated the Claude handoff with 11-phase verification evidence.
 
-*Last updated: 2026-05-22*
+*Last updated: 2026-05-23*
 
 ## Manifest
 

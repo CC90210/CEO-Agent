@@ -12,7 +12,7 @@
 
 # Model configuration — change these when Mythos API access opens
 model = "claude-opus-4-6"              # Lead architect (Bravo)
-fast_model = "claude-sonnet-4-6"       # Daemons, quick tasks (Skool, Instagram, reviews)
+fast_model = "claude-sonnet-4-6"       # Daemons, quick tasks (drip runner, lead scoring, briefings)
 extraction_model = "claude-haiku-4-5-20251001"  # Mem0 extraction, low-cost high-volume
 
 # Approval policy for agent actions
@@ -67,7 +67,6 @@ debugging = "debugger"
 documentation = "documenter"
 git = "git-ops"
 social = "social-publisher"
-skool = "writer"                            # Uses skool-automation skill
 exploration = "explorer"
 backend = "codex-agent"                     # Backend-heavy tasks → Codex
 api = "codex-agent"                         # API routes, webhooks → Codex
@@ -374,7 +373,7 @@ archive_path = "memory/ARCHIVES/sessions-{year}-{month}.md"
 # These resources load only when their domain is detected in the task
 mcp_servers = ["playwright", "context7", "memory", "sequential-thinking"]
 heavy_skills = ["e2e-testing", "sparc-methodology", "ship"]
-heavy_scripts = ["instagram_engine.py", "booking_engine.py", "skool_engine.py"]
+heavy_scripts = ["booking_engine.py"]
 
 # =============================================================================
 # Cost Tracking (Inspired by Claude Code CostTracker pattern)
