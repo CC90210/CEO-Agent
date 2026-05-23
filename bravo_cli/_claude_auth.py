@@ -99,19 +99,26 @@ def is_claude_auth_or_quota_failure(raw_output: str, exit_code: Optional[int]) -
 def check_claude_auth_paths(home: Optional[str] = None, env: Optional[dict] = None) -> dict:
     """Inspect the local machine for OAuth credentials + API key fallback.
 
-    Used by startup health checks. The OAuth file lives at
-    ~/.claude/.credentials.json on Mac + Windows + Linux. Returns:
+    Used by startup health checks. Storage varies by OS:
+      - Linux/Windows: ~/.claude/.credentials.json
+      - macOS 2.x: macOS Keychain (service="Claude Code-credentials"),
+        with ~/.claude/.credentials.json absent. We check both so the
+        dashboard's "is the CLI signed in?" indicator works regardless
+        of where Claude actually stored the token.
+
+    Returns:
         {
             "has_oauth": bool,
-            "oauth_path": str | None,
+            "oauth_path": str | None,  # file path OR "keychain:..." marker
             "has_api_key": bool,
             "claude_dir": str,
         }
     """
+    import subprocess  # local import — only needed in this function
+
     home_dir = home or os.environ.get("HOME") or os.environ.get("USERPROFILE") or ""
     claude_dir = Path(home_dir) / ".claude"
-    # Real path is .credentials.json (leading dot). Keep the legacy candidate
-    # as a fallback in case the storage layout changes.
+    # File-based path (Linux + Windows + legacy Mac installs).
     candidates = [
         claude_dir / ".credentials.json",
         claude_dir / "credentials.json",
@@ -124,6 +131,28 @@ def check_claude_auth_paths(home: Optional[str] = None, env: Optional[dict] = No
                 break
         except OSError:
             continue
+
+    # macOS Keychain probe. Claude Code 2.x stores the OAuth token in
+    # the user's login keychain under service="Claude Code-credentials".
+    # `security find-generic-password -s "Claude Code-credentials" -w`
+    # returns the secret on stdout if present; we don't WANT the secret,
+    # just exit code 0 vs non-zero. `-g` mode would log to syslog so we
+    # use `-w` with stdout redirected to /dev/null. 1s timeout because
+    # Keychain probes occasionally prompt if ACLs aren't set right.
+    if not oauth_path and os.uname().sysname == "Darwin":
+        try:
+            proc = subprocess.run(
+                ["security", "find-generic-password", "-s", "Claude Code-credentials"],
+                capture_output=True,
+                text=True,
+                timeout=1.5,
+                check=False,
+            )
+            if proc.returncode == 0:
+                oauth_path = "keychain:Claude Code-credentials"
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            pass
+
     api_key = (env or os.environ).get("ANTHROPIC_API_KEY", "")
     return {
         "has_oauth": bool(oauth_path),
