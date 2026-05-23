@@ -1,6 +1,6 @@
 {
   "name": "oasis-ai-desktop",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha.5",
   "private": true,
   "description": "OASIS AI Desktop - local runtime shell for the Agent Command Center.",
   "author": "OASIS AI Solutions <conaugh@oasisai.work>",
@@ -39,10 +39,20 @@
     "files": [
       "src/**/*",
       "scripts/**/*",
+      "resources/signin-landing.html",
+      "resources/signin-preload.js",
+      "resources/first-run.html",
+      "resources/first-run-preload.js",
       "desktop.manifest.json",
       "README.md",
       "RELEASE.md",
       "package.json"
+    ],
+    "protocols": [
+      {
+        "name": "OASIS AI",
+        "schemes": ["oasis"]
+      }
     ],
     "extraResources": [
       {
@@ -60,8 +70,9 @@
         { "target": "nsis", "arch": ["x64"] },
         { "target": "portable", "arch": ["x64"] }
       ],
-      "signingHashAlgorithms": ["sha256"],
-      "signAndEditExecutable": true
+      "signtoolOptions": {
+        "signingHashAlgorithms": ["sha256"]
+      }
     },
     "nsis": {
       "oneClick": false,

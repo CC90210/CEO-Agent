@@ -15,9 +15,18 @@ const {
 } = require("./provider-keys");
 const { bridgePaired } = require("./bridge-paths");
 const { checkForUpdate, RELEASE_REPO } = require("./update-check");
+const {
+  PROTOCOL: OASIS_PROTOCOL,
+  parseDeepLink,
+  redeemPairCode,
+  makeDeepLinkBuffer,
+} = require("./deep-link");
+const signinWindow = require("./signin-window");
 
 let mainWindow = null;
 let allowLocalFallbackNavigation = false;
+let pendingMagicLinkUrl = null;
+const deepLinkBuffer = makeDeepLinkBuffer();
 
 const desktopManifest = loadDesktopManifest();
 const commandCenterUrl = resolveCommandCenterUrl(desktopManifest);
@@ -192,11 +201,121 @@ function showFallbackPage(errorMessage) {
   });
 }
 
+// OAuth provider hosts we never want to load inside Electron. Supabase auth
+// URLs are included because Supabase OAuth flows REDIRECT to provider URLs
+// (accounts.google.com etc.) and the user's session-bearing browser is what
+// makes them work. Magic-link verify URLs are NOT on this list — those we
+// DO want loaded in Electron because they set the desktop's session cookie.
+const EXTERNAL_AUTH_HOSTS = new Set([
+  "accounts.google.com",
+  "oauth2.googleapis.com",
+  "appleid.apple.com",
+  "github.com",
+  "login.microsoftonline.com",
+]);
+
+function isExternalAuthUrl(url) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:") return false;
+    if (EXTERNAL_AUTH_HOSTS.has(parsed.hostname)) return true;
+    // Supabase OAuth init endpoints: /auth/v1/authorize?provider=google.
+    // The /auth/v1/verify path is the magic-link verifier — we KEEP that
+    // in-window so it can set our session cookie.
+    if (parsed.pathname === "/auth/v1/authorize" && parsed.hostname.endsWith(".supabase.co")) {
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function surfaceSignInLanding() {
+  // When the dashboard view bounces to /login (session expired, pairing
+  // revoked, etc.) we close the main window and re-open the sign-in
+  // landing. The user reverts to the same turnkey path: open browser,
+  // sign in, deep-link back.
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.close();
+    mainWindow = null;
+  }
+  openSignInLanding();
+}
+
+function openSignInLanding() {
+  signinWindow.openSignInWindow({
+    commandCenterUrl,
+    onPaired: (info) => {
+      // Renderer-side manual code submit → close sign-in, swap in main.
+      pendingMagicLinkUrl = info?.magic_link_url || null;
+      handlePostPair(info);
+    },
+  });
+}
+
+function handlePostPair(info) {
+  // Give the renderer a beat to show "Connected" so the swap doesn't
+  // look like a glitch. The actual cookie write happens via loadURL ->
+  // magic-link below; pendingMagicLinkUrl was set by the caller.
+  setTimeout(() => {
+    signinWindow.closeSignInWindow();
+    void bridgeRuntime.startIfAvailable();
+    createWindow();
+  }, 900);
+}
+
+async function handleDeepLink(rawUrl) {
+  const parsed = parseDeepLink(rawUrl);
+  if (!parsed) return;
+  if (parsed.action !== "pair") return;
+  const code = parsed.params?.code || "";
+  const result = await redeemPairCode({ code, commandCenterUrl });
+  if (!result?.ok) {
+    if (signinWindow.isOpen()) signinWindow.notifyError(result || { message: "Pair failed" });
+    return;
+  }
+  pendingMagicLinkUrl = result.magic_link_url || null;
+  if (signinWindow.isOpen()) {
+    signinWindow.notifyPaired(result);
+    handlePostPair(result);
+  } else if (mainWindow && !mainWindow.isDestroyed()) {
+    // Already in main view (e.g. user re-paired) — reload via the magic
+    // link to refresh the session cookie.
+    if (pendingMagicLinkUrl) {
+      mainWindow.loadURL(pendingMagicLinkUrl).catch(() => mainWindow.webContents.reloadIgnoringCache());
+      pendingMagicLinkUrl = null;
+    } else {
+      mainWindow.webContents.reloadIgnoringCache();
+    }
+  }
+}
+
 function loadCommandCenter() {
   if (!mainWindow) return;
-  mainWindow.loadURL(commandCenterUrl.toString()).catch((error) => {
+  // Pending magic-link wins: after pairing via the oasis:// deep-link the
+  // redeem endpoint returns a one-time Supabase magic-link. Loading it
+  // here lets the Supabase verify route set the session cookie on the
+  // Electron browser's domain BEFORE we land on the dashboard. The
+  // /auth/callback then redirects us to `/` already authenticated. If
+  // the magic-link minting failed server-side (network blip, generateLink
+  // disabled), we fall through to the bare dashboard URL — degraded but
+  // not broken; the dashboard will redirect to /login which our nav
+  // listener catches + bounces back to the sign-in landing.
+  const target = pendingMagicLinkUrl || commandCenterUrl.toString();
+  pendingMagicLinkUrl = null;
+  mainWindow.loadURL(target).catch((error) => {
     showFallbackPage(error.message);
   });
+}
+
+function isDashboardLoginPath(url) {
+  try {
+    const parsed = new URL(url);
+    return allowedOrigins.has(parsed.origin) && parsed.pathname === "/login";
+  } catch {
+    return false;
+  }
 }
 
 function createWindow() {
@@ -223,6 +342,15 @@ function createWindow() {
   });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    // window.open from the dashboard — OAuth providers, magic links etc.
+    // OAuth in Electron is the "incognito browser" UX the user complained
+    // about, so we route every Google/Supabase auth URL straight to the
+    // user's real browser. They already have an authenticated Supabase
+    // session there (or can sign in via Google SSO normally).
+    if (isExternalAuthUrl(url)) {
+      void shell.openExternal(url);
+      return { action: "deny" };
+    }
     if (shouldAllowInDesktop(url)) {
       mainWindow.loadURL(url).catch((error) => {
         showFallbackPage(error.message);
@@ -235,6 +363,26 @@ function createWindow() {
 
   mainWindow.webContents.on("will-navigate", (event, url) => {
     if (allowLocalFallbackNavigation && url.startsWith("data:text/html")) {
+      return;
+    }
+    // Pre-empt OAuth-in-Electron navigations before the network even
+    // starts. Without this guard, clicking "Sign in with Google" inside a
+    // dashboard view loaded in the Electron window would navigate to
+    // accounts.google.com inside this Chromium — where the user has no
+    // Google session because Electron's cookie jar is isolated from the
+    // OS Chrome.
+    if (isExternalAuthUrl(url)) {
+      event.preventDefault();
+      void shell.openExternal(url);
+      return;
+    }
+    // If the dashboard tries to redirect us to /login (Supabase session
+    // expired, magic-link verification failed, etc.) we abort the main
+    // window and re-open the sign-in landing instead of letting Electron
+    // host the broken OAuth UX.
+    if (isDashboardLoginPath(url)) {
+      event.preventDefault();
+      surfaceSignInLanding();
       return;
     }
     if (!shouldAllowInDesktop(url)) {
@@ -425,32 +573,83 @@ function installMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
+// Register oasis:// as a default protocol handler. On macOS this enables
+// the `open-url` event below (LaunchServices routes to us); on Windows it
+// writes a registry key so explorer.exe knows we own the scheme. In dev
+// mode under `electron .` we have to pass argv so Squirrel/Electron knows
+// which exe to register — packaged builds get it from electron-builder's
+// protocols entry in package.json. Idempotent on subsequent boots.
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient(OASIS_PROTOCOL, process.execPath, [path.resolve(process.argv[1])]);
+  }
+} else {
+  app.setAsDefaultProtocolClient(OASIS_PROTOCOL);
+}
+
+// macOS hands deep-links to the running app via the open-url event. It can
+// fire BEFORE `whenReady` (cold-launch via Finder click), so we buffer the
+// URL and drain after the boot path is ready.
+app.on("open-url", (event, url) => {
+  event.preventDefault();
+  deepLinkBuffer.push(url);
+});
+
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
 } else {
-  app.on("second-instance", () => {
-    if (!mainWindow) return;
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.focus();
+  app.on("second-instance", (_event, argv) => {
+    // Windows/Linux deep-links arrive via argv on a second-instance event.
+    // Find the oasis:// URL in the argv (its position depends on packaged
+    // vs dev mode + how the OS shell forwarded the args) and push it onto
+    // the buffer. Then surface whichever window is current.
+    const deepLink = (argv || []).find((arg) => typeof arg === "string" && arg.startsWith(`${OASIS_PROTOCOL}://`));
+    if (deepLink) deepLinkBuffer.push(deepLink);
+    if (signinWindow.isOpen()) {
+      // The sign-in landing is the foreground window before pairing.
+      // (no explicit handle exported — focusing is best-effort via OS)
+    } else if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
   });
 
   app.whenReady().then(async () => {
     installSecurityDefaults();
     installMenu();
-    // First-run check happens BEFORE the main window opens. If the user
-    // cancels we still boot in cloud-only mode; the bridge just runs
-    // without a provider credential and the Command Center prompts to
-    // configure one in /settings.
-    await ensureProviderConfigured();
-    await bridgeRuntime.startIfAvailable();
-    createWindow();
+
+    // Drain deep-links the moment app boots. handleDeepLink resolves
+    // the pair-code, mints the magic-link, and either notifies the
+    // sign-in renderer or swaps in the main window — depending on
+    // what's open at the time.
+    deepLinkBuffer.onReady((url) => { void handleDeepLink(url); });
+
+    if (bridgePaired()) {
+      // Paired machine — start the bridge daemon and open the dashboard.
+      // The first-run wizard remains accessible from the OASIS AI menu
+      // for provider-key changes or re-pairing.
+      await bridgeRuntime.startIfAvailable();
+      createWindow();
+    } else {
+      // Unpaired — turnkey path: open the sign-in landing window. The
+      // user clicks "Open sign-in in my browser" → real Chrome / Safari
+      // handles the OAuth or email/password normally → dashboard fires
+      // oasis://pair?code=... → handleDeepLink picks it up → main window
+      // opens, loading the magic-link so the dashboard renders signed-in.
+      openSignInLanding();
+    }
     // Update probe in the background — non-blocking, never raises.
     void runStartupUpdateProbe();
   });
 
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    // Dock-icon click on macOS. Restore the appropriate window for the
+    // current pairing state.
+    if (BrowserWindow.getAllWindows().length === 0) {
+      if (bridgePaired()) createWindow();
+      else openSignInLanding();
+    }
   });
 
   app.on("window-all-closed", () => {
