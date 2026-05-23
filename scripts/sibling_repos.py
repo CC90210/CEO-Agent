@@ -35,12 +35,14 @@ if _IS_MAC:
     _ATLAS_DEFAULT = _HOME / "APPS" / "CFO-Agent"
     _AURA_DEFAULT = _HOME / "AURA"
     _LIFE_DEFAULT = _HOME / "life-preservation"
+    _DASHBOARD_DEFAULT = _HOME / "oasis-command-center"
 else:
     _BRAVO_DEFAULT = Path(r"C:\Users\User\CEO-Agent")
     _MAVEN_DEFAULT = Path(r"C:\Users\User\CMO-Agent")
     _ATLAS_DEFAULT = Path(r"C:\Users\User\APPS\CFO-Agent")
     _AURA_DEFAULT = Path(r"C:\Users\User\AURA")
     _LIFE_DEFAULT = Path(r"C:\Users\User\life-preservation")
+    _DASHBOARD_DEFAULT = Path(r"C:\Users\User\APPS\oasis-command-center")
 
 SIBLING_REPOS: dict[str, Path] = {
     "bravo": Path(os.environ.get("BRAVO_REPO", str(_BRAVO_DEFAULT))),
@@ -49,6 +51,13 @@ SIBLING_REPOS: dict[str, Path] = {
     "aura":  Path(os.environ.get("AURA_REPO",  str(_AURA_DEFAULT))),
     "life-preservation": Path(
         os.environ.get("LIFE_PRESERVATION_REPO", str(_LIFE_DEFAULT))
+    ),
+    # The OASIS Command Center dashboard repo. Strictly speaking it's a
+    # consumer rather than a sibling agent — but it lives next to the
+    # agent repos on disk and many scripts need to locate it, so it goes
+    # through the same resolver to avoid path duplication.
+    "oasis-command-center": Path(
+        os.environ.get("COMMAND_CENTER_REPO", str(_DASHBOARD_DEFAULT))
     ),
 }
 
