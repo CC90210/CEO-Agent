@@ -12,7 +12,7 @@ superseded_by: null
 
 ## Context
 
-We have 150+ skills under `skills/<name>/SKILL.md`. Several depend on infrastructure that may not be present in every session:
+We have 148 active skills under `skills/<name>/SKILL.md`. Several depend on infrastructure that may not be present in every session:
 
 - `EMPIRE_V6_MODE=on` (state DB authoritative)
 - Specific `.env.agents` keys (Stripe, Supabase, Late/Zernio, ElevenLabs, ...)

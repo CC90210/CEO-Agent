@@ -55,7 +55,7 @@ Is it about the business?
 - "Session memory — what did we work on yesterday?"
 
 **Bravo's strengths:**
-- 144 skills (most of any agent), 68 scripts, 35 workflows
+- 148 active skills (most of any agent), 114 top-level scripts (215 inc. subpackages), 35 workflows
 - Understands ALL your business apps (PULSE, PropFlow, cc-funnel, Skool, Nostalgic, TIKTIK, Hermes, etc.)
 - Hypothesis-driven thinking (BRAIN_LOOP.md)
 - Can delegate to Atlas/Maven/Aura via pulse directives when needed
