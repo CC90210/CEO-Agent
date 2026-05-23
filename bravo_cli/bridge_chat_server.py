@@ -1170,6 +1170,12 @@ class _ChatHandler(BaseHTTPRequestHandler):
         if self.path == "/diag":
             self._handle_diag()
             return
+        if self.path == "/diagnostics/cli":
+            # Per-CLI install status so the dashboard's /operations page +
+            # the chat header status dot can tell the operator "Gemini CLI
+            # is missing on this Mac" instead of just "BRIDGE ONLINE."
+            self._handle_cli_diagnostics()
+            return
         if self.path == "/warm-status":
             # Diagnostic for the warm-process pool. Returns process count,
             # idle ages, busy flags. Useful when an operator reports
@@ -1587,7 +1593,8 @@ class _ChatHandler(BaseHTTPRequestHandler):
                     cli_provider, agent, root, messages, emit, chat_mode=chat_mode,
                 )
             except Exception as e:
-                emit("error", {"message": _redact_secrets(f"{cli_provider}_chat_failed: {e}")})
+                code, message = self._split_cli_error(e, cli_provider)
+                emit("error", {"code": code, "message": message})
                 emit("done", {})
             return
 
@@ -1622,17 +1629,18 @@ class _ChatHandler(BaseHTTPRequestHandler):
             )
         except FileNotFoundError as e:
             emit("error", {
-                "message": "claude_cli_not_found",
-                "detail": (
-                    "The `claude` CLI is not on PATH. Install Claude Code "
-                    "(https://claude.com/claude-code) and re-run "
-                    "`bravo bridge install`. Falling back: set "
-                    "OASIS_CHAT_LEGACY=1 to use the raw API path."
+                "code": "cli_not_found",
+                "message": (
+                    "Claude Code CLI isn't installed on this machine. "
+                    "Install from https://claude.com/claude-code (or `npm i -g "
+                    "@anthropic-ai/claude-code`), then click Retry."
                 ),
+                "detail": _redact_secrets(str(e))[:600],
             })
             emit("done", {})
         except Exception as e:
-            emit("error", {"message": _redact_secrets(f"chat_loop_failed: {e}")})
+            code, message = self._split_cli_error(e, "claude")
+            emit("error", {"code": code, "message": message})
             emit("done", {})
 
     # ──────────────────────────────────────────────────────────────────
@@ -1904,6 +1912,68 @@ class _ChatHandler(BaseHTTPRequestHandler):
     #   user.message tool_result  -> tool_result (output)
     #   result/success            -> done (+ usage)
     #   anything else             -> ignored / logged
+    def _handle_cli_diagnostics(self) -> None:
+        # Per-CLI install + version probe. Used by the dashboard's
+        # /operations page and the chat-header status dot to surface a
+        # clear "Gemini CLI missing" diagnostic to the operator.
+        #
+        # No secrets leak — we only return the binary path, version string,
+        # and a `ready` boolean. Versions come from `<bin> --version` with
+        # a 2s timeout each so a hung CLI can't wedge the diagnostic.
+        out: dict[str, dict[str, Any]] = {}
+        for name in ("claude", "codex", "gemini"):
+            entry: dict[str, Any] = {"installed": False, "path": None, "version": None, "error": None}
+            try:
+                resolved = self._which_cli(name)
+                if resolved:
+                    entry["installed"] = True
+                    entry["path"] = resolved
+                    try:
+                        env = dict(os.environ)
+                        env["PATH"] = self._enriched_path(resolved)
+                        env["NO_COLOR"] = "1"
+                        env["NONINTERACTIVE"] = "true"
+                        proc = subprocess.run(
+                            [resolved, "--version"],
+                            capture_output=True,
+                            text=True,
+                            timeout=2,
+                            env=env,
+                            check=False,
+                        )
+                        ver = ((proc.stdout or proc.stderr) or "").strip().splitlines()
+                        if ver:
+                            entry["version"] = ver[0][:120]
+                    except subprocess.TimeoutExpired:
+                        entry["error"] = "version_probe_timed_out"
+                    except Exception as e:
+                        entry["error"] = _redact_secrets(str(e))[:200]
+            except Exception as e:
+                entry["error"] = _redact_secrets(str(e))[:200]
+            out[name] = entry
+        self._json(200, {
+            "ok": True,
+            "platform": os.name,
+            "cli": out,
+            "search_paths": self._macos_linux_search_paths() if os.name != "nt" else [],
+        })
+
+    def _split_cli_error(self, exc: BaseException, provider: str) -> tuple[str, str]:
+        # Parse the "code|human message" convention used by _run_codex_cli /
+        # _run_gemini_cli. Falls back to a generic code when the underlying
+        # exception didn't follow the contract (e.g. unexpected TypeError).
+        raw = str(exc or "").strip()
+        if "|" in raw:
+            head, _, tail = raw.partition("|")
+            head = head.strip()
+            if head and not any(c.isspace() for c in head) and head.startswith("cli_"):
+                return head, _redact_secrets(tail.strip())
+        if isinstance(exc, FileNotFoundError):
+            return "cli_not_found", _redact_secrets(raw) or f"{provider} CLI not on PATH."
+        if isinstance(exc, TimeoutError) or isinstance(exc, subprocess.TimeoutExpired):
+            return "cli_timeout", f"{provider} timed out. Long prompts may need API-key mode."
+        return f"{provider}_chat_failed", _redact_secrets(raw)[:600]
+
     def _run_chat_via_local_cli(
         self,
         provider: str,
@@ -1921,7 +1991,10 @@ class _ChatHandler(BaseHTTPRequestHandler):
         entry = resolve_entry_file(root)
         prompt_text = self._build_local_cli_prompt(agent, messages, entry)
         if not prompt_text.strip():
-            emit("error", {"message": "empty_user_message"})
+            emit("error", {
+                "code": "empty_user_message",
+                "message": "The chat message was empty — type something and send again.",
+            })
             emit("done", {})
             return
 
@@ -1956,14 +2029,23 @@ class _ChatHandler(BaseHTTPRequestHandler):
         elif provider == "gemini":
             text = self._run_gemini_cli(root, prompt_text, chat_mode=chat_mode)
         else:
-            emit("error", {"message": "invalid_cli_provider"})
+            emit("error", {
+                "code": "invalid_cli_provider",
+                "message": f"Unknown CLI provider: {provider}. Pick Claude / Codex / Gemini.",
+            })
             emit("done", {})
             return
 
         emit("agent_status", {"phase": "thinking"})
         text = (text or "").strip()
         if not text:
-            emit("error", {"message": f"{provider}_returned_no_content"})
+            # Defense in depth — the inner _run_*_cli functions now raise
+            # cli_empty_output explicitly when this happens, so we should
+            # never get here. Kept for paranoia / future provider additions.
+            emit("error", {
+                "code": "cli_empty_output",
+                "message": f"{provider} returned an empty response. Likely a quota or auth issue.",
+            })
             emit("done", {})
             return
         emit("delta", {"text": text})
@@ -2061,19 +2143,148 @@ class _ChatHandler(BaseHTTPRequestHandler):
             f"[OPERATOR'S LATEST TURN — RESPOND AS {agent_upper}, IN CHARACTER]"
         )
 
-    def _which_cli(self, name: str) -> str | None:
-        found = shutil.which(name)
-        if found:
-            return found
+    # Cached per-binary path resolutions. The login-shell fallback is the
+    # expensive lookup ( ~150ms to spawn bash -lc + source ~/.zshrc ), so
+    # results are memoized for the bridge process lifetime. Cleared on
+    # SIGHUP by the warm-pool reloader. Maps binary name → resolved path
+    # or None when nothing was found anywhere.
+    _cli_path_cache: dict[str, str | None] = {}
+    _login_shell_path: str | None = None
+
+    def _macos_linux_search_paths(self) -> list[str]:
+        # Common install locations Electron-launched GUI apps miss because
+        # they inherit a minimal LaunchServices PATH (/usr/bin:/bin:...).
+        # Homebrew on Apple Silicon lives in /opt/homebrew/bin; older
+        # Intel Macs use /usr/local/bin; node global installs go to
+        # ~/.npm-global/bin; Bun / Deno / pipx have their own corners.
+        home = os.path.expanduser("~")
+        return [
+            "/opt/homebrew/bin",          # Apple Silicon Homebrew
+            "/usr/local/bin",             # Intel Homebrew + manual installs
+            "/usr/local/sbin",
+            f"{home}/.npm-global/bin",    # npm prefix=~/.npm-global
+            f"{home}/.bun/bin",
+            f"{home}/.local/bin",         # pipx default
+            f"{home}/.deno/bin",
+            f"{home}/.cargo/bin",         # rust-installed CLIs
+            "/usr/bin",
+            "/bin",
+        ]
+
+    def _resolve_via_login_shell(self, name: str) -> str | None:
+        # Last-ditch fallback for Mac/Linux: ask a login shell. `bash -lc`
+        # sources the user's profile so PATH matches what they see in
+        # Terminal. We use `command -v` which is POSIX-safe (zsh + bash
+        # both support it) and faster than `which`. 1.5s timeout so a
+        # broken profile can't wedge chat for 30s.
         if os.name == "nt":
+            return None
+        try:
+            proc = subprocess.run(
+                ["bash", "-lc", f"command -v {shlex.quote(name)} || true"],
+                capture_output=True,
+                text=True,
+                timeout=1.5,
+                check=False,
+            )
+            path = (proc.stdout or "").strip().splitlines()
+            if path and path[0] and os.path.exists(path[0]):
+                return path[0]
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            pass
+        return None
+
+    def _login_shell_full_path(self) -> str | None:
+        # One-shot lookup of `echo $PATH` inside a login shell. Cached so
+        # subprocess env enrichment doesn't re-spawn bash on every chat.
+        if self._login_shell_path is not None:
+            return self._login_shell_path
+        if os.name == "nt":
+            self._login_shell_path = ""
+            return None
+        try:
+            proc = subprocess.run(
+                ["bash", "-lc", "echo $PATH"],
+                capture_output=True,
+                text=True,
+                timeout=1.5,
+                check=False,
+            )
+            full = (proc.stdout or "").strip().splitlines()
+            self._login_shell_path = full[0] if full else ""
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            self._login_shell_path = ""
+        return self._login_shell_path or None
+
+    def _which_cli(self, name: str) -> str | None:
+        # Cached. None means "tried everything, not found"; "" never used.
+        if name in self._cli_path_cache:
+            return self._cli_path_cache[name]
+        # 1. Standard shutil.which against the subprocess PATH. Fast win.
+        found = shutil.which(name)
+        if not found and os.name == "nt":
             for suffix in (".cmd", ".exe"):
                 found = shutil.which(name + suffix)
                 if found:
-                    return found
-        return None
+                    break
+        # 2. Mac/Linux: walk curated install dirs by hand. Catches Homebrew /
+        #    npm-global / Bun / Deno / pipx / cargo that LaunchServices's
+        #    GUI-inherited PATH doesn't include.
+        if not found and os.name != "nt":
+            for d in self._macos_linux_search_paths():
+                candidate = os.path.join(d, name)
+                if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+                    found = candidate
+                    break
+        # 3. Last resort: spawn a login shell and ask. Slow ( ~150ms ) so
+        #    cache the result; cheap on subsequent calls.
+        if not found:
+            found = self._resolve_via_login_shell(name)
+        self._cli_path_cache[name] = found or None
+        return found or None
 
-    def _run_cli_command(self, args: list[str], root: Path, timeout_s: int = 300) -> subprocess.CompletedProcess:
+    def _enriched_path(self, found_bin: str | None) -> str:
+        # Build the PATH passed to subprocesses. Order: parent of the
+        # resolved binary (so its sibling helpers like `gemini-utils`
+        # resolve), then the curated Mac/Linux dirs, then the login-shell
+        # PATH if we have it, then whatever was already in os.environ.
+        parts: list[str] = []
+        if found_bin:
+            parts.append(os.path.dirname(found_bin))
+        if os.name != "nt":
+            parts.extend(self._macos_linux_search_paths())
+            shell_path = self._login_shell_full_path()
+            if shell_path:
+                parts.extend(shell_path.split(os.pathsep))
+        existing = os.environ.get("PATH", "")
+        if existing:
+            parts.extend(existing.split(os.pathsep))
+        # De-dup preserving order. Some paths show up multiple times via
+        # the layered sources above; dedupe so PATH doesn't grow unbounded.
+        seen: set[str] = set()
+        ordered: list[str] = []
+        for p in parts:
+            if p and p not in seen:
+                seen.add(p)
+                ordered.append(p)
+        return os.pathsep.join(ordered)
+
+    def _run_cli_command(
+        self,
+        args: list[str],
+        root: Path,
+        timeout_s: int = 300,
+        path_hint: str | None = None,
+    ) -> subprocess.CompletedProcess:
         env = dict(os.environ)
+        # Enriched PATH so subprocess children (gemini → node → npm
+        # subcommands, codex → bash helpers, claude → ripgrep + sed
+        # detection) all see the same install dirs the bridge used to
+        # locate the entry binary. Without this, even when _which_cli
+        # finds Gemini at /opt/homebrew/bin/gemini, Gemini's own
+        # subprocess spawns can fail because Node's PATH is the slim
+        # LaunchServices PATH.
+        env["PATH"] = self._enriched_path(path_hint or (args[0] if args else None))
         env.update({
             "CI": "true",
             "NONINTERACTIVE": "true",
@@ -2101,7 +2312,14 @@ class _ChatHandler(BaseHTTPRequestHandler):
     def _run_codex_cli(self, root: Path, prompt_text: str, chat_mode: str = "build") -> str:
         codex_bin = self._which_cli("codex")
         if not codex_bin:
-            raise FileNotFoundError("codex CLI not on PATH")
+            # Structured error so the dispatcher can emit a specific code
+            # to the dashboard. Format: "<code>|<human message>" — parsed
+            # at the dispatch site. Keeps backward-compat with the existing
+            # RuntimeError surface for callers that just stringify.
+            raise FileNotFoundError(
+                "cli_not_found|Codex CLI isn't installed on this machine. "
+                "Install it via `npm i -g @openai/codex` then click Retry."
+            )
         # Plan mode → read-only sandbox (no writes, no shell). Build mode →
         # workspace-write so codex can actually edit files in the agent root.
         # "danger-full-access" is intentionally NOT exposed; operators get
@@ -2123,15 +2341,35 @@ class _ChatHandler(BaseHTTPRequestHandler):
                 out_path,
                 self._cli_arg_prompt(prompt_text),
             ]
-            proc = self._run_cli_command(args, root, timeout_s=180)
+            proc = self._run_cli_command(args, root, timeout_s=180, path_hint=codex_bin)
             try:
                 text = Path(out_path).read_text(encoding="utf-8", errors="replace").strip()
             except Exception:
                 text = ""
             if proc.returncode != 0:
-                detail = (proc.stderr or proc.stdout or "").strip()
-                raise RuntimeError(_redact_secrets(detail[:2000] or f"codex exited {proc.returncode}"))
-            return text or self._strip_cli_noise(proc.stdout)
+                detail = _redact_secrets((proc.stderr or proc.stdout or "").strip())[:2000]
+                # Detect auth-required state from codex's exit signature.
+                # `codex exec` returns non-zero + writes "Please run `codex
+                # login`" to stderr when the user's account isn't signed in.
+                low = (detail or "").lower()
+                if "codex login" in low or "not signed in" in low or "unauthorized" in low:
+                    raise RuntimeError(
+                        "cli_auth_required|Codex CLI says you need to sign in. "
+                        "Run `codex login` in Terminal, then click Retry."
+                    )
+                raise RuntimeError(
+                    f"cli_nonzero_exit|Codex exited {proc.returncode}. "
+                    f"Stderr tail: {detail or '(empty)'}"
+                )
+            resolved = text or self._strip_cli_noise(proc.stdout)
+            if not resolved.strip():
+                stderr_tail = _redact_secrets((proc.stderr or "").strip())[:600]
+                raise RuntimeError(
+                    "cli_empty_output|Codex ran but returned nothing. "
+                    f"Stderr tail: {stderr_tail or '(none)'} — likely a "
+                    "quota or auth issue."
+                )
+            return resolved
         finally:
             if out_path:
                 try:
@@ -2142,7 +2380,11 @@ class _ChatHandler(BaseHTTPRequestHandler):
     def _run_gemini_cli(self, root: Path, prompt_text: str, chat_mode: str = "build") -> str:
         gemini_bin = self._which_cli("gemini")
         if not gemini_bin:
-            raise FileNotFoundError("gemini CLI not on PATH")
+            raise FileNotFoundError(
+                "cli_not_found|Gemini CLI isn't installed on this machine. "
+                "Install via `npm i -g @google/generative-ai-cli` or `brew "
+                "install gemini-cli`, then click Retry."
+            )
         # Plan mode → --approval-mode=plan (gemini researches + proposes,
         # never executes). Build mode → --approval-mode=yolo (auto-approve
         # tool calls so chat doesn't hang on stdin prompts; bridge runs
@@ -2158,11 +2400,40 @@ class _ChatHandler(BaseHTTPRequestHandler):
             approval_mode,
             "--skip-trust",
         ]
-        proc = self._run_cli_command(args, root, timeout_s=120)
+        proc = self._run_cli_command(args, root, timeout_s=120, path_hint=gemini_bin)
         if proc.returncode != 0:
-            detail = (proc.stderr or proc.stdout or "").strip()
-            raise RuntimeError(_redact_secrets(detail[:2000] or f"gemini exited {proc.returncode}"))
-        return self._extract_gemini_text(proc.stdout) or self._strip_cli_noise(proc.stdout)
+            detail = _redact_secrets((proc.stderr or proc.stdout or "").strip())[:2000]
+            low = (detail or "").lower()
+            # Gemini CLI prints "Please run `gemini auth login`" when the
+            # OAuth refresh token is missing or expired. Surface that as a
+            # specific code so the dashboard hints the right command.
+            if "gemini auth" in low or "not authenticated" in low or "401" in low:
+                raise RuntimeError(
+                    "cli_auth_required|Gemini CLI says you need to sign in. "
+                    "Run `gemini auth login` in Terminal, then click Retry."
+                )
+            # `--skip-trust` is a 2025+ flag. Old gemini-cli builds error on
+            # unknown flag — detect that and tell the operator to upgrade
+            # rather than blame the prompt.
+            if "unknown" in low and ("skip-trust" in low or "approval-mode" in low):
+                raise RuntimeError(
+                    "cli_outdated|Your Gemini CLI is too old to accept the "
+                    "--skip-trust flag. Run `npm i -g @google/generative-ai-cli` "
+                    "to upgrade, then click Retry."
+                )
+            raise RuntimeError(
+                f"cli_nonzero_exit|Gemini exited {proc.returncode}. "
+                f"Stderr tail: {detail or '(empty)'}"
+            )
+        extracted = self._extract_gemini_text(proc.stdout) or self._strip_cli_noise(proc.stdout)
+        if not extracted.strip():
+            stderr_tail = _redact_secrets((proc.stderr or "").strip())[:600]
+            raise RuntimeError(
+                "cli_empty_output|Gemini ran but returned no content. "
+                f"Stderr tail: {stderr_tail or '(none)'} — often a quota "
+                "exceeded or auth issue. Check `gemini --help` in Terminal."
+            )
+        return extracted
 
     def _extract_gemini_text(self, stdout: str) -> str:
         text = (stdout or "").strip()

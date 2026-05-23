@@ -1,6 +1,6 @@
 {
   "name": "oasis-ai-desktop",
-  "version": "0.1.0-alpha.5",
+  "version": "0.1.0-alpha.6",
   "private": true,
   "description": "OASIS AI Desktop - local runtime shell for the Agent Command Center.",
   "author": "OASIS AI Solutions <conaugh@oasisai.work>",
