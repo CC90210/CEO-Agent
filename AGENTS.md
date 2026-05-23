@@ -48,7 +48,7 @@ When the message is OPERATIONAL:
 1. `brain/AGENT_ROUTER.md` — the routing-by-intent table. Tells you which deeper file to read for each kind of request. ~200 lines.
 2. `brain/EXECUTION_RULES.md` — the iron law (self-execute, never tell CC to run commands you can run yourself, confirm after every mutation).
 3. `brain/INTENTS.md` — verb-by-verb playbooks (send-email, apply-migration, push-to-prod, etc). Read when an intent matches.
-4. `brain/WHEN_TO_USE_SKILLS.md` — trigger map for the 150+ skills.
+4. `brain/WHEN_TO_USE_SKILLS.md` — trigger map for the 148 active skills.
 5. `CONTEXT.md` — canonical empire vocabulary. Read when a domain term needs disambiguation (tenant, drip sequence, Pulse, OASIS Outbound, etc). See `docs/adr/0002-context-md-canonical-vocabulary.md`.
 
 State files (`brain/STATE.md`, `memory/ACTIVE_TASKS.md`, `memory/SESSION_LOG.md`) are now per-intent reads — the router decides when. Don't auto-load.
