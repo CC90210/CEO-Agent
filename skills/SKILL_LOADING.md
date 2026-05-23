@@ -2,7 +2,7 @@
 
 ## Overview
 
-Skills consume context window tokens. Loading all 151 skills at session start would burn most of the context budget before work begins. Progressive loading ensures only relevant content is in context.
+Skills consume context window tokens. Loading all 148 active skills at session start would burn most of the context budget before work begins. Progressive loading ensures only relevant content is in context.
 
 As of 2026-04-28, `skills_registry` in Supabase is the runtime catalog. `scripts/register_skill.py sync-all --deactivate-missing --json` syncs every `skills/*/SKILL.md` into the database with triggers, tier, owner agent, risk level, dependencies, and a source hash. `scripts/register_skill.py route "<task>" --json` is the fastest way for any AI interface to decide which skills to load.
 
@@ -64,7 +64,7 @@ Tier classification:
 
 ## Trigger Keyword Reference
 
-All 151 skills are synced to Supabase with trigger metadata. The folder frontmatter remains the source of truth; `skills_registry` is the runtime cache used for fast routing and drift detection.
+All 148 active skills are synced to Supabase with trigger metadata. The folder frontmatter remains the source of truth; `skills_registry` is the runtime cache used for fast routing and drift detection.
 
 To scan triggers manually, read the frontmatter of each skill:
 ```
