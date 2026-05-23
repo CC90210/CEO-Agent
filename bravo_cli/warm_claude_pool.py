@@ -123,6 +123,11 @@ def chat_lean_args() -> list[str]:
 
 
 def _resolve_claude_bin() -> Optional[str]:
+    # Mirrors bridge_chat_server._which_cli — walk Homebrew (Apple
+    # Silicon + Intel), npm-global, Bun, Deno, pipx, cargo, then fall
+    # back to a bash -lc login-shell probe so we find nvm-installed
+    # claude on macOS GUI launches (Electron / launchd) where the
+    # inherited PATH is the slim LaunchServices set.
     bin_path = shutil.which("claude")
     if bin_path:
         return bin_path
@@ -134,6 +139,36 @@ def _resolve_claude_bin() -> Optional[str]:
         ]:
             if c.is_file():
                 return str(c)
+        return None
+    home = os.path.expanduser("~")
+    candidates = [
+        "/opt/homebrew/bin/claude",
+        "/usr/local/bin/claude",
+        f"{home}/.npm-global/bin/claude",
+        f"{home}/.bun/bin/claude",
+        f"{home}/.local/bin/claude",
+        f"{home}/.deno/bin/claude",
+        f"{home}/.cargo/bin/claude",
+    ]
+    for candidate in candidates:
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return candidate
+    # Final fallback — ask a login shell. Sources ~/.zshrc / ~/.bash_profile
+    # so nvm's claude lands in PATH and `command -v` returns it. 1.5s
+    # timeout protects against a wedged profile script.
+    try:
+        proc = subprocess.run(
+            ["bash", "-lc", "command -v claude || true"],
+            capture_output=True,
+            text=True,
+            timeout=1.5,
+            check=False,
+        )
+        lines = (proc.stdout or "").strip().splitlines()
+        if lines and lines[0] and os.path.exists(lines[0]):
+            return lines[0]
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        pass
     return None
 
 

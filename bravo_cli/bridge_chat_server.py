@@ -1021,19 +1021,10 @@ class _ChatHandler(BaseHTTPRequestHandler):
             "ok": True,
             "service": "bravo-bridge-chat",
         }
-        # 1. claude CLI discoverability
+        # 1. claude CLI discoverability — use enriched lookup so the
+        # legacy /diag endpoint matches /diagnostics/cli's behavior.
         try:
-            claude_path = shutil.which("claude")
-            if not claude_path and os.name == "nt":
-                home = Path.home()
-                candidates = [
-                    home / ".local" / "bin" / "claude.exe",
-                    home / "AppData" / "Roaming" / "npm" / "claude.cmd",
-                ]
-                for c in candidates:
-                    if c.is_file():
-                        claude_path = str(c)
-                        break
+            claude_path = self._which_cli("claude")
             out["claude_cli"] = {
                 "found": bool(claude_path),
                 "path": claude_path,
@@ -2507,20 +2498,11 @@ class _ChatHandler(BaseHTTPRequestHandler):
             emit("done", {})
             return
 
-        # Resolve the claude binary. Mirror telegram_agent.js's discovery:
-        # prefer `claude` in PATH; fall back to ~/.local/bin/claude.exe on
-        # Windows when nvm-global isn't shimmed.
-        claude_bin = shutil.which("claude")
-        if not claude_bin and os.name == "nt":
-            home = Path.home()
-            candidates = [
-                home / ".local" / "bin" / "claude.exe",
-                home / "AppData" / "Roaming" / "npm" / "claude.cmd",
-            ]
-            for c in candidates:
-                if c.is_file():
-                    claude_bin = str(c)
-                    break
+        # Resolve the claude binary via the same enriched lookup the
+        # codex/gemini paths use — walks Homebrew + npm-global + Bun +
+        # Deno + login-shell PATH so Electron's slim GUI PATH (no
+        # ~/.nvm/.../bin) doesn't make us miss the install.
+        claude_bin = self._which_cli("claude")
         if not claude_bin:
             raise FileNotFoundError("claude CLI not on PATH")
 
@@ -2575,6 +2557,10 @@ class _ChatHandler(BaseHTTPRequestHandler):
         # subscription-first here without the retry would regress the
         # rare-path UX).
         env = dict(os.environ)
+        # Enriched PATH — Claude's own child processes (ripgrep, node, sed,
+        # the user's hooks) need to see Homebrew + npm-global + nvm. Same
+        # treatment _run_cli_command gives codex/gemini spawns.
+        env["PATH"] = self._enriched_path(claude_bin)
         env.update({
             "CI": "true",
             "NONINTERACTIVE": "true",
