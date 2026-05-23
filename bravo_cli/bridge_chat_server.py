@@ -51,6 +51,7 @@ from ._subprocess_helpers import (
     windowless_startupinfo as _windowless_startupinfo,
 )
 import time
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable
@@ -3727,13 +3728,45 @@ def _heartbeat_loop() -> None:
     """Daemon thread. Pings /api/bridge/ping every 60s so the dashboard's
     /devices and Today header show the machine as online. Re-pairs if the
     token gets nixed (e.g. operator revokes it from /settings)."""
+    # Stamp the heartbeat result into a watchable file in ~/.oasis so the
+    # operator can verify the daemon thread is alive without grepping the
+    # log (and without depending on Python's stdout flush behavior, which
+    # under launchd's StandardOutPath buffers ~4KB before writing). The
+    # file's mtime is the last successful ping; absence means the loop
+    # never started or has been hung for >60s.
+    last_ping_marker = _OASIS_DIR / "bridge_chat.last_heartbeat"
     while True:
-        token = _self_pair_if_needed()
-        if token:
-            ok = _heartbeat_once(token)
-            if not ok:
-                # Could be transient — try again next interval. If the token
-                # was wiped above, _self_pair_if_needed will mint a fresh one.
+        try:
+            token = _self_pair_if_needed()
+            if token:
+                ok = _heartbeat_once(token)
+                if ok:
+                    try:
+                        last_ping_marker.write_text(
+                            f"{datetime.now(timezone.utc).isoformat()} ok\n",
+                            encoding="utf-8",
+                        )
+                    except OSError:
+                        pass
+                else:
+                    try:
+                        last_ping_marker.write_text(
+                            f"{datetime.now(timezone.utc).isoformat()} fail\n",
+                            encoding="utf-8",
+                        )
+                    except OSError:
+                        pass
+        except Exception as exc:
+            # Never let an exception kill the thread — that would silently
+            # take the dashboard's "bridge online" indicator down with no
+            # observable failure mode. Stamp the error into the marker
+            # file so we can diagnose post-mortem.
+            try:
+                last_ping_marker.write_text(
+                    f"{datetime.now(timezone.utc).isoformat()} error {exc!r}\n",
+                    encoding="utf-8",
+                )
+            except OSError:
                 pass
         time.sleep(_HEARTBEAT_INTERVAL_S)
 
