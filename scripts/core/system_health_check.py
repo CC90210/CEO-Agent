@@ -13,6 +13,9 @@ Usage:
     python scripts/core/system_health_check.py --json     # machine-readable
     python scripts/core/system_health_check.py --dry-run  # diagnose only
 """
+
+from __future__ import annotations
+
 import argparse
 import datetime as _dt
 import json

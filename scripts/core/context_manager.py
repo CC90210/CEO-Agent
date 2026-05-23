@@ -23,6 +23,8 @@ Flags:
   --dry-run   Preview compaction without writing any files
 """
 
+from __future__ import annotations
+
 import argparse
 import io
 import json

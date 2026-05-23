@@ -19,6 +19,8 @@ FILTERING: Only high-signal categories reach CC's Telegram.
 Override via NOTIFY_BLOCKED_CATEGORIES in .env.agents (comma-separated).
 """
 
+from __future__ import annotations
+
 import json
 import sys
 from pathlib import Path

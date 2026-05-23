@@ -16,6 +16,8 @@ Usage:
   python scripts/revenue_engine.py --json <any command>
 """
 
+from __future__ import annotations
+
 import argparse
 import datetime
 import json

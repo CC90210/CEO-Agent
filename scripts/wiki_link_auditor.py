@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Audit broken Obsidian [[wikilinks]] in brain/ and memory/ directories."""
 
+from __future__ import annotations
+
 import re
 import sys
 from collections import defaultdict
