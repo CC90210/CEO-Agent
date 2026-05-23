@@ -226,6 +226,28 @@ if [ -f "$WIZARD_REPO/package.json" ]; then
     fi
 fi
 
+# ── claudekit (Claude Code hooks runner) ─────────────────────────────────────
+# .claude/settings.json declares Stop / SubagentStop hooks that invoke
+# `claudekit-hooks run create-checkpoint` + `claudekit-hooks run self-review`
+# after every assistant turn. Without the binary on PATH the hooks fail
+# silently and the self-review pass never runs — the operator sees no
+# error, just degraded review behavior. Installing globally so the next
+# Claude Code launch picks it up.
+step "claudekit (Claude Code Stop-hook runner)"
+if command -v claudekit-hooks >/dev/null 2>&1; then
+    ok "claudekit-hooks already installed ($(claudekit-hooks --version 2>/dev/null || echo 'version unknown'))"
+elif command -v npm >/dev/null 2>&1; then
+    info "Installing claudekit globally so the Stop/SubagentStop hooks work."
+    npm i -g claudekit --no-fund --no-audit 2>&1 | sed 's/^/       /' || warn "claudekit install exited non-zero — self-review hook may not fire"
+    if command -v claudekit-hooks >/dev/null 2>&1; then
+        ok "claudekit installed"
+    else
+        warn "claudekit-hooks still not on PATH after install — run \`npm i -g claudekit\` manually"
+    fi
+else
+    warn "npm not on PATH — install Node.js then run \`npm i -g claudekit\`"
+fi
+
 # ── Docker check (V6.0) ──────────────────────────────────────────────────────
 # Docker is REQUIRED for the V6.0 sandboxed sandbox + Command Center, but it's
 # NOT a hard dependency for the wizard or the headless CLI scripts. So we
