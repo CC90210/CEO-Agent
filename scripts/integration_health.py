@@ -39,7 +39,14 @@ def _env_fallback(name: str) -> str | None:
     candidates = [
         Path.cwd() / ".env.agents",
         Path(__file__).resolve().parent.parent / ".env.agents",
+        # Common Bravo-repo home-relative layouts. The pre-rename path
+        # ('Business-Empire-Agent') and the legacy Mac landing zone
+        # ('Downloads/business-empire-agent') stay in the list so this
+        # helper still finds .env.agents on machines that haven't moved
+        # to the renamed layout yet.
+        Path.home() / "CEO-Agent" / ".env.agents",
         Path.home() / "Business-Empire-Agent" / ".env.agents",
+        Path.home() / "Downloads" / "business-empire-agent" / ".env.agents",
     ]
     for p in candidates:
         if not p.is_file():

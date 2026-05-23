@@ -41,44 +41,15 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 BRAVO_WORKFLOWS = ROOT / ".agents" / "workflows"
-# Maven repo: use sibling_repos.py if available, else fall back to common
-# locations that work on both Mac and Windows.
-def _maven_workflows() -> Path:
-    for candidate in (
-        Path.home() / "CMO-Agent" / ".agents" / "workflows",
-        Path.home() / "Documents" / "CMO-Agent" / ".agents" / "workflows",
-        Path("/Users/User/CMO-Agent/.agents/workflows"),
-        Path("C:/Users/User/CMO-Agent/.agents/workflows"),
-    ):
-        if candidate.exists():
-            return candidate
-    # Last resort: assume sibling of ROOT
-    return ROOT.parent / "CMO-Agent" / ".agents" / "workflows"
-MAVEN_WORKFLOWS = _maven_workflows()
 
+# Sibling-repo resolution lives in scripts/sibling_repos.py — single source
+# of truth across the codebase. Adding the repo path to sys.path so this
+# script works whether invoked from repo-root or anywhere else.
+sys.path.insert(0, str(ROOT / "scripts"))
+from sibling_repos import SIBLING_REPOS  # noqa: E402
 
-def _command_center_repo() -> Path:
-    """Resolve oasis-command-center across Mac + Windows layouts.
-
-    Lives at ~/oasis-command-center on CC's Mac, ~/APPS/oasis-command-center
-    on Windows. Env var override (COMMAND_CENTER_REPO) wins when set.
-    """
-    override = os.environ.get("COMMAND_CENTER_REPO")
-    if override:
-        return Path(override)
-    for candidate in (
-        Path.home() / "oasis-command-center",
-        Path.home() / "APPS" / "oasis-command-center",
-        Path("C:/Users/User/APPS/oasis-command-center"),
-    ):
-        if candidate.exists():
-            return candidate
-    # Last resort: the Windows default — caller's downstream code surfaces
-    # the missing file if neither layout exists.
-    return Path.home() / "APPS" / "oasis-command-center"
-
-
-_COMMAND_CENTER_REPO = _command_center_repo()
+MAVEN_WORKFLOWS = SIBLING_REPOS["maven"] / ".agents" / "workflows"
+_COMMAND_CENTER_REPO = SIBLING_REPOS["oasis-command-center"]
 CATALOG = _COMMAND_CENTER_REPO / "lib" / "slash-commands.ts"
 
 

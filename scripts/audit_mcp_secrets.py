@@ -42,6 +42,9 @@ if _IS_MAC:
         os.path.join(_HOME, 'CEO-Agent', '.mcp.json'),
     ]
 else:
+    # Windows branch — pre-rename Business-Empire-Agent paths kept in the
+    # list so the audit still inspects them on machines that haven't moved
+    # to CEO-Agent yet (leaks live on both layouts identically).
     MCP_CONFIG_PATHS = [
         r'C:\Users\User\.claude.json',
         r'C:\Users\User\.claude\mcp.json',
@@ -50,6 +53,10 @@ else:
         r'C:\Users\User\AppData\Roaming\Antigravity\User\settings.json',
         r'C:\Users\User\.gemini\settings.json',
         r'C:\Users\User\.cursor\mcp.json',
+        r'C:\Users\User\CEO-Agent\.vscode\mcp.json',
+        r'C:\Users\User\CEO-Agent\.claude\settings.json',
+        r'C:\Users\User\CEO-Agent\.claude\settings.local.json',
+        r'C:\Users\User\CEO-Agent\.mcp.json',
         r'C:\Users\User\Business-Empire-Agent\.vscode\mcp.json',
         r'C:\Users\User\Business-Empire-Agent\.claude\settings.json',
         r'C:\Users\User\Business-Empire-Agent\.claude\settings.local.json',
