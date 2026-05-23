@@ -19,6 +19,8 @@ Usage (CLI surface preserved across modes):
 This is the MANDATORY end-of-session sync.
 """
 
+from __future__ import annotations
+
 import argparse
 import os
 import re
