@@ -21,12 +21,19 @@ import json
 from pathlib import Path
 from datetime import datetime
 
+import sys
+
 import pytest
 
-BRAVO = Path(r"C:\Users\User\Business-Empire-Agent\data\pulse\ceo_pulse.json")
-ATLAS = Path(r"C:\Users\User\APPS\CFO-Agent\data\pulse\cfo_pulse.json")
-MAVEN = Path(r"C:\Users\User\CMO-Agent\data\pulse\cmo_pulse.json")
-AURA  = Path(r"C:\Users\User\AURA\data\pulse\aura_pulse.json")
+# Resolve C-suite pulse files via sibling_repos so the test runs on Mac
+# and Windows without hardcoded paths.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sibling_repos import SIBLING_REPOS  # noqa: E402
+
+BRAVO = SIBLING_REPOS["bravo"] / "data" / "pulse" / "ceo_pulse.json"
+ATLAS = SIBLING_REPOS["atlas"] / "data" / "pulse" / "cfo_pulse.json"
+MAVEN = SIBLING_REPOS["maven"] / "data" / "pulse" / "cmo_pulse.json"
+AURA  = SIBLING_REPOS["aura"]  / "data" / "pulse" / "aura_pulse.json"
 
 FAIL = 0
 PASS = 0

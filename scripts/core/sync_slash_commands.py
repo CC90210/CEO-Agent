@@ -55,11 +55,31 @@ def _maven_workflows() -> Path:
     # Last resort: assume sibling of ROOT
     return ROOT.parent / "CMO-Agent" / ".agents" / "workflows"
 MAVEN_WORKFLOWS = _maven_workflows()
-_COMMAND_CENTER_REPO = os.environ.get(
-    "COMMAND_CENTER_REPO",
-    str(Path.home() / "APPS" / "oasis-command-center"),
-)
-CATALOG = Path(_COMMAND_CENTER_REPO) / "lib" / "slash-commands.ts"
+
+
+def _command_center_repo() -> Path:
+    """Resolve oasis-command-center across Mac + Windows layouts.
+
+    Lives at ~/oasis-command-center on CC's Mac, ~/APPS/oasis-command-center
+    on Windows. Env var override (COMMAND_CENTER_REPO) wins when set.
+    """
+    override = os.environ.get("COMMAND_CENTER_REPO")
+    if override:
+        return Path(override)
+    for candidate in (
+        Path.home() / "oasis-command-center",
+        Path.home() / "APPS" / "oasis-command-center",
+        Path("C:/Users/User/APPS/oasis-command-center"),
+    ):
+        if candidate.exists():
+            return candidate
+    # Last resort: the Windows default — caller's downstream code surfaces
+    # the missing file if neither layout exists.
+    return Path.home() / "APPS" / "oasis-command-center"
+
+
+_COMMAND_CENTER_REPO = _command_center_repo()
+CATALOG = _COMMAND_CENTER_REPO / "lib" / "slash-commands.ts"
 
 
 def workflow_slugs(workflow_dir: Path) -> set[str]:
