@@ -41,6 +41,7 @@ import subprocess
 import sys
 import threading
 import tempfile
+from contextlib import contextmanager
 
 # Windows console-suppression — see bravo_cli/_subprocess_helpers.
 from ._subprocess_helpers import (
@@ -892,6 +893,66 @@ def _inject_attachment_context(messages: list, attachments: object) -> list:
             return out
     out.append({"role": "user", "content": context})
     return out
+
+
+@contextmanager
+def _heartbeat_ticker(
+    emit: Callable[[str, dict], None],
+    *,
+    interval_s: float = 25.0,
+    phase: str = "thinking",
+    thread_name: str = "bridge-heartbeat",
+):
+    """Emit periodic `agent_status` events on a background thread while a
+    blocking operation runs, so the dashboard's SSE inactivity watchdog
+    doesn't fire on otherwise-silent code paths (codex/gemini's
+    `exec -p <prompt>` returns one big delta after 60-180s of internal
+    tool-use; claude's cold spawn can take 5-30s before first output).
+
+    Yields a thread-safe wrapper around the original emit. Callers
+    should use the wrapper for EVERY emit inside the `with` block AND
+    after it returns — so heartbeat bytes can't interleave with the
+    main thread's delta/done events on the same response stream.
+
+    Usage:
+        with _heartbeat_ticker(emit) as ticked_emit:
+            text = self._run_codex_cli(...)
+        ticked_emit("delta", {"text": text})
+        ticked_emit("done", {})
+
+    The ticker stops cleanly when the `with` block exits (success OR
+    exception). join() is best-effort with a 2s timeout — if the
+    ticker is wedged we'd rather return than hang the request.
+    """
+    stop_event = threading.Event()
+    lock = threading.Lock()
+    tick_count = {"n": 0}
+
+    def _locked_emit(event: str, data: dict) -> None:
+        with lock:
+            emit(event, data)
+
+    def _run_ticker() -> None:
+        while not stop_event.wait(interval_s):
+            tick_count["n"] += 1
+            try:
+                _locked_emit("agent_status", {
+                    "phase": phase,
+                    "detail": f"working ({int(tick_count['n'] * interval_s)}s)",
+                })
+            except Exception:
+                # Connection dropped or emit raised — stop ticking
+                # cleanly. Don't try to log; the dispatcher's outer
+                # error handler covers the real failure path.
+                break
+
+    ticker = threading.Thread(target=_run_ticker, name=thread_name, daemon=True)
+    ticker.start()
+    try:
+        yield _locked_emit
+    finally:
+        stop_event.set()
+        ticker.join(timeout=2)
 
 
 class _ChatHandler(BaseHTTPRequestHandler):
@@ -2050,52 +2111,14 @@ class _ChatHandler(BaseHTTPRequestHandler):
         # ran their internal tool loop silently.
         emit("agent_status", {"phase": "thinking"})
 
-        # Heartbeat ticker — codex/gemini's `exec -p <prompt>` blocks the
-        # current thread for as long as the CLI's internal tool-use loop
-        # runs (file reads, command exec, HTTP fetches), then returns one
-        # big delta. No SSE events during that wait. The dashboard's
-        # inactivity watchdog (SSE_INACTIVITY_TIMEOUT_MS in ChatWidget)
-        # fires if no event arrives for ~75s — pre-2026-05-23 that
-        # tripped on every long daily-briefing turn.
-        #
-        # Background thread emits agent_status pings every 25s so the
-        # stream stays alive. emit_lock serializes writes so the ping
-        # bytes don't interleave with whatever the main thread is
-        # writing. stop_event signals the ticker to exit cleanly when
-        # the subprocess returns.
-        import threading
-        stop_event = threading.Event()
-        emit_lock = threading.Lock()
-        tick_count = {"n": 0}
-
-        def _heartbeat() -> None:
-            # First wait 25s; stop_event short-circuits the wait if the
-            # subprocess finishes faster than that. Loop until stopped.
-            while not stop_event.wait(25.0):
-                tick_count["n"] += 1
-                try:
-                    with emit_lock:
-                        emit("agent_status", {
-                            "phase": "thinking",
-                            "detail": f"working ({tick_count['n'] * 25}s)",
-                        })
-                except Exception:
-                    # Connection dropped or emit raised — stop ticking.
-                    break
-
-        # Wrap the original emit so the main thread also holds the lock
-        # when emitting. Prevents byte interleaving between heartbeat
-        # ticks and the main thread's delta/done events.
-        original_emit = emit
-
-        def _locked_emit(event: str, data: dict) -> None:
-            with emit_lock:
-                original_emit(event, data)
-
-        ticker = threading.Thread(target=_heartbeat, name=f"{provider}-heartbeat", daemon=True)
-        ticker.start()
-
-        try:
+        # Wrap the codex/gemini call in the heartbeat ticker so the
+        # dashboard sees an `agent_status thinking` event every 25s while
+        # the subprocess runs — prevents the SSE inactivity watchdog
+        # from firing on otherwise-silent code paths. See
+        # _heartbeat_ticker docstring at module scope for the full
+        # contract. `ticked_emit` MUST be used for every emit after the
+        # call returns so the lock keeps covering main-thread emits.
+        with _heartbeat_ticker(emit, thread_name=f"{provider}-heartbeat") as ticked_emit:
             # Pass chat_mode so each runtime can pick the right safety flag:
             #   plan  → codex --sandbox=read-only,   gemini --approval-mode=plan
             #   build → codex --sandbox=workspace-write, gemini --approval-mode=yolo
@@ -2106,21 +2129,16 @@ class _ChatHandler(BaseHTTPRequestHandler):
             elif provider == "gemini":
                 text = self._run_gemini_cli(root, prompt_text, chat_mode=chat_mode)
             else:
-                stop_event.set()
-                ticker.join(timeout=2)
-                _locked_emit("error", {
+                ticked_emit("error", {
                     "code": "invalid_cli_provider",
                     "message": f"Unknown CLI provider: {provider}. Pick Claude / Codex / Gemini.",
                 })
-                _locked_emit("done", {})
+                ticked_emit("done", {})
                 return
-        finally:
-            stop_event.set()
-            ticker.join(timeout=2)
-
-        # Reassign emit to the locked variant for the remainder of this
-        # function. Future emits go through the same serialization.
-        emit = _locked_emit
+        # Past this point we're past the ticker — but every remaining
+        # emit goes through ticked_emit anyway so future code paths
+        # that might re-enter blocking work stay covered by the lock.
+        emit = ticked_emit
         text = (text or "").strip()
         if not text:
             # Defense in depth — the inner _run_*_cli functions now raise
