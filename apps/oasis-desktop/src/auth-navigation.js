@@ -81,7 +81,12 @@ function createAuthNavigationController({
       return true;
     }
 
-    if (isAuthActive() && (isSupabaseAuthUrl(parsed) || isGoogleAuthUrl(parsed))) {
+    // Supabase magic-link verify URLs stay in-window (they're how the
+     // desktop's session cookie gets set after a deep-link pair). Google
+     // OAuth and friends are routed externally by main.js's
+     // isExternalAuthUrl check BEFORE this code runs, so we no longer
+     // permit them here even mid-flow.
+    if (isAuthActive() && isSupabaseAuthUrl(parsed)) {
       return true;
     }
 

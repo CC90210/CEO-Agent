@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:;" />
+    <title>OASIS AI — Sign in</title>
+    <style>
+      :root {
+        --bg: #05070d;
+        --bg-elev: #0b1019;
+        --bg-panel: #0d1320;
+        --border: #1a2233;
+        --fg: #e8eef9;
+        --fg-dim: #a8b2c8;
+        --fg-mute: #7a8499;
+        --accent: #00d4ff;
+        --accent-dim: rgba(0, 212, 255, 0.18);
+        --accent-strong: rgba(0, 212, 255, 0.55);
+        --ok: #34d399;
+        --warn: #fbbf24;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        height: 100%;
+        background: var(--bg);
+        color: var(--fg);
+        font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .stage {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 32px 24px;
+        background:
+          radial-gradient(900px 600px at 20% 10%, rgba(0,212,255,0.10), transparent 60%),
+          radial-gradient(700px 500px at 85% 90%, rgba(52,211,153,0.06), transparent 60%);
+      }
+      .card {
+        width: 100%;
+        max-width: 560px;
+        background: var(--bg-panel);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 36px 32px 28px;
+        box-shadow: 0 24px 80px -36px rgba(0,0,0,0.7);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 32px;
+      }
+      .logo {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, var(--accent) 0%, #6366f1 100%);
+        display: grid;
+        place-items: center;
+        color: var(--bg);
+        font-weight: 900;
+        font-size: 16px;
+        letter-spacing: -0.5px;
+      }
+      .brand-name {
+        font-weight: 800;
+        letter-spacing: -0.2px;
+        font-size: 16px;
+      }
+      .brand-sub {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--fg-mute);
+      }
+      h1 {
+        font-size: 26px;
+        line-height: 1.2;
+        font-weight: 800;
+        margin: 0 0 10px;
+        letter-spacing: -0.4px;
+      }
+      .lead {
+        color: var(--fg-dim);
+        font-size: 14.5px;
+        margin: 0 0 22px;
+      }
+      .step {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px 16px 14px;
+        background: rgba(255,255,255,0.012);
+        margin-bottom: 12px;
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+      }
+      .step.done { border-color: rgba(52,211,153,0.45); background: rgba(52,211,153,0.06); }
+      .step.active { border-color: var(--accent-strong); box-shadow: 0 0 0 4px var(--accent-dim) inset; }
+      .step-num {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--bg-elev);
+        border: 1px solid var(--border);
+        display: grid;
+        place-items: center;
+        font-weight: 700;
+        color: var(--fg-dim);
+        flex-shrink: 0;
+        font-size: 13px;
+      }
+      .step.done .step-num { background: var(--ok); color: var(--bg); border-color: var(--ok); }
+      .step.active .step-num { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+      .step-title { font-weight: 700; margin: 2px 0 4px; }
+      .step-body { color: var(--fg-dim); font-size: 13px; line-height: 1.5; }
+      button {
+        appearance: none;
+        border: none;
+        cursor: pointer;
+        font: inherit;
+      }
+      .btn-primary {
+        width: 100%;
+        background: var(--accent);
+        color: var(--bg);
+        font-weight: 700;
+        padding: 13px 18px;
+        border-radius: 10px;
+        margin-top: 8px;
+        margin-bottom: 12px;
+        transition: filter 0.15s;
+        font-size: 15px;
+      }
+      .btn-primary:hover { filter: brightness(1.08); }
+      .btn-primary:active { transform: translateY(1px); }
+      .btn-primary:disabled { opacity: 0.5; cursor: wait; }
+      .row {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .code-input {
+        flex: 1;
+        background: var(--bg-elev);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 11px 14px;
+        font: 600 15px/1 "SF Mono", Menlo, Consolas, monospace;
+        letter-spacing: 0.18em;
+        color: var(--fg);
+        text-transform: uppercase;
+        outline: none;
+      }
+      .code-input:focus { border-color: var(--accent); }
+      .btn-secondary {
+        background: var(--bg-elev);
+        border: 1px solid var(--border);
+        color: var(--fg);
+        padding: 11px 16px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 13px;
+      }
+      .btn-secondary:hover { background: rgba(255,255,255,0.04); }
+      .status {
+        margin-top: 10px;
+        padding: 10px 14px;
+        border-radius: 10px;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+      .status.ok { background: rgba(52,211,153,0.10); border: 1px solid rgba(52,211,153,0.30); color: #6ee7b7; }
+      .status.err { background: rgba(248,113,113,0.10); border: 1px solid rgba(248,113,113,0.30); color: #fca5a5; }
+      .status.info { background: rgba(0,212,255,0.08); border: 1px solid rgba(0,212,255,0.25); color: #a5e6fb; }
+      .foot {
+        margin-top: 18px;
+        text-align: center;
+        color: var(--fg-mute);
+        font-size: 12px;
+      }
+      .foot a { color: var(--accent); text-decoration: none; cursor: pointer; }
+      .foot a:hover { text-decoration: underline; }
+      .spinner {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(255,255,255,0.15);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+        vertical-align: -2px;
+        margin-right: 6px;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+  </head>
+  <body>
+    <main class="stage">
+      <div class="card">
+        <div class="brand">
+          <div class="logo">O</div>
+          <div>
+            <div class="brand-name">OASIS AI</div>
+            <div class="brand-sub">Desktop · Sign in</div>
+          </div>
+        </div>
+
+        <h1>Sign in to start using OASIS Desktop.</h1>
+        <p class="lead">We'll open the OASIS sign-in page in your normal browser so your existing Google account just works. Once you're signed in, this app reconnects automatically.</p>
+
+        <div class="step active" id="step1">
+          <div class="step-num">1</div>
+          <div>
+            <div class="step-title">Open OASIS in your browser</div>
+            <div class="step-body">You'll sign in there — Google, email + password, or password reset all work normally because it's your real Chrome / Safari with your existing sessions.</div>
+          </div>
+        </div>
+
+        <button class="btn-primary" id="open-signin">Open sign-in in my browser</button>
+
+        <div class="step" id="step2">
+          <div class="step-num">2</div>
+          <div>
+            <div class="step-title">We connect automatically</div>
+            <div class="step-body">After you sign in, the browser sends a one-time link back to this app. If your browser blocks it, you can paste the pair code below as a fallback.</div>
+          </div>
+        </div>
+
+        <div class="row">
+          <input class="code-input" id="manual-code" placeholder="ABC-DEF-GHJ" maxlength="11" autocomplete="off" spellcheck="false" />
+          <button class="btn-secondary" id="paste-code">Connect</button>
+        </div>
+
+        <div class="status info" id="status" style="display:none;"></div>
+
+        <p class="foot">
+          Don't have an account?
+          <a id="open-signup">Create one</a>
+          ·
+          <a id="open-forgot">Forgot password</a>
+        </p>
+      </div>
+    </main>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const status = $("status");
+      const code = $("manual-code");
+      const open = $("open-signin");
+      const connect = $("paste-code");
+
+      function showStatus(kind, message) {
+        status.className = "status " + kind;
+        status.textContent = message;
+        status.style.display = "block";
+      }
+      function clearStatus() { status.style.display = "none"; }
+
+      function setStepState(active, done) {
+        document.querySelectorAll(".step").forEach((s) => s.classList.remove("active", "done"));
+        done.forEach((id) => $(id)?.classList.add("done"));
+        if (active) $(active)?.classList.add("active");
+      }
+
+      open.addEventListener("click", () => {
+        clearStatus();
+        window.oasisDesktop.openSignIn();
+        setStepState("step2", ["step1"]);
+        showStatus("info", "Sign-in opened in your browser. Once you finish, OASIS Desktop will reconnect automatically. Keep this window open.");
+      });
+
+      $("open-signup").addEventListener("click", () => window.oasisDesktop.openSignIn({ signup: true }));
+      $("open-forgot").addEventListener("click", () => window.oasisDesktop.openSignIn({ forgot: true }));
+
+      // Strip whitespace + auto-format ABC-DEF-GHJ as user types.
+      function formatCode(raw) {
+        const clean = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+        if (clean.length <= 3) return clean;
+        if (clean.length <= 6) return clean.slice(0, 3) + "-" + clean.slice(3);
+        return clean.slice(0, 3) + "-" + clean.slice(3, 6) + "-" + clean.slice(6, 9);
+      }
+      code.addEventListener("input", () => {
+        const cursor = code.selectionStart;
+        code.value = formatCode(code.value);
+        try { code.setSelectionRange(cursor + 1, cursor + 1); } catch {}
+      });
+
+      async function submitCode() {
+        const value = code.value.trim().toUpperCase();
+        if (!/^[A-Z0-9]{3}-[A-Z0-9]{3}-[A-Z0-9]{3}$/.test(value)) {
+          showStatus("err", "Code looks like ABC-DEF-GHJ — try again.");
+          return;
+        }
+        connect.disabled = true;
+        open.disabled = true;
+        showStatus("info", '<span class="spinner"></span> Connecting…');
+        status.innerHTML = '<span class="spinner"></span> Connecting…';
+        status.style.display = "block";
+        const result = await window.oasisDesktop.redeemCode(value);
+        if (result?.ok) {
+          status.innerHTML = "Connected. Loading your Command Center…";
+          status.className = "status ok";
+          setStepState(null, ["step1", "step2"]);
+        } else {
+          showStatus("err", result?.message || "Could not connect. Try generating a new code.");
+          connect.disabled = false;
+          open.disabled = false;
+        }
+      }
+      connect.addEventListener("click", submitCode);
+      code.addEventListener("keydown", (e) => { if (e.key === "Enter") submitCode(); });
+
+      // Deep-link delivery from main process. Once the renderer mounts,
+      // ask main if a deep-link was buffered before the window existed.
+      window.oasisDesktop.onDeepLinkPaired((info) => {
+        status.innerHTML = `Connected as ${info?.machine_label || "this Mac"} — loading your Command Center…`;
+        status.className = "status ok";
+        status.style.display = "block";
+        setStepState(null, ["step1", "step2"]);
+      });
+      window.oasisDesktop.onDeepLinkError((info) => {
+        showStatus("err", info?.message || "Deep-link could not be redeemed. Paste the 9-character code below.");
+        open.disabled = false;
+        connect.disabled = false;
+      });
+      window.oasisDesktop.ready();
+    </script>
+  </body>
+</html>

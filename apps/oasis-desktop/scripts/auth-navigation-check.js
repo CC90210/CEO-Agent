@@ -35,7 +35,16 @@ expectAllowed(
 );
 assert.equal(controller.isAuthActive(), true, "OAuth flow becomes active");
 
-expectAllowed("https://accounts.google.com/o/oauth2/v2/auth", "Google auth is allowed while the OAuth flow is active");
+// V0.1.0 alpha.5 — Google OAuth URLs no longer permitted IN-WINDOW even
+// while a Supabase auth flow is active. main.js's isExternalAuthUrl gate
+// intercepts them earlier and routes them to shell.openExternal. The
+// Electron-Chromium cookie jar is isolated from the OS Chrome so opening
+// Google in-window meant the user's existing Google sessions were
+// invisible. The deep-link pair-code flow replaces that path entirely.
+expectDenied(
+  "https://accounts.google.com/o/oauth2/v2/auth",
+  "Google auth is denied in-window even mid-flow (now routed to system browser)",
+);
 expectAllowed("https://project.supabase.co/auth/v1/callback", "Supabase auth callback is allowed while active");
 expectAllowed("https://agent-dashboard-cc90210.vercel.app/auth/callback?code=abc", "Command Center callback is allowed");
 assert.equal(controller.isAuthActive(), false, "Command Center callback ends the OAuth flow");
@@ -44,7 +53,7 @@ expectDenied("https://accounts.google.com/o/oauth2/v2/auth", "Google auth is den
 
 expectAllowed(
   "https://project.supabase.co/auth/v1/authorize?provider=google&redirect_to=http%3A%2F%2Flocalhost%3A3100%2Fauth%2Fcallback",
-  "loopback development callback can start the OAuth flow"
+  "loopback development callback can start the OAuth flow",
 );
 currentTime += 5_001;
 expectDenied("https://accounts.google.com/o/oauth2/v2/auth", "OAuth flow expires after timeout");
