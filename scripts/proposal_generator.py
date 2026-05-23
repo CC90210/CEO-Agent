@@ -14,6 +14,8 @@ Usage:
     python scripts/proposal_generator.py --json <command>   # JSON output for agent consumption
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import sys

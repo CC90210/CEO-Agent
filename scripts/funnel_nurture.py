@@ -9,6 +9,8 @@ Usage:
     python scripts/funnel_nurture.py --json run    # JSON output for agents
 """
 
+from __future__ import annotations
+
 import os
 import sys
 import json

@@ -29,6 +29,8 @@ Usage:
   Add --json to any command for machine-readable output.
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import sys

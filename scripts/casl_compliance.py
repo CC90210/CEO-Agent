@@ -22,6 +22,8 @@ The gateway enforces #1, #2, and #3 architecturally. Do not bypass.
 Fines for violations are up to $10M per incident for businesses.
 """
 
+from __future__ import annotations
+
 import csv
 import os
 from pathlib import Path

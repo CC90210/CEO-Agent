@@ -19,6 +19,8 @@ Usage:
   python scripts/lead_engine.py --json <any command>
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import os
