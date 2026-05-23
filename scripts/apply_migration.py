@@ -184,6 +184,13 @@ def run_query_via_management_api(
     Cloudflare 1010 incident. See memory/MISTAKES.md.
     """
     try:
+        # supabase_admin moved to scripts/integrations/ in the 2026-05-20 reorg.
+        # Re-add it to sys.path so the import resolves either before or after
+        # the move without changing call-sites.
+        import sys as _sys
+        _integrations = str(Path(__file__).resolve().parent / "integrations")
+        if _integrations not in _sys.path:
+            _sys.path.insert(0, _integrations)
         from supabase_admin import api_post
 
         result = api_post(
