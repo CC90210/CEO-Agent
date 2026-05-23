@@ -16,16 +16,16 @@
 -- ============================================================================
 
 WITH checks AS (
-    -- 056 — tenant_brand_logo column on tenants
+    -- 056 — tenant_brand_logo column on tenants (actual column name: logo_url)
     SELECT
         '056_tenant_brand_logo' AS migration,
-        'tenants.brand_logo_url' AS verifies,
+        'tenants.logo_url' AS verifies,
         CASE
             WHEN EXISTS (
                 SELECT 1 FROM information_schema.columns
                 WHERE table_schema = 'public'
                   AND table_name = 'tenants'
-                  AND column_name = 'brand_logo_url'
+                  AND column_name = 'logo_url'
             ) THEN 'applied'
             ELSE 'pending'
         END AS status
@@ -37,10 +37,14 @@ WITH checks AS (
         'lead_documents.storage_path CHECK constraint',
         CASE
             WHEN EXISTS (
-                SELECT 1 FROM pg_constraint
-                WHERE conrelid = 'public.lead_documents'::regclass
-                  AND contype = 'c'
-                  AND pg_get_constraintdef(oid) ILIKE '%storage_path%'
+                SELECT 1
+                FROM pg_constraint c
+                JOIN pg_class cls ON cls.oid = c.conrelid
+                JOIN pg_namespace n ON n.oid = cls.relnamespace
+                WHERE n.nspname = 'public'
+                  AND cls.relname = 'lead_documents'
+                  AND c.contype = 'c'
+                  AND pg_get_constraintdef(c.oid) ILIKE '%storage_path%'
             ) THEN 'applied'
             ELSE 'pending'
         END
@@ -76,33 +80,48 @@ WITH checks AS (
 
     UNION ALL
     -- 059 — lead_interactions.* new columns
+    -- Verifies the 5 columns the migration actually adds:
+    --   direction, content_preview, to_email, to_phone, sent_at
     SELECT
         '059_lead_interactions_unified_columns',
-        'lead_interactions.body + interaction_type + email_* columns',
+        'lead_interactions.{direction, content_preview, to_email, to_phone, sent_at}',
         CASE
             WHEN (
                 SELECT COUNT(*) FROM information_schema.columns
                 WHERE table_schema = 'public'
                   AND table_name = 'lead_interactions'
                   AND column_name IN (
-                      'body', 'interaction_type',
-                      'email_from', 'email_to', 'email_subject', 'email_message_id'
+                      'direction', 'content_preview',
+                      'to_email', 'to_phone', 'sent_at'
                   )
-            ) = 6 THEN 'applied'
+            ) = 5 THEN 'applied'
             ELSE 'partial_or_pending'
         END
 
     UNION ALL
     -- 060 — lead_interactions legacy lead_id FK dropped
+    -- "applied" only if the table exists AND the legacy FK is gone (an
+    -- absent table means migration 023 / leads-schema is also missing,
+    -- which is upstream of this drop — surface as pending so the operator
+    -- applies the schema migrations first).
     SELECT
         '060_lead_interactions_drop_legacy_lead_fk',
         'lead_interactions.lead_id legacy FK to leads(id) is GONE',
         CASE
             WHEN NOT EXISTS (
-                SELECT 1 FROM pg_constraint
-                WHERE conrelid = 'public.lead_interactions'::regclass
-                  AND contype = 'f'
-                  AND pg_get_constraintdef(oid) ILIKE '%REFERENCES%public.leads%'
+                SELECT 1 FROM pg_class cls
+                JOIN pg_namespace n ON n.oid = cls.relnamespace
+                WHERE n.nspname = 'public' AND cls.relname = 'lead_interactions'
+            ) THEN 'pending'
+            WHEN NOT EXISTS (
+                SELECT 1
+                FROM pg_constraint c
+                JOIN pg_class cls ON cls.oid = c.conrelid
+                JOIN pg_namespace n ON n.oid = cls.relnamespace
+                WHERE n.nspname = 'public'
+                  AND cls.relname = 'lead_interactions'
+                  AND c.contype = 'f'
+                  AND pg_get_constraintdef(c.oid) ILIKE '%REFERENCES%public.leads%'
             ) THEN 'applied'
             ELSE 'pending'
         END
@@ -123,16 +142,34 @@ WITH checks AS (
 
     UNION ALL
     -- 062 — OASIS lead lifecycle 7→11 stages
+    -- The migration remaps tenant_records.data->>'stage' for the oasis tenant:
+    --   old 'new'       -> 'new_contact'
+    --   old 'contacted' -> 'outreach'
+    --   old 'won'       -> 'active_client'
+    -- "applied" = none of the old stage values remain for oasis leads (also
+    -- vacuously true if there are zero oasis lead rows at all — that's fine,
+    -- the remap is a no-op on empty data).
     SELECT
         '062_oasis_lead_lifecycle_v2',
-        'oasis tenant lead_stage_definitions has 11 stages',
+        'no oasis lead rows still carry old stage values (new/contacted/won)',
         CASE
-            WHEN (
-                SELECT COUNT(*) FROM public.lead_stage_definitions lsd
-                JOIN public.tenants t ON t.id = lsd.tenant_id
+            WHEN NOT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema = 'public' AND table_name = 'tenant_records'
+            ) THEN 'pending'
+            WHEN NOT EXISTS (
+                SELECT 1 FROM information_schema.tables
+                WHERE table_schema = 'public' AND table_name = 'tenants'
+            ) THEN 'pending'
+            WHEN EXISTS (
+                SELECT 1
+                FROM tenant_records tr
+                JOIN tenants t ON t.id = tr.tenant_id
                 WHERE t.slug = 'oasis'
-            ) >= 11 THEN 'applied'
-            ELSE 'pending_or_partial'
+                  AND tr.entity_type = 'lead'
+                  AND tr.data->>'stage' IN ('new', 'contacted', 'won')
+            ) THEN 'pending'
+            ELSE 'applied'
         END
 
     UNION ALL
