@@ -2043,25 +2043,84 @@ class _ChatHandler(BaseHTTPRequestHandler):
 
         emit("agent_status", {"phase": "spawning", "agent": agent, "cwd": str(root)})
         emit("session", {"session_id": f"{provider}-{int(time.time() * 1000)}"})
-
-        # Pass chat_mode so each runtime can pick the right safety flag:
-        #   plan  → codex --sandbox=read-only,   gemini --approval-mode=plan
-        #   build → codex --sandbox=workspace-write, gemini --approval-mode=yolo
-        # Without this, the CLIs were hardcoded to plan-mode equivalents and
-        # the operator's /build command was ignored on these runtimes.
-        if provider == "codex":
-            text = self._run_codex_cli(root, prompt_text, chat_mode=chat_mode)
-        elif provider == "gemini":
-            text = self._run_gemini_cli(root, prompt_text, chat_mode=chat_mode)
-        else:
-            emit("error", {
-                "code": "invalid_cli_provider",
-                "message": f"Unknown CLI provider: {provider}. Pick Claude / Codex / Gemini.",
-            })
-            emit("done", {})
-            return
-
+        # Move to "thinking" BEFORE the blocking subprocess call so the
+        # dashboard's status indicator updates immediately. The old order
+        # (emit thinking AFTER the call returned) made the dashboard look
+        # like it was stuck on "spawning" for 60-180s while codex/gemini
+        # ran their internal tool loop silently.
         emit("agent_status", {"phase": "thinking"})
+
+        # Heartbeat ticker — codex/gemini's `exec -p <prompt>` blocks the
+        # current thread for as long as the CLI's internal tool-use loop
+        # runs (file reads, command exec, HTTP fetches), then returns one
+        # big delta. No SSE events during that wait. The dashboard's
+        # inactivity watchdog (SSE_INACTIVITY_TIMEOUT_MS in ChatWidget)
+        # fires if no event arrives for ~75s — pre-2026-05-23 that
+        # tripped on every long daily-briefing turn.
+        #
+        # Background thread emits agent_status pings every 25s so the
+        # stream stays alive. emit_lock serializes writes so the ping
+        # bytes don't interleave with whatever the main thread is
+        # writing. stop_event signals the ticker to exit cleanly when
+        # the subprocess returns.
+        import threading
+        stop_event = threading.Event()
+        emit_lock = threading.Lock()
+        tick_count = {"n": 0}
+
+        def _heartbeat() -> None:
+            # First wait 25s; stop_event short-circuits the wait if the
+            # subprocess finishes faster than that. Loop until stopped.
+            while not stop_event.wait(25.0):
+                tick_count["n"] += 1
+                try:
+                    with emit_lock:
+                        emit("agent_status", {
+                            "phase": "thinking",
+                            "detail": f"working ({tick_count['n'] * 25}s)",
+                        })
+                except Exception:
+                    # Connection dropped or emit raised — stop ticking.
+                    break
+
+        # Wrap the original emit so the main thread also holds the lock
+        # when emitting. Prevents byte interleaving between heartbeat
+        # ticks and the main thread's delta/done events.
+        original_emit = emit
+
+        def _locked_emit(event: str, data: dict) -> None:
+            with emit_lock:
+                original_emit(event, data)
+
+        ticker = threading.Thread(target=_heartbeat, name=f"{provider}-heartbeat", daemon=True)
+        ticker.start()
+
+        try:
+            # Pass chat_mode so each runtime can pick the right safety flag:
+            #   plan  → codex --sandbox=read-only,   gemini --approval-mode=plan
+            #   build → codex --sandbox=workspace-write, gemini --approval-mode=yolo
+            # Without this, the CLIs were hardcoded to plan-mode equivalents
+            # and the operator's /build command was ignored on these runtimes.
+            if provider == "codex":
+                text = self._run_codex_cli(root, prompt_text, chat_mode=chat_mode)
+            elif provider == "gemini":
+                text = self._run_gemini_cli(root, prompt_text, chat_mode=chat_mode)
+            else:
+                stop_event.set()
+                ticker.join(timeout=2)
+                _locked_emit("error", {
+                    "code": "invalid_cli_provider",
+                    "message": f"Unknown CLI provider: {provider}. Pick Claude / Codex / Gemini.",
+                })
+                _locked_emit("done", {})
+                return
+        finally:
+            stop_event.set()
+            ticker.join(timeout=2)
+
+        # Reassign emit to the locked variant for the remainder of this
+        # function. Future emits go through the same serialization.
+        emit = _locked_emit
         text = (text or "").strip()
         if not text:
             # Defense in depth — the inner _run_*_cli functions now raise
