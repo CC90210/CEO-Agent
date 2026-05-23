@@ -1,7 +1,7 @@
 ---
 adr: 0006
-title: Multi-employee tenant access to a shared admin bridge (DRAFT — decision pending)
-status: proposed
+title: Multi-employee tenant access to a shared admin bridge
+status: accepted
 date: 2026-05-23
 deciders: [bravo, cc]
 supersedes: null
@@ -10,11 +10,16 @@ superseded_by: null
 
 # ADR-0006 — Multi-employee tenant access to a shared admin bridge
 
-> **STATUS — PROPOSED, NOT ACCEPTED.** CC raised this on 2026-05-23 while
-> thinking through client deployments. The architectural question is
-> real and the gap is partial. This ADR maps what's built, what's
-> missing, and three options for closing the gap. CC's call on which
-> option (or none) we ship.
+> **STATUS — ACCEPTED 2026-05-23.** CC's open questions answered:
+> 1. Employees use admin's CLI subscription by default. Hard requirement.
+> 2. Employees can paste their own API key in their personal portal;
+>    that key is **private to them** — no other tenant member can read,
+>    use, or even see it exists.
+> 3. Build now: ship the policy + privacy + UX polish today.
+>    Defer cloud-relay infrastructure (Option B) until a real client
+>    actually needs it.
+>
+> Implementation lives in the action items at the bottom of this ADR.
 
 ## Context
 
@@ -93,24 +98,40 @@ Admin's bridge exposes itself via Tailscale Funnel or Cloudflare Tunnel. Public 
 - **Cost:** ~1-2 days of work + per-tenant Cloudflare / Tailscale setup. Less custom code than Option B.
 - **Trade-off:** Adds an external dependency (Cloudflare / Tailscale) per client. Some clients (corporate IT) may not let employees install Tailscale. But the infra is battle-tested.
 
-## Recommendation
+## Accepted policy (2026-05-23)
 
-**Option A now. Option B/C later (or never), if real client demand surfaces.**
+**Default = admin's CLI subscription + admin's bridge tools for every employee.**
 
-Reasoning:
-- 100% of stated requirements EXCEPT "employees use admin's bridge for CLI chat" already work.
-- Cloud chat with tenant API key satisfies the actual employee chat need. CLI chat is faster + cheaper but not strictly required.
-- Backend automations (the load-bearing part — "powering dashboard, metrics, backend automations, updating dashboard, keeping CRM updated") all work via `/api/bridge/records` and run on admin's machine regardless.
-- Building Option B or C now is premature optimization. Wait for the first client where an employee actually NEEDS CLI chat, then decide which path.
+Mechanics:
+- Admin's machine runs the bridge 24/7. Bridge heartbeats to Postgres; `getBridgeOnline(tenantId)` sees it as online for everyone on the tenant.
+- Employee browser opens dashboard, picks chat mode "Auto" or "CLI": chat request routes to admin's bridge (via the cloud-relay path when shipped — until then, employees on a machine that can't reach admin's `localhost:9100` get cloud chat with the tenant's saved API key; ChatWidget surfaces this clearly).
 
-**Immediate action items (Option A polish):**
+**Personal-key override = private to that employee.**
 
-1. ChatWidget — when `bridgeOnline` (tenant-scoped) is true but `localhost:9100/health` from THIS browser is unreachable, render "Bridge running on a teammate's machine; this session uses cloud chat" instead of "BRIDGE OFFLINE." Operator clarity, no infra change.
-2. `/settings → Devices` — surface "your tenant's primary bridge is on `<machine_label>`; you're not the bridge owner" so employees understand the model.
-3. `/playbook` — add a client-deployment-toolkit prompt: "Set up the admin's always-on bridge" + "Onboard a new employee on this tenant" — make the dual-mode model explicit in the onboarding flow.
+Mechanics:
+- Per-user override row in `agent_model_config` (`user_id = auth.uid()`).
+- RLS policy `amc_select_own_and_default` (migration 063, shipping with this ADR): tenant default rows visible to all tenant members; per-user override rows visible ONLY to the owner or to a tenant admin.
+- Resolver in `lib/chat-auth.ts:resolveChatContext` already prioritizes per-user → tenant default → platform fallback. No code change needed.
+- Encrypted ciphertext was already isolated by encryption (AES-256-GCM via `BRAVO_FIELD_ENCRYPTION_KEY`). Migration 063 closes the metadata leak too — provider name, model choice, last_used_at timestamp, presence-of-override.
 
-## Open questions for CC
+**Economics:**
+- Admin's Claude Pro / Codex / Gemini subscription gets burned by the whole tenant. Rate limits + flat-rate quota costs land on admin's account. Accepted trade-off — empire's use is unlikely to saturate one operator's quota.
+- If quota IS exceeded: ChatWidget surfaces the bridge's `cli_auth_required` / `cli_empty_output` error codes with actionable next steps. Employees paste their own key in Settings → My Agents and chat continues against the (private) personal key.
 
-1. **Confirm scope.** Is "employee can use CLI chat via admin's bridge" actually a hard requirement, or is "employee can chat via cloud + see CRM updated by admin's bridge" sufficient? (Recommendation reads option A as sufficient; CC should confirm.)
-2. **Client-CLI economics.** If employees burn admin's Claude Pro subscription, the admin hits Anthropic's rate limit faster. Is that the intended model, or is each employee expected to bring their own AI subscription?
-3. **Timing.** If we DO need B/C, is it worth shipping pre-client-#1 or wait until a client actually asks?
+**Deferred:** Cloud-relay (Option B) and Tunnel (Option C). Re-open when:
+- A client onboards and reports CLI-chat-from-remote-employee-browser as a real blocker, OR
+- The dashboard's cloud chat fails to satisfy 90%+ of employee chat needs (e.g. operators need actual local-file tools, not just records updates).
+
+## Action items — shipping today
+
+1. **Migration 063** — tighten SELECT RLS on `agent_model_config` so per-user override rows are owner-only. Filed at `database/063_agent_config_read_privacy.sql`. Apply via the Supabase SQL editor or migration tool of choice. **THIS IS THE LOAD-BEARING PRIVACY FIX.**
+2. **ChatWidget UX polish** — when `localhost:9100/health` from this browser is unreachable but the tenant has a bridge online elsewhere, render "Bridge runs on `<owner_label>`'s machine; this session uses cloud chat with the tenant API key" instead of "BRIDGE OFFLINE." Helper: query the freshest `bridge_pairings.label` server-side and pass it through to ChatWidget.
+3. **Settings → Devices** — surface "your tenant's primary bridge is on `<machine_label>` (owned by `<owner_name>`)" so employees understand the model at a glance.
+4. **Setup wizard / client-deploy prompts** — make the admin-bridge model explicit on the first-deploy screen and in the client-onboarding prompts: "One machine in your company stays on 24/7 to power the bridge. Employees connect from anywhere; their personal API keys are private to them."
+
+## Action items — future / on-demand
+
+- **Option B (cloud-relay)** — `bridge_relay_client.py` connects out to `wss://agent-dashboard-cc90210.vercel.app/api/bridge/relay`; held-open. Dashboard proxies CLI chat requests via the connection. Auth: per-employee identity forwarded in request headers; bridge validates against `bridge_pairings.tenant_id`.
+- **Option C (Cloudflare Tunnel / Tailscale)** — admin's bridge gets a per-tenant public hostname; `bridge_pairings.public_url` carries it; `BRIDGE_CHAT_BASE` becomes tenant-dynamic.
+- Re-open this ADR when the cost of NOT shipping these exceeds the cost of building them.
+
