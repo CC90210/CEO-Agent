@@ -132,7 +132,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-05-23
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Consistency sweep — normalized 9 broken repo-root walks (Business-Empire-Agent literal → parents[N]). All 9 secret_loader callers now import cleanly on the renamed CEO-Agent repo.
+- **Result:** Turnkey sweep — patched 13 scripts for Python 3.9 PEP-604 compat (from __future__ import annotations), made 7 scripts platform-aware (Mac/Windows path branching via sibling_repos).
 
 *Last updated: 2026-05-23*
 
