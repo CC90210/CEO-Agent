@@ -219,6 +219,23 @@ SEED_JOBS: list[dict] = [
         "is_active": True,
     },
     {
+        # Added 2026-05-22 (V7.2) — sleep agent. Fixes the gap where
+        # auto_dream.py only runs at graceful session end, so any session
+        # killed abruptly (crash, hard close) loses its lessons. This runs
+        # nightly regardless, reads last 24h of session_log + git activity,
+        # asks Haiku what's worth remembering, appends to MISTAKES/PATTERNS/
+        # DECISIONS with a git commit per entry. 7-day cooldown per topic
+        # hash prevents the same lesson getting re-logged nightly.
+        # Scheduled at 04:00 ET — one hour after Daily State DB Backup
+        # (03:00) so the DB snapshot is fresh when the agent queries it.
+        "name": "Bravo — Sleep Agent (Memory Consolidation)",
+        "description": "Nightly 04:00 LLM-judged memory consolidation. Reads last 24h of session activity, identifies new lessons learned, appends to memory/MISTAKES.md, memory/PATTERNS.md, memory/DECISIONS.md with git-commit-per-entry. Uses Claude Haiku for cost efficiency. Fixes the abrupt-session-end gap where lessons evaporate.",
+        "schedule": "0 4 * * *",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/bravo_sleep.py", "args": ["run"]},
+        "is_active": True,
+    },
+    {
         # Added 2026-05-22 — meta-monitoring. Catches future broken crons
         # (like the Daily MRR Auto-Sync gap that sat silently failing
         # for days). Scans cron_jobs nightly for last_result starting with

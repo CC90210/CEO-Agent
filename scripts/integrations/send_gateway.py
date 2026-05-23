@@ -191,8 +191,6 @@ KNOWN_AGENT_SOURCES: frozenset[str] = frozenset({
     "funnel_nurture",
     "email_engine",
     "booking_engine",
-    "instagram_engine",
-    "skool_engine",
     "n8n_inbound",
     "manual_cc",
     "scheduler",

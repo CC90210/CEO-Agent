@@ -121,8 +121,6 @@ Organized by the question, not the tool. The tool names are in italics so you ca
 | "Schedule a post" | *`late_tool.py create`* (will reroute to a paid plan when you upgrade) |
 | "Run the content pipeline on this video" | *`content_pipeline.py process`* |
 | "Plan next week's content" | *`content_engine.py week-plan`* |
-| "Check my Instagram DMs" | *`instagram_engine.py check-dms`* |
-| "Manage the Skool community" | *`skool_engine.py`* (runs as daemon) |
 
 ### Calendar, email inbox, Google Workspace
 
