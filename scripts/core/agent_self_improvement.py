@@ -31,10 +31,16 @@ from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PYTHON = sys.executable
 
+# Use sibling_repos as the canonical resolver so atlas/maven paths follow
+# the same Mac/Windows logic as everyone else. Local repo (bravo) stays
+# pinned to REPO_ROOT — that's already the canonical answer for "this repo."
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
+from sibling_repos import SIBLING_REPOS as _SIBLING_REPOS  # noqa: E402
+
 AGENT_ROOTS = {
     "bravo": REPO_ROOT,
-    "atlas": Path(r"C:\Users\User\APPS\CFO-Agent"),
-    "maven": Path(r"C:\Users\User\CMO-Agent"),
+    "atlas": _SIBLING_REPOS["atlas"],
+    "maven": _SIBLING_REPOS["maven"],
 }
 
 

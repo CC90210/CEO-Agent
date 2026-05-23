@@ -39,6 +39,7 @@ All commands support --json flag for agent consumption.
 import argparse
 import json
 import os
+import platform
 import smtplib
 import subprocess
 import sys
@@ -94,7 +95,20 @@ def load_env():
                 os.environ.setdefault(key.strip(), value.strip())
 
 
-GWS_PATH = os.environ.get("GWS_PATH", r"C:\Users\User\AppData\Roaming\npm\gws.cmd")
+def _default_gws_path() -> str:
+    """Pick a sensible default for the gws CLI.
+
+    Windows: npm global install lands at %APPDATA%\\npm\\gws.cmd.
+    Mac: nvm / Homebrew installs land in $PATH, so `gws` works directly.
+    Always honoured by the GWS_PATH env var when set.
+    """
+    if platform.system() == "Darwin":
+        from shutil import which
+        return which("gws") or "gws"
+    return r"C:\Users\User\AppData\Roaming\npm\gws.cmd"
+
+
+GWS_PATH = os.environ.get("GWS_PATH", _default_gws_path())
 
 
 _PINGED_GWS_SERVICES: set[str] = set()

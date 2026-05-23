@@ -34,10 +34,18 @@ try:
     from agent_self_improvement import AGENT_ROOTS as _AGENT_ROOTS
     CROSS_AGENT_ROOTS = {k: v for k, v in _AGENT_ROOTS.items() if k != "bravo"}
 except ImportError:
-    CROSS_AGENT_ROOTS = {
-        "atlas": Path(r"C:\Users\User\APPS\CFO-Agent"),
-        "maven": Path(r"C:\Users\User\CMO-Agent"),
-    }
+    # Fallback only when agent_self_improvement can't be imported. Pull
+    # from sibling_repos so we get the platform-correct path.
+    try:
+        from sibling_repos import SIBLING_REPOS as _SR
+        CROSS_AGENT_ROOTS = {
+            k: _SR[k] for k in ("atlas", "maven") if k in _SR
+        }
+    except ImportError:
+        CROSS_AGENT_ROOTS = {
+            "atlas": Path(r"C:\Users\User\APPS\CFO-Agent"),
+            "maven": Path(r"C:\Users\User\CMO-Agent"),
+        }
 
 LLM_MARKERS = (
     "from anthropic",

@@ -7,11 +7,17 @@ Generate Maven's clean .env.agents:
 
 Run once to migrate. Safe to re-run — backs up existing file.
 """
+import sys
 from pathlib import Path
 from datetime import datetime
 
-BRAVO_ENV = Path(r"C:\Users\User\Business-Empire-Agent\.env.agents")
-MAVEN_ENV = Path(r"C:\Users\User\CMO-Agent\.env.agents")
+# Pull sibling-repo locations from the canonical resolver so this script
+# works on both Mac and Windows without hardcoded paths.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sibling_repos import SIBLING_REPOS  # noqa: E402
+
+BRAVO_ENV = SIBLING_REPOS["bravo"] / ".env.agents"
+MAVEN_ENV = SIBLING_REPOS["maven"] / ".env.agents"
 
 
 def parse_env(path: Path) -> dict:

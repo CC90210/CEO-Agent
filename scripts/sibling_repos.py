@@ -20,15 +20,35 @@ Public API:
 from __future__ import annotations
 
 import os
+import platform
 from pathlib import Path
 
+# Platform-aware defaults. Windows is CC's primary; Mac is the travel rig.
+# Env var overrides (BRAVO_REPO, MAVEN_REPO, ...) always win — set them in
+# .env.agents or process env when a sibling lives somewhere non-standard.
+_IS_MAC = platform.system() == "Darwin"
+_HOME = Path(os.path.expanduser("~"))
+
+if _IS_MAC:
+    _BRAVO_DEFAULT = _HOME / "CEO-Agent"
+    _MAVEN_DEFAULT = _HOME / "CMO-Agent"
+    _ATLAS_DEFAULT = _HOME / "APPS" / "CFO-Agent"
+    _AURA_DEFAULT = _HOME / "AURA"
+    _LIFE_DEFAULT = _HOME / "life-preservation"
+else:
+    _BRAVO_DEFAULT = Path(r"C:\Users\User\CEO-Agent")
+    _MAVEN_DEFAULT = Path(r"C:\Users\User\CMO-Agent")
+    _ATLAS_DEFAULT = Path(r"C:\Users\User\APPS\CFO-Agent")
+    _AURA_DEFAULT = Path(r"C:\Users\User\AURA")
+    _LIFE_DEFAULT = Path(r"C:\Users\User\life-preservation")
+
 SIBLING_REPOS: dict[str, Path] = {
-    "bravo": Path(os.environ.get("BRAVO_REPO", r"C:\Users\User\Business-Empire-Agent")),
-    "maven": Path(os.environ.get("MAVEN_REPO", r"C:\Users\User\CMO-Agent")),
-    "atlas": Path(os.environ.get("ATLAS_REPO", r"C:\Users\User\APPS\CFO-Agent")),
-    "aura":  Path(os.environ.get("AURA_REPO",  r"C:\Users\User\AURA")),
+    "bravo": Path(os.environ.get("BRAVO_REPO", str(_BRAVO_DEFAULT))),
+    "maven": Path(os.environ.get("MAVEN_REPO", str(_MAVEN_DEFAULT))),
+    "atlas": Path(os.environ.get("ATLAS_REPO", str(_ATLAS_DEFAULT))),
+    "aura":  Path(os.environ.get("AURA_REPO",  str(_AURA_DEFAULT))),
     "life-preservation": Path(
-        os.environ.get("LIFE_PRESERVATION_REPO", r"C:\Users\User\life-preservation")
+        os.environ.get("LIFE_PRESERVATION_REPO", str(_LIFE_DEFAULT))
     ),
 }
 
@@ -50,7 +70,8 @@ def script_in(agent: str, *parts: str) -> Path | None:
 
     Example:
         script_in("maven", "scripts", "late_tool.py")
-        # -> Path("C:/Users/User/CMO-Agent/scripts/late_tool.py")
+        # -> Windows: Path("C:/Users/User/CMO-Agent/scripts/late_tool.py")
+        # -> Mac:     Path("/Users/<user>/CMO-Agent/scripts/late_tool.py")
 
     Returns None if the agent's repo isn't installed.
     """
