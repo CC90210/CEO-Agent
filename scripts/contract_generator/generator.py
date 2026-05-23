@@ -4,10 +4,9 @@ import time
 import stripe
 import argparse
 from pathlib import Path
-# V6.8.3: migrated from python-dotenv to lib.secret_loader
-_REPO = Path(__file__).resolve()
-while _REPO.name != 'Business-Empire-Agent' and _REPO.parent != _REPO:
-    _REPO = _REPO.parent
+# V6.8.3: migrated from python-dotenv to lib.secret_loader.
+# scripts/contract_generator/<file>.py → parents[2] is the repo root.
+_REPO = Path(__file__).resolve().parents[2]
 import sys as _sys
 _sys.path.insert(0, str(_REPO / 'scripts'))
 from lib.secret_loader import load_env as _load_env  # noqa: E402

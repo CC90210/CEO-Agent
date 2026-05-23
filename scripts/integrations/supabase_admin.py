@@ -34,18 +34,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT))
 
-# V6.8.3: migrated from python-dotenv to lib.secret_loader.
-# The repo was originally named Business-Empire-Agent and got renamed
-# to CEO-Agent during the 2026-05-21 split (Bravo/CEO-Agent +
-# Maven/CMO-Agent + Atlas/CFO-Agent). Match either name; otherwise
-# fall back to the file's grandparent (this file lives at
-# <repo>/scripts/integrations/supabase_admin.py).
-_REPO = Path(__file__).resolve()
-_RECOGNIZED_REPO_NAMES = {'Business-Empire-Agent', 'CEO-Agent'}
-while _REPO.name not in _RECOGNIZED_REPO_NAMES and _REPO.parent != _REPO:
-    _REPO = _REPO.parent
-if _REPO.parent == _REPO:
-    _REPO = Path(__file__).resolve().parent.parent.parent
+# V6.8.3: migrated from python-dotenv to lib.secret_loader. The repo was
+# renamed Business-Empire-Agent → CEO-Agent during the 2026-05-21 split;
+# instead of matching repo names by literal, derive the root from this
+# file's known position: scripts/integrations/supabase_admin.py → parents[2].
+_REPO = Path(__file__).resolve().parents[2]
 import sys as _sys
 _sys.path.insert(0, str(_REPO / 'scripts'))
 from lib.secret_loader import load_env as _load_env  # noqa: E402
