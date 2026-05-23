@@ -22,6 +22,7 @@ arm-tool polish:
 - `a176645 feat(welcome): plain-English manifest + head-anchored modules + density cleanup`
 - `bfffdad feat(welcome): forearm tool gauntlets + audit-fix OpenRouter model IDs`
 - `6021a8f chore(welcome): remove temporary verification artifacts`
+- `7358d12 fix(welcome): restore full 11-phase agent assembly`
 - composition root: `components/landing/AgentAssemblyScrollScene.tsx`
 - figure: `components/landing/agent-assembly/AgentFigure.tsx`
 - modules: `components/landing/agent-assembly/modules/*`
@@ -65,6 +66,8 @@ What changed:
 - Confirmed `/welcome` root no longer uses `overflow-hidden`; fixed backgrounds are behind the scroll scene.
 - Removed accidentally tracked `tmp/` verification screenshots/spec from the dashboard repo and added
   `tmp/` to `.gitignore` plus `tmp/**` to `tsconfig.json` excludes.
+- Restored the 11-phase scroll sequence after the gauntlet pass regressed the scene to 8 phases.
+  Business Layer, Command Centre, and Dashboard Metrics now install as phases 9-11 again.
 
 ## User Feedback To Preserve
 
@@ -106,14 +109,17 @@ Results:
 
 - TypeScript clean.
 - Lint clean except the pre-existing `components/agents/AgentChat.tsx:275` hook dependency warning.
-- Vercel production deployment for `6021a8f` is Ready:
-  `https://agent-dashboard-nrfjm4mxa-cc90210.vercel.app`
+- Vercel production deployment for `7358d12` is Ready:
+  `https://agent-dashboard-r1zz4az4f-cc90210.vercel.app`
 - Production alias probe: `https://agent-dashboard-cc90210.vercel.app/welcome` returned HTTP 200.
 - Related route probes returned HTTP 200:
   `/command-centre-explained`, `/configure`, `/download`.
-- Anonymous/headless Playwright production pass at 1440x900 checked seven real scroll stops.
-  The sticky scene stayed in view through the assembly, active manifest rows advanced,
-  no console errors fired, and the final entry choices appeared at the bottom.
+- Anonymous/headless Playwright production pass at 1440x900 checked ten real scroll stops.
+  Evidence: scrollHeight 10680, maxScroll 9780, manifestCount 11, no console errors,
+  Bridge Tools present, Dashboard Metrics present. Active rows advanced through
+  State Pulse, Memory Spine, Browser Optics, Guard Shield, Output Channels,
+  Business Layer, Command Centre, and Dashboard Metrics. The final entry choices
+  appeared at the bottom.
 
 Important note: `https://agent-dashboard.vercel.app/welcome` returned 404; the live production alias
 for this project is `https://agent-dashboard-cc90210.vercel.app`.
