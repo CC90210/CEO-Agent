@@ -306,6 +306,24 @@ class WarmClaudeProcess:
                 "CLAUDE_PROJECT_DIR": str(root),
             },
         )
+        # Enriched PATH — Claude Code's shebang resolves `node` via PATH,
+        # and on macOS GUI-launched bridges the inherited LaunchServices
+        # PATH is /usr/bin:/bin:/usr/sbin:/sbin (no /opt/homebrew, no
+        # nvm). Result: warm process died immediately with
+        # `env: node: No such file or directory` (exit 127). Layering
+        # the enriched PATH so nvm/Homebrew node is reachable from the
+        # warm subprocess. Mirrors what bridge_chat_server.py's
+        # _enriched_path does for the cold-spawn path.
+        try:
+            try:
+                from ._subprocess_helpers import enriched_path as _enriched_path  # type: ignore
+            except ImportError:
+                from _subprocess_helpers import enriched_path as _enriched_path  # type: ignore
+            env["PATH"] = _enriched_path(claude_bin)
+        except Exception:
+            # Best-effort — if the helper can't import for any reason
+            # we keep the existing env. Cold spawn fallback still works.
+            pass
 
         self.proc = subprocess.Popen(
             args,

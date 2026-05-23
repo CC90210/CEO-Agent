@@ -1844,8 +1844,41 @@ class _ChatHandler(BaseHTTPRequestHandler):
             and _is_auth_failure(stderr_tail, exit_code)
         )
         if not should_fallback:
-            # Original behaviour: close the stream and let the user retry
-            # from the dashboard's "Retry on the other mode" button.
+            # Warm process died for a non-auth reason. Two sub-cases:
+            #
+            # 1. No text was streamed yet — safe to fall back to cold
+            #    spawn. Return False so the dispatcher runs
+            #    _run_chat_via_claude with the enriched PATH lookup that
+            #    survives launchd's slim PATH on macOS. This converts
+            #    a silent "agent returned no response" into a clean
+            #    cold-spawned turn.
+            #
+            # 2. Some text WAS streamed before the warm proc died —
+            #    can't safely restart (would duplicate the partial
+            #    response). Emit a structured error so the dashboard's
+            #    error banner surfaces a real reason + Retry button.
+            try:
+                print(
+                    f"[bridge] warm pool aborted (exit={exit_code}, emitted_text={state['emitted_any_text']}, "
+                    f"stderr_tail={stderr_tail!r})",
+                    file=sys.stderr,
+                    flush=True,
+                )
+            except Exception:
+                pass
+            if not state["emitted_any_text"]:
+                # Cold-spawn fallback. The dispatcher reads `return False`
+                # as "warm did not handle this turn, try cold."
+                return False
+            # Partial stream — close it with a real error so the user
+            # sees what happened instead of a silent done.
+            emit("error", {
+                "code": "warm_pool_aborted",
+                "message": (
+                    f"The warm Claude process died mid-stream (exit {exit_code}). "
+                    "Click Retry to spawn a fresh process."
+                ),
+            })
             emit("done", {"warm_aborted": True})
             return True
 
