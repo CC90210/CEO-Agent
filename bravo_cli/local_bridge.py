@@ -165,11 +165,11 @@ def detect_repo_clones() -> dict[str, dict]:
     """Bravo / Atlas / Maven / Aura / Hermes — repo present on disk."""
     home = HOME
     candidates = {
-        "bravo_repo": [home / "Business-Empire-Agent"],
-        "atlas_repo": [home / "APPS" / "CFO-Agent"],
-        "maven_repo": [home / "CMO-Agent"],
+        "bravo_repo": [home / "CEO-Agent", home / "Business-Empire-Agent"],
+        "atlas_repo": [home / "APPS" / "CFO-Agent", home / "CFO-Agent"],
+        "maven_repo": [home / "CMO-Agent", home / "APPS" / "CMO-Agent"],
         "aura_repo": [home / "AURA"],
-        "hermes_repo": [home / "hermes"],
+        "hermes_repo": [home / "hermes", home / "APPS" / "hermes"],
     }
     out: dict[str, dict] = {}
     for slug, paths in candidates.items():
@@ -219,6 +219,7 @@ def _env_file_paths() -> list[Path]:
         here / ".env.agents",
         here / ".env",
         HOME / ".bravo" / ".env.agents",
+        HOME / "CEO-Agent" / ".env.agents",
         HOME / "Business-Empire-Agent" / ".env.agents",
     ]
 

@@ -120,13 +120,16 @@ def _env_files() -> list[Path]:
     """
     home = Path.home()
     candidates = [
-        # Bravo (this repo)
+        # Bravo (this repo) — CEO-Agent post-rename, Business-Empire-Agent
+        # legacy. Both listed so machines that haven't migrated still work.
         Path.cwd() / ".env.agents",
+        home / "CEO-Agent" / ".env.agents",
         home / "Business-Empire-Agent" / ".env.agents",
         home / ".bravo" / ".env.agents",
         # Atlas (CFO)
         home / "APPS" / "CFO-Agent" / ".env",
         home / "APPS" / "CFO-Agent" / ".env.agents",
+        home / "CFO-Agent" / ".env.agents",
         # Maven (CMO)
         home / "CMO-Agent" / ".env.agents",
         home / "CMO-Agent" / ".env",
