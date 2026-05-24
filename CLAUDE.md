@@ -102,12 +102,23 @@ CC mentions an app → load brain/APP_REGISTRY.md → `cd` to LOCAL PATH → mak
 
 ### RULE 8: Codex Dual-AI Delegation (PROACTIVE)
 
-Auto-delegate to Codex (no CC approval): backend implementation, deep debugging with stack traces, pre-ship code review, any "get Codex to..." request. Keep in Bravo: frontend/UI, business ops, memory/state, simple fixes (< 3 files). Content/brand/ads belong to Maven — route to `C:\Users\User\CMO-Agent`, not here. Delegate to Codex via:
+Auto-delegate to Codex (no CC approval): backend implementation, deep debugging with stack traces, pre-ship code review, any "get Codex to..." request. Keep in Bravo: frontend/UI, business ops, memory/state, simple fixes (< 3 files). Content/brand/ads belong to Maven — route to `~/CMO-Agent` (Mac) or `C:\Users\User\CMO-Agent` (Windows), not here. The codex-plugin lives at `~/.claude/codex-plugin` on both OS. Delegate to Codex via:
 ```bash
-export CLAUDE_PLUGIN_ROOT="/c/Users/User/.claude/codex-plugin"
-node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" task --write "<context + task>"
+node ~/.claude/codex-plugin/scripts/codex-companion.mjs task --write "<context + task>"
 ```
 Always inject stack/file/constraint context. Present Codex output verbatim. Failure: retry with more context → switch model → Bravo takes over. See skills/codex-delegation/SKILL.md.
+
+**End-of-task review MUST include Codex (added 2026-05-23 per CC).** Self-reviews by the agent that did the work are biased — Bravo will undersell its mistakes and oversell its completeness. After ANY big task — ≥3 commits in the session, ≥5 files touched, OR any user-facing change (frontend, prompts, dashboard UI, applied migration, production push) — before declaring done:
+
+1. Write Bravo's own honest self-review (as usual, against the Stop-hook prompts).
+2. **ALSO** delegate the diff to Codex for an independent audit:
+   ```bash
+   node ~/.claude/codex-plugin/scripts/codex-companion.mjs review --wait
+   ```
+   `--wait` blocks until Codex finishes so the result is ready to include. For an architectural challenge instead of a sober walkthrough, use `adversarial-review --wait`.
+3. Present BOTH reviews verbatim to CC — Bravo's first, then a `### Codex independent audit` section with the Codex output. Don't paraphrase, don't soften, don't selectively quote. If Codex flags something Bravo dismissed, surface the disagreement explicitly.
+
+Bravo's self-review is necessary but never sufficient on big tasks. Optional reinforcement: enable the workspace stop-gate so the Stop hook blocks until Codex has reviewed — `node ~/.claude/codex-plugin/scripts/codex-companion.mjs setup --enable-review-gate`. Cross-machine: each rig enables this per-workspace; pulled docs don't propagate the gate config.
 
 ### RULE 9: Continuous Self-Improvement (AUTOMATIC — Every Interaction)
 
@@ -201,7 +212,7 @@ Pattern: `skills/[skill-name]/SKILL.md`. Key skills: `outreach-send` (canonical 
 
 ## Session Protocol
 
-On start: run `python scripts/core/agent_inbox.py list --to bravo` — surface any urgent/high messages from Codex/Atlas/Maven/Aura before new work. During: self-improvement runs continuously (Rule 9). MODERATE+ tasks: generate 2-3 hypotheses, rank, execute best. See `brain/BRAIN_LOOP.md`. After any parallel sub-agent spawn or Codex file-modifying task: spawn `validator` via Task tool before surfacing to CC (closes Observability-Evaluation Gap — see brain/ORCHESTRATION.md §Validator). Before ending: **run `python scripts/state/state_sync.py --note "[1-sentence summary]"` — NON-NEGOTIABLE.** Then update `ACTIVE_TASKS.md` → Reflexion if tasks failed → `git commit -m "bravo: sync — session YYYY-MM-DD"` → say "Memory synced."
+On start: run `python scripts/core/agent_inbox.py list --to bravo` — surface any urgent/high messages from Codex/Atlas/Maven/Aura before new work. During: self-improvement runs continuously (Rule 9). MODERATE+ tasks: generate 2-3 hypotheses, rank, execute best. See `brain/BRAIN_LOOP.md`. After any parallel sub-agent spawn or Codex file-modifying task: spawn `validator` via Task tool before surfacing to CC (closes Observability-Evaluation Gap — see brain/ORCHESTRATION.md §Validator). **End-of-task self-review on big tasks (≥3 commits / ≥5 files / any user-facing change) MUST include a Codex independent audit alongside Bravo's own review — see Rule 8.** Before ending: **run `python scripts/state/state_sync.py --note "[1-sentence summary]"` — NON-NEGOTIABLE.** Then update `ACTIVE_TASKS.md` → Reflexion if tasks failed → `git commit -m "bravo: sync — session YYYY-MM-DD"` → say "Memory synced."
 
 ## MCP vs CLI Status
 
