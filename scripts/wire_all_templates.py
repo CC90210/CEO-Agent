@@ -187,10 +187,11 @@ def verify_template(row: dict[str, Any], booking_link: str, website_link: str) -
         problems.append(f"plain text body must contain exactly one booking link, found {body_text.count(booking_link)}")
     if f'href="{booking_link}"' not in body_html:
         problems.append("HTML body missing linked booking CTA")
-    if body_html.count(f'href="{booking_link}"') != 1:
+    booking_href_count = body_html.count(f'href="{booking_link}"')
+    if booking_href_count != 1:
         problems.append(
             f"HTML body must contain exactly one booking CTA href, "
-            f"found {body_html.count(f'href=\"{booking_link}\"')}"
+            f"found {booking_href_count}"
         )
     if website_link not in body_text:
         problems.append("plain text body missing website link")

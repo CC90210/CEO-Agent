@@ -22,8 +22,11 @@ from pathlib import Path
 HOME = Path.home()
 
 # Default repo paths. Mirrors lib/agent-roots.ts in the oasis-command-center repo.
+# Order matters: first existing path wins. CEO-Agent listed before the legacy
+# Business-Empire-Agent so post-rename machines resolve to the current name.
 DEFAULTS: dict[str, list[Path]] = {
     "bravo": [
+        HOME / "CEO-Agent",
         HOME / "Business-Empire-Agent",
         Path.cwd() if (Path.cwd() / "brain" / "SOUL.md").exists() else HOME,
     ],
