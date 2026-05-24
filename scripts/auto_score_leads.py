@@ -64,24 +64,20 @@ DEFAULT_OASIS_SLUG = "oasis-ai-cc"
 # dashboard reads the same files via lib/prompts/index.ts so the manual
 # "Score with AI" button and this cron path produce identical scores.
 #
-# Resolution order (first hit wins):
-#   1. COMMAND_CENTER_REPO env var (set to the checkout path of
-#      https://github.com/CC90210/oasis-command-center)
-#   2. ~/APPS/oasis-command-center (the canonical local path; matches
-#      brain/APP_REGISTRY.md and bravo_cli/agent_roots.py)
-# If neither resolves, the script exits with a clear error pointing at
-# the new repo. The dashboard source was extracted from this repo on
-# 2026-05-18; keep both repos checked out (or set the env var) for the
-# cron path to find the prompts.
-_CC_REPO = Path(
-    os.environ.get("COMMAND_CENTER_REPO", str(Path.home() / "APPS" / "oasis-command-center"))
-)
+# Path resolution delegates to scripts/sibling_repos.py — Windows defaults
+# to C:\Users\User\APPS\oasis-command-center, Mac to ~/oasis-command-center,
+# COMMAND_CENTER_REPO env var overrides on either. Keeps the dashboard's
+# canonical location aligned with every other script that needs it.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sibling_repos import SIBLING_REPOS  # noqa: E402
+
+_CC_REPO = SIBLING_REPOS["oasis-command-center"]
 PROMPTS_DIR = _CC_REPO / "lib" / "prompts"
 if not PROMPTS_DIR.exists():
     sys.stderr.write(
         f"auto_score_leads: prompt files not found at {PROMPTS_DIR}\n"
         "Either clone https://github.com/CC90210/oasis-command-center to "
-        "~/APPS/oasis-command-center, or set COMMAND_CENTER_REPO=<path>.\n"
+        f"{_CC_REPO}, or set COMMAND_CENTER_REPO=<path>.\n"
     )
     sys.exit(2)
 SYSTEM_PROMPT = (PROMPTS_DIR / "oasis-lead-scoring.txt").read_text(encoding="utf-8").strip()
