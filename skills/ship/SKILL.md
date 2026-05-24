@@ -92,6 +92,18 @@ git diff origin/main...HEAD
 - Questions for CC → surface them now, wait for answers before proceeding.
 - NO → Continue.
 
+### Phase 4 addendum — Codex independent audit (MANDATORY, added 2026-05-23 per CC)
+
+Bravo's own pre-landing review is biased. After Phase 4 completes with no CRITICAL/HIGH outstanding, ALSO run a Codex independent audit on the same diff:
+
+```bash
+node ~/.claude/codex-plugin/scripts/codex-companion.mjs review --wait
+```
+
+Append the Codex output verbatim under a `### Codex independent audit` heading. If Codex flags a P0/P1 that Phase 4 missed, treat it the same as a Phase 4 CRITICAL — stop the ship pipeline, fix, re-run. If Codex flags a P2/P3 worth fixing, fix it inline. If Codex disagrees with a Phase 4 decision, surface the disagreement to CC before proceeding.
+
+This is the canonical Pattern 5 workflow — see [skills/codex-delegation/SKILL.md](../codex-delegation/SKILL.md) Pattern 5 + CLAUDE.md Rule 8. The Validator Gate (Phase 4.5) below evaluates AFTER both Bravo's review and Codex's audit have run.
+
 ---
 
 ## Phase 4.5: Validator Gate

@@ -16,6 +16,8 @@ Gary Tan's "Fix-First" methodology applied to CC's stack: auto-fix everything me
 
 **Announce at start:** "Running pre-landing code review."
 
+> **MANDATORY pairing on big tasks (added 2026-05-23 per CC):** Bravo's own pre-landing review is biased — the agent that did the work will undersell mistakes and oversell completeness. On any big task (≥3 commits / ≥5 files / any user-facing change), this skill's report MUST be paired with a Codex independent audit. Run `node ~/.claude/codex-plugin/scripts/codex-companion.mjs review --wait` against the diff, present BOTH reports verbatim. See [skills/codex-delegation/SKILL.md](../codex-delegation/SKILL.md) Pattern 5 + CLAUDE.md Rule 8 for the canonical workflow.
+
 ---
 
 ## The Fix-First Divide
