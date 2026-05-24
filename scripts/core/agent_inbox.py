@@ -50,7 +50,11 @@ KNOWN_AGENTS = {"bravo", "atlas", "maven", "aura", "codex", "cc", "sunbiz", "sug
 # path and writes there. The path map lives in scripts/sibling_repos.py
 # (single source of truth across Bravo). Per-machine overrides via env
 # vars: BRAVO_REPO, MAVEN_REPO, ATLAS_REPO, AURA_REPO.
-from sibling_repos import repo_for as _repo_for
+#
+# scripts/ needs to be on sys.path for the import — this script lives
+# at scripts/core/ so add the parent dir explicitly.
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
+from sibling_repos import repo_for as _repo_for  # noqa: E402
 
 
 def _inbox_path_for(recipient: str) -> Path:
