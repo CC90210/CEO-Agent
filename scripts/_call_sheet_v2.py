@@ -23,7 +23,7 @@ from datetime import datetime, timezone, timedelta
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from send_gateway import get_supabase
+from integrations.send_gateway import get_supabase
 
 db = get_supabase()
 now = datetime.now(timezone.utc)
