@@ -167,14 +167,16 @@ If CC says `hyperthink`, `ultrathink`, `think harder`, `think super hard`, `thin
 
 Auto-delegate to OpenAI Codex in background for: backend-heavy implementation (API routes, DB queries, webhooks), deep debugging with stack traces, pre-ship code review, any "get Codex to..." / "have Codex..." request.
 Keep in Bravo: frontend/UI, content, brand voice, business ops, memory/state, simple fixes (<3 files).
-Delegate via:
+The codex-plugin lives at `~/.claude/codex-plugin` on both Mac and Windows. Delegate via:
 ```bash
-export CLAUDE_PLUGIN_ROOT="/c/Users/User/.claude/codex-plugin"
-node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" task --write "<context + task>"
-node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" review
-node "$CLAUDE_PLUGIN_ROOT/scripts/codex-companion.mjs" adversarial-review "<focus>"
+node ~/.claude/codex-plugin/scripts/codex-companion.mjs task --write "<context + task>"
+node ~/.claude/codex-plugin/scripts/codex-companion.mjs review --wait
+node ~/.claude/codex-plugin/scripts/codex-companion.mjs adversarial-review --wait "<focus>"
 ```
 Always inject stack/file/constraint context. Present Codex output verbatim.
+
+**End-of-task review MUST include Codex (added 2026-05-23 per CC).** Self-reviews by the agent that did the work are biased. After any big task (≥3 commits / ≥5 files / any user-facing change): write Bravo's own self-review THEN delegate the diff to `codex-companion.mjs review --wait` for an independent audit. Present BOTH verbatim — Bravo's first, then a `### Codex independent audit` section. Don't paraphrase or selectively quote. See CLAUDE.md Rule 8 + skills/codex-delegation/SKILL.md Pattern 5 for the canonical workflow.
+
 **Codex session lock:** Check `~/.claude/AGENT_COORDINATION.md` "Active Codex Lock" before firing — two parallel Claude agents firing Codex simultaneously collide on the shared session runtime.
 
 ### RULE 5.3: Continuous Self-Improvement (NEW — automatic every interaction)

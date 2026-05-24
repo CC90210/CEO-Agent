@@ -85,6 +85,30 @@ Bravo: Reviews Codex output, handles frontend + docs
 Result: Full-stack feature with parallel execution
 ```
 
+### Pattern 5: End-of-Task Self-Review (MANDATORY for big tasks — added 2026-05-23)
+```
+Bravo: Finishes the work, runs final smoke checks
+Bravo: Writes its own honest self-review (against Stop-hook prompts)
+Bravo: node ~/.claude/codex-plugin/scripts/codex-companion.mjs review --wait
+Bravo: Presents BOTH reviews verbatim — Bravo's first, then a
+       "### Codex independent audit" section with Codex's report
+Result: CC sees the work AND a second-opinion audit before declaring done
+```
+
+**Why MANDATORY:** Self-reviews by the agent that did the work are biased. Bravo will undersell mistakes and oversell completeness without realising it. Codex has no stake in Bravo's work and reads the diff cold — that independence is exactly what catches the gaps Bravo glossed over.
+
+**When this fires:**
+- ≥3 commits in the session
+- ≥5 files touched
+- Any user-facing change (frontend, prompts, dashboard UI, applied migration, production push, deployed to Vercel)
+- Any time the Stop hook surfaces a self-review prompt and the task feels substantial
+
+**Use `adversarial-review` instead of `review`** when the work involves architectural decisions, security-sensitive changes, or a design pattern Bravo hasn't seen before. Sober walkthrough vs. challenge-the-assumptions are different deliverables.
+
+**Don't paraphrase.** Present Codex output verbatim under its own header. If Codex disagrees with something Bravo dismissed in its own review, surface the disagreement explicitly so CC can adjudicate.
+
+**Optional enforcement:** `node ~/.claude/codex-plugin/scripts/codex-companion.mjs setup --enable-review-gate` makes the Stop hook block until Codex has reviewed. Per-workspace config — each rig enables it locally; the doc pattern (this section) is what survives `git pull`.
+
 ## Integration with Task Routing
 
 When the task routing skill (`skills/task-routing/SKILL.md`) classifies a task:
