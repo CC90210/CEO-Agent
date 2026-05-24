@@ -1,9 +1,16 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-22T07:54:49.322303+00:00",
-  "script_count": 68,
-  "entry_count": 184,
+  "generated_at_iso": "2026-05-24T20:13:03.123205+00:00",
+  "script_count": 70,
+  "entry_count": 186,
   "entries": [
+    {
+      "key": "add_future_annotations",
+      "path": "scripts/add_future_annotations.py",
+      "subcmd": null,
+      "mutating": true,
+      "help": "Add `from __future__ import annotations` to Python files that use PEP 604"
+    },
     {
       "key": "apply_migration",
       "path": "scripts/apply_migration.py",
@@ -1095,6 +1102,13 @@
       "subcmd": "evaluate",
       "mutating": false,
       "help": "RLHF Outreach -- dataset builder, DPO training skeleton, and fast draft scorer. \u2014 subcommand: evaluate"
+    },
+    {
+      "key": "run_sql_via_mgmt_api",
+      "path": "scripts/run_sql_via_mgmt_api.py",
+      "subcmd": null,
+      "mutating": true,
+      "help": "One-shot: run a SQL file against oasis via the Supabase Management API."
     },
     {
       "key": "scan_secrets",

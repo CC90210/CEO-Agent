@@ -132,7 +132,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-05-24
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Workflow embed complete (mandatory Codex audit on big tasks, all 5 entry points + code-review + ship skills). All CEO-Agent work pushed (HEAD = fb4796d2). Dashboard sync prompt updated (HEAD = 3ff6277). Mac stop-gate enabled. Cross-machine ready except dashboard /welcome WIP: 296+/100- uncommitted on landing-page files from CC's separate session — awaiting CC decision before Windows switch.
+- **Result:** windows turnkey finalized: CEO-Agent junction created; 10 daemons online incl event-router migrated to scripts/core/event_router.py; bridge healthy; sibling_repos resolves bravo->CEO-Agent
 
 *Last updated: 2026-05-24*
 
