@@ -132,7 +132,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-05-24
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Bridge daemon verified healthy on Mac. Fixed 3 core/ scripts with broken import paths (agent_inbox, context_manager, system_health_check). Bravo_cli updated for CEO-Agent repo rename. V7 plan committed.
+- **Result:** Bridge daemon restarted on fresh on-disk code (PID 26136). Two call-sheet scripts fixed (send_gateway import path). Stale _repair_subdir_env_paths.py deleted.
 
 *Last updated: 2026-05-24*
 
