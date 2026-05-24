@@ -245,6 +245,7 @@ If the live check contradicts the claim, surface it in chat before acting. **Nev
 - If task status changed → update `memory/ACTIVE_TASKS.md`
 - Before session ends → update `brain/STATE.md`, `memory/ACTIVE_TASKS.md`, append to `memory/SESSION_LOG.md`, say "Memory synced."
 - Credentials live in `.env.agents`. NEVER ask CC to paste tokens.
+- **End-of-task review MUST include Codex on big tasks (≥3 commits / ≥5 files / any user-facing change).** Self-reviews by the agent that did the work are biased — Codex reads the diff cold. After your own self-review, run `node ~/.claude/codex-plugin/scripts/codex-companion.mjs review --wait` and present BOTH reports verbatim (yours first, then a `### Codex independent audit` section). Don't paraphrase or selectively quote. Added 2026-05-23 per CC; see CLAUDE.md Rule 8 + skills/codex-delegation/SKILL.md Pattern 5 for the canonical workflow.
 
 ### RULE 6: App Registry Routing
 
