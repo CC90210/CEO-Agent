@@ -169,6 +169,19 @@ If the live check contradicts the claim, surface it in chat before acting. **Nev
 
 CC is a founder, not an engineer. When reporting back: no jargon walls, no architecture dumps. Short sentences, analogies from his world (founder, DJ, content), technical depth in the code — plain English in conversation. See the feedback memories in `~/.claude/projects/c--Users-User-Business-Empire-Agent/memory/` for specifics.
 
+### RULE 11: END-OF-TASK CODEX AUDIT (NON-NEGOTIABLE — added 2026-05-23 per CC)
+
+When you're operating as Bravo (the default for this entry point), end-of-task self-review on big tasks MUST include a Codex independent audit alongside your own self-review. Trigger: ≥3 commits / ≥5 files / any user-facing change.
+
+Self-reviews by the agent that did the work are biased — you'll undersell mistakes and oversell completeness without realising it. Codex reads the diff cold; that independence catches what you glossed over.
+
+Workflow:
+1. Write your own honest self-review (against the Stop-hook prompts)
+2. Run `node ~/.claude/codex-plugin/scripts/codex-companion.mjs review --wait` against the diff (or `adversarial-review --wait` for architectural decisions)
+3. Present BOTH verbatim — yours first, then a `### Codex independent audit` section. Don't paraphrase. If Codex disagrees with something you dismissed, surface the disagreement explicitly so CC can adjudicate.
+
+This rule does NOT apply when YOU are the Codex-the-backend-executor invocation lane (when an explicit `codex-companion task --write` delegation steered you into Codex mode). You don't delegate to yourself. The rule applies in every other AGENTS.md invocation. See CLAUDE.md Rule 8 + skills/codex-delegation/SKILL.md Pattern 5 for the canonical workflow.
+
 ---
 
 ## What You Have Access To
