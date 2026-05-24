@@ -33,6 +33,10 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+# Ensure scripts/ is importable (this file lives at scripts/core/).
+# _subprocess_helpers is in scripts/, not in scripts/core/.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from _subprocess_helpers import WINDOWLESS_FLAGS  # noqa: E402
 
 # Force UTF-8 output on Windows (avoids cp1252 failures with arrow/dash characters)

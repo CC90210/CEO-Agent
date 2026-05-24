@@ -33,7 +33,9 @@ LOG_FILE = LOG_DIR / "system_health.log"
 PYTHON = sys.executable
 
 # Shared Windows console-suppression flag — see scripts/_subprocess_helpers.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+# The helper lives under scripts/, not at repo root, so prepend scripts/ to
+# the path (parents[1] = scripts/) rather than the project root.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from _subprocess_helpers import WINDOWLESS_FLAGS as CREATE_NO_WINDOW  # noqa: E402
 
 KEEP_MCPS_PER_SIGNATURE = 4
