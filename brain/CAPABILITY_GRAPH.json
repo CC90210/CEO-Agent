@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
   "agent": "bravo",
-  "generated_at": "2026-05-24T01:44:47.059765+00:00",
+  "generated_at": "2026-05-25T22:39:33.732888+00:00",
   "totals": {
     "skills": 148,
-    "scripts": 99,
+    "scripts": 108,
     "agents": 21,
-    "mcp_servers": 0,
+    "mcp_servers": 9,
     "workflows": 35,
-    "nodes_total": 303,
-    "edges_total": 37,
+    "nodes_total": 321,
+    "edges_total": 38,
     "drift_count": 0
   },
   "nodes": [
@@ -4760,6 +4760,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:cold_outreach_runner",
+      "kind": "script",
+      "name": "cold_outreach_runner",
+      "path": "scripts/cold_outreach_runner.py",
+      "description": "cold_outreach_runner.py \u2014 drain cold_outreach_campaigns through send_gateway.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:competitive_intel",
       "kind": "script",
       "name": "competitive_intel",
@@ -4840,11 +4850,41 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:daily_plan_generator",
+      "kind": "script",
+      "name": "daily_plan_generator",
+      "path": "scripts/daily_plan_generator.py",
+      "description": "daily_plan_generator.py \u2014 build today's daily_plan_items for the operator's Daily Plan tab.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:dashboard_email_consumer",
       "kind": "script",
       "name": "dashboard_email_consumer",
       "path": "scripts/dashboard_email_consumer.py",
       "description": "Dashboard outbound-email consumer daemon.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:diag_lead_visibility",
+      "kind": "script",
+      "name": "diag_lead_visibility",
+      "path": "scripts/diag_lead_visibility.py",
+      "description": "One-off diagnostic for the 'where did my imported leads go?' question.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:diag_manifest_drift",
+      "kind": "script",
+      "name": "diag_manifest_drift",
+      "path": "scripts/diag_manifest_drift.py",
+      "description": "Check whether tenant_manifests DB row for slug='sun' matches the in-code SUN_SEED. The DB row wins at runtime \u2014 if it's stale, all the seeds.ts edits this session don't take effect for the live tenant.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -4925,6 +4965,16 @@
       "name": "fleet_health",
       "path": "scripts/fleet_health.py",
       "description": "fleet_health.py \u2014 Cross-agent health rollup.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:follow_up_generator",
+      "kind": "script",
+      "name": "follow_up_generator",
+      "path": "scripts/follow_up_generator.py",
+      "description": "follow_up_generator.py \u2014 generate follow_up_tasks for stuck/missing-info/no-response leads.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -5250,6 +5300,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:reconcile_sunbiz_sequences",
+      "kind": "script",
+      "name": "reconcile_sunbiz_sequences",
+      "path": "scripts/reconcile_sunbiz_sequences.py",
+      "description": "Reconcile drip_sequences in the live Sun Biz tenant against the post-migration-064 seed in lib/sunbiz-default-sequences.ts.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:region_inference",
       "kind": "script",
       "name": "region_inference",
@@ -5275,6 +5335,16 @@
       "name": "register_skill",
       "path": "scripts/register_skill.py",
       "description": "Register Skill \u2014 the skill-onboarding tool.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:renewal_reminder",
+      "kind": "script",
+      "name": "renewal_reminder",
+      "path": "scripts/renewal_reminder.py",
+      "description": "renewal_reminder.py \u2014 daily sweep of funded deals approaching renewal window.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -5430,6 +5500,16 @@
       "discovery": "auto-docstring"
     },
     {
+      "id": "script:shop_out_sender",
+      "kind": "script",
+      "name": "shop_out_sender",
+      "path": "scripts/shop_out_sender.py",
+      "description": "shop_out_sender.py \u2014 Phase 6.3-bis + migration 069 (2026-05-25). 2026-05-25 meeting expansion: owner_phone substitution added so outbound shop-out emails carry the assigned rep's direct number, not the brand identity default. Requires migration 069 `owner_phone` column on applica",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
       "id": "script:sibling_repos",
       "kind": "script",
       "name": "sibling_repos",
@@ -5485,6 +5565,16 @@
       "name": "transcribe",
       "path": "scripts/transcribe.py",
       "description": "Voice Note Transcriber \u2014 converts audio to text using OpenAI Whisper (local). Used by the Telegram bridge to process voice messages.",
+      "tier": "tool",
+      "owner": "bravo",
+      "discovery": "auto-docstring"
+    },
+    {
+      "id": "script:underwriting_orchestrator",
+      "kind": "script",
+      "name": "underwriting_orchestrator",
+      "path": "scripts/underwriting_orchestrator.py",
+      "description": "underwriting_orchestrator.py \u2014 automatic underwriting daemon.",
       "tier": "tool",
       "owner": "bravo",
       "discovery": "auto-docstring"
@@ -5740,13 +5830,85 @@
       "discovery": "auto-frontmatter"
     },
     {
-      "id": "workflow:INDEX",
-      "kind": "workflow",
-      "name": "INDEX",
-      "path": ".agents/workflows/INDEX.md",
-      "description": "# Workflows Index \u2014 35 Automated Pipelines\n\n> Workflow files define slash-command triggers and step-by-step execution plans.\n> [[brain/CAPABILITIES]] | [[brain/AGENTS]] | [[brain/CEO_OPERATING_SYSTEM]",
+      "id": "mcp:sequential-thinking",
+      "kind": "mcp",
+      "name": "sequential-thinking",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
       "owner": "bravo",
-      "discovery": "auto-frontmatter"
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:playwright",
+      "kind": "mcp",
+      "name": "playwright",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:context7",
+      "kind": "mcp",
+      "name": "context7",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:memory",
+      "kind": "mcp",
+      "name": "memory",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:github",
+      "kind": "mcp",
+      "name": "github",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:firecrawl",
+      "kind": "mcp",
+      "name": "firecrawl",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:obsidian",
+      "kind": "mcp",
+      "name": "obsidian",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:filesystem",
+      "kind": "mcp",
+      "name": "filesystem",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
+    },
+    {
+      "id": "mcp:knowledge-graph",
+      "kind": "mcp",
+      "name": "knowledge-graph",
+      "path": ".claude/mcp.json",
+      "description": "MCP server registered in mcp.json",
+      "owner": "bravo",
+      "discovery": "auto-config"
     },
     {
       "id": "workflow:browser-harness",
@@ -5880,6 +6042,15 @@
       "name": "hyperthink",
       "path": ".agents/workflows/hyperthink.md",
       "description": "Fire the Hyperthink maximum-depth reasoning protocol \u2014 structured 7-phase loop for architectural, irreversible, or multi-hypothesis problems.",
+      "owner": "bravo",
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "workflow:INDEX",
+      "kind": "workflow",
+      "name": "INDEX",
+      "path": ".agents/workflows/INDEX.md",
+      "description": "# Workflows Index \u2014 35 Automated Pipelines\n\n> Workflow files define slash-command triggers and step-by-step execution plans.\n> [[brain/CAPABILITIES]] | [[brain/AGENTS]] | [[brain/CEO_OPERATING_SYSTEM]",
       "owner": "bravo",
       "discovery": "auto-frontmatter"
     },
@@ -6134,6 +6305,11 @@
     {
       "from": "skill:cloak-browser",
       "to": "skill:research-fetch",
+      "kind": "requires"
+    },
+    {
+      "from": "skill:code-review",
+      "to": "skill:codex-delegation",
       "kind": "requires"
     },
     {
