@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-24T20:13:03.123205+00:00",
-  "script_count": 70,
-  "entry_count": 186,
+  "generated_at_iso": "2026-05-25T14:45:16.511975+00:00",
+  "script_count": 71,
+  "entry_count": 189,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1165,6 +1165,27 @@
       "subcmd": "tail",
       "mutating": false,
       "help": "sequence_runner.py \u2014 drip-campaign daemon (Phase 4.3 of SunBiz CRM). \u2014 subcommand: tail"
+    },
+    {
+      "key": "shop_out_sender_once",
+      "path": "scripts/shop_out_sender.py",
+      "subcmd": "once",
+      "mutating": false,
+      "help": "shop_out_sender.py \u2014 Phase 6.3-bis (2026-05-25). \u2014 subcommand: once"
+    },
+    {
+      "key": "shop_out_sender_loop",
+      "path": "scripts/shop_out_sender.py",
+      "subcmd": "loop",
+      "mutating": false,
+      "help": "shop_out_sender.py \u2014 Phase 6.3-bis (2026-05-25). \u2014 subcommand: loop"
+    },
+    {
+      "key": "shop_out_sender_tail",
+      "path": "scripts/shop_out_sender.py",
+      "subcmd": "tail",
+      "mutating": false,
+      "help": "shop_out_sender.py \u2014 Phase 6.3-bis (2026-05-25). \u2014 subcommand: tail"
     },
     {
       "key": "skill_metrics_track",
