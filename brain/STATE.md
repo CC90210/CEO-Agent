@@ -131,8 +131,8 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 ## Last Heartbeat
 
 - **Date:** 2026-05-25
-- **Agent:** CODEX via state_sync
-- **Result:** Applied database/068_shop_out_sender_claim_state.sql to the bravo Supabase project after the fix pass; application_lender_threads now supports sending claims and send_interaction_id.
+- **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
+- **Result:** SunBiz second-meeting (2026-05-25): cold/warm import split shipped — 4 new API routes, 2 new components, dispatcher wired
 
 *Last updated: 2026-05-25*
 
