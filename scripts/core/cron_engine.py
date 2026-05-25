@@ -177,6 +177,37 @@ SEED_JOBS: list[dict] = [
         "action_config": {"tables": ["revenue_events", "leads", "content_calendar"]},
         "is_active": True,
     },
+    # SunBiz second-meeting expansion (2026-05-25, migration 069).
+    # These run at empire scope on Bravo's Windows for now (bravo-scheduler
+    # is Windows-only per ecosystem.config.js HARD RULE). Once the SunBiz
+    # VPS is live, migrate to tenant_cron_jobs entries that the bridge's
+    # cron poller (claude-bridge-ping) dispatches by manifest key. The
+    # scripts themselves resolve the SunBiz tenant via FOLLOW_UP_TENANT_SLUG
+    # / DAILY_PLAN_TENANT_SLUG env vars (default = scope to 'sun' if set).
+    {
+        "name": "SunBiz Follow-up Generator",
+        "description": "Daily 6am ET: generates follow_up_tasks for stuck / missing-info / no-response SunBiz leads. Operator drains via the dashboard's Follow-Up Machine queue.",
+        "schedule": "0 6 * * *",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/follow_up_generator.py", "args": ["once"]},
+        "is_active": True,
+    },
+    {
+        "name": "SunBiz Daily Plan Generator",
+        "description": "Daily 6:30am ET (after Follow-up Generator): six category passes (priority_call / missing_info / stuck / new_offer / shop_today / renewal_eligible) populate daily_plan_items for Solara's Daily Plan tab.",
+        "schedule": "30 6 * * *",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/daily_plan_generator.py", "args": ["once"]},
+        "is_active": True,
+    },
+    {
+        "name": "SunBiz Renewal Reminder",
+        "description": "Daily 9am ET: scans funded deals at 40-50%% through term, pushes Telegram alert + writes daily_plan_items.category='renewal_eligible'. Honors per-tenant renewal_eligibility_threshold_pct manifest setting (default 40).",
+        "schedule": "0 9 * * *",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/renewal_reminder.py", "args": ["once"]},
+        "is_active": True,
+    },
     # 'Funnel Lead Sync' removed 2026-05-22 — overlapped with 'Funnel
     # Fast-Poll' below. Fast-Poll runs every 1 min and covers the same
     # funnel_leads source; the 5-min job was an older safety net.
