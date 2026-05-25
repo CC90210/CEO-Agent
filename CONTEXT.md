@@ -1,7 +1,7 @@
 ---
 name: CONTEXT
 description: Canonical vocabulary for the Business-Empire-Agent / Bravo OS. Every skill, agent, and entry-point must use these terms with these meanings. If a new domain term needs to enter the codebase, add it here first.
-last_updated: 2026-05-16
+last_updated: 2026-05-25
 ---
 
 # CONTEXT — Canonical Vocabulary
@@ -62,6 +62,17 @@ Pattern adapted from [mattpocock/skills CONTEXT.md](https://github.com/mattpococ
 - **Guards** — Three chained PreToolUse hooks: `secret_guard.py` (blocks `.env*` reads), `exec_guard.py` (blocks dangerous Bash), `state_guard.py` (blocks edits to auto-generated mirror files).
 - **Capability graph** — `brain/CAPABILITY_GRAPH.json`. Auto-built from every skill / script / agent / MCP / workflow frontmatter. Resolved at runtime by `capability_query.py`.
 - **Memory retriever** — `scripts/core/memory_retriever.py`. FTS5 + LanceDB hybrid (Reciprocal Rank Fusion). Returns ≤1500-token snippet sets with file:line refs in <100ms. Replaces whole-file Read for context lookups.
+
+## V6.9 CRM Substrate (Twenty pattern import, 2026-05-25)
+
+Patterns imported from [twentyhq/twenty](https://github.com/twentyhq/twenty) (AGPLv3 — patterns only, no code). Replaces the JSONB-blob CRM internals with DB-backed metadata, view rows, and a typed workflow engine. Plan: `~/.claude/plans/i-m-dropping-you-a-magical-cat.md`.
+
+- **Object Metadata** — `object_metadata` row defining a tenant's custom entity type (e.g. `lead`, `application`, `lender`). DB-backed registry that takes precedence over inline `manifest.data_model[]` via the schema-introspector. Migration 070. See `~/APPS/oasis-command-center/lib/schema-introspector.ts`.
+- **Field Metadata** — `field_metadata` row defining one typed field under an Object Metadata. 16 types: `text / number / boolean / date / datetime / enum / json / currency / address / rich_text / link / multi_select / rating / phone / email / relation`. Superset of the legacy 7 inline types. Migration 070.
+- **Saved View** — `views` row storing a named (kind + filter + sort + visible-fields) configuration per Object Metadata. Optionally workspace-shared (`owner_user_id IS NULL`) or per-user. Replaces ephemeral URL-param view state. Migration 071. See `~/APPS/oasis-command-center/lib/views/loader.ts`.
+- **Workflow Step** — Typed handler in the workflow engine. Substrate set: `record-crud / http-request / if-else / delay / mail-sender / ai-agent`. Composable via `workflows.definition` JSONB. Adding a step type is one new file + one REGISTRY line (ADR-0003). See `~/APPS/oasis-command-center/lib/workflow-steps/`.
+- **AI Agent Step** — Workflow step type that loads an agent persona (`getPersona`), substitutes `{{trigger.x}}` / `{{step_id.field}}` placeholders, fires single Anthropic call, returns text + token usage. Composes with `record-crud` step for writeback.
+- **Field Permission** — `manifest.agents[].field_permissions` entry restricting an agent's read/write access to specific fields per entity_type. Three-state semantics: `undefined`=full / `[]`=zero / populated=scoped with default-deny on entities with any entry. Server-side enforced in `lib/role-gates.ts`. ADR-0004.
 
 ## Skill / agent vocabulary
 
