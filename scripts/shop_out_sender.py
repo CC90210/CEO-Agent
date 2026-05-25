@@ -80,10 +80,7 @@ KNOWN GAPS / FOLLOW-UP
 from __future__ import annotations
 
 import argparse
-import base64
 import json
-import os
-import re
 import sys
 import time
 from datetime import datetime, timezone
@@ -243,6 +240,35 @@ def _resolve_attachments(client, thread: dict) -> list[dict]:
 
 # ─── Thread / lender / application loaders ──────────────────────────
 
+# Tenant-slug → send_gateway brand-identity key. Matches BRAND_IDENTITY
+# entries in scripts/integrations/send_gateway.py. Add a new entry here
+# whenever a new tenant gets its own brand block added to send_gateway.
+TENANT_SLUG_TO_BRAND: dict[str, str] = {
+    "submissions": "sunbiz",  # tenants.slug='submissions' is the real Sun Biz row
+    "sun": "sunbiz",          # manifest slug fallback if a caller passes that instead
+    "oasis-ai-cc": "oasis",
+}
+
+
+def _resolve_brand_for_tenant(client, tenant_id: str) -> str:
+    """Resolve send_gateway brand key from tenant_id. Falls back to
+    'oasis' if the tenant_id can't be looked up — send_gateway will
+    error cleanly on an unknown brand string, but a missing row from
+    a transient query glitch shouldn't take down outbound entirely."""
+    try:
+        res = (
+            client.table("tenants")
+            .select("slug")
+            .eq("id", tenant_id)
+            .maybe_single()
+            .execute()
+        )
+        slug = ((res.data or {}).get("slug") or "").strip().lower() if res else ""
+        return TENANT_SLUG_TO_BRAND.get(slug, "oasis")
+    except Exception:
+        return "oasis"
+
+
 def _load_lender(client, lender_id: str, tenant_id: str) -> Optional[dict]:
     """Lender row from tenant_records. Returns {id, data} or None."""
     res = (
@@ -395,6 +421,13 @@ def _process_thread(client, send_fn, thread: dict, dry_run: bool) -> dict:
         _mark_error(client, thread_id, "send_gateway unavailable")
         return {"thread_id": thread_id, "status": "error", "reason": "send_gateway_unavailable"}
 
+    # Tenant brand resolution (2026-05-25). BRAND_IDENTITY gained a
+    # `sunbiz` entry in the same Phase 6.3-bis follow-up; map the
+    # tenant slug to the brand key. Falls back to `oasis` for unknown
+    # tenants (shouldn't happen in production, but keeps the chokepoint
+    # safe from a stale tenant row).
+    tenant_brand = _resolve_brand_for_tenant(client, tenant_id)
+
     result = send_fn(
         channel="email",
         agent_source="shop_out_sender",
@@ -407,7 +440,7 @@ def _process_thread(client, send_fn, thread: dict, dry_run: bool) -> dict:
         # but send_gateway still adds the footer + List-Unsubscribe as
         # deliverability hygiene.
         intent="commercial",
-        brand="oasis",  # TODO: per-tenant brand once BRAND_IDENTITY gains sunbiz
+        brand=tenant_brand,
         attachments=attachments,
         cooldown_hours=24,  # 1 day between repeated lender shop-outs to same address
     )
