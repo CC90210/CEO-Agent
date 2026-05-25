@@ -131,8 +131,8 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 ## Last Heartbeat
 
 - **Date:** 2026-05-25
-- **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** SunBiz production pre-flight complete. 17 commits shipped this session run (2026-05-24 → 25), all on main, all green. Latest deploy agent-dashboard-gyxtwn6w6 Ready. Tests passing (sunbiz-import-routing + auth-routing + middleware-prefix). Lint clean repo-wide (eslint .). Playbook 08-sunbiz-production-pre-flight.md committed (cc9976b) with Mac bring-up + smoke checklist + Ezra hand-over + known gaps + 17-commit lineage. CC heading to Montreal — self-sufficient from GitHub pull.
+- **Agent:** CODEX via state_sync
+- **Result:** Applied database/068_shop_out_sender_claim_state.sql to the bravo Supabase project after the fix pass; application_lender_threads now supports sending claims and send_interaction_id.
 
 *Last updated: 2026-05-25*
 
