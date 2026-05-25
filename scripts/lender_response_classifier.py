@@ -514,6 +514,137 @@ def classify_with_claude(body: str) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────────────
+# Lender feedback persistence (migration 069 — 2026-05-25)
+# ─────────────────────────────────────────────────────────────────────
+# Every terminal classification writes a lender_feedback row so the
+# recommender can bias future shop-outs toward lenders who approve deals
+# of similar shape (industry × revenue × FICO × time_in_business).
+# Best-effort: caller wraps this in try/except; failure here must never
+# roll back the thread status update.
+
+
+def _persist_lender_feedback(sb, thread: dict, label: str) -> None:
+    """Write one lender_feedback row for a classified thread.
+
+    2026-05-25 second SunBiz product meeting expansion + migration 069.
+
+    Idempotent: if a row already exists for this thread_id, skip insert.
+    Outcome mapping: classifier labels → lender_feedback.outcome enum.
+    Application snapshot fields pulled from tenant_records JSONB; any
+    missing field is stored as NULL (not zero) so aggregate queries can
+    filter on data quality.
+    """
+    thread_id = thread.get("id")
+    application_id = thread.get("application_id")
+    tenant_id = thread.get("tenant_id")
+    lender_id = thread.get("lender_id")
+
+    if not all([thread_id, application_id, tenant_id, lender_id]):
+        return  # not enough context to write a useful tuple
+
+    # Idempotency check — skip if a row already exists for this thread.
+    try:
+        existing = (
+            sb.table("lender_feedback")
+            .select("id", count="exact")
+            .eq("thread_id", thread_id)
+            .limit(1)
+            .execute()
+        )
+        if existing.data:
+            return  # already recorded from a prior tick
+    except Exception:
+        pass  # conservative: try the insert anyway; the DB may reject dup via index
+
+    # Outcome mapping.
+    outcome_map = {
+        "approved": "approved",
+        "declined": "declined",
+        "info_requested": "info_requested",
+        "unclear": "no_response",
+        "no_response": "no_response",
+    }
+    outcome = outcome_map.get(label, "no_response")
+
+    # Application snapshot — pull from tenant_records JSONB.
+    app_data: dict = {}
+    try:
+        app_row = (
+            sb.table("tenant_records")
+            .select("data")
+            .eq("tenant_id", tenant_id)
+            .eq("entity_type", "application")
+            .eq("id", application_id)
+            .maybeSingle()
+            .execute()
+        )
+        app_data = (app_row.data or {}).get("data") or {}
+    except Exception:
+        pass  # proceed with empty snapshot; NULLs are valid
+
+    industry = app_data.get("industry") or app_data.get("business_type")
+    monthly_revenue_raw = app_data.get("monthly_revenue") or app_data.get("avg_monthly_revenue")
+    monthly_revenue = float(monthly_revenue_raw) if monthly_revenue_raw is not None else None
+    tib = app_data.get("time_in_business_months")
+    time_in_business_months = int(tib) if tib is not None else None
+    fico_raw = app_data.get("fico") or app_data.get("credit_score")
+    fico = int(fico_raw) if fico_raw is not None else None
+    req_raw = app_data.get("requested_amount") or app_data.get("loan_amount")
+    requested_amount = float(req_raw) if req_raw is not None else None
+
+    # Approval terms — only populated for approved threads where the
+    # classifier or the email body surfaced offer terms.
+    funded_amount: float | None = None
+    funded_term_days: int | None = None
+    funded_buy_rate: float | None = None
+    if outcome == "approved":
+        # Check if the application data has offer terms recorded by the time
+        # the classifier runs (the offer-extractor may have already written them).
+        funded_amount_raw = app_data.get("funded_amount") or app_data.get("approved_amount")
+        if funded_amount_raw is not None:
+            funded_amount = float(funded_amount_raw)
+        term_raw = app_data.get("funded_term_days") or app_data.get("term_days")
+        if term_raw is not None:
+            funded_term_days = int(term_raw)
+        rate_raw = app_data.get("funded_buy_rate") or app_data.get("factor_rate")
+        if rate_raw is not None:
+            funded_buy_rate = float(rate_raw)
+
+    # Decline reason — first 300 chars of the summary if declined.
+    decline_reason: str | None = None
+    if outcome == "declined":
+        # Use the classifier's own summary as the decline reason — it's
+        # already normalized to operator-facing language.
+        decline_reason = (thread.get("last_response_summary") or "")[:300] or None
+
+    payload: dict = {
+        "tenant_id": tenant_id,
+        "lender_id": lender_id,
+        "application_id": application_id,
+        "thread_id": thread_id,
+        "outcome": outcome,
+        "industry": industry,
+        "monthly_revenue": monthly_revenue,
+        "time_in_business_months": time_in_business_months,
+        "fico": fico,
+        "requested_amount": requested_amount,
+        "funded_amount": funded_amount,
+        "funded_term_days": funded_term_days,
+        "funded_buy_rate": funded_buy_rate,
+        "decline_reason": decline_reason,
+        "extracted_at": datetime.now(timezone.utc).isoformat(),
+    }
+    # Remove None values so we don't stomp existing rows with NULL on upsert;
+    # only include keys with actual data (nullable columns default to NULL anyway).
+    payload = {k: v for k, v in payload.items() if v is not None or k in (
+        "tenant_id", "lender_id", "application_id", "thread_id", "outcome", "extracted_at"
+    )}
+
+    sb.table("lender_feedback").insert(payload).execute()
+    _log(f"lender_feedback: recorded thread={thread_id} outcome={outcome} lender={lender_id}")
+
+
+# ─────────────────────────────────────────────────────────────────────
 # Classifier tick
 # ─────────────────────────────────────────────────────────────────────
 
@@ -562,6 +693,17 @@ def classify_tick(sb) -> int:
             _log(f"classified thread={r['id']} -> {new_status}: {result['summary']}")
         except Exception as e:
             _log(f"classify_tick: update failed row={r['id']}: {e}")
+
+        # 2026-05-25 second SunBiz product meeting expansion + migration 069:
+        # Persist lender intelligence tuple so the recommender can bias
+        # future shop-outs toward lenders who approve deals of similar
+        # shape (industry × revenue × FICO). Best-effort — write failure
+        # MUST NOT roll back the thread status update already applied above.
+        if new_status in ("approved", "declined", "info_requested", "no_response"):
+            try:
+                _persist_lender_feedback(sb, r, result["label"])
+            except Exception as exc:
+                _log(f"lender_feedback: write failed thread={r['id']} (non-fatal): {exc}")
 
         # Phase 20: when the lender asked for more info, second-pass
         # extract WHAT is missing → lead.missing_info + agent_alerts.
