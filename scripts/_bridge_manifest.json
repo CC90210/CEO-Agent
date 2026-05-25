@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-25T17:43:43.980400+00:00",
-  "script_count": 71,
-  "entry_count": 189,
+  "generated_at_iso": "2026-05-25T17:46:30.408475+00:00",
+  "script_count": 72,
+  "entry_count": 190,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -990,6 +990,13 @@
       "subcmd": null,
       "mutating": false,
       "help": "Reap duplicate MCP server processes from leaked editor sessions."
+    },
+    {
+      "key": "reconcile_sunbiz_sequences",
+      "path": "scripts/reconcile_sunbiz_sequences.py",
+      "subcmd": null,
+      "mutating": false,
+      "help": "Reconcile drip_sequences in the live Sun Biz tenant against the"
     },
     {
       "key": "research_fetch_fetch",
