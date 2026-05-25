@@ -142,7 +142,8 @@ def _upsert_item(
     plan_date: str,
     lead_id: str,
     category: str,
-    extra_data: Optional[dict[str, Any]] = None,
+    reason: str,                              # Codex 2026-05-25 P0 finding: schema requires reason NOT NULL; drop source/data
+    metadata: Optional[dict[str, Any]] = None,
 ) -> bool:
     try:
         sb.table("daily_plan_items").upsert(
@@ -152,8 +153,10 @@ def _upsert_item(
                 "lead_id": lead_id,
                 "category": category,
                 "status": "open",
-                "source": "daily_plan_generator",
-                "data": extra_data or {},
+                # Codex 2026-05-25 P0 finding: migration 069 defines reason (NOT NULL) + metadata JSONB;
+                # the old source + data columns do not exist — every prior upsert silently failed.
+                "reason": reason,
+                "metadata": metadata or {},
             },
             on_conflict="tenant_id,plan_date,lead_id,category",
         ).execute()
@@ -251,11 +254,16 @@ def _gen_priority_call(sb, tenant_id: str, today: str) -> int:
         days = _days_since(data.get("last_contacted_at"))
         if days is not None and days < PRIORITY_CALL_DAYS_SINCE_CONTACT:
             continue
-        if _upsert_item(sb, tenant_id, today, lead_id, "priority_call", {
-            "score": data.get("score"),
-            "business_name": data.get("business_name"),
-            "last_contacted_at": data.get("last_contacted_at"),
-        }):
+        days_display = f"{round(days)} days" if days is not None else "unknown"
+        if _upsert_item(
+            sb, tenant_id, today, lead_id, "priority_call",
+            reason=f"No contact in {days_display}",  # Codex 2026-05-25 P0 finding: reason is required
+            metadata={
+                "score": data.get("score"),
+                "business_name": data.get("business_name"),
+                "last_contacted_at": data.get("last_contacted_at"),
+            },
+        ):
             inserted += 1
 
     return inserted
@@ -286,11 +294,20 @@ def _gen_missing_info(sb, tenant_id: str, today: str) -> int:
         lead_id = row.get("id", "")
         data: dict[str, Any] = row.get("data") or {}
         if data.get("stage") == "missing_info" or _has_missing_required(data):
-            if _upsert_item(sb, tenant_id, today, lead_id, "missing_info", {
-                "stage": data.get("stage"),
-                "business_name": data.get("business_name"),
-                "missing_fields": [f for f in REQUIRED_LEAD_FIELDS if not data.get(f)],
-            }):
+            missing = [f for f in REQUIRED_LEAD_FIELDS if not data.get(f)]
+            reason = (
+                f"Missing required fields: {', '.join(missing)}" if missing
+                else "Lead stage is missing_info"
+            )
+            if _upsert_item(
+                sb, tenant_id, today, lead_id, "missing_info",
+                reason=reason,  # Codex 2026-05-25 P0 finding: reason is required
+                metadata={
+                    "stage": data.get("stage"),
+                    "business_name": data.get("business_name"),
+                    "missing_fields": missing,
+                },
+            ):
                 inserted += 1
 
     # Applications with status='missing_info'
@@ -310,10 +327,14 @@ def _gen_missing_info(sb, tenant_id: str, today: str) -> int:
         app_id = row.get("id", "")
         data = row.get("data") or {}
         if data.get("status") == "missing_info":
-            if _upsert_item(sb, tenant_id, today, app_id, "missing_info", {
-                "status": data.get("status"),
-                "business_name": data.get("business_name"),
-            }):
+            if _upsert_item(
+                sb, tenant_id, today, app_id, "missing_info",
+                reason="Application status is missing_info — documents or details required",  # Codex 2026-05-25 P0 finding
+                metadata={
+                    "status": data.get("status"),
+                    "business_name": data.get("business_name"),
+                },
+            ):
                 inserted += 1
 
     return inserted
@@ -361,11 +382,16 @@ def _gen_stuck(sb, tenant_id: str, today: str) -> int:
         days = _days_since(data.get("updated_at") or data.get("created_at"))
         if days is not None and days < STUCK_APP_DAYS:
             continue
-        if _upsert_item(sb, tenant_id, today, app_id, "stuck", {
-            "status": data.get("status"),
-            "business_name": data.get("business_name"),
-            "days_since_update": round(days, 1) if days is not None else None,
-        }):
+        days_stuck = round(days, 1) if days is not None else 0
+        if _upsert_item(
+            sb, tenant_id, today, app_id, "stuck",
+            reason=f"At 'shopping' for {days_stuck} days with no lender response",  # Codex 2026-05-25 P0 finding
+            metadata={
+                "days_in_stage": days_stuck,
+                "current_stage": data.get("status"),
+                "business_name": data.get("business_name"),
+            },
+        ):
             inserted += 1
 
     return inserted
@@ -409,11 +435,15 @@ def _gen_new_offer(sb, tenant_id: str, today: str) -> int:
         if thread_id in existing_ids:
             continue
         thread_data = thread.get("data") or {}
-        if _upsert_item(sb, tenant_id, today, thread_id, "new_offer", {
-            "application_id": thread.get("application_id"),
-            "lender_id": thread.get("lender_id"),
-            "offer_summary": thread_data.get("offer_summary"),
-        }):
+        if _upsert_item(
+            sb, tenant_id, today, thread_id, "new_offer",
+            reason="Lender offer received — review and respond",  # Codex 2026-05-25 P0 finding
+            metadata={
+                "application_id": thread.get("application_id"),
+                "lender_id": thread.get("lender_id"),
+                "offer_summary": thread_data.get("offer_summary"),
+            },
+        ):
             inserted += 1
 
     return inserted
@@ -486,10 +516,14 @@ def _gen_shop_today(sb, tenant_id: str, today: str) -> int:
         if not has_doc:
             continue
 
-        if _upsert_item(sb, tenant_id, today, app_id, "shop_today", {
-            "status": data.get("status"),
-            "business_name": data.get("business_name"),
-        }):
+        if _upsert_item(
+            sb, tenant_id, today, app_id, "shop_today",
+            reason="Bank statements uploaded, awaiting lender shop-out",  # Codex 2026-05-25 P0 finding
+            metadata={
+                "status": data.get("status"),
+                "business_name": data.get("business_name"),
+            },
+        ):
             inserted += 1
 
     return inserted
@@ -541,13 +575,17 @@ def _gen_renewal_eligible(sb, tenant_id: str, today: str) -> int:
         progress_pct = progress * 100.0
         if not (threshold_pct <= progress_pct <= RENEWAL_WINDOW_HIGH_PCT):
             continue
-        if _upsert_item(sb, tenant_id, today, deal_id, "renewal_eligible", {
-            "progress_pct": round(progress_pct, 1),
-            "term_days": term_days,
-            "business_name": data.get("business_name"),
-            "funded_amount": data.get("funded_amount"),
-            "lender_name": data.get("lender_name"),
-        }):
+        if _upsert_item(
+            sb, tenant_id, today, deal_id, "renewal_eligible",
+            reason=f"{round(progress_pct, 1)}% through term — renewal window open",  # Codex 2026-05-25 P0 finding
+            metadata={
+                "progress_pct": round(progress_pct, 1),
+                "term_days": term_days,
+                "business_name": data.get("business_name"),
+                "funded_amount": data.get("funded_amount"),
+                "lender_name": data.get("lender_name"),
+            },
+        ):
             inserted += 1
 
     return inserted
@@ -558,10 +596,33 @@ def _gen_renewal_eligible(sb, tenant_id: str, today: str) -> int:
 # ─────────────────────────────────────────────────────────────────────
 
 
+def _assert_schema(sb) -> None:
+    """Probe daily_plan_items schema to detect column drift early.
+
+    Codex 2026-05-25 P0 finding: daemon was silently failing because it wrote
+    to non-existent 'source'/'data' columns. This probe will raise if the
+    table is unreachable, surfacing drift before any upsert is attempted.
+    """
+    try:
+        sb.table("daily_plan_items").select("id, reason, metadata").limit(0).execute()
+    except Exception as e:
+        raise RuntimeError(
+            f"daily_plan_items schema probe failed — "
+            f"table may be missing or column shape changed: {e}"
+        ) from e
+
+
 def tick() -> int:
     sb = _supabase()
     if not sb:
         _log("supabase unavailable — skipping tick")
+        return 0
+
+    # Codex 2026-05-25 P0 finding: assert schema matches expected shape before writing
+    try:
+        _assert_schema(sb)
+    except RuntimeError as e:
+        _log(f"schema assertion failed — aborting tick: {e}")
         return 0
 
     env = _load_env()
