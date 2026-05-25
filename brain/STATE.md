@@ -132,7 +132,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-05-25
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** SunBiz second-meeting (2026-05-25): cold/warm import split shipped — 4 new API routes, 2 new components, dispatcher wired
+- **Result:** SunBiz-Agent V6.8 docs upgrade: README, MAXIMIZATION_GUIDE, requirements, package.json, 6 new docs/ files — committed 784db85
 
 *Last updated: 2026-05-25*
 
