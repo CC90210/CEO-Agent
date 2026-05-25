@@ -31,11 +31,11 @@ WHY THIS LIVES ON THE BRIDGE — NOT VERCEL
 IDEMPOTENCY
 -----------
 
-  - Each tick UPDATEs status='pending' → 'sending' for the rows it
-    claimed (advisory locking). A crashed run leaves 'sending' rows
-    which a second tick can detect and either retry or surface.
-  - send_gateway itself is idempotent on the (lead_id, channel,
-    cooldown) tuple — even if this daemon races, no double-send.
+  - Each tick UPDATEs status='pending' to 'sending' for the rows it
+    claimed. A crashed run can reclaim stale 'sending' rows after
+    30 minutes.
+  - Each claimed row is the idempotency boundary for a lender send;
+    send_gateway still enforces suppression, daily caps, and domain caps.
   - Permanent failure: after MAX_ATTEMPTS the row stays at 'error'
     with last_error set; manual operator action required.
 
@@ -64,17 +64,12 @@ before the operator has approved their first batch.
 KNOWN GAPS / FOLLOW-UP
 ----------------------
 
-  - Per-tenant brand identity: the daemon falls back to brand='oasis'
-    for all sends because BRAND_IDENTITY in send_gateway doesn't yet
-    have a 'sunbiz' entry. CASL footer therefore reads "OASIS AI" /
-    "Collingwood ON" rather than the tenant's own brand. Trivial to
-    add (one dict entry) once the operator confirms the SunBiz brand
-    block; left out of v1 to avoid hardcoding without confirmation.
+  - Per-tenant brand identity: tenant_id must resolve to an explicit
+    send_gateway brand key. Unknown tenants fail closed instead of
+    falling back to OASIS.
 
-  - gmail_thread_id: smtp_send returns the Message-ID but the daemon
-    doesn't presently round-trip Gmail's threadId. The Phase 6.4
-    response classifier matches on Message-ID / In-Reply-To anyway,
-    so this is acceptable for v1.
+  - gmail_thread_id: reserved for a real Gmail threadId only. The
+    send_gateway lead_interactions id is stored in send_interaction_id.
 """
 
 from __future__ import annotations
@@ -152,17 +147,21 @@ def _send_gateway():
 STORAGE_BUCKET = "lead-documents"
 
 
-def _download_attachment(client, storage_path: str) -> Optional[bytes]:
+def _download_attachment(client, storage_path: str, tenant_id: str) -> Optional[bytes]:
     """Pull a single attachment from Supabase Storage. Returns None on
     failure so the sender can either skip the attachment or fail the
     thread depending on policy."""
     try:
         # Storage path may include the bucket prefix or not depending
         # on how the dashboard route persisted it. Normalize.
-        path = storage_path
+        path = storage_path.replace("\\", "/").strip()
         if path.startswith(f"{STORAGE_BUCKET}/"):
             path = path[len(STORAGE_BUCKET) + 1:]
-        res = client.storage.from_(STORAGE_BUCKET).download(path)
+        parts = [part for part in path.split("/") if part]
+        if not tenant_id or not parts or parts[0] != tenant_id or ".." in parts:
+            return None
+        normalized = "/".join(parts)
+        res = client.storage.from_(STORAGE_BUCKET).download(normalized)
         return res if isinstance(res, (bytes, bytearray)) else None
     except Exception:
         return None
@@ -177,9 +176,12 @@ def _resolve_attachments(client, thread: dict) -> list[dict]:
          for legacy threads created before migration 065 persisted context.
 
     Each returned dict matches send_gateway's expected shape:
-      {filename, content_bytes (bytes), mime_type}
+      {filename, content (bytes), content_type}
     """
     out: list[dict] = []
+    tenant_id = thread.get("tenant_id")
+    if not tenant_id:
+        return out
     persisted = thread.get("attachments") or []
     if isinstance(persisted, list) and persisted:
         for att in persisted:
@@ -188,20 +190,19 @@ def _resolve_attachments(client, thread: dict) -> list[dict]:
             path = att.get("storage_path")
             if not isinstance(path, str) or not path:
                 continue
-            content = _download_attachment(client, path)
+            content = _download_attachment(client, path, tenant_id)
             if content is None:
                 continue
             out.append({
                 "filename": att.get("filename") or "attachment.bin",
-                "content_bytes": content,
-                "mime_type": att.get("mime_type") or "application/octet-stream",
+                "content": bytes(content),
+                "content_type": att.get("mime_type") or "application/octet-stream",
             })
         return out
 
     # Fallback — resolve lead_id from the application then auto-attach
     # any uploaded bank_statements_3mo + signed_application docs.
     application_id = thread.get("application_id")
-    tenant_id = thread.get("tenant_id")
     if not application_id or not tenant_id:
         return []
     app = (
@@ -227,13 +228,13 @@ def _resolve_attachments(client, thread: dict) -> list[dict]:
         path = row.get("storage_path")
         if not path:
             continue
-        content = _download_attachment(client, path)
+        content = _download_attachment(client, path, tenant_id)
         if content is None:
             continue
         out.append({
             "filename": row.get("filename") or f"{row.get('doc_type')}.pdf",
-            "content_bytes": content,
-            "mime_type": row.get("mime_type") or "application/pdf",
+            "content": bytes(content),
+            "content_type": row.get("mime_type") or "application/pdf",
         })
     return out
 
@@ -250,11 +251,12 @@ TENANT_SLUG_TO_BRAND: dict[str, str] = {
 }
 
 
-def _resolve_brand_for_tenant(client, tenant_id: str) -> str:
-    """Resolve send_gateway brand key from tenant_id. Falls back to
-    'oasis' if the tenant_id can't be looked up — send_gateway will
-    error cleanly on an unknown brand string, but a missing row from
-    a transient query glitch shouldn't take down outbound entirely."""
+def _resolve_brand_for_tenant(client, tenant_id: str) -> Optional[str]:
+    """Resolve send_gateway brand key from tenant_id.
+
+    Unknown tenants fail closed so lender emails never ship with the
+    wrong legal identity in the CASL footer.
+    """
     try:
         res = (
             client.table("tenants")
@@ -264,9 +266,21 @@ def _resolve_brand_for_tenant(client, tenant_id: str) -> str:
             .execute()
         )
         slug = ((res.data or {}).get("slug") or "").strip().lower() if res else ""
-        return TENANT_SLUG_TO_BRAND.get(slug, "oasis")
+        if slug in TENANT_SLUG_TO_BRAND:
+            return TENANT_SLUG_TO_BRAND[slug]
+
+        manifest = (
+            client.table("tenant_manifests")
+            .select("slug")
+            .eq("tenant_id", tenant_id)
+            .limit(1)
+            .execute()
+        )
+        rows = list(manifest.data or []) if manifest else []
+        manifest_slug = ((rows[0] or {}).get("slug") or "").strip().lower() if rows else ""
+        return TENANT_SLUG_TO_BRAND.get(manifest_slug)
     except Exception:
-        return "oasis"
+        return None
 
 
 def _load_lender(client, lender_id: str, tenant_id: str) -> Optional[dict]:
@@ -296,15 +310,24 @@ def _load_application(client, application_id: str, tenant_id: str) -> Optional[d
     return res.data if res and res.data else None
 
 
-def _claim_pending(client, batch_size: int, tenant_id: Optional[str]) -> list[dict]:
-    """Pull pending threads. Returns up to batch_size rows.
+def _sql_literal(value: Any) -> str:
+    if value is None:
+        return "NULL"
+    return "'" + str(value).replace("'", "''") + "'"
 
-    Note: we don't UPDATE-and-claim in a single transaction here because
-    the supabase-py client doesn't expose FOR UPDATE SKIP LOCKED cleanly.
-    Race window between fetch and update is acceptable because
-    send_gateway itself idempotency-checks via cooldown on (lead_id,
-    channel) — a doubled poll won't double-send.
-    """
+
+def _rows_from_exec_sql(result: Any) -> list[dict]:
+    data = getattr(result, "data", None)
+    if isinstance(data, dict):
+        rows = data.get("rows") or []
+        return list(rows) if isinstance(rows, list) else []
+    if isinstance(data, list):
+        return list(data)
+    return []
+
+
+def _select_pending(client, batch_size: int, tenant_id: Optional[str]) -> list[dict]:
+    """Read pending threads without claiming them. Dry-run only."""
     q = (
         client.table("application_lender_threads")
         .select(
@@ -321,12 +344,51 @@ def _claim_pending(client, batch_size: int, tenant_id: Optional[str]) -> list[di
     return list(res.data or [])
 
 
-def _mark_sent(client, thread_id: str, message_id: Optional[str]) -> None:
-    client.table("application_lender_threads").update({
+def _claim_pending(client, batch_size: int, tenant_id: Optional[str], *, dry_run: bool = False) -> list[dict]:
+    """Atomically move pending rows to sending before SMTP sends."""
+    if dry_run:
+        return _select_pending(client, batch_size, tenant_id)
+
+    limit = max(1, min(int(batch_size or 1), 100))
+    tenant_filter = ""
+    if tenant_id:
+        tenant_filter = f" AND tenant_id = {_sql_literal(tenant_id)}"
+    sql = (
+        "WITH candidates AS ("
+        "  SELECT id FROM public.application_lender_threads"
+        "  WHERE (status = 'pending'"
+        "     OR (status = 'sending' AND updated_at < now() - INTERVAL '30 minutes'))"
+        f"{tenant_filter}"
+        "  ORDER BY created_at ASC"
+        f"  LIMIT {limit}"
+        "  FOR UPDATE SKIP LOCKED"
+        "), claimed AS ("
+        "  UPDATE public.application_lender_threads t"
+        "     SET status = 'sending', last_error = NULL, updated_at = now()"
+        "    FROM candidates c"
+        "   WHERE t.id = c.id"
+        "  RETURNING t.id, t.application_id, t.lender_id, t.tenant_id, t.subject,"
+        "            t.body_template, t.attachments, t.cc_emails, t.status, t.created_at"
+        ") SELECT * FROM claimed"
+    )
+    res = client.rpc("exec_sql", {"sql_query": sql}).execute()
+    return _rows_from_exec_sql(res)
+
+
+def _mark_sent(
+    client,
+    thread_id: str,
+    interaction_id: Optional[str],
+    provider_thread_id: Optional[str] = None,
+) -> None:
+    payload = {
         "status": "sent",
         "sent_at": datetime.now(timezone.utc).isoformat(),
-        "gmail_thread_id": message_id,
-    }).eq("id", thread_id).execute()
+        "send_interaction_id": interaction_id,
+    }
+    if provider_thread_id:
+        payload["gmail_thread_id"] = provider_thread_id
+    client.table("application_lender_threads").update(payload).eq("id", thread_id).execute()
 
 
 def _mark_error(client, thread_id: str, reason: str) -> None:
@@ -334,6 +396,23 @@ def _mark_error(client, thread_id: str, reason: str) -> None:
         "status": "error",
         "last_error": (reason or "")[:1000],
     }).eq("id", thread_id).execute()
+
+
+def _find_existing_send_interaction(client, thread_id: str) -> Optional[str]:
+    """Detect a prior successful gateway send for this shop-out thread."""
+    try:
+        sql = (
+            "SELECT id FROM public.lead_interactions"
+            " WHERE type = 'email_sent'"
+            f" AND metadata->>'shop_out_thread_id' = {_sql_literal(thread_id)}"
+            " ORDER BY created_at DESC"
+            " LIMIT 1"
+        )
+        res = client.rpc("exec_sql", {"sql_query": sql}).execute()
+        rows = _rows_from_exec_sql(res)
+        return str(rows[0]["id"]) if rows and rows[0].get("id") else None
+    except Exception:
+        return None
 
 
 # ─── Body rendering fallback ────────────────────────────────────────
@@ -397,6 +476,10 @@ def _process_thread(client, send_fn, thread: dict, dry_run: bool) -> dict:
         return {"thread_id": thread_id, "status": "error", "reason": "application_not_found"}
     app_data = (app.get("data") or {})
     lead_id = app_data.get("lead_id") or application_id
+    existing_interaction_id = _find_existing_send_interaction(client, thread_id)
+    if existing_interaction_id:
+        _mark_sent(client, thread_id, existing_interaction_id)
+        return {"thread_id": thread_id, "status": "sent", "to_email": recipient, "deduped": True}
 
     # Body — persisted body_template wins; else default render
     body = thread.get("body_template")
@@ -421,12 +504,10 @@ def _process_thread(client, send_fn, thread: dict, dry_run: bool) -> dict:
         _mark_error(client, thread_id, "send_gateway unavailable")
         return {"thread_id": thread_id, "status": "error", "reason": "send_gateway_unavailable"}
 
-    # Tenant brand resolution (2026-05-25). BRAND_IDENTITY gained a
-    # `sunbiz` entry in the same Phase 6.3-bis follow-up; map the
-    # tenant slug to the brand key. Falls back to `oasis` for unknown
-    # tenants (shouldn't happen in production, but keeps the chokepoint
-    # safe from a stale tenant row).
     tenant_brand = _resolve_brand_for_tenant(client, tenant_id)
+    if not tenant_brand:
+        _mark_error(client, thread_id, f"tenant brand unresolved for tenant_id={tenant_id}")
+        return {"thread_id": thread_id, "status": "error", "reason": "tenant_brand_unresolved"}
 
     result = send_fn(
         channel="email",
@@ -442,12 +523,23 @@ def _process_thread(client, send_fn, thread: dict, dry_run: bool) -> dict:
         intent="commercial",
         brand=tenant_brand,
         attachments=attachments,
-        cooldown_hours=24,  # 1 day between repeated lender shop-outs to same address
+        cooldown_hours=0,
+        metadata={
+            "shop_out_thread_id": thread_id,
+            "application_id": application_id,
+            "lender_id": lender_id,
+            "recipient_email": recipient,
+        },
     )
 
     sg_status = result.get("status")
     if sg_status == "sent":
-        _mark_sent(client, thread_id, result.get("interaction_id"))
+        _mark_sent(
+            client,
+            thread_id,
+            result.get("interaction_id"),
+            result.get("provider_thread_id") or result.get("gmail_thread_id"),
+        )
         return {"thread_id": thread_id, "status": "sent", "to_email": recipient}
     # Blocked / suppressed / error all land at thread.status='error'
     # so the operator can re-shop if needed. last_error carries the
@@ -465,7 +557,7 @@ def run_once(batch: int, tenant_id: Optional[str], dry_run: bool) -> dict:
         return {"ok": False, "error": "supabase_unavailable", "processed": 0}
     send_fn = _send_gateway() if not dry_run else None
 
-    threads = _claim_pending(client, batch, tenant_id)
+    threads = _claim_pending(client, batch, tenant_id, dry_run=dry_run)
     if not threads:
         return {"ok": True, "processed": 0, "results": []}
 

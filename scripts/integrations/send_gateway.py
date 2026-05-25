@@ -231,9 +231,9 @@ BRAND_IDENTITY: dict[str, dict[str, str]] = {
     # outbound shop-out emails to lender contacts ship with the SunBiz
     # CASL footer instead of leaking the OASIS / Collingwood address.
     # Operator: Ezra at Submissions@sunbizfunding.com. sender_name +
-    # business_address pending operator confirmation; placeholders are
-    # safe defaults that don't impersonate. Update to real values
-    # once Ezra signs off on the public-facing copy.
+    # business_address pending operator confirmation. The gateway fails
+    # closed for external SunBiz sends until this becomes a confirmed
+    # physical mailing address.
     "sunbiz": {
         "business_name": "Sun Biz Funding",
         "sender_name": "Sun Biz Funding Team",  # TODO: confirm with Ezra
@@ -243,6 +243,10 @@ BRAND_IDENTITY: dict[str, dict[str, str]] = {
 }
 
 DEFAULT_BRAND = "oasis"
+PLACEHOLDER_BUSINESS_ADDRESSES: frozenset[str] = frozenset({
+    "",
+    "Sun Biz Funding",
+})
 RESERVATION_WINDOW_MINUTES = 30
 DAILY_ALERT_THRESHOLD = 0.8
 _DAILY_CAP_ALERTS_SENT: set[str] = set()
@@ -1428,9 +1432,11 @@ def _build_email_mime(
     for att in (attachments or []):
         fname = att.get("filename") or "attachment.bin"
         content_bytes = att.get("content")
+        if content_bytes is None:
+            content_bytes = att.get("content_bytes")
         if not content_bytes:
             continue
-        ctype = att.get("content_type") or "application/octet-stream"
+        ctype = att.get("content_type") or att.get("mime_type") or "application/octet-stream"
         maintype, _, subtype = ctype.partition("/")
         if not subtype:
             maintype, subtype = "application", "octet-stream"
@@ -1662,6 +1668,11 @@ def send(
                 "lead_id": lead_id, "interaction_id": None,
                 "cooldown_until": None, "daily_count": None}
     brand_cfg = BRAND_IDENTITY[brand]
+    if intent != "internal" and brand_cfg.get("business_address", "").strip() in PLACEHOLDER_BUSINESS_ADDRESSES:
+        return {"status": "error",
+                "reason": f"brand '{brand}' is missing a confirmed physical business_address",
+                "lead_id": lead_id, "interaction_id": None,
+                "cooldown_until": None, "daily_count": None}
 
     # ---- Per-channel required fields ----
     if channel == "email":
