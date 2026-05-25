@@ -227,6 +227,19 @@ BRAND_IDENTITY: dict[str, dict[str, str]] = {
         "business_address": "Nostalgic Requests, Collingwood, ON, Canada",
         "from_display": "Nostalgic Requests",
     },
+    # Sun Biz Funding — first client tenant. Added 2026-05-25 so
+    # outbound shop-out emails to lender contacts ship with the SunBiz
+    # CASL footer instead of leaking the OASIS / Collingwood address.
+    # Operator: Ezra at Submissions@sunbizfunding.com. sender_name +
+    # business_address pending operator confirmation; placeholders are
+    # safe defaults that don't impersonate. Update to real values
+    # once Ezra signs off on the public-facing copy.
+    "sunbiz": {
+        "business_name": "Sun Biz Funding",
+        "sender_name": "Sun Biz Funding Team",  # TODO: confirm with Ezra
+        "business_address": "Sun Biz Funding",  # TODO: confirm address with Ezra
+        "from_display": "Sun Biz Funding",
+    },
 }
 
 DEFAULT_BRAND = "oasis"
