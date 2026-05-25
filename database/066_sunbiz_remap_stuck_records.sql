@@ -77,8 +77,7 @@ BEGIN
     END IF;
 
     IF v_sunbiz_tenant_id IS NULL THEN
-        RAISE NOTICE '[066] Sun Biz tenant not found via tenant_manifests OR tenants.slug=submissions — skipping. This environment may not have the tenant seeded yet.';
-        RETURN;
+        RAISE EXCEPTION '[066] Sun Biz tenant not found via tenant_manifests.slug=sun OR tenants.slug=submissions. Seed tenant before applying this migration.';
     END IF;
 
     RAISE NOTICE '[066] Sun Biz tenant_id resolved: %', v_sunbiz_tenant_id;
