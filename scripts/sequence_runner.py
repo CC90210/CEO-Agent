@@ -299,6 +299,72 @@ def _enroll_step(sb, sequence: dict, lead_id: str, payload: dict, step_index: in
     return None
 
 
+def _cancel_drips_for_lead(sb, tenant_id: str, lead_id: str, form_id: str) -> int:
+    """Cancel any in-flight sequence_state rows for a lead that just
+    submitted a form.
+
+    Operator's stuck-lead drips should die the moment the lead does the
+    thing the drip was nagging them to do. Keeping the drip alive after a
+    form submission means the lead gets follow-up spam for something they
+    already completed — trust-killer.
+
+    2026-05-25 second SunBiz product meeting expansion + migration 069.
+    """
+    now_iso = datetime.now(timezone.utc).isoformat()
+    cancelled = 0
+    try:
+        active_rows = (
+            sb.table("sequence_state")
+            .select("id, sequence_id, step_index")
+            .eq("tenant_id", tenant_id)
+            .eq("lead_id", lead_id)
+            .in_("status", ["scheduled", "pending"])
+            .execute()
+        )
+    except Exception as exc:
+        _log(f"form_hook: sequence_state read failed tenant={tenant_id} lead={lead_id}: {exc}")
+        return 0
+
+    for row in active_rows.data or []:
+        before_snap = {"status": row.get("status"), "sequence_id": row.get("sequence_id")}
+        try:
+            sb.table("sequence_state").update({
+                "status": "cancelled",
+                "last_error": "superseded_by_form_submission",
+                "last_attempt_at": now_iso,
+            }).eq("id", row["id"]).execute()
+            cancelled += 1
+        except Exception as exc:
+            _log(f"form_hook: cancel failed row={row['id']}: {exc}")
+            continue
+
+        # Audit trail — use tenant_audit_log (already in schema per migration 053).
+        # Writes as the daemon (actor_user_id=NULL, actor_email='system').
+        try:
+            sb.table("tenant_audit_log").insert({
+                "tenant_id": tenant_id,
+                "action_type": "drip_cancelled_by_form_submission",
+                "target_table": "sequence_state",
+                "target_id": row["id"],
+                "before": before_snap,
+                "after": {
+                    "status": "cancelled",
+                    "last_error": "superseded_by_form_submission",
+                },
+                "metadata": {
+                    "lead_id": lead_id,
+                    "form_id": form_id,
+                    "sequence_id": row.get("sequence_id"),
+                    "step_index": row.get("step_index"),
+                },
+            }).execute()
+        except Exception as exc:
+            # Audit write failure is non-fatal — the cancellation already landed.
+            _log(f"form_hook: audit log failed row={row['id']}: {exc}")
+
+    return cancelled
+
+
 def enrollment_tick(sb) -> int:
     """Read new agent_events since the cursor, enroll matching leads.
     Returns the number of enrollments inserted."""
@@ -328,6 +394,28 @@ def enrollment_tick(sb) -> int:
         tenant_id = payload.get("tenant_id")
         if not tenant_id:
             continue
+
+        # 2026-05-25 second SunBiz product meeting expansion + migration 069:
+        # Form-submission hook — when a lead submits a form, cancel any
+        # in-flight drip rows for that lead. Runs BEFORE the enrollment
+        # path so a form submission doesn't simultaneously enroll AND cancel.
+        #
+        # Operator's stuck-lead drips should die the moment the lead does
+        # the thing the drip was nagging them to do.
+        if (
+            event_type == "BRAVO_RECORD_STATUS_CHANGED"
+            and payload.get("entity_type") == "lead"
+            and payload.get("triggering_event") == "form_submitted"
+        ):
+            form_lead_id = payload.get("lead_id") or payload.get("record_id")
+            form_id = payload.get("form_id") or ""
+            if form_lead_id:
+                n = _cancel_drips_for_lead(sb, tenant_id, form_lead_id, form_id)
+                if n:
+                    _log(
+                        f"form_hook: cancelled {n} drip(s) "
+                        f"lead={form_lead_id} form={form_id}"
+                    )
 
         # Find active sequences for this tenant + event_type. Tenant
         # isolation is handled at the row level via tenant_id match —

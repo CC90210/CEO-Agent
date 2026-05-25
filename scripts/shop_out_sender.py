@@ -1,5 +1,11 @@
 """
-shop_out_sender.py — Phase 6.3-bis (2026-05-25).
+shop_out_sender.py — Phase 6.3-bis + migration 069 (2026-05-25).
+2026-05-25 meeting expansion: owner_phone substitution added so outbound
+shop-out emails carry the assigned rep's direct number, not the brand
+identity default. Requires migration 069 `owner_phone` column on
+application_lender_threads. Dashboard shop-out route must write the
+resolved owner phone at queue time so reassignment after queuing doesn't
+silently change the outbound number.
 
 The bridge-side daemon that consumes pending rows from
 application_lender_threads and fires actual SMTP via the existing
@@ -332,7 +338,8 @@ def _select_pending(client, batch_size: int, tenant_id: Optional[str]) -> list[d
         client.table("application_lender_threads")
         .select(
             "id, application_id, lender_id, tenant_id, subject, "
-            "body_template, attachments, cc_emails, status, created_at"
+            "body_template, attachments, cc_emails, status, created_at, "
+            "owner_phone"  # migration 069: assigned-rep phone for substitution
         )
         .eq("status", "pending")
         .order("created_at", desc=False)
@@ -368,7 +375,8 @@ def _claim_pending(client, batch_size: int, tenant_id: Optional[str], *, dry_run
         "    FROM candidates c"
         "   WHERE t.id = c.id"
         "  RETURNING t.id, t.application_id, t.lender_id, t.tenant_id, t.subject,"
-        "            t.body_template, t.attachments, t.cc_emails, t.status, t.created_at"
+        "            t.body_template, t.attachments, t.cc_emails, t.status, t.created_at,"
+        "            t.owner_phone"  # migration 069: rep phone for {{owner_phone}} substitution
         ") SELECT * FROM claimed"
     )
     res = client.rpc("exec_sql", {"sql_query": sql}).execute()
@@ -448,6 +456,36 @@ def _render_fallback_body(app_data: dict, lender_data: dict) -> str:
     )
 
 
+# ─── Owner-phone substitution (migration 069, 2026-05-25) ───────────
+
+# Contract:
+#   - Replaces {{owner_phone}} OR {{owner.phone}} in body_template with
+#     the resolved owner_phone from application_lender_threads.owner_phone.
+#   - If owner_phone is absent/empty AND the placeholder is present, inserts
+#     "[no owner phone configured]" so lenders see a clear gap rather than a
+#     raw template token.
+#   - If neither placeholder appears in the body, body is returned unchanged
+#     (all existing templates without the placeholder work unmodified).
+#   - Pure function — no side effects, safe to call in dry-run mode.
+
+_OWNER_PHONE_PLACEHOLDERS = ("{{owner_phone}}", "{{owner.phone}}")
+
+
+def _substitute_owner_phone(body_template: str, owner_phone: Optional[str]) -> str:
+    """Substitute {{owner_phone}} / {{owner.phone}} in body_template.
+
+    Returns the body unchanged if neither placeholder is present so that
+    existing templates (which predate migration 069) continue to work.
+    """
+    if not any(p in body_template for p in _OWNER_PHONE_PLACEHOLDERS):
+        return body_template
+    resolved = (owner_phone or "").strip() or "[no owner phone configured]"
+    result = body_template
+    for placeholder in _OWNER_PHONE_PLACEHOLDERS:
+        result = result.replace(placeholder, resolved)
+    return result
+
+
 # ─── Per-thread processing ──────────────────────────────────────────
 
 def _process_thread(client, send_fn, thread: dict, dry_run: bool) -> dict:
@@ -481,10 +519,14 @@ def _process_thread(client, send_fn, thread: dict, dry_run: bool) -> dict:
         _mark_sent(client, thread_id, existing_interaction_id)
         return {"thread_id": thread_id, "status": "sent", "to_email": recipient, "deduped": True}
 
-    # Body — persisted body_template wins; else default render
+    # Body — persisted body_template wins; else default render.
+    # Apply owner-phone substitution after resolving the body so the
+    # assigned rep's number (written by the dashboard at queue time,
+    # migration 069) replaces {{owner_phone}} / {{owner.phone}} tokens.
     body = thread.get("body_template")
     if not isinstance(body, str) or not body.strip():
         body = _render_fallback_body(app_data, lender_data)
+    body = _substitute_owner_phone(body, thread.get("owner_phone"))
 
     # Attachments — resolve from persisted thread.attachments first;
     # fall back to lead_documents auto-pick.

@@ -1,6 +1,11 @@
 """statement_parser.py — bank statement PDF -> structured JSON via Anthropic vision.
 
-Phase 7.2 of the SunBiz CRM build (2026-05-15). Jordan's meeting:
+Phase 7.2 of the SunBiz CRM build (2026-05-15) + migration 069 (2026-05-25).
+2026-05-25: Known funding company registry moved from hardcoded inline list to
+Supabase `known_funding_companies` table (migration 069). Loaded once per
+process lifetime; falls back to _FALLBACK_KNOWN_FUNDING_COMPANIES on DB error.
+
+Jordan's meeting:
 "the AI is expected to perform automated underwriting by analyzing
 bank statements to identify existing loans and debt levels."
 
@@ -49,6 +54,87 @@ def _load_env_var(name: str) -> str:
         return (load_env().get(name) or os.environ.get(name) or "").strip()
     except Exception:
         return os.environ.get(name, "").strip()
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Known funding company registry (migration 069, 2026-05-25)
+# Previously hardcoded in the vision prompt; now DB-backed via the
+# `known_funding_companies` Supabase table. Falls back to the constant
+# below on any DB error so parse behavior is unchanged when offline.
+# ─────────────────────────────────────────────────────────────────────
+
+_FALLBACK_KNOWN_FUNDING_COMPANIES: list[dict] = [
+    {"name": "BlueVine", "aliases": [], "industry_signal_keywords": [], "category": "mca"},
+    {"name": "OnDeck", "aliases": ["OnDeck Capital", "ONDECK"], "industry_signal_keywords": [], "category": "mca"},
+    {"name": "Kabbage", "aliases": [], "industry_signal_keywords": [], "category": "mca"},
+    {"name": "Funding Circle", "aliases": [], "industry_signal_keywords": [], "category": "mca"},
+    {"name": "CAN Capital", "aliases": [], "industry_signal_keywords": [], "category": "mca"},
+    {"name": "Mantis Funding", "aliases": [], "industry_signal_keywords": [], "category": "mca"},
+    {"name": "Rapid Capital Funding", "aliases": [], "industry_signal_keywords": [], "category": "mca"},
+    {"name": "Yellowstone", "aliases": [], "industry_signal_keywords": [], "category": "mca"},
+    {"name": "Forward Financing", "aliases": ["Forward Fin", "FWD FIN"], "industry_signal_keywords": [], "category": "mca"},
+    {"name": "Square Capital", "aliases": [], "industry_signal_keywords": [], "category": "mca"},
+    {"name": "Stripe Capital", "aliases": [], "industry_signal_keywords": [], "category": "mca"},
+    {"name": "PayPal Working Capital", "aliases": [], "industry_signal_keywords": [], "category": "mca"},
+]
+
+# Module-level cache — loaded once per process lifetime.
+_KNOWN_FUNDING_COMPANIES: list[dict] | None = None
+
+
+def _load_known_funding_companies() -> list[dict]:
+    """Return the known funding company registry from Supabase.
+
+    Schema: known_funding_companies(name TEXT, aliases TEXT[], industry_signal_keywords TEXT[], category TEXT)
+    Falls back to _FALLBACK_KNOWN_FUNDING_COMPANIES on any DB error and logs
+    a warning to stderr so the caller is always unblocked.
+    """
+    global _KNOWN_FUNDING_COMPANIES
+    if _KNOWN_FUNDING_COMPANIES is not None:
+        return _KNOWN_FUNDING_COMPANIES
+
+    try:
+        from lib.secret_loader import load_env  # type: ignore
+        env = load_env()
+        url = (env.get("BRAVO_SUPABASE_URL") or "").strip()
+        key = (env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "").strip()
+        if not url or not key:
+            raise RuntimeError("Supabase credentials missing")
+        from supabase import create_client  # type: ignore
+        client = create_client(url, key)
+        res = client.table("known_funding_companies").select(
+            "name, aliases, industry_signal_keywords, category"
+        ).execute()
+        rows = list(res.data or []) if res else []
+        if not rows:
+            raise RuntimeError("known_funding_companies table returned no rows")
+        _KNOWN_FUNDING_COMPANIES = rows
+    except Exception as exc:
+        import sys as _sys
+        _sys.stderr.write(
+            f"[statement_parser] WARNING: could not load known_funding_companies from DB "
+            f"({exc}); using fallback list.\n"
+        )
+        _KNOWN_FUNDING_COMPANIES = _FALLBACK_KNOWN_FUNDING_COMPANIES
+
+    return _KNOWN_FUNDING_COMPANIES
+
+
+def _format_company_keywords(companies: list[dict]) -> str:
+    """Format company list for injection into the vision prompt."""
+    lines: list[str] = []
+    for c in companies:
+        name = (c.get("name") or "").strip()
+        if not name:
+            continue
+        aliases: list[str] = [a for a in (c.get("aliases") or []) if a]
+        keywords: list[str] = [k for k in (c.get("industry_signal_keywords") or []) if k]
+        parts = aliases + keywords
+        if parts:
+            lines.append(f"- {name} (also: {', '.join(parts)})")
+        else:
+            lines.append(f"- {name}")
+    return "\n".join(lines)
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -102,35 +188,61 @@ def _pdf_to_images(pdf_path: Path, max_pages: int = DEFAULT_MAX_PAGES) -> list[b
 # ─────────────────────────────────────────────────────────────────────
 
 
-EXTRACTION_PROMPT = """You're analyzing a small business bank statement on behalf of an underwriter at a funding shop. Extract a structured JSON payload describing the account activity. Be conservative — if you're unsure about a number, omit it rather than guess.
+# Sentinel token for the company list injection point. Using a sentinel
+# rather than .format() avoids KeyError if any company name/alias ever
+# contains a literal { or } character (valid in some legal trade names).
+_COMPANY_LIST_SENTINEL = "<<<COMPANY_LIST>>>"
 
-Return JSON with these keys (omit keys whose value you can't determine confidently):
+_EXTRACTION_PROMPT_TEMPLATE = (
+    "You're analyzing a small business bank statement on behalf of an underwriter "
+    "at a funding shop. Extract a structured JSON payload describing the account activity. "
+    "Be conservative — if you're unsure about a number, omit it rather than guess.\n\n"
+    "Return JSON with these keys (omit keys whose value you can't determine confidently):\n\n"
+    '{\n'
+    '  "statement_period": {"start": "YYYY-MM-DD", "end": "YYYY-MM-DD"},\n'
+    '  "account_holder": "<business name as it appears>",\n'
+    '  "month_start_balance": <number>,\n'
+    '  "month_end_balance": <number>,\n'
+    '  "total_deposits": <number>,\n'
+    '  "total_withdrawals": <number>,\n'
+    '  "deposit_count": <int>,\n'
+    '  "withdrawal_count": <int>,\n'
+    '  "nsf_events": <int>,           // count of overdrafts / NSF fees\n'
+    '  "overdraft_days": <int>,       // days the account was negative\n'
+    '  "average_daily_balance": <number>,\n'
+    '  "recurring_debits": [          // monthly subscription-style debits\n'
+    '    {"vendor": "<name>", "amount": <number>, "frequency": "monthly"}\n'
+    '  ],\n'
+    '  "identified_loan_payments": [  // recurring debits that look like loan repay\n'
+    '    {"lender_hint": "<best-guess name>", "amount": <number>, "frequency": "daily|weekly|monthly"}\n'
+    '  ],\n'
+    '  "notes": "<any underwriter-relevant observation in 1-2 sentences>"\n'
+    '}\n\n'
+    "Known MCA/loan companies (look for these in memos):\n"
+    f"{_COMPANY_LIST_SENTINEL}\n\n"
+    'Anything else that pattern-matches "DAILY ACH from <lender>" or '
+    '"WEEKLY DEBIT <CORP>" should also land in identified_loan_payments.\n\n'
+    "Return ONLY the JSON. No prose before or after.\n"
+)
 
-{
-  "statement_period": {"start": "YYYY-MM-DD", "end": "YYYY-MM-DD"},
-  "account_holder": "<business name as it appears>",
-  "month_start_balance": <number>,
-  "month_end_balance": <number>,
-  "total_deposits": <number>,
-  "total_withdrawals": <number>,
-  "deposit_count": <int>,
-  "withdrawal_count": <int>,
-  "nsf_events": <int>,           // count of overdrafts / NSF fees
-  "overdraft_days": <int>,       // days the account was negative
-  "average_daily_balance": <number>,
-  "recurring_debits": [          // monthly subscription-style debits
-    {"vendor": "<name>", "amount": <number>, "frequency": "monthly"}
-  ],
-  "identified_loan_payments": [  // recurring debits that look like loan repay
-    {"lender_hint": "<best-guess name>", "amount": <number>, "frequency": "daily|weekly|monthly"}
-  ],
-  "notes": "<any underwriter-relevant observation in 1-2 sentences>"
-}
+# Module-level cache for the rendered prompt — rebuilt only when the
+# company list is first loaded (once per process lifetime).
+_EXTRACTION_PROMPT: str | None = None
 
-Known loan-shop / MCA / lender keywords to flag in identified_loan_payments: BlueVine, OnDeck, Kabbage, Funding Circle, CAN Capital, Mantis Funding, Rapid Capital Funding, Yellowstone, Forward Financing, Square Capital, Stripe Capital, PayPal Working Capital. Anything else that pattern-matches "DAILY ACH from <lender>" or "WEEKLY DEBIT <CORP>" should also land in identified_loan_payments.
 
-Return ONLY the JSON. No prose before or after.
-"""
+def _build_extraction_prompt() -> str:
+    """Return the extraction prompt with the DB-backed company list injected.
+
+    Result is cached module-level after the first call so the string
+    replacement runs once per process, not once per PDF page batch.
+    """
+    global _EXTRACTION_PROMPT
+    if _EXTRACTION_PROMPT is not None:
+        return _EXTRACTION_PROMPT
+    companies = _load_known_funding_companies()
+    formatted = _format_company_keywords(companies)
+    _EXTRACTION_PROMPT = _EXTRACTION_PROMPT_TEMPLATE.replace(_COMPANY_LIST_SENTINEL, formatted)
+    return _EXTRACTION_PROMPT
 
 
 def call_claude_vision(image_pngs: list[bytes], model: str = DEFAULT_MODEL) -> dict:
@@ -155,7 +267,7 @@ def call_claude_vision(image_pngs: list[bytes], model: str = DEFAULT_MODEL) -> d
                 "data": base64.b64encode(png).decode("ascii"),
             },
         })
-    content.append({"type": "text", "text": EXTRACTION_PROMPT})
+    content.append({"type": "text", "text": _build_extraction_prompt()})
 
     r = requests.post(
         "https://api.anthropic.com/v1/messages",
