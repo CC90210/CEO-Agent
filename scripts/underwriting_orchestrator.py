@@ -321,28 +321,49 @@ def _process_row(sb, row: dict) -> None:
     tenant_id = row["tenant_id"]
 
     # ── 1. Find bank statement documents ──────────────────────────────
+    # Codex 2026-05-25 P0 finding: prior SELECT omitted application_id/lead_id/parent_id,
+    # causing the post-fetch JS-side filter to match nothing and fall back to ALL tenant
+    # documents — cross-deal data leak risk. Fix: include FK columns in SELECT and move
+    # the scope filter to a server-side WHERE clause. Fail closed — never fall back to
+    # all-tenant documents.
     try:
+        # Primary path: filter by application_id directly on the server.
         doc_rows = (
             sb.table("lead_documents")
-            .select("id, storage_path, doc_type")
+            .select("id, storage_path, doc_type, application_id, lead_id, parent_id")
             .eq("tenant_id", tenant_id)
+            .eq("application_id", application_id)
             .in_("doc_type", ["bank_statements_3mo", "bank_statement"])
             .execute()
         )
-        # lead_documents.parent may reference either lead or application;
-        # filter by application_id (stored as application_id or parent_id
-        # depending on migration). Try both.
-        docs = [
-            d for d in (doc_rows.data or [])
-            if (d.get("application_id") == application_id
-                or d.get("parent_id") == application_id
-                or d.get("lead_id") == row.get("lead_id"))
-        ]
-        # If the doc table stores application_id directly, the above
-        # .eq filter is sufficient; include all results if no field matched
-        # (means the table uses a different FK — conservative fallback).
-        if not docs and doc_rows.data:
-            docs = doc_rows.data  # fallback: use all matching tenant docs
+        docs = doc_rows.data or []
+
+        if not docs:
+            # Fallback path: resolve via parent lead_id for older rows that store
+            # the lead reference instead of the application reference.
+            app_lead_row = (
+                sb.table("tenant_records")
+                .select("data->lead_id")
+                .eq("tenant_id", tenant_id)
+                .eq("entity_type", "application")
+                .eq("id", application_id)
+                .maybeSingle()
+                .execute()
+            )
+            parent_lead_id = (app_lead_row.data or {}).get("lead_id") if app_lead_row.data else None
+            if parent_lead_id:
+                fallback_rows = (
+                    sb.table("lead_documents")
+                    .select("id, storage_path, doc_type, application_id, lead_id, parent_id")
+                    .eq("tenant_id", tenant_id)
+                    .eq("lead_id", parent_lead_id)
+                    .in_("doc_type", ["bank_statements_3mo", "bank_statement"])
+                    .execute()
+                )
+                docs = fallback_rows.data or []
+
+        # Codex 2026-05-25 P0 finding: do NOT fall back to all-tenant documents.
+        # If neither path finds docs, fail closed with a clear error message.
     except Exception as exc:
         _log(f"underwriting[{row_id}]: doc lookup failed: {exc}")
         _fail(sb, row_id, f"Document lookup failed: {exc!s:.400}")
@@ -351,7 +372,8 @@ def _process_row(sb, row: dict) -> None:
     if not docs:
         _fail(
             sb, row_id,
-            "No bank statements uploaded — upload via Underwriting tab first."
+            "No bank statements found for this application (checked application_id + lead_id paths) — "
+            "upload via Underwriting tab first."
         )
         return
 
