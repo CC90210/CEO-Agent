@@ -132,7 +132,7 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 - **Date:** 2026-05-25
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** SunBiz restructure FULLY SHIPPED. Final tally — 6 commits: c86443a (migration), 0dc7d32 (core), 6775ef9 (Codex P2), 965f4b6 (self-review #1), b7cddbe (UI fixes), 3e9e121 (renewals dedup). All pushed. Vercel agent-dashboard-8tfgcpflw is Ready on production alias. Migration applied to bravo Supabase. Open items: browser-verify visual fixes (operator-side), no Codex audit on b7cddbe/3e9e121.
+- **Result:** SunBiz production pre-flight complete. 17 commits shipped this session run (2026-05-24 → 25), all on main, all green. Latest deploy agent-dashboard-gyxtwn6w6 Ready. Tests passing (sunbiz-import-routing + auth-routing + middleware-prefix). Lint clean repo-wide (eslint .). Playbook 08-sunbiz-production-pre-flight.md committed (cc9976b) with Mac bring-up + smoke checklist + Ezra hand-over + known gaps + 17-commit lineage. CC heading to Montreal — self-sufficient from GitHub pull.
 
 *Last updated: 2026-05-25*
 
