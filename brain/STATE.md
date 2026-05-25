@@ -130,11 +130,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-05-24
+- **Date:** 2026-05-25
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** windows turnkey finalized: CEO-Agent junction created; 10 daemons online incl event-router migrated to scripts/core/event_router.py; bridge healthy; sibling_repos resolves bravo->CEO-Agent
+- **Result:** SunBiz restructure FULLY SHIPPED. Final tally — 6 commits: c86443a (migration), 0dc7d32 (core), 6775ef9 (Codex P2), 965f4b6 (self-review #1), b7cddbe (UI fixes), 3e9e121 (renewals dedup). All pushed. Vercel agent-dashboard-8tfgcpflw is Ready on production alias. Migration applied to bravo Supabase. Open items: browser-verify visual fixes (operator-side), no Codex audit on b7cddbe/3e9e121.
 
-*Last updated: 2026-05-24*
+*Last updated: 2026-05-25*
 
 ## Manifest
 
