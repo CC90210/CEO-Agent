@@ -1,15 +1,15 @@
 {
   "schema_version": "1.0",
   "agent": "bravo",
-  "generated_at": "2026-05-25T22:39:33.732888+00:00",
+  "generated_at": "2026-05-25T22:59:21.130311+00:00",
   "totals": {
-    "skills": 148,
+    "skills": 149,
     "scripts": 108,
     "agents": 21,
     "mcp_servers": 9,
     "workflows": 35,
-    "nodes_total": 321,
-    "edges_total": 38,
+    "nodes_total": 322,
+    "edges_total": 39,
     "drift_count": 0
   },
   "nodes": [
@@ -2666,6 +2666,44 @@
       "status": "[VALIDATED]",
       "disable_model_invocation": false,
       "argument_hint": null,
+      "requires": {
+        "env": [],
+        "daemons": [],
+        "state": []
+      },
+      "archived": null,
+      "superseded_by": null,
+      "discovery": "auto-frontmatter"
+    },
+    {
+      "id": "skill:manifest-ai-editor",
+      "kind": "skill",
+      "name": "manifest-ai-editor",
+      "path": "skills/manifest-ai-editor/SKILL.md",
+      "description": "AI-assisted editor for tenant manifests. Operator describes a desired change (\"add a custom field 'preferred_lender' to application object\") and the skill proposes a structured diff against object_metadata / field_metadata / views / tenant_manifests rows; every change is operator",
+      "tier": "T2",
+      "owner": "bravo",
+      "risk": "medium",
+      "triggers": [
+        "edit manifest",
+        "add custom field",
+        "add view",
+        "add workflow",
+        "add object",
+        "manifest editor",
+        "customize tenant"
+      ],
+      "tags": [
+        "skill",
+        "manifest",
+        "ai-editor",
+        "crm",
+        "v6.9",
+        "tenant"
+      ],
+      "status": "NEW",
+      "disable_model_invocation": false,
+      "argument_hint": "Which manifest section? (object_metadata / field_metadata / views / workflows / brand / nav / agents)",
       "requires": {
         "env": [],
         "daemons": [],
@@ -6360,6 +6398,11 @@
     {
       "from": "skill:integrations-sync",
       "to": "script:revenue_engine",
+      "kind": "uses"
+    },
+    {
+      "from": "skill:manifest-ai-editor",
+      "to": "script:apply_migration",
       "kind": "uses"
     },
     {

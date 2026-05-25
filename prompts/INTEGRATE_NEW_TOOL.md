@@ -202,7 +202,7 @@ If you skipped any step, your integration is paperwork, not progress. Loop back.
 
 ---
 
-**Canonical example** of this prompt being applied end-to-end:
+**Canonical example #1** of this prompt being applied end-to-end:
 - External resource: https://github.com/mattpocock/skills
 - Plan file: `~/.claude/plans/i-found-a-really-parallel-pascal.md`
 - Bravo commits: 5aeb5fb (V6.8 patterns) → bec2fcc (V6.8.1 load-bearing) → 5335556 (V6.8.2 docs catch up)
@@ -210,5 +210,17 @@ If you skipped any step, your integration is paperwork, not progress. Loop back.
 - Atlas commits: 1699c9e (V6.8 propagation) → 18e89af (V6.8.1 entry sync)
 - Pattern logged: `memory/PATTERNS.md` § "Surgical Import from External Skill Repos"
 - Result: vocabulary auto-injection live in production, dependency enforcement live, V6.8 conventions inherited by every new skill via `register.py`.
+
+**Canonical example #2** — five-layer substrate import, larger surface, single-agent-owned:
+- External resource: https://github.com/twentyhq/twenty (AGPLv3 — patterns only, no code copied)
+- Plan file: `~/.claude/plans/i-m-dropping-you-a-magical-cat.md`
+- Bravo commits: 057dcb1 (V6.9.0 object/field metadata) → a951850 (V6.9.1 views) → 289f6d8 (V6.9.2 workflow engine) → 410354c (V6.9.3 ADRs 0003+0004)
+- oasis-command-center commits: b5b8c5a (V6.9.0 introspector) → fd6d25d (V6.9.1 views loader+API) → 5fabfb1 (V6.9.2 step registry+5 steps) → e86822e (V6.9.3 ai-agent step + field perms)
+- ADRs added: 0003 (typed workflow step registry), 0004 (field-level permission model)
+- Vocabulary: `CONTEXT.md` § "V6.9 CRM Substrate" — 6 new glossary entries (Object Metadata, Field Metadata, Saved View, Workflow Step, AI Agent Step, Field Permission)
+- Skill added: `skills/manifest-ai-editor/` (V6.9.4 — operator-facing AI manifest editor surface)
+- Sibling propagation: **none** — CRM is Bravo-owned (oasis-command-center); Maven and Atlas don't have CRM dashboards. Universal vocabulary entries still land in `CONTEXT.md` for cross-agent term coherence.
+- Distribution: `.claude-plugin/plugin.json` deliberately NOT updated — manifest-ai-editor is CC-internal multi-tenant tooling, not universally useful (matches the plugin's own "excluding CRM" exclusion rule).
+- Pattern logged: `memory/PATTERNS.md` § "Substrate-Layer-First Import from AGPL Reference Repos" (V6.9 confirms the V6.8 pattern at larger surface — 3 migrations + 6 step types + 2 ADRs + 6 glossary entries shipped across 8 commits).
 
 This is the bar. Match it.
