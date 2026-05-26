@@ -55,20 +55,33 @@ Security review can read one file to know every step type that exists. Adding a 
 
 ### Substrate set (V6.9.2 + V6.9.3) — 6 step types
 
-| type | purpose | depends on |
-|---|---|---|
-| `record-crud` | create/update/delete `tenant_records` | service-role Supabase client |
-| `http-request` | outbound fetch w/ timeout | network |
-| `if-else` | predicate eval → `then`/`else` branch label | (pure) |
-| `delay` | sleep w/ inline (<5s) or deferred (>5s) mode | (pure) |
-| `mail-sender` | route email through bridge `/exec-tool` → `send_gateway` | bridge daemon |
-| `ai-agent` | Anthropic call w/ persona + template substitution | `ANTHROPIC_API_KEY` |
+| type | purpose | depends on | current state |
+|---|---|---|---|
+| `record-crud` | create/update/delete `tenant_records` | service-role Supabase client | functional (V6.9.5: update uses fetch-then-merge) |
+| `http-request` | outbound fetch w/ timeout | network | functional (V6.9.5: SSRF guard against private/metadata IPs) |
+| `if-else` | predicate eval → `then`/`else` branch label | (pure) | functional |
+| `delay` | sleep inline only (≤5s) | (pure) | gated — long delays return failed pending workflow_runner.py daemon (V6.9.2.x) |
+| `mail-sender` | (will) route email through bridge `/exec-tool` → `send_gateway` | bridge daemon | **gated — refuses to fire pending bridge-exposed send_gateway tool** (V6.9.5.1 honesty fix; see note below) |
+| `ai-agent` | Anthropic call w/ persona + template substitution | `ANTHROPIC_API_KEY` | functional (V6.9.5: `anthropic-version: 2023-06-01` matching repo) |
+
+**Note on `mail-sender` chokepoint compliance (V6.9.5.1):** ADR principle is that
+mail-sender MUST route through `send_gateway`. The bridge today exposes
+`send_email` which calls `scripts/integrations/google_tool.py` — documented at
+google_tool.py:262 as an OPERATOR CLI exception that intentionally bypasses
+`send_gateway`. V6.9.2's initial implementation had a broken wire format
+(would 400). V6.9.5's first hotfix made the wire format work by routing
+through `send_email` — but that meant bypassing the chokepoint, violating
+the principle. V6.9.5.1 reverted the step to a `failed` state with an
+explicit setup pointer, awaiting a bridge-exposed `send_gateway` tool
+(scripts/bravo_cli/bridge_chat_server.py needs a new tool_name registered).
+This is the right tradeoff: a gated step that refuses to fire is honest;
+a functional step that bypasses CASL/cooldown/daily-cap is not.
 
 ### Anti-slop guardrails
 
 - No DSL bloat. `if-else`'s predicate language has 9 ops; anything more becomes a custom step type.
 - No silent passes. Every unknown input shape returns `{ status: 'failed', error: '<reason>' }`.
-- No bypass of `send_gateway`. The `mail-sender` step MUST route through the bridge's `/exec-tool` → CASL + cooldown + daily-cap chokepoint. New outbound step types follow the same rule.
+- No bypass of `send_gateway`. The `mail-sender` step MUST route through the bridge's `/exec-tool` → CASL + cooldown + daily-cap chokepoint. **A step that fulfills its principle by failing-with-pointer is preferable to a step that runs by bypassing the principle.** New outbound step types follow the same rule.
 
 ## Consequences
 
