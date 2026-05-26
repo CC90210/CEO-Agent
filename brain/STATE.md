@@ -130,11 +130,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-05-25
+- **Date:** 2026-05-26
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** migration 070 — RLS policies for 14 migration 069 tables (P0 security gap closed)
+- **Result:** V6.9 arc complete; CC handoff to Mac; everything pushed to origin/main both repos
 
-*Last updated: 2026-05-25*
+*Last updated: 2026-05-26*
 
 ## Manifest
 
