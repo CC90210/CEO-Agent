@@ -79,7 +79,11 @@ CREATE TABLE IF NOT EXISTS public.views (
     slug                text NOT NULL,
     name                text NOT NULL,
     kind                public.view_kind NOT NULL DEFAULT 'table',
-    owner_user_id       uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+    -- V6.9.5 hotfix: previously ON DELETE SET NULL, which turned private
+    -- views (owner_user_id IS NOT NULL) into workspace-shared views (NULL)
+    -- when the owning user was deleted — a silent privacy escalation.
+    -- CASCADE deletes the view alongside the user; safer default.
+    owner_user_id       uuid REFERENCES auth.users(id) ON DELETE CASCADE,
     is_default          boolean NOT NULL DEFAULT false,
     is_active           boolean NOT NULL DEFAULT true,
     /* kanban-specific: which select field drives the columns. NULL for table/
