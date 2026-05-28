@@ -32,7 +32,16 @@
 
 BEGIN;
 
-CREATE OR REPLACE VIEW public.merchant_summary AS
+-- security_invoker=true makes the view evaluate RLS using the CALLING
+-- user's privileges instead of the view owner's. Without this, Supabase
+-- views default to security_definer-like semantics where the view runs
+-- as its owner (postgres) and bypasses tenant_records' RLS policies —
+-- so a logged-in user from tenant A could SELECT merchant_summary and
+-- receive tenant B's data. Codex P1 finding 2026-05-28.
+-- Requires Postgres 15+ which Supabase provides on all current projects.
+CREATE OR REPLACE VIEW public.merchant_summary
+  WITH (security_invoker = true)
+AS
 WITH
 -- ------------------------------------------------------------------------
 -- 1. Most-recent application per lead.
@@ -113,7 +122,7 @@ SELECT
   NULLIF(l.data->>'email', '')                          AS email,
   NULLIF(l.data->>'industry', '')                       AS industry,
   NULLIF(l.data->>'ein', '')                            AS ein,
-  (l.data->>'time_in_business_years')::NUMERIC          AS tib_years,
+  NULLIF(l.data->>'time_in_business_years', '')::NUMERIC          AS tib_years,
 
   -- =====================================================================
   -- OWNER (Adon §1 second block)
@@ -128,7 +137,7 @@ SELECT
     NULLIF(l.data->>'first_name', '') || ' ' || NULLIF(l.data->>'last_name', '')
   )                                                     AS owner_name,
   NULLIF(l.data->'owner'->>'title', '')                 AS owner_title,
-  (l.data->'owner'->>'ownership_pct')::NUMERIC          AS ownership_pct,
+  NULLIF(l.data->'owner'->>'ownership_pct', '')::NUMERIC          AS ownership_pct,
   NULLIF(l.data->'owner'->>'date_of_birth', '')         AS owner_dob,
   NULLIF(l.data->'owner'->>'citizenship', '')           AS owner_citizenship,
   -- SSN: server NEVER projects the full SSN — only last 4. If the data
@@ -140,7 +149,7 @@ SELECT
       THEN RIGHT(l.data->'owner'->>'ssn', 4)
     ELSE NULL
   END                                                   AS ssn_last4,
-  (l.data->'owner'->>'credit_score')::INT               AS credit_score,
+  NULLIF(l.data->'owner'->>'credit_score', '')::INT               AS credit_score,
 
   -- =====================================================================
   -- ADDRESSES (physical + home)
@@ -150,12 +159,12 @@ SELECT
   NULLIF(l.data->'physical_address'->>'city', '')       AS physical_city,
   NULLIF(l.data->'physical_address'->>'state', '')      AS physical_state,
   NULLIF(l.data->'physical_address'->>'zip', '')        AS physical_zip,
-  (l.data->'physical_address'->>'years_at')::NUMERIC    AS physical_years_at,
+  NULLIF(l.data->'physical_address'->>'years_at', '')::NUMERIC    AS physical_years_at,
   NULLIF(l.data->'home_address'->>'line1', '')          AS home_line1,
   NULLIF(l.data->'home_address'->>'city', '')           AS home_city,
   NULLIF(l.data->'home_address'->>'state', '')          AS home_state,
   NULLIF(l.data->'home_address'->>'zip', '')            AS home_zip,
-  (l.data->'home_address'->>'years_at')::NUMERIC        AS home_years_at,
+  NULLIF(l.data->'home_address'->>'years_at', '')::NUMERIC        AS home_years_at,
 
   -- =====================================================================
   -- AGENT (assignee)
@@ -208,7 +217,7 @@ SELECT
     0,
     EXTRACT(
       DAY FROM NOW() - COALESCE(
-        (pa.data->>'stage_entered_at')::TIMESTAMPTZ,
+        NULLIF(pa.data->>'stage_entered_at', '')::TIMESTAMPTZ,
         pa.app_updated_at,
         l.updated_at
       )
@@ -239,12 +248,12 @@ SELECT
   -- to FALSE. Frontend code should treat these as best-effort hints,
   -- NOT authoritative — JARVIS underwriting brief is the source of truth.
   -- =====================================================================
-  COALESCE((l.data->>'is_hot')::BOOLEAN, FALSE)         AS is_hot,
-  COALESCE((l.data->>'is_shopped_stale')::BOOLEAN, FALSE) AS is_shopped_stale,
+  COALESCE(NULLIF(l.data->>'is_hot', '')::BOOLEAN, FALSE)         AS is_hot,
+  COALESCE(NULLIF(l.data->>'is_shopped_stale', '')::BOOLEAN, FALSE) AS is_shopped_stale,
   -- Cold = no inbound conversation in 48h. Derives from last_inbound_at
   -- if present, else last_touch_at, else FALSE.
   COALESCE(
-    (l.data->>'last_inbound_at')::TIMESTAMPTZ
+    NULLIF(l.data->>'last_inbound_at', '')::TIMESTAMPTZ
       < NOW() - INTERVAL '48 hours',
     FALSE
   )                                                     AS is_cold,
@@ -252,31 +261,31 @@ SELECT
   -- (JARVIS computes term_pct_used; default null = not eligible).
   (
     COALESCE(l.data->>'merchant_stage', '') = 'Funded'
-    AND COALESCE((pa.data->>'term_pct_used')::NUMERIC, 0) > 0.60
+    AND COALESCE(NULLIF(pa.data->>'term_pct_used', '')::NUMERIC, 0) > 0.60
   )                                                     AS is_renewal_candidate,
   -- High leverage: paper_grade='D' or leverage_ratio > 70%
   (
     COALESCE(pa.data->>'paper_grade', '') = 'D'
-    OR COALESCE((pa.data->>'leverage_ratio')::NUMERIC, 0) > 0.70
+    OR COALESCE(NULLIF(pa.data->>'leverage_ratio', '')::NUMERIC, 0) > 0.70
   )                                                     AS is_high_leverage,
 
   -- =====================================================================
   -- DEAL ECONOMICS (mostly populated by JARVIS underwriting)
   -- =====================================================================
   NULLIF(pa.data->>'paper_grade', '')                   AS paper_grade,
-  (pa.data->>'leverage_ratio')::NUMERIC                 AS leverage_ratio,
-  (pa.data->>'avg_monthly_revenue')::NUMERIC            AS avg_monthly_revenue,
-  (pa.data->>'nsf_avg_per_month')::NUMERIC              AS nsf_avg_per_month,
-  COALESCE((pa.data->>'position_count')::INT, 0)        AS position_count,
-  (pa.data->>'requested_amount')::NUMERIC               AS funding_potential_usd,
-  (pa.data->>'current_funded_amount')::NUMERIC         AS current_funded_amount,
-  (pa.data->>'submitted_at')::TIMESTAMPTZ               AS submitted_at,
+  NULLIF(pa.data->>'leverage_ratio', '')::NUMERIC                 AS leverage_ratio,
+  NULLIF(pa.data->>'avg_monthly_revenue', '')::NUMERIC            AS avg_monthly_revenue,
+  NULLIF(pa.data->>'nsf_avg_per_month', '')::NUMERIC              AS nsf_avg_per_month,
+  COALESCE(NULLIF(pa.data->>'position_count', '')::INT, 0)        AS position_count,
+  NULLIF(pa.data->>'requested_amount', '')::NUMERIC               AS funding_potential_usd,
+  NULLIF(pa.data->>'current_funded_amount', '')::NUMERIC         AS current_funded_amount,
+  NULLIF(pa.data->>'submitted_at', '')::TIMESTAMPTZ               AS submitted_at,
   COALESCE(
-    (l.data->>'last_touch_at')::TIMESTAMPTZ,
+    NULLIF(l.data->>'last_touch_at', '')::TIMESTAMPTZ,
     l.updated_at
   )                                                     AS last_touch_at,
-  (l.data->>'last_sms_at')::TIMESTAMPTZ                 AS last_sms_at,
-  (l.data->>'last_email_at')::TIMESTAMPTZ               AS last_email_at,
+  NULLIF(l.data->>'last_sms_at', '')::TIMESTAMPTZ                 AS last_sms_at,
+  NULLIF(l.data->>'last_email_at', '')::TIMESTAMPTZ               AS last_email_at,
 
   -- =====================================================================
   -- LENDER SHOP COUNTS (from application_lender_threads)
@@ -291,7 +300,7 @@ SELECT
   tc.last_lender_response_at                            AS last_lender_response_at,
   -- Best offer: JARVIS-supplied via application JSONB. Frontend may
   -- compute it later from per-thread response summaries.
-  (pa.data->>'best_offer_amount')::NUMERIC              AS best_offer_amount,
+  NULLIF(pa.data->>'best_offer_amount', '')::NUMERIC              AS best_offer_amount,
 
   -- =====================================================================
   -- PRIORITY SCORE + REASON (computed inline — no helper function)
@@ -316,16 +325,16 @@ SELECT
           END
       ) * 5
     )) +
-    CASE WHEN COALESCE((l.data->>'is_hot')::BOOLEAN, FALSE) THEN 30 ELSE 0 END +
+    CASE WHEN COALESCE(NULLIF(l.data->>'is_hot', '')::BOOLEAN, FALSE) THEN 30 ELSE 0 END +
     CASE WHEN
       COALESCE(l.data->>'merchant_stage', '') = 'Funded'
-      AND COALESCE((pa.data->>'term_pct_used')::NUMERIC, 0) > 0.60
+      AND COALESCE(NULLIF(pa.data->>'term_pct_used', '')::NUMERIC, 0) > 0.60
     THEN 25 ELSE 0 END +
     CASE WHEN COALESCE(pa.data->>'paper_grade', '') = 'D' THEN 15 ELSE 0 END +
     LEAST(16, COALESCE(tc.shop_offer_count, 0) * 8) +
-    CASE WHEN COALESCE((l.data->>'is_shopped_stale')::BOOLEAN, FALSE) THEN 12 ELSE 0 END -
+    CASE WHEN COALESCE(NULLIF(l.data->>'is_shopped_stale', '')::BOOLEAN, FALSE) THEN 12 ELSE 0 END -
     CASE WHEN
-      COALESCE((l.data->>'last_inbound_at')::TIMESTAMPTZ, NOW() - INTERVAL '49 hours')
+      COALESCE(NULLIF(l.data->>'last_inbound_at', '')::TIMESTAMPTZ, NOW() - INTERVAL '49 hours')
         < NOW() - INTERVAL '48 hours'
     THEN 10 ELSE 0 END
   ))::INT                                               AS priority_score,
@@ -343,10 +352,10 @@ SELECT
           END > 0
       THEN 'Overdue in ' || COALESCE(pa.data->>'deal_stage', 'pipeline')
       ELSE NULL END,
-      CASE WHEN COALESCE((l.data->>'is_hot')::BOOLEAN, FALSE) THEN 'hot' ELSE NULL END,
+      CASE WHEN COALESCE(NULLIF(l.data->>'is_hot', '')::BOOLEAN, FALSE) THEN 'hot' ELSE NULL END,
       CASE WHEN
         COALESCE(l.data->>'merchant_stage', '') = 'Funded'
-        AND COALESCE((pa.data->>'term_pct_used')::NUMERIC, 0) > 0.60
+        AND COALESCE(NULLIF(pa.data->>'term_pct_used', '')::NUMERIC, 0) > 0.60
       THEN 'renewal-ready' ELSE NULL END,
       CASE WHEN COALESCE(tc.shop_offer_count, 0) > 0
         THEN tc.shop_offer_count || ' offer' ||
