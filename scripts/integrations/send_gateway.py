@@ -354,6 +354,14 @@ def _find_unresolved_template_tokens(**fields: Optional[str]) -> list[str]:
     return found
 
 
+def _parse_email_list(raw: Optional[str]) -> list[str]:
+    """Parse comma/semicolon separated recipient strings for CC support."""
+    if not raw:
+        return []
+    parts = re.split(r"[;,]", raw)
+    return [p.strip() for p in parts if p.strip()]
+
+
 def _sql_literal(value: Any) -> str:
     if value is None:
         return "NULL"
@@ -1355,6 +1363,7 @@ def _build_email_mime(
     gmail_address: str,
     brand: dict[str, str],
     to_email: str,
+    cc_emails: Optional[list[str]],
     subject: str,
     body_text: str,
     body_html: Optional[str],
@@ -1405,6 +1414,8 @@ def _build_email_mime(
     outer["Subject"] = subject
     outer["From"] = f'{brand["from_display"]} <{gmail_address}>'
     outer["To"] = to_email
+    if cc_emails:
+        outer["Cc"] = ", ".join(cc_emails)
     if intent != "internal":
         add_list_unsubscribe_headers(outer, to_email)
 
@@ -1570,10 +1581,12 @@ def _send_email_smtp(
     env: dict[str, str],
     mime: MIMEMultipart,
     to_email: str,
+    cc_emails: Optional[list[str]] = None,
 ) -> tuple[bool, Optional[str]]:
     gmail_user = env.get("GMAIL_USER") or env.get("GMAIL_ADDRESS", "")
     gmail_pass = env.get("GMAIL_APP_PASSWORD", "")
-    ok, err = _smtp_send(gmail_user, gmail_pass, mime, to_email)
+    recipients = [to_email] + list(cc_emails or [])
+    ok, err = _smtp_send(gmail_user, gmail_pass, mime, recipients)
     if ok:
         _ping_health("gws", status="healthy", metadata={"source": "send_gateway.smtp_send"})
     else:
@@ -1602,6 +1615,7 @@ def send(
     agent_source: str,
     *,
     to_email: Optional[str] = None,
+    cc_email: Optional[str] = None,
     to_phone: Optional[str] = None,    # SMS: E.164 phone (added Phase 5.3, SunBiz CRM)
     lead_id: Optional[str] = None,
     subject: Optional[str] = None,
@@ -1673,6 +1687,7 @@ def send(
                 "reason": f"brand '{brand}' is missing a confirmed physical business_address",
                 "lead_id": lead_id, "interaction_id": None,
                 "cooldown_until": None, "daily_count": None}
+    cc_emails: list[str] = []
 
     # ---- Per-channel required fields ----
     if channel == "email":
@@ -1681,6 +1696,7 @@ def send(
                     "reason": "email channel requires to_email, subject, body_text",
                     "lead_id": lead_id, "interaction_id": None,
                     "cooldown_until": None, "daily_count": None}
+        cc_emails = _parse_email_list(cc_email)
     elif channel == "sms":
         # Phase 5.3 of SunBiz CRM — SMS now goes through the chokepoint
         # so cooldown / daily-cap / suppression apply uniformly with
@@ -1846,6 +1862,8 @@ def send(
             "intent": intent,
             "sent_at": datetime.now(timezone.utc).isoformat(),
         })
+        if cc_emails:
+            full_metadata["cc_email"] = cc_emails
 
         if intent == "commercial" and _env_bool(env, "DRAFT_CRITIC_ENABLED", True):
             # Fail-closed quality gate. Non-ship verdicts block. The only
@@ -2031,6 +2049,7 @@ def send(
             gmail_address=gmail_user,
             brand=brand_cfg,
             to_email=to_email,  # type: ignore[arg-type]
+            cc_emails=cc_emails,
             subject=subject,  # type: ignore[arg-type]
             body_text=body_text,  # type: ignore[arg-type]
             body_html=body_html,
@@ -2039,7 +2058,7 @@ def send(
             ics_filename=ics_filename,
             attachments=attachments,
         )
-        ok, err = _send_email_smtp(env, mime, to_email)  # type: ignore[arg-type]
+        ok, err = _send_email_smtp(env, mime, to_email, cc_emails)  # type: ignore[arg-type]
         if not ok:
             finalize_reserved_action(
                 db=db,
@@ -2290,6 +2309,7 @@ def _cmd_send(args) -> int:
         channel=args.channel,
         agent_source=args.agent_source,
         to_email=args.to,
+        cc_email=args.cc,
         lead_id=args.lead_id,
         subject=args.subject,
         body_text=args.body,
@@ -2398,6 +2418,7 @@ def main() -> None:
     ps.add_argument("--channel", required=True, choices=sorted(KNOWN_CHANNELS))
     ps.add_argument("--agent-source", dest="agent_source", required=True)
     ps.add_argument("--to", default=None, help="Recipient email (for email channel)")
+    ps.add_argument("--cc", default=None, help="CC recipient email(s), comma-separated")
     ps.add_argument("--lead-id", dest="lead_id", default=None)
     ps.add_argument("--subject", default=None)
     ps.add_argument("--body", default=None, help="Plain text body")

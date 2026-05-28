@@ -868,261 +868,38 @@ def _tool_load_skill(payload: dict) -> dict:
 # ──────────────────────────────────────────────────────────────────
 
 def _tool_underwriting_run(payload: dict) -> dict:
-    """{application_id: str, bank_statement_paths?: [str],
-        triggered_by?: 'manual'|'rerun'|'chat',
-        wait_for_complete?: bool (default True),
-        poll_interval_s?: int (default 5),
-        poll_timeout_s?: int (default 1800)}
-    → enqueue an underwriting run and (by default) wait for completion.
+    """SunBiz-domain bridge tool — body lives in SunBiz-Agent.
 
-    --- 2026-05-28 REWRITE — unified data path ---
+    The bridge daemon is shared infra; the underwriting tool is
+    SunBiz-specific (application_underwriting table, daemon contract,
+    paper-grade rubric, dual-write to data.underwriting_jsonb).
 
-    The prior version wrote results directly to
-    tenant_records.data.underwriting_jsonb and bypassed the
-    application_underwriting table that migration 069 introduced and
-    merchant_summary v2 (migration 072) reads from. Effect: chat-agent
-    underwriting runs SUCCEEDED but the dashboard surfaces showed NULL
-    metrics because they read from a different table. This rewrite
-    unifies on the same path as the dashboard /api/applications/[id]/
-    underwriting/run endpoint — INSERT a pending row, let the
-    underwriting_orchestrator daemon pick it up, poll for completion,
-    return canonical results.
+    This shim imports the implementation from
+    SUNBIZ_AGENT_ROOT/scripts/bridge_tool_underwriting_run.py (default
+    ~/SunBiz-Agent). Payload contract preserved verbatim.
 
-    Behaviour:
-      1. Verify application_id resolves to a real tenant_records row.
-      2. 409-guard: if a pending/parsing row already exists for this
-         application, return its run_id instead of double-enqueueing.
-      3. INSERT into application_underwriting at status='pending'.
-         underwriting_orchestrator.py daemon polls and picks up within
-         ~30s.
-      4. Poll the row every `poll_interval_s` seconds until it reaches
-         status='complete' (return canonical metrics) or 'error'
-         (return _err with error_message), or `poll_timeout_s` elapses
-         (return _err with the run_id so the operator can check later).
-      5. Daemon STILL writes data.underwriting_jsonb on its complete
-         path so the legacy consumers (/api/applications/[id]/underwrite,
-         match-lenders/route.ts, ApplicationCardActions.tsx) keep working.
-
-    bank_statement_paths is now OPTIONAL — the daemon discovers
-    statement docs from the application's documents subtable.
-    Passing explicit paths is for operator-override / one-off debugging.
-
-    wait_for_complete=False fires the enqueue + returns the run_id
-    immediately (for fire-and-forget chat use: "kick it off and I'll
-    check back later").
-
-    Failure modes:
-      - Application id doesn't resolve → _err early.
-      - Daemon isn't running → poll loop times out; return _err with
-        run_id so operator can investigate (also surfaces a clear
-        diagnostic in the dashboard's /api/applications/[id]/
-        underwriting/latest endpoint).
-      - Run fails on the daemon side → _err with the error_message
-        the daemon wrote to the row.
+    Payload: {application_id: str,
+              triggered_by?: 'manual'|'rerun'|'chat',
+              wait_for_complete?: bool (default True),
+              poll_interval_s?: int (default 5, max 60),
+              poll_timeout_s?: int (default 1800, max 3600)}
     """
-    application_id = str(payload.get("application_id") or "").strip()
-    triggered_by = str(payload.get("triggered_by") or "manual").strip()
-    wait_for_complete = bool(payload.get("wait_for_complete", True))
-    poll_interval_s = max(1, min(int(payload.get("poll_interval_s") or 5), 60))
-    poll_timeout_s = max(60, min(int(payload.get("poll_timeout_s") or 1800), 3600))
-    if not application_id:
-        return _err("missing 'application_id'")
-    if triggered_by not in {"manual", "rerun", "chat", "automatic"}:
-        triggered_by = "manual"
-
-    # Supabase client setup
-    bravo = _bravo_root()
-    try:
-        from supabase import create_client  # type: ignore
-        from scripts.lib.secret_loader import load_env  # type: ignore
-    except Exception:
-        sys.path.insert(0, str(bravo))
-        sys.path.insert(0, str(bravo / "scripts"))
-        from supabase import create_client  # type: ignore
-        from lib.secret_loader import load_env  # type: ignore
-    try:
-        env = load_env([
-            "BRAVO_SUPABASE_URL",
-            "BRAVO_SUPABASE_SERVICE_ROLE_KEY",
-        ])
-        sb = create_client(env["BRAVO_SUPABASE_URL"], env["BRAVO_SUPABASE_SERVICE_ROLE_KEY"])
-    except Exception as e:
-        return _err(f"supabase init failed: {e}")
-
-    # 1. Resolve the application row.
-    app_row = (
-        sb.table("tenant_records")
-        .select("id, tenant_id, data")
-        .eq("id", application_id)
-        .eq("entity_type", "application")
-        .maybeSingle()
-        .execute()
+    sunbiz_root = Path(
+        os.environ.get("SUNBIZ_AGENT_ROOT", str(Path.home() / "SunBiz-Agent"))
     )
-    if not app_row.data:
-        return _err(f"application_id {application_id} not found in tenant_records")
-    tenant_id = app_row.data.get("tenant_id")
-    if not tenant_id:
-        return _err(f"application {application_id} has no tenant_id — corrupt row")
-
-    # 2. 409-guard. If a pending/parsing row is already in flight for
-    #    this application, return its run_id instead of double-enqueueing.
-    in_flight = (
-        sb.table("application_underwriting")
-        .select("id, status, run_at")
-        .eq("tenant_id", tenant_id)
-        .eq("application_id", application_id)
-        .in_("status", ["pending", "parsing"])
-        .limit(1)
-        .maybeSingle()
-        .execute()
-    )
-    if in_flight.data:
-        existing_run_id = in_flight.data["id"]
-        if not wait_for_complete:
-            return _ok(json.dumps({
-                "ok": True,
-                "run_id": existing_run_id,
-                "application_id": application_id,
-                "enqueued": False,
-                "reused_existing": True,
-                "status": in_flight.data["status"],
-            }))
-        # Wait on the existing run instead of starting a new one.
-        run_id = existing_run_id
-    else:
-        # 3. INSERT new pending row. The daemon picks up within ~30s.
-        ins = (
-            sb.table("application_underwriting")
-            .insert({
-                "tenant_id": tenant_id,
-                "application_id": application_id,
-                "status": "pending",
-                "triggered_by": triggered_by,
-                "run_at": datetime.now(timezone.utc).isoformat(),
-            })
-            .execute()
+    if not sunbiz_root.exists():
+        return _err(
+            f"SunBiz-Agent runtime not found at {sunbiz_root}; "
+            "set SUNBIZ_AGENT_ROOT or clone SunBiz-Agent next to CEO-Agent"
         )
-        if not ins.data or not ins.data[0].get("id"):
-            return _err(f"failed to enqueue underwriting run: {getattr(ins, 'error', 'unknown')}")
-        run_id = ins.data[0]["id"]
-
-    # 4. Fire-and-forget shortcut.
-    if not wait_for_complete:
-        return _ok(json.dumps({
-            "ok": True,
-            "run_id": run_id,
-            "application_id": application_id,
-            "enqueued": True,
-            "status": "pending",
-            "message": "Run enqueued. Check application_underwriting/latest for results.",
-        }))
-
-    # 5. Poll loop. Bounded by poll_timeout_s (default 30 min) — well
-    #    inside the bridge's 6h subprocess cap.
-    start = time.time()
-    last_status = "pending"
-    while time.time() - start < poll_timeout_s:
-        time.sleep(poll_interval_s)
-        try:
-            row = (
-                sb.table("application_underwriting")
-                .select(
-                    "id, status, run_at, readiness_score, risk_flags, sales_angle, "
-                    "avg_monthly_revenue, avg_daily_balance, nsf_count, "
-                    "deposit_consistency_pct, debt_service_monthly, "
-                    "debt_to_revenue_ratio, lender_count, error_message"
-                )
-                .eq("id", run_id)
-                .maybeSingle()
-                .execute()
-            )
-        except Exception as exc:
-            # Transient DB error — log via stderr-equivalent and keep polling.
-            # Bridge logs go through _ok/_err so we just continue.
-            continue
-        if not row.data:
-            return _err(f"underwriting row {run_id} disappeared mid-poll — DB inconsistency")
-        last_status = row.data.get("status") or last_status
-        if last_status == "complete":
-            risk_flags = row.data.get("risk_flags") or []
-            sales_angle = row.data.get("sales_angle") or ""
-            # Defensive dual-write — mirror the result into
-            # application.data.underwriting_jsonb so legacy consumers
-            # (/api/applications/[id]/match-lenders, ApplicationCardActions
-            # display, /api/applications/[id]/underwrite) keep working.
-            # The orchestrator daemon doesn't do this today (pre-existing
-            # gap surfaced 2026-05-28); when it gets fixed the daemon
-            # becomes the single source of dual-writes and this block
-            # becomes idempotent overlap. Best-effort — a failure here
-            # doesn't poison the canonical result we're about to return.
-            try:
-                legacy_jsonb = {
-                    "monthly_revenue": row.data.get("avg_monthly_revenue"),
-                    "monthly_debt_service": row.data.get("debt_service_monthly"),
-                    "loan_count": row.data.get("lender_count"),
-                    "nsf_events_90d": row.data.get("nsf_count"),
-                    "lenders_identified": [],  # daemon's debt_analysis stores
-                                                # this differently; legacy field
-                                                # consumers fall back gracefully
-                                                # to an empty array.
-                    "sales_angle": sales_angle,
-                    "generated_at": row.data.get("run_at"),
-                }
-                # Re-read the application's current data to merge without
-                # clobbering keys other writers added between our writes.
-                app_now = (
-                    sb.table("tenant_records")
-                    .select("data")
-                    .eq("id", application_id)
-                    .eq("tenant_id", tenant_id)
-                    .maybeSingle()
-                    .execute()
-                )
-                current_data = (app_now.data or {}).get("data") or {}
-                merged = {**current_data, "underwriting_jsonb": legacy_jsonb}
-                sb.table("tenant_records").update({
-                    "data": merged,
-                    "updated_at": datetime.now(timezone.utc).isoformat(),
-                }).eq("id", application_id).eq("tenant_id", tenant_id).execute()
-            except Exception:
-                # Silent best-effort — operator can re-run if match-lenders
-                # comes up empty.
-                pass
-            return _ok(json.dumps({
-                "ok": True,
-                "run_id": run_id,
-                "application_id": application_id,
-                "status": "complete",
-                "readiness_score": row.data.get("readiness_score"),
-                "risk_flags": risk_flags,
-                "risk_flag_count": len(risk_flags) if isinstance(risk_flags, list) else 0,
-                "avg_monthly_revenue": row.data.get("avg_monthly_revenue"),
-                "avg_daily_balance": row.data.get("avg_daily_balance"),
-                "nsf_count": row.data.get("nsf_count"),
-                "deposit_consistency_pct": row.data.get("deposit_consistency_pct"),
-                "debt_service_monthly": row.data.get("debt_service_monthly"),
-                "debt_to_revenue_ratio": row.data.get("debt_to_revenue_ratio"),
-                "lender_count": row.data.get("lender_count"),
-                "sales_angle_len": len(sales_angle),
-                "sales_angle_preview": sales_angle[:400],
-                "elapsed_s": int(time.time() - start),
-            }))
-        if last_status == "error":
-            return _err(
-                f"underwriting failed: {row.data.get('error_message') or 'unknown error'} "
-                f"(run_id={run_id})"
-            )
-        # else: still pending/parsing — keep polling.
-
-    # 6. Timeout — daemon never finished within the window. Most likely
-    #    cause: daemon isn't running. Surface the run_id so the operator
-    #    can check status manually or wait for it to complete later.
-    return _err(
-        f"underwriting timed out after {poll_timeout_s}s while waiting for daemon "
-        f"(last_status={last_status}, run_id={run_id}). "
-        "Check that underwriting_orchestrator.py is running on the bridge VPS. "
-        "The run is still enqueued — re-fetch /api/applications/{id}/underwriting/latest later."
-    )
+    scripts_path = str(sunbiz_root / "scripts")
+    if scripts_path not in sys.path:
+        sys.path.insert(0, scripts_path)
+    try:
+        from bridge_tool_underwriting_run import underwriting_run  # type: ignore
+    except ImportError as e:
+        return _err(f"failed to import SunBiz underwriting bridge tool: {e}")
+    return underwriting_run(payload, _ok, _err)
 
 
 def _tool_shop_out_send_batch(payload: dict) -> dict:
