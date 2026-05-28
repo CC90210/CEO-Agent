@@ -383,6 +383,31 @@ class TestSendGateway(unittest.TestCase):
         # Email log mirror created
         self.assertEqual(len(self.db.tables["email_log"].rows), 1)
 
+    def test_01b_email_cc_header_and_envelope(self):
+        captured = {}
+
+        def fake_smtp(_env, mime, to_email, cc_emails=None):
+            captured["to_email"] = to_email
+            captured["cc_emails"] = cc_emails
+            captured["cc_header"] = mime["Cc"]
+            return True, None
+
+        with mock.patch.object(self.sg, "_send_email_smtp", side_effect=fake_smtp), self._patch_suppress(False), mock.patch.object(self.sg, "_telegram_notify", return_value=False):
+            r = self.sg.send(
+                channel="email",
+                agent_source="test_harness",
+                to_email="jane@acme.example",
+                cc_email="ops@acme.example, owner@acme.example",
+                subject="hi",
+                body_text="hello",
+                db=self.db,
+            )
+
+        self.assertEqual(r["status"], "sent", r)
+        self.assertEqual(captured["to_email"], "jane@acme.example")
+        self.assertEqual(captured["cc_emails"], ["ops@acme.example", "owner@acme.example"])
+        self.assertEqual(captured["cc_header"], "ops@acme.example, owner@acme.example")
+
     # 2. CASL suppression blocks commercial send
     def test_02_suppressed_commercial_blocked(self):
         with self._patch_smtp_ok(), self._patch_suppress(True):
