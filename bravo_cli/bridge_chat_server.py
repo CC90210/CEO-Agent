@@ -345,6 +345,47 @@ def _load_script_manifest() -> dict[str, dict]:
 
 SCRIPT_ALLOWLIST: dict[str, dict] = _load_script_manifest()
 
+
+def _resolve_sunbiz_root() -> Path | None:
+    """Locate SunBiz-Agent so the bridge can execute SunBiz-rooted
+    scripts (manifest entries with root='sunbiz'). Honors
+    SUNBIZ_AGENT_ROOT env var first, then probes the two canonical
+    CC locations (~/SunBiz-Agent on Mac/Linux, C:\\Users\\User\\
+    SunBiz-Agent on Windows)."""
+    env = os.environ.get("SUNBIZ_AGENT_ROOT")
+    candidates: list[Path] = []
+    if env:
+        candidates.append(Path(env))
+    candidates.append(Path.home() / "SunBiz-Agent")
+    if os.name == "nt":
+        candidates.append(Path("C:/Users/User/SunBiz-Agent"))
+    for c in candidates:
+        if (c / "scripts").is_dir():
+            return c
+    return None
+
+
+_SCRIPT_ROOTS: dict[str, Path | None] = {
+    "sunbiz": _resolve_sunbiz_root(),
+}
+
+
+def _resolve_script_root(root_key: str | None, bravo_root: Path) -> tuple[Path | None, str | None]:
+    """Map a manifest entry's `root` field to an absolute path.
+    Returns (root_path, None) on success, (None, error_message) on
+    failure. The default ('bravo' or absent) routes to the bridge's
+    current agent root, preserving existing behaviour."""
+    if not root_key or root_key == "bravo":
+        return bravo_root, None
+    resolved = _SCRIPT_ROOTS.get(root_key)
+    if resolved is None:
+        env_var = {"sunbiz": "SUNBIZ_AGENT_ROOT"}.get(root_key, f"{root_key.upper()}_AGENT_ROOT")
+        return None, (
+            f"script root '{root_key}' not configured on this host. "
+            f"Set {env_var} or install the runtime."
+        )
+    return resolved, None
+
 RUN_SCRIPT_TOOL = {
     "name": "run_script",
     "description": (
@@ -3352,9 +3393,18 @@ class _ChatHandler(BaseHTTPRequestHandler):
             ), True
 
         rel_script = spec["path"]
-        full_path = (root / rel_script).resolve()
-        if not under_root(root, full_path) or not full_path.is_file():
-            return f"script_missing: {rel_script} not found in agent root", True
+        # Per-entry root resolution. Default ('bravo' or absent) routes
+        # to the bridge's agent root (CEO-Agent); 'sunbiz' resolves to
+        # SUNBIZ_AGENT_ROOT-style probe; others surface a config error.
+        script_root, root_err = _resolve_script_root(spec.get("root"), root)
+        if root_err is not None:
+            return f"script_root_unresolved: {root_err}", True
+        full_path = (script_root / rel_script).resolve()
+        if not under_root(script_root, full_path) or not full_path.is_file():
+            return (
+                f"script_missing: {rel_script} not found under "
+                f"{spec.get('root', 'bravo')} root ({script_root})"
+            ), True
 
         cmd: list = [sys.executable, str(full_path)]
         subcmd = spec.get("subcmd")
@@ -3367,7 +3417,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
         try:
             proc = _safe_popen(
                 cmd,
-                cwd=str(root),
+                cwd=str(script_root),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
