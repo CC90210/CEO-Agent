@@ -2378,6 +2378,15 @@ class _ChatHandler(BaseHTTPRequestHandler):
         self,
         args: list[str],
         root: Path,
+        # ====================================================================
+        # PAIRED with oasis-command-center/components/ChatWidget.tsx —
+        # BRIDGE_TOOL_TIMEOUT_MS (browser fetch timeout) MUST stay >= this
+        # value (in ms). If the client cap is lower, the browser cuts off
+        # a working bridge run; if it's higher, the user waits past the
+        # point the server has already given up.
+        # The watchdog further down (WATCHDOG_TIMEOUT_SEC) likewise pairs
+        # with the client's SSE_INACTIVITY_TIMEOUT_MS.
+        # ====================================================================
         # Bumped 2026-05-28 from 300s (5min) to 21600s (6h). CC hit
         # the prior cap on Gemini CLI tool-use loops that legitimately
         # take an hour+ (deep research, multi-file refactor). The
