@@ -884,13 +884,22 @@ def _tool_underwriting_run(payload: dict) -> dict:
               poll_interval_s?: int (default 5, max 60),
               poll_timeout_s?: int (default 1800, max 3600)}
     """
-    sunbiz_root = Path(
-        os.environ.get("SUNBIZ_AGENT_ROOT", str(Path.home() / "SunBiz-Agent"))
-    )
-    if not sunbiz_root.exists():
+    # Resolve SunBiz-Agent runtime root. Honor SUNBIZ_AGENT_ROOT env var
+    # first (works on every platform); otherwise probe the two canonical
+    # locations CC uses — ~/SunBiz-Agent on Mac/Linux, C:\Users\User\
+    # SunBiz-Agent on Windows. Fail loudly if neither resolves.
+    sunbiz_root_env = os.environ.get("SUNBIZ_AGENT_ROOT")
+    candidates: list[Path] = []
+    if sunbiz_root_env:
+        candidates.append(Path(sunbiz_root_env))
+    candidates.append(Path.home() / "SunBiz-Agent")
+    if os.name == "nt":
+        candidates.append(Path("C:/Users/User/SunBiz-Agent"))
+    sunbiz_root = next((c for c in candidates if c.exists()), None)
+    if sunbiz_root is None:
         return _err(
-            f"SunBiz-Agent runtime not found at {sunbiz_root}; "
-            "set SUNBIZ_AGENT_ROOT or clone SunBiz-Agent next to CEO-Agent"
+            f"SunBiz-Agent runtime not found. Tried: {[str(c) for c in candidates]}. "
+            "Set SUNBIZ_AGENT_ROOT or clone SunBiz-Agent next to CEO-Agent."
         )
     scripts_path = str(sunbiz_root / "scripts")
     if scripts_path not in sys.path:
