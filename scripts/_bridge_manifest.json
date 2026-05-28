@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-25T22:03:20.564146+00:00",
-  "script_count": 77,
-  "entry_count": 205,
+  "generated_at_iso": "2026-05-28T20:50:35.820879+00:00",
+  "script_count": 66,
+  "entry_count": 178,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -73,13 +73,6 @@
       "subcmd": "decisions",
       "mutating": false,
       "help": "Autonomous Agent \u2014 the always-on reasoning loop. \u2014 subcommand: decisions"
-    },
-    {
-      "key": "backfill_sunbiz_stages",
-      "path": "scripts/backfill_sunbiz_stages.py",
-      "subcmd": null,
-      "mutating": false,
-      "help": "backfill_sunbiz_stages.py \u2014 one-shot migration of pre-2026-05-17 stage values."
     },
     {
       "key": "booking_engine_slots",
@@ -292,27 +285,6 @@
       "help": "Client health \u2014 provides load env. \u2014 subcommand: trends"
     },
     {
-      "key": "cold_outreach_runner_loop",
-      "path": "scripts/cold_outreach_runner.py",
-      "subcmd": "loop",
-      "mutating": false,
-      "help": "cold_outreach_runner.py \u2014 drain cold_outreach_campaigns through send_gateway. \u2014 subcommand: loop"
-    },
-    {
-      "key": "cold_outreach_runner_tail",
-      "path": "scripts/cold_outreach_runner.py",
-      "subcmd": "tail",
-      "mutating": false,
-      "help": "cold_outreach_runner.py \u2014 drain cold_outreach_campaigns through send_gateway. \u2014 subcommand: tail"
-    },
-    {
-      "key": "cold_outreach_runner_once",
-      "path": "scripts/cold_outreach_runner.py",
-      "subcmd": "once",
-      "mutating": false,
-      "help": "cold_outreach_runner.py \u2014 drain cold_outreach_campaigns through send_gateway. \u2014 subcommand: once"
-    },
-    {
       "key": "competitive_intel_add",
       "path": "scripts/competitive_intel.py",
       "subcmd": "add",
@@ -425,27 +397,6 @@
       "help": "Daily Bravo Brief \u2014 AI-narrated morning summary to CC's Telegram."
     },
     {
-      "key": "daily_plan_generator_loop",
-      "path": "scripts/daily_plan_generator.py",
-      "subcmd": "loop",
-      "mutating": false,
-      "help": "daily_plan_generator.py \u2014 build today's daily_plan_items for the operator's Daily Plan tab. \u2014 subcommand: loop"
-    },
-    {
-      "key": "daily_plan_generator_tail",
-      "path": "scripts/daily_plan_generator.py",
-      "subcmd": "tail",
-      "mutating": false,
-      "help": "daily_plan_generator.py \u2014 build today's daily_plan_items for the operator's Daily Plan tab. \u2014 subcommand: tail"
-    },
-    {
-      "key": "daily_plan_generator_once",
-      "path": "scripts/daily_plan_generator.py",
-      "subcmd": "once",
-      "mutating": false,
-      "help": "daily_plan_generator.py \u2014 build today's daily_plan_items for the operator's Daily Plan tab. \u2014 subcommand: once"
-    },
-    {
       "key": "dashboard_email_consumer",
       "path": "scripts/dashboard_email_consumer.py",
       "subcmd": null,
@@ -528,27 +479,6 @@
       "subcmd": null,
       "mutating": false,
       "help": "fleet_health.py \u2014 Cross-agent health rollup."
-    },
-    {
-      "key": "follow_up_generator_loop",
-      "path": "scripts/follow_up_generator.py",
-      "subcmd": "loop",
-      "mutating": false,
-      "help": "follow_up_generator.py \u2014 generate follow_up_tasks for stuck/missing-info/no-response leads. \u2014 subcommand: loop"
-    },
-    {
-      "key": "follow_up_generator_tail",
-      "path": "scripts/follow_up_generator.py",
-      "subcmd": "tail",
-      "mutating": false,
-      "help": "follow_up_generator.py \u2014 generate follow_up_tasks for stuck/missing-info/no-response leads. \u2014 subcommand: tail"
-    },
-    {
-      "key": "follow_up_generator_once",
-      "path": "scripts/follow_up_generator.py",
-      "subcmd": "once",
-      "mutating": false,
-      "help": "follow_up_generator.py \u2014 generate follow_up_tasks for stuck/missing-info/no-response leads. \u2014 subcommand: once"
     },
     {
       "key": "funnel_nurture",
@@ -733,27 +663,6 @@
       "help": "Lead Engine - OASIS AI CRM CLI \u2014 subcommand: funnel"
     },
     {
-      "key": "lender_response_classifier_once",
-      "path": "scripts/lender_response_classifier.py",
-      "subcmd": "once",
-      "mutating": false,
-      "help": "lender_response_classifier.py \u2014 close the loop on lender shop-out. \u2014 subcommand: once"
-    },
-    {
-      "key": "lender_response_classifier_loop",
-      "path": "scripts/lender_response_classifier.py",
-      "subcmd": "loop",
-      "mutating": false,
-      "help": "lender_response_classifier.py \u2014 close the loop on lender shop-out. \u2014 subcommand: loop"
-    },
-    {
-      "key": "lender_response_classifier_tail",
-      "path": "scripts/lender_response_classifier.py",
-      "subcmd": "tail",
-      "mutating": false,
-      "help": "lender_response_classifier.py \u2014 close the loop on lender shop-out. \u2014 subcommand: tail"
-    },
-    {
       "key": "maml_onboard_build_tasks",
       "path": "scripts/maml_onboard.py",
       "subcmd": "build-tasks",
@@ -794,13 +703,6 @@
       "subcmd": null,
       "mutating": false,
       "help": "md_to_gdoc \u2014 Export a markdown file to Google Docs with branded styling."
-    },
-    {
-      "key": "migrate_leads_to_tenant_records",
-      "path": "scripts/migrate_leads_to_tenant_records.py",
-      "subcmd": null,
-      "mutating": true,
-      "help": "migrate_leads_to_tenant_records.py"
     },
     {
       "key": "migrate_subprocess_calls",
@@ -1055,34 +957,6 @@
       "help": "Reap duplicate MCP server processes from leaked editor sessions."
     },
     {
-      "key": "reconcile_sunbiz_sequences",
-      "path": "scripts/reconcile_sunbiz_sequences.py",
-      "subcmd": null,
-      "mutating": false,
-      "help": "Reconcile drip_sequences in the live Sun Biz tenant against the"
-    },
-    {
-      "key": "renewal_reminder_loop",
-      "path": "scripts/renewal_reminder.py",
-      "subcmd": "loop",
-      "mutating": false,
-      "help": "renewal_reminder.py \u2014 daily sweep of funded deals approaching renewal window. \u2014 subcommand: loop"
-    },
-    {
-      "key": "renewal_reminder_tail",
-      "path": "scripts/renewal_reminder.py",
-      "subcmd": "tail",
-      "mutating": false,
-      "help": "renewal_reminder.py \u2014 daily sweep of funded deals approaching renewal window. \u2014 subcommand: tail"
-    },
-    {
-      "key": "renewal_reminder_once",
-      "path": "scripts/renewal_reminder.py",
-      "subcmd": "once",
-      "mutating": false,
-      "help": "renewal_reminder.py \u2014 daily sweep of funded deals approaching renewal window. \u2014 subcommand: once"
-    },
-    {
       "key": "research_fetch_fetch",
       "path": "scripts/research_fetch.py",
       "subcmd": "fetch",
@@ -1237,48 +1111,6 @@
       "help": "seed_profile.py \u2014 seed (or update) the OASIS Command Center operator profile."
     },
     {
-      "key": "sequence_runner_once",
-      "path": "scripts/sequence_runner.py",
-      "subcmd": "once",
-      "mutating": false,
-      "help": "sequence_runner.py \u2014 drip-campaign daemon (Phase 4.3 of SunBiz CRM). \u2014 subcommand: once"
-    },
-    {
-      "key": "sequence_runner_loop",
-      "path": "scripts/sequence_runner.py",
-      "subcmd": "loop",
-      "mutating": false,
-      "help": "sequence_runner.py \u2014 drip-campaign daemon (Phase 4.3 of SunBiz CRM). \u2014 subcommand: loop"
-    },
-    {
-      "key": "sequence_runner_tail",
-      "path": "scripts/sequence_runner.py",
-      "subcmd": "tail",
-      "mutating": false,
-      "help": "sequence_runner.py \u2014 drip-campaign daemon (Phase 4.3 of SunBiz CRM). \u2014 subcommand: tail"
-    },
-    {
-      "key": "shop_out_sender_once",
-      "path": "scripts/shop_out_sender.py",
-      "subcmd": "once",
-      "mutating": false,
-      "help": "shop_out_sender.py \u2014 Phase 6.3-bis + migration 069 (2026-05-25). \u2014 subcommand: once"
-    },
-    {
-      "key": "shop_out_sender_loop",
-      "path": "scripts/shop_out_sender.py",
-      "subcmd": "loop",
-      "mutating": false,
-      "help": "shop_out_sender.py \u2014 Phase 6.3-bis + migration 069 (2026-05-25). \u2014 subcommand: loop"
-    },
-    {
-      "key": "shop_out_sender_tail",
-      "path": "scripts/shop_out_sender.py",
-      "subcmd": "tail",
-      "mutating": false,
-      "help": "shop_out_sender.py \u2014 Phase 6.3-bis + migration 069 (2026-05-25). \u2014 subcommand: tail"
-    },
-    {
       "key": "skill_metrics_track",
       "path": "scripts/skill_metrics.py",
       "subcmd": "track",
@@ -1403,27 +1235,6 @@
       "subcmd": null,
       "mutating": false,
       "help": "Voice Note Transcriber \u2014 converts audio to text using OpenAI Whisper (local)."
-    },
-    {
-      "key": "underwriting_orchestrator_loop",
-      "path": "scripts/underwriting_orchestrator.py",
-      "subcmd": "loop",
-      "mutating": false,
-      "help": "underwriting_orchestrator.py \u2014 automatic underwriting daemon. \u2014 subcommand: loop"
-    },
-    {
-      "key": "underwriting_orchestrator_tail",
-      "path": "scripts/underwriting_orchestrator.py",
-      "subcmd": "tail",
-      "mutating": false,
-      "help": "underwriting_orchestrator.py \u2014 automatic underwriting daemon. \u2014 subcommand: tail"
-    },
-    {
-      "key": "underwriting_orchestrator_once",
-      "path": "scripts/underwriting_orchestrator.py",
-      "subcmd": "once",
-      "mutating": false,
-      "help": "underwriting_orchestrator.py \u2014 automatic underwriting daemon. \u2014 subcommand: once"
     },
     {
       "key": "update_readme_stats",

@@ -271,90 +271,12 @@ apps.push({
 // destructive commands; it just refuses them outright now rather than
 // queuing them for human approval. See scripts/state/exec_guard.py.
 
-// ============================================================================
-// sequence-runner — drip-campaign engine (SunBiz CRM Phase 4)
-// ============================================================================
-//
-// Two responsibilities in one daemon, alternated each tick:
-//   1. Enrollment: reads new agent_events rows since last cursor, matches
-//      against drip_sequences, inserts sequence_state rows for matching
-//      (lead, sequence) pairs.
-//   2. Execution: polls sequence_state for due rows, fires via
-//      send_gateway.send (SMS/email), updates status, enqueues next step.
-//
-// CASL/cooldown/daily-cap enforcement is automatic because all sends
-// route through send_gateway (the single outbound chokepoint). The
-// daemon never bypasses it. Tenant isolation is at the row level
-// (tenant_id match on sequence_state + drip_sequences); the daemon
-// connects as service-role so it sees all tenants' rows but writes
-// only against the resolved tenant_id from each event.
-//
-// 10s tick interval matches the typical operator expectation that a
-// stage-change drip fires "within a couple seconds" without slamming
-// agent_events with a poll storm. Cursor in state/sequence_runner.cursor
-// so restarts don't re-enroll.
-apps.push({
-    name: "sequence-runner",
-    script: "scripts/sequence_runner.py",
-    args: ["loop", "--interval", "10"],
-    interpreter: PYTHONW,  // no-console interpreter; popup-suppressed
-    cwd: PROJECT_ROOT,
-    watch: false,
-    autorestart: true,
-    max_restarts: 20,
-    restart_delay: 10000,
-    windowsHide: true,
-    env: {
-        PYTHONIOENCODING: "utf-8",
-        PYTHONUNBUFFERED: "1",
-    },
-    log_date_format: "YYYY-MM-DD HH:mm:ss",
-    error_file: "tmp/pm2-sequence-runner-error.log",
-    out_file: "tmp/pm2-sequence-runner-out.log",
-    merge_logs: true,
-    max_size: "10M",
-});
-
-// ============================================================================
-// lender-response-classifier — Gmail label monitor for shop-out replies
-// ============================================================================
-//
-// Phase 6.4 of SunBiz CRM. Polls application_lender_threads rows where
-// status=sent + gmail_thread_id is non-null, fetches the latest message
-// via scripts/integrations/google_tool.py, classifies via Claude Haiku 4.5 into
-// approved/declined/info_requested/unclear, and updates status +
-// last_response_summary. Operators see the funding-pipeline state on
-// the application detail page without ever opening Gmail.
-//
-// Also runs an SLA sweep each tick: threads at status=sent older than
-// the lender's sla_response_days auto-flip to no_response (no
-// classifier call needed).
-//
-// 5-min default tick. Cheap-but-non-trivial because each tick does a
-// Gmail thread fetch + Claude classification per pending thread.
-// Operators can run with --interval 60 for tighter responsiveness
-// during a busy submission day.
-apps.push({
-    name: "lender-response-classifier",
-    script: "scripts/lender_response_classifier.py",
-    args: ["loop", "--interval", "300"],
-    interpreter: PYTHONW,  // no-console interpreter; popup-suppressed
-    cwd: PROJECT_ROOT,
-    watch: false,
-    autorestart: true,
-    max_restarts: 20,
-    restart_delay: 30000,
-    windowsHide: true,
-    env: {
-        PYTHONIOENCODING: "utf-8",
-        PYTHONUNBUFFERED: "1",
-    },
-    log_date_format: "YYYY-MM-DD HH:mm:ss",
-    error_file: "tmp/pm2-lender-classifier-error.log",
-    out_file: "tmp/pm2-lender-classifier-out.log",
-    merge_logs: true,
-    max_size: "10M",
-});
+// SunBiz daemons (sequence-runner, lender-response-classifier) were
+// relocated to SunBiz-Agent/ecosystem.config.js on 2026-05-28. Start
+// them from that repo's PM2 ecosystem on the bridge host:
+//   cd ~/SunBiz-Agent && pm2 start ecosystem.config.js
+// Splitting them out of CEO-Agent's PM2 ecosystem lets per-tenant
+// pause/restart happen without cycling Bravo's own daemons.
 
 // ============================================================================
 // dashboard-email-consumer — Command Center email sender daemon
