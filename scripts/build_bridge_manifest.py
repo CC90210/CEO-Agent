@@ -44,26 +44,13 @@ MANIFEST_PATH = SCRIPTS_DIR / "_bridge_manifest.json"
 # Additional script roots scanned and registered with a non-default root
 # key. The bridge maps each `root` value to an absolute path at runtime
 # (BRAVO_AGENT_ROOT for "bravo", SUNBIZ_AGENT_ROOT for "sunbiz"). Keeps
-# the manifest portable across machines and platforms.
+# the manifest portable across machines and platforms. Probe logic is
+# centralised in lib/agent_roots.py.
+sys.path.insert(0, str(SCRIPTS_DIR))
+from lib.agent_roots import resolve_sunbiz_root  # noqa: E402
+
 EXTRA_ROOTS: list[tuple[str, Path]] = []
-
-
-def _probe_sunbiz_root() -> Path | None:
-    import os
-    env = os.environ.get("SUNBIZ_AGENT_ROOT")
-    candidates: list[Path] = []
-    if env:
-        candidates.append(Path(env))
-    candidates.append(Path.home() / "SunBiz-Agent")
-    if os.name == "nt":
-        candidates.append(Path("C:/Users/User/SunBiz-Agent"))
-    for c in candidates:
-        if (c / "scripts").is_dir():
-            return c
-    return None
-
-
-_sunbiz_root = _probe_sunbiz_root()
+_sunbiz_root = resolve_sunbiz_root()
 if _sunbiz_root is not None:
     EXTRA_ROOTS.append(("sunbiz", _sunbiz_root / "scripts"))
 

@@ -345,25 +345,11 @@ def _load_script_manifest() -> dict[str, dict]:
 
 SCRIPT_ALLOWLIST: dict[str, dict] = _load_script_manifest()
 
-
-def _resolve_sunbiz_root() -> Path | None:
-    """Locate SunBiz-Agent so the bridge can execute SunBiz-rooted
-    scripts (manifest entries with root='sunbiz'). Honors
-    SUNBIZ_AGENT_ROOT env var first, then probes the two canonical
-    CC locations (~/SunBiz-Agent on Mac/Linux, C:\\Users\\User\\
-    SunBiz-Agent on Windows)."""
-    env = os.environ.get("SUNBIZ_AGENT_ROOT")
-    candidates: list[Path] = []
-    if env:
-        candidates.append(Path(env))
-    candidates.append(Path.home() / "SunBiz-Agent")
-    if os.name == "nt":
-        candidates.append(Path("C:/Users/User/SunBiz-Agent"))
-    for c in candidates:
-        if (c / "scripts").is_dir():
-            return c
-    return None
-
+# SunBiz-Agent (and future sibling tenant runtimes) — discovered via the
+# shared lib/agent_roots probe so bridge_chat_server, bridge_tools, and
+# build_bridge_manifest all agree on where to look.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+from lib.agent_roots import resolve_sunbiz_root as _resolve_sunbiz_root  # noqa: E402
 
 _SCRIPT_ROOTS: dict[str, Path | None] = {
     "sunbiz": _resolve_sunbiz_root(),
