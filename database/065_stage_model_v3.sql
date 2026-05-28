@@ -98,7 +98,15 @@ BEGIN
                       WHEN 'funded'          THEN 'Funded'
                       WHEN 'declined'        THEN 'Declined'
                       WHEN 'dead_file'       THEN 'Dead'
-                      ELSE 'Application In'  -- safest default for unknown
+                      -- Preserve unknowns as NULL rather than silently
+                      -- promoting them to an active pipeline state. Codex
+                      -- adversarial finding 2026-05-28 (medium): defaulting
+                      -- typos / legacy-import stages to 'Application In'
+                      -- would create phantom active deals downstream
+                      -- (merchant_stage='Active', visible in pipeline,
+                      -- counts against SLAs). Unknowns surface via the
+                      -- NOTICE block below for operator triage.
+                      ELSE NULL
                     END
                   ),
                   true
@@ -108,6 +116,24 @@ BEGIN
      AND entity_type = 'application';
 
   GET DIAGNOSTICS _apps_updated = ROW_COUNT;
+
+  -- Surface unmapped stages so operators see drift before it lands in
+  -- production. NULL deal_stage rows are NOT counted as active by the
+  -- merchant_stage logic — they fall through to the Lead/Active/Dormant
+  -- ELSE branch based on lead-side activity only.
+  DECLARE _unmapped INT;
+  BEGIN
+    SELECT COUNT(*) INTO _unmapped
+      FROM tenant_records
+     WHERE tenant_id = _sun_tenant_id
+       AND entity_type = 'application'
+       AND (data->>'deal_stage') IS NULL
+       AND (data->>'stage') IS NOT NULL;
+    IF _unmapped > 0 THEN
+      RAISE NOTICE 'WARNING: % application(s) have unmapped data.stage values. Inspect:', _unmapped;
+      RAISE NOTICE '  SELECT id, data->>''stage'' FROM tenant_records WHERE tenant_id = ''%''::uuid AND entity_type=''application'' AND (data->>''deal_stage'') IS NULL AND (data->>''stage'') IS NOT NULL;', _sun_tenant_id;
+    END IF;
+  END;
 
   -- ------------------------------------------------------------------------
   -- STEP 3: project merchant_stage on every lead row
