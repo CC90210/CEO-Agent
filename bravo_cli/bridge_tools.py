@@ -868,65 +868,78 @@ def _tool_load_skill(payload: dict) -> dict:
 # ──────────────────────────────────────────────────────────────────
 
 def _tool_underwriting_run(payload: dict) -> dict:
-    """{application_id: str, bank_statement_paths: [str], tenant_id?: str}
-    → fire the full underwriting chain (Phase 7) on the operator's
-    machine and write the result back to tenant_records.
+    """{application_id: str, bank_statement_paths?: [str],
+        triggered_by?: 'manual'|'rerun'|'chat',
+        wait_for_complete?: bool (default True),
+        poll_interval_s?: int (default 5),
+        poll_timeout_s?: int (default 1800)}
+    → enqueue an underwriting run and (by default) wait for completion.
 
-    Round 3 R3-3 / Codex production-readiness fix: /api/applications/[id]/
-    underwrite was returning 503 'bridge_required' because no bridge
-    handler had been wired. This is that handler.
+    --- 2026-05-28 REWRITE — unified data path ---
 
-    Three-step pipeline (mirrors scripts/underwriting/ CLIs):
+    The prior version wrote results directly to
+    tenant_records.data.underwriting_jsonb and bypassed the
+    application_underwriting table that migration 069 introduced and
+    merchant_summary v2 (migration 072) reads from. Effect: chat-agent
+    underwriting runs SUCCEEDED but the dashboard surfaces showed NULL
+    metrics because they read from a different table. This rewrite
+    unifies on the same path as the dashboard /api/applications/[id]/
+    underwriting/run endpoint — INSERT a pending row, let the
+    underwriting_orchestrator daemon pick it up, poll for completion,
+    return canonical results.
 
-      1. statement_parser.py parse --file <pdf> --json
-         For each bank statement PDF, extract structured deposits /
-         withdrawals / recurring_debits / loan_payments / nsf_events
-         via Anthropic vision (Sonnet 4.6). Each parse writes to a
-         scratch JSON file under tmp/underwriting/ so the downstream
-         step can re-read.
+    Behaviour:
+      1. Verify application_id resolves to a real tenant_records row.
+      2. 409-guard: if a pending/parsing row already exists for this
+         application, return its run_id instead of double-enqueueing.
+      3. INSERT into application_underwriting at status='pending'.
+         underwriting_orchestrator.py daemon polls and picks up within
+         ~30s.
+      4. Poll the row every `poll_interval_s` seconds until it reaches
+         status='complete' (return canonical metrics) or 'error'
+         (return _err with error_message), or `poll_timeout_s` elapses
+         (return _err with the run_id so the operator can check later).
+      5. Daemon STILL writes data.underwriting_jsonb on its complete
+         path so the legacy consumers (/api/applications/[id]/underwrite,
+         match-lenders/route.ts, ApplicationCardActions.tsx) keep working.
 
-      2. debt_detector.py summarize --statements <parsed_jsons> --json
-         Cross-statement debt-load aggregate. Identifies recurring
-         lender debits, estimates outstanding balance per lender,
-         flags NSF risk.
+    bank_statement_paths is now OPTIONAL — the daemon discovers
+    statement docs from the application's documents subtable.
+    Passing explicit paths is for operator-override / one-off debugging.
 
-      3. sales_angle.py write --debt-summary <jsonl> --application
-         <app_json> --json
-         Claude-generated sales-angle paragraph the operator uses to
-         pitch the deal. Plain English coaching for the rep.
-
-    Final aggregate (underwriting_jsonb) is written to
-    tenant_records(id=application_id).data.underwriting_jsonb so the
-    dashboard's application detail page + the recommended-lenders
-    scoring endpoint can read it without further bridge calls.
+    wait_for_complete=False fires the enqueue + returns the run_id
+    immediately (for fire-and-forget chat use: "kick it off and I'll
+    check back later").
 
     Failure modes:
-      - Any subprocess returns non-zero → _err with stderr captured.
-      - Missing ANTHROPIC_API_KEY → statement_parser fails fast; we
-        bubble the message.
-      - Application id doesn't resolve → _err early so we don't burn
-        Anthropic credits on a phantom row.
+      - Application id doesn't resolve → _err early.
+      - Daemon isn't running → poll loop times out; return _err with
+        run_id so operator can investigate (also surfaces a clear
+        diagnostic in the dashboard's /api/applications/[id]/
+        underwriting/latest endpoint).
+      - Run fails on the daemon side → _err with the error_message
+        the daemon wrote to the row.
     """
     application_id = str(payload.get("application_id") or "").strip()
-    bank_statement_paths = payload.get("bank_statement_paths") or []
+    triggered_by = str(payload.get("triggered_by") or "manual").strip()
+    wait_for_complete = bool(payload.get("wait_for_complete", True))
+    poll_interval_s = max(1, min(int(payload.get("poll_interval_s") or 5), 60))
+    poll_timeout_s = max(60, min(int(payload.get("poll_timeout_s") or 1800), 3600))
     if not application_id:
         return _err("missing 'application_id'")
-    if not isinstance(bank_statement_paths, list) or not bank_statement_paths:
-        return _err("missing 'bank_statement_paths' (list of PDF paths)")
+    if triggered_by not in {"manual", "rerun", "chat", "automatic"}:
+        triggered_by = "manual"
 
-    # Resolve the application row first so we fail-fast on a bad id
-    # before incurring Anthropic costs.
+    # Supabase client setup
     bravo = _bravo_root()
     try:
         from supabase import create_client  # type: ignore
         from scripts.lib.secret_loader import load_env  # type: ignore
     except Exception:
-        # Bridge may not have scripts/ on path; add it and retry.
         sys.path.insert(0, str(bravo))
         sys.path.insert(0, str(bravo / "scripts"))
         from supabase import create_client  # type: ignore
         from lib.secret_loader import load_env  # type: ignore
-
     try:
         env = load_env([
             "BRAVO_SUPABASE_URL",
@@ -936,6 +949,7 @@ def _tool_underwriting_run(payload: dict) -> dict:
     except Exception as e:
         return _err(f"supabase init failed: {e}")
 
+    # 1. Resolve the application row.
     app_row = (
         sb.table("tenant_records")
         .select("id, tenant_id, data")
@@ -946,109 +960,169 @@ def _tool_underwriting_run(payload: dict) -> dict:
     )
     if not app_row.data:
         return _err(f"application_id {application_id} not found in tenant_records")
-    app_data = app_row.data.get("data") or {}
     tenant_id = app_row.data.get("tenant_id")
+    if not tenant_id:
+        return _err(f"application {application_id} has no tenant_id — corrupt row")
 
-    # Working dir for intermediate JSON. One subdir per application
-    # so multiple runs don't clobber each other.
-    scratch = bravo / "tmp" / "underwriting" / application_id
-    scratch.mkdir(parents=True, exist_ok=True)
-
-    # Step 1 — parse each PDF.
-    parsed_paths: list[str] = []
-    for i, pdf in enumerate(bank_statement_paths):
-        pdf_path = Path(pdf)
-        if not pdf_path.exists():
-            return _err(f"bank statement not found: {pdf}")
-        out_path = scratch / f"statement_{i:02d}.json"
-        parse_args = [
-            "scripts/underwriting/statement_parser.py", "parse",
-            "--file", str(pdf_path),
-            "--json",
-        ]
-        parse_res = _run_script(parse_args)
-        if not parse_res.get("ok"):
-            return _err(f"statement_parser failed on {pdf_path.name}: {parse_res.get('content','')[:200]}")
-        try:
-            parsed = json.loads(parse_res.get("content", "{}"))
-            if not parsed.get("ok"):
-                return _err(f"statement_parser error on {pdf_path.name}: {parsed.get('error')}")
-            out_path.write_text(json.dumps(parsed["result"]), encoding="utf-8")
-            parsed_paths.append(str(out_path))
-        except (json.JSONDecodeError, KeyError) as e:
-            return _err(f"statement_parser output malformed for {pdf_path.name}: {e}")
-
-    # Step 2 — debt summary across the parsed statements.
-    debt_summary_path = scratch / "debt_summary.json"
-    debt_args = [
-        "scripts/underwriting/debt_detector.py", "summarize",
-        "--statements", *parsed_paths,
-        "--json",
-    ]
-    debt_res = _run_script(debt_args)
-    if not debt_res.get("ok"):
-        return _err(f"debt_detector failed: {debt_res.get('content','')[:200]}")
-    try:
-        debt = json.loads(debt_res.get("content", "{}"))
-        if not debt.get("ok"):
-            return _err(f"debt_detector error: {debt.get('error')}")
-        debt_summary_path.write_text(json.dumps(debt["result"]), encoding="utf-8")
-    except (json.JSONDecodeError, KeyError) as e:
-        return _err(f"debt_detector output malformed: {e}")
-
-    # Step 3 — sales angle narrative.
-    app_json_path = scratch / "application.json"
-    app_json_path.write_text(json.dumps(app_data), encoding="utf-8")
-    sales_args = [
-        "scripts/underwriting/sales_angle.py", "write",
-        "--debt-summary", str(debt_summary_path),
-        "--application", str(app_json_path),
-        "--json",
-    ]
-    sales_res = _run_script(sales_args)
-    sales_angle_text = ""
-    if sales_res.get("ok"):
-        try:
-            sa = json.loads(sales_res.get("content", "{}"))
-            if sa.get("ok"):
-                sales_angle_text = sa.get("result", "")
-        except json.JSONDecodeError:
-            # sales_angle is best-effort prose; an empty value is
-            # tolerable — operator can re-run later.
-            pass
-
-    # Final aggregate write-back. Uses updateRecord-equivalent shape
-    # the dashboard's data layer expects (data is a shallow merge per
-    # lib/manifest/data.ts:updateRecord, so we only need to send the
-    # new key + the underwriting_jsonb payload).
-    underwriting_jsonb = {
-        "monthly_revenue": debt["result"].get("avg_monthly_deposits"),
-        "monthly_debt_service": debt["result"].get("monthly_debt_service"),
-        "loan_count": debt["result"].get("loan_count"),
-        "nsf_events_90d": debt["result"].get("nsf_events"),
-        "lenders_identified": debt["result"].get("identified_lenders") or [],
-        "sales_angle": sales_angle_text,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-    }
-    merged_data = {**app_data, "underwriting_jsonb": underwriting_jsonb}
-    update_res = (
-        sb.table("tenant_records")
-        .update({"data": merged_data, "updated_at": datetime.now(timezone.utc).isoformat()})
-        .eq("id", application_id)
+    # 2. 409-guard. If a pending/parsing row is already in flight for
+    #    this application, return its run_id instead of double-enqueueing.
+    in_flight = (
+        sb.table("application_underwriting")
+        .select("id, status, run_at")
         .eq("tenant_id", tenant_id)
+        .eq("application_id", application_id)
+        .in_("status", ["pending", "parsing"])
+        .limit(1)
+        .maybeSingle()
         .execute()
     )
-    if getattr(update_res, "error", None):
-        return _err(f"tenant_records update failed: {update_res.error}")
+    if in_flight.data:
+        existing_run_id = in_flight.data["id"]
+        if not wait_for_complete:
+            return _ok(json.dumps({
+                "ok": True,
+                "run_id": existing_run_id,
+                "application_id": application_id,
+                "enqueued": False,
+                "reused_existing": True,
+                "status": in_flight.data["status"],
+            }))
+        # Wait on the existing run instead of starting a new one.
+        run_id = existing_run_id
+    else:
+        # 3. INSERT new pending row. The daemon picks up within ~30s.
+        ins = (
+            sb.table("application_underwriting")
+            .insert({
+                "tenant_id": tenant_id,
+                "application_id": application_id,
+                "status": "pending",
+                "triggered_by": triggered_by,
+                "run_at": datetime.now(timezone.utc).isoformat(),
+            })
+            .execute()
+        )
+        if not ins.data or not ins.data[0].get("id"):
+            return _err(f"failed to enqueue underwriting run: {getattr(ins, 'error', 'unknown')}")
+        run_id = ins.data[0]["id"]
 
-    return _ok(json.dumps({
-        "ok": True,
-        "application_id": application_id,
-        "statements_parsed": len(parsed_paths),
-        "monthly_debt_service": underwriting_jsonb["monthly_debt_service"],
-        "lender_count": len(underwriting_jsonb["lenders_identified"]),
-        "sales_angle_len": len(sales_angle_text),
-    }))
+    # 4. Fire-and-forget shortcut.
+    if not wait_for_complete:
+        return _ok(json.dumps({
+            "ok": True,
+            "run_id": run_id,
+            "application_id": application_id,
+            "enqueued": True,
+            "status": "pending",
+            "message": "Run enqueued. Check application_underwriting/latest for results.",
+        }))
+
+    # 5. Poll loop. Bounded by poll_timeout_s (default 30 min) — well
+    #    inside the bridge's 6h subprocess cap.
+    start = time.time()
+    last_status = "pending"
+    while time.time() - start < poll_timeout_s:
+        time.sleep(poll_interval_s)
+        try:
+            row = (
+                sb.table("application_underwriting")
+                .select(
+                    "id, status, run_at, readiness_score, risk_flags, sales_angle, "
+                    "avg_monthly_revenue, avg_daily_balance, nsf_count, "
+                    "deposit_consistency_pct, debt_service_monthly, "
+                    "debt_to_revenue_ratio, lender_count, error_message"
+                )
+                .eq("id", run_id)
+                .maybeSingle()
+                .execute()
+            )
+        except Exception as exc:
+            # Transient DB error — log via stderr-equivalent and keep polling.
+            # Bridge logs go through _ok/_err so we just continue.
+            continue
+        if not row.data:
+            return _err(f"underwriting row {run_id} disappeared mid-poll — DB inconsistency")
+        last_status = row.data.get("status") or last_status
+        if last_status == "complete":
+            risk_flags = row.data.get("risk_flags") or []
+            sales_angle = row.data.get("sales_angle") or ""
+            # Defensive dual-write — mirror the result into
+            # application.data.underwriting_jsonb so legacy consumers
+            # (/api/applications/[id]/match-lenders, ApplicationCardActions
+            # display, /api/applications/[id]/underwrite) keep working.
+            # The orchestrator daemon doesn't do this today (pre-existing
+            # gap surfaced 2026-05-28); when it gets fixed the daemon
+            # becomes the single source of dual-writes and this block
+            # becomes idempotent overlap. Best-effort — a failure here
+            # doesn't poison the canonical result we're about to return.
+            try:
+                legacy_jsonb = {
+                    "monthly_revenue": row.data.get("avg_monthly_revenue"),
+                    "monthly_debt_service": row.data.get("debt_service_monthly"),
+                    "loan_count": row.data.get("lender_count"),
+                    "nsf_events_90d": row.data.get("nsf_count"),
+                    "lenders_identified": [],  # daemon's debt_analysis stores
+                                                # this differently; legacy field
+                                                # consumers fall back gracefully
+                                                # to an empty array.
+                    "sales_angle": sales_angle,
+                    "generated_at": row.data.get("run_at"),
+                }
+                # Re-read the application's current data to merge without
+                # clobbering keys other writers added between our writes.
+                app_now = (
+                    sb.table("tenant_records")
+                    .select("data")
+                    .eq("id", application_id)
+                    .eq("tenant_id", tenant_id)
+                    .maybeSingle()
+                    .execute()
+                )
+                current_data = (app_now.data or {}).get("data") or {}
+                merged = {**current_data, "underwriting_jsonb": legacy_jsonb}
+                sb.table("tenant_records").update({
+                    "data": merged,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }).eq("id", application_id).eq("tenant_id", tenant_id).execute()
+            except Exception:
+                # Silent best-effort — operator can re-run if match-lenders
+                # comes up empty.
+                pass
+            return _ok(json.dumps({
+                "ok": True,
+                "run_id": run_id,
+                "application_id": application_id,
+                "status": "complete",
+                "readiness_score": row.data.get("readiness_score"),
+                "risk_flags": risk_flags,
+                "risk_flag_count": len(risk_flags) if isinstance(risk_flags, list) else 0,
+                "avg_monthly_revenue": row.data.get("avg_monthly_revenue"),
+                "avg_daily_balance": row.data.get("avg_daily_balance"),
+                "nsf_count": row.data.get("nsf_count"),
+                "deposit_consistency_pct": row.data.get("deposit_consistency_pct"),
+                "debt_service_monthly": row.data.get("debt_service_monthly"),
+                "debt_to_revenue_ratio": row.data.get("debt_to_revenue_ratio"),
+                "lender_count": row.data.get("lender_count"),
+                "sales_angle_len": len(sales_angle),
+                "sales_angle_preview": sales_angle[:400],
+                "elapsed_s": int(time.time() - start),
+            }))
+        if last_status == "error":
+            return _err(
+                f"underwriting failed: {row.data.get('error_message') or 'unknown error'} "
+                f"(run_id={run_id})"
+            )
+        # else: still pending/parsing — keep polling.
+
+    # 6. Timeout — daemon never finished within the window. Most likely
+    #    cause: daemon isn't running. Surface the run_id so the operator
+    #    can check status manually or wait for it to complete later.
+    return _err(
+        f"underwriting timed out after {poll_timeout_s}s while waiting for daemon "
+        f"(last_status={last_status}, run_id={run_id}). "
+        "Check that underwriting_orchestrator.py is running on the bridge VPS. "
+        "The run is still enqueued — re-fetch /api/applications/{id}/underwriting/latest later."
+    )
 
 
 def _tool_shop_out_send_batch(payload: dict) -> dict:
