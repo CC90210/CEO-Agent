@@ -1,7 +1,6 @@
 """send_guards.py — pluggable safety guards for the outbound send chokepoint.
 
-The four guards Adon's spec §12 calls out that the existing send_gateway.py
-doesn't enforce yet:
+Four universal guards that wrap every outbound send across every tenant:
 
   1. HALT flag                — global kill switch (state/HALT.flag).
                                 Operator panic button: a single touch
@@ -9,12 +8,16 @@ doesn't enforce yet:
                                 tenant. Stays active until the operator
                                 deletes the file.
 
-  2. Shabbat / quiet-hours    — Friday sundown to Saturday sundown for
-                                SunBiz; tenant-configurable window via
-                                tenants.custom_fields.quiet_window. No
-                                outbound merchant comms during the
-                                window; nothing-sensitive emails to
-                                lenders / funders.
+  2. Quiet window             — optional per-tenant outbound blackout
+                                window. Configured via
+                                tenants.custom_fields.quiet_window
+                                (start/end weekday + hour/minute + tz).
+                                Default is None — no window unless a
+                                tenant explicitly configures one. Tenant
+                                runtimes ship their own quiet-window
+                                constants if they want a code-side
+                                default (e.g., SunBiz-Agent/scripts/
+                                integrations/sunbiz_guards.py).
 
   3. Opt-out enforcement      — tenant_records (entity_type='lead')
                                 marked status='opted_out' OR
@@ -83,19 +86,15 @@ from zoneinfo import ZoneInfo
 DEFAULT_AI_RATE_WINDOW_SECONDS = 60
 DEFAULT_AI_RATE_MAX_CALLS = 60
 
-# Default Shabbat window for SunBiz Funding (operator is Eastern Time):
-#   Friday  18:00 ET → Saturday 20:30 ET
-# Covers actual sundown variability (~17:30-19:30 depending on season)
-# plus a 1-hour conservative buffer on each side.
-DEFAULT_QUIET_WINDOW = {
-    "tz": "America/New_York",
-    "start_weekday": 4,   # 0=Mon, 4=Fri
-    "start_hour": 18,
-    "start_minute": 0,
-    "end_weekday": 5,     # 5=Sat
-    "end_hour": 20,
-    "end_minute": 30,
-}
+# No universal default quiet window. Tenants opt in by writing a window
+# dict to tenants.custom_fields.quiet_window in the form:
+#   {"tz": "America/New_York",
+#    "start_weekday": 4, "start_hour": 18, "start_minute": 0,
+#    "end_weekday":   5, "end_hour":   20, "end_minute":   30}
+# Tenant-specific defaults live in the tenant's own runtime (for example
+# SunBiz-Agent/scripts/integrations/sunbiz_guards.py defines the SunBiz
+# Friday/Saturday window).
+DEFAULT_QUIET_WINDOW: Optional[dict[str, Any]] = None
 
 # ─────────────────────────────────────────────────────────────────────
 # Result type
@@ -107,7 +106,7 @@ class GuardResult:
     """One pass result. allowed=True OR a structured block reason."""
 
     allowed: bool
-    blocked_by: Optional[str] = None  # 'halt' | 'shabbat' | 'opted_out' | 'ai_rate_cap'
+    blocked_by: Optional[str] = None  # 'halt' | 'quiet_window' | 'opted_out' | 'ai_rate_cap'
     reason: Optional[str] = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
@@ -146,7 +145,7 @@ def check_halt(state_dir: Path) -> GuardResult:
 
 
 # ─────────────────────────────────────────────────────────────────────
-# Guard 2 — Shabbat / quiet hours
+# Guard 2 — quiet window (per-tenant outbound blackout)
 # ─────────────────────────────────────────────────────────────────────
 
 
@@ -164,7 +163,9 @@ def is_within_quiet_window(
     Weekdays are 0=Mon ... 6=Sun. start/end may span midnight (e.g.,
     start=Fri 22:00, end=Sat 02:00 wraps through the date change).
     """
-    w = window or DEFAULT_QUIET_WINDOW
+    w = window if window is not None else DEFAULT_QUIET_WINDOW
+    if w is None:
+        return False
     tz = ZoneInfo(w.get("tz", "America/New_York"))
     if now is None:
         now = datetime.now(timezone.utc)
@@ -196,10 +197,12 @@ def is_within_quiet_window(
 
 def resolve_tenant_quiet_window(
     db: Any, tenant_id: Optional[str]
-) -> dict[str, Any]:
-    """Pull custom_fields.quiet_window from the tenants row. Falls back
-    to DEFAULT_QUIET_WINDOW (SunBiz default) when unset OR when db lookup
-    fails (fail-open on config, not on enforcement)."""
+) -> Optional[dict[str, Any]]:
+    """Pull custom_fields.quiet_window from the tenants row. Returns None
+    when no tenant override exists and no module-level DEFAULT_QUIET_WINDOW
+    is set, in which case check_shabbat is a no-op for that tenant. Tenant
+    runtimes override DEFAULT_QUIET_WINDOW from their own module if they
+    want a code-side default."""
     if not tenant_id or db is None:
         return DEFAULT_QUIET_WINDOW
     try:
@@ -207,7 +210,8 @@ def resolve_tenant_quiet_window(
         cf = (res.data or {}).get("custom_fields") or {}
         w = cf.get("quiet_window")
         if isinstance(w, dict) and "tz" in w:
-            # Merge with defaults so partial config still works.
+            if DEFAULT_QUIET_WINDOW is None:
+                return dict(w)
             merged = dict(DEFAULT_QUIET_WINDOW)
             merged.update(w)
             return merged
@@ -216,7 +220,7 @@ def resolve_tenant_quiet_window(
     return DEFAULT_QUIET_WINDOW
 
 
-def check_shabbat(
+def check_quiet_window(
     db: Any,
     tenant_id: Optional[str],
     channel: str,
@@ -228,10 +232,12 @@ def check_shabbat(
     if channel == "telegram":
         return GuardResult(allowed=True)  # internal operator alert, never blocked
     window = resolve_tenant_quiet_window(db, tenant_id)
+    if window is None:
+        return GuardResult(allowed=True)
     if is_within_quiet_window(now=now, window=window):
         return GuardResult(
             allowed=False,
-            blocked_by="shabbat",
+            blocked_by="quiet_window",
             reason=f"quiet window active ({window.get('tz', 'tenant')}), retry after window close",
             metadata={"window": window},
         )
@@ -422,7 +428,7 @@ def check_all_guards(
         db:          Supabase client (service-role).
         lead_id:     Lead UUID; required for opt-out check.
         channel:     'sms' | 'email' | 'telegram'. Telegram is exempt
-                     from Shabbat.
+                     from the quiet-window guard.
         tenant_id:   Tenant UUID; used to resolve per-tenant quiet window.
         state_dir:   PROJECT_ROOT / 'state' typically.
         skip_ai_rate: True for non-AI sends (templated outbound that
@@ -443,8 +449,8 @@ def check_all_guards(
     if not r.allowed:
         return r
 
-    # 3. Shabbat / quiet window (one DB call + datetime math)
-    r = check_shabbat(db, tenant_id, channel, now=now)
+    # 3. Quiet window (one DB call + datetime math)
+    r = check_quiet_window(db, tenant_id, channel, now=now)
     if not r.allowed:
         return r
 
@@ -483,9 +489,12 @@ def _cli() -> int:
 
     if args.cmd == "status":
         halted, reason = is_halt_active(args.state_dir)
-        in_window = is_within_quiet_window()
-        print(f"HALT:    {'ON' if halted else 'off'} {f'({reason})' if reason else ''}")
-        print(f"Shabbat: {'WITHIN window' if in_window else 'outside window'} (default SunBiz Fri 18:00 ET → Sat 20:30 ET)")
+        print(f"HALT:        {'ON' if halted else 'off'} {f'({reason})' if reason else ''}")
+        if DEFAULT_QUIET_WINDOW is None:
+            print("Quiet win:   no module-level default (per-tenant via tenants.custom_fields.quiet_window)")
+        else:
+            in_window = is_within_quiet_window()
+            print(f"Quiet win:   {'WITHIN window' if in_window else 'outside window'} (module default)")
         rate_path = _ai_rate_state_path(args.state_dir)
         if rate_path.exists():
             try:
