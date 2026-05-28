@@ -1,5 +1,7 @@
 # Montreal Trip — Roadmap + Pre-Flight
 
+> **2026-05-28 relocation note:** SunBiz daemons (`shop_out_sender.py`, `sequence_runner.py`, `lender_response_classifier.py`, `underwriting_orchestrator.py`, `renewal_reminder.py`, `follow_up_generator.py`, `cold_outreach_runner.py`, `daily_plan_generator.py`) and tools (`text_torrent_tool.py`, `kixie_tool.py`) now live in `~/SunBiz-Agent/scripts/`, not `~/CEO-Agent/scripts/`. PM2 entries for the daemons moved to `~/SunBiz-Agent/ecosystem.config.js` (run `pm2 start ecosystem.config.js` from each repo). Solara/Helios still invoke the same tools via the bridge's `run_script` — the bridge resolves the per-script `root` field automatically. Path-style references below mean "look in SunBiz-Agent" for the SunBiz tools/daemons.
+>
 > CC heading to Montreal 2026-05-26 to work on Sun Biz Funding in person with Ezra + team.
 > Document built 2026-05-25 evening. Read once on the plane; reference on the ground.
 

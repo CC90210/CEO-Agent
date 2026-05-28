@@ -40,6 +40,33 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = REPO_ROOT / "scripts"
 MANIFEST_PATH = SCRIPTS_DIR / "_bridge_manifest.json"
 
+
+# Additional script roots scanned and registered with a non-default root
+# key. The bridge maps each `root` value to an absolute path at runtime
+# (BRAVO_AGENT_ROOT for "bravo", SUNBIZ_AGENT_ROOT for "sunbiz"). Keeps
+# the manifest portable across machines and platforms.
+EXTRA_ROOTS: list[tuple[str, Path]] = []
+
+
+def _probe_sunbiz_root() -> Path | None:
+    import os
+    env = os.environ.get("SUNBIZ_AGENT_ROOT")
+    candidates: list[Path] = []
+    if env:
+        candidates.append(Path(env))
+    candidates.append(Path.home() / "SunBiz-Agent")
+    if os.name == "nt":
+        candidates.append(Path("C:/Users/User/SunBiz-Agent"))
+    for c in candidates:
+        if (c / "scripts").is_dir():
+            return c
+    return None
+
+
+_sunbiz_root = _probe_sunbiz_root()
+if _sunbiz_root is not None:
+    EXTRA_ROOTS.append(("sunbiz", _sunbiz_root / "scripts"))
+
 # Files we never expose: meta-tooling, internal helpers, this builder itself.
 BLOCKLIST = {
     "build_bridge_manifest.py",       # this file
@@ -157,10 +184,16 @@ def _is_mutating(script_stem: str, subcmd: str | None) -> bool:
     return bool(MUTATING_VERBS_RE.search(target))
 
 
-def build_one(path: Path) -> list[dict]:
+def build_one(path: Path, root_key: str = "bravo", root_dir: Path | None = None) -> list[dict]:
     """Return zero or more manifest entries for a single script.
     One entry per (script, subcommand) pair when subcommands exist; one
     flat entry otherwise.
+
+    root_key/root_dir: the script root this path belongs to. "bravo" is
+    the default (CEO-Agent); the bridge resolves other roots to their
+    absolute path at runtime (e.g. "sunbiz" → SUNBIZ_AGENT_ROOT). The
+    stored `path` is relative to that root so the manifest stays
+    portable across machines.
     """
     if path.name in BLOCKLIST or path.name.startswith("_"):
         return []
@@ -182,7 +215,8 @@ def build_one(path: Path) -> list[dict]:
         return []
 
     stem = path.stem
-    rel_path = str(path.relative_to(REPO_ROOT)).replace("\\", "/")
+    rel_base = root_dir.parent if root_dir is not None else REPO_ROOT
+    rel_path = str(path.relative_to(rel_base)).replace("\\", "/")
     subcmds = _find_subcommands(tree)
     forced_mutating = flags.get("bridge_mutating")
 
@@ -191,6 +225,7 @@ def build_one(path: Path) -> list[dict]:
             {
                 "key": f"{stem}_{sub.replace('-', '_')}",
                 "path": rel_path,
+                "root": root_key,
                 "subcmd": sub,
                 "mutating": forced_mutating if forced_mutating is not None else _is_mutating(stem, sub),
                 "help": f"{summary} — subcommand: {sub}".strip(" —"),
@@ -202,6 +237,7 @@ def build_one(path: Path) -> list[dict]:
         {
             "key": stem,
             "path": rel_path,
+            "root": root_key,
             "subcmd": None,
             "mutating": forced_mutating if forced_mutating is not None else _is_mutating(stem, None),
             "help": summary,
@@ -212,12 +248,22 @@ def build_one(path: Path) -> list[dict]:
 def build_manifest() -> dict:
     entries: list[dict] = []
     skipped_oversize: list[tuple[str, int]] = []
+    # Default CEO-Agent root scan
     for path in sorted(SCRIPTS_DIR.glob("*.py")):
-        es = build_one(path)
+        es = build_one(path, root_key="bravo")
         if len(es) > MAX_ENTRIES_PER_SCRIPT:
             skipped_oversize.append((path.name, len(es)))
             continue
         entries.extend(es)
+    # Additional roots (e.g., SunBiz-Agent) — each registered with its
+    # own root key so the bridge runtime knows where to resolve it.
+    for root_key, scripts_dir in EXTRA_ROOTS:
+        for path in sorted(scripts_dir.glob("*.py")):
+            es = build_one(path, root_key=root_key, root_dir=scripts_dir)
+            if len(es) > MAX_ENTRIES_PER_SCRIPT:
+                skipped_oversize.append((f"{root_key}/{path.name}", len(es)))
+                continue
+            entries.extend(es)
     if skipped_oversize:
         print(
             f"[build_bridge_manifest] Skipped {len(skipped_oversize)} oversize scripts "

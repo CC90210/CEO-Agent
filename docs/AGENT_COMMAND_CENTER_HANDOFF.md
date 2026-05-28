@@ -1,5 +1,7 @@
 # Agent Command Center — Architecture & Capabilities Handoff
 
+> **2026-05-28 relocation note:** All SunBiz-specific Python scripts (sequence_runner, lender_response_classifier, underwriting_orchestrator, shop_out_sender, renewal_reminder, text_torrent_tool, kixie_tool, migrate_leads_to_tenant_records, the underwriting/ submodules, etc.) and database migrations (042-070 SunBiz CRM lane, plus 045/046/049/055 sequence-state + reconstructor, plus 071-075 stage-model / merchant_summary / funder-catalog set) now live in `~/SunBiz-Agent`, not `~/CEO-Agent`. The bridge daemon scans both repos and dispatches via a `root` field in `_bridge_manifest.json`. Solara/Helios still invoke them via `run_script` with the manifest KEY (e.g. `sequence_runner_once`, `text_torrent_tool_blast`, `lender_response_classifier_loop`). References below to `scripts/<name>.py` for SunBiz tools mean "look in SunBiz-Agent/scripts/" — this doc was authored before the split.
+>
 > Briefing document for an external AI agent that's evaluating an open-source project and needs to cross-reference what the OASIS Agent Command Center already does. Written 2026-05-25 after a multi-session product expansion for our first real client tenant (Sun Biz Funding).
 >
 > Operator: CC (CC90210 on GitHub). 100% owner of OASIS AI Solutions. Maintains the Agent Command Center as the multi-tenant operating system for every business he runs and every client he onboards.
