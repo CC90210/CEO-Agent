@@ -2378,7 +2378,14 @@ class _ChatHandler(BaseHTTPRequestHandler):
         self,
         args: list[str],
         root: Path,
-        timeout_s: int = 300,
+        # Bumped 2026-05-28 from 300s (5min) to 21600s (6h). CC hit
+        # the prior cap on Gemini CLI tool-use loops that legitimately
+        # take an hour+ (deep research, multi-file refactor). The
+        # SSE watchdog further down still kills the subprocess after
+        # WATCHDOG_TIMEOUT_SEC seconds of pure silence, so a wedged
+        # CLI still gets reclaimed — this just stops killing CLIs
+        # that are actually working.
+        timeout_s: int = 21_600,
         path_hint: str | None = None,
     ) -> subprocess.CompletedProcess:
         env = dict(os.environ)
@@ -2446,7 +2453,10 @@ class _ChatHandler(BaseHTTPRequestHandler):
                 out_path,
                 self._cli_arg_prompt(prompt_text),
             ]
-            proc = self._run_cli_command(args, root, timeout_s=180, path_hint=codex_bin)
+            # Bumped 2026-05-28 from 180s to 21600s (6h) — long Codex
+            # refactor runs were getting killed mid-loop. Watchdog
+            # below catches true wedges.
+            proc = self._run_cli_command(args, root, timeout_s=21_600, path_hint=codex_bin)
             try:
                 text = Path(out_path).read_text(encoding="utf-8", errors="replace").strip()
             except Exception:
@@ -2505,7 +2515,11 @@ class _ChatHandler(BaseHTTPRequestHandler):
             approval_mode,
             "--skip-trust",
         ]
-        proc = self._run_cli_command(args, root, timeout_s=120, path_hint=gemini_bin)
+        # Bumped 2026-05-28 from 120s to 21600s (6h). CC observed
+        # this firing on legitimate multi-file Gemini runs — the prior
+        # 120s was the single most operator-visible bug in the bridge.
+        # Watchdog (600s of pure SSE silence) still reclaims a wedge.
+        proc = self._run_cli_command(args, root, timeout_s=21_600, path_hint=gemini_bin)
         if proc.returncode != 0:
             detail = _redact_secrets((proc.stderr or proc.stdout or "").strip())[:2000]
             low = (detail or "").lower()
@@ -2782,7 +2796,13 @@ class _ChatHandler(BaseHTTPRequestHandler):
         # list so the closure below can observe live updates from the
         # event loop without needing `nonlocal`.
         last_event_at = [time.time()]
-        WATCHDOG_TIMEOUT_SEC = 90
+        # Bumped 2026-05-28 from 90s to 600s (10 min). The dashboard
+        # side's SSE_INACTIVITY_TIMEOUT_MS is now 600_000 too, so the
+        # client + server agree on what counts as "actually wedged."
+        # 600s is the safety net behind the 25s heartbeat ticker —
+        # only fires if the ticker itself stalls, not for legitimate
+        # silent tool-use windows.
+        WATCHDOG_TIMEOUT_SEC = 600
         watchdog_stop = threading.Event()
 
         def _watchdog() -> None:
