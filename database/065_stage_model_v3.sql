@@ -125,10 +125,30 @@ BEGIN
   -- Applications reference their parent lead via data->>'lead_id' (the
   -- existing SunBiz convention).
 
-  WITH lead_app_status AS (
+  WITH ranked_apps AS (
+    -- Most-recent application per lead. Used to decide merchant_stage
+    -- from the LATEST deal_stage only, not an arbitrary historical row.
+    -- Codex P2 finding 2026-05-28: previous logic checked "any funded
+    -- deal exists" which mis-classified a merchant with an old funded
+    -- deal + a fresh declined deal as Funded forever.
+    SELECT
+      a.tenant_id,
+      a.data->>'lead_id' AS lead_id_str,
+      a.data->>'deal_stage' AS deal_stage,
+      ROW_NUMBER() OVER (
+        PARTITION BY a.tenant_id, a.data->>'lead_id'
+        ORDER BY a.updated_at DESC
+      ) AS rk
+    FROM tenant_records a
+    WHERE a.tenant_id = _sun_tenant_id
+      AND a.entity_type = 'application'
+      AND a.data->>'lead_id' IS NOT NULL
+  ),
+  lead_app_status AS (
     SELECT
       l.id AS lead_id,
       l.updated_at AS lead_updated_at,
+      -- Has any active in-flight deal (irrespective of recency).
       EXISTS (
         SELECT 1 FROM tenant_records a
          WHERE a.tenant_id = _sun_tenant_id
@@ -136,13 +156,14 @@ BEGIN
            AND a.data->>'lead_id' = l.id::text
            AND a.data->>'deal_stage' IN ('Application In', 'Missing Info', 'Shopping')
       ) AS has_active_deal,
+      -- Does the MOST RECENT application have deal_stage='Funded'?
+      -- This is what makes the merchant currently "Funded" (between deals).
       EXISTS (
-        SELECT 1 FROM tenant_records a
-         WHERE a.tenant_id = _sun_tenant_id
-           AND a.entity_type = 'application'
-           AND a.data->>'lead_id' = l.id::text
-           AND a.data->>'deal_stage' = 'Funded'
-      ) AS has_funded_deal,
+        SELECT 1 FROM ranked_apps r
+         WHERE r.lead_id_str = l.id::text
+           AND r.rk = 1
+           AND r.deal_stage = 'Funded'
+      ) AS latest_deal_is_funded,
       EXISTS (
         SELECT 1 FROM tenant_records a
          WHERE a.tenant_id = _sun_tenant_id
@@ -159,12 +180,20 @@ BEGIN
                   '{merchant_stage}',
                   to_jsonb(
                     CASE
+                      -- Active in-flight deal wins over a stale Funded
+                      -- marker (renewal cycle: funded earlier, now in
+                      -- Application In/Missing Info/Shopping again).
                       WHEN s.has_active_deal THEN 'Active'
-                      WHEN s.has_funded_deal THEN 'Funded'
+                      -- Most-recent deal funded, no in-flight follow-on:
+                      -- merchant is in the renewal-eligibility window.
+                      WHEN s.latest_deal_is_funded THEN 'Funded'
                       WHEN NOT s.has_any_application
                            AND s.lead_updated_at < NOW() - INTERVAL '90 days'
                         THEN 'Dormant'
                       WHEN NOT s.has_any_application THEN 'Lead'
+                      -- Has historical deal(s) but all terminal (declined/dead)
+                      -- and none active: dormant-ish; classify as Active so
+                      -- the operator can decide to re-engage.
                       ELSE 'Active'
                     END
                   ),

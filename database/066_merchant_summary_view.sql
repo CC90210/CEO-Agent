@@ -376,7 +376,12 @@ LEFT JOIN primary_app pa
        ON pa.tenant_id = l.tenant_id
       AND pa.lead_id_str = l.id::text
 LEFT JOIN thread_counts tc
-       ON tc.application_id = pa.application_id
+       -- application_lender_threads.application_id is text (per migration
+       -- 044), pa.application_id resolves to tenant_records.id which is
+       -- uuid. Cast pa side to text so the join doesn't fail with
+       -- "operator does not exist: text = uuid" on application. Codex P1
+       -- finding 2026-05-28.
+       ON tc.application_id = pa.application_id::text
 LEFT JOIN public.user_profiles up
        ON up.id::text = l.data->>'assigned_user_id'
 WHERE l.entity_type = 'lead';
