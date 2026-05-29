@@ -61,13 +61,11 @@ from lib.smtp_send import smtp_send  # noqa: E402
 # whenever the user hasn't connected Gmail or the OAuth refresh fails.
 try:
     from integrations.user_gmail_oauth import (  # type: ignore  # noqa: E402
-        get_send_credentials as _get_user_gmail_credentials,
-        has_user_gmail_connected as _has_user_gmail_connected,
+        resolve_send_identity as _resolve_send_identity,
         send_via_gmail_api as _send_via_gmail_api,
     )
 except Exception:  # noqa: BLE001
-    _get_user_gmail_credentials = None  # type: ignore[assignment]
-    _has_user_gmail_connected = None  # type: ignore[assignment]
+    _resolve_send_identity = None  # type: ignore[assignment]
     _send_via_gmail_api = None  # type: ignore[assignment]
 
 try:
@@ -225,44 +223,13 @@ def _send_one(env: dict[str, str], sb, row: dict) -> bool:
     md = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
     acted_by_user_id = (md or {}).get("acted_by_user_id") or ""
 
-    user_bundle = None
-    user_opted_in_but_broken = False
-    if (
-        acted_by_user_id
-        and tenant_id
-        and _get_user_gmail_credentials is not None
-    ):
-        try:
-            user_bundle = _get_user_gmail_credentials(
-                sb, tenant_id, acted_by_user_id
-            )
-        except Exception as exc:  # noqa: BLE001
-            print(
-                f"[dashboard_email_consumer] user_oauth lookup failed "
-                f"row={row_id} user={acted_by_user_id}: {exc}",
-                file=sys.stderr,
-            )
-            user_bundle = None
-        if not user_bundle and _has_user_gmail_connected is not None:
-            try:
-                user_opted_in_but_broken = _has_user_gmail_connected(
-                    sb, tenant_id, acted_by_user_id
-                )
-            except Exception:  # noqa: BLE001
-                # Fail closed on presence-check errors so we never
-                # misrepresent identity by silently falling through.
-                user_opted_in_but_broken = True
-
-    if user_opted_in_but_broken and not user_bundle:
-        _mark_status(
-            sb,
-            row_id,
-            status="failed",
-            error=(
-                "user has connected personal Gmail but the OAuth token "
-                "refresh failed; refusing to send from tenant-shared identity"
-            ),
-        )
+    identity = (
+        _resolve_send_identity(sb, tenant_id, acted_by_user_id)
+        if _resolve_send_identity is not None
+        else {"mode": "tenant_smtp"}
+    )
+    if identity["mode"] == "block":
+        _mark_status(sb, row_id, status="failed", error=identity["reason"])
         _publish_event(
             sb,
             event_type="BRAVO_DASHBOARD_EMAIL_FAILED",
@@ -276,6 +243,7 @@ def _send_one(env: dict[str, str], sb, row: dict) -> bool:
             },
         )
         return False
+    user_bundle = identity["bundle"] if identity["mode"] == "user_oauth" else None
 
     sent_via = "smtp"
     sent_as = ""
