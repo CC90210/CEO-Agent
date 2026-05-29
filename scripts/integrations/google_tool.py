@@ -880,14 +880,35 @@ def sheets_read(args):
             print("\t".join(str(cell) for cell in row))
 
 
-def sheets_write(args):
-    """Write values to a spreadsheet range."""
-    # Parse values: comma-separated for columns, semicolons for rows
-    # e.g. "Name,Email,Phone;John,john@test.com,555-1234"
+def _parse_sheet_values(args, action_name: str) -> list[list]:
+    """Parse the --values or --json-values arg into a 2D list.
+
+    --json-values is the safe path for arbitrary content: cells can
+    contain commas, semicolons, newlines, anything. --values is the
+    simple-CSV path retained for backward compat with existing callers.
+    """
+    if args.json_values:
+        try:
+            rows = json.loads(args.json_values)
+        except json.JSONDecodeError as exc:
+            print(f"ERROR: --json-values is not valid JSON: {exc}", file=sys.stderr)
+            sys.exit(2)
+        if not isinstance(rows, list) or not all(isinstance(r, list) for r in rows):
+            print("ERROR: --json-values must decode to a 2D array (list of lists).", file=sys.stderr)
+            sys.exit(2)
+        return rows
+    if not args.values:
+        print(f"ERROR: sheets {action_name} requires --values or --json-values.", file=sys.stderr)
+        sys.exit(2)
     rows = []
     for row_str in args.values.split(";"):
         rows.append([cell.strip() for cell in row_str.split(",")])
+    return rows
 
+
+def sheets_write(args):
+    """Write values to a spreadsheet range."""
+    rows = _parse_sheet_values(args, "write")
     body = {"values": rows}
     params = {
         "spreadsheetId": args.spreadsheet_id,
@@ -911,10 +932,7 @@ def sheets_write(args):
 
 def sheets_append(args):
     """Append rows to a spreadsheet."""
-    rows = []
-    for row_str in args.values.split(";"):
-        rows.append([cell.strip() for cell in row_str.split(",")])
-
+    rows = _parse_sheet_values(args, "append")
     body = {"values": rows}
     params = {
         "spreadsheetId": args.spreadsheet_id,
@@ -1424,13 +1442,32 @@ def main():
     sh_write = sheets_sub.add_parser("write", help="Write values to a range")
     sh_write.add_argument("spreadsheet_id")
     sh_write.add_argument("--range", required=True, help="Target range (e.g. 'Sheet1!A1')")
-    sh_write.add_argument("--values", required=True, help="Values: comma=cols, semicolon=rows (e.g. 'Name,Email;John,j@t.com')")
+    sh_write.add_argument(
+        "--values",
+        help="Values: comma=cols, semicolon=rows (e.g. 'Name,Email;John,j@t.com'). "
+             "Cannot represent values that themselves contain commas or semicolons "
+             "— use --json-values for structured content.",
+    )
+    sh_write.add_argument(
+        "--json-values",
+        dest="json_values",
+        help="JSON-encoded 2D array of cell values (e.g. '[[\"a\",\"b,c\"],[\"d\",\"e\"]]'). "
+             "Preserves arbitrary string content including commas, semicolons, and newlines.",
+    )
     sh_write.add_argument("--json", dest="json_output", action="store_true")
 
     sh_append = sheets_sub.add_parser("append", help="Append rows")
     sh_append.add_argument("spreadsheet_id")
     sh_append.add_argument("--range", default="Sheet1", help="Target sheet/range")
-    sh_append.add_argument("--values", required=True, help="Values: comma=cols, semicolon=rows")
+    sh_append.add_argument(
+        "--values",
+        help="Values: comma=cols, semicolon=rows. See sheets write for caveats.",
+    )
+    sh_append.add_argument(
+        "--json-values",
+        dest="json_values",
+        help="JSON-encoded 2D array of cell values, preserves commas/semicolons/newlines.",
+    )
     sh_append.add_argument("--json", dest="json_output", action="store_true")
 
     sh_info = sheets_sub.add_parser("info", help="Get spreadsheet metadata")
