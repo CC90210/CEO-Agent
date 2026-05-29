@@ -54,6 +54,20 @@ sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 # V5.6 chokepoint: all SMTP sends go through lib.smtp_send (single source of truth)
 from lib.smtp_send import smtp_send  # noqa: E402
 
+# Per-user Gmail OAuth resolver (Phase 4 SunBiz multi-employee
+# personalization). When the dashboard drawer queued the email with a
+# metadata.acted_by_user_id stamp, we try to send authenticated as that
+# user's connected Gmail. Falls back to the tenant-shared SMTP path
+# whenever the user hasn't connected Gmail or the OAuth refresh fails.
+try:
+    from integrations.user_gmail_oauth import (  # type: ignore  # noqa: E402
+        get_send_credentials as _get_user_gmail_credentials,
+        send_via_gmail_api as _send_via_gmail_api,
+    )
+except Exception:  # noqa: BLE001
+    _get_user_gmail_credentials = None  # type: ignore[assignment]
+    _send_via_gmail_api = None  # type: ignore[assignment]
+
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
@@ -199,41 +213,114 @@ def _send_one(env: dict[str, str], sb, row: dict) -> bool:
     if not to_email:
         _mark_status(sb, row_id, status="failed", error="missing to_email")
         return False
-    gmail_user = (env.get("GMAIL_USER") or env.get("GMAIL_ADDRESS") or "").strip()
-    gmail_pass = (env.get("GMAIL_APP_PASSWORD") or "").strip()
-    gmail_from = (env.get("GMAIL_FROM_ADDRESS") or gmail_user or "").strip()
-    if not gmail_user or not gmail_pass:
-        _mark_status(
-            sb,
-            row_id,
-            status="failed",
-            error="GMAIL_USER or GMAIL_APP_PASSWORD missing in .env.agents",
-        )
-        return False
-    msg = _build_message(row, gmail_from or gmail_user)
     tenant_id = row.get("tenant_id") or ""
     lead_id = row.get("lead_id") or ""
-    # V5.6 chokepoint: uses shared lib.smtp_send (single source of truth).
-    # send_gateway.py and this daemon share the same transport layer.
-    try:
-        ok, err = smtp_send(gmail_user, gmail_pass, msg, to_email)
-        if not ok:
-            _mark_status(sb, row_id, status="failed", error=err)
-            _publish_event(sb, event_type="BRAVO_DASHBOARD_EMAIL_FAILED",
-                           tenant_id=tenant_id,
-                           payload={"interaction_id": row_id, "lead_id": lead_id,
-                                    "to_email": to_email, "reason": err or "unknown"})
+
+    # Phase 4 SunBiz multi-employee personalization: the drawer stamps
+    # metadata.acted_by_user_id when the operator queued the send. If
+    # that user has connected their personal Gmail, send authenticated
+    # as them; otherwise fall through to the shared SMTP path.
+    md = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
+    acted_by_user_id = (md or {}).get("acted_by_user_id") or ""
+
+    user_bundle = None
+    if (
+        acted_by_user_id
+        and tenant_id
+        and _get_user_gmail_credentials is not None
+    ):
+        try:
+            user_bundle = _get_user_gmail_credentials(
+                sb, tenant_id, acted_by_user_id
+            )
+        except Exception as exc:  # noqa: BLE001
+            print(
+                f"[dashboard_email_consumer] user_oauth lookup failed "
+                f"row={row_id} user={acted_by_user_id}: {exc}",
+                file=sys.stderr,
+            )
+            user_bundle = None
+
+    sent_via = "smtp"
+    sent_as = ""
+    err: str | None = None
+    ok = False
+
+    if user_bundle and _send_via_gmail_api is not None:
+        gmail_from = user_bundle["gmail_address"]
+        msg = _build_message(row, gmail_from)
+        try:
+            raw = msg.as_bytes()
+        except Exception:
+            raw = msg.as_string().encode("utf-8")
+        try:
+            ok, err = _send_via_gmail_api(user_bundle["access_token"], raw)
+        except Exception as e:  # noqa: BLE001
+            print(
+                f"[dashboard_email_consumer] gmail_api raised for {row_id}: {e}",
+                file=sys.stderr,
+            )
             return False
-    except Exception as e:  # noqa: BLE001
-        # Network blip — leave queued for retry.
-        print(f"[dashboard_email_consumer] send error for {row_id}: {e}", file=sys.stderr)
+        sent_via = "gmail_api"
+        sent_as = gmail_from
+    else:
+        gmail_user = (env.get("GMAIL_USER") or env.get("GMAIL_ADDRESS") or "").strip()
+        gmail_pass = (env.get("GMAIL_APP_PASSWORD") or "").strip()
+        gmail_from = (env.get("GMAIL_FROM_ADDRESS") or gmail_user or "").strip()
+        if not gmail_user or not gmail_pass:
+            _mark_status(
+                sb,
+                row_id,
+                status="failed",
+                error="GMAIL_USER or GMAIL_APP_PASSWORD missing in .env.agents",
+            )
+            return False
+        msg = _build_message(row, gmail_from or gmail_user)
+        try:
+            ok, err = smtp_send(gmail_user, gmail_pass, msg, to_email)
+        except Exception as e:  # noqa: BLE001
+            # Network blip — leave queued for retry.
+            print(
+                f"[dashboard_email_consumer] send error for {row_id}: {e}",
+                file=sys.stderr,
+            )
+            return False
+        sent_as = gmail_from or gmail_user
+
+    if not ok:
+        _mark_status(sb, row_id, status="failed", error=err)
+        _publish_event(
+            sb,
+            event_type="BRAVO_DASHBOARD_EMAIL_FAILED",
+            tenant_id=tenant_id,
+            payload={
+                "interaction_id": row_id,
+                "lead_id": lead_id,
+                "to_email": to_email,
+                "reason": err or "unknown",
+                "sent_via": sent_via,
+            },
+        )
         return False
+
     _mark_status(sb, row_id, status="sent")
-    _publish_event(sb, event_type="BRAVO_DASHBOARD_EMAIL_SENT",
-                   tenant_id=tenant_id,
-                   payload={"interaction_id": row_id, "lead_id": lead_id,
-                            "to_email": to_email})
-    print(f"[dashboard_email_consumer] sent {row_id} → {to_email}", file=sys.stderr)
+    _publish_event(
+        sb,
+        event_type="BRAVO_DASHBOARD_EMAIL_SENT",
+        tenant_id=tenant_id,
+        payload={
+            "interaction_id": row_id,
+            "lead_id": lead_id,
+            "to_email": to_email,
+            "sent_via": sent_via,
+            "sent_as": sent_as,
+        },
+    )
+    print(
+        f"[dashboard_email_consumer] sent {row_id} → {to_email} "
+        f"via={sent_via} as={sent_as}",
+        file=sys.stderr,
+    )
     return True
 
 

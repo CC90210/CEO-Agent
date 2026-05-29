@@ -117,6 +117,24 @@ from casl_compliance import (  # noqa: E402
 )
 from lib.smtp_send import smtp_send as _smtp_send  # noqa: E402
 
+# Per-user Gmail OAuth resolver (Phase 4 of SunBiz multi-employee
+# personalization, 2026-05-29). When acted_by_user_id + tenant_id are
+# both set on a send() call, the email path tries to authenticate as the
+# user's connected Gmail rather than the tenant-shared SMTP credentials.
+# Falls back to the existing SMTP path on any miss so this never regresses
+# the legacy send path.
+try:
+    from integrations.user_gmail_oauth import (  # type: ignore  # noqa: E402
+        get_send_credentials as _get_user_gmail_credentials,
+        send_via_gmail_api as _send_via_gmail_api,
+    )
+except Exception:  # noqa: BLE001
+    # If the OAuth module fails to import (e.g. missing cryptography lib
+    # on a slim dev environment), keep the gateway functional — every
+    # send falls back to the tenant SMTP path.
+    _get_user_gmail_credentials = None  # type: ignore[assignment]
+    _send_via_gmail_api = None  # type: ignore[assignment]
+
 # V6.8.3 structured logging — JSON-shaped error/state events go to
 # state/logs/{module}.log alongside stderr. Falls back to a stub on
 # import error so this daemon never fails just because the lib isn't
@@ -1631,6 +1649,17 @@ def send(
     sms_provider: Optional[str] = None,  # "texttorrent" | "twilio" | None (auto, env-resolved)
     dry_run: bool = False,
     db: Any = None,
+    # acted_by_user_id added Phase 4 of SunBiz multi-employee
+    # personalization (2026-05-29). When set AND channel='email',
+    # the send path looks up the user's gmail_oauth credential in
+    # user_integration_credentials and authenticates as that user.
+    # Falls back to the tenant-shared GMAIL_USER + GMAIL_APP_PASSWORD
+    # env vars when the user hasn't connected their personal Gmail.
+    # SMS (TextTorrent / Twilio) and Kixie always use tenant-shared
+    # credentials regardless of acted_by_user_id — billing routes
+    # through the tenant owner.
+    acted_by_user_id: Optional[str] = None,
+    tenant_id: Optional[str] = None,
 ) -> dict:
     """Single outbound chokepoint.
 
@@ -1844,12 +1873,41 @@ def send(
 
     # ---- Channel dispatch ----
     if channel == "email":
-        gmail_user = env.get("GMAIL_USER") or env.get("GMAIL_ADDRESS", "")
-        if not gmail_user:
-            return {"status": "error",
-                    "reason": "GMAIL_USER missing in .env.agents",
-                    "lead_id": lead_id, "interaction_id": None,
-                    "cooldown_until": None, "daily_count": None}
+        # Per-user Gmail OAuth resolution: if the caller is acting on
+        # behalf of a specific employee AND they have connected their
+        # personal Gmail via Settings → Personal, send authenticated as
+        # them. Otherwise fall back to the tenant-shared SMTP env vars.
+        # Phase 4 SunBiz multi-employee personalization (2026-05-29).
+        user_gmail_bundle: Optional[dict[str, str]] = None
+        if (
+            acted_by_user_id
+            and tenant_id
+            and db is not None
+            and _get_user_gmail_credentials is not None
+        ):
+            try:
+                user_gmail_bundle = _get_user_gmail_credentials(
+                    db, tenant_id, acted_by_user_id
+                )
+            except Exception as exc:  # noqa: BLE001
+                # OAuth lookup is best-effort. A failure here MUST NOT
+                # block the send — fall back to the shared SMTP path.
+                print(
+                    f"[send_gateway] user_gmail_oauth lookup failed "
+                    f"tenant={tenant_id} user={acted_by_user_id}: {exc}",
+                    file=sys.stderr,
+                )
+                user_gmail_bundle = None
+
+        if user_gmail_bundle:
+            gmail_user = user_gmail_bundle["gmail_address"]
+        else:
+            gmail_user = env.get("GMAIL_USER") or env.get("GMAIL_ADDRESS", "")
+            if not gmail_user:
+                return {"status": "error",
+                        "reason": "GMAIL_USER missing in .env.agents",
+                        "lead_id": lead_id, "interaction_id": None,
+                        "cooldown_until": None, "daily_count": None}
 
         effective_cooldown = (
             cooldown_hours
@@ -2058,7 +2116,32 @@ def send(
             ics_filename=ics_filename,
             attachments=attachments,
         )
-        ok, err = _send_email_smtp(env, mime, to_email, cc_emails)  # type: ignore[arg-type]
+        if user_gmail_bundle and _send_via_gmail_api is not None:
+            # Gmail API path: authenticates as the connected employee.
+            # The recipient sees the email coming from their address.
+            try:
+                raw_mime = mime.as_bytes()
+            except Exception as _exc:
+                raw_mime = mime.as_string().encode("utf-8")
+            ok, err = _send_via_gmail_api(
+                user_gmail_bundle["access_token"], raw_mime
+            )
+            if ok:
+                full_metadata["sent_via"] = "gmail_api"
+                full_metadata["sent_as"] = user_gmail_bundle["gmail_address"]
+                _ping_health(
+                    "gws",
+                    status="healthy",
+                    metadata={"source": "send_gateway.gmail_api"},
+                )
+            else:
+                _ping_health(
+                    "gws",
+                    status="degraded",
+                    error=f"gmail_api: {err or 'unknown'}",
+                )
+        else:
+            ok, err = _send_email_smtp(env, mime, to_email, cc_emails)  # type: ignore[arg-type]
         if not ok:
             finalize_reserved_action(
                 db=db,
