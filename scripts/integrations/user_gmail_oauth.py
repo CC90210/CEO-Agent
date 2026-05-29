@@ -241,6 +241,66 @@ def get_send_credentials(
     return {"access_token": access_token, "gmail_address": gmail_address}
 
 
+def resolve_send_identity(
+    db: Any, tenant_id: Optional[str], acted_by_user_id: Optional[str]
+) -> dict[str, Any]:
+    """Decide who is sending this email — the user's personal Gmail, the
+    tenant-shared SMTP identity, or refuse the send entirely.
+
+    Single chokepoint so both send_gateway.send() and the dashboard
+    email consumer apply the same identity policy without drift.
+
+    Returns one of:
+      - {"mode": "user_oauth", "bundle": {access_token, gmail_address}}
+        Caller should send via Gmail API as the user.
+      - {"mode": "tenant_smtp"}
+        Caller falls through to the tenant-shared SMTP path. Either no
+        acted_by_user_id was supplied OR the user hasn't connected
+        personal Gmail yet.
+      - {"mode": "block", "reason": str}
+        The user opted into personal Gmail but token resolution broke
+        (expired refresh token, Google API down, malformed bundle).
+        Caller MUST NOT silently fall back -- that would misrepresent
+        identity. Surface an error to the operator instead.
+
+    Phase 4 hardening (Codex review 2026-05-29).
+    """
+    if not acted_by_user_id or not tenant_id or db is None:
+        return {"mode": "tenant_smtp"}
+
+    try:
+        bundle = get_send_credentials(db, tenant_id, acted_by_user_id)
+    except Exception as exc:  # noqa: BLE001
+        _log(
+            f"get_send_credentials raised tenant={tenant_id} "
+            f"user={acted_by_user_id}: {exc}"
+        )
+        bundle = None
+
+    if bundle:
+        return {"mode": "user_oauth", "bundle": bundle}
+
+    # Resolution returned None. Distinguish "user never connected" from
+    # "user connected but token resolution broke" using the cheap
+    # presence check.
+    try:
+        opted_in = has_user_gmail_connected(db, tenant_id, acted_by_user_id)
+    except Exception:  # noqa: BLE001
+        # Fail closed on presence-check errors so we never
+        # misrepresent identity by silently falling through.
+        opted_in = True
+
+    if opted_in:
+        return {
+            "mode": "block",
+            "reason": (
+                "user has connected personal Gmail but the OAuth token "
+                "resolution failed; refusing to send from tenant-shared identity"
+            ),
+        }
+    return {"mode": "tenant_smtp"}
+
+
 def send_via_gmail_api(
     access_token: str, raw_mime_bytes: bytes
 ) -> tuple[bool, Optional[str]]:
