@@ -43,6 +43,34 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def has_user_gmail_connected(db: Any, tenant_id: str, user_id: str) -> bool:
+    """Cheap presence check: does this user have ANY gmail_oauth rows?
+
+    Used by the send pipeline to distinguish "user hasn't opted into
+    personal Gmail yet (OK to use shared tenant SMTP)" from "user opted
+    in but the token resolution failed (MUST block, not silently send
+    from the wrong address)". Rule 8 / Codex review 2026-05-29.
+    """
+    if not tenant_id or not user_id:
+        return False
+    try:
+        r = (
+            db.table("user_integration_credentials")
+            .select("id")
+            .eq("tenant_id", tenant_id)
+            .eq("user_id", user_id)
+            .eq("service", "gmail_oauth")
+            .limit(1)
+            .execute()
+        )
+    except Exception as exc:
+        _log(f"has_connected check failed: {exc}")
+        # When in doubt, treat as connected so we fail closed rather
+        # than misrepresent identity.
+        return True
+    return bool(getattr(r, "data", None))
+
+
 def _log(msg: str) -> None:
     print(f"[user_gmail_oauth] {msg}", file=sys.stderr)
 
