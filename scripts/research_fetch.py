@@ -224,7 +224,7 @@ def _run_tier_subprocess(tier_name: str, argv: list[str], timeout: int) -> dict:
 
 def _call_firecrawl(url: str) -> dict:
     """Invoke scripts/integrations/firecrawl_tool.py scrape <url> --json. Returns a normalized dict."""
-    argv = [sys.executable, str(SCRIPTS_DIR / "firecrawl_tool.py"), "scrape", url, "--json"]
+    argv = [sys.executable, str(SCRIPTS_DIR / "integrations" / "firecrawl_tool.py"), "scrape", url, "--json"]
     out = _run_tier_subprocess("firecrawl", argv, TIER_TIMEOUT_SECONDS)
     raw = out.pop("_parsed", None)
     if raw is None:
@@ -243,7 +243,7 @@ def _call_firecrawl(url: str) -> dict:
 def _call_cloak(url: str, timeout: int) -> dict:
     """Invoke scripts/browser/cloak_browser_tool.py scrape <url> --json. Returns a normalized dict."""
     argv = [
-        sys.executable, str(SCRIPTS_DIR / "cloak_browser_tool.py"),
+        sys.executable, str(SCRIPTS_DIR / "browser" / "cloak_browser_tool.py"),
         "scrape", url, "--json", "--timeout", str(timeout),
     ]
     out = _run_tier_subprocess("cloak", argv, timeout + 30)
