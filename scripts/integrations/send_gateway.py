@@ -126,6 +126,7 @@ from lib.smtp_send import smtp_send as _smtp_send  # noqa: E402
 try:
     from integrations.user_gmail_oauth import (  # type: ignore  # noqa: E402
         get_send_credentials as _get_user_gmail_credentials,
+        has_user_gmail_connected as _has_user_gmail_connected,
         send_via_gmail_api as _send_via_gmail_api,
     )
 except Exception:  # noqa: BLE001
@@ -133,6 +134,7 @@ except Exception:  # noqa: BLE001
     # on a slim dev environment), keep the gateway functional — every
     # send falls back to the tenant SMTP path.
     _get_user_gmail_credentials = None  # type: ignore[assignment]
+    _has_user_gmail_connected = None  # type: ignore[assignment]
     _send_via_gmail_api = None  # type: ignore[assignment]
 
 # V6.8.3 structured logging — JSON-shaped error/state events go to
@@ -1875,10 +1877,20 @@ def send(
     if channel == "email":
         # Per-user Gmail OAuth resolution: if the caller is acting on
         # behalf of a specific employee AND they have connected their
-        # personal Gmail via Settings → Personal, send authenticated as
-        # them. Otherwise fall back to the tenant-shared SMTP env vars.
+        # personal Gmail via Settings → Personal, send authenticated
+        # as them.
+        #
+        # Identity policy (Codex review 2026-05-29):
+        #   - acted_by_user_id NOT supplied        → tenant SMTP (legacy)
+        #   - supplied, no OAuth rows in DB        → tenant SMTP (user
+        #     hasn't opted in; surfacing as Ezra is acceptable)
+        #   - supplied, rows EXIST, resolved OK    → Gmail API as them
+        #   - supplied, rows EXIST, refresh BROKE  → BLOCK (do not
+        #     misrepresent identity by silently sending from
+        #     submissions@ when the user has explicitly opted in)
         # Phase 4 SunBiz multi-employee personalization (2026-05-29).
         user_gmail_bundle: Optional[dict[str, str]] = None
+        user_opted_in_but_broken = False
         if (
             acted_by_user_id
             and tenant_id
@@ -1890,14 +1902,35 @@ def send(
                     db, tenant_id, acted_by_user_id
                 )
             except Exception as exc:  # noqa: BLE001
-                # OAuth lookup is best-effort. A failure here MUST NOT
-                # block the send — fall back to the shared SMTP path.
                 print(
-                    f"[send_gateway] user_gmail_oauth lookup failed "
+                    f"[send_gateway] user_gmail_oauth lookup raised "
                     f"tenant={tenant_id} user={acted_by_user_id}: {exc}",
                     file=sys.stderr,
                 )
                 user_gmail_bundle = None
+            if not user_gmail_bundle and _has_user_gmail_connected is not None:
+                try:
+                    user_opted_in_but_broken = _has_user_gmail_connected(
+                        db, tenant_id, acted_by_user_id
+                    )
+                except Exception:  # noqa: BLE001
+                    # Treat presence check failure as "assume connected"
+                    # so we fail closed rather than misrepresent identity.
+                    user_opted_in_but_broken = True
+
+        if user_opted_in_but_broken and not user_gmail_bundle:
+            return {
+                "status": "error",
+                "reason": (
+                    "user_gmail_oauth_resolution_failed: user has connected "
+                    "personal Gmail but token refresh failed; refusing to "
+                    "send from tenant-shared identity"
+                ),
+                "lead_id": lead_id,
+                "interaction_id": None,
+                "cooldown_until": None,
+                "daily_count": None,
+            }
 
         if user_gmail_bundle:
             gmail_user = user_gmail_bundle["gmail_address"]
