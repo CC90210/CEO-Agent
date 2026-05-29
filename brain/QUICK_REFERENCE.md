@@ -22,7 +22,7 @@ tags: [reference, tools, routing]
 | Create/check calendar events | `google_tool.py` | `calendar list`, `calendar create --title "..." --start "..." --end "..." [--meet] [--attendees "..."]` |
 | Book meeting / manage slots | `booking_engine.py` | `slots open`, `book`, `available`, `remind` |
 | Create/share a Google Doc | `google_tool.py` | `docs create --title "..." [--html file.html]`, `docs read <id>`, `docs export <id> --format pdf` |
-| Create/read/write spreadsheet | `google_tool.py` | `sheets create --title "..."`, `sheets read <id>`, `sheets write <id> --range "A1" --values "..."`, `sheets append <id> --values "..."` |
+| Create/read/write spreadsheet | `google_tool.py` | `sheets create --title "..."`, `sheets read <id>`, `sheets write <id> --range "A1" --values "..."` (simple) or `--json-values '[["a","b,c"]]'` (preserves commas/semicolons/newlines — use this for URLs, prose, structured content), `sheets append <id> --values "..."` or `--json-values` |
 | Create presentation / export deck | `google_tool.py` | `slides create --title "..."`, `slides read <id>`, `slides export <id> --format pdf` |
 | Upload/download/share files | `google_tool.py` | `drive upload --file "..."`, `drive download <id>`, `drive share <id> --email "..."`, `drive list` |
 | Google Tasks | `google_tool.py` | `tasks list`, `tasks add --list-id <id> --title "..."`, `tasks complete --list-id <id> --task-id <id>` |
