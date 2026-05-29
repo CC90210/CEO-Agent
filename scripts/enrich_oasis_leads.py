@@ -158,53 +158,15 @@ def _list_candidates(client, only_id: Optional[str]) -> list[dict]:
     return out
 
 
-_UA = (
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 "
-    "(KHTML, like Gecko) Version/17.5 Safari/605.1.15"
-)
-
-
-def _scrape_plain(url: str) -> Optional[str]:
-    """Last-ditch fallback when research_fetch tiers are unavailable.
-    A UA-spoofed urllib GET + naive HTML→text strip. Won't bypass
-    Cloudflare but works for the small-business sites that make up
-    the OASIS cold-list."""
-    import urllib.request
-    import urllib.error
-    req = urllib.request.Request(url, headers={"User-Agent": _UA})
-    try:
-        with urllib.request.urlopen(req, timeout=20) as resp:
-            raw = resp.read(2_000_000)
-    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as exc:
-        print(f"  [scrape-plain] {url}: {exc}", file=sys.stderr)
-        return None
-    except Exception as exc:  # noqa: BLE001
-        print(f"  [scrape-plain] {url}: {exc}", file=sys.stderr)
-        return None
-    try:
-        html = raw.decode("utf-8", errors="replace")
-    except Exception:  # noqa: BLE001
-        return None
-    text = re.sub(r"<script[^>]*>.*?</script>", " ", html, flags=re.IGNORECASE | re.DOTALL)
-    text = re.sub(r"<style[^>]*>.*?</style>", " ", text, flags=re.IGNORECASE | re.DOTALL)
-    text = re.sub(r"<[^>]+>", " ", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    return text if len(text) > 200 else None
-
-
 def _scrape(fetch_fn, url: str) -> Optional[str]:
-    # Tier 1: canonical research_fetch ladder (Firecrawl → CloakBrowser).
+    """Delegate to the canonical research_fetch ladder. It now includes
+    a plain-urllib third tier internally so this caller doesn't need its
+    own fallback."""
     try:
         res = fetch_fn(url)
-        if res.get("ok"):
-            text = res.get("text") or ""
-            if text.strip():
-                return text
     except Exception as exc:  # noqa: BLE001
         print(f"  [scrape] {url} ladder threw: {exc}", file=sys.stderr)
-        res = {}
-    # Tier 2: plain UA-spoofed urllib for sites the ladder can't hit
-    # (Firecrawl out-of-credits / Cloak not installed locally).
+        return None
     if not res.get("ok"):
         tiers = res.get("tiers_tried") or []
         errs = res.get("errors") or {}
@@ -213,7 +175,9 @@ def _scrape(fetch_fn, url: str) -> Optional[str]:
             f"  [scrape] {url} ladder ({','.join(tiers) or 'none'}) failed: {last_err.strip()[:120]}",
             file=sys.stderr,
         )
-    return _scrape_plain(url)
+        return None
+    text = res.get("text") or ""
+    return text if text.strip() else None
 
 
 def _ask_claude(client, markdown: str) -> Optional[dict]:

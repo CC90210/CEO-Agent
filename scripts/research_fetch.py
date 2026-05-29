@@ -9,7 +9,8 @@ TIERS (escalation order, cheapest → most stealthy)
 --------------------------------------------------
   1. Firecrawl     — scripts/integrations/firecrawl_tool.py scrape (cloud-side, clean markdown)
   2. CloakBrowser  — scripts/browser/cloak_browser_tool.py scrape (stealth Chromium 146)
-  3. Fail          — return ok=False with last-tier error
+  3. Plain         — zero-dep urllib + UA spoof + naive HTML strip (always available)
+  4. Fail          — return ok=False with last-tier error
 
 Escalation triggers (auto, no agent decision needed):
   - Firecrawl returns 403 / 429 / 5xx → escalate to CloakBrowser
@@ -72,6 +73,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sqlite3
 import subprocess
 import sys
@@ -156,6 +158,11 @@ def _reputation_lookup(domain: str) -> dict | None:
 
 
 def _reputation_record(domain: str, tier: str, succeeded: bool) -> None:
+    # Plain tier is the always-available fallback — don't pollute the
+    # reputation memory with it. Reputation is only useful for choosing
+    # between cloud (firecrawl) and stealth (cloak); plain is independent.
+    if tier == "plain":
+        return
     now = datetime.now(timezone.utc).isoformat()
     with _db() as conn:
         existing = conn.execute(
@@ -260,6 +267,50 @@ def _call_cloak(url: str, timeout: int) -> dict:
     }
 
 
+_PLAIN_UA = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 "
+    "(KHTML, like Gecko) Version/17.5 Safari/605.1.15"
+)
+
+
+def _call_plain(url: str, timeout: int) -> dict:
+    """Last-ditch fallback: UA-spoofed urllib + naive HTML strip. Won't
+    bypass Cloudflare/DataDome but works for the plain small-business
+    sites that make up the bulk of cold-list research. Zero dependencies,
+    always available — runs when Firecrawl is over quota and Cloak isn't
+    installed locally."""
+    import urllib.error
+    import urllib.request
+    req = urllib.request.Request(url, headers={"User-Agent": _PLAIN_UA})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            status = resp.status
+            raw = resp.read(2_000_000)
+            final_url = resp.geturl()
+    except urllib.error.HTTPError as exc:
+        return {**_EMPTY_TIER, "status": exc.code, "error": f"plain http {exc.code}: {exc.reason}"}
+    except (urllib.error.URLError, TimeoutError) as exc:
+        return {**_EMPTY_TIER, "error": f"plain network: {exc}"}
+    except Exception as exc:  # noqa: BLE001
+        return {**_EMPTY_TIER, "error": f"plain failed: {exc}"}
+    html = raw.decode("utf-8", errors="replace")
+    # Pull the title BEFORE stripping tags so the matcher gets a clean window.
+    title_m = re.search(r"<title[^>]*>(.+?)</title>", html, re.IGNORECASE | re.DOTALL)
+    title = title_m.group(1).strip() if title_m else None
+    text = re.sub(r"<script[^>]*>.*?</script>", " ", html, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r"<style[^>]*>.*?</style>", " ", text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return {
+        "ok": True,
+        "status": status,
+        "text": text,
+        "title": title,
+        "final_url": final_url,
+        "error": None,
+    }
+
+
 # ── Escalation logic ─────────────────────────────────────────────────────────
 
 def _firecrawl_signals_block(result: dict, min_chars: int) -> bool:
@@ -302,13 +353,15 @@ def fetch(
     domain = _registered_domain(url)
     rep = _reputation_lookup(domain)
 
-    # Tier ordering — reputation-aware
-    if force_tier in ("firecrawl", "cloak"):
+    # Tier ordering — reputation-aware. "plain" is always the last-ditch
+    # tier (zero-dep urllib fallback) so we never bail with nothing when
+    # Firecrawl is over quota AND Cloak isn't installed.
+    if force_tier in ("firecrawl", "cloak", "plain"):
         tiers = [force_tier]
     elif rep and rep["last_tier_succeeded"] == "cloak":
-        tiers = ["cloak"]  # we already know this domain needs Cloak
+        tiers = ["cloak", "plain"]
     else:
-        tiers = ["firecrawl", "cloak"]
+        tiers = ["firecrawl", "cloak", "plain"]
 
     result: dict[str, Any] = {
         "ok": False,
@@ -369,6 +422,25 @@ def fetch(
             if record_reputation:
                 _reputation_record(domain, "cloak", False)
             result["errors"]["cloak"] = r.get("error") or f"signals_block status={r.get('status')} chars={len(r.get('text',''))}"
+        elif tier == "plain":
+            r = _call_plain(url, cloak_timeout)
+            ok = bool(r.get("ok")) and len(r.get("text", "")) >= min_chars
+            if ok:
+                if record_reputation:
+                    _reputation_record(domain, "plain", True)
+                result.update({
+                    "ok": True,
+                    "tier_used": "plain",
+                    "status": r.get("status"),
+                    "title": r.get("title"),
+                    "final_url": r.get("final_url"),
+                    "text": r.get("text", ""),
+                    "text_chars": len(r.get("text", "")),
+                })
+                return result
+            if record_reputation:
+                _reputation_record(domain, "plain", False)
+            result["errors"]["plain"] = r.get("error") or f"plain_thin status={r.get('status')} chars={len(r.get('text',''))}"
 
     return result
 
@@ -476,7 +548,7 @@ Skill: skills/research-fetch/SKILL.md
     # Default subcommand is implicit if first arg is a URL
     pf = sub.add_parser("fetch", help="Fetch a URL with auto-escalation")
     pf.add_argument("url")
-    pf.add_argument("--force-tier", choices=["firecrawl", "cloak"], default=None)
+    pf.add_argument("--force-tier", choices=["firecrawl", "cloak", "plain"], default=None)
     pf.add_argument("--min-chars", type=int, default=DEFAULT_MIN_CHARS)
     pf.add_argument("--cloak-timeout", type=int, default=45)
     pf.add_argument("--json", dest="output_json", action="store_true")
