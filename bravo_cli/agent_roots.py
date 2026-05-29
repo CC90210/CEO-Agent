@@ -50,6 +50,15 @@ DEFAULTS: dict[str, list[Path]] = {
         HOME / "life-preservation",
         HOME / "APPS" / "life-preservation",
     ],
+    # Added 2026-05-28 — the bridge dispatches SunBiz tenant_cron_jobs
+    # whose action_payload.root == "sunbiz" against this root. Mirrors
+    # scripts/lib/agent_roots.py::resolve_sunbiz_root (which honors
+    # SUNBIZ_AGENT_ROOT env var); the env override is handled
+    # generically by resolve_root() above via BRAVO_AGENT_ROOT_SUNBIZ.
+    "sunbiz": [
+        HOME / "SunBiz-Agent",
+        Path("C:/Users/User/SunBiz-Agent"),
+    ],
 }
 
 # Brain entry file — first one found wins. CLAUDE.md is the convention; SOUL.md
@@ -58,13 +67,30 @@ DEFAULTS: dict[str, list[Path]] = {
 ENTRY_CANDIDATES = ["CLAUDE.md", "AGENTS.md", "brain/SOUL.md", "README.md"]
 
 
+# Legacy / canonical environment variable names per agent slug. Honoured
+# in addition to the generic BRAVO_AGENT_ROOT_<SLUG> form. Codex P2
+# (2026-05-28) — existing SunBiz docs and scripts/lib/agent_roots.py
+# both use SUNBIZ_AGENT_ROOT; this resolver must too, or
+# resolve_root("sunbiz") returns None on a host that set only the
+# canonical name.
+LEGACY_ENV_KEYS: dict[str, str] = {
+    "bravo": "BRAVO_AGENT_ROOT",
+    "sunbiz": "SUNBIZ_AGENT_ROOT",
+}
+
+
 def resolve_root(agent_slug: str) -> Path | None:
     """Return the absolute repo root for an agent, or None if not present."""
     slug = agent_slug.lower().strip()
-    env_key = f"BRAVO_AGENT_ROOT_{slug.upper()}"
-    if env_key in os.environ:
-        p = Path(os.environ[env_key]).expanduser().resolve()
-        return p if p.is_dir() else None
+    candidate_env_keys = [f"BRAVO_AGENT_ROOT_{slug.upper()}"]
+    legacy = LEGACY_ENV_KEYS.get(slug)
+    if legacy:
+        candidate_env_keys.append(legacy)
+    for env_key in candidate_env_keys:
+        if env_key in os.environ:
+            p = Path(os.environ[env_key]).expanduser().resolve()
+            if p.is_dir():
+                return p
     for candidate in DEFAULTS.get(slug, []):
         try:
             p = Path(candidate).expanduser().resolve()

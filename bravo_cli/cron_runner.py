@@ -125,23 +125,57 @@ def _cron_matches(expr: str, dt: datetime) -> bool:
 # ─────────────────────────────────────────────────────────────────────
 
 
+# Maps tenant_cron_jobs.agent_key → sibling-agent root slug used by
+# agent_roots.resolve_root. Codex P1 (2026-05-28) — without this, a
+# SunBiz row with agent_key='solara' would default to bravo even though
+# its scripts live in SunBiz-Agent. Extend this map when a new agent
+# joins a sibling-repo tenant (e.g. hermes assistants on a hermes root).
+SIBLING_ROOT_BY_AGENT_KEY: dict[str, str] = {
+    "bravo": "bravo",
+    "atlas": "atlas",
+    "maven": "maven",
+    "aura": "aura",
+    "solara": "sunbiz",
+    "helios": "sunbiz",
+    "sunbiz": "sunbiz",
+}
+
+
 def _bravo_root() -> Path:
     """Same resolution as bridge_tools._bravo_root — keep them in sync if
     the rule changes. Falls back to bridge cwd when agent_roots is missing."""
+    return _resolve_agent_root("bravo") or Path.cwd()
+
+
+def _resolve_agent_root(slug: str) -> Path | None:
+    """Generic sibling-root resolver. Returns None if the slug isn't
+    registered in agent_roots.DEFAULTS or no candidate path exists.
+    Callers that need a guaranteed Path should fall back to cwd."""
     try:
         try:
             from .agent_roots import resolve_root  # type: ignore
         except ImportError:
             from agent_roots import resolve_root  # type: ignore
-        p = resolve_root("bravo")
-        return Path(p) if p else Path.cwd()
+        p = resolve_root(slug)
+        return Path(p) if p else None
     except Exception:
-        return Path.cwd()
+        return None
 
 
-def _exec_script_run(payload: dict) -> dict:
+def _exec_script_run(payload: dict, job: dict | None = None) -> dict:
     """Run scripts/<X>.py with args, capture stdout/stderr/exit_code. 5-min
-    hard timeout — cron jobs that exceed this are misconfigured."""
+    hard timeout — cron jobs that exceed this are misconfigured.
+
+    Root resolution order (Codex P1, 2026-05-28):
+      1. action_payload.root — explicit per-cron override.
+      2. job.agent_key (the parent tenant_cron_jobs row's owner) when the
+         agent slug is a registered sibling root. SunBiz rows already set
+         agent_key="solara" / "helios" / "sunbiz"; treat any of those as
+         root="sunbiz" by canonicalising through SIBLING_ROOT_BY_AGENT_KEY.
+         This means future producers don't HAVE to duplicate the root
+         field into the payload; the agent_key contract is enough.
+      3. Default "bravo" — preserves backwards-compat with every cron
+         that predates the multi-root manifest (2026-05-28)."""
     script = str(payload.get("script") or "").strip()
     if not script:
         return {"status": "error", "error": "missing script in action_payload"}
@@ -163,14 +197,38 @@ def _exec_script_run(payload: dict) -> dict:
     args = payload.get("args") or []
     if not isinstance(args, list):
         return {"status": "error", "error": "args must be a list"}
-    bravo = _bravo_root()
-    script_path = bravo / "scripts" / script
+
+    # Sibling-root resolution (V6.5 multi-root manifest, Codex 2026-05-28).
+    # Prefer explicit action_payload.root; fall back to tenant_cron_jobs.agent_key
+    # mapped through SIBLING_ROOT_BY_AGENT_KEY; default "bravo" for legacy.
+    explicit_root = payload.get("root")
+    if explicit_root:
+        root_slug = str(explicit_root).strip().lower()
+    elif job is not None:
+        agent_key = str(job.get("agent_key") or "").strip().lower()
+        root_slug = SIBLING_ROOT_BY_AGENT_KEY.get(agent_key, "bravo")
+    else:
+        root_slug = "bravo"
+    if root_slug == "bravo":
+        repo_root = _bravo_root()
+    else:
+        resolved = _resolve_agent_root(root_slug)
+        if resolved is None:
+            return {
+                "status": "error",
+                "error": f"unknown or unresolvable root: {root_slug!r} "
+                         f"(register it in bravo_cli/agent_roots.py DEFAULTS "
+                         f"or set BRAVO_AGENT_ROOT_{root_slug.upper()})",
+            }
+        repo_root = resolved
+
+    script_path = repo_root / "scripts" / script
     if not script_path.is_file():
-        return {"status": "error", "error": f"script not found: scripts/{script}"}
+        return {"status": "error", "error": f"script not found: {root_slug}:scripts/{script}"}
     try:
         proc = subprocess.run(
             [sys.executable, str(script_path), *[str(a) for a in args]],
-            cwd=str(bravo),
+            cwd=str(repo_root),
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -198,19 +256,27 @@ def _exec_script_run(payload: dict) -> dict:
     }
 
 
-def _exec_snapshot_run(payload: dict) -> dict:
+def _exec_snapshot_run(payload: dict, job: dict | None = None) -> dict:
     """Shortcut for scripts/snapshots/<X>.py — same as script_run with a
     fixed prefix. Operator UI uses this as a separate action type because
-    snapshots have well-known semantics (briefing, leads, etc.)."""
+    snapshots have well-known semantics (briefing, leads, etc.).
+
+    Forwards payload.root + the parent job to _exec_script_run so
+    sibling-root resolution works for snapshot_run too. Code-reviewer
+    P0 (2026-05-28): without this, a SunBiz snapshot row would always
+    run against ~/CEO-Agent/scripts/snapshots/ instead of SunBiz-Agent."""
     snap = str(payload.get("snapshot") or "").strip()
     if not snap:
         return {"status": "error", "error": "missing snapshot in action_payload"}
     if not snap.endswith(".py"):
         snap = snap + ".py"
-    return _exec_script_run({
+    forwarded: dict[str, object] = {
         "script": f"snapshots/{snap}",
         "args": payload.get("args") or [],
-    })
+    }
+    if payload.get("root") is not None:
+        forwarded["root"] = payload["root"]
+    return _exec_script_run(forwarded, job=job)
 
 
 def _exec_webhook_post(payload: dict) -> dict:
@@ -342,6 +408,13 @@ def poll_once(token: str, dashboard_url: str) -> int:
             outcome = {"status": "error", "error": f"unknown action_type: {action_type}"}
         else:
             try:
+                # Pass the full job row to dispatchers that accept it
+                # (script_run / snapshot_run consume agent_key for the
+                # sibling-root fallback per Codex P1 2026-05-28). The
+                # others ignore it via **kwargs swallow.
+                outcome = dispatcher(job.get("action_payload") or {}, job=job)
+            except TypeError:
+                # Dispatcher hasn't been upgraded to accept job=... yet.
                 outcome = dispatcher(job.get("action_payload") or {})
             except Exception as e:
                 outcome = {"status": "error", "error": f"{type(e).__name__}: {e}"}
