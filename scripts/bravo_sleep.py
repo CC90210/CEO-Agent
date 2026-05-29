@@ -223,12 +223,6 @@ def _git_commit(target: Path, kind: str, title: str, dry_run: bool) -> None:
 
 def cmd_run(args: argparse.Namespace) -> int:
     if not os.environ.get("ANTHROPIC_API_KEY"):
-        # Load from .env.agents via the canonical secret_loader. The
-        # previous attempt here imported the non-existent symbol
-        # `load_secret`, swallowed the ImportError, and silently left the
-        # env var unset — which is why every nightly run since 2026-05-22
-        # logged "no ANTHROPIC_API_KEY — refusing to run" (run_count=300+
-        # from the scheduler's retry-on-error loop).
         try:
             sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "lib"))
             from secret_loader import bootstrap  # type: ignore

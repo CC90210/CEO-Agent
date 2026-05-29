@@ -177,25 +177,9 @@ SEED_JOBS: list[dict] = [
         "action_config": {"tables": ["revenue_events", "leads", "content_calendar"]},
         "is_active": True,
     },
-    # SunBiz cron entries removed 2026-05-28. They were seeded here
-    # historically (migration 069 / second-meeting expansion) because
-    # bravo-scheduler was the only running scheduler, but the scripts
-    # they reference (follow_up_generator.py, daily_plan_generator.py,
-    # renewal_reminder.py) were relocated to SunBiz-Agent during the
-    # multi-root manifest cleanup (commits 6b9cefc8, 8c959e8d). The
-    # SEED_JOBS rows that result here belong to SunBiz, not the empire,
-    # and were leaking into CC's OASIS /automations view under the
-    # "Bravo (CEO)" group.
-    #
-    # New home: SunBiz-Agent/scripts/core/cron_engine.py SEED_JOBS,
-    # dispatched by the same bravo-scheduler via the multi-root manifest
-    # (commits a10b6abd, f025952d, fdf141a5). The bridge resolves the
-    # script via SUNBIZ_AGENT_ROOT before exec.
-    #
-    # Defense-in-depth: oasis-command-center's /api/cron-jobs route
-    # filters the empire query through EMPIRE_AGENT_ALLOWLIST = {bravo,
-    # atlas, maven, aura} so even a stale row in cron_jobs can't render
-    # in CC's UI.
+    # SunBiz cron entries live in SunBiz-Agent/scripts/core/cron_registry.py
+    # and seed into tenant_cron_jobs. Adding any here puts them in the
+    # empire cron_jobs table where they leak into CC's /automations view.
     # 'Funnel Lead Sync' removed 2026-05-22 — overlapped with 'Funnel
     # Fast-Poll' below. Fast-Poll runs every 1 min and covers the same
     # funnel_leads source; the 5-min job was an older safety net.

@@ -125,11 +125,9 @@ def _cron_matches(expr: str, dt: datetime) -> bool:
 # ─────────────────────────────────────────────────────────────────────
 
 
-# Maps tenant_cron_jobs.agent_key → sibling-agent root slug used by
-# agent_roots.resolve_root. Codex P1 (2026-05-28) — without this, a
-# SunBiz row with agent_key='solara' would default to bravo even though
-# its scripts live in SunBiz-Agent. Extend this map when a new agent
-# joins a sibling-repo tenant (e.g. hermes assistants on a hermes root).
+# Maps tenant_cron_jobs.agent_key → the sibling-repo slug its scripts
+# live in. Without this fallback, a row with agent_key="solara" would
+# default to bravo even though Solara's scripts live in SunBiz-Agent.
 SIBLING_ROOT_BY_AGENT_KEY: dict[str, str] = {
     "bravo": "bravo",
     "atlas": "atlas",
@@ -166,16 +164,11 @@ def _exec_script_run(payload: dict, job: dict | None = None) -> dict:
     """Run scripts/<X>.py with args, capture stdout/stderr/exit_code. 5-min
     hard timeout — cron jobs that exceed this are misconfigured.
 
-    Root resolution order (Codex P1, 2026-05-28):
-      1. action_payload.root — explicit per-cron override.
-      2. job.agent_key (the parent tenant_cron_jobs row's owner) when the
-         agent slug is a registered sibling root. SunBiz rows already set
-         agent_key="solara" / "helios" / "sunbiz"; treat any of those as
-         root="sunbiz" by canonicalising through SIBLING_ROOT_BY_AGENT_KEY.
-         This means future producers don't HAVE to duplicate the root
-         field into the payload; the agent_key contract is enough.
-      3. Default "bravo" — preserves backwards-compat with every cron
-         that predates the multi-root manifest (2026-05-28)."""
+    Root resolution order:
+      1. explicit action_payload.root
+      2. job.agent_key mapped through SIBLING_ROOT_BY_AGENT_KEY
+      3. default "bravo"
+    """
     script = str(payload.get("script") or "").strip()
     if not script:
         return {"status": "error", "error": "missing script in action_payload"}
@@ -198,9 +191,6 @@ def _exec_script_run(payload: dict, job: dict | None = None) -> dict:
     if not isinstance(args, list):
         return {"status": "error", "error": "args must be a list"}
 
-    # Sibling-root resolution (V6.5 multi-root manifest, Codex 2026-05-28).
-    # Prefer explicit action_payload.root; fall back to tenant_cron_jobs.agent_key
-    # mapped through SIBLING_ROOT_BY_AGENT_KEY; default "bravo" for legacy.
     explicit_root = payload.get("root")
     if explicit_root:
         root_slug = str(explicit_root).strip().lower()
@@ -261,10 +251,8 @@ def _exec_snapshot_run(payload: dict, job: dict | None = None) -> dict:
     fixed prefix. Operator UI uses this as a separate action type because
     snapshots have well-known semantics (briefing, leads, etc.).
 
-    Forwards payload.root + the parent job to _exec_script_run so
-    sibling-root resolution works for snapshot_run too. Code-reviewer
-    P0 (2026-05-28): without this, a SunBiz snapshot row would always
-    run against ~/CEO-Agent/scripts/snapshots/ instead of SunBiz-Agent."""
+    Forwards payload.root + the parent job so sibling-root resolution
+    works for snapshot_run too."""
     snap = str(payload.get("snapshot") or "").strip()
     if not snap:
         return {"status": "error", "error": "missing snapshot in action_payload"}
@@ -408,13 +396,11 @@ def poll_once(token: str, dashboard_url: str) -> int:
             outcome = {"status": "error", "error": f"unknown action_type: {action_type}"}
         else:
             try:
-                # Pass the full job row to dispatchers that accept it
-                # (script_run / snapshot_run consume agent_key for the
-                # sibling-root fallback per Codex P1 2026-05-28). The
-                # others ignore it via **kwargs swallow.
+                # script_run / snapshot_run consume agent_key for the
+                # sibling-root fallback; webhook_post / agent_prompt
+                # don't accept job=... and raise TypeError below.
                 outcome = dispatcher(job.get("action_payload") or {}, job=job)
             except TypeError:
-                # Dispatcher hasn't been upgraded to accept job=... yet.
                 outcome = dispatcher(job.get("action_payload") or {})
             except Exception as e:
                 outcome = {"status": "error", "error": f"{type(e).__name__}: {e}"}

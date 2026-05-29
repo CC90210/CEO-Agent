@@ -50,11 +50,6 @@ DEFAULTS: dict[str, list[Path]] = {
         HOME / "life-preservation",
         HOME / "APPS" / "life-preservation",
     ],
-    # Added 2026-05-28 — the bridge dispatches SunBiz tenant_cron_jobs
-    # whose action_payload.root == "sunbiz" against this root. Mirrors
-    # scripts/lib/agent_roots.py::resolve_sunbiz_root (which honors
-    # SUNBIZ_AGENT_ROOT env var); the env override is handled
-    # generically by resolve_root() above via BRAVO_AGENT_ROOT_SUNBIZ.
     "sunbiz": [
         HOME / "SunBiz-Agent",
         Path("C:/Users/User/SunBiz-Agent"),
@@ -67,12 +62,9 @@ DEFAULTS: dict[str, list[Path]] = {
 ENTRY_CANDIDATES = ["CLAUDE.md", "AGENTS.md", "brain/SOUL.md", "README.md"]
 
 
-# Legacy / canonical environment variable names per agent slug. Honoured
-# in addition to the generic BRAVO_AGENT_ROOT_<SLUG> form. Codex P2
-# (2026-05-28) — existing SunBiz docs and scripts/lib/agent_roots.py
-# both use SUNBIZ_AGENT_ROOT; this resolver must too, or
-# resolve_root("sunbiz") returns None on a host that set only the
-# canonical name.
+# Canonical env var per slug, honoured alongside the generic
+# BRAVO_AGENT_ROOT_<SLUG> form. Existing SunBiz tooling sets
+# SUNBIZ_AGENT_ROOT, not BRAVO_AGENT_ROOT_SUNBIZ.
 LEGACY_ENV_KEYS: dict[str, str] = {
     "bravo": "BRAVO_AGENT_ROOT",
     "sunbiz": "SUNBIZ_AGENT_ROOT",

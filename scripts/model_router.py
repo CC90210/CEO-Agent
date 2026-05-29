@@ -116,12 +116,8 @@ TASK_TYPE_PREFERENCES: dict[str, list[tuple[str, str]]] = {
 
 
 def load_env() -> dict[str, str]:
-    """V6.8.3: delegate to lib.secret_loader (was python-dotenv).
-
-    The local-import-on-first-use pattern keeps `model_router` importable
-    from contexts where `lib/` isn't on sys.path yet (e.g. ad-hoc CLI use
-    before any other script's bootstrap has run).
-    """
+    """Delegate to lib.secret_loader. Local-import-on-call so model_router
+    is importable from CLI contexts where lib/ isn't on sys.path yet."""
     sys.path.insert(0, str(PROJECT_ROOT / "scripts" / "lib"))
     from secret_loader import load_env as _load_env  # type: ignore
     env = dict(_load_env())
