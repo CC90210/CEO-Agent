@@ -1224,6 +1224,7 @@ def log_action(
     cooldown_hours: Optional[int],
     metadata: Optional[dict] = None,
     to_email: Optional[str] = None,
+    acted_by_user_id: Optional[str] = None,
 ) -> Optional[str]:
     """Write a row to lead_interactions. Returns the new row id, or None on
     failure. Also writes a row to email_log for email sends so the legacy
@@ -1256,6 +1257,8 @@ def log_action(
         row["agent_source"] = agent_source
     if cooldown_until:
         row["cooldown_until"] = cooldown_until
+    if acted_by_user_id:
+        row["actor_user_id"] = acted_by_user_id
 
     # Stamp tenant_id from the lead so the dashboard's tenant-filtered
     # Pipeline + Operations queries see this row. Without this, recent
@@ -1271,9 +1274,10 @@ def log_action(
         res = db.table("lead_interactions").insert(row).execute()
         interaction_id = res.data[0].get("id") if res.data else None
     except Exception as exc:  # noqa: BLE001
-        # Likely because cooldown_until / agent_source columns do not exist.
-        # Retry with the legacy column set so the send still gets logged.
-        legacy_row = {k: v for k, v in row.items() if k not in {"cooldown_until", "agent_source"}}
+        # Likely because cooldown_until / agent_source / actor_user_id
+        # columns do not exist on this deploy. Retry with the legacy
+        # column set so the send still gets logged.
+        legacy_row = {k: v for k, v in row.items() if k not in {"cooldown_until", "agent_source", "actor_user_id"}}
         try:
             res = db.table("lead_interactions").insert(legacy_row).execute()
             interaction_id = res.data[0].get("id") if res.data else None
@@ -2360,6 +2364,7 @@ def send(
         cooldown_hours=effective_cooldown,
         metadata=full_metadata,
         to_email=to_email,
+        acted_by_user_id=acted_by_user_id,
     )
     # V6 BUILD 3 — broadcast to the cross-agent event bus AFTER the
     # log has succeeded. The non-email channel path logs only; the
