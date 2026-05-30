@@ -1077,6 +1077,7 @@ def reserve_send_slot(
     agent_source: str,
     cooldown_hours: Optional[int],
     metadata: Optional[dict[str, Any]] = None,
+    acted_by_user_id: Optional[str] = None,
 ) -> dict[str, Any]:
     reservation_metadata = dict(metadata or {})
     reservation_metadata.update({
@@ -1112,6 +1113,8 @@ def reserve_send_slot(
         payload["lead_id"] = lead_id
     if cooldown_hours and cooldown_hours > 0:
         payload["cooldown_until"] = (now + timedelta(hours=cooldown_hours)).isoformat()
+    if acted_by_user_id:
+        payload["actor_user_id"] = acted_by_user_id
     try:
         res = db.table("lead_interactions").insert(payload).execute()
         reservation_id = res.data[0].get("id") if res.data else None
@@ -1143,6 +1146,7 @@ def finalize_reserved_action(
     metadata: Optional[dict[str, Any]] = None,
     to_email: Optional[str] = None,
     error_message: Optional[str] = None,
+    acted_by_user_id: Optional[str] = None,
 ) -> Optional[str]:
     if not interaction_id:
         return log_action(
@@ -1156,6 +1160,7 @@ def finalize_reserved_action(
             cooldown_hours=cooldown_hours,
             metadata=metadata,
             to_email=to_email,
+            acted_by_user_id=acted_by_user_id,
         )
 
     now = datetime.now(timezone.utc)
@@ -1993,6 +1998,7 @@ def send(
             agent_source=agent_source,
             cooldown_hours=effective_cooldown,
             metadata=full_metadata,
+            acted_by_user_id=acted_by_user_id,
         )
         if reservation["status"] == "blocked":
             return {"status": "blocked",
@@ -2157,6 +2163,7 @@ def send(
                 metadata=full_metadata,
                 to_email=to_email,
                 error_message=err,
+                acted_by_user_id=acted_by_user_id,
             )
             return {"status": "error", "reason": err,
                     "lead_id": lead_id, "interaction_id": None,
@@ -2186,6 +2193,7 @@ def send(
             cooldown_hours=effective_cooldown,
             metadata=full_metadata,
             to_email=to_email,
+            acted_by_user_id=acted_by_user_id,
         )
         # V6 BUILD 3 — broadcast to the cross-agent event bus AFTER the
         # send + log have both succeeded. Never blocks; never raises; never
@@ -2276,6 +2284,7 @@ def send(
             agent_source=agent_source,
             cooldown_hours=effective_cooldown,
             metadata=full_metadata,
+            acted_by_user_id=acted_by_user_id,
         )
         if reservation["status"] == "blocked":
             return {"status": "blocked",
@@ -2312,6 +2321,7 @@ def send(
                 metadata=full_metadata,
                 to_email=None,
                 error_message=sms_err,
+                acted_by_user_id=acted_by_user_id,
             )
             return {"status": "error",
                     "reason": f"sms provider '{provider_choice}': {sms_err}",
@@ -2331,6 +2341,7 @@ def send(
             cooldown_hours=effective_cooldown,
             metadata=full_metadata,
             to_email=None,
+            acted_by_user_id=acted_by_user_id,
         )
         _emit_outbound_sent(lead_id, channel, interaction_id, intent, brand)
         return {"status": "sent",
