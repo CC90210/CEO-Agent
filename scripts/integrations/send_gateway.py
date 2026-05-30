@@ -380,17 +380,6 @@ def _parse_email_list(raw: Optional[str]) -> list[str]:
     return [p.strip() for p in parts if p.strip()]
 
 
-def _sql_literal(value: Any) -> str:
-    if value is None:
-        return "NULL"
-    text = str(value).replace("'", "''")
-    return f"'{text}'"
-
-
-def _json_sql_literal(value: Any) -> str:
-    return _sql_literal(json.dumps(value or {}, separators=(",", ":"))) + "::jsonb"
-
-
 def _extract_domain(to_email: Optional[str]) -> Optional[str]:
     normalized = (to_email or "").strip().lower()
     if "@" not in normalized:
@@ -998,7 +987,7 @@ def _try_reserve_slot_via_rpc(
     acted_by_user_id: Optional[str] = None,
 ) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
-    cooldown_until = (
+    cooldown_until_iso = (
         (now + timedelta(hours=cooldown_hours)).isoformat()
         if cooldown_hours and cooldown_hours > 0 else None
     )
@@ -1007,62 +996,27 @@ def _try_reserve_slot_via_rpc(
         "reservation_status": "pending",
         "reserved_at": now.isoformat(),
     })
-    marker = {
-        "lead_id": lead_id,
-        "channel": channel,
-        "subject": (subject or "")[:500],
-        "content_preview": (content_preview or "")[:1000],
-        "agent_source": agent_source,
-        "cooldown_until": cooldown_until,
-        "metadata": reservation_metadata,
-    }
-    sql = (
-        f"/* send_gateway_reserve:{json.dumps(marker, separators=(',', ':'))} */ "
-        "WITH guard AS ("
-        f"  SELECT pg_try_advisory_xact_lock(hashtext({_sql_literal(lead_id + '|' + channel)})) AS acquired"
-        "), existing AS ("
-        "  SELECT id FROM lead_interactions"
-        f"  WHERE lead_id = {_sql_literal(lead_id)}"
-        f"    AND channel = {_sql_literal(channel)}"
-        "    AND type = 'reserving'"
-        f"    AND created_at >= NOW() - INTERVAL '{RESERVATION_WINDOW_MINUTES} minutes'"
-        "  ORDER BY created_at DESC"
-        "  LIMIT 1"
-        "), inserted AS ("
-        "  INSERT INTO lead_interactions (lead_id, type, channel, created_at, subject, content, agent_source, cooldown_until, metadata, actor_user_id)"
-        "  SELECT "
-        f"    {_sql_literal(lead_id)},"
-        "    'reserving',"
-        f"    {_sql_literal(channel)},"
-        "    NOW(),"
-        f"    {_sql_literal((subject or '')[:500])},"
-        f"    {_sql_literal((content_preview or '')[:1000])},"
-        f"    {_sql_literal(agent_source)},"
-        f"    {_sql_literal(cooldown_until)},"
-        f"    {_json_sql_literal(reservation_metadata)},"
-        f"    {_sql_literal(acted_by_user_id) if acted_by_user_id else 'NULL'}::uuid "
-        "  FROM guard"
-        "  WHERE acquired AND NOT EXISTS (SELECT 1 FROM existing)"
-        "  RETURNING id, created_at"
-        ") "
-        "SELECT "
-        "  COALESCE((SELECT acquired FROM guard), false) AS lock_acquired, "
-        "  (SELECT id FROM existing LIMIT 1) AS existing_reservation_id, "
-        "  (SELECT id FROM inserted LIMIT 1) AS reservation_id, "
-        "  (SELECT created_at FROM inserted LIMIT 1) AS reservation_created_at"
-    )
-    res = db.rpc("exec_sql", {"sql_query": sql}).execute()
+    # Migration 079 introduced the dedicated reserve_send_slot RPC after
+    # the old raw-SQL CTE path stopped working: exec_sql wraps queries
+    # as `SELECT FROM (user_sql) t`, which makes data-modifying CTEs
+    # not top-level and PostgreSQL rejects them. Production had been
+    # silently falling through to the non-atomic fallback for months.
+    res = db.rpc("reserve_send_slot", {
+        "p_lead_id": lead_id,
+        "p_channel": channel,
+        "p_subject": (subject or "")[:500],
+        "p_content_preview": (content_preview or "")[:1000],
+        "p_agent_source": agent_source,
+        "p_cooldown_until": cooldown_until_iso,
+        "p_metadata": reservation_metadata,
+        "p_window_minutes": RESERVATION_WINDOW_MINUTES,
+        "p_actor_user_id": acted_by_user_id,
+    }).execute()
     data = getattr(res, "data", None)
-    if isinstance(data, dict):
-        rows = data.get("rows") or []
-    elif isinstance(data, list):
-        rows = data
-    else:
-        rows = []
-    row = rows[0] if rows else {}
+    row = data if isinstance(data, dict) else {}
     if not row.get("lock_acquired", True):
         return {"status": "blocked", "reason": "concurrent send detected"}
-    if row.get("existing_reservation_id"):
+    if row.get("existing_id"):
         return {"status": "blocked", "reason": "concurrent send detected"}
     if row.get("reservation_id"):
         return {"status": "reserved", "reservation_id": row["reservation_id"], "mode": "rpc"}
