@@ -33,7 +33,7 @@ already know need it (truepeoplesearch.com, g2.com, indeed.com).
 
 CLI USAGE
 ---------
-    python scripts/research_fetch.py <url> [--json] [--force-tier {firecrawl,cloak}] [--min-chars N]
+    python scripts/research_fetch.py <url> [--json] [--force-tier {firecrawl,cloak,plain}] [--min-chars N]
     python scripts/research_fetch.py reputation [domain]              # show one or all
     python scripts/research_fetch.py reputation-clear <domain>        # forget what we learned
     python scripts/research_fetch.py reputation-top [--limit N]       # most-seen domains
