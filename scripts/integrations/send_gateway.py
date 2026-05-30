@@ -995,6 +995,7 @@ def _try_reserve_slot_via_rpc(
     agent_source: str,
     cooldown_hours: Optional[int],
     metadata: Optional[dict[str, Any]],
+    acted_by_user_id: Optional[str] = None,
 ) -> dict[str, Any]:
     now = datetime.now(timezone.utc)
     cooldown_until = (
@@ -1028,7 +1029,7 @@ def _try_reserve_slot_via_rpc(
         "  ORDER BY created_at DESC"
         "  LIMIT 1"
         "), inserted AS ("
-        "  INSERT INTO lead_interactions (lead_id, type, channel, created_at, subject, content, agent_source, cooldown_until, metadata)"
+        "  INSERT INTO lead_interactions (lead_id, type, channel, created_at, subject, content, agent_source, cooldown_until, metadata, actor_user_id)"
         "  SELECT "
         f"    {_sql_literal(lead_id)},"
         "    'reserving',"
@@ -1038,7 +1039,8 @@ def _try_reserve_slot_via_rpc(
         f"    {_sql_literal((content_preview or '')[:1000])},"
         f"    {_sql_literal(agent_source)},"
         f"    {_sql_literal(cooldown_until)},"
-        f"    {_json_sql_literal(reservation_metadata)} "
+        f"    {_json_sql_literal(reservation_metadata)},"
+        f"    {_sql_literal(acted_by_user_id) if acted_by_user_id else 'NULL'}::uuid "
         "  FROM guard"
         "  WHERE acquired AND NOT EXISTS (SELECT 1 FROM existing)"
         "  RETURNING id, created_at"
@@ -1095,6 +1097,7 @@ def reserve_send_slot(
                 agent_source=agent_source,
                 cooldown_hours=cooldown_hours,
                 metadata=metadata,
+                acted_by_user_id=acted_by_user_id,
             )
         except Exception as exc:  # noqa: BLE001
             print(f"[send_gateway] reservation RPC unavailable: {exc}", file=sys.stderr)
