@@ -241,6 +241,53 @@ def get_send_credentials(
     return {"access_token": access_token, "gmail_address": gmail_address}
 
 
+# ─── Shared-inbox tenants ────────────────────────────────────────────
+#
+# Tenants on the slugs below enforce a SHARED outbound identity — every
+# email fires from the tenant-level Gmail/SMTP (e.g. SunBiz's shared
+# submissions@sunbizfunding.com) regardless of which seat triggered the
+# send. Per-deal routing happens via CC, not From: address.
+#
+# SunBiz directive 2026-05-31: rep visibility on threads comes from
+# CC'ing the assigned rep (handled in the dashboard's shop-out + drip
+# CC layers), not from per-user Gmail OAuth. So we short-circuit the
+# user-OAuth resolution before it can pick up a stale linked-personal-
+# Gmail bundle from Phase 4.
+#
+# Future: promote to tenants.config JSONB when a second tenant adopts
+# the same pattern. Today's two-line set is the entire universe.
+_SHARED_INBOX_SLUGS: set[str] = {"submissions"}
+
+# Cached tenant_id -> slug lookup. Tenant slugs are immutable post-
+# provisioning, so an unbounded module-level cache is safe in the
+# daemon process. Empty string = "looked up, no row found" so we don't
+# re-query the miss every send.
+_TENANT_SLUG_CACHE: dict[str, str] = {}
+
+
+def _is_shared_inbox_tenant(db: Any, tenant_id: str) -> bool:
+    """Return True when this tenant's slug is in _SHARED_INBOX_SLUGS."""
+    slug = _TENANT_SLUG_CACHE.get(tenant_id)
+    if slug is None:
+        try:
+            res = (
+                db.table("tenants")
+                .select("slug")
+                .eq("id", tenant_id)
+                .limit(1)
+                .execute()
+            )
+            rows = res.data or []
+            slug = ((rows[0] or {}).get("slug") if rows else "") or ""
+            _TENANT_SLUG_CACHE[tenant_id] = slug
+        except Exception:
+            # Fail open — if we can't read tenants, fall through to
+            # the existing per-user/tenant-fallback logic rather than
+            # silently changing behavior for an unrelated DB outage.
+            return False
+    return slug in _SHARED_INBOX_SLUGS
+
+
 def resolve_send_identity(
     db: Any, tenant_id: Optional[str], acted_by_user_id: Optional[str]
 ) -> dict[str, Any]:
@@ -255,8 +302,9 @@ def resolve_send_identity(
         Caller should send via Gmail API as the user.
       - {"mode": "tenant_smtp"}
         Caller falls through to the tenant-shared SMTP path. Either no
-        acted_by_user_id was supplied OR the user hasn't connected
-        personal Gmail yet.
+        acted_by_user_id was supplied, the user hasn't connected
+        personal Gmail yet, OR the tenant is on the shared-inbox
+        roster (SunBiz et al — see _SHARED_INBOX_SLUGS above).
       - {"mode": "block", "reason": str}
         The user opted into personal Gmail but token resolution broke
         (expired refresh token, Google API down, malformed bundle).
@@ -264,8 +312,16 @@ def resolve_send_identity(
         identity. Surface an error to the operator instead.
 
     Phase 4 hardening (Codex review 2026-05-29).
+    SunBiz shared-inbox short-circuit (2026-05-31).
     """
     if not acted_by_user_id or not tenant_id or db is None:
+        return {"mode": "tenant_smtp"}
+
+    # Shared-inbox tenants: never consult user_integration_credentials,
+    # even if the user happened to connect personal Gmail before the
+    # directive landed. From: is always tenant-shared; the assigned-rep
+    # CC layer covers per-deal visibility.
+    if _is_shared_inbox_tenant(db, tenant_id):
         return {"mode": "tenant_smtp"}
 
     try:
