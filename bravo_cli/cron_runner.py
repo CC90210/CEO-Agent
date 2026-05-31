@@ -44,6 +44,8 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 
+import requests
+
 # CREATE_NO_WINDOW on Windows — prevents a console flicker every time the
 # bridge-ping loop fires a cron job's script. capture_output=True alone is
 # NOT enough: it redirects stdio AFTER process creation, but Windows still
@@ -384,36 +386,46 @@ _DISPATCHERS = {
 # ─────────────────────────────────────────────────────────────────────
 
 
+# Module-level HTTP session — reuses TCP/TLS connections across poll cycles
+# AND across local_bridge's ping loop. Both run in the same process and
+# both target the same dashboard Vercel URL, so a single shared urllib3
+# pool keeps one warm connection instead of two. urllib.request opens a
+# fresh socket per call; on a 60s combined ping+poll cadence that's
+# ~2 TLS handshakes/min (~100-200ms each) we never pay. Pool size of 4
+# covers GET+POST overlap during a single tick.
+DASHBOARD_HTTP = requests.Session()
+DASHBOARD_HTTP.headers.update({"user-agent": "oasis-cron/1.0"})
+_ADAPTER = requests.adapters.HTTPAdapter(pool_connections=2, pool_maxsize=4)
+DASHBOARD_HTTP.mount("https://", _ADAPTER)
+DASHBOARD_HTTP.mount("http://", _ADAPTER)
+
+
 def _http_get_json(url: str, token: str) -> dict | None:
     try:
-        req = urllib.request.Request(
+        r = DASHBOARD_HTTP.get(
             url,
-            method="GET",
-            headers={
-                "authorization": f"Bearer {token}",
-                "user-agent": "oasis-cron/1.0",
-            },
+            headers={"authorization": f"Bearer {token}"},
+            timeout=15,
         )
-        with urllib.request.urlopen(req, timeout=15) as r:
-            return json.loads(r.read().decode("utf-8"))
+        if not (200 <= r.status_code < 300):
+            return None
+        return r.json()
     except Exception:
         return None
 
 
 def _http_post_json(url: str, token: str, body: dict) -> bool:
     try:
-        req = urllib.request.Request(
+        r = DASHBOARD_HTTP.post(
             url,
-            method="POST",
-            data=json.dumps(body).encode("utf-8"),
             headers={
                 "content-type": "application/json",
                 "authorization": f"Bearer {token}",
-                "user-agent": "oasis-cron/1.0",
             },
+            data=json.dumps(body).encode("utf-8"),
+            timeout=15,
         )
-        with urllib.request.urlopen(req, timeout=15) as r:
-            return 200 <= r.status < 300
+        return 200 <= r.status_code < 300
     except Exception:
         return False
 
