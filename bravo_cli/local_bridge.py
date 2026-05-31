@@ -461,28 +461,33 @@ def _collect_tool_capabilities() -> list[str]:
 
 
 def _post_ping(token: str, services: dict[str, dict]) -> tuple[bool, str]:
+    # Reuse cron_runner's pooled requests.Session — both this ping and
+    # the cron poll go to the same dashboard host every minute. One
+    # shared pool means we hold a warm TLS connection across both
+    # workloads instead of paying ~100ms per call to renegotiate.
+    from bravo_cli.cron_runner import DASHBOARD_HTTP
+
     url = f"{_dashboard_url()}/api/bridge/ping"
     body = json.dumps({
         "services": services,
         "tool_capabilities": _collect_tool_capabilities(),
     }).encode("utf-8")
-    req = urllib.request.Request(
-        url,
-        method="POST",
-        data=body,
-        headers={
-            "content-type": "application/json",
-            "authorization": f"Bearer {token}",
-            "user-agent": f"oasis-bridge/1.0 ({platform.system()})",
-        },
-    )
     try:
-        with urllib.request.urlopen(req, timeout=15) as r:
-            return True, f"HTTP {r.status}"
-    except urllib.error.HTTPError as e:
-        if e.code in (401, 403):
-            raise BridgeAuthError(f"HTTP {e.code} {e.reason}") from e
-        return False, f"HTTP {e.code} {e.reason}"
+        r = DASHBOARD_HTTP.post(
+            url,
+            headers={
+                "content-type": "application/json",
+                "authorization": f"Bearer {token}",
+                "user-agent": f"oasis-bridge/1.0 ({platform.system()})",
+            },
+            data=body,
+            timeout=15,
+        )
+        if r.status_code in (401, 403):
+            raise BridgeAuthError(f"HTTP {r.status_code} {r.reason}")
+        return 200 <= r.status_code < 300, f"HTTP {r.status_code}"
+    except BridgeAuthError:
+        raise
     except Exception as e:
         return False, str(e)
 
