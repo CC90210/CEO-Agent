@@ -130,11 +130,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-05-28
+- **Date:** 2026-05-29
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Sent 'wsp gang' email to alex@sunbizfunding.com per CC's request
+- **Result:** Shipped SunBiz Phases 1-5: per-user agent rename, employee-scoped deals, per-user Gmail OAuth (Codex review + hardening + chokepoint refactor). 4 commits across oasis-command-center + CEO-Agent. Migration 077 RLS-harden pending manual SQL-editor apply.
 
-*Last updated: 2026-05-28*
+*Last updated: 2026-05-29*
 
 ## Manifest
 
