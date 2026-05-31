@@ -346,7 +346,7 @@ def _run_script(args: list[str], timeout_s: int = SCRIPT_TIMEOUT_S) -> dict:
 
 
 def _tool_send_email(payload: dict) -> dict:
-    """{to: str, subject: str, body: str, lead_id?: str} → send_gateway.
+    """{to: str, subject: str, body: str, lead_id?: str, cc?: str|list} → send_gateway.
 
     2026-05-16 Codex review finding #5 fix: this used to shell out
     directly to scripts/integrations/google_tool.py mail send, which bypassed
@@ -360,6 +360,12 @@ def _tool_send_email(payload: dict) -> dict:
     Route every chat-driven email through send_gateway. agent_source
     'manual_cc' tags the audit ledger so operator-initiated chats are
     distinguishable from scheduler / engine sends.
+
+    2026-05-31: under SunBiz's shared-inbox From: model the reply lands
+    in submissions@, so the chat-driving operator (and any other rep
+    they want on the thread) must be CC'd or they never see the reply.
+    Accept `cc` as either a comma-separated string or a list of strings;
+    send_gateway re-parses + de-dupes server-side.
     """
     to_addr = str(payload.get("to") or "").strip()
     subject = str(payload.get("subject") or "").strip()
@@ -382,6 +388,18 @@ def _tool_send_email(payload: dict) -> dict:
     lead_id = payload.get("lead_id")
     if isinstance(lead_id, str) and lead_id.strip():
         args.extend(["--lead-id", lead_id.strip()])
+    cc_raw = payload.get("cc")
+    if isinstance(cc_raw, list):
+        cc_clean = ",".join(
+            s.strip() for s in cc_raw
+            if isinstance(s, str) and "@" in s and s.strip()
+        )
+    elif isinstance(cc_raw, str) and "@" in cc_raw:
+        cc_clean = cc_raw.strip()
+    else:
+        cc_clean = ""
+    if cc_clean:
+        args.extend(["--cc", cc_clean])
     return _run_script(args)
 
 
@@ -978,7 +996,7 @@ def _tool_shop_out_send_batch(payload: dict) -> dict:
 
     threads = (
         sb.table("application_lender_threads")
-        .select("id, lender_id, subject, body, recipient_email, status, data")
+        .select("id, lender_id, subject, body, recipient_email, status, data, cc_emails")
         .eq("application_id", application_id)
         .eq("tenant_id", tenant_id)
         .eq("status", "pending")
@@ -1027,6 +1045,19 @@ def _tool_shop_out_send_batch(payload: dict) -> dict:
         ]
         if lead_id:
             send_args.extend(["--lead-id", str(lead_id)])
+        # Pass through the per-row CC list the dashboard merged at queue
+        # time (operator-typed + lender's submission_cc_emails + assigned
+        # rep email under shared-inbox). Without this the catalog routing
+        # is dead at the bridge layer — CCs land in the DB but never on
+        # the wire.
+        cc_emails_raw = thread.get("cc_emails") or []
+        if isinstance(cc_emails_raw, list) and cc_emails_raw:
+            cc_clean = ",".join(
+                e.strip() for e in cc_emails_raw
+                if isinstance(e, str) and "@" in e and e.strip()
+            )
+            if cc_clean:
+                send_args.extend(["--cc", cc_clean])
 
         send_res = _run_script(send_args)
         if not send_res.get("ok"):
