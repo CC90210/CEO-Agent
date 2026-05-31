@@ -513,9 +513,15 @@ def cmd_due(client, args, output_json: bool) -> None:
     print(f"  {len(jobs)} job(s) due.")
 
 
+CC_EMPIRE_TENANT_ID = "ef8d389e-3f15-43f2-ae00-3660f69a1452"
+
+
 def cmd_seed(client, args, output_json: bool) -> None:
-    """Seed the initial set of business automation cron jobs (skips existing by name)."""
-    # Fetch existing names to avoid duplicates
+    """Seed the initial set of business automation cron jobs (skips existing by name).
+
+    Migration 084 made cron_jobs.tenant_id NOT NULL. Every seed row written
+    here is empire-scoped to CC's tenant by construction — SunBiz / Atlas
+    / other-tenant crons live in tenant_cron_jobs."""
     existing_result = client.table("cron_jobs").select("name").execute()
     existing_names: set[str] = {r["name"] for r in (existing_result.data or [])}
 
@@ -532,6 +538,7 @@ def cmd_seed(client, args, output_json: bool) -> None:
         next_run = _next_run_approx(definition["schedule"])
         payload = {
             **definition,
+            "tenant_id": CC_EMPIRE_TENANT_ID,
             "run_count": 0,
             "created_at": now,
         }
