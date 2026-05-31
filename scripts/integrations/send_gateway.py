@@ -1054,7 +1054,24 @@ def reserve_send_slot(
                 acted_by_user_id=acted_by_user_id,
             )
         except Exception as exc:  # noqa: BLE001
-            print(f"[send_gateway] reservation RPC unavailable: {exc}", file=sys.stderr)
+            # The fallback path below loses race protection — two concurrent
+            # sends to the same (lead, channel) can both win. Migration 079
+            # added a dedicated reserve_send_slot() RPC that should never
+            # raise here on a healthy deploy. If you're seeing this in
+            # production, the RPC function was either dropped or the
+            # schema drifted — fix the RPC, don't keep operating on the
+            # fallback.
+            print(
+                f"[send_gateway] WARNING: reservation RPC unavailable, "
+                f"using non-atomic fallback (race condition risk): {exc}",
+                file=sys.stderr,
+            )
+            _slog.warn(
+                "reservation_rpc_unavailable",
+                error=str(exc),
+                channel=channel,
+                lead_id=lead_id,
+            )
 
     now = datetime.now(timezone.utc)
     payload: dict[str, Any] = {
