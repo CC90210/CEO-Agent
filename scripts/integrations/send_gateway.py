@@ -380,6 +380,41 @@ def _parse_email_list(raw: Optional[str]) -> list[str]:
     return [p.strip() for p in parts if p.strip()]
 
 
+def normalize_cc(cc: Any) -> Optional[str]:
+    """Normalize a CC input (str or list[str]) to a comma-joined string of
+    well-formed-looking addresses, or None when the input has no usable
+    entries. Public so every caller routing CCs into send_gateway — the
+    daemon (shop_out_sender), the chat-side dispatcher (_tool_shop_out_
+    send_batch), the chat send_email tool, and any future consumer —
+    can share one source of truth for the normalization rules instead
+    of each inlining the same loop.
+
+    Accepts:
+      - str  → comma/semicolon-split via _parse_email_list, filtered to
+               entries containing '@'.
+      - list → trimmed, filtered to non-empty strings containing '@'.
+      - None / other → returns None.
+
+    Returns the joined CSV ready to hand to send_gateway.send(cc_email=)
+    OR to a `--cc` CLI flag. Filters obvious junk ('@'-less tokens,
+    whitespace-only entries) so we don't ship 'TBD' as a CC. Does not
+    do RFC 5322 validation — server-side rejection still applies on
+    real bad addresses.
+    """
+    if cc is None:
+        return None
+    if isinstance(cc, str):
+        cleaned = [p for p in _parse_email_list(cc) if "@" in p]
+    elif isinstance(cc, list):
+        cleaned = [
+            e.strip() for e in cc
+            if isinstance(e, str) and "@" in e and e.strip()
+        ]
+    else:
+        return None
+    return ",".join(cleaned) if cleaned else None
+
+
 def _extract_domain(to_email: Optional[str]) -> Optional[str]:
     normalized = (to_email or "").strip().lower()
     if "@" not in normalized:
