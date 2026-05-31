@@ -40,6 +40,7 @@ import json
 import subprocess
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 
@@ -267,12 +268,69 @@ def _exec_snapshot_run(payload: dict, job: dict | None = None) -> dict:
     return _exec_script_run(forwarded, job=job)
 
 
+def _is_private_ipv4(ip: str) -> bool:
+    """RFC-1918 + loopback + link-local + 0/8 + AWS/GCP metadata.
+    Hostname → ip resolution check; partner to the API-side
+    classifyUrlForSsrf which only sees the literal hostname."""
+    if ip in {"169.254.169.254", "127.0.0.1", "0.0.0.0", "::1"}:
+        return True
+    parts = ip.split(".")
+    if len(parts) != 4:
+        # IPv6 unique-local / link-local
+        return ip.lower().startswith(("fc", "fd", "fe80", "fe81", "fe82",
+                                       "fe83", "fe84", "fe85", "fe86", "fe87",
+                                       "fe88", "fe89", "fe8a", "fe8b", "fe8c",
+                                       "fe8d", "fe8e", "fe8f", "fe9",
+                                       "fea", "feb"))
+    try:
+        a, b = int(parts[0]), int(parts[1])
+    except ValueError:
+        return False
+    if a == 10: return True
+    if a == 127: return True
+    if a == 0: return True
+    if a == 169 and b == 254: return True
+    if a == 172 and 16 <= b <= 31: return True
+    if a == 192 and b == 168: return True
+    return False
+
+
+def _check_resolved_addresses_safe(host: str) -> str | None:
+    """Resolve the hostname and verify every returned address is on
+    the public internet. Closes the DNS-rebinding gap left by the
+    API-side hostname-only check: an attacker could submit a webhook
+    whose DNS A record points at 1.2.3.4 at submission time and
+    flips to 169.254.169.254 at request time. Returns an error string
+    if any resolved address is private; None when all are public."""
+    import socket
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except socket.gaierror as exc:
+        return f"dns resolution failed: {exc}"
+    for info in infos:
+        addr = info[4][0]
+        if _is_private_ipv4(addr):
+            return f"url resolves to private/internal address: {addr}"
+    return None
+
+
 def _exec_webhook_post(payload: dict) -> dict:
     """POST JSON to a URL. Useful for triggering n8n workflows, Zapier
     catches, Make scenarios — anything that exposes a webhook entry."""
     url = str(payload.get("url") or "").strip()
     if not url.startswith(("http://", "https://")):
         return {"status": "error", "error": f"url must be http/https: {url}"}
+    # Resolve + verify NO private/metadata addresses returned. The
+    # dashboard classifyUrlForSsrf already caught literal-IP attacks
+    # at submission time; this catches DNS-rebinding at request time.
+    try:
+        host = urllib.parse.urlparse(url).hostname or ""
+    except Exception:
+        host = ""
+    if host:
+        ssrf = _check_resolved_addresses_safe(host)
+        if ssrf:
+            return {"status": "error", "error": f"webhook_post {ssrf}"}
     body = payload.get("body") if isinstance(payload.get("body"), (dict, list)) else {}
     try:
         req = urllib.request.Request(
