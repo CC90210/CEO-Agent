@@ -388,16 +388,11 @@ def _tool_send_email(payload: dict) -> dict:
     lead_id = payload.get("lead_id")
     if isinstance(lead_id, str) and lead_id.strip():
         args.extend(["--lead-id", lead_id.strip()])
-    cc_raw = payload.get("cc")
-    if isinstance(cc_raw, list):
-        cc_clean = ",".join(
-            s.strip() for s in cc_raw
-            if isinstance(s, str) and "@" in s and s.strip()
-        )
-    elif isinstance(cc_raw, str) and "@" in cc_raw:
-        cc_clean = cc_raw.strip()
-    else:
-        cc_clean = ""
+    # CC normalization — shared with shop_out_sender + the batch send
+    # tool via send_gateway.normalize_cc so all three sites agree on
+    # what's a valid address shape (no inline parsing drift).
+    from integrations.send_gateway import normalize_cc  # local import; avoids loading send_gateway on every bridge boot
+    cc_clean = normalize_cc(payload.get("cc"))
     if cc_clean:
         args.extend(["--cc", cc_clean])
     return _run_script(args)
@@ -1049,15 +1044,12 @@ def _tool_shop_out_send_batch(payload: dict) -> dict:
         # time (operator-typed + lender's submission_cc_emails + assigned
         # rep email under shared-inbox). Without this the catalog routing
         # is dead at the bridge layer — CCs land in the DB but never on
-        # the wire.
-        cc_emails_raw = thread.get("cc_emails") or []
-        if isinstance(cc_emails_raw, list) and cc_emails_raw:
-            cc_clean = ",".join(
-                e.strip() for e in cc_emails_raw
-                if isinstance(e, str) and "@" in e and e.strip()
-            )
-            if cc_clean:
-                send_args.extend(["--cc", cc_clean])
+        # the wire. Shared with shop_out_sender + send_email tool via
+        # send_gateway.normalize_cc.
+        from integrations.send_gateway import normalize_cc
+        cc_clean = normalize_cc(thread.get("cc_emails"))
+        if cc_clean:
+            send_args.extend(["--cc", cc_clean])
 
         send_res = _run_script(send_args)
         if not send_res.get("ok"):
