@@ -271,7 +271,12 @@ def _exec_snapshot_run(payload: dict, job: dict | None = None) -> dict:
 def _is_private_ipv4(ip: str) -> bool:
     """RFC-1918 + loopback + link-local + 0/8 + AWS/GCP metadata.
     Hostname → ip resolution check; partner to the API-side
-    classifyUrlForSsrf which only sees the literal hostname."""
+    classifyUrlForSsrf which only sees the literal hostname.
+
+    Range list MUST stay in sync with
+    oasis-command-center/lib/url-safety.ts (classifyUrlForSsrf). A
+    one-sided update creates an attack window through whichever
+    check the attacker bypasses."""
     if ip in {"169.254.169.254", "127.0.0.1", "0.0.0.0", "::1"}:
         return True
     parts = ip.split(".")
