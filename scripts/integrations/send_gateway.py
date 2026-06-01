@@ -1425,10 +1425,6 @@ def _validate_header_value(name: str, value: Optional[str]) -> None:
         raise ValueError(f"{name} contains CR/LF/NUL — header injection blocked")
 
 
-# Kept as an alias so existing call sites that documented "threading"
-# specifically don't break; behaviour is identical to the general
-# validator above.
-_validate_threading_header = _validate_header_value
 
 
 def _build_email_mime(
@@ -1508,9 +1504,9 @@ def _build_email_mime(
     # conversation. message_id MUST be RFC-822 angle-bracketed; the
     # caller is responsible for synthesizing a stable, globally-unique
     # value. CRLF + NUL bytes are rejected to block header injection.
-    _validate_threading_header("message_id", message_id)
-    _validate_threading_header("in_reply_to", in_reply_to)
-    _validate_threading_header("references", references)
+    _validate_header_value("message_id", message_id)
+    _validate_header_value("in_reply_to", in_reply_to)
+    _validate_header_value("references", references)
     if message_id:
         outer["Message-ID"] = message_id
     if in_reply_to:
