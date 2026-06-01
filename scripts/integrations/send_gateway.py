@@ -1407,6 +1407,9 @@ def _build_email_mime(
     ics_content: Optional[str] = None,
     ics_filename: str = "meeting.ics",
     attachments: Optional[list[dict]] = None,
+    message_id: Optional[str] = None,
+    in_reply_to: Optional[str] = None,
+    references: Optional[str] = None,
 ) -> MIMEMultipart:
     """Assemble the MIME payload: CASL footer + List-Unsubscribe headers,
     optional HTML body, optional .ics calendar invite, optional generic
@@ -1452,6 +1455,18 @@ def _build_email_mime(
     outer["To"] = to_email
     if cc_emails:
         outer["Cc"] = ", ".join(cc_emails)
+    # Threading headers — used by shop-out (one logical round, N lender
+    # recipients sharing References anchor) and any other workflow that
+    # wants Gmail/Outlook to group N outbound messages as one
+    # conversation. message_id MUST be RFC-822 angle-bracketed; the
+    # caller is responsible for synthesizing a stable, globally-unique
+    # value.
+    if message_id:
+        outer["Message-ID"] = message_id
+    if in_reply_to:
+        outer["In-Reply-To"] = in_reply_to
+    if references:
+        outer["References"] = references
     if intent != "internal":
         add_list_unsubscribe_headers(outer, to_email)
 
@@ -1678,6 +1693,14 @@ def send(
     # through the tenant owner.
     acted_by_user_id: Optional[str] = None,
     tenant_id: Optional[str] = None,
+    # Threading headers — used by shop-out (one shopping round, N
+    # lender recipients) so all N outbound messages share a References
+    # anchor and Gmail groups them as one conversation in the agent's
+    # CC'd inbox. message_id MUST be a valid RFC-822 angle-bracketed
+    # identifier. The caller owns uniqueness.
+    message_id: Optional[str] = None,
+    in_reply_to: Optional[str] = None,
+    references: Optional[str] = None,
 ) -> dict:
     """Single outbound chokepoint.
 
@@ -2131,6 +2154,9 @@ def send(
             ics_content=ics_content,
             ics_filename=ics_filename,
             attachments=attachments,
+            message_id=message_id,
+            in_reply_to=in_reply_to,
+            references=references,
         )
         if user_gmail_bundle and _send_via_gmail_api is not None:
             # Gmail API path: authenticates as the connected employee.
