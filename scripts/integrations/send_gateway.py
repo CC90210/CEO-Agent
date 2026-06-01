@@ -2452,21 +2452,58 @@ def send(
         # default inside _send_sms_via_provider.
         kixie_agent_email: Optional[str] = None
         if provider_choice == "kixie" and acted_by_user_id and db is not None:
+            # Precedence:
+            #   1. user_integration_credentials override (employee set their
+            #      Kixie login email in Settings → Personal integrations).
+            #      Phase 5 of TT + Kixie embedding (2026-06-01).
+            #   2. user_profiles.email (default — usually the same as their
+            #      Kixie account when employees use a single corporate email).
+            #   3. KIXIE_DEFAULT_AGENT_EMAIL env var (handled inside
+            #      _send_sms_via_provider).
             try:
-                _r = (
-                    db.table("user_profiles")
-                    .select("email")
-                    .eq("auth_user_id", acted_by_user_id)
+                _override = (
+                    db.table("user_integration_credentials")
+                    .select("encrypted_value")
+                    .eq("tenant_id", tenant_id)
+                    .eq("user_id", acted_by_user_id)
+                    .eq("service", "kixie")
+                    .eq("field_key", "kixie_agent_email")
                     .maybeSingle()
                     .execute()
                 )
-                kixie_agent_email = (getattr(_r, "data", None) or {}).get("email")
+                enc = (getattr(_override, "data", None) or {}).get("encrypted_value")
+                if enc:
+                    try:
+                        from field_encryption import decrypt_field  # type: ignore
+                        kixie_agent_email = decrypt_field(enc)
+                    except Exception as _e:  # noqa: BLE001
+                        print(
+                            f"[send_gateway] kixie override decrypt failed "
+                            f"user={acted_by_user_id}: {_e}",
+                            file=sys.stderr,
+                        )
             except Exception as _exc:  # noqa: BLE001
                 print(
-                    f"[send_gateway] kixie agent_email lookup failed "
+                    f"[send_gateway] kixie override lookup failed "
                     f"user={acted_by_user_id}: {_exc}",
                     file=sys.stderr,
                 )
+            if not kixie_agent_email:
+                try:
+                    _r = (
+                        db.table("user_profiles")
+                        .select("email")
+                        .eq("auth_user_id", acted_by_user_id)
+                        .maybeSingle()
+                        .execute()
+                    )
+                    kixie_agent_email = (getattr(_r, "data", None) or {}).get("email")
+                except Exception as _exc:  # noqa: BLE001
+                    print(
+                        f"[send_gateway] kixie agent_email lookup failed "
+                        f"user={acted_by_user_id}: {_exc}",
+                        file=sys.stderr,
+                    )
 
         ok, sms_err, sms_meta = _send_sms_via_provider(
             env=env,
