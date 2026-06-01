@@ -1564,23 +1564,29 @@ def _send_sms_via_provider(
     to_phone: str,
     body_text: str,
     brand: str,
+    agent_email: Optional[str] = None,
+    lead_id: Optional[str] = None,
 ) -> tuple[bool, Optional[str], dict]:
-    """Physical SMS send. Dispatches to TextTorrent or Twilio based on
+    """Physical SMS send. Dispatches to TextTorrent, Twilio, or Kixie based on
     `provider`. Returns (ok, error_message, metadata).
 
     Metadata is what the gateway folds into the lead_interactions row
     so operators can audit provider + message ID + send timestamp from
-    one place. Phase 5.3 of the SunBiz CRM build (2026-05-15).
+    one place. Phase 5.3 of the SunBiz CRM build (2026-05-15); Kixie
+    added 2026-06-01 (Phase 1 of TT + Kixie full embedding).
 
-    Why inline (vs subprocess to text_torrent_tool.py / a twilio
-    wrapper): send_gateway is called from autonomous code paths
-    (sequence_runner.py drip engine, future agent tool calls). A
-    subprocess hop per send is ~150ms of forking + Python init, on
-    top of the actual HTTP call. Inline keeps the send synchronous
-    + cheap, matching the email path's _send_email_smtp pattern.
+    Why inline (vs subprocess to provider tools): send_gateway is called
+    from autonomous code paths (sequence_runner.py drip engine, future
+    agent tool calls). A subprocess hop per send is ~150ms of forking +
+    Python init, on top of the actual HTTP call. Inline keeps the send
+    synchronous + cheap, matching the email path's _send_email_smtp pattern.
+
+    Kixie-specific: requires `agent_email` so Kixie attributes the SMS to
+    the acting employee's account. The gateway resolves it from
+    acted_by_user_id → user_profiles.email upstream.
     """
-    if provider not in ("texttorrent", "twilio"):
-        return False, f"unknown SMS provider '{provider}' (expected 'texttorrent' or 'twilio')", {}
+    if provider not in ("texttorrent", "twilio", "kixie"):
+        return False, f"unknown SMS provider '{provider}' (expected 'texttorrent', 'twilio', or 'kixie')", {}
 
     try:
         import requests as _requests
@@ -1621,56 +1627,111 @@ def _send_sms_via_provider(
             "provider_message_id": data.get("id") or data.get("message_id"),
         }
 
-    # Twilio path. Twilio's REST API is dead simple: POST to
-    # api.twilio.com/2010-04-01/Accounts/<sid>/Messages.json with
-    # basic auth (sid + auth token). We don't need the Twilio SDK
-    # for this single call.
-    sid = (env.get("TWILIO_ACCOUNT_SID") or "").strip()
-    token = (env.get("TWILIO_AUTH_TOKEN") or "").strip()
-    # Per-brand phone-number selection (CC has multi-brand setup —
-    # oasis / nostalgic / conaugh_mckenna). Operators set
-    # TWILIO_FROM_NUMBER_OASIS, TWILIO_FROM_NUMBER_NOSTALGIC, etc.,
-    # plus a default TWILIO_FROM_NUMBER for back-compat. Brand-specific
-    # number is checked first; falls back to the default so existing
-    # single-brand operators keep working without an env tweak.
-    brand_upper = (brand or "").upper().replace("-", "_")
-    from_number = (
-        env.get(f"TWILIO_FROM_NUMBER_{brand_upper}")
-        or env.get("TWILIO_FROM_NUMBER")
-        or env.get("TWILIO_PHONE_NUMBER")
-        or ""
-    ).strip()
-    if not sid or not token:
-        return False, "TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN required in the agents env file", {}
-    if not from_number:
+    if provider == "twilio":
+        # Twilio path. Twilio's REST API is dead simple: POST to
+        # api.twilio.com/2010-04-01/Accounts/<sid>/Messages.json with
+        # basic auth (sid + auth token). We don't need the Twilio SDK
+        # for this single call.
+        sid = (env.get("TWILIO_ACCOUNT_SID") or "").strip()
+        token = (env.get("TWILIO_AUTH_TOKEN") or "").strip()
+        # Per-brand phone-number selection (CC has multi-brand setup —
+        # oasis / nostalgic / conaugh_mckenna). Operators set
+        # TWILIO_FROM_NUMBER_OASIS, TWILIO_FROM_NUMBER_NOSTALGIC, etc.,
+        # plus a default TWILIO_FROM_NUMBER for back-compat. Brand-specific
+        # number is checked first; falls back to the default so existing
+        # single-brand operators keep working without an env tweak.
+        brand_upper = (brand or "").upper().replace("-", "_")
+        from_number = (
+            env.get(f"TWILIO_FROM_NUMBER_{brand_upper}")
+            or env.get("TWILIO_FROM_NUMBER")
+            or env.get("TWILIO_PHONE_NUMBER")
+            or ""
+        ).strip()
+        if not sid or not token:
+            return False, "TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN required in the agents env file", {}
+        if not from_number:
+            return False, (
+                f"no Twilio from-number for brand '{brand}'. Set "
+                f"TWILIO_FROM_NUMBER_{brand_upper} or a default TWILIO_FROM_NUMBER."
+            ), {}
+        try:
+            r = _requests.post(
+                f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json",
+                data={"To": to_phone, "From": from_number, "Body": body_text},
+                auth=(sid, token),
+                timeout=30,
+                headers={"user-agent": "oasis-bravo/send-gateway/1.0"},
+            )
+        except _requests.RequestException as e:
+            return False, f"network error contacting Twilio: {e}", {}
+        if r.status_code >= 400:
+            try:
+                err = r.json()
+                err_msg = err.get("message") or err
+            except ValueError:
+                err_msg = r.text[:400]
+            return False, f"Twilio HTTP {r.status_code}: {err_msg}", {}
+        try:
+            data = r.json()
+        except ValueError:
+            data = {}
+        return True, None, {
+            "provider_message_id": data.get("sid"),
+            "twilio_status": data.get("status"),
+        }
+
+    # Kixie path. Kixie's SMS endpoint shares the action API with calls:
+    # POST https://apig.kixie.com/app/event with eventname="sms".
+    # Per-employee attribution lives on the `email` field — that's how
+    # Kixie's UI groups outbound SMS under each agent's account, so the
+    # acting employee MUST be passed in. Falls back to KIXIE_DEFAULT_AGENT_EMAIL
+    # env when no per-send agent is provided (lets sequence_runner drips
+    # work without a specific actor).
+    api_key = (env.get("KIXIE_API_KEY") or "").strip()
+    business_id = (env.get("KIXIE_BUSINESS_ID") or "").strip()
+    kixie_agent = (agent_email or env.get("KIXIE_DEFAULT_AGENT_EMAIL") or "").strip()
+    if not api_key or not business_id:
+        return False, "KIXIE_API_KEY and KIXIE_BUSINESS_ID required in the agents env file", {}
+    if not kixie_agent:
         return False, (
-            f"no Twilio from-number for brand '{brand}'. Set "
-            f"TWILIO_FROM_NUMBER_{brand_upper} or a default TWILIO_FROM_NUMBER."
+            "Kixie SMS needs an agent email — pass acted_by_user_id "
+            "(resolves via user_profiles) or set KIXIE_DEFAULT_AGENT_EMAIL."
         ), {}
+    payload: dict[str, Any] = {
+        "apikey": api_key,
+        "businessid": business_id,
+        "eventname": "sms",
+        "email": kixie_agent,
+        "target": to_phone,
+        "message": body_text,
+    }
+    if lead_id:
+        # Echoed back via webhook customField1 so inbound sms / delivery
+        # callbacks attribute to the right lead in lead_interactions.
+        payload["customField1"] = lead_id
     try:
         r = _requests.post(
-            f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json",
-            data={"To": to_phone, "From": from_number, "Body": body_text},
-            auth=(sid, token),
+            "https://apig.kixie.com/app/event",
+            json=payload,
             timeout=30,
             headers={"user-agent": "oasis-bravo/send-gateway/1.0"},
         )
     except _requests.RequestException as e:
-        return False, f"network error contacting Twilio: {e}", {}
+        return False, f"network error contacting Kixie: {e}", {}
     if r.status_code >= 400:
         try:
             err = r.json()
-            err_msg = err.get("message") or err
+            err_msg = err.get("message") if isinstance(err, dict) else err
         except ValueError:
             err_msg = r.text[:400]
-        return False, f"Twilio HTTP {r.status_code}: {err_msg}", {}
+        return False, f"Kixie HTTP {r.status_code}: {err_msg}", {}
     try:
-        data = r.json()
+        data = r.json() if r.text else {}
     except ValueError:
         data = {}
     return True, None, {
-        "provider_message_id": data.get("sid"),
-        "twilio_status": data.get("status"),
+        "provider_message_id": data.get("callid") or data.get("messageid"),
+        "kixie_agent_email": kixie_agent,
     }
 
 
@@ -2319,23 +2380,29 @@ def send(
         # set up only TextTorrent but every send routes to Twilio +
         # fails because TWILIO_ACCOUNT_SID is unset.
         explicit = (sms_provider or "").lower() or (env.get("SMS_PROVIDER") or "").lower()
-        if explicit in ("texttorrent", "twilio"):
+        if explicit in ("texttorrent", "twilio", "kixie"):
             provider_choice = explicit
         else:
             has_twilio = bool((env.get("TWILIO_ACCOUNT_SID") or "").strip() and (env.get("TWILIO_AUTH_TOKEN") or "").strip())
             has_tt = bool((env.get("TEXTTORRENT_API_KEY") or "").strip())
-            if has_twilio and not has_tt:
-                provider_choice = "twilio"
-            elif has_tt and not has_twilio:
+            has_kixie = bool((env.get("KIXIE_API_KEY") or "").strip() and (env.get("KIXIE_BUSINESS_ID") or "").strip())
+            # Auto-detect: route to the ONLY configured provider when
+            # exactly one is wired. Multi-provider tenants default to
+            # texttorrent for back-compat (TT was SunBiz's primary
+            # since Phase 5.1). Operator who wants Kixie/Twilio-by-default
+            # sets SMS_PROVIDER=kixie / SMS_PROVIDER=twilio.
+            configured = [p for p, has in (("twilio", has_twilio), ("texttorrent", has_tt), ("kixie", has_kixie)) if has]
+            if len(configured) == 1:
+                provider_choice = configured[0]
+            elif "texttorrent" in configured:
                 provider_choice = "texttorrent"
-            elif has_twilio and has_tt:
-                # Both configured -- default to twilio for back-compat
-                # (Twilio was the only SMS path pre-Phase 5). Operator
-                # who wants TT-by-default sets SMS_PROVIDER=texttorrent.
+            elif "twilio" in configured:
                 provider_choice = "twilio"
+            elif "kixie" in configured:
+                provider_choice = "kixie"
             else:
                 return {"status": "error",
-                        "reason": "sms channel needs either TWILIO_ACCOUNT_SID+TWILIO_AUTH_TOKEN or TEXTTORRENT_API_KEY configured in the agents env file",
+                        "reason": "sms channel needs TextTorrent, Twilio, or Kixie credentials in the agents env file (TEXTTORRENT_API_KEY / TWILIO_ACCOUNT_SID+TWILIO_AUTH_TOKEN / KIXIE_API_KEY+KIXIE_BUSINESS_ID)",
                         "lead_id": lead_id, "interaction_id": None,
                         "cooldown_until": None, "daily_count": None}
 
@@ -2379,12 +2446,36 @@ def send(
                     "cooldown_until": None, "daily_count": None}
 
         # ── 2. Provider dispatch ──────────────────────────────────────
+        # Kixie needs an agent email so it attributes the SMS under the
+        # acting employee's account in its UI. Resolve via
+        # acted_by_user_id → user_profiles.email; falls back to the env
+        # default inside _send_sms_via_provider.
+        kixie_agent_email: Optional[str] = None
+        if provider_choice == "kixie" and acted_by_user_id and db is not None:
+            try:
+                _r = (
+                    db.table("user_profiles")
+                    .select("email")
+                    .eq("auth_user_id", acted_by_user_id)
+                    .maybeSingle()
+                    .execute()
+                )
+                kixie_agent_email = (getattr(_r, "data", None) or {}).get("email")
+            except Exception as _exc:  # noqa: BLE001
+                print(
+                    f"[send_gateway] kixie agent_email lookup failed "
+                    f"user={acted_by_user_id}: {_exc}",
+                    file=sys.stderr,
+                )
+
         ok, sms_err, sms_meta = _send_sms_via_provider(
             env=env,
             provider=provider_choice,
             to_phone=to_phone,
             body_text=body_text,
             brand=brand,
+            agent_email=kixie_agent_email,
+            lead_id=lead_id,
         )
 
         # ── 3. Finalize the reservation with sent or failed state ─────
