@@ -1397,20 +1397,38 @@ def get_daily_stats(db, channel: Optional[str] = None) -> dict:
 
 # RFC-822 header values cannot contain CR or LF without folding rules.
 # Python's email.message.Message will happily set whatever string you
-# hand it, so unvalidated input on Message-ID / In-Reply-To / References
-# is a CRLF injection vector (an attacker can append fake Bcc lines).
-# The chokepoint validates every caller-supplied threading value here
-# so the vulnerability cannot reach the SMTP / Gmail API path.
+# hand it; at serialization time the policy fold-pass raises
+# HeaderParseError for embedded newlines, but by then the round row
+# is already inserted + the gateway has already done reservation
+# logging, so the failure mode is "exception bubbles up after side
+# effects" rather than "clean rejection."
+#
+# Validate at the chokepoint instead so unsafe input is blocked BEFORE
+# any state-changing work. Applies to every caller-controllable header
+# value: Subject, To, Cc, Message-ID, In-Reply-To, References, and the
+# From-address piece.
 _HEADER_INJECTION_RE = re.compile(r"[\r\n\x00]")
 
 
-def _validate_threading_header(name: str, value: Optional[str]) -> None:
-    if value is None:
+def _validate_header_value(name: str, value: Optional[str]) -> None:
+    """Block CRLF + NUL in any caller-supplied header value.
+
+    The same defense covers Subject (CRLF→fake Bcc), Message-ID family
+    (CRLF→arbitrary headers), and recipient strings (CRLF→envelope
+    splitting). Empty/None is allowed; the caller chose to omit.
+    """
+    if value is None or value == "":
         return
     if not isinstance(value, str):
         raise ValueError(f"{name} must be a string, got {type(value).__name__}")
     if _HEADER_INJECTION_RE.search(value):
         raise ValueError(f"{name} contains CR/LF/NUL — header injection blocked")
+
+
+# Kept as an alias so existing call sites that documented "threading"
+# specifically don't break; behaviour is identical to the general
+# validator above.
+_validate_threading_header = _validate_header_value
 
 
 def _build_email_mime(
@@ -1449,6 +1467,17 @@ def _build_email_mime(
          "content_type": "application/pdf"   # optional; defaults to
                                               # application/octet-stream}
     """
+    # Chokepoint header-injection defense — runs BEFORE any MIME
+    # construction so unsafe input never reaches the serializer.
+    # Body text/html are NOT validated here: they live inside the
+    # body part, not the header section, so CRLF in the body cannot
+    # inject headers.
+    _validate_header_value("subject", subject)
+    _validate_header_value("to_email", to_email)
+    _validate_header_value("gmail_address", gmail_address)
+    for i, cc in enumerate(cc_emails or []):
+        _validate_header_value(f"cc_emails[{i}]", cc)
+
     # Append CASL footer for every outbound path (both commercial and
     # transactional). Only intent="internal" skips the footer.
     if intent != "internal":
