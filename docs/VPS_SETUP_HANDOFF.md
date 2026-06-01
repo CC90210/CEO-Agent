@@ -1,12 +1,14 @@
-# Codex VPS Handoff — SunBiz Production
+# VPS Agent Handoff — SunBiz Production
 
 > Created: 2026-06-01
 >
-> Audience: the Codex CLI session running directly on `srv1723601`.
+> Audience: Claude Code, Codex CLI, or Gemini CLI running directly on
+> `srv1723601`.
 >
-> CC should not manually execute the deployment. Codex should inspect the live
-> VPS, make the required changes, verify each stage, and ask CC only for secrets,
-> browser logins, DNS changes, or approval before real outbound is enabled.
+> CC should not manually execute the deployment. The agent session should
+> inspect the live VPS, make the required changes, verify each stage, and ask CC
+> only for secrets, browser logins, DNS changes, or approval before real
+> outbound is enabled.
 
 ---
 
@@ -14,6 +16,11 @@
 
 CC is setting up the production execution bridge for Sun Biz Funding. You are
 running inside the VPS and should complete the setup end to end.
+
+If you are running through Claude Code, Codex CLI, or Gemini CLI, the runtime is
+only the terminal interface. The agent harness is `/srv/sunbiz/sunbiz-agent`.
+Read its `AGENTS.md` entry point and operate as Solara unless the task explicitly
+delegates you into a specialized implementation or review lane.
 
 Before changing anything:
 
@@ -79,6 +86,66 @@ process state, and local configuration.
 
 The dashboard is expected to stay on Vercel. Do not deploy a second dashboard on
 port `3000` unless CC explicitly changes that architecture decision.
+
+---
+
+## Why Both Backend Repos Are Cloned
+
+`SunBiz-Agent` is the SunBiz agent harness. It must be cloned onto the VPS. It
+contains Solara's instructions, funding-shop business logic, SunBiz migrations,
+skills, and daemon source.
+
+`CEO-Agent` must also be cloned onto the VPS. It is not a second SunBiz agent.
+It provides the shared runtime used by the harness: bridge heartbeat and cron
+polling, event router, safety guards, state tooling, secret loader, and the
+single outbound `send_gateway.py`.
+
+The required VPS checkout layout is:
+
+```text
+/srv/sunbiz/
+  ceo-agent/       # shared runtime substrate
+  sunbiz-agent/    # SunBiz Solara + Helios agent harness
+```
+
+The dashboard repo does not need to be cloned onto this VPS for normal
+production operation because it is deployed separately on Vercel.
+
+---
+
+## Terminal Agent CLIs
+
+Install all three terminal agents on the VPS so the bridge host can use the
+right runtime for each job:
+
+| CLI | Purpose on this VPS | Launch command |
+|---|---|---|
+| Claude Code | Primary interactive operator for setup, maintenance, and chat-bridge work | `claude` |
+| Codex CLI | Backend implementation, debugging, and independent review | `codex` |
+| Gemini CLI | Secondary review and fallback agent lane | `gemini` |
+
+Install them with:
+
+```bash
+npm install -g @anthropic-ai/claude-code
+npm install -g @openai/codex
+npm install -g @google/gemini-cli
+```
+
+Then verify:
+
+```bash
+claude --version
+codex --version
+gemini --version
+```
+
+Each CLI may require a one-time login. Launch it from
+`/srv/sunbiz/sunbiz-agent`, follow its authentication prompt, and complete any
+browser confirmation CC is asked to perform.
+
+Do not place provider login tokens in Git. Project runtime API keys belong only
+in the protected `.env.agents` file.
 
 ---
 
@@ -192,7 +259,8 @@ Work through these phases yourself and report concise evidence after each one.
 Verify:
 
 - current user, hostname, OS, free disk, memory
-- `git`, `python3.12`, `node`, `npm`, `pm2`, `nginx`, `certbot`, and `codex`
+- `git`, `python3.12`, `node`, `npm`, `pm2`, `nginx`, `certbot`, `claude`,
+  `codex`, and `gemini`
 - repo directories and Git remotes
 - active branches and dirty worktrees
 - service state for nginx, fail2ban, and UFW
@@ -329,9 +397,11 @@ shop-out, or DNS mutation.
 
 ---
 
-## First Prompt For The VPS Codex Session
+## First Prompt For The VPS Agent Session
 
-Paste this into Codex after launching it from `/srv/sunbiz/sunbiz-agent`:
+Paste this into Claude Code after launching it from
+`/srv/sunbiz/sunbiz-agent`. The same prompt also works in Codex CLI or Gemini
+CLI:
 
 ```text
 Read /srv/sunbiz/ceo-agent/docs/VPS_SETUP_HANDOFF.md completely, then read this
@@ -352,16 +422,23 @@ remaining blockers require my input.
 
 ## CC's Immediate Next Step
 
-From the VPS root terminal, install and launch Codex:
+From the VPS root terminal, pull the handoff, install the three terminal agents,
+and launch Claude Code:
 
 ```bash
+cd /srv/sunbiz/ceo-agent
+git pull
+npm install -g @anthropic-ai/claude-code
 npm install -g @openai/codex
+npm install -g @google/gemini-cli
 cd /srv/sunbiz/sunbiz-agent
-codex
+claude
 ```
 
-Complete the Codex sign-in flow when prompted, then paste the prompt from the
-previous section. Codex should take over the terminal work from there.
+Complete the Claude Code sign-in flow when prompted, then paste the prompt from
+the previous section. Claude Code should take over the terminal work from
+there. Codex CLI and Gemini CLI remain installed for delegated work and
+independent review.
 
 ---
 
@@ -378,4 +455,3 @@ The VPS setup is complete only when:
 6. Secrets remain protected.
 7. Real outbound remains disabled until CC deliberately approves activation.
 8. Kixie inbound remains disabled until its handler is implemented and verified.
-
