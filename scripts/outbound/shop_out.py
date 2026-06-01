@@ -143,13 +143,31 @@ def _resolve_agent_email(db: Any, agent_user_id: str) -> Optional[str]:
 
 
 def _next_round_number(db: Any, tenant_id: str, lead_id: str) -> int:
-    """Compute the next round_number for this (tenant, lead) by reading
-    the current max. Race-safe enough for the operator-paced workflow
-    (a human kicks off rounds; concurrent rounds for the same lead would
-    be a UX bug, not a load problem). The UNIQUE constraint on
-    (tenant_id, lead_id, round_number) is the hard backstop if two
-    rounds DO race — the second insert errors out.
+    """Atomically compute the next round_number for this (tenant, lead).
+
+    Delegates to the shop_out_next_round_number RPC (migration 089)
+    which takes an advisory lock keyed on (tenant, lead) so concurrent
+    operator-triggered rounds for the same lead serialize. Falls back
+    to a best-effort SELECT MAX on RPC unavailability — the
+    UNIQUE(tenant_id, lead_id, round_number) constraint is the hard
+    backstop either way, so the fallback's only risk is an ugly retry.
     """
+    try:
+        rpc_res = db.rpc(
+            "shop_out_next_round_number",
+            {"p_tenant_id": tenant_id, "p_lead_id": lead_id},
+        ).execute()
+        data = getattr(rpc_res, "data", None)
+        if isinstance(data, int):
+            return data
+        if isinstance(data, list) and data:
+            v = data[0]
+            return int(v) if not isinstance(v, dict) else int(next(iter(v.values())))
+        if isinstance(data, dict):
+            return int(next(iter(data.values())))
+    except Exception as exc:  # noqa: BLE001
+        _log(f"shop_out_next_round_number RPC failed: {exc} — falling back to SELECT MAX")
+
     try:
         r = (
             db.table("shopping_threads")
@@ -161,7 +179,7 @@ def _next_round_number(db: Any, tenant_id: str, lead_id: str) -> int:
             .execute()
         )
     except Exception as exc:  # noqa: BLE001
-        _log(f"round_number lookup failed: {exc} — defaulting to 1")
+        _log(f"round_number fallback lookup failed: {exc} — defaulting to 1")
         return 1
     rows = getattr(r, "data", None) or []
     if not rows:
@@ -243,9 +261,15 @@ def cmd_send(args: argparse.Namespace) -> dict[str, Any]:
 
     agent_cc = _resolve_agent_email(db, args.agent_user_id)
     if not agent_cc:
-        _log(
-            f"warning: agent {args.agent_user_id} has no user_profiles.email "
-            f"— round will send without CC"
+        # Hard fail: a shop-out round MUST CC the initiating agent
+        # (req 3 of the workflow spec — the agent needs visibility on
+        # the conversation). Silently sending without CC defeats the
+        # round's tracking model. The fix is to set
+        # user_profiles.email for the acting agent + retry.
+        raise RuntimeError(
+            f"agent {args.agent_user_id} has no user_profiles.email; "
+            "round requires the initiating agent be CC'd. Set the email "
+            "on the user_profiles row and retry."
         )
 
     # Pre-resolve every lender contact BEFORE inserting the round row.
@@ -364,6 +388,33 @@ def cmd_send(args: argparse.Namespace) -> dict[str, Any]:
         "lenders": final_lenders,
         "status": round_status,
     }).eq("id", round_id).execute()
+
+    # Cross-agent event bus broadcast so operators watching /feed and
+    # downstream agents (CFO spend tracking, classifier daemon priming)
+    # see the round land. Fire-and-forget — a bus outage MUST NOT alter
+    # the round's success.
+    try:
+        from event_bus import publish as _bus_publish  # type: ignore
+        _bus_publish(
+            "BRAVO_SHOPOUT_ROUND_SENT",
+            {
+                "round_id": round_id,
+                "tenant_id": args.tenant_id,
+                "lead_id": args.lead_id,
+                "round_number": round_number,
+                "agent_user_id": args.agent_user_id,
+                "lender_count": len(plans),
+                "sent_count": success_count,
+                "status": round_status,
+                "root_message_id": _root_msg_id,
+            },
+            source="bravo",
+            target=None,
+            correlation_id=round_id,
+            idempotency_key=f"shopout_round_sent:{round_id}",
+        )
+    except Exception:
+        pass
 
     return {
         "ok": success_count > 0,

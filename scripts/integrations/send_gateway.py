@@ -1395,6 +1395,24 @@ def get_daily_stats(db, channel: Optional[str] = None) -> dict:
 
 # ---- Email sender (the real smtplib call) -----------------------------------
 
+# RFC-822 header values cannot contain CR or LF without folding rules.
+# Python's email.message.Message will happily set whatever string you
+# hand it, so unvalidated input on Message-ID / In-Reply-To / References
+# is a CRLF injection vector (an attacker can append fake Bcc lines).
+# The chokepoint validates every caller-supplied threading value here
+# so the vulnerability cannot reach the SMTP / Gmail API path.
+_HEADER_INJECTION_RE = re.compile(r"[\r\n\x00]")
+
+
+def _validate_threading_header(name: str, value: Optional[str]) -> None:
+    if value is None:
+        return
+    if not isinstance(value, str):
+        raise ValueError(f"{name} must be a string, got {type(value).__name__}")
+    if _HEADER_INJECTION_RE.search(value):
+        raise ValueError(f"{name} contains CR/LF/NUL — header injection blocked")
+
+
 def _build_email_mime(
     gmail_address: str,
     brand: dict[str, str],
@@ -1460,7 +1478,10 @@ def _build_email_mime(
     # wants Gmail/Outlook to group N outbound messages as one
     # conversation. message_id MUST be RFC-822 angle-bracketed; the
     # caller is responsible for synthesizing a stable, globally-unique
-    # value.
+    # value. CRLF + NUL bytes are rejected to block header injection.
+    _validate_threading_header("message_id", message_id)
+    _validate_threading_header("in_reply_to", in_reply_to)
+    _validate_threading_header("references", references)
     if message_id:
         outer["Message-ID"] = message_id
     if in_reply_to:

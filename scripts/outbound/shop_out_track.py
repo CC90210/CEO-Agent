@@ -180,42 +180,58 @@ def cmd_list(args: argparse.Namespace) -> dict[str, Any]:
 def cmd_update_lender(args: argparse.Namespace) -> dict[str, Any]:
     env = _load_env()
     db = get_supabase(env)
-    row = _fetch_round_by_id(db, args.round_id)
-    if not row:
-        return {"ok": False, "error": "round_not_found"}
-    lenders = list(row.get("lenders") or [])
-    matched = False
-    now_iso = _now()
     new_status = args.status
     if new_status not in VALID_LENDER_STATUSES:
         raise RuntimeError(
             f"--status must be one of {VALID_LENDER_STATUSES}, got {new_status!r}"
         )
-    for plan in lenders:
-        if str(plan.get("lender_id")) == str(args.lender_id):
-            plan["status"] = new_status
-            if args.summary:
-                plan["last_response_summary"] = args.summary
-            if new_status in (
-                "replied",
-                "approved",
-                "declined",
-                "info_requested",
-                "no_response",
-            ):
-                plan["last_response_at"] = now_iso
-            matched = True
-            break
-    if not matched:
-        return {"ok": False, "error": "lender_not_in_round"}
+
+    # Build the patch jsonb the RPC will MERGE into the matching
+    # lenders[] element. jsonb_set with || does a shallow merge so
+    # only the fields we set get touched; everything else (message_id,
+    # interaction_id, sent_at) survives.
+    patch: dict[str, Any] = {"status": new_status}
+    if args.summary:
+        patch["last_response_summary"] = args.summary
+    if new_status in (
+        "replied",
+        "approved",
+        "declined",
+        "info_requested",
+        "no_response",
+    ):
+        patch["last_response_at"] = _now()
+
+    # Atomic per-lender update via the shop_out_patch_lender RPC
+    # (migration 089). The prior implementation did read-modify-write
+    # on the full lenders[] jsonb which raced between concurrent
+    # operators + the response-classifier daemon, silently losing
+    # changes. The RPC does jsonb_set inside one statement so writes
+    # to different lenders in the same round don't collide.
     try:
-        db.table("shopping_threads").update({"lenders": lenders}).eq(
-            "id", args.round_id
+        rpc_res = db.rpc(
+            "shop_out_patch_lender",
+            {
+                "p_round_id": args.round_id,
+                "p_lender_id": str(args.lender_id),
+                "p_patch": patch,
+            },
         ).execute()
     except Exception as exc:
-        raise RuntimeError(f"shopping_threads update failed: {exc}") from exc
-    return {"ok": True, "round_id": args.round_id, "lender_id": args.lender_id,
-            "new_status": new_status}
+        msg = str(exc)
+        if "no_data_found" in msg or "lender_not_in_round" in msg or "lender " in msg.lower():
+            return {"ok": False, "error": "lender_not_in_round"}
+        raise RuntimeError(f"shop_out_patch_lender RPC failed: {exc}") from exc
+
+    if not getattr(rpc_res, "data", None):
+        return {"ok": False, "error": "round_not_found"}
+
+    return {
+        "ok": True,
+        "round_id": args.round_id,
+        "lender_id": args.lender_id,
+        "new_status": new_status,
+    }
 
 
 def _print_human(result: dict[str, Any], cmd: str) -> None:
