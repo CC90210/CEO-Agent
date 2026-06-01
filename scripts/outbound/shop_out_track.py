@@ -203,11 +203,13 @@ def cmd_update_lender(args: argparse.Namespace) -> dict[str, Any]:
         patch["last_response_at"] = _now()
 
     # Atomic per-lender update via the shop_out_patch_lender RPC
-    # (migration 089). The prior implementation did read-modify-write
-    # on the full lenders[] jsonb which raced between concurrent
-    # operators + the response-classifier daemon, silently losing
-    # changes. The RPC does jsonb_set inside one statement so writes
-    # to different lenders in the same round don't collide.
+    # (migration 089; null-on-miss return contract in 090). The prior
+    # implementation did read-modify-write on the full lenders[] jsonb
+    # which raced between concurrent operators + the response-classifier
+    # daemon, silently losing changes. The RPC does jsonb_set inside
+    # one statement so writes to different lenders in the same round
+    # don't collide. Null .data means the (round, lender) pair was
+    # not found; real DB errors still raise.
     try:
         rpc_res = db.rpc(
             "shop_out_patch_lender",
@@ -218,13 +220,19 @@ def cmd_update_lender(args: argparse.Namespace) -> dict[str, Any]:
             },
         ).execute()
     except Exception as exc:
-        msg = str(exc)
-        if "no_data_found" in msg or "lender_not_in_round" in msg or "lender " in msg.lower():
-            return {"ok": False, "error": "lender_not_in_round"}
         raise RuntimeError(f"shop_out_patch_lender RPC failed: {exc}") from exc
 
-    if not getattr(rpc_res, "data", None):
-        return {"ok": False, "error": "round_not_found"}
+    # PostgREST wraps a NULL composite return as a dict whose fields
+    # are all None, NOT as Python None. Detect the miss by checking
+    # whether the returned row carries an id. Defensive against the
+    # list-of-one shape some PostgREST versions use for composite
+    # returns.
+    data = getattr(rpc_res, "data", None)
+    if isinstance(data, list):
+        data = data[0] if data else None
+    row_id = (data or {}).get("id") if isinstance(data, dict) else None
+    if not row_id:
+        return {"ok": False, "error": "round_or_lender_not_found"}
 
     return {
         "ok": True,
