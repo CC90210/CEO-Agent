@@ -1858,7 +1858,21 @@ def send(
                 f"known: {sorted(BRAND_IDENTITY.keys())}",
                 "lead_id": lead_id, "interaction_id": None,
                 "cooldown_until": None, "daily_count": None}
-    brand_cfg = BRAND_IDENTITY[brand]
+    env = load_env()
+    # CASL_* env vars override the resolved brand's footer fields, but only
+    # when set — an operator can supply a confirmed sender/business/address
+    # (e.g. SunBiz's pending mailing address) without editing the multi-brand
+    # map. Copy the brand dict so the module-level map stays untouched, and
+    # leave any unset override so other brands keep their built-in identity.
+    brand_cfg = dict(BRAND_IDENTITY[brand])
+    for _field, _env_key in (
+        ("sender_name", "CASL_SENDER_NAME"),
+        ("business_name", "CASL_BUSINESS_NAME"),
+        ("business_address", "CASL_BUSINESS_ADDRESS"),
+    ):
+        _override = (env.get(_env_key) or "").strip()
+        if _override:
+            brand_cfg[_field] = _override
     if intent != "internal" and brand_cfg.get("business_address", "").strip() in PLACEHOLDER_BUSINESS_ADDRESSES:
         return {"status": "error",
                 "reason": f"brand '{brand}' is missing a confirmed physical business_address",
@@ -1901,7 +1915,6 @@ def send(
     # Supabase, the suppression list, the cooldown ledger, the daily cap,
     # the bounce-rate breaker, the DNS doctor, or the draft critic.
     # Nothing can leak even if every downstream gate is unreachable.
-    env = load_env()
     if _env_bool(env, "BRAVO_FORCE_DRY_RUN", False):
         return {"status": "dry_run",
                 "reason": "BRAVO_FORCE_DRY_RUN=1 — killswitch engaged, no gates evaluated, no send",
