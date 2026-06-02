@@ -324,6 +324,17 @@ def _check_resolved_addresses_safe(host: str) -> str | None:
 def _exec_webhook_post(payload: dict) -> dict:
     """POST JSON to a URL. Useful for triggering n8n workflows, Zapier
     catches, Make scenarios — anything that exposes a webhook entry."""
+    # Dry-run killswitch — webhook_post is direct outbound HTTP, so it must
+    # honour BRAVO_FORCE_DRY_RUN the same way send_gateway does
+    # (send_gateway.py ~1918). Without this gate a cron webhook fires a real
+    # request even with the killswitch engaged.
+    import os
+    if str(os.environ.get("BRAVO_FORCE_DRY_RUN", "")).strip().lower() in ("1", "true", "yes", "on"):
+        return {
+            "status": "dry_run",
+            "reason": "BRAVO_FORCE_DRY_RUN=1 — killswitch engaged, webhook_post suppressed, no HTTP sent",
+            "output": f"[dry_run] would POST to {str(payload.get('url') or '').strip()}",
+        }
     url = str(payload.get("url") or "").strip()
     if not url.startswith(("http://", "https://")):
         return {"status": "error", "error": f"url must be http/https: {url}"}
