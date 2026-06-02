@@ -652,7 +652,11 @@ def _run_typed_tool(script_name: str, payload: dict) -> dict:
     if not isinstance(raw_args, list) or any(not isinstance(a, (str, int, float)) for a in raw_args):
         return _err("'args' must be a list of strings/numbers")
     str_args = [str(a) for a in raw_args]
-    argv = [f"scripts/{script_name}", action, *str_args]
+    # Typed tool CLIs live under scripts/integrations/ (supabase_tool.py,
+    # n8n_tool.py, firecrawl_tool.py, stripe_tool.py, notebooklm_tool.py) —
+    # matching each _tool_* docstring. The bare scripts/ prefix pointed at a
+    # nonexistent path, so every typed tool failed with "can't open file".
+    argv = [f"scripts/integrations/{script_name}", action, *str_args]
     # Auto --json for structured output unless asking for help or already present
     if action != "--help" and "--help" not in str_args and "--json" not in str_args:
         argv.append("--json")
