@@ -50,8 +50,23 @@ DEFAULTS: dict[str, list[Path]] = {
         HOME / "life-preservation",
         HOME / "APPS" / "life-preservation",
     ],
+    # SunBiz funding agent. The interactive personas are `solara` (ops) and
+    # `helios` (funding) — the dashboard chat targets those slugs, so both must
+    # resolve, not just the legacy `sunbiz` repo key. /srv/sunbiz/sunbiz-agent
+    # is the VPS deploy path; ~/SunBiz-Agent is the dev/Mac layout.
     "sunbiz": [
         HOME / "SunBiz-Agent",
+        Path("/srv/sunbiz/sunbiz-agent"),
+        Path("C:/Users/User/SunBiz-Agent"),
+    ],
+    "solara": [
+        HOME / "SunBiz-Agent",
+        Path("/srv/sunbiz/sunbiz-agent"),
+        Path("C:/Users/User/SunBiz-Agent"),
+    ],
+    "helios": [
+        HOME / "SunBiz-Agent",
+        Path("/srv/sunbiz/sunbiz-agent"),
         Path("C:/Users/User/SunBiz-Agent"),
     ],
 }

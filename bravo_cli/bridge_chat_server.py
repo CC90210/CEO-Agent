@@ -1462,7 +1462,10 @@ class _ChatHandler(BaseHTTPRequestHandler):
             self._json(412, {"ok": False, "error": "agent_not_paired_locally", "agent": agent})
             return
         try:
-            from warm_claude_pool import prewarm as _wp_prewarm  # type: ignore
+            try:
+                from .warm_claude_pool import prewarm as _wp_prewarm  # type: ignore
+            except ImportError:
+                from warm_claude_pool import prewarm as _wp_prewarm  # type: ignore
         except Exception as e:
             self._json(500, {"ok": False, "error": f"prewarm_unavailable: {e}"})
             return
@@ -1507,7 +1510,10 @@ class _ChatHandler(BaseHTTPRequestHandler):
             self._json(400, {"ok": False, "error": "agent + tab_id or session_id required"})
             return
         try:
-            from warm_claude_pool import kill_for_session as _wp_kill  # type: ignore
+            try:
+                from .warm_claude_pool import kill_for_session as _wp_kill  # type: ignore
+            except ImportError:
+                from warm_claude_pool import kill_for_session as _wp_kill  # type: ignore
             _wp_kill(f"{agent}:{kill_token}")
             self._json(200, {"ok": True})
         except Exception as e:
