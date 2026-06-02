@@ -75,14 +75,17 @@ const PROJECT_ROOT = IS_MAC
     ? path.join(os.homedir(), 'CEO-Agent')
     : (IS_WIN
         ? 'C:\\Users\\User\\Business-Empire-Agent'
-        : path.join(os.homedir(), 'business-empire-agent'));
+        : (IS_LINUX
+            ? '/srv/sunbiz/ceo-agent'
+            : path.join(os.homedir(), 'business-empire-agent')));
 
 // Python interpreter per machine.
 // Mac: brew-installed python@3.12 inside a venv we just created.
 // Windows: venv at .venv/Scripts/python.exe (Windows virtualenv layout).
-const PYTHON = IS_MAC
-    ? path.join(PROJECT_ROOT, '.venv', 'bin', 'python')
-    : path.join(PROJECT_ROOT, '.venv', 'Scripts', 'python.exe');
+// Linux (VPS): POSIX venv layout at .venv/bin/python (same as Mac).
+const PYTHON = IS_WIN
+    ? path.join(PROJECT_ROOT, '.venv', 'Scripts', 'python.exe')
+    : path.join(PROJECT_ROOT, '.venv', 'bin', 'python');
 
 // pythonw.exe — Windows GUI variant of python.exe. CRITICAL: pythonw
 // DOES NOT allocate a console window. Use this for any daemon that
@@ -91,9 +94,9 @@ const PYTHON = IS_MAC
 // across PM2 versions on Windows; pythonw guarantees no window
 // regardless of restart loops, crashes, or PM2 quirks. Mac/Linux
 // have no console concept here so we fall back to plain python.
-const PYTHONW = IS_MAC
-    ? path.join(PROJECT_ROOT, '.venv', 'bin', 'python')
-    : path.join(PROJECT_ROOT, '.venv', 'Scripts', 'pythonw.exe');
+const PYTHONW = IS_WIN
+    ? path.join(PROJECT_ROOT, '.venv', 'Scripts', 'pythonw.exe')
+    : path.join(PROJECT_ROOT, '.venv', 'bin', 'python');
 
 // Node interpreter — both platforms use whatever's on PATH.
 // Mac has nvm node v24+, Windows has whatever the user installed.
