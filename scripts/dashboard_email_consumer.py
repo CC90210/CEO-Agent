@@ -281,7 +281,10 @@ def _send_one(env: dict[str, str], sb, row: dict) -> bool:
             return False
         msg = _build_message(row, gmail_from or gmail_user)
         try:
-            ok, err = smtp_send(gmail_user, gmail_pass, msg, to_email)
+            ok, err = smtp_send(
+                gmail_user, gmail_pass, msg, to_email,
+                require_from_domain=env.get("EMAIL_REQUIRE_FROM_DOMAIN"),
+            )
         except Exception as e:  # noqa: BLE001
             # Network blip — leave queued for retry.
             print(
