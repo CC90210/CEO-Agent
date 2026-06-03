@@ -103,7 +103,14 @@ from typing import Any, Optional
 # ---- Path + env wiring (same pattern used by every other engine) -----------
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-_SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent
+# _SCRIPTS_DIR must be CEO-Agent/scripts (where casl_compliance, lib.*, etc.
+# live) so sibling imports resolve when this file is run directly as a CLI
+# (python scripts/integrations/send_gateway.py doctor ...). It is .resolve()'d
+# so the SunBiz scripts/send_gateway.py symlink maps back to the real dir.
+# PROJECT_ROOT stays the repo root for .env.agents resolution. (Was
+# parent.parent.parent — pointed at the repo root and crashed the documented
+# CLI with ModuleNotFoundError: casl_compliance.)
+_SCRIPTS_DIR = Path(__file__).resolve().parent.parent
 if str(_SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS_DIR))
 

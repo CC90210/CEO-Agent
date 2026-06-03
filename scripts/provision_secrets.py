@@ -111,11 +111,24 @@ def _client():
 
 
 def _resolve_tenant(sb, slug: str) -> str:
-    r = sb.table("tenants").select("id, slug").eq("slug", slug).limit(1).execute()
-    if not r.data:
-        print(f"ERROR: tenant slug '{slug}' not found.", file=sys.stderr)
-        sys.exit(3)
-    return str(r.data[0]["id"])
+    # Primary: exact tenants.slug match.
+    r = sb.table("tenants").select("id, slug, custom_fields").eq("slug", slug).limit(1).execute()
+    if r.data:
+        return str(r.data[0]["id"])
+    # Fallback: the Command Center profile slug. SunBiz is stored as
+    # slug='submissions' with custom_fields.command_center_profile_slug='sun';
+    # the rest of the runtime (daily_plan_generator, etc.) resolves by the
+    # profile slug, so honor it here too instead of failing on '--tenant sun'.
+    allr = sb.table("tenants").select("id, slug, custom_fields").execute().data or []
+    for t in allr:
+        cf = t.get("custom_fields") or {}
+        if isinstance(cf, dict) and cf.get("command_center_profile_slug") == slug:
+            return str(t["id"])
+    print(
+        f"ERROR: tenant '{slug}' not found by slug or command_center_profile_slug.",
+        file=sys.stderr,
+    )
+    sys.exit(3)
 
 
 def _collect(sb, tenant_id: str) -> tuple[dict[str, str], list[str]]:
