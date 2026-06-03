@@ -212,7 +212,8 @@ HOURLY_CAPS: dict[str, int] = {
 }
 
 # Canonical agent_source tags — whoever is calling MUST identify itself.
-# Free-form strings allowed, but staying on these values keeps audits sane.
+# Free-form strings allowed (send() only requires agent_source to be non-empty;
+# membership here is NOT enforced), but staying on these values keeps audits sane.
 KNOWN_AGENT_SOURCES: frozenset[str] = frozenset({
     "outreach_engine",
     "funnel_nurture",
@@ -222,6 +223,7 @@ KNOWN_AGENT_SOURCES: frozenset[str] = frozenset({
     "manual_cc",
     "scheduler",
     "test_harness",
+    "cold_outreach_runner",  # SunBiz blast scheduler daemon (cold_outreach_runner.DAEMON_NAME)
 })
 
 # Canonical channel tags.
