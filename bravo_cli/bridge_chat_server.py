@@ -31,6 +31,8 @@ directly to this server.
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import os
 import random
@@ -786,6 +788,19 @@ _V6_REPO_ROOT = Path(__file__).resolve().parents[1]
 _V6_STATE_MANAGER = _V6_REPO_ROOT / "scripts" / "state_manager.py"
 
 
+def _role_fingerprint(disallowed_tools: list[str] | None) -> str:
+    """Stable fingerprint of a role's disallowed-tools set, used in the warm
+    pool key so a locked-down member process is never recycled into an owner
+    turn (and vice-versa). 'full' when nothing is denied (owner/admin path);
+    otherwise an 8-char sha1 of the sorted, comma-joined set. MUST be computed
+    identically here, in /chat's warm path, and in /prewarm so prewarm spawns a
+    process the first real turn can actually reuse."""
+    tools = disallowed_tools or []
+    if not tools:
+        return "full"
+    return hashlib.sha1(",".join(sorted(tools)).encode("utf-8")).hexdigest()[:8]
+
+
 def _v6_log_chat_interaction(agent: str, kind: str, last_user_msg: str) -> None:
     """Best-effort session_log insert for a chat interaction.
 
@@ -1014,9 +1029,67 @@ class _ChatHandler(BaseHTTPRequestHandler):
         random LAN browser can hit /env/set.
 
         Same model as /chat, which has run unauthenticated since v1.
+
+        Proxy mode (BRIDGE_BEARER_TOKEN set): the bearer is the auth of record
+        and was already validated by _check_bearer() at the top of do_POST/
+        do_GET. Vercel->VPS calls are server-to-server and carry no browser
+        Origin, so we treat a bearer-gated request as origin-allowed. Without
+        this, /prewarm and /chat-reset (origin-gated) would 403 every proxy
+        call even with a valid bearer.
         """
+        if os.environ.get("BRIDGE_BEARER_TOKEN"):
+            return True
         origin = self.headers.get("origin", "")
         return origin in ALLOWED_ORIGINS
+
+    def _check_bearer(self) -> bool:
+        """Bearer-token gate for the WHOLE bridge when it is network-reachable.
+
+        Behaviour:
+          - BRIDGE_BEARER_TOKEN UNSET (the operator's localhost rig): no-op,
+            returns True. Preserves CC's direct-localhost path verbatim — the
+            origin check is the only gate there, exactly as before.
+          - BRIDGE_BEARER_TOKEN SET (the SunBiz VPS, fronted by nginx): require
+            an `Authorization: Bearer <token>` header that matches via
+            hmac.compare_digest (constant-time — no timing oracle). On miss,
+            emit 401 and return False so the caller STOPS before any path
+            dispatch, body read, or claude spawn.
+
+        Called at the TOP of BOTH do_GET and do_POST so EVERY endpoint
+        (/health, /agents, /diag, /diagnostics/cli, /warm-status, /env/set,
+        /exec-tool, /chat-reset, /prewarm, /local-chat, /chat) is gated. This
+        closes the hole where origin-only endpoints (/env/set WRITES
+        .env.agents!) and the unauthenticated GETs leaked once the bridge is
+        reachable by the Vercel proxy.
+        """
+        expected = os.environ.get("BRIDGE_BEARER_TOKEN")
+        if not expected:
+            return True  # localhost operator path — gate is a no-op.
+        auth = self.headers.get("authorization", "") or self.headers.get("Authorization", "")
+        provided = ""
+        if auth.lower().startswith("bearer "):
+            provided = auth[7:].strip()
+        if not provided or not hmac.compare_digest(provided, expected):
+            self._json(401, {"ok": False, "error": "unauthorized"})
+            return False
+        return True
+
+    @staticmethod
+    def _sanitize_disallowed_tools(raw: Any) -> list[str]:
+        """Sanitize the proxy-forwarded disallowed_tools list before it reaches
+        the claude argv. Each entry must be alphabetic (Claude Code tool names
+        like Bash/Write/Edit/MultiEdit/NotebookEdit/WebFetch) — anything else
+        (shell metacharacters, flags, injection like ';rm') is dropped. Defense
+        in depth behind the bearer; spawns are shell=False so there's no shell
+        to inject into, but we still refuse non-tool tokens reaching argv."""
+        if not isinstance(raw, list):
+            return []
+        out: list[str] = []
+        for item in raw:
+            s = str(item).strip()
+            if s and re.fullmatch(r"[A-Za-z]+", s):
+                out.append(s)
+        return out
 
     def _handle_env_set(self) -> None:
         """POST /env/set — write a key=value to .env.agents and ping the
@@ -1227,6 +1300,10 @@ class _ChatHandler(BaseHTTPRequestHandler):
         self._json(200, {"ok": True, **result})
 
     def do_GET(self) -> None:
+        # Bearer gate FIRST — before any path dispatch. No-op on localhost
+        # (token unset); 401 on the VPS when the proxy's bearer is missing/wrong.
+        if not self._check_bearer():
+            return
         if self.path == "/health":
             # Now also reports the local tool registry so the dashboard can
             # advertise the matching tool definitions to the model when
@@ -1457,6 +1534,14 @@ class _ChatHandler(BaseHTTPRequestHandler):
         if not agent or not tab_id:
             self._json(400, {"ok": False, "error": "agent + tab_id required"})
             return
+        # Role-based disallowed tools, forwarded by the proxy in proxy mode.
+        # MUST fold into the pool_key fingerprint identically to the real /chat
+        # turn — otherwise prewarm spawns a 'full' process a locked-down member
+        # turn can't reuse (and CC's prewarm optimization silently regresses).
+        disallowed_tools = self._sanitize_disallowed_tools(payload.get("disallowed_tools"))
+        if not os.environ.get("BRIDGE_BEARER_TOKEN"):
+            # Operator localhost: no proxy, full power. Force empty.
+            disallowed_tools = []
         root = resolve_root(agent)
         if not root:
             self._json(412, {"ok": False, "error": "agent_not_paired_locally", "agent": agent})
@@ -1474,10 +1559,11 @@ class _ChatHandler(BaseHTTPRequestHandler):
         # next /chat call will block on the warm process if it's not
         # ready yet (the per-process lock serializes), but they get
         # the partially-booted claude faster than a fresh cold-spawn.
-        pool_key = f"{agent}:{tab_id}"
+        pool_key = f"{agent}:{tab_id}:{_role_fingerprint(disallowed_tools)}"
         threading.Thread(
             target=_wp_prewarm,
             args=(pool_key, agent, root),
+            kwargs={"disallowed_tools": disallowed_tools},
             daemon=True,
             name=f"prewarm-{agent}",
         ).start()
@@ -1520,6 +1606,12 @@ class _ChatHandler(BaseHTTPRequestHandler):
             self._json(500, {"ok": False, "error": str(e)})
 
     def do_POST(self) -> None:
+        # Bearer gate FIRST — before any path dispatch, body read, or spawn.
+        # No-op on localhost (token unset); 401 on the VPS when the proxy's
+        # bearer is missing/wrong. This gates EVERY POST endpoint including
+        # /env/set (which writes .env.agents), not just the spawn endpoints.
+        if not self._check_bearer():
+            return
         if self.path == "/env/set":
             self._handle_env_set()
             return
@@ -1561,6 +1653,39 @@ class _ChatHandler(BaseHTTPRequestHandler):
             self._json(400, {"ok": False, "error": "invalid_cli_provider"})
             return
 
+        # ---- Proxy-forwarded identity + role-based tool gating --------------
+        # The Vercel /api/bridge/chat proxy resolves these SERVER-SIDE from the
+        # authenticated user and forwards them; the bearer (verified in
+        # _check_bearer above) proves the request came from the proxy, so we
+        # trust the forwarded identity. The browser never reaches us directly
+        # in proxy mode. disallowed_tools is the role-derived deny list that
+        # becomes the claude `--disallowed-tools` spawn flag — the hard wall
+        # that keeps a non-owner SunBiz employee out of a shell.
+        bridge_bearer = os.environ.get("BRIDGE_BEARER_TOKEN")
+        tenant_id = str(payload.get("tenant_id", "")).strip()
+        user_id = str(payload.get("user_id", "")).strip()
+        team_role = str(payload.get("team_role", "")).strip().lower()
+        disallowed_tools = self._sanitize_disallowed_tools(payload.get("disallowed_tools"))
+        if bridge_bearer:
+            # Proxy mode: identity is mandatory. A request without tenant_id +
+            # user_id is malformed (the proxy always sets them) — reject so we
+            # never spawn an unidentified turn.
+            if not tenant_id or not user_id:
+                self._json(400, {"ok": False, "error": "missing_identity"})
+                return
+        else:
+            # Operator localhost (CC): no proxy, full power. Force the deny
+            # list empty regardless of what (if anything) was sent.
+            disallowed_tools = []
+
+        # Defense-in-depth: a restricted role (non-empty disallowed_tools) MUST
+        # run on Claude Code — the only runtime whose --disallowed-tools flag
+        # enforces the no-shell wall. The proxy already forces this; pin it here
+        # too so a restricted turn can never reach codex/gemini (no equivalent
+        # tool boundary) even if the proxy is somehow bypassed.
+        if disallowed_tools and cli_provider != "claude":
+            cli_provider = "claude"
+
         # Plan vs build — dashboard sends 'chat_mode' on each request. Default
         # 'build' is today's behavior; 'plan' filters tools (legacy path),
         # swaps Claude CLI permission-mode to 'plan' (default path), and
@@ -1569,7 +1694,12 @@ class _ChatHandler(BaseHTTPRequestHandler):
 
         # V6.0: log this interaction to state/empire_state.db so the System
         # Health page sees dashboard chat activity. Best-effort, fire-and-forget.
-        _v6_log_chat_interaction(agent, f"{cli_provider}-chat", _v6_last_user_text(messages))
+        # In proxy mode, tag the kind with the forwarded identity so the audit
+        # trail shows which SunBiz employee + tenant drove the turn.
+        _log_kind = f"{cli_provider}-chat"
+        if bridge_bearer and (tenant_id or user_id):
+            _log_kind = f"{cli_provider}-chat[tenant={tenant_id or '?'},user={user_id or '?'},role={team_role or '?'}]"
+        _v6_log_chat_interaction(agent, _log_kind, _v6_last_user_text(messages))
 
         # Optional Claude Code session id — when present we pass --resume
         # so the agent skips the cold context-load on subsequent turns.
@@ -1699,7 +1829,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
             try:
                 warm_path_succeeded = self._run_chat_via_warm_pool(
                     agent, root, messages, emit, resume_session_id, tab_id,
-                    chat_mode=chat_mode,
+                    chat_mode=chat_mode, disallowed_tools=disallowed_tools,
                 )
             except Exception as e:
                 # Warm path crashed — log to stderr, fall through to cold.
@@ -1715,6 +1845,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
         try:
             self._run_chat_via_claude(
                 agent, root, messages, emit, resume_session_id, chat_mode=chat_mode,
+                disallowed_tools=disallowed_tools,
             )
         except FileNotFoundError as e:
             emit("error", {
@@ -1744,6 +1875,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
         resume_session_id: str | None,
         tab_id: str,
         chat_mode: str = "build",
+        disallowed_tools: list[str] | None = None,
     ) -> bool:
         """Drive a chat turn via a persistent claude subprocess from the
         warm pool. Returns True on success (streamed clean to the client),
@@ -1789,11 +1921,14 @@ class _ChatHandler(BaseHTTPRequestHandler):
             })
             return False
 
-        # Pool key: agent + tab_id (stable for the chat widget's lifetime).
-        # Different tabs get different processes so concurrent operators
-        # don't share context. Tenant isolation comes from the bridge
-        # running per-machine.
-        pool_key = f"{agent}:{tab_id}"
+        # Pool key: agent + tab_id (stable for the chat widget's lifetime) +
+        # a role fingerprint. Different tabs get different processes; the
+        # role_fp ensures a locked-down member's process (spawned with
+        # --disallowed-tools) is NEVER recycled into an owner turn (full
+        # power) or vice-versa. warm_claude_pool.use_or_create also enforces
+        # an exact disallowed_tools equality check on reuse as a second gate.
+        disallowed_tools = disallowed_tools or []
+        pool_key = f"{agent}:{tab_id}:{_role_fingerprint(disallowed_tools)}"
 
         # Pre-stream status so the dashboard knows we're using the warm
         # path (debugging signal — operators have asked "why is this
@@ -1807,6 +1942,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
                 root=root,
                 prompt_text=prompt_text,
                 resume_session_id=resume_session_id,
+                disallowed_tools=disallowed_tools,
             )
         except FileNotFoundError:
             # claude CLI missing — propagate to cold path, which has
@@ -1998,6 +2134,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
                 prompt_text=prompt_text,
                 resume_session_id=resume_session_id,
                 force_api_key=True,
+                disallowed_tools=disallowed_tools,
             )
         except Exception as e:
             print(f"[bridge] auth-fallback respawn failed: {e}", file=sys.stderr)
@@ -2643,6 +2780,7 @@ class _ChatHandler(BaseHTTPRequestHandler):
         emit: Callable[[str, dict], None],
         resume_session_id: str | None = None,
         chat_mode: str = "build",
+        disallowed_tools: list[str] | None = None,
     ) -> None:
         """Spawn `claude --print --output-format=stream-json` and pipe the
         operator's latest message in. Translate stream-json events to the
@@ -2703,6 +2841,15 @@ class _ChatHandler(BaseHTTPRequestHandler):
         # the measured 87% drop in cache_creation_input_tokens (50k → 6.6k).
         # Splice before --resume so resume args (if any) come last.
         args.extend(_warm_chat_lean_args())
+        # Role-based tool gating — the HARD wall. When the proxy forwarded a
+        # disallowed set (non-owner SunBiz employee), Claude Code itself
+        # refuses to invoke these tools; the model literally cannot get a
+        # shell or write files. Empty for owner/admin + CC's localhost path.
+        # Tokens are already sanitized to [A-Za-z]+ by _sanitize_disallowed_tools;
+        # shell=False on the spawn means there's no shell to inject into anyway.
+        disallowed_tools = disallowed_tools or []
+        if disallowed_tools:
+            args.extend(["--disallowed-tools", *disallowed_tools])
         # Latency win: if the dashboard provided a session_id from a prior
         # turn, pass --resume so claude skips cold context-load. First turn
         # mints a new session (claude assigns the id and we surface it via
@@ -2748,6 +2895,12 @@ class _ChatHandler(BaseHTTPRequestHandler):
             # running `claude -p` directly in that repo.
             "CLAUDE_PROJECT_DIR": str(root),
         })
+        # Defense-in-depth: expose the role's denied-tool set to hooks/logging
+        # in the spawned environment. The --disallowed-tools FLAG above is the
+        # actual wall; this env var is informational only (a hook could log or
+        # double-check it, but Claude Code does not read it for gating).
+        if disallowed_tools:
+            env["BRIDGE_DISALLOWED_TOOLS"] = " ".join(disallowed_tools)
 
         # Synthetic status pre-spawn so the dashboard can show "starting Atlas
         # in CFO-Agent…" instantly, before claude's cold start (~10-30s).

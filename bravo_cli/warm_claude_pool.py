@@ -235,6 +235,7 @@ class WarmClaudeProcess:
         first_prompt: str,
         resume_session_id: Optional[str] = None,
         force_api_key: bool = False,
+        disallowed_tools: Optional[list[str]] = None,
     ):
         self.agent = agent
         self.root = root
@@ -250,6 +251,12 @@ class WarmClaudeProcess:
         # (eligible for fallback) or already on the paid API key
         # (no further retry — surface the error).
         self.force_api_key = force_api_key
+        # Role-based denied tools (the bridge passes the proxy-resolved,
+        # sanitized list). Stored so use_or_create() can refuse to reuse a
+        # process whose denial set differs from what the caller now needs —
+        # a member's locked-down process must NEVER be recycled into an owner
+        # turn. Spawned into the claude argv below as --disallowed-tools.
+        self.disallowed_tools: list[str] = list(disallowed_tools or [])
 
         claude_bin = _resolve_claude_bin()
         if not claude_bin:
@@ -281,6 +288,13 @@ class WarmClaudeProcess:
         # measured 87% drop in cache_creation_input_tokens. Splice
         # before --resume so resume args (if any) come last.
         args.extend(chat_lean_args())
+        # Role-based tool gating — the HARD wall for non-owner SunBiz employees.
+        # Claude Code refuses to invoke a denied tool, so a locked-down warm
+        # process literally cannot get a shell / write files. Empty for
+        # owner/admin + CC's localhost path. Tokens were sanitized to [A-Za-z]+
+        # by the bridge before reaching here; spawn is shell=False regardless.
+        if self.disallowed_tools:
+            args.extend(["--disallowed-tools", *self.disallowed_tools])
         if resume_session_id:
             args.extend(["--resume", resume_session_id])
 
@@ -540,6 +554,7 @@ def use_or_create(
     prompt_text: str,
     resume_session_id: Optional[str] = None,
     force_api_key: bool = False,
+    disallowed_tools: Optional[list[str]] = None,
 ) -> WarmClaudeProcess:
     """Either reuse a warm process for this pool_key or spawn a new one.
 
@@ -555,6 +570,7 @@ def use_or_create(
     claude bills per-token instead of using the subscription OAuth token.
     """
     _start_reaper_once()
+    want_disallowed = list(disallowed_tools or [])
 
     with _POOL_LOCK:
         # Sticky API-key flag wins — once a session falls over to paid,
@@ -563,14 +579,21 @@ def use_or_create(
         effective_force_api = force_api_key or pool_key in _FORCED_API_KEY
         existing = _WARM_POOL.get(pool_key)
         if existing and existing.is_alive() and not existing.busy:
-            # Reuse only if the auth mode matches. If the caller is asking
-            # for API-key but the existing process was spawned on
-            # subscription (or vice-versa), kill it and respawn with the
-            # right env.
-            if existing.force_api_key == effective_force_api:
+            # Reuse only if BOTH the auth mode AND the disallowed-tools set
+            # match. The disallowed_tools check is the security gate: a
+            # locked-down member process (e.g. Bash/Write/Edit denied) must
+            # NEVER be handed back to an owner turn (full power), nor an
+            # owner's full process to a member. Same kill+respawn pattern as
+            # the auth-mode-mismatch path. (The role-fingerprinted pool_key
+            # the bridge builds usually prevents collisions upstream; this is
+            # the belt-and-suspenders gate for the exact-key reuse path.)
+            if (
+                existing.force_api_key == effective_force_api
+                and existing.disallowed_tools == want_disallowed
+            ):
                 existing.last_used_at = time.time()
                 return existing
-            existing.kill(reason="auth_mode_mismatch")
+            existing.kill(reason="auth_or_tool_gate_mismatch")
             _WARM_POOL.pop(pool_key, None)
         # Stale or busy — kill (busy means another turn is in flight,
         # but our handler calls one-at-a-time per pool_key so this
@@ -585,6 +608,7 @@ def use_or_create(
             prompt_text,
             resume_session_id,
             force_api_key=effective_force_api,
+            disallowed_tools=want_disallowed,
         )
         _WARM_POOL[pool_key] = wp
         return wp
@@ -604,6 +628,7 @@ def prewarm(
     pool_key: str,
     agent: str,
     root: Path,
+    disallowed_tools: Optional[list[str]] = None,
 ) -> bool:
     """Speculatively spawn a warm process and silently consume the
     initialization turn. After this returns, the pool entry exists,
@@ -648,6 +673,11 @@ def prewarm(
             _PREWARM_PROMPT,
             resume_session_id=None,
             force_api_key=effective_force_api,
+            # Match the role's denial set so the first real turn (which builds
+            # the pool_key with the same role fingerprint AND checks
+            # disallowed_tools equality in use_or_create) can reuse this
+            # prewarmed process instead of cold-spawning a fresh one.
+            disallowed_tools=disallowed_tools,
         )
     except Exception:
         return False
@@ -667,11 +697,24 @@ def prewarm(
 
 
 def kill_for_session(pool_key: str) -> None:
-    """Explicit kill — used by /chat reset / sign-out flows."""
+    """Explicit kill — used by /chat reset / sign-out flows.
+
+    Kills the exact pool_key AND any role-fingerprinted variants. Since the
+    bridge now keys live processes as `{agent}:{tab_id}:{role_fp}` but
+    /chat-reset only knows `{agent}:{tab_id}`, we also reap any entry whose key
+    starts with `{pool_key}:` — otherwise the locked-down member's process
+    would leak past reset until the idle reaper catches it. Exact-key kills
+    (the original behavior) still work because the loop matches the exact key
+    too."""
     with _POOL_LOCK:
-        wp = _WARM_POOL.pop(pool_key, None)
-    if wp:
-        wp.kill(reason="explicit")
+        victims = [
+            k for k in list(_WARM_POOL.keys())
+            if k == pool_key or k.startswith(pool_key + ":")
+        ]
+        procs = [_WARM_POOL.pop(k, None) for k in victims]
+    for wp in procs:
+        if wp:
+            wp.kill(reason="explicit")
 
 
 def pool_status() -> dict:
