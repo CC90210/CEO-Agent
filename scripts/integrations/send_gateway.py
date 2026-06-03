@@ -1743,6 +1743,21 @@ def _send_email_smtp(
 ) -> tuple[bool, Optional[str]]:
     gmail_user = env.get("GMAIL_USER") or env.get("GMAIL_ADDRESS", "")
     gmail_pass = env.get("GMAIL_APP_PASSWORD", "")
+    # Opt-in sender-identity guard. When EMAIL_REQUIRE_FROM_DOMAIN is set (e.g. a
+    # single-tenant SunBiz VPS sets "sunbizfunding.com"), refuse to authenticate as
+    # any account not on that exact domain — so a bridge running with the wrong
+    # local Gmail can never send as the operator's personal address. Unset (the
+    # multi-brand empire default) → no-op. Exact-domain match (rsplit, one "@").
+    require_domain = (env.get("EMAIL_REQUIRE_FROM_DOMAIN") or "").strip().lower()
+    if require_domain:
+        addr = (gmail_user or "").strip().lower()
+        domain = addr.rsplit("@", 1)[1] if "@" in addr else ""
+        if not addr or addr.count("@") != 1 or domain != require_domain:
+            return False, (
+                f"sender-identity guard: GMAIL_USER '{gmail_user or '<unset>'}' is not on the "
+                f"required domain @{require_domain}; refusing to send. Provision the tenant's "
+                f"own Gmail (e.g. submissions@{require_domain}) or unset EMAIL_REQUIRE_FROM_DOMAIN."
+            )
     recipients = [to_email] + list(cc_emails or [])
     ok, err = _smtp_send(gmail_user, gmail_pass, mime, recipients)
     if ok:
