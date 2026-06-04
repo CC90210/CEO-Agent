@@ -1397,6 +1397,53 @@ class _ChatHandler(BaseHTTPRequestHandler):
                 or _read_env_value("LM_STUDIO_BASE_URL").rstrip("/")
                 or "http://localhost:11434/v1"
             )
+        # SSRF guard: /local-chat targets a LOCAL Ollama / LM Studio endpoint.
+        # base_url is caller-influenced, so restrict it to loopback (or an
+        # explicit LOCAL_CHAT_ALLOWED_HOSTS allowlist) over http(s) only —
+        # otherwise a bearer-authenticated caller could pivot the bridge to the
+        # cloud metadata service (169.254.169.254) or internal VPC hosts and
+        # exfiltrate the response through the SSE stream.
+        def _validate_local_base_url(u_str: str):
+            import ipaddress
+            import socket
+            from urllib.parse import urlparse
+            try:
+                u = urlparse(u_str)
+            except Exception:
+                return "invalid base_url"
+            if u.scheme not in ("http", "https"):
+                return "base_url scheme must be http(s)"
+            host = (u.hostname or "").lower()
+            if not host:
+                return "base_url missing host"
+            allow = {
+                h.strip().lower()
+                for h in os.environ.get("LOCAL_CHAT_ALLOWED_HOSTS", "").split(",")
+                if h.strip()
+            }
+            if host == "localhost" or host in allow:
+                return None
+            try:
+                infos = socket.getaddrinfo(
+                    host,
+                    u.port or (443 if u.scheme == "https" else 80),
+                    proto=socket.IPPROTO_TCP,
+                )
+            except Exception:
+                return "base_url host did not resolve"
+            for info in infos:
+                try:
+                    addr = ipaddress.ip_address(info[4][0])
+                except ValueError:
+                    return "base_url resolved to a non-IP address"
+                if not addr.is_loopback:
+                    return "base_url must point at localhost (set LOCAL_CHAT_ALLOWED_HOSTS to override)"
+            return None
+
+        _ssrf_err = _validate_local_base_url(base_url)
+        if _ssrf_err:
+            self._json(400, {"ok": False, "error": _ssrf_err})
+            return
         if not model or not isinstance(messages, list) or not messages:
             self._json(400, {"ok": False, "error": "model + messages required"})
             return
@@ -1673,6 +1720,16 @@ class _ChatHandler(BaseHTTPRequestHandler):
             if not tenant_id or not user_id:
                 self._json(400, {"ok": False, "error": "missing_identity"})
                 return
+            # SERVER-SIDE role floor — never trust the client to RELAX the deny
+            # list. Mirrors oasis lib/role-gates.ts bridgeDisallowedToolsForRole:
+            # only owner/admin get full tools; every other role (incl. unknown /
+            # empty) gets the full mutating set. UNION with the forwarded list so
+            # a crafted request can ADD restrictions but can NEVER remove the role
+            # floor — closes the "send disallowed_tools:[] to unlock Bash" escape.
+            role_floor: list[str] = [] if team_role in ("owner", "admin") else [
+                "Bash", "Write", "Edit", "MultiEdit", "NotebookEdit", "WebFetch",
+            ]
+            disallowed_tools = sorted(set(disallowed_tools) | set(role_floor))
         else:
             # Operator localhost (CC): no proxy, full power. Force the deny
             # list empty regardless of what (if anything) was sent.
