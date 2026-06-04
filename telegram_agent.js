@@ -1330,6 +1330,12 @@ let pollErrorCount = 0;
 let pollConflictCount = 0;
 let pollResumeTimer = null;
 let lastPollOkAt = Date.now();
+// Poll watchdog state (V15.13) — see the watchdog block below the polling_error
+// handler. Tracks consecutive NON-409/401 failures so a wedged retry loop
+// (sleep/wake socket death) triggers a rebuild, then a fresh-process restart.
+let consecutivePollErrors = 0;
+let lastPollErrorAt = 0;
+let watchdogRestartInFlight = false;
 function scheduleResumeAfterConflict() {
     if (pollResumeTimer) return;
     const baseDelays = [60000, 90000, 120000, 180000, 300000];
@@ -1371,13 +1377,57 @@ bot.on('polling_error', (e) => {
         process.exit(1);
         return;
     }
+    // Sustained transient failures (ESOCKETTIMEDOUT after sleep/wake) — the
+    // library auto-retries, but the retry can wedge on a dead socket while the
+    // process stays "online", so PM2 never restarts it. Track consecutive
+    // failures for the watchdog below. (This is the 2026-05-27 4-day outage.)
+    consecutivePollErrors++;
+    lastPollErrorAt = Date.now();
     if (pollErrorCount === 1 || pollErrorCount % 50 === 0) {
-        log(`[POLL] EFATAL: ${msg} (count: ${pollErrorCount})`);
+        log(`[POLL] EFATAL: ${msg} (count: ${pollErrorCount}, consecutive: ${consecutivePollErrors})`);
     }
 });
 // Track successful polls so the conflict counter can reset after sustained
 // healthy polling. node-telegram-bot-api emits 'message' for any update.
-bot.on('message', () => { lastPollOkAt = Date.now(); });
+// Any successful update also means polling is alive → reset the watchdog.
+bot.on('message', () => { lastPollOkAt = Date.now(); consecutivePollErrors = 0; });
+
+// ---- POLL WATCHDOG (V15.13, 2026-06-03) ----
+// node-telegram-bot-api's internal retry can wedge after a sleep/wake cycle:
+// getUpdates keeps failing (ESOCKETTIMEDOUT) but the process stays "online",
+// so PM2's autorestart never fires and the bridge goes dark silently. On
+// 2026-05-27 this left Bravo dead for 4 days. The watchdog escalates on the
+// consecutive-error counter (reset on any successful update):
+//   - no errors for >2min  -> recovered on its own, clear the counter
+//   - >= REBUILD failures   -> tear down + rebuild the polling connection
+//   - >= EXIT failures       -> exit(1) so PM2 spawns a fresh process (new sockets)
+// 409s use their own backoff above and never reach this counter.
+const WATCHDOG_REBUILD_AT = 6;
+const WATCHDOG_EXIT_AT = 18;
+setInterval(async () => {
+    if (consecutivePollErrors === 0) return;
+    if (Date.now() - lastPollErrorAt > 120000) {
+        log(`[WATCHDOG] No polling errors for 2min — polling recovered; clearing counter (was ${consecutivePollErrors}).`);
+        consecutivePollErrors = 0;
+        return;
+    }
+    if (consecutivePollErrors >= WATCHDOG_EXIT_AT) {
+        log(`[WATCHDOG] ${consecutivePollErrors} consecutive polling failures — exiting(1) for a clean PM2 restart with fresh sockets.`);
+        try { await bot.stopPolling(); } catch (_) {}
+        process.exit(1);
+    } else if (consecutivePollErrors >= WATCHDOG_REBUILD_AT && !watchdogRestartInFlight) {
+        watchdogRestartInFlight = true;
+        log(`[WATCHDOG] ${consecutivePollErrors} consecutive polling failures — rebuilding polling connection.`);
+        try {
+            await bot.stopPolling();
+            await bot.startPolling({ restart: true });
+            log('[WATCHDOG] Polling connection rebuilt.');
+        } catch (err) {
+            log(`[WATCHDOG] Rebuild failed: ${err.message || err}; will escalate to exit if failures persist.`);
+        }
+        watchdogRestartInFlight = false;
+    }
+}, 30000);
 
 // Catch unhandled rejections to prevent crash
 process.on('unhandledRejection', (err) => {
