@@ -82,28 +82,115 @@ def normalize_phone(phone: str | None) -> str:
     return digits
 
 
-def should_suppress(email: str) -> bool:
-    """Return True if the email is on the suppression list.
+def _suppression_enforced() -> bool:
+    """True on hosts that MUST treat suppression as authoritative (prod / the
+    SunBiz VPS set CASL_FAIL_CLOSED=1). When True, Supabase is consulted as the
+    source of truth and a host with NO reachable suppression source fails CLOSED.
+    Default False preserves the fast CSV-only dev/test path (no per-send DB call,
+    no behavior change for the existing suite)."""
+    return (os.environ.get("CASL_FAIL_CLOSED", "") or "").strip().lower() in {
+        "1", "true", "yes", "on",
+    }
 
-    Reads from data/email_suppressions.csv. Safe to call on every send —
-    file is small and reads are cheap. Returns False if the file does
-    not exist yet (fail-open, since the file is created on first unsub).
+
+_SUPPRESSION_CLIENT = None
+_SUPPRESSION_CLIENT_INIT = False
+
+
+def _suppression_client():
+    """Cached service-role Supabase client for suppression lookups. Built once
+    from os.environ (the daemon's secret_loader populates BRAVO_SUPABASE_* there,
+    same pattern as send_gateway.get_supabase / funnel_nurture.get_supabase).
+    create_client is offline (no network until a query), so caching is safe.
+    Returns None if creds are absent (dev) — caller falls back to the CSV."""
+    global _SUPPRESSION_CLIENT, _SUPPRESSION_CLIENT_INIT
+    if not _SUPPRESSION_CLIENT_INIT:
+        _SUPPRESSION_CLIENT_INIT = True
+        url = os.environ.get("BRAVO_SUPABASE_URL", "")
+        key = os.environ.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY", "")
+        if url and key:
+            try:
+                from supabase import create_client
+                _SUPPRESSION_CLIENT = create_client(url, key)
+            except Exception:
+                _SUPPRESSION_CLIENT = None
+    return _SUPPRESSION_CLIENT
+
+
+def _db_suppressed(table: str, column: str, value: str) -> Optional[bool]:
+    """Supabase suppression lookup. Returns True/False when the table is
+    reachable, or None when Supabase is unavailable (caller falls back to the
+    CSV). The web unsubscribe endpoint writes to these tables, so on production
+    Supabase — not the local CSV — is the source of truth."""
+    client = _suppression_client()
+    if client is None:
+        return None
+    try:
+        resp = client.table(table).select(column).eq(column, value).limit(1).execute()
+        return bool(getattr(resp, "data", None))
+    except Exception:
+        return None
+
+
+def _csv_contains(csv_path: Path, column: str, value: str, normalize) -> bool:
+    """True only if `value` is actually present in the CSV. NO fail-closed —
+    this is for the WRITE paths' idempotency check, NOT send-time suppression.
+    (should_suppress fail-closes to True on no-source; using it for the add_*
+    dedup would make an unsubscribe during a DB/CSV outage report 'already
+    suppressed' and silently skip persisting the opt-out.)"""
+    if not csv_path.exists():
+        return False
+    try:
+        with open(csv_path, "r", encoding="utf-8", newline="") as f:
+            for row in csv.DictReader(f):
+                if normalize(row.get(column, "")) == value:
+                    return True
+    except Exception:
+        return False
+    return False
+
+
+def should_suppress(email: str) -> bool:
+    """Return True if the email must NOT be sent to.
+
+    On production hosts (CASL_FAIL_CLOSED=1) the Supabase ``email_suppressions``
+    table is the source of truth — that's where the web unsubscribe endpoint
+    records opt-outs the local CSV can't see. The CSV is a cache/fallback. On
+    dev hosts the fast CSV-only path is kept.
+
+    Fail-CLOSED: empty recipient, a read error, OR (on production) no reachable
+    suppression source at all → suppress. The prior version returned False
+    (fail-OPEN) when the CSV was merely missing — a CASL exposure.
     """
     normalized = _normalize_email(email)
     if not normalized:
         return True  # empty email = suppress
-    if not SUPPRESSIONS_CSV.exists():
-        return False
-    try:
-        with open(SUPPRESSIONS_CSV, "r", encoding="utf-8", newline="") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                if _normalize_email(row.get("email", "")) == normalized:
-                    return True
-    except Exception:
-        # Fail CLOSED on read errors — safer to miss a send than violate CASL
+
+    enforced = _suppression_enforced()
+
+    # 1. Supabase source of truth (production only — avoids a per-send DB call
+    #    on dev/test where CASL_FAIL_CLOSED is unset).
+    db_state: Optional[bool] = (
+        _db_suppressed("email_suppressions", "email", normalized) if enforced else None
+    )
+    if db_state is True:
         return True
-    return False
+
+    # 2. Local CSV cache / fallback.
+    if SUPPRESSIONS_CSV.exists():
+        try:
+            with open(SUPPRESSIONS_CSV, "r", encoding="utf-8", newline="") as f:
+                for row in csv.DictReader(f):
+                    if _normalize_email(row.get("email", "")) == normalized:
+                        return True
+        except Exception:
+            return True  # fail CLOSED on read error
+        return False
+
+    # 3. No CSV. On a production host with no reachable DB either, fail CLOSED.
+    if enforced and db_state is None:
+        return True
+    return False  # dev fast-path: no suppression source materialized yet
 
 
 def add_suppression(email: str, reason: str = "unsubscribe") -> bool:
@@ -112,8 +199,8 @@ def add_suppression(email: str, reason: str = "unsubscribe") -> bool:
     normalized = _normalize_email(email)
     if not normalized:
         return False
-    if should_suppress(normalized):
-        return True  # already suppressed
+    if _csv_contains(SUPPRESSIONS_CSV, "email", normalized, _normalize_email):
+        return True  # already in the local list — idempotent no-op
     SUPPRESSIONS_CSV.parent.mkdir(parents=True, exist_ok=True)
     header_needed = not SUPPRESSIONS_CSV.exists() or SUPPRESSIONS_CSV.stat().st_size == 0
     with open(SUPPRESSIONS_CSV, "a", encoding="utf-8", newline="") as f:
@@ -133,16 +220,29 @@ def should_suppress_phone(phone: str | None) -> bool:
     normalized = normalize_phone(phone)
     if not normalized:
         return True
-    if not PHONE_SUPPRESSIONS_CSV.exists():
+
+    enforced = _suppression_enforced()
+
+    # 1. Supabase source of truth (production only).
+    db_state: Optional[bool] = (
+        _db_suppressed("phone_suppressions", "phone", normalized) if enforced else None
+    )
+    if db_state is True:
+        return True
+
+    # 2. Local CSV cache / fallback.
+    if PHONE_SUPPRESSIONS_CSV.exists():
+        try:
+            with open(PHONE_SUPPRESSIONS_CSV, "r", encoding="utf-8", newline="") as f:
+                for row in csv.DictReader(f):
+                    if normalize_phone(row.get("phone", "")) == normalized:
+                        return True
+        except Exception:
+            return True  # fail CLOSED on read error
         return False
-    try:
-        with open(PHONE_SUPPRESSIONS_CSV, "r", encoding="utf-8", newline="") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                if normalize_phone(row.get("phone", "")) == normalized:
-                    return True
-    except Exception:
-        # Fail CLOSED on read errors. Better to skip one SMS than violate STOP.
+
+    # 3. No CSV. On a production host with no reachable DB either, fail CLOSED.
+    if enforced and db_state is None:
         return True
     return False
 
@@ -162,8 +262,8 @@ def add_phone_suppression(
     normalized = normalize_phone(phone)
     if not normalized:
         return
-    if should_suppress_phone(normalized):
-        return
+    if _csv_contains(PHONE_SUPPRESSIONS_CSV, "phone", normalized, normalize_phone):
+        return  # already in the local DNC list — idempotent no-op
     PHONE_SUPPRESSIONS_CSV.parent.mkdir(parents=True, exist_ok=True)
     header_needed = (
         not PHONE_SUPPRESSIONS_CSV.exists()
