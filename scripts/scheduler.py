@@ -53,6 +53,18 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 PYTHON = sys.executable  # Use same Python that's running this script
 
+# Boot-blast suppression (2026-06-06): when CC's PC has been off, the
+# scheduler comes back to a backlog of cron rows whose next_run_at is hours
+# old. Without this guard, every due job fires in sequence — CC gets
+# bombarded with Telegram briefs the moment he turns his computer on.
+#
+# Policy: if a job's next_run_at is more than this many minutes behind, skip
+# the execution and just advance next_run_at to the next legitimate slot.
+# The job picks back up on its normal schedule. 30 min = "we'll still catch
+# a job whose previous tick was delayed by a real cause, but anything older
+# is from a PC-off / hibernation window we don't want to replay."
+STALE_FIRE_THRESHOLD_MINUTES = 30
+
 # Action types that were retired but whose handlers are kept as no-op stubs
 # (see execute_job dispatch). On startup, the orphan-cron self-check warns
 # if any cron_jobs row still uses one of these — a 39-day silent-pings
@@ -776,8 +788,41 @@ def run_nurture_check(env_vars: dict) -> str:
 
 
 def run_monthly_snapshot(env_vars: dict) -> str:
-    """Log monthly metrics snapshot."""
-    return run_script("revenue_engine.py", ["--json", "mrr"])
+    """Log monthly metrics snapshot.
+
+    Previously returned the raw JSON dump from revenue_engine.py --json mrr,
+    which the scheduler wrapper truncated to 200 chars and posted to
+    Telegram on the 1st of each month — CC ended up with a mangled blob like
+    `{"stripe_mrr": 180.0, "manual_mrr": 191.0, "total_mrr": 371.0,
+    "stripe_subs": [{"subscription_id": "sub_1T7j6...` in his chat.
+    Hideous and impossible to act on.
+
+    New behavior (2026-06-06): still run the engine (so the snapshot is
+    captured in last_result for auditing), but parse the JSON and return a
+    one-line human-readable summary. CC sees "Monthly snapshot: $371 MRR
+    (Stripe $180 + manual $191) · 2 active subs" instead of raw JSON.
+    """
+    raw = run_script("revenue_engine.py", ["--json", "mrr"])
+    if not raw or not raw.strip().startswith("{"):
+        return f"ERROR: monthly snapshot returned non-JSON: {raw[:200] if raw else 'empty'}"
+    if raw.startswith("FAILED"):
+        return f"ERROR: monthly snapshot {raw[:300]}"
+    try:
+        data = json.loads(raw)
+    except (json.JSONDecodeError, TypeError) as exc:
+        return f"ERROR: monthly snapshot JSON parse failed: {exc}"
+
+    stripe_mrr = float(data.get("stripe_mrr", 0) or 0)
+    manual_mrr = float(data.get("manual_mrr", 0) or 0)
+    total_mrr = float(data.get("total_mrr", stripe_mrr + manual_mrr) or 0)
+    subs = data.get("stripe_subs") or []
+    active_subs = sum(1 for s in subs if isinstance(s, dict) and s.get("status") == "active")
+
+    return (
+        f"Monthly snapshot: ${total_mrr:,.0f} MRR "
+        f"(Stripe ${stripe_mrr:,.0f} + manual ${manual_mrr:,.0f}) · "
+        f"{active_subs} active sub{'s' if active_subs != 1 else ''}"
+    )
 
 
 def run_email_inbox_check(env_vars: dict) -> str:
@@ -887,9 +932,52 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
 
     log(f"Found {len(due_jobs)} due job(s)")
 
+    now_dt = datetime.now(timezone.utc)
+    stale_cutoff = now_dt - timedelta(minutes=STALE_FIRE_THRESHOLD_MINUTES)
+
     for job in due_jobs:
         job_id = job["id"]
         job_name = job.get("name", "unknown")
+
+        # Boot-blast suppression. If this job's next_run_at is older than
+        # the staleness threshold, the scheduler was almost certainly off
+        # while this slot expired — don't replay it now (would spam CC's
+        # Telegram on PC boot). Just advance to the next legitimate slot
+        # and skip the execute. The job picks up normally on the next
+        # real schedule.
+        next_run_at_str = job.get("next_run_at")
+        if next_run_at_str:
+            try:
+                # Tolerate both "...Z" and "...+00:00" trailers (older rows
+                # written with isoformat() use the latter).
+                next_run_at_dt = datetime.fromisoformat(
+                    next_run_at_str.replace("Z", "+00:00")
+                )
+            except (ValueError, TypeError):
+                next_run_at_dt = None
+            if next_run_at_dt and next_run_at_dt < stale_cutoff:
+                # Stale: skip + reschedule. Don't touch run_count (no real
+                # run happened) but advance next_run_at + log so the audit
+                # tape shows the skip.
+                skipped_next = calculate_next_run(job.get("schedule", ""))
+                age_min = int((now_dt - next_run_at_dt).total_seconds() / 60)
+                log(
+                    f"  SKIPPED stale: {job_name} (next_run_at was "
+                    f"{age_min} min behind, > {STALE_FIRE_THRESHOLD_MINUTES} min threshold) "
+                    f"-> next run: {skipped_next[:19]}"
+                )
+                try:
+                    client.table("cron_jobs").update({
+                        "next_run_at": skipped_next,
+                        "last_result": (
+                            f"skipped-stale: next_run_at was {age_min} min behind threshold "
+                            f"({STALE_FIRE_THRESHOLD_MINUTES} min) — PC was likely off when "
+                            f"this slot expired"
+                        )[:500],
+                    }).eq("id", job_id).execute()
+                except Exception as skip_exc:  # noqa: BLE001
+                    log(f"  [warn] failed to advance next_run_at for stale skip: {skip_exc}")
+                continue
 
         # Execute the job
         result_msg = execute_job(job, env_vars)
