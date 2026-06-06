@@ -77,31 +77,41 @@ except Exception:
 
 
 def _client():
-    """Service-role Supabase client. Returns None on any failure (with stderr breadcrumb)."""
+    """Service-role Supabase client. Returns None on any failure.
+
+    Each return-None path emits both a stderr breadcrumb (for `pm2 logs`
+    tails) AND a structured-log error event (for queryable post-mortems
+    via state/logs/event_router.log). The dual-write matches the
+    `tick_failed` pattern in loop().
+    """
+    def _fail(step: str, err: str) -> None:
+        sys.stderr.write(f"[event_router/_client] {step}: {err}\n")
+        _slog.error("client_unavailable", step=step, error=err[:200])
+
     try:
         from lib.secret_loader import load_env
     except Exception as e:
-        sys.stderr.write(f"[event_router/_client] secret_loader import failed: {e}\n")
+        _fail("secret_loader_import", str(e))
         return None
     try:
         env = load_env()
     except Exception as e:
-        sys.stderr.write(f"[event_router/_client] load_env failed: {type(e).__name__}: {e}\n")
+        _fail("load_env", f"{type(e).__name__}: {e}")
         return None
     url = (env.get("BRAVO_SUPABASE_URL") or "").strip()
     key = (env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "").strip()
     if not url or not key:
-        sys.stderr.write("[event_router/_client] BRAVO_SUPABASE_URL or _SERVICE_ROLE_KEY missing/empty in env\n")
+        _fail("env_missing", "BRAVO_SUPABASE_URL or _SERVICE_ROLE_KEY missing/empty")
         return None
     try:
         from supabase import create_client
     except ImportError as e:
-        sys.stderr.write(f"[event_router/_client] supabase import failed: {e}\n")
+        _fail("supabase_import", str(e))
         return None
     try:
         return create_client(url, key)
     except Exception as e:
-        sys.stderr.write(f"[event_router/_client] create_client failed: {type(e).__name__}: {e}\n")
+        _fail("create_client", f"{type(e).__name__}: {e}")
         return None
 
 
