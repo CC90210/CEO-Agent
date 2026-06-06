@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-05-28T21:34:53.591451+00:00",
-  "script_count": 85,
-  "entry_count": 225,
+  "generated_at_iso": "2026-06-06T04:03:57.530810+00:00",
+  "script_count": 91,
+  "entry_count": 235,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -499,6 +499,22 @@
       "subcmd": null,
       "mutating": false,
       "help": "Email-safety diagnostic \u2014 verifies the multi-AI safety surface is intact."
+    },
+    {
+      "key": "enrich_oasis_leads_audit",
+      "path": "scripts/enrich_oasis_leads.py",
+      "root": "bravo",
+      "subcmd": "audit",
+      "mutating": false,
+      "help": "enrich_oasis_leads.py \u2014 fill missing phone + first name on OASIS leads. \u2014 subcommand: audit"
+    },
+    {
+      "key": "enrich_oasis_leads_run",
+      "path": "scripts/enrich_oasis_leads.py",
+      "root": "bravo",
+      "subcmd": "run",
+      "mutating": true,
+      "help": "enrich_oasis_leads.py \u2014 fill missing phone + first name on OASIS leads. \u2014 subcommand: run"
     },
     {
       "key": "financial_model_unit_economics",
@@ -1037,6 +1053,14 @@
       "help": "Proposal Generator \u2014 OASIS AI Solutions \u2014 subcommand: templates"
     },
     {
+      "key": "provision_secrets",
+      "path": "scripts/provision_secrets.py",
+      "root": "bravo",
+      "subcmd": null,
+      "mutating": false,
+      "help": "provision_secrets.py \u2014 materialize a tenant's integration secrets onto this host."
+    },
+    {
       "key": "pulse_publish_refresh",
       "path": "scripts/pulse_publish.py",
       "root": "bravo",
@@ -1509,6 +1533,30 @@
       "help": "SunBiz Funding \u2014 Production-Grade Gmail Email Blast Engine"
     },
     {
+      "key": "enrich_leads_audit",
+      "path": "scripts/enrich_leads.py",
+      "root": "sunbiz",
+      "subcmd": "audit",
+      "mutating": false,
+      "help": "enrich_leads.py \u2014 Google Sheets lead-enrichment workflow tool. \u2014 subcommand: audit"
+    },
+    {
+      "key": "enrich_leads_writeback",
+      "path": "scripts/enrich_leads.py",
+      "root": "sunbiz",
+      "subcmd": "writeback",
+      "mutating": false,
+      "help": "enrich_leads.py \u2014 Google Sheets lead-enrichment workflow tool. \u2014 subcommand: writeback"
+    },
+    {
+      "key": "enrich_leads_status",
+      "path": "scripts/enrich_leads.py",
+      "root": "sunbiz",
+      "subcmd": "status",
+      "mutating": false,
+      "help": "enrich_leads.py \u2014 Google Sheets lead-enrichment workflow tool. \u2014 subcommand: status"
+    },
+    {
       "key": "follow_up_generator_loop",
       "path": "scripts/follow_up_generator.py",
       "root": "sunbiz",
@@ -1613,6 +1661,30 @@
       "help": "migrate_leads_to_tenant_records.py"
     },
     {
+      "key": "no_contact_24h_monitor_loop",
+      "path": "scripts/no_contact_24h_monitor.py",
+      "root": "sunbiz",
+      "subcmd": "loop",
+      "mutating": false,
+      "help": "no_contact_24h_monitor.py \u2014 Build 1: active-deal 24h-no-contact follow-up. \u2014 subcommand: loop"
+    },
+    {
+      "key": "no_contact_24h_monitor_once",
+      "path": "scripts/no_contact_24h_monitor.py",
+      "root": "sunbiz",
+      "subcmd": "once",
+      "mutating": false,
+      "help": "no_contact_24h_monitor.py \u2014 Build 1: active-deal 24h-no-contact follow-up. \u2014 subcommand: once"
+    },
+    {
+      "key": "populate_sunbiz_lender_catalog",
+      "path": "scripts/populate_sunbiz_lender_catalog.py",
+      "root": "sunbiz",
+      "subcmd": null,
+      "mutating": false,
+      "help": "populate_sunbiz_lender_catalog.py \u2014 load the SOP-curated SunBiz lender"
+    },
+    {
       "key": "reconcile_sunbiz_sequences",
       "path": "scripts/reconcile_sunbiz_sequences.py",
       "root": "sunbiz",
@@ -1675,6 +1747,14 @@
       "subcmd": null,
       "mutating": false,
       "help": "Sun Biz Agent setup script."
+    },
+    {
+      "key": "setup_check",
+      "path": "scripts/setup_check.py",
+      "root": "sunbiz",
+      "subcmd": null,
+      "mutating": false,
+      "help": "setup_check.py \u2014 SunBiz Day-1 readiness gate."
     },
     {
       "key": "shop_out_sender_once",

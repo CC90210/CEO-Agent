@@ -39,7 +39,7 @@ _ACCENT_FADE = "#0f1830"
 # Inlining as base64 would push the email past Gmail's 102KB clip
 # threshold; remote URL is the standard approach used by every modern
 # transactional-email provider.
-_LOGO_URL = "https://oasisai.work/images/oasis-logo.jpg"
+_LOGO_URL = "https://oasisai.work/oasis-logo.jpg"
 
 # Pre-built star field — 25 stars at deterministic positions across the
 # header band. SVG inlined as a data: URL so it ships in the HTML and
