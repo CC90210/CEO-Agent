@@ -1,8 +1,8 @@
 # VPS Finalization Prompt — close the gap from 65% → 100%
 
-> Paste between the triple-dashes into a Claude Code session running ON
-> the SunBiz VPS (`ssh root@srv1723601`, then `claude`). The agent runs
-> through CC's decisions on the readiness-report blockers and ships.
+> Paste everything between the triple-dashes into your VPS Claude Code
+> chat. The agent runs through CC's decisions on the readiness-report
+> blockers and ships. No SSH-from-Windows needed.
 
 ---
 

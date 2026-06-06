@@ -1,9 +1,9 @@
 # VPS Diagnostic Prompt — SunBiz Portal Health Check
 
-> Paste everything between the triple-dashes into a Claude Code session
-> running ON THE VPS (`ssh root@srv1723601`, then `claude`). The agent
-> will diagnose every layer of the SunBiz portal, fix what it can safely,
-> and report what needs your attention.
+> Paste everything between the triple-dashes into your VPS Claude Code
+> chat. The agent will diagnose every layer of the SunBiz portal, fix
+> what it can safely, and report what needs your attention. No
+> SSH-from-Windows needed.
 
 ---
 

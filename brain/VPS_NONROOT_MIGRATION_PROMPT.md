@@ -1,10 +1,10 @@
 # VPS Non-Root Migration Prompt
 
-> Paste between the triple-dashes into a Claude Code session running ON
-> the SunBiz VPS (`ssh root@srv1723601`, then `claude`). The agent
-> migrates the bridge + SunBiz daemons from running as root to running
-> as a dedicated non-root `sunbiz` user — the optimization that closes
-> Blocker 6 from the prior pass.
+> Paste everything between the triple-dashes into your VPS Claude Code
+> chat. The agent migrates the bridge + SunBiz daemons from running as
+> root to running as a dedicated non-root `sunbiz` user — the
+> optimization that closes Blocker 6 from the prior pass. No
+> SSH-from-Windows needed.
 >
 > **Why this is optional:** chat works today as root via cold-spawn at
 > ~$0.20/turn. The migration is a cost/latency win (warm pool wakes

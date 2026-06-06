@@ -1,10 +1,10 @@
 # VPS AI-CLI Bypass-Permissions Setup
 
-> Paste everything between the triple-dashes into a Claude Code session
-> running ON THE SunBiz VPS (`ssh root@srv1723601`, then `claude`). The
-> agent installs/configures Claude Code, Codex CLI, and Gemini CLI to
-> default to auto-approve so future AI sessions can do extensive work
-> without pausing for permissions.
+> Paste everything between the triple-dashes into your VPS Claude Code
+> chat. The agent installs/configures Claude Code, Codex CLI, and
+> Gemini CLI to default to auto-approve so future AI sessions can do
+> extensive work without pausing for permissions. No SSH-from-Windows
+> needed.
 >
 > Idempotent: re-run any time. Safe — config-only, no production state.
 
