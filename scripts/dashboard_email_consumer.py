@@ -168,6 +168,19 @@ def _fetch_queued(sb, *, limit: int = 25) -> list[dict]:
 
 
 def _build_message(row: dict, gmail_from: str) -> MIMEMultipart:
+    """Build a multipart/alternative email with BOTH plain-text + OASIS-branded HTML.
+
+    2026-06-06: previously this attached only the plain-text part, so every
+    drawer-queued check-in arrived unbranded — CC's complaint after
+    shipping the new LeadActionToolbar. send_gateway has had the OASIS
+    branding for months via scripts/email_template.render_branded_html;
+    we delegate to the same function so every send surface ships the
+    same visual brand.
+
+    The plain-text part stays attached as the alternative — clients that
+    strip HTML still see the body, and the multipart/alternative ordering
+    (text first, html second) means Gmail prefers HTML when available.
+    """
     subject = (row.get("subject") or "").strip() or "(no subject)"
     body = (row.get("content") or row.get("content_preview") or "").strip()
     to_email = (row.get("to_email") or "").strip()
@@ -175,7 +188,24 @@ def _build_message(row: dict, gmail_from: str) -> MIMEMultipart:
     msg["From"] = gmail_from
     msg["To"] = to_email
     msg["Subject"] = subject
+
+    # Plain-text part (always attached — fallback for HTML-blocking clients)
     msg.attach(MIMEText(body, "plain", "utf-8"))
+
+    # OASIS-branded HTML part. Import is lazy + best-effort so a missing
+    # email_template module degrades to plain-text-only rather than
+    # failing the send.
+    try:
+        from email_template import render_branded_html  # type: ignore
+        html_body = render_branded_html(body, subject=subject, show_booking=False)
+        msg.attach(MIMEText(html_body, "html", "utf-8"))
+    except Exception as exc:  # noqa: BLE001
+        # Log but don't fail — recipient will see the plain-text body.
+        print(
+            f"[dashboard_email_consumer] OASIS branding failed (sending plain only): {exc}",
+            file=sys.stderr,
+        )
+
     return msg
 
 
