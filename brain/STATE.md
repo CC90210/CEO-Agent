@@ -4,7 +4,7 @@ tags: [state, ephemeral]
 
 # STATE — Current Operational State
 
-> Updated 2026-05-21 (cleanup pass complete — see [memory/CLEANUP_2026-05-21_SUMMARY](../memory/CLEANUP_2026-05-21_SUMMARY.md)) | **V6 OPTIMIZATION PROJECT — 100% COMPLETE.** Apex Phases 1-3 shipped 2026-05-10. V6.1 scaffolding mechanism + V6.0.3 polish + V6.0 foundation all intact. Self-audit health: 97/100 (`python scripts/core/self_audit.py`). Counts are auto-emitted by self_audit and the MANIFEST block at the bottom of this file — do NOT hardcode them in the header.
+> Updated 2026-06-06 (system re-engineering pass — tmp/ 6 GB→5 MB, retriever_postedit silent-failure fixed, 3 hygiene crons added, 5 entry points re-synced; see [memory/ACTIVE_TASKS#system-re-engineering-2026-06-06](../memory/ACTIVE_TASKS.md)) | **V6 OPTIMIZATION PROJECT — 100% COMPLETE.** Apex Phases 1-3 shipped 2026-05-10. V6.1 scaffolding mechanism + V6.0.3 polish + V6.0 foundation all intact. Self-audit health: 97/100 (`python scripts/core/self_audit.py`). Counts are auto-emitted by self_audit and the MANIFEST block at the bottom of this file — do NOT hardcode them in the header.
 >
 > **V6 Apex (2026-05-10 — closes the V6 architecture epic):**
 >   - **Phase 1** — `/api/state-health` two-tier read path: state-api passthrough preferred, Supabase mirror fallback for Vercel. The page renders a `via state-api` / `via supabase-mirror` tag so operators see which side served the payload.

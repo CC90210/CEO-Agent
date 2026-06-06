@@ -20,9 +20,9 @@ freshness_threshold_days: 90
 | Bravo uses 5-entry-point architecture: CLAUDE.md (Claude Code), AGENTS.md (Codex/Cursor/OpenCode-GPT), GEMINI.md (Gemini CLI), ANTIGRAVITY.md (Antigravity IDE), OPENCODE.md (OpenCode terminal). All converge on `brain/AGENT_ROUTER.md`. | 0.95 | All 5 files synced 2026-05-06 | 2026-05-06 |
 | All entry points share `brain/`, `memory/`, `.env.agents` — single source of truth for identity + state | 0.95 | Confirmed across the V6.1 finalization audit | 2026-05-06 |
 | Identity is model-driven, not tool-driven. Claude/big-pickle = Bravo; GPT/Codex = Codex backend executor; Gemini/other = honest model name + read-only default | 0.95 | AGENTS.md lines 13-15 canonical | 2026-05-06 |
-| Supabase MCP for Claude Code: use `npx @supabase/mcp-server-supabase` in `.claude/mcp.json` (not HTTP plugin) | 0.90 | Working since 2026-02-28 | 2026-02-28 |
+| Supabase MCP for Claude Code: use `npx @supabase/mcp-server-supabase` in `.claude/mcp.json` (not HTTP plugin) | 0.90 | Working since 2026-02-28; still current in .claude/mcp.json | 2026-06-06 |
 | Supabase projects: Bravo (agent DB + business ops, 28 tables), nostalgic-requests, oasis-ai-platform — all us-west-2 | 0.95 | self_audit confirms via supabase_tool list-projects | 2026-05-06 |
-| Supabase orgs: CC (oktipozhyojufxsytrse), oasis-ai-platform (sajanpiqysuwviucycjh) | 0.95 | Confirmed | 2026-02-28 |
+| Supabase orgs: CC (oktipozhyojufxsytrse), oasis-ai-platform (sajanpiqysuwviucycjh) | 0.95 | Confirmed | 2026-06-06 |
 | PowerShell `>` redirection produces UTF-16LE which breaks Node parsers — use `Out-File -Encoding utf8` instead | 0.95 | Permanent OS quirk | 2026-05-06 |
 | X/Twitter has 280 character limit (including spaces, URLs, mentions) | 0.95 | Permanent API limit | 2026-05-06 |
 | Outbound chokepoint: every email/DM goes through `scripts/integrations/send_gateway.py` (CASL + cooldown + caps + draft critic + DNS doctor). Direct `smtplib` calls from engines = regression. | 0.95 | V5.6 architecture, 48 tests green | 2026-05-06 |
