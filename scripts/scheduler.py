@@ -1076,6 +1076,24 @@ def check_and_run_due_jobs(client, env_vars: dict[str, str]):
             # The handler intentionally returns this prefix so CC isn't
             # poked every Saturday/Sunday with a "powwow skipped" note.
             "quiet-day:",
+            # 2026-06-06: Daily MRR Auto-Sync prints
+            # "sync_mrr [no-op] ..." when MRR didn't change since
+            # yesterday — that's the routine case (most days). CC only
+            # cares when it CHANGES (the [CHANGED] prefix is not in the
+            # routine list, so those notify normally).
+            "sync_mrr [no-op]",
+            "sync_mrr [DRY-RUN]",
+            # 2026-06-06: Daily State DB Backup prints "[OK] {...}" on
+            # success. Routine — only failures should notify CC.
+            "  [OK]",
+            # 2026-06-06: skipped-stale results from Phase 1.4 — the
+            # scheduler's own boot-blast guard advances next_run_at but
+            # doesn't fire the handler. No reason to notify CC about
+            # the skip.
+            "skipped-stale:",
+            # 2026-06-06: Bravo Sleep Agent output is structured
+            # "[bravo_sleep] wrote N, skipped M ..." — routine.
+            "[bravo_sleep]",
             # Generic empty-result signals
             "no content due",
             "no leads",

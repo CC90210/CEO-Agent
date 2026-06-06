@@ -142,7 +142,13 @@ SEED_JOBS: list[dict] = [
         "description": "Compute MRR via revenue_engine + upsert user_profiles.mrr_current_usd + mrr_snapshots row",
         "schedule": "30 6 * * *",
         "action_type": "script_run",
-        "action_config": {"script": "scripts/core/sync_mrr.py", "args": ["--json"]},
+        # 2026-06-06: dropped --json from args. With --json the script prints
+        # an indented JSON block whose last stdout line is just "}" — the
+        # scheduler wrapper grabs that as last_result and CC saw "Daily MRR
+        # Auto-Sync: }" in Telegram. Non-JSON output is a single human line
+        # ("sync_mrr [no-op] ...: $371 -> $371 ..."). The action handler's
+        # last_result is now the readable summary.
+        "action_config": {"script": "scripts/core/sync_mrr.py", "args": []},
         "is_active": True,
     },
     {
