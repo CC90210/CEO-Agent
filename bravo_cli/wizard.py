@@ -2464,7 +2464,7 @@ def step_v6_init(profile: str, step_num: int, total: int) -> None:
                         cwd=str(REPO_ROOT),
                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=WINDOWLESS_FLAGS)
 
-    mr_script = REPO_ROOT / "scripts" / "memory_retriever.py"
+    mr_script = REPO_ROOT / "scripts" / "core" / "memory_retriever.py"
     if mr_script.exists():
         if profile != "sunbiz":
             print(f"  {DIM('Building FTS5 retrieval index (')}{CYAN('state/memory_index.db')}{DIM(')...')}")

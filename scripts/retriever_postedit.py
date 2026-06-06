@@ -66,7 +66,7 @@ def main() -> int:
         kwargs["start_new_session"] = True
     try:
         subprocess.Popen(
-            [sys.executable, str(PROJECT_ROOT / "scripts" / "memory_retriever.py"), "update"],
+            [sys.executable, str(PROJECT_ROOT / "scripts" / "core" / "memory_retriever.py"), "update"],
             **kwargs,
         )
     except (OSError, TypeError):
