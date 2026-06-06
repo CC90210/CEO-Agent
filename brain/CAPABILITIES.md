@@ -772,6 +772,40 @@ These are registered in Claude Code's native skill system with proper frontmatte
 - [[skills/mcp-operations/SKILL]] | [[skills/browser-automation/SKILL]]
 - [[skills/auto-generated/SKILL]] — V6.0 runtime-synthesized skill container
 
+## VPS Operator Helpers
+
+Paste-into-Claude-Code prompts for operating the SunBiz Funding VPS (`ssh root@srv1723601`). Idempotent, config-only — safe to re-run.
+
+- [[brain/VPS_BYPASS_PERMISSIONS_SETUP]] — Configure Claude Code / Codex / Gemini CLI for auto-approve defaults so VPS sessions can do extensive work without permission prompts.
+- [[brain/VPS_DIAGNOSTIC_PROMPT]] — Full SunBiz portal health check — layered diagnostic that fixes what it can safely and reports what needs CC's attention.
+
+## Operational & Maintenance Scripts
+
+Top-level `scripts/` entries that aren't surfaced under a major capability above. Most are CLI tools, cron handlers, or PM2 daemons; some are codemods used during maintenance passes. Listed here so they're discoverable + `self_audit.py` doesn't flag them as undocumented.
+
+| Script | One-liner | Invocation type |
+|---|---|---|
+| `scripts/add_future_annotations.py` | Add `from __future__ import annotations` to Python files that use PEP 604 syntax | codemod (manual) |
+| `scripts/auto_score_leads.py` | Auto-score OASIS leads — daily cron handler | cron (`auto_score_leads`) |
+| `scripts/bravo_sleep.py` | Nightly memory consolidation by an LLM judge | cron (Bravo Sleep Agent) |
+| `scripts/conftest.py` | pytest conftest — adds scripts/ to sys.path so bare imports resolve in tests | pytest infrastructure |
+| `scripts/daily_brief.py` | AI-narrated morning summary to CC's Telegram | cron (`daily_brief`) |
+| `scripts/dashboard_email_consumer.py` | Dashboard outbound-email consumer daemon | PM2 (`dashboard-email-consumer`) |
+| `scripts/email_template.py` | Single canonical OASIS AI branded HTML email template | library (imported by send/funnel scripts) |
+| `scripts/enrich_oasis_leads.py` | Fill missing phone + first name on OASIS leads | CLI (manual) |
+| `scripts/ensure_cockpit.py` | Ensure the Bravo Console cockpit terminal is alive | SessionStart hook |
+| `scripts/generate_changelog.py` | Generate a conventional-commits → CHANGELOG.md draft from `git log` | CLI (manual) |
+| `scripts/oasis_embed_server.py` | OASIS Town V6 Apex Phase 3 — embedding + retrieval bridge for the agent sim | server (on-demand) |
+| `scripts/provision_client_tenant.py` | Provision a client tenant in Supabase (auth user, role, manifest seed) | CLI (onboarding) |
+| `scripts/provision_secrets.py` | Materialize a tenant's integration secrets onto this host | CLI (onboarding) |
+| `scripts/quest_publisher.py` | Publish memory/ACTIVE_TASKS.md tasks to Supabase `oasis_quests` table | CLI (`publish` / `loop`) |
+| `scripts/run_sql_via_mgmt_api.py` | One-shot — run a SQL file against oasis via the Supabase Management API | CLI (DBA) |
+| `scripts/schedule_helpers.py` | Local-time cron parsing + quiet-day awareness | library (cron_engine + scheduler) |
+| `scripts/security_audit.py` | Empire-wide security audit — seven independent scans, one report | CLI (manual / deploy gate) |
+| `scripts/set_secret.py` | Safely set keys in `.env.agents` without an editor | CLI (manual) |
+| `scripts/smoke_n8n_inbound_rpc.py` | End-to-end smoke test for the n8n inbound bridge | CLI (manual) |
+| `scripts/wiki_link_auditor.py` | Audit broken Obsidian `[[wikilinks]]` in brain/ and memory/ | CLI (manual) |
+
 ## Manifest
 
 <!-- MANIFEST:BEGIN -->

@@ -54,3 +54,4 @@ tags: [workflows, index, hub]
 - [[.agents/workflows/evolve]] — Pattern promotion
 - [[.agents/workflows/retro]] — Weekly retrospective
 - [[.agents/workflows/n8n]] — n8n workflow management
+- [[.agents/workflows/v6-hardening]] — V6 production hardening execution plan (CI tests, state file accuracy, doc drift, git hygiene)
