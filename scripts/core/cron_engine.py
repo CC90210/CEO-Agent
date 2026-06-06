@@ -258,6 +258,44 @@ SEED_JOBS: list[dict] = [
     # entire exec_override approval-request system. exec_guard still blocks
     # destructive commands; it just doesn't create DB rows asking for human
     # approval. The block itself IS the protection.
+    {
+        # Added 2026-06-06 (Phase 4 of system re-engineering). After the
+        # one-shot tmp/ purge that recovered 6.0 GB, this keeps tmp/ bounded.
+        # Allowlist preserves pm2-*.log, events_offline.jsonl, *.lock*, *.pid,
+        # *.heartbeat, *.env. Anything else >30 days old gets purged.
+        "name": "Weekly tmp/ Hygiene",
+        "description": "Sunday 03:00 ET — purge orphan files in tmp/ older than 30 days. Allowlists active lock/log/env files. Recovered 6.0 GB on the initial run; this prevents drift back to that state.",
+        "schedule": "0 3 * * SUN",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/utilities/tmp_hygiene.py", "args": ["--apply", "--json"]},
+        "is_active": True,
+    },
+    {
+        # Added 2026-06-06. Belt-and-braces over the SessionStart-fired
+        # rotate_logs.py (12h idempotency). If CC goes a few days without
+        # opening a session, this still keeps state/*.log under 5 MB.
+        # --force bypasses the 12h stamp; rotation itself only fires on
+        # files that exceeded MAX_BYTES, so daily runs are cheap when idle.
+        "name": "Daily Log Rotation Audit",
+        "description": "Daily 04:00 ET — force-run rotate_logs.py to keep state/*.log under 5 MB even when SessionStart hasn't fired in days. Discovered 2026-06-06: secret_access.log had reached 16 MB unrotated.",
+        "schedule": "0 4 * * *",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/hooks/rotate_logs.py", "args": ["--force"]},
+        "is_active": True,
+    },
+    {
+        # Added 2026-06-06. event_bus.publish() writes to tmp/events_offline.jsonl
+        # when Supabase is unreachable. Without a drain job, queued events
+        # sit forever — observable cross-agent state silently degrades.
+        # Every 10 min is a sweet spot: low cost when queue is empty, fast
+        # recovery after an outage.
+        "name": "Event Bus Offline Drain",
+        "description": "Every 10 min — replay tmp/events_offline.jsonl into Postgres agent_events. Drains the V6 Apex offline-fallback queue so transient Supabase outages don't lose cross-agent events.",
+        "schedule": "*/10 * * * *",
+        "action_type": "script_run",
+        "action_config": {"script": "scripts/core/event_bus.py", "args": ["drain"]},
+        "is_active": True,
+    },
 ]
 
 

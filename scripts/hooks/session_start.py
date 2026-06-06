@@ -113,6 +113,30 @@ def _staleness_summary() -> str:
     return f"{len(items)} memory files stale (>7 days). Run `memory_aging.py stale` for details."
 
 
+def _event_router_freshness() -> str:
+    """Warn if the V6 Apex event_router cursor hasn't advanced in >7 days.
+
+    Silent observability: if event-router stalls, no error fires — the queue
+    just stops draining. This check surfaces that gap at SessionStart so the
+    operator notices before the gap costs them anything. Returns "" on
+    healthy cursor; a single-line warning string otherwise.
+    """
+    cursor = STATE_DIR / "event_router.cursor"
+    if not cursor.exists():
+        return ""
+    try:
+        age_days = (datetime.now(timezone.utc).timestamp() - cursor.stat().st_mtime) / 86400
+    except OSError:
+        return ""
+    if age_days < 7:
+        return ""
+    return (
+        f"event_router cursor idle {int(age_days)}d — last advance "
+        f"{datetime.fromtimestamp(cursor.stat().st_mtime, tz=timezone.utc).date().isoformat()}. "
+        f"`pm2 logs event-router` to investigate."
+    )
+
+
 def main() -> int:
     try:
         _ = json.load(sys.stdin) if not sys.stdin.isatty() else {}
@@ -123,6 +147,7 @@ def main() -> int:
     state = _state_summary()
     inbox = _inbox_summary()
     stale = _staleness_summary()
+    router_idle = _event_router_freshness()
 
     parts: list[str] = []
     if state:
@@ -131,6 +156,8 @@ def main() -> int:
         parts.append(f"## Agent Inbox (to: bravo)\n{inbox}")
     if stale:
         parts.append(f"## Memory Staleness\n{stale}")
+    if router_idle:
+        parts.append(f"## Event Router\n{router_idle}")
 
     if not parts:
         print(json.dumps({}))
