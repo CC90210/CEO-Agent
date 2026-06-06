@@ -1,68 +1,49 @@
-# How to push the VPS-merged branches
+# VPS — push the merged branches (paste-ready prompt)
 
-> The prior agent merged its `fix/vps-readiness-patches` branch into
-> `main` LOCALLY on the VPS but didn't push to GitHub (its scope rule
-> says agents don't push from the VPS). This 30-second doc walks you
-> through doing it yourself.
->
-> You only need this once after the finalization pass. Future agent
-> rounds will push from CC's PC after a diff review.
+> Paste the block between the triple-dashes into the Claude Code session
+> running ON the SunBiz VPS. No SSH-from-Windows needed — CC stays in
+> his usual VPS chat and the VPS agent does the work.
 
-## What you're pushing
+## What this does
 
-Two repos on the VPS have merged changes that GitHub doesn't see yet:
+Two repos on the VPS have local merges that GitHub doesn't see yet:
 
-- `/srv/sunbiz/ceo-agent` (mirrors `CC90210/CEO-Agent` — Bravo / shared substrate)
-- `/srv/sunbiz/sunbiz-agent` (mirrors `CC90210/SunBiz-Agent` — Solara / Helios daemons)
+- `/srv/sunbiz/ceo-agent` (mirrors `CC90210/CEO-Agent`)
+- `/srv/sunbiz/sunbiz-agent` (mirrors `CC90210/SunBiz-Agent`)
 
-The merges from `fix/vps-readiness-patches` are sitting on `main` on
-the VPS only. After you push, GitHub catches up + your PC sees the
-same code state.
+The VPS agent pushes both, confirms GitHub caught up, reports back.
 
-## Steps
+## Paste into VPS Claude Code
 
-### 1. SSH to the VPS
+---
 
-```
-ssh root@srv1723601
-```
+You are a Claude Code agent on CC's SunBiz Funding VPS. A prior
+finalization pass merged its `fix/vps-readiness-patches` branch into
+`main` LOCALLY on two repos but didn't push to GitHub. Your job: push
+both, verify, report. Strictly SunBiz scope — touch nothing else.
 
-(Or whatever your SSH command is — same one you used to run the
-diagnostic / finalization prompts.)
+## Step 1 — Push CEO-Agent
 
-### 2. Push CEO-Agent
-
-```
+```bash
 cd /srv/sunbiz/ceo-agent
-```
-
-Quick sanity check — see what's about to go up:
-
-```
 git fetch origin
 git status --short
 git log --oneline origin/main..main
 ```
 
-You should see:
-- `git status` clean (no uncommitted changes)
-- `git log` showing 1+ commits ahead of origin/main — these are the
-  finalization-pass merges
+Expect: `git status` clean, `git log` shows ≥1 commit ahead. Then:
 
-If both look right:
-
-```
+```bash
 git push origin main
 ```
 
-Expect a `main -> main` line. If git asks for credentials, paste your
-GitHub Personal Access Token (the one tied to the
-`CC90210/users.noreply.github.com` identity — same one Vercel checks
-for the auto-deploy gate).
+If git asks for credentials, the PAT is already in
+`~/.git-credentials` or `/root/.git-credentials`. If it isn't, STOP
+and tell CC — don't paste tokens around.
 
-### 3. Push SunBiz-Agent
+## Step 2 — Push SunBiz-Agent
 
-```
+```bash
 cd /srv/sunbiz/sunbiz-agent
 git fetch origin
 git status --short
@@ -70,47 +51,33 @@ git log --oneline origin/main..main
 git push origin main
 ```
 
-Same shape as CEO-Agent.
+## Step 3 — Verify
 
-### 4. Confirm from your PC
-
-Back in your PC's terminal:
-
-```
-git -C C:/Users/User/CEO-Agent fetch origin && git -C C:/Users/User/CEO-Agent log --oneline -5
-git -C C:/Users/User/SunBiz-Agent fetch origin && git -C C:/Users/User/SunBiz-Agent log --oneline -5
+```bash
+cd /srv/sunbiz/ceo-agent && git log --oneline origin/main..main   # expect EMPTY
+cd /srv/sunbiz/sunbiz-agent && git log --oneline origin/main..main  # expect EMPTY
 ```
 
-You should see the VPS commits in both repos' history.
+Both empty = origin caught up.
 
-### 5. (Optional) Pull on your PC so your local copies match
+## Step 4 — Report back to CC
 
-```
-git -C C:/Users/User/CEO-Agent pull --ff-only origin main
-git -C C:/Users/User/SunBiz-Agent pull --ff-only origin main
-```
+Tell CC:
+- Which commits were pushed (the SHAs from step 1+2's `git log`)
+- Whether the verify pass came back empty for both
+- Anything weird (auth prompt, rebase needed, push rejected)
 
-If `--ff-only` errors out because your local commits diverged, run
-`git status` on that repo and resolve before pulling. CC's standing
-rule: never `git reset --hard` without flagging — those local commits
-might be unpushed work you want to keep.
+If push was rejected with `non-fast-forward`: STOP. Don't `pull
+--rebase` blindly — that means someone else pushed during your window.
+Report to CC and wait for the call on how to reconcile.
 
-## If git push fails
+---
 
-| Symptom | Cause | Fix |
-|---|---|---|
-| `fatal: Authentication failed` | GitHub PAT not configured | Set up the same Vercel-recognized identity: `git config user.email "214530671+CC90210@users.noreply.github.com"` per-repo, then `git config --global credential.helper store` and paste the PAT once. |
-| `! [rejected]        main -> main (non-fast-forward)` | Someone else pushed to origin/main while VPS was working | This shouldn't happen if you're the only operator. If it did: `git pull --rebase origin main` then re-push. STOP and report if the rebase has conflicts. |
-| `error: failed to push some refs` (other) | Network blip or GitHub outage | Retry. If repeated, check status.github.com. |
+## What happens after
 
-## Once everything's pushed
-
-Vercel auto-deploys oasis-command-center from `main`. CEO-Agent and
-SunBiz-Agent don't auto-deploy (no Vercel project) — the VPS pulls
-them on its next git ops cycle, but since the VPS already has the
-code (it's where the merges were made), nothing else needs to fire.
-
-You can then move on to the rest of the punch list:
-- Twilio / Anthropic credential paste (Monday meeting per your note)
-- Optional non-root migration (brain/VPS_NONROOT_MIGRATION_PROMPT.md)
-- Try the new intake features (resume link + smarter dedup + fuzzy match)
+- Vercel auto-deploys `oasis-command-center` from `main` (already current).
+- CEO-Agent + SunBiz-Agent have no Vercel project — code is already
+  running on the VPS, push just syncs GitHub.
+- CC's Windows-side clones (`C:/Users/User/CEO-Agent`,
+  `C:/Users/User/SunBiz-Agent`) will fetch the new commits on the next
+  Bravo session via `git fetch origin`.
