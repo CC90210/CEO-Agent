@@ -104,9 +104,25 @@ DEFAULT_OPENROUTER_MODEL = os.environ.get(
 MAX_TURNS = 8                  # safety cap — read_file tool calls per chat turn
 MAX_FILE_BYTES = 200_000       # don't blow context with megabyte files
 ALLOWED_ORIGINS = [
+    # Vercel canonical preview / alias URLs the dashboard serves under.
     "https://agent-dashboard-cc90210.vercel.app",
+    "https://agent-dashboard-sigma-eight.vercel.app",
+    "https://agent-dashboard-git-main-cc90210.vercel.app",
+    # Production custom domain — without this, anything browser-to-localhost
+    # (chat, exec-tool, env/set, prewarm, chat-reset) 403s with
+    # origin_not_allowed when the operator visits the production URL,
+    # since the Origin header is "https://oasisai.work".
+    "https://oasisai.work",
     "http://localhost:3100",
 ]
+# Operator-controlled extension. Comma-separated list. Useful when CC
+# adds a new alias (sunbiz.oasisai.work, a personal subdomain, etc) and
+# wants to avoid editing this file + redeploying the bridge.
+_extra_origins = (os.environ.get("BRIDGE_EXTRA_ALLOWED_ORIGINS") or "").strip()
+if _extra_origins:
+    ALLOWED_ORIGINS = ALLOWED_ORIGINS + [
+        s.strip() for s in _extra_origins.split(",") if s.strip()
+    ]
 
 
 def _env_files() -> list[Path]:
