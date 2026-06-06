@@ -26,6 +26,10 @@ from __future__ import annotations
 
 import csv
 import os
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from pathlib import Path
 from typing import Optional
 
@@ -86,27 +90,152 @@ def normalize_phone(phone: str | None) -> str:
     return digits
 
 
-def should_suppress(email: str) -> bool:
+# ----------------------------------------------------------------------------
+# Supabase suppression read path (2026-06-06 — closes the /unsubscribe loop)
+# ----------------------------------------------------------------------------
+#
+# Before today should_suppress() only checked data/email_suppressions.csv.
+# After shipping /unsubscribe on the agent-dashboard the new
+# email_suppressions Supabase table became the authoritative store for
+# web-form unsubscribes (per-tenant, per-brand, CASL s. 6 scoped). The
+# CSV stays in place for legacy inbound STOP detection on email/SMS;
+# should_suppress now consults BOTH so a web unsub silences future
+# sends even when the operator hasn't replicated the row into the CSV.
+#
+# In-process cache: 60s TTL keyed on (email, tenant_id, brand). Drip
+# runners call should_suppress() hundreds of times per minute during a
+# campaign; without caching the Supabase REST hop would dominate latency
+# and burn through the Vercel-side rate limit on the service role key.
+#
+# Fail-open on Supabase errors: if the REST call fails (network blip,
+# bad credentials, table missing), we fall through to the CSV check.
+# CSV-read errors still fail-CLOSED per the existing behaviour — that
+# path is local-disk and "we lost our suppression list" is a serious
+# CASL hazard, while a transient Supabase outage isn't.
+
+_SUPPRESSION_CACHE: dict[str, tuple[bool, float]] = {}
+_SUPPRESSION_CACHE_TTL = 60.0  # seconds
+
+
+def _cache_key(email: str, tenant_id: Optional[str], brand: Optional[str]) -> str:
+    return f"{email}|{tenant_id or ''}|{brand or ''}"
+
+
+def _check_supabase_suppression(
+    email: str,
+    tenant_id: Optional[str],
+    brand: Optional[str],
+) -> Optional[bool]:
+    """Query the Supabase email_suppressions table.
+
+    Returns True if a matching row is found, False if the table has no
+    match, or None when the query couldn't run (credentials missing,
+    network error, etc.). Callers treat None as "fall through to CSV."
+    """
+    url = os.environ.get("BRAVO_SUPABASE_URL")
+    key = os.environ.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY")
+    if not url or not key:
+        return None
+    # Match rows where email matches AND tenant_id matches (or is global
+    # NULL) AND brand matches (or is global NULL). NULL on either column
+    # is the "global" suppression — always wins. PostgREST `or=` lets us
+    # express each OR-with-NULL in one round trip.
+    try:
+        encoded_email = urllib.parse.quote(email, safe="@")
+        tenant_filter = (
+            f"&or=(tenant_id.is.null,tenant_id.eq.{urllib.parse.quote(tenant_id)})"
+            if tenant_id
+            else "&tenant_id=is.null"
+        )
+        brand_filter = (
+            f"&or=(brand.is.null,brand.eq.{urllib.parse.quote(brand)})"
+            if brand
+            else ""
+            # When no brand supplied, we accept any brand-scope match
+            # (existing callers don't know the sender brand yet —
+            # they're legacy paths from before the per-brand schema).
+        )
+        query_url = (
+            f"{url.rstrip('/')}/rest/v1/email_suppressions"
+            f"?email=eq.{encoded_email}{tenant_filter}{brand_filter}"
+            f"&select=tenant_id,brand&limit=1"
+        )
+        req = urllib.request.Request(
+            query_url,
+            headers={
+                "apikey": key,
+                "Authorization": f"Bearer {key}",
+                "Accept": "application/json",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=4) as resp:
+            import json
+            rows = json.loads(resp.read() or b"[]")
+        return bool(rows)
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError, OSError):
+        return None
+
+
+def should_suppress(
+    email: str,
+    tenant_id: Optional[str] = None,
+    brand: Optional[str] = None,
+) -> bool:
     """Return True if the email is on the suppression list.
 
-    Reads from data/email_suppressions.csv. Safe to call on every send —
-    file is small and reads are cheap. Returns False if the file does
-    not exist yet (fail-open, since the file is created on first unsub).
+    Sources, in order: in-process cache → Supabase email_suppressions
+    table → data/email_suppressions.csv. Supabase fail-opens to CSV;
+    CSV read errors still fail-CLOSED (we suppress, since losing the
+    list is the worse CASL hazard).
+
+    Args:
+        email: The recipient address (case-insensitive).
+        tenant_id: Optional tenant UUID. If supplied, the Supabase check
+            matches global (tenant_id IS NULL) OR same-tenant rows.
+            When omitted, only global suppressions match — preserves
+            backward compat with existing callers like email_engine.
+        brand: Optional brand label (e.g. "OASIS AI", "SunBiz"). When
+            supplied, the Supabase check narrows to rows whose `brand`
+            is NULL (global) OR matches — enforces CASL s. 6 per-sender
+            scoping (a SunBiz unsub does not silence OASIS AI sends).
+
+    Backward compatible: existing callers like should_suppress(email)
+    continue to work unchanged.
     """
     normalized = _normalize_email(email)
     if not normalized:
         return True  # empty email = suppress
+
+    ck = _cache_key(normalized, tenant_id, brand)
+    cached = _SUPPRESSION_CACHE.get(ck)
+    now = time.time()
+    if cached and cached[1] > now:
+        return cached[0]
+
+    # 1. Supabase check (authoritative for web unsubs; fail-open).
+    sb = _check_supabase_suppression(normalized, tenant_id, brand)
+    if sb is True:
+        _SUPPRESSION_CACHE[ck] = (True, now + _SUPPRESSION_CACHE_TTL)
+        return True
+
+    # 2. CSV fallback (legacy + inbound STOP detection).
     if not SUPPRESSIONS_CSV.exists():
+        _SUPPRESSION_CACHE[ck] = (False, now + _SUPPRESSION_CACHE_TTL)
         return False
     try:
         with open(SUPPRESSIONS_CSV, "r", encoding="utf-8", newline="") as f:
             reader = csv.DictReader(f)
             for row in reader:
                 if _normalize_email(row.get("email", "")) == normalized:
+                    _SUPPRESSION_CACHE[ck] = (True, now + _SUPPRESSION_CACHE_TTL)
                     return True
     except Exception:
-        # Fail CLOSED on read errors — safer to miss a send than violate CASL
+        # Fail CLOSED on CSV read errors — safer to miss a send than violate CASL.
+        # Do NOT cache the closed result — a transient disk error shouldn't
+        # poison the next 60s of sends.
         return True
+
+    _SUPPRESSION_CACHE[ck] = (False, now + _SUPPRESSION_CACHE_TTL)
     return False
 
 
