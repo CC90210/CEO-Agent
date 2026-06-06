@@ -59,15 +59,17 @@ def main() -> int:
     }
     if os.name == "nt":
         DETACHED_PROCESS = 0x00000008
-        kwargs["creationflags"] = DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+        kwargs["creationflags"] = (
+            DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP | WINDOWLESS_FLAGS
+        )
     else:
         kwargs["start_new_session"] = True
     try:
         subprocess.Popen(
             [sys.executable, str(PROJECT_ROOT / "scripts" / "memory_retriever.py"), "update"],
             **kwargs,
-         creationflags=WINDOWLESS_FLAGS)
-    except OSError:
+        )
+    except (OSError, TypeError):
         pass
     return 0
 
