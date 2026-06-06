@@ -1641,8 +1641,11 @@ def _send_sms_via_provider(
         # api.twilio.com/2010-04-01/Accounts/<sid>/Messages.json with
         # basic auth (sid + auth token). We don't need the Twilio SDK
         # for this single call.
-        sid = (env.get("TWILIO_ACCOUNT_SID") or "").strip()
-        token = (env.get("TWILIO_AUTH_TOKEN") or "").strip()
+        # SunBiz finalization (Blocker 5): the SunBiz tenant standardised on the
+        # SUNBIZ_TWILIO_* namespace; prefer it, fall back to the unprefixed keys
+        # so legacy/multi-brand callers don't crash mid-roll-out.
+        sid = (env.get("SUNBIZ_TWILIO_ACCOUNT_SID") or env.get("TWILIO_ACCOUNT_SID") or "").strip()
+        token = (env.get("SUNBIZ_TWILIO_AUTH_TOKEN") or env.get("TWILIO_AUTH_TOKEN") or "").strip()
         # Per-brand phone-number selection (CC has multi-brand setup —
         # oasis / nostalgic / conaugh_mckenna). Operators set
         # TWILIO_FROM_NUMBER_OASIS, TWILIO_FROM_NUMBER_NOSTALGIC, etc.,
@@ -1651,7 +1654,8 @@ def _send_sms_via_provider(
         # single-brand operators keep working without an env tweak.
         brand_upper = (brand or "").upper().replace("-", "_")
         from_number = (
-            env.get(f"TWILIO_FROM_NUMBER_{brand_upper}")
+            env.get("SUNBIZ_TWILIO_FROM_NUMBER")
+            or env.get(f"TWILIO_FROM_NUMBER_{brand_upper}")
             or env.get("TWILIO_FROM_NUMBER")
             or env.get("TWILIO_PHONE_NUMBER")
             or ""
@@ -2411,7 +2415,10 @@ def send(
         if explicit in ("texttorrent", "twilio", "kixie"):
             provider_choice = explicit
         else:
-            has_twilio = bool((env.get("TWILIO_ACCOUNT_SID") or "").strip() and (env.get("TWILIO_AUTH_TOKEN") or "").strip())
+            has_twilio = bool(
+                (env.get("SUNBIZ_TWILIO_ACCOUNT_SID") or env.get("TWILIO_ACCOUNT_SID") or "").strip()
+                and (env.get("SUNBIZ_TWILIO_AUTH_TOKEN") or env.get("TWILIO_AUTH_TOKEN") or "").strip()
+            )
             has_tt = bool((env.get("TEXTTORRENT_API_KEY") or "").strip())
             has_kixie = bool((env.get("KIXIE_API_KEY") or "").strip() and (env.get("KIXIE_BUSINESS_ID") or "").strip())
             # Auto-detect: route to the ONLY configured provider when
