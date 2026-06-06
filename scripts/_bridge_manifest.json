@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-06-06T04:41:13.957580+00:00",
-  "script_count": 91,
-  "entry_count": 235,
+  "generated_at_iso": "2026-06-06T04:56:54.336057+00:00",
+  "script_count": 90,
+  "entry_count": 234,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1379,14 +1379,6 @@
       "subcmd": null,
       "mutating": false,
       "help": "smoke_n8n_inbound_rpc.py \u2014 end-to-end smoke test for the n8n inbound bridge."
-    },
-    {
-      "key": "test_send_gateway",
-      "path": "scripts/test_send_gateway.py",
-      "root": "bravo",
-      "subcmd": null,
-      "mutating": true,
-      "help": "Tests for the V5.6 + reasoning-loop stack."
     },
     {
       "key": "tft_forecast_build_dataset",
