@@ -130,11 +130,11 @@ Three projects added to formal routing (APP_REGISTRY + APPS_CONTEXT):
 
 ## Last Heartbeat
 
-- **Date:** 2026-05-29
+- **Date:** 2026-06-06
 - **Agent:** BRAVO via Claude Code (claude-opus-4-6"              # Lead architect (Bravo))
-- **Result:** Shipped SunBiz Phases 1-5: per-user agent rename, employee-scoped deals, per-user Gmail OAuth (Codex review + hardening + chokepoint refactor). 4 commits across oasis-command-center + CEO-Agent. Migration 077 RLS-harden pending manual SQL-editor apply.
+- **Result:** System re-engineering pass: tmp/ 6 GB→5 MB, archived 2 legacy scripts, fixed retriever_postedit Windows TypeError, added 3 hygiene crons + event-router cursor freshness check, corrected CLAUDE.md inventory drift
 
-*Last updated: 2026-05-29*
+*Last updated: 2026-06-06*
 
 ## Manifest
 
