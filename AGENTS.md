@@ -320,9 +320,9 @@ Closes the discoverability + governance gap. V6.0–V6.7 built the substrate; V6
 ## Inventory (synced 2026-06-06)
 
 - **Skills:** 149 active (11 archived in `skills/_archive/`) — graph-registered with frontmatter
-- **Python scripts:** 115 top-level under `scripts/` (215 total inc. subpackages). 2 one-shot reconciliation scripts archived to `scripts/_archive/experimental/` 2026-06-06.
+- **Python scripts:** 115 top-level under `scripts/` (218 total inc. subpackages, excluding `_archive/` and `__pycache__/`). 2 one-shot reconciliation scripts archived to `scripts/_archive/experimental/` 2026-06-06.
 - **MCP servers:** 13 unique across configs — 9 in `.claude/mcp.json` (sequential-thinking, playwright, context7, memory, github, firecrawl, obsidian, filesystem, knowledge-graph) + 4 additional in `enabledMcpjsonServers` (supabase, n8n-mcp, stripe, late). Cross-machine sync still authoritative via `scripts/audit_mcp_secrets.py MCP_CONFIG_PATHS` (11 paths).
 - **Subagents:** 8 in `.claude/agents/`
 - **Workflows:** 35 in `.agents/workflows/`
-- **Cron jobs:** 18 in `cron_engine.py SEED_JOBS` after the 2026-06-06 self-maintenance pass added Weekly tmp/ Hygiene + Daily Log Rotation Audit + Event Bus Offline Drain. Run `python scripts/core/cron_engine.py seed` to push new jobs into Supabase `cron_jobs`.
+- **Cron jobs:** 20 in `cron_engine.py SEED_JOBS` after the 2026-06-06 self-maintenance pass added Weekly tmp/ Hygiene + Daily Log Rotation Audit + Event Bus Offline Drain. Pushing to Supabase `cron_jobs` is a production-scheduling mutation — `python scripts/core/cron_engine.py seed` should be run only after CC reviews the new entries.
 - **MRR Goal:** $5,000 USD Net MRR by June 18, 2026 (extended 2026-05-18 from May 30)
