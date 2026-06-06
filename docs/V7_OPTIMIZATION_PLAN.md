@@ -28,7 +28,7 @@ Per CC's 2026-06-06 decision, V7 structural work is paused while the team execut
 
 CEO-Agent is a production-grade autonomous AI operations hub with 187 Python scripts, 153 skill directories, 60 SQL migrations, 15 subagent definitions, and a mature V6 architecture (SQLite WAL state, FTS5+LanceDB hybrid retrieval, hook-fenced execution, secret isolation). The architecture is sound; the gaps are **organizational** and **operational**.
 
-**Six optimization epics** will transform this from "impressive but messy" to "turnkey foundation anyone can build on":
+**Seven optimization epics** will transform this from "impressive but messy" to "turnkey foundation anyone can build on":
 
 | Epic | Impact | Effort | Risk |
 |---|---|---|---|
@@ -38,6 +38,7 @@ CEO-Agent is a production-grade autonomous AI operations hub with 187 Python scr
 | 4. Dead code & directory cleanup | Low | Low | None |
 | 5. Import system & package structure | High | Low | Medium |
 | 6. Turnkey deployment hardening | High | Medium | Low |
+| 7. Loud Failures (silent-failure observability) — added 2026-06-06 | High | Medium | Low |
 
 ---
 
@@ -1059,12 +1060,18 @@ EPIC 2 (CI/CD + Tests)     → Depends on EPIC 1 — tests reference new paths
 EPIC 3 (State Hygiene)     → Independent — can run in parallel with EPIC 1
 EPIC 4 (Dead Code Cleanup) → Independent — can run in parallel with EPIC 1
 EPIC 6 (Deploy Hardening)  → Depends on EPIC 1, 2, 3 — needs stable structure
+EPIC 7 (Loud Failures)     → Independent of EPIC 1 — only needs lib/subprocess_helpers (exists).
+                             Highest leverage post-freeze given the 2026-06-06 audit findings;
+                             should run FIRST when freeze lifts.
 
-RECOMMENDED ORDER:
-  Week 1: EPIC 5 + EPIC 4 (parallel)
-  Week 2: EPIC 1 (scripts reorg)
-  Week 3: EPIC 2 (CI/CD + tests)
-  Week 4: EPIC 3 + EPIC 6 (parallel)
+RECOMMENDED ORDER (revised 2026-06-06):
+  Sprint 1 (post-freeze, first): EPIC 7 (Loud Failures) — closes the silent-failure
+                                 observability gap before further structural moves can
+                                 hide new ones
+  Sprint 2: EPIC 5 + EPIC 4 (parallel)
+  Sprint 3: EPIC 1 (scripts reorg — surgical 50, no shims per CC 2026-06-06)
+  Sprint 4: EPIC 2 (CI/CD + tests)
+  Sprint 5: EPIC 3 + EPIC 6 (parallel)
 ```
 
 ---
@@ -1091,7 +1098,13 @@ RECOMMENDED ORDER:
 - [ ] brain/CAPABILITIES.md updated
 - [ ] brain/QUICK_REFERENCE.md updated
 - [ ] memory/SESSION_LOG.md updated with change summary
-- [ ] `python scripts/state_sync.py --note "V7.0 structural optimization complete"`
+- [ ] `python scripts/state/state_sync.py --note "V7.0 structural optimization complete"`
+- [ ] **EPIC 7:** `python scripts/admin/system_health.py --strict` returns exit 0 on current state
+- [ ] **EPIC 7:** path-drift detector flags a deliberately-renamed dependency
+- [ ] **EPIC 7:** PM2 path audit flags a deliberate `pm_exec_path` mismatch
+- [ ] **EPIC 7:** "Loud Failures Weekly Probe" cron registered in `SEED_JOBS`
+- [ ] **EPIC 7:** zero direct `subprocess.Popen`/`subprocess.run` calls in production code outside `lib/subprocess_helpers.py` (sweep clean)
+- [ ] **EPIC 7:** no `except Exception: ...; return None` swallows in production code without a `_slog.error(...)` breadcrumb (sweep clean)
 
 ---
 
@@ -1113,15 +1126,20 @@ RECOMMENDED ORDER:
 ```
 You are an AI coding agent (Codex / Claude Code) executing the V7.0 Structural Optimization Plan for CEO-Agent.
 
-CRITICAL RULES:
-1. Follow the execution order exactly: EPIC 5 → EPIC 4 → EPIC 1 → EPIC 2 → EPIC 3 → EPIC 6
+CRITICAL RULES (revised 2026-06-06):
+1. Follow the execution order exactly: EPIC 7 → EPIC 5 → EPIC 4 → EPIC 1 → EPIC 2 → EPIC 3 → EPIC 6
 2. Use `git mv` for ALL file moves to preserve history
-3. Create backward-compat shims for EVERY moved file
-4. Run `pytest tests/ -x` after EVERY phase — do not proceed if tests fail
+3. EPIC 1: do NOT create backward-compat shims (per CC 2026-06-06). Surgical move of ~50 canonical
+   scripts only; single-PR import audit; long-tail utilities stay at `scripts/` root.
+4. Run `pytest scripts/tests/ -x` after EVERY phase — do not proceed if tests fail. Tests live at
+   `scripts/tests/` (not repo-root `tests/`).
 5. Update brain/STATE.md and memory/SESSION_LOG.md after every phase
-6. Never break existing functionality — shims first, then move
+6. Never break existing functionality — for EPIC 1, this means grep-verify zero broken imports
+   before the move commit lands.
 7. If any phase fails, stop and report to CC before proceeding
 8. Do NOT commit changes unless CC explicitly asks you to
+9. EPIC 7 first: closes the silent-failure observability gap so subsequent epics can't silently
+   break things during the reorg.
 
 STARTING POINT:
 - Read this entire plan file first
