@@ -41,6 +41,14 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+# sys.path setup MUST happen before importing anything under `lib.*` — otherwise
+# the auto-added scripts/core/ on sys.path[0] doesn't expose lib/, the first
+# `from lib.X import Y` fails, and Python's import-state cache makes every
+# subsequent `from lib.Y import Z` fail too (the silent "Supabase client
+# unavailable" bug debugged 2026-06-06).
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
+
 # V6.8.3 structured logging — JSON-shaped error/state events go to
 # state/logs/{module}.log alongside stderr. Falls back to a stub on
 # import error so this daemon never fails just because the lib isn't
@@ -56,10 +64,6 @@ except Exception:
         def critical(self, *_a, **_k): pass
     _slog = _StubSlog()
 
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
-
 STATE_DIR = PROJECT_ROOT / "state"
 LOG_PATH = STATE_DIR / "event_router.log"
 CURSOR_PATH = STATE_DIR / "event_router.cursor"
@@ -73,26 +77,31 @@ except Exception:
 
 
 def _client():
-    """Service-role Supabase client. Returns None on any failure."""
+    """Service-role Supabase client. Returns None on any failure (with stderr breadcrumb)."""
     try:
         from lib.secret_loader import load_env
-    except Exception:
+    except Exception as e:
+        sys.stderr.write(f"[event_router/_client] secret_loader import failed: {e}\n")
         return None
     try:
         env = load_env()
-    except Exception:
+    except Exception as e:
+        sys.stderr.write(f"[event_router/_client] load_env failed: {type(e).__name__}: {e}\n")
         return None
     url = (env.get("BRAVO_SUPABASE_URL") or "").strip()
     key = (env.get("BRAVO_SUPABASE_SERVICE_ROLE_KEY") or "").strip()
     if not url or not key:
+        sys.stderr.write("[event_router/_client] BRAVO_SUPABASE_URL or _SERVICE_ROLE_KEY missing/empty in env\n")
         return None
     try:
         from supabase import create_client
-    except ImportError:
+    except ImportError as e:
+        sys.stderr.write(f"[event_router/_client] supabase import failed: {e}\n")
         return None
     try:
         return create_client(url, key)
-    except Exception:
+    except Exception as e:
+        sys.stderr.write(f"[event_router/_client] create_client failed: {type(e).__name__}: {e}\n")
         return None
 
 

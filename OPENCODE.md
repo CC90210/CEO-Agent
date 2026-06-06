@@ -32,13 +32,13 @@ Classify CC's message before doing anything else. Most messages don't need the p
 
 - **Conversational / vibe** ("wsp", "yo", "hi", "thanks", an emoji) → respond in 1 line. **Zero file reads. Zero tool calls.**
 - **Quick Q answerable from current context** → answer directly. Read a file ONLY if you'd otherwise have to guess.
-- **Operational request** (build, fix, send, deploy, debug, route, "show me", anything action-shaped) → THEN consult the Pre-flight below.
+- **Operational request** (build, fix, send, deploy, debug, route, "show me", anything action-shaped) → THEN consult the Boot Directive below.
 
 Default to the lighter path. Over-eager file-reads on a casual message waste seconds and CC's patience.
 
 ---
 
-## Pre-flight (lazy-load via the RAG router)
+## Boot Directive (lazy-load via the RAG router)
 
 **Boot with this file only.** Everything below loads on demand — only when Triage above says the message demands it.
 
