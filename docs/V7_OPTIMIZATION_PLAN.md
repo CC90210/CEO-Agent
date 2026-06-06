@@ -1,10 +1,26 @@
 # V7.0 STRUCTURAL OPTIMIZATION PLAN
 
-> **Generated:** 2026-05-21
+> **Generated:** 2026-05-21 · **Last revised:** 2026-06-06
 > **Author:** Bravo (Lead Architect)
 > **Target Executor:** Codex / Claude Code / any AI coding agent
-> **Scope:** File structure reorganization, CI/CD pipeline, test coverage expansion, LanceDB compaction, dead directory cleanup, import system solidification, turnkey deployment hardening
+> **Scope:** File structure reorganization, CI/CD pipeline, test coverage expansion, LanceDB compaction, dead directory cleanup, import system solidification, turnkey deployment hardening, **silent-failure observability (EPIC 7, added 2026-06-06)**
 > **Risk Level:** Medium — structural changes, guarded by migration-style execution
+
+---
+
+## ⛔ STATUS: FROZEN until $5K MRR hit (target 2026-06-18, 12 days out as of 2026-06-06)
+
+Per CC's 2026-06-06 decision, V7 structural work is paused while the team executes the $5K Net MRR goal. Resume after the deadline.
+
+### Revised execution rules (CC 2026-06-06):
+1. **EPIC 1 reorg shape:** surgical move of the ~50 canonical scripts only, **no backward-compat shims**, single-PR import audit. Long-tail utilities (one-off scripts, CLIs, codemods) stay at `scripts/` root. Cleaner end-state than 187 files + 187 shims.
+2. **Test location:** `scripts/tests/` is canonical (not `tests/` at repo root as originally drafted). Today's 11-file move to `scripts/tests/` stays. EPIC 2's `testpaths` and CI workflow examples below should reference `scripts/tests/`.
+3. **EPIC 7 added** ("Loud Failures"): codifies the silent-failure pattern fixes from 2026-06-06. See bottom of this doc.
+4. **Already done in the 2026-06-06 hygiene session** (reduces remaining V7 scope):
+   - EPIC 2 partial: 11 test_*.py moved from `scripts/` root to `scripts/tests/`; conftest.py cascade verified; 185/186 tests passing (1 pre-existing failure unrelated)
+   - EPIC 3 partial: rotate_logs.py force-rotated `state/secret_access.log` (16 MB → 0); 3 new SEED_JOBS in cron_engine.py for tmp_hygiene, log_rotation_audit, event_offline_drain (still need `cron_engine.py seed` push from CC)
+   - EPIC 4 partial: tmp/ purged 6.0 GB → 5.4 MB; 3 orphan markdowns reconnected; 20 undocumented scripts now documented in CAPABILITIES.md
+   - Adjacent fixes: retriever_postedit Windows TypeError + path bug (43506be, 433b92d); event_router PM2 stale-path + import-order bug (3731e42); CLAUDE.md inventory drift (da57b73); sibling entry-point sync (454eba5, fa47807)
 
 ---
 
@@ -1126,3 +1142,63 @@ If you complete all 6 epics successfully, run the full verification checklist an
 ---
 
 *This plan is the single source of truth for V7.0 structural optimization. Any deviation from this plan requires CC's explicit approval.*
+
+---
+
+## EPIC 7: LOUD FAILURES — silent-failure observability (added 2026-06-06)
+
+### Problem
+
+The 2026-06-06 audit pass surfaced **four silent-failure bugs that had been live for days or weeks** without anyone noticing:
+
+1. **retriever_postedit.py Windows TypeError** (live ~18 days): `**kwargs, creationflags=X` duplicate kwarg crashed every PostToolUse Edit/Write hook on Windows. Subprocess output went to DEVNULL, exception was caught silently. Memory-index never re-indexed after edits. Fixed in 43506be.
+2. **retriever_postedit.py wrong path** (live ~indeterminate): even after the TypeError fix, the spawned target was `scripts/memory_retriever.py` but the file lives at `scripts/core/memory_retriever.py`. Subprocess silently failed to start. Fixed in 433b92d.
+3. **wizard.py wrong path** (live ~indeterminate): same `scripts/memory_retriever.py` reference behind an `if mr_script.exists()` guard. Onboarding wizard silently skipped the FTS5 index build. Fresh installs got empty memory indexes. Fixed in 433b92d.
+4. **event_router PM2 stale CEO-Agent path + import-order bug** (live ~13 days, blocked 336 events): PM2's saved process list pointed at `C:\Users\User\CEO-Agent\scripts\core\event_router.py` (old repo name) — daemon "online" but never spawned a working python. After the path fix, an import-order bug (`from lib.structured_log` ran BEFORE `sys.path.insert(scripts/)`) poisoned Python's import-state cache for `lib`, making the daemon's `_client()` return None silently. Fixed in 3731e42 + 9ef5c76.
+
+**Meta-pattern:** subprocess + DEVNULL + bare `except: pass` = invisible failure. Things that claim to work but don't, until someone goes looking.
+
+### Target State
+
+**7A — Canonical subprocess wrapper enforcement.** Every `subprocess.Popen(...)` and `subprocess.run(...)` call from production code (excluding tests and the wrappers themselves) MUST go through `lib/subprocess_helpers.py:safe_popen` / `safe_run` / `safe_daemon_popen`. Direct subprocess calls in daemon-spawned code are already blocked by `scripts/hooks/subprocess_guard.py` — extend the guard's coverage and tighten the allowlist.
+
+**7B — No silent except blocks in production code.** Every `except Exception` (or worse, bare `except`) that swallows must EITHER (a) write a one-line stderr breadcrumb AND call `_slog.error(event_type, error=str(e)[:200])` to the structured log, OR (b) re-raise. The `event_router._client()` dual-write pattern in 9ef5c76 is the template.
+
+**7C — System health probe.** New `scripts/admin/system_health.py` that surfaces silent failures BEFORE someone goes looking:
+- For each PM2 daemon: confirm process online AND its tick/loop has actually advanced state (cursor mtime, log mtime, or a heartbeat) within the last N minutes
+- For each cron entry in `SEED_JOBS`: confirm `action_config.script` exists on disk AND parses
+- For each hook in `.claude/settings.local.json`: confirm target script exists AND its `_check()` returns clean if defined
+- For each MCP server in `MCP_CONFIG_PATHS`: confirm wrapper script exists AND env vars resolve (without leaking values)
+- Output: one-line green/yellow/red per check, exit 1 on any red
+- Run weekly via SEED_JOBS (`Loud Failures Weekly Probe`)
+
+**7D — Path-drift detector.** New check in `system_health.py`: walk every Python file under `scripts/`, `bravo_cli/`, and root; collect every `Path(...) / "scripts" / X` or string-literal script path; assert every referenced path resolves. This is the regression check for the memory_retriever / event_router / wizard class of bug.
+
+**7E — PM2 path audit.** Add `pm2 jlist` audit to `system_health.py`: any daemon with `pm_exec_path` that doesn't start with the current repo root flags as stale (catches the CEO-Agent → Business-Empire-Agent rename scenario before another 13-day stall).
+
+**7F — Bug-pattern sweep cron.** Monthly cron entry that runs `system_health.py --strict` and Telegrams CC if anything goes red. Meta-monitor for the meta-monitors.
+
+### Why this is its own epic
+
+The existing EPIC 3 (state & memory hygiene) covers log retention and SQLite WAL discipline. EPIC 7 covers a fundamentally different axis: **detection** of silent failures (vs. management of state that's working). Folding it into EPIC 3 would dilute both.
+
+### Execution Order (post-freeze)
+
+```
+Phase 7A: Sweep all subprocess.Popen/run callsites; replace with safe_* helpers
+Phase 7B: Sweep all `except Exception: ...; return None` patterns in production code; add structured-log breadcrumbs
+Phase 7C: Build scripts/admin/system_health.py (PM2 + cron + hook + MCP probes)
+Phase 7D: Add path-drift detector to system_health.py
+Phase 7E: Add PM2 path audit to system_health.py
+Phase 7F: Add `Loud Failures Weekly Probe` cron entry to SEED_JOBS
+Phase 7G: Run full system_health.py against current state; fix any red items
+Phase 7H: Document the canonical "no silent failures" rule in CLAUDE.md
+```
+
+### Verification
+
+- `python scripts/admin/system_health.py --strict` returns exit 0 (all green) on current state
+- Inject a deliberate path-drift (rename a script the cron depends on); verify system_health.py flags it red
+- Inject a deliberate PM2 path mismatch; verify system_health.py flags it red
+- Run for 30 days; zero "silent failure surfaced manually by accident" incidents
+
