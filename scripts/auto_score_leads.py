@@ -108,10 +108,24 @@ def _client():
 
 
 def _score_one(api_key: str, lead_data: dict) -> tuple[int, str] | None:
-    """Returns (score, reasoning) or None on any failure. Never raises."""
+    """Returns (score, reasoning) or None on any failure. Never raises.
+
+    2026-06-06 prompt update: the shared SYSTEM_PROMPT now references an
+    'interactions' array Claude should weight. The dashboard path fetches
+    lead_interactions and includes them; this auto-score cron runs only
+    on UNSCORED leads (typically brand-new with no interactions), so we
+    explicitly signal the absence rather than fetch + send an empty
+    array. Keeps the lite cron lite without confusing Claude about a
+    missing field.
+    """
     relevant = {k: v for k, v in lead_data.items()
                 if k in INCLUDED_FIELDS and v not in (None, "", [], {})}
-    user_prompt = f"Score this lead:\n\n{json.dumps(relevant, indent=2, default=str)}"
+    user_prompt = (
+        "Score this lead.\n\n"
+        f"Lead data:\n{json.dumps(relevant, indent=2, default=str)}\n\n"
+        "Interactions (most recent first, 0 of 0 shown):\n"
+        "[none recorded — score from lead data only, note 'limited signal' in reasoning if so]"
+    )
 
     body = json.dumps({
         "model": MODEL,
