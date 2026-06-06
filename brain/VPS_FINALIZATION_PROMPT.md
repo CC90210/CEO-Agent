@@ -140,13 +140,20 @@ SUNBIZ_AGENT_HMAC_SECRET=719c54383d9626aeb1ad48b8fb7f5497b4f62cc1e37c0b40fefa60d
 After writing, `chmod 600` and `pm2 restart all --update-env`.
 
 NOT in scope this round (waiting on CC):
-- `JOTFORM_API_KEY` — CC's call whether SunBiz uses JotForm intake yet
 - `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` — CC
   will paste from his Twilio console. Until provisioned, leave
   `BRAVO_FORCE_DRY_RUN=1` (blocker 3) so SMS sends are no-ops.
-- `KIXIE_API_KEY` — same, CC pastes when ready
-- `TEXTTORRENT_API_KEY` — same. Also rename any `TEAXTTORRENT_*` typo
-  to `TEXTTORRENT_*` (single fix while editing the file).
+- `KIXIE_API_KEY` — CC says he already pasted this; just confirm it's
+  on the live env and not a stale empty value.
+- `TEXTTORRENT_API_KEY` — CC says already pasted. Also rename any
+  `TEAXTTORRENT_*` typo to `TEXTTORRENT_*` (single fix while editing).
+- `ANTHROPIC_API_KEY` — CC will paste; needed for backend automation
+  paths that call Claude server-side.
+
+DO NOT prompt CC for `JOTFORM_API_KEY`. SunBiz uses the dashboard's
+native /forms designer + /f/<tenant>/<form>/<lead_token> public flow.
+JotForm was removed from the codebase 2026-06-06 (doctor.py, the
+integrations registry, the SunBiz manifest seed, the env template).
 
 ### Blocker 5 — SMS namespace split
 
