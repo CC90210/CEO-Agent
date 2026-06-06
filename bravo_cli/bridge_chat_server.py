@@ -4119,6 +4119,16 @@ _CHAT_PID_PATH = _OASIS_DIR / "bridge_chat.pid"
 
 def serve_forever() -> int:
     """Entry point for `bravo bridge serve`."""
+    # Hydrate BRIDGE_BEARER_TOKEN from .env.agents into the process env at
+    # boot. The bearer gate (_check_bearer) and the proxy-mode identity/role
+    # logic read os.environ["BRIDGE_BEARER_TOKEN"] directly, but on the VPS the
+    # canonical secret store is .env.agents (the operator never exports it into
+    # the shell). Without this hydration the gate silently no-ops even though
+    # the token is provisioned. Only sets when found, so CC's localhost rig
+    # (no token in its .env.agents) keeps the no-op path verbatim.
+    _bearer = _read_env_value("BRIDGE_BEARER_TOKEN")
+    if _bearer and not os.environ.get("BRIDGE_BEARER_TOKEN"):
+        os.environ["BRIDGE_BEARER_TOKEN"] = _bearer
     httpd = ThreadingHTTPServer(("127.0.0.1", PORT), _ChatHandler)
     print(f"oasis-bridge-chat listening on http://127.0.0.1:{PORT}")
     print(f"  agents resolvable: {sum(1 for v in all_resolved().values() if v['root'])}/5")
