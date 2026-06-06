@@ -61,8 +61,12 @@ DEFAULT_BUSINESS_ADDRESS = "OASIS AI Solutions, Collingwood, ON, Canada"
 DEFAULT_BUSINESS_NAME = "OASIS AI Solutions"
 DEFAULT_SENDER_NAME = "Conaugh McKenna"
 
-# Unsubscribe endpoint — the cc-funnel app handles GET/POST here and writes to
-# the suppression list + email_suppressions Supabase table.
+# Unsubscribe endpoint — the agent-dashboard (`oasis-command-center` repo)
+# hosts `/unsubscribe` (page) + `/api/unsubscribe` (POST). Anonymous, IP-rate
+# limited, idempotent. Writes to the `email_suppressions` table (migration 094,
+# tenant-scoped per CASL s. 6) via service-role Supabase client. The historical
+# claim that `cc-funnel` handled this was stale — `cc-funnel` returns 404 for
+# `/unsubscribe` as of 2026-06-06; the dashboard now owns the route.
 DEFAULT_UNSUBSCRIBE_BASE = "https://oasisai.work/unsubscribe"
 
 
