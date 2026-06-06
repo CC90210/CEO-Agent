@@ -310,7 +310,7 @@ Audit logs: `state/{secret_guard,exec_guard,state_guard,secret_access}.log` (jso
 The four pillars above ship the local-side state + retrieval + guards. **V6 Ascension** (BUILDs 1–5) wired the cross-agent substrate; **V6 Apex** (Phases 1–3) made it operator-facing.
 
 - **Cross-agent event bus (Ascension BUILD 3):** Postgres `agent_events` substrate with raw psycopg LISTEN/NOTIFY for sub-100ms wake-up + `claim_events()` (`FOR UPDATE SKIP LOCKED`) for atomic dequeue. Producers: `state_manager.append_session_log` → `BRAVO_SESSION_LOG_APPENDED`, `pulse_publish.cmd_refresh` → `BRAVO_PULSE_REFRESHED`, `bridge_chat_server._v6_log_chat_interaction` → `BRAVO_CHAT_INTERACTION`, `send_gateway._emit_outbound_sent` → `BRAVO_OUTBOUND_SENT`. Idempotency via unique `idempotency_key` index; offline fallback to `tmp/events_offline.jsonl`. Substrate spec: `brain/EVENT_BUS_CONTRACT.md`.
-- **Hybrid semantic memory (Ascension BUILD 2):** FTS5 lexical (BM25) + LanceDB cosine (fastembed ONNX MiniLM-L6-v2, 384-dim, no PyTorch dep) fused via Reciprocal Rank Fusion (k=60). Same `memory_retriever.py query "..."` entry point — the hybrid is transparent. LanceDB store: `state/memory_index.lance/`.
+- **Hybrid semantic memory (Ascension BUILD 2):** FTS5 lexical (BM25) + LanceDB cosine (fastembed ONNX MiniLM-L6-v2, 384-dim, no PyTorch dep) fused via Reciprocal Rank Fusion (k=60). Same `memory_retriever.py query "..."` entry point — the hybrid is transparent. LanceDB store: `state/memory_lance/`.
 - **~~Dashboard-driven override approvals (Apex Phase 2)~~** — DELETED 2026-05-22 per CC. The block in `exec_guard` is still in place (refuses DROP TABLE / rm -rf / git push --force), but no longer creates approval-request rows in `exec_overrides` or surfaces an Approve/Deny page. The block IS the protection; the agent picks a different approach when blocked.
 - **Cross-agent event feed (Apex Phase 3):** `scripts/core/event_router.py loop` is a cursor-based, lossless on-host tail (`state/event_router.cursor` + `state/event_router.log`). The dashboard `/feed` page is the cloud-side view of the same stream; a 5-second `router.refresh()` client island keeps it live without websocket dependencies. Single-machine — multi-host arbitration is `bridge_lock.py`'s contract.
 - **State-health fallback (Apex Phase 1):** `app/api/state-health/route.ts` in the [oasis-command-center](https://github.com/CC90210/oasis-command-center) repo is two-tier: state-api passthrough preferred (local + Cloud Compose), Supabase mirror fallback on Vercel where `state-api:8500` is not routable. Response carries `source: "state-api" | "supabase-mirror"`; the header tags the path so operators see which side served the payload.
@@ -362,11 +362,12 @@ Closes the discoverability + governance gap. V6.0–V6.7 built the substrate; V6
 
 **V6.8.1 (2026-05-16):** Promoted V6.8 to load-bearing substrate. `user_prompt_submit.py` auto-injects CONTEXT.md definitions on every prompt that mentions a glossary term. `capability_query.py check-deps` enforces ADR-0001 `requires:` declarations. `register.py skill` wizard emits V6.8 frontmatter by default.
 
-## Inventory (synced 2026-05-22)
+## Inventory (synced 2026-06-06)
 
-- **Skills:** 148 active (1 archived in `skills/_archive/`) — graph-registered with frontmatter
-- **Python scripts:** 114 top-level under `scripts/` (215 total inc. subpackages)
-- **MCP servers:** 9 (sequential-thinking, playwright, context7, memory, github, firecrawl, obsidian, filesystem, knowledge-graph) — same set across `.claude/mcp.json`, `.vscode/mcp.json`, `~/.gemini/settings.json`
+- **Skills:** 149 active (11 archived in `skills/_archive/`) — graph-registered with frontmatter
+- **Python scripts:** 115 top-level under `scripts/` (215 total inc. subpackages). 2 one-shot reconciliation scripts archived to `scripts/_archive/experimental/` 2026-06-06.
+- **MCP servers:** 13 unique across configs — 9 in `.claude/mcp.json` (sequential-thinking, playwright, context7, memory, github, firecrawl, obsidian, filesystem, knowledge-graph) + 4 additional in `enabledMcpjsonServers` (supabase, n8n-mcp, stripe, late). Cross-machine sync still authoritative via `scripts/audit_mcp_secrets.py MCP_CONFIG_PATHS` (11 paths).
 - **Subagents:** 8 in `.claude/agents/`
 - **Workflows:** 35 in `.agents/workflows/`
+- **Cron jobs:** 18 in `cron_engine.py SEED_JOBS` after the 2026-06-06 self-maintenance pass added Weekly tmp/ Hygiene + Daily Log Rotation Audit + Event Bus Offline Drain. Run `python scripts/core/cron_engine.py seed` to push new jobs into Supabase `cron_jobs`.
 - **MRR Goal:** $5,000 USD Net MRR by June 18, 2026 (extended 2026-05-18 from May 30)
