@@ -263,8 +263,16 @@ BRAND_IDENTITY: dict[str, dict[str, str]] = {
     # physical mailing address.
     "sunbiz": {
         "business_name": "Sun Biz Funding",
-        "sender_name": "Sun Biz Funding Team",  # TODO: confirm with Ezra
-        "business_address": "Sun Biz Funding",  # TODO: confirm address with Ezra
+        # 2026-06-08: confirmed via the dashboard sidebar — the operator on
+        # submissions@sunbizfunding.com is Ezra. Sign-off line on every
+        # SunBiz email reads "— Ezra". One TODO resolved without further
+        # operator input needed.
+        "sender_name": "Ezra",
+        # business_address is still placeholder. Required for CAN-SPAM
+        # legal compliance on commercial email — PLACEHOLDER_BUSINESS_ADDRESSES
+        # below blocks sends until this is replaced with the real legal
+        # mailing address. Operator (CC) needs to provide.
+        "business_address": "Sun Biz Funding",  # TODO: replace with legal mailing address
         "from_display": "Sun Biz Funding",
     },
 }
