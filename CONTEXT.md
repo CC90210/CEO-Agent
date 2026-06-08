@@ -27,6 +27,7 @@ Pattern adapted from [mattpocock/skills CONTEXT.md](https://github.com/mattpococ
 
 - **OASIS AI Solutions** — CC's primary B2B brand. AI automation consulting + custom agents for local businesses. Collingwood, ON.
 - **PropFlow** — Tenant-screening + landlord-automation product. CC + Adon 50/50. Has its own Supabase project (separate from empire DB). Bucket-list feature: real-estate portal embed.
+- **Breeze** — Merchant-facing portal for the MCA / business-funding industry. Built for David's funding company (co-IP per separate agreement). Has its own Supabase project (trust boundary on merchant financial data). Demo build 2026-06-08; target end-of-week 2026-06-13. Repo: [CC90210/breeze-portal](https://github.com/CC90210/breeze-portal). MCA domain vocabulary lives in the "MCA / Lending" section below.
 - **Nostalgic Requests** — Personal/legacy brand. Lower priority than OASIS and PropFlow.
 
 ## Multi-tenancy

@@ -48,6 +48,7 @@ When CC says "fix [app]", "update [app]", "build [feature] in [app]", "debug [ap
 Detailed business context for primary brands:
 - OASIS AI: @APPS_CONTEXT/OASIS_AI_CLAUDE.md
 - PropFlow: @APPS_CONTEXT/PROPFLOW_CLAUDE.md
+- Breeze (MCA merchant portal): @APPS_CONTEXT/BREEZE_CLAUDE.md
 - Nostalgic Requests: @APPS_CONTEXT/NOSTALGIC_REQUESTS_CLAUDE.md
 - Gritly: @APPS_CONTEXT/GRITLY_CLAUDE.md
 - IG Setter Pro: @APPS_CONTEXT/IG_SETTER_PRO_CLAUDE.md
