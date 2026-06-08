@@ -90,9 +90,29 @@ Patterns imported from [twentyhq/twenty](https://github.com/twentyhq/twenty) (AG
 - **Browser ladder** — Mandatory 4-tier classification: Firecrawl → CloakBrowser (stealth tier-2) → Browser Harness (CC-authenticated) → Playwright (interactive unprotected). NEVER raw Playwright against bot-protected sites.
 - **CloakBrowser** — `scripts/browser/cloak_browser_tool.py`. Drop-in Playwright replacement with C++ source-level fingerprint patches. Binary at `~/.cloakbrowser/`. Mandatory tier-2 for fresh-session scrapes against Cloudflare / DataDome / FingerprintJS.
 
+## MCA / Lending (Breeze — `~/APPS/breeze-portal`)
+
+Vocabulary for the merchant-funding domain. Captured 2026-06-08 with David's product spec. Use these terms verbatim across Breeze code, marketing, and any conversation with David's team.
+
+- **Merchant** — In the MCA context, the funded business (NOT a generic e-commerce merchant). Schema: `merchants` row scoped by `tenant_id`. The merchant USER (the human who logs in) is `merchant_users.auth_user_id`.
+- **Funder / Lender** — The MCA company providing capital. In Breeze, the funder is a `tenant`; their staff are `tenant_users`. David's company is the first tenant.
+- **Advance** — The principal cash a funder gives a merchant against future receivables. Schema: `advances` row. NOT a loan in the traditional sense — interest is replaced by factor rate, term is approximate, and repayment is via receivables holdback rather than fixed installments.
+- **Factor rate** — Multiplier on the advance that determines total repayment. `total_due = advance_amount * factor_rate`. Typical range 1.10× to 1.55× (10–55% premium). Stored as `numeric(4,3)`. NEVER confuse with interest rate.
+- **Term** — Approximate days to payoff. Real payoff happens when total_due hits, which can be faster or slower than the stated term depending on the merchant's daily volume.
+- **Daily holdback** — Pct of merchant's daily card receivables auto-pulled to repay the advance. Stored as `numeric(5,3)` (0.080 = 8%). Bounded 0–50%.
+- **Draw / Draw request** — Merchant-initiated partial pull from an approved line. Schema: `draw_requests` (merchant submits) → `draws` (lender approves + funds). The headline self-serve action in the Breeze merchant portal.
+- **Available to draw** — `principal - sum(funded_draws)`. Surfaced as the second of the six dashboard metrics.
+- **Repayment** — One settled holdback pull (or manual wire / adjustment) credited against an advance. Schema: `repayments` ledger. Source enum: `ach | manual | adjustment | wire`.
+- **RTR (Reserve-to-Receive)** — The relationship between what's been repaid and what's still due. Not yet a stored column, but the dashboard derives it from `paid_to_date_cents / total_repayment_due_cents`.
+- **ISO** — Independent Sales Organization. Merchant-sourcing partner (broker) that introduces deals to funders. Out of scope for Breeze v1 (a future "broker portal" tab).
+- **Syndication** — Splitting an advance across multiple funders. Out of scope for v1 — single-funder per advance.
+- **Lender CRM** — David's existing back-office system (vendor unknown at v1). Breeze talks to it via HMAC-signed webhooks: outbound on `draw.approved`, inbound on `advance.funded` / `advance.closed` / `repayment.posted`. Stub mode by default until David shares the spec.
+- **Stub mode** — Outbound webhook behavior when `tenants.crm_webhook_url` is empty: payload is written to `webhook_events` (visible in lender admin audit log) but no HTTP call is made. Lets the demo ship before the live integration spec arrives.
+- **Breeze brand color** — Default `#1e40af`. Per-tenant override stored in `tenants.brand_primary_color`, injected as `--brand` CSS variable at layout level so the merchant sees the funder's brand, not Breeze's.
+
 ## North Star
 
-- **$5K Net MRR by June 18, 2026** — The single business metric Bravo optimizes for. Extended 2026-05-18 from the original May 30 deadline after primary retainer ended; new deadline gives 31 days to rebuild from $371 baseline.
+- **$5K Net MRR by June 18, 2026** — The single business metric Bravo optimizes for. Extended 2026-05-18 from the original May 30 deadline after primary retainer ended; new deadline gives 31 days to rebuild from $371 baseline. Breeze (licensing to multiple funders) is a potential MRR accelerator post-demo.
 
 ---
 
