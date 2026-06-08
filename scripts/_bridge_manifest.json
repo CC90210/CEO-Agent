@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generated_at_iso": "2026-06-08T15:44:31.088208+00:00",
-  "script_count": 92,
-  "entry_count": 238,
+  "generated_at_iso": "2026-06-08T16:22:06.614997+00:00",
+  "script_count": 93,
+  "entry_count": 243,
   "entries": [
     {
       "key": "add_future_annotations",
@@ -1003,6 +1003,46 @@
       "subcmd": "stats",
       "mutating": false,
       "help": "Outreach Engine - Personalized email outreach with Google Meet + .ics invite. \u2014 subcommand: stats"
+    },
+    {
+      "key": "pause_controller_pause",
+      "path": "scripts/pause_controller.py",
+      "root": "bravo",
+      "subcmd": "pause",
+      "mutating": false,
+      "help": "pause_controller.py \u2014 operator kill switches + operating mode toggles \u2014 subcommand: pause"
+    },
+    {
+      "key": "pause_controller_resume",
+      "path": "scripts/pause_controller.py",
+      "root": "bravo",
+      "subcmd": "resume",
+      "mutating": false,
+      "help": "pause_controller.py \u2014 operator kill switches + operating mode toggles \u2014 subcommand: resume"
+    },
+    {
+      "key": "pause_controller_status",
+      "path": "scripts/pause_controller.py",
+      "root": "bravo",
+      "subcmd": "status",
+      "mutating": false,
+      "help": "pause_controller.py \u2014 operator kill switches + operating mode toggles \u2014 subcommand: status"
+    },
+    {
+      "key": "pause_controller_set_mode",
+      "path": "scripts/pause_controller.py",
+      "root": "bravo",
+      "subcmd": "set-mode",
+      "mutating": true,
+      "help": "pause_controller.py \u2014 operator kill switches + operating mode toggles \u2014 subcommand: set-mode"
+    },
+    {
+      "key": "pause_controller_get_mode",
+      "path": "scripts/pause_controller.py",
+      "root": "bravo",
+      "subcmd": "get-mode",
+      "mutating": false,
+      "help": "pause_controller.py \u2014 operator kill switches + operating mode toggles \u2014 subcommand: get-mode"
     },
     {
       "key": "pii_scrubber_scrub",

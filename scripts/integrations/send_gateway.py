@@ -777,16 +777,33 @@ def _check_reply_since_last_outbound(db: Any, lead_id: Optional[str]) -> Optiona
 
 
 def _check_inter_touch_gap(db: Any, lead_id: Optional[str],
+                           lead_data: dict[str, Any],
                            now: datetime) -> Optional[str]:
     """No agent may touch the same merchant within 90 minutes of any
     other outbound, regardless of channel. Adon §4.2 gate #8 — protects
     against two agents firing at the same merchant in quick succession.
 
+    Yellow flag handling (Adon §7): if Sentinel has flagged this lead
+    with `sentinel_yellow_flag=True` (rolling avg between -30 and 0),
+    double the gap to 180 min so cadence naturally halves without a
+    hard pause.
+
     Single query: any outbound lead_interactions within the gap window?
     """
     if not lead_id:
         return None
-    cutoff = now - timedelta(minutes=INTER_TOUCH_GAP_MINUTES)
+    gap_minutes = INTER_TOUCH_GAP_MINUTES
+    if lead_data.get("sentinel_yellow_flag"):
+        # Honor the yellow flag only while the expiry is in the future.
+        yellow_until = lead_data.get("sentinel_yellow_until")
+        if yellow_until:
+            try:
+                expiry = datetime.fromisoformat(str(yellow_until).replace("Z", "+00:00"))
+                if now < expiry:
+                    gap_minutes = INTER_TOUCH_GAP_MINUTES * 2
+            except (ValueError, TypeError):
+                pass
+    cutoff = now - timedelta(minutes=gap_minutes)
     try:
         rows = (
             db.table("lead_interactions")
@@ -802,8 +819,9 @@ def _check_inter_touch_gap(db: Any, lead_id: Optional[str],
         return f"inter-touch ledger unavailable: {exc}"
     if rows:
         r = rows[0]
+        flag_note = " [yellow-flag 2x]" if gap_minutes != INTER_TOUCH_GAP_MINUTES else ""
         return (
-            f"inter-touch gap: {INTER_TOUCH_GAP_MINUTES}min cooldown "
+            f"inter-touch gap: {gap_minutes}min cooldown{flag_note} "
             f"(recent outbound {r.get('channel')} at {r.get('created_at')} "
             f"by {r.get('agent_source')})"
         )
@@ -907,6 +925,8 @@ def can_act(
     cooldown_hours: Optional[int] = None,
     db: Any = None,
     intent: str = "commercial",
+    agent_source: str = "unknown",
+    tenant_id: Optional[str] = None,
 ) -> dict:
     """Pre-send check. Returns::
 
@@ -961,6 +981,49 @@ def can_act(
         result.update(allowed=False, reason=f"bounce-rate check failed: {exc}")
         return result
 
+    # Gate 0a-0b (Phase 1 finalization, Adon brief §4.9 + §9 — 2026-06-08):
+    # operator kill switches + operating mode. These fire BEFORE any other
+    # check because they're the operator's panic button — if the operator
+    # said "pause everything," nothing else matters.
+    #
+    # Tenant context: callers that don't pass tenant_id explicitly fall
+    # through with no kill-switch enforcement (cross-tenant / system sends).
+    # SunBiz daemons MUST pass tenant_id from the lead row they're acting on.
+    if tenant_id:
+        try:
+            from pause_controller import (  # type: ignore
+                check_kill_switches as _check_kill_switches,
+                check_operating_mode as _check_operating_mode,
+            )
+            ks_reason = _check_kill_switches(db, tenant_id, agent_source)
+            if ks_reason:
+                result.update(allowed=False, reason=f"kill_switch: {ks_reason}")
+                return result
+            mode_reason, cap_mult = _check_operating_mode(db, tenant_id, agent_source)
+            if mode_reason:
+                result.update(allowed=False, reason=f"operating_mode: {mode_reason}")
+                return result
+            # Apply cap multiplier to result.daily_cap + hourly_cap so the
+            # downstream caller sees the adjusted budget. Floor at 1 so a
+            # 0.5x of a single-slot cap doesn't truncate to 0 and lock out
+            # the gate accidentally.
+            if cap_mult != 1.0:
+                if result["daily_cap"] is not None:
+                    result["daily_cap"] = max(1, int(result["daily_cap"] * cap_mult))
+                if result["hourly_cap"] is not None:
+                    result["hourly_cap"] = max(1, int(result["hourly_cap"] * cap_mult))
+                result["operating_mode_multiplier"] = cap_mult
+        except ImportError:
+            # pause_controller absent at import time (older deploys, tests
+            # with a stripped sys.path). Treat as no kill switches active —
+            # original gate set still runs.
+            pass
+        except Exception as exc:  # noqa: BLE001
+            # Fail-closed posture: if we can't read the kill switch table,
+            # refuse the send rather than risk talking past an operator pause.
+            result.update(allowed=False, reason=f"kill_switch ledger unavailable: {exc}")
+            return result
+
     # Gates 1b-1e (Phase 1, Adon brief 2026-06-08): cheap deterministic
     # lead-state checks BEFORE we burn a DB query on cooldowns/caps. Suppression,
     # manual pause, sentinel pause, send window. Lead data blob fetched once
@@ -1002,7 +1065,7 @@ def can_act(
             result.update(allowed=False, reason=reason_reply)
             return result
 
-        reason_gap = _check_inter_touch_gap(db, lead_id, now)
+        reason_gap = _check_inter_touch_gap(db, lead_id, lead_data, now)
         if reason_gap:
             result.update(allowed=False, reason=reason_gap)
             return result
@@ -2338,6 +2401,11 @@ def send(
 
     # ---- Gate 2 + 3: cooldown + daily cap (skipped for internal/transactional) ----
     if intent not in {"internal", "transactional"}:
+        # Resolve tenant_id from lead so kill switches + operating mode gates
+        # fire correctly. _resolve_tenant_for_lead is fail-safe — returns None
+        # on miss, which the new gates treat as "no kill-switch enforcement"
+        # (cross-tenant or unscoped sends).
+        resolved_tenant = _resolve_tenant_for_lead(db, lead_id) if lead_id else None
         check = can_act(
             lead_id=lead_id,
             channel=channel,
@@ -2345,6 +2413,8 @@ def send(
             cooldown_hours=cooldown_hours,
             db=db,
             intent=intent,
+            agent_source=agent_source,
+            tenant_id=resolved_tenant,
         )
         if not check["allowed"]:
             return {"status": "blocked",
