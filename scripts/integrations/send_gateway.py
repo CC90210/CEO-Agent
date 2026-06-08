@@ -562,6 +562,39 @@ def get_bounce_rate(db, last_n_hours: int = 24) -> float:
 # where Agent A sends SMS at 10:00 and Agent B tries email at 10:30.
 INTER_TOUCH_GAP_MINUTES = 90
 
+# US state -> IANA timezone for the send-window gate. Mirrors the importer's
+# STATE_TIMEZONE map (Codex finding #8) so a lead with data.state="CA" but
+# no explicit data.timezone still gets enforced PST hours for SMS. States
+# with mixed time zones map to the largest population zone.
+_STATE_TIMEZONE: dict[str, str] = {
+    "AL": "America/Chicago",     "AK": "America/Anchorage",
+    "AZ": "America/Phoenix",     "AR": "America/Chicago",
+    "CA": "America/Los_Angeles", "CO": "America/Denver",
+    "CT": "America/New_York",    "DC": "America/New_York",
+    "DE": "America/New_York",    "FL": "America/New_York",
+    "GA": "America/New_York",    "HI": "Pacific/Honolulu",
+    "IA": "America/Chicago",     "ID": "America/Boise",
+    "IL": "America/Chicago",     "IN": "America/Indiana/Indianapolis",
+    "KS": "America/Chicago",     "KY": "America/New_York",
+    "LA": "America/Chicago",     "MA": "America/New_York",
+    "MD": "America/New_York",    "ME": "America/New_York",
+    "MI": "America/Detroit",     "MN": "America/Chicago",
+    "MO": "America/Chicago",     "MS": "America/Chicago",
+    "MT": "America/Denver",      "NC": "America/New_York",
+    "ND": "America/Chicago",     "NE": "America/Chicago",
+    "NH": "America/New_York",    "NJ": "America/New_York",
+    "NM": "America/Denver",      "NV": "America/Los_Angeles",
+    "NY": "America/New_York",    "OH": "America/New_York",
+    "OK": "America/Chicago",     "OR": "America/Los_Angeles",
+    "PA": "America/New_York",    "RI": "America/New_York",
+    "SC": "America/New_York",    "SD": "America/Chicago",
+    "TN": "America/Chicago",     "TX": "America/Chicago",
+    "UT": "America/Denver",      "VA": "America/New_York",
+    "VT": "America/New_York",    "WA": "America/Los_Angeles",
+    "WI": "America/Chicago",     "WV": "America/New_York",
+    "WY": "America/Denver",
+}
+
 # Channel-specific send windows in lead LOCAL time. TCPA hard rule for SMS
 # (8am-9pm); B2B email reply rates peak 9am-6pm weekdays. Outside these
 # windows we refuse the send and the caller can reschedule.
@@ -699,29 +732,50 @@ def _check_sentinel_pause(lead_data: dict[str, Any], now: datetime) -> Optional[
 def _check_send_window(channel: str, lead_data: dict[str, Any],
                        now: datetime) -> Optional[str]:
     """TCPA + B2B etiquette: refuse SMS outside 8am-9pm local; refuse
-    email outside 9am-6pm weekdays local. Uses lead.data.timezone if
-    set, falls back to America/Toronto (operator local time). Returns
-    a reason string if the send would land outside the window, None
-    if it's safely inside.
+    email outside 9am-6pm weekdays local.
 
-    Timezone fallback to America/Toronto matches the empire's quiet-day
-    rule (CC's feedback_quiet_days_and_local_tz_for_crons.md): the
-    operator's local time, not UTC. Lead-specific tz override exists
-    so a California merchant doesn't get a 6am SMS just because the
-    operator is in Ontario.
+    Timezone resolution (Codex finding #8):
+      1. If lead.data.timezone is set: use it
+      2. Otherwise, derive from lead.data.state via a state→tz map
+      3. Otherwise:
+           - SMS: FAIL CLOSED (TCPA penalties for off-hours SMS are
+             real; refusing the send and surfacing the gap to the
+             operator is safer than guessing Toronto and waking a
+             California merchant at 5am)
+           - Email: fall back to operator-local (Toronto) since
+             B2B email outside the window is etiquette, not legal risk
     """
     window = SEND_WINDOWS.get(channel)
     if window is None:
         return None  # internal / unconfigured channels skip window check
-    lead_tz = (lead_data.get("timezone") or "America/Toronto").strip()
+    lead_tz_explicit = (lead_data.get("timezone") or "").strip()
+    if not lead_tz_explicit:
+        # Try state-derived fallback
+        state = (lead_data.get("state") or "").strip().upper()[:2]
+        derived = _STATE_TIMEZONE.get(state)
+        if derived:
+            lead_tz = derived
+        elif channel == "sms":
+            # TCPA fail-closed
+            return (
+                "sms send window: timezone unknown for this lead "
+                "(no data.timezone, no data.state to derive from). "
+                "Refusing to send SMS without confirmed local time — set "
+                "lead.data.timezone explicitly or populate data.state."
+            )
+        else:
+            lead_tz = "America/Toronto"
+    else:
+        lead_tz = lead_tz_explicit
     try:
         from zoneinfo import ZoneInfo  # py3.9+
         local_now = now.astimezone(ZoneInfo(lead_tz))
     except Exception:  # noqa: BLE001
-        # ZoneInfo can fail if tzdata isn't installed on the runtime.
-        # Fall back to operator local (UTC -4 in summer Ontario / -5 winter).
-        # Approximate UTC-4 — close enough for 8am/9pm/9am/6pm gates.
-        local_now = now - timedelta(hours=4)
+        # ZoneInfo failed (rare — tzdata missing). For SMS this is the
+        # same risk surface as unknown timezone, fail closed.
+        if channel == "sms":
+            return f"sms send window: ZoneInfo failed for {lead_tz}; refusing TCPA-sensitive send"
+        local_now = now - timedelta(hours=4)  # ~Toronto fallback for email
     if window.get("weekdays_only") and local_now.weekday() >= 5:
         return (
             f"{channel} send window: weekday-only "
@@ -948,15 +1002,22 @@ def can_act(
     channel = channel.lower()
 
     env = load_env()
+    # Effective caps start at the static defaults; operating mode below
+    # multiplies them in-place. Codex finding #4: the OLD code mutated
+    # result['daily_cap'] but the later cap CHECK read DAILY_CAPS directly,
+    # so the multiplier had no enforcement effect. Now both reporting and
+    # enforcement use these effective_* locals throughout the function.
+    effective_daily_cap = DAILY_CAPS.get(channel)
+    effective_hourly_cap = HOURLY_CAPS.get(channel)
     result: dict[str, Any] = {
         "allowed": True,
         "reason": "ok",
         "last_action_at": None,
         "cooldown_until": None,
         "daily_count": 0,
-        "daily_cap": DAILY_CAPS.get(channel),
+        "daily_cap": effective_daily_cap,
         "hourly_count": 0,
-        "hourly_cap": HOURLY_CAPS.get(channel),
+        "hourly_cap": effective_hourly_cap,
         "domain_count": 0,
         "domain_cap": _env_int(env, "DOMAIN_DAILY_CAP", 3),
         "bounce_rate": 0.0,
@@ -1003,15 +1064,18 @@ def can_act(
             if mode_reason:
                 result.update(allowed=False, reason=f"operating_mode: {mode_reason}")
                 return result
-            # Apply cap multiplier to result.daily_cap + hourly_cap so the
-            # downstream caller sees the adjusted budget. Floor at 1 so a
-            # 0.5x of a single-slot cap doesn't truncate to 0 and lock out
-            # the gate accidentally.
+            # Apply cap multiplier to the effective_* LOCALS so the
+            # downstream hourly + daily cap CHECKS use the adjusted budget,
+            # not just the result dict (which the old code mutated but the
+            # checks ignored — Codex finding #4). Floor at 1 so a 0.5x of
+            # a single-slot cap doesn't truncate to 0 and lock out the gate.
             if cap_mult != 1.0:
-                if result["daily_cap"] is not None:
-                    result["daily_cap"] = max(1, int(result["daily_cap"] * cap_mult))
-                if result["hourly_cap"] is not None:
-                    result["hourly_cap"] = max(1, int(result["hourly_cap"] * cap_mult))
+                if effective_daily_cap is not None:
+                    effective_daily_cap = max(1, int(effective_daily_cap * cap_mult))
+                if effective_hourly_cap is not None:
+                    effective_hourly_cap = max(1, int(effective_hourly_cap * cap_mult))
+                result["daily_cap"] = effective_daily_cap
+                result["hourly_cap"] = effective_hourly_cap
                 result["operating_mode_multiplier"] = cap_mult
         except ImportError:
             # pause_controller absent at import time (older deploys, tests
@@ -1170,34 +1234,34 @@ def can_act(
                 except (ValueError, TypeError):
                     pass
 
-    # Gate 3b: hourly cap.
-    hourly_cap = HOURLY_CAPS.get(channel)
-    if hourly_cap is not None:
+    # Gate 3b: hourly cap. Uses effective_hourly_cap so operating mode
+    # multipliers actually enforce (Codex finding #4).
+    if effective_hourly_cap is not None:
         try:
             count = _count_window(db, channel, now - timedelta(hours=1))
             result["hourly_count"] = count
-            if count >= hourly_cap:
+            if count >= effective_hourly_cap:
                 result.update(
                     allowed=False,
-                    reason=f"hourly cap hit: {count}/{hourly_cap} {channel} actions in the last hour",
+                    reason=f"hourly cap hit: {count}/{effective_hourly_cap} {channel} actions in the last hour",
                 )
                 return result
         except Exception as exc:  # noqa: BLE001
             result.update(allowed=False, reason=f"hourly cap ledger unavailable: {exc}")
             return result
 
-    # Gate 4: daily cap.
-    cap = DAILY_CAPS.get(channel)
-    if cap is not None:
+    # Gate 4: daily cap. Uses effective_daily_cap so operating mode
+    # multipliers actually enforce (Codex finding #4).
+    if effective_daily_cap is not None:
         try:
             day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
             count = _count_window(db, channel, day_start)
             result["daily_count"] = count
-            _maybe_notify_daily_cap_threshold(channel, count, cap)
-            if count >= cap:
+            _maybe_notify_daily_cap_threshold(channel, count, effective_daily_cap)
+            if count >= effective_daily_cap:
                 result.update(
                     allowed=False,
-                    reason=f"daily cap hit: {count}/{cap} {channel} actions today",
+                    reason=f"daily cap hit: {count}/{effective_daily_cap} {channel} actions today",
                 )
                 return result
         except Exception as exc:  # noqa: BLE001
@@ -1306,19 +1370,38 @@ def _touch_lead_last_contact(db: Any, lead_id: Optional[str], action_type: str) 
 
 
 def _resolve_tenant_for_lead(db: Any, lead_id: Optional[str]) -> Optional[str]:
-    """Look up the tenant for a lead so the new lead_interactions row carries
-    tenant_id. Without this, the dashboard's tenant-filtered Pipeline +
-    Operations Activity Tape miss every recent send (they fall back to older
-    backfill rows that still have tenant_id stamped). Returns None on miss
-    so callers can write tenant-less rows as a degraded fallback."""
+    """Look up the tenant for a lead. Codex audit 2026-06-08 caught that the
+    OLD impl only checked the legacy `leads` table — but SunBiz writes every
+    lead to `tenant_records` (entity_type='lead'), so resolved_tenant came
+    back None and the kill_switch / operating_mode gates silently skipped
+    every SunBiz drip. Now: check tenant_records FIRST, fall back to the
+    legacy leads table second, return None only if truly nowhere.
+
+    Returns the tenant UUID string when found, None on miss.
+    """
     if not lead_id:
         return None
+    # Primary: tenant_records (SunBiz + every modern tenant)
+    try:
+        r = (
+            db.table("tenant_records")
+            .select("tenant_id")
+            .eq("id", lead_id)
+            .eq("entity_type", "lead")
+            .limit(1)
+            .execute()
+        )
+        if r.data and r.data[0].get("tenant_id"):
+            return str(r.data[0]["tenant_id"])
+    except Exception as exc:  # noqa: BLE001
+        print(f"[send_gateway] tenant_records lookup warning: {exc}", file=sys.stderr)
+    # Secondary: legacy `leads` table (OASIS personal tenant, older paths)
     try:
         r = db.table("leads").select("tenant_id").eq("id", lead_id).limit(1).execute()
         if r.data and r.data[0].get("tenant_id"):
             return str(r.data[0]["tenant_id"])
     except Exception as exc:  # noqa: BLE001
-        print(f"[send_gateway] tenant lookup warning: {exc}", file=sys.stderr)
+        print(f"[send_gateway] legacy leads lookup warning: {exc}", file=sys.stderr)
     return None
 
 
@@ -2402,10 +2485,20 @@ def send(
     # ---- Gate 2 + 3: cooldown + daily cap (skipped for internal/transactional) ----
     if intent not in {"internal", "transactional"}:
         # Resolve tenant_id from lead so kill switches + operating mode gates
-        # fire correctly. _resolve_tenant_for_lead is fail-safe — returns None
-        # on miss, which the new gates treat as "no kill-switch enforcement"
-        # (cross-tenant or unscoped sends).
+        # fire correctly. Codex audit 2026-06-08 (finding #1): commercial
+        # sends with a lead_id MUST have a resolvable tenant — otherwise the
+        # operator's panic controls are silently bypassed. Fail closed when
+        # we have a lead_id but no tenant.
         resolved_tenant = _resolve_tenant_for_lead(db, lead_id) if lead_id else None
+        if lead_id and not resolved_tenant:
+            return {
+                "status": "blocked",
+                "reason": "commercial send blocked: lead_id given but tenant could not be resolved (kill-switch enforcement unavailable)",
+                "lead_id": lead_id,
+                "interaction_id": None,
+                "cooldown_until": None,
+                "daily_count": None,
+            }
         check = can_act(
             lead_id=lead_id,
             channel=channel,

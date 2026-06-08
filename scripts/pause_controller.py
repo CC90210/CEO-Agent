@@ -125,9 +125,46 @@ def _supabase():
 # ─────────────────────────────────────────────────────────────────────
 
 
+def _safe_upsert_kill_switch(sb, tenant_id: str, scope: str,
+                              target: Optional[str], payload: dict) -> dict[str, Any]:
+    """Atomic upsert that never leaves a pause-window gap. Codex audit
+    finding #3: the OLD delete-then-insert pattern could clear an active
+    pause mid-incident if the follow-up insert failed. New pattern:
+    INSERT the new row first; if it succeeds, delete the OLDER rows
+    matching the same (scope, target) tuple. If insert fails, the
+    previous row stays — caller sees an error, no panic-control gap.
+    """
+    try:
+        ins = sb.table("tenant_records").insert(payload).execute()
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "scope": scope, "target": target,
+                "error": "insert_failed", "detail": str(exc)}
+    new_id = ins.data[0]["id"] if ins.data else None
+    # Now sweep older duplicates (every row with this scope+target except
+    # the one we just inserted). Best-effort — failure here just leaves
+    # extra audit history, doesn't break the pause itself.
+    try:
+        q = sb.table("tenant_records").delete().eq(
+            "tenant_id", tenant_id
+        ).eq("entity_type", "kill_switch").filter(
+            "data->>scope", "eq", scope
+        )
+        if target is not None:
+            q = q.filter("data->>target", "eq", target)
+        if new_id:
+            q = q.neq("id", new_id)
+        q.execute()
+    except Exception as exc:  # noqa: BLE001
+        # Audit cleanup failed — surface in the result so the operator
+        # knows but don't reverse the pause.
+        return {"ok": True, "scope": scope, "id": new_id,
+                "cleanup_warning": f"sweep failed: {exc}"}
+    return {"ok": True, "scope": scope, "id": new_id}
+
+
 def pause_global(sb, tenant_id: str, reason: str = "", actor: str = "operator") -> dict[str, Any]:
-    """Halt every automated outbound for this tenant. Inserts a single
-    kill_switch row with scope=global. Resume by deleting the row."""
+    """Halt every automated outbound for this tenant. Uses safe-upsert
+    so a failed retry can't clear an existing pause."""
     now = datetime.now(timezone.utc).isoformat()
     payload = {
         "tenant_id": tenant_id,
@@ -140,20 +177,12 @@ def pause_global(sb, tenant_id: str, reason: str = "", actor: str = "operator") 
             "set_by": actor,
         },
     }
-    # Upsert pattern — delete any existing global pause first, then insert.
-    # Avoids stale "set_at" timestamps when an operator re-pauses.
-    sb.table("tenant_records").delete().eq("tenant_id", tenant_id).eq(
-        "entity_type", "kill_switch"
-    ).filter("data->>scope", "eq", "global").execute()
-    r = sb.table("tenant_records").insert(payload).execute()
-    return {"ok": True, "scope": "global", "id": r.data[0]["id"] if r.data else None}
+    return _safe_upsert_kill_switch(sb, tenant_id, "global", None, payload)
 
 
 def pause_agent(sb, tenant_id: str, agent_source: str, reason: str = "",
                 actor: str = "operator") -> dict[str, Any]:
-    """Halt a single agent for this tenant. agent_source matches what
-    send_gateway's agent_source= argument records (sequence_runner,
-    cold_outreach_runner, etc.)."""
+    """Halt a single agent. Safe-upsert — see _safe_upsert_kill_switch."""
     now = datetime.now(timezone.utc).isoformat()
     payload = {
         "tenant_id": tenant_id,
@@ -166,14 +195,10 @@ def pause_agent(sb, tenant_id: str, agent_source: str, reason: str = "",
             "set_by": actor,
         },
     }
-    sb.table("tenant_records").delete().eq("tenant_id", tenant_id).eq(
-        "entity_type", "kill_switch"
-    ).filter("data->>scope", "eq", "agent").filter(
-        "data->>target", "eq", agent_source
-    ).execute()
-    r = sb.table("tenant_records").insert(payload).execute()
-    return {"ok": True, "scope": "agent", "agent": agent_source,
-            "id": r.data[0]["id"] if r.data else None}
+    result = _safe_upsert_kill_switch(sb, tenant_id, "agent", agent_source, payload)
+    if result.get("ok"):
+        result["agent"] = agent_source
+    return result
 
 
 def pause_lead(sb, tenant_id: str, lead_id: str, reason: str = "",
@@ -319,13 +344,25 @@ def set_operating_mode(sb, tenant_id: str, mode: str,
             "cap_multiplier": MODE_CAP_MULTIPLIERS[mode],
         },
     }
-    # Single-row pattern — wipe any existing mode for this tenant first.
-    sb.table("tenant_records").delete().eq("tenant_id", tenant_id).eq(
-        "entity_type", "operating_mode"
-    ).execute()
-    r = sb.table("tenant_records").insert(payload).execute()
+    # Safe-upsert (insert first, then sweep older rows). Same pattern as
+    # _safe_upsert_kill_switch — protects against a failed mode change
+    # accidentally clearing an existing mode (Codex finding #3).
+    try:
+        ins = sb.table("tenant_records").insert(payload).execute()
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "error": "insert_failed", "detail": str(exc)}
+    new_id = ins.data[0]["id"] if ins.data else None
+    try:
+        q = sb.table("tenant_records").delete().eq(
+            "tenant_id", tenant_id
+        ).eq("entity_type", "operating_mode")
+        if new_id:
+            q = q.neq("id", new_id)
+        q.execute()
+    except Exception:  # noqa: BLE001
+        pass  # cleanup best-effort
     return {"ok": True, "mode": mode, "cap_multiplier": MODE_CAP_MULTIPLIERS[mode],
-            "id": r.data[0]["id"] if r.data else None}
+            "id": new_id}
 
 
 def get_operating_mode(sb, tenant_id: str) -> dict[str, Any]:
