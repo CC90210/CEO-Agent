@@ -1153,6 +1153,99 @@ bot.on('message', async (msg) => {
         return;
     }
 
+    // SunBiz operator panic controls — Adon MCA brief §4.9 + §9
+    // Wire-up of scripts/pause_controller.py so the operator can halt /
+    // throttle the SunBiz outbound infrastructure from Telegram without
+    // SSH'ing into the VPS. Subprocess pattern matches /costs /memhealth.
+    //
+    // Commands (subcommands of /sb):
+    //   /sb status                          — list active pauses + mode
+    //   /sb mode <silent|conservative|standard|aggressive>
+    //   /sb pause-global <reason>           — halt every automated outbound
+    //   /sb pause-agent <agent_source>      — halt one agent (e.g. sequence_runner)
+    //   /sb pause-lead <lead_uuid>          — manual takeover for one merchant
+    //   /sb resume-global
+    //   /sb resume-agent <agent_source>
+    //   /sb resume-lead <lead_uuid>
+    //
+    // Tenant defaults to SunBiz via pause_controller's SUNBIZ_TENANT_ID
+    // constant. To pause another tenant, invoke pause_controller from
+    // CLI with --tenant <uuid> (not exposed here on purpose — Telegram
+    // is operator-fast-path, not multi-tenant).
+    if (text === '/sb' || text === '/sb help') {
+        await bot.sendMessage(chatId,
+            'SunBiz operator panic controls:\n\n' +
+            '/sb status — show pauses + mode\n' +
+            '/sb mode <silent|conservative|standard|aggressive>\n' +
+            '/sb pause-global <reason>\n' +
+            '/sb pause-agent <name> [reason]\n' +
+            '/sb pause-lead <uuid> [reason]\n' +
+            '/sb resume-global\n' +
+            '/sb resume-agent <name>\n' +
+            '/sb resume-lead <uuid>\n\n' +
+            'Pauses persist in tenant_records and survive daemon restarts. ' +
+            'Safe-upsert pattern means a failed retry never clears an active pause.'
+        );
+        return;
+    }
+    const sbMatch = text.match(/^\/sb\s+(status|mode|pause-global|pause-agent|pause-lead|resume-global|resume-agent|resume-lead)(?:\s+(.+))?$/);
+    if (sbMatch) {
+        const sub = sbMatch[1];
+        const arg = (sbMatch[2] || '').trim();
+        let cliArgs = null;
+        if (sub === 'status') {
+            cliArgs = '--json status';
+        } else if (sub === 'mode') {
+            if (!arg || !['silent', 'conservative', 'standard', 'aggressive'].includes(arg)) {
+                await bot.sendMessage(chatId, 'Usage: /sb mode <silent|conservative|standard|aggressive>');
+                return;
+            }
+            cliArgs = `--json set-mode ${arg}`;
+        } else if (sub.startsWith('pause-')) {
+            const scope = sub.slice('pause-'.length);  // global | agent | lead
+            if (scope === 'global') {
+                // arg is the reason (or empty)
+                const reason = arg ? `--reason ${JSON.stringify(arg)}` : '';
+                cliArgs = `--json pause global ${reason}`.trim();
+            } else {
+                if (!arg) {
+                    await bot.sendMessage(chatId, `Usage: /sb pause-${scope} <target> [reason]`);
+                    return;
+                }
+                // First token = target (agent name or lead UUID); rest = reason
+                const argParts = arg.split(/\s+/);
+                const target = argParts[0];
+                const reason = argParts.slice(1).join(' ');
+                const reasonFlag = reason ? `--reason ${JSON.stringify(reason)}` : '';
+                cliArgs = `--json pause ${scope} ${JSON.stringify(target)} ${reasonFlag}`.trim();
+            }
+        } else if (sub.startsWith('resume-')) {
+            const scope = sub.slice('resume-'.length);
+            if (scope === 'global') {
+                cliArgs = `--json resume global`;
+            } else {
+                if (!arg) {
+                    await bot.sendMessage(chatId, `Usage: /sb resume-${scope} <target>`);
+                    return;
+                }
+                cliArgs = `--json resume ${scope} ${JSON.stringify(arg)}`;
+            }
+        }
+        if (!cliArgs) {
+            await bot.sendMessage(chatId, `Unknown /sb subcommand: ${sub}`);
+            return;
+        }
+        const cmd = `${PYTHON} scripts/pause_controller.py ${cliArgs}`;
+        log(`[SUNBIZ-OPS] ${sub} ${arg.substring(0, 60)}`);
+        exec(cmd, { cwd: __dirname, windowsHide: IS_WIN, timeout: 15000 }, (err, out, errOut) => {
+            const result = (out || errOut || err?.message || 'No output.').substring(0, 4000);
+            bot.sendMessage(chatId, '```\n' + result + '\n```', { parse_mode: 'Markdown' }).catch(() =>
+                bot.sendMessage(chatId, result).catch(() => {})
+            );
+        });
+        return;
+    }
+
     try {
         // Raw shell passthrough is intentionally disabled. Use the natural
         // language computer-control route, which has scoped tools and approval
